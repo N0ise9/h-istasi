@@ -21,6 +21,7 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 	protected ref HST_GarrisonService m_Garrisons;
 	protected ref HST_RecruitmentService m_Recruitment;
 	protected ref HST_ZoneCaptureService m_ZoneCapture;
+	protected ref HST_PlayerSpawnService m_PlayerSpawn;
 	protected float m_fSecondAccumulator;
 
 	override void OnPostInit(IEntity owner)
@@ -46,6 +47,7 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		m_Garrisons = new HST_GarrisonService();
 		m_Recruitment = new HST_RecruitmentService();
 		m_ZoneCapture = new HST_ZoneCaptureService();
+		m_PlayerSpawn = new HST_PlayerSpawnService();
 
 		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 		m_State.m_iHR = m_Balance.m_iStartingHR;
@@ -87,6 +89,38 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 			return null;
 
 		return m_Authorization.RegisterPlayer(m_State, identityId, isAdmin);
+	}
+
+	string GetPlayerSpawnFactionKey()
+	{
+		if (!m_PlayerSpawn)
+			return "";
+
+		return m_PlayerSpawn.GetPrimaryPlayerFaction(m_Preset);
+	}
+
+	vector GetPlayerHQSpawnPosition()
+	{
+		if (!m_PlayerSpawn)
+			return "0 0 0";
+
+		return m_PlayerSpawn.GetHQSpawnPosition(m_State);
+	}
+
+	string GetDefaultPlayerPrefab()
+	{
+		if (!m_PlayerSpawn)
+			return "";
+
+		return m_PlayerSpawn.GetDefaultPlayerPrefab();
+	}
+
+	string GetDefaultSpawnPointPrefab()
+	{
+		if (!m_PlayerSpawn)
+			return "";
+
+		return m_PlayerSpawn.GetDefaultSpawnPointPrefab();
 	}
 
 	HST_PlayerState RegisterConnectedPlayer(int playerId, string identityId, bool isAdmin = false)

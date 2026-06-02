@@ -1,5 +1,7 @@
 class HST_PlayerLifecycleService
 {
+	static const string DEFAULT_PLAYER_FACTION = "FIA";
+
 	string ResolveIdentityId(int playerId, string identityId)
 	{
 		if (!identityId.IsEmpty())
@@ -18,6 +20,7 @@ class HST_PlayerLifecycleService
 		if (!player)
 			return null;
 
+		player.m_sFactionKey = DEFAULT_PLAYER_FACTION;
 		player.m_iLastSeenPlayerId = playerId;
 		return player;
 	}

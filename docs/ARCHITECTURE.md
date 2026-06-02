@@ -66,26 +66,28 @@ soldier and vehicle navmesh configs, a perception manager, faction, loadout,
 radio, and chat managers so Workbench can initialize and play-test the plain
 game mode without relying on Conflict's strategic brain.
 
-Direct `.ent` Play mode currently uses a temporary RHS-backed spawn harness:
+Direct `.ent` Play mode now uses FIA as the primary playable faction:
 automatic player respawn is enabled, the spawn menu forces `PLAYERS`, and
-`PLAYERS` resolves to `RHS_USAF` so stock Plain deployment can create and
-possess a test character. `StartingPoints.layer` contains bootstrap deploy
-anchors affiliated with that same faction. This is not the campaign identity:
-the h-istasi preset, state, HQ service, and strategic ownership still treat FIA
-as the resistance. The deploy anchors use Scenario Framework spawnpoint slots
-that instantiate the stock editable USMC spawnpoint prefab; the older Conflict
-military-base spawn groups remain campaign/HQ metadata only. Game Master-spawned
-characters do not satisfy the respawn system and are not expected to close the
-deployment menu. The HQ spawn increment will replace this harness with a custom
-FIA hideout deployment flow. Workbench offline play may still log blank identity
-ID errors from stock reconnect/editable-entity systems. Treat those as
-non-blocking Workbench noise if a character is spawned and possessed.
+`PLAYERS` resolves to `FIA`. `StartingPoints.layer` contains FIA-affiliated
+Scenario Framework spawnpoint slots at the authored hideouts, using the stock
+editable FIA spawnpoint prefab and HST-authored FIA role-selection loadouts.
+RHS_USAF remains the occupier in the strategic preset and may be restored as a
+debug harness if stock FIA deployment regresses, but it is not the normal
+player-side bootstrap. Game Master-spawned characters do not satisfy the
+respawn system and are not expected to close the deployment menu. Workbench
+offline play may still log blank identity ID errors from stock reconnect or
+editable-entity systems. Treat those as non-blocking Workbench noise if a
+character is spawned and possessed.
 
 `HST_HQService` owns the server-side HQ lifecycle: initial hideout selection,
 HQ movement between authored hideouts, Petros position, and Petros-loss
 penalties. The current development bootstrap auto-selects the central hills
 hideout so the campaign enters a playable active phase immediately; the setup
 UI increment will replace that auto-selection with a player-facing choice.
+`HST_PlayerSpawnService` owns the FIA HQ spawn contract for the next increment:
+primary player faction, HQ spawn position, default FIA player prefab, and the
+editable FIA spawnpoint prefab. Stock Plain deployment still performs the
+actual possession for now.
 
 ## Antistasi Framework Spine
 

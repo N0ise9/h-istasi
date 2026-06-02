@@ -12,8 +12,8 @@
 - Common mission lifecycle and CE 3.11.1 mission-registry baseline
 - Native Reforger manual and periodic checkpoint requests
 - Original Everon world shell and stable strategic-zone IDs
-- RHS-backed Workbench Play-mode spawn harness with Scenario Framework
-  spawnpoints for authored hideout candidates
+- FIA Workbench Play-mode spawn harness with Scenario Framework spawnpoints
+  and FIA role-selection loadouts for authored hideout candidates
 - HQ lifecycle service for initial hideout, HQ movement, Petros state, and
   Petros-loss penalties
 - Coordinator dev actions for zone capture, income ticks, mission
@@ -25,7 +25,7 @@
 - Add a native `HST_CampaignState` serializer and restart test
 - Replace central-hideout auto-selection with first-start hideout selection UI
 - Add physical Petros, FIA tent, cache, and map markers at the selected HQ
-- Replace temporary RHS deployment with custom FIA HQ spawning
+- Replace stock FIA deployment with custom Antistasi HQ spawning
 - Add player-facing member, guest, commander election, and admin UI
 - Add arsenal quantities, garage records, recruitment, garrisons, and map UI
 

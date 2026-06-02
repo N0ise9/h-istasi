@@ -13,6 +13,7 @@ class HST_FactionPoolState
 class HST_PlayerState
 {
 	string m_sIdentityId;
+	string m_sFactionKey = "FIA";
 	bool m_bMember;
 	bool m_bAdmin;
 	bool m_bGuest = true;

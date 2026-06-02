@@ -14,6 +14,9 @@ class HST_AuthorizationService
 			state.m_aPlayers.Insert(player);
 		}
 
+		if (player.m_sFactionKey.IsEmpty())
+			player.m_sFactionKey = "FIA";
+
 		if (firstPlayer)
 			player.m_bMember = true;
 

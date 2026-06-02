@@ -20,7 +20,7 @@ The repository contains the first engine-facing increment:
 - Server-authoritative campaign, economy, mission, and native-checkpoint
   services
 - A Community Edition 3.11.1 mission registry baseline
-- RHS-backed Workbench Play-mode spawn harness for authored hideout candidates
+- FIA Workbench Play-mode spawn harness for authored hideout candidates
 - HQ and Petros state hooks for the first playable resistance-campaign slice
 - Abstract Antistasi systems for player lifecycle, town income/support, zone
   capture, garrisons, recruitment/training, and mission rewards/penalties

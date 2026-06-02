@@ -72,7 +72,7 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
     }
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF53587B40}" {
      m_sAlias "PLAYERS"
-     m_sFactionKey "RHS_USAF"
+     m_sFactionKey "FIA"
     }
    }
   }
@@ -101,23 +101,29 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
 SCR_LoadoutManager HST_LoadoutManager : "{AA4E7419A1FF65B0}Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et" {
  coords 6200 0 6200
  m_aPlayerLoadouts {
-  SCR_FactionPlayerLoadout "{6985327711302301}" : "{0C9BA30F15BD9776}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Rifleman.conf" {
-   m_sAffiliatedFaction "RHS_USAF"
+  SCR_FactionPlayerLoadout "{6985327711302301}" : "{F9A0ED5ED11CF8F0}Configs/Loadouts/FIA/Loadout_FIA_Base.conf" {
+   m_sLoadoutName "FIA Rifleman"
+   m_sLoadoutResource "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et"
+   m_sLoadoutImage "{6601A3AE17EA976D}UI/Textures/EditorPreviews/Characters/INDFOR/FIA/Character_FIA_Rifleman.edds"
+   m_sAffiliatedFaction "FIA"
   }
-  SCR_FactionPlayerLoadout "{6985327711302302}" : "{A732EB4447EE71C5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_AR.conf" {
-   m_sAffiliatedFaction "RHS_USAF"
+  SCR_FactionPlayerLoadout "{6985327711302302}" : "{F9A0ED5ED11CF8F0}Configs/Loadouts/FIA/Loadout_FIA_Base.conf" {
+   m_sLoadoutName "FIA Medic"
+   m_sLoadoutResource "{45A02CA25CBA9443}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Medic.et"
+   m_sLoadoutImage "{C493B700C7EDE149}UI/Textures/EditorPreviews/Characters/INDFOR/FIA/Character_FIA_Medic.edds"
+   m_sAffiliatedFaction "FIA"
   }
-  SCR_FactionPlayerLoadout "{6985327711302303}" : "{7D089092FB6C978B}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_GL.conf" {
-   m_sAffiliatedFaction "RHS_USAF"
+  SCR_FactionPlayerLoadout "{6985327711302303}" : "{F9A0ED5ED11CF8F0}Configs/Loadouts/FIA/Loadout_FIA_Base.conf" {
+   m_sLoadoutName "FIA Autorifleman"
+   m_sLoadoutResource "{58E47E5A4D599432}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_MG.et"
+   m_sLoadoutImage "{F070A39D537A2555}UI/Textures/EditorPreviews/Characters/INDFOR/FIA/Character_FIA_MG.edds"
+   m_sAffiliatedFaction "FIA"
   }
-  SCR_FactionPlayerLoadout "{6985327711302304}" : "{80A0104504C3F333}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Medic.conf" {
-   m_sAffiliatedFaction "RHS_USAF"
-  }
-  SCR_FactionPlayerLoadout "{6985327711302305}" : "{605644D781CD83D5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_LAT.conf" {
-   m_sAffiliatedFaction "RHS_USAF"
-  }
-  SCR_FactionPlayerLoadout "{6985327711302306}" : "{22568FFAEBA478BB}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Sniper.conf" {
-   m_sAffiliatedFaction "RHS_USAF"
+  SCR_FactionPlayerLoadout "{6985327711302304}" : "{F9A0ED5ED11CF8F0}Configs/Loadouts/FIA/Loadout_FIA_Base.conf" {
+   m_sLoadoutName "FIA LAT"
+   m_sLoadoutResource "{C77DFB8546B3F2A2}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_LAT.et"
+   m_sLoadoutImage "{D01F545BEEF51D00}UI/Textures/EditorPreviews/Characters/INDFOR/FIA/Character_FIA_LAT.edds"
+   m_sAffiliatedFaction "FIA"
   }
  }
 }

@@ -18,7 +18,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
     m_bIsSource 1
    }
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "FIA"
    }
   }
   coords 6200 0 6200
@@ -60,18 +60,18 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
      GenericEntity HST_Dev_CentralHideoutDeploySpawnpoint : "{AA01691FDC4E9167}Prefabs/Systems/ScenarioFramework/Components/Slot.et" {
       components {
        SCR_ScenarioFrameworkSlotBase "{5A22E1D67E712EC8}" {
-        m_sFactionKey "RHS_USAF"
+        m_sFactionKey "FIA"
         m_bExcludeFromDynamicDespawn 1
         m_aPlugins {
          SCR_ScenarioFrameworkPluginSpawnPoint "{661CCDABE5C62B02}" {
           m_fSpawnRadius 20
-          m_sFaction "RHS_USAF"
+          m_sFaction "FIA"
           m_Info SCR_UIInfo "{661CCDAC181BA9ED}" {
            Name "h-istasi Dev Hideout"
           }
          }
         }
-        m_sObjectToSpawn "{0CAE96554C7FEB3D}PrefabsEditable/SpawnPoints/E_SpawnPoint_US_USMC.et"
+        m_sObjectToSpawn "{72713ED566A531F3}PrefabsEditable/SpawnPoints/E_SpawnPoint_FIA.et"
        }
       }
       coords 0 0 0
