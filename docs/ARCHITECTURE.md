@@ -54,8 +54,15 @@ Everon. Named layer files reserve ownership boundaries for physical authoring.
 Strategic IDs live in `Configs/HST/Maps/HST_Everon.conf` so persistence does
 not depend on fragile entity names.
 
-The checked-in world shells include base-backed faction, loadout, radio, and
-chat managers so Workbench can initialize the plain game mode without relying
-on Conflict's strategic brain. Vanilla automatic player respawn is disabled:
-the HQ increment will create FIA spawn routing only after a safe hideout is
-selected.
+The checked-in world shells include a base-backed AI world with explicit Eden
+soldier and vehicle navmesh configs, a perception manager, faction, loadout,
+radio, and chat managers so Workbench can initialize and play-test the plain
+game mode without relying on Conflict's strategic brain.
+
+Direct `.ent` Play mode currently uses a temporary RHS-backed spawn harness:
+automatic player respawn is enabled, the spawn menu forces `PLAYERS`, and
+`PLAYERS` resolves to `RHS_USAF` with a small RHS USMC player loadout set. This
+is bootstrap-only; the HQ increment will replace it with FIA hideout/HQ spawn
+routing after a safe hideout is selected. Workbench offline play may still log
+blank identity ID errors from stock reconnect/editable-entity systems. Treat
+those as non-blocking Workbench noise if a character is spawned and possessed.

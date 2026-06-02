@@ -57,11 +57,34 @@ $runtimeLayers = @(
 	"Worlds/HST_Everon/HST_Everon_Layers/default.layer"
 )
 $requiredRuntimeScaffold = @(
-	"m_bAutoPlayerRespawn 0",
-	"Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et",
-	"Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et",
-	"Prefabs/Systems/Radio/RadioManager.et",
-	"Prefabs/MP/ScriptedChatEntity.et"
+	'm_bAutoPlayerRespawn 1',
+	'Prefabs/AI/SCR_AIWorld_Eden.et',
+	'Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Soldier.conf',
+	'Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Vehicle.conf',
+	'Prefabs/World/Game/PerceptionManager.et',
+	'SCR_RespawnSystemComponent',
+	'SCR_MenuSpawnLogic',
+	'm_sForcedFaction "PLAYERS"',
+	'Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et',
+	'Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et',
+	'SCR_FactionAliasComponent',
+	'm_sAlias "PLAYERS"',
+	'm_sFactionKey "RHS_USAF"',
+	'm_sAlias "OPFOR"',
+	'm_sFactionKey "RHS_AFRF"',
+	'Configs/Factions/CIV.conf',
+	'Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et',
+	'm_aPlayerLoadouts',
+	'Prefabs/Systems/Radio/RadioManager.et',
+	'Prefabs/MP/ScriptedChatEntity.et'
+)
+$requiredBootstrapLoadouts = @(
+	'Loadout_USAF_Rifleman.conf',
+	'Loadout_USAF_AR.conf',
+	'Loadout_USAF_GL.conf',
+	'Loadout_USAF_Medic.conf',
+	'Loadout_USAF_LAT.conf',
+	'Loadout_USAF_Sniper.conf'
 )
 foreach ($runtimeLayer in $runtimeLayers) {
 	$text = Get-Content -Raw $runtimeLayer
@@ -69,6 +92,21 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		if ($text -notmatch [regex]::Escape($requiredEntry)) {
 			throw "Missing runtime scaffold entry in ${runtimeLayer}: $requiredEntry"
 		}
+	}
+
+	if ($text -match "\bNavmeshFileOveride\b") {
+		throw "Runtime layer must not depend on authored reference-world navmesh overrides: $runtimeLayer"
+	}
+
+	foreach ($requiredLoadout in $requiredBootstrapLoadouts) {
+		if ($text -notmatch [regex]::Escape($requiredLoadout)) {
+			throw "Missing bootstrap player loadout in ${runtimeLayer}: $requiredLoadout"
+		}
+	}
+
+	$bootstrapLoadoutCount = ([regex]::Matches($text, "Loadout_USAF_[A-Za-z0-9_]+\.conf")).Count
+	if ($bootstrapLoadoutCount -lt $requiredBootstrapLoadouts.Count) {
+		throw "Bootstrap loadout list is empty or incomplete in ${runtimeLayer}"
 	}
 }
 Write-Host "World runtime scaffold OK"

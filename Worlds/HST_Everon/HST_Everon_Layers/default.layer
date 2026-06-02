@@ -1,16 +1,99 @@
+SCR_AIWorld HST_AIWorld : "{70CCCF16487C927F}Prefabs/AI/SCR_AIWorld_Eden.et" {
+ components {
+  AIBirdManagerComponent "{5CC2D99CC5111D80}" {
+   MaxActiveAnimals 30
+   CheckAnimalTime 10
+  }
+  NavmeshWorldComponent "{5584F30E67F617AD}" {
+   NavmeshSettings NavmeshWorld "{50FC63BEBE3973C5}" {
+    NavmeshFilesConfig BaseNavmeshFilesConfig "{5AF8B9A1D80D8DFA}" : "{568C7122442FC9F2}Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Soldier.conf" {
+    }
+   }
+  }
+  NavmeshWorldComponent "{5584F30EEFEE1223}" {
+   NavmeshSettings NavmeshWorld "{50FC63BEBE3973C5}" {
+    NavmeshFilesConfig BaseNavmeshFilesConfig "{598EDE772036D79B}" : "{A3D6AEFB172D819C}Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Vehicle.conf" {
+    }
+   }
+  }
+ }
+ coords 6200 0 6200
+ LimitOfSpawnedAIAgents 256
+ "Max number of cached BTs" 100
+ "Active AI limit" 128
+}
+PerceptionManager HST_PerceptionManager : "{028DAEAD63E056BE}Prefabs/World/Game/PerceptionManager.et" {
+ coords 6200 0 6200
+}
 SCR_BaseGameMode HST_GameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/GameMode_Plain.et" {
  components {
   HST_CampaignCoordinatorComponent "{6985327711301201}" {
   }
+  SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
+   m_SpawnLogic SCR_MenuSpawnLogic "{5D28B7AD9BB3CF81}" {
+    m_sForcedFaction "PLAYERS"
+   }
+  }
+  SCR_RespawnTimerComponent "{5A234AD9646DDEF9}" {
+   m_fRespawnTime 0
+  }
  }
  coords 6200 0 6200
- m_bAutoPlayerRespawn 0
+ PlayerControllerPrefab "{CD2B8EF361478648}Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et"
+ m_bAutoPlayerRespawn 1
+ m_bAllowFactionChange 0
+ m_bUseSpawnPreload 1
 }
 SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et" {
+ components {
+  SCR_FactionAliasComponent "{665883DF58093EA1}" {
+   m_aFactionAliases {
+    SCR_ScenarioFrameworkFactionAliasConfig "{665883DF5EE4D7A7}" {
+     m_sAlias "OPFOR"
+     m_sFactionKey "RHS_AFRF"
+    }
+    SCR_ScenarioFrameworkFactionAliasConfig "{665883DF53587B40}" {
+     m_sAlias "PLAYERS"
+     m_sFactionKey "RHS_USAF"
+    }
+   }
+  }
+ }
  coords 6200 0 6200
+ Factions {
+  SCR_Faction "{56B2B46E999BF3BF}" {
+   FactionKey "US"
+  }
+  SCR_Faction "{56B2B46E9AF80999}" {
+   FactionKey "USSR"
+   m_bIsPlayable 0
+   m_FactionLabel FACTION_USSR
+  }
+  SCR_Faction "{66C6FB7CA8DC1B7C}" : "{F33C7BF22CBF3A8A}Configs/Factions/RHS_US_USMC.conf" {
+  }
+  SCR_Faction "{66C6FB7CAC79D53E}" : "{627A8CDE681D223D}Configs/Factions/RHS_RF_MSV.conf" {
+   m_bIsPlayable 0
+  }
+  SCR_Faction "{60DCF47AEF40BD72}" : "{3FA20B01D950D31F}Configs/Factions/CIV.conf" {
+  }
+ }
 }
 SCR_LoadoutManager HST_LoadoutManager : "{AA4E7419A1FF65B0}Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et" {
  coords 6200 0 6200
+ m_aPlayerLoadouts {
+  SCR_FactionPlayerLoadout "{6985327711302201}" : "{0C9BA30F15BD9776}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Rifleman.conf" {
+  }
+  SCR_FactionPlayerLoadout "{6985327711302202}" : "{A732EB4447EE71C5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_AR.conf" {
+  }
+  SCR_FactionPlayerLoadout "{6985327711302203}" : "{7D089092FB6C978B}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_GL.conf" {
+  }
+  SCR_FactionPlayerLoadout "{6985327711302204}" : "{80A0104504C3F333}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Medic.conf" {
+  }
+  SCR_FactionPlayerLoadout "{6985327711302205}" : "{605644D781CD83D5}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_LAT.conf" {
+  }
+  SCR_FactionPlayerLoadout "{6985327711302206}" : "{22568FFAEBA478BB}Configs/Loadouts/USAF/USMC/MEF/Loadout_USAF_Sniper.conf" {
+  }
+ }
 }
 RadioManagerEntity HST_RadioManager : "{B8E09FAB91C4ECCD}Prefabs/Systems/Radio/RadioManager.et" {
  coords 6200 0 6200
