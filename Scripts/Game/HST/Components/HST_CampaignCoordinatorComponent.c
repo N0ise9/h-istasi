@@ -1,10 +1,12 @@
 [ComponentEditorProps(category: "h-istasi", description: "Server-authoritative h-istasi campaign coordinator")]
-class HST_CampaignCoordinatorComponentClass : ScriptComponentClass
+class HST_CampaignCoordinatorComponentClass : SCR_BaseGameModeComponentClass
 {
 }
 
-class HST_CampaignCoordinatorComponent : ScriptComponent
+class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
+	protected static HST_CampaignCoordinatorComponent s_Instance;
+
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
 	protected ref HST_BalanceConfig m_Balance;
@@ -23,6 +25,8 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 	protected ref HST_ZoneCaptureService m_ZoneCapture;
 	protected ref HST_PlayerSpawnService m_PlayerSpawn;
 	protected float m_fSecondAccumulator;
+	protected float m_fSpawnSweepAccumulator;
+	protected int m_iSpawnDiagnosticsRemaining;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -31,6 +35,7 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		if (!Replication.IsServer())
 			return;
 
+		s_Instance = this;
 		m_State = new HST_CampaignState();
 		m_Preset = HST_DefaultCatalog.CreateRhsEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
@@ -55,14 +60,42 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
 		m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
 
+		m_iSpawnDiagnosticsRemaining = 12;
 		SetEventMask(owner, EntityEvent.FRAME);
 		Print("h-istasi | campaign coordinator initialized");
+	}
+
+	override void OnGameModeStart()
+	{
+		super.OnGameModeStart();
+		ProcessPlayerSpawnSweep("game-mode-start", true);
+	}
+
+	override void OnGameStateChanged(SCR_EGameModeState state)
+	{
+		super.OnGameStateChanged(state);
+		m_iSpawnDiagnosticsRemaining = Math.Max(m_iSpawnDiagnosticsRemaining, 8);
+		ProcessPlayerSpawnSweep("game-state-changed", true);
+	}
+
+	override void OnPlayerConnected(int playerId)
+	{
+		super.OnPlayerConnected(playerId);
+		m_iSpawnDiagnosticsRemaining = Math.Max(m_iSpawnDiagnosticsRemaining, 8);
+		ProcessPlayerSpawnSweep(string.Format("player-connected-%1", playerId), true);
 	}
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
 		if (!Replication.IsServer() || !m_State)
 			return;
+
+		m_fSpawnSweepAccumulator += timeSlice;
+		if (m_fSpawnSweepAccumulator >= 0.25)
+		{
+			m_fSpawnSweepAccumulator = 0;
+			ProcessPlayerSpawnSweep("frame");
+		}
 
 		m_Persistence.Tick(timeSlice, m_Balance.m_iAutosaveIntervalSeconds, m_Balance.m_iMajorChangeDebounceSeconds);
 		m_fSecondAccumulator += timeSlice;
@@ -74,13 +107,19 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
-		if (missionChanged || income > 0)
+		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
+		if (missionChanged || income > 0 || hqRuntimeChanged)
 			m_Persistence.MarkMajorChange();
 	}
 
 	HST_CampaignState GetState()
 	{
 		return m_State;
+	}
+
+	static HST_CampaignCoordinatorComponent GetInstance()
+	{
+		return s_Instance;
 	}
 
 	HST_PlayerState RegisterPlayer(string identityId, bool isAdmin = false)
@@ -132,6 +171,17 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 		if (player)
 			m_Persistence.MarkMajorChange();
 		return player;
+	}
+
+	bool SpawnOrRespawnPlayer(int playerId)
+	{
+		if (!Replication.IsServer() || !m_PlayerSpawn)
+			return false;
+
+		bool spawned = m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
+		if (spawned)
+			m_Persistence.MarkMajorChange();
+		return spawned;
 	}
 
 	bool SetMembership(string actorIdentityId, string targetIdentityId, bool isMember)
@@ -347,5 +397,24 @@ class HST_CampaignCoordinatorComponent : ScriptComponent
 
 		m_Persistence.MarkMajorChange();
 		return true;
+	}
+
+	protected int ProcessPlayerSpawnSweep(string reason = "", bool forceDiagnostics = false)
+	{
+		if (!Replication.IsServer() || !m_State || !m_PlayerSpawn)
+			return 0;
+
+		bool diagnostics = forceDiagnostics || m_iSpawnDiagnosticsRemaining > 0;
+		if (diagnostics && !reason.IsEmpty())
+			Print("h-istasi | FIA spawn sweep triggered by " + reason);
+
+		int spawnedPlayers = m_PlayerSpawn.SpawnMissingConnectedPlayers(m_State, m_Authorization, m_PlayerLifecycle, diagnostics);
+		if (diagnostics && m_iSpawnDiagnosticsRemaining > 0)
+			m_iSpawnDiagnosticsRemaining--;
+
+		if (spawnedPlayers > 0)
+			m_Persistence.MarkMajorChange();
+
+		return spawnedPlayers;
 	}
 }

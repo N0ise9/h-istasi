@@ -20,6 +20,10 @@ class HST_PlayerState
 	int m_iMoney;
 	int m_iRank;
 	int m_iLastSeenPlayerId = -1;
+	bool m_bHasSpawnRecord;
+	int m_iSpawnCount;
+	string m_sLastSpawnPrefab;
+	vector m_vLastSpawnPosition;
 }
 
 [BaseContainerProps()]
@@ -107,9 +111,15 @@ class HST_CampaignState
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
 	vector m_vPetrosPosition;
+	vector m_vHQCachePosition;
+	vector m_vHQTentPosition;
 	bool m_bHQDeployed;
+	bool m_bHQRuntimeObjectsSpawned;
 	bool m_bPetrosAlive = true;
 	int m_iPetrosDeaths;
+	string m_sPetrosPrefab;
+	string m_sHQCachePrefab;
+	string m_sHQTentPrefab;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};

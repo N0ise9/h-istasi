@@ -41,8 +41,9 @@ SCR_BaseGameMode HST_DevGameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/Gam
    m_eDeployableSpawnPointBudgetType NONE
   }
   SCR_RespawnSystemComponent "{56B2B4793051E7C9}" {
-   m_SpawnLogic SCR_MenuSpawnLogic "{5D28B7AD9BB3CF81}" {
-    m_sForcedFaction "PLAYERS"
+   m_bEnableRespawn 1
+   m_bEnablePauseMenuRespawn 0
+   m_SpawnLogic HST_PlayerSpawnLogic "{5D28B7AD9BB3CF81}" {
    }
   }
   SCR_RespawnTimerComponent "{5A234AD9646DDEF9}" {
@@ -60,7 +61,7 @@ SCR_BaseGameMode HST_DevGameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/Gam
  PlayerControllerPrefab "{CD2B8EF361478648}Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et"
  m_bAutoPlayerRespawn 1
  m_bAllowFactionChange 0
- m_bUseSpawnPreload 1
+ m_bUseSpawnPreload 0
 }
 SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/Factions/FactionManager_USxUSSR.et" {
  components {

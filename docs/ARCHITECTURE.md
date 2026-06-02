@@ -25,6 +25,8 @@ single `HST_CampaignState` and delegates to small services:
 - `HST_RecruitmentService`: troop training and abstract garrison recruitment.
 - `HST_ZoneCaptureService`: capture helpers around strategic ownership
   changes.
+- `HST_PlayerSpawnService`: custom FIA HQ spawn, Workbench identity fallback,
+  native respawn possession handoff, and spawned-player records.
 
 The coordinator currently exposes server-only mutation methods that check
 campaign phase, known IDs, and mission eligibility before changing state.
@@ -63,31 +65,37 @@ not depend on fragile entity names.
 
 The checked-in world shells include a base-backed AI world with explicit Eden
 soldier and vehicle navmesh configs, a perception manager, faction, loadout,
-radio, and chat managers so Workbench can initialize and play-test the plain
-game mode without relying on Conflict's strategic brain.
+radio, chat, and respawn managers so Workbench can initialize without relying
+on Conflict's strategic brain.
 
-Direct `.ent` Play mode now uses FIA as the primary playable faction:
-automatic player respawn is enabled, the spawn menu forces `PLAYERS`, and
-`PLAYERS` resolves to `FIA`. `StartingPoints.layer` contains FIA-affiliated
-Scenario Framework spawnpoint slots at the authored hideouts, using the stock
-editable FIA spawnpoint prefab and HST-authored FIA role-selection loadouts.
-RHS_USAF remains the occupier in the strategic preset and may be restored as a
-debug harness if stock FIA deployment regresses, but it is not the normal
-player-side bootstrap. Game Master-spawned characters do not satisfy the
-respawn system and are not expected to close the deployment menu. Workbench
-offline play may still log blank identity ID errors from stock reconnect or
-editable-entity systems. Treat those as non-blocking Workbench noise if a
-character is spawned and possessed.
+Direct `.ent` Play mode no longer depends on the stock Deployment Setup menu.
+The coordinator is an `SCR_BaseGameModeComponent`, so it receives game-mode
+state and player-connected callbacks directly. It also runs a short frame sweep
+for connected players without controlled pawns, which covers Workbench timing
+where player `1` exists before its respawn component is ready. The respawn
+system remains as possession plumbing, but its spawn logic is
+`HST_PlayerSpawnLogic`, which delegates to `HST_PlayerSpawnService`. The
+service registers the connected player as FIA, spawns the default FIA rifleman
+at the selected HQ hideout, calls the player's native respawn component to
+take over the pawn, and closes any lingering respawn menu. Spawn preloading is
+disabled for this custom path so the stock role-selection loading screen does
+not hold the session hostage. This is the primary h-istasi bootstrap.
+
+`StartingPoints.layer` still contains FIA-affiliated Scenario Framework
+spawnpoint slots and FIA role-selection loadouts, but those are now authoring
+metadata and a debug fallback, not the normal player-side path. RHS_USAF
+remains the occupier in the strategic preset. Game Master-spawned characters
+are still not expected to advance h-istasi's player lifecycle. Workbench
+offline play may log blank identity ID errors from stock reconnect or
+editable-entity systems; treat those as non-blocking if a character is spawned
+and possessed.
 
 `HST_HQService` owns the server-side HQ lifecycle: initial hideout selection,
-HQ movement between authored hideouts, Petros position, and Petros-loss
-penalties. The current development bootstrap auto-selects the central hills
-hideout so the campaign enters a playable active phase immediately; the setup
-UI increment will replace that auto-selection with a player-facing choice.
-`HST_PlayerSpawnService` owns the FIA HQ spawn contract for the next increment:
-primary player faction, HQ spawn position, default FIA player prefab, and the
-editable FIA spawnpoint prefab. Stock Plain deployment still performs the
-actual possession for now.
+HQ movement between authored hideouts, Petros/cache/tent runtime positions,
+and Petros-loss penalties. The current development bootstrap auto-selects the
+central hills hideout so the campaign enters a playable active phase
+immediately; the setup UI increment will replace that auto-selection with a
+player-facing choice.
 
 ## Antistasi Framework Spine
 

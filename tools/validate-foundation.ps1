@@ -63,9 +63,11 @@ $requiredRuntimeScaffold = @(
 	'Configs/Navmesh/Navmesh_CTI_Campaign_Eden_Vehicle.conf',
 	'Prefabs/World/Game/PerceptionManager.et',
 	'SCR_RespawnSystemComponent',
-	'SCR_MenuSpawnLogic',
-	'm_sForcedFaction "PLAYERS"',
+	'HST_PlayerSpawnLogic',
+	'm_bEnableRespawn 1',
+	'm_bEnablePauseMenuRespawn 0',
 	'Prefabs/Characters/Core/DefaultPlayerControllerMP_ScenarioFramework.et',
+	'm_bUseSpawnPreload 0',
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
 	'SCR_PlayerSpawnPointManagerComponent',
@@ -107,6 +109,10 @@ foreach ($runtimeLayer in $runtimeLayers) {
 
 	if ($text -match "\bSCR_PlayerArsenalLoadout\b") {
 		throw "Runtime layer must use stock role-selection player loadouts, not arsenal loadouts: $runtimeLayer"
+	}
+
+	if ($text -match "\bSCR_MenuSpawnLogic\b") {
+		throw "Runtime layer must not use stock role-selection spawn logic: $runtimeLayer"
 	}
 
 	if ($text -match "Loadout_USAF_") {
@@ -220,6 +226,7 @@ if ($missingSymbols.Count -gt 0) {
 Write-Host "Script symbol references OK: $($definedSymbols.Count)"
 
 foreach ($requiredService in @(
+	"HST_PlayerSpawnLogic",
 	"HST_PlayerLifecycleService",
 	"HST_PlayerSpawnService",
 	"HST_TownService",
@@ -234,6 +241,7 @@ foreach ($requiredService in @(
 
 foreach ($requiredCoordinatorEntry in @(
 	"RegisterConnectedPlayer",
+	"SpawnOrRespawnPlayer",
 	"GetPlayerSpawnFactionKey",
 	"GetPlayerHQSpawnPosition",
 	"GetDefaultPlayerPrefab",
@@ -259,7 +267,18 @@ foreach ($requiredFiaSpawnContract in @(
 	'string m_sFactionKey = "FIA"',
 	'PRIMARY_PLAYER_FACTION = "FIA"',
 	'Character_FIA_Rifleman.et',
-	'E_SpawnPoint_FIA.et'
+	'E_SpawnPoint_FIA.et',
+	'NotifySpawn',
+	'GetPlayerRespawnComponent',
+	'CloseRespawnMenu',
+	'SpawnMissingConnectedPlayers',
+	'SCR_BaseGameModeComponent',
+	'OnPlayerConnected',
+	'OnGameStateChanged',
+	'ProcessPlayerSpawnSweep',
+	'EnsureRuntimeObjects',
+	'SupplyCache_S_FIA_01.et',
+	'TentSmallUS_01.et'
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredFiaSpawnContract)) {
 		throw "Missing FIA player spawn contract entry: $requiredFiaSpawnContract"

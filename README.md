@@ -20,13 +20,14 @@ The repository contains the first engine-facing increment:
 - Server-authoritative campaign, economy, mission, and native-checkpoint
   services
 - A Community Edition 3.11.1 mission registry baseline
-- FIA Workbench Play-mode spawn harness for authored hideout candidates
+- Custom FIA HQ player spawn path for direct Workbench Play mode
+- FIA spawnpoint/loadout authoring metadata for authored hideout candidates
 - HQ and Petros state hooks for the first playable resistance-campaign slice
 - Abstract Antistasi systems for player lifecycle, town income/support, zone
   capture, garrisons, recruitment/training, and mission rewards/penalties
 
 This is a foundation build, not a public alpha. Physical Petros/cache/tent
-entities, custom FIA HQ spawning, setup UI, spawned AI, persistence serializers,
+entities, setup UI, spawned AI, persistence serializers,
 surveyed Everon coordinates, and mission-specific world logic still need to be
 connected incrementally.
 
