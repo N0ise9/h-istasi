@@ -123,6 +123,10 @@ $requiredRuntimeScaffold = @(
 	'm_bUseSpawnPreload 0',
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
+	'SCR_MapMarkerManagerComponent',
+	'Configs/Map/CampaignMapMarkerConfig.conf',
+	'SCR_MapMarkerDotCircle',
+	'HST_NativeMapMarker_hq',
 	'SCR_PlayerSpawnPointManagerComponent',
 	'SCR_SpawnProtectionComponent',
 	'SCR_TimedSpawnPointComponent',
@@ -190,8 +194,8 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Primary FIA player loadouts must be explicitly affiliated with FIA in ${runtimeLayer}"
 	}
 
-	if ($text -notmatch "MapMarkerArea" -or $text -notmatch "Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et" -or $text -notmatch "m_sMapMarkerText `"FIA HQ`"") {
-		throw "Runtime layer must expose an always-on FIA HQ map marker scaffold: $runtimeLayer"
+	if ($text -notmatch "SCR_MapMarkerManagerComponent" -or $text -notmatch "SCR_MapMarkerDotCircle" -or $text -notmatch "HST_NativeMapMarker_hq") {
+		throw "Runtime layer must expose native map marker manager plus FIA HQ native marker: $runtimeLayer"
 	}
 }
 Write-Host "World runtime scaffold OK"
@@ -323,26 +327,41 @@ $worldResourceText = (Get-ChildItem -Recurse -File "Worlds" -Include *.layer |
 $runtimeMarkerLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/default.layer"
 $townLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Towns.layer"
 $strategicZonesLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StrategicZones.layer"
-if ($runtimeMarkerLayer -notmatch "HST_AlphaMapMarkerArea" -or $runtimeMarkerLayer -notmatch "HST_AlphaMapMarkerLayer") {
-	throw "Runtime layer must include an always-active h-istasi map marker Scenario Framework area/layer"
+$markerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$coordinatorMarkerText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+foreach ($requiredNativeMarkerEntry in @(
+	"SCR_MapMarkerManagerComponent",
+	"Configs/Map/CampaignMapMarkerConfig.conf",
+	"SCR_MapMarkerDotCircle",
+	"HST_NativeMapMarker_hq"
+)) {
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
+		throw "Missing native map marker scaffold entry: $requiredNativeMarkerEntry"
+	}
 }
 
-foreach ($requiredMarkerScaffold in @(
-	"Prefabs/Systems/ScenarioFramework/Components/Area.et",
-	"Prefabs/Systems/ScenarioFramework/Components/Layer.et",
-	"Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et",
-	"SCR_ScenarioFrameworkMarkerCustom",
-	"m_bDynamicDespawn 0",
-	"m_eActivationType SAME_AS_PARENT",
-	"m_bExcludeFromDynamicDespawn 1"
+foreach ($requiredRuntimeMarkerEntry in @(
+	"HST_MapMarkerService",
+	"RebuildAllMarkers",
+	"RefreshHQMarker",
+	"RefreshZoneMarker",
+	"RefreshMissionMarkers",
+	"CleanupMarkers",
+	"m_bRuntimeNative",
+	"NATIVE_MARKER_MANAGER_COMPONENT",
+	"SCR_MapMarkerManagerComponent"
 )) {
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredMarkerScaffold)) {
-		throw "Missing active map marker scaffold entry: $requiredMarkerScaffold"
+	if ($markerServiceText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
+		throw "Missing runtime native marker service entry: $requiredRuntimeMarkerEntry"
 	}
 }
 
 if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and $worldResourceText -match "m_eActivationType ON_TRIGGER_ACTIVATION") {
 	throw "Map markers must not use trigger activation without an active Scenario Framework parent"
+}
+
+if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and ($worldResourceText -notmatch "SCR_MapMarkerManagerComponent" -or $markerServiceText -notmatch "HST_MapMarkerService")) {
+	throw "Scenario Framework markers may only remain as fallback when native marker manager and runtime service are present"
 }
 
 foreach ($townId in $expectedEveronTownIds) {
@@ -351,12 +370,8 @@ foreach ($townId in $expectedEveronTownIds) {
 		throw "Missing town anchor for $townId"
 	}
 
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_TownMarker_$suffix")) {
-		throw "Missing town map marker for $townId"
-	}
-
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("m_sMapMarkerText `"$($townDisplayNames[$townId])`"")) {
-		throw "Missing town map marker text for $townId"
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$townId")) {
+		throw "Missing native town map marker for $townId"
 	}
 
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$townId")) {
@@ -369,19 +384,14 @@ foreach ($group in @($townAnchorIds | Group-Object | Where-Object Count -gt 1)) 
 	throw "Duplicate town layer anchor ID: $($group.Name)"
 }
 
-$townMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_TownMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
-foreach ($group in @($townMarkerIds | Group-Object | Where-Object Count -gt 1)) {
-	throw "Duplicate town layer marker ID: $($group.Name)"
+$nativeMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_NativeMapMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
+foreach ($group in @($nativeMarkerIds | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate native map marker ID: $($group.Name)"
 }
 
 foreach ($zoneId in $configZones) {
-	$suffix = $zoneId -replace "^town_", ""
-	if ($zoneId -like "town_*") {
-		if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_TownMarker_$suffix")) {
-			throw "Configured town zone lacks runtime marker: $zoneId"
-		}
-	} elseif ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_StrategicMarker_$zoneId")) {
-		throw "Configured strategic zone lacks runtime marker: $zoneId"
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$zoneId")) {
+		throw "Configured zone lacks native runtime marker: $zoneId"
 	}
 }
 Write-Host "Everon town coverage OK: $($expectedEveronTownIds.Count)"
@@ -468,7 +478,9 @@ foreach ($requiredService in @(
 	"HST_GarrisonService",
 	"HST_RecruitmentService",
 	"HST_ZoneCaptureService",
-	"HST_PhysicalWarService"
+	"HST_PhysicalWarService",
+	"HST_MapMarkerService",
+	"HST_CommandUIService"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -483,6 +495,9 @@ foreach ($requiredSaveEntry in @(
 	"m_aActiveMissions",
 	"m_aActiveGroups",
 	"m_aQRFs",
+	"HST_MapMarkerState",
+	"m_aMapMarkers",
+	"m_bRuntimeNative",
 	"m_iQrfCooldownUntilSecond",
 	"m_iEnemyResourceAccumulatorSeconds",
 	"m_iResistanceCaptureProgress"
@@ -521,6 +536,14 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestCommanderStoreGarageVehicle",
 	"RequestMemberManualCheckpoint",
 	"RequestMemberInspectCampaign",
+	"RequestMemberInspectMarkers",
+	"RequestMemberInspectEconomy",
+	"RequestMemberInspectZones",
+	"RequestMemberInspectMissions",
+	"GetAlphaMemberMenu",
+	"GetAlphaCommanderMenu",
+	"GetAlphaAdminMenu",
+	"RequestAlphaUICommand",
 	"RequestAdminSetZoneActive",
 	"RequestAdminCaptureZone",
 	"RequestAdminCaptureZoneForResistance",

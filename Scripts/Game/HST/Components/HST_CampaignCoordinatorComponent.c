@@ -25,6 +25,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ZoneCaptureService m_ZoneCapture;
 	protected ref HST_PlayerSpawnService m_PlayerSpawn;
 	protected ref HST_PhysicalWarService m_PhysicalWar;
+	protected ref HST_MapMarkerService m_MapMarkers;
+	protected ref HST_CommandUIService m_CommandUI;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iSpawnDiagnosticsRemaining;
@@ -57,6 +59,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture = new HST_ZoneCaptureService();
 		m_PlayerSpawn = new HST_PlayerSpawnService();
 		m_PhysicalWar = new HST_PhysicalWarService();
+		m_MapMarkers = new HST_MapMarkerService();
+		m_CommandUI = new HST_CommandUIService();
 
 		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 		m_State.m_iHR = m_Balance.m_iStartingHR;
@@ -64,6 +68,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
 		HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
 		m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
+		RefreshCampaignMarkers();
 
 		ArmPlayerSpawnSweep(6);
 		SetEventMask(owner, EntityEvent.FRAME);
@@ -118,12 +123,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
 		if (missionChanged || income > 0 || enemyResourcesChanged || hqRuntimeChanged || physicalWarChanged)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 	}
 
 	HST_CampaignState GetState()
 	{
 		return m_State;
+	}
+
+	string GetAlphaMemberMenu(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
+			return "";
+
+		return m_CommandUI.BuildMemberMenu(m_State, m_Preset, m_MapMarkers);
+	}
+
+	string GetAlphaCommanderMenu(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_CommandUI)
+			return "";
+
+		return m_CommandUI.BuildCommanderMenu(m_State, m_Preset, m_MapMarkers);
+	}
+
+	string GetAlphaAdminMenu(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId) || !m_CommandUI)
+			return "";
+
+		return m_CommandUI.BuildAdminMenu(m_State, m_Preset, m_MapMarkers);
+	}
+
+	bool RequestAlphaUICommand(int playerId, string commandId, string argument = "")
+	{
+		if (!Replication.IsServer() || !m_CommandUI)
+			return false;
+
+		return m_CommandUI.ExecuteQuickCommand(this, playerId, commandId, argument);
 	}
 
 	static HST_CampaignCoordinatorComponent GetInstance()
@@ -178,7 +215,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin);
 		if (player)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return player;
 	}
 
@@ -200,7 +237,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		if (m_PlayerSpawn.OnPlayerSpawned(m_State, m_Authorization, m_PlayerLifecycle, playerId, entity))
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 	}
 
 	void OnPlayerSpawnFailed(int playerId)
@@ -219,7 +256,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Authorization.SetMembership(m_State, actorIdentityId, targetIdentityId, isMember);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -230,7 +267,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -241,7 +278,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_ZoneCapture.CaptureForResistance(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -252,7 +289,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, prefab, amount);
 		if (item)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return item;
 	}
 
@@ -295,7 +332,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			changed = true;
 
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -306,7 +343,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -317,7 +354,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_HQ.MoveHQ(m_State, hideoutId);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -327,7 +364,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_HQ.OnPetrosKilled(m_State, m_Economy, 250, 5);
-		m_Persistence.MarkMajorChange();
+		MarkMajorCampaignChange();
 	}
 
 	bool AddTownSupport(string zoneId, int amount)
@@ -337,7 +374,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Towns.AddSupport(m_State, zoneId, amount);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -348,7 +385,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		int income = m_Towns.ApplyIncomeNow(m_State, m_Economy, m_Preset);
 		if (income > 0)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return income;
 	}
 
@@ -359,7 +396,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Garrisons.AddAbstractForces(m_State, zoneId, factionKey, infantryCount, vehicleCount);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -370,7 +407,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Garrisons.FoldSurvivors(m_State, zoneId, factionKey, infantryCount, vehicleCount);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -381,7 +418,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Recruitment.TrainTroops(m_State, m_Economy, moneyCost);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -392,7 +429,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Recruitment.RecruitGarrison(m_State, m_Economy, m_Garrisons, zoneId, m_Preset.m_sResistanceFactionKey, infantryCount, vehicleCount, moneyCost, hrCost);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -403,7 +440,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_Economy.AddFactionMoney(m_State, money);
 		m_Economy.AddHR(m_State, hr);
-		m_Persistence.MarkMajorChange();
+		MarkMajorCampaignChange();
 	}
 
 	bool AwardPlayerResources(string identityId, int money, int rank)
@@ -414,7 +451,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool changedMoney = m_PlayerLifecycle.AddPersonalMoney(m_State, identityId, money);
 		bool changedRank = m_PlayerLifecycle.AddRank(m_State, identityId, rank);
 		if (changedMoney || changedRank)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changedMoney || changedRank;
 	}
 
@@ -496,11 +533,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicle.m_sPrefab = prefab;
 		vehicle.m_vPosition = position;
 		vehicle.m_vAngles = angles;
-		vehicle.m_fFuel = Math.Max(0, Math.Min(1, fuel));
+		vehicle.m_fFuel = Math.Max(0.0, Math.Min(1.0, fuel));
 		vehicle.m_bArmed = armed;
 		bool changed = m_Arsenal.StoreVehicle(m_State, vehicle);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -520,6 +557,38 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return BuildCampaignReport();
 	}
 
+	string RequestMemberInspectMarkers(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_MapMarkers)
+			return "";
+
+		return m_MapMarkers.BuildMarkerReport(m_State);
+	}
+
+	string RequestMemberInspectEconomy(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
+			return "";
+
+		return m_CommandUI.BuildEconomyReport(m_State);
+	}
+
+	string RequestMemberInspectZones(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
+			return "";
+
+		return m_CommandUI.BuildZoneListReport(m_State, m_Preset);
+	}
+
+	string RequestMemberInspectMissions(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
+			return "";
+
+		return m_CommandUI.BuildMissionReport(m_State);
+	}
+
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -527,7 +596,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Strategic.SetZoneActive(m_State, zoneId, active);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -554,7 +623,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, progress, 10);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -601,7 +670,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		m_EnemyDirector.AddResources(m_State, factionKey, attackResources, supportResources);
-		m_Persistence.MarkMajorChange();
+		MarkMajorCampaignChange();
 		return true;
 	}
 
@@ -617,7 +686,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		bool changed = m_HQ.SelectInitialHideout(m_State, hideoutId);
 		if (changed)
-			m_Persistence.MarkMajorChange();
+			MarkMajorCampaignChange();
 		return changed;
 	}
 
@@ -626,8 +695,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Missions.Start(m_State, m_Preset, missionId, targetZoneId))
 			return false;
 
-		m_Persistence.MarkMajorChange();
+		MarkMajorCampaignChange();
 		return true;
+	}
+
+	protected void MarkMajorCampaignChange(bool refreshMarkers = true)
+	{
+		if (refreshMarkers)
+			RefreshCampaignMarkers();
+
+		if (m_Persistence)
+			m_Persistence.MarkMajorChange();
+	}
+
+	protected void RefreshCampaignMarkers()
+	{
+		if (m_MapMarkers)
+			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
 	}
 
 	protected string ResolveTrustedIdentityId(int playerId)
@@ -743,7 +827,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				enemyZones++;
 		}
 
-		return string.Format("h-istasi campaign | money %1 | HR %2 | war level %3 | resistance zones %4 | enemy zones %5 | active missions %6 | active groups %7 | QRFs %8", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel, resistanceZones, enemyZones, m_State.m_aActiveMissions.Count(), m_State.m_aActiveGroups.Count(), m_State.m_aQRFs.Count());
+		string economySummary = string.Format("h-istasi campaign | money %1 | HR %2 | war level %3 | training %4", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel, m_State.m_iTrainingLevel);
+		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | active missions %3", resistanceZones, enemyZones, m_State.m_aActiveMissions.Count());
+		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", m_State.m_aActiveGroups.Count(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_sHQHideoutId);
+		return economySummary + zoneSummary + runtimeSummary;
 	}
 
 	protected string BuildZoneReport(string zoneId)

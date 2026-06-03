@@ -32,6 +32,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
+	ref array<ref HST_MapMarkerState> m_aMapMarkers = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
@@ -91,6 +92,10 @@ class HST_CampaignSaveData
 		m_aQRFs.Clear();
 		foreach (HST_QRFState qrf : state.m_aQRFs)
 			m_aQRFs.Insert(CopyQRF(qrf));
+
+		m_aMapMarkers.Clear();
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+			m_aMapMarkers.Insert(CopyMapMarker(marker));
 
 		m_aArsenalItems.Clear();
 		foreach (HST_ArsenalItemState arsenalItem : state.m_aArsenalItems)
@@ -173,6 +178,10 @@ class HST_CampaignSaveData
 		state.m_aQRFs.Clear();
 		foreach (HST_QRFState qrf : m_aQRFs)
 			state.m_aQRFs.Insert(CopyQRF(qrf));
+
+		state.m_aMapMarkers.Clear();
+		foreach (HST_MapMarkerState marker : m_aMapMarkers)
+			state.m_aMapMarkers.Insert(CopyMapMarker(marker));
 
 		state.m_aArsenalItems.Clear();
 		foreach (HST_ArsenalItemState arsenalItem : m_aArsenalItems)
@@ -285,6 +294,22 @@ class HST_CampaignSaveData
 		target.m_iETASeconds = source.m_iETASeconds;
 		target.m_bResolved = source.m_bResolved;
 		target.m_bSucceeded = source.m_bSucceeded;
+		return target;
+	}
+
+	protected HST_MapMarkerState CopyMapMarker(HST_MapMarkerState source)
+	{
+		HST_MapMarkerState target = new HST_MapMarkerState();
+		target.m_sMarkerId = source.m_sMarkerId;
+		target.m_sLinkedId = source.m_sLinkedId;
+		target.m_sLabel = source.m_sLabel;
+		target.m_sCategory = source.m_sCategory;
+		target.m_sOwnerFactionKey = source.m_sOwnerFactionKey;
+		target.m_sIconHint = source.m_sIconHint;
+		target.m_sColorHint = source.m_sColorHint;
+		target.m_vPosition = source.m_vPosition;
+		target.m_bVisible = source.m_bVisible;
+		target.m_bRuntimeNative = source.m_bRuntimeNative;
 		return target;
 	}
 

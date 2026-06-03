@@ -86,6 +86,21 @@ class HST_QRFState
 }
 
 [BaseContainerProps()]
+class HST_MapMarkerState
+{
+	string m_sMarkerId;
+	string m_sLinkedId;
+	string m_sLabel;
+	string m_sCategory;
+	string m_sOwnerFactionKey;
+	string m_sIconHint;
+	string m_sColorHint;
+	vector m_vPosition;
+	bool m_bVisible = true;
+	bool m_bRuntimeNative;
+}
+
+[BaseContainerProps()]
 class HST_ArsenalItemState
 {
 	string m_sPrefab;
@@ -166,6 +181,7 @@ class HST_CampaignState
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
+	ref array<ref HST_MapMarkerState> m_aMapMarkers = {};
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
@@ -266,6 +282,17 @@ class HST_CampaignState
 		{
 			if (mission.m_sInstanceId == instanceId)
 				return mission;
+		}
+
+		return null;
+	}
+
+	HST_MapMarkerState FindMapMarker(string markerId)
+	{
+		foreach (HST_MapMarkerState marker : m_aMapMarkers)
+		{
+			if (marker.m_sMarkerId == markerId)
+				return marker;
 		}
 
 		return null;
