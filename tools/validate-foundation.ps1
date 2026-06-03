@@ -590,6 +590,9 @@ if ($scriptText -match "\bHasPlayerEntity\b") {
 if ($scriptText -match "GetDamageManagerComponent") {
 	throw "FIA death checks must use component lookup; SCR_ChimeraCharacter.GetDamageManagerComponent is not available in Reforger 1.7"
 }
+if ($scriptText -match 'string\.Format\([^\r\n;]*%1[0-9]') {
+	throw "Enforce string.Format calls must not use %10 or higher placeholders; split long reports into smaller format calls"
+}
 Write-Host "Native spawn request contract OK"
 
 foreach ($requiredPhysicalWarEntry in @(

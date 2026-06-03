@@ -761,7 +761,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicles = ownerGarrison.m_iVehicleCount;
 		}
 
-		return string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4 | capture %5/%6 | income %7 | garrison %8 infantry/%9 vehicles | active %10/%11 | QRF cooldown %12", zone.m_sZoneId, zone.m_sOwnerFactionKey, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport, zone.m_iResistanceCaptureProgress, HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED, zone.m_iIncomeValue, infantry, vehicles, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount, zone.m_iQrfCooldownUntilSecond);
+		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, zone.m_sOwnerFactionKey, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport);
+		string captureSummary = string.Format(" | capture %1/%2 | income %3", zone.m_iResistanceCaptureProgress, HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED, zone.m_iIncomeValue);
+		string forceSummary = string.Format(" | garrison %1 infantry/%2 vehicles | active %3/%4", infantry, vehicles, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount);
+		string qrfSummary = string.Format(" | QRF cooldown %1", zone.m_iQrfCooldownUntilSecond);
+		return zoneSummary + captureSummary + forceSummary + qrfSummary;
 	}
 
 	protected string ZoneTypeToLabel(HST_EZoneType zoneType)
