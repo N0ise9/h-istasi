@@ -29,6 +29,8 @@ SCR_BaseGameMode HST_DevGameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/Gam
  components {
   HST_CampaignCoordinatorComponent "{6985327711301202}" {
   }
+  HST_CommandMenuComponent "{6985327711301212}" {
+  }
   SCR_GroupsManagerComponent "{5706EC99934496F5}" {
    m_sDefaultGroupPrefab "{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et"
    m_iPlayableGroupFrequencyOffset 500

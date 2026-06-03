@@ -32,13 +32,30 @@ The repository contains the first engine-facing increment:
   `Prefabs/Characters/HST/Character_HST_Petros.et` for later appearance and
   loadout customization, with a safe base-FIA spawn fallback until Workbench
   indexes the new prefab resource
+- Alpha `I` key command menu mounted on both development worlds for Petros,
+  HQ, economy, mission, recruitment, marker, and admin/debug actions
 - Versioned campaign save-data container ready for native persistence binding
 
 This is a foundation build, not a public alpha. Petros now has a dedicated
 editable prefab asset; once Workbench assigns it a GUID resource name, the HQ
-service can spawn that custom asset directly. Cache/tent polish, setup UI,
-spawned AI, native save/load binding, final surveyed Everon coordinates, and
+service can spawn that custom asset directly. Cache/tent polish, spawned AI,
+native save/load binding, final surveyed Everon coordinates, and
 mission-specific world logic still need to be connected incrementally.
+
+## Alpha Command Menu
+
+Press `I` in `HST_Dev` or `HST_Everon` to open the h-istasi alpha command
+menu. The current implementation prints the menu and command results to the
+Workbench/game log while the dedicated widget layout is still being built.
+
+- `MenuUp` / `MenuDown`: change selection
+- `MenuSelect`: run the selected command
+- `MenuBack` or `I`: close the menu
+
+The menu routes through server-authoritative coordinator requests and covers
+campaign overview, markers, economy, zones, missions, manual checkpoint,
+income tick, training, HQ movement, FIA recruitment, mission start, zone
+capture/activation, and small debug resource awards.
 
 ## Requirements
 

@@ -127,6 +127,7 @@ $requiredRuntimeScaffold = @(
 	'Configs/Map/CampaignMapMarkerConfig.conf',
 	'SCR_MapMarkerDotCircle',
 	'HST_NativeMapMarker_hq',
+	'HST_CommandMenuComponent',
 	'SCR_PlayerSpawnPointManagerComponent',
 	'SCR_SpawnProtectionComponent',
 	'SCR_TimedSpawnPointComponent',
@@ -531,7 +532,8 @@ foreach ($requiredService in @(
 	"HST_ZoneCaptureService",
 	"HST_PhysicalWarService",
 	"HST_MapMarkerService",
-	"HST_CommandUIService"
+	"HST_CommandUIService",
+	"HST_CommandMenuComponent"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -611,6 +613,31 @@ foreach ($requiredCoordinatorEntry in @(
 	}
 }
 Write-Host "Antistasi framework service spine OK"
+
+foreach ($requiredCommandMenuEntry in @(
+	'COMMAND_MENU_ACTION = "Inventory"',
+	'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',
+	'AddActionListener',
+	'RemoveActionListener',
+	'BuildActionList',
+	'ExecuteSelectedAction',
+	'RequestAlphaUICommand',
+	'inspect_campaign',
+	'inspect_markers',
+	'inspect_economy',
+	'inspect_zones',
+	'inspect_missions',
+	'move_hq',
+	'recruit_zone',
+	'mission_zone',
+	'capture_zone',
+	'award_small'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCommandMenuEntry)) {
+		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
+	}
+}
+Write-Host "I-key alpha command menu OK"
 
 foreach ($requiredFiaSpawnContract in @(
 	'string m_sFactionKey = "FIA"',

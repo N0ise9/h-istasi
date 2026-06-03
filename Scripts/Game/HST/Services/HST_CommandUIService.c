@@ -11,7 +11,7 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: inspect_campaign, inspect_markers, checkpoint";
+		return header + hq + markerSummary + "\nMember actions: inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, checkpoint";
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -99,6 +99,15 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_markers")
 			return !coordinator.RequestMemberInspectMarkers(playerId).IsEmpty();
+
+		if (commandId == "inspect_economy")
+			return !coordinator.RequestMemberInspectEconomy(playerId).IsEmpty();
+
+		if (commandId == "inspect_zones")
+			return !coordinator.RequestMemberInspectZones(playerId).IsEmpty();
+
+		if (commandId == "inspect_missions")
+			return !coordinator.RequestMemberInspectMissions(playerId).IsEmpty();
 
 		if (commandId == "move_hq")
 			return coordinator.RequestCommanderMoveHQ(playerId, argument);
