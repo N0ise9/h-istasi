@@ -92,9 +92,16 @@ foreach ($file in $files) {
 		if ($line -match "[ `t]+$") {
 			throw "Trailing whitespace: $($file.FullName):$lineNumber"
 		}
+
+		if ($file.Extension -eq ".c") {
+			$unescapedQuoteCount = ([regex]::Matches($line, '(?<!\\)"')).Count
+			if (($unescapedQuoteCount % 2) -ne 0) {
+				throw "Unbalanced script string quote: $($file.FullName):$lineNumber"
+			}
+		}
 	}
 }
-Write-Host "Brace and whitespace checks OK"
+Write-Host "Brace, string, and whitespace checks OK"
 
 $missionHeaders = Get-ChildItem -File "Missions" -Filter *.conf
 foreach ($missionHeader in $missionHeaders) {
@@ -1115,6 +1122,8 @@ foreach ($requiredLootEntry in @(
 	"HST_LootService",
 	"HST_LootResult",
 	"LootNearbyToArsenal",
+	"CaptureNearbyVehicleToGarage",
+	"DistanceSq2D",
 	"SCR_InventoryStorageManagerComponent",
 	"QueryEntitiesBySphere",
 	"BaseMagazineComponent",

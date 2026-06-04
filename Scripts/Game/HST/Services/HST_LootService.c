@@ -291,6 +291,13 @@ class HST_LootService
 		return "";
 	}
 
+	protected float DistanceSq2D(vector first, vector second)
+	{
+		float dx = first[0] - second[0];
+		float dz = first[2] - second[2];
+		return dx * dx + dz * dz;
+	}
+
 	protected int ResolveGarageRedeployCost(string prefab)
 	{
 		if (IsLikelyArmedVehicle(prefab))

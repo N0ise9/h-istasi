@@ -690,7 +690,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			AddZoneLinks(zone, "town_regina", "town_goat_bay", "outpost_western_heights");
 	}
 
-	private static void AddZoneLinks(HST_ZoneState zone, string first, string second = "", string third = ")
+	private static void AddZoneLinks(HST_ZoneState zone, string first, string second = "", string third = "")
 	{
 		if (!first.IsEmpty() && first != zone.m_sZoneId && !zone.m_aLinkedZoneIds.Contains(first))
 			zone.m_aLinkedZoneIds.Insert(first);
