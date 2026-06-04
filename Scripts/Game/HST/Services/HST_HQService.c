@@ -13,6 +13,10 @@ class HST_HQService
 	protected bool m_bWarnedPetrosResourceFailure;
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
+	protected bool m_bLoggedPetrosSpawned;
+	protected bool m_bLoggedCacheSpawned;
+	protected bool m_bLoggedArsenalSpawned;
+	protected bool m_bLoggedTentSpawned;
 
 	bool BootstrapInitialHideout(HST_CampaignState state, string hideoutId)
 	{
@@ -111,6 +115,7 @@ class HST_HQService
 			if (m_PetrosEntity)
 			{
 				ApplyFaction(m_PetrosEntity);
+				m_bLoggedPetrosSpawned = LogRuntimeObjectSpawnSuccess("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition, m_bLoggedPetrosSpawned);
 				changed = true;
 			}
 			else if (logDetails)
@@ -123,7 +128,10 @@ class HST_HQService
 		{
 			m_CacheEntity = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
 			if (m_CacheEntity)
+			{
+				m_bLoggedCacheSpawned = LogRuntimeObjectSpawnSuccess("cache", HQ_CACHE_PREFAB, state.m_vHQCachePosition, m_bLoggedCacheSpawned);
 				changed = true;
+			}
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("cache", HQ_CACHE_PREFAB, state.m_vHQCachePosition);
 		}
@@ -132,7 +140,10 @@ class HST_HQService
 		{
 			m_ArsenalEntity = SpawnArsenal(respawnSystem, state);
 			if (m_ArsenalEntity)
+			{
+				m_bLoggedArsenalSpawned = LogRuntimeObjectSpawnSuccess("arsenal", ResolveArsenalPrefab(state), state.m_vArsenalPosition, m_bLoggedArsenalSpawned);
 				changed = true;
+			}
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("arsenal", ResolveArsenalPrefab(state), state.m_vArsenalPosition);
 		}
@@ -141,7 +152,10 @@ class HST_HQService
 		{
 			m_TentEntity = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
 			if (m_TentEntity)
+			{
+				m_bLoggedTentSpawned = LogRuntimeObjectSpawnSuccess("tent", HQ_TENT_PREFAB, state.m_vHQTentPosition, m_bLoggedTentSpawned);
 				changed = true;
+			}
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("tent", HQ_TENT_PREFAB, state.m_vHQTentPosition);
 		}
@@ -418,6 +432,15 @@ class HST_HQService
 		Print(string.Format("h-istasi | HQ %1 spawn failed at %2 using %3", label, position, prefab), LogLevel.WARNING);
 	}
 
+	protected bool LogRuntimeObjectSpawnSuccess(string label, string prefab, vector position, bool alreadyLogged)
+	{
+		if (alreadyLogged)
+			return true;
+
+		Print(string.Format("h-istasi | HQ %1 spawned at %2 using %3", label, position, prefab));
+		return true;
+	}
+
 	protected void ClearRuntimeObjects(HST_CampaignState state)
 	{
 		DeleteRuntimeEntity(m_PetrosEntity);
@@ -429,6 +452,10 @@ class HST_HQService
 		m_CacheEntity = null;
 		m_ArsenalEntity = null;
 		m_TentEntity = null;
+		m_bLoggedPetrosSpawned = false;
+		m_bLoggedCacheSpawned = false;
+		m_bLoggedArsenalSpawned = false;
+		m_bLoggedTentSpawned = false;
 
 		if (state)
 			state.m_bHQRuntimeObjectsSpawned = false;

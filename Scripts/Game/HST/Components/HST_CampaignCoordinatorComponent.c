@@ -914,15 +914,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
-	bool RequestMemberCaptureNearbyVehicle(int playerId)
+	string RequestMemberCaptureNearbyVehicle(int playerId)
 	{
-		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Loot || !m_Arsenal)
-			return false;
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi garage | failed: membership required";
 
-		bool changed = m_Loot.CaptureNearbyVehicleToGarage(m_State, m_Preset, m_Arsenal, playerId);
-		if (changed)
+		if (!m_Loot || !m_Arsenal)
+			return "h-istasi garage | failed: service not ready";
+
+		string result = m_Loot.CaptureNearbyVehicleToGarage(m_State, m_Preset, m_Arsenal, playerId);
+		if (result.Contains("complete"))
 			MarkMajorCampaignChange();
-		return changed;
+		return result;
 	}
 
 	string RequestMemberCollectVehicleLoot(int playerId)
@@ -961,21 +964,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
-	bool RequestMemberRedeployGarageVehicle(int playerId)
+	string RequestMemberRedeployGarageVehicle(int playerId, string vehicleId = "")
 	{
-		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Arsenal)
-			return false;
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi garage | failed: membership required";
+
+		if (!m_Arsenal)
+			return "h-istasi garage | failed: service not ready";
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 		if (!playerEntity)
-			return false;
+			return "h-istasi garage | failed: no controlled player entity found";
 
 		vector deployOffset = "4 0 4";
 		vector deployPosition = HST_WorldPositionService.ResolveGroundPosition(playerEntity.GetOrigin() + deployOffset, HST_WorldPositionService.PROP_GROUND_OFFSET, true);
-		bool changed = m_Arsenal.RedeployFirstGarageVehicle(m_State, m_Economy, deployPosition);
-		if (changed)
+		string result = m_Arsenal.RedeployGarageVehicle(m_State, m_Economy, vehicleId, deployPosition);
+		if (result.Contains("complete"))
 			MarkMajorCampaignChange();
-		return changed;
+		return result;
 	}
 
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)

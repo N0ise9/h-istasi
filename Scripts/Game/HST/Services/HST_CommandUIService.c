@@ -24,6 +24,7 @@ class HST_CommandUIService
 	static const string TAB_FORCES = "forces";
 	static const string TAB_COMMANDER = "commander";
 	static const string TAB_ARSENAL = "arsenal";
+	static const string TAB_GARAGE = "garage";
 	static const string TAB_MEMBERS = "members";
 	static const string TAB_ADMIN = "admin";
 
@@ -65,6 +66,7 @@ class HST_CommandUIService
 		payload = payload + "\nTAB|map|Map/War|1";
 		payload = payload + "\nTAB|forces|Forces|1";
 		payload = payload + "\nTAB|arsenal|Arsenal/Loot|1";
+		payload = payload + "\nTAB|garage|Garage|1";
 		payload = payload + "\nTAB|members|Members|1";
 		payload = payload + "\nTAB|admin|Admin|1";
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
@@ -156,10 +158,10 @@ class HST_CommandUIService
 			return coordinator.RequestMemberUnloadVehicleCargo(playerId);
 
 		if (commandId == "garage_capture_nearby")
-			return BuildBoolResult("capture nearby vehicle to garage", coordinator.RequestMemberCaptureNearbyVehicle(playerId));
+			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
 
 		if (commandId == "garage_redeploy")
-			return BuildBoolResult("redeploy first garage vehicle", coordinator.RequestMemberRedeployGarageVehicle(playerId));
+			return coordinator.RequestMemberRedeployGarageVehicle(playerId, argument);
 
 		if (commandId == "move_hq")
 			return BuildBoolResult("move HQ to " + argument, coordinator.RequestCommanderMoveHQ(playerId, argument));
@@ -374,10 +376,10 @@ class HST_CommandUIService
 			return !coordinator.RequestMemberUnloadVehicleCargo(playerId).IsEmpty();
 
 		if (commandId == "garage_capture_nearby")
-			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
+			return IsActionResultComplete(coordinator.RequestMemberCaptureNearbyVehicle(playerId));
 
 		if (commandId == "garage_redeploy")
-			return coordinator.RequestMemberRedeployGarageVehicle(playerId);
+			return IsActionResultComplete(coordinator.RequestMemberRedeployGarageVehicle(playerId, argument));
 
 		if (commandId == "move_hq")
 			return coordinator.RequestCommanderMoveHQ(playerId, argument);
@@ -463,6 +465,17 @@ class HST_CommandUIService
 		return false;
 	}
 
+	protected bool IsActionResultComplete(string result)
+	{
+		if (result.IsEmpty())
+			return false;
+
+		if (result.Contains("failed") || result.Contains("required") || result.Contains("not ready") || result.Contains("no "))
+			return false;
+
+		return true;
+	}
+
 	protected string NormalizeTabId(string selectedTabId)
 	{
 		if (selectedTabId.IsEmpty())
@@ -476,6 +489,9 @@ class HST_CommandUIService
 
 		if (selectedTabId == "hq")
 			return TAB_PETROS;
+
+		if (selectedTabId == "vehicles")
+			return TAB_GARAGE;
 
 		return selectedTabId;
 	}
@@ -509,6 +525,14 @@ class HST_CommandUIService
 				return arsenal.BuildArsenalReport(state);
 
 			return "h-istasi arsenal | service not ready";
+		}
+
+		if (selectedTabId == TAB_GARAGE)
+		{
+			if (arsenal)
+				return arsenal.BuildGarageReport(state);
+
+			return "h-istasi garage | service not ready";
 		}
 
 		if (selectedTabId == TAB_MEMBERS)
@@ -608,6 +632,9 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ARSENAL)
 			return AppendArsenalSections(payload, state, settings);
+
+		if (selectedTabId == TAB_GARAGE)
+			return AppendGarageSections(payload, state);
 
 		if (selectedTabId == TAB_MEMBERS)
 			return AppendMembersSections(payload, state, canUseCommander);
@@ -868,6 +895,41 @@ class HST_CommandUIService
 		return payload;
 	}
 
+	protected string AppendGarageSections(string payload, HST_CampaignState state)
+	{
+		if (!state)
+			return payload;
+
+		payload = AppendSection(payload, "garage", "Virtual Garage");
+		payload = AppendRow(payload, "garage", "Stored vehicles", string.Format("%1", state.m_aGarageVehicles.Count()), GarageTone(state));
+		payload = AppendRow(payload, "garage", "Cargo entries", string.Format("%1 entries / %2 item(s)", CountVehicleCargoEntries(state), CountVehicleCargoItems(state)), "warn");
+		payload = AppendRow(payload, "garage", "Captured emplacements", string.Format("%1", state.m_aCapturedEmplacements.Count()), "neutral");
+		payload = AppendRow(payload, "garage", "Ammo points", string.Format("%1", state.m_aAmmoPoints.Count()), "neutral");
+
+		payload = AppendSection(payload, "stored_vehicles", "Stored Vehicles");
+		if (state.m_aGarageVehicles.Count() == 0)
+			payload = AppendRow(payload, "stored_vehicles", "Empty", "Capture a nearby top-level vehicle to virtualize it.", "neutral");
+
+		int emitted;
+		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+		{
+			if (!vehicle)
+				continue;
+
+			payload = AppendRow(payload, "stored_vehicles", GarageVehicleLabel(vehicle), GarageVehicleValue(vehicle), GarageVehicleTone(vehicle));
+			emitted++;
+			if (emitted >= 10)
+				break;
+		}
+
+		payload = AppendSection(payload, "garage_actions", "Capture And Redeploy");
+		payload = AppendRow(payload, "garage_actions", "Capture nearest", "Stores a safe root vehicle and despawns only that vehicle.", "good");
+		payload = AppendRow(payload, "garage_actions", "Redeploy", "Each stored vehicle gets its own selected redeploy action.", GarageTone(state));
+		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the h-istasi arsenal at HQ.", "warn");
+
+		return payload;
+	}
+
 	protected string AppendMembersSections(string payload, HST_CampaignState state, bool canUseCommander)
 	{
 		if (!state)
@@ -960,6 +1022,7 @@ class HST_CommandUIService
 		string guestIdentityId = SelectFirstGuestIdentity(state);
 		string memberIdentityId = SelectFirstMemberIdentity(state);
 		bool airSupportReady = HasResistanceAirSupportCapability(state);
+		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Config path / source of truth", "noop", "", true, "");
@@ -1039,12 +1102,38 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ARSENAL, "Collect loot into vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle cargo", "vehicle_unload_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Withdraw first available item", "withdraw_arsenal", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Capture nearby vehicle", "garage_capture_nearby", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Redeploy garage vehicle", "garage_redeploy", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Garage report", "inspect_garage", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
+			return;
+		}
+
+		if (selectedTabId == TAB_GARAGE)
+		{
+			AddMenuAction(actions, TAB_GARAGE, "Capture nearest vehicle", "garage_capture_nearby", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_GARAGE, "Unload nearest cargo", "vehicle_unload_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_GARAGE, "Inspect vehicle cargo", "inspect_vehicle_cargo", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_GARAGE, "Garage report", "inspect_garage", "", canUseMember, "membership required");
+
+			int garageActionCount;
+			if (state)
+			{
+				foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+				{
+					if (!vehicle)
+						continue;
+
+					AddMenuAction(actions, TAB_GARAGE, BuildGarageRedeployActionLabel(vehicle), "garage_redeploy", vehicle.m_sVehicleId, canUseMember, "membership required");
+					garageActionCount++;
+					if (garageActionCount >= 5)
+						break;
+				}
+			}
+
+			if (garageActionCount == 0)
+				AddMenuAction(actions, TAB_GARAGE, "Redeploy stored vehicle", "garage_redeploy", firstGarageVehicleId, false, "no stored vehicle");
+
+			AddMenuAction(actions, TAB_GARAGE, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1207,6 +1296,95 @@ class HST_CommandUIService
 		}
 
 		return "";
+	}
+
+	protected string SelectFirstGarageVehicleId(HST_CampaignState state)
+	{
+		if (!state)
+			return "";
+
+		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+		{
+			if (vehicle && !vehicle.m_sVehicleId.IsEmpty())
+				return vehicle.m_sVehicleId;
+		}
+
+		return "";
+	}
+
+	protected string BuildGarageRedeployActionLabel(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "Redeploy stored vehicle";
+
+		return "Redeploy: " + ShortGarageVehicleLabel(vehicle, 22);
+	}
+
+	protected string GarageVehicleLabel(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "unknown";
+
+		if (!vehicle.m_sDisplayName.IsEmpty())
+			return ShortGarageText(vehicle.m_sDisplayName, 28);
+
+		if (!vehicle.m_sPrefab.IsEmpty())
+			return ShortGarageText(vehicle.m_sPrefab, 28);
+
+		return vehicle.m_sVehicleId;
+	}
+
+	protected string GarageVehicleValue(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "missing";
+
+		return string.Format("%1 | cost $%2 | fuel %3 | armed %4", vehicle.m_sVehicleId, vehicle.m_iRedeployCost, vehicle.m_fFuel, vehicle.m_bArmed);
+	}
+
+	protected string GarageVehicleTone(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "bad";
+
+		if (vehicle.m_bArmed)
+			return "warn";
+
+		return "good";
+	}
+
+	protected string GarageTone(HST_CampaignState state)
+	{
+		if (state && state.m_aGarageVehicles.Count() > 0)
+			return "good";
+
+		return "warn";
+	}
+
+	protected string ShortGarageVehicleLabel(HST_GarageVehicleState vehicle, int maxCharacters)
+	{
+		if (!vehicle)
+			return "vehicle";
+
+		string label = vehicle.m_sDisplayName;
+		if (label.IsEmpty())
+			label = vehicle.m_sPrefab;
+
+		if (label.IsEmpty())
+			label = vehicle.m_sVehicleId;
+
+		return ShortGarageText(label, maxCharacters);
+	}
+
+	protected string ShortGarageText(string text, int maxCharacters)
+	{
+		if (text.Length() <= maxCharacters)
+			return text;
+
+		if (maxCharacters <= 3)
+			return text.Substring(0, maxCharacters);
+
+		return text.Substring(0, maxCharacters - 3) + "...";
 	}
 
 	protected string BuildZoneActionLabel(string prefix, HST_CampaignState state, string zoneId)

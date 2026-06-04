@@ -145,41 +145,79 @@ class HST_ArsenalService
 			if (!vehicle)
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | fuel %3 | armed %4", vehicle.m_sVehicleId, vehicle.m_sPrefab, vehicle.m_fFuel, vehicle.m_bArmed);
+			report = report + string.Format("\n%1 | %2 | cost %3 | fuel %4 | armed %5 | source %6/%7", vehicle.m_sVehicleId, GarageVehicleDisplayLabel(vehicle), vehicle.m_iRedeployCost, vehicle.m_fFuel, vehicle.m_bArmed, vehicle.m_sSourceZoneId, vehicle.m_sSourceFactionKey);
 		}
 
 		return report;
 	}
 
-	bool RedeployFirstGarageVehicle(HST_CampaignState state, HST_EconomyService economy, vector deployPosition)
+	string RedeployGarageVehicle(HST_CampaignState state, HST_EconomyService economy, string vehicleId, vector deployPosition)
 	{
 		if (!state || state.m_aGarageVehicles.Count() == 0)
-			return false;
+			return "h-istasi garage | failed: no stored vehicle";
 
-		HST_GarageVehicleState vehicle = state.m_aGarageVehicles[0];
+		HST_GarageVehicleState vehicle = SelectGarageVehicle(state, vehicleId);
 		if (!vehicle || vehicle.m_sPrefab.IsEmpty())
-			return false;
+			return "h-istasi garage | failed: selected vehicle not found";
 
 		int cost = vehicle.m_iRedeployCost;
 		if (cost <= 0)
 			cost = ResolveRedeployCost(vehicle);
 
 		if (economy && state.m_iFactionMoney < cost)
-			return false;
+			return string.Format("h-istasi garage | failed: redeploy requires $%1", cost);
 
 		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
 		if (!respawnSystem)
-			return false;
+			return "h-istasi garage | failed: respawn system not ready";
 
 		GenericEntity entity = respawnSystem.DoSpawn(vehicle.m_sPrefab, deployPosition, vehicle.m_vAngles);
 		if (!entity)
-			return false;
+			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
 
-		if (economy)
-			economy.SpendFactionMoney(state, cost);
+		if (economy && !economy.SpendFactionMoney(state, cost))
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			return string.Format("h-istasi garage | failed: redeploy requires $%1", cost);
+		}
 
-		state.m_aGarageVehicles.Remove(0);
-		return true;
+		string label = GarageVehicleDisplayLabel(vehicle);
+		RemoveVehicle(state, vehicle.m_sVehicleId);
+		return string.Format("h-istasi garage | redeployed %1 | complete", label);
+	}
+
+	bool RedeployFirstGarageVehicle(HST_CampaignState state, HST_EconomyService economy, vector deployPosition)
+	{
+		string result = RedeployGarageVehicle(state, economy, "", deployPosition);
+		return result.Contains("complete");
+	}
+
+	protected HST_GarageVehicleState SelectGarageVehicle(HST_CampaignState state, string vehicleId)
+	{
+		if (!state)
+			return null;
+
+		if (!vehicleId.IsEmpty())
+			return state.FindGarageVehicle(vehicleId);
+
+		if (state.m_aGarageVehicles.Count() > 0)
+			return state.m_aGarageVehicles[0];
+
+		return null;
+	}
+
+	protected string GarageVehicleDisplayLabel(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "vehicle";
+
+		if (!vehicle.m_sDisplayName.IsEmpty())
+			return vehicle.m_sDisplayName;
+
+		if (!vehicle.m_sPrefab.IsEmpty())
+			return vehicle.m_sPrefab;
+
+		return vehicle.m_sVehicleId;
 	}
 
 	protected bool ShouldUnlock(HST_ArsenalItemState item, HST_BalanceConfig balance)

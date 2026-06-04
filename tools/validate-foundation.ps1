@@ -88,11 +88,27 @@ foreach ($requiredProjectDependency in @(
 	'"58D0FB3206B6F859"',
 	'"595F2BF2F44836FB"',
 	'"1337C0DE5DABBEEF"',
-	'"BADC0DEDABBEDA5E"',
-	'"66913B3B2EF7EBEC"'
+	'"BADC0DEDABBEDA5E"'
 )) {
 	if ($project -notmatch [regex]::Escape($requiredProjectDependency)) {
 		throw "addon.gproj is missing required dependency: $requiredProjectDependency"
+	}
+}
+
+$allowedProjectDependencies = @(
+	"58D0FB3206B6F859",
+	"595F2BF2F44836FB",
+	"1337C0DE5DABBEEF",
+	"BADC0DEDABBEDA5E"
+)
+if ($project -notmatch 'Dependencies\s*\{([\s\S]*?)\}') {
+	throw "addon.gproj is missing a Dependencies block"
+}
+$projectDependenciesBlock = $Matches[1]
+foreach ($projectDependencyMatch in [regex]::Matches($projectDependenciesBlock, '"([0-9A-F]{16})"')) {
+	$dependencyGuid = $projectDependencyMatch.Groups[1].Value
+	if ($dependencyGuid -notin $allowedProjectDependencies) {
+		throw "addon.gproj has non-RHS dependency GUID: $dependencyGuid"
 	}
 }
 Write-Host "Project dependencies OK"
@@ -368,6 +384,7 @@ foreach ($requiredPetrosServiceEntry in @(
 	"failed to spawn; using base FIA fallback",
 	"no supply-cache fallback will be used",
 	"successful pieces were preserved for retry",
+	"LogRuntimeObjectSpawnSuccess",
 	"LogRuntimeObjectSpawnFailure",
 	"GetArsenalPrefab"
 )) {
@@ -413,20 +430,14 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"ArsenalBox_FIA_Weapons.et",
-	"ActionsManagerComponent",
-	'ActionsManagerComponent "{5D66ED1096104FD8}"',
-	"HST_HQArsenalOpenAction",
-	"HST_HQArsenalLootNearbyAction",
-	"Open h-istasi Arsenal",
-	"Loot nearby to h-istasi Arsenal"
+	"ArsenalBox_FIA_Weapons.et"
 )) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
-		throw "HST HQ arsenal prefab is missing contextual action entry: $requiredArsenalPrefabEntry"
+		throw "HST HQ arsenal prefab is missing FIA arsenal visual entry: $requiredArsenalPrefabEntry"
 	}
 }
-if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"') {
-	throw "HST HQ arsenal prefab must not add the stale HST-owned duplicate action manager"
+if ($hqArsenalPrefabText -match "ActionsManagerComponent") {
+	throw "HST HQ arsenal prefab must not add a duplicate action manager on top of the FIA arsenal parent"
 }
 if ($hqArsenalPrefabText -match "SupplyCache_S_FIA_01.et") {
 	throw "HST HQ arsenal prefab must use a distinct non-tent arsenal parent, not the FIA supply-cache composition"
@@ -1059,10 +1070,10 @@ foreach ($requiredSupportStrikeEntry in @(
 	"support_kh55"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSupportStrikeEntry)) {
-		throw "Missing RHS/Tonka support strike contract entry: $requiredSupportStrikeEntry"
+		throw "Missing RHS support strike contract entry: $requiredSupportStrikeEntry"
 	}
 }
-Write-Host "RHS/Tonka support strike contract OK"
+Write-Host "RHS support strike contract OK"
 
 foreach ($requiredCoordinatorEntry in @(
 	"RegisterConnectedPlayer",
@@ -1146,7 +1157,6 @@ Write-Host "Antistasi framework service spine OK"
 
 foreach ($requiredCommandMenuEntry in @(
 	'ScriptComponentClass',
-	'COMMAND_MENU_ACTION = "Inventory"',
 	'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',
 	'MENU_INPUT_CONTEXT = "InGameMenuContext"',
 	'INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf"',
@@ -1155,13 +1165,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'RemoveActionListener',
 	'SetCustomConfigs',
 	'EnsureInputConfig',
-	'RegisterExistingIKeyActionListeners',
-	'GetActionKeybinding',
 	'OnCustomCommandMenuInput(float value, EActionTrigger reason)',
-	'OnInventoryCommandMenuInput(float value, EActionTrigger reason)',
-	'OnIKeyAliasInput(float value, EActionTrigger reason)',
-	'AddActionListener(actionName, EActionTrigger.DOWN, OnIKeyAliasInput)',
-	'RemoveActionListener(iKeyActionName, EActionTrigger.DOWN, OnIKeyAliasInput)',
 	'keyboard:KC_I',
 	'IsLocalOwner',
 	'local player menu component ready',
@@ -1174,16 +1178,12 @@ foreach ($requiredCommandMenuEntry in @(
 	'm_aCanvasCommandSets',
 	'SetDrawCommands',
 	'ActivateContext(MENU_INPUT_CONTEXT)',
-	'ActivateAction(COMMAND_MENU_ACTION)',
 	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
 	'GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION)',
-	'GetActionTriggered(COMMAND_MENU_ACTION)',
 	'Debug.KeyState(KeyCode.KC_I)',
 	'Debug.ClearKey(KeyCode.KC_I)',
-	'KEY_PRESSED_MASK',
+	'keyState != 0',
 	'custom action listener fired',
-	'inventory fallback listener fired',
-	'I-key alias listener fired',
 	'raw KC_I edge seen',
 	'ignored duplicate toggle',
 	'm_fCommandMenuDebounceRemaining',
@@ -1202,7 +1202,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'if (i >= 4)',
-	'ShortenText(m_aRowValues[i], 38)',
+	'ShortenText(m_aRowValues[i], 42)',
 	'SCR_HintManagerComponent',
 	'STAT|',
 	'SECTION|',
@@ -1239,6 +1239,9 @@ foreach ($requiredCommandMenuEntry in @(
 	'withdraw_arsenal',
 	'garage_capture_nearby',
 	'garage_redeploy',
+	'TAB_GARAGE',
+	'AppendGarageSections',
+	'Redeploy: ',
 	'move_hq',
 	'move_hq_here',
 	'recruit_zone',
@@ -1292,15 +1295,21 @@ if (!$registerInputMatch.Success) {
 if ($registerInputMatch.Value -match "if\s*\(!EnsureIKeyBinding\(inputManager\)\)") {
 	throw "Input registration must not block on the custom command menu binding"
 }
-$customListenerIndex = $registerInputMatch.Value.IndexOf("OnCustomCommandMenuInput")
-$aliasListenerIndex = $registerInputMatch.Value.IndexOf("RegisterExistingIKeyActionListeners")
-$inventoryListenerIndex = $registerInputMatch.Value.IndexOf("OnInventoryCommandMenuInput")
-if ($inventoryListenerIndex -ge 0 -and (($customListenerIndex -ge 0 -and $inventoryListenerIndex -lt $customListenerIndex) -or ($aliasListenerIndex -ge 0 -and $inventoryListenerIndex -lt $aliasListenerIndex))) {
-	throw "Inventory input listener must be registered after custom and alias paths so it remains a fallback"
-}
-$aliasInputMatch = [regex]::Match($scriptText, "protected void RegisterExistingIKeyActionListeners[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool ActionUsesIKey")
-if (!$aliasInputMatch.Success -or $aliasInputMatch.Value -notmatch "AddActionListener\(actionName, EActionTrigger\.DOWN, OnIKeyAliasInput\)") {
-	throw "Discovered I-key aliases must attach through the debounced alias callback"
+foreach ($removedMenuInputContract in @(
+	'COMMAND_MENU_ACTION = "Inventory"',
+	'RegisterExistingIKeyActionListeners',
+	'ActionUsesIKey',
+	'OnInventoryCommandMenuInput',
+	'OnIKeyAliasInput',
+	'ActivateAction(COMMAND_MENU_ACTION)',
+	'GetActionTriggered(COMMAND_MENU_ACTION)',
+	'KEY_PRESSED_MASK',
+	'inventory fallback listener fired',
+	'I-key alias listener fired'
+)) {
+	if ($scriptText -match [regex]::Escape($removedMenuInputContract)) {
+		throw "Command menu must use custom HST_CommandMenu plus raw KC_I, not the old Inventory/alias fallback: $removedMenuInputContract"
+	}
 }
 $appendTopStatsMatch = [regex]::Match($scriptText, "protected string AppendTopStats[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string AppendTabSections")
 if (!$appendTopStatsMatch.Success) {
@@ -1404,6 +1413,13 @@ foreach ($requiredLootEntry in @(
 	"BuildVehicleCargoReport",
 	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
+	"IsLikelyVehicleRootPrefab",
+	"IsVehiclePartEntity",
+	"IsVehiclePartName",
+	"no safe root vehicle nearby",
+	"nearest candidate was not a top-level vehicle",
+	"RedeployGarageVehicle",
+	"SelectGarageVehicle",
 	"DistanceSq2D",
 	"SCR_InventoryStorageManagerComponent",
 	"QueryEntitiesBySphere",

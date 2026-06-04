@@ -1,24 +1,2 @@
 GenericEntity HST_HQArsenal : "{9EF8CF9ED5F800A7}Prefabs/Props/Military/Compositions/FIA/ArsenalBox_FIA_Weapons.et" {
- components {
-  ActionsManagerComponent "{5D66ED1096104FD8}" {
-   additionalActions {
-    HST_HQArsenalOpenAction "{6985327711303402}" {
-     ParentContextList {
-      "default"
-     }
-     UIInfo UIInfo "{6985327711303403}" {
-      Name "Open h-istasi Arsenal"
-     }
-    }
-    HST_HQArsenalLootNearbyAction "{6985327711303404}" {
-     ParentContextList {
-      "default"
-     }
-     UIInfo UIInfo "{6985327711303405}" {
-      Name "Loot nearby to h-istasi Arsenal"
-     }
-    }
-   }
-  }
- }
 }
