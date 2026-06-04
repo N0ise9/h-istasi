@@ -813,9 +813,14 @@ foreach ($requiredCommandMenuEntry in @(
 	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
 	'GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION)',
 	'GetActionTriggered(COMMAND_MENU_ACTION)',
+	'Debug.KeyState(KeyCode.KC_I)',
+	'Debug.ClearKey(KeyCode.KC_I)',
+	'KEY_PRESSED_MASK',
 	'm_fCommandMenuDebounceRemaining',
 	'm_bCommandMenuKeyDownLastFrame',
+	'm_bRawIKeyDownLastFrame',
 	'PollCommandMenuInput',
+	'PollRawCommandMenuKey',
 	'TryToggleCommandMenu',
 	'MENU_FONT',
 	'ApplyTextStyle',
@@ -823,6 +828,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'SetLineSpacing',
 	'SetOutline',
 	'SetShadow',
+	'SetTextWrapping(false)',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
@@ -870,6 +876,9 @@ if ($scriptText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID"
 }
 if ($scriptText -match "\bPanelWidgetTypeID\b") {
 	throw "Command menu visible fills must use canvas draw commands, not panel widget fills"
+}
+if ($scriptText -match "\bWidgetFlags\.WRAP_TEXT\b") {
+	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
 }
 $rectFactoryMatch = [regex]::Match($scriptText, "protected Widget CreateRectWidget[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool SetupCanvasRect")
 if (!$rectFactoryMatch.Success -or $rectFactoryMatch.Value -notmatch "WidgetType\.CanvasWidgetTypeID") {
