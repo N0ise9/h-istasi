@@ -386,6 +386,14 @@ class HST_CampaignState
 	int m_iRuntimeMilitaryVehicleCount;
 	int m_iRuntimeSpawnFailureCount;
 	string m_sLastRuntimeSpawnFailurePrefab;
+	string m_sHQArsenalRuntimeStatus = "pending";
+	string m_sLastHQArsenalFailure;
+	int m_iLastVehicleTargetCandidates;
+	string m_sLastVehicleTargetStatus = "not scanned";
+	string m_sLastVehicleTargetPrefab;
+	string m_sLastVehicleTargetReason;
+	float m_fLastVehicleTargetDistanceMeters;
+	int m_iLastVehicleTargetCargoEntries;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};

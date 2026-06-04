@@ -377,6 +377,13 @@ foreach ($requiredPetrosServiceEntry in @(
 	"IsUsableArsenalEntity",
 	"ARSENAL_FALLBACK_PREFAB",
 	"ARSENAL_VISIBLE_LIFT_METERS",
+	"ARSENAL_POSITION_TOLERANCE_METERS",
+	"m_bArsenalNeedsDelayedVerification",
+	"VerifyDelayedArsenalEntity",
+	"ResolveArsenalReadinessFailure",
+	"ResolveArsenalSpawnPosition",
+	"m_sHQArsenalRuntimeStatus",
+	"m_sLastHQArsenalFailure",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
 	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
 	"MoveHQToPosition",
@@ -509,8 +516,12 @@ if ($balanceConfigTextEarly -match "m_aCivilianGroupPrefabs" -or $defaultCatalog
 if ($balanceConfigTextEarly -notmatch "m_aCivilianCharacterPrefabs" -or $defaultCatalogEarly -notmatch "m_aCivilianCharacterPrefabs") {
 	throw "Civilian runtime config must expose the direct civilian character prefab pool"
 }
-if ($balanceConfigTextEarly -match "Character_CIV" -or $defaultCatalogEarly -match "Character_CIV") {
+if ($balanceConfigTextEarly -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $defaultCatalogEarly -match '"Prefabs/Characters/Factions/CIV/Character_CIV') {
 	throw "Civilian character pools must not contain path-only Character_CIV resources"
+}
+$civilianCharacterPoolEntriesEarly = [regex]::Matches($balanceConfigTextEarly + "`n" + $defaultCatalogEarly, '"\{[0-9A-F]{16}\}Prefabs/Characters/Factions/CIV/[^"]+Character_CIV_[^"]+\.et"')
+if ($civilianCharacterPoolEntriesEarly.Count -lt 6) {
+	throw "Civilian character pools must contain at least 6 GUID-qualified stock CIV character resources"
 }
 Write-Host "Civilian character runtime resource surface OK"
 
@@ -1585,6 +1596,7 @@ Write-Host "Runtime settings generated-config contract OK"
 foreach ($requiredLootEntry in @(
 	"HST_LootService",
 	"HST_LootResult",
+	"HST_VehicleRootScanResult",
 	"HST_DisplayNameService",
 	"LootNearbyToArsenal",
 	"CollectNearbyLootToVehicle",
@@ -1603,12 +1615,22 @@ foreach ($requiredLootEntry in @(
 	"BuildVehicleCargoReport",
 	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
+	"FindNearestVehicleRoot",
+	"PublishVehicleTargetDiagnostics",
 	"ResolveVehicleRoot",
 	"IsEligibleVehicleRoot",
+	"BuildVehicleRootRejectReason",
+	"HasVehicleRootComponent",
 	"IsLikelyVehicleRootPrefab",
 	"IsRejectedVehicleRootPrefab",
 	"IsVehiclePartEntity",
 	"IsVehiclePartName",
+	"m_iLastVehicleTargetCandidates",
+	"m_sLastVehicleTargetStatus",
+	"m_sLastVehicleTargetReason",
+	"m_sLastVehicleTargetPrefab",
+	"m_iLastVehicleTargetCargoEntries",
+	"SCR_BaseCompartmentManagerComponent",
 	"no safe root vehicle nearby",
 	"nearest candidate was not a top-level vehicle",
 	"RedeployGarageVehicle",
@@ -1670,6 +1692,7 @@ Write-Host "HQ interaction radius gates OK"
 $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
 foreach ($requiredVehicleRejectionEntry in @(
 	'prefab.Contains("Prefabs/Vehicles/")',
+	'HasVehicleRootComponent(entity)',
 	'prefab.Contains("Supply")',
 	'prefab.Contains("Crate")',
 	'prefab.Contains("Cache")',
@@ -1807,7 +1830,9 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	"RecordSpawnFailure",
 	"PublishRuntimeDiagnostics",
 	"IsGuidQualifiedResource",
-	"no GUID-qualified civilian character prefabs configured",
+	"MIN_CIVILIAN_CHARACTER_PREFABS",
+	"CountGuidQualifiedCivilianCharacterPrefabs",
+	"fewer than",
 	"SelectCivilianVehiclePrefab",
 	"ResolveTownVehicleSpawnPosition",
 	"BuildZoneSeed",
@@ -1845,8 +1870,12 @@ $civilianRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Ci
 if ($civilianRuntimeServiceText -match 'HST_CivilianTownGroup' -or $civilianRuntimeServiceText -match 'm_aCivilianGroupPrefabs' -or $configResourceText -match 'm_aCivilianGroupPrefabs') {
 	throw "Civilian runtime must not spawn the broken HST civilian SCR_AIGroup prefabs"
 }
-if ($civilianRuntimeServiceText -match 'Character_CIV' -or $configResourceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $defaultCatalog -match 'Character_CIV') {
+if ($civilianRuntimeServiceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $configResourceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $defaultCatalog -match '"Prefabs/Characters/Factions/CIV/Character_CIV') {
 	throw "Civilian character runtime must not use path-only Character_CIV resources"
+}
+$civilianCharacterPoolEntries = [regex]::Matches($configResourceText + "`n" + $defaultCatalog, '"\{[0-9A-F]{16}\}Prefabs/Characters/Factions/CIV/[^"]+Character_CIV_[^"]+\.et"')
+if ($civilianCharacterPoolEntries.Count -lt 6) {
+	throw "Civilian character runtime must ship at least 6 GUID-qualified default CIV character resources"
 }
 if ($civilianRuntimeServiceText -match 'DoSpawn\(prefab, position, "0 0 0"\)') {
 	throw "Ambient civilian/military runtime spawns must pass deterministic angles instead of hard-coded zero angles"

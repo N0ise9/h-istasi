@@ -71,7 +71,7 @@ class HST_CommandUIService
 		payload = payload + "\nTAB|admin|Admin|1";
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendTopStats(payload, state, preset);
-		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
+		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
 
 		if (!lastResult.IsEmpty())
@@ -602,7 +602,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
 		if (selectedTabId == TAB_SETUP)
 			return AppendSetupSections(payload, state, settings);
@@ -619,7 +619,7 @@ class HST_CommandUIService
 			return AppendOverviewSections(payload, state, preset);
 
 		if (selectedTabId == TAB_PETROS)
-			return AppendHQSections(payload, state, canUseCommander);
+			return AppendHQSections(payload, state, settings, playerId, canUseCommander);
 
 		if (selectedTabId == TAB_MISSIONS)
 			return AppendMissionSections(payload, state);
@@ -631,10 +631,10 @@ class HST_CommandUIService
 			return AppendForcesSections(payload, state, preset, canUseCommander);
 
 		if (selectedTabId == TAB_ARSENAL)
-			return AppendArsenalSections(payload, state, settings);
+			return AppendArsenalSections(payload, state, settings, playerId);
 
 		if (selectedTabId == TAB_GARAGE)
-			return AppendGarageSections(payload, state, settings);
+			return AppendGarageSections(payload, state, settings, playerId);
 
 		if (selectedTabId == TAB_MEMBERS)
 			return AppendMembersSections(payload, state, canUseCommander);
@@ -712,7 +712,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendHQSections(string payload, HST_CampaignState state, bool canUseCommander)
+	protected string AppendHQSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings, int playerId, bool canUseCommander)
 	{
 		if (!state)
 			return payload;
@@ -728,7 +728,13 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "hq", "HQ position", string.Format("%1", state.m_vHQPosition), "neutral");
 		payload = AppendRow(payload, "hq", "Petros position", string.Format("%1", state.m_vPetrosPosition), "neutral");
 		payload = AppendRow(payload, "hq", "Arsenal position", string.Format("%1", state.m_vArsenalPosition), "neutral");
+		payload = AppendRow(payload, "hq", "Cache position", string.Format("%1", state.m_vHQCachePosition), "neutral");
+		payload = AppendRow(payload, "hq", "Arsenal prefab", state.m_sArsenalPrefab, "neutral");
+		payload = AppendRow(payload, "hq", "Arsenal status", BuildArsenalRuntimeStatus(state), BuildArsenalRuntimeTone(state));
+		if (!state.m_sLastHQArsenalFailure.IsEmpty())
+			payload = AppendRow(payload, "hq", "Arsenal failure", state.m_sLastHQArsenalFailure, "bad");
 		payload = AppendRow(payload, "hq", "Runtime objects", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
+		payload = AppendRow(payload, "hq", "HQ radius", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
 
 		payload = AppendSection(payload, "moves", "Move Base");
 		payload = AppendRow(payload, "moves", "Move here", "Uses your current position as the new HQ.", CommanderGateTone(canUseCommander));
@@ -836,7 +842,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendArsenalSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings)
+	protected string AppendArsenalSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings, int playerId)
 	{
 		if (!state)
 			return payload;
@@ -852,10 +858,15 @@ class HST_CommandUIService
 		{
 			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
 			payload = AppendRow(payload, "arsenal", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
+			payload = AppendRow(payload, "arsenal", "HQ radius status", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
 			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 / rear %2m / max %3", settings.m_VehicleLoot.m_bEnabled, settings.m_VehicleLoot.m_iRadiusMeters, settings.m_VehicleLoot.m_iMaxItemsPerAction), "neutral");
 			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 / magazines x%2", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold, settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier), "neutral");
 			payload = AppendRow(payload, "arsenal", "Loot rule", string.Format("locked only %1 / remove source %2", settings.m_ArsenalLoot.m_bLootOnlyLockedItems, settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
 		}
+
+		payload = AppendRow(payload, "arsenal", "Vehicle target", BuildVehicleTargetStatus(state), BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "arsenal", "Target reason", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "arsenal", "Vehicle cargo target", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
 
 		payload = AppendSection(payload, "items", "Recovered Equipment");
 		if (state.m_aArsenalItems.Count() == 0)
@@ -897,7 +908,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendGarageSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings)
+	protected string AppendGarageSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings, int playerId)
 	{
 		if (!state)
 			return payload;
@@ -913,7 +924,13 @@ class HST_CommandUIService
 		if (!state.m_sLastRuntimeSpawnFailurePrefab.IsEmpty())
 			payload = AppendRow(payload, "garage", "Last failed prefab", state.m_sLastRuntimeSpawnFailurePrefab, "bad");
 		if (settings)
+		{
 			payload = AppendRow(payload, "garage", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
+			payload = AppendRow(payload, "garage", "HQ radius status", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
+		}
+		payload = AppendRow(payload, "garage", "Nearest vehicle", BuildVehicleTargetStatus(state), BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "garage", "Vehicle reject", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
+		payload = AppendRow(payload, "garage", "Target cargo", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
 
 		payload = AppendSection(payload, "stored_vehicles", "Stored Vehicles");
 		if (state.m_aGarageVehicles.Count() == 0)
@@ -934,7 +951,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "garage_actions", "Capture And Redeploy");
 		payload = AppendRow(payload, "garage_actions", "Capture nearest", "Stores a safe root vehicle and despawns only that vehicle.", "good");
 		payload = AppendRow(payload, "garage_actions", "Redeploy", "Each stored vehicle gets its own selected redeploy action.", GarageTone(state));
-		payload = AppendRow(payload, "garage_actions", "Vehicle target", "Nearest top-level vehicle root within action range.", "neutral");
+		payload = AppendRow(payload, "garage_actions", "Vehicle target", string.Format("Candidates %1 / %2", state.m_iLastVehicleTargetCandidates, state.m_sLastVehicleTargetReason), BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the h-istasi arsenal at HQ.", "warn");
 
 		return payload;
@@ -1494,6 +1511,127 @@ class HST_CommandUIService
 			return "good";
 
 		return "warn";
+	}
+
+	protected string BuildArsenalRuntimeStatus(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		if (!state.m_sHQArsenalRuntimeStatus.IsEmpty())
+			return state.m_sHQArsenalRuntimeStatus;
+
+		if (state.m_bHQRuntimeObjectsSpawned)
+			return "ready";
+
+		return "pending";
+	}
+
+	protected string BuildArsenalRuntimeTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "warn";
+
+		if (!state.m_sLastHQArsenalFailure.IsEmpty())
+			return "bad";
+
+		if (state.m_sHQArsenalRuntimeStatus.Contains("ready"))
+			return "good";
+
+		if (state.m_sHQArsenalRuntimeStatus.Contains("failed"))
+			return "bad";
+
+		return "warn";
+	}
+
+	protected string BuildVehicleTargetStatus(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		string target = state.m_sLastVehicleTargetStatus;
+		if (target.IsEmpty())
+			target = "not scanned";
+
+		if (!state.m_sLastVehicleTargetPrefab.IsEmpty())
+			target = target + string.Format(" | %1 | %2m", HST_DisplayNameService.ResolveVehicleDisplayName(state.m_sLastVehicleTargetPrefab), state.m_fLastVehicleTargetDistanceMeters);
+
+		return target;
+	}
+
+	protected string BuildVehicleTargetTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "warn";
+
+		if (!state.m_sLastVehicleTargetPrefab.IsEmpty())
+			return "good";
+
+		if (state.m_iLastVehicleTargetCandidates > 0)
+			return "bad";
+
+		return "neutral";
+	}
+
+	protected string BuildHQRadiusStatus(HST_CampaignState state, HST_RuntimeSettings settings, int playerId)
+	{
+		if (!state || !state.m_bHQDeployed)
+			return "HQ not deployed";
+
+		int radius = ResolveHQRadiusMeters(settings);
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return string.Format("no controlled player entity / radius %1m", radius);
+
+		float distance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), state.m_vHQPosition));
+		if (distance <= radius)
+			return string.Format("inside HQ radius | %1m / %2m", Math.Round(distance), radius);
+
+		return string.Format("outside HQ radius | %1m / %2m", Math.Round(distance), radius);
+	}
+
+	protected string BuildHQRadiusTone(HST_CampaignState state, HST_RuntimeSettings settings, int playerId)
+	{
+		if (!state || !state.m_bHQDeployed)
+			return "warn";
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return "warn";
+
+		int radius = ResolveHQRadiusMeters(settings);
+		if (DistanceSq2D(playerEntity.GetOrigin(), state.m_vHQPosition) <= radius * radius)
+			return "good";
+
+		return "bad";
+	}
+
+	protected int ResolveHQRadiusMeters(HST_RuntimeSettings settings)
+	{
+		if (settings)
+			return Math.Max(1, settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters);
+
+		return 50;
+	}
+
+	protected IEntity ResolveControlledPlayerEntity(int playerId)
+	{
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager || playerId <= 0)
+			return null;
+
+		IEntity controlledEntity = playerManager.GetPlayerControlledEntity(playerId);
+		if (controlledEntity)
+			return controlledEntity;
+
+		return SCR_PossessingManagerComponent.GetPlayerMainEntity(playerId);
+	}
+
+	protected float DistanceSq2D(vector first, vector second)
+	{
+		float dx = first[0] - second[0];
+		float dz = first[2] - second[2];
+		return dx * dx + dz * dz;
 	}
 
 	protected string BuildStrategicOrder(HST_CampaignState state, HST_CampaignPreset preset)

@@ -1,5 +1,7 @@
 class HST_CivilianService
 {
+	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 6;
+
 	static const int HEAT_DECAY_SECONDS = 300;
 	static const int UNDERCOVER_RECHECK_SECONDS = 20;
 	static const float PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
@@ -259,7 +261,7 @@ class HST_CivilianService
 			if (civilianZone)
 			{
 				int civilianCount = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
-				if (civilianCount > 0 && balance.m_aCivilianCharacterPrefabs.Count() == 0)
+				if (civilianCount > 0 && CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
 					WarnMissingCivilianCharacterPool(zone, civilianCount);
 
 				for (int i = 0; i < civilianCount; i++)
@@ -516,7 +518,7 @@ class HST_CivilianService
 
 	protected string SelectCivilianCharacterPrefab(HST_BalanceConfig balance, int index, int seed)
 	{
-		if (!balance || balance.m_aCivilianCharacterPrefabs.Count() == 0)
+		if (!balance || CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
 			return "";
 
 		for (int i = 0; i < balance.m_aCivilianCharacterPrefabs.Count(); i++)
@@ -570,6 +572,21 @@ class HST_CivilianService
 		return !prefab.IsEmpty() && prefab.Contains("{") && prefab.Contains("}") && prefab.Contains("Prefabs/");
 	}
 
+	protected int CountGuidQualifiedCivilianCharacterPrefabs(HST_BalanceConfig balance)
+	{
+		if (!balance)
+			return 0;
+
+		int validCount;
+		foreach (string prefab : balance.m_aCivilianCharacterPrefabs)
+		{
+			if (IsGuidQualifiedResource(prefab))
+				validCount++;
+		}
+
+		return validCount;
+	}
+
 	protected bool IsKnownInvalidVehicleResource(string prefab)
 	{
 		return prefab.Contains("Car_M1151.et");
@@ -607,12 +624,12 @@ class HST_CivilianService
 	{
 		if (!m_bWarnedMissingCivilianCharacterPool)
 		{
-			Print("h-istasi civilians | no GUID-qualified civilian character prefabs configured; skipping civilian character ambience instead of spawning broken CIV group shells", LogLevel.WARNING);
+			Print(string.Format("h-istasi civilians | fewer than %1 GUID-qualified civilian character prefabs configured; skipping civilian character ambience instead of spawning broken CIV group shells", MIN_CIVILIAN_CHARACTER_PREFABS), LogLevel.WARNING);
 			m_bWarnedMissingCivilianCharacterPool = true;
 		}
 
 		if (zone)
-			RecordSpawnFailure(zone.m_sZoneId, "<missing GUID-qualified civilian character pool>", "CIV_CHARACTER", zone.m_vPosition, BuildSpawnAngles(0));
+			RecordSpawnFailure(zone.m_sZoneId, "<missing minimum GUID-qualified civilian character pool>", "CIV_CHARACTER", zone.m_vPosition, BuildSpawnAngles(0));
 	}
 
 	protected void RecordSpawnFailure(string zoneId, string prefab, string runtimeKind, vector position, vector angles)
