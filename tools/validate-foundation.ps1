@@ -144,8 +144,6 @@ $requiredRuntimeScaffold = @(
 	'Configs/Map/MapSpawnConflict.conf',
 	'SCR_MapMarkerManagerComponent',
 	'Configs/Map/CampaignMapMarkerConfig.conf',
-	'SCR_ScenarioFrameworkSlotMarker',
-	'SCR_ScenarioFrameworkMarkerCustom',
 	'SCR_PlayerSpawnPointManagerComponent',
 	'SCR_SpawnProtectionComponent',
 	'SCR_TimedSpawnPointComponent',
@@ -226,8 +224,12 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Primary FIA player loadouts must be explicitly affiliated with FIA in ${runtimeLayer}"
 	}
 
-	if ($text -notmatch "SCR_MapMarkerManagerComponent" -or $text -notmatch "SCR_ScenarioFrameworkSlotMarker" -or $text -notmatch "SCR_ScenarioFrameworkMarkerCustom") {
-		throw "Runtime layer must expose the native map marker manager plus Tonka-style Scenario Framework markers: $runtimeLayer"
+	if ($text -notmatch "SCR_MapMarkerManagerComponent") {
+		throw "Runtime layer must expose the native map marker manager: $runtimeLayer"
+	}
+
+	if ($text -match "HST_TonkaMapMarkerArea" -or $text -match "HST_DevMapMarkerArea" -or $text -match "HST_CallsignMarker_" -or $text -match "GenericEntity\s+HST_MapMarker_") {
+		throw "Runtime layer must not keep stale Scenario Framework fallback map markers: $runtimeLayer"
 	}
 
 	if ($text -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
@@ -543,15 +545,15 @@ foreach ($oldPlaceholderId in @(
 
 foreach ($requiredNativeMarkerEntry in @(
 	"SCR_MapMarkerManagerComponent",
-	"Configs/Map/CampaignMapMarkerConfig.conf",
-	"SCR_ScenarioFrameworkSlotMarker",
-	"SCR_ScenarioFrameworkMarkerCustom",
-	"HST_MapMarker_",
-	"HST_CallsignMarker_"
+	"Configs/Map/CampaignMapMarkerConfig.conf"
 )) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
 		throw "Missing Tonka-style map marker scaffold entry: $requiredNativeMarkerEntry"
 	}
+}
+
+if ($runtimeMarkerLayer -match "HST_TonkaMapMarkerArea" -or $runtimeMarkerLayer -match "HST_CallsignMarker_" -or $runtimeMarkerLayer -match "GenericEntity\s+HST_MapMarker_") {
+	throw "Everon runtime layer must not contain stale Scenario Framework marker entities"
 }
 
 foreach ($requiredRuntimeMarkerEntry in @(
@@ -582,29 +584,17 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"InsertStaticMarker",
 	"RemoveStaticMarker",
 	"GetStaticMarkerByID",
-	"TONKA_STYLE_MARKER_ENTITY",
-	"SCR_ScenarioFrameworkSlotMarker"
+	"POINT_SPECIAL",
+	"OBSERVATION_POST"
 )) {
 	if ($markerServiceText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
 		throw "Missing runtime Tonka-style marker service entry: $requiredRuntimeMarkerEntry"
 	}
 }
 
-if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and $worldResourceText -match "m_eActivationType ON_TRIGGER_ACTIVATION") {
-	throw "Map markers must not use trigger activation without an active Scenario Framework parent"
-}
-
-if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and ($worldResourceText -notmatch "SCR_MapMarkerManagerComponent" -or $markerServiceText -notmatch "HST_MapMarkerService")) {
-	throw "Scenario Framework markers require the native marker manager and h-istasi marker service"
-}
-
 foreach ($zoneId in $configZones) {
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
 		throw "Missing strategic zone anchor for configured Tonka node: $zoneId"
-	}
-
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$zoneId")) {
-		throw "Missing Tonka-style icon marker for configured node: $zoneId"
 	}
 }
 
@@ -619,10 +609,6 @@ foreach ($townId in $townZoneIds) {
 		throw "Missing town anchor for $townId"
 	}
 
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$townId")) {
-		throw "Missing Tonka-style town icon marker for $townId"
-	}
-
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$townId")) {
 		throw "Missing strategic zone anchor for $townId"
 	}
@@ -633,21 +619,12 @@ foreach ($group in @($townAnchorIds | Group-Object | Where-Object Count -gt 1)) 
 	throw "Duplicate town layer anchor ID: $($group.Name)"
 }
 
-$nativeMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_MapMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
-foreach ($group in @($nativeMarkerIds | Group-Object | Where-Object Count -gt 1)) {
-	throw "Duplicate Tonka-style map marker ID: $($group.Name)"
-}
-
 $conflictMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_ConflictMapMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
 foreach ($group in @($conflictMarkerIds | Group-Object | Where-Object Count -gt 1)) {
 	throw "Duplicate native Conflict campaign marker ID: $($group.Name)"
 }
 
 foreach ($zoneId in $configZones) {
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$zoneId")) {
-		throw "Configured zone lacks Tonka-style runtime marker: $zoneId"
-	}
-
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_ConflictMapMarker_$zoneId")) {
 		throw "Configured zone lacks visible native Conflict campaign marker: $zoneId"
 	}
@@ -655,11 +632,6 @@ foreach ($zoneId in $configZones) {
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
 		throw "Configured zone lacks strategic anchor: $zoneId"
 	}
-}
-
-$nativeMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "GenericEntity\s+HST_MapMarker_")).Count
-if ($nativeMarkerCount -lt $configZones.Count) {
-	throw "Tonka-style runtime marker block count is unexpectedly low: $nativeMarkerCount"
 }
 
 $conflictMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "HST_ConflictMapMarker_")).Count
@@ -673,20 +645,6 @@ if ($runtimeMarkerLayer -notmatch "HST_ConflictMapMarker_[\s\S]*?SCR_FactionAffi
 
 if ($runtimeMarkerLayer -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
 	throw "Tonka-style marker layer must not include red dot-circle native marker overlays"
-}
-
-$fallbackCallsignMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "HST_CallsignMarker_")).Count
-if ($fallbackCallsignMarkerCount -ne $tonkaCallsigns.Count) {
-	throw "Expected $($tonkaCallsigns.Count) Tonka fallback callsign markers, found $fallbackCallsignMarkerCount"
-}
-
-$fallbackCallsignCivilianColorCount = ([regex]::Matches($runtimeMarkerLayer, "HST_CallsignMarker_[\s\S]*?m_eMapMarkerColor CIVILIAN")).Count
-if ($fallbackCallsignCivilianColorCount -ne $fallbackCallsignMarkerCount) {
-	throw "Fallback callsign markers must use the CIVILIAN/magenta-style color hint"
-}
-
-if ($runtimeMarkerLayer -match 'm_sMapMarkerText "[^"]+ / [^"]+"') {
-	throw "Fallback map marker labels must keep display names and callsigns split"
 }
 
 Write-Host "Tonka Everon coverage OK: zones=$($configZones.Count) bases=$($tonkaBaseBlocks.Count) depots=$($tonkaDepotBlocks.Count) callsigns=$($tonkaCallsigns.Count) towns=$($townZoneIds.Count)"
@@ -832,6 +790,9 @@ $mapMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarke
 if ($mapMarkerServiceText -match "SCR_BaseGameMode\s+gameMode\s*=\s*GetGame\(\)\.GetGameMode\(\)") {
 	throw "Map marker manager resolver must not unsafe-assign BaseGameMode to SCR_BaseGameMode"
 }
+if ($mapMarkerServiceText -match "MARK_QUESTION") {
+	throw "Map marker service must not publish question-mark icons for Tonka-style campaign markers"
+}
 foreach ($requiredMarkerColorContract in @(
 	'return "GREEN";',
 	'return "BLUFOR";',
@@ -861,7 +822,8 @@ foreach ($requiredNativeMarkerPublishContract in @(
 	"SCR_EScenarioFrameworkMarkerCustomColor.MAGENTA",
 	"SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE",
 	"SCR_EScenarioFrameworkMarkerCustom.PICK_UP2",
-	"SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION",
+	"SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL",
+	"SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST",
 	"SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER",
 	"markerManager.InsertStaticMarker(nativeMarker, false, true)",
 	"markerManager.RemoveStaticMarker(activeMarker)"

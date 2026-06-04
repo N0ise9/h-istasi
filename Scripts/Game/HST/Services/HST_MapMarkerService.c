@@ -2,8 +2,6 @@ class HST_MapMarkerService
 {
 	static const string NATIVE_MARKER_MANAGER_COMPONENT = "SCR_MapMarkerManagerComponent";
 	static const string NATIVE_MARKER_CONFIG = "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf";
-	static const string TONKA_STYLE_MARKER_ENTITY = "SCR_ScenarioFrameworkSlotMarker";
-	static const string TONKA_STYLE_MARKER_PREFAB = "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et";
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
 	protected ref array<ref SCR_MapMarkerBase> m_aRuntimeNativeMarkers = {};
@@ -138,7 +136,7 @@ class HST_MapMarkerService
 			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, zone.m_sMarkerCallsign, category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style);
 
 			if (!zone.m_sMarkerCallsign.IsEmpty())
-				AddMarker(state, "hst_zone_callsign_" + zone.m_sZoneId, zone.m_sZoneId, zone.m_sMarkerCallsign, zone.m_sMarkerCallsign, "callsign", zone.m_sOwnerFactionKey, "MARK_QUESTION", "MAGENTA", BuildCallsignMarkerPosition(zone), true, "magenta", "callsign");
+				AddMarker(state, "hst_zone_callsign_" + zone.m_sZoneId, zone.m_sZoneId, zone.m_sMarkerCallsign, zone.m_sMarkerCallsign, "callsign", zone.m_sOwnerFactionKey, "POINT_SPECIAL", "MAGENTA", BuildCallsignMarkerPosition(zone), true, "magenta", "callsign");
 		}
 	}
 
@@ -275,14 +273,20 @@ class HST_MapMarkerService
 		if (iconHint == "MINE_SINGLE")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
 
-		if (iconHint == "MARK_QUESTION")
-			return SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION;
+		if (iconHint == "POINT_SPECIAL")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
+
+		if (iconHint == "POINT_OF_INTEREST")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+
+		if (iconHint == "OBSERVATION_POST")
+			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
 		if (iconHint == "OBJECTIVE_MARKER")
 			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
 
 		if (category == "callsign")
-			return SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION;
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
 
 		if (styleHint == "resource" || styleHint == "depot")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
@@ -453,9 +457,9 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "resource" || zone.m_sMarkerStyle == "depot")
 				return "MINE_SINGLE";
 			if (zone.m_sMarkerStyle == "town")
-				return "MARK_QUESTION";
+				return "MINE_SINGLE";
 			if (zone.m_sMarkerStyle == "radio")
-				return "MARK_QUESTION";
+				return "OBSERVATION_POST";
 			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
 				return "OBJECTIVE_MARKER";
 			if (zone.m_sMarkerStyle == "support")
@@ -467,7 +471,7 @@ class HST_MapMarkerService
 			return "MINE_SINGLE";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-			return "MARK_QUESTION";
+			return "OBSERVATION_POST";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
 			return "PICK_UP2";
