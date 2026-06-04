@@ -561,12 +561,27 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"RefreshZoneMarker",
 	"RefreshMissionMarkers",
 	"CleanupMarkers",
+	"TickNativePublish",
+	"PublishRuntimeNativeMarkers",
+	"CreateRuntimeNativeMarker",
+	"ClearRuntimeNativeMarkers",
 	"m_bRuntimeNative",
+	"m_aRuntimeNativeMarkers",
+	"m_bNativePublishPending",
 	"hst_zone_callsign_",
 	"BuildCallsignMarkerPosition",
 	"magenta",
 	"NATIVE_MARKER_MANAGER_COMPONENT",
 	"SCR_MapMarkerManagerComponent",
+	"SCR_MapMarkerBase",
+	"SCR_EMapMarkerType.PLACED_CUSTOM",
+	"SetIconEntry",
+	"SetColorEntry",
+	"SetCustomText",
+	"SetWorldPos",
+	"InsertStaticMarker",
+	"RemoveStaticMarker",
+	"GetStaticMarkerByID",
 	"TONKA_STYLE_MARKER_ENTITY",
 	"SCR_ScenarioFrameworkSlotMarker"
 )) {
@@ -834,6 +849,22 @@ foreach ($requiredNativeMarkerSyncContract in @(
 )) {
 	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredNativeMarkerSyncContract)) {
 		throw "Map marker service is missing native marker ownership sync contract: $requiredNativeMarkerSyncContract"
+	}
+}
+foreach ($requiredNativeMarkerPublishContract in @(
+	"SCR_EScenarioFrameworkMarkerCustomColor.GREEN",
+	"SCR_EScenarioFrameworkMarkerCustomColor.BLUFOR",
+	"SCR_EScenarioFrameworkMarkerCustomColor.RED",
+	"SCR_EScenarioFrameworkMarkerCustomColor.MAGENTA",
+	"SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE",
+	"SCR_EScenarioFrameworkMarkerCustom.PICK_UP2",
+	"SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION",
+	"SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER",
+	"markerManager.InsertStaticMarker(nativeMarker, false, true)",
+	"markerManager.RemoveStaticMarker(activeMarker)"
+)) {
+	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredNativeMarkerPublishContract)) {
+		throw "Map marker service is missing native marker publish contract: $requiredNativeMarkerPublishContract"
 	}
 }
 Write-Host "Faction marker color contract OK"

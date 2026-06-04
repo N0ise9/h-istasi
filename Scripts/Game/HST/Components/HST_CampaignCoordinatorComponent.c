@@ -129,6 +129,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_PlayerSpawn.Tick(timeSlice);
+		if (m_MapMarkers)
+			m_MapMarkers.TickNativePublish(m_State, m_Preset, timeSlice);
+
 		m_fSpawnSweepAccumulator += timeSlice;
 		if (m_fSpawnSweepAccumulator >= 0.25 && ShouldProcessFrameSpawnSweep())
 		{

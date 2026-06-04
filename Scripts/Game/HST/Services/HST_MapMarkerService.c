@@ -6,13 +6,17 @@ class HST_MapMarkerService
 	static const string TONKA_STYLE_MARKER_PREFAB = "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et";
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
+	protected ref array<ref SCR_MapMarkerBase> m_aRuntimeNativeMarkers = {};
 	protected string m_sNativeMarkerEntityName;
+	protected bool m_bNativePublishPending;
+	protected float m_fNativePublishRetrySeconds;
 
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state || !preset)
 			return false;
 
+		ClearRuntimeNativeMarkers();
 		state.m_aMapMarkers.Clear();
 		AddHQMarker(state, preset);
 		AddHideoutMarkers(state, preset);
@@ -20,8 +24,9 @@ class HST_MapMarkerService
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
 		SyncVisibleNativeMarkerOwnership(state);
-		Print(string.Format("h-istasi | rebuilt %1 Tonka-style map marker record(s)", state.m_aMapMarkers.Count()));
-		return true;
+		bool published = PublishRuntimeNativeMarkers(state, preset);
+		Print(string.Format("h-istasi | rebuilt %1 Tonka-style map marker record(s), published %2 native marker(s)", state.m_aMapMarkers.Count(), m_aRuntimeNativeMarkers.Count()));
+		return published;
 	}
 
 	bool RefreshHQMarker(HST_CampaignState state, HST_CampaignPreset preset)
@@ -41,10 +46,26 @@ class HST_MapMarkerService
 
 	void CleanupMarkers(HST_CampaignState state)
 	{
+		ClearRuntimeNativeMarkers();
+		m_bNativePublishPending = false;
 		if (!state)
 			return;
 
 		state.m_aMapMarkers.Clear();
+	}
+
+	bool TickNativePublish(HST_CampaignState state, HST_CampaignPreset preset, float timeSlice)
+	{
+		if (!m_bNativePublishPending || !state || !preset)
+			return false;
+
+		m_fNativePublishRetrySeconds -= timeSlice;
+		if (m_fNativePublishRetrySeconds > 0)
+			return false;
+
+		m_fNativePublishRetrySeconds = 1.0;
+		ClearRuntimeNativeMarkers();
+		return PublishRuntimeNativeMarkers(state, preset);
 	}
 
 	string BuildMarkerReport(HST_CampaignState state)
@@ -78,7 +99,7 @@ class HST_MapMarkerService
 		}
 
 		string summary = string.Format("h-istasi map markers | total %1 | HQ/hideouts %2 | towns %3", state.m_aMapMarkers.Count(), hqCount, townCount);
-		string tactical = string.Format(" | strategic %1 | callsigns %2 | missions %3 | QRFs %4 | native manager %5", strategicCount, callsignCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT);
+		string tactical = string.Format(" | strategic %1 | callsigns %2 | missions %3 | QRFs %4 | native manager %5 | native visible %6", strategicCount, callsignCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT, m_aRuntimeNativeMarkers.Count());
 		return summary + tactical;
 	}
 
@@ -117,7 +138,7 @@ class HST_MapMarkerService
 			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, zone.m_sMarkerCallsign, category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style);
 
 			if (!zone.m_sMarkerCallsign.IsEmpty())
-				AddMarker(state, "hst_zone_callsign_" + zone.m_sZoneId, zone.m_sZoneId, zone.m_sMarkerCallsign, zone.m_sMarkerCallsign, "callsign", zone.m_sOwnerFactionKey, "MARK_QUESTION", "CIVILIAN", BuildCallsignMarkerPosition(zone), true, "magenta", "callsign");
+				AddMarker(state, "hst_zone_callsign_" + zone.m_sZoneId, zone.m_sZoneId, zone.m_sMarkerCallsign, zone.m_sMarkerCallsign, "callsign", zone.m_sOwnerFactionKey, "MARK_QUESTION", "MAGENTA", BuildCallsignMarkerPosition(zone), true, "magenta", "callsign");
 		}
 	}
 
@@ -172,6 +193,149 @@ class HST_MapMarkerService
 		marker.m_bVisible = visible;
 		marker.m_bRuntimeNative = true;
 		state.m_aMapMarkers.Insert(marker);
+	}
+
+	protected bool PublishRuntimeNativeMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return false;
+
+		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (!markerManager)
+		{
+			m_bNativePublishPending = true;
+			m_fNativePublishRetrySeconds = 0.25;
+			Print("h-istasi | native map marker manager not ready; marker publish pending");
+			return false;
+		}
+
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+			CreateRuntimeNativeMarker(markerManager, marker, preset);
+
+		m_bNativePublishPending = false;
+		m_fNativePublishRetrySeconds = 0;
+		return true;
+	}
+
+	protected void CreateRuntimeNativeMarker(SCR_MapMarkerManagerComponent markerManager, HST_MapMarkerState marker, HST_CampaignPreset preset)
+	{
+		if (!markerManager || !marker || !marker.m_bVisible || !marker.m_bRuntimeNative)
+			return;
+
+		SCR_MapMarkerBase nativeMarker = new SCR_MapMarkerBase();
+		nativeMarker.SetType(SCR_EMapMarkerType.PLACED_CUSTOM);
+		nativeMarker.SetIconEntry(ResolveNativeIcon(marker.m_sIconHint, marker.m_sCategory, marker.m_sStyleHint));
+		nativeMarker.SetColorEntry(ResolveNativeColor(marker, preset));
+		nativeMarker.SetRotation(0);
+		nativeMarker.SetWorldPos(marker.m_vPosition[0], marker.m_vPosition[2]);
+		nativeMarker.SetCustomText(marker.m_sLabel);
+		nativeMarker.SetCanBeRemovedByOwner(false);
+		nativeMarker.SetTimestampVisibility(false);
+		markerManager.InsertStaticMarker(nativeMarker, false, true);
+		m_aRuntimeNativeMarkers.Insert(nativeMarker);
+	}
+
+	protected void ClearRuntimeNativeMarkers()
+	{
+		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (markerManager)
+		{
+			foreach (SCR_MapMarkerBase nativeMarker : m_aRuntimeNativeMarkers)
+			{
+				if (!nativeMarker)
+					continue;
+
+				SCR_MapMarkerBase activeMarker = markerManager.GetStaticMarkerByID(nativeMarker.GetMarkerID());
+				if (activeMarker)
+					markerManager.RemoveStaticMarker(activeMarker);
+			}
+		}
+
+		m_aRuntimeNativeMarkers.Clear();
+	}
+
+	protected SCR_MapMarkerManagerComponent ResolveNativeMarkerManager()
+	{
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (markerManager)
+			return markerManager;
+
+		SCR_BaseGameMode gameMode = GetGame().GetGameMode();
+		if (!gameMode)
+			return null;
+
+		return SCR_MapMarkerManagerComponent.Cast(gameMode.FindComponent(SCR_MapMarkerManagerComponent));
+	}
+
+	protected SCR_EScenarioFrameworkMarkerCustom ResolveNativeIcon(string iconHint, string category, string styleHint)
+	{
+		if (iconHint == "PICK_UP2")
+			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
+
+		if (iconHint == "MINE_SINGLE")
+			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
+
+		if (iconHint == "MARK_QUESTION")
+			return SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION;
+
+		if (iconHint == "OBJECTIVE_MARKER")
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
+
+		if (category == "callsign")
+			return SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION;
+
+		if (styleHint == "resource" || styleHint == "depot")
+			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
+
+		if (styleHint == "support" || category == "hq" || category == "hideout")
+			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
+
+		return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
+	}
+
+	protected SCR_EScenarioFrameworkMarkerCustomColor ResolveNativeColor(HST_MapMarkerState marker, HST_CampaignPreset preset)
+	{
+		if (!marker)
+			return SCR_EScenarioFrameworkMarkerCustomColor.WHITE;
+
+		if (marker.m_sCategory == "callsign")
+			return SCR_EScenarioFrameworkMarkerCustomColor.MAGENTA;
+
+		string colorHint = marker.m_sColorHint;
+		if (colorHint == "GREEN")
+			return SCR_EScenarioFrameworkMarkerCustomColor.GREEN;
+
+		if (colorHint == "BLUFOR")
+			return SCR_EScenarioFrameworkMarkerCustomColor.BLUFOR;
+
+		if (colorHint == "BLUE")
+			return SCR_EScenarioFrameworkMarkerCustomColor.BLUE;
+
+		if (colorHint == "RED")
+			return SCR_EScenarioFrameworkMarkerCustomColor.RED;
+
+		if (colorHint == "OPFOR")
+			return SCR_EScenarioFrameworkMarkerCustomColor.OPFOR;
+
+		if (colorHint == "MAGENTA" || marker.m_sTextColorHint == "magenta")
+			return SCR_EScenarioFrameworkMarkerCustomColor.MAGENTA;
+
+		if (colorHint == "CIVILIAN")
+			return SCR_EScenarioFrameworkMarkerCustomColor.CIVILIAN;
+
+		if (colorHint == "REFORGER_ORANGE" || marker.m_sTextColorHint == "gold")
+			return SCR_EScenarioFrameworkMarkerCustomColor.REFORGER_ORANGE;
+
+		if (preset && marker.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			return SCR_EScenarioFrameworkMarkerCustomColor.GREEN;
+
+		if (preset && marker.m_sOwnerFactionKey == preset.m_sOccupierFactionKey)
+			return SCR_EScenarioFrameworkMarkerCustomColor.BLUFOR;
+
+		if (preset && marker.m_sOwnerFactionKey == preset.m_sInvaderFactionKey)
+			return SCR_EScenarioFrameworkMarkerCustomColor.RED;
+
+		return SCR_EScenarioFrameworkMarkerCustomColor.WHITE;
 	}
 
 	protected void SyncVisibleNativeMarkerOwnership(HST_CampaignState state)
