@@ -40,6 +40,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
+	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
 	static const int TAB_WIDGET_ID_BASE = 1000;
 	static const int ACTION_WIDGET_ID_BASE = 2000;
@@ -73,10 +74,12 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<string> m_aFeedLines = {};
 	protected ref array<string> m_aFeedTones = {};
 	protected ref array<Widget> m_aWidgets = {};
+	protected ref array<string> m_aIKeyActionNames = {};
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
 	protected IEntity m_OwnerEntity;
 	protected bool m_bIsLocalOwner;
 	protected bool m_bInputRegistered;
+	protected bool m_bInputConfigRegistered;
 	protected bool m_bCustomBindingAttempted;
 	protected bool m_bCustomBindingReady;
 	protected float m_fInputRetryAccumulator;
@@ -144,6 +147,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (inputManager)
 		{
 			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+			foreach (string iKeyActionName : m_aIKeyActionNames)
+				inputManager.ActivateAction(iKeyActionName);
 
 			if (m_bMenuOpen)
 				inputManager.ActivateContext(MENU_CURSOR_CONTEXT);
@@ -281,9 +286,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!inputManager)
 			return false;
 
+		EnsureInputConfig(inputManager);
 		EnsureIKeyBinding(inputManager);
 		inputManager.AddActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, ToggleMenu);
 		inputManager.AddActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, ToggleMenu);
+		RegisterExistingIKeyActionListeners(inputManager);
 		inputManager.AddActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, SelectPreviousAction);
 		inputManager.AddActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, SelectNextAction);
 		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
@@ -304,6 +311,10 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		inputManager.RemoveActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, ToggleMenu);
 		inputManager.RemoveActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, ToggleMenu);
+		foreach (string iKeyActionName : m_aIKeyActionNames)
+			inputManager.RemoveActionListener(iKeyActionName, EActionTrigger.DOWN, ToggleMenu);
+
+		m_aIKeyActionNames.Clear();
 		inputManager.RemoveActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, SelectPreviousAction);
 		inputManager.RemoveActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, SelectNextAction);
 		inputManager.RemoveActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
@@ -336,10 +347,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected bool EnsureIKeyBinding(InputManager inputManager)
 	{
-		if (m_bCustomBindingAttempted)
+		if (m_bCustomBindingReady)
 			return m_bCustomBindingReady;
 
-		m_bCustomBindingAttempted = true;
 		InputBinding binding = inputManager.CreateUserBinding();
 		if (!binding)
 			return false;
@@ -351,10 +361,14 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (!actionReady)
 		{
-			Print("h-istasi menu | could not create I-key custom input action", LogLevel.WARNING);
+			if (!m_bCustomBindingAttempted)
+				Print("h-istasi menu | waiting for I-key custom input action", LogLevel.WARNING);
+
+			m_bCustomBindingAttempted = true;
 			return false;
 		}
 
+		m_bCustomBindingAttempted = true;
 		array<string> bindings = {};
 		if (binding.GetBindings(COMMAND_MENU_CUSTOM_ACTION, bindings, EInputDeviceType.KEYBOARD, "", false))
 		{
@@ -372,6 +386,65 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_bCustomBindingReady = true;
 		Print("h-istasi menu | bound I key to command menu");
 		return true;
+	}
+
+	protected bool EnsureInputConfig(InputManager inputManager)
+	{
+		if (m_bInputConfigRegistered)
+			return true;
+
+		InputBinding binding = inputManager.CreateUserBinding();
+		if (!binding)
+			return false;
+
+		array<ResourceName> customConfigs = {};
+		binding.GetCustomConfigs(customConfigs);
+		if (customConfigs.Find(INPUT_CONFIG) < 0)
+		{
+			customConfigs.Insert(INPUT_CONFIG);
+			binding.SetCustomConfigs(customConfigs);
+			Print("h-istasi menu | registered command menu input config");
+		}
+
+		m_bInputConfigRegistered = true;
+		return true;
+	}
+
+	protected void RegisterExistingIKeyActionListeners(InputManager inputManager)
+	{
+		if (m_aIKeyActionNames.Count() > 0)
+			return;
+
+		int actionCount = inputManager.GetActionCount();
+		for (int i = 0; i < actionCount; i++)
+		{
+			string actionName = inputManager.GetActionName(i);
+			if (actionName.IsEmpty() || actionName == COMMAND_MENU_ACTION || actionName == COMMAND_MENU_CUSTOM_ACTION)
+				continue;
+
+			if (!ActionUsesIKey(inputManager, actionName))
+				continue;
+
+			inputManager.AddActionListener(actionName, EActionTrigger.DOWN, ToggleMenu);
+			m_aIKeyActionNames.Insert(actionName);
+			Print("h-istasi menu | registered I-key action alias " + actionName);
+		}
+	}
+
+	protected bool ActionUsesIKey(InputManager inputManager, string actionName)
+	{
+		array<string> keyStack = {};
+		array<BaseContainer> filterStack = {};
+		if (!inputManager.GetActionKeybinding(actionName, keyStack, filterStack, EInputDeviceType.KEYBOARD, "", -1))
+			return false;
+
+		foreach (string keyName : keyStack)
+		{
+			if (keyName == COMMAND_MENU_KEYBOARD_BINDING)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected void BuildTabList()
@@ -599,7 +672,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.PanelWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
@@ -784,7 +857,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateFrameWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE, null, 2550, parent);
+		Widget widget = workspace.CreateWidget(WidgetType.PanelWidgetTypeID, WidgetFlags.VISIBLE, null, 2550, parent);
 		if (!widget)
 			return null;
 

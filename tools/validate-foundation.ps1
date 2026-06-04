@@ -789,14 +789,21 @@ foreach ($requiredCommandMenuEntry in @(
 	'COMMAND_MENU_ACTION = "Inventory"',
 	'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',
 	'MENU_INPUT_CONTEXT = "InGameMenuContext"',
+	'INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf"',
 	'MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout"',
 	'AddActionListener',
 	'RemoveActionListener',
+	'SetCustomConfigs',
+	'EnsureInputConfig',
+	'RegisterExistingIKeyActionListeners',
+	'GetActionKeybinding',
+	'keyboard:KC_I',
 	'IsLocalOwner',
 	'local player menu component ready',
 	'input registered',
 	'snapshot received',
 	'CreateWidgetInWorkspace',
+	'PanelWidgetTypeID',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
@@ -840,6 +847,25 @@ if ($scriptText -match "\bCreateWidgets\b") {
 	throw "Command menu must remain procedural until HST_CommandMenu.layout is indexed with verified resource metadata"
 }
 Write-Host "I-key alpha command menu OK"
+
+if (!(Test-Path "Configs/HST/Input/HST_Input.conf")) {
+	throw "Missing command menu input config"
+}
+
+$commandMenuInputText = Get-Content -Raw "Configs/HST/Input/HST_Input.conf"
+foreach ($requiredCommandMenuInputEntry in @(
+	"ActionManager",
+	"Action HST_CommandMenu",
+	"InputSourceSum",
+	"InputSourceValue",
+	'FilterPreset "click"',
+	'Input "keyboard:KC_I"'
+)) {
+	if ($commandMenuInputText -notmatch [regex]::Escape($requiredCommandMenuInputEntry)) {
+		throw "Command menu input config is missing entry: $requiredCommandMenuInputEntry"
+	}
+}
+Write-Host "Command menu input config OK"
 
 if (!(Test-Path "UI/layouts/HST_CommandMenu.layout")) {
 	throw "Missing command menu layout"
