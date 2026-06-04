@@ -35,6 +35,21 @@
 - Procedural Antistasi-style HQ menu with resource stats, overview, HQ/Petros,
   mission board, map/war, forces, arsenal/loot, member, admin, action, and
   activity/result panels
+- Broad-alpha persistent state for generated sites/routes, mission objectives,
+  campaign tasks, support requests, enemy orders, civilian town state, and
+  player undercover state
+- Generated Everon content service that creates alpha mission sites,
+  roadblock/support/stash/crashsite points, and simple route records from the
+  existing strategic zone anchors
+- Mission objective/task service that attaches rough objectives to started
+  missions and lets the no-admin commander flow progress them into normal
+  mission completion rewards and strategic outcomes
+- Stateful support request and enemy commander services inspired by
+  DarcMissions/DarcChopper pacing: enemy pools can buy patrol/QRF/search
+  requests, FIA can request supply support, and helicopter-style requests stay
+  abstract/native-safe
+- Civilian/undercover service with town reputation, wanted heat, police and
+  roadblock presence, aid effects, and per-player undercover records
 
 ## Next Playable Increment
 
@@ -45,15 +60,19 @@
 - Customize Petros appearance/loadout and replace tent/cache placeholders with
   authored h-istasi HQ entities
 - Add player-facing member, guest, commander election, and admin UI
-- Spawn/deactivate physical garrisons from active zone counts and fold
-  survivors back into abstract garrisons
+- Replace menu-progressed mission objectives with world-object detection,
+  spawned mission props, convoy movement, captive interactions, and hold/clear
+  checks
+- Spawn/deactivate richer physical garrisons from active zone counts, assign
+  waypoints/routes, and fold real survivors back into abstract garrisons
 
 ## Later Alpha Increments
 
-- Town support, civilians, police, factories, resources, radio towers, and
-  city-flip battles
-- Hybrid AI activation, QRFs, attacks, reinforcements, and counterattacks
-- Mission-specific world logic for every registry entry
+- Deep town support, civilians, police, factories, resources, radio towers,
+  city-flip battles, and undercover enforcement
+- Hybrid AI activation, QRF travel, attacks, reinforcements, counterattacks,
+  Petros attacks, and enemy rebuild behavior
+- Mission-specific world logic and unique content for every registry entry
 - Victory, loss, full-Everon coordinate survey, and 16-player soak tests
 
 ## Deferred Capabilities

@@ -43,13 +43,22 @@ The repository contains the first engine-facing increment:
   world activation, arsenal/loot, persistence, logging, and feature toggles
 - Server-side area loot action that deposits eligible nearby gear into the
   campaign arsenal and removes transferred source items when configured
+- Broad-alpha campaign scaffolding for generated Everon sites/routes, mission
+  objectives, campaign tasks, support requests, enemy commander orders,
+  civilian town state, and player undercover state
+- Commander-facing no-admin actions for random mission start, objective
+  progress, FIA supply requests, civilian aid, support reports, garage
+  reports, generated content reports, and undercover status
 - Versioned campaign save-data container ready for native persistence binding
 
 This is a foundation build, not a public alpha. Petros and the HQ arsenal now
-have live contextual-action prefabs for the alpha menu path. Cache/tent polish,
-broader spawned AI, native save/load binding, final surveyed Everon
-coordinates, and mission-specific world logic still need to be connected
-incrementally.
+have live contextual-action prefabs for the alpha menu path. The broad-alpha
+systems are intentionally rough scaffolds: mission objectives can be progressed
+from the command menu, support calls are stateful with native-safe ground group
+activation, and helicopter-style support remains abstract until an approved
+asset/dependency path exists. Cache/tent polish, native save/load restore,
+final surveyed Everon coordinates, richer AI waypoints, and mission-specific
+world object logic still need to be connected incrementally.
 
 ## Alpha Command Menu
 
@@ -66,9 +75,11 @@ source of truth and applies to newly created campaigns only.
 
 The menu routes through server-authoritative coordinator requests and covers
 campaign overview, markers, economy, zones, missions, manual checkpoint,
-income tick, training, HQ movement, FIA recruitment, mission start, zone
-capture/activation, arsenal reporting, nearby loot collection, and small debug
-resource awards. Multiplayer clients use a player-owned request/RPC component;
+income tick, training, HQ movement, FIA recruitment, mission start, random
+mission selection, objective progress, support requests, civilian aid, zone
+capture/activation, arsenal reporting, garage reporting, nearby loot
+collection, generated content reports, and small debug resource awards.
+Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
 provided player ID. Petros and the HQ arsenal object open this same menu path
 through contextual interactions.

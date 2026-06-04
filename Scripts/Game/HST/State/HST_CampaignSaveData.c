@@ -40,6 +40,14 @@ class HST_CampaignSaveData
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
 	ref array<ref HST_AmmoPointState> m_aAmmoPoints = {};
 	ref array<ref HST_ActiveMissionState> m_aActiveMissions = {};
+	ref array<ref HST_GeneratedSiteState> m_aGeneratedSites = {};
+	ref array<ref HST_GeneratedRouteState> m_aGeneratedRoutes = {};
+	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
+	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
+	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
+	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
+	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
+	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
 	void Capture(HST_CampaignState state)
 	{
@@ -120,6 +128,38 @@ class HST_CampaignSaveData
 		m_aActiveMissions.Clear();
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 			m_aActiveMissions.Insert(CopyActiveMission(mission));
+
+		m_aGeneratedSites.Clear();
+		foreach (HST_GeneratedSiteState site : state.m_aGeneratedSites)
+			m_aGeneratedSites.Insert(CopyGeneratedSite(site));
+
+		m_aGeneratedRoutes.Clear();
+		foreach (HST_GeneratedRouteState route : state.m_aGeneratedRoutes)
+			m_aGeneratedRoutes.Insert(CopyGeneratedRoute(route));
+
+		m_aMissionObjectives.Clear();
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+			m_aMissionObjectives.Insert(CopyMissionObjective(objective));
+
+		m_aSupportRequests.Clear();
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+			m_aSupportRequests.Insert(CopySupportRequest(request));
+
+		m_aEnemyOrders.Clear();
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+			m_aEnemyOrders.Insert(CopyEnemyOrder(order));
+
+		m_aCivilianZones.Clear();
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+			m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
+
+		m_aUndercoverPlayers.Clear();
+		foreach (HST_PlayerUndercoverState undercover : state.m_aUndercoverPlayers)
+			m_aUndercoverPlayers.Insert(CopyUndercoverPlayer(undercover));
+
+		m_aCampaignTasks.Clear();
+		foreach (HST_CampaignTaskState task : state.m_aCampaignTasks)
+			m_aCampaignTasks.Insert(CopyCampaignTask(task));
 	}
 
 	HST_CampaignState Restore()
@@ -208,6 +248,38 @@ class HST_CampaignSaveData
 		state.m_aActiveMissions.Clear();
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
 			state.m_aActiveMissions.Insert(CopyActiveMission(mission));
+
+		state.m_aGeneratedSites.Clear();
+		foreach (HST_GeneratedSiteState site : m_aGeneratedSites)
+			state.m_aGeneratedSites.Insert(CopyGeneratedSite(site));
+
+		state.m_aGeneratedRoutes.Clear();
+		foreach (HST_GeneratedRouteState route : m_aGeneratedRoutes)
+			state.m_aGeneratedRoutes.Insert(CopyGeneratedRoute(route));
+
+		state.m_aMissionObjectives.Clear();
+		foreach (HST_MissionObjectiveState objective : m_aMissionObjectives)
+			state.m_aMissionObjectives.Insert(CopyMissionObjective(objective));
+
+		state.m_aSupportRequests.Clear();
+		foreach (HST_SupportRequestState request : m_aSupportRequests)
+			state.m_aSupportRequests.Insert(CopySupportRequest(request));
+
+		state.m_aEnemyOrders.Clear();
+		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
+			state.m_aEnemyOrders.Insert(CopyEnemyOrder(order));
+
+		state.m_aCivilianZones.Clear();
+		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
+			state.m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
+
+		state.m_aUndercoverPlayers.Clear();
+		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
+			state.m_aUndercoverPlayers.Insert(CopyUndercoverPlayer(undercover));
+
+		state.m_aCampaignTasks.Clear();
+		foreach (HST_CampaignTaskState task : m_aCampaignTasks)
+			state.m_aCampaignTasks.Insert(CopyCampaignTask(task));
 	}
 
 	protected HST_FactionPoolState CopyFactionPool(HST_FactionPoolState source)
@@ -368,6 +440,136 @@ class HST_CampaignSaveData
 		target.m_eStatus = source.m_eStatus;
 		target.m_iRemainingSeconds = source.m_iRemainingSeconds;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sSiteId = source.m_sSiteId;
+		target.m_iStartedAtSecond = source.m_iStartedAtSecond;
+		target.m_iActiveUntilSecond = source.m_iActiveUntilSecond;
+		target.m_bDynamic = source.m_bDynamic;
+		target.m_bRequested = source.m_bRequested;
+		target.m_bStatic = source.m_bStatic;
+		return target;
+	}
+
+	protected HST_GeneratedSiteState CopyGeneratedSite(HST_GeneratedSiteState source)
+	{
+		HST_GeneratedSiteState target = new HST_GeneratedSiteState();
+		target.m_sSiteId = source.m_sSiteId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sRouteId = source.m_sRouteId;
+		target.m_eType = source.m_eType;
+		target.m_vPosition = source.m_vPosition;
+		target.m_vSecondaryPosition = source.m_vSecondaryPosition;
+		target.m_iRadiusMeters = source.m_iRadiusMeters;
+		target.m_iWeight = source.m_iWeight;
+		target.m_bValid = source.m_bValid;
+		target.m_bOccupied = source.m_bOccupied;
+		target.m_sOwnerFactionKey = source.m_sOwnerFactionKey;
+		return target;
+	}
+
+	protected HST_GeneratedRouteState CopyGeneratedRoute(HST_GeneratedRouteState source)
+	{
+		HST_GeneratedRouteState target = new HST_GeneratedRouteState();
+		target.m_sRouteId = source.m_sRouteId;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_vStartPosition = source.m_vStartPosition;
+		target.m_vMidPosition = source.m_vMidPosition;
+		target.m_vEndPosition = source.m_vEndPosition;
+		target.m_iDistanceMeters = source.m_iDistanceMeters;
+		target.m_bRoadRoute = source.m_bRoadRoute;
+		return target;
+	}
+
+	protected HST_MissionObjectiveState CopyMissionObjective(HST_MissionObjectiveState source)
+	{
+		HST_MissionObjectiveState target = new HST_MissionObjectiveState();
+		target.m_sObjectiveId = source.m_sObjectiveId;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_eType = source.m_eType;
+		target.m_sTargetId = source.m_sTargetId;
+		target.m_vPosition = source.m_vPosition;
+		target.m_iRequiredProgress = source.m_iRequiredProgress;
+		target.m_iCurrentProgress = source.m_iCurrentProgress;
+		target.m_bComplete = source.m_bComplete;
+		target.m_bFailed = source.m_bFailed;
+		return target;
+	}
+
+	protected HST_SupportRequestState CopySupportRequest(HST_SupportRequestState source)
+	{
+		HST_SupportRequestState target = new HST_SupportRequestState();
+		target.m_sRequestId = source.m_sRequestId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_eType = source.m_eType;
+		target.m_eStatus = source.m_eStatus;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sGroupId = source.m_sGroupId;
+		target.m_vSourcePosition = source.m_vSourcePosition;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_iRequestedAtSecond = source.m_iRequestedAtSecond;
+		target.m_iETASeconds = source.m_iETASeconds;
+		target.m_iAttackCost = source.m_iAttackCost;
+		target.m_iSupportCost = source.m_iSupportCost;
+		target.m_bHelicopterStyle = source.m_bHelicopterStyle;
+		target.m_bPlayerRequested = source.m_bPlayerRequested;
+		return target;
+	}
+
+	protected HST_EnemyOrderState CopyEnemyOrder(HST_EnemyOrderState source)
+	{
+		HST_EnemyOrderState target = new HST_EnemyOrderState();
+		target.m_sOrderId = source.m_sOrderId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_eType = source.m_eType;
+		target.m_eStatus = source.m_eStatus;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iResolveAtSecond = source.m_iResolveAtSecond;
+		target.m_iAttackCost = source.m_iAttackCost;
+		target.m_iSupportCost = source.m_iSupportCost;
+		return target;
+	}
+
+	protected HST_CivilianZoneState CopyCivilianZone(HST_CivilianZoneState source)
+	{
+		HST_CivilianZoneState target = new HST_CivilianZoneState();
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_iReputation = source.m_iReputation;
+		target.m_iWantedHeat = source.m_iWantedHeat;
+		target.m_iCivilianPresence = source.m_iCivilianPresence;
+		target.m_iPolicePresence = source.m_iPolicePresence;
+		target.m_iRoadblockPresence = source.m_iRoadblockPresence;
+		target.m_iLastIncidentSecond = source.m_iLastIncidentSecond;
+		target.m_bUndercoverRestricted = source.m_bUndercoverRestricted;
+		return target;
+	}
+
+	protected HST_PlayerUndercoverState CopyUndercoverPlayer(HST_PlayerUndercoverState source)
+	{
+		HST_PlayerUndercoverState target = new HST_PlayerUndercoverState();
+		target.m_sIdentityId = source.m_sIdentityId;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iWantedHeat = source.m_iWantedHeat;
+		target.m_iCompromisedUntilSecond = source.m_iCompromisedUntilSecond;
+		target.m_iLastCheckedSecond = source.m_iLastCheckedSecond;
+		target.m_sLastReason = source.m_sLastReason;
+		return target;
+	}
+
+	protected HST_CampaignTaskState CopyCampaignTask(HST_CampaignTaskState source)
+	{
+		HST_CampaignTaskState target = new HST_CampaignTaskState();
+		target.m_sTaskId = source.m_sTaskId;
+		target.m_sLinkedId = source.m_sLinkedId;
+		target.m_sTitle = source.m_sTitle;
+		target.m_sDescription = source.m_sDescription;
+		target.m_sCategory = source.m_sCategory;
+		target.m_vPosition = source.m_vPosition;
+		target.m_bActive = source.m_bActive;
+		target.m_bSucceeded = source.m_bSucceeded;
+		target.m_bFailed = source.m_bFailed;
 		return target;
 	}
 }

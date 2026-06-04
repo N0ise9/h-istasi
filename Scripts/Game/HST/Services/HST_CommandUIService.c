@@ -110,8 +110,26 @@ class HST_CommandUIService
 		if (commandId == "inspect_missions")
 			return coordinator.RequestMemberInspectMissions(playerId);
 
+		if (commandId == "inspect_objectives")
+			return coordinator.RequestMemberInspectObjectives(playerId);
+
 		if (commandId == "inspect_arsenal")
 			return coordinator.RequestMemberInspectArsenal(playerId);
+
+		if (commandId == "inspect_garage")
+			return coordinator.RequestMemberInspectGarage(playerId);
+
+		if (commandId == "inspect_support")
+			return coordinator.RequestMemberInspectSupport(playerId);
+
+		if (commandId == "inspect_civilians")
+			return coordinator.RequestMemberInspectCivilians(playerId);
+
+		if (commandId == "inspect_undercover")
+			return coordinator.RequestMemberInspectUndercover(playerId);
+
+		if (commandId == "inspect_content")
+			return coordinator.RequestMemberInspectGeneratedContent(playerId);
 
 		if (commandId == "loot_nearby")
 			return coordinator.RequestMemberLootNearby(playerId);
@@ -134,8 +152,20 @@ class HST_CommandUIService
 		if (commandId == "mission_zone")
 			return BuildBoolResult("start zone mission at " + argument, coordinator.RequestCommanderStartZoneMission(playerId, argument));
 
+		if (commandId == "mission_random")
+			return BuildBoolResult("start random campaign mission", coordinator.RequestCommanderStartRandomMission(playerId));
+
+		if (commandId == "progress_mission")
+			return BuildBoolResult("progress active mission", coordinator.RequestCommanderProgressMission(playerId, argument));
+
 		if (commandId == "complete_mission")
 			return BuildBoolResult("complete mission " + argument, coordinator.RequestCommanderCompleteMission(playerId, argument));
+
+		if (commandId == "call_supply")
+			return BuildBoolResult("request FIA supply drop", coordinator.RequestCommanderCallSupplyDrop(playerId));
+
+		if (commandId == "civilian_aid")
+			return BuildBoolResult("deliver civilian aid", coordinator.RequestCommanderAidNearestTown(playerId));
 
 		if (commandId == "activate_zone")
 			return BuildBoolResult("activate zone " + argument, coordinator.RequestAdminSetZoneActive(playerId, argument, true));
@@ -206,13 +236,13 @@ class HST_CommandUIService
 		if (!state)
 			return "h-istasi missions | campaign state not ready";
 
-		string report = string.Format("h-istasi missions | active records %1", state.m_aActiveMissions.Count());
+		string report = string.Format("h-istasi missions | active records %1 | objectives %2 | tasks %3", state.m_aActiveMissions.Count(), state.m_aMissionObjectives.Count(), state.m_aCampaignTasks.Count());
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission)
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | target %3 | status %4 | remaining %5s", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_eStatus, mission.m_iRemainingSeconds);
+			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds);
 		}
 
 		return report;
@@ -241,8 +271,26 @@ class HST_CommandUIService
 		if (commandId == "inspect_missions")
 			return !coordinator.RequestMemberInspectMissions(playerId).IsEmpty();
 
+		if (commandId == "inspect_objectives")
+			return !coordinator.RequestMemberInspectObjectives(playerId).IsEmpty();
+
 		if (commandId == "inspect_arsenal")
 			return !coordinator.RequestMemberInspectArsenal(playerId).IsEmpty();
+
+		if (commandId == "inspect_garage")
+			return !coordinator.RequestMemberInspectGarage(playerId).IsEmpty();
+
+		if (commandId == "inspect_support")
+			return !coordinator.RequestMemberInspectSupport(playerId).IsEmpty();
+
+		if (commandId == "inspect_civilians")
+			return !coordinator.RequestMemberInspectCivilians(playerId).IsEmpty();
+
+		if (commandId == "inspect_undercover")
+			return !coordinator.RequestMemberInspectUndercover(playerId).IsEmpty();
+
+		if (commandId == "inspect_content")
+			return !coordinator.RequestMemberInspectGeneratedContent(playerId).IsEmpty();
 
 		if (commandId == "loot_nearby")
 			return !coordinator.RequestMemberLootNearby(playerId).IsEmpty();
@@ -265,8 +313,20 @@ class HST_CommandUIService
 		if (commandId == "mission_zone")
 			return coordinator.RequestCommanderStartZoneMission(playerId, argument);
 
+		if (commandId == "mission_random")
+			return coordinator.RequestCommanderStartRandomMission(playerId);
+
+		if (commandId == "progress_mission")
+			return coordinator.RequestCommanderProgressMission(playerId, argument);
+
 		if (commandId == "complete_mission")
 			return coordinator.RequestCommanderCompleteMission(playerId, argument);
+
+		if (commandId == "call_supply")
+			return coordinator.RequestCommanderCallSupplyDrop(playerId);
+
+		if (commandId == "civilian_aid")
+			return coordinator.RequestCommanderAidNearestTown(playerId);
 
 		if (commandId == "activate_zone")
 			return coordinator.RequestAdminSetZoneActive(playerId, argument, true);
@@ -405,6 +465,8 @@ class HST_CommandUIService
 		payload = AppendStat(payload, "Petros", BuildPetrosLabel(state), BuildPetrosTone(state));
 		payload = AppendStat(payload, "Zones", string.Format("%1 FIA / %2 hostile", CountResistanceZones(state, preset), CountEnemyZones(state, preset)), "neutral");
 		payload = AppendStat(payload, "Arsenal", string.Format("%1 unlocked / %2 tracked", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
+		payload = AppendStat(payload, "Support", string.Format("%1 calls / %2 orders", state.m_aSupportRequests.Count(), state.m_aEnemyOrders.Count()), "warn");
+		payload = AppendStat(payload, "Civilians", string.Format("%1 towns", state.m_aCivilianZones.Count()), "neutral");
 		return payload;
 	}
 
@@ -502,6 +564,8 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "active", "Missions", string.Format("%1 active", CountActiveMissions(state)), "warn");
 		payload = AppendRow(payload, "active", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
 		payload = AppendRow(payload, "active", "Arsenal unlocks", string.Format("%1 of %2", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
+		payload = AppendRow(payload, "active", "Support calls", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
+		payload = AppendRow(payload, "active", "Civilian network", string.Format("%1 towns", state.m_aCivilianZones.Count()), "neutral");
 		return payload;
 	}
 
@@ -545,8 +609,12 @@ class HST_CommandUIService
 			if (!mission)
 				continue;
 
-			payload = AppendRow(payload, "active_missions", mission.m_sInstanceId, string.Format("%1 / target %2 / %3s", mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_iRemainingSeconds), MissionTone(mission));
+			payload = AppendRow(payload, "active_missions", mission.m_sInstanceId, string.Format("%1 / target %2 / site %3 / %4s", mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_iRemainingSeconds), MissionTone(mission));
 		}
+
+		payload = AppendSection(payload, "objectives", "Objective State");
+		payload = AppendRow(payload, "objectives", "Objectives", string.Format("%1 tracked", state.m_aMissionObjectives.Count()), "warn");
+		payload = AppendRow(payload, "objectives", "Tasks", string.Format("%1 campaign tasks", state.m_aCampaignTasks.Count()), "neutral");
 
 		payload = AppendSection(payload, "families", "Mission Board");
 		payload = AppendRow(payload, "families", "Convoys", "Ammo, money, prisoners, reinforcements, supplies.", "warn");
@@ -567,6 +635,8 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "war_map", "Hostile zones", string.Format("%1", CountEnemyZones(state, preset)), "bad");
 		payload = AppendRow(payload, "war_map", "Active zones", string.Format("%1", CountActiveZones(state)), "warn");
 		payload = AppendRow(payload, "war_map", "Projected income", string.Format("$%1 per tick", CountResistanceIncome(state, preset)), "good");
+		payload = AppendRow(payload, "war_map", "Generated sites", string.Format("%1", state.m_aGeneratedSites.Count()), "neutral");
+		payload = AppendRow(payload, "war_map", "Generated routes", string.Format("%1", state.m_aGeneratedRoutes.Count()), "neutral");
 
 		payload = AppendSection(payload, "zones", "Zone Pressure");
 		int emitted;
@@ -612,6 +682,10 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "enemy", pool.m_sFactionKey, string.Format("attack %1 / support %2 / aggression %3", pool.m_iAttackResources, pool.m_iSupportResources, pool.m_iAggression), "bad");
 		}
 
+		payload = AppendSection(payload, "support", "Support And Orders");
+		payload = AppendRow(payload, "support", "Support requests", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
+		payload = AppendRow(payload, "support", "Enemy orders", string.Format("%1 tracked", state.m_aEnemyOrders.Count()), "bad");
+
 		return payload;
 	}
 
@@ -625,6 +699,7 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "arsenal", "Unlocked items", string.Format("%1", CountUnlockedArsenalItems(state)), "good");
 		payload = AppendRow(payload, "arsenal", "Garage vehicles", string.Format("%1", state.m_aGarageVehicles.Count()), "neutral");
 		payload = AppendRow(payload, "arsenal", "Captured emplacements", string.Format("%1", state.m_aCapturedEmplacements.Count()), "neutral");
+		payload = AppendRow(payload, "arsenal", "Ammo points", string.Format("%1", state.m_aAmmoPoints.Count()), "neutral");
 		if (settings)
 		{
 			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
@@ -730,6 +805,7 @@ class HST_CommandUIService
 		payload = AppendFeed(payload, string.Format("HQ: %1, Petros %2.", BuildHQLabel(state), BuildPetrosLabel(state)), BuildPetrosTone(state));
 		payload = AppendFeed(payload, string.Format("Arsenal: %1 unlocked items from %2 tracked entries.", CountUnlockedArsenalItems(state), CountTrackedArsenalItems(state)), "good");
 		payload = AppendFeed(payload, string.Format("Operations: %1 active missions, %2 QRFs, %3 active zones.", CountActiveMissions(state), CountActiveQRFs(state), CountActiveZones(state)), "neutral");
+		payload = AppendFeed(payload, string.Format("Alpha systems: %1 generated sites, %2 support calls, %3 enemy orders.", state.m_aGeneratedSites.Count(), state.m_aSupportRequests.Count(), state.m_aEnemyOrders.Count()), "warn");
 		return payload;
 	}
 
@@ -764,8 +840,11 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_MISSIONS)
 		{
+			AddMenuAction(actions, TAB_MISSIONS, "Start random mission", "mission_random", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, "Start mission at Morton", "mission_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Progress active mission", "progress_mission", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, "Mission report", "inspect_missions", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MISSIONS, "Objective report", "inspect_objectives", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Zone report", "inspect_zones", "", canUseMember, "membership required");
 			return;
 		}
@@ -774,6 +853,8 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_MAP, "Zone report", "inspect_zones", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MAP, "Marker status", "inspect_markers", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Generated content", "inspect_content", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MAP, "Civilian status", "inspect_civilians", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MAP, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			return;
 		}
@@ -783,7 +864,10 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, "Apply income tick", "income_now", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Recruit FIA at Morton", "recruit_zone", "town_morton", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Economy report", "inspect_economy", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -791,12 +875,14 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Garage report", "inspect_garage", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
 		if (selectedTabId == TAB_MEMBERS)
 		{
+			AddMenuAction(actions, TAB_MEMBERS, "Undercover status", "inspect_undercover", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;

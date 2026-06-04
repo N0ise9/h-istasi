@@ -145,12 +145,134 @@ class HST_ActiveMissionState
 	HST_EMissionStatus m_eStatus;
 	int m_iRemainingSeconds;
 	string m_sTargetZoneId;
+	string m_sSiteId;
+	int m_iStartedAtSecond;
+	int m_iActiveUntilSecond;
+	bool m_bDynamic;
+	bool m_bRequested;
+	bool m_bStatic;
+}
+
+[BaseContainerProps()]
+class HST_GeneratedSiteState
+{
+	string m_sSiteId;
+	string m_sZoneId;
+	string m_sRouteId;
+	HST_EGeneratedSiteType m_eType;
+	vector m_vPosition;
+	vector m_vSecondaryPosition;
+	int m_iRadiusMeters;
+	int m_iWeight = 1;
+	bool m_bValid = true;
+	bool m_bOccupied;
+	string m_sOwnerFactionKey;
+}
+
+[BaseContainerProps()]
+class HST_GeneratedRouteState
+{
+	string m_sRouteId;
+	string m_sSourceZoneId;
+	string m_sTargetZoneId;
+	vector m_vStartPosition;
+	vector m_vMidPosition;
+	vector m_vEndPosition;
+	int m_iDistanceMeters;
+	bool m_bRoadRoute = true;
+}
+
+[BaseContainerProps()]
+class HST_MissionObjectiveState
+{
+	string m_sObjectiveId;
+	string m_sMissionInstanceId;
+	HST_EMissionObjectiveType m_eType;
+	string m_sTargetId;
+	vector m_vPosition;
+	int m_iRequiredProgress = 1;
+	int m_iCurrentProgress;
+	bool m_bComplete;
+	bool m_bFailed;
+}
+
+[BaseContainerProps()]
+class HST_SupportRequestState
+{
+	string m_sRequestId;
+	string m_sFactionKey;
+	HST_ESupportRequestType m_eType;
+	HST_ESupportRequestStatus m_eStatus;
+	string m_sSourceZoneId;
+	string m_sTargetZoneId;
+	string m_sGroupId;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
+	int m_iRequestedAtSecond;
+	int m_iETASeconds;
+	int m_iAttackCost;
+	int m_iSupportCost;
+	bool m_bHelicopterStyle;
+	bool m_bPlayerRequested;
+}
+
+[BaseContainerProps()]
+class HST_EnemyOrderState
+{
+	string m_sOrderId;
+	string m_sFactionKey;
+	HST_EEnemyOrderType m_eType;
+	HST_EEnemyOrderStatus m_eStatus;
+	string m_sTargetZoneId;
+	string m_sSupportRequestId;
+	int m_iCreatedAtSecond;
+	int m_iResolveAtSecond;
+	int m_iAttackCost;
+	int m_iSupportCost;
+}
+
+[BaseContainerProps()]
+class HST_CivilianZoneState
+{
+	string m_sZoneId;
+	int m_iReputation;
+	int m_iWantedHeat;
+	int m_iCivilianPresence;
+	int m_iPolicePresence;
+	int m_iRoadblockPresence;
+	int m_iLastIncidentSecond;
+	bool m_bUndercoverRestricted;
+}
+
+[BaseContainerProps()]
+class HST_PlayerUndercoverState
+{
+	string m_sIdentityId;
+	HST_EUndercoverStatus m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+	int m_iWantedHeat;
+	int m_iCompromisedUntilSecond;
+	int m_iLastCheckedSecond;
+	string m_sLastReason;
+}
+
+[BaseContainerProps()]
+class HST_CampaignTaskState
+{
+	string m_sTaskId;
+	string m_sLinkedId;
+	string m_sTitle;
+	string m_sDescription;
+	string m_sCategory;
+	vector m_vPosition;
+	bool m_bActive = true;
+	bool m_bSucceeded;
+	bool m_bFailed;
 }
 
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 5;
+	static const int SCHEMA_VERSION = 6;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";
@@ -191,6 +313,14 @@ class HST_CampaignState
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
 	ref array<ref HST_AmmoPointState> m_aAmmoPoints = {};
 	ref array<ref HST_ActiveMissionState> m_aActiveMissions = {};
+	ref array<ref HST_GeneratedSiteState> m_aGeneratedSites = {};
+	ref array<ref HST_GeneratedRouteState> m_aGeneratedRoutes = {};
+	ref array<ref HST_MissionObjectiveState> m_aMissionObjectives = {};
+	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
+	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
+	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
+	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
+	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
 	HST_FactionPoolState FindFactionPool(string factionKey)
 	{
@@ -297,6 +427,72 @@ class HST_CampaignState
 		{
 			if (marker.m_sMarkerId == markerId)
 				return marker;
+		}
+
+		return null;
+	}
+
+	HST_GeneratedSiteState FindGeneratedSite(string siteId)
+	{
+		foreach (HST_GeneratedSiteState site : m_aGeneratedSites)
+		{
+			if (site.m_sSiteId == siteId)
+				return site;
+		}
+
+		return null;
+	}
+
+	HST_GeneratedRouteState FindGeneratedRoute(string routeId)
+	{
+		foreach (HST_GeneratedRouteState route : m_aGeneratedRoutes)
+		{
+			if (route.m_sRouteId == routeId)
+				return route;
+		}
+
+		return null;
+	}
+
+	HST_SupportRequestState FindSupportRequest(string requestId)
+	{
+		foreach (HST_SupportRequestState request : m_aSupportRequests)
+		{
+			if (request.m_sRequestId == requestId)
+				return request;
+		}
+
+		return null;
+	}
+
+	HST_CivilianZoneState FindCivilianZone(string zoneId)
+	{
+		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
+		{
+			if (civilianZone.m_sZoneId == zoneId)
+				return civilianZone;
+		}
+
+		return null;
+	}
+
+	HST_PlayerUndercoverState FindUndercoverPlayer(string identityId)
+	{
+		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
+		{
+			if (undercover.m_sIdentityId == identityId)
+				return undercover;
+		}
+
+		return null;
+	}
+
+	HST_CampaignTaskState FindCampaignTask(string taskId)
+	{
+		foreach (HST_CampaignTaskState task : m_aCampaignTasks)
+		{
+			if (task.m_sTaskId == taskId)
+				return task;
 		}
 
 		return null;

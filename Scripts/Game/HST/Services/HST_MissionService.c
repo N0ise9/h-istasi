@@ -55,6 +55,10 @@ class HST_MissionService
 		activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
 		activeMission.m_iRemainingSeconds = definition.m_iDurationSeconds;
 		activeMission.m_sTargetZoneId = targetZoneId;
+		activeMission.m_iStartedAtSecond = state.m_iElapsedSeconds;
+		activeMission.m_iActiveUntilSecond = state.m_iElapsedSeconds + definition.m_iDurationSeconds;
+		activeMission.m_bRequested = true;
+		activeMission.m_bDynamic = definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS;
 		state.m_aActiveMissions.Insert(activeMission);
 		return activeMission;
 	}

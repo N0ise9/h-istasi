@@ -35,6 +35,25 @@ class HST_ArsenalService
 		return item && item.m_bUnlocked;
 	}
 
+	bool WithdrawItem(HST_CampaignState state, string prefab, int amount)
+	{
+		if (!state || prefab.IsEmpty() || amount <= 0)
+			return false;
+
+		HST_ArsenalItemState item = state.FindArsenalItem(prefab);
+		if (!item)
+			return false;
+
+		if (item.m_bUnlocked)
+			return true;
+
+		if (item.m_iCount < amount)
+			return false;
+
+		item.m_iCount -= amount;
+		return true;
+	}
+
 	string BuildArsenalReport(HST_CampaignState state)
 	{
 		if (!state)
@@ -78,6 +97,23 @@ class HST_ArsenalService
 		}
 
 		return null;
+	}
+
+	string BuildGarageReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi garage | campaign state not ready";
+
+		string report = string.Format("h-istasi garage | vehicles %1 | emplacements %2 | ammo points %3", state.m_aGarageVehicles.Count(), state.m_aCapturedEmplacements.Count(), state.m_aAmmoPoints.Count());
+		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+		{
+			if (!vehicle)
+				continue;
+
+			report = report + string.Format("\n%1 | %2 | fuel %3 | armed %4", vehicle.m_sVehicleId, vehicle.m_sPrefab, vehicle.m_fFuel, vehicle.m_bArmed);
+		}
+
+		return report;
 	}
 
 	protected bool ShouldUnlock(HST_ArsenalItemState item, HST_BalanceConfig balance)

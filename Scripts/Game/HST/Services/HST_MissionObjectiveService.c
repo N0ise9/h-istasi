@@ -1,0 +1,263 @@
+class HST_MissionObjectiveService
+{
+	bool InitializeMission(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionDefinition definition, HST_ActiveMissionState mission, HST_GeneratedContentService content)
+	{
+		if (!state || !definition || !mission)
+			return false;
+
+		if (HasObjectiveForMission(state, mission.m_sInstanceId))
+			return false;
+
+		HST_GeneratedSiteState site;
+		if (content)
+			site = content.FindMissionSiteForZone(state, mission.m_sTargetZoneId, definition.m_eCategory, definition.m_sMissionId);
+
+		if (!site && content)
+			site = content.FindPrimarySiteForZone(state, mission.m_sTargetZoneId);
+
+		if (site)
+			mission.m_sSiteId = site.m_sSiteId;
+
+		vector objectivePosition = ResolveMissionPosition(state, mission, site);
+		CreateMissionTask(state, definition, mission, objectivePosition);
+		AddObjective(state, mission, PrimaryObjectiveForMission(definition), BuildObjectiveTarget(definition, mission), objectivePosition, RequiredProgressForMission(definition));
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT, "convoy_cargo", objectivePosition, 1);
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES, "captives", objectivePosition, 1);
+
+		return true;
+	}
+
+	bool Tick(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			if (AreMissionObjectivesComplete(state, mission.m_sInstanceId))
+				CompleteTaskForMission(state, mission.m_sInstanceId, false);
+		}
+
+		return changed;
+	}
+
+	bool ProgressMission(HST_CampaignState state, string instanceId, int amount = 1)
+	{
+		if (!state || instanceId.IsEmpty() || amount <= 0)
+			return false;
+
+		bool changed;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			objective.m_iCurrentProgress = Math.Min(objective.m_iRequiredProgress, objective.m_iCurrentProgress + amount);
+			if (objective.m_iCurrentProgress >= objective.m_iRequiredProgress)
+				objective.m_bComplete = true;
+
+			changed = true;
+			break;
+		}
+
+		if (AreMissionObjectivesComplete(state, instanceId))
+			CompleteTaskForMission(state, instanceId, false);
+
+		return changed;
+	}
+
+	bool FailMissionObjectives(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+
+		bool changed;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			objective.m_bFailed = true;
+			changed = true;
+		}
+
+		CompleteTaskForMission(state, instanceId, true);
+		return changed;
+	}
+
+	bool AreMissionObjectivesComplete(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+
+		bool found;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != instanceId)
+				continue;
+
+			found = true;
+			if (!objective.m_bComplete || objective.m_bFailed)
+				return false;
+		}
+
+		return found;
+	}
+
+	string BuildObjectiveReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi objectives | state not ready";
+
+		int active;
+		int complete;
+		int failed;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective)
+				continue;
+
+			if (objective.m_bFailed)
+				failed++;
+			else if (objective.m_bComplete)
+				complete++;
+			else
+				active++;
+		}
+
+		return string.Format("h-istasi objectives | active %1 | complete %2 | failed %3 | tasks %4", active, complete, failed, state.m_aCampaignTasks.Count());
+	}
+
+	protected bool HasObjectiveForMission(HST_CampaignState state, string instanceId)
+	{
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (objective && objective.m_sMissionInstanceId == instanceId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected void AddObjective(HST_CampaignState state, HST_ActiveMissionState mission, HST_EMissionObjectiveType objectiveType, string targetId, vector position, int requiredProgress)
+	{
+		HST_MissionObjectiveState objective = new HST_MissionObjectiveState();
+		objective.m_sObjectiveId = string.Format("obj_%1_%2", mission.m_sInstanceId, state.m_aMissionObjectives.Count());
+		objective.m_sMissionInstanceId = mission.m_sInstanceId;
+		objective.m_eType = objectiveType;
+		objective.m_sTargetId = targetId;
+		objective.m_vPosition = position;
+		objective.m_iRequiredProgress = Math.Max(1, requiredProgress);
+		state.m_aMissionObjectives.Insert(objective);
+	}
+
+	protected HST_EMissionObjectiveType PrimaryObjectiveForMission(HST_MissionDefinition definition)
+	{
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES;
+
+		if (definition.m_sMissionId == "dynamic_city_flip_battle" || definition.m_sMissionId == "dynamic_defend_petros")
+			return HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA;
+
+		return HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA;
+	}
+
+	protected int RequiredProgressForMission(HST_MissionDefinition definition)
+	{
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return 3;
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return 2;
+
+		if (definition.m_sMissionId == "dynamic_city_flip_battle")
+			return 3;
+
+		return 1;
+	}
+
+	protected string BuildObjectiveTarget(HST_MissionDefinition definition, HST_ActiveMissionState mission)
+	{
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return "hvt";
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "convoy";
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return "asset";
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "captives";
+
+		if (!mission.m_sTargetZoneId.IsEmpty())
+			return mission.m_sTargetZoneId;
+
+		return definition.m_sMissionId;
+	}
+
+	protected vector ResolveMissionPosition(HST_CampaignState state, HST_ActiveMissionState mission, HST_GeneratedSiteState site)
+	{
+		if (site)
+			return site.m_vPosition;
+
+		if (mission && !mission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+			if (zone)
+				return zone.m_vPosition;
+		}
+
+		return state.m_vHQPosition;
+	}
+
+	protected void CreateMissionTask(HST_CampaignState state, HST_MissionDefinition definition, HST_ActiveMissionState mission, vector position)
+	{
+		if (state.FindCampaignTask("task_" + mission.m_sInstanceId))
+			return;
+
+		HST_CampaignTaskState task = new HST_CampaignTaskState();
+		task.m_sTaskId = "task_" + mission.m_sInstanceId;
+		task.m_sLinkedId = mission.m_sInstanceId;
+		task.m_sTitle = definition.m_sDisplayName;
+		task.m_sDescription = string.Format("%1 near %2", definition.m_sMissionId, mission.m_sTargetZoneId);
+		task.m_sCategory = "mission";
+		task.m_vPosition = position;
+		task.m_bActive = true;
+		state.m_aCampaignTasks.Insert(task);
+	}
+
+	protected void CompleteTaskForMission(HST_CampaignState state, string instanceId, bool failed)
+	{
+		HST_CampaignTaskState task = state.FindCampaignTask("task_" + instanceId);
+		if (!task)
+			return;
+
+		task.m_bActive = false;
+		task.m_bFailed = failed;
+		task.m_bSucceeded = !failed;
+	}
+}

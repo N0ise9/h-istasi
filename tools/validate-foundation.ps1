@@ -640,7 +640,7 @@ $referencedSymbols = @([regex]::Matches($codeOnly, "\b(HST_[A-Za-z0-9_]+)\b") |
 	ForEach-Object { $_.Groups[1].Value } |
 	Sort-Object -Unique)
 $missingSymbols = @($referencedSymbols |
-	Where-Object { $_ -notin $definedSymbols -and $_ -notmatch "^HST_(CAMPAIGN|ZONE|MISSION)_" })
+	Where-Object { $_ -notin $definedSymbols -and $_ -notmatch "^HST_(CAMPAIGN|ZONE|MISSION|SITE|OBJECTIVE|SUPPORT|ENEMY_ORDER|UNDERCOVER)_" })
 if ($missingSymbols.Count -gt 0) {
 	throw "Potential undefined script symbols:`n$($missingSymbols -join "`n")"
 }
@@ -660,6 +660,11 @@ foreach ($requiredService in @(
 	"HST_RuntimeSettings",
 	"HST_RuntimeSettingsService",
 	"HST_LootService",
+	"HST_GeneratedContentService",
+	"HST_MissionObjectiveService",
+	"HST_SupportRequestService",
+	"HST_CivilianService",
+	"HST_EnemyCommanderService",
 	"HST_CommandMenuComponent",
 	"HST_CommandMenuRequestComponent",
 	"HST_ContextualUserActionBase",
@@ -692,6 +697,17 @@ foreach ($requiredSaveEntry in @(
 	"m_sCategory",
 	"m_vArsenalPosition",
 	"m_sArsenalPrefab"
+	"m_aGeneratedSites",
+	"m_aGeneratedRoutes",
+	"m_aMissionObjectives",
+	"m_aSupportRequests",
+	"m_aEnemyOrders",
+	"m_aCivilianZones",
+	"m_aUndercoverPlayers",
+	"m_aCampaignTasks",
+	"HST_SupportRequestState",
+	"HST_EnemyOrderState",
+	"HST_CivilianZoneState"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSaveEntry)) {
 		throw "Missing campaign save scaffold entry: $requiredSaveEntry"
@@ -741,7 +757,16 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestVisibleMenuCommand",
 	"ResolveAuthoritativePlayerId",
 	"RequestMemberInspectArsenal",
+	"RequestMemberInspectGarage",
+	"RequestMemberInspectSupport",
+	"RequestMemberInspectCivilians",
+	"RequestMemberInspectUndercover",
+	"RequestMemberInspectGeneratedContent",
 	"RequestMemberLootNearby",
+	"RequestCommanderStartRandomMission",
+	"RequestCommanderProgressMission",
+	"RequestCommanderCallSupplyDrop",
+	"RequestCommanderAidNearestTown",
 	"RequestAdminSetZoneActive",
 	"RequestAdminCaptureZone",
 	"RequestAdminCaptureZoneForResistance",

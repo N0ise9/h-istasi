@@ -29,6 +29,17 @@ single `HST_CampaignState` and delegates to small services:
   native respawn requests, pending spawn tracking, and spawned-player records.
 - `HST_PhysicalWarService`: player-proximity zone activation over the
   abstract garrison model.
+- `HST_GeneratedContentService`: generated Everon mission sites, roadblock,
+  support, stash, crashsite, and route records derived from stable zone
+  anchors.
+- `HST_MissionObjectiveService`: rough mission objectives, campaign task state,
+  and no-admin objective progress hooks for broad-alpha mission families.
+- `HST_SupportRequestService`: stateful FIA/enemy support calls, native-safe
+  ground support activation, and abstract helicopter-style support records.
+- `HST_CivilianService`: town reputation, wanted heat, police/roadblock
+  presence, aid incidents, and per-player undercover records.
+- `HST_EnemyCommanderService`: enemy resource spending into patrol, roadblock,
+  QRF, counterattack, rebuild, and support-call orders.
 
 The coordinator currently exposes server-only mutation methods that check
 campaign phase, known IDs, and mission eligibility before changing state.
@@ -46,18 +57,21 @@ The addon keeps authoring data separate from runtime state:
 - `HST_BalanceConfig`: Community Edition-derived initial values.
 - `HST_MissionRegistryConfig`: mission definitions and deferred capabilities.
 
-The checked-in `.conf` resources are the intended data source. The current
-coordinator uses matching defaults while the resource loading and serializer
-prefabs are connected in Workbench.
+The checked-in `.conf` resources are the intended data source and are validated
+against the runtime fallback catalog. The current coordinator still uses the
+matching fallback catalog while Workbench-safe resource loading and serializer
+prefabs are connected.
 
 ## Persistence
 
 The persistence service uses `SaveGameManager.RequestSavePoint` so local hosts
 and dedicated servers follow Reforger's native session-save path. The state
 model is versioned from day one. `HST_CampaignSaveData` is the deep-copy save
-container for current campaign fields and nested runtime arrays. A later
-Workbench pass must bind that container into Reforger's persistent component
-loading path and add migration tests before save compatibility is promised.
+container for current campaign fields and nested runtime arrays, including the
+broad-alpha generated content, objective, support, enemy order, civilian, and
+undercover records. A later Workbench pass must bind that container into
+Reforger's persistent component loading path and add migration tests before
+save compatibility is promised.
 
 ## World Layout
 
@@ -120,9 +134,13 @@ income, support, activation radius, route IDs, mission site IDs, and
 garrison-slot data in `HST_CampaignState`; garrisons are stored as infantry and
 vehicle counts. The physical-war service marks zones active when players enter
 their activation radius and mirrors abstract garrison counts into runtime active
-counts. Follow-on AI work should consume those active counts to spawn groups,
-then fold survivors back before deactivation. Mission success, failure, and
-timeout paths mutate economy and aggression state. Coordinator dev actions
-expose deterministic server-only hooks for Workbench tests: register a player,
-move HQ, capture a zone, complete or fail a mission, tick income, train troops,
-recruit a garrison, and fold survivors back into abstract state.
+counts. Broad-alpha services now generate mission sites/routes, attach
+objectives/tasks to started missions, spend enemy pools into orders/support
+calls, and track civilian/undercover state. Follow-on AI work should replace
+menu-progressed objectives with world detection, consume active counts and
+support groups to spawn richer physical AI, assign generated routes as
+waypoints, and fold real survivors back before deactivation. Mission success,
+failure, and timeout paths mutate economy, support, capture progress, and
+aggression state. Coordinator hooks expose deterministic server-only actions
+for Workbench tests and no-admin player actions for random missions, support
+requests, civilian aid, looting, income, training, recruitment, and HQ moves.
