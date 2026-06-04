@@ -154,8 +154,19 @@ class HST_HQService
 			}
 		}
 
-		Print(string.Format("h-istasi | no dry HQ hideout surface found for requested hideout %1; setup remains pending", requestedHideoutId), LogLevel.WARNING);
-		return false;
+		vector emergencyPosition = HST_DefaultCatalog.GetEmergencySpawnPosition();
+		if (HST_WorldPositionService.TryResolveGroundPosition(emergencyPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true))
+		{
+			resolvedHideoutId = "hideout_emergency";
+			Print(string.Format("h-istasi | no dry HQ hideout surface found for %1; using emergency dry HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
+			return true;
+		}
+
+		emergencyPosition[1] = emergencyPosition[1] + HST_WorldPositionService.HQ_GROUND_OFFSET;
+		resolvedHideoutId = "hideout_emergency";
+		resolvedPosition = emergencyPosition;
+		Print(string.Format("h-istasi | no dry HQ hideout surface found for %1; using positive emergency HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
+		return true;
 	}
 
 	protected bool TryResolveHideout(HST_HideoutDefinition hideout, out string resolvedHideoutId, out vector resolvedPosition)
@@ -215,7 +226,18 @@ class HST_HQService
 			}
 			else
 			{
-				state.m_vHQPosition = HST_WorldPositionService.ResolveGroundPosition(state.m_vHQPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, false);
+				vector emergencyHQ = HST_DefaultCatalog.GetEmergencySpawnPosition();
+				if (HST_WorldPositionService.TryResolveGroundPosition(emergencyHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true))
+				{
+					Print(string.Format("h-istasi | restored HQ position %1 and default hideout were not dry; re-seating HQ at emergency position %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
+					state.m_vHQPosition = resolvedHQ;
+				}
+				else
+				{
+					emergencyHQ[1] = emergencyHQ[1] + HST_WorldPositionService.HQ_GROUND_OFFSET;
+					Print(string.Format("h-istasi | restored HQ position %1 and default hideout were not dry; using positive emergency HQ position %2", state.m_vHQPosition, emergencyHQ), LogLevel.WARNING);
+					state.m_vHQPosition = emergencyHQ;
+				}
 			}
 		}
 
@@ -234,7 +256,12 @@ class HST_HQService
 		if (HST_WorldPositionService.TryResolveGroundPosition(fallback, verticalOffset, resolved, true))
 			return resolved;
 
-		return HST_WorldPositionService.ResolveGroundPosition(source, verticalOffset, false);
+		vector emergencyPosition = HST_DefaultCatalog.GetEmergencySpawnPosition();
+		if (HST_WorldPositionService.TryResolveGroundPosition(emergencyPosition, verticalOffset, resolved, true))
+			return resolved;
+
+		emergencyPosition[1] = emergencyPosition[1] + verticalOffset;
+		return emergencyPosition;
 	}
 
 	protected string ResolvePetrosPrefab(HST_CampaignState state)

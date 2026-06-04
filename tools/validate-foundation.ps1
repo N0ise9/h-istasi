@@ -71,6 +71,18 @@ function Get-VectorXZObject {
 	}
 }
 
+function Get-CoordinateXZKey {
+	param([string] $Coordinate)
+
+	if ($Coordinate -notmatch "(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)") {
+		return ""
+	}
+
+	$x = [double] $Matches[1]
+	$z = [double] $Matches[3]
+	return "$([math]::Round($x, 3)),$([math]::Round($z, 3))"
+}
+
 $project = Get-Content -Raw "addon.gproj"
 if ($project -notmatch '"58D0FB3206B6F859"' -or $project -notmatch '"595F2BF2F44836FB"') {
 	throw "addon.gproj must depend on base Reforger and RHS Status Quo"
@@ -611,9 +623,18 @@ foreach ($group in @($nativeMarkerIds | Group-Object | Where-Object Count -gt 1)
 	throw "Duplicate Tonka-style map marker ID: $($group.Name)"
 }
 
+$conflictMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_ConflictMapMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
+foreach ($group in @($conflictMarkerIds | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate native Conflict campaign marker ID: $($group.Name)"
+}
+
 foreach ($zoneId in $configZones) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$zoneId")) {
 		throw "Configured zone lacks Tonka-style runtime marker: $zoneId"
+	}
+
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_ConflictMapMarker_$zoneId")) {
+		throw "Configured zone lacks visible native Conflict campaign marker: $zoneId"
 	}
 
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
@@ -624,6 +645,15 @@ foreach ($zoneId in $configZones) {
 $nativeMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "GenericEntity\s+HST_MapMarker_")).Count
 if ($nativeMarkerCount -lt $configZones.Count) {
 	throw "Tonka-style runtime marker block count is unexpectedly low: $nativeMarkerCount"
+}
+
+$conflictMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "HST_ConflictMapMarker_")).Count
+if ($conflictMarkerCount -ne $configZones.Count) {
+	throw "Visible native Conflict campaign marker count must equal configured zone count: markers=$conflictMarkerCount zones=$($configZones.Count)"
+}
+
+if ($runtimeMarkerLayer -notmatch "HST_ConflictMapMarker_[\s\S]*?SCR_FactionAffiliationComponent" -or $runtimeMarkerLayer -notmatch "HST_ConflictMapMarker_[\s\S]*?SCR_CampaignMilitaryBaseComponent") {
+	throw "Visible native Conflict campaign markers must carry faction affiliation and military base components"
 }
 
 if ($runtimeMarkerLayer -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
@@ -651,9 +681,9 @@ $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 $hideoutPositions = @{}
 $hideoutVectors = @{}
 $expectedHideoutCoordinates = @{
-	"hideout_north_forest" = "2500 0 9700"
-	"hideout_central_hills" = "4000 0 3000"
-	"hideout_south_woods" = "5400 0 1600"
+	"hideout_north_forest" = "6332.167 75.926 8446.294"
+	"hideout_central_hills" = "4280.766 14.317 3468.06"
+	"hideout_south_woods" = "8355.991 237.817 4765.673"
 }
 foreach ($block in $hideoutBlocks) {
 	if ($block -notmatch 'm_sHideoutId "([^"]+)"') {
@@ -671,7 +701,7 @@ foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
 	}
 
 	$expectedCoord = $expectedHideoutCoordinates[$expectedHideoutId]
-	$expectedKey = ($expectedCoord -replace " 0 ", ",")
+	$expectedKey = Get-CoordinateXZKey $expectedCoord
 	if ($hideoutPositions[$expectedHideoutId] -ne $expectedKey) {
 		throw "Hideout $expectedHideoutId must use inland coordinate $expectedCoord, found $($hideoutPositions[$expectedHideoutId])"
 	}
@@ -694,11 +724,12 @@ foreach ($expectedHideoutId in $expectedHideoutCoordinates.Keys) {
 	}
 }
 
-foreach ($oldHideoutCoordinate in @("2300 0 10300", "1800 0 3500", "900 0 7200", "3200 0 4100", "3400 0 4500", "2300 0 8500")) {
+foreach ($oldHideoutCoordinate in @("2500 0 9700", "4000 0 3000", "5400 0 1600", "2300 0 10300", "1800 0 3500", "900 0 7200", "3200 0 4100", "3400 0 4500", "2300 0 8500")) {
 	foreach ($hideoutSource in @(
 		@{ Label = "Default catalog"; Text = $defaultCatalog },
 		@{ Label = "Everon map config"; Text = $mapConfig },
 		@{ Label = "Everon starting points"; Text = $everonStartingPointsLayer },
+		@{ Label = "Everon hideouts"; Text = $everonHideoutsLayer },
 		@{ Label = "Everon marker layer"; Text = $runtimeMarkerLayer }
 	)) {
 		if ($hideoutSource.Text -match [regex]::Escape($oldHideoutCoordinate)) {
@@ -768,6 +799,44 @@ if ($worldPositionServiceText -notmatch "if \(rejectWater && surfaceY < MIN_DRY_
 	throw "World position service must reject water surfaces when dry ground is requested"
 }
 Write-Host "Dry-ground rejection contract OK"
+
+$playerSpawnServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSpawnService.c"
+$hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
+if ($defaultCatalog -notmatch "GetEmergencySpawnPosition") {
+	throw "Default catalog must expose a positive emergency spawn position"
+}
+if ($playerSpawnServiceText -match "ResolveGroundPosition\(fallbackPosition,\s*HST_WorldPositionService\.CHARACTER_GROUND_OFFSET,\s*false\)") {
+	throw "FIA player spawn must not fall back to water-permissive ground snapping"
+}
+if ($hqServiceText -match "ResolveGroundPosition\(state\.m_vHQPosition,\s*HST_WorldPositionService\.HQ_GROUND_OFFSET,\s*false\)") {
+	throw "HQ runtime placement must not fall back to water-permissive ground snapping"
+}
+Write-Host "Dry HQ/player emergency fallback contract OK"
+
+$mapMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+foreach ($requiredMarkerColorContract in @(
+	'return "GREEN";',
+	'return "BLUFOR";',
+	'return "RED";',
+	'return "green";',
+	'return "blue";',
+	'return "red";'
+)) {
+	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredMarkerColorContract)) {
+		throw "Map marker service is missing faction color contract: $requiredMarkerColorContract"
+	}
+}
+foreach ($requiredNativeMarkerSyncContract in @(
+	"SyncVisibleNativeMarkerOwnership",
+	"HST_ConflictMapMarker_",
+	"SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey)",
+	"AddNativeMarkerCandidate"
+)) {
+	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredNativeMarkerSyncContract)) {
+		throw "Map marker service is missing native marker ownership sync contract: $requiredNativeMarkerSyncContract"
+	}
+}
+Write-Host "Faction marker color contract OK"
 
 $definedSymbols = @([regex]::Matches($scriptText, "(?:class|enum)\s+(HST_[A-Za-z0-9_]+)") |
 	ForEach-Object { $_.Groups[1].Value } |

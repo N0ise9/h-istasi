@@ -429,7 +429,13 @@ class HST_PlayerSpawnService
 		if (HST_WorldPositionService.TryResolveGroundPosition(fallbackPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedPosition, true))
 			return resolvedPosition;
 
-		return HST_WorldPositionService.ResolveGroundPosition(fallbackPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		vector emergencyPosition = HST_DefaultCatalog.GetEmergencySpawnPosition();
+		if (HST_WorldPositionService.TryResolveGroundPosition(emergencyPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedPosition, true))
+			return resolvedPosition;
+
+		emergencyPosition[1] = emergencyPosition[1] + HST_WorldPositionService.CHARACTER_GROUND_OFFSET;
+		Print(string.Format("h-istasi | dry spawn resolution failed; using positive emergency spawn %1", emergencyPosition), LogLevel.WARNING);
+		return emergencyPosition;
 	}
 
 	protected vector GetSpawnRingOffset(int slot)

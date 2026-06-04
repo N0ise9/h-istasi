@@ -44,9 +44,9 @@ class HST_DefaultCatalog
 	static array<ref HST_HideoutDefinition> CreateHideouts()
 	{
 		array<ref HST_HideoutDefinition> hideouts = {};
-		hideouts.Insert(NewHideout("hideout_north_forest", "North Forest", "2500 0 9700"));
-		hideouts.Insert(NewHideout("hideout_central_hills", "Central Hills", "4000 0 3000"));
-		hideouts.Insert(NewHideout("hideout_south_woods", "South Woods", "5400 0 1600"));
+		hideouts.Insert(NewHideout("hideout_north_forest", "North Forest", "6332.167 75.926 8446.294"));
+		hideouts.Insert(NewHideout("hideout_central_hills", "Central Hills", "4280.766 14.317 3468.06"));
+		hideouts.Insert(NewHideout("hideout_south_woods", "South Woods", "8355.991 237.817 4765.673"));
 		return hideouts;
 	}
 
@@ -191,6 +191,11 @@ class HST_DefaultCatalog
 		}
 
 		return "0 0 0";
+	}
+
+	static vector GetEmergencySpawnPosition()
+	{
+		return "4280.766 14.317 3468.06";
 	}
 
 static array<ref HST_MissionDefinition> CreateMissionRegistry()

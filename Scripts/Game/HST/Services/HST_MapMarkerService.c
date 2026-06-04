@@ -5,6 +5,9 @@ class HST_MapMarkerService
 	static const string TONKA_STYLE_MARKER_ENTITY = "SCR_ScenarioFrameworkSlotMarker";
 	static const string TONKA_STYLE_MARKER_PREFAB = "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et";
 
+	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
+	protected string m_sNativeMarkerEntityName;
+
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state || !preset)
@@ -16,6 +19,7 @@ class HST_MapMarkerService
 		AddZoneMarkers(state, preset);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
+		SyncVisibleNativeMarkerOwnership(state);
 		Print(string.Format("h-istasi | rebuilt %1 Tonka-style map marker record(s)", state.m_aMapMarkers.Count()));
 		return true;
 	}
@@ -83,7 +87,7 @@ class HST_MapMarkerService
 		if (!state.m_bHQDeployed)
 			return;
 
-		AddMarker(state, "hst_hq", state.m_sHQHideoutId, "FIA HQ", "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", "BLUFOR", state.m_vHQPosition, true, "white", "support");
+		AddMarker(state, "hst_hq", state.m_sHQHideoutId, "FIA HQ", "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), state.m_vHQPosition, true, "green", "support");
 	}
 
 	protected void AddHideoutMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -93,7 +97,7 @@ class HST_MapMarkerService
 			if (!hideout || hideout.m_sHideoutId == state.m_sHQHideoutId)
 				continue;
 
-			AddMarker(state, "hst_hideout_" + hideout.m_sHideoutId, hideout.m_sHideoutId, hideout.m_sDisplayName + " Hideout", "", "hideout", preset.m_sResistanceFactionKey, "PICK_UP2", "BLUFOR", hideout.m_vPosition, true, "white", "support");
+			AddMarker(state, "hst_hideout_" + hideout.m_sHideoutId, hideout.m_sHideoutId, hideout.m_sDisplayName + " Hideout", "", "hideout", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), hideout.m_vPosition, true, "green", "support");
 		}
 	}
 
@@ -147,7 +151,7 @@ class HST_MapMarkerService
 			if (!targetZone)
 				continue;
 
-			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true, "red", "enemy_response");
+			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true, FactionToMarkerTextColor(qrf.m_sFactionKey, preset), "enemy_response");
 		}
 	}
 
@@ -170,6 +174,46 @@ class HST_MapMarkerService
 		state.m_aMapMarkers.Insert(marker);
 	}
 
+	protected void SyncVisibleNativeMarkerOwnership(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sOwnerFactionKey.IsEmpty())
+				continue;
+
+			m_sNativeMarkerEntityName = "HST_ConflictMapMarker_" + zone.m_sZoneId;
+			m_aNativeMarkerCandidates.Clear();
+			world.QueryEntitiesBySphere(zone.m_vPosition, 4, AddNativeMarkerCandidate, null, EQueryEntitiesFlags.ALL);
+			foreach (IEntity markerEntity : m_aNativeMarkerCandidates)
+			{
+				FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(markerEntity.FindComponent(FactionAffiliationComponent));
+				if (factionComponent)
+					factionComponent.SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey);
+			}
+		}
+
+		m_sNativeMarkerEntityName = "";
+		m_aNativeMarkerCandidates.Clear();
+	}
+
+	protected bool AddNativeMarkerCandidate(IEntity entity)
+	{
+		if (!entity || m_sNativeMarkerEntityName.IsEmpty())
+			return true;
+
+		if (entity.GetName() == m_sNativeMarkerEntityName)
+			m_aNativeMarkerCandidates.Insert(entity);
+
+		return true;
+	}
+
 	protected vector BuildCallsignMarkerPosition(HST_ZoneState zone)
 	{
 		vector position = zone.m_vPosition;
@@ -180,15 +224,29 @@ class HST_MapMarkerService
 	protected string FactionToMarkerColor(string factionKey, HST_CampaignPreset preset)
 	{
 		if (preset && factionKey == preset.m_sResistanceFactionKey)
+			return "GREEN";
+
+		if (preset && factionKey == preset.m_sOccupierFactionKey)
 			return "BLUFOR";
 
 		if (preset && factionKey == preset.m_sInvaderFactionKey)
-			return "OPFOR";
-
-		if (preset && factionKey == preset.m_sOccupierFactionKey)
 			return "RED";
 
 		return "REFORGER_ORANGE";
+	}
+
+	protected string FactionToMarkerTextColor(string factionKey, HST_CampaignPreset preset)
+	{
+		if (preset && factionKey == preset.m_sResistanceFactionKey)
+			return "green";
+
+		if (preset && factionKey == preset.m_sOccupierFactionKey)
+			return "blue";
+
+		if (preset && factionKey == preset.m_sInvaderFactionKey)
+			return "red";
+
+		return "white";
 	}
 
 	protected string ZoneToMarkerCategory(HST_ZoneState zone)
