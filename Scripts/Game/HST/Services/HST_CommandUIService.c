@@ -907,7 +907,11 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garage", "Cargo entries", string.Format("%1 entries / %2 item(s)", CountVehicleCargoEntries(state), CountVehicleCargoItems(state)), "warn");
 		payload = AppendRow(payload, "garage", "Captured emplacements", string.Format("%1", state.m_aCapturedEmplacements.Count()), "neutral");
 		payload = AppendRow(payload, "garage", "Ammo points", string.Format("%1", state.m_aAmmoPoints.Count()), "neutral");
-		payload = AppendRow(payload, "garage", "Active zone vehicles", string.Format("%1 physical / %2 abstract", CountActiveZoneVehicles(state), CountGarrisonVehicles(state)), "neutral");
+		payload = AppendRow(payload, "garage", "Active civilians", string.Format("%1 characters / %2 vehicles", state.m_iRuntimeCivilianCharacterCount, state.m_iRuntimeCivilianVehicleCount), RuntimeSpawnTone(state));
+		payload = AppendRow(payload, "garage", "Active military vehicles", string.Format("%1 physical / %2 abstract", state.m_iRuntimeMilitaryVehicleCount, CountGarrisonVehicles(state)), "neutral");
+		payload = AppendRow(payload, "garage", "Spawn failures", string.Format("%1", state.m_iRuntimeSpawnFailureCount), RuntimeSpawnTone(state));
+		if (!state.m_sLastRuntimeSpawnFailurePrefab.IsEmpty())
+			payload = AppendRow(payload, "garage", "Last failed prefab", state.m_sLastRuntimeSpawnFailurePrefab, "bad");
 		if (settings)
 			payload = AppendRow(payload, "garage", "HQ action radius", string.Format("%1m", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters), "good");
 
@@ -1866,5 +1870,13 @@ class HST_CommandUIService
 		}
 
 		return count;
+	}
+
+	protected string RuntimeSpawnTone(HST_CampaignState state)
+	{
+		if (state && state.m_iRuntimeSpawnFailureCount > 0)
+			return "warn";
+
+		return "neutral";
 	}
 }

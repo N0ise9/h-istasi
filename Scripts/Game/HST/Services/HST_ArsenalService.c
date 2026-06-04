@@ -169,7 +169,8 @@ class HST_ArsenalService
 		if (!respawnSystem)
 			return "h-istasi garage | failed: respawn system not ready";
 
-		GenericEntity entity = respawnSystem.DoSpawn(vehicle.m_sPrefab, deployPosition, vehicle.m_vAngles);
+		vector deployAngles = ResolveRedeployAngles(vehicle, deployPosition);
+		GenericEntity entity = respawnSystem.DoSpawn(vehicle.m_sPrefab, deployPosition, deployAngles);
 		if (!entity)
 			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
 
@@ -202,6 +203,33 @@ class HST_ArsenalService
 			return state.m_aGarageVehicles[0];
 
 		return null;
+	}
+
+	protected vector ResolveRedeployAngles(HST_GarageVehicleState vehicle, vector deployPosition)
+	{
+		if (!vehicle)
+			return BuildFallbackRedeployAngles("", deployPosition);
+
+		if (!IsZeroAngles(vehicle.m_vAngles))
+			return vehicle.m_vAngles;
+
+		return BuildFallbackRedeployAngles(vehicle.m_sVehicleId + vehicle.m_sPrefab, deployPosition);
+	}
+
+	protected bool IsZeroAngles(vector angles)
+	{
+		return angles[0] == 0 && angles[1] == 0 && angles[2] == 0;
+	}
+
+	protected vector BuildFallbackRedeployAngles(string salt, vector deployPosition)
+	{
+		vector angles;
+		int seed = salt.Length() * 41 + Math.Round(deployPosition[0]) * 11 + Math.Round(deployPosition[2]) * 17;
+		if (seed < 0)
+			seed = -seed;
+
+		angles[0] = seed - (seed / 360) * 360;
+		return angles;
 	}
 
 	protected string GarageVehicleDisplayLabel(HST_GarageVehicleState vehicle)

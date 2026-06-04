@@ -35,7 +35,7 @@ class HST_BalanceConfig
 	int m_iOccupierVehicleMinPerTown;
 	int m_iOccupierVehicleMaxPerTown = 2;
 	int m_iWarLevelMaximum = 10;
-	ref array<string> m_aCivilianGroupPrefabs = {};
+	ref array<string> m_aCivilianCharacterPrefabs = {};
 	ref array<string> m_aCivilianVehiclePrefabs = {};
 }
 

@@ -501,30 +501,18 @@ foreach ($forbiddenArsenalFallbackPrefabEntry in @(
 }
 Write-Host "HST HQ fallback arsenal prefab contract OK"
 
-$civilianGroupPrefabPath = "Prefabs/Groups/CIV/HST_CivilianTownGroup.et"
-if (!(Test-Path $civilianGroupPrefabPath)) {
-	throw "Missing HST civilian town group prefab: $civilianGroupPrefabPath"
+$balanceConfigTextEarly = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
+$defaultCatalogEarly = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
+if ($balanceConfigTextEarly -match "m_aCivilianGroupPrefabs" -or $defaultCatalogEarly -match "m_aCivilianGroupPrefabs") {
+	throw "Civilian runtime config must not use the broken SCR_AIGroup civilian ambience pool"
 }
-$civilianGroupPrefabMetaPath = "$civilianGroupPrefabPath.meta"
-if (!(Test-Path $civilianGroupPrefabMetaPath)) {
-	throw "Missing HST civilian town group prefab metadata: $civilianGroupPrefabMetaPath"
+if ($balanceConfigTextEarly -notmatch "m_aCivilianCharacterPrefabs" -or $defaultCatalogEarly -notmatch "m_aCivilianCharacterPrefabs") {
+	throw "Civilian runtime config must expose the direct civilian character prefab pool"
 }
-if ((Get-Content -Raw $civilianGroupPrefabMetaPath) -notmatch '\{6985327711303600\}Prefabs/Groups/CIV/HST_CivilianTownGroup\.et') {
-	throw "HST civilian town group prefab metadata must expose the GUID-qualified resource name"
+if ($balanceConfigTextEarly -match "Character_CIV" -or $defaultCatalogEarly -match "Character_CIV") {
+	throw "Civilian character pools must not contain path-only Character_CIV resources"
 }
-$civilianGroupPrefabText = Get-Content -Raw $civilianGroupPrefabPath
-foreach ($requiredCivilianGroupEntry in @(
-	"SCR_AIGroup HST_CivilianTownGroup",
-	'm_faction "CIV"',
-	"m_aUnitPrefabSlots",
-	"Character_CIV_baseLoadout.et",
-	"Character_CIV.et"
-)) {
-	if ($civilianGroupPrefabText -notmatch [regex]::Escape($requiredCivilianGroupEntry)) {
-		throw "HST civilian town group prefab is missing entry: $requiredCivilianGroupEntry"
-	}
-}
-Write-Host "HST civilian town group prefab OK"
+Write-Host "Civilian character runtime resource surface OK"
 
 $playerControllerPrefabPath = "Prefabs/Characters/HST/HST_PlayerController.et"
 if (!(Test-Path $playerControllerPrefabPath)) {
@@ -1812,11 +1800,14 @@ Write-Host "Physical AI war scaffold OK"
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",
 	"SpawnActiveZoneRuntime",
-	"CIVILIAN_GROUP_SIZE",
-	"CIVILIAN_GROUP_PREFAB",
-	"HST_CivilianTownGroup.et",
-	"HST_CivilianTownGroup_Workers.et",
-	"HST_CivilianTownGroup_Mixed.et",
+	"m_aCivilianCharacterPrefabs",
+	"SelectCivilianCharacterPrefab",
+	"ResolveTownCharacterSpawnPosition",
+	"BuildSpawnAngles",
+	"RecordSpawnFailure",
+	"PublishRuntimeDiagnostics",
+	"IsGuidQualifiedResource",
+	"no GUID-qualified civilian character prefabs configured",
 	"SelectCivilianVehiclePrefab",
 	"ResolveTownVehicleSpawnPosition",
 	"BuildZoneSeed",
@@ -1837,8 +1828,13 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	"m_iOccupierVehicleMaxPerTown",
 	"m_aVehiclePrefabs",
 	"m_aCivilianVehiclePrefabs",
-	"m_aCivilianGroupPrefabs",
+	"CIV_CHARACTER",
 	"MILITARY_VEHICLE",
+	"m_iRuntimeCivilianCharacterCount",
+	"m_iRuntimeCivilianVehicleCount",
+	"m_iRuntimeMilitaryVehicleCount",
+	"m_iRuntimeSpawnFailureCount",
+	"m_sLastRuntimeSpawnFailurePrefab",
 	"civilianRuntimeChanged"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry) -and $configResourceText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry)) {
@@ -1846,8 +1842,24 @@ foreach ($requiredCivilianRuntimeEntry in @(
 	}
 }
 $civilianRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
-if ($civilianRuntimeServiceText -match 'DoSpawn\(SelectCivilianCharacterPrefab' -or $civilianRuntimeServiceText -match 'CIVILIAN_PREFAB = "Prefabs/Characters/Factions/CIV') {
-	throw "Civilian runtime must spawn h-istasi civilian AI groups, not direct path-only civilian characters"
+if ($civilianRuntimeServiceText -match 'HST_CivilianTownGroup' -or $civilianRuntimeServiceText -match 'm_aCivilianGroupPrefabs' -or $configResourceText -match 'm_aCivilianGroupPrefabs') {
+	throw "Civilian runtime must not spawn the broken HST civilian SCR_AIGroup prefabs"
+}
+if ($civilianRuntimeServiceText -match 'Character_CIV' -or $configResourceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $defaultCatalog -match 'Character_CIV') {
+	throw "Civilian character runtime must not use path-only Character_CIV resources"
+}
+if ($civilianRuntimeServiceText -match 'DoSpawn\(prefab, position, "0 0 0"\)') {
+	throw "Ambient civilian/military runtime spawns must pass deterministic angles instead of hard-coded zero angles"
+}
+if ($missionRuntimeServiceText -match 'DoSpawn\([^;\r\n]*"0 0 0"\)') {
+	throw "Mission runtime props must pass deterministic angles instead of hard-coded zero angles"
+}
+$arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
+if ($lootServiceText -match 'm_vAngles = "0 0 0"') {
+	throw "Garage capture must not store all-zero vehicle angles"
+}
+if ($arsenalServiceText -notmatch "ResolveRedeployAngles" -or $arsenalServiceText -notmatch "BuildFallbackRedeployAngles") {
+	throw "Garage redeploy must use stored angles with deterministic fallback for legacy zero-angle records"
 }
 if ($civilianRuntimeServiceText -match 'ResolveTownSpawnPosition\(zone, civilianCount \+ j' -or $civilianRuntimeServiceText -match 'ResolveTownSpawnPosition\(zone, civilianCount \+ civilianVehicleCount \+ k') {
 	throw "Civilian runtime vehicles must use scattered town vehicle placement, not the old grid helper"
@@ -1882,6 +1894,10 @@ foreach ($forbiddenCivilianSpawnResource in @(
 }
 if ($civilianPoolDefaultText -match "M1025" -or $civilianPoolDefaultText -match "Humvee" -or $civilianPoolDefaultText -match "M151A2" -or $balanceConfigText -match "M1025" -or $balanceConfigText -match "Humvee" -or $balanceConfigText -match "M151A2") {
 	throw "Civilian vehicle pools must not retain Humvee/M1025/M151 military fallback resources"
+}
+$usmcFactionConfigText = Get-Content -Raw "Configs/HST/Factions/HST_RHS_USMC.conf"
+if ($defaultCatalog -match 'm_aVehiclePrefabs\.Insert\("Prefabs/Vehicles/Wheeled/M11xx/Car_M1151\.et"\)' -or $usmcFactionConfigText -match "Car_M1151.et") {
+	throw "Known invalid Car_M1151.et resource must not remain in USMC faction vehicle pools"
 }
 Write-Host "Physical civilian town runtime OK"
 

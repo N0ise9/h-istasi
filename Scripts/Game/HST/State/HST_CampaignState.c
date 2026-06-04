@@ -381,6 +381,11 @@ class HST_CampaignState
 	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
 	string m_sLastPersistenceStatus = "not tracked";
+	int m_iRuntimeCivilianCharacterCount;
+	int m_iRuntimeCivilianVehicleCount;
+	int m_iRuntimeMilitaryVehicleCount;
+	int m_iRuntimeSpawnFailureCount;
+	string m_sLastRuntimeSpawnFailurePrefab;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};

@@ -131,7 +131,7 @@ class HST_LootService
 		vehicle.m_iStoredAtSecond = state.m_iElapsedSeconds;
 		vehicle.m_iRedeployCost = ResolveGarageRedeployCost(vehicle.m_sPrefab);
 		vehicle.m_vPosition = selectedVehicle.GetOrigin();
-		vehicle.m_vAngles = "0 0 0";
+		vehicle.m_vAngles = ResolveStoredVehicleAngles(selectedVehicle, vehicle.m_sPrefab);
 		vehicle.m_fFuel = 1.0;
 		vehicle.m_bArmed = IsLikelyArmedVehicle(vehicle.m_sPrefab);
 		if (!arsenal.StoreVehicle(state, vehicle))
@@ -848,6 +848,21 @@ class HST_LootService
 		float dx = first[0] - second[0];
 		float dz = first[2] - second[2];
 		return dx * dx + dz * dz;
+	}
+
+	protected vector ResolveStoredVehicleAngles(IEntity vehicle, string prefab)
+	{
+		vector angles;
+		if (!vehicle)
+			return angles;
+
+		vector origin = vehicle.GetOrigin();
+		int seed = Math.Round(origin[0]) * 13 + Math.Round(origin[2]) * 17 + prefab.Length() * 23;
+		if (seed < 0)
+			seed = -seed;
+
+		angles[0] = seed - (seed / 360) * 360;
+		return angles;
 	}
 
 	protected int ResolveGarageRedeployCost(string prefab)

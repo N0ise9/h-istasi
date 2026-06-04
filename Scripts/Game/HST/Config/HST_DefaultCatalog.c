@@ -12,12 +12,7 @@ class HST_DefaultCatalog
 		if (!balance)
 			return;
 
-		if (balance.m_aCivilianGroupPrefabs.Count() == 0)
-		{
-			balance.m_aCivilianGroupPrefabs.Insert("{6985327711303600}Prefabs/Groups/CIV/HST_CivilianTownGroup.et");
-			balance.m_aCivilianGroupPrefabs.Insert("{6985327711303610}Prefabs/Groups/CIV/HST_CivilianTownGroup_Workers.et");
-			balance.m_aCivilianGroupPrefabs.Insert("{6985327711303620}Prefabs/Groups/CIV/HST_CivilianTownGroup_Mixed.et");
-		}
+		// Keep m_aCivilianCharacterPrefabs empty until GUID-qualified CIV resources are verified.
 
 		if (balance.m_aCivilianVehiclePrefabs.Count() == 0)
 		{
@@ -815,7 +810,6 @@ private static HST_FactionTemplate CreateFiaTemplate()
 		faction.m_sFactionKey = "RHS_USAF";
 		faction.m_sDisplayName = "RHS USMC Occupiers";
 		faction.m_aVehiclePrefabs.Insert("{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M11xx/Car_M1151.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M998/M1025_USAF.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M998/M1025_armed_M2HB_USAF.et");
 		faction.m_aGroupPrefabs.Insert("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et");

@@ -2,15 +2,16 @@ class HST_CivilianService
 {
 	static const int HEAT_DECAY_SECONDS = 300;
 	static const int UNDERCOVER_RECHECK_SECONDS = 20;
-	static const int CIVILIAN_GROUP_SIZE = 4;
 	static const float PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
-	static const string CIVILIAN_GROUP_PREFAB = "{6985327711303600}Prefabs/Groups/CIV/HST_CivilianTownGroup.et";
 
 	protected ref array<string> m_aRuntimeZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityKinds = {};
 	protected ref array<vector> m_aRuntimeEntitySpawnPositions = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
+	protected int m_iRuntimeSpawnFailureCount;
+	protected string m_sLastRuntimeSpawnFailurePrefab;
+	protected bool m_bWarnedMissingCivilianCharacterPool;
 
 	bool EnsureCivilianZones(HST_CampaignState state)
 	{
@@ -85,7 +86,10 @@ class HST_CivilianService
 		PruneDeletedRuntimeEntities();
 
 		if (!balance.m_bCivilianPopulationEnabled)
-			return CleanupAllRuntimeEntities();
+		{
+			bool cleaned = CleanupAllRuntimeEntities();
+			return PublishRuntimeDiagnostics(state) || cleaned;
+		}
 
 		bool changed;
 		foreach (HST_ZoneState zone : state.m_aZones)
@@ -105,7 +109,7 @@ class HST_CivilianService
 				changed = true;
 		}
 
-		return changed;
+		return PublishRuntimeDiagnostics(state) || changed;
 	}
 
 	HST_PlayerUndercoverState EnsurePlayer(HST_CampaignState state, string identityId)
@@ -255,11 +259,19 @@ class HST_CivilianService
 			if (civilianZone)
 			{
 				int civilianCount = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
-				int civilianGroupCount = ResolveCivilianGroupCount(civilianCount);
-				for (int i = 0; i < civilianGroupCount; i++)
+				if (civilianCount > 0 && balance.m_aCivilianCharacterPrefabs.Count() == 0)
+					WarnMissingCivilianCharacterPool(zone, civilianCount);
+
+				for (int i = 0; i < civilianCount; i++)
 				{
-					vector position = ResolveTownSpawnPosition(zone, i, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
-					if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianGroupPrefab(balance, i, BuildZoneSeed(state, zone, i)), position, "CIV", "CIV_GROUP"))
+					int civilianSeed = BuildZoneSeed(state, zone, 1000 + i);
+					string civilianPrefab = SelectCivilianCharacterPrefab(balance, i, civilianSeed);
+					if (civilianPrefab.IsEmpty())
+						continue;
+
+					vector position = ResolveTownCharacterSpawnPosition(zone, i, civilianSeed);
+					vector angles = BuildSpawnAngles(civilianSeed);
+					if (SpawnRuntimeEntity(zone.m_sZoneId, civilianPrefab, position, angles, "CIV", "CIV_CHARACTER"))
 						spawned++;
 				}
 			}
@@ -267,8 +279,10 @@ class HST_CivilianService
 			civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, BuildZoneSeed(state, zone, 101));
 			for (int j = 0; j < civilianVehicleCount; j++)
 			{
+				int civilianVehicleSeed = BuildZoneSeed(state, zone, 200 + j);
 				vector vehiclePosition = ResolveTownVehicleSpawnPosition(zone, j, false);
-				if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianVehiclePrefab(balance, j, BuildZoneSeed(state, zone, 200 + j)), vehiclePosition, "CIV", "CIV_VEHICLE"))
+				vector vehicleAngles = BuildSpawnAngles(civilianVehicleSeed);
+				if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianVehiclePrefab(balance, j, civilianVehicleSeed), vehiclePosition, vehicleAngles, "CIV", "CIV_VEHICLE"))
 					spawned++;
 			}
 		}
@@ -281,7 +295,8 @@ class HST_CivilianService
 				continue;
 
 			vector ownerPosition = ResolveTownVehicleSpawnPosition(zone, civilianVehicleCount + k, true);
-			if (SpawnRuntimeEntity(zone.m_sZoneId, ownerPrefab, ownerPosition, zone.m_sOwnerFactionKey, "MILITARY_VEHICLE"))
+			vector ownerAngles = BuildSpawnAngles(BuildZoneSeed(state, zone, 700 + k));
+			if (SpawnRuntimeEntity(zone.m_sZoneId, ownerPrefab, ownerPosition, ownerAngles, zone.m_sOwnerFactionKey, "MILITARY_VEHICLE"))
 				spawned++;
 		}
 
@@ -289,7 +304,7 @@ class HST_CivilianService
 		return true;
 	}
 
-	protected bool SpawnRuntimeEntity(string zoneId, string prefab, vector position, string factionKey, string runtimeKind)
+	protected bool SpawnRuntimeEntity(string zoneId, string prefab, vector position, vector angles, string factionKey, string runtimeKind)
 	{
 		if (zoneId.IsEmpty() || prefab.IsEmpty())
 			return false;
@@ -298,10 +313,10 @@ class HST_CivilianService
 		if (!respawnSystem)
 			return false;
 
-		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, "0 0 0");
+		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, angles);
 		if (!entity)
 		{
-			Print(string.Format("h-istasi civilians | spawn failed for %1 at %2 in %3", prefab, position, zoneId), LogLevel.WARNING);
+			RecordSpawnFailure(zoneId, prefab, runtimeKind, position, angles);
 			return false;
 		}
 
@@ -310,6 +325,7 @@ class HST_CivilianService
 		m_aRuntimeEntityKinds.Insert(runtimeKind);
 		m_aRuntimeEntitySpawnPositions.Insert(position);
 		m_aRuntimeEntities.Insert(entity);
+		Print(string.Format("h-istasi civilians | spawn ok | zone %1 | kind %2 | faction %3 | prefab %4 | pos %5 | yaw %6", zoneId, runtimeKind, factionKey, prefab, position, angles[0]));
 		return true;
 	}
 
@@ -398,14 +414,17 @@ class HST_CivilianService
 		return m_aRuntimeZoneIds.Contains(zoneId);
 	}
 
-	protected vector ResolveTownSpawnPosition(HST_ZoneState zone, int index, float verticalOffset)
+	protected vector ResolveTownCharacterSpawnPosition(HST_ZoneState zone, int index, int seed)
 	{
+		if (!zone)
+			return "0 0 0";
+
 		vector offset = "0 0 0";
-		int column = ModInt(index, 5);
-		int row = index / 5;
-		offset[0] = (column - 2) * 9;
-		offset[2] = (row - 1) * 11;
-		return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition + offset, verticalOffset, true);
+		float radius = 8.0 + ModInt(seed, 24);
+		float angle = ModInt(seed * 29 + index * 43, 360) * 0.0174533;
+		offset[0] = Math.Sin(angle) * radius;
+		offset[2] = Math.Cos(angle) * radius;
+		return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition + offset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true);
 	}
 
 	protected vector ResolveTownVehicleSpawnPosition(HST_ZoneState zone, int index, bool militaryVehicle)
@@ -488,20 +507,26 @@ class HST_CivilianService
 		return result;
 	}
 
-	protected int ResolveCivilianGroupCount(int civilianCount)
+	protected vector BuildSpawnAngles(int seed)
 	{
-		if (civilianCount <= 0)
-			return 0;
-
-		return (civilianCount + CIVILIAN_GROUP_SIZE - 1) / CIVILIAN_GROUP_SIZE;
+		vector angles;
+		angles[0] = ModInt(seed * 47 + 91, 360);
+		return angles;
 	}
 
-	protected string SelectCivilianGroupPrefab(HST_BalanceConfig balance, int index, int seed)
+	protected string SelectCivilianCharacterPrefab(HST_BalanceConfig balance, int index, int seed)
 	{
-		if (balance && balance.m_aCivilianGroupPrefabs.Count() > 0)
-			return balance.m_aCivilianGroupPrefabs[ModInt(seed + index, balance.m_aCivilianGroupPrefabs.Count())];
+		if (!balance || balance.m_aCivilianCharacterPrefabs.Count() == 0)
+			return "";
 
-		return CIVILIAN_GROUP_PREFAB;
+		for (int i = 0; i < balance.m_aCivilianCharacterPrefabs.Count(); i++)
+		{
+			string prefab = balance.m_aCivilianCharacterPrefabs[ModInt(seed + index + i, balance.m_aCivilianCharacterPrefabs.Count())];
+			if (IsGuidQualifiedResource(prefab))
+				return prefab;
+		}
+
+		return "";
 	}
 
 	protected string SelectCivilianVehiclePrefab(HST_BalanceConfig balance, int index, int seed)
@@ -520,7 +545,7 @@ class HST_CivilianService
 			for (int i = 0; i < faction.m_aVehiclePrefabs.Count(); i++)
 			{
 				string factionVehicle = faction.m_aVehiclePrefabs[ModInt(index + i, faction.m_aVehiclePrefabs.Count())];
-				if (IsTownGroundVehicleResource(factionVehicle))
+				if (IsTownGroundVehicleResource(factionVehicle) && !IsKnownInvalidVehicleResource(factionVehicle))
 					return factionVehicle;
 			}
 		}
@@ -540,6 +565,16 @@ class HST_CivilianService
 		return !IsAircraftVehicleResource(prefab);
 	}
 
+	protected bool IsGuidQualifiedResource(string prefab)
+	{
+		return !prefab.IsEmpty() && prefab.Contains("{") && prefab.Contains("}") && prefab.Contains("Prefabs/");
+	}
+
+	protected bool IsKnownInvalidVehicleResource(string prefab)
+	{
+		return prefab.Contains("Car_M1151.et");
+	}
+
 	protected bool IsAircraftVehicleResource(string prefab)
 	{
 		return prefab.Contains("Aircraft") || prefab.Contains("Airplane") || prefab.Contains("Plane") || prefab.Contains("Helicopter") || prefab.Contains("Helicopters") || prefab.Contains("/UH") || prefab.Contains("/AH") || prefab.Contains("/Mi") || prefab.Contains("/KA") || prefab.Contains("/Ka");
@@ -554,7 +589,7 @@ class HST_CivilianService
 		if (!factionComponent)
 			return;
 
-		if (runtimeKind == "CIV_VEHICLE")
+		if (runtimeKind == "CIV_VEHICLE" || runtimeKind == "CIV_CHARACTER")
 		{
 			factionComponent.SetAffiliatedFactionByKey("CIV");
 			return;
@@ -566,6 +601,78 @@ class HST_CivilianService
 	protected bool IsRuntimeVehicle(string runtimeKind)
 	{
 		return runtimeKind.Contains("VEHICLE");
+	}
+
+	protected void WarnMissingCivilianCharacterPool(HST_ZoneState zone, int requestedCount)
+	{
+		if (!m_bWarnedMissingCivilianCharacterPool)
+		{
+			Print("h-istasi civilians | no GUID-qualified civilian character prefabs configured; skipping civilian character ambience instead of spawning broken CIV group shells", LogLevel.WARNING);
+			m_bWarnedMissingCivilianCharacterPool = true;
+		}
+
+		if (zone)
+			RecordSpawnFailure(zone.m_sZoneId, "<missing GUID-qualified civilian character pool>", "CIV_CHARACTER", zone.m_vPosition, BuildSpawnAngles(0));
+	}
+
+	protected void RecordSpawnFailure(string zoneId, string prefab, string runtimeKind, vector position, vector angles)
+	{
+		m_iRuntimeSpawnFailureCount++;
+		m_sLastRuntimeSpawnFailurePrefab = prefab;
+		Print(string.Format("h-istasi civilians | spawn failed | zone %1 | kind %2 | prefab %3 | pos %4 | yaw %5", zoneId, runtimeKind, prefab, position, angles[0]), LogLevel.WARNING);
+	}
+
+	protected bool PublishRuntimeDiagnostics(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		int civilianCharacters;
+		int civilianVehicles;
+		int militaryVehicles;
+		for (int i = 0; i < m_aRuntimeEntityKinds.Count(); i++)
+		{
+			string runtimeKind = m_aRuntimeEntityKinds[i];
+			if (runtimeKind == "CIV_CHARACTER")
+				civilianCharacters++;
+			else if (runtimeKind == "CIV_VEHICLE")
+				civilianVehicles++;
+			else if (runtimeKind == "MILITARY_VEHICLE")
+				militaryVehicles++;
+		}
+
+		bool changed;
+		if (state.m_iRuntimeCivilianCharacterCount != civilianCharacters)
+		{
+			state.m_iRuntimeCivilianCharacterCount = civilianCharacters;
+			changed = true;
+		}
+
+		if (state.m_iRuntimeCivilianVehicleCount != civilianVehicles)
+		{
+			state.m_iRuntimeCivilianVehicleCount = civilianVehicles;
+			changed = true;
+		}
+
+		if (state.m_iRuntimeMilitaryVehicleCount != militaryVehicles)
+		{
+			state.m_iRuntimeMilitaryVehicleCount = militaryVehicles;
+			changed = true;
+		}
+
+		if (state.m_iRuntimeSpawnFailureCount != m_iRuntimeSpawnFailureCount)
+		{
+			state.m_iRuntimeSpawnFailureCount = m_iRuntimeSpawnFailureCount;
+			changed = true;
+		}
+
+		if (state.m_sLastRuntimeSpawnFailurePrefab != m_sLastRuntimeSpawnFailurePrefab)
+		{
+			state.m_sLastRuntimeSpawnFailurePrefab = m_sLastRuntimeSpawnFailurePrefab;
+			changed = true;
+		}
+
+		return changed;
 	}
 
 	protected bool ShouldDetachFromTownCleanup(IEntity entity, string runtimeKind, vector spawnPosition)

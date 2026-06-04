@@ -118,9 +118,10 @@ class HST_MissionRuntimeService
 		if (prefab.IsEmpty())
 			return false;
 
-		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, "0 0 0");
+		vector angles = BuildRuntimePropAngles(state, mission);
+		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, angles);
 		if (!entity && prefab != PROP_HOLD_MARKER)
-			entity = respawnSystem.DoSpawn(PROP_HOLD_MARKER, position, "0 0 0");
+			entity = respawnSystem.DoSpawn(PROP_HOLD_MARKER, position, angles);
 
 		if (!entity)
 		{
@@ -168,6 +169,21 @@ class HST_MissionRuntimeService
 			return PROP_HOLD_MARKER;
 
 		return "";
+	}
+
+	protected vector BuildRuntimePropAngles(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		vector angles;
+		int seed = 313;
+		if (state)
+			seed += state.m_iCampaignSeed * 19 + state.m_iElapsedSeconds * 3;
+		if (mission)
+			seed += mission.m_sInstanceId.Length() * 97 + mission.m_sMissionId.Length() * 53;
+		if (seed < 0)
+			seed = -seed;
+
+		angles[0] = seed - (seed / 360) * 360;
+		return angles;
 	}
 
 	string FindCompletedActiveMissionId(HST_CampaignState state, HST_MissionObjectiveService objectives)
