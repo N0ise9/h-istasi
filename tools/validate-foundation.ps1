@@ -811,7 +811,18 @@ foreach ($requiredCommandMenuEntry in @(
 	'SetDrawCommands',
 	'ActivateAction(COMMAND_MENU_ACTION)',
 	'ActivateAction(COMMAND_MENU_CUSTOM_ACTION)',
+	'GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION)',
+	'GetActionTriggered(COMMAND_MENU_ACTION)',
 	'm_fCommandMenuDebounceRemaining',
+	'm_bCommandMenuKeyDownLastFrame',
+	'PollCommandMenuInput',
+	'TryToggleCommandMenu',
+	'MENU_FONT',
+	'ApplyTextStyle',
+	'SetFont',
+	'SetLineSpacing',
+	'SetOutline',
+	'SetShadow',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
@@ -873,6 +884,13 @@ if (!$contextCommandMatch.Success) {
 }
 if ($contextCommandMatch.Value -match "\bOpenMenu\(") {
 	throw "Context command path must execute quick actions without opening the command menu"
+}
+$registerInputMatch = [regex]::Match($scriptText, "protected bool RegisterInputListeners[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void UnregisterInputListeners")
+if (!$registerInputMatch.Success) {
+	throw "Missing command menu input registration path"
+}
+if ($registerInputMatch.Value -match "if\s*\(!EnsureIKeyBinding\(inputManager\)\)") {
+	throw "Input registration must not block on the custom command menu binding"
 }
 Write-Host "I-key alpha command menu OK"
 
