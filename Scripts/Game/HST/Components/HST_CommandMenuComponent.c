@@ -24,6 +24,11 @@ class HST_CommandMenuWidgetHandler : ScriptedWidgetEventHandler
 	}
 }
 
+class HST_CommandMenuDrawCommandSet
+{
+	ref array<ref CanvasWidgetCommand> m_aCommands = {};
+}
+
 [ComponentEditorProps(category: "h-istasi", description: "Client-side h-istasi command menu key listener and widget controller")]
 class HST_CommandMenuComponentClass : ScriptComponentClass
 {
@@ -74,6 +79,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<string> m_aFeedLines = {};
 	protected ref array<string> m_aFeedTones = {};
 	protected ref array<Widget> m_aWidgets = {};
+	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref array<string> m_aIKeyActionNames = {};
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
 	protected IEntity m_OwnerEntity;
@@ -287,16 +293,18 @@ class HST_CommandMenuComponent : ScriptComponent
 			return false;
 
 		EnsureInputConfig(inputManager);
-		EnsureIKeyBinding(inputManager);
-		inputManager.AddActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, ToggleMenu);
-		inputManager.AddActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, ToggleMenu);
+		if (!EnsureIKeyBinding(inputManager))
+			return false;
+
+		inputManager.AddActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, OnCommandMenuInput);
+		inputManager.AddActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, OnCommandMenuInput);
 		RegisterExistingIKeyActionListeners(inputManager);
-		inputManager.AddActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, SelectPreviousAction);
-		inputManager.AddActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, SelectNextAction);
-		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
-		inputManager.AddActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, CloseMenu);
+		inputManager.AddActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, OnSelectPreviousInput);
+		inputManager.AddActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, OnSelectNextInput);
+		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, OnExecuteSelectedInput);
+		inputManager.AddActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, OnCloseMenuInput);
 		m_bInputRegistered = true;
-		Print("h-istasi menu | input registered");
+		Print("h-istasi menu | input registered; custom ready " + m_bCustomBindingReady);
 		return true;
 	}
 
@@ -309,17 +317,49 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!inputManager)
 			return;
 
-		inputManager.RemoveActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, ToggleMenu);
-		inputManager.RemoveActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, ToggleMenu);
+		inputManager.RemoveActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, OnCommandMenuInput);
+		inputManager.RemoveActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, OnCommandMenuInput);
 		foreach (string iKeyActionName : m_aIKeyActionNames)
-			inputManager.RemoveActionListener(iKeyActionName, EActionTrigger.DOWN, ToggleMenu);
+			inputManager.RemoveActionListener(iKeyActionName, EActionTrigger.DOWN, OnCommandMenuInput);
 
 		m_aIKeyActionNames.Clear();
-		inputManager.RemoveActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, SelectPreviousAction);
-		inputManager.RemoveActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, SelectNextAction);
-		inputManager.RemoveActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
-		inputManager.RemoveActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, CloseMenu);
+		inputManager.RemoveActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, OnSelectPreviousInput);
+		inputManager.RemoveActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, OnSelectNextInput);
+		inputManager.RemoveActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, OnExecuteSelectedInput);
+		inputManager.RemoveActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, OnCloseMenuInput);
 		m_bInputRegistered = false;
+	}
+
+	protected void OnCommandMenuInput(float value, EActionTrigger reason)
+	{
+		if (reason != EActionTrigger.DOWN)
+			return;
+
+		ToggleMenu();
+	}
+
+	protected void OnSelectPreviousInput(float value, EActionTrigger reason)
+	{
+		if (reason == EActionTrigger.DOWN)
+			SelectPreviousAction();
+	}
+
+	protected void OnSelectNextInput(float value, EActionTrigger reason)
+	{
+		if (reason == EActionTrigger.DOWN)
+			SelectNextAction();
+	}
+
+	protected void OnExecuteSelectedInput(float value, EActionTrigger reason)
+	{
+		if (reason == EActionTrigger.DOWN)
+			ExecuteSelectedAction();
+	}
+
+	protected void OnCloseMenuInput(float value, EActionTrigger reason)
+	{
+		if (reason == EActionTrigger.DOWN)
+			CloseMenu();
 	}
 
 	protected void BecomeLocalOwner()
@@ -369,6 +409,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_bCustomBindingAttempted = true;
+		Print("h-istasi menu | HST_CommandMenu input action ready");
 		array<string> bindings = {};
 		if (binding.GetBindings(COMMAND_MENU_CUSTOM_ACTION, bindings, EInputDeviceType.KEYBOARD, "", false))
 		{
@@ -382,7 +423,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			}
 		}
 
-		binding.AddBinding(COMMAND_MENU_CUSTOM_ACTION, "", COMMAND_MENU_KEYBOARD_BINDING, "click");
+		binding.AddBinding(COMMAND_MENU_CUSTOM_ACTION, "", COMMAND_MENU_KEYBOARD_BINDING, "down");
 		m_bCustomBindingReady = true;
 		Print("h-istasi menu | bound I key to command menu");
 		return true;
@@ -415,6 +456,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aIKeyActionNames.Count() > 0)
 			return;
 
+		bool foundAlias = false;
 		int actionCount = inputManager.GetActionCount();
 		for (int i = 0; i < actionCount; i++)
 		{
@@ -425,10 +467,14 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!ActionUsesIKey(inputManager, actionName))
 				continue;
 
-			inputManager.AddActionListener(actionName, EActionTrigger.DOWN, ToggleMenu);
+			inputManager.AddActionListener(actionName, EActionTrigger.DOWN, OnCommandMenuInput);
 			m_aIKeyActionNames.Insert(actionName);
+			foundAlias = true;
 			Print("h-istasi menu | registered I-key action alias " + actionName);
 		}
+
+		if (!foundAlias)
+			Print("h-istasi menu | no existing I-key action aliases found");
 	}
 
 	protected bool ActionUsesIKey(InputManager inputManager, string actionName)
@@ -672,11 +718,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
 	{
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.PanelWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, 32, 36, 1340, 838, WidgetFlags.VISIBLE, null, 2500);
 		if (!root)
 			return null;
 
-		root.SetColorInt(0xFF0A0E12);
+		SetupCanvasRect(root, 1340, 838, 0xF005080C);
 		root.SetOpacity(0.98);
 		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
@@ -692,11 +738,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 0, 0, 1340, 82, 0xFF18222B, 0.98, 0);
+		CreateRectWidget(workspace, root, 0, 0, 1340, 82, 0xFF111920, 0.98, 0);
 		CreateTextWidget(workspace, root, "h-istasi HQ", 28, 18, 270, 38, 34, 0xFFF2D18B, 0, true);
 		CreateTextWidget(workspace, root, "FIA Resistance Command", 312, 28, 300, 26, 18, 0xFFB7C7D7, 0, false);
 		CreateTextWidget(workspace, root, BuildSelectedTabTitle(), 952, 22, 250, 34, 24, 0xFFECE6D2, 0, true);
-		CreateFrameWidget(workspace, root, 1232, 18, 78, 44, 0xFF3A4650, 0.96, CLOSE_WIDGET_ID);
+		CreateRectWidget(workspace, root, 1232, 18, 78, 44, 0xFF3A4650, 0.96, CLOSE_WIDGET_ID);
 		CreateTextWidget(workspace, root, "Close", 1247, 28, 48, 24, 16, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
 	}
 
@@ -714,7 +760,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			int row = i / 4;
 			int x = left + col * 176;
 			int y = top + row * 70;
-			CreateFrameWidget(workspace, root, x, y, width, 60, ToneBackgroundColor(m_aStatTones[i]), 0.95, 0);
+			CreateRectWidget(workspace, root, x, y, width, 60, ToneBackgroundColor(m_aStatTones[i]), 0.95, 0);
 			CreateTextWidget(workspace, root, ShortenText(m_aStatLabels[i], 18), x + 10, y + 8, width - 20, 20, 14, 0xFFB8C1C9, 0, false);
 			CreateTextWidget(workspace, root, ShortenText(m_aStatValues[i], 20), x + 10, y + 31, width - 20, 24, 18, ToneTextColor(m_aStatTones[i]), 0, true);
 		}
@@ -722,7 +768,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderNavigation(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 24, 104, 180, 698, 0xFF151D24, 0.97, 0);
+		CreateRectWidget(workspace, root, 24, 104, 180, 698, 0xFF0F151B, 0.98, 0);
 		CreateTextWidget(workspace, root, "Navigation", 44, 126, 138, 26, 18, 0xFFE6DECB, 0, true);
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
@@ -731,12 +777,12 @@ class HST_CommandMenuComponent : ScriptComponent
 			bool focused = m_iSelectedControl == i;
 			int background = 0x00222222;
 			if (selected)
-				background = 0xFF664F25;
+				background = 0xFF604A24;
 			else if (focused)
 				background = 0xFF263341;
 
 			if (selected || focused)
-				CreateFrameWidget(workspace, root, 36, top - 7, 154, 42, background, 0.96, TAB_WIDGET_ID_BASE + i);
+				CreateRectWidget(workspace, root, 36, top - 7, 154, 42, background, 0.96, TAB_WIDGET_ID_BASE + i);
 
 			string label = m_aTabLabels[i];
 			if (focused)
@@ -758,7 +804,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		int sectionCount = m_aSectionIds.Count();
 		if (sectionCount == 0)
 		{
-			CreateFrameWidget(workspace, root, 228, 246, 700, 532, 0xFF182129, 0.96, 0);
+			CreateRectWidget(workspace, root, 228, 246, 700, 532, 0xF0141B22, 0.98, 0);
 			CreateTextWidget(workspace, root, m_sStatusText, 254, 274, 648, 480, 18, 0xFFE0E0E0, 0, false);
 			return;
 		}
@@ -780,8 +826,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		string sectionId = m_aSectionIds[sectionIndex];
-		CreateFrameWidget(workspace, root, left, top, width, height, 0xFF182129, 0.96, 0);
-		CreateFrameWidget(workspace, root, left, top, width, 4, 0xFFC4953B, 1.0, 0);
+		CreateRectWidget(workspace, root, left, top, width, height, 0xF0141B22, 0.98, 0);
+		CreateRectWidget(workspace, root, left, top, width, 4, 0xFFC4953B, 1.0, 0);
 		CreateTextWidget(workspace, root, m_aSectionTitles[sectionIndex], left + 16, top + 13, width - 32, 26, 19, 0xFFEFE2C4, 0, true);
 
 		int rendered;
@@ -805,8 +851,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderActivityPanel(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 952, 104, 360, 430, 0xFF182129, 0.96, 0);
-		CreateFrameWidget(workspace, root, 952, 104, 360, 4, 0xFF50704A, 1.0, 0);
+		CreateRectWidget(workspace, root, 952, 104, 360, 430, 0xF0141B22, 0.98, 0);
+		CreateRectWidget(workspace, root, 952, 104, 360, 4, 0xFF50704A, 1.0, 0);
 		CreateTextWidget(workspace, root, "Activity", 972, 124, 180, 28, 20, 0xFFEFE2C4, 0, true);
 		CreateTextWidget(workspace, root, ShortenText(BuildResultText(), 170), 972, 162, 320, 118, 16, 0xFFD2E7B8, 0, false);
 		CreateTextWidget(workspace, root, "Campaign Notes", 972, 302, 210, 26, 18, 0xFFEFE2C4, 0, true);
@@ -828,8 +874,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		CreateFrameWidget(workspace, root, 952, 552, 360, 250, 0xFF182129, 0.96, 0);
-		CreateFrameWidget(workspace, root, 952, 552, 360, 4, 0xFF8C4E43, 1.0, 0);
+		CreateRectWidget(workspace, root, 952, 552, 360, 250, 0xF0141B22, 0.98, 0);
+		CreateRectWidget(workspace, root, 952, 552, 360, 4, 0xFF8C4E43, 1.0, 0);
 		CreateTextWidget(workspace, root, "Actions", 972, 572, 170, 28, 20, 0xFFEFE2C4, 0, true);
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 		{
@@ -838,7 +884,10 @@ class HST_CommandMenuComponent : ScriptComponent
 
 			string prefix = "  ";
 			if (m_iSelectedControl == m_aTabIds.Count() + i)
+			{
 				prefix = "> ";
+				CreateRectWidget(workspace, root, 964, 608 + i * 31, 336, 28, 0xFF604A24, 0.88, ACTION_WIDGET_ID_BASE + i);
+			}
 
 			string suffix = "";
 			int color = 0xFFE5E5E5;
@@ -855,15 +904,15 @@ class HST_CommandMenuComponent : ScriptComponent
 			CreateTextWidget(workspace, root, "No commands available.", 972, 612, 320, 28, 15, 0xFF8B9298, 0, false);
 	}
 
-	protected Widget CreateFrameWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
+	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
 	{
-		Widget widget = workspace.CreateWidget(WidgetType.PanelWidgetTypeID, WidgetFlags.VISIBLE, null, 2550, parent);
+		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, 2550, parent);
 		if (!widget)
 			return null;
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
-		widget.SetColorInt(color);
+		SetupCanvasRect(widget, width, height, color);
 		widget.SetOpacity(opacity);
 		if (userId > 0)
 		{
@@ -872,6 +921,38 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		return widget;
+	}
+
+	protected bool SetupCanvasRect(Widget widget, int width, int height, int color)
+	{
+		CanvasWidget canvas = CanvasWidget.Cast(widget);
+		if (!canvas)
+			return false;
+
+		HST_CommandMenuDrawCommandSet commandSet = new HST_CommandMenuDrawCommandSet();
+		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
+		rectCommand.m_iColor = color;
+		rectCommand.m_Vertices = BuildRectVertices(width, height);
+		commandSet.m_aCommands.Insert(rectCommand);
+		canvas.SetDrawCommands(commandSet.m_aCommands);
+		m_aCanvasCommandSets.Insert(commandSet);
+		return true;
+	}
+
+	protected ref array<float> BuildRectVertices(int width, int height)
+	{
+		ref array<float> vertices = {};
+		float rectWidth = width;
+		float rectHeight = height;
+		vertices.Insert(0.0);
+		vertices.Insert(0.0);
+		vertices.Insert(rectWidth);
+		vertices.Insert(0.0);
+		vertices.Insert(rectWidth);
+		vertices.Insert(rectHeight);
+		vertices.Insert(0.0);
+		vertices.Insert(rectHeight);
+		return vertices;
 	}
 
 	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
@@ -911,6 +992,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
+		m_aCanvasCommandSets.Clear();
 	}
 
 	protected void ClearRichPayload()
@@ -930,10 +1012,14 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected string BuildResultText()
 	{
-		if (m_sLastResult.IsEmpty())
-			return "Last action\n-";
+		string inputStatus = "";
+		if (!m_bCustomBindingReady)
+			inputStatus = "Input\nI key binding pending\n";
 
-		return "Last action\n" + m_sLastResult;
+		if (m_sLastResult.IsEmpty())
+			return inputStatus + "Last action\n-";
+
+		return inputStatus + "Last action\n" + m_sLastResult;
 	}
 
 	protected string ShortenText(string text, int maxCharacters)

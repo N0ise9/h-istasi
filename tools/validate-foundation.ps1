@@ -797,13 +797,17 @@ foreach ($requiredCommandMenuEntry in @(
 	'EnsureInputConfig',
 	'RegisterExistingIKeyActionListeners',
 	'GetActionKeybinding',
+	'OnCommandMenuInput(float value, EActionTrigger reason)',
 	'keyboard:KC_I',
 	'IsLocalOwner',
 	'local player menu component ready',
 	'input registered',
 	'snapshot received',
 	'CreateWidgetInWorkspace',
-	'PanelWidgetTypeID',
+	'CanvasWidgetTypeID',
+	'PolygonDrawCommand',
+	'm_aCanvasCommandSets',
+	'SetDrawCommands',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
@@ -846,6 +850,9 @@ foreach ($requiredCommandMenuEntry in @(
 if ($scriptText -match "\bCreateWidgets\b") {
 	throw "Command menu must remain procedural until HST_CommandMenu.layout is indexed with verified resource metadata"
 }
+if ($scriptText -match "\bPanelWidgetTypeID\b" -or $scriptText -match "\bFrameWidgetTypeID\b") {
+	throw "Command menu visible fills must use canvas draw commands, not frame/panel widget fills"
+}
 Write-Host "I-key alpha command menu OK"
 
 if (!(Test-Path "Configs/HST/Input/HST_Input.conf")) {
@@ -858,7 +865,7 @@ foreach ($requiredCommandMenuInputEntry in @(
 	"Action HST_CommandMenu",
 	"InputSourceSum",
 	"InputSourceValue",
-	'FilterPreset "click"',
+	'FilterPreset "down"',
 	'Input "keyboard:KC_I"'
 )) {
 	if ($commandMenuInputText -notmatch [regex]::Escape($requiredCommandMenuInputEntry)) {
