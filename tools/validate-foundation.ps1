@@ -119,7 +119,7 @@ $requiredRuntimeScaffold = @(
 	'HST_PlayerSpawnLogic',
 	'm_bEnableRespawn 1',
 	'm_bEnablePauseMenuRespawn 0',
-	'DefaultPlayerControllerMP_ScenarioFramework.et',
+	'Prefabs/Characters/HST/HST_PlayerController.et',
 	'm_bUseSpawnPreload 0',
 	'SCR_MapConfigComponent',
 	'Configs/Map/MapSpawnConflict.conf',
@@ -179,8 +179,8 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must not expose RHS_USAF role-selection loadouts in the primary FIA deploy path: $runtimeLayer"
 	}
 
-	if ($text -match 'PlayerControllerPrefab "Prefabs/Characters/HST/HST_PlayerController.et"') {
-		throw "Runtime layer must not reference the unindexed HST player-controller prefab directly: $runtimeLayer"
+	if ($text -notmatch 'PlayerControllerPrefab "Prefabs/Characters/HST/HST_PlayerController.et"') {
+		throw "Runtime layer must use the HST player-controller request bridge: $runtimeLayer"
 	}
 
 	foreach ($requiredLoadout in $requiredFiaLoadouts) {
@@ -282,26 +282,47 @@ foreach ($requiredPetrosPrefabEntry in @(
 foreach ($requiredPetrosServiceEntry in @(
 	"PETROS_BASE_PREFAB",
 	'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et"',
-	"ARSENAL_PREFAB",
+	'ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal.et"',
 	"ResolvePetrosPrefab",
-	"IsGuidResourceName",
+	"SpawnPetros",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
 	"state.m_sArsenalPrefab = ARSENAL_PREFAB",
 	"MoveHQToPosition",
 	"ClearRuntimeObjects",
 	"SCR_EntityHelper.DeleteEntityAndChildren",
-	"spawning base FIA placeholder",
-	"DoSpawn(petrosPrefab"
+	"failed to spawn; using base FIA fallback",
+	"GetArsenalPrefab"
 )) {
 	if ($hqServiceText -notmatch [regex]::Escape($requiredPetrosServiceEntry)) {
 		throw "HQ service is missing dedicated Petros prefab entry: $requiredPetrosServiceEntry"
 	}
 }
 
-if ($hqServiceText -match "DoSpawn\(PETROS_BASE_PREFAB" -or $hqServiceText -match "DoSpawn\(PETROS_PREFAB") {
-	throw "HQ runtime spawn must resolve Petros through state-aware dedicated prefab normalization"
+if ($hqServiceText -notmatch "SpawnPetros\(respawnSystem, state\)") {
+	throw "HQ runtime spawn must route Petros through the custom-prefab fallback helper"
 }
 Write-Host "Dedicated Petros prefab OK"
+
+$hqArsenalPrefabPath = "Prefabs/Objects/HST/HST_HQArsenal.et"
+if (!(Test-Path $hqArsenalPrefabPath)) {
+	throw "Missing HST HQ arsenal prefab: $hqArsenalPrefabPath"
+}
+
+$hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
+foreach ($requiredArsenalPrefabEntry in @(
+	"GenericEntity HST_HQArsenal",
+	"SupplyCache_S_FIA_01.et",
+	"ActionsManagerComponent",
+	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLootNearbyAction",
+	"Open h-istasi Arsenal",
+	"Loot nearby to h-istasi Arsenal"
+)) {
+	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
+		throw "HST HQ arsenal prefab is missing contextual action entry: $requiredArsenalPrefabEntry"
+	}
+}
+Write-Host "HST HQ arsenal prefab OK"
 
 $playerControllerPrefabPath = "Prefabs/Characters/HST/HST_PlayerController.et"
 if (!(Test-Path $playerControllerPrefabPath)) {
@@ -570,9 +591,12 @@ foreach ($requiredService in @(
 	"HST_LootService",
 	"HST_CommandMenuComponent",
 	"HST_CommandMenuRequestComponent",
+	"HST_ContextualUserActionBase",
 	"HST_PetrosCommandMenuAction",
 	"HST_PetrosMoveBaseHereAction",
-	"HST_PetrosArsenalMenuAction"
+	"HST_PetrosArsenalMenuAction",
+	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLootNearbyAction"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -671,11 +695,14 @@ foreach ($requiredCommandMenuEntry in @(
 	'MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout"',
 	'AddActionListener',
 	'RemoveActionListener',
+	'CreateWidgets',
 	'CreateWidgetInWorkspace',
+	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'SCR_HintManagerComponent',
 	'OpenPetrosMenu',
 	'OpenMenuToTab',
+	'RunCommandFromContext',
 	'ParseActionsFromPayload',
 	'OnServerSnapshot',
 	'HST_CommandMenuRequestComponent.GetLocalOwner',
@@ -705,7 +732,17 @@ foreach ($requiredCommandMenuEntry in @(
 Write-Host "I-key alpha command menu OK"
 
 if (!(Test-Path "UI/layouts/HST_CommandMenu.layout")) {
-	throw "Missing command menu layout placeholder"
+	throw "Missing command menu layout"
+}
+
+$commandMenuLayoutText = Get-Content -Raw "UI/layouts/HST_CommandMenu.layout"
+foreach ($requiredCommandMenuLayoutEntry in @(
+	"HST_CommandMenuRoot",
+	"HST_CommandMenuDynamicCanvas"
+)) {
+	if ($commandMenuLayoutText -notmatch [regex]::Escape($requiredCommandMenuLayoutEntry)) {
+		throw "Command menu layout is missing widget entry: $requiredCommandMenuLayoutEntry"
+	}
 }
 
 foreach ($requiredSettingsEntry in @(
@@ -749,7 +786,9 @@ foreach ($requiredLootEntry in @(
 	"m_bRemoveLootedItems",
 	"m_bAllowExplosiveUnlocks",
 	"m_bAllowGuidedLauncherUnlocks",
-	"m_iMagazineUnlockMultiplier"
+	"m_iMagazineUnlockMultiplier",
+	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLootNearbyAction"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLootEntry)) {
 		throw "Missing loot-to-arsenal contract entry: $requiredLootEntry"

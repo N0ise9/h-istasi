@@ -1,0 +1,24 @@
+GenericEntity HST_HQArsenal : "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et" {
+ components {
+  ActionsManagerComponent "{6985327711303401}" {
+   additionalActions {
+    HST_HQArsenalOpenAction "{6985327711303402}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303403}" {
+      Name "Open h-istasi Arsenal"
+     }
+    }
+    HST_HQArsenalLootNearbyAction "{6985327711303404}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303405}" {
+      Name "Loot nearby to h-istasi Arsenal"
+     }
+    }
+   }
+  }
+ }
+}

@@ -29,9 +29,10 @@ The repository contains the first engine-facing increment:
   Workbench duplicate-spawn loops
 - Everon alpha anchors and zone activation scaffolding for the physical AI war
 - Dedicated Petros character prefab at
-  `Prefabs/Characters/HST/Character_HST_Petros.et` for later appearance and
-  loadout customization, with a safe base-FIA spawn fallback until Workbench
-  indexes the new prefab resource
+  `Prefabs/Characters/HST/Character_HST_Petros.et` for HQ contextual actions,
+  with a base-FIA spawn fallback only if the custom resource fails to spawn
+- Physical HQ arsenal prefab at `Prefabs/Objects/HST/HST_HQArsenal.et` that
+  opens the h-istasi Arsenal/Loot tab and can run area loot from context
 - Widget-backed `I` key command menu mounted on both development worlds with
   Setup, General, Petros/HQ, Commander, Arsenal/Loot, and Admin tabs
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
@@ -41,11 +42,11 @@ The repository contains the first engine-facing increment:
   campaign arsenal and removes transferred source items when configured
 - Versioned campaign save-data container ready for native persistence binding
 
-This is a foundation build, not a public alpha. Petros now has a dedicated
-editable prefab asset; once Workbench assigns it a GUID resource name, the HQ
-service can spawn that custom asset directly. Cache/tent polish, broader
-spawned AI, native save/load binding, final surveyed Everon coordinates, and
-mission-specific world logic still need to be connected incrementally.
+This is a foundation build, not a public alpha. Petros and the HQ arsenal now
+have live contextual-action prefabs for the alpha menu path. Cache/tent polish,
+broader spawned AI, native save/load binding, final surveyed Everon
+coordinates, and mission-specific world logic still need to be connected
+incrementally.
 
 ## Alpha Command Menu
 
@@ -64,7 +65,8 @@ income tick, training, HQ movement, FIA recruitment, mission start, zone
 capture/activation, arsenal reporting, nearby loot collection, and small debug
 resource awards. Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
-provided player ID.
+provided player ID. Petros and the HQ arsenal object open this same menu path
+through contextual interactions.
 
 ## Requirements
 

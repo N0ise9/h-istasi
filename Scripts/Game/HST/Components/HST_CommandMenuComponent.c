@@ -128,6 +128,34 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		RenderMenu();
 	}
 
+	void RunCommandFromContext(string tabId, string commandId, string argument = "")
+	{
+		if (!tabId.IsEmpty())
+			m_sSelectedTab = tabId;
+
+		if (!m_bMenuOpen)
+			OpenMenu();
+		else
+		{
+			int tabIndex = m_aTabIds.Find(m_sSelectedTab);
+			if (tabIndex >= 0)
+				m_iSelectedControl = tabIndex;
+
+			BuildActionList();
+			m_sStatusText = "h-istasi menu | requesting " + m_sSelectedTab;
+			RequestSnapshot();
+			RenderMenu();
+		}
+
+		if (commandId.IsEmpty())
+			return;
+
+		m_sLastResult = "h-istasi command | requested " + commandId;
+		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		RequestAction(commandId, argument);
+		RenderMenu();
+	}
+
 	void OnServerSnapshot(string payload, string lastResult = "")
 	{
 		m_sLastPayload = payload;
@@ -328,9 +356,9 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		RequestAction(m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
 		m_sLastResult = "h-istasi command | requested " + m_aActionLabels[actionIndex];
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		RequestAction(m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
 		RenderMenu();
 	}
 
@@ -405,18 +433,56 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			m_WidgetHandler.Bind(this);
 		}
 
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 80, 64, 1180, 760, WidgetFlags.VISIBLE, null, 2500);
+		Widget root = CreateMenuRoot(workspace);
+		if (!root)
+			return;
+
+		Widget canvas = GetMenuCanvas(root);
+		CreateTextWidget(workspace, canvas, "h-istasi", 36, 28, 260, 36, 28, 0xFFEDE6DA, 0, true);
+		CreateTextWidget(workspace, canvas, "I close/open    MenuUp/MenuDown select    MenuSelect run    MenuBack close", 300, 35, 760, 24, 18, 0xFFC7C7C7, 0, false);
+		RenderTabs(workspace, canvas);
+		RenderActions(workspace, canvas);
+		CreateTextWidget(workspace, canvas, m_sStatusText, 36, 126, 640, 560, 18, 0xFFE0E0E0, 0, false);
+		CreateTextWidget(workspace, canvas, BuildResultText(), 710, 126, 420, 180, 18, 0xFFD2E7B8, 0, false);
+		CreateTextWidget(workspace, canvas, MENU_LAYOUT, 710, 682, 420, 24, 14, 0xFF777777, 0, false);
+	}
+
+	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
+	{
+		Widget root = workspace.CreateWidgets(MENU_LAYOUT);
+		if (root)
+		{
+			FrameSlot.SetPos(root, 80, 64);
+			FrameSlot.SetSize(root, 1180, 760);
+		}
+		else
+		{
+			root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 80, 64, 1180, 760, WidgetFlags.VISIBLE, null, 2500);
+		}
+
+		if (!root)
+			return null;
+
 		root.SetColorInt(0xE615171A);
 		root.SetOpacity(0.96);
+		root.SetZOrder(2500);
 		m_aWidgets.Insert(root);
+		return root;
+	}
 
-		CreateTextWidget(workspace, "h-istasi", 116, 92, 260, 36, 28, 0xFFEDE6DA, 0, true);
-		CreateTextWidget(workspace, "I close/open    MenuUp/MenuDown select    MenuSelect run    MenuBack close", 380, 99, 760, 24, 18, 0xFFC7C7C7, 0, false);
-		RenderTabs(workspace);
-		RenderActions(workspace);
-		CreateTextWidget(workspace, m_sStatusText, 116, 190, 640, 560, 18, 0xFFE0E0E0, 0, false);
-		CreateTextWidget(workspace, BuildResultText(), 790, 190, 420, 180, 18, 0xFFD2E7B8, 0, false);
-		CreateTextWidget(workspace, "UI/layouts/HST_CommandMenu.layout", 790, 746, 420, 24, 14, 0xFF777777, 0, false);
+	protected Widget GetMenuCanvas(Widget root)
+	{
+		if (!root)
+			return null;
+
+		Widget canvas = root.FindAnyWidget("HST_CommandMenuDynamicCanvas");
+		if (!canvas)
+			return root;
+
+		FrameSlot.SetPos(canvas, 0, 0);
+		FrameSlot.SetSize(canvas, 1180, 760);
+		canvas.SetVisible(true);
+		return canvas;
 	}
 
 	protected void ShowMenuHint(string text, string title, float durationSeconds)
@@ -426,9 +492,9 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			hintManager.ShowCustomHint(text, title, durationSeconds);
 	}
 
-	protected void RenderTabs(WorkspaceWidget workspace)
+	protected void RenderTabs(WorkspaceWidget workspace, Widget root)
 	{
-		int left = 116;
+		int left = 36;
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
 			int color = 0xFFCFCFCF;
@@ -445,15 +511,15 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			if (!m_aTabEnabled[i])
 				color = 0xFF777777;
 
-			CreateTextWidget(workspace, label, left, 142, 170, 30, 18, color, TAB_WIDGET_ID_BASE + i, false);
+			CreateTextWidget(workspace, root, label, left, 78, 170, 30, 18, color, TAB_WIDGET_ID_BASE + i, false);
 			left += 176;
 		}
 	}
 
-	protected void RenderActions(WorkspaceWidget workspace)
+	protected void RenderActions(WorkspaceWidget workspace, Widget root)
 	{
-		int top = 398;
-		CreateTextWidget(workspace, "Actions", 790, top - 36, 180, 28, 20, 0xFFEDE6DA, 0, true);
+		int top = 334;
+		CreateTextWidget(workspace, root, "Actions", 710, top - 36, 180, 28, 20, 0xFFEDE6DA, 0, true);
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 		{
 			string prefix = "  ";
@@ -468,13 +534,18 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 				color = 0xFF888888;
 			}
 
-			CreateTextWidget(workspace, prefix + m_aActionLabels[i] + suffix, 790, top + i * 34, 420, 30, 18, color, ACTION_WIDGET_ID_BASE + i, false);
+			CreateTextWidget(workspace, root, prefix + m_aActionLabels[i] + suffix, 710, top + i * 34, 420, 30, 18, color, ACTION_WIDGET_ID_BASE + i, false);
 		}
 	}
 
-	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
+	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
 	{
-		Widget widget = workspace.CreateWidgetInWorkspace(WidgetType.TextWidgetTypeID, left, top, width, height, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.WRAP_TEXT, null, 2600);
+		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.WRAP_TEXT, null, 2600, parent);
+		if (!widget)
+			return null;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
 		TextWidget textWidget = TextWidget.Cast(widget);
 		if (textWidget)
 		{
@@ -492,7 +563,6 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			widget.AddHandler(m_WidgetHandler);
 		}
 
-		m_aWidgets.Insert(widget);
 		return textWidget;
 	}
 

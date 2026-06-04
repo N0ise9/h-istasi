@@ -1,4 +1,4 @@
-class HST_PetrosUserActionBase : ScriptedUserAction
+class HST_ContextualUserActionBase : ScriptedUserAction
 {
 	override bool CanBeShownScript(IEntity user)
 	{
@@ -13,6 +13,39 @@ class HST_PetrosUserActionBase : ScriptedUserAction
 	override bool HasLocalEffectOnlyScript()
 	{
 		return true;
+	}
+
+	protected void OpenMenuTab(string tabId, IEntity userEntity)
+	{
+		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
+		if (menu)
+		{
+			menu.OpenMenuToTab(tabId);
+			return;
+		}
+
+		Print("h-istasi menu | local command menu component not ready", LogLevel.WARNING);
+	}
+
+	protected void RunMenuCommand(string tabId, string commandId, string argument, IEntity userEntity)
+	{
+		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
+		if (menu)
+		{
+			menu.RunCommandFromContext(tabId, commandId, argument);
+			return;
+		}
+
+		int playerId = ResolvePlayerId(userEntity);
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (coordinator && Replication.IsServer())
+		{
+			string result = coordinator.RequestVisibleMenuCommand(playerId, tabId, commandId, argument);
+			Print(result);
+			return;
+		}
+
+		Print("h-istasi command | player request bridge not ready", LogLevel.WARNING);
 	}
 
 	protected int ResolvePlayerId(IEntity userEntity)
@@ -34,27 +67,17 @@ class HST_PetrosUserActionBase : ScriptedUserAction
 
 		return 0;
 	}
+}
 
-	protected void OpenMenuWithResult(string tabId, int playerId, string result)
-	{
-		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
-		if (menu)
-			menu.OpenMenuToTab(tabId);
-
-		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
-		if (menu && coordinator && Replication.IsServer())
-			menu.OnServerSnapshot(coordinator.BuildVisibleMenuPayload(playerId, tabId, result), result);
-
-		if (!result.IsEmpty())
-			Print(result);
-	}
+class HST_PetrosUserActionBase : HST_ContextualUserActionBase
+{
 }
 
 class HST_PetrosCommandMenuAction : HST_PetrosUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		OpenMenuWithResult("petros", ResolvePlayerId(pUserEntity), "");
+		OpenMenuTab("petros", pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
@@ -66,30 +89,9 @@ class HST_PetrosCommandMenuAction : HST_PetrosUserActionBase
 
 class HST_PetrosMoveBaseHereAction : HST_PetrosUserActionBase
 {
-	override bool HasLocalEffectOnlyScript()
-	{
-		return false;
-	}
-
-	override bool CanBroadcastScript()
-	{
-		return false;
-	}
-
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		int playerId = ResolvePlayerId(pUserEntity);
-		string result = "h-istasi Petros | server coordinator not ready";
-		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
-		if (coordinator && Replication.IsServer())
-		{
-			if (coordinator.RequestCommanderMoveHQToPlayer(playerId))
-				result = "h-istasi Petros | base moved to your position";
-			else
-				result = "h-istasi Petros | move base denied or failed";
-		}
-
-		OpenMenuWithResult("petros", playerId, result);
+		RunMenuCommand("petros", "move_hq_here", "", pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
@@ -103,12 +105,40 @@ class HST_PetrosArsenalMenuAction : HST_PetrosUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		OpenMenuWithResult("arsenal", ResolvePlayerId(pUserEntity), "");
+		OpenMenuTab("arsenal", pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
 		outName = "h-istasi Arsenal";
+		return true;
+	}
+}
+
+class HST_HQArsenalOpenAction : HST_ContextualUserActionBase
+{
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		OpenMenuTab("arsenal", pUserEntity);
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Open h-istasi Arsenal";
+		return true;
+	}
+}
+
+class HST_HQArsenalLootNearbyAction : HST_ContextualUserActionBase
+{
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		RunMenuCommand("arsenal", "loot_nearby", "", pUserEntity);
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Loot nearby to h-istasi Arsenal";
 		return true;
 	}
 }

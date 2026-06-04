@@ -1,2 +1,4 @@
 FrameWidget HST_CommandMenuRoot {
+ FrameWidget HST_CommandMenuDynamicCanvas {
+ }
 }

@@ -3,7 +3,7 @@ class HST_HQService
 	static const string PETROS_BASE_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
-	static const string ARSENAL_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
+	static const string ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 
 	protected IEntity m_PetrosEntity;
@@ -84,8 +84,7 @@ class HST_HQService
 			return false;
 
 		EnsureRuntimeGroundPlacement(state);
-		string petrosPrefab = ResolvePetrosPrefab(state);
-		GenericEntity petros = respawnSystem.DoSpawn(petrosPrefab, state.m_vPetrosPosition, "0 0 0");
+		GenericEntity petros = SpawnPetros(respawnSystem, state);
 		GenericEntity cache = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
 		GenericEntity arsenal = respawnSystem.DoSpawn(ARSENAL_PREFAB, state.m_vArsenalPosition, "0 0 0");
 		GenericEntity tent = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
@@ -112,6 +111,11 @@ class HST_HQService
 	string GetPetrosPrefab()
 	{
 		return PETROS_PREFAB;
+	}
+
+	string GetArsenalPrefab()
+	{
+		return ARSENAL_PREFAB;
 	}
 
 	protected bool ResolveHideoutPlacement(string requestedHideoutId, out string resolvedHideoutId, out vector resolvedPosition)
@@ -204,21 +208,30 @@ class HST_HQService
 		if (state.m_sPetrosPrefab.IsEmpty() || state.m_sPetrosPrefab == PETROS_BASE_PREFAB)
 			state.m_sPetrosPrefab = PETROS_PREFAB;
 
-		if (!IsGuidResourceName(state.m_sPetrosPrefab))
-		{
-			Print(string.Format("h-istasi | dedicated Petros prefab %1 is not indexed yet; spawning base FIA placeholder", state.m_sPetrosPrefab), LogLevel.WARNING);
-			return PETROS_BASE_PREFAB;
-		}
-
 		return state.m_sPetrosPrefab;
 	}
 
-	protected bool IsGuidResourceName(string resourceName)
+	protected GenericEntity SpawnPetros(SCR_RespawnSystemComponent respawnSystem, HST_CampaignState state)
 	{
-		if (resourceName.Length() <= 18 || !resourceName.Contains("}"))
-			return false;
+		if (!respawnSystem)
+			return null;
 
-		return resourceName.IndexOf("{") == 0;
+		string petrosPrefab = ResolvePetrosPrefab(state);
+		vector petrosPosition = "0 0 0";
+		if (state)
+			petrosPosition = state.m_vPetrosPosition;
+
+		GenericEntity petros = respawnSystem.DoSpawn(petrosPrefab, petrosPosition, "0 0 0");
+		if (petros)
+			return petros;
+
+		if (petrosPrefab != PETROS_BASE_PREFAB)
+		{
+			Print(string.Format("h-istasi | dedicated Petros prefab %1 failed to spawn; using base FIA fallback", petrosPrefab), LogLevel.WARNING);
+			return respawnSystem.DoSpawn(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+		}
+
+		return null;
 	}
 
 	protected vector ResolveHQObjectPosition(vector hqPosition, vector offset, float verticalOffset)
