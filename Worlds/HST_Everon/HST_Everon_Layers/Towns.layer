@@ -1,60 +1,126 @@
-GenericEntity HST_TownAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 9716.864 11.392 1526.447
+GenericEntity HST_TownAnchor_simons_wood : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6311.913 104.423 5226.068
 }
-GenericEntity HST_TownAnchor_provins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5596.906 96.146 6027.447
+GenericEntity HST_TownAnchor_richemont : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4451.371 64.043 5010.427
 }
-GenericEntity HST_TownAnchor_entre_deux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5754.045 217.12 7053.081
+GenericEntity HST_TownAnchor_tillers_find : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 3789.583 59.781 6997.688
+}
+GenericEntity HST_TownAnchor_maidens_bay : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5345.855 43.594 10536.602
+}
+GenericEntity HST_TownAnchor_hornbeam_valley : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5491.385 75.196 7952.735
+}
+GenericEntity HST_TownAnchor_goat_bay : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6635.185 5.902 3119.359
 }
 GenericEntity HST_TownAnchor_chotain : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 7084.424 118.776 6017.588
 }
-GenericEntity HST_TownAnchor_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4731.929 162.779 6970.114
+GenericEntity HST_TownAnchor_durras : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8827.942 95.124 2769.363
 }
-GenericEntity HST_TownAnchor_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 7573.111 82.461 5525.154
-}
-GenericEntity HST_TownAnchor_levie : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 7463.167 137.26 4736.242
-}
-GenericEntity HST_TownAnchor_morton : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5035.522 15.382 4000.177
-}
-GenericEntity HST_TownAnchor_meaux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4464.711 13.481 9468.255
-}
-GenericEntity HST_TownAnchor_tyrone : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4933.47 37.785 9053.985
-}
-GenericEntity HST_TownAnchor_gravette : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4106.324 34.435 7794.186
-}
-GenericEntity HST_TownAnchor_villeneuve : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 2885.242 85.58 6402.408
-}
-GenericEntity HST_TownAnchor_le_moule : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 2570.692 94.634 5423.876
-}
-GenericEntity HST_TownAnchor_lamentin : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 1204.166 35.034 5984.738
-}
-GenericEntity HST_TownAnchor_regina : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 7241.147 136.629 2312.1
+GenericEntity HST_TownAnchor_entre_deux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5754.045 217.12 7053.081
 }
 GenericEntity HST_TownAnchor_figari : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 5281.364 62.97 5361.538
 }
-GenericEntity HST_TownAnchor_durras : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 8827.942 95.124 2769.363
+GenericEntity HST_TownAnchor_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7573.111 82.461 5525.154
 }
-GenericEntity HST_TownAnchor_saint_philippe : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 4542.439 15.996 10477.004
+GenericEntity HST_TownAnchor_le_moule : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2570.692 94.634 5423.876
 }
-GenericEntity HST_BankAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 9729.864 11.392 1538.447
+GenericEntity HST_TownAnchor_levie : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7463.167 137.26 4736.242
 }
-GenericEntity HST_PoliceAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 9703.864 11.392 1514.447
+GenericEntity HST_TownAnchor_meaux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4464.711 13.481 9468.255
+}
+GenericEntity HST_TownAnchor_montignac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4731.929 162.779 6970.114
+}
+GenericEntity HST_TownAnchor_provins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5596.906 96.146 6027.447
+}
+GenericEntity HST_TownAnchor_regina : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7241.147 136.629 2312.1
+}
+GenericEntity HST_TownAnchor_tyrone : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4933.47 37.785 9053.985
+}
+GenericEntity HST_TownAnchor_vernon : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9198.983 64.51 2112.621
+}
+GenericEntity HST_TownAnchor_villeneuve : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2885.242 85.58 6402.408
+}
+GenericEntity HST_TownAnchor_gravette : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4106.324 34.435 7794.186
+}
+GenericEntity HST_TownAnchor_kermovan : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6384.869 9.616 9675.053
+}
+GenericEntity HST_TownAnchor_les_creux : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5244.656 38.613 11354.579
+}
+GenericEntity HST_TownAnchor_redon : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2203.623 20.229 7478.579
+}
+GenericEntity HST_TownAnchor_kervel : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2482.494 10.406 4232.124
+}
+GenericEntity HST_TownAnchor_benac : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6607.746 148.937 7090.993
+}
+GenericEntity HST_TownAnchor_scythe : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7463.339 3.435 9524.696
+}
+GenericEntity HST_TownAnchor_perelle : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9319.43 7.215 5046.667
+}
+GenericEntity HST_TownAnchor_lancre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 11707.554 7.889 2249.905
+}
+GenericEntity HST_TownAnchor_ghost_town : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 11155.366 24.133 1777.733
+}
+GenericEntity HST_TownAnchor_saint_pierre : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9716.864 11.392 1526.447
+}
+GenericEntity HST_TownAnchor_larue_bay : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9329.601 16.333 317.23
+}
+GenericEntity HST_TownAnchor_rockweed_cape : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10355.198 31.18 350.046
+}
+GenericEntity HST_TownAnchor_le_bosc : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7896.114 10.121 1456.076
+}
+GenericEntity HST_TownAnchor_thollevast : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 2932.089 7.291 2070.882
+}
+GenericEntity HST_TownAnchor_argent : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10944.771 25.522 8689.265
+}
+GenericEntity HST_TownAnchor_erquy : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 10923.335 25.03 11718.213
+}
+GenericEntity HST_TownAnchor_pins : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 1154.921 42.893 11495.366
+}
+GenericEntity HST_TownAnchor_fishermans_cove : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 6053.254 7.852 10159.83
+}
+GenericEntity HST_TownAnchor_courbet : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 8422.677 9.357 809.545
+}
+GenericEntity HST_TownAnchor_crag_point : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 11667.637 12.049 1446.685
+}
+GenericEntity HST_TownAnchor_skua_point : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 9628.168 16.323 5379.435
 }

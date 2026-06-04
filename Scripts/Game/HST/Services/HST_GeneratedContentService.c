@@ -21,14 +21,18 @@ class HST_GeneratedContentService
 
 			HST_EGeneratedSiteType primaryType = SiteTypeForZone(zone);
 			HST_GeneratedSiteState primary = CreateSite(state, zone, "primary", primaryType, zone.m_vPosition, 160, 4);
+			ApplySourceMetadata(primary, zone, "primary");
 			state.m_aGeneratedSites.Insert(primary);
-			state.m_aGeneratedSites.Insert(CreateSite(state, zone, "roadblock", HST_EGeneratedSiteType.HST_SITE_ROADBLOCK, OffsetPosition(zone.m_vPosition, ROADBLOCK_OFFSET_METERS, 0), 90, 2));
-			state.m_aGeneratedSites.Insert(CreateSite(state, zone, "support", HST_EGeneratedSiteType.HST_SITE_SUPPORT, OffsetPosition(zone.m_vPosition, 0, SUPPORT_OFFSET_METERS), 80, 1));
+			state.m_aGeneratedSites.Insert(CreateSourceSite(state, zone, "roadblock", "BarricadesAndSandbags.layer", "roadblock", HST_EGeneratedSiteType.HST_SITE_ROADBLOCK, OffsetPosition(zone.m_vPosition, ROADBLOCK_OFFSET_METERS, 0), 90, 2));
+			state.m_aGeneratedSites.Insert(CreateSourceSite(state, zone, "support", "SupplyCaches.layer", "supply_cache", HST_EGeneratedSiteType.HST_SITE_SUPPORT, OffsetPosition(zone.m_vPosition, 0, SUPPORT_OFFSET_METERS), 80, 1));
 
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
-				state.m_aGeneratedSites.Insert(CreateSite(state, zone, "stash", HST_EGeneratedSiteType.HST_SITE_STASH, OffsetPosition(zone.m_vPosition, -SUPPORT_OFFSET_METERS, -SUPPORT_OFFSET_METERS), 60, 1));
+				state.m_aGeneratedSites.Insert(CreateSourceSite(state, zone, "stash", "SupplyCaches.layer", "civilian_stash", HST_EGeneratedSiteType.HST_SITE_STASH, OffsetPosition(zone.m_vPosition, -SUPPORT_OFFSET_METERS, -SUPPORT_OFFSET_METERS), 60, 1));
 			else
-				state.m_aGeneratedSites.Insert(CreateSite(state, zone, "crashsite", HST_EGeneratedSiteType.HST_SITE_CRASHSITE, OffsetPosition(zone.m_vPosition, -CRASHSITE_OFFSET_METERS, CRASHSITE_OFFSET_METERS), 110, 1));
+				state.m_aGeneratedSites.Insert(CreateSourceSite(state, zone, "crashsite", "SupplyCaches.layer", "salvage_anchor", HST_EGeneratedSiteType.HST_SITE_CRASHSITE, OffsetPosition(zone.m_vPosition, -CRASHSITE_OFFSET_METERS, CRASHSITE_OFFSET_METERS), 110, 1));
+
+			if (zone.m_sSourceLayerName == "SupplyDepots.layer")
+				state.m_aGeneratedSites.Insert(CreateSourceSite(state, zone, "depot_loot", "SupplyDepots.layer", "supply_depot_loot", HST_EGeneratedSiteType.HST_SITE_STASH, zone.m_vPosition, 120, 3));
 
 			state.m_aGeneratedRoutes.Insert(CreateRoute(state, zone, primary));
 		}
@@ -136,12 +140,34 @@ class HST_GeneratedContentService
 		return site;
 	}
 
+	protected HST_GeneratedSiteState CreateSourceSite(HST_CampaignState state, HST_ZoneState zone, string suffix, string sourceLayerName, string sourceCategory, HST_EGeneratedSiteType siteType, vector position, int radiusMeters, int weight)
+	{
+		HST_GeneratedSiteState site = CreateSite(state, zone, suffix, siteType, position, radiusMeters, weight);
+		site.m_sSourceLayerName = sourceLayerName;
+		site.m_sSourceCategory = sourceCategory;
+		site.m_sSourceLayoutId = zone.m_sSourceLayoutId;
+		return site;
+	}
+
+	protected void ApplySourceMetadata(HST_GeneratedSiteState site, HST_ZoneState zone, string sourceCategory)
+	{
+		if (!site || !zone)
+			return;
+
+		site.m_sSourceLayerName = zone.m_sSourceLayerName;
+		site.m_sSourceCategory = sourceCategory;
+		site.m_sSourceLayoutId = zone.m_sSourceLayoutId;
+	}
+
 	protected HST_GeneratedRouteState CreateRoute(HST_CampaignState state, HST_ZoneState zone, HST_GeneratedSiteState site)
 	{
 		HST_GeneratedRouteState route = new HST_GeneratedRouteState();
 		route.m_sRouteId = string.Format("route_%1_alpha", zone.m_sZoneId);
 		route.m_sSourceZoneId = zone.m_sZoneId;
 		route.m_sTargetZoneId = zone.m_sZoneId;
+		route.m_sSourceLayerName = "VehiclePatrols.layer";
+		route.m_sSourceCategory = "patrol_route";
+		route.m_sSourceLayoutId = zone.m_sSourceLayoutId;
 		route.m_vStartPosition = HST_WorldPositionService.ResolveGroundPosition(OffsetPosition(zone.m_vPosition, -360, 0), HST_WorldPositionService.PROP_GROUND_OFFSET, false);
 		route.m_vMidPosition = site.m_vSecondaryPosition;
 		route.m_vEndPosition = site.m_vPosition;

@@ -49,6 +49,8 @@ class HST_ZoneDefinition
 {
 	string m_sZoneId;
 	string m_sDisplayName;
+	string m_sSourceLayoutId;
+	string m_sSourceLayerName;
 	HST_EZoneType m_eType;
 	vector m_vPosition;
 	string m_sInitialOwnerFactionKey;
@@ -66,8 +68,11 @@ class HST_ZoneDefinition
 	string m_sMissionSiteId;
 	bool m_bShowMapMarker = true;
 	string m_sMarkerLabel;
+	string m_sMarkerCallsign;
 	string m_sMarkerIcon;
 	string m_sMarkerColor;
+	string m_sMarkerTextColor;
+	string m_sMarkerStyle;
 	ref array<string> m_aNearbyTownIds = {};
 	ref array<string> m_aLinkedZoneIds = {};
 	ref array<string> m_aCapabilities = {};

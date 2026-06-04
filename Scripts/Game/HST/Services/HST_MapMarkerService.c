@@ -53,6 +53,7 @@ class HST_MapMarkerService
 		int strategicCount;
 		int missionCount;
 		int qrfCount;
+		int callsignCount;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
 			if (!marker || !marker.m_bVisible)
@@ -66,12 +67,14 @@ class HST_MapMarkerService
 				missionCount++;
 			else if (marker.m_sCategory == "qrf")
 				qrfCount++;
+			else if (marker.m_sCategory == "callsign")
+				callsignCount++;
 			else
 				strategicCount++;
 		}
 
 		string summary = string.Format("h-istasi map markers | total %1 | HQ/hideouts %2 | towns %3", state.m_aMapMarkers.Count(), hqCount, townCount);
-		string tactical = string.Format(" | strategic %1 | missions %2 | QRFs %3 | native manager %4", strategicCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT);
+		string tactical = string.Format(" | strategic %1 | callsigns %2 | missions %3 | QRFs %4 | native manager %5", strategicCount, callsignCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT);
 		return summary + tactical;
 	}
 
@@ -80,7 +83,7 @@ class HST_MapMarkerService
 		if (!state.m_bHQDeployed)
 			return;
 
-		AddMarker(state, "hst_hq", state.m_sHQHideoutId, "FIA HQ", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", "BLUFOR", state.m_vHQPosition, true);
+		AddMarker(state, "hst_hq", state.m_sHQHideoutId, "FIA HQ", "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", "BLUFOR", state.m_vHQPosition, true, "white", "support");
 	}
 
 	protected void AddHideoutMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -90,7 +93,7 @@ class HST_MapMarkerService
 			if (!hideout || hideout.m_sHideoutId == state.m_sHQHideoutId)
 				continue;
 
-			AddMarker(state, "hst_hideout_" + hideout.m_sHideoutId, hideout.m_sHideoutId, hideout.m_sDisplayName + " Hideout", "hideout", preset.m_sResistanceFactionKey, "PICK_UP2", "BLUFOR", hideout.m_vPosition, true);
+			AddMarker(state, "hst_hideout_" + hideout.m_sHideoutId, hideout.m_sHideoutId, hideout.m_sDisplayName + " Hideout", "", "hideout", preset.m_sResistanceFactionKey, "PICK_UP2", "BLUFOR", hideout.m_vPosition, true, "white", "support");
 		}
 	}
 
@@ -101,11 +104,16 @@ class HST_MapMarkerService
 			if (!zone)
 				continue;
 
-			string category = ZoneTypeToMarkerCategory(zone.m_eType);
-			string label = ResolveZoneDisplayName(zone) + " " + ZoneTypeToLabel(zone.m_eType);
+			string category = ZoneToMarkerCategory(zone);
+			string label = BuildZoneMarkerLabel(zone);
 			string color = FactionToMarkerColor(zone.m_sOwnerFactionKey, preset);
-			string icon = ZoneTypeToMarkerIcon(zone.m_eType);
-			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true);
+			string icon = ZoneToMarkerIcon(zone);
+			string textColor = ZoneToMarkerTextColor(zone);
+			string style = ZoneToMarkerStyle(zone);
+			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, zone.m_sMarkerCallsign, category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style);
+
+			if (!zone.m_sMarkerCallsign.IsEmpty())
+				AddMarker(state, "hst_zone_callsign_" + zone.m_sZoneId, zone.m_sZoneId, zone.m_sMarkerCallsign, zone.m_sMarkerCallsign, "callsign", zone.m_sOwnerFactionKey, "MARK_QUESTION", "CIVILIAN", BuildCallsignMarkerPosition(zone), true, "magenta", "callsign");
 		}
 	}
 
@@ -124,7 +132,7 @@ class HST_MapMarkerService
 					markerPosition = zone.m_vPosition;
 			}
 
-			AddMarker(state, "hst_mission_" + mission.m_sInstanceId, mission.m_sInstanceId, "Mission " + mission.m_sMissionId, "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true);
+			AddMarker(state, "hst_mission_" + mission.m_sInstanceId, mission.m_sInstanceId, "Mission " + mission.m_sMissionId, "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission");
 		}
 	}
 
@@ -139,24 +147,34 @@ class HST_MapMarkerService
 			if (!targetZone)
 				continue;
 
-			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true);
+			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true, "red", "enemy_response");
 		}
 	}
 
-	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible)
+	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint)
 	{
 		HST_MapMarkerState marker = new HST_MapMarkerState();
 		marker.m_sMarkerId = markerId;
 		marker.m_sLinkedId = linkedId;
 		marker.m_sLabel = label;
+		marker.m_sCallsign = callsign;
 		marker.m_sCategory = category;
 		marker.m_sOwnerFactionKey = ownerFactionKey;
 		marker.m_sIconHint = iconHint;
 		marker.m_sColorHint = colorHint;
+		marker.m_sTextColorHint = textColorHint;
+		marker.m_sStyleHint = styleHint;
 		marker.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
 		marker.m_bVisible = visible;
 		marker.m_bRuntimeNative = true;
 		state.m_aMapMarkers.Insert(marker);
+	}
+
+	protected vector BuildCallsignMarkerPosition(HST_ZoneState zone)
+	{
+		vector position = zone.m_vPosition;
+		position[2] = position[2] + 18;
+		return position;
 	}
 
 	protected string FactionToMarkerColor(string factionKey, HST_CampaignPreset preset)
@@ -173,8 +191,15 @@ class HST_MapMarkerService
 		return "REFORGER_ORANGE";
 	}
 
-	protected string ZoneTypeToMarkerCategory(HST_EZoneType zoneType)
+	protected string ZoneToMarkerCategory(HST_ZoneState zone)
 	{
+		if (!zone)
+			return "strategic";
+
+		if (!zone.m_sMarkerStyle.IsEmpty())
+			return zone.m_sMarkerStyle;
+
+		HST_EZoneType zoneType = zone.m_eType;
 		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
 			return "town";
 
@@ -184,11 +209,38 @@ class HST_MapMarkerService
 		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 			return "mission";
 
+		if (zoneType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return "resource";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_FACTORY)
+			return "factory";
+
+		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD || zoneType == HST_EZoneType.HST_ZONE_SEAPORT || zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
+			return "enemy_base";
+
 		return "strategic";
 	}
 
-	protected string ZoneTypeToMarkerIcon(HST_EZoneType zoneType)
+	protected string ZoneToMarkerIcon(HST_ZoneState zone)
 	{
+		if (!zone)
+			return "OBJECTIVE_MARKER";
+
+		if (zone && !zone.m_sMarkerStyle.IsEmpty())
+		{
+			if (zone.m_sMarkerStyle == "resource" || zone.m_sMarkerStyle == "depot")
+				return "MINE_SINGLE";
+			if (zone.m_sMarkerStyle == "town")
+				return "MARK_QUESTION";
+			if (zone.m_sMarkerStyle == "radio")
+				return "MARK_QUESTION";
+			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
+				return "OBJECTIVE_MARKER";
+			if (zone.m_sMarkerStyle == "support")
+				return "PICK_UP2";
+		}
+
+		HST_EZoneType zoneType = zone.m_eType;
 		if (zoneType == HST_EZoneType.HST_ZONE_RESOURCE || zoneType == HST_EZoneType.HST_ZONE_FACTORY)
 			return "MINE_SINGLE";
 
@@ -199,6 +251,30 @@ class HST_MapMarkerService
 			return "PICK_UP2";
 
 		return "OBJECTIVE_MARKER";
+	}
+
+	protected string BuildZoneMarkerLabel(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "unknown";
+
+		return ResolveZoneDisplayName(zone);
+	}
+
+	protected string ZoneToMarkerTextColor(HST_ZoneState zone)
+	{
+		if (!zone || zone.m_sMarkerTextColor.IsEmpty())
+			return "black";
+
+		return zone.m_sMarkerTextColor;
+	}
+
+	protected string ZoneToMarkerStyle(HST_ZoneState zone)
+	{
+		if (!zone || zone.m_sMarkerStyle.IsEmpty())
+			return ZoneToMarkerCategory(zone);
+
+		return zone.m_sMarkerStyle;
 	}
 
 	protected string ZoneTypeToLabel(HST_EZoneType zoneType)

@@ -31,6 +31,11 @@ class HST_ZoneState
 {
 	string m_sZoneId;
 	string m_sDisplayName;
+	string m_sSourceLayoutId;
+	string m_sSourceLayerName;
+	string m_sMarkerCallsign;
+	string m_sMarkerTextColor;
+	string m_sMarkerStyle;
 	string m_sOwnerFactionKey;
 	HST_EZoneType m_eType;
 	vector m_vPosition;
@@ -98,10 +103,13 @@ class HST_MapMarkerState
 	string m_sMarkerId;
 	string m_sLinkedId;
 	string m_sLabel;
+	string m_sCallsign;
 	string m_sCategory;
 	string m_sOwnerFactionKey;
 	string m_sIconHint;
 	string m_sColorHint;
+	string m_sTextColorHint;
+	string m_sStyleHint;
 	vector m_vPosition;
 	bool m_bVisible = true;
 	bool m_bRuntimeNative;
@@ -172,6 +180,9 @@ class HST_GeneratedSiteState
 	string m_sSiteId;
 	string m_sZoneId;
 	string m_sRouteId;
+	string m_sSourceLayerName;
+	string m_sSourceCategory;
+	string m_sSourceLayoutId;
 	HST_EGeneratedSiteType m_eType;
 	vector m_vPosition;
 	vector m_vSecondaryPosition;
@@ -188,6 +199,9 @@ class HST_GeneratedRouteState
 	string m_sRouteId;
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
+	string m_sSourceLayerName;
+	string m_sSourceCategory;
+	string m_sSourceLayoutId;
 	vector m_vStartPosition;
 	vector m_vMidPosition;
 	vector m_vEndPosition;
@@ -293,7 +307,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 7;
+	static const int SCHEMA_VERSION = 8;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";

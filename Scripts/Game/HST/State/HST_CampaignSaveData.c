@@ -317,6 +317,11 @@ class HST_CampaignSaveData
 		HST_ZoneState target = new HST_ZoneState();
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sSourceLayoutId = source.m_sSourceLayoutId;
+		target.m_sSourceLayerName = source.m_sSourceLayerName;
+		target.m_sMarkerCallsign = source.m_sMarkerCallsign;
+		target.m_sMarkerTextColor = source.m_sMarkerTextColor;
+		target.m_sMarkerStyle = source.m_sMarkerStyle;
 		target.m_sOwnerFactionKey = source.m_sOwnerFactionKey;
 		target.m_eType = source.m_eType;
 		target.m_vPosition = source.m_vPosition;
@@ -389,10 +394,13 @@ class HST_CampaignSaveData
 		target.m_sMarkerId = source.m_sMarkerId;
 		target.m_sLinkedId = source.m_sLinkedId;
 		target.m_sLabel = source.m_sLabel;
+		target.m_sCallsign = source.m_sCallsign;
 		target.m_sCategory = source.m_sCategory;
 		target.m_sOwnerFactionKey = source.m_sOwnerFactionKey;
 		target.m_sIconHint = source.m_sIconHint;
 		target.m_sColorHint = source.m_sColorHint;
+		target.m_sTextColorHint = source.m_sTextColorHint;
+		target.m_sStyleHint = source.m_sStyleHint;
 		target.m_vPosition = source.m_vPosition;
 		target.m_bVisible = source.m_bVisible;
 		target.m_bRuntimeNative = source.m_bRuntimeNative;
@@ -469,6 +477,9 @@ class HST_CampaignSaveData
 		target.m_sSiteId = source.m_sSiteId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sRouteId = source.m_sRouteId;
+		target.m_sSourceLayerName = source.m_sSourceLayerName;
+		target.m_sSourceCategory = source.m_sSourceCategory;
+		target.m_sSourceLayoutId = source.m_sSourceLayoutId;
 		target.m_eType = source.m_eType;
 		target.m_vPosition = source.m_vPosition;
 		target.m_vSecondaryPosition = source.m_vSecondaryPosition;
@@ -486,6 +497,9 @@ class HST_CampaignSaveData
 		target.m_sRouteId = source.m_sRouteId;
 		target.m_sSourceZoneId = source.m_sSourceZoneId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sSourceLayerName = source.m_sSourceLayerName;
+		target.m_sSourceCategory = source.m_sSourceCategory;
+		target.m_sSourceLayoutId = source.m_sSourceLayoutId;
 		target.m_vStartPosition = source.m_vStartPosition;
 		target.m_vMidPosition = source.m_vMidPosition;
 		target.m_vEndPosition = source.m_vEndPosition;

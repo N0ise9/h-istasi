@@ -438,95 +438,6 @@ foreach ($group in @($configZones | Group-Object | Where-Object Count -gt 1)) {
 }
 Write-Host "Unique IDs OK"
 
-$expectedEveronTownIds = @(
-	"town_saint_pierre",
-	"town_provins",
-	"town_entre_deux",
-	"town_chotain",
-	"town_montignac",
-	"town_laruns",
-	"town_levie",
-	"town_morton",
-	"town_meaux",
-	"town_tyrone",
-	"town_gravette",
-	"town_villeneuve",
-	"town_le_moule",
-	"town_lamentin",
-	"town_regina",
-	"town_figari",
-	"town_durras",
-	"town_saint_philippe"
-)
-$expectedEveronAlphaNodeIds = @(
-	"outpost_lamentin",
-	"outpost_morton",
-	"outpost_regina",
-	"outpost_airfield_west",
-	"outpost_montignac_hills",
-	"outpost_seaport_guard",
-	"factory_west",
-	"factory_saint_pierre",
-	"resource_lumber_lamentin",
-	"resource_lumber_villeneuve",
-	"resource_quarry_levie",
-	"resource_fuel_airfield",
-	"resource_farm_laruns",
-	"resource_farm_provins",
-	"resource_mine_montignac",
-	"resource_port_saint_pierre",
-	"resource_depot_central",
-	"resource_depot_south",
-	"resource_depot_east",
-	"seaport_saint_pierre",
-	"radio_central",
-	"radio_west",
-	"bank_saint_pierre",
-	"bank_montignac",
-	"police_saint_pierre",
-	"police_morton",
-	"police_lamentin"
-)
-$townDisplayNames = @{
-	"town_saint_pierre" = "Saint-Pierre"
-	"town_provins" = "Provins"
-	"town_entre_deux" = "Entre-Deux"
-	"town_chotain" = "Chotain"
-	"town_montignac" = "Montignac"
-	"town_laruns" = "Laruns"
-	"town_levie" = "Levie"
-	"town_morton" = "Morton"
-	"town_meaux" = "Meaux"
-	"town_tyrone" = "Tyrone"
-	"town_gravette" = "Gravette"
-	"town_villeneuve" = "Villeneuve"
-	"town_le_moule" = "Le Moule"
-	"town_lamentin" = "Lamentin"
-	"town_regina" = "Regina"
-	"town_figari" = "Figari"
-	"town_durras" = "Durras"
-	"town_saint_philippe" = "Saint-Philippe"
-}
-foreach ($townId in $expectedEveronTownIds) {
-	if ($townId -notin $runtimeZones) {
-		throw "Missing Everon town in runtime catalog: $townId"
-	}
-
-	if ($townId -notin $configZones) {
-		throw "Missing Everon town in map config: $townId"
-	}
-}
-
-foreach ($alphaNodeId in $expectedEveronAlphaNodeIds) {
-	if ($alphaNodeId -notin $runtimeZones) {
-		throw "Missing 4x-style alpha node in runtime catalog: $alphaNodeId"
-	}
-
-	if ($alphaNodeId -notin $configZones) {
-		throw "Missing 4x-style alpha node in map config: $alphaNodeId"
-	}
-}
-
 $worldResourceText = (Get-ChildItem -Recurse -File "Worlds" -Include *.layer |
 	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $runtimeMarkerLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/default.layer"
@@ -534,6 +445,79 @@ $townLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Towns.layer"
 $strategicZonesLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StrategicZones.layer"
 $markerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
 $coordinatorMarkerText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
+
+if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
+	throw "Tonka Everon catalog must contain 79 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
+}
+
+$tonkaBaseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "Bases\.layer"' })
+$tonkaDepotBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "SupplyDepots\.layer"' })
+$tonkaCallsigns = @($zoneBlocks | ForEach-Object {
+	if ($_ -match 'm_sMarkerCallsign "([^"]+)"') {
+		$Matches[1]
+	}
+} | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
+if ($tonkaBaseBlocks.Count -ne 71) {
+	throw "Expected 71 Tonka Bases.layer nodes, found $($tonkaBaseBlocks.Count)"
+}
+if ($tonkaDepotBlocks.Count -ne 8) {
+	throw "Expected 8 Tonka SupplyDepots.layer nodes, found $($tonkaDepotBlocks.Count)"
+}
+if ($tonkaCallsigns.Count -ne 56) {
+	throw "Expected 56 paired Tonka callsigns, found $($tonkaCallsigns.Count)"
+}
+
+foreach ($group in @($tonkaCallsigns | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate Tonka callsign: $($group.Name)"
+}
+
+$zoneDisplayNames = @($zoneBlocks | ForEach-Object {
+	if ($_ -match 'm_sDisplayName "([^"]+)"') {
+		$Matches[1]
+	}
+})
+foreach ($group in @($zoneDisplayNames | Group-Object | Where-Object Count -gt 1)) {
+	throw "Duplicate Tonka zone display label: $($group.Name)"
+}
+
+foreach ($block in $zoneBlocks) {
+	if ($block -notmatch 'm_sZoneId "([^"]+)"') {
+		continue
+	}
+
+	$zoneId = $Matches[1]
+	foreach ($requiredTonkaField in @("m_sSourceLayoutId", "m_sSourceLayerName", "m_sMarkerLabel", "m_sMarkerTextColor", "m_sMarkerStyle", "m_aLinkedZoneIds")) {
+		if ($block -notmatch [regex]::Escape($requiredTonkaField)) {
+			throw "Tonka zone $zoneId is missing $requiredTonkaField"
+		}
+	}
+}
+
+foreach ($oldPlaceholderId in @(
+	"outpost_north",
+	"outpost_south",
+	"airfield_main",
+	"seaport_main",
+	"factory_central",
+	"resource_north",
+	"resource_south",
+	"radio_north",
+	"radio_south",
+	"resource_depot_central",
+	"resource_depot_south",
+	"resource_depot_east",
+	"bank_saint_pierre",
+	"bank_montignac",
+	"police_saint_pierre",
+	"police_morton",
+	"police_lamentin"
+)) {
+	if ($oldPlaceholderId -in $configZones -or $oldPlaceholderId -in $runtimeZones) {
+		throw "Old rough alpha placeholder zone remains after Tonka import: $oldPlaceholderId"
+	}
+}
+
 foreach ($requiredNativeMarkerEntry in @(
 	"SCR_MapMarkerManagerComponent",
 	"Configs/Map/CampaignMapMarkerConfig.conf",
@@ -553,6 +537,9 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"RefreshMissionMarkers",
 	"CleanupMarkers",
 	"m_bRuntimeNative",
+	"hst_zone_callsign_",
+	"BuildCallsignMarkerPosition",
+	"magenta",
 	"NATIVE_MARKER_MANAGER_COMPONENT",
 	"SCR_MapMarkerManagerComponent"
 )) {
@@ -569,17 +556,22 @@ if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and ($worldReso
 	throw "Scenario Framework markers may only remain as fallback when native marker manager and runtime service are present"
 }
 
-foreach ($alphaNodeId in $expectedEveronAlphaNodeIds) {
-	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$alphaNodeId")) {
-		throw "Missing strategic zone anchor for 4x-style alpha node: $alphaNodeId"
+foreach ($zoneId in $configZones) {
+	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
+		throw "Missing strategic zone anchor for configured Tonka node: $zoneId"
 	}
 
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$alphaNodeId")) {
-		throw "Missing native marker for 4x-style alpha node: $alphaNodeId"
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$zoneId")) {
+		throw "Missing native marker for configured Tonka node: $zoneId"
 	}
 }
 
-foreach ($townId in $expectedEveronTownIds) {
+$townZoneIds = @($zoneBlocks | Where-Object { $_ -match "\bm_eType HST_ZONE_TOWN\b" } | ForEach-Object {
+	if ($_ -match 'm_sZoneId "([^"]+)"') {
+		$Matches[1]
+	}
+})
+foreach ($townId in $townZoneIds) {
 	$suffix = $townId -replace "^town_", ""
 	if ($townLayer -notmatch [regex]::Escape("HST_TownAnchor_$suffix")) {
 		throw "Missing town anchor for $townId"
@@ -623,8 +615,22 @@ $nativeMarkerRplCount = ([regex]::Matches($runtimeMarkerLayer, "SCR_MapMarkerDot
 if ($nativeMarkerRplCount -lt $nativeMarkerCount) {
 	throw "Native map marker is missing RplComponent for SCR_MapMarkerEntity init"
 }
-Write-Host "Everon town coverage OK: $($expectedEveronTownIds.Count)"
-Write-Host "Everon 4x-style alpha node coverage OK: $($expectedEveronAlphaNodeIds.Count)"
+
+$fallbackCallsignMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "HST_CallsignMarker_")).Count
+if ($fallbackCallsignMarkerCount -ne $tonkaCallsigns.Count) {
+	throw "Expected $($tonkaCallsigns.Count) Tonka fallback callsign markers, found $fallbackCallsignMarkerCount"
+}
+
+$fallbackCallsignCivilianColorCount = ([regex]::Matches($runtimeMarkerLayer, "HST_CallsignMarker_[\s\S]*?m_eMapMarkerColor CIVILIAN")).Count
+if ($fallbackCallsignCivilianColorCount -ne $fallbackCallsignMarkerCount) {
+	throw "Fallback callsign markers must use the CIVILIAN/magenta-style color hint"
+}
+
+if ($runtimeMarkerLayer -match 'm_sMapMarkerText "[^"]+ / [^"]+"') {
+	throw "Fallback map marker labels must keep display names and callsigns split"
+}
+
+Write-Host "Tonka Everon coverage OK: zones=$($configZones.Count) bases=$($tonkaBaseBlocks.Count) depots=$($tonkaDepotBlocks.Count) callsigns=$($tonkaCallsigns.Count) towns=$($townZoneIds.Count)"
 
 $hideoutBlocks = @(Get-ConfigBlocks $mapConfig "HST_HideoutDefinition")
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
@@ -656,11 +662,9 @@ foreach ($block in $zoneBlocks) {
 		}
 	}
 
-	if ($zoneId -in $expectedEveronAlphaNodeIds) {
-		foreach ($requiredAlphaField in @("m_sDisplayName", "m_sResourceKind", "m_iCaptureRadiusMeters", "m_iPriority", "m_sCompositionId", "m_sSpawnProfileId")) {
-			if ($block -notmatch [regex]::Escape($requiredAlphaField)) {
-				throw "4x-style alpha node $zoneId is missing $requiredAlphaField"
-			}
+	foreach ($requiredTonkaRuntimeField in @("m_sDisplayName", "m_sResourceKind", "m_iCaptureRadiusMeters", "m_iPriority", "m_sCompositionId", "m_sSpawnProfileId")) {
+		if ($block -notmatch [regex]::Escape($requiredTonkaRuntimeField)) {
+			throw "Tonka zone $zoneId is missing $requiredTonkaRuntimeField"
 		}
 	}
 }
@@ -702,7 +706,11 @@ $referencedSymbols = @([regex]::Matches($codeOnly, "\b(HST_[A-Za-z0-9_]+)\b") |
 	ForEach-Object { $_.Groups[1].Value } |
 	Sort-Object -Unique)
 $missingSymbols = @($referencedSymbols |
-	Where-Object { $_ -notin $definedSymbols -and $_ -notmatch "^HST_(CAMPAIGN|ZONE|MISSION|SITE|OBJECTIVE|SUPPORT|ENEMY_ORDER|UNDERCOVER)_" })
+	Where-Object {
+		$_ -notin $definedSymbols `
+			-and $_ -notin @("HST_HQArsenal", "HST_Settings") `
+			-and $_ -notmatch "^HST_(CAMPAIGN|ZONE|MISSION|SITE|OBJECTIVE|SUPPORT|ENEMY_ORDER|UNDERCOVER)_"
+	})
 if ($missingSymbols.Count -gt 0) {
 	throw "Potential undefined script symbols:`n$($missingSymbols -join "`n")"
 }
@@ -756,12 +764,20 @@ foreach ($requiredSaveEntry in @(
 	"m_iEnemyResourceAccumulatorSeconds",
 	"m_iResistanceCaptureProgress",
 	"m_sDisplayName",
+	"m_sSourceLayoutId",
+	"m_sSourceLayerName",
+	"m_sMarkerCallsign",
+	"m_sMarkerTextColor",
+	"m_sMarkerStyle",
 	"m_sResourceKind",
 	"m_iCaptureRadiusMeters",
 	"m_iPriority",
 	"m_sCompositionId",
 	"m_sSpawnProfileId",
 	"m_aLinkedZoneIds",
+	"m_sCallsign",
+	"m_sTextColorHint",
+	"m_sStyleHint",
 	"m_sCategory",
 	"m_vArsenalPosition",
 	"m_sArsenalPrefab",
@@ -776,6 +792,7 @@ foreach ($requiredSaveEntry in @(
 	"m_bCleanupComplete",
 	"m_aGeneratedSites",
 	"m_aGeneratedRoutes",
+	"m_sSourceCategory",
 	"m_aMissionObjectives",
 	"m_aSupportRequests",
 	"m_aEnemyOrders",
