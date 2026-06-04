@@ -450,6 +450,34 @@ $runtimeMissions = @([regex]::Matches($defaultCatalog, 'NewMission\("([^"]+)"') 
 $configMissions = @([regex]::Matches($missionConfig, 'm_sMissionId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 Assert-EqualSet "Mission registries" $runtimeMissions $configMissions
 
+$missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+foreach ($missionId in $configMissions) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape("`"$missionId`"")) {
+		throw "Mission runtime primitive mapper does not cover mission ID: $missionId"
+	}
+}
+foreach ($requiredMissionPrimitive in @(
+	"kill_hvt",
+	"hold_area",
+	"clear_area",
+	"destroy_target",
+	"recover_cargo",
+	"rescue_extract",
+	"deliver_supplies",
+	"convoy_intercept",
+	"abstract_fallback",
+	"InitializeMissionRuntime",
+	"PrimitiveForMission",
+	"PrimitiveForMissionId",
+	"FindCompletedActiveMissionId",
+	"BuildRuntimeReport"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredMissionPrimitive)) {
+		throw "Mission runtime service is missing physical primitive contract: $requiredMissionPrimitive"
+	}
+}
+Write-Host "Mission runtime primitive coverage OK"
+
 $runtimeZones = @([regex]::Matches($defaultCatalog, 'NewZoneState\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 $configZones = @([regex]::Matches($mapConfig, 'm_sZoneId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 Assert-EqualSet "Zone registries" $runtimeZones $configZones
@@ -868,6 +896,7 @@ foreach ($requiredService in @(
 	"HST_LootService",
 	"HST_GeneratedContentService",
 	"HST_MissionObjectiveService",
+	"HST_MissionRuntimeService",
 	"HST_SupportRequestService",
 	"HST_CivilianService",
 	"HST_EnemyCommanderService",
@@ -889,9 +918,41 @@ foreach ($requiredSaveEntry in @(
 	"HST_CampaignSaveData",
 	"CaptureState",
 	"GetLastCapturedSave",
+	"RestoreOrCreateCampaignState",
+	"CaptureAndTrackState",
+	"ApplyRestoredCampaignState",
+	"MigrateToCurrentSchema",
+	"PersistenceSystem.GetInstance",
+	"GetPersistentState",
+	"StartTracking",
+	"IsSavingPossible",
+	"RequestSavePoint",
 	"m_iSchemaVersion",
+	"m_iLastLoadedSchemaVersion",
+	"m_iLastSaveSecond",
+	"m_iLastRestoreSecond",
+	"m_bRestoredFromPersistence",
+	"m_sLastPersistenceStatus",
 	"m_aActiveMissions",
 	"m_aActiveGroups",
+	"m_sRuntimePrimitive",
+	"m_sRuntimeEntityId",
+	"m_iRuntimeStartedAtSecond",
+	"m_iRuntimeHoldSeconds",
+	"m_bRuntimeSpawned",
+	"m_bRuntimeFallback",
+	"m_bRuntimeCleanupComplete",
+	"m_iHoldSeconds",
+	"m_iRequiredHoldSeconds",
+	"m_bWorldDetected",
+	"m_bAbstractFallback",
+	"m_sRouteId",
+	"m_vSourcePosition",
+	"m_vTargetPosition",
+	"m_sRuntimeStatus",
+	"m_iLastSeenAliveCount",
+	"m_iSurvivorInfantryCount",
+	"m_iSurvivorVehicleCount",
 	"m_aQRFs",
 	"HST_MapMarkerState",
 	"m_aMapMarkers",
@@ -963,6 +1024,7 @@ foreach ($requiredCoordinatorEntry in @(
 	"AwardFactionResources",
 	"AwardPlayerResources",
 	"RequestCommanderMoveHQ",
+	"RequestCommanderSelectInitialHideout",
 	"MoveHQToPlayer",
 	"RequestCommanderMoveHQToPlayer",
 	"RequestCommanderStartMission",
@@ -992,6 +1054,8 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestMemberInspectCivilians",
 	"RequestMemberInspectUndercover",
 	"RequestMemberInspectGeneratedContent",
+	"RequestMemberInspectPersistence",
+	"RequestMemberInspectMissionRuntime",
 	"RequestMemberLootNearby",
 	"RequestMemberWithdrawBestArsenalItem",
 	"RequestMemberCaptureNearbyVehicle",
@@ -1000,6 +1064,7 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestCommanderProgressMission",
 	"RequestCommanderCallSupplyDrop",
 	"RequestCommanderCallPlayerSupport",
+	"RequestCommanderCancelSupport",
 	"RequestCommanderAidNearestTown",
 	"RequestAdminSetZoneActive",
 	"RequestAdminCaptureZone",
@@ -1010,6 +1075,9 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestAdminFailMission",
 	"RequestAdminAwardResources",
 	"RequestAdminAddEnemyResources",
+	"RequestAdminNewCampaignReset",
+	"RequestAdminSetMembership",
+	"RequestAdminSetAdminRole",
 	"RequestAdminInspectZone"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCoordinatorEntry)) {
@@ -1100,7 +1168,10 @@ foreach ($requiredCommandMenuEntry in @(
 	'inspect_economy',
 	'inspect_zones',
 	'inspect_missions',
+	'inspect_persistence',
+	'inspect_mission_runtime',
 	'inspect_arsenal',
+	'setup_hideout',
 	'loot_nearby',
 	'withdraw_arsenal',
 	'garage_capture_nearby',
@@ -1111,8 +1182,13 @@ foreach ($requiredCommandMenuEntry in @(
 	'mission_zone',
 	'support_qrf',
 	'support_fire',
+	'cancel_support',
 	'capture_zone',
-	'award_small'
+	'award_small',
+	'new_campaign',
+	'member_accept',
+	'member_remove',
+	'admin_grant'
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredCommandMenuEntry)) {
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
@@ -1359,6 +1435,13 @@ foreach ($requiredPhysicalWarEntry in @(
 	"m_iActivationRadiusMeters",
 	"m_sPatrolRouteId",
 	"m_sQRFRouteId",
+	"m_sRouteId",
+	"m_vSourcePosition",
+	"m_vTargetPosition",
+	"m_sRuntimeEntityId",
+	"m_sRuntimeStatus",
+	"m_iSurvivorInfantryCount",
+	"m_iSurvivorVehicleCount",
 	"m_sMissionSiteId",
 	"m_aGroupPrefabs",
 	"m_aPatrolGroupPrefabs",

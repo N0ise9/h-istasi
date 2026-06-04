@@ -19,6 +19,14 @@ class HST_MissionService
 		return null;
 	}
 
+	void SyncNextInstanceIdFromState(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+
+		m_iNextInstanceId = Math.Max(m_iNextInstanceId, state.m_aActiveMissions.Count() + 1);
+	}
+
 	bool CanStart(HST_CampaignState state, HST_CampaignPreset preset, string missionId)
 	{
 		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)

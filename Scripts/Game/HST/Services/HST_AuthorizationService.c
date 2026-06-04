@@ -53,6 +53,23 @@ class HST_AuthorizationService
 		return true;
 	}
 
+	bool SetAdminRole(HST_CampaignState state, string actorIdentityId, string targetIdentityId, bool isAdmin)
+	{
+		HST_PlayerState actor = state.FindPlayer(actorIdentityId);
+		HST_PlayerState target = state.FindPlayer(targetIdentityId);
+		if (!actor || !actor.m_bAdmin || !target)
+			return false;
+
+		target.m_bAdmin = isAdmin;
+		if (isAdmin)
+		{
+			target.m_bMember = true;
+			target.m_bGuest = false;
+		}
+
+		return true;
+	}
+
 	bool CanUseCommanderActions(HST_CampaignState state, string identityId)
 	{
 		return !identityId.IsEmpty() && state.m_sCommanderIdentityId == identityId;

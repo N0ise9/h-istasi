@@ -10,20 +10,24 @@
   town-support, income, arsenal, garage-record, abstract-garrison,
   recruitment, and enemy-pool service surfaces
 - Common mission lifecycle and CE 3.11.1 mission-registry baseline
-- Native Reforger manual and periodic checkpoint requests
+- Native Reforger manual and periodic checkpoint requests with
+  `PersistenceSystem` tracking for the scripted campaign save container
 - Original Everon world shell and stable strategic-zone IDs
 - Custom FIA HQ player spawn path that bypasses stock Deployment Setup and
   uses game-mode player callbacks, a short spawn sweep, native respawn
   requests, pending spawn tracking, and spawn-success callbacks
 - FIA Scenario Framework spawnpoints and role-selection loadouts retained as
   authoring metadata and fallback scaffolding
-- HQ lifecycle service for initial hideout, HQ movement, Petros state, and
-  Petros/cache/tent runtime object positions, and Petros-loss penalties
-- Versioned campaign save container for current state fields and nested arrays
+- HQ lifecycle service for setup-driven initial hideout selection, HQ
+  movement, Petros state, Petros/cache/tent runtime object positions, and
+  Petros-loss penalties
+- Versioned campaign save container for current state fields and nested arrays,
+  with schema migration and restored-state application helpers
 - Everon alpha anchors for strategic zones, towns, hideouts, routes, and
   mission sites
-- Physical-war activation scaffold that marks nearby zones active and mirrors
-  abstract garrison counts into runtime active counts
+- Physical-war activation scaffold that marks nearby zones active, moves
+  abstract garrison counts into route-aware active groups, and folds survivor
+  counts back on deactivation
 - Coordinator dev actions for zone capture, income ticks, mission
   success/failure, training, recruitment, and garrison fold-back
 - Dedicated Petros character prefab that inherits from FIA rifleman but can be
@@ -49,33 +53,36 @@
 - Mission objective/task service that attaches rough objectives to started
   missions and lets the no-admin commander flow progress them into normal
   mission completion rewards and strategic outcomes
+- Mission runtime service that maps all 26 registry IDs into physical MVP
+  primitives: kill HVT, hold/clear area, destroy target, recover cargo,
+  rescue/extract, deliver supplies, and convoy intercept
 - Stateful support request and enemy commander services inspired by
   DarcMissions/DarcChopper pacing: enemy pools can buy patrol/QRF/search
   requests, FIA can request supply support, and helicopter-style requests stay
   abstract/native-safe
 - Civilian/undercover service with town reputation, wanted heat, police and
   roadblock presence, aid effects, and per-player undercover records
-- Command menu actions for dynamic mission targets, FIA support requests,
-  arsenal withdrawal, nearby vehicle garage capture, and garage redeploy
+- Command menu actions for setup hideout selection, dynamic mission targets,
+  mission runtime and persistence inspection, FIA support requests/cancel,
+  arsenal withdrawal, nearby vehicle garage capture, garage redeploy, simple
+  roster admin, and campaign reset
 - Economy and enemy resource income now account for resource kind, priority,
   factories, ports, airfields, depots, radio towers, and police nodes
 
 ## Next Playable Increment
 
-- Bind `HST_CampaignSaveData` into Reforger's persistent component load path
-  and add restart/migration tests
-- Replace central-hideout auto-selection with first-start hideout selection UI
+- Add restart/migration tests for `HST_CampaignSaveData` under native Reforger
+  save/load
 - Replace the 4x-style alpha survey with exact unpacked Conflict Remixed
   marker-coordinate audit once a Workbench/PAC extraction path is available
 - Add proper Antistasi HQ spawn/loadout UI over the custom FIA spawn backend
 - Customize Petros appearance/loadout and replace tent/cache placeholders with
   authored h-istasi HQ entities
-- Add player-facing member, guest, commander election, and admin UI
-- Replace menu-progressed mission objectives with world-object detection,
-  spawned mission props, convoy movement, captive interactions, and hold/clear
-  checks
-- Spawn/deactivate richer physical garrisons from active zone counts, assign
-  waypoints/routes, and fold real survivors back into abstract garrisons
+- Add full player-facing member, guest, commander election, and admin UI
+- Replace physical MVP mission completion with mission-specific props, convoy
+  movement, captive interactions, and richer hold/clear checks
+- Assign active groups real waypoints/routes and fold measured survivors back
+  into abstract garrisons
 
 ## Later Alpha Increments
 

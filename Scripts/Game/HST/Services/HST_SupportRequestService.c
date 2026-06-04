@@ -126,6 +126,20 @@ class HST_SupportRequestService
 		return report;
 	}
 
+	bool CancelSupportRequest(HST_CampaignState state, string requestId = "", bool playerRequestedOnly = true)
+	{
+		if (!state)
+			return false;
+
+		HST_SupportRequestState request = ResolveCancelableRequest(state, requestId, playerRequestedOnly);
+		if (!request)
+			return false;
+
+		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
+		request.m_sFailureReason = "cancelled by commander";
+		return true;
+	}
+
 	protected void ApplyActiveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
 	{
 		if (!request || request.m_bHelicopterStyle)
@@ -140,8 +154,15 @@ class HST_SupportRequestService
 		group.m_sFactionKey = request.m_sFactionKey;
 		group.m_sPrefab = SelectGroupPrefab(request.m_sFactionKey, request.m_eType);
 		group.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(request.m_vTargetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		group.m_sRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
+		group.m_vSourcePosition = request.m_vSourcePosition;
+		group.m_vTargetPosition = request.m_vTargetPosition;
+		group.m_sRuntimeStatus = "support_active";
 		group.m_iInfantryCount = 4 + state.m_iWarLevel;
 		group.m_iVehicleCount = 0;
+		group.m_iLastSeenAliveCount = group.m_iInfantryCount;
+		group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
+		group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
 		group.m_bQRF = request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF;
 		state.m_aActiveGroups.Insert(group);
 		request.m_sGroupId = group.m_sGroupId;
@@ -233,6 +254,30 @@ class HST_SupportRequestService
 		}
 
 		return false;
+	}
+
+	protected HST_SupportRequestState ResolveCancelableRequest(HST_CampaignState state, string requestId, bool playerRequestedOnly)
+	{
+		HST_SupportRequestState fallback;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request)
+				continue;
+
+			if (playerRequestedOnly && !request.m_bPlayerRequested)
+				continue;
+
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+				continue;
+
+			if (!requestId.IsEmpty() && request.m_sRequestId == requestId)
+				return request;
+
+			if (requestId.IsEmpty() && !fallback)
+				fallback = request;
+		}
+
+		return fallback;
 	}
 
 	protected string CapabilityForSupport(HST_ESupportRequestType supportType)

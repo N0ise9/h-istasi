@@ -4,6 +4,8 @@ class HST_PersistenceService
 	protected float m_fMajorChangeElapsed;
 	protected bool m_bMajorChangePending;
 	protected ref HST_CampaignSaveData m_LastCapturedSave;
+	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
+	protected ref HST_CampaignSaveData m_RestoredCampaignSave;
 
 	void MarkMajorChange()
 	{
@@ -35,29 +37,175 @@ class HST_PersistenceService
 	bool RequestCheckpoint(string displayName, HST_CampaignState state = null)
 	{
 		if (state)
-			CaptureState(state);
+			CaptureAndTrackState(state, "captured before checkpoint");
 
 		SaveGameManager saveManager = SaveGameManager.Get();
-		if (!saveManager || !saveManager.IsSavingEnabled() || !saveManager.IsSavingAllowed())
+		if (!CanRequestSavePoint(saveManager))
+		{
+			if (state)
+				state.m_sLastPersistenceStatus = "checkpoint denied by SaveGameManager";
 			return false;
+		}
 
-		saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);
+		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
+		if (!saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName))
+		{
+			if (state)
+				state.m_sLastPersistenceStatus = "checkpoint request rejected by SaveGameManager";
+			return false;
+		}
+
+		if (state)
+		{
+			state.m_iLastSaveSecond = state.m_iElapsedSeconds;
+			state.m_sLastPersistenceStatus = string.Format("checkpoint requested: %1 | scripted save %2", displayName, scriptedStateSaved);
+		}
+
 		return true;
 	}
 
 	void CaptureState(HST_CampaignState state)
 	{
+		CaptureAndTrackState(state);
+	}
+
+	HST_CampaignSaveData CaptureAndTrackState(HST_CampaignState state, string persistenceStatus = "captured and tracked")
+	{
 		if (!state)
-			return;
+			return null;
 
 		if (!m_LastCapturedSave)
 			m_LastCapturedSave = new HST_CampaignSaveData();
 
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastSaveSecond = state.m_iElapsedSeconds;
+		if (!persistenceStatus.IsEmpty())
+			state.m_sLastPersistenceStatus = persistenceStatus;
 		m_LastCapturedSave.Capture(state);
+		m_TrackedCampaignSave = m_LastCapturedSave;
+		TrackCampaignSaveData(m_TrackedCampaignSave);
+		return m_LastCapturedSave;
+	}
+
+	HST_CampaignState RestoreOrCreateCampaignState(HST_CampaignState fallbackState)
+	{
+		if (!fallbackState)
+			fallbackState = new HST_CampaignState();
+
+		HST_CampaignSaveData restoredSave = GetRestoredCampaignSaveData();
+		if (restoredSave)
+		{
+			ApplyRestoredCampaignState(fallbackState, restoredSave);
+			return fallbackState;
+		}
+
+		fallbackState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		fallbackState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		fallbackState.m_bRestoredFromPersistence = false;
+		fallbackState.m_sLastPersistenceStatus = "new campaign state tracked";
+		CaptureAndTrackState(fallbackState, fallbackState.m_sLastPersistenceStatus);
+		return fallbackState;
+	}
+
+	bool ApplyRestoredCampaignState(HST_CampaignState targetState, HST_CampaignSaveData restoredSave)
+	{
+		if (!targetState || !restoredSave)
+			return false;
+
+		restoredSave.MigrateToCurrentSchema();
+		restoredSave.ApplyTo(targetState);
+		targetState.m_bRestoredFromPersistence = true;
+		targetState.m_iLastRestoreSecond = targetState.m_iElapsedSeconds;
+		targetState.m_sLastPersistenceStatus = string.Format("restored schema %1 -> %2", targetState.m_iLastLoadedSchemaVersion, targetState.m_iSchemaVersion);
+		m_RestoredCampaignSave = restoredSave;
+		CaptureAndTrackState(targetState, targetState.m_sLastPersistenceStatus);
+		return true;
 	}
 
 	HST_CampaignSaveData GetLastCapturedSave()
 	{
 		return m_LastCapturedSave;
+	}
+
+	string BuildPersistenceReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi persistence | state not ready";
+
+		string saveManagerStatus = "save manager unavailable";
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (saveManager)
+			saveManagerStatus = string.Format("saving possible %1 | saving allowed %2", saveManager.IsSavingPossible(), saveManager.IsSavingAllowed());
+		string persistenceSystemStatus = BuildPersistenceSystemStatus();
+
+		string tracked = "not tracked";
+		if (m_TrackedCampaignSave)
+			tracked = string.Format("tracked schema %1 | missions %2 | groups %3", m_TrackedCampaignSave.m_iSchemaVersion, m_TrackedCampaignSave.m_aActiveMissions.Count(), m_TrackedCampaignSave.m_aActiveGroups.Count());
+
+		string restored = "no restored data";
+		if (m_RestoredCampaignSave)
+			restored = string.Format("restored schema %1 | migrated to %2", m_RestoredCampaignSave.m_iLastLoadedSchemaVersion, m_RestoredCampaignSave.m_iSchemaVersion);
+
+		return string.Format("h-istasi persistence | %1 | last save %2 | last restore %3 | %4\n%5\n%6\n%7", state.m_sLastPersistenceStatus, state.m_iLastSaveSecond, state.m_iLastRestoreSecond, saveManagerStatus, persistenceSystemStatus, tracked, restored);
+	}
+
+	protected HST_CampaignSaveData GetRestoredCampaignSaveData()
+	{
+		if (m_RestoredCampaignSave)
+			return m_RestoredCampaignSave;
+
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence || !persistence.WasDataLoaded())
+			return null;
+
+		Managed persistentState = persistence.GetPersistentState(HST_CampaignSaveData);
+		m_RestoredCampaignSave = HST_CampaignSaveData.Cast(persistentState);
+		return m_RestoredCampaignSave;
+	}
+
+	protected bool CanRequestSavePoint(SaveGameManager saveManager)
+	{
+		return saveManager && saveManager.IsSavingPossible() && saveManager.IsSavingAllowed();
+	}
+
+	protected bool TrackCampaignSaveData(HST_CampaignSaveData saveData)
+	{
+		if (!saveData)
+			return false;
+
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return false;
+
+		if (persistence.IsTracked(saveData))
+			return true;
+
+		return persistence.StartTracking(saveData);
+	}
+
+	protected bool FlushTrackedCampaignState(ESaveGameType saveType)
+	{
+		if (!m_TrackedCampaignSave)
+			return false;
+
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return false;
+
+		TrackCampaignSaveData(m_TrackedCampaignSave);
+		return persistence.Save(m_TrackedCampaignSave, saveType);
+	}
+
+	protected string BuildPersistenceSystemStatus()
+	{
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return "PersistenceSystem unavailable";
+
+		bool tracked;
+		if (m_TrackedCampaignSave)
+			tracked = persistence.IsTracked(m_TrackedCampaignSave);
+
+		return string.Format("PersistenceSystem | loaded %1 | state %2 | tracked %3", persistence.WasDataLoaded(), persistence.GetState(), tracked);
 	}
 }

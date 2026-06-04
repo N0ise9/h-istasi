@@ -101,7 +101,7 @@ class HST_PhysicalWarService
 
 		HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, infantryCount, vehicleCount, false);
 		state.m_aActiveGroups.Insert(activeGroup);
-		TrySpawnActiveGroup(activeGroup);
+		TrySpawnActiveGroup(activeGroup, state);
 		ApplyActiveZoneCounts(state, zone);
 		Print(string.Format("h-istasi | activated garrison group %1 for zone %2", activeGroup.m_sGroupId, zone.m_sZoneId));
 		return true;
@@ -152,7 +152,7 @@ class HST_PhysicalWarService
 
 			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, Math.Min(ResolveActiveInfantryCap(zone), Math.Max(2, zone.m_iGarrisonSlots / 3 + state.m_iWarLevel / 2)), ResolveActiveVehicleCap(zone), true);
 			state.m_aActiveGroups.Insert(activeGroup);
-			TrySpawnActiveGroup(activeGroup);
+			TrySpawnActiveGroup(activeGroup, state);
 
 			HST_QRFState qrf = new HST_QRFState();
 			qrf.m_sInstanceId = string.Format("qrf_%1_%2_%3", zone.m_sZoneId, zone.m_sOwnerFactionKey, state.m_iElapsedSeconds);
@@ -184,6 +184,9 @@ class HST_PhysicalWarService
 
 			qrf.m_bResolved = true;
 			qrf.m_bSucceeded = true;
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(qrf.m_sGroupId);
+			if (activeGroup)
+				activeGroup.m_sRuntimeStatus = "arrived";
 			changed = true;
 			Print(string.Format("h-istasi | QRF %1 reached zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId));
 		}
@@ -198,9 +201,16 @@ class HST_PhysicalWarService
 		activeGroup.m_sZoneId = zone.m_sZoneId;
 		activeGroup.m_sFactionKey = factionKey;
 		activeGroup.m_sPrefab = SelectGroupPrefab(factionKey, qrf);
-		activeGroup.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		activeGroup.m_sRouteId = ResolveGroupRouteId(zone, qrf);
+		activeGroup.m_vSourcePosition = ResolveGroupSourcePosition(state, zone, activeGroup.m_sRouteId, qrf);
+		activeGroup.m_vTargetPosition = ResolveGroupTargetPosition(state, zone, activeGroup.m_sRouteId, qrf);
+		activeGroup.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(activeGroup.m_vSourcePosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		activeGroup.m_sRuntimeStatus = "queued";
 		activeGroup.m_iInfantryCount = infantryCount;
 		activeGroup.m_iVehicleCount = vehicleCount;
+		activeGroup.m_iLastSeenAliveCount = infantryCount + vehicleCount;
+		activeGroup.m_iSurvivorInfantryCount = infantryCount;
+		activeGroup.m_iSurvivorVehicleCount = vehicleCount;
 		activeGroup.m_bQRF = qrf;
 		return activeGroup;
 	}
@@ -232,7 +242,7 @@ class HST_PhysicalWarService
 		return "";
 	}
 
-	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup)
+	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state = null)
 	{
 		if (!activeGroup || activeGroup.m_sPrefab.IsEmpty() || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
@@ -245,14 +255,20 @@ class HST_PhysicalWarService
 			return false;
 
 		activeGroup.m_bSpawnAttempted = true;
+		activeGroup.m_sRuntimeStatus = "spawning";
 		GenericEntity entity = respawnSystem.DoSpawn(activeGroup.m_sPrefab, activeGroup.m_vPosition, "0 0 0");
 		if (!entity)
 		{
+			activeGroup.m_sRuntimeStatus = "spawn_failed";
 			Print(string.Format("h-istasi | active group prefab spawn failed for %1 (%2)", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
 			return false;
 		}
 
 		activeGroup.m_bSpawnedEntity = true;
+		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
+		activeGroup.m_sRuntimeStatus = "routing";
+		if (state)
+			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
 		return true;
@@ -287,7 +303,7 @@ class HST_PhysicalWarService
 			if (!activeGroup || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 				continue;
 
-			TrySpawnActiveGroup(activeGroup);
+			TrySpawnActiveGroup(activeGroup, state);
 		}
 	}
 
@@ -330,8 +346,62 @@ class HST_PhysicalWarService
 			state.m_aGarrisons.Insert(garrison);
 		}
 
-		garrison.m_iInfantryCount += Math.Max(0, activeGroup.m_iInfantryCount);
-		garrison.m_iVehicleCount += Math.Max(0, activeGroup.m_iVehicleCount);
+		int survivorInfantry = activeGroup.m_iSurvivorInfantryCount;
+		int survivorVehicles = activeGroup.m_iSurvivorVehicleCount;
+		if (survivorInfantry <= 0 && activeGroup.m_iInfantryCount > 0)
+			survivorInfantry = activeGroup.m_iInfantryCount;
+		if (survivorVehicles <= 0 && activeGroup.m_iVehicleCount > 0)
+			survivorVehicles = activeGroup.m_iVehicleCount;
+
+		activeGroup.m_sRuntimeStatus = "folded";
+		garrison.m_iInfantryCount += Math.Max(0, survivorInfantry);
+		garrison.m_iVehicleCount += Math.Max(0, survivorVehicles);
+	}
+
+	protected string ResolveGroupRouteId(HST_ZoneState zone, bool qrf)
+	{
+		if (!zone)
+			return "";
+
+		if (qrf && !zone.m_sQRFRouteId.IsEmpty())
+			return zone.m_sQRFRouteId;
+
+		return zone.m_sPatrolRouteId;
+	}
+
+	protected vector ResolveGroupSourcePosition(HST_CampaignState state, HST_ZoneState zone, string routeId, bool qrf)
+	{
+		HST_GeneratedRouteState route;
+		if (state && !routeId.IsEmpty())
+			route = state.FindGeneratedRoute(routeId);
+
+		if (route)
+		{
+			if (qrf)
+				return route.m_vStartPosition;
+
+			return route.m_vMidPosition;
+		}
+
+		if (zone)
+			return zone.m_vPosition;
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveGroupTargetPosition(HST_CampaignState state, HST_ZoneState zone, string routeId, bool qrf)
+	{
+		HST_GeneratedRouteState route;
+		if (state && !routeId.IsEmpty())
+			route = state.FindGeneratedRoute(routeId);
+
+		if (route)
+			return route.m_vEndPosition;
+
+		if (zone)
+			return zone.m_vPosition;
+
+		return "0 0 0";
 	}
 
 	protected bool HasRuntimeGroupEntity(string groupId)

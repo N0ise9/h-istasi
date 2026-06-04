@@ -42,6 +42,12 @@ enum HST_EMissionStatus
 	HST_MISSION_EXPIRED
 }
 
+enum HST_EMissionRuntimeMode
+{
+	HST_MISSION_RUNTIME_ABSTRACT,
+	HST_MISSION_RUNTIME_PHYSICAL_MVP
+}
+
 enum HST_EGeneratedSiteType
 {
 	HST_SITE_TOWN_CENTER,

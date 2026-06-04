@@ -32,6 +32,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_LootService m_Loot;
 	protected ref HST_GeneratedContentService m_Content;
 	protected ref HST_MissionObjectiveService m_Objectives;
+	protected ref HST_MissionRuntimeService m_MissionRuntime;
 	protected ref HST_SupportRequestService m_SupportRequests;
 	protected ref HST_CivilianService m_Civilians;
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
@@ -49,7 +50,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
-		m_State = new HST_CampaignState();
 		m_Preset = HST_DefaultCatalog.CreateRhsEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -77,24 +77,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Loot = new HST_LootService();
 		m_Content = new HST_GeneratedContentService();
 		m_Objectives = new HST_MissionObjectiveService();
+		m_MissionRuntime = new HST_MissionRuntimeService();
 		m_SupportRequests = new HST_SupportRequestService();
 		m_Civilians = new HST_CivilianService();
 		m_EnemyCommander = new HST_EnemyCommanderService();
 
-		m_State.m_sPresetId = m_Preset.m_sPresetId;
-		if (m_Settings)
-			m_State.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
-		m_State.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
-		m_State.m_iHR = m_Balance.m_iStartingHR;
-		HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
-		HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
-		HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
-		m_Content.EnsureGeneratedContent(m_State, m_Preset);
-		m_Civilians.EnsureCivilianZones(m_State);
-		if (m_Settings && HST_DefaultCatalog.IsKnownHideout(m_Settings.m_Campaign.m_sDefaultHideoutId))
-			m_HQ.SelectInitialHideout(m_State, m_Settings.m_Campaign.m_sDefaultHideoutId);
-		else
-			m_HQ.SelectInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
+		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		EnsureCampaignFoundation();
+		m_Missions.SyncNextInstanceIdFromState(m_State);
+		m_Persistence.CaptureAndTrackState(m_State);
 		RefreshCampaignMarkers();
 
 		ArmPlayerSpawnSweep(6);
@@ -149,6 +140,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		bool objectiveChanged = m_Objectives.Tick(m_State);
+		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
+		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
+		if (!completedRuntimeMissionId.IsEmpty())
+			missionRuntimeChanged = CompleteMission(completedRuntimeMissionId) || missionRuntimeChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
@@ -156,7 +151,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
-		if (missionChanged || objectiveChanged || income > 0 || enemyResourcesChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged)
+		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged)
 			MarkMajorCampaignChange();
 	}
 
@@ -389,6 +384,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return SelectInitialHideout_S(hideoutId);
+	}
+
+	bool RequestCommanderSelectInitialHideout(int playerId, string hideoutId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		return SelectInitialHideout(hideoutId);
 	}
 
 	bool StartMission(string missionId, string targetZoneId = "")
@@ -672,6 +675,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return request != null;
 	}
 
+	bool RequestCommanderCancelSupport(int playerId, string requestId = "")
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_SupportRequests)
+			return false;
+
+		bool changed = m_SupportRequests.CancelSupportRequest(m_State, requestId, true);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
 	bool RequestCommanderAidNearestTown(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId) || !m_Civilians)
@@ -828,6 +842,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_Content.BuildContentReport(m_State);
 	}
 
+	string RequestMemberInspectPersistence(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Persistence)
+			return "";
+
+		return m_Persistence.BuildPersistenceReport(m_State);
+	}
+
+	string RequestMemberInspectMissionRuntime(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_MissionRuntime)
+			return "";
+
+		return m_MissionRuntime.BuildRuntimeReport(m_State);
+	}
+
 	string RequestMemberLootNearby(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -976,12 +1006,112 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+	bool RequestAdminNewCampaignReset(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		array<ref HST_PlayerState> existingPlayers = {};
+		foreach (HST_PlayerState player : m_State.m_aPlayers)
+		{
+			if (player)
+				existingPlayers.Insert(player);
+		}
+
+		string commanderIdentityId = m_State.m_sCommanderIdentityId;
+		m_State = CreateInitialCampaignState();
+		foreach (HST_PlayerState existingPlayer : existingPlayers)
+			m_State.m_aPlayers.Insert(existingPlayer);
+		m_State.m_sCommanderIdentityId = commanderIdentityId;
+		if (m_Authorization)
+			m_Authorization.AssignCommanderOnVacancy(m_State);
+		EnsureCampaignFoundation();
+		m_Missions.SyncNextInstanceIdFromState(m_State);
+		if (m_Persistence)
+			m_Persistence.CaptureAndTrackState(m_State);
+		RefreshCampaignMarkers();
+		ArmPlayerSpawnSweep(4);
+		MarkMajorCampaignChange(false);
+		return true;
+	}
+
+	bool RequestAdminSetMembership(int playerId, string targetIdentityId, bool isMember)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		bool changed = m_Authorization.SetMembership(m_State, ResolveTrustedIdentityId(playerId), targetIdentityId, isMember);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
+	bool RequestAdminSetAdminRole(int playerId, string targetIdentityId, bool isAdmin)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return false;
+
+		bool changed = m_Authorization.SetAdminRole(m_State, ResolveTrustedIdentityId(playerId), targetIdentityId, isAdmin);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
 	string RequestAdminInspectZone(int playerId, string zoneId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "";
 
 		return BuildZoneReport(zoneId);
+	}
+
+	protected HST_CampaignState CreateInitialCampaignState()
+	{
+		HST_CampaignState state = new HST_CampaignState();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		if (m_Preset)
+			state.m_sPresetId = m_Preset.m_sPresetId;
+		if (m_Settings)
+			state.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
+		if (m_Balance)
+		{
+			state.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
+			state.m_iHR = m_Balance.m_iStartingHR;
+		}
+
+		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
+		state.m_sLastPersistenceStatus = "new campaign created";
+		return state;
+	}
+
+	protected void EnsureCampaignFoundation()
+	{
+		if (!m_State)
+			return;
+
+		m_State.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		if (m_State.m_sPresetId.IsEmpty() && m_Preset)
+			m_State.m_sPresetId = m_Preset.m_sPresetId;
+		if (m_State.m_iCampaignSeed == 0 && m_Settings)
+			m_State.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
+
+		if (m_State.m_aFactionPools.Count() == 0)
+			HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
+		if (m_State.m_aZones.Count() == 0)
+			HST_DefaultCatalog.AddDefaultZones(m_State, m_Preset);
+		if (m_State.m_aGarrisons.Count() == 0)
+			HST_DefaultCatalog.AddDefaultGarrisons(m_State, m_Preset);
+		if (m_Content)
+			m_Content.EnsureGeneratedContent(m_State, m_Preset);
+		if (m_Civilians)
+			m_Civilians.EnsureCivilianZones(m_State);
+
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			m_State.m_bHQDeployed = false;
+			m_State.m_bHQRuntimeObjectsSpawned = false;
+		}
 	}
 
 	protected bool SelectInitialHideout_S(string hideoutId)
@@ -1004,6 +1134,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MissionDefinition definition = m_Missions.FindDefinition(missionId);
 		if (m_Objectives)
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);
+		if (m_MissionRuntime)
+			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
 
 		MarkMajorCampaignChange();
 		return true;

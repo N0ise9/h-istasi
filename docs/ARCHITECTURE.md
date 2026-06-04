@@ -8,8 +8,8 @@ single `HST_CampaignState` and delegates to small services:
 - `HST_EconomyService`: HR, faction money, support, aggression, and war level.
 - `HST_MissionService`: mission eligibility, activation, deadlines, and
   completion rewards.
-- `HST_PersistenceService`: native Reforger checkpoint requests and autosave
-  debouncing.
+- `HST_PersistenceService`: campaign save-data migration/tracking, native
+  Reforger checkpoint requests, and autosave debouncing.
 - `HST_AuthorizationService`: persistent members, guests, admins, and the
   first commander-vacancy policy.
 - `HST_StrategicService`: ownership changes, town support, Petros penalties,
@@ -34,6 +34,8 @@ single `HST_CampaignState` and delegates to small services:
   anchors.
 - `HST_MissionObjectiveService`: rough mission objectives, campaign task state,
   and no-admin objective progress hooks for broad-alpha mission families.
+- `HST_MissionRuntimeService`: physical MVP mission primitives, world-condition
+  objective polling, runtime inspection, and cleanup state.
 - `HST_SupportRequestService`: stateful FIA/enemy support calls, native-safe
   ground support activation, and abstract helicopter-style support records.
 - `HST_CivilianService`: town reputation, wanted heat, police/roadblock
@@ -64,14 +66,16 @@ prefabs are connected.
 
 ## Persistence
 
-The persistence service uses `SaveGameManager.RequestSavePoint` so local hosts
-and dedicated servers follow Reforger's native session-save path. The state
-model is versioned from day one. `HST_CampaignSaveData` is the deep-copy save
-container for current campaign fields and nested runtime arrays, including the
-broad-alpha generated content, objective, support, enemy order, civilian, and
-undercover records. A later Workbench pass must bind that container into
-Reforger's persistent component loading path and add migration tests before
-save compatibility is promised.
+The persistence service tracks `HST_CampaignSaveData` through
+`PersistenceSystem`, applies restored state through a schema migration path,
+and flushes the tracked scripted state before requesting
+`SaveGameManager.RequestSavePoint` when saving is possible and allowed. The
+state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
+save container for current campaign fields and nested runtime arrays,
+including generated content, objectives, mission runtime, active groups,
+support, enemy order, civilian, and undercover records. Save compatibility
+still needs Workbench restart/load soak testing before it is promised to
+players.
 
 ## World Layout
 
@@ -107,17 +111,14 @@ offline play may log blank identity ID errors from stock reconnect or
 editable-entity systems; treat those as non-blocking if a character is spawned
 and possessed.
 
-`HST_HQService` owns the server-side HQ lifecycle: initial hideout selection,
-HQ movement between authored hideouts, Petros/cache/arsenal/tent runtime
-positions, and Petros-loss penalties. Runtime Petros spawning tries the custom
-h-istasi prefab first through its GUID-qualified metadata resource and falls
-back to the base FIA character only if that resource cannot spawn. The HQ
+`HST_HQService` owns the server-side HQ lifecycle: setup-driven initial hideout
+selection, HQ movement between authored hideouts, Petros/cache/arsenal/tent
+runtime positions, and Petros-loss penalties. Runtime Petros spawning tries the
+custom h-istasi prefab first through its GUID-qualified metadata resource and
+falls back to the base FIA character only if that resource cannot spawn. The HQ
 arsenal uses a GUID-indexed HST supply-cache prefab whose contextual actions
 open the same Arsenal/Loot menu path used by the I-key menu, with a stock FIA
 cache fallback if the custom object cannot spawn.
-The current development bootstrap auto-selects the central hills hideout so the
-campaign enters a playable active phase immediately; the setup UI increment
-will replace that auto-selection with a player-facing choice.
 
 The alpha HQ menu is procedural rather than layout-resource loaded. The server
 keeps the existing `HST_MENU`, `TAB`, `STATUS`, `RESULT`, and `ACTION` payload
@@ -129,18 +130,17 @@ server-authoritative command path.
 
 ## Antistasi Framework Spine
 
-The first campaign loop is intentionally abstract. Zones carry type, position,
-income, support, activation radius, route IDs, mission site IDs, and
-garrison-slot data in `HST_CampaignState`; garrisons are stored as infantry and
-vehicle counts. The physical-war service marks zones active when players enter
-their activation radius and mirrors abstract garrison counts into runtime active
-counts. Broad-alpha services now generate mission sites/routes, attach
-objectives/tasks to started missions, spend enemy pools into orders/support
-calls, and track civilian/undercover state. Follow-on AI work should replace
-menu-progressed objectives with world detection, consume active counts and
-support groups to spawn richer physical AI, assign generated routes as
-waypoints, and fold real survivors back before deactivation. Mission success,
-failure, and timeout paths mutate economy, support, capture progress, and
-aggression state. Coordinator hooks expose deterministic server-only actions
-for Workbench tests and no-admin player actions for random missions, support
-requests, civilian aid, looting, income, training, recruitment, and HQ moves.
+The first campaign loop is a hybrid. Zones carry type, position, income,
+support, activation radius, route IDs, mission site IDs, and garrison-slot data
+in `HST_CampaignState`; garrisons are stored as infantry and vehicle counts.
+The physical-war service marks zones active when players enter their
+activation radius, converts abstract garrison counts into route-aware active
+groups, and folds survivor counts back before deactivation. Broad-alpha
+services generate mission sites/routes, attach objectives/tasks to started
+missions, poll physical MVP mission primitives from world conditions, spend
+enemy pools into orders/support calls, and track civilian/undercover state.
+Mission success, failure, and timeout paths mutate economy, support, capture
+progress, and aggression state. Coordinator hooks expose deterministic
+server-only actions for Workbench tests and no-admin player actions for setup,
+random missions, support requests/cancel, civilian aid, looting, income,
+training, recruitment, and HQ moves.

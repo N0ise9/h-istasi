@@ -2,10 +2,13 @@
 class HST_CampaignSaveData
 {
 	int m_iSchemaVersion;
+	int m_iLastLoadedSchemaVersion;
 	string m_sPresetId;
 	int m_iCampaignSeed;
 	HST_ECampaignPhase m_ePhase;
 	int m_iElapsedSeconds;
+	int m_iLastSaveSecond;
+	int m_iLastRestoreSecond;
 	int m_iWarLevel;
 	int m_iFactionMoney;
 	int m_iHR;
@@ -22,11 +25,13 @@ class HST_CampaignSaveData
 	bool m_bHQDeployed;
 	bool m_bHQRuntimeObjectsSpawned;
 	bool m_bPetrosAlive;
+	bool m_bRestoredFromPersistence;
 	int m_iPetrosDeaths;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
+	string m_sLastPersistenceStatus;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
@@ -55,10 +60,13 @@ class HST_CampaignSaveData
 			return;
 
 		m_iSchemaVersion = state.m_iSchemaVersion;
+		m_iLastLoadedSchemaVersion = state.m_iLastLoadedSchemaVersion;
 		m_sPresetId = state.m_sPresetId;
 		m_iCampaignSeed = state.m_iCampaignSeed;
 		m_ePhase = state.m_ePhase;
 		m_iElapsedSeconds = state.m_iElapsedSeconds;
+		m_iLastSaveSecond = state.m_iLastSaveSecond;
+		m_iLastRestoreSecond = state.m_iLastRestoreSecond;
 		m_iWarLevel = state.m_iWarLevel;
 		m_iFactionMoney = state.m_iFactionMoney;
 		m_iHR = state.m_iHR;
@@ -75,11 +83,13 @@ class HST_CampaignSaveData
 		m_bHQDeployed = state.m_bHQDeployed;
 		m_bHQRuntimeObjectsSpawned = state.m_bHQRuntimeObjectsSpawned;
 		m_bPetrosAlive = state.m_bPetrosAlive;
+		m_bRestoredFromPersistence = state.m_bRestoredFromPersistence;
 		m_iPetrosDeaths = state.m_iPetrosDeaths;
 		m_sPetrosPrefab = state.m_sPetrosPrefab;
 		m_sHQCachePrefab = state.m_sHQCachePrefab;
 		m_sArsenalPrefab = state.m_sArsenalPrefab;
 		m_sHQTentPrefab = state.m_sHQTentPrefab;
+		m_sLastPersistenceStatus = state.m_sLastPersistenceStatus;
 
 		m_aFactionPools.Clear();
 		foreach (HST_FactionPoolState factionPool : state.m_aFactionPools)
@@ -164,6 +174,7 @@ class HST_CampaignSaveData
 
 	HST_CampaignState Restore()
 	{
+		MigrateToCurrentSchema();
 		HST_CampaignState state = new HST_CampaignState();
 		ApplyTo(state);
 		return state;
@@ -174,11 +185,15 @@ class HST_CampaignSaveData
 		if (!state)
 			return;
 
+		MigrateToCurrentSchema();
+		state.m_iLastLoadedSchemaVersion = m_iLastLoadedSchemaVersion;
 		state.m_iSchemaVersion = m_iSchemaVersion;
 		state.m_sPresetId = m_sPresetId;
 		state.m_iCampaignSeed = m_iCampaignSeed;
 		state.m_ePhase = m_ePhase;
 		state.m_iElapsedSeconds = m_iElapsedSeconds;
+		state.m_iLastSaveSecond = m_iLastSaveSecond;
+		state.m_iLastRestoreSecond = m_iLastRestoreSecond;
 		state.m_iWarLevel = m_iWarLevel;
 		state.m_iFactionMoney = m_iFactionMoney;
 		state.m_iHR = m_iHR;
@@ -195,11 +210,13 @@ class HST_CampaignSaveData
 		state.m_bHQDeployed = m_bHQDeployed;
 		state.m_bHQRuntimeObjectsSpawned = m_bHQRuntimeObjectsSpawned;
 		state.m_bPetrosAlive = m_bPetrosAlive;
+		state.m_bRestoredFromPersistence = m_bRestoredFromPersistence;
 		state.m_iPetrosDeaths = m_iPetrosDeaths;
 		state.m_sPetrosPrefab = m_sPetrosPrefab;
 		state.m_sHQCachePrefab = m_sHQCachePrefab;
 		state.m_sArsenalPrefab = m_sArsenalPrefab;
 		state.m_sHQTentPrefab = m_sHQTentPrefab;
+		state.m_sLastPersistenceStatus = m_sLastPersistenceStatus;
 
 		state.m_aFactionPools.Clear();
 		foreach (HST_FactionPoolState factionPool : m_aFactionPools)
@@ -365,8 +382,17 @@ class HST_CampaignSaveData
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sPrefab = source.m_sPrefab;
 		target.m_vPosition = source.m_vPosition;
+		target.m_sRouteId = source.m_sRouteId;
+		target.m_vSourcePosition = source.m_vSourcePosition;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
+		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
 		target.m_iInfantryCount = source.m_iInfantryCount;
 		target.m_iVehicleCount = source.m_iVehicleCount;
+		target.m_iSpawnedAtSecond = source.m_iSpawnedAtSecond;
+		target.m_iLastSeenAliveCount = source.m_iLastSeenAliveCount;
+		target.m_iSurvivorInfantryCount = source.m_iSurvivorInfantryCount;
+		target.m_iSurvivorVehicleCount = source.m_iSurvivorVehicleCount;
 		target.m_bQRF = source.m_bQRF;
 		target.m_bSpawnAttempted = source.m_bSpawnAttempted;
 		target.m_bSpawnedEntity = source.m_bSpawnedEntity;
@@ -460,14 +486,22 @@ class HST_CampaignSaveData
 		target.m_sInstanceId = source.m_sInstanceId;
 		target.m_sMissionId = source.m_sMissionId;
 		target.m_eStatus = source.m_eStatus;
+		target.m_eRuntimeMode = source.m_eRuntimeMode;
 		target.m_iRemainingSeconds = source.m_iRemainingSeconds;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sSiteId = source.m_sSiteId;
+		target.m_sRuntimePrimitive = source.m_sRuntimePrimitive;
+		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
 		target.m_iStartedAtSecond = source.m_iStartedAtSecond;
 		target.m_iActiveUntilSecond = source.m_iActiveUntilSecond;
+		target.m_iRuntimeStartedAtSecond = source.m_iRuntimeStartedAtSecond;
+		target.m_iRuntimeHoldSeconds = source.m_iRuntimeHoldSeconds;
 		target.m_bDynamic = source.m_bDynamic;
 		target.m_bRequested = source.m_bRequested;
 		target.m_bStatic = source.m_bStatic;
+		target.m_bRuntimeSpawned = source.m_bRuntimeSpawned;
+		target.m_bRuntimeFallback = source.m_bRuntimeFallback;
+		target.m_bRuntimeCleanupComplete = source.m_bRuntimeCleanupComplete;
 		return target;
 	}
 
@@ -517,12 +551,17 @@ class HST_CampaignSaveData
 		target.m_sTargetId = source.m_sTargetId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sPhysicalEntityId = source.m_sPhysicalEntityId;
+		target.m_sRuntimePrimitive = source.m_sRuntimePrimitive;
 		target.m_vPosition = source.m_vPosition;
 		target.m_iRequiredProgress = source.m_iRequiredProgress;
 		target.m_iCurrentProgress = source.m_iCurrentProgress;
+		target.m_iHoldSeconds = source.m_iHoldSeconds;
+		target.m_iRequiredHoldSeconds = source.m_iRequiredHoldSeconds;
 		target.m_bComplete = source.m_bComplete;
 		target.m_bFailed = source.m_bFailed;
 		target.m_bCleanupComplete = source.m_bCleanupComplete;
+		target.m_bWorldDetected = source.m_bWorldDetected;
+		target.m_bAbstractFallback = source.m_bAbstractFallback;
 		return target;
 	}
 
@@ -607,5 +646,67 @@ class HST_CampaignSaveData
 		target.m_bSucceeded = source.m_bSucceeded;
 		target.m_bFailed = source.m_bFailed;
 		return target;
+	}
+
+	void MigrateToCurrentSchema()
+	{
+		int restoredSchemaVersion = m_iSchemaVersion;
+		if (restoredSchemaVersion <= 0)
+			restoredSchemaVersion = 1;
+
+		m_iLastLoadedSchemaVersion = restoredSchemaVersion;
+		m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		if (m_sLastPersistenceStatus.IsEmpty())
+			m_sLastPersistenceStatus = "migrated local save data";
+
+		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
+		{
+			if (!mission)
+				continue;
+
+			if (mission.m_sRuntimePrimitive.IsEmpty())
+				mission.m_sRuntimePrimitive = "abstract_fallback";
+			if (!mission.m_bRuntimeSpawned && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				mission.m_bRuntimeFallback = true;
+			if (mission.m_iRuntimeStartedAtSecond <= 0)
+				mission.m_iRuntimeStartedAtSecond = mission.m_iStartedAtSecond;
+		}
+
+		foreach (HST_MissionObjectiveState objective : m_aMissionObjectives)
+		{
+			if (!objective)
+				continue;
+
+			if (objective.m_sRuntimePrimitive.IsEmpty())
+				objective.m_sRuntimePrimitive = "abstract_fallback";
+			if (objective.m_iRequiredHoldSeconds <= 0 && objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA)
+				objective.m_iRequiredHoldSeconds = 60;
+			if (!objective.m_bWorldDetected && !objective.m_bComplete)
+				objective.m_bAbstractFallback = true;
+		}
+
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+
+			if (group.m_sRuntimeStatus.IsEmpty())
+				group.m_sRuntimeStatus = "restored";
+			if (IsZeroVector(group.m_vSourcePosition))
+				group.m_vSourcePosition = group.m_vPosition;
+			if (IsZeroVector(group.m_vTargetPosition))
+				group.m_vTargetPosition = group.m_vPosition;
+			if (group.m_iLastSeenAliveCount <= 0)
+				group.m_iLastSeenAliveCount = group.m_iInfantryCount + group.m_iVehicleCount;
+			if (group.m_iSurvivorInfantryCount <= 0)
+				group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
+			if (group.m_iSurvivorVehicleCount <= 0)
+				group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
+		}
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return value[0] == 0 && value[1] == 0 && value[2] == 0;
 	}
 }

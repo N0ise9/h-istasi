@@ -76,8 +76,17 @@ class HST_ActiveGroupState
 	string m_sFactionKey;
 	string m_sPrefab;
 	vector m_vPosition;
+	string m_sRouteId;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
+	string m_sRuntimeEntityId;
+	string m_sRuntimeStatus = "queued";
 	int m_iInfantryCount;
 	int m_iVehicleCount;
+	int m_iSpawnedAtSecond;
+	int m_iLastSeenAliveCount;
+	int m_iSurvivorInfantryCount;
+	int m_iSurvivorVehicleCount;
 	bool m_bQRF;
 	bool m_bSpawnAttempted;
 	bool m_bSpawnedEntity;
@@ -164,14 +173,22 @@ class HST_ActiveMissionState
 	string m_sInstanceId;
 	string m_sMissionId;
 	HST_EMissionStatus m_eStatus;
+	HST_EMissionRuntimeMode m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_ABSTRACT;
 	int m_iRemainingSeconds;
 	string m_sTargetZoneId;
 	string m_sSiteId;
+	string m_sRuntimePrimitive;
+	string m_sRuntimeEntityId;
 	int m_iStartedAtSecond;
 	int m_iActiveUntilSecond;
+	int m_iRuntimeStartedAtSecond;
+	int m_iRuntimeHoldSeconds;
 	bool m_bDynamic;
 	bool m_bRequested;
 	bool m_bStatic;
+	bool m_bRuntimeSpawned;
+	bool m_bRuntimeFallback;
+	bool m_bRuntimeCleanupComplete;
 }
 
 [BaseContainerProps()]
@@ -218,12 +235,17 @@ class HST_MissionObjectiveState
 	string m_sTargetId;
 	string m_sTargetZoneId;
 	string m_sPhysicalEntityId;
+	string m_sRuntimePrimitive;
 	vector m_vPosition;
 	int m_iRequiredProgress = 1;
 	int m_iCurrentProgress;
+	int m_iHoldSeconds;
+	int m_iRequiredHoldSeconds;
 	bool m_bComplete;
 	bool m_bFailed;
 	bool m_bCleanupComplete;
+	bool m_bWorldDetected;
+	bool m_bAbstractFallback;
 }
 
 [BaseContainerProps()]
@@ -307,13 +329,16 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 8;
+	static const int SCHEMA_VERSION = 9;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
+	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
 	string m_sPresetId = "rhs_everon";
 	int m_iCampaignSeed = 1985;
 	HST_ECampaignPhase m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
 	int m_iElapsedSeconds;
+	int m_iLastSaveSecond;
+	int m_iLastRestoreSecond;
 	int m_iWarLevel = 1;
 	int m_iFactionMoney = 1000;
 	int m_iHR = 20;
@@ -330,11 +355,13 @@ class HST_CampaignState
 	bool m_bHQDeployed;
 	bool m_bHQRuntimeObjectsSpawned;
 	bool m_bPetrosAlive = true;
+	bool m_bRestoredFromPersistence;
 	int m_iPetrosDeaths;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
+	string m_sLastPersistenceStatus = "not tracked";
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};

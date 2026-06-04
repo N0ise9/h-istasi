@@ -92,6 +92,9 @@ class HST_CommandUIService
 		if (commandId == "noop")
 			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
 
+		if (commandId == "setup_hideout")
+			return BuildBoolResult("select initial hideout " + argument, coordinator.RequestCommanderSelectInitialHideout(playerId, argument));
+
 		if (commandId == "checkpoint")
 			return BuildBoolResult("manual checkpoint", coordinator.RequestMemberManualCheckpoint(playerId));
 
@@ -130,6 +133,12 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_content")
 			return coordinator.RequestMemberInspectGeneratedContent(playerId);
+
+		if (commandId == "inspect_persistence")
+			return coordinator.RequestMemberInspectPersistence(playerId);
+
+		if (commandId == "inspect_mission_runtime")
+			return coordinator.RequestMemberInspectMissionRuntime(playerId);
 
 		if (commandId == "loot_nearby")
 			return coordinator.RequestMemberLootNearby(playerId);
@@ -179,6 +188,9 @@ class HST_CommandUIService
 		if (commandId == "support_fire")
 			return BuildBoolResult("request suppressive fire", coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE));
 
+		if (commandId == "cancel_support")
+			return BuildBoolResult("cancel active player support", coordinator.RequestCommanderCancelSupport(playerId, argument));
+
 		if (commandId == "civilian_aid")
 			return BuildBoolResult("deliver civilian aid", coordinator.RequestCommanderAidNearestTown(playerId));
 
@@ -199,6 +211,18 @@ class HST_CommandUIService
 
 		if (commandId == "award_small")
 			return BuildBoolResult("award debug resources", coordinator.RequestAdminAwardResources(playerId, 500, 5));
+
+		if (commandId == "new_campaign")
+			return BuildBoolResult("reset campaign", coordinator.RequestAdminNewCampaignReset(playerId));
+
+		if (commandId == "member_accept")
+			return BuildBoolResult("accept member " + argument, coordinator.RequestAdminSetMembership(playerId, argument, true));
+
+		if (commandId == "member_remove")
+			return BuildBoolResult("remove member " + argument, coordinator.RequestAdminSetMembership(playerId, argument, false));
+
+		if (commandId == "admin_grant")
+			return BuildBoolResult("grant admin " + argument, coordinator.RequestAdminSetAdminRole(playerId, argument, true));
 
 		return "h-istasi command | unknown command: " + commandId;
 	}
@@ -257,7 +281,7 @@ class HST_CommandUIService
 			if (!mission)
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds);
+			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s | primitive %7", mission.m_sInstanceId, mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds, mission.m_sRuntimePrimitive);
 		}
 
 		return report;
@@ -270,6 +294,9 @@ class HST_CommandUIService
 
 		if (commandId == "checkpoint")
 			return coordinator.RequestMemberManualCheckpoint(playerId);
+
+		if (commandId == "setup_hideout")
+			return coordinator.RequestCommanderSelectInitialHideout(playerId, argument);
 
 		if (commandId == "inspect_campaign")
 			return !coordinator.RequestMemberInspectCampaign(playerId).IsEmpty();
@@ -306,6 +333,12 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_content")
 			return !coordinator.RequestMemberInspectGeneratedContent(playerId).IsEmpty();
+
+		if (commandId == "inspect_persistence")
+			return !coordinator.RequestMemberInspectPersistence(playerId).IsEmpty();
+
+		if (commandId == "inspect_mission_runtime")
+			return !coordinator.RequestMemberInspectMissionRuntime(playerId).IsEmpty();
 
 		if (commandId == "loot_nearby")
 			return !coordinator.RequestMemberLootNearby(playerId).IsEmpty();
@@ -355,6 +388,9 @@ class HST_CommandUIService
 		if (commandId == "support_fire")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
 
+		if (commandId == "cancel_support")
+			return coordinator.RequestCommanderCancelSupport(playerId, argument);
+
 		if (commandId == "civilian_aid")
 			return coordinator.RequestCommanderAidNearestTown(playerId);
 
@@ -375,6 +411,18 @@ class HST_CommandUIService
 
 		if (commandId == "award_small")
 			return coordinator.RequestAdminAwardResources(playerId, 500, 5);
+
+		if (commandId == "new_campaign")
+			return coordinator.RequestAdminNewCampaignReset(playerId);
+
+		if (commandId == "member_accept")
+			return coordinator.RequestAdminSetMembership(playerId, argument, true);
+
+		if (commandId == "member_remove")
+			return coordinator.RequestAdminSetMembership(playerId, argument, false);
+
+		if (commandId == "admin_grant")
+			return coordinator.RequestAdminSetAdminRole(playerId, argument, true);
 
 		return false;
 	}
@@ -443,9 +491,9 @@ class HST_CommandUIService
 
 	protected string BuildSetupStatus(HST_CampaignState state, HST_RuntimeSettings settings)
 	{
-		string status = "h-istasi setup | settings source $profile:h-istasi/HST_Settings.json | read-only in game";
+		string status = "h-istasi setup | choose an initial HQ hideout to start the campaign";
 		if (state)
-			status = status + string.Format("\ncampaign | schema %1 | preset %2 | phase %3 | seed %4", state.m_iSchemaVersion, state.m_sPresetId, state.m_ePhase, state.m_iCampaignSeed);
+			status = status + string.Format("\ncampaign | schema %1 | preset %2 | phase %3 | seed %4 | HQ %5", state.m_iSchemaVersion, state.m_sPresetId, state.m_ePhase, state.m_iCampaignSeed, BuildHQLabel(state));
 
 		if (settings)
 			status = status + "\n" + settings.BuildSummary();
@@ -543,7 +591,14 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "setup", "Preset", state.m_sPresetId, "neutral");
 			payload = AppendRow(payload, "setup", "Phase", CampaignPhaseLabel(state.m_ePhase), "neutral");
 			payload = AppendRow(payload, "setup", "Seed", string.Format("%1", state.m_iCampaignSeed), "neutral");
+			payload = AppendRow(payload, "setup", "HQ", BuildHQLabel(state), BuildRuntimeObjectTone(state));
+			payload = AppendRow(payload, "setup", "Persistence", state.m_sLastPersistenceStatus, "neutral");
 		}
+
+		payload = AppendSection(payload, "hideouts", "Initial Hideout");
+		payload = AppendRow(payload, "hideouts", "North Forest", "Woodland start near the northern road net.", "neutral");
+		payload = AppendRow(payload, "hideouts", "Central Hills", "Balanced central start for Workbench smoke tests.", "good");
+		payload = AppendRow(payload, "hideouts", "South Woods", "Southern staging area closer to invader pressure.", "neutral");
 
 		payload = AppendSection(payload, "source", "Source Of Truth");
 		payload = AppendRow(payload, "source", "Config file", "$profile:h-istasi/HST_Settings.json", "good");
@@ -635,6 +690,8 @@ class HST_CommandUIService
 				continue;
 
 			payload = AppendRow(payload, "active_missions", mission.m_sInstanceId, string.Format("%1 / target %2 / site %3 / %4s", mission.m_sMissionId, mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_iRemainingSeconds), MissionTone(mission));
+			if (!mission.m_sRuntimePrimitive.IsEmpty())
+				payload = AppendRow(payload, "active_missions", "Runtime", string.Format("%1 / spawned %2 / fallback %3", mission.m_sRuntimePrimitive, mission.m_bRuntimeSpawned, mission.m_bRuntimeFallback), MissionTone(mission));
 		}
 
 		payload = AppendSection(payload, "objectives", "Objective State");
@@ -710,6 +767,7 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "support", "Support And Orders");
 		payload = AppendRow(payload, "support", "Support requests", string.Format("%1 tracked", state.m_aSupportRequests.Count()), "warn");
 		payload = AppendRow(payload, "support", "Enemy orders", string.Format("%1 tracked", state.m_aEnemyOrders.Count()), "bad");
+		payload = AppendRow(payload, "support", "Cooldown/cancel", "Player support requests can be cancelled while queued or active.", "neutral");
 
 		return payload;
 	}
@@ -844,9 +902,15 @@ class HST_CommandUIService
 		string outpostTargetId = SelectFirstZoneIdByType(state, preset, HST_EZoneType.HST_ZONE_OUTPOST, true);
 		string recruitTargetId = SelectRecruitZoneId(state, preset);
 		string adminTargetId = SelectAdminTargetZoneId(state);
+		string guestIdentityId = SelectFirstGuestIdentity(state);
+		string memberIdentityId = SelectFirstMemberIdentity(state);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Config path / source of truth", "noop", "", true, "");
+			AddMenuAction(actions, TAB_SETUP, "Start HQ: north forest", "setup_hideout", "hideout_north_forest", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_SETUP, "Start HQ: central hills", "setup_hideout", "hideout_central_hills", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_SETUP, "Start HQ: south woods", "setup_hideout", "hideout_south_woods", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_SETUP, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_SETUP, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
@@ -856,6 +920,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Marker status", "inspect_markers", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Economy report", "inspect_economy", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
@@ -880,6 +945,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MISSIONS, "Progress active mission", "progress_mission", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, "Mission report", "inspect_missions", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Objective report", "inspect_objectives", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MISSIONS, "Runtime report", "inspect_mission_runtime", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Zone report", "inspect_zones", "", canUseMember, "membership required");
 			return;
 		}
@@ -902,6 +968,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve", "support_qrf", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire", "support_fire", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Cancel player support", "cancel_support", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Economy report", "inspect_economy", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
@@ -922,6 +989,9 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_MEMBERS)
 		{
+			AddMenuAction(actions, TAB_MEMBERS, "Accept first guest", "member_accept", guestIdentityId, canUseAdmin && !guestIdentityId.IsEmpty(), "admin required or no guest");
+			AddMenuAction(actions, TAB_MEMBERS, "Remove first member", "member_remove", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
+			AddMenuAction(actions, TAB_MEMBERS, "Grant admin to member", "admin_grant", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
 			AddMenuAction(actions, TAB_MEMBERS, "Undercover status", "inspect_undercover", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MEMBERS, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
@@ -935,6 +1005,8 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug mission", state, adminTargetId), "debug_mission", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, "Debug award resources", "award_small", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
 		}
 	}
 
@@ -1040,6 +1112,40 @@ class HST_CommandUIService
 			return "";
 
 		return state.m_aZones[0].m_sZoneId;
+	}
+
+	protected string SelectFirstGuestIdentity(HST_CampaignState state)
+	{
+		if (!state)
+			return "";
+
+		foreach (HST_PlayerState player : state.m_aPlayers)
+		{
+			if (player && player.m_bGuest && !player.m_sIdentityId.IsEmpty())
+				return player.m_sIdentityId;
+		}
+
+		return "";
+	}
+
+	protected string SelectFirstMemberIdentity(HST_CampaignState state)
+	{
+		if (!state)
+			return "";
+
+		foreach (HST_PlayerState player : state.m_aPlayers)
+		{
+			if (player && player.m_bMember && !player.m_bAdmin && !player.m_sIdentityId.IsEmpty())
+				return player.m_sIdentityId;
+		}
+
+		foreach (HST_PlayerState fallbackPlayer : state.m_aPlayers)
+		{
+			if (fallbackPlayer && fallbackPlayer.m_bMember && !fallbackPlayer.m_sIdentityId.IsEmpty())
+				return fallbackPlayer.m_sIdentityId;
+		}
+
+		return "";
 	}
 
 	protected string BuildZoneActionLabel(string prefix, HST_CampaignState state, string zoneId)
