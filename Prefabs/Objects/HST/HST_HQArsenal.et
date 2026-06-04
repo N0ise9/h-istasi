@@ -1,6 +1,6 @@
 GenericEntity HST_HQArsenal : "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et" {
  components {
-  ActionsManagerComponent "{6985327711303401}" {
+  ActionsManagerComponent "{5D66ED1096104FD8}" {
    additionalActions {
     HST_HQArsenalOpenAction "{6985327711303402}" {
      ParentContextList {

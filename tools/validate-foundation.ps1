@@ -127,7 +127,6 @@ $requiredRuntimeScaffold = @(
 	'Configs/Map/CampaignMapMarkerConfig.conf',
 	'SCR_MapMarkerDotCircle',
 	'HST_NativeMapMarker_hq',
-	'HST_CommandMenuComponent',
 	'SCR_PlayerSpawnPointManagerComponent',
 	'SCR_SpawnProtectionComponent',
 	'SCR_TimedSpawnPointComponent',
@@ -180,6 +179,10 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must not expose RHS_USAF role-selection loadouts in the primary FIA deploy path: $runtimeLayer"
 	}
 
+	if ($text -match "\bHST_CommandMenuComponent\b") {
+		throw "Runtime layer must mount HST_CommandMenuComponent on the HST player controller, not the game mode: $runtimeLayer"
+	}
+
 	if ($text -notmatch 'PlayerControllerPrefab "\{6985327711303200\}Prefabs/Characters/HST/HST_PlayerController\.et"') {
 		throw "Runtime layer must use the HST player-controller request bridge: $runtimeLayer"
 	}
@@ -206,6 +209,22 @@ foreach ($runtimeLayer in $runtimeLayers) {
 
 	if ($text -notmatch "SCR_MapMarkerManagerComponent" -or $text -notmatch "SCR_MapMarkerDotCircle" -or $text -notmatch "HST_NativeMapMarker_hq") {
 		throw "Runtime layer must expose native map marker manager plus FIA HQ native marker: $runtimeLayer"
+	}
+
+	foreach ($requiredRhsIonEntry in @(
+		'FactionKey "RHS_ION"',
+		'm_bIsPlayable 0',
+		'm_bShowInWelcomeScreenIfNonPlayable 0',
+		'm_aEntityCatalogs',
+		'Configs/EntityCatalog/USMC/USMC_Characters.conf',
+		'Configs/EntityCatalog/USMC/USMC_Groups.conf',
+		'Configs/EntityCatalog/USMC/USMC_Vehicles.conf',
+		'Configs/EntityCatalog/USMC/USMC_WeaponTripod.conf',
+		'Configs/EntityCatalog/USMC/USMC_InventoryItems.conf'
+	)) {
+		if ($text -notmatch [regex]::Escape($requiredRhsIonEntry)) {
+			throw "Runtime layer has catalog-less RHS_ION faction stub entry in ${runtimeLayer}: $requiredRhsIonEntry"
+		}
 	}
 
 	$runtimeNativeMarkerCount = ([regex]::Matches($text, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_")).Count
@@ -282,6 +301,7 @@ foreach ($requiredPetrosPrefabEntry in @(
 	"SCR_ChimeraCharacter Character_HST_Petros",
 	"Character_FIA_Rifleman.et",
 	"ActionsManagerComponent",
+	'ActionsManagerComponent "{520EA1D2F659CE02}"',
 	"HST_PetrosCommandMenuAction",
 	"HST_PetrosMoveBaseHereAction",
 	"HST_PetrosArsenalMenuAction",
@@ -291,6 +311,10 @@ foreach ($requiredPetrosPrefabEntry in @(
 	if ($petrosPrefabText -notmatch [regex]::Escape($requiredPetrosPrefabEntry)) {
 		throw "Dedicated Petros prefab is missing editable inheritance entry: $requiredPetrosPrefabEntry"
 	}
+}
+
+if ($petrosPrefabText -match 'ActionsManagerComponent "\{6985327711303301\}"') {
+	throw "Dedicated Petros prefab must override the inherited FIA action manager, not add a duplicate HST-owned action manager"
 }
 
 foreach ($requiredPetrosServiceEntry in @(
@@ -346,6 +370,7 @@ foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
 	"SupplyCache_S_FIA_01.et",
 	"ActionsManagerComponent",
+	'ActionsManagerComponent "{5D66ED1096104FD8}"',
 	"HST_HQArsenalOpenAction",
 	"HST_HQArsenalLootNearbyAction",
 	"Open h-istasi Arsenal",
@@ -354,6 +379,9 @@ foreach ($requiredArsenalPrefabEntry in @(
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
 		throw "HST HQ arsenal prefab is missing contextual action entry: $requiredArsenalPrefabEntry"
 	}
+}
+if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"') {
+	throw "HST HQ arsenal prefab must override the inherited FIA supply-cache action manager, not add a duplicate HST-owned action manager"
 }
 Write-Host "HST HQ arsenal prefab OK"
 
@@ -375,7 +403,8 @@ $playerControllerPrefabText = Get-Content -Raw $playerControllerPrefabPath
 foreach ($requiredPlayerControllerEntry in @(
 	"SCR_PlayerController HST_PlayerController",
 	"DefaultPlayerControllerMP_ScenarioFramework.et",
-	"HST_CommandMenuRequestComponent"
+	"HST_CommandMenuRequestComponent",
+	"HST_CommandMenuComponent"
 )) {
 	if ($playerControllerPrefabText -notmatch [regex]::Escape($requiredPlayerControllerEntry)) {
 		throw "HST player controller prefab is missing request/RPC bridge entry: $requiredPlayerControllerEntry"
@@ -731,12 +760,17 @@ foreach ($requiredCoordinatorEntry in @(
 Write-Host "Antistasi framework service spine OK"
 
 foreach ($requiredCommandMenuEntry in @(
+	'ScriptComponentClass',
 	'COMMAND_MENU_ACTION = "Inventory"',
 	'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',
 	'MENU_INPUT_CONTEXT = "InGameMenuContext"',
 	'MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout"',
 	'AddActionListener',
 	'RemoveActionListener',
+	'IsLocalOwner',
+	'local player menu component ready',
+	'input registered',
+	'snapshot received',
 	'CreateWidgetInWorkspace',
 	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',

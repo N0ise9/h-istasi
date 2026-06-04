@@ -29,8 +29,6 @@ SCR_BaseGameMode HST_GameMode : "{1B76F75A3175E85C}Prefabs/MP/Modes/Plain/GameMo
  components {
   HST_CampaignCoordinatorComponent "{6985327711301201}" {
   }
-  HST_CommandMenuComponent "{6985327711301211}" {
-  }
   SCR_GroupsManagerComponent "{5706EC99934496F5}" {
    m_sDefaultGroupPrefab "{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et"
    m_iPlayableGroupFrequencyOffset 500
@@ -110,6 +108,19 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
   SCR_Faction "{69853277113022F5}" {
    FactionKey "RHS_ION"
    m_bIsPlayable 0
+   m_bShowInWelcomeScreenIfNonPlayable 0
+   m_aEntityCatalogs {
+    SCR_EntityCatalogMultiList "{69853277113022F6}" : "{EC55D8934083023D}Configs/EntityCatalog/USMC/USMC_Characters.conf" {
+    }
+    SCR_EntityCatalogMultiList "{69853277113022F7}" : "{4E0451E583FD2B90}Configs/EntityCatalog/USMC/USMC_Groups.conf" {
+    }
+    SCR_EntityCatalogMultiList "{69853277113022F8}" : "{C200F54EB67899D1}Configs/EntityCatalog/USMC/USMC_Vehicles.conf" {
+    }
+    SCR_EntityCatalog "{69853277113022F9}" : "{C1D8DC37BD2782E9}Configs/EntityCatalog/USMC/USMC_WeaponTripod.conf" {
+    }
+    SCR_EntityCatalogMultiList "{69853277113022FA}" : "{3BFC57A750823093}Configs/EntityCatalog/USMC/USMC_InventoryItems.conf" {
+    }
+   }
   }
   SCR_Faction "{60DCF47AEF40BD72}" : "{3FA20B01D950D31F}Configs/Factions/CIV.conf" {
   }

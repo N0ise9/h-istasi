@@ -25,11 +25,11 @@ class HST_CommandMenuWidgetHandler : ScriptedWidgetEventHandler
 }
 
 [ComponentEditorProps(category: "h-istasi", description: "Client-side h-istasi command menu key listener and widget controller")]
-class HST_CommandMenuComponentClass : SCR_BaseGameModeComponentClass
+class HST_CommandMenuComponentClass : ScriptComponentClass
 {
 }
 
-class HST_CommandMenuComponent : SCR_BaseGameModeComponent
+class HST_CommandMenuComponent : ScriptComponent
 {
 	static const string COMMAND_MENU_ACTION = "Inventory";
 	static const string COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu";
@@ -71,30 +71,63 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 	protected ref array<string> m_aFeedTones = {};
 	protected ref array<Widget> m_aWidgets = {};
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
+	protected IEntity m_OwnerEntity;
+	protected bool m_bIsLocalOwner;
+	protected bool m_bInputRegistered;
+	protected float m_fInputRetryAccumulator;
 
 	override void OnPostInit(IEntity owner)
 	{
 		super.OnPostInit(owner);
-		s_LocalInstance = this;
-		RegisterInputListeners();
+		m_OwnerEntity = owner;
+		m_bIsLocalOwner = IsLocalOwner(owner);
 		BuildTabList();
 		BuildActionList();
 		ClearRichPayload();
-		SetEventMask(owner, EntityEvent.FRAME);
+
+		if (!m_bIsLocalOwner)
+			return;
+
+		s_LocalInstance = this;
+		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
+		Print("h-istasi menu | local player menu component ready");
+		RegisterInputListeners();
 	}
 
 	override void OnDelete(IEntity owner)
 	{
-		UnregisterInputListeners();
-		CloseMenu();
-		if (s_LocalInstance == this)
-			s_LocalInstance = null;
+		if (m_bIsLocalOwner)
+		{
+			UnregisterInputListeners();
+			CloseMenu();
+			if (s_LocalInstance == this)
+				s_LocalInstance = null;
+		}
 
 		super.OnDelete(owner);
 	}
 
+	override void EOnInit(IEntity owner)
+	{
+		if (m_bIsLocalOwner && !m_bInputRegistered)
+			RegisterInputListeners();
+	}
+
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		if (!m_bIsLocalOwner)
+			return;
+
+		if (!m_bInputRegistered)
+		{
+			m_fInputRetryAccumulator += timeSlice;
+			if (m_fInputRetryAccumulator >= 0.25)
+			{
+				m_fInputRetryAccumulator = 0;
+				RegisterInputListeners();
+			}
+		}
+
 		if (!m_bMenuOpen)
 			return;
 
@@ -172,6 +205,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 
 	void OnServerSnapshot(string payload, string lastResult = "")
 	{
+		Print("h-istasi menu | snapshot received");
 		m_sLastPayload = payload;
 		m_sLastResult = lastResult;
 		ApplyHeaderFromPayload(payload);
@@ -218,11 +252,14 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		return false;
 	}
 
-	protected void RegisterInputListeners()
+	protected bool RegisterInputListeners()
 	{
+		if (m_bInputRegistered)
+			return true;
+
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)
-			return;
+			return false;
 
 		inputManager.AddActionListener(COMMAND_MENU_ACTION, EActionTrigger.DOWN, ToggleMenu);
 		inputManager.AddActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, ToggleMenu);
@@ -230,10 +267,16 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		inputManager.AddActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, SelectNextAction);
 		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
 		inputManager.AddActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, CloseMenu);
+		m_bInputRegistered = true;
+		Print("h-istasi menu | input registered");
+		return true;
 	}
 
 	protected void UnregisterInputListeners()
 	{
+		if (!m_bInputRegistered)
+			return;
+
 		InputManager inputManager = GetGame().GetInputManager();
 		if (!inputManager)
 			return;
@@ -244,6 +287,7 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 		inputManager.RemoveActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, SelectNextAction);
 		inputManager.RemoveActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, ExecuteSelectedAction);
 		inputManager.RemoveActionListener(COMMAND_MENU_BACK_ACTION, EActionTrigger.DOWN, CloseMenu);
+		m_bInputRegistered = false;
 	}
 
 	protected void BuildTabList()
@@ -1031,5 +1075,14 @@ class HST_CommandMenuComponent : SCR_BaseGameModeComponent
 			return 1;
 
 		return playerIds[0];
+	}
+
+	protected bool IsLocalOwner(IEntity owner)
+	{
+		if (!owner)
+			return false;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(owner.FindComponent(BaseRplComponent));
+		return !rpl || rpl.IsOwner();
 	}
 }
