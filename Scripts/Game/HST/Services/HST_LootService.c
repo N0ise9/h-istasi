@@ -129,7 +129,7 @@ class HST_LootService
 		return string.Format("h-istasi garage | captured %1 | complete", vehicle.m_sDisplayName);
 	}
 
-	HST_LootResult CollectNearbyLootToVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
+	HST_LootResult CollectNearbyLootToVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId, string vehicleRuntimeId = "")
 	{
 		HST_LootResult result = new HST_LootResult();
 		if (!state || !preset || !balance || !arsenal || playerId <= 0)
@@ -148,10 +148,24 @@ class HST_LootService
 			return result;
 		}
 
-		IEntity vehicle = FindNearestLootVehicle(playerEntity, balance.m_iVehicleLootRadiusMeters);
+		IEntity vehicle;
+		if (!vehicleRuntimeId.IsEmpty())
+			vehicle = FindLootVehicleByRuntimeId(playerEntity, balance.m_iVehicleLootRadiusMeters, vehicleRuntimeId);
+		else
+			vehicle = FindNearestLootVehicle(playerEntity, balance.m_iVehicleLootRadiusMeters);
+
 		if (!vehicle)
 		{
-			result.m_aDepositedLines.Insert("no eligible vehicle nearby");
+			if (!vehicleRuntimeId.IsEmpty())
+				result.m_aDepositedLines.Insert("target vehicle not nearby or invalid");
+			else
+				result.m_aDepositedLines.Insert("no eligible vehicle nearby");
+			return result;
+		}
+
+		if (!IsPlayerAtVehicleRear(playerEntity, vehicle, balance.m_iVehicleLootRadiusMeters))
+		{
+			result.m_aDepositedLines.Insert("stand near the rear/load area of the vehicle to load loot");
 			return result;
 		}
 
@@ -192,7 +206,7 @@ class HST_LootService
 		return result;
 	}
 
-	string UnloadNearestVehicleCargoToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId)
+	string UnloadNearestVehicleCargoToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId, string vehicleRuntimeId = "")
 	{
 		if (!state || !preset || !balance || !arsenal || playerId <= 0)
 			return "h-istasi vehicle loot | service not ready";
@@ -201,9 +215,22 @@ class HST_LootService
 		if (!playerEntity)
 			return "h-istasi vehicle loot | no living player entity found";
 
-		IEntity vehicle = FindNearestLootVehicle(playerEntity, balance.m_iVehicleLootRadiusMeters);
+		IEntity vehicle;
+		if (!vehicleRuntimeId.IsEmpty())
+			vehicle = FindLootVehicleByRuntimeId(playerEntity, balance.m_iVehicleLootRadiusMeters, vehicleRuntimeId);
+		else
+			vehicle = FindNearestLootVehicle(playerEntity, balance.m_iVehicleLootRadiusMeters);
+
 		if (!vehicle)
+		{
+			if (!vehicleRuntimeId.IsEmpty())
+				return "h-istasi vehicle loot | target vehicle not nearby or invalid";
+
 			return "h-istasi vehicle loot | no eligible vehicle nearby";
+		}
+
+		if (!IsPlayerAtVehicleRear(playerEntity, vehicle, balance.m_iVehicleLootRadiusMeters))
+			return "h-istasi vehicle loot | stand near the rear/load area of the vehicle to unload cargo";
 
 		string vehicleId = ResolveVehicleRuntimeId(vehicle);
 		int deposited;
@@ -473,6 +500,39 @@ class HST_LootService
 		}
 
 		return selectedVehicle;
+	}
+
+	protected IEntity FindLootVehicleByRuntimeId(IEntity playerEntity, int radiusMeters, string vehicleRuntimeId)
+	{
+		if (!playerEntity || vehicleRuntimeId.IsEmpty())
+			return null;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		m_aScanEntities.Clear();
+		world.QueryEntitiesBySphere(playerEntity.GetOrigin(), radiusMeters, AddLootCandidate, null, EQueryEntitiesFlags.ALL);
+
+		foreach (IEntity candidate : m_aScanEntities)
+		{
+			if (!IsEligibleLootVehicle(candidate, playerEntity))
+				continue;
+
+			if (ResolveVehicleRuntimeId(candidate) == vehicleRuntimeId)
+				return candidate;
+		}
+
+		return null;
+	}
+
+	protected bool IsPlayerAtVehicleRear(IEntity playerEntity, IEntity vehicle, int radiusMeters)
+	{
+		if (!playerEntity || !vehicle)
+			return false;
+
+		int gateMeters = Math.Max(3, Math.Min(radiusMeters, 8));
+		return DistanceSq2D(playerEntity.GetOrigin(), vehicle.GetOrigin()) <= gateMeters * gateMeters;
 	}
 
 	protected bool IsEligibleLootVehicle(IEntity entity, IEntity playerEntity)

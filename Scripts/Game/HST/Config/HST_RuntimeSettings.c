@@ -40,7 +40,7 @@ class HST_RuntimeSettingsMembership
 
 class HST_RuntimeSettingsArsenalLoot
 {
-	int m_iArsenalUnlockThreshold = 15;
+	int m_iArsenalUnlockThreshold = 25;
 	int m_iMagazineUnlockMultiplier = 3;
 	int m_iLootRadiusMeters = 15;
 	bool m_bLootOnlyLockedItems = true;
@@ -64,6 +64,16 @@ class HST_RuntimeSettingsAirSupport
 	int m_iCooldownSeconds = 900;
 }
 
+class HST_RuntimeSettingsCivilians
+{
+	bool m_bEnabled = true;
+	int m_iMaxActivePerTown = 8;
+	int m_iCivilianVehicleMinPerTown = 1;
+	int m_iCivilianVehicleMaxPerTown = 3;
+	int m_iOccupierVehicleMinPerTown = 1;
+	int m_iOccupierVehicleMaxPerTown = 2;
+}
+
 class HST_RuntimeSettingsPersistence
 {
 	int m_iAutosaveIntervalSeconds = 900;
@@ -85,7 +95,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 2;
+	static const int SCHEMA_VERSION = 3;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -96,6 +106,7 @@ class HST_RuntimeSettings
 	ref HST_RuntimeSettingsArsenalLoot m_ArsenalLoot = new HST_RuntimeSettingsArsenalLoot();
 	ref HST_RuntimeSettingsVehicleLoot m_VehicleLoot = new HST_RuntimeSettingsVehicleLoot();
 	ref HST_RuntimeSettingsAirSupport m_AirSupport = new HST_RuntimeSettingsAirSupport();
+	ref HST_RuntimeSettingsCivilians m_Civilians = new HST_RuntimeSettingsCivilians();
 	ref HST_RuntimeSettingsPersistence m_Persistence = new HST_RuntimeSettingsPersistence();
 	ref HST_RuntimeSettingsDebug m_Debug = new HST_RuntimeSettingsDebug();
 	ref HST_RuntimeSettingsFeatures m_Features = new HST_RuntimeSettingsFeatures();
@@ -118,6 +129,11 @@ class HST_RuntimeSettings
 		m_VehicleLoot.m_iRadiusMeters = Math.Max(1, m_VehicleLoot.m_iRadiusMeters);
 		m_VehicleLoot.m_iMaxItemsPerAction = Math.Max(1, m_VehicleLoot.m_iMaxItemsPerAction);
 		m_AirSupport.m_iCooldownSeconds = Math.Max(60, m_AirSupport.m_iCooldownSeconds);
+		m_Civilians.m_iMaxActivePerTown = Math.Max(0, m_Civilians.m_iMaxActivePerTown);
+		m_Civilians.m_iCivilianVehicleMinPerTown = Math.Max(0, m_Civilians.m_iCivilianVehicleMinPerTown);
+		m_Civilians.m_iCivilianVehicleMaxPerTown = Math.Max(m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown);
+		m_Civilians.m_iOccupierVehicleMinPerTown = Math.Max(0, m_Civilians.m_iOccupierVehicleMinPerTown);
+		m_Civilians.m_iOccupierVehicleMaxPerTown = Math.Max(m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		m_Persistence.m_iAutosaveIntervalSeconds = Math.Max(60, m_Persistence.m_iAutosaveIntervalSeconds);
 		m_Persistence.m_iMajorChangeDebounceSeconds = Math.Max(1, m_Persistence.m_iMajorChangeDebounceSeconds);
 	}
@@ -157,6 +173,12 @@ class HST_RuntimeSettings
 		balance.m_iVehicleLootMaxItemsPerAction = m_VehicleLoot.m_iMaxItemsPerAction;
 		balance.m_bAirSupportEnabled = m_AirSupport.m_bEnabled;
 		balance.m_iAirSupportCooldownSeconds = m_AirSupport.m_iCooldownSeconds;
+		balance.m_bCivilianPopulationEnabled = m_Civilians.m_bEnabled;
+		balance.m_iCivilianMaxActivePerTown = m_Civilians.m_iMaxActivePerTown;
+		balance.m_iCivilianVehicleMinPerTown = m_Civilians.m_iCivilianVehicleMinPerTown;
+		balance.m_iCivilianVehicleMaxPerTown = m_Civilians.m_iCivilianVehicleMaxPerTown;
+		balance.m_iOccupierVehicleMinPerTown = m_Civilians.m_iOccupierVehicleMinPerTown;
+		balance.m_iOccupierVehicleMaxPerTown = m_Civilians.m_iOccupierVehicleMaxPerTown;
 		balance.m_iWarLevelMaximum = m_Economy.m_iWarLevelMaximum;
 	}
 
@@ -169,7 +191,8 @@ class HST_RuntimeSettings
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | radius %3m | locked only %4 | remove source %5", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
 		string vehicleLoot = string.Format("\nvehicle loot | enabled %1 | radius %2m | locked only %3 | remove source %4 | max %5", m_VehicleLoot.m_bEnabled, m_VehicleLoot.m_iRadiusMeters, m_VehicleLoot.m_bOnlyLockedItems, m_VehicleLoot.m_bRemoveSourceItems, m_VehicleLoot.m_iMaxItemsPerAction);
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
+		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | civ vehicles %3-%4 | occupier vehicles %5-%6", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
-		return campaign + factions + economy + world + loot + vehicleLoot + airSupport + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
+		return campaign + factions + economy + world + loot + vehicleLoot + airSupport + civilians + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
 	}
 }

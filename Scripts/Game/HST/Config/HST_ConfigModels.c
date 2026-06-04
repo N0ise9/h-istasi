@@ -13,7 +13,7 @@ class HST_BalanceConfig
 	int m_iMissionDefaultDurationSeconds = 3600;
 	int m_iActivationRadiusMeters = 1200;
 	int m_iDeactivationRadiusMeters = 1600;
-	int m_iArsenalUnlockThreshold = 15;
+	int m_iArsenalUnlockThreshold = 25;
 	int m_iMagazineUnlockMultiplier = 3;
 	int m_iLootRadiusMeters = 15;
 	bool m_bLootOnlyLockedItems = true;
@@ -27,6 +27,12 @@ class HST_BalanceConfig
 	int m_iVehicleLootMaxItemsPerAction = 48;
 	bool m_bAirSupportEnabled = true;
 	int m_iAirSupportCooldownSeconds = 900;
+	bool m_bCivilianPopulationEnabled = true;
+	int m_iCivilianMaxActivePerTown = 8;
+	int m_iCivilianVehicleMinPerTown = 1;
+	int m_iCivilianVehicleMaxPerTown = 3;
+	int m_iOccupierVehicleMinPerTown = 1;
+	int m_iOccupierVehicleMaxPerTown = 2;
 	int m_iWarLevelMaximum = 10;
 }
 

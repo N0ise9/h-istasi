@@ -2,6 +2,15 @@ class HST_CivilianService
 {
 	static const int HEAT_DECAY_SECONDS = 300;
 	static const int UNDERCOVER_RECHECK_SECONDS = 20;
+	static const string CIVILIAN_PREFAB = "Prefabs/Characters/Factions/CIV/Character_CIV_baseLoadout.et";
+	static const string CIVILIAN_PREFAB_ALT = "Prefabs/Characters/Factions/CIV/Character_CIV.et";
+	static const string CIVILIAN_VEHICLE_S105 = "Prefabs/Vehicles/Wheeled/S105/S105_base.et";
+	static const string CIVILIAN_VEHICLE_S1203 = "Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string CIVILIAN_VEHICLE_LIGHT = "Prefabs/Vehicles/Wheeled/M151A2/M151A2.et";
+
+	protected ref array<string> m_aRuntimeZoneIds = {};
+	protected ref array<string> m_aRuntimeEntityZoneIds = {};
+	protected ref array<IEntity> m_aRuntimeEntities = {};
 
 	bool EnsureCivilianZones(HST_CampaignState state)
 	{
@@ -62,6 +71,41 @@ class HST_CivilianService
 			}
 
 			changed = true;
+		}
+
+		return changed;
+	}
+
+	bool UpdatePhysicalTownPopulation(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
+	{
+		if (!state || !balance)
+			return false;
+
+		PruneDeletedRuntimeEntities();
+
+		if (!balance.m_bCivilianPopulationEnabled)
+			return CleanupAllRuntimeEntities();
+
+		bool changed;
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			HST_ZoneState zone = state.FindZone(civilianZone.m_sZoneId);
+			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+				continue;
+
+			if (zone.m_bActive)
+			{
+				if (!HasRuntimeZone(zone.m_sZoneId))
+					changed = SpawnTownPopulation(state, preset, balance, zone, civilianZone) || changed;
+
+				continue;
+			}
+
+			if (CleanupZoneRuntimeEntities(zone.m_sZoneId))
+				changed = true;
 		}
 
 		return changed;
@@ -197,5 +241,204 @@ class HST_CivilianService
 		}
 
 		return string.Format("h-istasi undercover | tracked %1 | suspicious %2 | compromised/wanted %3", state.m_aUndercoverPlayers.Count(), suspicious, compromised);
+	}
+
+	protected bool SpawnTownPopulation(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone, HST_CivilianZoneState civilianZone)
+	{
+		if (!state || !balance || !zone || !civilianZone)
+			return false;
+
+		m_aRuntimeZoneIds.Insert(zone.m_sZoneId);
+
+		int spawned;
+		int civilianCount = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
+		for (int i = 0; i < civilianCount; i++)
+		{
+			vector position = ResolveTownSpawnPosition(zone, i, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
+			if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianCharacterPrefab(i), position, "CIV"))
+				spawned++;
+		}
+
+		int civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, state.m_iElapsedSeconds + zone.m_iPriority + zone.m_sZoneId.Length());
+		for (int j = 0; j < civilianVehicleCount; j++)
+		{
+			vector vehiclePosition = ResolveTownSpawnPosition(zone, civilianCount + j, HST_WorldPositionService.PROP_GROUND_OFFSET);
+			if (SpawnRuntimeEntity(zone.m_sZoneId, SelectCivilianVehiclePrefab(j), vehiclePosition, "CIV"))
+				spawned++;
+		}
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
+		if (zone.m_sOwnerFactionKey != resistanceFactionKey)
+		{
+			int occupierVehicleCount = ResolveDeterministicCount(balance.m_iOccupierVehicleMinPerTown, balance.m_iOccupierVehicleMaxPerTown, state.m_iElapsedSeconds + zone.m_iPriority + 17);
+			for (int k = 0; k < occupierVehicleCount; k++)
+			{
+				vector occupierPosition = ResolveTownSpawnPosition(zone, civilianCount + civilianVehicleCount + k, HST_WorldPositionService.PROP_GROUND_OFFSET);
+				if (SpawnRuntimeEntity(zone.m_sZoneId, SelectFactionVehiclePrefab(zone.m_sOwnerFactionKey, k), occupierPosition, zone.m_sOwnerFactionKey))
+					spawned++;
+			}
+		}
+
+		Print(string.Format("h-istasi civilians | town %1 active | spawned %2 runtime civilian/vehicle entity(s)", zone.m_sZoneId, spawned));
+		return true;
+	}
+
+	protected bool SpawnRuntimeEntity(string zoneId, string prefab, vector position, string factionKey)
+	{
+		if (zoneId.IsEmpty() || prefab.IsEmpty())
+			return false;
+
+		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
+		if (!respawnSystem)
+			return false;
+
+		GenericEntity entity = respawnSystem.DoSpawn(prefab, position, "0 0 0");
+		if (!entity)
+		{
+			Print(string.Format("h-istasi civilians | spawn failed for %1 at %2 in %3", prefab, position, zoneId), LogLevel.WARNING);
+			return false;
+		}
+
+		ApplyFaction(entity, factionKey);
+		m_aRuntimeEntityZoneIds.Insert(zoneId);
+		m_aRuntimeEntities.Insert(entity);
+		return true;
+	}
+
+	protected bool CleanupZoneRuntimeEntities(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return false;
+
+		bool changed;
+		for (int i = m_aRuntimeEntities.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeEntityZoneIds[i] != zoneId)
+				continue;
+
+			IEntity entity = m_aRuntimeEntities[i];
+			if (entity)
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+
+			m_aRuntimeEntities.Remove(i);
+			m_aRuntimeEntityZoneIds.Remove(i);
+			changed = true;
+		}
+
+		for (int j = m_aRuntimeZoneIds.Count() - 1; j >= 0; j--)
+		{
+			if (m_aRuntimeZoneIds[j] == zoneId)
+				m_aRuntimeZoneIds.Remove(j);
+		}
+
+		if (changed)
+			Print(string.Format("h-istasi civilians | cleaned runtime town population for %1", zoneId));
+
+		return changed;
+	}
+
+	protected bool CleanupAllRuntimeEntities()
+	{
+		bool changed;
+		for (int i = m_aRuntimeEntities.Count() - 1; i >= 0; i--)
+		{
+			IEntity entity = m_aRuntimeEntities[i];
+			if (entity)
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+
+			changed = true;
+		}
+
+		m_aRuntimeEntities.Clear();
+		m_aRuntimeEntityZoneIds.Clear();
+		m_aRuntimeZoneIds.Clear();
+		return changed;
+	}
+
+	protected void PruneDeletedRuntimeEntities()
+	{
+		for (int i = m_aRuntimeEntities.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeEntities[i])
+				continue;
+
+			m_aRuntimeEntities.Remove(i);
+			m_aRuntimeEntityZoneIds.Remove(i);
+		}
+	}
+
+	protected bool HasRuntimeZone(string zoneId)
+	{
+		return m_aRuntimeZoneIds.Contains(zoneId);
+	}
+
+	protected vector ResolveTownSpawnPosition(HST_ZoneState zone, int index, float verticalOffset)
+	{
+		vector offset = "0 0 0";
+		int column = index % 5;
+		int row = index / 5;
+		offset[0] = (column - 2) * 9;
+		offset[2] = (row - 1) * 11;
+		return HST_WorldPositionService.ResolveGroundPosition(zone.m_vPosition + offset, verticalOffset, true);
+	}
+
+	protected int ResolveDeterministicCount(int minCount, int maxCount, int seed)
+	{
+		if (maxCount <= 0)
+			return 0;
+
+		if (maxCount <= minCount)
+			return Math.Max(0, minCount);
+
+		int span = maxCount - minCount + 1;
+		int value = seed % span;
+		if (value < 0)
+			value = -value;
+
+		return minCount + value;
+	}
+
+	protected string SelectCivilianCharacterPrefab(int index)
+	{
+		if (index % 2 == 0)
+			return CIVILIAN_PREFAB;
+
+		return CIVILIAN_PREFAB_ALT;
+	}
+
+	protected string SelectCivilianVehiclePrefab(int index)
+	{
+		if (index % 3 == 0)
+			return CIVILIAN_VEHICLE_S105;
+
+		if (index % 3 == 1)
+			return CIVILIAN_VEHICLE_S1203;
+
+		return CIVILIAN_VEHICLE_LIGHT;
+	}
+
+	protected string SelectFactionVehiclePrefab(string factionKey, int index)
+	{
+		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
+		if (faction && faction.m_aVehiclePrefabs.Count() > 0)
+			return faction.m_aVehiclePrefabs[index % faction.m_aVehiclePrefabs.Count()];
+
+		if (factionKey == "RHS_AFRF")
+			return "Prefabs/Vehicles/Wheeled/UAZ469/UAZ469.et";
+
+		return "Prefabs/Vehicles/Wheeled/M11xx/Car_M1151.et";
+	}
+
+	protected void ApplyFaction(IEntity entity, string factionKey)
+	{
+		if (!entity || factionKey.IsEmpty())
+			return;
+
+		FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(entity.FindComponent(FactionAffiliationComponent));
+		if (factionComponent)
+			factionComponent.SetAffiliatedFactionByKey(factionKey);
 	}
 }

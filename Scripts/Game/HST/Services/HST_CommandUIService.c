@@ -152,10 +152,10 @@ class HST_CommandUIService
 			return coordinator.RequestMemberWithdrawBestArsenalItem(playerId);
 
 		if (commandId == "vehicle_collect_loot")
-			return coordinator.RequestMemberCollectVehicleLoot(playerId);
+			return coordinator.RequestMemberCollectVehicleLoot(playerId, argument);
 
 		if (commandId == "vehicle_unload_loot")
-			return coordinator.RequestMemberUnloadVehicleCargo(playerId);
+			return coordinator.RequestMemberUnloadVehicleCargo(playerId, argument);
 
 		if (commandId == "garage_capture_nearby")
 			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
@@ -370,10 +370,10 @@ class HST_CommandUIService
 			return !coordinator.RequestMemberWithdrawBestArsenalItem(playerId).IsEmpty();
 
 		if (commandId == "vehicle_collect_loot")
-			return !coordinator.RequestMemberCollectVehicleLoot(playerId).IsEmpty();
+			return !coordinator.RequestMemberCollectVehicleLoot(playerId, argument).IsEmpty();
 
 		if (commandId == "vehicle_unload_loot")
-			return !coordinator.RequestMemberUnloadVehicleCargo(playerId).IsEmpty();
+			return !coordinator.RequestMemberUnloadVehicleCargo(playerId, argument).IsEmpty();
 
 		if (commandId == "garage_capture_nearby")
 			return IsActionResultComplete(coordinator.RequestMemberCaptureNearbyVehicle(playerId));
@@ -841,7 +841,7 @@ class HST_CommandUIService
 		if (!state)
 			return payload;
 
-		payload = AppendSection(payload, "arsenal", "Alpha Arsenal");
+		payload = AppendSection(payload, "arsenal", "h-istasi Arsenal");
 		payload = AppendRow(payload, "arsenal", "Tracked items", string.Format("%1", CountTrackedArsenalItems(state)), "neutral");
 		payload = AppendRow(payload, "arsenal", "Unlocked items", string.Format("%1", CountUnlockedArsenalItems(state)), "good");
 		payload = AppendRow(payload, "arsenal", "Garage vehicles", string.Format("%1", state.m_aGarageVehicles.Count()), "neutral");
@@ -851,7 +851,7 @@ class HST_CommandUIService
 		if (settings)
 		{
 			payload = AppendRow(payload, "arsenal", "Loot radius", string.Format("%1m", settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
-			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 / %2m / max %3", settings.m_VehicleLoot.m_bEnabled, settings.m_VehicleLoot.m_iRadiusMeters, settings.m_VehicleLoot.m_iMaxItemsPerAction), "neutral");
+			payload = AppendRow(payload, "arsenal", "Vehicle loot", string.Format("%1 / rear %2m / max %3", settings.m_VehicleLoot.m_bEnabled, settings.m_VehicleLoot.m_iRadiusMeters, settings.m_VehicleLoot.m_iMaxItemsPerAction), "neutral");
 			payload = AppendRow(payload, "arsenal", "Unlock threshold", string.Format("%1 / magazines x%2", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold, settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier), "neutral");
 			payload = AppendRow(payload, "arsenal", "Loot rule", string.Format("locked only %1 / remove source %2", settings.m_ArsenalLoot.m_bLootOnlyLockedItems, settings.m_ArsenalLoot.m_bRemoveLootedItems), "warn");
 		}
@@ -1099,8 +1099,8 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ARSENAL)
 		{
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Collect loot into vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle cargo", "vehicle_unload_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Withdraw first available item", "withdraw_arsenal", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseMember, "membership required");
@@ -1111,7 +1111,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_GARAGE)
 		{
 			AddMenuAction(actions, TAB_GARAGE, "Capture nearest vehicle", "garage_capture_nearby", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GARAGE, "Unload nearest cargo", "vehicle_unload_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_GARAGE, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_GARAGE, "Inspect vehicle cargo", "inspect_vehicle_cargo", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_GARAGE, "Garage report", "inspect_garage", "", canUseMember, "membership required");
 

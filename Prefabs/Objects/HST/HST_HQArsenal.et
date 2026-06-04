@@ -1,2 +1,24 @@
-GenericEntity HST_HQArsenal : "{9EF8CF9ED5F800A7}Prefabs/Props/Military/Compositions/FIA/ArsenalBox_FIA_Weapons.et" {
+GenericEntity HST_HQArsenal : "Prefabs/Props/Military/CISS/SupplyDrop/Parts/US/EquipmentBox_US.et" {
+ components {
+  ActionsManagerComponent "{6985327711303401}" {
+   additionalActions {
+    HST_HQArsenalOpenAction "{6985327711303402}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303403}" {
+      Name "Open h-istasi Arsenal"
+     }
+    }
+    HST_HQArsenalLootNearbyAction "{6985327711303404}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303405}" {
+      Name "Loot nearby to h-istasi Arsenal"
+     }
+    }
+   }
+  }
+ }
 }

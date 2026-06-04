@@ -151,7 +151,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_EnemyDirector);
-		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged)
+		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
+		if (missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || civilianRuntimeChanged)
 			MarkMajorCampaignChange();
 	}
 
@@ -928,7 +929,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
-	string RequestMemberCollectVehicleLoot(int playerId)
+	string RequestMemberCollectVehicleLoot(int playerId, string vehicleRuntimeId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi vehicle loot | membership required";
@@ -939,7 +940,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Loot || !m_Arsenal)
 			return "h-istasi vehicle loot | service not ready";
 
-		HST_LootResult result = m_Loot.CollectNearbyLootToVehicle(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
+		HST_LootResult result = m_Loot.CollectNearbyLootToVehicle(m_State, m_Preset, m_Balance, m_Arsenal, playerId, vehicleRuntimeId);
 		if (result && result.m_iItemsDeposited > 0)
 			MarkMajorCampaignChange();
 
@@ -949,7 +950,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result.BuildSummary();
 	}
 
-	string RequestMemberUnloadVehicleCargo(int playerId)
+	string RequestMemberUnloadVehicleCargo(int playerId, string vehicleRuntimeId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi vehicle loot | membership required";
@@ -957,7 +958,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Loot || !m_Arsenal)
 			return "h-istasi vehicle loot | service not ready";
 
-		string result = m_Loot.UnloadNearestVehicleCargoToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
+		string result = m_Loot.UnloadNearestVehicleCargoToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId, vehicleRuntimeId);
 		if (!result.Contains("no stored cargo") && !result.Contains("no eligible vehicle") && !result.Contains("no living player"))
 			MarkMajorCampaignChange();
 

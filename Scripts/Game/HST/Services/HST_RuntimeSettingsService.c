@@ -29,6 +29,12 @@ class HST_RuntimeSettingsService
 		}
 
 		ApplyKnownKeys(settings, lines);
+		if (MigrateSettings(settings))
+		{
+			WriteDefault(settings);
+			Print("h-istasi | migrated runtime settings to schema " + settings.m_iSchemaVersion);
+		}
+
 		settings.Normalize();
 		Print("h-istasi | loaded runtime settings from " + SETTINGS_FILE);
 		return settings;
@@ -88,6 +94,12 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "vehicleLootMaxItemsPerAction", settings.m_VehicleLoot.m_iMaxItemsPerAction);
 			ApplyBool(line, "airSupportEnabled", settings.m_AirSupport.m_bEnabled);
 			ApplyInt(line, "airSupportCooldownSeconds", settings.m_AirSupport.m_iCooldownSeconds);
+			ApplyBool(line, "civilianPopulationEnabled", settings.m_Civilians.m_bEnabled);
+			ApplyInt(line, "civilianMaxActivePerTown", settings.m_Civilians.m_iMaxActivePerTown);
+			ApplyInt(line, "civilianVehicleMinPerTown", settings.m_Civilians.m_iCivilianVehicleMinPerTown);
+			ApplyInt(line, "civilianVehicleMaxPerTown", settings.m_Civilians.m_iCivilianVehicleMaxPerTown);
+			ApplyInt(line, "occupierVehicleMinPerTown", settings.m_Civilians.m_iOccupierVehicleMinPerTown);
+			ApplyInt(line, "occupierVehicleMaxPerTown", settings.m_Civilians.m_iOccupierVehicleMaxPerTown);
 			ApplyInt(line, "autosaveIntervalSeconds", settings.m_Persistence.m_iAutosaveIntervalSeconds);
 			ApplyInt(line, "majorChangeDebounceSeconds", settings.m_Persistence.m_iMajorChangeDebounceSeconds);
 			ApplyBool(line, "debugMenuEnabled", settings.m_Debug.m_bDebugMenuEnabled);
@@ -95,6 +107,25 @@ class HST_RuntimeSettingsService
 			ApplyBool(line, "physicalWarEnabled", settings.m_Features.m_bPhysicalWarEnabled);
 			ApplyBool(line, "areaLootEnabled", settings.m_Features.m_bAreaLootEnabled);
 		}
+	}
+
+	protected bool MigrateSettings(notnull HST_RuntimeSettings settings)
+	{
+		bool changed;
+		if (settings.m_iSchemaVersion < 3 && settings.m_ArsenalLoot.m_iArsenalUnlockThreshold == 15)
+		{
+			settings.m_ArsenalLoot.m_iArsenalUnlockThreshold = 25;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
+		{
+			settings.m_iSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
+			changed = true;
+		}
+
+		settings.Normalize();
+		return changed;
 	}
 
 	protected void ApplyString(string line, string key, out string target)
@@ -170,72 +201,102 @@ class HST_RuntimeSettingsService
 	{
 		array<string> lines = {};
 		lines.Insert("{");
-		lines.Insert("  \"schemaVersion\": 2,");
+		lines.Insert(string.Format("  \"schemaVersion\": %1,", settings.m_iSchemaVersion));
 		lines.Insert("  \"campaign\": {");
-		lines.Insert("    \"presetId\": \"rhs_everon\",");
-		lines.Insert("    \"campaignSeed\": 1985,");
-		lines.Insert("    \"defaultHideoutId\": \"hideout_central_hills\"");
+		lines.Insert(string.Format("    \"presetId\": \"%1\",", settings.m_Campaign.m_sPresetId));
+		lines.Insert(string.Format("    \"campaignSeed\": %1,", settings.m_Campaign.m_iCampaignSeed));
+		lines.Insert(string.Format("    \"defaultHideoutId\": \"%1\"", settings.m_Campaign.m_sDefaultHideoutId));
 		lines.Insert("  },");
 		lines.Insert("  \"factions\": {");
-		lines.Insert("    \"resistanceFactionKey\": \"FIA\",");
-		lines.Insert("    \"occupierFactionKey\": \"RHS_USAF\",");
-		lines.Insert("    \"invaderFactionKey\": \"RHS_AFRF\"");
+		lines.Insert(string.Format("    \"resistanceFactionKey\": \"%1\",", settings.m_Factions.m_sResistanceFactionKey));
+		lines.Insert(string.Format("    \"occupierFactionKey\": \"%1\",", settings.m_Factions.m_sOccupierFactionKey));
+		lines.Insert(string.Format("    \"invaderFactionKey\": \"%1\"", settings.m_Factions.m_sInvaderFactionKey));
 		lines.Insert("  },");
 		lines.Insert("  \"economy\": {");
-		lines.Insert("    \"startingFactionMoney\": 1000,");
-		lines.Insert("    \"startingHR\": 20,");
-		lines.Insert("    \"startingOccupierAttackPool\": 100,");
-		lines.Insert("    \"startingOccupierSupportPool\": 100,");
-		lines.Insert("    \"startingInvaderAttackPool\": 60,");
-		lines.Insert("    \"startingInvaderSupportPool\": 60,");
-		lines.Insert("    \"zoneIncomeIntervalSeconds\": 600,");
-		lines.Insert("    \"warLevelMaximum\": 10");
+		lines.Insert(string.Format("    \"startingFactionMoney\": %1,", settings.m_Economy.m_iStartingFactionMoney));
+		lines.Insert(string.Format("    \"startingHR\": %1,", settings.m_Economy.m_iStartingHR));
+		lines.Insert(string.Format("    \"startingOccupierAttackPool\": %1,", settings.m_Economy.m_iStartingOccupierAttackPool));
+		lines.Insert(string.Format("    \"startingOccupierSupportPool\": %1,", settings.m_Economy.m_iStartingOccupierSupportPool));
+		lines.Insert(string.Format("    \"startingInvaderAttackPool\": %1,", settings.m_Economy.m_iStartingInvaderAttackPool));
+		lines.Insert(string.Format("    \"startingInvaderSupportPool\": %1,", settings.m_Economy.m_iStartingInvaderSupportPool));
+		lines.Insert(string.Format("    \"zoneIncomeIntervalSeconds\": %1,", settings.m_Economy.m_iZoneIncomeIntervalSeconds));
+		lines.Insert(string.Format("    \"warLevelMaximum\": %1", settings.m_Economy.m_iWarLevelMaximum));
 		lines.Insert("  },");
 		lines.Insert("  \"world\": {");
-		lines.Insert("    \"activationRadiusMeters\": 1200,");
-		lines.Insert("    \"deactivationRadiusMeters\": 1600,");
-		lines.Insert("    \"missionDefaultDurationSeconds\": 3600");
+		lines.Insert(string.Format("    \"activationRadiusMeters\": %1,", settings.m_World.m_iActivationRadiusMeters));
+		lines.Insert(string.Format("    \"deactivationRadiusMeters\": %1,", settings.m_World.m_iDeactivationRadiusMeters));
+		lines.Insert(string.Format("    \"missionDefaultDurationSeconds\": %1", settings.m_World.m_iMissionDefaultDurationSeconds));
 		lines.Insert("  },");
 		lines.Insert("  \"membership\": {");
-		lines.Insert("    \"membershipEnabled\": true,");
-		lines.Insert("    \"guestsCanOpenMenu\": false,");
-		lines.Insert("    \"adminIdentityIds\": []");
+		lines.Insert(string.Format("    \"membershipEnabled\": %1,", JsonBool(settings.m_Membership.m_bMembershipEnabled)));
+		lines.Insert(string.Format("    \"guestsCanOpenMenu\": %1,", JsonBool(settings.m_Membership.m_bGuestsCanOpenMenu)));
+		lines.Insert(string.Format("    \"adminIdentityIds\": %1", BuildStringArray(settings.m_Membership.m_aAdminIdentityIds)));
 		lines.Insert("  },");
 		lines.Insert("  \"arsenalLoot\": {");
-		lines.Insert("    \"arsenalUnlockThreshold\": 15,");
-		lines.Insert("    \"magazineUnlockMultiplier\": 3,");
-		lines.Insert("    \"lootRadiusMeters\": 15,");
-		lines.Insert("    \"lootOnlyLockedItems\": true,");
-		lines.Insert("    \"removeLootedItems\": true,");
-		lines.Insert("    \"allowExplosiveUnlocks\": false,");
-		lines.Insert("    \"allowGuidedLauncherUnlocks\": false");
+		lines.Insert(string.Format("    \"arsenalUnlockThreshold\": %1,", settings.m_ArsenalLoot.m_iArsenalUnlockThreshold));
+		lines.Insert(string.Format("    \"magazineUnlockMultiplier\": %1,", settings.m_ArsenalLoot.m_iMagazineUnlockMultiplier));
+		lines.Insert(string.Format("    \"lootRadiusMeters\": %1,", settings.m_ArsenalLoot.m_iLootRadiusMeters));
+		lines.Insert(string.Format("    \"lootOnlyLockedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bLootOnlyLockedItems)));
+		lines.Insert(string.Format("    \"removeLootedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bRemoveLootedItems)));
+		lines.Insert(string.Format("    \"allowExplosiveUnlocks\": %1,", JsonBool(settings.m_ArsenalLoot.m_bAllowExplosiveUnlocks)));
+		lines.Insert(string.Format("    \"allowGuidedLauncherUnlocks\": %1", JsonBool(settings.m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks)));
 		lines.Insert("  },");
 		lines.Insert("  \"vehicleLoot\": {");
-		lines.Insert("    \"vehicleLootEnabled\": true,");
-		lines.Insert("    \"vehicleLootRadiusMeters\": 20,");
-		lines.Insert("    \"vehicleLootOnlyLockedItems\": true,");
-		lines.Insert("    \"vehicleLootRemoveSourceItems\": true,");
-		lines.Insert("    \"vehicleLootMaxItemsPerAction\": 48");
+		lines.Insert(string.Format("    \"vehicleLootEnabled\": %1,", JsonBool(settings.m_VehicleLoot.m_bEnabled)));
+		lines.Insert(string.Format("    \"vehicleLootRadiusMeters\": %1,", settings.m_VehicleLoot.m_iRadiusMeters));
+		lines.Insert(string.Format("    \"vehicleLootOnlyLockedItems\": %1,", JsonBool(settings.m_VehicleLoot.m_bOnlyLockedItems)));
+		lines.Insert(string.Format("    \"vehicleLootRemoveSourceItems\": %1,", JsonBool(settings.m_VehicleLoot.m_bRemoveSourceItems)));
+		lines.Insert(string.Format("    \"vehicleLootMaxItemsPerAction\": %1", settings.m_VehicleLoot.m_iMaxItemsPerAction));
 		lines.Insert("  },");
 		lines.Insert("  \"airSupport\": {");
-		lines.Insert("    \"airSupportEnabled\": true,");
-		lines.Insert("    \"airSupportCooldownSeconds\": 900");
+		lines.Insert(string.Format("    \"airSupportEnabled\": %1,", JsonBool(settings.m_AirSupport.m_bEnabled)));
+		lines.Insert(string.Format("    \"airSupportCooldownSeconds\": %1", settings.m_AirSupport.m_iCooldownSeconds));
+		lines.Insert("  },");
+		lines.Insert("  \"civilians\": {");
+		lines.Insert(string.Format("    \"civilianPopulationEnabled\": %1,", JsonBool(settings.m_Civilians.m_bEnabled)));
+		lines.Insert(string.Format("    \"civilianMaxActivePerTown\": %1,", settings.m_Civilians.m_iMaxActivePerTown));
+		lines.Insert(string.Format("    \"civilianVehicleMinPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMinPerTown));
+		lines.Insert(string.Format("    \"civilianVehicleMaxPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMaxPerTown));
+		lines.Insert(string.Format("    \"occupierVehicleMinPerTown\": %1,", settings.m_Civilians.m_iOccupierVehicleMinPerTown));
+		lines.Insert(string.Format("    \"occupierVehicleMaxPerTown\": %1", settings.m_Civilians.m_iOccupierVehicleMaxPerTown));
 		lines.Insert("  },");
 		lines.Insert("  \"persistence\": {");
-		lines.Insert("    \"autosaveIntervalSeconds\": 900,");
-		lines.Insert("    \"majorChangeDebounceSeconds\": 30");
+		lines.Insert(string.Format("    \"autosaveIntervalSeconds\": %1,", settings.m_Persistence.m_iAutosaveIntervalSeconds));
+		lines.Insert(string.Format("    \"majorChangeDebounceSeconds\": %1", settings.m_Persistence.m_iMajorChangeDebounceSeconds));
 		lines.Insert("  },");
 		lines.Insert("  \"debug\": {");
-		lines.Insert("    \"debugMenuEnabled\": true,");
-		lines.Insert("    \"verboseLogging\": false");
+		lines.Insert(string.Format("    \"debugMenuEnabled\": %1,", JsonBool(settings.m_Debug.m_bDebugMenuEnabled)));
+		lines.Insert(string.Format("    \"verboseLogging\": %1", JsonBool(settings.m_Debug.m_bVerboseLogging)));
 		lines.Insert("  },");
 		lines.Insert("  \"features\": {");
-		lines.Insert("    \"physicalWarEnabled\": true,");
-		lines.Insert("    \"areaLootEnabled\": true,");
-		lines.Insert("    \"setupUiReadOnly\": true");
+		lines.Insert(string.Format("    \"physicalWarEnabled\": %1,", JsonBool(settings.m_Features.m_bPhysicalWarEnabled)));
+		lines.Insert(string.Format("    \"areaLootEnabled\": %1,", JsonBool(settings.m_Features.m_bAreaLootEnabled)));
+		lines.Insert(string.Format("    \"setupUiReadOnly\": %1", JsonBool(settings.m_Features.m_bSetupUiReadOnly)));
 		lines.Insert("  }");
 		lines.Insert("}");
 		WriteLines(SETTINGS_FILE, lines);
+	}
+
+	protected string JsonBool(bool value)
+	{
+		if (value)
+			return "true";
+
+		return "false";
+	}
+
+	protected string BuildStringArray(notnull array<string> values)
+	{
+		string output = "[";
+		for (int i = 0; i < values.Count(); i++)
+		{
+			if (i > 0)
+				output = output + ", ";
+
+			output = output + "\"" + values[i] + "\"";
+		}
+
+		return output + "]";
 	}
 
 	protected array<string> ReadLines(string fileName)

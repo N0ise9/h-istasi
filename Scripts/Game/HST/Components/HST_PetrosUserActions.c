@@ -67,6 +67,22 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 
 		return 0;
 	}
+
+	protected string ResolveRuntimeEntityId(IEntity entity)
+	{
+		if (!entity)
+			return "";
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(entity.FindComponent(BaseRplComponent));
+		if (rpl)
+			return string.Format("rpl_%1", rpl.Id());
+
+		string prefab = "";
+		if (entity.GetPrefabData())
+			prefab = entity.GetPrefabData().GetPrefabName();
+
+		return string.Format("local_%1_%2", prefab, entity.GetOrigin());
+	}
 }
 
 class HST_PetrosUserActionBase : HST_ContextualUserActionBase
@@ -147,12 +163,12 @@ class HST_VehicleCollectLootAction : HST_ContextualUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		RunMenuCommand("arsenal", "vehicle_collect_loot", "", pUserEntity);
+		RunMenuCommand("arsenal", "vehicle_collect_loot", ResolveRuntimeEntityId(pOwnerEntity), pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Collect nearby loot";
+		outName = "Load loot to vehicle";
 		return true;
 	}
 }
@@ -161,12 +177,12 @@ class HST_VehicleUnloadLootAction : HST_ContextualUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		RunMenuCommand("arsenal", "vehicle_unload_loot", "", pUserEntity);
+		RunMenuCommand("arsenal", "vehicle_unload_loot", ResolveRuntimeEntityId(pOwnerEntity), pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Unload h-istasi cargo";
+		outName = "Unload vehicle loot to arsenal";
 		return true;
 	}
 }

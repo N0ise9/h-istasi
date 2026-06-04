@@ -430,22 +430,29 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"ArsenalBox_FIA_Weapons.et"
+	"EquipmentBox_US.et",
+	"ActionsManagerComponent",
+	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLootNearbyAction",
+	"Open h-istasi Arsenal",
+	"Loot nearby to h-istasi Arsenal"
 )) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
-		throw "HST HQ arsenal prefab is missing FIA arsenal visual entry: $requiredArsenalPrefabEntry"
+		throw "HST HQ arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalPrefabEntry"
 	}
 }
-if ($hqArsenalPrefabText -match "ActionsManagerComponent") {
-	throw "HST HQ arsenal prefab must not add a duplicate action manager on top of the FIA arsenal parent"
+foreach ($forbiddenArsenalPrefabEntry in @(
+	"ArsenalBox_FIA",
+	"SCR_Arsenal",
+	"MSAR",
+	"SupplyCache_S_FIA_01.et",
+	"Ural4320_arsenal_box_tan.et"
+)) {
+	if ($hqArsenalPrefabText -match [regex]::Escape($forbiddenArsenalPrefabEntry)) {
+		throw "HST HQ arsenal prefab must not use stock arsenal/MSAR/fake supply-cache entry: $forbiddenArsenalPrefabEntry"
+	}
 }
-if ($hqArsenalPrefabText -match "SupplyCache_S_FIA_01.et") {
-	throw "HST HQ arsenal prefab must use a distinct non-tent arsenal parent, not the FIA supply-cache composition"
-}
-if ($hqArsenalPrefabText -match "Ural4320_arsenal_box_tan.et") {
-	throw "HST HQ arsenal prefab must use the FIA arsenal visual, not the Ural vehicle arsenal box"
-}
-Write-Host "HST HQ arsenal prefab OK"
+Write-Host "HST HQ arsenal prefab h-istasi-only contract OK"
 
 $playerControllerPrefabPath = "Prefabs/Characters/HST/HST_PlayerController.et"
 if (!(Test-Path $playerControllerPrefabPath)) {
@@ -829,6 +836,8 @@ Write-Host "Default HQ safe radius separation OK"
 
 $scriptFiles = Get-ChildItem -Recurse -File "Scripts" -Filter *.c
 $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+$configResourceText = (Get-ChildItem -Recurse -File "Configs" -Include *.conf |
+	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_WorldPositionService.c"
 if ($worldPositionServiceText -match "source\[1\]\s*<=\s*MIN_DRY_SURFACE_Y") {
 	throw "World position dry-ground rejection must not accept water-level catalog coordinates"
@@ -1074,6 +1083,46 @@ foreach ($requiredSupportStrikeEntry in @(
 	}
 }
 Write-Host "RHS support strike contract OK"
+
+$requiredLocalAfrfGroupResources = @(
+	"{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et",
+	"{20882FD7E695BA4F}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_SentryTeam_NotSpawned.et",
+	"{949A54E9F28D99F9}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_RifleSquad_NotSpawned.et",
+	"{FBB6A99E9B1C7EC6}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_MachineGunTeam_NotSpawned.et",
+	"{84856BD6BFABA047}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_GL_NotSpawned.et",
+	"{CBE67BBD93170CF8}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_AT_NotSpawned.et",
+	"{7D9243C3C0CCED4B}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_TEAM.et",
+	"{622DDA327B669B67}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_ATTeam.et",
+	"{DEEA32376CC7BA04}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_BoFTeam.et",
+	"{E368C2565A31C25F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_GLTeam.et",
+	"{78A5969A0A1F45A8}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_SniperTeam.et",
+	"{39DB4846F673AF9F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et"
+)
+foreach ($requiredAfrfResource in $requiredLocalAfrfGroupResources) {
+	if ($requiredAfrfResource -notmatch '^\{([0-9A-F]{16})\}(.+)$') {
+		throw "Malformed copied AFRF group resource entry: $requiredAfrfResource"
+	}
+
+	$resourceGuid = $Matches[1]
+	$resourcePath = $Matches[2]
+	$resourceMetaPath = "$resourcePath.meta"
+	if (!(Test-Path $resourcePath)) {
+		throw "Copied AFRF group prefab is missing locally: $resourcePath"
+	}
+	if (!(Test-Path $resourceMetaPath)) {
+		throw "Copied AFRF group prefab metadata is missing locally: $resourceMetaPath"
+	}
+	if ((Get-Content -Raw $resourceMetaPath) -notmatch [regex]::Escape($requiredAfrfResource)) {
+		throw "Copied AFRF group metadata GUID/path mismatch: $requiredAfrfResource"
+	}
+	if ($scriptText -notmatch [regex]::Escape($requiredAfrfResource) -and $configResourceText -notmatch [regex]::Escape($requiredAfrfResource)) {
+		throw "Copied AFRF group resource is not used by faction pools: $requiredAfrfResource"
+	}
+}
+if ($scriptText -match "D9523F26504A8D59" -or $configResourceText -match "D9523F26504A8D59") {
+	throw "AFRF faction pools still reference the stale VVRG GUID instead of the copied local prefab GUID"
+}
+Write-Host "Local copied AFRF group resources OK: $($requiredLocalAfrfGroupResources.Count)"
 
 foreach ($requiredCoordinatorEntry in @(
 	"RegisterConnectedPlayer",
@@ -1396,11 +1445,30 @@ foreach ($requiredSettingsEntry in @(
 	"vehicleLootMaxItemsPerAction",
 	"airSupportEnabled",
 	"airSupportCooldownSeconds",
+	"civilianPopulationEnabled",
+	"civilianMaxActivePerTown",
+	"civilianVehicleMinPerTown",
+	"civilianVehicleMaxPerTown",
+	"occupierVehicleMinPerTown",
+	"occupierVehicleMaxPerTown",
+	"MigrateSettings",
 	"ApplyTo"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSettingsEntry)) {
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
+}
+if ($scriptText -notmatch "SCHEMA_VERSION = 3") {
+	throw "Runtime settings schema must be bumped to 3 for the arsenal threshold/civilian settings migration"
+}
+if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
+	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
+}
+if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 25") {
+	throw "Balance config must set arsenal unlock threshold to 25"
+}
+if ($scriptText -match '"arsenalUnlockThreshold": 15' -or $configResourceText -match "m_iArsenalUnlockThreshold 15") {
+	throw "Generated/default balance settings must not keep the old 15-item infinite unlock threshold"
 }
 Write-Host "Runtime settings generated-config contract OK"
 
@@ -1410,6 +1478,11 @@ foreach ($requiredLootEntry in @(
 	"LootNearbyToArsenal",
 	"CollectNearbyLootToVehicle",
 	"UnloadNearestVehicleCargoToArsenal",
+	"vehicleRuntimeId",
+	"FindLootVehicleByRuntimeId",
+	"IsPlayerAtVehicleRear",
+	"target vehicle not nearby or invalid",
+	"stand near the rear/load area",
 	"BuildVehicleCargoReport",
 	"DepositVehicleCargo",
 	"CaptureNearbyVehicleToGarage",
@@ -1442,7 +1515,9 @@ foreach ($requiredLootEntry in @(
 	"HST_HQArsenalOpenAction",
 	"HST_HQArsenalLootNearbyAction",
 	"HST_VehicleCollectLootAction",
-	"HST_VehicleUnloadLootAction"
+	"HST_VehicleUnloadLootAction",
+	"Load loot to vehicle",
+	"Unload vehicle loot to arsenal"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLootEntry)) {
 		throw "Missing loot-to-arsenal contract entry: $requiredLootEntry"
@@ -1551,6 +1626,30 @@ foreach ($requiredPhysicalWarEntry in @(
 	}
 }
 Write-Host "Physical AI war scaffold OK"
+
+foreach ($requiredCivilianRuntimeEntry in @(
+	"UpdatePhysicalTownPopulation",
+	"SpawnTownPopulation",
+	"CleanupZoneRuntimeEntities",
+	"CleanupAllRuntimeEntities",
+	"m_bCivilianPopulationEnabled",
+	"m_iCivilianMaxActivePerTown",
+	"m_iCivilianVehicleMinPerTown",
+	"m_iCivilianVehicleMaxPerTown",
+	"m_iOccupierVehicleMinPerTown",
+	"m_iOccupierVehicleMaxPerTown",
+	"Character_CIV_baseLoadout.et",
+	"Character_CIV.et",
+	"S105_base.et",
+	"S1203_base.et",
+	"m_aVehiclePrefabs",
+	"civilianRuntimeChanged"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry) -and $configResourceText -notmatch [regex]::Escape($requiredCivilianRuntimeEntry)) {
+		throw "Missing physical civilian town runtime entry: $requiredCivilianRuntimeEntry"
+	}
+}
+Write-Host "Physical civilian town runtime OK"
 
 $codeWithoutEnumDeclarations = [regex]::Replace($codeOnly, "(?s)enum\s+HST_[A-Za-z0-9_]+\s*\{.*?\}", "")
 $unscopedEnumReferences = @([regex]::Matches($codeWithoutEnumDeclarations, "(?<!\.)\bHST_(?:CAMPAIGN|ZONE|MISSION)_[A-Z_]+\b") |
