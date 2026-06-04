@@ -4,7 +4,6 @@ class HST_HQService
 	static const string PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
-	static const string ARSENAL_FALLBACK_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 
 	protected IEntity m_PetrosEntity;
@@ -14,6 +13,21 @@ class HST_HQService
 	protected bool m_bWarnedPetrosResourceFailure;
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
+
+	bool BootstrapInitialHideout(HST_CampaignState state, string hideoutId)
+	{
+		if (!state || state.m_bHQDeployed || !HST_DefaultCatalog.IsKnownHideout(hideoutId))
+			return false;
+
+		string resolvedHideoutId;
+		vector hqPosition;
+		if (!ResolveHideoutPlacement(hideoutId, resolvedHideoutId, hqPosition))
+			return false;
+
+		SetHQPosition(state, resolvedHideoutId, hqPosition);
+		Print(string.Format("h-istasi | starter HQ bootstrapped at %1 while campaign remains in setup", resolvedHideoutId));
+		return true;
+	}
 
 	bool SelectInitialHideout(HST_CampaignState state, string hideoutId)
 	{
@@ -88,34 +102,67 @@ class HST_HQService
 			return false;
 
 		EnsureRuntimeGroundPlacement(state);
-		GenericEntity petros = SpawnPetros(respawnSystem, state);
-		GenericEntity cache = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
-		GenericEntity arsenal = SpawnArsenal(respawnSystem, state);
-		GenericEntity tent = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
-		if (!petros || !cache || !arsenal || !tent)
-		{
-			DeleteRuntimeEntity(petros);
-			DeleteRuntimeEntity(cache);
-			DeleteRuntimeEntity(arsenal);
-			DeleteRuntimeEntity(tent);
-			state.m_bHQRuntimeObjectsSpawned = false;
-			if (!m_bWarnedRuntimeSpawnIncomplete)
-			{
-				Print("h-istasi | HQ runtime object spawn incomplete; inspect prefab resources", LogLevel.WARNING);
-				m_bWarnedRuntimeSpawnIncomplete = true;
-			}
+		bool changed;
+		bool logDetails = !m_bWarnedRuntimeSpawnIncomplete;
 
-			return false;
+		if (!m_PetrosEntity)
+		{
+			m_PetrosEntity = SpawnPetros(respawnSystem, state);
+			if (m_PetrosEntity)
+			{
+				ApplyFaction(m_PetrosEntity);
+				changed = true;
+			}
+			else if (logDetails)
+			{
+				LogRuntimeObjectSpawnFailure("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition);
+			}
 		}
 
-		m_PetrosEntity = petros;
-		m_CacheEntity = cache;
-		m_ArsenalEntity = arsenal;
-		m_TentEntity = tent;
-		state.m_bHQRuntimeObjectsSpawned = true;
-		m_bWarnedRuntimeSpawnIncomplete = false;
-		ApplyFaction(petros);
-		return true;
+		if (!m_CacheEntity)
+		{
+			m_CacheEntity = respawnSystem.DoSpawn(HQ_CACHE_PREFAB, state.m_vHQCachePosition, "0 0 0");
+			if (m_CacheEntity)
+				changed = true;
+			else if (logDetails)
+				LogRuntimeObjectSpawnFailure("cache", HQ_CACHE_PREFAB, state.m_vHQCachePosition);
+		}
+
+		if (!m_ArsenalEntity)
+		{
+			m_ArsenalEntity = SpawnArsenal(respawnSystem, state);
+			if (m_ArsenalEntity)
+				changed = true;
+			else if (logDetails)
+				LogRuntimeObjectSpawnFailure("arsenal", ResolveArsenalPrefab(state), state.m_vArsenalPosition);
+		}
+
+		if (!m_TentEntity)
+		{
+			m_TentEntity = respawnSystem.DoSpawn(HQ_TENT_PREFAB, state.m_vHQTentPosition, "0 0 0");
+			if (m_TentEntity)
+				changed = true;
+			else if (logDetails)
+				LogRuntimeObjectSpawnFailure("tent", HQ_TENT_PREFAB, state.m_vHQTentPosition);
+		}
+
+		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked();
+		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != allRuntimeObjectsTracked;
+		state.m_bHQRuntimeObjectsSpawned = allRuntimeObjectsTracked;
+		if (!allRuntimeObjectsTracked)
+		{
+			if (!m_bWarnedRuntimeSpawnIncomplete)
+			{
+				Print("h-istasi | HQ runtime object spawn incomplete; successful pieces were preserved for retry", LogLevel.WARNING);
+				m_bWarnedRuntimeSpawnIncomplete = true;
+			}
+		}
+		else
+		{
+			m_bWarnedRuntimeSpawnIncomplete = false;
+		}
+
+		return changed || runtimeFlagChanged;
 	}
 
 	string GetPetrosPrefab()
@@ -308,7 +355,7 @@ class HST_HQService
 		if (!state)
 			return ARSENAL_PREFAB;
 
-		if (state.m_sArsenalPrefab.IsEmpty() || state.m_sArsenalPrefab == ARSENAL_FALLBACK_PREFAB)
+		if (state.m_sArsenalPrefab.IsEmpty() || state.m_sArsenalPrefab == HQ_CACHE_PREFAB)
 			state.m_sArsenalPrefab = ARSENAL_PREFAB;
 
 		return state.m_sArsenalPrefab;
@@ -328,15 +375,10 @@ class HST_HQService
 		if (arsenal)
 			return arsenal;
 
-		if (arsenalPrefab != ARSENAL_FALLBACK_PREFAB)
+		if (!m_bWarnedArsenalResourceFailure)
 		{
-			if (!m_bWarnedArsenalResourceFailure)
-			{
-				Print(string.Format("h-istasi | HQ arsenal prefab %1 failed to spawn; using FIA supply-cache fallback", arsenalPrefab), LogLevel.WARNING);
-				m_bWarnedArsenalResourceFailure = true;
-			}
-
-			return respawnSystem.DoSpawn(ARSENAL_FALLBACK_PREFAB, arsenalPosition, "0 0 0");
+			Print(string.Format("h-istasi | HQ arsenal prefab %1 failed to spawn at %2; no supply-cache fallback will be used", arsenalPrefab, arsenalPosition), LogLevel.WARNING);
+			m_bWarnedArsenalResourceFailure = true;
 		}
 
 		return null;
@@ -369,6 +411,11 @@ class HST_HQService
 	protected bool AreRuntimeObjectsTracked()
 	{
 		return m_PetrosEntity && m_CacheEntity && m_ArsenalEntity && m_TentEntity;
+	}
+
+	protected void LogRuntimeObjectSpawnFailure(string label, string prefab, vector position)
+	{
+		Print(string.Format("h-istasi | HQ %1 spawn failed at %2 using %3", label, position, prefab), LogLevel.WARNING);
 	}
 
 	protected void ClearRuntimeObjects(HST_CampaignState state)

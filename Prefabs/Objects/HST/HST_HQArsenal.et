@@ -1,4 +1,4 @@
-GenericEntity HST_HQArsenal : "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et" {
+GenericEntity HST_HQArsenal : "{94FFD620B8528EB6}Prefabs/Vehicles/Wheeled/Ural4320/VehParts/Ural4320_arsenal_box_tan.et" {
  components {
   ActionsManagerComponent "{5D66ED1096104FD8}" {
    additionalActions {

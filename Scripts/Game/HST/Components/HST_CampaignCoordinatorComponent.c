@@ -1107,11 +1107,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Civilians)
 			m_Civilians.EnsureCivilianZones(m_State);
 
-		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
-		{
-			m_State.m_bHQDeployed = false;
-			m_State.m_bHQRuntimeObjectsSpawned = false;
-		}
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && !m_State.m_bHQDeployed && m_HQ)
+			m_HQ.BootstrapInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
 	}
 
 	protected bool SelectInitialHideout_S(string hideoutId)

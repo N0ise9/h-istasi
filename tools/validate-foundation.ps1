@@ -320,6 +320,7 @@ if ((Get-Content -Raw $petrosPrefabMetaPath) -notmatch '\{6985327711303300\}Pref
 
 $petrosPrefabText = Get-Content -Raw $petrosPrefabPath
 $hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
+$coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 foreach ($requiredPetrosPrefabEntry in @(
 	"SCR_ChimeraCharacter Character_HST_Petros",
 	"Character_FIA_Rifleman.et",
@@ -344,7 +345,7 @@ foreach ($requiredPetrosServiceEntry in @(
 	"PETROS_BASE_PREFAB",
 	'PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et"',
 	'ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et"',
-	"ARSENAL_FALLBACK_PREFAB",
+	"BootstrapInitialHideout",
 	"ResolvePetrosPrefab",
 	"SpawnPetros",
 	"ResolveArsenalPrefab",
@@ -357,7 +358,9 @@ foreach ($requiredPetrosServiceEntry in @(
 	"TryResolveGroundPosition",
 	"SCR_EntityHelper.DeleteEntityAndChildren",
 	"failed to spawn; using base FIA fallback",
-	"failed to spawn; using FIA supply-cache fallback",
+	"no supply-cache fallback will be used",
+	"successful pieces were preserved for retry",
+	"LogRuntimeObjectSpawnFailure",
 	"GetArsenalPrefab"
 )) {
 	if ($hqServiceText -notmatch [regex]::Escape($requiredPetrosServiceEntry)) {
@@ -373,6 +376,15 @@ if ($hqServiceText -notmatch "SpawnArsenal\(respawnSystem, state\)") {
 }
 if ($hqServiceText -match 'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros\.et"' -or $hqServiceText -match 'ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal\.et"') {
 	throw "HQ service must not keep path-only HST prefab constants"
+}
+if ($hqServiceText -match "\bARSENAL_FALLBACK_PREFAB\b" -or $hqServiceText -match "using FIA supply-cache fallback") {
+	throw "HQ service must not use a supply-cache fallback for the HQ arsenal"
+}
+if ($coordinatorText -notmatch "BootstrapInitialHideout\(m_State, HST_DefaultCatalog\.GetDefaultHideoutId\(\)\)") {
+	throw "Coordinator must bootstrap a visible starter HQ for fresh setup campaigns"
+}
+if ($coordinatorText -match "m_State\.m_bHQDeployed = false") {
+	throw "Setup foundation must not clear an already bootstrapped HQ"
 }
 Write-Host "Dedicated Petros prefab OK"
 
@@ -393,7 +405,7 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"SupplyCache_S_FIA_01.et",
+	"Ural4320_arsenal_box_tan.et",
 	"ActionsManagerComponent",
 	'ActionsManagerComponent "{5D66ED1096104FD8}"',
 	"HST_HQArsenalOpenAction",
@@ -406,7 +418,10 @@ foreach ($requiredArsenalPrefabEntry in @(
 	}
 }
 if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"') {
-	throw "HST HQ arsenal prefab must override the inherited FIA supply-cache action manager, not add a duplicate HST-owned action manager"
+	throw "HST HQ arsenal prefab must not add the stale HST-owned duplicate action manager"
+}
+if ($hqArsenalPrefabText -match "SupplyCache_S_FIA_01.et") {
+	throw "HST HQ arsenal prefab must use a distinct non-tent arsenal parent, not the FIA supply-cache composition"
 }
 Write-Host "HST HQ arsenal prefab OK"
 
