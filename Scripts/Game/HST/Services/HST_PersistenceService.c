@@ -48,12 +48,7 @@ class HST_PersistenceService
 		}
 
 		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
-		if (!saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName))
-		{
-			if (state)
-				state.m_sLastPersistenceStatus = "checkpoint request rejected by SaveGameManager";
-			return false;
-		}
+		saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);
 
 		if (state)
 		{
@@ -90,7 +85,7 @@ class HST_PersistenceService
 	HST_CampaignState RestoreOrCreateCampaignState(HST_CampaignState fallbackState)
 	{
 		if (!fallbackState)
-			fallbackState = new HST_CampaignState();
+			return null;
 
 		HST_CampaignSaveData restoredSave = GetRestoredCampaignSaveData();
 		if (restoredSave)
@@ -135,7 +130,7 @@ class HST_PersistenceService
 		string saveManagerStatus = "save manager unavailable";
 		SaveGameManager saveManager = SaveGameManager.Get();
 		if (saveManager)
-			saveManagerStatus = string.Format("saving possible %1 | saving allowed %2", saveManager.IsSavingPossible(), saveManager.IsSavingAllowed());
+			saveManagerStatus = string.Format("saving enabled %1 | saving allowed %2", saveManager.IsSavingEnabled(), saveManager.IsSavingAllowed());
 		string persistenceSystemStatus = BuildPersistenceSystemStatus();
 
 		string tracked = "not tracked";
@@ -165,7 +160,7 @@ class HST_PersistenceService
 
 	protected bool CanRequestSavePoint(SaveGameManager saveManager)
 	{
-		return saveManager && saveManager.IsSavingPossible() && saveManager.IsSavingAllowed();
+		return saveManager && saveManager.IsSavingEnabled() && saveManager.IsSavingAllowed();
 	}
 
 	protected bool TrackCampaignSaveData(HST_CampaignSaveData saveData)

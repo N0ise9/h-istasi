@@ -925,7 +925,7 @@ foreach ($requiredSaveEntry in @(
 	"PersistenceSystem.GetInstance",
 	"GetPersistentState",
 	"StartTracking",
-	"IsSavingPossible",
+	"IsSavingEnabled",
 	"RequestSavePoint",
 	"m_iSchemaVersion",
 	"m_iLastLoadedSchemaVersion",
