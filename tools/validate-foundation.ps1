@@ -132,8 +132,8 @@ $requiredRuntimeScaffold = @(
 	'Configs/Map/MapSpawnConflict.conf',
 	'SCR_MapMarkerManagerComponent',
 	'Configs/Map/CampaignMapMarkerConfig.conf',
-	'SCR_MapMarkerDotCircle',
-	'HST_NativeMapMarker_hq',
+	'SCR_ScenarioFrameworkSlotMarker',
+	'SCR_ScenarioFrameworkMarkerCustom',
 	'SCR_PlayerSpawnPointManagerComponent',
 	'SCR_SpawnProtectionComponent',
 	'SCR_TimedSpawnPointComponent',
@@ -214,8 +214,12 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Primary FIA player loadouts must be explicitly affiliated with FIA in ${runtimeLayer}"
 	}
 
-	if ($text -notmatch "SCR_MapMarkerManagerComponent" -or $text -notmatch "SCR_MapMarkerDotCircle" -or $text -notmatch "HST_NativeMapMarker_hq") {
-		throw "Runtime layer must expose native map marker manager plus FIA HQ native marker: $runtimeLayer"
+	if ($text -notmatch "SCR_MapMarkerManagerComponent" -or $text -notmatch "SCR_ScenarioFrameworkSlotMarker" -or $text -notmatch "SCR_ScenarioFrameworkMarkerCustom") {
+		throw "Runtime layer must expose the native map marker manager plus Tonka-style Scenario Framework markers: $runtimeLayer"
+	}
+
+	if ($text -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
+		throw "Runtime layer must not use red dot-circle native markers for h-istasi map locations: $runtimeLayer"
 	}
 
 	foreach ($requiredRhsIonEntry in @(
@@ -234,10 +238,8 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		}
 	}
 
-	$runtimeNativeMarkerCount = ([regex]::Matches($text, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_")).Count
-	$runtimeNativeMarkerRplCount = ([regex]::Matches($text, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_[A-Za-z0-9_]+\s*\{\s*components\s*\{\s*RplComponent")).Count
-	if ($runtimeNativeMarkerRplCount -lt $runtimeNativeMarkerCount) {
-		throw "Runtime native map marker lacks RplComponent in ${runtimeLayer}"
+	if ($text -match "HST_NativeMapMarker_") {
+		throw "Runtime layer still contains stale native-dot marker IDs: $runtimeLayer"
 	}
 }
 Write-Host "World runtime scaffold OK"
@@ -530,11 +532,13 @@ foreach ($oldPlaceholderId in @(
 foreach ($requiredNativeMarkerEntry in @(
 	"SCR_MapMarkerManagerComponent",
 	"Configs/Map/CampaignMapMarkerConfig.conf",
-	"SCR_MapMarkerDotCircle",
-	"HST_NativeMapMarker_hq"
+	"SCR_ScenarioFrameworkSlotMarker",
+	"SCR_ScenarioFrameworkMarkerCustom",
+	"HST_MapMarker_",
+	"HST_CallsignMarker_"
 )) {
 	if ($runtimeMarkerLayer -notmatch [regex]::Escape($requiredNativeMarkerEntry)) {
-		throw "Missing native map marker scaffold entry: $requiredNativeMarkerEntry"
+		throw "Missing Tonka-style map marker scaffold entry: $requiredNativeMarkerEntry"
 	}
 }
 
@@ -550,10 +554,12 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"BuildCallsignMarkerPosition",
 	"magenta",
 	"NATIVE_MARKER_MANAGER_COMPONENT",
-	"SCR_MapMarkerManagerComponent"
+	"SCR_MapMarkerManagerComponent",
+	"TONKA_STYLE_MARKER_ENTITY",
+	"SCR_ScenarioFrameworkSlotMarker"
 )) {
 	if ($markerServiceText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
-		throw "Missing runtime native marker service entry: $requiredRuntimeMarkerEntry"
+		throw "Missing runtime Tonka-style marker service entry: $requiredRuntimeMarkerEntry"
 	}
 }
 
@@ -562,7 +568,7 @@ if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and $worldResou
 }
 
 if ($worldResourceText -match "SCR_ScenarioFrameworkSlotMarker" -and ($worldResourceText -notmatch "SCR_MapMarkerManagerComponent" -or $markerServiceText -notmatch "HST_MapMarkerService")) {
-	throw "Scenario Framework markers may only remain as fallback when native marker manager and runtime service are present"
+	throw "Scenario Framework markers require the native marker manager and h-istasi marker service"
 }
 
 foreach ($zoneId in $configZones) {
@@ -570,8 +576,8 @@ foreach ($zoneId in $configZones) {
 		throw "Missing strategic zone anchor for configured Tonka node: $zoneId"
 	}
 
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$zoneId")) {
-		throw "Missing native marker for configured Tonka node: $zoneId"
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$zoneId")) {
+		throw "Missing Tonka-style icon marker for configured node: $zoneId"
 	}
 }
 
@@ -586,8 +592,8 @@ foreach ($townId in $townZoneIds) {
 		throw "Missing town anchor for $townId"
 	}
 
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$townId")) {
-		throw "Missing native town map marker for $townId"
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$townId")) {
+		throw "Missing Tonka-style town icon marker for $townId"
 	}
 
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$townId")) {
@@ -600,14 +606,14 @@ foreach ($group in @($townAnchorIds | Group-Object | Where-Object Count -gt 1)) 
 	throw "Duplicate town layer anchor ID: $($group.Name)"
 }
 
-$nativeMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_NativeMapMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
+$nativeMarkerIds = @([regex]::Matches($runtimeMarkerLayer, "HST_MapMarker_([A-Za-z0-9_]+)") | ForEach-Object { $_.Groups[1].Value })
 foreach ($group in @($nativeMarkerIds | Group-Object | Where-Object Count -gt 1)) {
-	throw "Duplicate native map marker ID: $($group.Name)"
+	throw "Duplicate Tonka-style map marker ID: $($group.Name)"
 }
 
 foreach ($zoneId in $configZones) {
-	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_NativeMapMarker_$zoneId")) {
-		throw "Configured zone lacks native runtime marker: $zoneId"
+	if ($runtimeMarkerLayer -notmatch [regex]::Escape("HST_MapMarker_$zoneId")) {
+		throw "Configured zone lacks Tonka-style runtime marker: $zoneId"
 	}
 
 	if ($strategicZonesLayer -notmatch [regex]::Escape("HST_ZoneAnchor_$zoneId")) {
@@ -615,14 +621,13 @@ foreach ($zoneId in $configZones) {
 	}
 }
 
-$nativeMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_")).Count
+$nativeMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "GenericEntity\s+HST_MapMarker_")).Count
 if ($nativeMarkerCount -lt $configZones.Count) {
-	throw "Native runtime marker block count is unexpectedly low: $nativeMarkerCount"
+	throw "Tonka-style runtime marker block count is unexpectedly low: $nativeMarkerCount"
 }
 
-$nativeMarkerRplCount = ([regex]::Matches($runtimeMarkerLayer, "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_[A-Za-z0-9_]+\s*\{\s*components\s*\{\s*RplComponent")).Count
-if ($nativeMarkerRplCount -lt $nativeMarkerCount) {
-	throw "Native map marker is missing RplComponent for SCR_MapMarkerEntity init"
+if ($runtimeMarkerLayer -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
+	throw "Tonka-style marker layer must not include red dot-circle native marker overlays"
 }
 
 $fallbackCallsignMarkerCount = ([regex]::Matches($runtimeMarkerLayer, "HST_CallsignMarker_")).Count

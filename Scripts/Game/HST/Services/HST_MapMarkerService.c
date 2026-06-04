@@ -2,8 +2,8 @@ class HST_MapMarkerService
 {
 	static const string NATIVE_MARKER_MANAGER_COMPONENT = "SCR_MapMarkerManagerComponent";
 	static const string NATIVE_MARKER_CONFIG = "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf";
-	static const string NATIVE_DOT_MARKER_ENTITY = "SCR_MapMarkerDotCircle";
-	static const string NATIVE_DOT_MARKER_PREFAB = "{9B40AE75EA95FBEC}Prefabs/Markers/MapMarkerDotCircle.et";
+	static const string TONKA_STYLE_MARKER_ENTITY = "SCR_ScenarioFrameworkSlotMarker";
+	static const string TONKA_STYLE_MARKER_PREFAB = "{E537867C6E760514}Prefabs/Systems/ScenarioFramework/Components/SlotMarker.et";
 
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
@@ -16,7 +16,7 @@ class HST_MapMarkerService
 		AddZoneMarkers(state, preset);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
-		Print(string.Format("h-istasi | rebuilt %1 native map marker record(s)", state.m_aMapMarkers.Count()));
+		Print(string.Format("h-istasi | rebuilt %1 Tonka-style map marker record(s)", state.m_aMapMarkers.Count()));
 		return true;
 	}
 
