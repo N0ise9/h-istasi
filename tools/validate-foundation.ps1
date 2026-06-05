@@ -375,6 +375,7 @@ foreach ($requiredPetrosServiceEntry in @(
 	"ResolveArsenalPrefab",
 	"SpawnArsenal",
 	"IsUsableArsenalEntity",
+	"ResolvePrimaryArsenalPosition",
 	"ARSENAL_FALLBACK_PREFAB",
 	"ARSENAL_VISIBLE_LIFT_METERS",
 	"ARSENAL_POSITION_TOLERANCE_METERS",
@@ -450,7 +451,7 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"TentSmallUS_01.et",
+	"SupplyCache_S_FIA_01.et",
 	"RplComponent",
 	"ActionsManagerComponent",
 	"HST_HQArsenalOpenAction",
@@ -468,7 +469,6 @@ foreach ($forbiddenArsenalPrefabEntry in @(
 	"ArsenalBox_FIA",
 	"SCR_Arsenal",
 	"MSAR",
-	"SupplyCache_S_FIA_01.et",
 	"Ural4320_arsenal_box_tan.et"
 )) {
 	if ($hqArsenalPrefabText -match [regex]::Escape($forbiddenArsenalPrefabEntry)) {
@@ -494,7 +494,7 @@ if ((Get-Content -Raw $hqArsenalFallbackPrefabMetaPath) -notmatch '\{69853277113
 $hqArsenalFallbackPrefabText = Get-Content -Raw $hqArsenalFallbackPrefabPath
 foreach ($requiredArsenalFallbackPrefabEntry in @(
 	"GenericEntity HST_HQArsenalFallback",
-	"TentSmallUS_01.et",
+	"SupplyCache_S_FIA_01.et",
 	"RplComponent",
 	"ActionsManagerComponent",
 	"HST_HQArsenalOpenAction",
@@ -510,7 +510,6 @@ foreach ($forbiddenArsenalFallbackPrefabEntry in @(
 	"ArsenalBox_FIA",
 	"SCR_Arsenal",
 	"MSAR",
-	"SupplyCache_S_FIA_01.et",
 	"Ural4320_arsenal_box_tan.et"
 )) {
 	if ($hqArsenalFallbackPrefabText -match [regex]::Escape($forbiddenArsenalFallbackPrefabEntry)) {

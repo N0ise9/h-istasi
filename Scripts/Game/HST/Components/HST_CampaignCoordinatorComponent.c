@@ -447,7 +447,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_HQ.MoveHQ(m_State, hideoutId);
 		if (changed)
+		{
+			m_HQ.EnsureRuntimeObjects(m_State);
 			MarkMajorCampaignChange();
+		}
 		return changed;
 	}
 
@@ -463,7 +466,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vector hqPosition = HST_WorldPositionService.ResolveGroundPosition(playerEntity.GetOrigin(), HST_WorldPositionService.HQ_GROUND_OFFSET, true);
 		bool changed = m_HQ.MoveHQToPosition(m_State, hqPosition, "field_hq");
 		if (changed)
+		{
+			m_HQ.EnsureRuntimeObjects(m_State);
 			MarkMajorCampaignChange();
+		}
 		return changed;
 	}
 
@@ -1237,7 +1243,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		bool changed = m_HQ.SelectInitialHideout(m_State, hideoutId);
 		if (changed)
+		{
+			m_HQ.EnsureRuntimeObjects(m_State);
 			MarkMajorCampaignChange();
+		}
 		return changed;
 	}
 

@@ -6,7 +6,7 @@ class HST_HQService
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string ARSENAL_FALLBACK_PREFAB = "{6985327711303410}Prefabs/Objects/HST/HST_HQArsenalFallback.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
-	static const float ARSENAL_VISIBLE_LIFT_METERS = 0.15;
+	static const float ARSENAL_VISIBLE_LIFT_METERS = 0.0;
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
 
 	protected IEntity m_PetrosEntity;
@@ -159,6 +159,7 @@ class HST_HQService
 				state.m_sHQArsenalRuntimeStatus = string.Format("ready at %1 using %2", m_ArsenalEntity.GetOrigin(), ResolveArsenalPrefab(state));
 				state.m_sLastHQArsenalFailure = "";
 				m_bArsenalNeedsDelayedVerification = false;
+				Print(string.Format("h-istasi | HQ arsenal ready at %1 using %2", m_ArsenalEntity.GetOrigin(), ResolveArsenalPrefab(state)));
 				changed = true;
 			}
 			else
@@ -313,13 +314,12 @@ class HST_HQService
 		ClearRuntimeObjects(state);
 		vector petrosOffset = "2 0 2";
 		vector cacheOffset = "4 0 -2";
-		vector arsenalOffset = "1 0 1";
 		vector tentOffset = "-4 0 2";
 		state.m_sHQHideoutId = hideoutId;
 		state.m_vHQPosition = hqPosition;
 		state.m_vPetrosPosition = ResolveHQObjectPosition(hqPosition, petrosOffset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		state.m_vHQCachePosition = ResolveHQObjectPosition(hqPosition, cacheOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
-		state.m_vArsenalPosition = ResolveHQObjectPosition(hqPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
+		state.m_vArsenalPosition = ResolvePrimaryArsenalPosition(state);
 		state.m_vHQTentPosition = ResolveHQObjectPosition(hqPosition, tentOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_bHQDeployed = true;
 		state.m_bHQRuntimeObjectsSpawned = false;
@@ -557,11 +557,20 @@ class HST_HQService
 
 		if (prefab == ARSENAL_FALLBACK_PREFAB)
 		{
-			vector fallbackOffset = "-1 0 -2";
-			return ResolveHQObjectPosition(state.m_vHQPosition, fallbackOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS + 0.25);
+			vector fallbackOffset = "-2 0 -3";
+			return ResolveHQObjectPosition(state.m_vHQPosition, fallbackOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
 		}
 
-		return ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
+		return ResolvePrimaryArsenalPosition(state);
+	}
+
+	protected vector ResolvePrimaryArsenalPosition(HST_CampaignState state)
+	{
+		if (!state)
+			return "0 0 0";
+
+		vector arsenalOffset = "3 0 4";
+		return ResolveHQObjectPosition(state.m_vHQPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
 	}
 
 	protected vector ResolveHQObjectPosition(vector hqPosition, vector offset, float verticalOffset)

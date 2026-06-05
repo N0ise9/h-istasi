@@ -1,4 +1,4 @@
-GenericEntity HST_HQArsenalFallback : "Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et" {
+GenericEntity HST_HQArsenalFallback : "Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et" {
  components {
   RplComponent "{6985327711303416}" {
   }
