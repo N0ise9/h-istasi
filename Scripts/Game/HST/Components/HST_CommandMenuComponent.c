@@ -222,6 +222,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderMenu();
 	}
 
+	void CloseMenuFromExternal()
+	{
+		CloseMenu();
+	}
+
 	void RunCommandFromContext(string tabId, string commandId, string argument = "")
 	{
 		tabId = NormalizeTabId(tabId);

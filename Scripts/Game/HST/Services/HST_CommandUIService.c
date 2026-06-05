@@ -906,14 +906,6 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "arsenal", "Target reason", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "arsenal", "Vehicle cargo target", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
 
-		payload = AppendSection(payload, "loadout_editor", "Loadout Editor");
-		payload = AppendRow(payload, "loadout_editor", "Status", BuildLoadoutEditorStatus(state, playerId), BuildLoadoutEditorTone(state));
-		payload = AppendRow(payload, "loadout_editor", "Saved loadouts", string.Format("%1 personal preset(s)", CountPlayerSavedLoadouts(state, playerId)), "good");
-		payload = AppendRow(payload, "loadout_editor", "Issued ledger", string.Format("%1 finite / %2 INF item(s)", CountPlayerIssuedFiniteItems(state, playerId), CountPlayerIssuedInfiniteItems(state, playerId)), "warn");
-		payload = AppendRow(payload, "loadout_editor", "Authority", "h-istasi economy validates apply, counts, INF unlocks, and issued returns.", "good");
-		if (!state.m_sLastLoadoutEditorFailure.IsEmpty())
-			payload = AppendRow(payload, "loadout_editor", "Last failure", state.m_sLastLoadoutEditorFailure, "bad");
-
 		payload = AppendSection(payload, "items", "Recovered Equipment");
 		if (state.m_aArsenalItems.Count() == 0)
 			payload = AppendRow(payload, "items", "Empty", "Loot nearby bodies, crates, and enemy inventories into the HQ arsenal.", "neutral");
@@ -1100,7 +1092,6 @@ class HST_CommandUIService
 		string memberIdentityId = SelectFirstMemberIdentity(state);
 		bool airSupportReady = HasResistanceAirSupportCapability(state);
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
-		string firstSavedLoadoutId = SelectFirstSavedLoadoutId(state, playerId);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Start HQ: north forest", "setup_hideout", "hideout_north_forest", canUseCommander, "commander required");
@@ -1160,14 +1151,9 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ARSENAL)
 		{
-			AddMenuAction(actions, TAB_ARSENAL, "Open Loadout Editor", "loadout_editor_open", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Save current loadout draft", "loadout_save", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Apply saved loadout", "loadout_apply", firstSavedLoadoutId, canUseMember && !firstSavedLoadoutId.IsEmpty(), "no saved loadout");
-			AddMenuAction(actions, TAB_ARSENAL, "Close Loadout Editor", "loadout_editor_close", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Loadout editor report", "inspect_loadout_editor", "", canUseMember, "membership required");
 			return;
 		}
 

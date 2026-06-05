@@ -4,5 +4,7 @@ SCR_PlayerController HST_PlayerController : "{CD2B8EF361478648}Prefabs/Character
   }
   HST_CommandMenuComponent "{6985327711303203}" {
   }
+  HST_LoadoutEditorComponent "{6985327711303204}" {
+  }
  }
 }

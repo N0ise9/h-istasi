@@ -117,6 +117,53 @@ class HST_ArsenalService
 		return true;
 	}
 
+	int CleanupInvalidGarageRecords(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int removed;
+		for (int garageIndex = state.m_aGarageVehicles.Count() - 1; garageIndex >= 0; garageIndex--)
+		{
+			HST_GarageVehicleState vehicle = state.m_aGarageVehicles[garageIndex];
+			if (vehicle && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(vehicle.m_sPrefab))
+				continue;
+
+			string garagePrefab = "";
+			string garageId = "";
+			if (vehicle)
+			{
+				garagePrefab = vehicle.m_sPrefab;
+				garageId = vehicle.m_sVehicleId;
+			}
+
+			state.m_aGarageVehicles.Remove(garageIndex);
+			removed++;
+			Print(string.Format("h-istasi garage | removed invalid stored vehicle record %1 | prefab %2", garageId, garagePrefab), LogLevel.WARNING);
+		}
+
+		for (int cargoIndex = state.m_aVehicleCargoItems.Count() - 1; cargoIndex >= 0; cargoIndex--)
+		{
+			HST_VehicleCargoItemState cargoItem = state.m_aVehicleCargoItems[cargoIndex];
+			if (cargoItem && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(cargoItem.m_sVehiclePrefab))
+				continue;
+
+			string cargoPrefab = "";
+			string cargoId = "";
+			if (cargoItem)
+			{
+				cargoPrefab = cargoItem.m_sVehiclePrefab;
+				cargoId = cargoItem.m_sVehicleRuntimeId;
+			}
+
+			state.m_aVehicleCargoItems.Remove(cargoIndex);
+			removed++;
+			Print(string.Format("h-istasi vehicle cargo | removed invalid vehicle cargo record %1 | prefab %2", cargoId, cargoPrefab), LogLevel.WARNING);
+		}
+
+		return removed;
+	}
+
 	HST_GarageVehicleState RemoveVehicle(HST_CampaignState state, string vehicleId)
 	{
 		for (int i = 0; i < state.m_aGarageVehicles.Count(); i++)

@@ -83,6 +83,44 @@ function Get-CoordinateXZKey {
 	return "$([math]::Round($x, 3)),$([math]::Round($z, 3))"
 }
 
+function Get-BraceCountsOutsideStrings {
+	param([string] $Text)
+
+	$open = 0
+	$close = 0
+	$inString = $false
+	$escaped = $false
+	for ($i = 0; $i -lt $Text.Length; $i++) {
+		$char = $Text[$i]
+		if ($inString) {
+			if ($escaped) {
+				$escaped = $false
+			} elseif ($char -eq "\") {
+				$escaped = $true
+			} elseif ($char -eq '"') {
+				$inString = $false
+			}
+			continue
+		}
+
+		if ($char -eq '"') {
+			$inString = $true
+			continue
+		}
+
+		if ($char -eq "{") {
+			$open++
+		} elseif ($char -eq "}") {
+			$close++
+		}
+	}
+
+	return [pscustomobject]@{
+		Open = $open
+		Close = $close
+	}
+}
+
 $project = Get-Content -Raw "addon.gproj"
 foreach ($requiredProjectDependency in @(
 	'"58D0FB3206B6F859"',
@@ -118,7 +156,8 @@ $files = Get-ChildItem -Recurse -File -Include *.c,*.conf,*.ent,*.et,*.meta,*.la
 
 foreach ($file in $files) {
 	$text = Get-Content -Raw $file.FullName
-	if (([regex]::Matches($text, "\{")).Count -ne ([regex]::Matches($text, "\}")).Count) {
+	$braceCounts = Get-BraceCountsOutsideStrings $text
+	if ($braceCounts.Open -ne $braceCounts.Close) {
 		throw "Brace imbalance: $($file.FullName)"
 	}
 
@@ -353,7 +392,6 @@ foreach ($requiredPetrosPrefabEntry in @(
 	"HST_PetrosCommandMenuAction",
 	"HST_PetrosMoveBaseHereAction",
 	"HST_PetrosArsenalMenuAction",
-	"HST_PetrosLoadoutEditorAction",
 	"ParentContextList",
 	"UIInfo"
 )) {
@@ -474,23 +512,22 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	'{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et',
+	'{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et',
 	"RplComponent",
 	"ActionsManagerComponent",
-	"HST_HQArsenalOpenAction",
 	"HST_HQArsenalLoadoutEditorAction",
-	"HST_HQArsenalLootNearbyAction",
-	"Open h-istasi Arsenal",
-	"Open h-istasi Loadout Editor",
-	"Loot nearby to h-istasi Arsenal"
+	"Open Loadout Editor"
 )) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
 		throw "HST HQ arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalPrefabEntry"
 	}
 }
 foreach ($forbiddenArsenalPrefabEntry in @(
-	"ArsenalBox_FIA.et",
-	"ArsenalBoxes/FIA",
+	'{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et',
+	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLootNearbyAction",
+	"Open h-istasi Arsenal",
+	"Loot nearby to h-istasi Arsenal",
 	"SupplyCache_S_FIA_01.et",
 	"Prefabs/Compositions/Slotted/SlotFlatSmall",
 	"SupplyDrop/Parts",
@@ -1078,10 +1115,10 @@ foreach ($requiredService in @(
 	"HST_PetrosCommandMenuAction",
 	"HST_PetrosMoveBaseHereAction",
 	"HST_PetrosArsenalMenuAction",
-	"HST_HQArsenalOpenAction",
-	"HST_HQArsenalLootNearbyAction",
+	"HST_HQArsenalLoadoutEditorAction",
 	"HST_VehicleCollectLootAction",
-	"HST_VehicleUnloadLootAction"
+	"HST_VehicleUnloadLootAction",
+	"HST_LoadoutEditorComponent"
 )) {
 	if ($requiredService -notin $definedSymbols) {
 		throw "Missing Antistasi framework service: $requiredService"
@@ -1674,7 +1711,7 @@ foreach ($requiredLootEntry in @(
 	"m_iLastVehicleTargetCargoEntries",
 	"no safe root vehicle nearby",
 	"nearest candidate was not a top-level vehicle",
-	"stored then deleted verified root vehicle",
+	"deleted verified root vehicle then stored garage record",
 	"selected root still present after delete",
 	"RedeployGarageVehicle",
 	"HST_BuildModeService",
@@ -1700,8 +1737,6 @@ foreach ($requiredLootEntry in @(
 	"m_bVehicleLootOnlyLockedItems",
 	"m_bVehicleLootRemoveSource",
 	"m_iVehicleLootMaxItemsPerAction",
-	"HST_HQArsenalOpenAction",
-	"HST_HQArsenalLootNearbyAction",
 	"HST_VehicleCollectLootAction",
 	"HST_VehicleUnloadLootAction",
 	"Load loot to vehicle",
@@ -1781,11 +1816,6 @@ foreach ($requiredMenuRecoveryEntry in @(
 	"Rebuild HQ assets",
 	"rebuild_hq_assets",
 	"Build redeploy",
-	"Loadout Editor",
-	"Open Loadout Editor",
-	"loadout_editor_open",
-	"loadout_apply",
-	"loadout_save",
 	"Force income tick",
 	"Force mission progress"
 )) {
@@ -1793,11 +1823,26 @@ foreach ($requiredMenuRecoveryEntry in @(
 		throw "Command menu is missing recovery/build-mode entry: $requiredMenuRecoveryEntry"
 	}
 }
+foreach ($forbiddenNormalLoadoutMenuEntry in @(
+	'AddMenuAction\(actions, TAB_ARSENAL, "Open Loadout Editor"',
+	'AddMenuAction\(actions, TAB_ARSENAL, "Save current loadout draft"',
+	'AddMenuAction\(actions, TAB_ARSENAL, "Apply saved loadout"',
+	'AddMenuAction\(actions, TAB_ARSENAL, "Close Loadout Editor"',
+	'AddMenuAction\(actions, TAB_ARSENAL, "Loadout editor report"',
+	'AppendSection\(payload, "loadout_editor"'
+)) {
+	if ($commandUiText -match $forbiddenNormalLoadoutMenuEntry) {
+		throw "Normal command menu must not expose loadout editor entry: $forbiddenNormalLoadoutMenuEntry"
+	}
+}
 Write-Host "Command menu recovery/build cleanup OK"
 
 $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
+$loadoutEditorComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"
 foreach ($requiredLoadoutEditorEntry in @(
 	"HST_LoadoutEditorService",
+	"HST_LoadoutEditorComponent",
+	'$profile:h-istasi/loadouts',
 	"HST_LoadoutSlotState",
 	"HST_SavedLoadoutState",
 	"HST_IssuedLoadoutItemState",
@@ -1821,11 +1866,25 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"RequestMemberCloseLoadoutEditor",
 	"RequestMemberSaveLoadoutDraft",
 	"RequestMemberApplySavedLoadout",
-	"HST_PetrosLoadoutEditorAction",
 	"HST_HQArsenalLoadoutEditorAction"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLoadoutEditorEntry)) {
 		throw "Custom loadout editor contract is missing: $requiredLoadoutEditorEntry"
+	}
+}
+if (!(Test-Path "UI/layouts/HST_LoadoutEditor.layout")) {
+	throw "Missing fullscreen loadout editor layout resource"
+}
+foreach ($requiredLoadoutEditorComponentEntry in @(
+	"OpenFromArsenal",
+	"CloseMenuFromExternal",
+	"RenderEditor",
+	"RenderPreviewStage",
+	"RequestServerAction",
+	"OnServerActionResult"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
+		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
 	}
 }
 foreach ($forbiddenArsenalRuntimeEntry in @(
@@ -1843,6 +1902,11 @@ $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c
 $vehicleRootPolicyText = Get-Content -Raw "Scripts/Game/HST/Services/HST_VehicleRootPolicy.c"
 foreach ($requiredVehicleRejectionEntry in @(
 	'prefab.Contains("Prefabs/Vehicles/")',
+	"GetResourceBasename",
+	"BasenameStartsWith",
+	"IsRejectedWorldPrefab",
+	"Prefabs/Vegetation/",
+	'BasenameStartsWith(basename, "b_")',
 	"IsKnownVehicleRootName",
 	"M998",
 	"S1203",
@@ -1856,9 +1920,15 @@ foreach ($requiredVehicleRejectionEntry in @(
 	'name.Contains("/VehParts/")',
 	'name.Contains("LicensePlate")'
 )) {
-	if ($scriptText -notmatch [regex]::Escape($requiredVehicleRejectionEntry)) {
+	if ($vehicleRootPolicyText -notmatch [regex]::Escape($requiredVehicleRejectionEntry)) {
 		throw "Loot service must keep strict vehicle-root rejection entry: $requiredVehicleRejectionEntry"
 	}
+}
+if ($vehicleRootPolicyText -match 'Contains\("Bus"\)' -or $vehicleRootPolicyText -match 'Contains\("Car_"\)') {
+	throw "Vehicle root policy must not use loose Bus/Car_ substring matching; basename checks only"
+}
+if ($vehicleRootPolicyText -notmatch 'BasenameStartsWith\(basename, "Bus_"\)' -or $vehicleRootPolicyText -notmatch 'BasenameStartsWith\(basename, "Car_"\)') {
+	throw "Vehicle root policy must use normalized basename vehicle token checks"
 }
 foreach ($removedVehicleGateEntry in @(
 	"HasVehicleRootComponent",
@@ -1879,6 +1949,9 @@ foreach ($requiredRuntimeVehicleEntry in @(
 	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeVehicleEntry)) {
 		throw "Vehicle targeting must support registered h-istasi runtime vehicles: $requiredRuntimeVehicleEntry"
 	}
+}
+if ($scriptText -notmatch [regex]::Escape("CleanupInvalidGarageRecords")) {
+	throw "Campaign startup must purge invalid garage/cargo vehicle records"
 }
 if ($lootServiceText -match 'return true;\s*\r?\n\s*}\s*\r?\n\s*protected bool IsRejectedVehicleRootPrefab') {
 	throw "Loot service must not accept every Prefabs/Vehicles resource as a root vehicle"
@@ -1906,8 +1979,8 @@ foreach ($requiredProtectedLootEntry in @(
 if ($lootServiceText -notmatch 'RekeyLegacyVehiclePartCargo[\s\S]*?m_sVehicleRuntimeId = vehicleId') {
 	throw "Vehicle unload must rekey legacy part-bound cargo to the selected root vehicle"
 }
-if ($lootServiceText -notmatch 'CaptureNearbyVehicleToGarage[\s\S]*?StoreVehicle[\s\S]*?DeleteEntityAndChildren[\s\S]*?IsVehicleRootStillPresent') {
-	throw "Garage capture must store, delete the selected root, and verify the root disappeared"
+if ($lootServiceText -notmatch 'CaptureNearbyVehicleToGarage[\s\S]*?DeleteEntityAndChildren\(selectedVehicle\)[\s\S]*?IsVehicleRootStillPresent[\s\S]*?StoreVehicle\(state, vehicle\)') {
+	throw "Garage capture must delete and verify the selected root before keeping a garage record"
 }
 if ($lootServiceText -match 'if \(!prefab\.Contains\("Vehicles"\) && !prefab\.Contains\("Vehicle"\)\)') {
 	throw "Loot service must not use loose Vehicle/Vehicles substring matching for vehicle roots"

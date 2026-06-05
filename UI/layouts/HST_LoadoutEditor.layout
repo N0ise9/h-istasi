@@ -1,0 +1,4 @@
+FrameWidget HST_LoadoutEditorRoot {
+ FrameWidget HST_LoadoutEditorDynamicCanvas {
+ }
+}

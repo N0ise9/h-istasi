@@ -130,22 +130,22 @@ class HST_LootService
 		vehicle.m_vAngles = ResolveStoredVehicleAngles(selectedVehicle, vehicle.m_sPrefab);
 		vehicle.m_fFuel = 1.0;
 		vehicle.m_bArmed = IsLikelyArmedVehicle(vehicle.m_sPrefab);
-		if (!arsenal.StoreVehicle(state, vehicle))
-			return "h-istasi garage | failed: vehicle could not be stored";
 
 		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
 		if (IsVehicleRootStillPresent(selectedVehicleRuntimeId, vehicle.m_vPosition))
 		{
-			arsenal.RemoveVehicle(state, vehicle.m_sVehicleId);
 			state.m_sLastVehicleTargetStatus = "garage capture failed";
 			state.m_sLastVehicleTargetReason = "selected root still present after delete";
-			Print(string.Format("h-istasi garage | failed to despawn %1 after storing; removed pending garage record %2 | prefab %3", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab), LogLevel.WARNING);
+			Print(string.Format("h-istasi garage | failed to despawn %1; no garage record kept | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
 			return string.Format("h-istasi garage | failed: %1 did not despawn, garage record was not kept", vehicle.m_sDisplayName);
 		}
 
+		if (!arsenal.StoreVehicle(state, vehicle))
+			return "h-istasi garage | failed: vehicle despawned but garage record could not be stored";
+
 		MarkRuntimeVehicleDeleted(state, selectedVehicleRuntimeId, vehicle.m_vPosition);
 		state.m_sLastVehicleTargetStatus = string.Format("garage captured %1", vehicle.m_sDisplayName);
-		state.m_sLastVehicleTargetReason = "stored then deleted verified root vehicle";
+		state.m_sLastVehicleTargetReason = "deleted verified root vehicle then stored garage record";
 		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters));
 		return string.Format("h-istasi garage | captured %1 | complete", vehicle.m_sDisplayName);
 	}
@@ -571,7 +571,7 @@ class HST_LootService
 		if (prefabOrName.Contains("HST_HQArsenal") || prefabOrName.Contains("Character_HST_Petros"))
 			return true;
 
-		if (prefabOrName.Contains("Arsenal") || prefabOrName.Contains("arsenal") || prefabOrName.Contains("MSAR") || prefabOrName.Contains("SCR_Arsenal"))
+		if (prefabOrName.Contains("Arsenal") || prefabOrName.Contains("arsenal"))
 			return true;
 
 		if (prefabOrName.Contains("SupplyCache") || prefabOrName.Contains("Supply") || prefabOrName.Contains("Cache") || prefabOrName.Contains("TentSmallUS"))
@@ -954,7 +954,8 @@ class HST_LootService
 			IEntity rootVehicle = ResolveVehicleRoot(candidate, rejectReason);
 			if (!rootVehicle)
 			{
-				result.m_sRejectReason = rejectReason;
+				if (!result.m_SelectedRoot)
+					result.m_sRejectReason = rejectReason;
 				continue;
 			}
 
@@ -966,13 +967,15 @@ class HST_LootService
 			string protectedReason;
 			if (IsProtectedHQEntity(state, rootVehicle, ResolvePrefabName(rootVehicle), protectedReason))
 			{
-				result.m_sRejectReason = protectedReason;
+				if (!result.m_SelectedRoot)
+					result.m_sRejectReason = protectedReason;
 				continue;
 			}
 
 			if (!IsEligibleLootVehicle(rootVehicle, playerEntity))
 			{
-				result.m_sRejectReason = "resolved root failed loot vehicle eligibility";
+				if (!result.m_SelectedRoot)
+					result.m_sRejectReason = "resolved root failed loot vehicle eligibility";
 				continue;
 			}
 

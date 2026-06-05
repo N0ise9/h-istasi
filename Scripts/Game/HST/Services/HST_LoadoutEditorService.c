@@ -1,6 +1,7 @@
 class HST_LoadoutEditorService
 {
 	static const string PREVIEW_MANNEQUIN_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
+	static const string LOADOUT_DIRECTORY = "$profile:h-istasi/loadouts";
 	static const int MAX_AUTO_DRAFT_SLOTS = 12;
 
 	protected ref array<string> m_aPreviewIdentityIds = {};
@@ -12,6 +13,7 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: campaign/player state not ready";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
+		int loadedTemplates = LoadPersonalLoadoutsFromFile(state, identityId);
 		session.m_sStatus = "open";
 		session.m_sLastFailure = "";
 		session.m_sPreviewPrefab = PREVIEW_MANNEQUIN_PREFAB;
@@ -22,7 +24,7 @@ class HST_LoadoutEditorService
 		if (!SpawnPreviewMannequin(state, identityId, playerId, session))
 			session.m_sLastFailure = "preview mannequin could not spawn; editor economy remains usable";
 
-		state.m_sLoadoutEditorStatus = string.Format("open for %1 | preview %2", identityId, session.m_bPreviewSpawned);
+		state.m_sLoadoutEditorStatus = string.Format("open for %1 | preview %2 | file templates %3", identityId, session.m_bPreviewSpawned, loadedTemplates);
 		state.m_sLastLoadoutEditorFailure = session.m_sLastFailure;
 		return "h-istasi loadout editor | opened custom arsenal editor | " + BuildEditorReport(state, identityId);
 	}
@@ -90,6 +92,7 @@ class HST_LoadoutEditorService
 		}
 
 		state.m_aSavedLoadouts.Insert(loadout);
+		SavePersonalLoadoutsToFile(state, identityId);
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
 		session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
@@ -206,22 +209,15 @@ class HST_LoadoutEditorService
 
 	protected vector ResolvePreviewPosition(HST_CampaignState state, int playerId)
 	{
-		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
-		if (playerEntity)
-		{
-			vector origin = playerEntity.GetOrigin();
-			origin[0] = origin[0] + 1.5;
-			origin[2] = origin[2] + 2.0;
-			vector resolved;
-			if (HST_WorldPositionService.TryResolveGroundPosition(origin, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolved, true))
-				return resolved;
-			return origin;
-		}
-
 		if (state && !IsZeroVector(state.m_vArsenalPosition))
 		{
 			vector hqPreview = state.m_vArsenalPosition;
-			hqPreview[0] = hqPreview[0] + 1.5;
+			hqPreview[0] = hqPreview[0] + 6.0;
+			hqPreview[2] = hqPreview[2] + 6.0;
+			vector resolvedArsenalPreview;
+			if (HST_WorldPositionService.TryResolveGroundPosition(hqPreview, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, resolvedArsenalPreview, true))
+				return resolvedArsenalPreview;
+
 			return hqPreview;
 		}
 
@@ -591,5 +587,191 @@ class HST_LoadoutEditorService
 	protected bool IsZeroVector(vector value)
 	{
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected int LoadPersonalLoadoutsFromFile(HST_CampaignState state, string identityId)
+	{
+		if (!state || identityId.IsEmpty())
+			return 0;
+
+		array<string> lines = ReadLines(BuildPersonalLoadoutPath(identityId));
+		if (lines.Count() == 0)
+			return 0;
+
+		for (int existingIndex = state.m_aSavedLoadouts.Count() - 1; existingIndex >= 0; existingIndex--)
+		{
+			HST_SavedLoadoutState existingLoadout = state.m_aSavedLoadouts[existingIndex];
+			if (existingLoadout && existingLoadout.m_sOwnerIdentityId == identityId)
+				state.m_aSavedLoadouts.Remove(existingIndex);
+		}
+
+		HST_SavedLoadoutState currentLoadout;
+		int loaded;
+		foreach (string line : lines)
+		{
+			if (line.Contains("\"loadoutId\""))
+			{
+				currentLoadout = new HST_SavedLoadoutState();
+				currentLoadout.m_sOwnerIdentityId = identityId;
+				currentLoadout.m_sLoadoutId = ExtractJsonString(line, "loadoutId");
+				currentLoadout.m_sDisplayName = ExtractJsonString(line, "displayName");
+				currentLoadout.m_iUpdatedAtSecond = ExtractJsonInt(line, "updatedAtSecond");
+				if (!currentLoadout.m_sLoadoutId.IsEmpty())
+				{
+					state.m_aSavedLoadouts.Insert(currentLoadout);
+					loaded++;
+				}
+				continue;
+			}
+
+			if (!currentLoadout || !line.Contains("\"slotId\""))
+				continue;
+
+			HST_LoadoutSlotState slot = new HST_LoadoutSlotState();
+			slot.m_sSlotId = ExtractJsonString(line, "slotId");
+			slot.m_sItemPrefab = ExtractJsonString(line, "itemPrefab");
+			slot.m_sDisplayName = ExtractJsonString(line, "displayName");
+			slot.m_sCategory = ExtractJsonString(line, "category");
+			slot.m_iQuantity = Math.Max(1, ExtractJsonInt(line, "quantity"));
+			slot.m_sWeaponSlotId = ExtractJsonString(line, "weaponSlotId");
+			slot.m_sAttachmentSlotId = ExtractJsonString(line, "attachmentSlotId");
+			if (!slot.m_sSlotId.IsEmpty() && !slot.m_sItemPrefab.IsEmpty())
+				currentLoadout.m_aSlots.Insert(slot);
+		}
+
+		return loaded;
+	}
+
+	protected bool SavePersonalLoadoutsToFile(HST_CampaignState state, string identityId)
+	{
+		if (!state || identityId.IsEmpty())
+			return false;
+
+		FileIO.MakeDirectory("$profile:h-istasi");
+		FileIO.MakeDirectory(LOADOUT_DIRECTORY);
+
+		array<string> lines = {};
+		lines.Insert("{");
+		lines.Insert(string.Format("  \"ownerIdentityId\": \"%1\",", JsonSafe(SafeIdentityId(identityId))));
+		lines.Insert("  \"loadouts\": [");
+		int emittedLoadouts;
+		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
+		{
+			if (!loadout || loadout.m_sOwnerIdentityId != identityId)
+				continue;
+
+			if (emittedLoadouts > 0)
+				lines.Insert("    },");
+
+			lines.Insert(string.Format("    { \"loadoutId\": \"%1\", \"displayName\": \"%2\", \"updatedAtSecond\": %3, \"slots\": [", JsonSafe(loadout.m_sLoadoutId), JsonSafe(loadout.m_sDisplayName), loadout.m_iUpdatedAtSecond));
+			for (int slotIndex = 0; slotIndex < loadout.m_aSlots.Count(); slotIndex++)
+			{
+				HST_LoadoutSlotState slot = loadout.m_aSlots[slotIndex];
+				if (!slot)
+					continue;
+
+				string suffix = ",";
+				if (slotIndex == loadout.m_aSlots.Count() - 1)
+					suffix = "";
+
+				lines.Insert(string.Format("      { \"slotId\": \"%1\", \"itemPrefab\": \"%2\", \"displayName\": \"%3\", \"category\": \"%4\", \"quantity\": %5, \"weaponSlotId\": \"%6\", \"attachmentSlotId\": \"%7\" }%8", JsonSafe(slot.m_sSlotId), JsonSafe(slot.m_sItemPrefab), JsonSafe(slot.m_sDisplayName), JsonSafe(slot.m_sCategory), Math.Max(1, slot.m_iQuantity), JsonSafe(slot.m_sWeaponSlotId), JsonSafe(slot.m_sAttachmentSlotId), suffix));
+			}
+			lines.Insert("    ]");
+			emittedLoadouts++;
+		}
+
+		if (emittedLoadouts > 0)
+			lines.Insert("    }");
+
+		lines.Insert("  ]");
+		lines.Insert("}");
+		return WriteLines(BuildPersonalLoadoutPath(identityId), lines);
+	}
+
+	protected string BuildPersonalLoadoutPath(string identityId)
+	{
+		return LOADOUT_DIRECTORY + "/" + SafeIdentityId(identityId) + ".json";
+	}
+
+	protected string SafeIdentityId(string identityId)
+	{
+		string safeId = identityId;
+		safeId.Replace("/", "_");
+		safeId.Replace(":", "_");
+		safeId.Replace(" ", "_");
+		if (safeId.IsEmpty())
+			safeId = "unknown";
+
+		return safeId;
+	}
+
+	protected string JsonSafe(string value)
+	{
+		string safe = value;
+		safe.Replace("\n", " ");
+		safe.Replace("\r", " ");
+		return safe;
+	}
+
+	protected string ExtractJsonString(string line, string key)
+	{
+		string marker = "\"" + key + "\": \"";
+		int start = line.IndexOf(marker);
+		if (start < 0)
+			return "";
+
+		start += marker.Length();
+		int end = line.IndexOfFrom(start, "\"");
+		if (end < 0)
+			return "";
+
+		return line.Substring(start, end - start);
+	}
+
+	protected int ExtractJsonInt(string line, string key)
+	{
+		string marker = "\"" + key + "\": ";
+		int start = line.IndexOf(marker);
+		if (start < 0)
+			return 0;
+
+		start += marker.Length();
+		int end = line.IndexOfFrom(start, ",");
+		if (end < 0)
+			end = line.IndexOfFrom(start, "}");
+		if (end < 0)
+			end = line.Length();
+
+		string value = line.Substring(start, end - start);
+		value.Replace(" ", "");
+		return value.ToInt();
+	}
+
+	protected array<string> ReadLines(string fileName)
+	{
+		array<string> lines = {};
+		FileHandle file = FileIO.OpenFile(fileName, FileMode.READ);
+		if (!file)
+			return lines;
+
+		string line;
+		while (file.ReadLine(line) >= 0)
+			lines.Insert(line);
+
+		file.Close();
+		return lines;
+	}
+
+	protected bool WriteLines(string fileName, notnull array<string> lines)
+	{
+		FileHandle file = FileIO.OpenFile(fileName, FileMode.WRITE);
+		if (!file)
+			return false;
+
+		foreach (string line : lines)
+			file.WriteLine(line);
+
+		file.Close();
+		return true;
 	}
 }

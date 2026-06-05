@@ -11,7 +11,7 @@ class HST_VehicleRootPolicy
 		if (IsVehiclePartPrefab(prefab))
 			return false;
 
-		if (prefab.Contains("Prefabs/Vehicles/"))
+		if (prefab.Contains("Prefabs/Vehicles/") || prefab.Contains("/Vehicles/"))
 			return true;
 
 		return IsKnownVehicleRootName(prefab);
@@ -22,16 +22,26 @@ class HST_VehicleRootPolicy
 		if (prefab.IsEmpty())
 			return true;
 
-		if (prefab.Contains("Supply") || prefab.Contains("supply"))
+		if (IsRejectedWorldPrefab(prefab))
 			return true;
 
-		if (prefab.Contains("Crate") || prefab.Contains("crate") || prefab.Contains("Cache") || prefab.Contains("cache"))
-			return true;
+		bool isVehiclePath = prefab.Contains("Prefabs/Vehicles/") || prefab.Contains("/Vehicles/");
+		if (!isVehiclePath && IsKnownVehicleRootName(prefab))
+			return false;
 
-		if (prefab.Contains("Box") || prefab.Contains("box") || prefab.Contains("Cargo") || prefab.Contains("cargo") || prefab.Contains("Container") || prefab.Contains("container"))
-			return true;
+		if (!isVehiclePath)
+		{
+			if (prefab.Contains("Supply") || prefab.Contains("supply"))
+				return true;
 
-		if (prefab.Contains("Arsenal") || prefab.Contains("arsenal") || prefab.Contains("Composition") || prefab.Contains("composition") || prefab.Contains("Props/") || prefab.Contains("/Props"))
+			if (prefab.Contains("Crate") || prefab.Contains("crate") || prefab.Contains("Cache") || prefab.Contains("cache"))
+				return true;
+
+			if (prefab.Contains("Box") || prefab.Contains("box") || prefab.Contains("Cargo") || prefab.Contains("cargo") || prefab.Contains("Container") || prefab.Contains("container"))
+				return true;
+		}
+
+		if (prefab.Contains("Arsenal") || prefab.Contains("arsenal") || prefab.Contains("Composition") || prefab.Contains("composition"))
 			return true;
 
 		return false;
@@ -42,22 +52,35 @@ class HST_VehicleRootPolicy
 		if (prefab.IsEmpty())
 			return false;
 
-		if (prefab.Contains("Vehicle") || prefab.Contains("vehicle"))
+		string basename = GetResourceBasename(prefab);
+		if (basename.IsEmpty())
+			return false;
+
+		if (BasenameStartsWith(basename, "M998") || BasenameStartsWith(basename, "M1025") || BasenameStartsWith(basename, "M151") || BasenameStartsWith(basename, "M923") || BasenameStartsWith(basename, "M939"))
 			return true;
 
-		if (prefab.Contains("M998") || prefab.Contains("M1025") || prefab.Contains("M151") || prefab.Contains("M923") || prefab.Contains("M939"))
+		if (BasenameStartsWith(basename, "M11") || BasenameStartsWith(basename, "M1151") || basename.Contains("Humvee") || basename.Contains("HMMWV"))
 			return true;
 
-		if (prefab.Contains("M11") || prefab.Contains("M1151") || prefab.Contains("Humvee") || prefab.Contains("HMMWV"))
+		if (basename.Contains("M998") || basename.Contains("M1025") || basename.Contains("M151") || basename.Contains("M923") || basename.Contains("M939"))
 			return true;
 
-		if (prefab.Contains("S105") || prefab.Contains("S1203") || prefab.Contains("UAZ") || prefab.Contains("Ural") || prefab.Contains("GAZ") || prefab.Contains("Kamaz"))
+		if (basename.Contains("M11") || basename.Contains("M1151") || basename.Contains("S105") || basename.Contains("S1203") || basename.Contains("UAZ") || basename.Contains("Ural"))
 			return true;
 
-		if (prefab.Contains("BTR") || prefab.Contains("BMP") || prefab.Contains("BRDM") || prefab.Contains("APC") || prefab.Contains("Truck") || prefab.Contains("Car_"))
+		if (BasenameStartsWith(basename, "S105") || BasenameStartsWith(basename, "S1203") || BasenameStartsWith(basename, "UAZ") || BasenameStartsWith(basename, "Ural") || BasenameStartsWith(basename, "GAZ") || BasenameStartsWith(basename, "Kamaz"))
 			return true;
 
-		if (prefab.Contains("Jeep") || prefab.Contains("Offroad") || prefab.Contains("Pickup") || prefab.Contains("Van") || prefab.Contains("Bus"))
+		if (basename.Contains("GAZ") || basename.Contains("Kamaz") || basename.Contains("BTR") || basename.Contains("BMP") || basename.Contains("BRDM"))
+			return true;
+
+		if (BasenameStartsWith(basename, "BTR") || BasenameStartsWith(basename, "BMP") || BasenameStartsWith(basename, "BRDM") || BasenameStartsWith(basename, "APC"))
+			return true;
+
+		if (BasenameStartsWith(basename, "Truck") || BasenameStartsWith(basename, "Car_") || BasenameStartsWith(basename, "Jeep") || BasenameStartsWith(basename, "Offroad"))
+			return true;
+
+		if (BasenameStartsWith(basename, "Pickup") || BasenameStartsWith(basename, "Van") || BasenameStartsWith(basename, "Bus_") || basename == "Bus.et")
 			return true;
 
 		return false;
@@ -105,6 +128,9 @@ class HST_VehicleRootPolicy
 		if (prefab.IsEmpty())
 			return "candidate had no prefab";
 
+		if (IsRejectedWorldPrefab(prefab))
+			return "prefab is scenery, prop, character, item, weapon, or vegetation";
+
 		if (IsRejectedVehicleRootPrefab(prefab))
 			return "prefab is cargo/supply/arsenal/prop, not vehicle root";
 
@@ -115,5 +141,66 @@ class HST_VehicleRootPolicy
 			return "prefab is not an eligible vehicle root resource";
 
 		return "candidate passed prefab checks";
+	}
+
+	static bool IsRejectedWorldPrefab(string prefab)
+	{
+		if (prefab.Contains("Prefabs/Vegetation/") || prefab.Contains("/Vegetation/"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Props/") || prefab.Contains("/Props/"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Characters/") || prefab.Contains("/Characters/"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Items/") || prefab.Contains("/Items/"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Weapons/") || prefab.Contains("/Weapons/"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Structures/") || prefab.Contains("/Structures/"))
+			return true;
+
+		if (prefab.Contains("Prefabs/Compositions/") || prefab.Contains("/Compositions/"))
+			return true;
+
+		string basename = GetResourceBasename(prefab);
+		if (BasenameStartsWith(basename, "b_") || BasenameStartsWith(basename, "Bush") || BasenameStartsWith(basename, "Tree"))
+			return true;
+
+		if (basename.Contains("Bush") || basename.Contains("Tree") || basename.Contains("Grass"))
+			return true;
+
+		return false;
+	}
+
+	static string GetResourceBasename(string prefab)
+	{
+		string basename = prefab;
+		int lastSlash = -1;
+		for (int index = 0; index < prefab.Length(); index++)
+		{
+			string current = prefab.Substring(index, 1);
+			if (current == "/")
+				lastSlash = index;
+		}
+
+		if (lastSlash >= 0 && lastSlash + 1 < prefab.Length())
+			basename = prefab.Substring(lastSlash + 1, prefab.Length() - lastSlash - 1);
+
+		return basename;
+	}
+
+	static bool BasenameStartsWith(string basename, string prefix)
+	{
+		if (basename.IsEmpty() || prefix.IsEmpty())
+			return false;
+
+		if (basename.Length() < prefix.Length())
+			return false;
+
+		return basename.Substring(0, prefix.Length()) == prefix;
 	}
 }

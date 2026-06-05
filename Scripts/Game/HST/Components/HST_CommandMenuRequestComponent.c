@@ -132,6 +132,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
 		if (menu)
 			menu.OnServerSnapshot(payload, lastResult);
+
+		HST_LoadoutEditorComponent loadoutEditor = HST_LoadoutEditorComponent.GetLocalInstance();
+		if (loadoutEditor)
+			loadoutEditor.OnServerActionResult(payload, lastResult);
 	}
 
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult)

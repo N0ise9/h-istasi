@@ -1305,6 +1305,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Content.EnsureGeneratedContent(m_State, m_Preset);
 		if (m_Civilians)
 			m_Civilians.EnsureCivilianZones(m_State);
+		if (m_Arsenal && m_Arsenal.CleanupInvalidGarageRecords(m_State) > 0)
+			m_State.m_sLastVehicleTargetStatus = "removed invalid saved vehicle/cargo records";
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && !m_State.m_bHQDeployed && m_HQ)
 			m_HQ.BootstrapInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());

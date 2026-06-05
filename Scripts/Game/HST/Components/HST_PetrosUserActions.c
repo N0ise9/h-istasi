@@ -48,6 +48,22 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 		Print("h-istasi command | player request bridge not ready", LogLevel.WARNING);
 	}
 
+	protected void OpenLoadoutEditor(IEntity userEntity)
+	{
+		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
+		if (menu)
+			menu.CloseMenuFromExternal();
+
+		HST_LoadoutEditorComponent editor = HST_LoadoutEditorComponent.GetLocalInstance();
+		if (editor)
+		{
+			editor.OpenFromArsenal(userEntity);
+			return;
+		}
+
+		RunMenuCommand("arsenal", "loadout_editor_open", "", userEntity);
+	}
+
 	protected int ResolvePlayerId(IEntity userEntity)
 	{
 		if (!userEntity)
@@ -131,58 +147,16 @@ class HST_PetrosArsenalMenuAction : HST_PetrosUserActionBase
 	}
 }
 
-class HST_PetrosLoadoutEditorAction : HST_PetrosUserActionBase
-{
-	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
-	{
-		RunMenuCommand("arsenal", "loadout_editor_open", "", pUserEntity);
-	}
-
-	override bool GetActionNameScript(out string outName)
-	{
-		outName = "Open h-istasi Loadout Editor";
-		return true;
-	}
-}
-
-class HST_HQArsenalOpenAction : HST_ContextualUserActionBase
-{
-	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
-	{
-		OpenMenuTab("arsenal", pUserEntity);
-	}
-
-	override bool GetActionNameScript(out string outName)
-	{
-		outName = "Open h-istasi Arsenal";
-		return true;
-	}
-}
-
 class HST_HQArsenalLoadoutEditorAction : HST_ContextualUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		RunMenuCommand("arsenal", "loadout_editor_open", "", pUserEntity);
+		OpenLoadoutEditor(pUserEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Open h-istasi Loadout Editor";
-		return true;
-	}
-}
-
-class HST_HQArsenalLootNearbyAction : HST_ContextualUserActionBase
-{
-	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
-	{
-		RunMenuCommand("arsenal", "loot_nearby", "", pUserEntity);
-	}
-
-	override bool GetActionNameScript(out string outName)
-	{
-		outName = "Loot nearby to h-istasi Arsenal";
+		outName = "Open Loadout Editor";
 		return true;
 	}
 }
