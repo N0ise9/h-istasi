@@ -6,7 +6,7 @@ class HST_HQService
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string ARSENAL_FALLBACK_PREFAB = "{6985327711303410}Prefabs/Objects/HST/HST_HQArsenalFallback.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
-	static const float ARSENAL_VISIBLE_LIFT_METERS = 1.1;
+	static const float ARSENAL_VISIBLE_LIFT_METERS = 0.15;
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
 
 	protected IEntity m_PetrosEntity;
@@ -99,7 +99,7 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked())
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked() && !m_bArsenalNeedsDelayedVerification && IsUsableArsenalEntity(m_ArsenalEntity))
 			return false;
 
 		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked())
@@ -225,6 +225,21 @@ class HST_HQService
 		return changed || runtimeFlagChanged;
 	}
 
+	bool RebuildRuntimeObjects(HST_CampaignState state)
+	{
+		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
+			return false;
+
+		ClearRuntimeObjects(state);
+		EnsureRuntimeGroundPlacement(state);
+		state.m_sArsenalPrefab = ARSENAL_PREFAB;
+		state.m_sHQArsenalRuntimeStatus = "rebuild requested";
+		state.m_sLastHQArsenalFailure = "";
+		m_bWarnedRuntimeSpawnIncomplete = false;
+		m_bWarnedArsenalResourceFailure = false;
+		return EnsureRuntimeObjects(state);
+	}
+
 	string GetPetrosPrefab()
 	{
 		return PETROS_PREFAB;
@@ -298,7 +313,7 @@ class HST_HQService
 		ClearRuntimeObjects(state);
 		vector petrosOffset = "2 0 2";
 		vector cacheOffset = "4 0 -2";
-		vector arsenalOffset = "1 0 -2";
+		vector arsenalOffset = "1 0 1";
 		vector tentOffset = "-4 0 2";
 		state.m_sHQHideoutId = hideoutId;
 		state.m_vHQPosition = hqPosition;

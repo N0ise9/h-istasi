@@ -382,6 +382,7 @@ foreach ($requiredPetrosServiceEntry in @(
 	"VerifyDelayedArsenalEntity",
 	"ResolveArsenalReadinessFailure",
 	"ResolveArsenalSpawnPosition",
+	"RebuildRuntimeObjects",
 	"m_sHQArsenalRuntimeStatus",
 	"m_sLastHQArsenalFailure",
 	"state.m_sPetrosPrefab = PETROS_PREFAB",
@@ -418,6 +419,12 @@ if ($hqServiceText -notmatch '\{6985327711303410\}Prefabs/Objects/HST/HST_HQArse
 if ($hqServiceText -match "using FIA supply-cache fallback") {
 	throw "HQ service must not use a supply-cache fallback for the HQ arsenal"
 }
+if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked\(\) && !m_bArsenalNeedsDelayedVerification && IsUsableArsenalEntity\(m_ArsenalEntity\)') {
+	throw "HQ runtime must not skip delayed arsenal verification just because the entity exists"
+}
+if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {
+	throw "Coordinator must expose a Build Mode guarded HQ runtime rebuild action"
+}
 if ($coordinatorText -notmatch "BootstrapInitialHideout\(m_State, HST_DefaultCatalog\.GetDefaultHideoutId\(\)\)") {
 	throw "Coordinator must bootstrap a visible starter HQ for fresh setup campaigns"
 }
@@ -443,7 +450,7 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"EquipmentBox_US.et",
+	"TentSmallUS_01.et",
 	"RplComponent",
 	"ActionsManagerComponent",
 	"HST_HQArsenalOpenAction",
@@ -456,6 +463,8 @@ foreach ($requiredArsenalPrefabEntry in @(
 	}
 }
 foreach ($forbiddenArsenalPrefabEntry in @(
+	"EquipmentBox_US.et",
+	"SupplyDrop/Parts",
 	"ArsenalBox_FIA",
 	"SCR_Arsenal",
 	"MSAR",
@@ -485,7 +494,7 @@ if ((Get-Content -Raw $hqArsenalFallbackPrefabMetaPath) -notmatch '\{69853277113
 $hqArsenalFallbackPrefabText = Get-Content -Raw $hqArsenalFallbackPrefabPath
 foreach ($requiredArsenalFallbackPrefabEntry in @(
 	"GenericEntity HST_HQArsenalFallback",
-	"EquipmentBox_US.et",
+	"TentSmallUS_01.et",
 	"RplComponent",
 	"ActionsManagerComponent",
 	"HST_HQArsenalOpenAction",
@@ -496,6 +505,8 @@ foreach ($requiredArsenalFallbackPrefabEntry in @(
 	}
 }
 foreach ($forbiddenArsenalFallbackPrefabEntry in @(
+	"EquipmentBox_US.et",
+	"SupplyDrop/Parts",
 	"ArsenalBox_FIA",
 	"SCR_Arsenal",
 	"MSAR",
@@ -1619,12 +1630,18 @@ foreach ($requiredLootEntry in @(
 	"PublishVehicleTargetDiagnostics",
 	"ResolveVehicleRoot",
 	"IsEligibleVehicleRoot",
+	"HST_VehicleRootPolicy",
+	"IsEligibleVehicleRootPrefab",
 	"BuildVehicleRootRejectReason",
 	"HasVehicleRootComponent",
 	"IsLikelyVehicleRootPrefab",
 	"IsRejectedVehicleRootPrefab",
 	"IsVehiclePartEntity",
 	"IsVehiclePartName",
+	"RekeyLegacyVehiclePartCargo",
+	"CountVehicleCargoEntriesIncludingLegacy",
+	"IsLegacyVehiclePartCargoNear",
+	"IsVehicleRootStillPresent",
 	"m_iLastVehicleTargetCandidates",
 	"m_sLastVehicleTargetStatus",
 	"m_sLastVehicleTargetReason",
@@ -1633,7 +1650,12 @@ foreach ($requiredLootEntry in @(
 	"SCR_BaseCompartmentManagerComponent",
 	"no safe root vehicle nearby",
 	"nearest candidate was not a top-level vehicle",
+	"stored then deleted verified root vehicle",
+	"selected root still present after delete",
 	"RedeployGarageVehicle",
+	"HST_BuildModeService",
+	"HST_BuildModePlacement",
+	"ResolveGarageRedeployPlacement",
 	"SelectGarageVehicle",
 	"DistanceSq2D",
 	"SCR_InventoryStorageManagerComponent",
@@ -1687,9 +1709,65 @@ if ($coordinatorText -notmatch 'RequestMemberCollectVehicleLoot[\s\S]*?CollectNe
 if (([regex]::Matches($coordinatorText, "IsPlayerWithinHQInteractionRadius\(playerId\)").Count) -lt 5) {
 	throw "HQ-only arsenal and garage actions must all call the HQ-radius gate"
 }
+$buildModeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_BuildModeService.c"
+$commandUiText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+foreach ($requiredBuildModeEntry in @(
+	"HST_BuildModeService",
+	"HST_BuildModePlacement",
+	"ResolveGarageRedeployPlacement",
+	"ResolveHQRebuildPlacement",
+	"BuildPlayerForwardOffset",
+	"PublishPlacement",
+	"m_sBuildModeStatus",
+	"m_sLastBuildModeFailure",
+	"m_vLastBuildModePosition",
+	"m_fLastBuildModeYaw"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredBuildModeEntry)) {
+		throw "Missing Build Mode v1 contract entry: $requiredBuildModeEntry"
+	}
+}
+if ($coordinatorText -notmatch 'RequestMemberRedeployGarageVehicle[\s\S]*?ResolveGarageRedeployPlacement[\s\S]*?RedeployGarageVehicle') {
+	throw "Garage redeploy must route through Build Mode placement before spawning"
+}
+if ($buildModeText -notmatch 'HST_VehicleRootPolicy\.IsEligibleVehicleRootPrefab') {
+	throw "Build Mode garage placement must reject non-root stored vehicle prefabs"
+}
 Write-Host "HQ interaction radius gates OK"
 
+if ($commandUiText -match 'TAB_ARSENAL[\s\S]*?Withdraw first available item') {
+	throw "Normal Arsenal/Loot menu must not expose the placeholder withdraw-first item action"
+}
+foreach ($normalMenuDebugPattern in @(
+	'AddMenuAction\(actions, TAB_FORCES, "Apply income tick"',
+	'AddMenuAction\(actions, TAB_MISSIONS, "Progress active mission"',
+	'AddMenuAction\(actions, TAB_GARAGE, "Manual checkpoint"',
+	'AddMenuAction\(actions, TAB_ARSENAL, "Manual checkpoint"',
+	'AddMenuAction\(actions, TAB_MEMBERS, "Manual checkpoint"',
+	'AddMenuAction\(actions, TAB_PETROS, "Open Arsenal/Loot"'
+)) {
+	if ($commandUiText -match $normalMenuDebugPattern) {
+		throw "Normal command menu still exposes debug/noise action matching: $normalMenuDebugPattern"
+	}
+}
+foreach ($requiredMenuRecoveryEntry in @(
+	"Garage/Build",
+	"Build mode",
+	"Build position",
+	"Rebuild HQ assets",
+	"rebuild_hq_assets",
+	"Build redeploy",
+	"Force income tick",
+	"Force mission progress"
+)) {
+	if ($commandUiText -notmatch [regex]::Escape($requiredMenuRecoveryEntry)) {
+		throw "Command menu is missing recovery/build-mode entry: $requiredMenuRecoveryEntry"
+	}
+}
+Write-Host "Command menu recovery/build cleanup OK"
+
 $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
+$vehicleRootPolicyText = Get-Content -Raw "Scripts/Game/HST/Services/HST_VehicleRootPolicy.c"
 foreach ($requiredVehicleRejectionEntry in @(
 	'prefab.Contains("Prefabs/Vehicles/")',
 	'HasVehicleRootComponent(entity)',
@@ -1699,11 +1777,25 @@ foreach ($requiredVehicleRejectionEntry in @(
 	'prefab.Contains("Box")',
 	'prefab.Contains("Cargo")',
 	'prefab.Contains("Container")',
-	'prefab.Contains("Arsenal")'
+	'prefab.Contains("Arsenal")',
+	'name.Contains("/VehParts/")',
+	'name.Contains("LicensePlate")'
 )) {
-	if ($lootServiceText -notmatch [regex]::Escape($requiredVehicleRejectionEntry)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredVehicleRejectionEntry)) {
 		throw "Loot service must keep strict vehicle-root rejection entry: $requiredVehicleRejectionEntry"
 	}
+}
+if ($lootServiceText -match 'return true;\s*\r?\n\s*}\s*\r?\n\s*protected bool IsRejectedVehicleRootPrefab') {
+	throw "Loot service must not accept every Prefabs/Vehicles resource as a root vehicle"
+}
+if ($vehicleRootPolicyText -notmatch 'IsVehiclePartPrefab\(prefab\)' -or $vehicleRootPolicyText -notmatch 'LicensePlate') {
+	throw "Vehicle root policy must reject vehicle parts and LicensePlate resources"
+}
+if ($lootServiceText -notmatch 'RekeyLegacyVehiclePartCargo[\s\S]*?m_sVehicleRuntimeId = vehicleId') {
+	throw "Vehicle unload must rekey legacy part-bound cargo to the selected root vehicle"
+}
+if ($lootServiceText -notmatch 'CaptureNearbyVehicleToGarage[\s\S]*?StoreVehicle[\s\S]*?DeleteEntityAndChildren[\s\S]*?IsVehicleRootStillPresent') {
+	throw "Garage capture must store, delete the selected root, and verify the root disappeared"
 }
 if ($lootServiceText -match 'if \(!prefab\.Contains\("Vehicles"\) && !prefab\.Contains\("Vehicle"\)\)') {
 	throw "Loot service must not use loose Vehicle/Vehicles substring matching for vehicle roots"

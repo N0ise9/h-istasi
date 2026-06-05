@@ -158,6 +158,12 @@ class HST_ArsenalService
 		if (!vehicle || vehicle.m_sPrefab.IsEmpty())
 			return "h-istasi garage | failed: selected vehicle not found";
 
+		if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(vehicle.m_sPrefab))
+		{
+			Print(string.Format("h-istasi garage | refused redeploy of invalid stored vehicle prefab %1 | vehicle %2", vehicle.m_sPrefab, vehicle.m_sVehicleId), LogLevel.WARNING);
+			return string.Format("h-istasi garage | failed: stored prefab is not a valid vehicle root (%1)", GarageVehicleDisplayLabel(vehicle));
+		}
+
 		int cost = vehicle.m_iRedeployCost;
 		if (cost <= 0)
 			cost = ResolveRedeployCost(vehicle);
@@ -169,10 +175,17 @@ class HST_ArsenalService
 		if (!respawnSystem)
 			return "h-istasi garage | failed: respawn system not ready";
 
-		vector deployAngles = ResolveRedeployAngles(vehicle, deployPosition);
-		GenericEntity entity = respawnSystem.DoSpawn(vehicle.m_sPrefab, deployPosition, deployAngles);
+		vector resolvedDeployPosition;
+		if (!HST_WorldPositionService.TryResolveGroundPosition(deployPosition, HST_WorldPositionService.PROP_GROUND_OFFSET, resolvedDeployPosition, true))
+			return string.Format("h-istasi garage | failed: no dry redeploy ground near %1", deployPosition);
+
+		vector deployAngles = ResolveRedeployAngles(vehicle, resolvedDeployPosition);
+		GenericEntity entity = respawnSystem.DoSpawn(vehicle.m_sPrefab, resolvedDeployPosition, deployAngles);
 		if (!entity)
+		{
+			Print(string.Format("h-istasi garage | failed to spawn garage vehicle %1 | prefab %2 | position %3 | yaw %4", GarageVehicleDisplayLabel(vehicle), vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0]), LogLevel.WARNING);
 			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
+		}
 
 		if (economy && !economy.SpendFactionMoney(state, cost))
 		{
@@ -182,6 +195,7 @@ class HST_ArsenalService
 
 		string label = GarageVehicleDisplayLabel(vehicle);
 		RemoveVehicle(state, vehicle.m_sVehicleId);
+		Print(string.Format("h-istasi garage | redeployed %1 | prefab %2 | position %3 | yaw %4 | cost %5", label, vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0], cost));
 		return string.Format("h-istasi garage | redeployed %1 | complete", label);
 	}
 

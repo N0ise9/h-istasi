@@ -66,9 +66,9 @@ class HST_CommandUIService
 		payload = payload + "\nTAB|map|Map/War|1";
 		payload = payload + "\nTAB|forces|Forces|1";
 		payload = payload + "\nTAB|arsenal|Arsenal/Loot|1";
-		payload = payload + "\nTAB|garage|Garage|1";
+		payload = payload + "\nTAB|garage|Garage/Build|1";
 		payload = payload + "\nTAB|members|Members|1";
-		payload = payload + "\nTAB|admin|Admin|1";
+		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseAdmin);
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendTopStats(payload, state, preset);
 		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin);
@@ -168,6 +168,9 @@ class HST_CommandUIService
 
 		if (commandId == "move_hq_here")
 			return BuildBoolResult("move HQ to your position", coordinator.RequestCommanderMoveHQToPlayer(playerId));
+
+		if (commandId == "rebuild_hq_assets")
+			return BuildBoolResult("rebuild HQ assets", coordinator.RequestCommanderRebuildHQAssets(playerId));
 
 		if (commandId == "income_now")
 			return BuildBoolResult("apply income tick", coordinator.RequestCommanderApplyIncomeNow(playerId));
@@ -386,6 +389,9 @@ class HST_CommandUIService
 
 		if (commandId == "move_hq_here")
 			return coordinator.RequestCommanderMoveHQToPlayer(playerId);
+
+		if (commandId == "rebuild_hq_assets")
+			return coordinator.RequestCommanderRebuildHQAssets(playerId);
 
 		if (commandId == "income_now")
 			return coordinator.RequestCommanderApplyIncomeNow(playerId);
@@ -735,9 +741,11 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "hq", "Arsenal failure", state.m_sLastHQArsenalFailure, "bad");
 		payload = AppendRow(payload, "hq", "Runtime objects", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
 		payload = AppendRow(payload, "hq", "HQ radius", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
+		payload = AppendRow(payload, "hq", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
 
 		payload = AppendSection(payload, "moves", "Move Base");
 		payload = AppendRow(payload, "moves", "Move here", "Uses your current position as the new HQ.", CommanderGateTone(canUseCommander));
+		payload = AppendRow(payload, "moves", "Rebuild assets", "Respawns Petros, cache, arsenal, and tent without resetting campaign state.", BuildHQRadiusTone(state, settings, playerId));
 		payload = AppendRow(payload, "moves", "North Forest", "Low-profile woodland staging area.", "neutral");
 		payload = AppendRow(payload, "moves", "Central Hills", "Default hideout near central roads.", "neutral");
 		payload = AppendRow(payload, "moves", "South Woods", "Fallback hideout for southern operations.", "neutral");
@@ -931,6 +939,10 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garage", "Nearest vehicle", BuildVehicleTargetStatus(state), BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "garage", "Vehicle reject", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "garage", "Target cargo", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
+		payload = AppendRow(payload, "garage", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
+		payload = AppendRow(payload, "garage", "Build position", string.Format("%1 / yaw %2", state.m_vLastBuildModePosition, state.m_fLastBuildModeYaw), BuildModeTone(state));
+		if (!state.m_sLastBuildModeFailure.IsEmpty())
+			payload = AppendRow(payload, "garage", "Build failure", state.m_sLastBuildModeFailure, "bad");
 
 		payload = AppendSection(payload, "stored_vehicles", "Stored Vehicles");
 		if (state.m_aGarageVehicles.Count() == 0)
@@ -950,7 +962,7 @@ class HST_CommandUIService
 
 		payload = AppendSection(payload, "garage_actions", "Capture And Redeploy");
 		payload = AppendRow(payload, "garage_actions", "Capture nearest", "Stores a safe root vehicle and despawns only that vehicle.", "good");
-		payload = AppendRow(payload, "garage_actions", "Redeploy", "Each stored vehicle gets its own selected redeploy action.", GarageTone(state));
+		payload = AppendRow(payload, "garage_actions", "Build redeploy", "Each stored vehicle resolves a Build Mode placement before spawning.", GarageTone(state));
 		payload = AppendRow(payload, "garage_actions", "Vehicle target", string.Format("Candidates %1 / %2", state.m_iLastVehicleTargetCandidates, state.m_sLastVehicleTargetReason), BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the h-istasi arsenal at HQ.", "warn");
 
@@ -1052,12 +1064,10 @@ class HST_CommandUIService
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
 		if (selectedTabId == TAB_SETUP)
 		{
-			AddMenuAction(actions, TAB_SETUP, "Config path / source of truth", "noop", "", true, "");
 			AddMenuAction(actions, TAB_SETUP, "Start HQ: north forest", "setup_hideout", "hideout_north_forest", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_SETUP, "Start HQ: central hills", "setup_hideout", "hideout_central_hills", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_SETUP, "Start HQ: south woods", "setup_hideout", "hideout_south_woods", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_SETUP, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_SETUP, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1065,8 +1075,6 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Marker status", "inspect_markers", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_OVERVIEW, "Economy report", "inspect_economy", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_OVERVIEW, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
@@ -1077,7 +1085,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: north forest", "move_hq", "hideout_north_forest", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: central hills", "move_hq", "hideout_central_hills", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: south woods", "move_hq", "hideout_south_woods", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_PETROS, "Open Arsenal/Loot", "inspect_arsenal", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_PETROS, "Rebuild HQ assets", "rebuild_hq_assets", "", canUseCommander, "commander required");
 			return;
 		}
 
@@ -1088,27 +1096,17 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), "no hostile town");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), "no hostile resource");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), "no hostile outpost");
-			AddMenuAction(actions, TAB_MISSIONS, "Progress active mission", "progress_mission", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_MISSIONS, "Mission report", "inspect_missions", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MISSIONS, "Objective report", "inspect_objectives", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MISSIONS, "Runtime report", "inspect_mission_runtime", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MISSIONS, "Zone report", "inspect_zones", "", canUseMember, "membership required");
 			return;
 		}
 
 		if (selectedTabId == TAB_MAP)
 		{
-			AddMenuAction(actions, TAB_MAP, "Zone report", "inspect_zones", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MAP, "Marker status", "inspect_markers", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MAP, "Generated content", "inspect_content", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MAP, "Civilian status", "inspect_civilians", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MAP, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			return;
 		}
 
 		if (selectedTabId == TAB_FORCES)
 		{
-			AddMenuAction(actions, TAB_FORCES, "Apply income tick", "income_now", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Recruit FIA", state, recruitTargetId), "recruit_zone", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no recruit target");
 			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
@@ -1118,8 +1116,6 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, "Request UMPK air strike", "support_umpk", "", canUseCommander && airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady));
 			AddMenuAction(actions, TAB_FORCES, "Cancel player support", "cancel_support", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Deliver civilian aid", "civilian_aid", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_FORCES, "Economy report", "inspect_economy", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1128,10 +1124,6 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Withdraw first available item", "withdraw_arsenal", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Arsenal report", "inspect_arsenal", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_ARSENAL, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1139,8 +1131,6 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_GARAGE, "Capture nearest vehicle", "garage_capture_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_GARAGE, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GARAGE, "Inspect vehicle cargo", "inspect_vehicle_cargo", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_GARAGE, "Garage report", "inspect_garage", "", canUseMember, "membership required");
 
 			int garageActionCount;
 			if (state)
@@ -1160,7 +1150,6 @@ class HST_CommandUIService
 			if (garageActionCount == 0)
 				AddMenuAction(actions, TAB_GARAGE, "Redeploy stored vehicle", "garage_redeploy", firstGarageVehicleId, false, "no stored vehicle");
 
-			AddMenuAction(actions, TAB_GARAGE, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1170,8 +1159,6 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MEMBERS, "Remove first member", "member_remove", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
 			AddMenuAction(actions, TAB_MEMBERS, "Grant admin to member", "admin_grant", memberIdentityId, canUseAdmin && !memberIdentityId.IsEmpty(), "admin required or no member");
 			AddMenuAction(actions, TAB_MEMBERS, "Undercover status", "inspect_undercover", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MEMBERS, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MEMBERS, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1182,7 +1169,14 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug deactivate", state, adminTargetId), "deactivate_zone", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, BuildZoneActionLabel("Debug mission", state, adminTargetId), "debug_mission", adminTargetId, canUseAdmin && !adminTargetId.IsEmpty(), "no zone");
 			AddMenuAction(actions, TAB_ADMIN, "Debug award resources", "award_small", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force income tick", "income_now", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force mission progress", "progress_mission", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Rebuild HQ assets", "rebuild_hq_assets", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Mission runtime report", "inspect_mission_runtime", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Garage report", "inspect_garage", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
 		}
 	}
@@ -1569,6 +1563,31 @@ class HST_CommandUIService
 
 		if (state.m_iLastVehicleTargetCandidates > 0)
 			return "bad";
+
+		return "neutral";
+	}
+
+	protected string BuildModeStatusLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		if (!state.m_sBuildModeStatus.IsEmpty())
+			return state.m_sBuildModeStatus;
+
+		return "not active";
+	}
+
+	protected string BuildModeTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "warn";
+
+		if (!state.m_sLastBuildModeFailure.IsEmpty())
+			return "bad";
+
+		if (state.m_sBuildModeStatus.Contains("ready"))
+			return "good";
 
 		return "neutral";
 	}

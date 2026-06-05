@@ -30,6 +30,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_MapMarkerService m_MapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
+	protected ref HST_BuildModeService m_BuildMode;
 	protected ref HST_GeneratedContentService m_Content;
 	protected ref HST_MissionObjectiveService m_Objectives;
 	protected ref HST_MissionRuntimeService m_MissionRuntime;
@@ -75,6 +76,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_MapMarkers = new HST_MapMarkerService();
 		m_CommandUI = new HST_CommandUIService();
 		m_Loot = new HST_LootService();
+		m_BuildMode = new HST_BuildModeService();
 		m_Content = new HST_GeneratedContentService();
 		m_Objectives = new HST_MissionObjectiveService();
 		m_MissionRuntime = new HST_MissionRuntimeService();
@@ -578,6 +580,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return MoveHQToPlayer(playerId);
 	}
 
+	bool RequestCommanderRebuildHQAssets(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		if (!m_HQ || !m_BuildMode)
+			return false;
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return false;
+
+		HST_BuildModePlacement placement = m_BuildMode.ResolveHQRebuildPlacement(m_State, playerId);
+		if (!placement || !placement.m_bValid)
+			return false;
+
+		bool changed = m_HQ.RebuildRuntimeObjects(m_State);
+		if (changed)
+			MarkMajorCampaignChange();
+		return changed;
+	}
+
 	bool RequestCommanderStartMission(int playerId, string missionId, string targetZoneId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
@@ -977,24 +1000,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
+	protected HST_GarageVehicleState SelectGarageVehicleForBuildMode(string vehicleId)
+	{
+		if (!m_State)
+			return null;
+
+		if (!vehicleId.IsEmpty())
+			return m_State.FindGarageVehicle(vehicleId);
+
+		foreach (HST_GarageVehicleState vehicle : m_State.m_aGarageVehicles)
+		{
+			if (vehicle)
+				return vehicle;
+		}
+
+		return null;
+	}
+
 	string RequestMemberRedeployGarageVehicle(int playerId, string vehicleId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
 			return "h-istasi garage | failed: membership required";
 
-		if (!m_Arsenal)
+		if (!m_Arsenal || !m_BuildMode)
 			return "h-istasi garage | failed: service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
 			return BuildHQInteractionDenied("h-istasi garage | failed");
 
-		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
-		if (!playerEntity)
-			return "h-istasi garage | failed: no controlled player entity found";
+		HST_GarageVehicleState vehicle = SelectGarageVehicleForBuildMode(vehicleId);
+		if (!vehicle)
+			return "h-istasi garage | failed: selected vehicle not found";
 
-		vector deployOffset = "4 0 4";
-		vector deployPosition = HST_WorldPositionService.ResolveGroundPosition(playerEntity.GetOrigin() + deployOffset, HST_WorldPositionService.PROP_GROUND_OFFSET, true);
-		string result = m_Arsenal.RedeployGarageVehicle(m_State, m_Economy, vehicleId, deployPosition);
+		HST_BuildModePlacement placement = m_BuildMode.ResolveGarageRedeployPlacement(m_State, playerId, vehicle);
+		if (!placement || !placement.m_bValid)
+			return string.Format("h-istasi garage | failed: build placement denied | %1", m_State.m_sLastBuildModeFailure);
+
+		vehicle.m_vAngles = placement.m_vAngles;
+		string result = m_Arsenal.RedeployGarageVehicle(m_State, m_Economy, vehicle.m_sVehicleId, placement.m_vPosition);
 		if (result.Contains("complete"))
 			MarkMajorCampaignChange();
 		return result;

@@ -1,4 +1,4 @@
-GenericEntity HST_HQArsenal : "Prefabs/Props/Military/CISS/SupplyDrop/Parts/US/EquipmentBox_US.et" {
+GenericEntity HST_HQArsenal : "Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et" {
  components {
   RplComponent "{6985327711303406}" {
   }

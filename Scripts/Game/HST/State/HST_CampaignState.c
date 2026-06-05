@@ -394,6 +394,11 @@ class HST_CampaignState
 	string m_sLastVehicleTargetReason;
 	float m_fLastVehicleTargetDistanceMeters;
 	int m_iLastVehicleTargetCargoEntries;
+	string m_sBuildModeStatus = "not active";
+	string m_sLastBuildModeFailure;
+	string m_sLastBuildModePrefab;
+	vector m_vLastBuildModePosition;
+	float m_fLastBuildModeYaw;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
