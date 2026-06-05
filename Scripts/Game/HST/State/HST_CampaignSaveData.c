@@ -43,6 +43,8 @@ class HST_CampaignSaveData
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_VehicleCargoItemState> m_aVehicleCargoItems = {};
+	ref array<ref HST_SavedLoadoutState> m_aSavedLoadouts = {};
+	ref array<ref HST_IssuedLoadoutItemState> m_aIssuedLoadoutItems = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
 	ref array<ref HST_AmmoPointState> m_aAmmoPoints = {};
 	ref array<ref HST_ActiveMissionState> m_aActiveMissions = {};
@@ -131,6 +133,14 @@ class HST_CampaignSaveData
 		m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
 			m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
+
+		m_aSavedLoadouts.Clear();
+		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
+			m_aSavedLoadouts.Insert(CopySavedLoadout(loadout));
+
+		m_aIssuedLoadoutItems.Clear();
+		foreach (HST_IssuedLoadoutItemState issuedItem : state.m_aIssuedLoadoutItems)
+			m_aIssuedLoadoutItems.Insert(CopyIssuedLoadoutItem(issuedItem));
 
 		m_aCapturedEmplacements.Clear();
 		foreach (HST_EmplacementState emplacement : state.m_aCapturedEmplacements)
@@ -262,6 +272,14 @@ class HST_CampaignSaveData
 		state.m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
 			state.m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
+
+		state.m_aSavedLoadouts.Clear();
+		foreach (HST_SavedLoadoutState loadout : m_aSavedLoadouts)
+			state.m_aSavedLoadouts.Insert(CopySavedLoadout(loadout));
+
+		state.m_aIssuedLoadoutItems.Clear();
+		foreach (HST_IssuedLoadoutItemState issuedItem : m_aIssuedLoadoutItems)
+			state.m_aIssuedLoadoutItems.Insert(CopyIssuedLoadoutItem(issuedItem));
 
 		state.m_aCapturedEmplacements.Clear();
 		foreach (HST_EmplacementState emplacement : m_aCapturedEmplacements)
@@ -483,6 +501,52 @@ class HST_CampaignSaveData
 		target.m_iCount = source.m_iCount;
 		target.m_iLastStoredAtSecond = source.m_iLastStoredAtSecond;
 		target.m_vLastVehiclePosition = source.m_vLastVehiclePosition;
+		return target;
+	}
+
+	protected HST_LoadoutSlotState CopyLoadoutSlot(HST_LoadoutSlotState source)
+	{
+		HST_LoadoutSlotState target = new HST_LoadoutSlotState();
+		if (!source)
+			return target;
+
+		target.m_sSlotId = source.m_sSlotId;
+		target.m_sItemPrefab = source.m_sItemPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
+		target.m_iQuantity = source.m_iQuantity;
+		target.m_sWeaponSlotId = source.m_sWeaponSlotId;
+		target.m_sAttachmentSlotId = source.m_sAttachmentSlotId;
+		return target;
+	}
+
+	protected HST_SavedLoadoutState CopySavedLoadout(HST_SavedLoadoutState source)
+	{
+		HST_SavedLoadoutState target = new HST_SavedLoadoutState();
+		if (!source)
+			return target;
+
+		target.m_sOwnerIdentityId = source.m_sOwnerIdentityId;
+		target.m_sLoadoutId = source.m_sLoadoutId;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
+		foreach (HST_LoadoutSlotState slot : source.m_aSlots)
+			target.m_aSlots.Insert(CopyLoadoutSlot(slot));
+		return target;
+	}
+
+	protected HST_IssuedLoadoutItemState CopyIssuedLoadoutItem(HST_IssuedLoadoutItemState source)
+	{
+		HST_IssuedLoadoutItemState target = new HST_IssuedLoadoutItemState();
+		if (!source)
+			return target;
+
+		target.m_sOwnerIdentityId = source.m_sOwnerIdentityId;
+		target.m_sItemPrefab = source.m_sItemPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
+		target.m_iCount = source.m_iCount;
+		target.m_bInfinite = source.m_bInfinite;
 		return target;
 	}
 

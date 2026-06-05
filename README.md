@@ -35,9 +35,12 @@ The repository contains the first engine-facing increment:
   `Prefabs/Characters/HST/Character_HST_Petros.et` for HQ contextual actions,
   with GUID metadata and a base-FIA spawn fallback only if the custom resource
   fails to spawn
-- Physical HQ arsenal prefab at `Prefabs/Objects/HST/HST_HQArsenal.et` that
-  opens the h-istasi Arsenal/Loot tab, can run area loot from context, and is
-  indexed by checked-in GUID metadata
+- HST-owned HQ arsenal action surface at
+  `Prefabs/Objects/HST/HST_HQArsenal.et`; stock FIA arsenal/MSAR behavior is
+  not used for item authority, issuing, or loadout accounting
+- Custom h-istasi loadout-editor service scaffold with personal saved
+  loadouts, preview mannequin lifecycle, apply/cancel commands, finite/INF
+  accounting, and an issued-item ledger owned by campaign state
 - Procedural Antistasi-style `I` key HQ menu mounted on both development
   worlds with Setup, Overview, HQ/Petros, Missions, Map/War, Forces,
   Arsenal/Loot, Members, and Admin tabs
@@ -58,15 +61,17 @@ The repository contains the first engine-facing increment:
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible
 
-This is a foundation build, not a public alpha. Petros and the HQ arsenal now
-have live contextual-action prefabs for the alpha menu path. The broad-alpha
-systems are intentionally rough scaffolds: mission objectives can now complete
-from world proximity/active-group conditions, support calls are stateful with
-native-safe ground group activation, and helicopter-style support remains
-abstract until an approved asset/dependency path exists. Cache/tent polish,
-save/restart soak testing, final surveyed Everon coordinates, richer AI
-waypoints, and mission-specific interactable props still need to be connected
-incrementally.
+This is a foundation build, not a public alpha. Petros and the HQ arsenal have
+live contextual-action prefabs for the alpha menu path, while the arsenal and
+loadout editor remain custom h-istasi economy systems instead of stock/MSAR
+arsenal behavior. The broad-alpha systems are intentionally rough scaffolds:
+mission objectives can now complete from world proximity/active-group
+conditions, support calls are stateful with native-safe ground group
+activation, and helicopter-style support remains abstract until an approved
+asset/dependency path exists. Cache/tent polish, save/restart soak testing,
+final surveyed Everon coordinates, richer AI waypoints, physical player
+inventory insertion from editor transactions, and mission-specific interactable
+props still need to be connected incrementally.
 
 ## Alpha Command Menu
 
@@ -92,8 +97,9 @@ arsenal reporting, garage reporting, nearby loot collection, generated content
 reports, roster admin helpers, campaign reset, and small debug resource awards.
 Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
-provided player ID. Petros and the HQ arsenal object open this same menu path
-through contextual interactions.
+provided player ID. Petros opens this same menu path through contextual
+interactions, and the visible HQ arsenal is backed by the same server commands
+from the Arsenal/Loot tab.
 
 ## Requirements
 

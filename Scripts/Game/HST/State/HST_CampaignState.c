@@ -166,6 +166,71 @@ class HST_VehicleCargoItemState
 }
 
 [BaseContainerProps()]
+class HST_RuntimeVehicleState
+{
+	string m_sVehicleRuntimeId;
+	string m_sPrefab;
+	string m_sDisplayName;
+	string m_sFactionKey;
+	string m_sZoneId;
+	string m_sRuntimeKind;
+	vector m_vPosition;
+	vector m_vAngles;
+	int m_iSpawnedAtSecond;
+	bool m_bDetached;
+	bool m_bDeleted;
+}
+
+[BaseContainerProps()]
+class HST_LoadoutSlotState
+{
+	string m_sSlotId;
+	string m_sItemPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	int m_iQuantity = 1;
+	string m_sWeaponSlotId;
+	string m_sAttachmentSlotId;
+}
+
+[BaseContainerProps()]
+class HST_SavedLoadoutState
+{
+	string m_sOwnerIdentityId;
+	string m_sLoadoutId;
+	string m_sDisplayName;
+	int m_iUpdatedAtSecond;
+	ref array<ref HST_LoadoutSlotState> m_aSlots = {};
+}
+
+[BaseContainerProps()]
+class HST_IssuedLoadoutItemState
+{
+	string m_sOwnerIdentityId;
+	string m_sItemPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	int m_iCount;
+	bool m_bInfinite;
+}
+
+[BaseContainerProps()]
+class HST_LoadoutEditorSessionState
+{
+	string m_sOwnerIdentityId;
+	string m_sStatus = "closed";
+	string m_sLastFailure;
+	string m_sPreviewPrefab;
+	vector m_vPreviewPosition;
+	bool m_bPreviewSpawned;
+	string m_sCurrentLoadoutId;
+	int m_iOpenedAtSecond;
+	int m_iSavedLoadoutCount;
+	int m_iIssuedFiniteCount;
+	int m_iIssuedInfiniteCount;
+}
+
+[BaseContainerProps()]
 class HST_EmplacementState
 {
 	string m_sEmplacementId;
@@ -348,7 +413,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 10;
+	static const int SCHEMA_VERSION = 11;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -399,6 +464,8 @@ class HST_CampaignState
 	string m_sLastBuildModePrefab;
 	vector m_vLastBuildModePosition;
 	float m_fLastBuildModeYaw;
+	string m_sLoadoutEditorStatus = "closed";
+	string m_sLastLoadoutEditorFailure;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
@@ -410,6 +477,10 @@ class HST_CampaignState
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_VehicleCargoItemState> m_aVehicleCargoItems = {};
+	ref array<ref HST_RuntimeVehicleState> m_aRuntimeVehicles = {};
+	ref array<ref HST_SavedLoadoutState> m_aSavedLoadouts = {};
+	ref array<ref HST_IssuedLoadoutItemState> m_aIssuedLoadoutItems = {};
+	ref array<ref HST_LoadoutEditorSessionState> m_aLoadoutEditorSessions = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
 	ref array<ref HST_AmmoPointState> m_aAmmoPoints = {};
 	ref array<ref HST_ActiveMissionState> m_aActiveMissions = {};
@@ -477,12 +548,85 @@ class HST_CampaignState
 		return null;
 	}
 
+	HST_RuntimeVehicleState FindRuntimeVehicle(string vehicleRuntimeId)
+	{
+		foreach (HST_RuntimeVehicleState vehicle : m_aRuntimeVehicles)
+		{
+			if (vehicle && vehicle.m_sVehicleRuntimeId == vehicleRuntimeId)
+				return vehicle;
+		}
+
+		return null;
+	}
+
+	bool RemoveRuntimeVehicle(string vehicleRuntimeId)
+	{
+		if (vehicleRuntimeId.IsEmpty())
+			return false;
+
+		for (int i = m_aRuntimeVehicles.Count() - 1; i >= 0; i--)
+		{
+			HST_RuntimeVehicleState vehicle = m_aRuntimeVehicles[i];
+			if (!vehicle || vehicle.m_sVehicleRuntimeId != vehicleRuntimeId)
+				continue;
+
+			m_aRuntimeVehicles.Remove(i);
+			return true;
+		}
+
+		return false;
+	}
+
 	HST_VehicleCargoItemState FindVehicleCargoItem(string vehicleRuntimeId, string itemPrefab)
 	{
 		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
 		{
 			if (cargoItem.m_sVehicleRuntimeId == vehicleRuntimeId && cargoItem.m_sItemPrefab == itemPrefab)
 				return cargoItem;
+		}
+
+		return null;
+	}
+
+	HST_SavedLoadoutState FindSavedLoadout(string ownerIdentityId, string loadoutId)
+	{
+		foreach (HST_SavedLoadoutState loadout : m_aSavedLoadouts)
+		{
+			if (loadout && loadout.m_sOwnerIdentityId == ownerIdentityId && loadout.m_sLoadoutId == loadoutId)
+				return loadout;
+		}
+
+		return null;
+	}
+
+	HST_SavedLoadoutState FindFirstSavedLoadout(string ownerIdentityId)
+	{
+		foreach (HST_SavedLoadoutState loadout : m_aSavedLoadouts)
+		{
+			if (loadout && loadout.m_sOwnerIdentityId == ownerIdentityId)
+				return loadout;
+		}
+
+		return null;
+	}
+
+	HST_IssuedLoadoutItemState FindIssuedLoadoutItem(string ownerIdentityId, string itemPrefab)
+	{
+		foreach (HST_IssuedLoadoutItemState issuedItem : m_aIssuedLoadoutItems)
+		{
+			if (issuedItem && issuedItem.m_sOwnerIdentityId == ownerIdentityId && issuedItem.m_sItemPrefab == itemPrefab)
+				return issuedItem;
+		}
+
+		return null;
+	}
+
+	HST_LoadoutEditorSessionState FindLoadoutEditorSession(string ownerIdentityId)
+	{
+		foreach (HST_LoadoutEditorSessionState session : m_aLoadoutEditorSessions)
+		{
+			if (session && session.m_sOwnerIdentityId == ownerIdentityId)
+				return session;
 		}
 
 		return null;

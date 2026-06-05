@@ -1,4 +1,4 @@
-GenericEntity HST_HQArsenal : "Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et" {
+GenericEntity HST_HQArsenal : "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et" {
  components {
   RplComponent "{6985327711303406}" {
   }
@@ -10,6 +10,14 @@ GenericEntity HST_HQArsenal : "Prefabs/Compositions/Slotted/SlotFlatSmall/Supply
      }
      UIInfo UIInfo "{6985327711303403}" {
       Name "Open h-istasi Arsenal"
+     }
+    }
+    HST_HQArsenalLoadoutEditorAction "{6985327711303407}" {
+     ParentContextList {
+      "default"
+     }
+     UIInfo UIInfo "{6985327711303408}" {
+      Name "Open h-istasi Loadout Editor"
      }
     }
     HST_HQArsenalLootNearbyAction "{6985327711303404}" {

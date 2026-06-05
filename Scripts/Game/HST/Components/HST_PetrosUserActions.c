@@ -131,6 +131,20 @@ class HST_PetrosArsenalMenuAction : HST_PetrosUserActionBase
 	}
 }
 
+class HST_PetrosLoadoutEditorAction : HST_PetrosUserActionBase
+{
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		RunMenuCommand("arsenal", "loadout_editor_open", "", pUserEntity);
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Open h-istasi Loadout Editor";
+		return true;
+	}
+}
+
 class HST_HQArsenalOpenAction : HST_ContextualUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
@@ -141,6 +155,20 @@ class HST_HQArsenalOpenAction : HST_ContextualUserActionBase
 	override bool GetActionNameScript(out string outName)
 	{
 		outName = "Open h-istasi Arsenal";
+		return true;
+	}
+}
+
+class HST_HQArsenalLoadoutEditorAction : HST_ContextualUserActionBase
+{
+	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
+	{
+		RunMenuCommand("arsenal", "loadout_editor_open", "", pUserEntity);
+	}
+
+	override bool GetActionNameScript(out string outName)
+	{
+		outName = "Open h-istasi Loadout Editor";
 		return true;
 	}
 }

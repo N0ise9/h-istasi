@@ -5,9 +5,6 @@ class HST_VehicleRootPolicy
 		if (prefab.IsEmpty())
 			return false;
 
-		if (!prefab.Contains("Prefabs/"))
-			return false;
-
 		if (IsRejectedVehicleRootPrefab(prefab))
 			return false;
 
@@ -17,7 +14,7 @@ class HST_VehicleRootPolicy
 		if (prefab.Contains("Prefabs/Vehicles/"))
 			return true;
 
-		return prefab.Contains("Vehicle") || prefab.Contains("vehicle");
+		return IsKnownVehicleRootName(prefab);
 	}
 
 	static bool IsRejectedVehicleRootPrefab(string prefab)
@@ -35,6 +32,32 @@ class HST_VehicleRootPolicy
 			return true;
 
 		if (prefab.Contains("Arsenal") || prefab.Contains("arsenal") || prefab.Contains("Composition") || prefab.Contains("composition") || prefab.Contains("Props/") || prefab.Contains("/Props"))
+			return true;
+
+		return false;
+	}
+
+	static bool IsKnownVehicleRootName(string prefab)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		if (prefab.Contains("Vehicle") || prefab.Contains("vehicle"))
+			return true;
+
+		if (prefab.Contains("M998") || prefab.Contains("M1025") || prefab.Contains("M151") || prefab.Contains("M923") || prefab.Contains("M939"))
+			return true;
+
+		if (prefab.Contains("M11") || prefab.Contains("M1151") || prefab.Contains("Humvee") || prefab.Contains("HMMWV"))
+			return true;
+
+		if (prefab.Contains("S105") || prefab.Contains("S1203") || prefab.Contains("UAZ") || prefab.Contains("Ural") || prefab.Contains("GAZ") || prefab.Contains("Kamaz"))
+			return true;
+
+		if (prefab.Contains("BTR") || prefab.Contains("BMP") || prefab.Contains("BRDM") || prefab.Contains("APC") || prefab.Contains("Truck") || prefab.Contains("Car_"))
+			return true;
+
+		if (prefab.Contains("Jeep") || prefab.Contains("Offroad") || prefab.Contains("Pickup") || prefab.Contains("Van") || prefab.Contains("Bus"))
 			return true;
 
 		return false;

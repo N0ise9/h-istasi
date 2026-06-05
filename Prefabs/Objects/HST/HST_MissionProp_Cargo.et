@@ -1,4 +1,4 @@
-GenericEntity HST_MissionProp_Cargo : "Prefabs/Props/Military/CISS/SupplyDrop/Parts/US/EquipmentBox_US.et" {
+GenericEntity HST_MissionProp_Cargo : "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et" {
  components {
   RplComponent "{6985327711303721}" {
   }

@@ -353,6 +353,7 @@ foreach ($requiredPetrosPrefabEntry in @(
 	"HST_PetrosCommandMenuAction",
 	"HST_PetrosMoveBaseHereAction",
 	"HST_PetrosArsenalMenuAction",
+	"HST_PetrosLoadoutEditorAction",
 	"ParentContextList",
 	"UIInfo"
 )) {
@@ -376,13 +377,8 @@ foreach ($requiredPetrosServiceEntry in @(
 	"SpawnArsenal",
 	"IsUsableArsenalEntity",
 	"ResolvePrimaryArsenalPosition",
-	"ARSENAL_FALLBACK_PREFAB",
-	"ARSENAL_VISIBLE_LIFT_METERS",
 	"ARSENAL_POSITION_TOLERANCE_METERS",
-	"m_bArsenalNeedsDelayedVerification",
-	"VerifyDelayedArsenalEntity",
 	"ResolveArsenalReadinessFailure",
-	"ResolveArsenalSpawnPosition",
 	"RebuildRuntimeObjects",
 	"m_sHQArsenalRuntimeStatus",
 	"m_sLastHQArsenalFailure",
@@ -394,7 +390,6 @@ foreach ($requiredPetrosServiceEntry in @(
 	"TryResolveGroundPosition",
 	"SCR_EntityHelper.DeleteEntityAndChildren",
 	"failed to spawn; using base FIA fallback",
-	"no supply-cache fallback will be used",
 	"successful pieces were preserved for retry",
 	"LogRuntimeObjectSpawnSuccess",
 	"LogRuntimeObjectSpawnFailure",
@@ -414,14 +409,42 @@ if ($hqServiceText -notmatch "SpawnArsenal\(respawnSystem, state\)") {
 if ($hqServiceText -match 'PETROS_PREFAB = "Prefabs/Characters/HST/Character_HST_Petros\.et"' -or $hqServiceText -match 'ARSENAL_PREFAB = "Prefabs/Objects/HST/HST_HQArsenal\.et"') {
 	throw "HQ service must not keep path-only HST prefab constants"
 }
-if ($hqServiceText -notmatch '\{6985327711303410\}Prefabs/Objects/HST/HST_HQArsenalFallback\.et') {
-	throw "HQ service must keep a GUID-qualified h-istasi fallback arsenal prefab"
+foreach ($forbiddenRuntimeArsenalResource in @(
+	"ArsenalBox_FIA_Weapons.et",
+	"ArsenalBox_FIA_Equipment.et",
+	"ArsenalBox_FIA.et",
+	"SCR_Arsenal",
+	"MSAR"
+)) {
+	if ($hqServiceText -match [regex]::Escape($forbiddenRuntimeArsenalResource)) {
+		throw "HQ service must not spawn stock arsenal/MSAR resources directly: $forbiddenRuntimeArsenalResource"
+	}
+}
+foreach ($removedArsenalRecoveryEntry in @(
+	"ARSENAL_FALLBACK_PREFAB",
+	"ARSENAL_VISIBLE_LIFT_METERS",
+	"m_bArsenalNeedsDelayedVerification",
+	"VerifyDelayedArsenalEntity",
+	"ResolveArsenalSpawnPosition",
+	"HST_HQArsenalFallback.et"
+)) {
+	if ($hqServiceText -match [regex]::Escape($removedArsenalRecoveryEntry)) {
+		throw "HQ service must not keep obsolete fallback/delayed arsenal recovery entry: $removedArsenalRecoveryEntry"
+	}
 }
 if ($hqServiceText -match "using FIA supply-cache fallback") {
 	throw "HQ service must not use a supply-cache fallback for the HQ arsenal"
 }
-if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked\(\) && !m_bArsenalNeedsDelayedVerification && IsUsableArsenalEntity\(m_ArsenalEntity\)') {
-	throw "HQ runtime must not skip delayed arsenal verification just because the entity exists"
+foreach ($forbiddenArsenalReadinessGate in @(
+	"missing RplComponent",
+	"missing ActionsManagerComponent"
+)) {
+	if ($hqServiceText -match [regex]::Escape($forbiddenArsenalReadinessGate)) {
+		throw "HQ arsenal readiness must not reject visible arsenal visuals for wrapper-only component state: $forbiddenArsenalReadinessGate"
+	}
+}
+if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked\(\) && IsUsableArsenalEntity\(m_ArsenalEntity\)') {
+	throw "HQ runtime must not skip arsenal usability just because the entity exists"
 }
 if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {
 	throw "Coordinator must expose a Build Mode guarded HQ runtime rebuild action"
@@ -451,12 +474,14 @@ if ((Get-Content -Raw $hqArsenalPrefabMetaPath) -notmatch '\{6985327711303400\}P
 $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
-	"SupplyCache_S_FIA_01.et",
+	'{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et',
 	"RplComponent",
 	"ActionsManagerComponent",
 	"HST_HQArsenalOpenAction",
+	"HST_HQArsenalLoadoutEditorAction",
 	"HST_HQArsenalLootNearbyAction",
 	"Open h-istasi Arsenal",
+	"Open h-istasi Loadout Editor",
 	"Loot nearby to h-istasi Arsenal"
 )) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
@@ -464,9 +489,13 @@ foreach ($requiredArsenalPrefabEntry in @(
 	}
 }
 foreach ($forbiddenArsenalPrefabEntry in @(
-	"EquipmentBox_US.et",
+	"ArsenalBox_FIA.et",
+	"ArsenalBoxes/FIA",
+	"SupplyCache_S_FIA_01.et",
+	"Prefabs/Compositions/Slotted/SlotFlatSmall",
 	"SupplyDrop/Parts",
-	"ArsenalBox_FIA",
+	"ArsenalBox_FIA_Weapons.et",
+	"ArsenalBox_FIA_Equipment.et",
 	"SCR_Arsenal",
 	"MSAR",
 	"Ural4320_arsenal_box_tan.et"
@@ -475,48 +504,18 @@ foreach ($forbiddenArsenalPrefabEntry in @(
 		throw "HST HQ arsenal prefab must not use stock arsenal/MSAR/fake supply-cache entry: $forbiddenArsenalPrefabEntry"
 	}
 }
-Write-Host "HST HQ arsenal prefab h-istasi-only contract OK"
+Write-Host "HST HQ arsenal custom action-surface contract OK"
 
 $hqArsenalFallbackPrefabPath = "Prefabs/Objects/HST/HST_HQArsenalFallback.et"
-if (!(Test-Path $hqArsenalFallbackPrefabPath)) {
-	throw "Missing HST HQ fallback arsenal prefab: $hqArsenalFallbackPrefabPath"
+if (Test-Path $hqArsenalFallbackPrefabPath) {
+	throw "Remove obsolete HST HQ fallback arsenal prefab: $hqArsenalFallbackPrefabPath"
 }
 
 $hqArsenalFallbackPrefabMetaPath = "$hqArsenalFallbackPrefabPath.meta"
-if (!(Test-Path $hqArsenalFallbackPrefabMetaPath)) {
-	throw "Missing HST HQ fallback arsenal prefab metadata: $hqArsenalFallbackPrefabMetaPath"
+if (Test-Path $hqArsenalFallbackPrefabMetaPath) {
+	throw "Remove obsolete HST HQ fallback arsenal prefab metadata: $hqArsenalFallbackPrefabMetaPath"
 }
-
-if ((Get-Content -Raw $hqArsenalFallbackPrefabMetaPath) -notmatch '\{6985327711303410\}Prefabs/Objects/HST/HST_HQArsenalFallback\.et') {
-	throw "HST HQ fallback arsenal prefab metadata must expose the GUID-qualified resource name"
-}
-
-$hqArsenalFallbackPrefabText = Get-Content -Raw $hqArsenalFallbackPrefabPath
-foreach ($requiredArsenalFallbackPrefabEntry in @(
-	"GenericEntity HST_HQArsenalFallback",
-	"SupplyCache_S_FIA_01.et",
-	"RplComponent",
-	"ActionsManagerComponent",
-	"HST_HQArsenalOpenAction",
-	"HST_HQArsenalLootNearbyAction"
-)) {
-	if ($hqArsenalFallbackPrefabText -notmatch [regex]::Escape($requiredArsenalFallbackPrefabEntry)) {
-		throw "HST HQ fallback arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalFallbackPrefabEntry"
-	}
-}
-foreach ($forbiddenArsenalFallbackPrefabEntry in @(
-	"EquipmentBox_US.et",
-	"SupplyDrop/Parts",
-	"ArsenalBox_FIA",
-	"SCR_Arsenal",
-	"MSAR",
-	"Ural4320_arsenal_box_tan.et"
-)) {
-	if ($hqArsenalFallbackPrefabText -match [regex]::Escape($forbiddenArsenalFallbackPrefabEntry)) {
-		throw "HST HQ fallback arsenal prefab must not use stock arsenal/MSAR/fake supply-cache entry: $forbiddenArsenalFallbackPrefabEntry"
-	}
-}
-Write-Host "HST HQ fallback arsenal prefab contract OK"
+Write-Host "Obsolete HST HQ fallback arsenal prefab removed"
 
 $balanceConfigTextEarly = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
 $defaultCatalogEarly = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
@@ -620,6 +619,31 @@ foreach ($requiredMissionPropPath in @(
 	}
 	if (!(Test-Path "$requiredMissionPropPath.meta")) {
 		throw "Missing mission runtime prop prefab metadata: $requiredMissionPropPath.meta"
+	}
+}
+foreach ($missionPropContract in @(
+	@("Prefabs/Objects/HST/HST_MissionProp_HVT.et", "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_Captives.et", "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_Cargo.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et"),
+	@("Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et", "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et")
+)) {
+	$missionPropText = Get-Content -Raw $missionPropContract[0]
+	if ($missionPropText -notmatch [regex]::Escape($missionPropContract[1])) {
+		throw "Mission runtime prop must inherit a visible GUID-qualified parent: $($missionPropContract[0]) -> $($missionPropContract[1])"
+	}
+
+	foreach ($blankMissionPropParent in @(
+		"Prefabs/Props/Military/CISS/SupplyDrop/Parts",
+		"EquipmentBox_US.et",
+		"SupplyCache_S_FIA_01.et",
+		"AmmoBoxArsenal_Weapons_FIA.et",
+		"CampaignRadioBox.et",
+		"TransmitterTower_01.et"
+	)) {
+		if ($missionPropText -match [regex]::Escape($blankMissionPropParent)) {
+			throw "Mission runtime prop must not inherit blank/part/problem prefab $blankMissionPropParent in $($missionPropContract[0])"
+		}
 	}
 }
 Write-Host "Mission runtime primitive coverage OK"
@@ -1607,6 +1631,7 @@ foreach ($requiredLootEntry in @(
 	"HST_LootService",
 	"HST_LootResult",
 	"HST_VehicleRootScanResult",
+	"HST_RuntimeVehicleState",
 	"HST_DisplayNameService",
 	"LootNearbyToArsenal",
 	"CollectNearbyLootToVehicle",
@@ -1632,7 +1657,8 @@ foreach ($requiredLootEntry in @(
 	"HST_VehicleRootPolicy",
 	"IsEligibleVehicleRootPrefab",
 	"BuildVehicleRootRejectReason",
-	"HasVehicleRootComponent",
+	"ResolveRuntimeVehicleRecord",
+	"selected registered h-istasi runtime vehicle",
 	"IsLikelyVehicleRootPrefab",
 	"IsRejectedVehicleRootPrefab",
 	"IsVehiclePartEntity",
@@ -1646,7 +1672,6 @@ foreach ($requiredLootEntry in @(
 	"m_sLastVehicleTargetReason",
 	"m_sLastVehicleTargetPrefab",
 	"m_iLastVehicleTargetCargoEntries",
-	"SCR_BaseCompartmentManagerComponent",
 	"no safe root vehicle nearby",
 	"nearest candidate was not a top-level vehicle",
 	"stored then deleted verified root vehicle",
@@ -1756,6 +1781,11 @@ foreach ($requiredMenuRecoveryEntry in @(
 	"Rebuild HQ assets",
 	"rebuild_hq_assets",
 	"Build redeploy",
+	"Loadout Editor",
+	"Open Loadout Editor",
+	"loadout_editor_open",
+	"loadout_apply",
+	"loadout_save",
 	"Force income tick",
 	"Force mission progress"
 )) {
@@ -1765,11 +1795,57 @@ foreach ($requiredMenuRecoveryEntry in @(
 }
 Write-Host "Command menu recovery/build cleanup OK"
 
+$loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
+foreach ($requiredLoadoutEditorEntry in @(
+	"HST_LoadoutEditorService",
+	"HST_LoadoutSlotState",
+	"HST_SavedLoadoutState",
+	"HST_IssuedLoadoutItemState",
+	"HST_LoadoutEditorSessionState",
+	"m_aSavedLoadouts",
+	"m_aIssuedLoadoutItems",
+	"OpenEditor",
+	"CloseEditor",
+	"SaveCurrentDraft",
+	"ApplySavedLoadout",
+	"SpawnPreviewMannequin",
+	"DeletePreviewMannequin",
+	"ValidateLoadoutTransaction",
+	"ValidateAttachmentCompatibility",
+	"CommitLoadoutTransaction",
+	"ReturnUnneededIssuedItems",
+	"m_bUnlocked",
+	"INF",
+	"MarkIssuedLoadoutLostOnDeath",
+	"RequestMemberOpenLoadoutEditor",
+	"RequestMemberCloseLoadoutEditor",
+	"RequestMemberSaveLoadoutDraft",
+	"RequestMemberApplySavedLoadout",
+	"HST_PetrosLoadoutEditorAction",
+	"HST_HQArsenalLoadoutEditorAction"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredLoadoutEditorEntry)) {
+		throw "Custom loadout editor contract is missing: $requiredLoadoutEditorEntry"
+	}
+}
+foreach ($forbiddenArsenalRuntimeEntry in @(
+	"SCR_Arsenal",
+	"SCR_PlayerArsenalLoadout",
+	"MSAR"
+)) {
+	if ($loadoutEditorText -match [regex]::Escape($forbiddenArsenalRuntimeEntry)) {
+		throw "Custom loadout editor must not issue gear through stock/MSAR arsenal runtime: $forbiddenArsenalRuntimeEntry"
+	}
+}
+Write-Host "Custom HST loadout editor contract OK"
+
 $lootServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LootService.c"
 $vehicleRootPolicyText = Get-Content -Raw "Scripts/Game/HST/Services/HST_VehicleRootPolicy.c"
 foreach ($requiredVehicleRejectionEntry in @(
 	'prefab.Contains("Prefabs/Vehicles/")',
-	'HasVehicleRootComponent(entity)',
+	"IsKnownVehicleRootName",
+	"M998",
+	"S1203",
 	'prefab.Contains("Supply")',
 	'prefab.Contains("Crate")',
 	'prefab.Contains("Cache")',
@@ -1784,11 +1860,48 @@ foreach ($requiredVehicleRejectionEntry in @(
 		throw "Loot service must keep strict vehicle-root rejection entry: $requiredVehicleRejectionEntry"
 	}
 }
+foreach ($removedVehicleGateEntry in @(
+	"HasVehicleRootComponent",
+	"SCR_BaseCompartmentManagerComponent"
+)) {
+	if ($lootServiceText -match [regex]::Escape($removedVehicleGateEntry)) {
+		throw "Loot service must not require the old compartment-manager-only vehicle root gate: $removedVehicleGateEntry"
+	}
+}
+foreach ($requiredRuntimeVehicleEntry in @(
+	"HST_RuntimeVehicleState",
+	"m_aRuntimeVehicles",
+	"RegisterRuntimeVehicle",
+	"ResolveRuntimeVehicleRecord",
+	"selected registered h-istasi runtime vehicle",
+	"MarkRuntimeVehicleDeleted"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeVehicleEntry)) {
+		throw "Vehicle targeting must support registered h-istasi runtime vehicles: $requiredRuntimeVehicleEntry"
+	}
+}
 if ($lootServiceText -match 'return true;\s*\r?\n\s*}\s*\r?\n\s*protected bool IsRejectedVehicleRootPrefab') {
 	throw "Loot service must not accept every Prefabs/Vehicles resource as a root vehicle"
 }
+if ($vehicleRootPolicyText -match 'if \(!prefab\.Contains\("Prefabs/"\)\)') {
+	throw "Vehicle root policy must not reject basename vehicle prefabs like M998_covered_USAF.et"
+}
 if ($vehicleRootPolicyText -notmatch 'IsVehiclePartPrefab\(prefab\)' -or $vehicleRootPolicyText -notmatch 'LicensePlate') {
 	throw "Vehicle root policy must reject vehicle parts and LicensePlate resources"
+}
+foreach ($requiredProtectedLootEntry in @(
+	"IsProtectedHQLootSource",
+	"IsProtectedHQEntity",
+	"IsHQProtectedPrefab",
+	"state.m_vArsenalPosition",
+	"skipped protected HQ source",
+	"ArsenalBox_FIA",
+	"SupplyCache",
+	"Character_HST_Petros"
+)) {
+	if ($lootServiceText -notmatch [regex]::Escape($requiredProtectedLootEntry)) {
+		throw "Loot service must protect HQ arsenal/cache/tent/Petros from vehicle cargo and area loot: $requiredProtectedLootEntry"
+	}
 }
 if ($lootServiceText -notmatch 'RekeyLegacyVehiclePartCargo[\s\S]*?m_sVehicleRuntimeId = vehicleId') {
 	throw "Vehicle unload must rekey legacy part-bound cargo to the selected root vehicle"

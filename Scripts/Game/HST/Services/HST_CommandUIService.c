@@ -78,7 +78,7 @@ class HST_CommandUIService
 			payload = payload + "\nRESULT|" + lastResult;
 
 		array<ref HST_CommandMenuAction> actions = {};
-		BuildTabActions(state, preset, selectedTabId, actions, canUseMember, canUseCommander, canUseAdmin);
+		BuildTabActions(state, preset, selectedTabId, playerId, actions, canUseMember, canUseCommander, canUseAdmin);
 		foreach (HST_CommandMenuAction action : actions)
 			payload = payload + "\n" + action.ToPayloadLine();
 
@@ -142,6 +142,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_persistence")
 			return coordinator.RequestMemberInspectPersistence(playerId);
 
+		if (commandId == "inspect_loadout_editor")
+			return coordinator.RequestMemberInspectLoadoutEditor(playerId);
+
 		if (commandId == "inspect_mission_runtime")
 			return coordinator.RequestMemberInspectMissionRuntime(playerId);
 
@@ -156,6 +159,18 @@ class HST_CommandUIService
 
 		if (commandId == "vehicle_unload_loot")
 			return coordinator.RequestMemberUnloadVehicleCargo(playerId, argument);
+
+		if (commandId == "loadout_editor_open")
+			return coordinator.RequestMemberOpenLoadoutEditor(playerId);
+
+		if (commandId == "loadout_editor_close")
+			return coordinator.RequestMemberCloseLoadoutEditor(playerId);
+
+		if (commandId == "loadout_save")
+			return coordinator.RequestMemberSaveLoadoutDraft(playerId, argument);
+
+		if (commandId == "loadout_apply")
+			return coordinator.RequestMemberApplySavedLoadout(playerId, argument);
 
 		if (commandId == "garage_capture_nearby")
 			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
@@ -363,6 +378,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_persistence")
 			return !coordinator.RequestMemberInspectPersistence(playerId).IsEmpty();
 
+		if (commandId == "inspect_loadout_editor")
+			return !coordinator.RequestMemberInspectLoadoutEditor(playerId).IsEmpty();
+
 		if (commandId == "inspect_mission_runtime")
 			return !coordinator.RequestMemberInspectMissionRuntime(playerId).IsEmpty();
 
@@ -377,6 +395,18 @@ class HST_CommandUIService
 
 		if (commandId == "vehicle_unload_loot")
 			return !coordinator.RequestMemberUnloadVehicleCargo(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_editor_open")
+			return !coordinator.RequestMemberOpenLoadoutEditor(playerId).IsEmpty();
+
+		if (commandId == "loadout_editor_close")
+			return !coordinator.RequestMemberCloseLoadoutEditor(playerId).IsEmpty();
+
+		if (commandId == "loadout_save")
+			return !coordinator.RequestMemberSaveLoadoutDraft(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_apply")
+			return !coordinator.RequestMemberApplySavedLoadout(playerId, argument).IsEmpty();
 
 		if (commandId == "garage_capture_nearby")
 			return IsActionResultComplete(coordinator.RequestMemberCaptureNearbyVehicle(playerId));
@@ -876,6 +906,14 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "arsenal", "Target reason", state.m_sLastVehicleTargetReason, BuildVehicleTargetTone(state));
 		payload = AppendRow(payload, "arsenal", "Vehicle cargo target", string.Format("%1 entries", state.m_iLastVehicleTargetCargoEntries), "warn");
 
+		payload = AppendSection(payload, "loadout_editor", "Loadout Editor");
+		payload = AppendRow(payload, "loadout_editor", "Status", BuildLoadoutEditorStatus(state, playerId), BuildLoadoutEditorTone(state));
+		payload = AppendRow(payload, "loadout_editor", "Saved loadouts", string.Format("%1 personal preset(s)", CountPlayerSavedLoadouts(state, playerId)), "good");
+		payload = AppendRow(payload, "loadout_editor", "Issued ledger", string.Format("%1 finite / %2 INF item(s)", CountPlayerIssuedFiniteItems(state, playerId), CountPlayerIssuedInfiniteItems(state, playerId)), "warn");
+		payload = AppendRow(payload, "loadout_editor", "Authority", "h-istasi economy validates apply, counts, INF unlocks, and issued returns.", "good");
+		if (!state.m_sLastLoadoutEditorFailure.IsEmpty())
+			payload = AppendRow(payload, "loadout_editor", "Last failure", state.m_sLastLoadoutEditorFailure, "bad");
+
 		payload = AppendSection(payload, "items", "Recovered Equipment");
 		if (state.m_aArsenalItems.Count() == 0)
 			payload = AppendRow(payload, "items", "Empty", "Loot nearby bodies, crates, and enemy inventories into the HQ arsenal.", "neutral");
@@ -1048,7 +1086,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected void BuildTabActions(HST_CampaignState state, HST_CampaignPreset preset, string selectedTabId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	protected void BuildTabActions(HST_CampaignState state, HST_CampaignPreset preset, string selectedTabId, int playerId, notnull array<ref HST_CommandMenuAction> actions, bool canUseMember, bool canUseCommander, bool canUseAdmin)
 	{
 		actions.Clear();
 		selectedTabId = NormalizeTabId(selectedTabId);
@@ -1062,6 +1100,7 @@ class HST_CommandUIService
 		string memberIdentityId = SelectFirstMemberIdentity(state);
 		bool airSupportReady = HasResistanceAirSupportCapability(state);
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
+		string firstSavedLoadoutId = SelectFirstSavedLoadoutId(state, playerId);
 		if (selectedTabId == TAB_SETUP)
 		{
 			AddMenuAction(actions, TAB_SETUP, "Start HQ: north forest", "setup_hideout", "hideout_north_forest", canUseCommander, "commander required");
@@ -1121,9 +1160,14 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ARSENAL)
 		{
+			AddMenuAction(actions, TAB_ARSENAL, "Open Loadout Editor", "loadout_editor_open", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Save current loadout draft", "loadout_save", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Apply saved loadout", "loadout_apply", firstSavedLoadoutId, canUseMember && !firstSavedLoadoutId.IsEmpty(), "no saved loadout");
+			AddMenuAction(actions, TAB_ARSENAL, "Close Loadout Editor", "loadout_editor_close", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal", "loot_nearby", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle", "vehicle_collect_loot", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal", "vehicle_unload_loot", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_ARSENAL, "Loadout editor report", "inspect_loadout_editor", "", canUseMember, "membership required");
 			return;
 		}
 
@@ -1331,6 +1375,110 @@ class HST_CommandUIService
 		}
 
 		return "";
+	}
+
+	protected string SelectFirstSavedLoadoutId(HST_CampaignState state, int playerId)
+	{
+		if (!state)
+			return "";
+
+		string identityId = ResolveMenuIdentityId(state, playerId);
+		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
+		{
+			if (loadout && loadout.m_sOwnerIdentityId == identityId && !loadout.m_sLoadoutId.IsEmpty())
+				return loadout.m_sLoadoutId;
+		}
+
+		return "";
+	}
+
+	protected string ResolveMenuIdentityId(HST_CampaignState state, int playerId)
+	{
+		if (state)
+		{
+			foreach (HST_PlayerState player : state.m_aPlayers)
+			{
+				if (player && player.m_iLastSeenPlayerId == playerId && !player.m_sIdentityId.IsEmpty())
+					return player.m_sIdentityId;
+			}
+		}
+
+		return string.Format("workbench_player_%1", playerId);
+	}
+
+	protected int CountPlayerSavedLoadouts(HST_CampaignState state, int playerId)
+	{
+		if (!state)
+			return 0;
+
+		string identityId = ResolveMenuIdentityId(state, playerId);
+		int count;
+		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
+		{
+			if (loadout && loadout.m_sOwnerIdentityId == identityId)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountPlayerIssuedFiniteItems(HST_CampaignState state, int playerId)
+	{
+		if (!state)
+			return 0;
+
+		string identityId = ResolveMenuIdentityId(state, playerId);
+		int count;
+		foreach (HST_IssuedLoadoutItemState issuedItem : state.m_aIssuedLoadoutItems)
+		{
+			if (issuedItem && issuedItem.m_sOwnerIdentityId == identityId && !issuedItem.m_bInfinite)
+				count += issuedItem.m_iCount;
+		}
+
+		return count;
+	}
+
+	protected int CountPlayerIssuedInfiniteItems(HST_CampaignState state, int playerId)
+	{
+		if (!state)
+			return 0;
+
+		string identityId = ResolveMenuIdentityId(state, playerId);
+		int count;
+		foreach (HST_IssuedLoadoutItemState issuedItem : state.m_aIssuedLoadoutItems)
+		{
+			if (issuedItem && issuedItem.m_sOwnerIdentityId == identityId && issuedItem.m_bInfinite)
+				count += issuedItem.m_iCount;
+		}
+
+		return count;
+	}
+
+	protected string BuildLoadoutEditorStatus(HST_CampaignState state, int playerId)
+	{
+		if (!state)
+			return "unknown";
+
+		string identityId = ResolveMenuIdentityId(state, playerId);
+		HST_LoadoutEditorSessionState session = state.FindLoadoutEditorSession(identityId);
+		if (!session)
+			return state.m_sLoadoutEditorStatus;
+
+		return string.Format("%1 | preview %2 | current %3", session.m_sStatus, session.m_bPreviewSpawned, session.m_sCurrentLoadoutId);
+	}
+
+	protected string BuildLoadoutEditorTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "warn";
+
+		if (!state.m_sLastLoadoutEditorFailure.IsEmpty())
+			return "bad";
+
+		if (state.m_sLoadoutEditorStatus.Contains("open") || state.m_sLoadoutEditorStatus.Contains("saved") || state.m_sLoadoutEditorStatus.Contains("applied"))
+			return "good";
+
+		return "neutral";
 	}
 
 	protected string BuildGarageRedeployActionLabel(HST_GarageVehicleState vehicle)

@@ -4,9 +4,7 @@ class HST_HQService
 	static const string PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
-	static const string ARSENAL_FALLBACK_PREFAB = "{6985327711303410}Prefabs/Objects/HST/HST_HQArsenalFallback.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
-	static const float ARSENAL_VISIBLE_LIFT_METERS = 0.0;
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
 
 	protected IEntity m_PetrosEntity;
@@ -20,7 +18,6 @@ class HST_HQService
 	protected bool m_bLoggedCacheSpawned;
 	protected bool m_bLoggedArsenalSpawned;
 	protected bool m_bLoggedTentSpawned;
-	protected bool m_bArsenalNeedsDelayedVerification;
 
 	bool BootstrapInitialHideout(HST_CampaignState state, string hideoutId)
 	{
@@ -99,7 +96,7 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked() && !m_bArsenalNeedsDelayedVerification && IsUsableArsenalEntity(m_ArsenalEntity))
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked() && IsUsableArsenalEntity(m_ArsenalEntity))
 			return false;
 
 		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked())
@@ -150,38 +147,6 @@ class HST_HQService
 			}
 			else if (logDetails)
 				LogRuntimeObjectSpawnFailure("arsenal", ResolveArsenalPrefab(state), state.m_vArsenalPosition);
-		}
-		else if (m_bArsenalNeedsDelayedVerification)
-		{
-			string delayedFailure;
-			if (VerifyDelayedArsenalEntity(state, delayedFailure))
-			{
-				state.m_sHQArsenalRuntimeStatus = string.Format("ready at %1 using %2", m_ArsenalEntity.GetOrigin(), ResolveArsenalPrefab(state));
-				state.m_sLastHQArsenalFailure = "";
-				m_bArsenalNeedsDelayedVerification = false;
-				Print(string.Format("h-istasi | HQ arsenal ready at %1 using %2", m_ArsenalEntity.GetOrigin(), ResolveArsenalPrefab(state)));
-				changed = true;
-			}
-			else
-			{
-				Print(string.Format("h-istasi | HQ arsenal delayed verification failed: %1", delayedFailure), LogLevel.WARNING);
-				state.m_sLastHQArsenalFailure = delayedFailure;
-				state.m_sHQArsenalRuntimeStatus = "retrying fallback after delayed verification";
-				DeleteRuntimeEntity(m_ArsenalEntity);
-				m_ArsenalEntity = null;
-				m_bArsenalNeedsDelayedVerification = false;
-				m_bLoggedArsenalSpawned = false;
-
-				if (state.m_sArsenalPrefab != ARSENAL_FALLBACK_PREFAB)
-				{
-					state.m_sArsenalPrefab = ARSENAL_FALLBACK_PREFAB;
-					m_ArsenalEntity = SpawnArsenal(respawnSystem, state);
-					if (m_ArsenalEntity)
-						m_bLoggedArsenalSpawned = LogRuntimeObjectSpawnSuccess("arsenal", ResolveArsenalPrefab(state), state.m_vArsenalPosition, m_bLoggedArsenalSpawned);
-				}
-
-				changed = true;
-			}
 		}
 		else if (!IsUsableArsenalEntity(m_ArsenalEntity))
 		{
@@ -367,7 +332,7 @@ class HST_HQService
 
 		state.m_vPetrosPosition = ResolveRuntimeObjectGroundPosition(state.m_vPetrosPosition, state.m_vHQPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		state.m_vHQCachePosition = ResolveRuntimeObjectGroundPosition(state.m_vHQCachePosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
-		state.m_vArsenalPosition = ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
+		state.m_vArsenalPosition = ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_vHQTentPosition = ResolveRuntimeObjectGroundPosition(state.m_vHQTentPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
 	}
 
@@ -432,7 +397,7 @@ class HST_HQService
 		if (!state)
 			return ARSENAL_PREFAB;
 
-		if (state.m_sArsenalPrefab.IsEmpty() || state.m_sArsenalPrefab == HQ_CACHE_PREFAB)
+		if (state.m_sArsenalPrefab.IsEmpty() || state.m_sArsenalPrefab != ARSENAL_PREFAB)
 			state.m_sArsenalPrefab = ARSENAL_PREFAB;
 
 		return state.m_sArsenalPrefab;
@@ -444,7 +409,7 @@ class HST_HQService
 			return null;
 
 		string arsenalPrefab = ResolveArsenalPrefab(state);
-		vector arsenalPosition = ResolveArsenalSpawnPosition(state, arsenalPrefab);
+		vector arsenalPosition = ResolvePrimaryArsenalPosition(state);
 
 		GenericEntity arsenal = respawnSystem.DoSpawn(arsenalPrefab, arsenalPosition, "0 0 0");
 		string failure = ResolveArsenalReadinessFailure(arsenal, arsenalPosition, true);
@@ -453,11 +418,12 @@ class HST_HQService
 			if (state)
 			{
 				state.m_vArsenalPosition = arsenalPosition;
-				state.m_sHQArsenalRuntimeStatus = string.Format("spawned pending delayed verification at %1", arsenalPosition);
+				state.m_sArsenalPrefab = ARSENAL_PREFAB;
+				state.m_sHQArsenalRuntimeStatus = string.Format("visible/action surface ready at %1 using %2", arsenalPosition, arsenalPrefab);
 				state.m_sLastHQArsenalFailure = "";
 			}
 
-			m_bArsenalNeedsDelayedVerification = true;
+			Print(string.Format("h-istasi | HQ arsenal visual/action surface ready at %1 using %2; item authority remains h-istasi services", arsenalPosition, arsenalPrefab));
 			return arsenal;
 		}
 
@@ -467,38 +433,9 @@ class HST_HQService
 			DeleteRuntimeEntity(arsenal);
 		}
 
-		if (arsenalPrefab != ARSENAL_FALLBACK_PREFAB)
-		{
-			vector fallbackPosition = ResolveArsenalSpawnPosition(state, ARSENAL_FALLBACK_PREFAB);
-			GenericEntity fallbackArsenal = respawnSystem.DoSpawn(ARSENAL_FALLBACK_PREFAB, fallbackPosition, "0 0 0");
-			string fallbackFailure = ResolveArsenalReadinessFailure(fallbackArsenal, fallbackPosition, true);
-			if (fallbackFailure.IsEmpty())
-			{
-				if (state)
-				{
-					state.m_sArsenalPrefab = ARSENAL_FALLBACK_PREFAB;
-					state.m_vArsenalPosition = fallbackPosition;
-					state.m_sHQArsenalRuntimeStatus = string.Format("fallback spawned pending delayed verification at %1", fallbackPosition);
-					state.m_sLastHQArsenalFailure = failure;
-				}
-
-				Print(string.Format("h-istasi | HQ arsenal primary %1 failed; using h-istasi fallback %2", arsenalPrefab, ARSENAL_FALLBACK_PREFAB), LogLevel.WARNING);
-				m_bArsenalNeedsDelayedVerification = true;
-				return fallbackArsenal;
-			}
-
-			if (fallbackArsenal)
-			{
-				Print(string.Format("h-istasi | HQ fallback arsenal prefab %1 spawned at %2 but failed readiness check: %3", ARSENAL_FALLBACK_PREFAB, fallbackPosition, fallbackFailure), LogLevel.WARNING);
-				DeleteRuntimeEntity(fallbackArsenal);
-			}
-
-			failure = failure + " | fallback: " + fallbackFailure;
-		}
-
 		if (!m_bWarnedArsenalResourceFailure)
 		{
-			Print(string.Format("h-istasi | HQ arsenal prefab %1 and fallback %2 failed to spawn at %3; no supply-cache fallback will be used | %4", arsenalPrefab, ARSENAL_FALLBACK_PREFAB, arsenalPosition, failure), LogLevel.WARNING);
+			Print(string.Format("h-istasi | HQ arsenal prefab %1 failed to spawn ready at %2 | %3", arsenalPrefab, arsenalPosition, failure), LogLevel.WARNING);
 			m_bWarnedArsenalResourceFailure = true;
 		}
 
@@ -517,24 +454,10 @@ class HST_HQService
 		return failure.IsEmpty();
 	}
 
-	protected bool VerifyDelayedArsenalEntity(HST_CampaignState state, out string failure)
-	{
-		failure = ResolveArsenalReadinessFailure(m_ArsenalEntity, state.m_vArsenalPosition, true);
-		return failure.IsEmpty();
-	}
-
 	protected string ResolveArsenalReadinessFailure(IEntity arsenal, vector intendedPosition, bool checkPosition)
 	{
 		if (!arsenal)
 			return "entity missing after spawn";
-
-		BaseRplComponent rpl = BaseRplComponent.Cast(arsenal.FindComponent(BaseRplComponent));
-		if (!rpl)
-			return "missing RplComponent";
-
-		ActionsManagerComponent actions = ActionsManagerComponent.Cast(arsenal.FindComponent(ActionsManagerComponent));
-		if (!actions)
-			return "missing ActionsManagerComponent";
 
 		if (checkPosition)
 		{
@@ -550,27 +473,13 @@ class HST_HQService
 		return "";
 	}
 
-	protected vector ResolveArsenalSpawnPosition(HST_CampaignState state, string prefab)
-	{
-		if (!state)
-			return "0 0 0";
-
-		if (prefab == ARSENAL_FALLBACK_PREFAB)
-		{
-			vector fallbackOffset = "-2 0 -3";
-			return ResolveHQObjectPosition(state.m_vHQPosition, fallbackOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
-		}
-
-		return ResolvePrimaryArsenalPosition(state);
-	}
-
 	protected vector ResolvePrimaryArsenalPosition(HST_CampaignState state)
 	{
 		if (!state)
 			return "0 0 0";
 
 		vector arsenalOffset = "3 0 4";
-		return ResolveHQObjectPosition(state.m_vHQPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET + ARSENAL_VISIBLE_LIFT_METERS);
+		return ResolveHQObjectPosition(state.m_vHQPosition, arsenalOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 	}
 
 	protected vector ResolveHQObjectPosition(vector hqPosition, vector offset, float verticalOffset)
@@ -638,7 +547,6 @@ class HST_HQService
 		m_bLoggedCacheSpawned = false;
 		m_bLoggedArsenalSpawned = false;
 		m_bLoggedTentSpawned = false;
-		m_bArsenalNeedsDelayedVerification = false;
 
 		if (state)
 		{
