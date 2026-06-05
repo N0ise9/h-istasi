@@ -79,8 +79,9 @@ class HST_BuildModeService
 		return placement;
 	}
 
-	protected HST_BuildModePlacement RejectPlacement(HST_CampaignState state, HST_BuildModePlacement placement, string reason)
+	protected HST_BuildModePlacement RejectPlacement(HST_CampaignState state, HST_BuildModePlacement existingPlacement, string reason)
 	{
+		HST_BuildModePlacement placement = existingPlacement;
 		if (!placement)
 			placement = new HST_BuildModePlacement();
 
