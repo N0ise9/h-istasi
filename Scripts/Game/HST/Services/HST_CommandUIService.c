@@ -172,6 +172,24 @@ class HST_CommandUIService
 		if (commandId == "loadout_apply")
 			return coordinator.RequestMemberApplySavedLoadout(playerId, argument);
 
+		if (commandId == "loadout_add_item")
+			return coordinator.RequestMemberAddLoadoutDraftItem(playerId, argument);
+
+		if (commandId == "loadout_remove_slot")
+			return coordinator.RequestMemberRemoveLoadoutDraftSlot(playerId, argument);
+
+		if (commandId == "loadout_set_quantity")
+			return coordinator.RequestMemberSetLoadoutDraftSlotQuantity(playerId, argument);
+
+		if (commandId == "loadout_clear_draft")
+			return coordinator.RequestMemberClearLoadoutDraft(playerId);
+
+		if (commandId == "loadout_select")
+			return coordinator.RequestMemberSelectSavedLoadout(playerId, argument);
+
+		if (commandId == "loadout_delete")
+			return coordinator.RequestMemberDeleteSavedLoadout(playerId, argument);
+
 		if (commandId == "garage_capture_nearby")
 			return coordinator.RequestMemberCaptureNearbyVehicle(playerId);
 
@@ -407,6 +425,24 @@ class HST_CommandUIService
 
 		if (commandId == "loadout_apply")
 			return !coordinator.RequestMemberApplySavedLoadout(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_add_item")
+			return !coordinator.RequestMemberAddLoadoutDraftItem(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_remove_slot")
+			return !coordinator.RequestMemberRemoveLoadoutDraftSlot(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_set_quantity")
+			return !coordinator.RequestMemberSetLoadoutDraftSlotQuantity(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_clear_draft")
+			return !coordinator.RequestMemberClearLoadoutDraft(playerId).IsEmpty();
+
+		if (commandId == "loadout_select")
+			return !coordinator.RequestMemberSelectSavedLoadout(playerId, argument).IsEmpty();
+
+		if (commandId == "loadout_delete")
+			return !coordinator.RequestMemberDeleteSavedLoadout(playerId, argument).IsEmpty();
 
 		if (commandId == "garage_capture_nearby")
 			return IsActionResultComplete(coordinator.RequestMemberCaptureNearbyVehicle(playerId));

@@ -484,8 +484,26 @@ class HST_CampaignSaveData
 		target.m_vPosition = source.m_vPosition;
 		target.m_vAngles = source.m_vAngles;
 		target.m_fFuel = source.m_fFuel;
+		target.m_sDamageState = source.m_sDamageState;
 		target.m_bArmed = source.m_bArmed;
 		target.m_bUnlocked = source.m_bUnlocked;
+		target.m_bHadPhysicalCargo = source.m_bHadPhysicalCargo;
+		foreach (HST_StoredVehicleCargoState cargoItem : source.m_aStoredCargoItems)
+			target.m_aStoredCargoItems.Insert(CopyStoredVehicleCargoItem(cargoItem));
+		return target;
+	}
+
+	protected HST_StoredVehicleCargoState CopyStoredVehicleCargoItem(HST_StoredVehicleCargoState source)
+	{
+		HST_StoredVehicleCargoState target = new HST_StoredVehicleCargoState();
+		if (!source)
+			return target;
+
+		target.m_sItemPrefab = source.m_sItemPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sCategory = source.m_sCategory;
+		target.m_sSource = source.m_sSource;
+		target.m_iCount = source.m_iCount;
 		return target;
 	}
 

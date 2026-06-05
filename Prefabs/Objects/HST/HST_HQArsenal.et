@@ -1,7 +1,5 @@
 GenericEntity HST_HQArsenal : "{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et" {
  components {
-  RplComponent "{6985327711303406}" {
-  }
   ActionsManagerComponent "{56F2C6D1431ADB12}" {
    additionalActions {
     HST_HQArsenalLoadoutEditorAction "{6985327711303407}" {

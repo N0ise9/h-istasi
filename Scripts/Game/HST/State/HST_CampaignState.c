@@ -135,6 +135,16 @@ class HST_ArsenalItemState
 }
 
 [BaseContainerProps()]
+class HST_StoredVehicleCargoState
+{
+	string m_sItemPrefab;
+	string m_sDisplayName;
+	string m_sCategory;
+	string m_sSource;
+	int m_iCount;
+}
+
+[BaseContainerProps()]
 class HST_GarageVehicleState
 {
 	string m_sVehicleId;
@@ -147,8 +157,11 @@ class HST_GarageVehicleState
 	vector m_vPosition;
 	vector m_vAngles;
 	float m_fFuel;
+	string m_sDamageState;
 	bool m_bArmed;
 	bool m_bUnlocked;
+	bool m_bHadPhysicalCargo;
+	ref array<ref HST_StoredVehicleCargoState> m_aStoredCargoItems = {};
 }
 
 [BaseContainerProps()]
@@ -221,13 +234,16 @@ class HST_LoadoutEditorSessionState
 	string m_sStatus = "closed";
 	string m_sLastFailure;
 	string m_sPreviewPrefab;
+	string m_sPreviewStatus;
 	vector m_vPreviewPosition;
 	bool m_bPreviewSpawned;
+	int m_iPreviewItemCount;
 	string m_sCurrentLoadoutId;
 	int m_iOpenedAtSecond;
 	int m_iSavedLoadoutCount;
 	int m_iIssuedFiniteCount;
 	int m_iIssuedInfiniteCount;
+	ref array<ref HST_LoadoutSlotState> m_aDraftSlots = {};
 }
 
 [BaseContainerProps()]

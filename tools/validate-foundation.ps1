@@ -513,7 +513,6 @@ $hqArsenalPrefabText = Get-Content -Raw $hqArsenalPrefabPath
 foreach ($requiredArsenalPrefabEntry in @(
 	"GenericEntity HST_HQArsenal",
 	'{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/ArsenalBoxes/FIA/ArsenalBox_FIA.et',
-	"RplComponent",
 	"ActionsManagerComponent",
 	'ActionsManagerComponent "{56F2C6D1431ADB12}"',
 	"HST_HQArsenalLoadoutEditorAction",
@@ -526,8 +525,12 @@ foreach ($requiredArsenalPrefabEntry in @(
 if ($hqArsenalPrefabText -match 'ActionsManagerComponent "\{6985327711303401\}"') {
 	throw "HST HQ arsenal prefab must override the inherited ArsenalBox action manager, not add a duplicate HST action manager"
 }
+if ($hqArsenalPrefabText -match "RplComponent") {
+	throw "HST HQ arsenal prefab must not add a duplicate RplComponent; the visible FIA arsenal base supplies replication"
+}
 foreach ($forbiddenArsenalPrefabEntry in @(
 	'{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et',
+	'{B53B98CEA2D72735}Prefabs/Props/Military/Compositions/FIA/ArsenalBox_FIA.et',
 	"HST_HQArsenalOpenAction",
 	"HST_HQArsenalLootNearbyAction",
 	"Open h-istasi Arsenal",
@@ -1694,9 +1697,10 @@ foreach ($requiredLootEntry in @(
 	"FindNearestVehicleRoot",
 	"PublishVehicleTargetDiagnostics",
 	"ResolveVehicleRoot",
-	"ResolveVehicleRootWithRuntimeFallback",
-	"ResolveRegisteredRuntimeVehicleRootFromCandidate",
-	"DoesCandidateChainHaveVehicleSignal",
+	"TrySelectRuntimeRecordVehicle",
+	"ResolveRuntimeVehicleRootFromRecord",
+	"FillVehicleScanResult",
+	"VehiclePrefabsMatch",
 	"ResolveVehicleRuntimeIdFromScan",
 	"ResolveVehiclePrefabFromScan",
 	"IsEligibleVehicleRoot",
@@ -1753,6 +1757,15 @@ foreach ($requiredLootEntry in @(
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLootEntry)) {
 		throw "Missing loot-to-arsenal contract entry: $requiredLootEntry"
+	}
+}
+foreach ($removedVehicleResolverEntry in @(
+	"ResolveRegisteredRuntimeVehicleRootFromCandidate",
+	"DoesCandidateChainHaveVehicleSignal",
+	"runtime fallback rejected top-level scenery/prop near vehicle record"
+)) {
+	if ($scriptText -match [regex]::Escape($removedVehicleResolverEntry)) {
+		throw "Vehicle targeting must use direct root scan plus record fallback, not the old candidate-based resolver: $removedVehicleResolverEntry"
 	}
 }
 Write-Host "Loot-to-arsenal contract OK"
@@ -1860,21 +1873,52 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"m_aIssuedLoadoutItems",
 	"OpenEditor",
 	"CloseEditor",
+	"BuildEditorPayload",
+	"HST_LOADOUT_EDITOR|%1|%2|%3|%4|%5|%6|%7",
+	"PREVIEW|%1|%2|%3|%4",
+	"CATEGORY|%1|%2|%3",
+	"ITEM|%1|%2|%3|%4|%5",
+	"SLOT|%1|%2|%3|%4|%5",
+	"TEMPLATE|%1|%2|%3",
 	"SaveCurrentDraft",
 	"ApplySavedLoadout",
+	"AddDraftItem",
+	"RemoveDraftSlot",
+	"SetDraftSlotQuantity",
+	"ClearDraft",
+	"SelectSavedLoadout",
+	"DeleteSavedLoadout",
 	"SpawnPreviewMannequin",
 	"DeletePreviewMannequin",
+	"FindPreviewMannequin",
+	"RefreshPreviewMannequinLoadout",
+	"ClearInventoryItems",
+	"ResolvePreviewQuantityLimit",
 	"ValidateLoadoutTransaction",
 	"ValidateAttachmentCompatibility",
+	"ApplyLoadoutToPlayerEntity",
+	"TryInsertItemIntoPlayerInventory",
+	"TryInsertItemIntoInventory",
+	"ResolveDraftMaxQuantity",
+	"BuildUniqueDraftSlotId",
 	"CommitLoadoutTransaction",
 	"ReturnUnneededIssuedItems",
 	"m_bUnlocked",
 	"INF",
+	"m_sPreviewStatus",
+	"m_iPreviewItemCount",
 	"MarkIssuedLoadoutLostOnDeath",
 	"RequestMemberOpenLoadoutEditor",
 	"RequestMemberCloseLoadoutEditor",
 	"RequestMemberSaveLoadoutDraft",
 	"RequestMemberApplySavedLoadout",
+	"RequestMemberAddLoadoutDraftItem",
+	"RequestMemberRemoveLoadoutDraftSlot",
+	"RequestMemberSetLoadoutDraftSlotQuantity",
+	"RequestMemberClearLoadoutDraft",
+	"RequestMemberSelectSavedLoadout",
+	"RequestMemberDeleteSavedLoadout",
+	"loadout_clear_draft",
 	"HST_HQArsenalLoadoutEditorAction"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredLoadoutEditorEntry)) {
@@ -1889,8 +1933,23 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"CloseMenuFromExternal",
 	"RenderEditor",
 	"RenderPreviewStage",
+	"RenderItemBrowser",
+	"RenderMannequinCallout",
+	"BuildPreviewStatusLabel",
+	"BuildDraftHeaderSummary",
+	"ClampPages",
+	"ParseEditorPayload",
 	"RequestServerAction",
-	"OnServerActionResult"
+	"OnServerActionResult",
+	"loadout_add_item",
+	"loadout_remove_slot",
+	"loadout_set_quantity",
+	"loadout_clear_draft",
+	"loadout_select",
+	"loadout_delete",
+	"ITEM_PAGE_NEXT_WIDGET_ID",
+	"SLOT_PAGE_NEXT_WIDGET_ID",
+	"TEMPLATE_PAGE_NEXT_WIDGET_ID"
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
@@ -1995,6 +2054,22 @@ if ($lootServiceText -notmatch 'CaptureNearbyVehicleToGarage[\s\S]*?DeleteEntity
 }
 if ($lootServiceText -match 'if \(!prefab\.Contains\("Vehicles"\) && !prefab\.Contains\("Vehicle"\)\)') {
 	throw "Loot service must not use loose Vehicle/Vehicles substring matching for vehicle roots"
+}
+foreach ($requiredGarageSnapshotEntry in @(
+	"IsVehicleOccupied",
+	"CaptureVehiclePhysicalCargo",
+	"CopyVirtualVehicleCargoToGarage",
+	"RemoveVirtualVehicleCargo",
+	"m_aStoredCargoItems",
+	"m_sDamageState",
+	"m_bHadPhysicalCargo",
+	"RestoreStoredVehicleCargo",
+	"RemoveVehicleCargoByRuntimeId",
+	"restored cargo"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredGarageSnapshotEntry)) {
+		throw "Garage capture/redeploy must preserve occupancy/cargo snapshot contract: $requiredGarageSnapshotEntry"
+	}
 }
 Write-Host "Strict vehicle-root eligibility OK"
 
