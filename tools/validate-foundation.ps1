@@ -1006,6 +1006,8 @@ Write-Host "Default HQ safe radius separation OK"
 
 $scriptFiles = Get-ChildItem -Recurse -File "Scripts" -Filter *.c
 $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
+$commandMenuComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
+$commandUiText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 $configResourceText = (Get-ChildItem -Recurse -File "Configs" -Include *.conf |
 	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_WorldPositionService.c"
@@ -1481,33 +1483,33 @@ foreach ($requiredCommandMenuEntry in @(
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
 	}
 }
-if ($scriptText -match "\bCreateWidgets\b") {
+if ($commandMenuComponentText -match "\bCreateWidgets\b") {
 	throw "Command menu must remain procedural until HST_CommandMenu.layout is indexed with verified resource metadata"
 }
-if ($scriptText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
+if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
 }
-if ($scriptText -match "\bPanelWidgetTypeID\b") {
+if ($commandMenuComponentText -match "\bPanelWidgetTypeID\b") {
 	throw "Command menu visible fills must use canvas draw commands, not panel widget fills"
 }
-if ($scriptText -match "\bWidgetFlags\.WRAP_TEXT\b") {
+if ($commandMenuComponentText -match "\bWidgetFlags\.WRAP_TEXT\b") {
 	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
 }
-$rectFactoryMatch = [regex]::Match($scriptText, "protected Widget CreateRectWidget[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool SetupCanvasRect")
+$rectFactoryMatch = [regex]::Match($commandMenuComponentText, "protected Widget CreateRectWidget[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool SetupCanvasRect")
 if (!$rectFactoryMatch.Success -or $rectFactoryMatch.Value -notmatch "WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu rectangle factory must use CanvasWidgetTypeID"
 }
 if ($rectFactoryMatch.Value -match "FrameWidgetTypeID|PanelWidgetTypeID") {
 	throw "Command menu rectangle factory must not use frame/panel widgets for visible fills"
 }
-$contextCommandMatch = [regex]::Match($scriptText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
+$contextCommandMatch = [regex]::Match($commandMenuComponentText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
 if (!$contextCommandMatch.Success) {
 	throw "Missing command menu context command path"
 }
 if ($contextCommandMatch.Value -match "\bOpenMenu\(") {
 	throw "Context command path must execute quick actions without opening the command menu"
 }
-$registerInputMatch = [regex]::Match($scriptText, "protected bool RegisterInputListeners[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void UnregisterInputListeners")
+$registerInputMatch = [regex]::Match($commandMenuComponentText, "protected bool RegisterInputListeners[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void UnregisterInputListeners")
 if (!$registerInputMatch.Success) {
 	throw "Missing command menu input registration path"
 }
@@ -1526,11 +1528,11 @@ foreach ($removedMenuInputContract in @(
 	'inventory fallback listener fired',
 	'I-key alias listener fired'
 )) {
-	if ($scriptText -match [regex]::Escape($removedMenuInputContract)) {
+	if ($commandMenuComponentText -match [regex]::Escape($removedMenuInputContract)) {
 		throw "Command menu must use custom HST_CommandMenu plus raw KC_I, not the old Inventory/alias fallback: $removedMenuInputContract"
 	}
 }
-$appendTopStatsMatch = [regex]::Match($scriptText, "protected string AppendTopStats[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string AppendTabSections")
+$appendTopStatsMatch = [regex]::Match($commandUiText, "protected string AppendTopStats[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected string AppendTabSections")
 if (!$appendTopStatsMatch.Success) {
 	throw "Missing command menu top stat payload builder"
 }
@@ -1861,6 +1863,8 @@ Write-Host "Command menu recovery/build cleanup OK"
 
 $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
 $loadoutEditorComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"
+$coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$requestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
 foreach ($requiredLoadoutEditorEntry in @(
 	"HST_LoadoutEditorService",
 	"HST_LoadoutEditorComponent",
@@ -1876,6 +1880,7 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"BuildEditorPayload",
 	"HST_LOADOUT_EDITOR|%1|%2|%3|%4|%5|%6|%7",
 	"PREVIEW|%1|%2|%3|%4",
+	"PREVIEW_PREFAB|%1",
 	"CATEGORY|%1|%2|%3",
 	"ITEM|%1|%2|%3|%4|%5",
 	"SLOT|%1|%2|%3|%4|%5",
@@ -1883,6 +1888,7 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"SaveCurrentDraft",
 	"ApplySavedLoadout",
 	"AddDraftItem",
+	"ReplaceDraftSlotItem",
 	"RemoveDraftSlot",
 	"SetDraftSlotQuantity",
 	"ClearDraft",
@@ -1915,9 +1921,15 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"RequestMemberAddLoadoutDraftItem",
 	"RequestMemberRemoveLoadoutDraftSlot",
 	"RequestMemberSetLoadoutDraftSlotQuantity",
+	"RequestMemberReplaceLoadoutDraftSlotItem",
 	"RequestMemberClearLoadoutDraft",
 	"RequestMemberSelectSavedLoadout",
 	"RequestMemberDeleteSavedLoadout",
+	"BuildLoadoutEditorPayload",
+	"RequestLoadoutEditorCommand",
+	"RequestLoadoutEditorAction",
+	"RpcDo_ReceiveLoadoutEditorPayload",
+	"loadout_replace_slot",
 	"loadout_clear_draft",
 	"HST_HQArsenalLoadoutEditorAction"
 )) {
@@ -1932,15 +1944,29 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"OpenFromArsenal",
 	"CloseMenuFromExternal",
 	"RenderEditor",
+	"RenderModeTabs",
+	"RenderSlotRail",
+	"RenderCandidatePanel",
+	"RenderTemplatePanel",
+	"RenderSettingsPanel",
 	"RenderPreviewStage",
-	"RenderItemBrowser",
-	"RenderMannequinCallout",
+	"RenderFooter",
+	"RenderTargetWidget",
+	"BaseWorld.CreateWorld",
+	"SetWorld",
+	"ConfigurePreviewWidget",
+	"EnsurePreviewWorld",
+	"RefreshPreviewWorldLoadout",
+	"UpdatePreviewCamera",
+	"DeletePreviewWorld",
+	"HST_LoadoutPreview",
 	"BuildPreviewStatusLabel",
 	"BuildDraftHeaderSummary",
 	"ClampPages",
 	"ParseEditorPayload",
 	"RequestServerAction",
 	"OnServerActionResult",
+	"loadout_replace_slot",
 	"loadout_add_item",
 	"loadout_remove_slot",
 	"loadout_set_quantity",
@@ -1953,6 +1979,39 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutEditorComponentEntry)) {
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
+	}
+}
+if ($coordinatorText -match [regex]::Escape("AppendLoadoutEditorPayload")) {
+	throw "Normal command menu snapshots must not append loadout-editor payloads"
+}
+$visiblePayloadMatch = [regex]::Match($coordinatorText, "string BuildVisibleMenuPayload[\s\S]*?\r?\n\t}\r?\n\r?\n\tstring RequestVisibleMenuCommand")
+if (!$visiblePayloadMatch.Success -or $visiblePayloadMatch.Value -notmatch "return m_CommandUI\.BuildVisibleMenuPayload" -or $visiblePayloadMatch.Value -match "HST_LOADOUT_EDITOR") {
+	throw "Normal command menu payloads must stay separate from HST_LOADOUT_EDITOR blocks"
+}
+$snapshotRpcMatch = [regex]::Match($requestBridgeText, "protected void RpcDo_ReceiveSnapshot[\s\S]*?\r?\n\t}\r?\n\r?\n\t\[RplRpc\(RplChannel\.Reliable, RplRcver\.Owner\)\]\r?\n\tprotected void RpcDo_ReceiveLoadoutEditorPayload")
+if (!$snapshotRpcMatch.Success -or $snapshotRpcMatch.Value -match "HST_LoadoutEditorComponent") {
+	throw "Normal I-menu snapshots must not be delivered to HST_LoadoutEditorComponent"
+}
+if ($requestBridgeText -notmatch "RequestLoadoutEditorAction[\s\S]*?RpcAsk_RequestLoadoutEditorAction[\s\S]*?RpcDo_ReceiveLoadoutEditorPayload") {
+	throw "Loadout editor must use a dedicated request/RPC payload path"
+}
+foreach ($requiredArsenalLootMenuEntry in @(
+	'AddMenuAction(actions, TAB_ARSENAL, "Loot nearby to arsenal"',
+	'AddMenuAction(actions, TAB_ARSENAL, "Load loot to vehicle"',
+	'AddMenuAction(actions, TAB_ARSENAL, "Unload vehicle loot to arsenal"'
+)) {
+	if ($commandUiText -notmatch [regex]::Escape($requiredArsenalLootMenuEntry)) {
+		throw "Arsenal/Loot I-menu action must remain visible: $requiredArsenalLootMenuEntry"
+	}
+}
+foreach ($forbiddenLoadoutDependencyEntry in @(
+	"BaconLoadoutEditor",
+	"GunBuilder",
+	"Bacon_",
+	"Tonka Bean Tools LE"
+)) {
+	if ($loadoutEditorText -match [regex]::Escape($forbiddenLoadoutDependencyEntry) -or $loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutDependencyEntry)) {
+		throw "h-istasi loadout editor must not depend on Bacon/Tonka loadout runtime strings: $forbiddenLoadoutDependencyEntry"
 	}
 }
 foreach ($forbiddenArsenalRuntimeEntry in @(

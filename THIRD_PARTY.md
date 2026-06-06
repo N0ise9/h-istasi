@@ -27,6 +27,15 @@ redistributed in this addon.
 - Workshop page:
   https://reforger.armaplatform.com/workshop/61B514B96692C049
 
+## Bacon Loadout Editor
+
+h-istasi's custom loadout editor pays likeness to the Bacon Loadout Editor's
+presentation and interaction style: dark fullscreen editor, left-side slot and
+category navigation, character preview emphasis, amber selected rows, and
+footer controls. The h-istasi implementation is original and remains
+h-istasi-owned; no Bacon scripts, prefabs, UI layouts, packed assets, or
+dependency declarations are redistributed in this addon.
+
 ## Overthrow
 
 Overthrow was consulted as architectural reading only. Its source is not

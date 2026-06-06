@@ -1,4 +1,20 @@
-FrameWidget HST_LoadoutEditorRoot {
- FrameWidget HST_LoadoutEditorDynamicCanvas {
+FrameWidgetClass "{7B2FD986A4D34110}" {
+ Name "HST_LoadoutEditorRoot"
+ {
+  RenderTargetWidgetClass "{7B2FD986A4D34111}" {
+   Name "HST_LoadoutPreview"
+   Slot FrameWidgetSlot "{7B2FD986A4D34112}" {
+    Anchor 0 0 1 1
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 0
+    OffsetRight 0
+    SizeY 0
+    OffsetBottom 0
+   }
+   Format "HDR High"
+  }
  }
 }

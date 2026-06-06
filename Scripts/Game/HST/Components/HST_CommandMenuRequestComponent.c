@@ -111,6 +111,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_RequestAction, selectedTabId, commandId, argument);
 	}
 
+	void RequestLoadoutEditorAction(string commandId, string argument = "")
+	{
+		if (Replication.IsServer())
+		{
+			SendLoadoutEditorActionResultToOwner(commandId, argument);
+			return;
+		}
+
+		Rpc(RpcAsk_RequestLoadoutEditorAction, commandId, argument);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult)
 	{
@@ -123,6 +134,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		SendActionResultToOwner(selectedTabId, commandId, argument);
 	}
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_RequestLoadoutEditorAction(string commandId, string argument)
+	{
+		SendLoadoutEditorActionResultToOwner(commandId, argument);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
 	protected void RpcDo_ReceiveSnapshot(string payload, string lastResult)
 	{
@@ -132,7 +149,11 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
 		if (menu)
 			menu.OnServerSnapshot(payload, lastResult);
+	}
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveLoadoutEditorPayload(string payload, string lastResult)
+	{
 		HST_LoadoutEditorComponent loadoutEditor = HST_LoadoutEditorComponent.GetLocalInstance();
 		if (loadoutEditor)
 			loadoutEditor.OnServerActionResult(payload, lastResult);
@@ -167,6 +188,21 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		DeliverSnapshot(payload, result);
 	}
 
+	protected void SendLoadoutEditorActionResultToOwner(string commandId, string argument)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+		{
+			DeliverLoadoutEditorPayload("HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|coordinator not ready\nEND", "coordinator not ready");
+			return;
+		}
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity);
+		string result = coordinator.RequestLoadoutEditorCommand(playerId, commandId, argument);
+		string payload = coordinator.BuildLoadoutEditorPayload(playerId);
+		DeliverLoadoutEditorPayload(payload, result);
+	}
+
 	protected void DeliverSnapshot(string payload, string lastResult)
 	{
 		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
@@ -177,6 +213,18 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_ReceiveSnapshot, payload, lastResult);
+	}
+
+	protected void DeliverLoadoutEditorPayload(string payload, string lastResult)
+	{
+		BaseRplComponent rpl = BaseRplComponent.Cast(m_OwnerEntity.FindComponent(BaseRplComponent));
+		if (Replication.IsServer() && (!rpl || rpl.IsOwner()))
+		{
+			RpcDo_ReceiveLoadoutEditorPayload(payload, lastResult);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveLoadoutEditorPayload, payload, lastResult);
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)

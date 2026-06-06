@@ -32,18 +32,10 @@ class HST_LoadoutEditorService
 		session.m_iSavedLoadoutCount = CountSavedLoadouts(state, identityId);
 		RefreshIssuedCounts(state, identityId, session);
 		EnsureDraftSlots(state, identityId, session);
-
-		IEntity existingPreview = FindPreviewMannequin(identityId);
-		if (existingPreview)
-		{
-			session.m_bPreviewSpawned = true;
-			session.m_vPreviewPosition = existingPreview.GetOrigin();
-			RefreshPreviewMannequinLoadout(state, identityId, session);
-		}
-		else if (!SpawnPreviewMannequin(state, identityId, playerId, session))
-			session.m_sLastFailure = "preview mannequin could not spawn; editor economy remains usable";
-		else
-			RefreshPreviewMannequinLoadout(state, identityId, session);
+		DeletePreviewMannequin(identityId);
+		session.m_bPreviewSpawned = false;
+		session.m_iPreviewItemCount = CountDraftItems(session);
+		session.m_sPreviewStatus = "client render preview";
 
 		state.m_sLoadoutEditorStatus = string.Format("open for %1 | preview %2 | file templates %3", identityId, session.m_bPreviewSpawned, loadedTemplates);
 		state.m_sLastLoadoutEditorFailure = session.m_sLastFailure;
@@ -80,6 +72,7 @@ class HST_LoadoutEditorService
 
 		string payload = string.Format("HST_LOADOUT_EDITOR|%1|%2|%3|%4|%5|%6|%7", session.m_sStatus, session.m_sCurrentLoadoutId, session.m_bPreviewSpawned, session.m_aDraftSlots.Count(), draftItemCount, finiteRequired, infiniteRequired);
 		payload = payload + string.Format("\nPREVIEW|%1|%2|%3|%4", session.m_bPreviewSpawned, session.m_vPreviewPosition, session.m_iPreviewItemCount, SanitizePayloadField(session.m_sPreviewStatus));
+		payload = payload + string.Format("\nPREVIEW_PREFAB|%1", session.m_sPreviewPrefab);
 		for (int categoryIndex = 0; categoryIndex < GetEditorCategoryCount(); categoryIndex++)
 		{
 			string categoryId = GetEditorCategoryId(categoryIndex);
@@ -289,6 +282,38 @@ class HST_LoadoutEditorService
 			session.m_sStatus = "draft edited";
 			RefreshPreviewMannequinLoadout(state, identityId, session);
 			return string.Format("h-istasi loadout editor | set %1 x%2", slot.m_sDisplayName, slot.m_iQuantity);
+		}
+
+		return "h-istasi loadout editor | failed: slot not found";
+	}
+
+	string ReplaceDraftSlotItem(HST_CampaignState state, string identityId, string argument)
+	{
+		if (!state || identityId.IsEmpty() || argument.IsEmpty())
+			return "h-istasi loadout editor | failed: missing replacement";
+
+		string slotId;
+		string itemPrefab;
+		if (!ParseSlotPrefabArgument(argument, slotId, itemPrefab))
+			return "h-istasi loadout editor | failed: malformed replacement";
+
+		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
+		if (!IsArsenalItemAvailable(item))
+			return "h-istasi loadout editor | failed: replacement item not available in arsenal";
+
+		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
+		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
+		{
+			if (!slot || slot.m_sSlotId != slotId)
+				continue;
+
+			slot.m_sItemPrefab = item.m_sPrefab;
+			slot.m_sDisplayName = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+			slot.m_sCategory = ResolveEditorCategory(item.m_sPrefab, item.m_sCategory);
+			slot.m_iQuantity = 1;
+			session.m_sStatus = "draft edited";
+			RefreshPreviewMannequinLoadout(state, identityId, session);
+			return "h-istasi loadout editor | swapped slot to " + slot.m_sDisplayName;
 		}
 
 		return "h-istasi loadout editor | failed: slot not found";
@@ -590,6 +615,19 @@ class HST_LoadoutEditorService
 		return !slotId.IsEmpty() && quantity > 0;
 	}
 
+	protected bool ParseSlotPrefabArgument(string argument, out string slotId, out string itemPrefab)
+	{
+		slotId = "";
+		itemPrefab = "";
+		int separator = argument.IndexOf(":");
+		if (separator <= 0 || separator + 1 >= argument.Length())
+			return false;
+
+		slotId = argument.Substring(0, separator);
+		itemPrefab = argument.Substring(separator + 1, argument.Length() - separator - 1);
+		return !slotId.IsEmpty() && !itemPrefab.IsEmpty();
+	}
+
 	protected bool SpawnPreviewMannequin(HST_CampaignState state, string identityId, int playerId, HST_LoadoutEditorSessionState session)
 	{
 		DeletePreviewMannequin(identityId);
@@ -650,9 +688,9 @@ class HST_LoadoutEditorService
 		if (!preview)
 		{
 			session.m_bPreviewSpawned = false;
-			session.m_iPreviewItemCount = 0;
-			session.m_sPreviewStatus = "preview not spawned";
-			return false;
+			session.m_iPreviewItemCount = CountDraftItems(session);
+			session.m_sPreviewStatus = "client render preview";
+			return true;
 		}
 
 		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(preview.FindComponent(SCR_InventoryStorageManagerComponent));

@@ -202,8 +202,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
 
-		string payload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId));
-		return AppendLoadoutEditorPayload(payload, playerId, selectedTabId);
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId));
 	}
 
 	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")
@@ -212,6 +211,59 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi command | server coordinator not ready";
 
 		return m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
+	}
+
+	string BuildLoadoutEditorPayload(int playerId)
+	{
+		if (!Replication.IsServer() || !m_LoadoutEditor)
+			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|server coordinator not ready\nEND";
+
+		string payload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId));
+		if (payload.IsEmpty())
+			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|editor payload unavailable\nEND";
+
+		return payload + "\nEND";
+	}
+
+	string RequestLoadoutEditorCommand(int playerId, string commandId, string argument = "")
+	{
+		if (!Replication.IsServer())
+			return "h-istasi loadout editor | server required";
+
+		if (commandId == "loadout_editor_open")
+			return RequestMemberOpenLoadoutEditor(playerId);
+
+		if (commandId == "loadout_editor_close")
+			return RequestMemberCloseLoadoutEditor(playerId);
+
+		if (commandId == "loadout_save")
+			return RequestMemberSaveLoadoutDraft(playerId, argument);
+
+		if (commandId == "loadout_apply")
+			return RequestMemberApplySavedLoadout(playerId, argument);
+
+		if (commandId == "loadout_add_item")
+			return RequestMemberAddLoadoutDraftItem(playerId, argument);
+
+		if (commandId == "loadout_remove_slot")
+			return RequestMemberRemoveLoadoutDraftSlot(playerId, argument);
+
+		if (commandId == "loadout_set_quantity")
+			return RequestMemberSetLoadoutDraftSlotQuantity(playerId, argument);
+
+		if (commandId == "loadout_replace_slot")
+			return RequestMemberReplaceLoadoutDraftSlotItem(playerId, argument);
+
+		if (commandId == "loadout_clear_draft")
+			return RequestMemberClearLoadoutDraft(playerId);
+
+		if (commandId == "loadout_select")
+			return RequestMemberSelectSavedLoadout(playerId, argument);
+
+		if (commandId == "loadout_delete")
+			return RequestMemberDeleteSavedLoadout(playerId, argument);
+
+		return "h-istasi loadout editor | unknown command: " + commandId;
 	}
 
 	int ResolveAuthoritativePlayerId(IEntity requestOwner)
@@ -1015,6 +1067,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_LoadoutEditor.SetDraftSlotQuantity(m_State, ResolveTrustedIdentityId(playerId), argument);
 	}
 
+	string RequestMemberReplaceLoadoutDraftSlotItem(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi loadout editor | membership required";
+
+		if (!m_LoadoutEditor)
+			return "h-istasi loadout editor | service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi loadout editor");
+
+		return m_LoadoutEditor.ReplaceDraftSlotItem(m_State, ResolveTrustedIdentityId(playerId), argument);
+	}
+
 	string RequestMemberClearLoadoutDraft(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -1443,24 +1509,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_MapMarkers)
 			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
-	}
-
-	protected string AppendLoadoutEditorPayload(string payload, int playerId, string selectedTabId)
-	{
-		if (selectedTabId != "arsenal" || !m_LoadoutEditor)
-			return payload;
-
-		string editorPayload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId));
-		if (editorPayload.IsEmpty())
-			return payload;
-
-		int endIndex = payload.IndexOf("\nEND");
-		if (endIndex < 0)
-			return payload + "\n" + editorPayload;
-
-		string prefix = payload.Substring(0, endIndex);
-		string suffix = payload.Substring(endIndex, payload.Length() - endIndex);
-		return prefix + "\n" + editorPayload + suffix;
 	}
 
 	protected string ResolveTrustedIdentityId(int playerId)
