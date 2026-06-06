@@ -7,8 +7,6 @@ class HST_PhysicalWarService
 	static const int QRF_ETA_SECONDS = 180;
 	static const int QRF_COOLDOWN_SECONDS = 900;
 	static const float HQ_SAFE_RADIUS_METERS = 900;
-	static const int AFRF_RARE_PATROL_CHANCE_PERCENT = 10;
-	static const int AFRF_RARE_QRF_CHANCE_PERCENT = 15;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -233,16 +231,6 @@ class HST_PhysicalWarService
 			return "";
 
 		int seed = BuildGroupSelectionSeed(state, zone, qrf);
-		if (factionKey == "RHS_AFRF" && faction.m_aRareGroupPool.Count() > 0)
-		{
-			int rareChance = AFRF_RARE_PATROL_CHANCE_PERCENT;
-			if (qrf)
-				rareChance = AFRF_RARE_QRF_CHANCE_PERCENT;
-
-			if (HST_DefaultCatalog.PositiveMod(seed, 100) < rareChance)
-				return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aRareGroupPool, seed + 1901);
-		}
-
 		if (qrf && faction.m_aQRFGroupPool.Count() > 0)
 			return HST_DefaultCatalog.SelectWeightedPrefab(faction.m_aQRFGroupPool, seed + 701);
 

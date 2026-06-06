@@ -123,10 +123,7 @@ function Get-BraceCountsOutsideStrings {
 
 $project = Get-Content -Raw "addon.gproj"
 foreach ($requiredProjectDependency in @(
-	'"58D0FB3206B6F859"',
-	'"595F2BF2F44836FB"',
-	'"1337C0DE5DABBEEF"',
-	'"BADC0DEDABBEDA5E"'
+	'"58D0FB3206B6F859"'
 )) {
 	if ($project -notmatch [regex]::Escape($requiredProjectDependency)) {
 		throw "addon.gproj is missing required dependency: $requiredProjectDependency"
@@ -134,10 +131,7 @@ foreach ($requiredProjectDependency in @(
 }
 
 $allowedProjectDependencies = @(
-	"58D0FB3206B6F859",
-	"595F2BF2F44836FB",
-	"1337C0DE5DABBEEF",
-	"BADC0DEDABBEDA5E"
+	"58D0FB3206B6F859"
 )
 if ($project -notmatch 'Dependencies\s*\{([\s\S]*?)\}') {
 	throw "addon.gproj is missing a Dependencies block"
@@ -146,7 +140,7 @@ $projectDependenciesBlock = $Matches[1]
 foreach ($projectDependencyMatch in [regex]::Matches($projectDependenciesBlock, '"([0-9A-F]{16})"')) {
 	$dependencyGuid = $projectDependencyMatch.Groups[1].Value
 	if ($dependencyGuid -notin $allowedProjectDependencies) {
-		throw "addon.gproj has non-RHS dependency GUID: $dependencyGuid"
+		throw "addon.gproj has non-base-game dependency GUID: $dependencyGuid"
 	}
 }
 Write-Host "Project dependencies OK"
@@ -215,8 +209,9 @@ $requiredRuntimeScaffold = @(
 	'm_sAlias "PLAYERS"',
 	'm_sFactionKey "FIA"',
 	'm_sAlias "OPFOR"',
-	'm_sFactionKey "RHS_AFRF"',
-	'FactionKey "RHS_ION"',
+	'm_sFactionKey "USSR"',
+	'FactionKey "US"',
+	'FactionKey "USSR"',
 	'Configs/Factions/FIA_Campaign.conf',
 	'Configs/Factions/CIV.conf',
 	'Prefabs/MP/Managers/Loadouts/LoadoutManager_Base.et',
@@ -255,8 +250,8 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must not use stock role-selection spawn logic: $runtimeLayer"
 	}
 
-	if ($text -match "Loadout_USAF_") {
-		throw "Runtime layer must not expose RHS_USAF role-selection loadouts in the primary FIA deploy path: $runtimeLayer"
+	if ($text -match "Loadout_US_") {
+		throw "Runtime layer must not expose US role-selection loadouts in the primary FIA deploy path: $runtimeLayer"
 	}
 
 	if ($text -match "\bHST_CommandMenuComponent\b") {
@@ -299,19 +294,13 @@ foreach ($runtimeLayer in $runtimeLayers) {
 		throw "Runtime layer must not use red dot-circle native markers for h-istasi map locations: $runtimeLayer"
 	}
 
-	foreach ($requiredRhsIonEntry in @(
-		'FactionKey "RHS_ION"',
-		'm_bIsPlayable 0',
-		'm_bShowInWelcomeScreenIfNonPlayable 0',
-		'm_aEntityCatalogs',
-		'Configs/EntityCatalog/USMC/USMC_Characters.conf',
-		'Configs/EntityCatalog/USMC/USMC_Groups.conf',
-		'Configs/EntityCatalog/USMC/USMC_Vehicles.conf',
-		'Configs/EntityCatalog/USMC/USMC_WeaponTripod.conf',
-		'Configs/EntityCatalog/USMC/USMC_InventoryItems.conf'
+	foreach ($forbiddenAddonFactionEntry in @(
+		'Configs/Factions/R',
+		'Configs/EntityCatalog/U',
+		'm_aEntityCatalogs'
 	)) {
-		if ($text -notmatch [regex]::Escape($requiredRhsIonEntry)) {
-			throw "Runtime layer has catalog-less RHS_ION faction stub entry in ${runtimeLayer}: $requiredRhsIonEntry"
+		if ($text -match [regex]::Escape($forbiddenAddonFactionEntry)) {
+			throw "Runtime layer must not retain external faction/entity catalog entries in ${runtimeLayer}: $forbiddenAddonFactionEntry"
 		}
 	}
 
@@ -331,8 +320,8 @@ foreach ($startingPointLayer in $startingPointLayers) {
 	}
 
 	$text = Get-Content -Raw $startingPointLayer
-	if ($text -match '"faction affiliation" "RHS_USAF"') {
-		throw "Starting point layer must not keep RHS_USAF as the primary playable deploy affiliation: $startingPointLayer"
+	if ($text -match '"faction affiliation" "US"') {
+		throw "Starting point layer must not expose US as the primary playable deploy affiliation: $startingPointLayer"
 	}
 
 	foreach ($requiredEntry in @(
@@ -609,8 +598,8 @@ $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
 $mapConfig = Get-Content -Raw "Configs/HST/Maps/HST_Everon.conf"
 
-if ($defaultCatalog -notmatch 'preset\.m_sResistanceFactionKey = "FIA"' -or $defaultCatalog -notmatch 'preset\.m_sOccupierFactionKey = "RHS_USAF"') {
-	throw "Campaign catalog must keep FIA as the resistance while RHS_USAF remains the occupier"
+if ($defaultCatalog -notmatch 'preset\.m_sResistanceFactionKey = "FIA"' -or $defaultCatalog -notmatch 'preset\.m_sOccupierFactionKey = "US"' -or $defaultCatalog -notmatch 'preset\.m_sInvaderFactionKey = "USSR"') {
+	throw "Campaign catalog must keep FIA as resistance, US as occupier, and USSR as invader"
 }
 Write-Host "Campaign faction identity OK"
 
@@ -1327,62 +1316,24 @@ foreach ($requiredSupportStrikeEntry in @(
 	"HST_SUPPORT_AIRSTRIKE_GBU",
 	"HST_SUPPORT_AIRSTRIKE_UMPK",
 	"HST_SUPPORT_CRUISE_MISSILE_KH55",
-	"RHS_CallIn_Blue_CAS_GBU.conf",
-	"RHS_CallIn_Opfor_CAS_FAB500UMPK.conf",
-	"RHS_CallIn_Opfor_Missle_KH55.conf",
 	"StrikeKindForSupport",
 	"StrikeConfigForSupport",
 	"ResolveStrikeSupport",
 	"HasResistanceAirSupportCapability",
 	"air_support_unlockable",
-	"support_umpk",
-	"support_kh55"
+	"abstract_strike"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredSupportStrikeEntry)) {
-		throw "Missing RHS support strike contract entry: $requiredSupportStrikeEntry"
+		throw "Missing base-game abstract support strike contract entry: $requiredSupportStrikeEntry"
 	}
 }
-Write-Host "RHS support strike contract OK"
+Write-Host "Base-game abstract support strike contract OK"
 
-$requiredLocalAfrfGroupResources = @(
-	"{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et",
-	"{20882FD7E695BA4F}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_SentryTeam_NotSpawned.et",
-	"{949A54E9F28D99F9}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_RifleSquad_NotSpawned.et",
-	"{FBB6A99E9B1C7EC6}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_MachineGunTeam_NotSpawned.et",
-	"{84856BD6BFABA047}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_GL_NotSpawned.et",
-	"{CBE67BBD93170CF8}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_AT_NotSpawned.et",
-	"{7D9243C3C0CCED4B}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_TEAM.et",
-	"{622DDA327B669B67}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_ATTeam.et",
-	"{DEEA32376CC7BA04}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_BoFTeam.et",
-	"{E368C2565A31C25F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_GLTeam.et",
-	"{78A5969A0A1F45A8}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_SniperTeam.et",
-	"{39DB4846F673AF9F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et"
-)
-foreach ($requiredAfrfResource in $requiredLocalAfrfGroupResources) {
-	if ($requiredAfrfResource -notmatch '^\{([0-9A-F]{16})\}(.+)$') {
-		throw "Malformed copied AFRF group resource entry: $requiredAfrfResource"
-	}
-
-	$resourceGuid = $Matches[1]
-	$resourcePath = $Matches[2]
-	$resourceMetaPath = "$resourcePath.meta"
-	if (!(Test-Path $resourcePath)) {
-		throw "Copied AFRF group prefab is missing locally: $resourcePath"
-	}
-	if (!(Test-Path $resourceMetaPath)) {
-		throw "Copied AFRF group prefab metadata is missing locally: $resourceMetaPath"
-	}
-	if ((Get-Content -Raw $resourceMetaPath) -notmatch [regex]::Escape($requiredAfrfResource)) {
-		throw "Copied AFRF group metadata GUID/path mismatch: $requiredAfrfResource"
-	}
-	if ($scriptText -notmatch [regex]::Escape($requiredAfrfResource) -and $configResourceText -notmatch [regex]::Escape($requiredAfrfResource)) {
-		throw "Copied AFRF group resource is not used by faction pools: $requiredAfrfResource"
-	}
+$externalOpforGroupCopies = @(Get-ChildItem -Path "Prefabs/Groups/OPFOR" -Directory -ErrorAction SilentlyContinue)
+if ($externalOpforGroupCopies.Count -gt 0) {
+	throw "External OPFOR group copies must not remain in the base-game preset"
 }
-if ($scriptText -match "D9523F26504A8D59" -or $configResourceText -match "D9523F26504A8D59") {
-	throw "AFRF faction pools still reference the stale VVRG GUID instead of the copied local prefab GUID"
-}
-Write-Host "Local copied AFRF group resources OK: $($requiredLocalAfrfGroupResources.Count)"
+Write-Host "External group copy cleanup OK"
 
 foreach ($requiredCoordinatorEntry in @(
 	"RegisterConnectedPlayer",
@@ -2229,7 +2180,7 @@ if ($lootServiceText -match 'return true;\s*\r?\n\s*}\s*\r?\n\s*protected bool I
 	throw "Loot service must not accept every Prefabs/Vehicles resource as a root vehicle"
 }
 if ($vehicleRootPolicyText -match 'if \(!prefab\.Contains\("Prefabs/"\)\)') {
-	throw "Vehicle root policy must not reject basename vehicle prefabs like M998_covered_USAF.et"
+	throw "Vehicle root policy must not reject basename vehicle prefabs"
 }
 if ($vehicleRootPolicyText -notmatch 'IsVehiclePartPrefab\(prefab\)' -or $vehicleRootPolicyText -notmatch 'LicensePlate') {
 	throw "Vehicle root policy must reject vehicle parts and LicensePlate resources"
@@ -2373,11 +2324,8 @@ foreach ($requiredPhysicalWarEntry in @(
 	"m_aGroupPool",
 	"m_aPatrolGroupPool",
 	"m_aQRFGroupPool",
-	"m_aRareGroupPool",
 	"HST_PrefabPoolEntry",
-	"SelectWeightedPrefab",
-	"AFRF_RARE_PATROL_CHANCE_PERCENT = 10",
-	"AFRF_RARE_QRF_CHANCE_PERCENT = 15"
+	"SelectWeightedPrefab"
 )) {
 	if ($scriptText -notmatch [regex]::Escape($requiredPhysicalWarEntry) -and $configResourceText -notmatch [regex]::Escape($requiredPhysicalWarEntry)) {
 		throw "Missing physical AI war scaffold entry: $requiredPhysicalWarEntry"
@@ -2489,9 +2437,9 @@ foreach ($forbiddenCivilianSpawnResource in @(
 if ($civilianPoolDefaultText -match "M1025" -or $civilianPoolDefaultText -match "Humvee" -or $civilianPoolDefaultText -match "M151A2" -or $balanceConfigText -match "M1025" -or $balanceConfigText -match "Humvee" -or $balanceConfigText -match "M151A2") {
 	throw "Civilian vehicle pools must not retain Humvee/M1025/M151 military fallback resources"
 }
-$usmcFactionConfigText = Get-Content -Raw "Configs/HST/Factions/HST_RHS_USMC.conf"
-if ($defaultCatalog -match 'm_aVehiclePrefabs\.Insert\("Prefabs/Vehicles/Wheeled/M11xx/Car_M1151\.et"\)' -or $usmcFactionConfigText -match "Car_M1151.et") {
-	throw "Known invalid Car_M1151.et resource must not remain in USMC faction vehicle pools"
+$usFactionConfigText = Get-Content -Raw "Configs/HST/Factions/HST_US.conf"
+if ($defaultCatalog -match 'm_aVehiclePrefabs\.Insert\("Prefabs/Vehicles/Wheeled/M11xx/Car_M1151\.et"\)' -or $usFactionConfigText -match "Car_M1151.et") {
+	throw "Known invalid Car_M1151.et resource must not remain in US faction vehicle pools"
 }
 Write-Host "Physical civilian town runtime OK"
 

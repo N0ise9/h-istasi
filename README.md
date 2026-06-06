@@ -5,14 +5,14 @@ resistance-campaign concept. The first preset targets Everon with a three-way
 war:
 
 - FIA: player resistance
-- RHS_USAF: occupying force
-- RHS_AFRF: invading force
+- US: occupying force
+- USSR: invading force
 
 ## Current Status
 
 The repository contains the first engine-facing increment:
 
-- Reforger and RHS project dependencies
+- Reforger base-game project dependency only
 - APL-ND licensing and third-party attribution
 - Original Everon and compact development scenario shells
 - Data contracts for presets, factions, maps, zones, balance, and missions
@@ -104,7 +104,7 @@ from the Arsenal/Loot tab.
 ## Requirements
 
 - Arma Reforger 1.7.0.41 or newer
-- RHS: Status Quo
+- No external faction, weapon, vehicle, or support-call addon is required.
 
 ## Design Rules
 

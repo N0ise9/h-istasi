@@ -52,7 +52,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
-		m_Preset = HST_DefaultCatalog.CreateRhsEveronPreset();
+		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
 		m_Settings = m_SettingsService.LoadOrCreate();
@@ -1509,10 +1509,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_State.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		if (m_State.m_sPresetId.IsEmpty() && m_Preset)
+		if (m_Preset)
 			m_State.m_sPresetId = m_Preset.m_sPresetId;
 		if (m_State.m_iCampaignSeed == 0 && m_Settings)
 			m_State.m_iCampaignSeed = m_Settings.m_Campaign.m_iCampaignSeed;
+		SanitizeFactionKeys(m_State);
 
 		if (m_State.m_aFactionPools.Count() == 0)
 			HST_DefaultCatalog.AddDefaultFactionPools(m_State, m_Balance, m_Preset);
@@ -1529,6 +1530,84 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP && !m_State.m_bHQDeployed && m_HQ)
 			m_HQ.BootstrapInitialHideout(m_State, HST_DefaultCatalog.GetDefaultHideoutId());
+	}
+
+	protected void SanitizeFactionKeys(HST_CampaignState state)
+	{
+		if (!state || !m_Preset)
+			return;
+
+		string occupier = m_Preset.m_sOccupierFactionKey;
+		string invader = m_Preset.m_sInvaderFactionKey;
+		bool assignedUnknownOccupier;
+		foreach (HST_FactionPoolState factionPool : state.m_aFactionPools)
+		{
+			if (!factionPool)
+				continue;
+
+			if (factionPool.m_sFactionKey != "FIA" && factionPool.m_sFactionKey != occupier && factionPool.m_sFactionKey != invader)
+			{
+				if (!assignedUnknownOccupier)
+				{
+					factionPool.m_sFactionKey = occupier;
+					assignedUnknownOccupier = true;
+				}
+				else
+				{
+					factionPool.m_sFactionKey = invader;
+				}
+			}
+		}
+		int occupierAttackResources;
+		int occupierSupportResources;
+		int invaderAttackResources;
+		int invaderSupportResources;
+		if (m_Balance)
+		{
+			occupierAttackResources = m_Balance.m_iStartingOccupierAttackPool;
+			occupierSupportResources = m_Balance.m_iStartingOccupierSupportPool;
+			invaderAttackResources = m_Balance.m_iStartingInvaderAttackPool;
+			invaderSupportResources = m_Balance.m_iStartingInvaderSupportPool;
+		}
+		EnsureFactionPool(state, "FIA", 0, 0);
+		EnsureFactionPool(state, occupier, occupierAttackResources, occupierSupportResources);
+		EnsureFactionPool(state, invader, invaderAttackResources, invaderSupportResources);
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			if (zone.m_sOwnerFactionKey != "FIA" && zone.m_sOwnerFactionKey != occupier && zone.m_sOwnerFactionKey != invader)
+				zone.m_sOwnerFactionKey = occupier;
+		}
+
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (!garrison)
+				continue;
+
+			if (garrison.m_sFactionKey != "FIA" && garrison.m_sFactionKey != occupier && garrison.m_sFactionKey != invader)
+				garrison.m_sFactionKey = occupier;
+		}
+	}
+
+	protected void EnsureFactionPool(HST_CampaignState state, string factionKey, int attackResources, int supportResources)
+	{
+		if (!state || factionKey.IsEmpty())
+			return;
+
+		foreach (HST_FactionPoolState factionPool : state.m_aFactionPools)
+		{
+			if (factionPool && factionPool.m_sFactionKey == factionKey)
+				return;
+		}
+
+		HST_FactionPoolState createdPool = new HST_FactionPoolState();
+		createdPool.m_sFactionKey = factionKey;
+		createdPool.m_iAttackResources = attackResources;
+		createdPool.m_iSupportResources = supportResources;
+		state.m_aFactionPools.Insert(createdPool);
 	}
 
 	protected bool SelectInitialHideout_S(string hideoutId)

@@ -72,7 +72,7 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
    m_aFactionAliases {
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF5EE4D7A7}" {
      m_sAlias "OPFOR"
-     m_sFactionKey "RHS_AFRF"
+     m_sFactionKey "USSR"
     }
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF53587B40}" {
      m_sAlias "PLAYERS"
@@ -92,35 +92,6 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
    m_FactionLabel FACTION_USSR
   }
   SCR_CampaignFaction "{56F0C3A6336375DC}" : "{CF9447B87AB774DB}Configs/Factions/FIA_Campaign.conf" {
-  }
-  SCR_Faction "{66C6FB7CA8DC1B7C}" : "{F33C7BF22CBF3A8A}Configs/Factions/RHS_US_USMC.conf" {
-   m_bIsPlayable 0
-   m_aFriendlyFactionsIds {
-    "US"
-   }
-  }
-  SCR_Faction "{66C6FB7CAC79D53E}" : "{627A8CDE681D223D}Configs/Factions/RHS_RF_MSV.conf" {
-   m_bIsPlayable 0
-   m_aFriendlyFactionsIds {
-    "USSR"
-   }
-  }
-  SCR_Faction "{69853277113023F5}" {
-   FactionKey "RHS_ION"
-   m_bIsPlayable 0
-   m_bShowInWelcomeScreenIfNonPlayable 0
-   m_aEntityCatalogs {
-    SCR_EntityCatalogMultiList "{69853277113023F6}" : "{EC55D8934083023D}Configs/EntityCatalog/USMC/USMC_Characters.conf" {
-    }
-    SCR_EntityCatalogMultiList "{69853277113023F7}" : "{4E0451E583FD2B90}Configs/EntityCatalog/USMC/USMC_Groups.conf" {
-    }
-    SCR_EntityCatalogMultiList "{69853277113023F8}" : "{C200F54EB67899D1}Configs/EntityCatalog/USMC/USMC_Vehicles.conf" {
-    }
-    SCR_EntityCatalog "{69853277113023F9}" : "{C1D8DC37BD2782E9}Configs/EntityCatalog/USMC/USMC_WeaponTripod.conf" {
-    }
-    SCR_EntityCatalogMultiList "{69853277113023FA}" : "{3BFC57A750823093}Configs/EntityCatalog/USMC/USMC_InventoryItems.conf" {
-    }
-   }
   }
   SCR_Faction "{60DCF47AEF40BD72}" : "{3FA20B01D950D31F}Configs/Factions/CIV.conf" {
   }

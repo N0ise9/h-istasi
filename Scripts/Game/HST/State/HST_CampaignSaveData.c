@@ -885,10 +885,9 @@ class HST_CampaignSaveData
 
 			if (request.m_sStrikeKind.IsEmpty())
 				request.m_sStrikeKind = StrikeKindFromType(request.m_eType);
-			if (request.m_sStrikeConfigResource.IsEmpty())
-				request.m_sStrikeConfigResource = StrikeConfigFromType(request.m_eType);
-			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeConfigResource.IsEmpty())
-				request.m_sRuntimeEntityId = "rhs_callin_config";
+			request.m_sStrikeConfigResource = "";
+			if (request.m_sRuntimeEntityId.IsEmpty() && !request.m_sStrikeKind.IsEmpty())
+				request.m_sRuntimeEntityId = "abstract_strike";
 		}
 	}
 
@@ -900,23 +899,11 @@ class HST_CampaignSaveData
 	protected string StrikeKindFromType(HST_ESupportRequestType supportType)
 	{
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
-			return "GBU";
+			return "airstrike";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
-			return "FAB500_UMPK";
+			return "heavy_airstrike";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
-			return "KH55";
-
-		return "";
-	}
-
-	protected string StrikeConfigFromType(HST_ESupportRequestType supportType)
-	{
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
-			return "{94C612087EB33D34}Configs/Systems/RHS_CallIn/RHS_CallIn_Blue_CAS_GBU.conf";
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
-			return "{8905C0BA950B1E7C}Configs/Systems/RHS_CallIn/RHS_CallIn_Opfor_CAS_FAB500UMPK.conf";
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
-			return "{C0D42687D927011B}Configs/Systems/RHS_CallIn/RHS_CallIn_Opfor_Missle_KH55.conf";
+			return "long_range_strike";
 
 		return "";
 	}

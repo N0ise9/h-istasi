@@ -72,7 +72,7 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
    m_aFactionAliases {
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF5EE4D7A7}" {
      m_sAlias "OPFOR"
-     m_sFactionKey "RHS_AFRF"
+     m_sFactionKey "USSR"
     }
     SCR_ScenarioFrameworkFactionAliasConfig "{665883DF53587B40}" {
      m_sAlias "PLAYERS"
@@ -92,35 +92,6 @@ SCR_FactionManager HST_FactionManager : "{589540B35EBA8CDC}Prefabs/MP/Managers/F
    m_FactionLabel FACTION_USSR
   }
   SCR_CampaignFaction "{56F0C3A6336375DC}" : "{CF9447B87AB774DB}Configs/Factions/FIA_Campaign.conf" {
-  }
-  SCR_Faction "{66C6FB7CA8DC1B7C}" : "{F33C7BF22CBF3A8A}Configs/Factions/RHS_US_USMC.conf" {
-   m_bIsPlayable 0
-   m_aFriendlyFactionsIds {
-    "US"
-   }
-  }
-  SCR_Faction "{66C6FB7CAC79D53E}" : "{627A8CDE681D223D}Configs/Factions/RHS_RF_MSV.conf" {
-   m_bIsPlayable 0
-   m_aFriendlyFactionsIds {
-    "USSR"
-   }
-  }
-  SCR_Faction "{69853277113022F5}" {
-   FactionKey "RHS_ION"
-   m_bIsPlayable 0
-   m_bShowInWelcomeScreenIfNonPlayable 0
-   m_aEntityCatalogs {
-    SCR_EntityCatalogMultiList "{69853277113022F6}" : "{EC55D8934083023D}Configs/EntityCatalog/USMC/USMC_Characters.conf" {
-    }
-    SCR_EntityCatalogMultiList "{69853277113022F7}" : "{4E0451E583FD2B90}Configs/EntityCatalog/USMC/USMC_Groups.conf" {
-    }
-    SCR_EntityCatalogMultiList "{69853277113022F8}" : "{C200F54EB67899D1}Configs/EntityCatalog/USMC/USMC_Vehicles.conf" {
-    }
-    SCR_EntityCatalog "{69853277113022F9}" : "{C1D8DC37BD2782E9}Configs/EntityCatalog/USMC/USMC_WeaponTripod.conf" {
-    }
-    SCR_EntityCatalogMultiList "{69853277113022FA}" : "{3BFC57A750823093}Configs/EntityCatalog/USMC/USMC_InventoryItems.conf" {
-    }
-   }
   }
   SCR_Faction "{60DCF47AEF40BD72}" : "{3FA20B01D950D31F}Configs/Factions/CIV.conf" {
   }
@@ -172,7 +143,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_airfield_airbase_saint_philippe {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 380
@@ -204,7 +175,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_levie_base {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -236,7 +207,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_calvary_hill {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -268,7 +239,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_military_hospital {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -300,7 +271,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_seaport_coastal_base_chotain {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 320
@@ -332,7 +303,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_seaport_coastal_base_lamentin {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 320
@@ -364,7 +335,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_seaport_coastal_base_morton {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 320
@@ -396,7 +367,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_north_hq {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 285
@@ -428,7 +399,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_south_hq {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -460,7 +431,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_resource_quarry {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 185
@@ -492,7 +463,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_black_lake {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -524,7 +495,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_pennants_pass {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -556,7 +527,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_simons_wood {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 235
@@ -588,7 +559,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_richemont {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -620,7 +591,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_shepherds_pond {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -652,7 +623,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_pinewood_lake {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -684,7 +655,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_tillers_find {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -716,7 +687,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_maidens_bay {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 260
@@ -748,7 +719,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_hornbeam_valley {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -780,7 +751,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_radio_andres_beacon {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 210
@@ -812,7 +783,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_goat_bay {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -844,7 +815,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_chotain {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -876,7 +847,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_durras {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -908,7 +879,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_entre_deux {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -940,7 +911,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_figari {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 235
@@ -972,7 +943,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_laruns {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1004,7 +975,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_le_moule {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1036,7 +1007,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_levie {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1068,7 +1039,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_meaux {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 285
@@ -1100,7 +1071,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_montignac {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 335
@@ -1132,7 +1103,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_provins {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 235
@@ -1164,7 +1135,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_regina {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 285
@@ -1196,7 +1167,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_tyrone {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1228,7 +1199,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_vernon {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 285
@@ -1260,7 +1231,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_villeneuve {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1292,7 +1263,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_gravette {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1324,7 +1295,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_kermovan {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 235
@@ -1356,7 +1327,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_les_creux {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1388,7 +1359,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_factory_saint_philippe {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -1420,7 +1391,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_redon {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1452,7 +1423,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_kervel {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1484,7 +1455,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_firing_range {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -1516,7 +1487,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_benac {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1548,7 +1519,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_scythe {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1580,7 +1551,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_perelle {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1612,7 +1583,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_lancre {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1644,7 +1615,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_cave {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -1676,7 +1647,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_cheval_gin_lodge {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -1708,7 +1679,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_ghost_town {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1740,7 +1711,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_saint_pierre {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -1772,7 +1743,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_larue_bay {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1804,7 +1775,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_montfort_castle {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -1836,7 +1807,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_rockweed_cape {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1868,7 +1839,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_le_bosc {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1900,7 +1871,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_thollevast {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 435
@@ -1932,7 +1903,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_argent {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 285
@@ -1964,7 +1935,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_erquy {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -1996,7 +1967,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_radio_erquy_lighthouse {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2028,7 +1999,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_resource_etoupe_gas_station {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2060,7 +2031,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_smugglers_hole {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 250
@@ -2092,7 +2063,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_pins {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 635
@@ -2124,7 +2095,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_fishermans_cove {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 230
@@ -2156,7 +2127,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_courbet {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -2188,7 +2159,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_factory_power_plant {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -2220,7 +2191,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_crag_point {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -2252,7 +2223,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_town_skua_point {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 220
@@ -2284,7 +2255,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_outpost_western_heights {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 240
@@ -2316,7 +2287,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_radio_pins_tower {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2348,7 +2319,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_radio_eastern_sea_relay {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2380,7 +2351,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_radio_estrapade_tower {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_AFRF"
+    "faction affiliation" "USSR"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2412,7 +2383,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_radio_st_phillipe_relay {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2444,7 +2415,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_green_valley_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2476,7 +2447,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_levie_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2508,7 +2479,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_figari_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2540,7 +2511,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_farm_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2572,7 +2543,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_gorey_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2604,7 +2575,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_industrial_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2636,7 +2607,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_sawmill_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180
@@ -2668,7 +2639,7 @@ $grp GenericEntity : "{1391CE8C0E255636}Prefabs/Systems/MilitaryBase/ConflictMil
  HST_ConflictMapMarker_depot_regina_supply_depot {
   components {
    SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "RHS_USAF"
+    "faction affiliation" "US"
    }
    SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
     m_fBuildingRadius 180

@@ -87,17 +87,18 @@ class HST_DefaultCatalog
 		return result;
 	}
 
-	static HST_CampaignPreset CreateRhsEveronPreset()
+	static HST_CampaignPreset CreateVanillaEveronPreset()
 	{
 		HST_CampaignPreset preset = new HST_CampaignPreset();
-		preset.m_sPresetId = "rhs_everon";
-		preset.m_sDisplayName = "h-istasi Everon: FIA vs USMC vs AFRF";
+		preset.m_sPresetId = "vanilla_everon";
+		preset.m_sDisplayName = "h-istasi Everon: FIA vs US vs USSR";
 		preset.m_sResistanceFactionKey = "FIA";
-		preset.m_sOccupierFactionKey = "RHS_USAF";
-		preset.m_sInvaderFactionKey = "RHS_AFRF";
+		preset.m_sOccupierFactionKey = "US";
+		preset.m_sInvaderFactionKey = "USSR";
 		preset.m_sBalanceConfig = "Configs/HST/Balance/HST_CE311_Balance.conf";
 		preset.m_sMapDefinition = "Configs/HST/Maps/HST_Everon.conf";
 		preset.m_sMissionRegistry = "Configs/HST/Missions/HST_CE311_Missions.conf";
+		preset.m_aUnavailableCapabilities.Insert("fixed_wing_aircraft");
 		preset.m_aUnavailableCapabilities.Insert("sead");
 		preset.m_aUnavailableCapabilities.Insert("artillery");
 		return preset;
@@ -136,11 +137,11 @@ class HST_DefaultCatalog
 		if (factionKey == "FIA")
 			return CreateFiaTemplate();
 
-		if (factionKey == "RHS_USAF")
-			return CreateRhsUsmcTemplate();
+		if (factionKey == "US")
+			return CreateUsTemplate();
 
-		if (factionKey == "RHS_AFRF")
-			return CreateRhsAfrfTemplate();
+		if (factionKey == "USSR")
+			return CreateUssrTemplate();
 
 		return null;
 	}
@@ -809,7 +810,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		return garrison;
 	}
 
-private static HST_FactionTemplate CreateFiaTemplate()
+	private static HST_FactionTemplate CreateFiaTemplate()
 	{
 		HST_FactionTemplate faction = new HST_FactionTemplate();
 		faction.m_sTemplateId = "fia_resistance";
@@ -825,84 +826,44 @@ private static HST_FactionTemplate CreateFiaTemplate()
 		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et", 1, "stock"));
 		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et", 1, "stock"));
 		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et", 1, "stock"));
-		faction.m_aSupportIds.Insert("support_gbu");
-		faction.m_aSupportIds.Insert("support_umpk");
+		faction.m_aSupportIds.Insert("support_mortar");
 		return faction;
 	}
 
-	private static HST_FactionTemplate CreateRhsUsmcTemplate()
+	private static HST_FactionTemplate CreateUsTemplate()
 	{
 		HST_FactionTemplate faction = new HST_FactionTemplate();
-		faction.m_sTemplateId = "rhs_usmc_occupier";
-		faction.m_sFactionKey = "RHS_USAF";
-		faction.m_sDisplayName = "RHS USMC Occupiers";
+		faction.m_sTemplateId = "us_occupier";
+		faction.m_sFactionKey = "US";
+		faction.m_sDisplayName = "US Occupiers";
 		faction.m_aVehiclePrefabs.Insert("{4A71F755A4513227}Prefabs/Vehicles/Wheeled/M998/M1025.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M998/M1025_USAF.et");
-		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M998/M1025_armed_M2HB_USAF.et");
-		faction.m_aGroupPrefabs.Insert("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et");
-		faction.m_aGroupPrefabs.Insert("{F831DFB4A9B46152}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_RifleSquad.et");
-		faction.m_aGroupPrefabs.Insert("{0E3DC6A52A5F959E}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_PlatoonHQ.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{7A43006F3F254FB2}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_MARSOC/Group_USAF_USMC_MARSOC_SentryTeam.et");
-		faction.m_aQRFGroupPrefabs.Insert("{F831DFB4A9B46152}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_RifleSquad.et");
-		faction.m_aQRFGroupPrefabs.Insert("{D31888A77B1C4310}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_FORECON/Group_USAF_USMC_FORECON_Squad.et");
-		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et", 3, "stock"));
-		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("{F831DFB4A9B46152}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_RifleSquad.et", 2, "stock"));
-		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("{19843E954790DF28}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_FireTeam.et", 4, "stock"));
-		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("{7A43006F3F254FB2}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_MARSOC/Group_USAF_USMC_MARSOC_SentryTeam.et", 1, "stock"));
-		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("{F831DFB4A9B46152}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_USMC_MEF/Group_USAF_USMC_MEF_RifleSquad.et", 3, "stock"));
-		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("{D31888A77B1C4310}Prefabs/Groups/BLUFOR/RHS_USAF/RHS_USAF_FORECON/Group_USAF_USMC_FORECON_Squad.et", 1, "stock"));
+		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/M151A2/M151A2.et");
+		faction.m_aGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
+		faction.m_aPatrolGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
+		faction.m_aQRFGroupPrefabs.Insert("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et");
+		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et", 3, "stock"));
+		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et", 4, "stock"));
+		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("{8B4D49A9F324E7D5}Prefabs/Groups/PlayableGroup.et", 3, "stock"));
+		faction.m_aSupportIds.Insert("support_mortar");
 		return faction;
 	}
 
-	private static HST_FactionTemplate CreateRhsAfrfTemplate()
+	private static HST_FactionTemplate CreateUssrTemplate()
 	{
 		HST_FactionTemplate faction = new HST_FactionTemplate();
-		faction.m_sTemplateId = "rhs_afrf_invader";
-		faction.m_sFactionKey = "RHS_AFRF";
-		faction.m_sDisplayName = "RHS AFRF Invaders";
-		faction.m_aCapabilities.Insert("air_support");
-		faction.m_aCapabilities.Insert("cruise_missile");
+		faction.m_sTemplateId = "ussr_invader";
+		faction.m_sFactionKey = "USSR";
+		faction.m_sDisplayName = "USSR Invaders";
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/UAZ469/UAZ469.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/UAZ469/UAZ469_PKM.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/Ural4320/Ural4320.et");
 		faction.m_aVehiclePrefabs.Insert("Prefabs/Vehicles/Wheeled/Ural4320/Ural4320_transport.et");
-		faction.m_aGroupPrefabs.Insert("{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et");
-		faction.m_aGroupPrefabs.Insert("{20882FD7E695BA4F}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_SentryTeam_NotSpawned.et");
-		faction.m_aGroupPrefabs.Insert("{949A54E9F28D99F9}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_RifleSquad_NotSpawned.et");
-		faction.m_aGroupPrefabs.Insert("{FBB6A99E9B1C7EC6}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_MachineGunTeam_NotSpawned.et");
-		faction.m_aGroupPrefabs.Insert("{84856BD6BFABA047}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_GL_NotSpawned.et");
-		faction.m_aGroupPrefabs.Insert("{CBE67BBD93170CF8}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_AT_NotSpawned.et");
 		faction.m_aGroupPrefabs.Insert("{CB08A3832252F5B9}Prefabs/Groups/OPFOR/AmbientPatrols/Group_USSR_MortarTeam_NotSpawned.et");
-		faction.m_aGroupPrefabs.Insert("{39DB4846F673AF9F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{20882FD7E695BA4F}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_SentryTeam_NotSpawned.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{949A54E9F28D99F9}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_RifleSquad_NotSpawned.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{FBB6A99E9B1C7EC6}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_MachineGunTeam_NotSpawned.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{84856BD6BFABA047}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_GL_NotSpawned.et");
-		faction.m_aPatrolGroupPrefabs.Insert("{CBE67BBD93170CF8}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_AT_NotSpawned.et");
 		faction.m_aPatrolGroupPrefabs.Insert("{CB08A3832252F5B9}Prefabs/Groups/OPFOR/AmbientPatrols/Group_USSR_MortarTeam_NotSpawned.et");
-		faction.m_aQRFGroupPrefabs.Insert("{7D9243C3C0CCED4B}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_TEAM.et");
-		faction.m_aQRFGroupPrefabs.Insert("{39DB4846F673AF9F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et");
-		faction.m_aQRFGroupPrefabs.Insert("{622DDA327B669B67}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_ATTeam.et");
-		faction.m_aQRFGroupPrefabs.Insert("{DEEA32376CC7BA04}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_BoFTeam.et");
-		faction.m_aQRFGroupPrefabs.Insert("{E368C2565A31C25F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_GLTeam.et");
-		faction.m_aQRFGroupPrefabs.Insert("{78A5969A0A1F45A8}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_SniperTeam.et");
-		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/Group_RHS_RF_MSV_VKPO_S_FireGroup.et", 4, "stock"));
-		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/Group_RHS_RF_MSV_VKPO_S_SentryTeam.et", 3, "stock"));
-		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/Group_RHS_RF_MSV_VKPO_S_RifleSquad.et", 2, "stock"));
-		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et", 4, "stock"));
-		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_SentryTeam_NotSpawned.et", 3, "stock"));
-		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_RifleSquad_NotSpawned.et", 2, "stock"));
-		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_RF_SSO_TEAM.et", 3, "stock"));
-		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_RF_SSO_ATTeam.et", 1, "stock"));
-		faction.m_aRareGroupPool.Insert(NewPrefabPoolEntry("{A6A3EDA237E3D336}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_FireGroup_NotSpawned.et", 4, "rare_extra"));
-		faction.m_aRareGroupPool.Insert(NewPrefabPoolEntry("{FBB6A99E9B1C7EC6}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_MachineGunTeam_NotSpawned.et", 2, "rare_extra"));
-		faction.m_aRareGroupPool.Insert(NewPrefabPoolEntry("{CBE67BBD93170CF8}Prefabs/Groups/OPFOR/RHS_AFRF/MSV/VKPO_Summer/AmbientPatrols/Group_RHS_RF_MSV_VKPO_S_Team_AT_NotSpawned.et", 1, "rare_extra"));
-		faction.m_aRareGroupPool.Insert(NewPrefabPoolEntry("{7D9243C3C0CCED4B}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/SSO/Group_RHS_hSPEC_SSO_TEAM.et", 1, "rare_extra"));
-		faction.m_aRareGroupPool.Insert(NewPrefabPoolEntry("{39DB4846F673AF9F}Prefabs/Groups/OPFOR/RHS_AFRF/SPEC/VVRG/Group_RHS_hSPEC_VVRG_TEAM.et", 1, "rare_extra"));
-		faction.m_aSupportIds.Insert("support_umpk");
-		faction.m_aSupportIds.Insert("support_kh55");
+		faction.m_aQRFGroupPrefabs.Insert("{CB08A3832252F5B9}Prefabs/Groups/OPFOR/AmbientPatrols/Group_USSR_MortarTeam_NotSpawned.et");
+		faction.m_aGroupPool.Insert(NewPrefabPoolEntry("{CB08A3832252F5B9}Prefabs/Groups/OPFOR/AmbientPatrols/Group_USSR_MortarTeam_NotSpawned.et", 3, "stock"));
+		faction.m_aPatrolGroupPool.Insert(NewPrefabPoolEntry("{CB08A3832252F5B9}Prefabs/Groups/OPFOR/AmbientPatrols/Group_USSR_MortarTeam_NotSpawned.et", 4, "stock"));
+		faction.m_aQRFGroupPool.Insert(NewPrefabPoolEntry("{CB08A3832252F5B9}Prefabs/Groups/OPFOR/AmbientPatrols/Group_USSR_MortarTeam_NotSpawned.et", 3, "stock"));
 		faction.m_aSupportIds.Insert("support_mortar");
 		return faction;
 	}

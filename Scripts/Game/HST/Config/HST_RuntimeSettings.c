@@ -1,6 +1,6 @@
 class HST_RuntimeSettingsCampaign
 {
-	string m_sPresetId = "rhs_everon";
+	string m_sPresetId = "vanilla_everon";
 	int m_iCampaignSeed = 1985;
 	string m_sDefaultHideoutId = "hideout_central_hills";
 }
@@ -8,8 +8,8 @@ class HST_RuntimeSettingsCampaign
 class HST_RuntimeSettingsFactions
 {
 	string m_sResistanceFactionKey = "FIA";
-	string m_sOccupierFactionKey = "RHS_USAF";
-	string m_sInvaderFactionKey = "RHS_AFRF";
+	string m_sOccupierFactionKey = "US";
+	string m_sInvaderFactionKey = "USSR";
 }
 
 class HST_RuntimeSettingsEconomy
@@ -116,6 +116,10 @@ class HST_RuntimeSettings
 	{
 		if (m_iSchemaVersion <= 0)
 			m_iSchemaVersion = SCHEMA_VERSION;
+		m_Campaign.m_sPresetId = "vanilla_everon";
+		m_Factions.m_sResistanceFactionKey = "FIA";
+		m_Factions.m_sOccupierFactionKey = "US";
+		m_Factions.m_sInvaderFactionKey = "USSR";
 
 		m_Economy.m_iStartingFactionMoney = Math.Max(0, m_Economy.m_iStartingFactionMoney);
 		m_Economy.m_iStartingHR = Math.Max(0, m_Economy.m_iStartingHR);

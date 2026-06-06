@@ -118,15 +118,6 @@ class HST_DisplayNameService
 
 	protected static string NormalizeKnownLabel(string name)
 	{
-		name.Replace("RHS Headgear", "");
-		name.Replace("RHS Helmet", "");
-		name.Replace("RHS Vest", "");
-		name.Replace("RHS Uniform", "");
-		name.Replace("RHS Backpack", "");
-		name.Replace("RHS Weapon", "");
-		name.Replace("RHS Magazine", "");
-		name.Replace("rhs ", "");
-		name.Replace("Rhs ", "");
 		name.Replace("EQUIPMENT", "");
 		name.Replace("Equipment", "");
 		name.Replace("Addon", "");
@@ -142,7 +133,6 @@ class HST_DisplayNameService
 		name.Replace("M1151", "M1151");
 		name.Replace("S105", "S105");
 		name.Replace("S1203", "S1203");
-		name.Replace("RHS RF", "RHS");
 		name.Replace("  ", " ");
 		name.Replace("  ", " ");
 		return name.Trim();

@@ -473,7 +473,7 @@ class HST_CampaignState
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
-	string m_sPresetId = "rhs_everon";
+	string m_sPresetId = "vanilla_everon";
 	int m_iCampaignSeed = 1985;
 	HST_ECampaignPhase m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
 	int m_iElapsedSeconds;

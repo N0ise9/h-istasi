@@ -104,7 +104,7 @@ creating duplicate bodies while Reforger is still finalizing ownership.
 
 `StartingPoints.layer` still contains FIA-affiliated Scenario Framework
 spawnpoint slots and FIA role-selection loadouts, but those are now authoring
-metadata and a debug fallback, not the normal player-side path. RHS_USAF
+metadata and a debug fallback, not the normal player-side path. US
 remains the occupier in the strategic preset. Game Master-spawned characters
 are still not expected to advance h-istasi's player lifecycle. Workbench
 offline play may log blank identity ID errors from stock reconnect or

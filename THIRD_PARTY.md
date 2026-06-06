@@ -1,12 +1,10 @@
 # Third-Party Notices
 
-## RHS: Status Quo
+## Base Game Content
 
-h-istasi depends on RHS: Status Quo for the first campaign preset. h-istasi
-does not redistribute or modify RHS assets.
-
-- Workshop page and RHS EULA:
-  https://reforger.armaplatform.com/workshop/595F2BF2F44836FB-RHS-%20Statu%20quo
+h-istasi currently targets Arma Reforger base-game factions and resources only.
+Optional mod faction support can be added later, but no external faction,
+weapon, vehicle, or call-in addon is required by the current preset.
 
 ## Antistasi Community Edition
 

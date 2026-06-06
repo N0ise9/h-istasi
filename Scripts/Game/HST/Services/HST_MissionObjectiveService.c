@@ -219,7 +219,12 @@ class HST_MissionObjectiveService
 			return 3;
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return definition.m_sMissionId == "convoy_prisoners" ? 1 : 2;
+		{
+			if (definition.m_sMissionId == "convoy_prisoners")
+				return 1;
+
+			return 2;
+		}
 
 		if (definition.m_sMissionId == "dynamic_city_flip_battle")
 			return 3;
