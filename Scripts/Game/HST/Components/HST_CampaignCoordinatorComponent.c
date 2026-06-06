@@ -446,10 +446,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Authorization.SetMembership(m_State, actorIdentityId, targetIdentityId, isMember);
 		if (changed)
-		{
 			MarkMajorCampaignChange();
-			BroadcastMissionEvent("completed", activeMission, definition);
-		}
 		return changed;
 	}
 
@@ -460,14 +457,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey);
 		if (changed)
-		{
 			MarkMajorCampaignChange();
-			HST_ActiveMissionState activeMission = m_State.FindActiveMission(instanceId);
-			HST_MissionDefinition definition;
-			if (activeMission)
-				definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
-			BroadcastMissionEvent("failed", activeMission, definition);
-		}
 		return changed;
 	}
 
