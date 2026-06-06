@@ -89,7 +89,7 @@ class HST_LoadoutEditorService
 			string infiniteMarker = "";
 			if (item.m_bUnlocked)
 				infiniteMarker = "INF";
-			payload = payload + string.Format("\nITEM|%1|%2|%3|%4|%5", category, item.m_sPrefab, SanitizePayloadField(label), item.m_iCount, infiniteMarker);
+			payload = payload + BuildEditorItemPayload(category, item.m_sPrefab, label, item.m_iCount, infiniteMarker);
 		}
 
 		foreach (HST_LoadoutSlotState slot : session.m_aDraftSlots)
@@ -97,7 +97,9 @@ class HST_LoadoutEditorService
 			if (!slot)
 				continue;
 
-			payload = payload + string.Format("\nSLOT|%1|%2|%3|%4|%5", slot.m_sSlotId, ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory), slot.m_sItemPrefab, SanitizePayloadField(HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName)), Math.Max(1, slot.m_iQuantity));
+			string slotCategory = ResolveEditorCategory(slot.m_sItemPrefab, slot.m_sCategory);
+			string slotLabel = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, slot.m_sDisplayName);
+			payload = payload + BuildEditorSlotPayload(slot, slotCategory, slotLabel);
 		}
 
 		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
@@ -599,6 +601,51 @@ class HST_LoadoutEditorService
 			return "Medical";
 
 		return "Utility";
+	}
+
+	protected string BuildEditorItemPayload(string category, string prefab, string displayName, int count, string infiniteMarker)
+	{
+		string resolvedDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, prefab, displayName);
+		string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(resolvedDisplay, prefab);
+		return string.Format("\nITEM|%1|%2|%3|%4|%5|%6|%7|%8|%9", category, prefab, SanitizePayloadField(resolvedDisplay), count, infiniteMarker, SanitizePayloadField(resolvedDisplay), SanitizePayloadField(shortDisplay), SanitizePayloadField(GetEditorSlotLabel(category)), IsPreviewEligibleCategory(category));
+	}
+
+	protected string BuildEditorSlotPayload(HST_LoadoutSlotState slot, string category, string displayName)
+	{
+		string resolvedDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, slot.m_sItemPrefab, displayName);
+		string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(resolvedDisplay, slot.m_sItemPrefab);
+		return string.Format("\nSLOT|%1|%2|%3|%4|%5|%6|%7|%8|%9", slot.m_sSlotId, category, slot.m_sItemPrefab, SanitizePayloadField(resolvedDisplay), Math.Max(1, slot.m_iQuantity), SanitizePayloadField(resolvedDisplay), SanitizePayloadField(shortDisplay), SanitizePayloadField(GetEditorSlotLabel(category)), IsPreviewEligibleCategory(category));
+	}
+
+	protected string GetEditorSlotLabel(string categoryId)
+	{
+		if (categoryId == "clothing")
+			return "Uniform";
+		if (categoryId == "headgear")
+			return "Head";
+		if (categoryId == "vest")
+			return "Vest";
+		if (categoryId == "backpack")
+			return "Back";
+		if (categoryId == "weapon")
+			return "Weapon";
+		if (categoryId == "launcher")
+			return "Launcher";
+		if (categoryId == "magazine")
+			return "Ammo";
+		if (categoryId == "explosive")
+			return "Explosive";
+		if (categoryId == "attachment")
+			return "Attachment";
+		if (categoryId == "medical")
+			return "Medical";
+
+		return "Gear";
+	}
+
+	protected bool IsPreviewEligibleCategory(string categoryId)
+	{
+		return categoryId == "clothing" || categoryId == "headgear" || categoryId == "vest" || categoryId == "backpack" || categoryId == "weapon" || categoryId == "launcher" || categoryId == "attachment";
 	}
 
 	protected bool ParseSlotQuantityArgument(string argument, out string slotId, out int quantity)

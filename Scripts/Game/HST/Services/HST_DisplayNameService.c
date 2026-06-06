@@ -2,29 +2,52 @@ class HST_DisplayNameService
 {
 	static string ResolveItemDisplayName(IEntity item, string prefab, string existingName = "")
 	{
-		if (!existingName.IsEmpty() && !LooksLikePrefabPath(existingName))
-			return existingName;
-
 		if (item)
 		{
 			InventoryItemComponent inventoryItem = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
 			if (inventoryItem && inventoryItem.GetUIInfo())
 			{
-				string itemName = inventoryItem.GetUIInfo().GetName();
-				if (!itemName.IsEmpty() && !LooksLikePrefabPath(itemName))
+				string itemName = ResolveReadableDisplayName(inventoryItem.GetUIInfo().GetName());
+				if (!itemName.IsEmpty())
 					return itemName;
 			}
 		}
+
+		string resolvedExisting = ResolveReadableDisplayName(existingName);
+		if (!resolvedExisting.IsEmpty())
+			return resolvedExisting;
 
 		return FriendlyPrefabName(prefab, "item");
 	}
 
 	static string ResolveVehicleDisplayName(string prefab, string existingName = "")
 	{
-		if (!existingName.IsEmpty() && !LooksLikePrefabPath(existingName))
-			return existingName;
+		string resolvedExisting = ResolveReadableDisplayName(existingName);
+		if (!resolvedExisting.IsEmpty())
+			return resolvedExisting;
 
 		return FriendlyPrefabName(prefab, "vehicle");
+	}
+
+	static string ResolveShortItemDisplayName(string displayName, string prefab = "")
+	{
+		string resolved = ResolveReadableDisplayName(displayName);
+		if (resolved.IsEmpty())
+			resolved = FriendlyPrefabName(prefab, "item");
+
+		resolved.Replace("Headgear", "");
+		resolved.Replace("Backpack", "");
+		resolved.Replace("Magazine", "Mag");
+		resolved.Replace("Inventory", "");
+		resolved.Replace("Equipment", "");
+		resolved.Replace("Prefab", "");
+		resolved.Replace("  ", " ");
+		resolved.Replace("  ", " ");
+		resolved = resolved.Trim();
+		if (resolved.IsEmpty())
+			return FriendlyPrefabName(prefab, "item");
+
+		return resolved;
 	}
 
 	static string FriendlyPrefabName(string prefab, string fallback = "item")
@@ -56,6 +79,8 @@ class HST_DisplayNameService
 		name.Replace("Item_", "");
 		name.Replace("Inventory_", "");
 		name.Replace("Prefabs", "");
+		name.Replace("#", "");
+		name.Replace("-", " ");
 		name.Replace("_", " ");
 		name = NormalizeKnownLabel(name.Trim());
 		if (name.IsEmpty())
@@ -69,8 +94,42 @@ class HST_DisplayNameService
 		return value.Contains("Prefabs/") || value.Contains(".et") || value.Contains("{");
 	}
 
+	static bool LooksLikeLocalizationKey(string value)
+	{
+		return value.Length() > 0 && value.Substring(0, 1) == "#";
+	}
+
+	static string ResolveReadableDisplayName(string value)
+	{
+		if (value.IsEmpty() || LooksLikePrefabPath(value))
+			return "";
+
+		if (LooksLikeLocalizationKey(value))
+		{
+			string translated = WidgetManager.Translate(value);
+			if (!translated.IsEmpty() && translated != value && !LooksLikeLocalizationKey(translated) && !LooksLikePrefabPath(translated))
+				return translated;
+
+			return "";
+		}
+
+		return value;
+	}
+
 	protected static string NormalizeKnownLabel(string name)
 	{
+		name.Replace("RHS Headgear", "");
+		name.Replace("RHS Helmet", "");
+		name.Replace("RHS Vest", "");
+		name.Replace("RHS Uniform", "");
+		name.Replace("RHS Backpack", "");
+		name.Replace("RHS Weapon", "");
+		name.Replace("RHS Magazine", "");
+		name.Replace("rhs ", "");
+		name.Replace("Rhs ", "");
+		name.Replace("EQUIPMENT", "");
+		name.Replace("Equipment", "");
+		name.Replace("Addon", "");
 		name.Replace("M27IAR", "M27 IAR");
 		name.Replace("M38SDMR", "M38 SDMR");
 		name.Replace("M16A4", "M16A4");
@@ -84,6 +143,8 @@ class HST_DisplayNameService
 		name.Replace("S105", "S105");
 		name.Replace("S1203", "S1203");
 		name.Replace("RHS RF", "RHS");
-		return name;
+		name.Replace("  ", " ");
+		name.Replace("  ", " ");
+		return name.Trim();
 	}
 }

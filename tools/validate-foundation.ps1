@@ -1863,6 +1863,7 @@ Write-Host "Command menu recovery/build cleanup OK"
 
 $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEditorService.c"
 $loadoutEditorComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"
+$displayNameServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_DisplayNameService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $requestBridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
 foreach ($requiredLoadoutEditorEntry in @(
@@ -1882,8 +1883,8 @@ foreach ($requiredLoadoutEditorEntry in @(
 	"PREVIEW|%1|%2|%3|%4",
 	"PREVIEW_PREFAB|%1",
 	"CATEGORY|%1|%2|%3",
-	"ITEM|%1|%2|%3|%4|%5",
-	"SLOT|%1|%2|%3|%4|%5",
+	"ITEM|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+	"SLOT|%1|%2|%3|%4|%5|%6|%7|%8|%9",
 	"TEMPLATE|%1|%2|%3",
 	"SaveCurrentDraft",
 	"ApplySavedLoadout",
@@ -1940,6 +1941,47 @@ foreach ($requiredLoadoutEditorEntry in @(
 if (!(Test-Path "UI/layouts/HST_LoadoutEditor.layout")) {
 	throw "Missing fullscreen loadout editor layout resource"
 }
+if (!(Test-Path "UI/layouts/HST_LoadoutEditor.layout.meta")) {
+	throw "Missing GUID-backed loadout editor layout meta resource"
+}
+$loadoutEditorLayoutText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor.layout"
+$loadoutEditorLayoutMetaText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor.layout.meta"
+if ($loadoutEditorComponentText -notmatch [regex]::Escape('EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout"')) {
+	throw "Loadout editor must reference the GUID-backed layout resource"
+}
+if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/layouts/HST_LoadoutEditor.layout")) {
+	throw "Loadout editor must not reference the zero-GUID layout resource"
+}
+if ($loadoutEditorLayoutMetaText -notmatch [regex]::Escape('Name "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout"')) {
+	throw "Loadout editor layout meta must carry the expected non-zero GUID"
+}
+foreach ($requiredLayoutEntry in @(
+	"RenderTargetWidgetClass",
+	"HST_LoadoutPreview",
+	"Anchor 0 0 0 0"
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {
+		throw "Loadout editor layout is missing stable render-target entry: $requiredLayoutEntry"
+	}
+}
+foreach ($requiredDisplayNameEntry in @(
+	"InventoryItemComponent",
+	"GetUIInfo().GetName()",
+	"WidgetManager.Translate",
+	"LooksLikeLocalizationKey",
+	"ResolveReadableDisplayName",
+	"ResolveShortItemDisplayName",
+	"FriendlyPrefabName",
+	'if (LooksLikeLocalizationKey(value))',
+	'name.Replace("#", "")'
+)) {
+	if ($displayNameServiceText -notmatch [regex]::Escape($requiredDisplayNameEntry)) {
+		throw "Display name service must resolve readable loadout item names: $requiredDisplayNameEntry"
+	}
+}
+if ($displayNameServiceText -match [regex]::Escape('if (!existingName.IsEmpty() && !LooksLikePrefabPath(existingName))')) {
+	throw "Display name service must not pass raw existing names through before localization-key resolution"
+}
 foreach ($requiredLoadoutEditorComponentEntry in @(
 	"OpenFromArsenal",
 	"CloseMenuFromExternal",
@@ -1958,10 +2000,23 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"EnsurePreviewWorld",
 	"RefreshPreviewWorldLoadout",
 	"UpdatePreviewCamera",
+	"GetPreviewCharacterBounds",
+	"GetBounds",
+	"vector.Distance",
+	"Math.Clamp",
 	"DeletePreviewWorld",
 	"HST_LoadoutPreview",
 	"BuildPreviewStatusLabel",
 	"BuildDraftHeaderSummary",
+	"BuildSwapHeaderText",
+	"BuildSwapActionLabel",
+	"ResolvePayloadDisplayText",
+	"m_aItemShortDisplays",
+	"m_aItemSlotLabels",
+	"m_aItemPreviewEligible",
+	"m_aSlotShortDisplays",
+	"m_aSlotLabels",
+	"m_aSlotPreviewEligible",
 	"ClampPages",
 	"ParseEditorPayload",
 	"RequestServerAction",
