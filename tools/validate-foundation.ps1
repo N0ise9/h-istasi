@@ -616,6 +616,21 @@ if ($defaultCatalog -notmatch 'preset\.m_sResistanceFactionKey = "FIA"' -or $def
 }
 Write-Host "Campaign faction identity OK"
 
+$campaignStateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+if ($campaignStateText -notmatch "SCHEMA_VERSION\s*=\s*(\d+)") {
+	throw "Unable to parse HST_CampaignState.SCHEMA_VERSION"
+}
+$campaignSchemaVersion = [int] $Matches[1]
+$migrationsPath = "docs/MIGRATIONS.md"
+if (!(Test-Path $migrationsPath)) {
+	throw "Missing campaign migration notes: $migrationsPath"
+}
+$migrationsText = Get-Content -Raw $migrationsPath
+if ($migrationsText -notmatch "(?im)^##\s+Schema\s+$campaignSchemaVersion\b") {
+	throw "docs/MIGRATIONS.md must document HST_CampaignState schema $campaignSchemaVersion"
+}
+Write-Host "Campaign save migration note OK: schema $campaignSchemaVersion"
+
 $runtimeMissions = @([regex]::Matches($defaultCatalog, 'NewMission\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 $configMissions = @([regex]::Matches($missionConfig, 'm_sMissionId "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
 Assert-EqualSet "Mission registries" $runtimeMissions $configMissions
