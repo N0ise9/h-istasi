@@ -581,7 +581,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer())
 			return false;
 
+		HST_ActiveMissionState activeMission = m_State.FindActiveMission(instanceId);
+		HST_MissionDefinition definition;
+		if (activeMission)
+			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
+
 		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId);
+		if (changed)
+			ApplyFailedMissionOutcome(definition, activeMission);
 		if (changed && m_Objectives)
 			m_Objectives.FailMissionObjectives(m_State, instanceId);
 		if (changed)
@@ -598,6 +605,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed)
 		{
 			m_HQ.EnsureRuntimeObjects(m_State);
+			m_State.m_iHQKnowledge = Math.Max(0, m_State.m_iHQKnowledge - 50);
 			MarkMajorCampaignChange();
 		}
 		return changed;
@@ -1277,6 +1285,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_MissionRuntime.BuildRuntimeReport(m_State);
 	}
 
+	string RequestMemberMissionInteraction(int playerId, string commandId, string argument = "")
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi mission | membership required";
+
+		if (!m_MissionRuntime)
+			return "h-istasi mission | service not ready";
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		string result;
+		string eventType;
+		string missionInstanceId;
+		bool changed = m_MissionRuntime.HandlePlayerMissionInteraction(m_State, m_Preset, m_Arsenal, playerId, playerEntity, commandId, argument, result, eventType, missionInstanceId);
+		if (!changed)
+			return result;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(missionInstanceId);
+		HST_MissionDefinition definition;
+		if (mission)
+			definition = m_Missions.FindDefinition(mission.m_sMissionId);
+
+		if (!eventType.IsEmpty())
+			BroadcastMissionEvent(eventType, mission, definition);
+
+		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
+		if (!completedRuntimeMissionId.IsEmpty())
+			CompleteMission(completedRuntimeMissionId);
+
+		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
+		if (!failedRuntimeMissionId.IsEmpty())
+			FailMission(failedRuntimeMissionId);
+
+		BroadcastPendingMissionOutcomeEvents();
+		MarkMajorCampaignChange();
+		return result;
+	}
+
 	string RequestMemberLootNearby(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -1837,7 +1882,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string phase = mission.m_sRuntimePhase;
 		if (phase.IsEmpty())
 			phase = "active";
-		return string.Format("%1 / objectives %2/%3 / cargo %4/%5 / captives %6/%7", phase, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+		string eta = "";
+		if (mission.m_iRuntimeETASeconds > 0)
+			eta = string.Format(" / ETA %1s", mission.m_iRuntimeETASeconds);
+		return string.Format("%1%2 / objectives %3/%4 / cargo %5/%6 / captives %7/%8 / picked %9 delivered %10 destroyed %11", phase, eta, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount, mission.m_iRuntimePickupCount, mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
 	}
 
 	protected string BuildMissionAssetIntelLabel(HST_MissionAssetState asset)
@@ -1855,6 +1903,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			state = "destroyed";
 		else if (asset.m_bDelivered)
 			state = "delivered";
+		else if (asset.m_bAttachedToCarrier)
+			state = "loaded";
 		else if (asset.m_bPickedUp)
 			state = "in transport";
 
@@ -1880,6 +1930,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return asset.m_bPickedUp;
 		if (asset.m_sRole == "convoy_captive")
 			return asset.m_bDelivered;
+		if (asset.m_sKind == "vehicle")
+			return asset.m_bDelivered || asset.m_bDestroyed;
 		if (asset.m_sKind == "cargo" || asset.m_sKind == "captive")
 			return asset.m_bDelivered;
 		return asset.m_bSpawned;
@@ -1913,6 +1965,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Mission failed";
 		if (eventType == "expired")
 			return "Mission expired";
+		if (eventType == "loaded")
+			return "Mission cargo loaded";
+		if (eventType == "unloaded")
+			return "Mission cargo unloaded";
+		if (eventType == "delivered")
+			return "Mission delivery complete";
+		if (eventType == "captured")
+			return "Mission vehicle captured";
+		if (eventType == "sabotaged")
+			return "Mission target sabotaged";
 		return "Mission updated";
 	}
 
@@ -2099,6 +2161,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
 		{
 			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -12, -6);
+			if (definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild")
+				m_State.m_iHQKnowledge = Math.Max(0, m_State.m_iHQKnowledge - 20);
 			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
 				m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 35, 10);
 			return true;
@@ -2120,6 +2184,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return m_Towns.AddSupport(m_State, zone.m_sZoneId, 10);
 
 			return m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 20, 5);
+		}
+
+		return false;
+	}
+
+	protected bool ApplyFailedMissionOutcome(HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
+	{
+		if (!definition || !activeMission)
+			return false;
+
+		if (definition.m_sMissionId == "assassinate_traitor")
+		{
+			m_State.m_iHQKnowledge = Math.Min(100, m_State.m_iHQKnowledge + 45);
+			return true;
+		}
+
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+		{
+			m_State.m_iHQKnowledge = 100;
+			m_State.m_iLastHQAttackSecond = m_State.m_iElapsedSeconds;
+			return true;
+		}
+
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT && !activeMission.m_sTargetZoneId.IsEmpty())
+		{
+			HST_ZoneState zone = m_State.FindZone(activeMission.m_sTargetZoneId);
+			if (zone)
+				return m_Towns.AddSupport(m_State, zone.m_sZoneId, -10);
 		}
 
 		return false;

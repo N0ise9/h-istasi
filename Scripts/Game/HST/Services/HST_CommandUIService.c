@@ -229,6 +229,9 @@ class HST_CommandUIService
 		if (commandId == "complete_mission")
 			return BuildBoolResult("complete mission " + argument, coordinator.RequestCommanderCompleteMission(playerId, argument));
 
+		if (commandId == "mission_asset_load" || commandId == "mission_asset_unload" || commandId == "mission_asset_deliver" || commandId == "mission_captive_extract" || commandId == "mission_vehicle_capture" || commandId == "mission_asset_sabotage")
+			return coordinator.RequestMemberMissionInteraction(playerId, commandId, argument);
+
 		if (commandId == "call_supply")
 			return BuildBoolResult("request FIA supply drop", coordinator.RequestCommanderCallSupplyDrop(playerId));
 
@@ -813,6 +816,7 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "hq", "Arsenal failure", state.m_sLastHQArsenalFailure, "bad");
 		payload = AppendRow(payload, "hq", "Runtime objects", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
 		payload = AppendRow(payload, "hq", "HQ radius", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
+		payload = AppendRow(payload, "hq", "Enemy knowledge", string.Format("%1/100", state.m_iHQKnowledge), HQKnowledgeTone(state));
 		payload = AppendRow(payload, "hq", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
 
 		payload = AppendSection(payload, "moves", "Move Base");
@@ -1169,6 +1173,12 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), "no hostile town");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), "no hostile resource");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), "no hostile outpost");
+			AddMenuAction(actions, TAB_MISSIONS, "Load nearest mission cargo", "mission_asset_load", "", canUseMember && HasActiveMissionAssets(state), "no active mission asset");
+			AddMenuAction(actions, TAB_MISSIONS, "Unload carried mission cargo", "mission_asset_unload", "", canUseMember && HasActiveMissionAssets(state), "no carried mission cargo");
+			AddMenuAction(actions, TAB_MISSIONS, "Deliver mission cargo/captive", "mission_asset_deliver", "", canUseMember && HasActiveMissionAssets(state), "no deliverable mission asset");
+			AddMenuAction(actions, TAB_MISSIONS, "Extract nearest captive", "mission_captive_extract", "", canUseMember && HasActiveMissionAssets(state), "no active captive");
+			AddMenuAction(actions, TAB_MISSIONS, "Capture mission vehicle", "mission_vehicle_capture", "", canUseMember && HasActiveMissionAssets(state), "no mission vehicle");
+			AddMenuAction(actions, TAB_MISSIONS, "Sabotage mission target", "mission_asset_sabotage", "", canUseMember && HasActiveMissionAssets(state), "no mission target");
 			return;
 		}
 
@@ -1802,6 +1812,17 @@ class HST_CommandUIService
 		return "bad";
 	}
 
+	protected string HQKnowledgeTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "neutral";
+		if (state.m_iHQKnowledge >= 80)
+			return "bad";
+		if (state.m_iHQKnowledge >= 40)
+			return "warn";
+		return "good";
+	}
+
 	protected int ResolveHQRadiusMeters(HST_RuntimeSettings settings)
 	{
 		if (settings)
@@ -1963,7 +1984,10 @@ class HST_CommandUIService
 		string phase = mission.m_sRuntimePhase;
 		if (phase.IsEmpty())
 			phase = "active";
-		return string.Format("%1 / objectives %2/%3 / cargo %4/%5 / captives %6/%7", phase, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount);
+		string eta = "";
+		if (mission.m_iRuntimeETASeconds > 0)
+			eta = string.Format(" / ETA %1s", mission.m_iRuntimeETASeconds);
+		return string.Format("%1%2 / objectives %3/%4 / cargo %5/%6 / captives %7/%8 / picked %9 delivered %10 destroyed %11", phase, eta, complete, total, mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount, mission.m_iExtractedCaptiveCount, mission.m_iRequiredCaptiveCount, mission.m_iRuntimePickupCount, mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
 	}
 
 	protected string MissionTone(HST_ActiveMissionState mission)
@@ -2130,6 +2154,24 @@ class HST_CommandUIService
 		}
 
 		return count;
+	}
+
+	protected bool HasActiveMissionAssets(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_bDestroyed || asset.m_bDelivered)
+				continue;
+
+			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected int CountActiveQRFs(HST_CampaignState state)

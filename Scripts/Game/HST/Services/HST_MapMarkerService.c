@@ -21,6 +21,7 @@ class HST_MapMarkerService
 		AddZoneMarkers(state, preset);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
+		AddSupportRequestMarkers(state, preset);
 		SyncVisibleNativeMarkerOwnership(state);
 		bool published = PublishRuntimeNativeMarkers(state, preset);
 		Print(string.Format("h-istasi | rebuilt %1 Tonka-style map marker record(s), published %2 native marker(s)", state.m_aMapMarkers.Count(), m_aRuntimeNativeMarkers.Count()));
@@ -88,7 +89,7 @@ class HST_MapMarkerService
 				townCount++;
 			else if (marker.m_sCategory == "mission" || marker.m_sCategory == "mission_objective" || marker.m_sCategory == "mission_asset")
 				missionCount++;
-			else if (marker.m_sCategory == "qrf")
+			else if (marker.m_sCategory == "qrf" || marker.m_sCategory == "support")
 				qrfCount++;
 			else if (marker.m_sCategory == "callsign")
 				callsignCount++;
@@ -153,8 +154,25 @@ class HST_MapMarkerService
 				markerId = "hst_mission_" + mission.m_sInstanceId;
 
 			AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", "REFORGER_ORANGE", markerPosition, true, "white", "mission_clickable");
+			AddMissionRouteMarkers(state, preset, mission);
 			AddMissionObjectiveMarkers(state, preset, mission);
 			AddMissionAssetMarkers(state, preset, mission);
+		}
+	}
+
+	protected void AddMissionRouteMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		if (!mission || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle")
+				continue;
+
+			AddMarker(state, "hst_mission_route_start_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy start", "", "mission_route", asset.m_sRole, "POINT_SPECIAL", "RED", asset.m_vSourcePosition, true, "red", "convoy_route_start");
+			AddMarker(state, "hst_mission_route_end_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy destination", "", "mission_route", asset.m_sRole, "OBJECTIVE_MARKER", "RED", asset.m_vTargetPosition, true, "red", "convoy_route_end");
+			return;
 		}
 	}
 
@@ -223,6 +241,27 @@ class HST_MapMarkerService
 				continue;
 
 			AddMarker(state, "hst_qrf_" + qrf.m_sInstanceId, qrf.m_sInstanceId, "Enemy QRF " + ResolveZoneDisplayName(targetZone), "", "qrf", qrf.m_sFactionKey, "OBJECTIVE_MARKER", FactionToMarkerColor(qrf.m_sFactionKey, preset), targetZone.m_vPosition, true, FactionToMarkerTextColor(qrf.m_sFactionKey, preset), "enemy_response");
+		}
+	}
+
+	protected void AddSupportRequestMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (!request || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+				continue;
+
+			vector position = request.m_vTargetPosition;
+			if (position[0] == 0 && position[1] == 0 && position[2] == 0)
+			{
+				HST_ZoneState zone = state.FindZone(request.m_sTargetZoneId);
+				if (zone)
+					position = zone.m_vPosition;
+			}
+
+			string color = FactionToMarkerColor(request.m_sFactionKey, preset);
+			string label = BuildSupportMarkerLabel(request);
+			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, "POINT_OF_INTEREST", color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming");
 		}
 	}
 
@@ -671,5 +710,21 @@ class HST_MapMarkerService
 			role = asset.m_sKind;
 		role.Replace("_", " ");
 		return verb + " " + role;
+	}
+
+	protected string BuildSupportMarkerLabel(HST_SupportRequestState request)
+	{
+		if (!request)
+			return "Support";
+
+		string status = "queued";
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			status = "active";
+		else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			status = "cancelled";
+		else if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED)
+			status = "resolved";
+
+		return string.Format("Support %1 | %2 | ETA %3s", request.m_sAssetProfileId, status, request.m_iETASeconds);
 	}
 }
