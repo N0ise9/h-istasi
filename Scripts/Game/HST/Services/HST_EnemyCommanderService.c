@@ -92,6 +92,8 @@ class HST_EnemyCommanderService
 
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
 		state.m_aEnemyOrders.Insert(order);
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			state.m_iLastHQAttackSecond = state.m_iElapsedSeconds;
 		Print(string.Format("h-istasi | enemy order %1 active at %2", order.m_sOrderId, targetZone.m_sZoneId));
 		return true;
 	}
@@ -154,6 +156,9 @@ class HST_EnemyCommanderService
 
 	protected HST_EEnemyOrderType SelectOrderType(HST_CampaignState state, HST_ZoneState targetZone, HST_FactionPoolState pool)
 	{
+		if (state.m_iHQKnowledge >= 100 && IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 20 && pool.m_iSupportResources >= 8 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
+			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
+
 		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && pool.m_iSupportResources >= 8 && state.m_iWarLevel >= 4)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
@@ -200,6 +205,8 @@ class HST_EnemyCommanderService
 			score += 6;
 		if (IsHQThreatZone(state, zone))
 			score += 9 + state.m_iWarLevel;
+		if (state.m_iHQKnowledge > 0 && IsHQThreatZone(state, zone))
+			score += state.m_iHQKnowledge / 10;
 
 		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, factionKey);
 		if (!garrison)

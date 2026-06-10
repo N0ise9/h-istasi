@@ -27,6 +27,8 @@ class HST_CampaignSaveData
 	bool m_bPetrosAlive;
 	bool m_bRestoredFromPersistence;
 	int m_iPetrosDeaths;
+	int m_iHQKnowledge;
+	int m_iLastHQAttackSecond;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
@@ -43,6 +45,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_ArsenalItemState> m_aArsenalItems = {};
 	ref array<ref HST_GarageVehicleState> m_aGarageVehicles = {};
 	ref array<ref HST_VehicleCargoItemState> m_aVehicleCargoItems = {};
+	ref array<ref HST_RuntimeVehicleState> m_aRuntimeVehicles = {};
 	ref array<ref HST_SavedLoadoutState> m_aSavedLoadouts = {};
 	ref array<ref HST_IssuedLoadoutItemState> m_aIssuedLoadoutItems = {};
 	ref array<ref HST_EmplacementState> m_aCapturedEmplacements = {};
@@ -90,6 +93,8 @@ class HST_CampaignSaveData
 		m_bPetrosAlive = state.m_bPetrosAlive;
 		m_bRestoredFromPersistence = state.m_bRestoredFromPersistence;
 		m_iPetrosDeaths = state.m_iPetrosDeaths;
+		m_iHQKnowledge = state.m_iHQKnowledge;
+		m_iLastHQAttackSecond = state.m_iLastHQAttackSecond;
 		m_sPetrosPrefab = state.m_sPetrosPrefab;
 		m_sHQCachePrefab = state.m_sHQCachePrefab;
 		m_sArsenalPrefab = state.m_sArsenalPrefab;
@@ -135,6 +140,10 @@ class HST_CampaignSaveData
 		m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
 			m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
+
+		m_aRuntimeVehicles.Clear();
+		foreach (HST_RuntimeVehicleState runtimeVehicle : state.m_aRuntimeVehicles)
+			m_aRuntimeVehicles.Insert(CopyRuntimeVehicle(runtimeVehicle));
 
 		m_aSavedLoadouts.Clear();
 		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
@@ -237,6 +246,8 @@ class HST_CampaignSaveData
 		state.m_bPetrosAlive = m_bPetrosAlive;
 		state.m_bRestoredFromPersistence = m_bRestoredFromPersistence;
 		state.m_iPetrosDeaths = m_iPetrosDeaths;
+		state.m_iHQKnowledge = m_iHQKnowledge;
+		state.m_iLastHQAttackSecond = m_iLastHQAttackSecond;
 		state.m_sPetrosPrefab = m_sPetrosPrefab;
 		state.m_sHQCachePrefab = m_sHQCachePrefab;
 		state.m_sArsenalPrefab = m_sArsenalPrefab;
@@ -282,6 +293,10 @@ class HST_CampaignSaveData
 		state.m_aVehicleCargoItems.Clear();
 		foreach (HST_VehicleCargoItemState cargoItem : m_aVehicleCargoItems)
 			state.m_aVehicleCargoItems.Insert(CopyVehicleCargoItem(cargoItem));
+
+		state.m_aRuntimeVehicles.Clear();
+		foreach (HST_RuntimeVehicleState runtimeVehicle : m_aRuntimeVehicles)
+			state.m_aRuntimeVehicles.Insert(CopyRuntimeVehicle(runtimeVehicle));
 
 		state.m_aSavedLoadouts.Clear();
 		foreach (HST_SavedLoadoutState loadout : m_aSavedLoadouts)
@@ -540,6 +555,26 @@ class HST_CampaignSaveData
 		return target;
 	}
 
+	protected HST_RuntimeVehicleState CopyRuntimeVehicle(HST_RuntimeVehicleState source)
+	{
+		HST_RuntimeVehicleState target = new HST_RuntimeVehicleState();
+		if (!source)
+			return target;
+
+		target.m_sVehicleRuntimeId = source.m_sVehicleRuntimeId;
+		target.m_sPrefab = source.m_sPrefab;
+		target.m_sDisplayName = source.m_sDisplayName;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sRuntimeKind = source.m_sRuntimeKind;
+		target.m_vPosition = source.m_vPosition;
+		target.m_vAngles = source.m_vAngles;
+		target.m_iSpawnedAtSecond = source.m_iSpawnedAtSecond;
+		target.m_bDetached = source.m_bDetached;
+		target.m_bDeleted = source.m_bDeleted;
+		return target;
+	}
+
 	protected HST_LoadoutSlotState CopyLoadoutSlot(HST_LoadoutSlotState source)
 	{
 		HST_LoadoutSlotState target = new HST_LoadoutSlotState();
@@ -622,10 +657,12 @@ class HST_CampaignSaveData
 		target.m_sRuntimePhase = source.m_sRuntimePhase;
 		target.m_sRuntimeFailureReason = source.m_sRuntimeFailureReason;
 		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
+		target.m_sLastRuntimeEventKey = source.m_sLastRuntimeEventKey;
 		target.m_iStartedAtSecond = source.m_iStartedAtSecond;
 		target.m_iActiveUntilSecond = source.m_iActiveUntilSecond;
 		target.m_iRuntimeStartedAtSecond = source.m_iRuntimeStartedAtSecond;
 		target.m_iRuntimeHoldSeconds = source.m_iRuntimeHoldSeconds;
+		target.m_iRuntimeETASeconds = source.m_iRuntimeETASeconds;
 		target.m_iRuntimeCounterA = source.m_iRuntimeCounterA;
 		target.m_iRuntimeCounterB = source.m_iRuntimeCounterB;
 		target.m_iRuntimeCounterC = source.m_iRuntimeCounterC;
@@ -635,6 +672,9 @@ class HST_CampaignSaveData
 		target.m_iExtractedCaptiveCount = source.m_iExtractedCaptiveCount;
 		target.m_iRequiredVehicleCount = source.m_iRequiredVehicleCount;
 		target.m_iCapturedVehicleCount = source.m_iCapturedVehicleCount;
+		target.m_iRuntimePickupCount = source.m_iRuntimePickupCount;
+		target.m_iRuntimeDeliveryCount = source.m_iRuntimeDeliveryCount;
+		target.m_iRuntimeDestroyedCount = source.m_iRuntimeDestroyedCount;
 		target.m_bDynamic = source.m_bDynamic;
 		target.m_bRequested = source.m_bRequested;
 		target.m_bStatic = source.m_bStatic;
@@ -746,15 +786,20 @@ class HST_CampaignSaveData
 		target.m_sPrefab = source.m_sPrefab;
 		target.m_sEntityId = source.m_sEntityId;
 		target.m_sCarriedByVehicleId = source.m_sCarriedByVehicleId;
+		target.m_sLastInteraction = source.m_sLastInteraction;
 		target.m_bSpawned = source.m_bSpawned;
 		target.m_bPickedUp = source.m_bPickedUp;
 		target.m_bDelivered = source.m_bDelivered;
 		target.m_bDestroyed = source.m_bDestroyed;
 		target.m_bAlive = source.m_bAlive;
+		target.m_bAttachedToCarrier = source.m_bAttachedToCarrier;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_vCurrentPosition = source.m_vCurrentPosition;
+		target.m_vLastKnownPosition = source.m_vLastKnownPosition;
 		target.m_iDeadlineSecond = source.m_iDeadlineSecond;
+		target.m_iCargoCapacityCost = source.m_iCargoCapacityCost;
+		target.m_iInteractionRadiusMeters = source.m_iInteractionRadiusMeters;
 		return target;
 	}
 
@@ -856,6 +901,7 @@ class HST_CampaignSaveData
 		m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
 		if (m_sLastPersistenceStatus.IsEmpty())
 			m_sLastPersistenceStatus = "migrated local save data";
+		m_iHQKnowledge = Math.Max(0, Math.Min(100, m_iHQKnowledge));
 
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
 		{
@@ -868,6 +914,10 @@ class HST_CampaignSaveData
 				mission.m_bRuntimeFallback = true;
 			if (mission.m_iRuntimeStartedAtSecond <= 0)
 				mission.m_iRuntimeStartedAtSecond = mission.m_iStartedAtSecond;
+			if (mission.m_iRuntimeETASeconds <= 0 && mission.m_iRuntimeCounterB > 0)
+				mission.m_iRuntimeETASeconds = Math.Max(0, mission.m_iRuntimeCounterB - mission.m_iRuntimeCounterA);
+			if (mission.m_sLastRuntimeEventKey.IsEmpty())
+				mission.m_sLastRuntimeEventKey = mission.m_sRuntimePhase;
 		}
 
 		foreach (HST_MissionObjectiveState objective : m_aMissionObjectives)
@@ -900,6 +950,14 @@ class HST_CampaignSaveData
 				asset.m_bAlive = true;
 			if (IsZeroVector(asset.m_vCurrentPosition))
 				asset.m_vCurrentPosition = asset.m_vSourcePosition;
+			if (IsZeroVector(asset.m_vLastKnownPosition))
+				asset.m_vLastKnownPosition = asset.m_vCurrentPosition;
+			if (asset.m_iCargoCapacityCost <= 0)
+				asset.m_iCargoCapacityCost = 1;
+			if (asset.m_iInteractionRadiusMeters <= 0)
+				asset.m_iInteractionRadiusMeters = 18;
+			if (!asset.m_sCarriedByVehicleId.IsEmpty())
+				asset.m_bAttachedToCarrier = true;
 		}
 
 		if (m_aMissionAssets.Count() == 0 && m_aMissionRuntimeEntities.Count() > 0)
@@ -937,6 +995,19 @@ class HST_CampaignSaveData
 				cargoItem.m_sCategory = "equipment";
 		}
 
+		foreach (HST_RuntimeVehicleState vehicle : m_aRuntimeVehicles)
+		{
+			if (!vehicle)
+				continue;
+
+			if (vehicle.m_sVehicleRuntimeId.IsEmpty())
+				vehicle.m_sVehicleRuntimeId = vehicle.m_sPrefab;
+			if (vehicle.m_sDisplayName.IsEmpty())
+				vehicle.m_sDisplayName = vehicle.m_sRuntimeKind;
+			if (vehicle.m_sRuntimeKind.IsEmpty())
+				vehicle.m_sRuntimeKind = "runtime_vehicle";
+		}
+
 		foreach (HST_SupportRequestState request : m_aSupportRequests)
 		{
 			if (!request)
@@ -967,11 +1038,14 @@ class HST_CampaignSaveData
 			asset.m_vSourcePosition = runtimeEntity.m_vPosition;
 			asset.m_vCurrentPosition = runtimeEntity.m_vPosition;
 			asset.m_vTargetPosition = runtimeEntity.m_vPosition;
+			asset.m_vLastKnownPosition = runtimeEntity.m_vPosition;
 			asset.m_bSpawned = runtimeEntity.m_bSpawned;
 			asset.m_bDestroyed = runtimeEntity.m_bDestroyed;
 			asset.m_bPickedUp = runtimeEntity.m_bRecovered;
 			asset.m_bDelivered = runtimeEntity.m_bRecovered;
 			asset.m_bAlive = !runtimeEntity.m_bDestroyed;
+			asset.m_iCargoCapacityCost = 1;
+			asset.m_iInteractionRadiusMeters = 18;
 			m_aMissionAssets.Insert(asset);
 		}
 	}

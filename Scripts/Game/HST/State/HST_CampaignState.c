@@ -319,10 +319,12 @@ class HST_ActiveMissionState
 	string m_sRuntimePhase;
 	string m_sRuntimeFailureReason;
 	string m_sRuntimeEntityId;
+	string m_sLastRuntimeEventKey;
 	int m_iStartedAtSecond;
 	int m_iActiveUntilSecond;
 	int m_iRuntimeStartedAtSecond;
 	int m_iRuntimeHoldSeconds;
+	int m_iRuntimeETASeconds;
 	int m_iRuntimeCounterA;
 	int m_iRuntimeCounterB;
 	int m_iRuntimeCounterC;
@@ -332,6 +334,9 @@ class HST_ActiveMissionState
 	int m_iExtractedCaptiveCount;
 	int m_iRequiredVehicleCount = 1;
 	int m_iCapturedVehicleCount;
+	int m_iRuntimePickupCount;
+	int m_iRuntimeDeliveryCount;
+	int m_iRuntimeDestroyedCount;
 	bool m_bDynamic;
 	bool m_bRequested;
 	bool m_bStatic;
@@ -432,15 +437,20 @@ class HST_MissionAssetState
 	string m_sPrefab;
 	string m_sEntityId;
 	string m_sCarriedByVehicleId;
+	string m_sLastInteraction;
 	bool m_bSpawned;
 	bool m_bPickedUp;
 	bool m_bDelivered;
 	bool m_bDestroyed;
 	bool m_bAlive = true;
+	bool m_bAttachedToCarrier;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	vector m_vCurrentPosition;
+	vector m_vLastKnownPosition;
 	int m_iDeadlineSecond;
+	int m_iCargoCapacityCost = 1;
+	int m_iInteractionRadiusMeters;
 }
 
 [BaseContainerProps()]
@@ -529,7 +539,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 13;
+	static const int SCHEMA_VERSION = 14;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -557,6 +567,8 @@ class HST_CampaignState
 	bool m_bPetrosAlive = true;
 	bool m_bRestoredFromPersistence;
 	int m_iPetrosDeaths;
+	int m_iHQKnowledge;
+	int m_iLastHQAttackSecond;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
