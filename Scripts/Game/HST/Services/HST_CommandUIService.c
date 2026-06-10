@@ -51,10 +51,10 @@ class HST_CommandUIService
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small";
+		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report";
 	}
 
-	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
 
@@ -71,7 +71,7 @@ class HST_CommandUIService
 		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseAdmin);
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendTopStats(payload, state, preset);
-		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin);
+		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions);
 		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
 
 		if (!lastResult.IsEmpty())
@@ -273,6 +273,18 @@ class HST_CommandUIService
 
 		if (commandId == "award_small")
 			return BuildBoolResult("award debug resources", coordinator.RequestAdminAwardResources(playerId, 500, 5));
+
+		if (commandId == "admin_seed_persistence_test_state")
+			return coordinator.RequestAdminSeedPersistenceTestState(playerId);
+
+		if (commandId == "admin_persistence_smoke_test")
+			return coordinator.RequestAdminRunPersistenceSmokeTest(playerId);
+
+		if (commandId == "admin_persistence_smoke_report")
+			return coordinator.RequestAdminPersistenceSmokeReport(playerId);
+
+		if (commandId == "inspect_zone_composition")
+			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
 		if (commandId == "new_campaign")
 			return BuildBoolResult("reset campaign", coordinator.RequestAdminNewCampaignReset(playerId));
@@ -531,6 +543,18 @@ class HST_CommandUIService
 		if (commandId == "award_small")
 			return coordinator.RequestAdminAwardResources(playerId, 500, 5);
 
+		if (commandId == "admin_seed_persistence_test_state")
+			return !coordinator.RequestAdminSeedPersistenceTestState(playerId).IsEmpty();
+
+		if (commandId == "admin_persistence_smoke_test")
+			return !coordinator.RequestAdminRunPersistenceSmokeTest(playerId).IsEmpty();
+
+		if (commandId == "admin_persistence_smoke_report")
+			return !coordinator.RequestAdminPersistenceSmokeReport(playerId).IsEmpty();
+
+		if (commandId == "inspect_zone_composition")
+			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
+
 		if (commandId == "new_campaign")
 			return coordinator.RequestAdminNewCampaignReset(playerId);
 
@@ -683,7 +707,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin)
+	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
 	{
 		if (selectedTabId == TAB_SETUP)
 			return AppendSetupSections(payload, state, settings);
@@ -721,7 +745,7 @@ class HST_CommandUIService
 			return AppendMembersSections(payload, state, canUseCommander);
 
 		if (selectedTabId == TAB_ADMIN)
-			return AppendAdminSections(payload, state, preset, canUseAdmin);
+			return AppendAdminSections(payload, state, preset, canUseAdmin, compositions);
 
 		return AppendOverviewSections(payload, state, preset);
 	}
@@ -964,6 +988,14 @@ class HST_CommandUIService
 		return "none";
 	}
 
+	protected string EmptyLabel(string value)
+	{
+		if (value.IsEmpty())
+			return "none";
+
+		return value;
+	}
+
 	protected string LastActiveGroupFailureTone(HST_CampaignState state)
 	{
 		if (!state)
@@ -1148,7 +1180,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendAdminSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseAdmin)
+	protected string AppendAdminSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
 	{
 		payload = AppendSection(payload, "admin", "Admin Console");
 		payload = AppendRow(payload, "admin", "Access", CommanderGateLabel(canUseAdmin), CommanderGateTone(canUseAdmin));
@@ -1160,6 +1192,14 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "admin", "Seed", string.Format("%1", state.m_iCampaignSeed), "neutral");
 		payload = AppendRow(payload, "admin", "Enemy accumulator", string.Format("%1s", state.m_iEnemyResourceAccumulatorSeconds), "bad");
 		payload = AppendRow(payload, "admin", "Native markers", string.Format("%1 tracked", state.m_aMapMarkers.Count()), "neutral");
+		if (compositions)
+		{
+			payload = AppendRow(payload, "admin", "Composition zones", string.Format("%1 active / %2 props", compositions.GetActiveRuntimeZoneCount(), compositions.GetRuntimePropCount()), "neutral");
+			payload = AppendRow(payload, "admin", "Composition spawned", string.Format("%1", compositions.GetLastSpawnedCount()), "good");
+			payload = AppendRow(payload, "admin", "Skipped prefabs", string.Format("%1", compositions.GetLastSkippedPrefabCount()), RuntimeSpawnTone(state));
+			payload = AppendRow(payload, "admin", "Last failed prefab", EmptyLabel(compositions.GetLastFailedPrefab()), "bad");
+			payload = AppendRow(payload, "admin", "Last slot reason", EmptyLabel(compositions.GetLastFailedSlotReason()), "warn");
+		}
 
 		payload = AppendSection(payload, "debug_zone", "Debug Targets");
 		HST_ZoneState morton = state.FindZone("town_morton");
@@ -1318,7 +1358,11 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Mission runtime report", "inspect_mission_runtime", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Vehicle cargo report", "inspect_vehicle_cargo", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Garage report", "inspect_garage", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Seed persistence smoke", "admin_seed_persistence_test_state", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run persistence smoke", "admin_persistence_smoke_test", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Persistence smoke report", "admin_persistence_smoke_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Reset campaign", "new_campaign", "", canUseAdmin, "admin required");
 		}

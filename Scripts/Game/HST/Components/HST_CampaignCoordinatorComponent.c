@@ -15,6 +15,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_EconomyService m_Economy;
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_PersistenceService m_Persistence;
+	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
 	protected ref HST_AuthorizationService m_Authorization;
 	protected ref HST_StrategicService m_Strategic;
 	protected ref HST_ArsenalService m_Arsenal;
@@ -27,6 +28,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ZoneCaptureService m_ZoneCapture;
 	protected ref HST_PlayerSpawnService m_PlayerSpawn;
 	protected ref HST_PhysicalWarService m_PhysicalWar;
+	protected ref HST_ZoneCompositionService m_ZoneCompositions;
 	protected ref HST_MapMarkerService m_MapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
@@ -62,6 +64,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Economy = new HST_EconomyService();
 		m_Missions = new HST_MissionService();
 		m_Persistence = new HST_PersistenceService();
+		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
 		m_Authorization = new HST_AuthorizationService();
 		m_Strategic = new HST_StrategicService();
 		m_Arsenal = new HST_ArsenalService();
@@ -74,6 +77,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture = new HST_ZoneCaptureService();
 		m_PlayerSpawn = new HST_PlayerSpawnService();
 		m_PhysicalWar = new HST_PhysicalWarService();
+		m_ZoneCompositions = new HST_ZoneCompositionService();
 		m_MapMarkers = new HST_MapMarkerService();
 		m_CommandUI = new HST_CommandUIService();
 		m_Loot = new HST_LootService();
@@ -160,7 +164,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
-		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector);
+		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
 		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, elapsedSeconds);
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
 		if (supportChanged)
@@ -213,7 +217,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
 
-		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId));
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions);
 	}
 
 	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")
@@ -1061,7 +1065,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Persistence)
 			return "";
 
-		return m_Persistence.BuildPersistenceReport(m_State);
+		string report = m_Persistence.BuildPersistenceReport(m_State);
+		if (m_PersistenceSmokeTest)
+			report = report + "\n" + m_PersistenceSmokeTest.BuildReport(m_State);
+		return report;
 	}
 
 	string RequestMemberInspectLoadoutEditor(int playerId)
@@ -1544,6 +1551,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		AwardFactionResources(money, hr);
 		return true;
+	}
+
+	string RequestAdminSeedPersistenceTestState(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi persistence smoke | admin required";
+
+		if (!m_PersistenceSmokeTest)
+			return "h-istasi persistence smoke | service not ready";
+
+		string result = m_PersistenceSmokeTest.SeedTestState(m_State, m_Preset, ResolveTrustedIdentityId(playerId));
+		bool checkpoint = RequestManualCheckpoint();
+		return result + string.Format("\nmanual checkpoint %1", checkpoint);
+	}
+
+	string RequestAdminRunPersistenceSmokeTest(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi persistence smoke | admin required";
+
+		if (!m_PersistenceSmokeTest)
+			return "h-istasi persistence smoke | service not ready";
+
+		bool checkpoint = RequestManualCheckpoint();
+		return m_PersistenceSmokeTest.RunSmokeTest(m_State) + string.Format("\nmanual checkpoint %1", checkpoint);
+	}
+
+	string RequestAdminPersistenceSmokeReport(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi persistence smoke | admin required";
+
+		if (!m_PersistenceSmokeTest)
+			return "h-istasi persistence smoke | service not ready";
+
+		return m_PersistenceSmokeTest.BuildReport(m_State);
+	}
+
+	string RequestAdminInspectZoneComposition(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi zone composition | admin required";
+
+		if (!m_ZoneCompositions)
+			return "h-istasi zone composition | service not ready";
+
+		return m_ZoneCompositions.BuildCompositionReport(m_State);
 	}
 
 	bool RequestAdminAddEnemyResources(int playerId, string factionKey, int attackResources, int supportResources)
