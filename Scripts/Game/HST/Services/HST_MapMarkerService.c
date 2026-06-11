@@ -147,6 +147,8 @@ class HST_MapMarkerService
 		{
 			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
+			if (AreMissionObjectivesComplete(state, mission))
+				continue;
 
 			bool exactMissionPosition;
 			vector markerPosition = ResolveMissionMarkerPosition(state, mission, exactMissionPosition);
@@ -154,7 +156,9 @@ class HST_MapMarkerService
 			if (markerId.IsEmpty())
 				markerId = "hst_mission_" + mission.m_sInstanceId;
 
-			AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, MissionToMarkerIcon(mission), MissionToMarkerColor(mission), markerPosition, true, MissionToMarkerTextColor(mission), MissionToMarkerStyle(mission), !exactMissionPosition);
+			bool hasSpecificMarker = HasVisibleMissionAssetMarker(state, mission) || HasVisibleMissionObjectiveMarker(state, mission);
+			if (!hasSpecificMarker)
+				AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, MissionToMarkerIcon(mission), MissionToMarkerColor(mission), markerPosition, true, MissionToMarkerTextColor(mission), MissionToMarkerStyle(mission), !exactMissionPosition);
 			AddMissionRouteMarkers(state, preset, mission);
 			AddMissionObjectiveMarkers(state, preset, mission);
 			AddMissionAssetMarkers(state, preset, mission);
@@ -163,27 +167,17 @@ class HST_MapMarkerService
 
 	protected void AddMissionRouteMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
-		if (!mission || mission.m_sRuntimePrimitive != "convoy_intercept")
-			return;
-		if (mission.m_sRuntimePhase == "convoy_static")
-			return;
-
-		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
-		{
-			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle")
-				continue;
-
-			AddMarker(state, "hst_mission_route_start_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy start", "", "mission_route", asset.m_sRole, "POINT_SPECIAL", "REFORGER_ORANGE", asset.m_vSourcePosition, true, "gold", "convoy_route_start", true, false);
-			AddMarker(state, "hst_mission_route_end_" + mission.m_sInstanceId, mission.m_sInstanceId, "Convoy destination", "", "mission_route", asset.m_sRole, "OBJECTIVE_MARKER", "REFORGER_ORANGE", asset.m_vTargetPosition, true, "gold", "convoy_route_end", true, false);
-			return;
-		}
+		return;
 	}
 
 	protected void AddMissionObjectiveMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
+		bool hasPhysicalAssetMarker = HasVisibleMissionAssetMarker(state, mission);
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
 			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+			if (hasPhysicalAssetMarker && objective.m_sTargetId != "area" && objective.m_sRuntimePrimitive != "hold_area" && objective.m_sRuntimePrimitive != "clear_area")
 				continue;
 
 			HST_MissionAssetState linkedAsset = state.FindMissionAsset(objective.m_sLinkedRuntimeEntityId);
@@ -199,11 +193,22 @@ class HST_MapMarkerService
 
 	protected void AddMissionAssetMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
+		if (AreMissionObjectivesComplete(state, mission))
+			return;
+
+		if (mission.m_sRuntimePrimitive == "convoy_intercept")
+		{
+			AddMissionConvoyMarkers(state, preset, mission);
+			return;
+		}
+
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDestroyed || asset.m_bDelivered)
 				continue;
 			if (asset.m_sKind == "area")
+				continue;
+			if (asset.m_sRole == "convoy_vehicle" && HasMissionConvoyPayloadSatisfied(state, mission))
 				continue;
 
 			vector position = asset.m_vCurrentPosition;
@@ -226,6 +231,63 @@ class HST_MapMarkerService
 
 			AddMarker(state, "hst_mission_asset_" + asset.m_sAssetId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, icon, color, position, true, MissionToMarkerTextColor(mission), style, true);
 		}
+	}
+
+	protected void AddMissionConvoyMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
+	{
+		if (!state || !preset || !mission)
+			return;
+
+		vector convoyPosition = ResolveMissionConvoyAggregatePosition(state, mission);
+		vector destinationPosition = ResolveMissionConvoyDestinationPosition(state, mission);
+		string title = MissionMarkerTitle(mission);
+		string destinationName = ResolveZoneDisplayNameById(state, mission.m_sTargetZoneId);
+		AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1: neutralize crew", title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy destination - %1: %2", title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+	}
+
+	protected vector ResolveMissionConvoyAggregatePosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		vector aggregate;
+		int count;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle" || asset.m_bDestroyed || asset.m_bDelivered)
+				continue;
+
+			vector position = asset.m_vCurrentPosition;
+			if (IsZeroVector(position))
+				position = asset.m_vSourcePosition;
+			aggregate[0] = aggregate[0] + position[0];
+			aggregate[1] = aggregate[1] + position[1];
+			aggregate[2] = aggregate[2] + position[2];
+			count++;
+		}
+
+		if (count > 0)
+		{
+			aggregate[0] = aggregate[0] / count;
+			aggregate[1] = aggregate[1] / count;
+			aggregate[2] = aggregate[2] / count;
+			return aggregate;
+		}
+
+		bool exactMissionPosition;
+		return ResolveMissionMarkerPosition(state, mission, exactMissionPosition);
+	}
+
+	protected vector ResolveMissionConvoyDestinationPosition(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (asset && asset.m_sMissionInstanceId == mission.m_sInstanceId && asset.m_sRole == "convoy_vehicle" && !IsZeroVector(asset.m_vTargetPosition))
+				return asset.m_vTargetPosition;
+		}
+
+		if (!IsZeroVector(mission.m_vTargetPosition))
+			return mission.m_vTargetPosition;
+
+		return ResolveMissionConvoyAggregatePosition(state, mission);
 	}
 
 	protected void AddQRFMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -1241,6 +1303,93 @@ class HST_MapMarkerService
 
 		string role = MissionAssetReadableRole(asset);
 		return string.Format("%1 - %2: %3 %4", MissionFamilyLabel(mission), MissionMarkerTitle(mission), verb, role);
+	}
+
+	protected bool AreMissionObjectivesComplete(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		bool found;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			found = true;
+			if (!objective.m_bComplete || objective.m_bFailed)
+				return false;
+		}
+
+		return found;
+	}
+
+	protected bool HasMissionConvoyPayloadSatisfied(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		bool hasPayload;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (asset.m_sRole != "convoy_payload" && asset.m_sRole != "convoy_captive")
+				continue;
+
+			hasPayload = true;
+			if (asset.m_sRole == "convoy_captive")
+			{
+				if (!asset.m_bDelivered)
+					return false;
+			}
+			else if (!asset.m_bPickedUp && !asset.m_bDelivered)
+			{
+				return false;
+			}
+		}
+
+		return hasPayload;
+	}
+
+	protected bool HasVisibleMissionAssetMarker(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDestroyed || asset.m_bDelivered)
+				continue;
+			if (asset.m_sKind == "area")
+				continue;
+			if (asset.m_sRole == "convoy_vehicle" && HasMissionConvoyPayloadSatisfied(state, mission))
+				continue;
+
+			return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasVisibleMissionObjectiveMarker(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			HST_MissionAssetState linkedAsset = state.FindMissionAsset(objective.m_sLinkedRuntimeEntityId);
+			if (linkedAsset && linkedAsset.m_sKind != "area")
+				continue;
+
+			return true;
+		}
+
+		return false;
 	}
 
 	protected string MissionMarkerTitle(HST_ActiveMissionState mission)

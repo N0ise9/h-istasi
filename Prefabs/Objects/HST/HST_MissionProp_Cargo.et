@@ -1,28 +1,8 @@
 GenericEntity HST_MissionProp_Cargo : "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et" {
  components {
-  RplComponent "{6985327711303721}" {
+  HST_MissionActionFilterComponent "{6985327711303728}" {
   }
   HST_MissionAssetComponent "{6985327711303722}" {
-  }
-  ActionsManagerComponent "{6985327711303723}" {
-   additionalActions {
-    HST_MissionCargoLoadAction "{6985327711303724}" {
-     ParentContextList {
-      "default"
-     }
-     UIInfo UIInfo "{6985327711303725}" {
-      Name "Load mission cargo"
-     }
-    }
-    HST_MissionCargoDeliverAction "{6985327711303726}" {
-     ParentContextList {
-      "default"
-     }
-     UIInfo UIInfo "{6985327711303727}" {
-      Name "Deliver mission cargo"
-     }
-    }
-   }
   }
  }
 }

@@ -1,22 +1,10 @@
-GenericEntity HST_MissionProp_DestroyTarget : "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et" {
+GenericEntity HST_MissionProp_DestroyTarget : "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et" {
  components {
-  RplComponent "{6985327711303711}" {
+  HST_MissionActionFilterComponent "{6985327711303718}" {
   }
   HST_MissionAssetComponent "{6985327711303712}" {
   }
   HST_MissionDestroyTargetComponent "{6985327711303713}" {
-  }
-  ActionsManagerComponent "{6985327711303714}" {
-   additionalActions {
-    HST_MissionDestroyTargetSabotageAction "{6985327711303715}" {
-     ParentContextList {
-      "default"
-     }
-     UIInfo UIInfo "{6985327711303716}" {
-      Name "Sabotage target"
-     }
-    }
-   }
   }
  }
 }

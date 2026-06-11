@@ -25,6 +25,74 @@ class HST_MissionUserActionBase : HST_ContextualUserActionBase
 	}
 }
 
+[ComponentEditorProps(category: "h-istasi", description: "Keeps mission-owned context actions visible while suppressing inherited stock actions")]
+class HST_MissionActionFilterComponentClass : ScriptComponentClass
+{
+}
+
+class HST_MissionActionFilterComponent : ScriptComponent
+{
+	protected bool m_bActionsFiltered;
+	protected int m_iFilterFrames;
+
+	override void OnPostInit(IEntity owner)
+	{
+		super.OnPostInit(owner);
+		SetEventMask(owner, EntityEvent.INIT | EntityEvent.FRAME);
+	}
+
+	override void EOnInit(IEntity owner)
+	{
+		FilterActions(owner);
+	}
+
+	override void EOnFrame(IEntity owner, float timeSlice)
+	{
+		if (m_bActionsFiltered && m_iFilterFrames > 90)
+			return;
+
+		FilterActions(owner);
+	}
+
+	protected void FilterActions(IEntity owner)
+	{
+		if (!owner)
+			return;
+
+		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(owner.FindComponent(ActionsManagerComponent));
+		if (!actionsManager)
+			return;
+
+		array<BaseUserAction> actions = {};
+		actionsManager.GetActionsList(actions);
+		if (actions.Count() <= 0)
+			return;
+
+		int missionActions;
+		foreach (BaseUserAction action : actions)
+		{
+			if (!action)
+				continue;
+
+			if (HST_MissionUserActionBase.Cast(action))
+			{
+				missionActions++;
+				continue;
+			}
+
+			action.SetActionEnabled_S(false);
+		}
+
+		m_bActionsFiltered = true;
+		m_iFilterFrames++;
+		int inheritedActions = actions.Count() - missionActions;
+		if (inheritedActions < 0)
+			inheritedActions = 0;
+		if (m_iFilterFrames == 1 && inheritedActions > 0)
+			Print(string.Format("h-istasi mission action | filtered %1 inherited action(s); mission actions %2 remain visible", inheritedActions, missionActions));
+	}
+}
+
 class HST_MissionCargoLoadAction : HST_MissionUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)

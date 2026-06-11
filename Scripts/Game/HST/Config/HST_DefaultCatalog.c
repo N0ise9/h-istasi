@@ -1013,7 +1013,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 			return "Attack the objective, clear hostile defenders, and hold the ground long enough for FIA control to stick.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return "Intercept the moving enemy convoy before it reaches destination and recover or neutralize the payload.";
+			return "Ambush the moving enemy convoy before it reaches destination and neutralize the convoy crew.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
 			return "Reach the objective asset and destroy, disable, or capture it depending on the mission variant.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
@@ -1032,10 +1032,8 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "Kill the HVT before the timer expires.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 			return "Clear defenders, stay inside the objective area, and complete the hold timer.";
-		if (mission.m_sMissionId == "convoy_prisoners")
-			return "Stop the convoy and extract the prisoners alive.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return "Stop the convoy before arrival and complete the variant objective.";
+			return "Kill all convoy soldiers before the convoy reaches its destination. Capturing surviving vehicles is optional.";
 		if (mission.m_sMissionId == "destroy_or_steal_armor")
 			return "Destroy the armor or capture and garage it at HQ.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
@@ -1055,7 +1053,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (mission.m_sMissionId == "assassinate_traitor")
 			return "The traitor escapes and can trigger a Defend Petros response.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return "The convoy reaches its destination or the required payload is lost.";
+			return "The convoy reaches its destination with living crew.";
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			return "Captives are lost or the extraction timer expires.";
 
@@ -1111,10 +1109,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 
 	private static int CargoCountForMission(HST_MissionDefinition mission)
 	{
-		if (mission.m_sMissionId == "convoy_money")
-			return 2;
-		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY && mission.m_sMissionId != "convoy_prisoners" && mission.m_sMissionId != "convoy_reinforcements")
-			return 1;
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || mission.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
 			return 2;
 		return 0;
@@ -1124,17 +1118,17 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 	{
 		if (mission.m_sMissionId == "rescue_refugees")
 			return 4;
-		if (mission.m_sMissionId == "rescue_pows" || mission.m_sMissionId == "convoy_prisoners")
+		if (mission.m_sMissionId == "rescue_pows")
 			return 3;
 		return 0;
 	}
 
 	private static int VehicleCountForMission(HST_MissionDefinition mission)
 	{
-		if (mission.m_sMissionId == "convoy_armored" || mission.m_sMissionId == "destroy_or_steal_armor")
+		if (mission.m_sMissionId == "destroy_or_steal_armor")
 			return 2;
 		if (mission.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return 1;
+			return 3;
 		return 0;
 	}
 

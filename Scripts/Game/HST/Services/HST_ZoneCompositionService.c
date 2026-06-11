@@ -7,10 +7,10 @@ class HST_ZoneCompositionService
 	static const string SLOT_PATROL = "patrol";
 	static const string PROP_TENT = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
 	static const string PROP_SUPPLY_CACHE = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
-	static const string PROP_CARGO = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
-	static const string PROP_HOLD_MARKER = "{6985327711303740}Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et";
-	static const string PROP_DESTROY_TARGET = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
-	static const string PROP_RESOURCE_CACHE = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
+	static const string PROP_CARGO = "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et";
+	static const string PROP_HOLD_MARKER = "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et";
+	static const string PROP_DESTROY_TARGET = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";
+	static const string PROP_RESOURCE_CACHE = "{2C303FA30DF3D73F}Prefabs/Props/Military/AmmoBoxes/US/EquipmentBoxWooden_Ammunition_01_US.et";
 	static const string PROP_SANDBAG_CANDIDATE = "Prefabs/Structures/Military/Sandbags/SandbagWall_01.et";
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 

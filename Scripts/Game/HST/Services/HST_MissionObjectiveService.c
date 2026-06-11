@@ -23,14 +23,6 @@ class HST_MissionObjectiveService
 		CreateMissionTask(state, definition, mission, objectivePosition);
 		AddObjective(state, mission, PrimaryObjectiveForMission(definition), BuildObjectiveTarget(definition, mission), objectivePosition, RequiredProgressForMission(definition), LabelForMission(definition), definition.m_sRequirementText, RequiredCountForMission(definition));
 
-		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-		{
-			if (definition.m_sMissionId == "convoy_prisoners")
-				AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES, "convoy_prisoners", objectivePosition, 1, "Extract prisoners", "Extract the convoy prisoners alive.", definition.m_iCaptiveCount);
-			else
-				AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT, "convoy_cargo", objectivePosition, 1, "Recover convoy cargo", "Recover the convoy payload after stopping the vehicles.", definition.m_iCargoCount);
-		}
-
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
 			AddObjective(state, mission, HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES, "hq_delivery", state.m_vHQPosition, 1, "Deliver to HQ", "Bring the recovered cargo back to HQ.", definition.m_iCargoCount);
 
@@ -290,7 +282,7 @@ class HST_MissionObjectiveService
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 			return "Clear and hold";
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return "Stop convoy";
+			return "Neutralize convoy crew";
 		if (definition.m_sMissionId == "destroy_or_steal_armor")
 			return "Destroy or capture armor";
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
@@ -319,7 +311,7 @@ class HST_MissionObjectiveService
 			return 1;
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
-			return 1;
+			return Math.Max(3, Math.Min(6, definition.m_iVehicleCount));
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_RESCUE)
 			return Math.Max(1, definition.m_iCaptiveCount);
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS || definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT)
