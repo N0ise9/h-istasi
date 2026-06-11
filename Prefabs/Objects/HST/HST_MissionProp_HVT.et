@@ -4,17 +4,5 @@ SCR_ChimeraCharacter HST_MissionProp_HVT : "{26A9756790131354}Prefabs/Characters
   }
   HST_MissionHVTComponent "{6985327711303702}" {
   }
-  ActionsManagerComponent "{6985327711303703}" {
-   additionalActions {
-    HST_MissionHVTConfirmAction "{6985327711303704}" {
-     ParentContextList {
-      "default"
-     }
-     UIInfo UIInfo "{6985327711303705}" {
-      Name "Confirm HVT neutralized"
-     }
-    }
-   }
-  }
  }
 }

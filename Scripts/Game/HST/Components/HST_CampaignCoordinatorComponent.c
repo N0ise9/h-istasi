@@ -151,12 +151,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			BroadcastPendingMissionOutcomeEvents();
 		bool objectiveChanged = m_Objectives.Tick(m_State);
 		bool missionRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, elapsedSeconds);
+		bool convoyRuntimeChanged = m_PhysicalWar.UpdateMissionConvoys(m_State, m_Preset, m_Balance, elapsedSeconds);
+		if (convoyRuntimeChanged)
+			BroadcastPendingMissionRuntimeEvents();
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
 		if (!completedRuntimeMissionId.IsEmpty())
-			missionRuntimeChanged = CompleteMission(completedRuntimeMissionId) || missionRuntimeChanged;
+			missionRuntimeChanged = CompleteMission(completedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged;
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
-			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged;
+			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, elapsedSeconds);
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, elapsedSeconds);
@@ -178,8 +181,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool physicalWarMarkerChanged = false;
 		if (physicalWarChanged && m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
-		bool markerStateChanged = missionChanged || missionRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
+		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
 		if (anyStateChanged)
 		{
 			MarkMajorCampaignChange(markerStateChanged);
@@ -2061,6 +2064,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string title = ResolveMissionTitle(mission, definition);
 		string summary = string.Format("%1: %2", MissionEventLabel(eventType), title);
+		if (eventType == "convoy_moving")
+			summary = "Convoy on the move: " + BuildConvoyMovingMessage(mission);
 		string payload = string.Format("HST_MISSION_EVENT|%1|%2|%3|%4|%5|%6|%7|%8", eventType, mission.m_sInstanceId, PayloadText(title), MissionStatusLabel(mission.m_eStatus), mission.m_iRemainingSeconds, PayloadText(BuildMissionProgressText(mission)), PayloadText(ResolveMissionFailureText(mission, definition)), ResolveMissionMarkerId(mission));
 		if (eventType == "created")
 			mission.m_bCreatedNotificationSent = true;
@@ -2072,6 +2077,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			mission.m_bExpiredNotificationSent = true;
 		HST_CommandMenuRequestComponent.BroadcastMissionEvent(payload, summary);
 		PublishMissionIntelToPlayers();
+	}
+
+	protected string BuildConvoyMovingMessage(HST_ActiveMissionState mission)
+	{
+		if (!mission || !m_State)
+			return "enemy convoy is moving toward its target.";
+
+		string factionKey = "Enemy";
+		HST_ZoneState zone = m_State.FindZone(mission.m_sTargetZoneId);
+		if (zone && !zone.m_sOwnerFactionKey.IsEmpty())
+			factionKey = zone.m_sOwnerFactionKey;
+
+		string destinationName = ResolveZoneDisplayName(mission.m_sTargetZoneId);
+		return string.Format("%1 convoy is moving toward %2.", factionKey, destinationName);
 	}
 
 	protected void BroadcastPendingMissionOutcomeEvents()
@@ -2088,6 +2107,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				BroadcastMissionEvent("completed", mission, definition);
 			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED && !mission.m_bFailedNotificationSent)
 				BroadcastMissionEvent("failed", mission, definition);
+		}
+	}
+
+	protected void BroadcastPendingMissionRuntimeEvents()
+	{
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+				continue;
+
+			if (mission.m_sLastRuntimeEventKey != "convoy_moving_pending")
+				continue;
+
+			HST_MissionDefinition definition = m_Missions.FindDefinition(mission.m_sMissionId);
+			BroadcastMissionEvent("convoy_moving", mission, definition);
+			mission.m_sLastRuntimeEventKey = "convoy_moving_sent";
 		}
 	}
 
@@ -2412,15 +2447,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (phase.IsEmpty())
 			phase = "active";
 		string eta = "";
-		if (mission.m_iRuntimeETASeconds > 0)
+		if (mission.m_iRuntimeETASeconds > 0 && ShouldShowMissionEta(mission))
 			eta = string.Format(" / ETA %1s", mission.m_iRuntimeETASeconds);
 
 		if (phase == "convoy_static")
 			phase = "physical convoy staged";
+		else if (phase == "convoy_staging")
+			phase = "convoy staging";
+		else if (phase == "convoy_moving")
+			phase = "convoy moving";
+		else if (phase == "convoy_contact")
+			phase = "static ambush";
+		else if (phase == "convoy_eliminated")
+			phase = "convoy neutralized";
+		else if (phase == "convoy_arrived")
+			phase = "convoy arrived";
 		else
 			phase.Replace("_", " ");
 
 		string progress = string.Format("%1%2 | objectives %3/%4", phase, eta, complete, total);
+		if (mission.m_sRuntimePrimitive == "convoy_intercept")
+		{
+			int neutralized;
+			int required;
+			ResolveConvoyCrewObjectiveProgress(mission, neutralized, required);
+			progress = string.Format("%1%2 | crew groups neutralized %3/%4", phase, eta, neutralized, required);
+			if (!mission.m_sRuntimeFailureReason.IsEmpty())
+				progress = progress + " | " + mission.m_sRuntimeFailureReason;
+			return progress;
+		}
 		if (mission.m_iRequiredCargoCount > 0)
 			progress = progress + string.Format(" | cargo %1/%2", mission.m_iRecoveredCargoCount, mission.m_iRequiredCargoCount);
 		if (mission.m_iRequiredCaptiveCount > 0)
@@ -2428,6 +2483,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (mission.m_iRuntimeDestroyedCount > 0 || mission.m_iRuntimeDeliveryCount > 0)
 			progress = progress + string.Format(" | delivered %1 destroyed %2", mission.m_iRuntimeDeliveryCount, mission.m_iRuntimeDestroyedCount);
 		return progress;
+	}
+
+	protected bool ShouldShowMissionEta(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		if (mission.m_sRuntimePrimitive != "convoy_intercept")
+			return true;
+
+		string phase = mission.m_sRuntimePhase;
+		return phase == "convoy_staging" || phase == "convoy_moving";
+	}
+
+	protected void ResolveConvoyCrewObjectiveProgress(HST_ActiveMissionState mission, out int neutralized, out int required)
+	{
+		neutralized = 0;
+		required = 0;
+		if (!mission || !m_State)
+			return;
+
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_sTargetId != "convoy")
+				continue;
+
+			neutralized = objective.m_iCurrentCount;
+			required = objective.m_iRequiredCount;
+			return;
+		}
 	}
 
 	protected string BuildMissionAssetIntelLabel(HST_MissionAssetState asset)
@@ -2552,6 +2637,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Mission target neutralized";
 		if (eventType == "freed")
 			return "Mission captive freed";
+		if (eventType == "convoy_moving")
+			return "Convoy on the move";
 		return "Mission updated";
 	}
 

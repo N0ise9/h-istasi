@@ -39,12 +39,12 @@ class HST_MissionConvoyRecoverPayloadAction : HST_MissionUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		RunMissionCommand(pOwnerEntity, pUserEntity, "mission_asset_load");
+		RunMissionCommand(pOwnerEntity, pUserEntity, "mission_vehicle_capture");
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Recover convoy payload";
+		outName = "Capture convoy vehicle";
 		return true;
 	}
 }
