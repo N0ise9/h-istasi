@@ -350,8 +350,8 @@ Acceptance pattern:
 | 2 | Convoy runtime report | Complete |
 | 3 | Convoy route state | Complete |
 | 4 | Convoy readiness gating | Complete |
-| 5 | Convoy vehicle-control adapter | In progress |
-| 6 | Real convoy crew seating | Planned |
+| 5 | Convoy vehicle-control adapter | Complete |
+| 6 | Real convoy crew seating | In progress |
 | 7 | Convoy waypoint-chain movement | Planned |
 | 8 | Convoy progress, stuck detection, and destination arrival | Planned |
 | 9 | Convoy contact behavior | Planned |
@@ -1212,7 +1212,7 @@ Acceptance criteria:
 
 ## Phase 5 - Convoy Vehicle-Control Adapter
 
-Status: In progress
+Status: Complete
 
 Goal: isolate Reforger vehicle seating, driver, gunner, and route-control logic
 behind one adapter.
@@ -1264,7 +1264,7 @@ Acceptance criteria:
 
 ## Phase 6 - Real Convoy Crew Seating
 
-Status: Planned
+Status: In progress
 
 Goal: make convoy vehicles actually controllable by AI.
 
