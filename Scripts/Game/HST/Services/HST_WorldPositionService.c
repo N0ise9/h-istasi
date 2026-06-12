@@ -7,6 +7,8 @@ class HST_WorldPositionService
 	static const float MIN_DRY_SURFACE_Y = 1.0;
 	static const float MAX_SAFE_SLOPE_DELTA_METERS = 1.8;
 	static const float SAFE_SAMPLE_RADIUS_METERS = 2.5;
+	static const float MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS = 0.85;
+	static const float LARGE_VEHICLE_SAMPLE_RADIUS_METERS = 6.0;
 	static const float OPEN_WATER_SAMPLE_RADIUS_SMALL = 18.0;
 	static const float OPEN_WATER_SAMPLE_RADIUS_LARGE = 55.0;
 	static const float OPEN_WATER_MAX_DELTA_METERS = 0.08;
@@ -125,6 +127,55 @@ class HST_WorldPositionService
 		return TryResolveSafeGroundPosition(preferred, VEHICLE_GROUND_OFFSET, resolved, rejectWater, 5.0);
 	}
 
+	static bool TryResolveLargeVehicleSpawnPosition(vector preferred, out vector resolved, bool rejectWater = true)
+	{
+		resolved = preferred;
+		if (TryResolveLargeVehicleSpawnPositionAt(preferred, resolved, rejectWater))
+			return true;
+
+		for (int ring = 1; ring <= 5; ring++)
+		{
+			float radius = LARGE_VEHICLE_SAMPLE_RADIUS_METERS * ring;
+			for (int step = 0; step < 8; step++)
+			{
+				vector candidate = preferred;
+				if (step == 0)
+					candidate[0] = candidate[0] + radius;
+				else if (step == 1)
+					candidate[0] = candidate[0] - radius;
+				else if (step == 2)
+					candidate[2] = candidate[2] + radius;
+				else if (step == 3)
+					candidate[2] = candidate[2] - radius;
+				else if (step == 4)
+				{
+					candidate[0] = candidate[0] + radius;
+					candidate[2] = candidate[2] + radius;
+				}
+				else if (step == 5)
+				{
+					candidate[0] = candidate[0] - radius;
+					candidate[2] = candidate[2] + radius;
+				}
+				else if (step == 6)
+				{
+					candidate[0] = candidate[0] + radius;
+					candidate[2] = candidate[2] - radius;
+				}
+				else
+				{
+					candidate[0] = candidate[0] - radius;
+					candidate[2] = candidate[2] - radius;
+				}
+
+				if (TryResolveLargeVehicleSpawnPositionAt(candidate, resolved, rejectWater))
+					return true;
+			}
+		}
+
+		return false;
+	}
+
 	static GenericEntity SpawnPrefab(string prefab, vector position, vector angles)
 	{
 		if (prefab.IsEmpty())
@@ -229,6 +280,22 @@ class HST_WorldPositionService
 			return false;
 
 		return true;
+	}
+
+	protected static bool TryResolveLargeVehicleSpawnPositionAt(vector source, out vector resolved, bool rejectWater)
+	{
+		if (!TryResolveGroundPosition(source, VEHICLE_GROUND_OFFSET, resolved, rejectWater))
+			return false;
+
+		if (IsLikelyOpenWater(resolved))
+			return false;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return false;
+
+		float slopeDelta = ResolveSurfaceDelta(world, resolved, LARGE_VEHICLE_SAMPLE_RADIUS_METERS);
+		return slopeDelta <= MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS;
 	}
 
 	protected static IEntity GetBestPlayerEntity(PlayerManager playerManager, int playerId)

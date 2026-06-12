@@ -39,7 +39,7 @@ class HST_CommandUIService
 		if (markers)
 			markerSummary = "\n" + markers.BuildMarkerReport(state);
 
-		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_arsenal, loot_nearby, checkpoint";
+		return header + hq + markerSummary + "\nMember actions: foundation_status, inspect_campaign, inspect_markers, inspect_economy, inspect_zones, inspect_missions, inspect_active_missions, inspect_convoy_runtime, inspect_arsenal, loot_nearby, checkpoint";
 	}
 
 	string BuildCommanderMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
@@ -123,6 +123,9 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_mission")
 			return coordinator.RequestMemberInspectMission(playerId, argument);
+
+		if (commandId == "inspect_convoy_runtime")
+			return coordinator.RequestMemberInspectConvoyRuntime(playerId);
 
 		if (commandId == "inspect_objectives")
 			return coordinator.RequestMemberInspectObjectives(playerId);
@@ -407,6 +410,9 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_mission")
 			return !coordinator.RequestMemberInspectMission(playerId, argument).IsEmpty();
+
+		if (commandId == "inspect_convoy_runtime")
+			return !coordinator.RequestMemberInspectConvoyRuntime(playerId).IsEmpty();
 
 		if (commandId == "inspect_objectives")
 			return !coordinator.RequestMemberInspectObjectives(playerId).IsEmpty();
@@ -1387,6 +1393,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_MISSIONS)
 		{
 			AddMenuAction(actions, TAB_MISSIONS, "Inspect Active Missions", "inspect_active_missions", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime", "", canUseMember, "membership required");
 			AddMissionInspectActions(state, actions, canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Start priority mission", "mission_random", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start mission", state, primaryTargetId), "mission_zone", primaryTargetId, canUseCommander && !primaryTargetId.IsEmpty(), "no valid target");
