@@ -1142,6 +1142,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_MissionRuntime.BuildRuntimeReportForMission(m_State, instanceId);
 	}
 
+	string RequestMemberInspectConvoyRuntime(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi convoy runtime | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi convoy runtime | membership required";
+		if (!m_PhysicalWar)
+			return "h-istasi convoy runtime | service not ready";
+
+		return m_PhysicalWar.BuildConvoyRuntimeReport(m_State);
+	}
+
 	string RequestMemberInspectObjectives(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_Objectives)

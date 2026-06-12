@@ -1425,6 +1425,7 @@ foreach ($requiredCoordinatorEntry in @(
 	"RequestMemberInspectMissions",
 	"RequestMemberInspectActiveMissions",
 	"RequestMemberInspectMission",
+	"RequestMemberInspectConvoyRuntime",
 	"GetAlphaMemberMenu",
 	"GetAlphaCommanderMenu",
 	"GetAlphaAdminMenu",
@@ -1557,6 +1558,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'inspect_missions',
 	'inspect_active_missions',
 	'inspect_mission',
+	'inspect_convoy_runtime',
 	'inspect_persistence',
 	'inspect_mission_runtime',
 	'inspect_arsenal',
@@ -2564,6 +2566,65 @@ foreach ($requiredPhysicalWarEntry in @(
 	}
 }
 Write-Host "Physical AI war scaffold OK"
+
+$physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+foreach ($requiredConvoyRuntimeReportEntry in @(
+	"BuildConvoyRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)",
+	"convoy mission | instance",
+	"source position",
+	"target position",
+	"route/site ID",
+	"vehicle asset count",
+	"mission failure reason",
+	"convoy vehicle asset | asset",
+	"delivered/captured",
+	"last interaction",
+	"convoy group | group",
+	"spawned entity",
+	"crew count",
+	"alive crew count",
+	"fallback mode",
+	"spawn failure reason",
+	"CountMissionConvoyVehicleAssets",
+	"ResolveMissionConvoySourcePosition",
+	"ResolveMissionConvoyTargetPosition",
+	"travel distance",
+	"ReportRouteSite",
+	"missing:",
+	"SelectMissionConvoyVehiclePrefab",
+	"IsAircraftVehicleResource",
+	"convoy_vehicle_control_unavailable",
+	"Convoy vehicle crew embark/movement API unavailable"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredConvoyRuntimeReportEntry)) {
+		throw "Missing Phase 2 convoy runtime report contract entry: $requiredConvoyRuntimeReportEntry"
+	}
+}
+$worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_WorldPositionService.c"
+foreach ($requiredConvoySpawnSafetyEntry in @(
+	"TryResolveLargeVehicleSpawnPosition",
+	"MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS",
+	"LARGE_VEHICLE_SAMPLE_RADIUS_METERS"
+)) {
+	if ($worldPositionServiceText -notmatch [regex]::Escape($requiredConvoySpawnSafetyEntry)) {
+		throw "Missing convoy large vehicle spawn safety entry: $requiredConvoySpawnSafetyEntry"
+	}
+}
+$missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+foreach ($requiredConvoyRouteEntry in @(
+	"TryResolveExtendedRouteConvoyStartPosition",
+	"MIN_CONVOY_START_DISTANCE_METERS = 1100.0",
+	"planned distance"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredConvoyRouteEntry)) {
+		throw "Missing convoy route distance/staging entry: $requiredConvoyRouteEntry"
+	}
+}
+$commandUIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime"')) {
+	throw "Missions tab must expose Convoy Runtime Report"
+}
+Write-Host "Phase 2 convoy runtime report contract OK"
 
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",
