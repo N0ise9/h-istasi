@@ -2610,7 +2610,21 @@ $worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Worl
 foreach ($requiredConvoySpawnSafetyEntry in @(
 	"TryResolveLargeVehicleSpawnPosition",
 	"MAX_LARGE_VEHICLE_SLOPE_DELTA_METERS",
-	"LARGE_VEHICLE_SAMPLE_RADIUS_METERS"
+	"LARGE_VEHICLE_SAMPLE_RADIUS_METERS",
+	"IsVehicleFootprintStable",
+	"IsVehicleFootprintStableForTravel",
+	"IsVehicleFootprintStableWithForward",
+	"TryResolveNearestRoadVehiclePosition",
+	"RoadNetworkManager",
+	"GetRoadsInAABB",
+	"BaseRoad",
+	"road.GetPoints(points)",
+	"road.GetWidth()",
+	"MIN_ROAD_VEHICLE_WIDTH_METERS = 3.5",
+	"ROAD_VEHICLE_FOOTPRINT_MARGIN_METERS = 0.75",
+	"VEHICLE_FOOTPRINT_HALF_WIDTH_METERS",
+	"VEHICLE_FOOTPRINT_HALF_LENGTH_METERS",
+	"MAX_VEHICLE_FOOTPRINT_ROLL_DELTA_METERS"
 )) {
 	if ($worldPositionServiceText -notmatch [regex]::Escape($requiredConvoySpawnSafetyEntry)) {
 		throw "Missing convoy large vehicle spawn safety entry: $requiredConvoySpawnSafetyEntry"
@@ -2618,13 +2632,24 @@ foreach ($requiredConvoySpawnSafetyEntry in @(
 }
 $missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
 foreach ($requiredConvoyRouteEntry in @(
-	"TryResolveExtendedRouteConvoyStartPosition",
+	"TryResolveConvoySpawnPlan",
+	"ResolveConvoyRandomStartDistanceMeters",
+	"TryBuildConvoyVehicleStartSlots",
+	"ResolveConvoyEndPosition",
+	"CONVOY_START_PROBE_ATTEMPTS = 72",
+	"CONVOY_DESTINATION_ROAD_SEARCH_RADIUS_METERS = 300.0",
+	"CONVOY_START_ROAD_SEARCH_RADIUS_METERS = 250.0",
+	"CONVOY_SLOT_ROAD_SEARCH_RADIUS_METERS = 40.0",
 	"MIN_CONVOY_START_DISTANCE_METERS = 1000.0",
 	"MAX_CONVOY_START_DISTANCE_METERS = 2500.0",
 	"IsConvoyDistanceInsideBand",
 	"planned distance",
 	"required band 1000-2500m",
-	"band valid"
+	"band valid",
+	"No road-resolved convoy destination",
+	"No road-resolved convoy spawn plan found in required 1000-2500m band",
+	"convoy vehicle slot is not road-resolved",
+	"convoy road vehicle slot failed the flat vehicle footprint check"
 )) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredConvoyRouteEntry)) {
 		throw "Missing convoy route distance/staging entry: $requiredConvoyRouteEntry"
@@ -2632,6 +2657,18 @@ foreach ($requiredConvoyRouteEntry in @(
 }
 if ($missionRuntimeServiceText -match [regex]::Escape("IsUsableConvoyRouteSegment(fallback, convoyEnd, 120.0)")) {
 	throw "Phase 6 convoy route selection must not keep the close-range 120m fallback"
+}
+if ($missionRuntimeServiceText -match [regex]::Escape("TryResolveConvoyRoadPosition")) {
+	throw "Convoy route selection must not depend on the removed road resolver"
+}
+if ($missionRuntimeServiceText -notmatch [regex]::Escape("float distanceMeters = ResolveConvoyRandomStartDistanceMeters(seed, attempt);")) {
+	throw "Convoy spawn planning must sample a seeded random distance for every probe"
+}
+if ($missionRuntimeServiceText -notmatch [regex]::Escape("convoyStartSlots.Count() != vehicleCount")) {
+	throw "Convoy spawn planning must verify the full vehicle column before creating assets"
+}
+if ($missionRuntimeServiceText -match [regex]::Escape("vector startSlot = OffsetConvoyVehicleStartPosition(convoyRoute, convoyStart, convoyEnd, i, reservedConvoyStarts);")) {
+	throw "Convoy asset creation must not commit per-vehicle slots before full-column probing succeeds"
 }
 $commandUIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime"')) {
@@ -2820,7 +2857,8 @@ foreach ($requiredPhase6RuntimeEntry in @(
 	"convoy_seating_pending",
 	"convoy_driver_available",
 	"preserveWaypointMode",
-	"return mission.m_sRuntimePhase == MISSION_CONVOY_STAGING;",
+	"mission.m_sRuntimePhase == MISSION_CONVOY_STAGING",
+	"mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0",
 	"readiness.m_iDriverAvailableCount >= required",
 	"Convoy has no seated living AI driver yet."
 )) {
@@ -2881,32 +2919,37 @@ foreach ($requiredPhase7RuntimeEntry in @(
 	"BuildMissionConvoyWaypointPositions",
 	"lastIndex",
 	"selectedWaypoint",
-	"waypoints.Insert(route.m_vEndPosition)",
+	"AppendConvoyRoadWaypoint(waypoints, route.m_vEndPosition, route.m_vEndPosition)",
 	"BuildMissionConvoyGroupWaypointPositions",
 	"AppendConvoyLeadInWaypoints",
 	"activeGroup.m_vSourcePosition, routeWaypoints[0]",
 	"TryAssignVehicleRoute(activeGroup, crewEntity, vehicle, groupWaypoints, assignedWaypointCount, adapterReason)",
 	"activeGroup.m_iAssignedWaypointCount = assignedWaypointCount",
 	"activeGroup.m_iAssignedWaypointCount = 0",
-	"CONVOY_VEHICLE_SPAWN_LIFT_METERS = 5.0",
-	"CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS = 36.0",
-	"TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, true)",
+	"CONVOY_VEHICLE_SPAWN_LIFT_METERS = 1.25",
+	"CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS = 18.0",
 	"TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, false)",
+	"TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, true)",
 	"TryResolveMissionConvoyVehicleSpawnCandidate",
-	"TryResolveHeavyVehicleSpawnPosition(position, resolved, true)",
-	"TryResolveLargeVehicleSpawnPosition(position, resolved, true)",
+	"CONVOY_PHYSICAL_ROAD_SEARCH_RADIUS_METERS = 40.0",
+	"TryResolveNearestRoadVehiclePosition(position, CONVOY_PHYSICAL_ROAD_SEARCH_RADIUS_METERS",
 	"if (IsMissionConvoyGroup(activeGroup))",
 	"aliveCount = CountAliveRuntimeCrewAgents(activeGroup)",
 	"IsMissionConvoyMovementInterrupted",
 	"IsMissionConvoyGroupFullyDismounted",
 	"AreAllLivingCrewDismounted(crewEntity, vehicleEntity, reason)",
-	"Convoy movement interrupted because every living crew member in a moving convoy group dismounted.",
+	"Convoy movement interrupted because every moving convoy group lost vehicle control or waypoint assignment.",
 	"RefreshMissionConvoyCrewCount",
 	"return prefab.Contains(""SentryTeam"");"
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase7RuntimeEntry)) {
 		throw "Missing Phase 7 convoy runtime waypoint-chain entry: $requiredPhase7RuntimeEntry"
 	}
+}
+$largeConvoySpawnPassIndex = $physicalWarServiceText.IndexOf("TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, false)")
+$heavyConvoySpawnPassIndex = $physicalWarServiceText.IndexOf("TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, true)")
+if ($largeConvoySpawnPassIndex -lt 0 -or $heavyConvoySpawnPassIndex -lt 0 -or $largeConvoySpawnPassIndex -gt $heavyConvoySpawnPassIndex) {
+	throw "Phase 8 convoy compact staging must prefer the large-vehicle route slot before the wider heavy-vehicle fallback"
 }
 foreach ($requiredPhase7WorldPositionEntry in @(
 	"BuildEntitySetAnglesFromYawVector",
@@ -2931,8 +2974,10 @@ foreach ($forbiddenPhase7VehicleBiasEntry in @(
 foreach ($requiredPhase7MissionRuntimeEntry in @(
 	"BuildConvoyVehicleCountSeed",
 	"ResolveMissionInstanceNumericSeed",
-	"CONVOY_VEHICLE_START_SPACING_METERS = 42.0",
-	"MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 36.0",
+	"CONVOY_VEHICLE_START_SPACING_METERS = 24.0",
+	"MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 18.0",
+	"ResolveConvoyRouteStagingPosition",
+	"BuildConvoyRouteStagingPoints",
 	"MIN_CONVOY_VEHICLES + HST_DefaultCatalog.PositiveMod(seed, MAX_CONVOY_VEHICLES - MIN_CONVOY_VEHICLES + 1)",
 	"ResolveMissionInstanceNumericSeed(mission.m_sInstanceId) * 127"
 )) {
@@ -2952,6 +2997,138 @@ if ($physicalWarServiceText -match [regex]::Escape("return activeGroup.m_sSpawnF
 	throw "Phase 7 waypoint readiness must require assigned waypoint count, not only convoy_waypoints fallback mode"
 }
 Write-Host "Phase 7 convoy waypoint-chain contract OK"
+
+if ($campaignSchemaVersion -ne 17) {
+	throw "Phase 8 convoy progress must keep campaign schema 17 because progress samples are transient diagnostics"
+}
+foreach ($requiredPhase8RuntimeEntry in @(
+	"HST_ConvoyProgressStatus",
+	"m_aConvoyProgressStatuses",
+	"CONVOY_PROGRESS_SYNC_SECONDS = 5",
+	"CONVOY_MARKER_REFRESH_SECONDS = 30",
+	"CONVOY_PROGRESS_THRESHOLD_METERS = 8.0",
+	"CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS = 45",
+	"CONVOY_HARD_STUCK_THRESHOLD_SECONDS = 120",
+	"CONVOY_UNSTUCK_MIN_PLAYER_DISTANCE_METERS = 300.0",
+	"CONVOY_ROUTE_SNAP_SEARCH_RADIUS_METERS = 180.0",
+	"CONVOY_ROUTE_SNAP_MIN_DESTINATION_DISTANCE_METERS = 250.0",
+	"CONVOY_ROUTE_SNAP_MAX_ADVANCE_METERS = 160.0",
+	"UpdateMissionConvoyProgress",
+	"UpdateConvoyVehicleProgressStatus",
+	"TryReissueMissionConvoyRouteForProgress",
+	"TrySnapMissionConvoyVehicleToRoute",
+	"TryResolveNearestConvoyRouteSnapPosition",
+	"BuildConvoyVehicleAnglesFromForward",
+	"ResolveNearestLivingPlayerDistanceMeters",
+	"progress.m_fNearestPlayerDistanceMeters >= 0 && progress.m_fNearestPlayerDistanceMeters < CONVOY_UNSTUCK_MIN_PLAYER_DISTANCE_METERS",
+	"activeGroup.m_vSourcePosition = activeGroup.m_vPosition",
+	"SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, snapPosition)",
+	"MoveUnseatedLivingCrewNearVehicle",
+	"AreLivingCrewMounted",
+	"route snap succeeded to road point",
+	"no road-resolved snap point near stuck vehicle",
+	"road snap point would advance convoy",
+	"ClosestPointOnSegment2D",
+	"CONVOY_DESTINATION_RADIUS_METERS = 50.0",
+	"CONVOY_ROUTE_WAYPOINT_ROAD_SEARCH_RADIUS_METERS = 250.0",
+	"AppendConvoyRoadSegmentWaypoints",
+	"AppendConvoyRoadWaypoint",
+	"route reissue waiting for reseated driver",
+	"TryEnsureMissionConvoyDriverForRouteReissue",
+	"routeWaypoints.Count() <= 1",
+	"TryResolveMissionConvoyDestinationArrival",
+	"CanResolveMissionConvoyDestinationArrival",
+	"Convoy reached its destination with living crew.",
+	"Convoy moving recovery pending",
+	"CleanupInactiveMissionConvoyRuntime"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase8RuntimeEntry)) {
+		throw "Missing Phase 8 convoy progress/stuck entry: $requiredPhase8RuntimeEntry"
+	}
+}
+foreach ($requiredPhase8MissionRuntimeEntry in @(
+	"ResolveConvoyEndPosition",
+	"TryResolveConvoySpawnPlan",
+	"BuildConvoySpawnPlanSeed",
+	"ResolveConvoyRandomStartDistanceMeters",
+	"BuildConvoySpawnPlanCandidate",
+	"BuildConvoyColumnSlotPosition",
+	"TryBuildConvoyVehicleStartSlots",
+	"No road-resolved convoy spawn plan found in required 1000-2500m band",
+	"vector startSlot = convoyStartSlots[i]",
+	"TryResolveConvoyVehicleStartSlot",
+	"convoy vehicle slot is outside the required 1000-2500m destination band",
+	"convoy road vehicle slot failed the flat vehicle footprint check"
+)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredPhase8MissionRuntimeEntry)) {
+		throw "Missing Phase 8 convoy dry-route mission runtime entry: $requiredPhase8MissionRuntimeEntry"
+	}
+}
+foreach ($requiredPhase8AdapterEntry in @(
+	"MoveUnseatedLivingCrewNearVehicle",
+	"IsCrewSeatedInVehicle(crewEntity, vehicleEntity)"
+)) {
+	if ($convoyVehicleControlAdapterText -notmatch [regex]::Escape($requiredPhase8AdapterEntry)) {
+		throw "Missing Phase 8 convoy reseat adapter entry: $requiredPhase8AdapterEntry"
+	}
+}
+foreach ($requiredPhase8RoadResolverEntry in @(
+	"TryResolveNearestRoadVehiclePosition",
+	"RoadNetworkManager available",
+	"road-resolved yes",
+	"planned source road",
+	"planned target road",
+	"source road",
+	"current road",
+	"target road",
+	"assigned road waypoint chain",
+	"road check assigned-runtime-chain",
+	"road manager"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase8RoadResolverEntry) -and $missionRuntimeServiceText -notmatch [regex]::Escape($requiredPhase8RoadResolverEntry) -and $worldPositionServiceText -notmatch [regex]::Escape($requiredPhase8RoadResolverEntry)) {
+		throw "Missing Phase 8 road-endpoint convoy resolver entry: $requiredPhase8RoadResolverEntry"
+	}
+}
+$phase8ArrivalIndex = $physicalWarServiceText.IndexOf("if (TryResolveMissionConvoyDestinationArrival(state, mission))")
+$phase8MovementInterruptIndex = $physicalWarServiceText.IndexOf("if (mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && IsMissionConvoyMovementInterrupted(state, mission))")
+if ($phase8ArrivalIndex -lt 0 -or $phase8MovementInterruptIndex -lt 0 -or $phase8ArrivalIndex -gt $phase8MovementInterruptIndex) {
+	throw "Phase 8 convoy arrival must be resolved before movement interruption fallback"
+}
+if ($physicalWarServiceText -match [regex]::Escape("mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && IsMissionConvoyAtDestination")) {
+	throw "Phase 8 convoy arrival must not be gated by the old moving-phase-only objective condition"
+}
+if ($physicalWarServiceText -match [regex]::Escape("Convoy movement interrupted because every living crew member in a moving convoy group dismounted.")) {
+	throw "Phase 8 smoke fix must not let one fully dismounted convoy group force static/contact fallback"
+}
+foreach ($requiredPhase8ReportEntry in @(
+	"BuildConvoyVehicleProgressReport",
+	"distance to destination",
+	"sampled distance",
+	"Math.Round(distanceToDestination), Math.Round(progress.m_fDistanceToDestinationMeters)",
+	"last progress age",
+	"no-progress",
+	"hard stuck",
+	"route reissue",
+	"route snap",
+	"nearest player",
+	"snap gate"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase8ReportEntry)) {
+		throw "Missing Phase 8 convoy report entry: $requiredPhase8ReportEntry"
+	}
+}
+if ($campaignStateText -match [regex]::Escape("HST_ConvoyProgressStatus")) {
+	throw "Phase 8 convoy progress status must remain transient and out of persistent campaign state"
+}
+foreach ($forbiddenPhase8RoadPersistentEntry in @(
+	"RoadNetworkManager",
+	"BaseRoad"
+)) {
+	if ($campaignStateText -match [regex]::Escape($forbiddenPhase8RoadPersistentEntry) -or $campaignSaveDataText -match [regex]::Escape($forbiddenPhase8RoadPersistentEntry)) {
+		throw "Phase 8 road resolver handles must remain runtime-only and out of persistent campaign state: $forbiddenPhase8RoadPersistentEntry"
+	}
+}
+Write-Host "Phase 8 convoy progress/stuck contract OK"
 
 foreach ($requiredCivilianRuntimeEntry in @(
 	"UpdatePhysicalTownPopulation",

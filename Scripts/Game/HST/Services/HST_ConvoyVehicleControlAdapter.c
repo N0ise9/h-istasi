@@ -166,6 +166,29 @@ class HST_ConvoyVehicleControlAdapter
 		return livingCrew.Count();
 	}
 
+	int MoveUnseatedLivingCrewNearVehicle(IEntity groupEntity, IEntity vehicleEntity, vector position)
+	{
+		if (!groupEntity || !vehicleEntity)
+			return 0;
+
+		array<IEntity> livingCrew = {};
+		string reason;
+		CollectLivingCrewEntities(groupEntity, livingCrew, reason);
+		int moved;
+		foreach (IEntity crewEntity : livingCrew)
+		{
+			if (!crewEntity)
+				continue;
+			if (IsCrewSeatedInVehicle(crewEntity, vehicleEntity))
+				continue;
+
+			crewEntity.SetOrigin(position);
+			moved++;
+		}
+
+		return moved;
+	}
+
 	bool HasLivingDriver(IEntity groupEntity, IEntity vehicleEntity)
 	{
 		if (!groupEntity || !vehicleEntity)
