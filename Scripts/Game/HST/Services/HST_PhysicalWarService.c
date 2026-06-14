@@ -387,7 +387,16 @@ class HST_PhysicalWarService
 
 		HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
 		if (activeGroup)
+		{
 			activeGroup.m_iSurvivorVehicleCount = 0;
+			int aliveCrew = CountAliveRuntimeCrewAgents(activeGroup);
+			if (aliveCrew <= 0 && !IsConvoyCrewPopulationPending(state, activeGroup))
+			{
+				activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
+				activeGroup.m_iLastSeenAliveCount = 0;
+				activeGroup.m_iSurvivorInfantryCount = 0;
+			}
+		}
 
 		mission.m_iRuntimeDestroyedCount++;
 		Print(string.Format("h-istasi mission convoy | %1 vehicle %2 marked destroyed: %3", mission.m_sInstanceId, asset.m_sAssetId, ReportText(reason)));
@@ -518,7 +527,7 @@ class HST_PhysicalWarService
 				}
 			}
 
-			if (activeGroup && !activeGroup.m_bSpawnedEntity && activeGroup.m_sRuntimeStatus != "spawn_failed")
+			if (activeGroup && activeGroup.m_sRuntimeStatus != "spawn_failed" && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
 				changed = TrySpawnMissionConvoyGroup(state, mission, asset, activeGroup, vehicleIndex) || changed;
 
 			if (activeGroup && activeGroup.m_bSpawnedEntity && activeGroup.m_sRuntimeStatus != "spawn_failed" && Math.Max(activeGroup.m_iSpawnedAgentCount, CountAliveRuntimeCrewAgents(activeGroup)) > 0)
@@ -552,7 +561,8 @@ class HST_PhysicalWarService
 
 			string previousFallbackMode = activeGroup.m_sSpawnFallbackMode;
 			string previousReason = activeGroup.m_sSpawnFailureReason;
-			if (mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && !IsMissionConvoyCrewControlDegraded(activeGroup))
+			bool travelRecovery = IsMissionConvoyTravelPhase(mission);
+			if (travelRecovery && !IsMissionConvoyCrewControlDegraded(activeGroup) && IsMissionConvoyWaypointAssigned(activeGroup))
 				continue;
 
 			IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
@@ -566,13 +576,17 @@ class HST_PhysicalWarService
 
 			string seatingReason;
 			bool preserveWaypointMode = activeGroup.m_sSpawnFallbackMode == "convoy_waypoints";
-			bool movingRecovery = mission.m_sRuntimePhase == MISSION_CONVOY_MOVING;
+			string recoveryLabel = "Convoy moving recovery";
+			if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+				recoveryLabel = "Convoy contact recovery";
+			if (travelRecovery)
+				GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin());
 			if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, seatingReason))
 			{
 				if (!preserveWaypointMode)
 					activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";
-				if (movingRecovery)
-					activeGroup.m_sSpawnFailureReason = "Convoy moving recovery succeeded: " + seatingReason;
+				if (travelRecovery)
+					activeGroup.m_sSpawnFailureReason = recoveryLabel + " succeeded: " + seatingReason;
 				else
 					activeGroup.m_sSpawnFailureReason = seatingReason;
 				RefreshMissionConvoyCrewCount(activeGroup);
@@ -587,8 +601,8 @@ class HST_PhysicalWarService
 						activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
 				}
 
-				if (movingRecovery)
-					activeGroup.m_sSpawnFailureReason = "Convoy moving recovery pending: " + seatingReason;
+				if (travelRecovery)
+					activeGroup.m_sSpawnFailureReason = recoveryLabel + " pending: " + seatingReason;
 				else
 					activeGroup.m_sSpawnFailureReason = seatingReason;
 				if (activeGroup.m_sSpawnFailureReason.IsEmpty())
@@ -611,7 +625,15 @@ class HST_PhysicalWarService
 		if (!state)
 			return false;
 
-		return mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0;
+		return IsMissionConvoyTravelPhase(mission) && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0;
+	}
+
+	protected bool IsMissionConvoyTravelPhase(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sRuntimePhase == MISSION_CONVOY_MOVING || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT;
 	}
 
 	protected HST_ActiveGroupState CreateMissionConvoyGroup(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionAssetState asset, int index)
@@ -644,9 +666,15 @@ class HST_PhysicalWarService
 	{
 		if (!state || !mission || !asset || !activeGroup)
 			return false;
-
-		if (HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+		if (asset.m_bDestroyed || asset.m_bDelivered)
 			return false;
+
+		bool hasCrewRuntime = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) != null;
+		bool hasVehicleRuntime = GetRuntimeVehicleEntity(activeGroup.m_sGroupId) != null;
+		if (hasCrewRuntime && hasVehicleRuntime)
+			return false;
+		if (hasCrewRuntime || hasVehicleRuntime)
+			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
 
 		vector spawnPosition;
 		if (!TryResolveMissionConvoyVehicleSpawnPosition(mission, asset, spawnPosition) || HST_WorldPositionService.IsLikelyOpenWater(spawnPosition))
@@ -686,6 +714,7 @@ class HST_PhysicalWarService
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(vehicleEntity);
 		activeGroup.m_sRuntimeStatus = ResolveMissionConvoyRuntimeStatus(mission);
+		activeGroup.m_iAssignedWaypointCount = 0;
 		string adapterBindReason;
 		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
 		if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, adapterBindReason))
@@ -902,6 +931,9 @@ class HST_PhysicalWarService
 			changed = TryAdvanceMissionConvoyFromStaging(state, mission) || changed;
 		}
 
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0)
+			changed = AssignMissionConvoyWaypoints(state, mission) || changed;
+
 		if (TryResolveMissionConvoyDestinationArrival(state, mission))
 			return true;
 
@@ -912,10 +944,10 @@ class HST_PhysicalWarService
 			return true;
 		}
 
-		if (mission.m_sRuntimePhase == MISSION_CONVOY_MOVING)
+		if (IsMissionConvoyTravelPhase(mission))
 			changed = UpdateMissionConvoyProgress(state, mission) || changed;
 
-		if (mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && state.m_iElapsedSeconds % CONVOY_MARKER_REFRESH_SECONDS == 0)
+		if (IsMissionConvoyTravelPhase(mission) && state.m_iElapsedSeconds % CONVOY_MARKER_REFRESH_SECONDS == 0)
 		{
 			m_bMarkerRefreshNeeded = true;
 			changed = true;
@@ -926,7 +958,7 @@ class HST_PhysicalWarService
 
 	protected bool UpdateMissionConvoyProgress(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
-		if (!state || !mission || mission.m_sRuntimePhase != MISSION_CONVOY_MOVING)
+		if (!state || !mission || !IsMissionConvoyTravelPhase(mission))
 			return false;
 		if (state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS != 0)
 			return false;
@@ -2018,6 +2050,49 @@ class HST_PhysicalWarService
 		return state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS;
 	}
 
+	protected bool IsRestoredMissionConvoyRuntimeRebindPending(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || !state.m_bRestoredFromPersistence || !activeGroup.m_bSpawnedEntity)
+			return false;
+		if (state.m_iElapsedSeconds > state.m_iLastRestoreSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS)
+			return false;
+
+		return activeGroup.m_iSpawnedAgentCount > 0 || activeGroup.m_iLastSeenAliveCount > 0 || activeGroup.m_iSurvivorInfantryCount > 0 || activeGroup.m_iSurvivorVehicleCount > 0;
+	}
+
+	protected bool ShouldSpawnMissionConvoyRuntime(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed")
+			return false;
+		if (!activeGroup.m_bSpawnedEntity)
+			return true;
+		if (state && IsMissionConvoyGroupAssetTerminal(state, activeGroup))
+			return false;
+
+		bool missingCrewRuntime = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) == null;
+		bool missingVehicleRuntime = GetRuntimeVehicleEntity(activeGroup.m_sGroupId) == null;
+		if (!missingCrewRuntime && !missingVehicleRuntime)
+			return false;
+		if (IsRestoredMissionConvoyRuntimeRebindPending(state, activeGroup))
+			return true;
+		if (activeGroup.m_iSpawnedAgentCount <= 0 && activeGroup.m_iLastSeenAliveCount <= 0 && activeGroup.m_iSurvivorInfantryCount <= 0)
+			return true;
+
+		return false;
+	}
+
+	protected bool IsMissionConvoyGroupAssetTerminal(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
+		HST_MissionAssetState asset = FindMissionConvoyAssetForGroup(state, mission, activeGroup);
+		if (!asset)
+			return false;
+
+		return asset.m_bDestroyed || asset.m_bDelivered;
+	}
+
 	protected string BuildMissionConvoyGroupId(HST_ActiveMissionState mission, int index)
 	{
 		if (!mission)
@@ -2338,9 +2413,12 @@ class HST_PhysicalWarService
 		ref array<vector> waypoints = BuildMissionConvoyWaypointPositions(ResolveMissionConvoyRoute(state, mission));
 		int eligibleGroups;
 		int assignedGroups;
+		bool changed;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!IsMissionConvoyGroup(activeGroup) || !activeGroup.m_sGroupId.Contains(mission.m_sInstanceId) || !activeGroup.m_bSpawnedEntity)
+				continue;
+			if (activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED)
 				continue;
 			eligibleGroups++;
 			if (IsMissionConvoyWaypointAssigned(activeGroup))
@@ -2349,6 +2427,8 @@ class HST_PhysicalWarService
 				continue;
 			}
 
+			string previousFallbackMode = activeGroup.m_sSpawnFallbackMode;
+			int previousWaypointCount = activeGroup.m_iAssignedWaypointCount;
 			string previousReason = activeGroup.m_sSpawnFailureReason;
 			if (TryAssignConvoyWaypoints(activeGroup, waypoints))
 			{
@@ -2366,9 +2446,11 @@ class HST_PhysicalWarService
 				if (activeGroup.m_sSpawnFailureReason != previousReason)
 					Print(string.Format("h-istasi mission convoy | waypoint assignment unavailable for %1: %2", activeGroup.m_sGroupId, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			}
+			if (activeGroup.m_sSpawnFallbackMode != previousFallbackMode || activeGroup.m_iAssignedWaypointCount != previousWaypointCount || activeGroup.m_sSpawnFailureReason != previousReason)
+				changed = true;
 		}
 
-		return eligibleGroups > 0 && assignedGroups == eligibleGroups;
+		return changed || (eligibleGroups > 0 && assignedGroups == eligibleGroups);
 	}
 
 	protected bool TryAssignConvoyWaypoints(HST_ActiveGroupState activeGroup, array<vector> waypoints)
@@ -4143,7 +4225,9 @@ class HST_PhysicalWarService
 			{
 				HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
 				HST_MissionAssetState asset = FindMissionConvoyAssetForGroup(state, mission, activeGroup);
-				if (mission && asset)
+				if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
+					continue;
+				if (mission && asset && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
 					TrySpawnMissionConvoyGroup(state, mission, asset, activeGroup, ResolveMissionConvoyGroupIndex(mission, activeGroup.m_sGroupId));
 				continue;
 			}
@@ -4165,13 +4249,16 @@ class HST_PhysicalWarService
 		{
 			if (!activeGroup || !activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
 				continue;
+			bool missionConvoyGroup = IsMissionConvoyGroup(activeGroup);
+			if (missionConvoyGroup && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
+				continue;
 
 			int aliveCount;
-			if (IsMissionConvoyGroup(activeGroup))
+			if (missionConvoyGroup)
 				aliveCount = CountAliveRuntimeCrewAgents(activeGroup);
 			else
 				aliveCount = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
-			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0)
+			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0))
 				continue;
 			if (aliveCount > 0 && activeGroup.m_iSpawnedAgentCount <= 0)
 			{
@@ -4184,10 +4271,13 @@ class HST_PhysicalWarService
 
 			int previousAliveCount = activeGroup.m_iLastSeenAliveCount;
 			activeGroup.m_iLastSeenAliveCount = aliveCount;
-			if (IsMissionConvoyGroup(activeGroup))
+			if (missionConvoyGroup)
 			{
 				activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, CountAliveRuntimeCrewAgents(activeGroup));
-				activeGroup.m_iSurvivorVehicleCount = 1;
+				if (IsMissionConvoyGroupAssetTerminal(state, activeGroup))
+					activeGroup.m_iSurvivorVehicleCount = 0;
+				else
+					activeGroup.m_iSurvivorVehicleCount = 1;
 			}
 			else if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
 			{
@@ -4201,7 +4291,10 @@ class HST_PhysicalWarService
 			}
 			if (aliveCount <= 0)
 			{
-				activeGroup.m_sRuntimeStatus = "eliminated";
+				if (missionConvoyGroup)
+					activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
+				else
+					activeGroup.m_sRuntimeStatus = "eliminated";
 				if (activeGroup.m_bQRF)
 					m_bMarkerRefreshNeeded = true;
 			}
