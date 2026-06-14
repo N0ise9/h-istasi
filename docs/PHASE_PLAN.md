@@ -353,8 +353,8 @@ Acceptance pattern:
 | 5 | Convoy vehicle-control adapter | Complete |
 | 6 | Real convoy crew seating | Complete |
 | 7 | Convoy waypoint-chain movement | Complete |
-| 8 | Convoy progress, stuck detection, and destination arrival | In progress |
-| 9 | Convoy contact behavior | Planned |
+| 8 | Convoy progress, stuck detection, and destination arrival | Complete |
+| 9 | Convoy contact behavior | In progress |
 | 10 | Generic convoy completion | Planned |
 | 11 | Mission-specific convoy outcomes | Planned |
 | 12 | Active mission persistence | Planned |
@@ -1286,7 +1286,8 @@ Implementation:
 - Keep convoy waypoint assignment blocked until every active convoy vehicle has
   a seated living AI driver.
 - Enforce convoy start-to-end straight-line horizontal distance between 1000m
-  and 2500m, and report planned distance, required band, and band validity.
+  and 2500m, and report planned distance, band validity, and whether generated
+  route staging is vehicle-safe.
 
 Acceptance criteria:
 
@@ -1294,6 +1295,7 @@ Acceptance criteria:
 - Convoy report says driver assigned.
 - Convoy report says how many crew were seated.
 - Convoy report says planned distance is inside the 1000-2500m band.
+- Convoy report says planned source/target are route-staged and vehicle-safe.
 - Missing driver seats and missing crew agents produce clear reasons.
 - Vehicle is not considered ready unless driver assignment succeeds.
 - No persistent raw `IEntity` references or save-schema migrations are added.
@@ -1328,7 +1330,17 @@ Acceptance criteria:
 
 ## Phase 8 - Convoy Progress, Stuck Detection, And Destination Arrival
 
-Status: In progress
+Status: Complete
+
+Implementation/static validation target: Phase 8 now tracks transient convoy
+progress in `HST_PhysicalWarService` without adding campaign save fields. A
+smoke-test follow-up makes destination arrival win over single-group dismount
+recovery, keeps convoy starts compact and vehicle-safe without shortening the
+1000-2500m convoy trip, narrows arrival to 50 meters, and uses
+RoadNetworkManager-resolved road endpoints, waypoints, and recovery snaps.
+HST_Dev smoke testing passed for road-based spawning, movement, stuck recovery,
+arrival failure with living crew, crew-neutralized completion, and inactive
+convoy runtime cleanup.
 
 Goal: track whether convoy vehicles are actually moving and respond if they get
 stuck.
@@ -1340,10 +1352,42 @@ Implementation:
 - Track last movement/progress timestamp.
 - Detect no-progress/stuck state.
 - Reissue route once after a stuck threshold.
-- If stuck too long, keep physical and report stuck when players are nearby;
-  when players are far, optionally abstract-advance or fail gracefully.
-- Keep marker refresh at a lower frequency such as 30 seconds.
+- Resolve convoy starts, destinations, assigned waypoint positions, and recovery
+  snap points through RoadNetworkManager road geometry instead of terrain
+  material or generic safe-ground checks.
+- If stuck too long, snap the vehicle only to a nearby road-resolved point when
+  the nearest player is at least 300 meters away.
+- Keep physical and report the stuck reason when players are too close, no
+  road snap point can be resolved, the point is too close to destination, the
+  point would advance too far toward destination, or crew
+  reseating cannot confirm a driver.
+- Move unseated living crew to the recovered vehicle, reseat through the convoy
+  vehicle adapter, orient the vehicle along route travel direction, then reissue
+  route only after driver recovery succeeds.
+- Keep marker refresh at 30 seconds.
 - Fail convoy if it reaches destination with living crew.
+- Resolve destination arrival before moving convoy dismount/contact fallback.
+- Treat a single dismounted or driverless moving convoy group as a bounded
+  reseat/rebind recovery issue instead of whole-convoy contact fallback.
+- Stage convoy vehicle starts as compact road-resolved columns; destinations
+  and all assigned waypoint positions must also be road-resolved.
+- Choose a seeded random convoy start distance between 1000m and 2500m each
+  time convoy assets are initialized.
+- Pre-probe the full convoy vehicle column before creating mission assets; if
+  any vehicle slot fails the safe-spawn or distance-band checks, reject that
+  candidate and probe another instead of creating a partial convoy.
+- Reject convoy spawn slots that are not RoadNetworkManager road points wide
+  enough for vehicle footprint samples; terrain height/footprint checks remain
+  secondary stability checks only.
+- Re-check road placement during physical vehicle spawn and route-snap recovery,
+  and use a smaller spawn lift to avoid dropping trucks onto uneven terrain.
+- Preserve the existing 1000-2500m convoy travel-distance contract for every
+  planned convoy vehicle slot.
+- Keep convoy vehicle start slots in a compact route-column formation instead
+  of scattering them through wide spawn-clearance searches.
+- Wait for a reseated driver before consuming a route reissue attempt.
+- Show live computed distance-to-destination in the convoy report, with sampled
+  progress distance retained as a diagnostic.
 
 Acceptance criteria:
 
@@ -1351,13 +1395,63 @@ Acceptance criteria:
 - Convoy marker updates periodically.
 - Convoy report shows distance to destination.
 - Convoy report shows stuck/no-progress status.
+- Convoy report shows RoadNetworkManager availability and road-resolved source,
+  current, target, waypoint, and recovery placement results.
 - Route is not reissued every tick.
 - Convoy fails if destination is reached with living crew.
 - Convoy does not falsely fail while still staging.
+- A single dismounted convoy group does not immediately switch the mission to
+  `convoy_contact`.
+- Convoy report shows moving recovery reasons for dismounted or driverless
+  groups.
+- Convoy arrival failure uses a 50 meter destination radius.
+- Convoy planned distance remains inside the 1000-2500m band for the convoy
+  column, not only the first vehicle.
+- Convoy setup creates either all planned convoy vehicle assets or none; it
+  should not create a mission with later convoy vehicles guaranteed to fail
+  physical spawn.
+- Convoy pre-probing and physical spawn reject non-road, narrow-road, rocky, or
+  uneven large-vehicle footprints instead of allowing trucks to spawn off-road,
+  tipped, or on rocks.
+- Convoy report shows route snap attempt/result, distance-to-destination, player
+  gate, and crew reseat result.
+- Convoy vehicles spawn as a compact column on generated route staging rather
+  than hundreds of meters apart.
+- Convoy Runtime Report shows the assigned road-snapped runtime waypoint chain
+  per convoy group instead of treating static route-template waypoints as the
+  authoritative movement path.
+
+HST_Dev smoke steps:
+
+1. Launch `Missions/HST_Dev.conf` in Workbench Play mode.
+2. Press `I`, open Setup, and choose `Start HQ: central hills`.
+3. Open Admin and run `Force: Ammo convoy`.
+4. Open Missions and run `Convoy Runtime Report`.
+5. Wait for the convoy to leave staging; verify phase becomes `convoy_moving`,
+   waypoint count is greater than one, band valid is `yes`, and
+   distance-to-destination appears. Vehicle source/current distances should all
+   be inside the 1000-2500m band, and the vehicles should be a compact route
+   column on roads, not scattered hundreds of meters apart, upside down, or
+   sitting on visible rocks/steep side-tilt terrain.
+6. Watch the map for convoy marker movement; it should refresh periodically,
+   about every 30 seconds.
+7. For unstuck testing, block a convoy vehicle or let terrain stop it, then
+   move the player at least 300 meters away. After the hard-stuck window, the
+   report should show route reissue, then route snap to a nearby road-resolved
+   point, distance-to-destination for the snap point, road forward/orientation,
+   and crew reseat result.
+8. If one crew group dismounts, run `Convoy Runtime Report`; the mission should
+   remain `convoy_moving` unless every moving group has lost control, and the
+   report should show moving recovery status.
+9. For arrival testing, do not kill the crew. When the convoy reaches
+   within 50 meters of the destination with living crew, the mission should
+   fail with `Convoy reached its destination with living crew.`
+10. Repeat once with crew killed before arrival; the convoy should not falsely
+   fail due to destination arrival after crew neutralization.
 
 ## Phase 9 - Convoy Contact Behavior
 
-Status: Planned
+Status: In progress
 
 Goal: make ambushes transition convoys into a combat/contact state.
 
