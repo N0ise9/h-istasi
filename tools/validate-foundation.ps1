@@ -2858,7 +2858,7 @@ foreach ($requiredPhase6RuntimeEntry in @(
 	"convoy_driver_available",
 	"preserveWaypointMode",
 	"mission.m_sRuntimePhase == MISSION_CONVOY_STAGING",
-	"mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0",
+	"IsMissionConvoyTravelPhase(mission) && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0",
 	"readiness.m_iDriverAvailableCount >= required",
 	"Convoy has no seated living AI driver yet."
 )) {
@@ -3148,7 +3148,23 @@ foreach ($requiredPhase9RuntimeEntry in @(
 	"mission.m_sRuntimePhase = MISSION_CONVOY_CONTACT",
 	"ApplyMissionConvoyStatusToGroups(state, mission, MISSION_CONVOY_CONTACT)",
 	"convoy contact | active",
-	"radius %2m"
+	"radius %2m",
+	"ShouldSpawnMissionConvoyRuntime",
+	"IsRestoredMissionConvoyRuntimeRebindPending",
+	"state.m_iLastRestoreSecond + CONVOY_CREW_POPULATION_GRACE_SECONDS",
+	"state.m_bRestoredFromPersistence",
+	"GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) == null",
+	"GetRuntimeVehicleEntity(activeGroup.m_sGroupId) == null",
+	"ShouldSpawnMissionConvoyRuntime(state, activeGroup)",
+	"IsMissionConvoyTravelPhase",
+	"Convoy contact recovery",
+	"MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin())",
+	"mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0",
+	"activeGroup.m_iAssignedWaypointCount = 0",
+	"IsMissionConvoyGroupAssetTerminal",
+	"asset.m_bDestroyed || asset.m_bDelivered",
+	"activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED",
+	"aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0)"
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase9RuntimeEntry)) {
 		throw "Missing Phase 9 convoy contact runtime entry: $requiredPhase9RuntimeEntry"
