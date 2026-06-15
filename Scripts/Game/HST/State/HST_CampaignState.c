@@ -351,6 +351,12 @@ class HST_ActiveMissionState
 	bool m_bCompletedNotificationSent;
 	bool m_bFailedNotificationSent;
 	bool m_bExpiredNotificationSent;
+	bool m_bConvoyArrivalOutcomeApplied;
+	bool m_bConvoyCrewEliminatedOutcomeApplied;
+	bool m_bConvoyVehicleCapturedOutcomeApplied;
+	bool m_bConvoyCargoDeliveredOutcomeApplied;
+	bool m_bConvoyExpiredOutcomeApplied;
+	string m_sConvoyOutcomeSummary;
 }
 
 [BaseContainerProps()]
@@ -462,6 +468,8 @@ class HST_MissionAssetState
 	bool m_bDestroyed;
 	bool m_bAlive = true;
 	bool m_bAttachedToCarrier;
+	bool m_bOutcomeApplied;
+	string m_sOutcomeKind;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	vector m_vCurrentPosition;
@@ -557,7 +565,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 17;
+	static const int SCHEMA_VERSION = 18;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

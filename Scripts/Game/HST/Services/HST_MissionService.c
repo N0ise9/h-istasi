@@ -150,7 +150,7 @@ class HST_MissionService
 		return activeMission;
 	}
 
-	bool Complete(HST_CampaignState state, HST_EconomyService economy, string instanceId)
+	bool Complete(HST_CampaignState state, HST_EconomyService economy, string instanceId, bool applyDefinitionRewards = true)
 	{
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
@@ -163,8 +163,11 @@ class HST_MissionService
 
 			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_SUCCEEDED;
 			activeMission.m_sRuntimePhase = "completed";
-			economy.AddFactionMoney(state, definition.m_iRewardMoney);
-			economy.AddHR(state, definition.m_iRewardHR);
+			if (applyDefinitionRewards)
+			{
+				economy.AddFactionMoney(state, definition.m_iRewardMoney);
+				economy.AddHR(state, definition.m_iRewardHR);
+			}
 			return true;
 		}
 

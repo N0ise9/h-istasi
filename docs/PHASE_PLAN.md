@@ -356,8 +356,8 @@ Acceptance pattern:
 | 8 | Convoy progress, stuck detection, and destination arrival | Complete |
 | 9 | Convoy contact behavior | Complete |
 | 10 | Generic convoy completion | Complete |
-| 11 | Mission-specific convoy outcomes | In progress |
-| 12 | Active mission persistence | Planned |
+| 11 | Mission-specific convoy outcomes | Complete |
+| 12 | Active mission persistence | In progress |
 | 13 | Non-convoy mission primitive hardening | Planned |
 | 14 | Arsenal, loot, and finite/infinite unlock loop | Planned |
 | 15 | Garage and vehicle persistence | Planned |
@@ -1294,7 +1294,7 @@ Acceptance criteria:
 - Spawned convoy vehicle has an AI driver.
 - Convoy report says driver assigned.
 - Convoy report says how many crew were seated.
-- Convoy report says planned distance is inside the 1000-2500m band.
+- Convoy report says planned distance is inside the 2000-5000m band.
 - Convoy report says planned source/target are route-staged and vehicle-safe.
 - Missing driver seats and missing crew agents produce clear reasons.
 - Vehicle is not considered ready unless driver assignment succeeds.
@@ -1336,7 +1336,7 @@ Implementation/static validation target: Phase 8 now tracks transient convoy
 progress in `HST_PhysicalWarService` without adding campaign save fields. A
 smoke-test follow-up makes destination arrival win over single-group dismount
 recovery, keeps convoy starts compact and vehicle-safe without shortening the
-1000-2500m convoy trip, narrows arrival to 50 meters, and uses
+2000-5000m convoy trip, narrows arrival to 50 meters, and uses
 RoadNetworkManager-resolved road endpoints, waypoints, and recovery snaps.
 HST_Dev smoke testing passed for road-based spawning, movement, stuck recovery,
 arrival failure with living crew, crew-neutralized completion, and inactive
@@ -1371,7 +1371,7 @@ Implementation:
   reseat/rebind recovery issue instead of whole-convoy contact fallback.
 - Stage convoy vehicle starts as compact road-resolved columns; destinations
   and all assigned waypoint positions must also be road-resolved.
-- Choose a seeded random convoy start distance between 1000m and 2500m each
+- Choose a seeded random convoy start distance between 2000m and 5000m each
   time convoy assets are initialized.
 - Pre-probe the full convoy vehicle column before creating mission assets; if
   any vehicle slot fails the safe-spawn or distance-band checks, reject that
@@ -1381,7 +1381,7 @@ Implementation:
   secondary stability checks only.
 - Re-check road placement during physical vehicle spawn and route-snap recovery,
   and use a smaller spawn lift to avoid dropping trucks onto uneven terrain.
-- Preserve the existing 1000-2500m convoy travel-distance contract for every
+- Preserve the existing 2000-5000m convoy travel-distance contract for every
   planned convoy vehicle slot.
 - Keep convoy vehicle start slots in a compact route-column formation instead
   of scattering them through wide spawn-clearance searches.
@@ -1405,7 +1405,7 @@ Acceptance criteria:
 - Convoy report shows moving recovery reasons for dismounted or driverless
   groups.
 - Convoy arrival failure uses a 50 meter destination radius.
-- Convoy planned distance remains inside the 1000-2500m band for the convoy
+- Convoy planned distance remains inside the 2000-5000m band for the convoy
   column, not only the first vehicle.
 - Convoy setup creates either all planned convoy vehicle assets or none; it
   should not create a mission with later convoy vehicles guaranteed to fail
@@ -1430,7 +1430,7 @@ HST_Dev smoke steps:
 5. Wait for the convoy to leave staging; verify phase becomes `convoy_moving`,
    waypoint count is greater than one, band valid is `yes`, and
    distance-to-destination appears. Vehicle source/current distances should all
-   be inside the 1000-2500m band, and the vehicles should be a compact route
+   be inside the 2000-5000m band, and the vehicles should be a compact route
    column on roads, not scattered hundreds of meters apart, upside down, or
    sitting on visible rocks/steep side-tilt terrain.
 6. Watch the map for convoy marker movement; it should refresh periodically,
@@ -1556,7 +1556,7 @@ Acceptance criteria:
 
 ## Phase 11 - Mission-Specific Convoy Outcomes
 
-Status: In progress
+Status: Complete
 
 Goal: make convoy mission types meaningfully different.
 
@@ -1585,9 +1585,18 @@ Acceptance criteria:
 - Money convoy does not grant full payout unless delivered.
 - Prisoner convoy can grant HR/support when prisoners are extracted.
 
+Completion notes:
+
+- Added mission-specific convoy outcome service, save guards, runtime reports,
+  mission asset follow-up actions, I-menu guidance, and map marker transitions.
+- HST_Dev smoke testing confirmed supply delivery and prisoner extraction
+  outcomes; cleanup now preserves neutralized convoy vehicles after delivery so
+  players can keep or capture them.
+- `tools/validate-foundation.ps1` passes with schema 18.
+
 ## Phase 12 - Active Mission Persistence
 
-Status: Planned
+Status: In progress
 
 Goal: make active missions, especially convoys, survive save/load.
 

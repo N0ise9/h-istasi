@@ -692,6 +692,12 @@ class HST_CampaignSaveData
 		target.m_bCompletedNotificationSent = source.m_bCompletedNotificationSent;
 		target.m_bFailedNotificationSent = source.m_bFailedNotificationSent;
 		target.m_bExpiredNotificationSent = source.m_bExpiredNotificationSent;
+		target.m_bConvoyArrivalOutcomeApplied = source.m_bConvoyArrivalOutcomeApplied;
+		target.m_bConvoyCrewEliminatedOutcomeApplied = source.m_bConvoyCrewEliminatedOutcomeApplied;
+		target.m_bConvoyVehicleCapturedOutcomeApplied = source.m_bConvoyVehicleCapturedOutcomeApplied;
+		target.m_bConvoyCargoDeliveredOutcomeApplied = source.m_bConvoyCargoDeliveredOutcomeApplied;
+		target.m_bConvoyExpiredOutcomeApplied = source.m_bConvoyExpiredOutcomeApplied;
+		target.m_sConvoyOutcomeSummary = source.m_sConvoyOutcomeSummary;
 		return target;
 	}
 
@@ -897,6 +903,8 @@ class HST_CampaignSaveData
 		target.m_bDestroyed = source.m_bDestroyed;
 		target.m_bAlive = source.m_bAlive;
 		target.m_bAttachedToCarrier = source.m_bAttachedToCarrier;
+		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
+		target.m_sOutcomeKind = source.m_sOutcomeKind;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_vCurrentPosition = source.m_vCurrentPosition;

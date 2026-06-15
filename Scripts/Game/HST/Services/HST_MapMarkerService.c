@@ -249,6 +249,21 @@ class HST_MapMarkerService
 		if (!state || !preset || !mission)
 			return;
 
+		HST_MissionAssetState outcomeAsset;
+		if (ShouldShowConvoyOutcomeMarkers(mission))
+			outcomeAsset = SelectPendingConvoyOutcomeAsset(state, mission);
+		if (outcomeAsset && (outcomeAsset.m_sRole == "convoy_payload" || outcomeAsset.m_sRole == "convoy_captive"))
+		{
+			vector outcomePosition = ResolveConvoyOutcomeMarkerPosition(state, mission, outcomeAsset);
+			AddMarker(state, "hst_mission_convoy_outcome_" + outcomeAsset.m_sAssetId, mission.m_sInstanceId, BuildConvoyOutcomeMarkerLabel(mission, outcomeAsset), "", "mission_asset", preset.m_sResistanceFactionKey, MissionAssetToMarkerIcon(mission, outcomeAsset), MissionToMarkerColor(mission), outcomePosition, true, MissionToMarkerTextColor(mission), MissionAssetToMarkerStyle(mission, outcomeAsset), true);
+			return;
+		}
+		if (outcomeAsset && outcomeAsset.m_sRole == "convoy_vehicle" && mission.m_sRuntimePhase == "convoy_eliminated")
+		{
+			AddMissionConvoyVehicleMarkers(state, preset, mission, MissionMarkerTitle(mission));
+			return;
+		}
+
 		vector convoyPosition = ResolveMissionConvoyAggregatePosition(state, mission);
 		vector destinationPosition = ResolveMissionConvoyDestinationPosition(state, mission);
 		string title = MissionMarkerTitle(mission);
@@ -269,7 +284,7 @@ class HST_MapMarkerService
 		if (!mission)
 			return false;
 
-		return mission.m_sRuntimePhase == "convoy_moving" || mission.m_sRuntimePhase == "convoy_contact";
+		return mission.m_sRuntimePhase == "convoy_moving" || mission.m_sRuntimePhase == "convoy_contact" || mission.m_sRuntimePhase == "convoy_eliminated";
 	}
 
 	protected bool HasUnresolvedMissionConvoyVehicleAsset(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -299,7 +314,11 @@ class HST_MapMarkerService
 				position = asset.m_vSourcePosition;
 
 			string markerId = "hst_mission_convoy_vehicle_" + asset.m_sAssetId;
-			string label = string.Format("Convoy vehicle %1 - %2: neutralize crew", vehicleIndex + 1, title);
+			string label;
+			if (mission.m_sRuntimePhase == "convoy_eliminated")
+				label = string.Format("Convoy vehicle %1 - %2: capture vehicle", vehicleIndex + 1, title);
+			else
+				label = string.Format("Convoy vehicle %1 - %2: neutralize crew", vehicleIndex + 1, title);
 			AddMarker(state, markerId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), position, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
 			vehicleIndex++;
 		}
@@ -1385,6 +1404,9 @@ class HST_MapMarkerService
 		if (!state || !mission)
 			return false;
 
+		if (HasPendingRequiredConvoyOutcome(state, mission))
+			return false;
+
 		bool found;
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -1397,6 +1419,133 @@ class HST_MapMarkerService
 		}
 
 		return found;
+	}
+
+	protected bool HasPendingRequiredConvoyOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
+		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
+			return HasPendingConvoyVehicleCaptureOutcome(state, mission);
+
+		return false;
+	}
+
+	protected bool HasPendingConvoyAssetOutcome(HST_CampaignState state, HST_ActiveMissionState mission, string role)
+	{
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
+				continue;
+
+			if (!asset.m_bDelivered || !asset.m_bOutcomeApplied)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasPendingConvoyVehicleCaptureOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (mission.m_bConvoyVehicleCapturedOutcomeApplied)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle")
+				continue;
+			if (!asset.m_bDestroyed && !asset.m_bDelivered)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool ShouldShowConvoyOutcomeMarkers(HST_ActiveMissionState mission)
+	{
+		if (!mission || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		if (mission.m_bConvoyCrewEliminatedOutcomeApplied)
+			return true;
+		if (mission.m_sRuntimePhase == "convoy_eliminated")
+			return true;
+		if (mission.m_sLastRuntimeEventKey == "convoy_complete" || mission.m_sLastRuntimeEventKey == "convoy_secured_sent")
+			return true;
+
+		return false;
+	}
+
+	protected HST_MissionAssetState SelectPendingConvoyOutcomeAsset(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return null;
+
+		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+			return SelectPendingConvoyAssetByRole(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return SelectPendingConvoyAssetByRole(state, mission, "convoy_captive");
+		if ((mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored") && !mission.m_bConvoyVehicleCapturedOutcomeApplied)
+			return SelectPendingConvoyAssetByRole(state, mission, "convoy_vehicle");
+
+		return null;
+	}
+
+	protected HST_MissionAssetState SelectPendingConvoyAssetByRole(HST_CampaignState state, HST_ActiveMissionState mission, string role)
+	{
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role || asset.m_bDestroyed)
+				continue;
+			if (role == "convoy_vehicle" && asset.m_bDelivered)
+				continue;
+			if ((role == "convoy_payload" || role == "convoy_captive") && asset.m_bDelivered && asset.m_bOutcomeApplied)
+				continue;
+
+			return asset;
+		}
+
+		return null;
+	}
+
+	protected vector ResolveConvoyOutcomeMarkerPosition(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return ResolveMissionConvoyAggregatePosition(state, mission);
+
+		if (asset.m_bPickedUp && !asset.m_bDelivered && !IsZeroVector(asset.m_vTargetPosition))
+			return asset.m_vTargetPosition;
+
+		if (!asset.m_bPickedUp && (asset.m_sRole == "convoy_payload" || asset.m_sRole == "convoy_captive"))
+			return ResolveMissionConvoyAggregatePosition(state, mission);
+
+		if (!IsZeroVector(asset.m_vCurrentPosition))
+			return asset.m_vCurrentPosition;
+		if (!IsZeroVector(asset.m_vSourcePosition))
+			return asset.m_vSourcePosition;
+
+		return ResolveMissionConvoyAggregatePosition(state, mission);
+	}
+
+	protected string BuildConvoyOutcomeMarkerLabel(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		string title = MissionMarkerTitle(mission);
+		string role = MissionAssetReadableRole(asset);
+		if (asset && asset.m_bPickedUp && !asset.m_bDelivered)
+		{
+			if (asset.m_sRole == "convoy_captive")
+				return string.Format("Extraction - %1: extract %2", title, role);
+			return string.Format("Delivery - %1: deliver %2", title, role);
+		}
+		if (asset && asset.m_sRole == "convoy_captive")
+			return string.Format("Secured convoy - %1: free %2", title, role);
+
+		return string.Format("Secured convoy - %1: recover %2", title, role);
 	}
 
 	protected bool HasMissionConvoyPayloadSatisfied(HST_CampaignState state, HST_ActiveMissionState mission)

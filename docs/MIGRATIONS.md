@@ -1,5 +1,18 @@
 # Campaign Save Migrations
 
+## Schema 18
+
+Phase 11 mission-specific convoy outcomes.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `18`.
+- Active missions now persist convoy outcome-applied flags and a convoy outcome
+  summary so mission-specific rewards and penalties do not replay after reload.
+- Mission assets now persist an outcome-applied flag and outcome kind so captured
+  convoy vehicles, payloads, and captives cannot duplicate asset-level outcomes.
+- Existing saves default the new booleans to false and strings to empty during
+  normal save-data migration/copy.
+- No raw physical entities or runtime handles are persisted.
+
 ## Schema 17
 
 Phase 7 convoy waypoint-chain movement.

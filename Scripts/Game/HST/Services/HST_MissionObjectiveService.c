@@ -108,6 +108,10 @@ class HST_MissionObjectiveService
 		if (!state || instanceId.IsEmpty())
 			return false;
 
+		HST_ActiveMissionState mission = state.FindActiveMission(instanceId);
+		if (HasPendingRequiredConvoyOutcome(state, mission))
+			return false;
+
 		bool found;
 		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 		{
@@ -120,6 +124,51 @@ class HST_MissionObjectiveService
 		}
 
 		return found;
+	}
+
+	protected bool HasPendingRequiredConvoyOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
+		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
+			return HasPendingConvoyVehicleCaptureOutcome(state, mission);
+
+		return false;
+	}
+
+	protected bool HasPendingConvoyAssetOutcome(HST_CampaignState state, HST_ActiveMissionState mission, string role)
+	{
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
+				continue;
+
+			if (!asset.m_bDelivered || !asset.m_bOutcomeApplied)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasPendingConvoyVehicleCaptureOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (mission.m_bConvoyVehicleCapturedOutcomeApplied)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle")
+				continue;
+			if (!asset.m_bDestroyed && !asset.m_bDelivered)
+				return true;
+		}
+
+		return false;
 	}
 
 	string BuildObjectiveReport(HST_CampaignState state)
