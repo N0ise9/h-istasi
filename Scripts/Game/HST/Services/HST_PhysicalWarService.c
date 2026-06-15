@@ -69,6 +69,8 @@ class HST_PhysicalWarService
 	static const float QRF_MAX_STANDOFF_METERS = 650.0;
 	static const string MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_";
 	static const string MISSION_CONVOY_VEHICLE_ROLE = "convoy_vehicle";
+	static const string MISSION_CONVOY_PAYLOAD_ROLE = "convoy_payload";
+	static const string MISSION_CONVOY_CAPTIVE_ROLE = "convoy_captive";
 	static const string MISSION_CONVOY_PRIMITIVE = "convoy_intercept";
 	static const string MISSION_CONVOY_STAGING = "convoy_staging";
 	static const string MISSION_CONVOY_MOVING = "convoy_moving";
@@ -505,8 +507,10 @@ class HST_PhysicalWarService
 	{
 		if (!mission)
 			return false;
+		if (mission.m_bConvoyCrewEliminatedOutcomeApplied)
+			return true;
 
-		return mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT_KEY || mission.m_sLastRuntimeEventKey == MISSION_CONVOY_ELIMINATED;
+		return mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT_KEY || mission.m_sLastRuntimeEventKey == MISSION_CONVOY_ELIMINATED || mission.m_sLastRuntimeEventKey == "convoy_secured_sent";
 	}
 
 	protected bool HasActiveMissionForConvoyGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -1643,6 +1647,7 @@ class HST_PhysicalWarService
 		report = report + BuildMissionConvoyReadinessReport(state, mission);
 		report = report + BuildMissionConvoyCompletionReport(state, mission);
 		report = report + BuildMissionConvoyContactReport(state, mission);
+		report = report + BuildMissionConvoyOutcomeReport(state, mission);
 
 		int assetIndex;
 		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
@@ -1661,6 +1666,31 @@ class HST_PhysicalWarService
 				continue;
 
 			report = report + BuildConvoyActiveGroupReport(activeGroup, route);
+		}
+
+		return report;
+	}
+
+	protected string BuildMissionConvoyOutcomeReport(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return "";
+
+		string report = string.Format("\n  convoy outcome | summary %1", ReportText(mission.m_sConvoyOutcomeSummary));
+		report = report + string.Format(" | arrival %1 | crew %2 | vehicle %3", ReportBool(mission.m_bConvoyArrivalOutcomeApplied), ReportBool(mission.m_bConvoyCrewEliminatedOutcomeApplied), ReportBool(mission.m_bConvoyVehicleCapturedOutcomeApplied));
+		report = report + string.Format(" | cargo %1 | expired %2", ReportBool(mission.m_bConvoyCargoDeliveredOutcomeApplied), ReportBool(mission.m_bConvoyExpiredOutcomeApplied));
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE && asset.m_sRole != MISSION_CONVOY_PAYLOAD_ROLE && asset.m_sRole != MISSION_CONVOY_CAPTIVE_ROLE)
+				continue;
+
+			report = report + string.Format("\n    convoy asset outcome | asset %1 | role %2", ReportText(asset.m_sAssetId), ReportText(asset.m_sRole));
+			report = report + string.Format(" | delivered %1 | destroyed %2 | applied %3", ReportBool(asset.m_bDelivered), ReportBool(asset.m_bDestroyed), ReportBool(asset.m_bOutcomeApplied));
+			report = report + " | kind " + ReportText(asset.m_sOutcomeKind);
+			if ((asset.m_sRole == MISSION_CONVOY_PAYLOAD_ROLE || asset.m_sRole == MISSION_CONVOY_CAPTIVE_ROLE) && !asset.m_bPickedUp && !asset.m_bDelivered && !asset.m_bDestroyed)
+				report = report + " | access any surviving convoy vehicle";
 		}
 
 		return report;
@@ -2738,6 +2768,27 @@ class HST_PhysicalWarService
 		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
 		if (runtimeEntity)
 			runtimeEntity.m_vPosition = position;
+		if (asset.m_sRole == MISSION_CONVOY_VEHICLE_ROLE)
+			SyncMissionConvoyPayloadPositions(state, asset.m_sMissionInstanceId, position);
+	}
+
+	protected void SyncMissionConvoyPayloadPositions(HST_CampaignState state, string missionInstanceId, vector position)
+	{
+		if (!state || missionInstanceId.IsEmpty() || IsZeroVector(position))
+			return;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != missionInstanceId)
+				continue;
+			if (asset.m_sRole != MISSION_CONVOY_PAYLOAD_ROLE && asset.m_sRole != MISSION_CONVOY_CAPTIVE_ROLE)
+				continue;
+			if (asset.m_bPickedUp || asset.m_bDelivered || asset.m_bDestroyed)
+				continue;
+
+			asset.m_vCurrentPosition = position;
+			asset.m_vLastKnownPosition = position;
+		}
 	}
 
 	protected bool ApplyMissionConvoyObjectiveProgress(HST_CampaignState state, HST_ActiveMissionState mission, int eliminatedGroups, int totalGroups)

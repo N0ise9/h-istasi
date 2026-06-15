@@ -1477,6 +1477,10 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ADMIN)
 		{
 			AddMenuAction(actions, TAB_ADMIN, "Force: Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force: Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force: Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force: Prisoner convoy", "debug_mission_id", "convoy_prisoners", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Force: Reinforcement convoy", "debug_mission_id", "convoy_reinforcements", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: Supply convoy", "debug_mission_id", "convoy_supplies", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: POW rescue", "debug_mission_id", "rescue_pows", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Force: Kill officer", "debug_mission_id", "assassinate_officer", canUseAdmin, "admin required");
@@ -2329,11 +2333,17 @@ class HST_CommandUIService
 			return "Complete the marked objective.";
 
 		if (mission.m_sMissionId == "convoy_ammo")
-			return "Ambush the ammo convoy. Kill all convoy soldiers before they reach destination. Vehicles may be captured afterward.";
+			return "Ambush the ammo convoy. Kill all convoy soldiers, then capture a surviving vehicle to establish the ammo point.";
+		if (mission.m_sMissionId == "convoy_armored")
+			return "Ambush the armored convoy. Kill all convoy soldiers, then capture a surviving vehicle for the garage.";
+		if (mission.m_sMissionId == "convoy_money")
+			return "Ambush the money convoy. Kill the convoy soldiers, then recover and deliver the money payload to HQ.";
 		if (mission.m_sMissionId == "convoy_supplies")
-			return "Ambush the supply convoy. Kill all convoy soldiers before they reach destination. Vehicles may be captured afterward.";
+			return "Ambush the supply convoy. Kill the convoy soldiers, then recover and deliver the supplies.";
 		if (mission.m_sMissionId == "convoy_prisoners")
-			return "Ambush the convoy. Kill all convoy soldiers before they reach destination. Vehicles may be captured afterward.";
+			return "Ambush the prisoner convoy. Kill the convoy soldiers, then free and extract the prisoners.";
+		if (mission.m_sMissionId == "convoy_reinforcements")
+			return "Ambush the reinforcement convoy before it reaches destination and strengthens the target garrison.";
 		if (mission.m_sMissionId == "rescue_pows")
 			return "Free the POWs, escort them out, and deliver them to extraction.";
 		if (mission.m_sMissionId == "assassinate_officer")
@@ -2346,7 +2356,7 @@ class HST_CommandUIService
 			return "Recover the resource cache and deliver it to HQ.";
 
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
-			return "Ambush the convoy. Kill all convoy soldiers before they reach destination. Vehicles may be captured afterward.";
+			return "Ambush the convoy. Kill all convoy soldiers before it reaches destination.";
 		if (mission.m_sRuntimePrimitive == "rescue_extract")
 			return "Free captives and bring them to extraction.";
 		if (mission.m_sRuntimePrimitive == "kill_hvt")
@@ -2367,11 +2377,11 @@ class HST_CommandUIService
 
 	protected string BuildMissionNextStepText(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
+		if (mission && mission.m_sRuntimePrimitive == "convoy_intercept")
+			return BuildConvoyNextStepText(state, mission);
+
 		if (AreMissionObjectivesComplete(state, mission))
 			return "Mission objectives complete. Rewards and cleanup will process on the next campaign tick.";
-
-		if (mission.m_sRuntimePrimitive == "convoy_intercept")
-			return BuildConvoyNextStepText(state, mission);
 
 		HST_MissionAssetState asset = SelectMissionNextAsset(state, mission);
 		if (!asset)
@@ -2438,6 +2448,8 @@ class HST_CommandUIService
 			progress = string.Format("%1%2 | convoy crew groups neutralized %3/%4", phase, eta, neutralized, convoyTotal);
 			if (!mission.m_sRuntimeFailureReason.IsEmpty())
 				progress = progress + " | " + mission.m_sRuntimeFailureReason;
+			if (!mission.m_sConvoyOutcomeSummary.IsEmpty())
+				progress = progress + " | " + mission.m_sConvoyOutcomeSummary;
 			return progress;
 		}
 		if (mission.m_iRequiredCargoCount > 0)
@@ -2459,9 +2471,12 @@ class HST_CommandUIService
 		int emitted;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || emitted >= 6)
+			if (!mission || emitted >= 6)
 				continue;
-			if (AreMissionObjectivesComplete(state, mission))
+			bool postCompletionConvoy = IsPostCompletionConvoyOutcomeMission(mission);
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !postCompletionConvoy)
+				continue;
+			if (AreMissionObjectivesComplete(state, mission) && !postCompletionConvoy)
 				continue;
 
 			HST_MissionAssetState asset = SelectMissionNextAsset(state, mission);
@@ -2485,7 +2500,9 @@ class HST_CommandUIService
 		int emitted;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || emitted >= 6)
+			if (!mission || emitted >= 6)
+				continue;
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(mission))
 				continue;
 
 			AddMenuAction(actions, TAB_MISSIONS, "Inspect: " + ShortText(BuildMissionDisplayTitle(mission), 24), "inspect_mission", mission.m_sInstanceId, canUseMember, disabledReason);
@@ -2497,9 +2514,9 @@ class HST_CommandUIService
 	{
 		if (!state || !mission)
 			return null;
-		if (AreMissionObjectivesComplete(state, mission))
-			return null;
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
+			return SelectConvoyOutcomeAsset(state, mission);
+		if (AreMissionObjectivesComplete(state, mission))
 			return null;
 
 		HST_MissionAssetState fallbackVehicle;
@@ -2538,6 +2555,47 @@ class HST_CommandUIService
 		return fallbackVehicle;
 	}
 
+	protected HST_MissionAssetState SelectConvoyOutcomeAsset(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return null;
+		if (!mission.m_bConvoyCrewEliminatedOutcomeApplied && !IsPostCompletionConvoyOutcomeMission(mission))
+			return null;
+
+		HST_MissionAssetState fallbackVehicle;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDelivered || asset.m_bDestroyed)
+				continue;
+			if (asset.m_sRole == "convoy_payload" || asset.m_sRole == "convoy_captive")
+				return asset;
+			if (asset.m_sRole == "convoy_vehicle" && !asset.m_bOutcomeApplied)
+				fallbackVehicle = asset;
+		}
+
+		return fallbackVehicle;
+	}
+
+	protected bool IsPostCompletionConvoyOutcomeMission(HST_ActiveMissionState mission)
+	{
+		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+			return false;
+		if (mission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		return HasConvoyCrewEliminatedForPostCompletion(mission);
+	}
+
+	protected bool HasConvoyCrewEliminatedForPostCompletion(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+		if (mission.m_bConvoyCrewEliminatedOutcomeApplied)
+			return true;
+
+		return IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey);
+	}
+
 	protected HST_MissionAssetState SelectMissionConvoyVehicleAsset(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission)
@@ -2556,9 +2614,27 @@ class HST_CommandUIService
 
 	protected string BuildConvoyNextStepText(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
+		HST_MissionAssetState asset = SelectConvoyOutcomeAsset(state, mission);
+		if (asset)
+		{
+			string role = BuildMissionAssetRoleLabel(asset);
+			if (asset.m_bPickedUp)
+				return string.Format("%1 secured. Bring it to the delivery marker and use %2.", role, BuildMissionAssetActionLabel(mission, asset));
+			if (asset.m_sRole == "convoy_payload")
+				return string.Format("Convoy crew neutralized. Load %1 from any surviving convoy vehicle with %2.", role, BuildMissionAssetActionLabel(mission, asset));
+			if (asset.m_sRole == "convoy_captive")
+				return string.Format("Convoy crew neutralized. Free %1 at any surviving convoy vehicle with %2.", role, BuildMissionAssetActionLabel(mission, asset));
+			if (asset.m_sRole == "convoy_vehicle")
+				return string.Format("Convoy crew neutralized. Capture a surviving %1 with %2.", role, BuildMissionAssetActionLabel(mission, asset));
+
+			return string.Format("Convoy crew neutralized. Recover %1 with %2.", role, BuildMissionAssetActionLabel(mission, asset));
+		}
+
 		int neutralized;
 		int total;
 		ResolveConvoyCrewProgress(state, mission, neutralized, total);
+		if (IsPostCompletionConvoyOutcomeMission(mission))
+			return "Convoy crew neutralized. Any mission-specific convoy outcome is already applied or no follow-up asset is available.";
 		if (mission.m_sRuntimePhase == "convoy_staging")
 			return string.Format("Convoy is staging. Prepare an ambush before it moves. Crew groups neutralized %1/%2.", neutralized, total);
 		if (mission.m_sRuntimePhase == "convoy_moving")
@@ -2566,7 +2642,7 @@ class HST_CommandUIService
 		if (mission.m_sRuntimePhase == "convoy_contact")
 			return string.Format("Convoy contact started. Neutralize every convoy crew group. Crew groups neutralized %1/%2.", neutralized, total);
 		if (mission.m_sRuntimePhase == "convoy_eliminated")
-			return "Convoy crew neutralized. Mission completion will process on the next campaign tick; surviving vehicles are optional captures.";
+			return "Convoy crew neutralized. Resolve the convoy follow-up shown in this tab.";
 		if (mission.m_sRuntimePhase == "failed")
 			return ResolveReadableFailure(mission);
 
@@ -2979,12 +3055,15 @@ class HST_CommandUIService
 
 	protected bool IsConvoyCrewEliminationCompletionEvent(string eventKey)
 	{
-		return eventKey == "convoy_eliminated" || eventKey == "convoy_complete";
+		return eventKey == "convoy_eliminated" || eventKey == "convoy_complete" || eventKey == "convoy_secured_sent";
 	}
 
 	protected bool AreMissionObjectivesComplete(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!state || !mission)
+			return false;
+
+		if (HasPendingRequiredConvoyOutcome(state, mission))
 			return false;
 
 		bool found;
@@ -2999,6 +3078,51 @@ class HST_CommandUIService
 		}
 
 		return found;
+	}
+
+	protected bool HasPendingRequiredConvoyOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != "convoy_intercept")
+			return false;
+
+		if (mission.m_sMissionId == "convoy_money" || mission.m_sMissionId == "convoy_supplies")
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_payload");
+		if (mission.m_sMissionId == "convoy_prisoners")
+			return HasPendingConvoyAssetOutcome(state, mission, "convoy_captive");
+		if (mission.m_sMissionId == "convoy_ammo" || mission.m_sMissionId == "convoy_armored")
+			return HasPendingConvoyVehicleCaptureOutcome(state, mission);
+
+		return false;
+	}
+
+	protected bool HasPendingConvoyAssetOutcome(HST_CampaignState state, HST_ActiveMissionState mission, string role)
+	{
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != role)
+				continue;
+
+			if (!asset.m_bDelivered || !asset.m_bOutcomeApplied)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasPendingConvoyVehicleCaptureOutcome(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (mission.m_bConvoyVehicleCapturedOutcomeApplied)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != "convoy_vehicle")
+				continue;
+			if (!asset.m_bDestroyed && !asset.m_bDelivered)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected int CountActiveQRFs(HST_CampaignState state)

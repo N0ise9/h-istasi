@@ -2640,14 +2640,14 @@ foreach ($requiredConvoyRouteEntry in @(
 	"CONVOY_DESTINATION_ROAD_SEARCH_RADIUS_METERS = 300.0",
 	"CONVOY_START_ROAD_SEARCH_RADIUS_METERS = 250.0",
 	"CONVOY_SLOT_ROAD_SEARCH_RADIUS_METERS = 40.0",
-	"MIN_CONVOY_START_DISTANCE_METERS = 1000.0",
-	"MAX_CONVOY_START_DISTANCE_METERS = 2500.0",
+	"MIN_CONVOY_START_DISTANCE_METERS = 2000.0",
+	"MAX_CONVOY_START_DISTANCE_METERS = 5000.0",
 	"IsConvoyDistanceInsideBand",
 	"planned distance",
-	"required band 1000-2500m",
+	"required band 2000-5000m",
 	"band valid",
 	"No road-resolved convoy destination",
-	"No road-resolved convoy spawn plan found in required 1000-2500m band",
+	"No road-resolved convoy spawn plan found in required 2000-5000m band",
 	"convoy vehicle slot is not road-resolved",
 	"convoy road vehicle slot failed the flat vehicle footprint check"
 )) {
@@ -2880,8 +2880,8 @@ if ($campaignStateText -match [regex]::Escape("HST_ConvoyCrewSeatingResult")) {
 }
 Write-Host "Phase 6 convoy seating and distance contract OK"
 
-if ($campaignSchemaVersion -ne 17) {
-	throw "Phase 7 convoy waypoint-chain movement requires campaign schema 17"
+if ($campaignSchemaVersion -lt 17) {
+	throw "Phase 7 convoy waypoint-chain movement requires campaign schema 17 or newer"
 }
 foreach ($requiredPhase7StateEntry in @(
 	"m_iAssignedWaypointCount",
@@ -2998,8 +2998,8 @@ if ($physicalWarServiceText -match [regex]::Escape("return activeGroup.m_sSpawnF
 }
 Write-Host "Phase 7 convoy waypoint-chain contract OK"
 
-if ($campaignSchemaVersion -ne 17) {
-	throw "Phase 8 convoy progress must keep campaign schema 17 because progress samples are transient diagnostics"
+if ($campaignSchemaVersion -lt 17) {
+	throw "Phase 8 convoy progress requires campaign schema 17 or newer while progress samples remain transient diagnostics"
 }
 foreach ($requiredPhase8RuntimeEntry in @(
 	"HST_ConvoyProgressStatus",
@@ -3054,10 +3054,10 @@ foreach ($requiredPhase8MissionRuntimeEntry in @(
 	"BuildConvoySpawnPlanCandidate",
 	"BuildConvoyColumnSlotPosition",
 	"TryBuildConvoyVehicleStartSlots",
-	"No road-resolved convoy spawn plan found in required 1000-2500m band",
+	"No road-resolved convoy spawn plan found in required 2000-5000m band",
 	"vector startSlot = convoyStartSlots[i]",
 	"TryResolveConvoyVehicleStartSlot",
-	"convoy vehicle slot is outside the required 1000-2500m destination band",
+	"convoy vehicle slot is outside the required 2000-5000m destination band",
 	"convoy road vehicle slot failed the flat vehicle footprint check"
 )) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredPhase8MissionRuntimeEntry)) {
@@ -3130,8 +3130,8 @@ foreach ($forbiddenPhase8RoadPersistentEntry in @(
 }
 Write-Host "Phase 8 convoy progress/stuck contract OK"
 
-if ($campaignSchemaVersion -ne 17) {
-	throw "Phase 9 convoy contact must keep campaign schema 17 because contact uses existing mission runtime phase state"
+if ($campaignSchemaVersion -lt 17) {
+	throw "Phase 9 convoy contact requires campaign schema 17 or newer because contact uses existing mission runtime phase state"
 }
 foreach ($requiredPhase9RuntimeEntry in @(
 	"CONVOY_CONTACT_RADIUS_METERS = 120.0",
