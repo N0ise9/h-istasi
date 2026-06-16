@@ -2657,6 +2657,25 @@ foreach ($requiredPhysicalWarEntry in @(
 Write-Host "Physical AI war scaffold OK"
 
 $physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+foreach ($requiredActiveVehicleDetachEntry in @(
+	"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
+	"TryDetachPlayerUsedActiveVehicleFromZoneCleanup",
+	"ShouldDetachActiveVehicleFromZoneCleanup",
+	"RegisterDetachedActiveVehicle",
+	"IsAnyLivingPlayerInVehicle",
+	"ResolveEntityVehicle",
+	"ResolveActiveVehicleRuntimeId",
+	"DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, false)",
+	"detached_active_vehicle",
+	"m_bDetached = true",
+	"m_bDeleted = false"
+)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveVehicleDetachEntry)) {
+		throw "Physical war active-zone cleanup is missing stolen/occupied vehicle detach guard: $requiredActiveVehicleDetachEntry"
+	}
+}
+Write-Host "Physical active vehicle detach guard OK"
+
 foreach ($requiredConvoyRuntimeReportEntry in @(
 	"BuildConvoyRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)",
 	"convoy mission | instance",
