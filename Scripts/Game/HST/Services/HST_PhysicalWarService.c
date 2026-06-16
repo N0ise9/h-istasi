@@ -105,6 +105,7 @@ class HST_PhysicalWarService
 	static const float CONVOY_PHYSICAL_ROAD_SEARCH_RADIUS_METERS = 40.0;
 	static const float CONVOY_ROUTE_WAYPOINT_ROAD_SEARCH_RADIUS_METERS = 250.0;
 	static const float CONVOY_ROAD_REPORT_SEARCH_RADIUS_METERS = 6.0;
+	static const float PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
@@ -3570,6 +3571,14 @@ class HST_PhysicalWarService
 			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 				continue;
 
+			if (TryDetachPlayerUsedActiveVehicleFromZoneCleanup(state, zone, activeGroup))
+			{
+				state.m_aActiveGroups.Remove(i);
+				foldedGroups++;
+				changed = true;
+				continue;
+			}
+
 			int beforeInfantry;
 			int beforeVehicles;
 			HST_GarrisonState beforeGarrison = state.FindGarrison(activeGroup.m_sZoneId, activeGroup.m_sFactionKey);
@@ -3611,6 +3620,141 @@ class HST_PhysicalWarService
 			Print(string.Format("h-istasi | deactivated zone %1 | folded groups %2 | returned infantry %3 vehicles %4 | abstract garrison now infantry %5 vehicles %6", zone.m_sZoneId, foldedGroups, returnedInfantry, returnedVehicles, garrisonInfantry, garrisonVehicles));
 		}
 		return changed;
+	}
+
+	protected bool TryDetachPlayerUsedActiveVehicleFromZoneCleanup(HST_CampaignState state, HST_ZoneState zone, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !zone || !activeGroup || activeGroup.m_iVehicleCount <= 0)
+			return false;
+
+		IEntity vehicle = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (!vehicle || !IsLivingEntity(vehicle))
+			return false;
+
+		string reason;
+		if (!ShouldDetachActiveVehicleFromZoneCleanup(vehicle, activeGroup, reason))
+			return false;
+
+		RegisterDetachedActiveVehicle(state, zone, activeGroup, vehicle, reason);
+		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, false);
+		Print(string.Format("h-istasi | detached player-used active vehicle %1 from zone cleanup | zone %2 | reason %3 | position %4", activeGroup.m_sGroupId, zone.m_sZoneId, reason, vehicle.GetOrigin()));
+		return true;
+	}
+
+	protected bool ShouldDetachActiveVehicleFromZoneCleanup(IEntity vehicle, HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		if (!vehicle || !activeGroup)
+			return false;
+
+		if (IsAnyLivingPlayerInVehicle(vehicle))
+		{
+			reason = "player occupied";
+			return true;
+		}
+
+		float distanceSq = DistanceSq2D(vehicle.GetOrigin(), activeGroup.m_vPosition);
+		if (distanceSq >= PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS * PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS)
+		{
+			reason = "moved from active-zone spawn";
+			return true;
+		}
+
+		return false;
+	}
+
+	protected void RegisterDetachedActiveVehicle(HST_CampaignState state, HST_ZoneState zone, HST_ActiveGroupState activeGroup, IEntity vehicle, string reason)
+	{
+		if (!state || !activeGroup || !vehicle)
+			return;
+
+		string runtimeId = ResolveActiveVehicleRuntimeId(vehicle);
+		if (runtimeId.IsEmpty())
+			return;
+
+		HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(runtimeId);
+		if (!runtimeVehicle)
+		{
+			runtimeVehicle = new HST_RuntimeVehicleState();
+			runtimeVehicle.m_sVehicleRuntimeId = runtimeId;
+			state.m_aRuntimeVehicles.Insert(runtimeVehicle);
+		}
+
+		string prefab = activeGroup.m_sPrefab;
+		if (prefab.IsEmpty() && vehicle.GetPrefabData())
+			prefab = vehicle.GetPrefabData().GetPrefabName();
+
+		runtimeVehicle.m_sVehicleRuntimeId = runtimeId;
+		runtimeVehicle.m_sPrefab = prefab;
+		runtimeVehicle.m_sDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(prefab, vehicle.GetName());
+		runtimeVehicle.m_sFactionKey = activeGroup.m_sFactionKey;
+		runtimeVehicle.m_sZoneId = activeGroup.m_sZoneId;
+		runtimeVehicle.m_sRuntimeKind = "detached_active_vehicle";
+		runtimeVehicle.m_vPosition = vehicle.GetOrigin();
+		runtimeVehicle.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(vehicle.GetYawPitchRoll());
+		runtimeVehicle.m_iSpawnedAtSecond = activeGroup.m_iSpawnedAtSecond;
+		runtimeVehicle.m_bDetached = true;
+		runtimeVehicle.m_bDeleted = false;
+	}
+
+	protected bool IsAnyLivingPlayerInVehicle(IEntity vehicle)
+	{
+		if (!vehicle)
+			return false;
+
+		string vehicleRuntimeId = ResolveActiveVehicleRuntimeId(vehicle);
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (!IsLivingPlayerEntity(playerEntity))
+				continue;
+
+			IEntity playerVehicle = ResolveEntityVehicle(playerEntity);
+			if (!playerVehicle)
+				continue;
+			if (playerVehicle == vehicle)
+				return true;
+
+			string playerVehicleRuntimeId = ResolveActiveVehicleRuntimeId(playerVehicle);
+			if (!vehicleRuntimeId.IsEmpty() && playerVehicleRuntimeId == vehicleRuntimeId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected IEntity ResolveEntityVehicle(IEntity entity)
+	{
+		if (!entity)
+			return null;
+
+		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
+		if (!access || !access.IsInCompartment())
+			return null;
+
+		return access.GetVehicle();
+	}
+
+	protected string ResolveActiveVehicleRuntimeId(IEntity vehicle)
+	{
+		if (!vehicle)
+			return "";
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(vehicle.FindComponent(BaseRplComponent));
+		if (rpl)
+			return string.Format("rpl_%1", rpl.Id());
+
+		string prefab = "";
+		if (vehicle.GetPrefabData())
+			prefab = vehicle.GetPrefabData().GetPrefabName();
+
+		return string.Format("local_%1_%2", prefab, vehicle.GetOrigin());
 	}
 
 	protected int SpawnZoneInfantryGroups(HST_CampaignState state, HST_ZoneState zone, array<ref HST_ZoneSpawnSlotState> slots, int infantryCount, HST_ZoneCompositionService compositions)
