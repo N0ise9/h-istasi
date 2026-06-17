@@ -473,6 +473,11 @@ class HST_MissionAssetState
 	bool m_bAttachedToCarrier;
 	bool m_bOutcomeApplied;
 	string m_sOutcomeKind;
+	float m_fDemolitionDamage;
+	float m_fDemolitionRequiredDamage = 300.0;
+	int m_iDemolitionHits;
+	string m_sLastDemolitionSource;
+	int m_iLastDemolitionSecond;
 	vector m_vSourcePosition;
 	vector m_vTargetPosition;
 	vector m_vCurrentPosition;
