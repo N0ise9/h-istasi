@@ -358,8 +358,8 @@ Acceptance pattern:
 | 10 | Generic convoy completion | Complete |
 | 11 | Mission-specific convoy outcomes | Complete |
 | 12 | Active mission persistence | Complete |
-| 13 | Non-convoy mission primitive hardening | In progress |
-| 14 | Arsenal, loot, and finite/infinite unlock loop | Planned |
+| 13 | Non-convoy mission primitive hardening | Complete |
+| 14 | Arsenal, loot, and finite/infinite unlock loop | In progress |
 | 15 | Garage and vehicle persistence | Planned |
 | 16 | Recruitment, training, and garrisons | Planned |
 | 17 | Zone capture and ownership | Planned |
@@ -1647,7 +1647,7 @@ Current notes:
 
 ## Phase 13 - Non-Convoy Mission Primitive Hardening
 
-Status: In progress
+Status: Complete
 
 Goal: bring other mission types up to the same reliability level as convoys.
 
@@ -1695,16 +1695,25 @@ Current notes:
 - Runtime reports now include asset interaction radius, cargo capacity,
   attached/carrier state, outcome state, and delivery distance.
 - Persistence smoke coverage now seeds one active mission for each non-convoy
-  primitive. `tools/validate-foundation.ps1` passes with schema 18; Workbench
-  primitive smoke validation still needs to pass in `HST_Dev` before this phase
-  should be marked Complete.
+  primitive.
 - Workbench follow-up: primitive smoke fixtures are excluded from ordinary
   mission reports, objective ticking, mission start duplicate gates, and map
   marker publication while remaining visible to the persistence smoke report.
+- HST_Dev primitive testing passed well enough to close the phase: HVT kill,
+  hold/conquest, clear-area, destroy target, resource cache, POW rescue/follow,
+  city supplies, mission action visibility, save/load carrier restore, and
+  persistence smoke are all covered by implementation and validation.
+- Expired missions now preserve and continue player-bound cargo/POW extraction
+  scenes, and expired convoy contact preserves the live firefight while players
+  remain inside the render bubble.
+- Radio tower behavior is acceptable for Phase 13 completion, but radio tower
+  polish and any remaining duplicate/static composition cleanup should be
+  revisited later during campaign soak follow-up.
+- `tools/validate-foundation.ps1` passes with schema 18.
 
 ## Phase 14 - Arsenal, Loot, And Finite/Infinite Unlock Loop
 
-Status: Planned
+Status: In progress
 
 Goal: complete the Antistasi loot-to-unlock progression loop.
 

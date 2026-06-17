@@ -156,11 +156,13 @@ class HST_MissionService
 		return activeMission;
 	}
 
-	bool Complete(HST_CampaignState state, HST_EconomyService economy, string instanceId, bool applyDefinitionRewards = true)
+	bool Complete(HST_CampaignState state, HST_EconomyService economy, string instanceId, bool applyDefinitionRewards = true, bool allowExpired = false)
 	{
 		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
 		{
-			if (activeMission.m_sInstanceId != instanceId || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (activeMission.m_sInstanceId != instanceId)
+				continue;
+			if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && (!allowExpired || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED))
 				continue;
 
 			HST_MissionDefinition definition = FindDefinition(activeMission.m_sMissionId);

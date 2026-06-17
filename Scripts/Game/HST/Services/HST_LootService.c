@@ -1679,9 +1679,13 @@ class HST_LootService
 				continue;
 			}
 
-			int score = 1;
-			if (VehiclePrefabsMatch(rootPrefab, record.m_sPrefab))
-				score = 0;
+			if (!VehiclePrefabsMatch(rootPrefab, record.m_sPrefab))
+			{
+				rejectReason = string.Format("registered vehicle prefab mismatch | record %1 | live %2", record.m_sPrefab, rootPrefab);
+				continue;
+			}
+
+			int score = 0;
 
 			if (score > bestScore)
 				continue;
