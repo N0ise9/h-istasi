@@ -100,6 +100,9 @@ class HST_PhysicalWarService
 	static const float CONVOY_ROUTE_SNAP_MAX_ADVANCE_METERS = 160.0;
 	static const int CONVOY_CREW_POPULATION_GRACE_SECONDS = 20;
 	static const int CONVOY_READINESS_GRACE_SECONDS = 60;
+	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
+	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
+	static const float EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS = 1800.0;
 	static const float CONVOY_VEHICLE_SPAWN_LIFT_METERS = 1.25;
 	static const float CONVOY_VEHICLE_SPAWN_CLEARANCE_METERS = 18.0;
 	static const float CONVOY_PHYSICAL_ROAD_SEARCH_RADIUS_METERS = 40.0;
@@ -114,6 +117,8 @@ class HST_PhysicalWarService
 	protected ref array<IEntity> m_aRuntimeVehicleEntities = {};
 	protected ref array<ref HST_ConvoyProgressStatus> m_aConvoyProgressStatuses = {};
 	protected ref array<string> m_aRestoredMissionConvoyRebuildGroupIds = {};
+	protected ref array<string> m_aVehicleSpawnBlockedZoneIds = {};
+	protected ref array<string> m_aVehicleSpawnBlockedReasons = {};
 	protected ref HST_ConvoyVehicleControlAdapter m_ConvoyVehicleControl;
 	protected bool m_bMarkerRefreshNeeded;
 
@@ -711,6 +716,12 @@ class HST_PhysicalWarService
 			if (HasActiveMissionForConvoyGroup(state, activeGroup))
 				continue;
 
+			if (ShouldKeepExpiredEngagedConvoyRuntime(state, activeGroup))
+			{
+				changed = MarkExpiredEngagedConvoyRuntimePreserved(activeGroup) || changed;
+				continue;
+			}
+
 			bool preserveVehicle = ShouldPreserveInactiveMissionConvoyVehicle(state, activeGroup);
 			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, !preserveVehicle);
 			RemoveConvoyProgressStatusForGroup(activeGroup.m_sGroupId);
@@ -740,6 +751,58 @@ class HST_PhysicalWarService
 			m_bMarkerRefreshNeeded = true;
 
 		return changed;
+	}
+
+	protected bool ShouldKeepExpiredEngagedConvoyRuntime(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+		if (activeGroup.m_sRuntimeStatus != MISSION_CONVOY_CONTACT)
+			return false;
+
+		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
+		if (!mission || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
+			return false;
+		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+		if (CountAliveRuntimeCrewAgents(activeGroup) <= 0)
+			return false;
+
+		vector runtimePosition = ResolveMissionConvoyRuntimePosition(activeGroup);
+		float nearestPlayerDistance = ResolveNearestLivingPlayerDistanceMeters(runtimePosition);
+		return nearestPlayerDistance >= 0 && nearestPlayerDistance <= EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS;
+	}
+
+	protected bool MarkExpiredEngagedConvoyRuntimePreserved(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		string mode = "expired_combat_preserved";
+		string reason = "Expired convoy combat preserved until no living player remains inside render bubble.";
+		if (activeGroup.m_sSpawnFallbackMode == mode && activeGroup.m_sSpawnFailureReason == reason)
+			return false;
+
+		activeGroup.m_sSpawnFallbackMode = mode;
+		activeGroup.m_sSpawnFailureReason = reason;
+		Print(string.Format("h-istasi mission convoy | preserving expired engaged convoy runtime %1 until players leave render bubble", activeGroup.m_sGroupId));
+		return true;
+	}
+
+	protected vector ResolveMissionConvoyRuntimePosition(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return vector.Zero;
+
+		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (vehicleEntity)
+			return vehicleEntity.GetOrigin();
+
+		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		if (crewEntity)
+			return crewEntity.GetOrigin();
+
+		return activeGroup.m_vPosition;
 	}
 
 	protected bool ShouldPreserveInactiveMissionConvoyVehicle(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -2897,7 +2960,7 @@ class HST_PhysicalWarService
 			return waypoints;
 		}
 
-		vector previousPosition;
+		ref array<vector> preferredWaypoints = {};
 		int lastIndex = -1000000;
 		while (true)
 		{
@@ -2919,20 +2982,46 @@ class HST_PhysicalWarService
 			if (!selectedWaypoint)
 				break;
 
-			if (IsZeroVector(previousPosition))
-			{
-				AppendConvoyRoadWaypoint(waypoints, selectedWaypoint.m_vPosition, route.m_vEndPosition);
-			}
-			else
-			{
-				AppendConvoyRoadSegmentWaypoints(waypoints, previousPosition, selectedWaypoint.m_vPosition, route.m_vEndPosition);
-			}
+			preferredWaypoints.Insert(selectedWaypoint.m_vPosition);
 
-			previousPosition = selectedWaypoint.m_vPosition;
 			lastIndex = selectedWaypoint.m_iIndex;
 		}
 
+		AppendSparseConvoyRouteWaypoints(waypoints, preferredWaypoints, route.m_vEndPosition, CONVOY_RUNTIME_WAYPOINT_MAX_COUNT);
 		return waypoints;
+	}
+
+	protected void AppendSparseConvoyRouteWaypoints(array<vector> waypoints, array<vector> preferredWaypoints, vector destination, int maxWaypointCount)
+	{
+		if (!waypoints || !preferredWaypoints || preferredWaypoints.Count() == 0 || maxWaypointCount <= 0)
+			return;
+
+		int preferredCount = preferredWaypoints.Count();
+		if (preferredCount <= maxWaypointCount)
+		{
+			foreach (vector preferredPosition : preferredWaypoints)
+			{
+				AppendConvoyRoadWaypoint(waypoints, preferredPosition, destination);
+			}
+			return;
+		}
+
+		int lastSelectedIndex = -1;
+		for (int i = 0; i < maxWaypointCount; i++)
+		{
+			float t = 0.0;
+			if (maxWaypointCount > 1)
+				t = i * 1.0 / (maxWaypointCount - 1);
+
+			int selectedIndex = Math.Round(t * (preferredCount - 1));
+			if (selectedIndex <= lastSelectedIndex)
+				selectedIndex = lastSelectedIndex + 1;
+			if (selectedIndex >= preferredCount)
+				selectedIndex = preferredCount - 1;
+
+			AppendConvoyRoadWaypoint(waypoints, preferredWaypoints[selectedIndex], destination);
+			lastSelectedIndex = selectedIndex;
+		}
 	}
 
 	protected void AppendConvoyRoadSegmentWaypoints(array<vector> waypoints, vector startPosition, vector endPosition, vector destination)
@@ -2942,6 +3031,7 @@ class HST_PhysicalWarService
 
 		float distanceMeters = Math.Sqrt(DistanceSq2D(startPosition, endPosition));
 		int segmentCount = Math.Max(1, Math.Round(distanceMeters / 90.0));
+		segmentCount = Math.Min(segmentCount, CONVOY_RUNTIME_WAYPOINT_MAX_COUNT);
 		for (int i = 1; i <= segmentCount; i++)
 		{
 			float t = i;
@@ -3057,22 +3147,51 @@ class HST_PhysicalWarService
 
 		if (routeWaypoints && routeWaypoints.Count() > 0)
 		{
-			AppendConvoyLeadInWaypoints(result, activeGroup.m_vSourcePosition, routeWaypoints[0]);
+			int desiredWaypointCount = Math.Max(CONVOY_RUNTIME_WAYPOINT_MIN_COUNT, Math.Min(CONVOY_RUNTIME_WAYPOINT_MAX_COUNT, routeWaypoints.Count() + 2));
+			int leadInWaypointCount = Math.Max(0, desiredWaypointCount - routeWaypoints.Count());
+			AppendConvoyLeadInWaypoints(result, activeGroup.m_vSourcePosition, routeWaypoints[0], leadInWaypointCount);
 			foreach (vector routeWaypoint : routeWaypoints)
 			{
-				result.Insert(routeWaypoint);
+				if (result.Count() >= CONVOY_RUNTIME_WAYPOINT_MAX_COUNT)
+					break;
+
+				AppendResolvedConvoyWaypoint(result, routeWaypoint);
 			}
 		}
 
 		if (result.Count() == 0 && !IsZeroVector(activeGroup.m_vTargetPosition))
-			result.Insert(activeGroup.m_vTargetPosition);
+			AppendConvoyRoadSegmentWaypoints(result, activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, activeGroup.m_vTargetPosition);
+		if (result.Count() == 1 && !IsZeroVector(activeGroup.m_vTargetPosition))
+			AppendConvoyRoadWaypoint(result, activeGroup.m_vTargetPosition, activeGroup.m_vTargetPosition);
 
 		return result;
 	}
 
-	protected void AppendConvoyLeadInWaypoints(array<vector> waypoints, vector sourcePosition, vector routeStartPosition)
+	protected void AppendConvoyLeadInWaypoints(array<vector> waypoints, vector sourcePosition, vector routeStartPosition, int maxWaypointCount)
 	{
-		AppendConvoyRoadSegmentWaypoints(waypoints, sourcePosition, routeStartPosition, routeStartPosition);
+		if (!waypoints || maxWaypointCount <= 0 || IsZeroVector(sourcePosition) || IsZeroVector(routeStartPosition))
+			return;
+
+		for (int i = 1; i <= maxWaypointCount; i++)
+		{
+			float t = i;
+			t = t / (maxWaypointCount + 1);
+			vector candidate = sourcePosition;
+			candidate[0] = sourcePosition[0] + (routeStartPosition[0] - sourcePosition[0]) * t;
+			candidate[1] = sourcePosition[1] + (routeStartPosition[1] - sourcePosition[1]) * t;
+			candidate[2] = sourcePosition[2] + (routeStartPosition[2] - sourcePosition[2]) * t;
+			AppendConvoyRoadWaypoint(waypoints, candidate, routeStartPosition);
+		}
+	}
+
+	protected void AppendResolvedConvoyWaypoint(array<vector> waypoints, vector resolved)
+	{
+		if (!waypoints || IsZeroVector(resolved))
+			return;
+		if (waypoints.Count() > 0 && DistanceSq2D(waypoints[waypoints.Count() - 1], resolved) < 9.0)
+			return;
+
+		waypoints.Insert(resolved);
 	}
 
 	protected void SyncMissionConvoyAssetPositions(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -3541,6 +3660,9 @@ class HST_PhysicalWarService
 			infantryCount = Math.Min(garrison.m_iInfantryCount, ResolveActiveInfantryCap(zone));
 			vehicleCount = Math.Min(garrison.m_iVehicleCount, ResolveActiveVehicleCap(zone));
 		}
+		if (vehicleCount > 0 && IsActiveVehicleSpawnBlocked(zone.m_sZoneId))
+			vehicleCount = 0;
+
 		if (infantryCount <= 0 && vehicleCount <= 0)
 		{
 			ApplyActiveZoneCounts(state, zone);
@@ -3604,6 +3726,7 @@ class HST_PhysicalWarService
 
 		zone.m_iActiveInfantryCount = 0;
 		zone.m_iActiveVehicleCount = 0;
+		ClearActiveVehicleSpawnBlocked(zone.m_sZoneId);
 		if (compositions)
 			changed = compositions.CleanupZoneComposition(zone.m_sZoneId) || changed;
 		if (changed)
@@ -3661,6 +3784,49 @@ class HST_PhysicalWarService
 		}
 
 		return false;
+	}
+
+	protected bool IsActiveVehicleSpawnBlocked(string zoneId)
+	{
+		return !zoneId.IsEmpty() && m_aVehicleSpawnBlockedZoneIds.Contains(zoneId);
+	}
+
+	protected void RecordActiveVehicleSpawnBlocked(HST_ZoneState zone, string reason)
+	{
+		if (!zone)
+			return;
+
+		string zoneId = zone.m_sZoneId;
+		if (zoneId.IsEmpty())
+			return;
+
+		int index = m_aVehicleSpawnBlockedZoneIds.Find(zoneId);
+		if (index >= 0)
+		{
+			if (index < m_aVehicleSpawnBlockedReasons.Count())
+				m_aVehicleSpawnBlockedReasons[index] = reason;
+			return;
+		}
+
+		m_aVehicleSpawnBlockedZoneIds.Insert(zoneId);
+		m_aVehicleSpawnBlockedReasons.Insert(reason);
+		Print(string.Format("h-istasi | vehicle spawn blocked for %1 until zone unload: %2", zoneId, reason), LogLevel.WARNING);
+	}
+
+	protected void ClearActiveVehicleSpawnBlocked(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return;
+
+		for (int i = m_aVehicleSpawnBlockedZoneIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aVehicleSpawnBlockedZoneIds[i] != zoneId)
+				continue;
+
+			m_aVehicleSpawnBlockedZoneIds.Remove(i);
+			if (i < m_aVehicleSpawnBlockedReasons.Count())
+				m_aVehicleSpawnBlockedReasons.Remove(i);
+		}
 	}
 
 	protected void RegisterDetachedActiveVehicle(HST_CampaignState state, HST_ZoneState zone, HST_ActiveGroupState activeGroup, IEntity vehicle, string reason)
@@ -3765,7 +3931,7 @@ class HST_PhysicalWarService
 		int groupCount = ResolveInfantryGroupCount(infantryCount);
 		int remainingInfantry = infantryCount;
 		int spawnedGroups;
-		bool patrolAssigned;
+		bool distributedGuardAssigned;
 		for (int groupIndex = 0; groupIndex < groupCount; groupIndex++)
 		{
 			int remainingGroups = groupCount - groupIndex;
@@ -3783,8 +3949,8 @@ class HST_PhysicalWarService
 				else
 				{
 					slot = compositions.SelectSlot(slots, HST_ZoneCompositionService.SLOT_PATROL, groupIndex - 1);
-					runtimeStatus = "patrol_distributed";
-					patrolAssigned = true;
+					runtimeStatus = "guard_distributed";
+					distributedGuardAssigned = true;
 				}
 
 				if (!slot)
@@ -3795,8 +3961,8 @@ class HST_PhysicalWarService
 				spawnedGroups++;
 		}
 
-		if (patrolAssigned && compositions)
-			compositions.ReportPatrolWaypointUnavailable(zone.m_sZoneId);
+		if (distributedGuardAssigned && compositions)
+			compositions.ReportDistributedGuardSlots(zone.m_sZoneId);
 
 		return spawnedGroups;
 	}
@@ -3826,7 +3992,7 @@ class HST_PhysicalWarService
 			if (!slot)
 			{
 				FoldUnspawnedForces(state, zone.m_sZoneId, zone.m_sOwnerFactionKey, 0, 1);
-				Print(string.Format("h-istasi | vehicle spawn skipped for %1: no safe vehicle slot", zone.m_sZoneId), LogLevel.WARNING);
+				RecordActiveVehicleSpawnBlocked(zone, "no safe vehicle slot");
 				continue;
 			}
 
@@ -5092,6 +5258,8 @@ class HST_PhysicalWarService
 			if (!activeGroup)
 				continue;
 
+			NormalizeStaticActiveGroupRoute(activeGroup);
+
 			if (IsMissionConvoyGroup(activeGroup))
 			{
 				HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
@@ -5111,6 +5279,20 @@ class HST_PhysicalWarService
 			else
 				TrySpawnActiveGroup(activeGroup, state);
 		}
+	}
+
+	protected void NormalizeStaticActiveGroupRoute(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
+			return;
+		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active")
+			return;
+		if (activeGroup.m_sRouteId.IsEmpty())
+			return;
+
+		activeGroup.m_sRouteId = "";
+		activeGroup.m_vSourcePosition = activeGroup.m_vPosition;
+		activeGroup.m_vTargetPosition = activeGroup.m_vPosition;
 	}
 
 	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state)
@@ -5299,11 +5481,13 @@ class HST_PhysicalWarService
 	{
 		if (!zone)
 			return "";
+		if (!qrf)
+			return "";
 
 		if (qrf && !zone.m_sQRFRouteId.IsEmpty())
 			return zone.m_sQRFRouteId;
 
-		return zone.m_sPatrolRouteId;
+		return "";
 	}
 
 	protected vector ResolveGroupSourcePosition(HST_CampaignState state, HST_ZoneState zone, string routeId, bool qrf)

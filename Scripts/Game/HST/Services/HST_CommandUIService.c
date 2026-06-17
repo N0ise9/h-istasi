@@ -2537,9 +2537,10 @@ class HST_CommandUIService
 			if (IsPersistenceSmokeMission(mission))
 				continue;
 			bool postCompletionConvoy = IsPostCompletionConvoyOutcomeMission(mission);
-			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !postCompletionConvoy)
+			bool expiredPlayerBound = IsExpiredPlayerBoundMissionActionCandidate(state, mission);
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !postCompletionConvoy && !expiredPlayerBound)
 				continue;
-			if (AreMissionObjectivesComplete(state, mission) && !postCompletionConvoy)
+			if (AreMissionObjectivesComplete(state, mission) && !postCompletionConvoy && !expiredPlayerBound)
 				continue;
 
 			HST_MissionAssetState asset = SelectMissionNextAsset(state, mission);
@@ -2713,7 +2714,7 @@ class HST_CommandUIService
 				continue;
 			if (IsPersistenceSmokeMission(mission))
 				continue;
-			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(mission))
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(mission) && !IsExpiredPlayerBoundMissionActionCandidate(state, mission))
 				continue;
 
 			AddMenuAction(actions, TAB_MISSIONS, "Inspect: " + ShortText(BuildMissionDisplayTitle(mission), 24), "inspect_mission", mission.m_sInstanceId, canUseMember, disabledReason);
@@ -2727,6 +2728,8 @@ class HST_CommandUIService
 			return null;
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
 			return SelectConvoyOutcomeAsset(state, mission);
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return SelectExpiredPlayerBoundMissionAsset(state, mission);
 		if (AreMissionObjectivesComplete(state, mission))
 			return null;
 
@@ -2764,6 +2767,44 @@ class HST_CommandUIService
 			return freedCaptive;
 
 		return fallbackVehicle;
+	}
+
+	protected bool IsExpiredPlayerBoundMissionActionCandidate(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		return SelectExpiredPlayerBoundMissionAsset(state, mission) != null;
+	}
+
+	protected HST_MissionAssetState SelectExpiredPlayerBoundMissionAsset(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return null;
+
+		HST_MissionAssetState fallbackCaptive;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!IsExpiredPlayerBoundMissionAsset(asset, mission))
+				continue;
+			if (asset.m_sKind == "cargo")
+				return asset;
+			if (asset.m_sKind == "captive" && !fallbackCaptive)
+				fallbackCaptive = asset;
+		}
+
+		return fallbackCaptive;
+	}
+
+	protected bool IsExpiredPlayerBoundMissionAsset(HST_MissionAssetState asset, HST_ActiveMissionState mission)
+	{
+		if (!asset || !mission || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+			return false;
+		if (!asset.m_bPickedUp || asset.m_bDelivered || asset.m_bDestroyed)
+			return false;
+		if (asset.m_sKind == "cargo")
+			return asset.m_bAttachedToCarrier && !asset.m_sCarriedByVehicleId.IsEmpty();
+		if (asset.m_sKind == "captive")
+			return asset.m_bAttachedToCarrier || asset.m_sLastInteraction == "following" || asset.m_sLastInteraction == "loaded" || asset.m_sLastInteraction == "extracting";
+
+		return false;
 	}
 
 	protected HST_MissionAssetState SelectConvoyOutcomeAsset(HST_CampaignState state, HST_ActiveMissionState mission)

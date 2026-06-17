@@ -175,13 +175,13 @@ class HST_ZoneCompositionService
 		return null;
 	}
 
-	void ReportPatrolWaypointUnavailable(string zoneId)
+	void ReportDistributedGuardSlots(string zoneId)
 	{
 		m_sLastFailedZoneId = zoneId;
-		m_sLastFailedSlotId = zoneId + "_patrol";
+		m_sLastFailedSlotId = zoneId + "_distributed_guard";
 		m_sLastFailedPrefab = "";
-		m_sLastFailedSlotReason = "patrol waypoint API unavailable";
-		Print(string.Format("h-istasi zone composition | %1 | patrol waypoint API unavailable; distributed guard placement retained", zoneId), LogLevel.WARNING);
+		m_sLastFailedSlotReason = "distributed guard slots active";
+		Print(string.Format("h-istasi zone composition | %1 | distributed guard slots active", zoneId));
 	}
 
 	string BuildCompositionReport(HST_CampaignState state)

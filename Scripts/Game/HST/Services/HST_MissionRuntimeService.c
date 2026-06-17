@@ -84,6 +84,7 @@ class HST_MissionRuntimeService
 	static const float CAPTIVE_FOLLOW_NEAR_DISTANCE_METERS = 5.0;
 	static const float CAPTIVE_FOLLOW_BREAK_DISTANCE_METERS = 100.0;
 	static const float CAPTIVE_DISEMBARK_RADIUS_METERS = 35.0;
+	static const float POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS = 1800.0;
 	static const int CAPTIVE_FOLLOW_WAYPOINT_INTERVAL_SECONDS = 4;
 	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string MISSION_CONVOY_GROUP_PREFIX = "mission_convoy_";
@@ -171,6 +172,12 @@ class HST_MissionRuntimeService
 
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 			{
+				if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
+				{
+					changed = TickExpiredPlayerBoundMissionRuntime(state, preset, mission, elapsedSeconds) || changed;
+					continue;
+				}
+
 				changed = CleanupMissionRuntime(state, mission) || changed;
 				continue;
 			}
@@ -199,6 +206,122 @@ class HST_MissionRuntimeService
 		}
 
 		return changed;
+	}
+
+	protected bool TickExpiredPlayerBoundMissionRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, int elapsedSeconds)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+
+		bool changed;
+		if (ShouldRunRestoredMissionCarrierRestorePass(state, mission))
+			changed = EnsureRestoredMissionCarrierVehicles(state, mission) || changed;
+		EnsureMissionCaptivesNeutralized(state, mission);
+		changed = UpdateFollowingCaptives(state, mission) || changed;
+		changed = SyncMissionAssetRuntimePositions(state, mission) || changed;
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bComplete || objective.m_bFailed)
+				continue;
+
+			if (PollObjective(state, preset, mission, objective, elapsedSeconds))
+				changed = true;
+		}
+
+		UpdateMissionCountersFromAssets(state, mission);
+		return changed;
+	}
+
+	bool CanCompleteExpiredPlayerBoundMission(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+
+		if (ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission))
+			return true;
+
+		return AreRuntimeObjectivesComplete(state, mission.m_sInstanceId) && HasDeliveredPlayerBoundMissionAssetAfterExpiry(state, mission);
+	}
+
+	protected bool ShouldContinueExpiredPlayerBoundMissionRuntime(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED || mission.m_bRuntimeCleanupComplete)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (IsMissionAssetPlayerBoundAfterExpiry(state, asset))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsExpiredPlayerBoundMissionInteractionAllowed(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, string commandId)
+	{
+		if (!state || !mission || !asset || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+			return false;
+		if (asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDelivered || asset.m_bDestroyed)
+			return false;
+		if (!IsMissionAssetPlayerBoundAfterExpiry(state, asset))
+			return false;
+
+		if (commandId == "mission_asset_deliver" || commandId == "mission_asset_unload")
+			return IsTransportableAsset(asset) && asset.m_sKind != ASSET_KIND_CAPTIVE && asset.m_bPickedUp;
+		if (commandId == "mission_captive_extract" || commandId == "mission_captive_follow")
+			return asset.m_sKind == ASSET_KIND_CAPTIVE && asset.m_bPickedUp;
+
+		return false;
+	}
+
+	protected bool IsMissionAssetPlayerBoundAfterExpiry(HST_CampaignState state, HST_MissionAssetState asset)
+	{
+		if (!state || !asset || !asset.m_bPickedUp || asset.m_bDelivered || asset.m_bDestroyed)
+			return false;
+
+		if (asset.m_bAttachedToCarrier && !asset.m_sCarriedByVehicleId.IsEmpty())
+			return IsMissionAssetCarrierNearLivingPlayer(state, asset);
+
+		if (asset.m_sKind != ASSET_KIND_CAPTIVE)
+			return false;
+		if (asset.m_sLastInteraction != PHASE_FOLLOWING && asset.m_sLastInteraction != PHASE_LOADED && asset.m_sLastInteraction != PHASE_EXTRACTING)
+			return false;
+
+		vector position = ResolveCaptiveStopPosition(asset, GetRuntimeEntity(asset.m_sEntityId));
+		return !IsZeroVector(position) && IsAnyLivingPlayerNearObjective(position, POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS);
+	}
+
+	protected bool IsMissionAssetCarrierNearLivingPlayer(HST_CampaignState state, HST_MissionAssetState asset)
+	{
+		if (!state || !asset || asset.m_sCarriedByVehicleId.IsEmpty())
+			return false;
+
+		if (IsPlayerCarrierId(asset.m_sCarriedByVehicleId))
+			return IsLivingPlayerEntity(ResolvePlayerEntityForCarrierId(asset.m_sCarriedByVehicleId));
+
+		vector carrierPosition;
+		if (!TryResolveCarrierPosition(state, asset.m_sCarriedByVehicleId, asset.m_vCurrentPosition, carrierPosition))
+			return false;
+
+		return !IsZeroVector(carrierPosition) && IsAnyLivingPlayerNearObjective(carrierPosition, POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS);
+	}
+
+	protected bool HasDeliveredPlayerBoundMissionAssetAfterExpiry(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return false;
+
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+			if (asset.m_bDelivered && !asset.m_bDestroyed && IsTransportableAsset(asset))
+				return true;
+		}
+
+		return false;
 	}
 
 	protected bool AdvanceMissionStateMachine(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, int elapsedSeconds)
@@ -1123,7 +1246,8 @@ class HST_MissionRuntimeService
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
 		bool allowPostCompletionConvoyInteraction = IsPostCompletionConvoyInteractionAllowed(mission, asset, commandId);
-		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyInteraction))
+		bool allowExpiredPlayerBoundInteraction = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId);
+		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyInteraction && !allowExpiredPlayerBoundInteraction))
 		{
 			result = "h-istasi mission | failed: mission is no longer active";
 			return false;
@@ -1197,7 +1321,7 @@ class HST_MissionRuntimeService
 			return false;
 
 		missionInstanceId = mission.m_sInstanceId;
-		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+		if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE || allowExpiredPlayerBoundInteraction)
 		{
 			mission.m_sLastRuntimeEventKey = eventType;
 			RefreshMissionObjectivesFromAssets(state, mission);
@@ -1269,7 +1393,7 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyInteractionAllowed(mission, asset, commandId)))
+			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyInteractionAllowed(mission, asset, commandId) && !IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId)))
 				continue;
 
 			vector position = ResolveInteractionValidationPosition(asset, commandId);
@@ -3762,7 +3886,9 @@ class HST_MissionRuntimeService
 
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			if (!mission)
+				continue;
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !CanCompleteExpiredPlayerBoundMission(state, mission))
 				continue;
 			if (IsPersistenceSmokeMission(mission))
 				continue;
@@ -5173,7 +5299,7 @@ class HST_MissionRuntimeService
 		group.m_sZoneId = zone.m_sZoneId;
 		group.m_sFactionKey = factionKey;
 		group.m_sPrefab = SelectMissionGroupPrefab(state, zone, factionKey, definition);
-		group.m_sRouteId = zone.m_sPatrolRouteId;
+		group.m_sRouteId = "";
 		group.m_vSourcePosition = guardPosition;
 		group.m_vTargetPosition = guardPosition;
 		group.m_vPosition = HST_WorldPositionService.ResolveSafeGroundPosition(guardPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 4.0);

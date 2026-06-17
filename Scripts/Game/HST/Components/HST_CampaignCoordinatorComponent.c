@@ -614,7 +614,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Objectives.ProgressMission(m_State, instanceId, 999);
 
 		bool applyDefinitionRewards = !ShouldSuppressDefinitionRewardForConvoyCompletion(activeMission);
-		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId, applyDefinitionRewards);
+		bool allowExpiredCompletion = activeMission && activeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && m_MissionRuntime && m_MissionRuntime.CanCompleteExpiredPlayerBoundMission(m_State, activeMission);
+		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId, applyDefinitionRewards, allowExpiredCompletion);
 		if (changed && ApplyCompletedMissionOutcome(definition, activeMission))
 			changed = true;
 

@@ -637,6 +637,9 @@ $configMissions = @([regex]::Matches($missionConfig, 'm_sMissionId "([^"]+)"') |
 Assert-EqualSet "Mission registries" $runtimeMissions $configMissions
 
 $missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$missionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionService.c"
+$commandUIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$missionCompletionContractText = $missionRuntimeServiceText + "`n" + $missionServiceText + "`n" + $coordinatorText + "`n" + $commandUIServiceText
 $missionCaptiveFollowComponentPath = "Scripts/Game/HST/Components/HST_MissionCaptiveFollowComponent.c"
 $missionCaptiveFollowComponentText = ""
 if (Test-Path $missionCaptiveFollowComponentPath) {
@@ -664,6 +667,13 @@ foreach ($requiredMissionPrimitive in @(
 	"BuildRuntimeReport",
 	"TrySpawnMissionRuntimeProp",
 	"EnsureMissionRuntimeProp",
+	"POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS = 1800.0",
+	"ShouldContinueExpiredPlayerBoundMissionRuntime",
+	"TickExpiredPlayerBoundMissionRuntime",
+	"CanCompleteExpiredPlayerBoundMission",
+	"IsExpiredPlayerBoundMissionInteractionAllowed",
+	"HasDeliveredPlayerBoundMissionAssetAfterExpiry",
+	"EnsureRestoredMissionCarrierVehicles(state, mission)",
 	"HST_MissionProp_HVT.et",
 	"HST_MissionProp_DestroyTarget.et",
 	"HST_MissionProp_Cargo.et",
@@ -672,6 +682,18 @@ foreach ($requiredMissionPrimitive in @(
 )) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredMissionPrimitive)) {
 		throw "Mission runtime service is missing physical primitive contract: $requiredMissionPrimitive"
+	}
+}
+foreach ($requiredExpiredMissionCompletionEntry in @(
+	"allowExpired = false",
+	"CanCompleteExpiredPlayerBoundMission(m_State, activeMission)",
+	"m_Missions.Complete(m_State, m_Economy, instanceId, applyDefinitionRewards, allowExpiredCompletion)",
+	"IsExpiredPlayerBoundMissionActionCandidate",
+	"SelectExpiredPlayerBoundMissionAsset",
+	"IsExpiredPlayerBoundMissionAsset"
+)) {
+	if ($missionCompletionContractText -notmatch [regex]::Escape($requiredExpiredMissionCompletionEntry)) {
+		throw "Missing expired player-bound mission completion entry: $requiredExpiredMissionCompletionEntry"
 	}
 }
 foreach ($requiredCaptiveRuntimeContract in @(
@@ -1925,6 +1947,7 @@ foreach ($requiredLootEntry in @(
 	"ResolveRuntimeVehicleRootFromRecord",
 	"FillVehicleScanResult",
 	"VehiclePrefabsMatch",
+	"registered vehicle prefab mismatch",
 	"ResolveVehicleRuntimeIdFromScan",
 	"ResolveVehiclePrefabFromScan",
 	"IsEligibleVehicleRoot",
@@ -2659,19 +2682,35 @@ Write-Host "Physical AI war scaffold OK"
 $physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
 foreach ($requiredActiveVehicleDetachEntry in @(
 	"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
+	"m_aVehicleSpawnBlockedZoneIds",
 	"TryDetachPlayerUsedActiveVehicleFromZoneCleanup",
 	"ShouldDetachActiveVehicleFromZoneCleanup",
 	"RegisterDetachedActiveVehicle",
 	"IsAnyLivingPlayerInVehicle",
 	"ResolveEntityVehicle",
 	"ResolveActiveVehicleRuntimeId",
+	"IsActiveVehicleSpawnBlocked",
+	"RecordActiveVehicleSpawnBlocked",
+	"ClearActiveVehicleSpawnBlocked",
+	"NormalizeStaticActiveGroupRoute",
 	"DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, false)",
 	"detached_active_vehicle",
+	"vehicle spawn blocked",
+	"guard_distributed",
 	"m_bDetached = true",
 	"m_bDeleted = false"
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveVehicleDetachEntry)) {
 		throw "Physical war active-zone cleanup is missing stolen/occupied vehicle detach guard: $requiredActiveVehicleDetachEntry"
+	}
+}
+foreach ($forbiddenActiveGroupRouteEntry in @(
+	"patrol_distributed",
+	"ReportPatrolWaypointUnavailable",
+	"group.m_sRouteId = zone.m_sPatrolRouteId"
+)) {
+	if ($scriptText -match [regex]::Escape($forbiddenActiveGroupRouteEntry)) {
+		throw "Static active defenders must not retain dynamic patrol route/waypoint contract: $forbiddenActiveGroupRouteEntry"
 	}
 }
 Write-Host "Physical active vehicle detach guard OK"
@@ -3027,6 +3066,13 @@ foreach ($requiredPhase7RuntimeEntry in @(
 	"BuildMissionConvoyGroupWaypointPositions",
 	"AppendConvoyLeadInWaypoints",
 	"activeGroup.m_vSourcePosition, routeWaypoints[0]",
+	"CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3",
+	"CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5",
+	"AppendSparseConvoyRouteWaypoints",
+	"AppendResolvedConvoyWaypoint",
+	"desiredWaypointCount = Math.Max(CONVOY_RUNTIME_WAYPOINT_MIN_COUNT, Math.Min(CONVOY_RUNTIME_WAYPOINT_MAX_COUNT, routeWaypoints.Count() + 2))",
+	"if (result.Count() >= CONVOY_RUNTIME_WAYPOINT_MAX_COUNT)",
+	"segmentCount = Math.Min(segmentCount, CONVOY_RUNTIME_WAYPOINT_MAX_COUNT)",
 	"TryAssignVehicleRoute(activeGroup, crewEntity, vehicle, groupWaypoints, assignedWaypointCount, adapterReason)",
 	"activeGroup.m_iAssignedWaypointCount = assignedWaypointCount",
 	"activeGroup.m_iAssignedWaypointCount = 0",
@@ -3048,6 +3094,13 @@ foreach ($requiredPhase7RuntimeEntry in @(
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase7RuntimeEntry)) {
 		throw "Missing Phase 7 convoy runtime waypoint-chain entry: $requiredPhase7RuntimeEntry"
+	}
+}
+foreach ($forbiddenPhase7DenseWaypointEntry in @(
+	"AppendConvoyRoadSegmentWaypoints(waypoints, previousPosition"
+)) {
+	if ($physicalWarServiceText -match [regex]::Escape($forbiddenPhase7DenseWaypointEntry)) {
+		throw "Phase 7 convoy route assignment must keep sparse runtime waypoints: $forbiddenPhase7DenseWaypointEntry"
 	}
 }
 $largeConvoySpawnPassIndex = $physicalWarServiceText.IndexOf("TryResolveMissionConvoyVehicleSpawnPositionPass(mission, asset, spawnPosition, false)")
@@ -3268,7 +3321,11 @@ foreach ($requiredPhase9RuntimeEntry in @(
 	"IsMissionConvoyGroupAssetTerminal",
 	"asset.m_bDestroyed || asset.m_bDelivered",
 	"activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED",
-	"aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0)"
+	"aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0)",
+	"EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS = 1800.0",
+	"ShouldKeepExpiredEngagedConvoyRuntime",
+	"expired_combat_preserved",
+	"Expired convoy combat preserved until no living player remains inside render bubble."
 )) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase9RuntimeEntry)) {
 		throw "Missing Phase 9 convoy contact runtime entry: $requiredPhase9RuntimeEntry"
