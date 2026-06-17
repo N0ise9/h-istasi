@@ -1595,6 +1595,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
+	string RequestServerMissionAssetExplosiveDamage(string assetId, vector position, float damage, string sourceLabel)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | server required";
+
+		if (!m_MissionRuntime)
+			return "h-istasi mission | service not ready";
+
+		string result;
+		string eventType;
+		string missionInstanceId;
+		bool changed = m_MissionRuntime.ApplyMissionAssetExplosiveDamage(m_State, assetId, position, damage, sourceLabel, result, eventType, missionInstanceId);
+		if (!changed)
+			return result;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(missionInstanceId);
+		HST_MissionDefinition definition;
+		if (mission)
+			definition = m_Missions.FindDefinition(mission.m_sMissionId);
+
+		if (!eventType.IsEmpty() && eventType != "demolition_progress")
+			BroadcastMissionEvent(eventType, mission, definition);
+
+		ApplyConvoyOutcomesNow();
+
+		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
+		if (!completedRuntimeMissionId.IsEmpty())
+			CompleteMission(completedRuntimeMissionId);
+
+		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
+		if (!failedRuntimeMissionId.IsEmpty())
+			FailMission(failedRuntimeMissionId);
+
+		BroadcastPendingMissionOutcomeEvents();
+		MarkMajorCampaignChange(eventType != "demolition_progress");
+		return result;
+	}
+
 	string RequestMemberLootNearby(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -2786,6 +2824,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			state = "alive";
 		else if (asset.m_sKind == "target")
 			state = "intact";
+
+		if ((asset.m_sKind == "target" || asset.m_sRole == "destroy_target") && !asset.m_bDestroyed && asset.m_fDemolitionRequiredDamage > 0.0)
+			return string.Format("%1: %2 | demolition %3/%4", role, state, Math.Round(asset.m_fDemolitionDamage), Math.Round(asset.m_fDemolitionRequiredDamage));
 
 		return role + ": " + state;
 	}

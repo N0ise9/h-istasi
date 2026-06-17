@@ -2409,7 +2409,7 @@ class HST_CommandUIService
 		if (mission.m_sMissionId == "assassinate_officer")
 			return "Find the marked officer and kill them.";
 		if (mission.m_sMissionId == "destroy_radio_tower")
-			return "Destroy or sabotage the marked radio target.";
+			return "Use rockets, mines, demo charges, or other explosives to demolish the marked radio tower.";
 		if (mission.m_sMissionId == "support_city_supplies")
 			return "Pick up FIA supplies at HQ and deliver them to the town.";
 		if (mission.m_sMissionId == "logistics_resource_cache")
@@ -2422,7 +2422,7 @@ class HST_CommandUIService
 		if (mission.m_sRuntimePrimitive == "kill_hvt")
 			return "Find and kill the marked HVT.";
 		if (mission.m_sRuntimePrimitive == "destroy_target")
-			return "Destroy or sabotage the marked target.";
+			return "Use explosives to demolish the marked target.";
 		if (mission.m_sRuntimePrimitive == "recover_cargo")
 			return "Recover the marked cargo and deliver it to HQ.";
 		if (mission.m_sRuntimePrimitive == "deliver_supplies")
@@ -2995,7 +2995,10 @@ class HST_CommandUIService
 			return "mission_captive_extract";
 		}
 
-		if (asset.m_sKind == "target" || asset.m_sKind == "character")
+		if (asset.m_sKind == "target")
+			return "";
+
+		if (asset.m_sKind == "character")
 			return "mission_asset_sabotage";
 
 		if (asset.m_sKind == "vehicle")
@@ -3025,7 +3028,7 @@ class HST_CommandUIService
 		}
 		else if (asset.m_sKind == "target")
 		{
-			verb = "Sabotage";
+			verb = "Demolish";
 		}
 		else if (asset.m_sKind == "character")
 		{

@@ -690,6 +690,7 @@ class HST_MissionRuntimeService
 		asset.m_iDeadlineSecond = mission.m_iActiveUntilSecond;
 		asset.m_iCargoCapacityCost = ResolveAssetCapacityCost(kind, role);
 		asset.m_iInteractionRadiusMeters = ResolveAssetInteractionRadius(kind, role);
+		EnsureDemolitionDefaults(asset);
 		asset.m_bAlive = true;
 		state.m_aMissionAssets.Insert(asset);
 		return true;
@@ -782,8 +783,26 @@ class HST_MissionRuntimeService
 			asset.m_bAlive = true;
 			changed = true;
 		}
+		if (EnsureDemolitionDefaults(asset))
+			changed = true;
 
 		return changed;
+	}
+
+	protected bool EnsureDemolitionDefaults(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return false;
+
+		if (asset.m_sKind != ASSET_KIND_TARGET && asset.m_sRole != ROLE_DESTROY_TARGET)
+			return false;
+
+		float requiredDamage = ResolveDemolitionRequiredDamage(asset);
+		if (asset.m_fDemolitionRequiredDamage > 0.0)
+			return false;
+
+		asset.m_fDemolitionRequiredDamage = requiredDamage;
+		return true;
 	}
 
 	protected bool IsTerminalMissionAssetState(HST_MissionAssetState asset)
@@ -1376,6 +1395,82 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
+	bool ApplyMissionAssetExplosiveDamage(HST_CampaignState state, string assetId, vector position, float damage, string sourceLabel, out string result, out string eventType, out string missionInstanceId)
+	{
+		result = "h-istasi mission | no change";
+		eventType = "";
+		missionInstanceId = "";
+
+		if (!state || assetId.IsEmpty())
+		{
+			result = "h-istasi mission | failed: no mission asset supplied";
+			return false;
+		}
+
+		HST_MissionAssetState asset = state.FindMissionAsset(assetId);
+		if (!asset)
+		{
+			result = "h-istasi mission | failed: mission asset not found";
+			return false;
+		}
+
+		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			result = "h-istasi mission | failed: mission is no longer active";
+			return false;
+		}
+
+		if (asset.m_bDestroyed)
+		{
+			result = "h-istasi mission | already destroyed " + BuildAssetShortLabel(asset);
+			return false;
+		}
+
+		if (asset.m_sKind != ASSET_KIND_TARGET && asset.m_sRole != ROLE_DESTROY_TARGET)
+		{
+			result = "h-istasi mission | failed: asset is not a demolition target";
+			return false;
+		}
+
+		if (damage <= 0.0)
+		{
+			result = "h-istasi mission | ignored non-explosive damage";
+			return false;
+		}
+
+		if (asset.m_fDemolitionRequiredDamage <= 0.0)
+			asset.m_fDemolitionRequiredDamage = ResolveDemolitionRequiredDamage(asset);
+
+		asset.m_fDemolitionDamage = Math.Max(0.0, asset.m_fDemolitionDamage) + damage;
+		asset.m_iDemolitionHits++;
+		asset.m_sLastDemolitionSource = sourceLabel;
+		asset.m_iLastDemolitionSecond = state.m_iElapsedSeconds;
+
+		if (!IsZeroVector(position))
+		{
+			asset.m_vCurrentPosition = position;
+			asset.m_vLastKnownPosition = position;
+		}
+
+		missionInstanceId = mission.m_sInstanceId;
+		if (asset.m_fDemolitionDamage < asset.m_fDemolitionRequiredDamage)
+		{
+			float remaining = Math.Max(0.0, asset.m_fDemolitionRequiredDamage - asset.m_fDemolitionDamage);
+			result = string.Format("h-istasi mission | demolition damage %1/%2 on %3 | %4 remaining", Math.Round(asset.m_fDemolitionDamage), Math.Round(asset.m_fDemolitionRequiredDamage), BuildAssetShortLabel(asset), Math.Round(remaining));
+			eventType = "demolition_progress";
+			return true;
+		}
+
+		asset.m_fDemolitionDamage = Math.Max(asset.m_fDemolitionDamage, asset.m_fDemolitionRequiredDamage);
+		MarkMissionAssetDestroyed(state, mission, asset, position);
+		result = string.Format("h-istasi mission | demolished %1 with explosives", BuildAssetShortLabel(asset));
+		eventType = "sabotaged";
+		RefreshMissionObjectivesFromAssets(state, mission);
+		UpdateMissionCountersFromAssets(state, mission);
+		return true;
+	}
+
 	protected HST_MissionAssetState ResolveInteractionAsset(HST_CampaignState state, string commandId, string argument, int playerId, vector playerPosition)
 	{
 		if (!argument.IsEmpty())
@@ -1435,7 +1530,7 @@ class HST_MissionRuntimeService
 			return asset.m_sKind == ASSET_KIND_VEHICLE && !asset.m_bDestroyed;
 
 		if (commandId == "mission_asset_sabotage")
-			return (asset.m_sKind == ASSET_KIND_TARGET || asset.m_sKind == ASSET_KIND_CHARACTER || asset.m_sKind == ASSET_KIND_VEHICLE) && !asset.m_bDestroyed;
+			return (asset.m_sKind == ASSET_KIND_CHARACTER || asset.m_sKind == ASSET_KIND_VEHICLE) && !asset.m_bDestroyed;
 
 		return false;
 	}
@@ -2228,6 +2323,17 @@ class HST_MissionRuntimeService
 			return 22;
 
 		return DEFAULT_ASSET_INTERACTION_RADIUS_METERS;
+	}
+
+	protected float ResolveDemolitionRequiredDamage(HST_MissionAssetState asset)
+	{
+		if (!asset)
+			return 300.0;
+
+		if (asset.m_sRole == ROLE_DESTROY_TARGET || asset.m_sKind == ASSET_KIND_TARGET)
+			return 300.0;
+
+		return 250.0;
 	}
 
 	protected void RefreshMissionObjectivesFromAssets(HST_CampaignState state, HST_ActiveMissionState mission)
