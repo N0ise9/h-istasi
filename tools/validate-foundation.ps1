@@ -2005,6 +2005,66 @@ foreach ($loadoutRowFontContract in $loadoutRowFontContracts) {
 	}
 }
 
+$loadoutVerticalRowLayoutContracts = @(
+	"UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout",
+	"UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout",
+	"UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"
+)
+foreach ($loadoutVerticalRowLayoutPath in $loadoutVerticalRowLayoutContracts) {
+	$loadoutVerticalRowLayoutText = Get-Content -Raw $loadoutVerticalRowLayoutPath
+	foreach ($requiredLoadoutVerticalRowEntry in @(
+		"AllowWidthOverride 0",
+		"AllowMinDesiredWidth 1",
+		"MinDesiredWidth 300",
+		"AllowMaxDesiredWidth 0"
+	)) {
+		if ($loadoutVerticalRowLayoutText -notmatch [regex]::Escape($requiredLoadoutVerticalRowEntry)) {
+			throw "$loadoutVerticalRowLayoutPath must use responsive vertical row width behavior: $requiredLoadoutVerticalRowEntry"
+		}
+	}
+	foreach ($forbiddenLoadoutVerticalRowEntry in @(
+		"WidthOverride 360",
+		"MinDesiredWidth 360",
+		"MaxDesiredWidth 360"
+	)) {
+		if ($loadoutVerticalRowLayoutText -match [regex]::Escape($forbiddenLoadoutVerticalRowEntry)) {
+			throw "$loadoutVerticalRowLayoutPath must not keep fixed 360px row width: $forbiddenLoadoutVerticalRowEntry"
+		}
+	}
+}
+foreach ($requiredLoadoutStorageItemRowEntry in @(
+	"HeightOverride 72",
+	"MinDesiredHeight 72",
+	"MaxDesiredHeight 72",
+	"OffsetRight 70",
+	"OffsetBottom 68",
+	"OffsetLeft 82",
+	"OffsetTop 24"
+)) {
+	$loadoutStorageItemRowText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"
+	if ($loadoutStorageItemRowText -notmatch [regex]::Escape($requiredLoadoutStorageItemRowEntry)) {
+		throw "Loadout storage item row is missing Bacon-scale preview/count entry: $requiredLoadoutStorageItemRowEntry"
+	}
+}
+foreach ($requiredLoadoutCandidateTileEntry in @(
+	"WidthOverride 354",
+	"HeightOverride 92",
+	"MinDesiredWidth 354",
+	"MinDesiredHeight 92",
+	"MaxDesiredWidth 354",
+	"MaxDesiredHeight 92",
+	"OffsetRight 82",
+	"OffsetBottom 82",
+	"OffsetLeft 92",
+	"OffsetLeft -98",
+	"OffsetTop 34"
+)) {
+	$loadoutCandidateTileText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"
+	if ($loadoutCandidateTileText -notmatch [regex]::Escape($requiredLoadoutCandidateTileEntry)) {
+		throw "Loadout candidate tile is missing Bacon-scale tile entry: $requiredLoadoutCandidateTileEntry"
+	}
+}
+
 foreach ($requiredSettingsEntry in @(
 	"HST_RuntimeSettings",
 	"HST_RuntimeSettingsService",
@@ -2117,8 +2177,9 @@ $loadoutEditorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LoadoutEdit
 $campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
 $loadoutPreviewWorldText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewWorld.et"
 $loadoutPreviewLightsText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewLights.et"
+$loadoutPreviewSkyText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewSky.emat"
 $loadoutPreviewSkySphereText = Get-Content -Raw "Prefabs/HST/HST_LoadoutPreviewSkySphere.et"
-$loadoutPreviewVisualText = $loadoutPreviewWorldText + "`n" + $loadoutPreviewSkySphereText
+$loadoutPreviewVisualText = $loadoutPreviewWorldText + "`n" + $loadoutPreviewSkyText + "`n" + $loadoutPreviewSkySphereText
 foreach ($requiredPhase14ConfigEntry in @(
 	"HST_ArsenalItemRule",
 	"m_sPrefabContains",
@@ -2252,6 +2313,26 @@ foreach ($requiredPhase14PreviewLightEntry in @(
 )) {
 	if ($loadoutPreviewLightsText -notmatch [regex]::Escape($requiredPhase14PreviewLightEntry)) {
 		throw "Loadout preview light rig is missing Phase 14 visual/support asset: $requiredPhase14PreviewLightEntry"
+	}
+}
+foreach ($requiredLoadoutPreviewDarkEntry in @(
+	"ColorBottom 0.10 0.13 0.15 0",
+	"ColorZenith 0.015 0.025 0.035 0",
+	"ColorUp 0.06 0.08 0.09 0",
+	"IntensityLV -8.0",
+	"SunSpotIntensityLV 0.75",
+	"DirectLightLV 0.25",
+	"DirectLightColor 0.70 0.76 0.76 0",
+	"IndirectLightLV -0.25",
+	"IndirectLightColor 0.22 0.25 0.25 0",
+	"ManualHDRBrightnessLV -0.25",
+	"Color 0.78 0.82 0.78 0",
+	"LV 5.6",
+	"Radius 24",
+	"SourceSize 2.5"
+)) {
+	if ($loadoutPreviewVisualText -notmatch [regex]::Escape($requiredLoadoutPreviewDarkEntry) -and $loadoutPreviewLightsText -notmatch [regex]::Escape($requiredLoadoutPreviewDarkEntry)) {
+		throw "Loadout preview world is missing dark Bacon-style visual entry: $requiredLoadoutPreviewDarkEntry"
 	}
 }
 Write-Host "Phase 14 arsenal/loot/loadout contracts OK"
@@ -2598,7 +2679,7 @@ foreach ($requiredLoadoutRootMaskEntry in @(
 	"int screenBleed = ScalePx(96)",
 	"FrameSlot.SetPos(root, -screenBleed, -screenBleed)",
 	"FrameSlot.SetSize(root, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2)",
-	"Widget hardMask = CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2, 0xFF5C8089, 1.0, 0)",
+	"Widget hardMask = CreateRectWidget(workspace, root, 0, 0, m_iEditorWidth + screenBleed * 2, m_iEditorHeight + screenBleed * 2, 0xFF1D292D, 1.0, 0)",
 	"hardMask.SetZOrder(0)",
 	"FrameSlot.SetPos(layoutRoot, screenBleed, screenBleed)",
 	"layoutRoot.SetZOrder(10)"
@@ -2626,6 +2707,7 @@ foreach ($requiredLayoutEntry in @(
 	"HST_LoadoutPreview",
 	"OverlayWidgetSlot",
 	"Padding 0 0 0 0",
+	"Color 0.12 0.16 0.18 1",
 	"Anchor 0 0 1 1"
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {
@@ -2729,6 +2811,23 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"AddLoadoutCandidateTile",
 	"AddNodePreviewToRow",
 	"AddCandidatePreviewToRow",
+	"BuildStorageCapacityLabel",
+	"BuildCountBadgeLabel",
+	"BuildNodeCountBadge",
+	"BuildCandidateCountLabel",
+	"SetRowWidgetVisible",
+	"CountStorageCandidatesForTab",
+	"m_Layout.m_iHeaderHeight = ScalePx(68)",
+	"m_Layout.m_iCategoryHeight = ScalePx(68)",
+	"int tabHeight = m_Layout.m_iCategoryHeight",
+	"int iconSize = ScalePx(50)",
+	"iconSize = ScalePx(54)",
+	"ShortenText(BuildStorageTargetLabel(), 96)",
+	"m_Layout.m_iListTop + ScalePx(8)",
+	"BuildStorageCapacityLabel(nodeIndex)",
+	"0xEE05080A",
+	"0x664B5960",
+	"Math.Min(m_Layout.m_iPreviewCellLarge, ScalePx(72))",
 	"RenderCandidateRow",
 	"RenderSelectedNodeHeader",
 	"ReturnFromAttachmentCandidateToWeapon",
@@ -2788,6 +2887,25 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 		throw "Fullscreen loadout editor component is missing: $requiredLoadoutEditorComponentEntry"
 	}
 }
+foreach ($requiredLoadoutStorageServiceEntry in @(
+	"IsStorageBrowserCandidateCategory",
+	'category == "weapon"',
+	'category == "launcher"',
+	'category == "sidearm"',
+	'category == "attachment"',
+	'category == "clothing"',
+	'category == "headgear"',
+	'category == "vest"',
+	'category == "pants"',
+	'category == "boots"',
+	'category == "backpack"',
+	'category == "handwear"',
+	"return IsStorageBrowserCandidateCategory(category)"
+)) {
+	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutStorageServiceEntry)) {
+		throw "Loadout editor service is missing storage browser candidate category support: $requiredLoadoutStorageServiceEntry"
+	}
+}
 $loadoutScrollHelperMatch = [regex]::Match($loadoutEditorComponentText, "protected Widget CreateScrollContainer[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected TextWidget FindRowText")
 if (!$loadoutScrollHelperMatch.Success) {
 	throw "Loadout editor must use the Path B CreateScrollContainer helper"
@@ -2810,6 +2928,7 @@ foreach ($forbiddenLoadoutPathBRegression in @(
 	"RenderStorageNodeRow",
 	"RenderStorageCandidateTile",
 	"CalculateStorageCandidateGrid",
+	"BuildDisplayWithCount",
 	"m_iSlotPage",
 	"SLOTS_PER_PAGE",
 	"SLOT_PAGE_PREV_WIDGET_ID",

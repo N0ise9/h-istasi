@@ -12,16 +12,14 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
    Name "SizeLayout"
    Slot ButtonWidgetSlot "{A7B8C9D001235D01}" {
    }
-   AllowWidthOverride 1
-   WidthOverride 360
+   AllowWidthOverride 0
    AllowHeightOverride 1
    HeightOverride 76
    AllowMinDesiredWidth 1
-   MinDesiredWidth 360
+   MinDesiredWidth 300
    AllowMinDesiredHeight 1
    MinDesiredHeight 76
-   AllowMaxDesiredWidth 1
-   MaxDesiredWidth 360
+   AllowMaxDesiredWidth 0
    AllowMaxDesiredHeight 1
    MaxDesiredHeight 76
    {
