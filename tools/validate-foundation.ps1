@@ -2366,18 +2366,47 @@ if (!(Test-Path "UI/layouts/HST_LoadoutEditor.layout")) {
 if (!(Test-Path "UI/layouts/HST_LoadoutEditor.layout.meta")) {
 	throw "Missing GUID-backed loadout editor layout meta resource"
 }
+if (!(Test-Path "UI/layouts/HST_LoadoutItemPreviewCell.layout")) {
+	throw "Missing loadout item preview cell layout resource"
+}
+if (!(Test-Path "UI/layouts/HST_LoadoutItemPreviewCell.layout.meta")) {
+	throw "Missing GUID-backed loadout item preview cell layout meta resource"
+}
 $loadoutEditorLayoutText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor.layout"
 $loadoutEditorLayoutMetaText = Get-Content -Raw "UI/layouts/HST_LoadoutEditor.layout.meta"
+$loadoutPreviewCellLayoutText = Get-Content -Raw "UI/layouts/HST_LoadoutItemPreviewCell.layout"
+$loadoutPreviewCellLayoutMetaText = Get-Content -Raw "UI/layouts/HST_LoadoutItemPreviewCell.layout.meta"
 if ($loadoutEditorComponentText -notmatch [regex]::Escape('EDITOR_LAYOUT = "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout"')) {
 	throw "Loadout editor must reference the GUID-backed layout resource"
+}
+if ($loadoutEditorComponentText -notmatch [regex]::Escape('ITEM_PREVIEW_CELL_LAYOUT = "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout"')) {
+	throw "Loadout editor must reference the GUID-backed item preview cell layout resource"
 }
 if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/layouts/HST_LoadoutEditor.layout")) {
 	throw "Loadout editor must not reference the zero-GUID layout resource"
 }
+if ($loadoutEditorComponentText -notmatch "CreateWidgetInWorkspace\(WidgetType\.FrameWidgetTypeID, 0, 0, m_iEditorWidth, m_iEditorHeight") {
+	throw "Loadout editor must create a procedural workspace frame as its root"
+}
+if ($loadoutEditorComponentText -notmatch "CreateWidgets\(EDITOR_LAYOUT, m_RootWidget\)") {
+	throw "Loadout editor layout must be loaded as a child of the procedural root frame"
+}
+if ($loadoutEditorComponentText -notmatch "FrameSlot\.SetPos\(root, 0, 0\)[\s\S]{0,120}FrameSlot\.SetSize\(root, m_iEditorWidth, m_iEditorHeight\)") {
+	throw "Loadout editor must size its fixed-anchor root to the current workspace"
+}
+if ($loadoutEditorComponentText -notmatch 'FindAnyWidget\("HST_LoadoutEditorRoot"\)[\s\S]{0,180}FrameSlot\.SetSize\(layoutRoot, m_iEditorWidth, m_iEditorHeight\)') {
+	throw "Loadout editor must resize the layout child root to the current workspace"
+}
 if ($loadoutEditorLayoutMetaText -notmatch [regex]::Escape('Name "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout"')) {
 	throw "Loadout editor layout meta must carry the expected non-zero GUID"
 }
+if ($loadoutPreviewCellLayoutMetaText -notmatch [regex]::Escape('Name "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout"')) {
+	throw "Loadout item preview cell layout meta must carry the expected non-zero GUID"
+}
 foreach ($requiredLayoutEntry in @(
+	"HST_LoadoutEditorRoot",
+	'Slot FrameWidgetSlot "{7B2FD986A4D3410F}"',
+	"Anchor 0 0 0 0",
 	"RenderTargetWidgetClass",
 	"HST_LoadoutPreviewContainer",
 	"HST_LoadoutPreview",
@@ -2387,6 +2416,18 @@ foreach ($requiredLayoutEntry in @(
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLayoutEntry)) {
 		throw "Loadout editor layout is missing stable render-target entry: $requiredLayoutEntry"
+	}
+}
+foreach ($requiredPreviewCellLayoutEntry in @(
+	"HST_LoadoutItemPreviewCell",
+	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',
+	"Anchor 0 0 0 0",
+	"SlotImage",
+	"SlotPreview",
+	"ItemPreviewWidgetClass"
+)) {
+	if ($loadoutPreviewCellLayoutText -notmatch [regex]::Escape($requiredPreviewCellLayoutEntry)) {
+		throw "Loadout item preview cell layout is missing stable entry: $requiredPreviewCellLayoutEntry"
 	}
 }
 if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_UILayerWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_UILayerWidget")) {

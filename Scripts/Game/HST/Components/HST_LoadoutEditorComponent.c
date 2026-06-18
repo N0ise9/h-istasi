@@ -861,10 +861,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!root)
 			return;
 
-		if (!m_bRootFromLayout)
+		FrameSlot.SetPos(root, 0, 0);
+		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
+		Widget layoutRoot = root.FindAnyWidget("HST_LoadoutEditorRoot");
+		if (layoutRoot)
 		{
-			FrameSlot.SetPos(root, 0, 0);
-			FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
+			FrameSlot.SetPos(layoutRoot, 0, 0);
+			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
 		}
 
 		root.SetZOrder(3600);
@@ -875,8 +878,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RefreshPreviewWorldLoadout();
 
 		Widget uiRoot = ResolveUILayer(root);
-		CreateButton(workspace, uiRoot, "ESC", 32, Math.Max(320, (m_iEditorHeight / 2) + 30), 58, 32, CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, uiRoot, "<", 44, Math.Max(286, (m_iEditorHeight / 2) - 22), 34, 44, 36, 0xFFC4953B, BACK_WIDGET_ID, true);
+		int closeLeft = ScalePx(24);
+		int centerY = m_iEditorHeight / 2;
+		CreateButton(workspace, uiRoot, "ESC", closeLeft, centerY + ScalePx(30), ScalePx(58), ScalePx(32), CLOSE_WIDGET_ID);
+		CreateTextWidget(workspace, uiRoot, "<", closeLeft + ScalePx(12), centerY - ScalePx(22), ScalePx(34), ScalePx(44), ScaleFont(36), 0xFFC4953B, BACK_WIDGET_ID, true);
 
 		RenderModeTabs(workspace, uiRoot);
 		if (m_sEditorMode == "storage")
@@ -898,10 +903,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (m_RootWidget)
 			return m_RootWidget;
 
-		m_RootWidget = workspace.CreateWidgets(EDITOR_LAYOUT);
-		m_bRootFromLayout = m_RootWidget != null;
 		if (!m_RootWidget)
 			m_RootWidget = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, 0, 0, m_iEditorWidth, m_iEditorHeight, WidgetFlags.VISIBLE, null, 3600);
+
+		if (!m_RootWidget)
+			return null;
+
+		Widget layoutRoot = workspace.CreateWidgets(EDITOR_LAYOUT, m_RootWidget);
+		m_bRootFromLayout = layoutRoot != null;
+		if (layoutRoot)
+		{
+			FrameSlot.SetPos(layoutRoot, 0, 0);
+			FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight);
+		}
 
 		m_UILayerWidget = null;
 		return m_RootWidget;
@@ -5038,15 +5052,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !parent || texture.IsEmpty())
 			return false;
 
-		Widget widget = workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE, null, 3710, parent);
+		Widget widget = workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.STRETCH | WidgetFlags.NOWRAP, null, 3710, parent);
+		if (!widget)
+			return false;
+
 		ImageWidget imageWidget = ImageWidget.Cast(widget);
 		if (!imageWidget)
+		{
+			widget.RemoveFromHierarchy();
 			return false;
+		}
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, width, height);
-		imageWidget.LoadImageTexture(0, texture);
-		imageWidget.SetSize(width, height);
+		if (!imageWidget.LoadImageTexture(0, texture))
+		{
+			widget.RemoveFromHierarchy();
+			return false;
+		}
+
+		imageWidget.SetImage(0);
 		widget.SetColorInt(color);
 		if (userId != 0)
 		{
@@ -5241,8 +5266,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void ClearWidgets()
 	{
-		foreach (Widget widget : m_aWidgets)
+		for (int i = m_aWidgets.Count() - 1; i >= 0; i--)
 		{
+			Widget widget = m_aWidgets[i];
 			if (widget)
 				widget.RemoveFromHierarchy();
 		}
