@@ -1,31 +1,32 @@
-ButtonWidgetClass "{A7B8C9D0012345B0}" {
+SizeLayoutWidgetClass "{A7B8C9D0012345B0}" {
  Name "HST_CommandActionRow"
  Slot AlignableSlot "{A7B8C9D0012345B1}" {
   HorizontalAlign 3
   VerticalAlign 0
   Padding 0 0 0 6
  }
- Color 1 1 1 0
+ AllowMinDesiredWidth 1
+ MinDesiredWidth 520
+ AllowHeightOverride 1
+ HeightOverride 64
+ AllowMinDesiredHeight 1
+ MinDesiredHeight 64
+ AllowMaxDesiredHeight 1
+ MaxDesiredHeight 64
  "Is Visible" 1
  {
-  SizeLayoutWidgetClass "{A7B8C9D0012345B6}" {
-   Name "SizeLayout"
-   Slot ButtonWidgetSlot "{A7B8C9D0012345B7}" {
+  ButtonWidgetClass "{A7B8C9D0012345B6}" {
+   Name "ClickSurface"
+   Slot AlignableSlot "{A7B8C9D0012345B7}" {
+    HorizontalAlign 3
+    VerticalAlign 3
    }
-   AllowMinDesiredWidth 1
-   MinDesiredWidth 520
-   AllowHeightOverride 1
-   HeightOverride 64
-   AllowMinDesiredHeight 1
-   MinDesiredHeight 64
-   AllowMaxDesiredHeight 1
-   MaxDesiredHeight 64
+   Color 1 1 1 1
+   "Is Visible" 1
    {
     FrameWidgetClass "{A7B8C9D0012345B8}" {
      Name "Content"
-     Slot AlignableSlot "{A7B8C9D0012345B9}" {
-      HorizontalAlign 3
-      VerticalAlign 3
+     Slot ButtonWidgetSlot "{A7B8C9D0012345B9}" {
      }
      "Ignore Cursor" 1
      {
