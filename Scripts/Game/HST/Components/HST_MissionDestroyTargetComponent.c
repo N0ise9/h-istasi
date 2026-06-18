@@ -35,6 +35,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Legacy debug fallback. Keep disabled for radio tower demolition missions.", category: "HST Mission")]
 	protected bool m_bAllowStockDamageDestroyedCompletion;
 
+	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Print nearby explosive witness candidates and damage callback scores.", category: "HST Mission Debug")]
+	protected bool m_bDebugExplosiveWitnesses;
+
 	protected bool m_bReportedDestroyed;
 	protected float m_fLocalExplosiveDamage;
 	protected float m_fDuplicateHitRemainingSeconds;
@@ -86,11 +89,20 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return;
 
 		float score = ResolveExplosiveDamageScore(rawDamage, sourceEntity, sourcePrefab, damageTypeText);
+		string sourceKey = BuildDamageSourceKey(sourceEntity, sourcePrefab, damageTypeText);
+		Print(string.Format("h-istasi mission target | damage callback | raw=%1 | sourcePrefab=%2 | type=%3 | sourceKey=%4 | score=%5", rawDamage, sourcePrefab, damageTypeText, sourceKey, score));
 		if (score <= 0.0)
 			return;
 
-		string sourceKey = BuildDamageSourceKey(sourceEntity, sourcePrefab, damageTypeText);
 		TryApplyExplosiveDamageScore(owner, score, sourceKey, false);
+	}
+
+	bool DebugApplyRocketScore(IEntity owner)
+	{
+		if (!Replication.IsServer() || !owner)
+			return false;
+
+		return TryApplyExplosiveDamageScore(owner, m_fRocketDamageScore, "debug:rpg_test_hit", false);
 	}
 
 	protected void TickExplosiveWitnessScan(IEntity owner, float timeSlice)
@@ -125,6 +137,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 			string witnessText = BuildEntityIdentityText(candidate);
 			float score = ResolveExplosiveWitnessDamageScore(witnessText);
+			if (m_bDebugExplosiveWitnesses && ShouldDebugExplosiveWitnessText(witnessText))
+				Print(string.Format("h-istasi mission target | witness candidate | text=%1 | score=%2", witnessText, score));
+
 			if (score <= 0.0)
 				continue;
 
@@ -176,7 +191,9 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		string result = coordinator.RequestServerMissionAssetExplosiveDamage(asset.GetAssetId(), ResolveReportPosition(owner, asset), score, sourceKey);
 		Print(result);
 
-		if (m_fLocalExplosiveDamage >= m_fRequiredExplosiveDamage)
+		string loweredResult = result;
+		loweredResult.ToLower();
+		if (loweredResult.Contains("demolished") || loweredResult.Contains("already destroyed"))
 			m_bReportedDestroyed = true;
 
 		return true;
@@ -211,6 +228,14 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		// Wire the Workbench damage/hit-zone callback to OnDamageReceived().
 		// Mission completion must come from explosive score, not generic destroyed state.
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(owner.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager)
+		{
+			Print("h-istasi mission target | no SCR_DamageManagerComponent on demolition target/proxy; using explosive witness fallback", LogLevel.WARNING);
+			return;
+		}
+
+		Print("h-istasi mission target | damage manager found, but damage callback bridge still needs Workbench hit-zone invoker wiring; using explosive witness fallback", LogLevel.WARNING);
 	}
 
 	protected void ReportDestroyedByLegacyDamageState(IEntity owner)
@@ -456,6 +481,14 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return true;
 		if (text.Contains("mg_"))
 			return true;
+		if (text.Contains("556") || text.Contains("5.56"))
+			return true;
+		if (text.Contains("762") || text.Contains("7.62"))
+			return true;
+		if (text.Contains("9x19") || text.Contains("45acp"))
+			return true;
+		if (text.Contains("buckshot") || text.Contains("slug"))
+			return true;
 
 		return false;
 	}
@@ -463,6 +496,8 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 	protected bool IsRocketDamageText(string text)
 	{
 		if (text.Contains("rpg"))
+			return true;
+		if (text.Contains("pg7"))
 			return true;
 		if (text.Contains("rocket"))
 			return true;
@@ -475,6 +510,8 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (text.Contains("m72"))
 			return true;
 		if (text.Contains("at4"))
+			return true;
+		if (text.Contains("m136"))
 			return true;
 		if (text.Contains("law"))
 			return true;
@@ -564,6 +601,20 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return true;
 		if (text.Contains("warhead"))
 			return true;
+		if (text.Contains("rpg"))
+			return true;
+		if (text.Contains("pg7"))
+			return true;
+		if (text.Contains("maaws"))
+			return true;
+		if (text.Contains("m72"))
+			return true;
+		if (text.Contains("at4"))
+			return true;
+		if (text.Contains("m136"))
+			return true;
+		if (text.Contains("heat"))
+			return true;
 		if (text.Contains("grenade"))
 			return true;
 		if (text.Contains("shell"))
@@ -590,11 +641,56 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return true;
 		if (text.Contains("turret"))
 			return true;
-		if (text.Contains("launcher") && !text.Contains("rocket") && !text.Contains("missile") && !text.Contains("projectile"))
-			return true;
-		if (text.Contains("weapon") && !text.Contains("projectile") && !text.Contains("ammo") && !text.Contains("munition"))
-			return true;
 		if (text.Contains("lav25") || text.Contains("lav_"))
+			return true;
+
+		bool looksLikeProjectileOrAmmo =
+			text.Contains("projectile")
+			|| text.Contains("ammo")
+			|| text.Contains("munition")
+			|| text.Contains("rocket")
+			|| text.Contains("missile")
+			|| text.Contains("warhead")
+			|| text.Contains("rpg")
+			|| text.Contains("pg7")
+			|| text.Contains("maaws")
+			|| text.Contains("m72")
+			|| text.Contains("at4")
+			|| text.Contains("m136")
+			|| text.Contains("heat")
+			|| text.Contains("grenade")
+			|| text.Contains("40mm")
+			|| text.Contains("shell")
+			|| text.Contains("mine")
+			|| text.Contains("ied");
+
+		if (text.Contains("launcher") && !looksLikeProjectileOrAmmo)
+			return true;
+
+		if (text.Contains("weapon") && !looksLikeProjectileOrAmmo)
+			return true;
+
+		return false;
+	}
+
+	protected bool ShouldDebugExplosiveWitnessText(string witnessText)
+	{
+		string lowered = witnessText;
+		lowered.ToLower();
+
+		if (lowered.Contains("rocket"))
+			return true;
+		if (lowered.Contains("rpg") || lowered.Contains("pg7"))
+			return true;
+		if (lowered.Contains("missile") || lowered.Contains("warhead"))
+			return true;
+		if (lowered.Contains("grenade"))
+			return true;
+		if (lowered.Contains("explosion") || lowered.Contains("blast"))
+			return true;
+		if (lowered.Contains("projectile"))
+			return true;
+		if (lowered.Contains("munition") || lowered.Contains("ammo"))
 			return true;
 
 		return false;
@@ -621,12 +717,24 @@ class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 {
 	override void PerformAction(IEntity pOwnerEntity, IEntity pUserEntity)
 	{
-		Print("h-istasi mission | demolition required: use rockets, mines, demo charges, or other explosives.");
+		if (!Replication.IsServer())
+			return;
+		if (!pOwnerEntity)
+			return;
+
+		HST_MissionDestroyTargetComponent demolition = HST_MissionDestroyTargetComponent.Cast(pOwnerEntity.FindComponent(HST_MissionDestroyTargetComponent));
+		if (!demolition)
+		{
+			Print("h-istasi mission | demolition debug failed: component missing", LogLevel.WARNING);
+			return;
+		}
+
+		demolition.DebugApplyRocketScore(pOwnerEntity);
 	}
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "Demolition required";
+		outName = "DEBUG: Apply demolition hit";
 		return true;
 	}
 }

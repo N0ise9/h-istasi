@@ -3710,6 +3710,41 @@ foreach ($requiredZoneCompositionRadioEntry in @(
 		throw "Zone composition must keep radio mission duplicate-tower guard: $requiredZoneCompositionRadioEntry"
 	}
 }
+$missionDestroyTargetComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionDestroyTargetComponent.c"
+foreach ($requiredDestroyTargetEntry in @(
+	"DebugApplyRocketScore",
+	'"debug:rpg_test_hit"',
+	'"DEBUG: Apply demolition hit"',
+	"m_bDebugExplosiveWitnesses",
+	"witness candidate",
+	"damage callback",
+	"no SCR_DamageManagerComponent on demolition target/proxy",
+	"damage callback bridge still needs Workbench hit-zone invoker wiring",
+	"loweredResult.Contains(""demolished"")",
+	"loweredResult.Contains(""already destroyed"")",
+	"ShouldDebugExplosiveWitnessText",
+	"text.Contains(""pg7"")",
+	"text.Contains(""maaws"")",
+	"text.Contains(""m136"")",
+	"text.Contains(""5.56"")",
+	"text.Contains(""7.62"")",
+	"text.Contains(""buckshot"")",
+	"looksLikeProjectileOrAmmo"
+)) {
+	if ($missionDestroyTargetComponentText -notmatch [regex]::Escape($requiredDestroyTargetEntry)) {
+		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
+	}
+}
+if ((Get-Content -Raw "Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et") -notmatch [regex]::Escape("m_bDebugExplosiveWitnesses 1")) {
+	throw "Destroy radio target prefab must enable explosive witness debug logging while demolition detection is being verified"
+}
+if ($missionDestroyTargetComponentText -match [regex]::Escape("m_fLocalExplosiveDamage >= m_fRequiredExplosiveDamage")) {
+	throw "Destroy target completion must trust the server demolition result, not local explosive tally"
+}
+$weaponWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsWeaponOrVehicleWitnessText[\s\S]*?\r?\n\t}")
+if (!$weaponWitnessMatch.Success -or $weaponWitnessMatch.Value -notmatch "looksLikeProjectileOrAmmo" -or $weaponWitnessMatch.Value -notmatch "rpg" -or $weaponWitnessMatch.Value -notmatch "pg7") {
+	throw "Destroy target witness filtering must allow rocket projectile/ammo identifiers before launcher/weapon rejection"
+}
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {
 	throw "Garage capture must not store all-zero vehicle angles"
