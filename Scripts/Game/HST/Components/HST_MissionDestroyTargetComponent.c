@@ -644,30 +644,54 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		if (text.Contains("lav25") || text.Contains("lav_"))
 			return true;
 
-		bool looksLikeProjectileOrAmmo =
-			text.Contains("projectile")
-			|| text.Contains("ammo")
-			|| text.Contains("munition")
-			|| text.Contains("rocket")
-			|| text.Contains("missile")
-			|| text.Contains("warhead")
-			|| text.Contains("rpg")
-			|| text.Contains("pg7")
-			|| text.Contains("maaws")
-			|| text.Contains("m72")
-			|| text.Contains("at4")
-			|| text.Contains("m136")
-			|| text.Contains("heat")
-			|| text.Contains("grenade")
-			|| text.Contains("40mm")
-			|| text.Contains("shell")
-			|| text.Contains("mine")
-			|| text.Contains("ied");
+		bool looksLikeProjectileOrAmmo = IsProjectileOrAmmoWitnessText(text);
 
 		if (text.Contains("launcher") && !looksLikeProjectileOrAmmo)
 			return true;
 
 		if (text.Contains("weapon") && !looksLikeProjectileOrAmmo)
+			return true;
+
+		return false;
+	}
+
+	protected bool IsProjectileOrAmmoWitnessText(string text)
+	{
+		if (text.Contains("projectile"))
+			return true;
+		if (text.Contains("ammo"))
+			return true;
+		if (text.Contains("munition"))
+			return true;
+		if (text.Contains("rocket"))
+			return true;
+		if (text.Contains("missile"))
+			return true;
+		if (text.Contains("warhead"))
+			return true;
+		if (text.Contains("rpg"))
+			return true;
+		if (text.Contains("pg7"))
+			return true;
+		if (text.Contains("maaws"))
+			return true;
+		if (text.Contains("m72"))
+			return true;
+		if (text.Contains("at4"))
+			return true;
+		if (text.Contains("m136"))
+			return true;
+		if (text.Contains("heat"))
+			return true;
+		if (text.Contains("grenade"))
+			return true;
+		if (text.Contains("40mm"))
+			return true;
+		if (text.Contains("shell"))
+			return true;
+		if (text.Contains("mine"))
+			return true;
+		if (text.Contains("ied"))
 			return true;
 
 		return false;
