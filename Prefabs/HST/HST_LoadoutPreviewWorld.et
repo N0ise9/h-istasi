@@ -11,16 +11,16 @@ GenericWorldEntity {
    coords 3.974 4.836 1.45
    angles -13.425 -138.057 0
    SunAngularSize 1
-   DirectLightLV 1
-   DirectLightColor 0.555 0.749 0.812 0
-   IndirectLightLV 0.5
-   IndirectLightColor 0.326 0.396 0.427 0
+   DirectLightLV 0.25
+   DirectLightColor 0.70 0.76 0.76 0
+   IndirectLightLV -0.25
+   IndirectLightColor 0.22 0.25 0.25 0
    ProbeReflectionEV 1
    ProbeDiffuseEV 1
    "GlobalAOPower " 0.609
    TargetEV 0
    ManualHDRBrightness always
-   ManualHDRBrightnessLV 1
+   ManualHDRBrightnessLV -0.25
   }
   GenericEntity {
    ID "7A9A1B7F76424A9E"

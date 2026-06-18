@@ -3036,7 +3036,7 @@ class HST_LoadoutEditorService
 			return category == "attachment" && IsAttachmentCandidateForSlot(node.m_sSlotKey, prefab);
 
 		if (node.m_sKind == "storage" || node.m_sKind == "storage_item")
-			return category == node.m_sCategory || category == "magazine" || category == "explosive" || category == "medical" || category == "utility";
+			return IsStorageBrowserCandidateCategory(category);
 
 		if (node.m_sSlotKey == "weapon")
 			return category == "weapon" && IsPrimaryWeaponCandidate(prefab);
@@ -3044,6 +3044,25 @@ class HST_LoadoutEditorService
 			return category == "launcher" && IsLauncherWeaponCandidate(prefab);
 
 		return category == node.m_sCategory;
+	}
+
+	protected bool IsStorageBrowserCandidateCategory(string category)
+	{
+		return category == "magazine"
+			|| category == "explosive"
+			|| category == "medical"
+			|| category == "utility"
+			|| category == "weapon"
+			|| category == "launcher"
+			|| category == "sidearm"
+			|| category == "attachment"
+			|| category == "clothing"
+			|| category == "headgear"
+			|| category == "vest"
+			|| category == "pants"
+			|| category == "boots"
+			|| category == "backpack"
+			|| category == "handwear";
 	}
 
 	protected void ResolveArsenalCountForPrefab(HST_CampaignState state, string prefab, out int count, out bool infinite)

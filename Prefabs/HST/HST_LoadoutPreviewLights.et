@@ -14,15 +14,15 @@ GenericEntity {
    }
    coords 1.889 1.791 -2.187
    angles -13.132 -19.496 -0.229
-   Color 0.657 0.893 1 0
-   LV 7
+   Color 0.78 0.82 0.78 0
+   LV 5.6
    CastShadow 0
    Type Point
-   Radius 45
+   Radius 24
    SpotAngle 47.354
    Dynamic 1
    Visualization Disabled
-   SourceSize 1.612
+   SourceSize 2.5
   }
  }
 }
