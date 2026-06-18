@@ -5,7 +5,7 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
   VerticalAlign 0
   Padding 0 0 0 8
  }
- Color 1 1 1 0
+ Color 1 1 1 1
  "Is Visible" 1
  {
   SizeLayoutWidgetClass "{A7B8C9D001235E10}" {

@@ -5,7 +5,7 @@ ButtonWidgetClass "{A7B8C9D001234580}" {
   VerticalAlign 0
   Padding 0 0 0 6
  }
- Color 1 1 1 0
+ Color 1 1 1 1
  {
   SizeLayoutWidgetClass "{A7B8C9D001234586}" {
    Name "SizeLayout"

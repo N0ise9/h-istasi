@@ -111,6 +111,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout";
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
+	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
 	static const ResourceName COMMAND_DATA_ROW_LAYOUT = "{A7B8C9D001234590}UI/layouts/HST/Rows/HST_CommandDataRow.layout";
 	static const ResourceName COMMAND_DATA_ROW_COMPACT_LAYOUT = "{A7B8C9D0012345A0}UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout";
@@ -1287,8 +1288,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aSectionIds.Count() == 0)
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_DATA_ROW_COMPACT_LAYOUT, items);
+			DebugRowCreated("COMMAND_DATA_ROW_COMPACT_LAYOUT", row);
 			if (row)
 			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Label", "Status", 0xFFC4CDD3, m_Layout.m_iFontNormal, true, true);
 				SetRowText(row, "Value", m_sStatusText, 0xFFE0E0E0, m_Layout.m_iFontNormal, false, true);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
@@ -1317,8 +1320,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			int sectionIndex = m_aContentItemSectionIndexes[contentIndex];
 			Widget row = workspace.CreateWidgets(COMMAND_SECTION_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_SECTION_ROW_LAYOUT", row);
 			if (!row)
 				return;
+
+			PrepareRowRoot(row);
 
 			string title = "";
 			if (sectionIndex >= 0 && sectionIndex < m_aSectionTitles.Count())
@@ -1332,8 +1338,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (kind == "empty")
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_DATA_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_DATA_ROW_LAYOUT", row);
 			if (!row)
 				return;
+
+			PrepareRowRoot(row);
 
 			SetRowText(row, "Label", "No entries", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
 			SetRowText(row, "Value", "", 0xFF8D98A0, m_Layout.m_iFontNormal, false, true);
@@ -1346,12 +1355,19 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		ResourceName layout = COMMAND_DATA_ROW_LAYOUT;
+		string layoutLabel = "COMMAND_DATA_ROW_LAYOUT";
 		if (m_Layout.m_bVeryCompact)
+		{
 			layout = COMMAND_DATA_ROW_COMPACT_LAYOUT;
+			layoutLabel = "COMMAND_DATA_ROW_COMPACT_LAYOUT";
+		}
 
 		Widget row = workspace.CreateWidgets(layout, items);
+		DebugRowCreated(layoutLabel, row);
 		if (!row)
 			return;
+
+		PrepareRowRoot(row);
 
 		SetRowText(row, "Label", m_aRowLabels[rowIndex], 0xFFC4CDD3, m_Layout.m_iFontNormal, false, true);
 		SetRowText(row, "Value", m_aRowValues[rowIndex], ToneTextColor(m_aRowTones[rowIndex]), m_Layout.m_iFontNormal, false, true);
@@ -1408,8 +1424,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aFeedLines.Count() == 0)
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_FEED_ROW_LAYOUT", row);
 			if (row)
+			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Text", "Waiting for HQ traffic.", 0xFFAFBAC1, m_Layout.m_iFontNormal, false, true);
+			}
 			RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
 			return;
 		}
@@ -1417,8 +1437,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		for (int i = 0; i < m_aFeedLines.Count(); i++)
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_FEED_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_FEED_ROW_LAYOUT", row);
 			if (row)
+			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Text", m_aFeedLines[i], ToneTextColor(m_aFeedTones[i]), m_Layout.m_iFontSmall, false, true);
+			}
 		}
 
 		RestoreScrollPixels(m_FeedScroll, m_fFeedScrollY);
@@ -1449,8 +1473,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aActionLabels.Count() == 0)
 		{
 			Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT", row);
 			if (row)
 			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Label", "No commands available.", 0xFF9AA5AD, m_Layout.m_iFontNormal, false, true);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
 			}
@@ -1475,9 +1501,11 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
+		DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT", row);
 		if (!row)
 			return;
 
+		PrepareRowRoot(row);
 		BindRowClick(row, ACTION_WIDGET_ID_BASE + actionIndex);
 
 		bool focused = m_iSelectedControl == m_aTabIds.Count() + actionIndex;
@@ -1581,12 +1609,35 @@ class HST_CommandMenuComponent : ScriptComponent
 		return row.FindAnyWidget(name);
 	}
 
+	protected void PrepareRowRoot(Widget row)
+	{
+		if (!row)
+			return;
+
+		row.SetVisible(true);
+		row.SetOpacity(1.0);
+		row.SetColorInt(0xFFFFFFFF);
+	}
+
+	protected void DebugRowCreated(string label, Widget row)
+	{
+		if (row)
+		{
+			Print("h-istasi ui row | created " + label);
+			return;
+		}
+
+		Print("h-istasi ui row | failed to create " + label, LogLevel.WARNING);
+	}
+
 	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)
 	{
 		TextWidget textWidget = FindRowText(row, widgetName);
 		if (!textWidget)
 			return;
 
+		textWidget.SetVisible(true);
+		textWidget.SetOpacity(1.0);
 		textWidget.SetText(text);
 		textWidget.SetTextWrapping(wrap);
 		textWidget.SetExactFontSize(fontSize);
@@ -1603,8 +1654,16 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!widget)
 			return;
 
+		ImageWidget image = ImageWidget.Cast(widget);
+		if (image)
+		{
+			image.LoadImageTexture(0, UI_SOLID_WHITE);
+			image.SetImage(0);
+		}
+
 		widget.SetColorInt(color);
 		widget.SetOpacity(opacity);
+		widget.SetVisible(true);
 	}
 
 	protected void BindRowClick(Widget row, int userId)
@@ -1615,10 +1674,19 @@ class HST_CommandMenuComponent : ScriptComponent
 		row.SetUserID(userId);
 		row.AddHandler(m_WidgetHandler);
 
+		BindRowChildClick(row, "ClickSurface", userId);
 		BindRowChildClick(row, "Background", userId);
 		BindRowChildClick(row, "Label", userId);
+		BindRowChildClick(row, "Value", userId);
 		BindRowChildClick(row, "Text", userId);
 		BindRowChildClick(row, "Title", userId);
+		BindRowChildClick(row, "Primary", userId);
+		BindRowChildClick(row, "Secondary", userId);
+		BindRowChildClick(row, "Name", userId);
+		BindRowChildClick(row, "Count", userId);
+		BindRowChildClick(row, "Meta", userId);
+		BindRowChildClick(row, "OpenMarker", userId);
+		BindRowChildClick(row, "PreviewAnchor", userId);
 	}
 
 	protected void BindRowChildClick(Widget row, string childName, int userId)

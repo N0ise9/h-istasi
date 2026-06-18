@@ -80,6 +80,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName ITEM_PREVIEW_CELL_LAYOUT = "{6B43C4A98B4F47F2}UI/layouts/HST_LoadoutItemPreviewCell.layout";
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
+	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName LOADOUT_NODE_ROW_LAYOUT = "{A7B8C9D0012345D0}UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
@@ -1171,8 +1172,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (visibleIndex == 0)
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
+			DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
 			if (row)
 			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Primary", "Empty Slot", 0xFFC8D0D4, m_Layout.m_iFontNormal, false, true);
 				SetRowText(row, "Secondary", "", 0xFFC8D0D4, m_Layout.m_iFontSmall, false, true);
 				SetRowText(row, "OpenMarker", "", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
@@ -1234,8 +1237,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (visibleIndex == 0)
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, containerItems);
+			DebugRowCreated("LOADOUT_STORAGE_ROW_LAYOUT", row);
 			if (row)
 			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Primary", "No equipped storage.", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
 				SetRowText(row, "Secondary", "", 0xFFB7C7D7, m_Layout.m_iFontSmall, false, true);
 				SetRowText(row, "Meta", "", 0xFFFFD166, m_Layout.m_iFontTiny, false, false);
@@ -1271,8 +1276,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		else if (contentRows == 0)
 		{
 			Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, contentItems);
+			DebugRowCreated("LOADOUT_STORAGE_ITEM_ROW_LAYOUT", row);
 			if (row)
 			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Name", "Empty", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
 				SetRowText(row, "Count", "", 0xFFB7C7D7, m_Layout.m_iFontTiny, false, false);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
@@ -1351,8 +1358,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				emptyText = "Loading compatible items...";
 
 			Widget row = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
+			DebugRowCreated("LOADOUT_CANDIDATE_TILE_LAYOUT", row);
 			if (row)
 			{
+				PrepareRowRoot(row);
 				SetRowText(row, "Name", emptyText, 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
 				SetRowText(row, "Count", "", 0xFFB7C7D7, m_Layout.m_iFontTiny, false, false);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
@@ -1368,9 +1377,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
+		DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
 		if (!row)
 			return;
 
+		PrepareRowRoot(row);
 		BindRowClick(row, userId);
 
 		int color = 0xFF15191C;
@@ -1404,9 +1415,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ROW_LAYOUT, items);
+		DebugRowCreated("LOADOUT_STORAGE_ROW_LAYOUT", row);
 		if (!row)
 			return;
 
+		PrepareRowRoot(row);
 		BindRowClick(row, userId);
 
 		int color = 0xFF15191C;
@@ -1439,9 +1452,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget row = workspace.CreateWidgets(LOADOUT_STORAGE_ITEM_ROW_LAYOUT, items);
+		DebugRowCreated("LOADOUT_STORAGE_ITEM_ROW_LAYOUT", row);
 		if (!row)
 			return;
 
+		PrepareRowRoot(row);
 		BindRowClick(row, userId);
 		SetRowImageColor(row, "Background", 0xCC10161A, 0.98);
 		SetRowText(row, "Name", GetNodeDisplay(nodeIndex), 0xFFE2E6E8, m_Layout.m_iFontSmall, false, true);
@@ -1460,9 +1475,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget tile = workspace.CreateWidgets(LOADOUT_CANDIDATE_TILE_LAYOUT, items);
+		DebugRowCreated("LOADOUT_CANDIDATE_TILE_LAYOUT", tile);
 		if (!tile)
 			return;
 
+		PrepareRowRoot(tile);
 		BindRowClick(tile, userId);
 
 		int color = 0xF0151C20;
@@ -5215,12 +5232,35 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return row.FindAnyWidget(name);
 	}
 
+	protected void PrepareRowRoot(Widget row)
+	{
+		if (!row)
+			return;
+
+		row.SetVisible(true);
+		row.SetOpacity(1.0);
+		row.SetColorInt(0xFFFFFFFF);
+	}
+
+	protected void DebugRowCreated(string label, Widget row)
+	{
+		if (row)
+		{
+			Print("h-istasi ui row | created " + label);
+			return;
+		}
+
+		Print("h-istasi ui row | failed to create " + label, LogLevel.WARNING);
+	}
+
 	protected void SetRowText(Widget row, string widgetName, string text, int color, int fontSize, bool bold, bool wrap = true)
 	{
 		TextWidget textWidget = FindRowText(row, widgetName);
 		if (!textWidget)
 			return;
 
+		textWidget.SetVisible(true);
+		textWidget.SetOpacity(1.0);
 		textWidget.SetText(text);
 		textWidget.SetTextWrapping(wrap);
 		textWidget.SetExactFontSize(fontSize);
@@ -5237,8 +5277,16 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!widget)
 			return;
 
+		ImageWidget image = ImageWidget.Cast(widget);
+		if (image)
+		{
+			image.LoadImageTexture(0, UI_SOLID_WHITE);
+			image.SetImage(0);
+		}
+
 		widget.SetColorInt(color);
 		widget.SetOpacity(opacity);
+		widget.SetVisible(true);
 	}
 
 	protected void BindRowClick(Widget row, int userId)
@@ -5249,7 +5297,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		row.SetUserID(userId);
 		row.AddHandler(m_WidgetHandler);
 
+		BindRowChildClick(row, "ClickSurface", userId);
 		BindRowChildClick(row, "Background", userId);
+		BindRowChildClick(row, "Label", userId);
+		BindRowChildClick(row, "Value", userId);
+		BindRowChildClick(row, "Text", userId);
+		BindRowChildClick(row, "Title", userId);
 		BindRowChildClick(row, "Primary", userId);
 		BindRowChildClick(row, "Secondary", userId);
 		BindRowChildClick(row, "Name", userId);

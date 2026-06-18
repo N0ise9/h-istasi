@@ -1,35 +1,36 @@
-ButtonWidgetClass "{A7B8C9D001234600}" {
+SizeLayoutWidgetClass "{A7B8C9D001234600}" {
  Name "HST_LoadoutCandidateTile"
  Slot AlignableSlot "{A7B8C9D001234609}" {
   HorizontalAlign 0
   VerticalAlign 0
   Padding 0 0 8 8
  }
- Color 1 1 1 0
+ AllowWidthOverride 1
+ WidthOverride 306
+ AllowHeightOverride 1
+ HeightOverride 74
+ AllowMinDesiredWidth 1
+ MinDesiredWidth 306
+ AllowMinDesiredHeight 1
+ MinDesiredHeight 74
+ AllowMaxDesiredWidth 1
+ MaxDesiredWidth 306
+ AllowMaxDesiredHeight 1
+ MaxDesiredHeight 74
  "Is Visible" 1
  {
-  SizeLayoutWidgetClass "{A7B8C9D00123600A}" {
-   Name "SizeLayout"
-   Slot ButtonWidgetSlot "{A7B8C9D00123600B}" {
+  ButtonWidgetClass "{A7B8C9D00123600A}" {
+   Name "ClickSurface"
+   Slot AlignableSlot "{A7B8C9D00123600B}" {
+    HorizontalAlign 3
+    VerticalAlign 3
    }
-   AllowWidthOverride 1
-   WidthOverride 306
-   AllowHeightOverride 1
-   HeightOverride 74
-   AllowMinDesiredWidth 1
-   MinDesiredWidth 306
-   AllowMinDesiredHeight 1
-   MinDesiredHeight 74
-   AllowMaxDesiredWidth 1
-   MaxDesiredWidth 306
-   AllowMaxDesiredHeight 1
-   MaxDesiredHeight 74
+   Color 1 1 1 1
+   "Is Visible" 1
    {
     FrameWidgetClass "{A7B8C9D00123600C}" {
      Name "Content"
-     Slot AlignableSlot "{A7B8C9D00123600D}" {
-      HorizontalAlign 3
-      VerticalAlign 3
+     Slot ButtonWidgetSlot "{A7B8C9D00123600D}" {
      }
      "Ignore Cursor" 1
      {
