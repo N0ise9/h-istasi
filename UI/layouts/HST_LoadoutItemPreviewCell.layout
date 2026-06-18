@@ -1,5 +1,12 @@
 FrameWidgetClass "{7B2FD986A4D34210}" {
  Name "HST_LoadoutItemPreviewCell"
+ Slot FrameWidgetSlot "{7B2FD986A4D3420F}" {
+  Anchor 0 0 0 0
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
  {
   ImageWidgetClass "{7B2FD986A4D34211}" {
    Name "SlotImage"
