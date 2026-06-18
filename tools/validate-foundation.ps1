@@ -3729,7 +3729,8 @@ foreach ($requiredDestroyTargetEntry in @(
 	"text.Contains(""5.56"")",
 	"text.Contains(""7.62"")",
 	"text.Contains(""buckshot"")",
-	"looksLikeProjectileOrAmmo"
+	"looksLikeProjectileOrAmmo",
+	"IsProjectileOrAmmoWitnessText"
 )) {
 	if ($missionDestroyTargetComponentText -notmatch [regex]::Escape($requiredDestroyTargetEntry)) {
 		throw "Destroy radio tower demolition debug/classifier contract is missing: $requiredDestroyTargetEntry"
@@ -3742,8 +3743,12 @@ if ($missionDestroyTargetComponentText -match [regex]::Escape("m_fLocalExplosive
 	throw "Destroy target completion must trust the server demolition result, not local explosive tally"
 }
 $weaponWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsWeaponOrVehicleWitnessText[\s\S]*?\r?\n\t}")
-if (!$weaponWitnessMatch.Success -or $weaponWitnessMatch.Value -notmatch "looksLikeProjectileOrAmmo" -or $weaponWitnessMatch.Value -notmatch "rpg" -or $weaponWitnessMatch.Value -notmatch "pg7") {
+if (!$weaponWitnessMatch.Success -or $weaponWitnessMatch.Value -notmatch "looksLikeProjectileOrAmmo") {
 	throw "Destroy target witness filtering must allow rocket projectile/ammo identifiers before launcher/weapon rejection"
+}
+$projectileWitnessMatch = [regex]::Match($missionDestroyTargetComponentText, "protected bool IsProjectileOrAmmoWitnessText[\s\S]*?\r?\n\t}")
+if (!$projectileWitnessMatch.Success -or $projectileWitnessMatch.Value -notmatch "rpg" -or $projectileWitnessMatch.Value -notmatch "pg7") {
+	throw "Destroy target projectile/ammo witness detection must include RPG/PG7 identifiers"
 }
 $arsenalServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ArsenalService.c"
 if ($lootServiceText -match 'm_vAngles = "0 0 0"') {
