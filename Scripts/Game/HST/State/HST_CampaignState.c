@@ -156,6 +156,7 @@ class HST_GarageVehicleState
 	string m_sDisplayName;
 	string m_sSourceZoneId;
 	string m_sSourceFactionKey;
+	string m_sSourceVehicleKind = "transport";
 	int m_iStoredAtSecond;
 	int m_iRedeployCost;
 	vector m_vPosition;
@@ -163,6 +164,9 @@ class HST_GarageVehicleState
 	float m_fFuel;
 	string m_sDamageState;
 	bool m_bArmed;
+	bool m_bAmmoSource;
+	bool m_bRepairSource;
+	bool m_bFuelSource;
 	bool m_bUnlocked;
 	bool m_bHadPhysicalCargo;
 	ref array<ref HST_StoredVehicleCargoState> m_aStoredCargoItems = {};
@@ -191,11 +195,15 @@ class HST_RuntimeVehicleState
 	string m_sFactionKey;
 	string m_sZoneId;
 	string m_sRuntimeKind;
+	string m_sSourceVehicleKind = "transport";
 	vector m_vPosition;
 	vector m_vAngles;
 	int m_iSpawnedAtSecond;
 	bool m_bDetached;
 	bool m_bDeleted;
+	bool m_bAmmoSource;
+	bool m_bRepairSource;
+	bool m_bFuelSource;
 }
 
 [BaseContainerProps()]
@@ -573,7 +581,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 18;
+	static const int SCHEMA_VERSION = 19;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

@@ -216,6 +216,7 @@ class HST_ArsenalService
 			vehicle.m_iRedeployCost = ResolveRedeployCost(vehicle);
 
 		vehicle.m_bUnlocked = true;
+		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
 		state.m_aGarageVehicles.Insert(vehicle);
 		return true;
 	}
@@ -287,13 +288,14 @@ class HST_ArsenalService
 		if (!state)
 			return "h-istasi garage | campaign state not ready";
 
-		string report = string.Format("h-istasi garage | vehicles %1 | emplacements %2 | ammo points %3", state.m_aGarageVehicles.Count(), state.m_aCapturedEmplacements.Count(), state.m_aAmmoPoints.Count());
+		string report = string.Format("h-istasi garage | vehicles %1 | emplacements %2 | ammo points %3 | redeploy policy consume-on-deploy", state.m_aGarageVehicles.Count(), state.m_aCapturedEmplacements.Count(), state.m_aAmmoPoints.Count());
 		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
 		{
 			if (!vehicle)
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | cost %3 | fuel %4 | damage %5 | armed %6 | cargo %7 | source %8/%9", vehicle.m_sVehicleId, GarageVehicleDisplayLabel(vehicle), vehicle.m_iRedeployCost, vehicle.m_fFuel, vehicle.m_sDamageState, vehicle.m_bArmed, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceZoneId, vehicle.m_sSourceFactionKey);
+			string vehicleLine = string.Format("\n%1 | %2 | cost %3 | fuel %4 | damage %5 | armed %6 | source-kind %7 | ammo %8 | repair %9", vehicle.m_sVehicleId, GarageVehicleDisplayLabel(vehicle), vehicle.m_iRedeployCost, vehicle.m_fFuel, vehicle.m_sDamageState, vehicle.m_bArmed, vehicle.m_sSourceVehicleKind, vehicle.m_bAmmoSource, vehicle.m_bRepairSource);
+			report = report + vehicleLine + string.Format(" | fuel-source %1 | cargo %2 | source %3/%4", vehicle.m_bFuelSource, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceZoneId, vehicle.m_sSourceFactionKey);
 		}
 
 		return report;
@@ -527,6 +529,12 @@ class HST_ArsenalService
 		runtimeVehicle.m_sZoneId = garageVehicle.m_sSourceZoneId;
 		runtimeVehicle.m_sRuntimeKind = "garage_redeploy";
 		runtimeVehicle.m_vPosition = position;
+		runtimeVehicle.m_sSourceVehicleKind = garageVehicle.m_sSourceVehicleKind;
+		runtimeVehicle.m_bAmmoSource = garageVehicle.m_bAmmoSource;
+		runtimeVehicle.m_bRepairSource = garageVehicle.m_bRepairSource;
+		runtimeVehicle.m_bFuelSource = garageVehicle.m_bFuelSource;
+		HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(runtimeVehicle);
+		runtimeVehicle.m_bDetached = false;
 		runtimeVehicle.m_vAngles = angles;
 		runtimeVehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		runtimeVehicle.m_bDeleted = false;

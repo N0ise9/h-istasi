@@ -95,6 +95,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|convoy_missions=%1|convoy_groups=%2|convoy_vehicle_assets=%3|convoy_payload_assets=%4|convoy_destroyed_assets=%5", CountSmokeConvoyMissions(state), CountSmokeConvoyGroups(state), CountSmokeConvoyAssetsByRole(state, "convoy_vehicle"), CountSmokeConvoyPayloadAssets(state), CountSmokeConvoyDestroyedAssets(state));
 		summary = summary + string.Format("|primitive_missions=%1|duplicate_assets=%2|duplicate_runtime_entities=%3|duplicate_groups=%4|duplicate_runtime_vehicles=%5", CountSmokePrimitiveMissions(state), CountDuplicateMissionAssets(state), CountDuplicateRuntimeEntities(state), CountDuplicateActiveGroups(state), CountDuplicateRuntimeVehicles(state));
 		summary = summary + string.Format("|sentinels=%1|hash=%2", BuildSentinelMask(state), hash);
+		summary = summary + string.Format("|garage_cargo=%1|garage_sources=%2|runtime_sources=%3", CountSmokeGarageStoredCargo(state), CountGarageSourceVehicles(state), CountRuntimeSourceVehicles(state));
 		return summary;
 	}
 
@@ -131,6 +132,7 @@ class HST_PersistenceSmokeTestService
 		missing = AppendMissing(missing, "duplicate_groups", CountDuplicateActiveGroups(state) > 0);
 		missing = AppendMissing(missing, "duplicate_runtime_vehicles", CountDuplicateRuntimeVehicles(state) > 0);
 		missing = AppendMissing(missing, "garage", state.m_aGarageVehicles.Count() <= 0);
+		missing = AppendMissing(missing, "garage_cargo", CountSmokeGarageStoredCargo(state) <= 0);
 		missing = AppendMissing(missing, "arsenal", state.m_aArsenalItems.Count() <= 0);
 		missing = AppendMissing(missing, "enemy_orders", state.m_aEnemyOrders.Count() <= 0);
 		missing = AppendMissing(missing, "civilian_zones", state.m_aCivilianZones.Count() <= 0);
@@ -611,6 +613,7 @@ class HST_PersistenceSmokeTestService
 		vehicle.m_vAngles = "0 0 0";
 		vehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		vehicle.m_bDeleted = deleted;
+		HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle);
 	}
 
 	protected void EnsureSmokeGarageVehicle(HST_CampaignState state, HST_ZoneState targetZone)
@@ -640,6 +643,18 @@ class HST_PersistenceSmokeTestService
 		vehicle.m_sDamageState = "ok";
 		vehicle.m_bArmed = false;
 		vehicle.m_bUnlocked = true;
+		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
+		if (vehicle.m_aStoredCargoItems.Count() == 0)
+		{
+			HST_StoredVehicleCargoState cargo = new HST_StoredVehicleCargoState();
+			cargo.m_sItemPrefab = SMOKE_CARGO_PREFAB;
+			cargo.m_sDisplayName = "Smoke Garage Cargo";
+			cargo.m_sCategory = "smoke";
+			cargo.m_sSource = "persistence_smoke";
+			cargo.m_iCount = 2;
+			vehicle.m_aStoredCargoItems.Insert(cargo);
+			m_iSeedChangedCount++;
+		}
 	}
 
 	protected void EnsureSmokeArsenalItem(HST_CampaignState state)
@@ -780,6 +795,9 @@ class HST_PersistenceSmokeTestService
 		hash = MixInt(hash, state.m_aActiveGroups.Count());
 		hash = MixInt(hash, state.m_aRuntimeVehicles.Count());
 		hash = MixInt(hash, state.m_aGarageVehicles.Count());
+		hash = MixInt(hash, CountSmokeGarageStoredCargo(state));
+		hash = MixInt(hash, CountGarageSourceVehicles(state));
+		hash = MixInt(hash, CountRuntimeSourceVehicles(state));
 		hash = MixInt(hash, state.m_aArsenalItems.Count());
 		hash = MixInt(hash, state.m_aEnemyOrders.Count());
 		hash = MixInt(hash, state.m_aCivilianZones.Count());
@@ -832,6 +850,61 @@ class HST_PersistenceSmokeTestService
 		}
 
 		return "";
+	}
+
+	protected int CountSmokeGarageStoredCargo(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		HST_GarageVehicleState vehicle = state.FindGarageVehicle(SMOKE_GARAGE_VEHICLE_ID);
+		if (!vehicle)
+			return 0;
+
+		int total;
+		foreach (HST_StoredVehicleCargoState cargoItem : vehicle.m_aStoredCargoItems)
+		{
+			if (cargoItem)
+				total += Math.Max(1, cargoItem.m_iCount);
+		}
+
+		return total;
+	}
+
+	protected int CountGarageSourceVehicles(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+		{
+			if (!vehicle)
+				continue;
+
+			if (vehicle.m_bAmmoSource || vehicle.m_bRepairSource || vehicle.m_bFuelSource)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountRuntimeSourceVehicles(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
+		{
+			if (!vehicle || vehicle.m_bDeleted)
+				continue;
+
+			if (vehicle.m_bAmmoSource || vehicle.m_bRepairSource || vehicle.m_bFuelSource)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected int CountSmokeConvoyMissions(HST_CampaignState state)

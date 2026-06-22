@@ -2391,7 +2391,7 @@ foreach ($requiredLootEntry in @(
 	"m_iLastVehicleTargetCargoEntries",
 	"no safe root vehicle nearby",
 	"nearest candidate was not a top-level vehicle",
-	"deleted verified root vehicle then stored garage record",
+	"stored garage record before delete; deleted verified root vehicle",
 	"selected root still present after delete",
 	"RedeployGarageVehicle",
 	"HST_BuildModeService",
@@ -3289,8 +3289,8 @@ foreach ($requiredRecursiveLootEntry in @(
 if ($lootServiceText -notmatch 'RekeyLegacyVehiclePartCargo[\s\S]*?m_sVehicleRuntimeId = vehicleId') {
 	throw "Vehicle unload must rekey legacy part-bound cargo to the selected root vehicle"
 }
-if ($lootServiceText -notmatch 'CaptureNearbyVehicleToGarage[\s\S]*?DeleteEntityAndChildren\(selectedVehicle\)[\s\S]*?IsVehicleRootStillPresent[\s\S]*?StoreVehicle\(state, vehicle\)') {
-	throw "Garage capture must delete and verify the selected root before keeping a garage record"
+if ($lootServiceText -notmatch 'CaptureNearbyVehicleToGarage[\s\S]*?StoreVehicle\(state, vehicle\)[\s\S]*?DeleteEntityAndChildren\(selectedVehicle\)[\s\S]*?IsVehicleRootStillPresent[\s\S]*?RemoveVehicle\(state, vehicle\.m_sVehicleId\)') {
+	throw "Garage capture must store before delete and roll back the garage record if root deletion verification fails"
 }
 if ($lootServiceText -match 'if \(!prefab\.Contains\("Vehicles"\) && !prefab\.Contains\("Vehicle"\)\)') {
 	throw "Loot service must not use loose Vehicle/Vehicles substring matching for vehicle roots"

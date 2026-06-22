@@ -152,6 +152,10 @@ class HST_LootService
 			if (!ShouldRestorePersistentFieldVehicle(record))
 				continue;
 
+			string restoredKind = record.m_sRuntimeKind;
+			if (restoredKind.IsEmpty())
+				restoredKind = "loot_vehicle";
+
 			int scannedCandidates;
 			int resolvedRoots;
 			string rejectReason;
@@ -160,7 +164,7 @@ class HST_LootService
 			{
 				HST_RuntimeVehicleState refreshedRecord = EnsureRuntimeVehicleRecord(state, liveRoot, record, record.m_sPrefab);
 				if (refreshedRecord)
-					refreshedRecord.m_sRuntimeKind = "loot_vehicle";
+					refreshedRecord.m_sRuntimeKind = restoredKind;
 				continue;
 			}
 
@@ -176,7 +180,7 @@ class HST_LootService
 			HST_RuntimeVehicleState restoredRecord = EnsureRuntimeVehicleRecord(state, spawnedVehicle, record, record.m_sPrefab);
 			if (restoredRecord)
 			{
-				restoredRecord.m_sRuntimeKind = "loot_vehicle";
+				restoredRecord.m_sRuntimeKind = restoredKind;
 				restoredRecord.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 				restoredRecord.m_bDetached = false;
 				restoredRecord.m_bDeleted = false;
@@ -235,31 +239,33 @@ class HST_LootService
 		vehicle.m_fFuel = 1.0;
 		vehicle.m_sDamageState = ResolveDamageState(selectedVehicle);
 		vehicle.m_bArmed = IsLikelyArmedVehicle(vehicle.m_sPrefab);
+		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
 		int recoveredLegacyEntries = RekeyLegacyVehiclePartCargo(state, selectedVehicle, selectedVehicleRuntimeId, vehicle.m_sPrefab, vehicle.m_sDisplayName);
 		int physicalCargoCount = CaptureVehiclePhysicalCargo(selectedVehicle, vehicle);
 		int virtualCargoCount = CopyVirtualVehicleCargoToGarage(state, selectedVehicleRuntimeId, vehicle);
 		vehicle.m_bHadPhysicalCargo = physicalCargoCount > 0;
 
-		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
-		if (IsVehicleRootStillPresent(state, selectedVehicleRuntimeId, vehicle.m_vPosition))
-		{
-			state.m_sLastVehicleTargetStatus = "garage capture failed";
-			state.m_sLastVehicleTargetReason = "selected root still present after delete";
-			Print(string.Format("h-istasi garage | failed to despawn %1; garage record was not kept | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
-			return string.Format("h-istasi garage | failed: %1 did not despawn, garage record was not kept", vehicle.m_sDisplayName);
-		}
-
 		if (!arsenal.StoreVehicle(state, vehicle))
 		{
 			state.m_sLastVehicleTargetStatus = "garage capture failed";
-			state.m_sLastVehicleTargetReason = "garage record could not be stored after verified despawn";
+			state.m_sLastVehicleTargetReason = "garage record could not be stored before vehicle delete";
 			return string.Format("h-istasi garage | failed: garage record could not be stored for %1", vehicle.m_sDisplayName);
+		}
+
+		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
+		if (IsVehicleRootStillPresent(state, selectedVehicleRuntimeId, vehicle.m_vPosition))
+		{
+			arsenal.RemoveVehicle(state, vehicle.m_sVehicleId);
+			state.m_sLastVehicleTargetStatus = "garage capture failed";
+			state.m_sLastVehicleTargetReason = "selected root still present after delete; garage record rolled back";
+			Print(string.Format("h-istasi garage | failed to despawn %1; rolled back garage record | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
+			return string.Format("h-istasi garage | failed: %1 did not despawn, garage record was rolled back", vehicle.m_sDisplayName);
 		}
 
 		RemoveVirtualVehicleCargo(state, selectedVehicleRuntimeId);
 		MarkRuntimeVehicleDeleted(state, selectedVehicleRuntimeId, vehicle.m_vPosition);
 		state.m_sLastVehicleTargetStatus = string.Format("garage captured %1", vehicle.m_sDisplayName);
-		state.m_sLastVehicleTargetReason = string.Format("stored garage record before delete; deleted verified root vehicle then stored garage record contract preserved | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
+		state.m_sLastVehicleTargetReason = string.Format("stored garage record before delete; deleted verified root vehicle | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
 		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s) | legacy %7", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle), recoveredLegacyEntries));
 		return string.Format("h-istasi garage | captured %1 | cargo %2 | complete", vehicle.m_sDisplayName, CountStoredVehicleCargoItems(vehicle));
 	}
@@ -683,7 +689,8 @@ class HST_LootService
 			if (!record)
 				continue;
 
-			record.m_sRuntimeKind = "loot_vehicle";
+			if (record.m_sRuntimeKind.IsEmpty() || record.m_sRuntimeKind == "runtime_vehicle")
+				record.m_sRuntimeKind = "loot_vehicle";
 			record.m_bDetached = false;
 			record.m_bDeleted = false;
 			if (record.m_iSpawnedAtSecond <= 0)
@@ -701,7 +708,9 @@ class HST_LootService
 		if (!record)
 			return true;
 
-		return record.m_sRuntimeKind == "loot_vehicle" || record.m_sRuntimeKind == "field_vehicle";
+		return record.m_sRuntimeKind == "loot_vehicle"
+			|| record.m_sRuntimeKind == "field_vehicle"
+			|| record.m_sRuntimeKind == "garage_redeploy";
 	}
 
 	protected bool ShouldRestorePersistentFieldVehicle(HST_RuntimeVehicleState record)
@@ -1793,7 +1802,12 @@ class HST_LootService
 		record.m_sDisplayName = BuildVehicleDisplayName(rootVehicle, prefab);
 		record.m_sFactionKey = ResolveFactionKey(rootVehicle);
 		record.m_sZoneId = FindNearestZoneId(state, rootVehicle.GetOrigin());
-		record.m_sRuntimeKind = "loot_vehicle";
+		string previousRuntimeKind = record.m_sRuntimeKind;
+		if (previousRuntimeKind.IsEmpty() || previousRuntimeKind == "runtime_vehicle")
+			record.m_sRuntimeKind = "loot_vehicle";
+		else
+			record.m_sRuntimeKind = previousRuntimeKind;
+		HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(record);
 		record.m_vPosition = rootVehicle.GetOrigin();
 		record.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(rootVehicle.GetYawPitchRoll());
 		record.m_bDeleted = false;

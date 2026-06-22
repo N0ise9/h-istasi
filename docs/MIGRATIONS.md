@@ -2,12 +2,10 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `18`. There is no schema 19 in
-the codebase.
+`HST_CampaignState.SCHEMA_VERSION` is currently `19`.
 
-- Phase 14 arsenal, loot, loadout-editor, vehicle-cargo, garage/build, and
-  field-vehicle persistence work uses the existing schema-18 campaign save
-  container.
+- Phase 15 garage and vehicle persistence hardening adds source-vehicle
+  capability fields to the existing garage/runtime vehicle save records.
 - The current save container captures campaign metadata, elapsed/save/restore
   counters, war resources, HQ/Petros/cache/arsenal/tent fields, faction pools,
   players, zones, garrisons, active groups, QRFs, map markers, arsenal items,
@@ -26,6 +24,17 @@ the codebase.
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 19
+
+Phase 15 garage and vehicle persistence hardening.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `19`.
+- Garage vehicle records and runtime vehicle records now persist source-vehicle
+  capability fields: ammo source, repair source, fuel source, and source vehicle kind.
+- Existing garage/runtime vehicle records are backfilled from prefab-based capability rules.
+- Garage redeploy runtime vehicles are eligible for persistent field-vehicle restore.
+- No raw `IEntity`, `AIGroup`, inventory handles, or runtime pointers are persisted.
 
 ## Schema 18
 
