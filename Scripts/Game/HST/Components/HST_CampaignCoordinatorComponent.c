@@ -12,6 +12,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string PHASE14_THRESHOLD_PREFAB = "{6985327711303760}Prefabs/Objects/HST/HST_MissionProp_ConvoyPayload.et";
 	static const string PHASE14_BLOCKED_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
 	static const string PHASE14_RAW_ASSET_PREFAB = "{EAE920BF596EBC07}Assets/Objects/Plane.xob";
+	static const string PHASE15_SMOKE_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string PHASE15_SMOKE_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -1996,6 +1998,174 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State)
 			report = report + string.Format("\nloadout editor status %1 | last failure %2", m_State.m_sLoadoutEditorStatus, m_State.m_sLastLoadoutEditorFailure);
 		return report;
+	}
+
+	string RequestAdminPhase15SeedGarage(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 15 smoke | admin required";
+
+		if (!m_State || !m_Arsenal)
+			return "h-istasi phase 15 smoke | arsenal service not ready";
+
+		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
+		vehicle.m_sVehicleId = string.Format("phase15_smoke_garage_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aGarageVehicles.Count());
+		vehicle.m_sPrefab = PHASE15_SMOKE_VEHICLE_PREFAB;
+		vehicle.m_sDisplayName = "Phase 15 Smoke Vehicle";
+		vehicle.m_sSourceZoneId = "phase15_smoke";
+		vehicle.m_sSourceFactionKey = "US";
+		vehicle.m_iStoredAtSecond = m_State.m_iElapsedSeconds;
+		vehicle.m_iRedeployCost = 25;
+		vehicle.m_vPosition = m_State.m_vHQPosition;
+		vehicle.m_vAngles = "0 0 0";
+		vehicle.m_fFuel = 1.0;
+		vehicle.m_sDamageState = "ok";
+		vehicle.m_bArmed = false;
+		vehicle.m_bUnlocked = true;
+		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
+
+		HST_StoredVehicleCargoState cargo = new HST_StoredVehicleCargoState();
+		cargo.m_sItemPrefab = PHASE15_SMOKE_CARGO_PREFAB;
+		cargo.m_sDisplayName = "Phase 15 Smoke Cargo";
+		cargo.m_sCategory = "smoke";
+		cargo.m_sSource = "phase15";
+		cargo.m_iCount = 2;
+		vehicle.m_aStoredCargoItems.Insert(cargo);
+
+		if (!m_Arsenal.StoreVehicle(m_State, vehicle))
+			return "h-istasi phase 15 smoke | failed: garage vehicle not stored";
+
+		MarkMajorCampaignChange();
+		return "h-istasi phase 15 smoke | seeded garage vehicle\n" + m_Arsenal.BuildGarageReport(m_State);
+	}
+
+	string RequestAdminPhase15SeedSourceVehicle(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 15 smoke | admin required";
+
+		if (!m_State || !m_Arsenal)
+			return "h-istasi phase 15 smoke | arsenal service not ready";
+
+		string sourcePrefab = ResolveFirstLoadablePhase15SourceVehiclePrefab();
+		if (sourcePrefab.IsEmpty())
+			return "h-istasi phase 15 smoke | failed: no loadable source vehicle prefab candidate configured";
+
+		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
+		vehicle.m_sVehicleId = string.Format("phase15_smoke_source_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aGarageVehicles.Count());
+		vehicle.m_sPrefab = sourcePrefab;
+		vehicle.m_sDisplayName = "Phase 15 Source Vehicle";
+		vehicle.m_sSourceZoneId = "phase15_smoke";
+		vehicle.m_sSourceFactionKey = "US";
+		vehicle.m_iStoredAtSecond = m_State.m_iElapsedSeconds;
+		vehicle.m_iRedeployCost = 50;
+		vehicle.m_vPosition = m_State.m_vHQPosition;
+		vehicle.m_vAngles = "0 0 0";
+		vehicle.m_fFuel = 1.0;
+		vehicle.m_sDamageState = "ok";
+		vehicle.m_bUnlocked = true;
+		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
+
+		if (!vehicle.m_bAmmoSource && !vehicle.m_bRepairSource && !vehicle.m_bFuelSource)
+			return "h-istasi phase 15 smoke | failed: candidate loaded but was not classified as source vehicle | " + sourcePrefab;
+
+		if (!m_Arsenal.StoreVehicle(m_State, vehicle))
+			return "h-istasi phase 15 smoke | failed: source vehicle not stored";
+
+		MarkMajorCampaignChange();
+		return "h-istasi phase 15 smoke | seeded source vehicle\n" + m_Arsenal.BuildGarageReport(m_State);
+	}
+
+	string RequestAdminPhase15Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 15 smoke | admin required";
+
+		string report = "h-istasi phase 15 smoke report";
+		if (m_Arsenal)
+			report = report + "\n" + m_Arsenal.BuildGarageReport(m_State);
+		if (m_Loot)
+			report = report + "\n" + m_Loot.BuildVehicleCargoReport(m_State);
+
+		report = report + string.Format(
+			"\nsource vehicles | garage ammo %1 | garage repair %2 | garage fuel %3 | runtime ammo %4 | runtime repair %5 | runtime fuel %6",
+			CountGarageSourceVehicles(true, false, false),
+			CountGarageSourceVehicles(false, true, false),
+			CountGarageSourceVehicles(false, false, true),
+			CountRuntimeSourceVehicles(true, false, false),
+			CountRuntimeSourceVehicles(false, true, false),
+			CountRuntimeSourceVehicles(false, false, true)
+		);
+
+		return report;
+	}
+
+	protected string ResolveFirstLoadablePhase15SourceVehiclePrefab()
+	{
+		array<string> candidates = {};
+
+		foreach (string prefab : candidates)
+		{
+			if (prefab.IsEmpty())
+				continue;
+
+			if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
+				continue;
+
+			Resource resource = Resource.Load(prefab);
+			if (resource && resource.IsValid())
+				return prefab;
+		}
+
+		return "";
+	}
+
+	protected int CountGarageSourceVehicles(bool ammoSource, bool repairSource, bool fuelSource)
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_GarageVehicleState vehicle : m_State.m_aGarageVehicles)
+		{
+			if (!vehicle)
+				continue;
+
+			if (ammoSource && !vehicle.m_bAmmoSource)
+				continue;
+			if (repairSource && !vehicle.m_bRepairSource)
+				continue;
+			if (fuelSource && !vehicle.m_bFuelSource)
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	protected int CountRuntimeSourceVehicles(bool ammoSource, bool repairSource, bool fuelSource)
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_RuntimeVehicleState vehicle : m_State.m_aRuntimeVehicles)
+		{
+			if (!vehicle || vehicle.m_bDeleted)
+				continue;
+
+			if (ammoSource && !vehicle.m_bAmmoSource)
+				continue;
+			if (repairSource && !vehicle.m_bRepairSource)
+				continue;
+			if (fuelSource && !vehicle.m_bFuelSource)
+				continue;
+
+			count++;
+		}
+
+		return count;
 	}
 
 	string RequestAdminInspectZoneComposition(int playerId)

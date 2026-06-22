@@ -526,6 +526,10 @@ class HST_CampaignSaveData
 		target.m_fFuel = source.m_fFuel;
 		target.m_sDamageState = source.m_sDamageState;
 		target.m_bArmed = source.m_bArmed;
+		target.m_sSourceVehicleKind = source.m_sSourceVehicleKind;
+		target.m_bAmmoSource = source.m_bAmmoSource;
+		target.m_bRepairSource = source.m_bRepairSource;
+		target.m_bFuelSource = source.m_bFuelSource;
 		target.m_bUnlocked = source.m_bUnlocked;
 		target.m_bHadPhysicalCargo = source.m_bHadPhysicalCargo;
 		foreach (HST_StoredVehicleCargoState cargoItem : source.m_aStoredCargoItems)
@@ -574,11 +578,15 @@ class HST_CampaignSaveData
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sRuntimeKind = source.m_sRuntimeKind;
+		target.m_sSourceVehicleKind = source.m_sSourceVehicleKind;
 		target.m_vPosition = source.m_vPosition;
 		target.m_vAngles = source.m_vAngles;
 		target.m_iSpawnedAtSecond = source.m_iSpawnedAtSecond;
 		target.m_bDetached = source.m_bDetached;
 		target.m_bDeleted = source.m_bDeleted;
+		target.m_bAmmoSource = source.m_bAmmoSource;
+		target.m_bRepairSource = source.m_bRepairSource;
+		target.m_bFuelSource = source.m_bFuelSource;
 		return target;
 	}
 
@@ -1121,6 +1129,14 @@ class HST_CampaignSaveData
 				cargoItem.m_sCategory = "equipment";
 		}
 
+
+		foreach (HST_GarageVehicleState garageVehicle : m_aGarageVehicles)
+		{
+			if (!garageVehicle)
+				continue;
+
+			HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(garageVehicle);
+		}
 		foreach (HST_RuntimeVehicleState vehicle : m_aRuntimeVehicles)
 		{
 			if (!vehicle)
@@ -1132,6 +1148,7 @@ class HST_CampaignSaveData
 				vehicle.m_sDisplayName = vehicle.m_sRuntimeKind;
 			if (vehicle.m_sRuntimeKind.IsEmpty())
 				vehicle.m_sRuntimeKind = "runtime_vehicle";
+			HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle);
 		}
 
 		foreach (HST_SupportRequestState request : m_aSupportRequests)

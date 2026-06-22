@@ -67,7 +67,7 @@ class HST_CommandUIService
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report";
+		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report";
 	}
 
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
@@ -325,6 +325,15 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase14_report")
 			return coordinator.RequestAdminPhase14Report(playerId);
+
+		if (commandId == "admin_phase15_seed_garage")
+			return coordinator.RequestAdminPhase15SeedGarage(playerId);
+
+		if (commandId == "admin_phase15_seed_source")
+			return coordinator.RequestAdminPhase15SeedSourceVehicle(playerId);
+
+		if (commandId == "admin_phase15_report")
+			return coordinator.RequestAdminPhase15Report(playerId);
 
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
@@ -623,6 +632,15 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase14_report")
 			return !coordinator.RequestAdminPhase14Report(playerId).IsEmpty();
+
+		if (commandId == "admin_phase15_seed_garage")
+			return !coordinator.RequestAdminPhase15SeedGarage(playerId).Contains("failed");
+
+		if (commandId == "admin_phase15_seed_source")
+			return !coordinator.RequestAdminPhase15SeedSourceVehicle(playerId).Contains("failed");
+
+		if (commandId == "admin_phase15_report")
+			return !coordinator.RequestAdminPhase15Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1546,6 +1564,9 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed threshold", "admin_phase14_seed_threshold", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 14 seed blocked", "admin_phase14_seed_blocked", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 14 report", "admin_phase14_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 15 seed garage", "admin_phase15_seed_garage", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 15 seed source", "admin_phase15_seed_source", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 15 report", "admin_phase15_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
@@ -1899,7 +1920,22 @@ class HST_CommandUIService
 		if (!vehicle)
 			return "missing";
 
-		return string.Format("%1 | cost $%2 | fuel %3 | armed %4", vehicle.m_sVehicleId, vehicle.m_iRedeployCost, vehicle.m_fFuel, vehicle.m_bArmed);
+		return string.Format("%1 | cost $%2 | cargo %3 | %4 | A%5 R%6 F%7", vehicle.m_sVehicleId, vehicle.m_iRedeployCost, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceVehicleKind, vehicle.m_bAmmoSource, vehicle.m_bRepairSource, vehicle.m_bFuelSource);
+	}
+
+	protected int CountStoredVehicleCargoItems(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return 0;
+
+		int total;
+		foreach (HST_StoredVehicleCargoState cargoItem : vehicle.m_aStoredCargoItems)
+		{
+			if (cargoItem)
+				total += Math.Max(1, cargoItem.m_iCount);
+		}
+
+		return total;
 	}
 
 	protected string GarageVehicleTone(HST_GarageVehicleState vehicle)
