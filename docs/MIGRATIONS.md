@@ -2,8 +2,9 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `22`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `23`.
 
+- Phase 21 undercover enforcement and police/roadblocks add durable applied/enforcement state, detection score/source, compromise reason, and police/roadblock scan audit fields.
 - Phase 20 civilians, town support, and undercover reports add durable town support values and detailed undercover eligibility reasons.
 - Phase 19 support request lifecycle hardening adds durable support-request
   runtime fields while preserving runtime handles as non-persisted data.
@@ -27,6 +28,16 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 23
+
+Phase 21 undercover enforcement and police/roadblocks.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `23`.
+- Undercover player records now persist applied/enforcement state, last compromise reason, detection source, enforcement zone, enforcement timestamps, detection score, and police/roadblock scan counters.
+- Civilian town records now persist last police/roadblock scan times and the last security reason.
+- Existing schema-22 records are backfilled from last eligibility/status/reason fields.
+- Raw player entities, inventory handles, vehicle handles, and runtime civilian/police entities remain runtime-only and are not persisted.
 
 ## Schema 22
 

@@ -104,6 +104,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|enemy_orders_active=%1|enemy_orders_physical=%2|enemy_orders_abstract=%3|support_linked_orders=%4", CountEnemyOrdersByStatus(state, HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE), CountPhysicalizedEnemyOrders(state), CountAbstractResolvedEnemyOrders(state), CountSupportLinkedEnemyOrders(state));
 		summary = summary + string.Format("|support_queued=%1|support_active=%2|support_resolved=%3|support_physicalized=%4|support_outcomes=%5", CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_QUEUED), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED), CountPhysicalizedSupport(state), CountSupportOutcomesApplied(state));
 		summary = summary + string.Format("|civilian_fia_support=%1|civilian_occupier_support=%2|civilian_heat=%3|undercover_requested=%4|undercover_eligible=%5", SumCivilianFIASupport(state), SumCivilianOccupierSupport(state), SumCivilianWantedHeat(state), CountUndercoverRequested(state), CountUndercoverEligible(state));
+		summary = summary + string.Format("|undercover_applied=%1|undercover_compromised=%2|undercover_detection=%3|roadblock_scans=%4|police_scans=%5", CountUndercoverApplied(state), CountUndercoverCompromised(state), SumUndercoverDetectionScore(state), SumRoadblockScans(state), SumPoliceScans(state));
 		return summary;
 	}
 
@@ -209,6 +210,66 @@ class HST_PersistenceSmokeTestService
 		}
 
 		return count;
+	}
+
+	protected int CountUndercoverApplied(HST_CampaignState state)
+	{
+		int applied;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player && player.m_bUndercoverApplied)
+				applied++;
+		}
+
+		return applied;
+	}
+
+	protected int CountUndercoverCompromised(HST_CampaignState state)
+	{
+		int compromised;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player && player.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED)
+				compromised++;
+		}
+
+		return compromised;
+	}
+
+	protected int SumUndercoverDetectionScore(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player)
+				total += Math.Max(0, player.m_iDetectionScore);
+		}
+
+		return total;
+	}
+
+	protected int SumRoadblockScans(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player)
+				total += Math.Max(0, player.m_iRoadblockScanCount);
+		}
+
+		return total;
+	}
+
+	protected int SumPoliceScans(HST_CampaignState state)
+	{
+		int total;
+		foreach (HST_PlayerUndercoverState player : state.m_aUndercoverPlayers)
+		{
+			if (player)
+				total += Math.Max(0, player.m_iPoliceScanCount);
+		}
+
+		return total;
 	}
 
 	protected string AppendMissing(string missing, string label, bool shouldAppend)
@@ -854,6 +915,7 @@ class HST_PersistenceSmokeTestService
 		civilianZone.m_iFIASupport = Math.Max(civilianZone.m_iFIASupport, 55);
 		civilianZone.m_iOccupierSupport = Math.Max(civilianZone.m_iOccupierSupport, 35);
 		civilianZone.m_sLastIncidentReason = "persistence smoke";
+		civilianZone.m_sLastSecurityReason = "persistence smoke";
 		civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
 	}
 
@@ -877,6 +939,15 @@ class HST_PersistenceSmokeTestService
 		undercover.m_iLastCheckedSecond = state.m_iElapsedSeconds;
 		undercover.m_sLastReason = "persistence smoke";
 		undercover.m_bUndercoverRequested = true;
+		undercover.m_bUndercoverApplied = true;
+		undercover.m_bEnforcementEnabled = true;
+		undercover.m_sAppliedMode = "persistence_smoke";
+		undercover.m_sLastCompromiseReason = "none";
+		undercover.m_sLastDetectionSource = "persistence_smoke";
+		if (targetZone)
+			undercover.m_sLastEnforcementZoneId = targetZone.m_sZoneId;
+		undercover.m_iLastEnforcementSecond = state.m_iElapsedSeconds;
+		undercover.m_iDetectionScore = 0;
 		undercover.m_bLastEligibilityResult = true;
 		undercover.m_sLastEligibilitySummary = "persistence smoke eligible";
 		if (targetZone)
