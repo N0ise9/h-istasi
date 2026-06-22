@@ -105,6 +105,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		EnsureCampaignFoundation();
+		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
 		m_Persistence.CaptureAndTrackState(m_State);
 		RefreshCampaignMarkers();
@@ -171,6 +172,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		int elapsedSeconds = m_fSecondAccumulator;
 		m_fSecondAccumulator -= elapsedSeconds;
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return;
+
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		if (missionChanged)
@@ -188,8 +192,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!failedRuntimeMissionId.IsEmpty())
 			missionRuntimeChanged = FailMission(failedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds);
-		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, elapsedSeconds);
-		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, elapsedSeconds);
+		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
+		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
 		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
@@ -199,6 +203,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
 		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, elapsedSeconds);
+		bool campaignOutcomeChanged = EvaluateCampaignOutcomeNow();
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
 		if (supportChanged)
 			BroadcastSupportChangeNotifications();
@@ -211,8 +216,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool physicalWarMarkerChanged = false;
 		if (physicalWarChanged && m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
-		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
+		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged || civilianRuntimeChanged;
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || captureMarkerChanged || campaignOutcomeChanged || physicalWarMarkerChanged;
 		bool forceImmediateMarkerRefresh = missionChanged || hqRuntimeChanged || petrosDefenseChanged;
 		markerStateChanged = ResolveThrottledMarkerRefresh(markerStateChanged, forceImmediateMarkerRefresh);
 		if (markerStateChanged)
@@ -1476,6 +1481,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance);
 	}
 
+	string RequestMemberInspectCampaignEnd(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi campaign end | server required";
+		if (!CanPlayerUseMemberActions(playerId) && !CanPlayerUseAdminActions(playerId))
+			return "h-istasi campaign end | membership required";
+		if (!m_Strategic)
+			return "h-istasi campaign end | strategic service not ready";
+
+		return m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
+	}
+
+	string RequestMemberInspectBalancePacing(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi balance | server required";
+		if (!CanPlayerUseMemberActions(playerId) && !CanPlayerUseAdminActions(playerId))
+			return "h-istasi balance | membership required";
+
+		string report = m_Economy.BuildPacingReport(m_State, m_Balance, m_Preset);
+		if (m_Towns)
+			report = report + "\n" + m_Towns.BuildIncomeReport(m_State, m_Preset, m_Balance);
+		if (m_EnemyDirector)
+			report = report + "\n" + m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance);
+		if (m_Missions)
+			report = report + "\n" + m_Missions.BuildMissionRewardBalanceReport(m_State);
+		if (m_Strategic)
+			report = report + "\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
+		return report;
+	}
 	string RequestMemberInspectEconomy(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
@@ -3499,6 +3534,129 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + RequestCommanderCompleteMissionReport(playerId, "missing_mission_id");
 		return report;
 	}
+	string RequestAdminPhase24SeedEarlyGame(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 24 | failed: admin required";
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		m_State.m_iFactionMoney = 750;
+		m_State.m_iHR = 10;
+		m_State.m_iTrainingLevel = 1;
+		m_State.m_iWarLevel = 1;
+		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+
+			pool.m_iAttackResources = Math.Min(pool.m_iAttackResources, 60);
+			pool.m_iSupportResources = Math.Min(pool.m_iSupportResources, 60);
+			pool.m_iAggression = 0;
+		}
+
+		MarkMajorCampaignChange(true);
+		return "h-istasi phase 24 | early game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+	}
+
+	string RequestAdminPhase24SeedMidGame(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 24 | failed: admin required";
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		int changed;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
+			{
+				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+				changed++;
+			}
+			if (changed >= 4)
+				break;
+		}
+
+		m_Economy.RecalculateWarLevel(m_State, m_Balance, m_Preset.m_sResistanceFactionKey);
+		m_State.m_iFactionMoney = Math.Max(m_State.m_iFactionMoney, 1500);
+		m_State.m_iHR = Math.Max(m_State.m_iHR, 18);
+		m_State.m_iTrainingLevel = Math.Max(m_State.m_iTrainingLevel, 3);
+		MarkMajorCampaignChange(true);
+		return "h-istasi phase 24 | mid game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+	}
+
+	string RequestAdminPhase24SeedLateGame(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 24 | failed: admin required";
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY || zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+		}
+
+		m_Economy.RecalculateWarLevel(m_State, m_Balance, m_Preset.m_sResistanceFactionKey);
+		m_State.m_iFactionMoney = Math.Max(m_State.m_iFactionMoney, 3000);
+		m_State.m_iHR = Math.Max(m_State.m_iHR, 30);
+		m_State.m_iTrainingLevel = Math.Max(m_State.m_iTrainingLevel, 6);
+		MarkMajorCampaignChange(true);
+		return "h-istasi phase 24 | late game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+	}
+
+	string RequestAdminPhase24ForceVictory(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 24 | failed: admin required";
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (zone.m_eType != HST_EZoneType.HST_ZONE_HIDEOUT && zone.m_eType != HST_EZoneType.HST_ZONE_MISSION_SITE)
+				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+		}
+
+		m_Economy.RecalculateWarLevel(m_State, m_Balance, m_Preset.m_sResistanceFactionKey);
+		EvaluateCampaignOutcomeNow();
+		MarkMajorCampaignChange(true);
+		return "h-istasi phase 24 | victory forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
+	}
+
+	string RequestAdminPhase24ForceLoss(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 24 | failed: admin required";
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		m_State.m_iFactionMoney = 0;
+		m_State.m_iHR = 0;
+		m_State.m_iPetrosDeaths = Math.Max(m_State.m_iPetrosDeaths, m_Balance.m_iLossPetrosDeathLimit);
+		m_State.m_iElapsedSeconds = Math.Max(m_State.m_iElapsedSeconds, m_Balance.m_iLossGraceSeconds + 1);
+		EvaluateCampaignOutcomeNow();
+		MarkMajorCampaignChange(true);
+		return "h-istasi phase 24 | loss forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
+	}
+
+	string RequestAdminPhase24Report(int playerId)
+	{
+		return RequestMemberInspectBalancePacing(playerId);
+	}
+
 	protected string BuildPhase22Report()
 	{
 		string report = "h-istasi phase 22 smoke report";
@@ -4451,6 +4609,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Authorization)
 			m_Authorization.AssignCommanderOnVacancy(m_State);
 		EnsureCampaignFoundation();
+		EvaluateCampaignOutcomeNow();
 		m_Missions.SyncNextInstanceIdFromState(m_State);
 		if (m_Persistence)
 			m_Persistence.CaptureAndTrackState(m_State);
@@ -4503,6 +4662,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			state.m_iFactionMoney = m_Balance.m_iStartingFactionMoney;
 			state.m_iHR = m_Balance.m_iStartingHR;
+			state.m_iTrainingLevel = Math.Max(1, m_Balance.m_iStartingTrainingLevel);
 		}
 
 		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
@@ -4666,6 +4826,68 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return mission.m_sRuntimePrimitive == "clear_area" || mission.m_sRuntimePrimitive == "hold_area";
 	}
 
+	protected string ResolvePhase24EnemyFactionKey()
+	{
+		if (m_Preset && !m_Preset.m_sOccupierFactionKey.IsEmpty())
+			return m_Preset.m_sOccupierFactionKey;
+		if (m_Preset && !m_Preset.m_sInvaderFactionKey.IsEmpty())
+			return m_Preset.m_sInvaderFactionKey;
+		return "US";
+	}
+
+	protected void SetAllPhase24StrategicZonesOwner(string ownerFactionKey)
+	{
+		if (!m_State || ownerFactionKey.IsEmpty())
+			return;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+
+			zone.m_sOwnerFactionKey = ownerFactionKey;
+		}
+	}
+
+	protected void ResetCampaignEndState()
+	{
+		m_State.m_sCampaignEndReason = "";
+		m_State.m_sCampaignEndSummary = "";
+		m_State.m_iCampaignEndedAtSecond = 0;
+		m_State.m_iCampaignEndControlPercent = 0;
+		m_State.m_iCampaignEndWarLevel = 0;
+		m_State.m_iCampaignEndFIAZones = 0;
+		m_State.m_iCampaignEndEnemyZones = 0;
+		m_State.m_bCampaignEndReportGenerated = false;
+	}
+
+	protected bool EvaluateCampaignOutcomeNow()
+	{
+		if (!m_State || !m_Strategic || !m_Economy || !m_Balance || !m_Preset || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return false;
+
+		HST_CampaignOutcomeResult outcome = m_Strategic.EvaluateCampaignOutcomeDetailed(m_State, m_Economy, m_Balance, m_Preset.m_sResistanceFactionKey);
+		if (!outcome || !outcome.m_bEnded)
+			return false;
+
+		m_Strategic.ApplyCampaignOutcome(m_State, outcome);
+		return true;
+	}
+
+	bool IsCampaignActiveForVisibleMutatingCommand()
+	{
+		return IsCampaignActiveForMutatingAction();
+	}
+
+	protected bool IsCampaignActiveForMutatingAction()
+	{
+		return m_State && m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+	}
+
+	protected string CampaignInactiveMutationMessage(string prefix)
+	{
+		return prefix + " | failed: campaign is not active";
+	}
 	protected void MarkMajorCampaignChange(bool refreshMarkers = true)
 	{
 		if (refreshMarkers)

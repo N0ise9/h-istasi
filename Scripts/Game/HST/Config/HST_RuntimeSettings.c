@@ -14,14 +14,36 @@ class HST_RuntimeSettingsFactions
 
 class HST_RuntimeSettingsEconomy
 {
-	int m_iStartingFactionMoney = 1000;
-	int m_iStartingHR = 20;
-	int m_iStartingOccupierAttackPool = 100;
-	int m_iStartingOccupierSupportPool = 100;
-	int m_iStartingInvaderAttackPool = 60;
-	int m_iStartingInvaderSupportPool = 60;
+	int m_iStartingFactionMoney = 750;
+	int m_iStartingHR = 10;
+	int m_iStartingTrainingLevel = 1;
+	int m_iStartingOccupierAttackPool = 70;
+	int m_iStartingOccupierSupportPool = 80;
+	int m_iStartingInvaderAttackPool = 35;
+	int m_iStartingInvaderSupportPool = 45;
 	int m_iZoneIncomeIntervalSeconds = 600;
 	int m_iWarLevelMaximum = 10;
+	int m_iWarLevel2Score = 18;
+	int m_iWarLevel3Score = 38;
+	int m_iWarLevel4Score = 65;
+	int m_iWarLevel5Score = 95;
+	int m_iWarLevel6Score = 130;
+	int m_iWarLevel7Score = 170;
+	int m_iWarLevel8Score = 215;
+	int m_iWarLevel9Score = 265;
+	int m_iWarLevel10Score = 320;
+	int m_iVictoryControlPercent = 70;
+	bool m_bVictoryRequiresAirfields = true;
+	bool m_bVictoryRequiresSeaports = true;
+	bool m_bLossConditionEnabled = true;
+	int m_iLossHRThreshold;
+	int m_iLossMoneyThreshold;
+	int m_iLossPetrosDeathLimit = 3;
+	int m_iLossGraceSeconds = 7200;
+	int m_iEnemyAttackIncomeWarPercent = 8;
+	int m_iEnemySupportIncomeWarPercent = 6;
+	int m_iAggressionDecayIntervalSeconds = 300;
+	int m_iAggressionDecayAmount = 1;
 }
 
 class HST_RuntimeSettingsCapture
@@ -49,7 +71,7 @@ class HST_RuntimeSettingsMembership
 
 class HST_RuntimeSettingsArsenalLoot
 {
-	int m_iArsenalUnlockThreshold = 25;
+	int m_iArsenalUnlockThreshold = 18;
 	int m_iMagazineUnlockMultiplier = 3;
 	int m_iHQInteractionRadiusMeters = 50;
 	int m_iLootRadiusMeters = 15;
@@ -105,7 +127,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 8;
+	static const int SCHEMA_VERSION = 9;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -133,8 +155,31 @@ class HST_RuntimeSettings
 
 		m_Economy.m_iStartingFactionMoney = Math.Max(0, m_Economy.m_iStartingFactionMoney);
 		m_Economy.m_iStartingHR = Math.Max(0, m_Economy.m_iStartingHR);
+		m_Economy.m_iStartingTrainingLevel = Math.Max(1, m_Economy.m_iStartingTrainingLevel);
+		m_Economy.m_iStartingOccupierAttackPool = Math.Max(0, m_Economy.m_iStartingOccupierAttackPool);
+		m_Economy.m_iStartingOccupierSupportPool = Math.Max(0, m_Economy.m_iStartingOccupierSupportPool);
+		m_Economy.m_iStartingInvaderAttackPool = Math.Max(0, m_Economy.m_iStartingInvaderAttackPool);
+		m_Economy.m_iStartingInvaderSupportPool = Math.Max(0, m_Economy.m_iStartingInvaderSupportPool);
 		m_Economy.m_iZoneIncomeIntervalSeconds = Math.Max(30, m_Economy.m_iZoneIncomeIntervalSeconds);
 		m_Economy.m_iWarLevelMaximum = Math.Max(1, m_Economy.m_iWarLevelMaximum);
+		m_Economy.m_iWarLevel2Score = Math.Max(1, m_Economy.m_iWarLevel2Score);
+		m_Economy.m_iWarLevel3Score = Math.Max(m_Economy.m_iWarLevel2Score + 1, m_Economy.m_iWarLevel3Score);
+		m_Economy.m_iWarLevel4Score = Math.Max(m_Economy.m_iWarLevel3Score + 1, m_Economy.m_iWarLevel4Score);
+		m_Economy.m_iWarLevel5Score = Math.Max(m_Economy.m_iWarLevel4Score + 1, m_Economy.m_iWarLevel5Score);
+		m_Economy.m_iWarLevel6Score = Math.Max(m_Economy.m_iWarLevel5Score + 1, m_Economy.m_iWarLevel6Score);
+		m_Economy.m_iWarLevel7Score = Math.Max(m_Economy.m_iWarLevel6Score + 1, m_Economy.m_iWarLevel7Score);
+		m_Economy.m_iWarLevel8Score = Math.Max(m_Economy.m_iWarLevel7Score + 1, m_Economy.m_iWarLevel8Score);
+		m_Economy.m_iWarLevel9Score = Math.Max(m_Economy.m_iWarLevel8Score + 1, m_Economy.m_iWarLevel9Score);
+		m_Economy.m_iWarLevel10Score = Math.Max(m_Economy.m_iWarLevel9Score + 1, m_Economy.m_iWarLevel10Score);
+		m_Economy.m_iVictoryControlPercent = Math.Max(1, Math.Min(100, m_Economy.m_iVictoryControlPercent));
+		m_Economy.m_iLossHRThreshold = Math.Max(0, m_Economy.m_iLossHRThreshold);
+		m_Economy.m_iLossMoneyThreshold = Math.Max(0, m_Economy.m_iLossMoneyThreshold);
+		m_Economy.m_iLossPetrosDeathLimit = Math.Max(1, m_Economy.m_iLossPetrosDeathLimit);
+		m_Economy.m_iLossGraceSeconds = Math.Max(0, m_Economy.m_iLossGraceSeconds);
+		m_Economy.m_iEnemyAttackIncomeWarPercent = Math.Max(0, m_Economy.m_iEnemyAttackIncomeWarPercent);
+		m_Economy.m_iEnemySupportIncomeWarPercent = Math.Max(0, m_Economy.m_iEnemySupportIncomeWarPercent);
+		m_Economy.m_iAggressionDecayIntervalSeconds = Math.Max(60, m_Economy.m_iAggressionDecayIntervalSeconds);
+		m_Economy.m_iAggressionDecayAmount = Math.Max(0, m_Economy.m_iAggressionDecayAmount);
 		m_Capture.m_iProgressRequired = Math.Max(1, m_Capture.m_iProgressRequired);
 		m_Capture.m_iProgressPerSecond = Math.Max(1, m_Capture.m_iProgressPerSecond);
 		m_Capture.m_iDecayPerSecond = Math.Max(0, m_Capture.m_iDecayPerSecond);
@@ -172,6 +217,7 @@ class HST_RuntimeSettings
 		balance.m_iMajorChangeDebounceSeconds = m_Persistence.m_iMajorChangeDebounceSeconds;
 		balance.m_iStartingHR = m_Economy.m_iStartingHR;
 		balance.m_iStartingFactionMoney = m_Economy.m_iStartingFactionMoney;
+		balance.m_iStartingTrainingLevel = m_Economy.m_iStartingTrainingLevel;
 		balance.m_iStartingOccupierAttackPool = m_Economy.m_iStartingOccupierAttackPool;
 		balance.m_iStartingOccupierSupportPool = m_Economy.m_iStartingOccupierSupportPool;
 		balance.m_iStartingInvaderAttackPool = m_Economy.m_iStartingInvaderAttackPool;
@@ -207,13 +253,37 @@ class HST_RuntimeSettings
 		balance.m_iOccupierVehicleMinPerTown = m_Civilians.m_iOccupierVehicleMinPerTown;
 		balance.m_iOccupierVehicleMaxPerTown = m_Civilians.m_iOccupierVehicleMaxPerTown;
 		balance.m_iWarLevelMaximum = m_Economy.m_iWarLevelMaximum;
+		balance.m_iWarLevel2Score = m_Economy.m_iWarLevel2Score;
+		balance.m_iWarLevel3Score = m_Economy.m_iWarLevel3Score;
+		balance.m_iWarLevel4Score = m_Economy.m_iWarLevel4Score;
+		balance.m_iWarLevel5Score = m_Economy.m_iWarLevel5Score;
+		balance.m_iWarLevel6Score = m_Economy.m_iWarLevel6Score;
+		balance.m_iWarLevel7Score = m_Economy.m_iWarLevel7Score;
+		balance.m_iWarLevel8Score = m_Economy.m_iWarLevel8Score;
+		balance.m_iWarLevel9Score = m_Economy.m_iWarLevel9Score;
+		balance.m_iWarLevel10Score = m_Economy.m_iWarLevel10Score;
+		balance.m_iVictoryControlPercent = m_Economy.m_iVictoryControlPercent;
+		balance.m_bVictoryRequiresAirfields = m_Economy.m_bVictoryRequiresAirfields;
+		balance.m_bVictoryRequiresSeaports = m_Economy.m_bVictoryRequiresSeaports;
+		balance.m_bLossConditionEnabled = m_Economy.m_bLossConditionEnabled;
+		balance.m_iLossHRThreshold = m_Economy.m_iLossHRThreshold;
+		balance.m_iLossMoneyThreshold = m_Economy.m_iLossMoneyThreshold;
+		balance.m_iLossPetrosDeathLimit = m_Economy.m_iLossPetrosDeathLimit;
+		balance.m_iLossGraceSeconds = m_Economy.m_iLossGraceSeconds;
+		balance.m_iEnemyAttackIncomeWarPercent = m_Economy.m_iEnemyAttackIncomeWarPercent;
+		balance.m_iEnemySupportIncomeWarPercent = m_Economy.m_iEnemySupportIncomeWarPercent;
+		balance.m_iAggressionDecayIntervalSeconds = m_Economy.m_iAggressionDecayIntervalSeconds;
+		balance.m_iAggressionDecayAmount = m_Economy.m_iAggressionDecayAmount;
 	}
 
 	string BuildSummary()
 	{
 		string campaign = string.Format("setup config | schema %1 | preset %2 | hideout %3", m_iSchemaVersion, m_Campaign.m_sPresetId, m_Campaign.m_sDefaultHideoutId);
 		string factions = string.Format("\nfactions | resistance %1 | occupier %2 | invader %3", m_Factions.m_sResistanceFactionKey, m_Factions.m_sOccupierFactionKey, m_Factions.m_sInvaderFactionKey);
-		string economy = string.Format("\neconomy | money %1 | HR %2 | income %3s | war max %4", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
+		string economy = string.Format("\neconomy | money %1 | HR %2 | training %3 | income %4s | war max %5", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iStartingTrainingLevel, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
+		string pacing = string.Format("\npacing | WL2 %1 | WL3 %2 | WL4 %3 | WL5 %4 | WL6 %5 | WL7 %6 | WL8 %7 | WL9 %8 | WL10 %9", m_Economy.m_iWarLevel2Score, m_Economy.m_iWarLevel3Score, m_Economy.m_iWarLevel4Score, m_Economy.m_iWarLevel5Score, m_Economy.m_iWarLevel6Score, m_Economy.m_iWarLevel7Score, m_Economy.m_iWarLevel8Score, m_Economy.m_iWarLevel9Score, m_Economy.m_iWarLevel10Score);
+		pacing = pacing + string.Format(" | victory %1 pct", m_Economy.m_iVictoryControlPercent);
+		string loss = string.Format("\nloss | enabled %1 | HR %2 | money %3 | Petros deaths %4 | grace %5s", m_Economy.m_bLossConditionEnabled, m_Economy.m_iLossHRThreshold, m_Economy.m_iLossMoneyThreshold, m_Economy.m_iLossPetrosDeathLimit, m_Economy.m_iLossGraceSeconds);
 		string capture = string.Format("\ncapture | required %1 | progress %2/s | decay %3/s | aggression %4 | counterattack %5 pct", m_Capture.m_iProgressRequired, m_Capture.m_iProgressPerSecond, m_Capture.m_iDecayPerSecond, m_Capture.m_iAggressionBase, m_Capture.m_iCounterattackChancePercent);
 		string world = string.Format("\nworld | activation %1m | deactivation %2m | mission duration %3s", m_World.m_iActivationRadiusMeters, m_World.m_iDeactivationRadiusMeters, m_World.m_iMissionDefaultDurationSeconds);
 		string loot = string.Format("\narsenal loot | unlock %1 | mag x%2 | HQ radius %3m | loot radius %4m | locked only %5 | remove source %6", m_ArsenalLoot.m_iArsenalUnlockThreshold, m_ArsenalLoot.m_iMagazineUnlockMultiplier, m_ArsenalLoot.m_iHQInteractionRadiusMeters, m_ArsenalLoot.m_iLootRadiusMeters, m_ArsenalLoot.m_bLootOnlyLockedItems, m_ArsenalLoot.m_bRemoveLootedItems);
@@ -221,6 +291,6 @@ class HST_RuntimeSettings
 		string airSupport = string.Format("\nair support | enabled %1 | cooldown %2s", m_AirSupport.m_bEnabled, m_AirSupport.m_iCooldownSeconds);
 		string civilians = string.Format("\ncivilians | enabled %1 | max %2 per town | civ vehicles %3-%4 | occupier vehicles %5-%6", m_Civilians.m_bEnabled, m_Civilians.m_iMaxActivePerTown, m_Civilians.m_iCivilianVehicleMinPerTown, m_Civilians.m_iCivilianVehicleMaxPerTown, m_Civilians.m_iOccupierVehicleMinPerTown, m_Civilians.m_iOccupierVehicleMaxPerTown);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
-		return campaign + factions + economy + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
+		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
 	}
 }

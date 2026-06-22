@@ -231,6 +231,30 @@ class HST_MissionService
 		return changed;
 	}
 
+	string BuildMissionRewardBalanceReport(HST_CampaignState state)
+	{
+		string report = "h-istasi mission balance | rewards and penalties";
+		foreach (HST_MissionDefinition definition : m_aDefinitions)
+		{
+			if (!definition)
+				continue;
+
+			report = report + string.Format(
+				"\n%1 | %2 | duration %3 | reward $%4 HR %5 support %6 capture %7 | failure aggression %8 | required WL %9",
+				definition.m_sMissionId,
+				definition.m_eCategory,
+				definition.m_iDurationSeconds,
+				definition.m_iRewardMoney,
+				definition.m_iRewardHR,
+				definition.m_iRewardSupport,
+				definition.m_iRewardCaptureProgress,
+				definition.m_iFailureAggression,
+				definition.m_iRequiredWarLevel
+			);
+		}
+
+		return report;
+	}
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
 	{
 		if (!mission)

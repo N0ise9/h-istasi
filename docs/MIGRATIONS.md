@@ -2,8 +2,9 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `24`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `25`.
 
+- Phase 24 balance, pacing, and campaign outcomes add durable campaign-end report fields and backfill legacy ended saves.
 - Phase 22 HQ threat and Defend Petros add durable HQ threat diagnostics and active defense mission/order/support/group links.
 - Phase 21 undercover enforcement and police/roadblocks add durable applied/enforcement state, detection score/source, compromise reason, and police/roadblock scan audit fields.
 - Phase 20 civilians, town support, and undercover reports add durable town support values and detailed undercover eligibility reasons.
@@ -22,13 +23,23 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings remain schema `8` and are migrated separately by
+- Runtime settings remain schema `9` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 25
+
+Phase 24 balance, pacing, and campaign outcomes.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `25`.
+- Campaign state now persists campaign-end reason, summary, elapsed second, control percent, war level, FIA/enemy zone counts, and whether an end report was generated.
+- Existing schema-24 and older saves that were already WON/LOST backfill campaign-end fields from elapsed time, war level, and zone ownership counts.
+- Runtime settings schema `9` adds balance knobs for starting training, war-level thresholds, victory/loss conditions, enemy income scaling, and aggression decay tuning.
+- Balance and campaign-end reports are generated from existing zone/resource/mission state; raw world/runtime handles remain non-persistent.
 
 ## Schema 24
 

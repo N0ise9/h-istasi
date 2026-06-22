@@ -272,8 +272,8 @@ class HST_HQService
 		if (!state)
 			return "h-istasi HQ threat | state not ready";
 
-		return string.Format(
-			"h-istasi HQ threat | knowledge %1/100 | threat %2 | last knowledge %3s | reason %4 | last scan %5s | scan reason %6 | defend active %7 | status %8 | mission %9 | order %10 | support %11 | group %12 | attackers %13 alive %14 killed %15 | Petros alive %16 deaths %17",
+		string report = string.Format(
+			"h-istasi HQ threat | knowledge %1/100 | threat %2 | last knowledge %3s | reason %4 | last scan %5s | scan reason %6 | defend active %7 | status %8 | mission %9",
 			state.m_iHQKnowledge,
 			state.m_iHQThreatLevel,
 			state.m_iHQKnowledgeLastChangedSecond,
@@ -282,16 +282,11 @@ class HST_HQService
 			state.m_sLastHQThreatReason,
 			state.m_bDefendPetrosActive,
 			state.m_sDefendPetrosStatus,
-			state.m_sDefendPetrosMissionId,
-			state.m_sDefendPetrosOrderId,
-			state.m_sDefendPetrosSupportRequestId,
-			state.m_sDefendPetrosAttackerGroupId,
-			state.m_iDefendPetrosAttackerCount,
-			state.m_iDefendPetrosAliveAttackerCount,
-			state.m_iDefendPetrosKilledCount,
-			state.m_bPetrosAlive,
-			state.m_iPetrosDeaths
+			state.m_sDefendPetrosMissionId
 		);
+		report = report + string.Format(" | order %1 | support %2 | group %3", state.m_sDefendPetrosOrderId, state.m_sDefendPetrosSupportRequestId, state.m_sDefendPetrosAttackerGroupId);
+		report = report + string.Format(" | attackers %1 alive %2 killed %3 | Petros alive %4 deaths %5", state.m_iDefendPetrosAttackerCount, state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosKilledCount, state.m_bPetrosAlive, state.m_iPetrosDeaths);
+		return report;
 	}
 	string GetPetrosPrefab()
 	{

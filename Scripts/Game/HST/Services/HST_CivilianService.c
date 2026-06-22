@@ -13,8 +13,8 @@ class HST_UndercoverEligibilityResult
 
 	string BuildReport()
 	{
-		return string.Format(
-			"h-istasi undercover eligibility | %1 | eligible %2 | zone %3 | clothing %4 | weapon %5 | vehicle %6 | offroad %7 | enemy proximity %8 | wanted heat %9 | %10",
+		string report = string.Format(
+			"h-istasi undercover eligibility | %1 | eligible %2 | zone %3 | clothing %4 | weapon %5 | vehicle %6 | offroad %7 | enemy proximity %8 | wanted heat %9",
 			m_sIdentityId,
 			m_bEligible,
 			m_sZoneId,
@@ -23,9 +23,9 @@ class HST_UndercoverEligibilityResult
 			m_sVehicleReason,
 			m_sOffroadReason,
 			m_sEnemyProximityReason,
-			m_sWantedHeatReason,
-			m_sSummary
+			m_sWantedHeatReason
 		);
+		return report + string.Format(" | %1", m_sSummary);
 	}
 }
 
@@ -48,8 +48,8 @@ class HST_UndercoverEnforcementResult
 
 	string BuildReport()
 	{
-		return string.Format(
-			"h-istasi undercover enforcement | %1 | changed %2 | compromised %3 | suspicious %4 | clear %5 | blocked %6 | zone %7 | score %8 | player heat %9 | town heat %10 | police %11 | roadblocks %12 | source %13 | reason %14",
+		string report = string.Format(
+			"h-istasi undercover enforcement | %1 | changed %2 | compromised %3 | suspicious %4 | clear %5 | blocked %6 | zone %7 | score %8 | player heat %9",
 			m_sIdentityId,
 			m_bChanged,
 			m_bCompromised,
@@ -58,13 +58,9 @@ class HST_UndercoverEnforcementResult
 			m_bBlocked,
 			m_sZoneId,
 			m_iDetectionScore,
-			m_iWantedHeat,
-			m_iTownHeat,
-			m_iPolicePresence,
-			m_iRoadblockPresence,
-			m_sDetectionSource,
-			m_sReason
+			m_iWantedHeat
 		);
+		return report + string.Format(" | town heat %1 | police %2 | roadblocks %3 | source %4 | reason %5", m_iTownHeat, m_iPolicePresence, m_iRoadblockPresence, m_sDetectionSource, m_sReason);
 	}
 }
 
@@ -386,8 +382,8 @@ class HST_CivilianService
 			if (town.m_iLastIncidentSecond > 0)
 				age = Math.Max(0, state.m_iElapsedSeconds - town.m_iLastIncidentSecond);
 
-			report = report + string.Format(
-				"\n%1 | owner %2 | FIA %3 | occupier %4 | rep %5 | heat %6 | police %7 | roadblocks %8 | civs %9 | restricted %10 | support %11 | active %12 | last %13s %14 | roadScan %15 | policeScan %16 | security %17",
+			string line = string.Format(
+				"\n%1 | owner %2 | FIA %3 | occupier %4 | rep %5 | heat %6 | police %7 | roadblocks %8 | civs %9",
 				label,
 				owner,
 				town.m_iFIASupport,
@@ -396,16 +392,11 @@ class HST_CivilianService
 				town.m_iWantedHeat,
 				town.m_iPolicePresence,
 				town.m_iRoadblockPresence,
-				town.m_iCivilianPresence,
-				town.m_bUndercoverRestricted,
-				strategicSupport,
-				active,
-				age,
-				town.m_sLastIncidentReason,
-				town.m_iLastRoadblockScanSecond,
-				town.m_iLastPoliceScanSecond,
-				town.m_sLastSecurityReason
+				town.m_iCivilianPresence
 			);
+			line = line + string.Format(" | restricted %1 | support %2 | active %3 | last %4s %5", town.m_bUndercoverRestricted, strategicSupport, active, age, town.m_sLastIncidentReason);
+			line = line + string.Format(" | roadScan %1 | policeScan %2 | security %3", town.m_iLastRoadblockScanSecond, town.m_iLastPoliceScanSecond, town.m_sLastSecurityReason);
+			report = report + line;
 
 			emitted++;
 		}
@@ -427,8 +418,8 @@ class HST_CivilianService
 			if (!undercover)
 				return "h-istasi undercover | no record";
 
-			return string.Format(
-				"h-istasi undercover | %1 | requested %2 | applied %3 | eligible %4 | status %5 | heat %6 | zone %7 | enforcement zone %8 | score %9 | source %10 | reason %11 | compromise %12\nclothing: %13\nweapon: %14\nvehicle: %15\noffroad: %16\nenemy proximity: %17\nwanted heat: %18\nroadblock scans: %19 failed %20 | police scans: %21 failed %22 | checked: %23 | enforced: %24 | mode: %25",
+			string report = string.Format(
+				"h-istasi undercover | %1 | requested %2 | applied %3 | eligible %4 | status %5 | heat %6 | zone %7 | enforcement zone %8 | score %9",
 				identityId,
 				undercover.m_bUndercoverRequested,
 				undercover.m_bUndercoverApplied,
@@ -437,24 +428,11 @@ class HST_CivilianService
 				undercover.m_iWantedHeat,
 				undercover.m_sLastZoneId,
 				undercover.m_sLastEnforcementZoneId,
-				undercover.m_iDetectionScore,
-				undercover.m_sLastDetectionSource,
-				undercover.m_sLastReason,
-				undercover.m_sLastCompromiseReason,
-				undercover.m_sClothingReason,
-				undercover.m_sWeaponReason,
-				undercover.m_sVehicleReason,
-				undercover.m_sOffroadReason,
-				undercover.m_sEnemyProximityReason,
-				undercover.m_sWantedHeatReason,
-				undercover.m_iRoadblockScanCount,
-				undercover.m_bLastRoadblockScanFailed,
-				undercover.m_iPoliceScanCount,
-				undercover.m_bLastPoliceScanFailed,
-				undercover.m_iLastEligibilityCheckSecond,
-				undercover.m_iLastEnforcementSecond,
-				undercover.m_sAppliedMode
+				undercover.m_iDetectionScore
 			);
+			report = report + string.Format(" | source %1 | reason %2 | compromise %3\nclothing: %4\nweapon: %5\nvehicle: %6\noffroad: %7\nenemy proximity: %8\nwanted heat: %9", undercover.m_sLastDetectionSource, undercover.m_sLastReason, undercover.m_sLastCompromiseReason, undercover.m_sClothingReason, undercover.m_sWeaponReason, undercover.m_sVehicleReason, undercover.m_sOffroadReason, undercover.m_sEnemyProximityReason, undercover.m_sWantedHeatReason);
+			report = report + string.Format("\nroadblock scans: %1 failed %2 | police scans: %3 failed %4 | checked: %5 | enforced: %6 | mode: %7", undercover.m_iRoadblockScanCount, undercover.m_bLastRoadblockScanFailed, undercover.m_iPoliceScanCount, undercover.m_bLastPoliceScanFailed, undercover.m_iLastEligibilityCheckSecond, undercover.m_iLastEnforcementSecond, undercover.m_sAppliedMode);
+			return report;
 		}
 
 		int tracked;

@@ -108,6 +108,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|undercover_applied=%1|undercover_compromised=%2|undercover_detection=%3|roadblock_scans=%4|police_scans=%5", CountUndercoverApplied(state), CountUndercoverCompromised(state), SumUndercoverDetectionScore(state), SumRoadblockScans(state), SumPoliceScans(state));
 		summary = summary + string.Format("|hq_knowledge=%1|hq_threat=%2|defend_petros_active=%3|petros_alive=%4|petros_deaths=%5", state.m_iHQKnowledge, state.m_iHQThreatLevel, state.m_bDefendPetrosActive, state.m_bPetrosAlive, state.m_iPetrosDeaths);
 		summary = summary + string.Format("|markers=%1|mission_markers=%2|support_markers=%3|qrf_markers=%4|hq_marker=%5|ui_schema=%6", state.m_aMapMarkers.Count(), CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset"), CountMarkersByCategory(state, "support"), CountMarkersByCategory(state, "qrf"), HasMarker(state, "hst_hq"), state.m_iSchemaVersion);
+		summary = summary + string.Format("|campaign_phase=%1|end_second=%2|end_reason=%3|end_control=%4|end_war=%5|end_fia=%6|end_enemy=%7|end_report=%8", state.m_ePhase, state.m_iCampaignEndedAtSecond, state.m_sCampaignEndReason, state.m_iCampaignEndControlPercent, state.m_iCampaignEndWarLevel, state.m_iCampaignEndFIAZones, state.m_iCampaignEndEnemyZones, state.m_bCampaignEndReportGenerated);
 		return summary;
 	}
 
@@ -1289,9 +1290,32 @@ class HST_PersistenceSmokeTestService
 		hash = MixInt(hash, state.m_iPetrosDeaths);
 		if (state.m_bDefendPetrosActive)
 			hash = MixInt(hash, 1);
+		hash = MixInt(hash, ResolveCampaignPhaseHash(state.m_ePhase));
+		hash = MixInt(hash, state.m_iCampaignEndedAtSecond);
+		hash = MixStringLength(hash, state.m_sCampaignEndReason);
+		hash = MixStringLength(hash, state.m_sCampaignEndSummary);
+		hash = MixInt(hash, state.m_iCampaignEndControlPercent);
+		hash = MixInt(hash, state.m_iCampaignEndWarLevel);
+		hash = MixInt(hash, state.m_iCampaignEndFIAZones);
+		hash = MixInt(hash, state.m_iCampaignEndEnemyZones);
+		if (state.m_bCampaignEndReportGenerated)
+			hash = MixInt(hash, 1);
 		if (hash < 0)
 			hash = -hash;
 		return hash;
+	}
+
+	protected int ResolveCampaignPhaseHash(HST_ECampaignPhase phase)
+	{
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return 0;
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
+			return 1;
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_WON)
+			return 2;
+		if (phase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return 3;
+		return -1;
 	}
 
 	protected int MixInt(int hash, int value)
