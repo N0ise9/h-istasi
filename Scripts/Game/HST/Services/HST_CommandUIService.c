@@ -67,10 +67,10 @@ class HST_CommandUIService
 	string BuildAdminMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		string menu = BuildCommanderMenu(state, preset, markers);
-		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report";
+		return menu + "\nAdmin actions: activate_zone <zone>, deactivate_zone <zone>, capture_zone <zone>, progress_zone <zone>, debug_mission <zone>, award_small, admin_seed_persistence_test_state, admin_persistence_smoke_test, admin_persistence_smoke_report, admin_phase14_seed_finite, admin_phase14_seed_threshold, admin_phase14_seed_blocked, admin_phase14_report, admin_phase15_seed_garage, admin_phase15_seed_source, admin_phase15_report, admin_phase16_seed, admin_phase16_train, admin_phase16_report";
 	}
 
-	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
+	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
 
@@ -87,7 +87,7 @@ class HST_CommandUIService
 		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseAdmin);
 		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, balance, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
 		payload = AppendTopStats(payload, state, preset);
-		payload = AppendTabSections(payload, state, preset, markers, arsenal, settings, balance, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions, capture);
+		payload = AppendTabSections(payload, state, preset, markers, arsenal, recruitment, settings, balance, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions, capture);
 		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
 
 		if (!lastResult.IsEmpty())
@@ -127,6 +127,8 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_economy")
 			return coordinator.RequestMemberInspectEconomy(playerId);
+		if (commandId == "inspect_recruitment")
+			return coordinator.RequestMemberInspectRecruitment(playerId);
 
 		if (commandId == "inspect_zones")
 			return coordinator.RequestMemberInspectZones(playerId);
@@ -241,9 +243,13 @@ class HST_CommandUIService
 
 		if (commandId == "train_troops")
 			return BuildBoolResult("train FIA troops", coordinator.RequestCommanderTrainTroops(playerId));
+		if (commandId == "train_troops_report")
+			return coordinator.RequestCommanderTrainTroopsReport(playerId);
 
 		if (commandId == "recruit_zone")
 			return coordinator.RequestCommanderRecruitGarrisonReport(playerId, argument, 2, 0, 100, 1);
+		if (commandId == "remove_garrison")
+			return coordinator.RequestCommanderRemoveGarrisonReport(playerId, argument, 1, 0);
 
 		if (commandId == "mission_zone")
 			return BuildBoolResult("start zone mission at " + argument, coordinator.RequestCommanderStartZoneMission(playerId, argument));
@@ -334,6 +340,14 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase15_report")
 			return coordinator.RequestAdminPhase15Report(playerId);
+		if (commandId == "admin_phase16_seed")
+			return coordinator.RequestAdminPhase16Seed(playerId);
+
+		if (commandId == "admin_phase16_train")
+			return coordinator.RequestAdminPhase16Train(playerId);
+
+		if (commandId == "admin_phase16_report")
+			return coordinator.RequestAdminPhase16Report(playerId);
 
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
@@ -437,6 +451,8 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_economy")
 			return !coordinator.RequestMemberInspectEconomy(playerId).IsEmpty();
+		if (commandId == "inspect_recruitment")
+			return !coordinator.RequestMemberInspectRecruitment(playerId).IsEmpty();
 
 		if (commandId == "inspect_zones")
 			return !coordinator.RequestMemberInspectZones(playerId).IsEmpty();
@@ -551,9 +567,13 @@ class HST_CommandUIService
 
 		if (commandId == "train_troops")
 			return coordinator.RequestCommanderTrainTroops(playerId);
+		if (commandId == "train_troops_report")
+			return !coordinator.RequestCommanderTrainTroopsReport(playerId).Contains("failed");
 
 		if (commandId == "recruit_zone")
 			return coordinator.RequestCommanderRecruitGarrison(playerId, argument, 2, 0, 100, 1);
+		if (commandId == "remove_garrison")
+			return !coordinator.RequestCommanderRemoveGarrisonReport(playerId, argument, 1, 0).Contains("failed");
 
 		if (commandId == "mission_zone")
 			return coordinator.RequestCommanderStartZoneMission(playerId, argument);
@@ -641,6 +661,14 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase15_report")
 			return !coordinator.RequestAdminPhase15Report(playerId).IsEmpty();
+		if (commandId == "admin_phase16_seed")
+			return !coordinator.RequestAdminPhase16Seed(playerId).Contains("failed");
+
+		if (commandId == "admin_phase16_train")
+			return !coordinator.RequestAdminPhase16Train(playerId).Contains("failed");
+
+		if (commandId == "admin_phase16_report")
+			return !coordinator.RequestAdminPhase16Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -797,7 +825,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RuntimeSettings settings, HST_BalanceConfig balance, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
+	protected string AppendTabSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, string selectedTabId, int playerId, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		if (selectedTabId == TAB_SETUP)
 			return AppendSetupSections(payload, state, settings);
@@ -823,7 +851,7 @@ class HST_CommandUIService
 			return AppendMapSections(payload, state, preset, balance, capture);
 
 		if (selectedTabId == TAB_FORCES)
-			return AppendForcesSections(payload, state, preset, canUseCommander);
+			return AppendForcesSections(payload, state, preset, recruitment, canUseCommander);
 
 		if (selectedTabId == TAB_ARSENAL)
 			return AppendArsenalSections(payload, state, settings, playerId);
@@ -1101,7 +1129,7 @@ class HST_CommandUIService
 		return ShortText(reason, 12);
 	}
 
-	protected string AppendForcesSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseCommander)
+	protected string AppendForcesSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, HST_RecruitmentService recruitment, bool canUseCommander)
 	{
 		if (!state)
 			return payload;
@@ -1109,6 +1137,10 @@ class HST_CommandUIService
 		payload = AppendSection(payload, "fia", "FIA Forces");
 		payload = AppendRow(payload, "fia", "Training level", string.Format("%1", state.m_iTrainingLevel), "good");
 		payload = AppendRow(payload, "fia", "Available HR", string.Format("%1", state.m_iHR), "good");
+		string equipmentTier = "unknown";
+		if (recruitment)
+			equipmentTier = recruitment.ResolveRecruitEquipmentTier(state, null);
+		payload = AppendRow(payload, "fia", "Recruit equipment", equipmentTier, "good");
 		payload = AppendRow(payload, "fia", "Commander actions", CommanderGateLabel(canUseCommander), CommanderGateTone(canUseCommander));
 		payload = AppendRow(payload, "fia", "Recruit focus", "Town support turns HR into abstract garrisons.", "neutral");
 
@@ -1119,7 +1151,53 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garrisons", "Spawn diagnostics", BuildActiveGroupSpawnSummary(state), ActiveGroupSpawnTone(state));
 		payload = AppendRow(payload, "garrisons", "Last spawn failure", BuildLastActiveGroupFailure(state), LastActiveGroupFailureTone(state));
 		payload = AppendRow(payload, "garrisons", "QRFs", string.Format("%1 unresolved", CountActiveQRFs(state)), "bad");
+		payload = AppendSection(payload, "friendly_garrisons", "FIA Garrisons");
+		int emittedFriendlyGarrisons;
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (!garrison || garrison.m_sFactionKey != resistanceFactionKey)
+				continue;
+
+			HST_ZoneState zone = state.FindZone(garrison.m_sZoneId);
+			string label = garrison.m_sZoneId;
+			string owner = "";
+			int activeInfantry;
+			int activeVehicles;
+			int slots;
+
+			if (zone)
+			{
+				if (!zone.m_sDisplayName.IsEmpty())
+					label = zone.m_sDisplayName;
+				owner = zone.m_sOwnerFactionKey;
+				activeInfantry = Math.Max(0, zone.m_iActiveInfantryCount);
+				activeVehicles = Math.Max(0, zone.m_iActiveVehicleCount);
+				slots = zone.m_iGarrisonSlots;
+			}
+
+			string capacity = "uncapped";
+			if (slots > 0)
+				capacity = string.Format("%1/%2", garrison.m_iInfantryCount + activeInfantry, slots);
+
+			payload = AppendRow(
+				payload,
+				"friendly_garrisons",
+				ShortText(label, 22),
+				string.Format("owner %1 | abstract %2/%3 | active %4/%5 | cap %6", owner, garrison.m_iInfantryCount, garrison.m_iVehicleCount, activeInfantry, activeVehicles, capacity),
+				"good"
+			);
+
+			emittedFriendlyGarrisons++;
+			if (emittedFriendlyGarrisons >= 8)
+				break;
+		}
+
+		if (emittedFriendlyGarrisons == 0)
+			payload = AppendRow(payload, "friendly_garrisons", "None", "Capture or seed a friendly zone, then recruit FIA.", "neutral");
 		payload = AppendSection(payload, "enemy", "Enemy Resources");
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
@@ -1482,8 +1560,10 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_FORCES)
 		{
-			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops_report", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Recruit FIA", state, recruitTargetId), "recruit_zone", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no recruit target");
+			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Remove FIA garrison", state, recruitTargetId), "remove_garrison", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no garrison target");
 			AddMenuAction(actions, TAB_FORCES, "Request supply drop", "call_supply", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request QRF reserve", "support_qrf", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, "Request suppressive fire", "support_fire", "", canUseCommander, "commander required");
@@ -1567,6 +1647,9 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 15 seed garage", "admin_phase15_seed_garage", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 15 seed source", "admin_phase15_seed_source", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 15 report", "admin_phase15_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 16 seed garrison", "admin_phase16_seed", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 16 train", "admin_phase16_train", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 16 report", "admin_phase16_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");

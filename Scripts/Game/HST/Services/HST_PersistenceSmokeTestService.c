@@ -37,6 +37,7 @@ class HST_PersistenceSmokeTestService
 		m_iSeedChangedCount = 0;
 		HST_ZoneState targetZone = EnsureSmokeZone(state, preset);
 		EnsureSmokeGarrison(state, preset, targetZone);
+		EnsureSmokeTraining(state);
 		EnsureSmokeMission(state, targetZone);
 		EnsureSmokeMissionAsset(state, targetZone);
 		EnsureSmokeConvoyMission(state, preset, targetZone, SMOKE_CONVOY_STAGING_ID, "convoy_staging", false);
@@ -96,6 +97,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|primitive_missions=%1|duplicate_assets=%2|duplicate_runtime_entities=%3|duplicate_groups=%4|duplicate_runtime_vehicles=%5", CountSmokePrimitiveMissions(state), CountDuplicateMissionAssets(state), CountDuplicateRuntimeEntities(state), CountDuplicateActiveGroups(state), CountDuplicateRuntimeVehicles(state));
 		summary = summary + string.Format("|sentinels=%1|hash=%2", BuildSentinelMask(state), hash);
 		summary = summary + string.Format("|garage_cargo=%1|garage_sources=%2|runtime_sources=%3", CountSmokeGarageStoredCargo(state), CountGarageSourceVehicles(state), CountRuntimeSourceVehicles(state));
+		summary = summary + string.Format("|training=%1|fia_garrisons=%2|garrison_infantry=%3|garrison_vehicles=%4", state.m_iTrainingLevel, CountGarrisonsByFaction(state, "FIA"), CountGarrisonInfantry(state), CountGarrisonVehicles(state));
 		return summary;
 	}
 
@@ -122,6 +124,8 @@ class HST_PersistenceSmokeTestService
 		string missing = "";
 		missing = AppendMissing(missing, "zones", state.m_aZones.Count() <= 0);
 		missing = AppendMissing(missing, "garrisons", state.m_aGarrisons.Count() <= 0);
+		missing = AppendMissing(missing, "garrison_forces", CountGarrisonInfantry(state) <= 0 && CountGarrisonVehicles(state) <= 0);
+		missing = AppendMissing(missing, "training", state.m_iTrainingLevel <= 0);
 		missing = AppendMissing(missing, "active_missions", CountActiveMissions(state) <= 0);
 		missing = AppendMissing(missing, "mission_assets", state.m_aMissionAssets.Count() <= 0);
 		missing = AppendMissing(missing, "runtime_entities", state.m_aMissionRuntimeEntities.Count() <= 0);
@@ -257,6 +261,18 @@ class HST_PersistenceSmokeTestService
 			garrison.m_iVehicleCount = 1;
 			m_iSeedChangedCount++;
 		}
+	}
+
+	protected void EnsureSmokeTraining(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+
+		if (state.m_iTrainingLevel > 0)
+			return;
+
+		state.m_iTrainingLevel = 1;
+		m_iSeedChangedCount++;
 	}
 
 	protected void EnsureSmokeMission(HST_CampaignState state, HST_ZoneState targetZone)
@@ -783,12 +799,49 @@ class HST_PersistenceSmokeTestService
 		return "0";
 	}
 
+	protected int CountGarrisonsByFaction(HST_CampaignState state, string factionKey)
+	{
+		int count;
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (garrison && garrison.m_sFactionKey == factionKey)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountGarrisonInfantry(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (garrison)
+				count += Math.Max(0, garrison.m_iInfantryCount);
+		}
+		return count;
+	}
+
+	protected int CountGarrisonVehicles(HST_CampaignState state)
+	{
+		int count;
+		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
+		{
+			if (garrison)
+				count += Math.Max(0, garrison.m_iVehicleCount);
+		}
+		return count;
+	}
+
 	protected int BuildSummaryHash(HST_CampaignState state, int activeMissions)
 	{
 		int hash = 17;
 		hash = MixInt(hash, state.m_iSchemaVersion);
 		hash = MixInt(hash, state.m_aZones.Count());
 		hash = MixInt(hash, state.m_aGarrisons.Count());
+		hash = MixInt(hash, state.m_iTrainingLevel);
+		hash = MixInt(hash, CountGarrisonsByFaction(state, "FIA"));
+		hash = MixInt(hash, CountGarrisonInfantry(state));
+		hash = MixInt(hash, CountGarrisonVehicles(state));
 		hash = MixInt(hash, activeMissions);
 		hash = MixInt(hash, state.m_aMissionAssets.Count());
 		hash = MixInt(hash, state.m_aMissionRuntimeEntities.Count());

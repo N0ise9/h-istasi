@@ -264,7 +264,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
 
-		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Settings, m_Balance, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions, m_ZoneCapture);
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions, m_ZoneCapture);
 	}
 
 	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "")
@@ -782,24 +782,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	bool TrainTroops(int moneyCost = 250)
 	{
-		if (!Replication.IsServer())
+		if (!Replication.IsServer() || !m_Recruitment)
 			return false;
 
-		bool changed = m_Recruitment.TrainTroops(m_State, m_Economy, moneyCost);
-		if (changed)
+		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost);
+		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
-		return changed;
+		return result && result.m_bSuccess;
 	}
 
 	bool RecruitResistanceGarrison(string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
-		if (!Replication.IsServer())
+		if (!Replication.IsServer() || !m_Recruitment)
 			return false;
 
-		bool changed = m_Recruitment.RecruitGarrison(m_State, m_Economy, m_Garrisons, zoneId, m_Preset.m_sResistanceFactionKey, infantryCount, vehicleCount, moneyCost, hrCost);
-		if (changed)
+		HST_RecruitmentResult result = m_Recruitment.RecruitGarrisonDetailed(m_State, m_Preset, m_Balance, m_Economy, m_Garrisons, m_Arsenal, zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
+		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
-		return changed;
+		return result && result.m_bSuccess;
 	}
 
 	void AwardFactionResources(int money, int hr)
@@ -880,50 +880,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderRecruitGarrisonReport(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi command | recruit FIA garrison | failed: server authority unavailable";
+			return "h-istasi recruitment | failed: server authority unavailable";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi command | recruit FIA garrison | failed: commander permission required";
+			return "h-istasi recruitment | failed: commander permission required";
 
-		if (!m_State || !m_Preset)
-			return "h-istasi command | recruit FIA garrison | failed: campaign state unavailable";
+		if (!m_Recruitment)
+			return "h-istasi recruitment | failed: recruitment service not ready";
 
-		HST_ZoneState zone = m_State.FindZone(zoneId);
-		if (!zone)
-			return "h-istasi command | recruit FIA garrison | failed: zone not found";
+		HST_RecruitmentResult result = m_Recruitment.RecruitGarrisonDetailed(m_State, m_Preset, m_Balance, m_Economy, m_Garrisons, m_Arsenal, zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange();
 
-		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
-			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: zone is owned by %2", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey);
+		string summary = "h-istasi recruitment | failed: no result";
+		if (result)
+			summary = result.BuildSummary();
 
-		if (m_State.m_iFactionMoney < moneyCost)
-			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: need $%2, have $%3", ResolveZoneLabel(zone), moneyCost, m_State.m_iFactionMoney);
-
-		if (m_State.m_iHR < hrCost)
-			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: need %2 HR, have %3", ResolveZoneLabel(zone), hrCost, m_State.m_iHR);
-
-		HST_GarrisonState beforeGarrison = m_State.FindGarrison(zoneId, m_Preset.m_sResistanceFactionKey);
-		int beforeInfantry;
-		if (beforeGarrison)
-			beforeInfantry = beforeGarrison.m_iInfantryCount;
-
-		int currentInfantry = beforeInfantry + Math.Max(0, zone.m_iActiveInfantryCount);
-		if (zone.m_iGarrisonSlots > 0 && currentInfantry >= zone.m_iGarrisonSlots)
-			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: garrison full %2/%3", ResolveZoneLabel(zone), currentInfantry, zone.m_iGarrisonSlots);
-
-		bool changed = RecruitResistanceGarrison(zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
-		HST_GarrisonState afterGarrison = m_State.FindGarrison(zoneId, m_Preset.m_sResistanceFactionKey);
-		int afterInfantry;
-		if (afterGarrison)
-			afterInfantry = afterGarrison.m_iInfantryCount;
-
-		if (!changed || afterInfantry <= beforeInfantry)
-			return string.Format("h-istasi command | recruit FIA garrison at %1 | failed: no garrison change", ResolveZoneLabel(zone));
-
-		string capacity = "uncapped";
-		if (zone.m_iGarrisonSlots > 0)
-			capacity = string.Format("%1/%2", afterInfantry + Math.Max(0, zone.m_iActiveInfantryCount), zone.m_iGarrisonSlots);
-
-		return string.Format("h-istasi command | recruit FIA garrison at %1 | complete: +%2 infantry, garrison %3, money $%4, HR %5", ResolveZoneLabel(zone), afterInfantry - beforeInfantry, capacity, m_State.m_iFactionMoney, m_State.m_iHR);
+		return summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
 
 	bool RequestCommanderTrainTroops(int playerId, int moneyCost = 250)
@@ -932,6 +905,73 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return TrainTroops(moneyCost);
+	}
+
+	string RequestCommanderTrainTroopsReport(int playerId, int moneyCost = 250)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi training | failed: server authority unavailable";
+
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi training | failed: commander permission required";
+
+		if (!m_Recruitment)
+			return "h-istasi training | failed: recruitment service not ready";
+
+		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost);
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange();
+
+		string summary = "h-istasi training | failed: no result";
+		if (result)
+			summary = result.BuildSummary();
+
+		return summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+	}
+
+	string RequestCommanderRemoveGarrisonReport(int playerId, string zoneId, int infantryCount = 1, int vehicleCount = 0)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi garrison | failed: server authority unavailable";
+
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi garrison | failed: commander permission required";
+
+		if (!m_State || !m_Preset || !m_Garrisons)
+			return "h-istasi garrison | failed: service not ready";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi garrison | failed: zone not found";
+
+		if (zone.m_bActive || zone.m_iActiveInfantryCount > 0 || zone.m_iActiveVehicleCount > 0)
+			return string.Format("h-istasi garrison | failed: %1 is active; fold/deactivate the zone before removing abstract garrison units", ResolveZoneLabel(zone));
+
+		string factionKey = m_Preset.m_sResistanceFactionKey;
+		if (factionKey.IsEmpty())
+			factionKey = "FIA";
+
+		HST_GarrisonState garrison = m_State.FindGarrison(zoneId, factionKey);
+		if (!garrison)
+			return string.Format("h-istasi garrison | failed: no FIA garrison at %1", ResolveZoneLabel(zone));
+
+		int beforeInfantry = garrison.m_iInfantryCount;
+		int beforeVehicles = garrison.m_iVehicleCount;
+
+		bool changed = m_Garrisons.RemoveAbstractForces(m_State, zoneId, factionKey, infantryCount, vehicleCount);
+		if (!changed)
+			return string.Format("h-istasi garrison | failed: no removable forces at %1", ResolveZoneLabel(zone));
+
+		MarkMajorCampaignChange();
+
+		return string.Format(
+			"h-istasi garrison | removed from %1 | infantry %2 -> %3 | vehicles %4 -> %5",
+			ResolveZoneLabel(zone),
+			beforeInfantry,
+			garrison.m_iInfantryCount,
+			beforeVehicles,
+			garrison.m_iVehicleCount
+		);
 	}
 
 	bool RequestCommanderApplyIncomeNow(int playerId)
@@ -1151,6 +1191,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "";
 
 		return m_CommandUI.BuildEconomyReport(m_State);
+	}
+
+	string RequestMemberInspectRecruitment(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi recruitment | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi recruitment | membership required";
+		if (!m_Recruitment)
+			return "h-istasi recruitment | service not ready";
+
+		return m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
 
 	string RequestMemberInspectZones(int playerId)
@@ -1998,6 +2050,110 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State)
 			report = report + string.Format("\nloadout editor status %1 | last failure %2", m_State.m_sLoadoutEditorStatus, m_State.m_sLastLoadoutEditorFailure);
 		return report;
+	}
+
+	string RequestAdminPhase16Seed(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 16 smoke | failed: admin required";
+
+		if (!m_State || !m_Preset || !m_Garrisons || !m_Recruitment)
+			return "h-istasi phase 16 smoke | failed: service not ready";
+
+		HST_ZoneState zone = SelectPhase16FriendlyRecruitZone();
+		if (!zone)
+			return "h-istasi phase 16 smoke | failed: no friendly zone available";
+
+		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty())
+			resistanceFactionKey = "FIA";
+
+		zone.m_sOwnerFactionKey = resistanceFactionKey;
+		zone.m_bActive = false;
+		zone.m_iActiveInfantryCount = 0;
+		zone.m_iActiveVehicleCount = 0;
+
+		HST_RecruitmentResult result = m_Recruitment.RecruitGarrisonDetailed(
+			m_State,
+			m_Preset,
+			m_Balance,
+			m_Economy,
+			m_Garrisons,
+			m_Arsenal,
+			zone.m_sZoneId,
+			2,
+			0,
+			0,
+			0
+		);
+
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange();
+
+		string summary = "h-istasi recruitment | failed: no result";
+		if (result)
+			summary = result.BuildSummary();
+
+		return "h-istasi phase 16 smoke | seed\n" + summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+	}
+
+	string RequestAdminPhase16Train(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 16 smoke | failed: admin required";
+
+		if (!m_Recruitment)
+			return "h-istasi phase 16 smoke | failed: recruitment service not ready";
+
+		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, 0);
+		if (result && result.m_bSuccess)
+			MarkMajorCampaignChange();
+
+		string summary = "h-istasi training | failed: no result";
+		if (result)
+			summary = result.BuildSummary();
+
+		return "h-istasi phase 16 smoke | train\n" + summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+	}
+
+	string RequestAdminPhase16Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 16 smoke | failed: admin required";
+
+		if (!m_Recruitment)
+			return "h-istasi phase 16 smoke | failed: recruitment service not ready";
+
+		string report = "h-istasi phase 16 smoke report";
+		report = report + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+
+		if (m_CommandUI)
+			report = report + "\n" + m_CommandUI.BuildEconomyReport(m_State);
+
+		return report;
+	}
+
+	protected HST_ZoneState SelectPhase16FriendlyRecruitZone()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && zone.m_iGarrisonSlots > 0)
+				return zone;
+		}
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (fallback && fallback.m_iGarrisonSlots > 0)
+				return fallback;
+		}
+
+		return null;
 	}
 
 	string RequestAdminPhase15SeedGarage(int playerId)
