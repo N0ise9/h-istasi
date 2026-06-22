@@ -1012,6 +1012,9 @@ class HST_CampaignSaveData
 		target.m_iLastIncidentSecond = source.m_iLastIncidentSecond;
 		target.m_sLastIncidentReason = source.m_sLastIncidentReason;
 		target.m_iLastSupportChangeSecond = source.m_iLastSupportChangeSecond;
+		target.m_iLastRoadblockScanSecond = source.m_iLastRoadblockScanSecond;
+		target.m_iLastPoliceScanSecond = source.m_iLastPoliceScanSecond;
+		target.m_sLastSecurityReason = source.m_sLastSecurityReason;
 		target.m_bUndercoverRestricted = source.m_bUndercoverRestricted;
 		return target;
 	}
@@ -1026,6 +1029,19 @@ class HST_CampaignSaveData
 		target.m_iLastCheckedSecond = source.m_iLastCheckedSecond;
 		target.m_sLastReason = source.m_sLastReason;
 		target.m_bUndercoverRequested = source.m_bUndercoverRequested;
+		target.m_bUndercoverApplied = source.m_bUndercoverApplied;
+		target.m_bEnforcementEnabled = source.m_bEnforcementEnabled;
+		target.m_sAppliedMode = source.m_sAppliedMode;
+		target.m_sLastCompromiseReason = source.m_sLastCompromiseReason;
+		target.m_sLastDetectionSource = source.m_sLastDetectionSource;
+		target.m_sLastEnforcementZoneId = source.m_sLastEnforcementZoneId;
+		target.m_iLastEnforcementSecond = source.m_iLastEnforcementSecond;
+		target.m_iLastCompromisedSecond = source.m_iLastCompromisedSecond;
+		target.m_iDetectionScore = source.m_iDetectionScore;
+		target.m_iRoadblockScanCount = source.m_iRoadblockScanCount;
+		target.m_iPoliceScanCount = source.m_iPoliceScanCount;
+		target.m_bLastRoadblockScanFailed = source.m_bLastRoadblockScanFailed;
+		target.m_bLastPoliceScanFailed = source.m_bLastPoliceScanFailed;
 		target.m_bLastEligibilityResult = source.m_bLastEligibilityResult;
 		target.m_sLastZoneId = source.m_sLastZoneId;
 		target.m_sLastEligibilitySummary = source.m_sLastEligibilitySummary;
@@ -1262,6 +1278,8 @@ class HST_CampaignSaveData
 				civilianZone.m_sLastIncidentReason = "legacy/backfilled";
 			if (civilianZone.m_iLastSupportChangeSecond <= 0)
 				civilianZone.m_iLastSupportChangeSecond = civilianZone.m_iLastIncidentSecond;
+			if (civilianZone.m_sLastSecurityReason.IsEmpty())
+				civilianZone.m_sLastSecurityReason = civilianZone.m_sLastIncidentReason;
 		}
 
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
@@ -1274,6 +1292,15 @@ class HST_CampaignSaveData
 
 			if (undercover.m_sWantedHeatReason.IsEmpty())
 				undercover.m_sWantedHeatReason = "legacy/backfilled";
+
+			if (undercover.m_sAppliedMode.IsEmpty())
+				undercover.m_sAppliedMode = "legacy/not_applied";
+			if (undercover.m_sLastCompromiseReason.IsEmpty())
+				undercover.m_sLastCompromiseReason = undercover.m_sLastReason;
+			if (undercover.m_sLastDetectionSource.IsEmpty())
+				undercover.m_sLastDetectionSource = "legacy/backfilled";
+			if (restoredSchemaVersion < 23 && !undercover.m_bEnforcementEnabled)
+				undercover.m_bEnforcementEnabled = true;
 		}
 	}
 
