@@ -206,6 +206,93 @@ class HST_HQService
 		return EnsureRuntimeObjects(state);
 	}
 
+	bool AddHQKnowledge(HST_CampaignState state, int amount, string reason)
+	{
+		if (!state || amount <= 0)
+			return false;
+
+		int before = state.m_iHQKnowledge;
+		state.m_iHQKnowledge = Math.Max(0, Math.Min(100, state.m_iHQKnowledge + amount));
+		state.m_iHQThreatLevel = Math.Max(state.m_iHQThreatLevel, state.m_iHQKnowledge);
+		state.m_iHQKnowledgeLastChangedSecond = state.m_iElapsedSeconds;
+		state.m_sLastHQKnowledgeReason = reason;
+		return state.m_iHQKnowledge != before;
+	}
+
+	bool ReduceHQKnowledge(HST_CampaignState state, int amount, string reason)
+	{
+		if (!state || amount <= 0)
+			return false;
+
+		int before = state.m_iHQKnowledge;
+		state.m_iHQKnowledge = Math.Max(0, state.m_iHQKnowledge - amount);
+		state.m_iHQThreatLevel = Math.Max(0, Math.Min(state.m_iHQThreatLevel, state.m_iHQKnowledge));
+		state.m_iHQKnowledgeLastChangedSecond = state.m_iElapsedSeconds;
+		state.m_sLastHQKnowledgeReason = reason;
+		return state.m_iHQKnowledge != before;
+	}
+
+	bool TickHQThreat(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
+			return false;
+		if (state.m_iElapsedSeconds < state.m_iLastHQThreatScanSecond + 30)
+			return false;
+
+		state.m_iLastHQThreatScanSecond = state.m_iElapsedSeconds;
+
+		string enemyReason;
+		string aggressionReason;
+		string civilianReason;
+		int threat;
+		threat += ResolveEnemyActivityThreatNearHQ(state, preset, enemyReason);
+		threat += ResolveAggressionThreat(state, preset, aggressionReason);
+		threat += ResolveCivilianHeatThreatNearHQ(state, civilianReason);
+
+		string reason = AppendThreatReason("", enemyReason);
+		reason = AppendThreatReason(reason, aggressionReason);
+		reason = AppendThreatReason(reason, civilianReason);
+		if (reason.IsEmpty())
+			reason = "quiet";
+
+		int beforeThreat = state.m_iHQThreatLevel;
+		state.m_iHQThreatLevel = Math.Max(0, Math.Min(100, threat));
+		state.m_sLastHQThreatReason = reason;
+		state.m_iLastHQActivitySecond = state.m_iElapsedSeconds;
+
+		bool knowledgeChanged;
+		if (state.m_iHQThreatLevel >= 50)
+			knowledgeChanged = AddHQKnowledge(state, Math.Max(1, state.m_iHQThreatLevel / 20), "HQ threat scan: " + reason);
+
+		return knowledgeChanged || state.m_iHQThreatLevel != beforeThreat;
+	}
+
+	string BuildHQThreatReport(HST_CampaignState state)
+	{
+		if (!state)
+			return "h-istasi HQ threat | state not ready";
+
+		return string.Format(
+			"h-istasi HQ threat | knowledge %1/100 | threat %2 | last knowledge %3s | reason %4 | last scan %5s | scan reason %6 | defend active %7 | status %8 | mission %9 | order %10 | support %11 | group %12 | attackers %13 alive %14 killed %15 | Petros alive %16 deaths %17",
+			state.m_iHQKnowledge,
+			state.m_iHQThreatLevel,
+			state.m_iHQKnowledgeLastChangedSecond,
+			state.m_sLastHQKnowledgeReason,
+			state.m_iLastHQThreatScanSecond,
+			state.m_sLastHQThreatReason,
+			state.m_bDefendPetrosActive,
+			state.m_sDefendPetrosStatus,
+			state.m_sDefendPetrosMissionId,
+			state.m_sDefendPetrosOrderId,
+			state.m_sDefendPetrosSupportRequestId,
+			state.m_sDefendPetrosAttackerGroupId,
+			state.m_iDefendPetrosAttackerCount,
+			state.m_iDefendPetrosAliveAttackerCount,
+			state.m_iDefendPetrosKilledCount,
+			state.m_bPetrosAlive,
+			state.m_iPetrosDeaths
+		);
+	}
 	string GetPetrosPrefab()
 	{
 		return PETROS_PREFAB;
@@ -216,6 +303,86 @@ class HST_HQService
 		return ARSENAL_PREFAB;
 	}
 
+	protected int ResolveEnemyActivityThreatNearHQ(HST_CampaignState state, HST_CampaignPreset preset, out string reason)
+	{
+		reason = "no enemy activity near HQ";
+		if (!state || !preset || !state.m_bHQDeployed)
+			return 0;
+
+		int threat;
+		float scanRadiusSq = 1200 * 1200;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+			if (group.m_sFactionKey == preset.m_sResistanceFactionKey || group.m_sFactionKey == "CIV")
+				continue;
+			if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed")
+				continue;
+			if (DistanceSq2D(group.m_vPosition, state.m_vHQPosition) > scanRadiusSq)
+				continue;
+
+			threat += 20 + Math.Max(0, group.m_iSurvivorInfantryCount) * 2 + Math.Max(0, group.m_iSurvivorVehicleCount) * 8;
+			reason = string.Format("enemy active group %1 near HQ", group.m_sGroupId);
+		}
+
+		return Math.Min(60, threat);
+	}
+
+	protected int ResolveAggressionThreat(HST_CampaignState state, HST_CampaignPreset preset, out string reason)
+	{
+		int threat;
+		reason = "aggression quiet";
+		if (!state)
+			return 0;
+
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool || (preset && pool.m_sFactionKey == preset.m_sResistanceFactionKey))
+				continue;
+			if (pool.m_iAggression <= 0)
+				continue;
+
+			threat += Math.Min(25, pool.m_iAggression / 4);
+			reason = string.Format("%1 aggression %2", pool.m_sFactionKey, pool.m_iAggression);
+		}
+
+		return threat;
+	}
+
+	protected int ResolveCivilianHeatThreatNearHQ(HST_CampaignState state, out string reason)
+	{
+		reason = "civilian heat quiet";
+		if (!state)
+			return 0;
+
+		int threat;
+		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+		{
+			if (!town || town.m_iWantedHeat <= 0)
+				continue;
+
+			HST_ZoneState zone = state.FindZone(town.m_sZoneId);
+			if (!zone)
+				continue;
+			if (DistanceSq2D(zone.m_vPosition, state.m_vHQPosition) > 1500 * 1500)
+				continue;
+
+			threat += Math.Min(15, town.m_iWantedHeat * 3);
+			reason = string.Format("town heat near HQ at %1", town.m_sZoneId);
+		}
+
+		return threat;
+	}
+
+	protected string AppendThreatReason(string current, string reason)
+	{
+		if (reason.IsEmpty() || reason == "no enemy activity near HQ" || reason == "aggression quiet" || reason == "civilian heat quiet")
+			return current;
+		if (current.IsEmpty())
+			return reason;
+		return current + "; " + reason;
+	}
 	protected bool ResolveHideoutPlacement(string requestedHideoutId, out string resolvedHideoutId, out vector resolvedPosition)
 	{
 		resolvedHideoutId = "";

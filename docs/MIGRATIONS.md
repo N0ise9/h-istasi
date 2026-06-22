@@ -2,8 +2,9 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `23`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `24`.
 
+- Phase 22 HQ threat and Defend Petros add durable HQ threat diagnostics and active defense mission/order/support/group links.
 - Phase 21 undercover enforcement and police/roadblocks add durable applied/enforcement state, detection score/source, compromise reason, and police/roadblock scan audit fields.
 - Phase 20 civilians, town support, and undercover reports add durable town support values and detailed undercover eligibility reasons.
 - Phase 19 support request lifecycle hardening adds durable support-request
@@ -11,7 +12,7 @@
 - Phase 18 enemy commander physical responses add durable enemy-order
   runtime fields while preserving runtime handles as non-persisted data.
 - The current save container captures campaign metadata, elapsed/save/restore
-  counters, war resources, HQ/Petros/cache/arsenal/tent fields, faction pools,
+  counters, war resources, HQ/Petros/cache/arsenal/tent fields, HQ threat/Defend Petros state, faction pools,
   players, zones, garrisons, active groups, QRFs, map markers, arsenal items,
   garage vehicles, vehicle cargo, runtime vehicles, saved loadouts, issued
   loadout items, captured emplacements, ammo points, active missions, generated
@@ -28,6 +29,16 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 24
+
+Phase 22 HQ threat and Defend Petros.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `24`.
+- Campaign state now persists HQ threat/knowledge diagnostics and active Defend Petros linkage.
+- Defend Petros records persist linked mission/order/support/group ids, status, timing, attacker counts, failure reason, and outcome-applied flag.
+- Existing schema-23 saves backfill HQ threat from HQ knowledge and mark existing Defend Petros mission ids as active.
+- Raw Petros entities, attacker entities, AI groups, and runtime support entities remain runtime-only and are not persisted.
 
 ## Schema 23
 

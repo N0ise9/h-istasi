@@ -216,6 +216,33 @@ class HST_EnemyCommanderService
 		return state.m_aEnemyOrders[state.m_aEnemyOrders.Count() - 1];
 	}
 
+	HST_EnemyOrderState QueuePetrosAttack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey)
+	{
+		if (!state || !preset || !enemyDirector || factionKey.IsEmpty())
+			return null;
+
+		HST_ZoneState targetZone = ResolvePetrosAttackTargetZone(state, preset);
+		if (!targetZone)
+			return null;
+
+		if (HasActiveOrderForZone(state, factionKey, targetZone.m_sZoneId))
+			return null;
+
+		enemyDirector.AddResources(state, factionKey, 100, 100);
+		int beforeCount = state.m_aEnemyOrders.Count();
+		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK))
+			return null;
+		if (state.m_aEnemyOrders.Count() <= beforeCount)
+			return null;
+
+		HST_EnemyOrderState order = state.m_aEnemyOrders[state.m_aEnemyOrders.Count() - 1];
+		order.m_vTargetPosition = state.m_vPetrosPosition;
+		if (IsZeroVector(order.m_vTargetPosition))
+			order.m_vTargetPosition = state.m_vHQPosition;
+		order.m_sRuntimeStatus = "petros_attack_ordered";
+		return order;
+	}
+
 	int DebugResolveDueOrdersNow(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons)
 	{
 		if (!state)
@@ -350,6 +377,12 @@ class HST_EnemyCommanderService
 			order.m_sFailureReason = "physical support request could not be created";
 			order.m_sRuntimeStatus = "physicalize_failed";
 			return true;
+		}
+
+		if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+		{
+			request.m_sAssetProfileId = request.m_sAssetProfileId + "_petros_attack";
+			request.m_sRuntimeStatus = "petros_attack_support_queued";
 		}
 
 		order.m_sSupportRequestId = request.m_sRequestId;
@@ -602,8 +635,66 @@ class HST_EnemyCommanderService
 	protected void ApplyAbstractPetrosPressure(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyOrderState order)
 	{
 		state.m_iHQKnowledge = Math.Min(100, state.m_iHQKnowledge + 10);
+		state.m_iHQThreatLevel = Math.Max(state.m_iHQThreatLevel, state.m_iHQKnowledge);
+		state.m_iHQKnowledgeLastChangedSecond = state.m_iElapsedSeconds;
+		state.m_iLastHQActivitySecond = state.m_iElapsedSeconds;
+		state.m_sLastHQKnowledgeReason = "abstract Petros pressure";
+		state.m_sLastHQThreatReason = "abstract Petros pressure";
 		state.m_iLastHQAttackSecond = state.m_iElapsedSeconds;
 		order.m_sResolutionKind = "abstract_petros_pressure";
+	}
+
+	protected HST_ZoneState ResolvePetrosAttackTargetZone(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return null;
+
+		vector targetPosition = state.m_vPetrosPosition;
+		if (IsZeroVector(targetPosition))
+			targetPosition = state.m_vHQPosition;
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = 999999999.0;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+			if (zone.m_sOwnerFactionKey == resistanceFactionKey)
+				continue;
+
+			float distanceSq = DistanceSq2D(targetPosition, zone.m_vPosition);
+			if (distanceSq < bestDistanceSq)
+			{
+				bestZone = zone;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		if (bestZone)
+			return bestZone;
+
+		foreach (HST_ZoneState fallback : state.m_aZones)
+		{
+			if (!fallback)
+				continue;
+			if (fallback.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || fallback.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+
+			float fallbackDistanceSq = DistanceSq2D(targetPosition, fallback.m_vPosition);
+			if (!bestZone || fallbackDistanceSq < bestDistanceSq)
+			{
+				bestZone = fallback;
+				bestDistanceSq = fallbackDistanceSq;
+			}
+		}
+
+		return bestZone;
 	}
 
 	protected HST_ZoneState SelectTargetZone(HST_CampaignState state, HST_CampaignPreset preset, string factionKey)
@@ -822,10 +913,13 @@ class HST_EnemyCommanderService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			return HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF || orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
 			return HST_ESupportRequestType.HST_SUPPORT_QRF;
 
-		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL || orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
 		{
 			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == resistanceFactionKey || targetZone.m_bActive))
 				return HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;

@@ -194,6 +194,7 @@ class HST_MissionRuntimeService
 			EnsureMissionCaptivesNeutralized(state, mission);
 			changed = UpdateFollowingCaptives(state, mission) || changed;
 			changed = SyncMissionAssetRuntimePositions(state, mission) || changed;
+			changed = TickDefendPetrosRuntime(state, mission, elapsedSeconds) || changed;
 			changed = AdvanceMissionStateMachine(state, preset, mission, elapsedSeconds) || changed;
 			foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
 			{
@@ -202,6 +203,63 @@ class HST_MissionRuntimeService
 
 				if (PollObjective(state, preset, mission, objective, elapsedSeconds))
 					changed = true;
+			}
+		}
+
+		return changed;
+	}
+
+	protected bool TickDefendPetrosRuntime(HST_CampaignState state, HST_ActiveMissionState mission, int elapsedSeconds)
+	{
+		if (!state || !mission || mission.m_sMissionId != "dynamic_defend_petros" || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
+
+		if (!state.m_bPetrosAlive)
+		{
+			MarkRuntimeMissionFailed(state, mission, "Petros was killed during the defense.");
+			return true;
+		}
+
+		bool changed;
+		if (mission.m_sRuntimePhase.IsEmpty() || mission.m_sRuntimePhase == PHASE_CREATED)
+		{
+			mission.m_sRuntimePhase = PHASE_ACTIVE;
+			changed = true;
+		}
+
+		int remaining = mission.m_iRemainingSeconds;
+		if (state.m_iDefendPetrosEndsSecond > 0)
+			remaining = Math.Max(0, state.m_iDefendPetrosEndsSecond - state.m_iElapsedSeconds);
+		mission.m_iRuntimeETASeconds = remaining;
+		mission.m_iRuntimeCounterA = state.m_iDefendPetrosAliveAttackerCount;
+		mission.m_iRuntimeCounterB = state.m_iDefendPetrosKilledCount;
+		mission.m_iRuntimeCounterC = state.m_iDefendPetrosAttackerCount;
+
+		if (state.m_iDefendPetrosAliveAttackerCount > 0 && mission.m_sRuntimePhase != PHASE_CONTACT)
+		{
+			mission.m_sRuntimePhase = PHASE_CONTACT;
+			changed = true;
+		}
+		else if (state.m_iDefendPetrosAliveAttackerCount <= 0 && mission.m_sRuntimePhase == PHASE_CONTACT)
+		{
+			mission.m_sRuntimePhase = PHASE_HOLDING;
+			changed = true;
+		}
+
+		if (state.m_iDefendPetrosEndsSecond > 0 && remaining <= 0)
+		{
+			foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+			{
+				if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId || objective.m_bFailed)
+					continue;
+
+				changed = CompleteWorldObjective(objective) || changed;
+			}
+
+			if (mission.m_sRuntimePhase != "defense_secured")
+			{
+				mission.m_sRuntimePhase = "defense_secured";
+				changed = true;
 			}
 		}
 
