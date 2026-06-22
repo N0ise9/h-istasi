@@ -35,6 +35,27 @@ class HST_GarrisonService
 		return true;
 	}
 
+	bool RemoveAbstractForces(HST_CampaignState state, string zoneId, string factionKey, int infantryCount, int vehicleCount)
+	{
+		if (!state || zoneId.IsEmpty() || factionKey.IsEmpty())
+			return false;
+
+		if (infantryCount < 0 || vehicleCount < 0)
+			return false;
+
+		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
+		if (!garrison)
+			return false;
+
+		int beforeInfantry = garrison.m_iInfantryCount;
+		int beforeVehicles = garrison.m_iVehicleCount;
+
+		garrison.m_iInfantryCount = Math.Max(0, garrison.m_iInfantryCount - infantryCount);
+		garrison.m_iVehicleCount = Math.Max(0, garrison.m_iVehicleCount - vehicleCount);
+
+		return garrison.m_iInfantryCount != beforeInfantry || garrison.m_iVehicleCount != beforeVehicles;
+	}
+
 	bool FoldSurvivors(HST_CampaignState state, string zoneId, string factionKey, int infantryCount, int vehicleCount)
 	{
 		if (infantryCount < 0 || vehicleCount < 0)

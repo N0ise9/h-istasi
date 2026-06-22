@@ -3675,6 +3675,24 @@ class HST_PhysicalWarService
 		int spawnedInfantryGroups = SpawnZoneInfantryGroups(state, zone, slots, infantryCount, compositions);
 		int spawnedVehicleGroups = SpawnZoneVehicleGroups(state, zone, slots, vehicleCount);
 		ApplyActiveZoneCounts(state, zone);
+		if (zone.m_iActiveInfantryCount < infantryCount && infantryCount > 0)
+		{
+			Print(string.Format(
+				"h-istasi garrison | activation partial | zone %1 | requested infantry %2 | active infantry %3 | folded failures may have returned to abstract garrison",
+				zone.m_sZoneId,
+				infantryCount,
+				zone.m_iActiveInfantryCount
+			), LogLevel.WARNING);
+		}
+		if (zone.m_iActiveVehicleCount < vehicleCount && vehicleCount > 0)
+		{
+			Print(string.Format(
+				"h-istasi garrison | activation partial | zone %1 | requested vehicles %2 | active vehicles %3 | folded failures may have returned to abstract garrison",
+				zone.m_sZoneId,
+				vehicleCount,
+				zone.m_iActiveVehicleCount
+			), LogLevel.WARNING);
+		}
 		string activationReport = string.Format("h-istasi | activated zone %1 | requested infantry %2/%3 vehicles %4/%5 | spawned infantry groups %6 vehicle groups %7", zone.m_sZoneId, infantryCount, garrisonInfantryBefore, vehicleCount, garrisonVehiclesBefore, spawnedInfantryGroups, spawnedVehicleGroups);
 		activationReport = activationReport + string.Format(" | active now infantry %1 vehicles %2 | abstract garrison now infantry %3 vehicles %4", zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount, garrison.m_iInfantryCount, garrison.m_iVehicleCount);
 		Print(string.Format("%1", activationReport));
@@ -4577,6 +4595,34 @@ class HST_PhysicalWarService
 		return string.Format("%1_%2_%3_%4_%5", prefix, zone.m_sZoneId, factionKey, state.m_iElapsedSeconds, state.m_aActiveGroups.Count());
 	}
 
+	protected string SelectTrainedResistanceGroupPrefab(HST_CampaignState state, HST_ZoneState zone, HST_FactionTemplate faction, int seed)
+	{
+		if (!state || !faction)
+			return "";
+
+		array<string> candidates = {};
+		int training = Math.Max(1, state.m_iTrainingLevel);
+
+		if (training <= 2)
+		{
+			AppendUniqueGroupPrefabs(candidates, faction.m_aPatrolGroupPrefabs);
+			AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+		}
+		else if (training <= 5)
+		{
+			AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+			AppendUniqueGroupPrefabs(candidates, faction.m_aPatrolGroupPrefabs);
+		}
+		else
+		{
+			AppendUniqueGroupPrefabs(candidates, faction.m_aQRFGroupPrefabs);
+			AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
+			AppendUniqueGroupPrefabs(candidates, faction.m_aPatrolGroupPrefabs);
+		}
+
+		return SelectValidGroupPrefabFromList(candidates, seed, faction.m_sFactionKey, "trained FIA garrison");
+	}
+
 	protected string SelectGroupPrefab(HST_CampaignState state, HST_ZoneState zone, string factionKey, bool qrf)
 	{
 		HST_FactionTemplate faction = HST_DefaultCatalog.CreateFactionTemplate(factionKey);
@@ -4590,6 +4636,13 @@ class HST_PhysicalWarService
 			AppendUniqueGroupPrefabs(candidates, faction.m_aQRFGroupPrefabs);
 			AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
 			return SelectValidGroupPrefabFromList(candidates, seed, factionKey, "qrf");
+		}
+
+		if (factionKey == "FIA")
+		{
+			string trainedPrefab = SelectTrainedResistanceGroupPrefab(state, zone, faction, seed);
+			if (!trainedPrefab.IsEmpty())
+				return trainedPrefab;
 		}
 
 		AppendUniqueGroupPrefabs(candidates, faction.m_aGroupPrefabs);
