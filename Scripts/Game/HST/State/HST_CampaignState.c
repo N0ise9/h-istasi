@@ -631,7 +631,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 23;
+	static const int SCHEMA_VERSION = 24;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -662,6 +662,26 @@ class HST_CampaignState
 	int m_iPetrosDeaths;
 	int m_iHQKnowledge;
 	int m_iLastHQAttackSecond;
+	int m_iHQThreatLevel;
+	int m_iHQKnowledgeLastChangedSecond;
+	int m_iLastHQActivitySecond;
+	int m_iLastHQThreatScanSecond;
+	string m_sLastHQKnowledgeReason;
+	string m_sLastHQThreatReason;
+	bool m_bDefendPetrosActive;
+	string m_sDefendPetrosMissionId;
+	string m_sDefendPetrosOrderId;
+	string m_sDefendPetrosSupportRequestId;
+	string m_sDefendPetrosAttackerGroupId;
+	string m_sDefendPetrosStatus = "inactive";
+	string m_sDefendPetrosFailureReason;
+	int m_iDefendPetrosStartedSecond;
+	int m_iDefendPetrosEndsSecond;
+	int m_iDefendPetrosLastUpdateSecond;
+	int m_iDefendPetrosAttackerCount;
+	int m_iDefendPetrosAliveAttackerCount;
+	int m_iDefendPetrosKilledCount;
+	bool m_bDefendPetrosOutcomeApplied;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;

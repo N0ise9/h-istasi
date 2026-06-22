@@ -194,6 +194,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
 		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
+		bool hqThreatChanged = m_HQ.TickHQThreat(m_State, m_Preset);
+		bool petrosDefenseChanged = TickDefendPetros();
 		bool hqRuntimeChanged = m_HQ.EnsureRuntimeObjects(m_State);
 		bool physicalWarChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
 		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, elapsedSeconds);
@@ -209,9 +211,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool physicalWarMarkerChanged = false;
 		if (physicalWarChanged && m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
-		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
-		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
-		bool forceImmediateMarkerRefresh = missionChanged || hqRuntimeChanged;
+		bool anyStateChanged = missionChanged || objectiveChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || civilianChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || physicalWarChanged || captureChanged || civilianRuntimeChanged;
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged || income > 0 || enemyResourcesChanged || aggressionChanged || supportMarkerChanged || enemyOrdersChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged || captureMarkerChanged || physicalWarMarkerChanged;
+		bool forceImmediateMarkerRefresh = missionChanged || hqRuntimeChanged || petrosDefenseChanged;
 		markerStateChanged = ResolveThrottledMarkerRefresh(markerStateChanged, forceImmediateMarkerRefresh);
 		if (markerStateChanged)
 			anyStateChanged = true;
@@ -703,7 +705,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed)
 		{
 			m_HQ.EnsureRuntimeObjects(m_State);
-			m_State.m_iHQKnowledge = Math.Max(0, m_State.m_iHQKnowledge - 50);
+			m_HQ.ReduceHQKnowledge(m_State, 50, "HQ moved");
 			MarkMajorCampaignChange();
 		}
 		return changed;
@@ -723,6 +725,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed)
 		{
 			m_HQ.EnsureRuntimeObjects(m_State);
+			m_HQ.ReduceHQKnowledge(m_State, 50, "HQ moved");
 			MarkMajorCampaignChange();
 		}
 		return changed;
@@ -734,6 +737,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_HQ.OnPetrosKilled(m_State, m_Economy, 250, 5);
+		if (m_State.m_bDefendPetrosActive)
+			FailDefendPetrosMission("Petros killed");
 		MarkMajorCampaignChange();
 	}
 
@@ -1378,6 +1383,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
 			report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
 		}
+		return report;
+	}
+
+	string RequestMemberInspectHQThreat(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi HQ threat | server required";
+		if (!CanPlayerUseMemberActions(playerId))
+			return "h-istasi HQ threat | membership required";
+
+		string report = "h-istasi phase 22 | HQ threat";
+		if (m_HQ)
+			report = report + "\n" + m_HQ.BuildHQThreatReport(m_State);
+		if (m_EnemyCommander)
+			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+		if (m_SupportRequests)
+			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 		return report;
 	}
 
@@ -3033,6 +3055,571 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
+	string RequestAdminPhase22SeedHQKnowledge(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 22 smoke | failed: admin required";
+		if (!m_State || !m_HQ)
+			return "h-istasi phase 22 smoke | failed: HQ service not ready";
+
+		m_HQ.AddHQKnowledge(m_State, 100, "phase22 admin seed");
+		m_State.m_iHQThreatLevel = Math.Max(m_State.m_iHQThreatLevel, m_State.m_iHQKnowledge);
+		m_State.m_sLastHQThreatReason = "phase22 admin seed";
+		m_State.m_iLastHQActivitySecond = m_State.m_iElapsedSeconds;
+		MarkMajorCampaignChange(true);
+		return "h-istasi phase 22 smoke | HQ knowledge seeded\n" + BuildPhase22Report();
+	}
+
+	string RequestAdminPhase22QueuePetrosAttack(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 22 smoke | failed: admin required";
+		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
+			return "h-istasi phase 22 smoke | failed: enemy services not ready";
+
+		string factionKey = m_Preset.m_sOccupierFactionKey;
+		if (factionKey.IsEmpty())
+			factionKey = "US";
+
+		HST_EnemyOrderState order = m_EnemyCommander.QueuePetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
+		if (order)
+		{
+			if (m_HQ)
+				m_HQ.AddHQKnowledge(m_State, 100, "phase22 Petros attack queued");
+			EnsureDefendPetrosMissionForOrder(order);
+			MarkMajorCampaignChange(true);
+		}
+
+		return string.Format("h-istasi phase 22 smoke | queue Petros attack %1\n%2", order != null, BuildPhase22Report());
+	}
+
+	string RequestAdminPhase22StartDefense(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 22 smoke | failed: admin required";
+		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
+			return "h-istasi phase 22 smoke | failed: services not ready";
+
+		HST_EnemyOrderState order = FindActivePetrosAttackOrder();
+		if (!order)
+		{
+			string factionKey = m_Preset.m_sOccupierFactionKey;
+			if (factionKey.IsEmpty())
+				factionKey = "US";
+			order = m_EnemyCommander.QueuePetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
+		}
+
+		HST_ActiveMissionState mission = EnsureDefendPetrosMissionForOrder(order);
+		if (mission)
+			MarkMajorCampaignChange(true);
+
+		return string.Format("h-istasi phase 22 smoke | start defense mission %1 | order %2\n%3", mission != null, order != null, BuildPhase22Report());
+	}
+
+	string RequestAdminPhase22KillPetros(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 22 smoke | failed: admin required";
+
+		OnPetrosKilled();
+		return "h-istasi phase 22 smoke | Petros killed\n" + BuildPhase22Report();
+	}
+
+	string RequestAdminPhase22SucceedDefense(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 22 smoke | failed: admin required";
+
+		bool changed = CompleteDefendPetrosMission("phase22 admin success");
+		if (changed)
+			MarkMajorCampaignChange(true);
+		return string.Format("h-istasi phase 22 smoke | succeed defense %1\n%2", changed, BuildPhase22Report());
+	}
+
+	string RequestAdminPhase22Report(int playerId)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return "h-istasi phase 22 smoke | failed: admin required";
+
+		return BuildPhase22Report();
+	}
+
+	protected string BuildPhase22Report()
+	{
+		string report = "h-istasi phase 22 smoke report";
+		if (m_HQ)
+			report = report + "\n" + m_HQ.BuildHQThreatReport(m_State);
+		if (m_EnemyCommander)
+		{
+			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
+			report = report + "\n" + m_EnemyCommander.BuildPhysicalResponseReport(m_State);
+		}
+		if (m_SupportRequests)
+			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		if (m_CommandUI)
+			report = report + "\n" + m_CommandUI.BuildMissionReport(m_State);
+		return report;
+	}
+
+	protected bool TickDefendPetros()
+	{
+		if (!m_State)
+			return false;
+
+		bool changed;
+		HST_EnemyOrderState order = FindActivePetrosAttackOrder();
+		if (!m_State.m_bDefendPetrosActive && order)
+		{
+			HST_ActiveMissionState createdMission = EnsureDefendPetrosMissionForOrder(order);
+			if (createdMission)
+				changed = true;
+		}
+
+		changed = SyncDefendPetrosLinks(order) || changed;
+		changed = UpdateDefendPetrosOutcome() || changed;
+		return changed;
+	}
+
+	protected HST_ActiveMissionState EnsureDefendPetrosMissionForOrder(HST_EnemyOrderState order)
+	{
+		if (!m_State)
+			return null;
+
+		HST_ActiveMissionState existingMission = FindActiveDefendPetrosMission();
+		if (existingMission)
+		{
+			m_State.m_bDefendPetrosActive = true;
+			m_State.m_sDefendPetrosMissionId = existingMission.m_sInstanceId;
+			if (order)
+				m_State.m_sDefendPetrosOrderId = order.m_sOrderId;
+			SyncDefendPetrosLinks(order);
+			return existingMission;
+		}
+
+		HST_MissionDefinition definition;
+		if (m_Missions)
+			definition = m_Missions.FindDefinition("dynamic_defend_petros");
+
+		int durationSeconds = 2400;
+		string displayName = "Defend Petros";
+		if (definition)
+		{
+			durationSeconds = Math.Max(900, definition.m_iDurationSeconds);
+			displayName = definition.m_sDisplayName;
+		}
+
+		string targetZoneId = ResolveHQDefenseZoneId(order);
+		vector targetPosition = m_State.m_vPetrosPosition;
+		if (IsZeroVector(targetPosition))
+			targetPosition = m_State.m_vHQPosition;
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = string.Format("defend_petros_%1_%2", m_State.m_iElapsedSeconds, m_State.m_aActiveMissions.Count());
+		mission.m_sMissionId = "dynamic_defend_petros";
+		mission.m_sDisplayName = displayName;
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE;
+		mission.m_iRemainingSeconds = durationSeconds;
+		mission.m_sTargetZoneId = targetZoneId;
+		mission.m_vTargetPosition = targetPosition;
+		mission.m_sMarkerId = "hst_mission_" + mission.m_sInstanceId;
+		mission.m_sRuntimePrimitive = "hold_area";
+		mission.m_sRuntimeType = "dynamic_defend_petros";
+		mission.m_sRuntimePhase = "active";
+		mission.m_iStartedAtSecond = m_State.m_iElapsedSeconds;
+		mission.m_iActiveUntilSecond = m_State.m_iElapsedSeconds + durationSeconds;
+		mission.m_iRuntimeStartedAtSecond = m_State.m_iElapsedSeconds;
+		mission.m_iRuntimeHoldSeconds = 600;
+		mission.m_bDynamic = true;
+		mission.m_bRequested = true;
+		m_State.m_aActiveMissions.Insert(mission);
+
+		CreateDefendPetrosObjective(mission, targetPosition, targetZoneId);
+		UpsertDefendPetrosTask(mission, targetPosition);
+
+		m_State.m_bDefendPetrosActive = true;
+		m_State.m_sDefendPetrosMissionId = mission.m_sInstanceId;
+		if (order)
+			m_State.m_sDefendPetrosOrderId = order.m_sOrderId;
+		m_State.m_sDefendPetrosStatus = "active";
+		m_State.m_sDefendPetrosFailureReason = "";
+		m_State.m_iDefendPetrosStartedSecond = m_State.m_iElapsedSeconds;
+		m_State.m_iDefendPetrosEndsSecond = m_State.m_iElapsedSeconds + durationSeconds;
+		m_State.m_iDefendPetrosLastUpdateSecond = m_State.m_iElapsedSeconds;
+		m_State.m_iDefendPetrosAttackerCount = 0;
+		m_State.m_iDefendPetrosAliveAttackerCount = 0;
+		m_State.m_iDefendPetrosKilledCount = 0;
+		m_State.m_bDefendPetrosOutcomeApplied = false;
+		SyncDefendPetrosLinks(order);
+		BroadcastMissionEvent("created", mission, definition);
+		return mission;
+	}
+
+	protected void CreateDefendPetrosObjective(HST_ActiveMissionState mission, vector targetPosition, string targetZoneId)
+	{
+		if (!m_State || !mission)
+			return;
+
+		foreach (HST_MissionObjectiveState existingObjective : m_State.m_aMissionObjectives)
+		{
+			if (existingObjective && existingObjective.m_sMissionInstanceId == mission.m_sInstanceId)
+				return;
+		}
+
+		HST_MissionObjectiveState objective = new HST_MissionObjectiveState();
+		objective.m_sObjectiveId = "obj_" + mission.m_sInstanceId + "_hold_petros";
+		objective.m_sMissionInstanceId = mission.m_sInstanceId;
+		objective.m_eType = HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA;
+		objective.m_sLabel = "Defend Petros";
+		objective.m_sRequirementText = "Keep Petros alive and hold the HQ area until the attack breaks.";
+		objective.m_sTargetId = "petros";
+		objective.m_sTargetZoneId = targetZoneId;
+		objective.m_sPhysicalEntityId = "phys_" + mission.m_sInstanceId + "_petros";
+		objective.m_sLinkedRuntimeEntityId = objective.m_sPhysicalEntityId;
+		objective.m_sRuntimePrimitive = "hold_area";
+		objective.m_vPosition = targetPosition;
+		objective.m_iRequiredProgress = 1;
+		objective.m_iRequiredHoldSeconds = 600;
+		objective.m_iRequiredCount = 1;
+		m_State.m_aMissionObjectives.Insert(objective);
+	}
+
+	protected void UpsertDefendPetrosTask(HST_ActiveMissionState mission, vector targetPosition)
+	{
+		if (!m_State || !mission)
+			return;
+
+		string taskId = "task_" + mission.m_sInstanceId;
+		HST_CampaignTaskState task = m_State.FindCampaignTask(taskId);
+		if (!task)
+		{
+			task = new HST_CampaignTaskState();
+			task.m_sTaskId = taskId;
+			m_State.m_aCampaignTasks.Insert(task);
+		}
+
+		task.m_sLinkedId = mission.m_sInstanceId;
+		task.m_sTitle = "Defend Petros";
+		task.m_sDescription = "Hold the HQ area and keep Petros alive.";
+		task.m_sCategory = "mission";
+		task.m_vPosition = targetPosition;
+		task.m_bActive = true;
+		task.m_bSucceeded = false;
+		task.m_bFailed = false;
+	}
+
+	protected string ResolveHQDefenseZoneId(HST_EnemyOrderState order)
+	{
+		if (order && !order.m_sTargetZoneId.IsEmpty())
+			return order.m_sTargetZoneId;
+
+		return SelectHQSupportZoneId();
+	}
+
+	protected HST_EnemyOrderState FindActivePetrosAttackOrder()
+	{
+		if (!m_State)
+			return null;
+
+		HST_EnemyOrderState linked = FindEnemyOrderById(m_State.m_sDefendPetrosOrderId);
+		if (linked && linked.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK && linked.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return linked;
+
+		for (int i = m_State.m_aEnemyOrders.Count() - 1; i >= 0; i--)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
+			if (!order || order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+				continue;
+			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected HST_EnemyOrderState FindEnemyOrderById(string orderId)
+	{
+		if (!m_State || orderId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == orderId)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected HST_ActiveMissionState FindActiveDefendPetrosMission()
+	{
+		if (!m_State)
+			return null;
+
+		HST_ActiveMissionState linked = m_State.FindActiveMission(m_State.m_sDefendPetrosMissionId);
+		if (linked && linked.m_sMissionId == "dynamic_defend_petros" && linked.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return linked;
+
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (mission && mission.m_sMissionId == "dynamic_defend_petros" && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				return mission;
+		}
+
+		return null;
+	}
+
+	protected bool SyncDefendPetrosLinks(HST_EnemyOrderState order)
+	{
+		if (!m_State || !m_State.m_bDefendPetrosActive)
+			return false;
+
+		bool changed;
+		if (!order)
+			order = FindActivePetrosAttackOrder();
+		if (!order)
+			order = FindEnemyOrderById(m_State.m_sDefendPetrosOrderId);
+
+		if (order)
+		{
+			if (m_State.m_sDefendPetrosOrderId != order.m_sOrderId)
+			{
+				m_State.m_sDefendPetrosOrderId = order.m_sOrderId;
+				changed = true;
+			}
+			if (m_State.m_sDefendPetrosSupportRequestId != order.m_sSupportRequestId)
+			{
+				m_State.m_sDefendPetrosSupportRequestId = order.m_sSupportRequestId;
+				changed = true;
+			}
+			if (m_State.m_sDefendPetrosAttackerGroupId != order.m_sGroupId)
+			{
+				m_State.m_sDefendPetrosAttackerGroupId = order.m_sGroupId;
+				changed = true;
+			}
+		}
+
+		HST_SupportRequestState request = m_State.FindSupportRequest(m_State.m_sDefendPetrosSupportRequestId);
+		if (request && m_State.m_sDefendPetrosAttackerGroupId != request.m_sGroupId)
+		{
+			m_State.m_sDefendPetrosAttackerGroupId = request.m_sGroupId;
+			changed = true;
+		}
+
+		HST_ActiveGroupState group = m_State.FindActiveGroup(m_State.m_sDefendPetrosAttackerGroupId);
+		int attackerCount;
+		int aliveCount;
+		int killedCount;
+		if (group)
+		{
+			attackerCount = Math.Max(0, group.m_iInfantryCount) + Math.Max(0, group.m_iVehicleCount);
+			aliveCount = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+			if (attackerCount > 0 && aliveCount <= 0 && group.m_sRuntimeStatus != "eliminated" && group.m_sRuntimeStatus != "folded" && group.m_sRuntimeStatus != "spawn_failed")
+				aliveCount = attackerCount;
+			killedCount = Math.Max(0, attackerCount - aliveCount);
+		}
+
+		if (m_State.m_iDefendPetrosAttackerCount != attackerCount)
+		{
+			m_State.m_iDefendPetrosAttackerCount = attackerCount;
+			changed = true;
+		}
+		if (m_State.m_iDefendPetrosAliveAttackerCount != aliveCount)
+		{
+			m_State.m_iDefendPetrosAliveAttackerCount = aliveCount;
+			changed = true;
+		}
+		if (m_State.m_iDefendPetrosKilledCount != killedCount)
+		{
+			m_State.m_iDefendPetrosKilledCount = killedCount;
+			changed = true;
+		}
+
+		string status = ResolveDefendPetrosStatus(order, request, group);
+		if (m_State.m_sDefendPetrosStatus != status)
+		{
+			m_State.m_sDefendPetrosStatus = status;
+			changed = true;
+		}
+
+		m_State.m_iDefendPetrosLastUpdateSecond = m_State.m_iElapsedSeconds;
+		return changed;
+	}
+
+	protected string ResolveDefendPetrosStatus(HST_EnemyOrderState order, HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		if (!m_State.m_bPetrosAlive)
+			return "failed_petros_killed";
+		if (group)
+			return "attackers_" + group.m_sRuntimeStatus;
+		if (request)
+			return "support_" + request.m_sRuntimeStatus;
+		if (order)
+			return "order_" + order.m_sRuntimeStatus;
+		return "active";
+	}
+
+	protected bool UpdateDefendPetrosOutcome()
+	{
+		if (!m_State || !m_State.m_bDefendPetrosActive)
+			return false;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(m_State.m_sDefendPetrosMissionId);
+		if (!m_State.m_bPetrosAlive)
+			return FailDefendPetrosMission("Petros killed");
+
+		if (mission)
+		{
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED)
+				return CompleteDefendPetrosMission("mission succeeded");
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_FAILED)
+				return FailDefendPetrosMission("mission failed");
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+				return CompleteDefendPetrosMission("defense timer held");
+		}
+
+		HST_SupportRequestState request = m_State.FindSupportRequest(m_State.m_sDefendPetrosSupportRequestId);
+		if (request && request.m_sGroupId.IsEmpty() && request.m_sRuntimeStatus.Contains("physicalize_failed"))
+			return FailDefendPetrosMission(request.m_sFailureReason);
+
+		HST_ActiveGroupState group = m_State.FindActiveGroup(m_State.m_sDefendPetrosAttackerGroupId);
+		if (group && (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded"))
+			return CompleteDefendPetrosMission("attackers neutralized");
+		if (group && group.m_sRuntimeStatus == "spawn_failed")
+			return FailDefendPetrosMission(group.m_sSpawnFailureReason);
+
+		if (m_State.m_iDefendPetrosEndsSecond > 0 && m_State.m_iElapsedSeconds >= m_State.m_iDefendPetrosEndsSecond)
+			return CompleteDefendPetrosMission("defense timer held");
+
+		return false;
+	}
+
+	protected bool FailDefendPetrosMission(string reason)
+	{
+		if (!m_State)
+			return false;
+		if (reason.IsEmpty())
+			reason = "Defend Petros failed";
+
+		bool changed;
+		HST_ActiveMissionState mission = m_State.FindActiveMission(m_State.m_sDefendPetrosMissionId);
+		bool missionWasActive = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
+		if (missionWasActive)
+		{
+			mission.m_sRuntimeFailureReason = reason;
+			m_State.m_bDefendPetrosOutcomeApplied = true;
+			changed = FailMission(mission.m_sInstanceId) || changed;
+			if (m_HQ)
+				changed = m_HQ.AddHQKnowledge(m_State, 25, "Defend Petros failed: " + reason) || changed;
+		}
+		else if (!m_State.m_bDefendPetrosOutcomeApplied && !missionWasActive)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_FAILED)
+			{
+				if (m_HQ)
+					changed = m_HQ.AddHQKnowledge(m_State, 25, "Defend Petros failed: " + reason) || changed;
+			}
+			m_State.m_bDefendPetrosOutcomeApplied = true;
+		}
+
+		m_State.m_bDefendPetrosActive = false;
+		m_State.m_sDefendPetrosStatus = "failed";
+		m_State.m_sDefendPetrosFailureReason = reason;
+		m_State.m_iDefendPetrosLastUpdateSecond = m_State.m_iElapsedSeconds;
+		SetDefendPetrosTaskOutcome(mission, true);
+		SetDefendPetrosOrderOutcome(false, reason);
+		changed = true;
+		return changed;
+	}
+
+	protected bool CompleteDefendPetrosMission(string reason)
+	{
+		if (!m_State)
+			return false;
+		if (reason.IsEmpty())
+			reason = "Defend Petros succeeded";
+
+		bool changed;
+		HST_ActiveMissionState mission = m_State.FindActiveMission(m_State.m_sDefendPetrosMissionId);
+		if (!mission)
+			mission = FindActiveDefendPetrosMission();
+		if (!mission && !m_State.m_bDefendPetrosActive)
+			return false;
+
+		bool shouldApplyOutcome = !m_State.m_bDefendPetrosOutcomeApplied;
+		m_State.m_bDefendPetrosOutcomeApplied = true;
+		if (mission)
+		{
+			foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+			{
+				if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+					continue;
+
+				objective.m_bFailed = false;
+				if (!objective.m_bComplete)
+				{
+					objective.m_iCurrentProgress = objective.m_iRequiredProgress;
+					objective.m_iCurrentCount = Math.Max(1, objective.m_iRequiredCount);
+					objective.m_bComplete = true;
+					changed = true;
+				}
+			}
+
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				changed = CompleteMission(mission.m_sInstanceId) || changed;
+			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && m_Missions)
+				changed = m_Missions.Complete(m_State, m_Economy, mission.m_sInstanceId, false, true) || changed;
+		}
+
+		if (shouldApplyOutcome && m_HQ)
+			changed = m_HQ.ReduceHQKnowledge(m_State, 60, "Defend Petros succeeded: " + reason) || changed;
+
+		m_State.m_bDefendPetrosActive = false;
+		m_State.m_sDefendPetrosStatus = "succeeded";
+		m_State.m_sDefendPetrosFailureReason = "";
+		m_State.m_iDefendPetrosLastUpdateSecond = m_State.m_iElapsedSeconds;
+		SetDefendPetrosTaskOutcome(mission, false);
+		SetDefendPetrosOrderOutcome(true, reason);
+		changed = true;
+		return changed;
+	}
+
+	protected void SetDefendPetrosTaskOutcome(HST_ActiveMissionState mission, bool failed)
+	{
+		if (!m_State || !mission)
+			return;
+
+		HST_CampaignTaskState task = m_State.FindCampaignTask("task_" + mission.m_sInstanceId);
+		if (!task)
+			return;
+
+		task.m_bActive = false;
+		task.m_bFailed = failed;
+		task.m_bSucceeded = !failed;
+	}
+
+	protected void SetDefendPetrosOrderOutcome(bool succeeded, string reason)
+	{
+		HST_EnemyOrderState order = FindEnemyOrderById(m_State.m_sDefendPetrosOrderId);
+		if (!order)
+			return;
+
+		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+		order.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
+		order.m_bOutcomeApplied = true;
+		if (succeeded)
+		{
+			order.m_sResolutionKind = "defend_petros_succeeded";
+			order.m_sRuntimeStatus = "resolved_defense_succeeded";
+		}
+		else
+		{
+			order.m_sResolutionKind = "defend_petros_failed";
+			order.m_sRuntimeStatus = "resolved_defense_failed";
+			order.m_sFailureReason = reason;
+		}
+	}
+
 	protected void PreparePhase21SmokeUndercover(string identityId)
 	{
 		if (!m_Civilians || !m_State || identityId.IsEmpty())
@@ -4629,6 +5216,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!definition || !activeMission || activeMission.m_sTargetZoneId.IsEmpty())
 			return false;
 
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+			return false;
+
 		HST_ZoneState zone = m_State.FindZone(activeMission.m_sTargetZoneId);
 		if (!zone)
 			return false;
@@ -4646,7 +5236,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			m_EnemyDirector.AddResources(m_State, zone.m_sOwnerFactionKey, -12, -6);
 			if (definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild")
-				m_State.m_iHQKnowledge = Math.Max(0, m_State.m_iHQKnowledge - 20);
+				m_HQ.ReduceHQKnowledge(m_State, 20, "mission success: " + definition.m_sMissionId);
 			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
 				m_ZoneCapture.AddResistanceCaptureProgress(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zone.m_sZoneId, 35, 10, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
 			return true;
@@ -4683,18 +5273,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!definition || !activeMission)
 			return false;
 
+		bool changed;
 		if (definition.m_sMissionId == "assassinate_traitor")
-		{
-			m_State.m_iHQKnowledge = Math.Min(100, m_State.m_iHQKnowledge + 45);
-			return true;
-		}
+			changed = m_HQ.AddHQKnowledge(m_State, 35, "traitor escaped / failed assassination") || changed;
 
 		if (definition.m_sMissionId == "dynamic_defend_petros")
 		{
-			m_State.m_iHQKnowledge = 100;
-			m_State.m_iLastHQAttackSecond = m_State.m_iElapsedSeconds;
-			return true;
+			if (!m_State.m_bDefendPetrosOutcomeApplied)
+				changed = m_HQ.AddHQKnowledge(m_State, 25, "Defend Petros failed") || changed;
+			if (m_State.m_iLastHQAttackSecond != m_State.m_iElapsedSeconds)
+			{
+				m_State.m_iLastHQAttackSecond = m_State.m_iElapsedSeconds;
+				changed = true;
+			}
+			return changed;
 		}
+
+		if (definition.m_iFailureAggression >= 4)
+			changed = m_HQ.AddHQKnowledge(m_State, 8 + definition.m_iFailureAggression, "high aggression mission failure: " + definition.m_sMissionId) || changed;
+
+		if (changed)
+			return true;
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT && !activeMission.m_sTargetZoneId.IsEmpty())
 		{

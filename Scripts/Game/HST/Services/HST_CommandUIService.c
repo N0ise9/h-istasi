@@ -163,6 +163,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_support")
 			return coordinator.RequestMemberInspectSupport(playerId);
 
+		if (commandId == "inspect_hq_threat")
+			return coordinator.RequestMemberInspectHQThreat(playerId);
+
 		if (commandId == "inspect_civilians")
 			return coordinator.RequestMemberInspectCivilians(playerId);
 
@@ -442,6 +445,24 @@ class HST_CommandUIService
 		if (commandId == "admin_phase21_report")
 			return coordinator.RequestAdminPhase21Report(playerId);
 
+		if (commandId == "admin_phase22_seed_hq_knowledge")
+			return coordinator.RequestAdminPhase22SeedHQKnowledge(playerId);
+
+		if (commandId == "admin_phase22_queue_attack")
+			return coordinator.RequestAdminPhase22QueuePetrosAttack(playerId);
+
+		if (commandId == "admin_phase22_start_defense")
+			return coordinator.RequestAdminPhase22StartDefense(playerId);
+
+		if (commandId == "admin_phase22_kill_petros")
+			return coordinator.RequestAdminPhase22KillPetros(playerId);
+
+		if (commandId == "admin_phase22_succeed_defense")
+			return coordinator.RequestAdminPhase22SucceedDefense(playerId);
+
+		if (commandId == "admin_phase22_report")
+			return coordinator.RequestAdminPhase22Report(playerId);
+
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
@@ -579,6 +600,9 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_support")
 			return !coordinator.RequestMemberInspectSupport(playerId).IsEmpty();
+
+		if (commandId == "inspect_hq_threat")
+			return !coordinator.RequestMemberInspectHQThreat(playerId).IsEmpty();
 
 		if (commandId == "inspect_civilians")
 			return !coordinator.RequestMemberInspectCivilians(playerId).IsEmpty();
@@ -861,6 +885,24 @@ class HST_CommandUIService
 
 		if (commandId == "admin_phase21_report")
 			return !coordinator.RequestAdminPhase21Report(playerId).IsEmpty();
+
+		if (commandId == "admin_phase22_seed_hq_knowledge")
+			return !coordinator.RequestAdminPhase22SeedHQKnowledge(playerId).Contains("failed");
+
+		if (commandId == "admin_phase22_queue_attack")
+			return !coordinator.RequestAdminPhase22QueuePetrosAttack(playerId).Contains("failed");
+
+		if (commandId == "admin_phase22_start_defense")
+			return !coordinator.RequestAdminPhase22StartDefense(playerId).Contains("failed");
+
+		if (commandId == "admin_phase22_kill_petros")
+			return !coordinator.RequestAdminPhase22KillPetros(playerId).Contains("failed");
+
+		if (commandId == "admin_phase22_succeed_defense")
+			return !coordinator.RequestAdminPhase22SucceedDefense(playerId).Contains("failed");
+
+		if (commandId == "admin_phase22_report")
+			return !coordinator.RequestAdminPhase22Report(playerId).IsEmpty();
 
 		if (commandId == "inspect_zone_composition")
 			return !coordinator.RequestAdminInspectZoneComposition(playerId).IsEmpty();
@@ -1157,6 +1199,15 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "hq", "Runtime objects", BuildRuntimeObjectLabel(state), BuildRuntimeObjectTone(state));
 		payload = AppendRow(payload, "hq", "HQ radius", BuildHQRadiusStatus(state, settings, playerId), BuildHQRadiusTone(state, settings, playerId));
 		payload = AppendRow(payload, "hq", "Enemy knowledge", string.Format("%1/100", state.m_iHQKnowledge), HQKnowledgeTone(state));
+		payload = AppendRow(payload, "hq", "HQ threat", string.Format("%1/100", state.m_iHQThreatLevel), HQThreatTone(state));
+		payload = AppendRow(payload, "hq", "Knowledge reason", state.m_sLastHQKnowledgeReason, "neutral");
+		payload = AppendRow(payload, "hq", "Threat scan", state.m_sLastHQThreatReason, HQThreatTone(state));
+		payload = AppendRow(payload, "hq", "Defense status", BuildDefendPetrosStatusLabel(state), DefendPetrosTone(state));
+		payload = AppendRow(payload, "hq", "Defense mission", state.m_sDefendPetrosMissionId, DefendPetrosTone(state));
+		payload = AppendRow(payload, "hq", "Attack order", state.m_sDefendPetrosOrderId, DefendPetrosTone(state));
+		payload = AppendRow(payload, "hq", "Support request", state.m_sDefendPetrosSupportRequestId, DefendPetrosTone(state));
+		payload = AppendRow(payload, "hq", "Attacker group", state.m_sDefendPetrosAttackerGroupId, DefendPetrosTone(state));
+		payload = AppendRow(payload, "hq", "Attackers", string.Format("%1 total / %2 alive / %3 killed", state.m_iDefendPetrosAttackerCount, state.m_iDefendPetrosAliveAttackerCount, state.m_iDefendPetrosKilledCount), DefendPetrosTone(state));
 		payload = AppendRow(payload, "hq", "Build mode", BuildModeStatusLabel(state), BuildModeTone(state));
 
 		payload = AppendSection(payload, "moves", "Move Base");
@@ -1736,6 +1787,7 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_PETROS)
 		{
+			AddMenuAction(actions, TAB_PETROS, "HQ threat report", "inspect_hq_threat", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_PETROS, "Move base to my position", "move_hq_here", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: north forest", "move_hq", "hideout_north_forest", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_PETROS, "Move HQ: central hills", "move_hq", "hideout_central_hills", canUseCommander, "commander required");
@@ -1894,6 +1946,12 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "Phase 21 simulate police", "admin_phase21_police", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 21 clear heat", "admin_phase21_clear_heat", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Phase 21 report", "admin_phase21_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 22 seed HQ knowledge", "admin_phase22_seed_hq_knowledge", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 22 queue Petros attack", "admin_phase22_queue_attack", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 22 start defense", "admin_phase22_start_defense", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 22 kill Petros", "admin_phase22_kill_petros", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 22 succeed defense", "admin_phase22_succeed_defense", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Phase 22 report", "admin_phase22_report", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
@@ -2617,6 +2675,45 @@ class HST_CommandUIService
 		if (state.m_iHQKnowledge >= 40)
 			return "warn";
 		return "good";
+	}
+
+	protected string HQThreatTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "neutral";
+		if (state.m_iHQThreatLevel >= 80)
+			return "bad";
+		if (state.m_iHQThreatLevel >= 40)
+			return "warn";
+		return "good";
+	}
+
+	protected string BuildDefendPetrosStatusLabel(HST_CampaignState state)
+	{
+		if (!state)
+			return "unknown";
+
+		string status = state.m_sDefendPetrosStatus;
+		if (status.IsEmpty())
+			status = "inactive";
+		if (state.m_bDefendPetrosActive)
+			status = status + " | active";
+		if (!state.m_sDefendPetrosFailureReason.IsEmpty())
+			status = status + " | " + state.m_sDefendPetrosFailureReason;
+		return status;
+	}
+
+	protected string DefendPetrosTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "neutral";
+		if (state.m_sDefendPetrosStatus.Contains("failed") || !state.m_sDefendPetrosFailureReason.IsEmpty())
+			return "bad";
+		if (state.m_sDefendPetrosStatus.Contains("succeeded"))
+			return "good";
+		if (state.m_bDefendPetrosActive)
+			return "warn";
+		return "neutral";
 	}
 
 	protected int ResolveHQRadiusMeters(HST_RuntimeSettings settings)

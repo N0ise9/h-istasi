@@ -39,6 +39,7 @@ class HST_SupportRequestService
 	static const float PHYSICAL_SUPPORT_MIN_STANDOFF_METERS = 220.0;
 	static const float PHYSICAL_SUPPORT_EXTRA_STANDOFF_METERS = 140.0;
 	static const float PHYSICAL_SUPPORT_MAX_STANDOFF_METERS = 650.0;
+	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 950.0;
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 
 	protected bool m_bMarkerRefreshNeeded;
@@ -510,6 +511,14 @@ class HST_SupportRequestService
 			targetPosition = objectivePosition;
 		}
 
+		if (IsPetrosAttackSupport(request) && DistanceSq2D(sourcePosition, state.m_vHQPosition) < PETROS_ATTACK_MIN_STANDOFF_METERS * PETROS_ATTACK_MIN_STANDOFF_METERS)
+		{
+			request.m_sFailureReason = "Petros attack staging inside HQ exclusion radius";
+			request.m_sRuntimeStatus = "physicalize_failed_hq_standoff";
+			request.m_sPhysicalizationMode = "ground_group_blocked";
+			return false;
+		}
+
 		HST_ActiveGroupState group = new HST_ActiveGroupState();
 		group.m_sGroupId = string.Format("support_%1", request.m_sRequestId);
 		group.m_sZoneId = request.m_sTargetZoneId;
@@ -918,6 +927,14 @@ class HST_SupportRequestService
 		return request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
+	protected bool IsPetrosAttackSupport(HST_SupportRequestState request)
+	{
+		if (!request)
+			return false;
+
+		return request.m_sAssetProfileId.Contains("_petros_attack") || request.m_sRuntimeStatus.Contains("petros_attack");
+	}
+
 	protected bool ShouldPhysicalizeSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
 	{
 		if (!state || !request)
@@ -1036,7 +1053,7 @@ class HST_SupportRequestService
 		if (state && request)
 			targetZone = state.FindZone(request.m_sTargetZoneId);
 
-		float standoff = ResolvePhysicalSupportStagingDistanceMeters(targetZone);
+		float standoff = ResolvePhysicalSupportStagingDistanceMeters(targetZone, request);
 		int seed = BuildSupportGroupSeed(state, request);
 		for (int attempt = 0; attempt < 32; attempt++)
 		{
@@ -1060,8 +1077,11 @@ class HST_SupportRequestService
 		return HST_WorldPositionService.ResolveSafeGroundPosition(target, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 	}
 
-	protected float ResolvePhysicalSupportStagingDistanceMeters(HST_ZoneState targetZone)
+	protected float ResolvePhysicalSupportStagingDistanceMeters(HST_ZoneState targetZone, HST_SupportRequestState request = null)
 	{
+		if (IsPetrosAttackSupport(request))
+			return Math.Max(PETROS_ATTACK_MIN_STANDOFF_METERS, ResolvePhysicalSupportStandoffMeters(targetZone));
+
 		return Math.Max(PHYSICAL_SUPPORT_MIN_STANDOFF_METERS, ResolvePhysicalSupportStandoffMeters(targetZone) * 0.5);
 	}
 
@@ -1072,7 +1092,7 @@ class HST_SupportRequestService
 		if (state && request)
 			targetZone = state.FindZone(request.m_sTargetZoneId);
 
-		float standoff = Math.Max(PHYSICAL_SUPPORT_MIN_STANDOFF_METERS, ResolvePhysicalSupportStandoffMeters(targetZone) * 0.5);
+		float standoff = ResolvePhysicalSupportStagingDistanceMeters(targetZone, request);
 		int seed = BuildSupportGroupSeed(state, request);
 		for (int attempt = 0; attempt < 24; attempt++)
 		{

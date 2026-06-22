@@ -30,6 +30,26 @@ class HST_CampaignSaveData
 	int m_iPetrosDeaths;
 	int m_iHQKnowledge;
 	int m_iLastHQAttackSecond;
+	int m_iHQThreatLevel;
+	int m_iHQKnowledgeLastChangedSecond;
+	int m_iLastHQActivitySecond;
+	int m_iLastHQThreatScanSecond;
+	string m_sLastHQKnowledgeReason;
+	string m_sLastHQThreatReason;
+	bool m_bDefendPetrosActive;
+	string m_sDefendPetrosMissionId;
+	string m_sDefendPetrosOrderId;
+	string m_sDefendPetrosSupportRequestId;
+	string m_sDefendPetrosAttackerGroupId;
+	string m_sDefendPetrosStatus;
+	string m_sDefendPetrosFailureReason;
+	int m_iDefendPetrosStartedSecond;
+	int m_iDefendPetrosEndsSecond;
+	int m_iDefendPetrosLastUpdateSecond;
+	int m_iDefendPetrosAttackerCount;
+	int m_iDefendPetrosAliveAttackerCount;
+	int m_iDefendPetrosKilledCount;
+	bool m_bDefendPetrosOutcomeApplied;
 	string m_sPetrosPrefab;
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
@@ -97,6 +117,26 @@ class HST_CampaignSaveData
 		m_iPetrosDeaths = state.m_iPetrosDeaths;
 		m_iHQKnowledge = state.m_iHQKnowledge;
 		m_iLastHQAttackSecond = state.m_iLastHQAttackSecond;
+		m_iHQThreatLevel = state.m_iHQThreatLevel;
+		m_iHQKnowledgeLastChangedSecond = state.m_iHQKnowledgeLastChangedSecond;
+		m_iLastHQActivitySecond = state.m_iLastHQActivitySecond;
+		m_iLastHQThreatScanSecond = state.m_iLastHQThreatScanSecond;
+		m_sLastHQKnowledgeReason = state.m_sLastHQKnowledgeReason;
+		m_sLastHQThreatReason = state.m_sLastHQThreatReason;
+		m_bDefendPetrosActive = state.m_bDefendPetrosActive;
+		m_sDefendPetrosMissionId = state.m_sDefendPetrosMissionId;
+		m_sDefendPetrosOrderId = state.m_sDefendPetrosOrderId;
+		m_sDefendPetrosSupportRequestId = state.m_sDefendPetrosSupportRequestId;
+		m_sDefendPetrosAttackerGroupId = state.m_sDefendPetrosAttackerGroupId;
+		m_sDefendPetrosStatus = state.m_sDefendPetrosStatus;
+		m_sDefendPetrosFailureReason = state.m_sDefendPetrosFailureReason;
+		m_iDefendPetrosStartedSecond = state.m_iDefendPetrosStartedSecond;
+		m_iDefendPetrosEndsSecond = state.m_iDefendPetrosEndsSecond;
+		m_iDefendPetrosLastUpdateSecond = state.m_iDefendPetrosLastUpdateSecond;
+		m_iDefendPetrosAttackerCount = state.m_iDefendPetrosAttackerCount;
+		m_iDefendPetrosAliveAttackerCount = state.m_iDefendPetrosAliveAttackerCount;
+		m_iDefendPetrosKilledCount = state.m_iDefendPetrosKilledCount;
+		m_bDefendPetrosOutcomeApplied = state.m_bDefendPetrosOutcomeApplied;
 		m_sPetrosPrefab = state.m_sPetrosPrefab;
 		m_sHQCachePrefab = state.m_sHQCachePrefab;
 		m_sArsenalPrefab = state.m_sArsenalPrefab;
@@ -251,6 +291,26 @@ class HST_CampaignSaveData
 		state.m_iPetrosDeaths = m_iPetrosDeaths;
 		state.m_iHQKnowledge = m_iHQKnowledge;
 		state.m_iLastHQAttackSecond = m_iLastHQAttackSecond;
+		state.m_iHQThreatLevel = m_iHQThreatLevel;
+		state.m_iHQKnowledgeLastChangedSecond = m_iHQKnowledgeLastChangedSecond;
+		state.m_iLastHQActivitySecond = m_iLastHQActivitySecond;
+		state.m_iLastHQThreatScanSecond = m_iLastHQThreatScanSecond;
+		state.m_sLastHQKnowledgeReason = m_sLastHQKnowledgeReason;
+		state.m_sLastHQThreatReason = m_sLastHQThreatReason;
+		state.m_bDefendPetrosActive = m_bDefendPetrosActive;
+		state.m_sDefendPetrosMissionId = m_sDefendPetrosMissionId;
+		state.m_sDefendPetrosOrderId = m_sDefendPetrosOrderId;
+		state.m_sDefendPetrosSupportRequestId = m_sDefendPetrosSupportRequestId;
+		state.m_sDefendPetrosAttackerGroupId = m_sDefendPetrosAttackerGroupId;
+		state.m_sDefendPetrosStatus = m_sDefendPetrosStatus;
+		state.m_sDefendPetrosFailureReason = m_sDefendPetrosFailureReason;
+		state.m_iDefendPetrosStartedSecond = m_iDefendPetrosStartedSecond;
+		state.m_iDefendPetrosEndsSecond = m_iDefendPetrosEndsSecond;
+		state.m_iDefendPetrosLastUpdateSecond = m_iDefendPetrosLastUpdateSecond;
+		state.m_iDefendPetrosAttackerCount = m_iDefendPetrosAttackerCount;
+		state.m_iDefendPetrosAliveAttackerCount = m_iDefendPetrosAliveAttackerCount;
+		state.m_iDefendPetrosKilledCount = m_iDefendPetrosKilledCount;
+		state.m_bDefendPetrosOutcomeApplied = m_bDefendPetrosOutcomeApplied;
 		state.m_sPetrosPrefab = m_sPetrosPrefab;
 		state.m_sHQCachePrefab = m_sHQCachePrefab;
 		state.m_sArsenalPrefab = m_sArsenalPrefab;
@@ -1081,6 +1141,16 @@ class HST_CampaignSaveData
 		if (m_sLastPersistenceStatus.IsEmpty())
 			m_sLastPersistenceStatus = "migrated local save data";
 		m_iHQKnowledge = Math.Max(0, Math.Min(100, m_iHQKnowledge));
+		if (m_sDefendPetrosStatus.IsEmpty())
+			m_sDefendPetrosStatus = "inactive";
+		if (m_iHQThreatLevel <= 0 && m_iHQKnowledge > 0)
+			m_iHQThreatLevel = Math.Min(100, m_iHQKnowledge);
+		if (m_sLastHQKnowledgeReason.IsEmpty())
+			m_sLastHQKnowledgeReason = "legacy/backfilled";
+		if (m_sLastHQThreatReason.IsEmpty())
+			m_sLastHQThreatReason = "legacy/backfilled";
+		if (!m_sDefendPetrosMissionId.IsEmpty())
+			m_bDefendPetrosActive = true;
 
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
 		{

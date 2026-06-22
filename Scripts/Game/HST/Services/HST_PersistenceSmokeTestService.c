@@ -51,6 +51,7 @@ class HST_PersistenceSmokeTestService
 		EnsureSmokeSupportRequest(state, preset, targetZone);
 		EnsureSmokeCivilianZone(state, targetZone);
 		EnsureSmokeUndercoverRecord(state, adminIdentityId, targetZone);
+		EnsureSmokeHQThreatState(state);
 
 		StoreExpectedSummary(state, "pending");
 		string after = BuildSummary(state);
@@ -105,6 +106,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|support_queued=%1|support_active=%2|support_resolved=%3|support_physicalized=%4|support_outcomes=%5", CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_QUEUED), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE), CountSupportByStatus(state, HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED), CountPhysicalizedSupport(state), CountSupportOutcomesApplied(state));
 		summary = summary + string.Format("|civilian_fia_support=%1|civilian_occupier_support=%2|civilian_heat=%3|undercover_requested=%4|undercover_eligible=%5", SumCivilianFIASupport(state), SumCivilianOccupierSupport(state), SumCivilianWantedHeat(state), CountUndercoverRequested(state), CountUndercoverEligible(state));
 		summary = summary + string.Format("|undercover_applied=%1|undercover_compromised=%2|undercover_detection=%3|roadblock_scans=%4|police_scans=%5", CountUndercoverApplied(state), CountUndercoverCompromised(state), SumUndercoverDetectionScore(state), SumRoadblockScans(state), SumPoliceScans(state));
+		summary = summary + string.Format("|hq_knowledge=%1|hq_threat=%2|defend_petros_active=%3|petros_alive=%4|petros_deaths=%5", state.m_iHQKnowledge, state.m_iHQThreatLevel, state.m_bDefendPetrosActive, state.m_bPetrosAlive, state.m_iPetrosDeaths);
 		return summary;
 	}
 
@@ -896,6 +898,57 @@ class HST_PersistenceSmokeTestService
 		request.m_sFailureReason = "";
 	}
 
+	protected void EnsureSmokeHQThreatState(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+
+		bool changed;
+		if (state.m_iHQKnowledge < 35)
+		{
+			state.m_iHQKnowledge = 35;
+			changed = true;
+		}
+		if (state.m_iHQThreatLevel < 45)
+		{
+			state.m_iHQThreatLevel = 45;
+			changed = true;
+		}
+		if (state.m_iHQKnowledgeLastChangedSecond <= 0)
+		{
+			state.m_iHQKnowledgeLastChangedSecond = state.m_iElapsedSeconds;
+			changed = true;
+		}
+		if (state.m_iLastHQActivitySecond <= 0)
+		{
+			state.m_iLastHQActivitySecond = state.m_iElapsedSeconds;
+			changed = true;
+		}
+		if (state.m_iLastHQThreatScanSecond <= 0)
+		{
+			state.m_iLastHQThreatScanSecond = state.m_iElapsedSeconds;
+			changed = true;
+		}
+		if (state.m_sLastHQKnowledgeReason.IsEmpty())
+		{
+			state.m_sLastHQKnowledgeReason = "persistence smoke";
+			changed = true;
+		}
+		if (state.m_sLastHQThreatReason.IsEmpty())
+		{
+			state.m_sLastHQThreatReason = "persistence smoke";
+			changed = true;
+		}
+		if (state.m_sDefendPetrosStatus.IsEmpty())
+		{
+			state.m_sDefendPetrosStatus = "inactive";
+			changed = true;
+		}
+
+		if (changed)
+			m_iSeedChangedCount++;
+	}
+
 	protected void EnsureSmokeCivilianZone(HST_CampaignState state, HST_ZoneState targetZone)
 	{
 		if (!targetZone)
@@ -1201,6 +1254,11 @@ class HST_PersistenceSmokeTestService
 		hash = MixStringLength(hash, BuildSentinelMask(state));
 		hash = MixStringLength(hash, FirstZoneId(state));
 		hash = MixStringLength(hash, FirstGarageId(state));
+		hash = MixInt(hash, state.m_iHQKnowledge);
+		hash = MixInt(hash, state.m_iHQThreatLevel);
+		hash = MixInt(hash, state.m_iPetrosDeaths);
+		if (state.m_bDefendPetrosActive)
+			hash = MixInt(hash, 1);
 		if (hash < 0)
 			hash = -hash;
 		return hash;
