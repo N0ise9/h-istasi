@@ -10,7 +10,7 @@ war:
 
 ## Current Status
 
-The repository contains the first engine-facing increment:
+The repository contains a broad-alpha campaign foundation:
 
 - Reforger base-game project dependency only
 - APL-ND licensing and third-party attribution
@@ -18,7 +18,7 @@ The repository contains the first engine-facing increment:
 - Data contracts for presets, factions, maps, zones, balance, and missions
 - A versioned campaign-state model with arsenal, vehicle cargo, garage,
   saved-loadout, issued-item, mission-runtime, active-group, support, build-mode,
-  and persistence metadata
+  campaign-end, and persistence metadata
 - Server-authoritative campaign, economy, mission, persistence, arsenal, loot,
   loadout-editor, garage/build, and native-checkpoint services
 - A Community Edition 3.11.1 mission registry baseline
@@ -61,33 +61,48 @@ The repository contains the first engine-facing increment:
   objectives, campaign tasks, physical mission-runtime primitives, support
   requests, enemy commander orders, civilian town state, and player undercover
   state
+- HQ knowledge/threat state and Defend Petros linkage across mission, enemy
+  order, support request, attacker-group, marker, and campaign-end state
+- Enemy commander orders and support requests that can physicalize near players
+  or resolve abstractly off-screen while preserving runtime status and outcome
+  diagnostics
+- Civilian town support plus undercover eligibility, request/application,
+  detection, police/roadblock scan, compromise, and clear-state enforcement
 - Commander-facing no-admin actions for initial HQ selection, random mission
   start, objective/runtime inspection, FIA supply requests, support
   cancellation, civilian aid, support reports, garage/build reports,
   vehicle-cargo reports, loadout-editor status/application, generated content
-  reports, persistence status, and undercover status
+  reports, persistence status, HQ threat reports, marker audits,
+  balance/pacing reports, campaign-end reports, and undercover status/checks
 - Phase 0/1 foundation and mission diagnostics are complete: the alpha command
   menu exposes foundation status, explicit checkpoint reporting, active mission
   inspection, selected mission inspection, and null-safe runtime mission fields
 - Phase 2 convoy runtime diagnostics are complete: the Missions tab exposes a
   convoy runtime report with vehicle assets, active convoy groups, crew counts,
   travel distance, fallback mode, and explicit movement/spawn failure reasons
+- Broad-alpha UI/report polish exposes marker status/detail/audit reports,
+  command coverage smoke paths, clear failed-action text, HQ threat/Defend
+  Petros reports, enemy order and physical-response reports, support
+  ETA/status reports, balance/pacing diagnostics, and campaign-end summaries
+- Persistent campaign win/loss state with schema-25 end reason, summary,
+  elapsed time, strategic control, war level, FIA/enemy zone counts, and report
+  generation state
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible, with a profile JSON fallback at
   `$profile:h-istasi/HST_CampaignSaveData.json`
 
-This is a foundation build, not a public alpha. Petros and the HQ arsenal have
-live contextual-action prefabs for the alpha menu path, while the arsenal,
-garage, and loadout editor remain custom h-istasi economy systems instead of
-stock/MSAR arsenal behavior. The broad-alpha systems are intentionally rough
-scaffolds: mission objectives can now complete from world proximity and
-active-group conditions, support calls are stateful with native-safe ground group
-activation, and helicopter-style support remains abstract until an approved
-asset/dependency path exists. Cache/tent polish, save/restart soak testing,
-final surveyed Everon coordinates, richer AI waypoints, full loadout-editor
-HST_Dev smoke, garage progression polish, and mission-specific interactable
-props still need to be connected incrementally.
+This is a broad-alpha campaign foundation, not a public alpha. Petros and the
+HQ arsenal have live contextual-action prefabs for the alpha menu path, while
+the arsenal, garage, and loadout editor remain custom h-istasi economy systems
+instead of stock/MSAR arsenal behavior. The campaign loop is now connected far
+enough to track HQ exposure, queue Defend Petros pressure, resolve support and
+enemy orders physically or abstractly, enforce undercover state, publish marker
+coverage, and persist won/lost campaign outcomes. The systems are still rough:
+cache/tent polish, save/restart soak testing, final surveyed Everon
+coordinates, richer AI waypoints, full loadout-editor HST_Dev smoke, garage
+progression polish, balance tuning, and mission-specific interactable props
+still need to be connected incrementally.
 
 ## Alpha Command Menu
 
@@ -105,14 +120,17 @@ campaigns.
 - `MenuBack` or `I`: close the menu
 
 The menu routes through server-authoritative coordinator requests and covers
-campaign overview, markers, economy, zones, missions, mission runtime, manual
-checkpoint, persistence status, income tick, training, first HQ selection, HQ
-movement, FIA recruitment, mission start, random mission selection, objective
-progress, support requests/cancellation, civilian aid, zone capture/activation,
-arsenal reporting, vehicle cargo, garage capture/redeploy, nearby loot
-collection, loadout editor status/application, generated content reports, HQ
-asset rebuilds, roster admin helpers, campaign reset, and small debug resource
-awards.
+campaign overview, markers and marker audits, economy, balance/pacing,
+campaign-end state, zones, missions, mission runtime, manual checkpoint,
+persistence status, income tick, training, first HQ selection, HQ movement, HQ
+threat, Defend Petros, FIA recruitment, mission start, random mission
+selection, objective progress, support requests/cancellation and ETA/status,
+enemy order/physical-response reports, civilian aid, undercover
+eligibility/request/check/clear flows, zone capture/activation, arsenal
+reporting, vehicle cargo, garage capture/redeploy, nearby loot collection,
+loadout editor status/application, generated content reports, HQ asset rebuilds,
+command coverage and failed-action smoke reports, roster admin helpers,
+campaign reset, and small debug resource awards.
 Multiplayer clients use a player-owned request/RPC component;
 the server resolves the caller from ownership instead of trusting a client
 provided player ID. Petros opens this same menu path through contextual
