@@ -29,23 +29,26 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "30", uiwidget: UIWidgets.EditBox, desc: "Major-change save debounce in seconds.", category: "HST Balance")]
 	int m_iMajorChangeDebounceSeconds = 30;
 
-	[Attribute(defvalue: "20", uiwidget: UIWidgets.EditBox, desc: "Starting HR.", category: "HST Balance")]
-	int m_iStartingHR = 20;
+	[Attribute(defvalue: "10", uiwidget: UIWidgets.EditBox, desc: "Starting HR.", category: "HST Balance")]
+	int m_iStartingHR = 10;
 
-	[Attribute(defvalue: "1000", uiwidget: UIWidgets.EditBox, desc: "Starting FIA money.", category: "HST Balance")]
-	int m_iStartingFactionMoney = 1000;
+	[Attribute(defvalue: "750", uiwidget: UIWidgets.EditBox, desc: "Starting FIA money.", category: "HST Balance")]
+	int m_iStartingFactionMoney = 750;
 
-	[Attribute(defvalue: "100", uiwidget: UIWidgets.EditBox, desc: "Starting occupier attack resource pool.", category: "HST Balance")]
-	int m_iStartingOccupierAttackPool = 100;
+	[Attribute(defvalue: "1", uiwidget: UIWidgets.EditBox, desc: "Starting FIA training level.", category: "HST Balance")]
+	int m_iStartingTrainingLevel = 1;
 
-	[Attribute(defvalue: "100", uiwidget: UIWidgets.EditBox, desc: "Starting occupier support resource pool.", category: "HST Balance")]
-	int m_iStartingOccupierSupportPool = 100;
+	[Attribute(defvalue: "70", uiwidget: UIWidgets.EditBox, desc: "Starting occupier attack resource pool.", category: "HST Balance")]
+	int m_iStartingOccupierAttackPool = 70;
 
-	[Attribute(defvalue: "60", uiwidget: UIWidgets.EditBox, desc: "Starting invader attack resource pool.", category: "HST Balance")]
-	int m_iStartingInvaderAttackPool = 60;
+	[Attribute(defvalue: "80", uiwidget: UIWidgets.EditBox, desc: "Starting occupier support resource pool.", category: "HST Balance")]
+	int m_iStartingOccupierSupportPool = 80;
 
-	[Attribute(defvalue: "60", uiwidget: UIWidgets.EditBox, desc: "Starting invader support resource pool.", category: "HST Balance")]
-	int m_iStartingInvaderSupportPool = 60;
+	[Attribute(defvalue: "35", uiwidget: UIWidgets.EditBox, desc: "Starting invader attack resource pool.", category: "HST Balance")]
+	int m_iStartingInvaderAttackPool = 35;
+
+	[Attribute(defvalue: "45", uiwidget: UIWidgets.EditBox, desc: "Starting invader support resource pool.", category: "HST Balance")]
+	int m_iStartingInvaderSupportPool = 45;
 
 	[Attribute(defvalue: "600", uiwidget: UIWidgets.EditBox, desc: "Zone income interval in seconds.", category: "HST Balance")]
 	int m_iZoneIncomeIntervalSeconds = 600;
@@ -59,8 +62,8 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "1600", uiwidget: UIWidgets.EditBox, desc: "Physical deactivation radius in meters.", category: "HST Balance")]
 	int m_iDeactivationRadiusMeters = 1600;
 
-	[Attribute(defvalue: "25", uiwidget: UIWidgets.EditBox, desc: "Default arsenal unlock threshold.", category: "HST Loot")]
-	int m_iArsenalUnlockThreshold = 25;
+	[Attribute(defvalue: "18", uiwidget: UIWidgets.EditBox, desc: "Default arsenal unlock threshold.", category: "HST Loot")]
+	int m_iArsenalUnlockThreshold = 18;
 
 	[Attribute(defvalue: "3", uiwidget: UIWidgets.EditBox, desc: "Magazine unlock multiplier.", category: "HST Loot")]
 	int m_iMagazineUnlockMultiplier = 3;
@@ -124,6 +127,69 @@ class HST_BalanceConfig
 
 	[Attribute(defvalue: "10", uiwidget: UIWidgets.EditBox, desc: "Maximum war level.", category: "HST Campaign")]
 	int m_iWarLevelMaximum = 10;
+
+	[Attribute(defvalue: "18", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 2.", category: "HST Campaign")]
+	int m_iWarLevel2Score = 18;
+
+	[Attribute(defvalue: "38", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 3.", category: "HST Campaign")]
+	int m_iWarLevel3Score = 38;
+
+	[Attribute(defvalue: "65", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 4.", category: "HST Campaign")]
+	int m_iWarLevel4Score = 65;
+
+	[Attribute(defvalue: "95", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 5.", category: "HST Campaign")]
+	int m_iWarLevel5Score = 95;
+
+	[Attribute(defvalue: "130", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 6.", category: "HST Campaign")]
+	int m_iWarLevel6Score = 130;
+
+	[Attribute(defvalue: "170", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 7.", category: "HST Campaign")]
+	int m_iWarLevel7Score = 170;
+
+	[Attribute(defvalue: "215", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 8.", category: "HST Campaign")]
+	int m_iWarLevel8Score = 215;
+
+	[Attribute(defvalue: "265", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 9.", category: "HST Campaign")]
+	int m_iWarLevel9Score = 265;
+
+	[Attribute(defvalue: "320", uiwidget: UIWidgets.EditBox, desc: "Owned-zone score needed for war level 10.", category: "HST Campaign")]
+	int m_iWarLevel10Score = 320;
+
+	[Attribute(defvalue: "70", uiwidget: UIWidgets.EditBox, desc: "Strategic control percent needed for victory.", category: "HST Campaign")]
+	int m_iVictoryControlPercent = 70;
+
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Require all airfields for victory.", params: "", category: "HST Campaign")]
+	bool m_bVictoryRequiresAirfields = true;
+
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Require all seaports for victory.", params: "", category: "HST Campaign")]
+	bool m_bVictoryRequiresSeaports = true;
+
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Enable campaign loss condition.", params: "", category: "HST Campaign")]
+	bool m_bLossConditionEnabled = true;
+
+	[Attribute(defvalue: "0", uiwidget: UIWidgets.EditBox, desc: "HR threshold for loss check.", category: "HST Campaign")]
+	int m_iLossHRThreshold;
+
+	[Attribute(defvalue: "0", uiwidget: UIWidgets.EditBox, desc: "Money threshold for loss check.", category: "HST Campaign")]
+	int m_iLossMoneyThreshold;
+
+	[Attribute(defvalue: "3", uiwidget: UIWidgets.EditBox, desc: "Petros deaths before campaign loss.", category: "HST Campaign")]
+	int m_iLossPetrosDeathLimit = 3;
+
+	[Attribute(defvalue: "7200", uiwidget: UIWidgets.EditBox, desc: "Grace period before economic loss can trigger.", category: "HST Campaign")]
+	int m_iLossGraceSeconds = 7200;
+
+	[Attribute(defvalue: "8", uiwidget: UIWidgets.EditBox, desc: "Enemy attack income multiplier percent per war level.", category: "HST Balance")]
+	int m_iEnemyAttackIncomeWarPercent = 8;
+
+	[Attribute(defvalue: "6", uiwidget: UIWidgets.EditBox, desc: "Enemy support income multiplier percent per war level.", category: "HST Balance")]
+	int m_iEnemySupportIncomeWarPercent = 6;
+
+	[Attribute(defvalue: "300", uiwidget: UIWidgets.EditBox, desc: "Aggression decay interval in seconds.", category: "HST Balance")]
+	int m_iAggressionDecayIntervalSeconds = 300;
+
+	[Attribute(defvalue: "1", uiwidget: UIWidgets.EditBox, desc: "Aggression decay amount per interval.", category: "HST Balance")]
+	int m_iAggressionDecayAmount = 1;
 
 	[Attribute(defvalue: "100", uiwidget: UIWidgets.EditBox, desc: "Capture progress required to flip a zone.", category: "HST Capture")]
 	int m_iCaptureProgressRequired = 100;

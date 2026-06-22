@@ -2075,6 +2075,7 @@ foreach ($requiredSettingsEntry in @(
 	"HST_RuntimeSettingsCapture",
 	"startingFactionMoney",
 	"startingHR",
+	"startingTrainingLevel",
 	"captureProgressRequired",
 	"captureProgressPerSecond",
 	"captureDecayPerSecond",
@@ -2102,6 +2103,27 @@ foreach ($requiredSettingsEntry in @(
 	"civilianVehicleMaxPerTown",
 	"occupierVehicleMinPerTown",
 	"occupierVehicleMaxPerTown",
+	"warLevel2Score",
+	"warLevel3Score",
+	"warLevel4Score",
+	"warLevel5Score",
+	"warLevel6Score",
+	"warLevel7Score",
+	"warLevel8Score",
+	"warLevel9Score",
+	"warLevel10Score",
+	"victoryControlPercent",
+	"victoryRequiresAirfields",
+	"victoryRequiresSeaports",
+	"lossConditionEnabled",
+	"lossHRThreshold",
+	"lossMoneyThreshold",
+	"lossPetrosDeathLimit",
+	"lossGraceSeconds",
+	"enemyAttackIncomeWarPercent",
+	"enemySupportIncomeWarPercent",
+	"aggressionDecayIntervalSeconds",
+	"aggressionDecayAmount",
 	"MigrateSettings",
 	"ApplyTo"
 )) {
@@ -2109,11 +2131,11 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 8") {
-	throw "Runtime settings schema must be bumped to 8 for capture tuning migration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 9") {
+	throw "Runtime settings schema must be bumped to 9 for Phase 24 balance tuning migration"
 }
-if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 25") {
-	throw "Runtime/balance defaults must set arsenal unlock threshold to 25"
+if ($scriptText -notmatch "m_iArsenalUnlockThreshold = 18") {
+	throw "Runtime/balance defaults must set arsenal unlock threshold to 18"
 }
 if ($scriptText -notmatch "m_iHQInteractionRadiusMeters = 50") {
 	throw "Runtime/balance defaults must set HQ interaction radius to 50 meters"
@@ -2121,8 +2143,8 @@ if ($scriptText -notmatch "m_iHQInteractionRadiusMeters = 50") {
 if ($configResourceText -notmatch "m_iHQInteractionRadiusMeters 50") {
 	throw "Balance config must set HQ interaction radius to 50 meters"
 }
-if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 25") {
-	throw "Balance config must set arsenal unlock threshold to 25"
+if ($configResourceText -notmatch "m_iArsenalUnlockThreshold 18") {
+	throw "Balance config must set arsenal unlock threshold to 18"
 }
 foreach ($requiredCaptureDefault in @(
 	"m_iCaptureProgressRequired 100",

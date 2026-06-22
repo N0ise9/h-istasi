@@ -37,35 +37,75 @@ class HST_TownService
 		return true;
 	}
 
-	protected int CalculateResistanceIncome(HST_CampaignState state, string resistanceFactionKey)
+	string BuildIncomeReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
+	{
+		if (!state || !preset || !balance)
+			return "h-istasi income | state/preset/balance not ready";
+
+		string report = string.Format(
+			"h-istasi income | interval %1s | timer %2s | next money %3 | next HR %4",
+			balance.m_iZoneIncomeIntervalSeconds,
+			state.m_iIncomeAccumulatorSeconds,
+			CalculateResistanceIncome(state, preset.m_sResistanceFactionKey),
+			CalculateResistanceHRIncome(state, preset.m_sResistanceFactionKey)
+		);
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
+				continue;
+
+			report = report + string.Format(
+				"\n%1 | %2 | income %3 | support %4 | HR %5",
+				zone.m_sZoneId,
+				zone.m_eType,
+				CalculateZoneMoneyIncome(zone),
+				zone.m_iSupport,
+				ResolveZoneHRIncome(zone)
+			);
+		}
+
+		return report;
+	}
+
+	int CalculateResistanceIncome(HST_CampaignState state, string resistanceFactionKey)
 	{
 		int income;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (zone.m_sOwnerFactionKey != resistanceFactionKey)
+			if (!zone || zone.m_sOwnerFactionKey != resistanceFactionKey)
 				continue;
 
 			income += CalculateZoneMoneyIncome(zone);
-			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport > 0)
-				income += zone.m_iSupport / 10;
 		}
 
 		return income;
 	}
 
-	protected int CalculateResistanceHRIncome(HST_CampaignState state, string resistanceFactionKey)
+	int CalculateResistanceHRIncome(HST_CampaignState state, string resistanceFactionKey)
 	{
 		int income;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (zone.m_sOwnerFactionKey == resistanceFactionKey && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport >= 25)
-				income++;
+			if (!zone || zone.m_sOwnerFactionKey != resistanceFactionKey)
+				continue;
 
-			if (zone.m_sOwnerFactionKey == resistanceFactionKey && zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE && zone.m_sResourceKind == "food")
-				income++;
+			income += ResolveZoneHRIncome(zone);
 		}
 
 		return income;
+	}
+
+	protected int ResolveZoneHRIncome(HST_ZoneState zone)
+	{
+		if (!zone)
+			return 0;
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport >= 25)
+			return 1;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE && zone.m_sResourceKind == "food")
+			return 1;
+		return 0;
 	}
 
 	protected int CalculateZoneMoneyIncome(HST_ZoneState zone)
@@ -74,14 +114,16 @@ class HST_TownService
 			return 0;
 
 		int income = zone.m_iIncomeValue;
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
-			income += 25 + zone.m_iPriority;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			income += Math.Max(0, zone.m_iSupport / 12);
 		else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
-			income += 10 + zone.m_iPriority / 2;
+			income += 12 + zone.m_iPriority / 2;
+		else if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			income += 30 + zone.m_iPriority;
 		else if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD)
-			income += 30;
+			income += 45;
 		else if (zone.m_eType == HST_EZoneType.HST_ZONE_BANK)
-			income += 40;
+			income += 50;
 
 		return income;
 	}

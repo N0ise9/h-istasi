@@ -68,12 +68,34 @@ class HST_RuntimeSettingsService
 			ApplyString(line, "invaderFactionKey", settings.m_Factions.m_sInvaderFactionKey);
 			ApplyInt(line, "startingFactionMoney", settings.m_Economy.m_iStartingFactionMoney);
 			ApplyInt(line, "startingHR", settings.m_Economy.m_iStartingHR);
+			ApplyInt(line, "startingTrainingLevel", settings.m_Economy.m_iStartingTrainingLevel);
 			ApplyInt(line, "startingOccupierAttackPool", settings.m_Economy.m_iStartingOccupierAttackPool);
 			ApplyInt(line, "startingOccupierSupportPool", settings.m_Economy.m_iStartingOccupierSupportPool);
 			ApplyInt(line, "startingInvaderAttackPool", settings.m_Economy.m_iStartingInvaderAttackPool);
 			ApplyInt(line, "startingInvaderSupportPool", settings.m_Economy.m_iStartingInvaderSupportPool);
 			ApplyInt(line, "zoneIncomeIntervalSeconds", settings.m_Economy.m_iZoneIncomeIntervalSeconds);
 			ApplyInt(line, "warLevelMaximum", settings.m_Economy.m_iWarLevelMaximum);
+			ApplyInt(line, "warLevel2Score", settings.m_Economy.m_iWarLevel2Score);
+			ApplyInt(line, "warLevel3Score", settings.m_Economy.m_iWarLevel3Score);
+			ApplyInt(line, "warLevel4Score", settings.m_Economy.m_iWarLevel4Score);
+			ApplyInt(line, "warLevel5Score", settings.m_Economy.m_iWarLevel5Score);
+			ApplyInt(line, "warLevel6Score", settings.m_Economy.m_iWarLevel6Score);
+			ApplyInt(line, "warLevel7Score", settings.m_Economy.m_iWarLevel7Score);
+			ApplyInt(line, "warLevel8Score", settings.m_Economy.m_iWarLevel8Score);
+			ApplyInt(line, "warLevel9Score", settings.m_Economy.m_iWarLevel9Score);
+			ApplyInt(line, "warLevel10Score", settings.m_Economy.m_iWarLevel10Score);
+			ApplyInt(line, "victoryControlPercent", settings.m_Economy.m_iVictoryControlPercent);
+			ApplyBool(line, "victoryRequiresAirfields", settings.m_Economy.m_bVictoryRequiresAirfields);
+			ApplyBool(line, "victoryRequiresSeaports", settings.m_Economy.m_bVictoryRequiresSeaports);
+			ApplyBool(line, "lossConditionEnabled", settings.m_Economy.m_bLossConditionEnabled);
+			ApplyInt(line, "lossHRThreshold", settings.m_Economy.m_iLossHRThreshold);
+			ApplyInt(line, "lossMoneyThreshold", settings.m_Economy.m_iLossMoneyThreshold);
+			ApplyInt(line, "lossPetrosDeathLimit", settings.m_Economy.m_iLossPetrosDeathLimit);
+			ApplyInt(line, "lossGraceSeconds", settings.m_Economy.m_iLossGraceSeconds);
+			ApplyInt(line, "enemyAttackIncomeWarPercent", settings.m_Economy.m_iEnemyAttackIncomeWarPercent);
+			ApplyInt(line, "enemySupportIncomeWarPercent", settings.m_Economy.m_iEnemySupportIncomeWarPercent);
+			ApplyInt(line, "aggressionDecayIntervalSeconds", settings.m_Economy.m_iAggressionDecayIntervalSeconds);
+			ApplyInt(line, "aggressionDecayAmount", settings.m_Economy.m_iAggressionDecayAmount);
 			ApplyInt(line, "captureProgressRequired", settings.m_Capture.m_iProgressRequired);
 			ApplyInt(line, "captureProgressPerSecond", settings.m_Capture.m_iProgressPerSecond);
 			ApplyInt(line, "captureDecayPerSecond", settings.m_Capture.m_iDecayPerSecond);
@@ -112,6 +134,7 @@ class HST_RuntimeSettingsService
 			ApplyBool(line, "verboseLogging", settings.m_Debug.m_bVerboseLogging);
 			ApplyBool(line, "physicalWarEnabled", settings.m_Features.m_bPhysicalWarEnabled);
 			ApplyBool(line, "areaLootEnabled", settings.m_Features.m_bAreaLootEnabled);
+			ApplyBool(line, "setupUiReadOnly", settings.m_Features.m_bSetupUiReadOnly);
 		}
 	}
 
@@ -178,6 +201,25 @@ class HST_RuntimeSettingsService
 			settings.m_Capture.m_iDecayPerSecond = 1;
 			settings.m_Capture.m_iAggressionBase = 10;
 			settings.m_Capture.m_iCounterattackChancePercent = 45;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 9)
+		{
+			if (settings.m_Economy.m_iStartingFactionMoney == 1000)
+				settings.m_Economy.m_iStartingFactionMoney = 750;
+			if (settings.m_Economy.m_iStartingHR == 20)
+				settings.m_Economy.m_iStartingHR = 10;
+			if (settings.m_Economy.m_iStartingOccupierAttackPool == 100)
+				settings.m_Economy.m_iStartingOccupierAttackPool = 70;
+			if (settings.m_Economy.m_iStartingOccupierSupportPool == 100)
+				settings.m_Economy.m_iStartingOccupierSupportPool = 80;
+			if (settings.m_Economy.m_iStartingInvaderAttackPool == 60)
+				settings.m_Economy.m_iStartingInvaderAttackPool = 35;
+			if (settings.m_Economy.m_iStartingInvaderSupportPool == 60)
+				settings.m_Economy.m_iStartingInvaderSupportPool = 45;
+			if (settings.m_ArsenalLoot.m_iArsenalUnlockThreshold == 25)
+				settings.m_ArsenalLoot.m_iArsenalUnlockThreshold = 18;
 			changed = true;
 		}
 
@@ -278,12 +320,34 @@ class HST_RuntimeSettingsService
 		lines.Insert("  \"economy\": {");
 		lines.Insert(string.Format("    \"startingFactionMoney\": %1,", settings.m_Economy.m_iStartingFactionMoney));
 		lines.Insert(string.Format("    \"startingHR\": %1,", settings.m_Economy.m_iStartingHR));
+		lines.Insert(string.Format("    \"startingTrainingLevel\": %1,", settings.m_Economy.m_iStartingTrainingLevel));
 		lines.Insert(string.Format("    \"startingOccupierAttackPool\": %1,", settings.m_Economy.m_iStartingOccupierAttackPool));
 		lines.Insert(string.Format("    \"startingOccupierSupportPool\": %1,", settings.m_Economy.m_iStartingOccupierSupportPool));
 		lines.Insert(string.Format("    \"startingInvaderAttackPool\": %1,", settings.m_Economy.m_iStartingInvaderAttackPool));
 		lines.Insert(string.Format("    \"startingInvaderSupportPool\": %1,", settings.m_Economy.m_iStartingInvaderSupportPool));
 		lines.Insert(string.Format("    \"zoneIncomeIntervalSeconds\": %1,", settings.m_Economy.m_iZoneIncomeIntervalSeconds));
-		lines.Insert(string.Format("    \"warLevelMaximum\": %1", settings.m_Economy.m_iWarLevelMaximum));
+		lines.Insert(string.Format("    \"warLevelMaximum\": %1,", settings.m_Economy.m_iWarLevelMaximum));
+		lines.Insert(string.Format("    \"warLevel2Score\": %1,", settings.m_Economy.m_iWarLevel2Score));
+		lines.Insert(string.Format("    \"warLevel3Score\": %1,", settings.m_Economy.m_iWarLevel3Score));
+		lines.Insert(string.Format("    \"warLevel4Score\": %1,", settings.m_Economy.m_iWarLevel4Score));
+		lines.Insert(string.Format("    \"warLevel5Score\": %1,", settings.m_Economy.m_iWarLevel5Score));
+		lines.Insert(string.Format("    \"warLevel6Score\": %1,", settings.m_Economy.m_iWarLevel6Score));
+		lines.Insert(string.Format("    \"warLevel7Score\": %1,", settings.m_Economy.m_iWarLevel7Score));
+		lines.Insert(string.Format("    \"warLevel8Score\": %1,", settings.m_Economy.m_iWarLevel8Score));
+		lines.Insert(string.Format("    \"warLevel9Score\": %1,", settings.m_Economy.m_iWarLevel9Score));
+		lines.Insert(string.Format("    \"warLevel10Score\": %1,", settings.m_Economy.m_iWarLevel10Score));
+		lines.Insert(string.Format("    \"victoryControlPercent\": %1,", settings.m_Economy.m_iVictoryControlPercent));
+		lines.Insert(string.Format("    \"victoryRequiresAirfields\": %1,", JsonBool(settings.m_Economy.m_bVictoryRequiresAirfields)));
+		lines.Insert(string.Format("    \"victoryRequiresSeaports\": %1,", JsonBool(settings.m_Economy.m_bVictoryRequiresSeaports)));
+		lines.Insert(string.Format("    \"lossConditionEnabled\": %1,", JsonBool(settings.m_Economy.m_bLossConditionEnabled)));
+		lines.Insert(string.Format("    \"lossHRThreshold\": %1,", settings.m_Economy.m_iLossHRThreshold));
+		lines.Insert(string.Format("    \"lossMoneyThreshold\": %1,", settings.m_Economy.m_iLossMoneyThreshold));
+		lines.Insert(string.Format("    \"lossPetrosDeathLimit\": %1,", settings.m_Economy.m_iLossPetrosDeathLimit));
+		lines.Insert(string.Format("    \"lossGraceSeconds\": %1,", settings.m_Economy.m_iLossGraceSeconds));
+		lines.Insert(string.Format("    \"enemyAttackIncomeWarPercent\": %1,", settings.m_Economy.m_iEnemyAttackIncomeWarPercent));
+		lines.Insert(string.Format("    \"enemySupportIncomeWarPercent\": %1,", settings.m_Economy.m_iEnemySupportIncomeWarPercent));
+		lines.Insert(string.Format("    \"aggressionDecayIntervalSeconds\": %1,", settings.m_Economy.m_iAggressionDecayIntervalSeconds));
+		lines.Insert(string.Format("    \"aggressionDecayAmount\": %1", settings.m_Economy.m_iAggressionDecayAmount));
 		lines.Insert("  },");
 		lines.Insert("  \"capture\": {");
 		lines.Insert(string.Format("    \"captureProgressRequired\": %1,", settings.m_Capture.m_iProgressRequired));

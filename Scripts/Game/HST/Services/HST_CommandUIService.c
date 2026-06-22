@@ -160,6 +160,8 @@ class HST_CommandUIService
 		actions.Insert("inspect_active_missions");
 		actions.Insert("inspect_mission_runtime");
 		actions.Insert("inspect_convoy_runtime");
+		actions.Insert("inspect_balance");
+		actions.Insert("inspect_campaign_end");
 		actions.Insert("inspect_recruitment");
 		actions.Insert("inspect_support");
 		actions.Insert("inspect_arsenal");
@@ -233,6 +235,12 @@ class HST_CommandUIService
 		actions.Insert("admin_phase23_ui_coverage");
 		actions.Insert("admin_phase23_marker_audit");
 		actions.Insert("admin_phase23_failed_action_sample");
+		actions.Insert("admin_phase24_seed_early");
+		actions.Insert("admin_phase24_seed_mid");
+		actions.Insert("admin_phase24_seed_late");
+		actions.Insert("admin_phase24_force_victory");
+		actions.Insert("admin_phase24_force_loss");
+		actions.Insert("admin_phase24_report");
 	}
 
 	protected void BuildRequiredCommandCoverageList(notnull array<string> required)
@@ -261,6 +269,8 @@ class HST_CommandUIService
 		required.Insert("inspect_active_missions");
 		required.Insert("inspect_mission_runtime");
 		required.Insert("inspect_convoy_runtime");
+		required.Insert("inspect_balance");
+		required.Insert("inspect_campaign_end");
 		required.Insert("admin_phase14_report");
 		required.Insert("admin_phase15_report");
 		required.Insert("admin_phase16_report");
@@ -278,6 +288,12 @@ class HST_CommandUIService
 		required.Insert("admin_phase23_ui_coverage");
 		required.Insert("admin_phase23_marker_audit");
 		required.Insert("admin_phase23_failed_action_sample");
+		required.Insert("admin_phase24_seed_early");
+		required.Insert("admin_phase24_seed_mid");
+		required.Insert("admin_phase24_seed_late");
+		required.Insert("admin_phase24_force_victory");
+		required.Insert("admin_phase24_force_loss");
+		required.Insert("admin_phase24_report");
 	}
 
 	protected bool IsKnownVisibleCommand(string commandId)
@@ -309,6 +325,8 @@ class HST_CommandUIService
 		if (commandId == "inspect_active_missions") return true;
 		if (commandId == "inspect_mission_runtime") return true;
 		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "inspect_balance") return true;
+		if (commandId == "inspect_campaign_end") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -326,6 +344,12 @@ class HST_CommandUIService
 		if (commandId == "admin_phase23_ui_coverage") return true;
 		if (commandId == "admin_phase23_marker_audit") return true;
 		if (commandId == "admin_phase23_failed_action_sample") return true;
+		if (commandId == "admin_phase24_seed_early") return true;
+		if (commandId == "admin_phase24_seed_mid") return true;
+		if (commandId == "admin_phase24_seed_late") return true;
+		if (commandId == "admin_phase24_force_victory") return true;
+		if (commandId == "admin_phase24_force_loss") return true;
+		if (commandId == "admin_phase24_report") return true;
 
 		return false;
 	}
@@ -369,6 +393,9 @@ class HST_CommandUIService
 		if (commandId == "noop")
 			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
 
+		if (IsCampaignMutatingCommand(commandId) && !coordinator.IsCampaignActiveForVisibleMutatingCommand())
+			return "h-istasi campaign | failed: campaign is not active";
+
 		if (commandId == "setup_hideout")
 			return coordinator.RequestCommanderSelectInitialHideoutReport(playerId, argument);
 
@@ -380,6 +407,12 @@ class HST_CommandUIService
 
 		if (commandId == "inspect_campaign")
 			return coordinator.RequestMemberInspectCampaign(playerId);
+
+		if (commandId == "inspect_balance")
+			return coordinator.RequestMemberInspectBalancePacing(playerId);
+
+		if (commandId == "inspect_campaign_end")
+			return coordinator.RequestMemberInspectCampaignEnd(playerId);
 
 		if (commandId == "inspect_markers")
 			return coordinator.RequestMemberInspectMarkers(playerId);
@@ -734,6 +767,24 @@ class HST_CommandUIService
 		if (commandId == "admin_phase23_failed_action_sample")
 			return coordinator.RequestAdminPhase23FailedActionSample(playerId);
 
+		if (commandId == "admin_phase24_seed_early")
+			return coordinator.RequestAdminPhase24SeedEarlyGame(playerId);
+
+		if (commandId == "admin_phase24_seed_mid")
+			return coordinator.RequestAdminPhase24SeedMidGame(playerId);
+
+		if (commandId == "admin_phase24_seed_late")
+			return coordinator.RequestAdminPhase24SeedLateGame(playerId);
+
+		if (commandId == "admin_phase24_force_victory")
+			return coordinator.RequestAdminPhase24ForceVictory(playerId);
+
+		if (commandId == "admin_phase24_force_loss")
+			return coordinator.RequestAdminPhase24ForceLoss(playerId);
+
+		if (commandId == "admin_phase24_report")
+			return coordinator.RequestAdminPhase24Report(playerId);
+
 		if (commandId == "inspect_zone_composition")
 			return coordinator.RequestAdminInspectZoneComposition(playerId);
 
@@ -752,6 +803,21 @@ class HST_CommandUIService
 		return "h-istasi command | unknown command: " + commandId;
 	}
 
+	protected bool IsCampaignMutatingCommand(string commandId)
+	{
+		if (commandId.IsEmpty())
+			return false;
+		if (commandId == "noop" || commandId == "setup_hideout" || commandId == "checkpoint" || commandId == "foundation_status" || commandId == "new_campaign")
+			return false;
+		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant")
+			return false;
+		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
+			return false;
+		if (commandId.Contains("inspect") || commandId.Contains("admin_phase"))
+			return false;
+
+		return true;
+	}
 	string BuildEconomyReport(HST_CampaignState state)
 	{
 		if (!state)
@@ -1426,6 +1492,12 @@ class HST_CommandUIService
 
 		payload = AppendSection(payload, "brief", "War Room");
 		payload = AppendRow(payload, "brief", "Campaign", BuildPresetName(preset, state), "neutral");
+		payload = AppendRow(payload, "brief", "Campaign phase", CampaignPhaseLabel(state.m_ePhase), CampaignPhaseTone(state));
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+		{
+			payload = AppendRow(payload, "brief", "End reason", state.m_sCampaignEndReason, CampaignPhaseTone(state));
+			payload = AppendRow(payload, "brief", "End summary", state.m_sCampaignEndSummary, CampaignPhaseTone(state));
+		}
 		payload = AppendRow(payload, "brief", "Commander", BuildCommanderName(state), "neutral");
 		payload = AppendRow(payload, "brief", "HQ hideout", BuildHQLabel(state), "good");
 		payload = AppendRow(payload, "brief", "Petros", string.Format("%1 / deaths %2", BuildPetrosLabel(state), state.m_iPetrosDeaths), BuildPetrosTone(state));
@@ -2162,6 +2234,8 @@ class HST_CommandUIService
 		{
 			AddMenuAction(actions, TAB_OVERVIEW, "Foundation status", "foundation_status", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Balance/pacing report", "inspect_balance", "", canUseMember, "membership required");
+			AddMenuAction(actions, TAB_OVERVIEW, "Campaign end report", "inspect_campaign_end", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Marker status", "inspect_markers", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Town support report", "inspect_town_support", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Manual checkpoint", "checkpoint", "", canUseMember, "membership required");
@@ -2339,6 +2413,14 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 UI coverage", "admin_phase23_ui_coverage", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 marker audit", "admin_phase23_marker_audit", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 failed action sample", "admin_phase23_failed_action_sample", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed early", "admin_phase24_seed_early", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed mid", "admin_phase24_seed_mid", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed late", "admin_phase24_seed_late", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 force victory", "admin_phase24_force_victory", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 force loss", "admin_phase24_force_loss", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 report", "admin_phase24_report", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 campaign end report", "inspect_campaign_end", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 balance report", "inspect_balance", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Persistence status", "inspect_persistence", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Manual checkpoint", "checkpoint", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Zone composition report", "inspect_zone_composition", "", canUseAdmin, "admin required");
@@ -3225,6 +3307,18 @@ class HST_CommandUIService
 		return "unknown";
 	}
 
+	protected string CampaignPhaseTone(HST_CampaignState state)
+	{
+		if (!state)
+			return "bad";
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON)
+			return "good";
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return "bad";
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+			return "neutral";
+		return "warn";
+	}
 	protected string ZoneTypeLabel(HST_EZoneType zoneType)
 	{
 		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)

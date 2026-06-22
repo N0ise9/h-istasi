@@ -13,6 +13,14 @@ class HST_CampaignSaveData
 	int m_iFactionMoney;
 	int m_iHR;
 	int m_iTrainingLevel;
+	string m_sCampaignEndReason;
+	string m_sCampaignEndSummary;
+	int m_iCampaignEndedAtSecond;
+	int m_iCampaignEndControlPercent;
+	int m_iCampaignEndWarLevel;
+	int m_iCampaignEndFIAZones;
+	int m_iCampaignEndEnemyZones;
+	bool m_bCampaignEndReportGenerated;
 	int m_iIncomeAccumulatorSeconds;
 	int m_iEnemyResourceAccumulatorSeconds;
 	int m_iAggressionAccumulatorSeconds;
@@ -100,6 +108,14 @@ class HST_CampaignSaveData
 		m_iFactionMoney = state.m_iFactionMoney;
 		m_iHR = state.m_iHR;
 		m_iTrainingLevel = state.m_iTrainingLevel;
+		m_sCampaignEndReason = state.m_sCampaignEndReason;
+		m_sCampaignEndSummary = state.m_sCampaignEndSummary;
+		m_iCampaignEndedAtSecond = state.m_iCampaignEndedAtSecond;
+		m_iCampaignEndControlPercent = state.m_iCampaignEndControlPercent;
+		m_iCampaignEndWarLevel = state.m_iCampaignEndWarLevel;
+		m_iCampaignEndFIAZones = state.m_iCampaignEndFIAZones;
+		m_iCampaignEndEnemyZones = state.m_iCampaignEndEnemyZones;
+		m_bCampaignEndReportGenerated = state.m_bCampaignEndReportGenerated;
 		m_iIncomeAccumulatorSeconds = state.m_iIncomeAccumulatorSeconds;
 		m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds;
 		m_iAggressionAccumulatorSeconds = state.m_iAggressionAccumulatorSeconds;
@@ -274,6 +290,14 @@ class HST_CampaignSaveData
 		state.m_iFactionMoney = m_iFactionMoney;
 		state.m_iHR = m_iHR;
 		state.m_iTrainingLevel = m_iTrainingLevel;
+		state.m_sCampaignEndReason = m_sCampaignEndReason;
+		state.m_sCampaignEndSummary = m_sCampaignEndSummary;
+		state.m_iCampaignEndedAtSecond = m_iCampaignEndedAtSecond;
+		state.m_iCampaignEndControlPercent = m_iCampaignEndControlPercent;
+		state.m_iCampaignEndWarLevel = m_iCampaignEndWarLevel;
+		state.m_iCampaignEndFIAZones = m_iCampaignEndFIAZones;
+		state.m_iCampaignEndEnemyZones = m_iCampaignEndEnemyZones;
+		state.m_bCampaignEndReportGenerated = m_bCampaignEndReportGenerated;
 		state.m_iIncomeAccumulatorSeconds = m_iIncomeAccumulatorSeconds;
 		state.m_iEnemyResourceAccumulatorSeconds = m_iEnemyResourceAccumulatorSeconds;
 		state.m_iAggressionAccumulatorSeconds = m_iAggressionAccumulatorSeconds;
@@ -1152,6 +1176,38 @@ class HST_CampaignSaveData
 		if (!m_sDefendPetrosMissionId.IsEmpty())
 			m_bDefendPetrosActive = true;
 
+		if (restoredSchemaVersion < 25 && (m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST))
+		{
+			int fiaZones;
+			int enemyZones;
+			foreach (HST_ZoneState zone : m_aZones)
+			{
+				if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+					continue;
+
+				if (zone.m_sOwnerFactionKey == "FIA")
+					fiaZones++;
+				else
+					enemyZones++;
+			}
+
+			int totalZones = fiaZones + enemyZones;
+			if (totalZones > 0 && m_iCampaignEndControlPercent <= 0)
+				m_iCampaignEndControlPercent = Math.Round(fiaZones * 100.0 / totalZones);
+			if (m_iCampaignEndWarLevel <= 0)
+				m_iCampaignEndWarLevel = Math.Max(1, m_iWarLevel);
+			if (m_iCampaignEndFIAZones <= 0)
+				m_iCampaignEndFIAZones = fiaZones;
+			if (m_iCampaignEndEnemyZones <= 0)
+				m_iCampaignEndEnemyZones = enemyZones;
+			if (m_iCampaignEndedAtSecond <= 0)
+				m_iCampaignEndedAtSecond = m_iElapsedSeconds;
+			if (m_sCampaignEndReason.IsEmpty())
+				m_sCampaignEndReason = "legacy campaign end/backfilled";
+			if (m_sCampaignEndSummary.IsEmpty())
+				m_sCampaignEndSummary = string.Format("Migrated schema %1 campaign end with FIA zones %2 and enemy zones %3.", restoredSchemaVersion, fiaZones, enemyZones);
+			m_bCampaignEndReportGenerated = true;
+		}
 		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
 		{
 			if (!mission)

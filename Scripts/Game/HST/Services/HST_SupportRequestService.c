@@ -397,7 +397,7 @@ class HST_SupportRequestService
 				detail = detail + " | outcome applied";
 
 			string line = string.Format(
-				"\n%1 | %2 | %3 | runtime %4 | target %5 | eta %6 | requested %7 | active %8 | physical %9 | resolved %10 | asset %11 | group %12 | mode %13 | result %14",
+				"\n%1 | %2 | %3 | runtime %4 | target %5 | eta %6 | requested %7 | active %8 | physical %9",
 				request.m_sRequestId,
 				request.m_eType,
 				request.m_eStatus,
@@ -406,13 +406,9 @@ class HST_SupportRequestService
 				request.m_iETASeconds,
 				request.m_iRequestedAtSecond,
 				request.m_iActivatedAtSecond,
-				request.m_iPhysicalizedAtSecond,
-				request.m_iResolvedAtSecond,
-				request.m_sAssetProfileId,
-				request.m_sGroupId,
-				request.m_sPhysicalizationMode,
-				request.m_sResolutionKind
+				request.m_iPhysicalizedAtSecond
 			);
+			line = line + string.Format(" | resolved %1 | asset %2 | group %3 | mode %4 | result %5", request.m_iResolvedAtSecond, request.m_sAssetProfileId, request.m_sGroupId, request.m_sPhysicalizationMode, request.m_sResolutionKind);
 			line = line + string.Format(" | abstract %1 | physicalStrike %2%3", request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, detail);
 			report = report + line;
 		}
