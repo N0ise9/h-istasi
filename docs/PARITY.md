@@ -20,8 +20,8 @@
 - FIA Scenario Framework spawnpoints and role-selection loadouts retained as
   authoring metadata and fallback scaffolding
 - HQ lifecycle service for setup-driven initial hideout selection, HQ
-  movement, Petros state, Petros/cache/tent runtime object positions, and
-  Petros-loss penalties
+  movement, Petros state, Petros/cache/tent runtime object positions,
+  Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
 - Everon alpha anchors for strategic zones, towns, hideouts, routes, and
@@ -43,8 +43,8 @@
   mission board, map/war, forces, arsenal/loot, garage/build, member, admin,
   action, and activity/result panels
 - Broad-alpha persistent state for generated sites/routes, mission objectives,
-  campaign tasks, support requests, enemy orders, civilian town state, and
-  player undercover state
+  campaign tasks, support requests, enemy orders, civilian town state, player
+  undercover state, HQ threat/Defend Petros, and strategic campaign-end fields
 - Schema 7 zone metadata for display names, resource kinds, capture radii,
   priority, composition IDs, spawn profiles, and linked-zone hints
 - Everon 4x-style alpha campaign graph expansion with additional outposts,
@@ -59,17 +59,24 @@
 - Mission runtime service that maps all 26 registry IDs into physical MVP
   primitives: kill HVT, hold/clear area, destroy target, recover cargo,
   rescue/extract, deliver supplies, and convoy intercept
-- Stateful support request and enemy commander services inspired by
-  DarcMissions/DarcChopper pacing: enemy pools can buy patrol/QRF/search
-  requests, FIA can request supply support, and helicopter-style requests stay
-  abstract/native-safe
-- Civilian/undercover service with town reputation, wanted heat, police and
-  roadblock presence, aid effects, and per-player undercover records
+- Stateful support request service inspired by DarcMissions/DarcChopper pacing:
+  FIA/enemy support has ETA/status/cooldown reporting, physical ground-group
+  activation when players are nearby, and abstract resolution when off-screen or
+  unsupported by base-game assets
+- Enemy commander service with patrol/QRF/search, counterattack, rebuild,
+  support-call, and Petros attack orders that track physicalized or abstract
+  runtime state and outcome application
+- Civilian/undercover service with town support/reputation, wanted heat, police
+  and roadblock presence/scans, aid effects, undercover eligibility,
+  request/application, enforcement, compromise, and clear-state records
 - Command menu actions for setup hideout selection, dynamic mission targets,
-  mission runtime and persistence inspection, FIA support requests/cancel,
-  arsenal withdrawal, vehicle-cargo collection/unload, nearby vehicle garage
-  capture, build-mode garage redeploy, HQ runtime-asset rebuild, simple roster
-  admin, and campaign reset
+  mission runtime and persistence inspection, HQ threat/Defend Petros reports,
+  FIA support requests/cancel, support/enemy-order reports, civilian aid,
+  undercover eligibility/request/check/clear, arsenal withdrawal, vehicle-cargo
+  collection/unload, nearby vehicle garage capture, build-mode garage redeploy,
+  HQ runtime-asset rebuild, marker audits, balance/pacing reports,
+  campaign-end reports, command coverage checks, simple roster admin, and
+  campaign reset
 - Economy and enemy resource income now account for resource kind, priority,
   factories, ports, airfields, depots, radio towers, and police nodes
 - Area and vehicle loot services with eligible-item scanning, base-game
@@ -87,33 +94,47 @@
 - Mission-specific convoy outcome state for delivered cargo/captives, captured
   vehicles, armored convoy garage handoff, ammo convoy ammo points, and outcome
   de-dupe across reloads
+- Marker/UI polish with marker status/detail/audit reports, native marker
+  publish diagnostics, command/report coverage audits, menu summaries, and
+  clear failed-action text
+- Balance/pacing diagnostics for strategic score, control percentage, war-level
+  thresholds, enemy pressure, victory readiness, and recommended next pressure
+- Strategic victory/loss evaluation with persistent campaign-end reason,
+  summary, elapsed time, control percent, war level, FIA/enemy zone counts, and
+  campaign-end report generation state
 
 ## Next Playable Increment
 
-- Add restart/migration tests for `HST_CampaignSaveData` under native Reforger
-  save/load
-- Replace the 4x-style alpha survey with exact unpacked Conflict Remixed
-  marker-coordinate audit once a Workbench/PAC extraction path is available
-- Finish HST_Dev end-to-end smoke and UX polish for the custom loadout editor,
-  including live inventory edge cases and save/load confidence
-- Harden virtual garage/build scaffolding into a full vehicle progression loop
-  with ammo/repair/fuel source behavior and longer restart testing
-- Customize Petros appearance/loadout and replace tent/cache placeholders with
-  authored h-istasi HQ entities
-- Add full player-facing member, guest, commander election, and admin UI
-- Replace remaining physical MVP mission completion shortcuts with
-  mission-specific props, richer hold/clear checks, and mission-family polish
-- Assign active groups real waypoints/routes and fold measured survivors back
-  into abstract garrisons
+- Phase 25 soak testing across HST_Dev and HST_Everon with repeated campaign
+  loops through setup, missions, support, enemy orders, HQ threat, undercover,
+  garage, persistence, and campaign-end reports
+- Restart/migration testing for `HST_CampaignSaveData` under native Reforger
+  save/load, including active support/order/Defend Petros and won/lost saves
+- HST_Dev end-to-end smoke and UX polish for the custom loadout editor,
+  including live inventory edge cases, death-loss accounting, and save/load
+  confidence
+- Garage/source-vehicle soak for capture, cargo preservation, redeploy,
+  ammo/repair/fuel classification, runtime vehicle restore, and longer restart
+  testing
+- Mission-family polish that replaces remaining physical MVP shortcuts with
+  mission-specific props, richer hold/clear checks, and better objective text
+- Richer active-group waypoints/routes for QRFs, support, counterattacks,
+  Defend Petros attackers, and survivor fold-back into abstract garrisons
+- Tune Phase 24 starting training, war-level thresholds, enemy income scaling,
+  aggression decay, victory/loss thresholds, and pacing recommendations through
+  repeated runs
 
 ## Later Alpha Increments
 
-- Deep town support, civilians, police, factories, resources, radio towers,
-  city-flip battles, and undercover enforcement
-- Hybrid AI activation, QRF travel, attacks, reinforcements, counterattacks,
-  Petros attacks, and enemy rebuild behavior
+- Exact full-Everon coordinate survey and replacement of remaining 4x-style
+  alpha anchors once a Workbench/PAC extraction path is available
+- Authored h-istasi HQ entities for cache/tent polish and customized Petros
+  appearance/loadout
+- Full player-facing member, guest, commander election, and admin UI polish
+- Deeper town, factory, resource, radio tower, police, and city-flip behavior
+  beyond the current broad-alpha support/enforcement layer
 - Mission-specific world logic and unique content for every registry entry
-- Victory, loss, exact full-Everon coordinate survey, and 16-player soak tests
+- Larger multiplayer and long-duration campaign soak, including 16-player runs
 
 ## Deferred Capabilities
 

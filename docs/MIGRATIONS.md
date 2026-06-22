@@ -5,6 +5,7 @@
 `HST_CampaignState.SCHEMA_VERSION` is currently `25`.
 
 - Phase 24 balance, pacing, and campaign outcomes add durable campaign-end report fields and backfill legacy ended saves.
+- Phase 23 UI and marker polish does not require a campaign schema bump because marker audits, command coverage, failed-action text, and menu summaries are derived from existing persisted state.
 - Phase 22 HQ threat and Defend Petros add durable HQ threat diagnostics and active defense mission/order/support/group links.
 - Phase 21 undercover enforcement and police/roadblocks add durable applied/enforcement state, detection score/source, compromise reason, and police/roadblock scan audit fields.
 - Phase 20 civilians, town support, and undercover reports add durable town support values and detailed undercover eligibility reasons.
@@ -13,12 +14,13 @@
 - Phase 18 enemy commander physical responses add durable enemy-order
   runtime fields while preserving runtime handles as non-persisted data.
 - The current save container captures campaign metadata, elapsed/save/restore
-  counters, war resources, HQ/Petros/cache/arsenal/tent fields, HQ threat/Defend Petros state, faction pools,
-  players, zones, garrisons, active groups, QRFs, map markers, arsenal items,
-  garage vehicles, vehicle cargo, runtime vehicles, saved loadouts, issued
-  loadout items, captured emplacements, ammo points, active missions, generated
-  sites/routes, mission objectives/runtime entities/assets, support requests,
-  enemy orders, civilian state, undercover state, and campaign tasks.
+  counters, war resources, campaign-end state, HQ/Petros/cache/arsenal/tent
+  fields, HQ threat/Defend Petros state, faction pools, players, zones,
+  garrisons, active groups, QRFs, map markers, arsenal items, garage vehicles,
+  vehicle cargo, runtime vehicles, saved loadouts, issued loadout items,
+  captured emplacements, ammo points, active missions, generated sites/routes,
+  mission objectives/runtime entities/assets, support requests, enemy orders,
+  civilian state, undercover state, and campaign tasks.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
@@ -40,6 +42,14 @@ Phase 24 balance, pacing, and campaign outcomes.
 - Existing schema-24 and older saves that were already WON/LOST backfill campaign-end fields from elapsed time, war level, and zone ownership counts.
 - Runtime settings schema `9` adds balance knobs for starting training, war-level thresholds, victory/loss conditions, enemy income scaling, and aggression decay tuning.
 - Balance and campaign-end reports are generated from existing zone/resource/mission state; raw world/runtime handles remain non-persistent.
+
+## No Schema Bump: Phase 23 UI And Marker Polish
+
+Phase 23 adds marker audits, command coverage reports, failed-action text, and
+menu summary polish on top of existing persisted campaign state. These reports
+are rebuilt from campaign fields such as markers, missions, support requests,
+enemy orders, HQ/Petros state, civilian/undercover state, and runtime counters,
+so no campaign save schema bump was required.
 
 ## Schema 24
 
