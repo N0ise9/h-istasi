@@ -8,8 +8,8 @@ FrameWidgetClass "{6985327711306000}" {
   OffsetBottom 0
  }
  {
-  FrameWidgetClass "{6985327711306002}" : "{0651202E9F2646DE}UI/layouts/Map/Map.layout" {
-   Name "MapFrame"
+  FrameWidgetClass "{6985327711306002}" : "{F87BB6B065B395D0}UI/layouts/Map/MapMenu.layout" {
+   Name "MapMenu"
    Slot FrameWidgetSlot "{6985327711306003}" {
     Anchor 0 0 1 1
     OffsetLeft 0

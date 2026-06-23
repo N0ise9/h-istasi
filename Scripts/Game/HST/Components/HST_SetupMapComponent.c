@@ -39,12 +39,12 @@ class HST_SetupMapComponent : ScriptComponent
 	static const int CONFIRM_YES_WIDGET_ID = 71002;
 	static const int CONFIRM_NO_WIDGET_ID = 71003;
 	static const int CONFIRM_BLOCKER_WIDGET_ID = 71004;
-	static const int SETUP_Z_ORDER = 50000;
+	// SCR_CursorCustom is a workspace-level widget at z-order 10; keep setup below it.
+	static const int SETUP_Z_ORDER = 9;
 	static const int SETUP_OVERLAY_Z_ORDER = 51000;
 	static const int SETUP_MODAL_Z_ORDER = 52000;
 	static const int SETUP_MAP_MARKER_Z_ORDER = SETUP_OVERLAY_Z_ORDER + 10;
 	static const int SETUP_CHROME_Z_ORDER = SETUP_OVERLAY_Z_ORDER + 40;
-	static const int SETUP_CURSOR_Z_ORDER = SETUP_MODAL_Z_ORDER + 40;
 	static const float SETUP_STATE_REQUEST_INTERVAL_SECONDS = 2.5;
 	static const float SETUP_SERVER_REQUEST_TIMEOUT_SECONDS = 5.0;
 	static const float SETUP_VALIDATION_RESULT_TOLERANCE_METERS = 8.0;
@@ -52,15 +52,8 @@ class HST_SetupMapComponent : ScriptComponent
 	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
-	static const ResourceName SETUP_CURSOR_IMAGESET = "{E75FB4134580A496}UI/Textures/Cursor/cursors.imageset";
-	static const string SETUP_CURSOR_IMAGE_QUAD = "default";
-	static const int SETUP_CURSOR_IMAGE_SIZE = 32;
-	static const int SETUP_CURSOR_IMAGE_PAD_LEFT = 0;
-	static const int SETUP_CURSOR_IMAGE_PAD_TOP = 0;
-	static const int SETUP_CURSOR_IMAGE_COLOR = 0xFFC26314;
 	static const ResourceName MENU_FONT = "";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
-	static const string SETUP_CURSOR_CONTEXT = "InventoryContext";
 	static const string SETUP_MAP_CONTEXT = "MapContext";
 
 	protected static HST_SetupMapComponent s_LocalInstance;
@@ -82,6 +75,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupMapReadyQueued;
 	protected bool m_bSetupFinalized;
 	protected bool m_bOverlayDirty = true;
+	protected bool m_bSetupLocationSelectionEnabled;
 	protected string m_sPhase = "setup";
 	protected string m_sStatusText = "Waiting for setup state...";
 	protected string m_sLastResult;
@@ -108,7 +102,6 @@ class HST_SetupMapComponent : ScriptComponent
 	protected Widget m_wSetupRoot;
 	protected Widget m_wOverlayRoot;
 	protected TextWidget m_wPromptText;
-	protected ImageWidget m_wSetupCursorImage;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRequestAccumulator;
 	protected float m_fAwaitingServerAccumulator;
@@ -207,7 +200,7 @@ class HST_SetupMapComponent : ScriptComponent
 		EnsureNativeSetupMapOpen();
 		UpdateSetupPrompt();
 		UpdateConfirmationVisibility();
-		UpdateSetupCursorOverlay();
+		UpdateSetupLocationSelectionMode();
 		if (m_bOverlayDirty)
 		{
 			m_bOverlayDirty = false;
@@ -296,11 +289,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_fModalClickSuppressionSeconds = 0;
 		m_vCandidatePosition = "0 0 0";
 		m_vRequestedValidationPosition = "0 0 0";
-		ClearSetupCursorWidgets();
 		CloseNativeSetupMap();
-		GetGame().GetCallqueue().CallLater(ClearSetupCursorWidgets, 0, false);
-		GetGame().GetCallqueue().CallLater(ClearSetupCursorWidgets, 250, false);
-		GetGame().GetCallqueue().CallLater(ClearSetupCursorWidgets, 750, false);
 		CloseRespawnMenuAfterSetup();
 		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 0, false);
 		GetGame().GetCallqueue().CallLater(CloseRespawnMenuAfterSetup, 250, false);
@@ -346,6 +335,7 @@ class HST_SetupMapComponent : ScriptComponent
 			m_vCandidatePosition = resolved;
 			m_bCandidateValid = true;
 			m_bConfirmOpen = true;
+			UpdateSetupLocationSelectionMode();
 		}
 		else if (action == "validate")
 		{
@@ -364,6 +354,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 		m_bOverlayDirty = true;
 		UpdateConfirmationVisibility();
+		UpdateSetupLocationSelectionMode();
 	}
 
 	bool OnSetupOverlayPressed(Widget widget, int widgetId, int x, int y)
@@ -480,6 +471,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Select a location on the map to place the HQ";
 		m_bOverlayDirty = true;
 		UpdateConfirmationVisibility();
+		UpdateSetupLocationSelectionMode();
 	}
 
 	protected void ParseSetupStatePayload(string payload)
@@ -616,14 +608,13 @@ class HST_SetupMapComponent : ScriptComponent
 		SCR_MapEntity.GetOnMapPan().Insert(OnNativeMapPan);
 		SCR_MapEntity.GetOnMapZoom().Insert(OnNativeMapZoom);
 		SCR_MapEntity.GetOnMapOpenComplete().Insert(OnNativeMapOpenComplete);
+		SCR_MapEntity.GetOnMapClose().Insert(OnNativeSetupMapClose);
 		m_bNativeInvokersBound = true;
 	}
 
 	protected void CloseNativeSetupMap()
 	{
-		if (m_bNativeMapOpen && IsSetupMapRootActive())
-			SetSetupMapCursorVisible(false);
-		ClearSetupCursorWidgets();
+		SetSetupLocationSelectionEnabled(false);
 
 		if (m_bNativeInvokersBound)
 		{
@@ -631,6 +622,7 @@ class HST_SetupMapComponent : ScriptComponent
 			SCR_MapEntity.GetOnMapPan().Remove(OnNativeMapPan);
 			SCR_MapEntity.GetOnMapZoom().Remove(OnNativeMapZoom);
 			SCR_MapEntity.GetOnMapOpenComplete().Remove(OnNativeMapOpenComplete);
+			SCR_MapEntity.GetOnMapClose().Remove(OnNativeSetupMapClose);
 			m_bNativeInvokersBound = false;
 		}
 
@@ -641,7 +633,6 @@ class HST_SetupMapComponent : ScriptComponent
 		ResetSetupMapReadyState();
 		ClearModalWidgets();
 		ClearOverlayWidgets();
-		ClearSetupCursorWidgets();
 		ClearWidgets();
 		m_wSetupRoot = null;
 		m_wOverlayRoot = null;
@@ -650,10 +641,9 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void OnNativeMapSelection(vector screenPos)
 	{
+		// SCR_MapCursorModule emits Vector(screenX, 0, screenY) in DPI-scaled screen coordinates.
 		float screenX = screenPos[0];
 		float screenY = screenPos[2];
-		if (screenY == 0.0 && screenPos[1] != 0.0)
-			screenY = screenPos[1];
 
 		if (m_bSetupActive && m_bConfirmOpen)
 		{
@@ -713,6 +703,27 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bOverlayDirty = true;
 	}
 
+	protected void OnNativeSetupMapClose(MapConfiguration config)
+	{
+		if (!m_bSetupActive || m_bSetupFinalized)
+			return;
+		if (config && m_wSetupRoot && config.RootWidgetRef != m_wSetupRoot)
+			return;
+
+		m_bNativeMapOpen = false;
+		SetSetupLocationSelectionEnabled(false);
+		ResetSetupMapReadyState();
+		GetGame().GetCallqueue().CallLater(ReopenSetupMapAfterCloseAttempt, 0, false);
+	}
+
+	protected void ReopenSetupMapAfterCloseAttempt()
+	{
+		if (!m_bSetupActive || m_bSetupFinalized)
+			return;
+
+		EnsureNativeSetupMapOpen();
+	}
+
 	protected bool IsSetupMapRootActive()
 	{
 		return m_MapEntity && m_MapEntity.IsOpen() && m_wSetupRoot && m_MapEntity.GetMapMenuRoot() == m_wSetupRoot;
@@ -755,69 +766,38 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		ApplySetupMapInitialView();
-		SetSetupMapCursorVisible(false);
+		UpdateSetupLocationSelectionMode();
 		m_bOverlayDirty = true;
 	}
 
-	protected void UpdateSetupCursorOverlay()
+	protected void UpdateSetupLocationSelectionMode()
 	{
-		if (!m_bSetupActive || !IsSetupMapViewReady())
+		bool shouldEnable = m_bSetupActive
+			&& m_bIsCommander
+			&& !m_bConfirmOpen
+			&& !m_bAwaitingServer
+			&& IsSetupMapViewReady();
+
+		SetSetupLocationSelectionEnabled(shouldEnable);
+	}
+
+	protected void SetSetupLocationSelectionEnabled(bool enabled)
+	{
+		if (!m_MapEntity || !m_MapEntity.IsOpen())
 		{
-			SetSetupCursorWidgetsVisible(false);
+			m_bSetupLocationSelectionEnabled = false;
 			return;
 		}
 
-		EnsureSetupCursorWidgets();
-		if (!m_wSetupCursorImage)
-			return;
-
-		int mouseX;
-		int mouseY;
 		SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
-		if (cursorModule && cursorModule.GetCursorInfo())
-		{
-			mouseX = SCR_MapCursorInfo.x;
-			mouseY = SCR_MapCursorInfo.y;
-		}
-		else
-		{
-			WidgetManager.GetMousePos(mouseX, mouseY);
-		}
-
-		int size = ScalePx(SETUP_CURSOR_IMAGE_SIZE);
-		int left = mouseX - ScalePx(SETUP_CURSOR_IMAGE_PAD_LEFT);
-		int top = mouseY - ScalePx(SETUP_CURSOR_IMAGE_PAD_TOP);
-		FrameSlot.SetPos(m_wSetupCursorImage, left, top);
-		FrameSlot.SetSize(m_wSetupCursorImage, size, size);
-		SetSetupCursorWidgetsVisible(true);
-	}
-
-	protected void EnsureSetupCursorWidgets()
-	{
-		if (m_wSetupCursorImage)
+		if (!cursorModule)
 			return;
 
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace || !m_wSetupRoot)
+		if (m_bSetupLocationSelectionEnabled == enabled)
 			return;
 
-		ClearSetupCursorWidgets();
-		m_wSetupCursorImage = ImageWidget.Cast(workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.BLEND | WidgetFlags.STRETCH | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, SETUP_CURSOR_Z_ORDER, m_wSetupRoot));
-		if (!m_wSetupCursorImage)
-			return;
-
-		m_wSetupCursorImage.SetZOrder(SETUP_CURSOR_Z_ORDER);
-		m_wSetupCursorImage.SetFlags(WidgetFlags.VISIBLE | WidgetFlags.BLEND | WidgetFlags.STRETCH | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		m_wSetupCursorImage.SetColorInt(SETUP_CURSOR_IMAGE_COLOR);
-		m_wSetupCursorImage.LoadImageFromSet(0, SETUP_CURSOR_IMAGESET, SETUP_CURSOR_IMAGE_QUAD);
-		FrameSlot.SetSize(m_wSetupCursorImage, ScalePx(SETUP_CURSOR_IMAGE_SIZE), ScalePx(SETUP_CURSOR_IMAGE_SIZE));
-		SetSetupCursorWidgetsVisible(false);
-	}
-
-	protected void SetSetupCursorWidgetsVisible(bool visible)
-	{
-		if (m_wSetupCursorImage)
-			m_wSetupCursorImage.SetVisible(visible);
+		cursorModule.ToggleLocationSelection(enabled);
+		m_bSetupLocationSelectionEnabled = enabled;
 	}
 
 	protected bool IsSetupMapViewReady()
@@ -852,19 +832,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bOverlayDirty = true;
 	}
 
-	protected void SetSetupMapCursorVisible(bool visible)
-	{
-		if (!m_MapEntity || !m_MapEntity.IsOpen())
-			return;
-
-		SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
-		if (!cursorModule)
-			return;
-
-		if (!visible)
-			cursorModule.ToggleLocationSelection(false);
-	}
-
 	protected void RequestValidatePosition(vector worldPosition)
 	{
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
@@ -882,6 +849,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Checking HQ location...";
 		m_bOverlayDirty = true;
 		DebugLog(string.Format("validate request %1", worldPosition));
+		UpdateSetupLocationSelectionMode();
 		request.RequestSetupValidatePosition(worldPosition[0], worldPosition[2]);
 	}
 
@@ -901,6 +869,7 @@ class HST_SetupMapComponent : ScriptComponent
 		m_sStatusText = "Placing HQ...";
 		m_bOverlayDirty = true;
 		DebugLog(string.Format("confirm request %1", m_vCandidatePosition));
+		UpdateSetupLocationSelectionMode();
 		request.RequestSetupConfirmPosition(m_vCandidatePosition[0], m_vCandidatePosition[2]);
 	}
 
@@ -1054,7 +1023,16 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!IsSetupMapViewReady())
 			return false;
 
-		m_MapEntity.WorldToScreen(worldPos[0], worldPos[2], screenX, screenY, true);
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return false;
+
+		int scaledX;
+		int scaledY;
+		m_MapEntity.WorldToScreen(worldPos[0], worldPos[2], scaledX, scaledY, true);
+		// WorldToScreen returns DPI-scaled coordinates; FrameSlot positions are unscaled.
+		screenX = Math.Round(workspace.DPIUnscale(scaledX));
+		screenY = Math.Round(workspace.DPIUnscale(scaledY));
 		return true;
 	}
 
@@ -1386,6 +1364,7 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		m_bOverlayDirty = true;
+		UpdateSetupLocationSelectionMode();
 		DebugLog("setup server request timed out; allowing retry");
 	}
 
@@ -1511,19 +1490,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_iConfirmButtonH = 0;
 	}
 
-	protected void ClearSetupCursorWidgets()
-	{
-		if (m_wSetupCursorImage)
-		{
-			m_wSetupCursorImage.SetVisible(false);
-			m_wSetupCursorImage.SetOpacity(0);
-			m_wSetupCursorImage.RemoveFromHierarchy();
-			delete m_wSetupCursorImage;
-		}
-
-		m_wSetupCursorImage = null;
-	}
-
 	protected void CloseCommandMenuIfOpen()
 	{
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
@@ -1550,7 +1516,6 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		inputManager.ActivateContext(SETUP_INPUT_CONTEXT);
-		inputManager.ActivateContext(SETUP_CURSOR_CONTEXT);
 		inputManager.ActivateContext(SETUP_MAP_CONTEXT);
 	}
 
