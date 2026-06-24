@@ -3,7 +3,7 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
  Slot AlignableSlot "{A7B8C9D001234609}" {
   HorizontalAlign 0
   VerticalAlign 0
-  Padding 0 0 16 16
+  Padding 0 0 0 0
  }
  Color 1 1 1 0
  "Is Visible" 1
@@ -20,9 +20,9 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
    MinDesiredWidth 354
    AllowMinDesiredHeight 1
    MinDesiredHeight 96
-   AllowMaxDesiredWidth 1
+   AllowMaxDesiredWidth 0
    MaxDesiredWidth 354
-   AllowMaxDesiredHeight 1
+   AllowMaxDesiredHeight 0
    MaxDesiredHeight 96
    {
     OverlayWidgetClass "{A7B8C9D001236002}" {
@@ -36,8 +36,9 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
       FrameWidgetClass "{A7B8C9D001236004}" {
        Name "Body"
        Slot OverlayWidgetSlot "{A7B8C9D001236005}" {
-        HorizontalAlign 3
-        VerticalAlign 3
+       HorizontalAlign 3
+       VerticalAlign 3
+        Padding 0 0 10 10
        }
        "Ignore Cursor" 1
        {

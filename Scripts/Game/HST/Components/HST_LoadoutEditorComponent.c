@@ -121,6 +121,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
 	static const ResourceName PREVIEW_LIGHTS_PREFAB = "{604FFDF1DE53BD1D}Prefabs/HST/HST_LoadoutPreviewLights.et";
+	static const ResourceName PREVIEW_WORLD_MATERIAL_NEUTRAL = "{E5D84E1C698E6462}Prefabs/HST/HST_LoadoutPreviewSkySphere.emat";
+	static const ResourceName PREVIEW_WORLD_MATERIAL_FIELD = "{A19E4F4D03C04B21}Prefabs/HST/HST_LoadoutPreviewWorld_Field.emat";
+	static const ResourceName PREVIEW_WORLD_MATERIAL_SLATE = "{A19E4F4D03C04B22}Prefabs/HST/HST_LoadoutPreviewWorld_Slate.emat";
+	static const ResourceName PREVIEW_WORLD_MATERIAL_DAWN = "{A19E4F4D03C04B23}Prefabs/HST/HST_LoadoutPreviewWorld_Dawn.emat";
+	static const ResourceName PREVIEW_WORLD_MATERIAL_NIGHT = "{A19E4F4D03C04B24}Prefabs/HST/HST_LoadoutPreviewWorld_Night.emat";
 	static const string PREVIEW_MODE_CHARACTER = "character";
 	static const string PREVIEW_MODE_ENTITY = "entity";
 	static const string EDITOR_INPUT_CONTEXT = "MenuContext";
@@ -578,6 +583,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_VisualSettings = new HST_LoadoutEditorVisualSettings();
 			SaveVisualSettings();
 			ApplyPreviewLightSettings();
+			RebuildPreviewStage();
 			RenderEditor();
 			return true;
 		}
@@ -1164,7 +1170,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void AdjustPreviewLight(float delta)
 	{
 		EnsureVisualSettings();
-		m_VisualSettings.m_fPreviewLightLV = Math.Clamp(m_VisualSettings.m_fPreviewLightLV + delta, 8.0, 24.0);
+		m_VisualSettings.m_fPreviewLightLV = Math.Clamp(m_VisualSettings.m_fPreviewLightLV + delta, 0.0, 24.0);
 		SaveVisualSettings();
 		ApplyPreviewLightSettings();
 		RenderEditor();
@@ -1174,15 +1180,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		EnsureVisualSettings();
 		if (settingId == "panel")
-			m_VisualSettings.m_iPanelPreset = (m_VisualSettings.m_iPanelPreset + 1) % 3;
+			m_VisualSettings.m_iPanelPreset = (m_VisualSettings.m_iPanelPreset + 1) % 5;
 		else if (settingId == "accent")
-			m_VisualSettings.m_iAccentPreset = (m_VisualSettings.m_iAccentPreset + 1) % 4;
+			m_VisualSettings.m_iAccentPreset = (m_VisualSettings.m_iAccentPreset + 1) % 6;
 		else if (settingId == "row")
-			m_VisualSettings.m_iRowPreset = (m_VisualSettings.m_iRowPreset + 1) % 3;
+			m_VisualSettings.m_iRowPreset = (m_VisualSettings.m_iRowPreset + 1) % 5;
 		else if (settingId == "world")
-			m_VisualSettings.m_iWorldPreset = (m_VisualSettings.m_iWorldPreset + 1) % 3;
+			m_VisualSettings.m_iWorldPreset = (m_VisualSettings.m_iWorldPreset + 1) % 5;
 
 		SaveVisualSettings();
+		if (settingId == "world")
+			RebuildPreviewStage();
 		RenderEditor();
 	}
 
@@ -1193,6 +1201,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xF2141B18;
 		if (m_VisualSettings.m_iPanelPreset == 2)
 			return 0xF211171D;
+		if (m_VisualSettings.m_iPanelPreset == 3)
+			return 0xF21D1713;
+		if (m_VisualSettings.m_iPanelPreset == 4)
+			return 0xF2181A23;
 
 		return PANEL_BACK_COLOR;
 	}
@@ -1204,6 +1216,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xF218211D;
 		if (m_VisualSettings.m_iPanelPreset == 2)
 			return 0xF2141C23;
+		if (m_VisualSettings.m_iPanelPreset == 3)
+			return 0xF2221C16;
+		if (m_VisualSettings.m_iPanelPreset == 4)
+			return 0xF21B1D28;
 
 		return 0xF20D1114;
 	}
@@ -1217,6 +1233,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xFF8FB7A0;
 		if (m_VisualSettings.m_iAccentPreset == 3)
 			return 0xFFB88364;
+		if (m_VisualSettings.m_iAccentPreset == 4)
+			return 0xFF88AFC5;
+		if (m_VisualSettings.m_iAccentPreset == 5)
+			return 0xFFE6D78B;
 
 		return 0xFFC4953B;
 	}
@@ -1228,6 +1248,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xF21B2523;
 		if (m_VisualSettings.m_iRowPreset == 2)
 			return 0xF219232B;
+		if (m_VisualSettings.m_iRowPreset == 3)
+			return 0xF2231E19;
+		if (m_VisualSettings.m_iRowPreset == 4)
+			return 0xF21A1D25;
 
 		return 0xF2151C20;
 	}
@@ -1239,6 +1263,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xFF5C6044;
 		if (m_VisualSettings.m_iRowPreset == 2)
 			return 0xFF59606A;
+		if (m_VisualSettings.m_iRowPreset == 3)
+			return 0xFF6B5B40;
+		if (m_VisualSettings.m_iRowPreset == 4)
+			return 0xFF4B5E6C;
 
 		return 0xFF6F5124;
 	}
@@ -1250,6 +1278,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xFF314237;
 		if (m_VisualSettings.m_iRowPreset == 2)
 			return 0xFF303B47;
+		if (m_VisualSettings.m_iRowPreset == 3)
+			return 0xFF453A2D;
+		if (m_VisualSettings.m_iRowPreset == 4)
+			return 0xFF2D3B45;
 
 		return 0xFF3D3520;
 	}
@@ -1261,19 +1293,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return 0xEE1D2B26;
 		if (m_VisualSettings.m_iRowPreset == 2)
 			return 0xEE1A2630;
+		if (m_VisualSettings.m_iRowPreset == 3)
+			return 0xEE2C251E;
+		if (m_VisualSettings.m_iRowPreset == 4)
+			return 0xEE1B232B;
 
 		return 0xEE172126;
 	}
 
 	protected int GetPreviewWorldTintColor()
 	{
+		return 0xFFFFFFFF;
+	}
+
+	protected ResourceName GetPreviewWorldMaterial()
+	{
 		EnsureVisualSettings();
 		if (m_VisualSettings.m_iWorldPreset == 1)
-			return 0xFFF1F4EA;
+			return PREVIEW_WORLD_MATERIAL_FIELD;
 		if (m_VisualSettings.m_iWorldPreset == 2)
-			return 0xFFEAF2F5;
+			return PREVIEW_WORLD_MATERIAL_SLATE;
+		if (m_VisualSettings.m_iWorldPreset == 3)
+			return PREVIEW_WORLD_MATERIAL_DAWN;
+		if (m_VisualSettings.m_iWorldPreset == 4)
+			return PREVIEW_WORLD_MATERIAL_NIGHT;
 
-		return 0xFFFFFFFF;
+		return PREVIEW_WORLD_MATERIAL_NEUTRAL;
 	}
 
 	protected string GetPresetLabel(string settingId, int preset)
@@ -1284,6 +1329,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Field";
 			if (preset == 2)
 				return "Steel";
+			if (preset == 3)
+				return "Walnut";
+			if (preset == 4)
+				return "Navy";
 			return "HST";
 		}
 		if (settingId == "accent")
@@ -1294,6 +1343,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Olive";
 			if (preset == 3)
 				return "Rust";
+			if (preset == 4)
+				return "Blue";
+			if (preset == 5)
+				return "Sand";
 			return "Amber";
 		}
 		if (settingId == "row")
@@ -1302,14 +1355,22 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Green";
 			if (preset == 2)
 				return "Slate";
+			if (preset == 3)
+				return "Brown";
+			if (preset == 4)
+				return "Blue";
 			return "Dark";
 		}
 		if (settingId == "world")
 		{
 			if (preset == 1)
-				return "Warm";
+				return "Field";
 			if (preset == 2)
 				return "Cool";
+			if (preset == 3)
+				return "Dawn";
+			if (preset == 4)
+				return "Night";
 			return "Neutral";
 		}
 
@@ -1356,6 +1417,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		root.SetZOrder(3600);
+
+		Widget previewContainer = root.FindAnyWidget("HST_LoadoutPreviewContainer");
+		if (previewContainer)
+		{
+			previewContainer.SetVisible(true);
+			previewContainer.SetOpacity(1.0);
+			previewContainer.SetZOrder(0);
+		}
 
 		m_PreviewWidget = RenderTargetWidget.Cast(root.FindAnyWidget("HST_LoadoutPreview"));
 		ConfigurePreviewWidget();
@@ -1527,13 +1596,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (m_Layout.m_bCompact)
 			m_Layout.m_iGap = ScalePx(18);
 
-		int leftGutter = ClampInt(Math.Round(w * 0.045), ScalePx(18), ScalePx(96));
-		int topGutter = ClampInt(Math.Round(h * 0.085), ScalePx(54), ScalePx(104));
-		int rightGutter = ClampInt(Math.Round(w * 0.035), ScalePx(18), ScalePx(96));
-
-		// Bacon-like frame, but tied to the actual viewport so re-entering after resize does not strand the panels.
-		m_Layout.m_iTabsLeft = leftGutter + ScalePx(42);
-		m_Layout.m_iTabsTop = topGutter;
 		m_Layout.m_iTabHeight = ScalePx(72);
 		m_Layout.m_iTabWidth = ScalePx(72);
 		m_Layout.m_iTabGap = ScalePx(22);
@@ -1544,47 +1606,99 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_Layout.m_iTabsWidth += (editorModeCount - 1) * m_Layout.m_iTabGap;
 		m_Layout.m_iTabsHeight = m_Layout.m_iTabHeight + ScalePx(10);
 
-		int minTabsLeft = ScalePx(12);
-		int maxTabsLeft = Math.Max(minTabsLeft, w - m_Layout.m_iTabsWidth - ScalePx(80));
-		m_Layout.m_iTabsLeft = ClampInt(m_Layout.m_iTabsLeft, minTabsLeft, maxTabsLeft);
+		int sideMargin = Math.Max(m_Layout.m_iMargin, ScalePx(92));
+		int bottomReserve = ScalePx(88);
+		int groupGap = ScalePx(22);
+		int maxGroupWidth = Math.Max(ScalePx(1), w - sideMargin * 2);
+		int tabsLeftAnchor = ScalePx(58);
+		if (m_Layout.m_bCompact)
+			tabsLeftAnchor = ScalePx(46);
+		if (m_Layout.m_bVeryCompact)
+			tabsLeftAnchor = ScalePx(34);
+		tabsLeftAnchor = ClampInt(tabsLeftAnchor, ScalePx(22), Math.Max(ScalePx(22), w - m_Layout.m_iTabsWidth - ScalePx(42)));
 
-		m_Layout.m_iRailLeft = leftGutter + ScalePx(96);
-		m_Layout.m_iRailTop = m_Layout.m_iTabsTop + m_Layout.m_iTabHeight + ScalePx(18);
 		m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.245), ScalePx(390), ScalePx(520));
-		m_Layout.m_iRailBottom = h - Math.Max(ScalePx(96), topGutter);
+		if (m_Layout.m_bVeryCompact)
+			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.34), ScalePx(290), ScalePx(470));
+		else if (m_Layout.m_bCompact)
+			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.30), ScalePx(360), ScalePx(500));
+
+		bool hasMainPanel = m_sEditorMode == "storage";
+		if (m_Layout.m_iRailWidth > maxGroupWidth)
+			m_Layout.m_iRailWidth = Math.Max(ScalePx(1), maxGroupWidth);
+
+		int mainGap = 0;
+		m_Layout.m_iMainWidth = 0;
+		if (hasMainPanel)
+		{
+			mainGap = groupGap;
+			int mainMax = maxGroupWidth - m_Layout.m_iRailWidth - mainGap;
+			if (mainMax < ScalePx(420))
+			{
+				m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.32), ScalePx(260), Math.Max(ScalePx(260), maxGroupWidth - mainGap - ScalePx(360)));
+				mainMax = maxGroupWidth - m_Layout.m_iRailWidth - mainGap;
+			}
+
+			m_Layout.m_iMainWidth = ClampInt(Math.Round(w * 0.56), ScalePx(420), Math.Max(ScalePx(1), mainMax));
+		}
+
+		int panelGroupWidth = m_Layout.m_iRailWidth + mainGap + m_Layout.m_iMainWidth;
+		int tabsCenter = tabsLeftAnchor + Math.Round(m_Layout.m_iTabsWidth * 0.5);
+		int panelMinLeft = ScalePx(98);
+		if (m_Layout.m_bVeryCompact)
+			panelMinLeft = ScalePx(70);
+
+		int panelLeft = tabsCenter - Math.Round(m_Layout.m_iRailWidth * 0.5);
+		if (panelLeft < panelMinLeft)
+			panelLeft = panelMinLeft;
+
+		int rightLimit = Math.Max(panelMinLeft + ScalePx(1), w - m_Layout.m_iMargin);
+		int panelOverrun = panelLeft + panelGroupWidth - rightLimit;
+		if (panelOverrun > 0)
+		{
+			if (hasMainPanel && m_Layout.m_iMainWidth > ScalePx(320))
+			{
+				m_Layout.m_iMainWidth = Math.Max(ScalePx(320), m_Layout.m_iMainWidth - panelOverrun);
+				panelGroupWidth = m_Layout.m_iRailWidth + mainGap + m_Layout.m_iMainWidth;
+			}
+			else if (!hasMainPanel && m_Layout.m_iRailWidth > ScalePx(260))
+			{
+				m_Layout.m_iRailWidth = Math.Max(ScalePx(260), m_Layout.m_iRailWidth - panelOverrun);
+				panelGroupWidth = m_Layout.m_iRailWidth;
+			}
+
+			if (panelLeft + panelGroupWidth > rightLimit)
+				panelLeft = Math.Max(panelMinLeft, rightLimit - panelGroupWidth);
+		}
+
+		int desiredContentHeight = ClampInt(Math.Round(h * 0.70), ScalePx(460), Math.Max(ScalePx(1), h - m_Layout.m_iTabsHeight - bottomReserve - ScalePx(48)));
+		if (m_Layout.m_bVeryCompact)
+			desiredContentHeight = ClampInt(Math.Round(h * 0.64), ScalePx(360), Math.Max(ScalePx(1), h - m_Layout.m_iTabsHeight - bottomReserve - ScalePx(28)));
+		int combinedHeight = m_Layout.m_iTabsHeight + groupGap + desiredContentHeight;
+		int groupTop = ClampInt(Math.Round((h - combinedHeight) * 0.5), ScalePx(18), Math.Max(ScalePx(18), h - combinedHeight - bottomReserve));
+
+		if (groupTop + combinedHeight > h - ScalePx(24))
+			desiredContentHeight = Math.Max(ScalePx(240), h - groupTop - m_Layout.m_iTabsHeight - groupGap - ScalePx(24));
+
+		m_Layout.m_iRailLeft = panelLeft;
+		m_Layout.m_iRailTop = groupTop + m_Layout.m_iTabsHeight + groupGap;
+		m_Layout.m_iRailBottom = m_Layout.m_iRailTop + desiredContentHeight;
+		if (m_Layout.m_iRailBottom > h - ScalePx(24))
+			m_Layout.m_iRailBottom = h - ScalePx(24);
 		if (m_Layout.m_iRailBottom <= m_Layout.m_iRailTop)
 			m_Layout.m_iRailBottom = m_Layout.m_iRailTop + ScalePx(1);
 
-		if (m_Layout.m_bVeryCompact)
-		{
-			m_Layout.m_iRailLeft = leftGutter + ScalePx(78);
-			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.34), ScalePx(290), ScalePx(470));
-		}
-		else if (m_Layout.m_bCompact)
-		{
-			m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.30), ScalePx(360), ScalePx(500));
-		}
-
-		if (m_Layout.m_iRailLeft + m_Layout.m_iRailWidth > w - ScalePx(12))
-		{
-			m_Layout.m_iRailWidth = Math.Max(ScalePx(260), w - m_Layout.m_iRailLeft - ScalePx(12));
-			if (m_Layout.m_iRailWidth < ScalePx(260))
-			{
-				m_Layout.m_iRailLeft = ScalePx(12);
-				m_Layout.m_iRailWidth = Math.Max(ScalePx(1), w - ScalePx(24));
-			}
-		}
+		m_Layout.m_iTabsLeft = m_Layout.m_iRailLeft + Math.Round((m_Layout.m_iRailWidth - m_Layout.m_iTabsWidth) * 0.5);
+		m_Layout.m_iTabsLeft = ClampInt(m_Layout.m_iTabsLeft, ScalePx(42), Math.Max(ScalePx(42), w - m_Layout.m_iTabsWidth - ScalePx(42)));
+		m_Layout.m_iTabsTop = groupTop;
 
 		m_Layout.m_iContentTop = m_Layout.m_iRailTop;
 		m_Layout.m_iContentBottom = m_Layout.m_iRailBottom;
 		m_Layout.m_iContentHeight = Math.Max(ScalePx(1), m_Layout.m_iContentBottom - m_Layout.m_iContentTop);
 		m_Layout.m_iRailHeight = m_Layout.m_iContentHeight;
 
-		m_Layout.m_iMainLeft = m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + ScalePx(22);
+		m_Layout.m_iMainLeft = m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + mainGap;
 		m_Layout.m_iMainTop = m_Layout.m_iRailTop;
-		m_Layout.m_iMainWidth = w - m_Layout.m_iMainLeft - rightGutter;
-		if (m_Layout.m_iMainWidth < ScalePx(320))
-			m_Layout.m_iMainWidth = Math.Max(ScalePx(1), w - m_Layout.m_iMainLeft - ScalePx(12));
 		m_Layout.m_iMainBottom = m_Layout.m_iRailBottom;
 		m_Layout.m_iMainHeight = Math.Max(ScalePx(1), m_Layout.m_iMainBottom - m_Layout.m_iMainTop);
 
@@ -1901,9 +2015,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			{
 				PrepareRowRoot(row);
 				ConfigureStorageCandidateTile(row);
-				SetRowText(row, "Name", emptyText, 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
-				SetRowText(row, "Count", "", 0xFFB7C7D7, m_Layout.m_iFontTiny, false, false);
 				SetRowImageColor(row, "Background", 0x00111111, 0.01);
+				SetRowWidgetVisible(row, "Name", false);
+				SetRowWidgetVisible(row, "Count", false);
+				SetRowWidgetVisible(row, "PreviewAnchor", false);
+				Widget body = ResolveRowOverlayRoot(row);
+				if (body)
+					CreateWrappedTextWidget(workspace, body, emptyText, ScalePx(18), ScalePx(24), Math.Max(ScalePx(120), GetStorageCandidateTileBodyWidth() - ScalePx(36)), ScalePx(54), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
 			}
 		}
 
@@ -2054,6 +2172,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected string GetVisibleNodePrimaryText(int nodeIndex)
 	{
+		if (IsAttachmentNodeIndex(nodeIndex))
+			return ResolveAttachmentNodeLabel(nodeIndex);
+
 		string slotLabel = ResolveNodeSlotLabel(nodeIndex);
 		if (!slotLabel.IsEmpty())
 			return slotLabel;
@@ -2085,7 +2206,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (primaryText)
 			primaryText.SetZOrder(90);
 
-		TextWidget secondaryText = CreateTextWidget(workspace, body, ShortenText(secondary, 46), textLeft, ScalePx(34), textWidth, ScalePx(20), m_Layout.m_iFontSmall, 0xFFD5D8D9, userId, false);
+		TextWidget secondaryText = CreateTextWidget(workspace, body, ShortenText(secondary, 46), textLeft, ScalePx(34), textWidth, ScalePx(22), m_Layout.m_iFontNormal, 0xFFD5D8D9, userId, false);
 		if (secondaryText)
 			secondaryText.SetZOrder(90);
 
@@ -2259,17 +2380,43 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return ScalePx(354);
 
 		int listWidth = Math.Max(ScalePx(260), m_Layout.m_iMainWidth - ScalePx(40));
-		int gap = ScalePx(16);
-		int minTile = ScalePx(300);
-		int maxTile = ScalePx(430);
-		int columns = Math.Max(1, listWidth / Math.Max(1, minTile + gap));
+		int gap = GetStorageCandidateTileGap();
+		int columns = GetStorageCandidateColumnCount(listWidth);
 		if (m_Layout.m_bVeryCompact)
 			columns = ClampInt(columns, 1, 2);
-		else
-			columns = ClampInt(columns, 1, 4);
 
 		int tileWidth = (listWidth - ((columns - 1) * gap)) / columns;
-		return ClampInt(tileWidth, ScalePx(260), maxTile);
+		return Math.Max(ScalePx(220), tileWidth);
+	}
+
+	protected int GetStorageCandidateTileGap()
+	{
+		if (!m_Layout)
+			return ScalePx(10);
+
+		if (m_Layout.m_bVeryCompact)
+			return ScalePx(8);
+		if (m_Layout.m_bCompact)
+			return ScalePx(8);
+
+		return ScalePx(10);
+	}
+
+	protected int GetStorageCandidateColumnCount(int listWidth)
+	{
+		if (!m_Layout)
+			return 3;
+
+		if (listWidth < ScalePx(540))
+			return 1;
+		if (listWidth < ScalePx(760) || m_Layout.m_bVeryCompact)
+			return 2;
+		return 3;
+	}
+
+	protected int GetStorageCandidateTileBodyWidth()
+	{
+		return Math.Max(ScalePx(180), GetStorageCandidateTileWidth() - GetStorageCandidateTileGap());
 	}
 
 	protected void ConfigureStorageCandidateTile(Widget tile)
@@ -2278,13 +2425,14 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		int tileWidth = GetStorageCandidateTileWidth();
+		int tileHeight = ScalePx(140);
 		SizeLayoutWidget sizeLayout = SizeLayoutWidget.Cast(tile.FindAnyWidget("SizeLayout"));
 		if (sizeLayout)
 		{
 			sizeLayout.EnableWidthOverride(true);
 			sizeLayout.SetWidthOverride(tileWidth);
 			sizeLayout.EnableHeightOverride(true);
-			sizeLayout.SetHeightOverride(ScalePx(100));
+			sizeLayout.SetHeightOverride(tileHeight);
 		}
 	}
 
@@ -2300,15 +2448,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetRowWidgetVisible(tile, "Name", false);
 		SetRowWidgetVisible(tile, "Count", false);
 
-		int tileWidth = GetStorageCandidateTileWidth();
+		int tileWidth = GetStorageCandidateTileBodyWidth();
 		int textLeft = ScalePx(112);
 		int badgeWidth = ScalePx(86);
-		int badgeLeft = tileWidth - badgeWidth - ScalePx(18);
-		int textWidth = Math.Max(ScalePx(94), badgeLeft - textLeft - ScalePx(18));
-		CreateWrappedTextWidget(workspace, body, ShortenText(name, 40), textLeft, ScalePx(12), textWidth, ScalePx(58), m_Layout.m_iFontNormal, 0xFFE2E6E8, userId, false);
+		if (tileWidth < ScalePx(260))
+		{
+			textLeft = ScalePx(96);
+			badgeWidth = ScalePx(74);
+		}
+
+		int badgeLeft = tileWidth - badgeWidth - ScalePx(14);
+		if (badgeLeft < textLeft)
+			badgeLeft = Math.Max(ScalePx(8), tileWidth - badgeWidth - ScalePx(8));
+		int textWidth = Math.Max(ScalePx(90), tileWidth - textLeft - ScalePx(16));
+		int textHeight = ScalePx(86);
+		if (countText.IsEmpty())
+			textHeight = ScalePx(108);
+		CreateWrappedTextWidget(workspace, body, ShortenText(name, 68), textLeft, ScalePx(10), textWidth, textHeight, m_Layout.m_iFontNormal, 0xFFE2E6E8, userId, false);
 
 		if (!countText.IsEmpty())
-			CreateCountBadge(workspace, body, countText, badgeLeft, ScalePx(58), badgeWidth, ScalePx(28), userId);
+			CreateCountBadge(workspace, body, countText, badgeLeft, ScalePx(94), badgeWidth, ScalePx(28), userId);
 	}
 
 	protected void AddNodePreviewToRow(WorkspaceWidget workspace, Widget row, int nodeIndex, int userId, int size)
@@ -2359,7 +2518,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		int previewSize = Math.Min(ScalePx(82), Math.Max(m_Layout.m_iPreviewCellLarge, ScalePx(76)));
 		// Candidate tiles are icon-first; keep the preview large and away from the right-side count badge.
-		FrameSlot.SetPos(anchor, ScalePx(18), ScalePx(7));
+		FrameSlot.SetPos(anchor, ScalePx(18), ScalePx(10));
 		FrameSlot.SetSize(anchor, previewSize, previewSize);
 		Widget previewBack = CreateRectWidget(workspace, anchor, 0, 0, previewSize, previewSize, 0xEE05080A, 1.0, userId);
 		if (previewBack)
@@ -2385,8 +2544,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget back = FindRowWidget(row, "VolumeBack");
 		if (back)
 		{
-			FrameSlot.SetPos(back, barLeft, barTop);
-			FrameSlot.SetSize(back, barWidth, ScalePx(6));
 			back.SetOpacity(1.0);
 			back.SetColorInt(GetVolumeTrackColor());
 			back.SetVisible(true);
@@ -2681,10 +2838,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int optionTop = panelTop + ScalePx(82);
 		int optionWidth = panelWidth - ScalePx(68);
 		optionTop = RenderSettingsLightRow(workspace, root, optionLeft, optionTop, optionWidth);
-		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Menu Panel", GetPresetLabel("panel", m_VisualSettings.m_iPanelPreset), SETTINGS_PANEL_PRESET_WIDGET_ID);
-		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Highlight", GetPresetLabel("accent", m_VisualSettings.m_iAccentPreset), SETTINGS_ACCENT_PRESET_WIDGET_ID);
-		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Rows", GetPresetLabel("row", m_VisualSettings.m_iRowPreset), SETTINGS_ROW_PRESET_WIDGET_ID);
-		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Render Color", GetPresetLabel("world", m_VisualSettings.m_iWorldPreset), SETTINGS_WORLD_PRESET_WIDGET_ID);
+		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Menu Panel Color", GetPresetLabel("panel", m_VisualSettings.m_iPanelPreset), SETTINGS_PANEL_PRESET_WIDGET_ID);
+		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Highlight Color", GetPresetLabel("accent", m_VisualSettings.m_iAccentPreset), SETTINGS_ACCENT_PRESET_WIDGET_ID);
+		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Row Color", GetPresetLabel("row", m_VisualSettings.m_iRowPreset), SETTINGS_ROW_PRESET_WIDGET_ID);
+		optionTop = RenderSettingsPresetRow(workspace, root, optionLeft, optionTop, optionWidth, "Render Background Color", GetPresetLabel("world", m_VisualSettings.m_iWorldPreset), SETTINGS_WORLD_PRESET_WIDGET_ID);
 
 		int buttonTop = Math.Min(panelTop + panelHeight - ScalePx(84), optionTop + ScalePx(18));
 		CreateButton(workspace, root, "Defaults", optionLeft, buttonTop, ScalePx(98), ScalePx(32), SETTINGS_RESET_WIDGET_ID);
@@ -3554,7 +3711,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	{
 		float total = GetNodeTotalVolume(nodeIndex);
 		if (total <= 0.0)
-			return "";
+			return "0% / 100%";
 
 		int usedPercent = Math.Round(GetNodeVolumeRatio(nodeIndex) * 100.0);
 		usedPercent = ClampInt(usedPercent, 0, 100);
@@ -3563,11 +3720,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected string BuildStorageCapacityLabel(int nodeIndex)
 	{
-		string volumeLabel = BuildNodeVolumeLabel(nodeIndex);
-		if (!volumeLabel.IsEmpty())
-			return volumeLabel;
-
-		return "No volume data";
+		return BuildNodeVolumeLabel(nodeIndex);
 	}
 
 	protected void CreateStorageVolumeBar(WorkspaceWidget workspace, Widget root, int left, int top, int width, int height, int nodeIndex, int userId)
@@ -3725,6 +3878,13 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeDisplays.Count())
 			display = m_aNodeDisplays[nodeIndex].Trim();
 
+		if (IsAttachmentNodeIndex(nodeIndex) && IsGenericAttachmentLabel(label))
+		{
+			string attachmentLabel = ResolveAttachmentNodeLabel(nodeIndex);
+			if (!attachmentLabel.IsEmpty())
+				return attachmentLabel;
+		}
+
 		if (!label.IsEmpty() && !IsDuplicateDisplayText(label, display))
 			return label;
 
@@ -3757,6 +3917,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (kind == "storage" || kind == "storage_item")
 			return "";
+		if (kind == "attachment")
+			return ResolveAttachmentNodeLabel(nodeIndex);
 
 		string category = ResolveNodeCategory(nodeIndex);
 		if (category == "weapon")
@@ -3796,7 +3958,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		string label;
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeLabels.Count())
 			label = m_aNodeLabels[nodeIndex].Trim();
-		if (!label.IsEmpty() && label != "Attachment" && !IsLikelyRawSlotIdentifier(label))
+		if (label == "Optics")
+			return "Optic";
+		if (!IsGenericAttachmentLabel(label))
 			return label;
 
 		string slotKey;
@@ -3807,6 +3971,33 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return inferredLabel;
 
 		return ResolveAttachmentSlotKeyLabel(slotKey);
+	}
+
+	protected bool IsAttachmentNodeIndex(int nodeIndex)
+	{
+		if (nodeIndex < 0)
+			return false;
+
+		if (nodeIndex < m_aNodeKinds.Count() && m_aNodeKinds[nodeIndex] == "attachment")
+			return true;
+
+		if (nodeIndex < m_aNodeIds.Count() && m_aNodeIds[nodeIndex].StartsWith(NODE_ATTACHMENT_PREFIX))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsGenericAttachmentLabel(string label)
+	{
+		label = label.Trim();
+		if (label.IsEmpty())
+			return true;
+		if (IsLikelyRawSlotIdentifier(label))
+			return true;
+
+		string lowered = label;
+		lowered.ToLower();
+		return lowered == "attachment" || lowered == "attachment slot" || lowered == "equipment" || lowered == "equipment slot";
 	}
 
 	protected string InferAttachmentLabelFromNode(int nodeIndex, string slotKey)
@@ -3822,7 +4013,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (combined.Contains("optic") || combined.Contains("scope") || combined.Contains("sight"))
 			return "Optic";
-		if (combined.Contains("muzzle") || combined.Contains("suppressor") || combined.Contains("flash_hider") || combined.Contains("flashhider"))
+		if (combined.Contains("muzzle") || combined.Contains("suppressor") || combined.Contains("flash_hider") || combined.Contains("flashhider") || combined.Contains("flash hider") || combined.Contains("compensator"))
 			return "Muzzle";
 		if (combined.Contains("underbarrel") || combined.Contains("bipod") || combined.Contains("grip"))
 			return "Underbarrel";
@@ -3836,8 +4027,64 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "Magazine";
 		if (combined.Contains("rail") || combined.Contains("accessory"))
 			return "Accessory Rail";
-		if (combined.Contains("equipment"))
-			return "Equipment Slot";
+
+		string candidateLabel = InferAttachmentLabelFromLoadedCandidates(nodeIndex);
+		if (!candidateLabel.IsEmpty())
+			return candidateLabel;
+
+		return "";
+	}
+
+	protected string InferAttachmentLabelFromLoadedCandidates(int nodeIndex)
+	{
+		if (nodeIndex < 0 || nodeIndex >= m_aNodeIds.Count())
+			return "";
+
+		string nodeId = m_aNodeIds[nodeIndex];
+		string inferred;
+		for (int i = 0; i < m_aCandidateNodeIds.Count(); i++)
+		{
+			if (m_aCandidateNodeIds[i] != nodeId)
+				continue;
+
+			string candidateCombined;
+			if (i < m_aCandidatePrefabs.Count())
+				candidateCombined = candidateCombined + " " + m_aCandidatePrefabs[i];
+			if (i < m_aCandidateDisplays.Count())
+				candidateCombined = candidateCombined + " " + m_aCandidateDisplays[i];
+			candidateCombined.ToLower();
+
+			string label = InferAttachmentLabelFromText(candidateCombined);
+			if (label.IsEmpty())
+				continue;
+			if (inferred.IsEmpty())
+				inferred = label;
+			else if (inferred != label)
+				return "";
+		}
+
+		return inferred;
+	}
+
+	protected string InferAttachmentLabelFromText(string text)
+	{
+		text.ToLower();
+		if (text.Contains("optic") || text.Contains("scope") || text.Contains("sight"))
+			return "Optic";
+		if (text.Contains("muzzle") || text.Contains("suppressor") || text.Contains("flash_hider") || text.Contains("flashhider") || text.Contains("flash hider") || text.Contains("compensator"))
+			return "Muzzle";
+		if (text.Contains("underbarrel") || text.Contains("bipod") || text.Contains("grip"))
+			return "Underbarrel";
+		if (text.Contains("bayonet"))
+			return "Bayonet";
+		if (text.Contains("handguard"))
+			return "Handguard";
+		if (text.Contains("stock") || text.Contains("butt"))
+			return "Stock";
+		if (text.Contains("magazine") || text.Contains(" mag") || text.Contains("_mag"))
+			return "Magazine";
+		if (text.Contains("rail") || text.Contains("accessory"))
+			return "Accessory Rail";
 
 		return "";
 	}
@@ -3879,7 +4126,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (slotKey == "rail")
 			return "Accessory Rail";
 		if (slotKey == "equipment")
-			return "Equipment Slot";
+			return "Attachment Slot";
 
 		return "Attachment Slot";
 	}
@@ -5191,6 +5438,65 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewStageEntity = GetGame().SpawnEntityPrefab(stageResource, m_PreviewWorld);
 		if (!m_PreviewStageEntity)
 			m_sPreviewStatus = "preview stage spawn failed";
+		else
+			ApplyPreviewWorldSettings();
+	}
+
+	protected void RebuildPreviewStage()
+	{
+		if (m_PreviewStageEntity)
+			SCR_EntityHelper.DeleteEntityAndChildren(m_PreviewStageEntity);
+
+		m_PreviewStageEntity = null;
+		SpawnPreviewStage();
+	}
+
+	protected void ApplyPreviewWorldSettings()
+	{
+		if (!m_PreviewStageEntity)
+			return;
+
+		EnsureVisualSettings();
+		if (m_VisualSettings.m_iWorldPreset <= 0)
+			return;
+
+		ApplyPreviewWorldMaterialToSkySphereRecursive(m_PreviewStageEntity, GetPreviewWorldMaterial());
+	}
+
+	protected bool ApplyPreviewWorldMaterialToSkySphereRecursive(IEntity entity, ResourceName material)
+	{
+		if (!entity)
+			return false;
+
+		bool applied = false;
+		if (entity != m_PreviewStageEntity && IsPreviewSkySphereEntity(entity))
+		{
+			SCR_Global.SetMaterial(entity, material, true);
+			return true;
+		}
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			if (ApplyPreviewWorldMaterialToSkySphereRecursive(child, material))
+				applied = true;
+			child = child.GetSibling();
+		}
+
+		return applied;
+	}
+
+	protected bool IsPreviewSkySphereEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		vector mins;
+		vector maxs;
+		entity.GetWorldBounds(mins, maxs);
+		float height = maxs[1] - mins[1];
+		float width = Math.Max(maxs[0] - mins[0], maxs[2] - mins[2]);
+		return height > 20.0 && width > 20.0;
 	}
 
 	protected void QueuePreviewLightSpawn()
@@ -5244,11 +5550,27 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void ApplyPreviewLightSettings()
 	{
 		EnsureVisualSettings();
-		LightEntity light = LightEntity.Cast(m_PreviewLightEntity);
-		if (!light)
+		if (!m_PreviewLightEntity)
 			return;
 
-		light.SetColor(Color.FromInt(Color.WHITE), m_VisualSettings.m_fPreviewLightLV);
+		ApplyPreviewLightSettingsRecursive(m_PreviewLightEntity);
+	}
+
+	protected void ApplyPreviewLightSettingsRecursive(IEntity entity)
+	{
+		if (!entity)
+			return;
+
+		LightEntity light = LightEntity.Cast(entity);
+		if (light)
+			light.SetColor(Color.FromInt(Color.WHITE), m_VisualSettings.m_fPreviewLightLV);
+
+		IEntity child = entity.GetChildren();
+		while (child)
+		{
+			ApplyPreviewLightSettingsRecursive(child);
+			child = child.GetSibling();
+		}
 	}
 
 	protected void DeletePreviewLight()
@@ -6408,18 +6730,20 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool IsPreviewCameraCandidateValid(vector direction, vector position)
 	{
-		float minDirectionY = -0.22;
-		float maxDirectionY = 0.38;
+		float minDirectionY = -0.06;
+		float maxDirectionY = 0.30;
 		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
 		{
-			minDirectionY = -0.14;
-			maxDirectionY = 0.32;
+			minDirectionY = -0.05;
+			maxDirectionY = 0.24;
 		}
 
 		if (direction[1] < minDirectionY || direction[1] > maxDirectionY)
 			return false;
 
-		float minCameraY = 0.18;
+		float minCameraY = 0.55;
+		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
+			minCameraY = 0.35;
 		float size = Math.Max(0.5, m_fPreviewedEntitySize);
 		float maxCameraY = m_vPreviewedEntityCenterWorld[1] + Math.Max(0.85, size * 0.72);
 		if (m_sPreviewSourceMode == PREVIEW_MODE_ENTITY)
@@ -6552,8 +6876,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget slotImage = cell.FindAnyWidget("SlotImage");
 		if (slotImage)
 		{
-			FrameSlot.SetPos(slotImage, ScalePx(1), ScalePx(1));
-			FrameSlot.SetSize(slotImage, Math.Max(1, size - ScalePx(2)), Math.Max(1, size - ScalePx(2)));
 			slotImage.SetVisible(true);
 			slotImage.SetOpacity(1.0);
 			slotImage.SetZOrder(21);
@@ -6562,8 +6884,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget slotPreview = cell.FindAnyWidget("SlotPreview");
 		if (slotPreview)
 		{
-			FrameSlot.SetPos(slotPreview, ScalePx(1), ScalePx(1));
-			FrameSlot.SetSize(slotPreview, Math.Max(1, size - ScalePx(2)), Math.Max(1, size - ScalePx(2)));
 			slotPreview.SetVisible(false);
 			slotPreview.SetOpacity(0.0);
 			slotPreview.SetZOrder(22);

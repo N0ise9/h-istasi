@@ -18,5 +18,5 @@ GameEntity {
   }
  }
  coords 0 1 0
- scale 8
+ scale 12
 }
