@@ -728,7 +728,7 @@ class HST_LoadoutEditorService
 			if (!attachmentSlot || !attachmentSlot.GetAttachmentSlotType())
 				continue;
 
-			string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot);
+			string slotKey = ResolveAttachmentSlotKeyFromSlot(slot, attachmentSlot, slot.GetAttachedEntity());
 			string label = ResolveAttachmentSlotLabel(slotKey, slot.GetSourceName());
 			string nodeId = NODE_ATTACHMENT_PREFIX + string.Format("%1_%2_%3", weaponStorageIndex, weaponSlotIndex, slotIndex);
 			AddLiveNodeFromSlot(session, nodeId, parentNodeId, "attachment", "attachment", label, "weapon", slot.GetAttachedEntity(), true, false, false);
@@ -1363,7 +1363,7 @@ class HST_LoadoutEditorService
 		return "torso";
 	}
 
-	protected string ResolveAttachmentSlotKeyFromSlot(InventoryStorageSlot slot, AttachmentSlotComponent attachmentSlot)
+	protected string ResolveAttachmentSlotKeyFromSlot(InventoryStorageSlot slot, AttachmentSlotComponent attachmentSlot, IEntity attachedEntity = null)
 	{
 		if (attachmentSlot && attachmentSlot.GetAttachmentSlotType())
 		{
@@ -1385,6 +1385,12 @@ class HST_LoadoutEditorService
 			key = slot.GetSourceName();
 		if (key.IsEmpty() && attachmentSlot && attachmentSlot.GetAttachmentSlotType())
 			key = string.Format("%1", attachmentSlot.GetAttachmentSlotType());
+		if (attachedEntity)
+		{
+			string attachedPrefab = ResolveEntityPrefab(attachedEntity);
+			string attachedDisplay = ResolveEntityDisplayName(attachedEntity, attachedPrefab);
+			key = key + " " + attachedPrefab + " " + attachedDisplay;
+		}
 		key.ToLower();
 
 		if (key.Contains("optic") || key.Contains("scope") || key.Contains("sight"))
@@ -1404,7 +1410,7 @@ class HST_LoadoutEditorService
 		if (key.Contains("ammo") || key.Contains("magazine"))
 			return "magazine";
 		if (key.Contains("equipment"))
-			return "equipment";
+			return "attachment";
 
 		return "attachment";
 	}
@@ -1428,11 +1434,18 @@ class HST_LoadoutEditorService
 		if (slotKey == "rail")
 			return "Accessory Rail";
 		if (slotKey == "equipment")
-			return "Equipment Slot";
-		if (!fallback.IsEmpty() && !IsLikelyRawSlotIdentifier(fallback))
+			return "Attachment Slot";
+		if (!fallback.IsEmpty() && !IsLikelyRawSlotIdentifier(fallback) && !IsGenericAttachmentSlotLabel(fallback))
 			return fallback;
 
 		return "Attachment Slot";
+	}
+
+	protected bool IsGenericAttachmentSlotLabel(string value)
+	{
+		value = value.Trim();
+		value.ToLower();
+		return value == "attachment" || value == "attachment slot" || value == "equipment" || value == "equipment slot";
 	}
 
 	protected bool IsLikelyRawSlotIdentifier(string value)
@@ -3027,7 +3040,7 @@ class HST_LoadoutEditorService
 		if (weaponNode)
 			parentId = weaponNode.m_sNodeId;
 
-		AddAttachmentNode(session, parentId, "attach_optic", "optic", "Optics", "optic");
+		AddAttachmentNode(session, parentId, "attach_optic", "optic", "Optic", "optic");
 		AddAttachmentNode(session, parentId, "attach_muzzle", "muzzle", "Muzzle", "muzzle");
 		AddAttachmentNode(session, parentId, "attach_underbarrel", "underbarrel", "Underbarrel", "weapon");
 		AddAttachmentNode(session, parentId, "attach_bayonet", "bayonet", "Bayonet", "weapon");
@@ -3334,7 +3347,7 @@ class HST_LoadoutEditorService
 	protected string ResolveNodeLabelFromId(string nodeId)
 	{
 		if (nodeId.Contains("optic"))
-			return "Optics";
+			return "Optic";
 		if (nodeId.Contains("muzzle"))
 			return "Muzzle";
 		if (nodeId.Contains("underbarrel"))
@@ -4045,7 +4058,7 @@ class HST_LoadoutEditorService
 			return prefab.Contains("Stock");
 		if (slotKey == "rail")
 			return IsAttachmentPrefab(prefab);
-		if (slotKey == "equipment")
+		if (slotKey == "equipment" || slotKey == "attachment")
 			return IsAttachmentPrefab(prefab);
 
 		return false;
@@ -4086,7 +4099,7 @@ class HST_LoadoutEditorService
 		if (attachmentSlotId.Contains("magazine") || attachmentSlotId.Contains("ammo"))
 			return "magazine";
 		if (attachmentSlotId.Contains("equipment"))
-			return "equipment";
+			return "attachment";
 
 		return "attachment";
 	}

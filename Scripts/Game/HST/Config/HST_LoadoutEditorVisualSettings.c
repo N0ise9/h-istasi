@@ -1,9 +1,9 @@
 class HST_LoadoutEditorVisualSettings
 {
-	static const int SCHEMA_VERSION = 1;
+	static const int SCHEMA_VERSION = 3;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
-	float m_fPreviewLightLV = 17.0;
+	float m_fPreviewLightLV = 6.0;
 	int m_iPanelPreset;
 	int m_iAccentPreset;
 	int m_iRowPreset;
@@ -14,11 +14,14 @@ class HST_LoadoutEditorVisualSettings
 		if (m_iSchemaVersion <= 0)
 			m_iSchemaVersion = SCHEMA_VERSION;
 
-		m_fPreviewLightLV = Math.Clamp(m_fPreviewLightLV, 8.0, 24.0);
-		m_iPanelPreset = ClampPreset(m_iPanelPreset, 3);
-		m_iAccentPreset = ClampPreset(m_iAccentPreset, 4);
-		m_iRowPreset = ClampPreset(m_iRowPreset, 3);
-		m_iWorldPreset = ClampPreset(m_iWorldPreset, 3);
+		if (m_iSchemaVersion < 3 && (m_fPreviewLightLV == 17.0 || m_fPreviewLightLV == 8.0 || m_fPreviewLightLV == 7.0))
+			m_fPreviewLightLV = 6.0;
+
+		m_fPreviewLightLV = Math.Clamp(m_fPreviewLightLV, 0.0, 24.0);
+		m_iPanelPreset = ClampPreset(m_iPanelPreset, 5);
+		m_iAccentPreset = ClampPreset(m_iAccentPreset, 6);
+		m_iRowPreset = ClampPreset(m_iRowPreset, 5);
+		m_iWorldPreset = ClampPreset(m_iWorldPreset, 5);
 	}
 
 	protected int ClampPreset(int value, int count)

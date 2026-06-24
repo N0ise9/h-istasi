@@ -46,7 +46,7 @@ GenericWorldEntity {
   GameEntity : "{4C9706C51A4F2D93}Prefabs/HST/HST_LoadoutPreviewSkySphere.et" {
    ID "7A9A1B7F76424AA1"
    coords 0 0 0
-   scale 20
+   scale 40
   }
   GameEnvironmentProbeEntity : "{B6B6A21399C5571B}Prefabs/World/DefaultWorld/EnvProbe_Default.et" {
    ID "7A9A1B7F76424A9D"
