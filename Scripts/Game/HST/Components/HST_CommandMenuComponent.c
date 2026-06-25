@@ -107,6 +107,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<int> m_aContentItemSectionIndexes = {};
 	protected ref array<int> m_aContentItemRowIndexes = {};
 	protected ref array<Widget> m_aWidgets = {};
+	protected Widget m_wMenuRoot;
 	protected ref HST_CommandMenuLayoutMetrics m_Layout;
 	protected ref HST_CommandMenuWidgetHandler m_WidgetHandler;
 	protected IEntity m_OwnerEntity;
@@ -1117,7 +1118,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		SaveCommandMenuScrollOffsets();
-		ClearWidgets();
 		m_ContentScroll = null;
 		m_ActionScroll = null;
 		m_FeedScroll = null;
@@ -1129,10 +1129,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_CommandMenu");
 		BuildResponsiveLayout(workspace);
-		Widget root = CreateMenuRoot(workspace);
+		Widget root = EnsureMenuRoot(workspace);
 		if (!root)
 			return false;
 
+		ClearDynamicMenuRows(root);
 		RenderHeader(workspace, root);
 		RenderNavigation(workspace, root);
 		RenderStats(workspace, root);
@@ -1143,6 +1144,27 @@ class HST_CommandMenuComponent : ScriptComponent
 		HST_UIDebug.LogPopulation("command_menu", string.Format("selectedTab=%1 tabs=%2 stats=%3 sections=%4 rows=%5 contentItems=%6 actions=%7 feed=%8 status=%9", m_sSelectedTab, m_aTabIds.Count(), m_aStatLabels.Count(), m_aSectionIds.Count(), m_aRowLabels.Count(), m_aContentItemKinds.Count(), m_aActionLabels.Count(), m_aFeedLines.Count(), ShortenText(m_sStatusText, 120)));
 		QueueCommandMenuPostLayoutRefresh(root);
 		return true;
+	}
+
+	protected Widget EnsureMenuRoot(WorkspaceWidget workspace)
+	{
+		if (m_wMenuRoot && m_wMenuRoot.IsVisibleInHierarchy())
+		{
+			m_wMenuRoot.SetVisible(true);
+			m_wMenuRoot.SetOpacity(1.0);
+			m_wMenuRoot.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
+			ApplyCommandMenuLayerOrder(m_wMenuRoot);
+			if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", m_wMenuRoot, true, false, false))
+			{
+				HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, m_wMenuRoot, "UI root refused reused command menu");
+				return null;
+			}
+
+			return m_wMenuRoot;
+		}
+
+		ClearWidgets();
+		return CreateMenuRoot(workspace);
 	}
 
 	protected Widget CreateMenuRoot(WorkspaceWidget workspace)
@@ -1165,9 +1187,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, root, "UI root refused command menu");
 			root.RemoveFromHierarchy();
+			m_wMenuRoot = null;
 			return null;
 		}
 
+		m_wMenuRoot = root;
 		m_aWidgets.Insert(root);
 		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
 		return root;
@@ -1285,7 +1309,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetMenuText(root, "HeaderTabTitle", BuildSelectedTabTitle(), 0xFFECE6D2, m_Layout.m_iFontTitle, true, true);
 		SetMenuText(root, "CloseLabel", "Close", 0xFFF4EBD6, m_Layout.m_iFontNormal, true, false);
 		SetMenuWidgetColor(root, "CloseButton", 0xFF5F6C76, 0.96);
-		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
 	}
 
 	protected void ApplyCommandMenuLayerOrder(Widget root)
@@ -1899,8 +1922,27 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
+		m_wMenuRoot = null;
 		m_wPostLayoutRoot = null;
 		m_bPostLayoutRefreshQueued = false;
+	}
+
+	protected void ClearDynamicMenuRows(Widget root)
+	{
+		ClearMenuContainerChildren(root, "TabItems");
+		ClearMenuContainerChildren(root, "MainItems");
+		ClearMenuContainerChildren(root, "ActivityItems");
+		ClearMenuContainerChildren(root, "ActionsItems");
+	}
+
+	protected void ClearMenuContainerChildren(Widget root, string name)
+	{
+		Widget container = FindMenuWidget(root, name);
+		if (!container)
+			return;
+
+		while (container.GetChildren())
+			container.GetChildren().RemoveFromHierarchy();
 	}
 
 	protected void ClearRichPayload()

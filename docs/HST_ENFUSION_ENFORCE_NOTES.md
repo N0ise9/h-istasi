@@ -47,8 +47,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `OffsetRight` and `OffsetBottom` signs depend on whether a slot has explicit `SizeX` / `SizeY` and whether that axis stretches.
   - Slots with explicit `PositionX` / `PositionY` plus `SizeX` / `SizeY` often serialize the far edge as negative, such as a centered modal using `SizeX 620` with `OffsetRight -620`.
-  - Slots without explicit size on a same-anchor axis usually need the far edge serialized as negative, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight -560`; positive far offsets produced negative widths for fixed left rails and tab bars.
-  - Stretched axes use positive far offsets for inward margins, such as `Anchor 0 0 1 1`, `OffsetLeft 240`, and `OffsetRight 524`; negative far offsets made center panels grow underneath right-side panels.
+  - Slots without explicit size on a same-anchor axis need the far edge to be the positive coordinate on that axis, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight 560`. A negative far edge becomes a negative runtime width or height.
+  - Stretched axes use negative far offsets for inward margins, such as `Anchor 0 0 1 1`, `OffsetLeft 240`, and `OffsetRight -524`. Positive far offsets make center panels grow underneath right-side panels.
   - Right or bottom anchored fixed boxes can use negative left/top offsets to define size while keeping positive right/bottom offsets inside the parent.
   - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes, such as left rails, navigation panels, top tabs, or footer hints resolving to impossible bounds.
   - Current examples: `HST_SetupConfirmModal.layout`, `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
@@ -74,6 +74,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Complex full-screen shells also benefit from one repeatable layer-order pass.
   - Keep geometry in the layout file, but reassert sibling z-order for dimmers, shell surfaces, panels, headers, and overlaid button labels after creation and delayed layout resolution.
   - Current example: `HST_CommandMenu.layout` with `ApplyCommandMenuLayerOrder` and `command_menu_ready` diagnostics.
+
+- Long-lived screen roots should be reused while open.
+  - Recreating a workspace-parented layout root during data refresh can leave input state, scroll state, and delayed layout diagnostics racing against a removed shell.
+  - Keep the top-level root cached for screens such as the command menu, then clear only dynamic row/list hosts with `while (container.GetChildren()) container.GetChildren().RemoveFromHierarchy()`.
+  - Current example: `HST_CommandMenuComponent.EnsureMenuRoot`, `ClearDynamicMenuRows`, and `ClearMenuContainerChildren`.
 
 - Layout defaults should match the script's first meaningful state.
   - For mode-driven screens, mark always-on chrome explicitly visible and mark inactive mode panels hidden in the layout.
