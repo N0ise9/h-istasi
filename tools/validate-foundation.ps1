@@ -3784,7 +3784,15 @@ foreach ($requiredLoadoutRootLifecycleEntry in @(
 	"DeleteEditorRoot()",
 	"IsLoadoutEditorTopmost",
 	'!IsLoadoutEditorTopmost()',
-	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")'
+	'HST_UIRootService.Get().IsTopmost(HST_EUIScreenMode.LOADOUT_EDITOR, "HST_LoadoutEditorComponent")',
+	"LOADOUT_PREVIEW_Z",
+	"LOADOUT_UI_LAYER_Z",
+	"LOADOUT_PREVIEW_INPUT_Z",
+	"protected void ApplyLoadoutLayerOrder",
+	"ApplyLoadoutLayerOrder(root)",
+	"ApplyLoadoutLayerOrder(m_RootWidget)",
+	'HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready"',
+	'HST_UIDebug.LogPopulation("loadout_editor_ready"'
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutRootLifecycleEntry)) {
 		throw "Loadout editor must register blocking UI only after its layout root exists: $requiredLoadoutRootLifecycleEntry"
@@ -4345,7 +4353,7 @@ foreach ($requiredLoadoutPreviewDragScriptEntry in @(
 	'Widget surface = root.FindAnyWidget("PreviewDragSurface")',
 	"surface.SetUserID(PREVIEW_DRAG_WIDGET_ID)",
 	"surface.AddHandler(m_WidgetHandler)",
-	"surface.SetZOrder(-10)"
+	"surface.SetZOrder(LOADOUT_PREVIEW_INPUT_Z)"
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPreviewDragScriptEntry)) {
 		throw "Loadout editor preview drag surface must bind the named layout widget: $requiredLoadoutPreviewDragScriptEntry"
@@ -4375,6 +4383,9 @@ foreach ($forbiddenLoadoutPreviewDragLegacyEntry in @(
 	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutPreviewDragLegacyEntry)) {
 		throw "Loadout editor must not keep legacy preview drag geometry helper: $forbiddenLoadoutPreviewDragLegacyEntry"
 	}
+}
+if ($loadoutEditorComponentText -match [regex]::Escape("surface.SetZOrder(-10)")) {
+	throw "Loadout editor preview drag surface must use the named UI-layer z-order constant"
 }
 foreach ($requiredLoadoutPreviewStatusLayoutEntry in @(
 	'Name "Toast"',
