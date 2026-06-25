@@ -16,6 +16,9 @@ class HST_MapZoneOverlayDrawCommandSet
 [BaseContainerProps()]
 class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 {
+	static const float VIEWPORT_PAN_EPSILON = 0.5;
+	static const float VIEWPORT_ZOOM_EPSILON = 0.001;
+
 	protected static ref array<ref HST_MapZoneOverlayRecord> s_aZones = {};
 	protected static bool s_bCandidateVisible;
 	protected static vector s_vCandidatePosition = "0 0 0";
@@ -29,6 +32,12 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 	protected Widget m_wMapFrame;
 	protected bool m_bDirty = true;
 	protected int m_iAppliedRevision = -1;
+	protected bool m_bViewportStateValid;
+	protected float m_fLastPanX;
+	protected float m_fLastPanY;
+	protected float m_fLastZoom;
+	protected int m_iRedrawCount;
+	protected string m_sLastDirtyReason;
 
 	static void SetSetupZones(array<string> ids, array<string> labels, array<float> xs, array<float> zs, array<float> radii, array<string> tones)
 	{
@@ -98,6 +107,9 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		m_MapEntity.GetOnMapZoom().Insert(OnMapZoom);
 		m_MapEntity.GetOnMapPanEnd().Insert(OnMapPanEnd);
 		m_bDirty = true;
+		m_bViewportStateValid = false;
+		m_iAppliedRevision = -1;
+		m_iRedrawCount = 0;
 	}
 
 	override void OnMapClose(MapConfiguration config)
@@ -107,6 +119,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		m_MapEntity.GetOnMapPanEnd().Remove(OnMapPanEnd);
 		ClearOverlayWidgets();
 		m_wMapFrame = null;
+		m_bViewportStateValid = false;
 		super.OnMapClose(config);
 	}
 
@@ -128,26 +141,34 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		if (!m_bDirty && m_iAppliedRevision == s_iRevision)
 			return;
 
+		if (!CanProject())
+		{
+			if (m_aWidgets.Count() > 0)
+				ClearOverlayWidgets();
+			return;
+		}
+
 		Redraw();
 	}
 
 	protected void OnMapPan(float panX, float panY, bool adjusted)
 	{
-		m_bDirty = true;
+		MarkViewportDirty(panX, panY, ResolveCurrentZoom(), "pan");
 	}
 
 	protected void OnMapPanEnd(float panX, float panY)
 	{
-		m_bDirty = true;
+		MarkViewportDirty(panX, panY, ResolveCurrentZoom(), "pan_end");
 	}
 
 	protected void OnMapZoom(float zoom)
 	{
-		m_bDirty = true;
+		MarkViewportDirty(m_fLastPanX, m_fLastPanY, zoom, "zoom");
 	}
 
 	protected void Redraw()
 	{
+		int widgetsBefore = m_aWidgets.Count();
 		ClearOverlayWidgets();
 		m_bDirty = false;
 		m_iAppliedRevision = s_iRevision;
@@ -177,6 +198,43 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 
 		if (s_bCandidateVisible)
 			DrawCandidate(workspace, m_wMapFrame);
+
+		m_iRedrawCount++;
+		if (m_iRedrawCount <= 3 || (m_iRedrawCount % 20) == 0)
+		{
+			string summary = string.Format("redraw=%1 revision=%2 widgetsBefore=%3 widgetsAfter=%4 zones=%5 candidate=%6 reason=%7", m_iRedrawCount, s_iRevision, widgetsBefore, m_aWidgets.Count(), s_aZones.Count(), s_bCandidateVisible, m_sLastDirtyReason);
+			summary = summary + " " + string.Format("pan=%1,%2 zoom=%3 dirty=%4 applied=%5", Math.Round(m_fLastPanX), Math.Round(m_fLastPanY), m_fLastZoom, m_bDirty, m_iAppliedRevision);
+			HST_UIDebug.LogPopulation("map_zone_overlay", summary);
+		}
+	}
+
+	protected void MarkViewportDirty(float panX, float panY, float zoom, string reason)
+	{
+		if (zoom <= 0.0 && m_MapEntity)
+			zoom = m_MapEntity.GetCurrentZoom();
+
+		if (m_bViewportStateValid)
+		{
+			bool panChanged = AbsFloat(panX - m_fLastPanX) > VIEWPORT_PAN_EPSILON || AbsFloat(panY - m_fLastPanY) > VIEWPORT_PAN_EPSILON;
+			bool zoomChanged = AbsFloat(zoom - m_fLastZoom) > VIEWPORT_ZOOM_EPSILON;
+			if (!panChanged && !zoomChanged)
+				return;
+		}
+
+		m_bViewportStateValid = true;
+		m_fLastPanX = panX;
+		m_fLastPanY = panY;
+		m_fLastZoom = zoom;
+		m_sLastDirtyReason = reason;
+		m_bDirty = true;
+	}
+
+	protected float ResolveCurrentZoom()
+	{
+		if (!m_MapEntity)
+			return m_fLastZoom;
+
+		return m_MapEntity.GetCurrentZoom();
 	}
 
 	protected void DrawZone(WorkspaceWidget workspace, Widget parent, HST_MapZoneOverlayRecord zone)
@@ -405,6 +463,14 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 	protected int AbsInt(int value)
 	{
 		if (value < 0)
+			return -value;
+
+		return value;
+	}
+
+	protected float AbsFloat(float value)
+	{
+		if (value < 0.0)
 			return -value;
 
 		return value;
