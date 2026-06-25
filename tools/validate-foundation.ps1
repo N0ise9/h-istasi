@@ -753,10 +753,13 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 }
 foreach ($requiredSetupChromeEntry in @(
 	"SETUP_PROMPT_BANNER_LAYOUT",
+	'SETUP_CONFIRM_MODAL_OWNER = "HST_SetupConfirmModal"',
 	"CONFIRM_BLOCKER_WIDGET_ID",
 	"SETUP_ZONE_OVERLAY_ENABLED = false",
 	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot)",
 	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot)",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true)",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER)",
 	"m_wConfirmBlockerRoot = modal",
 	"OnSetupOverlayMouseWheel",
 	"BindConfirmModalButton(modal, `"NoButton`", CONFIRM_NO_WIDGET_ID)",
@@ -945,6 +948,8 @@ foreach ($requiredUIRootServiceEntry in @(
 	"m_ModalScreen.Matches(mode, owner)",
 	"m_CurrentScreen.Matches(mode, owner)",
 	"owner.IsEmpty() || (m_CurrentScreen && m_CurrentScreen.Matches(mode, owner))",
+	"if (mode == HST_EUIScreenMode.SETUP_MAP)",
+	"return current == HST_EUIScreenMode.SETUP_MAP",
 	"GetModalMode",
 	"m_CurrentScreen",
 	"m_ModalScreen",
