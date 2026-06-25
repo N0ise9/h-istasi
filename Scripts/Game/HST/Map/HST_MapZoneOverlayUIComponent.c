@@ -25,7 +25,8 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 	protected static int s_iRevision;
 
 	protected ref array<Widget> m_aWidgets = {};
-	protected ref array<ref HST_MapZoneOverlayDrawCommandSet> m_aDrawCommandSets = {};
+	protected ref array<ref HST_MapZoneOverlayDrawCommandSet> m_aWidgetDrawCommandSets = {};
+	protected Widget m_wMapFrame;
 	protected bool m_bDirty = true;
 	protected int m_iAppliedRevision = -1;
 
@@ -92,6 +93,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 	override void OnMapOpen(MapConfiguration config)
 	{
 		super.OnMapOpen(config);
+		m_wMapFrame = config.RootWidgetRef.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
 		m_MapEntity.GetOnMapPan().Insert(OnMapPan);
 		m_MapEntity.GetOnMapZoom().Insert(OnMapZoom);
 		m_MapEntity.GetOnMapPanEnd().Insert(OnMapPanEnd);
@@ -104,6 +106,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		m_MapEntity.GetOnMapZoom().Remove(OnMapZoom);
 		m_MapEntity.GetOnMapPanEnd().Remove(OnMapPanEnd);
 		ClearOverlayWidgets();
+		m_wMapFrame = null;
 		super.OnMapClose(config);
 	}
 
@@ -157,8 +160,9 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 			return;
 		}
 
-		Widget mapFrame = m_RootWidget.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
-		if (!mapFrame)
+		if (!m_wMapFrame)
+			m_wMapFrame = m_RootWidget.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME);
+		if (!m_wMapFrame)
 			return;
 
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
@@ -168,11 +172,11 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		foreach (HST_MapZoneOverlayRecord zone : s_aZones)
 		{
 			if (zone && zone.m_bVisible)
-				DrawZone(workspace, mapFrame, zone);
+				DrawZone(workspace, m_wMapFrame, zone);
 		}
 
 		if (s_bCandidateVisible)
-			DrawCandidate(workspace, mapFrame);
+			DrawCandidate(workspace, m_wMapFrame);
 	}
 
 	protected void DrawZone(WorkspaceWidget workspace, Widget parent, HST_MapZoneOverlayRecord zone)
@@ -181,25 +185,23 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int sy;
 		m_MapEntity.WorldToScreen(zone.m_vWorldPosition[0], zone.m_vWorldPosition[2], sx, sy, true);
 
-		int centerX;
-		int centerY;
-		if (!NativeScreenToParentLocal(parent, sx, sy, centerX, centerY))
-			return;
-
 		int radiusPx = Math.Max(4, ResolveRadiusPixels(zone.m_vWorldPosition, zone.m_fRadiusMeters));
-		int left = centerX - radiusPx;
-		int top = centerY - radiusPx;
-		int diameter = radiusPx * 2;
-		if (!IsOverlayRectWorthDrawing(left, top, diameter, parent))
+		int left = Math.Round(workspace.DPIUnscale(sx - radiusPx));
+		int top = Math.Round(workspace.DPIUnscale(sy - radiusPx));
+		int diameter = Math.Round(workspace.DPIUnscale(radiusPx * 2));
+		if (!IsOverlayRectWorthDrawing(left, top, diameter, parent, workspace))
 			return;
 
 		CreateCircle(workspace, parent, left, top, diameter, ZoneFillColor(zone.m_sTone), 0.48);
+
+		int centerX = Math.Round(workspace.DPIUnscale(sx));
+		int centerY = Math.Round(workspace.DPIUnscale(sy));
 		int pointSize = 6;
 		int pointLeft = centerX - pointSize / 2;
 		int pointTop = centerY - pointSize / 2;
 		CreateRect(workspace, parent, pointLeft, pointTop, pointSize, pointSize, ZonePointColor(zone.m_sTone), 1.0);
 		if (diameter >= 18)
-			CreateLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), pointLeft + 9, pointTop - 5, 0xFFE5ECEE);
+			CreateLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), centerX + 9, centerY - 5, 0xFFE5ECEE);
 	}
 
 	protected void DrawCandidate(WorkspaceWidget workspace, Widget parent)
@@ -208,13 +210,11 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int sy;
 		m_MapEntity.WorldToScreen(s_vCandidatePosition[0], s_vCandidatePosition[2], sx, sy, true);
 
-		int x;
-		int y;
-		if (!NativeScreenToParentLocal(parent, sx, sy, x, y))
-			return;
+		int x = Math.Round(workspace.DPIUnscale(sx));
+		int y = Math.Round(workspace.DPIUnscale(sy));
 
 		int size = 22;
-		if (!IsOverlayRectWorthDrawing(x - size / 2, y - size / 2, size, parent))
+		if (!IsOverlayRectWorthDrawing(x - size / 2, y - size / 2, size, parent, workspace))
 			return;
 
 		CreateRect(workspace, parent, x - size / 2, y - 2, size, 4, s_iCandidateColor, 1.0);
@@ -236,22 +236,6 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		return AbsInt(rx - cx);
 	}
 
-	protected bool NativeScreenToParentLocal(Widget parent, int nativeX, int nativeY, out int localX, out int localY)
-	{
-		localX = nativeX;
-		localY = nativeY;
-
-		if (!parent)
-			return false;
-
-		float parentX;
-		float parentY;
-		parent.GetScreenPos(parentX, parentY);
-		localX = Math.Round(nativeX - parentX);
-		localY = Math.Round(nativeY - parentY);
-		return true;
-	}
-
 	protected bool CanProject()
 	{
 		if (!m_MapEntity || !m_MapEntity.IsOpen())
@@ -264,17 +248,19 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		float width;
 		float height;
 		mapWidget.GetScreenSize(width, height);
-		return width > 0.0 && height > 0.0 && m_MapEntity.GetCurrentZoom() > 0.0;
+		return width > 0.0 && height > 0.0 && m_MapEntity.GetCurrentZoom() > 0.0 && mapWidget.PixelPerUnit() > 0.0;
 	}
 
-	protected bool IsOverlayRectWorthDrawing(int left, int top, int size, Widget mapFrame)
+	protected bool IsOverlayRectWorthDrawing(int left, int top, int size, Widget mapFrame, WorkspaceWidget workspace)
 	{
-		if (!mapFrame || size <= 0)
+		if (!mapFrame || !workspace || size <= 0)
 			return false;
 
 		float frameW;
 		float frameH;
 		mapFrame.GetScreenSize(frameW, frameH);
+		frameW = workspace.DPIUnscale(frameW);
+		frameH = workspace.DPIUnscale(frameH);
 		if (left + size < -128 || top + size < -128)
 			return false;
 		if (left > frameW + 128 || top > frameH + 128)
@@ -291,7 +277,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 
 		FrameSlot.SetPos(widget, left, top);
 		FrameSlot.SetSize(widget, diameter, diameter);
-		SetupPolygonWidget(widget, BuildCircleVertices(diameter), color);
+		SetupPolygonWidget(widget, BuildCircleVertices(diameter * 0.5, 56), color);
 		widget.SetOpacity(opacity);
 		m_aWidgets.Insert(widget);
 		return widget;
@@ -346,8 +332,24 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		command.m_Vertices = vertices;
 		commandSet.m_aCommands.Insert(command);
 		canvas.SetDrawCommands(commandSet.m_aCommands);
-		m_aDrawCommandSets.Insert(commandSet);
+		m_aWidgetDrawCommandSets.Insert(commandSet);
 		return true;
+	}
+
+	protected ref array<float> BuildCircleVertices(float radius, int segments)
+	{
+		ref array<float> vertices = {};
+		if (radius <= 0.0 || segments < 8)
+			return vertices;
+
+		for (int i = 0; i < segments; i++)
+		{
+			float angle = (i * 360.0 / segments) * Math.DEG2RAD;
+			vertices.Insert(radius + Math.Cos(angle) * radius);
+			vertices.Insert(radius + Math.Sin(angle) * radius);
+		}
+
+		return vertices;
 	}
 
 	protected ref array<float> BuildRectVertices(int width, int height)
@@ -364,20 +366,6 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		return vertices;
 	}
 
-	protected ref array<float> BuildCircleVertices(int diameter)
-	{
-		ref array<float> vertices = {};
-		float radius = diameter / 2.0;
-		for (int i = 0; i < 24; i++)
-		{
-			float angle = (6.283185 * i) / 24.0;
-			vertices.Insert(radius + Math.Cos(angle) * radius);
-			vertices.Insert(radius + Math.Sin(angle) * radius);
-		}
-
-		return vertices;
-	}
-
 	protected void ClearOverlayWidgets()
 	{
 		foreach (Widget widget : m_aWidgets)
@@ -387,7 +375,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		}
 
 		m_aWidgets.Clear();
-		m_aDrawCommandSets.Clear();
+		m_aWidgetDrawCommandSets.Clear();
 	}
 
 	protected int ZoneFillColor(string tone)

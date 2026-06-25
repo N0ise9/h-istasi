@@ -13,6 +13,7 @@ class HST_MissionClientComponent : ScriptComponent
 	static const int DETAIL_CLOSE_WIDGET_ID = 9801;
 	static const int DETAIL_ROOT_Z = 2700;
 	static const ResourceName SCRIPTED_PANEL_ROOT_LAYOUT = "{B55C6FB34BF95000}UI/layouts/HST_ScriptedPanelRoot.layout";
+	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
 
 	protected static HST_MissionClientComponent s_LocalInstance;
 
@@ -66,6 +67,9 @@ class HST_MissionClientComponent : ScriptComponent
 	{
 		if (s_LocalInstance == this)
 			s_LocalInstance = null;
+
+		if (m_bDetailOpen)
+			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
 
 		ClearWidgets();
 		super.OnDelete(owner);
@@ -185,6 +189,9 @@ class HST_MissionClientComponent : ScriptComponent
 		if (index < 0)
 			return false;
 
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", null, false, false, true))
+			return false;
+
 		m_sSelectedMissionId = m_aMissionIds[index];
 		m_bDetailOpen = true;
 		RenderMissionDetailPanel();
@@ -194,6 +201,9 @@ class HST_MissionClientComponent : ScriptComponent
 	bool OpenMissionDetails(string missionId)
 	{
 		if (m_aMissionIds.Find(missionId) < 0)
+			return false;
+
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", null, false, false, true))
 			return false;
 
 		m_sSelectedMissionId = missionId;
@@ -294,33 +304,49 @@ class HST_MissionClientComponent : ScriptComponent
 		int screenW;
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_MissionNotification");
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-		int margin = HST_UIWorkspaceMetrics.ScalePx(24, scale);
-		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(900, scale), Math.Max(1, screenW - margin * 2));
-		int rootH = HST_UIWorkspaceMetrics.ScalePx(92, scale);
-		int horizontalMargin = Math.Max(8, margin / 2);
-		int verticalMargin = Math.Max(4, margin / 2);
-		int left = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenW - rootW) / 2), horizontalMargin, Math.Max(horizontalMargin, screenW - rootW - horizontalMargin));
-		int top = HST_UIWorkspaceMetrics.ClampInt(margin, verticalMargin, Math.Max(verticalMargin, screenH - rootH - verticalMargin));
 
-		Widget root = workspace.CreateWidgets(SCRIPTED_PANEL_ROOT_LAYOUT);
+		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT);
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, left, top);
-		FrameSlot.SetSize(root, rootW, rootH);
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(DETAIL_ROOT_Z);
+		root.SetZOrder(HST_UIConstants.Z_NOTIFICATION);
 		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		HST_UIRootService.Get().NotifyNotificationShown();
 		m_aWidgets.Insert(root);
 		int accent = NotificationAccentColor(severity, category);
-		int ruleH = Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale));
-		int inset = HST_UIWorkspaceMetrics.ScalePx(24, scale);
-		CreateRectWidget(workspace, root, 0, 0, rootW, rootH, 0xF21A232B, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, rootH - ruleH, rootW, ruleH, accent, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(title, 44), inset, HST_UIWorkspaceMetrics.ScalePx(10, scale), Math.Min(HST_UIWorkspaceMetrics.ScalePx(380, scale), rootW - inset * 2), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(18, scale), accent, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(message, 140), inset, HST_UIWorkspaceMetrics.ScalePx(38, scale), Math.Max(1, rootW - inset * 2), HST_UIWorkspaceMetrics.ScalePx(42, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFF2F4F0, 0, false);
+
+		Widget accentLine = root.FindAnyWidget("AccentLine");
+		if (accentLine)
+			accentLine.SetColorInt(accent);
+
+		TextWidget titleWidget = TextWidget.Cast(root.FindAnyWidget("Title"));
+		if (titleWidget)
+		{
+			titleWidget.SetText(ShortenText(title, 44));
+			titleWidget.SetExactFontSize(HST_UIWorkspaceMetrics.ScaleFont(18, scale));
+			titleWidget.SetBold(true);
+			titleWidget.SetTextWrapping(false);
+			titleWidget.SetOutline(1, 0xDD000000);
+			titleWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+			titleWidget.SetColorInt(accent);
+		}
+
+		TextWidget messageWidget = TextWidget.Cast(root.FindAnyWidget("Message"));
+		if (messageWidget)
+		{
+			messageWidget.SetText(ShortenText(message, 140));
+			messageWidget.SetExactFontSize(HST_UIWorkspaceMetrics.ScaleFont(16, scale));
+			messageWidget.SetBold(false);
+			messageWidget.SetTextWrapping(true);
+			messageWidget.SetOutline(1, 0xDD000000);
+			messageWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+			messageWidget.SetColorInt(0xFFF2F4F0);
+		}
+
 		m_fNotificationRemaining = durationSeconds;
 	}
 
@@ -421,6 +447,7 @@ class HST_MissionClientComponent : ScriptComponent
 		int screenW;
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_MissionDetail");
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 		int margin = HST_UIWorkspaceMetrics.ScalePx(36, scale);
 		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(920, scale), Math.Max(1, screenW - margin * 2));
@@ -438,7 +465,8 @@ class HST_MissionClientComponent : ScriptComponent
 		FrameSlot.SetSize(root, rootW, rootH);
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(DETAIL_ROOT_Z);
+		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
+		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent", root, false, false, true);
 		m_aWidgets.Insert(root);
 		if (!m_WidgetHandler)
 		{
@@ -485,6 +513,7 @@ class HST_MissionClientComponent : ScriptComponent
 			return false;
 
 		m_bDetailOpen = false;
+		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
 		ClearWidgets();
 		return true;
 	}
@@ -699,6 +728,7 @@ class HST_MissionClientComponent : ScriptComponent
 
 		m_aWidgets.Clear();
 		m_aCanvasCommandSets.Clear();
+		HST_UIRootService.Get().NotifyNotificationHidden();
 	}
 
 	protected bool IsLocalOwner(IEntity owner)

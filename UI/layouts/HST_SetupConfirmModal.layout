@@ -7,6 +7,8 @@ FrameWidgetClass "{B55C6FB34BF94001}" {
   OffsetRight 310
   OffsetBottom 140
  }
+ "Is Visible" 1
+ "Ignore Cursor" 0
  {
   PanelWidgetClass "{B55C6FB34BF94003}" {
    Name "Background"
@@ -48,7 +50,6 @@ FrameWidgetClass "{B55C6FB34BF94001}" {
    "Is Visible" 1
    "Ignore Cursor" 1
    "No Localization" 1
-   "Text Wrapping" 1
    Text "Are you sure you want to place the HQ here?"
   }
   ButtonWidgetClass "{B55C6FB34BF94009}" {

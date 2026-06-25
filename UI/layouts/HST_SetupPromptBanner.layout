@@ -1,0 +1,56 @@
+FrameWidgetClass "{A34F448C7E810601}" {
+ Name "HST_SetupPromptBannerRoot"
+ Slot FrameWidgetSlot "{A34F448C7E810602}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ "Is Visible" 1
+ "Ignore Cursor" 1
+ {
+  PanelWidgetClass "{A34F448C7E810603}" {
+   Name "HST_SetupPromptPanel"
+   Slot FrameWidgetSlot "{A34F448C7E810604}" {
+    Anchor 0 0 1 0
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 76
+   }
+   Color 0.05 0.075 0.095 1
+   style full
+   "Is Visible" 1
+   "Ignore Cursor" 1
+  }
+  PanelWidgetClass "{A34F448C7E810605}" {
+   Name "HST_SetupPromptRule"
+   Slot FrameWidgetSlot "{A34F448C7E810606}" {
+    Anchor 0 0 1 0
+    OffsetLeft 0
+    OffsetTop 72
+    OffsetRight 0
+    OffsetBottom 76
+   }
+   Color 0.77 0.58 0.23 1
+   style full
+   "Is Visible" 1
+   "Ignore Cursor" 1
+  }
+  TextWidgetClass "{A34F448C7E810607}" {
+   Name "HST_SetupPromptText"
+   Slot FrameWidgetSlot "{A34F448C7E810608}" {
+    Anchor 0 0 1 0
+    OffsetLeft 36
+    OffsetTop 18
+    OffsetRight -36
+    OffsetBottom 60
+   }
+   "Is Visible" 1
+   "Ignore Cursor" 1
+   "No Localization" 1
+   Text "Select a location on the map to place the HQ"
+  }
+ }
+}

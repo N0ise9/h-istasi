@@ -1,0 +1,14 @@
+PanelWidgetClass "{B55C6FB34BF96001}" {
+ Name "HST_SetupConfirmBlocker"
+ Slot FrameWidgetSlot "{B55C6FB34BF96002}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ Color 0 0 0 0.66
+ style full
+ "Is Visible" 1
+ "Ignore Cursor" 0
+}

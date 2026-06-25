@@ -3,6 +3,23 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+$layoutMetaResources = @()
+foreach ($layoutMeta in Get-ChildItem -Path "UI/layouts" -Recurse -Filter "*.layout.meta") {
+	$layoutMetaText = Get-Content -Raw $layoutMeta.FullName
+	if ($layoutMetaText -match 'Name "\{([^}]+)\}([^"]+)"') {
+		$layoutMetaResources += [pscustomobject]@{
+			Guid = $Matches[1]
+			Path = $Matches[2]
+			File = $layoutMeta.FullName
+		}
+	}
+}
+foreach ($layoutGuidGroup in ($layoutMetaResources | Group-Object Guid | Where-Object { $_.Count -gt 1 })) {
+	$paths = ($layoutGuidGroup.Group | ForEach-Object { $_.Path }) -join ", "
+	throw "Duplicate layout resource GUID $($layoutGuidGroup.Name): $paths"
+}
+Write-Host "Layout resource GUID uniqueness OK: $($layoutMetaResources.Count)"
+
 function Assert-EqualSet {
 	param(
 		[string] $Label,
@@ -617,8 +634,17 @@ $defaultCatalog = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c
 $missionConfig = Get-Content -Raw "Configs/HST/Missions/HST_CE311_Missions.conf"
 $mapConfig = Get-Content -Raw "Configs/HST/Maps/HST_Everon.conf"
 $setupMapComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_SetupMapComponent.c"
+$setupMapZoneOverlayText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c"
+$setupMapLayoutText = Get-Content -Raw "UI/layouts/HST_SetupHQMap.layout"
+$setupPromptBannerLayoutText = Get-Content -Raw "UI/layouts/HST_SetupPromptBanner.layout"
+$setupConfirmBlockerLayoutText = Get-Content -Raw "UI/layouts/HST_SetupConfirmBlocker.layout"
+$setupConfirmModalLayoutText = Get-Content -Raw "UI/layouts/HST_SetupConfirmModal.layout"
+$notificationToastLayoutText = Get-Content -Raw "UI/layouts/HST_NotificationToast.layout"
+$notificationToastLayoutMetaText = Get-Content -Raw "UI/layouts/HST_NotificationToast.layout.meta"
+$setupNativeMapConfigText = Get-Content -Raw "Configs/Map/HST_SetupHQMap.conf"
 $requestBridgeSetupText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
 $playerSpawnSetupText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PlayerSpawnService.c"
+$uiWorkspaceMetricsText = Get-Content -Raw "Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c"
 
 foreach ($requiredSetupEntry in @(
 	"HST_SetupMapComponent",
@@ -646,6 +672,353 @@ foreach ($requiredSetupServerEntry in @(
 }
 if ($mapConfig -notmatch "m_vWorldMin\s+0\s+0\s+0" -or $mapConfig -notmatch "m_vWorldMax\s+12800\s+0\s+12800") {
 	throw "Everon map definition must expose setup map world bounds"
+}
+foreach ($requiredSetupMapProjectionEntry in @(
+	"WorldToScreen",
+	"DPIUnscale",
+	"DPIUnscale(sx - radiusPx)",
+	"DPIUnscale(radiusPx * 2)",
+	"FrameSlot.SetPos",
+	"CreateCircle",
+	"ResolveRadiusPixels",
+	"BuildCircleVertices"
+)) {
+	if ($setupMapZoneOverlayText -notmatch [regex]::Escape($requiredSetupMapProjectionEntry)) {
+		throw "Setup zone overlay must render invalid areas through native map projection: $requiredSetupMapProjectionEntry"
+	}
+}
+foreach ($forbiddenSetupMapProjectionEntry in @(
+	"NativeScreenToParentLocal",
+	"GetScreenPos(",
+	"SCR_MapConstants.DRAWING_WIDGET_NAME",
+	"TessellateCircle",
+	"SetSizeInUnits",
+	"SetOffsetPx"
+)) {
+	if ($setupMapZoneOverlayText -match [regex]::Escape($forbiddenSetupMapProjectionEntry)) {
+		throw "Setup zone overlay must not use stale screen-parent or drawing-canvas projection paths: $forbiddenSetupMapProjectionEntry"
+	}
+}
+foreach ($requiredSetupLayoutEntry in @(
+	'Name "HST_SetupPromptBannerRoot"',
+	'Name "HST_SetupPromptPanel"',
+	'Name "HST_SetupPromptRule"',
+	'Name "HST_SetupPromptText"',
+	"Anchor 0 0 1 0",
+	"OffsetBottom 76"
+)) {
+	if ($setupPromptBannerLayoutText -notmatch [regex]::Escape($requiredSetupLayoutEntry)) {
+		throw "Setup prompt banner layout is missing anchored prompt entry: $requiredSetupLayoutEntry"
+	}
+}
+foreach ($forbiddenSetupMapLayoutEntry in @(
+	'Name "HST_SetupOverlayRoot"',
+	'Name "HST_SetupPromptPanel"',
+	'Name "HST_SetupModalRoot"'
+)) {
+	if ($setupMapLayoutText -match [regex]::Escape($forbiddenSetupMapLayoutEntry)) {
+		throw "Setup map layout must not own setup prompt/modal chrome anymore: $forbiddenSetupMapLayoutEntry"
+	}
+}
+foreach ($requiredConfirmModalLayoutEntry in @(
+	'Name "HST_SetupConfirmModalRoot"',
+	'Name "Message"',
+	'Name "NoButton"',
+	'Name "YesButton"',
+	"Anchor 0.5 0.5 0.5 0.5",
+	"OffsetLeft -310",
+	"OffsetRight 310"
+)) {
+	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
+		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
+	}
+}
+foreach ($requiredConfirmBlockerLayoutEntry in @(
+	'Name "HST_SetupConfirmBlocker"',
+	"Anchor 0 0 1 1",
+	"Color 0 0 0 0.66",
+	'"Ignore Cursor" 0'
+)) {
+	if ($setupConfirmBlockerLayoutText -notmatch [regex]::Escape($requiredConfirmBlockerLayoutEntry)) {
+		throw "Setup confirmation blocker must be a separate fullscreen layout: $requiredConfirmBlockerLayoutEntry"
+	}
+}
+if ($setupConfirmModalLayoutText -match [regex]::Escape('Name "Blocker"')) {
+	throw "Setup confirmation dialog layout must not own the fullscreen blocker"
+}
+foreach ($requiredSetupChromeEntry in @(
+	"SETUP_PROMPT_BANNER_LAYOUT",
+	"SETUP_CONFIRM_BLOCKER_LAYOUT",
+	"CONFIRM_BLOCKER_WIDGET_ID",
+	"SETUP_ZONE_OVERLAY_ENABLED = false",
+	"blocker.SetUserID(CONFIRM_BLOCKER_WIDGET_ID)",
+	"workspace.CreateWidgets(SETUP_CONFIRM_BLOCKER_LAYOUT)",
+	"OnSetupOverlayMouseWheel",
+	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT)"
+)) {
+	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupChromeEntry)) {
+		throw "Setup map component must use workspace prompt/modal chrome: $requiredSetupChromeEntry"
+	}
+}
+foreach ($requiredSetupMapLayerEntry in @(
+	"SETUP_PROMPT_Z_ORDER = 51000",
+	"ApplySetupLayerOrder",
+	"ApplyConfirmModalLayerOrder",
+	"SetWidgetLayer(m_wPromptPanel",
+	"SetWidgetLayer(m_wPromptRule",
+	"m_wPromptText.SetZOrder",
+	"ApplySetupMapDialogState",
+	"HandleDialog(shouldBlockMap)",
+	"ReleaseSetupMapDialogState"
+)) {
+	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
+		throw "Setup map UI must explicitly layer prompt/modal widgets and block native map input during confirmation: $requiredSetupMapLayerEntry"
+	}
+}
+foreach ($setupLayoutPath in @(
+	"UI/layouts/HST_SetupHQMap.layout",
+	"UI/layouts/HST_SetupPromptBanner.layout",
+	"UI/layouts/HST_SetupConfirmBlocker.layout",
+	"UI/layouts/HST_SetupConfirmModal.layout"
+)) {
+	$setupLayoutNoWrappingText = Get-Content -Raw $setupLayoutPath
+	if ($setupLayoutNoWrappingText -match '"Text Wrapping"') {
+		throw "$setupLayoutPath must not use unsupported layout Text Wrapping keywords; script should call SetTextWrapping"
+	}
+}
+foreach ($forbiddenSetupMapHitTest in @(
+	"m_iConfirmNoLeft",
+	"m_iConfirmYesLeft",
+	"ResolveConfirmWidgetId",
+	"ResolveModalRoot",
+	"HandleConfirmModalMapSelection",
+	"IsWidgetPointInsideRect",
+	"HST_SetupMapDrawCommandSet",
+	"m_wModalRoot",
+	"SETUP_OVERLAY_Z_ORDER",
+	"HST_SetupChromeDrawCommandSet",
+	"m_aOverlayWidgets",
+	"m_aModalDrawCommandSets",
+	"CreateRectWidgetAtZ",
+	"CreateWrappedTextWidgetAtZ",
+	"CreateModalRect",
+	"BuildModalRectVertices"
+)) {
+	if ($setupMapComponentText -match [regex]::Escape($forbiddenSetupMapHitTest)) {
+		throw "Setup map UI must not use stale script-created overlay or fake hit-testing paths: $forbiddenSetupMapHitTest"
+	}
+}
+foreach ($requiredWorkspaceMetricEntry in @(
+	"GetRawWorkspaceSize",
+	"workspace.GetWidth()",
+	"workspace.GetHeight()",
+	"GetLayoutSize",
+	"workspace.DPIUnscale(workspace.GetWidth())",
+	"workspace.DPIUnscale(workspace.GetHeight())",
+	"LayoutToRawPx",
+	"workspace.DPIScale(value)",
+	"RawToLayoutPx",
+	"workspace.DPIUnscale(value)",
+	"DebugWorkspaceMetrics",
+	"raw=%2x%3",
+	"layout=%4x%5",
+	"dpi=%6"
+)) {
+	if ($uiWorkspaceMetricsText -notmatch [regex]::Escape($requiredWorkspaceMetricEntry)) {
+		throw "Workspace metrics must keep raw/layout coordinate spaces explicit: $requiredWorkspaceMetricEntry"
+	}
+}
+foreach ($requiredWorkspaceMetricCaller in @(
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_SetupMap`")",
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_CommandMenu`")",
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_LoadoutEditor`")",
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_MissionNotification`")",
+	"HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, `"HST_MissionDetail`")"
+)) {
+	$foundWorkspaceMetricCaller = $false
+	foreach ($uiText in @(
+		$setupMapComponentText,
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c")
+	)) {
+		if ($uiText -and $uiText -match [regex]::Escape($requiredWorkspaceMetricCaller)) {
+			$foundWorkspaceMetricCaller = $true
+			break
+		}
+	}
+	if (!$foundWorkspaceMetricCaller) {
+		throw "UI entry points must log workspace coordinate metrics through the shared helper: $requiredWorkspaceMetricCaller"
+	}
+}
+$allowedDirectDpiFiles = @(
+	"Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c",
+	"Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c"
+)
+foreach ($scriptFile in Get-ChildItem -Path "Scripts/Game/HST" -Recurse -Filter "*.c") {
+	$relativeScriptFile = ($scriptFile.FullName.Substring($root.Length + 1)).Replace("\", "/")
+	if ($allowedDirectDpiFiles -contains $relativeScriptFile) {
+		continue
+	}
+	$scriptText = Get-Content -Raw $scriptFile.FullName
+	if ($scriptText -match "workspace\.DPI(Unscale|Scale)\(") {
+		throw "Direct workspace DPI conversion is only allowed in HST_UIWorkspaceMetrics or map overlay projection code: $relativeScriptFile"
+	}
+}
+if (!(Test-Path "docs/HST_UI_REWRITE_AUDIT.md")) {
+	throw "UI rewrite audit document is missing: docs/HST_UI_REWRITE_AUDIT.md"
+}
+foreach ($requiredUIRootFile in @(
+	"Scripts/Game/HST/UI/HST_UIConstants.c",
+	"Scripts/Game/HST/UI/HST_UIScreenBase.c",
+	"Scripts/Game/HST/UI/HST_UIRootService.c"
+)) {
+	if (!(Test-Path $requiredUIRootFile)) {
+		throw "UI root coordinator file is missing: $requiredUIRootFile"
+	}
+}
+$uiConstantsText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIConstants.c"
+$uiScreenBaseText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIScreenBase.c"
+$uiRootServiceText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIRootService.c"
+foreach ($requiredUIRootEntry in @(
+	"HST_EUIScreenMode",
+	"SETUP_MAP",
+	"COMMAND_MENU",
+	"LOADOUT_EDITOR",
+	"MISSION_DIALOG",
+	"GAMEPLAY_MAP_OVERLAY",
+	"Z_COMMAND_MENU",
+	"Z_NOTIFICATION",
+	"Z_LOADOUT_EDITOR",
+	"Z_MISSION_DIALOG"
+)) {
+	if ($uiConstantsText -notmatch [regex]::Escape($requiredUIRootEntry)) {
+		throw "UI constants must define shared screen modes and z-order entries: $requiredUIRootEntry"
+	}
+}
+foreach ($requiredUIScreenBaseEntry in @(
+	"Widget m_wRoot",
+	"m_bBlocksGameplay",
+	"m_bBlocksMap",
+	"m_bModal",
+	"void Configure",
+	"bool Matches"
+)) {
+	if ($uiScreenBaseText -notmatch [regex]::Escape($requiredUIScreenBaseEntry)) {
+		throw "UI screen descriptor must track root ownership and blocking behavior: $requiredUIScreenBaseEntry"
+	}
+}
+foreach ($requiredUIRootServiceEntry in @(
+	"static HST_UIRootService Get()",
+	"RequestOpen",
+	"NotifyClosed",
+	"NotifyNotificationShown",
+	"NotifyNotificationHidden",
+	"CanOpen",
+	"m_CurrentScreen",
+	"m_ModalScreen",
+	"IsGameplayBlocked",
+	"IsMapBlocked",
+	"IsModalOpen",
+	"IsNotificationVisible",
+	"current == HST_EUIScreenMode.SETUP_MAP",
+	"mode == HST_EUIScreenMode.COMMAND_MENU && current == HST_EUIScreenMode.LOADOUT_EDITOR"
+)) {
+	if ($uiRootServiceText -notmatch [regex]::Escape($requiredUIRootServiceEntry)) {
+		throw "UI root service must centralize screen state and input blocking policy: $requiredUIRootServiceEntry"
+	}
+}
+foreach ($requiredUIRootCaller in @(
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.COMMAND_MENU",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.LOADOUT_EDITOR",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.LOADOUT_EDITOR",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG",
+	"HST_UIRootService.Get().NotifyNotificationShown()",
+	"HST_UIRootService.Get().NotifyNotificationHidden()"
+)) {
+	$foundUIRootCaller = $false
+	foreach ($uiText in @(
+		$setupMapComponentText,
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
+		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c")
+	)) {
+		if ($uiText -and $uiText -match [regex]::Escape($requiredUIRootCaller)) {
+			$foundUIRootCaller = $true
+			break
+		}
+	}
+	if (!$foundUIRootCaller) {
+		throw "UI screens must register open/close/passive notification state with HST_UIRootService: $requiredUIRootCaller"
+	}
+}
+foreach ($requiredNotificationToastLayoutEntry in @(
+	'Name "HST_NotificationRoot"',
+	'Name "Toast"',
+	'Name "Background"',
+	'Name "AccentLine"',
+	'Name "Title"',
+	'Name "Message"',
+	"Anchor 0 0 1 1",
+	"Anchor 0.5 0 0.5 0",
+	"OffsetLeft -420",
+	"OffsetRight 420",
+	'"Ignore Cursor" 1'
+)) {
+	if ($notificationToastLayoutText -notmatch [regex]::Escape($requiredNotificationToastLayoutEntry)) {
+		throw "Notification toast must use a passive anchored layout entry: $requiredNotificationToastLayoutEntry"
+	}
+}
+if ($notificationToastLayoutMetaText -notmatch [regex]::Escape('Name "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout"')) {
+	throw "Notification toast layout meta must carry the expected non-zero GUID"
+}
+foreach ($requiredSetupHoldingEntry in @(
+	"PrepareSetupHoldingEntity",
+	"ClearFlags(EntityFlags.VISIBLE | EntityFlags.TRACEABLE, true)",
+	"SetDisableMovementControls(true)",
+	"SetDisableViewControls(true)",
+	"SetDisableWeaponControls(true)",
+	"EnableSimulation(false)",
+	"ClearSetupHoldingPlayer(disconnectedPlayerId)",
+	"DeleteSetupHoldingEntity"
+)) {
+	if ($playerSpawnSetupText -notmatch [regex]::Escape($requiredSetupHoldingEntry)) {
+		throw "Setup holding spawn must be hidden/frozen and cleaned up before HQ spawn: $requiredSetupHoldingEntry"
+	}
+}
+foreach ($requiredSetupNativeMapConfigEntry in @(
+	"HST_MapZoneOverlayUIComponent",
+	"SCR_MapCursorModule",
+	"SCR_MapMarkersUI"
+)) {
+	if ($setupNativeMapConfigText -notmatch [regex]::Escape($requiredSetupNativeMapConfigEntry)) {
+		throw "Setup map config is missing setup-only map component: $requiredSetupNativeMapConfigEntry"
+	}
+}
+$setupConfigReferences = @()
+foreach ($setupReferenceFile in (Get-ChildItem -Recurse -File "Scripts", "Configs", "UI")) {
+	if ($setupReferenceFile.Extension -notin @(".c", ".conf", ".layout", ".meta")) {
+		continue
+	}
+
+	$setupReferenceText = Get-Content -Raw $setupReferenceFile.FullName
+	if ($setupReferenceText -match "HST_SetupHQMap\.conf") {
+		$relativeSetupReferencePath = (Resolve-Path -Relative $setupReferenceFile.FullName) -replace '^[.\\/]+', ''
+		$setupConfigReferences += $relativeSetupReferencePath
+	}
+}
+$allowedSetupConfigReferences = @(
+	"Scripts\Game\HST\Components\HST_SetupMapComponent.c",
+	"Configs\Map\HST_SetupHQMap.conf.meta"
+)
+foreach ($setupConfigReference in $setupConfigReferences) {
+	if ($allowedSetupConfigReferences -notcontains $setupConfigReference) {
+		throw "Setup map config must not be referenced by normal gameplay map flows: $setupConfigReference"
+	}
 }
 Write-Host "Initial HQ setup placement flow OK"
 
@@ -972,6 +1345,9 @@ $townLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/Towns.layer"
 $strategicZonesLayer = Get-Content -Raw "Worlds/HST_Everon/HST_Everon_Layers/StrategicZones.layer"
 $markerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
 $coordinatorMarkerText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$campaignMarkerDirectorText = Get-Content -Raw "Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c"
+$nativeMarkerReconcilerText = Get-Content -Raw "Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c"
+$runtimeMarkerPipelineText = $markerServiceText + "`n" + $coordinatorMarkerText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 
 if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
@@ -1075,7 +1451,9 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"hst_mission_convoy_vehicle_",
 	"Convoy vehicle %1 - %2: neutralize crew",
 	"m_bRuntimeNative",
-	"m_aRuntimeNativeMarkers",
+	"m_mDesiredNativeMarkers",
+	"m_MarkerDirector",
+	"m_NativeReconciler",
 	"m_bNativePublishPending",
 	"NATIVE_MARKER_MANAGER_COMPONENT",
 	"SCR_MapMarkerManagerComponent",
@@ -1091,7 +1469,7 @@ foreach ($requiredRuntimeMarkerEntry in @(
 	"POINT_SPECIAL",
 	"OBSERVATION_POST"
 )) {
-	if ($markerServiceText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
+	if ($runtimeMarkerPipelineText -notmatch [regex]::Escape($requiredRuntimeMarkerEntry)) {
 		throw "Missing runtime campaign marker service entry: $requiredRuntimeMarkerEntry"
 	}
 }
@@ -1279,6 +1657,61 @@ $scriptFiles = Get-ChildItem -Recurse -File "Scripts" -Filter *.c
 $scriptText = ($scriptFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $commandMenuComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
 $commandUiText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+
+foreach ($requiredNotificationScriptEntry in @(
+	'NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout"',
+	"workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT)",
+	'FindAnyWidget("Title")',
+	'FindAnyWidget("Message")',
+	'FindAnyWidget("AccentLine")'
+)) {
+	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredNotificationScriptEntry)) {
+		throw "Command menu external notifications must use the shared anchored toast layout: $requiredNotificationScriptEntry"
+	}
+	if ($missionClientText -notmatch [regex]::Escape($requiredNotificationScriptEntry)) {
+		throw "Mission notifications must use the shared anchored toast layout: $requiredNotificationScriptEntry"
+	}
+}
+$commandNotificationMatch = [regex]::Match($commandMenuComponentText, "protected void RenderExternalNotification[\s\S]*?\r?\n\t}")
+if (!$commandNotificationMatch.Success) {
+	throw "Command menu external notification renderer is missing"
+}
+foreach ($forbiddenCommandNotificationMethodGeometry in @(
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize"
+)) {
+	if ($commandNotificationMatch.Value -match [regex]::Escape($forbiddenCommandNotificationMethodGeometry)) {
+		throw "Command menu external notification must not keep script-created toast geometry: $forbiddenCommandNotificationMethodGeometry"
+	}
+}
+foreach ($forbiddenCommandNotificationHelper in @(
+	"SCRIPTED_PANEL_ROOT_LAYOUT",
+	"CreateExternalRectWidget",
+	"CreateExternalTextWidget",
+	"SetupExternalCanvasRect",
+	"m_aExternalNotificationCommandSets"
+)) {
+	if ($commandMenuComponentText -match [regex]::Escape($forbiddenCommandNotificationHelper)) {
+		throw "Command menu external notification must not keep script-created toast geometry: $forbiddenCommandNotificationHelper"
+	}
+}
+$missionNotificationMatch = [regex]::Match($missionClientText, "protected void RenderTopMissionNotification[\s\S]*?\r?\n\t}")
+if (!$missionNotificationMatch.Success) {
+	throw "Mission notification renderer is missing"
+}
+foreach ($forbiddenMissionNotificationGeometry in @(
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"CreateRectWidget(workspace, root, 0, 0",
+	"CreateTextWidget(workspace, root, ShortenText(title",
+	"CreateTextWidget(workspace, root, ShortenText(message"
+)) {
+	if ($missionNotificationMatch.Value -match [regex]::Escape($forbiddenMissionNotificationGeometry)) {
+		throw "Mission notification must not keep script-created toast geometry: $forbiddenMissionNotificationGeometry"
+	}
+}
+Write-Host "Anchored notification toast layout OK"
+
 $configResourceText = (Get-ChildItem -Recurse -File "Configs" -Include *.conf |
 	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_WorldPositionService.c"
@@ -1304,6 +1737,7 @@ if ($hqServiceText -match "ResolveGroundPosition\(state\.m_vHQPosition,\s*HST_Wo
 Write-Host "Dry HQ/player emergency fallback contract OK"
 
 $mapMarkerServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$nativeMarkerPublishPipelineText = $mapMarkerServiceText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
 if ($mapMarkerServiceText -match "SCR_BaseGameMode\s+gameMode\s*=\s*GetGame\(\)\.GetGameMode\(\)") {
 	throw "Map marker manager resolver must not unsafe-assign BaseGameMode to SCR_BaseGameMode"
 }
@@ -1342,10 +1776,10 @@ foreach ($requiredNativeMarkerPublishContract in @(
 	"SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL",
 	"SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST",
 	"SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER",
-	"markerManager.InsertStaticMarker(nativeMarker, false, true)",
-	"markerManager.RemoveStaticMarker(activeMarker)"
+	"manager.InsertStaticMarker(nativeMarker, record.m_bLocalOnly, record.m_bServerMarker)",
+	"manager.RemoveStaticMarker(marker)"
 )) {
-	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredNativeMarkerPublishContract)) {
+	if ($nativeMarkerPublishPipelineText -notmatch [regex]::Escape($requiredNativeMarkerPublishContract)) {
 		throw "Map marker service is missing native marker publish contract: $requiredNativeMarkerPublishContract"
 	}
 }
@@ -1624,7 +2058,7 @@ foreach ($requiredCommandMenuEntry in @(
 	'COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu"',
 	'MENU_INPUT_CONTEXT = "InGameMenuContext"',
 	'INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf"',
-	'MENU_LAYOUT = "UI/layouts/HST_CommandMenu.layout"',
+	'COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout"',
 	'AddActionListener',
 	'RemoveActionListener',
 	'SetCustomConfigs',
@@ -1633,8 +2067,9 @@ foreach ($requiredCommandMenuEntry in @(
 	'keyboard:KC_I',
 	'IsLocalOwner',
 	'local player menu component ready',
-	'CreateWidgetInWorkspace',
-	'FrameWidgetTypeID',
+	'CreateMenuRoot',
+	'workspace.CreateWidgets(COMMAND_MENU_LAYOUT)',
+	'TextWidgetTypeID',
 	'CanvasWidgetTypeID',
 	'PolygonDrawCommand',
 	'm_aCanvasCommandSets',
@@ -2732,38 +3167,23 @@ foreach ($requiredLoadoutPathBResource in @(
 if ($loadoutEditorComponentText -match [regex]::Escape("{0000000000000000}UI/layouts/HST_LoadoutEditor.layout")) {
 	throw "Loadout editor must not reference the zero-GUID layout resource"
 }
-if ($loadoutEditorComponentText -notmatch "CreateWidgetInWorkspace\(WidgetType\.FrameWidgetTypeID, 0, 0, m_iEditorWidth, m_iEditorHeight") {
-	throw "Loadout editor must create a procedural workspace frame as its root"
-}
-if ($loadoutEditorComponentText -notmatch "CreateWidgets\(EDITOR_LAYOUT, m_RootWidget\)") {
-	throw "Loadout editor layout must be loaded as a child of the procedural root frame"
-}
-foreach ($requiredLoadoutRootMaskEntry in @(
-	"CreateFullscreenShield(workspace)",
-	"FrameSlot.SetPos(root, 0, 0)",
-	"FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight)",
-	"FrameSlot.SetPos(layoutRoot, 0, 0)",
-	"layoutRoot.SetZOrder(10)",
-	"protected Widget CreateFullscreenShield(WorkspaceWidget workspace)",
-	"Widget shield = workspace.CreateWidgetInWorkspace(WidgetType.CanvasWidgetTypeID, shieldLeft, shieldTop, shieldWidth, shieldHeight, WidgetFlags.VISIBLE, null, 3500)",
-	"SetupCanvasRect(shield, shieldWidth, shieldHeight, 0xFF1D292D)",
-	"shield.SetZOrder(3500)"
-)) {
-	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutRootMaskEntry)) {
-		throw "Loadout editor fullscreen shield coverage is missing: $requiredLoadoutRootMaskEntry"
-	}
+if ($loadoutEditorComponentText -notmatch "m_RootWidget\s*=\s*workspace\.CreateWidgets\(EDITOR_LAYOUT\)") {
+	throw "Loadout editor must create the anchored layout resource directly as its root"
 }
 foreach ($forbiddenLoadoutRootMaskEntry in @(
+	"CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID",
+	"CreateWidgets(EDITOR_LAYOUT, m_RootWidget)",
+	"CreateFullscreenShield(workspace)",
+	"protected Widget CreateFullscreenShield(WorkspaceWidget workspace)",
+	"FrameSlot.SetPos(layoutRoot, 0, 0)",
+	"FrameSlot.SetSize(layoutRoot, m_iEditorWidth, m_iEditorHeight)",
 	"int screenBleed = ScalePx(96)",
 	"FrameSlot.SetPos(root, -screenBleed, -screenBleed)",
 	"hardMask = CreateRectWidget(workspace, root"
 )) {
 	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutRootMaskEntry)) {
-		throw "Loadout editor must not use the old root-child hard mask: $forbiddenLoadoutRootMaskEntry"
+		throw "Loadout editor must not use procedural root/shield or resize stretched layout roots: $forbiddenLoadoutRootMaskEntry"
 	}
-}
-if ($loadoutEditorComponentText -notmatch 'FindAnyWidget\("HST_LoadoutEditorRoot"\)[\s\S]{0,180}FrameSlot\.SetSize\(layoutRoot, m_iEditorWidth, m_iEditorHeight\)') {
-	throw "Loadout editor must resize the layout child root to the current workspace"
 }
 if ($loadoutEditorLayoutMetaText -notmatch [regex]::Escape('Name "{5AF2D86E07D44A51}UI/layouts/HST_LoadoutEditor.layout"')) {
 	throw "Loadout editor layout meta must carry the expected non-zero GUID"
@@ -2774,7 +3194,6 @@ if ($loadoutPreviewCellLayoutMetaText -notmatch [regex]::Escape('Name "{6B43C4A9
 foreach ($requiredLayoutEntry in @(
 	"HST_LoadoutEditorRoot",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3410F}"',
-	"Anchor 0 0 0 0",
 	"RenderTargetWidgetClass",
 	"HST_LoadoutBackdrop",
 	"HST_LoadoutPreviewContainer",
@@ -2898,9 +3317,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"ResolveRowOverlayRoot",
 	"SetRowChildLayer",
 	"CountStorageCandidatesForTab",
-	"m_Layout.m_iTabHeight = ScalePx(72)",
-	"m_Layout.m_iTabWidth = ScalePx(72)",
-	"m_Layout.m_iTabGap = ScalePx(22)",
+	"m_Layout.m_iTabHeight = ScalePx(",
+	"m_Layout.m_iTabWidth = ScalePx(",
+	"m_Layout.m_iTabGap = ScalePx(",
 	"int groupTop = ClampInt(Math.Round((h - combinedHeight) * 0.5)",
 	"m_Layout.m_iRailLeft = panelLeft",
 	"m_Layout.m_iRailTop = groupTop + m_Layout.m_iTabsHeight + groupGap",
@@ -2920,11 +3339,14 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"ShortenText(BuildStorageTargetLabel(), 96)",
 	"m_Layout.m_iListTop + ScalePx(8)",
 	"BuildStorageCapacityLabel(nodeIndex)",
-	"SetRowWidgetVisible(tile, `"Name`", false)",
-	"SetRowWidgetVisible(tile, `"Count`", false)",
-	"CreateWrappedTextWidget(workspace, body, ShortenText(name, 68)",
-	"CreateCountBadge(workspace, body, countText, badgeLeft, ScalePx(94), badgeWidth, ScalePx(28), userId)",
-	"CreateCountBadge(workspace, body, countText, badgeLeft, ScalePx(20), badgeWidth, ScalePx(28), userId)",
+	"ResolveLoadoutRegion(root, `"StorageBrowser`")",
+	"ResolveLoadoutRegion(root, `"LeftRail`")",
+	"SetRowTextOrHide(tile, `"Name`", ShortenText(name, 68)",
+	"SetRowTextOrHide(tile, `"Count`", countText",
+	"SetRowTextOrHide(row, `"Name`", ShortenText(name, 38)",
+	"SetRowTextOrHide(row, `"Count`", countText",
+	"SetRowTextOrHide(row, `"Primary`", ShortenText(primary, 36)",
+	"SetRowTextOrHide(row, `"Secondary`", ShortenText(secondary, 42)",
 	"cell.SetZOrder(20)",
 	"slotImage.SetZOrder(21)",
 	"slotPreview.SetZOrder(22)",
@@ -2934,9 +3356,8 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"0x664B5960",
 	"PANEL_BACK_COLOR",
 	"0xF2151C20",
-	"Math.Min(ScalePx(82), Math.Max(m_Layout.m_iPreviewCellLarge, ScalePx(76)))",
-	"FrameSlot.SetPos(anchor, ScalePx(18), ScalePx(10))",
-	"FrameSlot.SetSize(anchor, previewSize, previewSize)",
+	"GetLayoutSquareSize(workspace, anchor, Math.Min(ScalePx(82), Math.Max(m_Layout.m_iPreviewCellLarge, ScalePx(76))))",
+	"GetLayoutSquareSize(workspace, anchor, Math.Max(1, size))",
 	"AddStorageContainerOverlayText",
 	"AddStorageItemOverlayText",
 	"slotPreview.SetVisible(false)",
@@ -2977,7 +3398,9 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"GatherPreviewStorageContentEntitiesFromStorages",
 	"EnsureSelectedSlotForCategory",
 	"m_iEditorWidth",
-	"HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorWidth, m_iEditorHeight)",
+	"HST_UIWorkspaceMetrics.GetRawWorkspaceSize(workspace, m_iRawWorkspaceWidth, m_iRawWorkspaceHeight)",
+	"HST_UIWorkspaceMetrics.GetLayoutSize(workspace, m_iEditorLayoutWidth, m_iEditorLayoutHeight)",
+	"m_iEditorWidth = m_iEditorLayoutWidth",
 	"ResolvePayloadDisplayText",
 	"m_aItemShortDisplays",
 	"m_aItemSlotLabels",
