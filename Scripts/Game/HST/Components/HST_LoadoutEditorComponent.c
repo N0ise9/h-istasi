@@ -1420,8 +1420,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, 0, 0);
-		FrameSlot.SetSize(root, m_iEditorWidth, m_iEditorHeight);
 		root.SetZOrder(3600);
 
 		Widget previewContainer = root.FindAnyWidget("HST_LoadoutPreviewContainer");
@@ -1487,8 +1485,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!m_RootWidget)
 			return null;
 
-		FrameSlot.SetPos(m_RootWidget, 0, 0);
-		FrameSlot.SetSize(m_RootWidget, m_iEditorWidth, m_iEditorHeight);
 		m_RootWidget.SetVisible(true);
 		m_RootWidget.SetOpacity(1.0);
 		m_RootWidget.SetZOrder(3600);
