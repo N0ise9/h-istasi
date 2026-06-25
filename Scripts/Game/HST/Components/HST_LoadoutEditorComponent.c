@@ -106,6 +106,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string NODE_ATTACHMENT_PREFIX = "live_attach_";
 	static const string NODE_STORAGE_PREFIX = "live_storage_";
 	static const string NODE_STORAGE_ITEM_PREFIX = "live_storage_item_";
+	static const int LOADOUT_PREVIEW_Z = 1;
+	static const int LOADOUT_UI_LAYER_Z = 100;
+	static const int LOADOUT_PREVIEW_INPUT_Z = 2;
+	static const int LOADOUT_PANEL_Z = 20;
+	static const int LOADOUT_FLOATING_Z = 40;
 	static const int CLOSE_WIDGET_ID = 9200;
 	static const int CANCEL_WIDGET_ID = 9201;
 	static const int APPLY_WIDGET_ID = 9202;
@@ -1411,7 +1416,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			previewContainer.SetVisible(true);
 			previewContainer.SetOpacity(1.0);
-			previewContainer.SetZOrder(1);
+			previewContainer.SetZOrder(LOADOUT_PREVIEW_Z);
 		}
 
 		m_PreviewWidget = RenderTargetWidget.Cast(root.FindAnyWidget("HST_LoadoutPreview"));
@@ -1454,6 +1459,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 		RenderPreviewStage(workspace, uiRoot);
 		RenderContextHints(workspace, uiRoot);
+		ApplyLoadoutLayerOrder(root);
 		string debugSummary = string.Format("mode=%1 candidateMode=%2 selectedNode=%3 selectedSlot=%4 selectedStorage=%5 selectedStoredItem=%6 category=%7 nodes=%8 visibleNodes=%9", m_sEditorMode, m_bCandidateMode, ShortenText(m_sSelectedNodeId, 48), ShortenText(m_sSelectedSlotId, 48), ShortenText(m_sSelectedStorageContainerNodeId, 48), ShortenText(m_sSelectedStoredItemNodeId, 48), m_sSelectedCategory, m_aNodeIds.Count(), m_aVisibleNodeIndexes.Count());
 		debugSummary = debugSummary + " " + string.Format("candidates=%1 visibleCandidates=%2 templates=%3 raw=%4x%5 layout=%6x%7", m_aCandidatePrefabs.Count(), m_aVisibleCandidateIndexes.Count(), m_aTemplateIds.Count(), m_iRawWorkspaceWidth, m_iRawWorkspaceHeight, m_iEditorLayoutWidth, m_iEditorLayoutHeight);
 		debugSummary = debugSummary + " " + string.Format("rail=%1x%2 main=%3x%4 previewWidget=%5 previewWorld=%6", m_Layout.m_iRailWidth, m_Layout.m_iRailHeight, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, m_PreviewWidget != null, m_PreviewWorld != null);
@@ -1497,7 +1503,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			m_UILayerWidget.SetVisible(true);
 			m_UILayerWidget.SetOpacity(1.0);
-			m_UILayerWidget.SetZOrder(100);
+			m_UILayerWidget.SetZOrder(LOADOUT_UI_LAYER_Z);
 			return m_UILayerWidget;
 		}
 
@@ -1522,6 +1528,60 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		return uiLayer;
+	}
+
+	protected void ApplyLoadoutLayerOrder(Widget root)
+	{
+		if (!root)
+			return;
+
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
+		root.SetZOrder(HST_UIConstants.Z_LOADOUT_EDITOR);
+
+		ApplyLoadoutNamedWidgetLayer(root, "HST_LoadoutBackdrop", 0, false);
+		ApplyLoadoutNamedWidgetLayer(root, "HST_LoadoutPreviewContainer", LOADOUT_PREVIEW_Z, true);
+		if (m_PreviewWidget)
+			ApplyLoadoutWidgetLayer(m_PreviewWidget, LOADOUT_PREVIEW_Z, true);
+		ApplyLoadoutNamedWidgetLayer(root, "HST_LoadoutDimmer", LOADOUT_PREVIEW_Z + 1, false);
+
+		Widget uiLayer = ResolveUILayer(root);
+		if (!uiLayer)
+			return;
+
+		ApplyLoadoutWidgetLayer(uiLayer, LOADOUT_UI_LAYER_Z, true);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("PreviewDragSurface"), LOADOUT_PREVIEW_INPUT_Z, true);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("LeftButtons"), LOADOUT_PANEL_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("TopTabs"), LOADOUT_PANEL_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("LeftRail"), LOADOUT_PANEL_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("CandidateList"), LOADOUT_PANEL_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("StorageBrowser"), LOADOUT_PANEL_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("SavePanel"), LOADOUT_PANEL_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("Footer"), LOADOUT_FLOATING_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("Toast"), LOADOUT_FLOATING_Z, false);
+		ApplyLoadoutWidgetLayer(uiLayer.FindAnyWidget("PreviewUnavailableText"), LOADOUT_FLOATING_Z, false);
+	}
+
+	protected void ApplyLoadoutWidgetLayer(Widget widget, int zOrder, bool forceVisible)
+	{
+		if (!widget)
+			return;
+
+		if (forceVisible)
+		{
+			widget.SetVisible(true);
+			widget.SetOpacity(1.0);
+		}
+
+		widget.SetZOrder(zOrder);
+	}
+
+	protected void ApplyLoadoutNamedWidgetLayer(Widget root, string widgetName, int zOrder, bool forceVisible)
+	{
+		if (!root || widgetName.IsEmpty())
+			return;
+
+		ApplyLoadoutWidgetLayer(root.FindAnyWidget(widgetName), zOrder, forceVisible);
 	}
 
 	protected void ResetLoadoutModeRegions(Widget root)
@@ -1806,21 +1866,23 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		{
 			previewContainer.SetVisible(true);
 			previewContainer.SetOpacity(1.0);
-			previewContainer.SetZOrder(1);
+			previewContainer.SetZOrder(LOADOUT_PREVIEW_Z);
 		}
 
 		if (m_PreviewWidget)
-			m_PreviewWidget.SetZOrder(1);
+			m_PreviewWidget.SetZOrder(LOADOUT_PREVIEW_Z);
 
 		Widget uiRoot = ResolveUILayer(m_RootWidget);
 		if (uiRoot)
 		{
 			uiRoot.SetVisible(true);
 			uiRoot.SetOpacity(1.0);
-			uiRoot.SetZOrder(100);
+			uiRoot.SetZOrder(LOADOUT_UI_LAYER_Z);
 		}
 
-		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutUILayer|TopTabs|LeftButtons|LeftRail|SlotRailScroll|Footer|PreviewDragSurface");
+		ApplyLoadoutLayerOrder(m_RootWidget);
+		HST_UIDebug.LogWidgetGeometryCsv("loadout_editor_ready", m_RootWidget, "HST_LoadoutEditorRoot|HST_LoadoutPreviewContainer|HST_LoadoutPreview|HST_LoadoutDimmer|HST_LoadoutUILayer|PreviewDragSurface|TopTabs|TopTabItems|LeftButtons|LeftRail|SlotRailScroll|SlotRailItems|CandidateList|CandidateItems|StorageBrowser|StorageCandidateItems|SavePanel|TemplateItems|SettingsContent|Footer|Toast|ToastText|PreviewUnavailableText");
+		HST_UIDebug.LogPopulation("loadout_editor_ready", string.Format("root=%1 previewContainer=%2 preview=%3 ui=%4 tabs=%5 rail=%6 footer=%7 drag=%8", HST_UIDebug.WidgetSummary(m_RootWidget), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("HST_LoadoutPreviewContainer")), HST_UIDebug.WidgetSummary(m_PreviewWidget), HST_UIDebug.WidgetSummary(uiRoot), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("TopTabs")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("LeftRail")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("Footer")), HST_UIDebug.WidgetSummary(m_RootWidget.FindAnyWidget("PreviewDragSurface"))));
 	}
 
 	protected bool IsDuplicateWidgetActivation(int widgetId, int button)
@@ -2931,7 +2993,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		surface.SetColorInt(0x00111111);
 		surface.SetUserID(PREVIEW_DRAG_WIDGET_ID);
 		surface.AddHandler(m_WidgetHandler);
-		surface.SetZOrder(-10);
+		surface.SetZOrder(LOADOUT_PREVIEW_INPUT_Z);
 	}
 
 	protected void ParseEditorPayload(string payload)
@@ -5222,7 +5284,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_PreviewWidget.SetVisible(true);
 		m_PreviewWidget.SetOpacity(1.0);
 		m_PreviewWidget.SetColorInt(GetPreviewWorldTintColor());
-		m_PreviewWidget.SetZOrder(0);
+		m_PreviewWidget.SetZOrder(LOADOUT_PREVIEW_Z);
 	}
 
 	protected void EnsurePreviewWorld()
