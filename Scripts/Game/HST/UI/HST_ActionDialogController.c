@@ -88,6 +88,7 @@ class HST_ActionDialogController
 			return;
 
 		HST_UIDebug.LogWidgetGeometryCsv(debugOwner + "_ready", root, "HST_ActionDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ConfirmButton|ConfirmLabel");
+		HST_UIDebug.LogReadyWidgetsCsv(debugOwner + "_ready", root, "HST_ActionDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ConfirmButton|ConfirmLabel");
 	}
 
 	protected static void SetText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)

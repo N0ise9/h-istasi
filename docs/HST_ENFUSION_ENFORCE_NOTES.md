@@ -16,6 +16,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use `GetGame().GetCallqueue().CallLater(..., 0, false)` and often a second pass around `50 ms` later for diagnostics or final visibility/z-order reassertion.
   - Current examples: `setup_prompt_ready`, `setup_confirm_modal_ready`, `notification_toast_ready`, `command_action_dialog_ready`, `mission_report_dialog_ready`, `command_menu_ready`, `loadout_editor_ready`.
 
+- Ready diagnostics need to check more than layout creation.
+  - A layout can be created and still be unusable because expected children are missing, hidden in hierarchy, or still reporting `0x0` bounds after anchor resolution.
+  - Use `HST_UIDebug.LogReadyWidgetsCsv` in delayed ready passes beside geometry logs so playtest logs identify the exact failed widget state.
+
 - `root.FindAnyWidget(root.GetName())` may not find the root itself.
   - If debug code checks expected widgets and includes the root name, explicitly compare `root.GetName()` before reporting the root missing.
 

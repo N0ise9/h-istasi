@@ -1080,6 +1080,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ApplySetupLayerOrder();
 		UpdateSetupPrompt();
 		HST_UIDebug.LogWidgetGeometryCsv("setup_prompt_ready", m_wPromptRoot, "HST_SetupPromptBannerRoot|HST_SetupPromptPanel|HST_SetupPromptRule|HST_SetupPromptText");
+		HST_UIDebug.LogReadyWidgetsCsv("setup_prompt_ready", m_wPromptRoot, "HST_SetupPromptBannerRoot|HST_SetupPromptPanel|HST_SetupPromptRule|HST_SetupPromptText");
 	}
 
 	protected void ApplySetupPromptStyle()
@@ -1249,6 +1250,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ApplyConfirmModalLayerOrder(m_wConfirmModalRoot);
 		ApplySetupLayerOrder();
 		HST_UIDebug.LogWidgetGeometryCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
+		HST_UIDebug.LogReadyWidgetsCsv("setup_confirm_modal_ready", m_wConfirmModalRoot, "HST_SetupConfirmModalRoot|Dialog|Message|NoButton|NoLabel|YesButton|YesLabel");
 	}
 
 	protected void ApplyConfirmModalLayerOrder(Widget modal)

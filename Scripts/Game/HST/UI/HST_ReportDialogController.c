@@ -123,6 +123,7 @@ class HST_ReportDialogController
 			return;
 
 		HST_UIDebug.LogWidgetGeometryCsv(debugOwner + "_ready", root, "HST_ReportDialogRoot|Dialog|Background|CloseButton|CloseLabel|Title|Subtitle|ObjectiveItems");
+		HST_UIDebug.LogReadyWidgetsCsv(debugOwner + "_ready", root, "HST_ReportDialogRoot|Dialog|Background|CloseButton|CloseLabel|Title|Subtitle|ObjectiveItems");
 	}
 
 	protected static void SetText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
