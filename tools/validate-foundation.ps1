@@ -923,6 +923,7 @@ foreach ($requiredUIRootFile in @(
 	"Scripts/Game/HST/UI/HST_UIScreenBase.c",
 	"Scripts/Game/HST/UI/HST_UIRootService.c",
 	"Scripts/Game/HST/UI/HST_UIDebug.c",
+	"Scripts/Game/HST/UI/HST_ActionDialogController.c",
 	"Scripts/Game/HST/UI/HST_ReportDialogController.c",
 	"Scripts/Game/HST/UI/HST_NotificationToastController.c"
 )) {
@@ -934,6 +935,7 @@ $uiConstantsText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIConstants.c"
 $uiScreenBaseText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIScreenBase.c"
 $uiRootServiceText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIRootService.c"
 $uiDebugText = Get-Content -Raw "Scripts/Game/HST/UI/HST_UIDebug.c"
+$actionDialogControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_ActionDialogController.c"
 $reportDialogControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_ReportDialogController.c"
 $notificationToastControllerText = Get-Content -Raw "Scripts/Game/HST/UI/HST_NotificationToastController.c"
 foreach ($requiredUIDebugEntry in @(
@@ -1043,6 +1045,29 @@ foreach ($requiredReportDialogControllerEntry in @(
 		throw "Report dialog controller must own layout creation, diagnostics, and row population: $requiredReportDialogControllerEntry"
 	}
 }
+foreach ($requiredActionDialogControllerEntry in @(
+	"class HST_ActionDialogData",
+	"class HST_ActionDialogController",
+	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
+	"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT)",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG",
+	"HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner",
+	"HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner",
+	"HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner",
+	"HST_UIDebug.LogPopulation(data.m_sDebugOwner",
+	"BindClick(data.m_sDebugOwner, root, `"CancelButton`", data.m_iCancelWidgetId, handler)",
+	"BindClick(data.m_sDebugOwner, root, `"ConfirmButton`", data.m_iConfirmWidgetId, handler)",
+	'SetText(root, "Title"',
+	'SetText(root, "Message"',
+	"static void Close(string owner)",
+	"protected static void BindClick",
+	"protected static void SetText"
+)) {
+	if ($actionDialogControllerText -notmatch [regex]::Escape($requiredActionDialogControllerEntry)) {
+		throw "Action dialog controller must own layout creation, diagnostics, text population, and button binding: $requiredActionDialogControllerEntry"
+	}
+}
 foreach ($requiredUIRootCaller in @(
 	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP",
 	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP",
@@ -1061,6 +1086,7 @@ foreach ($requiredUIRootCaller in @(
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c"),
 		(Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionClientComponent.c"),
+		$actionDialogControllerText,
 		$reportDialogControllerText,
 		$notificationToastControllerText
 	)) {
@@ -1950,7 +1976,6 @@ foreach ($requiredReportObjectiveRowLayoutEntry in @(
 	}
 }
 foreach ($requiredMissionDialogComponentEntry in @(
-	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
 	"HST_ReportDialogData data = new HST_ReportDialogData()",
 	'data.m_sOwner = "HST_MissionClientComponent"',
 	'data.m_sDebugOwner = "mission_report_dialog"',
@@ -2528,7 +2553,6 @@ if ($commandMenuComponentText -match "\bWidgetFlags\.WRAP_TEXT\b") {
 	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
 }
 foreach ($requiredCommandMenuActionDialogEntry in @(
-	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
 	"ACTION_MODAL_CANCEL_WIDGET_ID",
 	"ACTION_MODAL_CONFIRM_WIDGET_ID",
 	"m_bActionDialogOpen",
@@ -2537,12 +2561,15 @@ foreach ($requiredCommandMenuActionDialogEntry in @(
 	'commandId == "new_campaign"',
 	'commandId == "admin_purge_hst_native_markers"',
 	"ShowActionConfirmDialog",
-	"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT)",
 	'ACTION_DIALOG_OWNER = "HST_CommandMenuActionDialog"',
-	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER, root, false, false, true)",
-	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER)",
-	'BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID)',
-	'BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID)',
+	"HST_ActionDialogData data = new HST_ActionDialogData()",
+	"data.m_sOwner = ACTION_DIALOG_OWNER",
+	'data.m_sDebugOwner = "command_action_dialog"',
+	"data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID",
+	"data.m_iConfirmWidgetId = ACTION_MODAL_CONFIRM_WIDGET_ID",
+	"data.m_sMessage = BuildActionConfirmMessage(label, commandId)",
+	"HST_ActionDialogController.Render(workspace, data, m_WidgetHandler)",
+	"HST_ActionDialogController.Close(ACTION_DIALOG_OWNER)",
 	"CancelPendingActionDialog",
 	"ConfirmPendingActionDialog",
 	"ClearActionDialog",
@@ -2551,6 +2578,18 @@ foreach ($requiredCommandMenuActionDialogEntry in @(
 )) {
 	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuActionDialogEntry)) {
 		throw "Command menu destructive/admin actions must use the named action-dialog modal: $requiredCommandMenuActionDialogEntry"
+	}
+}
+foreach ($forbiddenCommandMenuLocalActionDialogEntry in @(
+	"ACTION_DIALOG_LAYOUT",
+	"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT)",
+	"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER, root",
+	"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER)",
+	'BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID)',
+	'BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID)'
+)) {
+	if ($commandMenuComponentText -match [regex]::Escape($forbiddenCommandMenuLocalActionDialogEntry)) {
+		throw "Command menu action modal must delegate layout ownership to HST_ActionDialogController: $forbiddenCommandMenuLocalActionDialogEntry"
 	}
 }
 foreach ($forbiddenCommandMenuPanelMetric in @(
@@ -3465,6 +3504,7 @@ foreach ($requiredMissionUIDebugEntry in @(
 		throw "Mission report layouts must emit debug diagnostics: $requiredMissionUIDebugEntry"
 	}
 }
+$commandUIDebugText = $commandMenuComponentText + "`n" + $actionDialogControllerText
 foreach ($requiredCommandUIDebugEntry in @(
 	'HST_UIDebug.LogLayoutCreate("command_menu"',
 	'HST_UIDebug.LogExpectedWidgetsCsv("command_menu"',
@@ -3477,10 +3517,14 @@ foreach ($requiredCommandUIDebugEntry in @(
 	'HST_UIDebug.LogRowSummary("command_menu_activity"',
 	'HST_UIDebug.LogRowSample("command_menu_actions"',
 	'HST_UIDebug.LogRowSummary("command_menu_actions"',
-	'HST_UIDebug.LogLayoutCreate("command_action_dialog"',
+	'data.m_sDebugOwner = "command_action_dialog"',
+	'HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner',
+	'HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner',
+	'HST_UIDebug.LogExpectedWidgetsCsv(data.m_sDebugOwner',
+	'HST_UIDebug.LogWidgetBound(debugOwner',
 	'HST_UIDebug.LogPopulation("command_action_dialog"'
 )) {
-	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandUIDebugEntry)) {
+	if ($commandUIDebugText -notmatch [regex]::Escape($requiredCommandUIDebugEntry)) {
 		throw "Command UI layouts must emit debug diagnostics: $requiredCommandUIDebugEntry"
 	}
 }
