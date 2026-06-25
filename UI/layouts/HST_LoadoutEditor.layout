@@ -70,30 +70,93 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
    {
     FrameWidgetClass "{7B2FD986A4D34115}" {
      Name "TopTabs"
+     Slot FrameWidgetSlot "{7B2FD986A4D34215}" {
+      Anchor 0 0 0 0
+      OffsetLeft 116
+      OffsetTop 54
+      OffsetRight 720
+      OffsetBottom 126
+     }
     }
     FrameWidgetClass "{7B2FD986A4D34116}" {
      Name "LeftRail"
+     Slot FrameWidgetSlot "{7B2FD986A4D34216}" {
+      Anchor 0 0 0 1
+      OffsetLeft 116
+      OffsetTop 132
+      OffsetRight 560
+      OffsetBottom -92
+     }
     }
     FrameWidgetClass "{7B2FD986A4D34117}" {
      Name "EditedSlotHeader"
+     Slot FrameWidgetSlot "{7B2FD986A4D34217}" {
+      Anchor 0 0 0 0
+      OffsetLeft 116
+      OffsetTop 132
+      OffsetRight 560
+      OffsetBottom 226
+     }
     }
     FrameWidgetClass "{7B2FD986A4D34118}" {
      Name "SlotList"
+     Slot FrameWidgetSlot "{7B2FD986A4D34218}" {
+      Anchor 0 0 0 1
+      OffsetLeft 116
+      OffsetTop 132
+      OffsetRight 560
+      OffsetBottom -92
+     }
     }
     FrameWidgetClass "{7B2FD986A4D34119}" {
      Name "CandidateList"
+     Slot FrameWidgetSlot "{7B2FD986A4D34219}" {
+      Anchor 0 0 0 1
+      OffsetLeft 116
+      OffsetTop 132
+      OffsetRight 560
+      OffsetBottom -92
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411A}" {
      Name "StorageBrowser"
+     Slot FrameWidgetSlot "{7B2FD986A4D3421A}" {
+      Anchor 1 0 1 1
+      OffsetLeft -820
+      OffsetTop 132
+      OffsetRight -116
+      OffsetBottom -92
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411B}" {
      Name "SavePanel"
+     Slot FrameWidgetSlot "{7B2FD986A4D3421B}" {
+      Anchor 0 0 0 1
+      OffsetLeft 116
+      OffsetTop 132
+      OffsetRight 560
+      OffsetBottom -92
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411C}" {
      Name "Footer"
+     Slot FrameWidgetSlot "{7B2FD986A4D3421C}" {
+      Anchor 0 1 0 1
+      OffsetLeft 116
+      OffsetTop -72
+      OffsetRight 920
+      OffsetBottom -24
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411D}" {
      Name "Toast"
+     Slot FrameWidgetSlot "{7B2FD986A4D3421D}" {
+      Anchor 0.5 0 0.5 0
+      OffsetLeft -240
+      OffsetTop 54
+      OffsetRight 240
+      OffsetBottom 88
+     }
     }
    }
   }

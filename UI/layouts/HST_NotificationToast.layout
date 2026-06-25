@@ -1,0 +1,84 @@
+FrameWidgetClass "{A34F448C7E830601}" {
+ Name "HST_NotificationRoot"
+ Slot FrameWidgetSlot "{A34F448C7E830602}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ "Is Visible" 1
+ "Ignore Cursor" 1
+ {
+  FrameWidgetClass "{A34F448C7E830603}" {
+   Name "Toast"
+   Slot FrameWidgetSlot "{A34F448C7E830604}" {
+    Anchor 0.5 0 0.5 0
+    OffsetLeft -420
+    OffsetTop 28
+    OffsetRight 420
+    OffsetBottom 118
+   }
+   "Is Visible" 1
+   "Ignore Cursor" 1
+   {
+    PanelWidgetClass "{A34F448C7E830605}" {
+     Name "Background"
+     Slot FrameWidgetSlot "{A34F448C7E830606}" {
+      Anchor 0 0 1 1
+      OffsetLeft 0
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
+     }
+     Color 0.10 0.14 0.17 0.95
+     style full
+     "Is Visible" 1
+     "Ignore Cursor" 1
+    }
+    PanelWidgetClass "{A34F448C7E830607}" {
+     Name "AccentLine"
+     Slot FrameWidgetSlot "{A34F448C7E830608}" {
+      Anchor 0 1 1 1
+      OffsetLeft 0
+      OffsetTop -4
+      OffsetRight 0
+      OffsetBottom 0
+     }
+     Color 0.77 0.58 0.23 1
+     style full
+     "Is Visible" 1
+     "Ignore Cursor" 1
+    }
+    TextWidgetClass "{A34F448C7E830609}" {
+     Name "Title"
+     Slot FrameWidgetSlot "{A34F448C7E83060A}" {
+      Anchor 0 0 1 0
+      OffsetLeft 24
+      OffsetTop 10
+      OffsetRight -24
+      OffsetBottom 34
+     }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text "h-istasi"
+    }
+    TextWidgetClass "{A34F448C7E83060B}" {
+     Name "Message"
+     Slot FrameWidgetSlot "{A34F448C7E83060C}" {
+      Anchor 0 0 1 1
+      OffsetLeft 24
+      OffsetTop 38
+      OffsetRight -24
+      OffsetBottom -10
+     }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text ""
+    }
+   }
+  }
+ }
+}

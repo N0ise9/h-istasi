@@ -2,6 +2,7 @@ class HST_UIWorkspaceMetrics
 {
 	static const float BASE_WIDTH = 1920.0;
 	static const float BASE_HEIGHT = 1080.0;
+	protected static ref map<string, bool> s_mDebugLoggedBySource;
 
 	static void GetRawWorkspaceSize(WorkspaceWidget workspace, out int width, out int height)
 	{
@@ -41,6 +42,36 @@ class HST_UIWorkspaceMetrics
 			return Math.Round(value);
 
 		return Math.Round(workspace.DPIUnscale(value));
+	}
+
+	static void DebugWorkspaceMetrics(WorkspaceWidget workspace, string source)
+	{
+		if (!workspace)
+			return;
+
+		if (!s_mDebugLoggedBySource)
+			s_mDebugLoggedBySource = new map<string, bool>();
+
+		string key = source;
+		if (key.IsEmpty())
+			key = "unknown";
+
+		if (s_mDebugLoggedBySource.Contains(key) && s_mDebugLoggedBySource[key])
+			return;
+
+		int rawW;
+		int rawH;
+		int layoutW;
+		int layoutH;
+		GetRawWorkspaceSize(workspace, rawW, rawH);
+		GetLayoutSize(workspace, layoutW, layoutH);
+
+		float dpiScale = 1.0;
+		if (layoutW > 0)
+			dpiScale = rawW / layoutW;
+
+		Print(string.Format("h-istasi ui metrics | %1 raw=%2x%3 layout=%4x%5 dpi=%6", key, rawW, rawH, layoutW, layoutH, dpiScale), LogLevel.NORMAL);
+		s_mDebugLoggedBySource.Set(key, true);
 	}
 
 	static float GetScale(int width, int height, float minScale = 0.70, float maxScale = 1.15)

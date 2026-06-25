@@ -108,7 +108,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
-	static const ResourceName SCRIPTED_PANEL_ROOT_LAYOUT = "{B55C6FB34BF95000}UI/layouts/HST_ScriptedPanelRoot.layout";
+	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
 	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
 	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
@@ -158,7 +158,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_CommandMenuLayoutMetrics m_Layout;
 	protected ref array<Widget> m_aExternalNotificationWidgets = {};
-	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aExternalNotificationCommandSets = {};
 	protected ref array<string> m_aExternalNotificationTitleQueue = {};
 	protected ref array<string> m_aExternalNotificationMessageQueue = {};
 	protected ref array<float> m_aExternalNotificationDurationQueue = {};
@@ -810,6 +809,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OpenMenu(string source = "unknown")
 	{
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", null, true, false, false))
+			return;
+
 		m_bMenuOpen = true;
 		if (m_sSelectedTab.IsEmpty())
 			m_sSelectedTab = "overview";
@@ -832,6 +834,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		m_bMenuOpen = false;
+		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent");
 		ClearWidgets();
 		DebugLog("closed via " + source);
 	}
@@ -972,6 +975,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_CommandMenu");
 		BuildResponsiveLayout(workspace);
 		Widget root = CreateMenuRoot(workspace);
 		if (!root)
@@ -994,14 +998,61 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!root)
 			return null;
 
-		FrameSlot.SetPos(root, m_Layout.m_iRootLeft, m_Layout.m_iRootTop);
-		FrameSlot.SetSize(root, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight);
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(2500);
+		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
+		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false);
 		m_aWidgets.Insert(root);
-		CreateRectWidget(workspace, root, 0, 0, m_Layout.m_iRootWidth, m_Layout.m_iRootHeight, 0xF2080D12, 1.0, 0);
+		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
 		return root;
+	}
+
+	protected Widget FindMenuWidget(Widget root, string name)
+	{
+		if (!root || name.IsEmpty())
+			return null;
+
+		return root.FindAnyWidget(name);
+	}
+
+	protected TextWidget FindMenuText(Widget root, string name)
+	{
+		return TextWidget.Cast(FindMenuWidget(root, name));
+	}
+
+	protected void SetMenuText(Widget root, string name, string text, int color, int fontSize, bool bold, bool wrap = true)
+	{
+		TextWidget textWidget = FindMenuText(root, name);
+		if (!textWidget)
+			return;
+
+		textWidget.SetVisible(true);
+		textWidget.SetOpacity(1.0);
+		textWidget.SetText(text);
+		textWidget.SetTextWrapping(wrap);
+		ApplyTextStyle(textWidget, fontSize, bold);
+		textWidget.SetColorInt(color);
+	}
+
+	protected void SetMenuWidgetColor(Widget root, string name, int color, float opacity = 1.0)
+	{
+		Widget widget = FindMenuWidget(root, name);
+		if (!widget)
+			return;
+
+		widget.SetColorInt(color);
+		widget.SetOpacity(opacity);
+		widget.SetVisible(true);
+	}
+
+	protected void BindMenuClick(Widget root, string name, int userId)
+	{
+		Widget widget = FindMenuWidget(root, name);
+		if (!widget || userId <= 0)
+			return;
+
+		widget.SetUserID(userId);
+		widget.AddHandler(m_WidgetHandler);
 	}
 
 	protected int ScalePx(float value)
@@ -1220,84 +1271,41 @@ class HST_CommandMenuComponent : ScriptComponent
 		int screenH;
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-		int margin = HST_UIWorkspaceMetrics.ScalePx(24, scale);
-		int width = Math.Min(HST_UIWorkspaceMetrics.ScalePx(900, scale), Math.Max(1, screenW - margin * 2));
-		if (width < HST_UIWorkspaceMetrics.ScalePx(320, scale))
-			width = Math.Max(1, screenW - margin * 2);
 
-		int height = HST_UIWorkspaceMetrics.ScalePx(92, scale);
-		int horizontalMargin = Math.Max(8, margin / 2);
-		int verticalMargin = Math.Max(4, margin / 2);
-		int left = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenW - width) / 2), horizontalMargin, Math.Max(horizontalMargin, screenW - width - horizontalMargin));
-		int top = HST_UIWorkspaceMetrics.ClampInt(margin, verticalMargin, Math.Max(verticalMargin, screenH - height - verticalMargin));
-
-		Widget root = workspace.CreateWidgets(SCRIPTED_PANEL_ROOT_LAYOUT);
+		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT);
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, left, top);
-		FrameSlot.SetSize(root, width, height);
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(2850);
+		root.SetZOrder(HST_UIConstants.Z_NOTIFICATION);
 		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		HST_UIRootService.Get().NotifyNotificationShown();
 		m_aExternalNotificationWidgets.Insert(root);
-		CreateExternalRectWidget(workspace, root, 0, 0, width, height, 0xF21A232B, 1.0);
-		CreateExternalRectWidget(workspace, root, 0, height - Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), width, Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale)), 0xFFC4953B, 1.0);
-		CreateExternalTextWidget(workspace, root, ShortenText(title, 44), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScalePx(10, scale), width - HST_UIWorkspaceMetrics.ScalePx(48, scale), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(18, scale), 0xFFF2D18B, true);
-		CreateExternalTextWidget(workspace, root, ShortenText(message, 140), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScalePx(38, scale), width - HST_UIWorkspaceMetrics.ScalePx(48, scale), HST_UIWorkspaceMetrics.ScalePx(42, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFF2F4F0, false);
-		m_fExternalNotificationRemaining = Math.Max(1.0, durationSeconds);
-	}
 
-	protected Widget CreateExternalRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2851, parent);
-		if (!widget)
-			return null;
+		Widget accentLine = root.FindAnyWidget("AccentLine");
+		if (accentLine)
+			accentLine.SetColorInt(0xFFC4953B);
 
-		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		SetupExternalCanvasRect(widget, width, height, color);
-		widget.SetOpacity(opacity);
-		return widget;
-	}
-
-	protected bool SetupExternalCanvasRect(Widget widget, int width, int height, int color)
-	{
-		CanvasWidget canvas = CanvasWidget.Cast(widget);
-		if (!canvas)
-			return false;
-
-		HST_CommandMenuDrawCommandSet commandSet = new HST_CommandMenuDrawCommandSet();
-		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
-		rectCommand.m_iColor = color;
-		rectCommand.m_Vertices = BuildRectVertices(width, height);
-		commandSet.m_aCommands.Insert(rectCommand);
-		canvas.SetDrawCommands(commandSet.m_aCommands);
-		m_aExternalNotificationCommandSets.Insert(commandSet);
-		return true;
-	}
-
-	protected TextWidget CreateExternalTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, bool bold)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, 2852, parent);
-		if (!widget)
-			return null;
-
-		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (textWidget)
+		TextWidget titleWidget = TextWidget.Cast(root.FindAnyWidget("Title"));
+		if (titleWidget)
 		{
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(false);
-			ApplyTextStyle(textWidget, fontSize, bold);
+			titleWidget.SetText(ShortenText(title, 44));
+			titleWidget.SetTextWrapping(false);
+			ApplyTextStyle(titleWidget, HST_UIWorkspaceMetrics.ScaleFont(18, scale), true);
+			titleWidget.SetColorInt(0xFFF2D18B);
 		}
 
-		widget.SetColorInt(color);
-		return textWidget;
+		TextWidget messageWidget = TextWidget.Cast(root.FindAnyWidget("Message"));
+		if (messageWidget)
+		{
+			messageWidget.SetText(ShortenText(message, 140));
+			messageWidget.SetTextWrapping(true);
+			ApplyTextStyle(messageWidget, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false);
+			messageWidget.SetColorInt(0xFFF2F4F0);
+		}
+
+		m_fExternalNotificationRemaining = Math.Max(1.0, durationSeconds);
 	}
 
 	protected void RenderHeader(WorkspaceWidget workspace, Widget root)
@@ -1305,26 +1313,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		int w = m_Layout.m_iRootWidth;
-		int h = m_Layout.m_iHeaderHeight;
-		CreateRectWidget(workspace, root, 0, 0, w, h, 0xFF111920, 0.98, 0);
-		CreateTextWidget(workspace, root, "h-istasi HQ", ScalePx(24), ScalePx(12), ScalePx(260), h - ScalePx(16), m_Layout.m_iFontHeader, 0xFFF2D18B, 0, true);
-
-		if (!m_Layout.m_bVeryCompact)
-			CreateTextWidget(workspace, root, "FIA Resistance Command", ScalePx(300), ScalePx(28), ScalePx(300), ScalePx(28), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
-
-		int closeW = ScalePx(96);
-		int closeH = ScalePx(44);
-		int closeLeft = w - closeW - ScalePx(24);
-		int titleLeft = ScalePx(640);
-		if (m_Layout.m_bCompact)
-			titleLeft = ScalePx(420);
-		if (m_Layout.m_bVeryCompact)
-			titleLeft = ScalePx(260);
-
-		CreateWrappedTextWidget(workspace, root, BuildSelectedTabTitle(), titleLeft, ScalePx(14), Math.Max(ScalePx(160), closeLeft - titleLeft - ScalePx(20)), ScalePx(46), m_Layout.m_iFontTitle, 0xFFECE6D2, 0, true);
-		CreateRectWidget(workspace, root, closeLeft, ScalePx(16), closeW, closeH, 0xFF5F6C76, 0.96, CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Close", closeLeft + ScalePx(18), ScalePx(28), closeW - ScalePx(28), ScalePx(24), m_Layout.m_iFontNormal, 0xFFF4EBD6, CLOSE_WIDGET_ID, true);
+		SetMenuText(root, "HeaderTitle", "h-istasi HQ", 0xFFF2D18B, m_Layout.m_iFontHeader, true, false);
+		SetMenuText(root, "HeaderSubtitle", "FIA Resistance Command", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, false);
+		SetMenuText(root, "HeaderTabTitle", BuildSelectedTabTitle(), 0xFFECE6D2, m_Layout.m_iFontTitle, true, true);
+		SetMenuText(root, "CloseLabel", "Close", 0xFFF4EBD6, m_Layout.m_iFontNormal, true, false);
+		SetMenuWidgetColor(root, "CloseButtonBackground", 0xFF5F6C76, 0.96);
+		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
@@ -1332,19 +1326,30 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		int left = m_Layout.m_iStatsLeft;
-		int top = m_Layout.m_iStatsTop;
-		int width = m_Layout.m_iStatCardWidth;
-		int gap = m_Layout.m_iStatCardGap;
+		for (int i = 0; i < 4; i++)
+		{
+			SetMenuWidgetColor(root, string.Format("Stat%1Background", i), ToneBackgroundColor(""), 0.96);
+			SetMenuText(root, string.Format("Stat%1Label", i), "", 0xFFCAD2D7, m_Layout.m_iFontSmall, false, true);
+			SetMenuText(root, string.Format("Stat%1Value", i), "", ToneTextColor(""), m_Layout.m_iFontNormal, true, true);
+		}
+
 		for (int i = 0; i < m_aStatLabels.Count(); i++)
 		{
 			if (i >= 4)
 				break;
 
-			int x = left + i * (width + gap);
-			CreateRectWidget(workspace, root, x, top, width, m_Layout.m_iStatsHeight, ToneBackgroundColor(m_aStatTones[i]), 0.96, 0);
-			CreateWrappedTextWidget(workspace, root, m_aStatLabels[i], x + ScalePx(10), top + ScalePx(7), width - ScalePx(20), ScalePx(20), m_Layout.m_iFontSmall, 0xFFCAD2D7, 0, false);
-			CreateWrappedTextWidget(workspace, root, m_aStatValues[i], x + ScalePx(10), top + ScalePx(29), width - ScalePx(20), ScalePx(28), m_Layout.m_iFontNormal, ToneTextColor(m_aStatTones[i]), 0, true);
+			string label = "";
+			string value = "";
+			string tone = "";
+			label = m_aStatLabels[i];
+			if (m_aStatValues.IsIndexValid(i))
+				value = m_aStatValues[i];
+			if (m_aStatTones.IsIndexValid(i))
+				tone = m_aStatTones[i];
+
+			SetMenuWidgetColor(root, string.Format("Stat%1Background", i), ToneBackgroundColor(tone), 0.96);
+			SetMenuText(root, string.Format("Stat%1Label", i), label, 0xFFCAD2D7, m_Layout.m_iFontSmall, false, true);
+			SetMenuText(root, string.Format("Stat%1Value", i), value, ToneTextColor(tone), m_Layout.m_iFontNormal, true, true);
 		}
 	}
 
@@ -1353,20 +1358,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		int left = m_Layout.m_iNavLeft;
-		int top = m_Layout.m_iNavTop;
-		int width = m_Layout.m_iNavWidth;
-		int height = m_Layout.m_iNavHeight;
+		SetMenuText(root, "NavigationTitle", "Navigation", 0xFFE6DECB, m_Layout.m_iFontTitle, true, false);
 
-		CreateRectWidget(workspace, root, left, top, width, height, 0xFF0F151B, 0.98, 0);
-		CreateTextWidget(workspace, root, "Navigation", left + ScalePx(18), top + ScalePx(16), width - ScalePx(36), ScalePx(28), m_Layout.m_iFontTitle, 0xFFE6DECB, 0, true);
-		int rowTop = top + ScalePx(58);
+		Widget items = FindMenuWidget(root, "TabItems");
+		if (!items)
+			return;
+
 		for (int i = 0; i < m_aTabLabels.Count(); i++)
 		{
-			int rowY = rowTop + i * (m_Layout.m_iTabRowHeight + ScalePx(6));
-			if (rowY + m_Layout.m_iTabRowHeight > top + height - ScalePx(12))
-				break;
-
 			bool selected = m_aTabIds[i] == m_sSelectedTab;
 			bool focused = m_iSelectedControl == i;
 			int background = 0x00222222;
@@ -1378,7 +1377,6 @@ class HST_CommandMenuComponent : ScriptComponent
 			float opacity = 0.01;
 			if (selected || focused)
 				opacity = 0.96;
-			CreateRectWidget(workspace, root, left + ScalePx(12), rowY, width - ScalePx(24), m_Layout.m_iTabRowHeight, background, opacity, TAB_WIDGET_ID_BASE + i);
 
 			string label = m_aTabLabels[i];
 			if (focused)
@@ -1391,7 +1389,15 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!m_aTabEnabled[i])
 				color = 0xFF687179;
 
-			CreateWrappedTextWidget(workspace, root, label, left + ScalePx(22), rowY + ScalePx(8), width - ScalePx(44), m_Layout.m_iTabRowHeight - ScalePx(8), m_Layout.m_iFontNormal, color, TAB_WIDGET_ID_BASE + i, selected);
+			Widget row = workspace.CreateWidgets(COMMAND_ACTION_ROW_LAYOUT, items);
+			DebugRowCreated("COMMAND_ACTION_ROW_LAYOUT tab", row);
+			if (!row)
+				continue;
+
+			PrepareRowRoot(row);
+			BindRowClick(row, TAB_WIDGET_ID_BASE + i);
+			SetRowImageColor(row, "Background", background, opacity);
+			SetRowText(row, "Label", label, color, m_Layout.m_iFontNormal, selected, true);
 		}
 	}
 
@@ -1400,17 +1406,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, m_Layout.m_iMainLeft, m_Layout.m_iMainTop, m_Layout.m_iMainWidth, ScalePx(4), 0xFFC4953B, 1.0, 0);
-
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, m_Layout.m_iMainContentHeight, scroll, items, false);
-		m_ContentScroll = scroll;
+		m_ContentScroll = ScrollLayoutWidget.Cast(FindMenuWidget(root, "MainScroll"));
+		Widget items = FindMenuWidget(root, "MainItems");
 
 		if (!items)
 		{
-			CreateWrappedTextWidget(workspace, root, "Main content unavailable: scroll layout missing Items.", m_Layout.m_iMainContentLeft, m_Layout.m_iMainContentTop, m_Layout.m_iMainContentWidth, ScalePx(40), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetMenuText(root, "HeaderTabTitle", "Main content unavailable: layout missing MainItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -1520,33 +1521,16 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActivityTop, m_Layout.m_iRightWidth, m_Layout.m_iActivityHeight, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActivityTop, m_Layout.m_iRightWidth, ScalePx(4), 0xFF50704A, 1.0, 0);
-		CreateTextWidget(workspace, root, "Activity", m_Layout.m_iActivityTextLeft, m_Layout.m_iActivityTop + ScalePx(18), ScalePx(180), ScalePx(30), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
-		int resultTop = m_Layout.m_iActivityTop + ScalePx(54);
-		int resultHeight = ScalePx(66);
-		if (m_Layout.m_bCompact)
-			resultHeight = ScalePx(46);
-		CreateWrappedTextWidget(workspace, root, BuildResultText(), m_Layout.m_iActivityTextLeft, resultTop, m_Layout.m_iActivityTextWidth, resultHeight, m_Layout.m_iFontNormal, 0xFFD2E7B8, 0, false);
+		SetMenuText(root, "ActivityTitle", "Activity", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
+		SetMenuText(root, "ActivityResult", BuildResultText(), 0xFFD2E7B8, m_Layout.m_iFontNormal, false, true);
+		SetMenuText(root, "ActivityFeedTitle", "Campaign Notes", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
 
-		int feedTop = resultTop + resultHeight + ScalePx(10);
-		if (feedTop + ScalePx(52) > m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight)
-			return;
-
-		CreateWrappedTextWidget(workspace, root, "Campaign Notes", m_Layout.m_iActivityTextLeft, feedTop, m_Layout.m_iActivityTextWidth, ScalePx(28), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
-
-		int listTop = feedTop + ScalePx(36);
-		int listBottom = m_Layout.m_iActivityTop + m_Layout.m_iActivityHeight - ScalePx(10);
-		int listHeight = Math.Max(1, listBottom - listTop);
-
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, m_Layout.m_iActivityTextLeft, listTop, m_Layout.m_iActivityTextWidth, listHeight, scroll, items, false);
-		m_FeedScroll = scroll;
+		m_FeedScroll = ScrollLayoutWidget.Cast(FindMenuWidget(root, "ActivityScroll"));
+		Widget items = FindMenuWidget(root, "ActivityItems");
 
 		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Activity feed unavailable: scroll layout missing Items.", m_Layout.m_iActivityTextLeft, listTop, m_Layout.m_iActivityTextWidth, ScalePx(28), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetMenuText(root, "ActivityResult", "Activity feed unavailable: layout missing ActivityItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -1582,20 +1566,14 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActionsTop, m_Layout.m_iRightWidth, m_Layout.m_iActionsHeight, 0xF31A232B, 0.98, 0);
-		CreateRectWidget(workspace, root, m_Layout.m_iRightLeft, m_Layout.m_iActionsTop, m_Layout.m_iRightWidth, ScalePx(4), 0xFF8C4E43, 1.0, 0);
-		CreateTextWidget(workspace, root, "Actions", m_Layout.m_iActionsTextLeft, m_Layout.m_iActionsTop + ScalePx(18), ScalePx(170), ScalePx(30), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
-		int listTop = m_Layout.m_iActionsTop + ScalePx(58);
-		int listHeight = Math.Max(1, m_Layout.m_iActionsTop + m_Layout.m_iActionsHeight - listTop - ScalePx(16));
+		SetMenuText(root, "ActionsTitle", "Actions", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
 
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, root, VERTICAL_SCROLL_LIST_LAYOUT, m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, listHeight, scroll, items, false);
-		m_ActionScroll = scroll;
+		m_ActionScroll = ScrollLayoutWidget.Cast(FindMenuWidget(root, "ActionsScroll"));
+		Widget items = FindMenuWidget(root, "ActionsItems");
 
 		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Actions unavailable: scroll layout missing Items.", m_Layout.m_iActionsTextLeft, listTop, m_Layout.m_iActionsTextWidth, ScalePx(30), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetMenuText(root, "ActionsTitle", "Actions unavailable: layout missing ActionsItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -2026,8 +2004,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_aExternalNotificationWidgets.Clear();
-		m_aExternalNotificationCommandSets.Clear();
 		m_fExternalNotificationRemaining = 0;
+		HST_UIRootService.Get().NotifyNotificationHidden();
 	}
 
 	protected void ClearRichPayload()

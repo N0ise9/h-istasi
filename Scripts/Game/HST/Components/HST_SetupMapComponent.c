@@ -7,6 +7,14 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 		m_Component = component;
 	}
 
+	override bool OnClick(Widget w, int x, int y, int button)
+	{
+		if (!m_Component)
+			return true;
+
+		return m_Component.OnSetupOverlayClicked(w, w.GetUserID(), x, y);
+	}
+
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
 		if (!m_Component)
@@ -22,11 +30,14 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 
 		return m_Component.OnSetupOverlayPressed(w, w.GetUserID(), x, y);
 	}
-}
 
-class HST_SetupMapDrawCommandSet
-{
-	ref array<ref CanvasWidgetCommand> m_aCommands = {};
+	override bool OnMouseWheel(Widget w, int x, int y, int wheel)
+	{
+		if (!m_Component)
+			return true;
+
+		return m_Component.OnSetupOverlayMouseWheel(w, w.GetUserID(), x, y, wheel);
+	}
 }
 
 [ComponentEditorProps(category: "h-istasi", description: "Client setup tactical map for initial HQ placement")]
@@ -39,18 +50,19 @@ class HST_SetupMapComponent : ScriptComponent
 	static const int CONFIRM_YES_WIDGET_ID = 71002;
 	static const int CONFIRM_NO_WIDGET_ID = 71003;
 	static const int CONFIRM_BLOCKER_WIDGET_ID = 71004;
-	// SCR_CursorCustom is a workspace-level widget at z-order 10; keep setup below it.
+	// Keep the map root below the cursor; prompt/modal children get explicit high z-order.
 	static const int SETUP_Z_ORDER = 9;
-	static const int SETUP_OVERLAY_Z_ORDER = 51000;
+	static const int SETUP_PROMPT_Z_ORDER = 51000;
 	static const int SETUP_MODAL_Z_ORDER = 52000;
-	static const int SETUP_MAP_MARKER_Z_ORDER = SETUP_OVERLAY_Z_ORDER + 10;
-	static const int SETUP_CHROME_Z_ORDER = SETUP_OVERLAY_Z_ORDER + 40;
 	static const float SETUP_STATE_REQUEST_INTERVAL_SECONDS = 2.5;
 	static const float SETUP_SERVER_REQUEST_TIMEOUT_SECONDS = 5.0;
 	static const float SETUP_VALIDATION_RESULT_TOLERANCE_METERS = 8.0;
 	static const float SETUP_MODAL_CLICK_SUPPRESSION_SECONDS = 0.75;
 	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
+	static const bool SETUP_ZONE_OVERLAY_ENABLED = false;
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
+	static const ResourceName SETUP_PROMPT_BANNER_LAYOUT = "{A34F448C7E810600}UI/layouts/HST_SetupPromptBanner.layout";
+	static const ResourceName SETUP_CONFIRM_BLOCKER_LAYOUT = "{B55C6FB34BF96000}UI/layouts/HST_SetupConfirmBlocker.layout";
 	static const ResourceName SETUP_CONFIRM_MODAL_LAYOUT = "{B55C6FB34BF94000}UI/layouts/HST_SetupConfirmModal.layout";
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
@@ -78,6 +90,7 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool m_bSetupFinalized;
 	protected bool m_bOverlayDirty = true;
 	protected bool m_bSetupLocationSelectionEnabled;
+	protected bool m_bMapCursorDialogActive;
 	protected string m_sPhase = "setup";
 	protected string m_sStatusText = "Waiting for setup state...";
 	protected string m_sLastResult;
@@ -96,42 +109,35 @@ class HST_SetupMapComponent : ScriptComponent
 	protected ref array<float> m_aZoneRadii = {};
 	protected ref array<string> m_aZoneTones = {};
 	protected ref array<Widget> m_aWidgets = {};
-	protected ref array<Widget> m_aOverlayWidgets = {};
 	protected ref array<Widget> m_aModalWidgets = {};
-	protected ref array<Widget> m_aChromeWidgets = {};
-	protected ref array<ref HST_SetupMapDrawCommandSet> m_aChromeDrawCommandSets = {};
-	protected ref array<ref HST_SetupMapDrawCommandSet> m_aOverlayDrawCommandSets = {};
-	protected ref array<ref HST_SetupMapDrawCommandSet> m_aModalDrawCommandSets = {};
 	protected ref HST_SetupMapWidgetHandler m_WidgetHandler;
 	protected SCR_MapEntity m_MapEntity;
 	protected Widget m_wSetupRoot;
+	protected Widget m_wMapMenuRoot;
 	protected Widget m_wOverlayRoot;
+	protected Widget m_wPromptRoot;
+	protected Widget m_wPromptPanel;
+	protected Widget m_wPromptRule;
 	protected TextWidget m_wPromptText;
+	protected Widget m_wConfirmBlockerRoot;
 	protected Widget m_wConfirmModalRoot;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRequestAccumulator;
 	protected float m_fAwaitingServerAccumulator;
 	protected float m_fDebugHeartbeatAccumulator;
 	protected float m_fModalClickSuppressionSeconds;
-	protected int m_iScreenW; // Workspace width used for script-created widgets.
-	protected int m_iScreenH; // Workspace height used for script-created widgets.
+	protected int m_iScreenW;
+	protected int m_iScreenH;
 	protected int m_iSetupStateRequestCount;
 	protected int m_iSetupPayloadCount;
 	protected int m_iSetupResultCount;
 	protected int m_iOverlayRenderCount;
 	protected int m_iSetupMapReadyRetries;
 	protected int m_iMapReadyFrames;
-	protected int m_iConfirmNoLeft;
-	protected int m_iConfirmNoTop;
-	protected int m_iConfirmYesLeft;
-	protected int m_iConfirmYesTop;
-	protected int m_iConfirmButtonW;
-	protected int m_iConfirmButtonH;
 	protected bool m_bLoggedLocalReady;
 	protected bool m_bLoggedBridgeMissing;
 	protected bool m_bLoggedBridgeRecovered;
 	protected float m_fScale = 1.0;
-	protected Widget m_wModalRoot;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -207,6 +213,7 @@ class HST_SetupMapComponent : ScriptComponent
 		TickModalClickSuppression(timeSlice);
 		RefreshScreenMetrics();
 		EnsureNativeSetupMapOpen();
+		ApplySetupLayerOrder();
 		UpdateSetupPrompt();
 		UpdateConfirmationVisibility();
 		UpdateSetupLocationSelectionMode();
@@ -264,7 +271,13 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bHasAuthoritativeSetupState = true;
 		m_sLastResult = lastResult;
 		ParseSetupStatePayload(payload);
-		PublishSetupZoneOverlay();
+		if (SETUP_ZONE_OVERLAY_ENABLED)
+			PublishSetupZoneOverlay();
+		else
+		{
+			m_sLastSetupZoneOverlaySignature = "";
+			HST_MapZoneOverlayUIComponent.ClearSetupZones();
+		}
 		DebugLog(string.Format("state payload #%1 phase=%2 active=%3 commander=%4 zones=%5 status=%6", m_iSetupPayloadCount, m_sPhase, m_bSetupActive, m_bIsCommander, m_aZoneIds.Count(), ShortenText(m_sStatusText, 96)));
 		if (!m_bSetupActive)
 		{
@@ -389,7 +402,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!m_bSetupActive)
 			return true;
 
-		int resolvedWidgetId = ResolveConfirmWidgetId(widget, widgetId, x, y);
+		int resolvedWidgetId = widgetId;
 		if (IsConfirmModalInput(widget, resolvedWidgetId, x, y))
 			SuppressNativeMapSelection();
 
@@ -409,74 +422,23 @@ class HST_SetupMapComponent : ScriptComponent
 		return true;
 	}
 
-	protected int ResolveConfirmWidgetId(Widget widget, int widgetId, int x, int y)
+	bool OnSetupOverlayMouseWheel(Widget widget, int widgetId, int x, int y, int wheel)
 	{
-		if (!m_bConfirmOpen)
-			return widgetId;
-		if (widgetId == CONFIRM_YES_WIDGET_ID || widgetId == CONFIRM_NO_WIDGET_ID)
-			return widgetId;
+		if (m_bSetupActive && m_bConfirmOpen && IsConfirmModalInput(widget, widgetId, x, y))
+		{
+			SuppressNativeMapSelection();
+			return true;
+		}
 
-		if (IsWidgetPointInsideRect(widget, x, y, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH))
-			return CONFIRM_YES_WIDGET_ID;
-		if (IsWidgetPointInsideRect(widget, x, y, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH))
-			return CONFIRM_NO_WIDGET_ID;
-
-		return widgetId;
+		return true;
 	}
 
 	protected bool IsConfirmModalInput(Widget widget, int widgetId, int x, int y)
 	{
 		if (widgetId == CONFIRM_YES_WIDGET_ID || widgetId == CONFIRM_NO_WIDGET_ID || widgetId == CONFIRM_BLOCKER_WIDGET_ID)
 			return true;
-		if (!m_bConfirmOpen)
-			return false;
 
-		return IsWidgetPointInsideRect(widget, x, y, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH)
-			|| IsWidgetPointInsideRect(widget, x, y, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH);
-	}
-
-	protected bool HandleConfirmModalMapSelection(int layoutX, int layoutY, int alternateLayoutX, int alternateLayoutY)
-	{
-		int resolvedWidgetId = ResolveConfirmLayoutPoint(layoutX, layoutY);
-		if (resolvedWidgetId == 0)
-			resolvedWidgetId = ResolveConfirmLayoutPoint(alternateLayoutX, alternateLayoutY);
-
-		SuppressNativeMapSelection();
-
-		if (resolvedWidgetId == CONFIRM_NO_WIDGET_ID)
-		{
-			CancelConfirmSelection();
-			return true;
-		}
-
-		if (resolvedWidgetId == CONFIRM_YES_WIDGET_ID)
-		{
-			if (m_bCandidateValid && !m_bAwaitingServer)
-				RequestConfirmPosition();
-
-			return true;
-		}
-
-		DebugLog("ignored native map selection behind setup confirmation modal");
-		return true;
-	}
-
-	protected int ResolveConfirmLayoutPoint(int layoutX, int layoutY)
-	{
-		if (!m_bConfirmOpen)
-			return 0;
-
-		return ResolveConfirmLayoutPointUnchecked(layoutX, layoutY);
-	}
-
-	protected int ResolveConfirmLayoutPointUnchecked(int layoutX, int layoutY)
-	{
-		if (IsPointInsideRect(layoutX, layoutY, m_iConfirmYesLeft, m_iConfirmYesTop, m_iConfirmButtonW, m_iConfirmButtonH))
-			return CONFIRM_YES_WIDGET_ID;
-		if (IsPointInsideRect(layoutX, layoutY, m_iConfirmNoLeft, m_iConfirmNoTop, m_iConfirmButtonW, m_iConfirmButtonH))
-			return CONFIRM_NO_WIDGET_ID;
-
-		return 0;
+		return false;
 	}
 
 	protected void CancelConfirmSelection()
@@ -633,6 +595,10 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!workspace)
 			return;
 
+		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_SetupMap");
+		HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
+		EnsureSetupPromptLayout(workspace);
+
 		if (!m_wSetupRoot)
 		{
 			m_wSetupRoot = workspace.CreateWidgets(SETUP_NATIVE_MAP_LAYOUT);
@@ -644,15 +610,13 @@ class HST_SetupMapComponent : ScriptComponent
 			}
 
 			m_wSetupRoot.SetZOrder(SETUP_Z_ORDER);
+			HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent", m_wSetupRoot, true, true, false);
 			m_aWidgets.Insert(m_wSetupRoot);
-			m_wOverlayRoot = m_wSetupRoot.FindAnyWidget("HST_SetupOverlayRoot");
-			if (!m_wOverlayRoot)
-				m_wOverlayRoot = m_wSetupRoot;
-			m_wModalRoot = m_wSetupRoot.FindAnyWidget("HST_SetupModalRoot");
-			if (!m_wModalRoot)
-				m_wModalRoot = m_wSetupRoot;
+			m_wMapMenuRoot = m_wSetupRoot.FindAnyWidget("MapMenu");
+			m_wOverlayRoot = m_wSetupRoot;
 
-			m_wPromptText = CreatePromptText(workspace, m_wOverlayRoot);
+			ApplySetupLayerOrder();
+			UpdateSetupPrompt();
 			m_bOverlayDirty = true;
 		}
 
@@ -693,6 +657,7 @@ class HST_SetupMapComponent : ScriptComponent
 		ResetSetupMapReadyState();
 		m_MapEntity.OpenMap(mapConfig);
 		m_bNativeMapOpen = true;
+		ApplySetupLayerOrder();
 		QueueApplySetupMapReadyState();
 		DebugLog("native setup map opened");
 	}
@@ -712,6 +677,7 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void CloseNativeSetupMap()
 	{
+		ReleaseSetupMapDialogState();
 		SetSetupLocationSelectionEnabled(false);
 		ClearSetupCandidateOverlay();
 		HST_MapZoneOverlayUIComponent.ClearSetupZones();
@@ -732,12 +698,14 @@ class HST_SetupMapComponent : ScriptComponent
 		m_bNativeMapOpen = false;
 		ResetSetupMapReadyState();
 		ClearModalWidgets();
-		ClearOverlayWidgets();
-		ClearChromeWidgets();
 		ClearWidgets();
+		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, "HST_SetupMapComponent");
 		m_wSetupRoot = null;
+		m_wMapMenuRoot = null;
 		m_wOverlayRoot = null;
-		m_wModalRoot = null;
+		m_wPromptRoot = null;
+		m_wPromptPanel = null;
+		m_wPromptRule = null;
 		m_wPromptText = null;
 	}
 
@@ -753,7 +721,8 @@ class HST_SetupMapComponent : ScriptComponent
 
 		if (m_bSetupActive && m_bConfirmOpen)
 		{
-			HandleConfirmModalMapSelection(layoutX, layoutY, alternateLayoutX, alternateLayoutY);
+			SuppressNativeMapSelection();
+			DebugLog("ignored native map selection behind setup confirmation modal");
 			return;
 		}
 
@@ -804,6 +773,7 @@ class HST_SetupMapComponent : ScriptComponent
 		{
 			m_bSetupMapOpenComplete = true;
 			m_iMapReadyFrames = 0;
+			ApplySetupLayerOrder();
 			QueueApplySetupMapReadyState();
 		}
 
@@ -890,6 +860,8 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void UpdateSetupLocationSelectionMode()
 	{
+		ApplySetupMapDialogState();
+
 		bool shouldEnable = m_bSetupActive
 			&& m_bIsCommander
 			&& !m_bConfirmOpen
@@ -916,6 +888,40 @@ class HST_SetupMapComponent : ScriptComponent
 
 		cursorModule.ToggleLocationSelection(enabled);
 		m_bSetupLocationSelectionEnabled = enabled;
+	}
+
+	protected void ApplySetupMapDialogState()
+	{
+		bool shouldBlockMap = m_bSetupActive && m_bConfirmOpen;
+		if (!m_MapEntity || !m_MapEntity.IsOpen())
+		{
+			m_bMapCursorDialogActive = false;
+			return;
+		}
+
+		SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
+		if (!cursorModule)
+			return;
+		if (m_bMapCursorDialogActive == shouldBlockMap)
+			return;
+
+		cursorModule.HandleDialog(shouldBlockMap);
+		m_bMapCursorDialogActive = shouldBlockMap;
+	}
+
+	protected void ReleaseSetupMapDialogState()
+	{
+		if (!m_bMapCursorDialogActive)
+			return;
+
+		if (m_MapEntity && m_MapEntity.IsOpen())
+		{
+			SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
+			if (cursorModule)
+				cursorModule.HandleDialog(false);
+		}
+
+		m_bMapCursorDialogActive = false;
 	}
 
 	protected bool IsSetupMapViewReady()
@@ -1040,12 +1046,8 @@ class HST_SetupMapComponent : ScriptComponent
 			if (m_bSetupMapOpenComplete)
 				QueueApplySetupMapReadyState();
 
-			if (m_wOverlayRoot)
-			{
-				ClearChromeWidgets();
-				m_wPromptText = CreatePromptText(workspace, m_wOverlayRoot);
-				UpdateSetupPrompt();
-			}
+			ApplySetupPromptStyle();
+			UpdateSetupPrompt();
 
 			if (m_bConfirmOpen)
 			{
@@ -1055,21 +1057,39 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 	}
 
-	protected TextWidget CreatePromptText(WorkspaceWidget workspace, Widget parent)
+	protected void EnsureSetupPromptLayout(WorkspaceWidget workspace)
 	{
-		Widget panel = CreateRectWidgetAtZ(workspace, parent, 0, 0, Math.Max(1, m_iScreenW), ScalePx(76), 0xFF0D1318, 1.0, 0, SETUP_CHROME_Z_ORDER, m_aChromeDrawCommandSets);
-		if (panel)
-			m_aChromeWidgets.Insert(panel);
+		if (!workspace || m_wPromptRoot)
+			return;
 
-		Widget rule = CreateRectWidgetAtZ(workspace, parent, 0, ScalePx(72), Math.Max(1, m_iScreenW), ScalePx(4), 0xFFC4953B, 1.0, 0, SETUP_CHROME_Z_ORDER + 1, m_aChromeDrawCommandSets);
-		if (rule)
-			m_aChromeWidgets.Insert(rule);
+		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT);
+		if (!m_wPromptRoot)
+		{
+			DebugLog("setup prompt banner layout failed to load");
+			return;
+		}
 
-		TextWidget prompt = CreateWrappedTextWidgetAtZ(workspace, parent, "", ScalePx(36), ScalePx(18), Math.Max(1, m_iScreenW - ScalePx(72)), ScalePx(42), ScaleFont(22), 0xFFF2E6CA, 0, true, SETUP_CHROME_Z_ORDER + 2);
-		if (prompt)
-			m_aChromeWidgets.Insert(prompt);
+		m_wPromptRoot.SetVisible(true);
+		m_wPromptRoot.SetOpacity(1.0);
+		m_wPromptRoot.SetZOrder(SETUP_PROMPT_Z_ORDER);
+		m_wPromptRoot.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+		m_aWidgets.Insert(m_wPromptRoot);
+		m_wPromptText = TextWidget.Cast(m_wPromptRoot.FindAnyWidget("HST_SetupPromptText"));
+		m_wPromptPanel = m_wPromptRoot.FindAnyWidget("HST_SetupPromptPanel");
+		m_wPromptRule = m_wPromptRoot.FindAnyWidget("HST_SetupPromptRule");
+		ApplySetupPromptStyle();
+		ApplySetupLayerOrder();
+		UpdateSetupPrompt();
+	}
 
-		return prompt;
+	protected void ApplySetupPromptStyle()
+	{
+		if (!m_wPromptText)
+			return;
+
+		m_wPromptText.SetTextWrapping(true);
+		ApplyTextStyle(m_wPromptText, ScaleFont(22), true);
+		m_wPromptText.SetColorInt(0xFFF2E6CA);
 	}
 
 	protected void UpdateSetupPrompt()
@@ -1088,6 +1108,33 @@ class HST_SetupMapComponent : ScriptComponent
 		m_wPromptText.SetText(prompt);
 	}
 
+	protected void ApplySetupLayerOrder()
+	{
+		if (m_wSetupRoot)
+		{
+			m_wSetupRoot.SetVisible(true);
+			m_wSetupRoot.SetZOrder(SETUP_Z_ORDER);
+		}
+
+		if (m_wMapMenuRoot)
+		{
+			m_wMapMenuRoot.SetVisible(true);
+			m_wMapMenuRoot.SetZOrder(0);
+		}
+
+		SetWidgetLayer(m_wPromptRoot, SETUP_PROMPT_Z_ORDER, true);
+		SetWidgetLayer(m_wPromptPanel, SETUP_PROMPT_Z_ORDER + 1, true);
+		SetWidgetLayer(m_wPromptRule, SETUP_PROMPT_Z_ORDER + 2, true);
+
+		if (m_wPromptText)
+		{
+			m_wPromptText.SetVisible(true);
+			m_wPromptText.SetZOrder(SETUP_PROMPT_Z_ORDER + 3);
+		}
+
+		ApplyConfirmModalLayerOrder(m_wConfirmModalRoot);
+	}
+
 	protected void UpdateConfirmationVisibility()
 	{
 		if (!m_bConfirmOpen)
@@ -1101,21 +1148,38 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace || !m_wSetupRoot)
+		if (!workspace)
 			return;
 
-		int modalW = 620;
-		int modalH = 280;
-		int left = (m_iScreenW - modalW) / 2;
-		int top = (m_iScreenH - modalH) / 2;
-		CreateModalRect(workspace, 0, 0, m_iScreenW, m_iScreenH, 0xA8000000, 1.0, CONFIRM_BLOCKER_WIDGET_ID, SETUP_MODAL_Z_ORDER + 1);
-		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, ResolveModalRoot());
-		if (!modal)
+		Widget blocker = workspace.CreateWidgets(SETUP_CONFIRM_BLOCKER_LAYOUT);
+		if (!blocker)
+		{
+			DebugLog("setup confirmation blocker layout failed to load");
+			ClearModalWidgets();
 			return;
+		}
+
+		blocker.SetZOrder(SETUP_MODAL_Z_ORDER + 1);
+		blocker.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
+		blocker.AddHandler(m_WidgetHandler);
+		m_aModalWidgets.Insert(blocker);
+		m_wConfirmBlockerRoot = blocker;
+
+		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT);
+		if (!modal)
+		{
+			DebugLog("setup confirmation modal layout failed to load");
+			ClearModalWidgets();
+			return;
+		}
 
 		modal.SetZOrder(SETUP_MODAL_Z_ORDER + 3);
+		modal.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
+		modal.AddHandler(m_WidgetHandler);
 		m_aModalWidgets.Insert(modal);
 		m_wConfirmModalRoot = modal;
+		ApplySetupLayerOrder();
+		ApplyConfirmModalLayerOrder(modal);
 
 		BindConfirmModalButton(modal, "NoButton", CONFIRM_NO_WIDGET_ID);
 		BindConfirmModalButton(modal, "YesButton", CONFIRM_YES_WIDGET_ID);
@@ -1143,17 +1207,34 @@ class HST_SetupMapComponent : ScriptComponent
 			yesLabel.SetColorInt(0xFF111820);
 		}
 
-		int buttonW = 160;
-		int buttonH = 50;
-		int buttonTop = top + modalH - 74;
-		int noLeft = left + modalW / 2 - 172;
-		int yesLeft = left + modalW / 2 + 12;
-		m_iConfirmNoLeft = noLeft;
-		m_iConfirmNoTop = buttonTop;
-		m_iConfirmYesLeft = yesLeft;
-		m_iConfirmYesTop = buttonTop;
-		m_iConfirmButtonW = buttonW;
-		m_iConfirmButtonH = buttonH;
+		ApplyConfirmModalLayerOrder(modal);
+		ApplySetupLayerOrder();
+	}
+
+	protected void ApplyConfirmModalLayerOrder(Widget modal)
+	{
+		SetWidgetLayer(m_wConfirmBlockerRoot, SETUP_MODAL_Z_ORDER + 1, true);
+
+		if (!modal)
+			return;
+
+		SetWidgetLayer(modal, SETUP_MODAL_Z_ORDER + 3, true);
+		SetWidgetLayer(modal.FindAnyWidget("Background"), SETUP_MODAL_Z_ORDER + 4, true);
+		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), SETUP_MODAL_Z_ORDER + 5, true);
+		SetWidgetLayer(modal.FindAnyWidget("Message"), SETUP_MODAL_Z_ORDER + 6, true);
+		SetWidgetLayer(modal.FindAnyWidget("NoButton"), SETUP_MODAL_Z_ORDER + 7, true);
+		SetWidgetLayer(modal.FindAnyWidget("YesButton"), SETUP_MODAL_Z_ORDER + 7, true);
+		SetWidgetLayer(modal.FindAnyWidget("NoLabel"), SETUP_MODAL_Z_ORDER + 8, true);
+		SetWidgetLayer(modal.FindAnyWidget("YesLabel"), SETUP_MODAL_Z_ORDER + 8, true);
+	}
+
+	protected void SetWidgetLayer(Widget widget, int zOrder, bool visible)
+	{
+		if (!widget)
+			return;
+
+		widget.SetVisible(visible);
+		widget.SetZOrder(zOrder);
 	}
 
 	protected void BindConfirmModalButton(Widget modal, string widgetName, int widgetId)
@@ -1194,134 +1275,6 @@ class HST_SetupMapComponent : ScriptComponent
 	{
 		int chromeHeight = ScalePx(76);
 		return layoutY <= chromeHeight || alternateLayoutY <= chromeHeight;
-	}
-
-	protected Widget CreateModalRect(WorkspaceWidget workspace, int left, int top, int width, int height, int color, float opacity, int userId, int zOrder)
-	{
-		Widget widget = CreateRectWidgetAtZ(workspace, ResolveModalRoot(), left, top, width, height, color, opacity, userId, zOrder, m_aModalDrawCommandSets);
-		if (widget)
-			m_aModalWidgets.Insert(widget);
-
-		return widget;
-	}
-
-	protected TextWidget CreateModalText(WorkspaceWidget workspace, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold, int zOrder)
-	{
-		TextWidget widget = CreateWrappedTextWidgetAtZ(workspace, ResolveModalRoot(), text, left, top, width, height, fontSize, color, userId, bold, zOrder);
-		if (widget)
-			m_aModalWidgets.Insert(widget);
-
-		return widget;
-	}
-
-	protected Widget CreateModalHitTarget(WorkspaceWidget workspace, int left, int top, int width, int height, int userId, int zOrder)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.ButtonWidgetTypeID, WidgetFlags.VISIBLE, null, zOrder, ResolveModalRoot());
-		if (!widget)
-			return null;
-
-		widget.SetZOrder(zOrder);
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		widget.SetOpacity(0.01);
-		widget.SetUserID(userId);
-		widget.AddHandler(m_WidgetHandler);
-		m_aModalWidgets.Insert(widget);
-		return widget;
-	}
-
-	protected Widget ResolveModalRoot()
-	{
-		if (m_wModalRoot)
-			return m_wModalRoot;
-
-		return m_wSetupRoot;
-	}
-
-	protected Widget CreateRectWidgetAtZ(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId, int zOrder, array<ref HST_SetupMapDrawCommandSet> commandSets)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, zOrder, parent);
-		if (!widget)
-			return null;
-
-		widget.SetZOrder(zOrder);
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		SetupPolygonWidget(widget, BuildRectVertices(width, height), color, commandSets);
-		widget.SetOpacity(opacity);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-		else
-		{
-			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		}
-
-		return widget;
-	}
-
-	protected TextWidget CreateWrappedTextWidgetAtZ(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold, int zOrder)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, zOrder, parent);
-		if (!widget)
-			return null;
-
-		widget.SetZOrder(zOrder);
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (textWidget)
-		{
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(true);
-			ApplyTextStyle(textWidget, fontSize, bold);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-		else
-		{
-			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		}
-
-		return textWidget;
-	}
-
-	protected bool SetupPolygonWidget(Widget widget, array<float> vertices, int color, array<ref HST_SetupMapDrawCommandSet> commandSets)
-	{
-		CanvasWidget canvas = CanvasWidget.Cast(widget);
-		if (!canvas)
-			return false;
-
-		HST_SetupMapDrawCommandSet commandSet = new HST_SetupMapDrawCommandSet();
-		PolygonDrawCommand command = new PolygonDrawCommand();
-		command.m_iColor = color;
-		command.m_Vertices = vertices;
-		commandSet.m_aCommands.Insert(command);
-		canvas.SetDrawCommands(commandSet.m_aCommands);
-		if (commandSets)
-			commandSets.Insert(commandSet);
-		return true;
-	}
-
-	protected ref array<float> BuildRectVertices(int width, int height)
-	{
-		ref array<float> vertices = {};
-		vertices.Insert(0.0);
-		vertices.Insert(0.0);
-		vertices.Insert(width);
-		vertices.Insert(0.0);
-		vertices.Insert(width);
-		vertices.Insert(height);
-		vertices.Insert(0.0);
-		vertices.Insert(height);
-		return vertices;
 	}
 
 	protected void ApplyTextStyle(TextWidget textWidget, int fontSize, bool bold)
@@ -1368,34 +1321,6 @@ class HST_SetupMapComponent : ScriptComponent
 	protected bool IsZeroVector(vector value)
 	{
 		return AbsFloat(value[0]) < 0.01 && AbsFloat(value[1]) < 0.01 && AbsFloat(value[2]) < 0.01;
-	}
-
-	protected bool IsPointInsideRect(int x, int y, int left, int top, int width, int height)
-	{
-		if (width <= 0 || height <= 0)
-			return false;
-		if (x < left || y < top)
-			return false;
-		if (x > left + width || y > top + height)
-			return false;
-
-		return true;
-	}
-
-	protected bool IsWidgetPointInsideRect(Widget widget, int x, int y, int left, int top, int width, int height)
-	{
-		if (IsPointInsideRect(x, y, left, top, width, height))
-			return true;
-		if (!widget)
-			return false;
-
-		float widgetX;
-		float widgetY;
-		widget.GetScreenPos(widgetX, widgetY);
-		if (IsPointInsideRect(Math.Round(widgetX) + x, Math.Round(widgetY) + y, left, top, width, height))
-			return true;
-
-		return false;
 	}
 
 	protected bool IsLatestValidationResult(vector resolvedPosition)
@@ -1516,32 +1441,6 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-		m_aChromeDrawCommandSets.Clear();
-	}
-
-	protected void ClearChromeWidgets()
-	{
-		foreach (Widget widget : m_aChromeWidgets)
-		{
-			if (widget)
-				widget.RemoveFromHierarchy();
-		}
-
-		m_aChromeWidgets.Clear();
-		m_aChromeDrawCommandSets.Clear();
-		m_wPromptText = null;
-	}
-
-	protected void ClearOverlayWidgets()
-	{
-		foreach (Widget widget : m_aOverlayWidgets)
-		{
-			if (widget)
-				widget.RemoveFromHierarchy();
-		}
-
-		m_aOverlayWidgets.Clear();
-		m_aOverlayDrawCommandSets.Clear();
 	}
 
 	protected void ClearModalWidgets()
@@ -1553,19 +1452,8 @@ class HST_SetupMapComponent : ScriptComponent
 		}
 
 		m_aModalWidgets.Clear();
-		m_aModalDrawCommandSets.Clear();
+		m_wConfirmBlockerRoot = null;
 		m_wConfirmModalRoot = null;
-		ClearConfirmButtonRects();
-	}
-
-	protected void ClearConfirmButtonRects()
-	{
-		m_iConfirmNoLeft = 0;
-		m_iConfirmNoTop = 0;
-		m_iConfirmYesLeft = 0;
-		m_iConfirmYesTop = 0;
-		m_iConfirmButtonW = 0;
-		m_iConfirmButtonH = 0;
 	}
 
 	protected void CloseCommandMenuIfOpen()
@@ -1691,7 +1579,7 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 
 		m_fDebugHeartbeatAccumulator = 0;
-		DebugLog(string.Format("heartbeat active=%1 phase=%2 commander=%3 requests=%4 payloads=%5 results=%6 overlay=%7 status=%8", m_bSetupActive, m_sPhase, m_bIsCommander, m_iSetupStateRequestCount, m_iSetupPayloadCount, m_iSetupResultCount, m_aOverlayWidgets.Count(), ShortenText(m_sStatusText, 96)));
+		DebugLog(string.Format("heartbeat active=%1 phase=%2 commander=%3 requests=%4 payloads=%5 results=%6 confirm=%7 status=%8", m_bSetupActive, m_sPhase, m_bIsCommander, m_iSetupStateRequestCount, m_iSetupPayloadCount, m_iSetupResultCount, m_bConfirmOpen, ShortenText(m_sStatusText, 96)));
 	}
 
 	protected bool IsLocalOwner(IEntity owner)
