@@ -1446,7 +1446,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		Widget uiRoot = ResolveUILayer(root);
 		ResetLoadoutModeRegions(uiRoot);
-		CreatePreviewDragSurface(workspace, uiRoot);
+		ConfigurePreviewDragSurface(uiRoot);
 		RenderLeftButtons(workspace, uiRoot);
 		RenderModeTabs(workspace, uiRoot);
 		// Editor visual states:
@@ -3166,18 +3166,21 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutText(footerRoot, labelName, labelText, 0xFFE2E6E8, m_Layout.m_iFontSmall, false, false);
 	}
 
-	protected void CreatePreviewDragSurface(WorkspaceWidget workspace, Widget root)
+	protected void ConfigurePreviewDragSurface(Widget root)
 	{
-		if (!workspace || !root || !m_Layout)
+		if (!root)
 			return;
 
-		int left = Math.Max(0, m_Layout.m_iMainLeft);
-		int top = 0;
-		int width = Math.Max(1, m_iEditorWidth - left);
-		int height = Math.Max(1, m_iEditorHeight);
-		Widget surface = CreateRectWidget(workspace, root, left, top, width, height, 0x00111111, 0.01, PREVIEW_DRAG_WIDGET_ID);
-		if (surface)
-			surface.SetZOrder(-10);
+		Widget surface = root.FindAnyWidget("PreviewDragSurface");
+		if (!surface)
+			return;
+
+		surface.SetVisible(true);
+		surface.SetOpacity(0.01);
+		surface.SetColorInt(0x00111111);
+		surface.SetUserID(PREVIEW_DRAG_WIDGET_ID);
+		surface.AddHandler(m_WidgetHandler);
+		surface.SetZOrder(-10);
 	}
 
 	protected void ParseEditorPayload(string payload)
