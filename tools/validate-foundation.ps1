@@ -3441,6 +3441,58 @@ foreach ($forbiddenLoadoutModeTabGeometry in @(
 		throw "Loadout editor mode tabs must not use scripted geometry: $forbiddenLoadoutModeTabGeometry"
 	}
 }
+foreach ($requiredLoadoutStorageBrowserLayoutEntry in @(
+	'Name "StorageBrowser"',
+	'Name "StorageBrowserBackground"',
+	'Name "StorageBrowserAccent"',
+	'Name "StorageBrowserTitle"',
+	'Name "StorageBrowserSubtitle"',
+	'Name "StorageCategoryTabs"',
+	'Name "StorageCandidateGrid"',
+	'Name "StorageCandidateScroll"',
+	'Name "StorageCandidateItems"',
+	'Name "StorageCandidateEmpty"',
+	"ScrollLayoutWidgetClass",
+	"WrapLayoutWidgetClass",
+	"OffsetLeft -820",
+	"OffsetTop 164",
+	"OffsetBottom -46"
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutStorageBrowserLayoutEntry)) {
+		throw "Loadout editor storage add-items panel must be layout-owned: $requiredLoadoutStorageBrowserLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutStorageBrowserScriptEntry in @(
+	'SetLoadoutWidgetColor(panelRoot, "StorageBrowserBackground"',
+	'SetLoadoutWidgetColor(panelRoot, "StorageBrowserAccent"',
+	'SetLoadoutText(panelRoot, "StorageBrowserTitle"',
+	'SetLoadoutText(panelRoot, "StorageBrowserSubtitle"',
+	'Widget categoryRoot = panelRoot.FindAnyWidget("StorageCategoryTabs")',
+	"RenderStorageCategoryTabs(workspace, categoryRoot, 0, 0, categoryWidth)",
+	'm_StorageCandidateScroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("StorageCandidateScroll"))',
+	'Widget items = root.FindAnyWidget("StorageCandidateItems")',
+	'SetLoadoutText(root, "StorageCandidateEmpty"'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutStorageBrowserScriptEntry)) {
+		throw "Loadout editor storage add-items panel must populate named layout widgets: $requiredLoadoutStorageBrowserScriptEntry"
+	}
+}
+$loadoutStorageCandidatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCandidatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageCandidateGrid[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddLoadoutNodeRow")
+if (!$loadoutStorageCandidatePanelMatch.Success) {
+	throw "Loadout editor storage add-items renderer is missing"
+}
+foreach ($forbiddenLoadoutStorageBrowserGeometry in @(
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"CreateScrollContainer",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"WRAP_SCROLL_GRID_LAYOUT"
+)) {
+	if ($loadoutStorageCandidatePanelMatch.Value -match [regex]::Escape($forbiddenLoadoutStorageBrowserGeometry)) {
+		throw "Loadout editor storage add-items panel must not create panel/grid geometry in script: $forbiddenLoadoutStorageBrowserGeometry"
+	}
+}
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',
@@ -3571,7 +3623,8 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"int iconSize = ScalePx(58)",
 	"iconSize = ScalePx(62)",
 	"ShortenText(BuildStorageTargetLabel(), 96)",
-	"m_Layout.m_iListTop + ScalePx(8)",
+	'SetLoadoutText(panelRoot, "StorageCandidateEmpty"',
+	'Widget items = root.FindAnyWidget("StorageCandidateItems")',
 	"BuildStorageCapacityLabel(nodeIndex)",
 	"ResolveLoadoutRegion(root, `"StorageBrowser`")",
 	"ResolveLoadoutRegion(root, `"LeftRail`")",

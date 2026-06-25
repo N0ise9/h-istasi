@@ -291,6 +291,126 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetRight -116
       OffsetBottom -92
      }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{7B2FD986A4D3424A}" {
+       Name "StorageBrowserBackground"
+       Slot FrameWidgetSlot "{7B2FD986A4D3424B}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.05 0.07 0.09 0.95
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{7B2FD986A4D3424C}" {
+       Name "StorageBrowserAccent"
+       Slot FrameWidgetSlot "{7B2FD986A4D3424D}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 3
+       }
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{7B2FD986A4D3424E}" {
+       Name "StorageBrowserTitle"
+       Slot FrameWidgetSlot "{7B2FD986A4D3424F}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 14
+        OffsetRight -20
+        OffsetBottom 40
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Add Items"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      TextWidgetClass "{7B2FD986A4D34250}" {
+       Name "StorageBrowserSubtitle"
+       Slot FrameWidgetSlot "{7B2FD986A4D34251}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 42
+        OffsetRight -20
+        OffsetBottom 66
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Select Storage"
+       "Horizontal Alignment" Left
+       "Vertical Alignment" Center
+      }
+      FrameWidgetClass "{7B2FD986A4D34252}" {
+       Name "StorageCategoryTabs"
+       Slot FrameWidgetSlot "{7B2FD986A4D34253}" {
+        Anchor 0 0 1 0
+        OffsetLeft 20
+        OffsetTop 72
+        OffsetRight -20
+        OffsetBottom 150
+       }
+       "Ignore Cursor" 0
+      }
+      FrameWidgetClass "{7B2FD986A4D34254}" {
+       Name "StorageCandidateGrid"
+       Slot FrameWidgetSlot "{7B2FD986A4D34255}" {
+        Anchor 0 0 1 1
+        OffsetLeft 20
+        OffsetTop 164
+        OffsetRight -20
+        OffsetBottom -46
+       }
+       "Ignore Cursor" 0
+       {
+        ScrollLayoutWidgetClass "{7B2FD986A4D34256}" {
+         Name "StorageCandidateScroll"
+         Slot FrameWidgetSlot "{7B2FD986A4D34257}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "Scrollbar Always Visible" 1
+         {
+          WrapLayoutWidgetClass "{7B2FD986A4D34258}" {
+           Name "StorageCandidateItems"
+           Slot AlignableSlot "{7B2FD986A4D34259}" {
+            HorizontalAlign 3
+            VerticalAlign 0
+            Padding 0 0 0 0
+           }
+          }
+         }
+        }
+        TextWidgetClass "{7B2FD986A4D3425A}" {
+         Name "StorageCandidateEmpty"
+         Slot FrameWidgetSlot "{7B2FD986A4D3425B}" {
+          Anchor 0 0 1 0
+          OffsetLeft 4
+          OffsetTop 8
+          OffsetRight -4
+          OffsetBottom 44
+         }
+         "Is Visible" 0
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Select equipped storage on the left."
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411B}" {
      Name "SavePanel"
