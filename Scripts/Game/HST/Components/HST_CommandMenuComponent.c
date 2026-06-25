@@ -55,7 +55,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
-	static const ResourceName ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout";
 	static const string ACTION_DIALOG_OWNER = "HST_CommandMenuActionDialog";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
@@ -983,41 +982,26 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
-		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT);
-		HST_UIDebug.LogLayoutCreate("command_action_dialog", ACTION_DIALOG_LAYOUT, root);
+		HST_ActionDialogData data = new HST_ActionDialogData();
+		data.m_sOwner = ACTION_DIALOG_OWNER;
+		data.m_sDebugOwner = "command_action_dialog";
+		data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID;
+		data.m_iConfirmWidgetId = ACTION_MODAL_CONFIRM_WIDGET_ID;
+		data.m_sTitle = "Confirm Action";
+		data.m_sMessage = BuildActionConfirmMessage(label, commandId);
+		data.m_sCancelLabel = "Cancel";
+		data.m_sConfirmLabel = "Confirm";
+
+		Widget root = HST_ActionDialogController.Render(workspace, data, m_WidgetHandler);
 		if (!root)
 			return;
-
-		HST_UIDebug.LogExpectedWidgetsCsv("command_action_dialog", root, "HST_ActionDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ConfirmButton|ConfirmLabel");
-
-		root.SetVisible(true);
-		root.SetOpacity(1.0);
-		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
-		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER, root, false, false, true))
-		{
-			HST_UIDebug.LogLayoutRejected("command_action_dialog", ACTION_DIALOG_LAYOUT, root, "UI root refused action modal");
-			root.RemoveFromHierarchy();
-			return;
-		}
 
 		m_wActionDialogRoot = root;
 		m_bActionDialogOpen = true;
 		m_sPendingActionLabel = label;
 		m_sPendingActionCommand = commandId;
 		m_sPendingActionArgument = argument;
-
-		int screenW;
-		int screenH;
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-
-		SetMenuText(root, "Title", "Confirm Action", 0xFFF7E6BE, HST_UIWorkspaceMetrics.ScaleFont(24, scale), true, false);
-		SetMenuText(root, "Message", BuildActionConfirmMessage(label, commandId), 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
-		SetMenuText(root, "CancelLabel", "Cancel", 0xFFF2F4F0, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
-		SetMenuText(root, "ConfirmLabel", "Confirm", 0xFF17110A, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
-		BindMenuClick(root, "CancelButton", ACTION_MODAL_CANCEL_WIDGET_ID);
-		BindMenuClick(root, "ConfirmButton", ACTION_MODAL_CONFIRM_WIDGET_ID);
-		HST_UIDebug.LogPopulation("command_action_dialog", string.Format("label=%1 command=%2 argument=%3 message=%4", ShortenText(label, 64), commandId, ShortenText(argument, 96), ShortenText(BuildActionConfirmMessage(label, commandId), 140)));
+		HST_UIDebug.LogPopulation("command_action_dialog", string.Format("label=%1 command=%2 argument=%3", ShortenText(label, 64), commandId, ShortenText(argument, 96)));
 	}
 
 	protected string BuildActionConfirmMessage(string label, string commandId)
@@ -1054,7 +1038,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected void ClearActionDialog()
 	{
 		if (m_bActionDialogOpen)
-			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER);
+			HST_ActionDialogController.Close(ACTION_DIALOG_OWNER);
 
 		if (m_wActionDialogRoot)
 			m_wActionDialogRoot.RemoveFromHierarchy();
