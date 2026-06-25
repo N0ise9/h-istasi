@@ -1712,6 +1712,110 @@ foreach ($forbiddenMissionNotificationGeometry in @(
 }
 Write-Host "Anchored notification toast layout OK"
 
+foreach ($missionDialogLayoutPath in @(
+	"UI/layouts/HST_ReportDialog.layout",
+	"UI/layouts/HST_ReportDialog.layout.meta",
+	"UI/layouts/HST_ActionDialog.layout",
+	"UI/layouts/HST_ActionDialog.layout.meta",
+	"UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout",
+	"UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout.meta"
+)) {
+	if (!(Test-Path $missionDialogLayoutPath)) {
+		throw "Mission dialog layout resource is missing: $missionDialogLayoutPath"
+	}
+}
+$reportDialogLayoutText = Get-Content -Raw "UI/layouts/HST_ReportDialog.layout"
+$actionDialogLayoutText = Get-Content -Raw "UI/layouts/HST_ActionDialog.layout"
+$reportObjectiveRowLayoutText = Get-Content -Raw "UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout"
+foreach ($requiredReportDialogLayoutEntry in @(
+	'Name "HST_ReportDialogRoot"',
+	'Name "Dialog"',
+	'Name "Title"',
+	'Name "Subtitle"',
+	'Name "CloseButton"',
+	'Name "LocationLabel"',
+	'Name "LocationValue"',
+	'Name "MapPositionLabel"',
+	'Name "MapPositionValue"',
+	'Name "RequirementLabel"',
+	'Name "RequirementValue"',
+	'Name "ProgressLabel"',
+	'Name "ProgressValue"',
+	'Name "RewardLabel"',
+	'Name "RewardValue"',
+	'Name "FailureLabel"',
+	'Name "FailureValue"',
+	'Name "ObjectivesTitle"',
+	'Name "ObjectiveScroll"',
+	'Name "ObjectiveItems"'
+)) {
+	if ($reportDialogLayoutText -notmatch [regex]::Escape($requiredReportDialogLayoutEntry)) {
+		throw "Mission report dialog layout is missing named widget: $requiredReportDialogLayoutEntry"
+	}
+}
+foreach ($requiredActionDialogLayoutEntry in @(
+	'Name "HST_ActionDialogRoot"',
+	'Name "Dialog"',
+	'Name "Title"',
+	'Name "Message"',
+	'Name "CancelButton"',
+	'Name "ConfirmButton"'
+)) {
+	if ($actionDialogLayoutText -notmatch [regex]::Escape($requiredActionDialogLayoutEntry)) {
+		throw "Mission action dialog layout is missing named widget: $requiredActionDialogLayoutEntry"
+	}
+}
+foreach ($requiredReportObjectiveRowLayoutEntry in @(
+	'Name "HST_ReportObjectiveRow"',
+	'Name "Label"',
+	'Name "Value"'
+)) {
+	if ($reportObjectiveRowLayoutText -notmatch [regex]::Escape($requiredReportObjectiveRowLayoutEntry)) {
+		throw "Mission report objective row layout is missing named widget: $requiredReportObjectiveRowLayoutEntry"
+	}
+}
+foreach ($requiredMissionDialogScriptEntry in @(
+	'REPORT_DIALOG_LAYOUT = "{D66CFA01E5AA4100}UI/layouts/HST_ReportDialog.layout"',
+	'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
+	'REPORT_OBJECTIVE_ROW_LAYOUT = "{D66CFA01E5AA4300}UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout"',
+	"workspace.CreateWidgets(REPORT_DIALOG_LAYOUT)",
+	"workspace.CreateWidgets(REPORT_OBJECTIVE_ROW_LAYOUT, items)",
+	'BindDialogClick(root, "CloseButton", DETAIL_CLOSE_WIDGET_ID)',
+	'SetDialogText(root, "Title"',
+	'root.FindAnyWidget("ObjectiveItems")',
+	"protected void BindDialogClick",
+	"protected void SetDialogText",
+	"protected void AddObjectiveRow"
+)) {
+	if ($missionClientText -notmatch [regex]::Escape($requiredMissionDialogScriptEntry)) {
+		throw "Mission detail/report UI must populate named layout widgets: $requiredMissionDialogScriptEntry"
+	}
+}
+foreach ($forbiddenMissionDialogScriptGeometry in @(
+	"SCRIPTED_PANEL_ROOT_LAYOUT",
+	"DETAIL_ROOT_Z",
+	"HST_MissionClientDrawCommandSet",
+	"m_aCanvasCommandSets",
+	"CreatePanelRow",
+	"CreateRectWidget(workspace, root",
+	"CreateTextWidget(workspace, root",
+	"FrameSlot.SetPos(root",
+	"FrameSlot.SetSize(root"
+)) {
+	if ($missionClientText -match [regex]::Escape($forbiddenMissionDialogScriptGeometry)) {
+		throw "Mission detail/report UI must not keep scripted panel geometry: $forbiddenMissionDialogScriptGeometry"
+	}
+}
+foreach ($requiredNotificationVisibilityGuard in @(
+	"m_bNotificationVisible",
+	"m_bExternalNotificationVisible"
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredNotificationVisibilityGuard)) {
+		throw "Notification cleanup must guard UI-root notification state: $requiredNotificationVisibilityGuard"
+	}
+}
+Write-Host "Mission dialog layout contract OK"
+
 $configResourceText = (Get-ChildItem -Recurse -File "Configs" -Include *.conf |
 	ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 $worldPositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_WorldPositionService.c"
