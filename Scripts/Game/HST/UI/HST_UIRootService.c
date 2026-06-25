@@ -101,12 +101,18 @@ class HST_UIRootService
 
 	bool IsGameplayBlocked()
 	{
-		return m_CurrentScreen && m_CurrentScreen.m_bBlocksGameplay;
+		if (m_CurrentScreen && m_CurrentScreen.m_bBlocksGameplay)
+			return true;
+
+		return m_ModalScreen && m_ModalScreen.m_bBlocksGameplay;
 	}
 
 	bool IsMapBlocked()
 	{
-		return m_CurrentScreen && m_CurrentScreen.m_bBlocksMap;
+		if (m_CurrentScreen && m_CurrentScreen.m_bBlocksMap)
+			return true;
+
+		return m_ModalScreen && m_ModalScreen.m_bBlocksMap;
 	}
 
 	bool IsModalOpen()
