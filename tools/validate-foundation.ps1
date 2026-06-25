@@ -762,15 +762,30 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 	"Color 0 0 0 0.16",
 	'"Ignore Cursor" 0',
 	"Anchor 0.5 0.5 0.5 0.5",
-	"SizeX 620",
-	"OffsetRight -620",
-	"Alignment 0.5 0.5"
+	"OffsetLeft -310",
+	"OffsetTop -140",
+	"OffsetRight 310",
+	"OffsetBottom 140"
 )) {
 	if ($setupConfirmModalLayoutText -notmatch [regex]::Escape($requiredConfirmModalLayoutEntry)) {
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
 	}
 }
+foreach ($forbiddenConfirmModalLayoutEntry in @(
+	"PositionX 0",
+	"PositionY 0",
+	"SizeX 620",
+	"SizeY 280",
+	"OffsetRight -620",
+	"OffsetBottom -280",
+	"Alignment 0.5 0.5"
+)) {
+	if ($setupConfirmModalLayoutText -match [regex]::Escape($forbiddenConfirmModalLayoutEntry)) {
+		throw "Setup confirmation modal must use centered offsets instead of mixed position/size slot fields: $forbiddenConfirmModalLayoutEntry"
+	}
+}
 foreach ($requiredSetupChromeEntry in @(
+	"workspace.CreateWidgets(SETUP_NATIVE_MAP_LAYOUT, workspace)",
 	"SETUP_PROMPT_BANNER_LAYOUT",
 	'SETUP_CONFIRM_MODAL_OWNER = "HST_SetupConfirmModal"',
 	"CONFIRM_BLOCKER_WIDGET_ID",
