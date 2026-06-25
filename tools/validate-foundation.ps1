@@ -860,6 +860,8 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"cursorModule.HandleDialog(false)",
 	"ReleaseSetupMapDialogState",
 	'SETUP_CURSOR_CONTEXT = "DialogContext"',
+	'SETUP_INTERACTABLE_DIALOG_CONTEXT = "InteractableDialogContext"',
+	"inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT)",
 	"WidgetManager.SetCursor(0)"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
@@ -2113,18 +2115,18 @@ foreach ($requiredReportObjectiveRowLayoutEntry in @(
 	'Name "HST_ReportObjectiveRow"',
 	'Name "Label"',
 	'Name "Value"',
-	"OffsetRight 12",
-	"OffsetBottom -28",
-	"OffsetBottom 7"
+	"OffsetRight -12",
+	"OffsetBottom 28",
+	"OffsetBottom -7"
 )) {
 	if ($reportObjectiveRowLayoutText -notmatch [regex]::Escape($requiredReportObjectiveRowLayoutEntry)) {
 		throw "Mission report objective row layout is missing named widget: $requiredReportObjectiveRowLayoutEntry"
 	}
 }
 foreach ($forbiddenReportObjectiveRowLayoutEntry in @(
-	"OffsetRight -12",
-	"OffsetBottom 28",
-	"OffsetBottom -7"
+	"OffsetRight 12",
+	"OffsetBottom -28",
+	"OffsetBottom 7"
 )) {
 	if ($reportObjectiveRowLayoutText -match [regex]::Escape($forbiddenReportObjectiveRowLayoutEntry)) {
 		throw "Mission report objective row layout must use Enfusion offset signs for anchored row children: $forbiddenReportObjectiveRowLayoutEntry"
@@ -2873,34 +2875,42 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetRight 24",
 	"OffsetBottom -63",
 	"NavigationPanel",
-	"OffsetRight -220",
+	"OffsetRight 220",
 	'Name "NavigationTitle"',
 	"OffsetBottom -44",
 	"TabScroll",
+	"OffsetRight -12",
+	"OffsetBottom -12",
 	"TabItems",
 	"StatsPanel",
-	"OffsetRight 524",
+	"OffsetRight -524",
 	"OffsetBottom -168",
 	'Name "Stat0Label"',
 	"OffsetBottom -28",
 	"MainPanel",
-	"OffsetRight 524",
+	"OffsetRight -524",
 	'Name "MainAccent"',
 	"OffsetBottom -4",
 	"MainScroll",
+	"OffsetRight -24",
+	"OffsetBottom -24",
 	"MainItems",
 	"ActivityPanel",
 	"OffsetRight 20",
-	"OffsetBottom 382",
+	"OffsetBottom -382",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
 	"OffsetBottom -126",
 	'Name "ActivityFeedTitle"',
 	"OffsetBottom -166",
+	"ActivityScroll",
+	"OffsetRight -20",
 	"ActionsPanel",
 	"OffsetTop -360",
 	"OffsetBottom 20",
+	"ActionsScroll",
+	"OffsetBottom -16",
 	'Name "ActionsTitle"'
 )) {
 	if ($commandMenuLayoutText -notmatch [regex]::Escape($requiredCommandMenuLayoutEntry)) {
@@ -2918,9 +2928,9 @@ foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"OffsetBottom 48",
 	"OffsetBottom 126",
 	"OffsetBottom 166",
-	"OffsetRight 220",
-	"OffsetRight -524",
-	"OffsetBottom -382",
+	"OffsetRight -220",
+	"OffsetRight 524",
+	"OffsetBottom 382",
 	"OffsetTop 360"
 )) {
 	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
@@ -3069,22 +3079,22 @@ foreach ($requiredStorageCategoryTabEntry in @(
 	'Name "Icon"',
 	'Name "Fallback"',
 	'"Ignore Cursor" 1',
-	"OffsetBottom -3",
-	"OffsetRight 23",
-	"OffsetBottom 10",
-	"OffsetRight 4",
-	"OffsetBottom 4"
+	"OffsetBottom 3",
+	"OffsetRight -23",
+	"OffsetBottom -10",
+	"OffsetRight -4",
+	"OffsetBottom -4"
 )) {
 	if ($loadoutStorageCategoryTabText -notmatch [regex]::Escape($requiredStorageCategoryTabEntry)) {
 		throw "$loadoutStorageCategoryTabPath is missing storage category tab layout entry: $requiredStorageCategoryTabEntry"
 	}
 }
 foreach ($forbiddenStorageCategoryTabEntry in @(
-	"OffsetBottom 3",
-	"OffsetRight -23",
-	"OffsetBottom -10",
-	"OffsetRight -4",
-	"OffsetBottom -4"
+	"OffsetBottom -3",
+	"OffsetRight 23",
+	"OffsetBottom 10",
+	"OffsetRight 4",
+	"OffsetBottom 4"
 )) {
 	if ($loadoutStorageCategoryTabText -match [regex]::Escape($forbiddenStorageCategoryTabEntry)) {
 		throw "$loadoutStorageCategoryTabPath must use Enfusion offset signs for fixed and stretched tab children: $forbiddenStorageCategoryTabEntry"
@@ -4040,6 +4050,82 @@ foreach ($requiredLoadoutModeHiddenWidget in @(
 	$visibilityPattern = [regex]::Escape("Name `"$requiredLoadoutModeHiddenWidget`"") + "[\s\S]{0,900}?" + [regex]::Escape('"Is Visible" 0')
 	if ($loadoutEditorLayoutText -notmatch $visibilityPattern) {
 		throw "Loadout editor mode-specific panels must be hidden by default and shown by script: $requiredLoadoutModeHiddenWidget"
+	}
+}
+$loadoutEditorResolvedGeometryContracts = @(
+	@{
+		Widget = "LeftButtons"
+		Required = @("OffsetRight 104", "OffsetBottom 68")
+		Forbidden = @("OffsetRight -104", "OffsetBottom -68")
+	},
+	@{
+		Widget = "LoadoutBackButton"
+		Required = @("OffsetBottom 38")
+		Forbidden = @("OffsetBottom -38")
+	},
+	@{
+		Widget = "LoadoutCloseButton"
+		Required = @("OffsetBottom 122")
+		Forbidden = @("OffsetBottom -122")
+	},
+	@{
+		Widget = "TopTabs"
+		Required = @("OffsetRight 720", "OffsetBottom 126")
+		Forbidden = @("OffsetRight -720", "OffsetBottom -126")
+	},
+	@{
+		Widget = "LeftRail"
+		Required = @("OffsetRight 560", "OffsetBottom -92")
+		Forbidden = @("OffsetRight -560", "OffsetBottom 92")
+	},
+	@{
+		Widget = "SlotRailList"
+		Required = @("OffsetRight -20", "OffsetBottom -22")
+		Forbidden = @("OffsetRight 20", "OffsetBottom 22")
+	},
+	@{
+		Widget = "CandidateList"
+		Required = @("OffsetRight 560", "OffsetBottom -92")
+		Forbidden = @("OffsetRight -560", "OffsetBottom 92")
+	},
+	@{
+		Widget = "StorageBrowser"
+		Required = @("OffsetRight 116", "OffsetBottom -92")
+		Forbidden = @("OffsetRight -116", "OffsetBottom 92")
+	},
+	@{
+		Widget = "SavePanel"
+		Required = @("OffsetRight 560", "OffsetBottom -92")
+		Forbidden = @("OffsetRight -560", "OffsetBottom 92")
+	},
+	@{
+		Widget = "SettingsContent"
+		Required = @("OffsetRight -34", "OffsetBottom -28")
+		Forbidden = @("OffsetRight 34", "OffsetBottom 28")
+	},
+	@{
+		Widget = "Footer"
+		Required = @("OffsetRight 920", "OffsetBottom 24")
+		Forbidden = @("OffsetRight -920", "OffsetBottom -24")
+	},
+	@{
+		Widget = "Toast"
+		Required = @("OffsetRight 240", "OffsetBottom 88")
+		Forbidden = @("OffsetRight -240", "OffsetBottom -88")
+	}
+)
+foreach ($loadoutEditorResolvedGeometryContract in $loadoutEditorResolvedGeometryContracts) {
+	foreach ($requiredResolvedGeometryEntry in $loadoutEditorResolvedGeometryContract.Required) {
+		$resolvedGeometryPattern = [regex]::Escape("Name `"$($loadoutEditorResolvedGeometryContract.Widget)`"") + "[\s\S]{0,700}?" + [regex]::Escape($requiredResolvedGeometryEntry)
+		if ($loadoutEditorLayoutText -notmatch $resolvedGeometryPattern) {
+			throw "Loadout editor layout has an invalid resolved geometry contract for $($loadoutEditorResolvedGeometryContract.Widget): missing $requiredResolvedGeometryEntry"
+		}
+	}
+	foreach ($forbiddenResolvedGeometryEntry in $loadoutEditorResolvedGeometryContract.Forbidden) {
+		$resolvedGeometryPattern = [regex]::Escape("Name `"$($loadoutEditorResolvedGeometryContract.Widget)`"") + "[\s\S]{0,700}?" + [regex]::Escape($forbiddenResolvedGeometryEntry)
+		if ($loadoutEditorLayoutText -match $resolvedGeometryPattern) {
+			throw "Loadout editor layout must not use negative-size offset signs for $($loadoutEditorResolvedGeometryContract.Widget): $forbiddenResolvedGeometryEntry"
+		}
 	}
 }
 foreach ($requiredLoadoutLeftButtonLayoutEntry in @(

@@ -39,18 +39,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A setup confirmation modal using direct center-relative offsets such as negative left/top and positive right/bottom created the layout and populated text, but the dialog resolved to `0x0` and buttons had unusable or negative bounds.
   - Current examples: `HST_SetupConfirmModal.layout`, `HST_ActionDialog.layout`, `HST_ReportDialog.layout`.
 
-- Fixed-height top-anchored children need negative bottom-edge offsets.
-  - For a widget from y=18 to y=60, use `PositionY 18`, `OffsetTop 18`, `SizeY 42`, and `OffsetBottom -60`.
-  - Positive bottom offsets on `Anchor 0 0 1 0` widgets produced negative runtime heights in setup prompt and toast diagnostics.
-  - Negative bottom offsets are still correct for true stretched widgets where `AnchorMaxY` is `1` and the value is a bottom margin.
-  - Current examples: setup prompt text/rule, notification title, command-menu header/stat/title strips.
-
-- `OffsetRight` and `OffsetBottom` are edge margins, not always width/height values.
-  - For same-anchor fixed boxes, such as `Anchor 0 0 0 0`, use negative right/bottom offsets to extend the box outward from the anchor.
-  - For stretched boxes, such as `Anchor 0 0 1 1`, use positive right/bottom offsets as inward margins.
-  - For right/bottom anchored boxes, such as `Anchor 1 0 1 1` or `Anchor 0 1 0 1`, use positive right/bottom offsets to keep the edge inside the parent and negative left/top offsets to define size.
-  - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes, such as left rails, navigation panels, or footer hints resolving to impossible bounds.
-  - Current examples: `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
+- `OffsetRight` and `OffsetBottom` signs depend on whether a slot has explicit `SizeX` / `SizeY` and whether that axis stretches.
+  - Slots with explicit `PositionX` / `PositionY` plus `SizeX` / `SizeY` often serialize the far edge as negative, such as a centered modal using `SizeX 620` with `OffsetRight -620`.
+  - Slots without explicit size on a same-anchor axis need the far edge to be greater than the near edge, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight 720`.
+  - Stretched axes use negative far offsets for inward margins, such as `Anchor 0 0 1 1`, `OffsetRight -24`, and `OffsetBottom -24`.
+  - Right or bottom anchored fixed boxes can use negative left/top offsets to define size while keeping positive right/bottom offsets inside the parent.
+  - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes, such as left rails, navigation panels, top tabs, or footer hints resolving to impossible bounds.
+  - Current examples: `HST_SetupConfirmModal.layout`, `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
 
 - Layout fragments intended to fill a parent slot should use stretched anchors at their root.
   - A root `FrameWidget` with `Anchor 0 0 0 0` can resolve to `0x0` when created inside a dynamically populated placeholder.
