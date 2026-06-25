@@ -80,6 +80,7 @@ Current state:
 - Loadout editor reasserts its `HST_LoadoutUILayer` above the render target after layout refresh and logs the root, preview, UI layer, tabs, rails, footer, and drag surface geometry for the next test pass.
 - Setup candidate marker changed from a cross to a small temporary dot/ring marker overlay, keeping setup selection separate from persistent gameplay marker lifecycle.
 - Setup map now uses a distinct non-fullscreen map mode and the world map config component explicitly points the normal gadget map at `HST_GameplayMap.conf`, preventing setup's minimal map UI component stack from being reused by the normal gameplay map.
+- Shared notification, action-dialog, and report-dialog roots now use workspace-parented layout creation and emit delayed `*_ready` geometry logs, matching the setup/command/loadout chrome lifecycle.
 
 ## Remaining Acceptance Gaps
 

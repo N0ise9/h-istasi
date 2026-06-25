@@ -87,8 +87,8 @@ class HST_NotificationToastController
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_NotificationToast");
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
-		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT);
-		HST_UIDebug.LogLayoutCreate("notification_toast", NOTIFICATION_TOAST_LAYOUT, root);
+		Widget root = workspace.CreateWidgets(NOTIFICATION_TOAST_LAYOUT, workspace);
+		HST_UIDebug.LogLayoutCreate("notification_toast", NOTIFICATION_TOAST_LAYOUT, root, workspace);
 		if (!root)
 			return;
 
@@ -102,6 +102,7 @@ class HST_NotificationToastController
 		m_wRoot = root;
 		m_bVisible = true;
 		HST_UIRootService.Get().NotifyNotificationShown();
+		QueueReadyGeometry(generation);
 
 		Widget accentLine = root.FindAnyWidget("AccentLine");
 		if (accentLine)
@@ -126,6 +127,20 @@ class HST_NotificationToastController
 		}
 
 		GetGame().GetCallqueue().CallLater(DismissCurrent, Math.Round(request.m_fDurationSeconds * 1000.0), false, generation);
+	}
+
+	protected void QueueReadyGeometry(int generation)
+	{
+		GetGame().GetCallqueue().CallLater(LogReadyGeometry, 0, false, generation);
+		GetGame().GetCallqueue().CallLater(LogReadyGeometry, 50, false, generation);
+	}
+
+	protected void LogReadyGeometry(int generation)
+	{
+		if (generation != m_iToastGeneration || !m_wRoot || !m_wRoot.IsVisibleInHierarchy())
+			return;
+
+		HST_UIDebug.LogWidgetGeometryCsv("notification_toast_ready", m_wRoot, "HST_NotificationRoot|Toast|Background|AccentLine|Title|Message");
 	}
 
 	protected void DismissCurrent(int generation)

@@ -32,8 +32,8 @@ class HST_ReportDialogController
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, data.m_sDebugOwner);
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
-		Widget root = workspace.CreateWidgets(REPORT_DIALOG_LAYOUT);
-		HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner, REPORT_DIALOG_LAYOUT, root);
+		Widget root = workspace.CreateWidgets(REPORT_DIALOG_LAYOUT, workspace);
+		HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner, REPORT_DIALOG_LAYOUT, root, workspace);
 		if (!root)
 			return null;
 
@@ -84,6 +84,7 @@ class HST_ReportDialogController
 			AddObjectiveRow(workspace, items, "No objective records.", "", scale, rendered);
 
 		HST_UIDebug.LogRowSummary("mission_report_objectives", REPORT_OBJECTIVE_ROW_LAYOUT, Math.Max(1, rendered), string.Format("reportId=%1 realObjectives=%2", ShortenText(data.m_sReportId, 48), rendered));
+		QueueReadyGeometry(root, data.m_sDebugOwner);
 		return root;
 	}
 
@@ -105,6 +106,23 @@ class HST_ReportDialogController
 		if (handler)
 			widget.AddHandler(handler);
 		HST_UIDebug.LogWidgetBound(debugOwner, root, widgetName, userId);
+	}
+
+	protected static void QueueReadyGeometry(Widget root, string debugOwner)
+	{
+		if (!root)
+			return;
+
+		GetGame().GetCallqueue().CallLater(LogReadyGeometry, 0, false, root, debugOwner);
+		GetGame().GetCallqueue().CallLater(LogReadyGeometry, 50, false, root, debugOwner);
+	}
+
+	protected static void LogReadyGeometry(Widget root, string debugOwner)
+	{
+		if (!root || !root.IsVisibleInHierarchy())
+			return;
+
+		HST_UIDebug.LogWidgetGeometryCsv(debugOwner + "_ready", root, "HST_ReportDialogRoot|Dialog|Background|CloseButton|CloseLabel|Title|Subtitle|ObjectiveItems");
 	}
 
 	protected static void SetText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
