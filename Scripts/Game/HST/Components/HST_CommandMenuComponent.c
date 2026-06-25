@@ -56,6 +56,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
 	static const ResourceName ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout";
+	static const string ACTION_DIALOG_OWNER = "HST_CommandMenuActionDialog";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
 	static const ResourceName COMMAND_DATA_ROW_LAYOUT = "{A7B8C9D001234590}UI/layouts/HST/Rows/HST_CommandDataRow.layout";
@@ -980,6 +981,12 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER, root, false, false, true))
+		{
+			root.RemoveFromHierarchy();
+			return;
+		}
+
 		m_wActionDialogRoot = root;
 		m_bActionDialogOpen = true;
 		m_sPendingActionLabel = label;
@@ -1032,6 +1039,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void ClearActionDialog()
 	{
+		if (m_bActionDialogOpen)
+			HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.MISSION_DIALOG, ACTION_DIALOG_OWNER);
+
 		if (m_wActionDialogRoot)
 			m_wActionDialogRoot.RemoveFromHierarchy();
 
