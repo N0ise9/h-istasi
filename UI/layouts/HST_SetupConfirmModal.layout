@@ -1,4 +1,4 @@
-FrameWidgetClass "{B55C6FB34BF94001}" {
+PanelWidgetClass "{B55C6FB34BF94001}" {
  Name "HST_SetupConfirmModalRoot"
  Slot FrameWidgetSlot "{B55C6FB34BF94002}" {
   Anchor 0 0 1 1
@@ -7,6 +7,8 @@ FrameWidgetClass "{B55C6FB34BF94001}" {
   OffsetRight 0
   OffsetBottom 0
  }
+ Color 0 0 0 0.01
+ style full
  "Is Visible" 1
  "Ignore Cursor" 0
  {

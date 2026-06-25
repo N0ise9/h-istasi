@@ -35,7 +35,7 @@ Current state:
 | `Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c` | No UI geometry matches in audit grep | Allowed | Desired marker record builder is correctly separated from UI projection. |
 | `Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c` | No UI geometry matches in audit grep | Allowed | Native map marker reconciler owns native marker lifecycle, not UI widgets. |
 | `UI/layouts/HST_SetupHQMap.layout` | Native setup map shell | Allowed | Setup-only layout. Keep separated from gameplay map config. |
-| `UI/layouts/HST_SetupConfirmModal.layout` | Full-screen modal root with centered `Dialog` child and real `NoButton` / `YesButton` | Allowed | Button behavior must remain widget-handler based; the root can swallow outside clicks while the separate blocker stays visually transparent. |
+| `UI/layouts/HST_SetupConfirmModal.layout` | Full-screen transparent modal root with centered `Dialog` child and real `NoButton` / `YesButton` | Allowed | Button behavior must remain widget-handler based. The modal is parented to the setup map root and owns outside-click swallowing itself; no separate blocker layout should be reintroduced. |
 | `UI/layouts/HST_LoadoutEditor.layout` | Full-screen preview and named UI regions | Allowed, still expanding | Add dedicated tab/button/panel row layouts as script factories are retired. |
 | `Configs/Map/HST_SetupHQMap.conf` | Setup-only native map config with setup cursor module, marker UI, and optional zone overlay component | Allowed for setup only | Used only by `HST_SetupMapComponent`; keep setup selection behavior out of gameplay. |
 | `Configs/Map/HST_GameplayMap.conf` | Gameplay map config inheriting vanilla `MapFullscreen.conf` | Allowed | Keeps normal map tools and marker UI through the vanilla config instead of copying setup UI components. |
@@ -65,7 +65,7 @@ Current state:
 - Any reintroduced generic scripted panel root after mission detail/report dialogs moved to named layouts.
 - Any invisible coordinate hit-test logic for visible buttons.
 - Any new direct `workspace.DPIUnscale` / `workspace.DPIScale` calls outside `HST_UIWorkspaceMetrics.c` and map overlay projection code.
-- Any full-screen blockers except explicit modal blocker layouts.
+- Any full-screen blockers except explicit modal roots with visible, usable dialog content.
 
 ## Remaining Acceptance Gaps
 

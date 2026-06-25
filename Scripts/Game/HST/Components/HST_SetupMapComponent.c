@@ -58,7 +58,6 @@ class HST_SetupMapComponent : ScriptComponent
 	static const bool SETUP_ZONE_OVERLAY_ENABLED = false;
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
 	static const ResourceName SETUP_PROMPT_BANNER_LAYOUT = "{A34F448C7E810600}UI/layouts/HST_SetupPromptBanner.layout";
-	static const ResourceName SETUP_CONFIRM_BLOCKER_LAYOUT = "{B55C6FB34BF96000}UI/layouts/HST_SetupConfirmBlocker.layout";
 	static const ResourceName SETUP_CONFIRM_MODAL_LAYOUT = "{B55C6FB34BF94000}UI/layouts/HST_SetupConfirmModal.layout";
 	static const ResourceName SETUP_NATIVE_MAP_CONFIG = "{6985327711306210}Configs/Map/HST_SetupHQMap.conf";
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
@@ -1062,7 +1061,10 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!workspace || m_wPromptRoot)
 			return;
 
-		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT);
+		if (!m_wSetupRoot)
+			return;
+
+		m_wPromptRoot = workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot);
 		if (!m_wPromptRoot)
 		{
 			DebugLog("setup prompt banner layout failed to load");
@@ -1073,7 +1075,6 @@ class HST_SetupMapComponent : ScriptComponent
 		m_wPromptRoot.SetOpacity(1.0);
 		m_wPromptRoot.SetZOrder(HST_UIConstants.Z_SETUP_PROMPT);
 		m_wPromptRoot.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		m_aWidgets.Insert(m_wPromptRoot);
 		m_wPromptText = TextWidget.Cast(m_wPromptRoot.FindAnyWidget("HST_SetupPromptText"));
 		m_wPromptPanel = m_wPromptRoot.FindAnyWidget("HST_SetupPromptPanel");
 		m_wPromptRule = m_wPromptRoot.FindAnyWidget("HST_SetupPromptRule");
@@ -1151,21 +1152,10 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!workspace)
 			return;
 
-		Widget blocker = workspace.CreateWidgets(SETUP_CONFIRM_BLOCKER_LAYOUT);
-		if (!blocker)
-		{
-			DebugLog("setup confirmation blocker layout failed to load");
-			ClearModalWidgets();
+		if (!m_wSetupRoot)
 			return;
-		}
 
-		blocker.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 1);
-		blocker.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
-		blocker.AddHandler(m_WidgetHandler);
-		m_aModalWidgets.Insert(blocker);
-		m_wConfirmBlockerRoot = blocker;
-
-		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT);
+		Widget modal = workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot);
 		if (!modal)
 		{
 			DebugLog("setup confirmation modal layout failed to load");
@@ -1173,10 +1163,11 @@ class HST_SetupMapComponent : ScriptComponent
 			return;
 		}
 
-		modal.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 3);
+		modal.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 1);
 		modal.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
 		modal.AddHandler(m_WidgetHandler);
 		m_aModalWidgets.Insert(modal);
+		m_wConfirmBlockerRoot = modal;
 		m_wConfirmModalRoot = modal;
 		ApplySetupLayerOrder();
 		ApplyConfirmModalLayerOrder(modal);
@@ -1218,7 +1209,6 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!modal)
 			return;
 
-		SetWidgetLayer(modal, HST_UIConstants.Z_SETUP_MODAL + 3, true);
 		SetWidgetLayer(modal.FindAnyWidget("Dialog"), HST_UIConstants.Z_SETUP_MODAL + 4, true);
 		SetWidgetLayer(modal.FindAnyWidget("Background"), HST_UIConstants.Z_SETUP_MODAL + 5, true);
 		SetWidgetLayer(modal.FindAnyWidget("TopAccent"), HST_UIConstants.Z_SETUP_MODAL + 6, true);
