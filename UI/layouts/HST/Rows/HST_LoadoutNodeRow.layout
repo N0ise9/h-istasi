@@ -67,6 +67,20 @@ ButtonWidgetClass "{A7B8C9D0012345D0}" {
          "Is Visible" 1
          "Ignore Cursor" 1
         }
+        PanelWidgetClass "{A7B8C9D001235D10}" {
+         Name "PreviewLine"
+         Slot FrameWidgetSlot "{A7B8C9D001235D11}" {
+          Anchor 0 0 0 0
+          OffsetLeft 6
+          OffsetTop 6
+          OffsetRight 74
+          OffsetBottom 8
+         }
+         Color 0.29 0.35 0.38 0.4
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
         FrameWidgetClass "{A7B8C9D0012345D6}" {
          Name "PreviewAnchor"
          Slot FrameWidgetSlot "{A7B8C9D0012345D7}" {

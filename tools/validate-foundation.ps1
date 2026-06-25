@@ -2529,10 +2529,10 @@ $rowLayoutContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandDataRowCompact.layout"; Guid = "{A7B8C9D0012345A0}"; Required = @('Name "HST_CommandDataRowCompact"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', 'Name "Value"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Name "Text"') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'Name "VolumeFill"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') }
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'Name "VolumeFill"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') }
 )
 foreach ($rowLayoutContract in $rowLayoutContracts) {
 	$rowLayoutPath = $rowLayoutContract.Path
@@ -4064,6 +4064,7 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"AddLoadoutCandidateTile",
 	"AddNodePreviewToRow",
 	"AddCandidatePreviewToRow",
+	"ShowRowPreviewChrome",
 	"BuildStorageCapacityLabel",
 	"BuildCountBadgeLabel",
 	"BuildNodeCountBadge",
@@ -4071,6 +4072,7 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"SetRowWidgetVisible",
 	"ResolveRowOverlayRoot",
 	"SetRowChildLayer",
+	'SetRowChildLayer(row, "PreviewLine", 5)',
 	"CountStorageCandidatesForTab",
 	"m_Layout.m_iTabHeight = ScalePx(",
 	"m_Layout.m_iTabWidth = ScalePx(",
@@ -4171,7 +4173,6 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_StorageCandidateScroll",
 	"m_StorageContainerScroll",
 	"m_StorageContentScroll",
-	"CreateScrollContainer",
 	"FindRowText",
 	"SetRowText",
 	"BindRowClick",
@@ -4244,24 +4245,47 @@ $storageBrowserCandidateCategoryMatch = [regex]::Match($loadoutEditorText, "prot
 if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "attachment"')) {
 	throw "Storage browser candidate categories must not include attachment; attachments belong in the attachment editor mode"
 }
-$loadoutScrollHelperMatch = [regex]::Match($loadoutEditorComponentText, "protected Widget CreateScrollContainer[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected TextWidget FindRowText")
-if (!$loadoutScrollHelperMatch.Success) {
-	throw "Loadout editor must use the Path B CreateScrollContainer helper"
+$loadoutPreviewChromeMethods = @(
+	@{ Name = "AddCandidatePreviewToListRow"; Pattern = "protected void AddCandidatePreviewToListRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidateListOverlayText" },
+	@{ Name = "AddNodePreviewToRow"; Pattern = "protected void AddNodePreviewToRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidatePreviewToRow" },
+	@{ Name = "AddCandidatePreviewToRow"; Pattern = "protected void AddCandidatePreviewToRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void ShowRowPreviewChrome" }
+)
+foreach ($loadoutPreviewChromeMethod in $loadoutPreviewChromeMethods) {
+	$loadoutPreviewChromeMatch = [regex]::Match($loadoutEditorComponentText, $loadoutPreviewChromeMethod.Pattern)
+	if (!$loadoutPreviewChromeMatch.Success) {
+		throw "Loadout editor preview chrome method is missing: $($loadoutPreviewChromeMethod.Name)"
+	}
+	foreach ($forbiddenLoadoutPreviewChromeGeometry in @(
+		"CreateRectWidget",
+		"CreateTextWidget",
+		"CreateWrappedTextWidget",
+		"FrameSlot.SetPos",
+		"FrameSlot.SetSize",
+		"previewBack",
+		"previewLine"
+	)) {
+		if ($loadoutPreviewChromeMatch.Value -match [regex]::Escape($forbiddenLoadoutPreviewChromeGeometry)) {
+			throw "Loadout editor row preview chrome must be layout-owned in $($loadoutPreviewChromeMethod.Name): $forbiddenLoadoutPreviewChromeGeometry"
+		}
+	}
 }
-foreach ($requiredLoadoutScrollHelperEntry in @(
-	"Widget root = workspace.CreateWidgets(layout, parent)",
-	"FrameSlot.SetPos(root, left, top)",
-	"FrameSlot.SetSize(root, width, height)",
-	"root.SetZOrder(3675)",
-	'ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"))',
-	'root.FindAnyWidget("Items")'
+foreach ($requiredLoadoutPreviewChromeScriptEntry in @(
+	"protected void ShowRowPreviewChrome",
+	'SetRowImageColor(row, "PreviewBack", 0xEE05080A, 1.0)',
+	'SetRowImageColor(row, "PreviewLine", 0x664B5960, 1.0)',
+	'SetRowWidgetVisible(row, "PreviewLine", false)'
 )) {
-	if ($loadoutScrollHelperMatch.Value -notmatch [regex]::Escape($requiredLoadoutScrollHelperEntry)) {
-		throw "Loadout editor Path B scroll helper is missing: $requiredLoadoutScrollHelperEntry"
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPreviewChromeScriptEntry)) {
+		throw "Loadout editor row preview chrome must use named layout widgets: $requiredLoadoutPreviewChromeScriptEntry"
 	}
 }
 foreach ($forbiddenLoadoutPathBRegression in @(
 	"CreateScrollList",
+	"protected Widget CreateScrollContainer",
+	"protected void CreateButton",
+	"protected void CreateCountBadge",
+	"protected void CreateStorageVolumeBar",
+	"protected void RenderCategoryChips",
 	"RenderNodeRowAt",
 	"RenderStorageNodeRow",
 	"RenderStorageCandidateTile",
