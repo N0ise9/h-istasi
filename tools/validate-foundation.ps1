@@ -2580,6 +2580,38 @@ foreach ($rowLayoutContract in $rowLayoutContracts) {
 	}
 }
 
+$loadoutStorageCategoryTabPath = "UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout"
+$loadoutStorageCategoryTabMetaPath = "$loadoutStorageCategoryTabPath.meta"
+if (!(Test-Path $loadoutStorageCategoryTabPath)) {
+	throw "Missing loadout storage category tab layout resource: $loadoutStorageCategoryTabPath"
+}
+if (!(Test-Path $loadoutStorageCategoryTabMetaPath)) {
+	throw "Missing GUID-backed loadout storage category tab layout meta resource: $loadoutStorageCategoryTabMetaPath"
+}
+$loadoutStorageCategoryTabText = Get-Content -Raw $loadoutStorageCategoryTabPath
+$loadoutStorageCategoryTabMetaText = Get-Content -Raw $loadoutStorageCategoryTabMetaPath
+foreach ($requiredStorageCategoryTabEntry in @(
+	"ButtonWidgetClass",
+	'Name "HST_LoadoutStorageCategoryTab"',
+	"Slot LayoutSlot",
+	"Padding 0 0 8 0",
+	"SizeLayoutWidgetClass",
+	"WidthOverride 104",
+	"HeightOverride 78",
+	'Name "Background"',
+	'Name "Accent"',
+	'Name "Icon"',
+	'Name "Fallback"',
+	'"Ignore Cursor" 1'
+)) {
+	if ($loadoutStorageCategoryTabText -notmatch [regex]::Escape($requiredStorageCategoryTabEntry)) {
+		throw "$loadoutStorageCategoryTabPath is missing storage category tab layout entry: $requiredStorageCategoryTabEntry"
+	}
+}
+if ($loadoutStorageCategoryTabMetaText -notmatch [regex]::Escape('Name "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout"')) {
+	throw "$loadoutStorageCategoryTabMetaPath must carry the expected non-zero GUID-qualified resource name"
+}
+
 $loadoutRowFontContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; FontGuids = @("{C1A9E1A2092846E0}", "{C1A9E1A2092846E1}", "{C1A9E1A2092846E2}") },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; FontGuids = @("{C1A9E1A2092846E3}", "{C1A9E1A2092846E4}", "{C1A9E1A2092846E5}") },
@@ -3299,6 +3331,7 @@ foreach ($requiredLoadoutPathBResource in @(
 	'LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"',
 	'LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"',
 	'LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"',
+	'LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT = "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout"',
 	'LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout"'
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPathBResource)) {
@@ -3448,6 +3481,7 @@ foreach ($requiredLoadoutStorageBrowserLayoutEntry in @(
 	'Name "StorageBrowserTitle"',
 	'Name "StorageBrowserSubtitle"',
 	'Name "StorageCategoryTabs"',
+	"HorizontalLayoutWidgetClass",
 	'Name "StorageCandidateGrid"',
 	'Name "StorageCandidateScroll"',
 	'Name "StorageCandidateItems"',
@@ -3468,7 +3502,7 @@ foreach ($requiredLoadoutStorageBrowserScriptEntry in @(
 	'SetLoadoutText(panelRoot, "StorageBrowserTitle"',
 	'SetLoadoutText(panelRoot, "StorageBrowserSubtitle"',
 	'Widget categoryRoot = panelRoot.FindAnyWidget("StorageCategoryTabs")',
-	"RenderStorageCategoryTabs(workspace, categoryRoot, 0, 0, categoryWidth)",
+	"RenderStorageCategoryTabs(workspace, categoryRoot)",
 	'm_StorageCandidateScroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("StorageCandidateScroll"))',
 	'Widget items = root.FindAnyWidget("StorageCandidateItems")',
 	'SetLoadoutText(root, "StorageCandidateEmpty"'
@@ -4051,12 +4085,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_Layout.m_iMainBottom = m_Layout.m_iRailBottom",
 	"m_Layout.m_iHeaderHeight = ScalePx(72)",
 	"m_Layout.m_iCategoryHeight = ScalePx(78)",
-	"int tabHeight = m_Layout.m_iCategoryHeight",
+	"LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT",
 	"LOADOUT_TAB_BUTTON_LAYOUT",
 	"AddLoadoutTabButton(workspace, items",
 	'Widget items = target.FindAnyWidget("TopTabItems")',
-	"int iconSize = ScalePx(58)",
-	"iconSize = ScalePx(62)",
+	"workspace.CreateWidgets(LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT, root)",
+	'SetLoadoutImageTexture(tab, "Icon"',
 	"ShortenText(BuildStorageTargetLabel(), 96)",
 	'SetLoadoutText(panelRoot, "StorageCandidateEmpty"',
 	'Widget items = root.FindAnyWidget("StorageCandidateItems")',
@@ -4188,8 +4222,23 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 	}
 }
 $storageCategoryTabsMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCategoryTabs[\s\S]*?\r?\n\t}")
-if ($storageCategoryTabsMatch.Success -and $storageCategoryTabsMatch.Value -match [regex]::Escape("CreateTextWidget(workspace, root, ShortenText(label")) {
-	throw "Storage category tabs must be icon-only and must not render category label text"
+if (!$storageCategoryTabsMatch.Success) {
+	throw "Loadout editor storage category tab renderer is missing"
+}
+foreach ($forbiddenStorageCategoryTabsGeometry in @(
+	"CreateRectWidget",
+	"CreateTextWidget",
+	"CreateIconWidget",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"tabLeft",
+	"tabWidth",
+	"iconLeft",
+	"iconTop"
+)) {
+	if ($storageCategoryTabsMatch.Value -match [regex]::Escape($forbiddenStorageCategoryTabsGeometry)) {
+		throw "Storage category tabs must use the storage category tab layout: $forbiddenStorageCategoryTabsGeometry"
+	}
 }
 $storageBrowserCandidateCategoryMatch = [regex]::Match($loadoutEditorText, "protected bool IsStorageBrowserCandidateCategory[\s\S]*?\r?\n\t}")
 if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "attachment"')) {

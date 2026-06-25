@@ -118,6 +118,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName LOADOUT_STORAGE_ROW_LAYOUT = "{A7B8C9D0012345E0}UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout";
 	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
 	static const ResourceName LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout";
+	static const ResourceName LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT = "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout";
 	static const ResourceName LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout";
 	static const ResourceName DEFAULT_PREVIEW_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const ResourceName PREVIEW_WORLD_PREFAB = "{71D2E9B5588949D8}Prefabs/HST/HST_LoadoutPreviewWorld.et";
@@ -2353,10 +2354,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetVisible(panelRoot, "StorageCandidateEmpty", false);
 
 		Widget categoryRoot = panelRoot.FindAnyWidget("StorageCategoryTabs");
-		int categoryWidth;
-		int categoryHeight;
-		GetRegionLayoutSize(workspace, categoryRoot, Math.Max(1, panelWidth - ScalePx(40)), m_Layout.m_iCategoryHeight, categoryWidth, categoryHeight);
-		RenderStorageCategoryTabs(workspace, categoryRoot, 0, 0, categoryWidth);
+		RenderStorageCategoryTabs(workspace, categoryRoot);
 
 		m_aVisibleCandidateIndexes.Clear();
 		if (selectedStorageNodeId.IsEmpty())
@@ -5247,7 +5245,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return string.Format("%1 | %2", GetNodeDisplay(nodeIndex), BuildStorageCapacityLabel(nodeIndex));
 	}
 
-	protected void RenderStorageCategoryTabs(WorkspaceWidget workspace, Widget root, int left, int top, int width)
+	protected void RenderStorageCategoryTabs(WorkspaceWidget workspace, Widget root)
 	{
 		if (!m_Layout || !workspace || !root)
 			return;
@@ -5256,32 +5254,36 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (count <= 0)
 			return;
 
-		int gap = ScalePx(8);
-		int tabHeight = m_Layout.m_iCategoryHeight;
-		int tabWidth = Math.Max(1, (Math.Max(1, width) - (count - 1) * gap) / count);
-
 		for (int i = 0; i < count; i++)
 		{
+			Widget tab = workspace.CreateWidgets(LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT, root);
+			if (!tab)
+				continue;
+
+			m_aWidgets.Insert(tab);
+			tab.SetUserID(STORAGE_CATEGORY_WIDGET_ID_BASE + i);
+			tab.AddHandler(m_WidgetHandler);
+
 			string category = GetStorageBrowserCategoryId(i);
-			int tabLeft = left + i * (tabWidth + gap);
+			bool active = category == m_sSelectedCategory;
 
-			int color = GetTabBackColor();
-			if (category == m_sSelectedCategory)
-				color = GetSelectedRowColor();
+			int background = GetTabBackColor();
+			int accent = 0x884B5960;
+			int foreground = 0xFFF5E8CE;
+			float accentOpacity = 0.35;
+			if (active)
+			{
+				background = GetSelectedRowColor();
+				accent = GetAccentColor();
+				foreground = 0xFFFFFFFF;
+				accentOpacity = 1.0;
+			}
 
-			CreateRectWidget(workspace, root, tabLeft, top, tabWidth, tabHeight, color, 0.98, STORAGE_CATEGORY_WIDGET_ID_BASE + i);
-
-			int iconSize = ScalePx(58);
-			if (category == m_sSelectedCategory)
-				iconSize = ScalePx(62);
-
-			iconSize = Math.Min(iconSize, Math.Max(1, tabHeight - ScalePx(10)));
-			iconSize = Math.Min(iconSize, Math.Max(1, tabWidth - ScalePx(12)));
-
-			int iconLeft = tabLeft + Math.Max(0, (tabWidth - iconSize) / 2);
-			int iconTop = top + Math.Max(0, (tabHeight - iconSize) / 2);
-
-			CreateIconWidget(workspace, root, ResolveIconTexture(category), iconLeft, iconTop, iconSize, iconSize, STORAGE_CATEGORY_WIDGET_ID_BASE + i, 0xFFF5E8CE);
+			SetLoadoutWidgetColor(tab, "Background", background, 0.98);
+			SetLoadoutWidgetColor(tab, "Accent", accent, accentOpacity);
+			SetLoadoutWidgetVisible(tab, "Fallback", false);
+			if (!SetLoadoutImageTexture(tab, "Icon", ResolveIconTexture(category), foreground))
+				SetLoadoutWidgetVisible(tab, "Icon", false);
 		}
 	}
 
