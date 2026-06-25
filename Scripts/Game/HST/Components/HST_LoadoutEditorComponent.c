@@ -9,7 +9,7 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (m_Editor == null || w == null)
+		if (!m_Editor || !w)
 			return false;
 
 		int widgetId = w.GetUserID();
@@ -18,7 +18,7 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseButtonDown(Widget w, int x, int y, int button)
 	{
-		if (m_Editor == null || w == null)
+		if (!m_Editor || !w)
 			return false;
 
 		int widgetId = w.GetUserID();
@@ -27,7 +27,7 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
-		if (m_Editor == null || w == null)
+		if (!m_Editor || !w)
 			return false;
 
 		int widgetId = w.GetUserID();
@@ -39,7 +39,7 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseEnter(Widget w, int x, int y)
 	{
-		if (m_Editor == null || w == null)
+		if (!m_Editor || !w)
 			return false;
 
 		int widgetId = w.GetUserID();
@@ -48,7 +48,7 @@ class HST_LoadoutEditorWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnMouseLeave(Widget w, Widget enterW, int x, int y)
 	{
-		if (m_Editor == null || w == null)
+		if (!m_Editor || !w)
 			return false;
 
 		int widgetId = w.GetUserID();

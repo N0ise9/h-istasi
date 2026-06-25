@@ -2742,6 +2742,29 @@ if ($commandMenuComponentText -match [regex]::Escape('RequestOpen(HST_EUIScreenM
 if ($commandMenuComponentText -notmatch [regex]::Escape('root.RemoveFromHierarchy()')) {
 	throw "Command menu must remove a rejected layout root when UI root registration fails"
 }
+foreach ($requiredCommandMenuRootReuseEntry in @(
+	"protected Widget m_wMenuRoot",
+	"protected Widget EnsureMenuRoot(WorkspaceWidget workspace)",
+	"Widget root = EnsureMenuRoot(workspace)",
+	"ClearDynamicMenuRows(root)",
+	"protected void ClearDynamicMenuRows(Widget root)",
+	"protected void ClearMenuContainerChildren(Widget root, string name)",
+	"while (container.GetChildren())",
+	"container.GetChildren().RemoveFromHierarchy()",
+	"m_wMenuRoot = root",
+	"m_wMenuRoot = null"
+)) {
+	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuRootReuseEntry)) {
+		throw "Command menu must reuse its layout root and clear only dynamic row containers during data refresh: $requiredCommandMenuRootReuseEntry"
+	}
+}
+$commandMenuRenderMatch = [regex]::Match($commandMenuComponentText, "protected bool RenderMenu\(\)[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected Widget EnsureMenuRoot")
+if (!$commandMenuRenderMatch.Success) {
+	throw "Command menu RenderMenu/EnsureMenuRoot boundary missing"
+}
+if ($commandMenuRenderMatch.Value -match [regex]::Escape("ClearWidgets();")) {
+	throw "Command menu RenderMenu must not remove and recreate the whole layout root during data refresh"
+}
 if ($commandMenuComponentText -match "\bWidgetFlags\.WRAP_TEXT\b") {
 	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
 }
@@ -2912,7 +2935,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetRight 24",
 	"OffsetBottom -63",
 	"NavigationPanel",
-	"OffsetRight -220",
+	"OffsetRight 220",
 	'Name "NavigationTitle"',
 	"OffsetBottom -44",
 	"TabScroll",
@@ -2920,12 +2943,12 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetBottom -12",
 	"TabItems",
 	"StatsPanel",
-	"OffsetRight 524",
+	"OffsetRight -524",
 	"OffsetBottom -168",
 	'Name "Stat0Label"',
 	"OffsetBottom -28",
 	"MainPanel",
-	"OffsetRight 524",
+	"OffsetRight -524",
 	'Name "MainAccent"',
 	"OffsetBottom -4",
 	"MainScroll",
@@ -2933,8 +2956,8 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetBottom -24",
 	"MainItems",
 	"ActivityPanel",
-	"OffsetRight 20",
-	"OffsetBottom 382",
+	"OffsetRight -20",
+	"OffsetBottom -382",
 	'Name "ActivityTitle"',
 	"OffsetBottom -48",
 	'Name "ActivityResult"',
@@ -2945,7 +2968,7 @@ foreach ($requiredCommandMenuLayoutEntry in @(
 	"OffsetRight -20",
 	"ActionsPanel",
 	"OffsetTop -360",
-	"OffsetBottom 20",
+	"OffsetBottom -20",
 	"ActionsScroll",
 	"OffsetBottom -16",
 	'Name "ActionsTitle"'
@@ -2965,13 +2988,54 @@ foreach ($forbiddenCommandMenuLayoutEntry in @(
 	"OffsetBottom 48",
 	"OffsetBottom 126",
 	"OffsetBottom 166",
-	"OffsetRight 220",
-	"OffsetRight -524",
-	"OffsetBottom -382",
+	"OffsetRight -220",
+	"OffsetRight 524",
+	"OffsetBottom 382",
 	"OffsetTop 360"
 )) {
 	if ($commandMenuLayoutText -match [regex]::Escape($forbiddenCommandMenuLayoutEntry)) {
 		throw "Command menu layout must not keep scripted-canvas placeholders or positive fixed-height bounds: $forbiddenCommandMenuLayoutEntry"
+	}
+}
+$commandMenuResolvedGeometryContracts = @(
+	@{
+		Widget = "NavigationPanel"
+		Required = @("Anchor 0 0 0 1", "OffsetRight 220", "OffsetBottom -20")
+		Forbidden = @("OffsetRight -220")
+	},
+	@{
+		Widget = "StatsPanel"
+		Required = @("Anchor 0 0 1 0", "OffsetLeft 240", "OffsetRight -524", "OffsetBottom -168")
+		Forbidden = @("OffsetRight 524")
+	},
+	@{
+		Widget = "MainPanel"
+		Required = @("Anchor 0 0 1 1", "OffsetLeft 240", "OffsetRight -524", "OffsetBottom -20")
+		Forbidden = @("OffsetRight 524", "OffsetBottom 20")
+	},
+	@{
+		Widget = "ActivityPanel"
+		Required = @("Anchor 1 0 1 1", "OffsetLeft -500", "OffsetRight -20", "OffsetBottom -382")
+		Forbidden = @("OffsetRight 20", "OffsetBottom 382")
+	},
+	@{
+		Widget = "ActionsPanel"
+		Required = @("Anchor 1 1 1 1", "OffsetLeft -500", "OffsetTop -360", "OffsetRight -20", "OffsetBottom -20")
+		Forbidden = @("OffsetRight 20", "OffsetBottom 20")
+	}
+)
+foreach ($commandMenuResolvedGeometryContract in $commandMenuResolvedGeometryContracts) {
+	foreach ($requiredResolvedGeometryEntry in $commandMenuResolvedGeometryContract.Required) {
+		$resolvedGeometryPattern = [regex]::Escape("Name `"$($commandMenuResolvedGeometryContract.Widget)`"") + "[\s\S]{0,320}?" + [regex]::Escape($requiredResolvedGeometryEntry)
+		if ($commandMenuLayoutText -notmatch $resolvedGeometryPattern) {
+			throw "Command menu layout has an invalid resolved geometry contract for $($commandMenuResolvedGeometryContract.Widget): missing $requiredResolvedGeometryEntry"
+		}
+	}
+	foreach ($forbiddenResolvedGeometryEntry in $commandMenuResolvedGeometryContract.Forbidden) {
+		$resolvedGeometryPattern = [regex]::Escape("Name `"$($commandMenuResolvedGeometryContract.Widget)`"") + "[\s\S]{0,320}?" + [regex]::Escape($forbiddenResolvedGeometryEntry)
+		if ($commandMenuLayoutText -match $resolvedGeometryPattern) {
+			throw "Command menu layout must not use runtime-distorting offset signs for $($commandMenuResolvedGeometryContract.Widget): $forbiddenResolvedGeometryEntry"
+		}
 	}
 }
 
@@ -4091,66 +4155,109 @@ foreach ($requiredLoadoutModeHiddenWidget in @(
 		throw "Loadout editor mode-specific panels must be hidden by default and shown by script: $requiredLoadoutModeHiddenWidget"
 	}
 }
+$loadoutLayoutLines = Get-Content "UI/layouts/HST_LoadoutEditor.layout"
+$loadoutSlotStack = @()
+$loadoutSameAnchorNegativeFindings = @()
+for ($i = 0; $i -lt $loadoutLayoutLines.Count; $i++) {
+	$line = $loadoutLayoutLines[$i]
+	if ($line -match 'Slot .*\{') {
+		$loadoutSlotStack += [pscustomobject]@{
+			Start = $i + 1
+			Anchor = $null
+			SizeX = $false
+			SizeY = $false
+			OffsetRight = $null
+			OffsetBottom = $null
+		}
+	}
+	if ($loadoutSlotStack.Count -gt 0) {
+		$slot = $loadoutSlotStack[$loadoutSlotStack.Count - 1]
+		if ($line -match 'Anchor\s+([-0-9\.]+)\s+([-0-9\.]+)\s+([-0-9\.]+)\s+([-0-9\.]+)') {
+			$slot.Anchor = @([double]$matches[1], [double]$matches[2], [double]$matches[3], [double]$matches[4])
+		}
+		if ($line -match '\bSizeX\b') {
+			$slot.SizeX = $true
+		}
+		if ($line -match '\bSizeY\b') {
+			$slot.SizeY = $true
+		}
+		if ($line -match 'OffsetRight\s+(-\d+)') {
+			$slot.OffsetRight = [pscustomobject]@{ Line = $i + 1; Text = $line.Trim() }
+		}
+		if ($line -match 'OffsetBottom\s+(-\d+)') {
+			$slot.OffsetBottom = [pscustomobject]@{ Line = $i + 1; Text = $line.Trim() }
+		}
+	}
+	if ($line -match '^\s*\}') {
+		if ($loadoutSlotStack.Count -gt 0) {
+			$slot = $loadoutSlotStack[$loadoutSlotStack.Count - 1]
+			if ($slot.Anchor) {
+				if ($slot.Anchor[0] -eq $slot.Anchor[2] -and !$slot.SizeX -and $slot.OffsetRight) {
+					$loadoutSameAnchorNegativeFindings += "line $($slot.OffsetRight.Line): $($slot.OffsetRight.Text)"
+				}
+				if ($slot.Anchor[1] -eq $slot.Anchor[3] -and !$slot.SizeY -and $slot.OffsetBottom) {
+					$loadoutSameAnchorNegativeFindings += "line $($slot.OffsetBottom.Line): $($slot.OffsetBottom.Text)"
+				}
+			}
+			if ($loadoutSlotStack.Count -eq 1) {
+				$loadoutSlotStack = @()
+			} else {
+				$loadoutSlotStack = $loadoutSlotStack[0..($loadoutSlotStack.Count - 2)]
+			}
+		}
+	}
+}
+if ($loadoutSameAnchorNegativeFindings.Count -gt 0) {
+	throw "Loadout editor layout has same-anchor slots with negative far edges and no explicit size, which resolves as negative runtime bounds: $($loadoutSameAnchorNegativeFindings -join '; ')"
+}
 $loadoutEditorResolvedGeometryContracts = @(
 	@{
 		Widget = "LeftButtons"
-		Required = @("OffsetRight -104", "OffsetBottom -68")
-		Forbidden = @("OffsetRight 104", "OffsetBottom 68")
+		Required = @("OffsetRight 104", "OffsetBottom 68")
 	},
 	@{
 		Widget = "LoadoutBackButton"
-		Required = @("OffsetBottom -38")
-		Forbidden = @("OffsetBottom 38")
+		Required = @("OffsetBottom 38")
 	},
 	@{
 		Widget = "LoadoutCloseButton"
-		Required = @("OffsetBottom -122")
-		Forbidden = @("OffsetBottom 122")
+		Required = @("OffsetBottom 122")
 	},
 	@{
 		Widget = "TopTabs"
-		Required = @("OffsetRight -720", "OffsetBottom -126")
-		Forbidden = @("OffsetRight 720", "OffsetBottom 126")
+		Required = @("OffsetRight 720", "OffsetBottom 126")
 	},
 	@{
 		Widget = "LeftRail"
-		Required = @("OffsetRight -560", "OffsetBottom -92")
-		Forbidden = @("OffsetRight 560", "OffsetBottom 92")
+		Required = @("OffsetRight 560", "OffsetBottom -92")
 	},
 	@{
 		Widget = "SlotRailList"
 		Required = @("OffsetRight -20", "OffsetBottom -22")
-		Forbidden = @("OffsetRight 20", "OffsetBottom 22")
 	},
 	@{
 		Widget = "CandidateList"
-		Required = @("OffsetRight -560", "OffsetBottom -92")
-		Forbidden = @("OffsetRight 560", "OffsetBottom 92")
+		Required = @("OffsetRight 560", "OffsetBottom -92")
 	},
 	@{
 		Widget = "StorageBrowser"
 		Required = @("OffsetRight 116", "OffsetBottom -92")
-		Forbidden = @("OffsetRight -116", "OffsetBottom 92")
 	},
 	@{
 		Widget = "SavePanel"
-		Required = @("OffsetRight -560", "OffsetBottom -92")
-		Forbidden = @("OffsetRight 560", "OffsetBottom 92")
+		Required = @("OffsetRight 560", "OffsetBottom -92")
 	},
 	@{
 		Widget = "SettingsContent"
 		Required = @("OffsetRight -34", "OffsetBottom -28")
-		Forbidden = @("OffsetRight 34", "OffsetBottom 28")
 	},
 	@{
 		Widget = "Footer"
-		Required = @("OffsetRight -920", "OffsetBottom 24")
-		Forbidden = @("OffsetRight 920", "OffsetBottom -24")
+		Required = @("OffsetRight 920", "OffsetBottom 24")
 	},
 	@{
 		Widget = "Toast"
-		Required = @("SizeX 480", "OffsetRight -480", "SizeY 34", "OffsetBottom -88", "Alignment 0.5 0")
-		Forbidden = @("OffsetRight 240", "OffsetBottom 88")
+		Required = @("SizeX 480", "OffsetRight -480", "SizeY 34", "OffsetBottom -34", "Alignment 0.5 0")
 	}
 )
 foreach ($loadoutEditorResolvedGeometryContract in $loadoutEditorResolvedGeometryContracts) {
@@ -4158,12 +4265,6 @@ foreach ($loadoutEditorResolvedGeometryContract in $loadoutEditorResolvedGeometr
 		$resolvedGeometryPattern = [regex]::Escape("Name `"$($loadoutEditorResolvedGeometryContract.Widget)`"") + "[\s\S]{0,700}?" + [regex]::Escape($requiredResolvedGeometryEntry)
 		if ($loadoutEditorLayoutText -notmatch $resolvedGeometryPattern) {
 			throw "Loadout editor layout has an invalid resolved geometry contract for $($loadoutEditorResolvedGeometryContract.Widget): missing $requiredResolvedGeometryEntry"
-		}
-	}
-	foreach ($forbiddenResolvedGeometryEntry in $loadoutEditorResolvedGeometryContract.Forbidden) {
-		$resolvedGeometryPattern = [regex]::Escape("Name `"$($loadoutEditorResolvedGeometryContract.Widget)`"") + "[\s\S]{0,700}?" + [regex]::Escape($forbiddenResolvedGeometryEntry)
-		if ($loadoutEditorLayoutText -match $resolvedGeometryPattern) {
-			throw "Loadout editor layout must not use negative-size offset signs for $($loadoutEditorResolvedGeometryContract.Widget): $forbiddenResolvedGeometryEntry"
 		}
 	}
 }
@@ -4273,7 +4374,7 @@ foreach ($requiredLoadoutStorageBrowserLayoutEntry in @(
 	"WrapLayoutWidgetClass",
 	"OffsetLeft -820",
 	"OffsetTop 164",
-	"OffsetBottom -46"
+	"OffsetBottom 46"
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutStorageBrowserLayoutEntry)) {
 		throw "Loadout editor storage add-items panel must be layout-owned: $requiredLoadoutStorageBrowserLayoutEntry"
