@@ -637,7 +637,6 @@ $setupMapComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Setup
 $setupMapZoneOverlayText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c"
 $setupMapLayoutText = Get-Content -Raw "UI/layouts/HST_SetupHQMap.layout"
 $setupPromptBannerLayoutText = Get-Content -Raw "UI/layouts/HST_SetupPromptBanner.layout"
-$setupConfirmBlockerLayoutText = Get-Content -Raw "UI/layouts/HST_SetupConfirmBlocker.layout"
 $setupConfirmModalLayoutText = Get-Content -Raw "UI/layouts/HST_SetupConfirmModal.layout"
 $notificationToastLayoutText = Get-Content -Raw "UI/layouts/HST_NotificationToast.layout"
 $notificationToastLayoutMetaText = Get-Content -Raw "UI/layouts/HST_NotificationToast.layout.meta"
@@ -647,6 +646,12 @@ if (!(Test-Path "Configs/Map/HST_GameplayMap.conf")) {
 }
 if (!(Test-Path "Configs/Map/HST_GameplayMap.conf.meta")) {
 	throw "Gameplay map config meta is missing: Configs/Map/HST_GameplayMap.conf.meta"
+}
+if (Test-Path "UI/layouts/HST_SetupConfirmBlocker.layout") {
+	throw "Setup confirmation blocker must remain folded into HST_SetupConfirmModal.layout"
+}
+if (Test-Path "UI/layouts/HST_SetupConfirmBlocker.layout.meta") {
+	throw "Obsolete setup confirmation blocker meta file must be deleted"
 }
 $gameplayMapConfigText = Get-Content -Raw "Configs/Map/HST_GameplayMap.conf"
 $gameplayMapConfigMetaText = Get-Content -Raw "Configs/Map/HST_GameplayMap.conf.meta"
@@ -729,12 +734,15 @@ foreach ($forbiddenSetupMapLayoutEntry in @(
 	}
 }
 foreach ($requiredConfirmModalLayoutEntry in @(
+	'PanelWidgetClass "{B55C6FB34BF94001}"',
 	'Name "HST_SetupConfirmModalRoot"',
 	'Name "Dialog"',
 	'Name "Message"',
 	'Name "NoButton"',
 	'Name "YesButton"',
 	"Anchor 0 0 1 1",
+	"Color 0 0 0 0.01",
+	'"Ignore Cursor" 0',
 	"Anchor 0.5 0.5 0.5 0.5",
 	"OffsetLeft -310",
 	"OffsetRight 310"
@@ -743,31 +751,19 @@ foreach ($requiredConfirmModalLayoutEntry in @(
 		throw "Setup confirmation modal must be a centered real-button layout: $requiredConfirmModalLayoutEntry"
 	}
 }
-foreach ($requiredConfirmBlockerLayoutEntry in @(
-	'Name "HST_SetupConfirmBlocker"',
-	"Anchor 0 0 1 1",
-	"Color 0 0 0 0.01",
-	'"Ignore Cursor" 0'
-)) {
-	if ($setupConfirmBlockerLayoutText -notmatch [regex]::Escape($requiredConfirmBlockerLayoutEntry)) {
-		throw "Setup confirmation blocker must be a separate fullscreen layout: $requiredConfirmBlockerLayoutEntry"
-	}
-}
-if ($setupConfirmModalLayoutText -match [regex]::Escape('Name "Blocker"')) {
-	throw "Setup confirmation dialog layout must not own the fullscreen blocker"
-}
 foreach ($requiredSetupChromeEntry in @(
 	"SETUP_PROMPT_BANNER_LAYOUT",
-	"SETUP_CONFIRM_BLOCKER_LAYOUT",
 	"CONFIRM_BLOCKER_WIDGET_ID",
 	"SETUP_ZONE_OVERLAY_ENABLED = false",
-	"blocker.SetUserID(CONFIRM_BLOCKER_WIDGET_ID)",
-	"workspace.CreateWidgets(SETUP_CONFIRM_BLOCKER_LAYOUT)",
+	"workspace.CreateWidgets(SETUP_PROMPT_BANNER_LAYOUT, m_wSetupRoot)",
+	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT, m_wSetupRoot)",
+	"m_wConfirmBlockerRoot = modal",
 	"OnSetupOverlayMouseWheel",
-	"workspace.CreateWidgets(SETUP_CONFIRM_MODAL_LAYOUT)"
+	"BindConfirmModalButton(modal, `"NoButton`", CONFIRM_NO_WIDGET_ID)",
+	"BindConfirmModalButton(modal, `"YesButton`", CONFIRM_YES_WIDGET_ID)"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupChromeEntry)) {
-		throw "Setup map component must use workspace prompt/modal chrome: $requiredSetupChromeEntry"
+		throw "Setup map component must parent prompt/modal chrome to the setup map root: $requiredSetupChromeEntry"
 	}
 }
 foreach ($requiredSetupMapLayerEntry in @(
@@ -801,7 +797,6 @@ foreach ($forbiddenSetupMagicLayerEntry in @(
 foreach ($setupLayoutPath in @(
 	"UI/layouts/HST_SetupHQMap.layout",
 	"UI/layouts/HST_SetupPromptBanner.layout",
-	"UI/layouts/HST_SetupConfirmBlocker.layout",
 	"UI/layouts/HST_SetupConfirmModal.layout"
 )) {
 	$setupLayoutNoWrappingText = Get-Content -Raw $setupLayoutPath
