@@ -25,8 +25,8 @@ class HST_ActionDialogController
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, data.m_sDebugOwner);
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
-		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT);
-		HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner, ACTION_DIALOG_LAYOUT, root);
+		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT, workspace);
+		HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner, ACTION_DIALOG_LAYOUT, root, workspace);
 		if (!root)
 			return null;
 
@@ -49,6 +49,7 @@ class HST_ActionDialogController
 		SetText(root, "ConfirmLabel", data.m_sConfirmLabel, 0xFF17110A, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
 		BindClick(data.m_sDebugOwner, root, "CancelButton", data.m_iCancelWidgetId, handler);
 		BindClick(data.m_sDebugOwner, root, "ConfirmButton", data.m_iConfirmWidgetId, handler);
+		QueueReadyGeometry(root, data.m_sDebugOwner);
 		return root;
 	}
 
@@ -70,6 +71,23 @@ class HST_ActionDialogController
 		if (handler)
 			widget.AddHandler(handler);
 		HST_UIDebug.LogWidgetBound(debugOwner, root, widgetName, userId);
+	}
+
+	protected static void QueueReadyGeometry(Widget root, string debugOwner)
+	{
+		if (!root)
+			return;
+
+		GetGame().GetCallqueue().CallLater(LogReadyGeometry, 0, false, root, debugOwner);
+		GetGame().GetCallqueue().CallLater(LogReadyGeometry, 50, false, root, debugOwner);
+	}
+
+	protected static void LogReadyGeometry(Widget root, string debugOwner)
+	{
+		if (!root || !root.IsVisibleInHierarchy())
+			return;
+
+		HST_UIDebug.LogWidgetGeometryCsv(debugOwner + "_ready", root, "HST_ActionDialogRoot|Dialog|Title|Message|CancelButton|CancelLabel|ConfirmButton|ConfirmLabel");
 	}
 
 	protected static void SetText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
