@@ -700,6 +700,22 @@ foreach ($requiredSetupMapProjectionEntry in @(
 		throw "Setup zone overlay must render invalid areas through native map projection: $requiredSetupMapProjectionEntry"
 	}
 }
+foreach ($requiredSetupMapOverlayRedrawEntry in @(
+	"VIEWPORT_PAN_EPSILON",
+	"VIEWPORT_ZOOM_EPSILON",
+	"m_bViewportStateValid",
+	"MarkViewportDirty",
+	"AbsFloat(panX - m_fLastPanX)",
+	"AbsFloat(zoom - m_fLastZoom)",
+	"if (!CanProject())",
+	'HST_UIDebug.LogPopulation("map_zone_overlay"',
+	"widgetsBefore",
+	"m_iAppliedRevision == s_iRevision"
+)) {
+	if ($setupMapZoneOverlayText -notmatch [regex]::Escape($requiredSetupMapOverlayRedrawEntry)) {
+		throw "Setup zone overlay must coalesce pan/zoom callbacks and avoid projection-not-ready redraw churn: $requiredSetupMapOverlayRedrawEntry"
+	}
+}
 foreach ($forbiddenSetupMapProjectionEntry in @(
 	"NativeScreenToParentLocal",
 	"GetScreenPos(",
