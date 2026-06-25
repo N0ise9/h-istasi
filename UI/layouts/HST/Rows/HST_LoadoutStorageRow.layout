@@ -160,19 +160,21 @@ ButtonWidgetClass "{A7B8C9D0012345E0}" {
          "Is Visible" 1
          "Ignore Cursor" 1
         }
-        PanelWidgetClass "{A7B8C9D0012345EE}" {
+        ProgressBarWidgetClass "{A7B8C9D0012345EE}" {
          Name "VolumeFill"
          Slot FrameWidgetSlot "{A7B8C9D0012345EF}" {
-          Anchor 0 0 0 0
+          Anchor 0 0 1 0
           OffsetLeft 86
           OffsetTop 74
-          OffsetRight 87
+          OffsetRight -10
           OffsetBottom 80
          }
          Color 1 1 1 1
-         style full
+         style SimpleWithBackground
          "Is Visible" 1
          "Ignore Cursor" 1
+         Maximum 1
+         Current 0
         }
        }
       }

@@ -2504,7 +2504,7 @@ $rowLayoutContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandActionRow.layout"; Guid = "{A7B8C9D0012345B0}"; Required = @('FrameWidgetClass', 'Name "HST_CommandActionRow"', 'Slot AlignableSlot', 'Name "Background"', 'Name "Label"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_CommandFeedRow.layout"; Guid = "{A7B8C9D0012345C0}"; Required = @('Name "HST_CommandFeedRow"', 'Slot AlignableSlot', 'Name "Text"') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "PreviewFallback"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'Name "VolumeFill"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'ProgressBarWidgetClass', 'Name "VolumeFill"', 'style SimpleWithBackground', 'Maximum 1', 'Current 0', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', 'Name "EmptyText"', '"Ignore Cursor" 1') }
 )
@@ -2648,6 +2648,23 @@ foreach ($requiredLoadoutStorageItemRowEntry in @(
 	$loadoutStorageItemRowText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"
 	if ($loadoutStorageItemRowText -notmatch [regex]::Escape($requiredLoadoutStorageItemRowEntry)) {
 		throw "Loadout storage item row is missing Bacon-scale preview/count entry: $requiredLoadoutStorageItemRowEntry"
+	}
+}
+$loadoutStorageRowText = Get-Content -Raw "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"
+foreach ($requiredLoadoutStorageRowProgressEntry in @(
+	"ProgressBarWidgetClass",
+	'Name "VolumeFill"',
+	"Anchor 0 0 1 0",
+	"OffsetLeft 86",
+	"OffsetTop 74",
+	"OffsetRight -10",
+	"OffsetBottom 80",
+	"style SimpleWithBackground",
+	"Maximum 1",
+	"Current 0"
+)) {
+	if ($loadoutStorageRowText -notmatch [regex]::Escape($requiredLoadoutStorageRowProgressEntry)) {
+		throw "Loadout storage row volume fill must be layout-owned progress bar: $requiredLoadoutStorageRowProgressEntry"
 	}
 }
 foreach ($requiredLoadoutCandidateTileEntry in @(
@@ -4248,6 +4265,36 @@ foreach ($forbiddenStorageCategoryTabsGeometry in @(
 $storageBrowserCandidateCategoryMatch = [regex]::Match($loadoutEditorText, "protected bool IsStorageBrowserCandidateCategory[\s\S]*?\r?\n\t}")
 if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "attachment"')) {
 	throw "Storage browser candidate categories must not include attachment; attachments belong in the attachment editor mode"
+}
+$storageVolumeFillMatch = [regex]::Match($loadoutEditorComponentText, "protected void SetStorageVolumeFill[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderPreviewStage")
+if (!$storageVolumeFillMatch.Success) {
+	throw "Loadout editor storage volume fill updater is missing"
+}
+foreach ($requiredStorageVolumeProgressEntry in @(
+	'ProgressBarWidget fill = ProgressBarWidget.Cast(FindRowWidget(row, "VolumeFill"))',
+	"float ratio = Math.Clamp(GetNodeVolumeRatio(nodeIndex), 0.0, 1.0)",
+	"fill.SetMin(0.0)",
+	"fill.SetMax(1.0)",
+	"fill.SetCurrent(ratio)",
+	"fill.SetDrawBackground(false)",
+	"fill.SetColorInt(ResolveStorageVolumeColor(nodeIndex))"
+)) {
+	if ($storageVolumeFillMatch.Value -notmatch [regex]::Escape($requiredStorageVolumeProgressEntry)) {
+		throw "Loadout storage volume fill must set native progress bar value instead of geometry: $requiredStorageVolumeProgressEntry"
+	}
+}
+foreach ($forbiddenStorageVolumeGeometry in @(
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"barLeft",
+	"barTop",
+	"barWidth",
+	"fillWidth",
+	"m_Layout.m_iRailWidth"
+)) {
+	if ($storageVolumeFillMatch.Value -match [regex]::Escape($forbiddenStorageVolumeGeometry)) {
+		throw "Loadout storage volume fill must not calculate frame geometry: $forbiddenStorageVolumeGeometry"
+	}
 }
 $loadoutPreviewChromeMethods = @(
 	@{ Name = "AddCandidatePreviewToListRow"; Pattern = "protected void AddCandidatePreviewToListRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidateListOverlayText" },

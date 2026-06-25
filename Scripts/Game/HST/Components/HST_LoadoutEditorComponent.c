@@ -2723,14 +2723,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void SetStorageVolumeFill(Widget row, int nodeIndex)
 	{
-		Widget fill = FindRowWidget(row, "VolumeFill");
+		ProgressBarWidget fill = ProgressBarWidget.Cast(FindRowWidget(row, "VolumeFill"));
 		if (!fill)
 			return;
 
-		int rowWidth = Math.Max(ScalePx(220), m_Layout.m_iRailWidth - ScalePx(32));
-		int barLeft = ScalePx(86);
-		int barTop = ScalePx(76);
-		int barWidth = Math.Max(ScalePx(80), rowWidth - barLeft - ScalePx(16));
 		Widget back = FindRowWidget(row, "VolumeBack");
 		if (back)
 		{
@@ -2740,20 +2736,18 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			back.SetZOrder(4);
 		}
 
-		int fillWidth = Math.Round(barWidth * GetNodeVolumeRatio(nodeIndex));
-		if (fillWidth <= 0)
-		{
-			FrameSlot.SetPos(fill, barLeft, barTop);
-			FrameSlot.SetSize(fill, ScalePx(1), ScalePx(6));
+		float ratio = Math.Clamp(GetNodeVolumeRatio(nodeIndex), 0.0, 1.0);
+		fill.SetMin(0.0);
+		fill.SetMax(1.0);
+		fill.SetCurrent(ratio);
+		fill.SetDrawBackground(false);
+		if (ratio <= 0.0)
 			fill.SetOpacity(0.0);
-			fill.SetVisible(true);
-			return;
-		}
-
-		FrameSlot.SetPos(fill, barLeft, barTop);
-		fill.SetOpacity(0.96);
+		else
+			fill.SetOpacity(0.96);
 		fill.SetColorInt(ResolveStorageVolumeColor(nodeIndex));
-		FrameSlot.SetSize(fill, Math.Min(barWidth, fillWidth), ScalePx(6));
+		fill.SetVisible(true);
+		fill.SetZOrder(6);
 	}
 
 	protected void RenderPreviewStage(WorkspaceWidget workspace, Widget root)
@@ -7243,6 +7237,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		Widget widget = FindRowWidget(row, widgetName);
 		if (!widget)
 			return;
+
+		ProgressBarWidget progress = ProgressBarWidget.Cast(widget);
+		if (progress)
+		{
+			progress.SetMin(0.0);
+			progress.SetMax(1.0);
+			progress.SetCurrent(0.0);
+			progress.SetDrawBackground(false);
+		}
 
 		ImageWidget image = ImageWidget.Cast(widget);
 		if (image)
