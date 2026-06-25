@@ -2243,55 +2243,52 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsureSelectedStorageNode();
 		string selectedStorageNodeId = ResolveSelectedStorageContainerNodeId();
 		Widget panelRoot = ResolveLoadoutRegion(root, "StorageBrowser");
-		int panelLeft = 0;
-		int panelTop = 0;
 		int panelWidth;
 		int panelHeight;
 		GetRegionLayoutSize(workspace, panelRoot, m_Layout.m_iMainWidth, m_Layout.m_iMainHeight, panelWidth, panelHeight);
 		m_Layout.m_iMainWidth = panelWidth;
 		m_Layout.m_iMainHeight = panelHeight;
 		m_Layout.m_iHeaderHeight = ScalePx(72);
-		m_Layout.m_iCategoryTop = panelTop + m_Layout.m_iHeaderHeight;
+		m_Layout.m_iCategoryTop = 0;
 		m_Layout.m_iCategoryHeight = ScalePx(78);
-		m_Layout.m_iListTop = m_Layout.m_iCategoryTop + m_Layout.m_iCategoryHeight + ScalePx(14);
+		m_Layout.m_iListTop = 0;
+		m_Layout.m_iListHeight = Math.Max(1, panelHeight - ScalePx(210));
 
-		Widget panelBack = CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, panelHeight, GetPanelBackColor(), 1.0, 0);
-		if (panelBack)
-			panelBack.SetZOrder(0);
-		CreateRectWidget(workspace, panelRoot, panelLeft, panelTop, panelWidth, ScalePx(3), GetAccentColor(), 1.0, 0);
-		CreateTextWidget(workspace, panelRoot, "Add Items", panelLeft + ScalePx(20), panelTop + ScalePx(14), ScalePx(160), ScalePx(26), m_Layout.m_iFontTitle, 0xFFEFE2C4, 0, true);
-		CreateTextWidget(workspace, panelRoot, ShortenText(BuildStorageTargetLabel(), 96), panelLeft + ScalePx(20), panelTop + ScalePx(42), panelWidth - ScalePx(40), ScalePx(24), m_Layout.m_iFontNormal, 0xFFE2E6E8, 0, false);
-		RenderStorageCategoryTabs(workspace, panelRoot, panelLeft + ScalePx(20), m_Layout.m_iCategoryTop, panelWidth - ScalePx(40));
+		SetLoadoutWidgetColor(panelRoot, "StorageBrowserBackground", GetPanelBackColor(), 1.0);
+		SetLoadoutWidgetColor(panelRoot, "StorageBrowserAccent", GetAccentColor(), 1.0);
+		SetLoadoutText(panelRoot, "StorageBrowserTitle", "Add Items", 0xFFEFE2C4, m_Layout.m_iFontTitle, true, false);
+		SetLoadoutText(panelRoot, "StorageBrowserSubtitle", ShortenText(BuildStorageTargetLabel(), 96), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, false);
+		SetLoadoutWidgetVisible(panelRoot, "StorageCandidateEmpty", false);
+
+		Widget categoryRoot = panelRoot.FindAnyWidget("StorageCategoryTabs");
+		int categoryWidth;
+		int categoryHeight;
+		GetRegionLayoutSize(workspace, categoryRoot, Math.Max(1, panelWidth - ScalePx(40)), m_Layout.m_iCategoryHeight, categoryWidth, categoryHeight);
+		RenderStorageCategoryTabs(workspace, categoryRoot, 0, 0, categoryWidth);
 
 		m_aVisibleCandidateIndexes.Clear();
 		if (selectedStorageNodeId.IsEmpty())
 		{
-			CreateTextWidget(workspace, panelRoot, "Select equipped storage on the left.", panelLeft + ScalePx(24), m_Layout.m_iListTop + ScalePx(8), panelWidth - ScalePx(48), ScalePx(24), m_Layout.m_iFontNormal, 0xFFB7C7D7, 0, false);
+			SetLoadoutText(panelRoot, "StorageCandidateEmpty", "Select equipped storage on the left.", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, true);
 			return;
 		}
 
-		RenderStorageCandidateGrid(workspace, panelRoot, panelLeft, panelTop);
+		RenderStorageCandidateGrid(workspace, panelRoot);
 	}
 
-	protected void RenderStorageCandidateGrid(WorkspaceWidget workspace, Widget root, int panelLeft, int panelTop)
+	protected void RenderStorageCandidateGrid(WorkspaceWidget workspace, Widget root)
 	{
-		if (!m_Layout)
+		if (!m_Layout || !root)
 			return;
 
-		int listLeft = panelLeft + ScalePx(20);
-		int listTop = m_Layout.m_iListTop;
-		int listWidth = Math.Max(1, m_Layout.m_iMainWidth - ScalePx(40));
-		int listHeight = Math.Max(1, m_Layout.m_iMainTop + m_Layout.m_iMainHeight - listTop - ScalePx(46));
 		m_aVisibleCandidateIndexes.Clear();
 
-		ScrollLayoutWidget scroll;
-		Widget items;
-		CreateScrollContainer(workspace, root, WRAP_SCROLL_GRID_LAYOUT, listLeft, listTop, listWidth, listHeight, scroll, items, true);
-		m_StorageCandidateScroll = scroll;
+		m_StorageCandidateScroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("StorageCandidateScroll"));
+		Widget items = root.FindAnyWidget("StorageCandidateItems");
 
 		if (!items)
 		{
-			CreateTextWidget(workspace, root, "Candidate grid unavailable: scroll layout missing Items.", listLeft, listTop, listWidth, ScalePx(24), m_Layout.m_iFontSmall, 0xFFFFD166, 0, false);
+			SetLoadoutText(root, "StorageCandidateEmpty", "Candidate grid unavailable: layout missing StorageCandidateItems.", 0xFFFFD166, m_Layout.m_iFontSmall, false, true);
 			return;
 		}
 
@@ -5263,7 +5260,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected void RenderStorageCategoryTabs(WorkspaceWidget workspace, Widget root, int left, int top, int width)
 	{
-		if (!m_Layout)
+		if (!m_Layout || !workspace || !root)
 			return;
 
 		int count = GetStorageBrowserCategoryCount();
