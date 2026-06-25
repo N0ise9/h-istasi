@@ -16,15 +16,10 @@ PanelWidgetClass "{B55C6FB34BF94001}" {
    Name "Dialog"
    Slot FrameWidgetSlot "{B55C6FB34BF9401A}" {
     Anchor 0.5 0.5 0.5 0.5
-    PositionX 0
-    OffsetLeft 0
-    PositionY 0
-    OffsetTop 0
-    SizeX 620
-    OffsetRight -620
-    SizeY 280
-    OffsetBottom -280
-    Alignment 0.5 0.5
+    OffsetLeft -310
+    OffsetTop -140
+    OffsetRight 310
+    OffsetBottom 140
    }
    "Is Visible" 1
    "Ignore Cursor" 0
