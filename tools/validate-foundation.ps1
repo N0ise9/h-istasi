@@ -1781,6 +1781,9 @@ foreach ($requiredReportDialogLayoutEntry in @(
 		throw "Mission report dialog layout is missing named widget: $requiredReportDialogLayoutEntry"
 	}
 }
+if ($reportDialogLayoutText -notmatch 'Name "HST_ReportDialogRoot"[\s\S]*?"Ignore Cursor" 0[\s\S]*?\{') {
+	throw "Mission report dialog root must be cursor-active so the modal blocks clicks behind it"
+}
 foreach ($requiredActionDialogLayoutEntry in @(
 	'Name "HST_ActionDialogRoot"',
 	'Name "Dialog"',
@@ -1792,6 +1795,9 @@ foreach ($requiredActionDialogLayoutEntry in @(
 	if ($actionDialogLayoutText -notmatch [regex]::Escape($requiredActionDialogLayoutEntry)) {
 		throw "Mission action dialog layout is missing named widget: $requiredActionDialogLayoutEntry"
 	}
+}
+if ($actionDialogLayoutText -notmatch 'Name "HST_ActionDialogRoot"[\s\S]*?"Ignore Cursor" 0[\s\S]*?\{') {
+	throw "Mission action dialog root must be cursor-active so the modal blocks clicks behind it"
 }
 foreach ($requiredReportObjectiveRowLayoutEntry in @(
 	'Name "HST_ReportObjectiveRow"',

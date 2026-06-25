@@ -8,7 +8,7 @@ FrameWidgetClass "{D66CFA01E5AA4100}" {
   OffsetBottom 0
  }
  "Is Visible" 1
- "Ignore Cursor" 1
+ "Ignore Cursor" 0
  {
   FrameWidgetClass "{D66CFA01E5AA4102}" {
    Name "Dialog"
