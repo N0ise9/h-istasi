@@ -4028,6 +4028,36 @@ foreach ($forbiddenPreviewCellGeometryContract in @(
 if ($loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetPos(m_UILayerWidget") -or $loadoutEditorComponentText -match [regex]::Escape("FrameSlot.SetSize(m_UILayerWidget")) {
 	throw "Loadout editor must not manually size the stretched UI layer from script"
 }
+foreach ($forbiddenLoadoutPanelPlacementEntry in @(
+	"BuildEditorSafeRect",
+	"BuildStorageModeLayout",
+	"ApplyEditorSafeRectOffset",
+	"m_iSafeLeft",
+	"m_iSafeTop",
+	"m_iSafeWidth",
+	"m_iSafeHeight",
+	"m_iTabsLeft",
+	"m_iTabsTop",
+	"m_iContentTop",
+	"m_iContentBottom",
+	"m_iContentHeight",
+	"m_iRailLeft",
+	"m_iRailTop",
+	"m_iRailBottom",
+	"m_iMainLeft",
+	"m_iMainTop",
+	"m_iMainBottom",
+	"m_iCategoryTop",
+	"m_iListTop",
+	"panelLeft",
+	"panelOverrun",
+	"groupTop",
+	"sideMargin"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutPanelPlacementEntry)) {
+		throw "Loadout editor must not restore script-owned panel placement metrics: $forbiddenLoadoutPanelPlacementEntry"
+	}
+}
 foreach ($requiredDisplayNameEntry in @(
 	"InventoryItemComponent",
 	"GetUIInfo().GetName()",
@@ -4126,16 +4156,13 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"m_Layout.m_iTabHeight = ScalePx(",
 	"m_Layout.m_iTabWidth = ScalePx(",
 	"m_Layout.m_iTabGap = ScalePx(",
-	"int groupTop = ClampInt(Math.Round((h - combinedHeight) * 0.5)",
-	"m_Layout.m_iRailLeft = panelLeft",
-	"m_Layout.m_iRailTop = groupTop + m_Layout.m_iTabsHeight + groupGap",
 	"m_Layout.m_iRailWidth = ClampInt(Math.Round(w * 0.245)",
-	"m_Layout.m_iRailBottom = m_Layout.m_iRailTop + desiredContentHeight",
-	"m_Layout.m_iMainLeft = m_Layout.m_iRailLeft + m_Layout.m_iRailWidth + mainGap",
-	"m_Layout.m_iMainWidth = ClampInt(Math.Round(w * 0.56)",
-	"m_Layout.m_iMainBottom = m_Layout.m_iRailBottom",
+	"m_Layout.m_iRailHeight = desiredContentHeight",
+	"m_Layout.m_iMainWidth = ClampInt(Math.Round(w * 0.36)",
+	"m_Layout.m_iMainHeight = m_Layout.m_iRailHeight",
 	"m_Layout.m_iHeaderHeight = ScalePx(72)",
 	"m_Layout.m_iCategoryHeight = ScalePx(78)",
+	"m_Layout.m_iListHeight = Math.Max(ScalePx(1), m_Layout.m_iMainHeight - ScalePx(210))",
 	"LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT",
 	"LOADOUT_TAB_BUTTON_LAYOUT",
 	"AddLoadoutTabButton(workspace, items",
