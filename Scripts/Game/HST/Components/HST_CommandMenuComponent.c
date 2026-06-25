@@ -1273,6 +1273,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
 		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
+		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)

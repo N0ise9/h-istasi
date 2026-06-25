@@ -141,6 +141,7 @@ class HST_NotificationToastController
 			return;
 
 		HST_UIDebug.LogWidgetGeometryCsv("notification_toast_ready", m_wRoot, "HST_NotificationRoot|Toast|Background|AccentLine|Title|Message");
+		HST_UIDebug.LogReadyWidgetsCsv("notification_toast_ready", m_wRoot, "HST_NotificationRoot|Toast|Background|AccentLine|Title|Message");
 	}
 
 	protected void DismissCurrent(int generation)
