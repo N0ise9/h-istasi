@@ -906,11 +906,21 @@ class HST_SetupMapComponent : ScriptComponent
 		SCR_MapCursorModule cursorModule = SCR_MapCursorModule.Cast(m_MapEntity.GetMapModule(SCR_MapCursorModule));
 		if (!cursorModule)
 			return;
-		if (m_bMapCursorDialogActive == shouldBlockMap)
+		if (shouldBlockMap)
+		{
+			if (m_bSetupLocationSelectionEnabled)
+				cursorModule.ToggleLocationSelection(false);
+			m_bSetupLocationSelectionEnabled = false;
+			cursorModule.HandleDialog(true);
+			m_bMapCursorDialogActive = true;
+			return;
+		}
+
+		if (!m_bMapCursorDialogActive)
 			return;
 
-		cursorModule.HandleDialog(shouldBlockMap);
-		m_bMapCursorDialogActive = shouldBlockMap;
+		cursorModule.HandleDialog(false);
+		m_bMapCursorDialogActive = false;
 	}
 
 	protected void ReleaseSetupMapDialogState()

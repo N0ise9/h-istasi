@@ -806,7 +806,9 @@ foreach ($requiredSetupMapLayerEntry in @(
 	"SetWidgetLayer(m_wPromptRule",
 	"m_wPromptText.SetZOrder",
 	"ApplySetupMapDialogState",
-	"HandleDialog(shouldBlockMap)",
+	"cursorModule.ToggleLocationSelection(false)",
+	"cursorModule.HandleDialog(true)",
+	"cursorModule.HandleDialog(false)",
 	"ReleaseSetupMapDialogState"
 )) {
 	if ($setupMapComponentText -notmatch [regex]::Escape($requiredSetupMapLayerEntry)) {
