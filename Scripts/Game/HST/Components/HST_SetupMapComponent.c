@@ -64,6 +64,7 @@ class HST_SetupMapComponent : ScriptComponent
 	static const string SETUP_INPUT_CONTEXT = "InGameMenuContext";
 	static const string SETUP_MAP_CONTEXT = "MapContext";
 	static const string SETUP_CURSOR_CONTEXT = "DialogContext";
+	static const string SETUP_INTERACTABLE_DIALOG_CONTEXT = "InteractableDialogContext";
 
 	protected static HST_SetupMapComponent s_LocalInstance;
 
@@ -1570,6 +1571,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (m_bConfirmOpen)
 		{
 			inputManager.ActivateContext(SETUP_CURSOR_CONTEXT);
+			inputManager.ActivateContext(SETUP_INTERACTABLE_DIALOG_CONTEXT);
 			WidgetManager.SetCursor(0);
 		}
 	}

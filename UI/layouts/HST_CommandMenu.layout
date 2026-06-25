@@ -165,8 +165,8 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       Anchor 0 0 0 1
       OffsetLeft 20
       OffsetTop 100
-      OffsetRight -220
-      OffsetBottom 20
+      OffsetRight 220
+      OffsetBottom -20
      }
      "Ignore Cursor" 0
      {
@@ -203,11 +203,11 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       ScrollLayoutWidgetClass "{A7B8C9D001236036}" {
        Name "TabScroll"
        Slot FrameWidgetSlot "{A7B8C9D001236037}" {
-        Anchor 0 0 1 1
-        OffsetLeft 12
-        OffsetTop 56
-        OffsetRight 12
-        OffsetBottom 12
+       Anchor 0 0 1 1
+       OffsetLeft 12
+       OffsetTop 56
+       OffsetRight -12
+       OffsetBottom -12
        }
        "Scrollbar Always Visible" 0
        {
@@ -231,7 +231,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       PositionY 100
       OffsetTop 100
       SizeX -764
-      OffsetRight 524
+      OffsetRight -524
       SizeY 68
       OffsetBottom -168
      }
@@ -320,8 +320,8 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       Anchor 0 0 1 1
       OffsetLeft 240
       OffsetTop 182
-      OffsetRight 524
-      OffsetBottom 20
+      OffsetRight -524
+      OffsetBottom -20
      }
      "Ignore Cursor" 0
      {
@@ -333,8 +333,8 @@ FrameWidgetClass "{A7B8C9D001234550}" {
         Anchor 0 0 1 1
         OffsetLeft 24
         OffsetTop 30
-        OffsetRight 24
-        OffsetBottom 24
+        OffsetRight -24
+        OffsetBottom -24
        }
        "Scrollbar Always Visible" 1
        {
@@ -356,7 +356,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
       OffsetLeft -500
       OffsetTop 100
       OffsetRight 20
-      OffsetBottom 382
+      OffsetBottom -382
      }
      "Ignore Cursor" 0
      {
@@ -371,8 +371,8 @@ FrameWidgetClass "{A7B8C9D001234550}" {
         Anchor 0 0 1 1
         OffsetLeft 20
         OffsetTop 174
-        OffsetRight 20
-        OffsetBottom 12
+        OffsetRight -20
+        OffsetBottom -12
        }
        "Scrollbar Always Visible" 1
        {
@@ -407,8 +407,8 @@ FrameWidgetClass "{A7B8C9D001234550}" {
         Anchor 0 0 1 1
         OffsetLeft 20
         OffsetTop 58
-        OffsetRight 20
-        OffsetBottom 16
+        OffsetRight -20
+        OffsetBottom -16
        }
        "Scrollbar Always Visible" 1
        {
