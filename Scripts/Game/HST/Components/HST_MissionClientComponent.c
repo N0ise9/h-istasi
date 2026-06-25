@@ -1,8 +1,3 @@
-class HST_MissionClientDrawCommandSet
-{
-	ref array<ref CanvasWidgetCommand> m_aCommands = {};
-}
-
 [ComponentEditorProps(category: "h-istasi", description: "Client mission notifications, intel cache, and detail panel")]
 class HST_MissionClientComponentClass : ScriptComponentClass
 {
@@ -11,8 +6,9 @@ class HST_MissionClientComponentClass : ScriptComponentClass
 class HST_MissionClientComponent : ScriptComponent
 {
 	static const int DETAIL_CLOSE_WIDGET_ID = 9801;
-	static const int DETAIL_ROOT_Z = 2700;
-	static const ResourceName SCRIPTED_PANEL_ROOT_LAYOUT = "{B55C6FB34BF95000}UI/layouts/HST_ScriptedPanelRoot.layout";
+	static const ResourceName REPORT_DIALOG_LAYOUT = "{D66CFA01E5AA4100}UI/layouts/HST_ReportDialog.layout";
+	static const ResourceName ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout";
+	static const ResourceName REPORT_OBJECTIVE_ROW_LAYOUT = "{D66CFA01E5AA4300}UI/layouts/HST/Rows/HST_ReportObjectiveRow.layout";
 	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
 
 	protected static HST_MissionClientComponent s_LocalInstance;
@@ -34,8 +30,8 @@ class HST_MissionClientComponent : ScriptComponent
 	protected ref array<string> m_aQueuedNotificationMessages = {};
 	protected ref array<float> m_aQueuedNotificationDurations = {};
 	protected ref array<Widget> m_aWidgets = {};
-	protected ref array<ref HST_MissionClientDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_MissionClientWidgetHandler m_WidgetHandler;
+	protected bool m_bNotificationVisible;
 	protected ref array<string> m_aMissionIds = {};
 	protected ref array<string> m_aMissionTitles = {};
 	protected ref array<string> m_aMissionStatuses = {};
@@ -316,6 +312,7 @@ class HST_MissionClientComponent : ScriptComponent
 		root.SetZOrder(HST_UIConstants.Z_NOTIFICATION);
 		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		HST_UIRootService.Get().NotifyNotificationShown();
+		m_bNotificationVisible = true;
 		m_aWidgets.Insert(root);
 		int accent = NotificationAccentColor(severity, category);
 
@@ -449,20 +446,11 @@ class HST_MissionClientComponent : ScriptComponent
 		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, "HST_MissionDetail");
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-		int margin = HST_UIWorkspaceMetrics.ScalePx(36, scale);
-		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(920, scale), Math.Max(1, screenW - margin * 2));
-		int rootH = Math.Min(HST_UIWorkspaceMetrics.ScalePx(560, scale), Math.Max(1, screenH - margin * 2));
-		float panelScale = Math.Min(rootW / 920.0, rootH / 560.0);
-		int panelMargin = Math.Max(8, margin / 2);
-		int left = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenW - rootW) / 2), panelMargin, Math.Max(panelMargin, screenW - rootW - panelMargin));
-		int top = HST_UIWorkspaceMetrics.ClampInt(Math.Max(0, (screenH - rootH) / 2), panelMargin, Math.Max(panelMargin, screenH - rootH - panelMargin));
 
-		Widget root = workspace.CreateWidgets(SCRIPTED_PANEL_ROOT_LAYOUT);
+		Widget root = workspace.CreateWidgets(REPORT_DIALOG_LAYOUT);
 		if (!root)
 			return;
 
-		FrameSlot.SetPos(root, left, top);
-		FrameSlot.SetSize(root, rootW, rootH);
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_MISSION_DIALOG);
@@ -474,37 +462,37 @@ class HST_MissionClientComponent : ScriptComponent
 			m_WidgetHandler.Bind(this);
 		}
 
-		CreateRectWidget(workspace, root, 0, 0, rootW, rootH, 0xF4080D12, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 0, rootW, Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(5, panelScale)), 0xFFFFC45D, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(m_aMissionTitles[index], 48), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScalePx(22, panelScale), HST_UIWorkspaceMetrics.ScalePx(520, panelScale), HST_UIWorkspaceMetrics.ScalePx(34, panelScale), HST_UIWorkspaceMetrics.ScaleFont(26, panelScale), 0xFFF7E6BE, 0, true);
-		CreateTextWidget(workspace, root, string.Format("%1 | %2 | %3s left", m_aMissionCategories[index], m_aMissionStatuses[index], m_aMissionRemaining[index]), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScalePx(64, panelScale), HST_UIWorkspaceMetrics.ScalePx(620, panelScale), HST_UIWorkspaceMetrics.ScalePx(26, panelScale), HST_UIWorkspaceMetrics.ScaleFont(17, panelScale), 0xFFC9D4DC, 0, false);
-		CreateRectWidget(workspace, root, HST_UIWorkspaceMetrics.ScalePx(790, panelScale), HST_UIWorkspaceMetrics.ScalePx(20, panelScale), HST_UIWorkspaceMetrics.ScalePx(110, panelScale), HST_UIWorkspaceMetrics.ScalePx(42, panelScale), 0xFF604A24, 0.95, DETAIL_CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Close", HST_UIWorkspaceMetrics.ScalePx(806, panelScale), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScalePx(86, panelScale), HST_UIWorkspaceMetrics.ScalePx(24, panelScale), HST_UIWorkspaceMetrics.ScaleFont(17, panelScale), 0xFFF7E6BE, DETAIL_CLOSE_WIDGET_ID, true);
+		BindDialogClick(root, "CloseButton", DETAIL_CLOSE_WIDGET_ID);
+		SetDialogText(root, "Title", ShortenText(m_aMissionTitles[index], 64), 0xFFF7E6BE, HST_UIWorkspaceMetrics.ScaleFont(26, scale), true, false);
+		SetDialogText(root, "Subtitle", string.Format("%1 | %2 | %3s left", m_aMissionCategories[index], m_aMissionStatuses[index], m_aMissionRemaining[index]), 0xFFC9D4DC, HST_UIWorkspaceMetrics.ScaleFont(17, scale), false, false);
+		SetDialogText(root, "CloseLabel", "Close", 0xFFF7E6BE, HST_UIWorkspaceMetrics.ScaleFont(17, scale), true, false);
+		SetDialogText(root, "LocationLabel", "Location", 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetDialogText(root, "LocationValue", m_aMissionZones[index] + " / " + m_aMissionSites[index], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetDialogText(root, "MapPositionLabel", "Map position", 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetDialogText(root, "MapPositionValue", m_aMissionPositions[index], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetDialogText(root, "RequirementLabel", "Requirement", 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetDialogText(root, "RequirementValue", m_aMissionRequirements[index], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetDialogText(root, "ProgressLabel", "Progress", 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetDialogText(root, "ProgressValue", m_aMissionProgress[index], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetDialogText(root, "RewardLabel", "Reward", 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetDialogText(root, "RewardValue", m_aMissionRewards[index], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetDialogText(root, "FailureLabel", "Failure", 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, false);
+		SetDialogText(root, "FailureValue", m_aMissionFailures[index], 0xFFE7EDF1, HST_UIWorkspaceMetrics.ScaleFont(16, scale), false, true);
+		SetDialogText(root, "ObjectivesTitle", "Objectives", 0xFFF7E6BE, HST_UIWorkspaceMetrics.ScaleFont(22, scale), true, false);
 
-		CreatePanelRow(workspace, root, "Location", m_aMissionZones[index] + " / " + m_aMissionSites[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(112, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Map position", m_aMissionPositions[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(154, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Requirement", m_aMissionRequirements[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(196, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Progress", m_aMissionProgress[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(258, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Reward", m_aMissionRewards[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(320, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Failure", m_aMissionFailures[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(382, panelScale), panelScale);
-
-		CreateTextWidget(workspace, root, "Objectives", HST_UIWorkspaceMetrics.ScalePx(560, panelScale), HST_UIWorkspaceMetrics.ScalePx(112, panelScale), HST_UIWorkspaceMetrics.ScalePx(220, panelScale), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScaleFont(22, panelScale), 0xFFF7E6BE, 0, true);
+		Widget items = root.FindAnyWidget("ObjectiveItems");
 		int rendered;
 		for (int i = 0; i < m_aObjectiveMissionIds.Count(); i++)
 		{
 			if (m_aObjectiveMissionIds[i] != m_sSelectedMissionId)
 				continue;
 
-			int objectiveTop = HST_UIWorkspaceMetrics.ScalePx(154 + rendered * 44, panelScale);
-			CreateTextWidget(workspace, root, ShortenText(m_aObjectiveLabels[i], 28), HST_UIWorkspaceMetrics.ScalePx(560, panelScale), objectiveTop, HST_UIWorkspaceMetrics.ScalePx(240, panelScale), HST_UIWorkspaceMetrics.ScalePx(22, panelScale), HST_UIWorkspaceMetrics.ScaleFont(17, panelScale), 0xFFF2F4F0, 0, true);
-			CreateTextWidget(workspace, root, ShortenText(m_aObjectiveProgress[i], 24), HST_UIWorkspaceMetrics.ScalePx(560, panelScale), objectiveTop + HST_UIWorkspaceMetrics.ScalePx(24, panelScale), HST_UIWorkspaceMetrics.ScalePx(240, panelScale), HST_UIWorkspaceMetrics.ScalePx(20, panelScale), HST_UIWorkspaceMetrics.ScaleFont(15, panelScale), 0xFFFFD98B, 0, false);
+			AddObjectiveRow(workspace, items, ShortenText(m_aObjectiveLabels[i], 42), ShortenText(m_aObjectiveProgress[i], 42), scale);
 			rendered++;
-			if (rendered >= 8)
-				break;
 		}
 
 		if (rendered == 0)
-			CreateTextWidget(workspace, root, "No objective records.", HST_UIWorkspaceMetrics.ScalePx(560, panelScale), HST_UIWorkspaceMetrics.ScalePx(154, panelScale), HST_UIWorkspaceMetrics.ScalePx(260, panelScale), HST_UIWorkspaceMetrics.ScalePx(26, panelScale), HST_UIWorkspaceMetrics.ScaleFont(16, panelScale), 0xFF9AA5AD, 0, false);
+			AddObjectiveRow(workspace, items, "No objective records.", "", scale);
 	}
 
 	bool OnWidgetClicked(int widgetId)
@@ -518,103 +506,50 @@ class HST_MissionClientComponent : ScriptComponent
 		return true;
 	}
 
-	protected void CreatePanelRow(WorkspaceWidget workspace, Widget root, string label, string value, int left, int top, float scale)
+	protected void BindDialogClick(Widget root, string widgetName, int userId)
 	{
-		CreateTextWidget(workspace, root, label, left, top, HST_UIWorkspaceMetrics.ScalePx(150, scale), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFFFD98B, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(value, 76), left + HST_UIWorkspaceMetrics.ScalePx(150, scale), top, HST_UIWorkspaceMetrics.ScalePx(360, scale), HST_UIWorkspaceMetrics.ScalePx(46, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFE7EDF1, 0, false);
-	}
+		if (!root || userId <= 0)
+			return;
 
-	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
-	{
-		WidgetFlags flags = WidgetFlags.VISIBLE;
-		if (userId <= 0)
-			flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS;
-
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, flags, null, DETAIL_ROOT_Z + 5, parent);
+		Widget widget = root.FindAnyWidget(widgetName);
 		if (!widget)
-			return null;
+			return;
 
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		SetupCanvasRect(widget, width, height, color);
-		widget.SetOpacity(opacity);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-		else
-		{
-			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		}
-		return widget;
+		widget.SetUserID(userId);
+		widget.AddHandler(m_WidgetHandler);
 	}
 
-	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
+	protected void SetDialogText(Widget root, string widgetName, string text, int color, int fontSize, bool bold, bool wrap)
 	{
-		WidgetFlags flags = WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION;
-		if (userId <= 0)
-			flags = WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS;
+		if (!root)
+			return;
 
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, flags, null, DETAIL_ROOT_Z + 10, parent);
-		if (!widget)
-			return null;
+		TextWidget textWidget = TextWidget.Cast(root.FindAnyWidget(widgetName));
+		if (!textWidget)
+			return;
 
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (textWidget)
-		{
-			textWidget.SetText(text);
-			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetBold(bold);
-			textWidget.SetTextWrapping(true);
-			textWidget.SetOutline(1, 0xDD000000);
-			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-		else
-		{
-			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		}
-
-		return textWidget;
+		textWidget.SetVisible(true);
+		textWidget.SetOpacity(1.0);
+		textWidget.SetText(text);
+		textWidget.SetTextWrapping(wrap);
+		textWidget.SetExactFontSize(fontSize);
+		textWidget.SetBold(bold);
+		textWidget.SetOutline(1, 0xDD000000);
+		textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
+		textWidget.SetColorInt(color);
 	}
 
-	protected bool SetupCanvasRect(Widget widget, int width, int height, int color)
+	protected void AddObjectiveRow(WorkspaceWidget workspace, Widget items, string label, string value, float scale)
 	{
-		CanvasWidget canvas = CanvasWidget.Cast(widget);
-		if (!canvas)
-			return false;
+		if (!workspace || !items)
+			return;
 
-		HST_MissionClientDrawCommandSet commandSet = new HST_MissionClientDrawCommandSet();
-		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
-		rectCommand.m_iColor = color;
-		rectCommand.m_Vertices = BuildRectVertices(width, height);
-		commandSet.m_aCommands.Insert(rectCommand);
-		canvas.SetDrawCommands(commandSet.m_aCommands);
-		m_aCanvasCommandSets.Insert(commandSet);
-		return true;
-	}
+		Widget row = workspace.CreateWidgets(REPORT_OBJECTIVE_ROW_LAYOUT, items);
+		if (!row)
+			return;
 
-	protected ref array<float> BuildRectVertices(int width, int height)
-	{
-		ref array<float> vertices = {};
-		vertices.Insert(0.0);
-		vertices.Insert(0.0);
-		vertices.Insert(width);
-		vertices.Insert(0.0);
-		vertices.Insert(width);
-		vertices.Insert(height);
-		vertices.Insert(0.0);
-		vertices.Insert(height);
-		return vertices;
+		SetDialogText(row, "Label", label, 0xFFF2F4F0, HST_UIWorkspaceMetrics.ScaleFont(16, scale), true, true);
+		SetDialogText(row, "Value", value, 0xFFFFD98B, HST_UIWorkspaceMetrics.ScaleFont(14, scale), false, true);
 	}
 
 	protected void ParseMissionIntel(string payload)
@@ -727,8 +662,11 @@ class HST_MissionClientComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-		m_aCanvasCommandSets.Clear();
-		HST_UIRootService.Get().NotifyNotificationHidden();
+		if (m_bNotificationVisible)
+		{
+			HST_UIRootService.Get().NotifyNotificationHidden();
+			m_bNotificationVisible = false;
+		}
 	}
 
 	protected bool IsLocalOwner(IEntity owner)

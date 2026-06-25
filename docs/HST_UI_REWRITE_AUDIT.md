@@ -29,7 +29,7 @@ Current state:
 | `Scripts/Game/HST/Components/HST_CommandMenuComponent.c` | Layout root, named region binding, row layout population, legacy canvas/text factories and scroll helper | Mixed | Main shell is layout-driven. Remaining generic `CreateRectWidget`, `CreateTextWidget`, and `CreateScrollContainer` should shrink as more rows/panels move to layout files. |
 | `Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c` | No UI geometry matches in audit grep | Allowed | Request bridge can remain behavior-only. |
 | `Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c` | Layout root, named region binding, row layout population, preview world, dynamic preview cells, legacy factories | Mixed | Major panels are layout-owned. Dynamic item previews and volume fill are allowed data-driven geometry. Remaining full-screen safe-rect and panel helpers should be replaced by dedicated layouts/controllers. |
-| `Scripts/Game/HST/Components/HST_MissionClientComponent.c` | Notification layout, scripted detail panel root, manual panel rectangles/text | Should move to layout file | Notification path is acceptable. Mission detail/report panel should become `HST_ReportDialog.layout` / `HST_ActionDialog.layout` with named widgets and scrolls. |
+| `Scripts/Game/HST/Components/HST_MissionClientComponent.c` | Notification layout, report dialog layout, action dialog layout scaffold, objective row layout population | Mixed | Notifications and mission report details are layout-driven. Continue wiring future mission action/admin flows through `HST_ActionDialog.layout` instead of adding scripted panel geometry. |
 | `Scripts/Game/HST/Services/HST_MapMarkerService.c` | No UI geometry matches in audit grep | Allowed | Native marker service should remain marker-record orchestration only. |
 | `Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c` | No UI geometry matches in audit grep | Allowed | Desired marker record builder is correctly separated from UI projection. |
 | `Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c` | No UI geometry matches in audit grep | Allowed | Native map marker reconciler owns native marker lifecycle, not UI widgets. |
@@ -54,7 +54,7 @@ Current state:
 
 ## Should Move To Layout File
 
-- Mission detail/report UI in `HST_MissionClientComponent.c`.
+- Mission action/admin confirmation flows should use `HST_ActionDialog.layout` rather than ad hoc panels.
 - Command menu fallback text/rect factories that are no longer part of the primary layout path.
 - Loadout save/settings/candidate panels that still create substantial panel chrome in script.
 - Loadout left-side Back/ESC controls, currently positioned in script.
@@ -70,6 +70,6 @@ Current state:
 
 - Add a lightweight root/controller service for open-screen state and input policy.
 - Split/verify setup map config versus gameplay map config.
-- Convert mission detail/report dialogs to layout files.
+- Wire any remaining mission action/admin confirmation flows into `HST_ActionDialog.layout`.
 - Finish replacing loadout panel chrome and left controls with dedicated layout widgets.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.

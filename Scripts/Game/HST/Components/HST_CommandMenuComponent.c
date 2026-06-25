@@ -158,6 +158,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_CommandMenuLayoutMetrics m_Layout;
 	protected ref array<Widget> m_aExternalNotificationWidgets = {};
+	protected bool m_bExternalNotificationVisible;
 	protected ref array<string> m_aExternalNotificationTitleQueue = {};
 	protected ref array<string> m_aExternalNotificationMessageQueue = {};
 	protected ref array<float> m_aExternalNotificationDurationQueue = {};
@@ -1281,6 +1282,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetZOrder(HST_UIConstants.Z_NOTIFICATION);
 		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
 		HST_UIRootService.Get().NotifyNotificationShown();
+		m_bExternalNotificationVisible = true;
 		m_aExternalNotificationWidgets.Insert(root);
 
 		Widget accentLine = root.FindAnyWidget("AccentLine");
@@ -2005,7 +2007,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		m_aExternalNotificationWidgets.Clear();
 		m_fExternalNotificationRemaining = 0;
-		HST_UIRootService.Get().NotifyNotificationHidden();
+		if (m_bExternalNotificationVisible)
+		{
+			HST_UIRootService.Get().NotifyNotificationHidden();
+			m_bExternalNotificationVisible = false;
+		}
 	}
 
 	protected void ClearRichPayload()
