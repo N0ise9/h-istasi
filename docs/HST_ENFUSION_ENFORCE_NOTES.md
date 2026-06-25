@@ -47,6 +47,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Schedule a delayed ready pass for final geometry logs because render-target and UI-layer widgets can report `0x0` during creation.
   - Current example: `HST_LoadoutEditor.layout` with `ApplyLoadoutLayerOrder` and `loadout_editor_ready` diagnostics.
 
+- Complex full-screen shells also benefit from one repeatable layer-order pass.
+  - Keep geometry in the layout file, but reassert sibling z-order for dimmers, shell surfaces, panels, headers, and overlaid button labels after creation and delayed layout resolution.
+  - Current example: `HST_CommandMenu.layout` with `ApplyCommandMenuLayerOrder` and `command_menu_ready` diagnostics.
+
 ## Coordinates And DPI
 
 - Workspace raw size and layout size are different under UI scaling.

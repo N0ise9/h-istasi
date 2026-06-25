@@ -2685,6 +2685,18 @@ foreach ($forbiddenCommandMenuPanelMetric in @(
 		throw "Command menu must not restore script-owned panel placement metrics: $forbiddenCommandMenuPanelMetric"
 	}
 }
+foreach ($requiredCommandMenuLayerEntry in @(
+	"protected void ApplyCommandMenuLayerOrder",
+	"ApplyCommandMenuLayerOrder(root)",
+	"SetMenuLayer(root, `"ScreenDimmer`", COMMAND_DIMMER_Z, true)",
+	"SetMenuLayer(root, `"CommandSurface`", COMMAND_SURFACE_Z, true)",
+	"SetMenuLayer(root, `"CloseLabel`", COMMAND_CLOSE_Z + 1, true)",
+	'HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready"'
+)) {
+	if ($commandMenuComponentText -notmatch [regex]::Escape($requiredCommandMenuLayerEntry)) {
+		throw "Command menu must keep deterministic layout-layer ordering and ready diagnostics: $requiredCommandMenuLayerEntry"
+	}
+}
 $contextCommandMatch = [regex]::Match($commandMenuComponentText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
 if (!$contextCommandMatch.Success) {
 	throw "Missing command menu context command path"
