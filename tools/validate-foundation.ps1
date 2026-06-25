@@ -2201,20 +2201,12 @@ foreach ($requiredCommandMenuEntry in @(
 	'local player menu component ready',
 	'CreateMenuRoot',
 	'workspace.CreateWidgets(COMMAND_MENU_LAYOUT)',
-	'TextWidgetTypeID',
-	'CanvasWidgetTypeID',
-	'PolygonDrawCommand',
-	'm_aCanvasCommandSets',
-	'SetDrawCommands',
-	'VERTICAL_SCROLL_LIST_LAYOUT',
-	'WRAP_SCROLL_GRID_LAYOUT',
 	'COMMAND_SECTION_ROW_LAYOUT',
 	'COMMAND_DATA_ROW_LAYOUT',
 	'COMMAND_DATA_ROW_COMPACT_LAYOUT',
 	'COMMAND_ACTION_ROW_LAYOUT',
 	'COMMAND_FEED_ROW_LAYOUT',
 	'COMMAND_ACTION_ROW_STRIDE',
-	'CreateScrollContainer',
 	'FindRowText',
 	'SetRowText',
 	'SetRowImageColor',
@@ -2242,7 +2234,6 @@ foreach ($requiredCommandMenuEntry in @(
 	'SetOutline',
 	'SetShadow',
 	'SetTextWrapping(false)',
-	'FrameSlot.SetPos',
 	'WidgetFlags.VISIBLE',
 	'if (i >= 4)',
 	'CountRowsForSection',
@@ -2250,7 +2241,6 @@ foreach ($requiredCommandMenuEntry in @(
 	'AddCommandActionRow',
 	'EnsureSelectedActionVisible',
 	'ScrollToView',
-	'CreateWrappedTextWidget',
 	'BuildContentItemList',
 	'STAT|',
 	'SECTION|',
@@ -2314,24 +2304,18 @@ foreach ($requiredCommandMenuEntry in @(
 		throw "Missing I-key alpha command menu contract entry: $requiredCommandMenuEntry"
 	}
 }
-$commandMenuScrollHelperMatch = [regex]::Match($commandMenuComponentText, "protected Widget CreateScrollContainer[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected TextWidget FindRowText")
-if (!$commandMenuScrollHelperMatch.Success) {
-	throw "Command menu must use the Path B CreateScrollContainer helper"
-}
-foreach ($requiredCommandMenuScrollHelperEntry in @(
-	"Widget root = workspace.CreateWidgets(layout, parent)",
-	"FrameSlot.SetPos(root, left, top)",
-	"FrameSlot.SetSize(root, width, height)",
-	"root.SetZOrder(2580)",
-	'ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"))',
-	'root.FindAnyWidget("Items")'
-)) {
-	if ($commandMenuScrollHelperMatch.Value -notmatch [regex]::Escape($requiredCommandMenuScrollHelperEntry)) {
-		throw "Command menu Path B scroll helper is missing: $requiredCommandMenuScrollHelperEntry"
-	}
-}
 foreach ($forbiddenCommandMenuPathBRegression in @(
 	"CreateScrollList",
+	"protected Widget CreateScrollContainer",
+	"protected Widget CreateRectWidget",
+	"protected bool SetupCanvasRect",
+	"protected ref array<float> BuildRectVertices",
+	"protected TextWidget CreateTextWidget",
+	"protected TextWidget CreateWrappedTextWidget",
+	"HST_CommandMenuDrawCommandSet",
+	"m_aCanvasCommandSets",
+	"VERTICAL_SCROLL_LIST_LAYOUT",
+	"WRAP_SCROLL_GRID_LAYOUT",
 	"CONTENT_PAGE_SIZE",
 	"ACTION_PAGE_SIZE",
 	"CONTENT_PREV_WIDGET_ID",
@@ -2358,18 +2342,8 @@ if ($commandMenuComponentText -match "FrameSlot\.Set(Pos|Size)\((scroll|items|co
 if ($commandMenuComponentText -match "CreateWidgetInWorkspace\(WidgetType\.CanvasWidgetTypeID") {
 	throw "Command menu root must be a child-capable frame/layout container, not a canvas widget"
 }
-if ($commandMenuComponentText -match "\bPanelWidgetTypeID\b") {
-	throw "Command menu visible fills must use canvas draw commands, not panel widget fills"
-}
 if ($commandMenuComponentText -match "\bWidgetFlags\.WRAP_TEXT\b") {
 	throw "Command menu fixed-height text must avoid automatic wrapping; shorten or clip instead"
-}
-$rectFactoryMatch = [regex]::Match($commandMenuComponentText, "protected Widget CreateRectWidget[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool SetupCanvasRect")
-if (!$rectFactoryMatch.Success -or $rectFactoryMatch.Value -notmatch "WidgetType\.CanvasWidgetTypeID") {
-	throw "Command menu rectangle factory must use CanvasWidgetTypeID"
-}
-if ($rectFactoryMatch.Value -match "FrameWidgetTypeID|PanelWidgetTypeID") {
-	throw "Command menu rectangle factory must not use frame/panel widgets for visible fills"
 }
 $contextCommandMatch = [regex]::Match($commandMenuComponentText, "void RunCommandFromContext[\s\S]*?\r?\n\t}\r?\n\r?\n\tvoid OnServerSnapshot")
 if (!$contextCommandMatch.Success) {

@@ -24,11 +24,6 @@ class HST_CommandMenuWidgetHandler : ScriptedWidgetEventHandler
 	}
 }
 
-class HST_CommandMenuDrawCommandSet
-{
-	ref array<ref CanvasWidgetCommand> m_aCommands = {};
-}
-
 class HST_CommandMenuLayoutMetrics
 {
 	int m_iScreenW;
@@ -109,8 +104,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const ResourceName INPUT_CONFIG = "Configs/HST/Input/HST_Input.conf";
 	static const ResourceName COMMAND_MENU_LAYOUT = "{A7B8C9D001234550}UI/layouts/HST_CommandMenu.layout";
 	static const ResourceName NOTIFICATION_TOAST_LAYOUT = "{A34F448C7E830600}UI/layouts/HST_NotificationToast.layout";
-	static const ResourceName VERTICAL_SCROLL_LIST_LAYOUT = "{A7B8C9D001234560}UI/layouts/HST_VerticalScrollList.layout";
-	static const ResourceName WRAP_SCROLL_GRID_LAYOUT = "{A7B8C9D001234570}UI/layouts/HST_WrapScrollGrid.layout";
 	static const ResourceName UI_SOLID_WHITE = "{56137CA0F2D3ACE6}Assets/Images/solid_white_square.edds";
 	static const ResourceName COMMAND_SECTION_ROW_LAYOUT = "{A7B8C9D001234580}UI/layouts/HST/Rows/HST_CommandSectionRow.layout";
 	static const ResourceName COMMAND_DATA_ROW_LAYOUT = "{A7B8C9D001234590}UI/layouts/HST/Rows/HST_CommandDataRow.layout";
@@ -155,7 +148,6 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected ref array<int> m_aContentItemSectionIndexes = {};
 	protected ref array<int> m_aContentItemRowIndexes = {};
 	protected ref array<Widget> m_aWidgets = {};
-	protected ref array<ref HST_CommandMenuDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_CommandMenuLayoutMetrics m_Layout;
 	protected ref array<Widget> m_aExternalNotificationWidgets = {};
 	protected bool m_bExternalNotificationVisible;
@@ -1650,51 +1642,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetRowText(row, "Label", text, textColor, m_Layout.m_iFontNormal, focused, true);
 	}
 
-	protected Widget CreateScrollContainer(WorkspaceWidget workspace, Widget parent, ResourceName layout, int left, int top, int width, int height, out ScrollLayoutWidget scroll, out Widget items, bool trackForCleanup)
-	{
-		scroll = null;
-		items = null;
-
-		if (!workspace || !parent || layout.IsEmpty() || width <= 0 || height <= 0)
-		{
-			Print("h-istasi ui scroll | failed: invalid workspace/parent/layout/size", LogLevel.WARNING);
-			return null;
-		}
-
-		Widget root = workspace.CreateWidgets(layout, parent);
-		if (!root)
-		{
-			Print("h-istasi ui scroll | failed: could not create scroll layout " + layout, LogLevel.WARNING);
-			return null;
-		}
-
-		FrameSlot.SetPos(root, left, top);
-		FrameSlot.SetSize(root, width, height);
-		root.SetZOrder(2580);
-
-		scroll = ScrollLayoutWidget.Cast(root.FindAnyWidget("Scroll"));
-		items = root.FindAnyWidget("Items");
-
-		if (!scroll || !items)
-		{
-			Print("h-istasi ui scroll | failed: layout must contain widgets named Scroll and Items", LogLevel.WARNING);
-			root.RemoveFromHierarchy();
-			scroll = null;
-			items = null;
-			return null;
-		}
-
-		root.SetOpacity(1.0);
-		root.SetVisible(true);
-		scroll.SetVisible(true);
-		items.SetVisible(true);
-
-		if (trackForCleanup)
-			m_aWidgets.Insert(root);
-
-		return root;
-	}
-
 	protected TextWidget FindRowText(Widget row, string name)
 	{
 		if (!row)
@@ -1870,109 +1817,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_ActionScroll.ScrollToView(0, y, m_Layout.m_iActionsTextWidth, rowHeight);
 	}
 
-	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, WidgetFlags.VISIBLE, null, 2550, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		SetupCanvasRect(widget, width, height, color);
-		widget.SetOpacity(opacity);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		return widget;
-	}
-
-	protected bool SetupCanvasRect(Widget widget, int width, int height, int color)
-	{
-		CanvasWidget canvas = CanvasWidget.Cast(widget);
-		if (!canvas)
-			return false;
-
-		HST_CommandMenuDrawCommandSet commandSet = new HST_CommandMenuDrawCommandSet();
-		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
-		rectCommand.m_iColor = color;
-		rectCommand.m_Vertices = BuildRectVertices(width, height);
-		commandSet.m_aCommands.Insert(rectCommand);
-		canvas.SetDrawCommands(commandSet.m_aCommands);
-		m_aCanvasCommandSets.Insert(commandSet);
-		return true;
-	}
-
-	protected ref array<float> BuildRectVertices(int width, int height)
-	{
-		ref array<float> vertices = {};
-		float rectWidth = width;
-		float rectHeight = height;
-		vertices.Insert(0.0);
-		vertices.Insert(0.0);
-		vertices.Insert(rectWidth);
-		vertices.Insert(0.0);
-		vertices.Insert(rectWidth);
-		vertices.Insert(rectHeight);
-		vertices.Insert(0.0);
-		vertices.Insert(rectHeight);
-		return vertices;
-	}
-
-	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 2600, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (textWidget)
-		{
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(false);
-			ApplyTextStyle(textWidget, fontSize, bold);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		return textWidget;
-	}
-
-	protected TextWidget CreateWrappedTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
-	{
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 2600, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (textWidget)
-		{
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(true);
-			ApplyTextStyle(textWidget, fontSize, bold);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		return textWidget;
-	}
-
 	protected void ApplyTextStyle(TextWidget textWidget, int fontSize, bool bold)
 	{
 		if (!textWidget)
@@ -1994,7 +1838,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-		m_aCanvasCommandSets.Clear();
 	}
 
 	protected void ClearExternalNotificationWidgets()
