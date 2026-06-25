@@ -70,6 +70,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int CLOSE_WIDGET_ID = 90000;
 	static const int ACTION_MODAL_CANCEL_WIDGET_ID = 90010;
 	static const int ACTION_MODAL_CONFIRM_WIDGET_ID = 90011;
+	static const int COMMAND_DIMMER_Z = 0;
+	static const int COMMAND_SURFACE_Z = 10;
+	static const int COMMAND_PANEL_Z = 20;
+	static const int COMMAND_HEADER_Z = 30;
+	static const int COMMAND_CLOSE_Z = 40;
 
 	protected static HST_CommandMenuComponent s_LocalInstance;
 
@@ -1101,6 +1106,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderMainSections(workspace, root);
 		RenderActivityPanel(workspace, root);
 		RenderActions(workspace, root);
+		ApplyCommandMenuLayerOrder(root);
 		HST_UIDebug.LogPopulation("command_menu", string.Format("selectedTab=%1 tabs=%2 stats=%3 sections=%4 rows=%5 contentItems=%6 actions=%7 feed=%8 status=%9", m_sSelectedTab, m_aTabIds.Count(), m_aStatLabels.Count(), m_aSectionIds.Count(), m_aRowLabels.Count(), m_aContentItemKinds.Count(), m_aActionLabels.Count(), m_aFeedLines.Count(), ShortenText(m_sStatusText, 120)));
 		QueueCommandMenuPostLayoutRefresh(root);
 		return true;
@@ -1121,6 +1127,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
+		ApplyCommandMenuLayerOrder(root);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false))
 		{
 			HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, root, "UI root refused command menu");
@@ -1248,6 +1255,41 @@ class HST_CommandMenuComponent : ScriptComponent
 		BindMenuClick(root, "CloseButton", CLOSE_WIDGET_ID);
 	}
 
+	protected void ApplyCommandMenuLayerOrder(Widget root)
+	{
+		if (!root)
+			return;
+
+		root.SetVisible(true);
+		root.SetOpacity(1.0);
+		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
+		SetMenuLayer(root, "ScreenDimmer", COMMAND_DIMMER_Z, true);
+		SetMenuLayer(root, "CommandSurface", COMMAND_SURFACE_Z, true);
+		SetMenuLayer(root, "CommandSurfaceBackground", COMMAND_SURFACE_Z, true);
+		SetMenuLayer(root, "NavigationPanel", COMMAND_PANEL_Z, true);
+		SetMenuLayer(root, "StatsPanel", COMMAND_PANEL_Z, true);
+		SetMenuLayer(root, "MainPanel", COMMAND_PANEL_Z, true);
+		SetMenuLayer(root, "ActivityPanel", COMMAND_PANEL_Z, true);
+		SetMenuLayer(root, "ActionsPanel", COMMAND_PANEL_Z, true);
+		SetMenuLayer(root, "Header", COMMAND_HEADER_Z, true);
+		SetMenuLayer(root, "HeaderBackground", COMMAND_HEADER_Z, true);
+		SetMenuLayer(root, "HeaderTitle", COMMAND_HEADER_Z + 1, true);
+		SetMenuLayer(root, "HeaderSubtitle", COMMAND_HEADER_Z + 1, true);
+		SetMenuLayer(root, "HeaderTabTitle", COMMAND_HEADER_Z + 1, true);
+		SetMenuLayer(root, "CloseButton", COMMAND_CLOSE_Z, true);
+		SetMenuLayer(root, "CloseLabel", COMMAND_CLOSE_Z + 1, true);
+	}
+
+	protected void SetMenuLayer(Widget root, string name, int zOrder, bool visible)
+	{
+		Widget widget = FindMenuWidget(root, name);
+		if (!widget)
+			return;
+
+		widget.SetVisible(visible);
+		widget.SetZOrder(zOrder);
+	}
+
 	protected void QueueCommandMenuPostLayoutRefresh(Widget root)
 	{
 		if (!root)
@@ -1272,8 +1314,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
 		root.SetZOrder(HST_UIConstants.Z_COMMAND_MENU);
-		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
-		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
+		ApplyCommandMenuLayerOrder(root);
+		HST_UIDebug.LogWidgetGeometryCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
+		HST_UIDebug.LogReadyWidgetsCsv("command_menu_ready", root, "HST_CommandMenuRoot|ScreenDimmer|CommandSurface|Header|NavigationPanel|StatsPanel|MainPanel|ActivityPanel|ActionsPanel|CloseButton|CloseLabel");
 	}
 
 	protected void RenderStats(WorkspaceWidget workspace, Widget root)
