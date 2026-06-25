@@ -827,7 +827,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        "Horizontal Alignment" Left
        "Vertical Alignment" Center
       }
-      FrameWidgetClass "{7B2FD986A4D34252}" {
+      HorizontalLayoutWidgetClass "{7B2FD986A4D34252}" {
        Name "StorageCategoryTabs"
        Slot FrameWidgetSlot "{7B2FD986A4D34253}" {
         Anchor 0 0 1 0

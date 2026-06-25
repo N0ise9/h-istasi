@@ -1,0 +1,90 @@
+ButtonWidgetClass "{A7B8C9D001234610}" {
+ Name "HST_LoadoutStorageCategoryTab"
+ Slot LayoutSlot "{A7B8C9D001234611}" {
+  Padding 0 0 8 0
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D001234612}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D001234613}" {
+   }
+   AllowWidthOverride 1
+   WidthOverride 104
+   AllowHeightOverride 1
+   HeightOverride 78
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 104
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 78
+   {
+    FrameWidgetClass "{A7B8C9D001234614}" {
+     Name "Body"
+     Slot AlignableSlot "{A7B8C9D001234615}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      PanelWidgetClass "{A7B8C9D001234616}" {
+       Name "Background"
+       Slot FrameWidgetSlot "{A7B8C9D001234617}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.07 0.09 0.11 0.98
+       style full
+       "Ignore Cursor" 1
+      }
+      PanelWidgetClass "{A7B8C9D001234618}" {
+       Name "Accent"
+       Slot FrameWidgetSlot "{A7B8C9D001234619}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 3
+       }
+       Color 1 0.82 0.38 1
+       style full
+       "Ignore Cursor" 1
+      }
+      ImageWidgetClass "{A7B8C9D00123461A}" {
+       Name "Icon"
+       Slot FrameWidgetSlot "{A7B8C9D00123461B}" {
+        Anchor 0 0 1 1
+        OffsetLeft 23
+        OffsetTop 10
+        OffsetRight -23
+        OffsetBottom -10
+       }
+       "Is Visible" 1
+       "Ignore Cursor" 1
+       Size 58 58
+      }
+      TextWidgetClass "{A7B8C9D00123461C}" {
+       Name "Fallback"
+       Slot FrameWidgetSlot "{A7B8C9D00123461D}" {
+        Anchor 0 0 1 1
+        OffsetLeft 4
+        OffsetTop 4
+        OffsetRight -4
+        OffsetBottom -4
+       }
+       "Is Visible" 0
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text ""
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+     }
+    }
+   }
+  }
+ }
+}
