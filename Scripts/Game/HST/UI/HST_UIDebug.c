@@ -156,6 +156,8 @@ class HST_UIDebug
 		string missing = "";
 		string hidden = "";
 		string zero = "";
+		string negative = "";
+		string offscreen = "";
 
 		foreach (string widgetName : widgetNames)
 		{
@@ -174,8 +176,11 @@ class HST_UIDebug
 			}
 
 			bool visible = widget.IsVisibleInHierarchy();
+			bool hasNegativeBounds = WidgetHasNegativeBounds(widget);
+			bool hasZeroBounds = WidgetHasZeroBounds(widget);
 			bool hasBounds = WidgetHasUsableBounds(widget);
-			if (visible && hasBounds)
+			bool outsideRoot = hasBounds && WidgetIsOutsideRoot(widget, root);
+			if (visible && hasBounds && !outsideRoot)
 			{
 				ready++;
 				continue;
@@ -183,13 +188,17 @@ class HST_UIDebug
 
 			if (!visible)
 				hidden = AppendCsvValue(hidden, FormatWidgetProblem(widgetName, widget));
-			if (!hasBounds)
+			if (hasNegativeBounds)
+				negative = AppendCsvValue(negative, FormatWidgetProblem(widgetName, widget));
+			else if (hasZeroBounds)
 				zero = AppendCsvValue(zero, FormatWidgetProblem(widgetName, widget));
+			else if (outsideRoot)
+				offscreen = AppendCsvValue(offscreen, FormatWidgetProblem(widgetName, widget));
 		}
 
-		if (!missing.IsEmpty() || !hidden.IsEmpty() || !zero.IsEmpty())
+		if (!missing.IsEmpty() || !hidden.IsEmpty() || !zero.IsEmpty() || !negative.IsEmpty() || !offscreen.IsEmpty())
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | ready incomplete | root=%2 ready=%3/%4 missing=%5 hidden=%6 zero=%7", owner, WidgetSummary(root), ready, expected, EmptyListAsNone(missing), EmptyListAsNone(hidden), EmptyListAsNone(zero)), LogLevel.WARNING);
+			Print(string.Format("h-istasi ui layout debug | %1 | ready incomplete | root=%2 ready=%3/%4 missing=%5 hidden=%6 zero=%7 negative=%8 offscreen=%9", owner, WidgetSummary(root), ready, expected, EmptyListAsNone(missing), EmptyListAsNone(hidden), EmptyListAsNone(zero), EmptyListAsNone(negative), EmptyListAsNone(offscreen)), LogLevel.WARNING);
 			return;
 		}
 
@@ -257,6 +266,56 @@ class HST_UIDebug
 		float h;
 		widget.GetScreenSize(w, h);
 		return w >= 1.0 && h >= 1.0;
+	}
+
+	protected static bool WidgetHasNegativeBounds(Widget widget)
+	{
+		if (!widget)
+			return false;
+
+		float w;
+		float h;
+		widget.GetScreenSize(w, h);
+		return w < 0.0 || h < 0.0;
+	}
+
+	protected static bool WidgetHasZeroBounds(Widget widget)
+	{
+		if (!widget)
+			return false;
+
+		float w;
+		float h;
+		widget.GetScreenSize(w, h);
+		return w >= 0.0 && h >= 0.0 && (w < 1.0 || h < 1.0);
+	}
+
+	protected static bool WidgetIsOutsideRoot(Widget widget, Widget root)
+	{
+		if (!widget || !root)
+			return false;
+		if (widget == root)
+			return false;
+
+		float rootX;
+		float rootY;
+		float rootW;
+		float rootH;
+		root.GetScreenPos(rootX, rootY);
+		root.GetScreenSize(rootW, rootH);
+		if (rootW < 1.0 || rootH < 1.0)
+			return false;
+
+		float x;
+		float y;
+		float w;
+		float h;
+		widget.GetScreenPos(x, y);
+		widget.GetScreenSize(w, h);
+		if (w < 1.0 || h < 1.0)
+			return false;
+
+		return (x + w) < rootX || (y + h) < rootY || x > (rootX + rootW) || y > (rootY + rootH);
 	}
 
 	protected static string FormatWidgetProblem(string widgetName, Widget widget)
