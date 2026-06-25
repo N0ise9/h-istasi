@@ -1006,14 +1006,19 @@ foreach ($requiredUIDebugEntry in @(
 	"LogExpectedWidgetsCsv",
 	"LogWidgetBound",
 	"LogWidgetGeometryCsv",
+	"LogReadyWidgetsCsv",
 	"LogWidgetGeometry",
 	"LogPopulation",
 	"LogRowSample",
 	"LogRowSummary",
 	"WidgetSummary",
+	"WidgetHasNegativeBounds",
+	"WidgetHasZeroBounds",
+	"WidgetIsOutsideRoot",
 	"GetScreenPos",
 	"GetScreenSize",
 	"screen=%1,%2 size=%3x%4",
+	"negative=%8 offscreen=%9",
 	"h-istasi ui layout debug"
 )) {
 	if ($uiDebugText -notmatch [regex]::Escape($requiredUIDebugEntry)) {

@@ -19,6 +19,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Ready diagnostics need to check more than layout creation.
   - A layout can be created and still be unusable because expected children are missing, hidden in hierarchy, or still reporting `0x0` bounds after anchor resolution.
   - Use `HST_UIDebug.LogReadyWidgetsCsv` in delayed ready passes beside geometry logs so playtest logs identify the exact failed widget state.
+  - Negative sizes are different from delayed `0x0` layout resolution. Ready logs now separate `zero=`, `negative=`, and `offscreen=` so bad anchor signs are obvious.
 
 - `root.FindAnyWidget(root.GetName())` may not find the root itself.
   - If debug code checks expected widgets and includes the root name, explicitly compare `root.GetName()` before reporting the root missing.
