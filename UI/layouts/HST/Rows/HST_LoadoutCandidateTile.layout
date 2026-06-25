@@ -56,6 +56,34 @@ ButtonWidgetClass "{A7B8C9D001234600}" {
          "Is Visible" 1
          "Ignore Cursor" 1
         }
+        PanelWidgetClass "{A7B8C9D001236100}" {
+         Name "PreviewBack"
+         Slot FrameWidgetSlot "{A7B8C9D001236101}" {
+          Anchor 0 0 0 0
+          OffsetLeft 8
+          OffsetTop 8
+          OffsetRight 84
+          OffsetBottom 84
+         }
+         Color 0.035 0.05 0.063 0.86
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+        PanelWidgetClass "{A7B8C9D001236102}" {
+         Name "PreviewLine"
+         Slot FrameWidgetSlot "{A7B8C9D001236103}" {
+          Anchor 0 0 0 0
+          OffsetLeft 8
+          OffsetTop 8
+          OffsetRight 84
+          OffsetBottom 10
+         }
+         Color 0.29 0.35 0.38 0.4
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
         FrameWidgetClass "{A7B8C9D001234603}" {
          Name "PreviewAnchor"
          Slot FrameWidgetSlot "{A7B8C9D001234604}" {
