@@ -1645,6 +1645,294 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       OffsetRight 920
       OffsetBottom -24
      }
+     "Ignore Cursor" 1
+     {
+      FrameWidgetClass "{7B2FD986A4D34398}" {
+       Name "FooterPrevTabHint"
+       Slot FrameWidgetSlot "{7B2FD986A4D34399}" {
+        Anchor 0 0 0 1
+        OffsetLeft 0
+        OffsetTop 4
+        OffsetRight 118
+        OffsetBottom -8
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{7B2FD986A4D3439A}" {
+         Name "FooterPrevTabKeyBack"
+         Slot FrameWidgetSlot "{7B2FD986A4D3439B}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 52
+          OffsetBottom 0
+         }
+         Color 0.07 0.09 0.11 0.84
+         style full
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{7B2FD986A4D3439C}" {
+         Name "FooterPrevTabKey"
+         Slot FrameWidgetSlot "{7B2FD986A4D3439D}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 52
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Q"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+        }
+        TextWidgetClass "{7B2FD986A4D3439E}" {
+         Name "FooterPrevTabLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D3439F}" {
+          Anchor 0 0 1 1
+          OffsetLeft 60
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Prev Tab"
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+      FrameWidgetClass "{7B2FD986A4D343A0}" {
+       Name "FooterNextTabHint"
+       Slot FrameWidgetSlot "{7B2FD986A4D343A1}" {
+        Anchor 0 0 0 1
+        OffsetLeft 136
+        OffsetTop 4
+        OffsetRight 254
+        OffsetBottom -8
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{7B2FD986A4D343A2}" {
+         Name "FooterNextTabKeyBack"
+         Slot FrameWidgetSlot "{7B2FD986A4D343A3}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 52
+          OffsetBottom 0
+         }
+         Color 0.07 0.09 0.11 0.84
+         style full
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{7B2FD986A4D343A4}" {
+         Name "FooterNextTabKey"
+         Slot FrameWidgetSlot "{7B2FD986A4D343A5}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 52
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "E"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+        }
+        TextWidgetClass "{7B2FD986A4D343A6}" {
+         Name "FooterNextTabLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D343A7}" {
+          Anchor 0 0 1 1
+          OffsetLeft 60
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Next Tab"
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+      FrameWidgetClass "{7B2FD986A4D343A8}" {
+       Name "FooterBackHint"
+       Slot FrameWidgetSlot "{7B2FD986A4D343A9}" {
+        Anchor 0 0 0 1
+        OffsetLeft 272
+        OffsetTop 4
+        OffsetRight 412
+        OffsetBottom -8
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{7B2FD986A4D343AA}" {
+         Name "FooterBackKeyBack"
+         Slot FrameWidgetSlot "{7B2FD986A4D343AB}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 58
+          OffsetBottom 0
+         }
+         Color 0.07 0.09 0.11 0.84
+         style full
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{7B2FD986A4D343AC}" {
+         Name "FooterBackKey"
+         Slot FrameWidgetSlot "{7B2FD986A4D343AD}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 58
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "ESC"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+        }
+        TextWidgetClass "{7B2FD986A4D343AE}" {
+         Name "FooterBackLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D343AF}" {
+          Anchor 0 0 1 1
+          OffsetLeft 66
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Close"
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+      FrameWidgetClass "{7B2FD986A4D343B0}" {
+       Name "FooterPrimaryHint"
+       Slot FrameWidgetSlot "{7B2FD986A4D343B1}" {
+        Anchor 0 0 0 1
+        OffsetLeft 430
+        OffsetTop 4
+        OffsetRight 590
+        OffsetBottom -8
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{7B2FD986A4D343B2}" {
+         Name "FooterPrimaryKeyBack"
+         Slot FrameWidgetSlot "{7B2FD986A4D343B3}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 58
+          OffsetBottom 0
+         }
+         Color 0.07 0.09 0.11 0.84
+         style full
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{7B2FD986A4D343B4}" {
+         Name "FooterPrimaryKey"
+         Slot FrameWidgetSlot "{7B2FD986A4D343B5}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 58
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "LMB"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+        }
+        TextWidgetClass "{7B2FD986A4D343B6}" {
+         Name "FooterPrimaryLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D343B7}" {
+          Anchor 0 0 1 1
+          OffsetLeft 66
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Select"
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+      FrameWidgetClass "{7B2FD986A4D343B8}" {
+       Name "FooterSecondaryHint"
+       Slot FrameWidgetSlot "{7B2FD986A4D343B9}" {
+        Anchor 0 0 0 1
+        OffsetLeft 608
+        OffsetTop 4
+        OffsetRight 780
+        OffsetBottom -8
+       }
+       "Is Visible" 0
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{7B2FD986A4D343BA}" {
+         Name "FooterSecondaryKeyBack"
+         Slot FrameWidgetSlot "{7B2FD986A4D343BB}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 58
+          OffsetBottom 0
+         }
+         Color 0.07 0.09 0.11 0.84
+         style full
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{7B2FD986A4D343BC}" {
+         Name "FooterSecondaryKey"
+         Slot FrameWidgetSlot "{7B2FD986A4D343BD}" {
+          Anchor 0 0 0 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 58
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "RMB"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+        }
+        TextWidgetClass "{7B2FD986A4D343BE}" {
+         Name "FooterSecondaryLabel"
+         Slot FrameWidgetSlot "{7B2FD986A4D343BF}" {
+          Anchor 0 0 1 1
+          OffsetLeft 66
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Remove One"
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+        }
+       }
+      }
+     }
     }
     FrameWidgetClass "{7B2FD986A4D3411D}" {
      Name "Toast"

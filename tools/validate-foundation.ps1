@@ -3763,6 +3763,79 @@ foreach ($forbiddenLoadoutSettingsGeometry in @(
 		throw "Loadout editor settings panel must not create row/control geometry in script: $forbiddenLoadoutSettingsGeometry"
 	}
 }
+foreach ($requiredLoadoutFooterLayoutEntry in @(
+	'Name "Footer"',
+	'Name "FooterPrevTabHint"',
+	'Name "FooterPrevTabKeyBack"',
+	'Name "FooterPrevTabKey"',
+	'Name "FooterPrevTabLabel"',
+	'Name "FooterNextTabHint"',
+	'Name "FooterNextTabKeyBack"',
+	'Name "FooterNextTabKey"',
+	'Name "FooterNextTabLabel"',
+	'Name "FooterBackHint"',
+	'Name "FooterBackKeyBack"',
+	'Name "FooterBackKey"',
+	'Name "FooterBackLabel"',
+	'Name "FooterPrimaryHint"',
+	'Name "FooterPrimaryKeyBack"',
+	'Name "FooterPrimaryKey"',
+	'Name "FooterPrimaryLabel"',
+	'Name "FooterSecondaryHint"',
+	'Name "FooterSecondaryKeyBack"',
+	'Name "FooterSecondaryKey"',
+	'Name "FooterSecondaryLabel"'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutFooterLayoutEntry)) {
+		throw "Loadout editor footer hints must be layout-owned: $requiredLoadoutFooterLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutFooterScriptEntry in @(
+	"protected void HideLoadoutFooterHints",
+	"protected void SetLoadoutFooterHint",
+	'SetLoadoutFooterHint(footerRoot, "FooterPrevTabHint"',
+	'SetLoadoutFooterHint(footerRoot, "FooterNextTabHint"',
+	'SetLoadoutFooterHint(footerRoot, "FooterBackHint"',
+	'SetLoadoutFooterHint(footerRoot, "FooterPrimaryHint"',
+	'SetLoadoutFooterHint(footerRoot, "FooterSecondaryHint"',
+	'SetLoadoutWidgetVisible(footerRoot, "FooterPrevTabHint", false)',
+	'SetLoadoutWidgetColor(footerRoot, keyBackName',
+	'SetLoadoutText(footerRoot, keyName',
+	'SetLoadoutText(footerRoot, labelName'
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutFooterScriptEntry)) {
+		throw "Loadout editor footer hints must populate named layout widgets: $requiredLoadoutFooterScriptEntry"
+	}
+}
+$loadoutFooterMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderContextHints[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void HideLoadoutFooterHints[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void SetLoadoutFooterHint[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void CreatePreviewDragSurface")
+if (!$loadoutFooterMatch.Success) {
+	throw "Loadout editor footer hint renderer is missing"
+}
+foreach ($forbiddenLoadoutFooterGeometry in @(
+	"CreateTextWidget",
+	"CreateRichTextWidget",
+	"CreateRectWidget",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"RenderActionHint",
+	"BuildActionGlyphMarkup",
+	"cursorLeft",
+	"hintLeft",
+	"hintTop"
+)) {
+	if ($loadoutFooterMatch.Value -match [regex]::Escape($forbiddenLoadoutFooterGeometry)) {
+		throw "Loadout editor footer hints must use named layout widgets: $forbiddenLoadoutFooterGeometry"
+	}
+}
+foreach ($forbiddenLoadoutFooterLegacyEntry in @(
+	"protected int RenderActionHint",
+	"protected string BuildActionGlyphMarkup",
+	"protected RichTextWidget CreateRichTextWidget"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutFooterLegacyEntry)) {
+		throw "Loadout editor must not keep legacy footer hint geometry helper: $forbiddenLoadoutFooterLegacyEntry"
+	}
+}
 foreach ($requiredPreviewCellLayoutEntry in @(
 	"HST_LoadoutItemPreviewCell",
 	'Slot FrameWidgetSlot "{7B2FD986A4D3420F}"',

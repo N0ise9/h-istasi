@@ -3125,61 +3125,45 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		Widget footerRoot = ResolveLoadoutRegion(root, "Footer");
-		int hintLeft = 0;
-		int hintTop = ScalePx(4);
-		int cursorLeft = hintLeft;
-		cursorLeft = RenderActionHint(workspace, footerRoot, LOADOUT_ACTION_TAB_LEFT, "Q", "Prev Tab", cursorLeft, hintTop, ScalePx(36));
-		cursorLeft = RenderActionHint(workspace, footerRoot, LOADOUT_ACTION_TAB_RIGHT, "E", "Next Tab", cursorLeft, hintTop, ScalePx(36));
+		HideLoadoutFooterHints(footerRoot);
+		SetLoadoutFooterHint(footerRoot, "FooterPrevTabHint", "FooterPrevTabKeyBack", "FooterPrevTabKey", "FooterPrevTabLabel", "Q", "Prev Tab");
+		SetLoadoutFooterHint(footerRoot, "FooterNextTabHint", "FooterNextTabKeyBack", "FooterNextTabKey", "FooterNextTabLabel", "E", "Next Tab");
 		string backLabel = "Close";
 		if (CanNavigateBack())
 			backLabel = "Back";
-		cursorLeft = RenderActionHint(workspace, footerRoot, LOADOUT_ACTION_BACK, "ESC", backLabel, cursorLeft, hintTop, ScalePx(50));
+		SetLoadoutFooterHint(footerRoot, "FooterBackHint", "FooterBackKeyBack", "FooterBackKey", "FooterBackLabel", "ESC", backLabel);
 		if (m_sEditorMode == "storage")
 		{
-			cursorLeft = RenderActionHint(workspace, footerRoot, LOADOUT_ACTION_SELECT_MOUSE, "LMB", "Add One", cursorLeft, hintTop, ScalePx(50));
-			RenderActionHint(workspace, footerRoot, LOADOUT_ACTION_MOUSE_RIGHT, "RMB", "Remove One", cursorLeft, hintTop, ScalePx(50));
+			SetLoadoutFooterHint(footerRoot, "FooterPrimaryHint", "FooterPrimaryKeyBack", "FooterPrimaryKey", "FooterPrimaryLabel", "LMB", "Add One");
+			SetLoadoutFooterHint(footerRoot, "FooterSecondaryHint", "FooterSecondaryKeyBack", "FooterSecondaryKey", "FooterSecondaryLabel", "RMB", "Remove One");
 		}
 		else if (m_bCandidateMode)
-			RenderActionHint(workspace, footerRoot, LOADOUT_ACTION_SELECT_MOUSE, "LMB", "Select", cursorLeft, hintTop, ScalePx(50));
+		{
+			SetLoadoutFooterHint(footerRoot, "FooterPrimaryHint", "FooterPrimaryKeyBack", "FooterPrimaryKey", "FooterPrimaryLabel", "LMB", "Select");
+		}
 	}
 
-	protected int RenderActionHint(WorkspaceWidget workspace, Widget root, string actionName, string fallbackKey, string label, int left, int top, int keyWidth)
+	protected void HideLoadoutFooterHints(Widget footerRoot)
 	{
-		if (!workspace || !root)
-			return left;
+		if (!footerRoot)
+			return;
 
-		int height = ScalePx(30);
-		int labelWidth = ScalePx(44);
-		int labelChars = label.Length();
-		if (labelChars > 0)
-			labelWidth = ClampInt(ScalePx(labelChars * 7 + 18), ScalePx(44), ScalePx(150));
-
-		if (actionName.IsEmpty())
-		{
-			TextWidget keyText = CreateTextWidget(workspace, root, fallbackKey, left, top + ScalePx(5), keyWidth, height - ScalePx(8), m_Layout.m_iFontSmall, 0xFFF4EBD6, 0, true);
-			if (keyText)
-				keyText.SetZOrder(62);
-		}
-		else
-		{
-			RichTextWidget richText = CreateRichTextWidget(workspace, root, BuildActionGlyphMarkup(actionName), left, top + ScalePx(3), keyWidth, height - ScalePx(5), ScaleFont(18), 0xFFF4EBD6, 0);
-			if (richText)
-				richText.SetZOrder(62);
-		}
-
-		TextWidget labelText = CreateTextWidget(workspace, root, label, left + keyWidth + ScalePx(8), top + ScalePx(7), labelWidth, height - ScalePx(8), m_Layout.m_iFontSmall, 0xFFE2E6E8, 0, false);
-		if (labelText)
-			labelText.SetZOrder(62);
-
-		return left + keyWidth + labelWidth + ScalePx(24);
+		SetLoadoutWidgetVisible(footerRoot, "FooterPrevTabHint", false);
+		SetLoadoutWidgetVisible(footerRoot, "FooterNextTabHint", false);
+		SetLoadoutWidgetVisible(footerRoot, "FooterBackHint", false);
+		SetLoadoutWidgetVisible(footerRoot, "FooterPrimaryHint", false);
+		SetLoadoutWidgetVisible(footerRoot, "FooterSecondaryHint", false);
 	}
 
-	protected string BuildActionGlyphMarkup(string actionName)
+	protected void SetLoadoutFooterHint(Widget footerRoot, string hintName, string keyBackName, string keyName, string labelName, string keyText, string labelText)
 	{
-		if (actionName.IsEmpty())
-			return "";
+		if (!footerRoot)
+			return;
 
-		return string.Format("<color rgba='244,235,214,255'><action name='%1' scale='1.25'/></color>", actionName);
+		SetLoadoutWidgetVisible(footerRoot, hintName, true);
+		SetLoadoutWidgetColor(footerRoot, keyBackName, 0xDD11171B, 0.98);
+		SetLoadoutText(footerRoot, keyName, keyText, 0xFFF4EBD6, m_Layout.m_iFontSmall, true, false);
+		SetLoadoutText(footerRoot, labelName, labelText, 0xFFE2E6E8, m_Layout.m_iFontSmall, false, false);
 	}
 
 	protected void CreatePreviewDragSurface(WorkspaceWidget workspace, Widget root)
@@ -7807,43 +7791,6 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		}
 
 		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-
-		m_aWidgets.Insert(widget);
-		return textWidget;
-	}
-
-	protected RichTextWidget CreateRichTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId)
-	{
-		if (!workspace || !parent || width <= 0 || height <= 0)
-			return null;
-
-		Widget widget = workspace.CreateWidget(WidgetType.RichTextWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION, null, 3700, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		widget.SetZOrder(3700);
-		widget.SetColorInt(color);
-
-		RichTextWidget textWidget = RichTextWidget.Cast(widget);
-		if (textWidget)
-		{
-			textWidget.SetVisible(true);
-			textWidget.SetOpacity(1.0);
-			textWidget.SetText(text);
-			textWidget.SetTextWrapping(false);
-			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetLineSpacing(4.0);
-			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-			textWidget.SetColorInt(color);
-		}
-
 		if (userId > 0)
 		{
 			widget.SetUserID(userId);
