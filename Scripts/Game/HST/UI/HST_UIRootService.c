@@ -87,7 +87,12 @@ class HST_UIRootService
 
 		HST_EUIScreenMode current = GetCurrentMode();
 		if (wantsModal)
+		{
+			if (mode == HST_EUIScreenMode.SETUP_MAP)
+				return current == HST_EUIScreenMode.SETUP_MAP;
+
 			return current != HST_EUIScreenMode.SETUP_MAP;
+		}
 
 		if (current == HST_EUIScreenMode.NONE)
 			return true;

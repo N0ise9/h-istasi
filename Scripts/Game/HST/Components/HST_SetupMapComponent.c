@@ -56,6 +56,7 @@ class HST_SetupMapComponent : ScriptComponent
 	static const float SETUP_MODAL_CLICK_SUPPRESSION_SECONDS = 0.75;
 	static const int SETUP_MAP_READY_MAX_RETRIES = 8;
 	static const bool SETUP_ZONE_OVERLAY_ENABLED = false;
+	static const string SETUP_CONFIRM_MODAL_OWNER = "HST_SetupConfirmModal";
 	static const ResourceName SETUP_NATIVE_MAP_LAYOUT = "{6985327711306200}UI/layouts/HST_SetupHQMap.layout";
 	static const ResourceName SETUP_PROMPT_BANNER_LAYOUT = "{A34F448C7E810600}UI/layouts/HST_SetupPromptBanner.layout";
 	static const ResourceName SETUP_CONFIRM_MODAL_LAYOUT = "{B55C6FB34BF94000}UI/layouts/HST_SetupConfirmModal.layout";
@@ -1166,6 +1167,12 @@ class HST_SetupMapComponent : ScriptComponent
 		modal.SetZOrder(HST_UIConstants.Z_SETUP_MODAL + 1);
 		modal.SetUserID(CONFIRM_BLOCKER_WIDGET_ID);
 		modal.AddHandler(m_WidgetHandler);
+		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER, modal, false, true, true))
+		{
+			modal.RemoveFromHierarchy();
+			return;
+		}
+
 		m_aModalWidgets.Insert(modal);
 		m_wConfirmBlockerRoot = modal;
 		m_wConfirmModalRoot = modal;
@@ -1436,6 +1443,8 @@ class HST_SetupMapComponent : ScriptComponent
 
 	protected void ClearModalWidgets()
 	{
+		HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.SETUP_MAP, SETUP_CONFIRM_MODAL_OWNER);
+
 		foreach (Widget widget : m_aModalWidgets)
 		{
 			if (widget)
