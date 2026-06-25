@@ -65,9 +65,21 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
     OffsetLeft 0
     OffsetTop 0
     OffsetRight 0
-    OffsetBottom 0
-   }
-   {
+   OffsetBottom 0
+  }
+  {
+    ButtonWidgetClass "{7B2FD986A4D343C0}" {
+     Name "PreviewDragSurface"
+     Slot FrameWidgetSlot "{7B2FD986A4D343C1}" {
+      Anchor 0 0 1 1
+      OffsetLeft 560
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
+     }
+     Color 0 0 0 0.01
+     "Ignore Cursor" 0
+    }
     FrameWidgetClass "{7B2FD986A4D34230}" {
      Name "LeftButtons"
      Slot FrameWidgetSlot "{7B2FD986A4D34231}" {

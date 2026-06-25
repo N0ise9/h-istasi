@@ -3807,7 +3807,7 @@ foreach ($requiredLoadoutFooterScriptEntry in @(
 		throw "Loadout editor footer hints must populate named layout widgets: $requiredLoadoutFooterScriptEntry"
 	}
 }
-$loadoutFooterMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderContextHints[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void HideLoadoutFooterHints[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void SetLoadoutFooterHint[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void CreatePreviewDragSurface")
+$loadoutFooterMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderContextHints[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void HideLoadoutFooterHints[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void SetLoadoutFooterHint[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void ConfigurePreviewDragSurface")
 if (!$loadoutFooterMatch.Success) {
 	throw "Loadout editor footer hint renderer is missing"
 }
@@ -3834,6 +3834,53 @@ foreach ($forbiddenLoadoutFooterLegacyEntry in @(
 )) {
 	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutFooterLegacyEntry)) {
 		throw "Loadout editor must not keep legacy footer hint geometry helper: $forbiddenLoadoutFooterLegacyEntry"
+	}
+}
+foreach ($requiredLoadoutPreviewDragLayoutEntry in @(
+	'Name "PreviewDragSurface"',
+	'OffsetLeft 560',
+	'Color 0 0 0 0.01',
+	'"Ignore Cursor" 0'
+)) {
+	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutPreviewDragLayoutEntry)) {
+		throw "Loadout editor preview drag surface must be layout-owned: $requiredLoadoutPreviewDragLayoutEntry"
+	}
+}
+foreach ($requiredLoadoutPreviewDragScriptEntry in @(
+	"ConfigurePreviewDragSurface(uiRoot)",
+	"protected void ConfigurePreviewDragSurface",
+	'Widget surface = root.FindAnyWidget("PreviewDragSurface")',
+	"surface.SetUserID(PREVIEW_DRAG_WIDGET_ID)",
+	"surface.AddHandler(m_WidgetHandler)",
+	"surface.SetZOrder(-10)"
+)) {
+	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutPreviewDragScriptEntry)) {
+		throw "Loadout editor preview drag surface must bind the named layout widget: $requiredLoadoutPreviewDragScriptEntry"
+	}
+}
+$loadoutPreviewDragMatch = [regex]::Match($loadoutEditorComponentText, "protected void ConfigurePreviewDragSurface[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void ParseEditorPayload")
+if (!$loadoutPreviewDragMatch.Success) {
+	throw "Loadout editor preview drag surface binder is missing"
+}
+foreach ($forbiddenLoadoutPreviewDragGeometry in @(
+	"CreateRectWidget",
+	"FrameSlot.SetPos",
+	"FrameSlot.SetSize",
+	"m_Layout.m_iMainLeft",
+	"m_iEditorWidth - left",
+	"int width",
+	"int height"
+)) {
+	if ($loadoutPreviewDragMatch.Value -match [regex]::Escape($forbiddenLoadoutPreviewDragGeometry)) {
+		throw "Loadout editor preview drag surface must not calculate geometry in script: $forbiddenLoadoutPreviewDragGeometry"
+	}
+}
+foreach ($forbiddenLoadoutPreviewDragLegacyEntry in @(
+	"protected void CreatePreviewDragSurface",
+	"CreateRectWidget(workspace, root, left, top, width, height, 0x00111111"
+)) {
+	if ($loadoutEditorComponentText -match [regex]::Escape($forbiddenLoadoutPreviewDragLegacyEntry)) {
+		throw "Loadout editor must not keep legacy preview drag geometry helper: $forbiddenLoadoutPreviewDragLegacyEntry"
 	}
 }
 foreach ($requiredPreviewCellLayoutEntry in @(
