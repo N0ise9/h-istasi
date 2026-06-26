@@ -690,9 +690,9 @@ if ($mapConfig -notmatch "m_vWorldMin\s+0\s+0\s+0" -or $mapConfig -notmatch "m_v
 }
 foreach ($requiredSetupMapProjectionEntry in @(
 	"WorldToScreen",
-	"DPIUnscale",
-	"DPIUnscale(sx - radiusPx)",
-	"DPIUnscale(radiusPx * 2)",
+	"HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sx - radiusPx)",
+	"HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, radiusPx * 2)",
+	"HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sx)",
 	"FrameSlot.SetPos",
 	"CreateCircle",
 	"ResolveRadiusPixels",
@@ -701,6 +701,10 @@ foreach ($requiredSetupMapProjectionEntry in @(
 	if ($setupMapZoneOverlayText -notmatch [regex]::Escape($requiredSetupMapProjectionEntry)) {
 		throw "Setup zone overlay must render invalid areas through native map projection: $requiredSetupMapProjectionEntry"
 	}
+}
+
+if ($setupMapZoneOverlayText -match [regex]::Escape("workspace.DPIUnscale")) {
+	throw "Setup zone overlay must use HST_UIWorkspaceMetrics.RawToLayoutPx for projected raw map coordinates"
 }
 foreach ($requiredSetupMapOverlayRedrawEntry in @(
 	"VIEWPORT_PAN_EPSILON",

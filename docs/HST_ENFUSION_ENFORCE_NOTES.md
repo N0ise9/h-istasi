@@ -97,12 +97,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Use `HST_UIWorkspaceMetrics.GetLayoutSize` for layout coordinates.
   - Use `HST_UIWorkspaceMetrics.LayoutToRawPx` / `RawToLayoutPx` for conversions.
 
-- Keep direct `workspace.DPIUnscale` / `workspace.DPIScale` calls inside the metrics helper, except map projection overlay code.
-  - The map overlay is the exception because `SCR_MapEntity.WorldToScreen` returns native screen coordinates that must be unscaled before placing layout widgets.
+- Keep direct `workspace.DPIUnscale` / `workspace.DPIScale` calls inside the metrics helper.
+  - Map projection overlays still receive native raw screen coordinates from `SCR_MapEntity.WorldToScreen`, but should route those values through `HST_UIWorkspaceMetrics.RawToLayoutPx`.
 
-- `SCR_MapEntity.WorldToScreen` gives native screen coordinates.
-  - Convert projected x/y with `workspace.DPIUnscale` before `FrameSlot.SetPos`.
-  - For world-radius circles, project the center and a world-space edge, derive the raw pixel radius, then DPI-unscale the final size.
+- `SCR_MapEntity.WorldToScreen` gives native raw screen coordinates.
+  - Convert projected x/y with `HST_UIWorkspaceMetrics.RawToLayoutPx` before `FrameSlot.SetPos`.
+  - For world-radius circles, project the center and a world-space edge, derive the raw pixel radius, then convert the final raw size with `HST_UIWorkspaceMetrics.RawToLayoutPx`.
 
 - `SCR_MapEntity.ScreenToWorld` must wait for map readiness.
   - Do not use it before the map is open, `OnMapOpenComplete` has fired, the map has advanced a few frames, and the map widget has non-zero size/valid zoom.

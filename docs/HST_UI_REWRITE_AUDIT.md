@@ -11,7 +11,7 @@ Required policy:
 - Raw workspace pixels are for `CreateWidgetInWorkspace` only.
 - Layout coordinates come from `HST_UIWorkspaceMetrics.GetLayoutSize`.
 - Raw/layout conversion goes through `HST_UIWorkspaceMetrics.LayoutToRawPx` and `HST_UIWorkspaceMetrics.RawToLayoutPx`.
-- Map projection coordinates may use `SCR_MapEntity.WorldToScreen` plus `workspace.DPIUnscale` inside map overlay code only.
+- Map projection coordinates may use `SCR_MapEntity.WorldToScreen`, then convert projected raw screen coordinates through `HST_UIWorkspaceMetrics.RawToLayoutPx`.
 
 Current state:
 
@@ -26,8 +26,8 @@ Current state:
 | File | Current uses | Classification | Action |
 | --- | --- | --- | --- |
 | `Scripts/Game/HST/Services/HST_UIWorkspaceMetrics.c` | `workspace.GetWidth`, `workspace.GetHeight`, `DPIUnscale`, `DPIScale` | Allowed | This is the central conversion boundary. Keep direct DPI calls here. |
-| `Scripts/Game/HST/Components/HST_SetupMapComponent.c` | Workspace-parented native map layout creation, setup-map ready diagnostics, `ScreenToWorld`, centralized modal/prompt z-order, passive prompt flags, setup confirmation modal registration, signature-gated setup zone/candidate overlay publication | Allowed with guardrails | `ScreenToWorld` is allowed only after viewport readiness checks. Keep modal buttons widget-driven. Setup confirmation is registered as a setup-owned modal in the shared UI root. Setup zones and the temporary candidate marker publish through the passive map overlay component and must remain signature-gated. The setup component must not keep its own overlay dirty/redraw loop or activate extra dialog cursor modes over the native map. |
-| `Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c` | `WorldToScreen`, DPI-unscale projection, viewport-change-gated redraws, canvas circle/line/text widgets with `IGNORE_CURSOR`/`NOFOCUS` | Allowed for map overlay | This is the explicit map projection exception. Redraws are coalesced behind revision and pan/zoom threshold checks, and projection-not-ready frames no longer recreate widgets. Keep overlays passive and separate from marker lifecycle. |
+| `Scripts/Game/HST/Components/HST_SetupMapComponent.c` | Workspace-parented native map layout creation, setup-map ready diagnostics, `ScreenToWorld`, centralized modal/prompt z-order, native map dialog cursor state, passive prompt flags, setup confirmation modal registration, signature-gated setup zone/candidate overlay publication | Allowed with guardrails | `ScreenToWorld` is allowed only after viewport readiness checks. Keep modal buttons widget-driven. Setup confirmation is registered as a setup-owned modal in the shared UI root. Setup zones and the temporary candidate marker publish through the passive map overlay component and must remain signature-gated. The setup component must not keep its own overlay dirty/redraw loop, OS cursor forcing, cursor proxy widgets, or extra dialog input contexts over the native map. |
+| `Scripts/Game/HST/Map/HST_MapZoneOverlayUIComponent.c` | `WorldToScreen`, `HST_UIWorkspaceMetrics.RawToLayoutPx` projection conversion, viewport-change-gated redraws, canvas circle/line/text widgets with `IGNORE_CURSOR`/`NOFOCUS` | Allowed for map overlay | This is the explicit map projection boundary. Redraws are coalesced behind revision and pan/zoom threshold checks, and projection-not-ready frames no longer recreate widgets. Keep overlays passive and separate from marker lifecycle. |
 | `Scripts/Game/HST/Components/HST_CommandMenuComponent.c` | Persistent layout root, deterministic shell layer ordering, named region binding, row layout population, layout-owned scroll hosts and row resources, action-confirmation data handoff, topmost-aware keyboard input | Allowed with guardrails | Main shell and rows are layout-driven and command-menu blocking state is registered only after the layout root exists. Runtime data refreshes reuse the existing root and clear only dynamic row containers. Script no longer builds absolute panel placement metrics. Destructive/admin actions pass data into `HST_ActionDialogController`; keep new command-menu sections in layout files and named row resources rather than reintroducing generic canvas/text factories. |
 | `Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c` | No UI geometry matches in audit grep | Allowed | Request bridge can remain behavior-only. |
 | `Scripts/Game/HST/Components/HST_LoadoutEditorComponent.c` | Layout root, named region binding, centralized preview/UI layer ordering, layout-owned left Back/ESC controls, layout-owned mode tabs, layout-owned preview drag surface, layout-owned preview status/toast text, shared passive toast action hints, layout-owned storage category tabs, layout-owned row preview chrome and fallback text, layout-owned row preview cell anchors, layout-owned storage volume progress bar, layout-owned left slot/storage rail shell and scroll hosts, layout-owned candidate/template/settings panel shell and controls, layout-owned footer hint slots, layout-owned storage add-items panel shell/grid, row layout population, preview world, dynamic preview contents, topmost-aware keyboard input | Mixed | Major shell regions, left controls, mode tabs, preview drag capture, preview status/toast text, action feedback, storage category tabs, row preview chrome/fallback text, row preview cell anchors, storage volume track/fill, left rail chrome, candidate/template/settings panels, footer hints, and the right add-items panel are layout-owned or shared-controller owned. Core chrome is explicitly visible by default in the layout, while mode-specific panels are hidden by default and shown by script. Blocking state is registered only after the editor layout root exists, and `ApplyLoadoutLayerOrder` reasserts the render-target/UI sibling order after render and delayed layout refresh. Script no longer builds a safe-rect, absolute panel placement model, screen-percentage panel metrics, or viewport-scaled fallback panel dimensions; it keeps font scale and fixed layout-coordinate fallbacks only until named regions can be measured. |
@@ -50,7 +50,7 @@ Current state:
 - `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` for passive notifications, setup prompt, map overlays, and noninteractive visual children.
 - `FrameSlot.SetPos` / `FrameSlot.SetSize` for widgets created by script into non-stretched slots, such as dynamic map overlay primitives.
 - `ScreenToWorld` in setup map click handling after viewport readiness.
-- `WorldToScreen` in the map overlay component, followed by raw-to-layout conversion.
+- `WorldToScreen` in the map overlay component, followed by `HST_UIWorkspaceMetrics.RawToLayoutPx`.
 
 ## Needs Conversion Helper
 
@@ -68,7 +68,7 @@ Current state:
 
 - Any reintroduced generic scripted panel root after mission detail/report dialogs moved to named layouts.
 - Any invisible coordinate hit-test logic for visible buttons.
-- Any new direct `workspace.DPIUnscale` / `workspace.DPIScale` calls outside `HST_UIWorkspaceMetrics.c` and map overlay projection code.
+- Any new direct `workspace.DPIUnscale` / `workspace.DPIScale` calls outside `HST_UIWorkspaceMetrics.c`.
 - Any full-screen blockers except explicit modal roots with visible, usable dialog content.
 
 ## Runtime Checkpoint 2026-06-25
@@ -77,7 +77,8 @@ Current state:
 - Setup map, setup prompt, setup confirm modal, command menu, and loadout editor top-level layouts are created with the workspace as parent and now emit delayed `*_ready` geometry logs after layout has had a chance to resolve from creation-time `0x0` bounds.
 - Setup confirmation modal text/button labels are script-populated after creation and after the delayed layout refresh. The label widgets are siblings over the real buttons instead of children inside button widgets.
 - Setup confirmation modal Yes/No activation is guarded by widget id, mouse button, and frame serial so `OnClick` plus `OnMouseButtonUp` cannot submit or cancel the same setup choice twice.
-- Setup confirmation now suppresses HQ selection by clearing the map location-selection cursor state only; it does not activate native dialog cursor state or extra dialog input contexts, avoiding stacked map/dialog/proxy cursors.
+- Setup confirmation now suppresses HQ selection by clearing map location-selection cursor state and entering native map dialog cursor state with `SCR_MapCursorModule.HandleDialog(true)`. It does not force `WidgetManager.SetCursor`, create cursor proxy widgets, or activate extra dialog input contexts.
+- Map zone/candidate overlays now route projected raw map coordinates through `HST_UIWorkspaceMetrics.RawToLayoutPx`, keeping direct DPI conversion centralized while preserving `WorldToScreen` as the map projection boundary.
 - Setup prompt, notification title, and command-menu fixed-height chrome use negative fixed-height bottom bounds; positive fixed-height bottom values resolved as negative runtime heights in the latest setup and toast diagnostics.
 - Setup confirmation modal dialog sizing now uses a full-screen frame root with a passive dimmer and the same centered `SizeX`/`SizeY` plus alignment pattern as the working action/report dialogs.
 - Command menu close-button hierarchy no longer puts a child frame inside `CloseButton`, removing the runtime GUI error seen in the latest log.
