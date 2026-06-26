@@ -244,16 +244,16 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		m_MapEntity.WorldToScreen(zone.m_vWorldPosition[0], zone.m_vWorldPosition[2], sx, sy, true);
 
 		int radiusPx = Math.Max(4, ResolveRadiusPixels(zone.m_vWorldPosition, zone.m_fRadiusMeters));
-		int left = Math.Round(workspace.DPIUnscale(sx - radiusPx));
-		int top = Math.Round(workspace.DPIUnscale(sy - radiusPx));
-		int diameter = Math.Round(workspace.DPIUnscale(radiusPx * 2));
+		int left = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sx - radiusPx);
+		int top = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sy - radiusPx);
+		int diameter = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, radiusPx * 2);
 		if (!IsOverlayRectWorthDrawing(left, top, diameter, parent, workspace))
 			return;
 
 		CreateCircle(workspace, parent, left, top, diameter, ZoneFillColor(zone.m_sTone), 0.48);
 
-		int centerX = Math.Round(workspace.DPIUnscale(sx));
-		int centerY = Math.Round(workspace.DPIUnscale(sy));
+		int centerX = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sx);
+		int centerY = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sy);
 		int pointSize = 6;
 		int pointLeft = centerX - pointSize / 2;
 		int pointTop = centerY - pointSize / 2;
@@ -268,8 +268,8 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int sy;
 		m_MapEntity.WorldToScreen(s_vCandidatePosition[0], s_vCandidatePosition[2], sx, sy, true);
 
-		int x = Math.Round(workspace.DPIUnscale(sx));
-		int y = Math.Round(workspace.DPIUnscale(sy));
+		int x = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sx);
+		int y = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, sy);
 
 		int outerSize = 34;
 		if (!IsOverlayRectWorthDrawing(x - outerSize / 2, y - outerSize / 2, outerSize, parent, workspace))
@@ -318,11 +318,11 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		float frameW;
 		float frameH;
 		mapFrame.GetScreenSize(frameW, frameH);
-		frameW = workspace.DPIUnscale(frameW);
-		frameH = workspace.DPIUnscale(frameH);
+		int frameLayoutW = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, frameW);
+		int frameLayoutH = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, frameH);
 		if (left + size < -128 || top + size < -128)
 			return false;
-		if (left > frameW + 128 || top > frameH + 128)
+		if (left > frameLayoutW + 128 || top > frameLayoutH + 128)
 			return false;
 
 		return true;
