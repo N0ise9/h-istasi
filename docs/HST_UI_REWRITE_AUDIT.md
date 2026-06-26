@@ -81,11 +81,12 @@ Current state:
 - Command menu close-button hierarchy no longer puts a child frame inside `CloseButton`, removing the runtime GUI error seen in the latest log.
 - Command menu uses `ApplyCommandMenuLayerOrder` after creation, population, and delayed layout refresh so the dimmer, surface, panels, header, button, and label stack consistently without geometry offsets.
 - Command menu now keeps one workspace-parented layout root while open and clears only `TabItems`, `MainItems`, `ActivityItems`, and `ActionsItems` during snapshot refreshes. This avoids rebuilding the whole shell under active input or server updates.
-- Command menu nav/stats/main/activity/action panel slots now use resolved-bounds-safe offset signs, preventing the left nav from collapsing negative and the center column from expanding under the right panels.
+- Command menu nav/stats/main/activity/action panel slots now use resolved-bounds-safe offset signs, preventing the left nav from collapsing negative and the center/right columns from expanding through sibling panels.
 - Loadout editor uses `ApplyLoadoutLayerOrder` after render and delayed layout refresh to keep the render target low, the UI layer above it, the preview drag surface behind panels, and expanded `loadout_editor_ready` geometry logs for the next test pass.
 - Command menu and loadout editor delayed ready logs now include child samples for dynamic list hosts so runtime logs show whether populated rows landed inside the expected scroll/list container after anchors resolve.
 - Loadout editor layout now explicitly marks core chrome visible by default and mode-specific panels hidden by default, so the layout's baseline state matches the script's mode population model.
-- Loadout editor fixed same-anchor slot signs now use positive far-edge coordinates for top tabs, left buttons, left rail, footer hints, and mode panels. Runtime ready logs had shown these widgets resolving to negative sizes while the render target stayed visible.
+- Loadout editor top/left fixed same-anchor slots now use negative far-edge coordinates, while stretched panel interiors use positive far-edge margins. Runtime ready logs had shown the top tabs, left buttons, left rail, footer, and mode panels resolving to negative sizes while the render target stayed visible.
+- Loadout editor left Back/ESC buttons and footer hint children also use signed fixed-child bounds so the chrome can become visible without leaving the actual controls or hint labels in negative child slots.
 - Setup candidate marker changed from a cross to a small temporary dot/ring marker overlay, keeping setup selection separate from persistent gameplay marker lifecycle.
 - Setup map now uses a distinct non-fullscreen map mode and the world map config component explicitly points the normal gadget map at `HST_GameplayMap.conf`, preventing setup's minimal map UI component stack from being reused by the normal gameplay map.
 - Shared notification, action-dialog, and report-dialog roots now use workspace-parented layout creation and emit delayed `*_ready` geometry logs, matching the setup/command/loadout chrome lifecycle.
@@ -95,6 +96,7 @@ Current state:
 ## Remaining Acceptance Gaps
 
 - Runtime-QA root service input blocking across setup, command menu, loadout, mission dialogs, and notifications.
+- Re-test command menu and loadout editor delayed ready logs for any remaining `negative=` or offscreen panel entries after the slot sign correction.
 - Wire any remaining mission-specific action/admin confirmation flows into `HST_ActionDialogController`.
 - Continue reducing remaining mission action/admin areas without reintroducing command/loadout row geometry.
 - Run in-game/Workbench QA at 1920x1080, 2560x1440 with 1920x1080 layout size, and ultrawide.

@@ -45,12 +45,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A setup confirmation modal using direct center-relative offsets such as negative left/top and positive right/bottom created the layout and populated text, but the dialog resolved to `0x0` and buttons had unusable or negative bounds.
   - Current examples: `HST_SetupConfirmModal.layout`, `HST_ActionDialog.layout`, `HST_ReportDialog.layout`.
 
-- `OffsetRight` and `OffsetBottom` signs depend on whether a slot has explicit `SizeX` / `SizeY` and whether that axis stretches.
+- `OffsetRight` and `OffsetBottom` signs depend on whether a slot has explicit `SizeX` / `SizeY`, whether that axis stretches, and which side the fixed anchor uses.
   - Slots with explicit `PositionX` / `PositionY` plus `SizeX` / `SizeY` often serialize the far edge as negative, such as a centered modal using `SizeX 620` with `OffsetRight -620`.
-  - Slots without explicit size on a same-anchor axis need the far edge to be the positive coordinate on that axis, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight 560`. A negative far edge becomes a negative runtime width or height.
-  - Stretched axes use negative far offsets for inward margins, such as `Anchor 0 0 1 1`, `OffsetLeft 240`, and `OffsetRight -524`. Positive far offsets make center panels grow underneath right-side panels.
+  - Top/left same-anchor fixed boxes without explicit size need negative far edges, such as `Anchor 0 0 0 0`, `OffsetLeft 116`, and `OffsetRight -720`. Positive far edges produced negative runtime sizes for top tabs, left buttons, left rail, and footer chrome.
+  - Stretched inset panels need positive far-edge margins, such as `Anchor 0 0 1 1`, `OffsetLeft 240`, and `OffsetRight 524`. Negative far-edge margins made command-menu center and right panels grow underneath sibling panels.
   - Right or bottom anchored fixed boxes can use negative left/top offsets to define size while keeping positive right/bottom offsets inside the parent.
-  - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes, such as left rails, navigation panels, top tabs, or footer hints resolving to impossible bounds.
+  - Runtime symptom when this is wrong: delayed ready logs show negative widget sizes or panels wider/taller than their parent, such as left rails, navigation panels, top tabs, command-menu center panels, or footer hints resolving to impossible bounds.
   - Current examples: `HST_SetupConfirmModal.layout`, `HST_CommandMenu.layout`, `HST_LoadoutEditor.layout`, loadout row layouts.
 
 - Layout fragments intended to fill a parent slot should use stretched anchors at their root.
