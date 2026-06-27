@@ -1,6 +1,6 @@
 # h-istasi Enfusion / Enforce Notes
 
-Purpose: capture reusable facts learned while rebuilding h-istasi UI so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
+Purpose: capture reusable facts learned while building h-istasi so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
 
 This file is for practical engine/script behavior, not project planning. Keep entries concrete: what failed, why it failed, what works instead, and where the example lives.
 
