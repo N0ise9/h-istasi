@@ -4426,6 +4426,9 @@ foreach ($requiredLoadoutTabLayoutEntry in @(
 		throw "Loadout editor mode tabs must be layout-owned: $requiredLoadoutTabLayoutEntry"
 	}
 }
+if ($loadoutEditorLayoutText -notmatch 'Name "TopTabItems"[\s\S]*?OffsetLeft 24[\s\S]*?OffsetRight 24') {
+	throw "Loadout editor mode tabs must keep the generated tab strip centered in its layout host"
+}
 foreach ($requiredLoadoutTabScriptEntry in @(
 	'Widget items = target.FindAnyWidget("TopTabItems")',
 	"AddLoadoutTabButton(workspace, items",
@@ -4616,6 +4619,15 @@ foreach ($requiredLoadoutCandidateTemplateLayoutEntry in @(
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutCandidateTemplateLayoutEntry)) {
 		throw "Loadout editor candidate/template panel must be layout-owned: $requiredLoadoutCandidateTemplateLayoutEntry"
+	}
+}
+foreach ($requiredFixedCandidateHeaderLayoutPattern in @(
+	'Name "CandidateHeaderPreviewBack"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -82',
+	'Name "CandidateHeaderPreviewLine"[\s\S]*?OffsetRight -94[\s\S]*?OffsetBottom -16',
+	'Name "CandidateHeaderPreviewAnchor"[\s\S]*?OffsetRight -92[\s\S]*?OffsetBottom -80'
+)) {
+	if ($loadoutEditorLayoutText -notmatch $requiredFixedCandidateHeaderLayoutPattern) {
+		throw "Loadout editor candidate header preview boxes must use negative far offsets for same-anchor fixed bounds: $requiredFixedCandidateHeaderLayoutPattern"
 	}
 }
 foreach ($requiredLoadoutCandidateTemplateScriptEntry in @(
@@ -5159,12 +5171,12 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"BuildStorageCapacityLabel(nodeIndex)",
 	"ResolveLoadoutRegion(root, `"StorageBrowser`")",
 	"ResolveLoadoutRegion(root, `"LeftRail`")",
-	"SetRowTextOrHide(tile, `"Name`", ShortenText(name, 68)",
+	"SetRowTextOrHide(tile, `"Name`", ShortenText(name, 96)",
 	"SetRowTextOrHide(tile, `"Count`", countText",
-	"SetRowTextOrHide(row, `"Name`", ShortenText(name, 38)",
+	"SetRowTextOrHide(row, `"Name`", ShortenText(name, 72)",
 	"SetRowTextOrHide(row, `"Count`", countText",
-	"SetRowTextOrHide(row, `"Primary`", ShortenText(primary, 36)",
-	"SetRowTextOrHide(row, `"Secondary`", ShortenText(secondary, 42)",
+	"SetRowTextOrHide(row, `"Primary`", ShortenText(primary, 48)",
+	"SetRowTextOrHide(row, `"Secondary`", ShortenText(secondary, 72)",
 	"cell.SetZOrder(20)",
 	"slotImage.SetZOrder(21)",
 	"slotPreview.SetZOrder(22)",

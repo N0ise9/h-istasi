@@ -303,9 +303,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
        Name "TopTabItems"
        Slot FrameWidgetSlot "{7B2FD986A4D34249}" {
         Anchor 0 0 1 1
-        OffsetLeft 18
+        OffsetLeft 24
         OffsetTop 0
-        OffsetRight 18
+        OffsetRight 24
         OffsetBottom 0
        }
        "Ignore Cursor" 0
@@ -614,8 +614,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 0 0
       OffsetLeft 26
       OffsetTop 14
-      OffsetRight 94
-      OffsetBottom 82
+      OffsetRight -94
+      OffsetBottom -82
        }
        Color 0.035 0.05 0.063 0.86
        style full
@@ -627,8 +627,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 0 0
       OffsetLeft 26
       OffsetTop 14
-      OffsetRight 94
-      OffsetBottom 16
+      OffsetRight -94
+      OffsetBottom -16
        }
        Color 0.3 0.35 0.38 0.4
        style full
@@ -640,8 +640,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 0 0
       OffsetLeft 28
       OffsetTop 16
-      OffsetRight 92
-      OffsetBottom 80
+      OffsetRight -92
+      OffsetBottom -80
        }
        "Ignore Cursor" 1
       }

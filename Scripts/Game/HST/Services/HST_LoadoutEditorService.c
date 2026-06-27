@@ -225,7 +225,10 @@ class HST_LoadoutEditorService
 
 		int candidateCount;
 		string emptyReason;
-		string candidates = BuildCandidatePayloadsForNode(state, identityId, session, node, candidateCount, emptyReason);
+		int availableItems;
+		int categoryMatches;
+		int compatibilityMatches;
+		string candidates = BuildCandidatePayloadsForNode(state, identityId, session, node, candidateCount, emptyReason, availableItems, categoryMatches, compatibilityMatches);
 		if (candidateCount > 0)
 			emptyReason = "";
 		else if (emptyReason.IsEmpty())
@@ -236,7 +239,13 @@ class HST_LoadoutEditorService
 			logReason = "ready";
 
 		if (IsDebugLoggingEnabled())
-			Print(string.Format("h-istasi loadout editor debug | candidates node %1 | count %2 | arsenal %3 | reason %4", nodeId, candidateCount, state.m_aArsenalItems.Count(), logReason));
+		{
+			string candidateLog = string.Format("h-istasi loadout editor debug | candidates node %1 kind %2 category %3 slot %4 label %5 item %6", nodeId, node.m_sKind, node.m_sCategory, node.m_sSlotKey, ShortenDebugText(node.m_sDisplayName, 64), ShortenDebugText(node.m_sItemPrefab, 96));
+			candidateLog = candidateLog + string.Format(" | count %1 arsenal %2 available %3 categoryMatches %4 compatible %5 reason %6", candidateCount, state.m_aArsenalItems.Count(), availableItems, categoryMatches, compatibilityMatches, logReason);
+			if (node.m_sKind == "storage")
+				candidateLog = candidateLog + string.Format(" | storage used %1 total %2 usedVol %3 totalVol %4 freeVol %5", node.m_iUsedCapacity, node.m_iTotalCapacity, node.m_fUsedVolume, node.m_fTotalVolume, node.m_fFreeVolume);
+			Print(candidateLog);
+		}
 		return string.Format("HST_LOADOUT_CANDIDATES|%1|ready|%2|%3", nodeId, candidateCount, SanitizePayloadField(emptyReason)) + candidates;
 	}
 
@@ -786,6 +795,12 @@ class HST_LoadoutEditorService
 			node.m_iUsedCapacity = CountStorageItems(containerStorages);
 			node.m_iTotalCapacity = CountStorageAvailableFitOptions(state, playerEntity, insertStorages);
 			session.m_aDraftNodes.Insert(node);
+			if (IsDebugLoggingEnabled())
+			{
+				string storageLog = string.Format("h-istasi loadout editor debug | storage node %1 label %2 slot %3 cargoTargets %4 insertTargets %5", containerNodeId, ShortenDebugText(label, 64), slotIndex, containerStorages.Count(), insertStorages.Count());
+				storageLog = storageLog + string.Format(" | usedItems %1 fitOptions %2 usedVol %3 totalVol %4 freeVol %5 prefab %6", node.m_iUsedCapacity, node.m_iTotalCapacity, node.m_fUsedVolume, node.m_fTotalVolume, node.m_fFreeVolume, ShortenDebugText(node.m_sItemPrefab, 96));
+				Print(storageLog);
+			}
 
 			AddStorageContentNodes(session, containerStorages, containerNodeId, slotIndex);
 		}
@@ -2871,10 +2886,13 @@ class HST_LoadoutEditorService
 		return payload;
 	}
 
-	protected string BuildCandidatePayloadsForNode(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session, HST_LoadoutNodeState node, out int candidateCount, out string emptyReason)
+	protected string BuildCandidatePayloadsForNode(HST_CampaignState state, string identityId, HST_LoadoutEditorSessionState session, HST_LoadoutNodeState node, out int candidateCount, out string emptyReason, out int availableItems, out int categoryMatches, out int compatibilityMatches)
 	{
 		candidateCount = 0;
 		emptyReason = "";
+		availableItems = 0;
+		categoryMatches = 0;
+		compatibilityMatches = 0;
 		if (!state || !node)
 		{
 			emptyReason = "Selected slot unavailable";
@@ -2882,9 +2900,6 @@ class HST_LoadoutEditorService
 		}
 
 		string payload;
-		int availableItems;
-		int categoryMatches;
-		int compatibilityMatches;
 		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
 		{
 			if (!IsArsenalItemAvailable(item))
@@ -4124,6 +4139,23 @@ class HST_LoadoutEditorService
 		value.Replace("\n", " ");
 		value.Replace("\r", " ");
 		return value;
+	}
+
+	protected string ShortenDebugText(string value, int maxCharacters)
+	{
+		if (value.IsEmpty() || maxCharacters <= 0)
+			return "";
+
+		value.Replace("|", "/");
+		value.Replace("\n", " ");
+		value.Replace("\r", " ");
+		if (value.Length() <= maxCharacters)
+			return value;
+
+		if (maxCharacters <= 3)
+			return value.Substring(0, maxCharacters);
+
+		return value.Substring(0, maxCharacters - 3) + "...";
 	}
 
 	protected bool IsAllowedLoadoutSlot(HST_LoadoutSlotState slot)

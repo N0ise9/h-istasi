@@ -196,6 +196,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Clear the active dynamic container again after the region has been resolved and shown, then populate it.
   - Treat the selected loadout edit target as a single resolved context, not as separate slot-only and node-only states. A layout row may leave only a selected slot id while candidate payloads and remove commands still need the live node id.
   - Invalidate compatible-item candidate payloads after loadout or storage mutations. Arsenal counts, storage capacity, and compatibility can change immediately after inserting/removing an item, so a cached empty candidate result can become stale.
+  - Storage candidate troubleshooting needs separate counts for recovered arsenal items, slot/category matches, and live inventory compatibility matches. A category can have recovered items and still return an empty visible panel because the selected storage has no live insert target, no free capacity, or no compatible slots after the last insertion.
+
+- Dynamic horizontal tabs should be centered by sizing the layout-owned host to the children, not by moving each tab.
+  - A tab button with a fixed width and layout padding contributes both to the desired strip width.
+  - If the host is wider than the sum of the tab buttons plus their padding, Enfusion lays children from the left and leaves the extra space at the end.
+  - Current example: the loadout editor mode tabs use symmetric host insets so the six layout-generated tab buttons sit centered over the left pane.
+  - Fixed-size preview boxes inside the candidate header need the same negative far-edge rule as other top/left same-anchor boxes. Positive `OffsetRight` / `OffsetBottom` values produced negative runtime size for the header preview anchor, which made the current equipped item preview disappear.
 
 - `ItemPreviewWidget` does not reliably render every inventory prefab.
   - Keep a category/fallback icon available when prefab or entity preview setup fails.

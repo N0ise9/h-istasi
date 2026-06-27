@@ -2407,9 +2407,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Primary", ShortenText(primary, 36), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, false);
-		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 42), 0xFFD5D8D9, m_Layout.m_iFontSmall, false, false);
-		SetRowTextOrHide(row, "Meta", ShortenText(meta, 34), 0xFFFFD166, m_Layout.m_iFontSmall, false, false);
+		SetRowTextOrHide(row, "Primary", ShortenText(primary, 48), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, true);
+		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 72), 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
+		SetRowTextOrHide(row, "Meta", ShortenText(meta, 48), 0xFFFFD166, m_Layout.m_iFontSmall, false, false);
 	}
 
 	protected void AddStorageItemOverlayText(WorkspaceWidget workspace, Widget row, string name, string countText, int userId)
@@ -2417,7 +2417,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Name", ShortenText(name, 38), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
+		SetRowTextOrHide(row, "Name", ShortenText(name, 72), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
 		SetRowTextOrHide(row, "Count", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 	}
 
@@ -2438,8 +2438,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Primary", ShortenText(primary, 30), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, false);
-		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 46), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, false);
+		SetRowTextOrHide(row, "Primary", ShortenText(primary, 48), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, false);
+		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 72), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
 		if (canOpen)
 			SetRowTextOrHide(row, "OpenMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 		else
@@ -2622,7 +2622,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !tile || !m_Layout)
 			return;
 
-		SetRowTextOrHide(tile, "Name", ShortenText(name, 68), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
+		SetRowTextOrHide(tile, "Name", ShortenText(name, 96), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
 		SetRowTextOrHide(tile, "Count", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 	}
 
