@@ -308,6 +308,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         OffsetRight 24
         OffsetBottom 0
        }
+       HorizontalAlign 1
+       VerticalAlign 1
        "Ignore Cursor" 0
       }
      }
@@ -652,7 +654,7 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 1 0
       OffsetLeft 106
       OffsetTop 22
-      OffsetRight 52
+      OffsetRight 18
       SizeY 28
       OffsetBottom -50
        }
@@ -668,9 +670,9 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
       Anchor 0 0 1 0
       OffsetLeft 106
       OffsetTop 48
-      OffsetRight 52
-      SizeY 38
-      OffsetBottom -86
+      OffsetRight 18
+      SizeY 42
+      OffsetBottom -90
        }
        "No Localization" 1
        "Ignore Cursor" 1
