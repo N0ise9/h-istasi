@@ -239,6 +239,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Put a category/fallback image behind the native preview widget and keep it visible at low opacity after calling `SetPreviewItemFromPrefab` or `SetPreviewItem`.
   - This preserves a visible row affordance for unsupported prefabs without adding script geometry or hiding native previews that do render.
   - Do not hard-exclude worn equipment categories from native previews. Clothing, storage containers, and weapons should attempt native preview first with the fallback underlay still present, because a visible character item may have a valid preview prefab even if some inventory entries still fall back.
+  - For equipped items and live inventory contents, prefer entity previews before prefab previews. Clear the preview widget, then call `SetPreviewItem(previewWidget, entity)`.
+  - For arsenal candidates that only have prefab resources, call `SetPreviewItemFromPrefab(previewWidget, prefabResource)` and leave the fallback underlay visible.
+
+- Slot edit remove actions must be independent from compatible replacement candidates.
+  - A slot can have a removable equipped item even when the arsenal has no valid replacement entries.
+  - Gate the UI remove control on the selected item existing, then let the server-side inventory path reject only truly invalid removals.
+  - Header text for an edit context should show the slot/category label and equipped item display name separately; otherwise an equipped item can look like an anonymous preview tile.
+
+- Reused mode panels should hide stale child content on mode reset and re-show the parent before populating.
+  - A child such as settings content can remain marked visible while its parent panel is hidden, which makes logs look populated but the screen appear blank.
+  - Reset both the parent region and mutually exclusive child panels before rendering the active mode.
 
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.

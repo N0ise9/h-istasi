@@ -1633,6 +1633,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		SetLoadoutWidgetVisible(root, "CandidateList", false);
 		SetLoadoutWidgetVisible(root, "StorageBrowser", false);
 		SetLoadoutWidgetVisible(root, "SavePanel", false);
+		SetLoadoutWidgetVisible(root, "SettingsContent", false);
 	}
 
 	protected void ShowSlotRailWidgets(Widget railRoot)
@@ -1682,6 +1683,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!panelRoot)
 			return;
 
+		panelRoot.SetVisible(true);
+		panelRoot.SetOpacity(1.0);
 		SetLoadoutWidgetVisible(panelRoot, "SettingsContent", false);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateSaveButton", true);
 		SetLoadoutWidgetVisible(panelRoot, "TemplateClearButton", true);
@@ -1705,6 +1708,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!panelRoot)
 			return;
 
+		panelRoot.SetVisible(true);
+		panelRoot.SetOpacity(1.0);
 		SetLoadoutWidgetVisible(panelRoot, "SettingsContent", true);
 	}
 
@@ -2416,7 +2421,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Name", ShortenText(name, 72), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
+		int nameFont = m_Layout.m_iFontNormal;
+		if (name.Length() > 24)
+			nameFont = m_Layout.m_iFontSmall;
+
+		SetRowTextOrHide(row, "Name", ShortenText(name, 72), 0xFFE2E6E8, nameFont, false, true);
 		SetRowTextOrHide(row, "Count", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 	}
 
@@ -2437,8 +2446,12 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Primary", ShortenText(primary, 64), 0xFFEFE2C4, m_Layout.m_iFontNormal, true, true);
-		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 80), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
+		int primaryFont = m_Layout.m_iFontNormal;
+		if (primary.Length() > 24)
+			primaryFont = m_Layout.m_iFontSmall;
+
+		SetRowTextOrHide(row, "Primary", ShortenText(primary, 96), 0xFFEFE2C4, primaryFont, true, true);
+		SetRowTextOrHide(row, "Secondary", ShortenText(secondary, 96), 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
 		if (canOpen)
 			SetRowTextOrHide(row, "OpenMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
 		else
@@ -2489,7 +2502,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!workspace || !row || !m_Layout)
 			return;
 
-		SetRowTextOrHide(row, "Primary", ShortenText(name, 72), 0xFFE2E6E8, m_Layout.m_iFontNormal, false, true);
+		int nameFont = m_Layout.m_iFontNormal;
+		if (name.Length() > 24)
+			nameFont = m_Layout.m_iFontSmall;
+
+		SetRowTextOrHide(row, "Primary", ShortenText(name, 96), 0xFFE2E6E8, nameFont, false, true);
 		SetRowTextOrHide(row, "Secondary", countText, 0xFFFFD166, m_Layout.m_iFontSmall, true, false);
 		SetRowWidgetVisible(row, "OpenMarker", false);
 	}
@@ -2761,6 +2778,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		RenderSelectedNodeHeader(workspace, panelRoot);
 		bool canRemoveSelected = CanRemoveSelectedEditingItem();
 		DebugLog(string.Format("candidate remove state nodeId=%1 selectedNode=%2 selectedSlot=%3 prefabSet=%4 canRemove=%5 button=%6", ResolveSelectedCandidateNodeId(), m_sSelectedNodeId, m_sSelectedSlotId, !ResolveSelectedEditingPrefab().IsEmpty(), canRemoveSelected, HST_UIDebug.WidgetSummary(panelRoot.FindAnyWidget("CandidateRemoveButton"))));
+		HST_UIDebug.LogPopulation("loadout_candidate_remove", string.Format("nodeId=%1 selectedNode=%2 selectedSlot=%3 hasItem=%4 prefabSet=%5 canRemove=%6 button=%7", ShortenText(ResolveSelectedCandidateNodeId(), 64), ShortenText(m_sSelectedNodeId, 64), ShortenText(m_sSelectedSlotId, 64), HasSelectedEditingItem(), !ResolveSelectedEditingPrefab().IsEmpty(), canRemoveSelected, HST_UIDebug.WidgetSummary(panelRoot.FindAnyWidget("CandidateRemoveButton"))));
 		if (canRemoveSelected)
 		{
 			ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton", "CandidateRemoveBackground", "CandidateRemoveAccent", "CandidateRemoveLabel", "Remove", REMOVE_SELECTED_NODE_WIDGET_ID);
@@ -3878,7 +3896,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (nodeIndex >= 0)
 		{
-			headerSlot = GetNodeLabel(nodeIndex);
+			headerSlot = ResolveNodeSlotLabel(nodeIndex);
+			if (headerSlot.IsEmpty())
+				headerSlot = GetNodeLabel(nodeIndex);
 			headerName = GetNodeDisplay(nodeIndex);
 			headerIconKey = ResolveNodeIconKey(nodeIndex);
 			if (nodeIndex < m_aNodePrefabs.Count())
@@ -3912,11 +3932,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				CreateSlotPreviewCell(workspace, anchor, slotIndex, headerIconKey, 0, 0xFFE6E6E6);
 		}
 
-		SetLoadoutText(root, "CandidateHeaderSlot", ShortenText(headerSlot, 56), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
-		SetLoadoutText(root, "CandidateHeaderName", ShortenText(headerName, 72), 0xFFD5D8D9, m_Layout.m_iFontNormal, false, true);
-		SetLoadoutWidgetVisible(root, "CandidateHeaderMarker", !headerPrefab.IsEmpty());
-		if (!headerPrefab.IsEmpty())
-			SetLoadoutText(root, "CandidateHeaderMarker", "W", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
+		SetLoadoutText(root, "CandidateHeaderSlot", ShortenText(headerSlot, 80), 0xFFE2E6E8, m_Layout.m_iFontNormal, true, false);
+		SetLoadoutText(root, "CandidateHeaderName", ShortenText(headerName, 104), 0xFFD5D8D9, m_Layout.m_iFontSmall, false, true);
+		SetLoadoutText(root, "CandidateHeaderMarker", "", 0xFFFFFFFF, m_Layout.m_iFontTitle, true, false);
+		SetLoadoutWidgetVisible(root, "CandidateHeaderMarker", false);
 
 		string headerSummary = string.Format("nodeIndex=%1 slotIndex=%2 slot=%3 name=%4 prefabSet=%5 icon=%6 remove=%7 slotText=%8 nameText=%9", nodeIndex, slotIndex, ShortenText(headerSlot, 64), ShortenText(headerName, 96), !headerPrefab.IsEmpty(), headerIconKey, CanRemoveSelectedEditingItem(), HST_UIDebug.WidgetSummary(root.FindAnyWidget("CandidateHeaderSlot")), HST_UIDebug.WidgetSummary(root.FindAnyWidget("CandidateHeaderName")));
 		headerSummary = headerSummary + " preview=" + HST_UIDebug.WidgetSummary(root.FindAnyWidget("CandidateHeaderPreviewAnchor"));
@@ -3982,28 +4001,67 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 	protected bool CanRemoveSelectedEditingItem()
 	{
-		int nodeIndex = FindSelectedEditingNodeIndex();
-		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[nodeIndex])
-		{
-			if (nodeIndex < m_aNodePrefabs.Count())
-				return !m_aNodePrefabs[nodeIndex].IsEmpty();
+		if (!HasSelectedEditingItem())
+			return false;
+
+		if (FindSelectedEditingNodeIndex() >= 0)
 			return true;
+
+		return FindSelectedSlotIndex() >= 0;
+	}
+
+	protected bool HasSelectedEditingItem()
+	{
+		int nodeIndex = FindSelectedEditingNodeIndex();
+		if (nodeIndex >= 0)
+		{
+			if (nodeIndex < m_aNodePrefabs.Count() && !m_aNodePrefabs[nodeIndex].IsEmpty())
+				return true;
+
+			if (nodeIndex < m_aNodeIds.Count() && ResolveItemIconPreviewEntityForNode(m_aNodeIds[nodeIndex]))
+				return true;
+
+			string nodeDisplay = GetNodeDisplay(nodeIndex);
+			return !IsEmptyLoadoutDisplay(nodeDisplay);
 		}
 
 		int slotIndex = FindSelectedSlotIndex();
-		if (slotIndex >= 0 && slotIndex < m_aSlotPrefabs.Count())
-			return !m_aSlotPrefabs[slotIndex].IsEmpty();
+		if (slotIndex >= 0)
+		{
+			if (slotIndex < m_aSlotPrefabs.Count() && !m_aSlotPrefabs[slotIndex].IsEmpty())
+				return true;
+
+			string slotDisplay = GetSlotDisplay(slotIndex);
+			return !IsEmptyLoadoutDisplay(slotDisplay);
+		}
+
+		return false;
+	}
+
+	protected bool IsEmptyLoadoutDisplay(string display)
+	{
+		if (display.IsEmpty())
+			return true;
+		if (display == "empty" || display == "Empty" || display == "Empty Slot")
+			return true;
 
 		return false;
 	}
 
 	protected bool RequestRemoveSelectedEditingItem()
 	{
+		if (!HasSelectedEditingItem())
+		{
+			HST_UIDebug.LogPopulation("loadout_remove_request", "ignored=true reason=no_selected_item");
+			return false;
+		}
+
 		string nodeId = ResolveSelectedCandidateNodeId();
 		int nodeIndex = FindSelectedEditingNodeIndex();
-		if (nodeIndex >= 0 && nodeIndex < m_aNodeCanRemove.Count() && m_aNodeCanRemove[nodeIndex] && !nodeId.IsEmpty())
+		if (nodeIndex >= 0 && !nodeId.IsEmpty())
 		{
 			m_sLastResult = "requested remove item";
+			HST_UIDebug.LogPopulation("loadout_remove_request", string.Format("nodeId=%1 nodeIndex=%2 command=%3", ShortenText(nodeId, 64), nodeIndex, ResolveNodeRemoveCommand(nodeId)));
 			RequestServerAction(ResolveNodeRemoveCommand(nodeId), nodeId);
 			return true;
 		}
@@ -7142,7 +7200,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		previewWidget.SetVisible(true);
 		previewWidget.SetOpacity(1.0);
 		previewWidget.SetZOrder(22);
-		previewManager.SetPreviewItemFromPrefab(previewWidget, resourceName, null, true);
+		previewManager.SetPreviewItemFromPrefab(previewWidget, resourceName);
 		HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("nativePrefab=true prefab=%1 fallbackIcon=%2 cell=%3", prefab, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
 		return true;
 	}
@@ -7170,7 +7228,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		previewWidget.SetVisible(true);
 		previewWidget.SetOpacity(1.0);
 		previewWidget.SetZOrder(22);
-		previewManager.SetPreviewItem(previewWidget, entity, null, true);
+		previewManager.SetPreviewItem(previewWidget, null, null, true);
+		previewManager.SetPreviewItem(previewWidget, entity);
 		HST_UIDebug.LogRowSample("loadout_preview_cells", ITEM_PREVIEW_CELL_LAYOUT, Math.Max(0, m_iDebugPreviewCellLogIndex - 1), string.Format("nativeEntity=true entity=%1 fallbackIcon=%2 cell=%3", entity, fallbackIcon, HST_UIDebug.WidgetSummary(cell)));
 		return true;
 	}
@@ -7208,12 +7267,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (nodeIndex >= 0 && nodeIndex < m_aNodePrefabs.Count())
 			prefab = m_aNodePrefabs[nodeIndex];
 
-		if (!prefab.IsEmpty() && SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true))
-			return true;
-
 		IEntity itemEntity = null;
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeIds.Count())
 			itemEntity = ResolveItemIconPreviewEntityForNode(m_aNodeIds[nodeIndex]);
+
+		if (itemEntity && SetPreviewCellFromEntity(cell, itemEntity, fallbackIcon, color, true))
+			return true;
+
+		if (!prefab.IsEmpty() && SetPreviewCellFromPrefab(cell, prefab, fallbackIcon, color, true))
+			return true;
 
 		if (!itemEntity)
 		{
