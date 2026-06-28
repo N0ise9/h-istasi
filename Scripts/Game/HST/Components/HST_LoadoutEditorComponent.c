@@ -2454,7 +2454,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				input.SetText(m_sStorageSearchQuery);
 		}
 
-		ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearBackground", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID, !m_sStorageSearchQuery.IsEmpty());
+		ConfigureStorageBrowserButton(searchRoot, "StorageSearchClearButton", "StorageSearchClearButton", "StorageSearchClearAccent", "StorageSearchClearLabel", "Clear", STORAGE_SEARCH_CLEAR_WIDGET_ID, !m_sStorageSearchQuery.IsEmpty());
 		BuildStorageSearchResults();
 
 		string selectedStorageNodeId = ResolveSelectedStorageContainerNodeId();
@@ -2641,17 +2641,17 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		EnsureVisualSettings();
-		ConfigureStorageBrowserButton(panelRoot, "StorageFilterFitButton", "StorageFilterFitBackground", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", STORAGE_FILTER_WIDGET_ID_BASE + 0, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY));
-		ConfigureStorageBrowserButton(panelRoot, "StorageFilterAmmoButton", "StorageFilterAmmoBackground", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", STORAGE_FILTER_WIDGET_ID_BASE + 1, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE));
-		ConfigureStorageBrowserButton(panelRoot, "StorageFilterInfiniteButton", "StorageFilterInfiniteBackground", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", STORAGE_FILTER_WIDGET_ID_BASE + 2, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY));
-		ConfigureStorageBrowserButton(panelRoot, "StorageFilterShowAllButton", "StorageFilterShowAllBackground", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", STORAGE_FILTER_WIDGET_ID_BASE + 3, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL));
-		ConfigureStorageBrowserButton(panelRoot, "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteBackground", "StorageFilterNotInfiniteAccent", "StorageFilterNotInfiniteLabel", "Not INF", STORAGE_FILTER_WIDGET_ID_BASE + 4, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterFitButton", "StorageFilterFitButton", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", STORAGE_FILTER_WIDGET_ID_BASE + 0, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterAmmoButton", "StorageFilterAmmoButton", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", STORAGE_FILTER_WIDGET_ID_BASE + 1, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterInfiniteButton", "StorageFilterInfiniteButton", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", STORAGE_FILTER_WIDGET_ID_BASE + 2, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterShowAllButton", "StorageFilterShowAllButton", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", STORAGE_FILTER_WIDGET_ID_BASE + 3, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL));
+		ConfigureStorageBrowserButton(panelRoot, "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteAccent", "StorageFilterNotInfiniteLabel", "Not INF", STORAGE_FILTER_WIDGET_ID_BASE + 4, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE));
 
 		int sortMode = m_VisualSettings.m_iStorageSortMode;
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortAZButton", "StorageSortAZBackground", "StorageSortAZAccent", "StorageSortAZLabel", "A-Z", STORAGE_SORT_WIDGET_ID_BASE + 0, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ);
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortZAButton", "StorageSortZABackground", "StorageSortZAAccent", "StorageSortZALabel", "Z-A", STORAGE_SORT_WIDGET_ID_BASE + 1, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA);
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountDescButton", "StorageSortCountDescBackground", "StorageSortCountDescAccent", "StorageSortCountDescLabel", "INF-1", STORAGE_SORT_WIDGET_ID_BASE + 2, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC);
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountAscButton", "StorageSortCountAscBackground", "StorageSortCountAscAccent", "StorageSortCountAscLabel", "1-INF", STORAGE_SORT_WIDGET_ID_BASE + 3, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortAZButton", "StorageSortAZButton", "StorageSortAZAccent", "StorageSortAZLabel", "A-Z", STORAGE_SORT_WIDGET_ID_BASE + 0, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortZAButton", "StorageSortZAButton", "StorageSortZAAccent", "StorageSortZALabel", "Z-A", STORAGE_SORT_WIDGET_ID_BASE + 1, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountDescButton", "StorageSortCountDescButton", "StorageSortCountDescAccent", "StorageSortCountDescLabel", "INF-1", STORAGE_SORT_WIDGET_ID_BASE + 2, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountAscButton", "StorageSortCountAscButton", "StorageSortCountAscAccent", "StorageSortCountAscLabel", "1-INF", STORAGE_SORT_WIDGET_ID_BASE + 3, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC);
 	}
 
 	protected void ConfigureStorageBrowserButton(Widget root, string buttonName, string backgroundName, string accentName, string labelName, string label, int userId, bool active)
