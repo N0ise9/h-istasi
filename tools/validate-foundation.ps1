@@ -1831,6 +1831,15 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 if ($playerMarkerServiceText -notmatch [regex]::Escape("record.m_iConfigId = playerId;")) {
 	throw "Player map marker service must pass player id through replicated marker config id for client-side label resolution"
 }
+foreach ($requiredDynamicCleanupContract in @(
+	"if (!m_mDynamicDomainIdToMarkerEntity.Contains(id))",
+	"if (manager && markerEntity)",
+	"m_mDynamicDomainIdToMarkerEntity.Remove(id)"
+)) {
+	if ($nativeMarkerReconcilerText -notmatch [regex]::Escape($requiredDynamicCleanupContract)) {
+		throw "Native dynamic marker cleanup must drop stale tracked ids even when marker entity pointer is already null: $requiredDynamicCleanupContract"
+	}
+}
 foreach ($forbiddenPlayerMarkerEntryConfig in @(
 	"PLAYER_MARKER_ICON = `"dot`"",
 	"SCR_MapMarkerEntryDynamicExample",
