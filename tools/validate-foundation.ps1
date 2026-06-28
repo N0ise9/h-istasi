@@ -1855,6 +1855,21 @@ foreach ($requiredDynamicLivenessContract in @(
 if ($playerMarkerServiceText -notmatch [regex]::Escape("m_Reconciler.CountTrackedDynamicLive() == m_mDesiredPlayerMarkers.Count()")) {
 	throw "Player map marker refresh skip must require live native dynamic handles, not just matching tracked counts"
 }
+foreach ($requiredPlayerMarkerReportContract in @(
+	"string BuildRuntimeReport()",
+	"h-istasi player marker report",
+	"m_Reconciler.GetTrackedDynamicHandleCount()",
+	"m_Reconciler.CountTrackedDynamicLive()",
+	"last reconcile",
+	"player marker | id"
+)) {
+	if ($playerMarkerServiceText -notmatch [regex]::Escape($requiredPlayerMarkerReportContract)) {
+		throw "Player map marker service must expose runtime marker diagnostics: $requiredPlayerMarkerReportContract"
+	}
+}
+if ($coordinatorMarkerText -notmatch [regex]::Escape("m_PlayerMapMarkers.BuildRuntimeReport()")) {
+	throw "Native marker admin report must include player marker service diagnostics"
+}
 foreach ($forbiddenPlayerMarkerEntryConfig in @(
 	"PLAYER_MARKER_ICON = `"dot`"",
 	"SCR_MapMarkerEntryDynamicExample",

@@ -3737,7 +3737,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return "h-istasi native marker report | failed: marker service not ready";
 
-		return m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
+		string report = m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
+		if (m_PlayerMapMarkers)
+			return report + "\n" + m_PlayerMapMarkers.BuildRuntimeReport();
+
+		return report + "\nh-istasi player marker report | service not ready";
 	}
 
 	string RequestAdminPurgeNativeHSTMarkers(int playerId)

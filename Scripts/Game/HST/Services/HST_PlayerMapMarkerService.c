@@ -75,6 +75,59 @@ class HST_PlayerMapMarkerService
 		return changed;
 	}
 
+	string BuildRuntimeReport()
+	{
+		string enabledText = "off";
+		if (m_bEnabled)
+			enabledText = "on";
+
+		string refreshText = "idle";
+		if (m_bRefreshRequested)
+			refreshText = "requested";
+
+		int trackedDynamic;
+		int liveDynamic;
+		int created;
+		int updated;
+		int removed;
+		int unchanged;
+		int failed;
+		if (m_Reconciler)
+		{
+			trackedDynamic = m_Reconciler.GetTrackedDynamicHandleCount();
+			liveDynamic = m_Reconciler.CountTrackedDynamicLive();
+			HST_MapMarkerReconcileResult result = m_Reconciler.GetLastResult();
+			if (result)
+			{
+				created = result.m_iCreated;
+				updated = result.m_iUpdated;
+				removed = result.m_iRemoved;
+				unchanged = result.m_iUnchanged;
+				failed = result.m_iFailed;
+			}
+		}
+
+		string report = string.Format("h-istasi player marker report | enabled %1 | desired %2 | tracked %3 | live %4 | refresh %5", enabledText, m_mDesiredPlayerMarkers.Count(), trackedDynamic, liveDynamic, refreshText);
+		report = report + string.Format("\nlast reconcile | created %1 | updated %2 | removed %3 | unchanged %4 | failed %5", created, updated, removed, unchanged, failed);
+
+		int detailCount;
+		foreach (string id, HST_MapMarkerRecord record : m_mDesiredPlayerMarkers)
+		{
+			if (detailCount >= 12)
+				break;
+			if (!record)
+				continue;
+
+			report = report + string.Format("\nplayer marker | id %1 | label %2 | target %3 | config %4", id, record.m_sShortLabel, record.m_TargetEntity != null, record.m_iConfigId);
+			detailCount++;
+		}
+
+		if (m_mDesiredPlayerMarkers.Count() > detailCount)
+			report = report + string.Format("\nplayer marker | omitted %1 additional marker(s)", m_mDesiredPlayerMarkers.Count() - detailCount);
+
+		return report;
+	}
+
 	protected bool Refresh(HST_CampaignState state)
 	{
 		PlayerManager playerManager = GetGame().GetPlayerManager();
