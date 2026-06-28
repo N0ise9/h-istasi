@@ -1840,6 +1840,21 @@ foreach ($requiredDynamicCleanupContract in @(
 		throw "Native dynamic marker cleanup must drop stale tracked ids even when marker entity pointer is already null: $requiredDynamicCleanupContract"
 	}
 }
+foreach ($requiredDynamicLivenessContract in @(
+	"CountTrackedDynamicLive()",
+	"CountTrackedDynamicLive(SCR_MapMarkerManagerComponent manager)",
+	"IsDynamicMarkerLive(manager, markerEntity)",
+	"array<SCR_MapMarkerEntity> dynamicMarkers = manager.GetDynamicMarkers()",
+	"return dynamicMarkers.Contains(markerEntity)",
+	"if (markerEntity && !IsDynamicMarkerLive(manager, markerEntity))"
+)) {
+	if ($nativeMarkerReconcilerText -notmatch [regex]::Escape($requiredDynamicLivenessContract)) {
+		throw "Native dynamic marker reconciliation must verify tracked handles are still registered with the marker manager: $requiredDynamicLivenessContract"
+	}
+}
+if ($playerMarkerServiceText -notmatch [regex]::Escape("m_Reconciler.CountTrackedDynamicLive() == m_mDesiredPlayerMarkers.Count()")) {
+	throw "Player map marker refresh skip must require live native dynamic handles, not just matching tracked counts"
+}
 foreach ($forbiddenPlayerMarkerEntryConfig in @(
 	"PLAYER_MARKER_ICON = `"dot`"",
 	"SCR_MapMarkerEntryDynamicExample",

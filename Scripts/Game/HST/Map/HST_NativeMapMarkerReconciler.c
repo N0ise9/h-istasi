@@ -26,6 +26,26 @@ class HST_NativeMapMarkerReconciler
 		return m_mDynamicDomainIdToMarkerEntity.Count();
 	}
 
+	int CountTrackedDynamicLive()
+	{
+		return CountTrackedDynamicLive(ResolveMarkerManager());
+	}
+
+	int CountTrackedDynamicLive(SCR_MapMarkerManagerComponent manager)
+	{
+		if (!manager)
+			return 0;
+
+		int count;
+		foreach (string id, SCR_MapMarkerEntity markerEntity : m_mDynamicDomainIdToMarkerEntity)
+		{
+			if (IsDynamicMarkerLive(manager, markerEntity))
+				count++;
+		}
+
+		return count;
+	}
+
 	int CountTrackedStaticActive(SCR_MapMarkerManagerComponent manager)
 	{
 		if (!manager)
@@ -317,6 +337,14 @@ class HST_NativeMapMarkerReconciler
 		}
 
 		SCR_MapMarkerEntity markerEntity = m_mDynamicDomainIdToMarkerEntity.Get(record.m_sId);
+		if (markerEntity && !IsDynamicMarkerLive(manager, markerEntity))
+		{
+			RemoveDynamic(manager, record.m_sId);
+			m_Result.m_iRemoved++;
+			m_Result.m_bChanged = true;
+			markerEntity = null;
+		}
+
 		if (!markerEntity)
 		{
 			markerEntity = manager.InsertDynamicMarker(record.m_eMarkerType, record.m_TargetEntity, record.m_iConfigId);
@@ -344,6 +372,15 @@ class HST_NativeMapMarkerReconciler
 			markerEntity.SetFaction(markerFaction);
 
 		m_mPublishedRevisionByDomainId.Set(record.m_sId, record.m_iRevision);
+	}
+
+	protected bool IsDynamicMarkerLive(SCR_MapMarkerManagerComponent manager, SCR_MapMarkerEntity markerEntity)
+	{
+		if (!manager || !markerEntity)
+			return false;
+
+		array<SCR_MapMarkerEntity> dynamicMarkers = manager.GetDynamicMarkers();
+		return dynamicMarkers.Contains(markerEntity);
 	}
 
 	protected bool RemovePublishedMarker(SCR_MapMarkerManagerComponent manager, string id)
