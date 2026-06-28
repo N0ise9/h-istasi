@@ -4733,6 +4733,8 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"FlushStorageBrowserRender",
 	"PassesStorageCandidateFilters",
 	"SortStorageVisibleCandidateIndexes",
+	"GetStorageBrowserCategoryFallback",
+	'SetLoadoutText(tab, "Fallback", GetStorageBrowserCategoryFallback(category)',
 	"RenderStorageSearchPanel",
 	"BuildStorageSearchResults",
 	"IsArsenalItemSearchMatch",

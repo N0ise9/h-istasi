@@ -5685,6 +5685,26 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		return "Items";
 	}
 
+	protected string GetStorageBrowserCategoryFallback(string category)
+	{
+		if (category == "magazine")
+			return "Ammo";
+		if (category == "utility")
+			return "Gear";
+		if (category == "explosive")
+			return "Throw";
+		if (category == "medical")
+			return "Med";
+		if (category == "weapon_group")
+			return "Guns";
+		if (category == "clothing_group")
+			return "Wear";
+		if (category == "search")
+			return "Find";
+
+		return "Items";
+	}
+
 	protected bool IsCategoryInStorageBrowserTab(string itemCategory, string tabCategory)
 	{
 		if (tabCategory == "search")
@@ -5960,9 +5980,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 			SetLoadoutWidgetColor(tab, "Background", background, 0.98);
 			SetLoadoutWidgetColor(tab, "Accent", accent, accentOpacity);
-			SetLoadoutWidgetVisible(tab, "Fallback", false);
-			if (!SetLoadoutImageTexture(tab, "Icon", ResolveIconTexture(category), foreground))
+			if (SetLoadoutImageTexture(tab, "Icon", ResolveIconTexture(category), foreground))
+			{
+				SetLoadoutWidgetVisible(tab, "Fallback", false);
+			}
+			else
+			{
 				SetLoadoutWidgetVisible(tab, "Icon", false);
+				SetLoadoutText(tab, "Fallback", GetStorageBrowserCategoryFallback(category), foreground, m_Layout.m_iFontSmall, true, false);
+			}
 		}
 
 		HST_UIDebug.LogRowSummary("loadout_storage_category_tabs", LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT, count, string.Format("selectedCategory=%1 target=%2", m_sSelectedCategory, ShortenText(ResolveSelectedStorageContainerNodeId(), 48)));

@@ -57,6 +57,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If the button itself owns the background color, pass the button name for the background binding instead of inventing an unmatched `*Background` name.
   - Current example: `HST_LoadoutEditorComponent.ConfigureStorageBrowserButton` binds storage filter/sort/search buttons to sibling label/accent widgets in `HST_LoadoutEditor.layout`.
 
+- Icon-only controls need text fallbacks wired from script.
+  - A row layout can include a hidden fallback text widget, but it stays blank unless script populates and shows it when image loading fails.
+  - Runtime symptom: storage/search tabs or controls appear as visible clickable buttons with no readable label if the icon resource is missing or not ready.
+  - Current example: `HST_LoadoutEditorComponent.RenderStorageCategoryTabs()` sets `Fallback` through `GetStorageBrowserCategoryFallback()` when `SetLoadoutImageTexture()` fails.
+
 - Slot alignment keys must live inside the `Slot ... {}` block for the widget slot that owns them.
   - Runtime symptom: `GUI (E): Unknown keyword/data 'HorizontalAlign'` or `VerticalAlign` while loading the layout resource.
   - Do not put `HorizontalAlign` / `VerticalAlign` directly on a layout widget body such as `HorizontalLayoutWidgetClass`; move them into the slot block or remove them if the slot already stretches.
