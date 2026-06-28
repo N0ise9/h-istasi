@@ -4553,26 +4553,36 @@ foreach ($requiredLoadoutStorageBrowserScriptEntry in @(
 foreach ($requiredLoadoutStorageFeatureLayoutEntry in @(
 	'Name "StorageFilterSortBar"',
 	'Name "StorageFilterFitButton"',
+	'Name "StorageFilterFitAccent"',
 	'Name "StorageFilterFitLabel"',
 	'Name "StorageFilterAmmoButton"',
+	'Name "StorageFilterAmmoAccent"',
 	'Name "StorageFilterAmmoLabel"',
 	'Name "StorageFilterInfiniteButton"',
+	'Name "StorageFilterInfiniteAccent"',
 	'Name "StorageFilterInfiniteLabel"',
 	'Name "StorageFilterShowAllButton"',
+	'Name "StorageFilterShowAllAccent"',
 	'Name "StorageFilterShowAllLabel"',
 	'Name "StorageFilterNotInfiniteButton"',
+	'Name "StorageFilterNotInfiniteAccent"',
 	'Name "StorageFilterNotInfiniteLabel"',
 	'Name "StorageSortAZButton"',
+	'Name "StorageSortAZAccent"',
 	'Name "StorageSortAZLabel"',
 	'Name "StorageSortZAButton"',
+	'Name "StorageSortZAAccent"',
 	'Name "StorageSortZALabel"',
 	'Name "StorageSortCountDescButton"',
+	'Name "StorageSortCountDescAccent"',
 	'Name "StorageSortCountDescLabel"',
 	'Name "StorageSortCountAscButton"',
+	'Name "StorageSortCountAscAccent"',
 	'Name "StorageSortCountAscLabel"',
 	'Name "StorageSearchPanel"',
 	'Name "StorageSearchInput"',
 	'Name "StorageSearchClearButton"',
+	'Name "StorageSearchClearAccent"',
 	'Name "StorageSearchClearLabel"',
 	'Name "StorageSearchItems"'
 )) {
@@ -4616,6 +4626,19 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 )) {
 	if ($loadoutEditorComponentText -notmatch [regex]::Escape($requiredLoadoutStorageFeatureScriptEntry)) {
 		throw "Loadout editor storage filter/sort/search script is missing: $requiredLoadoutStorageFeatureScriptEntry"
+	}
+}
+$loadoutEditorLayoutWidgetNames = @{}
+foreach ($layoutWidgetNameMatch in [regex]::Matches($loadoutEditorLayoutText, 'Name "([^"]+)"')) {
+	$loadoutEditorLayoutWidgetNames[$layoutWidgetNameMatch.Groups[1].Value] = $true
+}
+foreach ($storageBrowserButtonCall in [regex]::Matches($loadoutEditorComponentText, 'ConfigureStorageBrowserButton\([^;]+\);')) {
+	$storageBrowserButtonNames = @([regex]::Matches($storageBrowserButtonCall.Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+	for ($i = 0; $i -lt [Math]::Min(4, $storageBrowserButtonNames.Count); $i++) {
+		$storageBrowserButtonWidgetName = $storageBrowserButtonNames[$i]
+		if (!$loadoutEditorLayoutWidgetNames.ContainsKey($storageBrowserButtonWidgetName)) {
+			throw "Loadout storage browser button call references missing layout widget: $storageBrowserButtonWidgetName"
+		}
 	}
 }
 $loadoutVisualSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c"
