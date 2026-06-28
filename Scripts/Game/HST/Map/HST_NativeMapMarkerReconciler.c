@@ -385,11 +385,11 @@ class HST_NativeMapMarkerReconciler
 
 	protected bool RemoveDynamic(SCR_MapMarkerManagerComponent manager, string id)
 	{
-		SCR_MapMarkerEntity markerEntity = m_mDynamicDomainIdToMarkerEntity.Get(id);
-		if (!markerEntity)
+		if (!m_mDynamicDomainIdToMarkerEntity.Contains(id))
 			return false;
 
-		if (manager)
+		SCR_MapMarkerEntity markerEntity = m_mDynamicDomainIdToMarkerEntity.Get(id);
+		if (manager && markerEntity)
 			manager.RemoveDynamicMarker(markerEntity);
 
 		m_mDynamicDomainIdToMarkerEntity.Remove(id);
