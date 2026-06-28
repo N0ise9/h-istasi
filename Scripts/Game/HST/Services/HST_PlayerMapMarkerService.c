@@ -101,7 +101,7 @@ class HST_PlayerMapMarkerService
 				m_mDesiredPlayerMarkers.Set(record.m_sId, record);
 		}
 
-		if (signature == m_sLastSignature && m_Reconciler && m_Reconciler.GetTrackedDynamicHandleCount() == m_mDesiredPlayerMarkers.Count())
+		if (signature == m_sLastSignature && m_Reconciler && m_Reconciler.GetTrackedDynamicHandleCount() == m_mDesiredPlayerMarkers.Count() && m_Reconciler.CountTrackedDynamicLive() == m_mDesiredPlayerMarkers.Count())
 			return false;
 
 		if (!m_Reconciler)
