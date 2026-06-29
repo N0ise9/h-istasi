@@ -195,11 +195,10 @@ class HST_LoadoutEditorService
 				payload = payload + string.Format("\nATTACH|%1|%2|%3|%4|%5", node.m_sNodeId, node.m_sParentNodeId, SanitizePayloadField(node.m_sSlotKey), node.m_sItemPrefab, SanitizePayloadField(node.m_sDisplayName));
 		}
 
-		foreach (HST_SavedLoadoutState loadout : state.m_aSavedLoadouts)
+		for (int loadoutSlotIndex = 0; loadoutSlotIndex < PERSONAL_LOADOUT_SLOT_COUNT; loadoutSlotIndex++)
 		{
-			if (!loadout || loadout.m_sOwnerIdentityId != identityId)
-				continue;
-			if (ResolveFixedLoadoutIndex(loadout.m_sLoadoutId) < 0)
+			HST_SavedLoadoutState loadout = state.FindSavedLoadout(identityId, BuildFixedLoadoutId(loadoutSlotIndex));
+			if (!loadout)
 				continue;
 
 			payload = payload + string.Format("\nTEMPLATE|%1|%2|%3", loadout.m_sLoadoutId, SanitizePayloadField(loadout.m_sDisplayName), loadout.m_aSlots.Count());
@@ -292,7 +291,14 @@ class HST_LoadoutEditorService
 			return "h-istasi loadout editor | failed: could not serialize current loadout";
 		}
 
-		int slotIndex = ResolveSaveSlotIndex(state, identityId, session.m_sCurrentLoadoutId);
+		string targetLoadoutId = session.m_sCurrentLoadoutId;
+		if (ResolveFixedLoadoutIndex(loadoutName) >= 0)
+		{
+			targetLoadoutId = loadoutName;
+			loadoutName = "";
+		}
+
+		int slotIndex = ResolveSaveSlotIndex(state, identityId, targetLoadoutId);
 		HST_SavedLoadoutState loadout = FindOrCreateFixedLoadoutSlot(state, identityId, slotIndex);
 		loadout.m_sSerializedLoadout = serialized;
 		loadout.m_sCharacterPrefab = ResolveEntityPrefab(playerEntity);

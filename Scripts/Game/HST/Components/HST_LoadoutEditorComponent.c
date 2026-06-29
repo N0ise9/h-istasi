@@ -96,6 +96,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const ResourceName LOADOUT_STORAGE_ITEM_ROW_LAYOUT = "{A7B8C9D0012345F0}UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout";
 	static const ResourceName LOADOUT_CANDIDATE_TILE_LAYOUT = "{A7B8C9D001234600}UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout";
 	static const ResourceName LOADOUT_STORAGE_CATEGORY_TAB_LAYOUT = "{A7B8C9D001234610}UI/layouts/HST/Rows/HST_LoadoutStorageCategoryTab.layout";
+	static const ResourceName LOADOUT_TEMPLATE_SLOT_ROW_LAYOUT = "{A7B8C9D001234620}UI/layouts/HST/Rows/HST_LoadoutTemplateSlotRow.layout";
 	static const ResourceName LOADOUT_TAB_BUTTON_LAYOUT = "{D66CFA01E5AA4400}UI/layouts/HST_LoadoutEditor_TabButton.layout";
 	static const ResourceName LOADOUT_INPUT_BUTTON_LAYOUT = "{C42847838185932E}UI/layouts/WidgetLibrary/Buttons/WLib_InputButton.layout";
 	static const ResourceName LOADOUT_TEXT_FONT = "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt";
@@ -165,6 +166,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const int STORAGE_SEARCH_CLEAR_WIDGET_ID = 69000;
 	static const int STORAGE_SEARCH_INPUT_WIDGET_ID = 69001;
 	static const int REMOVE_SELECTED_NODE_WIDGET_ID = 70000;
+	static const int TEMPLATE_SAVE_WIDGET_ID_BASE = 72000;
+	static const int TEMPLATE_LOAD_WIDGET_ID_BASE = 72100;
 	static const int ITEMS_PER_PAGE = 11;
 	static const int TEMPLATES_PER_PAGE = 6;
 	static const int LOADOUT_LAYOUT_FALLBACK_RAIL_WIDTH = 444;
@@ -977,6 +980,31 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			m_sLastResult = "requested quantity change";
 			RequestServerAction("loadout_set_quantity", m_aSlotIds[slotPlusIndex] + ":" + quantity);
 			RenderEditor();
+			return true;
+		}
+
+		int templateSaveIndex = widgetId - TEMPLATE_SAVE_WIDGET_ID_BASE;
+		if (templateSaveIndex >= 0 && templateSaveIndex < m_aTemplateIds.Count())
+		{
+			m_sSelectedTemplateId = m_aTemplateIds[templateSaveIndex];
+			m_sLastResult = "requested save loadout slot";
+			RequestServerAction("loadout_save", m_sSelectedTemplateId);
+			RenderEditor();
+			ShowHint("Save slot request sent");
+			return true;
+		}
+
+		int templateLoadIndex = widgetId - TEMPLATE_LOAD_WIDGET_ID_BASE;
+		if (templateLoadIndex >= 0 && templateLoadIndex < m_aTemplateIds.Count())
+		{
+			if (IsTemplateSlotEmpty(templateLoadIndex))
+				return true;
+
+			m_sSelectedTemplateId = m_aTemplateIds[templateLoadIndex];
+			m_sLastResult = "requested loadout slot";
+			RequestServerAction("loadout_apply", m_sSelectedTemplateId);
+			RenderEditor();
+			ShowHint("Load slot request sent");
 			return true;
 		}
 
@@ -3217,9 +3245,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (templateIndex < 0 || templateIndex >= m_aTemplateIds.Count())
 			return;
 
-		Widget row = workspace.CreateWidgets(LOADOUT_NODE_ROW_LAYOUT, items);
-		DebugRowCreated("LOADOUT_NODE_ROW_LAYOUT", row);
-		DebugLoadoutTemplateRow("loadout_templates", LOADOUT_NODE_ROW_LAYOUT, templateIndex, row, templateIndex, userId);
+		Widget row = workspace.CreateWidgets(LOADOUT_TEMPLATE_SLOT_ROW_LAYOUT, items);
+		DebugRowCreated("LOADOUT_TEMPLATE_SLOT_ROW_LAYOUT", row);
+		DebugLoadoutTemplateRow("loadout_templates", LOADOUT_TEMPLATE_SLOT_ROW_LAYOUT, templateIndex, row, templateIndex, userId);
 		if (!row)
 			return;
 
@@ -3231,13 +3259,114 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (selected)
 			color = GetSelectedRowColor();
 
+		int accentColor = 0x664B5960;
+		float accentOpacity = 0.45;
+		if (selected)
+		{
+			accentColor = GetAccentColor();
+			accentOpacity = 1.0;
+		}
+
 		SetRowImageColor(row, "Background", color, 0.98);
-		SetRowText(row, "Primary", ShortenText(m_aTemplateDisplays[templateIndex], 36), 0xFFE2E6E8, m_Layout.m_iFontNormal, selected, true);
-		SetRowText(row, "Secondary", string.Format("%1 slots", m_aTemplateSlotCounts[templateIndex]), 0xFFB7C7D7, m_Layout.m_iFontSmall, false, false);
-		SetRowText(row, "OpenMarker", "", 0xFFFFFFFF, m_Layout.m_iFontTitle, false, false);
-		ShowRowPreviewChrome(row);
-		SetRowWidgetVisible(row, "PreviewAnchor", false);
-		SetRowText(row, "PreviewFallback", "O", 0xFFF5E8CE, ScaleFont(20), true, false);
+		SetRowImageColor(row, "Accent", accentColor, accentOpacity);
+		SetRowText(row, "Primary", BuildTemplateSlotTitle(templateIndex), 0xFFE2E6E8, m_Layout.m_iFontNormal, selected, true);
+		SetRowText(row, "Secondary", BuildTemplateSlotSubtitle(templateIndex), 0xFFB7C7D7, m_Layout.m_iFontSmall, false, true);
+		SetRowText(row, "Meta", BuildTemplateSlotMeta(templateIndex), 0xFFFFD166, m_Layout.m_iFontSmall, false, false);
+		ConfigureTemplateSlotButton(row, "SaveButton", "SaveLabel", "Save", TEMPLATE_SAVE_WIDGET_ID_BASE + templateIndex, true);
+		ConfigureTemplateSlotButton(row, "LoadButton", "LoadLabel", "Load", TEMPLATE_LOAD_WIDGET_ID_BASE + templateIndex, !IsTemplateSlotEmpty(templateIndex));
+	}
+
+	protected void ConfigureTemplateSlotButton(Widget row, string buttonName, string labelName, string label, int userId, bool enabled)
+	{
+		if (!row)
+			return;
+
+		Widget button = row.FindAnyWidget(buttonName);
+		if (button)
+		{
+			button.SetVisible(true);
+			if (enabled)
+			{
+				button.SetOpacity(0.98);
+				button.SetColorInt(0xEE11171B);
+			}
+			else
+			{
+				button.SetOpacity(0.35);
+				button.SetColorInt(0x99333A3F);
+			}
+
+			if (enabled && userId > 0)
+			{
+				button.SetUserID(userId);
+				BindEditorHandler(button);
+			}
+			else
+			{
+				button.SetUserID(0);
+			}
+		}
+
+		int textColor = 0xFF7F8A92;
+		if (enabled)
+			textColor = 0xFFF4EBD6;
+		SetRowText(row, labelName, label, textColor, m_Layout.m_iFontSmall, true, false);
+	}
+
+	protected string BuildTemplateSlotTitle(int templateIndex)
+	{
+		int slotNumber = ResolveTemplateSlotNumber(templateIndex);
+		if (templateIndex >= 0 && templateIndex < m_aTemplateDisplays.Count() && !m_aTemplateDisplays[templateIndex].IsEmpty() && !IsTemplateSlotEmpty(templateIndex))
+			return string.Format("Slot %1 - %2", slotNumber, ShortenText(m_aTemplateDisplays[templateIndex], 28));
+
+		return string.Format("Slot %1", slotNumber);
+	}
+
+	protected string BuildTemplateSlotSubtitle(int templateIndex)
+	{
+		if (IsTemplateSlotEmpty(templateIndex))
+			return "No loadout saved";
+
+		if (templateIndex >= 0 && templateIndex < m_aTemplateDisplays.Count())
+			return ShortenText(m_aTemplateDisplays[templateIndex], 42);
+
+		return "Saved loadout";
+	}
+
+	protected string BuildTemplateSlotMeta(int templateIndex)
+	{
+		if (IsTemplateSlotEmpty(templateIndex))
+			return "Load unavailable until saved";
+
+		int count;
+		if (templateIndex >= 0 && templateIndex < m_aTemplateSlotCounts.Count())
+			count = m_aTemplateSlotCounts[templateIndex];
+
+		return string.Format("%1 saved item slot(s)", Math.Max(1, count));
+	}
+
+	protected bool IsTemplateSlotEmpty(int templateIndex)
+	{
+		if (templateIndex < 0 || templateIndex >= m_aTemplateSlotCounts.Count())
+			return true;
+
+		return m_aTemplateSlotCounts[templateIndex] <= 0;
+	}
+
+	protected int ResolveTemplateSlotNumber(int templateIndex)
+	{
+		int slotIndex = templateIndex;
+		if (templateIndex >= 0 && templateIndex < m_aTemplateIds.Count())
+		{
+			string templateId = m_aTemplateIds[templateIndex];
+			if (templateId.IndexOf("slot_") == 0)
+			{
+				string slotText = templateId.Substring(5, templateId.Length() - 5);
+				slotIndex = slotText.ToInt();
+			}
+		}
+
+		return Math.Max(0, slotIndex) + 1;
 	}
 
 	protected void AddLoadoutCandidateTile(WorkspaceWidget workspace, Widget items, int candidateIndex, int userId)
