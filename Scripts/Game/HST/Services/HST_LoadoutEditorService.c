@@ -2916,8 +2916,10 @@ class HST_LoadoutEditorService
 			if (!IsCandidateCategoryForNode(node, category, item.m_sPrefab))
 				continue;
 
+			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
+			string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(display, item.m_sPrefab);
 			bool isStorageBrowserNode = node.m_sKind == "storage" || node.m_sKind == "storage_item";
-			if (isStorageBrowserNode && IsBlockedStorageBrowserContainerCandidate(session.m_iPlayerId, item.m_sPrefab, category))
+			if (isStorageBrowserNode && IsBlockedStorageBrowserContainerCandidate(session.m_iPlayerId, item.m_sPrefab, display, shortDisplay, category))
 				continue;
 
 			categoryMatches++;
@@ -2928,8 +2930,6 @@ class HST_LoadoutEditorService
 
 			if (compatible)
 				compatibilityMatches++;
-			string display = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
-			string shortDisplay = HST_DisplayNameService.ResolveShortItemDisplayName(display, item.m_sPrefab);
 			int availableCount;
 			bool infiniteAvailable;
 			ResolveArsenalCountForPrefab(state, item.m_sPrefab, availableCount, infiniteAvailable);
@@ -2958,17 +2958,15 @@ class HST_LoadoutEditorService
 		return payload;
 	}
 
-	protected bool IsBlockedStorageBrowserContainerCandidate(int playerId, string prefab, string category)
+	protected bool IsBlockedStorageBrowserContainerCandidate(int playerId, string prefab, string display, string shortDisplay, string category)
 	{
 		if (prefab.IsEmpty())
 			return false;
 
-		if (category != "utility" && category != "magazine" && category != "attachment")
+		if (category != "utility" && category != "magazine" && category != "attachment" && category != "vest" && category != "backpack")
 			return false;
 
-		string loweredPrefab = prefab;
-		loweredPrefab.ToLower();
-		if (loweredPrefab.Contains("pouch") || loweredPrefab.Contains("holster"))
+		if (ContainsStructuralStorageCandidateToken(prefab) || ContainsStructuralStorageCandidateToken(display) || ContainsStructuralStorageCandidateToken(shortDisplay))
 			return true;
 
 		ResourceName resourceName = prefab;
@@ -3005,6 +3003,15 @@ class HST_LoadoutEditorService
 
 		SCR_EntityHelper.DeleteEntityAndChildren(temp);
 		return blocked;
+	}
+
+	protected bool ContainsStructuralStorageCandidateToken(string value)
+	{
+		if (value.IsEmpty())
+			return false;
+
+		value.ToLower();
+		return value.Contains("pouch") || value.Contains("holster") || value.Contains("bandolier");
 	}
 
 	protected void RefreshDraftNodes(HST_CampaignState state, HST_LoadoutEditorSessionState session)
