@@ -4923,7 +4923,8 @@ foreach ($requiredLoadoutVisualSettingsEntry in @(
 foreach ($requiredLoadoutStoragePayloadEntry in @(
 	"BuildCandidatePayloadsForNode",
 	"bool isStorageBrowserNode = node.m_sKind == `"storage`" || node.m_sKind == `"storage_item`"",
-	"IsBlockedStorageBrowserContainerCandidate",
+	"IsBlockedStorageBrowserContainerCandidate(session.m_iPlayerId, item.m_sPrefab, display, shortDisplay, category)",
+	"ContainsStructuralStorageCandidateToken",
 	"if (!isStorageBrowserNode && !compatible)",
 	'payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9"',
 	"payload = payload + string.Format(`"|%1`", ammoMatch)",
