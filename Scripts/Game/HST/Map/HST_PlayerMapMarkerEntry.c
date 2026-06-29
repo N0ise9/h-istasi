@@ -20,7 +20,8 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 	{
 		super.InitClientSettingsDynamic(marker, widgetComp);
 		widgetComp.SetImage(PLAYER_MARKER_IMAGESET, PLAYER_MARKER_ICON);
-		widgetComp.SetColor(Color.FromInt(0xFF7FD36B));
+		widgetComp.SetColor(ResolvePlayerMarkerColor(marker.GetMarkerConfigID()));
+		widgetComp.SetTextVisible(true);
 		ApplyPlayerMarkerLabel(marker, widgetComp, 0);
 	}
 
@@ -93,5 +94,24 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		}
 
 		return filteredName;
+	}
+
+	protected Color ResolvePlayerMarkerColor(int playerId)
+	{
+		Faction faction;
+		if (playerId > 0)
+			faction = SCR_FactionManager.SGetPlayerFaction(playerId);
+
+		if (!faction)
+		{
+			FactionManager factionManager = GetGame().GetFactionManager();
+			if (factionManager)
+				faction = factionManager.GetFactionByKey("FIA");
+		}
+
+		if (faction)
+			return faction.GetFactionColor();
+
+		return Color.FromInt(0xFF7FD36B);
 	}
 }

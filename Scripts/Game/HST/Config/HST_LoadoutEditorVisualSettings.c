@@ -1,6 +1,6 @@
 class HST_LoadoutEditorVisualSettings
 {
-	static const int SCHEMA_VERSION = 4;
+	static const int SCHEMA_VERSION = 5;
 	static const int STORAGE_FILTER_FIT_ONLY = 1;
 	static const int STORAGE_FILTER_AMMO_USABLE = 2;
 	static const int STORAGE_FILTER_INFINITE_ONLY = 4;
@@ -10,6 +10,9 @@ class HST_LoadoutEditorVisualSettings
 	static const int STORAGE_SORT_ZA = 1;
 	static const int STORAGE_SORT_COUNT_DESC = 2;
 	static const int STORAGE_SORT_COUNT_ASC = 3;
+	static const int STORAGE_COUNT_SORT_NONE = 0;
+	static const int STORAGE_COUNT_SORT_DESC = 1;
+	static const int STORAGE_COUNT_SORT_ASC = 2;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	float m_fPreviewLightLV = 6.0;
@@ -19,9 +22,12 @@ class HST_LoadoutEditorVisualSettings
 	int m_iWorldPreset;
 	int m_iStorageFilterMask = STORAGE_FILTER_FIT_ONLY;
 	int m_iStorageSortMode = STORAGE_SORT_AZ;
+	int m_iStorageNameSortMode = STORAGE_SORT_AZ;
+	int m_iStorageCountSortMode = STORAGE_COUNT_SORT_NONE;
 
 	void Normalize()
 	{
+		bool migrateLegacySort = m_iSchemaVersion > 0 && m_iSchemaVersion < 5;
 		if (m_iSchemaVersion <= 0)
 			m_iSchemaVersion = SCHEMA_VERSION;
 
@@ -43,6 +49,27 @@ class HST_LoadoutEditorVisualSettings
 
 		if (m_iStorageSortMode < STORAGE_SORT_AZ || m_iStorageSortMode > STORAGE_SORT_COUNT_ASC)
 			m_iStorageSortMode = STORAGE_SORT_AZ;
+		if (migrateLegacySort)
+			ApplyLegacyStorageSortMode();
+		if (m_iStorageNameSortMode != STORAGE_SORT_ZA)
+			m_iStorageNameSortMode = STORAGE_SORT_AZ;
+		if (m_iStorageCountSortMode < STORAGE_COUNT_SORT_NONE || m_iStorageCountSortMode > STORAGE_COUNT_SORT_ASC)
+			m_iStorageCountSortMode = STORAGE_COUNT_SORT_NONE;
+	}
+
+	protected void ApplyLegacyStorageSortMode()
+	{
+		if (m_iStorageSortMode == STORAGE_SORT_ZA)
+			m_iStorageNameSortMode = STORAGE_SORT_ZA;
+		else
+			m_iStorageNameSortMode = STORAGE_SORT_AZ;
+
+		if (m_iStorageSortMode == STORAGE_SORT_COUNT_DESC)
+			m_iStorageCountSortMode = STORAGE_COUNT_SORT_DESC;
+		else if (m_iStorageSortMode == STORAGE_SORT_COUNT_ASC)
+			m_iStorageCountSortMode = STORAGE_COUNT_SORT_ASC;
+		else
+			m_iStorageCountSortMode = STORAGE_COUNT_SORT_NONE;
 	}
 
 	protected int ClampPreset(int value, int count)
@@ -84,6 +111,8 @@ class HST_LoadoutEditorVisualSettingsService
 			ApplyInt(line, "worldPreset", settings.m_iWorldPreset);
 			ApplyInt(line, "storageFilterMask", settings.m_iStorageFilterMask);
 			ApplyInt(line, "storageSortMode", settings.m_iStorageSortMode);
+			ApplyInt(line, "storageNameSortMode", settings.m_iStorageNameSortMode);
+			ApplyInt(line, "storageCountSortMode", settings.m_iStorageCountSortMode);
 		}
 
 		int loadedSchemaVersion = settings.m_iSchemaVersion;
@@ -94,6 +123,8 @@ class HST_LoadoutEditorVisualSettingsService
 		int loadedWorldPreset = settings.m_iWorldPreset;
 		int loadedStorageFilterMask = settings.m_iStorageFilterMask;
 		int loadedStorageSortMode = settings.m_iStorageSortMode;
+		int loadedStorageNameSortMode = settings.m_iStorageNameSortMode;
+		int loadedStorageCountSortMode = settings.m_iStorageCountSortMode;
 
 		settings.Normalize();
 		if (settings.m_iSchemaVersion < HST_LoadoutEditorVisualSettings.SCHEMA_VERSION)
@@ -107,6 +138,8 @@ class HST_LoadoutEditorVisualSettingsService
 		shouldSaveNormalized = shouldSaveNormalized || loadedWorldPreset != settings.m_iWorldPreset;
 		shouldSaveNormalized = shouldSaveNormalized || loadedStorageFilterMask != settings.m_iStorageFilterMask;
 		shouldSaveNormalized = shouldSaveNormalized || loadedStorageSortMode != settings.m_iStorageSortMode;
+		shouldSaveNormalized = shouldSaveNormalized || loadedStorageNameSortMode != settings.m_iStorageNameSortMode;
+		shouldSaveNormalized = shouldSaveNormalized || loadedStorageCountSortMode != settings.m_iStorageCountSortMode;
 		if (shouldSaveNormalized)
 			Save(settings);
 
@@ -127,7 +160,9 @@ class HST_LoadoutEditorVisualSettingsService
 		lines.Insert(string.Format("  \"rowPreset\": %1,", settings.m_iRowPreset));
 		lines.Insert(string.Format("  \"worldPreset\": %1,", settings.m_iWorldPreset));
 		lines.Insert(string.Format("  \"storageFilterMask\": %1,", settings.m_iStorageFilterMask));
-		lines.Insert(string.Format("  \"storageSortMode\": %1", settings.m_iStorageSortMode));
+		lines.Insert(string.Format("  \"storageSortMode\": %1,", settings.m_iStorageSortMode));
+		lines.Insert(string.Format("  \"storageNameSortMode\": %1,", settings.m_iStorageNameSortMode));
+		lines.Insert(string.Format("  \"storageCountSortMode\": %1", settings.m_iStorageCountSortMode));
 		lines.Insert("}");
 		return WriteLines(SETTINGS_FILE, lines);
 	}

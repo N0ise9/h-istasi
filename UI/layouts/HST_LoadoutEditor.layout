@@ -1626,6 +1626,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D3432C}" {
          Name "TemplateSaveBody"
          Slot ButtonWidgetSlot "{7B2FD986A4D3432D}" {
+          HorizontalAlign 3
+          VerticalAlign 3
          }
          "Ignore Cursor" 1
          {
@@ -1688,6 +1690,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
         FrameWidgetClass "{7B2FD986A4D34336}" {
          Name "TemplateClearBody"
          Slot ButtonWidgetSlot "{7B2FD986A4D34337}" {
+          HorizontalAlign 3
+          VerticalAlign 3
          }
          "Ignore Cursor" 1
          {
@@ -1858,6 +1862,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D34350}" {
              Name "SettingsLightMinusBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D34351}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -1896,6 +1902,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D34356}" {
              Name "SettingsLightPlusBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D34357}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -1980,6 +1988,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D34362}" {
              Name "SettingsPanelPresetButtonBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D34363}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -2064,6 +2074,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D3436E}" {
              Name "SettingsAccentPresetButtonBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D3436F}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -2148,6 +2160,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D3437A}" {
              Name "SettingsRowPresetButtonBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D3437B}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -2232,6 +2246,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D34386}" {
              Name "SettingsWorldPresetButtonBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D34387}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -2281,6 +2297,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D3438E}" {
              Name "SettingsDefaultsBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D3438F}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {
@@ -2317,6 +2335,8 @@ FrameWidgetClass "{7B2FD986A4D34110}" {
             FrameWidgetClass "{7B2FD986A4D34394}" {
              Name "SettingsResetPreviewBody"
              Slot ButtonWidgetSlot "{7B2FD986A4D34395}" {
+              HorizontalAlign 3
+              VerticalAlign 3
              }
              "Ignore Cursor" 1
              {

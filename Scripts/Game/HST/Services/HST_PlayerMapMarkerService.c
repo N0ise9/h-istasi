@@ -58,6 +58,14 @@ class HST_PlayerMapMarkerService
 			return false;
 		}
 
+		if (!ShouldPublishPlayerMarkers(state))
+		{
+			bool cleared = ClearAll();
+			if (cleared)
+				DebugLog("cleared player markers while campaign is not active");
+			return cleared;
+		}
+
 		m_fRefreshAccumulator += timeSlice;
 		if (!m_bRefreshRequested && m_fRefreshAccumulator < REFRESH_INTERVAL_SECONDS)
 			return false;
@@ -149,6 +157,9 @@ class HST_PlayerMapMarkerService
 
 	protected bool Refresh(HST_CampaignState state)
 	{
+		if (!ShouldPublishPlayerMarkers(state))
+			return ClearAll();
+
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
 			return false;
@@ -225,6 +236,7 @@ class HST_PlayerMapMarkerService
 		record.m_sLabel = playerName;
 		record.m_sShortLabel = playerName;
 		record.m_sCategory = "player";
+		record.m_sFactionKey = "FIA";
 		record.m_iPriority = 90;
 		record.m_eMarkerType = SCR_EMapMarkerType.HST_PLAYER;
 		record.m_iConfigId = playerId;
@@ -238,6 +250,11 @@ class HST_PlayerMapMarkerService
 			record.m_iLastChangedSecond = state.m_iElapsedSeconds;
 
 		return record;
+	}
+
+	protected bool ShouldPublishPlayerMarkers(HST_CampaignState state)
+	{
+		return state && state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(PlayerManager playerManager, int playerId)

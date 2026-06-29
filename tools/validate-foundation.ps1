@@ -1816,7 +1816,9 @@ foreach ($requiredPlayerMarkerEntry in @(
 	"ResolvePlayerName",
 	"SetEnabled",
 	"ClearAll",
-	"ReportReconcileFailure"
+	"ReportReconcileFailure",
+	"ShouldPublishPlayerMarkers",
+	"HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE"
 )) {
 	if (($playerMarkerServiceText + "`n" + $coordinatorMarkerText) -notmatch [regex]::Escape($requiredPlayerMarkerEntry)) {
 		throw "Player map marker implementation is missing: $requiredPlayerMarkerEntry"
@@ -1835,7 +1837,11 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 	"ResolvePlayerDisplayName",
 	"SCR_PlayerNamesFilterCache.GetInstance().GetPlayerDisplayName(playerId)",
 	"GetGame().GetPlayerManager()",
-	"CallLater(ApplyPlayerMarkerLabel"
+	"CallLater(ApplyPlayerMarkerLabel",
+	"SetTextVisible(true)",
+	"ResolvePlayerMarkerColor",
+	"SCR_FactionManager.SGetPlayerFaction(playerId)",
+	'GetFactionByKey("FIA")'
 )) {
 	if ($playerMarkerEntryText -notmatch [regex]::Escape($requiredPlayerMarkerEntryConfig)) {
 		throw "Player map marker entry must keep config-safe visible dynamic marker visuals: $requiredPlayerMarkerEntryConfig"
@@ -1843,6 +1849,9 @@ foreach ($requiredPlayerMarkerEntryConfig in @(
 }
 if ($playerMarkerServiceText -notmatch [regex]::Escape("record.m_iConfigId = playerId;")) {
 	throw "Player map marker service must pass player id through replicated marker config id for client-side label resolution"
+}
+if ($playerMarkerServiceText -notmatch "if \(!ShouldPublishPlayerMarkers\(state\)\)[\s\S]{0,180}?ClearAll\(\)") {
+	throw "Player map marker service must clear and suppress markers while campaign is not active"
 }
 foreach ($requiredDynamicCleanupContract in @(
 	"if (!m_mDynamicDomainIdToMarkerEntity.Contains(id))",
@@ -1910,6 +1919,9 @@ foreach ($requiredPlayerMarkerTypeEntry in @(
 }
 if ($playerMarkerConfigText -notmatch "SCR_MapMarkerConfig[\s\S]*?HST_PlayerMapMarkerEntry" -or $playerMarkerConfigText -notmatch [regex]::Escape('{DD74BE2BBAE07192}Prefabs/Markers/MapMarkerEntityBase.et')) {
 	throw "Player map marker config must inherit map marker config and register HST_PlayerMapMarkerEntry with marker entity prefab"
+}
+if ($playerMarkerConfigText -notmatch [regex]::Escape('m_sMarkerLayout "{0CF9A6FB588EB475}UI/layouts/Map/MapMarkerSquadMember.layout"')) {
+	throw "Player map marker config must use a dynamic marker layout with SCR_MapMarkerDynamicWComponent"
 }
 if ($playerMarkerConfigText -notmatch [regex]::Escape('SCR_MapMarkerConfig : "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf"')) {
 	throw "Player map marker config must inherit CampaignMapMarkerConfig.conf so existing campaign markers stay registered"
@@ -3407,7 +3419,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 	"Slot LayoutSlot",
 	"Padding 0 0 8 0",
 	"SizeLayoutWidgetClass",
-	"WidthOverride 104",
+	"WidthOverride 88",
 	"HeightOverride 78",
 	'Name "Background"',
 	'Name "Accent"',
@@ -3415,7 +3427,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 	'Name "Fallback"',
 	'"Ignore Cursor" 1',
 	"OffsetBottom 3",
-	"OffsetRight 23",
+	"OffsetRight 15",
 	"OffsetBottom 10",
 	"OffsetRight 4",
 	"OffsetBottom 4"
@@ -3426,7 +3438,7 @@ foreach ($requiredStorageCategoryTabEntry in @(
 }
 foreach ($forbiddenStorageCategoryTabEntry in @(
 	"OffsetBottom -3",
-	"OffsetRight -23",
+	"OffsetRight -15",
 	"OffsetBottom -10",
 	"OffsetRight -4",
 	"OffsetBottom -4"
@@ -4741,10 +4753,14 @@ foreach ($requiredLoadoutStorageFeatureScriptEntry in @(
 	"RenderStorageFilterSortControls",
 	"ToggleStorageFilterByIndex",
 	"SetStorageSortMode",
+	"IsStorageAmmoFilterApplicable",
 	"QueueStorageBrowserRender",
 	"FlushStorageBrowserRender",
 	"PassesStorageCandidateFilters",
 	"SortStorageVisibleCandidateIndexes",
+	"CompareCandidateNamesForConfiguredDirection",
+	"m_iStorageNameSortMode",
+	"m_iStorageCountSortMode",
 	"GetStorageBrowserCategoryFallback",
 	'SetLoadoutText(tab, "Fallback", GetStorageBrowserCategoryFallback(category)',
 	"RenderStorageSearchPanel",
@@ -4856,7 +4872,7 @@ foreach ($storageBrowserButtonCall in [regex]::Matches($loadoutEditorComponentTe
 }
 $loadoutVisualSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c"
 foreach ($requiredLoadoutVisualSettingsEntry in @(
-	"SCHEMA_VERSION = 4",
+	"SCHEMA_VERSION = 5",
 	"STORAGE_FILTER_FIT_ONLY",
 	"STORAGE_FILTER_AMMO_USABLE",
 	"STORAGE_FILTER_INFINITE_ONLY",
@@ -4866,11 +4882,19 @@ foreach ($requiredLoadoutVisualSettingsEntry in @(
 	"STORAGE_SORT_ZA",
 	"STORAGE_SORT_COUNT_DESC",
 	"STORAGE_SORT_COUNT_ASC",
+	"STORAGE_COUNT_SORT_NONE",
+	"STORAGE_COUNT_SORT_DESC",
+	"STORAGE_COUNT_SORT_ASC",
 	"m_iStorageFilterMask",
 	"m_iStorageSortMode",
+	"m_iStorageNameSortMode",
+	"m_iStorageCountSortMode",
 	"storageFilterMask",
 	"storageSortMode",
+	"storageNameSortMode",
+	"storageCountSortMode",
 	"validStorageFilterMask",
+	"ApplyLegacyStorageSortMode",
 	"shouldSaveNormalized"
 )) {
 	if ($loadoutVisualSettingsText -notmatch [regex]::Escape($requiredLoadoutVisualSettingsEntry)) {
@@ -4880,6 +4904,7 @@ foreach ($requiredLoadoutVisualSettingsEntry in @(
 foreach ($requiredLoadoutStoragePayloadEntry in @(
 	"BuildCandidatePayloadsForNode",
 	"bool isStorageBrowserNode = node.m_sKind == `"storage`" || node.m_sKind == `"storage_item`"",
+	"IsBlockedStorageBrowserContainerCandidate",
 	"if (!isStorageBrowserNode && !compatible)",
 	'payload = payload + string.Format("\nCANDIDATE|%1|%2|%3|%4|%5|%6|%7|%8|%9"',
 	"payload = payload + string.Format(`"|%1`", ammoMatch)",
@@ -4893,6 +4918,13 @@ foreach ($requiredLoadoutStoragePayloadEntry in @(
 $loadoutStorageCandidatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCandidatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderStorageCandidateGrid[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddLoadoutNodeRow")
 if (!$loadoutStorageCandidatePanelMatch.Success) {
 	throw "Loadout editor storage add-items renderer is missing"
+}
+$loadoutCandidateTileMatch = [regex]::Match($loadoutEditorComponentText, "protected void AddLoadoutCandidateTile[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidateTileOverlayText")
+if (!$loadoutCandidateTileMatch.Success -or $loadoutCandidateTileMatch.Value -notmatch [regex]::Escape("BuildCandidateCountLabel(candidateIndex, true)") -or $loadoutCandidateTileMatch.Value -notmatch [regex]::Escape("color = 0xAA5B2C2C")) {
+	throw "Loadout storage non-fitting candidates must keep their count badge and use a light red row highlight"
+}
+if ($loadoutCandidateTileMatch.Value -match [regex]::Escape('"NO FIT"')) {
+	throw "Loadout storage non-fitting candidates must not overwrite the arsenal count label with NO FIT"
 }
 foreach ($forbiddenLoadoutStorageBrowserGeometry in @(
 	"CreateRectWidget",
@@ -5137,6 +5169,23 @@ foreach ($requiredLoadoutSettingsLayoutEntry in @(
 )) {
 	if ($loadoutEditorLayoutText -notmatch [regex]::Escape($requiredLoadoutSettingsLayoutEntry)) {
 		throw "Loadout editor settings panel must be layout-owned: $requiredLoadoutSettingsLayoutEntry"
+	}
+}
+foreach ($requiredFilledButtonBodyName in @(
+	"TemplateSaveBody",
+	"TemplateClearBody",
+	"SettingsLightMinusBody",
+	"SettingsLightPlusBody",
+	"SettingsPanelPresetButtonBody",
+	"SettingsAccentPresetButtonBody",
+	"SettingsRowPresetButtonBody",
+	"SettingsWorldPresetButtonBody",
+	"SettingsDefaultsBody",
+	"SettingsResetPreviewBody"
+)) {
+	$filledButtonBodyPattern = 'Name "' + [regex]::Escape($requiredFilledButtonBodyName) + '"[\s\S]{0,220}?Slot ButtonWidgetSlot[\s\S]{0,120}?HorizontalAlign 3[\s\S]{0,120}?VerticalAlign 3'
+	if ($loadoutEditorLayoutText -notmatch $filledButtonBodyPattern) {
+		throw "Loadout editor button body must fill its ButtonWidgetSlot so labels are not zero-sized: $requiredFilledButtonBodyName"
 	}
 }
 foreach ($requiredLoadoutSettingsScriptEntry in @(
