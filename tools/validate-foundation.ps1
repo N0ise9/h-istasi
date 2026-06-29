@@ -3347,7 +3347,8 @@ $rowLayoutContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; Guid = "{A7B8C9D0012345D0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutNodeRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "PreviewFallback"', 'Name "Primary"', 'Name "Secondary"', 'Name "OpenMarker"', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; Guid = "{A7B8C9D0012345E0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "VolumeBack"', 'ProgressBarWidgetClass', 'Name "VolumeFill"', 'style SimpleWithBackground', 'Maximum 1', 'Current 0', '"Ignore Cursor" 1') },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; Guid = "{A7B8C9D0012345F0}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutStorageItemRow"', 'Slot AlignableSlot', 'Padding 0 0 0 6', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', '"Ignore Cursor" 1') },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', 'Name "EmptyText"', '"Ignore Cursor" 1') }
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; Guid = "{A7B8C9D001234600}"; Required = @('FrameWidgetClass', 'Name "HST_LoadoutCandidateTile"', 'Slot AlignableSlot', 'Padding 0 0 8 8', 'Name "Background"', 'Name "PreviewBack"', 'Name "PreviewLine"', 'Name "PreviewAnchor"', 'Name "Name"', 'Name "Count"', 'Name "EmptyText"', '"Ignore Cursor" 1') },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutTemplateSlotRow.layout"; Guid = "{A7B8C9D001234620}"; Required = @('ButtonWidgetClass', 'Name "HST_LoadoutTemplateSlotRow"', 'Slot AlignableSlot', 'Padding 0 0 0 8', 'HeightOverride 110', 'Name "Background"', 'Name "Accent"', 'Name "Primary"', 'Name "Secondary"', 'Name "Meta"', 'Name "SaveButton"', 'Name "SaveLabel"', 'Name "LoadButton"', 'Name "LoadLabel"', '"Ignore Cursor" 1') }
 )
 foreach ($rowLayoutContract in $rowLayoutContracts) {
 	$rowLayoutPath = $rowLayoutContract.Path
@@ -3455,7 +3456,8 @@ $loadoutRowFontContracts = @(
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutNodeRow.layout"; FontGuids = @("{C1A9E1A2092846E0}", "{C1A9E1A2092846E1}", "{C1A9E1A2092846E2}", "{C1A9E1A2092846EA}") },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageRow.layout"; FontGuids = @("{C1A9E1A2092846E3}", "{C1A9E1A2092846E4}", "{C1A9E1A2092846E5}") },
 	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutStorageItemRow.layout"; FontGuids = @("{C1A9E1A2092846E6}", "{C1A9E1A2092846E7}") },
-	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; FontGuids = @("{C1A9E1A2092846E8}", "{C1A9E1A2092846E9}", "{C1A9E1A2092846EB}") }
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutCandidateTile.layout"; FontGuids = @("{C1A9E1A2092846E8}", "{C1A9E1A2092846E9}", "{C1A9E1A2092846EB}") },
+	@{ Path = "UI/layouts/HST/Rows/HST_LoadoutTemplateSlotRow.layout"; FontGuids = @("{C1A9E1A2092846F0}", "{C1A9E1A2092846F1}", "{C1A9E1A2092846F2}", "{C1A9E1A2092846F3}", "{C1A9E1A2092846F4}") }
 )
 foreach ($loadoutRowFontContract in $loadoutRowFontContracts) {
 	$loadoutRowFontText = Get-Content -Raw $loadoutRowFontContract.Path
@@ -5067,6 +5069,7 @@ foreach ($requiredLoadoutCandidateTemplateScriptEntry in @(
 	"protected void HideTemplatePanelWidgets",
 	"protected void ConfigureLoadoutPanelShell",
 	"protected void ConfigureLoadoutPanelButton",
+	"protected void ConfigureTemplateSlotButton",
 	'SetLoadoutWidgetColor(panelRoot, "CandidatePanelBackground"',
 	'SetLoadoutWidgetColor(panelRoot, "CandidateHeaderRule"',
 	'ConfigureLoadoutPanelButton(panelRoot, "CandidateRemoveButton"',
@@ -5079,6 +5082,9 @@ foreach ($requiredLoadoutCandidateTemplateScriptEntry in @(
 	'm_TemplateScroll = ScrollLayoutWidget.Cast(panelRoot.FindAnyWidget("TemplateScroll"))',
 	'Widget items = panelRoot.FindAnyWidget("TemplateItems")',
 	'SetLoadoutText(panelRoot, "TemplateEmpty"',
+	'workspace.CreateWidgets(LOADOUT_TEMPLATE_SLOT_ROW_LAYOUT, items)',
+	'ConfigureTemplateSlotButton(row, "SaveButton", "SaveLabel", "Save", TEMPLATE_SAVE_WIDGET_ID_BASE + templateIndex, true)',
+	'ConfigureTemplateSlotButton(row, "LoadButton", "LoadLabel", "Load", TEMPLATE_LOAD_WIDGET_ID_BASE + templateIndex, !IsTemplateSlotEmpty(templateIndex))',
 	'SetLoadoutWidgetColor(root, "CandidateHeaderPreviewBack"',
 	'Widget anchor = root.FindAnyWidget("CandidateHeaderPreviewAnchor")',
 	'SetLoadoutText(root, "CandidateHeaderSlot"',
@@ -5096,6 +5102,10 @@ if (!$loadoutCandidatePanelMatch.Success) {
 $loadoutTemplatePanelMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderTemplatePanel[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderSettingsPanel")
 if (!$loadoutTemplatePanelMatch.Success) {
 	throw "Loadout editor template panel renderer is missing"
+}
+$loadoutTemplateSlotActionMatch = [regex]::Match($loadoutEditorComponentText, "int templateSaveIndex = widgetId - TEMPLATE_SAVE_WIDGET_ID_BASE;[\s\S]*?int templateLoadIndex = widgetId - TEMPLATE_LOAD_WIDGET_ID_BASE;[\s\S]*?int templateIndex = widgetId - TEMPLATE_WIDGET_ID_BASE;")
+if (!$loadoutTemplateSlotActionMatch.Success -or $loadoutTemplateSlotActionMatch.Value -notmatch [regex]::Escape('RequestServerAction("loadout_save", m_sSelectedTemplateId);') -or $loadoutTemplateSlotActionMatch.Value -notmatch [regex]::Escape('RequestServerAction("loadout_apply", m_sSelectedTemplateId);') -or $loadoutTemplateSlotActionMatch.Value -notmatch [regex]::Escape('if (IsTemplateSlotEmpty(templateLoadIndex))')) {
+	throw "Loadout editor save panel must route per-slot Save/Load buttons through fixed saved loadout ids and keep empty Load disabled"
 }
 foreach ($forbiddenLoadoutCandidateTemplateGeometry in @(
 	"CreateRectWidget",
@@ -5584,10 +5594,17 @@ foreach ($requiredLoadoutEditorComponentEntry in @(
 	"AddLoadoutStorageContainerRow",
 	"AddLoadoutStorageItemRow",
 	"AddLoadoutCandidateTile",
+	"LOADOUT_TEMPLATE_SLOT_ROW_LAYOUT",
+	"TEMPLATE_SAVE_WIDGET_ID_BASE",
+	"TEMPLATE_LOAD_WIDGET_ID_BASE",
+	"ConfigureTemplateSlotButton",
+	"BuildTemplateSlotTitle",
+	"BuildTemplateSlotSubtitle",
+	"BuildTemplateSlotMeta",
+	"IsTemplateSlotEmpty",
 	"AddNodePreviewToRow",
 	"AddCandidatePreviewToRow",
 	"ShowRowPreviewChrome",
-	'SetRowText(row, "PreviewFallback"',
 	'SetRowText(row, "EmptyText"',
 	"BuildStorageCapacityLabel",
 	"BuildCountBadgeLabel",
@@ -5777,6 +5794,14 @@ foreach ($requiredLoadoutStorageServiceEntry in @(
 	if ($loadoutEditorText -notmatch [regex]::Escape($requiredLoadoutStorageServiceEntry)) {
 		throw "Loadout editor service is missing storage browser candidate category support: $requiredLoadoutStorageServiceEntry"
 	}
+}
+$loadoutTemplatePayloadServiceMatch = [regex]::Match($loadoutEditorText, "for \(int loadoutSlotIndex = 0; loadoutSlotIndex < PERSONAL_LOADOUT_SLOT_COUNT; loadoutSlotIndex\+\+\)[\s\S]*?payload = payload \+ string.Format\(`"\\nTEMPLATE\|%1\|%2\|%3`"")
+if (!$loadoutTemplatePayloadServiceMatch.Success -or $loadoutTemplatePayloadServiceMatch.Value -notmatch [regex]::Escape("BuildFixedLoadoutId(loadoutSlotIndex)")) {
+	throw "Loadout editor service must emit fixed saved loadout slots in deterministic slot order"
+}
+$loadoutSaveSpecificSlotMatch = [regex]::Match($loadoutEditorText, "string SaveCurrentDraft[\s\S]*?int slotIndex = ResolveSaveSlotIndex\(state, identityId, targetLoadoutId\);")
+if (!$loadoutSaveSpecificSlotMatch.Success -or $loadoutSaveSpecificSlotMatch.Value -notmatch [regex]::Escape("ResolveFixedLoadoutIndex(loadoutName)") -or $loadoutSaveSpecificSlotMatch.Value -notmatch [regex]::Escape("targetLoadoutId = loadoutName")) {
+	throw "Loadout editor service must allow Save buttons to target a specific fixed saved loadout slot"
 }
 $storageCategoryTabsMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCategoryTabs[\s\S]*?\r?\n\t}")
 if (!$storageCategoryTabsMatch.Success) {
