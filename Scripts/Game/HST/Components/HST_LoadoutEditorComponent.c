@@ -2717,18 +2717,19 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return;
 
 		EnsureVisualSettings();
-		HST_UIDebug.LogPopulation("loadout_storage_filter_controls", string.Format("mask=%1 sort=%2 category=%3 selectedStorage=%4", m_VisualSettings.m_iStorageFilterMask, m_VisualSettings.m_iStorageSortMode, m_sSelectedCategory, ShortenText(ResolveSelectedStorageContainerNodeId(), 48)));
+		HST_UIDebug.LogPopulation("loadout_storage_filter_controls", string.Format("mask=%1 sort=%2 nameSort=%3 countSort=%4 category=%5 selectedStorage=%6", m_VisualSettings.m_iStorageFilterMask, m_VisualSettings.m_iStorageSortMode, m_VisualSettings.m_iStorageNameSortMode, m_VisualSettings.m_iStorageCountSortMode, m_sSelectedCategory, ShortenText(ResolveSelectedStorageContainerNodeId(), 48)));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterFitButton", "StorageFilterFitButton", "StorageFilterFitAccent", "StorageFilterFitLabel", "Fits", STORAGE_FILTER_WIDGET_ID_BASE + 0, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterAmmoButton", "StorageFilterAmmoButton", "StorageFilterAmmoAccent", "StorageFilterAmmoLabel", "Ammo", STORAGE_FILTER_WIDGET_ID_BASE + 1, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterInfiniteButton", "StorageFilterInfiniteButton", "StorageFilterInfiniteAccent", "StorageFilterInfiniteLabel", "INF", STORAGE_FILTER_WIDGET_ID_BASE + 2, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterShowAllButton", "StorageFilterShowAllButton", "StorageFilterShowAllAccent", "StorageFilterShowAllLabel", "All", STORAGE_FILTER_WIDGET_ID_BASE + 3, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_SHOW_ALL));
 		ConfigureStorageBrowserButton(panelRoot, "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteButton", "StorageFilterNotInfiniteAccent", "StorageFilterNotInfiniteLabel", "Not INF", STORAGE_FILTER_WIDGET_ID_BASE + 4, IsStorageFilterEnabled(HST_LoadoutEditorVisualSettings.STORAGE_FILTER_NOT_INFINITE));
 
-		int sortMode = m_VisualSettings.m_iStorageSortMode;
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortAZButton", "StorageSortAZButton", "StorageSortAZAccent", "StorageSortAZLabel", "A-Z", STORAGE_SORT_WIDGET_ID_BASE + 0, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ);
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortZAButton", "StorageSortZAButton", "StorageSortZAAccent", "StorageSortZALabel", "Z-A", STORAGE_SORT_WIDGET_ID_BASE + 1, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA);
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountDescButton", "StorageSortCountDescButton", "StorageSortCountDescAccent", "StorageSortCountDescLabel", "INF-1", STORAGE_SORT_WIDGET_ID_BASE + 2, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC);
-		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountAscButton", "StorageSortCountAscButton", "StorageSortCountAscAccent", "StorageSortCountAscLabel", "1-INF", STORAGE_SORT_WIDGET_ID_BASE + 3, sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC);
+		int nameSortMode = m_VisualSettings.m_iStorageNameSortMode;
+		int countSortMode = m_VisualSettings.m_iStorageCountSortMode;
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortAZButton", "StorageSortAZButton", "StorageSortAZAccent", "StorageSortAZLabel", "A-Z", STORAGE_SORT_WIDGET_ID_BASE + 0, nameSortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortZAButton", "StorageSortZAButton", "StorageSortZAAccent", "StorageSortZALabel", "Z-A", STORAGE_SORT_WIDGET_ID_BASE + 1, nameSortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountDescButton", "StorageSortCountDescButton", "StorageSortCountDescAccent", "StorageSortCountDescLabel", "INF-1", STORAGE_SORT_WIDGET_ID_BASE + 2, countSortMode == HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_DESC);
+		ConfigureStorageBrowserButton(panelRoot, "StorageSortCountAscButton", "StorageSortCountAscButton", "StorageSortCountAscAccent", "StorageSortCountAscLabel", "1-INF", STORAGE_SORT_WIDGET_ID_BASE + 3, countSortMode == HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_ASC);
 	}
 
 	protected void ConfigureStorageBrowserButton(Widget root, string buttonName, string backgroundName, string accentName, string labelName, string label, int userId, bool active)
@@ -2790,7 +2791,15 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected bool IsStorageFilterEnabled(int flag)
 	{
 		EnsureVisualSettings();
+		if (flag == HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE && !IsStorageAmmoFilterApplicable())
+			return false;
+
 		return (m_VisualSettings.m_iStorageFilterMask & flag) != 0;
+	}
+
+	protected bool IsStorageAmmoFilterApplicable()
+	{
+		return m_sSelectedCategory == "magazine";
 	}
 
 	protected void ToggleStorageFilterByIndex(int filterIndex)
@@ -2798,6 +2807,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		EnsureVisualSettings();
 		int flag = ResolveStorageFilterFlagByIndex(filterIndex);
 		if (flag <= 0)
+			return;
+		if (flag == HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE && !IsStorageAmmoFilterApplicable())
 			return;
 
 		int mask = m_VisualSettings.m_iStorageFilterMask;
@@ -2840,10 +2851,30 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected void SetStorageSortMode(int sortIndex)
 	{
 		EnsureVisualSettings();
-		if (sortIndex < HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ)
-			sortIndex = HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ;
-		else if (sortIndex > HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC)
-			sortIndex = HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC;
+		if (sortIndex == HST_LoadoutEditorVisualSettings.STORAGE_SORT_AZ || sortIndex == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA)
+		{
+			m_VisualSettings.m_iStorageNameSortMode = sortIndex;
+			m_VisualSettings.m_iStorageSortMode = sortIndex;
+			SaveVisualSettings();
+			return;
+		}
+
+		if (sortIndex == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC)
+		{
+			if (m_VisualSettings.m_iStorageCountSortMode == HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_DESC)
+				m_VisualSettings.m_iStorageCountSortMode = HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_NONE;
+			else
+				m_VisualSettings.m_iStorageCountSortMode = HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_DESC;
+		}
+		else if (sortIndex == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC)
+		{
+			if (m_VisualSettings.m_iStorageCountSortMode == HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_ASC)
+				m_VisualSettings.m_iStorageCountSortMode = HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_NONE;
+			else
+				m_VisualSettings.m_iStorageCountSortMode = HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_ASC;
+		}
+		else
+			m_VisualSettings.m_iStorageCountSortMode = HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_NONE;
 
 		m_VisualSettings.m_iStorageSortMode = sortIndex;
 		SaveVisualSettings();
@@ -2857,7 +2888,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		if (!showEverything && (mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_FIT_ONLY) != 0 && !IsStorageCandidateFit(candidateIndex))
 			return false;
-		if ((mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE) != 0 && !IsStorageCandidateAmmoUsable(candidateIndex))
+		if (IsStorageAmmoFilterApplicable() && (mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_AMMO_USABLE) != 0 && !IsStorageCandidateAmmoUsable(candidateIndex))
 			return false;
 		if ((mask & HST_LoadoutEditorVisualSettings.STORAGE_FILTER_INFINITE_ONLY) != 0 && !IsStorageCandidateInfinite(candidateIndex))
 			return false;
@@ -2912,25 +2943,32 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected int CompareStorageCandidates(int left, int right)
 	{
 		EnsureVisualSettings();
-		int sortMode = m_VisualSettings.m_iStorageSortMode;
-		if (sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA)
-			return CompareCandidateNames(right, left);
-		if (sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_DESC)
+		int countSortMode = m_VisualSettings.m_iStorageCountSortMode;
+		if (countSortMode == HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_DESC)
 		{
 			int countCompareDesc = CompareCandidateCounts(right, left);
 			if (countCompareDesc != 0)
 				return countCompareDesc;
 
-			return CompareCandidateNames(left, right);
+			return CompareCandidateNamesForConfiguredDirection(left, right);
 		}
-		if (sortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_COUNT_ASC)
+		if (countSortMode == HST_LoadoutEditorVisualSettings.STORAGE_COUNT_SORT_ASC)
 		{
 			int countCompareAsc = CompareCandidateCounts(left, right);
 			if (countCompareAsc != 0)
 				return countCompareAsc;
 
-			return CompareCandidateNames(left, right);
+			return CompareCandidateNamesForConfiguredDirection(left, right);
 		}
+
+		return CompareCandidateNamesForConfiguredDirection(left, right);
+	}
+
+	protected int CompareCandidateNamesForConfiguredDirection(int left, int right)
+	{
+		EnsureVisualSettings();
+		if (m_VisualSettings.m_iStorageNameSortMode == HST_LoadoutEditorVisualSettings.STORAGE_SORT_ZA)
+			return CompareCandidateNames(right, left);
 
 		return CompareCandidateNames(left, right);
 	}
@@ -3220,13 +3258,11 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		int color = GetBaseRowColor();
 		bool fitsStorage = IsStorageCandidateFit(candidateIndex);
 		if (m_sEditorMode == "storage" && !fitsStorage)
-			color = 0x884B5960;
+			color = 0xAA5B2C2C;
 		else if (candidateIndex >= 0 && candidateIndex < m_aCandidateAmmoMatch.Count() && m_aCandidateAmmoMatch[candidateIndex])
 			color = GetMatchedRowColor();
 
 		string countText = BuildCandidateCountLabel(candidateIndex, true);
-		if (m_sEditorMode == "storage" && !fitsStorage)
-			countText = "NO FIT";
 		string itemName = GetCandidateDisplayName(candidateIndex);
 
 		SetRowImageColor(tile, "Background", color, 0.98);
@@ -5279,6 +5315,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return m_sEditorMode;
 		if (m_aNodeKinds[nodeIndex] == "storage")
 			return "storage";
+		if (m_aNodeKinds[nodeIndex] == "attachment")
+			return "attachment";
 		if (nodeIndex >= 0 && nodeIndex < m_aNodeSlotKeys.Count() && !m_aNodeSlotKeys[nodeIndex].IsEmpty())
 			return m_aNodeSlotKeys[nodeIndex];
 

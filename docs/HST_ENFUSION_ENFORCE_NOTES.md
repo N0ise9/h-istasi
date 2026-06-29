@@ -51,6 +51,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If a label renders blank while the button hit target still appears, first check whether the label is nested under the button. Move filter/sort/action labels out as siblings before chasing script-side text population.
   - Current examples: `HST_CommandMenu.layout` close button, `HST_SetupConfirmModal.layout` Yes/No labels, `HST_ActionDialog.layout` Cancel/Confirm labels, `HST_ReportDialog.layout` Close label, `HST_LoadoutEditor.layout` remove/filter/sort labels.
 
+- If a layout-owned button does use a supported `ButtonWidgetSlot` child body, that body must fill the button slot.
+  - Runtime symptom: the button rectangle is visible and clickable, but child labels report `0x0` or negative height and render blank.
+  - Put `HorizontalAlign 3` and `VerticalAlign 3` inside the `Slot ButtonWidgetSlot {}` block for the body frame.
+  - Current example: `HST_LoadoutEditor.layout` template/settings button bodies.
+
 - Scripted layout bindings should only name widgets that actually exist in the layout resource.
   - Helpers such as `ConfigureStorageBrowserButton` can fail quietly for optional visual parts because `FindAnyWidget` returns null without a script error.
   - For layout-owned controls, keep hit targets, labels, accents, and other visual siblings named in the layout and validate those names against script calls.
@@ -61,6 +66,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A row layout can include a hidden fallback text widget, but it stays blank unless script populates and shows it when image loading fails.
   - Runtime symptom: storage/search tabs or controls appear as visible clickable buttons with no readable label if the icon resource is missing or not ready.
   - Current example: `HST_LoadoutEditorComponent.RenderStorageCategoryTabs()` sets `Fallback` through `GetStorageBrowserCategoryFallback()` when `SetLoadoutImageTexture()` fails.
+
+- Fixed-width generated tab rows must be recalculated when the tab count changes.
+  - Runtime symptom: a newly added storage/search tab is populated in logs but does not appear because the row prefab still has six-tab width and padding.
+  - For seven storage browser tabs in the current right pane, `HST_LoadoutStorageCategoryTab.layout` uses compact `88` pixel tab cells so the search tab is inside the visible row.
 
 - Slot alignment keys must live inside the `Slot ... {}` block for the widget slot that owns them.
   - Runtime symptom: `GUI (E): Unknown keyword/data 'HorizontalAlign'` or `VerticalAlign` while loading the layout resource.
@@ -176,6 +185,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `SCR_PlayerNamesFilterCache` can lag marker widget creation. Resolve labels through the cache first, fall back to `PlayerManager.GetPlayerName(playerId)`, and retry for a few seconds before accepting a generic `Player X` label.
   - If `HST_PlayerMapMarkerService` logs `native reconcile failed`, first verify the active world layer `SCR_MapMarkerManagerComponent.m_sMarkerCfgPath`, the custom marker entry config, and the dedicated `SCR_EMapMarkerType.HST_PLAYER` enum.
   - For custom dynamic visuals, call `super.InitClientSettingsDynamic(marker, widgetComp)` first, then set image/color/text on `SCR_MapMarkerDynamicWComponent`.
+  - Dynamic marker config entries must name a dynamic marker layout. The default `SCR_MapMarkerEntryConfig` layout is `MapMarkerBase.layout`, which lacks `SCR_MapMarkerDynamicWComponent`; `SCR_MapMarkerEntity.OnCreateMarker()` dereferences that handler and can VM-exception on map open.
+  - Current working player-marker layout: `{0CF9A6FB588EB475}UI/layouts/Map/MapMarkerSquadMember.layout`.
+  - `MapMarkerSquadMember.layout` starts marker text hidden. Custom player marker entries that set a name must also call `SetTextVisible(true)`.
+  - Player markers should be gated to the active campaign phase. Setup bootstrap player entities are not gameplay map markers and can pollute the setup map or create stale dynamic handles before HQ setup is finalized.
+  - For faction-colored player markers, resolve `SCR_FactionManager.SGetPlayerFaction(playerId)` client-side and fall back to the FIA faction color before using a hardcoded color.
   - Current examples: `HST_PlayerMapMarkerService`, `HST_PlayerMapMarkerEntry`, `HST_PlayerMapMarkerConfig.conf`.
 
 - Map overlay widgets must be passive.
@@ -269,6 +283,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Storage candidate payloads should include matching recovered arsenal items even when the selected storage cannot currently accept them, with the `compatible` field carrying the fit result. Keep non-storage candidate lists server-filtered to compatible items only.
   - Magazine ammo usability can be computed independently from storage fit. This lets the UI show an "ammo usable" filter even when the item cannot fit in the selected container.
   - Storage browser filter/sort state belongs in the local visual settings file, not the campaign state. Defaults should be fit-only and A-Z, with server authority still enforced by `add_storage_item`.
+  - The storage ammo filter is tab-contextual. Keep its saved bit when leaving the ammunition tab, but only apply and show it active while `m_sSelectedCategory == "magazine"` so other tabs do not appear filtered by ammo.
+  - Name sort direction and count sort direction are separate settings. When count sorting is selected, use count as the primary order and A-Z/Z-A as the tie-breaker; this lets the UI show `A-Z`/`Z-A` and `INF-1`/`1-INF` together.
+  - Non-fitting storage candidates should keep their arsenal count badge. Use a light red row highlight for the fit failure and let the server-authoritative `add_storage_item` path reject clicks that still do not fit.
+  - Structural pouch/holster-style storage attachments should not be emitted as addable storage-browser candidates. They can be child containers on looted webbing, but the player should add/remove the parent webbing or magazines inside those child pouches, not the pouch prefab itself.
   - Loadout editor search should use the full recovered arsenal item arrays (`m_aItem*`), not the selected storage candidate arrays (`m_aCandidate*`). The search result click should send `add_storage_item` with the selected storage node id and prefab; if no storage is selected, show a status and do not issue the request.
   - Storage search category matching should include the raw item category, the slot category label, and the visible storage browser tab label. Grouped tabs such as Weapons and Clothing otherwise will not match items whose raw categories are `weapon`, `launcher`, `headgear`, `vest`, etc.
   - Edit-box search inputs can be handled through `ScriptedWidgetEventHandler.OnChange(Widget w, bool finished)` after assigning a stable user id and adding the handler to the `EditBoxWidget`. Remember to clear layout-owned dynamic result containers such as `StorageSearchItems` when reusing the editor root.
@@ -284,6 +302,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Keep a category/fallback icon available when prefab or entity preview setup fails.
   - Do not hide the fallback icon just because the entity preview lookup returned null for a non-empty prefab.
   - Empty live equipment nodes still need a visible fallback tile plus `Empty` text; suppressing the fallback makes the header look like a missing render instead of an empty slot.
+  - Attachment nodes should resolve their preview icon key as `attachment`, not as slot keys such as `optic` or `muzzle`. Slot keys are useful labels, but they are not in the native-preview eligibility list and will force an equipped attachment preview down the fallback-only path.
 
 - Native input hints should use the widget-library input button components when possible.
   - `SCR_InputButtonComponent` can bind an action name and label to the current input device.

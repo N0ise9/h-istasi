@@ -2910,10 +2910,13 @@ class HST_LoadoutEditorService
 			if (!IsCandidateCategoryForNode(node, category, item.m_sPrefab))
 				continue;
 
+			bool isStorageBrowserNode = node.m_sKind == "storage" || node.m_sKind == "storage_item";
+			if (isStorageBrowserNode && IsBlockedStorageBrowserContainerCandidate(session.m_iPlayerId, item.m_sPrefab, category))
+				continue;
+
 			categoryMatches++;
 			bool ammoMatch;
 			bool compatible = IsLiveCandidateCompatible(state, session.m_iPlayerId, node, item.m_sPrefab, category, ammoMatch);
-			bool isStorageBrowserNode = node.m_sKind == "storage" || node.m_sKind == "storage_item";
 			if (!isStorageBrowserNode && !compatible)
 				continue;
 
@@ -2947,6 +2950,55 @@ class HST_LoadoutEditorService
 		}
 
 		return payload;
+	}
+
+	protected bool IsBlockedStorageBrowserContainerCandidate(int playerId, string prefab, string category)
+	{
+		if (prefab.IsEmpty())
+			return false;
+
+		if (category != "utility" && category != "magazine" && category != "attachment")
+			return false;
+
+		string loweredPrefab = prefab;
+		loweredPrefab.ToLower();
+		if (loweredPrefab.Contains("pouch") || loweredPrefab.Contains("holster"))
+			return true;
+
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded)
+			return false;
+
+		vector origin = vector.Zero;
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (playerEntity)
+			origin = playerEntity.GetOrigin();
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = origin;
+		IEntity temp = GetGame().SpawnEntityPrefabEx(resourceName, false, GetGame().GetWorld(), params);
+		if (!temp)
+			return false;
+
+		bool blocked;
+		if (!BaseLoadoutClothComponent.Cast(temp.FindComponent(BaseLoadoutClothComponent)))
+		{
+			array<BaseInventoryStorageComponent> structuralStorages = {};
+			if (FindStructuralAttachmentStorages(temp, structuralStorages) > 0)
+				blocked = true;
+
+			if (!blocked && category == "utility")
+			{
+				array<BaseInventoryStorageComponent> cargoStorages = {};
+				if (FindCargoDepositStorages(temp, cargoStorages) > 0)
+					blocked = true;
+			}
+		}
+
+		SCR_EntityHelper.DeleteEntityAndChildren(temp);
+		return blocked;
 	}
 
 	protected void RefreshDraftNodes(HST_CampaignState state, HST_LoadoutEditorSessionState session)
