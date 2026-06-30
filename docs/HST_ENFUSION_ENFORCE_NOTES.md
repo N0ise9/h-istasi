@@ -301,7 +301,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Loadout editor saved loadouts:
   - Fixed save slots are server-owned campaign state and profile persistence. Passing `slot_N` to `loadout_save` selects the slot; it must not overwrite an already renamed display name unless the slot was empty or an explicit rename command was sent.
-  - Use `SCR_JsonSaveContext.ExportToString()` and `SCR_JsonLoadContext.ImportFromString()` with `SCR_PlayerArsenalLoadout.ReadLoadoutString/ApplyLoadoutString`, matching Bacon Loadout Editor. The older generic JSON context path can silently fail to apply saved equipment.
+  - Use `SCR_JsonSaveContext.ExportToString()` and `SCR_JsonLoadContext.ImportFromString()` with `SCR_PlayerArsenalLoadout.ReadLoadoutString/ApplyLoadoutString`. The older generic JSON context path can silently fail to apply saved equipment.
   - After a successful serialized native loadout apply, refresh the server-side `SCR_PlayerController` main entity with `SetInitialMainEntity(playerEntity)`. h-istasi applies in place, but the controller refresh still helps possession/UI systems observe the changed entity state.
   - Save/load feedback should be an in-editor toast, not a global notification. Disabled `Load` buttons should stay visible for empty fixed slots.
   - Loadout candidate icon hints also drive native row previews. Use preview-capable hints such as `medical`, `utility`, and `equipment`; a generic value that the client does not recognize as preview-capable will render as a flat fallback icon even when the prefab can be previewed.
