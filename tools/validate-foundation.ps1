@@ -6010,6 +6010,58 @@ if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateC
 if ($storageBrowserCandidateCategoryMatch.Success -and $storageBrowserCandidateCategoryMatch.Value -match [regex]::Escape('category == "backpack"')) {
 	throw "Storage browser candidate categories must not include wearable storage categories; those belong in loadout slots, not add-items search"
 }
+$liveStorageScanMatch = [regex]::Match($loadoutEditorText, "protected void ScanEquippedStorageContainers[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddStorageContentNodes")
+if (!$liveStorageScanMatch.Success) {
+	throw "Loadout editor live storage scanner is missing"
+}
+foreach ($requiredLiveStorageScanEntry in @(
+		"FindStorageInsertTargetStorages(containerEntity, insertStorages)",
+		"AddUniqueStorages(insertStorages, contentStorages)",
+		"CalculateStorageVolume(insertStorages, usedVolume, totalVolume, freeVolume)",
+		"node.m_iUsedCapacity = CountStorageDisplayItems(contentStorages)",
+		"node.m_iTotalCapacity = CountStorageAvailableFitOptions(state, playerEntity, insertStorages)",
+		"AddStorageContentNodes(session, contentStorages, containerNodeId, slotIndex)"
+	)) {
+	if ($liveStorageScanMatch.Value -notmatch [regex]::Escape($requiredLiveStorageScanEntry)) {
+		throw "Loadout editor live storage must use insert-capable child cargo storages for capacity and content rows: $requiredLiveStorageScanEntry"
+	}
+}
+$liveStorageCargoMatch = [regex]::Match($loadoutEditorText, "protected bool IsCargoDepositStorage[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected int FindCargoDepositStorages[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void FindCargoDepositStoragesRecursive[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool IsStructuralAttachmentStorage[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void FindCargoDepositStoragesInAttachedEntities[\s\S]*?\r?\n\t}")
+if (!$liveStorageCargoMatch.Success) {
+	throw "Loadout editor cargo storage traversal is missing"
+}
+foreach ($requiredLiveStorageCargoEntry in @(
+		"if (IsStructuralAttachmentStorage(storage))",
+		"return false",
+		"if (IsCargoDepositStorage(storage) && outStorages.Find(storage) < 0)",
+		"if (IsStructuralAttachmentStorage(storage))",
+		"FindCargoDepositStoragesInAttachedEntities(storage, outStorages, visited, depth + 1)",
+		"GatherStorageContentEntities(storage, attached, attachedVisited)",
+		"FindCargoDepositStoragesRecursive(child, outStorages, visited, depth)"
+	)) {
+	if ($liveStorageCargoMatch.Value -notmatch [regex]::Escape($requiredLiveStorageCargoEntry)) {
+		throw "Loadout editor storage traversal must skip structural slots but recurse into their child cargo: $requiredLiveStorageCargoEntry"
+	}
+}
+$liveStorageDisplayMatch = [regex]::Match($loadoutEditorText, "protected int CountStorageDisplayItems[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool ShouldDisplayStorageContentEntity[\s\S]*?\r?\n\t}")
+if (!$liveStorageDisplayMatch.Success -or $liveStorageDisplayMatch.Value -notmatch [regex]::Escape("ShouldDisplayStorageContentEntity(item, prefab, category, display)") -or $liveStorageDisplayMatch.Value -notmatch [regex]::Escape("return !HST_ArsenalItemFilter.ShouldBlockArsenalEntity(item, prefab, category, display)")) {
+	throw "Loadout editor storage contents must count/display inserted items while hiding structural container shells"
+}
+$liveStorageVolumeMatch = [regex]::Match($loadoutEditorText, "protected float CalculateStorageOccupiedVolume[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected float CalculateStorageMaxVolume[\s\S]*?\r?\n\t}")
+if (!$liveStorageVolumeMatch.Success) {
+	throw "Loadout editor storage volume helpers are missing"
+}
+foreach ($requiredLiveStorageVolumeEntry in @(
+		"ClothNodeStorageComponent.Cast(storage)",
+		"storage.GetOwnedStorages(ownedStorages, 1, false)",
+		"SCR_UniversalInventoryStorageComponent.Cast(ownedStorage)",
+		"ownedStorage.GetOccupiedSpace()",
+		"ownedStorage.GetMaxVolumeCapacity()"
+	)) {
+	if ($liveStorageVolumeMatch.Value -notmatch [regex]::Escape($requiredLiveStorageVolumeEntry)) {
+		throw "Loadout editor storage capacity must sum owned universal storages for cloth-node containers: $requiredLiveStorageVolumeEntry"
+	}
+}
 $storageVolumeFillMatch = [regex]::Match($loadoutEditorComponentText, "protected void SetStorageVolumeFill[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void RenderPreviewStage")
 if (!$storageVolumeFillMatch.Success) {
 	throw "Loadout editor storage volume fill updater is missing"
