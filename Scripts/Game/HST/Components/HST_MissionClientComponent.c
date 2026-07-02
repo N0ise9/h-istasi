@@ -1,8 +1,3 @@
-class HST_MissionClientDrawCommandSet
-{
-	ref array<ref CanvasWidgetCommand> m_aCommands = {};
-}
-
 [ComponentEditorProps(category: "h-istasi", description: "Client mission notifications, intel cache, and detail panel")]
 class HST_MissionClientComponentClass : ScriptComponentClass
 {
@@ -11,7 +6,6 @@ class HST_MissionClientComponentClass : ScriptComponentClass
 class HST_MissionClientComponent : ScriptComponent
 {
 	static const int DETAIL_CLOSE_WIDGET_ID = 9801;
-	static const int DETAIL_ROOT_Z = 2700;
 
 	protected static HST_MissionClientComponent s_LocalInstance;
 
@@ -22,17 +16,9 @@ class HST_MissionClientComponent : ScriptComponent
 	protected string m_sLastSummary;
 	protected string m_sSelectedMissionId;
 	protected bool m_bDetailOpen;
-	protected float m_fNotificationRemaining;
 	protected ref array<string> m_aRecentNotificationIds = {};
 	protected ref array<float> m_aRecentNotificationRemaining = {};
-	protected ref array<string> m_aQueuedNotificationIds = {};
-	protected ref array<string> m_aQueuedNotificationCategories = {};
-	protected ref array<string> m_aQueuedNotificationSeverities = {};
-	protected ref array<string> m_aQueuedNotificationTitles = {};
-	protected ref array<string> m_aQueuedNotificationMessages = {};
-	protected ref array<float> m_aQueuedNotificationDurations = {};
 	protected ref array<Widget> m_aWidgets = {};
-	protected ref array<ref HST_MissionClientDrawCommandSet> m_aCanvasCommandSets = {};
 	protected ref HST_MissionClientWidgetHandler m_WidgetHandler;
 	protected ref array<string> m_aMissionIds = {};
 	protected ref array<string> m_aMissionTitles = {};
@@ -50,6 +36,10 @@ class HST_MissionClientComponent : ScriptComponent
 	protected ref array<string> m_aObjectiveMissionIds = {};
 	protected ref array<string> m_aObjectiveLabels = {};
 	protected ref array<string> m_aObjectiveProgress = {};
+	protected int m_iFrameSerial;
+	protected int m_iLastActivatedWidgetId;
+	protected int m_iLastActivatedButton;
+	protected int m_iLastActivatedFrame = -1;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -66,7 +56,7 @@ class HST_MissionClientComponent : ScriptComponent
 		if (s_LocalInstance == this)
 			s_LocalInstance = null;
 
-		ClearWidgets();
+		CloseMissionDetails();
 		super.OnDelete(owner);
 	}
 
@@ -81,6 +71,8 @@ class HST_MissionClientComponent : ScriptComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
+		m_iFrameSerial++;
+
 		if (!m_bIsLocalOwner)
 		{
 			if (IsLocalOwner(owner))
@@ -90,20 +82,6 @@ class HST_MissionClientComponent : ScriptComponent
 			}
 
 			return;
-		}
-
-		if (m_fNotificationRemaining > 0)
-		{
-			m_fNotificationRemaining = Math.Max(0, m_fNotificationRemaining - timeSlice);
-			if (m_fNotificationRemaining == 0 && !m_bDetailOpen)
-			{
-				ClearWidgets();
-				ShowNextQueuedNotification();
-			}
-		}
-		else if (!m_bDetailOpen && m_aQueuedNotificationIds.Count() > 0)
-		{
-			ShowNextQueuedNotification();
 		}
 
 		for (int i = m_aRecentNotificationIds.Count() - 1; i >= 0; i--)
@@ -172,8 +150,8 @@ class HST_MissionClientComponent : ScriptComponent
 	{
 		m_sLastIntelPayload = payload;
 		ParseMissionIntel(payload);
-		if (m_bDetailOpen)
-			RenderMissionDetailPanel();
+		if (m_bDetailOpen && !RenderMissionDetailPanel())
+			CloseMissionDetails();
 	}
 
 	bool OpenMissionDetailsForMarker(string markerId)
@@ -184,21 +162,16 @@ class HST_MissionClientComponent : ScriptComponent
 		if (index < 0)
 			return false;
 
-		m_sSelectedMissionId = m_aMissionIds[index];
-		m_bDetailOpen = true;
-		RenderMissionDetailPanel();
-		return true;
+		return OpenMissionDetailsAtIndex(index);
 	}
 
 	bool OpenMissionDetails(string missionId)
 	{
-		if (m_aMissionIds.Find(missionId) < 0)
+		int index = m_aMissionIds.Find(missionId);
+		if (index < 0)
 			return false;
 
-		m_sSelectedMissionId = missionId;
-		m_bDetailOpen = true;
-		RenderMissionDetailPanel();
-		return true;
+		return OpenMissionDetailsAtIndex(index);
 	}
 
 	// Fallback entry for custom map-overlay hit tests when native marker click callbacks are not available.
@@ -227,93 +200,7 @@ class HST_MissionClientComponent : ScriptComponent
 
 		durationSeconds = Math.Max(1.0, durationSeconds);
 		TrackRecentNotification(eventId, Math.Max(durationSeconds, 5.0));
-		if (m_fNotificationRemaining > 0 || m_bDetailOpen)
-		{
-			QueueTopMissionNotification(eventId, category, severity, title, message, durationSeconds);
-			return;
-		}
-
-		RenderTopMissionNotification(eventId, category, severity, title, message, durationSeconds);
-	}
-
-	protected void QueueTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
-	{
-		if (!eventId.IsEmpty() && m_aQueuedNotificationIds.Find(eventId) >= 0)
-			return;
-
-		m_aQueuedNotificationIds.Insert(eventId);
-		m_aQueuedNotificationCategories.Insert(category);
-		m_aQueuedNotificationSeverities.Insert(severity);
-		m_aQueuedNotificationTitles.Insert(title);
-		m_aQueuedNotificationMessages.Insert(message);
-		m_aQueuedNotificationDurations.Insert(durationSeconds);
-
-		while (m_aQueuedNotificationIds.Count() > 16)
-		{
-			m_aQueuedNotificationIds.Remove(0);
-			m_aQueuedNotificationCategories.Remove(0);
-			m_aQueuedNotificationSeverities.Remove(0);
-			m_aQueuedNotificationTitles.Remove(0);
-			m_aQueuedNotificationMessages.Remove(0);
-			m_aQueuedNotificationDurations.Remove(0);
-		}
-	}
-
-	protected void ShowNextQueuedNotification()
-	{
-		if (m_aQueuedNotificationIds.Count() == 0 || m_bDetailOpen)
-			return;
-
-		string eventId = m_aQueuedNotificationIds[0];
-		string category = m_aQueuedNotificationCategories[0];
-		string severity = m_aQueuedNotificationSeverities[0];
-		string title = m_aQueuedNotificationTitles[0];
-		string message = m_aQueuedNotificationMessages[0];
-		float duration = m_aQueuedNotificationDurations[0];
-
-		m_aQueuedNotificationIds.Remove(0);
-		m_aQueuedNotificationCategories.Remove(0);
-		m_aQueuedNotificationSeverities.Remove(0);
-		m_aQueuedNotificationTitles.Remove(0);
-		m_aQueuedNotificationMessages.Remove(0);
-		m_aQueuedNotificationDurations.Remove(0);
-
-		RenderTopMissionNotification(eventId, category, severity, title, message, duration);
-	}
-
-	protected void RenderTopMissionNotification(string eventId, string category, string severity, string title, string message, float durationSeconds)
-	{
-		durationSeconds = Math.Max(1.0, durationSeconds);
-
-		WorkspaceWidget workspace = GetGame().GetWorkspace();
-		if (!workspace)
-			return;
-
-		ClearWidgets();
-		int screenW;
-		int screenH;
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-		int margin = HST_UIWorkspaceMetrics.ScalePx(24, scale);
-		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(900, scale), Math.Max(1, screenW - margin * 2));
-		int rootH = HST_UIWorkspaceMetrics.ScalePx(92, scale);
-		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
-		int top = HST_UIWorkspaceMetrics.ClampTop(margin, rootH, screenH, Math.Max(4, margin / 2));
-
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, null, DETAIL_ROOT_Z);
-		if (!root)
-			return;
-
-		root.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		m_aWidgets.Insert(root);
-		int accent = NotificationAccentColor(severity, category);
-		int ruleH = Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(4, scale));
-		int inset = HST_UIWorkspaceMetrics.ScalePx(24, scale);
-		CreateRectWidget(workspace, root, 0, 0, rootW, rootH, 0xF21A232B, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, rootH - ruleH, rootW, ruleH, accent, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(title, 44), inset, HST_UIWorkspaceMetrics.ScalePx(10, scale), Math.Min(HST_UIWorkspaceMetrics.ScalePx(380, scale), rootW - inset * 2), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(18, scale), accent, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(message, 140), inset, HST_UIWorkspaceMetrics.ScalePx(38, scale), Math.Max(1, rootW - inset * 2), HST_UIWorkspaceMetrics.ScalePx(42, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFF2F4F0, 0, false);
-		m_fNotificationRemaining = durationSeconds;
+		HST_NotificationToastController.Get().Show(eventId, category, severity, title, message, durationSeconds);
 	}
 
 	protected string MissionEventTitle(string eventType)
@@ -352,22 +239,6 @@ class HST_MissionClientComponent : ScriptComponent
 		return "warning";
 	}
 
-	protected int NotificationAccentColor(string severity, string category)
-	{
-		if (severity == "danger" || severity == "error")
-			return 0xFFFF6B5C;
-		if (severity == "success" || severity == "good")
-			return 0xFF73D17C;
-		if (severity == "warning" || severity == "warn")
-			return 0xFFFFC45D;
-		if (category == "enemy")
-			return 0xFFFF8A5C;
-		if (category == "vehicle" || category == "garage")
-			return 0xFF8CC8FF;
-
-		return 0xFFFFD98B;
-	}
-
 	protected int FindRecentNotification(string eventId)
 	{
 		if (eventId.IsEmpty())
@@ -399,179 +270,112 @@ class HST_MissionClientComponent : ScriptComponent
 		m_aRecentNotificationRemaining.Insert(durationSeconds);
 	}
 
-	protected void RenderMissionDetailPanel()
+	protected bool OpenMissionDetailsAtIndex(int index)
+	{
+		if (index < 0 || index >= m_aMissionIds.Count())
+			return false;
+
+		m_sSelectedMissionId = m_aMissionIds[index];
+		m_bDetailOpen = true;
+		if (RenderMissionDetailPanel())
+			return true;
+
+		CloseMissionDetails();
+		return false;
+	}
+
+	protected bool RenderMissionDetailPanel()
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
 		if (!workspace)
-			return;
+			return false;
 
 		ClearWidgets();
 		int index = m_aMissionIds.Find(m_sSelectedMissionId);
 		if (index < 0)
-			return;
+			return false;
 
-		int screenW;
-		int screenH;
-		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
-		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
-		int margin = HST_UIWorkspaceMetrics.ScalePx(36, scale);
-		int rootW = Math.Min(HST_UIWorkspaceMetrics.ScalePx(920, scale), Math.Max(1, screenW - margin * 2));
-		int rootH = Math.Min(HST_UIWorkspaceMetrics.ScalePx(560, scale), Math.Max(1, screenH - margin * 2));
-		float panelScale = Math.Min(rootW / 920.0, rootH / 560.0);
-		int left = HST_UIWorkspaceMetrics.ClampLeft(HST_UIWorkspaceMetrics.CenteredLeft(screenW, rootW), rootW, screenW, Math.Max(8, margin / 2));
-		int top = HST_UIWorkspaceMetrics.ClampTop(HST_UIWorkspaceMetrics.CenteredTop(screenH, rootH), rootH, screenH, Math.Max(8, margin / 2));
-
-		Widget root = workspace.CreateWidgetInWorkspace(WidgetType.FrameWidgetTypeID, left, top, rootW, rootH, WidgetFlags.VISIBLE, null, DETAIL_ROOT_Z);
-		if (!root)
-			return;
-
-		m_aWidgets.Insert(root);
 		if (!m_WidgetHandler)
 		{
 			m_WidgetHandler = new HST_MissionClientWidgetHandler();
 			m_WidgetHandler.Bind(this);
 		}
 
-		CreateRectWidget(workspace, root, 0, 0, rootW, rootH, 0xF4080D12, 1.0, 0);
-		CreateRectWidget(workspace, root, 0, 0, rootW, Math.Max(2, HST_UIWorkspaceMetrics.ScalePx(5, panelScale)), 0xFFFFC45D, 1.0, 0);
-		CreateTextWidget(workspace, root, ShortenText(m_aMissionTitles[index], 48), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScalePx(22, panelScale), HST_UIWorkspaceMetrics.ScalePx(520, panelScale), HST_UIWorkspaceMetrics.ScalePx(34, panelScale), HST_UIWorkspaceMetrics.ScaleFont(26, panelScale), 0xFFF7E6BE, 0, true);
-		CreateTextWidget(workspace, root, string.Format("%1 | %2 | %3s left", m_aMissionCategories[index], m_aMissionStatuses[index], m_aMissionRemaining[index]), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScalePx(64, panelScale), HST_UIWorkspaceMetrics.ScalePx(620, panelScale), HST_UIWorkspaceMetrics.ScalePx(26, panelScale), HST_UIWorkspaceMetrics.ScaleFont(17, panelScale), 0xFFC9D4DC, 0, false);
-		CreateRectWidget(workspace, root, HST_UIWorkspaceMetrics.ScalePx(790, panelScale), HST_UIWorkspaceMetrics.ScalePx(20, panelScale), HST_UIWorkspaceMetrics.ScalePx(110, panelScale), HST_UIWorkspaceMetrics.ScalePx(42, panelScale), 0xFF604A24, 0.95, DETAIL_CLOSE_WIDGET_ID);
-		CreateTextWidget(workspace, root, "Close", HST_UIWorkspaceMetrics.ScalePx(806, panelScale), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScalePx(86, panelScale), HST_UIWorkspaceMetrics.ScalePx(24, panelScale), HST_UIWorkspaceMetrics.ScaleFont(17, panelScale), 0xFFF7E6BE, DETAIL_CLOSE_WIDGET_ID, true);
-
-		CreatePanelRow(workspace, root, "Location", m_aMissionZones[index] + " / " + m_aMissionSites[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(112, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Map position", m_aMissionPositions[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(154, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Requirement", m_aMissionRequirements[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(196, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Progress", m_aMissionProgress[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(258, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Reward", m_aMissionRewards[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(320, panelScale), panelScale);
-		CreatePanelRow(workspace, root, "Failure", m_aMissionFailures[index], HST_UIWorkspaceMetrics.ScalePx(30, panelScale), HST_UIWorkspaceMetrics.ScalePx(382, panelScale), panelScale);
-
-		CreateTextWidget(workspace, root, "Objectives", HST_UIWorkspaceMetrics.ScalePx(560, panelScale), HST_UIWorkspaceMetrics.ScalePx(112, panelScale), HST_UIWorkspaceMetrics.ScalePx(220, panelScale), HST_UIWorkspaceMetrics.ScalePx(28, panelScale), HST_UIWorkspaceMetrics.ScaleFont(22, panelScale), 0xFFF7E6BE, 0, true);
-		int rendered;
+		HST_ReportDialogData data = new HST_ReportDialogData();
+		data.m_sOwner = "HST_MissionClientComponent";
+		data.m_sDebugOwner = "mission_report_dialog";
+		data.m_iCloseWidgetId = DETAIL_CLOSE_WIDGET_ID;
+		data.m_sReportId = m_sSelectedMissionId;
+		data.m_sTitle = ShortenText(m_aMissionTitles[index], 64);
+		data.m_sSubtitle = string.Format("%1 | %2 | %3s left", m_aMissionCategories[index], m_aMissionStatuses[index], m_aMissionRemaining[index]);
+		data.m_sLocation = m_aMissionZones[index] + " / " + m_aMissionSites[index];
+		data.m_sMapPosition = m_aMissionPositions[index];
+		data.m_sRequirement = m_aMissionRequirements[index];
+		data.m_sProgress = m_aMissionProgress[index];
+		data.m_sReward = m_aMissionRewards[index];
+		data.m_sFailure = m_aMissionFailures[index];
 		for (int i = 0; i < m_aObjectiveMissionIds.Count(); i++)
 		{
 			if (m_aObjectiveMissionIds[i] != m_sSelectedMissionId)
 				continue;
 
-			int objectiveTop = HST_UIWorkspaceMetrics.ScalePx(154 + rendered * 44, panelScale);
-			CreateTextWidget(workspace, root, ShortenText(m_aObjectiveLabels[i], 28), HST_UIWorkspaceMetrics.ScalePx(560, panelScale), objectiveTop, HST_UIWorkspaceMetrics.ScalePx(240, panelScale), HST_UIWorkspaceMetrics.ScalePx(22, panelScale), HST_UIWorkspaceMetrics.ScaleFont(17, panelScale), 0xFFF2F4F0, 0, true);
-			CreateTextWidget(workspace, root, ShortenText(m_aObjectiveProgress[i], 24), HST_UIWorkspaceMetrics.ScalePx(560, panelScale), objectiveTop + HST_UIWorkspaceMetrics.ScalePx(24, panelScale), HST_UIWorkspaceMetrics.ScalePx(240, panelScale), HST_UIWorkspaceMetrics.ScalePx(20, panelScale), HST_UIWorkspaceMetrics.ScaleFont(15, panelScale), 0xFFFFD98B, 0, false);
-			rendered++;
-			if (rendered >= 8)
-				break;
+			data.m_aObjectiveLabels.Insert(m_aObjectiveLabels[i]);
+			if (m_aObjectiveProgress.IsIndexValid(i))
+				data.m_aObjectiveValues.Insert(m_aObjectiveProgress[i]);
+			else
+				data.m_aObjectiveValues.Insert("");
 		}
 
-		if (rendered == 0)
-			CreateTextWidget(workspace, root, "No objective records.", HST_UIWorkspaceMetrics.ScalePx(560, panelScale), HST_UIWorkspaceMetrics.ScalePx(154, panelScale), HST_UIWorkspaceMetrics.ScalePx(260, panelScale), HST_UIWorkspaceMetrics.ScalePx(26, panelScale), HST_UIWorkspaceMetrics.ScaleFont(16, panelScale), 0xFF9AA5AD, 0, false);
+		Widget root = HST_ReportDialogController.Render(workspace, data, m_WidgetHandler);
+		if (!root)
+			return false;
+
+		m_aWidgets.Insert(root);
+		return true;
 	}
 
-	bool OnWidgetClicked(int widgetId)
+	bool OnWidgetClicked(int widgetId, int button = 0)
 	{
+		if (IsDuplicateWidgetActivation(widgetId, button))
+			return true;
+		if (!CanHandleMissionDialogInput())
+			return false;
+
 		if (widgetId != DETAIL_CLOSE_WIDGET_ID)
 			return false;
 
-		m_bDetailOpen = false;
-		ClearWidgets();
+		CloseMissionDetails();
 		return true;
 	}
 
-	protected void CreatePanelRow(WorkspaceWidget workspace, Widget root, string label, string value, int left, int top, float scale)
+	protected bool CanHandleMissionDialogInput()
 	{
-		CreateTextWidget(workspace, root, label, left, top, HST_UIWorkspaceMetrics.ScalePx(150, scale), HST_UIWorkspaceMetrics.ScalePx(24, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFFFD98B, 0, true);
-		CreateTextWidget(workspace, root, ShortenText(value, 76), left + HST_UIWorkspaceMetrics.ScalePx(150, scale), top, HST_UIWorkspaceMetrics.ScalePx(360, scale), HST_UIWorkspaceMetrics.ScalePx(46, scale), HST_UIWorkspaceMetrics.ScaleFont(16, scale), 0xFFE7EDF1, 0, false);
+		return HST_UIRootService.Get().CanHandleModalInput(HST_EUIScreenMode.MISSION_DIALOG, "HST_MissionClientComponent");
 	}
 
-	protected Widget CreateRectWidget(WorkspaceWidget workspace, Widget parent, int left, int top, int width, int height, int color, float opacity, int userId)
+	protected bool IsDuplicateWidgetActivation(int widgetId, int button)
 	{
-		WidgetFlags flags = WidgetFlags.VISIBLE;
-		if (userId <= 0)
-			flags = WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS;
-
-		Widget widget = workspace.CreateWidget(WidgetType.CanvasWidgetTypeID, flags, null, DETAIL_ROOT_Z + 5, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		SetupCanvasRect(widget, width, height, color);
-		widget.SetOpacity(opacity);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-		else
-		{
-			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		}
-		return widget;
-	}
-
-	protected TextWidget CreateTextWidget(WorkspaceWidget workspace, Widget parent, string text, int left, int top, int width, int height, int fontSize, int color, int userId, bool bold)
-	{
-		WidgetFlags flags = WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION;
-		if (userId <= 0)
-			flags = WidgetFlags.VISIBLE | WidgetFlags.NO_LOCALIZATION | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS;
-
-		Widget widget = workspace.CreateWidget(WidgetType.TextWidgetTypeID, flags, null, DETAIL_ROOT_Z + 10, parent);
-		if (!widget)
-			return null;
-
-		FrameSlot.SetPos(widget, left, top);
-		FrameSlot.SetSize(widget, width, height);
-		TextWidget textWidget = TextWidget.Cast(widget);
-		if (textWidget)
-		{
-			textWidget.SetText(text);
-			textWidget.SetExactFontSize(fontSize);
-			textWidget.SetBold(bold);
-			textWidget.SetTextWrapping(true);
-			textWidget.SetOutline(1, 0xDD000000);
-			textWidget.SetShadow(2, 0xEE000000, 1, 1, 1);
-		}
-
-		widget.SetColorInt(color);
-		if (userId > 0)
-		{
-			widget.SetUserID(userId);
-			widget.AddHandler(m_WidgetHandler);
-		}
-		else
-		{
-			widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
-		}
-
-		return textWidget;
-	}
-
-	protected bool SetupCanvasRect(Widget widget, int width, int height, int color)
-	{
-		CanvasWidget canvas = CanvasWidget.Cast(widget);
-		if (!canvas)
+		if (widgetId == 0)
 			return false;
 
-		HST_MissionClientDrawCommandSet commandSet = new HST_MissionClientDrawCommandSet();
-		PolygonDrawCommand rectCommand = new PolygonDrawCommand();
-		rectCommand.m_iColor = color;
-		rectCommand.m_Vertices = BuildRectVertices(width, height);
-		commandSet.m_aCommands.Insert(rectCommand);
-		canvas.SetDrawCommands(commandSet.m_aCommands);
-		m_aCanvasCommandSets.Insert(commandSet);
-		return true;
+		if (m_iLastActivatedFrame == m_iFrameSerial && m_iLastActivatedWidgetId == widgetId && m_iLastActivatedButton == button)
+			return true;
+
+		m_iLastActivatedWidgetId = widgetId;
+		m_iLastActivatedButton = button;
+		m_iLastActivatedFrame = m_iFrameSerial;
+		return false;
 	}
 
-	protected ref array<float> BuildRectVertices(int width, int height)
+	protected void CloseMissionDetails()
 	{
-		ref array<float> vertices = {};
-		vertices.Insert(0.0);
-		vertices.Insert(0.0);
-		vertices.Insert(width);
-		vertices.Insert(0.0);
-		vertices.Insert(width);
-		vertices.Insert(height);
-		vertices.Insert(0.0);
-		vertices.Insert(height);
-		return vertices;
+		bool wasOpen = m_bDetailOpen;
+		m_bDetailOpen = false;
+		m_sSelectedMissionId = "";
+		if (wasOpen)
+			HST_ReportDialogController.Close("HST_MissionClientComponent");
+
+		ClearWidgets();
 	}
 
 	protected void ParseMissionIntel(string payload)
@@ -684,7 +488,6 @@ class HST_MissionClientComponent : ScriptComponent
 		}
 
 		m_aWidgets.Clear();
-		m_aCanvasCommandSets.Clear();
 	}
 
 	protected bool IsLocalOwner(IEntity owner)
@@ -712,17 +515,17 @@ class HST_MissionClientWidgetHandler : ScriptedWidgetEventHandler
 
 	override bool OnClick(Widget w, int x, int y, int button)
 	{
-		if (!m_Client)
+		if (!m_Client || !w)
 			return false;
 
-		return m_Client.OnWidgetClicked(w.GetUserID());
+		return m_Client.OnWidgetClicked(w.GetUserID(), button);
 	}
 
 	override bool OnMouseButtonUp(Widget w, int x, int y, int button)
 	{
-		if (!m_Client)
+		if (!m_Client || !w)
 			return false;
 
-		return m_Client.OnWidgetClicked(w.GetUserID());
+		return m_Client.OnWidgetClicked(w.GetUserID(), button);
 	}
 }

@@ -7,6 +7,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 {
 	static const int CLIENT_MAP_MARKER_REFRESH_MAX_RETRIES = 10;
 	static const int CLIENT_MAP_MARKER_REFRESH_RETRY_MS = 250;
+	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
 
 	protected static HST_CommandMenuRequestComponent s_LocalOwner;
 	protected static HST_CommandMenuRequestComponent s_ServerBroadcaster;
@@ -78,15 +79,27 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 
 		s_LocalOwner = this;
+		BindNativeMapMarkerRefresh();
 	}
 
 	protected void BindNativeMapMarkerRefresh()
 	{
+		if (m_bNativeMapMarkerRefreshBound)
+			return;
+
+		SCR_MapEntity.GetOnMapOpenComplete().Insert(OnNativeMapOpenComplete);
+		SCR_MapEntity.GetOnMapClose().Insert(OnNativeMapClose);
 		m_bNativeMapMarkerRefreshBound = true;
 	}
 
 	protected void UnbindNativeMapMarkerRefresh()
 	{
+		if (m_bNativeMapMarkerRefreshBound)
+		{
+			SCR_MapEntity.GetOnMapOpenComplete().Remove(OnNativeMapOpenComplete);
+			SCR_MapEntity.GetOnMapClose().Remove(OnNativeMapClose);
+		}
+
 		m_bNativeMapMarkerRefreshBound = false;
 		m_bNativeMapMarkerRefreshQueued = false;
 	}
@@ -131,9 +144,25 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		string rootName = ResolveCurrentMapRootName(mapEntity);
 		bool hasMarkerUI = mapEntity.GetMapUIComponent(SCR_MapMarkersUI) != null;
+		bool hasToolMenuUI = mapEntity.GetMapUIComponent(SCR_MapToolMenuUI) != null;
+		bool hasToolInteractionUI = mapEntity.GetMapUIComponent(SCR_MapToolInteractionUI) != null;
+		bool hasToolMenuWidget = HasMapWidget(mapEntity, "ToolMenu");
+		bool hasToolMenuBarWidget = HasMapWidget(mapEntity, "ToolMenuBar");
 		int markerUIReady;
 		if (hasMarkerUI)
 			markerUIReady = 1;
+		int toolMenuUIReady;
+		if (hasToolMenuUI)
+			toolMenuUIReady = 1;
+		int toolInteractionUIReady;
+		if (hasToolInteractionUI)
+			toolInteractionUIReady = 1;
+		int toolMenuWidgetReady;
+		if (hasToolMenuWidget)
+			toolMenuWidgetReady = 1;
+		int toolMenuBarWidgetReady;
+		if (hasToolMenuBarWidget)
+			toolMenuBarWidgetReady = 1;
 		if (!HasOpenMapFrame(mapEntity))
 		{
 			if (RetryClientNativeMapMarkerRefresh())
@@ -143,8 +172,41 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		if (m_iNativeMapMarkerRefreshRetries > 0)
-			DebugLog(string.Format("map marker client refresh | native lifecycle delegated ui %1 root %2 retry %3", markerUIReady, rootName, m_iNativeMapMarkerRefreshRetries));
+		DebugLog(string.Format("map ui ready | root %1 markerUI %2 toolMenuUI %3 toolInteractionUI %4 toolMenuWidget %5 toolMenuBarWidget %6 retry %7", rootName, markerUIReady, toolMenuUIReady, toolInteractionUIReady, toolMenuWidgetReady, toolMenuBarWidgetReady, m_iNativeMapMarkerRefreshRetries));
+		if (!RefreshHSTPlayerMarkerWidgets())
+			RetryClientNativeMapMarkerRefresh();
+	}
+
+	protected bool RefreshHSTPlayerMarkerWidgets()
+	{
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return true;
+
+		markerManager.EnsureHSTMarkerConfig(PLAYER_MARKER_CONFIG);
+		array<SCR_MapMarkerEntity> dynamicMarkers = markerManager.GetDynamicMarkers();
+		int playerMarkers;
+		int readyMarkers;
+		foreach (SCR_MapMarkerEntity marker : dynamicMarkers)
+		{
+			if (!marker || marker.GetType() != SCR_EMapMarkerType.HST_PLAYER)
+				continue;
+
+			playerMarkers++;
+			if (marker.EnsureHSTPlayerMarkerWidget())
+				readyMarkers++;
+		}
+
+		if (playerMarkers == 0)
+		{
+			DebugLog(string.Format("player marker widget refresh | no dynamic player markers retry %1", m_iNativeMapMarkerRefreshRetries));
+			return false;
+		}
+
+		if (playerMarkers > 0)
+			DebugLog(string.Format("player marker widget refresh | ready %1/%2 retry %3", readyMarkers, playerMarkers, m_iNativeMapMarkerRefreshRetries));
+
+		return readyMarkers >= playerMarkers;
 	}
 
 	protected bool RetryClientNativeMapMarkerRefresh()
@@ -162,11 +224,19 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (!mapEntity || !mapEntity.IsOpen())
 			return false;
 
+		return HasMapWidget(mapEntity, SCR_MapConstants.MAP_FRAME_NAME);
+	}
+
+	protected bool HasMapWidget(SCR_MapEntity mapEntity, string widgetName)
+	{
+		if (!mapEntity || !mapEntity.IsOpen() || widgetName.IsEmpty())
+			return false;
+
 		Widget root = mapEntity.GetMapMenuRoot();
 		if (!root)
 			return false;
 
-		return root.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME) != null;
+		return root.FindAnyWidget(widgetName) != null;
 	}
 
 	protected string ResolveCurrentMapRootName(SCR_MapEntity mapEntity)

@@ -1,4 +1,429 @@
-FrameWidget HST_CommandMenuRoot {
- FrameWidget HST_CommandMenuDynamicCanvas {
+FrameWidgetClass "{A7B8C9D001234550}" {
+ Name "HST_CommandMenuRoot"
+ Slot FrameWidgetSlot "{A7B8C9D001234551}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ "Is Visible" 1
+ "Ignore Cursor" 0
+ {
+  PanelWidgetClass "{A7B8C9D001236001}" {
+   Name "ScreenDimmer"
+   Slot FrameWidgetSlot "{A7B8C9D001236002}" {
+    Anchor 0 0 1 1
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   Color 0.02 0.03 0.04 0.62
+   style full
+   "Ignore Cursor" 1
+  }
+  FrameWidgetClass "{A7B8C9D001236010}" {
+   Name "CommandSurface"
+   Slot FrameWidgetSlot "{A7B8C9D001236011}" {
+    Anchor 0.04 0.05 0.96 0.95
+    OffsetLeft 0
+    OffsetTop 0
+    OffsetRight 0
+    OffsetBottom 0
+   }
+   "Ignore Cursor" 0
+   {
+    PanelWidgetClass "{A7B8C9D001236012}" {
+     Name "CommandSurfaceBackground"
+     Slot FrameWidgetSlot "{A7B8C9D001236013}" {
+      Anchor 0 0 1 1
+      OffsetLeft 0
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
+     }
+     Color 0.03 0.05 0.07 0.98
+     style full
+     "Ignore Cursor" 1
+    }
+    FrameWidgetClass "{A7B8C9D001236020}" {
+     Name "Header"
+     Slot FrameWidgetSlot "{A7B8C9D001236021}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 0
+      OffsetRight 0
+      SizeY 82
+      OffsetBottom -82
+     }
+     "Ignore Cursor" 1
+     {
+      PanelWidgetClass "{A7B8C9D001236022}" {
+       Name "HeaderBackground"
+       Slot FrameWidgetSlot "{A7B8C9D001236023}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.07 0.10 0.13 0.98
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D001236024}" {
+       Name "HeaderTitle"
+       Slot FrameWidgetSlot "{A7B8C9D001236025}" {
+        Anchor 0 0 0 0
+        PositionX 24
+        OffsetLeft 24
+        PositionY 10
+        OffsetTop 10
+        SizeX 286
+        OffsetRight -310
+        SizeY 58
+        OffsetBottom -68
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "h-istasi HQ"
+      }
+      TextWidgetClass "{A7B8C9D001236026}" {
+       Name "HeaderSubtitle"
+       Slot FrameWidgetSlot "{A7B8C9D001236027}" {
+        Anchor 0 0 1 0
+        OffsetLeft 0
+        OffsetTop 23
+        OffsetRight 0
+        OffsetBottom -59
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "FIA Resistance Command"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+      TextWidgetClass "{A7B8C9D001236028}" {
+       Name "HeaderTabTitle"
+      Slot FrameWidgetSlot "{A7B8C9D001236029}" {
+        Anchor 0 0 1 1
+        OffsetLeft 650
+        OffsetTop 18
+        OffsetRight 150
+        OffsetBottom 18
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Overview"
+       "Is Visible" 0
+      }
+      ButtonWidgetClass "{A7B8C9D00123602A}" {
+       Name "CloseButton"
+       Slot FrameWidgetSlot "{A7B8C9D00123602B}" {
+        Anchor 1 0 1 0
+        PositionX -124
+        OffsetLeft -124
+        PositionY 19
+        OffsetTop 19
+        SizeX 100
+        OffsetRight 24
+        SizeY 44
+        OffsetBottom -63
+       }
+       Color 0.37 0.42 0.46 1
+       "Ignore Cursor" 0
+      }
+      TextWidgetClass "{A7B8C9D001236110}" {
+       Name "CloseLabel"
+       Slot FrameWidgetSlot "{A7B8C9D001236111}" {
+        Anchor 1 0 1 0
+        PositionX -124
+        OffsetLeft -124
+        PositionY 19
+        OffsetTop 19
+        SizeX 100
+        OffsetRight 24
+        SizeY 44
+        OffsetBottom -63
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Close"
+       "Horizontal Alignment" Center
+       "Vertical Alignment" Center
+      }
+     }
+    }
+    FrameWidgetClass "{A7B8C9D001236030}" {
+     Name "NavigationPanel"
+     Slot FrameWidgetSlot "{A7B8C9D001236031}" {
+     Anchor 0 0 0 1
+     OffsetLeft 20
+     OffsetTop 100
+      OffsetRight -220
+      OffsetBottom -20
+     }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{A7B8C9D001236032}" {
+       Name "NavigationBackground"
+       Slot FrameWidgetSlot "{A7B8C9D001236033}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       Color 0.06 0.08 0.11 0.98
+       style full
+       "Ignore Cursor" 1
+      }
+      TextWidgetClass "{A7B8C9D001236034}" {
+       Name "NavigationTitle"
+       Slot FrameWidgetSlot "{A7B8C9D001236035}" {
+        Anchor 0 0 1 0
+        PositionX 0
+        OffsetLeft 18
+        PositionY 14
+        OffsetTop 14
+        SizeX -36
+        OffsetRight 18
+        SizeY 30
+        OffsetBottom -44
+       }
+       "No Localization" 1
+       "Ignore Cursor" 1
+       Text "Navigation"
+      }
+      ScrollLayoutWidgetClass "{A7B8C9D001236036}" {
+       Name "TabScroll"
+       Slot FrameWidgetSlot "{A7B8C9D001236037}" {
+       Anchor 0 0 1 1
+       OffsetLeft 12
+       OffsetTop 56
+       OffsetRight 12
+       OffsetBottom 12
+       }
+       "Scrollbar Always Visible" 0
+       {
+        VerticalLayoutWidgetClass "{A7B8C9D001236038}" {
+         Name "TabItems"
+         Slot AlignableSlot "{A7B8C9D001236039}" {
+          HorizontalAlign 3
+          VerticalAlign 0
+         }
+        }
+       }
+      }
+     }
+    }
+    FrameWidgetClass "{A7B8C9D001236040}" {
+     Name "StatsPanel"
+     Slot FrameWidgetSlot "{A7B8C9D001236041}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 240
+      PositionY 100
+      OffsetTop 100
+      SizeX -764
+      OffsetRight 524
+      SizeY 68
+      OffsetBottom -168
+     }
+     "Ignore Cursor" 1
+     {
+      HorizontalLayoutWidgetClass "{A7B8C9D001236042}" {
+       Name "StatLayout"
+       Slot FrameWidgetSlot "{A7B8C9D001236043}" {
+        Anchor 0 0 1 1
+        OffsetLeft 0
+        OffsetTop 0
+        OffsetRight 0
+        OffsetBottom 0
+       }
+       {
+        FrameWidgetClass "{A7B8C9D001236044}" {
+         Name "Stat0"
+         Slot LayoutSlot "{A7B8C9D001236045}" {
+          SizeMode Fill
+          Padding 0 0 10 0
+         }
+         {
+          PanelWidgetClass "{A7B8C9D001236046}" {
+           Name "Stat0Background"
+           Slot FrameWidgetSlot "{A7B8C9D001236047}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 }
+           Color 0.12 0.16 0.20 0.96
+           style full
+           "Ignore Cursor" 1
+          }
+          TextWidgetClass "{A7B8C9D001236048}" {
+           Name "Stat0Label"
+           Slot FrameWidgetSlot "{A7B8C9D001236049}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 10 PositionY 7 OffsetTop 7 SizeX -20 OffsetRight 10 SizeY 21 OffsetBottom -28 }
+           "No Localization" 1
+           "Ignore Cursor" 1
+          }
+          TextWidgetClass "{A7B8C9D00123604A}" {
+           Name "Stat0Value"
+           Slot FrameWidgetSlot "{A7B8C9D00123604B}" { Anchor 0 0 1 1 OffsetLeft 10 OffsetTop 30 OffsetRight 10 OffsetBottom 7 }
+           "No Localization" 1
+           "Ignore Cursor" 1
+          }
+         }
+        }
+        FrameWidgetClass "{A7B8C9D00123604C}" {
+         Name "Stat1"
+         Slot LayoutSlot "{A7B8C9D00123604D}" {
+          SizeMode Fill
+          Padding 0 0 10 0
+         }
+         {
+          PanelWidgetClass "{A7B8C9D00123604E}" { Name "Stat1Background" Slot FrameWidgetSlot "{A7B8C9D00123604F}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.12 0.16 0.20 0.96 style full "Ignore Cursor" 1 }
+          TextWidgetClass "{A7B8C9D001236050}" { Name "Stat1Label" Slot FrameWidgetSlot "{A7B8C9D001236051}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 10 PositionY 7 OffsetTop 7 SizeX -20 OffsetRight 10 SizeY 21 OffsetBottom -28 } "No Localization" 1 "Ignore Cursor" 1 }
+          TextWidgetClass "{A7B8C9D001236052}" { Name "Stat1Value" Slot FrameWidgetSlot "{A7B8C9D001236053}" { Anchor 0 0 1 1 OffsetLeft 10 OffsetTop 30 OffsetRight 10 OffsetBottom 7 } "No Localization" 1 "Ignore Cursor" 1 }
+         }
+        }
+        FrameWidgetClass "{A7B8C9D001236054}" {
+         Name "Stat2"
+         Slot LayoutSlot "{A7B8C9D001236055}" {
+          SizeMode Fill
+          Padding 0 0 10 0
+         }
+         {
+          PanelWidgetClass "{A7B8C9D001236056}" { Name "Stat2Background" Slot FrameWidgetSlot "{A7B8C9D001236057}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.12 0.16 0.20 0.96 style full "Ignore Cursor" 1 }
+          TextWidgetClass "{A7B8C9D001236058}" { Name "Stat2Label" Slot FrameWidgetSlot "{A7B8C9D001236059}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 10 PositionY 7 OffsetTop 7 SizeX -20 OffsetRight 10 SizeY 21 OffsetBottom -28 } "No Localization" 1 "Ignore Cursor" 1 }
+          TextWidgetClass "{A7B8C9D00123605A}" { Name "Stat2Value" Slot FrameWidgetSlot "{A7B8C9D00123605B}" { Anchor 0 0 1 1 OffsetLeft 10 OffsetTop 30 OffsetRight 10 OffsetBottom 7 } "No Localization" 1 "Ignore Cursor" 1 }
+         }
+        }
+        FrameWidgetClass "{A7B8C9D00123605C}" {
+         Name "Stat3"
+         Slot LayoutSlot "{A7B8C9D00123605D}" {
+          SizeMode Fill
+         }
+         {
+          PanelWidgetClass "{A7B8C9D00123605E}" { Name "Stat3Background" Slot FrameWidgetSlot "{A7B8C9D00123605F}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.12 0.16 0.20 0.96 style full "Ignore Cursor" 1 }
+          TextWidgetClass "{A7B8C9D001236060}" { Name "Stat3Label" Slot FrameWidgetSlot "{A7B8C9D001236061}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 10 PositionY 7 OffsetTop 7 SizeX -20 OffsetRight 10 SizeY 21 OffsetBottom -28 } "No Localization" 1 "Ignore Cursor" 1 }
+          TextWidgetClass "{A7B8C9D001236062}" { Name "Stat3Value" Slot FrameWidgetSlot "{A7B8C9D001236063}" { Anchor 0 0 1 1 OffsetLeft 10 OffsetTop 30 OffsetRight 10 OffsetBottom 7 } "No Localization" 1 "Ignore Cursor" 1 }
+         }
+        }
+       }
+      }
+     }
+    }
+    FrameWidgetClass "{A7B8C9D001236070}" {
+     Name "MainPanel"
+     Slot FrameWidgetSlot "{A7B8C9D001236071}" {
+      Anchor 0 0 1 1
+      OffsetLeft 240
+      OffsetTop 182
+      OffsetRight 524
+      OffsetBottom 20
+     }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{A7B8C9D001236072}" { Name "MainBackground" Slot FrameWidgetSlot "{A7B8C9D001236073}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.10 0.14 0.17 0.98 style full "Ignore Cursor" 1 }
+      PanelWidgetClass "{A7B8C9D001236074}" { Name "MainAccent" Slot FrameWidgetSlot "{A7B8C9D001236075}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 0 PositionY 0 OffsetTop 0 SizeX 0 OffsetRight 0 SizeY 4 OffsetBottom -4 } Color 0.77 0.58 0.23 1 style full "Ignore Cursor" 1 }
+      ScrollLayoutWidgetClass "{A7B8C9D001236076}" {
+       Name "MainScroll"
+       Slot FrameWidgetSlot "{A7B8C9D001236077}" {
+        Anchor 0 0 1 1
+        OffsetLeft 24
+        OffsetTop 30
+        OffsetRight 24
+        OffsetBottom 24
+       }
+       "Scrollbar Always Visible" 1
+       {
+        VerticalLayoutWidgetClass "{A7B8C9D001236078}" {
+         Name "MainItems"
+         Slot AlignableSlot "{A7B8C9D001236079}" {
+          HorizontalAlign 0
+          VerticalAlign 0
+         }
+        }
+       }
+      }
+     }
+    }
+    FrameWidgetClass "{A7B8C9D001236080}" {
+     Name "ActivityPanel"
+     Slot FrameWidgetSlot "{A7B8C9D001236081}" {
+      Anchor 1 0 1 1
+      OffsetLeft -500
+      OffsetTop 100
+      OffsetRight 20
+      OffsetBottom 740
+     }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{A7B8C9D001236082}" { Name "ActivityBackground" Slot FrameWidgetSlot "{A7B8C9D001236083}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.10 0.14 0.17 0.98 style full "Ignore Cursor" 1 }
+      PanelWidgetClass "{A7B8C9D001236084}" { Name "ActivityAccent" Slot FrameWidgetSlot "{A7B8C9D001236085}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 0 PositionY 0 OffsetTop 0 SizeX 0 OffsetRight 0 SizeY 4 OffsetBottom -4 } Color 0.31 0.44 0.29 1 style full "Ignore Cursor" 1 }
+      TextWidgetClass "{A7B8C9D001236086}" { Name "ActivityTitle" Slot FrameWidgetSlot "{A7B8C9D001236087}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 18 OffsetTop 18 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -48 } "No Localization" 1 "Ignore Cursor" 1 Text "Last Activity" "Horizontal Alignment" Left "Vertical Alignment" Center }
+      TextWidgetClass "{A7B8C9D001236088}" { Name "ActivityResult" Slot FrameWidgetSlot "{A7B8C9D001236089}" { Anchor 0 0 1 1 PositionX 0 OffsetLeft 20 PositionY 54 OffsetTop 54 SizeX -40 OffsetRight 20 OffsetBottom 18 } "No Localization" 1 "Ignore Cursor" 1 "Horizontal Alignment" Left "Vertical Alignment" Top }
+      TextWidgetClass "{A7B8C9D00123608A}" { Name "ActivityFeedTitle" Slot FrameWidgetSlot "{A7B8C9D00123608B}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 100 OffsetTop 100 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -130 } "No Localization" 1 "Is Visible" 0 "Ignore Cursor" 1 Text "" "Horizontal Alignment" Left "Vertical Alignment" Center }
+      ScrollLayoutWidgetClass "{A7B8C9D00123608C}" {
+       Name "ActivityScroll"
+       Slot FrameWidgetSlot "{A7B8C9D00123608D}" {
+        Anchor 0 0 1 1
+        OffsetLeft 20
+        OffsetTop 138
+        OffsetRight 20
+       OffsetBottom 12
+       }
+       "Is Visible" 0
+       "Scrollbar Always Visible" 0
+       {
+        VerticalLayoutWidgetClass "{A7B8C9D00123608E}" {
+         Name "ActivityItems"
+         Slot AlignableSlot "{A7B8C9D00123608F}" {
+          HorizontalAlign 0
+          VerticalAlign 0
+         }
+        }
+       }
+      }
+     }
+    }
+    FrameWidgetClass "{A7B8C9D001236090}" {
+     Name "ActionsPanel"
+     Slot FrameWidgetSlot "{A7B8C9D001236091}" {
+      Anchor 1 1 1 1
+      OffsetLeft -500
+      OffsetTop -710
+      OffsetRight 20
+      OffsetBottom 20
+     }
+     "Ignore Cursor" 0
+     {
+      PanelWidgetClass "{A7B8C9D001236092}" { Name "ActionsBackground" Slot FrameWidgetSlot "{A7B8C9D001236093}" { Anchor 0 0 1 1 OffsetLeft 0 OffsetTop 0 OffsetRight 0 OffsetBottom 0 } Color 0.10 0.14 0.17 0.98 style full "Ignore Cursor" 1 }
+      PanelWidgetClass "{A7B8C9D001236094}" { Name "ActionsAccent" Slot FrameWidgetSlot "{A7B8C9D001236095}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 0 PositionY 0 OffsetTop 0 SizeX 0 OffsetRight 0 SizeY 4 OffsetBottom -4 } Color 0.55 0.31 0.26 1 style full "Ignore Cursor" 1 }
+      TextWidgetClass "{A7B8C9D001236096}" { Name "ActionsTitle" Slot FrameWidgetSlot "{A7B8C9D001236097}" { Anchor 0 0 1 0 PositionX 0 OffsetLeft 20 PositionY 18 OffsetTop 18 SizeX -40 OffsetRight 20 SizeY 30 OffsetBottom -48 } "No Localization" 1 "Ignore Cursor" 1 Text "Actions" "Horizontal Alignment" Left "Vertical Alignment" Center }
+      ScrollLayoutWidgetClass "{A7B8C9D001236098}" {
+       Name "ActionsScroll"
+       Slot FrameWidgetSlot "{A7B8C9D001236099}" {
+        Anchor 0 0 1 1
+        OffsetLeft 20
+        OffsetTop 58
+        OffsetRight 20
+        OffsetBottom 16
+       }
+       "Scrollbar Always Visible" 1
+       {
+        VerticalLayoutWidgetClass "{A7B8C9D00123609A}" {
+         Name "ActionsItems"
+         Slot AlignableSlot "{A7B8C9D00123609B}" {
+          HorizontalAlign 0
+          VerticalAlign 0
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
  }
 }

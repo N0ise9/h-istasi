@@ -1,153 +1,171 @@
 FrameWidgetClass "{B55C6FB34BF94001}" {
  Name "HST_SetupConfirmModalRoot"
  Slot FrameWidgetSlot "{B55C6FB34BF94002}" {
-  Anchor 0.5 0.5 0.5 0.5
-  OffsetLeft -310
-  OffsetTop -140
-  OffsetRight 310
-  OffsetBottom 140
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
  }
+ "Is Visible" 1
+ "Ignore Cursor" 0
  {
-  PanelWidgetClass "{B55C6FB34BF94003}" {
-   Name "Background"
-   Slot FrameWidgetSlot "{B55C6FB34BF94004}" {
+  PanelWidgetClass "{B55C6FB34BF9401B}" {
+   Name "ModalDimmer"
+   Slot FrameWidgetSlot "{B55C6FB34BF9401C}" {
     Anchor 0 0 1 1
     OffsetLeft 0
     OffsetTop 0
     OffsetRight 0
     OffsetBottom 0
    }
-   Color 0.11 0.16 0.20 1
+   Color 0 0 0 0.16
    style full
    "Is Visible" 1
    "Ignore Cursor" 1
   }
-  PanelWidgetClass "{B55C6FB34BF94005}" {
-   Name "TopAccent"
-   Slot FrameWidgetSlot "{B55C6FB34BF94006}" {
-    Anchor 0 0 1 0
+  FrameWidgetClass "{B55C6FB34BF94019}" {
+   Name "Dialog"
+   Slot FrameWidgetSlot "{B55C6FB34BF9401A}" {
+    Anchor 0.5 0.5 0.5 0.5
+    PositionX 0
     OffsetLeft 0
+    PositionY 0
     OffsetTop 0
-    OffsetRight 0
-    OffsetBottom 4
-   }
-   Color 0.77 0.58 0.23 1
-   style full
-   "Is Visible" 1
-   "Ignore Cursor" 1
-  }
-  TextWidgetClass "{B55C6FB34BF94007}" {
-   Name "Message"
-   Slot FrameWidgetSlot "{B55C6FB34BF94008}" {
-    Anchor 0 0 1 0
-    OffsetLeft 34
-    OffsetTop 34
-    OffsetRight -34
-    OffsetBottom 132
+    SizeX 620
+    OffsetRight -620
+    SizeY 280
+    OffsetBottom -280
+    Alignment 0.5 0.5
    }
    "Is Visible" 1
-   "Ignore Cursor" 1
-   "No Localization" 1
-   "Text Wrapping" 1
-   Text "Are you sure you want to place the HQ here?"
-  }
-  ButtonWidgetClass "{B55C6FB34BF94009}" {
-   Name "NoButton"
-   Slot FrameWidgetSlot "{B55C6FB34BF9400A}" {
-    Anchor 0.5 1 0.5 1
-    OffsetLeft -172
-    OffsetTop -74
-    OffsetRight -12
-    OffsetBottom -24
-   }
-   Color 0.27 0.33 0.36 1
-   "Is Visible" 1
+   "Ignore Cursor" 0
    {
-    FrameWidgetClass "{B55C6FB34BF9400B}" {
-     Name "NoBody"
-     Slot ButtonWidgetSlot "{B55C6FB34BF9400C}" {
+    PanelWidgetClass "{B55C6FB34BF94003}" {
+     Name "Background"
+     Slot FrameWidgetSlot "{B55C6FB34BF94004}" {
+      Anchor 0 0 1 1
+      OffsetLeft 0
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
      }
+     Color 0.11 0.16 0.20 1
+     style full
+     "Is Visible" 1
      "Ignore Cursor" 1
-     {
-      PanelWidgetClass "{B55C6FB34BF94011}" {
-       Name "NoBackground"
-       Slot FrameWidgetSlot "{B55C6FB34BF94012}" {
-        Anchor 0 0 1 1
-        OffsetLeft 0
-        OffsetTop 0
-        OffsetRight 0
-        OffsetBottom 0
-       }
-       Color 0.27 0.33 0.36 1
-       style full
-       "Is Visible" 1
-       "Ignore Cursor" 1
-      }
-      TextWidgetClass "{B55C6FB34BF94013}" {
-       Name "NoLabel"
-       Slot FrameWidgetSlot "{B55C6FB34BF94014}" {
-        Anchor 0 0 1 1
-        OffsetLeft 20
-        OffsetTop 12
-        OffsetRight -20
-        OffsetBottom -10
-       }
-       "Is Visible" 1
-       "Ignore Cursor" 1
-       "No Localization" 1
-       Text "No"
-      }
-     }
     }
-   }
-  }
-  ButtonWidgetClass "{B55C6FB34BF9400D}" {
-   Name "YesButton"
-   Slot FrameWidgetSlot "{B55C6FB34BF9400E}" {
-    Anchor 0.5 1 0.5 1
-    OffsetLeft 12
-    OffsetTop -74
-    OffsetRight 172
-    OffsetBottom -24
-   }
-   Color 0.77 0.58 0.23 1
-   "Is Visible" 1
-   {
-    FrameWidgetClass "{B55C6FB34BF9400F}" {
-     Name "YesBody"
-     Slot ButtonWidgetSlot "{B55C6FB34BF94010}" {
+    PanelWidgetClass "{B55C6FB34BF94005}" {
+     Name "TopAccent"
+     Slot FrameWidgetSlot "{B55C6FB34BF94006}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 0
+      OffsetRight 0
+      SizeY 4
+      OffsetBottom -4
      }
+     Color 0.77 0.58 0.23 1
+     style full
+     "Is Visible" 1
      "Ignore Cursor" 1
-     {
-      PanelWidgetClass "{B55C6FB34BF94015}" {
-       Name "YesBackground"
-       Slot FrameWidgetSlot "{B55C6FB34BF94016}" {
-        Anchor 0 0 1 1
-        OffsetLeft 0
-        OffsetTop 0
-        OffsetRight 0
-        OffsetBottom 0
-       }
-       Color 0.77 0.58 0.23 1
-       style full
-       "Is Visible" 1
-       "Ignore Cursor" 1
-      }
-      TextWidgetClass "{B55C6FB34BF94017}" {
-       Name "YesLabel"
-       Slot FrameWidgetSlot "{B55C6FB34BF94018}" {
-        Anchor 0 0 1 1
-        OffsetLeft 20
-        OffsetTop 12
-        OffsetRight -20
-        OffsetBottom -10
-       }
-       "Is Visible" 1
-       "Ignore Cursor" 1
-       "No Localization" 1
-       Text "Yes"
-      }
+    }
+    TextWidgetClass "{B55C6FB34BF94007}" {
+     Name "Message"
+     Slot FrameWidgetSlot "{B55C6FB34BF94008}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 42
+      PositionY 52
+      OffsetTop 52
+      SizeX -84
+      OffsetRight 42
+      SizeY 86
+      OffsetBottom -138
      }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text "Are you sure you want to place the HQ here?"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{B55C6FB34BF94009}" {
+     Name "NoButton"
+     Slot FrameWidgetSlot "{B55C6FB34BF9400A}" {
+      Anchor 0 0 0 0
+      PositionX 138
+      OffsetLeft 138
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -298
+      SizeY 50
+      OffsetBottom -256
+     }
+     Color 0.27 0.33 0.36 1
+     "Is Visible" 1
+     "Ignore Cursor" 0
+    }
+    TextWidgetClass "{B55C6FB34BF94013}" {
+     Name "NoLabel"
+     Slot FrameWidgetSlot "{B55C6FB34BF94014}" {
+      Anchor 0 0 0 0
+      PositionX 138
+      OffsetLeft 138
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -298
+      SizeY 50
+      OffsetBottom -256
+     }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text "No"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{B55C6FB34BF9400D}" {
+     Name "YesButton"
+     Slot FrameWidgetSlot "{B55C6FB34BF9400E}" {
+      Anchor 0 0 0 0
+      PositionX 322
+      OffsetLeft 322
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -482
+      SizeY 50
+      OffsetBottom -256
+     }
+     Color 0.77 0.58 0.23 1
+     "Is Visible" 1
+     "Ignore Cursor" 0
+    }
+    TextWidgetClass "{B55C6FB34BF94017}" {
+     Name "YesLabel"
+     Slot FrameWidgetSlot "{B55C6FB34BF94018}" {
+      Anchor 0 0 0 0
+      PositionX 322
+      OffsetLeft 322
+      PositionY 206
+      OffsetTop 206
+      SizeX 160
+      OffsetRight -482
+      SizeY 50
+      OffsetBottom -256
+     }
+     "Is Visible" 1
+     "Ignore Cursor" 1
+     "No Localization" 1
+     Text "Yes"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
     }
    }
   }

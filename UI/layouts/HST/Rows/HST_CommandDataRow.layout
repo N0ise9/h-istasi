@@ -1,7 +1,7 @@
 ButtonWidgetClass "{A7B8C9D001234590}" {
  Name "HST_CommandDataRow"
  Slot AlignableSlot "{A7B8C9D001234591}" {
-  HorizontalAlign 3
+  HorizontalAlign 0
   VerticalAlign 0
   Padding 0 0 0 4
  }
@@ -13,15 +13,15 @@ ButtonWidgetClass "{A7B8C9D001234590}" {
    Slot ButtonWidgetSlot "{A7B8C9D001235901}" {
    }
    AllowWidthOverride 1
-   WidthOverride 920
+   WidthOverride 940
    AllowHeightOverride 1
    HeightOverride 42
    AllowMinDesiredWidth 1
-   MinDesiredWidth 920
+   MinDesiredWidth 940
    AllowMinDesiredHeight 1
    MinDesiredHeight 42
    AllowMaxDesiredWidth 1
-   MaxDesiredWidth 920
+   MaxDesiredWidth 940
    AllowMaxDesiredHeight 1
    MaxDesiredHeight 42
    {
@@ -58,26 +58,30 @@ ButtonWidgetClass "{A7B8C9D001234590}" {
         TextWidgetClass "{A7B8C9D001234594}" {
          Name "Label"
          Slot FrameWidgetSlot "{A7B8C9D001234595}" {
-          Anchor 0 0 0 1
-          OffsetLeft 10
-          OffsetTop 5
-          OffsetRight 220
-          OffsetBottom -5
+         Anchor 0 0 0 1
+         OffsetLeft 10
+         OffsetTop 5
+          OffsetRight -220
+          OffsetBottom 5
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
         TextWidgetClass "{A7B8C9D001234596}" {
          Name "Value"
          Slot FrameWidgetSlot "{A7B8C9D001234597}" {
-          Anchor 0 0 1 1
+         Anchor 0 0 1 1
           OffsetLeft 10
-          OffsetTop 5
-          OffsetRight -10
-          OffsetBottom -5
+         OffsetTop 5
+          OffsetRight 10
+          OffsetBottom 5
          }
          "Is Visible" 1
          "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
         }
        }
       }

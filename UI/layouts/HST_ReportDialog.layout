@@ -1,0 +1,192 @@
+FrameWidgetClass "{D66CFA01E5AA4100}" {
+ Name "HST_ReportDialogRoot"
+ Slot FrameWidgetSlot "{D66CFA01E5AA4101}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ "Is Visible" 1
+ "Ignore Cursor" 0
+ {
+  FrameWidgetClass "{D66CFA01E5AA4102}" {
+   Name "Dialog"
+   Slot FrameWidgetSlot "{D66CFA01E5AA4103}" {
+    Anchor 0.5 0.5 0.5 0.5
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 940
+    OffsetRight -940
+    SizeY 580
+    OffsetBottom -580
+    Alignment 0.5 0.5
+   }
+   "Is Visible" 1
+   "Ignore Cursor" 0
+   {
+    PanelWidgetClass "{D66CFA01E5AA4104}" {
+     Name "Background"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4105}" {
+      Anchor 0 0 1 1
+      OffsetLeft 0
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
+     }
+     Color 0.03 0.05 0.07 0.97
+     style full
+     "Ignore Cursor" 1
+    }
+    PanelWidgetClass "{D66CFA01E5AA4106}" {
+     Name "AccentLine"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4107}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 0
+      OffsetRight 0
+      SizeY 5
+      OffsetBottom -5
+     }
+     Color 0.77 0.58 0.23 1
+     style full
+     "Ignore Cursor" 1
+    }
+    TextWidgetClass "{D66CFA01E5AA4108}" {
+     Name "Title"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4109}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 28
+      PositionY 22
+      OffsetTop 22
+      SizeX -198
+      OffsetRight -170
+      SizeY 36
+      OffsetBottom -58
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+    }
+    TextWidgetClass "{D66CFA01E5AA410A}" {
+     Name "Subtitle"
+     Slot FrameWidgetSlot "{D66CFA01E5AA410B}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 28
+      PositionY 62
+      OffsetTop 62
+      SizeX -56
+      OffsetRight -28
+      SizeY 32
+      OffsetBottom -94
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+    }
+    ButtonWidgetClass "{D66CFA01E5AA410C}" {
+     Name "CloseButton"
+     Slot FrameWidgetSlot "{D66CFA01E5AA410D}" {
+      Anchor 1 0 1 0
+      PositionX -132
+      OffsetLeft -132
+      PositionY 20
+      OffsetTop 20
+      SizeX 108
+      OffsetRight 24
+      SizeY 42
+      OffsetBottom -62
+     }
+     Color 0.38 0.29 0.14 0.95
+     "Is Visible" 1
+    }
+    TextWidgetClass "{D66CFA01E5AA4112}" {
+     Name "CloseLabel"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4113}" {
+      Anchor 1 0 1 0
+      PositionX -132
+      OffsetLeft -132
+      PositionY 20
+      OffsetTop 20
+      SizeX 108
+      OffsetRight 24
+      SizeY 42
+      OffsetBottom -62
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     Text "Close"
+    }
+    PanelWidgetClass "{D66CFA01E5AA4114}" {
+     Name "Divider"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4115}" {
+      Anchor 0.58 0 0.58 1
+      OffsetLeft 0
+      OffsetTop 108
+      OffsetRight 2
+      OffsetBottom -32
+     }
+     Color 0.24 0.31 0.35 0.65
+     style full
+     "Ignore Cursor" 1
+    }
+    TextWidgetClass "{D66CFA01E5AA4116}" { Name "LocationLabel" Slot FrameWidgetSlot "{D66CFA01E5AA4117}" { Anchor 0 0 0 0 PositionX 30 OffsetLeft 30 PositionY 116 OffsetTop 116 SizeX 144 OffsetRight -174 SizeY 26 OffsetBottom -142 } "No Localization" 1 "Ignore Cursor" 1 Text "Location" }
+    TextWidgetClass "{D66CFA01E5AA4118}" { Name "LocationValue" Slot FrameWidgetSlot "{D66CFA01E5AA4119}" { Anchor 0 0 0.58 0 PositionX 0 OffsetLeft 184 PositionY 116 OffsetTop 116 SizeX 0 OffsetRight -28 SizeY 44 OffsetBottom -160 } "No Localization" 1 "Ignore Cursor" 1 }
+    TextWidgetClass "{D66CFA01E5AA411A}" { Name "MapPositionLabel" Slot FrameWidgetSlot "{D66CFA01E5AA411B}" { Anchor 0 0 0 0 PositionX 30 OffsetLeft 30 PositionY 166 OffsetTop 166 SizeX 144 OffsetRight -174 SizeY 26 OffsetBottom -192 } "No Localization" 1 "Ignore Cursor" 1 Text "Map Position" }
+    TextWidgetClass "{D66CFA01E5AA411C}" { Name "MapPositionValue" Slot FrameWidgetSlot "{D66CFA01E5AA411D}" { Anchor 0 0 0.58 0 PositionX 0 OffsetLeft 184 PositionY 166 OffsetTop 166 SizeX 0 OffsetRight -28 SizeY 44 OffsetBottom -210 } "No Localization" 1 "Ignore Cursor" 1 }
+    TextWidgetClass "{D66CFA01E5AA411E}" { Name "RequirementLabel" Slot FrameWidgetSlot "{D66CFA01E5AA411F}" { Anchor 0 0 0 0 PositionX 30 OffsetLeft 30 PositionY 216 OffsetTop 216 SizeX 144 OffsetRight -174 SizeY 26 OffsetBottom -242 } "No Localization" 1 "Ignore Cursor" 1 Text "Requirement" }
+    TextWidgetClass "{D66CFA01E5AA4120}" { Name "RequirementValue" Slot FrameWidgetSlot "{D66CFA01E5AA4121}" { Anchor 0 0 0.58 0 PositionX 0 OffsetLeft 184 PositionY 216 OffsetTop 216 SizeX 0 OffsetRight -28 SizeY 56 OffsetBottom -272 } "No Localization" 1 "Ignore Cursor" 1 }
+    TextWidgetClass "{D66CFA01E5AA4122}" { Name "ProgressLabel" Slot FrameWidgetSlot "{D66CFA01E5AA4123}" { Anchor 0 0 0 0 PositionX 30 OffsetLeft 30 PositionY 282 OffsetTop 282 SizeX 144 OffsetRight -174 SizeY 26 OffsetBottom -308 } "No Localization" 1 "Ignore Cursor" 1 Text "Progress" }
+    TextWidgetClass "{D66CFA01E5AA4124}" { Name "ProgressValue" Slot FrameWidgetSlot "{D66CFA01E5AA4125}" { Anchor 0 0 0.58 0 PositionX 0 OffsetLeft 184 PositionY 282 OffsetTop 282 SizeX 0 OffsetRight -28 SizeY 56 OffsetBottom -338 } "No Localization" 1 "Ignore Cursor" 1 }
+    TextWidgetClass "{D66CFA01E5AA4126}" { Name "RewardLabel" Slot FrameWidgetSlot "{D66CFA01E5AA4127}" { Anchor 0 0 0 0 PositionX 30 OffsetLeft 30 PositionY 348 OffsetTop 348 SizeX 144 OffsetRight -174 SizeY 26 OffsetBottom -374 } "No Localization" 1 "Ignore Cursor" 1 Text "Reward" }
+    TextWidgetClass "{D66CFA01E5AA4128}" { Name "RewardValue" Slot FrameWidgetSlot "{D66CFA01E5AA4129}" { Anchor 0 0 0.58 0 PositionX 0 OffsetLeft 184 PositionY 348 OffsetTop 348 SizeX 0 OffsetRight -28 SizeY 56 OffsetBottom -404 } "No Localization" 1 "Ignore Cursor" 1 }
+    TextWidgetClass "{D66CFA01E5AA412A}" { Name "FailureLabel" Slot FrameWidgetSlot "{D66CFA01E5AA412B}" { Anchor 0 0 0 0 PositionX 30 OffsetLeft 30 PositionY 414 OffsetTop 414 SizeX 144 OffsetRight -174 SizeY 26 OffsetBottom -440 } "No Localization" 1 "Ignore Cursor" 1 Text "Failure" }
+    TextWidgetClass "{D66CFA01E5AA412C}" { Name "FailureValue" Slot FrameWidgetSlot "{D66CFA01E5AA412D}" { Anchor 0 0 0.58 1 OffsetLeft 184 OffsetTop 414 OffsetRight -28 OffsetBottom -34 } "No Localization" 1 "Ignore Cursor" 1 }
+    TextWidgetClass "{D66CFA01E5AA412E}" {
+     Name "ObjectivesTitle"
+     Slot FrameWidgetSlot "{D66CFA01E5AA412F}" {
+      Anchor 0.58 0 1 0
+      PositionX 0
+      OffsetLeft 28
+      PositionY 116
+      OffsetTop 116
+      SizeX -56
+      OffsetRight -28
+      SizeY 32
+      OffsetBottom -148
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     Text "Objectives"
+    }
+    ScrollLayoutWidgetClass "{D66CFA01E5AA4130}" {
+     Name "ObjectiveScroll"
+     Slot FrameWidgetSlot "{D66CFA01E5AA4131}" {
+      Anchor 0.58 0 1 1
+      OffsetLeft 28
+      OffsetTop 158
+      OffsetRight -28
+      OffsetBottom -34
+     }
+     "Scrollbar Always Visible" 1
+     {
+      VerticalLayoutWidgetClass "{D66CFA01E5AA4132}" {
+       Name "ObjectiveItems"
+       Slot AlignableSlot "{D66CFA01E5AA4133}" {
+        HorizontalAlign 3
+        VerticalAlign 0
+        Padding 0 0 0 0
+       }
+       "Ignore Cursor" 1
+      }
+     }
+    }
+   }
+  }
+ }
+}
