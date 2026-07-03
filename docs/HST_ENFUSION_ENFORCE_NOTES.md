@@ -274,6 +274,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Enforce compile validation can reject very wide helper signatures with `Maximum arguments count 16 exceeded`.
   - Campaign debug case/probe helpers should pass a small runtime context object once they need many observed fields. Current example: `HST_CampaignDebugSupportProbeContext` carries support ETA/status/physicalization observations between the support runtime probe and typed assertion builder.
+  - Keep assertion calls flat in large debug builders: compute `actual` strings and status booleans before `AddCampaignDebugAssertion(...)` instead of nesting several helper calls inside the assertion call.
   - Avoid reusing generic parameter names such as `request` across adjacent support helpers when fixing wide signatures; a previous support probe refactor produced follow-on `Multiple declaration of variable` errors until the shared state moved into a context object and parameters were renamed to `supportRequest`.
 
 - Prefer explicit boolean checks for object references when returning a bool.

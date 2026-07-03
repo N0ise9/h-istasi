@@ -3717,76 +3717,112 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return trainingCase;
 	}
 
-	protected void RunCampaignDebugSupportRequestCase(string label, HST_ESupportRequestType supportType, bool supplyDrop)
+	protected void RunCampaignDebugSupportRequestCase(string label, HST_ESupportRequestType requestedSupportType, bool supplyDrop)
 	{
 		ClearCampaignDebugPlayerSupportRequests("before " + label);
-		int countBefore = 0;
-		int moneyBefore = 0;
+		HST_CampaignDebugSupportProbeContext probeContext = new HST_CampaignDebugSupportProbeContext();
+		probeContext.m_sLabel = label;
+		probeContext.m_eExpectedType = requestedSupportType;
 		int requestedAtSecond = GetCampaignDebugElapsedSecond();
 		if (m_State)
 		{
-			countBefore = m_State.m_aSupportRequests.Count();
-			moneyBefore = m_State.m_iFactionMoney;
+			probeContext.m_iCountBefore = m_State.m_aSupportRequests.Count();
+			probeContext.m_iMoneyBefore = m_State.m_iFactionMoney;
 		}
 
-		string result;
 		if (supplyDrop)
-			result = RequestCommanderCallSupplyDropReport(m_iCampaignDebugPlayerId);
+			probeContext.m_sCommandResult = RequestCommanderCallSupplyDropReport(m_iCampaignDebugPlayerId);
 		else
-			result = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, supportType);
+			probeContext.m_sCommandResult = RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, requestedSupportType);
 
-		HST_CampaignDebugSupportProbeContext probeContext = new HST_CampaignDebugSupportProbeContext();
-		probeContext.m_Request = FindLatestCampaignDebugSupportRequest(supportType, countBefore, requestedAtSecond);
+		probeContext.m_Request = FindLatestCampaignDebugSupportRequest(requestedSupportType, probeContext.m_iCountBefore, requestedAtSecond);
 		probeContext.m_bRuntimeProbeRan = ProbeCampaignDebugSupportRequestRuntime(probeContext);
-		RecordCampaignDebugAction(label, result);
-		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(label, supportType, result, countBefore, moneyBefore, probeContext);
+		RecordCampaignDebugAction(label, probeContext.m_sCommandResult);
+		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(probeContext);
 		CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
 		RecordCampaignDebugCase(supportCase);
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportRequestCase(string label, HST_ESupportRequestType supportType, string result, int countBefore, int moneyBefore, HST_CampaignDebugSupportProbeContext probeContext)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportRequestCase(HST_CampaignDebugSupportProbeContext probeContext)
 	{
-		HST_CampaignDebugCaseResult supportCase = CreateCampaignDebugCase("support.request." + SafeCampaignDebugToken(label), "support", "player_support", "economy_force");
-		supportCase.m_aEvidence.Insert(result);
-		bool commandSucceeded = IsCampaignDebugResultSuccessful(result);
-		HST_SupportRequestState supportRequest;
+		string caseLabel = "missing_context";
+		string commandResult = "";
 		if (probeContext)
-			supportRequest = probeContext.m_Request;
-		AddCampaignDebugAssertion(supportCase, "support.command_result", "support command accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(commandSucceeded), "support command returned failure text");
-		AddCampaignDebugAssertion(supportCase, "support.record_created", "new player support request record created", string.Format("before %1 | after %2 | request %3", countBefore, CampaignDebugSupportRequestCount(), supportRequest != null), CampaignDebugStatus(supportRequest != null), "support command did not create a request record");
-		if (supportRequest)
 		{
-			HST_ZoneState targetZone = m_State.FindZone(supportRequest.m_sTargetZoneId);
-			HST_MapMarkerState marker = FindCampaignDebugMarkerLinkedTo(supportRequest.m_sRequestId);
-			int moneyDelta = m_State.m_iFactionMoney - moneyBefore;
-			AddCampaignDebugMetric(supportCase, "support.money_delta", string.Format("%1", moneyDelta), "money");
-			AddCampaignDebugMetric(supportCase, "support.eta", string.Format("%1", supportRequest.m_iETASeconds), "seconds");
-			AddCampaignDebugMetric(supportCase, "support.eta_remaining_before_probe", string.Format("%1", probeContext.m_iEtaRemainingBefore), "seconds");
-			AddCampaignDebugMetric(supportCase, "support.eta_remaining_after_probe", string.Format("%1", probeContext.m_iEtaRemainingAfter), "seconds");
-			AddCampaignDebugAssertion(supportCase, "support.debug_prefix", "support request id carries the current debug prefix", EmptyCampaignDebugField(supportRequest.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(supportRequest.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "debug-created support request was not retagged with the run prefix", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.type", "request type matches command", string.Format("%1", supportRequest.m_eType), CampaignDebugStatus(supportRequest.m_eType == supportType), "support request type does not match command", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.player_requested", "request is player requested", string.Format("%1", supportRequest.m_bPlayerRequested), CampaignDebugStatus(supportRequest.m_bPlayerRequested), "support request is not marked player-requested", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.faction", "request faction is resistance", EmptyCampaignDebugField(supportRequest.m_sFactionKey), CampaignDebugStatus(m_Preset && supportRequest.m_sFactionKey == m_Preset.m_sResistanceFactionKey), "support request faction is not resistance", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.status", "request status queued, active, or resolved by controlled runtime probe", string.Format("%1 | runtime %2", supportRequest.m_eStatus, EmptyCampaignDebugField(supportRequest.m_sRuntimeStatus)), CampaignDebugStatus(supportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || supportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE || supportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED), "support request is not in an expected status after creation/probe", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.target_zone", "target zone exists", EmptyCampaignDebugField(supportRequest.m_sTargetZoneId), CampaignDebugStatus(targetZone != null), "support target zone does not exist", supportRequest.m_sRequestId, "", supportRequest.m_sTargetZoneId);
-			AddCampaignDebugAssertion(supportCase, "support.target_position", "target position not zero", string.Format("%1", supportRequest.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(supportRequest.m_vTargetPosition)), "support target position is zero", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.eta", "ETA seconds > 0", string.Format("%1", supportRequest.m_iETASeconds), CampaignDebugStatus(supportRequest.m_iETASeconds > 0), "support request ETA is not positive", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.money_cost", "money delta equals request money cost", string.Format("%1 | request cost %2", moneyDelta, supportRequest.m_iMoneyCost), CampaignDebugStatus(moneyDelta == -supportRequest.m_iMoneyCost), "support request money cost was not applied exactly", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published or pending refresh", string.Format("%1", marker != null), CampaignDebugStatus(marker != null, "WARN"), "support marker is not visible in marker state immediately after request", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.runtime_tick", "real support tick processed the created request", string.Format("%1 | status %2 -> %3 | runtime %4 -> %5", probeContext.m_bRuntimeProbeRan, probeContext.m_eStatusBeforeTick, probeContext.m_eStatusAfterTick, EmptyCampaignDebugField(probeContext.m_sRuntimeStatusBeforeTick), EmptyCampaignDebugField(probeContext.m_sRuntimeStatusAfterTick)), CampaignDebugStatus(probeContext.m_bRuntimeProbeRan), "support runtime probe did not tick the created request", supportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.eta_progress", "remaining ETA decreases in controlled runtime probe", string.Format("%1 -> %2", probeContext.m_iEtaRemainingBefore, probeContext.m_iEtaRemainingAfter), CampaignDebugStatus(probeContext.m_bRuntimeProbeRan && probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore, "WARN"), "support ETA did not decrease during the runtime probe", supportRequest.m_sRequestId);
-			if (IsCampaignDebugPhysicalGroundSupportType(supportType))
-			{
-				AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", string.Format("physical %1 -> %2 | group %3 | group status %4 | mode %5 | runtime %6", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(probeContext.m_sGroupIdAfterTick), EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTick), EmptyCampaignDebugField(supportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(supportRequest.m_sRuntimeStatus)), CampaignDebugStatus(probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && probeContext.m_sGroupStatusAfterTick.Contains("support")), "ground support did not physicalize a linked support group", supportRequest.m_sRequestId);
-			}
-			else
-			{
-				AddCampaignDebugAssertion(supportCase, "support.physicalization_policy", "non-ground support remains abstract or ETA-driven", string.Format("physical %1 -> %2 | mode %3 | runtime %4", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(supportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(supportRequest.m_sRuntimeStatus)), CampaignDebugStatus(!IsCampaignDebugPhysicalGroundSupportType(supportType)), "non-ground support unexpectedly used the ground physicalization path", supportRequest.m_sRequestId);
-			}
+			caseLabel = probeContext.m_sLabel;
+			commandResult = probeContext.m_sCommandResult;
 		}
+
+		HST_CampaignDebugCaseResult supportCase = CreateCampaignDebugCase("support.request." + SafeCampaignDebugToken(caseLabel), "support", "player_support", "economy_force");
+		supportCase.m_aEvidence.Insert(commandResult);
+		if (!probeContext)
+		{
+			AddCampaignDebugAssertion(supportCase, "support.prerequisite.context", "support probe context exists", "missing", "BLOCKED", "support request assertion builder was called without context");
+			FinalizeCampaignDebugCaseFromAssertions(supportCase);
+			return supportCase;
+		}
+
+		bool commandSucceeded = IsCampaignDebugResultSuccessful(commandResult);
+		HST_SupportRequestState observedSupportRequest = probeContext.m_Request;
+		string recordActual = string.Format("before %1 | after %2 | request %3", probeContext.m_iCountBefore, CampaignDebugSupportRequestCount(), observedSupportRequest != null);
+		AddCampaignDebugAssertion(supportCase, "support.command_result", "support command accepted", ShortCampaignDebugLine(commandResult, 220), CampaignDebugStatus(commandSucceeded), "support command returned failure text");
+		AddCampaignDebugAssertion(supportCase, "support.record_created", "new player support request record created", recordActual, CampaignDebugStatus(observedSupportRequest != null), "support command did not create a request record");
+		if (observedSupportRequest)
+			AddCampaignDebugSupportRequestStateAssertions(supportCase, probeContext, observedSupportRequest);
 
 		FinalizeCampaignDebugCaseFromAssertions(supportCase);
 		return supportCase;
+	}
+
+	protected void AddCampaignDebugSupportRequestStateAssertions(HST_CampaignDebugCaseResult supportCase, HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState observedSupportRequest)
+	{
+		HST_ZoneState targetZoneState = null;
+		if (m_State)
+			targetZoneState = m_State.FindZone(observedSupportRequest.m_sTargetZoneId);
+		HST_MapMarkerState linkedMarkerState = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
+		int moneyDelta = 0;
+		if (m_State)
+			moneyDelta = m_State.m_iFactionMoney - probeContext.m_iMoneyBefore;
+
+		AddCampaignDebugMetric(supportCase, "support.money_delta", string.Format("%1", moneyDelta), "money");
+		AddCampaignDebugMetric(supportCase, "support.eta", string.Format("%1", observedSupportRequest.m_iETASeconds), "seconds");
+		AddCampaignDebugMetric(supportCase, "support.eta_remaining_before_probe", string.Format("%1", probeContext.m_iEtaRemainingBefore), "seconds");
+		AddCampaignDebugMetric(supportCase, "support.eta_remaining_after_probe", string.Format("%1", probeContext.m_iEtaRemainingAfter), "seconds");
+
+		string statusActual = string.Format("%1 | runtime %2", observedSupportRequest.m_eStatus, EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
+		bool statusExpected = observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE || observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
+		AddCampaignDebugAssertion(supportCase, "support.debug_prefix", "support request id carries the current debug prefix", EmptyCampaignDebugField(observedSupportRequest.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(observedSupportRequest.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "debug-created support request was not retagged with the run prefix", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.type", "request type matches command", string.Format("%1", observedSupportRequest.m_eType), CampaignDebugStatus(observedSupportRequest.m_eType == probeContext.m_eExpectedType), "support request type does not match command", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.player_requested", "request is player requested", string.Format("%1", observedSupportRequest.m_bPlayerRequested), CampaignDebugStatus(observedSupportRequest.m_bPlayerRequested), "support request is not marked player-requested", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.faction", "request faction is resistance", EmptyCampaignDebugField(observedSupportRequest.m_sFactionKey), CampaignDebugStatus(m_Preset && observedSupportRequest.m_sFactionKey == m_Preset.m_sResistanceFactionKey), "support request faction is not resistance", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.status", "request status queued, active, or resolved by controlled runtime probe", statusActual, CampaignDebugStatus(statusExpected), "support request is not in an expected status after creation/probe", observedSupportRequest.m_sRequestId);
+		HST_CampaignDebugAssertion zoneAssertion = AddCampaignDebugAssertion(supportCase, "support.target_zone", "target zone exists", EmptyCampaignDebugField(observedSupportRequest.m_sTargetZoneId), CampaignDebugStatus(targetZoneState != null), "support target zone does not exist", observedSupportRequest.m_sRequestId);
+		if (zoneAssertion)
+			zoneAssertion.m_sZoneId = observedSupportRequest.m_sTargetZoneId;
+		AddCampaignDebugAssertion(supportCase, "support.target_position", "target position not zero", string.Format("%1", observedSupportRequest.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(observedSupportRequest.m_vTargetPosition)), "support target position is zero", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.eta", "ETA seconds > 0", string.Format("%1", observedSupportRequest.m_iETASeconds), CampaignDebugStatus(observedSupportRequest.m_iETASeconds > 0), "support request ETA is not positive", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.money_cost", "money delta equals request money cost", string.Format("%1 | request cost %2", moneyDelta, observedSupportRequest.m_iMoneyCost), CampaignDebugStatus(moneyDelta == -observedSupportRequest.m_iMoneyCost), "support request money cost was not applied exactly", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published or pending refresh", string.Format("%1", linkedMarkerState != null), CampaignDebugStatus(linkedMarkerState != null, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
+	}
+
+	protected void AddCampaignDebugSupportRuntimeAssertions(HST_CampaignDebugCaseResult supportCase, HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState observedSupportRequest)
+	{
+		string runtimeActual = string.Format("%1 | status %2 -> %3 | runtime %4 -> %5", probeContext.m_bRuntimeProbeRan, probeContext.m_eStatusBeforeTick, probeContext.m_eStatusAfterTick, EmptyCampaignDebugField(probeContext.m_sRuntimeStatusBeforeTick), EmptyCampaignDebugField(probeContext.m_sRuntimeStatusAfterTick));
+		string etaActual = string.Format("%1 -> %2", probeContext.m_iEtaRemainingBefore, probeContext.m_iEtaRemainingAfter);
+		AddCampaignDebugAssertion(supportCase, "support.runtime_tick", "real support tick processed the created request", runtimeActual, CampaignDebugStatus(probeContext.m_bRuntimeProbeRan), "support runtime probe did not tick the created request", observedSupportRequest.m_sRequestId);
+		AddCampaignDebugAssertion(supportCase, "support.eta_progress", "remaining ETA decreases in controlled runtime probe", etaActual, CampaignDebugStatus(probeContext.m_bRuntimeProbeRan && probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore, "WARN"), "support ETA did not decrease during the runtime probe", observedSupportRequest.m_sRequestId);
+
+		if (IsCampaignDebugPhysicalGroundSupportType(probeContext.m_eExpectedType))
+		{
+			string physicalActual = string.Format("physical %1 -> %2 | group %3 | group status %4 | mode %5 | runtime %6", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(probeContext.m_sGroupIdAfterTick), EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTick), EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
+			bool physicalExpected = probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && probeContext.m_sGroupStatusAfterTick.Contains("support");
+			AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", physicalActual, CampaignDebugStatus(physicalExpected), "ground support did not physicalize a linked support group", observedSupportRequest.m_sRequestId);
+			return;
+		}
+
+		string policyActual = string.Format("physical %1 -> %2 | mode %3 | runtime %4", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
+		AddCampaignDebugAssertion(supportCase, "support.physicalization_policy", "non-ground support remains abstract or ETA-driven", policyActual, "PASS", "non-ground support unexpectedly used the ground physicalization path", observedSupportRequest.m_sRequestId);
 	}
 
 	protected bool ProbeCampaignDebugSupportRequestRuntime(HST_CampaignDebugSupportProbeContext probeContext)
@@ -3814,8 +3850,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bPhysicalizedBeforeTick = supportRequest.m_bPhysicalized;
 
 		HST_ZoneState targetZone = m_State.FindZone(supportRequest.m_sTargetZoneId);
-		bool targetWasActive;
-		bool restoreTargetActive;
+		bool targetWasActive = false;
+		bool restoreTargetActive = false;
 		if (targetZone && IsCampaignDebugPhysicalGroundSupportType(supportRequest.m_eType))
 		{
 			targetWasActive = targetZone.m_bActive;
@@ -3866,9 +3902,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return Math.Min(HST_SupportRequestService.PHYSICAL_SUPPORT_INBOUND_SPAWN_SECONDS, halfEta);
 	}
 
-	protected bool IsCampaignDebugPhysicalGroundSupportType(HST_ESupportRequestType supportType)
+	protected bool IsCampaignDebugPhysicalGroundSupportType(HST_ESupportRequestType candidateSupportType)
 	{
-		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
 	protected void CleanupCampaignDebugSupportRuntimeProbe(HST_SupportRequestState supportRequest)
@@ -3904,7 +3940,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_State.m_aSupportRequests.Count();
 	}
 
-	protected HST_SupportRequestState FindLatestCampaignDebugSupportRequest(HST_ESupportRequestType supportType, int countBefore, int requestedAtSecond)
+	protected HST_SupportRequestState FindLatestCampaignDebugSupportRequest(HST_ESupportRequestType expectedSupportType, int countBefore, int requestedAtSecond)
 	{
 		if (!m_State)
 			return null;
@@ -3912,13 +3948,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int startIndex = Math.Max(0, countBefore);
 		for (int i = m_State.m_aSupportRequests.Count() - 1; i >= startIndex; i--)
 		{
-			HST_SupportRequestState request = m_State.m_aSupportRequests[i];
-			if (!request || !request.m_bPlayerRequested || request.m_eType != supportType)
+			HST_SupportRequestState supportCandidate = m_State.m_aSupportRequests[i];
+			if (!supportCandidate || !supportCandidate.m_bPlayerRequested || supportCandidate.m_eType != expectedSupportType)
 				continue;
-			if (request.m_iRequestedAtSecond < requestedAtSecond)
+			if (supportCandidate.m_iRequestedAtSecond < requestedAtSecond)
 				continue;
 
-			return request;
+			return supportCandidate;
 		}
 
 		return null;

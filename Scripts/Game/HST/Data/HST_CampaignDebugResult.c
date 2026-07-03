@@ -70,6 +70,11 @@ class HST_CampaignDebugRunResult
 
 class HST_CampaignDebugSupportProbeContext
 {
+	string m_sLabel;
+	HST_ESupportRequestType m_eExpectedType;
+	string m_sCommandResult;
+	int m_iCountBefore;
+	int m_iMoneyBefore;
 	HST_SupportRequestState m_Request;
 	bool m_bRuntimeProbeRan;
 	int m_iEtaRemainingBefore = -1;
