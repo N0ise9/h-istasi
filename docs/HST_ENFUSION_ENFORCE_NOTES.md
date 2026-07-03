@@ -401,6 +401,42 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Keep code comments sparse and practical.
   - Comments should capture non-obvious engine constraints, not restate simple assignments.
 
+## Campaign Debug Runners
+
+- Long-running campaign smoke/debug actions should run as a server-side sequencer, not as one huge UI command RPC.
+  - The command menu button should start the run or return current status; the coordinator tick should advance one bounded step per second.
+  - Keep runner state runtime-only unless the test result itself needs persistence. Do not add fields to save data for a transient debug harness.
+  - Current example: `HST_CampaignCoordinatorComponent.RequestAdminRunCampaignDebug()` starts the sequenced campaign debug runner, and `TickCampaignDebugRunner()` advances bootstrap, reports, HQ/spawn, economy/support, phase 0-13 mechanics, mission sweep, phase smoke, and final report stages.
+
+- Full-campaign debug coverage should explicitly map to the phase plan instead of assuming late smoke helpers cover everything.
+  - Phase 0-13 coverage needs its own sweep for foundation/checkpoint reports, mission runtime visibility, convoy route/readiness/waypoint/contact/completion behavior, active-mission persistence, non-convoy primitive runtime, zone activation, garrison recruit/remove, civilian aid, support cancellation, vehicle/loadout reports, and command UI coverage.
+  - Later phase smoke helpers can then focus on the dedicated Phase 14-24 systems, while the final report represents the Phase 25 full-campaign soak summary.
+
+- Debug runners should accelerate long convoy waits through runtime state, then let normal services process the result.
+  - Real convoy staging idle can be several minutes; a one-button test should advance the sample convoy mission counters to the departure threshold and wait a tick or two for mission/physical-war services to move it into the next phase.
+  - This exercises the real route/readiness/contact reporting path without making admin diagnostics wait for natural convoy timers.
+
+- Player-requested support cooldowns can poison later support smoke steps.
+  - If an earlier debug stage calls player support commands, clear or cancel player-requested support requests and reset their cooldown fields before Phase 19 support smoke helpers.
+  - Otherwise a valid support smoke command can fail for a cooldown created by the same one-button debug run.
+
+- A one-button debug run can cover in-process Phase 25 soak checks, but not external session conditions.
+  - Report real restart-after-each-primitive, second-client join/reconnect, and two-hour endurance as explicit WARN/manual gaps instead of silently treating them as covered.
+  - Keep the rest of the Phase 25 summary tied to actual counters from the sequenced run: early phase steps, mission definitions, Phase 14-24 smoke steps, and aggregate pass/warn/fail totals.
+
+- A destructive full-campaign runner that calls member/commander APIs must normalize the clicking admin's authority for the run.
+  - Admin status alone does not imply commander status. Temporarily make the actor member/commander while the runner executes, then restore the previous commander identity on completion.
+  - This avoids false failures in commander-gated systems such as HQ rebuild, income, training, and support requests.
+
+- Terminal campaign phases need special runner handling.
+  - If `EOnFrame` returns early for `HST_CAMPAIGN_WON` or `HST_CAMPAIGN_LOST`, tick the debug runner before returning or a forced victory/loss step can strand the sequence.
+  - Do not auto-repair won/lost back to active before reading the campaign-end report steps. Let the forced loss/victory helpers reset state when they need to set up their own terminal scenario.
+
+- Aggregate debug results should separate action assertions from diagnostic reports.
+  - Score mutation/test commands through a shared failure classifier (`failed:`, server/admin required, not-ready, `FAIL` smoke output).
+  - Log read-only reports as INFO unless the report itself is empty or indicates a hard service failure.
+  - Intentional negative-path samples, such as the Phase 23 failed-action sample, should count as WARN instead of FAIL so the final totals stay actionable.
+
 ## AI And Spawning
 
 - `AIGroup` prefab spawning is not necessarily populated on the same frame as `SpawnEntityPrefab`.
