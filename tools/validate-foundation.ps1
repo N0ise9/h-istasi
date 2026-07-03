@@ -6079,6 +6079,27 @@ $loadoutSaveSpecificSlotMatch = [regex]::Match($loadoutEditorText, "string SaveC
 if (!$loadoutSaveSpecificSlotMatch.Success -or $loadoutSaveSpecificSlotMatch.Value -notmatch [regex]::Escape("ResolveFixedLoadoutIndex(loadoutName)") -or $loadoutSaveSpecificSlotMatch.Value -notmatch [regex]::Escape("targetLoadoutId = loadoutName")) {
 	throw "Loadout editor service must allow Save buttons to target a specific fixed saved loadout slot"
 }
+$parentLoadoutSlotCandidateMatch = [regex]::Match($loadoutEditorText, "protected bool IsCandidateCompatibleWithLoadoutSlot[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected bool IsParentLoadoutSlotCandidate[\s\S]*?\r?\n\t}")
+if (!$parentLoadoutSlotCandidateMatch.Success) {
+	throw "Loadout editor service is missing parent loadout-slot wearable candidate filtering"
+}
+$parentCandidateGateIndex = $parentLoadoutSlotCandidateMatch.Value.IndexOf("IsLoadoutClothingCategory(node.m_sCategory) && !IsParentLoadoutSlotCandidate(node.m_sCategory, temp)")
+$parentCandidateReplaceIndex = $parentLoadoutSlotCandidateMatch.Value.IndexOf("storage.CanReplaceItem(temp, slot.GetID())")
+if ($parentCandidateGateIndex -lt 0 -or $parentCandidateReplaceIndex -lt 0 -or $parentCandidateGateIndex -gt $parentCandidateReplaceIndex) {
+	throw "Loadout editor parent clothing slot candidates must be category-filtered before native storage replacement checks"
+}
+foreach ($requiredParentLoadoutSlotCandidateEntry in @(
+		"ResolveCategoryFromPrefab(prefab, display)",
+		'if (slotCategory == "webbing")',
+		'return prefabCategory == "webbing"',
+		'if (slotCategory == "vest")',
+		'return prefabCategory == "vest"',
+		"return prefabCategory == slotCategory"
+	)) {
+	if ($parentLoadoutSlotCandidateMatch.Value -notmatch [regex]::Escape($requiredParentLoadoutSlotCandidateEntry)) {
+		throw "Loadout editor parent slot candidate filter must use prefab/display wearable categories: $requiredParentLoadoutSlotCandidateEntry"
+	}
+}
 $storageCategoryTabsMatch = [regex]::Match($loadoutEditorComponentText, "protected void RenderStorageCategoryTabs[\s\S]*?\r?\n\t}")
 if (!$storageCategoryTabsMatch.Success) {
 	throw "Loadout editor storage category tab renderer is missing"
