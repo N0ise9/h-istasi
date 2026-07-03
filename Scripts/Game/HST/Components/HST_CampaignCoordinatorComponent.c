@@ -136,6 +136,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase16TrainingAfter;
 	protected int m_iCampaignDebugPhase16TrainMoneyBefore;
 	protected int m_iCampaignDebugPhase16TrainMoneyAfter;
+	protected int m_iCampaignDebugPhase17ProgressBefore;
+	protected int m_iCampaignDebugPhase17ProgressAfter;
+	protected int m_iCampaignDebugPhase17OrderCountBefore;
+	protected int m_iCampaignDebugPhase17OrderCountAfter;
+	protected int m_iCampaignDebugPhase17CounterattackOrderCountBefore;
+	protected int m_iCampaignDebugPhase17CounterattackOrderCountAfter;
+	protected int m_iCampaignDebugPhase17CounterattackAttackBefore;
+	protected int m_iCampaignDebugPhase17CounterattackSupportBefore;
+	protected int m_iCampaignDebugPhase17CounterattackAttackAfter;
+	protected int m_iCampaignDebugPhase17CounterattackSupportAfter;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugLastResult;
@@ -149,6 +159,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugEntityTag;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
 	protected string m_sCampaignDebugPhase16ZoneId;
+	protected string m_sCampaignDebugPhase17ZoneId;
+	protected string m_sCampaignDebugPhase17OwnerBefore;
+	protected string m_sCampaignDebugPhase17OwnerAfter;
+	protected string m_sCampaignDebugPhase17CounterattackOrderId;
 	protected string m_sCampaignDebugBackgroundWarResistanceZoneId;
 	protected string m_sCampaignDebugBackgroundWarOccupierZoneId;
 	protected string m_sCampaignDebugBackgroundWarInvaderZoneId;
@@ -2974,6 +2988,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State)
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		ResetCampaignDebugPhase16Observations();
+		ResetCampaignDebugPhase17Observations();
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -7028,6 +7043,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (index >= 13 && index <= 16)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase17CaptureCase(index, label, result));
+			return;
+		}
+
 		if (index >= 17 && index <= 21)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase18EnemyOrderCase(index, label, result));
@@ -7395,6 +7416,155 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugPhase16TrainingAfter = 0;
 		m_iCampaignDebugPhase16TrainMoneyBefore = 0;
 		m_iCampaignDebugPhase16TrainMoneyAfter = 0;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase17CaptureCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult captureCase = CreateCampaignDebugCase("phase17." + SafeCampaignDebugToken(label), "phase_smoke", "zone_capture_counterattack", "phase17");
+		captureCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(captureCase, "phase17.command_result", "phase 17 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 17 command returned failure text");
+		if (!m_State || !m_Preset || !m_ZoneCapture)
+		{
+			AddCampaignDebugAssertion(captureCase, "phase17.prerequisite", "campaign state, preset, and zone capture service ready", "missing", "BLOCKED", "phase 17 typed probe missing state, preset, or zone capture service");
+			FinalizeCampaignDebugCaseFromAssertions(captureCase);
+			return captureCase;
+		}
+
+		string phase17ZoneId = m_sCampaignDebugPhase17ZoneId;
+		HST_ZoneState phase17Zone = m_State.FindZone(phase17ZoneId);
+		if (!phase17Zone && index == 13)
+			phase17Zone = ResolveCampaignDebugPhase17CaptureTarget();
+		if (!phase17Zone && (index == 14 || index == 15 || index == 16))
+			phase17Zone = ResolveCampaignDebugPhase17CapturedZone();
+		if (phase17Zone)
+			phase17ZoneId = phase17Zone.m_sZoneId;
+
+		AddCampaignDebugMetric(captureCase, "phase17.orders.total", string.Format("%1", m_State.m_aEnemyOrders.Count()), "count");
+		if (index == 13)
+			AddCampaignDebugPhase17SeedAssertions(captureCase, phase17Zone);
+		else if (index == 14)
+			AddCampaignDebugPhase17ProgressAssertions(captureCase, phase17Zone);
+		else if (index == 15)
+			AddCampaignDebugPhase17CounterattackAssertions(captureCase, phase17Zone);
+		else if (index == 16)
+			AddCampaignDebugPhase17ReportAssertions(captureCase, phase17Zone);
+
+		FinalizeCampaignDebugCaseFromAssertions(captureCase);
+		return captureCase;
+	}
+
+	protected void AddCampaignDebugPhase17SeedAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)
+	{
+		string seedZoneId = "";
+		if (phase17Zone)
+			seedZoneId = phase17Zone.m_sZoneId;
+		HST_GarrisonState enemyGarrison;
+		if (phase17Zone)
+			enemyGarrison = m_State.FindGarrison(phase17Zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
+		AddCampaignDebugAssertion(captureCase, "phase17.seed.zone", "seeded capturable enemy zone exists", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone != null && IsPhase17CapturableZone(phase17Zone)), "Phase 17 did not select a capturable zone", "", "", seedZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.seed.owner", "seeded zone owner is occupier", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sOccupierFactionKey), "Phase 17 seed did not set occupier ownership", "", "", seedZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.seed.progress", "resistance capture progress reset to zero", string.Format("%1", m_iCampaignDebugPhase17ProgressAfter), CampaignDebugStatus(phase17Zone && phase17Zone.m_iResistanceCaptureProgress == 0), "Phase 17 seed did not reset resistance capture progress", "", "", seedZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.seed.inactive", "zone active runtime counts cleared", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && !phase17Zone.m_bActive && phase17Zone.m_iActiveInfantryCount == 0 && phase17Zone.m_iActiveVehicleCount == 0), "Phase 17 seed left active runtime counts in the target zone", "", "", seedZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.seed.enemy_garrison_empty", "occupier garrison exists and is empty", BuildCampaignDebugGarrisonActual(enemyGarrison), CampaignDebugStatus(enemyGarrison && enemyGarrison.m_iInfantryCount == 0 && enemyGarrison.m_iVehicleCount == 0), "Phase 17 seed did not clear occupier garrison", "", "", seedZoneId);
+	}
+
+	protected void AddCampaignDebugPhase17ProgressAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)
+	{
+		string progressZoneId = "";
+		if (phase17Zone)
+			progressZoneId = phase17Zone.m_sZoneId;
+		HST_GarrisonState resistanceGarrison;
+		if (phase17Zone)
+			resistanceGarrison = m_State.FindGarrison(phase17Zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+		int orderDelta = m_iCampaignDebugPhase17OrderCountAfter - m_iCampaignDebugPhase17OrderCountBefore;
+		AddCampaignDebugMetric(captureCase, "phase17.capture.order_delta", string.Format("%1", orderDelta), "count");
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.owner_before", "capture starts from enemy-owned zone", EmptyCampaignDebugField(m_sCampaignDebugPhase17OwnerBefore), CampaignDebugStatus(!m_sCampaignDebugPhase17OwnerBefore.IsEmpty() && m_sCampaignDebugPhase17OwnerBefore != m_Preset.m_sResistanceFactionKey), "Phase 17 capture did not start from an enemy-owned zone", "", "", progressZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.owner_after", "force progress captures zone for resistance", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && m_sCampaignDebugPhase17OwnerAfter == m_Preset.m_sResistanceFactionKey), "Phase 17 force progress did not capture the zone for resistance", "", "", progressZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.progress_reset", "capture progress resets after ownership flip", string.Format("%1 -> %2", m_iCampaignDebugPhase17ProgressBefore, m_iCampaignDebugPhase17ProgressAfter), CampaignDebugStatus(m_iCampaignDebugPhase17ProgressAfter == 0), "Phase 17 capture did not reset progress after ownership flip", "", "", progressZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.resistance_garrison", "captured zone has starter resistance garrison", BuildCampaignDebugGarrisonActual(resistanceGarrison), CampaignDebugStatus(resistanceGarrison && resistanceGarrison.m_iInfantryCount > 0), "Phase 17 capture did not seed a resistance garrison", "", "", progressZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.capture.counterattack_evaluated", "capture path evaluated counterattack queue possibility", string.Format("orders %1 -> %2 | prefixed order %3", m_iCampaignDebugPhase17OrderCountBefore, m_iCampaignDebugPhase17OrderCountAfter, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId)), CampaignDebugStatus(orderDelta >= 0), "Phase 17 capture order counts could not be evaluated", "", "", progressZoneId);
+	}
+
+	protected void AddCampaignDebugPhase17CounterattackAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)
+	{
+		string counterZoneId = "";
+		if (phase17Zone)
+			counterZoneId = phase17Zone.m_sZoneId;
+		HST_EnemyOrderState counterattackOrder = FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase17CounterattackOrderId);
+		if (!counterattackOrder && phase17Zone)
+			counterattackOrder = FindLatestCampaignDebugCounterattackOrderForZone(phase17Zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
+		int counterOrderDelta = m_iCampaignDebugPhase17CounterattackOrderCountAfter - m_iCampaignDebugPhase17CounterattackOrderCountBefore;
+		int attackDelta = m_iCampaignDebugPhase17CounterattackAttackAfter - m_iCampaignDebugPhase17CounterattackAttackBefore;
+		int supportDelta = m_iCampaignDebugPhase17CounterattackSupportAfter - m_iCampaignDebugPhase17CounterattackSupportBefore;
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.order_delta", string.Format("%1", counterOrderDelta), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.attack_delta", string.Format("%1", attackDelta), "attack");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.support_delta", string.Format("%1", supportDelta), "support");
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.target", "counterattack target is the captured resistance zone", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey), "Phase 17 counterattack target is missing or not resistance-owned", "", "", counterZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.order", "counterattack order exists for captured zone", BuildCampaignDebugEnemyOrderActual(counterattackOrder), CampaignDebugStatus(counterattackOrder != null), "Phase 17 did not create or preserve a counterattack order", "", "", counterZoneId);
+		if (counterattackOrder)
+		{
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.prefix", "counterattack order id carries current debug prefix", EmptyCampaignDebugField(counterattackOrder.m_sOrderId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(counterattackOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix)), "Phase 17 counterattack order was not prefixed for cleanup", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.type", "order type is counterattack", string.Format("%1", counterattackOrder.m_eType), CampaignDebugStatus(counterattackOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK), "Phase 17 enemy order type is not counterattack", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.faction", "order faction is occupier", EmptyCampaignDebugField(counterattackOrder.m_sFactionKey), CampaignDebugStatus(counterattackOrder.m_sFactionKey == m_Preset.m_sOccupierFactionKey), "Phase 17 counterattack faction mismatch", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.status", "order status is queued, active, resolved, or aborted", string.Format("%1 | runtime %2", counterattackOrder.m_eStatus, EmptyCampaignDebugField(counterattackOrder.m_sRuntimeStatus)), CampaignDebugStatus(counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED || counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || counterattackOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED), "Phase 17 counterattack order has unexpected status", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.costs", "order records attack/support costs", string.Format("attack %1 | support %2", counterattackOrder.m_iAttackCost, counterattackOrder.m_iSupportCost), CampaignDebugStatus(counterattackOrder.m_iAttackCost > 0 || counterattackOrder.m_iSupportCost > 0), "Phase 17 counterattack order did not record resource costs", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.positions", "order source and target positions are valid", string.Format("source %1 | target %2", counterattackOrder.m_vSourcePosition, counterattackOrder.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(counterattackOrder.m_vSourcePosition) && !IsZeroVector(counterattackOrder.m_vTargetPosition)), "Phase 17 counterattack source or target position is invalid", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			if (counterOrderDelta > 0)
+				AddCampaignDebugAssertion(captureCase, "phase17.counterattack.resource_spend", "new counterattack spends attack/support pools by recorded costs", string.Format("attack %1 -> %2 | support %3 -> %4 | costs %5/%6", m_iCampaignDebugPhase17CounterattackAttackBefore, m_iCampaignDebugPhase17CounterattackAttackAfter, m_iCampaignDebugPhase17CounterattackSupportBefore, m_iCampaignDebugPhase17CounterattackSupportAfter, counterattackOrder.m_iAttackCost, counterattackOrder.m_iSupportCost), CampaignDebugStatus(-attackDelta >= counterattackOrder.m_iAttackCost && -supportDelta >= counterattackOrder.m_iSupportCost), "Phase 17 counterattack did not spend expected resources", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			else
+				AddCampaignDebugAssertion(captureCase, "phase17.counterattack.duplicate_guard", "existing counterattack order prevents duplicate queue", string.Format("order delta %1 | order %2", counterOrderDelta, counterattackOrder.m_sOrderId), CampaignDebugStatus(counterOrderDelta == 0, "WARN"), "Phase 17 counterattack command did not create a new order and no duplicate guard evidence was available", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+		}
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack physical spawn/advance sampled over time", "not sampled in Phase 17 smoke", "WARN", "Phase 17 typed smoke verifies order state only; physical counterattack advance remains a separate gap", "", "", counterZoneId);
+	}
+
+	protected void AddCampaignDebugPhase17ReportAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)
+	{
+		string reportZoneId = "";
+		if (phase17Zone)
+			reportZoneId = phase17Zone.m_sZoneId;
+		HST_MapMarkerState marker;
+		if (phase17Zone)
+			marker = m_State.FindMapMarker("hst_zone_" + phase17Zone.m_sZoneId);
+		HST_EnemyOrderState reportOrder = FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase17CounterattackOrderId);
+		if (!reportOrder && phase17Zone)
+			reportOrder = FindLatestCampaignDebugCounterattackOrderForZone(phase17Zone.m_sZoneId, m_Preset.m_sOccupierFactionKey);
+		AddCampaignDebugAssertion(captureCase, "phase17.report.captured_zone", "report target remains resistance-owned", BuildCampaignDebugPhase17ZoneActual(phase17Zone), CampaignDebugStatus(phase17Zone && phase17Zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey), "Phase 17 report did not find the captured resistance zone", "", "", reportZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.report.marker", "zone marker exists and reflects owner/style", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker && marker.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && !marker.m_sColorHint.IsEmpty() && !marker.m_sStyleHint.IsEmpty()), "Phase 17 marker missing or missing owner/style evidence", "", "", reportZoneId);
+		AddCampaignDebugAssertion(captureCase, "phase17.report.counterattack_order", "counterattack order remains inspectable in report state", BuildCampaignDebugEnemyOrderActual(reportOrder), CampaignDebugStatus(reportOrder != null, "WARN"), "Phase 17 report did not find a counterattack order for the captured zone", "", "", reportZoneId);
+	}
+
+	protected string BuildCampaignDebugPhase17ZoneActual(HST_ZoneState phase17Zone)
+	{
+		if (!phase17Zone)
+			return "missing";
+
+		return string.Format("zone %1 | owner %2 | type %3 | progress %4 | active %5/%6 | activeFlag %7", EmptyCampaignDebugField(phase17Zone.m_sZoneId), EmptyCampaignDebugField(phase17Zone.m_sOwnerFactionKey), phase17Zone.m_eType, phase17Zone.m_iResistanceCaptureProgress, phase17Zone.m_iActiveInfantryCount, phase17Zone.m_iActiveVehicleCount, phase17Zone.m_bActive);
+	}
+
+	protected string BuildCampaignDebugMarkerActual(HST_MapMarkerState marker)
+	{
+		if (!marker)
+			return "missing";
+
+		return string.Format("id %1 | linked %2 | owner %3 | color %4 | style %5", EmptyCampaignDebugField(marker.m_sMarkerId), EmptyCampaignDebugField(marker.m_sLinkedId), EmptyCampaignDebugField(marker.m_sOwnerFactionKey), EmptyCampaignDebugField(marker.m_sColorHint), EmptyCampaignDebugField(marker.m_sStyleHint));
+	}
+
+	protected void ResetCampaignDebugPhase17Observations()
+	{
+		m_sCampaignDebugPhase17ZoneId = "";
+		m_sCampaignDebugPhase17OwnerBefore = "";
+		m_sCampaignDebugPhase17OwnerAfter = "";
+		m_sCampaignDebugPhase17CounterattackOrderId = "";
+		m_iCampaignDebugPhase17ProgressBefore = 0;
+		m_iCampaignDebugPhase17ProgressAfter = 0;
+		m_iCampaignDebugPhase17OrderCountBefore = 0;
+		m_iCampaignDebugPhase17OrderCountAfter = 0;
+		m_iCampaignDebugPhase17CounterattackOrderCountBefore = 0;
+		m_iCampaignDebugPhase17CounterattackOrderCountAfter = 0;
+		m_iCampaignDebugPhase17CounterattackAttackBefore = 0;
+		m_iCampaignDebugPhase17CounterattackSupportBefore = 0;
+		m_iCampaignDebugPhase17CounterattackAttackAfter = 0;
+		m_iCampaignDebugPhase17CounterattackSupportAfter = 0;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
@@ -8305,6 +8475,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	string RequestAdminPhase17SeedCapture(int playerId)
 	{
+		ResetCampaignDebugPhase17Observations();
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "h-istasi phase 17 smoke | failed: admin required";
 
@@ -8320,6 +8491,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		zone.m_bActive = false;
 		zone.m_iActiveInfantryCount = 0;
 		zone.m_iActiveVehicleCount = 0;
+		m_sCampaignDebugPhase17ZoneId = zone.m_sZoneId;
+		m_sCampaignDebugPhase17OwnerBefore = zone.m_sOwnerFactionKey;
+		m_sCampaignDebugPhase17OwnerAfter = zone.m_sOwnerFactionKey;
+		m_iCampaignDebugPhase17ProgressBefore = zone.m_iResistanceCaptureProgress;
+		m_iCampaignDebugPhase17ProgressAfter = zone.m_iResistanceCaptureProgress;
 
 		if (m_Garrisons)
 		{
@@ -8354,13 +8530,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_ZoneCapture)
 			return "h-istasi phase 17 smoke | failed: service not ready";
 
-		HST_ZoneState zone = SelectPhase17CaptureTarget();
+		HST_ZoneState zone = ResolveCampaignDebugPhase17CaptureTarget();
 		if (!zone)
 			return "h-istasi phase 17 smoke | failed: no capturable target";
 
 		int progress = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
 		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
 			progress = m_Balance.m_iCaptureProgressRequired;
+		m_sCampaignDebugPhase17ZoneId = zone.m_sZoneId;
+		m_sCampaignDebugPhase17OwnerBefore = zone.m_sOwnerFactionKey;
+		m_iCampaignDebugPhase17ProgressBefore = zone.m_iResistanceCaptureProgress;
+		m_iCampaignDebugPhase17OrderCountBefore = m_State.m_aEnemyOrders.Count();
 
 		bool changed = m_ZoneCapture.AddResistanceCaptureProgress(
 			m_State,
@@ -8376,6 +8556,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_EnemyDirector,
 			m_SupportRequests
 		);
+		m_sCampaignDebugPhase17OwnerAfter = zone.m_sOwnerFactionKey;
+		m_iCampaignDebugPhase17ProgressAfter = zone.m_iResistanceCaptureProgress;
+		m_iCampaignDebugPhase17OrderCountAfter = m_State.m_aEnemyOrders.Count();
+		ApplyCampaignDebugPhase17NewCounterattackPrefix(m_iCampaignDebugPhase17OrderCountBefore, "phase17_capture_counterattack", zone.m_sZoneId);
 
 		bool markerChanged;
 		if (changed)
@@ -8400,13 +8584,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
 			return "h-istasi phase 17 smoke | failed: enemy services not ready";
 
-		HST_ZoneState zone = SelectFirstResistanceCapturableZone();
+		HST_ZoneState zone = ResolveCampaignDebugPhase17CapturedZone();
 		if (!zone)
 			return "h-istasi phase 17 smoke | failed: no captured FIA zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
-		int orderCountBefore = m_State.m_aEnemyOrders.Count();
+		HST_FactionPoolState phase17PoolBefore = m_State.FindFactionPool(factionKey);
+		if (phase17PoolBefore)
+		{
+			m_iCampaignDebugPhase17CounterattackAttackBefore = phase17PoolBefore.m_iAttackResources;
+			m_iCampaignDebugPhase17CounterattackSupportBefore = phase17PoolBefore.m_iSupportResources;
+		}
+		m_iCampaignDebugPhase17CounterattackOrderCountBefore = m_State.m_aEnemyOrders.Count();
 		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
 			m_State,
 			m_Preset,
@@ -8416,9 +8606,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			zone,
 			100
 		);
+		m_iCampaignDebugPhase17CounterattackOrderCountAfter = m_State.m_aEnemyOrders.Count();
+		HST_FactionPoolState phase17PoolAfter = m_State.FindFactionPool(factionKey);
+		if (phase17PoolAfter)
+		{
+			m_iCampaignDebugPhase17CounterattackAttackAfter = phase17PoolAfter.m_iAttackResources;
+			m_iCampaignDebugPhase17CounterattackSupportAfter = phase17PoolAfter.m_iSupportResources;
+		}
 
 		if (queued)
-			ApplyCampaignDebugEnemyOrderPrefix(FindLatestCampaignDebugEnemyOrder(orderCountBefore), "phase17_counterattack");
+			ApplyCampaignDebugEnemyOrderPrefix(FindLatestCampaignDebugEnemyOrder(m_iCampaignDebugPhase17CounterattackOrderCountBefore), "phase17_counterattack");
+		CaptureCampaignDebugPhase17CounterattackOrder(zone.m_sZoneId, factionKey);
 		MarkMajorCampaignChange(true);
 		return string.Format(
 			"h-istasi phase 17 smoke | force counterattack at %1 | queued %2\n%3",
@@ -10004,6 +10202,95 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				continue;
 			if (IsPhase17CapturableZone(fallback))
 				return fallback;
+		}
+
+		return null;
+	}
+
+	protected HST_ZoneState ResolveCampaignDebugPhase17CaptureTarget()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		if (!m_sCampaignDebugPhase17ZoneId.IsEmpty())
+		{
+			HST_ZoneState storedTarget = m_State.FindZone(m_sCampaignDebugPhase17ZoneId);
+			if (storedTarget && storedTarget.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey && IsPhase17CapturableZone(storedTarget))
+				return storedTarget;
+		}
+
+		return SelectPhase17CaptureTarget();
+	}
+
+	protected HST_ZoneState ResolveCampaignDebugPhase17CapturedZone()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		if (!m_sCampaignDebugPhase17ZoneId.IsEmpty())
+		{
+			HST_ZoneState storedCaptured = m_State.FindZone(m_sCampaignDebugPhase17ZoneId);
+			if (storedCaptured && storedCaptured.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && IsPhase17CapturableZone(storedCaptured))
+				return storedCaptured;
+		}
+
+		return SelectFirstResistanceCapturableZone();
+	}
+
+	protected void ApplyCampaignDebugPhase17NewCounterattackPrefix(int orderCountBefore, string label, string targetZoneId)
+	{
+		if (!m_State || targetZoneId.IsEmpty())
+			return;
+
+		for (int phase17OrderIndex = orderCountBefore; phase17OrderIndex < m_State.m_aEnemyOrders.Count(); phase17OrderIndex++)
+		{
+			HST_EnemyOrderState phase17Order = m_State.m_aEnemyOrders[phase17OrderIndex];
+			if (!phase17Order || phase17Order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK || phase17Order.m_sTargetZoneId != targetZoneId)
+				continue;
+
+			if (!MissionValueHasCampaignDebugPrefix(phase17Order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				ApplyCampaignDebugEnemyOrderPrefix(phase17Order, label);
+			m_sCampaignDebugPhase17CounterattackOrderId = phase17Order.m_sOrderId;
+		}
+	}
+
+	protected void CaptureCampaignDebugPhase17CounterattackOrder(string targetZoneId, string factionKey)
+	{
+		if (!m_sCampaignDebugPhase17CounterattackOrderId.IsEmpty())
+			return;
+
+		if (m_State)
+		{
+			for (int phase17OrderIndex = m_iCampaignDebugPhase17CounterattackOrderCountBefore; phase17OrderIndex < m_State.m_aEnemyOrders.Count(); phase17OrderIndex++)
+			{
+				HST_EnemyOrderState createdOrder = m_State.m_aEnemyOrders[phase17OrderIndex];
+				if (!createdOrder || createdOrder.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK || createdOrder.m_sTargetZoneId != targetZoneId || createdOrder.m_sFactionKey != factionKey)
+					continue;
+
+				if (!MissionValueHasCampaignDebugPrefix(createdOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+					ApplyCampaignDebugEnemyOrderPrefix(createdOrder, "phase17_counterattack");
+				m_sCampaignDebugPhase17CounterattackOrderId = createdOrder.m_sOrderId;
+				return;
+			}
+		}
+
+		HST_EnemyOrderState existingOrder = FindLatestCampaignDebugCounterattackOrderForZone(targetZoneId, factionKey);
+		if (existingOrder)
+			m_sCampaignDebugPhase17CounterattackOrderId = existingOrder.m_sOrderId;
+	}
+
+	protected HST_EnemyOrderState FindLatestCampaignDebugCounterattackOrderForZone(string targetZoneId, string factionKey)
+	{
+		if (!m_State || targetZoneId.IsEmpty() || factionKey.IsEmpty())
+			return null;
+
+		for (int phase17OrderIndex = m_State.m_aEnemyOrders.Count() - 1; phase17OrderIndex >= 0; phase17OrderIndex--)
+		{
+			HST_EnemyOrderState phase17Order = m_State.m_aEnemyOrders[phase17OrderIndex];
+			if (!phase17Order || phase17Order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+				continue;
+			if (phase17Order.m_sTargetZoneId == targetZoneId && phase17Order.m_sFactionKey == factionKey)
+				return phase17Order;
 		}
 
 		return null;
