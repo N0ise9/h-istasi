@@ -8627,6 +8627,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.occupier", "occupier support seeded <= 35", string.Format("%1", town.m_iOccupierSupport), CampaignDebugStatus(town.m_iOccupierSupport <= 35), "phase 20 did not reduce occupier town support", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.zone", "zone support equals civilian support difference", string.Format("zone %1 | FIA %2 | occupier %3", zone, town.m_iFIASupport, town.m_iOccupierSupport), CampaignDebugStatus(zone && zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport))), "zone support does not match civilian support difference", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_security", "police and roadblock presence seeded", string.Format("police %1 | roadblocks %2", town.m_iPolicePresence, town.m_iRoadblockPresence), CampaignDebugStatus(town.m_iPolicePresence > 0 && town.m_iRoadblockPresence > 0), "phase 20 did not seed security presence", "", "", town.m_sZoneId);
+			AddCampaignDebugTownSupportTransitionAssertions(phaseCase, town, zone);
 		}
 		else if (index == 28)
 		{
@@ -8649,6 +8650,120 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(phaseCase);
 		return phaseCase;
+	}
+
+	protected void AddCampaignDebugTownSupportTransitionAssertions(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_ZoneState zone)
+	{
+		if (!phaseCase)
+			return;
+
+		if (!town || !zone || !m_State || !m_Civilians)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.transition_prerequisite", "town, linked zone, state, and civilian service ready", "missing", "BLOCKED", "town support transition probe missing prerequisites");
+			return;
+		}
+
+		string zoneId = town.m_sZoneId;
+		int originalFIA = town.m_iFIASupport;
+		int originalOccupier = town.m_iOccupierSupport;
+		int originalReputation = town.m_iReputation;
+		int originalHeat = town.m_iWantedHeat;
+		int originalIncidentSecond = town.m_iLastIncidentSecond;
+		int originalSupportSecond = town.m_iLastSupportChangeSecond;
+		string originalIncidentReason = town.m_sLastIncidentReason;
+		int originalZoneSupport = zone.m_iSupport;
+		string originalOwner = zone.m_sOwnerFactionKey;
+
+		town.m_iFIASupport = 40;
+		town.m_iOccupierSupport = 60;
+		town.m_iReputation = 45;
+		town.m_iWantedHeat = 0;
+		town.m_sLastIncidentReason = "phase20 support up arrange";
+		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
+		town.m_iLastSupportChangeSecond = m_State.m_iElapsedSeconds;
+		zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		if (m_Preset && !m_Preset.m_sOccupierFactionKey.IsEmpty())
+			zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+
+		int upSupportBefore = zone.m_iSupport;
+		string upOwnerBefore = zone.m_sOwnerFactionKey;
+		bool upChanged = m_Civilians.RegisterIncident(m_State, zoneId, 25, 0, "phase20 support up probe");
+		int upSupportAfter = zone.m_iSupport;
+		int upSupportDelta = upSupportAfter - upSupportBefore;
+		bool upFormulaOk = zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		bool upBoundsOk = IsCampaignDebugTownSupportBounded(town, zone);
+		bool upDirectionOk = town.m_iFIASupport > 40 && town.m_iOccupierSupport < 60 && upSupportDelta > 0;
+		bool upReasonOk = town.m_sLastIncidentReason == "phase20 support up probe" && town.m_iLastSupportChangeSecond == m_State.m_iElapsedSeconds;
+		bool upFlipImplemented = m_Preset && zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey && upOwnerBefore != zone.m_sOwnerFactionKey;
+		string upActual = BuildCampaignDebugTownSupportActual("up", town, zone, upSupportBefore, upOwnerBefore);
+
+		town.m_iFIASupport = 60;
+		town.m_iOccupierSupport = 40;
+		town.m_iReputation = 70;
+		town.m_iWantedHeat = 0;
+		town.m_sLastIncidentReason = "phase20 support down arrange";
+		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
+		town.m_iLastSupportChangeSecond = m_State.m_iElapsedSeconds;
+		zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		if (m_Preset && !m_Preset.m_sResistanceFactionKey.IsEmpty())
+			zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+
+		int downSupportBefore = zone.m_iSupport;
+		string downOwnerBefore = zone.m_sOwnerFactionKey;
+		bool downChanged = m_Civilians.RegisterIncident(m_State, zoneId, -30, 20, "phase20 support down probe");
+		int downSupportAfter = zone.m_iSupport;
+		int downSupportDelta = downSupportAfter - downSupportBefore;
+		bool downFormulaOk = zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		bool downBoundsOk = IsCampaignDebugTownSupportBounded(town, zone);
+		bool downDirectionOk = town.m_iFIASupport < 60 && town.m_iOccupierSupport > 40 && town.m_iWantedHeat >= 20 && downSupportDelta < 0;
+		bool downReasonOk = town.m_sLastIncidentReason == "phase20 support down probe" && town.m_iLastSupportChangeSecond == m_State.m_iElapsedSeconds;
+		bool downFlipImplemented = m_Preset && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey && downOwnerBefore != zone.m_sOwnerFactionKey;
+		string downActual = BuildCampaignDebugTownSupportActual("down", town, zone, downSupportBefore, downOwnerBefore);
+
+		town.m_iFIASupport = originalFIA;
+		town.m_iOccupierSupport = originalOccupier;
+		town.m_iReputation = originalReputation;
+		town.m_iWantedHeat = originalHeat;
+		town.m_iLastIncidentSecond = originalIncidentSecond;
+		town.m_iLastSupportChangeSecond = originalSupportSecond;
+		town.m_sLastIncidentReason = originalIncidentReason;
+		zone.m_iSupport = originalZoneSupport;
+		zone.m_sOwnerFactionKey = originalOwner;
+		bool restored = town.m_iFIASupport == originalFIA && town.m_iOccupierSupport == originalOccupier && town.m_iReputation == originalReputation && town.m_iWantedHeat == originalHeat && zone.m_iSupport == originalZoneSupport && zone.m_sOwnerFactionKey == originalOwner;
+
+		phaseCase.m_aEvidence.Insert("town support up transition | " + upActual);
+		phaseCase.m_aEvidence.Insert("town support down transition | " + downActual);
+		AddCampaignDebugMetric(phaseCase, "phase20.town_support.up_delta", string.Format("%1", upSupportDelta), "support");
+		AddCampaignDebugMetric(phaseCase, "phase20.town_support.down_delta", string.Format("%1", downSupportDelta), "support");
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_changed", "civilian incident mutation accepts positive reputation", upActual, CampaignDebugStatus(upChanged), "support-up incident did not mutate the civilian town", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_direction", "FIA support and zone support increase while occupier support drops", upActual, CampaignDebugStatus(upDirectionOk), "support-up incident did not move town support toward FIA", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_formula", "zone support equals clamped FIA minus occupier support and values stay bounded", upActual, CampaignDebugStatus(upFormulaOk && upBoundsOk), "support-up incident produced invalid support bounds or formula", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_reason", "last incident reason/support timestamp updated", upActual, CampaignDebugStatus(upReasonOk), "support-up incident did not update town incident metadata", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.up_flip_policy", "high FIA support flips owner to resistance or reports unsupported policy", upActual, CampaignDebugStatus(upFlipImplemented, "WARN"), "support-only ownership flip to resistance is not implemented by the current civilian incident path", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_changed", "civilian incident mutation accepts negative reputation and heat", downActual, CampaignDebugStatus(downChanged), "support-down incident did not mutate the civilian town", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_direction", "FIA support and zone support decrease while occupier support/heat rise", downActual, CampaignDebugStatus(downDirectionOk), "support-down incident did not move town support toward occupier pressure", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_formula", "zone support equals clamped FIA minus occupier support and values stay bounded", downActual, CampaignDebugStatus(downFormulaOk && downBoundsOk), "support-down incident produced invalid support bounds or formula", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_reason", "last incident reason/support timestamp updated", downActual, CampaignDebugStatus(downReasonOk), "support-down incident did not update town incident metadata", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.down_flip_policy", "support loss flips owner away from resistance or reports unsupported policy", downActual, CampaignDebugStatus(downFlipImplemented, "WARN"), "support-only ownership flip away from resistance is not implemented by the current civilian incident path", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.cleanup_restore", "temporary support transition state restored to seeded Phase 20 town values", BuildCampaignDebugTownSupportActual("restored", town, zone, originalZoneSupport, originalOwner), CampaignDebugStatus(restored), "town support transition probe leaked temporary state", "", "", zoneId);
+	}
+
+	protected bool IsCampaignDebugTownSupportBounded(HST_CivilianZoneState town, HST_ZoneState zone)
+	{
+		if (!town || !zone)
+			return false;
+
+		return town.m_iFIASupport >= 0 && town.m_iFIASupport <= 100 && town.m_iOccupierSupport >= 0 && town.m_iOccupierSupport <= 100 && town.m_iReputation >= 0 && town.m_iReputation <= 100 && town.m_iWantedHeat >= 0 && zone.m_iSupport >= -100 && zone.m_iSupport <= 100;
+	}
+
+	protected string BuildCampaignDebugTownSupportActual(string label, HST_CivilianZoneState town, HST_ZoneState zone, int supportBefore, string ownerBefore)
+	{
+		if (!town || !zone)
+			return "missing";
+
+		string actual = string.Format("%1 | zone %2 | FIA %3 | occupier %4 | reputation %5 | heat %6 | zone support %7 | owner %8", label, EmptyCampaignDebugField(town.m_sZoneId), town.m_iFIASupport, town.m_iOccupierSupport, town.m_iReputation, town.m_iWantedHeat, zone.m_iSupport, EmptyCampaignDebugField(zone.m_sOwnerFactionKey));
+		actual = actual + string.Format(" | support before %1 | owner before %2 | reason %3", supportBefore, EmptyCampaignDebugField(ownerBefore), EmptyCampaignDebugField(town.m_sLastIncidentReason));
+		return actual;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase21UndercoverCase(int index, string label, string result)
