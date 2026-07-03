@@ -124,6 +124,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugBackgroundWarInvaderSupportBefore;
 	protected int m_iCampaignDebugBackgroundWarInvaderAttackAfter;
 	protected int m_iCampaignDebugBackgroundWarInvaderSupportAfter;
+	protected int m_iCampaignDebugPhase16InfantryBefore;
+	protected int m_iCampaignDebugPhase16InfantryAfter;
+	protected int m_iCampaignDebugPhase16VehiclesBefore;
+	protected int m_iCampaignDebugPhase16VehiclesAfter;
+	protected int m_iCampaignDebugPhase16MoneyBefore;
+	protected int m_iCampaignDebugPhase16MoneyAfter;
+	protected int m_iCampaignDebugPhase16HRBefore;
+	protected int m_iCampaignDebugPhase16HRAfter;
+	protected int m_iCampaignDebugPhase16TrainingBefore;
+	protected int m_iCampaignDebugPhase16TrainingAfter;
+	protected int m_iCampaignDebugPhase16TrainMoneyBefore;
+	protected int m_iCampaignDebugPhase16TrainMoneyAfter;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugLastResult;
@@ -136,6 +148,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugMissionPrefix;
 	protected string m_sCampaignDebugEntityTag;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
+	protected string m_sCampaignDebugPhase16ZoneId;
 	protected string m_sCampaignDebugBackgroundWarResistanceZoneId;
 	protected string m_sCampaignDebugBackgroundWarOccupierZoneId;
 	protected string m_sCampaignDebugBackgroundWarInvaderZoneId;
@@ -2960,6 +2973,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugPreviousCommanderIdentityId = "";
 		if (m_State)
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
+		ResetCampaignDebugPhase16Observations();
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -7008,6 +7022,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		if (index >= 10 && index <= 12)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase16RecruitmentCase(index, label, result));
+			return;
+		}
+
 		if (index >= 17 && index <= 21)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase18EnemyOrderCase(index, label, result));
@@ -7243,6 +7263,138 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return phase15CargoCount;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase16RecruitmentCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult recruitCase = CreateCampaignDebugCase("phase16." + SafeCampaignDebugToken(label), "phase_smoke", "garrisons_training", "phase16");
+		recruitCase.m_aEvidence.Insert(result);
+		string phase16CommandStatus = CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index)));
+		if (index == 11 && m_iCampaignDebugPhase16TrainingBefore >= 10 && result.Contains("max level"))
+			phase16CommandStatus = "WARN";
+		AddCampaignDebugAssertion(recruitCase, "phase16.command_result", "phase 16 command/report accepted", ShortCampaignDebugLine(result, 220), phase16CommandStatus, "phase 16 command returned failure text");
+		if (!m_State || !m_Preset || !m_Garrisons || !m_Recruitment)
+		{
+			AddCampaignDebugAssertion(recruitCase, "phase16.prerequisite", "campaign state, preset, garrison service, and recruitment service ready", "missing", "BLOCKED", "phase 16 typed probe missing state, preset, garrison service, or recruitment service");
+			FinalizeCampaignDebugCaseFromAssertions(recruitCase);
+			return recruitCase;
+		}
+
+		string resistanceFactionKey = ResolveCampaignDebugResistanceFactionKey();
+		string phase16ZoneId = m_sCampaignDebugPhase16ZoneId;
+		if (phase16ZoneId.IsEmpty())
+		{
+			HST_ZoneState fallbackZone = SelectPhase16FriendlyRecruitZone();
+			if (fallbackZone)
+				phase16ZoneId = fallbackZone.m_sZoneId;
+		}
+		HST_ZoneState phase16Zone = m_State.FindZone(phase16ZoneId);
+		HST_GarrisonState phase16Garrison;
+		if (phase16Zone)
+			phase16Garrison = m_State.FindGarrison(phase16Zone.m_sZoneId, resistanceFactionKey);
+		AddCampaignDebugMetric(recruitCase, "phase16.training.level", string.Format("%1", m_State.m_iTrainingLevel), "level");
+		AddCampaignDebugMetric(recruitCase, "phase16.garrisons.total", string.Format("%1", m_State.m_aGarrisons.Count()), "count");
+
+		if (index == 10 || index == 12)
+			AddCampaignDebugPhase16GarrisonAssertions(recruitCase, phase16Zone, phase16Garrison, resistanceFactionKey);
+		if (index == 11 || index == 12)
+			AddCampaignDebugPhase16TrainingAssertions(recruitCase, result);
+
+		FinalizeCampaignDebugCaseFromAssertions(recruitCase);
+		return recruitCase;
+	}
+
+	protected void AddCampaignDebugPhase16GarrisonAssertions(HST_CampaignDebugCaseResult recruitCase, HST_ZoneState phase16Zone, HST_GarrisonState phase16Garrison, string resistanceFactionKey)
+	{
+		string zoneId = "";
+		if (phase16Zone)
+			zoneId = phase16Zone.m_sZoneId;
+		AddCampaignDebugAssertion(recruitCase, "phase16.garrison.zone", "selected recruit zone exists, has slots, and is FIA-owned/inactive", BuildCampaignDebugPhase16ZoneActual(phase16Zone), CampaignDebugStatus(phase16Zone && phase16Zone.m_iGarrisonSlots > 0 && phase16Zone.m_sOwnerFactionKey == resistanceFactionKey && !phase16Zone.m_bActive && phase16Zone.m_iActiveInfantryCount == 0 && phase16Zone.m_iActiveVehicleCount == 0), "Phase 16 recruit zone was missing, full-active, or not resistance-owned", "", "", zoneId);
+		AddCampaignDebugAssertion(recruitCase, "phase16.garrison.record", "FIA garrison record exists for selected zone", BuildCampaignDebugGarrisonActual(phase16Garrison), CampaignDebugStatus(phase16Garrison != null), "Phase 16 did not create a resistance garrison record", "", "", zoneId);
+		int infantryDelta = m_iCampaignDebugPhase16InfantryAfter - m_iCampaignDebugPhase16InfantryBefore;
+		int vehicleDelta = m_iCampaignDebugPhase16VehiclesAfter - m_iCampaignDebugPhase16VehiclesBefore;
+		int expectedInfantryDelta = 2;
+		if (phase16Zone)
+			expectedInfantryDelta = Math.Min(2, Math.Max(0, phase16Zone.m_iGarrisonSlots - m_iCampaignDebugPhase16InfantryBefore));
+		int moneyDelta = m_iCampaignDebugPhase16MoneyAfter - m_iCampaignDebugPhase16MoneyBefore;
+		int hrDelta = m_iCampaignDebugPhase16HRAfter - m_iCampaignDebugPhase16HRBefore;
+		AddCampaignDebugMetric(recruitCase, "phase16.garrison.infantry_delta", string.Format("%1", infantryDelta), "count");
+		AddCampaignDebugMetric(recruitCase, "phase16.garrison.vehicle_delta", string.Format("%1", vehicleDelta), "count");
+		AddCampaignDebugMetric(recruitCase, "phase16.garrison.money_delta", string.Format("%1", moneyDelta), "money");
+		AddCampaignDebugMetric(recruitCase, "phase16.garrison.hr_delta", string.Format("%1", hrDelta), "hr");
+		AddCampaignDebugAssertion(recruitCase, "phase16.garrison.infantry_delta", "recruitment adds exactly the available requested infantry", string.Format("%1 -> %2 (delta %3, expected %4)", m_iCampaignDebugPhase16InfantryBefore, m_iCampaignDebugPhase16InfantryAfter, infantryDelta, expectedInfantryDelta), CampaignDebugStatus(infantryDelta == expectedInfantryDelta && infantryDelta > 0), "Phase 16 recruitment did not add the expected infantry", "", "", zoneId);
+		AddCampaignDebugAssertion(recruitCase, "phase16.garrison.vehicle_delta", "vehicle count unchanged for infantry-only seed", string.Format("%1 -> %2 (delta %3)", m_iCampaignDebugPhase16VehiclesBefore, m_iCampaignDebugPhase16VehiclesAfter, vehicleDelta), CampaignDebugStatus(vehicleDelta == 0), "Phase 16 infantry-only seed changed vehicle count", "", "", zoneId);
+		AddCampaignDebugAssertion(recruitCase, "phase16.garrison.money_cost", "money delta equals zero-cost seed", string.Format("%1 -> %2 (delta %3)", m_iCampaignDebugPhase16MoneyBefore, m_iCampaignDebugPhase16MoneyAfter, moneyDelta), CampaignDebugStatus(moneyDelta == 0), "Phase 16 zero-cost recruit seed changed money", "", "", zoneId);
+		AddCampaignDebugAssertion(recruitCase, "phase16.garrison.hr_cost", "HR delta equals zero-cost seed", string.Format("%1 -> %2 (delta %3)", m_iCampaignDebugPhase16HRBefore, m_iCampaignDebugPhase16HRAfter, hrDelta), CampaignDebugStatus(hrDelta == 0), "Phase 16 zero-cost recruit seed changed HR", "", "", zoneId);
+		if (phase16Zone && phase16Garrison)
+			AddCampaignDebugAssertion(recruitCase, "phase16.garrison.capacity", "abstract infantry count does not exceed zone slots", string.Format("%1/%2", phase16Garrison.m_iInfantryCount, phase16Zone.m_iGarrisonSlots), CampaignDebugStatus(phase16Garrison.m_iInfantryCount <= phase16Zone.m_iGarrisonSlots), "Phase 16 garrison exceeds zone capacity", "", "", zoneId);
+	}
+
+	protected void AddCampaignDebugPhase16TrainingAssertions(HST_CampaignDebugCaseResult recruitCase, string result)
+	{
+		int trainingDelta = m_iCampaignDebugPhase16TrainingAfter - m_iCampaignDebugPhase16TrainingBefore;
+		int trainMoneyDelta = m_iCampaignDebugPhase16TrainMoneyAfter - m_iCampaignDebugPhase16TrainMoneyBefore;
+		AddCampaignDebugMetric(recruitCase, "phase16.training.delta", string.Format("%1", trainingDelta), "level");
+		AddCampaignDebugMetric(recruitCase, "phase16.training.money_delta", string.Format("%1", trainMoneyDelta), "money");
+		if (m_iCampaignDebugPhase16TrainingBefore >= 10)
+		{
+			AddCampaignDebugAssertion(recruitCase, "phase16.training.max_level", "max-level training path reports blocked without mutation", string.Format("level %1 -> %2 | money %3 -> %4 | result %5", m_iCampaignDebugPhase16TrainingBefore, m_iCampaignDebugPhase16TrainingAfter, m_iCampaignDebugPhase16TrainMoneyBefore, m_iCampaignDebugPhase16TrainMoneyAfter, ShortCampaignDebugLine(result, 120)), CampaignDebugStatus(trainingDelta == 0 && trainMoneyDelta == 0 && result.Contains("max level"), "WARN"), "Phase 16 training was already max level but did not report a clean no-mutation block");
+			return;
+		}
+
+		AddCampaignDebugAssertion(recruitCase, "phase16.training.level_delta", "training level increases by exactly one", string.Format("%1 -> %2 (delta %3)", m_iCampaignDebugPhase16TrainingBefore, m_iCampaignDebugPhase16TrainingAfter, trainingDelta), CampaignDebugStatus(trainingDelta == 1), "Phase 16 training did not increase level by one");
+		AddCampaignDebugAssertion(recruitCase, "phase16.training.money_cost", "training money delta equals zero-cost smoke seed", string.Format("%1 -> %2 (delta %3)", m_iCampaignDebugPhase16TrainMoneyBefore, m_iCampaignDebugPhase16TrainMoneyAfter, trainMoneyDelta), CampaignDebugStatus(trainMoneyDelta == 0), "Phase 16 zero-cost training changed money");
+	}
+
+	protected string BuildCampaignDebugPhase16ZoneActual(HST_ZoneState phase16Zone)
+	{
+		if (!phase16Zone)
+			return "missing";
+
+		return string.Format("zone %1 | owner %2 | slots %3 | active %4/%5 | activeFlag %6", EmptyCampaignDebugField(phase16Zone.m_sZoneId), EmptyCampaignDebugField(phase16Zone.m_sOwnerFactionKey), phase16Zone.m_iGarrisonSlots, phase16Zone.m_iActiveInfantryCount, phase16Zone.m_iActiveVehicleCount, phase16Zone.m_bActive);
+	}
+
+	protected string BuildCampaignDebugGarrisonActual(HST_GarrisonState phase16Garrison)
+	{
+		if (!phase16Garrison)
+			return "missing";
+
+		return string.Format("zone %1 | faction %2 | infantry %3 | vehicles %4", EmptyCampaignDebugField(phase16Garrison.m_sZoneId), EmptyCampaignDebugField(phase16Garrison.m_sFactionKey), phase16Garrison.m_iInfantryCount, phase16Garrison.m_iVehicleCount);
+	}
+
+	protected string ResolveCampaignDebugResistanceFactionKey()
+	{
+		if (m_Preset && !m_Preset.m_sResistanceFactionKey.IsEmpty())
+			return m_Preset.m_sResistanceFactionKey;
+
+		return "FIA";
+	}
+
+	protected void ResetCampaignDebugPhase16Observations()
+	{
+		ResetCampaignDebugPhase16SeedObservation();
+		ResetCampaignDebugPhase16TrainObservation();
+	}
+
+	protected void ResetCampaignDebugPhase16SeedObservation()
+	{
+		m_sCampaignDebugPhase16ZoneId = "";
+		m_iCampaignDebugPhase16InfantryBefore = 0;
+		m_iCampaignDebugPhase16InfantryAfter = 0;
+		m_iCampaignDebugPhase16VehiclesBefore = 0;
+		m_iCampaignDebugPhase16VehiclesAfter = 0;
+		m_iCampaignDebugPhase16MoneyBefore = 0;
+		m_iCampaignDebugPhase16MoneyAfter = 0;
+		m_iCampaignDebugPhase16HRBefore = 0;
+		m_iCampaignDebugPhase16HRAfter = 0;
+	}
+
+	protected void ResetCampaignDebugPhase16TrainObservation()
+	{
+		m_iCampaignDebugPhase16TrainingBefore = 0;
+		m_iCampaignDebugPhase16TrainingAfter = 0;
+		m_iCampaignDebugPhase16TrainMoneyBefore = 0;
+		m_iCampaignDebugPhase16TrainMoneyAfter = 0;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
@@ -8043,6 +8195,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	string RequestAdminPhase16Seed(int playerId)
 	{
+		ResetCampaignDebugPhase16SeedObservation();
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "h-istasi phase 16 smoke | failed: admin required";
 
@@ -8061,6 +8214,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		zone.m_bActive = false;
 		zone.m_iActiveInfantryCount = 0;
 		zone.m_iActiveVehicleCount = 0;
+		m_sCampaignDebugPhase16ZoneId = zone.m_sZoneId;
+		m_iCampaignDebugPhase16MoneyBefore = m_State.m_iFactionMoney;
+		m_iCampaignDebugPhase16HRBefore = m_State.m_iHR;
+		HST_GarrisonState phase16GarrisonBefore = m_State.FindGarrison(zone.m_sZoneId, resistanceFactionKey);
+		if (phase16GarrisonBefore)
+		{
+			m_iCampaignDebugPhase16InfantryBefore = phase16GarrisonBefore.m_iInfantryCount;
+			m_iCampaignDebugPhase16VehiclesBefore = phase16GarrisonBefore.m_iVehicleCount;
+		}
 
 		HST_RecruitmentResult result = m_Recruitment.RecruitGarrisonDetailed(
 			m_State,
@@ -8075,6 +8237,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			0,
 			0
 		);
+		m_iCampaignDebugPhase16MoneyAfter = m_State.m_iFactionMoney;
+		m_iCampaignDebugPhase16HRAfter = m_State.m_iHR;
+		HST_GarrisonState phase16GarrisonAfter = m_State.FindGarrison(zone.m_sZoneId, resistanceFactionKey);
+		if (phase16GarrisonAfter)
+		{
+			m_iCampaignDebugPhase16InfantryAfter = phase16GarrisonAfter.m_iInfantryCount;
+			m_iCampaignDebugPhase16VehiclesAfter = phase16GarrisonAfter.m_iVehicleCount;
+		}
 
 		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
@@ -8088,13 +8258,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	string RequestAdminPhase16Train(int playerId)
 	{
+		ResetCampaignDebugPhase16TrainObservation();
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "h-istasi phase 16 smoke | failed: admin required";
 
 		if (!m_Recruitment)
 			return "h-istasi phase 16 smoke | failed: recruitment service not ready";
 
+		if (m_State)
+		{
+			m_iCampaignDebugPhase16TrainingBefore = m_State.m_iTrainingLevel;
+			m_iCampaignDebugPhase16TrainMoneyBefore = m_State.m_iFactionMoney;
+		}
 		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, 0);
+		if (m_State)
+		{
+			m_iCampaignDebugPhase16TrainingAfter = m_State.m_iTrainingLevel;
+			m_iCampaignDebugPhase16TrainMoneyAfter = m_State.m_iFactionMoney;
+		}
 		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
 
