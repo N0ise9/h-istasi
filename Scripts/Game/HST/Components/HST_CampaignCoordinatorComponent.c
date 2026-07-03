@@ -6156,7 +6156,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 9: return "phase10-11 convoy completion/outcome";
 			case 10: return "phase12 active mission persistence smoke";
 			case 11: return "phase13 primitive runtime report";
-			case 12: return "mechanic zone activation toggle";
+			case 12: return "mechanic render bubble zone activation";
 			case 13: return "mechanic garrison recruit/remove";
 			case 14: return "mechanic civilian aid";
 			case 15: return "mechanic support cancellation";
@@ -6925,18 +6925,234 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string RunCampaignDebugZoneActivationToggle()
 	{
-		string zoneId = SelectFirstAdminZoneId();
-		if (zoneId.IsEmpty())
-			return "h-istasi campaign debug | failed: no zone available for activation toggle";
+		HST_CampaignDebugCaseResult renderCase = BuildCampaignDebugRenderBubbleZoneCase();
+		RecordCampaignDebugCase(renderCase);
+		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2", renderCase.m_sStatus, renderCase.m_sReason);
+	}
 
-		HST_ZoneState zone = m_State.FindZone(zoneId);
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleZoneCase()
+	{
+		HST_CampaignDebugCaseResult renderCase = CreateCampaignDebugCase("render_bubble.zone_activation.early", "physical_war", "render_bubble", "early_mechanics");
+		bool serviceReady = m_State != null && m_PhysicalWar != null && m_Balance != null && m_Preset != null;
+		AddCampaignDebugAssertion(renderCase, "render_bubble.prerequisite.services", "state, balance, preset, and physical war service ready", string.Format("%1", serviceReady), CampaignDebugStatus(serviceReady), "render bubble probe service prerequisite missing");
+		if (!serviceReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(renderCase);
+			return renderCase;
+		}
+
+		if (m_Settings && m_Settings.m_Features && !m_Settings.m_Features.m_bPhysicalWarEnabled)
+		{
+			AddCampaignDebugAssertion(renderCase, "render_bubble.prerequisite.enabled", "physical war enabled", "disabled", "SKIPPED", "physical war feature disabled in settings");
+			FinalizeCampaignDebugCaseFromAssertions(renderCase);
+			return renderCase;
+		}
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (m_bCampaignDebugPhysicalBlocked || !IsLivingEntity(playerEntity))
+		{
+			AddCampaignDebugAssertion(renderCase, "render_bubble.prerequisite.player", "living controlled player entity available", "missing", "BLOCKED", "render bubble probe requires a controlled player entity");
+			FinalizeCampaignDebugCaseFromAssertions(renderCase);
+			return renderCase;
+		}
+
+		HST_ZoneState zone = SelectCampaignDebugRenderBubbleZone();
 		if (!zone)
-			return "h-istasi campaign debug | failed: zone not found for activation toggle";
+		{
+			AddCampaignDebugAssertion(renderCase, "render_bubble.prerequisite.zone", "inactive non-mission zone with abstract garrison outside HQ/player bubble", "missing", "BLOCKED", "no compatible render-bubble zone found");
+			FinalizeCampaignDebugCaseFromAssertions(renderCase);
+			return renderCase;
+		}
 
+		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		string selectedActual = BuildCampaignDebugRenderBubbleZoneActual(zone, CountCampaignDebugZoneActiveGroups(zone.m_sZoneId), CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId));
 		bool originalActive = zone.m_bActive;
-		string first = RequestAdminSetZoneActiveReport(m_iCampaignDebugPlayerId, zoneId, !originalActive);
-		string second = RequestAdminSetZoneActiveReport(m_iCampaignDebugPlayerId, zoneId, originalActive);
-		return first + "\n" + second;
+		int originalActiveInfantry = zone.m_iActiveInfantryCount;
+		int originalActiveVehicles = zone.m_iActiveVehicleCount;
+		int originalGarrisonInfantry;
+		int originalGarrisonVehicles;
+		if (garrison)
+		{
+			originalGarrisonInfantry = garrison.m_iInfantryCount;
+			originalGarrisonVehicles = garrison.m_iVehicleCount;
+		}
+
+		int originalGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		float activationRadius = ResolveCampaignDebugActivationRadius(zone);
+		vector farPosition = m_State.m_vHQPosition + "6 0 6";
+		vector nearPosition = zone.m_vPosition + "8 0 8";
+		bool farTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble far");
+		bool farChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		int farGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int farSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		bool farInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && farGroupCount == 0;
+		string farActual = BuildCampaignDebugRenderBubbleZoneActual(zone, farGroupCount, farSpawnedGroupCount);
+		float farDistance = Math.Sqrt(DistanceSq2D(farPosition, zone.m_vPosition));
+		renderCase.m_aEvidence.Insert(string.Format("far | teleported %1 | changed %2 | zone %3", farTeleport, farChanged, farActual));
+
+		bool nearTeleport = TeleportCampaignDebugPlayer(nearPosition, "render bubble near");
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		float nearDistance = 999999.0;
+		if (playerEntity)
+			nearDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition));
+		bool nearChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		int nearGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int nearSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		int nearTotalActiveForces = zone.m_iActiveInfantryCount + zone.m_iActiveVehicleCount;
+		int originalTotalGarrison = originalGarrisonInfantry + originalGarrisonVehicles;
+		bool nearActive = zone.m_bActive && nearGroupCount > 0 && nearSpawnedGroupCount > 0 && nearTotalActiveForces > 0;
+		bool nearWithinBudget = nearTotalActiveForces <= originalTotalGarrison && nearGroupCount <= originalTotalGarrison;
+		string nearActual = BuildCampaignDebugRenderBubbleZoneActual(zone, nearGroupCount, nearSpawnedGroupCount);
+		renderCase.m_aEvidence.Insert(string.Format("near | teleported %1 | changed %2 | distance %3m | zone %4", nearTeleport, nearChanged, Math.Round(nearDistance), nearActual));
+
+		bool leaveTeleport = TeleportCampaignDebugPlayer(farPosition, "render bubble leave");
+		bool leaveChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+		int leaveGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int leaveSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		bool leaveInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && leaveGroupCount == 0;
+		string leaveActual = BuildCampaignDebugRenderBubbleZoneActual(zone, leaveGroupCount, leaveSpawnedGroupCount);
+		renderCase.m_aEvidence.Insert(string.Format("leave | teleported %1 | changed %2 | zone %3", leaveTeleport, leaveChanged, leaveActual));
+
+		if (garrison)
+		{
+			garrison.m_iInfantryCount = originalGarrisonInfantry;
+			garrison.m_iVehicleCount = originalGarrisonVehicles;
+		}
+		zone.m_bActive = originalActive;
+		zone.m_iActiveInfantryCount = originalActiveInfantry;
+		zone.m_iActiveVehicleCount = originalActiveVehicles;
+
+		AddCampaignDebugMetric(renderCase, "render_bubble.activation_radius", string.Format("%1", Math.Round(activationRadius)), "m");
+		AddCampaignDebugMetric(renderCase, "render_bubble.near_groups", string.Format("%1", nearGroupCount), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.near_spawned_groups", string.Format("%1", nearSpawnedGroupCount), "count");
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_selected", "inactive zone with abstract garrison and no active groups selected", selectedActual, CampaignDebugStatus(garrison != null && originalTotalGarrison > 0 && originalGroupCount == 0), "selected zone was not a clean abstract-garrison render-bubble target", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.teleport", "player teleported outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", farTeleport, Math.Round(farDistance), Math.Round(activationRadius)), CampaignDebugStatus(farTeleport && farDistance > activationRadius), "could not place player outside selected zone activation radius", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.inactive", "far update leaves selected zone inactive with no active groups", farActual, CampaignDebugStatus(farInactive), "far render-bubble update left active state or active groups behind", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.teleport", "player teleported inside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", nearTeleport, Math.Round(nearDistance), Math.Round(activationRadius)), CampaignDebugStatus(nearTeleport && nearDistance <= activationRadius), "could not place player inside selected zone activation radius", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.active", "near update activates zone and physicalizes active groups", nearActual, CampaignDebugStatus(nearActive), "near render-bubble update did not activate and spawn active groups", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.budget", "active groups/forces stay within abstract garrison budget", string.Format("active forces %1/%2 | groups %3", nearTotalActiveForces, originalTotalGarrison, nearGroupCount), CampaignDebugStatus(nearWithinBudget), "render-bubble activation exceeded selected zone garrison budget", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_leave.cleanup", "leave update deactivates zone and folds/removes active groups", leaveActual, CampaignDebugStatus(leaveInactive), "leave render-bubble update did not clean up active zone runtime", "", "", zone.m_sZoneId);
+		int restoredGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+		int restoredSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+		bool restoreMatched = zone.m_bActive == originalActive
+			&& zone.m_iActiveInfantryCount == originalActiveInfantry
+			&& zone.m_iActiveVehicleCount == originalActiveVehicles
+			&& restoredGroupCount == originalGroupCount
+			&& (!garrison || (garrison.m_iInfantryCount == originalGarrisonInfantry && garrison.m_iVehicleCount == originalGarrisonVehicles));
+		AddCampaignDebugAssertion(renderCase, "render_bubble.restore", "original active flag/counts, group count, and abstract garrison restored after probe", BuildCampaignDebugRenderBubbleZoneActual(zone, restoredGroupCount, restoredSpawnedGroupCount), CampaignDebugStatus(restoreMatched), "render-bubble probe failed to restore selected zone state", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_assets", "mission asset and convoy-expired bubble policies are separate probes", "not executed", "WARN", "this probe covers zone far/near/leave only");
+		FinalizeCampaignDebugCaseFromAssertions(renderCase);
+		MarkMajorCampaignChange(true);
+		return renderCase;
+	}
+
+	protected HST_ZoneState SelectCampaignDebugRenderBubbleZone()
+	{
+		if (!m_State || !m_Balance || IsZeroVector(m_State.m_vHQPosition))
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = -1.0;
+		foreach (HST_ZoneState candidate : m_State.m_aZones)
+		{
+			if (!IsCampaignDebugRenderBubbleZoneCandidate(candidate))
+				continue;
+
+			float distanceSq = DistanceSq2D(m_State.m_vHQPosition, candidate.m_vPosition);
+			if (distanceSq > bestDistanceSq)
+			{
+				bestZone = candidate;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		return bestZone;
+	}
+
+	protected bool IsCampaignDebugRenderBubbleZoneCandidate(HST_ZoneState zone)
+	{
+		if (!zone || !m_State || !m_Balance)
+			return false;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_bActive || zone.m_iActiveInfantryCount > 0 || zone.m_iActiveVehicleCount > 0)
+			return false;
+		if (CountActiveMissionsAtZone(zone.m_sZoneId) > 0 || CountCampaignDebugZoneActiveGroups(zone.m_sZoneId) > 0)
+			return false;
+
+		float activationRadius = ResolveCampaignDebugActivationRadius(zone);
+		float hqDistance = Math.Sqrt(DistanceSq2D(m_State.m_vHQPosition, zone.m_vPosition));
+		if (hqDistance <= Math.Max(activationRadius + 200.0, 1300.0))
+			return false;
+
+		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		if (!garrison)
+			return false;
+
+		return garrison.m_iInfantryCount + garrison.m_iVehicleCount > 0;
+	}
+
+	protected float ResolveCampaignDebugActivationRadius(HST_ZoneState zone)
+	{
+		if (zone && zone.m_iActivationRadiusMeters > 0)
+			return zone.m_iActivationRadiusMeters;
+		if (m_Balance)
+			return m_Balance.m_iActivationRadiusMeters;
+
+		return 0.0;
+	}
+
+	protected int CountCampaignDebugZoneActiveGroups(string zoneId)
+	{
+		if (!m_State || zoneId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
+				continue;
+			if (IsCampaignDebugTerminalGroup(activeGroup))
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugZoneSpawnedActiveGroups(string zoneId)
+	{
+		if (!m_State || zoneId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
+				continue;
+			if (IsCampaignDebugTerminalGroup(activeGroup))
+				continue;
+			if (activeGroup.m_bSpawnedEntity || activeGroup.m_iSpawnedAgentCount > 0 || !activeGroup.m_sRuntimeEntityId.IsEmpty())
+				count++;
+		}
+
+		return count;
+	}
+
+	protected string BuildCampaignDebugRenderBubbleZoneActual(HST_ZoneState zone, int groupCount, int spawnedGroupCount)
+	{
+		if (!zone)
+			return "missing";
+
+		HST_GarrisonState garrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		int infantry;
+		int vehicles;
+		if (garrison)
+		{
+			infantry = garrison.m_iInfantryCount;
+			vehicles = garrison.m_iVehicleCount;
+		}
+
+		return string.Format("zone %1 | owner %2 | active %3 | active forces %4/%5 | groups %6 spawned %7 | garrison %8/%9", EmptyCampaignDebugField(zone.m_sZoneId), EmptyCampaignDebugField(zone.m_sOwnerFactionKey), zone.m_bActive, zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount, groupCount, spawnedGroupCount, infantry, vehicles);
 	}
 
 	protected string RunCampaignDebugGarrisonRecruitRemove()
