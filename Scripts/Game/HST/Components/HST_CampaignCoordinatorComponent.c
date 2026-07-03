@@ -7561,8 +7561,166 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				AddCampaignDebugAssertion(captureCase, "phase17.counterattack.resource_spend", "new counterattack spends attack/support pools by recorded costs", string.Format("attack %1 -> %2 | support %3 -> %4 | costs %5/%6", m_iCampaignDebugPhase17CounterattackAttackBefore, m_iCampaignDebugPhase17CounterattackAttackAfter, m_iCampaignDebugPhase17CounterattackSupportBefore, m_iCampaignDebugPhase17CounterattackSupportAfter, counterattackOrder.m_iAttackCost, counterattackOrder.m_iSupportCost), CampaignDebugStatus(-attackDelta >= counterattackOrder.m_iAttackCost && -supportDelta >= counterattackOrder.m_iSupportCost), "Phase 17 counterattack did not spend expected resources", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
 			else
 				AddCampaignDebugAssertion(captureCase, "phase17.counterattack.duplicate_guard", "existing counterattack order prevents duplicate queue", string.Format("order delta %1 | order %2", counterOrderDelta, counterattackOrder.m_sOrderId), CampaignDebugStatus(counterOrderDelta == 0, "WARN"), "Phase 17 counterattack command did not create a new order and no duplicate guard evidence was available", "", "", counterattackOrder.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugPhase17PhysicalAdvanceAssertions(captureCase, counterattackOrder, phase17Zone);
 		}
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack physical spawn/advance sampled over time", "not sampled in Phase 17 smoke", "WARN", "Phase 17 typed smoke verifies order state only; physical counterattack advance remains a separate gap", "", "", counterZoneId);
+	}
+
+	protected void AddCampaignDebugPhase17PhysicalAdvanceAssertions(HST_CampaignDebugCaseResult captureCase, HST_EnemyOrderState counterattackOrder, HST_ZoneState phase17Zone)
+	{
+		HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe = ProbeCampaignDebugEnemyOrderPhysicalAdvance(counterattackOrder, phase17Zone, "phase17_counterattack_physical");
+		if (!physicalProbe)
+		{
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_probe", "physical counterattack probe context created", "missing", "BLOCKED", "Phase 17 physical probe did not create a context");
+			return;
+		}
+
+		string targetZoneId = "";
+		if (counterattackOrder)
+			targetZoneId = counterattackOrder.m_sTargetZoneId;
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.distance_before", string.Format("%1", Math.Round(physicalProbe.m_fDistanceBefore)), "meters");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.distance_after", string.Format("%1", Math.Round(physicalProbe.m_fDistanceAfter)), "meters");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.route_advance_seconds", string.Format("%1", physicalProbe.m_iRouteAdvanceSeconds), "seconds");
+
+		string physicalActual = BuildCampaignDebugEnemyOrderPhysicalActual(physicalProbe);
+		bool physicalized = counterattackOrder && counterattackOrder.m_bPhysicalized && !counterattackOrder.m_sSupportRequestId.IsEmpty();
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physicalized", "counterattack order physicalizes through real enemy commander tick", physicalActual, CampaignDebugStatus(physicalized), "Phase 17 counterattack did not physicalize into a support request", "", "", targetZoneId, counterattackOrder.m_sOrderId);
+
+		HST_SupportRequestState physicalSupport = physicalProbe.m_SupportRequest;
+		if (physicalSupport)
+		{
+			string supportActual = BuildCampaignDebugSupportRequestActual(physicalSupport);
+			bool supportExpected = physicalSupport.m_bPhysicalized && !physicalSupport.m_sGroupId.IsEmpty();
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.support_physicalized", "linked support request physicalizes a group", supportActual, CampaignDebugStatus(supportExpected), "Phase 17 linked support request did not physicalize a group", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.support_prefix", "linked support request carries current debug prefix", EmptyCampaignDebugField(physicalSupport.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(physicalSupport.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "Phase 17 physical support request was not prefixed for cleanup", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, counterattackOrder.m_sOrderId);
+		}
+		else
+		{
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.support_physicalized", "linked support request physicalizes a group", EmptyCampaignDebugField(physicalProbe.m_sFailureReason), "BLOCKED", "Phase 17 physical probe did not create a linked support request", "", "", targetZoneId, counterattackOrder.m_sOrderId);
+		}
+
+		HST_ActiveGroupState physicalGroup = physicalProbe.m_Group;
+		if (physicalGroup)
+		{
+			string groupActual = BuildCampaignDebugActiveGroupActual(physicalGroup);
+			bool groupExpected = physicalGroup.m_bSpawnedEntity && physicalGroup.m_sRuntimeStatus != "spawn_failed";
+			bool groupPrefixed = MissionValueHasCampaignDebugPrefix(physicalGroup.m_sGroupId, m_sCampaignDebugMarkerPrefix);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_spawned", "linked active group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected), "Phase 17 physical counterattack group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_prefix", "linked active group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 17 physical counterattack group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, counterattackOrder.m_sOrderId);
+		}
+		else
+		{
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.group_spawned", "linked active group exists and spawned runtime entities", EmptyCampaignDebugField(physicalProbe.m_sFailureReason), "BLOCKED", "Phase 17 physical probe did not create a linked active group", "", "", targetZoneId, counterattackOrder.m_sOrderId);
+		}
+
+		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
+		bool advanced = physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore;
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack group advances toward captured zone over a route tick", advanceActual, CampaignDebugStatus(advanced), "Phase 17 physical counterattack group did not advance toward the target zone", "", "", targetZoneId, counterattackOrder.m_sOrderId);
+	}
+
+	protected HST_CampaignDebugEnemyOrderPhysicalProbeContext ProbeCampaignDebugEnemyOrderPhysicalAdvance(HST_EnemyOrderState physicalOrder, HST_ZoneState targetZone, string label)
+	{
+		HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe = new HST_CampaignDebugEnemyOrderPhysicalProbeContext();
+		physicalProbe.m_Order = physicalOrder;
+		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector || !m_SupportRequests || !m_PhysicalWar || !m_Balance)
+		{
+			physicalProbe.m_sFailureReason = "physical probe services not ready";
+			return physicalProbe;
+		}
+		if (!physicalOrder)
+		{
+			physicalProbe.m_sFailureReason = "counterattack order missing";
+			return physicalProbe;
+		}
+		if (!targetZone)
+			targetZone = m_State.FindZone(physicalOrder.m_sTargetZoneId);
+		if (!targetZone)
+		{
+			physicalProbe.m_sFailureReason = "counterattack target zone missing";
+			return physicalProbe;
+		}
+
+		physicalProbe.m_iElapsedBefore = m_State.m_iElapsedSeconds;
+		physicalProbe.m_bTargetWasActive = targetZone.m_bActive;
+		targetZone.m_bActive = true;
+
+		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+		physicalProbe.m_bPhysicalizeTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(physicalOrder.m_sSupportRequestId);
+		if (physicalProbe.m_SupportRequest)
+		{
+			string prefixedSupportRequestId = ApplyCampaignDebugSupportRequestPrefix(physicalProbe.m_SupportRequest, label);
+			if (!prefixedSupportRequestId.IsEmpty())
+				physicalOrder.m_sSupportRequestId = prefixedSupportRequestId;
+			int inboundLeadSeconds = ResolveCampaignDebugSupportInboundLeadSeconds(physicalProbe.m_SupportRequest);
+			if (physicalProbe.m_SupportRequest.m_iETASeconds > inboundLeadSeconds)
+				physicalProbe.m_SupportRequest.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, physicalProbe.m_SupportRequest.m_iETASeconds - inboundLeadSeconds);
+		}
+
+		physicalProbe.m_bSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		physicalProbe.m_bSyncTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(physicalOrder.m_sSupportRequestId);
+		if (physicalProbe.m_SupportRequest && !physicalProbe.m_SupportRequest.m_sGroupId.IsEmpty())
+			physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_SupportRequest.m_sGroupId);
+		if (!physicalProbe.m_Group && !physicalOrder.m_sGroupId.IsEmpty())
+			physicalProbe.m_Group = m_State.FindActiveGroup(physicalOrder.m_sGroupId);
+
+		if (physicalProbe.m_Group)
+		{
+			physicalProbe.m_bSpawnTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_Group.m_sGroupId);
+		}
+
+		if (physicalProbe.m_Group)
+		{
+			physicalProbe.m_vGroupPositionBefore = physicalProbe.m_Group.m_vPosition;
+			physicalProbe.m_fDistanceBefore = Math.Sqrt(DistanceSq2D(physicalProbe.m_Group.m_vPosition, physicalProbe.m_Group.m_vTargetPosition));
+			int routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - (m_State.m_iElapsedSeconds % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS);
+			if (routeAdvanceSeconds <= 0)
+				routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+			physicalProbe.m_iRouteAdvanceSeconds = routeAdvanceSeconds;
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + routeAdvanceSeconds;
+			physicalProbe.m_bRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_Group.m_sGroupId);
+			if (physicalProbe.m_Group)
+			{
+				physicalProbe.m_vGroupPositionAfter = physicalProbe.m_Group.m_vPosition;
+				physicalProbe.m_fDistanceAfter = Math.Sqrt(DistanceSq2D(physicalProbe.m_Group.m_vPosition, physicalProbe.m_Group.m_vTargetPosition));
+			}
+		}
+		else
+		{
+			physicalProbe.m_sFailureReason = "linked active group missing";
+		}
+
+		targetZone.m_bActive = physicalProbe.m_bTargetWasActive;
+		physicalProbe.m_bTargetActiveRestored = true;
+		physicalProbe.m_iElapsedAfter = m_State.m_iElapsedSeconds;
+		return physicalProbe;
+	}
+
+	protected string BuildCampaignDebugEnemyOrderPhysicalActual(HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe)
+	{
+		if (!physicalProbe)
+			return "missing";
+
+		string orderId = "missing";
+		string supportId = "missing";
+		string groupId = "missing";
+		if (physicalProbe.m_Order)
+			orderId = EmptyCampaignDebugField(physicalProbe.m_Order.m_sOrderId);
+		if (physicalProbe.m_SupportRequest)
+			supportId = EmptyCampaignDebugField(physicalProbe.m_SupportRequest.m_sRequestId);
+		if (physicalProbe.m_Group)
+			groupId = EmptyCampaignDebugField(physicalProbe.m_Group.m_sGroupId);
+		return string.Format("order %1 | support %2 | group %3 | ticks physical %4 support %5 sync %6 spawn %7 route %8 | failure %9", orderId, supportId, groupId, physicalProbe.m_bPhysicalizeTickChanged, physicalProbe.m_bSupportTickChanged, physicalProbe.m_bSyncTickChanged, physicalProbe.m_bSpawnTickChanged, physicalProbe.m_bRouteTickChanged, EmptyCampaignDebugField(physicalProbe.m_sFailureReason));
+	}
+
+	protected string BuildCampaignDebugActiveGroupActual(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return "missing";
+
+		return string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
 	}
 
 	protected void AddCampaignDebugPhase17ReportAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)

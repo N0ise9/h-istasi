@@ -128,17 +128,27 @@ class HST_PhysicalWarService
 		m_bDebugLoggingEnabled = enabled;
 	}
 
+	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		EnsureRuntimeGroupEntities(state);
+		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
+		bool routeChanged = UpdateActiveGroupRoutes(state);
+		return survivorChanged || routeChanged;
+	}
+
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
 	{
 		if (!state || !balance)
 			return false;
 
-		EnsureRuntimeGroupEntities(state);
-		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
+		bool routedGroupChanged = UpdateRoutedActiveGroupsNow(state);
 
 		PlayerManager playerManager = GetGame().GetPlayerManager();
 		if (!playerManager)
-			return survivorChanged;
+			return routedGroupChanged;
 
 		array<int> playerIds = {};
 		playerManager.GetPlayers(playerIds);
@@ -170,7 +180,7 @@ class HST_PhysicalWarService
 		if (UpdateQRF(state, preset, enemyDirector))
 			changed = true;
 
-		return changed || survivorChanged;
+		return changed || routedGroupChanged;
 	}
 
 	bool EnsureMissionTargetZoneActive(HST_CampaignState state, string zoneId, HST_ZoneCompositionService compositions = null)

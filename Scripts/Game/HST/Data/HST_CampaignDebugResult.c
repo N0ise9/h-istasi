@@ -88,3 +88,25 @@ class HST_CampaignDebugSupportProbeContext
 	string m_sGroupIdAfterTick;
 	string m_sGroupStatusAfterTick;
 }
+
+class HST_CampaignDebugEnemyOrderPhysicalProbeContext
+{
+	HST_EnemyOrderState m_Order;
+	HST_SupportRequestState m_SupportRequest;
+	HST_ActiveGroupState m_Group;
+	bool m_bPhysicalizeTickChanged;
+	bool m_bSupportTickChanged;
+	bool m_bSyncTickChanged;
+	bool m_bSpawnTickChanged;
+	bool m_bRouteTickChanged;
+	bool m_bTargetWasActive;
+	bool m_bTargetActiveRestored;
+	int m_iElapsedBefore;
+	int m_iElapsedAfter;
+	int m_iRouteAdvanceSeconds;
+	vector m_vGroupPositionBefore;
+	vector m_vGroupPositionAfter;
+	float m_fDistanceBefore;
+	float m_fDistanceAfter;
+	string m_sFailureReason;
+}
