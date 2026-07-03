@@ -434,6 +434,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Diagnostic report steps should be judged by report availability/admin errors, not by generic action failure substrings. Summaries such as `missing dispatch 0`, expected Defend Petros failure text, or historical support/order failure reasons are useful diagnostics, not proof that the current report step failed.
   - UI coverage reports should only fail on explicit detail rows such as `missing visible command:` or `missing dispatch:`, not on the zero-count summary labels.
   - Baseline persistence diagnostics should distinguish a broken save path from an unavailable native backend with a working profile fallback. In Workbench, `PersistenceSystem unavailable` plus `profile fallback 1` is a warning-level environment limitation; failed fallback save/load/read or `profile fallback false` is a real failure.
+  - The baseline persistence report can include an unseeded persistence-smoke `FAIL` because the smoke baseline has not been created yet. Do not let that generic `| FAIL` poison the baseline persistence check; the dedicated seeded persistence smoke steps own that validation later in the run.
 
 - Convoy mission runtime should not fall back to a generic mission prop when convoy vehicle asset planning fails.
   - A convoy with `spawned 1` and `vehicle asset count 0` is misleading: the physical convoy did not exist even though the generic runtime prop spawned.

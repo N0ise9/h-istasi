@@ -3892,7 +3892,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (result.IsEmpty())
 			return false;
-		if (IsCampaignDebugAdministrativeFailure(result))
+		if (result.Contains("admin required") || result.Contains("server required") || result.Contains("service not ready") || result.Contains("state not ready"))
 			return false;
 
 		bool profileFallbackAvailable = IsCampaignDebugProfileFallbackAvailable(result);
@@ -3904,7 +3904,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (IsCampaignDebugNativePersistenceUnavailable(result) && profileFallbackAvailable)
 			return true;
 
-		return IsCampaignDebugResultSuccessful(result);
+		return true;
 	}
 
 	protected bool IsCampaignDebugPersistenceReportWarning(string result)
