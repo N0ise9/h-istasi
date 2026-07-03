@@ -3833,6 +3833,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string physicalActual = string.Format("physical %1 -> %2 | group %3 | group status %4 | mode %5 | runtime %6", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(probeContext.m_sGroupIdAfterTick), EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTick), EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
 			bool physicalExpected = probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && probeContext.m_sGroupStatusAfterTick.Contains("support");
 			AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", physicalActual, CampaignDebugStatus(physicalExpected), "ground support did not physicalize a linked support group", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
+			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
+			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
+			AddCampaignDebugMetric(supportCase, "support.physical_route_advance_seconds", string.Format("%1", probeContext.m_iRouteAdvanceSeconds), "seconds");
+			AddCampaignDebugMetric(supportCase, "support.physical_arrival_advance_seconds", string.Format("%1", probeContext.m_iArrivalAdvanceSeconds), "seconds");
+			string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4 | status %5", Math.Round(probeContext.m_fDistanceBefore), Math.Round(probeContext.m_fDistanceAfter), probeContext.m_vGroupPositionBefore, probeContext.m_vGroupPositionAfter, EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterRoute));
+			bool advanced = probeContext.m_bRouteTickChanged && probeContext.m_fDistanceBefore > 0 && probeContext.m_fDistanceAfter < probeContext.m_fDistanceBefore;
+			AddCampaignDebugAssertion(supportCase, "support.physical_advance", "ground support group advances toward support target over a route tick", advanceActual, CampaignDebugStatus(advanced), "ground support group did not advance toward its target", observedSupportRequest.m_sRequestId);
+			string arrivalActual = string.Format("distance %1m | group status %2 | request runtime %3 | arrival tick %4", Math.Round(probeContext.m_fDistanceAtArrival), EmptyCampaignDebugField(probeContext.m_sGroupStatusAtArrival), EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAtArrival), probeContext.m_bArrivalTickChanged);
+			bool arrived = probeContext.m_bArrivalTickChanged && (probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived");
+			AddCampaignDebugAssertion(supportCase, "support.physical_arrival", "ground support reaches arrival state after controlled ETA advance", arrivalActual, CampaignDebugStatus(arrived, "WARN"), "ground support did not reach arrival status inside the controlled probe window", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_cleanup", "support runtime group entity is removed during probe cleanup", string.Format("%1", probeContext.m_bRuntimeEntityCleaned), CampaignDebugStatus(probeContext.m_bRuntimeEntityCleaned, "WARN"), "support physical runtime entity cleanup did not confirm an entity was removed", observedSupportRequest.m_sRequestId);
 			return;
 		}
 
@@ -3855,6 +3867,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bPhysicalizedAfterTick = false;
 		probeContext.m_sGroupIdAfterTick = "";
 		probeContext.m_sGroupStatusAfterTick = "";
+		probeContext.m_fDistanceBefore = -1.0;
+		probeContext.m_fDistanceAfter = -1.0;
+		probeContext.m_fDistanceAtArrival = -1.0;
 		HST_SupportRequestState supportRequest = probeContext.m_Request;
 		if (!m_State || !m_Preset || !m_SupportRequests || !supportRequest)
 			return false;
@@ -3881,9 +3896,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			supportRequest.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, supportRequest.m_iETASeconds - desiredRemaining);
 
 		bool changed = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
-		if (restoreTargetActive && targetZone)
-			targetZone.m_bActive = targetWasActive;
-
 		probeContext.m_iEtaRemainingAfter = RemainingCampaignDebugSupportETA(supportRequest);
 		probeContext.m_eStatusAfterTick = supportRequest.m_eStatus;
 		probeContext.m_sRuntimeStatusAfterTick = supportRequest.m_sRuntimeStatus;
@@ -3893,11 +3905,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (group)
 			probeContext.m_sGroupStatusAfterTick = group.m_sRuntimeStatus;
 
+		if (group && IsCampaignDebugPhysicalGroundSupportType(supportRequest.m_eType) && m_PhysicalWar)
+		{
+			probeContext.m_vGroupPositionBefore = group.m_vPosition;
+			probeContext.m_fDistanceBefore = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
+			int routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - (m_State.m_iElapsedSeconds % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS);
+			if (routeAdvanceSeconds <= 0)
+				routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+			probeContext.m_iRouteAdvanceSeconds = routeAdvanceSeconds;
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + routeAdvanceSeconds;
+			probeContext.m_bRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+			if (group)
+			{
+				probeContext.m_vGroupPositionAfter = group.m_vPosition;
+				probeContext.m_fDistanceAfter = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
+				probeContext.m_sGroupStatusAfterRoute = group.m_sRuntimeStatus;
+			}
+
+			int arrivalAtSecond = supportRequest.m_iRequestedAtSecond + Math.Max(0, supportRequest.m_iETASeconds);
+			int arrivalAdvanceSeconds = Math.Max(0, arrivalAtSecond - m_State.m_iElapsedSeconds);
+			int arrivalRemainder = (m_State.m_iElapsedSeconds + arrivalAdvanceSeconds) % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+			if (arrivalRemainder != 0)
+				arrivalAdvanceSeconds = arrivalAdvanceSeconds + (HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - arrivalRemainder);
+			probeContext.m_iArrivalAdvanceSeconds = arrivalAdvanceSeconds;
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + arrivalAdvanceSeconds;
+			probeContext.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+			probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+			if (group)
+			{
+				probeContext.m_vGroupPositionAtArrival = group.m_vPosition;
+				probeContext.m_fDistanceAtArrival = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
+				probeContext.m_sGroupStatusAtArrival = group.m_sRuntimeStatus;
+			}
+			probeContext.m_sRequestRuntimeStatusAtArrival = supportRequest.m_sRuntimeStatus;
+		}
+
+		if (!supportRequest.m_sGroupId.IsEmpty() && m_PhysicalWar)
+			probeContext.m_bRuntimeEntityCleaned = m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(supportRequest.m_sGroupId);
+
+		if (restoreTargetActive && targetZone)
+			targetZone.m_bActive = targetWasActive;
+
 		return changed
 			|| probeContext.m_eStatusBeforeTick != probeContext.m_eStatusAfterTick
 			|| probeContext.m_sRuntimeStatusBeforeTick != probeContext.m_sRuntimeStatusAfterTick
 			|| probeContext.m_bPhysicalizedBeforeTick != probeContext.m_bPhysicalizedAfterTick
-			|| probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore;
+			|| probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore
+			|| probeContext.m_bRouteTickChanged
+			|| probeContext.m_bArrivalTickChanged;
 	}
 
 	protected int RemainingCampaignDebugSupportETA(HST_SupportRequestState supportRequest)

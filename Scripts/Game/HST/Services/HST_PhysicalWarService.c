@@ -209,6 +209,16 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+	bool CleanupRuntimeGroupEntityForDebug(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return false;
+
+		bool existed = GetRuntimeGroupEntity(groupId) != null;
+		DeleteRuntimeGroupEntity(groupId);
+		return existed;
+	}
+
 	protected bool ShouldForceMissionZoneActive(HST_CampaignState state, HST_ZoneState zone)
 	{
 		if (!state || !zone)

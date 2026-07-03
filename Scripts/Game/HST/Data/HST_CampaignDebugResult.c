@@ -87,6 +87,21 @@ class HST_CampaignDebugSupportProbeContext
 	bool m_bPhysicalizedAfterTick;
 	string m_sGroupIdAfterTick;
 	string m_sGroupStatusAfterTick;
+	bool m_bRouteTickChanged;
+	bool m_bArrivalRouteTickChanged;
+	bool m_bArrivalTickChanged;
+	int m_iRouteAdvanceSeconds;
+	int m_iArrivalAdvanceSeconds;
+	vector m_vGroupPositionBefore;
+	vector m_vGroupPositionAfter;
+	vector m_vGroupPositionAtArrival;
+	float m_fDistanceBefore;
+	float m_fDistanceAfter;
+	float m_fDistanceAtArrival;
+	string m_sGroupStatusAfterRoute;
+	string m_sGroupStatusAtArrival;
+	string m_sRequestRuntimeStatusAtArrival;
+	bool m_bRuntimeEntityCleaned;
 }
 
 class HST_CampaignDebugEnemyOrderPhysicalProbeContext
