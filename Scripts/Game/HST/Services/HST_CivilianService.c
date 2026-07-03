@@ -85,6 +85,7 @@ class HST_CivilianService
 	protected ref array<string> m_aRuntimeZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityKinds = {};
+	protected ref array<string> m_aRuntimeEntityFactionKeys = {};
 	protected ref array<vector> m_aRuntimeEntitySpawnPositions = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
 	protected int m_iRuntimeSpawnFailureCount;
@@ -191,6 +192,35 @@ class HST_CivilianService
 
 			if (CleanupZoneRuntimeEntities(state, zone.m_sZoneId))
 				changed = true;
+		}
+
+		return PublishRuntimeDiagnostics(state) || changed;
+	}
+
+	bool UpdatePhysicalTownPopulationForZone(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, string zoneId, bool active)
+	{
+		if (!state || !balance || zoneId.IsEmpty())
+			return false;
+
+		HST_DefaultCatalog.EnsureCivilianPools(balance);
+		PruneDeletedRuntimeEntities(state);
+
+		if (!balance.m_bCivilianPopulationEnabled)
+			return PublishRuntimeDiagnostics(state) || CleanupZoneRuntimeEntities(state, zoneId);
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return PublishRuntimeDiagnostics(state);
+
+		bool changed;
+		if (active)
+		{
+			if (!HasRuntimeZone(zoneId))
+				changed = SpawnActiveZoneRuntime(state, preset, balance, zone) || changed;
+		}
+		else if (CleanupZoneRuntimeEntities(state, zoneId))
+		{
+			changed = true;
 		}
 
 		return PublishRuntimeDiagnostics(state) || changed;
@@ -1379,6 +1409,7 @@ class HST_CivilianService
 		ApplyFaction(entity, factionKey, runtimeKind);
 		m_aRuntimeEntityZoneIds.Insert(zoneId);
 		m_aRuntimeEntityKinds.Insert(runtimeKind);
+		m_aRuntimeEntityFactionKeys.Insert(factionKey);
 		m_aRuntimeEntitySpawnPositions.Insert(position);
 		m_aRuntimeEntities.Insert(entity);
 		RegisterRuntimeVehicle(state, entity, zoneId, prefab, position, angles, factionKey, runtimeKind);
@@ -1414,6 +1445,8 @@ class HST_CivilianService
 			m_aRuntimeEntities.Remove(i);
 			m_aRuntimeEntityZoneIds.Remove(i);
 			m_aRuntimeEntityKinds.Remove(i);
+			if (i < m_aRuntimeEntityFactionKeys.Count())
+				m_aRuntimeEntityFactionKeys.Remove(i);
 			m_aRuntimeEntitySpawnPositions.Remove(i);
 			changed = true;
 		}
@@ -1455,6 +1488,7 @@ class HST_CivilianService
 		m_aRuntimeEntities.Clear();
 		m_aRuntimeEntityZoneIds.Clear();
 		m_aRuntimeEntityKinds.Clear();
+		m_aRuntimeEntityFactionKeys.Clear();
 		m_aRuntimeEntitySpawnPositions.Clear();
 		m_aRuntimeZoneIds.Clear();
 		return changed;
@@ -1471,6 +1505,8 @@ class HST_CivilianService
 			m_aRuntimeEntities.Remove(i);
 			m_aRuntimeEntityZoneIds.Remove(i);
 			m_aRuntimeEntityKinds.Remove(i);
+			if (i < m_aRuntimeEntityFactionKeys.Count())
+				m_aRuntimeEntityFactionKeys.Remove(i);
 			m_aRuntimeEntitySpawnPositions.Remove(i);
 		}
 	}
@@ -1478,6 +1514,87 @@ class HST_CivilianService
 	protected bool HasRuntimeZone(string zoneId)
 	{
 		return m_aRuntimeZoneIds.Contains(zoneId);
+	}
+
+	bool HasRuntimeTownZone(string zoneId)
+	{
+		return HasRuntimeZone(zoneId);
+	}
+
+	int CountRuntimeEntitiesForZone(string zoneId, string runtimeKind = "", string factionKey = "")
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		int count;
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (m_aRuntimeEntityZoneIds[i] != zoneId)
+				continue;
+			if (!runtimeKind.IsEmpty() && m_aRuntimeEntityKinds[i] != runtimeKind)
+				continue;
+			string runtimeFactionKey;
+			if (i < m_aRuntimeEntityFactionKeys.Count())
+				runtimeFactionKey = m_aRuntimeEntityFactionKeys[i];
+			if (!factionKey.IsEmpty() && runtimeFactionKey != factionKey)
+				continue;
+			if (!m_aRuntimeEntities[i])
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	int CountRuntimeEntitiesForZoneOutsideRadius(string zoneId, vector center, float radiusMeters, string runtimeKind = "", string factionKey = "")
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		float radiusSq = radiusMeters * radiusMeters;
+		int count;
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (m_aRuntimeEntityZoneIds[i] != zoneId)
+				continue;
+			if (!runtimeKind.IsEmpty() && m_aRuntimeEntityKinds[i] != runtimeKind)
+				continue;
+			string runtimeFactionKey;
+			if (i < m_aRuntimeEntityFactionKeys.Count())
+				runtimeFactionKey = m_aRuntimeEntityFactionKeys[i];
+			if (!factionKey.IsEmpty() && runtimeFactionKey != factionKey)
+				continue;
+
+			IEntity entity = m_aRuntimeEntities[i];
+			if (!entity)
+				continue;
+			if (DistanceSq2D(entity.GetOrigin(), center) > radiusSq)
+				count++;
+		}
+
+		return count;
+	}
+
+	string BuildRuntimeTownPopulationReport(HST_CampaignState state, string zoneId)
+	{
+		int civilianCharacters = CountRuntimeEntitiesForZone(zoneId, "CIV_CHARACTER", "CIV");
+		int civilianVehicles = CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE", "CIV");
+		int militaryVehicles = CountRuntimeEntitiesForZone(zoneId, "MILITARY_VEHICLE");
+		int total = CountRuntimeEntitiesForZone(zoneId);
+		string report = string.Format("runtime town %1 | active %2 | total %3 | civ chars %4 | civ vehicles %5 | military vehicles %6", EmptyRuntimeField(zoneId), HasRuntimeZone(zoneId), total, civilianCharacters, civilianVehicles, militaryVehicles);
+		if (state)
+			report = report + string.Format(" | global civ chars %1 | civ vehicles %2 | failures %3 | last failure %4", state.m_iRuntimeCivilianCharacterCount, state.m_iRuntimeCivilianVehicleCount, state.m_iRuntimeSpawnFailureCount, EmptyRuntimeField(state.m_sLastRuntimeSpawnFailurePrefab));
+
+		return report;
+	}
+
+	protected string EmptyRuntimeField(string value)
+	{
+		if (value.IsEmpty())
+			return "none";
+
+		return value;
 	}
 
 	protected vector ResolveTownCharacterSpawnPosition(HST_ZoneState zone, int index, int seed)
