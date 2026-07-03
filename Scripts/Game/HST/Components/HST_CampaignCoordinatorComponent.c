@@ -2915,7 +2915,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("campaign overview", RequestMemberInspectCampaign(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("balance pacing", RequestMemberInspectBalancePacing(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("campaign end", RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId));
-		string persistenceReport = RequestMemberInspectPersistence(m_iCampaignDebugPlayerId);
+		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
 		RecordCampaignDebugResult("persistence", persistenceReport, persistenceHealthy, persistenceWarning);
@@ -3888,6 +3888,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+	protected string BuildCampaignDebugBaselinePersistenceReport()
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(m_iCampaignDebugPlayerId) || !m_Persistence)
+			return "";
+
+		string report = m_Persistence.BuildPersistenceReport(m_State);
+		if (m_PersistenceSmokeTest)
+			report = report + "\nh-istasi persistence smoke | baseline deferred until seeded persistence smoke step";
+
+		return report;
+	}
+
 	protected bool IsCampaignDebugPersistenceReportHealthy(string result)
 	{
 		if (result.IsEmpty())
@@ -3896,12 +3908,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		bool profileFallbackAvailable = IsCampaignDebugProfileFallbackAvailable(result);
+		bool nativeUnavailable = IsCampaignDebugNativePersistenceUnavailable(result);
 		if (result.Contains("checkpoint failed") || result.Contains("profile fallback save failed") || result.Contains("profile fallback load failed") || result.Contains("profile fallback read failed"))
 			return false;
-		if (!profileFallbackAvailable && (result.Contains("profile fallback false") || result.Contains("profile fallback 0")))
+		if (nativeUnavailable && !profileFallbackAvailable && (result.Contains("profile fallback false") || result.Contains("profile fallback 0")))
 			return false;
 
-		if (IsCampaignDebugNativePersistenceUnavailable(result) && profileFallbackAvailable)
+		if (nativeUnavailable && profileFallbackAvailable)
 			return true;
 
 		return true;
