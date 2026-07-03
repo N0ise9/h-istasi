@@ -461,6 +461,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A synchronous debug helper can tick `HST_MissionRuntimeService` after moving the player to prove the follow link survives and the follow controller/waypoint path is processed. Do not hard-pass physical distance closure unless the measured captive position actually moves closer; AI walking may need real frame time beyond a single script tick.
 
 - Player-requested support cooldowns can poison later support smoke steps.
+  - Stage 3 economy income certification should use `HST_TownService.CalculateResistanceIncome()` and `CalculateResistanceHRIncome()` after arranging a resistance-owned income zone, then assert exact money/HR deltas from the real `income_now` command. Record occupier/invader income potential separately so enemy-owned zones are proven excluded from player income. Treat the income report string as evidence only.
   - If an earlier debug stage calls player support commands, clear or cancel player-requested support requests and reset their cooldown fields before Phase 19 support smoke helpers.
   - Otherwise a valid support smoke command can fail for a cooldown created by the same one-button debug run.
   - When a debug suite intentionally tests several support types in one run, clear/cancel the previous player support request before each support-type probe. Then assert the newly created `HST_SupportRequestState` fields (`m_eType`, `m_sFactionKey`, target zone/position, ETA, money cost, queued/active status) instead of relying on the command text.

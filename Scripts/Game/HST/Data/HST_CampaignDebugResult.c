@@ -111,6 +111,23 @@ class HST_CampaignDebugSupportProbeContext
 	bool m_bRuntimeEntityCleaned;
 }
 
+class HST_CampaignDebugIncomeProbeContext
+{
+	string m_sSeedResult;
+	string m_sCommandResult;
+	string m_sSeedZoneId;
+	int m_iMoneyBefore;
+	int m_iMoneyAfter;
+	int m_iHRBefore;
+	int m_iHRAfter;
+	int m_iTimerBefore;
+	int m_iTimerAfter;
+	int m_iExpectedMoneyIncome;
+	int m_iExpectedHRIncome;
+	int m_iEnemyMoneyIncome;
+	int m_iResistanceIncomeZoneCount;
+}
+
 class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 {
 	HST_EnemyOrderState m_Order;
