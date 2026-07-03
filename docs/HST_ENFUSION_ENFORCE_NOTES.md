@@ -445,6 +445,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - If an earlier debug stage calls player support commands, clear or cancel player-requested support requests and reset their cooldown fields before Phase 19 support smoke helpers.
   - Otherwise a valid support smoke command can fail for a cooldown created by the same one-button debug run.
   - When a debug suite intentionally tests several support types in one run, clear/cancel the previous player support request before each support-type probe. Then assert the newly created `HST_SupportRequestState` fields (`m_eType`, `m_sFactionKey`, target zone/position, ETA, money cost, queued/active status) instead of relying on the command text.
+  - For QRF/search player support certification, push the debug-created request to the inbound physicalization window and tick `HST_SupportRequestService` instead of calling abstract completion directly. Assert remaining ETA decreases, runtime status advances, `m_bPhysicalized` flips, `m_sGroupId` is populated, and the linked active group has a support runtime status. Remove/cancel the debug support group/request before the post-case leak probe.
 
 - A one-button debug run can cover in-process Phase 25 soak checks, but not external session conditions.
   - Report real restart-after-each-primitive, second-client join/reconnect, and two-hour endurance as explicit WARN/manual gaps instead of silently treating them as covered.
