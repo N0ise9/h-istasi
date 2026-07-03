@@ -408,6 +408,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The command menu button should start the run or return current status; the coordinator tick should advance one bounded step per second.
   - Keep runner state runtime-only unless the test result itself needs persistence. Do not add fields to save data for a transient debug harness.
   - Current example: `HST_CampaignCoordinatorComponent.RequestAdminRunCampaignDebug()` starts the sequenced campaign debug runner, and `TickCampaignDebugRunner()` advances bootstrap, reports, HQ/spawn, economy/support, phase 0-13 mechanics, mission sweep, phase smoke, and final report stages.
+  - Profile selection should be explicit in both runtime status and artifacts. Current campaign debug profiles: `smoke` runs bootstrap/baseline/HQ/economy/final, `physical` adds early mechanics and mission/physical probes while skipping late phase smoke, and `full` runs the complete sequence.
   - Long runs should expose status, cancel, and cleanup admin commands beside the start action. Cancel should stop the sequencer and write artifacts; cleanup should complete the current/early debug missions and clear player-requested support requests.
 
 - Campaign debug certification output should be structured first, text second.

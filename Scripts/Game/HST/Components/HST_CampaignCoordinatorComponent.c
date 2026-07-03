@@ -108,6 +108,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugReportPath;
 	protected string m_sCampaignDebugSummaryPath;
 	protected string m_sCampaignDebugStateDiffPath;
+	protected string m_sCampaignDebugProfile;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
@@ -2816,18 +2817,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return m_PersistenceSmokeTest.BuildReport(m_State);
 	}
 
-	string RequestAdminRunCampaignDebug(int playerId)
+	string RequestAdminRunCampaignDebug(int playerId, string profile = "")
 	{
 		if (!Replication.IsServer())
 			return "h-istasi campaign debug | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
 			return "h-istasi campaign debug | failed: admin required";
 
+		string normalizedProfile = NormalizeCampaignDebugProfile(profile);
+		if (normalizedProfile.IsEmpty())
+			return "h-istasi campaign debug | failed: invalid profile, use smoke, physical, or full";
+
 		if (m_bCampaignDebugRunning)
 			return "h-istasi campaign debug | already running\n" + BuildCampaignDebugStatusReport();
 
-		StartCampaignDebugRun(playerId);
-		return "h-istasi campaign debug | started sequenced run\n" + BuildCampaignDebugStatusReport();
+		StartCampaignDebugRun(playerId, normalizedProfile);
+		return "h-istasi campaign debug | started " + normalizedProfile + " sequenced run\n" + BuildCampaignDebugStatusReport();
 	}
 
 	string RequestAdminCampaignDebugStatus(int playerId)
@@ -2888,7 +2893,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
-	protected void StartCampaignDebugRun(int playerId)
+	protected void StartCampaignDebugRun(int playerId, string profile)
 	{
 		m_bCampaignDebugRunning = true;
 		m_bCampaignDebugCompleted = false;
@@ -2907,6 +2912,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugWaitSeconds = 0;
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		m_sCampaignDebugEarlyMissionInstanceId = "";
+		m_sCampaignDebugProfile = profile;
 		m_sCampaignDebugRunId = BuildCampaignDebugRunId(playerId);
 		m_sCampaignDebugReportPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + ".json";
 		m_sCampaignDebugSummaryPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_summary.txt";
@@ -2918,8 +2924,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_aCampaignDebugRecentLog.Clear();
 		InitializeCampaignDebugRunResult(playerId);
 		EnsureCampaignDebugActorCommandAccess("start");
-		AppendCampaignDebugLog("INFO", "start", string.Format("run %1 | player %2 started campaign debug run", m_sCampaignDebugRunId, playerId));
-		BroadcastCampaignDebugNotification("campaign_debug_started", "info", "Campaign Debug", "Started full campaign debug sequence.");
+		AppendCampaignDebugLog("INFO", "start", string.Format("run %1 | player %2 | profile %3 started campaign debug run", m_sCampaignDebugRunId, playerId, m_sCampaignDebugProfile));
+		BroadcastCampaignDebugNotification("campaign_debug_started", "info", "Campaign Debug", "Started " + m_sCampaignDebugProfile + " campaign debug sequence.");
 	}
 
 	protected void TickCampaignDebugRunner(int elapsedSeconds)
@@ -2959,18 +2965,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_iCampaignDebugStepIndex == 4)
 		{
+			if (!ShouldCampaignDebugRunEarlyPhaseStage())
+			{
+				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 7);
+				return;
+			}
+
 			RunCampaignDebugEarlyPhaseStep();
 			return;
 		}
 
 		if (m_iCampaignDebugStepIndex == 5)
 		{
+			if (!ShouldCampaignDebugRunMissionSweepStage())
+			{
+				SkipCampaignDebugStageForProfile("mission sweep", 6);
+				return;
+			}
+
 			RunCampaignDebugMissionSweepStep();
 			return;
 		}
 
 		if (m_iCampaignDebugStepIndex == 6)
 		{
+			if (!ShouldCampaignDebugRunPhaseSmokeStage())
+			{
+				SkipCampaignDebugStageForProfile("phase smoke", 7);
+				return;
+			}
+
 			RunCampaignDebugPhaseSmokeStep();
 			return;
 		}
@@ -2982,6 +3006,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		CompleteCampaignDebugRun();
+	}
+
+	protected string NormalizeCampaignDebugProfile(string profile)
+	{
+		string normalized = profile.Trim();
+		normalized.ToLower();
+		if (normalized.IsEmpty())
+			return CAMPAIGN_DEBUG_DEFAULT_PROFILE;
+		if (normalized == "smoke" || normalized == "physical" || normalized == "full")
+			return normalized;
+
+		return "";
+	}
+
+	protected bool ShouldCampaignDebugRunEarlyPhaseStage()
+	{
+		return m_sCampaignDebugProfile != "smoke";
+	}
+
+	protected bool ShouldCampaignDebugRunMissionSweepStage()
+	{
+		return m_sCampaignDebugProfile != "smoke";
+	}
+
+	protected bool ShouldCampaignDebugRunPhaseSmokeStage()
+	{
+		return m_sCampaignDebugProfile == "full";
+	}
+
+	protected void SkipCampaignDebugStageForProfile(string stageName, int nextStepIndex)
+	{
+		HST_CampaignDebugCaseResult skippedCase = CreateCampaignDebugCase("profile_skip." + SafeCampaignDebugToken(stageName), "profile", m_sCampaignDebugProfile, stageName);
+		AddCampaignDebugAssertion(skippedCase, "profile.stage_selection", "stage intentionally skipped by selected profile", stageName, "SKIPPED", "profile " + m_sCampaignDebugProfile + " does not run this stage");
+		FinalizeCampaignDebugCaseFromAssertions(skippedCase);
+		RecordCampaignDebugCase(skippedCase);
+		m_sCampaignDebugLastResult = "profile " + m_sCampaignDebugProfile + " skipped " + stageName;
+		m_iCampaignDebugStepIndex = nextStepIndex;
+		m_iCampaignDebugWaitSeconds = 1;
 	}
 
 	protected void AdvanceCampaignDebugStep(string stageName)
@@ -3753,7 +3815,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		CaptureCampaignDebugStartState();
 		m_CampaignDebugRunResult = new HST_CampaignDebugRunResult();
 		m_CampaignDebugRunResult.m_sRunId = m_sCampaignDebugRunId;
-		m_CampaignDebugRunResult.m_sProfile = CAMPAIGN_DEBUG_DEFAULT_PROFILE;
+		m_CampaignDebugRunResult.m_sProfile = m_sCampaignDebugProfile;
 		m_CampaignDebugRunResult.m_sPlayerIdentityId = ResolveTrustedIdentityId(playerId);
 		m_CampaignDebugRunResult.m_sWorldName = GetGame().GetWorldFile();
 		if (m_State)
@@ -4085,7 +4147,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		array<string> lines = {};
 		lines.Insert("h-istasi campaign debug complete");
 		lines.Insert("run " + m_sCampaignDebugRunId);
-		lines.Insert("profile " + CAMPAIGN_DEBUG_DEFAULT_PROFILE);
+		lines.Insert("profile " + EmptyCampaignDebugField(m_sCampaignDebugProfile));
 		lines.Insert(string.Format("pass %1 | warn %2 | fail %3 | blocked %4 | skipped %5", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount));
 		lines.Insert("report " + m_sCampaignDebugReportPath);
 		lines.Insert("summary " + m_sCampaignDebugSummaryPath);
@@ -5820,17 +5882,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildCampaignDebugStatusReport()
 	{
-		string status = string.Format("status running %1 | complete %2 | run %3 | step %4 | mission %5/%6 | phase step %7/%8 | pass %9",
+		string status = string.Format("status running %1 | complete %2 | profile %3 | run %4 | step %5 | mission %6/%7 | phase step %8/%9",
 			m_bCampaignDebugRunning,
 			m_bCampaignDebugCompleted,
+			EmptyCampaignDebugField(m_sCampaignDebugProfile),
 			m_sCampaignDebugRunId,
 			m_iCampaignDebugStepIndex,
 			m_iCampaignDebugMissionIndex,
 			GetCampaignDebugMissionDefinitionCount(),
 			m_iCampaignDebugPhaseStepIndex,
-			GetCampaignDebugPhaseSmokeStepCount(),
-			m_iCampaignDebugPassCount,
+			GetCampaignDebugPhaseSmokeStepCount()
 		);
+		status = status + string.Format(" | pass %1", m_iCampaignDebugPassCount);
 		status = status + string.Format(" | warn %1", m_iCampaignDebugWarnCount);
 		status = status + string.Format(" | fail %1 | blocked %2 | skipped %3", m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount);
 		status = status + string.Format(" | early %1/%2", m_iCampaignDebugEarlyPhaseIndex, GetCampaignDebugEarlyPhaseStepCount());

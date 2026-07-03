@@ -14,6 +14,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Admin command wiring exists for start/status/cancel/cleanup in `Scripts/Game/HST/Services/HST_CommandUIService.c`.
 - The coordinator exposes `RequestAdminRunCampaignDebug`, `RequestAdminCampaignDebugStatus`, `RequestAdminCancelCampaignDebug`, and `RequestAdminCleanupCampaignDebug`.
 - The runner remains sequenced through bootstrap, baseline, HQ, economy/support, early mechanics, mission sweep, phase smoke, final report, and completion.
+- Run profiles are accepted as `smoke`, `physical`, and `full`: `smoke` skips the long early/mission/phase sweeps, `physical` keeps early mechanics plus the mission/physical sweep and skips late phase smoke, and `full` preserves the complete sequence.
 - Typed result classes exist in `Scripts/Game/HST/Data/HST_CampaignDebugResult.c`.
 - Artifacts write to `$profile:h-istasi/debug` as JSON, summary text, and state-diff text.
 - Bootstrap records typed assertions for server authority, debug actor access, active campaign repair, HQ state, Petros state, teleport, and player presence.
@@ -49,7 +50,6 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Final artifacts include the requested summary matrix sections, but those matrices still expose partial coverage because many underlying cases remain legacy string wrappers.
 - Cleanup leak checks are not run after every major case; current coverage is selected support cleanup, mission cleanup checks, and a final run-level leak snapshot.
 - Stall detection and timeout evidence dumps are not implemented for physical tests.
-- Run profiles (`smoke`, `physical`, `full`) are not implemented; the runner has a fixed `full` profile label.
 
 ## Validation Run
 

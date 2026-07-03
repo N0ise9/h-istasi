@@ -224,7 +224,7 @@ class HST_CommandUIService
 		actions.Insert("activate_zone <zone>");
 		actions.Insert("deactivate_zone <zone>");
 		actions.Insert("award_small");
-		actions.Insert("admin_run_campaign_debug");
+		actions.Insert("admin_run_campaign_debug [smoke|physical|full]");
 		actions.Insert("admin_campaign_debug_status");
 		actions.Insert("admin_campaign_debug_cancel");
 		actions.Insert("admin_campaign_debug_cleanup");
@@ -488,7 +488,7 @@ class HST_CommandUIService
 			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
 
 		if (commandId == "admin_run_campaign_debug")
-			return coordinator.RequestAdminRunCampaignDebug(playerId);
+			return coordinator.RequestAdminRunCampaignDebug(playerId, argument);
 		if (commandId == "admin_campaign_debug_status")
 			return coordinator.RequestAdminCampaignDebugStatus(playerId);
 		if (commandId == "admin_campaign_debug_cancel")
@@ -1245,7 +1245,7 @@ class HST_CommandUIService
 			return coordinator.RequestAdminAwardResources(playerId, 500, 5);
 
 		if (commandId == "admin_run_campaign_debug")
-			return !coordinator.RequestAdminRunCampaignDebug(playerId).Contains("failed");
+			return !coordinator.RequestAdminRunCampaignDebug(playerId, argument).Contains("failed");
 		if (commandId == "admin_campaign_debug_status")
 			return !coordinator.RequestAdminCampaignDebugStatus(playerId).Contains("failed");
 		if (commandId == "admin_campaign_debug_cancel")
@@ -2497,7 +2497,9 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
-			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug", "admin_run_campaign_debug", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Smoke", "admin_run_campaign_debug", "smoke", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Physical", "admin_run_campaign_debug", "physical", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Full", "admin_run_campaign_debug", "full", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Campaign Debug Status", "admin_campaign_debug_status", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cancel Campaign Debug", "admin_campaign_debug_cancel", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cleanup Campaign Debug", "admin_campaign_debug_cleanup", "", canUseAdmin, "admin required");
