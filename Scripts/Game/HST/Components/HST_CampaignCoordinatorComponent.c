@@ -2916,8 +2916,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("balance pacing", RequestMemberInspectBalancePacing(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("campaign end", RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId));
 		string persistenceReport = RequestMemberInspectPersistence(m_iCampaignDebugPlayerId);
-		bool persistenceWarning;
-		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport, persistenceWarning);
+		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
+		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
 		RecordCampaignDebugResult("persistence", persistenceReport, persistenceHealthy, persistenceWarning);
 		RecordCampaignDebugObservation("markers", RequestMemberInspectMarkers(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("zone composition", RequestAdminInspectZoneComposition(m_iCampaignDebugPlayerId));
@@ -3888,28 +3888,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
-	protected bool IsCampaignDebugPersistenceReportHealthy(string result, out bool warning)
+	protected bool IsCampaignDebugPersistenceReportHealthy(string result)
 	{
-		warning = false;
 		if (result.IsEmpty())
 			return false;
 		if (IsCampaignDebugAdministrativeFailure(result))
 			return false;
-		if (result.Contains("checkpoint failed") || result.Contains("profile fallback false") || result.Contains("profile fallback save failed") || result.Contains("profile fallback load failed") || result.Contains("profile fallback read failed"))
+
+		bool profileFallbackAvailable = IsCampaignDebugProfileFallbackAvailable(result);
+		if (result.Contains("checkpoint failed") || result.Contains("profile fallback save failed") || result.Contains("profile fallback load failed") || result.Contains("profile fallback read failed"))
+			return false;
+		if (!profileFallbackAvailable && (result.Contains("profile fallback false") || result.Contains("profile fallback 0")))
 			return false;
 
-		bool nativeUnavailable = result.Contains("PersistenceSystem unavailable") || result.Contains("save manager unavailable") || result.Contains("saving enabled 0") || result.Contains("saving allowed 0");
-		if (nativeUnavailable)
-		{
-			bool profileFallbackAvailable = result.Contains("profile fallback 1") || result.Contains("profile fallback | exists 1") || result.Contains("| saved 1");
-			if (!profileFallbackAvailable)
-				return false;
-
-			warning = true;
+		if (IsCampaignDebugNativePersistenceUnavailable(result) && profileFallbackAvailable)
 			return true;
-		}
 
 		return IsCampaignDebugResultSuccessful(result);
+	}
+
+	protected bool IsCampaignDebugPersistenceReportWarning(string result)
+	{
+		if (result.IsEmpty())
+			return false;
+
+		return IsCampaignDebugNativePersistenceUnavailable(result) && IsCampaignDebugProfileFallbackAvailable(result);
+	}
+
+	protected bool IsCampaignDebugNativePersistenceUnavailable(string result)
+	{
+		return result.Contains("PersistenceSystem unavailable") || result.Contains("save manager unavailable") || result.Contains("saving enabled 0") || result.Contains("saving allowed 0");
+	}
+
+	protected bool IsCampaignDebugProfileFallbackAvailable(string result)
+	{
+		if (result.Contains("profile fallback 1") || result.Contains("profile fallback | exists 1") || result.Contains("| saved 1"))
+			return true;
+		if (m_State && m_State.m_sLastPersistenceStatus.Contains("profile fallback 1"))
+			return true;
+
+		return false;
 	}
 
 	protected bool IsCampaignDebugPhaseSmokeResultSuccessful(int index, string result, bool reportStep)
