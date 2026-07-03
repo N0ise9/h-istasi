@@ -6744,6 +6744,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int captiveCount = m_State.CountMissionAssets(instanceId, "captive");
 		AddCampaignDebugMetric(captiveCase, "rescue.captive.asset_count", string.Format("%1", captiveCount), "count");
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.asset_count", "captive asset count >= required captive count", string.Format("%1/%2", captiveCount, mission.m_iRequiredCaptiveCount), CampaignDebugStatus(captiveCount >= Math.Max(1, mission.m_iRequiredCaptiveCount)), "rescue mission did not create required captive assets", "", instanceId);
+		int captiveAliveBefore = CountCampaignDebugCaptiveAssetsByState(instanceId, "alive");
+		int captiveDestroyedBefore = CountCampaignDebugCaptiveAssetsByState(instanceId, "destroyed");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.alive_before", string.Format("%1", captiveAliveBefore), "count");
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.alive_before", "all required captives start alive and not destroyed", string.Format("alive %1/%2 | destroyed %3", captiveAliveBefore, captiveCount, captiveDestroyedBefore), CampaignDebugStatus(captiveAliveBefore >= Math.Max(1, mission.m_iRequiredCaptiveCount) && captiveDestroyedBefore == 0), "rescue mission did not start with all required captives alive", "", instanceId);
 
 		if (m_bCampaignDebugPhysicalBlocked)
 		{
@@ -6796,8 +6800,249 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			distanceAssertion.m_fDistanceMeters = captiveDistance;
 		}
 
+		AddCampaignDebugCaptiveRuntimeFollowAssertions(captiveCase, mission, captive, instanceId);
+		AddCampaignDebugCaptiveExtractionAssertions(captiveCase, mission, instanceId);
+
 		FinalizeCampaignDebugCaseFromAssertions(captiveCase);
 		return captiveCase;
+	}
+
+	protected void AddCampaignDebugCaptiveRuntimeFollowAssertions(HST_CampaignDebugCaseResult captiveCase, HST_ActiveMissionState mission, HST_MissionAssetState captive, string instanceId)
+	{
+		if (!captiveCase || !mission || !captive || !m_State || !m_MissionRuntime)
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_tick.prerequisite", "campaign state and mission runtime service exist", "missing", "BLOCKED", "captive follow runtime probe prerequisites missing", "", instanceId);
+			return;
+		}
+
+		IEntity followStartPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!followStartPlayer)
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_tick.player", "controlled player entity available for timed follow probe", "missing", "BLOCKED", "no controlled player entity for timed captive follow probe", captive.m_sAssetId, instanceId);
+			return;
+		}
+
+		vector followStartPlayerPosition = followStartPlayer.GetOrigin();
+		vector followStartCaptivePosition = captive.m_vCurrentPosition;
+		if (IsZeroVector(followStartCaptivePosition))
+			followStartCaptivePosition = followStartPlayerPosition;
+
+		float followDistanceBeforeMove = Math.Sqrt(DistanceSq2D(followStartPlayerPosition, followStartCaptivePosition));
+		vector followMoveTarget = followStartCaptivePosition + "32 0 0";
+		bool followMoveTeleported = TeleportCampaignDebugPlayer(followMoveTarget, "rescue captive timed follow");
+		IEntity followMovedPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		vector followMovedPlayerPosition = followStartPlayerPosition;
+		if (followMovedPlayer)
+			followMovedPlayerPosition = followMovedPlayer.GetOrigin();
+
+		float followDistanceAfterMove = Math.Sqrt(DistanceSq2D(followMovedPlayerPosition, captive.m_vCurrentPosition));
+		int followTickSeconds = 5;
+		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + followTickSeconds;
+		bool followRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, followTickSeconds);
+		IEntity followTickPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		vector followTickPlayerPosition = followMovedPlayerPosition;
+		if (followTickPlayer)
+			followTickPlayerPosition = followTickPlayer.GetOrigin();
+
+		vector followTickCaptivePosition = captive.m_vCurrentPosition;
+		float followDistanceAfterTick = Math.Sqrt(DistanceSq2D(followTickPlayerPosition, followTickCaptivePosition));
+		bool followStillLinked = captive.m_bAttachedToCarrier && !captive.m_sCarriedByVehicleId.IsEmpty() && (captive.m_sLastInteraction == "following" || captive.m_sLastInteraction == "loaded");
+		bool followWithinBreakRange = followDistanceAfterTick <= 100.0;
+		bool followClosedDistance = followDistanceAfterTick + 1.0 < followDistanceAfterMove;
+		bool followNearPlayer = followDistanceAfterTick <= 25.0;
+		string followDistanceActual = string.Format("before %1m | moved %2m | after tick %3m", Math.Round(followDistanceBeforeMove), Math.Round(followDistanceAfterMove), Math.Round(followDistanceAfterTick));
+		followDistanceActual = followDistanceActual + string.Format(" | tick %1s changed %2 | phase %3", followTickSeconds, followRuntimeChanged, EmptyCampaignDebugField(captive.m_sLastInteraction));
+
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_distance_before_move", string.Format("%1", Math.Round(followDistanceBeforeMove)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_distance_after_move", string.Format("%1", Math.Round(followDistanceAfterMove)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_distance_after_tick", string.Format("%1", Math.Round(followDistanceAfterTick)), "meters");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.follow_tick_seconds", string.Format("%1", followTickSeconds), "seconds");
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_move_teleport", "player can be moved within captive follow break distance for timed probe", string.Format("%1 | target %2", followMoveTeleported, followMoveTarget), CampaignDebugStatus(followMoveTeleported, "WARN"), "could not move player for timed captive follow probe", captive.m_sAssetId, instanceId);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_tick_state", "runtime tick keeps captive attached/following after player displacement", followDistanceActual, CampaignDebugStatus(followStillLinked && followWithinBreakRange), "captive follow link broke during controlled runtime tick", captive.m_sAssetId, instanceId);
+		HST_CampaignDebugAssertion followDistanceAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_distance_over_time", "captive distance decreases during runtime tick or remains within 25m", followDistanceActual, CampaignDebugStatus(followClosedDistance || followNearPlayer, "WARN"), "captive physical distance did not decrease during the synchronous follow probe window", captive.m_sAssetId, instanceId);
+		followDistanceAssertion.m_vExpectedPosition = followTickPlayerPosition;
+		followDistanceAssertion.m_vActualPosition = followTickCaptivePosition;
+		followDistanceAssertion.m_fDistanceMeters = followDistanceAfterTick;
+	}
+
+	protected void AddCampaignDebugCaptiveExtractionAssertions(HST_CampaignDebugCaseResult captiveCase, HST_ActiveMissionState mission, string instanceId)
+	{
+		if (!captiveCase || !mission || !m_State)
+		{
+			AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract.prerequisite", "campaign state and mission exist", "missing", "BLOCKED", "captive extraction probe prerequisites missing", "", instanceId);
+			return;
+		}
+
+		ref array<string> captiveAssetIds = CollectCampaignDebugCaptiveAssetIds(instanceId);
+		int extractRequiredCaptives = Math.Max(1, mission.m_iRequiredCaptiveCount);
+		int extractMoneyBefore = m_State.m_iFactionMoney;
+		int extractHRBefore = m_State.m_iHR;
+		HST_MissionDefinition extractDefinition;
+		if (m_Missions)
+			extractDefinition = m_Missions.FindDefinition(mission.m_sMissionId);
+		int extractExpectedMoney;
+		int extractExpectedHR;
+		if (extractDefinition)
+		{
+			extractExpectedMoney = extractDefinition.m_iRewardMoney;
+			extractExpectedHR = extractDefinition.m_iRewardHR;
+		}
+
+		foreach (string prepAssetId : captiveAssetIds)
+		{
+			HST_MissionAssetState prepAsset = m_State.FindMissionAsset(prepAssetId);
+			if (!prepAsset || prepAsset.m_bDelivered || prepAsset.m_bDestroyed)
+				continue;
+
+			vector prepPosition = ResolveCampaignDebugCaptiveProbePosition(prepAsset, mission);
+			if (!prepAsset.m_bPickedUp)
+			{
+				bool prepFreeTeleport = TeleportCampaignDebugPlayer(prepPosition + "2 0 2", "rescue captive extraction free");
+				string prepFreeResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", prepAsset.m_sAssetId);
+				captiveCase.m_aEvidence.Insert(string.Format("extract prep free | %1 | teleport %2 | %3", prepAsset.m_sAssetId, prepFreeTeleport, ShortCampaignDebugLine(prepFreeResult, 180)));
+			}
+
+			if (!prepAsset.m_bAttachedToCarrier || prepAsset.m_sCarriedByVehicleId.IsEmpty())
+			{
+				bool prepFollowTeleport = TeleportCampaignDebugPlayer(prepPosition + "2 0 2", "rescue captive extraction follow");
+				string prepFollowResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_follow", prepAsset.m_sAssetId);
+				captiveCase.m_aEvidence.Insert(string.Format("extract prep follow | %1 | teleport %2 | %3", prepAsset.m_sAssetId, prepFollowTeleport, ShortCampaignDebugLine(prepFollowResult, 180)));
+			}
+		}
+
+		vector extractDeliveryPosition = ResolveCampaignDebugCaptiveDeliveryPosition(instanceId);
+		bool extractDeliveryTeleport = TeleportCampaignDebugPlayer(extractDeliveryPosition + "2 0 2", "rescue captive extraction delivery");
+		int extractCommandCount;
+		foreach (string deliverAssetId : captiveAssetIds)
+		{
+			HST_MissionAssetState deliverAsset = m_State.FindMissionAsset(deliverAssetId);
+			if (!deliverAsset || deliverAsset.m_bDelivered || deliverAsset.m_bDestroyed)
+				continue;
+
+			string deliverResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_captive_extract", deliverAsset.m_sAssetId);
+			captiveCase.m_aEvidence.Insert(string.Format("extract deliver | %1 | %2", deliverAsset.m_sAssetId, ShortCampaignDebugLine(deliverResult, 180)));
+			extractCommandCount++;
+		}
+
+		HST_ActiveMissionState extractMissionAfter = m_State.FindActiveMission(instanceId);
+		int extractDeliveredAfter = CountCampaignDebugCaptiveAssetsByState(instanceId, "delivered");
+		int extractAliveAfter = CountCampaignDebugCaptiveAssetsByState(instanceId, "alive");
+		int extractDestroyedAfter = CountCampaignDebugCaptiveAssetsByState(instanceId, "destroyed");
+		int extractMoneyDelta = m_State.m_iFactionMoney - extractMoneyBefore;
+		int extractHRDelta = m_State.m_iHR - extractHRBefore;
+		string extractStatusActual = "missing";
+		if (extractMissionAfter)
+			extractStatusActual = string.Format("status %1 | phase %2 | captives %3/%4", extractMissionAfter.m_eStatus, EmptyCampaignDebugField(extractMissionAfter.m_sRuntimePhase), extractMissionAfter.m_iExtractedCaptiveCount, extractMissionAfter.m_iRequiredCaptiveCount);
+		string extractRewardActual = string.Format("money %1/%2 | HR %3/%4", extractMoneyDelta, extractExpectedMoney, extractHRDelta, extractExpectedHR);
+		bool extractRewardExpected = extractDefinition != null;
+		bool extractSucceeded = extractMissionAfter && extractMissionAfter.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED;
+
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.extract_commands", string.Format("%1", extractCommandCount), "count");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.delivered_after", string.Format("%1", extractDeliveredAfter), "count");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.money_delta", string.Format("%1", extractMoneyDelta), "money");
+		AddCampaignDebugMetric(captiveCase, "rescue.captive.hr_delta", string.Format("%1", extractHRDelta), "hr");
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_delivery_teleport", "player teleported to captive delivery position", string.Format("%1 | target %2", extractDeliveryTeleport, extractDeliveryPosition), CampaignDebugStatus(extractDeliveryTeleport, "WARN"), "could not teleport player to captive delivery position", "", instanceId);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_alive", "captives remain alive and none are destroyed after extraction", string.Format("alive %1/%2 | destroyed %3", extractAliveAfter, captiveAssetIds.Count(), extractDestroyedAfter), CampaignDebugStatus(extractAliveAfter >= captiveAssetIds.Count() && extractDestroyedAfter == 0), "one or more captives were destroyed or marked not alive during extraction", "", instanceId);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_delivered", "delivered captive count reaches required captive count", string.Format("delivered %1/%2 | commands %3", extractDeliveredAfter, extractRequiredCaptives, extractCommandCount), CampaignDebugStatus(extractDeliveredAfter >= extractRequiredCaptives), "captive extraction did not deliver all required captives", "", instanceId);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_mission_completion", "real extraction path completes rescue mission", extractStatusActual, CampaignDebugStatus(extractSucceeded), "rescue mission did not complete through captive extraction interactions", "", instanceId);
+		AddCampaignDebugAssertion(captiveCase, "rescue.captive.extract_rewards", "mission completion applies exact rescue money/HR rewards", extractRewardActual, CampaignDebugStatus(extractRewardExpected && extractMoneyDelta == extractExpectedMoney && extractHRDelta == extractExpectedHR), "rescue extraction did not apply the exact configured mission rewards", "", instanceId);
+	}
+
+	protected ref array<string> CollectCampaignDebugCaptiveAssetIds(string instanceId)
+	{
+		ref array<string> captiveIds = {};
+		if (!m_State || instanceId.IsEmpty())
+			return captiveIds;
+
+		foreach (HST_MissionAssetState collectedAsset : m_State.m_aMissionAssets)
+		{
+			if (!collectedAsset || collectedAsset.m_sMissionInstanceId != instanceId)
+				continue;
+			if (collectedAsset.m_sKind != "captive" || collectedAsset.m_sRole != "captive")
+				continue;
+
+			captiveIds.Insert(collectedAsset.m_sAssetId);
+		}
+
+		return captiveIds;
+	}
+
+	protected int CountCampaignDebugCaptiveAssetsByState(string instanceId, string requiredState)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return 0;
+
+		int countedCaptives;
+		foreach (HST_MissionAssetState countedAsset : m_State.m_aMissionAssets)
+		{
+			if (!countedAsset || countedAsset.m_sMissionInstanceId != instanceId)
+				continue;
+			if (countedAsset.m_sKind != "captive" || countedAsset.m_sRole != "captive")
+				continue;
+
+			if (requiredState.IsEmpty())
+			{
+				countedCaptives++;
+				continue;
+			}
+			if (requiredState == "alive" && countedAsset.m_bAlive && !countedAsset.m_bDestroyed)
+			{
+				countedCaptives++;
+				continue;
+			}
+			if (requiredState == "destroyed" && countedAsset.m_bDestroyed)
+			{
+				countedCaptives++;
+				continue;
+			}
+			if (requiredState == "delivered" && countedAsset.m_bDelivered)
+				countedCaptives++;
+		}
+
+		return countedCaptives;
+	}
+
+	protected vector ResolveCampaignDebugCaptiveProbePosition(HST_MissionAssetState asset, HST_ActiveMissionState mission)
+	{
+		if (asset)
+		{
+			if (!IsZeroVector(asset.m_vCurrentPosition))
+				return asset.m_vCurrentPosition;
+			if (!IsZeroVector(asset.m_vSourcePosition))
+				return asset.m_vSourcePosition;
+			if (!IsZeroVector(asset.m_vLastKnownPosition))
+				return asset.m_vLastKnownPosition;
+		}
+		if (mission && !IsZeroVector(mission.m_vTargetPosition))
+			return mission.m_vTargetPosition;
+		if (m_State)
+			return m_State.m_vHQPosition;
+
+		return "0 0 0";
+	}
+
+	protected vector ResolveCampaignDebugCaptiveDeliveryPosition(string instanceId)
+	{
+		if (m_State && !instanceId.IsEmpty())
+		{
+			foreach (HST_MissionAssetState deliveryAsset : m_State.m_aMissionAssets)
+			{
+				if (!deliveryAsset || deliveryAsset.m_sMissionInstanceId != instanceId)
+					continue;
+				if (deliveryAsset.m_sKind != "captive" || deliveryAsset.m_sRole != "captive")
+					continue;
+				if (!IsZeroVector(deliveryAsset.m_vTargetPosition))
+					return deliveryAsset.m_vTargetPosition;
+			}
+
+			HST_ActiveMissionState deliveryMission = m_State.FindActiveMission(instanceId);
+			if (deliveryMission && !IsZeroVector(deliveryMission.m_vTargetPosition))
+				return deliveryMission.m_vTargetPosition;
+			if (!IsZeroVector(m_State.m_vHQPosition))
+				return m_State.m_vHQPosition;
+		}
+
+		return "0 0 0";
 	}
 
 	protected HST_MissionAssetState FindCampaignDebugMissionAsset(string instanceId, string role)

@@ -453,6 +453,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - For `rescue_extract`, call `mission_captive_extract` first; that path frees an unpicked captive and marks the asset picked up.
   - Then call `mission_captive_follow`; the expected state is `m_sLastInteraction == "following"`, `m_bAttachedToCarrier == true`, and a non-empty carried-by identity.
   - Checking only mission text or spawned captive asset counts does not prove the rescue primitive can move from freed to following/extracting.
+  - A full rescue probe should iterate every required captive asset, use the same free/follow interaction path, teleport the debug player to the asset delivery target, and call `mission_captive_extract` again for each attached captive. Assert delivered counts, `m_iExtractedCaptiveCount`, mission success, alive/not-destroyed captives, and exact money/HR reward deltas.
+  - A synchronous debug helper can tick `HST_MissionRuntimeService` after moving the player to prove the follow link survives and the follow controller/waypoint path is processed. Do not hard-pass physical distance closure unless the measured captive position actually moves closer; AI walking may need real frame time beyond a single script tick.
 
 - Player-requested support cooldowns can poison later support smoke steps.
   - If an earlier debug stage calls player support commands, clear or cancel player-requested support requests and reset their cooldown fields before Phase 19 support smoke helpers.
