@@ -1562,6 +1562,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (result && result.m_bSuccess)
 		{
+			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "supply_drop");
 			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
@@ -1616,6 +1617,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (result && result.m_bSuccess)
 		{
+			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "player_support");
 			MarkMajorCampaignChange(true);
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
@@ -3723,6 +3725,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugMetric(supportCase, "support.eta", string.Format("%1", request.m_iETASeconds), "seconds");
 			AddCampaignDebugMetric(supportCase, "support.eta_remaining_before_probe", string.Format("%1", etaRemainingBefore), "seconds");
 			AddCampaignDebugMetric(supportCase, "support.eta_remaining_after_probe", string.Format("%1", etaRemainingAfter), "seconds");
+			AddCampaignDebugAssertion(supportCase, "support.debug_prefix", "support request id carries the current debug prefix", EmptyCampaignDebugField(request.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(request.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "debug-created support request was not retagged with the run prefix", request.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.type", "request type matches command", string.Format("%1", request.m_eType), CampaignDebugStatus(request.m_eType == supportType), "support request type does not match command", request.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.player_requested", "request is player requested", string.Format("%1", request.m_bPlayerRequested), CampaignDebugStatus(request.m_bPlayerRequested), "support request is not marked player-requested", request.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.faction", "request faction is resistance", EmptyCampaignDebugField(request.m_sFactionKey), CampaignDebugStatus(m_Preset && request.m_sFactionKey == m_Preset.m_sResistanceFactionKey), "support request faction is not resistance", request.m_sRequestId);
@@ -5289,6 +5292,72 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return m_sCampaignDebugMarkerPrefix;
 
 		return CAMPAIGN_DEBUG_PREFIX_ROOT;
+	}
+
+	protected string ApplyCampaignDebugSupportRequestPrefix(HST_SupportRequestState request, string label)
+	{
+		if (!m_bCampaignDebugRunning || !request || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return "";
+		if (MissionValueHasCampaignDebugPrefix(request.m_sRequestId, m_sCampaignDebugMarkerPrefix))
+			return request.m_sRequestId;
+
+		string originalRequestId = request.m_sRequestId;
+		request.m_sRequestId = m_sCampaignDebugMarkerPrefix + "_support_" + SafeCampaignDebugToken(label) + "_" + SafeCampaignDebugToken(originalRequestId);
+		RetagCampaignDebugMarkers(originalRequestId, request.m_sRequestId);
+		return request.m_sRequestId;
+	}
+
+	protected string ApplyCampaignDebugEnemyOrderPrefix(HST_EnemyOrderState order, string label)
+	{
+		if (!m_bCampaignDebugRunning || !order || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return "";
+		if (MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+			return order.m_sOrderId;
+
+		string originalOrderId = order.m_sOrderId;
+		if (!order.m_sSupportRequestId.IsEmpty() && m_State)
+		{
+			HST_SupportRequestState request = m_State.FindSupportRequest(order.m_sSupportRequestId);
+			string prefixedRequestId = ApplyCampaignDebugSupportRequestPrefix(request, label);
+			if (!prefixedRequestId.IsEmpty())
+				order.m_sSupportRequestId = prefixedRequestId;
+		}
+
+		order.m_sOrderId = m_sCampaignDebugMarkerPrefix + "_order_" + SafeCampaignDebugToken(label) + "_" + SafeCampaignDebugToken(originalOrderId);
+		RetagCampaignDebugMarkers(originalOrderId, order.m_sOrderId);
+		return order.m_sOrderId;
+	}
+
+	protected HST_EnemyOrderState FindLatestCampaignDebugEnemyOrder(int countBefore)
+	{
+		if (!m_State)
+			return null;
+
+		int startIndex = Math.Max(0, countBefore);
+		for (int i = m_State.m_aEnemyOrders.Count() - 1; i >= startIndex; i--)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
+			if (order)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected void RetagCampaignDebugMarkers(string oldLinkedId, string newLinkedId)
+	{
+		if (!m_State || oldLinkedId.IsEmpty() || newLinkedId.IsEmpty())
+			return;
+
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (!marker)
+				continue;
+			if (marker.m_sLinkedId == oldLinkedId)
+				marker.m_sLinkedId = newLinkedId;
+			if (!marker.m_sMarkerId.IsEmpty() && marker.m_sMarkerId.Contains(oldLinkedId))
+				marker.m_sMarkerId.Replace(oldLinkedId, newLinkedId);
+		}
 	}
 
 	protected string BuildCampaignDebugPrefixedCleanupReport(HST_CampaignDebugCaseResult cleanupCase)
@@ -7514,6 +7583,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
+		int orderCountBefore = m_State.m_aEnemyOrders.Count();
 		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
 			m_State,
 			m_Preset,
@@ -7524,6 +7594,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			100
 		);
 
+		if (queued)
+			ApplyCampaignDebugEnemyOrderPrefix(FindLatestCampaignDebugEnemyOrder(orderCountBefore), "phase17_counterattack");
 		MarkMajorCampaignChange(true);
 		return string.Format(
 			"h-istasi phase 17 smoke | force counterattack at %1 | queued %2\n%3",
@@ -7583,6 +7655,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
+		int orderCountBefore = m_State.m_aEnemyOrders.Count();
 		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
 			m_State,
 			m_Preset,
@@ -7594,7 +7667,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		);
 
 		if (queued)
+		{
+			ApplyCampaignDebugEnemyOrderPrefix(FindLatestCampaignDebugEnemyOrder(orderCountBefore), "phase18_counterattack");
 			MarkMajorCampaignChange(true);
+		}
 
 		return string.Format(
 			"h-istasi phase 18 smoke | counterattack seed target %1 | queued %2\n%3",
@@ -7626,7 +7702,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		);
 
 		if (order)
+		{
+			ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_rebuild");
 			MarkMajorCampaignChange(true);
+		}
 
 		return string.Format("h-istasi phase 18 smoke | rebuild seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
 	}
@@ -7664,7 +7743,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		);
 
 		if (order)
+		{
+			ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_roadblock");
 			MarkMajorCampaignChange(true);
+		}
 
 		return string.Format("h-istasi phase 18 smoke | roadblock seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
 	}
@@ -7727,7 +7809,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		);
 
 		if (result && result.m_bSuccess)
+		{
+			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "phase19_fia_supply");
 			MarkMajorCampaignChange(true);
+		}
 
 		return "h-istasi phase 19 smoke | FIA supply\n" + result.BuildSummary() + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 	}
@@ -7756,7 +7841,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		);
 
 		if (result && result.m_bSuccess)
+		{
+			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "phase19_fia_ground");
 			MarkMajorCampaignChange(true);
+		}
 
 		return "h-istasi phase 19 smoke | FIA ground\n" + result.BuildSummary() + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 	}
@@ -7814,7 +7902,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		if (result && result.m_bSuccess)
+		{
+			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "phase19_enemy_ground");
 			MarkMajorCampaignChange(true);
+		}
 
 		string resources = string.Format("enemy resources %1 before %2/%3 after %4/%5", factionKey, beforeAttack, beforeSupport, afterAttack, afterSupport);
 		return "h-istasi phase 19 smoke | enemy ground\n" + result.BuildSummary() + "\n" + resources + "\n" + m_SupportRequests.BuildSupportReport(m_State);
@@ -8182,6 +8273,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugPetrosAttack(m_State, m_Preset, m_EnemyDirector, factionKey);
 		if (order)
 		{
+			ApplyCampaignDebugEnemyOrderPrefix(order, "phase22_petros_attack");
 			if (m_HQ)
 				m_HQ.AddHQKnowledge(m_State, 100, "phase22 Petros attack queued");
 			EnsureDefendPetrosMissionForOrder(order);
