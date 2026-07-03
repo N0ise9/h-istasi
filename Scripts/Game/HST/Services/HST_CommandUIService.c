@@ -224,6 +224,7 @@ class HST_CommandUIService
 		actions.Insert("activate_zone <zone>");
 		actions.Insert("deactivate_zone <zone>");
 		actions.Insert("award_small");
+		actions.Insert("admin_run_campaign_debug");
 		actions.Insert("admin_persistence_smoke_report");
 		actions.Insert("admin_phase14_report");
 		actions.Insert("admin_phase15_report");
@@ -280,6 +281,7 @@ class HST_CommandUIService
 		required.Insert("inspect_convoy_runtime");
 		required.Insert("inspect_balance");
 		required.Insert("inspect_campaign_end");
+		required.Insert("admin_run_campaign_debug");
 		required.Insert("admin_phase14_report");
 		required.Insert("admin_phase15_report");
 		required.Insert("admin_phase16_report");
@@ -338,6 +340,7 @@ class HST_CommandUIService
 		if (commandId == "inspect_convoy_runtime") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
+		if (commandId == "admin_run_campaign_debug") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -354,6 +357,8 @@ class HST_CommandUIService
 		if (commandId == "admin_phase22_report") return true;
 		if (commandId == "admin_phase23_ui_coverage") return true;
 		if (commandId == "admin_phase23_marker_audit") return true;
+		if (commandId == "admin_marker_native_report") return true;
+		if (commandId == "admin_purge_hst_native_markers") return true;
 		if (commandId == "admin_phase23_failed_action_sample") return true;
 		if (commandId == "admin_phase24_seed_early") return true;
 		if (commandId == "admin_phase24_seed_mid") return true;
@@ -396,6 +401,7 @@ class HST_CommandUIService
 		if (commandId == "inspect_convoy_runtime") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
+		if (commandId == "admin_run_campaign_debug") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -468,6 +474,9 @@ class HST_CommandUIService
 
 		if (commandId == "noop")
 			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
+
+		if (commandId == "admin_run_campaign_debug")
+			return coordinator.RequestAdminRunCampaignDebug(playerId);
 
 		if (IsCampaignMutatingCommand(commandId) && !coordinator.IsCampaignActiveForVisibleMutatingCommand())
 			return "h-istasi campaign | failed: campaign is not active";
@@ -891,6 +900,8 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "noop" || commandId == "setup_hideout" || commandId == "checkpoint" || commandId == "foundation_status" || commandId == "new_campaign")
 			return false;
+		if (commandId == "admin_run_campaign_debug")
+			return false;
 		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant")
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
@@ -1212,6 +1223,9 @@ class HST_CommandUIService
 
 		if (commandId == "award_small")
 			return coordinator.RequestAdminAwardResources(playerId, 500, 5);
+
+		if (commandId == "admin_run_campaign_debug")
+			return !coordinator.RequestAdminRunCampaignDebug(playerId).Contains("failed");
 
 		if (commandId == "admin_seed_persistence_test_state")
 			return !coordinator.RequestAdminSeedPersistenceTestState(playerId).IsEmpty();
@@ -2332,9 +2346,6 @@ class HST_CommandUIService
 		string firstGarageVehicleId = SelectFirstGarageVehicleId(state);
 		if (selectedTabId == TAB_SETUP)
 		{
-			AddMenuAction(actions, TAB_SETUP, "Start HQ: north forest", "setup_hideout", "hideout_north_forest", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_SETUP, "Start HQ: central hills", "setup_hideout", "hideout_central_hills", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_SETUP, "Start HQ: south woods", "setup_hideout", "hideout_south_woods", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_SETUP, "Persistence status", "inspect_persistence", "", canUseMember, "membership required");
 			return;
 		}
@@ -2460,6 +2471,7 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
+			AddMenuAction(actions, TAB_ADMIN, "Run Capmaign Debug", "admin_run_campaign_debug", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");

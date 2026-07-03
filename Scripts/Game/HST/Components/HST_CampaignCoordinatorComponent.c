@@ -19,6 +19,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string PHASE14_RAW_ASSET_PREFAB = "{EAE920BF596EBC07}Assets/Objects/Plane.xob";
 	static const string PHASE15_SMOKE_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string PHASE15_SMOKE_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
+	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -43,6 +44,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_PhysicalWarService m_PhysicalWar;
 	protected ref HST_ZoneCompositionService m_ZoneCompositions;
 	protected ref HST_MapMarkerService m_MapMarkers;
+	protected ref HST_PlayerMapMarkerService m_PlayerMapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
 	protected ref HST_BuildModeService m_BuildMode;
@@ -65,6 +67,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iStableSpawnSweepCount;
 	protected bool m_bDeferredMarkerRefresh;
 	protected bool m_bPersistentFieldVehicleRestoreChecked;
+	protected bool m_bCampaignDebugRunning;
+	protected bool m_bCampaignDebugCompleted;
+	protected int m_iCampaignDebugPlayerId;
+	protected int m_iCampaignDebugStepIndex;
+	protected int m_iCampaignDebugMissionIndex;
+	protected int m_iCampaignDebugMissionSubStep;
+	protected int m_iCampaignDebugEarlyPhaseIndex;
+	protected int m_iCampaignDebugPhaseStepIndex;
+	protected int m_iCampaignDebugPassCount;
+	protected int m_iCampaignDebugWarnCount;
+	protected int m_iCampaignDebugFailCount;
+	protected int m_iCampaignDebugWaitSeconds;
+	protected string m_sCampaignDebugCurrentMissionInstanceId;
+	protected string m_sCampaignDebugEarlyMissionInstanceId;
+	protected string m_sCampaignDebugLastResult;
+	protected string m_sCampaignDebugPreviousCommanderIdentityId;
+	protected ref array<string> m_aCampaignDebugRecentLog = {};
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -81,6 +100,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Settings)
 		{
 			m_Settings.ApplyTo(m_Preset, m_Balance);
+			if (m_Settings.m_Debug)
+				HST_UIDebug.SetRuntimeDebugEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
+
 			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 			if (gameMode && m_Settings.m_Features)
 				gameMode.SetHistasiGameMasterBudgetsEnabled(m_Settings.m_Features.m_bGameMasterBudgetsEnabled, "campaign coordinator settings");
@@ -111,6 +133,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MapMarkers && m_Settings && m_Settings.m_Debug)
 			m_MapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_MapMarkers.BindNativeMapRefresh();
+		m_PlayerMapMarkers = new HST_PlayerMapMarkerService();
+		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Debug)
+			m_PlayerMapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
+		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Features)
+			m_PlayerMapMarkers.SetEnabled(m_Settings.m_Features.m_bShowPlayerMapMarkers);
 		m_CommandUI = new HST_CommandUIService();
 		m_Loot = new HST_LootService();
 		m_BuildMode = new HST_BuildModeService();
@@ -143,6 +170,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_MapMarkers)
 			m_MapMarkers.UnbindNativeMapRefresh();
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.ClearAll();
 
 		if (s_Instance == this)
 			s_Instance = null;
@@ -169,6 +198,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		super.OnPlayerConnected(playerId);
 		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep(string.Format("player-connected-%1", playerId), true);
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.RequestRefresh(string.Format("player connected %1", playerId));
+	}
+
+	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
+	{
+		super.OnPlayerDisconnected(playerId, cause, timeout);
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.RequestRefresh(string.Format("player disconnected %1", playerId));
 	}
 
 	override void EOnFrame(IEntity owner, float timeSlice)
@@ -179,6 +217,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_PlayerSpawn.Tick(timeSlice);
 		if (m_MapMarkers)
 			m_MapMarkers.TickNativePublish(m_State, m_Preset, timeSlice);
+		if (m_PlayerMapMarkers)
+			m_PlayerMapMarkers.Tick(m_State, timeSlice);
 		if (!m_bPersistentFieldVehicleRestoreChecked && GetGame().GetWorld())
 		{
 			m_bPersistentFieldVehicleRestoreChecked = true;
@@ -208,7 +248,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int elapsedSeconds = m_fSecondAccumulator;
 		m_fSecondAccumulator -= elapsedSeconds;
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+		{
+			TickCampaignDebugRunner(elapsedSeconds);
 			return;
+		}
 
 		m_State.m_iElapsedSeconds += elapsedSeconds;
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
@@ -274,6 +317,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (markerStateChanged && m_SupportRequests)
 				m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
+
+		TickCampaignDebugRunner(elapsedSeconds);
 	}
 
 	HST_CampaignState GetState()
@@ -317,6 +362,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
+
+		if (m_Arsenal)
+			m_Arsenal.PurgeBlockedArsenalItems(m_State);
 
 		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, CanPlayerUseMemberActions(playerId), CanPlayerUseCommanderActions(playerId), CanPlayerUseAdminActions(playerId), m_ZoneCompositions, m_ZoneCapture);
 	}
@@ -469,6 +517,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_LoadoutEditor)
 			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|server coordinator not ready\nEND";
 
+		if (m_Arsenal)
+			m_Arsenal.PurgeBlockedArsenalItems(m_State);
+
 		string payload = m_LoadoutEditor.BuildEditorPayload(m_State, ResolveTrustedIdentityId(playerId), playerId);
 		if (payload.IsEmpty())
 			return "HST_LOADOUT_EDITOR|offline||false|0|0|0|0\nPREVIEW|false|0 0 0|0|editor payload unavailable\nEND";
@@ -595,6 +646,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (commandId == "loadout_select" || commandId == "load_loadout")
 			return RequestMemberSelectSavedLoadout(playerId, argument);
 
+		if (commandId == "loadout_rename" || commandId == "rename_loadout")
+			return RequestMemberRenameSavedLoadout(playerId, argument);
+
 		if (commandId == "loadout_delete" || commandId == "delete_loadout")
 			return RequestMemberDeleteSavedLoadout(playerId, argument);
 
@@ -696,7 +750,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool requested = m_PlayerSpawn.SpawnOrRespawnPlayer(m_State, m_Authorization, m_PlayerLifecycle, playerId);
 		if (requested)
+		{
 			ArmPlayerSpawnSweep(2);
+			if (m_PlayerMapMarkers)
+				m_PlayerMapMarkers.RequestRefresh(string.Format("spawn requested %1", playerId));
+		}
 
 		return requested;
 	}
@@ -717,6 +775,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_LoadoutEditor && previousSpawnCount > 0 && !identityId.IsEmpty())
 				m_LoadoutEditor.MarkIssuedLoadoutLostOnDeath(m_State, identityId);
 			MarkMajorCampaignChange();
+			if (m_PlayerMapMarkers)
+				m_PlayerMapMarkers.RequestRefresh(string.Format("player spawned %1", playerId));
 		}
 	}
 
@@ -2030,6 +2090,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result;
 	}
 
+	string RequestMemberRenameSavedLoadout(int playerId, string argument)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
+			return "h-istasi loadout editor | membership required";
+
+		if (!m_LoadoutEditor)
+			return "h-istasi loadout editor | service not ready";
+
+		if (!IsPlayerWithinHQInteractionRadius(playerId))
+			return BuildHQInteractionDenied("h-istasi loadout editor");
+
+		string result = m_LoadoutEditor.RenameSavedLoadout(m_State, ResolveTrustedIdentityId(playerId), argument);
+		if (!result.Contains("failed"))
+			MarkMajorCampaignChange();
+		return result;
+	}
+
 	string RequestMemberAddLoadoutDraftItem(int playerId, string itemPrefab)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
@@ -2710,6 +2787,1268 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi persistence smoke | service not ready";
 
 		return m_PersistenceSmokeTest.BuildReport(m_State);
+	}
+
+	string RequestAdminRunCampaignDebug(int playerId)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi campaign debug | failed: server required";
+		if (!CanPlayerUseAdminActions(playerId))
+			return "h-istasi campaign debug | failed: admin required";
+
+		if (m_bCampaignDebugRunning)
+			return "h-istasi campaign debug | already running\n" + BuildCampaignDebugStatusReport();
+
+		StartCampaignDebugRun(playerId);
+		return "h-istasi campaign debug | started sequenced run\n" + BuildCampaignDebugStatusReport();
+	}
+
+	protected void StartCampaignDebugRun(int playerId)
+	{
+		m_bCampaignDebugRunning = true;
+		m_bCampaignDebugCompleted = false;
+		m_iCampaignDebugPlayerId = playerId;
+		m_iCampaignDebugStepIndex = 0;
+		m_iCampaignDebugMissionIndex = 0;
+		m_iCampaignDebugMissionSubStep = 0;
+		m_iCampaignDebugEarlyPhaseIndex = 0;
+		m_iCampaignDebugPhaseStepIndex = 0;
+		m_iCampaignDebugPassCount = 0;
+		m_iCampaignDebugWarnCount = 0;
+		m_iCampaignDebugFailCount = 0;
+		m_iCampaignDebugWaitSeconds = 0;
+		m_sCampaignDebugCurrentMissionInstanceId = "";
+		m_sCampaignDebugEarlyMissionInstanceId = "";
+		m_sCampaignDebugPreviousCommanderIdentityId = "";
+		if (m_State)
+			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
+		m_sCampaignDebugLastResult = "started";
+		m_aCampaignDebugRecentLog.Clear();
+		EnsureCampaignDebugActorCommandAccess("start");
+		AppendCampaignDebugLog("INFO", "start", string.Format("player %1 started campaign debug run", playerId));
+		BroadcastCampaignDebugNotification("campaign_debug_started", "info", "Campaign Debug", "Started full campaign debug sequence.");
+	}
+
+	protected void TickCampaignDebugRunner(int elapsedSeconds)
+	{
+		if (!m_bCampaignDebugRunning)
+			return;
+
+		if (m_iCampaignDebugWaitSeconds > 0)
+		{
+			m_iCampaignDebugWaitSeconds = Math.Max(0, m_iCampaignDebugWaitSeconds - Math.Max(1, elapsedSeconds));
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 0)
+		{
+			RunCampaignDebugBootstrapStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 1)
+		{
+			RunCampaignDebugBaselineReportStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 2)
+		{
+			RunCampaignDebugHQSpawnStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 3)
+		{
+			RunCampaignDebugEconomyForceStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 4)
+		{
+			RunCampaignDebugEarlyPhaseStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 5)
+		{
+			RunCampaignDebugMissionSweepStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 6)
+		{
+			RunCampaignDebugPhaseSmokeStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 7)
+		{
+			RunCampaignDebugFinalReportStep();
+			return;
+		}
+
+		CompleteCampaignDebugRun();
+	}
+
+	protected void AdvanceCampaignDebugStep(string stageName)
+	{
+		m_iCampaignDebugStepIndex++;
+		m_iCampaignDebugWaitSeconds = 1;
+		BroadcastCampaignDebugNotification("campaign_debug_stage_" + m_iCampaignDebugStepIndex, "info", "Campaign Debug", stageName);
+	}
+
+	protected void RunCampaignDebugBootstrapStep()
+	{
+		bool accessReady = EnsureCampaignDebugActorCommandAccess("bootstrap");
+		bool ready = EnsureCampaignDebugActivePhase("bootstrap");
+		int spawnRequests = ProcessPlayerSpawnSweep("campaign debug bootstrap", true);
+		bool teleported = TeleportCampaignDebugPlayerToHQ("bootstrap");
+		string report = string.Format("accessReady %1 | activeReady %2 | phase %3 | HQ deployed %4 | Petros %5 | runtime %6 | spawn requests %7 | teleported %8", accessReady, ready, m_State.m_ePhase, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned, spawnRequests, teleported);
+		RecordCampaignDebugResult("bootstrap active campaign", report, accessReady && ready && m_State.m_bHQDeployed && m_State.m_bPetrosAlive);
+		AdvanceCampaignDebugStep("Bootstrap complete.");
+	}
+
+	protected void RunCampaignDebugBaselineReportStep()
+	{
+		RecordCampaignDebugObservation("foundation status", RequestMemberFoundationStatus(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("campaign overview", RequestMemberInspectCampaign(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("balance pacing", RequestMemberInspectBalancePacing(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("campaign end", RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("persistence", RequestMemberInspectPersistence(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("markers", RequestMemberInspectMarkers(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("zone composition", RequestAdminInspectZoneComposition(m_iCampaignDebugPlayerId));
+		AdvanceCampaignDebugStep("Baseline reports complete.");
+	}
+
+	protected void RunCampaignDebugHQSpawnStep()
+	{
+		EnsureCampaignDebugActivePhase("HQ spawn");
+		TeleportCampaignDebugPlayerToHQ("HQ spawn");
+		int spawnRequests = ProcessPlayerSpawnSweep("campaign debug HQ spawn", true);
+		RecordCampaignDebugResult("player spawn sweep", string.Format("spawn requests %1 | HQ %2 | runtime %3", spawnRequests, m_State.m_vHQPosition, m_State.m_bHQRuntimeObjectsSpawned), m_PlayerSpawn != null);
+		RecordCampaignDebugAction("HQ rebuild", RequestCommanderRebuildHQAssetsReport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("HQ threat", RequestMemberInspectHQThreat(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("loadout editor", RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId));
+		AdvanceCampaignDebugStep("HQ and spawn checks complete.");
+	}
+
+	protected void RunCampaignDebugEconomyForceStep()
+	{
+		EnsureCampaignDebugActivePhase("economy and forces");
+		RecordCampaignDebugAction("award resources", RequestAdminAwardResourcesReport(m_iCampaignDebugPlayerId, 1500, 15));
+		RecordCampaignDebugAction("seed income zone", SeedCampaignDebugIncomeZone());
+		RecordCampaignDebugAction("income tick", RequestCommanderApplyIncomeNowReport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugAction("train troops", RequestCommanderTrainTroopsReport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("recruitment report", RequestMemberInspectRecruitment(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugAction("supply drop", RequestCommanderCallSupplyDropReport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugAction("QRF support", RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, HST_ESupportRequestType.HST_SUPPORT_QRF));
+		RecordCampaignDebugAction("suppressive fire support", RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE));
+		RecordCampaignDebugAction("search support", RequestCommanderCallPlayerSupportReport(m_iCampaignDebugPlayerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY));
+		RecordCampaignDebugObservation("support report", RequestMemberInspectSupport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("civilian report", RequestMemberInspectCivilians(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("town support", RequestMemberInspectTownSupport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugObservation("undercover", RequestMemberInspectUndercover(m_iCampaignDebugPlayerId));
+		AdvanceCampaignDebugStep("Economy, force, support, and civilian checks complete.");
+	}
+
+	protected void RunCampaignDebugEarlyPhaseStep()
+	{
+		if (m_iCampaignDebugEarlyPhaseIndex >= GetCampaignDebugEarlyPhaseStepCount())
+		{
+			RecordCampaignDebugObservation("phase 0-13 and mechanics sweep complete", string.Format("early phase steps %1", m_iCampaignDebugEarlyPhaseIndex));
+			m_sCampaignDebugCurrentMissionInstanceId = "";
+			m_sCampaignDebugEarlyMissionInstanceId = "";
+			AdvanceCampaignDebugStep("Phase 0-13 and working-mechanics sweep complete.");
+			return;
+		}
+
+		EnsureCampaignDebugActivePhase("phase 0-13 mechanics");
+		string label = ResolveCampaignDebugEarlyPhaseLabel(m_iCampaignDebugEarlyPhaseIndex);
+		string result = ExecuteCampaignDebugEarlyPhaseStep(m_iCampaignDebugEarlyPhaseIndex);
+		if (IsCampaignDebugEarlyPhaseReportStep(m_iCampaignDebugEarlyPhaseIndex))
+			RecordCampaignDebugObservation(label, result);
+		else
+			RecordCampaignDebugAction(label, result);
+
+		if (m_iCampaignDebugEarlyPhaseIndex == 5 || m_iCampaignDebugEarlyPhaseIndex == 7)
+			m_iCampaignDebugWaitSeconds = 2;
+		else
+			m_iCampaignDebugWaitSeconds = 1;
+
+		m_iCampaignDebugEarlyPhaseIndex++;
+	}
+
+	protected void RunCampaignDebugMissionSweepStep()
+	{
+		if (!m_Missions)
+		{
+			RecordCampaignDebugResult("mission sweep", "mission service not ready", false);
+			AdvanceCampaignDebugStep("Mission sweep skipped.");
+			return;
+		}
+
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		while (m_iCampaignDebugMissionIndex < definitions.Count() && !definitions[m_iCampaignDebugMissionIndex])
+			m_iCampaignDebugMissionIndex++;
+
+		if (m_iCampaignDebugMissionIndex >= definitions.Count())
+		{
+			RecordCampaignDebugObservation("mission sweep complete", string.Format("tested %1 mission definition(s)", definitions.Count()));
+			AdvanceCampaignDebugStep("Mission sweep complete.");
+			return;
+		}
+
+		HST_MissionDefinition definition = definitions[m_iCampaignDebugMissionIndex];
+		if (m_iCampaignDebugMissionSubStep == 0)
+		{
+			EnsureCampaignDebugActivePhase("mission " + definition.m_sMissionId);
+			string startResult = RequestAdminStartMissionById(m_iCampaignDebugPlayerId, definition.m_sMissionId);
+			bool started = IsCampaignDebugResultSuccessful(startResult);
+			m_sCampaignDebugCurrentMissionInstanceId = "";
+			if (started)
+			{
+				m_sCampaignDebugCurrentMissionInstanceId = FindLatestCampaignDebugMissionInstance(definition.m_sMissionId);
+				TeleportCampaignDebugPlayerToMission(m_sCampaignDebugCurrentMissionInstanceId, definition.m_sMissionId);
+			}
+
+			RecordCampaignDebugResult("start mission " + definition.m_sMissionId, startResult, started);
+			if (started)
+				m_iCampaignDebugMissionSubStep = 1;
+			else
+			{
+				m_iCampaignDebugMissionIndex++;
+				m_iCampaignDebugMissionSubStep = 0;
+			}
+
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
+
+		if (m_iCampaignDebugMissionSubStep == 1)
+		{
+			ProcessPlayerSpawnSweep("campaign debug mission runtime", true);
+			string runtimeReport = RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
+			runtimeReport = runtimeReport + "\n" + RequestMemberInspectMission(m_iCampaignDebugPlayerId, m_sCampaignDebugCurrentMissionInstanceId);
+			RecordCampaignDebugObservation("runtime mission " + definition.m_sMissionId, runtimeReport);
+			m_iCampaignDebugMissionSubStep = 2;
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
+
+		bool completed = false;
+		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
+			completed = CompleteMission(m_sCampaignDebugCurrentMissionInstanceId);
+
+		string completeResult = string.Format("mission %1 | instance %2 | completed %3", definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, completed);
+		RecordCampaignDebugResult("complete mission " + definition.m_sMissionId, completeResult, completed);
+		m_sCampaignDebugCurrentMissionInstanceId = "";
+		m_iCampaignDebugMissionIndex++;
+		m_iCampaignDebugMissionSubStep = 0;
+		m_iCampaignDebugWaitSeconds = 1;
+	}
+
+	protected void RunCampaignDebugPhaseSmokeStep()
+	{
+		if (m_iCampaignDebugPhaseStepIndex >= GetCampaignDebugPhaseSmokeStepCount())
+		{
+			RecordCampaignDebugObservation("phase smoke sweep complete", string.Format("phase steps %1", m_iCampaignDebugPhaseStepIndex));
+			AdvanceCampaignDebugStep("Phase smoke sweep complete.");
+			return;
+		}
+
+		if (m_iCampaignDebugPhaseStepIndex == 22)
+			ClearCampaignDebugPlayerSupportRequests("before phase 19 support smoke");
+
+		if (ShouldRepairCampaignDebugBeforePhaseSmokeStep(m_iCampaignDebugPhaseStepIndex))
+			EnsureCampaignDebugActivePhase("phase smoke");
+		if (m_iCampaignDebugPhaseStepIndex >= 32 && m_iCampaignDebugPhaseStepIndex <= 38)
+			TeleportCampaignDebugPlayerToCivilianTown("phase21 undercover");
+		if (m_iCampaignDebugPhaseStepIndex >= 39 && m_iCampaignDebugPhaseStepIndex <= 45)
+			TeleportCampaignDebugPlayerToHQ("phase22 HQ threat");
+
+		string label = ResolveCampaignDebugPhaseSmokeLabel(m_iCampaignDebugPhaseStepIndex);
+		string result = ExecuteCampaignDebugPhaseSmokeStep(m_iCampaignDebugPhaseStepIndex);
+		bool reportStep = IsCampaignDebugPhaseSmokeReportStep(m_iCampaignDebugPhaseStepIndex);
+		bool success = reportStep || IsCampaignDebugResultSuccessful(result);
+		if (m_iCampaignDebugPhaseStepIndex == 50)
+			success = !result.IsEmpty();
+
+		if (reportStep && m_iCampaignDebugPhaseStepIndex == 50)
+			RecordCampaignDebugResult(label, result, success, true);
+		else if (reportStep)
+			RecordCampaignDebugObservation(label, result);
+		else
+			RecordCampaignDebugResult(label, result, success);
+		if (m_iCampaignDebugPhaseStepIndex == 44)
+			RecoverCampaignDebugPetrosAfterKill();
+
+		m_iCampaignDebugPhaseStepIndex++;
+		m_iCampaignDebugWaitSeconds = 1;
+	}
+
+	protected void RunCampaignDebugFinalReportStep()
+	{
+		string report = "h-istasi campaign debug final report";
+		report = report + "\n" + RequestMemberFoundationStatus(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectCampaign(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectPersistence(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectSupport(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberManualCheckpointReport(m_iCampaignDebugPlayerId);
+		RecordCampaignDebugResult("phase25 manual soak gaps", "manual gaps remain: real restart after each primitive, second-client join/reconnect, and two-hour full-session soak", true, true);
+		report = report + "\n" + BuildCampaignDebugPhase25SoakReport();
+		RecordCampaignDebugObservation("final report", report);
+		m_iCampaignDebugStepIndex++;
+		m_iCampaignDebugWaitSeconds = 1;
+	}
+
+	protected void CompleteCampaignDebugRun()
+	{
+		RestoreCampaignDebugActorCommandAccess();
+		m_bCampaignDebugRunning = false;
+		m_bCampaignDebugCompleted = true;
+		m_sCampaignDebugLastResult = string.Format("complete | pass %1 | warn %2 | fail %3", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount);
+		AppendCampaignDebugLog("DONE", "complete", m_sCampaignDebugLastResult);
+		string severity = "info";
+		if (m_iCampaignDebugFailCount > 0)
+			severity = "warning";
+		BroadcastCampaignDebugNotification("campaign_debug_complete", severity, "Campaign Debug", m_sCampaignDebugLastResult);
+	}
+
+	protected bool EnsureCampaignDebugActivePhase(string reason)
+	{
+		if (!m_State || !m_HQ)
+			return false;
+
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+		{
+			ResetCampaignEndState();
+			m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		}
+
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			string hideoutId = HST_DefaultCatalog.GetDefaultHideoutId();
+			if (!m_State.m_bHQDeployed)
+				SelectInitialHideout_S(hideoutId);
+			else
+				m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		}
+
+		if (!m_State.m_bPetrosAlive)
+			RecoverCampaignDebugPetrosAfterKill();
+
+		if (!m_State.m_bHQDeployed)
+		{
+			HST_ECampaignPhase previousPhase = m_State.m_ePhase;
+			m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
+			if (!SelectInitialHideout_S(HST_DefaultCatalog.GetDefaultHideoutId()))
+				m_State.m_ePhase = previousPhase;
+		}
+
+		if (m_State.m_bHQDeployed)
+			m_HQ.EnsureRuntimeObjects(m_State);
+
+		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE && m_State.m_bHQDeployed)
+		{
+			MarkMajorCampaignChange(true);
+			return true;
+		}
+
+		AppendCampaignDebugLog("FAIL", "active phase repair", "failed during " + reason);
+		return false;
+	}
+
+	protected string SeedCampaignDebugIncomeZone()
+	{
+		if (!m_State || !m_Preset)
+			return "h-istasi campaign debug | failed: campaign state or preset not ready";
+
+		HST_ZoneState zone = SelectCampaignDebugIncomeZone();
+		if (!zone)
+			return "h-istasi campaign debug | failed: no income-producing zone found";
+
+		if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			return "h-istasi campaign debug | income zone already FIA | " + ResolveZoneLabel(zone);
+
+		bool changed = SetZoneOwner(zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+		if (!changed && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			return "h-istasi campaign debug | failed: could not seed income zone " + ResolveZoneLabel(zone);
+
+		MarkMajorCampaignChange(true);
+		return "h-istasi campaign debug | income zone seeded | " + ResolveZoneLabel(zone);
+	}
+
+	protected HST_ZoneState SelectCampaignDebugIncomeZone()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || !IsCampaignDebugIncomeZoneType(zone))
+				continue;
+			if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+				return zone;
+		}
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (fallback && IsCampaignDebugIncomeZoneType(fallback))
+				return fallback;
+		}
+
+		return null;
+	}
+
+	protected bool IsCampaignDebugIncomeZoneType(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return true;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_BANK)
+			return true;
+
+		return false;
+	}
+
+	protected bool EnsureCampaignDebugActorCommandAccess(string reason)
+	{
+		if (!m_State || !m_Authorization)
+			return false;
+
+		string identityId = ResolveTrustedIdentityId(m_iCampaignDebugPlayerId);
+		if (identityId.IsEmpty())
+			return false;
+
+		HST_PlayerState player = m_State.FindPlayer(identityId);
+		if (!player)
+			player = m_Authorization.RegisterPlayer(m_State, identityId, true);
+		if (!player)
+			return false;
+
+		bool changed = false;
+		if (!player.m_bAdmin)
+		{
+			player.m_bAdmin = true;
+			changed = true;
+		}
+		if (!player.m_bMember || player.m_bGuest)
+		{
+			player.m_bMember = true;
+			player.m_bGuest = false;
+			changed = true;
+		}
+		if (m_State.m_sCommanderIdentityId != identityId)
+		{
+			m_State.m_sCommanderIdentityId = identityId;
+			changed = true;
+		}
+
+		if (changed)
+		{
+			AppendCampaignDebugLog("INFO", "debug actor access", "granted admin/member/commander access for " + reason);
+			MarkMajorCampaignChange(false);
+		}
+
+		return CanPlayerUseAdminActions(m_iCampaignDebugPlayerId) && CanPlayerUseMemberActions(m_iCampaignDebugPlayerId) && CanPlayerUseCommanderActions(m_iCampaignDebugPlayerId);
+	}
+
+	protected void RestoreCampaignDebugActorCommandAccess()
+	{
+		if (!m_State)
+			return;
+
+		if (m_State.m_sCommanderIdentityId == m_sCampaignDebugPreviousCommanderIdentityId)
+			return;
+
+		m_State.m_sCommanderIdentityId = m_sCampaignDebugPreviousCommanderIdentityId;
+		AppendCampaignDebugLog("INFO", "debug actor access", "restored previous commander identity");
+		MarkMajorCampaignChange(false);
+	}
+
+	protected int GetCampaignDebugEarlyPhaseStepCount()
+	{
+		return 18;
+	}
+
+	protected bool IsCampaignDebugEarlyPhaseReportStep(int index)
+	{
+		switch (index)
+		{
+			case 0:
+			case 1:
+			case 3:
+			case 4:
+			case 6:
+			case 8:
+			case 11:
+			case 16:
+			case 17:
+				return true;
+		}
+
+		return false;
+	}
+
+	protected string ResolveCampaignDebugEarlyPhaseLabel(int index)
+	{
+		switch (index)
+		{
+			case 0: return "phase0 foundation/checkpoint";
+			case 1: return "phase1 mission runtime visibility";
+			case 2: return "phase2-8 start convoy sample";
+			case 3: return "phase2 convoy runtime report";
+			case 4: return "phase3 generated route/content report";
+			case 5: return "phase4-8 force convoy departure window";
+			case 6: return "phase4-8 convoy movement/readiness report";
+			case 7: return "phase9 convoy contact teleport probe";
+			case 8: return "phase9 convoy contact report";
+			case 9: return "phase10-11 convoy completion/outcome";
+			case 10: return "phase12 active mission persistence smoke";
+			case 11: return "phase13 primitive runtime report";
+			case 12: return "mechanic zone activation toggle";
+			case 13: return "mechanic garrison recruit/remove";
+			case 14: return "mechanic civilian aid";
+			case 15: return "mechanic support cancellation";
+			case 16: return "mechanic garage/vehicle/loadout reports";
+			case 17: return "mechanic command UI coverage";
+		}
+
+		return "phase 0-13 mechanic step " + string.Format("%1", index);
+	}
+
+	protected string ExecuteCampaignDebugEarlyPhaseStep(int index)
+	{
+		switch (index)
+		{
+			case 0: return BuildCampaignDebugPhase0Report();
+			case 1: return BuildCampaignDebugPhase1Report();
+			case 2: return StartCampaignDebugConvoySample();
+			case 3: return BuildCampaignDebugConvoySampleReport();
+			case 4: return RequestMemberInspectGeneratedContent(m_iCampaignDebugPlayerId);
+			case 5: return ForceCampaignDebugConvoyDepartureWindow();
+			case 6: return BuildCampaignDebugConvoySampleReport();
+			case 7: return TeleportCampaignDebugPlayerToConvoySample();
+			case 8: return BuildCampaignDebugConvoySampleReport();
+			case 9: return CompleteCampaignDebugConvoySample();
+			case 10: return RunCampaignDebugPersistenceSmoke();
+			case 11: return BuildCampaignDebugPrimitiveRuntimeReport();
+			case 12: return RunCampaignDebugZoneActivationToggle();
+			case 13: return RunCampaignDebugGarrisonRecruitRemove();
+			case 14: return RequestCommanderAidNearestTownReport(m_iCampaignDebugPlayerId);
+			case 15: return RequestCommanderCancelSupportReport(m_iCampaignDebugPlayerId);
+			case 16: return BuildCampaignDebugVehicleAndLoadoutReport();
+			case 17: return RequestAdminPhase23UICoverageReport(m_iCampaignDebugPlayerId);
+		}
+
+		return "h-istasi campaign debug | failed: unknown phase 0-13 mechanic step";
+	}
+
+	protected string BuildCampaignDebugPhase0Report()
+	{
+		string report = "h-istasi campaign debug | phase 0 foundation";
+		report = report + "\n" + RequestMemberFoundationStatus(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberManualCheckpointReport(m_iCampaignDebugPlayerId);
+		return report;
+	}
+
+	protected string BuildCampaignDebugPhase1Report()
+	{
+		string report = "h-istasi campaign debug | phase 1 mission runtime visibility";
+		report = report + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectActiveMissions(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectObjectives(m_iCampaignDebugPlayerId);
+		return report;
+	}
+
+	protected string StartCampaignDebugConvoySample()
+	{
+		EnsureCampaignDebugActivePhase("phase 2 convoy sample");
+		string startResult = RequestAdminStartMissionById(m_iCampaignDebugPlayerId, "convoy_ammo");
+		if (!IsCampaignDebugResultSuccessful(startResult))
+			return startResult;
+
+		m_sCampaignDebugEarlyMissionInstanceId = FindLatestCampaignDebugMissionInstance("convoy_ammo");
+		m_sCampaignDebugCurrentMissionInstanceId = m_sCampaignDebugEarlyMissionInstanceId;
+		TeleportCampaignDebugPlayerToMission(m_sCampaignDebugEarlyMissionInstanceId, "convoy_ammo");
+		if (m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
+			return "h-istasi campaign debug | failed: convoy sample instance not found";
+
+		return startResult + "\nh-istasi campaign debug | convoy sample instance " + m_sCampaignDebugEarlyMissionInstanceId;
+	}
+
+	protected string BuildCampaignDebugConvoySampleReport()
+	{
+		string report = "h-istasi campaign debug | convoy phase sample";
+		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectConvoyRuntime(m_iCampaignDebugPlayerId);
+		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
+			report = report + "\n" + RequestMemberInspectMission(m_iCampaignDebugPlayerId, m_sCampaignDebugEarlyMissionInstanceId);
+		return report;
+	}
+
+	protected string ForceCampaignDebugConvoyDepartureWindow()
+	{
+		HST_ActiveMissionState mission = ResolveCampaignDebugEarlyMission();
+		if (!mission)
+			return "h-istasi campaign debug | failed: no convoy sample mission to force";
+		if (mission.m_sRuntimePrimitive != "convoy_intercept")
+			return "h-istasi campaign debug | failed: early sample is not a convoy mission";
+
+		if (mission.m_iRuntimeCounterB <= 0)
+			mission.m_iRuntimeCounterB = Math.Max(1, mission.m_iRuntimeCounterA + 1);
+		if (mission.m_iRuntimeCounterC <= mission.m_iRuntimeCounterB)
+			mission.m_iRuntimeCounterC = mission.m_iRuntimeCounterB + 300;
+
+		mission.m_iRuntimeCounterA = Math.Max(mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB);
+		mission.m_iRuntimeETASeconds = 0;
+		MarkMajorCampaignChange(true);
+		return string.Format("h-istasi campaign debug | convoy departure forced | instance %1 | counters %2/%3/%4", mission.m_sInstanceId, mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC);
+	}
+
+	protected string TeleportCampaignDebugPlayerToConvoySample()
+	{
+		HST_ActiveMissionState mission = ResolveCampaignDebugEarlyMission();
+		if (!mission)
+			return "h-istasi campaign debug | failed: no convoy sample mission for contact probe";
+
+		bool teleported = TeleportCampaignDebugPlayerToConvoy(mission.m_sInstanceId, "phase9 convoy contact");
+		if (!teleported)
+			return "h-istasi campaign debug | failed: could not teleport to convoy sample";
+
+		return "h-istasi campaign debug | convoy contact teleport probe | instance " + mission.m_sInstanceId;
+	}
+
+	protected string CompleteCampaignDebugConvoySample()
+	{
+		HST_ActiveMissionState mission = ResolveCampaignDebugEarlyMission();
+		if (!mission)
+			return "h-istasi campaign debug | failed: no convoy sample mission to complete";
+
+		string instanceId = mission.m_sInstanceId;
+		bool completed = CompleteMission(instanceId);
+		m_sCampaignDebugEarlyMissionInstanceId = "";
+		m_sCampaignDebugCurrentMissionInstanceId = "";
+		if (!completed)
+			return "h-istasi campaign debug | failed: convoy sample completion returned false | " + instanceId;
+
+		return "h-istasi campaign debug | convoy sample completed | " + instanceId + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
+	}
+
+	protected string RunCampaignDebugPersistenceSmoke()
+	{
+		string report = "h-istasi campaign debug | phase 12 persistence smoke";
+		report = report + "\n" + RequestAdminSeedPersistenceTestState(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestAdminRunPersistenceSmokeTest(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestAdminPersistenceSmokeReport(m_iCampaignDebugPlayerId);
+		return report;
+	}
+
+	protected string BuildCampaignDebugPrimitiveRuntimeReport()
+	{
+		EnsureCampaignDebugActivePhase("phase 13 primitive sample");
+		string startResult = RequestAdminStartMissionById(m_iCampaignDebugPlayerId, "rescue_pows");
+		if (!IsCampaignDebugResultSuccessful(startResult))
+			return startResult;
+
+		string instanceId = FindLatestCampaignDebugMissionInstance("rescue_pows");
+		if (instanceId.IsEmpty())
+			return "h-istasi campaign debug | failed: primitive sample instance not found";
+
+		TeleportCampaignDebugPlayerToMission(instanceId, "rescue_pows");
+		ProcessPlayerSpawnSweep("campaign debug primitive runtime", true);
+		string report = "h-istasi campaign debug | phase 13 primitive sample";
+		report = report + "\n" + startResult;
+		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectMission(m_iCampaignDebugPlayerId, instanceId);
+		bool completed = CompleteMission(instanceId);
+		if (!completed)
+			return report + "\nh-istasi campaign debug | failed: primitive sample completion returned false";
+
+		return report + "\nh-istasi campaign debug | primitive sample completed | " + instanceId;
+	}
+
+	protected string RunCampaignDebugZoneActivationToggle()
+	{
+		string zoneId = SelectFirstAdminZoneId();
+		if (zoneId.IsEmpty())
+			return "h-istasi campaign debug | failed: no zone available for activation toggle";
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return "h-istasi campaign debug | failed: zone not found for activation toggle";
+
+		bool originalActive = zone.m_bActive;
+		string first = RequestAdminSetZoneActiveReport(m_iCampaignDebugPlayerId, zoneId, !originalActive);
+		string second = RequestAdminSetZoneActiveReport(m_iCampaignDebugPlayerId, zoneId, originalActive);
+		return first + "\n" + second;
+	}
+
+	protected string RunCampaignDebugGarrisonRecruitRemove()
+	{
+		HST_ZoneState zone = SelectCampaignDebugGarrisonZone();
+		if (!zone)
+			return "h-istasi campaign debug | failed: no garrison test zone available";
+
+		if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+			SetZoneOwner(zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+		zone.m_bActive = false;
+		zone.m_iActiveInfantryCount = 0;
+		zone.m_iActiveVehicleCount = 0;
+
+		string recruit = RequestCommanderRecruitGarrisonReport(m_iCampaignDebugPlayerId, zone.m_sZoneId, 1, 0, 50, 1);
+		string remove = RequestCommanderRemoveGarrisonReport(m_iCampaignDebugPlayerId, zone.m_sZoneId, 1, 0);
+		return recruit + "\n" + remove;
+	}
+
+	protected string BuildCampaignDebugVehicleAndLoadoutReport()
+	{
+		string report = "h-istasi campaign debug | garage vehicle cargo loadout reports";
+		report = report + "\n" + RequestMemberInspectGarage(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectVehicleCargo(m_iCampaignDebugPlayerId);
+		report = report + "\n" + RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId);
+		return report;
+	}
+
+	protected HST_ActiveMissionState ResolveCampaignDebugEarlyMission()
+	{
+		if (!m_State)
+			return null;
+
+		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
+			return m_State.FindActiveMission(m_sCampaignDebugEarlyMissionInstanceId);
+
+		return null;
+	}
+
+	protected HST_ZoneState SelectCampaignDebugGarrisonZone()
+	{
+		HST_ZoneState zone = SelectCampaignDebugIncomeZone();
+		if (zone)
+			return zone;
+
+		if (!m_State)
+			return null;
+
+		foreach (HST_ZoneState fallback : m_State.m_aZones)
+		{
+			if (!fallback)
+				continue;
+			if (fallback.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || fallback.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+			return fallback;
+		}
+
+		return null;
+	}
+
+	protected bool TeleportCampaignDebugPlayerToConvoy(string instanceId, string reason)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return false;
+
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+			if (asset.m_sRole != "convoy_vehicle")
+				continue;
+
+			vector assetPosition = asset.m_vCurrentPosition;
+			if (IsZeroVector(assetPosition))
+				assetPosition = asset.m_vSourcePosition;
+			if (IsZeroVector(assetPosition))
+				assetPosition = asset.m_vTargetPosition;
+			if (!IsZeroVector(assetPosition))
+				return TeleportCampaignDebugPlayer(assetPosition + "18 0 18", reason);
+		}
+
+		string groupPrefix = "mission_convoy_" + instanceId + "_";
+		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
+		{
+			if (!group || !group.m_sGroupId.Contains(groupPrefix))
+				continue;
+
+			vector groupPosition = group.m_vPosition;
+			if (IsZeroVector(groupPosition))
+				groupPosition = group.m_vSourcePosition;
+			if (IsZeroVector(groupPosition))
+				groupPosition = group.m_vTargetPosition;
+			if (!IsZeroVector(groupPosition))
+				return TeleportCampaignDebugPlayer(groupPosition + "18 0 18", reason);
+		}
+
+		return false;
+	}
+
+	protected void ClearCampaignDebugPlayerSupportRequests(string reason)
+	{
+		if (!m_State)
+			return;
+
+		int changed = 0;
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request || !request.m_bPlayerRequested)
+				continue;
+
+			request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
+			request.m_sFailureReason = "cleared by campaign debug";
+			request.m_sRuntimeStatus = "campaign_debug_cleared";
+			request.m_sResolutionKind = "campaign_debug_cleared";
+			request.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
+			request.m_iCooldownUntilSecond = 0;
+			changed++;
+		}
+
+		if (changed > 0)
+		{
+			AppendCampaignDebugLog("INFO", "support cleanup", string.Format("cleared %1 player support request(s) %2", changed, reason));
+			MarkMajorCampaignChange(true);
+		}
+	}
+
+	protected string BuildCampaignDebugPhase25SoakReport()
+	{
+		string report = "h-istasi phase25 full-campaign soak summary";
+		report = report + string.Format("\nprogrammatic coverage | phases 0-13 steps %1/%2 | mission definitions %3 | phase 14-24 smoke steps %4/%5",
+			m_iCampaignDebugEarlyPhaseIndex,
+			GetCampaignDebugEarlyPhaseStepCount(),
+			GetCampaignDebugMissionDefinitionCount(),
+			m_iCampaignDebugPhaseStepIndex,
+			GetCampaignDebugPhaseSmokeStepCount()
+		);
+		report = report + string.Format("\nprogrammatic result counts | pass %1 | warn %2 | fail %3", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount);
+		report = report + "\nprogrammatic coverage | setup/HQ, active phase repair, mission families, representative convoy staging/movement/contact/completion, active mission persistence smoke, non-convoy primitive runtime, economy, training, garrisons, zone capture, enemy orders, support requests, civilians, undercover, HQ threat, Defend Petros, UI/markers, and victory/loss states";
+		report = report + "\nmanual soak gap | real process restart after every primitive cannot be completed inside one running server tick sequence";
+		report = report + "\nmanual soak gap | second-client join/disconnect/reconnect and two-hour full-session endurance require external multiplayer/session soak";
+		return report;
+	}
+
+	protected void RecoverCampaignDebugPetrosAfterKill()
+	{
+		if (!m_State || !m_HQ)
+			return;
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		m_State.m_bPetrosAlive = true;
+		m_State.m_bDefendPetrosActive = false;
+		m_State.m_sDefendPetrosStatus = "campaign_debug_recovered";
+		m_State.m_sDefendPetrosFailureReason = "";
+		vector hqPosition = m_State.m_vHQPosition;
+		if (IsZeroVector(hqPosition))
+			hqPosition = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
+
+		string hideoutId = m_State.m_sHQHideoutId;
+		if (hideoutId.IsEmpty())
+			hideoutId = HST_DefaultCatalog.GetDefaultHideoutId();
+
+		m_HQ.MoveHQToPosition(m_State, hqPosition, hideoutId);
+		m_HQ.EnsureRuntimeObjects(m_State);
+		MarkMajorCampaignChange(true);
+		AppendCampaignDebugLog("INFO", "Petros recovery", "restored Petros/HQ after kill-path smoke step");
+	}
+
+	protected bool TeleportCampaignDebugPlayerToHQ(string reason)
+	{
+		if (!m_State || IsZeroVector(m_State.m_vHQPosition))
+			return false;
+
+		vector target = m_State.m_vHQPosition + "6 0 6";
+		return TeleportCampaignDebugPlayer(target, reason);
+	}
+
+	protected bool TeleportCampaignDebugPlayerToCivilianTown(string reason)
+	{
+		HST_CivilianZoneState town = SelectPhase20SmokeTown();
+		if (!town || !m_State)
+			return false;
+
+		HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
+		if (!zone)
+			return false;
+
+		return TeleportCampaignDebugPlayer(zone.m_vPosition + "8 0 8", reason);
+	}
+
+	protected bool TeleportCampaignDebugPlayerToMission(string instanceId, string missionId)
+	{
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (!mission)
+			return false;
+
+		vector target = mission.m_vTargetPosition;
+		if (IsZeroVector(target))
+		{
+			HST_ZoneState zone = m_State.FindZone(mission.m_sTargetZoneId);
+			if (zone)
+				target = zone.m_vPosition;
+		}
+
+		if (IsZeroVector(target))
+			return false;
+
+		return TeleportCampaignDebugPlayer(target + "10 0 10", "mission " + missionId);
+	}
+
+	protected bool TeleportCampaignDebugPlayer(vector position, string reason)
+	{
+		if (m_iCampaignDebugPlayerId <= 0 || IsZeroVector(position))
+			return false;
+
+		vector resolved = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true);
+		bool teleported = SCR_Global.TeleportPlayer(m_iCampaignDebugPlayerId, resolved, SCR_EPlayerTeleportedReason.DEFAULT);
+		if (!teleported)
+		{
+			IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+			if (playerEntity)
+			{
+				playerEntity.SetOrigin(resolved);
+				teleported = true;
+			}
+		}
+
+		if (teleported)
+			AppendCampaignDebugLog("INFO", "teleport " + reason, string.Format("player %1 -> %2", m_iCampaignDebugPlayerId, resolved));
+
+		return teleported;
+	}
+
+	protected string FindLatestCampaignDebugMissionInstance(string missionId)
+	{
+		if (!m_State || missionId.IsEmpty())
+			return "";
+
+		for (int i = m_State.m_aActiveMissions.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveMissionState mission = m_State.m_aActiveMissions[i];
+			if (mission && mission.m_sMissionId == missionId && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+				return mission.m_sInstanceId;
+		}
+
+		return "";
+	}
+
+	protected void RecordCampaignDebugAction(string label, string result)
+	{
+		RecordCampaignDebugResult(label, result, IsCampaignDebugResultSuccessful(result));
+	}
+
+	protected void RecordCampaignDebugObservation(string label, string result)
+	{
+		if (result.IsEmpty())
+		{
+			RecordCampaignDebugResult(label, result, false);
+			return;
+		}
+
+		if (!IsCampaignDebugResultSuccessful(result))
+		{
+			RecordCampaignDebugResult(label, result, false);
+			return;
+		}
+
+		AppendCampaignDebugLog("INFO", label, result);
+	}
+
+	protected void RecordCampaignDebugResult(string label, string result, bool success, bool warning = false)
+	{
+		if (result.IsEmpty())
+			result = "empty result";
+
+		if (warning && success)
+		{
+			m_iCampaignDebugWarnCount++;
+			AppendCampaignDebugLog("WARN", label, result);
+			return;
+		}
+
+		if (success)
+		{
+			m_iCampaignDebugPassCount++;
+			AppendCampaignDebugLog("PASS", label, result);
+			return;
+		}
+
+		m_iCampaignDebugFailCount++;
+		AppendCampaignDebugLog("FAIL", label, result);
+		BroadcastCampaignDebugNotification("campaign_debug_fail_" + string.Format("%1", m_iCampaignDebugFailCount), "warning", "Campaign Debug", label + " failed.");
+	}
+
+	protected void AppendCampaignDebugLog(string tone, string label, string result)
+	{
+		string line = string.Format("%1 | %2 | %3", tone, label, ShortCampaignDebugLine(result, 260));
+		m_sCampaignDebugLastResult = line;
+		m_aCampaignDebugRecentLog.Insert(line);
+		while (m_aCampaignDebugRecentLog.Count() > CAMPAIGN_DEBUG_RECENT_LOG_LIMIT)
+			m_aCampaignDebugRecentLog.Remove(0);
+
+		Print("h-istasi campaign debug | " + line);
+	}
+
+	protected bool IsCampaignDebugResultSuccessful(string result)
+	{
+		if (result.IsEmpty())
+			return false;
+
+		if (result == "FAIL" || result.Contains("| FAIL") || result.Contains("FAIL |"))
+			return false;
+
+		if (result.Contains("failed:") || result.Contains("admin required") || result.Contains("server required") || result.Contains("not ready") || result.Contains("could not"))
+			return false;
+		if (result.Contains("missing visible command") || result.Contains("missing dispatch"))
+			return false;
+
+		return true;
+	}
+
+	protected string ShortCampaignDebugLine(string text, int maxCharacters)
+	{
+		text.Replace("\r", " ");
+		text.Replace("\n", " / ");
+		text = text.Trim();
+		if (text.Length() <= maxCharacters)
+			return text;
+		if (maxCharacters <= 3)
+			return text.Substring(0, maxCharacters);
+		return text.Substring(0, maxCharacters - 3) + "...";
+	}
+
+	protected string BuildCampaignDebugStatusReport()
+	{
+		string status = string.Format("status running %1 | complete %2 | step %3 | mission %4/%5 | phase step %6/%7 | pass %8 | warn %9",
+			m_bCampaignDebugRunning,
+			m_bCampaignDebugCompleted,
+			m_iCampaignDebugStepIndex,
+			m_iCampaignDebugMissionIndex,
+			GetCampaignDebugMissionDefinitionCount(),
+			m_iCampaignDebugPhaseStepIndex,
+			GetCampaignDebugPhaseSmokeStepCount(),
+			m_iCampaignDebugPassCount,
+			m_iCampaignDebugWarnCount
+		);
+		status = status + string.Format(" | fail %1", m_iCampaignDebugFailCount);
+		status = status + string.Format(" | early %1/%2", m_iCampaignDebugEarlyPhaseIndex, GetCampaignDebugEarlyPhaseStepCount());
+
+		status = status + "\nlast | " + m_sCampaignDebugLastResult;
+		int first = Math.Max(0, m_aCampaignDebugRecentLog.Count() - 12);
+		for (int i = first; i < m_aCampaignDebugRecentLog.Count(); i++)
+			status = status + "\n" + m_aCampaignDebugRecentLog[i];
+
+		return status;
+	}
+
+	protected int GetCampaignDebugMissionDefinitionCount()
+	{
+		if (!m_Missions)
+			return 0;
+
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		return definitions.Count();
+	}
+
+	protected void BroadcastCampaignDebugNotification(string eventId, string severity, string title, string message)
+	{
+		BroadcastNotification(eventId, "debug", severity, title, message, "", "", "0 0 0", 5.0);
+	}
+
+	protected int GetCampaignDebugPhaseSmokeStepCount()
+	{
+		return 62;
+	}
+
+	protected bool ShouldRepairCampaignDebugBeforePhaseSmokeStep(int index)
+	{
+		if (index == 58 || index == 60 || index == 61)
+			return false;
+
+		return true;
+	}
+
+	protected bool IsCampaignDebugPhaseSmokeReportStep(int index)
+	{
+		switch (index)
+		{
+			case 2:
+			case 6:
+			case 9:
+			case 12:
+			case 16:
+			case 21:
+			case 26:
+			case 31:
+			case 38:
+			case 42:
+			case 45:
+			case 46:
+			case 47:
+			case 48:
+			case 50:
+			case 52:
+			case 54:
+			case 56:
+			case 58:
+			case 60:
+			case 61:
+				return true;
+		}
+
+		return false;
+	}
+
+	protected string ResolveCampaignDebugPhaseSmokeLabel(int index)
+	{
+		switch (index)
+		{
+			case 0: return "persistence seed";
+			case 1: return "persistence smoke";
+			case 2: return "persistence report";
+			case 3: return "phase14 finite seed";
+			case 4: return "phase14 threshold seed";
+			case 5: return "phase14 blocked seed";
+			case 6: return "phase14 report";
+			case 7: return "phase15 garage seed";
+			case 8: return "phase15 source vehicle seed";
+			case 9: return "phase15 report";
+			case 10: return "phase16 garrison seed";
+			case 11: return "phase16 train";
+			case 12: return "phase16 report";
+			case 13: return "phase17 capture seed";
+			case 14: return "phase17 force progress";
+			case 15: return "phase17 counterattack";
+			case 16: return "phase17 report";
+			case 17: return "phase18 counterattack";
+			case 18: return "phase18 rebuild";
+			case 19: return "phase18 roadblock";
+			case 20: return "phase18 resolve";
+			case 21: return "phase18 report";
+			case 22: return "phase19 FIA supply";
+			case 23: return "phase19 FIA ground";
+			case 24: return "phase19 enemy ground";
+			case 25: return "phase19 force ETA";
+			case 26: return "phase19 report";
+			case 27: return "phase20 town seed";
+			case 28: return "phase20 heat seed";
+			case 29: return "phase20 undercover seed";
+			case 30: return "phase20 clear heat";
+			case 31: return "phase20 report";
+			case 32: return "phase21 apply undercover";
+			case 33: return "phase21 weapon fire";
+			case 34: return "phase21 military vehicle";
+			case 35: return "phase21 roadblock";
+			case 36: return "phase21 police";
+			case 37: return "phase21 clear heat";
+			case 38: return "phase21 report";
+			case 39: return "phase22 seed HQ knowledge";
+			case 40: return "phase22 queue attack";
+			case 41: return "phase22 start defense";
+			case 42: return "phase22 report";
+			case 43: return "phase22 succeed defense";
+			case 44: return "phase22 kill Petros";
+			case 45: return "phase22 post-kill report";
+			case 46: return "phase23 UI coverage";
+			case 47: return "phase23 marker audit";
+			case 48: return "native marker report";
+			case 49: return "purge native markers";
+			case 50: return "phase23 failed action sample";
+			case 51: return "phase24 seed early";
+			case 52: return "phase24 report early";
+			case 53: return "phase24 seed mid";
+			case 54: return "phase24 report mid";
+			case 55: return "phase24 seed late";
+			case 56: return "phase24 report late";
+			case 57: return "phase24 force victory";
+			case 58: return "campaign end victory report";
+			case 59: return "phase24 force loss";
+			case 60: return "campaign end loss report";
+			case 61: return "phase24 final report";
+		}
+
+		return "phase smoke step " + string.Format("%1", index);
+	}
+
+	protected string ExecuteCampaignDebugPhaseSmokeStep(int index)
+	{
+		switch (index)
+		{
+			case 0: return RequestAdminSeedPersistenceTestState(m_iCampaignDebugPlayerId);
+			case 1: return RequestAdminRunPersistenceSmokeTest(m_iCampaignDebugPlayerId);
+			case 2: return RequestAdminPersistenceSmokeReport(m_iCampaignDebugPlayerId);
+			case 3: return RequestAdminPhase14SeedFinite(m_iCampaignDebugPlayerId);
+			case 4: return RequestAdminPhase14SeedThreshold(m_iCampaignDebugPlayerId);
+			case 5: return RequestAdminPhase14SeedBlocked(m_iCampaignDebugPlayerId);
+			case 6: return RequestAdminPhase14Report(m_iCampaignDebugPlayerId);
+			case 7: return RequestAdminPhase15SeedGarage(m_iCampaignDebugPlayerId);
+			case 8: return RequestAdminPhase15SeedSourceVehicle(m_iCampaignDebugPlayerId);
+			case 9: return RequestAdminPhase15Report(m_iCampaignDebugPlayerId);
+			case 10: return RequestAdminPhase16Seed(m_iCampaignDebugPlayerId);
+			case 11: return RequestAdminPhase16Train(m_iCampaignDebugPlayerId);
+			case 12: return RequestAdminPhase16Report(m_iCampaignDebugPlayerId);
+			case 13: return RequestAdminPhase17SeedCapture(m_iCampaignDebugPlayerId);
+			case 14: return RequestAdminPhase17ForceProgress(m_iCampaignDebugPlayerId);
+			case 15: return RequestAdminPhase17ForceCounterattack(m_iCampaignDebugPlayerId);
+			case 16: return RequestAdminPhase17Report(m_iCampaignDebugPlayerId);
+			case 17: return RequestAdminPhase18SeedCounterattack(m_iCampaignDebugPlayerId);
+			case 18: return RequestAdminPhase18SeedRebuild(m_iCampaignDebugPlayerId);
+			case 19: return RequestAdminPhase18SeedRoadblock(m_iCampaignDebugPlayerId);
+			case 20: return RequestAdminPhase18ResolveNow(m_iCampaignDebugPlayerId);
+			case 21: return RequestAdminPhase18Report(m_iCampaignDebugPlayerId);
+			case 22: return RequestAdminPhase19SeedFIASupply(m_iCampaignDebugPlayerId);
+			case 23: return RequestAdminPhase19SeedFIAGround(m_iCampaignDebugPlayerId);
+			case 24: return RequestAdminPhase19SeedEnemyGround(m_iCampaignDebugPlayerId);
+			case 25: return RequestAdminPhase19ForceSupportETA(m_iCampaignDebugPlayerId);
+			case 26: return RequestAdminPhase19Report(m_iCampaignDebugPlayerId);
+			case 27: return RequestAdminPhase20SeedTownSupport(m_iCampaignDebugPlayerId);
+			case 28: return RequestAdminPhase20SeedWantedHeat(m_iCampaignDebugPlayerId);
+			case 29: return RequestAdminPhase20SeedEligibleUndercover(m_iCampaignDebugPlayerId);
+			case 30: return RequestAdminPhase20ClearHeat(m_iCampaignDebugPlayerId);
+			case 31: return RequestAdminPhase20Report(m_iCampaignDebugPlayerId);
+			case 32: return RequestAdminPhase21ApplyUndercover(m_iCampaignDebugPlayerId);
+			case 33: return RequestAdminPhase21SimulateWeaponFire(m_iCampaignDebugPlayerId);
+			case 34: return RequestAdminPhase21SimulateMilitaryVehicle(m_iCampaignDebugPlayerId);
+			case 35: return RequestAdminPhase21SimulateRoadblock(m_iCampaignDebugPlayerId);
+			case 36: return RequestAdminPhase21SimulatePolice(m_iCampaignDebugPlayerId);
+			case 37: return RequestAdminPhase21ClearHeat(m_iCampaignDebugPlayerId);
+			case 38: return RequestAdminPhase21Report(m_iCampaignDebugPlayerId);
+			case 39: return RequestAdminPhase22SeedHQKnowledge(m_iCampaignDebugPlayerId);
+			case 40: return RequestAdminPhase22QueuePetrosAttack(m_iCampaignDebugPlayerId);
+			case 41: return RequestAdminPhase22StartDefense(m_iCampaignDebugPlayerId);
+			case 42: return RequestAdminPhase22Report(m_iCampaignDebugPlayerId);
+			case 43: return RequestAdminPhase22SucceedDefense(m_iCampaignDebugPlayerId);
+			case 44: return RequestAdminPhase22KillPetros(m_iCampaignDebugPlayerId);
+			case 45: return RequestAdminPhase22Report(m_iCampaignDebugPlayerId);
+			case 46: return RequestAdminPhase23UICoverageReport(m_iCampaignDebugPlayerId);
+			case 47: return RequestAdminPhase23MarkerAudit(m_iCampaignDebugPlayerId);
+			case 48: return RequestAdminNativeMarkerReport(m_iCampaignDebugPlayerId);
+			case 49: return RequestAdminPurgeNativeHSTMarkers(m_iCampaignDebugPlayerId);
+			case 50: return RequestAdminPhase23FailedActionSample(m_iCampaignDebugPlayerId);
+			case 51: return RequestAdminPhase24SeedEarlyGame(m_iCampaignDebugPlayerId);
+			case 52: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
+			case 53: return RequestAdminPhase24SeedMidGame(m_iCampaignDebugPlayerId);
+			case 54: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
+			case 55: return RequestAdminPhase24SeedLateGame(m_iCampaignDebugPlayerId);
+			case 56: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
+			case 57: return RequestAdminPhase24ForceVictory(m_iCampaignDebugPlayerId);
+			case 58: return RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
+			case 59: return RequestAdminPhase24ForceLoss(m_iCampaignDebugPlayerId);
+			case 60: return RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
+			case 61: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
+		}
+
+		return "h-istasi campaign debug | failed: unknown phase smoke step";
 	}
 
 	string RequestAdminPhase14SeedFinite(int playerId)
@@ -3709,7 +5048,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return "h-istasi native marker report | failed: marker service not ready";
 
-		return m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
+		string report = m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
+		if (m_PlayerMapMarkers)
+			return report + "\n" + m_PlayerMapMarkers.BuildRuntimeReport();
+
+		return report + "\nh-istasi player marker report | service not ready";
 	}
 
 	string RequestAdminPurgeNativeHSTMarkers(int playerId)
@@ -3719,7 +5062,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return "h-istasi admin | native marker purge failed: marker service not ready";
 
-		return m_MapMarkers.AdminPurgeNativeHSTMarkers();
+		string report = m_MapMarkers.AdminPurgeNativeHSTMarkers();
+		if (!m_PlayerMapMarkers)
+			return report + "\nplayer marker purge | service not ready";
+
+		bool playerMarkersChanged = m_PlayerMapMarkers.ClearAll();
+		if (m_PlayerMapMarkers.IsEnabled())
+			m_PlayerMapMarkers.RequestRefresh("admin native marker purge");
+
+		return report + string.Format("\nplayer marker purge | cleared %1 | enabled %2", playerMarkersChanged, m_PlayerMapMarkers.IsEnabled());
 	}
 
 	string RequestAdminPhase23FailedActionSample(int playerId)

@@ -1,0 +1,239 @@
+ButtonWidgetClass "{A7B8C9D001234620}" {
+ Name "HST_LoadoutTemplateSlotRow"
+ Slot AlignableSlot "{A7B8C9D001234621}" {
+  HorizontalAlign 3
+  VerticalAlign 0
+  Padding 0 0 0 8
+ }
+ Color 1 1 1 0
+ "Is Visible" 1
+ {
+  SizeLayoutWidgetClass "{A7B8C9D001236200}" {
+   Name "SizeLayout"
+   Slot ButtonWidgetSlot "{A7B8C9D001236201}" {
+   }
+   AllowWidthOverride 0
+   AllowHeightOverride 1
+   HeightOverride 110
+   AllowMinDesiredWidth 1
+   MinDesiredWidth 300
+   AllowMinDesiredHeight 1
+   MinDesiredHeight 110
+   AllowMaxDesiredWidth 0
+   AllowMaxDesiredHeight 1
+   MaxDesiredHeight 110
+   {
+    OverlayWidgetClass "{A7B8C9D001236202}" {
+     Name "Overlay"
+     Slot AlignableSlot "{A7B8C9D001236203}" {
+      HorizontalAlign 3
+      VerticalAlign 3
+     }
+     "Ignore Cursor" 1
+     {
+      FrameWidgetClass "{A7B8C9D001236204}" {
+       Name "Body"
+       Slot OverlayWidgetSlot "{A7B8C9D001236205}" {
+        HorizontalAlign 3
+        VerticalAlign 3
+       }
+       "Ignore Cursor" 1
+       {
+        PanelWidgetClass "{A7B8C9D001234622}" {
+         Name "Background"
+         Slot FrameWidgetSlot "{A7B8C9D001234623}" {
+          Anchor 0 0 1 1
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 0
+         }
+         Color 1 1 1 1
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+        PanelWidgetClass "{A7B8C9D001234624}" {
+         Name "Accent"
+         Slot FrameWidgetSlot "{A7B8C9D001234625}" {
+          Anchor 0 0 1 0
+          OffsetLeft 0
+          OffsetTop 0
+          OffsetRight 0
+          OffsetBottom 3
+         }
+         Color 1 0.82 0.38 1
+         style full
+         "Is Visible" 1
+         "Ignore Cursor" 1
+        }
+        TextWidgetClass "{A7B8C9D001234626}" {
+         Name "Primary"
+         Slot FrameWidgetSlot "{A7B8C9D001234627}" {
+          Anchor 0 0 1 0
+          OffsetLeft 18
+          OffsetTop 10
+          OffsetRight 190
+          SizeY 34
+          OffsetBottom -44
+         }
+         "Is Visible" 1
+         "No Localization" 1
+         "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846F0}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
+        TextWidgetClass "{A7B8C9D001234628}" {
+         Name "Secondary"
+         Slot FrameWidgetSlot "{A7B8C9D001234629}" {
+          Anchor 0 0 1 0
+          OffsetLeft 18
+          OffsetTop 44
+          OffsetRight 190
+          SizeY 28
+          OffsetBottom -72
+         }
+         "Is Visible" 1
+         "No Localization" 1
+         "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846F1}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
+        PanelWidgetClass "{A7B8C9D001234634}" {
+         Name "NameInputBackground"
+         Slot FrameWidgetSlot "{A7B8C9D001234635}" {
+          Anchor 0 0 1 0
+          OffsetLeft 16
+          OffsetTop 44
+          OffsetRight 190
+          SizeY 28
+          OffsetBottom -72
+         }
+         "Is Visible" 0
+         Color 0.07 0.09 0.11 0.82
+         style full
+         "Ignore Cursor" 1
+        }
+        EditBoxWidgetClass "{A7B8C9D001234636}" {
+         Name "NameInput"
+         Slot FrameWidgetSlot "{A7B8C9D001234637}" {
+          Anchor 0 0 1 0
+          OffsetLeft 18
+          OffsetTop 44
+          OffsetRight 190
+          SizeY 28
+          OffsetBottom -72
+         }
+         "Is Visible" 0
+         Clipping True
+         Color 0.88 0.90 0.91 1
+         "Font Size" 16
+         "Use placeholder text" 1
+         "Placeholder color" 0.58 0.64 0.68 1
+         "Placeholder text" "Loadout name"
+         FontProperties FontProperties "{A7B8C9D001234638}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+         }
+        }
+        TextWidgetClass "{A7B8C9D00123462A}" {
+         Name "Meta"
+         Slot FrameWidgetSlot "{A7B8C9D00123462B}" {
+          Anchor 0 0 1 0
+          OffsetLeft 18
+          OffsetTop 72
+          OffsetRight 190
+          SizeY 28
+          OffsetBottom -100
+         }
+         "Is Visible" 1
+         "No Localization" 1
+         "Ignore Cursor" 1
+         "Horizontal Alignment" Left
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846F2}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
+        ButtonWidgetClass "{A7B8C9D00123462C}" {
+         Name "SaveButton"
+         Slot FrameWidgetSlot "{A7B8C9D00123462D}" {
+          Anchor 1 0 1 0
+          OffsetLeft -170
+          OffsetTop 18
+          OffsetRight 90
+          SizeY 34
+          OffsetBottom -52
+         }
+         Color 0.07 0.09 0.11 0.98
+        }
+        TextWidgetClass "{A7B8C9D00123462E}" {
+         Name "SaveLabel"
+         Slot FrameWidgetSlot "{A7B8C9D00123462F}" {
+          Anchor 1 0 1 0
+          OffsetLeft -170
+          OffsetTop 18
+          OffsetRight 90
+          SizeY 34
+          OffsetBottom -52
+         }
+         "Is Visible" 1
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Save"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846F3}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
+        ButtonWidgetClass "{A7B8C9D001234630}" {
+         Name "LoadButton"
+         Slot FrameWidgetSlot "{A7B8C9D001234631}" {
+          Anchor 1 0 1 0
+          OffsetLeft -82
+          OffsetTop 18
+          OffsetRight 18
+          SizeY 34
+          OffsetBottom -52
+         }
+         Color 0.07 0.09 0.11 0.98
+        }
+        TextWidgetClass "{A7B8C9D001234632}" {
+         Name "LoadLabel"
+         Slot FrameWidgetSlot "{A7B8C9D001234633}" {
+          Anchor 1 0 1 0
+          OffsetLeft -82
+          OffsetTop 18
+          OffsetRight 18
+          SizeY 34
+          OffsetBottom -52
+         }
+         "Is Visible" 1
+         "No Localization" 1
+         "Ignore Cursor" 1
+         Text "Load"
+         "Horizontal Alignment" Center
+         "Vertical Alignment" Center
+         FontProperties FontProperties "{C1A9E1A2092846F4}" {
+          Font "{E2CBA6F76AAA42AF}UI/Fonts/Roboto/Roboto_Regular.fnt"
+          DisabledColor 0.38 0.38 0.38 1
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

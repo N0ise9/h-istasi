@@ -205,6 +205,7 @@ class HST_PlayerSpawnService
 			if (IsLivingPlayerEntity(playerEntity))
 			{
 				MarkSetupHoldingPlayer(playerId);
+				PrepareSetupHoldingEntity(playerId, playerEntity, diagnostics);
 				SCR_RespawnSystemComponent.CloseRespawnMenu();
 				continue;
 			}
@@ -374,6 +375,7 @@ class HST_PlayerSpawnService
 		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
 			MarkSetupHoldingPlayer(playerId);
+			PrepareSetupHoldingEntity(playerId, entity);
 			ClearPendingSpawn(playerId);
 			ClearDeadRespawn(playerId);
 			ResetConnectedPlayerGraceLog(playerId);
@@ -547,6 +549,34 @@ class HST_PlayerSpawnService
 		m_aSetupHoldingPlayerIds.Insert(playerId);
 	}
 
+	protected void PrepareSetupHoldingEntity(int playerId, IEntity entity, bool diagnostics = false)
+	{
+		if (playerId <= 0 || !entity)
+			return;
+
+		entity.ClearFlags(EntityFlags.VISIBLE | EntityFlags.TRACEABLE, true);
+
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller = character.GetCharacterController();
+			if (controller)
+			{
+				controller.SetMovement(0, vector.Zero);
+				controller.SetDisableMovementControls(true);
+				controller.SetDisableViewControls(true);
+				controller.SetDisableWeaponControls(true);
+			}
+		}
+
+		NwkMovementComponent movement = NwkMovementComponent.Cast(entity.FindComponent(NwkMovementComponent));
+		if (movement)
+			movement.EnableSimulation(false);
+
+		if (diagnostics)
+			Print(string.Format("h-istasi | setup holding entity hidden and frozen for player %1", playerId));
+	}
+
 	protected void ClearSetupHoldingPlayer(int playerId)
 	{
 		int index = m_aSetupHoldingPlayerIds.Find(playerId);
@@ -641,6 +671,7 @@ class HST_PlayerSpawnService
 			m_aConnectedPlayerIds.Remove(i);
 			m_aConnectedPlayerAges.Remove(i);
 			m_aConnectedPlayerGraceLogged.Remove(i);
+			ClearSetupHoldingPlayer(disconnectedPlayerId);
 			ClearPendingSpawn(disconnectedPlayerId);
 			ClearDeadRespawn(disconnectedPlayerId);
 		}
