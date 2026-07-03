@@ -2705,6 +2705,8 @@ class HST_LoadoutEditorService
 		LoadoutSlotInfo loadoutSlot = LoadoutSlotInfo.Cast(slot);
 		if (!loadoutSlot || !loadoutSlot.GetAreaType())
 			return false;
+		if (IsLoadoutClothingCategory(node.m_sCategory) && !IsParentLoadoutSlotCandidate(node.m_sCategory, temp))
+			return false;
 
 		if (storage)
 		{
@@ -2725,6 +2727,22 @@ class HST_LoadoutEditorService
 			return false;
 
 		return loadoutSlot.GetAreaType().Type().ToString() == cloth.GetAreaType().Type().ToString();
+	}
+
+	protected bool IsParentLoadoutSlotCandidate(string slotCategory, IEntity candidate)
+	{
+		if (!IsLoadoutClothingCategory(slotCategory) || !candidate)
+			return false;
+
+		string prefab = ResolveEntityPrefab(candidate);
+		string display = ResolveEntityDisplayName(candidate, prefab);
+		string prefabCategory = ResolveCategoryFromPrefab(prefab, display);
+		if (slotCategory == "webbing")
+			return prefabCategory == "webbing";
+		if (slotCategory == "vest")
+			return prefabCategory == "vest";
+
+		return prefabCategory == slotCategory;
 	}
 
 	protected bool IsCandidateCompatibleWithWeaponSlot(IEntity playerEntity, HST_LoadoutNodeState node, IEntity temp, string prefab)
