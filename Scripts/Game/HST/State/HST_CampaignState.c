@@ -631,7 +631,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 25;
+	static const int SCHEMA_VERSION = 26;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -663,6 +663,7 @@ class HST_CampaignState
 	vector m_vHQCachePosition;
 	vector m_vArsenalPosition;
 	vector m_vHQTentPosition;
+	vector m_vHQSpawnPointPosition;
 	bool m_bHQDeployed;
 	bool m_bHQRuntimeObjectsSpawned;
 	bool m_bPetrosAlive = true;
@@ -694,6 +695,7 @@ class HST_CampaignState
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
+	string m_sHQSpawnPointPrefab;
 	string m_sLastPersistenceStatus = "not tracked";
 	int m_iRuntimeCivilianCharacterCount;
 	int m_iRuntimeCivilianVehicleCount;

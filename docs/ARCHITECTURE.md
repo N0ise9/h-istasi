@@ -22,7 +22,7 @@ single `HST_CampaignState` and delegates to small services:
 - `HST_StrategicService`: ownership changes, town support, Petros penalties,
   activation flags, victory/loss evaluation, and durable campaign-end
   state/reporting.
-- `HST_HQService`: initial HQ selection, HQ movement, Petros/cache/arsenal/tent
+- `HST_HQService`: initial HQ selection, HQ movement, Petros/cache/arsenal/tent/spawn-point
   runtime objects, rebuilds, Petros-loss state, HQ knowledge, HQ threat scans,
   and Defend Petros diagnostics.
 - `HST_ArsenalService`: item counts, unlock thresholds, finite/INF withdrawals,
@@ -116,8 +116,8 @@ fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The
 state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
 save container for current campaign fields and nested runtime arrays, including
-campaign metadata, resources, schema-25 campaign-end reason/summary/elapsed
-second/control/war/zone-count fields, HQ/Petros/cache/arsenal/tent fields,
+campaign metadata, resources, schema-26 campaign-end reason/summary/elapsed
+second/control/war/zone-count fields, HQ/Petros/cache/arsenal/tent/spawn-point fields,
 faction pools, players, zones, garrisons, active groups, QRFs, map markers,
 generated content, objectives, mission runtime, mission assets, support, enemy
 order, civilian, undercover, arsenal, garage, vehicle cargo, runtime vehicle,
@@ -162,7 +162,7 @@ editable-entity systems; treat those as non-blocking if a character is spawned
 and possessed.
 
 `HST_HQService` owns the server-side HQ lifecycle: setup-driven initial hideout
-selection, HQ movement between authored hideouts, Petros/cache/arsenal/tent
+selection, HQ movement between authored hideouts, Petros/cache/arsenal/tent/spawn-point
 runtime positions, and Petros-loss penalties. Runtime Petros spawning tries the
 custom h-istasi prefab first through its GUID-qualified metadata resource and
 falls back to the base FIA character only if that resource cannot spawn. The HQ

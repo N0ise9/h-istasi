@@ -5,6 +5,7 @@ class HST_HQService
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
+	static const string HQ_SPAWN_POINT_PREFAB = "{72713ED566A531F3}PrefabsEditable/SpawnPoints/E_SpawnPoint_FIA.et";
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
 	static const string CUSTOM_SETUP_HQ_ID = "custom_setup_hq";
 	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
@@ -13,6 +14,7 @@ class HST_HQService
 	protected IEntity m_CacheEntity;
 	protected IEntity m_ArsenalEntity;
 	protected IEntity m_TentEntity;
+	protected IEntity m_SpawnPointEntity;
 	protected bool m_bWarnedPetrosResourceFailure;
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
@@ -20,6 +22,7 @@ class HST_HQService
 	protected bool m_bLoggedCacheSpawned;
 	protected bool m_bLoggedArsenalSpawned;
 	protected bool m_bLoggedTentSpawned;
+	protected bool m_bLoggedSpawnPointSpawned;
 	protected bool m_bDebugLoggingEnabled;
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -151,9 +154,11 @@ class HST_HQService
 		state.m_vHQCachePosition = "0 0 0";
 		state.m_vArsenalPosition = "0 0 0";
 		state.m_vHQTentPosition = "0 0 0";
+		state.m_vHQSpawnPointPosition = "0 0 0";
 		state.m_bHQDeployed = false;
 		state.m_bHQRuntimeObjectsSpawned = false;
 		state.m_bPetrosAlive = true;
+		state.m_sHQSpawnPointPrefab = "";
 		state.m_sHQArsenalRuntimeStatus = "setup pending";
 		state.m_sLastHQArsenalFailure = "";
 		DebugLog("setup HQ selection reset to pending");
@@ -282,6 +287,20 @@ class HST_HQService
 				LogRuntimeObjectSpawnFailure("tent", HQ_TENT_PREFAB, state.m_vHQTentPosition);
 		}
 
+		if (!m_SpawnPointEntity)
+		{
+			m_SpawnPointEntity = HST_WorldPositionService.SpawnPrefab(HQ_SPAWN_POINT_PREFAB, state.m_vHQSpawnPointPosition, "0 0 0");
+			if (m_SpawnPointEntity)
+			{
+				ApplyFaction(m_SpawnPointEntity);
+				state.m_sHQSpawnPointPrefab = HQ_SPAWN_POINT_PREFAB;
+				m_bLoggedSpawnPointSpawned = LogRuntimeObjectSpawnSuccess("spawn point", HQ_SPAWN_POINT_PREFAB, state.m_vHQSpawnPointPosition, m_bLoggedSpawnPointSpawned);
+				changed = true;
+			}
+			else if (logDetails)
+				LogRuntimeObjectSpawnFailure("spawn point", HQ_SPAWN_POINT_PREFAB, state.m_vHQSpawnPointPosition);
+		}
+
 		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked();
 		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != allRuntimeObjectsTracked;
 		state.m_bHQRuntimeObjectsSpawned = allRuntimeObjectsTracked;
@@ -309,6 +328,7 @@ class HST_HQService
 		ClearRuntimeObjects(state, "manual rebuild requested");
 		EnsureRuntimeGroundPlacement(state);
 		state.m_sArsenalPrefab = ARSENAL_PREFAB;
+		state.m_sHQSpawnPointPrefab = HQ_SPAWN_POINT_PREFAB;
 		state.m_sHQArsenalRuntimeStatus = "rebuild requested";
 		state.m_sLastHQArsenalFailure = "";
 		m_bWarnedRuntimeSpawnIncomplete = false;
@@ -408,6 +428,11 @@ class HST_HQService
 		return ARSENAL_PREFAB;
 	}
 
+	string GetSpawnPointPrefab()
+	{
+		return HQ_SPAWN_POINT_PREFAB;
+	}
+
 	int GetTrackedRuntimeObjectCount()
 	{
 		int count;
@@ -418,6 +443,8 @@ class HST_HQService
 		if (m_ArsenalEntity)
 			count++;
 		if (m_TentEntity)
+			count++;
+		if (m_SpawnPointEntity)
 			count++;
 
 		return count;
@@ -441,6 +468,11 @@ class HST_HQService
 	bool HasTentRuntimeEntity()
 	{
 		return m_TentEntity != null;
+	}
+
+	bool HasSpawnPointRuntimeEntity()
+	{
+		return m_SpawnPointEntity != null;
 	}
 
 	bool IsArsenalRuntimeEntityUsable()
@@ -468,6 +500,11 @@ class HST_HQService
 		return ResolveRuntimeEntityPosition(m_TentEntity);
 	}
 
+	vector GetSpawnPointRuntimeEntityPosition()
+	{
+		return ResolveRuntimeEntityPosition(m_SpawnPointEntity);
+	}
+
 	string GetPetrosRuntimeEntityKey()
 	{
 		return BuildRuntimeEntityKey("petros", m_PetrosEntity);
@@ -488,9 +525,14 @@ class HST_HQService
 		return BuildRuntimeEntityKey("tent", m_TentEntity);
 	}
 
+	string GetSpawnPointRuntimeEntityKey()
+	{
+		return BuildRuntimeEntityKey("spawn_point", m_SpawnPointEntity);
+	}
+
 	string BuildRuntimeObjectDebugSummary()
 	{
-		return string.Format("petros %1 | cache %2 | arsenal %3 | tent %4", GetPetrosRuntimeEntityKey(), GetCacheRuntimeEntityKey(), GetArsenalRuntimeEntityKey(), GetTentRuntimeEntityKey());
+		return string.Format("petros %1 | cache %2 | arsenal %3 | tent %4 | spawn_point %5", GetPetrosRuntimeEntityKey(), GetCacheRuntimeEntityKey(), GetArsenalRuntimeEntityKey(), GetTentRuntimeEntityKey(), GetSpawnPointRuntimeEntityKey());
 	}
 
 	protected int ResolveEnemyActivityThreatNearHQ(HST_CampaignState state, HST_CampaignPreset preset, out string reason)
@@ -671,12 +713,14 @@ class HST_HQService
 		vector petrosOffset = "2 0 2";
 		vector cacheOffset = "4 0 -2";
 		vector tentOffset = "-4 0 2";
+		vector spawnPointOffset = "12 0 0";
 		state.m_sHQHideoutId = hideoutId;
 		state.m_vHQPosition = hqPosition;
 		state.m_vPetrosPosition = ResolveHQObjectPosition(hqPosition, petrosOffset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET);
 		state.m_vHQCachePosition = ResolveHQObjectPosition(hqPosition, cacheOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_vArsenalPosition = ResolvePrimaryArsenalPosition(state);
 		state.m_vHQTentPosition = ResolveHQObjectPosition(hqPosition, tentOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vHQSpawnPointPosition = ResolveHQObjectPosition(hqPosition, spawnPointOffset, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_bHQDeployed = true;
 		state.m_bHQRuntimeObjectsSpawned = false;
 		state.m_bPetrosAlive = true;
@@ -684,10 +728,11 @@ class HST_HQService
 		state.m_sHQCachePrefab = HQ_CACHE_PREFAB;
 		state.m_sArsenalPrefab = ARSENAL_PREFAB;
 		state.m_sHQTentPrefab = HQ_TENT_PREFAB;
+		state.m_sHQSpawnPointPrefab = HQ_SPAWN_POINT_PREFAB;
 		state.m_sHQArsenalRuntimeStatus = "pending spawn";
 		state.m_sLastHQArsenalFailure = "";
-		Print(string.Format("h-istasi | HQ %1 placed at %2; Petros %3 cache %4 arsenal %5 tent %6", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition));
-		DebugLog(string.Format("HQ position set hideout=%1 hq=%2 petros=%3 cache=%4 arsenal=%5 tent=%6", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition));
+		Print(string.Format("h-istasi | HQ %1 placed at %2; Petros %3 cache %4 arsenal %5 tent %6 spawn %7", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition, state.m_vHQSpawnPointPosition));
+		DebugLog(string.Format("HQ position set hideout=%1 hq=%2 petros=%3 cache=%4 arsenal=%5 tent=%6 spawn=%7", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition, state.m_vHQSpawnPointPosition));
 	}
 
 	protected void DebugLog(string message)
@@ -735,6 +780,7 @@ class HST_HQService
 		state.m_vHQCachePosition = ResolveRuntimeObjectGroundPosition(state.m_vHQCachePosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_vArsenalPosition = ResolveRuntimeObjectGroundPosition(state.m_vArsenalPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
 		state.m_vHQTentPosition = ResolveRuntimeObjectGroundPosition(state.m_vHQTentPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
+		state.m_vHQSpawnPointPosition = ResolveRuntimeObjectGroundPosition(state.m_vHQSpawnPointPosition, state.m_vHQPosition, HST_WorldPositionService.PROP_GROUND_OFFSET);
 	}
 
 	protected vector ResolveRuntimeObjectGroundPosition(vector source, vector fallback, float verticalOffset)
@@ -920,7 +966,7 @@ class HST_HQService
 
 	protected bool AreRuntimeObjectsTracked()
 	{
-		return m_PetrosEntity && m_CacheEntity && m_ArsenalEntity && m_TentEntity;
+		return m_PetrosEntity && m_CacheEntity && m_ArsenalEntity && m_TentEntity && m_SpawnPointEntity;
 	}
 
 	protected vector ResolveRuntimeEntityPosition(IEntity entity)
@@ -972,20 +1018,23 @@ class HST_HQService
 
 	protected void ClearRuntimeObjects(HST_CampaignState state, string reason = "unspecified")
 	{
-		DebugLog(string.Format("lifecycle clearing runtime objects reason=%1 petros=%2 cache=%3 arsenal=%4 tent=%5", reason, m_PetrosEntity, m_CacheEntity, m_ArsenalEntity, m_TentEntity));
+		DebugLog(string.Format("lifecycle clearing runtime objects reason=%1 petros=%2 cache=%3 arsenal=%4 tent=%5 spawn=%6", reason, m_PetrosEntity, m_CacheEntity, m_ArsenalEntity, m_TentEntity, m_SpawnPointEntity));
 		DeleteRuntimeEntity(m_PetrosEntity);
 		DeleteRuntimeEntity(m_CacheEntity);
 		DeleteRuntimeEntity(m_ArsenalEntity);
 		DeleteRuntimeEntity(m_TentEntity);
+		DeleteRuntimeEntity(m_SpawnPointEntity);
 
 		m_PetrosEntity = null;
 		m_CacheEntity = null;
 		m_ArsenalEntity = null;
 		m_TentEntity = null;
+		m_SpawnPointEntity = null;
 		m_bLoggedPetrosSpawned = false;
 		m_bLoggedCacheSpawned = false;
 		m_bLoggedArsenalSpawned = false;
 		m_bLoggedTentSpawned = false;
+		m_bLoggedSpawnPointSpawned = false;
 
 		if (state)
 		{

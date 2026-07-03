@@ -31,6 +31,7 @@ class HST_CampaignSaveData
 	vector m_vHQCachePosition;
 	vector m_vArsenalPosition;
 	vector m_vHQTentPosition;
+	vector m_vHQSpawnPointPosition;
 	bool m_bHQDeployed;
 	bool m_bHQRuntimeObjectsSpawned;
 	bool m_bPetrosAlive;
@@ -62,6 +63,7 @@ class HST_CampaignSaveData
 	string m_sHQCachePrefab;
 	string m_sArsenalPrefab;
 	string m_sHQTentPrefab;
+	string m_sHQSpawnPointPrefab;
 	string m_sLastPersistenceStatus;
 
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
@@ -126,6 +128,7 @@ class HST_CampaignSaveData
 		m_vHQCachePosition = state.m_vHQCachePosition;
 		m_vArsenalPosition = state.m_vArsenalPosition;
 		m_vHQTentPosition = state.m_vHQTentPosition;
+		m_vHQSpawnPointPosition = state.m_vHQSpawnPointPosition;
 		m_bHQDeployed = state.m_bHQDeployed;
 		m_bHQRuntimeObjectsSpawned = state.m_bHQRuntimeObjectsSpawned;
 		m_bPetrosAlive = state.m_bPetrosAlive;
@@ -157,6 +160,7 @@ class HST_CampaignSaveData
 		m_sHQCachePrefab = state.m_sHQCachePrefab;
 		m_sArsenalPrefab = state.m_sArsenalPrefab;
 		m_sHQTentPrefab = state.m_sHQTentPrefab;
+		m_sHQSpawnPointPrefab = state.m_sHQSpawnPointPrefab;
 		m_sLastPersistenceStatus = state.m_sLastPersistenceStatus;
 
 		m_aFactionPools.Clear();
@@ -308,6 +312,7 @@ class HST_CampaignSaveData
 		state.m_vHQCachePosition = m_vHQCachePosition;
 		state.m_vArsenalPosition = m_vArsenalPosition;
 		state.m_vHQTentPosition = m_vHQTentPosition;
+		state.m_vHQSpawnPointPosition = m_vHQSpawnPointPosition;
 		state.m_bHQDeployed = m_bHQDeployed;
 		state.m_bHQRuntimeObjectsSpawned = m_bHQRuntimeObjectsSpawned;
 		state.m_bPetrosAlive = m_bPetrosAlive;
@@ -339,6 +344,7 @@ class HST_CampaignSaveData
 		state.m_sHQCachePrefab = m_sHQCachePrefab;
 		state.m_sArsenalPrefab = m_sArsenalPrefab;
 		state.m_sHQTentPrefab = m_sHQTentPrefab;
+		state.m_sHQSpawnPointPrefab = m_sHQSpawnPointPrefab;
 		state.m_sLastPersistenceStatus = m_sLastPersistenceStatus;
 
 		state.m_aFactionPools.Clear();
@@ -1175,6 +1181,22 @@ class HST_CampaignSaveData
 			m_sLastHQThreatReason = "legacy/backfilled";
 		if (!m_sDefendPetrosMissionId.IsEmpty())
 			m_bDefendPetrosActive = true;
+		if (restoredSchemaVersion < 26)
+		{
+			if (m_bHQDeployed && !IsZeroVector(m_vHQPosition))
+			{
+				if (IsZeroVector(m_vHQSpawnPointPosition))
+					m_vHQSpawnPointPosition = m_vHQPosition + "12 0 0";
+				if (m_sHQSpawnPointPrefab.IsEmpty())
+					m_sHQSpawnPointPrefab = HST_HQService.HQ_SPAWN_POINT_PREFAB;
+				m_bHQRuntimeObjectsSpawned = false;
+			}
+			else
+			{
+				m_vHQSpawnPointPosition = "0 0 0";
+				m_sHQSpawnPointPrefab = "";
+			}
+		}
 
 		if (restoredSchemaVersion < 25 && (m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST))
 		{

@@ -426,7 +426,7 @@ Future hardening:
 Acceptance:
 
 - Starting a mission before HQ selection returns a clear failure.
-- Selecting HQ deploys Petros/cache/arsenal/tent.
+- Selecting HQ deploys Petros/cache/arsenal/tent/spawn-point.
 - Moving HQ updates all HQ runtime positions.
 - Save/load preserves selected HQ.
 

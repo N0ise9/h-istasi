@@ -3220,16 +3220,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		prefabResourceCount += waypointPrefabCount;
 		missingPrefabResourceCount += missingWaypointPrefabCount;
 
+		string hqSpawnPointPrefab = GetDefaultSpawnPointPrefab();
+		int hqSpawnPointPrefabCount = 1;
+		int missingHQSpawnPointPrefabCount;
+		if (hqSpawnPointPrefab.IsEmpty() || !CampaignDebugPrefabResolves(hqSpawnPointPrefab))
+			missingHQSpawnPointPrefabCount = 1;
+		prefabResourceCount += hqSpawnPointPrefabCount;
+		missingPrefabResourceCount += missingHQSpawnPointPrefabCount;
+
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.checked", string.Format("%1", prefabResourceCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.missing", string.Format("%1", missingPrefabResourceCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.runtime_mission_checked", string.Format("%1", runtimeMissionPrefabCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.waypoint_checked", string.Format("%1", waypointPrefabCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.hq_spawn_point_checked", string.Format("%1", hqSpawnPointPrefabCount), "count");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.present", "resistance/occupier/invader faction templates resolve", string.Format("missing %1/3", missingFactionTemplates), CampaignDebugStatus(missingFactionTemplates == 0), "one or more default faction templates did not resolve");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.infantry_pools", "every default faction has infantry prefab resources", string.Format("missing pools %1", missingInfantryPools), CampaignDebugStatus(missingInfantryPools == 0), "one or more faction templates have no infantry prefab pool");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.vehicle_pools", "occupier/invader vehicle prefab pools resolve where vehicle tests require them", string.Format("missing pools %1", missingVehiclePools), CampaignDebugStatus(missingVehiclePools == 0), "one or more faction templates have no vehicle prefab pool");
 		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution", "all checked prefab resources resolve", string.Format("missing %1/%2", missingPrefabResourceCount, prefabResourceCount), CampaignDebugStatus(missingPrefabResourceCount == 0), "one or more checked prefab resources failed Resource.Load");
 		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.runtime_mission_props", "all runtime-selected mission prop and vehicle resources resolve", string.Format("missing %1/%2 | first %3", missingRuntimeMissionPrefabCount, runtimeMissionPrefabCount, EmptyCampaignDebugField(missingRuntimeMissionPrefab)), CampaignDebugStatus(runtimeMissionPrefabCount > 0 && missingRuntimeMissionPrefabCount == 0), "one or more mission runtime prop resources failed Resource.Load");
 		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.waypoints", "all runtime waypoint prefab resources resolve", string.Format("missing %1/%2 | first %3", missingWaypointPrefabCount, waypointPrefabCount, EmptyCampaignDebugField(missingWaypointPrefab)), CampaignDebugStatus(waypointPrefabCount > 0 && missingWaypointPrefabCount == 0), "one or more runtime waypoint prefab resources failed Resource.Load");
+		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.hq_spawn_point", "HQ spawn-point prefab resource resolves", string.Format("missing %1/%2 | prefab %3", missingHQSpawnPointPrefabCount, hqSpawnPointPrefabCount, EmptyCampaignDebugField(hqSpawnPointPrefab)), CampaignDebugStatus(missingHQSpawnPointPrefabCount == 0), "HQ spawn-point prefab resource failed Resource.Load");
 
 		int townCount;
 		int outpostCount;
@@ -3521,11 +3531,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(hqCase, "hq.runtime_objects.tracked", string.Format("%1", trackedRuntimeObjects), "count");
 		AddCampaignDebugAssertion(hqCase, "hq.rebuild.command_result", "HQ rebuild command accepted", ShortCampaignDebugLine(rebuildResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(rebuildResult)), "HQ rebuild command returned failure text");
 		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "HQ runtime object flag is false after rebuild");
-		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent runtime entities tracked", string.Format("%1/4 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 4), "HQ service is not tracking all runtime entities");
+		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent/spawn-point runtime entities tracked", string.Format("%1/5 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 5), "HQ service is not tracking all runtime entities");
 		AddCampaignDebugAssertion(hqCase, "hq.rebuild.identity_refresh", "rebuild refreshes runtime object identities or starts from empty", string.Format("before %1 | after %2", EmptyCampaignDebugField(runtimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(runtimeSummaryBefore.IsEmpty() || runtimeSummaryBefore.Contains(":missing") || runtimeSummaryBefore != runtimeSummaryAfter, "WARN"), "HQ rebuild returned the same runtime identity summary; verify intentional reuse");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.alive", "Petros alive true", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(m_State.m_bPetrosAlive), "Petros is not alive after HQ rebuild");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.position", "Petros position not zero", string.Format("%1", m_State.m_vPetrosPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vPetrosPosition)), "Petros position is zero");
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.position", "arsenal position not zero", string.Format("%1", m_State.m_vArsenalPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vArsenalPosition)), "HQ arsenal position is zero");
+		AddCampaignDebugAssertion(hqCase, "hq.spawn_point.position", "spawn point position not zero", string.Format("%1 | prefab %2", m_State.m_vHQSpawnPointPosition, EmptyCampaignDebugField(m_State.m_sHQSpawnPointPrefab)), CampaignDebugStatus(!IsZeroVector(m_State.m_vHQSpawnPointPosition)), "HQ spawn point position is zero");
 		bool arsenalReady = !m_State.m_sHQArsenalRuntimeStatus.Contains("failed") && m_State.m_sLastHQArsenalFailure.IsEmpty();
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.status", "arsenal runtime status not failed", m_State.m_sHQArsenalRuntimeStatus + " | failure " + EmptyCampaignDebugField(m_State.m_sLastHQArsenalFailure), CampaignDebugStatus(arsenalReady), "HQ arsenal runtime status reports a failure");
 		if (m_HQ)
@@ -3534,6 +3545,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugHQEntityAssertion(hqCase, "cache", "HQ cache", m_HQ.HasCacheRuntimeEntity(), m_HQ.GetCacheRuntimeEntityKey(), m_State.m_vHQCachePosition, m_HQ.GetCacheRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "arsenal", "HQ arsenal", m_HQ.HasArsenalRuntimeEntity(), m_HQ.GetArsenalRuntimeEntityKey(), m_State.m_vArsenalPosition, m_HQ.GetArsenalRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugHQEntityAssertion(hqCase, "tent", "HQ tent", m_HQ.HasTentRuntimeEntity(), m_HQ.GetTentRuntimeEntityKey(), m_State.m_vHQTentPosition, m_HQ.GetTentRuntimeEntityPosition(), 8.0);
+			AddCampaignDebugHQEntityAssertion(hqCase, "spawn_point", "HQ spawn point", m_HQ.HasSpawnPointRuntimeEntity(), m_HQ.GetSpawnPointRuntimeEntityKey(), m_State.m_vHQSpawnPointPosition, m_HQ.GetSpawnPointRuntimeEntityPosition(), 8.0);
 			AddCampaignDebugAssertion(hqCase, "hq.arsenal.entity_usable", "arsenal runtime entity has usable action surface", m_HQ.GetArsenalRuntimeEntityKey(), CampaignDebugStatus(m_HQ.IsArsenalRuntimeEntityUsable()), "HQ arsenal runtime entity is missing or failed readiness checks");
 		}
 		else

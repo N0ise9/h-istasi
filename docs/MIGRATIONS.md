@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `25`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `26`.
 
+- Schema 26 adds durable HQ spawn-point position/prefab fields and backfills
+  older deployed HQ saves so the HQ runtime object rebuild can spawn and
+  verify a physical respawn marker.
 - Phase 24 balance, pacing, and campaign outcomes add durable campaign-end report fields and backfill legacy ended saves.
 - Phase 23 UI and marker polish does not require a campaign schema bump because marker audits, command coverage, failed-action text, and menu summaries are derived from existing persisted state.
 - Phase 22 HQ threat and Defend Petros add durable HQ threat diagnostics and active defense mission/order/support/group links.
@@ -14,7 +17,7 @@
 - Phase 18 enemy commander physical responses add durable enemy-order
   runtime fields while preserving runtime handles as non-persisted data.
 - The current save container captures campaign metadata, elapsed/save/restore
-  counters, war resources, campaign-end state, HQ/Petros/cache/arsenal/tent
+  counters, war resources, campaign-end state, HQ/Petros/cache/arsenal/tent/spawn-point
   fields, HQ threat/Defend Petros state, faction pools, players, zones,
   garrisons, active groups, QRFs, map markers, arsenal items, garage vehicles,
   vehicle cargo, runtime vehicles, saved loadouts, issued loadout items,
@@ -25,13 +28,26 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings remain schema `9` and are migrated separately by
+- Runtime settings remain schema `12` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 26
+
+HQ spawn-point persistence and rebuild verification.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `26`.
+- Campaign state now persists the HQ spawn-point position and prefab alongside
+  Petros/cache/arsenal/tent HQ runtime metadata.
+- Existing schema-25 and older deployed HQ saves backfill the spawn-point
+  position near the HQ and clear the HQ runtime spawned flag so runtime objects
+  are rebuilt with the new spawn point.
+- Raw spawn-point entity handles remain runtime-only and are recreated by
+  `HST_HQService`.
 
 ## Schema 25
 

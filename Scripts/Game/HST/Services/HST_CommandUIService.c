@@ -1783,7 +1783,9 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "hq", "Petros position", string.Format("%1", state.m_vPetrosPosition), "neutral");
 		payload = AppendRow(payload, "hq", "Arsenal position", string.Format("%1", state.m_vArsenalPosition), "neutral");
 		payload = AppendRow(payload, "hq", "Cache position", string.Format("%1", state.m_vHQCachePosition), "neutral");
+		payload = AppendRow(payload, "hq", "Spawn point position", string.Format("%1", state.m_vHQSpawnPointPosition), "neutral");
 		payload = AppendRow(payload, "hq", "Arsenal prefab", state.m_sArsenalPrefab, "neutral");
+		payload = AppendRow(payload, "hq", "Spawn point prefab", state.m_sHQSpawnPointPrefab, "neutral");
 		payload = AppendRow(payload, "hq", "Arsenal status", BuildArsenalRuntimeStatus(state), BuildArsenalRuntimeTone(state));
 		if (!state.m_sLastHQArsenalFailure.IsEmpty())
 			payload = AppendRow(payload, "hq", "Arsenal failure", state.m_sLastHQArsenalFailure, "bad");

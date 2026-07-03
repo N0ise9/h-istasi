@@ -19,7 +19,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Artifacts write to `$profile:h-istasi/debug` as JSON, summary text, and state-diff text.
 - Bootstrap records typed assertions for server authority, debug actor access, active campaign repair, HQ state, Petros state, teleport, and player presence.
 - Preflight records typed assertions for key services, mission registry count/uniqueness/runtime/duration, compatible debug target zones, default faction/civilian prefab resource resolution, runtime-selected mission prop/vehicle prefab resolution, runtime waypoint prefab resolution, zone graph counts, and physical-war setting.
-- HQ runtime records typed assertions for runtime flag, tracked Petros/cache/arsenal/tent entity count, Petros/cache/arsenal/tent runtime entity keys and positions, arsenal usability, HQ marker, active admin command-menu campaign-debug controls, command coverage, and player position.
+- HQ runtime records typed assertions for runtime flag, tracked Petros/cache/arsenal/tent/spawn-point entity count, Petros/cache/arsenal/tent/spawn-point runtime entity keys and positions, arsenal usability, HQ marker, active admin command-menu campaign-debug controls, command coverage, and player position.
 - Economy records typed exact-delta assertions for resource awards and training.
 - Stage 3 support requests now clear prior player support, call the real support command, assert the created support request record type, faction, target zone/position, ETA, money cost, status, marker publication/pending state, controlled ETA progression, and QRF/search ground-support physicalization into linked active groups before cleaning the debug probe.
 - Civilian aid now records typed money/support/heat assertions, and support cancellation now seeds and cancels a real player support request by ID.
@@ -35,7 +35,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 ## Not Fully Implemented
 
 - Deterministic debug marker/entity prefixes and old debug-only spawned entity cleanup are not implemented.
-- HQ checks now prove tracked runtime entity keys and positions for Petros/cache/arsenal/tent after rebuild and verify active admin command-menu campaign-debug controls, but they do not scan the wider world for duplicate HQ entities or prove spawn point existence.
+- HQ checks now prove tracked runtime entity keys and positions for Petros/cache/arsenal/tent/spawn-point after rebuild and verify active admin command-menu campaign-debug controls, but they do not scan the wider world for duplicate HQ entities.
 - Stage 3 support/civilian/undercover coverage is still partial: it now asserts request records, controlled ETA progression, QRF/search physicalization, support cancellation, town aid deltas, and undercover phase transitions, but it does not prove support group movement/arrival, civilian physical population/faction/vehicle behavior, or town flip behavior.
 - Early mechanics are mostly still report/action wrappers. Generated content, zone activation spawn/cleanup, civilian aid bounds, support cancellation cleanup, garage/vehicle/loadout action tests, and UI coverage are not upgraded to hard typed assertions.
 - The all-mission sweep does not run primitive-specific physical probes for `kill_hvt`, `hold_area`, `clear_area`, `destroy_target`, `recover_cargo`, `deliver_supplies`, or most `rescue_extract` cases. Admin completion is still the common mission end path.
