@@ -434,6 +434,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Full-campaign debug coverage should explicitly map to the phase plan instead of assuming late smoke helpers cover everything.
   - Phase 0-13 coverage needs its own sweep for foundation/checkpoint reports, mission runtime visibility, convoy route/readiness/waypoint/contact/completion behavior, active-mission persistence, non-convoy primitive runtime, zone activation, garrison recruit/remove, civilian aid, support cancellation, vehicle/loadout reports, and command UI coverage.
   - Later phase smoke helpers can then focus on the dedicated Phase 14-24 systems, while the final report represents the Phase 25 full-campaign soak summary.
+  - Phase 24 typed coverage should assert early/mid/late seeded resource/control profiles and forced victory/loss end metadata. Treat long-window escalation pressure, post-end mutation checks, and physical follow-on behavior as separate WARN/not-covered gaps until they are sampled over time.
 
 - Debug runners should accelerate long convoy waits through runtime state, then let normal services process the result.
   - Real convoy staging idle can be several minutes; a one-button test should advance the sample convoy mission counters to the departure threshold and wait a tick or two for mission/physical-war services to move it into the next phase.

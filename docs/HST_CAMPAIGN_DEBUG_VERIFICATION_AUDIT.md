@@ -5,7 +5,7 @@ Date: 2026-07-03
 
 Verdict: not fully implemented.
 
-The current `Run Campaign Debug` implementation is a useful certification scaffold. It is no longer just a string/report smoke runner: it has typed results, deterministic debug run prefixes, artifacts, status/cancel/cleanup commands, stronger bootstrap/preflight/HQ/economy assertions, convoy readiness/progress probing, a POW captive free/follow probe, and mission cleanup checks.
+The current `Run Campaign Debug` implementation is a useful certification scaffold. It is no longer just a string/report smoke runner: it has typed results, deterministic debug run prefixes, artifacts, status/cancel/cleanup commands, stronger bootstrap/preflight/HQ/economy assertions, convoy readiness/progress probing, a POW captive free/follow probe, Phase 24 pacing/end assertions, and mission cleanup checks.
 
 It does not yet satisfy the full pasted contract for a complete one-button in-game verification suite. Large areas remain legacy string-wrapped smoke checks or are not represented at all.
 
@@ -28,6 +28,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Civilian aid now records typed money/support/heat assertions, and support cancellation now seeds and cancels a real player support request by ID.
 - Phase 20/21 smoke now records typed town support, wanted heat, eligibility, clear-heat, undercover apply, weapon/vehicle compromise, roadblock/police scan, and clear-heat assertions.
 - Phase 18/19 smoke now records typed enemy-order/support assertions for debug-prefixed records, order/support type, faction/player-requested policy, target validity, resource cost fields, open-order resolution, and forced-ETA inbound support evidence.
+- Phase 24 smoke now records typed campaign pacing/end assertions for early/mid/late seeded resource profiles, control percent, FIA/enemy zone counts, max enemy pool pressure, forced victory phase/reason/control metadata, and forced loss threshold metadata.
 - Convoy physical probing asserts vehicle asset counts, spawned vehicle entities, crew groups, alive crew, seated drivers, mobile vehicles, route assignment, waypoint assignment, readiness, progress sample presence, and hard-stuck count.
 - POW/captive probing uses real `mission_captive_extract` and `mission_captive_follow` interactions and asserts freed/following carrier state.
 - Mission cleanup checks active mission status, unresolved assets, mission-owned groups, and linked markers.
@@ -46,9 +47,9 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - The all-mission sweep does not run primitive-specific physical probes for `kill_hvt`, `hold_area`, `clear_area`, `destroy_target`, `recover_cargo`, `deliver_supplies`, or most `rescue_extract` cases. Admin completion is still the common mission end path.
 - Convoy probing uses existing readiness/progress status, but it does not actively sample positions every few seconds over a movement window or prove phase history from staging to moving to contact to arrival/elimination.
 - The POW/captive probe verifies free/follow state once; it does not prove distance decreases over time, boarding/transport behavior, extraction completion, alive captive count, or reward/support/HR deltas.
-- Phase 14-24 smoke steps remain partly legacy string classifications outside the newly typed Phase 18/19 enemy/support and Phase 20/21 civilian/undercover probes. Arsenal, garage/source vehicles, garrisons/training, capture/counterattack physical advance, HQ threat/Defend Petros, UI/markers, campaign pacing, victory, and loss still need stronger typed assertions.
+- Phase 14-24 smoke steps remain partly legacy string classifications outside the newly typed Phase 18/19 enemy/support, Phase 20/21 civilian/undercover, and Phase 24 pacing/end probes. Arsenal, garage/source vehicles, garrisons/training, capture/counterattack physical advance, HQ threat/Defend Petros, and UI/markers still need stronger typed assertions. Phase 24 does not yet prove long-window escalation pressure or post-end service inactivity.
 - Background war and commander target testing is not implemented as a dedicated typed stage.
-- War level escalation/aggression pressure tests are not implemented.
+- Quantitative war level escalation/aggression pressure tests over controlled windows are not implemented; Phase 24 currently checks seeded profiles and max enemy pools only.
 - Counterattack physical spawn/advance/wave tests are not implemented.
 - Player render-bubble tests for far/near/leave/mission-assets/convoy-expired behavior are not implemented.
 - Persistence roundtrip/temp-restore tests for active missions, field vehicles, garage/cargo, undercover, and civilian state are not implemented. Real restart/multiclient soak remains a warning gap.

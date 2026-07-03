@@ -6963,7 +6963,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		if (index >= 32 && index <= 37)
+		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase21UndercoverCase(index, label, result));
+			return;
+		}
+
+		if (index >= 51 && index <= 61)
+			RecordCampaignDebugCase(BuildCampaignDebugPhase24PacingCase(index, label, result));
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
@@ -7262,6 +7268,103 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(undercoverCase);
 		return undercoverCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase24PacingCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult pacingCase = CreateCampaignDebugCase("phase24." + SafeCampaignDebugToken(label), "phase_smoke", "campaign_pacing_end", "phase24");
+		pacingCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(pacingCase, "phase24.command_result", "phase 24 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 24 command returned failure text");
+		if (!m_State || !m_Economy || !m_Balance || !m_Preset || !m_Strategic)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.prerequisite", "campaign, economy, balance, preset, and strategic services ready", "missing", "BLOCKED", "phase 24 typed probe missing required services");
+			FinalizeCampaignDebugCaseFromAssertions(pacingCase);
+			return pacingCase;
+		}
+
+		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		int resistanceScore = m_Economy.CalculateResistanceStrategicScore(m_State, resistanceFactionKey);
+		int totalScore = m_Economy.CalculateTotalStrategicScore(m_State);
+		int controlPercent = m_Economy.ResolveControlPercent(resistanceScore, totalScore);
+		int fiaZones = m_Strategic.CountZonesOwnedBy(m_State, resistanceFactionKey);
+		int enemyZones = m_Strategic.CountZonesNotOwnedBy(m_State, resistanceFactionKey);
+		int maxEnemyAttack;
+		int maxEnemySupport;
+		int maxEnemyAggression;
+		GetCampaignDebugEnemyPoolPressure(maxEnemyAttack, maxEnemySupport, maxEnemyAggression);
+
+		AddCampaignDebugMetric(pacingCase, "phase24.resistance_score", string.Format("%1", resistanceScore), "score");
+		AddCampaignDebugMetric(pacingCase, "phase24.total_score", string.Format("%1", totalScore), "score");
+		AddCampaignDebugMetric(pacingCase, "phase24.control_percent", string.Format("%1", controlPercent), "percent");
+		AddCampaignDebugMetric(pacingCase, "phase24.fia_zones", string.Format("%1", fiaZones), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.enemy_zones", string.Format("%1", enemyZones), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.enemy_attack_max", string.Format("%1", maxEnemyAttack), "resources");
+		AddCampaignDebugMetric(pacingCase, "phase24.enemy_support_max", string.Format("%1", maxEnemySupport), "resources");
+		AddCampaignDebugMetric(pacingCase, "phase24.enemy_aggression_max", string.Format("%1", maxEnemyAggression), "aggression");
+
+		if (index == 51 || index == 52)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.early.phase", "campaign remains ACTIVE and end state reset", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE && !m_State.m_bCampaignEndReportGenerated), "early-game seed did not leave an active non-ended campaign");
+			AddCampaignDebugAssertion(pacingCase, "phase24.early.resources", "early profile money 750, HR 10, training 1, war level 1", string.Format("money %1 | HR %2 | training %3 | war %4", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel), CampaignDebugStatus(m_State.m_iFactionMoney == 750 && m_State.m_iHR == 10 && m_State.m_iTrainingLevel == 1 && m_State.m_iWarLevel == 1), "early-game resource profile mismatch");
+			AddCampaignDebugAssertion(pacingCase, "phase24.early.control", "FIA controls no counted strategic zones", string.Format("FIA %1 | enemy %2 | control %3", fiaZones, enemyZones, controlPercent), CampaignDebugStatus(fiaZones == 0 && enemyZones > 0 && controlPercent == 0), "early-game zone control profile mismatch");
+			AddCampaignDebugAssertion(pacingCase, "phase24.early.enemy_pressure", "enemy pools capped low and aggression cleared", string.Format("attack %1 | support %2 | aggression %3", maxEnemyAttack, maxEnemySupport, maxEnemyAggression), CampaignDebugStatus(maxEnemyAttack <= 60 && maxEnemySupport <= 60 && maxEnemyAggression == 0), "early-game enemy pressure profile mismatch");
+		}
+		else if (index == 53 || index == 54)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.mid.phase", "campaign remains ACTIVE and end state reset", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE && !m_State.m_bCampaignEndReportGenerated), "mid-game seed did not leave an active non-ended campaign");
+			AddCampaignDebugAssertion(pacingCase, "phase24.mid.resources", "mid profile money >=1500, HR >=18, training >=3", string.Format("money %1 | HR %2 | training %3 | war %4", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel), CampaignDebugStatus(m_State.m_iFactionMoney >= 1500 && m_State.m_iHR >= 18 && m_State.m_iTrainingLevel >= 3), "mid-game resource profile mismatch");
+			AddCampaignDebugAssertion(pacingCase, "phase24.mid.control", "FIA controls several counted strategic zones but campaign is not ended", string.Format("FIA %1 | enemy %2 | control %3", fiaZones, enemyZones, controlPercent), CampaignDebugStatus(fiaZones >= 4 && enemyZones > 0 && controlPercent > 0), "mid-game zone control profile mismatch");
+			AddCampaignDebugAssertion(pacingCase, "phase24.mid.war_level", "war level recalculated and at least baseline", string.Format("%1", m_State.m_iWarLevel), CampaignDebugStatus(m_State.m_iWarLevel >= 1), "mid-game war level invalid");
+		}
+		else if (index == 55 || index == 56)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.late.phase", "campaign remains ACTIVE and end state reset", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE && !m_State.m_bCampaignEndReportGenerated), "late-game seed did not leave an active non-ended campaign");
+			AddCampaignDebugAssertion(pacingCase, "phase24.late.resources", "late profile money >=3000, HR >=30, training >=6", string.Format("money %1 | HR %2 | training %3 | war %4", m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel), CampaignDebugStatus(m_State.m_iFactionMoney >= 3000 && m_State.m_iHR >= 30 && m_State.m_iTrainingLevel >= 6), "late-game resource profile mismatch");
+			AddCampaignDebugAssertion(pacingCase, "phase24.late.control", "FIA controls a high share of counted strategic zones without accidental end", string.Format("FIA %1 | enemy %2 | control %3", fiaZones, enemyZones, controlPercent), CampaignDebugStatus(fiaZones > 0 && controlPercent > 0 && enemyZones > 0), "late-game zone control profile mismatch");
+			AddCampaignDebugAssertion(pacingCase, "phase24.late.war_level", "late profile war level is above baseline or explicitly warns", string.Format("%1", m_State.m_iWarLevel), CampaignDebugStatus(m_State.m_iWarLevel >= 3, "WARN"), "late-game war level did not rise above early baseline");
+		}
+		else if (index == 57 || index == 58)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.victory.phase", "campaign phase WON", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON), "forced victory did not set campaign phase WON");
+			AddCampaignDebugAssertion(pacingCase, "phase24.victory.reason", "campaign end reason names victory and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("victory") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced victory did not populate victory end metadata");
+			AddCampaignDebugAssertion(pacingCase, "phase24.victory.control", "control percent reaches configured victory threshold", string.Format("control %1 | threshold %2 | FIA %3 | enemy %4", m_State.m_iCampaignEndControlPercent, m_Balance.m_iVictoryControlPercent, m_State.m_iCampaignEndFIAZones, m_State.m_iCampaignEndEnemyZones), CampaignDebugStatus(m_State.m_iCampaignEndControlPercent >= m_Balance.m_iVictoryControlPercent && m_State.m_iCampaignEndFIAZones > m_State.m_iCampaignEndEnemyZones), "forced victory persisted control metadata below victory threshold");
+		}
+		else if (index >= 59 && index <= 61)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24.loss.phase", "campaign phase LOST", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST), "forced loss did not set campaign phase LOST");
+			AddCampaignDebugAssertion(pacingCase, "phase24.loss.reason", "campaign end reason names loss and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("loss") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced loss did not populate loss end metadata");
+			AddCampaignDebugAssertion(pacingCase, "phase24.loss.thresholds", "loss thresholds are satisfied", string.Format("money %1 <= %2 | HR %3 <= %4 | Petros deaths %5 >= %6", m_State.m_iFactionMoney, m_Balance.m_iLossMoneyThreshold, m_State.m_iHR, m_Balance.m_iLossHRThreshold, m_State.m_iPetrosDeaths, m_Balance.m_iLossPetrosDeathLimit), CampaignDebugStatus(m_State.m_iFactionMoney <= m_Balance.m_iLossMoneyThreshold && m_State.m_iHR <= m_Balance.m_iLossHRThreshold && m_State.m_iPetrosDeaths >= m_Balance.m_iLossPetrosDeathLimit), "forced loss state does not satisfy configured loss thresholds");
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(pacingCase);
+		return pacingCase;
+	}
+
+	protected string BuildCampaignDebugPhase24Actual(int controlPercent, int fiaZones, int enemyZones)
+	{
+		if (!m_State)
+			return "missing";
+
+		return string.Format("phase %1 | money %2 | HR %3 | training %4 | war %5 | control %6 | FIA zones %7 | enemy zones %8 | end %9", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, controlPercent, fiaZones, enemyZones, m_State.m_bCampaignEndReportGenerated);
+	}
+
+	protected void GetCampaignDebugEnemyPoolPressure(out int maxAttack, out int maxSupport, out int maxAggression)
+	{
+		maxAttack = 0;
+		maxSupport = 0;
+		maxAggression = 0;
+		if (!m_State || !m_Preset)
+			return;
+
+		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+
+			maxAttack = Math.Max(maxAttack, pool.m_iAttackResources);
+			maxSupport = Math.Max(maxSupport, pool.m_iSupportResources);
+			maxAggression = Math.Max(maxAggression, pool.m_iAggression);
+		}
 	}
 
 	protected string BuildCampaignDebugUndercoverActual(HST_PlayerUndercoverState undercover)
