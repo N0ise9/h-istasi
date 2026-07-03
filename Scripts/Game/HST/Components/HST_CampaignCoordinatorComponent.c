@@ -5504,7 +5504,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!undercover)
 			return "missing";
 
-		return string.Format("status %1 | heat %2 | requested %3 | applied %4 | mode %5 | source %6 | reason %7 | roadblock scans %8 failed %9 | police scans %10 failed %11 | score %12", undercover.m_eStatus, undercover.m_iWantedHeat, undercover.m_bUndercoverRequested, undercover.m_bUndercoverApplied, EmptyCampaignDebugField(undercover.m_sAppliedMode), EmptyCampaignDebugField(undercover.m_sLastDetectionSource), EmptyCampaignDebugField(undercover.m_sLastReason), undercover.m_iRoadblockScanCount, undercover.m_bLastRoadblockScanFailed, undercover.m_iPoliceScanCount, undercover.m_bLastPoliceScanFailed, undercover.m_iDetectionScore);
+		string actual = string.Format("status %1 | heat %2 | requested %3 | applied %4 | mode %5 | source %6 | reason %7 | roadblock scans %8 failed %9", undercover.m_eStatus, undercover.m_iWantedHeat, undercover.m_bUndercoverRequested, undercover.m_bUndercoverApplied, EmptyCampaignDebugField(undercover.m_sAppliedMode), EmptyCampaignDebugField(undercover.m_sLastDetectionSource), EmptyCampaignDebugField(undercover.m_sLastReason), undercover.m_iRoadblockScanCount, undercover.m_bLastRoadblockScanFailed);
+		actual = actual + string.Format(" | police scans %1 failed %2 | score %3", undercover.m_iPoliceScanCount, undercover.m_bLastPoliceScanFailed, undercover.m_iDetectionScore);
+		return actual;
 	}
 
 	protected int CountCampaignDebugHotCivilianTowns()
@@ -5558,7 +5560,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildCampaignDebugStatusReport()
 	{
-		string status = string.Format("status running %1 | complete %2 | run %3 | step %4 | mission %5/%6 | phase step %7/%8 | pass %9 | warn %10",
+		string status = string.Format("status running %1 | complete %2 | run %3 | step %4 | mission %5/%6 | phase step %7/%8 | pass %9",
 			m_bCampaignDebugRunning,
 			m_bCampaignDebugCompleted,
 			m_sCampaignDebugRunId,
@@ -5568,8 +5570,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugPhaseStepIndex,
 			GetCampaignDebugPhaseSmokeStepCount(),
 			m_iCampaignDebugPassCount,
-			m_iCampaignDebugWarnCount
 		);
+		status = status + string.Format(" | warn %1", m_iCampaignDebugWarnCount);
 		status = status + string.Format(" | fail %1 | blocked %2 | skipped %3", m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount);
 		status = status + string.Format(" | early %1/%2", m_iCampaignDebugEarlyPhaseIndex, GetCampaignDebugEarlyPhaseStepCount());
 		if (!m_sCampaignDebugReportPath.IsEmpty())
