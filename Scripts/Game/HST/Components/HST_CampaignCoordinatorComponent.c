@@ -3542,6 +3542,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		AddCampaignDebugAssertion(hqCase, "hq.marker.model", "HQ marker model exists", string.Format("%1", hqMarker != null), CampaignDebugStatus(hqMarker != null), "HQ marker state hst_hq missing");
+		AddCampaignDebugCommandMenuAvailabilityAssertions(hqCase);
 		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (!playerEntity)
 		{
@@ -3560,6 +3561,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(hqCase);
 		return hqCase;
+	}
+
+	protected void AddCampaignDebugCommandMenuAvailabilityAssertions(HST_CampaignDebugCaseResult hqCase)
+	{
+		if (!hqCase)
+			return;
+
+		string adminPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "admin", "");
+		string coverageReport;
+		if (m_CommandUI)
+			coverageReport = m_CommandUI.BuildCommandCoverageReport(m_State);
+
+		bool runVisible = adminPayload.Contains("|admin_run_campaign_debug|smoke|") && adminPayload.Contains("|admin_run_campaign_debug|physical|") && adminPayload.Contains("|admin_run_campaign_debug|full|");
+		bool statusVisible = adminPayload.Contains("|admin_campaign_debug_status|");
+		bool cancelVisible = adminPayload.Contains("|admin_campaign_debug_cancel|");
+		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
+		bool coverageComplete = !coverageReport.Contains("missing visible command: admin_run_campaign_debug") && !coverageReport.Contains("missing dispatch: admin_run_campaign_debug") && !coverageReport.Contains("missing visible command: admin_campaign_debug_status") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_status") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cancel") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cancel") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cleanup");
+
+		hqCase.m_aEvidence.Insert("command UI admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
+		hqCase.m_aEvidence.Insert("command UI coverage | " + ShortCampaignDebugLine(coverageReport, 260));
+		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_payload", "admin menu exposes campaign debug start/status/cancel/cleanup while run is active", string.Format("run %1 | status %2 | cancel %3 | cleanup %4", runVisible, statusVisible, cancelVisible, cleanupVisible), CampaignDebugStatus(runVisible && statusVisible && cancelVisible && cleanupVisible), "campaign debug controls are missing from the active admin menu payload");
+		AddCampaignDebugAssertion(hqCase, "hq.command_menu.coverage", "campaign debug visible commands have dispatch coverage", ShortCampaignDebugLine(coverageReport, 220), CampaignDebugStatus(m_CommandUI != null && coverageComplete), "campaign debug command coverage is missing visible command or dispatch entries");
 	}
 
 	protected void AddCampaignDebugHQEntityAssertion(HST_CampaignDebugCaseResult hqCase, string objectId, string label, bool present, string entityKey, vector expectedPosition, vector actualPosition, float toleranceMeters)

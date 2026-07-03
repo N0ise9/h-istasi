@@ -425,6 +425,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Bootstrap should mark a physical-blocked flag if the controlled player cannot be resolved after teleport/spawn setup.
   - Continue non-physical state/report checks, but mark convoy, captive, and other physical probes as `BLOCKED` instead of converting missing player context into a pass.
   - HQ runtime checks should read tracked entity handles from `HST_HQService`, not just campaign-state positions. A rebuild case should assert tracked Petros/cache/arsenal/tent runtime keys, their actual positions against expected HQ offsets, and arsenal readiness/action-surface status.
+  - While the runner is active, HQ-stage command-menu checks should build the real admin-tab visible payload and assert campaign debug start/status/cancel/cleanup controls are still present, then cross-check command coverage for missing visible/dispatch entries.
 
 - Full-campaign debug coverage should explicitly map to the phase plan instead of assuming late smoke helpers cover everything.
   - Phase 0-13 coverage needs its own sweep for foundation/checkpoint reports, mission runtime visibility, convoy route/readiness/waypoint/contact/completion behavior, active-mission persistence, non-convoy primitive runtime, zone activation, garrison recruit/remove, civilian aid, support cancellation, vehicle/loadout reports, and command UI coverage.
