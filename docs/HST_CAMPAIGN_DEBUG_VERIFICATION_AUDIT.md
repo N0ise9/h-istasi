@@ -29,6 +29,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Mission cleanup checks active mission status, unresolved assets, mission-owned groups, and linked markers.
 - The state-diff artifact snapshots start/end objectives, runtime vehicles, mission assets, active groups, support requests, enemy orders, markers, garage vehicles, arsenal items, civilian zones, and undercover records.
 - Final completion now records a typed cleanup leak snapshot for active missions, player support, enemy orders, active groups, markers, and current/early debug mission IDs.
+- Non-legacy typed cases now emit a `post_case_cleanup.*` leak probe while the runner is active. The probe allows the mission intentionally under test, preserves pre-existing active mission IDs from the run-start snapshot, and asserts unexpected active missions, orphan mission assets, orphan active groups, orphan linked markers, and backing states missing markers.
 - The summary artifact now includes feature, mission, physical AI, and cleanup matrices built from typed case results, plus failure inspection command hints for non-pass cases.
 
 ## Not Fully Implemented
@@ -48,7 +49,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Player render-bubble tests for far/near/leave/mission-assets/convoy-expired behavior are not implemented.
 - Persistence roundtrip/temp-restore tests for active missions, field vehicles, garage/cargo, undercover, and civilian state are not implemented. Real restart/multiclient soak remains a warning gap.
 - Final artifacts include the requested summary matrix sections, but those matrices still expose partial coverage because many underlying cases remain legacy string wrappers.
-- Cleanup leak checks are not run after every major case; current coverage is selected support cleanup, mission cleanup checks, and a final run-level leak snapshot.
+- Cleanup leak checks now run after non-legacy typed cases, but legacy string-wrapped smoke cases still need migration before every major case has equivalent cleanup evidence. The runner still does not delete old debug-only spawned entities by deterministic tag/prefix.
 - Stall detection and timeout evidence dumps are not implemented for physical tests.
 
 ## Validation Run

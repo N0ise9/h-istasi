@@ -111,6 +111,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugProfile;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
+	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
 
 	override void OnPostInit(IEntity owner)
@@ -2922,6 +2923,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
+		m_aCampaignDebugStartActiveMissionIds.Clear();
 		InitializeCampaignDebugRunResult(playerId);
 		EnsureCampaignDebugActorCommandAccess("start");
 		AppendCampaignDebugLog("INFO", "start", string.Format("run %1 | player %2 | profile %3 started campaign debug run", m_sCampaignDebugRunId, playerId, m_sCampaignDebugProfile));
@@ -3880,6 +3882,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugStartArsenalItems = m_State.m_aArsenalItems.Count();
 		m_iCampaignDebugStartCivilianZones = m_State.m_aCivilianZones.Count();
 		m_iCampaignDebugStartUndercoverRecords = m_State.m_aUndercoverPlayers.Count();
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE && !mission.m_sInstanceId.IsEmpty())
+				m_aCampaignDebugStartActiveMissionIds.Insert(mission.m_sInstanceId);
+		}
 	}
 
 	protected void AddCampaignDebugRunMetric(string metricId, string value, string unit = "")
@@ -4012,7 +4019,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return "legacy." + SafeCampaignDebugToken(label);
 	}
 
-	protected void RecordCampaignDebugCase(HST_CampaignDebugCaseResult caseResult)
+	protected void RecordCampaignDebugCase(HST_CampaignDebugCaseResult caseResult, bool postCaseLeakProbe = true)
 	{
 		if (!caseResult)
 			return;
@@ -4029,6 +4036,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			m_iCampaignDebugWarnCount++;
 			AppendCampaignDebugLog("WARN", caseResult.m_sCaseId, BuildCampaignDebugCaseLogText(caseResult));
+			RecordCampaignDebugPostCaseLeakProbe(caseResult, postCaseLeakProbe);
 			return;
 		}
 
@@ -4037,6 +4045,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugFailCount++;
 			AppendCampaignDebugLog("FAIL", caseResult.m_sCaseId, BuildCampaignDebugCaseLogText(caseResult));
 			BroadcastCampaignDebugNotification("campaign_debug_fail_" + string.Format("%1", m_iCampaignDebugFailCount), "warning", "Campaign Debug", caseResult.m_sCaseId + " failed.");
+			RecordCampaignDebugPostCaseLeakProbe(caseResult, postCaseLeakProbe);
 			return;
 		}
 
@@ -4044,6 +4053,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			m_iCampaignDebugBlockedCount++;
 			AppendCampaignDebugLog("BLOCKED", caseResult.m_sCaseId, BuildCampaignDebugCaseLogText(caseResult));
+			RecordCampaignDebugPostCaseLeakProbe(caseResult, postCaseLeakProbe);
 			return;
 		}
 
@@ -4051,11 +4061,343 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			m_iCampaignDebugSkippedCount++;
 			AppendCampaignDebugLog("SKIPPED", caseResult.m_sCaseId, BuildCampaignDebugCaseLogText(caseResult));
+			RecordCampaignDebugPostCaseLeakProbe(caseResult, postCaseLeakProbe);
 			return;
 		}
 
 		m_iCampaignDebugPassCount++;
 		AppendCampaignDebugLog("PASS", caseResult.m_sCaseId, BuildCampaignDebugCaseLogText(caseResult));
+		RecordCampaignDebugPostCaseLeakProbe(caseResult, postCaseLeakProbe);
+	}
+
+	protected void RecordCampaignDebugPostCaseLeakProbe(HST_CampaignDebugCaseResult sourceCase, bool enabled)
+	{
+		if (!enabled || !ShouldRecordCampaignDebugPostCaseLeakProbe(sourceCase))
+			return;
+
+		RecordCampaignDebugCase(BuildCampaignDebugPostCaseLeakCase(sourceCase), false);
+	}
+
+	protected bool ShouldRecordCampaignDebugPostCaseLeakProbe(HST_CampaignDebugCaseResult sourceCase)
+	{
+		if (!m_bCampaignDebugRunning || !m_State || !sourceCase)
+			return false;
+		if (sourceCase.m_sCategory == "cleanup" || sourceCase.m_sCategory == "legacy" || sourceCase.m_sCategory == "profile")
+			return false;
+		if (sourceCase.m_sStage == "post_case" || sourceCase.m_sStatus == "SKIPPED")
+			return false;
+
+		return true;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPostCaseLeakCase(HST_CampaignDebugCaseResult sourceCase)
+	{
+		HST_CampaignDebugCaseResult leakCase = CreateCampaignDebugCase("post_case_cleanup." + SafeCampaignDebugToken(sourceCase.m_sCaseId), "cleanup", sourceCase.m_sFeature, "post_case");
+		leakCase.m_aEvidence.Insert(string.Format("source %1 | status %2 | stage %3", sourceCase.m_sCaseId, sourceCase.m_sStatus, sourceCase.m_sStage));
+
+		string activeMissionExample;
+		string assetExample;
+		string groupExample;
+		string markerExample;
+		string missingMarkerExample;
+		int unexpectedActiveMissions = CountCampaignDebugUnexpectedActiveMissions(sourceCase, activeMissionExample);
+		int orphanAssets = CountCampaignDebugOrphanMissionAssets(assetExample);
+		int orphanGroups = CountCampaignDebugOrphanActiveGroups(groupExample);
+		int orphanMarkers = CountCampaignDebugOrphanMarkers(markerExample);
+		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingMarkerExample);
+
+		AddCampaignDebugMetric(leakCase, "post_cleanup.unexpected_active_missions", string.Format("%1", unexpectedActiveMissions), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_mission_assets", string.Format("%1", orphanAssets), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_active_groups", string.Format("%1", orphanGroups), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_markers", string.Format("%1", orphanMarkers), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkers), "count");
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_missions", "no unexpected active missions beyond the case under test", BuildCampaignDebugCountExample(unexpectedActiveMissions, activeMissionExample), CampaignDebugStatus(unexpectedActiveMissions == 0), "unexpected active mission leak after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.mission_assets", "no mission assets whose mission record is missing", BuildCampaignDebugCountExample(orphanAssets, assetExample), CampaignDebugStatus(orphanAssets == 0), "orphan mission assets after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroups, groupExample), CampaignDebugStatus(orphanGroups == 0), "orphan active groups after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.markers", "no visible markers whose linked backing state is missing", BuildCampaignDebugCountExample(orphanMarkers, markerExample), CampaignDebugStatus(orphanMarkers == 0, "WARN"), "orphan linked markers after source case " + sourceCase.m_sCaseId);
+		AddCampaignDebugAssertion(leakCase, "post_cleanup.backing_markers", "active missions/support/QRF records have marker backing or pending refresh evidence", BuildCampaignDebugCountExample(missingBackingMarkers, missingMarkerExample), CampaignDebugStatus(missingBackingMarkers == 0, "WARN"), "backing state is missing marker after source case " + sourceCase.m_sCaseId);
+		FinalizeCampaignDebugCaseFromAssertions(leakCase);
+		return leakCase;
+	}
+
+	protected string BuildCampaignDebugCountExample(int count, string example)
+	{
+		if (example.IsEmpty())
+			return string.Format("%1", count);
+
+		return string.Format("%1 | first %2", count, ShortCampaignDebugLine(example, 180));
+	}
+
+	protected int CountCampaignDebugUnexpectedActiveMissions(HST_CampaignDebugCaseResult sourceCase, out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || IsPersistenceSmokeMission(mission))
+				continue;
+			if (IsCampaignDebugMissionAllowedForPostCase(mission.m_sInstanceId, sourceCase))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("%1 | %2 | primitive %3 | phase %4", mission.m_sInstanceId, mission.m_sMissionId, EmptyCampaignDebugField(mission.m_sRuntimePrimitive), EmptyCampaignDebugField(mission.m_sRuntimePhase));
+		}
+
+		return count;
+	}
+
+	protected bool IsCampaignDebugMissionAllowedForPostCase(string instanceId, HST_CampaignDebugCaseResult sourceCase)
+	{
+		if (instanceId.IsEmpty())
+			return false;
+		if (instanceId == m_sCampaignDebugCurrentMissionInstanceId || instanceId == m_sCampaignDebugEarlyMissionInstanceId)
+			return true;
+		if (m_aCampaignDebugStartActiveMissionIds.Find(instanceId) >= 0)
+			return true;
+		if (!sourceCase)
+			return false;
+
+		foreach (HST_CampaignDebugAssertion assertion : sourceCase.m_aAssertions)
+		{
+			if (assertion && assertion.m_sMissionInstanceId == instanceId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected int CountCampaignDebugOrphanMissionAssets(out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId.IsEmpty())
+				continue;
+			if (m_State.FindActiveMission(asset.m_sMissionInstanceId))
+				continue;
+			if (asset.m_bDelivered || asset.m_bDestroyed || asset.m_bOutcomeApplied)
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("%1 | mission %2 | role %3 | alive %4", asset.m_sAssetId, asset.m_sMissionInstanceId, EmptyCampaignDebugField(asset.m_sRole), asset.m_bAlive);
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugOrphanActiveGroups(out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
+		{
+			if (!group || IsCampaignDebugTerminalGroup(group) || IsPersistenceSmokeGroup(group))
+				continue;
+			if (HasCampaignDebugActiveGroupBacking(group))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("%1 | zone %2 | faction %3 | status %4", group.m_sGroupId, EmptyCampaignDebugField(group.m_sZoneId), EmptyCampaignDebugField(group.m_sFactionKey), EmptyCampaignDebugField(group.m_sRuntimeStatus));
+		}
+
+		return count;
+	}
+
+	protected bool IsCampaignDebugTerminalGroup(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return true;
+
+		return group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "convoy_eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed";
+	}
+
+	protected bool HasCampaignDebugActiveGroupBacking(HST_ActiveGroupState group)
+	{
+		if (!m_State || !group)
+			return false;
+		if (!group.m_sZoneId.IsEmpty() && m_State.FindZone(group.m_sZoneId))
+			return true;
+		if (FindCampaignDebugSupportRequestByGroupId(group.m_sGroupId))
+			return true;
+		if (FindCampaignDebugEnemyOrderByGroupId(group.m_sGroupId))
+			return true;
+		if (FindCampaignDebugQRFByGroupId(group.m_sGroupId))
+			return true;
+		if (FindCampaignDebugMissionForGroupId(group.m_sGroupId))
+			return true;
+
+		return false;
+	}
+
+	protected HST_ActiveMissionState FindCampaignDebugMissionForGroupId(string groupId)
+	{
+		if (!m_State || groupId.IsEmpty())
+			return null;
+
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (mission && !mission.m_sInstanceId.IsEmpty() && groupId.Contains(mission.m_sInstanceId))
+				return mission;
+		}
+
+		return null;
+	}
+
+	protected HST_SupportRequestState FindCampaignDebugSupportRequestByGroupId(string groupId)
+	{
+		if (!m_State || groupId.IsEmpty())
+			return null;
+
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (request && request.m_sGroupId == groupId)
+				return request;
+		}
+
+		return null;
+	}
+
+	protected HST_EnemyOrderState FindCampaignDebugEnemyOrderByGroupId(string groupId)
+	{
+		if (!m_State || groupId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (order && order.m_sGroupId == groupId)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected HST_QRFState FindCampaignDebugQRFByGroupId(string groupId)
+	{
+		if (!m_State || groupId.IsEmpty())
+			return null;
+
+		foreach (HST_QRFState qrf : m_State.m_aQRFs)
+		{
+			if (qrf && qrf.m_sGroupId == groupId)
+				return qrf;
+		}
+
+		return null;
+	}
+
+	protected HST_QRFState FindCampaignDebugQRF(string qrfId)
+	{
+		if (!m_State || qrfId.IsEmpty())
+			return null;
+
+		foreach (HST_QRFState qrf : m_State.m_aQRFs)
+		{
+			if (qrf && qrf.m_sInstanceId == qrfId)
+				return qrf;
+		}
+
+		return null;
+	}
+
+	protected int CountCampaignDebugOrphanMarkers(out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (!marker || !marker.m_bVisible || marker.m_sLinkedId.IsEmpty())
+				continue;
+			if (HasCampaignDebugMarkerBacking(marker))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("%1 | category %2 | linked %3", marker.m_sMarkerId, EmptyCampaignDebugField(marker.m_sCategory), marker.m_sLinkedId);
+		}
+
+		return count;
+	}
+
+	protected bool HasCampaignDebugMarkerBacking(HST_MapMarkerState marker)
+	{
+		if (!m_State || !marker)
+			return false;
+
+		string category = marker.m_sCategory;
+		if (category == "hq" || category == "hideout")
+			return true;
+		if (category == "mission" || category == "mission_objective" || category == "mission_asset" || category == "mission_route")
+			return m_State.FindActiveMission(marker.m_sLinkedId) != null;
+		if (category == "support")
+			return m_State.FindSupportRequest(marker.m_sLinkedId) != null;
+		if (category == "qrf")
+			return FindCampaignDebugQRF(marker.m_sLinkedId) != null;
+		if (category == "town" || marker.m_sMarkerId.Contains("hst_zone_"))
+			return m_State.FindZone(marker.m_sLinkedId) != null;
+
+		return true;
+	}
+
+	protected int CountCampaignDebugBackingStatesWithoutMarkers(out string example)
+	{
+		example = "";
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || IsPersistenceSmokeMission(mission))
+				continue;
+			if (!mission.m_sMarkerId.IsEmpty() && m_State.FindMapMarker(mission.m_sMarkerId))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("mission %1 | marker %2", mission.m_sInstanceId, EmptyCampaignDebugField(mission.m_sMarkerId));
+		}
+
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request || (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_QUEUED && request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE))
+				continue;
+			if (FindCampaignDebugMarkerLinkedTo(request.m_sRequestId))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("support %1 | status %2", request.m_sRequestId, request.m_eStatus);
+		}
+
+		foreach (HST_QRFState qrf : m_State.m_aQRFs)
+		{
+			if (!qrf || qrf.m_bResolved)
+				continue;
+			if (FindCampaignDebugMarkerLinkedTo(qrf.m_sInstanceId))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("qrf %1 | faction %2 | target %3", qrf.m_sInstanceId, qrf.m_sFactionKey, qrf.m_sTargetZoneId);
+		}
+
+		return count;
 	}
 
 	protected string BuildCampaignDebugCaseLogText(HST_CampaignDebugCaseResult caseResult)
