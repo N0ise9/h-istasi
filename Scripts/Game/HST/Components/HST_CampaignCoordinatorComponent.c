@@ -33,6 +33,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
+	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
+	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -120,6 +122,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugSummaryPath;
 	protected string m_sCampaignDebugStateDiffPath;
 	protected string m_sCampaignDebugProfile;
+	protected string m_sCampaignDebugMarkerPrefix;
+	protected string m_sCampaignDebugMissionPrefix;
+	protected string m_sCampaignDebugEntityTag;
 	protected string m_sCampaignDebugPreviousCommanderIdentityId;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
@@ -2900,6 +2905,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugEarlyMissionInstanceId = "";
 		}
 		ClearCampaignDebugPlayerSupportRequests("admin cleanup command");
+		HST_CampaignDebugCaseResult prefixedCleanupCase = CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "admin cleanup command");
+		report = report + "\n" + BuildCampaignDebugPrefixedCleanupReport(prefixedCleanupCase);
+		RecordCampaignDebugCase(prefixedCleanupCase, false);
 		report = report + "\n" + BuildCampaignDebugStatusReport();
 		AppendCampaignDebugLog("INFO", "cleanup", report);
 		return report;
@@ -2926,6 +2934,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugEarlyMissionInstanceId = "";
 		m_sCampaignDebugProfile = profile;
 		m_sCampaignDebugRunId = BuildCampaignDebugRunId(playerId);
+		m_sCampaignDebugMarkerPrefix = CAMPAIGN_DEBUG_PREFIX_ROOT + m_sCampaignDebugRunId;
+		m_sCampaignDebugMissionPrefix = m_sCampaignDebugMarkerPrefix + "_mission_";
+		m_sCampaignDebugEntityTag = CAMPAIGN_DEBUG_ENTITY_TAG;
 		m_sCampaignDebugReportPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + ".json";
 		m_sCampaignDebugSummaryPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_summary.txt";
 		m_sCampaignDebugStateDiffPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_state_diff.txt";
@@ -2935,7 +2946,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
+		HST_CampaignDebugCaseResult staleCleanupCase = CleanupCampaignDebugPrefixedState(CAMPAIGN_DEBUG_PREFIX_ROOT, "start preflight");
 		InitializeCampaignDebugRunResult(playerId);
+		RecordCampaignDebugCase(staleCleanupCase, false);
 		EnsureCampaignDebugActorCommandAccess("start");
 		AppendCampaignDebugLog("INFO", "start", string.Format("run %1 | player %2 | profile %3 started campaign debug run", m_sCampaignDebugRunId, playerId, m_sCampaignDebugProfile));
 		BroadcastCampaignDebugNotification("campaign_debug_started", "info", "Campaign Debug", "Started " + m_sCampaignDebugProfile + " campaign debug sequence.");
@@ -4062,6 +4075,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected void CompleteCampaignDebugRun()
 	{
 		RestoreCampaignDebugActorCommandAccess();
+		string completionStatus;
+		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
+		{
+			CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
+			m_sCampaignDebugCurrentMissionInstanceId = "";
+		}
+		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
+		{
+			CompleteCampaignDebugMissionInstance(m_sCampaignDebugEarlyMissionInstanceId, completionStatus);
+			m_sCampaignDebugEarlyMissionInstanceId = "";
+		}
+		ClearCampaignDebugPlayerSupportRequests("run completion");
+		RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "run completion"), false);
 		m_bCampaignDebugRunning = false;
 		m_bCampaignDebugCompleted = true;
 		RecordCampaignDebugCase(BuildCampaignDebugRunCleanupSnapshotCase());
@@ -4112,6 +4138,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CampaignDebugRunResult.m_sProfile = m_sCampaignDebugProfile;
 		m_CampaignDebugRunResult.m_sPlayerIdentityId = ResolveTrustedIdentityId(playerId);
 		m_CampaignDebugRunResult.m_sWorldName = GetGame().GetWorldFile();
+		m_CampaignDebugRunResult.m_sMarkerPrefix = m_sCampaignDebugMarkerPrefix;
+		m_CampaignDebugRunResult.m_sMissionPrefix = m_sCampaignDebugMissionPrefix;
+		m_CampaignDebugRunResult.m_sEntityTag = m_sCampaignDebugEntityTag;
+		AddCampaignDebugRunMetric("run.marker_prefix", m_sCampaignDebugMarkerPrefix, "id");
+		AddCampaignDebugRunMetric("run.mission_prefix", m_sCampaignDebugMissionPrefix, "id");
+		AddCampaignDebugRunMetric("run.entity_tag", m_sCampaignDebugEntityTag, "tag");
 		if (m_State)
 		{
 			m_CampaignDebugRunResult.m_sCampaignSeed = string.Format("%1", m_State.m_iCampaignSeed);
@@ -4782,6 +4814,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		lines.Insert("h-istasi campaign debug complete");
 		lines.Insert("run " + m_sCampaignDebugRunId);
 		lines.Insert("profile " + EmptyCampaignDebugField(m_sCampaignDebugProfile));
+		lines.Insert("marker prefix " + EmptyCampaignDebugField(m_sCampaignDebugMarkerPrefix));
+		lines.Insert("mission prefix " + EmptyCampaignDebugField(m_sCampaignDebugMissionPrefix));
+		lines.Insert("entity tag " + EmptyCampaignDebugField(m_sCampaignDebugEntityTag));
 		lines.Insert(string.Format("pass %1 | warn %2 | fail %3 | blocked %4 | skipped %5", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount));
 		lines.Insert("report " + m_sCampaignDebugReportPath);
 		lines.Insert("summary " + m_sCampaignDebugSummaryPath);
@@ -4823,6 +4858,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		array<string> lines = {};
 		lines.Insert("h-istasi campaign debug state diff");
 		lines.Insert("run " + m_sCampaignDebugRunId);
+		lines.Insert("marker prefix " + EmptyCampaignDebugField(m_sCampaignDebugMarkerPrefix));
+		lines.Insert("mission prefix " + EmptyCampaignDebugField(m_sCampaignDebugMissionPrefix));
+		lines.Insert("entity tag " + EmptyCampaignDebugField(m_sCampaignDebugEntityTag));
 		lines.Insert(string.Format("pass %1 | warn %2 | fail %3 | blocked %4 | skipped %5", m_iCampaignDebugPassCount, m_iCampaignDebugWarnCount, m_iCampaignDebugFailCount, m_iCampaignDebugBlockedCount, m_iCampaignDebugSkippedCount));
 		if (!m_State)
 		{
@@ -5171,12 +5209,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int openEnemyOrderCount = CountCampaignDebugOpenEnemyOrders();
 		int activeGroupCount = m_State.m_aActiveGroups.Count();
 		int markerCount = m_State.m_aMapMarkers.Count();
+		string remainingPrefixExample;
+		int remainingPrefixedRecords = CountCampaignDebugPrefixedStateRecords(CAMPAIGN_DEBUG_PREFIX_ROOT, remainingPrefixExample);
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_missions", string.Format("%1", activeMissionCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.pending_player_support", string.Format("%1", pendingPlayerSupportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.open_enemy_orders", string.Format("%1", openEnemyOrderCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_groups", string.Format("%1", activeGroupCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.markers", string.Format("%1", markerCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.debug_prefixed_records", string.Format("%1", remainingPrefixedRecords), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.current_mission_id", "runner current/early mission ids empty", string.Format("current %1 | early %2", EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(m_sCampaignDebugCurrentMissionInstanceId.IsEmpty() && m_sCampaignDebugEarlyMissionInstanceId.IsEmpty()), "runner still references a debug mission at completion");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.debug_prefixed_records", "no hst_debug-prefixed persisted records remain", BuildCampaignDebugCountExample(remainingPrefixedRecords, remainingPrefixExample), CampaignDebugStatus(remainingPrefixedRecords == 0), "debug-prefixed persisted state remains after cleanup");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.active_mission_delta", "active mission count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartActiveMissions, activeMissionCount), CampaignDebugStatus(activeMissionCount <= m_iCampaignDebugStartActiveMissions, "WARN"), "active mission count increased during debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.pending_player_support", "no queued/active player support requests", string.Format("%1", pendingPlayerSupportCount), CampaignDebugStatus(pendingPlayerSupportCount == 0, "WARN"), "player support requests remain queued or active after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.open_enemy_orders", "open enemy order count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartEnemyOrders, openEnemyOrderCount), CampaignDebugStatus(openEnemyOrderCount <= m_iCampaignDebugStartEnemyOrders, "WARN"), "enemy orders remain open above run-start count");
@@ -5184,6 +5226,486 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.marker_delta", "marker count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartMarkers, markerCount), CampaignDebugStatus(markerCount <= m_iCampaignDebugStartMarkers, "WARN"), "marker count remains above run-start count");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
 		return cleanupCase;
+	}
+
+	protected HST_CampaignDebugCaseResult CleanupCampaignDebugPrefixedState(string prefix, string reason)
+	{
+		HST_CampaignDebugCaseResult cleanupCase = CreateCampaignDebugCase("cleanup.prefixed_state." + SafeCampaignDebugToken(reason) + "." + SafeCampaignDebugToken(prefix), "cleanup", "campaign_debug", "prefix_cleanup");
+		cleanupCase.m_aEvidence.Insert(string.Format("prefix %1 | reason %2 | entity tag %3", EmptyCampaignDebugField(prefix), EmptyCampaignDebugField(reason), EmptyCampaignDebugField(m_sCampaignDebugEntityTag)));
+		if (!m_State || prefix.IsEmpty())
+		{
+			AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.prerequisite", "campaign state and cleanup prefix exist", EmptyCampaignDebugField(prefix), "BLOCKED", "prefixed cleanup missing state or prefix");
+			FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
+			return cleanupCase;
+		}
+
+		string beforeExample;
+		int beforeCount = CountCampaignDebugPrefixedStateRecords(prefix, beforeExample);
+		int missionCount = RemoveCampaignDebugPrefixedMissions(prefix);
+		int objectiveCount = RemoveCampaignDebugPrefixedObjectives(prefix);
+		int runtimeEntityCount = RemoveCampaignDebugPrefixedRuntimeEntities(prefix);
+		int assetCount = RemoveCampaignDebugPrefixedMissionAssets(prefix);
+		int activeGroupCount = RemoveCampaignDebugPrefixedActiveGroups(prefix);
+		int runtimeVehicleCount = RemoveCampaignDebugPrefixedRuntimeVehicles(prefix);
+		int qrfCount = RemoveCampaignDebugPrefixedQRFs(prefix);
+		int supportCount = RemoveCampaignDebugPrefixedSupportRequests(prefix);
+		int enemyOrderCount = RemoveCampaignDebugPrefixedEnemyOrders(prefix);
+		int taskCount = RemoveCampaignDebugPrefixedCampaignTasks(prefix);
+		int markerCount = RemoveCampaignDebugPrefixedMarkers(prefix);
+		bool markerRebuildAttempted = false;
+		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0) && m_MapMarkers && m_Preset)
+		{
+			markerRebuildAttempted = true;
+			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
+		}
+
+		string afterExample;
+		int afterCount = CountCampaignDebugPrefixedStateRecords(prefix, afterExample);
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.before", string.Format("%1", beforeCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.after", string.Format("%1", afterCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.missions_removed", string.Format("%1", missionCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.objectives_removed", string.Format("%1", objectiveCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.runtime_entities_removed", string.Format("%1", runtimeEntityCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.assets_removed", string.Format("%1", assetCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.active_groups_removed", string.Format("%1", activeGroupCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.runtime_vehicles_removed", string.Format("%1", runtimeVehicleCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.qrfs_removed", string.Format("%1", qrfCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.support_requests_removed", string.Format("%1", supportCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.enemy_orders_removed", string.Format("%1", enemyOrderCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tasks_removed", string.Format("%1", taskCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.markers_removed", string.Format("%1", markerCount), "count");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.before_count", "prefixed records counted before cleanup", BuildCampaignDebugCountExample(beforeCount, beforeExample), "PASS", "");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.after_count", "no records matching cleanup prefix remain", BuildCampaignDebugCountExample(afterCount, afterExample), CampaignDebugStatus(afterCount == 0), "prefixed cleanup left campaign state records behind");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.marker_rebuild", "marker rebuild attempted when prefixed marker-backed records changed", string.Format("changed %1 | attempted %2", markerCount + missionCount + supportCount + qrfCount + enemyOrderCount, markerRebuildAttempted), CampaignDebugStatus(markerCount + missionCount + supportCount + qrfCount + enemyOrderCount == 0 || markerRebuildAttempted, "WARN"), "prefixed cleanup changed marker-backed records but marker rebuild was unavailable");
+		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
+		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted)
+			MarkMajorCampaignChange(true);
+		return cleanupCase;
+	}
+
+	protected string ResolveCampaignDebugCleanupPrefix()
+	{
+		if (!m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return m_sCampaignDebugMarkerPrefix;
+
+		return CAMPAIGN_DEBUG_PREFIX_ROOT;
+	}
+
+	protected string BuildCampaignDebugPrefixedCleanupReport(HST_CampaignDebugCaseResult cleanupCase)
+	{
+		if (!cleanupCase)
+			return "prefixed cleanup | no result";
+
+		string report = string.Format("prefixed cleanup | %1 | %2", cleanupCase.m_sStatus, cleanupCase.m_sReason);
+		foreach (HST_CampaignDebugMetric metric : cleanupCase.m_aMetrics)
+		{
+			if (metric)
+				report = report + string.Format("\n%1 %2", metric.m_sMetricId, metric.m_sValue);
+		}
+
+		return report;
+	}
+
+	protected int CountCampaignDebugPrefixedStateRecords(string prefix, out string example)
+	{
+		example = "";
+		if (!m_State || prefix.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_ActiveMissionState mission : m_State.m_aActiveMissions)
+		{
+			if (CampaignDebugMissionMatchesPrefix(mission, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "mission " + mission.m_sInstanceId;
+			}
+		}
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (CampaignDebugObjectiveMatchesPrefix(objective, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "objective " + objective.m_sObjectiveId;
+			}
+		}
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_State.m_aMissionRuntimeEntities)
+		{
+			if (CampaignDebugRuntimeEntityMatchesPrefix(runtimeEntity, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "runtime " + runtimeEntity.m_sRuntimeEntityId;
+			}
+		}
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (CampaignDebugMissionAssetMatchesPrefix(asset, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "asset " + asset.m_sAssetId;
+			}
+		}
+		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
+		{
+			if (CampaignDebugActiveGroupMatchesPrefix(group, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "group " + group.m_sGroupId;
+			}
+		}
+		foreach (HST_RuntimeVehicleState vehicle : m_State.m_aRuntimeVehicles)
+		{
+			if (CampaignDebugRuntimeVehicleMatchesPrefix(vehicle, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "runtime vehicle " + vehicle.m_sVehicleRuntimeId;
+			}
+		}
+		foreach (HST_QRFState qrf : m_State.m_aQRFs)
+		{
+			if (CampaignDebugQRFMatchesPrefix(qrf, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "qrf " + qrf.m_sInstanceId;
+			}
+		}
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (CampaignDebugSupportRequestMatchesPrefix(request, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "support " + request.m_sRequestId;
+			}
+		}
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (CampaignDebugEnemyOrderMatchesPrefix(order, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "enemy order " + order.m_sOrderId;
+			}
+		}
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (CampaignDebugMarkerMatchesPrefix(marker, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "marker " + marker.m_sMarkerId;
+			}
+		}
+		foreach (HST_CampaignTaskState task : m_State.m_aCampaignTasks)
+		{
+			if (CampaignDebugTaskMatchesPrefix(task, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "task " + task.m_sTaskId;
+			}
+		}
+
+		return count;
+	}
+
+	protected int RemoveCampaignDebugPrefixedMissions(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aActiveMissions.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveMissionState mission = m_State.m_aActiveMissions[i];
+			if (CampaignDebugMissionMatchesPrefix(mission, prefix))
+			{
+				m_State.m_aActiveMissions.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedObjectives(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aMissionObjectives.Count() - 1; i >= 0; i--)
+		{
+			HST_MissionObjectiveState objective = m_State.m_aMissionObjectives[i];
+			if (CampaignDebugObjectiveMatchesPrefix(objective, prefix))
+			{
+				m_State.m_aMissionObjectives.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedRuntimeEntities(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aMissionRuntimeEntities.Count() - 1; i >= 0; i--)
+		{
+			HST_MissionRuntimeEntityState runtimeEntity = m_State.m_aMissionRuntimeEntities[i];
+			if (CampaignDebugRuntimeEntityMatchesPrefix(runtimeEntity, prefix))
+			{
+				m_State.m_aMissionRuntimeEntities.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedMissionAssets(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aMissionAssets.Count() - 1; i >= 0; i--)
+		{
+			HST_MissionAssetState asset = m_State.m_aMissionAssets[i];
+			if (CampaignDebugMissionAssetMatchesPrefix(asset, prefix))
+			{
+				m_State.m_aMissionAssets.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedActiveGroups(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState group = m_State.m_aActiveGroups[i];
+			if (CampaignDebugActiveGroupMatchesPrefix(group, prefix))
+			{
+				m_State.m_aActiveGroups.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedRuntimeVehicles(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aRuntimeVehicles.Count() - 1; i >= 0; i--)
+		{
+			HST_RuntimeVehicleState vehicle = m_State.m_aRuntimeVehicles[i];
+			if (CampaignDebugRuntimeVehicleMatchesPrefix(vehicle, prefix))
+			{
+				m_State.m_aRuntimeVehicles.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedQRFs(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aQRFs.Count() - 1; i >= 0; i--)
+		{
+			HST_QRFState qrf = m_State.m_aQRFs[i];
+			if (CampaignDebugQRFMatchesPrefix(qrf, prefix))
+			{
+				m_State.m_aQRFs.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedSupportRequests(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aSupportRequests.Count() - 1; i >= 0; i--)
+		{
+			HST_SupportRequestState request = m_State.m_aSupportRequests[i];
+			if (CampaignDebugSupportRequestMatchesPrefix(request, prefix))
+			{
+				m_State.m_aSupportRequests.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedEnemyOrders(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aEnemyOrders.Count() - 1; i >= 0; i--)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
+			if (CampaignDebugEnemyOrderMatchesPrefix(order, prefix))
+			{
+				m_State.m_aEnemyOrders.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedMarkers(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aMapMarkers.Count() - 1; i >= 0; i--)
+		{
+			HST_MapMarkerState marker = m_State.m_aMapMarkers[i];
+			if (CampaignDebugMarkerMatchesPrefix(marker, prefix))
+			{
+				m_State.m_aMapMarkers.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedCampaignTasks(string prefix)
+	{
+		int removed;
+		for (int i = m_State.m_aCampaignTasks.Count() - 1; i >= 0; i--)
+		{
+			HST_CampaignTaskState task = m_State.m_aCampaignTasks[i];
+			if (CampaignDebugTaskMatchesPrefix(task, prefix))
+			{
+				m_State.m_aCampaignTasks.Remove(i);
+				removed++;
+			}
+		}
+
+		return removed;
+	}
+
+	protected bool CampaignDebugMissionMatchesPrefix(HST_ActiveMissionState mission, string prefix)
+	{
+		if (!mission)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(mission.m_sInstanceId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(mission.m_sMarkerId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(mission.m_sRuntimeEntityId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(mission.m_sSiteId, prefix);
+	}
+
+	protected bool CampaignDebugObjectiveMatchesPrefix(HST_MissionObjectiveState objective, string prefix)
+	{
+		if (!objective)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(objective.m_sObjectiveId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(objective.m_sMissionInstanceId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(objective.m_sTargetId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(objective.m_sPhysicalEntityId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(objective.m_sLinkedRuntimeEntityId, prefix);
+	}
+
+	protected bool CampaignDebugRuntimeEntityMatchesPrefix(HST_MissionRuntimeEntityState runtimeEntity, string prefix)
+	{
+		if (!runtimeEntity)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(runtimeEntity.m_sRuntimeEntityId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(runtimeEntity.m_sMissionInstanceId, prefix);
+	}
+
+	protected bool CampaignDebugMissionAssetMatchesPrefix(HST_MissionAssetState asset, string prefix)
+	{
+		if (!asset)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(asset.m_sAssetId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(asset.m_sMissionInstanceId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(asset.m_sEntityId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(asset.m_sCarriedByVehicleId, prefix);
+	}
+
+	protected bool CampaignDebugActiveGroupMatchesPrefix(HST_ActiveGroupState group, string prefix)
+	{
+		if (!group)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(group.m_sGroupId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(group.m_sRuntimeEntityId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(group.m_sRouteId, prefix);
+	}
+
+	protected bool CampaignDebugRuntimeVehicleMatchesPrefix(HST_RuntimeVehicleState vehicle, string prefix)
+	{
+		if (!vehicle)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(vehicle.m_sVehicleRuntimeId, prefix);
+	}
+
+	protected bool CampaignDebugQRFMatchesPrefix(HST_QRFState qrf, string prefix)
+	{
+		if (!qrf)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(qrf.m_sInstanceId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(qrf.m_sGroupId, prefix);
+	}
+
+	protected bool CampaignDebugSupportRequestMatchesPrefix(HST_SupportRequestState request, string prefix)
+	{
+		if (!request)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(request.m_sRequestId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(request.m_sGroupId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(request.m_sRuntimeEntityId, prefix);
+	}
+
+	protected bool CampaignDebugEnemyOrderMatchesPrefix(HST_EnemyOrderState order, string prefix)
+	{
+		if (!order)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(order.m_sOrderId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(order.m_sSupportRequestId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(order.m_sGroupId, prefix);
+	}
+
+	protected bool CampaignDebugMarkerMatchesPrefix(HST_MapMarkerState marker, string prefix)
+	{
+		if (!marker)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(marker.m_sMarkerId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(marker.m_sLinkedId, prefix);
+	}
+
+	protected bool CampaignDebugTaskMatchesPrefix(HST_CampaignTaskState task, string prefix)
+	{
+		if (!task)
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(task.m_sTaskId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(task.m_sLinkedId, prefix);
+	}
+
+	protected bool MissionValueHasCampaignDebugPrefix(string value, string prefix)
+	{
+		if (value.IsEmpty() || prefix.IsEmpty())
+			return false;
+
+		return value.Contains(prefix);
 	}
 
 	protected int CountCampaignDebugActiveMissions()
@@ -6537,6 +7059,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			status = status + "\nsummary | " + m_sCampaignDebugSummaryPath;
 		if (!m_sCampaignDebugStateDiffPath.IsEmpty())
 			status = status + "\nstate diff | " + m_sCampaignDebugStateDiffPath;
+		if (!m_sCampaignDebugMarkerPrefix.IsEmpty())
+			status = status + "\nmarker prefix | " + m_sCampaignDebugMarkerPrefix;
+		if (!m_sCampaignDebugMissionPrefix.IsEmpty())
+			status = status + "\nmission prefix | " + m_sCampaignDebugMissionPrefix;
 
 		status = status + "\nlast | " + m_sCampaignDebugLastResult;
 		int first = Math.Max(0, m_aCampaignDebugRecentLog.Count() - 12);
@@ -9067,6 +9593,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		HST_MissionDefinition definition = m_Missions.FindDefinition(missionId);
+		if (forceDebug && m_bCampaignDebugRunning)
+			ApplyCampaignDebugMissionPrefix(mission);
 		if (m_Objectives)
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);
 		if (m_MissionRuntime)
@@ -9077,6 +9605,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		MarkMajorCampaignChange();
 		BroadcastMissionEvent("created", mission, definition);
 		return true;
+	}
+
+	protected void ApplyCampaignDebugMissionPrefix(HST_ActiveMissionState mission)
+	{
+		if (!mission || m_sCampaignDebugMissionPrefix.IsEmpty())
+			return;
+		if (MissionValueHasCampaignDebugPrefix(mission.m_sInstanceId, m_sCampaignDebugMissionPrefix))
+			return;
+
+		string originalInstanceId = mission.m_sInstanceId;
+		mission.m_sInstanceId = m_sCampaignDebugMissionPrefix + SafeCampaignDebugToken(mission.m_sMissionId) + "_" + SafeCampaignDebugToken(originalInstanceId);
+		mission.m_sMarkerId = "hst_mission_" + mission.m_sInstanceId;
 	}
 
 	protected bool ShouldForceMissionTargetZoneActive(HST_ActiveMissionState mission)

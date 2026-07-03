@@ -53,6 +53,9 @@ class HST_CampaignDebugRunResult
 	string m_sCampaignSeed;
 	string m_sPlayerIdentityId;
 	string m_sWorldName;
+	string m_sMarkerPrefix;
+	string m_sMissionPrefix;
+	string m_sEntityTag;
 	int m_iStartedAtSecond;
 	int m_iEndedAtSecond;
 	int m_iPassCount;
