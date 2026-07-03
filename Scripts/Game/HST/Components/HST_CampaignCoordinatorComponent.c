@@ -6961,6 +6961,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RecordCampaignDebugPhaseSmokeTypedProbe(int index, string label, string result)
 	{
+		if (index >= 3 && index <= 6)
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPhase14ArsenalCase(index, label, result));
+			return;
+		}
+
 		if (index >= 17 && index <= 21)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase18EnemyOrderCase(index, label, result));
@@ -6987,6 +6993,99 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (index >= 51 && index <= 61)
 			RecordCampaignDebugCase(BuildCampaignDebugPhase24PacingCase(index, label, result));
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase14ArsenalCase(int index, string label, string result)
+	{
+		HST_CampaignDebugCaseResult arsenalCase = CreateCampaignDebugCase("phase14." + SafeCampaignDebugToken(label), "phase_smoke", "arsenal", "phase14");
+		arsenalCase.m_aEvidence.Insert(result);
+		AddCampaignDebugAssertion(arsenalCase, "phase14.command_result", "phase 14 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 14 command returned failure text");
+		if (!m_State || !m_Arsenal || !m_Balance)
+		{
+			AddCampaignDebugAssertion(arsenalCase, "phase14.prerequisite", "campaign state, balance config, and arsenal service ready", "missing", "BLOCKED", "phase 14 typed probe missing state, balance config, or arsenal service");
+			FinalizeCampaignDebugCaseFromAssertions(arsenalCase);
+			return arsenalCase;
+		}
+
+		HST_ArsenalItemState finiteRecord = m_State.FindArsenalItem(PHASE14_FINITE_PREFAB);
+		HST_ArsenalItemState thresholdRecord = m_State.FindArsenalItem(PHASE14_THRESHOLD_PREFAB);
+		HST_ArsenalItemState blockedRecord = m_State.FindArsenalItem(PHASE14_BLOCKED_PREFAB);
+		HST_ArsenalItemState rawRecord = m_State.FindArsenalItem(PHASE14_RAW_ASSET_PREFAB);
+		string finitePolicy = ResolveCampaignDebugArsenalPolicy(PHASE14_FINITE_PREFAB, "utility");
+		string thresholdPolicy = ResolveCampaignDebugArsenalPolicy(PHASE14_THRESHOLD_PREFAB, "utility");
+		string blockedPolicy = ResolveCampaignDebugArsenalPolicy(PHASE14_BLOCKED_PREFAB, "utility");
+		int thresholdUnlockCount = ResolveCampaignDebugArsenalThreshold(thresholdRecord, PHASE14_THRESHOLD_PREFAB, "utility");
+		AddCampaignDebugMetric(arsenalCase, "phase14.arsenal.items", string.Format("%1", m_State.m_aArsenalItems.Count()), "count");
+
+		if (finiteRecord)
+		{
+			AddCampaignDebugMetric(arsenalCase, "phase14.finite.count", string.Format("%1", finiteRecord.m_iCount), "count");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.finite.record", "finite-only item record exists", BuildCampaignDebugArsenalItemActual(finiteRecord, finitePolicy, ResolveCampaignDebugArsenalThreshold(finiteRecord, PHASE14_FINITE_PREFAB, "utility")), CampaignDebugStatus(true), "");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.finite.count", "finite-only count >= 1", string.Format("%1", finiteRecord.m_iCount), CampaignDebugStatus(finiteRecord.m_iCount >= 1), "finite-only seed did not create a usable count");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.finite.locked", "finite-only policy does not unlock item", BuildCampaignDebugArsenalItemActual(finiteRecord, finitePolicy, ResolveCampaignDebugArsenalThreshold(finiteRecord, PHASE14_FINITE_PREFAB, "utility")), CampaignDebugStatus(finitePolicy == "finite_only" && !finiteRecord.m_bUnlocked), "finite-only item unlocked or policy did not resolve to finite_only");
+		}
+		else if (index == 3 || index == 6)
+		{
+			AddCampaignDebugAssertion(arsenalCase, "phase14.finite.record", "finite-only item record exists", "missing", CampaignDebugStatus(false), "finite-only seed did not create an arsenal record");
+		}
+
+		if (thresholdRecord)
+		{
+			AddCampaignDebugMetric(arsenalCase, "phase14.threshold.count", string.Format("%1", thresholdRecord.m_iCount), "count");
+			AddCampaignDebugMetric(arsenalCase, "phase14.threshold.unlock_threshold", string.Format("%1", thresholdUnlockCount), "count");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.threshold.record", "threshold item record exists", BuildCampaignDebugArsenalItemActual(thresholdRecord, thresholdPolicy, thresholdUnlockCount), CampaignDebugStatus(true), "");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.threshold.count", "threshold item count >= configured threshold", BuildCampaignDebugArsenalItemActual(thresholdRecord, thresholdPolicy, thresholdUnlockCount), CampaignDebugStatus(thresholdUnlockCount >= 0 && thresholdRecord.m_iCount >= thresholdUnlockCount), "threshold seed did not reach configured unlock threshold");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.threshold.unlocked", "threshold item unlocks at count 2", BuildCampaignDebugArsenalItemActual(thresholdRecord, thresholdPolicy, thresholdUnlockCount), CampaignDebugStatus(thresholdPolicy == "unlock" && thresholdUnlockCount == 2 && thresholdRecord.m_bUnlocked), "threshold item did not unlock at the Phase 14 configured count");
+		}
+		else if (index == 4 || index == 6)
+		{
+			AddCampaignDebugAssertion(arsenalCase, "phase14.threshold.record", "threshold item record exists", "missing", CampaignDebugStatus(false), "threshold seed did not create an arsenal record");
+		}
+
+		if (index == 5 || index == 6)
+		{
+			string blockedReason;
+			string rawReason;
+			bool blockedAllowed = m_Arsenal.CanDepositItem(m_Balance, PHASE14_BLOCKED_PREFAB, "utility", false, blockedReason, "Phase 14 Blocked Item");
+			bool rawAllowed = m_Arsenal.CanDepositItem(m_Balance, PHASE14_RAW_ASSET_PREFAB, "utility", false, rawReason, "Phase 14 Raw Asset");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.blocked.policy", "destroy-target prefab resolves to blocked policy", string.Format("policy %1 | allowed %2 | reason %3", blockedPolicy, blockedAllowed, EmptyCampaignDebugField(blockedReason)), CampaignDebugStatus(blockedPolicy == "blocked" && !blockedAllowed), "blocked prefab was not rejected by arsenal policy");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.blocked.record_absent", "blocked prefab did not create an arsenal record", BuildCampaignDebugArsenalItemActual(blockedRecord, blockedPolicy, -1), CampaignDebugStatus(blockedRecord == null), "blocked prefab created an arsenal record");
+			AddCampaignDebugAssertion(arsenalCase, "phase14.raw.record_absent", "raw visual asset did not create an arsenal record", string.Format("record %1 | allowed %2 | reason %3", rawRecord != null, rawAllowed, EmptyCampaignDebugField(rawReason)), CampaignDebugStatus(rawRecord == null && !rawAllowed), "raw asset created an arsenal record or was accepted as loot");
+			if (index == 5)
+				AddCampaignDebugAssertion(arsenalCase, "phase14.report.rejection_text", "command evidence reports both rejection paths", ShortCampaignDebugLine(result, 220), CampaignDebugStatus((result.Contains("blocked prefab accepted false") || result.Contains("blocked prefab accepted 0")) && (result.Contains("raw asset accepted false") || result.Contains("raw asset accepted 0"))), "Phase 14 blocked/raw command text did not report both rejected deposits");
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(arsenalCase);
+		return arsenalCase;
+	}
+
+	protected string BuildCampaignDebugArsenalItemActual(HST_ArsenalItemState arsenalRecord, string policy, int threshold)
+	{
+		if (!arsenalRecord)
+			return "missing";
+
+		return string.Format("prefab %1 | category %2 | count %3 | unlocked %4 | policy %5 | threshold %6", EmptyCampaignDebugField(arsenalRecord.m_sPrefab), EmptyCampaignDebugField(arsenalRecord.m_sCategory), arsenalRecord.m_iCount, arsenalRecord.m_bUnlocked, EmptyCampaignDebugField(policy), threshold);
+	}
+
+	protected string ResolveCampaignDebugArsenalPolicy(string prefab, string category)
+	{
+		if (!m_Arsenal)
+			return "";
+
+		return m_Arsenal.ResolveUnlockPolicy(m_Arsenal.FindItemRule(m_Balance, prefab, category, false));
+	}
+
+	protected int ResolveCampaignDebugArsenalThreshold(HST_ArsenalItemState arsenalRecord, string prefab, string category)
+	{
+		if (!m_Arsenal)
+			return -1;
+		if (arsenalRecord)
+			return m_Arsenal.ResolveUnlockThreshold(arsenalRecord, m_Balance);
+
+		HST_ArsenalItemState syntheticRecord = new HST_ArsenalItemState();
+		syntheticRecord.m_sPrefab = prefab;
+		syntheticRecord.m_sCategory = category;
+		return m_Arsenal.ResolveUnlockThreshold(syntheticRecord, m_Balance);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
