@@ -417,6 +417,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The typed result layer should record run/case/assertion/metric fields, while legacy command/report strings can be wrapped as typed cases during migration.
   - Summary artifacts should derive their feature, mission, physical AI, cleanup, and failure-inspection matrices from typed case results so gaps stay visible instead of being buried in freeform report text.
   - State-diff text is enough for forensic triage: capture start and end money, HR, training, war level, active mission, asset, group, support, order, and marker counts.
+  - Baseline preflight must include runtime-selected resources, not only definition/catalog resources. The campaign debug preflight should hard-fail if mission runtime prop/vehicle prefabs or AI waypoint prefabs used by primitive services fail `Resource.Load`.
   - Non-legacy typed cases should emit a `post_case_cleanup.*` leak probe while the campaign debug runner is active. The probe should allow the mission intentionally under test and pre-existing active missions captured at run start, then check for unexpected active missions, orphan mission assets, orphan active groups, orphan linked markers, and backing records missing markers.
   - Do not treat a legacy string-wrapped report case as full certification for a feature. Full coverage needs a direct ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP case with state and physical-world evidence, or the feature should remain WARN/BLOCKED/not-covered in the verification audit.
 

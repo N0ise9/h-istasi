@@ -19,6 +19,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string PHASE14_RAW_ASSET_PREFAB = "{EAE920BF596EBC07}Assets/Objects/Plane.xob";
 	static const string PHASE15_SMOKE_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string PHASE15_SMOKE_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_HVT_PREFAB = "{6985327711303700}Prefabs/Objects/HST/HST_MissionProp_HVT.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_DESTROY_TARGET_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_CARGO_PREFAB = "{6985327711303720}Prefabs/Objects/HST/HST_MissionProp_Cargo.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_CAPTIVES_PREFAB = "{6985327711303730}Prefabs/Objects/HST/HST_MissionProp_Captives.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_HOLD_MARKER_PREFAB = "{6985327711303740}Prefabs/Objects/HST/HST_MissionProp_HoldMarker.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_CITY_SUPPLIES_PREFAB = "{6985327711303750}Prefabs/Objects/HST/HST_MissionProp_CitySupplies.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_PAYLOAD_PREFAB = "{6985327711303760}Prefabs/Objects/HST/HST_MissionProp_ConvoyPayload.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_BANK_MONEY_PREFAB = "{6985327711303770}Prefabs/Objects/HST/HST_MissionProp_BankMoney.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
+	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -3195,12 +3206,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			prefabResourceCount += CountCampaignDebugPrefabResources(m_Balance.m_aCivilianVehiclePrefabs);
 			missingPrefabResourceCount += CountMissingCampaignDebugPrefabResources(m_Balance.m_aCivilianVehiclePrefabs);
 		}
+		ref array<string> runtimeMissionPrefabs = BuildCampaignDebugRuntimeMissionPrefabs();
+		string missingRuntimeMissionPrefab;
+		int runtimeMissionPrefabCount = CountCampaignDebugPrefabResources(runtimeMissionPrefabs);
+		int missingRuntimeMissionPrefabCount = CountMissingCampaignDebugPrefabResourcesWithExample(runtimeMissionPrefabs, missingRuntimeMissionPrefab);
+		prefabResourceCount += runtimeMissionPrefabCount;
+		missingPrefabResourceCount += missingRuntimeMissionPrefabCount;
+
+		ref array<string> waypointPrefabs = BuildCampaignDebugWaypointPrefabs();
+		string missingWaypointPrefab;
+		int waypointPrefabCount = CountCampaignDebugPrefabResources(waypointPrefabs);
+		int missingWaypointPrefabCount = CountMissingCampaignDebugPrefabResourcesWithExample(waypointPrefabs, missingWaypointPrefab);
+		prefabResourceCount += waypointPrefabCount;
+		missingPrefabResourceCount += missingWaypointPrefabCount;
+
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.checked", string.Format("%1", prefabResourceCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.missing", string.Format("%1", missingPrefabResourceCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.runtime_mission_checked", string.Format("%1", runtimeMissionPrefabCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.waypoint_checked", string.Format("%1", waypointPrefabCount), "count");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.present", "resistance/occupier/invader faction templates resolve", string.Format("missing %1/3", missingFactionTemplates), CampaignDebugStatus(missingFactionTemplates == 0), "one or more default faction templates did not resolve");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.infantry_pools", "every default faction has infantry prefab resources", string.Format("missing pools %1", missingInfantryPools), CampaignDebugStatus(missingInfantryPools == 0), "one or more faction templates have no infantry prefab pool");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.vehicle_pools", "occupier/invader vehicle prefab pools resolve where vehicle tests require them", string.Format("missing pools %1", missingVehiclePools), CampaignDebugStatus(missingVehiclePools == 0), "one or more faction templates have no vehicle prefab pool");
-		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution", "all checked faction/civilian prefab resources resolve", string.Format("missing %1/%2", missingPrefabResourceCount, prefabResourceCount), CampaignDebugStatus(missingPrefabResourceCount == 0), "one or more checked prefab resources failed Resource.Load");
+		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution", "all checked prefab resources resolve", string.Format("missing %1/%2", missingPrefabResourceCount, prefabResourceCount), CampaignDebugStatus(missingPrefabResourceCount == 0), "one or more checked prefab resources failed Resource.Load");
+		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.runtime_mission_props", "all runtime-selected mission prop and vehicle resources resolve", string.Format("missing %1/%2 | first %3", missingRuntimeMissionPrefabCount, runtimeMissionPrefabCount, EmptyCampaignDebugField(missingRuntimeMissionPrefab)), CampaignDebugStatus(runtimeMissionPrefabCount > 0 && missingRuntimeMissionPrefabCount == 0), "one or more mission runtime prop resources failed Resource.Load");
+		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.waypoints", "all runtime waypoint prefab resources resolve", string.Format("missing %1/%2 | first %3", missingWaypointPrefabCount, waypointPrefabCount, EmptyCampaignDebugField(missingWaypointPrefab)), CampaignDebugStatus(waypointPrefabCount > 0 && missingWaypointPrefabCount == 0), "one or more runtime waypoint prefab resources failed Resource.Load");
 
 		int townCount;
 		int outpostCount;
@@ -3325,6 +3354,64 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!prefab.IsEmpty())
 				count++;
+		}
+
+		return count;
+	}
+
+	protected ref array<string> BuildCampaignDebugRuntimeMissionPrefabs()
+	{
+		ref array<string> prefabs = {};
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_HVT_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_DESTROY_TARGET_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_CARGO_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_CAPTIVES_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_HOLD_MARKER_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_CITY_SUPPLIES_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_CONVOY_PAYLOAD_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_BANK_MONEY_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, PHASE15_SMOKE_CARGO_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, PHASE15_SMOKE_VEHICLE_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, PHASE14_FINITE_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, PHASE14_THRESHOLD_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, PHASE14_BLOCKED_PREFAB);
+		return prefabs;
+	}
+
+	protected ref array<string> BuildCampaignDebugWaypointPrefabs()
+	{
+		ref array<string> prefabs = {};
+		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB);
+		return prefabs;
+	}
+
+	protected void AppendUniqueCampaignDebugPrefab(array<string> prefabs, string prefab)
+	{
+		if (!prefabs || prefab.IsEmpty())
+			return;
+		if (prefabs.Find(prefab) >= 0)
+			return;
+
+		prefabs.Insert(prefab);
+	}
+
+	protected int CountMissingCampaignDebugPrefabResourcesWithExample(array<string> prefabs, out string example)
+	{
+		example = "";
+		if (!prefabs)
+			return 0;
+
+		int count;
+		foreach (string prefab : prefabs)
+		{
+			if (CampaignDebugPrefabResolves(prefab))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = prefab;
 		}
 
 		return count;

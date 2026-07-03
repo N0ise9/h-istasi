@@ -18,7 +18,7 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 - Typed result classes exist in `Scripts/Game/HST/Data/HST_CampaignDebugResult.c`.
 - Artifacts write to `$profile:h-istasi/debug` as JSON, summary text, and state-diff text.
 - Bootstrap records typed assertions for server authority, debug actor access, active campaign repair, HQ state, Petros state, teleport, and player presence.
-- Preflight records typed assertions for key services, mission registry count/uniqueness/runtime/duration, compatible debug target zones, default faction/civilian prefab resource resolution, zone graph counts, and physical-war setting.
+- Preflight records typed assertions for key services, mission registry count/uniqueness/runtime/duration, compatible debug target zones, default faction/civilian prefab resource resolution, runtime-selected mission prop/vehicle prefab resolution, runtime waypoint prefab resolution, zone graph counts, and physical-war setting.
 - HQ runtime records typed assertions for runtime flag, Petros state/position, arsenal state/position, HQ marker, and player position.
 - Economy records typed exact-delta assertions for resource awards and training.
 - Stage 3 support requests now clear prior player support, call the real support command, and assert the created support request record type, faction, target zone/position, ETA, money cost, status, and marker publication/pending state.
@@ -35,7 +35,6 @@ It does not yet satisfy the full pasted contract for a complete one-button in-ga
 ## Not Fully Implemented
 
 - Deterministic debug marker/entity prefixes and old debug-only spawned entity cleanup are not implemented.
-- Preflight still does not verify mission prop prefabs or waypoint prefabs because those resources are selected by runtime primitive services rather than explicit mission definition fields.
 - HQ checks do not prove physical Petros/arsenal entity IDs, stale entity removal/reuse, duplicate prevention, spawn point existence, or command-menu availability while the run is active.
 - Stage 3 support/civilian/undercover coverage is still partial: it now asserts request records, support cancellation, town aid deltas, and undercover phase transitions, but it does not prove support physicalization, ETA progression over ticks, civilian physical population/faction/vehicle behavior, or town flip behavior.
 - Early mechanics are mostly still report/action wrappers. Generated content, zone activation spawn/cleanup, civilian aid bounds, support cancellation cleanup, garage/vehicle/loadout action tests, and UI coverage are not upgraded to hard typed assertions.
