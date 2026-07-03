@@ -408,6 +408,91 @@ class HST_HQService
 		return ARSENAL_PREFAB;
 	}
 
+	int GetTrackedRuntimeObjectCount()
+	{
+		int count;
+		if (m_PetrosEntity)
+			count++;
+		if (m_CacheEntity)
+			count++;
+		if (m_ArsenalEntity)
+			count++;
+		if (m_TentEntity)
+			count++;
+
+		return count;
+	}
+
+	bool HasPetrosRuntimeEntity()
+	{
+		return m_PetrosEntity != null;
+	}
+
+	bool HasCacheRuntimeEntity()
+	{
+		return m_CacheEntity != null;
+	}
+
+	bool HasArsenalRuntimeEntity()
+	{
+		return m_ArsenalEntity != null;
+	}
+
+	bool HasTentRuntimeEntity()
+	{
+		return m_TentEntity != null;
+	}
+
+	bool IsArsenalRuntimeEntityUsable()
+	{
+		return IsUsableArsenalEntity(m_ArsenalEntity);
+	}
+
+	vector GetPetrosRuntimeEntityPosition()
+	{
+		return ResolveRuntimeEntityPosition(m_PetrosEntity);
+	}
+
+	vector GetCacheRuntimeEntityPosition()
+	{
+		return ResolveRuntimeEntityPosition(m_CacheEntity);
+	}
+
+	vector GetArsenalRuntimeEntityPosition()
+	{
+		return ResolveRuntimeEntityPosition(m_ArsenalEntity);
+	}
+
+	vector GetTentRuntimeEntityPosition()
+	{
+		return ResolveRuntimeEntityPosition(m_TentEntity);
+	}
+
+	string GetPetrosRuntimeEntityKey()
+	{
+		return BuildRuntimeEntityKey("petros", m_PetrosEntity);
+	}
+
+	string GetCacheRuntimeEntityKey()
+	{
+		return BuildRuntimeEntityKey("cache", m_CacheEntity);
+	}
+
+	string GetArsenalRuntimeEntityKey()
+	{
+		return BuildRuntimeEntityKey("arsenal", m_ArsenalEntity);
+	}
+
+	string GetTentRuntimeEntityKey()
+	{
+		return BuildRuntimeEntityKey("tent", m_TentEntity);
+	}
+
+	string BuildRuntimeObjectDebugSummary()
+	{
+		return string.Format("petros %1 | cache %2 | arsenal %3 | tent %4", GetPetrosRuntimeEntityKey(), GetCacheRuntimeEntityKey(), GetArsenalRuntimeEntityKey(), GetTentRuntimeEntityKey());
+	}
+
 	protected int ResolveEnemyActivityThreatNearHQ(HST_CampaignState state, HST_CampaignPreset preset, out string reason)
 	{
 		reason = "no enemy activity near HQ";
@@ -836,6 +921,32 @@ class HST_HQService
 	protected bool AreRuntimeObjectsTracked()
 	{
 		return m_PetrosEntity && m_CacheEntity && m_ArsenalEntity && m_TentEntity;
+	}
+
+	protected vector ResolveRuntimeEntityPosition(IEntity entity)
+	{
+		if (!entity)
+			return "0 0 0";
+
+		return entity.GetOrigin();
+	}
+
+	protected string BuildRuntimeEntityKey(string label, IEntity entity)
+	{
+		if (!entity)
+			return label + ":missing";
+
+		string prefab;
+		if (entity.GetPrefabData())
+			prefab = entity.GetPrefabData().GetPrefabName();
+		if (prefab.IsEmpty())
+			prefab = label;
+
+		BaseRplComponent rpl = BaseRplComponent.Cast(entity.FindComponent(BaseRplComponent));
+		if (rpl)
+			return string.Format("%1:%2", prefab, rpl.Id());
+
+		return string.Format("%1:%2", prefab, entity);
 	}
 
 	protected float DistanceSq2D(vector first, vector second)

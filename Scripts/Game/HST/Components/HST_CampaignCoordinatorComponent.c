@@ -3492,27 +3492,54 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EnsureCampaignDebugActivePhase("HQ spawn");
 		TeleportCampaignDebugPlayerToHQ("HQ spawn");
 		int spawnRequests = ProcessPlayerSpawnSweep("campaign debug HQ spawn", true);
+		string runtimeSummaryBefore;
+		if (m_HQ)
+			runtimeSummaryBefore = m_HQ.BuildRuntimeObjectDebugSummary();
 		string rebuildResult = RequestCommanderRebuildHQAssetsReport(m_iCampaignDebugPlayerId);
+		string runtimeSummaryAfter;
+		if (m_HQ)
+			runtimeSummaryAfter = m_HQ.BuildRuntimeObjectDebugSummary();
 		RecordCampaignDebugResult("player spawn sweep", string.Format("spawn requests %1 | HQ %2 | runtime %3", spawnRequests, m_State.m_vHQPosition, m_State.m_bHQRuntimeObjectsSpawned), m_PlayerSpawn != null);
 		RecordCampaignDebugAction("HQ rebuild", rebuildResult);
-		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, rebuildResult));
+		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, rebuildResult, runtimeSummaryBefore, runtimeSummaryAfter));
 		RecordCampaignDebugObservation("HQ threat", RequestMemberInspectHQThreat(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("loadout editor", RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId));
 		AdvanceCampaignDebugStep("HQ and spawn checks complete.");
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugHQRuntimeCase(int spawnRequests, string rebuildResult)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugHQRuntimeCase(int spawnRequests, string rebuildResult, string runtimeSummaryBefore, string runtimeSummaryAfter)
 	{
 		HST_CampaignDebugCaseResult hqCase = CreateCampaignDebugCase("hq.runtime_objects_after_rebuild", "hq", "hq_runtime", "hq_spawn");
 		hqCase.m_aEvidence.Insert(rebuildResult);
+		hqCase.m_aEvidence.Insert("runtime objects before rebuild | " + EmptyCampaignDebugField(runtimeSummaryBefore));
+		hqCase.m_aEvidence.Insert("runtime objects after rebuild | " + EmptyCampaignDebugField(runtimeSummaryAfter));
 		AddCampaignDebugMetric(hqCase, "hq.spawn_requests", string.Format("%1", spawnRequests), "count");
+		int trackedRuntimeObjects;
+		if (m_HQ)
+			trackedRuntimeObjects = m_HQ.GetTrackedRuntimeObjectCount();
+		AddCampaignDebugMetric(hqCase, "hq.runtime_objects.tracked", string.Format("%1", trackedRuntimeObjects), "count");
+		AddCampaignDebugAssertion(hqCase, "hq.rebuild.command_result", "HQ rebuild command accepted", ShortCampaignDebugLine(rebuildResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(rebuildResult)), "HQ rebuild command returned failure text");
 		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "HQ runtime object flag is false after rebuild");
+		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent runtime entities tracked", string.Format("%1/4 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 4), "HQ service is not tracking all runtime entities");
+		AddCampaignDebugAssertion(hqCase, "hq.rebuild.identity_refresh", "rebuild refreshes runtime object identities or starts from empty", string.Format("before %1 | after %2", EmptyCampaignDebugField(runtimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(runtimeSummaryBefore.IsEmpty() || runtimeSummaryBefore.Contains(":missing") || runtimeSummaryBefore != runtimeSummaryAfter, "WARN"), "HQ rebuild returned the same runtime identity summary; verify intentional reuse");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.alive", "Petros alive true", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(m_State.m_bPetrosAlive), "Petros is not alive after HQ rebuild");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.position", "Petros position not zero", string.Format("%1", m_State.m_vPetrosPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vPetrosPosition)), "Petros position is zero");
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.position", "arsenal position not zero", string.Format("%1", m_State.m_vArsenalPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vArsenalPosition)), "HQ arsenal position is zero");
 		bool arsenalReady = !m_State.m_sHQArsenalRuntimeStatus.Contains("failed") && m_State.m_sLastHQArsenalFailure.IsEmpty();
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.status", "arsenal runtime status not failed", m_State.m_sHQArsenalRuntimeStatus + " | failure " + EmptyCampaignDebugField(m_State.m_sLastHQArsenalFailure), CampaignDebugStatus(arsenalReady), "HQ arsenal runtime status reports a failure");
+		if (m_HQ)
+		{
+			AddCampaignDebugHQEntityAssertion(hqCase, "petros", "Petros", m_HQ.HasPetrosRuntimeEntity(), m_HQ.GetPetrosRuntimeEntityKey(), m_State.m_vPetrosPosition, m_HQ.GetPetrosRuntimeEntityPosition(), 8.0);
+			AddCampaignDebugHQEntityAssertion(hqCase, "cache", "HQ cache", m_HQ.HasCacheRuntimeEntity(), m_HQ.GetCacheRuntimeEntityKey(), m_State.m_vHQCachePosition, m_HQ.GetCacheRuntimeEntityPosition(), 8.0);
+			AddCampaignDebugHQEntityAssertion(hqCase, "arsenal", "HQ arsenal", m_HQ.HasArsenalRuntimeEntity(), m_HQ.GetArsenalRuntimeEntityKey(), m_State.m_vArsenalPosition, m_HQ.GetArsenalRuntimeEntityPosition(), 8.0);
+			AddCampaignDebugHQEntityAssertion(hqCase, "tent", "HQ tent", m_HQ.HasTentRuntimeEntity(), m_HQ.GetTentRuntimeEntityKey(), m_State.m_vHQTentPosition, m_HQ.GetTentRuntimeEntityPosition(), 8.0);
+			AddCampaignDebugAssertion(hqCase, "hq.arsenal.entity_usable", "arsenal runtime entity has usable action surface", m_HQ.GetArsenalRuntimeEntityKey(), CampaignDebugStatus(m_HQ.IsArsenalRuntimeEntityUsable()), "HQ arsenal runtime entity is missing or failed readiness checks");
+		}
+		else
+		{
+			AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.physical_entities", "HQ service exists for physical entity probes", "missing", "BLOCKED", "HQ service missing; physical HQ entity checks blocked");
+		}
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		AddCampaignDebugAssertion(hqCase, "hq.marker.model", "HQ marker model exists", string.Format("%1", hqMarker != null), CampaignDebugStatus(hqMarker != null), "HQ marker state hst_hq missing");
 		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
@@ -3533,6 +3560,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(hqCase);
 		return hqCase;
+	}
+
+	protected void AddCampaignDebugHQEntityAssertion(HST_CampaignDebugCaseResult hqCase, string objectId, string label, bool present, string entityKey, vector expectedPosition, vector actualPosition, float toleranceMeters)
+	{
+		if (!hqCase)
+			return;
+
+		float distanceMeters = -1.0;
+		bool expectedValid = !IsZeroVector(expectedPosition);
+		bool actualValid = present && !IsZeroVector(actualPosition);
+		if (expectedValid && actualValid)
+			distanceMeters = Math.Sqrt(DistanceSq2D(expectedPosition, actualPosition));
+
+		bool withinTolerance = present && expectedValid && actualValid && distanceMeters <= toleranceMeters;
+		string actual = string.Format("entity %1 | expected %2 | actual %3 | distance %4m | tolerance %5m", EmptyCampaignDebugField(entityKey), expectedPosition, actualPosition, Math.Round(distanceMeters), Math.Round(toleranceMeters));
+		HST_CampaignDebugAssertion assertion = AddCampaignDebugAssertion(hqCase, "hq." + objectId + ".entity_physical", label + " runtime entity exists near expected position", actual, CampaignDebugStatus(withinTolerance), label + " runtime entity missing or outside expected HQ position tolerance", entityKey);
+		assertion.m_vExpectedPosition = expectedPosition;
+		assertion.m_vActualPosition = actualPosition;
+		assertion.m_fDistanceMeters = distanceMeters;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugResourceAwardCase(int moneyBefore, int hrBefore, int moneyAfter, int hrAfter, string awardResult)
