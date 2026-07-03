@@ -275,6 +275,244 @@ class HST_PhysicalWarService
 		return BuildMissionConvoyRuntimeReport(state, mission);
 	}
 
+	HST_CampaignDebugCaseResult BuildCampaignDebugConvoyPhysicalProbe(HST_CampaignState state, HST_ActiveMissionState mission, bool physicalBlocked)
+	{
+		HST_CampaignDebugCaseResult probe = CreateConvoyDebugProbeCase(state, mission);
+		if (physicalBlocked)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.physical.prerequisite.player", "controlled player entity available", "missing", "BLOCKED", "bootstrap marked physical runtime tests blocked");
+			FinalizeConvoyDebugProbeCase(state, probe);
+			return probe;
+		}
+
+		if (!state || !mission)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.physical.prerequisite.state", "campaign state and mission exist", "missing", "BLOCKED", "state or mission missing for convoy physical probe");
+			FinalizeConvoyDebugProbeCase(state, probe);
+			return probe;
+		}
+
+		if (mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.physical.primitive", "mission primitive convoy_intercept", ReportText(mission.m_sRuntimePrimitive), "SKIPPED", "mission is not a convoy primitive");
+			FinalizeConvoyDebugProbeCase(state, probe);
+			return probe;
+		}
+
+		HST_ConvoyReadinessStatus readiness = BuildMissionConvoyReadinessStatus(state, mission);
+		AddConvoyDebugProbeMetric(probe, "convoy.assets.vehicle_count", string.Format("%1", readiness.m_iVehicleAssetCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.vehicles.spawned", string.Format("%1", readiness.m_iSpawnedVehicleCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.crew.groups", string.Format("%1", readiness.m_iCrewGroupCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.crew.alive", string.Format("%1", readiness.m_iAliveCrewCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.drivers.available", string.Format("%1", readiness.m_iDriverAvailableCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.vehicles.mobile", string.Format("%1", readiness.m_iMobileVehicleCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.routes.assigned", string.Format("%1", readiness.m_iRouteAssignedCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.waypoints.assigned", string.Format("%1", readiness.m_iWaypointAssignedCount), "count");
+
+		AddConvoyDebugProbeAssertion(probe, "convoy.assets.vehicle_count", "vehicle assets >= 3", string.Format("%1", readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount >= 3), "convoy has fewer than three vehicle assets");
+		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.spawned", "spawned vehicle entities == vehicle asset count", string.Format("%1/%2", readiness.m_iSpawnedVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iVehicleAssetCount > 0 && readiness.m_iSpawnedVehicleCount >= readiness.m_iVehicleAssetCount), "not every convoy vehicle asset has a runtime vehicle entity");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.groups", "crew group count >= vehicle count", string.Format("%1/%2", readiness.m_iCrewGroupCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iCrewGroupCount >= readiness.m_iVehicleAssetCount && readiness.m_iCrewGroupCount >= 3), "not every convoy vehicle has a crew group");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.alive", "alive crew count > 0", string.Format("%1", readiness.m_iAliveCrewCount), ConvoyDebugStatus(readiness.m_iAliveCrewCount > 0), "convoy crew groups have no living crew");
+		AddConvoyDebugProbeAssertion(probe, "convoy.crew.driver_seated", "driver available for every moving vehicle", string.Format("%1/%2", readiness.m_iDriverAvailableCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iDriverAvailableCount >= readiness.m_iVehicleAssetCount && readiness.m_iDriverAvailableCount >= 3), "not every convoy vehicle has a seated living driver");
+		AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entities.mobile", "mobile vehicle count == vehicle asset count", string.Format("%1/%2", readiness.m_iMobileVehicleCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iMobileVehicleCount >= readiness.m_iVehicleAssetCount && readiness.m_iMobileVehicleCount >= 3), "not every convoy vehicle is mobile");
+		AddConvoyDebugProbeAssertion(probe, "convoy.route.assigned", "route assigned count == vehicle asset count", string.Format("%1/%2", readiness.m_iRouteAssignedCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iRouteAssignedCount >= readiness.m_iVehicleAssetCount && readiness.m_iRouteAssignedCount >= 3), "not every convoy group has the mission route assigned");
+		AddConvoyDebugProbeAssertion(probe, "convoy.route.waypoints", "waypoint assigned count == vehicle asset count", string.Format("%1/%2", readiness.m_iWaypointAssignedCount, readiness.m_iVehicleAssetCount), ConvoyDebugStatus(readiness.m_iWaypointAssignedCount >= readiness.m_iVehicleAssetCount && readiness.m_iWaypointAssignedCount >= 3), "not every convoy group has runtime waypoints assigned");
+		AddConvoyDebugProbeAssertion(probe, "convoy.readiness.ready_to_move", "convoy ready-to-move state true", readiness.m_sReason, ConvoyDebugStatus(readiness.m_bReadyToMove, "WARN"), "convoy readiness is not complete yet");
+
+		HST_GeneratedRouteState route = ResolveMissionConvoyRoute(state, mission);
+		AddConvoyDebugProbeAssertion(probe, "convoy.route.template", "generated route exists and has >= 3 waypoints", BuildConvoyDebugRouteActual(route), ConvoyDebugStatus(route && route.m_iWaypointCount >= CONVOY_RUNTIME_WAYPOINT_MIN_COUNT), "convoy route template is missing or too short");
+
+		int assetIndex;
+		int progressSampledCount;
+		int hardStuckCount;
+		int noProgressCount;
+		int missingProgressCount;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_sRole != MISSION_CONVOY_VEHICLE_ROLE)
+				continue;
+
+			string groupId = BuildMissionConvoyGroupId(mission, assetIndex);
+			HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+			IEntity vehicleEntity = GetRuntimeVehicleEntity(groupId);
+			IEntity crewEntity = GetRuntimeCrewGroupEntity(groupId);
+			AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entity." + asset.m_sAssetId, "vehicle entity exists for asset", string.Format("group %1 | vehicle %2", groupId, vehicleEntity != null), ConvoyDebugStatus(vehicleEntity != null), "convoy vehicle entity missing", groupId, mission.m_sInstanceId);
+			AddConvoyDebugProbeAssertion(probe, "convoy.crew_entity." + asset.m_sAssetId, "crew entity exists for asset", string.Format("group %1 | crew %2", groupId, crewEntity != null), ConvoyDebugStatus(crewEntity != null), "convoy crew entity missing", groupId, mission.m_sInstanceId);
+			if (activeGroup)
+				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", string.Format("%1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(activeGroup.m_iAssignedWaypointCount >= 2), "convoy group has too few assigned waypoints", groupId, mission.m_sInstanceId);
+			else
+				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", "group missing", "FAIL", "convoy active group missing", groupId, mission.m_sInstanceId);
+
+			vector vehiclePosition = ResolveMissionConvoyVehiclePosition(asset, groupId);
+			HST_ConvoyProgressStatus progress = FindConvoyProgressStatus(mission, asset, groupId);
+			if (!progress)
+			{
+				missingProgressCount++;
+				AddConvoyDebugProbeAssertion(probe, "convoy.movement.progress." + asset.m_sAssetId, "progress sampled", string.Format("distance %1m | result not sampled", Math.Round(ResolveMissionConvoyDistanceToDestinationMeters(mission, asset, vehiclePosition))), "WARN", "convoy movement progress has not been sampled yet", groupId, mission.m_sInstanceId);
+			}
+			else
+			{
+				progressSampledCount++;
+				if (progress.m_bHardStuck)
+					hardStuckCount++;
+				if (progress.m_bNoProgress)
+					noProgressCount++;
+
+				string progressActual = string.Format("distance %1m | sampled %2m | no-progress %3 | hard-stuck %4 | reason %5 | recovery %6", Math.Round(ResolveMissionConvoyDistanceToDestinationMeters(mission, asset, vehiclePosition)), Math.Round(progress.m_fDistanceToDestinationMeters), ReportBool(progress.m_bNoProgress), ReportBool(progress.m_bHardStuck), ReportText(progress.m_sLastProgressReason), ReportText(progress.m_sLastRecoveryResult));
+				AddConvoyDebugProbeAssertion(probe, "convoy.movement.progress." + asset.m_sAssetId, "progress sampled with no hard stuck", progressActual, ConvoyDebugStatus(!progress.m_bHardStuck, "WARN"), "convoy progress reports hard-stuck recovery state", groupId, mission.m_sInstanceId);
+			}
+			assetIndex++;
+		}
+
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.sampled", string.Format("%1", progressSampledCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.missing", string.Format("%1", missingProgressCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.no_progress", string.Format("%1", noProgressCount), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.progress.hard_stuck", string.Format("%1", hardStuckCount), "count");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, readiness.m_iVehicleAssetCount, missingProgressCount), ConvoyDebugStatus(progressSampledCount >= readiness.m_iVehicleAssetCount && missingProgressCount == 0, "WARN"), "one or more convoy vehicles have no movement sample yet");
+		AddConvoyDebugProbeAssertion(probe, "convoy.movement.hard_stuck_count", "hard-stuck count 0", string.Format("%1", hardStuckCount), ConvoyDebugStatus(hardStuckCount == 0), "one or more convoy vehicles are hard-stuck");
+
+		probe.m_aEvidence.Insert(BuildConvoyRuntimeReport(state, mission));
+		FinalizeConvoyDebugProbeCase(state, probe);
+		return probe;
+	}
+
+	protected HST_CampaignDebugCaseResult CreateConvoyDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
+		string instanceId = "missing";
+		string missionId = "missing";
+		if (mission)
+		{
+			instanceId = mission.m_sInstanceId;
+			missionId = mission.m_sMissionId;
+		}
+
+		probe.m_sCaseId = "convoy_physical." + missionId + "." + instanceId;
+		probe.m_sCategory = "mission_runtime";
+		probe.m_sFeature = "convoy_intercept";
+		probe.m_sStage = "physical_probe";
+		probe.m_sStatus = "PASS";
+		if (state)
+		{
+			probe.m_iStartSecond = state.m_iElapsedSeconds;
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+		}
+
+		return probe;
+	}
+
+	protected HST_CampaignDebugAssertion AddConvoyDebugProbeAssertion(HST_CampaignDebugCaseResult probe, string assertionId, string expected, string actual, string status, string failureReason = "", string entityId = "", string missionInstanceId = "", string zoneId = "", string orderId = "")
+	{
+		if (!probe)
+			return null;
+
+		HST_CampaignDebugAssertion assertion = new HST_CampaignDebugAssertion();
+		assertion.m_sAssertionId = assertionId;
+		assertion.m_sExpected = expected;
+		assertion.m_sActual = actual;
+		assertion.m_sStatus = status;
+		assertion.m_sFailureReason = failureReason;
+		assertion.m_sEntityId = entityId;
+		assertion.m_sMissionInstanceId = missionInstanceId;
+		assertion.m_sZoneId = zoneId;
+		assertion.m_sOrderId = orderId;
+		probe.m_aAssertions.Insert(assertion);
+		return assertion;
+	}
+
+	protected void AddConvoyDebugProbeMetric(HST_CampaignDebugCaseResult probe, string metricId, string value, string unit = "")
+	{
+		if (!probe)
+			return;
+
+		HST_CampaignDebugMetric metric = new HST_CampaignDebugMetric();
+		metric.m_sMetricId = metricId;
+		metric.m_sName = metricId;
+		metric.m_sValue = value;
+		metric.m_sUnit = unit;
+		metric.m_sFeature = probe.m_sFeature;
+		metric.m_sStage = probe.m_sStage;
+		metric.m_sMissionInstanceId = ResolveConvoyDebugProbeMissionInstanceId(probe);
+		probe.m_aMetrics.Insert(metric);
+	}
+
+	protected string ResolveConvoyDebugProbeMissionInstanceId(HST_CampaignDebugCaseResult probe)
+	{
+		if (!probe)
+			return "";
+
+		foreach (HST_CampaignDebugAssertion assertion : probe.m_aAssertions)
+		{
+			if (assertion && !assertion.m_sMissionInstanceId.IsEmpty())
+				return assertion.m_sMissionInstanceId;
+		}
+
+		return "";
+	}
+
+	protected void FinalizeConvoyDebugProbeCase(HST_CampaignState state, HST_CampaignDebugCaseResult probe)
+	{
+		if (!probe)
+			return;
+
+		string resolvedStatus = "PASS";
+		string resolvedReason;
+		foreach (HST_CampaignDebugAssertion assertion : probe.m_aAssertions)
+		{
+			if (!assertion)
+				continue;
+
+			if (assertion.m_sStatus == "FAIL")
+			{
+				resolvedStatus = "FAIL";
+				resolvedReason = assertion.m_sFailureReason;
+				break;
+			}
+
+			if (assertion.m_sStatus == "BLOCKED" && resolvedStatus != "FAIL")
+			{
+				resolvedStatus = "BLOCKED";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+			else if (assertion.m_sStatus == "WARN" && resolvedStatus == "PASS")
+			{
+				resolvedStatus = "WARN";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+			else if (assertion.m_sStatus == "SKIPPED" && resolvedStatus == "PASS")
+			{
+				resolvedStatus = "SKIPPED";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+		}
+
+		probe.m_sStatus = resolvedStatus;
+		if (resolvedReason.IsEmpty())
+			resolvedReason = "convoy physical probe assertions passed";
+		probe.m_sReason = resolvedReason;
+		if (state)
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+	}
+
+	protected string ConvoyDebugStatus(bool passed, string failStatus = "FAIL")
+	{
+		if (passed)
+			return "PASS";
+
+		return failStatus;
+	}
+
+	protected string BuildConvoyDebugRouteActual(HST_GeneratedRouteState route)
+	{
+		if (!route)
+			return "route missing";
+
+		return string.Format("route %1 | waypoints %2 | distance %3m | road %4 | vehicle-safe %5", ReportText(route.m_sRouteId), route.m_iWaypointCount, route.m_iDistanceMeters, ReportBool(route.m_bRoadRoute), ReportBool(route.m_bValidatedForVehicles));
+	}
+
 	bool UpdateMissionConvoys(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
 		if (!state)

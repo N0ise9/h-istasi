@@ -225,6 +225,9 @@ class HST_CommandUIService
 		actions.Insert("deactivate_zone <zone>");
 		actions.Insert("award_small");
 		actions.Insert("admin_run_campaign_debug");
+		actions.Insert("admin_campaign_debug_status");
+		actions.Insert("admin_campaign_debug_cancel");
+		actions.Insert("admin_campaign_debug_cleanup");
 		actions.Insert("admin_persistence_smoke_report");
 		actions.Insert("admin_phase14_report");
 		actions.Insert("admin_phase15_report");
@@ -282,6 +285,9 @@ class HST_CommandUIService
 		required.Insert("inspect_balance");
 		required.Insert("inspect_campaign_end");
 		required.Insert("admin_run_campaign_debug");
+		required.Insert("admin_campaign_debug_status");
+		required.Insert("admin_campaign_debug_cancel");
+		required.Insert("admin_campaign_debug_cleanup");
 		required.Insert("admin_phase14_report");
 		required.Insert("admin_phase15_report");
 		required.Insert("admin_phase16_report");
@@ -341,6 +347,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
 		if (commandId == "admin_run_campaign_debug") return true;
+		if (commandId == "admin_campaign_debug_status") return true;
+		if (commandId == "admin_campaign_debug_cancel") return true;
+		if (commandId == "admin_campaign_debug_cleanup") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -402,6 +411,9 @@ class HST_CommandUIService
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
 		if (commandId == "admin_run_campaign_debug") return true;
+		if (commandId == "admin_campaign_debug_status") return true;
+		if (commandId == "admin_campaign_debug_cancel") return true;
+		if (commandId == "admin_campaign_debug_cleanup") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -477,6 +489,12 @@ class HST_CommandUIService
 
 		if (commandId == "admin_run_campaign_debug")
 			return coordinator.RequestAdminRunCampaignDebug(playerId);
+		if (commandId == "admin_campaign_debug_status")
+			return coordinator.RequestAdminCampaignDebugStatus(playerId);
+		if (commandId == "admin_campaign_debug_cancel")
+			return coordinator.RequestAdminCancelCampaignDebug(playerId);
+		if (commandId == "admin_campaign_debug_cleanup")
+			return coordinator.RequestAdminCleanupCampaignDebug(playerId);
 
 		if (IsCampaignMutatingCommand(commandId) && !coordinator.IsCampaignActiveForVisibleMutatingCommand())
 			return "h-istasi campaign | failed: campaign is not active";
@@ -902,6 +920,8 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "admin_run_campaign_debug")
 			return false;
+		if (commandId == "admin_campaign_debug_status" || commandId == "admin_campaign_debug_cancel" || commandId == "admin_campaign_debug_cleanup")
+			return false;
 		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant")
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
@@ -1226,6 +1246,12 @@ class HST_CommandUIService
 
 		if (commandId == "admin_run_campaign_debug")
 			return !coordinator.RequestAdminRunCampaignDebug(playerId).Contains("failed");
+		if (commandId == "admin_campaign_debug_status")
+			return !coordinator.RequestAdminCampaignDebugStatus(playerId).Contains("failed");
+		if (commandId == "admin_campaign_debug_cancel")
+			return !coordinator.RequestAdminCancelCampaignDebug(playerId).Contains("failed");
+		if (commandId == "admin_campaign_debug_cleanup")
+			return !coordinator.RequestAdminCleanupCampaignDebug(playerId).Contains("failed");
 
 		if (commandId == "admin_seed_persistence_test_state")
 			return !coordinator.RequestAdminSeedPersistenceTestState(playerId).IsEmpty();
@@ -2471,7 +2497,10 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
-			AddMenuAction(actions, TAB_ADMIN, "Run Capmaign Debug", "admin_run_campaign_debug", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug", "admin_run_campaign_debug", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Campaign Debug Status", "admin_campaign_debug_status", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Cancel Campaign Debug", "admin_campaign_debug_cancel", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Cleanup Campaign Debug", "admin_campaign_debug_cleanup", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Ammo convoy", "debug_mission_id", "convoy_ammo", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Armored convoy", "debug_mission_id", "convoy_armored", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Debug Mission] Money convoy", "debug_mission_id", "convoy_money", canUseAdmin, "admin required");

@@ -408,6 +408,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The command menu button should start the run or return current status; the coordinator tick should advance one bounded step per second.
   - Keep runner state runtime-only unless the test result itself needs persistence. Do not add fields to save data for a transient debug harness.
   - Current example: `HST_CampaignCoordinatorComponent.RequestAdminRunCampaignDebug()` starts the sequenced campaign debug runner, and `TickCampaignDebugRunner()` advances bootstrap, reports, HQ/spawn, economy/support, phase 0-13 mechanics, mission sweep, phase smoke, and final report stages.
+  - Long runs should expose status, cancel, and cleanup admin commands beside the start action. Cancel should stop the sequencer and write artifacts; cleanup should complete the current/early debug missions and clear player-requested support requests.
+
+- Campaign debug certification output should be structured first, text second.
+  - Keep transient result models outside save data and serialize them with `JsonSaveContext` under `$profile:h-istasi/debug`.
+  - Current artifact contract: `HST_CampaignDebug_<runId>.json`, `HST_CampaignDebug_<runId>_summary.txt`, and `HST_CampaignDebug_<runId>_state_diff.txt`.
+  - The typed result layer should record run/case/assertion/metric fields, while legacy command/report strings can be wrapped as typed cases during migration.
+  - State-diff text is enough for forensic triage: capture start and end money, HR, training, war level, active mission, asset, group, support, order, and marker counts.
+  - Do not treat a legacy string-wrapped report case as full certification for a feature. Full coverage needs a direct ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP case with state and physical-world evidence, or the feature should remain WARN/BLOCKED/not-covered in the verification audit.
+
+- Physical runtime probes should not silently pass when there is no controlled player entity.
+  - Bootstrap should mark a physical-blocked flag if the controlled player cannot be resolved after teleport/spawn setup.
+  - Continue non-physical state/report checks, but mark convoy, captive, and other physical probes as `BLOCKED` instead of converting missing player context into a pass.
 
 - Full-campaign debug coverage should explicitly map to the phase plan instead of assuming late smoke helpers cover everything.
   - Phase 0-13 coverage needs its own sweep for foundation/checkpoint reports, mission runtime visibility, convoy route/readiness/waypoint/contact/completion behavior, active-mission persistence, non-convoy primitive runtime, zone activation, garrison recruit/remove, civilian aid, support cancellation, vehicle/loadout reports, and command UI coverage.
@@ -416,10 +428,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Debug runners should accelerate long convoy waits through runtime state, then let normal services process the result.
   - Real convoy staging idle can be several minutes; a one-button test should advance the sample convoy mission counters to the departure threshold and wait a tick or two for mission/physical-war services to move it into the next phase.
   - This exercises the real route/readiness/contact reporting path without making admin diagnostics wait for natural convoy timers.
+  - Keep physical convoy internals behind a narrow debug probe API on `HST_PhysicalWarService` instead of widening every runtime helper. The probe can use readiness/progress internals to assert vehicle assets, runtime vehicle entities, crew groups, alive crew, seated drivers, routes, waypoints, and progress samples.
+  - Convoy movement proof should include readiness and progress, not just spawned object counts. Treat missing progress samples as WARN while the async runtime catches up, but hard-stuck progress should fail the certification case.
+
+- POW/captive debug certification should use the real interaction commands.
+  - For `rescue_extract`, call `mission_captive_extract` first; that path frees an unpicked captive and marks the asset picked up.
+  - Then call `mission_captive_follow`; the expected state is `m_sLastInteraction == "following"`, `m_bAttachedToCarrier == true`, and a non-empty carried-by identity.
+  - Checking only mission text or spawned captive asset counts does not prove the rescue primitive can move from freed to following/extracting.
 
 - Player-requested support cooldowns can poison later support smoke steps.
   - If an earlier debug stage calls player support commands, clear or cancel player-requested support requests and reset their cooldown fields before Phase 19 support smoke helpers.
   - Otherwise a valid support smoke command can fail for a cooldown created by the same one-button debug run.
+  - When a debug suite intentionally tests several support types in one run, clear/cancel the previous player support request before each support-type probe. Then assert the newly created `HST_SupportRequestState` fields (`m_eType`, `m_sFactionKey`, target zone/position, ETA, money cost, queued/active status) instead of relying on the command text.
 
 - A one-button debug run can cover in-process Phase 25 soak checks, but not external session conditions.
   - Report real restart-after-each-primitive, second-client join/reconnect, and two-hour endurance as explicit WARN/manual gaps instead of silently treating them as covered.
@@ -451,6 +471,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Score mutation/test commands through a shared failure classifier (`failed:`, server/admin required, not-ready, `FAIL` smoke output).
   - Log read-only reports as INFO unless the report itself is empty or indicates a hard service failure.
   - Intentional negative-path samples, such as the Phase 23 failed-action sample, should count as WARN instead of FAIL so the final totals stay actionable.
+  - Phase 20/21 undercover smoke should assert `HST_PlayerUndercoverState` directly. Useful fields are `m_eStatus`, `m_iWantedHeat`, `m_bUndercoverRequested`, `m_bUndercoverApplied`, `m_sAppliedMode`, `m_sLastDetectionSource`, roadblock/police scan counts, and last scan failure booleans.
 
 ## AI And Spawning
 
