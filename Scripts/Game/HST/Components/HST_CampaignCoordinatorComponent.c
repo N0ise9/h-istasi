@@ -7200,7 +7200,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		else if (primitiveName == "deliver_supplies")
 			AddCampaignDebugTransportPrimitiveAssertions(primitiveCase, definition, mission, "city_supplies", "deliver_supplies");
 		else if (primitiveName == "hold_area" || primitiveName == "clear_area")
-			AddCampaignDebugAreaPrimitiveGapAssertion(primitiveCase, mission);
+			AddCampaignDebugAreaPrimitiveAssertions(primitiveCase, definition, mission);
 		else
 			AddCampaignDebugAssertion(primitiveCase, "primitive.runtime.supported", "primitive has a typed mission-sweep probe", EmptyCampaignDebugField(primitiveName), "WARN", "mission primitive is not yet covered by a typed runtime action probe", "", primitiveInstanceId, mission.m_sTargetZoneId);
 
@@ -7416,12 +7416,137 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("vehicle_local_%1_%2", carrierEntity.GetName(), carrierEntity.GetOrigin());
 	}
 
-	protected void AddCampaignDebugAreaPrimitiveGapAssertion(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission)
+	protected void AddCampaignDebugAreaPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
 	{
 		if (!primitiveCase || !mission)
 			return;
 
-		AddCampaignDebugAssertion(primitiveCase, "primitive.area.timed_physical_probe", "timed player/radius/hostile physical probe covers hold_area and clear_area", BuildCampaignDebugPrimitiveMissionActual(mission), "WARN", "area-control primitive still needs a timed physical-zone probe instead of admin/objective completion", "", mission.m_sInstanceId, mission.m_sTargetZoneId);
+		string areaInstanceId = mission.m_sInstanceId;
+		HST_MissionObjectiveState areaObjective = FindCampaignDebugAreaObjective(areaInstanceId);
+		if (!areaObjective)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive.area.objective", "area-control objective exists", "missing", "BLOCKED", "area primitive has no hold/clear objective", "", areaInstanceId, mission.m_sTargetZoneId);
+			return;
+		}
+
+		int areaMoneyBefore = 0;
+		int areaHRBefore = 0;
+		if (m_State)
+		{
+			areaMoneyBefore = m_State.m_iFactionMoney;
+			areaHRBefore = m_State.m_iHR;
+		}
+
+		int areaHoldBefore = areaObjective.m_iHoldSeconds;
+		int areaRequiredHold = areaObjective.m_iRequiredHoldSeconds;
+		if (areaRequiredHold <= 0 && areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA)
+			areaRequiredHold = 45;
+		int areaTickSeconds = 1;
+		if (areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA)
+			areaTickSeconds = Math.Max(1, areaRequiredHold - areaHoldBefore + 1);
+
+		string areaHostileGroupId;
+		int areaHostileBefore;
+		int areaHostileAfter;
+		bool areaHostileEntityCleaned;
+		NeutralizeCampaignDebugAreaMissionHostiles(mission, areaHostileGroupId, areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned);
+
+		bool areaTeleport = TeleportCampaignDebugPlayer(areaObjective.m_vPosition + "2 0 2", "area primitive probe");
+		IEntity areaPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		float areaPlayerDistance = 999999.0;
+		if (areaPlayer)
+			areaPlayerDistance = Math.Sqrt(DistanceSq2D(areaPlayer.GetOrigin(), areaObjective.m_vPosition));
+
+		bool areaRuntimeChanged;
+		bool areaObjectiveTickChanged;
+		if (m_State && m_MissionRuntime)
+		{
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + areaTickSeconds;
+			areaRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, areaTickSeconds);
+		}
+		if (m_Objectives)
+			areaObjectiveTickChanged = m_Objectives.Tick(m_State);
+
+		string areaCompletedMissionId;
+		bool areaCompletedByRuntime;
+		if (m_MissionRuntime && m_Objectives)
+			areaCompletedMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
+		if (areaCompletedMissionId == areaInstanceId)
+			areaCompletedByRuntime = CompleteMission(areaCompletedMissionId);
+
+		bool areaObjectiveComplete = areaObjective.m_bComplete && !areaObjective.m_bFailed;
+		bool areaHoldComplete = areaObjective.m_eType != HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || areaObjective.m_iHoldSeconds >= areaRequiredHold;
+		string areaActual = string.Format("objective %1 | type %2 | hold %3/%4 | complete %5 | world %6", areaObjective.m_sObjectiveId, areaObjective.m_eType, areaObjective.m_iHoldSeconds, areaRequiredHold, areaObjective.m_bComplete, areaObjective.m_bWorldDetected);
+		areaActual = areaActual + string.Format(" | tick %1s runtime %2 objective %3 | completed %4/%5", areaTickSeconds, areaRuntimeChanged, areaObjectiveTickChanged, EmptyCampaignDebugField(areaCompletedMissionId), areaCompletedByRuntime);
+
+		AddCampaignDebugMetric(primitiveCase, "primitive.area.tick_seconds", string.Format("%1", areaTickSeconds), "seconds");
+		AddCampaignDebugMetric(primitiveCase, "primitive.area.hold_before", string.Format("%1", areaHoldBefore), "seconds");
+		AddCampaignDebugMetric(primitiveCase, "primitive.area.hold_after", string.Format("%1", areaObjective.m_iHoldSeconds), "seconds");
+		AddCampaignDebugMetric(primitiveCase, "primitive.area.hostile_strength_before", string.Format("%1", areaHostileBefore), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive.area.hostile_strength_after", string.Format("%1", areaHostileAfter), "count");
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.objective", "area-control objective is hold_area or clear_area", areaActual, CampaignDebugStatus(areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA), "area primitive objective type mismatch", "", areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.player_position", "controlled player is within objective radius", string.Format("teleport %1 | distance %2m | objective %3", areaTeleport, Math.Round(areaPlayerDistance), areaObjective.m_vPosition), CampaignDebugStatus(areaTeleport && areaPlayerDistance <= 35.0), "area primitive player was not inside objective radius", "", areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.hostiles_absent", "mission-owned hostile group is absent or neutralized for objective tick", string.Format("group %1 | strength %2 -> %3 | entity cleaned %4", EmptyCampaignDebugField(areaHostileGroupId), areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned), CampaignDebugStatus(areaHostileAfter <= 0), "area primitive still had unresolved mission-owned hostiles", areaHostileGroupId, areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.runtime_tick", "mission runtime tick processes player-near area objective", areaActual, CampaignDebugStatus(areaRuntimeChanged || areaObjectiveComplete), "area primitive runtime tick did not mutate or complete objective", "", areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.world_detected", "area objective records world/player detection", areaActual, CampaignDebugStatus(areaObjective.m_bWorldDetected), "area primitive did not record world/player detection", "", areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.objective_complete", "area objective completes through timed runtime path", areaActual, CampaignDebugStatus(areaObjectiveComplete && areaHoldComplete), "area primitive objective did not complete through runtime tick", "", areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.combat_model", "hostile engagement is physically resolved before objective pass", string.Format("group %1 | strength %2 -> %3", EmptyCampaignDebugField(areaHostileGroupId), areaHostileBefore, areaHostileAfter), CampaignDebugStatus(areaHostileBefore <= 0, "WARN"), "area primitive used controlled hostile neutralization instead of observed combat", areaHostileGroupId, areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, areaMoneyBefore, areaHRBefore, mission.m_sRuntimePrimitive);
+	}
+
+	protected HST_MissionObjectiveState FindCampaignDebugAreaObjective(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return null;
+
+		foreach (HST_MissionObjectiveState areaObjective : m_State.m_aMissionObjectives)
+		{
+			if (!areaObjective || areaObjective.m_sMissionInstanceId != instanceId)
+				continue;
+			if (areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA)
+				return areaObjective;
+		}
+
+		return null;
+	}
+
+	protected void NeutralizeCampaignDebugAreaMissionHostiles(HST_ActiveMissionState mission, out string groupId, out int strengthBefore, out int strengthAfter, out bool entityCleaned)
+	{
+		groupId = "";
+		strengthBefore = 0;
+		strengthAfter = 0;
+		entityCleaned = false;
+		if (!m_State || !mission)
+			return;
+
+		string missionGroupId = "mission_group_" + mission.m_sInstanceId;
+		foreach (HST_ActiveGroupState areaGroup : m_State.m_aActiveGroups)
+		{
+			if (!areaGroup || areaGroup.m_sGroupId != missionGroupId)
+				continue;
+
+			groupId = areaGroup.m_sGroupId;
+			strengthBefore = ResolveCampaignDebugAreaGroupStrength(areaGroup);
+			areaGroup.m_iLastSeenAliveCount = 0;
+			areaGroup.m_iSurvivorInfantryCount = 0;
+			areaGroup.m_iSurvivorVehicleCount = 0;
+			areaGroup.m_iSpawnedAgentCount = 0;
+			areaGroup.m_iAssignedWaypointCount = 0;
+			areaGroup.m_bSpawnedEntity = false;
+			areaGroup.m_sRuntimeStatus = "eliminated";
+			if (m_PhysicalWar)
+				entityCleaned = m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(areaGroup.m_sGroupId);
+			strengthAfter = ResolveCampaignDebugAreaGroupStrength(areaGroup);
+			return;
+		}
+	}
+
+	protected int ResolveCampaignDebugAreaGroupStrength(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return 0;
+
+		return Math.Max(group.m_iLastSeenAliveCount, Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount));
 	}
 
 	protected void AddCampaignDebugMissionAssetReadinessAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission, HST_MissionAssetState asset, string assertionPrefix)
