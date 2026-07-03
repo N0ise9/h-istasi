@@ -161,6 +161,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase17CounterattackSupportBefore;
 	protected int m_iCampaignDebugPhase17CounterattackAttackAfter;
 	protected int m_iCampaignDebugPhase17CounterattackSupportAfter;
+	protected bool m_bCampaignDebugPhase24TerminalSnapshotValid;
+	protected HST_ECampaignPhase m_eCampaignDebugPhase24TerminalPhase;
+	protected int m_iCampaignDebugPhase24TerminalStepIndex;
+	protected int m_iCampaignDebugPhase24TerminalElapsed;
+	protected int m_iCampaignDebugPhase24TerminalMoney;
+	protected int m_iCampaignDebugPhase24TerminalHR;
+	protected int m_iCampaignDebugPhase24TerminalIncomeTimer;
+	protected int m_iCampaignDebugPhase24TerminalActiveMissions;
+	protected int m_iCampaignDebugPhase24TerminalObjectives;
+	protected int m_iCampaignDebugPhase24TerminalMissionAssets;
+	protected int m_iCampaignDebugPhase24TerminalSupportRequests;
+	protected int m_iCampaignDebugPhase24TerminalEnemyOrders;
+	protected int m_iCampaignDebugPhase24TerminalActiveGroups;
+	protected int m_iCampaignDebugPhase24TerminalRuntimeVehicles;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugLastResult;
@@ -3004,6 +3018,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		ResetCampaignDebugPhase16Observations();
 		ResetCampaignDebugPhase17Observations();
+		ResetCampaignDebugPhase24TerminalSnapshot();
 		m_sCampaignDebugLastResult = "started";
 		m_aCampaignDebugRecentLog.Clear();
 		m_aCampaignDebugStartActiveMissionIds.Clear();
@@ -4417,6 +4432,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string label = ResolveCampaignDebugPhaseSmokeLabel(m_iCampaignDebugPhaseStepIndex);
 		string result = ExecuteCampaignDebugPhaseSmokeStep(m_iCampaignDebugPhaseStepIndex);
+		if (m_iCampaignDebugPhaseStepIndex == 57 || m_iCampaignDebugPhaseStepIndex == 59)
+			CaptureCampaignDebugPhase24TerminalSnapshot(m_iCampaignDebugPhaseStepIndex);
 		bool reportStep = IsCampaignDebugPhaseSmokeReportStep(m_iCampaignDebugPhaseStepIndex);
 		bool success = IsCampaignDebugPhaseSmokeResultSuccessful(m_iCampaignDebugPhaseStepIndex, result, reportStep);
 		if (m_iCampaignDebugPhaseStepIndex == 50)
@@ -10829,12 +10846,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.phase", "campaign phase WON", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON), "forced victory did not set campaign phase WON");
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.reason", "campaign end reason names victory and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("victory") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced victory did not populate victory end metadata");
 			AddCampaignDebugAssertion(pacingCase, "phase24.victory.control", "control percent reaches configured victory threshold", string.Format("control %1 | threshold %2 | FIA %3 | enemy %4", m_State.m_iCampaignEndControlPercent, m_Balance.m_iVictoryControlPercent, m_State.m_iCampaignEndFIAZones, m_State.m_iCampaignEndEnemyZones), CampaignDebugStatus(m_State.m_iCampaignEndControlPercent >= m_Balance.m_iVictoryControlPercent && m_State.m_iCampaignEndFIAZones > m_State.m_iCampaignEndEnemyZones), "forced victory persisted control metadata below victory threshold");
+			if (index == 58)
+				AddCampaignDebugPhase24TerminalInactivityAssertions(pacingCase, "victory");
 		}
 		else if (index >= 59 && index <= 61)
 		{
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.phase", "campaign phase LOST", BuildCampaignDebugPhase24Actual(controlPercent, fiaZones, enemyZones), CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST), "forced loss did not set campaign phase LOST");
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.reason", "campaign end reason names loss and report generated", string.Format("reason %1 | summary %2 | report %3", EmptyCampaignDebugField(m_State.m_sCampaignEndReason), EmptyCampaignDebugField(m_State.m_sCampaignEndSummary), m_State.m_bCampaignEndReportGenerated), CampaignDebugStatus(m_State.m_bCampaignEndReportGenerated && m_State.m_sCampaignEndReason.Contains("loss") && !m_State.m_sCampaignEndSummary.IsEmpty()), "forced loss did not populate loss end metadata");
 			AddCampaignDebugAssertion(pacingCase, "phase24.loss.thresholds", "loss thresholds are satisfied", string.Format("money %1 <= %2 | HR %3 <= %4 | Petros deaths %5 >= %6", m_State.m_iFactionMoney, m_Balance.m_iLossMoneyThreshold, m_State.m_iHR, m_Balance.m_iLossHRThreshold, m_State.m_iPetrosDeaths, m_Balance.m_iLossPetrosDeathLimit), CampaignDebugStatus(m_State.m_iFactionMoney <= m_Balance.m_iLossMoneyThreshold && m_State.m_iHR <= m_Balance.m_iLossHRThreshold && m_State.m_iPetrosDeaths >= m_Balance.m_iLossPetrosDeathLimit), "forced loss state does not satisfy configured loss thresholds");
+			if (index == 60 || index == 61)
+				AddCampaignDebugPhase24TerminalInactivityAssertions(pacingCase, "loss");
 		}
 
 		FinalizeCampaignDebugCaseFromAssertions(pacingCase);
@@ -10847,6 +10868,84 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		return string.Format("phase %1 | money %2 | HR %3 | training %4 | war %5 | control %6 | FIA zones %7 | enemy zones %8 | end %9", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, controlPercent, fiaZones, enemyZones, m_State.m_bCampaignEndReportGenerated);
+	}
+
+	protected void ResetCampaignDebugPhase24TerminalSnapshot()
+	{
+		m_bCampaignDebugPhase24TerminalSnapshotValid = false;
+		m_eCampaignDebugPhase24TerminalPhase = HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
+		m_iCampaignDebugPhase24TerminalStepIndex = -1;
+		m_iCampaignDebugPhase24TerminalElapsed = 0;
+		m_iCampaignDebugPhase24TerminalMoney = 0;
+		m_iCampaignDebugPhase24TerminalHR = 0;
+		m_iCampaignDebugPhase24TerminalIncomeTimer = 0;
+		m_iCampaignDebugPhase24TerminalActiveMissions = 0;
+		m_iCampaignDebugPhase24TerminalObjectives = 0;
+		m_iCampaignDebugPhase24TerminalMissionAssets = 0;
+		m_iCampaignDebugPhase24TerminalSupportRequests = 0;
+		m_iCampaignDebugPhase24TerminalEnemyOrders = 0;
+		m_iCampaignDebugPhase24TerminalActiveGroups = 0;
+		m_iCampaignDebugPhase24TerminalRuntimeVehicles = 0;
+	}
+
+	protected void CaptureCampaignDebugPhase24TerminalSnapshot(int phaseStepIndex)
+	{
+		ResetCampaignDebugPhase24TerminalSnapshot();
+		if (!m_State)
+			return;
+
+		m_bCampaignDebugPhase24TerminalSnapshotValid = true;
+		m_eCampaignDebugPhase24TerminalPhase = m_State.m_ePhase;
+		m_iCampaignDebugPhase24TerminalStepIndex = phaseStepIndex;
+		m_iCampaignDebugPhase24TerminalElapsed = m_State.m_iElapsedSeconds;
+		m_iCampaignDebugPhase24TerminalMoney = m_State.m_iFactionMoney;
+		m_iCampaignDebugPhase24TerminalHR = m_State.m_iHR;
+		m_iCampaignDebugPhase24TerminalIncomeTimer = m_State.m_iIncomeAccumulatorSeconds;
+		m_iCampaignDebugPhase24TerminalActiveMissions = m_State.m_aActiveMissions.Count();
+		m_iCampaignDebugPhase24TerminalObjectives = m_State.m_aMissionObjectives.Count();
+		m_iCampaignDebugPhase24TerminalMissionAssets = m_State.m_aMissionAssets.Count();
+		m_iCampaignDebugPhase24TerminalSupportRequests = m_State.m_aSupportRequests.Count();
+		m_iCampaignDebugPhase24TerminalEnemyOrders = m_State.m_aEnemyOrders.Count();
+		m_iCampaignDebugPhase24TerminalActiveGroups = m_State.m_aActiveGroups.Count();
+		m_iCampaignDebugPhase24TerminalRuntimeVehicles = m_State.m_aRuntimeVehicles.Count();
+	}
+
+	protected void AddCampaignDebugPhase24TerminalInactivityAssertions(HST_CampaignDebugCaseResult pacingCase, string terminalLabel)
+	{
+		if (!pacingCase)
+			return;
+		if (!m_State)
+		{
+			AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_state", "campaign state exists for terminal inactivity probe", "missing", "BLOCKED", "Phase 24 terminal inactivity probe missing campaign state");
+			return;
+		}
+
+		string actual = BuildCampaignDebugPhase24TerminalSnapshotActual();
+		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_elapsed_delta", string.Format("%1", m_State.m_iElapsedSeconds - m_iCampaignDebugPhase24TerminalElapsed), "seconds");
+		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_mission_delta", string.Format("%1", m_State.m_aActiveMissions.Count() - m_iCampaignDebugPhase24TerminalActiveMissions), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_support_delta", string.Format("%1", m_State.m_aSupportRequests.Count() - m_iCampaignDebugPhase24TerminalSupportRequests), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24." + terminalLabel + ".post_end_order_delta", string.Format("%1", m_State.m_aEnemyOrders.Count() - m_iCampaignDebugPhase24TerminalEnemyOrders), "count");
+		bool snapshotReady = m_bCampaignDebugPhase24TerminalSnapshotValid && (m_iCampaignDebugPhase24TerminalStepIndex == 57 || m_iCampaignDebugPhase24TerminalStepIndex == 59);
+		bool phaseTerminal = m_State.m_ePhase == m_eCampaignDebugPhase24TerminalPhase && (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST);
+		AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_phase_guard", "terminal phase remains unchanged across the delayed report step", actual, CampaignDebugStatus(snapshotReady && phaseTerminal), "Phase 24 terminal phase changed or no terminal snapshot was captured");
+		AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_elapsed_guard", "normal elapsed-second progression is skipped while terminal", actual, CampaignDebugStatus(snapshotReady && m_State.m_iElapsedSeconds == m_iCampaignDebugPhase24TerminalElapsed), "terminal phase frame processing advanced campaign elapsed seconds unexpectedly");
+		bool runtimeCountsStable = m_State.m_aActiveMissions.Count() == m_iCampaignDebugPhase24TerminalActiveMissions && m_State.m_aMissionObjectives.Count() == m_iCampaignDebugPhase24TerminalObjectives && m_State.m_aMissionAssets.Count() == m_iCampaignDebugPhase24TerminalMissionAssets && m_State.m_aSupportRequests.Count() == m_iCampaignDebugPhase24TerminalSupportRequests && m_State.m_aEnemyOrders.Count() == m_iCampaignDebugPhase24TerminalEnemyOrders && m_State.m_aActiveGroups.Count() == m_iCampaignDebugPhase24TerminalActiveGroups && m_State.m_aRuntimeVehicles.Count() == m_iCampaignDebugPhase24TerminalRuntimeVehicles;
+		AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_runtime_counts", "missions, objectives, assets, support, orders, groups, and runtime vehicles do not mutate after campaign end", actual, CampaignDebugStatus(snapshotReady && runtimeCountsStable), "terminal phase allowed runtime service record counts to mutate unexpectedly");
+		bool economyStable = m_State.m_iFactionMoney == m_iCampaignDebugPhase24TerminalMoney && m_State.m_iHR == m_iCampaignDebugPhase24TerminalHR && m_State.m_iIncomeAccumulatorSeconds == m_iCampaignDebugPhase24TerminalIncomeTimer;
+		AddCampaignDebugAssertion(pacingCase, "phase24." + terminalLabel + ".post_end_economy", "money, HR, and income timer stay unchanged after campaign end", actual, CampaignDebugStatus(snapshotReady && economyStable), "terminal phase allowed economy or income timer state to mutate unexpectedly");
+	}
+
+	protected string BuildCampaignDebugPhase24TerminalSnapshotActual()
+	{
+		if (!m_State)
+			return "missing";
+
+		string actual = string.Format("snapshot valid %1 step %2 phase %3 -> %4", m_bCampaignDebugPhase24TerminalSnapshotValid, m_iCampaignDebugPhase24TerminalStepIndex, m_eCampaignDebugPhase24TerminalPhase, m_State.m_ePhase);
+		actual = actual + string.Format(" | elapsed %1 -> %2 | money %3 -> %4 | HR %5 -> %6", m_iCampaignDebugPhase24TerminalElapsed, m_State.m_iElapsedSeconds, m_iCampaignDebugPhase24TerminalMoney, m_State.m_iFactionMoney, m_iCampaignDebugPhase24TerminalHR, m_State.m_iHR);
+		actual = actual + string.Format(" | timer %1 -> %2 | missions %3 -> %4 | objectives %5 -> %6", m_iCampaignDebugPhase24TerminalIncomeTimer, m_State.m_iIncomeAccumulatorSeconds, m_iCampaignDebugPhase24TerminalActiveMissions, m_State.m_aActiveMissions.Count(), m_iCampaignDebugPhase24TerminalObjectives, m_State.m_aMissionObjectives.Count());
+		actual = actual + string.Format(" | assets %1 -> %2 | support %3 -> %4 | orders %5 -> %6", m_iCampaignDebugPhase24TerminalMissionAssets, m_State.m_aMissionAssets.Count(), m_iCampaignDebugPhase24TerminalSupportRequests, m_State.m_aSupportRequests.Count(), m_iCampaignDebugPhase24TerminalEnemyOrders, m_State.m_aEnemyOrders.Count());
+		actual = actual + string.Format(" | groups %1 -> %2 | vehicles %3 -> %4", m_iCampaignDebugPhase24TerminalActiveGroups, m_State.m_aActiveGroups.Count(), m_iCampaignDebugPhase24TerminalRuntimeVehicles, m_State.m_aRuntimeVehicles.Count());
+		return actual;
 	}
 
 	protected void GetCampaignDebugEnemyPoolPressure(out int maxAttack, out int maxSupport, out int maxAggression)
