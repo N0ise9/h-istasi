@@ -6527,7 +6527,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 1: return BuildCampaignDebugPhase1Report();
 			case 2: return StartCampaignDebugConvoySample();
 			case 3: return BuildCampaignDebugConvoySampleReport();
-			case 4: return RequestMemberInspectGeneratedContent(m_iCampaignDebugPlayerId);
+			case 4: return RunCampaignDebugGeneratedContentTyped();
 			case 5: return ForceCampaignDebugConvoyDepartureWindow();
 			case 6: return BuildCampaignDebugConvoySampleReport();
 			case 7: return TeleportCampaignDebugPlayerToConvoySample();
@@ -6562,6 +6562,175 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
 		report = report + "\n" + RequestMemberInspectObjectives(m_iCampaignDebugPlayerId);
 		return report;
+	}
+
+	protected string RunCampaignDebugGeneratedContentTyped()
+	{
+		string report = RequestMemberInspectGeneratedContent(m_iCampaignDebugPlayerId);
+		RecordCampaignDebugCase(BuildCampaignDebugGeneratedContentCase(report));
+		return report;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugGeneratedContentCase(string report)
+	{
+		HST_CampaignDebugCaseResult contentCase = CreateCampaignDebugCase("generated_content.alpha_sites", "generated_content", "sites_routes", "early_mechanics");
+		contentCase.m_aEvidence.Insert(ShortCampaignDebugLine(report, 520));
+		bool serviceReady = m_State != null && m_Content != null;
+		AddCampaignDebugAssertion(contentCase, "generated_content.prerequisite.services", "state and generated content service ready", string.Format("%1", serviceReady), CampaignDebugStatus(serviceReady), "generated content service prerequisite missing");
+		if (!serviceReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(contentCase);
+			return contentCase;
+		}
+
+		int zoneCount;
+		int townCount;
+		int nonTownCount;
+		int missingPrimarySites;
+		int missingRoadblockSites;
+		int missingSupportSites;
+		int missingSecondarySites;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			zoneCount++;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+				townCount++;
+			else
+				nonTownCount++;
+
+			if (!m_State.FindGeneratedSite(string.Format("site_%1_primary", zone.m_sZoneId)))
+				missingPrimarySites++;
+			if (!m_State.FindGeneratedSite(string.Format("site_%1_roadblock", zone.m_sZoneId)))
+				missingRoadblockSites++;
+			if (!m_State.FindGeneratedSite(string.Format("site_%1_support", zone.m_sZoneId)))
+				missingSupportSites++;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			{
+				if (!m_State.FindGeneratedSite(string.Format("site_%1_stash", zone.m_sZoneId)))
+					missingSecondarySites++;
+			}
+			else
+			{
+				if (!m_State.FindGeneratedSite(string.Format("site_%1_crashsite", zone.m_sZoneId)))
+					missingSecondarySites++;
+			}
+		}
+
+		ref array<string> siteIds = {};
+		ref array<string> routeIds = {};
+		int siteCount;
+		int validSiteCount;
+		int invalidSiteCount;
+		int duplicateSiteIds;
+		int zeroSitePositions;
+		int missingSiteSourceMetadata;
+		int roadblockSiteCount;
+		int supportSiteCount;
+		int stashSiteCount;
+		int crashsiteCount;
+		int sitesMissingRoute;
+		foreach (HST_GeneratedSiteState site : m_State.m_aGeneratedSites)
+		{
+			if (!site)
+				continue;
+
+			siteCount++;
+			if (siteIds.Find(site.m_sSiteId) >= 0)
+				duplicateSiteIds++;
+			else
+				siteIds.Insert(site.m_sSiteId);
+
+			if (site.m_bValid)
+				validSiteCount++;
+			else
+				invalidSiteCount++;
+			if (IsZeroVector(site.m_vPosition))
+				zeroSitePositions++;
+			if (site.m_sSourceLayerName.IsEmpty() || site.m_sSourceCategory.IsEmpty())
+				missingSiteSourceMetadata++;
+			if (!site.m_sRouteId.IsEmpty() && !m_State.FindGeneratedRoute(site.m_sRouteId))
+				sitesMissingRoute++;
+
+			if (site.m_eType == HST_EGeneratedSiteType.HST_SITE_ROADBLOCK)
+				roadblockSiteCount++;
+			else if (site.m_eType == HST_EGeneratedSiteType.HST_SITE_SUPPORT)
+				supportSiteCount++;
+			else if (site.m_eType == HST_EGeneratedSiteType.HST_SITE_STASH)
+				stashSiteCount++;
+			else if (site.m_eType == HST_EGeneratedSiteType.HST_SITE_CRASHSITE)
+				crashsiteCount++;
+		}
+
+		int routeCount;
+		int duplicateRouteIds;
+		int invalidRoutes;
+		int routesMissingZone;
+		int routesWithTooFewWaypoints;
+		int routesWithZeroPositions;
+		int waypointRouteMismatches;
+		int waypointIndexMismatches;
+		int waypointZeroPositions;
+		int minWaypointCount = 999999;
+		foreach (HST_GeneratedRouteState route : m_State.m_aGeneratedRoutes)
+		{
+			if (!route)
+				continue;
+
+			routeCount++;
+			if (routeIds.Find(route.m_sRouteId) >= 0)
+				duplicateRouteIds++;
+			else
+				routeIds.Insert(route.m_sRouteId);
+
+			if (!route.m_bValidatedForVehicles)
+				invalidRoutes++;
+			if (!m_State.FindZone(route.m_sSourceZoneId) || !m_State.FindZone(route.m_sTargetZoneId))
+				routesMissingZone++;
+			if (route.m_iWaypointCount < 3 || route.m_aWaypoints.Count() < 3)
+				routesWithTooFewWaypoints++;
+			if (IsZeroVector(route.m_vStartPosition) || IsZeroVector(route.m_vMidPosition) || IsZeroVector(route.m_vEndPosition))
+				routesWithZeroPositions++;
+			if (route.m_iWaypointCount < minWaypointCount)
+				minWaypointCount = route.m_iWaypointCount;
+
+			for (int waypointIndex = 0; waypointIndex < route.m_aWaypoints.Count(); waypointIndex++)
+			{
+				HST_RouteWaypointState waypoint = route.m_aWaypoints[waypointIndex];
+				if (!waypoint)
+					continue;
+				if (waypoint.m_sRouteId != route.m_sRouteId)
+					waypointRouteMismatches++;
+				if (waypoint.m_iIndex != waypointIndex)
+					waypointIndexMismatches++;
+				if (IsZeroVector(waypoint.m_vPosition))
+					waypointZeroPositions++;
+			}
+		}
+		if (minWaypointCount == 999999)
+			minWaypointCount = 0;
+
+		int expectedMinimumSites = zoneCount * 4;
+		AddCampaignDebugMetric(contentCase, "generated_content.zones", string.Format("%1", zoneCount), "count");
+		AddCampaignDebugMetric(contentCase, "generated_content.sites", string.Format("%1", siteCount), "count");
+		AddCampaignDebugMetric(contentCase, "generated_content.valid_sites", string.Format("%1", validSiteCount), "count");
+		AddCampaignDebugMetric(contentCase, "generated_content.routes", string.Format("%1", routeCount), "count");
+		AddCampaignDebugMetric(contentCase, "generated_content.min_waypoints", string.Format("%1", minWaypointCount), "count");
+		AddCampaignDebugAssertion(contentCase, "generated_content.report", "generated content report is available", ShortCampaignDebugLine(report, 220), CampaignDebugStatus(!report.IsEmpty() && report.Contains("h-istasi generated content")), "generated content report missing expected summary");
+		AddCampaignDebugAssertion(contentCase, "generated_content.site_count", "generated sites include primary, roadblock, support, and secondary anchors for every zone", string.Format("sites %1 | expected >= %2 | zones %3", siteCount, expectedMinimumSites, zoneCount), CampaignDebugStatus(zoneCount > 0 && siteCount >= expectedMinimumSites), "generated site count is below per-zone minimum");
+		AddCampaignDebugAssertion(contentCase, "generated_content.route_count", "generated routes exist for every zone", string.Format("routes %1 | zones %2", routeCount, zoneCount), CampaignDebugStatus(zoneCount > 0 && routeCount >= zoneCount), "generated route count is below zone count");
+		AddCampaignDebugAssertion(contentCase, "generated_content.per_zone_anchors", "every zone has primary, roadblock, support, and stash/crashsite anchors", string.Format("missing primary %1 | roadblock %2 | support %3 | secondary %4", missingPrimarySites, missingRoadblockSites, missingSupportSites, missingSecondarySites), CampaignDebugStatus(missingPrimarySites == 0 && missingRoadblockSites == 0 && missingSupportSites == 0 && missingSecondarySites == 0), "one or more zones are missing generated mission anchors");
+		AddCampaignDebugAssertion(contentCase, "generated_content.site_ids_unique", "generated site ids are unique", string.Format("duplicates %1/%2", duplicateSiteIds, siteCount), CampaignDebugStatus(duplicateSiteIds == 0), "duplicate generated site ids found");
+		AddCampaignDebugAssertion(contentCase, "generated_content.site_validity", "all generated sites are valid and have non-zero positions", string.Format("invalid %1 | zero positions %2 | valid %3/%4", invalidSiteCount, zeroSitePositions, validSiteCount, siteCount), CampaignDebugStatus(siteCount > 0 && invalidSiteCount == 0 && zeroSitePositions == 0), "generated sites include invalid or zero-position anchors");
+		AddCampaignDebugAssertion(contentCase, "generated_content.site_metadata", "generated sites carry source metadata and route links resolve", string.Format("missing metadata %1 | missing route %2", missingSiteSourceMetadata, sitesMissingRoute), CampaignDebugStatus(missingSiteSourceMetadata == 0 && sitesMissingRoute == 0), "generated site metadata or route links are incomplete");
+		AddCampaignDebugAssertion(contentCase, "generated_content.site_type_coverage", "roadblock/support/stash/crashsite type coverage matches zone mix", string.Format("roadblock %1/%2 | support %3/%4 | stash %5/%6 | crashsite %7/%8", roadblockSiteCount, zoneCount, supportSiteCount, zoneCount, stashSiteCount, townCount, crashsiteCount, nonTownCount), CampaignDebugStatus(roadblockSiteCount >= zoneCount && supportSiteCount >= zoneCount && stashSiteCount >= townCount && crashsiteCount >= nonTownCount), "generated site type coverage is incomplete");
+		AddCampaignDebugAssertion(contentCase, "generated_content.route_ids_unique", "generated route ids are unique", string.Format("duplicates %1/%2", duplicateRouteIds, routeCount), CampaignDebugStatus(duplicateRouteIds == 0), "duplicate generated route ids found");
+		AddCampaignDebugAssertion(contentCase, "generated_content.route_validation", "all generated routes are vehicle-safe with at least three waypoints", string.Format("invalid %1 | too few waypoints %2 | min waypoints %3", invalidRoutes, routesWithTooFewWaypoints, minWaypointCount), CampaignDebugStatus(routeCount > 0 && invalidRoutes == 0 && routesWithTooFewWaypoints == 0 && minWaypointCount >= 3), "generated routes are not all vehicle-safe or waypoint-complete");
+		AddCampaignDebugAssertion(contentCase, "generated_content.route_metadata", "route zone links, endpoint positions, and waypoint metadata are coherent", string.Format("missing zone %1 | zero endpoints %2 | waypoint route mismatch %3 | index mismatch %4 | zero waypoint %5", routesMissingZone, routesWithZeroPositions, waypointRouteMismatches, waypointIndexMismatches, waypointZeroPositions), CampaignDebugStatus(routesMissingZone == 0 && routesWithZeroPositions == 0 && waypointRouteMismatches == 0 && waypointIndexMismatches == 0 && waypointZeroPositions == 0), "generated route metadata is incomplete");
+		FinalizeCampaignDebugCaseFromAssertions(contentCase);
+		return contentCase;
 	}
 
 	protected string StartCampaignDebugConvoySample()
