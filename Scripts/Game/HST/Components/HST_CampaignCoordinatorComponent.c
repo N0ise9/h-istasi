@@ -5316,7 +5316,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!marker || !zone)
 			return false;
 
-		return marker.m_vPosition[0] == zone.m_vPosition[0] && marker.m_vPosition[1] == zone.m_vPosition[1] && marker.m_vPosition[2] == zone.m_vPosition[2];
+		return DistanceSq2D(marker.m_vPosition, zone.m_vPosition) <= 1.0;
 	}
 
 	protected string BuildCampaignDebugZoneMarkerMismatchExample(HST_ZoneState zone, HST_MapMarkerState marker, string reason)
@@ -5326,6 +5326,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string markerActual = BuildCampaignDebugMarkerActual(marker);
 		string actual = string.Format("%1 | zone %2 | owner %3 | pos %4", reason, EmptyCampaignDebugField(zone.m_sZoneId), EmptyCampaignDebugField(zone.m_sOwnerFactionKey), zone.m_vPosition);
+		if (marker)
+			actual = actual + string.Format(" | marker pos %1", marker.m_vPosition);
 		actual = actual + " | marker " + markerActual;
 		return actual;
 	}
