@@ -245,6 +245,115 @@ class HST_MissionRuntimeService
 		return probe;
 	}
 
+	HST_CampaignDebugCaseResult BuildCampaignDebugExpiredPlayerBoundBubbleProbe(HST_CampaignState state, string debugPrefix, bool physicalBlocked)
+	{
+		HST_CampaignDebugCaseResult probe = CreateExpiredPlayerBoundBubbleDebugCase(state);
+		if (physicalBlocked)
+		{
+			AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.player_presence", "physical runtime tests not blocked", "blocked", "BLOCKED", "bootstrap marked physical runtime tests blocked");
+			FinalizeExpiredPlayerBoundBubbleDebugCase(state, probe);
+			return probe;
+		}
+		if (!state)
+		{
+			AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.prerequisite", "campaign state exists", "missing", "BLOCKED", "expired mission asset bubble probe missing campaign state");
+			FinalizeExpiredPlayerBoundBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		int playerId;
+		vector playerPosition;
+		if (!ResolveFirstLivingPlayerDebugContext(playerId, playerPosition))
+		{
+			AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.player", "living player entity exists", "missing", "BLOCKED", "expired mission asset bubble probe requires a living player");
+			FinalizeExpiredPlayerBoundBubbleDebugCase(state, probe);
+			return probe;
+		}
+
+		string sourceId = debugPrefix;
+		if (sourceId.IsEmpty())
+			sourceId = CAMPAIGN_DEBUG_PREFIX_ROOT + "expired_asset_bubble";
+		string instanceId = sourceId + "_expired_asset_bubble_mission_" + state.m_iElapsedSeconds;
+		string assetId = sourceId + "_expired_asset_bubble_asset_" + state.m_iElapsedSeconds;
+		string entityId = sourceId + "_expired_asset_bubble_entity_" + state.m_iElapsedSeconds;
+		vector nearPosition = HST_WorldPositionService.ResolveSafeGroundPosition(playerPosition + "2 0 2", HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 2.0);
+		vector farPosition = ResolveExpiredPlayerBoundBubbleDebugFarPosition(playerPosition);
+		float farDistance = Math.Sqrt(DistanceSq2D(playerPosition, farPosition));
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = "debug_expired_asset_bubble";
+		mission.m_sDisplayName = "Debug Expired Asset Bubble";
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+		mission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE;
+		mission.m_sRuntimePrimitive = PRIMITIVE_RESCUE_EXTRACT;
+		mission.m_sRuntimeType = PRIMITIVE_RESCUE_EXTRACT;
+		mission.m_sRuntimePhase = "expired";
+		mission.m_iRuntimeStartedAtSecond = state.m_iElapsedSeconds;
+		mission.m_iRemainingSeconds = 0;
+		mission.m_iRequiredCaptiveCount = 1;
+		mission.m_vTargetPosition = nearPosition;
+		state.m_aActiveMissions.Insert(mission);
+
+		HST_MissionAssetState asset = new HST_MissionAssetState();
+		asset.m_sAssetId = assetId;
+		asset.m_sMissionInstanceId = instanceId;
+		asset.m_sKind = ASSET_KIND_CAPTIVE;
+		asset.m_sRole = ROLE_CAPTIVE;
+		asset.m_sPrefab = PROP_CAPTIVES;
+		asset.m_sEntityId = entityId;
+		asset.m_sLastInteraction = PHASE_FOLLOWING;
+		asset.m_bAlive = true;
+		asset.m_bPickedUp = true;
+		asset.m_vSourcePosition = nearPosition;
+		asset.m_vCurrentPosition = nearPosition;
+		asset.m_vLastKnownPosition = nearPosition;
+		asset.m_vTargetPosition = playerPosition;
+		state.m_aMissionAssets.Insert(asset);
+
+		bool nearContinue = ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission);
+		bool nearCanComplete = CanCompleteExpiredPlayerBoundMission(state, mission);
+		bool nearFollowAllowed = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, "mission_captive_follow");
+		bool nearExtractAllowed = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, "mission_captive_extract");
+		string nearActual = BuildExpiredPlayerBoundBubbleDebugActual(mission, asset, nearContinue, nearFollowAllowed, nearExtractAllowed, nearCanComplete);
+
+		asset.m_bAttachedToCarrier = false;
+		asset.m_sCarriedByVehicleId = "";
+		asset.m_sLastInteraction = PHASE_FOLLOWING;
+		asset.m_vCurrentPosition = farPosition;
+		asset.m_vLastKnownPosition = farPosition;
+		bool farContinue = ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission);
+		bool farFollowAllowed = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, "mission_captive_follow");
+		bool farExtractAllowed = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, "mission_captive_extract");
+		bool farCanComplete = CanCompleteExpiredPlayerBoundMission(state, mission);
+		string farActual = BuildExpiredPlayerBoundBubbleDebugActual(mission, asset, farContinue, farFollowAllowed, farExtractAllowed, farCanComplete);
+
+		asset.m_bAttachedToCarrier = true;
+		asset.m_sCarriedByVehicleId = BuildPlayerCarrierId(playerId);
+		asset.m_sLastInteraction = PHASE_LOADED;
+		asset.m_vCurrentPosition = farPosition;
+		asset.m_vLastKnownPosition = farPosition;
+		bool carrierContinue = ShouldContinueExpiredPlayerBoundMissionRuntime(state, mission);
+		bool carrierExtractAllowed = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, "mission_captive_extract");
+		bool carrierCanComplete = CanCompleteExpiredPlayerBoundMission(state, mission);
+		string carrierActual = BuildExpiredPlayerBoundBubbleDebugActual(mission, asset, carrierContinue, false, carrierExtractAllowed, carrierCanComplete);
+
+		DeleteRuntimeEntity(entityId);
+		bool recordsRemoved = RemoveExpiredPlayerBoundBubbleDebugRecords(state, instanceId, assetId, entityId);
+		bool runtimeRemoved = !HasRuntimeEntity(entityId);
+		string cleanupActual = string.Format("records removed %1 | runtime removed %2 | instance %3 | asset %4", recordsRemoved, runtimeRemoved, instanceId, assetId);
+
+		AddExpiredPlayerBoundBubbleDebugMetric(probe, "render_bubble.mission_asset.radius", string.Format("%1", Math.Round(POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS)), "m");
+		AddExpiredPlayerBoundBubbleDebugMetric(probe, "render_bubble.mission_asset.far_distance", string.Format("%1", Math.Round(farDistance)), "m");
+		AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.near_continue", "expired picked-up captive inside player bubble continues runtime", nearActual, ExpiredPlayerBoundBubbleDebugStatus(nearContinue), "near expired captive did not remain player-bound", assetId, instanceId);
+		AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.near_interactions", "expired picked-up captive inside bubble keeps follow/extract interaction eligibility", nearActual, ExpiredPlayerBoundBubbleDebugStatus(nearFollowAllowed && nearExtractAllowed && nearCanComplete), "near expired captive interactions were not allowed", assetId, instanceId);
+		AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.far_stop", "expired uncarried captive outside player bubble stops runtime and interaction eligibility", farActual, ExpiredPlayerBoundBubbleDebugStatus(!farContinue && !farFollowAllowed && !farExtractAllowed && !farCanComplete), "far expired captive remained eligible outside the player bubble", assetId, instanceId);
+		AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.player_carrier", "expired captive attached to living player carrier remains player-bound even after position drift", carrierActual, ExpiredPlayerBoundBubbleDebugStatus(carrierContinue && carrierExtractAllowed && carrierCanComplete), "player-carried expired captive was not treated as player-bound", assetId, instanceId);
+		AddExpiredPlayerBoundBubbleDebugAssertion(probe, "render_bubble.mission_asset.cleanup", "temporary expired mission and asset records are cleaned", cleanupActual, ExpiredPlayerBoundBubbleDebugStatus(recordsRemoved && runtimeRemoved), "expired mission asset bubble probe leaked temporary records", assetId, instanceId);
+		FinalizeExpiredPlayerBoundBubbleDebugCase(state, probe);
+		return probe;
+	}
+
 	protected HST_CampaignDebugCaseResult CreateCaptiveBoardingDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
@@ -421,6 +530,225 @@ class HST_MissionRuntimeService
 		}
 
 		return assetRemoved && runtimeRemoved;
+	}
+
+	protected HST_CampaignDebugCaseResult CreateExpiredPlayerBoundBubbleDebugCase(HST_CampaignState state)
+	{
+		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
+		probe.m_sCaseId = "render_bubble.mission_asset.expired_player_bound";
+		probe.m_sCategory = "physical_war";
+		probe.m_sFeature = "render_bubble";
+		probe.m_sStage = "early_mechanics";
+		probe.m_sStatus = "PASS";
+		if (state)
+		{
+			probe.m_iStartSecond = state.m_iElapsedSeconds;
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+		}
+		probe.m_aEvidence.Insert("temporary expired rescue asset probes post-expiry player-bound mission bubble policy and is removed before the case is recorded");
+		return probe;
+	}
+
+	protected HST_CampaignDebugAssertion AddExpiredPlayerBoundBubbleDebugAssertion(HST_CampaignDebugCaseResult probe, string assertionId, string expected, string actual, string status, string failureReason = "", string entityId = "", string missionInstanceId = "")
+	{
+		if (!probe)
+			return null;
+
+		HST_CampaignDebugAssertion assertion = new HST_CampaignDebugAssertion();
+		assertion.m_sAssertionId = assertionId;
+		assertion.m_sExpected = expected;
+		assertion.m_sActual = actual;
+		assertion.m_sStatus = status;
+		assertion.m_sFailureReason = failureReason;
+		assertion.m_sEntityId = entityId;
+		assertion.m_sMissionInstanceId = missionInstanceId;
+		probe.m_aAssertions.Insert(assertion);
+		return assertion;
+	}
+
+	protected void AddExpiredPlayerBoundBubbleDebugMetric(HST_CampaignDebugCaseResult probe, string metricId, string value, string unit = "")
+	{
+		if (!probe)
+			return;
+
+		HST_CampaignDebugMetric metric = new HST_CampaignDebugMetric();
+		metric.m_sMetricId = metricId;
+		metric.m_sName = metricId;
+		metric.m_sValue = value;
+		metric.m_sUnit = unit;
+		metric.m_sFeature = probe.m_sFeature;
+		metric.m_sStage = probe.m_sStage;
+		probe.m_aMetrics.Insert(metric);
+	}
+
+	protected void FinalizeExpiredPlayerBoundBubbleDebugCase(HST_CampaignState state, HST_CampaignDebugCaseResult probe)
+	{
+		if (!probe)
+			return;
+
+		string resolvedStatus = "PASS";
+		string resolvedReason;
+		foreach (HST_CampaignDebugAssertion assertion : probe.m_aAssertions)
+		{
+			if (!assertion)
+				continue;
+
+			if (assertion.m_sStatus == "FAIL")
+			{
+				resolvedStatus = "FAIL";
+				resolvedReason = assertion.m_sFailureReason;
+				break;
+			}
+
+			if (assertion.m_sStatus == "BLOCKED" && resolvedStatus != "FAIL")
+			{
+				resolvedStatus = "BLOCKED";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+			else if (assertion.m_sStatus == "WARN" && resolvedStatus == "PASS")
+			{
+				resolvedStatus = "WARN";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+			else if (assertion.m_sStatus == "SKIPPED" && resolvedStatus == "PASS")
+			{
+				resolvedStatus = "SKIPPED";
+				if (resolvedReason.IsEmpty())
+					resolvedReason = assertion.m_sFailureReason;
+			}
+		}
+
+		probe.m_sStatus = resolvedStatus;
+		if (resolvedReason.IsEmpty())
+			resolvedReason = "expired mission asset player-bound bubble probe assertions passed";
+		probe.m_sReason = resolvedReason;
+		if (state)
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+	}
+
+	protected string ExpiredPlayerBoundBubbleDebugStatus(bool passed, string failStatus = "FAIL")
+	{
+		if (passed)
+			return "PASS";
+
+		return failStatus;
+	}
+
+	protected string BuildExpiredPlayerBoundBubbleDebugActual(HST_ActiveMissionState mission, HST_MissionAssetState asset, bool continues, bool followAllowed, bool extractAllowed, bool canComplete)
+	{
+		if (!mission || !asset)
+			return "missing";
+
+		string actual = string.Format("status %1 | phase %2 | asset phase %3", mission.m_eStatus, ReportText(mission.m_sRuntimePhase), ReportText(asset.m_sLastInteraction));
+		actual = actual + string.Format(" | continue %1 | follow %2 | extract %3 | complete %4", ReportBool(continues), ReportBool(followAllowed), ReportBool(extractAllowed), ReportBool(canComplete));
+		actual = actual + string.Format(" | attached %1 | carrier %2 | position %3", ReportBool(asset.m_bAttachedToCarrier), ReportText(asset.m_sCarriedByVehicleId), asset.m_vCurrentPosition);
+		return actual;
+	}
+
+	protected bool ResolveFirstLivingPlayerDebugContext(out int playerId, out vector playerPosition)
+	{
+		playerId = 0;
+		playerPosition = "0 0 0";
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int candidateId : playerIds)
+		{
+			IEntity playerEntity = playerManager.GetPlayerControlledEntity(candidateId);
+			if (!IsLivingPlayerEntity(playerEntity))
+				continue;
+
+			playerId = candidateId;
+			playerPosition = playerEntity.GetOrigin();
+			return true;
+		}
+
+		return false;
+	}
+
+	protected vector ResolveExpiredPlayerBoundBubbleDebugFarPosition(vector playerPosition)
+	{
+		float minimumDistance = POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS + 400.0;
+		for (int attempt = 0; attempt < 8; attempt++)
+		{
+			vector offset = "0 0 0";
+			if (attempt == 0)
+				offset[0] = minimumDistance;
+			else if (attempt == 1)
+				offset[0] = -minimumDistance;
+			else if (attempt == 2)
+				offset[2] = minimumDistance;
+			else if (attempt == 3)
+				offset[2] = -minimumDistance;
+			else if (attempt == 4)
+			{
+				offset[0] = minimumDistance * 0.75;
+				offset[2] = minimumDistance * 0.75;
+			}
+			else if (attempt == 5)
+			{
+				offset[0] = -minimumDistance * 0.75;
+				offset[2] = minimumDistance * 0.75;
+			}
+			else if (attempt == 6)
+			{
+				offset[0] = minimumDistance * 0.75;
+				offset[2] = -minimumDistance * 0.75;
+			}
+			else
+			{
+				offset[0] = -minimumDistance * 0.75;
+				offset[2] = -minimumDistance * 0.75;
+			}
+
+			vector candidate = HST_WorldPositionService.ResolveSafeGroundPosition(playerPosition + offset, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
+			if (!IsZeroVector(candidate) && !IsAnyLivingPlayerNearObjective(candidate, POST_EXPIRY_PLAYER_ASSET_BUBBLE_METERS))
+				return candidate;
+		}
+
+		return playerPosition + Vector(minimumDistance, 0.0, 0.0);
+	}
+
+	protected bool RemoveExpiredPlayerBoundBubbleDebugRecords(HST_CampaignState state, string instanceId, string assetId, string entityId)
+	{
+		if (!state)
+			return false;
+
+		bool missionRemoved = false;
+		for (int missionIndex = state.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		{
+			HST_ActiveMissionState mission = state.m_aActiveMissions[missionIndex];
+			if (!mission || mission.m_sInstanceId != instanceId)
+				continue;
+
+			state.m_aActiveMissions.Remove(missionIndex);
+			missionRemoved = true;
+		}
+
+		bool assetRemoved = false;
+		for (int assetIndex = state.m_aMissionAssets.Count() - 1; assetIndex >= 0; assetIndex--)
+		{
+			HST_MissionAssetState asset = state.m_aMissionAssets[assetIndex];
+			if (!asset || asset.m_sAssetId != assetId)
+				continue;
+
+			state.m_aMissionAssets.Remove(assetIndex);
+			assetRemoved = true;
+		}
+
+		for (int runtimeIndex = state.m_aMissionRuntimeEntities.Count() - 1; runtimeIndex >= 0; runtimeIndex--)
+		{
+			HST_MissionRuntimeEntityState runtimeEntity = state.m_aMissionRuntimeEntities[runtimeIndex];
+			if (runtimeEntity && runtimeEntity.m_sRuntimeEntityId == entityId)
+				state.m_aMissionRuntimeEntities.Remove(runtimeIndex);
+		}
+
+		return missionRemoved && assetRemoved;
 	}
 
 	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)

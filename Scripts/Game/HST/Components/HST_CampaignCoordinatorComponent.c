@@ -9098,7 +9098,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_CampaignDebugCaseResult renderCase = BuildCampaignDebugRenderBubbleZoneCase();
 		RecordCampaignDebugCase(renderCase);
-		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2", renderCase.m_sStatus, renderCase.m_sReason);
+		HST_CampaignDebugCaseResult missionAssetCase = BuildCampaignDebugRenderBubbleMissionAssetCase();
+		RecordCampaignDebugCase(missionAssetCase);
+		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2 | mission asset bubble %3", renderCase.m_sStatus, renderCase.m_sReason, missionAssetCase.m_sStatus);
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionAssetCase()
+	{
+		if (m_MissionRuntime)
+			return m_MissionRuntime.BuildCampaignDebugExpiredPlayerBoundBubbleProbe(m_State, m_sCampaignDebugMarkerPrefix, m_bCampaignDebugPhysicalBlocked);
+
+		HST_CampaignDebugCaseResult missionAssetCase = CreateCampaignDebugCase("render_bubble.mission_asset.expired_player_bound", "physical_war", "render_bubble", "early_mechanics");
+		AddCampaignDebugAssertion(missionAssetCase, "render_bubble.mission_asset.service", "mission runtime service ready", "missing", "BLOCKED", "mission asset bubble probe requires mission runtime service");
+		FinalizeCampaignDebugCaseFromAssertions(missionAssetCase);
+		return missionAssetCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleZoneCase()
@@ -9252,7 +9265,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& restoredGroupCount == originalGroupCount
 			&& (!garrison || (garrison.m_iInfantryCount == originalGarrisonInfantry && garrison.m_iVehicleCount == originalGarrisonVehicles));
 		AddCampaignDebugAssertion(renderCase, "render_bubble.restore", "original active flag/counts, group count, and abstract garrison restored after probe", BuildCampaignDebugRenderBubbleZoneActual(zone, restoredGroupCount, restoredSpawnedGroupCount), CampaignDebugStatus(restoreMatched), "render-bubble probe failed to restore selected zone state", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.mission_assets", "mission asset and convoy-expired bubble policies are separate probes", "not executed", "WARN", "this probe covers zone far/near/leave only");
 		FinalizeCampaignDebugCaseFromAssertions(renderCase);
 		MarkMajorCampaignChange(true);
 		return renderCase;
