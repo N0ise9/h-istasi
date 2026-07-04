@@ -4809,6 +4809,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return "legacy." + SafeCampaignDebugToken(label);
 	}
 
+	protected string BuildCampaignDebugObservationCaseId(string label)
+	{
+		return "observation." + SafeCampaignDebugToken(label);
+	}
+
 	protected void RecordCampaignDebugCase(HST_CampaignDebugCaseResult caseResult, bool postCaseLeakProbe = true)
 	{
 		if (!caseResult)
@@ -5306,6 +5311,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		caseResult.m_aEvidence.Insert(result);
 		AddCampaignDebugAssertion(caseResult, "result.classifier", expected, ShortCampaignDebugLine(result, 420), status, failureReason);
 		caseResult.m_iEndSecond = GetCampaignDebugElapsedSecond();
+		return caseResult;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugObservationCase(string label, string result)
+	{
+		bool generated = !result.IsEmpty();
+		if (!generated)
+			result = "empty result";
+
+		bool accepted = generated && IsCampaignDebugResultSuccessful(result);
+		HST_CampaignDebugCaseResult caseResult = CreateCampaignDebugCase(BuildCampaignDebugObservationCaseId(label), "observation", label, "report_snapshot");
+		caseResult.m_aEvidence.Insert(result);
+		string actual = ShortCampaignDebugLine(result, 420);
+		AddCampaignDebugAssertion(caseResult, "observation.generated", "read-only report text generated", actual, CampaignDebugStatus(generated), "observation report returned empty text");
+		AddCampaignDebugAssertion(caseResult, "observation.classifier", "read-only report has no failure classifier text", actual, CampaignDebugStatus(accepted), "observation report matched failure classifier text");
+		FinalizeCampaignDebugCaseFromAssertions(caseResult);
 		return caseResult;
 	}
 
@@ -10294,19 +10315,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RecordCampaignDebugObservation(string label, string result)
 	{
-		if (result.IsEmpty())
-		{
-			RecordCampaignDebugResult(label, result, false);
-			return;
-		}
-
-		if (!IsCampaignDebugResultSuccessful(result))
-		{
-			RecordCampaignDebugResult(label, result, false);
-			return;
-		}
-
-		RecordCampaignDebugResult(label, result, true);
+		RecordCampaignDebugCase(BuildCampaignDebugObservationCase(label, result));
 	}
 
 	protected void RecordCampaignDebugResult(string label, string result, bool success, bool warning = false)
