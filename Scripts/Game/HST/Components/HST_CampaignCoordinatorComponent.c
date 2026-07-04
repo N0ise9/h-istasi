@@ -3922,7 +3922,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		probeContext.m_Request = FindLatestCampaignDebugSupportRequest(requestedSupportType, probeContext.m_iCountBefore, requestedAtSecond);
 		probeContext.m_bRuntimeProbeRan = ProbeCampaignDebugSupportRequestRuntime(probeContext);
-		RecordCampaignDebugAction(label, probeContext.m_sCommandResult);
 		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(probeContext);
 		CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
 		RecordCampaignDebugCase(supportCase);
@@ -4337,16 +4336,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int moneyBeforeAward = m_State.m_iFactionMoney;
 		int hrBeforeAward = m_State.m_iHR;
 		string awardResult = RequestAdminAwardResourcesReport(m_iCampaignDebugPlayerId, 1500, 15);
-		RecordCampaignDebugAction("award resources", awardResult);
 		RecordCampaignDebugCase(BuildCampaignDebugResourceAwardCase(moneyBeforeAward, hrBeforeAward, m_State.m_iFactionMoney, m_State.m_iHR, awardResult));
 		HST_CampaignDebugIncomeProbeContext incomeContext = BuildCampaignDebugIncomeProbeContext();
-		RecordCampaignDebugAction("seed income zone", incomeContext.m_sSeedResult);
-		RecordCampaignDebugAction("income tick", incomeContext.m_sCommandResult);
 		RecordCampaignDebugCase(BuildCampaignDebugIncomeTickCase(incomeContext));
 		int moneyBeforeTraining = m_State.m_iFactionMoney;
 		int trainingBefore = m_State.m_iTrainingLevel;
 		string trainResult = RequestCommanderTrainTroopsReport(m_iCampaignDebugPlayerId);
-		RecordCampaignDebugAction("train troops", trainResult);
 		RecordCampaignDebugCase(BuildCampaignDebugTrainingCase(moneyBeforeTraining, trainingBefore, m_State.m_iFactionMoney, m_State.m_iTrainingLevel, trainResult));
 		RecordCampaignDebugObservation("recruitment report", RequestMemberInspectRecruitment(m_iCampaignDebugPlayerId));
 		RunCampaignDebugSupportRequestCase("supply drop", HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, true);
