@@ -502,6 +502,73 @@ class HST_PhysicalWarService
 		return probe;
 	}
 
+	HST_CampaignDebugCaseResult BuildCampaignDebugConvoyPhaseChainProbe(HST_CampaignState state, string debugPrefix)
+	{
+		HST_CampaignDebugCaseResult probe = CreateConvoyPhaseChainDebugCase(state);
+		if (!state)
+		{
+			AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.prerequisite.state", "campaign state exists", "missing", "BLOCKED", "controlled convoy phase-chain probe missing campaign state");
+			FinalizeConvoyPhaseChainDebugCase(state, probe);
+			return probe;
+		}
+
+		string prefix = ResolveConvoyPhaseChainDebugPrefix(debugPrefix);
+		string instanceId = prefix + "_convoy_phase_chain";
+		RemoveConvoyPhaseChainDebugRecords(state, instanceId);
+
+		HST_ActiveMissionState mission = CreateConvoyPhaseChainDebugMission(state, instanceId);
+		HST_MissionObjectiveState objective = CreateConvoyPhaseChainDebugObjective(mission);
+		state.m_aActiveMissions.Insert(mission);
+		state.m_aMissionObjectives.Insert(objective);
+		for (int i = 0; i < 3; i++)
+		{
+			HST_MissionAssetState asset = CreateConvoyPhaseChainDebugVehicleAsset(mission, i);
+			HST_ActiveGroupState activeGroup = CreateConvoyPhaseChainDebugGroup(mission, asset, i, state.m_iElapsedSeconds);
+			state.m_aMissionAssets.Insert(asset);
+			state.m_aActiveGroups.Insert(activeGroup);
+		}
+
+		string observedPhases;
+		UpdateMissionConvoyPhase(state, mission, state.m_iElapsedSeconds);
+		observedPhases = AppendConvoyPhaseChainObservedPhase(observedPhases, mission.m_sRuntimePhase);
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.staging", "UpdateMissionConvoyPhase initializes empty convoy phase to convoy_staging", BuildConvoyPhaseChainActual(mission, observedPhases), ConvoyDebugStatus(mission.m_sRuntimePhase == MISSION_CONVOY_STAGING), "controlled convoy phase-chain did not enter staging", "", instanceId);
+
+		SetMissionConvoyMoving(state, mission);
+		observedPhases = AppendConvoyPhaseChainObservedPhase(observedPhases, mission.m_sRuntimePhase);
+		bool groupsMoving = CountConvoyPhaseChainDebugGroupsWithStatus(state, mission, MISSION_CONVOY_MOVING) == 3;
+		bool movingEvent = mission.m_sLastRuntimeEventKey == CONVOY_MOVE_EVENT_PENDING;
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.moving", "SetMissionConvoyMoving sets phase, event key, and convoy group runtime status", BuildConvoyPhaseChainGroupActual(state, mission, observedPhases, MISSION_CONVOY_MOVING), ConvoyDebugStatus(mission.m_sRuntimePhase == MISSION_CONVOY_MOVING && groupsMoving && movingEvent), "controlled convoy phase-chain did not enter moving with group status propagation", "", instanceId);
+
+		SetMissionConvoyContact(state, mission, "Campaign debug controlled convoy contact.");
+		observedPhases = AppendConvoyPhaseChainObservedPhase(observedPhases, mission.m_sRuntimePhase);
+		bool groupsContact = CountConvoyPhaseChainDebugGroupsWithStatus(state, mission, MISSION_CONVOY_CONTACT) == 3;
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.contact", "SetMissionConvoyContact sets contact phase, reason, and group runtime status", BuildConvoyPhaseChainGroupActual(state, mission, observedPhases, MISSION_CONVOY_CONTACT), ConvoyDebugStatus(mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && groupsContact && !mission.m_sRuntimeFailureReason.IsEmpty()), "controlled convoy phase-chain did not enter contact with reason and group status propagation", "", instanceId);
+
+		MarkConvoyPhaseChainDebugGroupsEliminated(state, mission);
+		UpdateMissionConvoyObjective(state, mission);
+		observedPhases = AppendConvoyPhaseChainObservedPhase(observedPhases, mission.m_sRuntimePhase);
+		HST_ConvoyCompletionStatus completion = BuildMissionConvoyCompletionStatus(state, mission);
+		bool objectiveComplete = objective.m_bComplete && objective.m_iCurrentCount == objective.m_iRequiredCount && objective.m_iCurrentProgress == objective.m_iRequiredProgress;
+		bool groupsEliminated = CountConvoyPhaseChainDebugGroupsWithStatus(state, mission, MISSION_CONVOY_ELIMINATED) == 3;
+		bool eliminatedPhase = mission.m_sRuntimePhase == MISSION_CONVOY_ELIMINATED && mission.m_sLastRuntimeEventKey == CONVOY_COMPLETE_EVENT_KEY;
+		string eliminatedActual = BuildConvoyPhaseChainGroupActual(state, mission, observedPhases, MISSION_CONVOY_ELIMINATED);
+		eliminatedActual = eliminatedActual + string.Format(" | objective %1/%2 | progress %3/%4 | completion %5/%6 | reason %7", objective.m_iCurrentCount, objective.m_iRequiredCount, objective.m_iCurrentProgress, objective.m_iRequiredProgress, completion.m_iEliminatedCrewGroups, completion.m_iRequiredCrewGroups, ReportText(completion.m_sReason));
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.eliminated", "UpdateMissionConvoyObjective detects eliminated crews and completes convoy objective through convoy_eliminated", eliminatedActual, ConvoyDebugStatus(eliminatedPhase && groupsEliminated && objectiveComplete && completion.m_bCanComplete), "controlled convoy phase-chain did not complete through eliminated crew objective path", "", instanceId);
+
+		bool exactSequence = observedPhases == "convoy_staging -> convoy_moving -> convoy_contact -> convoy_eliminated";
+		AddConvoyDebugProbeMetric(probe, "convoy.phase_chain.vehicle_assets", string.Format("%1", CountConvoyPhaseChainDebugVehicleAssets(state, instanceId)), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.phase_chain.crew_groups", string.Format("%1", CountConvoyPhaseChainDebugGroups(state, mission)), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.phase_chain.eliminated_groups", string.Format("%1", completion.m_iEliminatedCrewGroups), "count");
+		AddConvoyDebugProbeMetric(probe, "convoy.phase_chain.observed", observedPhases, "phase");
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.sequence", "controlled helper sequence is staging -> moving -> contact -> eliminated", observedPhases, ConvoyDebugStatus(exactSequence), "controlled convoy phase-chain sequence did not include every expected phase in order", "", instanceId);
+		probe.m_aEvidence.Insert("controlled state-machine probe uses temporary debug convoy records and real HST_PhysicalWarService transition helpers; natural physical driving remains covered by convoy_physical movement assertions");
+
+		bool cleaned = RemoveConvoyPhaseChainDebugRecords(state, instanceId);
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase_chain.cleanup", "temporary convoy phase-chain mission, objective, assets, groups, and progress records are removed", BuildConvoyPhaseChainCleanupActual(cleaned, state, instanceId), ConvoyDebugStatus(cleaned), "controlled convoy phase-chain probe leaked temporary records");
+		FinalizeConvoyPhaseChainDebugCase(state, probe);
+		return probe;
+	}
+
 	HST_CampaignDebugCaseResult BuildCampaignDebugExpiredConvoyRenderBubbleProbe(HST_CampaignState state, string debugPrefix, bool physicalBlocked)
 	{
 		HST_CampaignDebugCaseResult probe = CreateExpiredConvoyRenderBubbleDebugCase(state);
@@ -749,6 +816,300 @@ class HST_PhysicalWarService
 			return debugPrefix;
 
 		return CAMPAIGN_DEBUG_PREFIX_ROOT + debugPrefix;
+	}
+
+	protected HST_CampaignDebugCaseResult CreateConvoyPhaseChainDebugCase(HST_CampaignState state)
+	{
+		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
+		probe.m_sCaseId = "convoy_phase_chain.controlled_state_machine";
+		probe.m_sCategory = "mission_runtime";
+		probe.m_sFeature = "convoy_intercept";
+		probe.m_sStage = "controlled_phase_chain";
+		probe.m_sStatus = "PASS";
+		if (state)
+		{
+			probe.m_iStartSecond = state.m_iElapsedSeconds;
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+		}
+		probe.m_aEvidence.Insert("controlled phase-chain probe proves convoy transition helpers on temporary debug records only; it does not replace natural movement evidence");
+		return probe;
+	}
+
+	protected void FinalizeConvoyPhaseChainDebugCase(HST_CampaignState state, HST_CampaignDebugCaseResult probe)
+	{
+		FinalizeConvoyDebugProbeCase(state, probe);
+		if (probe && probe.m_sStatus == "PASS")
+			probe.m_sReason = "controlled convoy phase-chain assertions passed";
+	}
+
+	protected string ResolveConvoyPhaseChainDebugPrefix(string debugPrefix)
+	{
+		if (debugPrefix.IsEmpty())
+			return CAMPAIGN_DEBUG_PREFIX_ROOT + "convoy_phase_chain";
+		if (debugPrefix.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return debugPrefix;
+
+		return CAMPAIGN_DEBUG_PREFIX_ROOT + debugPrefix;
+	}
+
+	protected HST_ActiveMissionState CreateConvoyPhaseChainDebugMission(HST_CampaignState state, string instanceId)
+	{
+		vector targetPosition = "100 0 100";
+		if (state && !IsZeroVector(state.m_vHQPosition))
+		{
+			targetPosition = state.m_vHQPosition;
+			targetPosition[0] = targetPosition[0] + 250.0;
+			targetPosition[2] = targetPosition[2] + 250.0;
+		}
+
+		HST_ActiveMissionState mission = new HST_ActiveMissionState();
+		mission.m_sInstanceId = instanceId;
+		mission.m_sMissionId = "campaign_debug_convoy_phase_chain";
+		mission.m_sDisplayName = "Campaign Debug Convoy Phase Chain";
+		mission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		mission.m_eRuntimeMode = HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_PHYSICAL_MVP;
+		mission.m_sRuntimePrimitive = MISSION_CONVOY_PRIMITIVE;
+		mission.m_sRuntimeType = "convoy_intercept";
+		mission.m_vTargetPosition = targetPosition;
+		mission.m_iRuntimeCounterA = 0;
+		mission.m_iRuntimeCounterB = 30;
+		mission.m_iRequiredVehicleCount = 3;
+		mission.m_bRuntimeSpawned = true;
+		return mission;
+	}
+
+	protected HST_MissionObjectiveState CreateConvoyPhaseChainDebugObjective(HST_ActiveMissionState mission)
+	{
+		HST_MissionObjectiveState objective = new HST_MissionObjectiveState();
+		objective.m_sObjectiveId = "objective_" + mission.m_sInstanceId + "_convoy";
+		objective.m_sMissionInstanceId = mission.m_sInstanceId;
+		objective.m_eType = HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA;
+		objective.m_sLabel = "Neutralize convoy crew";
+		objective.m_sRequirementText = "Neutralize the controlled debug convoy crew records.";
+		objective.m_sTargetId = "convoy";
+		objective.m_sRuntimePrimitive = MISSION_CONVOY_PRIMITIVE;
+		objective.m_vPosition = mission.m_vTargetPosition;
+		objective.m_iRequiredProgress = 3;
+		objective.m_iRequiredCount = 3;
+		return objective;
+	}
+
+	protected HST_MissionAssetState CreateConvoyPhaseChainDebugVehicleAsset(HST_ActiveMissionState mission, int index)
+	{
+		vector sourcePosition = mission.m_vTargetPosition;
+		sourcePosition[0] = sourcePosition[0] + 300.0 + (index * 18.0);
+		sourcePosition[2] = sourcePosition[2] + 90.0 + (index * 12.0);
+
+		HST_MissionAssetState asset = new HST_MissionAssetState();
+		asset.m_sAssetId = string.Format("%1_vehicle_%2", mission.m_sInstanceId, index);
+		asset.m_sMissionInstanceId = mission.m_sInstanceId;
+		asset.m_sKind = "vehicle";
+		asset.m_sRole = MISSION_CONVOY_VEHICLE_ROLE;
+		asset.m_sPrefab = "campaign_debug_convoy_vehicle";
+		asset.m_bSpawned = true;
+		asset.m_bAlive = true;
+		asset.m_vSourcePosition = sourcePosition;
+		asset.m_vCurrentPosition = sourcePosition;
+		asset.m_vLastKnownPosition = sourcePosition;
+		asset.m_vTargetPosition = mission.m_vTargetPosition;
+		return asset;
+	}
+
+	protected HST_ActiveGroupState CreateConvoyPhaseChainDebugGroup(HST_ActiveMissionState mission, HST_MissionAssetState asset, int index, int elapsedSeconds)
+	{
+		HST_ActiveGroupState activeGroup = new HST_ActiveGroupState();
+		activeGroup.m_sGroupId = BuildMissionConvoyGroupId(mission, index);
+		activeGroup.m_sFactionKey = "USSR";
+		activeGroup.m_sPrefab = "campaign_debug_convoy_crew";
+		activeGroup.m_vPosition = asset.m_vCurrentPosition;
+		activeGroup.m_vSourcePosition = asset.m_vSourcePosition;
+		activeGroup.m_vTargetPosition = asset.m_vTargetPosition;
+		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
+		activeGroup.m_sRuntimeStatus = MISSION_CONVOY_STAGING;
+		activeGroup.m_sRouteId = mission.m_sInstanceId + "_route";
+		activeGroup.m_sSpawnFallbackMode = "convoy_waypoints";
+		activeGroup.m_iInfantryCount = 1;
+		activeGroup.m_iVehicleCount = 1;
+		activeGroup.m_iSpawnedAtSecond = elapsedSeconds;
+		activeGroup.m_iLastSeenAliveCount = 1;
+		activeGroup.m_iSurvivorInfantryCount = 1;
+		activeGroup.m_iSpawnedAgentCount = 1;
+		activeGroup.m_iAssignedWaypointCount = 3;
+		activeGroup.m_bSpawnAttempted = true;
+		activeGroup.m_bSpawnedEntity = true;
+		return activeGroup;
+	}
+
+	protected string AppendConvoyPhaseChainObservedPhase(string observedPhases, string phase)
+	{
+		if (phase.IsEmpty())
+			phase = "none";
+		if (observedPhases.IsEmpty())
+			return phase;
+
+		return observedPhases + " -> " + phase;
+	}
+
+	protected string BuildConvoyPhaseChainActual(HST_ActiveMissionState mission, string observedPhases)
+	{
+		if (!mission)
+			return "mission missing";
+
+		return string.Format("phase %1 | event %2 | reason %3 | observed %4", ReportText(mission.m_sRuntimePhase), ReportText(mission.m_sLastRuntimeEventKey), ReportText(mission.m_sRuntimeFailureReason), ReportText(observedPhases));
+	}
+
+	protected string BuildConvoyPhaseChainGroupActual(HST_CampaignState state, HST_ActiveMissionState mission, string observedPhases, string expectedStatus)
+	{
+		return string.Format("%1 | groups %2/3 %3", BuildConvoyPhaseChainActual(mission, observedPhases), CountConvoyPhaseChainDebugGroupsWithStatus(state, mission, expectedStatus), ReportText(expectedStatus));
+	}
+
+	protected void MarkConvoyPhaseChainDebugGroupsEliminated(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return;
+
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!IsMissionConvoyGroupForMission(activeGroup, mission))
+				continue;
+
+			activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
+			activeGroup.m_iLastSeenAliveCount = 0;
+			activeGroup.m_iSurvivorInfantryCount = 0;
+			activeGroup.m_iSpawnedAgentCount = Math.Max(1, activeGroup.m_iSpawnedAgentCount);
+		}
+	}
+
+	protected int CountConvoyPhaseChainDebugVehicleAssets(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_MissionAssetState asset : state.m_aMissionAssets)
+		{
+			if (asset && asset.m_sMissionInstanceId == instanceId && asset.m_sRole == MISSION_CONVOY_VEHICLE_ROLE)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountConvoyPhaseChainDebugGroups(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (IsMissionConvoyGroupForMission(activeGroup, mission))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountConvoyPhaseChainDebugGroupsWithStatus(HST_CampaignState state, HST_ActiveMissionState mission, string status)
+	{
+		if (!state || !mission || status.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (IsMissionConvoyGroupForMission(activeGroup, mission) && activeGroup.m_sRuntimeStatus == status)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool RemoveConvoyPhaseChainDebugRecords(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+
+		HST_ActiveMissionState mission = state.FindActiveMission(instanceId);
+		for (int groupNumber = 0; groupNumber < 3; groupNumber++)
+		{
+			string groupId;
+			if (mission)
+				groupId = BuildMissionConvoyGroupId(mission, groupNumber);
+			else
+				groupId = string.Format("%1%2_%3", MISSION_CONVOY_GROUP_PREFIX, instanceId, groupNumber);
+
+			DeleteRuntimeGroupEntity(groupId);
+			RemoveConvoyProgressStatusForGroup(groupId);
+			RemoveActiveGroupStateForDebug(state, groupId);
+		}
+
+		for (int missionIndex = state.m_aActiveMissions.Count() - 1; missionIndex >= 0; missionIndex--)
+		{
+			HST_ActiveMissionState activeMission = state.m_aActiveMissions[missionIndex];
+			if (activeMission && activeMission.m_sInstanceId == instanceId)
+				state.m_aActiveMissions.Remove(missionIndex);
+		}
+
+		for (int objectiveIndex = state.m_aMissionObjectives.Count() - 1; objectiveIndex >= 0; objectiveIndex--)
+		{
+			HST_MissionObjectiveState objective = state.m_aMissionObjectives[objectiveIndex];
+			if (objective && objective.m_sMissionInstanceId == instanceId)
+				state.m_aMissionObjectives.Remove(objectiveIndex);
+		}
+
+		for (int runtimeIndex = state.m_aMissionRuntimeEntities.Count() - 1; runtimeIndex >= 0; runtimeIndex--)
+		{
+			HST_MissionRuntimeEntityState runtimeEntity = state.m_aMissionRuntimeEntities[runtimeIndex];
+			if (runtimeEntity && runtimeEntity.m_sMissionInstanceId == instanceId)
+				state.m_aMissionRuntimeEntities.Remove(runtimeIndex);
+		}
+
+		for (int assetIndex = state.m_aMissionAssets.Count() - 1; assetIndex >= 0; assetIndex--)
+		{
+			HST_MissionAssetState asset = state.m_aMissionAssets[assetIndex];
+			if (asset && asset.m_sMissionInstanceId == instanceId)
+				state.m_aMissionAssets.Remove(assetIndex);
+		}
+
+		return AreConvoyPhaseChainDebugRecordsRemoved(state, instanceId);
+	}
+
+	protected bool AreConvoyPhaseChainDebugRecordsRemoved(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+		if (state.FindActiveMission(instanceId))
+			return false;
+		if (CountConvoyPhaseChainDebugVehicleAssets(state, instanceId) > 0)
+			return false;
+
+		for (int groupNumber = 0; groupNumber < 3; groupNumber++)
+		{
+			string groupId = string.Format("%1%2_%3", MISSION_CONVOY_GROUP_PREFIX, instanceId, groupNumber);
+			if (state.FindActiveGroup(groupId) || GetRuntimeGroupEntity(groupId) || GetRuntimeVehicleEntity(groupId))
+				return false;
+		}
+
+		foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
+		{
+			if (objective && objective.m_sMissionInstanceId == instanceId)
+				return false;
+		}
+
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : state.m_aMissionRuntimeEntities)
+		{
+			if (runtimeEntity && runtimeEntity.m_sMissionInstanceId == instanceId)
+				return false;
+		}
+
+		return true;
+	}
+
+	protected string BuildConvoyPhaseChainCleanupActual(bool cleaned, HST_CampaignState state, string instanceId)
+	{
+		bool missionRemaining = state && state.FindActiveMission(instanceId) != null;
+		return string.Format("cleaned %1 | mission remaining %2 | assets %3", ReportBool(cleaned), ReportBool(missionRemaining), CountConvoyPhaseChainDebugVehicleAssets(state, instanceId));
 	}
 
 	protected HST_ActiveMissionState CreateExpiredConvoyRenderBubbleDebugMission(string instanceId, vector position)

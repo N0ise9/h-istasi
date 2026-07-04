@@ -100,6 +100,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bCampaignDebugRunning;
 	protected bool m_bCampaignDebugCompleted;
 	protected bool m_bCampaignDebugPhysicalBlocked;
+	protected bool m_bCampaignDebugConvoyPhaseChainRecorded;
 	protected int m_iCampaignDebugPlayerId;
 	protected int m_iCampaignDebugStepIndex;
 	protected int m_iCampaignDebugMissionIndex;
@@ -2997,6 +2998,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bCampaignDebugRunning = true;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugPhysicalBlocked = false;
+		m_bCampaignDebugConvoyPhaseChainRecorded = false;
 		m_iCampaignDebugPlayerId = playerId;
 		m_iCampaignDebugStepIndex = 0;
 		m_iCampaignDebugMissionIndex = 0;
@@ -8355,6 +8357,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		probe.m_aEvidence.Insert("runner label " + label);
 		RecordCampaignDebugCase(probe);
+
+		if (!m_bCampaignDebugConvoyPhaseChainRecorded)
+		{
+			HST_CampaignDebugCaseResult phaseChainProbe = m_PhysicalWar.BuildCampaignDebugConvoyPhaseChainProbe(m_State, m_sCampaignDebugMarkerPrefix);
+			if (phaseChainProbe)
+			{
+				phaseChainProbe.m_aEvidence.Insert("runner label " + label);
+				RecordCampaignDebugCase(phaseChainProbe);
+			}
+
+			m_bCampaignDebugConvoyPhaseChainRecorded = true;
+		}
 	}
 
 	protected void RecordCampaignDebugPrimitiveMissionProbe(HST_MissionDefinition definition, string instanceId)
