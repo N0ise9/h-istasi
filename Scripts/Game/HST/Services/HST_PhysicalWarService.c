@@ -106,6 +106,8 @@ class HST_PhysicalWarService
 	static const float CONVOY_ROUTE_SNAP_MAX_ADVANCE_METERS = 160.0;
 	static const int CONVOY_CREW_POPULATION_GRACE_SECONDS = 20;
 	static const int CONVOY_READINESS_GRACE_SECONDS = 60;
+	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
+	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
 	static const float EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS = 1800.0;
@@ -6189,7 +6191,7 @@ class HST_PhysicalWarService
 			activeGroup.m_bSpawnedEntity = false;
 			activeGroup.m_sRuntimeEntityId = "";
 			activeGroup.m_sRuntimeStatus = "spawn_pending_agents";
-			activeGroup.m_sSpawnFailureReason = "AIGroup spawned but contains zero agents.";
+			activeGroup.m_sSpawnFailureReason = "AIGroup spawned but is awaiting agent population.";
 			activeGroup.m_iSpawnedAgentCount = 0;
 			activeGroup.m_iLastSeenAliveCount = 0;
 			activeGroup.m_iSurvivorInfantryCount = 0;
@@ -6198,7 +6200,7 @@ class HST_PhysicalWarService
 				activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(entity);
-			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, 1000, false, activeGroup, requestedStatus, state);
+			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, 1);
 			DebugLog(string.Format("active group pending agent population %1 prefab %2", activeGroup.m_sGroupId, activeGroup.m_sPrefab));
 			return true;
 		}
@@ -6218,7 +6220,7 @@ class HST_PhysicalWarService
 		return true;
 	}
 
-	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state)
+	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, int attempt)
 	{
 		if (!activeGroup || activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return;
@@ -6239,11 +6241,19 @@ class HST_PhysicalWarService
 			return;
 		}
 
+		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
+		{
+			activeGroup.m_sSpawnFailureReason = string.Format("AIGroup spawned but is still awaiting agent population (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, attempt + 1);
+			DebugLog(string.Format("active group still pending agent population %1 attempt %2/%3 prefab %4", activeGroup.m_sGroupId, attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS, activeGroup.m_sPrefab));
+			return;
+		}
+
 		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
 		activeGroup.m_bSpawnedEntity = false;
 		activeGroup.m_sRuntimeEntityId = "";
 		activeGroup.m_sRuntimeStatus = "spawn_failed";
-		activeGroup.m_sSpawnFailureReason = "AIGroup prefab produced zero agents after population grace.";
+		activeGroup.m_sSpawnFailureReason = string.Format("AIGroup prefab produced zero agents after %1 population attempts.", ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
 		activeGroup.m_iSpawnedAgentCount = 0;
 		activeGroup.m_iLastSeenAliveCount = 0;
 		activeGroup.m_iSurvivorInfantryCount = 0;
