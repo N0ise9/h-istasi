@@ -9962,6 +9962,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sCloseLoadoutResult;
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sValidLoadoutApplyResult;
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sInvalidLoadoutApplyResult;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sRestoreLoadoutApplyResult;
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sPostApplyCloseResult;
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + string.Format("\ncleanup | garage %1 | runtime %2 | cargo %3", vehicleLoadoutContext.m_iGarageCleanupRemoved, vehicleLoadoutContext.m_iRuntimeCleanupRemoved, vehicleLoadoutContext.m_iCargoCleanupRemoved);
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sGarageReportAfter;
@@ -9989,6 +9991,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sCloseLoadoutResult);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sValidLoadoutApplyResult);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sInvalidLoadoutApplyResult);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sPostApplyCloseResult);
 		AddCampaignDebugVehicleLoadoutMetrics(vehicleLoadoutCase, vehicleLoadoutContext);
 
@@ -10010,6 +10014,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.close", "loadout editor closes without mutating issued-loadout ledger", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, false), CampaignDebugStatus(IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sCloseLoadoutResult) && vehicleLoadoutContext.m_bLoadoutSessionAfterClose && vehicleLoadoutContext.m_sLoadoutStatusAfterClose == "closed" && vehicleLoadoutContext.m_iIssuedItemsAfterClose == vehicleLoadoutContext.m_iIssuedItemsBefore), "loadout editor close failed or issued-loadout state mutated unexpectedly");
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.valid_apply", "valid saved-loadout apply succeeds through the real command path and withdraws one finite item", BuildCampaignDebugLoadoutApplyActual(vehicleLoadoutContext, true), CampaignDebugLoadoutValidApplyStatus(vehicleLoadoutContext), "valid saved-loadout apply did not complete with the expected finite arsenal and issued-ledger deltas", vehicleLoadoutContext.m_sValidLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.invalid_apply", "invalid saved-loadout apply fails with no partial arsenal or issued-ledger mutation", BuildCampaignDebugLoadoutApplyActual(vehicleLoadoutContext, false), CampaignDebugStatus(vehicleLoadoutContext.m_bInvalidLoadoutSeeded && !IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sInvalidLoadoutApplyResult) && vehicleLoadoutContext.m_iFiniteArsenalCountAfterInvalidApply == vehicleLoadoutContext.m_iFiniteArsenalCountAfterValidApply && vehicleLoadoutContext.m_iFiniteIssuedCountAfterInvalidApply == vehicleLoadoutContext.m_iFiniteIssuedCountAfterValidApply && vehicleLoadoutContext.m_iIssuedItemsAfterInvalidApply == vehicleLoadoutContext.m_iIssuedItemsAfterValidApply), "invalid saved-loadout apply changed arsenal or issued-loadout state", vehicleLoadoutContext.m_sInvalidLoadoutId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.physical_apply", "non-serialized saved-loadout apply physically inserts the requested finite items into player inventory", BuildCampaignDebugLoadoutPhysicalApplyActual(vehicleLoadoutContext), CampaignDebugLoadoutPhysicalApplyStatus(vehicleLoadoutContext), "physical saved-loadout apply did not reflect the requested finite items in player inventory", vehicleLoadoutContext.m_sPhysicalLoadoutId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.physical_restore", "original serialized loadout restores player inventory after the physical apply probe", BuildCampaignDebugLoadoutPhysicalRestoreActual(vehicleLoadoutContext), CampaignDebugLoadoutPhysicalRestoreStatus(vehicleLoadoutContext), "physical saved-loadout apply probe did not restore player inventory with the original serialized loadout", vehicleLoadoutContext.m_sRestoreLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.apply_cleanup", "transient saved loadouts, finite arsenal delta, issued ledger, and editor session are restored after apply probe", BuildCampaignDebugLoadoutApplyCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_iSavedLoadoutsAfterLoadoutCleanup == vehicleLoadoutContext.m_iSavedLoadoutsAfterClose && vehicleLoadoutContext.m_iFiniteArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteArsenalCountBefore && vehicleLoadoutContext.m_iFiniteIssuedCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteIssuedCountBefore && vehicleLoadoutContext.m_iIssuedItemsAfterLoadoutCleanup == vehicleLoadoutContext.m_iIssuedItemsAfterClose && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPostApplyCloseResult)), "loadout apply probe did not restore debug state or close the editor session");
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage_loadout.cleanup", "debug garage, runtime vehicle, and vehicle cargo records are removed", BuildCampaignDebugVehicleLoadoutCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_iGarageCountAfterCleanup == vehicleLoadoutContext.m_iGarageCountBefore && vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup == vehicleLoadoutContext.m_iRuntimeVehicleCountBefore && vehicleLoadoutContext.m_iVehicleCargoCountAfterCleanup == vehicleLoadoutContext.m_iVehicleCargoCountBefore), "garage/loadout probe left debug garage, runtime vehicle, or cargo records behind");
 		FinalizeCampaignDebugCaseFromAssertions(vehicleLoadoutCase);
@@ -10039,11 +10045,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.finite_arsenal_after_seed", string.Format("%1", vehicleLoadoutContext.m_iFiniteArsenalCountAfterSeed), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.finite_arsenal_after_valid", string.Format("%1", vehicleLoadoutContext.m_iFiniteArsenalCountAfterValidApply), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.finite_arsenal_after_invalid", string.Format("%1", vehicleLoadoutContext.m_iFiniteArsenalCountAfterInvalidApply), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.finite_arsenal_after_physical_seed", string.Format("%1", vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalSeed), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.finite_arsenal_after_physical", string.Format("%1", vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.finite_arsenal_after_cleanup", string.Format("%1", vehicleLoadoutContext.m_iFiniteArsenalCountAfterLoadoutCleanup), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.issued_before", string.Format("%1", vehicleLoadoutContext.m_iIssuedItemsBeforeApply), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.issued_after_valid", string.Format("%1", vehicleLoadoutContext.m_iIssuedItemsAfterValidApply), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.issued_after_invalid", string.Format("%1", vehicleLoadoutContext.m_iIssuedItemsAfterInvalidApply), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.issued_after_physical", string.Format("%1", vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.issued_after_cleanup", string.Format("%1", vehicleLoadoutContext.m_iIssuedItemsAfterLoadoutCleanup), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.inventory_before", string.Format("%1", vehicleLoadoutContext.m_iPhysicalInventoryCountBefore), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.inventory_after_physical", string.Format("%1", vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "loadout.apply.inventory_after_restore", string.Format("%1", vehicleLoadoutContext.m_iPhysicalInventoryCountAfterRestore), "count");
 	}
 
 	protected void RunCampaignDebugLoadoutApplyProbe(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
@@ -10053,8 +10065,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		vehicleLoadoutContext.m_sValidLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_valid";
 		vehicleLoadoutContext.m_sInvalidLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_invalid";
+		vehicleLoadoutContext.m_sPhysicalLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_physical";
+		vehicleLoadoutContext.m_sRestoreLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_restore";
 		vehicleLoadoutContext.m_sValidLoadoutApplyResult = "h-istasi loadout editor | skipped: valid apply probe not arranged";
 		vehicleLoadoutContext.m_sInvalidLoadoutApplyResult = "h-istasi loadout editor | skipped: invalid apply probe not arranged";
+		vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | skipped: physical apply probe not arranged";
+		vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | skipped: physical apply restore not arranged";
 		vehicleLoadoutContext.m_sPostApplyCloseResult = "h-istasi loadout editor | skipped: apply probe did not open a session";
 
 		if (!m_State || !m_Arsenal || !m_LoadoutEditor || vehicleLoadoutContext.m_sIdentityId.IsEmpty())
@@ -10107,6 +10123,66 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicleLoadoutContext.m_iFiniteArsenalCountAfterInvalidApply = CountCampaignDebugArsenalItem(CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 		vehicleLoadoutContext.m_iFiniteIssuedCountAfterInvalidApply = CountCampaignDebugIssuedLoadoutPrefab(vehicleLoadoutContext.m_sIdentityId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 		vehicleLoadoutContext.m_iIssuedItemsAfterInvalidApply = CountCampaignDebugIssuedLoadoutItemsForIdentity(vehicleLoadoutContext.m_sIdentityId);
+
+		RunCampaignDebugPhysicalLoadoutApplyProbe(vehicleLoadoutContext, serializedLoadout);
+	}
+
+	protected void RunCampaignDebugPhysicalLoadoutApplyProbe(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext, string serializedLoadout)
+	{
+		if (!vehicleLoadoutContext || !m_State || !m_Arsenal)
+			return;
+
+		int inventoryCountBefore;
+		if (CountCampaignDebugPlayerInventoryPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, inventoryCountBefore))
+		{
+			vehicleLoadoutContext.m_bPhysicalInventoryAccessible = true;
+			vehicleLoadoutContext.m_iPhysicalInventoryCountBefore = inventoryCountBefore;
+		}
+
+		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
+		{
+			if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable)
+				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: original serialized loadout unavailable for physical apply restore";
+			else
+				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: player inventory not accessible for physical reflection check";
+			return;
+		}
+
+		HST_ArsenalItemState finiteItem = m_Arsenal.DepositItem(m_State, m_Balance, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, 2, "magazine", "Campaign Debug Physical AK Magazine");
+		if (finiteItem)
+		{
+			finiteItem.m_bUnlocked = false;
+			HST_SavedLoadoutState physicalLoadout = BuildCampaignDebugTransientSavedLoadout(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sPhysicalLoadoutId, "Campaign Debug Physical Loadout", CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, "magazine", "Campaign Debug Physical AK Magazine", "", 2);
+			vehicleLoadoutContext.m_bPhysicalLoadoutSeeded = physicalLoadout != null;
+		}
+
+		HST_SavedLoadoutState restoreLoadout = BuildCampaignDebugTransientSavedLoadout(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sRestoreLoadoutId, "Campaign Debug Restore Loadout", "", "", "", serializedLoadout, 0);
+		vehicleLoadoutContext.m_bRestoreLoadoutSeeded = restoreLoadout != null;
+		vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalSeed = CountCampaignDebugArsenalItem(CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
+
+		if (vehicleLoadoutContext.m_bPhysicalLoadoutSeeded)
+			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sPhysicalLoadoutId);
+		else
+			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | failed: could not seed physical debug loadout";
+
+		vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply = CountCampaignDebugArsenalItem(CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
+		vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply = CountCampaignDebugIssuedLoadoutPrefab(vehicleLoadoutContext.m_sIdentityId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
+		int inventoryCountAfterApply;
+		bool inventoryCountAfterApplyAvailable = CountCampaignDebugPlayerInventoryPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, inventoryCountAfterApply);
+		if (inventoryCountAfterApplyAvailable)
+			vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply = inventoryCountAfterApply;
+		vehicleLoadoutContext.m_bPhysicalInventoryReflected = inventoryCountAfterApplyAvailable && vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply >= vehicleLoadoutContext.m_iPhysicalInventoryCountBefore + 2;
+
+		if (vehicleLoadoutContext.m_bRestoreLoadoutSeeded)
+			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sRestoreLoadoutId);
+		else
+			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | failed: could not seed restore debug loadout";
+
+		int inventoryCountAfterRestore;
+		bool inventoryCountAfterRestoreAvailable = CountCampaignDebugPlayerInventoryPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, inventoryCountAfterRestore);
+		if (inventoryCountAfterRestoreAvailable)
+			vehicleLoadoutContext.m_iPhysicalInventoryCountAfterRestore = inventoryCountAfterRestore;
+		vehicleLoadoutContext.m_bPhysicalInventoryRestored = inventoryCountAfterRestoreAvailable && vehicleLoadoutContext.m_iPhysicalInventoryCountAfterRestore == vehicleLoadoutContext.m_iPhysicalInventoryCountBefore;
 	}
 
 	protected void CaptureCampaignDebugLoadoutApplyBaseline(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
@@ -10287,6 +10363,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext.m_sValidLoadoutId.IsEmpty() && RemoveCampaignDebugSavedLoadoutById(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sValidLoadoutId))
 			vehicleLoadoutContext.m_iLoadoutSavedCleanupRemoved++;
 		if (!vehicleLoadoutContext.m_sInvalidLoadoutId.IsEmpty() && RemoveCampaignDebugSavedLoadoutById(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sInvalidLoadoutId))
+			vehicleLoadoutContext.m_iLoadoutSavedCleanupRemoved++;
+		if (!vehicleLoadoutContext.m_sPhysicalLoadoutId.IsEmpty() && RemoveCampaignDebugSavedLoadoutById(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sPhysicalLoadoutId))
+			vehicleLoadoutContext.m_iLoadoutSavedCleanupRemoved++;
+		if (!vehicleLoadoutContext.m_sRestoreLoadoutId.IsEmpty() && RemoveCampaignDebugSavedLoadoutById(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sRestoreLoadoutId))
 			vehicleLoadoutContext.m_iLoadoutSavedCleanupRemoved++;
 
 		vehicleLoadoutContext.m_bLoadoutCleanupRestoredArsenal = RestoreCampaignDebugLoadoutArsenalItem(vehicleLoadoutContext);
@@ -10585,6 +10665,96 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return issuedItem && issuedItem.m_bInfinite;
 	}
 
+	protected bool CountCampaignDebugPlayerInventoryPrefab(int playerId, string prefab, out int count)
+	{
+		count = 0;
+		if (prefab.IsEmpty())
+			return false;
+
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (!playerEntity)
+			return false;
+
+		SCR_InventoryStorageManagerComponent inventory = SCR_InventoryStorageManagerComponent.Cast(playerEntity.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (!inventory)
+			return false;
+
+		array<IEntity> items = {};
+		array<IEntity> visited = {};
+		GatherCampaignDebugInventoryItemsRecursive(inventory, items, visited, 0);
+		foreach (IEntity item : items)
+		{
+			if (ResolveCampaignDebugEntityPrefabName(item) == prefab)
+				count++;
+		}
+
+		return true;
+	}
+
+	protected void GatherCampaignDebugInventoryItemsRecursive(SCR_InventoryStorageManagerComponent inventory, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!inventory || depth > 8)
+			return;
+
+		array<IEntity> directItems = {};
+		inventory.GetItems(directItems, EStoragePurpose.PURPOSE_ANY);
+		foreach (IEntity item : directItems)
+			GatherCampaignDebugInventoryItemRecursive(item, outItems, visited, depth);
+	}
+
+	protected void GatherCampaignDebugStorageItemsRecursive(BaseInventoryStorageComponent storage, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!storage || depth > 8)
+			return;
+
+		array<InventoryItemComponent> itemComponents = {};
+		storage.GetOwnedItems(itemComponents);
+		foreach (InventoryItemComponent itemComponent : itemComponents)
+		{
+			if (!itemComponent)
+				continue;
+
+			InventoryStorageSlot parentSlot = itemComponent.GetParentSlot();
+			if (parentSlot)
+				GatherCampaignDebugInventoryItemRecursive(parentSlot.GetAttachedEntity(), outItems, visited, depth);
+		}
+
+		int slotCount = storage.GetSlotsCount();
+		for (int slotIndex = 0; slotIndex < slotCount; slotIndex++)
+		{
+			InventoryStorageSlot slot = storage.GetSlot(slotIndex);
+			if (slot)
+				GatherCampaignDebugInventoryItemRecursive(slot.GetAttachedEntity(), outItems, visited, depth);
+		}
+	}
+
+	protected void GatherCampaignDebugInventoryItemRecursive(IEntity item, notnull array<IEntity> outItems, notnull array<IEntity> visited, int depth)
+	{
+		if (!item || depth > 8 || visited.Find(item) >= 0)
+			return;
+
+		visited.Insert(item);
+
+		SCR_InventoryStorageManagerComponent childInventory = SCR_InventoryStorageManagerComponent.Cast(item.FindComponent(SCR_InventoryStorageManagerComponent));
+		if (childInventory)
+			GatherCampaignDebugInventoryItemsRecursive(childInventory, outItems, visited, depth + 1);
+
+		InventoryItemComponent itemComponent = InventoryItemComponent.Cast(item.FindComponent(InventoryItemComponent));
+		BaseInventoryStorageComponent itemStorage = BaseInventoryStorageComponent.Cast(itemComponent);
+		if (itemStorage)
+			GatherCampaignDebugStorageItemsRecursive(itemStorage, outItems, visited, depth + 1);
+
+		outItems.Insert(item);
+	}
+
+	protected string ResolveCampaignDebugEntityPrefabName(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
+	}
+
 	protected string CampaignDebugLoadoutValidApplyStatus(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
 	{
 		if (!vehicleLoadoutContext)
@@ -10599,6 +10769,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		validApplyPassed = validApplyPassed && vehicleLoadoutContext.m_iFiniteIssuedCountAfterValidApply == 1;
 		validApplyPassed = validApplyPassed && !vehicleLoadoutContext.m_bFiniteIssuedInfiniteAfterValidApply;
 		return CampaignDebugStatus(validApplyPassed);
+	}
+
+	protected string CampaignDebugLoadoutPhysicalApplyStatus(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "FAIL";
+
+		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
+			return "BLOCKED";
+
+		bool physicalApplyPassed = vehicleLoadoutContext.m_bPhysicalLoadoutSeeded;
+		physicalApplyPassed = physicalApplyPassed && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult);
+		physicalApplyPassed = physicalApplyPassed && vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply == vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalSeed - 1;
+		physicalApplyPassed = physicalApplyPassed && vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply == 2;
+		physicalApplyPassed = physicalApplyPassed && vehicleLoadoutContext.m_bPhysicalInventoryReflected;
+		return CampaignDebugStatus(physicalApplyPassed);
+	}
+
+	protected string CampaignDebugLoadoutPhysicalRestoreStatus(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "FAIL";
+
+		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
+			return "BLOCKED";
+
+		bool restorePassed = vehicleLoadoutContext.m_bRestoreLoadoutSeeded;
+		restorePassed = restorePassed && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
+		restorePassed = restorePassed && vehicleLoadoutContext.m_bPhysicalInventoryRestored;
+		return CampaignDebugStatus(restorePassed);
 	}
 
 	protected string BuildCampaignDebugVehicleLoadoutReportActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
@@ -10648,6 +10848,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		invalidActual = invalidActual + string.Format(" | arsenal %1 -> %2", vehicleLoadoutContext.m_iFiniteArsenalCountAfterValidApply, vehicleLoadoutContext.m_iFiniteArsenalCountAfterInvalidApply);
 		invalidActual = invalidActual + string.Format(" | issued finite %1 -> %2 | total %3 -> %4", vehicleLoadoutContext.m_iFiniteIssuedCountAfterValidApply, vehicleLoadoutContext.m_iFiniteIssuedCountAfterInvalidApply, vehicleLoadoutContext.m_iIssuedItemsAfterValidApply, vehicleLoadoutContext.m_iIssuedItemsAfterInvalidApply);
 		return invalidActual;
+	}
+
+	protected string BuildCampaignDebugLoadoutPhysicalApplyActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "missing";
+
+		string physicalActual = string.Format("inventory accessible %1 | seeded %2 | result %3", vehicleLoadoutContext.m_bPhysicalInventoryAccessible, vehicleLoadoutContext.m_bPhysicalLoadoutSeeded, ShortCampaignDebugLine(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult, 120));
+		physicalActual = physicalActual + string.Format(" | inventory %1 -> %2", vehicleLoadoutContext.m_iPhysicalInventoryCountBefore, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply);
+		physicalActual = physicalActual + string.Format(" | arsenal %1 -> %2 | issued finite %3", vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalSeed, vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply, vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply);
+		return physicalActual;
+	}
+
+	protected string BuildCampaignDebugLoadoutPhysicalRestoreActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "missing";
+
+		string restoreActual = string.Format("seeded %1 | result %2", vehicleLoadoutContext.m_bRestoreLoadoutSeeded, ShortCampaignDebugLine(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult, 120));
+		restoreActual = restoreActual + string.Format(" | inventory %1 -> %2 -> %3", vehicleLoadoutContext.m_iPhysicalInventoryCountBefore, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterApply, vehicleLoadoutContext.m_iPhysicalInventoryCountAfterRestore);
+		restoreActual = restoreActual + string.Format(" | restored %1", vehicleLoadoutContext.m_bPhysicalInventoryRestored);
+		return restoreActual;
 	}
 
 	protected string BuildCampaignDebugLoadoutApplyCleanupActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
