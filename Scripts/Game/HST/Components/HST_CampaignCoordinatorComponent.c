@@ -8720,11 +8720,421 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildCampaignDebugVehicleAndLoadoutReport()
 	{
-		string report = "h-istasi campaign debug | garage vehicle cargo loadout reports";
-		report = report + "\n" + RequestMemberInspectGarage(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectVehicleCargo(m_iCampaignDebugPlayerId);
-		report = report + "\n" + RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId);
-		return report;
+		HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext = BuildCampaignDebugVehicleLoadoutProbeContext();
+		RecordCampaignDebugCase(BuildCampaignDebugVehicleLoadoutCase(vehicleLoadoutContext));
+		return vehicleLoadoutContext.m_sReport;
+	}
+
+	protected HST_CampaignDebugVehicleLoadoutProbeContext BuildCampaignDebugVehicleLoadoutProbeContext()
+	{
+		HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext = new HST_CampaignDebugVehicleLoadoutProbeContext();
+		vehicleLoadoutContext.m_sVehicleId = ResolveCampaignDebugCleanupPrefix() + "_early_vehicle_loadout";
+		vehicleLoadoutContext.m_sIdentityId = ResolveTrustedIdentityId(m_iCampaignDebugPlayerId);
+		vehicleLoadoutContext.m_sGarageReportBefore = RequestMemberInspectGarage(m_iCampaignDebugPlayerId);
+		vehicleLoadoutContext.m_sVehicleCargoReportBefore = RequestMemberInspectVehicleCargo(m_iCampaignDebugPlayerId);
+		vehicleLoadoutContext.m_sLoadoutReportBefore = RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId);
+		vehicleLoadoutContext.m_sReport = "h-istasi campaign debug | garage vehicle cargo loadout actions";
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sGarageReportBefore;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sVehicleCargoReportBefore;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sLoadoutReportBefore;
+
+		if (!m_State)
+		{
+			vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\nh-istasi campaign debug | garage/loadout probe skipped | campaign state not ready";
+			return vehicleLoadoutContext;
+		}
+
+		vehicleLoadoutContext.m_iGarageCountBefore = m_State.m_aGarageVehicles.Count();
+		vehicleLoadoutContext.m_iRuntimeVehicleCountBefore = m_State.m_aRuntimeVehicles.Count();
+		vehicleLoadoutContext.m_iVehicleCargoCountBefore = m_State.m_aVehicleCargoItems.Count();
+		vehicleLoadoutContext.m_iSavedLoadoutsBefore = CountCampaignDebugSavedLoadoutsForIdentity(vehicleLoadoutContext.m_sIdentityId);
+		vehicleLoadoutContext.m_iIssuedItemsBefore = CountCampaignDebugIssuedLoadoutItemsForIdentity(vehicleLoadoutContext.m_sIdentityId);
+
+		if (!m_Arsenal || !m_Loot || !m_BuildMode || !m_LoadoutEditor)
+		{
+			vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\nh-istasi campaign debug | garage/loadout probe skipped | service not ready";
+			return vehicleLoadoutContext;
+		}
+
+		if (!IsZeroVector(m_State.m_vHQPosition))
+			vehicleLoadoutContext.m_bTeleportedToHQ = TeleportCampaignDebugPlayer(m_State.m_vHQPosition + "2 0 2", "garage vehicle loadout probe");
+
+		vector storedPosition = m_State.m_vHQPosition + "8 0 8";
+		vector storedAngles = "0 0 0";
+		vehicleLoadoutContext.m_bStoreResult = RequestCommanderStoreGarageVehicle(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sVehicleId, PHASE15_SMOKE_VEHICLE_PREFAB, storedPosition, storedAngles, 1.0, false);
+		vehicleLoadoutContext.m_iGarageCountAfterStore = m_State.m_aGarageVehicles.Count();
+
+		HST_GarageVehicleState storedVehicle = m_State.FindGarageVehicle(vehicleLoadoutContext.m_sVehicleId);
+		if (storedVehicle)
+		{
+			vehicleLoadoutContext.m_bStoredRecordFound = true;
+			vehicleLoadoutContext.m_bStoredPrefabValid = storedVehicle.m_sPrefab == PHASE15_SMOKE_VEHICLE_PREFAB && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(storedVehicle.m_sPrefab);
+			vehicleLoadoutContext.m_bStoredPrefixValid = MissionValueHasCampaignDebugPrefix(storedVehicle.m_sVehicleId, ResolveCampaignDebugCleanupPrefix());
+			vehicleLoadoutContext.m_iRedeployCost = storedVehicle.m_iRedeployCost;
+			AppendCampaignDebugVehicleLoadoutStoredCargo(storedVehicle);
+			vehicleLoadoutContext.m_iStoredCargoAfterArrange = CountCampaignDebugStoredVehicleCargoItems(storedVehicle);
+		}
+
+		vehicleLoadoutContext.m_iMoneyBeforeRedeploy = m_State.m_iFactionMoney;
+		vehicleLoadoutContext.m_sRedeployResult = RequestMemberRedeployGarageVehicle(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sVehicleId);
+		vehicleLoadoutContext.m_iMoneyAfterRedeploy = m_State.m_iFactionMoney;
+		vehicleLoadoutContext.m_iGarageCountAfterRedeploy = m_State.m_aGarageVehicles.Count();
+		vehicleLoadoutContext.m_iRuntimeVehicleCountAfterRedeploy = m_State.m_aRuntimeVehicles.Count();
+		vehicleLoadoutContext.m_iVehicleCargoCountAfterRedeploy = m_State.m_aVehicleCargoItems.Count();
+
+		HST_RuntimeVehicleState redeployedVehicle = FindCampaignDebugRuntimeVehicleAfterIndex(vehicleLoadoutContext.m_iRuntimeVehicleCountBefore);
+		if (redeployedVehicle)
+		{
+			vehicleLoadoutContext.m_bRuntimeRecordFound = true;
+			vehicleLoadoutContext.m_sRuntimeVehicleId = redeployedVehicle.m_sVehicleRuntimeId;
+			vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy = CountCampaignDebugVehicleCargoForRuntime(vehicleLoadoutContext.m_sRuntimeVehicleId);
+		}
+
+		if (vehicleLoadoutContext.m_bRuntimeRecordFound)
+		{
+			int garageCountBeforeCapture = m_State.m_aGarageVehicles.Count();
+			vehicleLoadoutContext.m_sCaptureResult = RequestMemberCaptureNearbyVehicle(m_iCampaignDebugPlayerId);
+			vehicleLoadoutContext.m_iGarageCountAfterCapture = m_State.m_aGarageVehicles.Count();
+			HST_GarageVehicleState capturedVehicle = FindCampaignDebugGarageVehicleAfterIndex(garageCountBeforeCapture);
+			if (capturedVehicle)
+			{
+				vehicleLoadoutContext.m_bCapturedRecordFound = true;
+				vehicleLoadoutContext.m_sCapturedVehicleId = capturedVehicle.m_sVehicleId;
+			}
+		}
+		else
+		{
+			vehicleLoadoutContext.m_sCaptureResult = "h-istasi garage | skipped: no redeployed runtime vehicle";
+			vehicleLoadoutContext.m_iGarageCountAfterCapture = m_State.m_aGarageVehicles.Count();
+		}
+
+		vehicleLoadoutContext.m_sOpenLoadoutResult = RequestMemberOpenLoadoutEditor(m_iCampaignDebugPlayerId);
+		CaptureCampaignDebugLoadoutSessionState(vehicleLoadoutContext, true);
+		vehicleLoadoutContext.m_sCloseLoadoutResult = RequestMemberCloseLoadoutEditor(m_iCampaignDebugPlayerId);
+		CaptureCampaignDebugLoadoutSessionState(vehicleLoadoutContext, false);
+
+		CleanupCampaignDebugVehicleLoadoutProbe(vehicleLoadoutContext);
+		vehicleLoadoutContext.m_sGarageReportAfter = RequestMemberInspectGarage(m_iCampaignDebugPlayerId);
+		vehicleLoadoutContext.m_sVehicleCargoReportAfter = RequestMemberInspectVehicleCargo(m_iCampaignDebugPlayerId);
+		vehicleLoadoutContext.m_sLoadoutReportAfter = RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId);
+
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + string.Format("\nstore garage vehicle %1 | %2", vehicleLoadoutContext.m_bStoreResult, vehicleLoadoutContext.m_sVehicleId);
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sRedeployResult;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sCaptureResult;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sOpenLoadoutResult;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sCloseLoadoutResult;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + string.Format("\ncleanup | garage %1 | runtime %2 | cargo %3", vehicleLoadoutContext.m_iGarageCleanupRemoved, vehicleLoadoutContext.m_iRuntimeCleanupRemoved, vehicleLoadoutContext.m_iCargoCleanupRemoved);
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sGarageReportAfter;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sVehicleCargoReportAfter;
+		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sLoadoutReportAfter;
+		return vehicleLoadoutContext;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugVehicleLoadoutCase(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		HST_CampaignDebugCaseResult vehicleLoadoutCase = CreateCampaignDebugCase("early_mechanics.garage_vehicle_loadout.actions", "early_mechanics", "garage_vehicle_loadout", "early_mechanics");
+		if (!vehicleLoadoutContext)
+		{
+			AddCampaignDebugAssertion(vehicleLoadoutCase, "garage_loadout.context", "garage/loadout probe context exists", "missing", "BLOCKED", "garage/loadout probe context missing");
+			FinalizeCampaignDebugCaseFromAssertions(vehicleLoadoutCase);
+			return vehicleLoadoutCase;
+		}
+
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sGarageReportBefore);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sVehicleCargoReportBefore);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sLoadoutReportBefore);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sRedeployResult);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sCaptureResult);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sOpenLoadoutResult);
+		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sCloseLoadoutResult);
+		AddCampaignDebugVehicleLoadoutMetrics(vehicleLoadoutCase, vehicleLoadoutContext);
+
+		bool servicesReady = m_State != null && m_Arsenal != null && m_Loot != null && m_BuildMode != null && m_LoadoutEditor != null;
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage_loadout.prerequisites", "campaign state, arsenal, loot, build mode, and loadout editor ready", string.Format("%1", servicesReady), CampaignDebugStatus(servicesReady, "BLOCKED"), "garage/loadout action probe missing required services");
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage_loadout.reports.available", "garage, vehicle cargo, and loadout reports return usable text", BuildCampaignDebugVehicleLoadoutReportActual(vehicleLoadoutContext), CampaignDebugStatus(IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sGarageReportBefore) && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sVehicleCargoReportBefore) && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sLoadoutReportBefore)), "one or more initial garage/loadout reports failed");
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.store.command", "commander store command creates a garage record", string.Format("stored %1 | count %2 -> %3", vehicleLoadoutContext.m_bStoreResult, vehicleLoadoutContext.m_iGarageCountBefore, vehicleLoadoutContext.m_iGarageCountAfterStore), CampaignDebugStatus(vehicleLoadoutContext.m_bStoreResult && vehicleLoadoutContext.m_bStoredRecordFound), "debug garage vehicle was not stored", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.store.prefix", "stored vehicle id uses the active debug cleanup prefix", EmptyCampaignDebugField(vehicleLoadoutContext.m_sVehicleId), CampaignDebugStatus(vehicleLoadoutContext.m_bStoredPrefixValid), "debug garage vehicle id was not prefixed for cleanup", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.store.prefab", "stored vehicle prefab is a valid vehicle root", EmptyCampaignDebugField(PHASE15_SMOKE_VEHICLE_PREFAB), CampaignDebugStatus(vehicleLoadoutContext.m_bStoredPrefabValid), "stored vehicle prefab is not valid for garage redeploy", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "vehicle_cargo.arrange", "stored garage vehicle has cargo arranged before redeploy", string.Format("stored cargo %1", vehicleLoadoutContext.m_iStoredCargoAfterArrange), CampaignDebugStatus(vehicleLoadoutContext.m_iStoredCargoAfterArrange >= 2), "vehicle cargo fixture was not arranged on the stored garage vehicle", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.command", "member redeploy command completes through build mode", ShortCampaignDebugLine(vehicleLoadoutContext.m_sRedeployResult, 220), CampaignDebugStatus(vehicleLoadoutContext.m_sRedeployResult.Contains("complete")), "garage redeploy command did not complete", vehicleLoadoutContext.m_sRuntimeVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.consumes_record", "redeploy consumes the stored garage record", string.Format("garage %1 -> %2 -> %3", vehicleLoadoutContext.m_iGarageCountBefore, vehicleLoadoutContext.m_iGarageCountAfterStore, vehicleLoadoutContext.m_iGarageCountAfterRedeploy), CampaignDebugStatus(vehicleLoadoutContext.m_sRedeployResult.Contains("complete") && vehicleLoadoutContext.m_iGarageCountAfterRedeploy == vehicleLoadoutContext.m_iGarageCountBefore), "redeploy did not consume exactly the debug garage record", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.runtime_vehicle", "redeploy creates a runtime vehicle record", EmptyCampaignDebugField(vehicleLoadoutContext.m_sRuntimeVehicleId), CampaignDebugStatus(vehicleLoadoutContext.m_bRuntimeRecordFound), "garage redeploy did not create a runtime vehicle record", vehicleLoadoutContext.m_sRuntimeVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "vehicle_cargo.restore", "stored cargo is restored to the redeployed runtime vehicle", string.Format("cargo entries %1 | cargo count %2 -> %3", vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy, vehicleLoadoutContext.m_iVehicleCargoCountBefore, vehicleLoadoutContext.m_iVehicleCargoCountAfterRedeploy), CampaignDebugStatus(vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy >= 2), "garage redeploy did not restore stored cargo to vehicle cargo state", vehicleLoadoutContext.m_sRuntimeVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.cost", "redeploy applies the stored vehicle cost when economy is available", string.Format("money %1 -> %2 | cost %3", vehicleLoadoutContext.m_iMoneyBeforeRedeploy, vehicleLoadoutContext.m_iMoneyAfterRedeploy, vehicleLoadoutContext.m_iRedeployCost), CampaignDebugStatus(!vehicleLoadoutContext.m_sRedeployResult.Contains("complete") || vehicleLoadoutContext.m_iMoneyBeforeRedeploy - vehicleLoadoutContext.m_iMoneyAfterRedeploy == vehicleLoadoutContext.m_iRedeployCost), "garage redeploy money delta did not match redeploy cost", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.capture.cleanup_action", "nearby vehicle capture despawns redeployed vehicle and creates a garage record", ShortCampaignDebugLine(vehicleLoadoutContext.m_sCaptureResult, 220), CampaignDebugStatus(!vehicleLoadoutContext.m_bRuntimeRecordFound || (vehicleLoadoutContext.m_sCaptureResult.Contains("complete") && vehicleLoadoutContext.m_bCapturedRecordFound)), "capture cleanup did not complete for the redeployed vehicle", vehicleLoadoutContext.m_sCapturedVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.open", "loadout editor opens at HQ for the debug actor", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, true), CampaignDebugStatus(IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sOpenLoadoutResult) && vehicleLoadoutContext.m_bLoadoutSessionAfterOpen && vehicleLoadoutContext.m_sLoadoutStatusAfterOpen == "open"), "loadout editor did not open a server session for the debug actor");
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.open.draft", "open refreshes live draft slots or reports live-character availability", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, true), CampaignDebugStatus(vehicleLoadoutContext.m_iDraftSlotsAfterOpen > 0 || vehicleLoadoutContext.m_bLiveCharacterAfterOpen, "WARN"), "loadout editor opened without live draft evidence");
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.close", "loadout editor closes without mutating issued-loadout ledger", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, false), CampaignDebugStatus(IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sCloseLoadoutResult) && vehicleLoadoutContext.m_bLoadoutSessionAfterClose && vehicleLoadoutContext.m_sLoadoutStatusAfterClose == "closed" && vehicleLoadoutContext.m_iIssuedItemsAfterClose == vehicleLoadoutContext.m_iIssuedItemsBefore), "loadout editor close failed or issued-loadout state mutated unexpectedly");
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage_loadout.cleanup", "debug garage, runtime vehicle, and vehicle cargo records are removed", BuildCampaignDebugVehicleLoadoutCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_iGarageCountAfterCleanup == vehicleLoadoutContext.m_iGarageCountBefore && vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup == vehicleLoadoutContext.m_iRuntimeVehicleCountBefore && vehicleLoadoutContext.m_iVehicleCargoCountAfterCleanup == vehicleLoadoutContext.m_iVehicleCargoCountBefore), "garage/loadout probe left debug garage, runtime vehicle, or cargo records behind");
+		FinalizeCampaignDebugCaseFromAssertions(vehicleLoadoutCase);
+		return vehicleLoadoutCase;
+	}
+
+	protected void AddCampaignDebugVehicleLoadoutMetrics(HST_CampaignDebugCaseResult vehicleLoadoutCase, HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutCase || !vehicleLoadoutContext)
+			return;
+
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.garage_before", string.Format("%1", vehicleLoadoutContext.m_iGarageCountBefore), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.garage_after_store", string.Format("%1", vehicleLoadoutContext.m_iGarageCountAfterStore), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.garage_after_redeploy", string.Format("%1", vehicleLoadoutContext.m_iGarageCountAfterRedeploy), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.garage_after_cleanup", string.Format("%1", vehicleLoadoutContext.m_iGarageCountAfterCleanup), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.runtime_before", string.Format("%1", vehicleLoadoutContext.m_iRuntimeVehicleCountBefore), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.runtime_after_redeploy", string.Format("%1", vehicleLoadoutContext.m_iRuntimeVehicleCountAfterRedeploy), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.runtime_after_cleanup", string.Format("%1", vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.vehicle_cargo_after_redeploy", string.Format("%1", vehicleLoadoutContext.m_iVehicleCargoCountAfterRedeploy), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.restored_cargo", string.Format("%1", vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.saved_loadouts_after_open", string.Format("%1", vehicleLoadoutContext.m_iSavedLoadoutsAfterOpen), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.draft_slots_after_open", string.Format("%1", vehicleLoadoutContext.m_iDraftSlotsAfterOpen), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.draft_nodes_after_open", string.Format("%1", vehicleLoadoutContext.m_iDraftNodesAfterOpen), "count");
+	}
+
+	protected void AppendCampaignDebugVehicleLoadoutStoredCargo(HST_GarageVehicleState storedVehicle)
+	{
+		if (!storedVehicle)
+			return;
+
+		foreach (HST_StoredVehicleCargoState existingCargo : storedVehicle.m_aStoredCargoItems)
+		{
+			if (!existingCargo || existingCargo.m_sItemPrefab != PHASE15_SMOKE_CARGO_PREFAB)
+				continue;
+
+			existingCargo.m_iCount = Math.Max(existingCargo.m_iCount, 2);
+			return;
+		}
+
+		HST_StoredVehicleCargoState vehicleLoadoutCargo = new HST_StoredVehicleCargoState();
+		vehicleLoadoutCargo.m_sItemPrefab = PHASE15_SMOKE_CARGO_PREFAB;
+		vehicleLoadoutCargo.m_sDisplayName = "Campaign Debug Cargo";
+		vehicleLoadoutCargo.m_sCategory = "cargo";
+		vehicleLoadoutCargo.m_sSource = "campaign_debug_vehicle_loadout";
+		vehicleLoadoutCargo.m_iCount = 2;
+		storedVehicle.m_aStoredCargoItems.Insert(vehicleLoadoutCargo);
+	}
+
+	protected void CaptureCampaignDebugLoadoutSessionState(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext, bool afterOpen)
+	{
+		if (!vehicleLoadoutContext || !m_State)
+			return;
+
+		HST_LoadoutEditorSessionState loadoutSession = m_State.FindLoadoutEditorSession(vehicleLoadoutContext.m_sIdentityId);
+		int issuedItemCount = CountCampaignDebugIssuedLoadoutItemsForIdentity(vehicleLoadoutContext.m_sIdentityId);
+		int savedLoadoutCount = CountCampaignDebugSavedLoadoutsForIdentity(vehicleLoadoutContext.m_sIdentityId);
+		if (afterOpen)
+		{
+			vehicleLoadoutContext.m_bLoadoutSessionAfterOpen = loadoutSession != null;
+			vehicleLoadoutContext.m_iIssuedItemsAfterOpen = issuedItemCount;
+			vehicleLoadoutContext.m_iSavedLoadoutsAfterOpen = savedLoadoutCount;
+			if (loadoutSession)
+			{
+				vehicleLoadoutContext.m_sLoadoutStatusAfterOpen = loadoutSession.m_sStatus;
+				vehicleLoadoutContext.m_iDraftSlotsAfterOpen = loadoutSession.m_aDraftSlots.Count();
+				vehicleLoadoutContext.m_iDraftNodesAfterOpen = loadoutSession.m_aDraftNodes.Count();
+				vehicleLoadoutContext.m_bLiveCharacterAfterOpen = loadoutSession.m_bLiveCharacterAvailable;
+				vehicleLoadoutContext.m_iOpenPlayerId = loadoutSession.m_iPlayerId;
+			}
+			return;
+		}
+
+		vehicleLoadoutContext.m_bLoadoutSessionAfterClose = loadoutSession != null;
+		vehicleLoadoutContext.m_iIssuedItemsAfterClose = issuedItemCount;
+		vehicleLoadoutContext.m_iSavedLoadoutsAfterClose = savedLoadoutCount;
+		if (loadoutSession)
+			vehicleLoadoutContext.m_sLoadoutStatusAfterClose = loadoutSession.m_sStatus;
+	}
+
+	protected void CleanupCampaignDebugVehicleLoadoutProbe(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext || !m_State)
+			return;
+
+		if (!vehicleLoadoutContext.m_sCapturedVehicleId.IsEmpty() && RemoveCampaignDebugGarageVehicleById(vehicleLoadoutContext.m_sCapturedVehicleId))
+			vehicleLoadoutContext.m_iGarageCleanupRemoved++;
+		if (!vehicleLoadoutContext.m_sVehicleId.IsEmpty() && RemoveCampaignDebugGarageVehicleById(vehicleLoadoutContext.m_sVehicleId))
+			vehicleLoadoutContext.m_iGarageCleanupRemoved++;
+		if (!vehicleLoadoutContext.m_sRuntimeVehicleId.IsEmpty())
+		{
+			vehicleLoadoutContext.m_iCargoCleanupRemoved += RemoveCampaignDebugVehicleCargoForRuntime(vehicleLoadoutContext.m_sRuntimeVehicleId);
+			if (RemoveCampaignDebugRuntimeVehicleById(vehicleLoadoutContext.m_sRuntimeVehicleId))
+				vehicleLoadoutContext.m_iRuntimeCleanupRemoved++;
+		}
+
+		vehicleLoadoutContext.m_iGarageCountAfterCleanup = m_State.m_aGarageVehicles.Count();
+		vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup = m_State.m_aRuntimeVehicles.Count();
+		vehicleLoadoutContext.m_iVehicleCargoCountAfterCleanup = m_State.m_aVehicleCargoItems.Count();
+	}
+
+	protected HST_RuntimeVehicleState FindCampaignDebugRuntimeVehicleAfterIndex(int startIndex)
+	{
+		if (!m_State)
+			return null;
+
+		int firstIndex = Math.Max(0, startIndex);
+		for (int runtimeIndex = m_State.m_aRuntimeVehicles.Count() - 1; runtimeIndex >= firstIndex; runtimeIndex--)
+		{
+			HST_RuntimeVehicleState runtimeVehicle = m_State.m_aRuntimeVehicles[runtimeIndex];
+			if (runtimeVehicle && runtimeVehicle.m_sRuntimeKind == "garage_redeploy")
+				return runtimeVehicle;
+		}
+
+		return null;
+	}
+
+	protected HST_GarageVehicleState FindCampaignDebugGarageVehicleAfterIndex(int startIndex)
+	{
+		if (!m_State)
+			return null;
+
+		int firstIndex = Math.Max(0, startIndex);
+		for (int garageIndex = m_State.m_aGarageVehicles.Count() - 1; garageIndex >= firstIndex; garageIndex--)
+		{
+			HST_GarageVehicleState garageVehicle = m_State.m_aGarageVehicles[garageIndex];
+			if (garageVehicle)
+				return garageVehicle;
+		}
+
+		return null;
+	}
+
+	protected bool RemoveCampaignDebugGarageVehicleById(string vehicleId)
+	{
+		if (!m_State || vehicleId.IsEmpty())
+			return false;
+
+		for (int garageIndex = m_State.m_aGarageVehicles.Count() - 1; garageIndex >= 0; garageIndex--)
+		{
+			HST_GarageVehicleState garageVehicle = m_State.m_aGarageVehicles[garageIndex];
+			if (!garageVehicle || garageVehicle.m_sVehicleId != vehicleId)
+				continue;
+
+			m_State.m_aGarageVehicles.Remove(garageIndex);
+			return true;
+		}
+
+		return false;
+	}
+
+	protected bool RemoveCampaignDebugRuntimeVehicleById(string runtimeVehicleId)
+	{
+		if (!m_State || runtimeVehicleId.IsEmpty())
+			return false;
+
+		for (int runtimeIndex = m_State.m_aRuntimeVehicles.Count() - 1; runtimeIndex >= 0; runtimeIndex--)
+		{
+			HST_RuntimeVehicleState runtimeVehicle = m_State.m_aRuntimeVehicles[runtimeIndex];
+			if (!runtimeVehicle || runtimeVehicle.m_sVehicleRuntimeId != runtimeVehicleId)
+				continue;
+
+			m_State.m_aRuntimeVehicles.Remove(runtimeIndex);
+			return true;
+		}
+
+		return false;
+	}
+
+	protected int RemoveCampaignDebugVehicleCargoForRuntime(string runtimeVehicleId)
+	{
+		if (!m_State || runtimeVehicleId.IsEmpty())
+			return 0;
+
+		int removedCargoCount;
+		for (int cargoIndex = m_State.m_aVehicleCargoItems.Count() - 1; cargoIndex >= 0; cargoIndex--)
+		{
+			HST_VehicleCargoItemState vehicleCargo = m_State.m_aVehicleCargoItems[cargoIndex];
+			if (!vehicleCargo || vehicleCargo.m_sVehicleRuntimeId != runtimeVehicleId)
+				continue;
+
+			m_State.m_aVehicleCargoItems.Remove(cargoIndex);
+			removedCargoCount++;
+		}
+
+		return removedCargoCount;
+	}
+
+	protected int CountCampaignDebugVehicleCargoForRuntime(string runtimeVehicleId)
+	{
+		if (!m_State || runtimeVehicleId.IsEmpty())
+			return 0;
+
+		int cargoCount;
+		foreach (HST_VehicleCargoItemState vehicleCargo : m_State.m_aVehicleCargoItems)
+		{
+			if (!vehicleCargo || vehicleCargo.m_sVehicleRuntimeId != runtimeVehicleId)
+				continue;
+
+			cargoCount += Math.Max(1, vehicleCargo.m_iCount);
+		}
+
+		return cargoCount;
+	}
+
+	protected int CountCampaignDebugSavedLoadoutsForIdentity(string identityId)
+	{
+		if (!m_State || identityId.IsEmpty())
+			return 0;
+
+		int savedLoadoutCount;
+		foreach (HST_SavedLoadoutState savedLoadout : m_State.m_aSavedLoadouts)
+		{
+			if (savedLoadout && savedLoadout.m_sOwnerIdentityId == identityId)
+				savedLoadoutCount++;
+		}
+
+		return savedLoadoutCount;
+	}
+
+	protected int CountCampaignDebugIssuedLoadoutItemsForIdentity(string identityId)
+	{
+		if (!m_State || identityId.IsEmpty())
+			return 0;
+
+		int issuedItemCount;
+		foreach (HST_IssuedLoadoutItemState issuedItem : m_State.m_aIssuedLoadoutItems)
+		{
+			if (issuedItem && issuedItem.m_sOwnerIdentityId == identityId)
+				issuedItemCount += Math.Max(1, issuedItem.m_iCount);
+		}
+
+		return issuedItemCount;
+	}
+
+	protected string BuildCampaignDebugVehicleLoadoutReportActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "missing";
+
+		string reportActual = string.Format("garage report %1 | cargo report %2", !vehicleLoadoutContext.m_sGarageReportBefore.IsEmpty(), !vehicleLoadoutContext.m_sVehicleCargoReportBefore.IsEmpty());
+		reportActual = reportActual + string.Format(" | loadout report %1", !vehicleLoadoutContext.m_sLoadoutReportBefore.IsEmpty());
+		return reportActual;
+	}
+
+	protected string BuildCampaignDebugLoadoutSessionActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext, bool afterOpen)
+	{
+		if (!vehicleLoadoutContext)
+			return "missing";
+
+		if (afterOpen)
+		{
+			string openActual = string.Format("session %1 | status %2 | player %3", vehicleLoadoutContext.m_bLoadoutSessionAfterOpen, EmptyCampaignDebugField(vehicleLoadoutContext.m_sLoadoutStatusAfterOpen), vehicleLoadoutContext.m_iOpenPlayerId);
+			openActual = openActual + string.Format(" | draft slots %1 | nodes %2 | live %3", vehicleLoadoutContext.m_iDraftSlotsAfterOpen, vehicleLoadoutContext.m_iDraftNodesAfterOpen, vehicleLoadoutContext.m_bLiveCharacterAfterOpen);
+			openActual = openActual + string.Format(" | saved %1 -> %2 | issued %3 -> %4", vehicleLoadoutContext.m_iSavedLoadoutsBefore, vehicleLoadoutContext.m_iSavedLoadoutsAfterOpen, vehicleLoadoutContext.m_iIssuedItemsBefore, vehicleLoadoutContext.m_iIssuedItemsAfterOpen);
+			return openActual;
+		}
+
+		string closeActual = string.Format("session %1 | status %2", vehicleLoadoutContext.m_bLoadoutSessionAfterClose, EmptyCampaignDebugField(vehicleLoadoutContext.m_sLoadoutStatusAfterClose));
+		closeActual = closeActual + string.Format(" | saved %1 -> %2 | issued %3 -> %4", vehicleLoadoutContext.m_iSavedLoadoutsBefore, vehicleLoadoutContext.m_iSavedLoadoutsAfterClose, vehicleLoadoutContext.m_iIssuedItemsBefore, vehicleLoadoutContext.m_iIssuedItemsAfterClose);
+		return closeActual;
+	}
+
+	protected string BuildCampaignDebugVehicleLoadoutCleanupActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "missing";
+
+		string cleanupActual = string.Format("garage %1 -> %2 | runtime %3 -> %4", vehicleLoadoutContext.m_iGarageCountBefore, vehicleLoadoutContext.m_iGarageCountAfterCleanup, vehicleLoadoutContext.m_iRuntimeVehicleCountBefore, vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup);
+		cleanupActual = cleanupActual + string.Format(" | cargo %1 -> %2", vehicleLoadoutContext.m_iVehicleCargoCountBefore, vehicleLoadoutContext.m_iVehicleCargoCountAfterCleanup);
+		cleanupActual = cleanupActual + string.Format(" | removed garage/runtime/cargo %1/%2/%3", vehicleLoadoutContext.m_iGarageCleanupRemoved, vehicleLoadoutContext.m_iRuntimeCleanupRemoved, vehicleLoadoutContext.m_iCargoCleanupRemoved);
+		return cleanupActual;
 	}
 
 	protected HST_ActiveMissionState ResolveCampaignDebugEarlyMission()

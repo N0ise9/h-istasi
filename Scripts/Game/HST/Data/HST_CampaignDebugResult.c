@@ -156,6 +156,65 @@ class HST_CampaignDebugIncomeProbeContext
 	int m_iResistanceIncomeZoneCount;
 }
 
+class HST_CampaignDebugVehicleLoadoutProbeContext
+{
+	string m_sReport;
+	string m_sVehicleId;
+	string m_sCapturedVehicleId;
+	string m_sRuntimeVehicleId;
+	string m_sIdentityId;
+	string m_sGarageReportBefore;
+	string m_sVehicleCargoReportBefore;
+	string m_sLoadoutReportBefore;
+	string m_sGarageReportAfter;
+	string m_sVehicleCargoReportAfter;
+	string m_sLoadoutReportAfter;
+	string m_sRedeployResult;
+	string m_sCaptureResult;
+	string m_sOpenLoadoutResult;
+	string m_sCloseLoadoutResult;
+	bool m_bStoreResult;
+	bool m_bTeleportedToHQ;
+	bool m_bStoredRecordFound;
+	bool m_bStoredPrefabValid;
+	bool m_bStoredPrefixValid;
+	bool m_bRuntimeRecordFound;
+	bool m_bCapturedRecordFound;
+	int m_iGarageCountBefore;
+	int m_iGarageCountAfterStore;
+	int m_iGarageCountAfterRedeploy;
+	int m_iGarageCountAfterCapture;
+	int m_iGarageCountAfterCleanup;
+	int m_iRuntimeVehicleCountBefore;
+	int m_iRuntimeVehicleCountAfterRedeploy;
+	int m_iRuntimeVehicleCountAfterCleanup;
+	int m_iVehicleCargoCountBefore;
+	int m_iVehicleCargoCountAfterRedeploy;
+	int m_iVehicleCargoCountAfterCleanup;
+	int m_iStoredCargoAfterArrange;
+	int m_iRestoredCargoAfterRedeploy;
+	int m_iGarageCleanupRemoved;
+	int m_iRuntimeCleanupRemoved;
+	int m_iCargoCleanupRemoved;
+	int m_iMoneyBeforeRedeploy;
+	int m_iMoneyAfterRedeploy;
+	int m_iRedeployCost;
+	int m_iSavedLoadoutsBefore;
+	int m_iSavedLoadoutsAfterOpen;
+	int m_iSavedLoadoutsAfterClose;
+	int m_iIssuedItemsBefore;
+	int m_iIssuedItemsAfterOpen;
+	int m_iIssuedItemsAfterClose;
+	int m_iDraftSlotsAfterOpen;
+	int m_iDraftNodesAfterOpen;
+	int m_iOpenPlayerId;
+	string m_sLoadoutStatusAfterOpen;
+	string m_sLoadoutStatusAfterClose;
+	bool m_bLoadoutSessionAfterOpen;
+	bool m_bLoadoutSessionAfterClose;
+	bool m_bLiveCharacterAfterOpen;
+}
+
 class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 {
 	HST_EnemyOrderState m_Order;
