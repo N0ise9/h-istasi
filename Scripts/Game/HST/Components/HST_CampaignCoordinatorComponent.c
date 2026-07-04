@@ -5190,6 +5190,85 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return count;
 	}
 
+	protected int CountCampaignDebugZoneMarkerMismatches(out string example, out int expectedZones, out int missingMarkers, out int linkOwnerMismatches, out int presentationMismatches, out int positionMismatches)
+	{
+		example = "";
+		expectedZones = 0;
+		missingMarkers = 0;
+		linkOwnerMismatches = 0;
+		presentationMismatches = 0;
+		positionMismatches = 0;
+		if (!m_State)
+			return 0;
+
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			expectedZones++;
+			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
+			if (!marker || !marker.m_bVisible)
+			{
+				missingMarkers++;
+				if (example.IsEmpty())
+					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "missing");
+				continue;
+			}
+
+			if (marker.m_sLinkedId != zone.m_sZoneId || marker.m_sOwnerFactionKey != zone.m_sOwnerFactionKey)
+			{
+				linkOwnerMismatches++;
+				if (example.IsEmpty())
+					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "link_owner");
+			}
+
+			if (marker.m_sColorHint.IsEmpty() || marker.m_sStyleHint.IsEmpty())
+			{
+				presentationMismatches++;
+				if (example.IsEmpty())
+					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "presentation");
+			}
+
+			if (!CampaignDebugMarkerPositionMatchesZone(marker, zone))
+			{
+				positionMismatches++;
+				if (example.IsEmpty())
+					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "position");
+			}
+		}
+
+		return missingMarkers + linkOwnerMismatches + presentationMismatches + positionMismatches;
+	}
+
+	protected bool CampaignDebugMarkerPositionMatchesZone(HST_MapMarkerState marker, HST_ZoneState zone)
+	{
+		if (!marker || !zone)
+			return false;
+
+		return marker.m_vPosition[0] == zone.m_vPosition[0] && marker.m_vPosition[1] == zone.m_vPosition[1] && marker.m_vPosition[2] == zone.m_vPosition[2];
+	}
+
+	protected string BuildCampaignDebugZoneMarkerMismatchExample(HST_ZoneState zone, HST_MapMarkerState marker, string reason)
+	{
+		if (!zone)
+			return "missing zone";
+
+		string markerActual = BuildCampaignDebugMarkerActual(marker);
+		string actual = string.Format("%1 | zone %2 | owner %3 | pos %4", reason, EmptyCampaignDebugField(zone.m_sZoneId), EmptyCampaignDebugField(zone.m_sOwnerFactionKey), zone.m_vPosition);
+		actual = actual + " | marker " + markerActual;
+		return actual;
+	}
+
+	protected string BuildCampaignDebugZoneMarkerAuditActual(int expectedZones, int missingMarkers, int linkOwnerMismatches, int presentationMismatches, int positionMismatches, string example)
+	{
+		string actual = string.Format("zones %1 | missing %2 | link/owner %3 | presentation %4 | position %5", expectedZones, missingMarkers, linkOwnerMismatches, presentationMismatches, positionMismatches);
+		if (!example.IsEmpty())
+			actual = actual + " | example " + example;
+
+		return actual;
+	}
+
 	protected string BuildCampaignDebugCaseLogText(HST_CampaignDebugCaseResult caseResult)
 	{
 		if (!caseResult)
@@ -12397,6 +12476,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string missingExample;
 		int orphanMarkers = CountCampaignDebugOrphanMarkers(orphanExample);
 		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingExample);
+		string zoneMarkerExample;
+		int expectedZoneMarkers;
+		int missingZoneMarkers;
+		int linkOwnerZoneMarkerMismatches;
+		int presentationZoneMarkerMismatches;
+		int positionZoneMarkerMismatches;
+		int zoneMarkerMismatches = CountCampaignDebugZoneMarkerMismatches(zoneMarkerExample, expectedZoneMarkers, missingZoneMarkers, linkOwnerZoneMarkerMismatches, presentationZoneMarkerMismatches, positionZoneMarkerMismatches);
+		string zoneMarkerActual = BuildCampaignDebugZoneMarkerAuditActual(expectedZoneMarkers, missingZoneMarkers, linkOwnerZoneMarkerMismatches, presentationZoneMarkerMismatches, positionZoneMarkerMismatches, zoneMarkerExample);
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
 		HST_MapMarkerState defendMarker = m_State.FindMapMarker("hst_defend_petros");
@@ -12408,9 +12495,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.qrf", string.Format("%1", qrfMarkers), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.orphan", string.Format("%1", orphanMarkers), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.backing_missing", string.Format("%1", missingBackingMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.expected", string.Format("%1", expectedZoneMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.missing", string.Format("%1", missingZoneMarkers), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.link_owner_mismatch", string.Format("%1", linkOwnerZoneMarkerMismatches), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.presentation_mismatch", string.Format("%1", presentationZoneMarkerMismatches), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.position_mismatch", string.Format("%1", positionZoneMarkerMismatches), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.markers.zones.mismatch_total", string.Format("%1", zoneMarkerMismatches), "count");
 
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi phase 23 marker audit")), "Phase 23 marker audit report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.records", "marker model has records", string.Format("%1", totalMarkers), CampaignDebugStatus(totalMarkers > 0), "Phase 23 marker model has no records");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.hq", "HQ marker exists when HQ is deployed", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(!m_State.m_bHQDeployed || hqMarker != null), "Phase 23 marker audit did not find the HQ marker");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.defense_markers", "Petros/defense markers exist while Defend Petros is active", string.Format("active %1 | Petros %2 | defend %3", m_State.m_bDefendPetrosActive, petrosMarker != null, defendMarker != null), CampaignDebugStatus(!m_State.m_bDefendPetrosActive || (petrosMarker != null && defendMarker != null)), "Phase 23 marker audit did not find active Defend Petros markers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.missions", "active missions have mission/objective/asset marker coverage", string.Format("markers %1 | active %2", missionMarkers, activeMissions), CampaignDebugStatus(activeMissions <= 0 || missionMarkers > 0), "Phase 23 active missions have no mission marker coverage");
