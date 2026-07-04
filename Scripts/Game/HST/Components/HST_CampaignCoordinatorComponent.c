@@ -12685,6 +12685,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		physicalProbe.m_sRouteSampleHistory = "";
 		physicalProbe.m_sRouteLastObserved = "";
 		physicalProbe.m_sRouteTimeoutEvidence = "";
+		physicalProbe.m_sGroupStatusAfterTick = "";
+		physicalProbe.m_sGroupStatusAfterRoute = "";
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector || !m_SupportRequests || !m_PhysicalWar || !m_Balance)
 		{
 			physicalProbe.m_sFailureReason = "physical probe services not ready";
@@ -12729,9 +12731,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalProbe.m_Group = m_State.FindActiveGroup(physicalOrder.m_sGroupId);
 
 		if (physicalProbe.m_Group)
+			physicalProbe.m_sGroupStatusAfterTick = physicalProbe.m_Group.m_sRuntimeStatus;
+
+		if (physicalProbe.m_Group)
 		{
 			physicalProbe.m_bSpawnTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
 			physicalProbe.m_Group = m_State.FindActiveGroup(physicalProbe.m_Group.m_sGroupId);
+			if (physicalProbe.m_Group)
+				physicalProbe.m_sGroupStatusAfterTick = physicalProbe.m_Group.m_sRuntimeStatus;
 		}
 
 		if (physicalProbe.m_Group)

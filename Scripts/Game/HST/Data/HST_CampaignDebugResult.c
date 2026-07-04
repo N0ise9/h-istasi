@@ -362,6 +362,7 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	string m_sRouteSampleHistory;
 	string m_sRouteLastObserved;
 	string m_sRouteTimeoutEvidence;
+	string m_sGroupStatusAfterTick;
 	string m_sGroupStatusAfterRoute;
 	string m_sFailureReason;
 }
