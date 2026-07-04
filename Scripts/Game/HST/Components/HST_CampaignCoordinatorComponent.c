@@ -11737,6 +11737,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				townHeat = town.m_iWantedHeat;
 			AddCampaignDebugAssertion(phaseCase, "phase20.wanted.town_heat", "town wanted heat seeded >= 5", string.Format("%1", townHeat), CampaignDebugStatus(town && town.m_iWantedHeat >= 5), "phase 20 did not seed town wanted heat");
 			AddCampaignDebugAssertion(phaseCase, "phase20.wanted.player_heat", "player undercover status WANTED with heat >= 4", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(undercover && undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED && undercover.m_iWantedHeat >= 4), "phase 20 did not seed player wanted state");
+			AddCampaignDebugCivilianHeatDecayAssertions(phaseCase, town, undercover);
 		}
 		else if (index == 29)
 		{
@@ -11751,6 +11752,102 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(phaseCase);
 		return phaseCase;
+	}
+
+	protected void AddCampaignDebugCivilianHeatDecayAssertions(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_PlayerUndercoverState undercover)
+	{
+		if (!phaseCase)
+			return;
+
+		if (!town || !undercover || !m_Civilians)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase20.heat_decay.prerequisite", "seeded town, player undercover record, and civilian service ready", "missing", "BLOCKED", "civilian heat decay probe missing seeded town/player/service state");
+			return;
+		}
+
+		int liveTownHeat = town.m_iWantedHeat;
+		int liveTownIncidentSecond = town.m_iLastIncidentSecond;
+		int livePlayerHeat = undercover.m_iWantedHeat;
+		HST_EUndercoverStatus livePlayerStatus = undercover.m_eStatus;
+		string livePlayerReason = undercover.m_sLastReason;
+		int livePlayerCompromisedUntil = undercover.m_iCompromisedUntilSecond;
+
+		HST_CampaignState probeState = new HST_CampaignState();
+		int startSecond = 1000;
+		probeState.m_iElapsedSeconds = startSecond;
+
+		HST_CivilianZoneState probeTown = new HST_CivilianZoneState();
+		probeTown.m_sZoneId = town.m_sZoneId;
+		probeTown.m_iReputation = town.m_iReputation;
+		probeTown.m_iFIASupport = town.m_iFIASupport;
+		probeTown.m_iOccupierSupport = town.m_iOccupierSupport;
+		probeTown.m_iWantedHeat = liveTownHeat;
+		probeTown.m_iCivilianPresence = town.m_iCivilianPresence;
+		probeTown.m_iPolicePresence = town.m_iPolicePresence;
+		probeTown.m_iRoadblockPresence = town.m_iRoadblockPresence;
+		probeTown.m_iLastIncidentSecond = startSecond;
+		probeTown.m_sLastIncidentReason = town.m_sLastIncidentReason;
+		probeTown.m_iLastSupportChangeSecond = town.m_iLastSupportChangeSecond;
+		probeTown.m_iLastRoadblockScanSecond = town.m_iLastRoadblockScanSecond;
+		probeTown.m_iLastPoliceScanSecond = town.m_iLastPoliceScanSecond;
+		probeTown.m_sLastSecurityReason = town.m_sLastSecurityReason;
+		probeTown.m_bUndercoverRestricted = town.m_bUndercoverRestricted;
+		probeState.m_aCivilianZones.Insert(probeTown);
+
+		HST_PlayerUndercoverState probeUndercover = new HST_PlayerUndercoverState();
+		probeUndercover.m_sIdentityId = undercover.m_sIdentityId;
+		probeUndercover.m_eStatus = livePlayerStatus;
+		probeUndercover.m_iWantedHeat = livePlayerHeat;
+		probeUndercover.m_iCompromisedUntilSecond = 0;
+		probeUndercover.m_iLastCheckedSecond = undercover.m_iLastCheckedSecond;
+		probeUndercover.m_sLastReason = livePlayerReason;
+		probeUndercover.m_bUndercoverRequested = undercover.m_bUndercoverRequested;
+		probeUndercover.m_bUndercoverApplied = undercover.m_bUndercoverApplied;
+		probeUndercover.m_bEnforcementEnabled = undercover.m_bEnforcementEnabled;
+		probeUndercover.m_sAppliedMode = undercover.m_sAppliedMode;
+		probeUndercover.m_sLastCompromiseReason = undercover.m_sLastCompromiseReason;
+		probeUndercover.m_sLastDetectionSource = undercover.m_sLastDetectionSource;
+		probeUndercover.m_sLastEnforcementZoneId = undercover.m_sLastEnforcementZoneId;
+		probeUndercover.m_iLastEnforcementSecond = undercover.m_iLastEnforcementSecond;
+		probeUndercover.m_iLastCompromisedSecond = undercover.m_iLastCompromisedSecond;
+		probeUndercover.m_iDetectionScore = undercover.m_iDetectionScore;
+		probeUndercover.m_iRoadblockScanCount = undercover.m_iRoadblockScanCount;
+		probeUndercover.m_iPoliceScanCount = undercover.m_iPoliceScanCount;
+		probeUndercover.m_bLastRoadblockScanFailed = undercover.m_bLastRoadblockScanFailed;
+		probeUndercover.m_bLastPoliceScanFailed = undercover.m_bLastPoliceScanFailed;
+		probeUndercover.m_bLastEligibilityResult = undercover.m_bLastEligibilityResult;
+		probeUndercover.m_sLastZoneId = undercover.m_sLastZoneId;
+		probeUndercover.m_sLastEligibilitySummary = undercover.m_sLastEligibilitySummary;
+		probeUndercover.m_sClothingReason = undercover.m_sClothingReason;
+		probeUndercover.m_sWeaponReason = undercover.m_sWeaponReason;
+		probeUndercover.m_sVehicleReason = undercover.m_sVehicleReason;
+		probeUndercover.m_sOffroadReason = undercover.m_sOffroadReason;
+		probeUndercover.m_sEnemyProximityReason = undercover.m_sEnemyProximityReason;
+		probeUndercover.m_sWantedHeatReason = undercover.m_sWantedHeatReason;
+		probeUndercover.m_iLastEligibilityCheckSecond = undercover.m_iLastEligibilityCheckSecond;
+		probeState.m_aUndercoverPlayers.Insert(probeUndercover);
+
+		int decayWindowSeconds = HST_CivilianService.HEAT_DECAY_SECONDS;
+		probeState.m_iElapsedSeconds = startSecond + decayWindowSeconds;
+		bool tickChanged = m_Civilians.Tick(probeState, decayWindowSeconds);
+
+		int expectedTownHeat = Math.Max(0, liveTownHeat - 1);
+		int expectedPlayerHeat = Math.Max(0, livePlayerHeat - 1);
+		bool townDecayOk = probeTown.m_iWantedHeat == expectedTownHeat && probeTown.m_iLastIncidentSecond == probeState.m_iElapsedSeconds;
+		bool playerDecayOk = probeUndercover.m_iWantedHeat == expectedPlayerHeat;
+		bool playerStatusOk = (expectedPlayerHeat > 0 && probeUndercover.m_eStatus == livePlayerStatus) || (expectedPlayerHeat == 0 && probeUndercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR && probeUndercover.m_sLastReason == "heat cooled");
+		bool liveStateUnchanged = town.m_iWantedHeat == liveTownHeat && town.m_iLastIncidentSecond == liveTownIncidentSecond && undercover.m_iWantedHeat == livePlayerHeat && undercover.m_eStatus == livePlayerStatus && undercover.m_iCompromisedUntilSecond == livePlayerCompromisedUntil && undercover.m_sLastReason == livePlayerReason;
+		string decayActual = string.Format("window %1s | changed %2 | town heat %3 -> %4 expected %5", decayWindowSeconds, tickChanged, liveTownHeat, probeTown.m_iWantedHeat, expectedTownHeat);
+		decayActual = decayActual + string.Format(" | town incident %1 -> %2 | player heat %3 -> %4 expected %5", startSecond, probeTown.m_iLastIncidentSecond, livePlayerHeat, probeUndercover.m_iWantedHeat, expectedPlayerHeat);
+		decayActual = decayActual + string.Format(" | player status %1 -> %2", livePlayerStatus, probeUndercover.m_eStatus);
+
+		phaseCase.m_aEvidence.Insert("civilian heat decay probe | " + decayActual);
+		AddCampaignDebugMetric(phaseCase, "phase20.heat_decay.window_seconds", string.Format("%1", decayWindowSeconds), "seconds");
+		AddCampaignDebugMetric(phaseCase, "phase20.heat_decay.town_heat_delta", string.Format("%1", probeTown.m_iWantedHeat - liveTownHeat), "heat");
+		AddCampaignDebugMetric(phaseCase, "phase20.heat_decay.player_heat_delta", string.Format("%1", probeUndercover.m_iWantedHeat - livePlayerHeat), "heat");
+		AddCampaignDebugAssertion(phaseCase, "phase20.heat_decay.town_window", "town wanted heat cools by exactly 1 after the configured decay window", decayActual, CampaignDebugStatus(townDecayOk && tickChanged), "civilian town heat did not decay after the configured heat window", "", "", town.m_sZoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.heat_decay.player_tick", "non-compromised player wanted heat cools by one civilian-service tick", decayActual, CampaignDebugStatus(playerDecayOk && playerStatusOk && tickChanged), "player wanted heat did not match current civilian-service tick behavior", undercover.m_sIdentityId, "", town.m_sZoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.heat_decay.live_state_unchanged", "decay probe uses temporary copied state only", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(liveStateUnchanged), "civilian heat decay probe mutated live campaign state", undercover.m_sIdentityId, "", town.m_sZoneId);
 	}
 
 	protected void AddCampaignDebugTownSupportTransitionAssertions(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_ZoneState zone)
