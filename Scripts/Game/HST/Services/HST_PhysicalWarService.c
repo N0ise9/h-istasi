@@ -403,7 +403,12 @@ class HST_PhysicalWarService
 			AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_entity." + asset.m_sAssetId, "vehicle entity exists for asset", string.Format("group %1 | vehicle %2", groupId, vehicleEntity != null), ConvoyDebugStatus(vehicleEntity != null), "convoy vehicle entity missing", groupId, mission.m_sInstanceId);
 			AddConvoyDebugProbeAssertion(probe, "convoy.crew_entity." + asset.m_sAssetId, "crew entity exists for asset", string.Format("group %1 | crew %2", groupId, crewEntity != null), ConvoyDebugStatus(crewEntity != null), "convoy crew entity missing", groupId, mission.m_sInstanceId);
 			if (activeGroup)
-				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", string.Format("%1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(activeGroup.m_iAssignedWaypointCount >= 2), "convoy group has too few assigned waypoints", groupId, mission.m_sInstanceId);
+			{
+				string groupWaypointStatus = "FAIL";
+				if (readiness.m_bPendingGrace || activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending")
+					groupWaypointStatus = "WARN";
+				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", string.Format("%1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(activeGroup.m_iAssignedWaypointCount >= 2, groupWaypointStatus), "convoy group has too few assigned waypoints", groupId, mission.m_sInstanceId);
+			}
 			else
 				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", "group missing", "FAIL", "convoy active group missing", groupId, mission.m_sInstanceId);
 

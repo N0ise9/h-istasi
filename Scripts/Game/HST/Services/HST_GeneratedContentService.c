@@ -4,7 +4,7 @@ class HST_GeneratedContentService
 	static const int SUPPORT_OFFSET_METERS = 120;
 	static const int CRASHSITE_OFFSET_METERS = 260;
 	static const float GENERATED_SITE_SEARCH_STEP_METERS = 45.0;
-	static const int GENERATED_SITE_SEARCH_RINGS = 8;
+	static const int GENERATED_SITE_SEARCH_RINGS = 16;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_CLOSE_METERS = 220.0;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_MEDIUM_METERS = 420.0;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS = 700.0;
@@ -113,6 +113,7 @@ class HST_GeneratedContentService
 		int vehicleSafeRoutes;
 		int invalidRoutes;
 		int minWaypointCount = 999999;
+		string siteDetails = "";
 		string routeDetails = "";
 		foreach (HST_GeneratedSiteState site : state.m_aGeneratedSites)
 		{
@@ -127,6 +128,9 @@ class HST_GeneratedContentService
 
 			if (site.m_eType == HST_EGeneratedSiteType.HST_SITE_CRASHSITE)
 				crashsites++;
+
+			if (!site.m_bValid)
+				siteDetails = siteDetails + BuildGeneratedSiteReport(site);
 		}
 
 		foreach (HST_GeneratedRouteState route : state.m_aGeneratedRoutes)
@@ -151,7 +155,7 @@ class HST_GeneratedContentService
 		string summary = string.Format("h-istasi generated content | sites %1/%2 valid | routes %3", validSites, state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count());
 		summary = summary + string.Format(" | roadblocks %1 | crashsites %2", roadblocks, crashsites);
 		summary = summary + string.Format(" | vehicle-safe routes %1 | invalid routes %2 | min route waypoints %3", vehicleSafeRoutes, invalidRoutes, minWaypointCount);
-		return summary + routeDetails;
+		return summary + siteDetails + routeDetails;
 	}
 
 	protected HST_GeneratedSiteState CreateSite(HST_CampaignState state, HST_ZoneState zone, string suffix, HST_EGeneratedSiteType siteType, vector position, int radiusMeters, int weight)
@@ -277,12 +281,31 @@ class HST_GeneratedContentService
 			}
 		}
 
+		if (TryResolveGeneratedRoadSitePosition(preferred, preferred, resolved))
+			return resolved;
+		if (zone && TryResolveGeneratedRoadSitePosition(zone.m_vPosition, preferred, resolved))
+			return resolved;
+
 		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, true, 8.0);
 	}
 
 	protected bool TryResolveGeneratedDrySitePosition(vector preferred, out vector resolved)
 	{
 		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, resolved, true, 4.0))
+			return false;
+		if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			return false;
+
+		return HST_WorldPositionService.IsDryGroundPosition(resolved);
+	}
+
+	protected bool TryResolveGeneratedRoadSitePosition(vector preferred, vector destination, out vector resolved)
+	{
+		vector roadForward;
+		float roadWidth;
+		float roadDistance;
+		string roadReason;
+		if (!HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS, destination, resolved, roadForward, roadWidth, roadDistance, roadReason))
 			return false;
 		if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
 			return false;
@@ -340,13 +363,13 @@ class HST_GeneratedContentService
 			return;
 		}
 
-		foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
+		for (int i = 0; i < route.m_aWaypoints.Count(); i++)
 		{
+			HST_RouteWaypointState waypoint = route.m_aWaypoints[i];
 			if (!waypoint)
 				continue;
 
-			vector resolved;
-			if (!HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, resolved, true) || HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			if (!IsGeneratedRouteWaypointVehicleSafe(route, i, waypoint))
 			{
 				route.m_sValidationFailureReason = "waypoint not dry vehicle-safe: " + waypoint.m_sHint;
 				return;
@@ -354,6 +377,54 @@ class HST_GeneratedContentService
 		}
 
 		route.m_bValidatedForVehicles = true;
+	}
+
+	protected bool IsGeneratedRouteWaypointVehicleSafe(HST_GeneratedRouteState route, int index, HST_RouteWaypointState waypoint)
+	{
+		if (!route || !waypoint)
+			return false;
+
+		if (route.m_bRoadRoute)
+		{
+			vector roadPosition;
+			vector roadForward;
+			float roadWidth;
+			float roadDistance;
+			string roadReason;
+			float waypointRadius = waypoint.m_iRadiusMeters;
+			if (waypointRadius < 12.0)
+				waypointRadius = 12.0;
+			vector destination = ResolveGeneratedRouteValidationDestination(route, index);
+			if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(waypoint.m_vPosition, waypointRadius, destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+				return !HST_WorldPositionService.IsLikelyOpenWater(roadPosition) && HST_WorldPositionService.IsDryGroundPosition(roadPosition);
+		}
+
+		vector resolved;
+		return HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved);
+	}
+
+	protected vector ResolveGeneratedRouteValidationDestination(HST_GeneratedRouteState route, int index)
+	{
+		if (!route)
+			return "0 0 0";
+
+		int nextIndex = index + 1;
+		if (nextIndex < route.m_aWaypoints.Count())
+		{
+			HST_RouteWaypointState nextWaypoint = route.m_aWaypoints[nextIndex];
+			if (nextWaypoint)
+				return nextWaypoint.m_vPosition;
+		}
+
+		int previousIndex = index - 1;
+		if (previousIndex >= 0 && previousIndex < route.m_aWaypoints.Count())
+		{
+			HST_RouteWaypointState previousWaypoint = route.m_aWaypoints[previousIndex];
+			if (previousWaypoint)
+				return previousWaypoint.m_vPosition;
+		}
+
+		return route.m_vEndPosition;
 	}
 
 	protected int CalculateRouteDistanceMeters(HST_GeneratedRouteState route)
@@ -395,6 +466,14 @@ class HST_GeneratedContentService
 		}
 
 		return report;
+	}
+
+	protected string BuildGeneratedSiteReport(HST_GeneratedSiteState site)
+	{
+		if (!site)
+			return "\n  generated site | missing";
+
+		return string.Format("\n  generated site | site %1 | zone %2 | type %3 | valid %4 | position %5 | secondary %6 | source %7/%8", site.m_sSiteId, site.m_sZoneId, site.m_eType, site.m_bValid, site.m_vPosition, site.m_vSecondaryPosition, site.m_sSourceLayerName, site.m_sSourceCategory);
 	}
 
 	protected HST_EGeneratedSiteType SiteTypeForZone(HST_ZoneState zone)

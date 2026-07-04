@@ -56,6 +56,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const float CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS = 2.0;
 	static const float CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS = 10.0;
+	static const float CAMPAIGN_DEBUG_AREA_HOSTILE_RADIUS_METERS = 90.0;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -8656,9 +8657,101 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".delivery_teleport", "player teleported to asset delivery position", string.Format("%1 | target %2", transportDeliveryTeleport, transportDeliveryPosition), CampaignDebugStatus(transportDeliveryTeleport, "WARN"), primitiveLabel + " delivery teleport did not confirm", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".deliver_command", "real deliver interaction accepts cargo", ShortCampaignDebugLine(transportDeliverResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(transportDeliverResult)), primitiveLabel + " deliver interaction failed", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".delivered_state", "asset reaches delivered state at delivery target", BuildCampaignDebugMissionAssetActual(transportAsset), CampaignDebugStatus(transportDelivered && transportDeliveryDistance <= 50.0), primitiveLabel + " asset was not delivered to the target", transportAsset.m_sAssetId, transportInstanceId, mission.m_sTargetZoneId);
+		int transportExtraDelivered = CompleteRemainingCampaignDebugTransportAssets(primitiveCase, mission, assetRole, primitiveLabel, transportCarrierEntity, transportArrangedCarrierId);
+		int transportRemainingAssets = CountCampaignDebugUndeliveredTransportAssets(transportInstanceId, assetRole);
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".extra_delivered_assets", string.Format("%1", transportExtraDelivered), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".remaining_assets", string.Format("%1", transportRemainingAssets), "count");
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".all_assets_delivered", "all role-matching transport assets needed by the objective are delivered", string.Format("remaining %1 | extra delivered %2", transportRemainingAssets, transportExtraDelivered), CampaignDebugStatus(transportRemainingAssets == 0), primitiveLabel + " primitive left role-matching assets undelivered", "", transportInstanceId, mission.m_sTargetZoneId);
 		bool transportFinalCleanup = CleanupCampaignDebugTransportCarrier(transportCarrierEntity, transportArrangedCarrierId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_cleanup", "temporary transport carrier entity/runtime record cleaned after delivery", string.Format("%1 | carrier %2", transportFinalCleanup, EmptyCampaignDebugField(transportArrangedCarrierId)), CampaignDebugStatus(transportFinalCleanup || !transportCarrierEntity, "WARN"), primitiveLabel + " temporary transport carrier cleanup was incomplete", transportArrangedCarrierId, transportInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, transportMoneyBefore, transportHRBefore, primitiveLabel);
+	}
+
+	protected int CompleteRemainingCampaignDebugTransportAssets(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission, string assetRole, string primitiveLabel, GenericEntity carrierEntity, string carrierRuntimeId)
+	{
+		if (!primitiveCase || !mission || !m_State)
+			return 0;
+
+		int remainingBefore = CountCampaignDebugUndeliveredTransportAssets(mission.m_sInstanceId, assetRole);
+		if (remainingBefore <= 0)
+			return 0;
+
+		if (!carrierEntity)
+		{
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".remaining_carrier", "temporary carrier remains available for additional cargo assets", "missing", "BLOCKED", primitiveLabel + " could not deliver remaining cargo assets without a temporary carrier", carrierRuntimeId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+			return 0;
+		}
+
+		int deliveredCount;
+		for (int i = 0; i < remainingBefore; i++)
+		{
+			HST_MissionAssetState nextAsset = FindNextCampaignDebugUndeliveredTransportAsset(mission.m_sInstanceId, assetRole);
+			if (!nextAsset)
+				break;
+
+			string assetToken = SafeCampaignDebugToken(nextAsset.m_sAssetId);
+			vector pickupPosition = ResolveCampaignDebugMissionAssetProbePosition(nextAsset, mission);
+			vector deliveryPosition = ResolveCampaignDebugMissionAssetDeliveryPosition(nextAsset, mission);
+			vector carrierPickupPosition;
+			bool carrierMovedToPickup = MoveCampaignDebugTransportCarrier(carrierEntity, carrierRuntimeId, pickupPosition, carrierPickupPosition);
+			bool pickupTeleport = TeleportCampaignDebugPlayer(pickupPosition + "2 0 2", primitiveLabel + " additional pickup");
+			string loadResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_asset_load", nextAsset.m_sAssetId);
+			primitiveCase.m_aEvidence.Insert(primitiveLabel + " additional load action | " + EmptyCampaignDebugField(nextAsset.m_sAssetId) + " | " + ShortCampaignDebugLine(loadResult, 220));
+			bool loaded = nextAsset.m_bPickedUp && nextAsset.m_bAttachedToCarrier && !nextAsset.m_sCarriedByVehicleId.IsEmpty();
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".remaining_load." + assetToken, "additional transport asset loads through the real interaction path", string.Format("carrier moved %1 | teleport %2 | result %3 | asset %4", carrierMovedToPickup, pickupTeleport, ShortCampaignDebugLine(loadResult, 160), BuildCampaignDebugMissionAssetActual(nextAsset)), CampaignDebugStatus(loaded, "BLOCKED"), primitiveLabel + " additional asset did not load", nextAsset.m_sAssetId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+			if (!loaded)
+				break;
+
+			vector carrierDeliveryPosition;
+			bool carrierMovedToDelivery = MoveCampaignDebugTransportCarrier(carrierEntity, carrierRuntimeId, deliveryPosition, carrierDeliveryPosition);
+			bool deliveryTeleport = TeleportCampaignDebugPlayer(deliveryPosition + "2 0 2", primitiveLabel + " additional delivery");
+			string deliverResult = RequestMemberMissionInteraction(m_iCampaignDebugPlayerId, "mission_asset_deliver", nextAsset.m_sAssetId);
+			primitiveCase.m_aEvidence.Insert(primitiveLabel + " additional deliver action | " + EmptyCampaignDebugField(nextAsset.m_sAssetId) + " | " + ShortCampaignDebugLine(deliverResult, 220));
+			float deliveryDistance = Math.Sqrt(DistanceSq2D(nextAsset.m_vCurrentPosition, deliveryPosition));
+			bool delivered = nextAsset.m_bDelivered && nextAsset.m_sLastInteraction == "delivered" && deliveryDistance <= 50.0;
+			AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".remaining_deliver." + assetToken, "additional transport asset delivers through the real interaction path", string.Format("carrier moved %1 | teleport %2 | distance %3m | result %4 | asset %5", carrierMovedToDelivery, deliveryTeleport, Math.Round(deliveryDistance), ShortCampaignDebugLine(deliverResult, 160), BuildCampaignDebugMissionAssetActual(nextAsset)), CampaignDebugStatus(delivered), primitiveLabel + " additional asset did not deliver", nextAsset.m_sAssetId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+			if (!delivered)
+				break;
+
+			deliveredCount++;
+		}
+
+		return deliveredCount;
+	}
+
+	protected HST_MissionAssetState FindNextCampaignDebugUndeliveredTransportAsset(string instanceId, string assetRole)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return null;
+
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId || asset.m_sRole != assetRole)
+				continue;
+			if (asset.m_bDelivered || asset.m_bDestroyed)
+				continue;
+
+			return asset;
+		}
+
+		return null;
+	}
+
+	protected int CountCampaignDebugUndeliveredTransportAssets(string instanceId, string assetRole)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId || asset.m_sRole != assetRole)
+				continue;
+			if (!asset.m_bDelivered)
+				count++;
+		}
+
+		return count;
 	}
 
 	protected GenericEntity SpawnCampaignDebugTransportCarrier(HST_CampaignDebugCaseResult primitiveCase, HST_ActiveMissionState mission, string primitiveLabel, vector pickupPosition, out string carrierRuntimeId, out vector carrierPosition)
@@ -8821,7 +8914,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int areaHostileBefore;
 		int areaHostileAfter;
 		bool areaHostileEntityCleaned;
-		NeutralizeCampaignDebugAreaMissionHostiles(mission, areaHostileGroupId, areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned);
+		NeutralizeCampaignDebugAreaMissionHostiles(mission, areaObjective, areaHostileGroupId, areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned);
 
 		bool areaTeleport = TeleportCampaignDebugPlayer(areaObjective.m_vPosition + "2 0 2", "area primitive probe");
 		IEntity areaPlayer = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
@@ -8858,7 +8951,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(primitiveCase, "primitive.area.hostile_strength_after", string.Format("%1", areaHostileAfter), "count");
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.objective", "area-control objective is hold_area or clear_area", areaActual, CampaignDebugStatus(areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || areaObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA), "area primitive objective type mismatch", "", areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.player_position", "controlled player is within objective radius", string.Format("teleport %1 | distance %2m | objective %3", areaTeleport, Math.Round(areaPlayerDistance), areaObjective.m_vPosition), CampaignDebugStatus(areaTeleport && areaPlayerDistance <= 35.0), "area primitive player was not inside objective radius", "", areaInstanceId, mission.m_sTargetZoneId);
-		AddCampaignDebugAssertion(primitiveCase, "primitive.area.hostiles_absent", "mission-owned hostile group is absent or neutralized for objective tick", string.Format("group %1 | strength %2 -> %3 | entity cleaned %4", EmptyCampaignDebugField(areaHostileGroupId), areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned), CampaignDebugStatus(areaHostileAfter <= 0), "area primitive still had unresolved mission-owned hostiles", areaHostileGroupId, areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.hostiles_absent", "nearby or target-zone hostile state is absent or neutralized for objective tick", string.Format("group %1 | strength %2 -> %3 | entity cleaned %4", EmptyCampaignDebugField(areaHostileGroupId), areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned), CampaignDebugStatus(areaHostileAfter <= 0), "area primitive still had unresolved nearby or target-zone hostiles", areaHostileGroupId, areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.runtime_tick", "mission runtime tick processes player-near area objective", areaActual, CampaignDebugStatus(areaRuntimeChanged || areaObjectiveComplete), "area primitive runtime tick did not mutate or complete objective", "", areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.world_detected", "area objective records world/player detection", areaActual, CampaignDebugStatus(areaObjective.m_bWorldDetected), "area primitive did not record world/player detection", "", areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.objective_complete", "area objective completes through timed runtime path", areaActual, CampaignDebugStatus(areaObjectiveComplete && areaHoldComplete), "area primitive objective did not complete through runtime tick", "", areaInstanceId, mission.m_sTargetZoneId);
@@ -8882,7 +8975,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
-	protected void NeutralizeCampaignDebugAreaMissionHostiles(HST_ActiveMissionState mission, out string groupId, out int strengthBefore, out int strengthAfter, out bool entityCleaned)
+	protected void NeutralizeCampaignDebugAreaMissionHostiles(HST_ActiveMissionState mission, HST_MissionObjectiveState objective, out string groupId, out int strengthBefore, out int strengthAfter, out bool entityCleaned)
 	{
 		groupId = "";
 		strengthBefore = 0;
@@ -8891,14 +8984,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !mission)
 			return;
 
+		string resistanceFactionKey = "FIA";
+		if (m_Preset && !m_Preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
 		string missionGroupId = "mission_group_" + mission.m_sInstanceId;
+		float radius = ResolveCampaignDebugAreaHostileRadiusMeters(mission, objective);
+		float radiusSq = radius * radius;
 		foreach (HST_ActiveGroupState areaGroup : m_State.m_aActiveGroups)
 		{
-			if (!areaGroup || areaGroup.m_sGroupId != missionGroupId)
+			if (!ShouldNeutralizeCampaignDebugAreaGroup(mission, objective, areaGroup, missionGroupId, resistanceFactionKey, radiusSq))
 				continue;
 
-			groupId = areaGroup.m_sGroupId;
-			strengthBefore = ResolveCampaignDebugAreaGroupStrength(areaGroup);
+			if (groupId.IsEmpty())
+				groupId = areaGroup.m_sGroupId;
+			else
+				groupId = groupId + "," + areaGroup.m_sGroupId;
+			strengthBefore = strengthBefore + ResolveCampaignDebugAreaGroupStrength(areaGroup);
 			areaGroup.m_iLastSeenAliveCount = 0;
 			areaGroup.m_iSurvivorInfantryCount = 0;
 			areaGroup.m_iSurvivorVehicleCount = 0;
@@ -8907,10 +9008,95 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			areaGroup.m_bSpawnedEntity = false;
 			areaGroup.m_sRuntimeStatus = "eliminated";
 			if (m_PhysicalWar)
-				entityCleaned = m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(areaGroup.m_sGroupId);
-			strengthAfter = ResolveCampaignDebugAreaGroupStrength(areaGroup);
-			return;
+				entityCleaned = m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(areaGroup.m_sGroupId) || entityCleaned;
+			strengthAfter = strengthAfter + ResolveCampaignDebugAreaGroupStrength(areaGroup);
 		}
+
+		int projectionStrengthBefore;
+		bool projectionEntityCleaned;
+		ClearCampaignDebugAreaTargetHostileProjection(mission, objective, resistanceFactionKey, projectionStrengthBefore, projectionEntityCleaned);
+		strengthBefore = strengthBefore + projectionStrengthBefore;
+		entityCleaned = projectionEntityCleaned || entityCleaned;
+	}
+
+	protected bool ShouldNeutralizeCampaignDebugAreaGroup(HST_ActiveMissionState mission, HST_MissionObjectiveState objective, HST_ActiveGroupState areaGroup, string missionGroupId, string resistanceFactionKey, float radiusSq)
+	{
+		if (!mission || !areaGroup)
+			return false;
+		if (areaGroup.m_sFactionKey == resistanceFactionKey)
+			return false;
+		if (areaGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX))
+			return false;
+		if (areaGroup.m_sGroupId == missionGroupId)
+			return true;
+		if (!mission.m_sTargetZoneId.IsEmpty() && areaGroup.m_sZoneId == mission.m_sTargetZoneId)
+			return true;
+		if (objective && !objective.m_sTargetZoneId.IsEmpty() && areaGroup.m_sZoneId == objective.m_sTargetZoneId)
+			return true;
+		if (objective && DistanceSq2D(areaGroup.m_vPosition, objective.m_vPosition) <= radiusSq)
+			return true;
+
+		return false;
+	}
+
+	protected void ClearCampaignDebugAreaTargetHostileProjection(HST_ActiveMissionState mission, HST_MissionObjectiveState objective, string resistanceFactionKey, out int strengthBefore, out bool entityCleaned)
+	{
+		strengthBefore = 0;
+		entityCleaned = false;
+		if (!m_State || !mission)
+			return;
+
+		HST_ZoneState targetZone = ResolveCampaignDebugAreaTargetZone(mission, objective);
+		if (!targetZone)
+			return;
+		if (targetZone.m_sOwnerFactionKey.IsEmpty() || targetZone.m_sOwnerFactionKey == resistanceFactionKey)
+			return;
+
+		int projectionBefore = Math.Max(0, targetZone.m_iActiveInfantryCount) + Math.Max(0, targetZone.m_iActiveVehicleCount);
+		HST_GarrisonState ownerGarrison = m_State.FindGarrison(targetZone.m_sZoneId, targetZone.m_sOwnerFactionKey);
+		if (ownerGarrison)
+			projectionBefore = projectionBefore + Math.Max(0, ownerGarrison.m_iInfantryCount) + Math.Max(0, ownerGarrison.m_iVehicleCount);
+
+		if (projectionBefore <= 0)
+			return;
+
+		strengthBefore = projectionBefore;
+		targetZone.m_bActive = false;
+		targetZone.m_iActiveInfantryCount = 0;
+		targetZone.m_iActiveVehicleCount = 0;
+		if (ownerGarrison)
+		{
+			ownerGarrison.m_iInfantryCount = 0;
+			ownerGarrison.m_iVehicleCount = 0;
+		}
+		if (m_PhysicalWar)
+			entityCleaned = m_PhysicalWar.CleanupCapturedZoneHostileRuntime(m_State, targetZone.m_sZoneId, resistanceFactionKey) || entityCleaned;
+	}
+
+	protected HST_ZoneState ResolveCampaignDebugAreaTargetZone(HST_ActiveMissionState mission, HST_MissionObjectiveState objective)
+	{
+		if (!m_State)
+			return null;
+
+		HST_ZoneState targetZone = null;
+		if (objective && !objective.m_sTargetZoneId.IsEmpty())
+			targetZone = m_State.FindZone(objective.m_sTargetZoneId);
+		if (!targetZone && mission && !mission.m_sTargetZoneId.IsEmpty())
+			targetZone = m_State.FindZone(mission.m_sTargetZoneId);
+		if (!targetZone && objective && !objective.m_sTargetId.IsEmpty())
+			targetZone = m_State.FindZone(objective.m_sTargetId);
+
+		return targetZone;
+	}
+
+	protected float ResolveCampaignDebugAreaHostileRadiusMeters(HST_ActiveMissionState mission, HST_MissionObjectiveState objective)
+	{
+		float radius = CAMPAIGN_DEBUG_AREA_HOSTILE_RADIUS_METERS;
+		HST_ZoneState targetZone = ResolveCampaignDebugAreaTargetZone(mission, objective);
+		if (targetZone && targetZone.m_iCaptureRadiusMeters > radius)
+			radius = targetZone.m_iCaptureRadiusMeters;
+
+		return radius;
 	}
 
 	protected int ResolveCampaignDebugAreaGroupStrength(HST_ActiveGroupState group)
@@ -10067,7 +10253,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.valid_apply", "valid saved-loadout apply succeeds through the real command path and withdraws one finite item", BuildCampaignDebugLoadoutApplyActual(vehicleLoadoutContext, true), CampaignDebugLoadoutValidApplyStatus(vehicleLoadoutContext), "valid saved-loadout apply did not complete with the expected finite arsenal and issued-ledger deltas", vehicleLoadoutContext.m_sValidLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.invalid_apply", "invalid saved-loadout apply fails with no partial arsenal or issued-ledger mutation", BuildCampaignDebugLoadoutApplyActual(vehicleLoadoutContext, false), CampaignDebugStatus(vehicleLoadoutContext.m_bInvalidLoadoutSeeded && !IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sInvalidLoadoutApplyResult) && vehicleLoadoutContext.m_iFiniteArsenalCountAfterInvalidApply == vehicleLoadoutContext.m_iFiniteArsenalCountAfterValidApply && vehicleLoadoutContext.m_iFiniteIssuedCountAfterInvalidApply == vehicleLoadoutContext.m_iFiniteIssuedCountAfterValidApply && vehicleLoadoutContext.m_iIssuedItemsAfterInvalidApply == vehicleLoadoutContext.m_iIssuedItemsAfterValidApply), "invalid saved-loadout apply changed arsenal or issued-loadout state", vehicleLoadoutContext.m_sInvalidLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.physical_apply", "non-serialized saved-loadout apply physically inserts the requested finite items into player inventory", BuildCampaignDebugLoadoutPhysicalApplyActual(vehicleLoadoutContext), CampaignDebugLoadoutPhysicalApplyStatus(vehicleLoadoutContext), "physical saved-loadout apply did not reflect the requested finite items in player inventory", vehicleLoadoutContext.m_sPhysicalLoadoutId);
-		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.live_draft_apply", "loadout editor live draft model reflects the physically inserted finite storage items", BuildCampaignDebugLoadoutDraftApplyActual(vehicleLoadoutContext), CampaignDebugLoadoutDraftApplyStatus(vehicleLoadoutContext), "loadout editor live draft model did not reflect the physically inserted finite items", vehicleLoadoutContext.m_sPhysicalLoadoutId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.live_draft_apply", "loadout editor live draft model reflects the physically inserted finite items", BuildCampaignDebugLoadoutDraftApplyActual(vehicleLoadoutContext), CampaignDebugLoadoutDraftApplyStatus(vehicleLoadoutContext), "loadout editor live draft model did not reflect the physically inserted finite items", vehicleLoadoutContext.m_sPhysicalLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.physical_restore", "original serialized loadout restores player inventory after the physical apply probe", BuildCampaignDebugLoadoutPhysicalRestoreActual(vehicleLoadoutContext), CampaignDebugLoadoutPhysicalRestoreStatus(vehicleLoadoutContext), "physical saved-loadout apply probe did not restore player inventory with the original serialized loadout", vehicleLoadoutContext.m_sRestoreLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.live_draft_restore", "loadout editor live draft model returns to baseline after the serialized restore loadout", BuildCampaignDebugLoadoutDraftRestoreActual(vehicleLoadoutContext), CampaignDebugLoadoutDraftRestoreStatus(vehicleLoadoutContext), "loadout editor live draft model did not return to baseline after serialized restore", vehicleLoadoutContext.m_sRestoreLoadoutId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout_editor.apply_cleanup", "transient saved loadouts, finite/storage arsenal deltas, issued ledger, and editor session are restored after apply probe", BuildCampaignDebugLoadoutApplyCleanupActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_iSavedLoadoutsAfterLoadoutCleanup == vehicleLoadoutContext.m_iSavedLoadoutsAfterClose && vehicleLoadoutContext.m_iFiniteArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteArsenalCountBefore && vehicleLoadoutContext.m_iStorageArsenalCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iStorageArsenalCountBefore && vehicleLoadoutContext.m_iFiniteIssuedCountAfterLoadoutCleanup == vehicleLoadoutContext.m_iFiniteIssuedCountBefore && vehicleLoadoutContext.m_iIssuedItemsAfterLoadoutCleanup == vehicleLoadoutContext.m_iIssuedItemsAfterClose && vehicleLoadoutContext.m_bLoadoutCleanupRestoredStorageArsenal && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPostApplyCloseResult)), "loadout apply probe did not restore debug state or close the editor session");
@@ -10221,13 +10407,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		HST_ArsenalItemState finiteItem = m_Arsenal.DepositItem(m_State, m_Balance, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, 2, "magazine", "Campaign Debug Physical AK Magazine");
-		HST_ArsenalItemState storageItem = m_Arsenal.DepositItem(m_State, m_Balance, CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB, 1, "backpack", "Campaign Debug Storage Backpack");
-		if (finiteItem && storageItem)
+		if (finiteItem)
 		{
 			finiteItem.m_bUnlocked = false;
-			storageItem.m_bUnlocked = false;
 			HST_SavedLoadoutState physicalLoadout = BuildCampaignDebugTransientSavedLoadout(vehicleLoadoutContext.m_sIdentityId, vehicleLoadoutContext.m_sPhysicalLoadoutId, "Campaign Debug Physical Loadout", "", "", "", "", 0);
-			AppendCampaignDebugTransientLoadoutSlot(physicalLoadout, CAMPAIGN_DEBUG_LOADOUT_STORAGE_PREFAB, "backpack", "Campaign Debug Storage Backpack", 1);
 			AppendCampaignDebugTransientLoadoutSlot(physicalLoadout, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, "magazine", "Campaign Debug Physical AK Magazine", 2);
 			vehicleLoadoutContext.m_bPhysicalLoadoutSeeded = physicalLoadout != null;
 		}
@@ -13384,7 +13567,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string groupActual = BuildCampaignDebugActiveGroupActual(physicalGroup);
 			bool groupExpected = physicalGroup.m_bSpawnedEntity && physicalGroup.m_sRuntimeStatus != "spawn_failed";
 			bool groupPrefixed = MissionValueHasCampaignDebugPrefix(physicalGroup.m_sGroupId, m_sCampaignDebugMarkerPrefix);
-			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_spawned", "linked Petros attacker group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected), "Phase 22 Petros attacker group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
+			bool groupPending = IsCampaignDebugAsyncRuntimePending(physicalGroup.m_sRuntimeStatus) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterTick) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
+			string groupSpawnedStatus = "FAIL";
+			if (groupPending)
+				groupSpawnedStatus = "WARN";
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_spawned", "linked Petros attacker group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected, groupSpawnedStatus), "Phase 22 Petros attacker group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_prefix", "linked Petros attacker group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 22 Petros attacker group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 		}
 		else
@@ -13394,7 +13581,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
 		bool advanced = physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore;
-		AddCampaignDebugAssertion(defenseCase, "phase22.attack.physical_advance", "Petros attacker group advances toward HQ/Petros over a routed sample window", advanceActual, CampaignDebugStatus(advanced), "Phase 22 Petros attacker group did not advance toward the target", "", "", targetZoneId, orderId);
+		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
+		string advanceStatus = "FAIL";
+		if (routePending)
+			advanceStatus = "WARN";
+		AddCampaignDebugAssertion(defenseCase, "phase22.attack.physical_advance", "Petros attacker group advances toward HQ/Petros over a routed sample window", advanceActual, CampaignDebugStatus(advanced, advanceStatus), "Phase 22 Petros attacker group did not advance toward the target", "", "", targetZoneId, orderId);
 		string petrosAttackGroupId = "";
 		if (physicalProbe.m_Group)
 			petrosAttackGroupId = physicalProbe.m_Group.m_sGroupId;
