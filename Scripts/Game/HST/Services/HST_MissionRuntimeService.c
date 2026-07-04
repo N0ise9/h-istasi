@@ -3999,13 +3999,6 @@ class HST_MissionRuntimeService
 		if (!mission || !objective)
 			return "";
 
-		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET)
-			return ROLE_HVT;
-		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
-			return ROLE_DESTROY_TARGET;
-		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA)
-			return ROLE_HOLD_MARKER;
-
 		if (objective.m_sTargetId == "convoy")
 			return ROLE_CONVOY_VEHICLE;
 		if (objective.m_sTargetId == "convoy_prisoners")
@@ -4019,6 +4012,10 @@ class HST_MissionRuntimeService
 		if (objective.m_sTargetId == "hq_delivery")
 			return ROLE_LOGISTICS_CARGO;
 
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_KILL_HVT)
+			return ROLE_HVT;
+		if (mission.m_sRuntimePrimitive == PRIMITIVE_DESTROY_TARGET)
+			return ROLE_DESTROY_TARGET;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_DELIVER_SUPPLIES)
 			return ROLE_CITY_SUPPLIES;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_RESCUE_EXTRACT)
@@ -4027,6 +4024,19 @@ class HST_MissionRuntimeService
 			return ROLE_LOGISTICS_CARGO;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
 			return ROLE_CONVOY_VEHICLE;
+
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET)
+			return ROLE_HVT;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
+			return ROLE_DESTROY_TARGET;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT)
+			return ROLE_LOGISTICS_CARGO;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES)
+			return ROLE_CITY_SUPPLIES;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES)
+			return ROLE_CAPTIVE;
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA)
+			return ROLE_HOLD_MARKER;
 
 		return "";
 	}
@@ -4155,6 +4165,9 @@ class HST_MissionRuntimeService
 			return true;
 		}
 
+		if (TryResolveConvoySpawnPlanFromGeneratedRouteAnchors(state, mission, convoyEnd, vehicleCount, convoyStart, convoyStartSlots, reason))
+			return true;
+
 		if (reason.IsEmpty())
 			reason = string.Format("no full-column convoy spawn candidate passed %1 probes", CONVOY_START_PROBE_ATTEMPTS);
 		return false;
@@ -4206,6 +4219,84 @@ class HST_MissionRuntimeService
 		candidate[0] = candidate[0] + (dx / length) * distanceMeters;
 		candidate[2] = candidate[2] + (dz / length) * distanceMeters;
 		return candidate;
+	}
+
+	protected bool TryResolveConvoySpawnPlanFromGeneratedRouteAnchors(HST_CampaignState state, HST_ActiveMissionState mission, vector convoyEnd, int vehicleCount, out vector convoyStart, array<vector> convoyStartSlots, out string reason)
+	{
+		convoyStart = "0 0 0";
+		reason = "";
+		if (!state || !convoyStartSlots)
+		{
+			reason = "generated route fallback missing state or slot buffer";
+			return false;
+		}
+
+		int anchorCount;
+		foreach (HST_GeneratedRouteState route : state.m_aGeneratedRoutes)
+		{
+			if (!route)
+				continue;
+
+			if (TryResolveConvoySpawnPlanFromAnchor(state, mission, convoyEnd, vehicleCount, route.m_vStartPosition, "generated route " + route.m_sRouteId + " start", convoyStart, convoyStartSlots, reason))
+				return true;
+			anchorCount++;
+			if (TryResolveConvoySpawnPlanFromAnchor(state, mission, convoyEnd, vehicleCount, route.m_vMidPosition, "generated route " + route.m_sRouteId + " midpoint", convoyStart, convoyStartSlots, reason))
+				return true;
+			anchorCount++;
+			if (TryResolveConvoySpawnPlanFromAnchor(state, mission, convoyEnd, vehicleCount, route.m_vEndPosition, "generated route " + route.m_sRouteId + " destination", convoyStart, convoyStartSlots, reason))
+				return true;
+			anchorCount++;
+		}
+
+		if (reason.IsEmpty())
+			reason = string.Format("no generated route anchor passed the 2000-5000m convoy start probe (%1 anchors checked)", anchorCount);
+		else
+			reason = string.Format("%1; generated route fallback checked %2 anchors", reason, anchorCount);
+		return false;
+	}
+
+	protected bool TryResolveConvoySpawnPlanFromAnchor(HST_CampaignState state, HST_ActiveMissionState mission, vector convoyEnd, int vehicleCount, vector preferred, string label, out vector convoyStart, array<vector> convoyStartSlots, out string reason)
+	{
+		convoyStart = "0 0 0";
+		reason = "";
+		if (IsZeroVector(preferred))
+		{
+			reason = label + " is missing";
+			return false;
+		}
+
+		float minCandidateDistance = Math.Max(0.0, MIN_CONVOY_START_DISTANCE_METERS - CONVOY_EXPANDED_START_ROAD_SEARCH_RADIUS_METERS);
+		float maxCandidateDistance = MAX_CONVOY_START_DISTANCE_METERS + CONVOY_EXPANDED_START_ROAD_SEARCH_RADIUS_METERS;
+		float anchorDistanceSq = DistanceSq2D(preferred, convoyEnd);
+		if (anchorDistanceSq < minCandidateDistance * minCandidateDistance || anchorDistanceSq > maxCandidateDistance * maxCandidateDistance)
+		{
+			reason = label + " outside fallback distance window";
+			return false;
+		}
+
+		vector leadStart;
+		string candidateReason;
+		if (!TryResolveConvoyLeadStartCandidate(state, mission, preferred, convoyEnd, leadStart, candidateReason))
+		{
+			reason = label + ": " + candidateReason;
+			return false;
+		}
+
+		if (!TryBuildConvoyVehicleStartSlots(leadStart, convoyEnd, vehicleCount, convoyStartSlots, candidateReason))
+		{
+			reason = label + ": " + candidateReason;
+			return false;
+		}
+		if (convoyStartSlots.Count() != vehicleCount)
+		{
+			reason = string.Format("%1: convoy spawn plan probed %2/%3 vehicle-safe slots", label, convoyStartSlots.Count(), vehicleCount);
+			convoyStartSlots.Clear();
+			return false;
+		}
+
+		convoyStart = convoyStartSlots[0];
+		reason = label + " accepted";
+		return true;
 	}
 
 	protected bool TryResolveConvoyLeadStartCandidate(HST_CampaignState state, HST_ActiveMissionState mission, vector preferred, vector convoyEnd, out vector resolved, out string reason)

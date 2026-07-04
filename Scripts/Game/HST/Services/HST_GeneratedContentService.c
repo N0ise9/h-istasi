@@ -14,8 +14,11 @@ class HST_GeneratedContentService
 		if (!state || state.m_aZones.Count() == 0)
 			return false;
 
-		if (state.m_aGeneratedSites.Count() > 0 && state.m_aGeneratedRoutes.Count() > 0)
+		bool hasGeneratedContent = state.m_aGeneratedSites.Count() > 0 && state.m_aGeneratedRoutes.Count() > 0;
+		if (hasGeneratedContent && !ShouldRegenerateGeneratedContent(state))
 			return false;
+		if (hasGeneratedContent)
+			Print("h-istasi | regenerating generated content after validation drift or stale route/site data");
 
 		state.m_aGeneratedSites.Clear();
 		state.m_aGeneratedRoutes.Clear();
@@ -44,6 +47,69 @@ class HST_GeneratedContentService
 
 		Print(string.Format("h-istasi | generated %1 alpha site(s) and %2 route(s)", state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count()));
 		return true;
+	}
+
+	protected bool ShouldRegenerateGeneratedContent(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+		if (state.m_aGeneratedSites.Count() == 0 || state.m_aGeneratedRoutes.Count() == 0)
+			return true;
+		if (state.m_aGeneratedRoutes.Count() < state.m_aZones.Count())
+			return true;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			if (!state.FindGeneratedSite(string.Format("site_%1_primary", zone.m_sZoneId)))
+				return true;
+			if (!state.FindGeneratedSite(string.Format("site_%1_roadblock", zone.m_sZoneId)))
+				return true;
+			if (!state.FindGeneratedSite(string.Format("site_%1_support", zone.m_sZoneId)))
+				return true;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			{
+				if (!state.FindGeneratedSite(string.Format("site_%1_stash", zone.m_sZoneId)))
+					return true;
+			}
+			else if (!state.FindGeneratedSite(string.Format("site_%1_crashsite", zone.m_sZoneId)))
+			{
+				return true;
+			}
+		}
+
+		foreach (HST_GeneratedSiteState site : state.m_aGeneratedSites)
+		{
+			if (!site)
+				return true;
+			if (IsZeroVector(site.m_vPosition))
+				return true;
+
+			bool siteValid = IsMissionPositionValidIgnoringActive(state, site.m_vPosition);
+			if (!siteValid || site.m_bValid != siteValid)
+				return true;
+			if (!site.m_sRouteId.IsEmpty() && !state.FindGeneratedRoute(site.m_sRouteId))
+				return true;
+		}
+
+		foreach (HST_GeneratedRouteState route : state.m_aGeneratedRoutes)
+		{
+			if (!route)
+				return true;
+
+			EnsureRouteWaypointMetadata(route);
+			ValidateRouteForVehicles(route);
+			if (!route.m_bValidatedForVehicles || route.m_iWaypointCount < 3)
+				return true;
+			if (IsZeroVector(route.m_vStartPosition) || IsZeroVector(route.m_vMidPosition) || IsZeroVector(route.m_vEndPosition))
+				return true;
+			if (!state.FindZone(route.m_sSourceZoneId) || !state.FindZone(route.m_sTargetZoneId))
+				return true;
+		}
+
+		return false;
 	}
 
 	HST_GeneratedSiteState FindPrimarySiteForZone(HST_CampaignState state, string zoneId)
@@ -572,6 +638,11 @@ class HST_GeneratedContentService
 
 		vector resolved;
 		return HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(position, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved);
+	}
+
+	protected bool IsZeroVector(vector position)
+	{
+		return position[0] == 0.0 && position[1] == 0.0 && position[2] == 0.0;
 	}
 
 	protected float DistanceSq2D(vector a, vector b)
