@@ -26,6 +26,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string PERSISTENCE_SMOKE_PRIMITIVE_RESCUE_ID = "hst_smoke_primitive_rescue";
 	static const string PERSISTENCE_SMOKE_PRIMITIVE_SUPPLIES_ID = "hst_smoke_primitive_supplies";
 	static const string PERSISTENCE_SMOKE_GARAGE_VEHICLE_ID = "hst_smoke_garage_vehicle";
+	static const string PERSISTENCE_SMOKE_FIELD_VEHICLE_ID = "hst_smoke_field_vehicle";
 	static const string PERSISTENCE_SMOKE_SUPPORT_ID = "hst_smoke_support";
 	static const string PERSISTENCE_SMOKE_ORDER_ID = "hst_smoke_order";
 	static const string PHASE14_FINITE_PREFAB = "{6985327711303750}Prefabs/Objects/HST/HST_MissionProp_CitySupplies.et";
@@ -7411,6 +7412,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_ActiveMissionState mainSmokeMission = m_State.FindActiveMission(PERSISTENCE_SMOKE_MISSION_ID);
 		HST_GarageVehicleState smokeGarageVehicle = m_State.FindGarageVehicle(PERSISTENCE_SMOKE_GARAGE_VEHICLE_ID);
+		HST_RuntimeVehicleState smokeFieldVehicle = m_State.FindRuntimeVehicle(PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
 		HST_SupportRequestState smokeSupportRequest = m_State.FindSupportRequest(PERSISTENCE_SMOKE_SUPPORT_ID);
 		HST_EnemyOrderState smokeEnemyOrder = FindCampaignDebugEnemyOrderInState(m_State, PERSISTENCE_SMOKE_ORDER_ID);
 		int activeSmokeMissions = CountCampaignDebugPersistenceSmokeActiveMissions(m_State);
@@ -7420,6 +7422,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int smokeRuntimeEntities = CountCampaignDebugPersistenceSmokeRuntimeEntities(m_State);
 		int smokeActiveGroups = CountCampaignDebugPersistenceSmokeActiveGroups(m_State);
 		int smokeRuntimeVehicles = CountCampaignDebugPersistenceSmokeRuntimeVehicles(m_State);
+		int smokeFieldVehicles = CountCampaignDebugPersistenceSmokeFieldVehicles(m_State);
 		int smokeGarageCargo = CountCampaignDebugPersistenceSmokeGarageCargo(m_State);
 		int smokeCivilianZones = CountCampaignDebugPersistenceSmokeCivilianZones(m_State);
 		int smokeUndercoverRecords = CountCampaignDebugPersistenceSmokeUndercoverRecords(m_State);
@@ -7438,6 +7441,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int restoredRuntimeEntities = 0;
 		int restoredActiveGroups = 0;
 		int restoredRuntimeVehicles = 0;
+		int restoredFieldVehicles = 0;
 		int restoredGarageCargo = 0;
 		int restoredCivilianZones = 0;
 		int restoredUndercoverRecords = 0;
@@ -7453,6 +7457,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			restoredRuntimeEntities = CountCampaignDebugPersistenceSmokeRuntimeEntities(restoredCampaignState);
 			restoredActiveGroups = CountCampaignDebugPersistenceSmokeActiveGroups(restoredCampaignState);
 			restoredRuntimeVehicles = CountCampaignDebugPersistenceSmokeRuntimeVehicles(restoredCampaignState);
+			restoredFieldVehicles = CountCampaignDebugPersistenceSmokeFieldVehicles(restoredCampaignState);
 			restoredGarageCargo = CountCampaignDebugPersistenceSmokeGarageCargo(restoredCampaignState);
 			restoredCivilianZones = CountCampaignDebugPersistenceSmokeCivilianZones(restoredCampaignState);
 			restoredUndercoverRecords = CountCampaignDebugPersistenceSmokeUndercoverRecords(restoredCampaignState);
@@ -7469,6 +7474,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_runtime_entities", string.Format("%1", smokeRuntimeEntities), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_active_groups", string.Format("%1", smokeActiveGroups), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_runtime_vehicles", string.Format("%1", smokeRuntimeVehicles), "count");
+		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_field_vehicles", string.Format("%1", smokeFieldVehicles), "count");
 
 		AddCampaignDebugAssertion(persistenceCase, "persistence.seed.command", "seed command creates/refreshes smoke baseline and reports PASS", ShortCampaignDebugLine(seedResult, 260), CampaignDebugStatus(seedAccepted), "persistence smoke seed did not report a healthy baseline");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.smoke.command", "smoke command reports current state PASS", ShortCampaignDebugLine(smokeResult, 260), CampaignDebugStatus(smokeAccepted), "persistence smoke run did not report PASS");
@@ -7481,6 +7487,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(persistenceCase, "persistence.primitive_matrix", "seven primitive smoke missions survive in state", string.Format("%1", primitiveSmokeMissions), CampaignDebugStatus(primitiveSmokeMissions >= 7), "primitive persistence smoke records are incomplete");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.assets", "smoke mission assets and runtime entities cover seeded primitives/convoys", string.Format("assets %1 | runtime entities %2", smokeMissionAssets, smokeRuntimeEntities), CampaignDebugStatus(smokeMissionAssets >= 22 && smokeRuntimeEntities >= 21), "persistence smoke mission asset/runtime coverage incomplete");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.garage", "smoke garage vehicle with stored cargo survives", string.Format("vehicle %1 | cargo %2", smokeGarageVehicle != null, smokeGarageCargo), CampaignDebugStatus(smokeGarageVehicle != null && smokeGarageCargo > 0), "persistence smoke garage vehicle or cargo missing", PERSISTENCE_SMOKE_GARAGE_VEHICLE_ID);
+		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle", "smoke field vehicle sentinel exists once and remains restore-eligible", BuildCampaignDebugFieldVehicleActual(smokeFieldVehicle, smokeFieldVehicles), CampaignDebugStatus(IsCampaignDebugPersistenceFieldVehicleValid(smokeFieldVehicle) && smokeFieldVehicles == 1), "persistence smoke field vehicle sentinel missing, duplicated, or no longer restore-eligible", PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
 		AddCampaignDebugAssertion(persistenceCase, "persistence.support_order", "support request and enemy order sentinel records exist", string.Format("support %1 | order %2", smokeSupportRequest != null, smokeEnemyOrder != null), CampaignDebugStatus(smokeSupportRequest != null && smokeEnemyOrder != null), "support/order smoke sentinel missing", PERSISTENCE_SMOKE_SUPPORT_ID, "", "", PERSISTENCE_SMOKE_ORDER_ID);
 		AddCampaignDebugAssertion(persistenceCase, "persistence.civilian_undercover", "civilian and undercover smoke records exist", string.Format("civilian %1 | undercover %2", smokeCivilianZones, smokeUndercoverRecords), CampaignDebugStatus(smokeCivilianZones > 0 && smokeUndercoverRecords > 0), "civilian or undercover smoke record missing");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.created", "save-data capture creates a restored temp state", string.Format("%1", restoredStateReady), CampaignDebugStatus(restoredStateReady), "save-data restore returned null");
@@ -7494,10 +7501,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& smokeRuntimeEntities == restoredRuntimeEntities
 			&& smokeActiveGroups == restoredActiveGroups
 			&& smokeRuntimeVehicles == restoredRuntimeVehicles
+			&& smokeFieldVehicles == restoredFieldVehicles
 			&& smokeGarageCargo == restoredGarageCargo
 			&& smokeCivilianZones == restoredCivilianZones
 			&& smokeUndercoverRecords == restoredUndercoverRecords;
-		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.counts", "restored smoke record counts match live smoke record counts", BuildCampaignDebugPersistenceCountActual(activeSmokeMissions, restoredActiveSmokeMissions, smokeMissionAssets, restoredMissionAssets, smokeRuntimeEntities, restoredRuntimeEntities, smokeActiveGroups, restoredActiveGroups, smokeRuntimeVehicles, restoredRuntimeVehicles), CampaignDebugStatus(restoredCountsMatch), "restored smoke record counts differ from live state");
+		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.counts", "restored smoke record counts match live smoke record counts", BuildCampaignDebugPersistenceCountActual(activeSmokeMissions, restoredActiveSmokeMissions, smokeMissionAssets, restoredMissionAssets, smokeRuntimeEntities, restoredRuntimeEntities, smokeActiveGroups, restoredActiveGroups, smokeRuntimeVehicles, restoredRuntimeVehicles, smokeFieldVehicles, restoredFieldVehicles), CampaignDebugStatus(restoredCountsMatch), "restored smoke record counts differ from live state");
+		HST_RuntimeVehicleState restoredFieldVehicle = null;
+		if (restoredStateReady)
+			restoredFieldVehicle = restoredCampaignState.FindRuntimeVehicle(PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
+		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.field_vehicle", "restored temp state keeps exactly one restore-eligible field vehicle sentinel", BuildCampaignDebugFieldVehicleRestoreActual(smokeFieldVehicle, restoredFieldVehicle, smokeFieldVehicles, restoredFieldVehicles), CampaignDebugStatus(restoredStateReady && IsCampaignDebugPersistenceFieldVehicleValid(restoredFieldVehicle) && restoredFieldVehicles == 1 && CampaignDebugRuntimeVehicleFieldsMatch(smokeFieldVehicle, restoredFieldVehicle)), "in-memory save-data restore lost or changed the field vehicle persistence sentinel", PERSISTENCE_SMOKE_FIELD_VEHICLE_ID);
 		AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect is not executed by this one-button in-memory probe", "not executed", "WARN", "manual or automation-harness restart remains required");
 		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);
 		return persistenceCase;
@@ -7519,11 +7531,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("id %1 | mission %2 | status %3 | primitive %4 | phase %5", EmptyCampaignDebugField(mission.m_sInstanceId), EmptyCampaignDebugField(mission.m_sMissionId), mission.m_eStatus, EmptyCampaignDebugField(mission.m_sRuntimePrimitive), EmptyCampaignDebugField(mission.m_sRuntimePhase));
 	}
 
-	protected string BuildCampaignDebugPersistenceCountActual(int liveMissions, int restoredMissions, int liveAssets, int restoredAssets, int liveRuntimeEntities, int restoredRuntimeEntities, int liveGroups, int restoredGroups, int liveRuntimeVehicles, int restoredRuntimeVehicles)
+	protected string BuildCampaignDebugPersistenceCountActual(int liveMissions, int restoredMissions, int liveAssets, int restoredAssets, int liveRuntimeEntities, int restoredRuntimeEntities, int liveGroups, int restoredGroups, int liveRuntimeVehicles, int restoredRuntimeVehicles, int liveFieldVehicles, int restoredFieldVehicles)
 	{
 		string actual = string.Format("missions %1/%2 | assets %3/%4 | runtime entities %5/%6", liveMissions, restoredMissions, liveAssets, restoredAssets, liveRuntimeEntities, restoredRuntimeEntities);
 		actual = actual + string.Format(" | groups %1/%2 | runtime vehicles %3/%4", liveGroups, restoredGroups, liveRuntimeVehicles, restoredRuntimeVehicles);
+		actual = actual + string.Format(" | field vehicles %1/%2", liveFieldVehicles, restoredFieldVehicles);
 		return actual;
+	}
+
+	protected string BuildCampaignDebugFieldVehicleActual(HST_RuntimeVehicleState vehicle, int count)
+	{
+		if (!vehicle)
+			return string.Format("missing | count %1", count);
+
+		return string.Format("id %1 | count %2 | kind %3 | prefab %4 | deleted %5 | detached %6 | position %7", EmptyCampaignDebugField(vehicle.m_sVehicleRuntimeId), count, EmptyCampaignDebugField(vehicle.m_sRuntimeKind), EmptyCampaignDebugField(vehicle.m_sPrefab), vehicle.m_bDeleted, vehicle.m_bDetached, vehicle.m_vPosition);
+	}
+
+	protected string BuildCampaignDebugFieldVehicleRestoreActual(HST_RuntimeVehicleState liveVehicle, HST_RuntimeVehicleState restoredVehicle, int liveCount, int restoredCount)
+	{
+		string liveActual = BuildCampaignDebugFieldVehicleActual(liveVehicle, liveCount);
+		string restoredActual = BuildCampaignDebugFieldVehicleActual(restoredVehicle, restoredCount);
+		return "live " + liveActual + " | restored " + restoredActual;
+	}
+
+	protected bool IsCampaignDebugPersistenceFieldVehicleValid(HST_RuntimeVehicleState vehicle)
+	{
+		if (!vehicle)
+			return false;
+		if (vehicle.m_sVehicleRuntimeId != PERSISTENCE_SMOKE_FIELD_VEHICLE_ID)
+			return false;
+		if (vehicle.m_sRuntimeKind != "field_vehicle" || vehicle.m_bDeleted || vehicle.m_bDetached)
+			return false;
+		if (vehicle.m_sPrefab != PHASE15_SMOKE_VEHICLE_PREFAB)
+			return false;
+
+		return HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(vehicle.m_sPrefab) && !IsZeroVector(vehicle.m_vPosition);
+	}
+
+	protected bool CampaignDebugRuntimeVehicleFieldsMatch(HST_RuntimeVehicleState liveVehicle, HST_RuntimeVehicleState restoredVehicle)
+	{
+		if (!liveVehicle || !restoredVehicle)
+			return false;
+
+		return liveVehicle.m_sVehicleRuntimeId == restoredVehicle.m_sVehicleRuntimeId
+			&& liveVehicle.m_sPrefab == restoredVehicle.m_sPrefab
+			&& liveVehicle.m_sRuntimeKind == restoredVehicle.m_sRuntimeKind
+			&& liveVehicle.m_bDeleted == restoredVehicle.m_bDeleted
+			&& liveVehicle.m_bDetached == restoredVehicle.m_bDetached;
 	}
 
 	protected HST_EnemyOrderState FindCampaignDebugEnemyOrderInState(HST_CampaignState targetState, string orderId)
@@ -7663,6 +7717,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return smokeRuntimeVehicleCount;
+	}
+
+	protected int CountCampaignDebugPersistenceSmokeFieldVehicles(HST_CampaignState targetState)
+	{
+		if (!targetState)
+			return 0;
+
+		int smokeFieldVehicleCount;
+		foreach (HST_RuntimeVehicleState smokeRuntimeVehicle : targetState.m_aRuntimeVehicles)
+		{
+			if (!smokeRuntimeVehicle || smokeRuntimeVehicle.m_bDeleted)
+				continue;
+			if (smokeRuntimeVehicle.m_sVehicleRuntimeId == PERSISTENCE_SMOKE_FIELD_VEHICLE_ID && smokeRuntimeVehicle.m_sRuntimeKind == "field_vehicle" && !smokeRuntimeVehicle.m_bDetached)
+				smokeFieldVehicleCount++;
+		}
+
+		return smokeFieldVehicleCount;
 	}
 
 	protected int CountCampaignDebugPersistenceSmokeGarageCargo(HST_CampaignState targetState)

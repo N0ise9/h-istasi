@@ -511,6 +511,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - A one-button debug run can cover in-process Phase 25 soak checks, but not external session conditions.
   - An in-memory `HST_CampaignSaveData` restore is useful certification evidence for copied state shape, but it is not a substitute for a process restart, second-client reconnect, or long soak.
+  - Field-vehicle persistence smoke can seed a restore-eligible `field_vehicle` runtime record and prove it survives `HST_CampaignSaveData` capture/restore exactly once. Keep this labeled as record-level restore evidence; physical vehicle respawn through `HST_LootService.RestorePersistentFieldVehicles()` still needs real world/process restore evidence before it can be counted as complete.
   - Report real restart-after-each-primitive, second-client join/reconnect, and two-hour endurance as explicit WARN/manual gaps instead of silently treating them as covered.
   - Keep the rest of the Phase 25 summary tied to actual counters from the sequenced run: early phase steps, mission definitions, Phase 14-24 smoke steps, and aggregate pass/warn/fail totals.
 
