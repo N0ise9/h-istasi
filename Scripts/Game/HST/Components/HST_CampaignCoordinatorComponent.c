@@ -4397,7 +4397,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!m_Missions)
 		{
-			RecordCampaignDebugResult("mission sweep", "mission service not ready", false);
+			RecordCampaignDebugCase(BuildCampaignDebugMissionSweepUnavailableCase("mission service not ready"));
 			AdvanceCampaignDebugStep("Mission sweep skipped.");
 			return;
 		}
@@ -4428,7 +4428,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					ForceCampaignDebugConvoyDepartureForInstance(m_sCampaignDebugCurrentMissionInstanceId);
 			}
 
-			RecordCampaignDebugResult("start mission " + definition.m_sMissionId, startResult, started);
+			RecordCampaignDebugCase(BuildCampaignDebugMissionStartCase(definition, startResult, m_sCampaignDebugCurrentMissionInstanceId));
 			if (started)
 				m_iCampaignDebugMissionSubStep = 1;
 			else
@@ -4448,7 +4448,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			ProcessPlayerSpawnSweep("campaign debug mission runtime", true);
 			string runtimeReport = BuildCampaignDebugMissionRuntimeReport(m_sCampaignDebugCurrentMissionInstanceId);
-			RecordCampaignDebugResult("runtime mission " + definition.m_sMissionId, runtimeReport, IsCampaignDebugMissionRuntimeHealthy(m_sCampaignDebugCurrentMissionInstanceId, runtimeReport));
+			RecordCampaignDebugCase(BuildCampaignDebugMissionRuntimeCase(definition, m_sCampaignDebugCurrentMissionInstanceId, runtimeReport));
 			if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY)
 				RecordCampaignDebugConvoyPhysicalProbe("mission sweep " + definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId);
 			else
@@ -4462,7 +4462,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool completed = CompleteCampaignDebugMissionInstance(m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
 
 		string completeResult = string.Format("mission %1 | instance %2 | %3", definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, completionStatus);
-		RecordCampaignDebugResult("complete mission " + definition.m_sMissionId, completeResult, completed);
+		if (!completed)
+			AppendCampaignDebugLog("FAIL", "complete mission " + definition.m_sMissionId, completeResult);
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCleanupCase(definition.m_sMissionId, m_sCampaignDebugCurrentMissionInstanceId, completionStatus));
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		m_iCampaignDebugMissionIndex++;
@@ -8001,6 +8002,137 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_PhysicalWar.BuildConvoyRuntimeReport(m_State, mission);
 
 		return report;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionSweepUnavailableCase(string reason)
+	{
+		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("mission_sweep.prerequisite", "mission_runtime", "mission_sweep", "mission_sweep");
+		AddCampaignDebugAssertion(missionCase, "mission_sweep.service", "mission service ready", reason, "BLOCKED", "mission sweep cannot run without the mission service");
+		FinalizeCampaignDebugCaseFromAssertions(missionCase);
+		return missionCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionStartCase(HST_MissionDefinition definition, string startResult, string instanceId)
+	{
+		string missionId = "missing";
+		if (definition)
+			missionId = definition.m_sMissionId;
+
+		HST_CampaignDebugCaseResult startCase = CreateCampaignDebugCase("mission_sweep.start." + SafeCampaignDebugToken(missionId) + "." + SafeCampaignDebugToken(instanceId), "mission_runtime", missionId, "mission_sweep");
+		startCase.m_aEvidence.Insert(startResult);
+		if (!m_State || !definition)
+		{
+			AddCampaignDebugAssertion(startCase, "mission.start.prerequisite", "campaign state and mission definition exist", "missing", "BLOCKED", "mission start probe missing state or definition", "", instanceId);
+			FinalizeCampaignDebugCaseFromAssertions(startCase);
+			return startCase;
+		}
+
+		HST_ActiveMissionState mission = null;
+		if (!instanceId.IsEmpty())
+			mission = m_State.FindActiveMission(instanceId);
+		HST_ZoneState targetZone = null;
+		if (mission && !mission.m_sTargetZoneId.IsEmpty())
+			targetZone = m_State.FindZone(mission.m_sTargetZoneId);
+		HST_MapMarkerState marker = FindCampaignDebugMissionMarker(instanceId, mission);
+		int objectiveCount = CountCampaignDebugMissionObjectives(instanceId, false);
+		int assetCount = m_State.CountMissionAssets(instanceId);
+		int runtimeEntityCount = CountCampaignDebugMissionRuntimeEntities(instanceId);
+
+		AddCampaignDebugMetric(startCase, "mission.start.objectives", string.Format("%1", objectiveCount), "count");
+		AddCampaignDebugMetric(startCase, "mission.start.assets", string.Format("%1", assetCount), "count");
+		AddCampaignDebugMetric(startCase, "mission.start.runtime_entities", string.Format("%1", runtimeEntityCount), "count");
+		AddCampaignDebugAssertion(startCase, "mission.start.definition", "definition has id, duration, and runtime type", BuildCampaignDebugMissionDefinitionActual(definition), CampaignDebugStatus(!definition.m_sMissionId.IsEmpty() && definition.m_iDurationSeconds > 0 && !definition.m_sRuntimeType.IsEmpty()), "mission definition is missing required metadata", "", instanceId);
+		AddCampaignDebugAssertion(startCase, "mission.start.command", "admin start command accepted", ShortCampaignDebugLine(startResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(startResult)), "mission start command failed", "", instanceId);
+		AddCampaignDebugAssertion(startCase, "mission.start.instance", "started mission instance id captured", EmptyCampaignDebugField(instanceId), CampaignDebugStatus(!instanceId.IsEmpty()), "mission start did not produce an instance id", "", instanceId);
+		AddCampaignDebugAssertion(startCase, "mission.start.record", "active mission record exists and matches definition", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && mission.m_sMissionId == definition.m_sMissionId), "started mission record missing or wrong mission id", "", instanceId);
+		AddCampaignDebugAssertion(startCase, "mission.start.active", "mission enters ACTIVE status", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "started mission did not enter active status", "", instanceId);
+		AddCampaignDebugAssertion(startCase, "mission.start.target", "target zone and target position are valid", BuildCampaignDebugMissionTargetActual(mission, targetZone), CampaignDebugStatus(mission && targetZone && !IsZeroVector(mission.m_vTargetPosition)), "started mission has invalid target state", "", instanceId);
+		AddCampaignDebugAssertion(startCase, "mission.start.marker", "mission marker model is linked or pending refresh evidence exists", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker != null, "WARN"), "started mission has no linked marker record yet", "", instanceId);
+		FinalizeCampaignDebugCaseFromAssertions(startCase);
+		return startCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionRuntimeCase(HST_MissionDefinition definition, string instanceId, string runtimeReport)
+	{
+		string missionId = "missing";
+		if (definition)
+			missionId = definition.m_sMissionId;
+
+		HST_CampaignDebugCaseResult runtimeCase = CreateCampaignDebugCase("mission_sweep.runtime." + SafeCampaignDebugToken(missionId) + "." + SafeCampaignDebugToken(instanceId), "mission_runtime", missionId, "mission_sweep");
+		runtimeCase.m_aEvidence.Insert(runtimeReport);
+		if (!m_State || instanceId.IsEmpty())
+		{
+			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.prerequisite", "campaign state and mission instance id exist", EmptyCampaignDebugField(instanceId), "BLOCKED", "mission runtime probe missing state or instance", "", instanceId);
+			FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
+			return runtimeCase;
+		}
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		HST_ZoneState targetZone = null;
+		if (mission && !mission.m_sTargetZoneId.IsEmpty())
+			targetZone = m_State.FindZone(mission.m_sTargetZoneId);
+		HST_MapMarkerState marker = FindCampaignDebugMissionMarker(instanceId, mission);
+		int objectiveCount = CountCampaignDebugMissionObjectives(instanceId, false);
+		int objectiveComplete = CountCampaignDebugMissionObjectives(instanceId, true);
+		int assetCount = m_State.CountMissionAssets(instanceId);
+		int runtimeEntityCount = CountCampaignDebugMissionRuntimeEntities(instanceId);
+		int convoyVehicleAssets = m_State.CountMissionAssets(instanceId, "convoy_vehicle");
+		bool reportOk = IsCampaignDebugResultSuccessful(runtimeReport);
+		bool runtimeHealthy = IsCampaignDebugMissionRuntimeHealthy(instanceId, runtimeReport);
+		bool runtimeTypeMatches = !definition || !mission || definition.m_sRuntimeType.IsEmpty() || mission.m_sRuntimeType == definition.m_sRuntimeType;
+		bool failureClear = mission && mission.m_sRuntimeFailureReason.IsEmpty() && mission.m_sRuntimePhase != "failed" && mission.m_eStatus != HST_EMissionStatus.HST_MISSION_FAILED;
+		bool fallbackOk = mission && (!mission.m_bRuntimeFallback || mission.m_sRuntimePrimitive == "abstract_fallback");
+
+		AddCampaignDebugMetric(runtimeCase, "mission.runtime.objectives", string.Format("%1", objectiveCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission.runtime.objectives_complete", string.Format("%1", objectiveComplete), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission.runtime.assets", string.Format("%1", assetCount), "count");
+		AddCampaignDebugMetric(runtimeCase, "mission.runtime.entities", string.Format("%1", runtimeEntityCount), "count");
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.report", "runtime inspection report is accepted", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(reportOk), "mission runtime report returned failure text", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "mission runtime record missing or not active", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "runtime spawned without unexpected fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(runtimeHealthy && failureClear && fallbackOk), "mission runtime did not spawn cleanly", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.primitive", "runtime primitive/type metadata is populated and matches definition", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && !mission.m_sRuntimePrimitive.IsEmpty() && runtimeTypeMatches), "mission runtime primitive/type metadata mismatch", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.objectives", "mission has objective records before primitive probe", BuildCampaignDebugMissionObjectiveActual(instanceId), CampaignDebugStatus(objectiveCount > 0), "mission runtime has no objective records", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.target", "target zone and position remain valid", BuildCampaignDebugMissionTargetActual(mission, targetZone), CampaignDebugStatus(mission && targetZone && !IsZeroVector(mission.m_vTargetPosition)), "mission runtime target state invalid", "", instanceId);
+		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.marker", "mission marker model is linked to backing state", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker != null, "WARN"), "mission runtime has no linked marker record", "", instanceId);
+		if (mission && mission.m_sRuntimePrimitive == "convoy_intercept")
+			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.convoy_assets", "convoy runtime has convoy vehicle assets", string.Format("%1", convoyVehicleAssets), CampaignDebugStatus(convoyVehicleAssets > 0), "convoy runtime has no convoy vehicle assets", "", instanceId);
+		FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
+		return runtimeCase;
+	}
+
+	protected HST_MapMarkerState FindCampaignDebugMissionMarker(string instanceId, HST_ActiveMissionState mission)
+	{
+		HST_MapMarkerState marker = FindCampaignDebugMarkerLinkedTo(instanceId);
+		if (marker)
+			return marker;
+		if (m_State && mission && !mission.m_sMarkerId.IsEmpty())
+			return m_State.FindMapMarker(mission.m_sMarkerId);
+
+		return null;
+	}
+
+	protected string BuildCampaignDebugMissionDefinitionActual(HST_MissionDefinition definition)
+	{
+		if (!definition)
+			return "missing";
+
+		return string.Format("id %1 | category %2 | duration %3 | runtime %4 | reward %5/%6", EmptyCampaignDebugField(definition.m_sMissionId), definition.m_eCategory, definition.m_iDurationSeconds, EmptyCampaignDebugField(definition.m_sRuntimeType), definition.m_iRewardMoney, definition.m_iRewardHR);
+	}
+
+	protected string BuildCampaignDebugMissionTargetActual(HST_ActiveMissionState mission, HST_ZoneState targetZone)
+	{
+		if (!mission)
+			return "missing";
+
+		string zoneId = "";
+		string owner = "";
+		if (targetZone)
+		{
+			zoneId = targetZone.m_sZoneId;
+			owner = targetZone.m_sOwnerFactionKey;
+		}
+
+		return string.Format("target %1 | zone %2 | owner %3 | pos %4", EmptyCampaignDebugField(mission.m_sTargetZoneId), EmptyCampaignDebugField(zoneId), EmptyCampaignDebugField(owner), mission.m_vTargetPosition);
 	}
 
 	protected void RecordCampaignDebugConvoyPhysicalProbe(string label, string instanceId)
