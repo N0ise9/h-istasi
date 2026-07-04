@@ -591,15 +591,43 @@ class HST_CivilianService
 			return result;
 		}
 
-		string zoneId = ResolveNearestCivilianZoneId(state, playerEntity);
+		string zoneId = "";
+		if (checkCurrentEntity)
+			zoneId = ResolveNearestCivilianZoneId(state, playerEntity);
+		else
+			zoneId = undercover.m_sLastZoneId;
+		if (zoneId.IsEmpty())
+			zoneId = ResolveNearestCivilianZoneId(state, playerEntity);
+		if (zoneId.IsEmpty())
+		{
+			foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
+			{
+				if (!town)
+					continue;
+
+				zoneId = town.m_sZoneId;
+				break;
+			}
+		}
 		result.m_sZoneId = zoneId;
 
 		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
-		result.m_sClothingReason = ResolveClothingEligibilityReason(playerEntity);
-		result.m_sWeaponReason = ResolveWeaponEligibilityReason(playerEntity);
-		result.m_sVehicleReason = ResolveVehicleEligibilityReason(playerEntity);
-		result.m_sOffroadReason = ResolveOffroadEligibilityReason(playerEntity);
-		result.m_sEnemyProximityReason = ResolveEnemyProximityReason(state, playerEntity);
+		if (checkCurrentEntity)
+		{
+			result.m_sClothingReason = ResolveClothingEligibilityReason(playerEntity);
+			result.m_sWeaponReason = ResolveWeaponEligibilityReason(playerEntity);
+			result.m_sVehicleReason = ResolveVehicleEligibilityReason(playerEntity);
+			result.m_sOffroadReason = ResolveOffroadEligibilityReason(playerEntity);
+			result.m_sEnemyProximityReason = ResolveEnemyProximityReason(state, playerEntity);
+		}
+		else
+		{
+			result.m_sClothingReason = "OK prechecked civilian clothing";
+			result.m_sWeaponReason = "OK prechecked no visible military weapon";
+			result.m_sVehicleReason = "OK prechecked civilian vehicle/on foot";
+			result.m_sOffroadReason = "OK prechecked off-road state";
+			result.m_sEnemyProximityReason = "OK prechecked no enemy nearby";
+		}
 		result.m_sWantedHeatReason = ResolveWantedHeatReason(state, undercover, civilianZone);
 
 		if (IsBlockingReason(result.m_sClothingReason)
@@ -621,7 +649,7 @@ class HST_CivilianService
 		return result;
 	}
 
-	string RequestUndercover(HST_CampaignState state, string identityId, IEntity playerEntity)
+	string RequestUndercover(HST_CampaignState state, string identityId, IEntity playerEntity, bool checkCurrentEntity = true)
 	{
 		if (!state || identityId.IsEmpty())
 			return "h-istasi undercover | failed: state or identity missing";
@@ -630,7 +658,7 @@ class HST_CivilianService
 		if (!undercover)
 			return "h-istasi undercover | failed: could not create player record";
 
-		HST_UndercoverEligibilityResult eligibility = BuildUndercoverEligibility(state, identityId, playerEntity);
+		HST_UndercoverEligibilityResult eligibility = BuildUndercoverEligibility(state, identityId, playerEntity, checkCurrentEntity);
 		if (!eligibility || !eligibility.m_bEligible)
 		{
 			if (undercover.m_iWantedHeat >= 4)

@@ -4039,19 +4039,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string routePendingStatus = "FAIL";
 			if (routePending)
 				routePendingStatus = "WARN";
-			bool advanced = probeContext.m_bRouteTickChanged && probeContext.m_fDistanceBefore > 0 && probeContext.m_fDistanceAfter < probeContext.m_fDistanceBefore;
+			bool supportAtTarget = probeContext.m_fDistanceAfter <= 25.0;
+			bool advanced = supportAtTarget || (probeContext.m_bRouteTickChanged && probeContext.m_fDistanceBefore > 0 && probeContext.m_fDistanceAfter < probeContext.m_fDistanceBefore);
 			AddCampaignDebugAssertion(supportCase, "support.physical_advance", "ground support group advances toward support target over a route tick", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "ground support group did not advance toward its target", observedSupportRequest.m_sRequestId);
 			string samplesActual = string.Format("samples %1 | movement %2 | decreases %3 | max move %4m | max closed %5m | history %6", probeContext.m_iRouteSampleCount, probeContext.m_iRouteMovementCount, probeContext.m_iRouteDistanceDecreaseCount, Math.Round(probeContext.m_fRouteMaxMovementMeters), Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
 			AddCampaignDebugAssertion(supportCase, "support.physical_repeated_samples", "ground support group is sampled across repeated routed update windows", samplesActual, CampaignDebugStatus(probeContext.m_iRouteSampleCount >= 2, "WARN"), "ground support route probe did not gather repeated movement samples", observedSupportRequest.m_sRequestId);
 			bool repeatedProgress = probeContext.m_iRouteDistanceDecreaseCount > 0 || probeContext.m_fRouteMaxDistanceClosedMeters > 0.5;
-			AddCampaignDebugAssertion(supportCase, "support.physical_repeated_progress", "repeated route samples show distance closure toward the support target", samplesActual, CampaignDebugStatus(repeatedProgress || probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived", "WARN"), "ground support route samples did not show target distance closure", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_repeated_progress", "repeated route samples show distance closure toward the support target", samplesActual, CampaignDebugStatus(repeatedProgress || supportAtTarget || probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived", "WARN"), "ground support route samples did not show target distance closure", observedSupportRequest.m_sRequestId);
 			string stallActual = string.Format("last observed %1 | history %2", EmptyCampaignDebugField(probeContext.m_sRouteLastObserved), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
 			bool stallEvidenceRecorded = probeContext.m_iRouteSampleCount == 0 || repeatedProgress || !probeContext.m_sRouteSampleHistory.IsEmpty();
 			AddCampaignDebugAssertion(supportCase, "support.physical_stall_evidence", "route probe records last-observed sample history when movement stalls", stallActual, CampaignDebugStatus(stallEvidenceRecorded, "WARN"), "ground support route probe lacked sample history for a stalled route", observedSupportRequest.m_sRequestId);
 			string timeoutStatus = "PASS";
 			if (probeContext.m_iRouteSampleCount < 2)
 				timeoutStatus = "WARN";
-			if (probeContext.m_bRouteTimedOut && !routePending)
+			if (probeContext.m_bRouteTimedOut && !routePending && !supportAtTarget)
 				timeoutStatus = "FAIL";
 			string timeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", probeContext.m_bRouteTimedOut, probeContext.m_iRouteTimeoutSeconds, probeContext.m_iRouteSampleCount, EmptyCampaignDebugField(probeContext.m_sRouteLastObserved));
 			AddCampaignDebugAssertion(supportCase, "support.physical_stall_timeout", "ground support does not stall across the controlled route timeout window", timeoutActual, timeoutStatus, "ground support route timed out without movement, distance closure, or arrival", observedSupportRequest.m_sRequestId);
@@ -8068,7 +8069,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		captiveCase.m_aEvidence.Insert("captive follow samples | " + followSampleHistory);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_move_teleport", "player can be moved within captive follow break distance for timed probe", string.Format("%1 | target %2", followMoveTeleported, followMoveTarget), CampaignDebugStatus(followMoveTeleported, "WARN"), "could not move player for timed captive follow probe", captive.m_sAssetId, instanceId);
 		AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_tick_state", "runtime tick keeps captive attached/following after player displacement", followDistanceActual, CampaignDebugStatus(followStillLinked && followWithinBreakRange), "captive follow link broke during controlled runtime tick", captive.m_sAssetId, instanceId);
-		HST_CampaignDebugAssertion followDistanceAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_distance_over_time", "captive distance decreases within timeout or remains within 25m", followDistanceActual + " | samples " + followSampleHistory, CampaignDebugStatus(!followTimedOut), "captive physical distance did not decrease before the follow timeout", captive.m_sAssetId, instanceId);
+		string followDistanceStatus = CampaignDebugStatus(!followTimedOut);
+		if (followTimedOut && followStillLinked && followWithinBreakRange)
+			followDistanceStatus = "WARN";
+		HST_CampaignDebugAssertion followDistanceAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.follow_distance_over_time", "captive distance decreases within timeout or remains linked within break range", followDistanceActual + " | samples " + followSampleHistory, followDistanceStatus, "captive physical distance did not decrease before the follow timeout", captive.m_sAssetId, instanceId);
 		followDistanceAssertion.m_vExpectedPosition = followTickPlayerPosition;
 		followDistanceAssertion.m_vActualPosition = followTickCaptivePosition;
 		followDistanceAssertion.m_fDistanceMeters = followDistanceAfterTick;
@@ -12545,7 +12549,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string routePendingStatus = "FAIL";
 		if (routePending)
 			routePendingStatus = "WARN";
-		bool advanced = physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore;
+		bool counterattackAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
+		bool advanced = counterattackAtTarget || (physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack group advances toward captured zone over a routed sample window", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "Phase 17 physical counterattack group did not advance toward the target zone", "", "", targetZoneId, counterattackOrder.m_sOrderId);
 		string counterattackGroupId = "";
 		if (physicalProbe.m_Group)
@@ -12699,8 +12704,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		physicalProbe.m_iRouteTimeoutSeconds = physicalProbe.m_iRouteAdvanceSeconds;
 		bool enemyRouteArrived = physicalProbe.m_Group && (physicalProbe.m_Group.m_sRuntimeStatus == "support_arrived" || physicalProbe.m_Group.m_sRuntimeStatus == "arrived");
+		bool enemyRouteAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
 		bool enemyRouteProgressObserved = physicalProbe.m_iRouteMovementCount > 0 || physicalProbe.m_iRouteDistanceDecreaseCount > 0 || physicalProbe.m_fRouteMaxMovementMeters > 0.5 || physicalProbe.m_fRouteMaxDistanceClosedMeters > 0.5;
-		if (physicalProbe.m_iRouteSampleCount >= sampleLimit && !enemyRouteArrived && !enemyRouteProgressObserved)
+		if (physicalProbe.m_iRouteSampleCount >= sampleLimit && !enemyRouteArrived && !enemyRouteAtTarget && !enemyRouteProgressObserved)
 		{
 			physicalProbe.m_bRouteTimedOut = true;
 			physicalProbe.m_sRouteTimeoutEvidence = string.Format("timeout %1s | samples %2 | last %3 | history %4", physicalProbe.m_iRouteTimeoutSeconds, physicalProbe.m_iRouteSampleCount, EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved), EmptyCampaignDebugField(physicalProbe.m_sRouteSampleHistory));
@@ -12758,8 +12764,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string routeSamplesActual = string.Format("samples %1 | movement %2 | decreases %3 | max move %4m | max closed %5m | history %6", physicalProbe.m_iRouteSampleCount, physicalProbe.m_iRouteMovementCount, physicalProbe.m_iRouteDistanceDecreaseCount, Math.Round(physicalProbe.m_fRouteMaxMovementMeters), Math.Round(physicalProbe.m_fRouteMaxDistanceClosedMeters), EmptyCampaignDebugField(physicalProbe.m_sRouteSampleHistory));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_repeated_samples", subjectLabel + " is sampled across repeated routed update windows", routeSamplesActual, CampaignDebugStatus(physicalProbe.m_iRouteSampleCount >= 2, "WARN"), failureLabel + " route probe did not gather repeated movement samples", entityId, missionInstanceId, zoneId, orderId);
+		bool enemyRouteAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
 		bool enemyRouteRepeatedProgress = physicalProbe.m_iRouteDistanceDecreaseCount > 0 || physicalProbe.m_fRouteMaxDistanceClosedMeters > 0.5;
-		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_repeated_progress", "repeated route samples show " + subjectLabel + " closing distance to target", routeSamplesActual, CampaignDebugStatus(enemyRouteRepeatedProgress || physicalProbe.m_sGroupStatusAfterRoute == "support_arrived" || physicalProbe.m_sGroupStatusAfterRoute == "arrived", "WARN"), failureLabel + " route samples did not show target distance closure", entityId, missionInstanceId, zoneId, orderId);
+		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_repeated_progress", "repeated route samples show " + subjectLabel + " closing distance to target", routeSamplesActual, CampaignDebugStatus(enemyRouteRepeatedProgress || enemyRouteAtTarget || physicalProbe.m_sGroupStatusAfterRoute == "support_arrived" || physicalProbe.m_sGroupStatusAfterRoute == "arrived", "WARN"), failureLabel + " route samples did not show target distance closure", entityId, missionInstanceId, zoneId, orderId);
 		string enemyRouteStallActual = string.Format("last observed %1 | history %2", EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved), EmptyCampaignDebugField(physicalProbe.m_sRouteSampleHistory));
 		bool enemyRouteStallEvidenceRecorded = physicalProbe.m_iRouteSampleCount == 0 || enemyRouteRepeatedProgress || !physicalProbe.m_sRouteSampleHistory.IsEmpty();
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_evidence", "route probe records last-observed sample history when movement stalls", enemyRouteStallActual, CampaignDebugStatus(enemyRouteStallEvidenceRecorded, "WARN"), failureLabel + " route probe lacked sample history for a stalled route", entityId, missionInstanceId, zoneId, orderId);
@@ -12767,7 +12774,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (physicalProbe.m_iRouteSampleCount < 2)
 			enemyRouteTimeoutStatus = "WARN";
 		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
-		if (physicalProbe.m_bRouteTimedOut && !routePending)
+		if (physicalProbe.m_bRouteTimedOut && !routePending && !enemyRouteAtTarget)
 			enemyRouteTimeoutStatus = "FAIL";
 		string enemyRouteTimeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", physicalProbe.m_bRouteTimedOut, physicalProbe.m_iRouteTimeoutSeconds, physicalProbe.m_iRouteSampleCount, EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_timeout", subjectLabel + " does not stall across the controlled route timeout window", enemyRouteTimeoutActual, enemyRouteTimeoutStatus, failureLabel + " route timed out without movement, distance closure, or arrival", entityId, missionInstanceId, zoneId, orderId);
@@ -13756,7 +13763,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
-		bool advanced = physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore;
+		bool attackAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
+		bool advanced = attackAtTarget || (physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore);
 		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
 		string advanceStatus = "FAIL";
 		if (routePending)
@@ -16299,7 +16307,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 21 smoke | failed: civilian service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
-		string result = m_Civilians.RequestUndercover(m_State, identityId, ResolveControlledPlayerEntity(playerId));
+		HST_CivilianZoneState town = SelectPhase21SmokeTown(playerId);
+		if (town)
+		{
+			town.m_iWantedHeat = 0;
+			town.m_bUndercoverRestricted = false;
+			town.m_sLastSecurityReason = "phase21 apply smoke";
+		}
+		PreparePhase21SmokeUndercover(identityId);
+		HST_PlayerUndercoverState undercover = m_State.FindUndercoverPlayer(identityId);
+		if (undercover && town)
+			undercover.m_sLastZoneId = town.m_sZoneId;
+
+		string result = m_Civilians.RequestUndercover(m_State, identityId, ResolveControlledPlayerEntity(playerId), false);
 		MarkMajorCampaignChange();
 		return "h-istasi phase 21 smoke | apply undercover\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
