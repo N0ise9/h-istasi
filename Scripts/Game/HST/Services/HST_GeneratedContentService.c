@@ -3,6 +3,11 @@ class HST_GeneratedContentService
 	static const int ROADBLOCK_OFFSET_METERS = 180;
 	static const int SUPPORT_OFFSET_METERS = 120;
 	static const int CRASHSITE_OFFSET_METERS = 260;
+	static const float GENERATED_SITE_SEARCH_STEP_METERS = 45.0;
+	static const int GENERATED_SITE_SEARCH_RINGS = 8;
+	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_CLOSE_METERS = 220.0;
+	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_MEDIUM_METERS = 420.0;
+	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS = 700.0;
 
 	bool EnsureGeneratedContent(HST_CampaignState state, HST_CampaignPreset preset)
 	{
@@ -156,8 +161,8 @@ class HST_GeneratedContentService
 		site.m_sZoneId = zone.m_sZoneId;
 		site.m_sRouteId = string.Format("route_%1_alpha", zone.m_sZoneId);
 		site.m_eType = siteType;
-		site.m_vPosition = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.PROP_GROUND_OFFSET, false);
-		site.m_vSecondaryPosition = HST_WorldPositionService.ResolveGroundPosition(OffsetPosition(position, 45, -45), HST_WorldPositionService.PROP_GROUND_OFFSET, false);
+		site.m_vPosition = ResolveGeneratedSitePosition(zone, position);
+		site.m_vSecondaryPosition = ResolveGeneratedSitePosition(zone, OffsetPosition(site.m_vPosition, 45, -45));
 		site.m_iRadiusMeters = radiusMeters;
 		site.m_iWeight = Math.Max(1, weight);
 		site.m_bValid = IsMissionPositionValidIgnoringActive(state, site.m_vPosition);
@@ -193,9 +198,9 @@ class HST_GeneratedContentService
 		route.m_sSourceLayerName = "VehiclePatrols.layer";
 		route.m_sSourceCategory = "patrol_route";
 		route.m_sSourceLayoutId = zone.m_sSourceLayoutId;
-		route.m_vStartPosition = ResolveRouteWaypointPosition(OffsetPosition(zone.m_vPosition, -360, 0), "start");
-		route.m_vMidPosition = ResolveRouteWaypointPosition(site.m_vSecondaryPosition, "midpoint");
-		route.m_vEndPosition = ResolveRouteWaypointPosition(site.m_vPosition, "destination");
+		route.m_vStartPosition = ResolveRouteWaypointPosition(OffsetPosition(zone.m_vPosition, -360, 0), site.m_vPosition, "start");
+		route.m_vMidPosition = ResolveRouteWaypointPosition(site.m_vSecondaryPosition, site.m_vPosition, "midpoint");
+		route.m_vEndPosition = ResolveRouteWaypointPosition(site.m_vPosition, route.m_vStartPosition, "destination");
 		route.m_bRoadRoute = true;
 		route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 0, route.m_vStartPosition, "start"));
 		route.m_aWaypoints.Insert(CreateRouteWaypoint(route, 1, route.m_vMidPosition, "midpoint"));
@@ -217,13 +222,72 @@ class HST_GeneratedContentService
 		return waypoint;
 	}
 
-	protected vector ResolveRouteWaypointPosition(vector preferred, string hint)
+	protected vector ResolveRouteWaypointPosition(vector preferred, vector destination, string hint)
 	{
+		vector roadPosition;
+		vector roadForward;
+		float roadWidth;
+		float roadDistance;
+		string roadReason;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_CLOSE_METERS, destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+			return roadPosition;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_MEDIUM_METERS, destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+			return roadPosition;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS, destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+			return roadPosition;
+
 		vector resolved;
 		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(preferred, resolved, true) && !HST_WorldPositionService.IsLikelyOpenWater(resolved))
 			return resolved;
 
 		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
+	}
+
+	protected vector ResolveGeneratedSitePosition(HST_ZoneState zone, vector preferred)
+	{
+		vector resolved;
+		if (TryResolveGeneratedDrySitePosition(preferred, resolved))
+			return resolved;
+
+		for (int ring = 1; ring <= GENERATED_SITE_SEARCH_RINGS; ring++)
+		{
+			float radius = GENERATED_SITE_SEARCH_STEP_METERS * ring;
+			for (int step = 0; step < 8; step++)
+			{
+				vector candidate = OffsetRadialPosition(preferred, radius, step);
+				if (TryResolveGeneratedDrySitePosition(candidate, resolved))
+					return resolved;
+			}
+		}
+
+		if (zone)
+		{
+			if (TryResolveGeneratedDrySitePosition(zone.m_vPosition, resolved))
+				return resolved;
+
+			for (int zoneRing = 1; zoneRing <= GENERATED_SITE_SEARCH_RINGS; zoneRing++)
+			{
+				float zoneRadius = GENERATED_SITE_SEARCH_STEP_METERS * zoneRing;
+				for (int zoneStep = 0; zoneStep < 8; zoneStep++)
+				{
+					vector zoneCandidate = OffsetRadialPosition(zone.m_vPosition, zoneRadius, zoneStep);
+					if (TryResolveGeneratedDrySitePosition(zoneCandidate, resolved))
+						return resolved;
+				}
+			}
+		}
+
+		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, true, 8.0);
+	}
+
+	protected bool TryResolveGeneratedDrySitePosition(vector preferred, out vector resolved)
+	{
+		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, resolved, true, 4.0))
+			return false;
+		if (HST_WorldPositionService.IsLikelyOpenWater(resolved))
+			return false;
+
+		return HST_WorldPositionService.IsDryGroundPosition(resolved);
 	}
 
 	protected void EnsureRouteWaypointMetadata(HST_GeneratedRouteState route)
@@ -361,6 +425,52 @@ class HST_GeneratedContentService
 		vector result = source;
 		result[0] = result[0] + x;
 		result[2] = result[2] + z;
+		return result;
+	}
+
+	protected vector OffsetRadialPosition(vector source, float distanceMeters, int slot)
+	{
+		vector result = source;
+		float x = 1.0;
+		float z = 0.0;
+		if (slot == 1)
+		{
+			x = 0.707;
+			z = 0.707;
+		}
+		else if (slot == 2)
+		{
+			x = 0.0;
+			z = 1.0;
+		}
+		else if (slot == 3)
+		{
+			x = -0.707;
+			z = 0.707;
+		}
+		else if (slot == 4)
+		{
+			x = -1.0;
+			z = 0.0;
+		}
+		else if (slot == 5)
+		{
+			x = -0.707;
+			z = -0.707;
+		}
+		else if (slot == 6)
+		{
+			x = 0.0;
+			z = -1.0;
+		}
+		else if (slot == 7)
+		{
+			x = 0.707;
+			z = -0.707;
+		}
+
+		result[0] = result[0] + x * distanceMeters;
+		result[2] = result[2] + z * distanceMeters;
 		return result;
 	}
 

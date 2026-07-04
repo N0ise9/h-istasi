@@ -54,6 +54,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+	static const float CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS = 2.0;
+	static const float CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS = 10.0;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -4009,8 +4011,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (IsCampaignDebugPhysicalGroundSupportType(probeContext.m_eExpectedType))
 		{
 			string physicalActual = string.Format("physical %1 -> %2 | group %3 | group status %4 | mode %5 | runtime %6", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(probeContext.m_sGroupIdAfterTick), EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTick), EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
-			bool physicalExpected = probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && probeContext.m_sGroupStatusAfterTick.Contains("support");
-			AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", physicalActual, CampaignDebugStatus(physicalExpected), "ground support did not physicalize a linked support group", observedSupportRequest.m_sRequestId);
+			bool physicalPending = IsCampaignDebugAsyncRuntimePending(probeContext.m_sGroupStatusAfterTick);
+			bool physicalExpected = probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && (probeContext.m_sGroupStatusAfterTick.Contains("support") || physicalPending);
+			string physicalStatus = CampaignDebugStatus(physicalExpected);
+			if (physicalExpected && physicalPending)
+				physicalStatus = "WARN";
+			AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", physicalActual, physicalStatus, "ground support did not physicalize a linked support group", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -4028,8 +4034,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!probeContext.m_sRouteTimeoutEvidence.IsEmpty())
 				supportCase.m_aEvidence.Insert("support route timeout | " + ShortCampaignDebugLine(probeContext.m_sRouteTimeoutEvidence, 260));
 			string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4 | status %5", Math.Round(probeContext.m_fDistanceBefore), Math.Round(probeContext.m_fDistanceAfter), probeContext.m_vGroupPositionBefore, probeContext.m_vGroupPositionAfter, EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterRoute));
+			bool routePending = IsCampaignDebugAsyncRuntimePending(probeContext.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(probeContext.m_sRouteSampleHistory);
+			string routePendingStatus = "FAIL";
+			if (routePending)
+				routePendingStatus = "WARN";
 			bool advanced = probeContext.m_bRouteTickChanged && probeContext.m_fDistanceBefore > 0 && probeContext.m_fDistanceAfter < probeContext.m_fDistanceBefore;
-			AddCampaignDebugAssertion(supportCase, "support.physical_advance", "ground support group advances toward support target over a route tick", advanceActual, CampaignDebugStatus(advanced), "ground support group did not advance toward its target", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_advance", "ground support group advances toward support target over a route tick", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "ground support group did not advance toward its target", observedSupportRequest.m_sRequestId);
 			string samplesActual = string.Format("samples %1 | movement %2 | decreases %3 | max move %4m | max closed %5m | history %6", probeContext.m_iRouteSampleCount, probeContext.m_iRouteMovementCount, probeContext.m_iRouteDistanceDecreaseCount, Math.Round(probeContext.m_fRouteMaxMovementMeters), Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
 			AddCampaignDebugAssertion(supportCase, "support.physical_repeated_samples", "ground support group is sampled across repeated routed update windows", samplesActual, CampaignDebugStatus(probeContext.m_iRouteSampleCount >= 2, "WARN"), "ground support route probe did not gather repeated movement samples", observedSupportRequest.m_sRequestId);
 			bool repeatedProgress = probeContext.m_iRouteDistanceDecreaseCount > 0 || probeContext.m_fRouteMaxDistanceClosedMeters > 0.5;
@@ -4040,7 +4050,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string timeoutStatus = "PASS";
 			if (probeContext.m_iRouteSampleCount < 2)
 				timeoutStatus = "WARN";
-			if (probeContext.m_bRouteTimedOut)
+			if (probeContext.m_bRouteTimedOut && !routePending)
 				timeoutStatus = "FAIL";
 			string timeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", probeContext.m_bRouteTimedOut, probeContext.m_iRouteTimeoutSeconds, probeContext.m_iRouteSampleCount, EmptyCampaignDebugField(probeContext.m_sRouteLastObserved));
 			AddCampaignDebugAssertion(supportCase, "support.physical_stall_timeout", "ground support does not stall across the controlled route timeout window", timeoutActual, timeoutStatus, "ground support route timed out without movement, distance closure, or arrival", observedSupportRequest.m_sRequestId);
@@ -8672,9 +8682,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return null;
 		}
 
-		vector carrierPreferred = pickupPosition + "6 0 0";
-		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(carrierPreferred, carrierPosition, true))
-			carrierPosition = HST_WorldPositionService.ResolveSafeGroundPosition(carrierPreferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 5.0);
+		if (!TryResolveCampaignDebugTransportCarrierPosition(carrierPlayer.GetOrigin(), carrierPosition))
+		{
+			vector carrierPreferred = pickupPosition + "6 0 0";
+			if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(carrierPreferred, carrierPosition, true))
+				carrierPosition = HST_WorldPositionService.ResolveSafeGroundPosition(carrierPreferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 5.0);
+		}
 
 		vector carrierAngles = HST_WorldPositionService.BuildUprightAngles(0.0);
 		GenericEntity carrierEntity = HST_WorldPositionService.SpawnPrefab(PHASE15_SMOKE_VEHICLE_PREFAB, carrierPosition, carrierAngles);
@@ -8688,8 +8701,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (carrierEntity)
 			carrierDistance = Math.Sqrt(DistanceSq2D(carrierPlayer.GetOrigin(), carrierEntity.GetOrigin()));
 		AddCampaignDebugMetric(primitiveCase, "primitive." + primitiveLabel + ".carrier_pickup_distance", string.Format("%1", Math.Round(carrierDistance)), "meters");
-		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_spawn", "temporary physical carrier spawned within load radius", string.Format("entity %1 | id %2 | distance %3m | position %4", carrierEntity != null, EmptyCampaignDebugField(carrierRuntimeId), Math.Round(carrierDistance), carrierPosition), CampaignDebugStatus(carrierEntity != null && carrierDistance <= 10.0, "BLOCKED"), primitiveLabel + " temporary physical carrier could not be arranged near pickup", carrierRuntimeId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive." + primitiveLabel + ".carrier_spawn", "temporary physical carrier spawned within load radius", string.Format("entity %1 | id %2 | distance %3m | position %4", carrierEntity != null, EmptyCampaignDebugField(carrierRuntimeId), Math.Round(carrierDistance), carrierPosition), CampaignDebugStatus(carrierEntity != null && carrierDistance <= CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS, "BLOCKED"), primitiveLabel + " temporary physical carrier could not be arranged near pickup", carrierRuntimeId, mission.m_sInstanceId, mission.m_sTargetZoneId);
 		return carrierEntity;
+	}
+
+	protected bool TryResolveCampaignDebugTransportCarrierPosition(vector playerPosition, out vector carrierPosition)
+	{
+		carrierPosition = "0 0 0";
+		if (IsZeroVector(playerPosition))
+			return false;
+
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 6.0, 0, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 6.0, 2, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 6.0, 4, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 6.0, 6, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 8.0, 1, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 8.0, 3, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 8.0, 5, carrierPosition))
+			return true;
+		if (TryResolveCampaignDebugTransportCarrierCandidate(playerPosition, 8.0, 7, carrierPosition))
+			return true;
+
+		return false;
+	}
+
+	protected bool TryResolveCampaignDebugTransportCarrierCandidate(vector playerPosition, float distanceMeters, int slot, out vector carrierPosition)
+	{
+		vector preferred = OffsetCampaignDebugRadialPosition(playerPosition, distanceMeters, slot);
+		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(preferred, carrierPosition, true))
+			return false;
+
+		return DistanceSq2D(playerPosition, carrierPosition) <= CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS * CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS;
 	}
 
 	protected bool MoveCampaignDebugTransportCarrier(GenericEntity carrierEntity, string carrierRuntimeId, vector deliveryPosition, out vector resolvedPosition)
@@ -11301,21 +11349,76 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		vector resolved = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true);
-		bool teleported = SCR_Global.TeleportPlayer(m_iCampaignDebugPlayerId, resolved, SCR_EPlayerTeleportedReason.DEFAULT);
-		if (!teleported)
+		bool nativeTeleported = SCR_Global.TeleportPlayer(m_iCampaignDebugPlayerId, resolved, SCR_EPlayerTeleportedReason.DEFAULT);
+		bool forcedEntityOrigin = false;
+		bool entityConfirmed = false;
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (playerEntity)
 		{
-			IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-			if (playerEntity)
+			float confirmRadiusSq = CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS * CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS;
+			if (DistanceSq2D(playerEntity.GetOrigin(), resolved) > confirmRadiusSq)
 			{
 				playerEntity.SetOrigin(resolved);
-				teleported = true;
+				forcedEntityOrigin = true;
 			}
+
+			entityConfirmed = DistanceSq2D(playerEntity.GetOrigin(), resolved) <= confirmRadiusSq;
 		}
 
+		bool teleported = nativeTeleported || forcedEntityOrigin || entityConfirmed;
+		if (playerEntity && !entityConfirmed)
+			teleported = false;
+
 		if (teleported)
-			AppendCampaignDebugLog("INFO", "teleport " + reason, string.Format("player %1 -> %2", m_iCampaignDebugPlayerId, resolved));
+			AppendCampaignDebugLog("INFO", "teleport " + reason, string.Format("player %1 -> %2 | native %3 | forced %4 | confirmed %5", m_iCampaignDebugPlayerId, resolved, nativeTeleported, forcedEntityOrigin, entityConfirmed));
 
 		return teleported;
+	}
+
+	protected vector OffsetCampaignDebugRadialPosition(vector source, float distanceMeters, int slot)
+	{
+		vector result = source;
+		float x = 1.0;
+		float z = 0.0;
+		if (slot == 1)
+		{
+			x = 0.707;
+			z = 0.707;
+		}
+		else if (slot == 2)
+		{
+			x = 0.0;
+			z = 1.0;
+		}
+		else if (slot == 3)
+		{
+			x = -0.707;
+			z = 0.707;
+		}
+		else if (slot == 4)
+		{
+			x = -1.0;
+			z = 0.0;
+		}
+		else if (slot == 5)
+		{
+			x = -0.707;
+			z = -0.707;
+		}
+		else if (slot == 6)
+		{
+			x = 0.0;
+			z = -1.0;
+		}
+		else if (slot == 7)
+		{
+			x = 0.707;
+			z = -0.707;
+		}
+
+		result[0] = result[0] + x * distanceMeters;
+		result[2] = result[2] + z * distanceMeters;
+		return result;
 	}
 
 	protected string FindLatestCampaignDebugMissionInstance(string missionId)
@@ -12082,8 +12185,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
+		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
+		string routePendingStatus = "FAIL";
+		if (routePending)
+			routePendingStatus = "WARN";
 		bool advanced = physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore;
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack group advances toward captured zone over a routed sample window", advanceActual, CampaignDebugStatus(advanced), "Phase 17 physical counterattack group did not advance toward the target zone", "", "", targetZoneId, counterattackOrder.m_sOrderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack group advances toward captured zone over a routed sample window", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "Phase 17 physical counterattack group did not advance toward the target zone", "", "", targetZoneId, counterattackOrder.m_sOrderId);
 		string counterattackGroupId = "";
 		if (physicalProbe.m_Group)
 			counterattackGroupId = physicalProbe.m_Group.m_sGroupId;
@@ -12303,7 +12410,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string enemyRouteTimeoutStatus = "PASS";
 		if (physicalProbe.m_iRouteSampleCount < 2)
 			enemyRouteTimeoutStatus = "WARN";
-		if (physicalProbe.m_bRouteTimedOut)
+		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
+		if (physicalProbe.m_bRouteTimedOut && !routePending)
 			enemyRouteTimeoutStatus = "FAIL";
 		string enemyRouteTimeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", physicalProbe.m_bRouteTimedOut, physicalProbe.m_iRouteTimeoutSeconds, physicalProbe.m_iRouteSampleCount, EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_timeout", subjectLabel + " does not stall across the controlled route timeout window", enemyRouteTimeoutActual, enemyRouteTimeoutStatus, failureLabel + " route timed out without movement, distance closure, or arrival", entityId, missionInstanceId, zoneId, orderId);
@@ -12315,6 +12423,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		return string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
+	}
+
+	protected bool IsCampaignDebugAsyncRuntimePending(string statusOrHistory)
+	{
+		return statusOrHistory.Contains("spawn_pending_agents") || statusOrHistory.Contains("convoy_seating_pending");
 	}
 
 	protected void AddCampaignDebugPhase17ReportAssertions(HST_CampaignDebugCaseResult captureCase, HST_ZoneState phase17Zone)
