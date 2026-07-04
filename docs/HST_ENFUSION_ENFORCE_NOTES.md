@@ -586,6 +586,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Do not auto-repair won/lost back to active before reading the campaign-end report steps. Let the forced loss/victory helpers reset state when they need to set up their own terminal scenario.
   - Phase 24 post-end checks should snapshot state immediately after forced victory/loss, then compare the following delayed report step. Assert elapsed seconds, mission/objective/asset/support/order/group/runtime-vehicle counts, money, HR, and income timer are unchanged to prove the terminal frame branch skipped normal campaign services.
   - After the debug runner purges native/static markers or removes debug-prefixed state, force an immediate player-marker refresh/reconcile before reporting completion. The player marker service can legitimately clear dynamic markers during transient no-player respawn slices, but completion should leave a live desired/tracked player marker for manual map inspection.
+  - `m_bHQRuntimeObjectsSpawned` describes live entity handles, not durable campaign data. Save capture/restore should force it false, and the terminal-frame branch should still call the HQ runtime-object rebuild so a persisted won/lost debug save can show Petros, cache, arsenal, tent, and spawn point without resuming normal campaign services.
 
 - Aggregate debug results should separate action assertions from diagnostic reports.
   - Score mutation/test commands through a shared failure classifier (`failed:`, server/admin required, not-ready, `FAIL` smoke output).

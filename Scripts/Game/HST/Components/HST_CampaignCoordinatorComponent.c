@@ -379,6 +379,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_fSecondAccumulator -= elapsedSeconds;
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
 		{
+			bool terminalHQRuntimeChanged = EnsureTerminalCampaignRuntimeObjects();
+			if (terminalHQRuntimeChanged)
+				MarkMajorCampaignChange(true);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
@@ -449,6 +452,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		TickCampaignDebugRunner(elapsedSeconds);
+	}
+
+	protected bool EnsureTerminalCampaignRuntimeObjects()
+	{
+		if (!m_State || !m_HQ)
+			return false;
+		if (m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_WON && m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return false;
+
+		return m_HQ.EnsureRuntimeObjects(m_State);
 	}
 
 	HST_CampaignState GetState()

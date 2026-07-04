@@ -130,7 +130,7 @@ class HST_CampaignSaveData
 		m_vHQTentPosition = state.m_vHQTentPosition;
 		m_vHQSpawnPointPosition = state.m_vHQSpawnPointPosition;
 		m_bHQDeployed = state.m_bHQDeployed;
-		m_bHQRuntimeObjectsSpawned = state.m_bHQRuntimeObjectsSpawned;
+		m_bHQRuntimeObjectsSpawned = false;
 		m_bPetrosAlive = state.m_bPetrosAlive;
 		m_bRestoredFromPersistence = state.m_bRestoredFromPersistence;
 		m_iPetrosDeaths = state.m_iPetrosDeaths;
@@ -314,7 +314,7 @@ class HST_CampaignSaveData
 		state.m_vHQTentPosition = m_vHQTentPosition;
 		state.m_vHQSpawnPointPosition = m_vHQSpawnPointPosition;
 		state.m_bHQDeployed = m_bHQDeployed;
-		state.m_bHQRuntimeObjectsSpawned = m_bHQRuntimeObjectsSpawned;
+		state.m_bHQRuntimeObjectsSpawned = false;
 		state.m_bPetrosAlive = m_bPetrosAlive;
 		state.m_bRestoredFromPersistence = m_bRestoredFromPersistence;
 		state.m_iPetrosDeaths = m_iPetrosDeaths;
