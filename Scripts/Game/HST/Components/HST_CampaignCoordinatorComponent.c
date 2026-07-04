@@ -7417,24 +7417,81 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EnsureCampaignDebugActivePhase("phase 13 primitive sample");
 		string startResult = RequestAdminStartMissionById(m_iCampaignDebugPlayerId, "rescue_pows");
 		if (!IsCampaignDebugResultSuccessful(startResult))
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, "", "", false, "start failed"));
 			return startResult;
+		}
 
 		string instanceId = FindLatestCampaignDebugMissionInstance("rescue_pows");
 		if (instanceId.IsEmpty())
+		{
+			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, instanceId, "", false, "instance not found"));
 			return "h-istasi campaign debug | failed: primitive sample instance not found";
+		}
 
 		TeleportCampaignDebugPlayerToMission(instanceId, "rescue_pows");
 		ProcessPlayerSpawnSweep("campaign debug primitive runtime", true);
+		string runtimeReport = BuildCampaignDebugMissionRuntimeReport(instanceId);
 		string report = "h-istasi campaign debug | phase 13 primitive sample";
 		report = report + "\n" + startResult;
-		report = report + "\n" + BuildCampaignDebugMissionRuntimeReport(instanceId);
+		report = report + "\n" + runtimeReport;
 		RecordCampaignDebugCase(BuildCampaignDebugCaptiveProbeCase(instanceId));
 		string completionStatus;
 		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
+		RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, instanceId, runtimeReport, completed, completionStatus));
 		if (!completed)
 			return report + "\nh-istasi campaign debug | failed: primitive sample completion returned false | " + completionStatus;
 
 		return report + "\nh-istasi campaign debug | primitive sample completed | " + instanceId;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPrimitiveRuntimeSampleCase(string startResult, string instanceId, string runtimeReport, bool completed, string completionStatus)
+	{
+		HST_CampaignDebugCaseResult primitiveCase = CreateCampaignDebugCase("early_mechanics.primitive_runtime.report." + SafeCampaignDebugToken(instanceId), "early_mechanics", "primitive_runtime", "early_mechanics");
+		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(startResult, 260));
+		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(runtimeReport, 360));
+		primitiveCase.m_aEvidence.Insert(ShortCampaignDebugLine(completionStatus, 260));
+
+		bool servicesReady = m_State != null && m_Missions != null && m_MissionRuntime != null && m_Objectives != null;
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.prerequisite.services", "state, mission, runtime, and objective services ready", string.Format("state %1 | missions %2 | runtime %3 | objectives %4", m_State != null, m_Missions != null, m_MissionRuntime != null, m_Objectives != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "primitive runtime sample prerequisites missing");
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.start.command", "rescue_pows sample start command succeeds", ShortCampaignDebugLine(startResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(startResult)), "primitive runtime sample could not start rescue_pows");
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.instance", "sample mission instance id is resolved", EmptyCampaignDebugField(instanceId), CampaignDebugStatus(!instanceId.IsEmpty(), "BLOCKED"), "primitive runtime sample did not resolve an instance id", "", instanceId);
+		if (!servicesReady || instanceId.IsEmpty())
+		{
+			FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
+			return primitiveCase;
+		}
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		int objectiveCount = CountCampaignDebugMissionObjectives(instanceId, false);
+		int objectiveComplete = CountCampaignDebugMissionObjectives(instanceId, true);
+		int assetCount = m_State.CountMissionAssets(instanceId);
+		int captiveAssetCount = m_State.CountMissionAssets(instanceId, "captive");
+		int runtimeEntityCount = CountCampaignDebugMissionRuntimeEntities(instanceId);
+		AddCampaignDebugMetric(primitiveCase, "primitive_sample.objectives", string.Format("%1", objectiveCount), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive_sample.objectives_complete", string.Format("%1", objectiveComplete), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive_sample.assets", string.Format("%1", assetCount), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive_sample.captive_assets", string.Format("%1", captiveAssetCount), "count");
+		AddCampaignDebugMetric(primitiveCase, "primitive_sample.runtime_entities", string.Format("%1", runtimeEntityCount), "count");
+
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.mission_record", "sample mission record exists after runtime probe", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission != null), "primitive runtime sample mission record missing", "", instanceId);
+		if (!mission)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
+			return primitiveCase;
+		}
+
+		bool prefixedInstance = !m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(instanceId, m_sCampaignDebugMissionPrefix);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.prefix", "sample mission instance uses the current debug run prefix", EmptyCampaignDebugField(instanceId), CampaignDebugStatus(prefixedInstance), "primitive runtime sample mission was not tagged with the current debug prefix", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.primitive", "sample mission uses rescue_extract runtime primitive", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_sMissionId == "rescue_pows" && mission.m_sRuntimePrimitive == "rescue_extract"), "primitive runtime sample is not the expected rescue_extract mission", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_spawned", "sample runtime spawned without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_bRuntimeSpawned && !mission.m_bRuntimeFallback && mission.m_sRuntimeFailureReason.IsEmpty()), "primitive runtime sample did not spawn cleanly", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_report", "selected mission runtime report includes instance and primitive evidence", ShortCampaignDebugLine(runtimeReport, 260), CampaignDebugStatus(runtimeReport.Contains("h-istasi mission runtime | selected mission") && runtimeReport.Contains(instanceId) && runtimeReport.Contains("rescue_extract")), "primitive runtime sample report is missing selected mission/runtime evidence", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.objectives", "sample mission has objective records and completion evidence after captive probe", string.Format("objectives %1 | complete %2", objectiveCount, objectiveComplete), CampaignDebugStatus(objectiveCount > 0 && objectiveComplete > 0), "primitive runtime sample did not expose objective completion evidence", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.assets", "sample mission has required captive assets", string.Format("assets %1 | captives %2/%3", assetCount, captiveAssetCount, mission.m_iRequiredCaptiveCount), CampaignDebugStatus(captiveAssetCount >= Math.Max(1, mission.m_iRequiredCaptiveCount)), "primitive runtime sample did not expose required captive assets", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.completion", "sample mission completes through primitive probe or cleanup recognizes existing success", ShortCampaignDebugLine(completionStatus, 220), CampaignDebugStatus(completed && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED), "primitive runtime sample mission did not end in succeeded status", "", instanceId, mission.m_sTargetZoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(primitiveCase);
+		return primitiveCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugCaptiveProbeCase(string instanceId)
@@ -8337,6 +8394,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return objectiveCount;
+	}
+
+	protected int CountCampaignDebugMissionRuntimeEntities(string instanceId)
+	{
+		if (!m_State || instanceId.IsEmpty())
+			return 0;
+
+		int runtimeEntityCount;
+		foreach (HST_MissionRuntimeEntityState runtimeEntity : m_State.m_aMissionRuntimeEntities)
+		{
+			if (runtimeEntity && runtimeEntity.m_sMissionInstanceId == instanceId)
+				runtimeEntityCount++;
+		}
+
+		return runtimeEntityCount;
 	}
 
 	protected bool AreCampaignDebugMissionObjectivesComplete(string instanceId)
