@@ -473,12 +473,20 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.stall_timeout_seconds", string.Format("%1", maxRouteTimeoutSeconds), "seconds");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.best_movement", string.Format("%1", Math.Round(bestMovementMeters)), "meters");
 		AddConvoyDebugProbeMetric(probe, "convoy.progress.best_distance_closed", string.Format("%1", Math.Round(bestDistanceClosedMeters)), "meters");
+		AddConvoyDebugProbeMetric(probe, "convoy.phase.final", ReportText(mission.m_sRuntimePhase), "phase");
+		AddConvoyDebugProbeMetric(probe, "convoy.phase.history", ReportText(convoyPhaseHistory), "phase");
 		if (!routeTimeoutEvidence.IsEmpty())
 			probe.m_aEvidence.Insert("convoy route timeout | " + routeTimeoutEvidence);
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.sample_count", "progress sample exists for each convoy vehicle", string.Format("%1/%2 sampled | missing %3", progressSampledCount, readiness.m_iVehicleAssetCount, missingProgressCount), ConvoyDebugStatus(progressSampledCount >= readiness.m_iVehicleAssetCount && missingProgressCount == 0, "WARN"), "one or more convoy vehicles have no movement sample yet");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.repeated_sample_count", "at least two progress samples exist for each convoy vehicle", string.Format("%1/%2 repeated | phases %3", repeatedProgressSampledCount, readiness.m_iVehicleAssetCount, ReportText(convoyPhaseHistory)), ConvoyDebugStatus(repeatedProgressSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles lack a repeated movement-window sample");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.distance_decrease_count", "each convoy vehicle closes at least 25m toward destination during sampled movement window", string.Format("%1/%2 closed >= 25m | best closed %3m | best moved %4m", distanceDecreaseSampledCount, readiness.m_iVehicleAssetCount, Math.Round(bestDistanceClosedMeters), Math.Round(bestMovementMeters)), ConvoyDebugStatus(distanceDecreaseSampledCount >= readiness.m_iVehicleAssetCount && readiness.m_iVehicleAssetCount > 0, "WARN"), "one or more convoy vehicles did not prove a 25m destination-distance decrease");
-		AddConvoyDebugProbeAssertion(probe, "convoy.phase.sample_history", "sample history includes moving or contact convoy phase", ReportText(convoyPhaseHistory), ConvoyDebugStatus(ConvoyDebugPhaseHistoryHasTravelPhase(convoyPhaseHistory), "WARN"), "convoy movement samples did not observe a travel/contact phase");
+		string convoyPhaseActual = string.Format("mission phase %1 | sampled phases %2", ReportText(mission.m_sRuntimePhase), ReportText(convoyPhaseHistory));
+		bool convoyTravelPhaseObserved = ConvoyDebugPhaseHistoryHasTravelPhase(convoyPhaseHistory) || ConvoyDebugPhaseIsTravelOrTerminal(mission.m_sRuntimePhase);
+		bool convoyContactOrTerminalObserved = ConvoyDebugPhaseHistoryHasPhase(convoyPhaseHistory, MISSION_CONVOY_CONTACT) || ConvoyDebugPhaseHistoryHasTerminalPhase(convoyPhaseHistory) || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT || ConvoyDebugPhaseIsTerminal(mission.m_sRuntimePhase);
+		bool convoyTerminalObserved = ConvoyDebugPhaseHistoryHasTerminalPhase(convoyPhaseHistory) || ConvoyDebugPhaseIsTerminal(mission.m_sRuntimePhase);
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.travel_history", "sample history or final phase includes moving/contact/terminal convoy phase", convoyPhaseActual, ConvoyDebugStatus(convoyTravelPhaseObserved, "WARN"), "convoy movement samples did not observe a travel/contact/terminal phase");
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.contact_or_terminal_history", "sample history or final phase includes contact, arrival, or elimination", convoyPhaseActual, ConvoyDebugStatus(convoyContactOrTerminalObserved, "WARN"), "convoy probe did not observe contact, arrival, or elimination phase evidence");
+		AddConvoyDebugProbeAssertion(probe, "convoy.phase.terminal_history", "sample history or final phase includes arrival or elimination when a terminal condition is driven", convoyPhaseActual, ConvoyDebugStatus(convoyTerminalObserved, "WARN"), "convoy probe has not yet proven arrival/elimination terminal phase evidence");
 		AddConvoyDebugProbeAssertion(probe, "convoy.movement.hard_stuck_count", "hard-stuck count 0", string.Format("%1", hardStuckCount), ConvoyDebugStatus(hardStuckCount == 0), "one or more convoy vehicles are hard-stuck");
 		string routeTimeoutStatus = "PASS";
 		if (movementWindowCount < readiness.m_iVehicleAssetCount || readiness.m_iVehicleAssetCount <= 0)
@@ -655,6 +663,29 @@ class HST_PhysicalWarService
 	protected bool ConvoyDebugPhaseHistoryHasTravelPhase(string phaseHistory)
 	{
 		return phaseHistory.Contains(MISSION_CONVOY_MOVING) || phaseHistory.Contains(MISSION_CONVOY_CONTACT) || phaseHistory.Contains(MISSION_CONVOY_ARRIVED) || phaseHistory.Contains(MISSION_CONVOY_ELIMINATED);
+	}
+
+	protected bool ConvoyDebugPhaseHistoryHasTerminalPhase(string phaseHistory)
+	{
+		return phaseHistory.Contains(MISSION_CONVOY_ARRIVED) || phaseHistory.Contains(MISSION_CONVOY_ELIMINATED);
+	}
+
+	protected bool ConvoyDebugPhaseHistoryHasPhase(string phaseHistory, string phase)
+	{
+		if (phase.IsEmpty())
+			return false;
+
+		return phaseHistory.Contains(phase);
+	}
+
+	protected bool ConvoyDebugPhaseIsTravelOrTerminal(string phase)
+	{
+		return phase == MISSION_CONVOY_MOVING || phase == MISSION_CONVOY_CONTACT || ConvoyDebugPhaseIsTerminal(phase);
+	}
+
+	protected bool ConvoyDebugPhaseIsTerminal(string phase)
+	{
+		return phase == MISSION_CONVOY_ARRIVED || phase == MISSION_CONVOY_ELIMINATED;
 	}
 
 	bool UpdateMissionConvoys(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
