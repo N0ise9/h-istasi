@@ -201,6 +201,8 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	string m_sStorageArsenalDisplayNameBefore;
 	string m_sFiniteIssuedCategoryBefore;
 	string m_sFiniteIssuedDisplayNameBefore;
+	string m_sStorageIssuedCategoryBefore;
+	string m_sStorageIssuedDisplayNameBefore;
 	bool m_bStoreResult;
 	bool m_bTeleportedToHQ;
 	bool m_bStoredRecordFound;
@@ -227,6 +229,8 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bStorageArsenalUnlockedBefore;
 	bool m_bFiniteIssuedExistedBefore;
 	bool m_bFiniteIssuedInfiniteBefore;
+	bool m_bStorageIssuedExistedBefore;
+	bool m_bStorageIssuedInfiniteBefore;
 	bool m_bFiniteIssuedInfiniteAfterValidApply;
 	bool m_bLoadoutCleanupRestoredArsenal;
 	bool m_bLoadoutCleanupRestoredStorageArsenal;
@@ -273,6 +277,7 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	int m_iStorageArsenalCountAfterPhysicalSeed;
 	int m_iStorageArsenalCountAfterLoadoutCleanup;
 	int m_iFiniteIssuedCountBefore;
+	int m_iStorageIssuedCountBefore;
 	int m_iFiniteIssuedCountAfterValidApply;
 	int m_iFiniteIssuedCountAfterInvalidApply;
 	int m_iFiniteIssuedCountAfterPhysicalApply;

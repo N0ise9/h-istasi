@@ -8,6 +8,7 @@ class HST_GeneratedContentService
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_CLOSE_METERS = 220.0;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_MEDIUM_METERS = 420.0;
 	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_FAR_METERS = 700.0;
+	static const float GENERATED_ROUTE_ROAD_SEARCH_RADIUS_EXTREME_METERS = 2200.0;
 
 	bool EnsureGeneratedContent(HST_CampaignState state, HST_CampaignPreset preset)
 	{
@@ -231,8 +232,8 @@ class HST_GeneratedContentService
 		site.m_sZoneId = zone.m_sZoneId;
 		site.m_sRouteId = string.Format("route_%1_alpha", zone.m_sZoneId);
 		site.m_eType = siteType;
-		site.m_vPosition = ResolveGeneratedSitePosition(zone, position);
-		site.m_vSecondaryPosition = ResolveGeneratedSitePosition(zone, OffsetPosition(site.m_vPosition, 45, -45));
+		site.m_vPosition = ResolveGeneratedSitePosition(state, zone, position);
+		site.m_vSecondaryPosition = ResolveGeneratedSitePosition(state, zone, OffsetPosition(site.m_vPosition, 45, -45));
 		site.m_iRadiusMeters = radiusMeters;
 		site.m_iWeight = Math.Max(1, weight);
 		site.m_bValid = IsMissionPositionValidIgnoringActive(state, site.m_vPosition);
@@ -313,7 +314,7 @@ class HST_GeneratedContentService
 		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true, 8.0);
 	}
 
-	protected vector ResolveGeneratedSitePosition(HST_ZoneState zone, vector preferred)
+	protected vector ResolveGeneratedSitePosition(HST_CampaignState state, HST_ZoneState zone, vector preferred)
 	{
 		vector resolved;
 		if (TryResolveGeneratedDrySitePosition(preferred, resolved))
@@ -352,7 +353,52 @@ class HST_GeneratedContentService
 		if (zone && TryResolveGeneratedRoadSitePosition(zone.m_vPosition, preferred, resolved))
 			return resolved;
 
-		return HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, true, 8.0);
+		if (TryResolveLinkedGeneratedSitePosition(state, zone, preferred, resolved))
+			return resolved;
+
+		vector fallback = HST_WorldPositionService.ResolveSafeGroundPosition(preferred, HST_WorldPositionService.PROP_GROUND_OFFSET, true, 8.0);
+		if (IsGeneratedContentPositionAccepted(fallback))
+			return fallback;
+
+		return preferred;
+	}
+
+	protected bool TryResolveLinkedGeneratedSitePosition(HST_CampaignState state, HST_ZoneState zone, vector preferred, out vector resolved)
+	{
+		resolved = "0 0 0";
+		if (!state || !zone || zone.m_aLinkedZoneIds.Count() == 0)
+			return false;
+
+		bool found;
+		float bestDistanceSq = -1.0;
+		vector offset;
+		offset[0] = preferred[0] - zone.m_vPosition[0];
+		offset[1] = preferred[1] - zone.m_vPosition[1];
+		offset[2] = preferred[2] - zone.m_vPosition[2];
+		foreach (string linkedZoneId : zone.m_aLinkedZoneIds)
+		{
+			HST_ZoneState linkedZone = state.FindZone(linkedZoneId);
+			if (!linkedZone)
+				continue;
+
+			vector linkedPreferred = linkedZone.m_vPosition + offset;
+			vector candidate;
+			if (!TryResolveGeneratedDrySitePosition(linkedPreferred, candidate))
+			{
+				if (!TryResolveGeneratedDrySitePosition(linkedZone.m_vPosition, candidate))
+					continue;
+			}
+
+			float distanceSq = DistanceSq2D(preferred, candidate);
+			if (found && distanceSq >= bestDistanceSq)
+				continue;
+
+			resolved = candidate;
+			bestDistanceSq = distanceSq;
+			found = true;
+		}
+
+		return found;
 	}
 
 	protected bool TryResolveGeneratedDrySitePosition(vector preferred, out vector resolved)
@@ -435,12 +481,44 @@ class HST_GeneratedContentService
 
 			if (!IsGeneratedRouteWaypointVehicleSafe(route, i, waypoint))
 			{
+				vector repairedPosition;
+				if (TryRepairGeneratedRouteWaypoint(route, i, waypoint, repairedPosition))
+				{
+					waypoint.m_vPosition = repairedPosition;
+					EnsureRouteWaypointMetadata(route);
+					if (IsGeneratedRouteWaypointVehicleSafe(route, i, waypoint))
+						continue;
+				}
+
 				route.m_sValidationFailureReason = "waypoint not dry vehicle-safe: " + waypoint.m_sHint;
 				return;
 			}
 		}
 
 		route.m_bValidatedForVehicles = true;
+	}
+
+	protected bool TryRepairGeneratedRouteWaypoint(HST_GeneratedRouteState route, int index, HST_RouteWaypointState waypoint, out vector repairedPosition)
+	{
+		repairedPosition = "0 0 0";
+		if (!route || !waypoint)
+			return false;
+
+		vector destination = ResolveGeneratedRouteValidationDestination(route, index);
+		vector roadForward;
+		float roadWidth;
+		float roadDistance;
+		string roadReason;
+		if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(waypoint.m_vPosition, GENERATED_ROUTE_ROAD_SEARCH_RADIUS_EXTREME_METERS, destination, repairedPosition, roadForward, roadWidth, roadDistance, roadReason))
+			return true;
+
+		if (HST_WorldPositionService.TryResolveLargeVehicleSpawnPosition(waypoint.m_vPosition, repairedPosition, true) && !HST_WorldPositionService.IsLikelyOpenWater(repairedPosition))
+			return true;
+
+		if (HST_WorldPositionService.TryResolveSafeGroundPosition(waypoint.m_vPosition, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, repairedPosition, true, 16.0) && IsGeneratedContentPositionAccepted(repairedPosition))
+			return true;
+
+		return false;
 	}
 
 	protected bool IsGeneratedRouteWaypointVehicleSafe(HST_GeneratedRouteState route, int index, HST_RouteWaypointState waypoint)
