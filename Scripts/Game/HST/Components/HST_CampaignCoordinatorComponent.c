@@ -100,6 +100,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bCampaignDebugRunning;
 	protected bool m_bCampaignDebugCompleted;
 	protected bool m_bCampaignDebugPhysicalBlocked;
+	protected bool m_bCampaignDebugMissionAssetRetentionSampled;
 	protected int m_iCampaignDebugPlayerId;
 	protected int m_iCampaignDebugStepIndex;
 	protected int m_iCampaignDebugMissionIndex;
@@ -2997,6 +2998,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bCampaignDebugRunning = true;
 		m_bCampaignDebugCompleted = false;
 		m_bCampaignDebugPhysicalBlocked = false;
+		m_bCampaignDebugMissionAssetRetentionSampled = false;
 		m_iCampaignDebugPlayerId = playerId;
 		m_iCampaignDebugStepIndex = 0;
 		m_iCampaignDebugMissionIndex = 0;
@@ -8532,6 +8534,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
+	protected HST_MissionAssetState FindCampaignDebugPhysicalMissionAsset(string instanceId)
+	{
+		if (!m_State || !m_MissionRuntime || instanceId.IsEmpty())
+			return null;
+
+		foreach (HST_MissionAssetState asset : m_State.m_aMissionAssets)
+		{
+			if (!asset || asset.m_sMissionInstanceId != instanceId)
+				continue;
+			if (asset.m_bDestroyed || asset.m_bDelivered || !asset.m_bAlive)
+				continue;
+			if (asset.m_sEntityId.IsEmpty())
+				continue;
+			if (!m_MissionRuntime.GetRuntimeEntityForDebug(asset.m_sEntityId))
+				continue;
+
+			return asset;
+		}
+
+		return null;
+	}
+
 	protected string BuildCampaignDebugMissionRuntimeReport(string instanceId)
 	{
 		string report = RequestMemberInspectMission(m_iCampaignDebugPlayerId, instanceId);
@@ -8637,8 +8661,74 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.marker", "mission marker model is linked to backing state", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker != null, "WARN"), "mission runtime has no linked marker record", "", instanceId);
 		if (mission && mission.m_sRuntimePrimitive == "convoy_intercept")
 			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.convoy_assets", "convoy runtime has convoy vehicle assets", string.Format("%1", convoyVehicleAssets), CampaignDebugStatus(convoyVehicleAssets > 0), "convoy runtime has no convoy vehicle assets", "", instanceId);
+		AddCampaignDebugMissionAssetRetentionAssertions(runtimeCase, mission);
 		FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
 		return runtimeCase;
+	}
+
+	protected void AddCampaignDebugMissionAssetRetentionAssertions(HST_CampaignDebugCaseResult runtimeCase, HST_ActiveMissionState mission)
+	{
+		if (!runtimeCase || m_bCampaignDebugMissionAssetRetentionSampled)
+			return;
+		if (!m_State || !m_MissionRuntime || !m_PhysicalWar || !m_Balance || !m_Preset || !mission)
+			return;
+		if (mission.m_sRuntimePrimitive == "convoy_intercept")
+			return;
+
+		HST_MissionAssetState retentionAsset = FindCampaignDebugPhysicalMissionAsset(mission.m_sInstanceId);
+		if (!retentionAsset)
+			return;
+
+		m_bCampaignDebugMissionAssetRetentionSampled = true;
+		IEntity retentionEntityBefore = m_MissionRuntime.GetRuntimeEntityForDebug(retentionAsset.m_sEntityId);
+		string retentionAssetActual = BuildCampaignDebugMissionAssetActual(retentionAsset);
+		bool retentionEntityExisted = retentionEntityBefore != null;
+		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.entity_before", "sampled active mission asset has a physical runtime entity before player-bubble update", retentionAssetActual, CampaignDebugStatus(retentionEntityExisted), "mission asset selected for render-bubble retention had no runtime entity before update", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+		if (!retentionEntityExisted)
+			return;
+
+		IEntity retentionPlayerBefore = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (m_bCampaignDebugPhysicalBlocked || !IsLivingEntity(retentionPlayerBefore))
+		{
+			AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.player", "living controlled player entity available for far render-bubble update", "missing", "BLOCKED", "mission asset render-bubble retention probe requires a controlled player entity", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+			return;
+		}
+
+		vector retentionOriginalPlayerPosition = retentionPlayerBefore.GetOrigin();
+		vector retentionEntityPosition = retentionEntityBefore.GetOrigin();
+		if (IsZeroVector(retentionEntityPosition))
+			retentionEntityPosition = retentionAsset.m_vCurrentPosition;
+		if (IsZeroVector(retentionEntityPosition))
+			retentionEntityPosition = retentionAsset.m_vSourcePosition;
+		if (IsZeroVector(retentionEntityPosition))
+			retentionEntityPosition = mission.m_vTargetPosition;
+
+		vector retentionFarPosition = retentionEntityPosition + "3200 0 3200";
+		bool retentionFarTeleport = TeleportCampaignDebugPlayer(retentionFarPosition, "mission asset render retention far");
+		bool retentionUpdateChanged = false;
+		float retentionPlayerDistance = 0.0;
+		if (retentionFarTeleport)
+		{
+			retentionUpdateChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+			MarkMajorCampaignChange(true);
+		}
+
+		IEntity retentionPlayerAfterFar = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (retentionPlayerAfterFar)
+			retentionPlayerDistance = Math.Sqrt(DistanceSq2D(retentionPlayerAfterFar.GetOrigin(), retentionEntityPosition));
+
+		IEntity retentionEntityAfter = m_MissionRuntime.GetRuntimeEntityForDebug(retentionAsset.m_sEntityId);
+		bool retentionSameEntity = retentionEntityAfter == retentionEntityBefore;
+		bool retentionDistanceReady = retentionPlayerDistance >= 1800.0;
+		string retentionDistanceActual = string.Format("teleport %1 | distance %2m | update changed %3", retentionFarTeleport, Math.Round(retentionPlayerDistance), retentionUpdateChanged);
+		AddCampaignDebugMetric(runtimeCase, "mission_asset.render_bubble_retention.distance", string.Format("%1", Math.Round(retentionPlayerDistance)), "m");
+		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.player_far", "player is moved outside the sampled mission asset bubble before physical-war activation update", retentionDistanceActual, CampaignDebugStatus(retentionFarTeleport && retentionDistanceReady), "player was not placed far enough from the sampled mission asset", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+
+		string retentionAfterActual = string.Format("before %1 | after %2 | same %3 | asset %4", retentionEntityExisted, retentionEntityAfter != null, retentionSameEntity, retentionAssetActual);
+		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.entity_after", "mission asset runtime entity remains resolved after far player-bubble update", retentionAfterActual, CampaignDebugStatus(retentionFarTeleport && retentionSameEntity), "physical-war player-bubble update removed or replaced a live mission asset runtime entity", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
+
+		bool retentionRestoredPlayer = TeleportCampaignDebugPlayer(retentionOriginalPlayerPosition, "mission asset render retention restore");
+		AddCampaignDebugAssertion(runtimeCase, "mission_asset.render_bubble_retention.player_restore", "player position restored after mission asset retention probe", string.Format("restored %1 | original %2", retentionRestoredPlayer, retentionOriginalPlayerPosition), CampaignDebugStatus(retentionRestoredPlayer, "WARN"), "mission asset retention probe could not restore the player position", retentionAsset.m_sEntityId, mission.m_sInstanceId, mission.m_sTargetZoneId);
 	}
 
 	protected HST_MapMarkerState FindCampaignDebugMissionMarker(string instanceId, HST_ActiveMissionState mission)
@@ -9877,7 +9967,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& restoredGroupCount == originalGroupCount
 			&& (!garrison || (garrison.m_iInfantryCount == originalGarrisonInfantry && garrison.m_iVehicleCount == originalGarrisonVehicles));
 		AddCampaignDebugAssertion(renderCase, "render_bubble.restore", "original active flag/counts, group count, and abstract garrison restored after probe", BuildCampaignDebugRenderBubbleZoneActual(zone, restoredGroupCount, restoredSpawnedGroupCount), CampaignDebugStatus(restoreMatched), "render-bubble probe failed to restore selected zone state", "", "", zone.m_sZoneId);
-		AddCampaignDebugAssertion(renderCase, "render_bubble.physical_asset_gap", "physical mission-asset entity retention and convoy-expired policies remain separate probes", "state retention and per-type windows covered; physical entity retention not executed", "WARN", "physical mission asset entity retention and convoy-expired bubble policies remain open");
 		FinalizeCampaignDebugCaseFromAssertions(renderCase);
 		MarkMajorCampaignChange(true);
 		return renderCase;
