@@ -4498,10 +4498,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_iCampaignDebugPhaseStepIndex == 50)
 			success = !result.IsEmpty();
 
-		if (reportStep && m_iCampaignDebugPhaseStepIndex == 50)
-			RecordCampaignDebugResult(label, result, success, true);
-		else if (reportStep)
-			RecordCampaignDebugResult(label, result, success);
+		if (HasCampaignDebugPhaseSmokeTypedProbe(m_iCampaignDebugPhaseStepIndex))
+			RecordCampaignDebugPhaseSmokeEvidence(label, result, success, reportStep && m_iCampaignDebugPhaseStepIndex == 50);
 		else
 			RecordCampaignDebugResult(label, result, success);
 		RecordCampaignDebugPhaseSmokeTypedProbe(m_iCampaignDebugPhaseStepIndex, label, result);
@@ -10237,13 +10235,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (index >= 27 && index <= 30)
+		if (index >= 27 && index <= 31)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase20CivilianCase(index, label, result));
 			return;
 		}
 
-		if (index >= 32 && index <= 37)
+		if (index >= 32 && index <= 38)
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPhase21UndercoverCase(index, label, result));
 			return;
@@ -10263,6 +10261,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (index >= 51 && index <= 62)
 			RecordCampaignDebugCase(BuildCampaignDebugPhase24PacingCase(index, label, result));
+	}
+
+	protected bool HasCampaignDebugPhaseSmokeTypedProbe(int index)
+	{
+		return index >= 3 && index <= 62;
+	}
+
+	protected void RecordCampaignDebugPhaseSmokeEvidence(string label, string result, bool success, bool warning = false)
+	{
+		if (result.IsEmpty())
+			result = "empty result";
+
+		string tone = "PASS";
+		if (!success)
+			tone = "FAIL";
+		else if (warning)
+			tone = "WARN";
+
+		AppendCampaignDebugLog(tone, label, result);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase14ArsenalCase(int index, string label, string result)
@@ -11680,7 +11697,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_CampaignDebugCaseResult undercoverCase = CreateCampaignDebugCase("phase21." + SafeCampaignDebugToken(label), "phase_smoke", "undercover", "phase21");
 		undercoverCase.m_aEvidence.Insert(result);
-		AddCampaignDebugAssertion(undercoverCase, "phase21.command_result", "phase 21 command accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, false)), "phase 21 command returned failure text");
+		AddCampaignDebugAssertion(undercoverCase, "phase21.command_result", "phase 21 command/report accepted", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index))), "phase 21 command returned failure text");
 		if (!m_State)
 		{
 			AddCampaignDebugAssertion(undercoverCase, "phase21.prerequisite", "campaign state ready", "missing", "BLOCKED", "phase 21 typed probe missing state");
