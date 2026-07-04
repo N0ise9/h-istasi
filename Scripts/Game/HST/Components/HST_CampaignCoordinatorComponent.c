@@ -3922,6 +3922,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		probeContext.m_Request = FindLatestCampaignDebugSupportRequest(requestedSupportType, probeContext.m_iCountBefore, requestedAtSecond);
 		probeContext.m_bRuntimeProbeRan = ProbeCampaignDebugSupportRequestRuntime(probeContext);
+		RecordCampaignDebugAction(label, probeContext.m_sCommandResult);
 		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(probeContext);
 		CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
 		RecordCampaignDebugCase(supportCase);
@@ -4013,7 +4014,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugMetric(supportCase, "support.physical_route_max_movement", string.Format("%1", Math.Round(probeContext.m_fRouteMaxMovementMeters)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_route_max_distance_closed", string.Format("%1", Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_route_timeout_seconds", string.Format("%1", probeContext.m_iRouteTimeoutSeconds), "seconds");
-			AddCampaignDebugMetric(supportCase, "support.physical_resolved_second", string.Format("%1", probeContext.m_iResolvedAtSecondAfterTerminal), "seconds");
 			if (!probeContext.m_sRouteSampleHistory.IsEmpty())
 				supportCase.m_aEvidence.Insert("support route samples | " + ShortCampaignDebugLine(probeContext.m_sRouteSampleHistory, 260));
 			if (!probeContext.m_sRouteTimeoutEvidence.IsEmpty())
@@ -4038,48 +4038,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string arrivalActual = string.Format("distance %1m | group status %2 | request runtime %3 | arrival tick %4", Math.Round(probeContext.m_fDistanceAtArrival), EmptyCampaignDebugField(probeContext.m_sGroupStatusAtArrival), EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAtArrival), probeContext.m_bArrivalTickChanged);
 			bool arrived = probeContext.m_bArrivalTickChanged && (probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived");
 			AddCampaignDebugAssertion(supportCase, "support.physical_arrival", "ground support reaches arrival state after controlled ETA advance", arrivalActual, CampaignDebugStatus(arrived, "WARN"), "ground support did not reach arrival status inside the controlled probe window", observedSupportRequest.m_sRequestId);
-			string terminalActual = string.Format("injected %1 | tick %2 | group %3 -> %4 | status %5",
-				probeContext.m_bTerminalStatusInjected,
-				probeContext.m_bTerminalTickChanged,
-				EmptyCampaignDebugField(probeContext.m_sGroupStatusBeforeTerminal),
-				EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTerminal),
-				probeContext.m_eStatusAfterTerminal
-			);
-			terminalActual = terminalActual + string.Format(" | runtime %1 | resolution %2 | abstract %3 | outcome %4",
-				EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAfterTerminal),
-				EmptyCampaignDebugField(probeContext.m_sResolutionKindAfterTerminal),
-				probeContext.m_bAbstractResolvedAfterTerminal,
-				probeContext.m_bOutcomeAppliedAfterTerminal
-			);
-			bool terminalResolved = probeContext.m_bTerminalStatusInjected
-				&& probeContext.m_bTerminalTickChanged
-				&& probeContext.m_eStatusAfterTerminal == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
-				&& probeContext.m_sRequestRuntimeStatusAfterTerminal == "resolved_physical_group_terminal"
-				&& probeContext.m_sResolutionKindAfterTerminal == "physical_group_terminal";
-			AddCampaignDebugAssertion(supportCase, "support.physical_terminal_resolution", "controlled terminal support group resolves through the real support tick", terminalActual, CampaignDebugStatus(terminalResolved, "WARN"), "ground support did not resolve through the physical terminal support path after arrival", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_cleanup", "support runtime group entity is removed during probe cleanup", string.Format("%1", probeContext.m_bRuntimeEntityCleaned), CampaignDebugStatus(probeContext.m_bRuntimeEntityCleaned, "WARN"), "support physical runtime entity cleanup did not confirm an entity was removed", observedSupportRequest.m_sRequestId);
-			return;
-		}
-
-		if (IsCampaignDebugHelicopterSupportType(probeContext.m_eExpectedType))
-		{
-			AddCampaignDebugMetric(supportCase, "support.helicopter_arrival_advance_seconds", string.Format("%1", probeContext.m_iArrivalAdvanceSeconds), "seconds");
-			AddCampaignDebugMetric(supportCase, "support.helicopter_resolved_second", string.Format("%1", probeContext.m_iResolvedAtSecondAfterTerminal), "seconds");
-			string helicopterPolicyActual = string.Format("helo %1 | physicalized %2 -> %3 | group %4 | mode %5", observedSupportRequest.m_bHelicopterStyle, probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(observedSupportRequest.m_sGroupId), EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode));
-			bool helicopterPolicyOk = observedSupportRequest.m_bHelicopterStyle && !observedSupportRequest.m_bPhysicalized && observedSupportRequest.m_sGroupId.IsEmpty();
-			AddCampaignDebugAssertion(supportCase, "support.helicopter_style_policy", "transport-style support is marked helicopter-style and does not use ground group physicalization", helicopterPolicyActual, CampaignDebugStatus(helicopterPolicyOk), "helicopter-style support unexpectedly used ground physicalization state", observedSupportRequest.m_sRequestId);
-			string helicopterEtaActual = string.Format("eta %1 -> %2 | arrival advance %3s | requested %4 | resolved %5", probeContext.m_iEtaRemainingBefore, probeContext.m_iEtaRemainingAfter, probeContext.m_iArrivalAdvanceSeconds, observedSupportRequest.m_iRequestedAtSecond, probeContext.m_iResolvedAtSecondAfterTerminal);
-			bool helicopterEtaOk = probeContext.m_bRuntimeProbeRan && probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore && probeContext.m_iArrivalAdvanceSeconds > 0 && probeContext.m_iResolvedAtSecondAfterTerminal >= observedSupportRequest.m_iRequestedAtSecond + observedSupportRequest.m_iETASeconds;
-			AddCampaignDebugAssertion(supportCase, "support.helicopter_eta_travel", "transport-style support progresses through its real ETA window", helicopterEtaActual, CampaignDebugStatus(helicopterEtaOk), "helicopter-style support did not progress through its configured ETA window", observedSupportRequest.m_sRequestId);
-			string helicopterResolutionActual = string.Format("arrival tick %1 | status %2 | runtime %3 | resolution %4 | abstract %5 | outcome %6", probeContext.m_bArrivalTickChanged, probeContext.m_eStatusAfterTerminal, EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAfterTerminal), EmptyCampaignDebugField(probeContext.m_sResolutionKindAfterTerminal), probeContext.m_bAbstractResolvedAfterTerminal, probeContext.m_bOutcomeAppliedAfterTerminal);
-			bool helicopterResolved = probeContext.m_bArrivalTickChanged
-				&& probeContext.m_eStatusAfterTerminal == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
-				&& probeContext.m_sRequestRuntimeStatusAfterTerminal == "resolved_abstract_no_effect"
-				&& probeContext.m_sResolutionKindAfterTerminal == "abstract_no_effect"
-				&& probeContext.m_bOutcomeAppliedAfterTerminal
-				&& probeContext.m_bAbstractResolvedAfterTerminal;
-			AddCampaignDebugAssertion(supportCase, "support.helicopter_abstract_resolution", "current transport support resolves through the real abstract helicopter-style support path", helicopterResolutionActual, CampaignDebugStatus(helicopterResolved), "helicopter-style support did not resolve through the implemented abstract support path", observedSupportRequest.m_sRequestId);
-			AddCampaignDebugAssertion(supportCase, "support.helicopter_physical_travel_gap", "physical passenger boarding and vehicle travel are explicitly reported as not implemented", helicopterPolicyActual + " | " + helicopterResolutionActual, "WARN", "transport support currently has ETA/abstract lifecycle only; no physical passenger boarding or vehicle travel exists", observedSupportRequest.m_sRequestId);
 			return;
 		}
 
@@ -4102,11 +4061,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bPhysicalizedAfterTick = false;
 		probeContext.m_sGroupIdAfterTick = "";
 		probeContext.m_sGroupStatusAfterTick = "";
-		probeContext.m_bRouteTickChanged = false;
-		probeContext.m_bArrivalRouteTickChanged = false;
-		probeContext.m_bArrivalTickChanged = false;
-		probeContext.m_iRouteAdvanceSeconds = 0;
-		probeContext.m_iArrivalAdvanceSeconds = 0;
 		probeContext.m_fDistanceBefore = -1.0;
 		probeContext.m_fDistanceAfter = -1.0;
 		probeContext.m_fDistanceAtArrival = -1.0;
@@ -4120,16 +4074,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_sRouteSampleHistory = "";
 		probeContext.m_sRouteLastObserved = "";
 		probeContext.m_sRouteTimeoutEvidence = "";
-		probeContext.m_bTerminalStatusInjected = false;
-		probeContext.m_bTerminalTickChanged = false;
-		probeContext.m_sGroupStatusBeforeTerminal = "";
-		probeContext.m_sGroupStatusAfterTerminal = "";
-		probeContext.m_eStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
-		probeContext.m_sRequestRuntimeStatusAfterTerminal = "";
-		probeContext.m_sResolutionKindAfterTerminal = "";
-		probeContext.m_bOutcomeAppliedAfterTerminal = false;
-		probeContext.m_bAbstractResolvedAfterTerminal = false;
-		probeContext.m_iResolvedAtSecondAfterTerminal = 0;
 		HST_SupportRequestState supportRequest = probeContext.m_Request;
 		if (!m_State || !m_Preset || !m_SupportRequests || !supportRequest)
 			return false;
@@ -4193,42 +4137,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_sGroupStatusAtArrival = group.m_sRuntimeStatus;
 			}
 			probeContext.m_sRequestRuntimeStatusAtArrival = supportRequest.m_sRuntimeStatus;
-			if (group && supportRequest.m_sRuntimeStatus == "physical_arrived")
-			{
-				probeContext.m_sGroupStatusBeforeTerminal = group.m_sRuntimeStatus;
-				if (group.m_sRuntimeStatus == "support_arrived" || group.m_sRuntimeStatus == "support_active")
-				{
-					group.m_sRuntimeStatus = "folded";
-					probeContext.m_bTerminalStatusInjected = true;
-				}
-
-				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
-				probeContext.m_bTerminalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
-				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-				if (group)
-					probeContext.m_sGroupStatusAfterTerminal = group.m_sRuntimeStatus;
-				probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
-				probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
-				probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
-				probeContext.m_bOutcomeAppliedAfterTerminal = supportRequest.m_bOutcomeApplied;
-				probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
-				probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
-			}
-		}
-		else if (IsCampaignDebugHelicopterSupportType(supportRequest.m_eType))
-		{
-			int helicopterArrivalAtSecond = supportRequest.m_iRequestedAtSecond + Math.Max(0, supportRequest.m_iETASeconds);
-			int helicopterArrivalAdvanceSeconds = Math.Max(0, helicopterArrivalAtSecond - m_State.m_iElapsedSeconds);
-			probeContext.m_iArrivalAdvanceSeconds = helicopterArrivalAdvanceSeconds;
-			if (helicopterArrivalAdvanceSeconds > 0)
-				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + helicopterArrivalAdvanceSeconds;
-			probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
-			probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
-			probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
-			probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
-			probeContext.m_bOutcomeAppliedAfterTerminal = supportRequest.m_bOutcomeApplied;
-			probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
-			probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
 		}
 
 		if (!supportRequest.m_sGroupId.IsEmpty() && m_PhysicalWar)
@@ -4243,8 +4151,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| probeContext.m_bPhysicalizedBeforeTick != probeContext.m_bPhysicalizedAfterTick
 			|| probeContext.m_iEtaRemainingAfter < probeContext.m_iEtaRemainingBefore
 			|| probeContext.m_bRouteTickChanged
-			|| probeContext.m_bArrivalTickChanged
-			|| probeContext.m_bTerminalTickChanged;
+			|| probeContext.m_bArrivalTickChanged;
 	}
 
 	protected void SampleCampaignDebugSupportRouteProgress(HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState supportRequest, HST_ActiveGroupState initialGroup, int firstAdvanceSeconds, int sampleLimit)
@@ -4357,11 +4264,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
-	protected bool IsCampaignDebugHelicopterSupportType(HST_ESupportRequestType candidateSupportType)
-	{
-		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_EVACUATION;
-	}
-
 	protected void CleanupCampaignDebugSupportRuntimeProbe(HST_SupportRequestState supportRequest)
 	{
 		if (!m_State || !supportRequest)
@@ -4435,19 +4337,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int moneyBeforeAward = m_State.m_iFactionMoney;
 		int hrBeforeAward = m_State.m_iHR;
 		string awardResult = RequestAdminAwardResourcesReport(m_iCampaignDebugPlayerId, 1500, 15);
+		RecordCampaignDebugAction("award resources", awardResult);
 		RecordCampaignDebugCase(BuildCampaignDebugResourceAwardCase(moneyBeforeAward, hrBeforeAward, m_State.m_iFactionMoney, m_State.m_iHR, awardResult));
 		HST_CampaignDebugIncomeProbeContext incomeContext = BuildCampaignDebugIncomeProbeContext();
+		RecordCampaignDebugAction("seed income zone", incomeContext.m_sSeedResult);
+		RecordCampaignDebugAction("income tick", incomeContext.m_sCommandResult);
 		RecordCampaignDebugCase(BuildCampaignDebugIncomeTickCase(incomeContext));
 		int moneyBeforeTraining = m_State.m_iFactionMoney;
 		int trainingBefore = m_State.m_iTrainingLevel;
 		string trainResult = RequestCommanderTrainTroopsReport(m_iCampaignDebugPlayerId);
+		RecordCampaignDebugAction("train troops", trainResult);
 		RecordCampaignDebugCase(BuildCampaignDebugTrainingCase(moneyBeforeTraining, trainingBefore, m_State.m_iFactionMoney, m_State.m_iTrainingLevel, trainResult));
 		RecordCampaignDebugObservation("recruitment report", RequestMemberInspectRecruitment(m_iCampaignDebugPlayerId));
 		RunCampaignDebugSupportRequestCase("supply drop", HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, true);
 		RunCampaignDebugSupportRequestCase("QRF support", HST_ESupportRequestType.HST_SUPPORT_QRF, false);
 		RunCampaignDebugSupportRequestCase("suppressive fire support", HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE, false);
 		RunCampaignDebugSupportRequestCase("search support", HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, false);
-		RunCampaignDebugSupportRequestCase("transport support", HST_ESupportRequestType.HST_SUPPORT_TRANSPORT, false);
 		RecordCampaignDebugObservation("support report", RequestMemberInspectSupport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("civilian report", RequestMemberInspectCivilians(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("town support", RequestMemberInspectTownSupport(m_iCampaignDebugPlayerId));
@@ -4469,13 +4374,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EnsureCampaignDebugActivePhase("phase 0-13 mechanics");
 		string label = ResolveCampaignDebugEarlyPhaseLabel(m_iCampaignDebugEarlyPhaseIndex);
 		string result = ExecuteCampaignDebugEarlyPhaseStep(m_iCampaignDebugEarlyPhaseIndex);
-		if (!DoesCampaignDebugEarlyPhaseStepRecordTypedCase(m_iCampaignDebugEarlyPhaseIndex))
-		{
-			if (IsCampaignDebugEarlyPhaseReportStep(m_iCampaignDebugEarlyPhaseIndex))
-				RecordCampaignDebugObservation(label, result);
-			else
-				RecordCampaignDebugAction(label, result);
-		}
+		if (IsCampaignDebugEarlyPhaseReportStep(m_iCampaignDebugEarlyPhaseIndex))
+			RecordCampaignDebugObservation(label, result);
+		else
+			RecordCampaignDebugAction(label, result);
 		if (m_iCampaignDebugEarlyPhaseIndex == 6 || m_iCampaignDebugEarlyPhaseIndex == 8)
 			RecordCampaignDebugConvoyPhysicalProbe(label, m_sCampaignDebugEarlyMissionInstanceId);
 
@@ -4487,27 +4389,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugWaitSeconds = 1;
 
 		m_iCampaignDebugEarlyPhaseIndex++;
-	}
-
-	protected bool DoesCampaignDebugEarlyPhaseStepRecordTypedCase(int index)
-	{
-		switch (index)
-		{
-			case 0:
-			case 1:
-			case 4:
-			case 10:
-			case 11:
-			case 12:
-			case 13:
-			case 14:
-			case 15:
-			case 16:
-			case 17:
-				return true;
-		}
-
-		return false;
 	}
 
 	protected void RunCampaignDebugMissionSweepStep()
@@ -7523,57 +7404,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			restoredUndercoverRecords = CountCampaignDebugPersistenceSmokeUndercoverRecords(restoredCampaignState);
 		}
 
-		string fieldVehicleId = BuildCampaignDebugPersistenceFieldVehicleId();
-		HST_RuntimeVehicleState fieldVehicle = EnsureCampaignDebugPersistenceFieldVehicle(fieldVehicleId);
-		int liveFieldVehicleCount = CountCampaignDebugRuntimeVehiclesById(m_State, fieldVehicleId);
-		string fieldVehicleActual = BuildCampaignDebugRuntimeVehicleActual(fieldVehicle);
-		HST_CampaignSaveData fieldVehicleSaveData = new HST_CampaignSaveData();
-		fieldVehicleSaveData.Capture(m_State);
-		HST_CampaignState fieldVehicleRestoredState = fieldVehicleSaveData.Restore();
-		bool fieldVehicleRestoredStateReady = fieldVehicleRestoredState != null;
-		HST_RuntimeVehicleState restoredFieldVehicle = null;
-		int restoredFieldVehicleCount;
-		if (fieldVehicleRestoredStateReady)
-		{
-			restoredFieldVehicle = fieldVehicleRestoredState.FindRuntimeVehicle(fieldVehicleId);
-			restoredFieldVehicleCount = CountCampaignDebugRuntimeVehiclesById(fieldVehicleRestoredState, fieldVehicleId);
-		}
-
-		string restoredFieldVehicleActual = BuildCampaignDebugRuntimeVehicleActual(restoredFieldVehicle);
-		bool fieldVehicleEligible = fieldVehicle && HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(fieldVehicle.m_sPrefab);
-		bool fieldVehicleFieldsMatch = CampaignDebugRuntimeVehicleFieldsMatch(fieldVehicle, restoredFieldVehicle);
-		bool fieldVehiclePhysicalRestoreReady = m_Loot != null && fieldVehicleRestoredStateReady && restoredFieldVehicle != null && fieldVehicleFieldsMatch;
-		int fieldVehiclePhysicalRestoreCount;
-		string fieldVehiclePhysicalRuntimeIdBefore = "";
-		string fieldVehiclePhysicalRuntimeIdAfter = "";
-		string fieldVehiclePhysicalActual = "not executed";
-		bool fieldVehiclePhysicalCleanupRemoved;
-		string fieldVehiclePhysicalCleanupReason = "";
-		if (fieldVehiclePhysicalRestoreReady)
-		{
-			fieldVehiclePhysicalRuntimeIdBefore = restoredFieldVehicle.m_sVehicleRuntimeId;
-			fieldVehiclePhysicalRestoreCount = m_Loot.RestorePersistentFieldVehicles(fieldVehicleRestoredState);
-			fieldVehiclePhysicalRuntimeIdAfter = restoredFieldVehicle.m_sVehicleRuntimeId;
-			fieldVehiclePhysicalActual = BuildCampaignDebugRuntimeVehicleActual(restoredFieldVehicle);
-			if (fieldVehiclePhysicalRestoreCount > 0 && !fieldVehiclePhysicalRuntimeIdAfter.IsEmpty())
-				fieldVehiclePhysicalCleanupRemoved = m_Loot.RemoveRuntimeVehicleEntityForDebug(fieldVehicleRestoredState, fieldVehiclePhysicalRuntimeIdAfter, fieldVehiclePhysicalCleanupReason);
-			else
-				fieldVehiclePhysicalCleanupReason = "physical restore did not spawn a new field vehicle";
-		}
-		else
-		{
-			fieldVehiclePhysicalCleanupReason = "physical restore prerequisites missing";
-		}
-		bool fieldVehicleCleanupRemoved = RemoveCampaignDebugRuntimeVehicleById(fieldVehicleId);
-		int fieldVehicleCleanupCount = CountCampaignDebugRuntimeVehiclesById(m_State, fieldVehicleId);
-
 		persistenceCase.m_aEvidence.Insert("live summary | " + ShortCampaignDebugLine(liveSummary, 700));
 		persistenceCase.m_aEvidence.Insert("live report | " + ShortCampaignDebugLine(liveReport, 700));
 		persistenceCase.m_aEvidence.Insert("restored summary | " + ShortCampaignDebugLine(restoredSummary, 700));
 		persistenceCase.m_aEvidence.Insert("restored report | " + ShortCampaignDebugLine(restoredReport, 700));
-		persistenceCase.m_aEvidence.Insert("field vehicle live | " + fieldVehicleActual);
-		persistenceCase.m_aEvidence.Insert("field vehicle restored | " + restoredFieldVehicleActual);
-		persistenceCase.m_aEvidence.Insert("field vehicle physical restore | " + fieldVehiclePhysicalActual + " | cleanup " + EmptyCampaignDebugField(fieldVehiclePhysicalCleanupReason));
 		AddCampaignDebugMetric(persistenceCase, "persistence.active_smoke_missions", string.Format("%1", activeSmokeMissions), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.convoy_smoke_missions", string.Format("%1", convoySmokeMissions), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.primitive_smoke_missions", string.Format("%1", primitiveSmokeMissions), "count");
@@ -7581,9 +7415,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_runtime_entities", string.Format("%1", smokeRuntimeEntities), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_active_groups", string.Format("%1", smokeActiveGroups), "count");
 		AddCampaignDebugMetric(persistenceCase, "persistence.smoke_runtime_vehicles", string.Format("%1", smokeRuntimeVehicles), "count");
-		AddCampaignDebugMetric(persistenceCase, "persistence.field_vehicle_live", string.Format("%1", liveFieldVehicleCount), "count");
-		AddCampaignDebugMetric(persistenceCase, "persistence.field_vehicle_restored", string.Format("%1", restoredFieldVehicleCount), "count");
-		AddCampaignDebugMetric(persistenceCase, "persistence.field_vehicle_physical_restored", string.Format("%1", fieldVehiclePhysicalRestoreCount), "count");
 
 		AddCampaignDebugAssertion(persistenceCase, "persistence.seed.command", "seed command creates/refreshes smoke baseline and reports PASS", ShortCampaignDebugLine(seedResult, 260), CampaignDebugStatus(seedAccepted), "persistence smoke seed did not report a healthy baseline");
 		AddCampaignDebugAssertion(persistenceCase, "persistence.smoke.command", "smoke command reports current state PASS", ShortCampaignDebugLine(smokeResult, 260), CampaignDebugStatus(smokeAccepted), "persistence smoke run did not report PASS");
@@ -7613,14 +7444,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& smokeCivilianZones == restoredCivilianZones
 			&& smokeUndercoverRecords == restoredUndercoverRecords;
 		AddCampaignDebugAssertion(persistenceCase, "persistence.restore.counts", "restored smoke record counts match live smoke record counts", BuildCampaignDebugPersistenceCountActual(activeSmokeMissions, restoredActiveSmokeMissions, smokeMissionAssets, restoredMissionAssets, smokeRuntimeEntities, restoredRuntimeEntities, smokeActiveGroups, restoredActiveGroups, smokeRuntimeVehicles, restoredRuntimeVehicles), CampaignDebugStatus(restoredCountsMatch), "restored smoke record counts differ from live state");
-		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle.seeded", "debug field vehicle sentinel exists once and is eligible for persistent field-vehicle restore policy", string.Format("count %1 | eligible %2 | %3", liveFieldVehicleCount, fieldVehicleEligible, fieldVehicleActual), CampaignDebugStatus(fieldVehicle != null && liveFieldVehicleCount == 1 && fieldVehicleEligible), "debug field vehicle sentinel was not seeded as a single eligible runtime vehicle", fieldVehicleId);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle.restore_count", "in-memory save-data restore contains exactly one field vehicle sentinel", string.Format("restored state %1 | count %2 | %3", fieldVehicleRestoredStateReady, restoredFieldVehicleCount, restoredFieldVehicleActual), CampaignDebugStatus(fieldVehicleRestoredStateReady && restoredFieldVehicleCount == 1 && restoredFieldVehicle != null), "field vehicle sentinel was missing or duplicated after save-data restore", fieldVehicleId);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle.restore_fields", "field vehicle id, prefab, kind, position, and restore flags survive save-data roundtrip", string.Format("live %1 | restored %2", fieldVehicleActual, restoredFieldVehicleActual), CampaignDebugStatus(fieldVehicleFieldsMatch), "field vehicle sentinel fields changed during save-data restore", fieldVehicleId);
-		bool fieldVehiclePhysicalRestored = fieldVehiclePhysicalRestoreReady && fieldVehiclePhysicalRestoreCount > 0 && fieldVehiclePhysicalRuntimeIdBefore != fieldVehiclePhysicalRuntimeIdAfter && !fieldVehiclePhysicalRuntimeIdAfter.IsEmpty();
-		string fieldVehiclePhysicalRestoreActual = string.Format("ready %1 | restored %2 | id %3 -> %4 | %5", fieldVehiclePhysicalRestoreReady, fieldVehiclePhysicalRestoreCount, EmptyCampaignDebugField(fieldVehiclePhysicalRuntimeIdBefore), EmptyCampaignDebugField(fieldVehiclePhysicalRuntimeIdAfter), fieldVehiclePhysicalActual);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle.physical_restore", "real persistent field-vehicle restore spawns a physical vehicle and rekeys the runtime record", fieldVehiclePhysicalRestoreActual, CampaignDebugStatus(fieldVehiclePhysicalRestored, "WARN"), "field vehicle restore did not spawn and rekey a physical vehicle through the loot restore path", fieldVehiclePhysicalRuntimeIdAfter);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle.physical_cleanup", "debug-restored physical field vehicle is deleted after observation", string.Format("removed %1 | %2", fieldVehiclePhysicalCleanupRemoved, EmptyCampaignDebugField(fieldVehiclePhysicalCleanupReason)), CampaignDebugStatus(!fieldVehiclePhysicalRestored || fieldVehiclePhysicalCleanupRemoved), "debug-restored physical field vehicle cleanup failed", fieldVehiclePhysicalRuntimeIdAfter);
-		AddCampaignDebugAssertion(persistenceCase, "persistence.field_vehicle.cleanup", "live debug field vehicle sentinel is removed after the roundtrip probe", string.Format("removed %1 | remaining %2", fieldVehicleCleanupRemoved, fieldVehicleCleanupCount), CampaignDebugStatus(fieldVehicleCleanupRemoved && fieldVehicleCleanupCount == 0), "field vehicle roundtrip probe left the live sentinel behind", fieldVehicleId);
 		AddCampaignDebugAssertion(persistenceCase, "persistence.real_restart", "external process restart / reconnect is not executed by this one-button in-memory probe", "not executed", "WARN", "manual or automation-harness restart remains required");
 		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);
 		return persistenceCase;
@@ -7786,107 +7609,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return smokeRuntimeVehicleCount;
-	}
-
-	protected string BuildCampaignDebugPersistenceFieldVehicleId()
-	{
-		string prefix = m_sCampaignDebugMarkerPrefix;
-		if (prefix.IsEmpty())
-			prefix = CAMPAIGN_DEBUG_PREFIX_ROOT + "field";
-
-		return prefix + "_field_vehicle_roundtrip";
-	}
-
-	protected HST_RuntimeVehicleState EnsureCampaignDebugPersistenceFieldVehicle(string vehicleRuntimeId)
-	{
-		if (!m_State || vehicleRuntimeId.IsEmpty())
-			return null;
-
-		HST_RuntimeVehicleState vehicle = m_State.FindRuntimeVehicle(vehicleRuntimeId);
-		if (!vehicle)
-		{
-			vehicle = new HST_RuntimeVehicleState();
-			vehicle.m_sVehicleRuntimeId = vehicleRuntimeId;
-			m_State.m_aRuntimeVehicles.Insert(vehicle);
-		}
-
-		vector position = m_State.m_vHQPosition + "18 0 18";
-		if (IsZeroVector(m_State.m_vHQPosition))
-			position = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId()) + "18 0 18";
-		position = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.VEHICLE_GROUND_OFFSET, true);
-
-		vehicle.m_sPrefab = ResolveCampaignDebugPersistenceFieldVehiclePrefab();
-		vehicle.m_sDisplayName = "Campaign Debug Field Vehicle";
-		if (m_Preset)
-			vehicle.m_sFactionKey = m_Preset.m_sResistanceFactionKey;
-		vehicle.m_sZoneId = m_State.m_sHQHideoutId;
-		vehicle.m_sRuntimeKind = "field_vehicle";
-		vehicle.m_sSourceVehicleKind = "transport";
-		vehicle.m_vPosition = position;
-		vehicle.m_vAngles = "0 0 0";
-		vehicle.m_iSpawnedAtSecond = GetCampaignDebugElapsedSecond();
-		vehicle.m_bDetached = false;
-		vehicle.m_bDeleted = false;
-		vehicle.m_bAmmoSource = false;
-		vehicle.m_bRepairSource = false;
-		vehicle.m_bFuelSource = false;
-		HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle);
-		return vehicle;
-	}
-
-	protected string ResolveCampaignDebugPersistenceFieldVehiclePrefab()
-	{
-		if (m_Balance && m_Balance.m_aCivilianVehiclePrefabs.Count() > 0)
-			return m_Balance.m_aCivilianVehiclePrefabs[0];
-
-		return "{DA79E34823120087}Prefabs/Vehicles/Wheeled/S105/S105_base.et";
-	}
-
-	protected int CountCampaignDebugRuntimeVehiclesById(HST_CampaignState targetState, string vehicleRuntimeId)
-	{
-		if (!targetState || vehicleRuntimeId.IsEmpty())
-			return 0;
-
-		int count;
-		foreach (HST_RuntimeVehicleState vehicle : targetState.m_aRuntimeVehicles)
-		{
-			if (vehicle && vehicle.m_sVehicleRuntimeId == vehicleRuntimeId)
-				count++;
-		}
-
-		return count;
-	}
-
-	protected bool CampaignDebugRuntimeVehicleFieldsMatch(HST_RuntimeVehicleState expectedVehicle, HST_RuntimeVehicleState actualVehicle)
-	{
-		if (!expectedVehicle || !actualVehicle)
-			return false;
-
-		float positionDistance = Math.Sqrt(DistanceSq2D(expectedVehicle.m_vPosition, actualVehicle.m_vPosition));
-		return expectedVehicle.m_sVehicleRuntimeId == actualVehicle.m_sVehicleRuntimeId
-			&& expectedVehicle.m_sPrefab == actualVehicle.m_sPrefab
-			&& expectedVehicle.m_sRuntimeKind == actualVehicle.m_sRuntimeKind
-			&& expectedVehicle.m_sSourceVehicleKind == actualVehicle.m_sSourceVehicleKind
-			&& expectedVehicle.m_bDetached == actualVehicle.m_bDetached
-			&& expectedVehicle.m_bDeleted == actualVehicle.m_bDeleted
-			&& positionDistance <= 0.25;
-	}
-
-	protected string BuildCampaignDebugRuntimeVehicleActual(HST_RuntimeVehicleState vehicle)
-	{
-		if (!vehicle)
-			return "missing";
-
-		return string.Format("id %1 | prefab %2 | kind %3 | source %4 | zone %5 | pos %6 | detached %7 | deleted %8",
-			EmptyCampaignDebugField(vehicle.m_sVehicleRuntimeId),
-			EmptyCampaignDebugField(vehicle.m_sPrefab),
-			EmptyCampaignDebugField(vehicle.m_sRuntimeKind),
-			EmptyCampaignDebugField(vehicle.m_sSourceVehicleKind),
-			EmptyCampaignDebugField(vehicle.m_sZoneId),
-			vehicle.m_vPosition,
-			vehicle.m_bDetached,
-			vehicle.m_bDeleted
-		);
 	}
 
 	protected int CountCampaignDebugPersistenceSmokeGarageCargo(HST_CampaignState targetState)
@@ -8103,7 +7825,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		AddCampaignDebugCaptiveRuntimeFollowAssertions(captiveCase, mission, captive, instanceId);
-		AddCampaignDebugCaptiveVehicleTransportAssertions(captiveCase, mission, captive, instanceId);
 		AddCampaignDebugCaptiveExtractionAssertions(captiveCase, mission, instanceId);
 
 		FinalizeCampaignDebugCaseFromAssertions(captiveCase);
@@ -8208,130 +7929,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		followDistanceAssertion.m_vExpectedPosition = followTickPlayerPosition;
 		followDistanceAssertion.m_vActualPosition = followTickCaptivePosition;
 		followDistanceAssertion.m_fDistanceMeters = followDistanceAfterTick;
-	}
-
-	protected void AddCampaignDebugCaptiveVehicleTransportAssertions(HST_CampaignDebugCaseResult captiveCase, HST_ActiveMissionState mission, HST_MissionAssetState captive, string instanceId)
-	{
-		if (!captiveCase || !mission || !captive || !m_State || !m_MissionRuntime)
-		{
-			AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.prerequisite", "campaign state, mission, captive, and runtime service exist", "missing", "BLOCKED", "captive vehicle transport probe prerequisites missing", "", instanceId);
-			return;
-		}
-		if (!captive.m_bAttachedToCarrier || captive.m_sCarriedByVehicleId.IsEmpty())
-		{
-			AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.follow_link", "captive is attached to player carrier before vehicle transport probe", BuildCampaignDebugMissionAssetActual(captive), "BLOCKED", "captive was not following or attached before vehicle transport probe", captive.m_sAssetId, instanceId);
-			return;
-		}
-
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (!playerEntity)
-		{
-			AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.player", "controlled player entity available for vehicle transport probe", "missing", "BLOCKED", "no controlled player entity for captive vehicle transport probe", captive.m_sAssetId, instanceId);
-			return;
-		}
-
-		vector transportPickupPosition = captive.m_vCurrentPosition;
-		if (IsZeroVector(transportPickupPosition))
-			transportPickupPosition = playerEntity.GetOrigin();
-		bool transportTeleport = TeleportCampaignDebugPlayer(transportPickupPosition + "2 0 2", "rescue captive vehicle transport pickup");
-		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.pickup_teleport", "player teleported near captive before vehicle transport probe", string.Format("%1 | target %2", transportTeleport, transportPickupPosition), CampaignDebugStatus(transportTeleport, "WARN"), "could not place player near captive for vehicle transport probe", captive.m_sAssetId, instanceId);
-
-		string carrierRuntimeId;
-		vector carrierPosition;
-		GenericEntity carrierEntity = SpawnCampaignDebugTransportCarrier(captiveCase, mission, "captive_vehicle", transportPickupPosition, carrierRuntimeId, carrierPosition);
-		if (!carrierEntity)
-			return;
-
-		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		string playerSeatReason;
-		bool playerSeatIssued = TrySeatCampaignDebugEntityInVehicle(playerEntity, carrierEntity, playerSeatReason);
-		bool playerInCarrierBeforeTick = ResolveCampaignDebugEntityVehicle(playerEntity) == carrierEntity;
-		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle.player_seat_order", "debug player receives a move-in order for the temporary vehicle", string.Format("issued %1 | in carrier %2 | reason %3", playerSeatIssued, playerInCarrierBeforeTick, EmptyCampaignDebugField(playerSeatReason)), CampaignDebugStatus(playerSeatIssued, "BLOCKED"), "debug player could not be ordered into the temporary captive transport vehicle", carrierRuntimeId, instanceId);
-
-		int vehicleSampleSeconds = 3;
-		int vehicleSampleTargetCount = 4;
-		int vehicleActualSampleCount;
-		int vehicleRuntimeChangedCount;
-		float vehicleBestDistance = 999999.0;
-		bool vehiclePlayerInCarrierObserved = playerInCarrierBeforeTick;
-		bool vehicleLoadedObserved;
-		bool vehicleTransportObserved;
-		bool vehicleCompartmentObserved;
-		bool vehicleBoardingObserved;
-		string vehicleSampleHistory;
-		vector vehicleLastCaptivePosition = captive.m_vCurrentPosition;
-		for (int vehicleSampleIndex = 0; vehicleSampleIndex < vehicleSampleTargetCount; vehicleSampleIndex++)
-		{
-			vehicleActualSampleCount++;
-			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + vehicleSampleSeconds;
-			bool vehicleRuntimeChanged = m_MissionRuntime.Tick(m_State, m_Preset, m_Objectives, vehicleSampleSeconds);
-			if (vehicleRuntimeChanged)
-				vehicleRuntimeChangedCount++;
-
-			playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-			bool playerInCarrier = ResolveCampaignDebugEntityVehicle(playerEntity) == carrierEntity;
-			if (playerInCarrier)
-				vehiclePlayerInCarrierObserved = true;
-
-			IEntity captiveEntity = m_MissionRuntime.GetRuntimeEntityForDebug(captive.m_sEntityId);
-			bool captiveInCarrier = IsCampaignDebugEntitySeatedInVehicle(captiveEntity, carrierEntity);
-			bool captiveBoarding = IsCampaignDebugEntityGettingInVehicle(captiveEntity);
-			if (captiveInCarrier)
-				vehicleCompartmentObserved = true;
-			if (captiveBoarding)
-				vehicleBoardingObserved = true;
-
-			float captiveVehicleDistance = Math.Sqrt(DistanceSq2D(captive.m_vCurrentPosition, carrierEntity.GetOrigin()));
-			if (captiveVehicleDistance < vehicleBestDistance)
-				vehicleBestDistance = captiveVehicleDistance;
-			if (captive.m_sLastInteraction == "loaded")
-				vehicleLoadedObserved = true;
-			if (captive.m_sLastInteraction == "loaded" && captiveVehicleDistance <= 12.0)
-				vehicleTransportObserved = true;
-
-			string vehicleSample = string.Format("#%1 player %2 | captive loaded %3 | dist %4m", vehicleSampleIndex + 1, playerInCarrier, captive.m_sLastInteraction == "loaded", Math.Round(captiveVehicleDistance));
-			vehicleSample = vehicleSample + string.Format(" | seated %1 | boarding %2 | changed %3", captiveInCarrier, captiveBoarding, vehicleRuntimeChanged);
-			if (vehicleSampleHistory.IsEmpty())
-				vehicleSampleHistory = vehicleSample;
-			else
-				vehicleSampleHistory = vehicleSampleHistory + " | " + vehicleSample;
-			vehicleLastCaptivePosition = captive.m_vCurrentPosition;
-
-			if (vehicleTransportObserved && (vehicleCompartmentObserved || vehicleBoardingObserved))
-				break;
-		}
-
-		string transportActual = string.Format("player vehicle %1 | loaded %2 | transported %3 | best %4m", vehiclePlayerInCarrierObserved, vehicleLoadedObserved, vehicleTransportObserved, Math.Round(vehicleBestDistance));
-		transportActual = transportActual + string.Format(" | samples %1 | changed %2 | carrier %3", vehicleActualSampleCount, vehicleRuntimeChangedCount, EmptyCampaignDebugField(carrierRuntimeId));
-		string transportStatus = CampaignDebugStatus(vehiclePlayerInCarrierObserved && vehicleTransportObserved);
-		if (!vehiclePlayerInCarrierObserved)
-			transportStatus = "BLOCKED";
-		AddCampaignDebugMetric(captiveCase, "rescue.captive.vehicle_sample_count", string.Format("%1", vehicleActualSampleCount), "count");
-		AddCampaignDebugMetric(captiveCase, "rescue.captive.vehicle_runtime_changed", string.Format("%1", vehicleRuntimeChangedCount), "count");
-		AddCampaignDebugMetric(captiveCase, "rescue.captive.vehicle_best_distance", string.Format("%1", Math.Round(vehicleBestDistance)), "meters");
-		captiveCase.m_aEvidence.Insert("captive vehicle samples | " + ShortCampaignDebugLine(vehicleSampleHistory, 260));
-		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_transport_state", "following captive enters vehicle-loaded transport state near the player vehicle through the real runtime tick", transportActual + " | samples " + ShortCampaignDebugLine(vehicleSampleHistory, 180), transportStatus, "captive did not enter loaded vehicle transport state during the controlled vehicle probe", captive.m_sAssetId, instanceId);
-		HST_CampaignDebugAssertion transportPositionAssertion = AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_transport_position", "captive state position follows the temporary transport vehicle", string.Format("best %1m | captive %2 | carrier %3", Math.Round(vehicleBestDistance), vehicleLastCaptivePosition, carrierEntity.GetOrigin()), CampaignDebugStatus(vehicleTransportObserved, "WARN"), "captive state did not stay near the temporary transport vehicle", captive.m_sAssetId, instanceId);
-		transportPositionAssertion.m_vExpectedPosition = carrierEntity.GetOrigin();
-		transportPositionAssertion.m_vActualPosition = vehicleLastCaptivePosition;
-		transportPositionAssertion.m_fDistanceMeters = vehicleBestDistance;
-
-		string compartmentActual = string.Format("seated %1 | boarding %2 | player carrier %3 | history %4", vehicleCompartmentObserved, vehicleBoardingObserved, vehiclePlayerInCarrierObserved, ShortCampaignDebugLine(vehicleSampleHistory, 180));
-		string compartmentStatus = CampaignDebugStatus(vehicleCompartmentObserved || vehicleBoardingObserved, "WARN");
-		if (!vehiclePlayerInCarrierObserved || !vehicleTransportObserved)
-			compartmentStatus = "BLOCKED";
-		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_compartment_boarding", "captive receives actual vehicle compartment seating or boarding order when vehicle seats are available", compartmentActual, compartmentStatus, "captive vehicle transport used loaded/follow fallback without observed compartment seating", captive.m_sAssetId, instanceId);
-
-		IEntity captiveEntityAfterProbe = m_MissionRuntime.GetRuntimeEntityForDebug(captive.m_sEntityId);
-		string captiveExitReason;
-		bool captiveExited = TryExitCampaignDebugEntityVehicle(captiveEntityAfterProbe, captiveExitReason);
-		string playerExitReason;
-		bool playerExited = TryExitCampaignDebugEntityVehicle(playerEntity, playerExitReason);
-		bool exitTeleport = TeleportCampaignDebugPlayer(carrierEntity.GetOrigin() + "8 0 0", "rescue captive vehicle transport exit");
-		bool carrierCleanup = CleanupCampaignDebugTransportCarrier(carrierEntity, carrierRuntimeId);
-		string cleanupActual = string.Format("player exit %1 (%2) | captive exit %3 (%4)", playerExited, EmptyCampaignDebugField(playerExitReason), captiveExited, EmptyCampaignDebugField(captiveExitReason));
-		cleanupActual = cleanupActual + string.Format(" | teleport %1 | carrier cleanup %2", exitTeleport, carrierCleanup);
-		AddCampaignDebugAssertion(captiveCase, "rescue.captive.vehicle_cleanup", "temporary captive transport vehicle is cleaned after the probe", cleanupActual, CampaignDebugStatus(carrierCleanup, "WARN"), "captive vehicle transport probe left the temporary vehicle behind", carrierRuntimeId, instanceId);
 	}
 
 	protected void AddCampaignDebugCaptiveExtractionAssertions(HST_CampaignDebugCaseResult captiveCase, HST_ActiveMissionState mission, string instanceId)
@@ -8995,194 +8592,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return string.Format("vehicle_%1", carrierRpl.Id());
 
 		return string.Format("vehicle_local_%1_%2", carrierEntity.GetName(), carrierEntity.GetOrigin());
-	}
-
-	protected bool TrySeatCampaignDebugEntityInVehicle(IEntity entity, IEntity vehicleEntity, out string reason)
-	{
-		reason = "";
-		if (!entity || !vehicleEntity)
-		{
-			reason = "entity or vehicle missing";
-			return false;
-		}
-
-		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
-		if (!access)
-		{
-			reason = "entity has no compartment access component";
-			return false;
-		}
-		if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
-		{
-			reason = "entity already seated in vehicle";
-			return true;
-		}
-		if (access.IsGettingIn())
-		{
-			reason = "entity already getting into a vehicle";
-			return true;
-		}
-
-		BaseCompartmentManagerComponent compartmentManager = ResolveCampaignDebugCompartmentManager(vehicleEntity);
-		if (!compartmentManager)
-		{
-			reason = "vehicle has no compartment manager";
-			return false;
-		}
-
-		array<BaseCompartmentSlot> slots = {};
-		compartmentManager.GetCompartments(slots);
-		ECompartmentType compartmentType = ECompartmentType.PILOT;
-		BaseCompartmentSlot slot = FindCampaignDebugVehicleSeat(slots, entity, compartmentType);
-		if (!slot)
-		{
-			compartmentType = ECompartmentType.CARGO;
-			slot = FindCampaignDebugVehicleSeat(slots, entity, compartmentType);
-		}
-		if (!slot)
-		{
-			compartmentType = ECompartmentType.TURRET;
-			slot = FindCampaignDebugVehicleSeat(slots, entity, compartmentType);
-		}
-		if (!slot)
-		{
-			reason = "vehicle has no available compartment for entity";
-			return false;
-		}
-
-		if (!access.MoveInVehicle(vehicleEntity, compartmentType, false, slot))
-		{
-			reason = "compartment move-in order rejected";
-			return false;
-		}
-
-		reason = "compartment move-in order issued: " + ResolveCampaignDebugCompartmentLabel(compartmentType);
-		return true;
-	}
-
-	protected bool TryExitCampaignDebugEntityVehicle(IEntity entity, out string reason)
-	{
-		reason = "";
-		if (!entity)
-		{
-			reason = "entity missing";
-			return false;
-		}
-
-		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
-		if (!access)
-		{
-			reason = "entity has no compartment access component";
-			return false;
-		}
-		if (!access.IsInCompartment())
-		{
-			reason = "entity not in vehicle";
-			return true;
-		}
-
-		if (!access.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, false))
-		{
-			reason = "vehicle get-out order rejected";
-			return false;
-		}
-
-		reason = "vehicle get-out order issued";
-		return true;
-	}
-
-	protected IEntity ResolveCampaignDebugEntityVehicle(IEntity entity)
-	{
-		if (!entity)
-			return null;
-
-		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
-		if (!access || !access.IsInCompartment())
-			return null;
-
-		return access.GetVehicle();
-	}
-
-	protected bool IsCampaignDebugEntitySeatedInVehicle(IEntity entity, IEntity vehicleEntity)
-	{
-		return entity && vehicleEntity && ResolveCampaignDebugEntityVehicle(entity) == vehicleEntity;
-	}
-
-	protected bool IsCampaignDebugEntityGettingInVehicle(IEntity entity)
-	{
-		if (!entity)
-			return false;
-
-		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(entity.FindComponent(SCR_CompartmentAccessComponent));
-		return access && access.IsGettingIn();
-	}
-
-	protected BaseCompartmentManagerComponent ResolveCampaignDebugCompartmentManager(IEntity vehicleEntity)
-	{
-		if (!vehicleEntity)
-			return null;
-
-		SCR_BaseCompartmentManagerComponent scrManager = SCR_BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(SCR_BaseCompartmentManagerComponent));
-		if (scrManager)
-			return scrManager;
-
-		return BaseCompartmentManagerComponent.Cast(vehicleEntity.FindComponent(BaseCompartmentManagerComponent));
-	}
-
-	protected BaseCompartmentSlot FindCampaignDebugVehicleSeat(array<BaseCompartmentSlot> slots, IEntity entity, ECompartmentType compartmentType)
-	{
-		if (!slots || !entity)
-			return null;
-
-		foreach (BaseCompartmentSlot slot : slots)
-		{
-			if (!CampaignDebugVehicleSeatMatchesType(slot, compartmentType))
-				continue;
-			if (!CampaignDebugVehicleSeatAvailableForEntity(slot, entity))
-				continue;
-
-			return slot;
-		}
-
-		return null;
-	}
-
-	protected bool CampaignDebugVehicleSeatMatchesType(BaseCompartmentSlot slot, ECompartmentType compartmentType)
-	{
-		if (!slot)
-			return false;
-		if (compartmentType == ECompartmentType.PILOT)
-			return slot.IsPiloting() || slot.GetType() == ECompartmentType.PILOT;
-
-		return slot.GetType() == compartmentType;
-	}
-
-	protected bool CampaignDebugVehicleSeatAvailableForEntity(BaseCompartmentSlot slot, IEntity entity)
-	{
-		if (!slot || !entity)
-			return false;
-		if (!slot.IsCompartmentAccessible())
-			return false;
-		if (slot.IsOccupied())
-			return false;
-		if (slot.IsReserved() && !slot.IsReservedBy(entity))
-			return false;
-		if (slot.IsGetInLockedFor(entity))
-			return false;
-
-		return true;
-	}
-
-	protected string ResolveCampaignDebugCompartmentLabel(ECompartmentType compartmentType)
-	{
-		if (compartmentType == ECompartmentType.PILOT)
-			return "pilot";
-		if (compartmentType == ECompartmentType.TURRET)
-			return "turret";
-		if (compartmentType == ECompartmentType.CARGO)
-			return "cargo";
-
-		return "compartment";
 	}
 
 	protected void AddCampaignDebugAreaPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
@@ -11682,7 +11091,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (physicalProbe.m_Group)
 			counterattackGroupId = physicalProbe.m_Group.m_sGroupId;
 		AddCampaignDebugEnemyOrderRouteSampleAssertions(captureCase, "phase17.counterattack", "phase17.counterattack", "counterattack group", "Phase 17 physical counterattack", physicalProbe, counterattackGroupId, "", targetZoneId, counterattackOrder.m_sOrderId);
-		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.wave_gap", "multi-wave/contact behavior remains explicitly not covered by this route/terminal sample", "single routed counterattack group sampled", "WARN", "Phase 17 still needs a longer wave/contact probe", "", "", targetZoneId, counterattackOrder.m_sOrderId);
 	}
 
 	protected HST_CampaignDebugEnemyOrderPhysicalProbeContext ProbeCampaignDebugEnemyOrderPhysicalAdvance(HST_EnemyOrderState physicalOrder, HST_ZoneState targetZone, string label)
@@ -11701,29 +11109,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		physicalProbe.m_sRouteSampleHistory = "";
 		physicalProbe.m_sRouteLastObserved = "";
 		physicalProbe.m_sRouteTimeoutEvidence = "";
-		physicalProbe.m_bArrivalRouteTickChanged = false;
-		physicalProbe.m_bArrivalSupportTickChanged = false;
-		physicalProbe.m_bArrivalSyncTickChanged = false;
-		physicalProbe.m_bTerminalStatusInjected = false;
-		physicalProbe.m_bTerminalSupportTickChanged = false;
-		physicalProbe.m_bTerminalSyncTickChanged = false;
-		physicalProbe.m_bTerminalStateRestored = false;
-		physicalProbe.m_iArrivalAdvanceSeconds = 0;
-		physicalProbe.m_iSupportResolvedAtSecondAfterTerminal = 0;
-		physicalProbe.m_iOrderResolvedAtSecondAfterTerminal = 0;
-		physicalProbe.m_sGroupStatusAtArrival = "";
-		physicalProbe.m_sRequestRuntimeStatusAtArrival = "";
-		physicalProbe.m_sOrderRuntimeStatusAtArrival = "";
-		physicalProbe.m_sGroupStatusBeforeTerminal = "";
-		physicalProbe.m_sGroupStatusAfterTerminal = "";
-		physicalProbe.m_sRequestRuntimeStatusAfterTerminal = "";
-		physicalProbe.m_sOrderRuntimeStatusAfterTerminal = "";
-		physicalProbe.m_sSupportResolutionKindAfterTerminal = "";
-		physicalProbe.m_sOrderResolutionKindAfterTerminal = "";
-		physicalProbe.m_eSupportStatusAtArrival = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
-		physicalProbe.m_eOrderStatusAtArrival = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
-		physicalProbe.m_eSupportStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
-		physicalProbe.m_eOrderStatusAfterTerminal = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector || !m_SupportRequests || !m_PhysicalWar || !m_Balance)
 		{
 			physicalProbe.m_sFailureReason = "physical probe services not ready";
@@ -11788,126 +11173,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalProbe.m_sFailureReason = "linked active group missing";
 		}
 
-		if (physicalProbe.m_Group && physicalProbe.m_SupportRequest)
-			ProbeCampaignDebugEnemyOrderArrivalAndTerminal(physicalProbe, physicalOrder);
-
 		targetZone.m_bActive = physicalProbe.m_bTargetWasActive;
 		physicalProbe.m_bTargetActiveRestored = true;
 		physicalProbe.m_iElapsedAfter = m_State.m_iElapsedSeconds;
 		return physicalProbe;
-	}
-
-	protected void ProbeCampaignDebugEnemyOrderArrivalAndTerminal(HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe, HST_EnemyOrderState physicalOrder)
-	{
-		if (!physicalProbe || !physicalProbe.m_SupportRequest || !physicalProbe.m_Group || !m_State || !m_Preset || !m_EnemyDirector || !m_SupportRequests || !m_EnemyCommander || !m_PhysicalWar)
-			return;
-
-		string enemyOrderId = "";
-		if (physicalOrder)
-			enemyOrderId = physicalOrder.m_sOrderId;
-		string enemySupportId = physicalProbe.m_SupportRequest.m_sRequestId;
-		string enemyGroupId = physicalProbe.m_Group.m_sGroupId;
-		int enemyArrivalAtSecond = physicalProbe.m_SupportRequest.m_iRequestedAtSecond + Math.Max(0, physicalProbe.m_SupportRequest.m_iETASeconds);
-		int enemyArrivalAdvanceSeconds = Math.Max(0, enemyArrivalAtSecond - m_State.m_iElapsedSeconds);
-		int enemyArrivalRemainder = (m_State.m_iElapsedSeconds + enemyArrivalAdvanceSeconds) % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
-		if (enemyArrivalRemainder != 0)
-			enemyArrivalAdvanceSeconds = enemyArrivalAdvanceSeconds + (HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - enemyArrivalRemainder);
-		physicalProbe.m_iArrivalAdvanceSeconds = enemyArrivalAdvanceSeconds;
-		if (enemyArrivalAdvanceSeconds > 0)
-			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + enemyArrivalAdvanceSeconds;
-
-		physicalProbe.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
-		physicalProbe.m_bArrivalSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
-		physicalProbe.m_bArrivalSyncTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
-		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(enemySupportId);
-		if (!enemyOrderId.IsEmpty())
-			physicalProbe.m_Order = FindEnemyOrderById(enemyOrderId);
-		else
-			physicalProbe.m_Order = physicalOrder;
-		physicalProbe.m_Group = m_State.FindActiveGroup(enemyGroupId);
-		if (physicalProbe.m_Group)
-			physicalProbe.m_sGroupStatusAtArrival = physicalProbe.m_Group.m_sRuntimeStatus;
-		if (physicalProbe.m_SupportRequest)
-		{
-			physicalProbe.m_eSupportStatusAtArrival = physicalProbe.m_SupportRequest.m_eStatus;
-			physicalProbe.m_sRequestRuntimeStatusAtArrival = physicalProbe.m_SupportRequest.m_sRuntimeStatus;
-		}
-		if (physicalProbe.m_Order)
-		{
-			physicalProbe.m_eOrderStatusAtArrival = physicalProbe.m_Order.m_eStatus;
-			physicalProbe.m_sOrderRuntimeStatusAtArrival = physicalProbe.m_Order.m_sRuntimeStatus;
-		}
-
-		bool enemyArrived = physicalProbe.m_SupportRequest
-			&& physicalProbe.m_Order
-			&& physicalProbe.m_Group
-			&& physicalProbe.m_SupportRequest.m_sRuntimeStatus == "physical_arrived"
-			&& (physicalProbe.m_Group.m_sRuntimeStatus == "support_arrived" || physicalProbe.m_Group.m_sRuntimeStatus == "support_active" || physicalProbe.m_Group.m_sRuntimeStatus == "arrived");
-		if (!enemyArrived)
-			return;
-
-		HST_EEnemyOrderStatus enemyOrderStatusBeforeTerminal = physicalProbe.m_Order.m_eStatus;
-		int enemyOrderResolvedBeforeTerminal = physicalProbe.m_Order.m_iResolvedAtSecond;
-		string enemyOrderRuntimeBeforeTerminal = physicalProbe.m_Order.m_sRuntimeStatus;
-		string enemyOrderResolutionBeforeTerminal = physicalProbe.m_Order.m_sResolutionKind;
-		string enemyOrderFailureBeforeTerminal = physicalProbe.m_Order.m_sFailureReason;
-		HST_ESupportRequestStatus enemySupportStatusBeforeTerminal = physicalProbe.m_SupportRequest.m_eStatus;
-		int enemySupportResolvedBeforeTerminal = physicalProbe.m_SupportRequest.m_iResolvedAtSecond;
-		string enemySupportRuntimeBeforeTerminal = physicalProbe.m_SupportRequest.m_sRuntimeStatus;
-		string enemySupportResolutionBeforeTerminal = physicalProbe.m_SupportRequest.m_sResolutionKind;
-		string enemySupportFailureBeforeTerminal = physicalProbe.m_SupportRequest.m_sFailureReason;
-		bool enemySupportOutcomeBeforeTerminal = physicalProbe.m_SupportRequest.m_bOutcomeApplied;
-		bool enemySupportAbstractBeforeTerminal = physicalProbe.m_SupportRequest.m_bAbstractResolved;
-		string enemyGroupStatusBeforeTerminal = physicalProbe.m_Group.m_sRuntimeStatus;
-		physicalProbe.m_sGroupStatusBeforeTerminal = enemyGroupStatusBeforeTerminal;
-		physicalProbe.m_Group.m_sRuntimeStatus = "folded";
-		physicalProbe.m_bTerminalStatusInjected = true;
-
-		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
-		physicalProbe.m_bTerminalSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
-		physicalProbe.m_bTerminalSyncTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
-		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(enemySupportId);
-		if (!enemyOrderId.IsEmpty())
-			physicalProbe.m_Order = FindEnemyOrderById(enemyOrderId);
-		physicalProbe.m_Group = m_State.FindActiveGroup(enemyGroupId);
-		if (physicalProbe.m_Group)
-			physicalProbe.m_sGroupStatusAfterTerminal = physicalProbe.m_Group.m_sRuntimeStatus;
-		if (physicalProbe.m_SupportRequest)
-		{
-			physicalProbe.m_eSupportStatusAfterTerminal = physicalProbe.m_SupportRequest.m_eStatus;
-			physicalProbe.m_sRequestRuntimeStatusAfterTerminal = physicalProbe.m_SupportRequest.m_sRuntimeStatus;
-			physicalProbe.m_sSupportResolutionKindAfterTerminal = physicalProbe.m_SupportRequest.m_sResolutionKind;
-			physicalProbe.m_iSupportResolvedAtSecondAfterTerminal = physicalProbe.m_SupportRequest.m_iResolvedAtSecond;
-		}
-		if (physicalProbe.m_Order)
-		{
-			physicalProbe.m_eOrderStatusAfterTerminal = physicalProbe.m_Order.m_eStatus;
-			physicalProbe.m_sOrderRuntimeStatusAfterTerminal = physicalProbe.m_Order.m_sRuntimeStatus;
-			physicalProbe.m_sOrderResolutionKindAfterTerminal = physicalProbe.m_Order.m_sResolutionKind;
-			physicalProbe.m_iOrderResolvedAtSecondAfterTerminal = physicalProbe.m_Order.m_iResolvedAtSecond;
-		}
-
-		if (physicalProbe.m_Order)
-		{
-			physicalProbe.m_Order.m_eStatus = enemyOrderStatusBeforeTerminal;
-			physicalProbe.m_Order.m_iResolvedAtSecond = enemyOrderResolvedBeforeTerminal;
-			physicalProbe.m_Order.m_sRuntimeStatus = enemyOrderRuntimeBeforeTerminal;
-			physicalProbe.m_Order.m_sResolutionKind = enemyOrderResolutionBeforeTerminal;
-			physicalProbe.m_Order.m_sFailureReason = enemyOrderFailureBeforeTerminal;
-		}
-		if (physicalProbe.m_SupportRequest)
-		{
-			physicalProbe.m_SupportRequest.m_eStatus = enemySupportStatusBeforeTerminal;
-			physicalProbe.m_SupportRequest.m_iResolvedAtSecond = enemySupportResolvedBeforeTerminal;
-			physicalProbe.m_SupportRequest.m_sRuntimeStatus = enemySupportRuntimeBeforeTerminal;
-			physicalProbe.m_SupportRequest.m_sResolutionKind = enemySupportResolutionBeforeTerminal;
-			physicalProbe.m_SupportRequest.m_sFailureReason = enemySupportFailureBeforeTerminal;
-			physicalProbe.m_SupportRequest.m_bOutcomeApplied = enemySupportOutcomeBeforeTerminal;
-			physicalProbe.m_SupportRequest.m_bAbstractResolved = enemySupportAbstractBeforeTerminal;
-		}
-		if (physicalProbe.m_Group)
-			physicalProbe.m_Group.m_sRuntimeStatus = enemyGroupStatusBeforeTerminal;
-		physicalProbe.m_bTerminalStateRestored = true;
 	}
 
 	protected void SampleCampaignDebugEnemyOrderRouteProgress(HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe, int firstAdvanceSeconds, int sampleLimit)
@@ -12041,28 +11310,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			enemyRouteTimeoutStatus = "FAIL";
 		string enemyRouteTimeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", physicalProbe.m_bRouteTimedOut, physicalProbe.m_iRouteTimeoutSeconds, physicalProbe.m_iRouteSampleCount, EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_timeout", subjectLabel + " does not stall across the controlled route timeout window", enemyRouteTimeoutActual, enemyRouteTimeoutStatus, failureLabel + " route timed out without movement, distance closure, or arrival", entityId, missionInstanceId, zoneId, orderId);
-
-		AddCampaignDebugMetric(targetCase, metricPrefix + ".arrival_advance_seconds", string.Format("%1", physicalProbe.m_iArrivalAdvanceSeconds), "seconds");
-		AddCampaignDebugMetric(targetCase, metricPrefix + ".support_resolved_second", string.Format("%1", physicalProbe.m_iSupportResolvedAtSecondAfterTerminal), "seconds");
-		AddCampaignDebugMetric(targetCase, metricPrefix + ".order_resolved_second", string.Format("%1", physicalProbe.m_iOrderResolvedAtSecondAfterTerminal), "seconds");
-		string enemyArrivalActual = string.Format("advance %1s | ticks route/support/sync %2/%3/%4 | support %5 %6 | order %7 %8 | group %9", physicalProbe.m_iArrivalAdvanceSeconds, physicalProbe.m_bArrivalRouteTickChanged, physicalProbe.m_bArrivalSupportTickChanged, physicalProbe.m_bArrivalSyncTickChanged, physicalProbe.m_eSupportStatusAtArrival, EmptyCampaignDebugField(physicalProbe.m_sRequestRuntimeStatusAtArrival), physicalProbe.m_eOrderStatusAtArrival, EmptyCampaignDebugField(physicalProbe.m_sOrderRuntimeStatusAtArrival), EmptyCampaignDebugField(physicalProbe.m_sGroupStatusAtArrival));
-		bool enemyArrivalReached = physicalProbe.m_eSupportStatusAtArrival == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE
-			&& physicalProbe.m_sRequestRuntimeStatusAtArrival == "physical_arrived"
-			&& (physicalProbe.m_sGroupStatusAtArrival == "support_arrived" || physicalProbe.m_sGroupStatusAtArrival == "arrived" || physicalProbe.m_sGroupStatusAtArrival == "support_active");
-		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_arrival", subjectLabel + " reaches support arrival through the real support tick after controlled ETA advance", enemyArrivalActual, CampaignDebugStatus(enemyArrivalReached, "WARN"), failureLabel + " did not reach support arrival state during the controlled ETA window", entityId, missionInstanceId, zoneId, orderId);
-		string enemyTerminalActual = string.Format("injected %1 | ticks support/sync %2/%3 | support %4 %5 %6 | order %7 %8 %9", physicalProbe.m_bTerminalStatusInjected, physicalProbe.m_bTerminalSupportTickChanged, physicalProbe.m_bTerminalSyncTickChanged, physicalProbe.m_eSupportStatusAfterTerminal, EmptyCampaignDebugField(physicalProbe.m_sRequestRuntimeStatusAfterTerminal), EmptyCampaignDebugField(physicalProbe.m_sSupportResolutionKindAfterTerminal), physicalProbe.m_eOrderStatusAfterTerminal, EmptyCampaignDebugField(physicalProbe.m_sOrderRuntimeStatusAfterTerminal), EmptyCampaignDebugField(physicalProbe.m_sOrderResolutionKindAfterTerminal));
-		enemyTerminalActual = enemyTerminalActual + string.Format(" | group %1 -> %2 | restored %3", EmptyCampaignDebugField(physicalProbe.m_sGroupStatusBeforeTerminal), EmptyCampaignDebugField(physicalProbe.m_sGroupStatusAfterTerminal), physicalProbe.m_bTerminalStateRestored);
-		bool enemyTerminalResolved = physicalProbe.m_bTerminalStatusInjected
-			&& physicalProbe.m_bTerminalSupportTickChanged
-			&& physicalProbe.m_bTerminalSyncTickChanged
-			&& physicalProbe.m_eSupportStatusAfterTerminal == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
-			&& physicalProbe.m_sRequestRuntimeStatusAfterTerminal == "resolved_physical_group_terminal"
-			&& physicalProbe.m_sSupportResolutionKindAfterTerminal == "physical_group_terminal"
-			&& physicalProbe.m_eOrderStatusAfterTerminal == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
-			&& physicalProbe.m_sOrderRuntimeStatusAfterTerminal.Contains("resolved_group_")
-			&& physicalProbe.m_sOrderResolutionKindAfterTerminal == "physical_group_terminal";
-		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_terminal_resolution", "controlled terminal " + subjectLabel + " resolves linked support and enemy order through real ticks", enemyTerminalActual, CampaignDebugStatus(enemyTerminalResolved, "WARN"), failureLabel + " did not resolve through support/order physical terminal paths", entityId, missionInstanceId, zoneId, orderId);
-		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_terminal_restore", "terminal probe restores active order/support/group state for later phase steps", enemyTerminalActual, CampaignDebugStatus(physicalProbe.m_bTerminalStateRestored || !physicalProbe.m_bTerminalStatusInjected, "WARN"), failureLabel + " terminal probe did not restore sampled runtime state", entityId, missionInstanceId, zoneId, orderId);
 	}
 
 	protected string BuildCampaignDebugActiveGroupActual(HST_ActiveGroupState activeGroup)
@@ -12403,7 +11650,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.zone", "zone support equals civilian support difference", string.Format("zone %1 | FIA %2 | occupier %3", zone, town.m_iFIASupport, town.m_iOccupierSupport), CampaignDebugStatus(zone && zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport))), "zone support does not match civilian support difference", "", "", town.m_sZoneId);
 			AddCampaignDebugAssertion(phaseCase, "phase20.town_security", "police and roadblock presence seeded", string.Format("police %1 | roadblocks %2", town.m_iPolicePresence, town.m_iRoadblockPresence), CampaignDebugStatus(town.m_iPolicePresence > 0 && town.m_iRoadblockPresence > 0), "phase 20 did not seed security presence", "", "", town.m_sZoneId);
 			AddCampaignDebugTownSupportTransitionAssertions(phaseCase, town, zone);
-			AddCampaignDebugCivilianLongWindowAssertions(phaseCase, town, zone);
 			AddCampaignDebugCivilianPopulationAssertions(phaseCase);
 		}
 		else if (index == 28)
@@ -12561,189 +11807,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.marker_restore", "zone marker model restored to original town owner", restoredMarkerActual, CampaignDebugStatus(restoredMarkerOk), "town support transition probe left the zone marker on the temporary owner", "", "", zoneId);
 	}
 
-	protected void AddCampaignDebugCivilianLongWindowAssertions(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_ZoneState zone)
-	{
-		if (!phaseCase)
-			return;
-
-		if (!town || !zone || !m_State || !m_Civilians)
-		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.prerequisite", "town, linked zone, state, and civilian service ready", "missing", "BLOCKED", "civilian long-window reaction probe missing prerequisites");
-			return;
-		}
-
-		string longWindowZoneId = town.m_sZoneId;
-		int originalElapsedSeconds = m_State.m_iElapsedSeconds;
-		int originalFIA = town.m_iFIASupport;
-		int originalOccupier = town.m_iOccupierSupport;
-		int originalReputation = town.m_iReputation;
-		int originalHeat = town.m_iWantedHeat;
-		int originalIncidentSecond = town.m_iLastIncidentSecond;
-		int originalSupportSecond = town.m_iLastSupportChangeSecond;
-		int originalRoadblockSecond = town.m_iLastRoadblockScanSecond;
-		int originalPoliceSecond = town.m_iLastPoliceScanSecond;
-		string originalIncidentReason = town.m_sLastIncidentReason;
-		string originalSecurityReason = town.m_sLastSecurityReason;
-		bool originalUndercoverRestricted = town.m_bUndercoverRestricted;
-		int originalZoneSupport = zone.m_iSupport;
-		string originalOwner = zone.m_sOwnerFactionKey;
-		int originalCaptureProgress = zone.m_iResistanceCaptureProgress;
-		ref array<int> undercoverHeatBefore = {};
-		ref array<HST_EUndercoverStatus> undercoverStatusBefore = {};
-		ref array<string> undercoverReasonBefore = {};
-		foreach (HST_PlayerUndercoverState undercoverBefore : m_State.m_aUndercoverPlayers)
-		{
-			if (!undercoverBefore)
-				continue;
-
-			undercoverHeatBefore.Insert(undercoverBefore.m_iWantedHeat);
-			undercoverStatusBefore.Insert(undercoverBefore.m_eStatus);
-			undercoverReasonBefore.Insert(undercoverBefore.m_sLastReason);
-		}
-
-		town.m_iFIASupport = 55;
-		town.m_iOccupierSupport = 45;
-		town.m_iReputation = 55;
-		town.m_iWantedHeat = 0;
-		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
-		town.m_iLastSupportChangeSecond = m_State.m_iElapsedSeconds;
-		town.m_iLastRoadblockScanSecond = m_State.m_iElapsedSeconds - 60;
-		town.m_iLastPoliceScanSecond = m_State.m_iElapsedSeconds - 90;
-		town.m_sLastIncidentReason = "phase20 long-window arrange";
-		town.m_sLastSecurityReason = "phase20 long-window arrange";
-		town.m_bUndercoverRestricted = false;
-		zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
-		if (m_Preset && !m_Preset.m_sOccupierFactionKey.IsEmpty())
-			zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
-
-		int incidentSupportBefore = zone.m_iSupport;
-		bool incidentChanged = m_Civilians.RegisterIncident(m_State, longWindowZoneId, -10, 6, "phase20 long-window heat probe", m_Preset);
-		int heatAfterIncident = town.m_iWantedHeat;
-		int supportAfterIncident = zone.m_iSupport;
-		bool incidentReasonOk = town.m_sLastIncidentReason == "phase20 long-window heat probe" && town.m_iLastIncidentSecond == m_State.m_iElapsedSeconds && town.m_iLastSupportChangeSecond == m_State.m_iElapsedSeconds;
-		bool incidentHeatOk = heatAfterIncident == 6;
-		bool incidentSupportOk = supportAfterIncident < incidentSupportBefore && zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
-		bool incidentRestrictionOk = town.m_bUndercoverRestricted == (zone.m_iSupport < 25);
-		string incidentActual = BuildCampaignDebugCivilianLongWindowActual("incident", town, zone, incidentSupportBefore, originalElapsedSeconds);
-
-		int decayIntervalSeconds = HST_CivilianService.HEAT_DECAY_SECONDS;
-		int decayTargetCount = Math.Min(3, heatAfterIncident);
-		int expectedHeatAfterDecay = Math.Max(0, heatAfterIncident - decayTargetCount);
-		int lastHeat = heatAfterIncident;
-		int decayTickChangedCount;
-		int decaySampleCount;
-		bool decayStepOk = true;
-		bool decayTimestampOk = true;
-		string decayHistory;
-		for (int decayIndex = 0; decayIndex < decayTargetCount; decayIndex++)
-		{
-			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + decayIntervalSeconds;
-			int expectedStepHeat = Math.Max(0, lastHeat - 1);
-			bool decayTickChanged = m_Civilians.Tick(m_State, decayIntervalSeconds);
-			int sampleHeat = town.m_iWantedHeat;
-			if (decayTickChanged)
-				decayTickChangedCount++;
-			if (sampleHeat != expectedStepHeat)
-				decayStepOk = false;
-			if (town.m_iLastIncidentSecond != m_State.m_iElapsedSeconds)
-				decayTimestampOk = false;
-
-			lastHeat = sampleHeat;
-			decaySampleCount++;
-			string decaySample = string.Format("sample %1 heat %2 expected %3 changed %4 at %5", decaySampleCount, sampleHeat, expectedStepHeat, decayTickChanged, m_State.m_iElapsedSeconds);
-			if (decayHistory.IsEmpty())
-				decayHistory = decaySample;
-			else
-				decayHistory = decayHistory + "; " + decaySample;
-		}
-
-		string decayActual = BuildCampaignDebugCivilianLongWindowActual("decay", town, zone, incidentSupportBefore, originalElapsedSeconds);
-		decayActual = decayActual + string.Format(" | interval %1s | samples %2/%3 | history %4", decayIntervalSeconds, decaySampleCount, decayTargetCount, ShortCampaignDebugLine(decayHistory, 180));
-		bool decayHeatOk = town.m_iWantedHeat == expectedHeatAfterDecay && decayStepOk && decayTimestampOk;
-		bool noUnderflowOk = town.m_iWantedHeat >= 0 && town.m_iWantedHeat <= heatAfterIncident;
-
-		town.m_iFIASupport = originalFIA;
-		town.m_iOccupierSupport = originalOccupier;
-		town.m_iReputation = originalReputation;
-		town.m_iWantedHeat = originalHeat;
-		town.m_iLastIncidentSecond = originalIncidentSecond;
-		town.m_iLastSupportChangeSecond = originalSupportSecond;
-		town.m_iLastRoadblockScanSecond = originalRoadblockSecond;
-		town.m_iLastPoliceScanSecond = originalPoliceSecond;
-		town.m_sLastIncidentReason = originalIncidentReason;
-		town.m_sLastSecurityReason = originalSecurityReason;
-		town.m_bUndercoverRestricted = originalUndercoverRestricted;
-		zone.m_iSupport = originalZoneSupport;
-		zone.m_sOwnerFactionKey = originalOwner;
-		zone.m_iResistanceCaptureProgress = originalCaptureProgress;
-		m_State.m_iElapsedSeconds = originalElapsedSeconds;
-
-		int undercoverRestoreIndex;
-		foreach (HST_PlayerUndercoverState undercoverAfter : m_State.m_aUndercoverPlayers)
-		{
-			if (!undercoverAfter)
-				continue;
-			if (undercoverRestoreIndex >= undercoverHeatBefore.Count())
-				break;
-
-			undercoverAfter.m_iWantedHeat = undercoverHeatBefore[undercoverRestoreIndex];
-			undercoverAfter.m_eStatus = undercoverStatusBefore[undercoverRestoreIndex];
-			undercoverAfter.m_sLastReason = undercoverReasonBefore[undercoverRestoreIndex];
-			undercoverRestoreIndex++;
-		}
-
-		bool undercoverRestored = undercoverRestoreIndex == undercoverHeatBefore.Count();
-		int undercoverVerifyIndex;
-		foreach (HST_PlayerUndercoverState undercoverVerify : m_State.m_aUndercoverPlayers)
-		{
-			if (!undercoverVerify)
-				continue;
-			if (undercoverVerifyIndex >= undercoverHeatBefore.Count())
-			{
-				undercoverRestored = false;
-				break;
-			}
-			if (undercoverVerify.m_iWantedHeat != undercoverHeatBefore[undercoverVerifyIndex])
-				undercoverRestored = false;
-			if (undercoverVerify.m_eStatus != undercoverStatusBefore[undercoverVerifyIndex])
-				undercoverRestored = false;
-			if (undercoverVerify.m_sLastReason != undercoverReasonBefore[undercoverVerifyIndex])
-				undercoverRestored = false;
-
-			undercoverVerifyIndex++;
-		}
-		if (undercoverVerifyIndex != undercoverHeatBefore.Count())
-			undercoverRestored = false;
-
-		bool restored = town.m_iFIASupport == originalFIA
-			&& town.m_iOccupierSupport == originalOccupier
-			&& town.m_iReputation == originalReputation
-			&& town.m_iWantedHeat == originalHeat
-			&& town.m_iLastIncidentSecond == originalIncidentSecond
-			&& town.m_iLastSupportChangeSecond == originalSupportSecond
-			&& town.m_iLastRoadblockScanSecond == originalRoadblockSecond
-			&& town.m_iLastPoliceScanSecond == originalPoliceSecond
-			&& town.m_sLastIncidentReason == originalIncidentReason
-			&& town.m_sLastSecurityReason == originalSecurityReason
-			&& town.m_bUndercoverRestricted == originalUndercoverRestricted
-			&& zone.m_iSupport == originalZoneSupport
-			&& zone.m_sOwnerFactionKey == originalOwner
-			&& zone.m_iResistanceCaptureProgress == originalCaptureProgress
-			&& m_State.m_iElapsedSeconds == originalElapsedSeconds
-			&& undercoverRestored;
-
-		phaseCase.m_aEvidence.Insert("civilian long-window incident | " + incidentActual);
-		phaseCase.m_aEvidence.Insert("civilian long-window decay | " + ShortCampaignDebugLine(decayActual, 260));
-		AddCampaignDebugMetric(phaseCase, "phase20.civilian_long_window.decay_interval", string.Format("%1", decayIntervalSeconds), "seconds");
-		AddCampaignDebugMetric(phaseCase, "phase20.civilian_long_window.decay_samples", string.Format("%1", decaySampleCount), "count");
-		AddCampaignDebugMetric(phaseCase, "phase20.civilian_long_window.heat_after_decay", string.Format("%1", expectedHeatAfterDecay), "heat");
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.incident", "incident mutates town heat, support, restriction, and metadata through the civilian service", incidentActual, CampaignDebugStatus(incidentChanged && incidentHeatOk && incidentSupportOk && incidentRestrictionOk && incidentReasonOk), "long-window incident did not update town reaction state correctly", "", "", longWindowZoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.decay_samples", "civilian tick samples each configured heat-decay interval", decayActual, CampaignDebugStatus(decaySampleCount == decayTargetCount && decayTargetCount > 0 && decayTickChangedCount == decayTargetCount), "long-window heat decay did not tick at each configured interval", "", "", longWindowZoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.decay_formula", "town heat decreases by one per interval and updates last incident second", decayActual, CampaignDebugStatus(decayHeatOk), "long-window heat decay did not follow civilian service timing", "", "", longWindowZoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.no_underflow", "wanted heat remains bounded during decay", decayActual, CampaignDebugStatus(noUnderflowOk), "long-window heat decay underflowed or increased unexpectedly", "", "", longWindowZoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_long_window.restore", "temporary long-window town, zone, elapsed-time, and undercover heat state restored", BuildCampaignDebugCivilianLongWindowActual("restored", town, zone, originalZoneSupport, originalElapsedSeconds), CampaignDebugStatus(restored), "long-window civilian probe leaked temporary state", "", "", longWindowZoneId);
-	}
-
 	protected bool IsCampaignDebugTownSupportBounded(HST_CivilianZoneState town, HST_ZoneState zone)
 	{
 		if (!town || !zone)
@@ -12759,16 +11822,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string actual = string.Format("%1 | zone %2 | FIA %3 | occupier %4 | reputation %5 | heat %6 | zone support %7 | owner %8", label, EmptyCampaignDebugField(town.m_sZoneId), town.m_iFIASupport, town.m_iOccupierSupport, town.m_iReputation, town.m_iWantedHeat, zone.m_iSupport, EmptyCampaignDebugField(zone.m_sOwnerFactionKey));
 		actual = actual + string.Format(" | support before %1 | owner before %2 | capture %3 | restricted %4 | reason %5 | security %6", supportBefore, EmptyCampaignDebugField(ownerBefore), zone.m_iResistanceCaptureProgress, town.m_bUndercoverRestricted, EmptyCampaignDebugField(town.m_sLastIncidentReason), EmptyCampaignDebugField(town.m_sLastSecurityReason));
-		return actual;
-	}
-
-	protected string BuildCampaignDebugCivilianLongWindowActual(string label, HST_CivilianZoneState town, HST_ZoneState zone, int supportBefore, int elapsedBefore)
-	{
-		if (!town || !zone || !m_State)
-			return "missing";
-
-		string actual = string.Format("%1 | zone %2 | heat %3 | FIA %4 | occupier %5 | reputation %6 | support %7 -> %8", label, EmptyCampaignDebugField(town.m_sZoneId), town.m_iWantedHeat, town.m_iFIASupport, town.m_iOccupierSupport, town.m_iReputation, supportBefore, zone.m_iSupport);
-		actual = actual + string.Format(" | elapsed %1 -> %2 | last incident %3 | reason %4 | restricted %5 | owner %6", elapsedBefore, m_State.m_iElapsedSeconds, town.m_iLastIncidentSecond, EmptyCampaignDebugField(town.m_sLastIncidentReason), town.m_bUndercoverRestricted, EmptyCampaignDebugField(zone.m_sOwnerFactionKey));
 		return actual;
 	}
 
@@ -13139,7 +12192,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (physicalProbe.m_Group)
 			petrosAttackGroupId = physicalProbe.m_Group.m_sGroupId;
 		AddCampaignDebugEnemyOrderRouteSampleAssertions(defenseCase, "phase22.attack", "phase22.attack", "Petros attacker group", "Phase 22 Petros attack", physicalProbe, petrosAttackGroupId, "", targetZoneId, orderId);
-		AddCampaignDebugAssertion(defenseCase, "phase22.attack.wave_gap", "multi-wave/contact behavior remains explicitly not covered by this route/terminal sample", "single routed attacker group sampled", "WARN", "Phase 22 still needs a longer wave/contact probe", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.attack.wave_gap", "multi-wave/contact/arrival behavior remains explicitly not covered by this route sample", "single routed attacker group sampled", "WARN", "Phase 22 still needs a longer wave/contact/arrival probe", "", "", targetZoneId, orderId);
 	}
 
 	protected void AddCampaignDebugPhase22SuccessAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask)

@@ -1963,7 +1963,9 @@ class HST_MissionRuntimeService
 		if (ShouldKeepConvoyContactPhase(mission, asset))
 			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
 		else if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
 			mission.m_sRuntimePhase = PHASE_CAPTURED;
+		}
 		result = "h-istasi mission | captured " + BuildAssetShortLabel(asset);
 		eventType = "captured";
 		return true;
@@ -2100,7 +2102,9 @@ class HST_MissionRuntimeService
 		if (ShouldKeepConvoyContactPhase(mission, asset))
 			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
 		else
+		{
 			mission.m_sRuntimePhase = PHASE_DESTROYED;
+		}
 		result = "h-istasi mission | sabotaged " + BuildAssetShortLabel(asset);
 		eventType = "sabotaged";
 		return true;
@@ -5408,11 +5412,6 @@ class HST_MissionRuntimeService
 		}
 
 		return resolved;
-	}
-
-	IEntity GetRuntimeEntityForDebug(string runtimeEntityId)
-	{
-		return GetRuntimeEntity(runtimeEntityId);
 	}
 
 	protected int ResolveConvoyArrivalSeconds(HST_ActiveMissionState mission)
