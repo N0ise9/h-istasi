@@ -34,6 +34,55 @@ class HST_MapMarkerService
 			m_NativeReconciler.SetDebugLoggingEnabled(enabled);
 	}
 
+	int GetLastNativeEligibleCount()
+	{
+		return m_iLastNativeEligibleCount;
+	}
+
+	int GetLastNativePublishedCount()
+	{
+		return m_iLastNativePublishedCount;
+	}
+
+	int GetLastNativeSkippedCount()
+	{
+		return m_iLastNativeSkippedCount;
+	}
+
+	bool IsNativePublishPending()
+	{
+		return m_bNativePublishPending;
+	}
+
+	bool IsNativeMarkerManagerReady()
+	{
+		return ResolveNativeMarkerManager() != null;
+	}
+
+	int GetLastNativeReconcileFailedCount()
+	{
+		if (!m_NativeReconciler)
+			return 0;
+
+		HST_MapMarkerReconcileResult result = m_NativeReconciler.GetLastResult();
+		if (!result)
+			return 0;
+
+		return result.m_iFailed;
+	}
+
+	int GetTrackedNativeStaticMissingCount()
+	{
+		if (!m_NativeReconciler)
+			return 0;
+
+		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (!markerManager)
+			return 0;
+
+		return m_NativeReconciler.CountTrackedStaticMissing(markerManager);
+	}
+
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state || !preset)

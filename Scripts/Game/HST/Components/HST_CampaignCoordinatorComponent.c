@@ -5279,6 +5279,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return actual;
 	}
 
+	protected string BuildCampaignDebugNativeMarkerActual(int eligible, int published, int skipped, int failed, int missingStatic, bool pending)
+	{
+		string actual = string.Format("eligible %1 | published %2 | skipped %3 | failed %4 | missing static %5", eligible, published, skipped, failed, missingStatic);
+		actual = actual + string.Format(" | pending %1", pending);
+		return actual;
+	}
+
 	protected string BuildCampaignDebugCaseLogText(HST_CampaignDebugCaseResult caseResult)
 	{
 		if (!caseResult)
@@ -12551,13 +12558,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return;
 
-		bool nativeManagerReady = !result.Contains("native marker manager not ready");
+		bool nativeManagerReady = m_MapMarkers.IsNativeMarkerManagerReady() && !result.Contains("native marker manager not ready");
+		int nativeEligible = m_MapMarkers.GetLastNativeEligibleCount();
+		int nativePublished = m_MapMarkers.GetLastNativePublishedCount();
+		int nativeSkipped = m_MapMarkers.GetLastNativeSkippedCount();
+		int nativeFailed = m_MapMarkers.GetLastNativeReconcileFailedCount();
+		int nativeMissingStatic = m_MapMarkers.GetTrackedNativeStaticMissingCount();
+		bool nativePending = m_MapMarkers.IsNativePublishPending();
+		string nativeActual = BuildCampaignDebugNativeMarkerActual(nativeEligible, nativePublished, nativeSkipped, nativeFailed, nativeMissingStatic, nativePending);
+		AddCampaignDebugMetric(phaseCase, "phase23.native.eligible", string.Format("%1", nativeEligible), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.native.published", string.Format("%1", nativePublished), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.native.skipped", string.Format("%1", nativeSkipped), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.native.failed", string.Format("%1", nativeFailed), "count");
+		AddCampaignDebugMetric(phaseCase, "phase23.native.static_missing", string.Format("%1", nativeMissingStatic), "count");
+
 		AddCampaignDebugAssertion(phaseCase, "phase23.native.report_header", "native marker report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi native marker report")), "Phase 23 native marker report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.native.manager", "native marker manager ready or explicit environment warning", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(nativeManagerReady, "WARN"), "Native marker manager unavailable during Phase 23 report");
 		if (nativeManagerReady)
 		{
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.state_records", "native report includes desired/state/native handle counts", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("desired records:") && result.Contains("state records:") && result.Contains("tracked native handles:")), "Phase 23 native marker report missing record/handle counts");
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.reconcile", "native report includes reconciliation details", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("last reconcile") || result.Contains("reconciler")), "Phase 23 native marker report missing reconcile details");
+			AddCampaignDebugAssertion(phaseCase, "phase23.native.eligible_records", "marker refresh produced native-eligible marker records", nativeActual, CampaignDebugStatus(nativeEligible > 0), "Phase 23 native marker refresh found no eligible marker records");
+			AddCampaignDebugAssertion(phaseCase, "phase23.native.published_records", "all native-eligible marker records are published without skipped/failed/pending state", nativeActual, CampaignDebugStatus(nativeEligible > 0 && nativePublished == nativeEligible && nativeSkipped == 0 && nativeFailed == 0 && !nativePending), "Phase 23 native marker records were not fully published");
+			AddCampaignDebugAssertion(phaseCase, "phase23.native.tracked_static", "tracked static native marker handles remain live", nativeActual, CampaignDebugStatus(nativeMissingStatic == 0), "Phase 23 native marker report found missing tracked static handles");
 		}
 		AddCampaignDebugAssertion(phaseCase, "phase23.native.player_report", "player marker runtime report included", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(m_PlayerMapMarkers != null && result.Contains("h-istasi player marker report"), "WARN"), "Phase 23 native marker report did not include player marker runtime state");
 	}
@@ -14786,6 +14809,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi native marker report | failed: admin required";
 		if (!m_MapMarkers)
 			return "h-istasi native marker report | failed: marker service not ready";
+
+		if (m_State && m_Preset)
+			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
 
 		string report = m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
 		if (m_PlayerMapMarkers)
