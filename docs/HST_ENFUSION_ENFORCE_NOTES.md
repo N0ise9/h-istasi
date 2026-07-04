@@ -280,6 +280,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Campaign debug physical probes should recover or block on player liveness before real interactions.
   - `SCR_DamageManagerComponent.FullHeal()` is useful only for a non-destroyed controlled entity; destroyed players need the normal h-istasi respawn sweep.
   - Put liveness guards at the teleport/interaction boundary so later cargo, captive, or area probes do not report misleading `player is not alive` mission-action failures caused by an earlier physical probe.
+  - Do not pre-block render-bubble, civilian population, or similar physical probes solely because the current controlled entity is not living. If bootstrap has not already marked physical tests blocked, call the shared campaign-debug living-player recovery path first, then record `BLOCKED` only if recovery still cannot produce a living entity.
 
 - Vehicle source capability metadata is persisted state from campaign schema 19 onward.
   - Use prefab-based `HST_VehicleCapabilityPolicy` backfill for pre-schema-19 saves, new captures, or direct world scans; do not reapply it during current-schema save restore because it can erase explicit source flags.

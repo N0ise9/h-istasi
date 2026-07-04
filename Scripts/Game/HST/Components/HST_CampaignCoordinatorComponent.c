@@ -9656,9 +9656,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (m_bCampaignDebugPhysicalBlocked || !IsLivingEntity(playerEntity))
+		bool playerReady = !m_bCampaignDebugPhysicalBlocked && EnsureCampaignDebugLivingPlayer("render bubble prerequisite");
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!playerReady || !IsLivingEntity(playerEntity))
 		{
-			AddCampaignDebugAssertion(renderCase, "render_bubble.prerequisite.player", "living controlled player entity available", "missing", "BLOCKED", "render bubble probe requires a controlled player entity");
+			AddCampaignDebugAssertion(renderCase, "render_bubble.prerequisite.player", "living controlled player entity available", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "render bubble probe requires a controlled player entity");
 			FinalizeCampaignDebugCaseFromAssertions(renderCase);
 			return renderCase;
 		}
@@ -13525,9 +13527,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
-		if (m_bCampaignDebugPhysicalBlocked || !IsLivingEntity(playerEntity))
+		bool playerReady = !m_bCampaignDebugPhysicalBlocked && EnsureCampaignDebugLivingPlayer("phase20 civilian population prerequisite");
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (!playerReady || !IsLivingEntity(playerEntity))
 		{
-			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.player", "living controlled player entity available", "missing", "BLOCKED", "civilian population probe requires a controlled player entity");
+			AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.player", "living controlled player entity available", BuildCampaignDebugPlayerEntityActual(playerEntity), "BLOCKED", "civilian population probe requires a controlled player entity");
 			return;
 		}
 
