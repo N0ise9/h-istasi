@@ -3195,10 +3195,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			playerAssertion.m_fDistanceMeters = playerDistance;
 		}
 		AddCampaignDebugMetric(bootstrapCase, "bootstrap.spawn_requests", string.Format("%1", spawnRequests), "count");
+		string report = string.Format("accessReady %1 | activeReady %2 | phase %3 | HQ deployed %4 | Petros %5 | runtime %6 | spawn requests %7 | teleported %8", accessReady, ready, m_State.m_ePhase, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned, spawnRequests, teleported);
+		bootstrapCase.m_aEvidence.Insert(report);
 		FinalizeCampaignDebugCaseFromAssertions(bootstrapCase);
 		RecordCampaignDebugCase(bootstrapCase);
-		string report = string.Format("accessReady %1 | activeReady %2 | phase %3 | HQ deployed %4 | Petros %5 | runtime %6 | spawn requests %7 | teleported %8", accessReady, ready, m_State.m_ePhase, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned, spawnRequests, teleported);
-		RecordCampaignDebugResult("bootstrap active campaign", report, accessReady && ready && m_State.m_bHQDeployed && m_State.m_bPetrosAlive);
 		AdvanceCampaignDebugStep("Bootstrap complete.");
 	}
 
@@ -3606,8 +3606,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string runtimeSummaryAfter;
 		if (m_HQ)
 			runtimeSummaryAfter = m_HQ.BuildRuntimeObjectDebugSummary();
-		RecordCampaignDebugResult("player spawn sweep", string.Format("spawn requests %1 | HQ %2 | runtime %3", spawnRequests, m_State.m_vHQPosition, m_State.m_bHQRuntimeObjectsSpawned), m_PlayerSpawn != null);
-		RecordCampaignDebugAction("HQ rebuild", rebuildResult);
 		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, rebuildResult, runtimeSummaryBefore, runtimeSummaryAfter));
 		RecordCampaignDebugObservation("HQ threat", RequestMemberInspectHQThreat(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
@@ -4521,11 +4519,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		report = report + "\n" + RequestMemberInspectSupport(m_iCampaignDebugPlayerId);
 		report = report + "\n" + RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId);
 		report = report + "\n" + RequestMemberManualCheckpointReport(m_iCampaignDebugPlayerId);
-		RecordCampaignDebugResult("phase25 manual soak gaps", "manual gaps remain: real restart after each primitive, second-client join/reconnect, and two-hour full-session soak", true, true);
+		RecordCampaignDebugCase(BuildCampaignDebugPhase25ManualGapsCase());
 		report = report + "\n" + BuildCampaignDebugPhase25SoakReport();
 		RecordCampaignDebugObservation("final report", report);
 		m_iCampaignDebugStepIndex++;
 		m_iCampaignDebugWaitSeconds = 1;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase25ManualGapsCase()
+	{
+		HST_CampaignDebugCaseResult gapCase = CreateCampaignDebugCase("phase25.manual_external_gaps", "soak", "external_harness", "final");
+		string gapSummary = "real restart after each primitive, second-client join/reconnect, and two-hour full-session soak require external automation";
+		gapCase.m_aEvidence.Insert(gapSummary);
+		AddCampaignDebugAssertion(gapCase, "phase25.real_restart", "real restart-after-primitive explicitly reported as not executed", "manual external gap", "WARN", "single-button in-process runner cannot restart the whole session");
+		AddCampaignDebugAssertion(gapCase, "phase25.second_client", "second-client join/reconnect explicitly reported as not executed", "manual external gap", "WARN", "single-button server runner cannot create a second client");
+		AddCampaignDebugAssertion(gapCase, "phase25.two_hour_soak", "two-hour endurance soak explicitly reported as not executed", "manual external gap", "WARN", "long soak requires external automation time budget");
+		FinalizeCampaignDebugCaseFromAssertions(gapCase);
+		return gapCase;
 	}
 
 	protected void CompleteCampaignDebugRun()
