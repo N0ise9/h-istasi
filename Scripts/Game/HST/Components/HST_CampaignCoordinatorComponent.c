@@ -4446,10 +4446,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EnsureCampaignDebugActivePhase("phase 0-13 mechanics");
 		string label = ResolveCampaignDebugEarlyPhaseLabel(m_iCampaignDebugEarlyPhaseIndex);
 		string result = ExecuteCampaignDebugEarlyPhaseStep(m_iCampaignDebugEarlyPhaseIndex);
-		if (IsCampaignDebugEarlyPhaseReportStep(m_iCampaignDebugEarlyPhaseIndex))
-			RecordCampaignDebugObservation(label, result);
-		else
-			RecordCampaignDebugAction(label, result);
+		if (!HasCampaignDebugEarlyPhaseTypedProbe(m_iCampaignDebugEarlyPhaseIndex))
+		{
+			if (IsCampaignDebugEarlyPhaseReportStep(m_iCampaignDebugEarlyPhaseIndex))
+				RecordCampaignDebugObservation(label, result);
+			else
+				RecordCampaignDebugAction(label, result);
+		}
 		if (m_iCampaignDebugEarlyPhaseIndex == 6 || m_iCampaignDebugEarlyPhaseIndex == 8)
 			RecordCampaignDebugConvoyPhysicalProbe(label, m_sCampaignDebugEarlyMissionInstanceId);
 
@@ -6839,6 +6842,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 6:
 			case 8:
 			case 11:
+			case 16:
+			case 17:
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool HasCampaignDebugEarlyPhaseTypedProbe(int index)
+	{
+		switch (index)
+		{
+			case 0:
+			case 1:
+			case 4:
+			case 10:
+			case 12:
+			case 13:
+			case 14:
+			case 15:
 			case 16:
 			case 17:
 				return true;
