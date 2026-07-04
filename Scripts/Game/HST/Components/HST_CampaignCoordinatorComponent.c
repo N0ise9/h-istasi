@@ -8197,6 +8197,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string leaveActual = BuildCampaignDebugRenderBubbleZoneActual(zone, leaveGroupCount, leaveSpawnedGroupCount);
 		renderCase.m_aEvidence.Insert(string.Format("leave | teleported %1 | changed %2 | zone %3", leaveTeleport, leaveChanged, leaveActual));
 
+		int cleanupSampleLimit = 3;
+		int cleanupSampleSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+		int cleanupSampleCount;
+		int cleanupWindowSeconds;
+		int cleanupFinalGroupCount = leaveGroupCount;
+		int cleanupFinalSpawnedGroupCount = leaveSpawnedGroupCount;
+		int cleanupMaxGroupCount = leaveGroupCount;
+		int cleanupMaxSpawnedGroupCount = leaveSpawnedGroupCount;
+		string cleanupLastObserved = leaveActual;
+		string cleanupSampleHistory;
+		for (int cleanupSampleIndex = 0; cleanupSampleIndex < cleanupSampleLimit; cleanupSampleIndex++)
+		{
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + cleanupSampleSeconds;
+			cleanupWindowSeconds = cleanupWindowSeconds + cleanupSampleSeconds;
+			bool cleanupChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
+			cleanupFinalGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
+			cleanupFinalSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
+			cleanupMaxGroupCount = Math.Max(cleanupMaxGroupCount, cleanupFinalGroupCount);
+			cleanupMaxSpawnedGroupCount = Math.Max(cleanupMaxSpawnedGroupCount, cleanupFinalSpawnedGroupCount);
+			cleanupSampleCount++;
+			cleanupLastObserved = string.Format("%1:%2s changed %3 | %4", cleanupSampleIndex + 1, cleanupWindowSeconds, cleanupChanged, BuildCampaignDebugRenderBubbleZoneActual(zone, cleanupFinalGroupCount, cleanupFinalSpawnedGroupCount));
+			if (cleanupSampleHistory.IsEmpty())
+				cleanupSampleHistory = cleanupLastObserved;
+			else
+				cleanupSampleHistory = cleanupSampleHistory + " | " + cleanupLastObserved;
+		}
+
+		bool cleanupWindowInactive = !zone.m_bActive && zone.m_iActiveInfantryCount == 0 && zone.m_iActiveVehicleCount == 0 && cleanupFinalGroupCount == 0;
+		bool cleanupTimedOut = cleanupSampleCount >= cleanupSampleLimit && !cleanupWindowInactive;
+		string cleanupTimeoutStatus = "PASS";
+		if (cleanupSampleCount < cleanupSampleLimit)
+			cleanupTimeoutStatus = "WARN";
+		if (cleanupTimedOut)
+			cleanupTimeoutStatus = "FAIL";
+		renderCase.m_aEvidence.Insert("cleanup window | " + ShortCampaignDebugLine(cleanupSampleHistory, 360));
+
 		if (garrison)
 		{
 			garrison.m_iInfantryCount = originalGarrisonInfantry;
@@ -8209,6 +8245,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(renderCase, "render_bubble.activation_radius", string.Format("%1", Math.Round(activationRadius)), "m");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_groups", string.Format("%1", nearGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_spawned_groups", string.Format("%1", nearSpawnedGroupCount), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_sample_count", string.Format("%1", cleanupSampleCount), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_window_seconds", string.Format("%1", cleanupWindowSeconds), "seconds");
+		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_max_groups", string.Format("%1", cleanupMaxGroupCount), "count");
+		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_max_spawned_groups", string.Format("%1", cleanupMaxSpawnedGroupCount), "count");
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_selected", "inactive zone with abstract garrison and no active groups selected", selectedActual, CampaignDebugStatus(garrison != null && originalTotalGarrison > 0 && originalGroupCount == 0), "selected zone was not a clean abstract-garrison render-bubble target", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.teleport", "player teleported outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", farTeleport, Math.Round(farDistance), Math.Round(activationRadius)), CampaignDebugStatus(farTeleport && farDistance > activationRadius), "could not place player outside selected zone activation radius", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.inactive", "far update leaves selected zone inactive with no active groups", farActual, CampaignDebugStatus(farInactive), "far render-bubble update left active state or active groups behind", "", "", zone.m_sZoneId);
@@ -8216,6 +8256,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.active", "near update activates zone and physicalizes active groups", nearActual, CampaignDebugStatus(nearActive), "near render-bubble update did not activate and spawn active groups", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.budget", "active groups/forces stay within abstract garrison budget", string.Format("active forces %1/%2 | groups %3", nearTotalActiveForces, originalTotalGarrison, nearGroupCount), CampaignDebugStatus(nearWithinBudget), "render-bubble activation exceeded selected zone garrison budget", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_leave.cleanup", "leave update deactivates zone and folds/removes active groups", leaveActual, CampaignDebugStatus(leaveInactive), "leave render-bubble update did not clean up active zone runtime", "", "", zone.m_sZoneId);
+		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_leave.cleanup_timeout", "repeated cleanup window leaves no active zone runtime", string.Format("timed out %1 | window %2s | samples %3 | last %4", cleanupTimedOut, cleanupWindowSeconds, cleanupSampleCount, ShortCampaignDebugLine(cleanupLastObserved, 220)), cleanupTimeoutStatus, "render-bubble cleanup window timed out with active zone runtime still present", "", "", zone.m_sZoneId);
 		int restoredGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
 		int restoredSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
 		bool restoreMatched = zone.m_bActive == originalActive
