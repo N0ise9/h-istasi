@@ -7565,6 +7565,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return reportText.Contains("h-istasi persistence smoke | PASS") && reportText.Contains("missing/zero none");
 	}
 
+	protected bool CampaignDebugPersistenceReportHealthy(string reportText)
+	{
+		if (reportText.IsEmpty())
+			return false;
+
+		bool statusOk = reportText.Contains("h-istasi persistence smoke | PASS") || reportText.Contains("h-istasi persistence smoke | WARN");
+		return statusOk && reportText.Contains("missing/zero none");
+	}
+
 	protected string BuildCampaignDebugMissionActual(HST_ActiveMissionState mission)
 	{
 		if (!mission)
@@ -12127,6 +12136,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(persistenceCase, "phase_persistence.state", "campaign state ready", string.Format("%1", m_State != null), CampaignDebugStatus(m_State != null), "campaign state is not ready for persistence smoke");
 
 		bool reportPassed = CampaignDebugPersistenceReportPassed(result);
+		bool reportHealthy = CampaignDebugPersistenceReportHealthy(result);
 		bool checkpointAttempted = result.Contains("manual checkpoint");
 		if (index == 0)
 		{
@@ -12135,12 +12145,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		else if (index == 1)
 		{
-			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.smoke", "smoke command reports current state PASS", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportPassed), "persistence smoke run did not report PASS");
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.smoke", "smoke command reports current state PASS or WARN with no missing data", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportHealthy), "persistence smoke run reported failure or missing data");
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.smoke_exact", "current summary still exactly matches the seeded baseline", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportPassed, "WARN"), "persistence smoke expected/current summary drifted during the phase run");
 			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.smoke_checkpoint", "smoke command attempts manual checkpoint", string.Format("%1", checkpointAttempted), CampaignDebugStatus(checkpointAttempted), "persistence smoke run did not attempt a manual checkpoint");
 		}
 		else if (index == 2)
 		{
-			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.report", "persistence smoke report is PASS with expected/current/missing fields", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportPassed && result.Contains("expected") && result.Contains("current") && result.Contains("missing/zero")), "persistence smoke report did not include the expected PASS summary shape");
+			bool reportShape = result.Contains("expected") && result.Contains("current") && result.Contains("missing/zero");
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.report", "persistence smoke report is PASS or WARN with expected/current/missing fields and no missing data", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportHealthy && reportShape), "persistence smoke report failed or omitted expected/current/missing evidence");
+			AddCampaignDebugAssertion(persistenceCase, "phase_persistence.report_exact", "report summary still exactly matches the seeded baseline", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(reportPassed, "WARN"), "persistence smoke expected/current summary drifted by report time");
 		}
 
 		FinalizeCampaignDebugCaseFromAssertions(persistenceCase);

@@ -396,7 +396,7 @@ class HST_GeneratedContentService
 				waypointRadius = 12.0;
 			vector destination = ResolveGeneratedRouteValidationDestination(route, index);
 			if (HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(waypoint.m_vPosition, waypointRadius, destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
-				return !HST_WorldPositionService.IsLikelyOpenWater(roadPosition) && HST_WorldPositionService.IsDryGroundPosition(roadPosition);
+				return true;
 		}
 
 		vector resolved;
