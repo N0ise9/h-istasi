@@ -272,11 +272,21 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	bool m_bSyncTickChanged;
 	bool m_bSpawnTickChanged;
 	bool m_bRouteTickChanged;
+	bool m_bArrivalRouteTickChanged;
+	bool m_bArrivalSupportTickChanged;
+	bool m_bArrivalSyncTickChanged;
+	bool m_bTerminalStatusInjected;
+	bool m_bTerminalSupportTickChanged;
+	bool m_bTerminalSyncTickChanged;
+	bool m_bTerminalStateRestored;
 	bool m_bTargetWasActive;
 	bool m_bTargetActiveRestored;
 	int m_iElapsedBefore;
 	int m_iElapsedAfter;
 	int m_iRouteAdvanceSeconds;
+	int m_iArrivalAdvanceSeconds;
+	int m_iSupportResolvedAtSecondAfterTerminal;
+	int m_iOrderResolvedAtSecondAfterTerminal;
 	vector m_vGroupPositionBefore;
 	vector m_vGroupPositionAfter;
 	float m_fDistanceBefore;
@@ -292,6 +302,19 @@ class HST_CampaignDebugEnemyOrderPhysicalProbeContext
 	string m_sRouteLastObserved;
 	string m_sRouteTimeoutEvidence;
 	string m_sGroupStatusAfterRoute;
+	string m_sGroupStatusAtArrival;
+	string m_sRequestRuntimeStatusAtArrival;
+	string m_sOrderRuntimeStatusAtArrival;
+	string m_sGroupStatusBeforeTerminal;
+	string m_sGroupStatusAfterTerminal;
+	string m_sRequestRuntimeStatusAfterTerminal;
+	string m_sOrderRuntimeStatusAfterTerminal;
+	string m_sSupportResolutionKindAfterTerminal;
+	string m_sOrderResolutionKindAfterTerminal;
+	HST_ESupportRequestStatus m_eSupportStatusAtArrival = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	HST_EEnemyOrderStatus m_eOrderStatusAtArrival = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
+	HST_ESupportRequestStatus m_eSupportStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+	HST_EEnemyOrderStatus m_eOrderStatusAfterTerminal = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
 	string m_sFailureReason;
 }
 

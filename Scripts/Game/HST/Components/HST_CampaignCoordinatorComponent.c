@@ -11803,6 +11803,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (physicalProbe.m_Group)
 			counterattackGroupId = physicalProbe.m_Group.m_sGroupId;
 		AddCampaignDebugEnemyOrderRouteSampleAssertions(captureCase, "phase17.counterattack", "phase17.counterattack", "counterattack group", "Phase 17 physical counterattack", physicalProbe, counterattackGroupId, "", targetZoneId, counterattackOrder.m_sOrderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.wave_gap", "multi-wave/contact behavior remains explicitly not covered by this route/terminal sample", "single routed counterattack group sampled", "WARN", "Phase 17 still needs a longer wave/contact probe", "", "", targetZoneId, counterattackOrder.m_sOrderId);
 	}
 
 	protected HST_CampaignDebugEnemyOrderPhysicalProbeContext ProbeCampaignDebugEnemyOrderPhysicalAdvance(HST_EnemyOrderState physicalOrder, HST_ZoneState targetZone, string label)
@@ -11821,6 +11822,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		physicalProbe.m_sRouteSampleHistory = "";
 		physicalProbe.m_sRouteLastObserved = "";
 		physicalProbe.m_sRouteTimeoutEvidence = "";
+		physicalProbe.m_bArrivalRouteTickChanged = false;
+		physicalProbe.m_bArrivalSupportTickChanged = false;
+		physicalProbe.m_bArrivalSyncTickChanged = false;
+		physicalProbe.m_bTerminalStatusInjected = false;
+		physicalProbe.m_bTerminalSupportTickChanged = false;
+		physicalProbe.m_bTerminalSyncTickChanged = false;
+		physicalProbe.m_bTerminalStateRestored = false;
+		physicalProbe.m_iArrivalAdvanceSeconds = 0;
+		physicalProbe.m_iSupportResolvedAtSecondAfterTerminal = 0;
+		physicalProbe.m_iOrderResolvedAtSecondAfterTerminal = 0;
+		physicalProbe.m_sGroupStatusAtArrival = "";
+		physicalProbe.m_sRequestRuntimeStatusAtArrival = "";
+		physicalProbe.m_sOrderRuntimeStatusAtArrival = "";
+		physicalProbe.m_sGroupStatusBeforeTerminal = "";
+		physicalProbe.m_sGroupStatusAfterTerminal = "";
+		physicalProbe.m_sRequestRuntimeStatusAfterTerminal = "";
+		physicalProbe.m_sOrderRuntimeStatusAfterTerminal = "";
+		physicalProbe.m_sSupportResolutionKindAfterTerminal = "";
+		physicalProbe.m_sOrderResolutionKindAfterTerminal = "";
+		physicalProbe.m_eSupportStatusAtArrival = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+		physicalProbe.m_eOrderStatusAtArrival = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
+		physicalProbe.m_eSupportStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
+		physicalProbe.m_eOrderStatusAfterTerminal = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED;
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector || !m_SupportRequests || !m_PhysicalWar || !m_Balance)
 		{
 			physicalProbe.m_sFailureReason = "physical probe services not ready";
@@ -11885,10 +11909,126 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			physicalProbe.m_sFailureReason = "linked active group missing";
 		}
 
+		if (physicalProbe.m_Group && physicalProbe.m_SupportRequest)
+			ProbeCampaignDebugEnemyOrderArrivalAndTerminal(physicalProbe, physicalOrder);
+
 		targetZone.m_bActive = physicalProbe.m_bTargetWasActive;
 		physicalProbe.m_bTargetActiveRestored = true;
 		physicalProbe.m_iElapsedAfter = m_State.m_iElapsedSeconds;
 		return physicalProbe;
+	}
+
+	protected void ProbeCampaignDebugEnemyOrderArrivalAndTerminal(HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe, HST_EnemyOrderState physicalOrder)
+	{
+		if (!physicalProbe || !physicalProbe.m_SupportRequest || !physicalProbe.m_Group || !m_State || !m_Preset || !m_EnemyDirector || !m_SupportRequests || !m_EnemyCommander || !m_PhysicalWar)
+			return;
+
+		string enemyOrderId = "";
+		if (physicalOrder)
+			enemyOrderId = physicalOrder.m_sOrderId;
+		string enemySupportId = physicalProbe.m_SupportRequest.m_sRequestId;
+		string enemyGroupId = physicalProbe.m_Group.m_sGroupId;
+		int enemyArrivalAtSecond = physicalProbe.m_SupportRequest.m_iRequestedAtSecond + Math.Max(0, physicalProbe.m_SupportRequest.m_iETASeconds);
+		int enemyArrivalAdvanceSeconds = Math.Max(0, enemyArrivalAtSecond - m_State.m_iElapsedSeconds);
+		int enemyArrivalRemainder = (m_State.m_iElapsedSeconds + enemyArrivalAdvanceSeconds) % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+		if (enemyArrivalRemainder != 0)
+			enemyArrivalAdvanceSeconds = enemyArrivalAdvanceSeconds + (HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - enemyArrivalRemainder);
+		physicalProbe.m_iArrivalAdvanceSeconds = enemyArrivalAdvanceSeconds;
+		if (enemyArrivalAdvanceSeconds > 0)
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + enemyArrivalAdvanceSeconds;
+
+		physicalProbe.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+		physicalProbe.m_bArrivalSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		physicalProbe.m_bArrivalSyncTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(enemySupportId);
+		if (!enemyOrderId.IsEmpty())
+			physicalProbe.m_Order = FindEnemyOrderById(enemyOrderId);
+		else
+			physicalProbe.m_Order = physicalOrder;
+		physicalProbe.m_Group = m_State.FindActiveGroup(enemyGroupId);
+		if (physicalProbe.m_Group)
+			physicalProbe.m_sGroupStatusAtArrival = physicalProbe.m_Group.m_sRuntimeStatus;
+		if (physicalProbe.m_SupportRequest)
+		{
+			physicalProbe.m_eSupportStatusAtArrival = physicalProbe.m_SupportRequest.m_eStatus;
+			physicalProbe.m_sRequestRuntimeStatusAtArrival = physicalProbe.m_SupportRequest.m_sRuntimeStatus;
+		}
+		if (physicalProbe.m_Order)
+		{
+			physicalProbe.m_eOrderStatusAtArrival = physicalProbe.m_Order.m_eStatus;
+			physicalProbe.m_sOrderRuntimeStatusAtArrival = physicalProbe.m_Order.m_sRuntimeStatus;
+		}
+
+		bool enemyArrived = physicalProbe.m_SupportRequest
+			&& physicalProbe.m_Order
+			&& physicalProbe.m_Group
+			&& physicalProbe.m_SupportRequest.m_sRuntimeStatus == "physical_arrived"
+			&& (physicalProbe.m_Group.m_sRuntimeStatus == "support_arrived" || physicalProbe.m_Group.m_sRuntimeStatus == "support_active" || physicalProbe.m_Group.m_sRuntimeStatus == "arrived");
+		if (!enemyArrived)
+			return;
+
+		HST_EEnemyOrderStatus enemyOrderStatusBeforeTerminal = physicalProbe.m_Order.m_eStatus;
+		int enemyOrderResolvedBeforeTerminal = physicalProbe.m_Order.m_iResolvedAtSecond;
+		string enemyOrderRuntimeBeforeTerminal = physicalProbe.m_Order.m_sRuntimeStatus;
+		string enemyOrderResolutionBeforeTerminal = physicalProbe.m_Order.m_sResolutionKind;
+		string enemyOrderFailureBeforeTerminal = physicalProbe.m_Order.m_sFailureReason;
+		HST_ESupportRequestStatus enemySupportStatusBeforeTerminal = physicalProbe.m_SupportRequest.m_eStatus;
+		int enemySupportResolvedBeforeTerminal = physicalProbe.m_SupportRequest.m_iResolvedAtSecond;
+		string enemySupportRuntimeBeforeTerminal = physicalProbe.m_SupportRequest.m_sRuntimeStatus;
+		string enemySupportResolutionBeforeTerminal = physicalProbe.m_SupportRequest.m_sResolutionKind;
+		string enemySupportFailureBeforeTerminal = physicalProbe.m_SupportRequest.m_sFailureReason;
+		bool enemySupportOutcomeBeforeTerminal = physicalProbe.m_SupportRequest.m_bOutcomeApplied;
+		bool enemySupportAbstractBeforeTerminal = physicalProbe.m_SupportRequest.m_bAbstractResolved;
+		string enemyGroupStatusBeforeTerminal = physicalProbe.m_Group.m_sRuntimeStatus;
+		physicalProbe.m_sGroupStatusBeforeTerminal = enemyGroupStatusBeforeTerminal;
+		physicalProbe.m_Group.m_sRuntimeStatus = "folded";
+		physicalProbe.m_bTerminalStatusInjected = true;
+
+		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+		physicalProbe.m_bTerminalSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		physicalProbe.m_bTerminalSyncTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(enemySupportId);
+		if (!enemyOrderId.IsEmpty())
+			physicalProbe.m_Order = FindEnemyOrderById(enemyOrderId);
+		physicalProbe.m_Group = m_State.FindActiveGroup(enemyGroupId);
+		if (physicalProbe.m_Group)
+			physicalProbe.m_sGroupStatusAfterTerminal = physicalProbe.m_Group.m_sRuntimeStatus;
+		if (physicalProbe.m_SupportRequest)
+		{
+			physicalProbe.m_eSupportStatusAfterTerminal = physicalProbe.m_SupportRequest.m_eStatus;
+			physicalProbe.m_sRequestRuntimeStatusAfterTerminal = physicalProbe.m_SupportRequest.m_sRuntimeStatus;
+			physicalProbe.m_sSupportResolutionKindAfterTerminal = physicalProbe.m_SupportRequest.m_sResolutionKind;
+			physicalProbe.m_iSupportResolvedAtSecondAfterTerminal = physicalProbe.m_SupportRequest.m_iResolvedAtSecond;
+		}
+		if (physicalProbe.m_Order)
+		{
+			physicalProbe.m_eOrderStatusAfterTerminal = physicalProbe.m_Order.m_eStatus;
+			physicalProbe.m_sOrderRuntimeStatusAfterTerminal = physicalProbe.m_Order.m_sRuntimeStatus;
+			physicalProbe.m_sOrderResolutionKindAfterTerminal = physicalProbe.m_Order.m_sResolutionKind;
+			physicalProbe.m_iOrderResolvedAtSecondAfterTerminal = physicalProbe.m_Order.m_iResolvedAtSecond;
+		}
+
+		if (physicalProbe.m_Order)
+		{
+			physicalProbe.m_Order.m_eStatus = enemyOrderStatusBeforeTerminal;
+			physicalProbe.m_Order.m_iResolvedAtSecond = enemyOrderResolvedBeforeTerminal;
+			physicalProbe.m_Order.m_sRuntimeStatus = enemyOrderRuntimeBeforeTerminal;
+			physicalProbe.m_Order.m_sResolutionKind = enemyOrderResolutionBeforeTerminal;
+			physicalProbe.m_Order.m_sFailureReason = enemyOrderFailureBeforeTerminal;
+		}
+		if (physicalProbe.m_SupportRequest)
+		{
+			physicalProbe.m_SupportRequest.m_eStatus = enemySupportStatusBeforeTerminal;
+			physicalProbe.m_SupportRequest.m_iResolvedAtSecond = enemySupportResolvedBeforeTerminal;
+			physicalProbe.m_SupportRequest.m_sRuntimeStatus = enemySupportRuntimeBeforeTerminal;
+			physicalProbe.m_SupportRequest.m_sResolutionKind = enemySupportResolutionBeforeTerminal;
+			physicalProbe.m_SupportRequest.m_sFailureReason = enemySupportFailureBeforeTerminal;
+			physicalProbe.m_SupportRequest.m_bOutcomeApplied = enemySupportOutcomeBeforeTerminal;
+			physicalProbe.m_SupportRequest.m_bAbstractResolved = enemySupportAbstractBeforeTerminal;
+		}
+		if (physicalProbe.m_Group)
+			physicalProbe.m_Group.m_sRuntimeStatus = enemyGroupStatusBeforeTerminal;
+		physicalProbe.m_bTerminalStateRestored = true;
 	}
 
 	protected void SampleCampaignDebugEnemyOrderRouteProgress(HST_CampaignDebugEnemyOrderPhysicalProbeContext physicalProbe, int firstAdvanceSeconds, int sampleLimit)
@@ -12022,6 +12162,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			enemyRouteTimeoutStatus = "FAIL";
 		string enemyRouteTimeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", physicalProbe.m_bRouteTimedOut, physicalProbe.m_iRouteTimeoutSeconds, physicalProbe.m_iRouteSampleCount, EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_timeout", subjectLabel + " does not stall across the controlled route timeout window", enemyRouteTimeoutActual, enemyRouteTimeoutStatus, failureLabel + " route timed out without movement, distance closure, or arrival", entityId, missionInstanceId, zoneId, orderId);
+
+		AddCampaignDebugMetric(targetCase, metricPrefix + ".arrival_advance_seconds", string.Format("%1", physicalProbe.m_iArrivalAdvanceSeconds), "seconds");
+		AddCampaignDebugMetric(targetCase, metricPrefix + ".support_resolved_second", string.Format("%1", physicalProbe.m_iSupportResolvedAtSecondAfterTerminal), "seconds");
+		AddCampaignDebugMetric(targetCase, metricPrefix + ".order_resolved_second", string.Format("%1", physicalProbe.m_iOrderResolvedAtSecondAfterTerminal), "seconds");
+		string enemyArrivalActual = string.Format("advance %1s | ticks route/support/sync %2/%3/%4 | support %5 %6 | order %7 %8 | group %9", physicalProbe.m_iArrivalAdvanceSeconds, physicalProbe.m_bArrivalRouteTickChanged, physicalProbe.m_bArrivalSupportTickChanged, physicalProbe.m_bArrivalSyncTickChanged, physicalProbe.m_eSupportStatusAtArrival, EmptyCampaignDebugField(physicalProbe.m_sRequestRuntimeStatusAtArrival), physicalProbe.m_eOrderStatusAtArrival, EmptyCampaignDebugField(physicalProbe.m_sOrderRuntimeStatusAtArrival), EmptyCampaignDebugField(physicalProbe.m_sGroupStatusAtArrival));
+		bool enemyArrivalReached = physicalProbe.m_eSupportStatusAtArrival == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE
+			&& physicalProbe.m_sRequestRuntimeStatusAtArrival == "physical_arrived"
+			&& (physicalProbe.m_sGroupStatusAtArrival == "support_arrived" || physicalProbe.m_sGroupStatusAtArrival == "arrived" || physicalProbe.m_sGroupStatusAtArrival == "support_active");
+		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_arrival", subjectLabel + " reaches support arrival through the real support tick after controlled ETA advance", enemyArrivalActual, CampaignDebugStatus(enemyArrivalReached, "WARN"), failureLabel + " did not reach support arrival state during the controlled ETA window", entityId, missionInstanceId, zoneId, orderId);
+		string enemyTerminalActual = string.Format("injected %1 | ticks support/sync %2/%3 | support %4 %5 %6 | order %7 %8 %9", physicalProbe.m_bTerminalStatusInjected, physicalProbe.m_bTerminalSupportTickChanged, physicalProbe.m_bTerminalSyncTickChanged, physicalProbe.m_eSupportStatusAfterTerminal, EmptyCampaignDebugField(physicalProbe.m_sRequestRuntimeStatusAfterTerminal), EmptyCampaignDebugField(physicalProbe.m_sSupportResolutionKindAfterTerminal), physicalProbe.m_eOrderStatusAfterTerminal, EmptyCampaignDebugField(physicalProbe.m_sOrderRuntimeStatusAfterTerminal), EmptyCampaignDebugField(physicalProbe.m_sOrderResolutionKindAfterTerminal));
+		enemyTerminalActual = enemyTerminalActual + string.Format(" | group %1 -> %2 | restored %3", EmptyCampaignDebugField(physicalProbe.m_sGroupStatusBeforeTerminal), EmptyCampaignDebugField(physicalProbe.m_sGroupStatusAfterTerminal), physicalProbe.m_bTerminalStateRestored);
+		bool enemyTerminalResolved = physicalProbe.m_bTerminalStatusInjected
+			&& physicalProbe.m_bTerminalSupportTickChanged
+			&& physicalProbe.m_bTerminalSyncTickChanged
+			&& physicalProbe.m_eSupportStatusAfterTerminal == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			&& physicalProbe.m_sRequestRuntimeStatusAfterTerminal == "resolved_physical_group_terminal"
+			&& physicalProbe.m_sSupportResolutionKindAfterTerminal == "physical_group_terminal"
+			&& physicalProbe.m_eOrderStatusAfterTerminal == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+			&& physicalProbe.m_sOrderRuntimeStatusAfterTerminal.Contains("resolved_group_")
+			&& physicalProbe.m_sOrderResolutionKindAfterTerminal == "physical_group_terminal";
+		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_terminal_resolution", "controlled terminal " + subjectLabel + " resolves linked support and enemy order through real ticks", enemyTerminalActual, CampaignDebugStatus(enemyTerminalResolved, "WARN"), failureLabel + " did not resolve through support/order physical terminal paths", entityId, missionInstanceId, zoneId, orderId);
+		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_terminal_restore", "terminal probe restores active order/support/group state for later phase steps", enemyTerminalActual, CampaignDebugStatus(physicalProbe.m_bTerminalStateRestored || !physicalProbe.m_bTerminalStatusInjected, "WARN"), failureLabel + " terminal probe did not restore sampled runtime state", entityId, missionInstanceId, zoneId, orderId);
 	}
 
 	protected string BuildCampaignDebugActiveGroupActual(HST_ActiveGroupState activeGroup)
@@ -13098,7 +13260,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (physicalProbe.m_Group)
 			petrosAttackGroupId = physicalProbe.m_Group.m_sGroupId;
 		AddCampaignDebugEnemyOrderRouteSampleAssertions(defenseCase, "phase22.attack", "phase22.attack", "Petros attacker group", "Phase 22 Petros attack", physicalProbe, petrosAttackGroupId, "", targetZoneId, orderId);
-		AddCampaignDebugAssertion(defenseCase, "phase22.attack.wave_gap", "multi-wave/contact/arrival behavior remains explicitly not covered by this route sample", "single routed attacker group sampled", "WARN", "Phase 22 still needs a longer wave/contact/arrival probe", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.attack.wave_gap", "multi-wave/contact behavior remains explicitly not covered by this route/terminal sample", "single routed attacker group sampled", "WARN", "Phase 22 still needs a longer wave/contact probe", "", "", targetZoneId, orderId);
 	}
 
 	protected void AddCampaignDebugPhase22SuccessAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder, HST_ActiveMissionState defenseMission, HST_MissionObjectiveState defenseObjective, HST_CampaignTaskState defenseTask)
