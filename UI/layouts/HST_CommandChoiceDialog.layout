@@ -1,0 +1,334 @@
+FrameWidgetClass "{E27B4D993F1A6C00}" {
+ Name "HST_CommandChoiceDialogRoot"
+ Slot FrameWidgetSlot "{E27B4D993F1A6C01}" {
+  Anchor 0 0 1 1
+  OffsetLeft 0
+  OffsetTop 0
+  OffsetRight 0
+  OffsetBottom 0
+ }
+ "Is Visible" 1
+ "Ignore Cursor" 0
+ {
+  FrameWidgetClass "{E27B4D993F1A6C02}" {
+   Name "Dialog"
+   Slot FrameWidgetSlot "{E27B4D993F1A6C03}" {
+    Anchor 0.5 0.5 0.5 0.5
+    PositionX 0
+    OffsetLeft 0
+    PositionY 0
+    OffsetTop 0
+    SizeX 700
+    OffsetRight -700
+    SizeY 520
+    OffsetBottom -520
+    Alignment 0.5 0.5
+   }
+   "Is Visible" 1
+   "Ignore Cursor" 0
+   {
+    PanelWidgetClass "{E27B4D993F1A6C04}" {
+     Name "Background"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C05}" {
+      Anchor 0 0 1 1
+      OffsetLeft 0
+      OffsetTop 0
+      OffsetRight 0
+      OffsetBottom 0
+     }
+     Color 0.03 0.05 0.07 0.97
+     style full
+     "Ignore Cursor" 1
+    }
+    PanelWidgetClass "{E27B4D993F1A6C06}" {
+     Name "AccentLine"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C07}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 0
+      PositionY 0
+      OffsetTop 0
+      SizeX 0
+      OffsetRight 0
+      SizeY 5
+      OffsetBottom -5
+     }
+     Color 0.77 0.58 0.23 1
+     style full
+     "Ignore Cursor" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C08}" {
+     Name "Title"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C09}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 32
+      PositionY 28
+      OffsetTop 28
+      SizeX -64
+      OffsetRight -32
+      SizeY 38
+      OffsetBottom -66
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C0A}" {
+     Name "Message"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C0B}" {
+      Anchor 0 0 1 0
+      PositionX 0
+      OffsetLeft 32
+      PositionY 76
+      OffsetTop 76
+      SizeX -64
+      OffsetRight -32
+      SizeY 44
+      OffsetBottom -120
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C10}" {
+     Name "ChoiceButton0"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C11}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 136
+      OffsetTop 136
+      SizeX 604
+      OffsetRight -652
+      SizeY 44
+      OffsetBottom -180
+     }
+     Color 0.18 0.24 0.28 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C12}" {
+     Name "ChoiceLabel0"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C13}" {
+      Anchor 0 0 0 0
+      PositionX 64
+      OffsetLeft 64
+      PositionY 136
+      OffsetTop 136
+      SizeX 572
+      OffsetRight -636
+      SizeY 44
+      OffsetBottom -180
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     "Horizontal Alignment" Left
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C14}" {
+     Name "ChoiceButton1"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C15}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 190
+      OffsetTop 190
+      SizeX 604
+      OffsetRight -652
+      SizeY 44
+      OffsetBottom -234
+     }
+     Color 0.18 0.24 0.28 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C16}" {
+     Name "ChoiceLabel1"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C17}" {
+      Anchor 0 0 0 0
+      PositionX 64
+      OffsetLeft 64
+      PositionY 190
+      OffsetTop 190
+      SizeX 572
+      OffsetRight -636
+      SizeY 44
+      OffsetBottom -234
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     "Horizontal Alignment" Left
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C18}" {
+     Name "ChoiceButton2"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C19}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 244
+      OffsetTop 244
+      SizeX 604
+      OffsetRight -652
+      SizeY 44
+      OffsetBottom -288
+     }
+     Color 0.18 0.24 0.28 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C1A}" {
+     Name "ChoiceLabel2"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C1B}" {
+      Anchor 0 0 0 0
+      PositionX 64
+      OffsetLeft 64
+      PositionY 244
+      OffsetTop 244
+      SizeX 572
+      OffsetRight -636
+      SizeY 44
+      OffsetBottom -288
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     "Horizontal Alignment" Left
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C1C}" {
+     Name "ChoiceButton3"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C1D}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 298
+      OffsetTop 298
+      SizeX 604
+      OffsetRight -652
+      SizeY 44
+      OffsetBottom -342
+     }
+     Color 0.18 0.24 0.28 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C1E}" {
+     Name "ChoiceLabel3"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C1F}" {
+      Anchor 0 0 0 0
+      PositionX 64
+      OffsetLeft 64
+      PositionY 298
+      OffsetTop 298
+      SizeX 572
+      OffsetRight -636
+      SizeY 44
+      OffsetBottom -342
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     "Horizontal Alignment" Left
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C20}" {
+     Name "ChoiceButton4"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C21}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 352
+      OffsetTop 352
+      SizeX 604
+      OffsetRight -652
+      SizeY 44
+      OffsetBottom -396
+     }
+     Color 0.18 0.24 0.28 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C22}" {
+     Name "ChoiceLabel4"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C23}" {
+      Anchor 0 0 0 0
+      PositionX 64
+      OffsetLeft 64
+      PositionY 352
+      OffsetTop 352
+      SizeX 572
+      OffsetRight -636
+      SizeY 44
+      OffsetBottom -396
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     "Horizontal Alignment" Left
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C24}" {
+     Name "ChoiceButton5"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C25}" {
+      Anchor 0 0 0 0
+      PositionX 48
+      OffsetLeft 48
+      PositionY 406
+      OffsetTop 406
+      SizeX 604
+      OffsetRight -652
+      SizeY 44
+      OffsetBottom -450
+     }
+     Color 0.18 0.24 0.28 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C26}" {
+     Name "ChoiceLabel5"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C27}" {
+      Anchor 0 0 0 0
+      PositionX 64
+      OffsetLeft 64
+      PositionY 406
+      OffsetTop 406
+      SizeX 572
+      OffsetRight -636
+      SizeY 44
+      OffsetBottom -450
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     "Horizontal Alignment" Left
+     "Vertical Alignment" Center
+    }
+    ButtonWidgetClass "{E27B4D993F1A6C28}" {
+     Name "CancelButton"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C29}" {
+      Anchor 0 0 0 0
+      PositionX 270
+      OffsetLeft 270
+      PositionY 464
+      OffsetTop 464
+      SizeX 160
+      OffsetRight -430
+      SizeY 42
+      OffsetBottom -506
+     }
+     Color 0.27 0.33 0.36 1
+     "Is Visible" 1
+    }
+    TextWidgetClass "{E27B4D993F1A6C2A}" {
+     Name "CancelLabel"
+     Slot FrameWidgetSlot "{E27B4D993F1A6C2B}" {
+      Anchor 0 0 0 0
+      PositionX 270
+      OffsetLeft 270
+      PositionY 464
+      OffsetTop 464
+      SizeX 160
+      OffsetRight -430
+      SizeY 42
+      OffsetBottom -506
+     }
+     "No Localization" 1
+     "Ignore Cursor" 1
+     Text "Cancel"
+     "Horizontal Alignment" Center
+     "Vertical Alignment" Center
+    }
+   }
+  }
+ }
+}

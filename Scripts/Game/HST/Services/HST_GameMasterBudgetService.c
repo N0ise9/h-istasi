@@ -107,12 +107,25 @@ modded class SCR_BudgetEditorComponent
 {
 	protected ref map<EEditableEntityBudget, int> m_mHSTOriginalBudgetCaps = new map<EEditableEntityBudget, int>();
 	protected bool m_bHSTOriginalBudgetCapsCaptured;
+	protected bool m_bHSTBudgetDeficitHandlerRegistered;
 
 	override void EOnEditorInit()
 	{
 		super.EOnEditorInit();
 		CaptureHistasiOriginalBudgetCaps();
 		HistasiRefreshGameMasterBudgetCaps();
+	}
+
+	override protected void EOnEditorInitServer()
+	{
+		super.EOnEditorInitServer();
+		HistasiRegisterBudgetDeficitHandler();
+	}
+
+	override protected void EOnEditorDeleteServer()
+	{
+		HistasiUnregisterBudgetDeficitHandler();
+		super.EOnEditorDeleteServer();
 	}
 
 	void HistasiRefreshGameMasterBudgetCaps()
@@ -153,6 +166,43 @@ modded class SCR_BudgetEditorComponent
 			m_mHSTOriginalBudgetCaps.Set(maxBudget.GetBudgetType(), maxBudget.GetBudgetValue());
 
 		m_bHSTOriginalBudgetCapsCaptured = true;
+	}
+
+	protected void HistasiRegisterBudgetDeficitHandler()
+	{
+		if (m_bHSTBudgetDeficitHandlerRegistered || !m_EntityCore)
+			return;
+
+		m_EntityCore.Event_OnEntityBudgetUpdatedPerEntity.Insert(HistasiOnEntityBudgetUpdatedPerEntity);
+		m_bHSTBudgetDeficitHandlerRegistered = true;
+	}
+
+	protected void HistasiUnregisterBudgetDeficitHandler()
+	{
+		if (!m_bHSTBudgetDeficitHandlerRegistered || !m_EntityCore)
+			return;
+
+		m_EntityCore.Event_OnEntityBudgetUpdatedPerEntity.Remove(HistasiOnEntityBudgetUpdatedPerEntity);
+		m_bHSTBudgetDeficitHandlerRegistered = false;
+	}
+
+	protected void HistasiOnEntityBudgetUpdatedPerEntity(EEditableEntityBudget entityBudget, int originalBudgetValue, int budgetChange, int updatedBudgetValue, SCR_EditableEntityComponent entity)
+	{
+		if (HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled())
+			return;
+		if (!HST_GameMasterBudgetService.IsManagedBudgetType(entityBudget))
+			return;
+		if (budgetChange >= 0 || updatedBudgetValue >= 0)
+			return;
+
+		SCR_EditableEntityCoreBudgetSetting budgetSettings;
+		if (!m_EntityCore || !m_EntityCore.GetBudget(entityBudget, budgetSettings) || !budgetSettings)
+			return;
+
+		int deficit = -updatedBudgetValue;
+		int currentBudget = budgetSettings.GetCurrentBudget();
+		budgetSettings.SetCurrentBudget(currentBudget + deficit);
+		Print(string.Format("h-istasi game master budgets | corrected disabled-budget deficit type=%1 adjusted=%2 change=%3 deficit=%4", typename.EnumToString(EEditableEntityBudget, entityBudget), originalBudgetValue, budgetChange, deficit));
 	}
 }
 

@@ -76,6 +76,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int CLOSE_WIDGET_ID = 90000;
 	static const int ACTION_MODAL_CANCEL_WIDGET_ID = 90010;
 	static const int ACTION_MODAL_CONFIRM_WIDGET_ID = 90011;
+	static const int ACTION_CHOICE_WIDGET_ID_BASE = 90100;
+	static const int ACTION_CHOICE_WIDGET_ID_LIMIT = 90106;
 	static const int COMMAND_DIMMER_Z = 0;
 	static const int COMMAND_SURFACE_Z = 10;
 	static const int COMMAND_PANEL_Z = 20;
@@ -160,6 +162,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected string m_sPendingActionLabel;
 	protected string m_sPendingActionCommand;
 	protected string m_sPendingActionArgument;
+	protected ref array<string> m_aPendingChoiceLabels = {};
+	protected ref array<string> m_aPendingChoiceArguments = {};
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -414,6 +418,12 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		string label = BuildContextActionLabel(commandId, argument);
+		if (commandId == "member_promote_commander_choose")
+		{
+			ShowCommanderTransferChoiceDialog(label, argument);
+			return;
+		}
+
 		if (ShouldConfirmAction(commandId))
 		{
 			ShowActionConfirmDialog(label, commandId, argument);
@@ -485,6 +495,15 @@ class HST_CommandMenuComponent : ScriptComponent
 				return false;
 
 			ConfirmPendingActionDialog();
+			return true;
+		}
+
+		if (widgetId >= ACTION_CHOICE_WIDGET_ID_BASE && widgetId < ACTION_CHOICE_WIDGET_ID_LIMIT)
+		{
+			if (!CanHandleActionDialogInput())
+				return false;
+
+			SelectPendingActionChoice(widgetId - ACTION_CHOICE_WIDGET_ID_BASE);
 			return true;
 		}
 
@@ -1098,6 +1117,12 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
+		if (m_aActionCommands[actionIndex] == "member_promote_commander_choose")
+		{
+			ShowCommanderTransferChoiceDialog(m_aActionLabels[actionIndex], m_aActionArguments[actionIndex]);
+			return;
+		}
+
 		if (ShouldConfirmAction(m_aActionCommands[actionIndex]))
 		{
 			ShowActionConfirmDialog(m_aActionLabels[actionIndex], m_aActionCommands[actionIndex], m_aActionArguments[actionIndex]);
@@ -1247,6 +1272,109 @@ class HST_CommandMenuComponent : ScriptComponent
 		HST_UIDebug.LogPopulation("command_action_dialog", string.Format("label=%1 command=%2 argument=%3", ShortenText(label, 64), commandId, ShortenText(argument, 96)));
 	}
 
+	protected void ShowCommanderTransferChoiceDialog(string label, string argument)
+	{
+		ParseCommanderTransferChoiceArgument(argument);
+		if (m_aPendingChoiceArguments.Count() == 0)
+		{
+			m_sLastActionName = label;
+			m_sLastResult = "h-istasi command | transfer commander | no other member players";
+			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+			if (m_bMenuOpen)
+				RenderMenu();
+			return;
+		}
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+		{
+			m_sLastActionName = label;
+			m_sLastResult = "h-istasi command | transfer commander | selection UI unavailable";
+			RequestSnapshot();
+			return;
+		}
+
+		ClearActionDialog();
+		ParseCommanderTransferChoiceArgument(argument);
+		if (!m_WidgetHandler)
+		{
+			m_WidgetHandler = new HST_CommandMenuWidgetHandler();
+			m_WidgetHandler.Bind(this);
+		}
+
+		HST_ActionChoiceDialogData data = new HST_ActionChoiceDialogData();
+		data.m_sOwner = ACTION_DIALOG_OWNER;
+		data.m_sDebugOwner = "command_transfer_commander_dialog";
+		data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID;
+		data.m_iChoiceWidgetIdBase = ACTION_CHOICE_WIDGET_ID_BASE;
+		data.m_sTitle = "Transfer Commander";
+		data.m_sMessage = "Select the member who should receive commander authority.";
+		data.m_sCancelLabel = "Cancel";
+		foreach (string choiceLabel : m_aPendingChoiceLabels)
+			data.m_aChoiceLabels.Insert(choiceLabel);
+
+		Widget root = HST_ActionChoiceDialogController.Render(workspace, data, m_WidgetHandler);
+		if (!root)
+		{
+			m_aPendingChoiceLabels.Clear();
+			m_aPendingChoiceArguments.Clear();
+			return;
+		}
+
+		m_wActionDialogRoot = root;
+		m_bActionDialogOpen = true;
+		m_sPendingActionLabel = label;
+		m_sPendingActionCommand = "member_promote_commander";
+		m_sPendingActionArgument = "";
+		HST_UIDebug.LogPopulation("command_transfer_commander_dialog", string.Format("label=%1 choices=%2 argument=%3", ShortenText(label, 64), m_aPendingChoiceLabels.Count(), ShortenText(argument, 160)));
+	}
+
+	protected void ParseCommanderTransferChoiceArgument(string argument)
+	{
+		m_aPendingChoiceLabels.Clear();
+		m_aPendingChoiceArguments.Clear();
+
+		if (argument.IsEmpty())
+			return;
+
+		array<string> choices = {};
+		argument.Split(";", choices, true);
+		foreach (string choice : choices)
+		{
+			int separator = choice.IndexOf("~");
+			if (separator <= 0)
+				continue;
+
+			string targetIdentityId = choice.Substring(0, separator);
+			string targetLabel = choice.Substring(separator + 1, choice.Length() - separator - 1);
+			if (targetIdentityId.IsEmpty() || targetLabel.IsEmpty())
+				continue;
+
+			m_aPendingChoiceArguments.Insert(targetIdentityId);
+			m_aPendingChoiceLabels.Insert(ShortenText(targetLabel, 42));
+			if (m_aPendingChoiceArguments.Count() >= HST_ActionChoiceDialogController.MAX_CHOICES)
+				break;
+		}
+	}
+
+	protected void SelectPendingActionChoice(int choiceIndex)
+	{
+		if (choiceIndex < 0 || choiceIndex >= m_aPendingChoiceArguments.Count())
+			return;
+
+		string label = "Transfer commander";
+		if (choiceIndex < m_aPendingChoiceLabels.Count())
+			label = label + ": " + m_aPendingChoiceLabels[choiceIndex];
+
+		string argument = m_aPendingChoiceArguments[choiceIndex];
+		string commandId = m_sPendingActionCommand;
+		if (commandId.IsEmpty())
+			commandId = "member_promote_commander";
+
+		ClearActionDialog();
+		RequestConfirmedAction(label, commandId, argument);
+	}
+
 	protected string BuildActionConfirmMessage(string label, string commandId, string argument)
 	{
 		if (commandId == "new_campaign")
@@ -1331,6 +1459,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sPendingActionLabel = "";
 		m_sPendingActionCommand = "";
 		m_sPendingActionArgument = "";
+		m_aPendingChoiceLabels.Clear();
+		m_aPendingChoiceArguments.Clear();
 	}
 
 	protected bool RenderMenu()

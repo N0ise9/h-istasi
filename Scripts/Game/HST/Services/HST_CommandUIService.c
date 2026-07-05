@@ -945,6 +945,9 @@ class HST_CommandUIService
 		if (commandId == "admin_grant")
 			return BuildBoolResult("grant admin " + argument, coordinator.RequestAdminSetAdminRole(playerId, argument, true), "admin required or target identity missing");
 
+		if (commandId == "member_promote_commander_choose")
+			return "h-istasi command | transfer commander chooser is client-side";
+
 		if (commandId == "member_promote_commander")
 			return BuildBoolResult("promote commander " + argument, coordinator.RequestCommanderTransferCommander(playerId, argument), "commander required, target missing, or target is not a member");
 
@@ -964,7 +967,7 @@ class HST_CommandUIService
 			return false;
 		if (commandId == "admin_campaign_debug_status" || commandId == "admin_campaign_debug_cancel" || commandId == "admin_campaign_debug_cleanup")
 			return false;
-		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
+		if (commandId == "member_accept" || commandId == "member_remove" || commandId == "admin_grant" || commandId == "member_promote_commander_choose" || commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
 			return false;
 		if (commandId == "admin_seed_persistence_test_state" || commandId == "admin_persistence_smoke_test" || commandId == "admin_persistence_smoke_report")
 			return false;
@@ -2660,6 +2663,7 @@ class HST_CommandUIService
 	protected void AddCommanderTransferActions(HST_CampaignState state, notnull array<ref HST_CommandMenuAction> actions, int playerId, bool canUseCommander)
 	{
 		string actorIdentityId = ResolveMenuPlayerIdentityId(state, playerId);
+		string choiceArgument;
 		int targetCount;
 
 		if (state)
@@ -2669,15 +2673,27 @@ class HST_CommandUIService
 				if (!IsCommanderTransferTarget(player, actorIdentityId))
 					continue;
 
-				AddMenuAction(actions, TAB_MEMBERS, "Make commander: " + ShortText(BuildPlayerRosterName(player), 18), "member_promote_commander", player.m_sIdentityId, canUseCommander, CommanderTransferDisabledReason(state, actorIdentityId, canUseCommander));
+				if (!choiceArgument.IsEmpty())
+					choiceArgument = choiceArgument + ";";
+
+				choiceArgument = choiceArgument + SanitizeCommanderTransferChoiceField(player.m_sIdentityId) + "~" + SanitizeCommanderTransferChoiceField(BuildPlayerRosterName(player));
 				targetCount++;
 				if (targetCount >= 6)
 					break;
 			}
 		}
 
-		if (targetCount == 0)
-			AddMenuAction(actions, TAB_MEMBERS, "Make member commander", "member_promote_commander", "", false, CommanderTransferDisabledReason(state, actorIdentityId, canUseCommander));
+		string disabledReason = CommanderTransferDisabledReason(state, actorIdentityId, canUseCommander);
+		AddMenuAction(actions, TAB_MEMBERS, "Transfer commander", "member_promote_commander_choose", choiceArgument, canUseCommander && targetCount > 0, disabledReason);
+	}
+
+	protected string SanitizeCommanderTransferChoiceField(string value)
+	{
+		value.Replace(";", " ");
+		value.Replace("~", " ");
+		value.Replace("\r", " ");
+		value.Replace("\n", " ");
+		return value;
 	}
 
 	protected bool IsCommanderTransferTarget(HST_PlayerState player, string actorIdentityId)
