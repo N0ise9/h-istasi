@@ -3524,6 +3524,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		ref array<string> prefabs = {};
 		AppendUniqueCampaignDebugPrefab(prefabs, CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB);
+		AppendUniqueCampaignDebugPrefab(prefabs, HST_PhysicalWarService.CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB);
 		return prefabs;
 	}
 
@@ -4482,6 +4483,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS * 3 + 1;
 		else if (m_iCampaignDebugEarlyPhaseIndex == 7)
 			m_iCampaignDebugWaitSeconds = 2;
+		else if (m_iCampaignDebugEarlyPhaseIndex == 18)
+			m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS + 1;
 		else
 			m_iCampaignDebugWaitSeconds = 1;
 
@@ -6975,7 +6978,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected int GetCampaignDebugEarlyPhaseStepCount()
 	{
-		return 18;
+		return 20;
 	}
 
 	protected bool IsCampaignDebugEarlyPhaseReportStep(int index)
@@ -6991,6 +6994,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 11:
 			case 16:
 			case 17:
+			case 19:
 				return true;
 		}
 
@@ -7011,6 +7015,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 15:
 			case 16:
 			case 17:
+			case 19:
 				return true;
 		}
 
@@ -7039,6 +7044,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 15: return "mechanic support cancellation";
 			case 16: return "mechanic garage/vehicle/loadout reports";
 			case 17: return "mechanic command UI coverage";
+			case 18: return "mechanic physical AI combat/contact start";
+			case 19: return "mechanic physical AI combat/contact result";
 		}
 
 		return "phase 0-13 mechanic step " + string.Format("%1", index);
@@ -7066,6 +7073,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 15: return RunCampaignDebugSupportCancelTyped();
 			case 16: return BuildCampaignDebugVehicleAndLoadoutReport();
 			case 17: return RunCampaignDebugCommandUICoverageTyped();
+			case 18: return StartCampaignDebugPhysicalCombatProbeTyped();
+			case 19: return FinishCampaignDebugPhysicalCombatProbeTyped();
 		}
 
 		return "h-istasi campaign debug | failed: unknown phase 0-13 mechanic step";
@@ -8614,6 +8623,38 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return string.Format("target %1 | zone %2 | owner %3 | pos %4", EmptyCampaignDebugField(mission.m_sTargetZoneId), EmptyCampaignDebugField(zoneId), EmptyCampaignDebugField(owner), mission.m_vTargetPosition);
+	}
+
+	protected string StartCampaignDebugPhysicalCombatProbeTyped()
+	{
+		if (!m_PhysicalWar)
+			return "h-istasi campaign debug | failed: physical war service missing for physical combat probe";
+
+		string result;
+		m_PhysicalWar.StartCampaignDebugPhysicalCombatProbe(m_State, m_Preset, m_sCampaignDebugMarkerPrefix, m_bCampaignDebugPhysicalBlocked, result);
+		if (result.IsEmpty())
+			result = "h-istasi campaign debug | physical combat probe start returned no result";
+
+		return result;
+	}
+
+	protected string FinishCampaignDebugPhysicalCombatProbeTyped()
+	{
+		if (!m_PhysicalWar)
+		{
+			HST_CampaignDebugCaseResult serviceCase = CreateCampaignDebugCase("physical_combat.ai_contact", "physical_war", "ai_combat_contact", "physical_probe");
+			AddCampaignDebugAssertion(serviceCase, "physical_combat.service", "physical war service ready", "missing", "FAIL", "physical war service missing for physical combat probe");
+			FinalizeCampaignDebugCaseFromAssertions(serviceCase);
+			RecordCampaignDebugCase(serviceCase);
+			return "h-istasi campaign debug | failed: physical war service missing for physical combat probe";
+		}
+
+		HST_CampaignDebugCaseResult probe = m_PhysicalWar.FinishCampaignDebugPhysicalCombatProbe(m_State, m_bCampaignDebugPhysicalBlocked);
+		if (!probe)
+			return "h-istasi campaign debug | failed: physical combat probe produced no result case";
+
+		RecordCampaignDebugCase(probe);
+		return string.Format("h-istasi campaign debug | physical combat probe %1 | %2", probe.m_sStatus, probe.m_sReason);
 	}
 
 	protected void RecordCampaignDebugConvoyPhysicalProbe(string label, string instanceId)

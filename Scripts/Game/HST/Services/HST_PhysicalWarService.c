@@ -122,6 +122,13 @@ class HST_PhysicalWarService
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
+	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 30;
+	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
+	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
+	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 36.0;
+	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS = 70.0;
+	static const float CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS = 18.0;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -138,6 +145,32 @@ class HST_PhysicalWarService
 	protected ref HST_ConvoyVehicleControlAdapter m_ConvoyVehicleControl;
 	protected bool m_bMarkerRefreshNeeded;
 	protected bool m_bDebugLoggingEnabled;
+	protected bool m_bCampaignDebugCombatProbeActive;
+	protected string m_sCampaignDebugCombatProbeId;
+	protected string m_sCampaignDebugCombatProbeFriendlyGroupId;
+	protected string m_sCampaignDebugCombatProbeEnemyGroupId;
+	protected string m_sCampaignDebugCombatProbeFriendlyFaction;
+	protected string m_sCampaignDebugCombatProbeEnemyFaction;
+	protected string m_sCampaignDebugCombatProbeZoneId;
+	protected int m_iCampaignDebugCombatProbeStartSecond;
+	protected int m_iCampaignDebugCombatProbeLastSampleSecond = -1;
+	protected int m_iCampaignDebugCombatProbeFriendlyStartAlive = -1;
+	protected int m_iCampaignDebugCombatProbeEnemyStartAlive = -1;
+	protected int m_iCampaignDebugCombatProbeFriendlyEndAlive = -1;
+	protected int m_iCampaignDebugCombatProbeEnemyEndAlive = -1;
+	protected int m_iCampaignDebugCombatProbeFriendlyMinAlive = -1;
+	protected int m_iCampaignDebugCombatProbeEnemyMinAlive = -1;
+	protected int m_iCampaignDebugCombatProbeSampleCount;
+	protected int m_iCampaignDebugCombatProbeHistoryCount;
+	protected int m_iCampaignDebugCombatProbeWaypointCount;
+	protected float m_fCampaignDebugCombatProbeLastDistance = -1.0;
+	protected vector m_vCampaignDebugCombatProbeCenter;
+	protected vector m_vCampaignDebugCombatProbeFriendlyPosition;
+	protected vector m_vCampaignDebugCombatProbeEnemyPosition;
+	protected string m_sCampaignDebugCombatProbeHistory;
+	protected string m_sCampaignDebugCombatProbeLastObserved;
+	protected string m_sCampaignDebugCombatProbeStartResult;
+	protected ref array<IEntity> m_aCampaignDebugCombatProbeWaypointEntities = {};
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
@@ -174,7 +207,8 @@ class HST_PhysicalWarService
 		EnsureRuntimeGroupEntities(state);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
 		bool routeChanged = UpdateActiveGroupRoutes(state);
-		return survivorChanged || routeChanged;
+		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
+		return survivorChanged || routeChanged || combatProbeChanged;
 	}
 
 	bool UpdateZoneActivation(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset = null, HST_EnemyDirectorService enemyDirector = null, HST_ZoneCompositionService compositions = null)
@@ -684,6 +718,397 @@ class HST_PhysicalWarService
 		AddConvoyDebugProbeAssertion(probe, "render_bubble.convoy.cleanup", "temporary expired convoy records are cleaned", BuildExpiredConvoyRenderBubbleCleanupActual(nearRecordsRemoved, farRecordsRemoved), ConvoyDebugStatus(nearRecordsRemoved && farRecordsRemoved), "expired convoy render-bubble probe leaked temporary records");
 		FinalizeExpiredConvoyRenderBubbleDebugCase(state, probe);
 		return probe;
+	}
+
+	bool StartCampaignDebugPhysicalCombatProbe(HST_CampaignState state, HST_CampaignPreset preset, string debugPrefix, bool physicalBlocked, out string result)
+	{
+		result = "";
+		CleanupCampaignDebugPhysicalCombatProbeRuntime(state);
+		ResetCampaignDebugPhysicalCombatProbeState();
+
+		if (physicalBlocked)
+		{
+			result = "h-istasi campaign debug | physical combat probe blocked: no controlled player entity";
+			return false;
+		}
+		if (!state || !preset)
+		{
+			result = "h-istasi campaign debug | physical combat probe failed: campaign state or preset missing";
+			return false;
+		}
+
+		vector playerPosition;
+		if (!ResolveFirstLivingPlayerDebugPosition(playerPosition))
+		{
+			result = "h-istasi campaign debug | physical combat probe blocked: no living player render-bubble anchor";
+			return false;
+		}
+
+		string prefix = ResolveCampaignDebugPhysicalCombatProbePrefix(debugPrefix);
+		m_sCampaignDebugCombatProbeId = prefix + "_physical_combat";
+		m_sCampaignDebugCombatProbeFriendlyGroupId = m_sCampaignDebugCombatProbeId + "_resistance";
+		m_sCampaignDebugCombatProbeEnemyGroupId = m_sCampaignDebugCombatProbeId + "_enemy";
+		m_sCampaignDebugCombatProbeFriendlyFaction = ResolveCampaignDebugPhysicalCombatResistanceFaction(preset);
+		m_sCampaignDebugCombatProbeEnemyFaction = ResolveCampaignDebugPhysicalCombatEnemyFaction(preset, m_sCampaignDebugCombatProbeFriendlyFaction);
+
+		m_vCampaignDebugCombatProbeCenter = playerPosition;
+		m_vCampaignDebugCombatProbeCenter[0] = m_vCampaignDebugCombatProbeCenter[0] + CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS;
+		m_vCampaignDebugCombatProbeCenter = HST_WorldPositionService.ResolveSafeGroundPosition(m_vCampaignDebugCombatProbeCenter, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
+		m_vCampaignDebugCombatProbeFriendlyPosition = m_vCampaignDebugCombatProbeCenter;
+		m_vCampaignDebugCombatProbeFriendlyPosition[0] = m_vCampaignDebugCombatProbeFriendlyPosition[0] - (CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS * 0.5);
+		m_vCampaignDebugCombatProbeEnemyPosition = m_vCampaignDebugCombatProbeCenter;
+		m_vCampaignDebugCombatProbeEnemyPosition[0] = m_vCampaignDebugCombatProbeEnemyPosition[0] + (CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS * 0.5);
+		m_vCampaignDebugCombatProbeFriendlyPosition = HST_WorldPositionService.ResolveSafeGroundPosition(m_vCampaignDebugCombatProbeFriendlyPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
+		m_vCampaignDebugCombatProbeEnemyPosition = HST_WorldPositionService.ResolveSafeGroundPosition(m_vCampaignDebugCombatProbeEnemyPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
+
+		HST_ZoneState zone = SelectCampaignDebugPhysicalCombatProbeZone(state, m_vCampaignDebugCombatProbeCenter);
+		if (!zone)
+		{
+			result = "h-istasi campaign debug | physical combat probe failed: no zone available for active-group ownership";
+			return false;
+		}
+		m_sCampaignDebugCombatProbeZoneId = zone.m_sZoneId;
+
+		HST_ActiveGroupState friendlyGroup = CreateCampaignDebugPhysicalCombatProbeGroup(state, zone, m_sCampaignDebugCombatProbeFriendlyGroupId, m_sCampaignDebugCombatProbeFriendlyFaction, m_vCampaignDebugCombatProbeFriendlyPosition, m_vCampaignDebugCombatProbeEnemyPosition);
+		HST_ActiveGroupState enemyGroup = CreateCampaignDebugPhysicalCombatProbeGroup(state, zone, m_sCampaignDebugCombatProbeEnemyGroupId, m_sCampaignDebugCombatProbeEnemyFaction, m_vCampaignDebugCombatProbeEnemyPosition, m_vCampaignDebugCombatProbeFriendlyPosition);
+		if (!friendlyGroup || !enemyGroup)
+		{
+			result = "h-istasi campaign debug | physical combat probe failed: could not build temporary active groups";
+			return false;
+		}
+
+		state.m_aActiveGroups.Insert(friendlyGroup);
+		state.m_aActiveGroups.Insert(enemyGroup);
+		bool friendlySpawned = TrySpawnActiveGroup(friendlyGroup, state);
+		bool enemySpawned = TrySpawnActiveGroup(enemyGroup, state);
+		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeFriendlyGroupId, m_vCampaignDebugCombatProbeEnemyPosition))
+			m_iCampaignDebugCombatProbeWaypointCount++;
+		if (AssignCampaignDebugPhysicalCombatWaypoint(m_sCampaignDebugCombatProbeEnemyGroupId, m_vCampaignDebugCombatProbeFriendlyPosition))
+			m_iCampaignDebugCombatProbeWaypointCount++;
+
+		m_iCampaignDebugCombatProbeStartSecond = state.m_iElapsedSeconds;
+		m_bCampaignDebugCombatProbeActive = true;
+		SampleCampaignDebugPhysicalCombatProbe(state, true);
+		m_sCampaignDebugCombatProbeStartResult = string.Format("friendly %1 spawned %2 | enemy %3 spawned %4 | waypoints %5 | center %6", m_sCampaignDebugCombatProbeFriendlyGroupId, friendlySpawned, m_sCampaignDebugCombatProbeEnemyGroupId, enemySpawned, m_iCampaignDebugCombatProbeWaypointCount, m_vCampaignDebugCombatProbeCenter);
+		result = "h-istasi campaign debug | physical combat probe started | " + m_sCampaignDebugCombatProbeStartResult;
+		return true;
+	}
+
+	HST_CampaignDebugCaseResult FinishCampaignDebugPhysicalCombatProbe(HST_CampaignState state, bool physicalBlocked)
+	{
+		HST_CampaignDebugCaseResult probe = CreatePhysicalCombatDebugCase(state);
+		if (physicalBlocked)
+		{
+			AddConvoyDebugProbeAssertion(probe, "physical_combat.prerequisite.player", "controlled player entity available", "missing", "BLOCKED", "bootstrap marked physical runtime tests blocked");
+			FinalizePhysicalCombatDebugCase(state, probe);
+			return probe;
+		}
+		if (!state)
+		{
+			AddConvoyDebugProbeAssertion(probe, "physical_combat.prerequisite.state", "campaign state exists", "missing", "BLOCKED", "physical combat probe missing campaign state");
+			FinalizePhysicalCombatDebugCase(state, probe);
+			return probe;
+		}
+		if (!m_bCampaignDebugCombatProbeActive)
+		{
+			AddConvoyDebugProbeAssertion(probe, "physical_combat.started", "physical combat probe was started before result collection", "not active", "BLOCKED", "physical combat probe was not active when result step ran");
+			FinalizePhysicalCombatDebugCase(state, probe);
+			return probe;
+		}
+
+		SampleCampaignDebugPhysicalCombatProbe(state, true);
+		int elapsedSeconds = Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond);
+		HST_ActiveGroupState friendlyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId);
+		HST_ActiveGroupState enemyGroup = state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId);
+		bool friendlyRuntimeExists = GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
+		bool enemyRuntimeExists = GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
+		bool factionSplit = !m_sCampaignDebugCombatProbeFriendlyFaction.IsEmpty() && !m_sCampaignDebugCombatProbeEnemyFaction.IsEmpty() && m_sCampaignDebugCombatProbeFriendlyFaction != m_sCampaignDebugCombatProbeEnemyFaction;
+		bool friendlyAliveObserved = m_iCampaignDebugCombatProbeFriendlyStartAlive > 0 || m_iCampaignDebugCombatProbeFriendlyEndAlive > 0;
+		bool enemyAliveObserved = m_iCampaignDebugCombatProbeEnemyStartAlive > 0 || m_iCampaignDebugCombatProbeEnemyEndAlive > 0;
+		bool friendlyLossObserved = m_iCampaignDebugCombatProbeFriendlyStartAlive > 0 && m_iCampaignDebugCombatProbeFriendlyMinAlive >= 0 && m_iCampaignDebugCombatProbeFriendlyMinAlive < m_iCampaignDebugCombatProbeFriendlyStartAlive;
+		bool enemyLossObserved = m_iCampaignDebugCombatProbeEnemyStartAlive > 0 && m_iCampaignDebugCombatProbeEnemyMinAlive >= 0 && m_iCampaignDebugCombatProbeEnemyMinAlive < m_iCampaignDebugCombatProbeEnemyStartAlive;
+		bool casualtyObserved = friendlyLossObserved || enemyLossObserved;
+		bool contactObserved = casualtyObserved || (m_fCampaignDebugCombatProbeLastDistance >= 0 && m_fCampaignDebugCombatProbeLastDistance <= CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS);
+		bool sampleWindowCovered = elapsedSeconds >= CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS - 1 && m_iCampaignDebugCombatProbeSampleCount >= 2;
+
+		AddConvoyDebugProbeMetric(probe, "physical_combat.elapsed_seconds", string.Format("%1", elapsedSeconds), "seconds");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.samples", string.Format("%1", m_iCampaignDebugCombatProbeSampleCount), "count");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_start", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyStartAlive), "count");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_start", string.Format("%1", m_iCampaignDebugCombatProbeEnemyStartAlive), "count");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.friendly_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeFriendlyEndAlive), "count");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.enemy_alive_end", string.Format("%1", m_iCampaignDebugCombatProbeEnemyEndAlive), "count");
+		AddConvoyDebugProbeMetric(probe, "physical_combat.final_distance", string.Format("%1", Math.Round(m_fCampaignDebugCombatProbeLastDistance)), "meters");
+
+		probe.m_aEvidence.Insert("start | " + ReportText(m_sCampaignDebugCombatProbeStartResult));
+		probe.m_aEvidence.Insert("samples | " + ReportText(m_sCampaignDebugCombatProbeHistory));
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.faction_split", "temporary groups use resistance and enemy factions, not all FIA", string.Format("friendly %1 | enemy %2", ReportText(m_sCampaignDebugCombatProbeFriendlyFaction), ReportText(m_sCampaignDebugCombatProbeEnemyFaction)), ConvoyDebugStatus(factionSplit), "physical combat probe factions were not split between resistance and enemy", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.active_group_records", "temporary active-group records exist for both sides during sample window", string.Format("friendly %1 | enemy %2", friendlyGroup != null, enemyGroup != null), ConvoyDebugStatus(friendlyGroup != null && enemyGroup != null), "temporary active-group records missing before cleanup", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.runtime_entities", "both temporary groups spawn runtime AI group entities", string.Format("friendly runtime %1 alive %2 | enemy runtime %3 alive %4", friendlyRuntimeExists, m_iCampaignDebugCombatProbeFriendlyEndAlive, enemyRuntimeExists, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(friendlyRuntimeExists && enemyRuntimeExists && friendlyAliveObserved && enemyAliveObserved), "one or both combat probe groups did not spawn living runtime AI", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.search_waypoints", "both groups receive search-and-destroy waypoints toward the opposing side", string.Format("%1/2", m_iCampaignDebugCombatProbeWaypointCount), ConvoyDebugStatus(m_iCampaignDebugCombatProbeWaypointCount >= 2), "combat probe did not assign opposing search-and-destroy waypoints", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.sample_window", "normal server tick samples the spawned groups across the configured combat window", string.Format("elapsed %1/%2 | samples %3 | last %4", elapsedSeconds, CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS, m_iCampaignDebugCombatProbeSampleCount, ReportText(m_sCampaignDebugCombatProbeLastObserved)), ConvoyDebugStatus(sampleWindowCovered), "physical combat probe did not collect enough timed samples", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.contact_distance", "opposing groups reach direct contact distance or produce casualty evidence", string.Format("distance %1m | casualty %2", Math.Round(m_fCampaignDebugCombatProbeLastDistance), casualtyObserved), ConvoyDebugStatus(contactObserved), "opposing groups did not reach contact distance or casualty evidence", "", "", m_sCampaignDebugCombatProbeZoneId);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.casualty_resolution", "natural AI combat changes at least one side's live-count during the sample window", string.Format("friendly %1 -> min %2 -> %3 | enemy %4 -> min %5 -> %6", m_iCampaignDebugCombatProbeFriendlyStartAlive, m_iCampaignDebugCombatProbeFriendlyMinAlive, m_iCampaignDebugCombatProbeFriendlyEndAlive, m_iCampaignDebugCombatProbeEnemyStartAlive, m_iCampaignDebugCombatProbeEnemyMinAlive, m_iCampaignDebugCombatProbeEnemyEndAlive), ConvoyDebugStatus(casualtyObserved, "WARN"), "no live-count loss was observed during the physical combat window", "", "", m_sCampaignDebugCombatProbeZoneId);
+
+		bool cleaned = CleanupCampaignDebugPhysicalCombatProbeRuntime(state);
+		AddConvoyDebugProbeAssertion(probe, "physical_combat.cleanup", "temporary combat groups and waypoints are removed after result collection", BuildPhysicalCombatCleanupActual(state, cleaned), ConvoyDebugStatus(cleaned), "physical combat probe leaked temporary runtime or state records", "", "", m_sCampaignDebugCombatProbeZoneId);
+		FinalizePhysicalCombatDebugCase(state, probe);
+		ResetCampaignDebugPhysicalCombatProbeState();
+		return probe;
+	}
+
+	protected HST_CampaignDebugCaseResult CreatePhysicalCombatDebugCase(HST_CampaignState state)
+	{
+		HST_CampaignDebugCaseResult probe = new HST_CampaignDebugCaseResult();
+		probe.m_sCaseId = "physical_combat.ai_contact";
+		probe.m_sCategory = "physical_war";
+		probe.m_sFeature = "ai_combat_contact";
+		probe.m_sStage = "physical_probe";
+		probe.m_sStatus = "PASS";
+		if (state)
+		{
+			probe.m_iStartSecond = m_iCampaignDebugCombatProbeStartSecond;
+			probe.m_iEndSecond = state.m_iElapsedSeconds;
+		}
+		probe.m_aEvidence.Insert("temporary resistance/enemy active groups spawn inside the player render bubble and use search-and-destroy waypoints toward one another");
+		return probe;
+	}
+
+	protected void FinalizePhysicalCombatDebugCase(HST_CampaignState state, HST_CampaignDebugCaseResult probe)
+	{
+		FinalizeConvoyDebugProbeCase(state, probe);
+		if (probe && probe.m_sStatus == "PASS")
+			probe.m_sReason = "physical AI combat/contact probe assertions passed";
+	}
+
+	protected string ResolveCampaignDebugPhysicalCombatProbePrefix(string debugPrefix)
+	{
+		if (debugPrefix.IsEmpty())
+			return CAMPAIGN_DEBUG_PREFIX_ROOT + "combat";
+		if (debugPrefix.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
+			return debugPrefix;
+
+		return CAMPAIGN_DEBUG_PREFIX_ROOT + debugPrefix;
+	}
+
+	protected string ResolveCampaignDebugPhysicalCombatResistanceFaction(HST_CampaignPreset preset)
+	{
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			return preset.m_sResistanceFactionKey;
+
+		return "FIA";
+	}
+
+	protected string ResolveCampaignDebugPhysicalCombatEnemyFaction(HST_CampaignPreset preset, string resistanceFaction)
+	{
+		if (preset && !preset.m_sOccupierFactionKey.IsEmpty() && preset.m_sOccupierFactionKey != resistanceFaction)
+			return preset.m_sOccupierFactionKey;
+		if (preset && !preset.m_sInvaderFactionKey.IsEmpty() && preset.m_sInvaderFactionKey != resistanceFaction)
+			return preset.m_sInvaderFactionKey;
+		if (resistanceFaction != "USSR")
+			return "USSR";
+
+		return "US";
+	}
+
+	protected HST_ZoneState SelectCampaignDebugPhysicalCombatProbeZone(HST_CampaignState state, vector centerPosition)
+	{
+		HST_ZoneState nearestZone = FindNearestZone(state, centerPosition);
+		if (nearestZone)
+			return nearestZone;
+		if (!state)
+			return null;
+
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone)
+				return zone;
+		}
+
+		return null;
+	}
+
+	protected HST_ActiveGroupState CreateCampaignDebugPhysicalCombatProbeGroup(HST_CampaignState state, HST_ZoneState zone, string groupId, string factionKey, vector position, vector targetPosition)
+	{
+		if (!state || !zone || groupId.IsEmpty() || factionKey.IsEmpty())
+			return null;
+
+		HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, factionKey, CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT, 0, false);
+		activeGroup.m_sGroupId = groupId;
+		activeGroup.m_sZoneId = zone.m_sZoneId;
+		activeGroup.m_sFactionKey = factionKey;
+		activeGroup.m_sPrefab = SelectGroupPrefab(state, zone, factionKey, false);
+		activeGroup.m_sRouteId = "";
+		activeGroup.m_vSourcePosition = position;
+		activeGroup.m_vTargetPosition = targetPosition;
+		activeGroup.m_vPosition = position;
+		activeGroup.m_sRuntimeStatus = "campaign_debug_combat";
+		activeGroup.m_iInfantryCount = CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT;
+		activeGroup.m_iVehicleCount = 0;
+		activeGroup.m_iLastSeenAliveCount = CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT;
+		activeGroup.m_iSurvivorInfantryCount = CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT;
+		activeGroup.m_iSurvivorVehicleCount = 0;
+		activeGroup.m_bQRF = false;
+		return activeGroup;
+	}
+
+	protected bool AssignCampaignDebugPhysicalCombatWaypoint(string groupId, vector targetPosition)
+	{
+		if (groupId.IsEmpty())
+			return false;
+
+		IEntity groupEntity = GetRuntimeCrewGroupEntity(groupId);
+		AIGroup group = AIGroup.Cast(groupEntity);
+		if (!group)
+			return false;
+
+		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB, targetPosition, "0 0 0");
+		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+		if (!waypoint)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return false;
+		}
+
+		ApplyCampaignDebugEntityName(waypointEntity, "combat_waypoint", groupId);
+		waypoint.SetCompletionRadius(CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS);
+		group.AddWaypoint(waypoint);
+		m_aCampaignDebugCombatProbeWaypointEntities.Insert(waypointEntity);
+		return true;
+	}
+
+	protected bool SampleCampaignDebugPhysicalCombatProbe(HST_CampaignState state, bool force = false)
+	{
+		if (!m_bCampaignDebugCombatProbeActive || !state)
+			return false;
+		if (!force && m_iCampaignDebugCombatProbeLastSampleSecond == state.m_iElapsedSeconds)
+			return false;
+
+		int previousFriendlyAlive = m_iCampaignDebugCombatProbeFriendlyEndAlive;
+		int previousEnemyAlive = m_iCampaignDebugCombatProbeEnemyEndAlive;
+		int friendlyAlive = CountAliveRuntimeGroupAgents(m_sCampaignDebugCombatProbeFriendlyGroupId);
+		int enemyAlive = CountAliveRuntimeGroupAgents(m_sCampaignDebugCombatProbeEnemyGroupId);
+		if (m_iCampaignDebugCombatProbeFriendlyStartAlive < 0 && friendlyAlive > 0)
+			m_iCampaignDebugCombatProbeFriendlyStartAlive = friendlyAlive;
+		if (m_iCampaignDebugCombatProbeEnemyStartAlive < 0 && enemyAlive > 0)
+			m_iCampaignDebugCombatProbeEnemyStartAlive = enemyAlive;
+		if (m_iCampaignDebugCombatProbeFriendlyStartAlive >= 0)
+		{
+			if (m_iCampaignDebugCombatProbeFriendlyMinAlive < 0 || friendlyAlive < m_iCampaignDebugCombatProbeFriendlyMinAlive)
+				m_iCampaignDebugCombatProbeFriendlyMinAlive = friendlyAlive;
+		}
+		if (m_iCampaignDebugCombatProbeEnemyStartAlive >= 0)
+		{
+			if (m_iCampaignDebugCombatProbeEnemyMinAlive < 0 || enemyAlive < m_iCampaignDebugCombatProbeEnemyMinAlive)
+				m_iCampaignDebugCombatProbeEnemyMinAlive = enemyAlive;
+		}
+		m_iCampaignDebugCombatProbeFriendlyEndAlive = friendlyAlive;
+		m_iCampaignDebugCombatProbeEnemyEndAlive = enemyAlive;
+
+		vector friendlyPosition = ResolveCampaignDebugPhysicalCombatGroupPosition(state, m_sCampaignDebugCombatProbeFriendlyGroupId);
+		vector enemyPosition = ResolveCampaignDebugPhysicalCombatGroupPosition(state, m_sCampaignDebugCombatProbeEnemyGroupId);
+		if (!IsZeroVector(friendlyPosition) && !IsZeroVector(enemyPosition))
+			m_fCampaignDebugCombatProbeLastDistance = Math.Sqrt(DistanceSq2D(friendlyPosition, enemyPosition));
+
+		m_iCampaignDebugCombatProbeSampleCount++;
+		m_iCampaignDebugCombatProbeLastSampleSecond = state.m_iElapsedSeconds;
+		string sampleText = string.Format("#%1 t+%2s friendly %3 enemy %4 distance %5m", m_iCampaignDebugCombatProbeSampleCount, Math.Max(0, state.m_iElapsedSeconds - m_iCampaignDebugCombatProbeStartSecond), friendlyAlive, enemyAlive, Math.Round(m_fCampaignDebugCombatProbeLastDistance));
+		AppendCampaignDebugPhysicalCombatProbeHistory(sampleText);
+		return previousFriendlyAlive != friendlyAlive || previousEnemyAlive != enemyAlive;
+	}
+
+	protected vector ResolveCampaignDebugPhysicalCombatGroupPosition(HST_CampaignState state, string groupId)
+	{
+		IEntity runtimeEntity = GetRuntimeGroupEntity(groupId);
+		if (runtimeEntity)
+			return runtimeEntity.GetOrigin();
+
+		HST_ActiveGroupState activeGroup;
+		if (state)
+			activeGroup = state.FindActiveGroup(groupId);
+		if (activeGroup)
+			return activeGroup.m_vPosition;
+
+		return "0 0 0";
+	}
+
+	protected void AppendCampaignDebugPhysicalCombatProbeHistory(string sampleText)
+	{
+		if (sampleText.IsEmpty())
+			return;
+
+		m_sCampaignDebugCombatProbeLastObserved = sampleText;
+		if (m_iCampaignDebugCombatProbeHistoryCount >= 10)
+			return;
+
+		if (m_sCampaignDebugCombatProbeHistory.IsEmpty())
+			m_sCampaignDebugCombatProbeHistory = sampleText;
+		else
+			m_sCampaignDebugCombatProbeHistory = m_sCampaignDebugCombatProbeHistory + " | " + sampleText;
+		m_iCampaignDebugCombatProbeHistoryCount++;
+	}
+
+	protected bool CleanupCampaignDebugPhysicalCombatProbeRuntime(HST_CampaignState state)
+	{
+		foreach (IEntity waypointEntity : m_aCampaignDebugCombatProbeWaypointEntities)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+		}
+		m_aCampaignDebugCombatProbeWaypointEntities.Clear();
+
+		if (!m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty())
+		{
+			DeleteRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId);
+			RemoveActiveGroupStateForDebug(state, m_sCampaignDebugCombatProbeFriendlyGroupId);
+		}
+		if (!m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty())
+		{
+			DeleteRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId);
+			RemoveActiveGroupStateForDebug(state, m_sCampaignDebugCombatProbeEnemyGroupId);
+		}
+
+		bool friendlyClean = m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty() || (!GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) && (!state || !state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId)));
+		bool enemyClean = m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty() || (!GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) && (!state || !state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId)));
+		return friendlyClean && enemyClean && m_aCampaignDebugCombatProbeWaypointEntities.Count() == 0;
+	}
+
+	protected string BuildPhysicalCombatCleanupActual(HST_CampaignState state, bool cleaned)
+	{
+		bool friendlyGroupRemaining = state && !m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty() && state.FindActiveGroup(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
+		bool enemyGroupRemaining = state && !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty() && state.FindActiveGroup(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
+		bool friendlyRuntimeRemaining = !m_sCampaignDebugCombatProbeFriendlyGroupId.IsEmpty() && GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeFriendlyGroupId) != null;
+		bool enemyRuntimeRemaining = !m_sCampaignDebugCombatProbeEnemyGroupId.IsEmpty() && GetRuntimeGroupEntity(m_sCampaignDebugCombatProbeEnemyGroupId) != null;
+		return string.Format("cleaned %1 | friendly state %2 runtime %3 | enemy state %4 runtime %5 | waypoints %6", ReportBool(cleaned), ReportBool(friendlyGroupRemaining), ReportBool(friendlyRuntimeRemaining), ReportBool(enemyGroupRemaining), ReportBool(enemyRuntimeRemaining), m_aCampaignDebugCombatProbeWaypointEntities.Count());
+	}
+
+	protected void ResetCampaignDebugPhysicalCombatProbeState()
+	{
+		m_bCampaignDebugCombatProbeActive = false;
+		m_sCampaignDebugCombatProbeId = "";
+		m_sCampaignDebugCombatProbeFriendlyGroupId = "";
+		m_sCampaignDebugCombatProbeEnemyGroupId = "";
+		m_sCampaignDebugCombatProbeFriendlyFaction = "";
+		m_sCampaignDebugCombatProbeEnemyFaction = "";
+		m_sCampaignDebugCombatProbeZoneId = "";
+		m_iCampaignDebugCombatProbeStartSecond = 0;
+		m_iCampaignDebugCombatProbeLastSampleSecond = -1;
+		m_iCampaignDebugCombatProbeFriendlyStartAlive = -1;
+		m_iCampaignDebugCombatProbeEnemyStartAlive = -1;
+		m_iCampaignDebugCombatProbeFriendlyEndAlive = -1;
+		m_iCampaignDebugCombatProbeEnemyEndAlive = -1;
+		m_iCampaignDebugCombatProbeFriendlyMinAlive = -1;
+		m_iCampaignDebugCombatProbeEnemyMinAlive = -1;
+		m_iCampaignDebugCombatProbeSampleCount = 0;
+		m_iCampaignDebugCombatProbeHistoryCount = 0;
+		m_iCampaignDebugCombatProbeWaypointCount = 0;
+		m_fCampaignDebugCombatProbeLastDistance = -1.0;
+		m_vCampaignDebugCombatProbeCenter = "0 0 0";
+		m_vCampaignDebugCombatProbeFriendlyPosition = "0 0 0";
+		m_vCampaignDebugCombatProbeEnemyPosition = "0 0 0";
+		m_sCampaignDebugCombatProbeHistory = "";
+		m_sCampaignDebugCombatProbeLastObserved = "";
+		m_sCampaignDebugCombatProbeStartResult = "";
 	}
 
 	protected HST_CampaignDebugCaseResult CreateConvoyDebugProbeCase(HST_CampaignState state, HST_ActiveMissionState mission)
