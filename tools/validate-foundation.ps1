@@ -430,6 +430,31 @@ foreach ($requiredPetrosGroupPrefabEntry in @(
 	}
 }
 
+$runtimeEmptyGroupPrefabPath = "Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"
+if (!(Test-Path $runtimeEmptyGroupPrefabPath)) {
+	throw "Missing generic non-deleting runtime AIGroup prefab: $runtimeEmptyGroupPrefabPath"
+}
+
+$runtimeEmptyGroupPrefabMetaPath = "$runtimeEmptyGroupPrefabPath.meta"
+if (!(Test-Path $runtimeEmptyGroupPrefabMetaPath)) {
+	throw "Missing generic non-deleting runtime AIGroup prefab metadata: $runtimeEmptyGroupPrefabMetaPath"
+}
+
+if ((Get-Content -Raw $runtimeEmptyGroupPrefabMetaPath) -notmatch '\{6985327711303910\}Prefabs/Groups/HST/HST_RuntimeEmptyGroup\.et') {
+	throw "Generic runtime AIGroup prefab metadata must expose the GUID-qualified resource name"
+}
+
+$runtimeEmptyGroupPrefabText = Get-Content -Raw $runtimeEmptyGroupPrefabPath
+foreach ($requiredRuntimeEmptyGroupPrefabEntry in @(
+		'SCR_AIGroup HST_RuntimeEmptyGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et"',
+		"m_bSpawnImmediately 0",
+		"m_bDeleteWhenEmpty 0"
+	)) {
+	if ($runtimeEmptyGroupPrefabText -notmatch [regex]::Escape($requiredRuntimeEmptyGroupPrefabEntry)) {
+		throw "Generic runtime AIGroup fallback prefab must start empty and not queue native empty-group deletion: $requiredRuntimeEmptyGroupPrefabEntry"
+	}
+}
+
 $petrosPrefabText = Get-Content -Raw $petrosPrefabPath
 $hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
@@ -7537,6 +7562,7 @@ foreach ($requiredPhase9RuntimeEntry in @(
 }
 foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4",
+		'DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"',
 		'TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true)',
 		"AIGroup direct faction infantry fallback attempted but still has zero agents",
 		"BuildFinalActiveGroupPopulationFailureReason",
@@ -7560,6 +7586,9 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must force faction infantry fallback before the final grace attempt: $requiredActiveGroupPopulationRuntimeEntry"
 	}
+}
+if ($physicalWarServiceText -match 'DIRECT_INFANTRY_GROUP_PREFAB = "\{000CD338713F2B5A\}Prefabs/AI/Groups/Group_Base\.et"') {
+	throw "Active-group direct infantry fallback must use the HST-owned non-deleting runtime group prefab instead of raw Group_Base"
 }
 foreach ($requiredRuntimeFactionAuditEntry in @(
 		"post_cleanup.runtime_factions",
