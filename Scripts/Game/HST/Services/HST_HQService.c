@@ -237,9 +237,36 @@ class HST_HQService
 			if (m_PetrosEntity)
 			{
 				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
-				DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
-				changed = true;
+				if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach"))
+				{
+					DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
+					changed = true;
+				}
+				else
+				{
+					Print(string.Format("h-istasi | reattached Petros prefab %1 was not AI-grouped; deleting it for grouped respawn", ResolvePetrosPrefab(state)), LogLevel.WARNING);
+					DeleteRuntimeEntity(m_PetrosEntity);
+					m_PetrosEntity = null;
+					DeleteRuntimeEntity(m_PetrosGroupEntity);
+					m_PetrosGroupEntity = null;
+					changed = true;
+				}
 			}
+		}
+
+		if (m_PetrosEntity && !IsPetrosRuntimeTracked())
+		{
+			if (!m_bWarnedPetrosRemovalRetry)
+			{
+				Print("h-istasi | Petros runtime is no longer alive/grouped; retrying real grouped Petros spawn", LogLevel.WARNING);
+				m_bWarnedPetrosRemovalRetry = true;
+			}
+			DeleteRuntimeEntity(m_PetrosEntity);
+			m_PetrosEntity = null;
+			DeleteRuntimeEntity(m_PetrosGroupEntity);
+			m_PetrosGroupEntity = null;
+			m_bLoggedPetrosSpawned = false;
+			changed = true;
 		}
 
 		if (!m_PetrosEntity && m_bLoggedPetrosSpawned)
@@ -970,11 +997,10 @@ class HST_HQService
 
 		DebugLog(string.Format("lifecycle spawning Petros prefab=%1 pos=%2 hqDeployed=%3 petrosAlive=%4 runtimeSpawned=%5", petrosPrefab, petrosPosition, hqDeployed, petrosAlive, runtimeSpawned));
 		GenericEntity petros = HST_WorldPositionService.SpawnPrefab(petrosPrefab, petrosPosition, "0 0 0");
-		if (petros)
-		{
-			PreparePetrosEntity(petros, petrosPosition);
+		if (petros && PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn"))
 			return petros;
-		}
+		if (petros)
+			DeleteRuntimeEntity(petros);
 
 		if (petrosPrefab != PETROS_BASE_PREFAB)
 		{
@@ -985,13 +1011,30 @@ class HST_HQService
 			}
 
 			petros = HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+			if (petros && PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback"))
+				return petros;
 			if (petros)
-				PreparePetrosEntity(petros, petrosPosition);
+				DeleteRuntimeEntity(petros);
 
-			return petros;
+			return null;
 		}
 
 		return null;
+	}
+
+	protected bool PreparePetrosRuntimeEntity(IEntity petros, vector position, string source)
+	{
+		if (!petros)
+			return false;
+
+		PreparePetrosEntity(petros, position);
+		if (EnsurePetrosAIGroup(petros, position, source))
+			return true;
+
+		Print(string.Format("h-istasi | Petros prefab spawned via %1 but could not be attached to a durable AIGroup", source), LogLevel.WARNING);
+		DeleteRuntimeEntity(m_PetrosGroupEntity);
+		m_PetrosGroupEntity = null;
+		return false;
 	}
 
 	protected void PreparePetrosEntity(IEntity petros, vector position)
@@ -1027,11 +1070,18 @@ class HST_HQService
 			return false;
 
 		ApplyPetrosGroupFaction(group, source);
+		if (IsPetrosAgentInGroup(petros, group))
+		{
+			ApplyFaction(petros);
+			DebugLog(string.Format("lifecycle confirmed Petros already in AIGroup via %1 | petros=%2 group=%3", source, petros, m_PetrosGroupEntity));
+			return true;
+		}
+
 		AIAgent agent = ResolvePetrosAIAgent(petros);
 		if (agent && agent.GetParentGroup() && agent.GetParentGroup() != group)
 			group.AddAgent(agent);
 
-		if (!group.AddAIEntityToGroup(petros))
+		if (!group.AddAIEntityToGroup(petros) && !IsPetrosAgentInGroup(petros, group))
 		{
 			Print(string.Format("h-istasi | Petros AI group attach failed via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
 			return false;
@@ -1307,7 +1357,29 @@ class HST_HQService
 
 	protected bool IsPetrosRuntimeTracked()
 	{
-		return m_PetrosEntity != null;
+		return IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosAIGroupTracked();
+	}
+
+	protected bool IsLivingRuntimeEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller = character.GetCharacterController();
+			if (!controller)
+				return false;
+
+			return controller.GetLifeState() != ECharacterLifeState.DEAD;
+		}
+
+		DamageManagerComponent damageManager = DamageManagerComponent.Cast(entity.FindComponent(DamageManagerComponent));
+		if (!damageManager)
+			return true;
+
+		return damageManager.GetState() != EDamageState.DESTROYED;
 	}
 
 	protected IEntity ResolvePetrosRuntimeEntity()

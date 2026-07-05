@@ -507,6 +507,17 @@ foreach ($forbiddenArsenalReadinessGate in @(
 if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked\(\) && IsUsableArsenalEntity\(m_ArsenalEntity\)') {
 	throw "HQ runtime must not skip arsenal usability just because the entity exists"
 }
+foreach ($requiredPetrosGroupRuntimeEntry in @(
+		'EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach")',
+		'PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn")',
+		'PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback")',
+		"m_PetrosEntity && !IsPetrosRuntimeTracked()",
+		"return IsLivingRuntimeEntity(m_PetrosEntity) && IsPetrosAIGroupTracked()"
+	)) {
+	if ($hqServiceText -notmatch [regex]::Escape($requiredPetrosGroupRuntimeEntry)) {
+		throw "HQ runtime must prove Petros is alive and attached to a durable AIGroup: $requiredPetrosGroupRuntimeEntry"
+	}
+}
 if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {
 	throw "Coordinator must expose a Build Mode guarded HQ runtime rebuild action"
 }
@@ -3783,6 +3794,16 @@ foreach ($requiredGameMasterBudgetDiagnostic in @(
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredGameMasterBudgetDiagnostic)) {
 		throw "Campaign debug preflight must prove Game Master budget policy: $requiredGameMasterBudgetDiagnostic"
+	}
+}
+foreach ($requiredGameMasterBudgetShimEntry in @(
+		"ResolveDisabledBudgetHeadroom",
+		"budgetSettings.SetCurrentBudget(disabledBudget)",
+		"HistasiCountBudgetDeficitCorrections",
+		"deficitCorrections"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredGameMasterBudgetShimEntry)) {
+		throw "Game Master budget shim must pre-balance disabled-budget accounting before native clamp paths: $requiredGameMasterBudgetShimEntry"
 	}
 }
 if ($scriptText -notmatch "settings.m_Features.m_bShowPlayerMapMarkers = true") {
@@ -7419,6 +7440,15 @@ foreach ($requiredPhase9RuntimeEntry in @(
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredPhase9RuntimeEntry)) {
 		throw "Missing Phase 9 convoy contact runtime entry: $requiredPhase9RuntimeEntry"
+	}
+}
+foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
+		"ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4",
+		'TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true)',
+		"AIGroup direct faction infantry fallback attempted but still has zero agents"
+	)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
+		throw "Active AIGroup population must force faction infantry fallback before the final grace attempt: $requiredActiveGroupPopulationRuntimeEntry"
 	}
 }
 $phase9ContactIndex = $physicalWarServiceText.IndexOf("changed = UpdateMissionConvoyContact(state, mission) || changed;")

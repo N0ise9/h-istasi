@@ -659,9 +659,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Disabling Game Master budgets disables placement caps, not all native budget accounting.
   - The native `SCR_EditableEntityCoreBudgetSetting.SubtractFromBudget(int)` path logs `GM Budget got clamped at some point!` when a queued delete/free operation subtracts more than the tracked current budget.
-  - h-istasi should keep `SCR_BudgetEditorComponent.IsBudgetCapEnabled()` false for managed GM budgets while disabled, but still listen to `SCR_EditableEntityCore.Event_OnEntityBudgetUpdatedPerEntity` and pre-balance negative disabled-budget batches whose adjusted value would go below zero. This preserves native accounting enough to avoid the clamp warning without re-enabling budget caps.
-  - Treat `h-istasi game master budgets | corrected disabled-budget deficit ...` as proof that the disabled-budget shim absorbed an undertracked native free operation.
+  - h-istasi should keep `SCR_BudgetEditorComponent.IsBudgetCapEnabled()` false for managed GM budgets while disabled, prefill managed budget caps/current accounting to disabled-mode headroom, and still listen to `SCR_EditableEntityCore.Event_OnEntityBudgetUpdatedPerEntity` as a last-resort deficit repair hook. Post-update repair alone is not enough; native queued deletion can still reach the clamp path before diagnostics make the run understandable.
+  - Treat `deficitCorrections` in `HistasiBuildGameMasterBudgetDiagnostics()` plus at most one `corrected first disabled-budget deficit` log line as proof that the disabled-budget shim is active without accepting per-frame correction spam.
   - Campaign-debug preflight should record `preflight.gm_budget.*` assertions showing settings/runtime/game-mode agreement, budget editor availability, cap-enabled state, managed-budget headroom, original cap counts, and deficit-handler registration. A full run with `gameMasterBudgetsEnabled=false` should prove placement caps are disabled and the deficit correction hook is active before accepting any GM-budget clamp investigation as closed.
+
+- HQ/Petros runtime proof must require a live character and a durable AI group.
+  - A Petros entity handle is not sufficient. Dedicated-server logs can show `Petros character runtime was removed after spawn` when the character is spawned without being attached to a valid `SCR_AIGroup`.
+  - After spawn or reattach, call `EnsurePetrosAIGroup()` and only count HQ runtime objects as spawned when Petros is alive and `IsPetrosAIGroupTracked()` is true. Delete ungrouped rediscovered Petros entities and respawn them through the grouped path.
+
+- Active AI groups cannot wait until the final retry before proving live agents.
+  - Native group prefabs can spawn an `SCR_AIGroup` with zero countable agents for several ticks on a dedicated server.
+  - Queue one native `SpawnUnits()` retry, then force direct faction infantry fallback before the final population grace attempt. The fallback must use the active group's faction key and debug output must prove expected faction, live count, and zero mismatches for the spawned members.
 
 - Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.
   - Mission-sweep runtime checks should inspect the selected mission instance, then append selected convoy diagnostics only for that mission. Global mission runtime reports include completed/failed historical mission records and can poison every later mission with old `failed:` text.

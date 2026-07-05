@@ -30,6 +30,11 @@ class HST_GameMasterBudgetService
 		return s_aManagedBudgetTypes.Contains(budgetType);
 	}
 
+	static int ResolveDisabledBudgetHeadroom(int originalBudget)
+	{
+		return Math.Max(originalBudget, 1) * BUDGET_HEADROOM_MULTIPLIER;
+	}
+
 	static bool ReadConfiguredBudgetState()
 	{
 		HST_RuntimeSettingsService settingsService = new HST_RuntimeSettingsService();
@@ -108,6 +113,8 @@ modded class SCR_BudgetEditorComponent
 	protected ref map<EEditableEntityBudget, int> m_mHSTOriginalBudgetCaps = new map<EEditableEntityBudget, int>();
 	protected bool m_bHSTOriginalBudgetCapsCaptured;
 	protected bool m_bHSTBudgetDeficitHandlerRegistered;
+	protected int m_iHSTBudgetDeficitCorrectionCount;
+	protected bool m_bHSTBudgetDeficitCorrectionLogged;
 
 	override void EOnEditorInit()
 	{
@@ -134,6 +141,9 @@ modded class SCR_BudgetEditorComponent
 
 		foreach (SCR_EntityBudgetValue maxBudget : m_MaxBudgets)
 		{
+			if (!maxBudget)
+				continue;
+
 			EEditableEntityBudget budgetType = maxBudget.GetBudgetType();
 			int originalBudget = m_mHSTOriginalBudgetCaps.Get(budgetType);
 			if (HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled())
@@ -142,7 +152,15 @@ modded class SCR_BudgetEditorComponent
 				continue;
 			}
 
-			maxBudget.SetBudgetValue(originalBudget * HST_GameMasterBudgetService.BUDGET_HEADROOM_MULTIPLIER);
+			int disabledBudget = HST_GameMasterBudgetService.ResolveDisabledBudgetHeadroom(originalBudget);
+			maxBudget.SetBudgetValue(disabledBudget);
+
+			if (!HST_GameMasterBudgetService.IsManagedBudgetType(budgetType))
+				continue;
+
+			SCR_EditableEntityCoreBudgetSetting budgetSettings;
+			if (m_EntityCore && m_EntityCore.GetBudget(budgetType, budgetSettings) && budgetSettings && budgetSettings.GetCurrentBudget() < disabledBudget)
+				budgetSettings.SetCurrentBudget(disabledBudget);
 		}
 	}
 
@@ -230,7 +248,7 @@ modded class SCR_BudgetEditorComponent
 				continue;
 
 			int originalBudget = m_mHSTOriginalBudgetCaps.Get(maxBudget.GetBudgetType());
-			int expectedBudget = originalBudget * HST_GameMasterBudgetService.BUDGET_HEADROOM_MULTIPLIER;
+			int expectedBudget = HST_GameMasterBudgetService.ResolveDisabledBudgetHeadroom(originalBudget);
 			if (maxBudget.GetBudgetValue() == expectedBudget)
 				count++;
 		}
@@ -258,6 +276,20 @@ modded class SCR_BudgetEditorComponent
 		return count;
 	}
 
+	int HistasiCountBudgetDeficitCorrections()
+	{
+		return m_iHSTBudgetDeficitCorrectionCount;
+	}
+
+	protected int HistasiResolveCurrentBudgetValue(EEditableEntityBudget budgetType)
+	{
+		SCR_EditableEntityCoreBudgetSetting budgetSettings;
+		if (m_EntityCore && m_EntityCore.GetBudget(budgetType, budgetSettings) && budgetSettings)
+			return budgetSettings.GetCurrentBudget();
+
+		return -1;
+	}
+
 	string HistasiBuildGameMasterBudgetDiagnostics()
 	{
 		CaptureHistasiOriginalBudgetCaps();
@@ -272,7 +304,7 @@ modded class SCR_BudgetEditorComponent
 
 				EEditableEntityBudget budgetType = maxBudget.GetBudgetType();
 				int originalBudget = m_mHSTOriginalBudgetCaps.Get(budgetType);
-				string entry = string.Format("%1 current %2 original %3", typename.EnumToString(EEditableEntityBudget, budgetType), maxBudget.GetBudgetValue(), originalBudget);
+				string entry = string.Format("%1 cap %2 original %3 tracked %4", typename.EnumToString(EEditableEntityBudget, budgetType), maxBudget.GetBudgetValue(), originalBudget, HistasiResolveCurrentBudgetValue(budgetType));
 				if (entries.IsEmpty())
 					entries = entry;
 				else
@@ -283,7 +315,7 @@ modded class SCR_BudgetEditorComponent
 		if (entries.IsEmpty())
 			entries = "none";
 
-		return string.Format("editor %1 | budgetsEnabled %2 | capEnabled %3 | handler %4 | managed %5 | headroom %6 | original %7 | multiplier %8 | %9",
+		string report = string.Format("editor %1 | budgetsEnabled %2 | capEnabled %3 | handler %4 | managed %5 | headroom %6 | original %7 | multiplier %8 | deficitCorrections %9",
 			this.ClassName(),
 			HST_GameMasterBudgetService.AreGameMasterBudgetsEnabled(),
 			HistasiIsBudgetCapEnabledForDiagnostics(),
@@ -292,7 +324,8 @@ modded class SCR_BudgetEditorComponent
 			HistasiCountManagedBudgetsAtDisabledHeadroom(),
 			HistasiCountManagedBudgetsAtOriginalCap(),
 			HST_GameMasterBudgetService.BUDGET_HEADROOM_MULTIPLIER,
-			entries);
+			HistasiCountBudgetDeficitCorrections());
+		return report + " | " + entries;
 	}
 
 	protected void HistasiOnEntityBudgetUpdatedPerEntity(EEditableEntityBudget entityBudget, int originalBudgetValue, int budgetChange, int updatedBudgetValue, SCR_EditableEntityComponent entity)
@@ -311,7 +344,12 @@ modded class SCR_BudgetEditorComponent
 		int deficit = -updatedBudgetValue;
 		int currentBudget = budgetSettings.GetCurrentBudget();
 		budgetSettings.SetCurrentBudget(currentBudget + deficit);
-		Print(string.Format("h-istasi game master budgets | corrected disabled-budget deficit type=%1 adjusted=%2 change=%3 deficit=%4", typename.EnumToString(EEditableEntityBudget, entityBudget), originalBudgetValue, budgetChange, deficit));
+		m_iHSTBudgetDeficitCorrectionCount++;
+		if (!m_bHSTBudgetDeficitCorrectionLogged)
+		{
+			m_bHSTBudgetDeficitCorrectionLogged = true;
+			Print(string.Format("h-istasi game master budgets | corrected first disabled-budget deficit type=%1 adjusted=%2 change=%3 deficit=%4", typename.EnumToString(EEditableEntityBudget, entityBudget), originalBudgetValue, budgetChange, deficit));
+		}
 	}
 }
 

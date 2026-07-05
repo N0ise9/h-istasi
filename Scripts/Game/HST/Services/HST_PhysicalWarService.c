@@ -112,7 +112,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT = 3;
-	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 8;
+	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
@@ -6979,7 +6979,11 @@ class HST_PhysicalWarService
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
 		{
-			activeGroup.m_sSpawnFailureReason = string.Format("AIGroup spawned but is still awaiting agent population (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+			if (forceDirectFallback)
+				activeGroup.m_sSpawnFailureReason = string.Format("AIGroup direct faction infantry fallback attempted but still has zero agents (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+			else
+				activeGroup.m_sSpawnFailureReason = string.Format("AIGroup spawned but is still awaiting agent population (%1/%2).", attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+
 			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, attempt + 1);
 			DebugLog(string.Format("active group still pending agent population %1 attempt %2/%3 prefab %4", activeGroup.m_sGroupId, attempt, ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS, activeGroup.m_sPrefab));
 			return;
