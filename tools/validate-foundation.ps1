@@ -1581,7 +1581,7 @@ if ($missionRuntimeServiceText -match "StepCaptiveToward") {
 foreach ($requiredCaptiveFollowComponentContract in @(
 		"HST_MissionCaptiveFollowComponent",
 		"CAPTIVE_AI_GROUP_PREFAB",
-		"{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et",
+		"{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et",
 		"CAPTIVE_FOLLOW_WAYPOINT_PREFAB",
 		"IssueFollowWaypoint",
 		"ClearFollowWaypoint",
@@ -1605,6 +1605,9 @@ foreach ($requiredCaptiveFollowComponentContract in @(
 	if ($missionCaptiveFollowComponentText -notmatch [regex]::Escape($requiredCaptiveFollowComponentContract)) {
 		throw "Captive follow component is missing AI movement contract: $requiredCaptiveFollowComponentContract"
 	}
+}
+if ($missionCaptiveFollowComponentText -match 'CAPTIVE_AI_GROUP_PREFAB = "\{000CD338713F2B5A\}Prefabs/AI/Groups/Group_Base\.et"') {
+	throw "Captive follow must use the HST-owned non-deleting runtime group prefab instead of raw Group_Base"
 }
 if ($missionCaptiveFollowComponentText -match "EMovementType.WALK" -or $missionCaptiveFollowComponentText -match "TryForceWalkSpeed") {
 	throw "Captive follow component must not force freed POWs to walk while following"

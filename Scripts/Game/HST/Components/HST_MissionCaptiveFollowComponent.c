@@ -5,7 +5,7 @@ class HST_MissionCaptiveFollowComponentClass : ScriptComponentClass
 
 class HST_MissionCaptiveFollowComponent : ScriptComponent
 {
-	static const string CAPTIVE_AI_GROUP_PREFAB = "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et";
+	static const string CAPTIVE_AI_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAPTIVE_FOLLOW_WAYPOINT_PREFAB = "{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et";
 	static const string CAPTIVE_MOVE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const float STOP_DISTANCE_METERS = 2.25;
