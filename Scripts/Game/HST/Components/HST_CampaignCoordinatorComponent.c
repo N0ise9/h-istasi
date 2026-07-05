@@ -49,6 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-05-steam64-admin-menu-v2";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -236,7 +237,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_Settings.m_Membership)
 			{
 				DebugLog(string.Format("settings membership adminIdentityIds count=%1", m_Settings.m_Membership.m_aAdminIdentityIds.Count()));
-				Print(string.Format("h-istasi admin | settings path %1 | membership enabled %2 | configured admin SteamID64 %3", m_SettingsService.GetSettingsFilePath(), m_Settings.m_Membership.m_bMembershipEnabled, BuildRuntimeAdminSettingsSummary()));
+				Print(string.Format("h-istasi admin | authority build %1 | settings path %2 | membership enabled %3 | configured admin SteamID64 %4", RUNTIME_AUTHORITY_BUILD, m_SettingsService.GetSettingsFilePath(), m_Settings.m_Membership.m_bMembershipEnabled, BuildRuntimeAdminSettingsSummary()));
 			}
 
 			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
@@ -20238,7 +20239,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string grantLabel = adminGrantReason;
 			if (grantLabel.IsEmpty())
 				grantLabel = "none";
-			DebugLog(string.Format("player authority refresh | reason=%1 player=%2 identity=%3 steam64=%4 member=%5 admin=%6 commander=%7 grant=%8", reason, playerId, player.m_sIdentityId, EmptyCampaignDebugField(ResolvePlayerSteamId64(playerId)), player.m_bMember, player.m_bAdmin, m_State.m_sCommanderIdentityId == player.m_sIdentityId, grantLabel));
+			DebugLog(string.Format("player authority refresh | build=%1 reason=%2 player=%3 identity=%4 steam64=%5 member=%6 admin=%7 commander=%8 grant=%9", RUNTIME_AUTHORITY_BUILD, reason, playerId, player.m_sIdentityId, EmptyCampaignDebugField(ResolvePlayerSteamId64(playerId)), player.m_bMember, player.m_bAdmin, m_State.m_sCommanderIdentityId == player.m_sIdentityId, grantLabel));
 		}
 
 		return player;

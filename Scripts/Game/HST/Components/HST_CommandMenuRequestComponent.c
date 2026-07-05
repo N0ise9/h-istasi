@@ -70,6 +70,9 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 	static HST_CommandMenuRequestComponent GetLocalOwner()
 	{
+		if (!s_LocalOwner)
+			RecoverLocalOwnerFromController("static lookup");
+
 		return s_LocalOwner;
 	}
 
@@ -80,6 +83,28 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		s_LocalOwner = this;
 		BindNativeMapMarkerRefresh();
+	}
+
+	protected static void RecoverLocalOwnerFromController(string reason)
+	{
+		PlayerController localController = GetGame().GetPlayerController();
+		if (!localController)
+			return;
+
+		HST_CommandMenuRequestComponent localComponent = HST_CommandMenuRequestComponent.Cast(localController.FindComponent(HST_CommandMenuRequestComponent));
+		if (!localComponent)
+			return;
+
+		localComponent.ClaimRecoveredLocalOwner(reason);
+	}
+
+	protected void ClaimRecoveredLocalOwner(string reason)
+	{
+		if (!m_bIsLocalOwner)
+			m_bIsLocalOwner = true;
+
+		DebugLog("recovering local request bridge via " + reason);
+		BecomeLocalOwner();
 	}
 
 	protected void BindNativeMapMarkerRefresh()

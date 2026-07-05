@@ -282,6 +282,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	static HST_CommandMenuComponent GetLocalInstance()
 	{
+		if (!s_LocalInstance)
+			RecoverLocalInstanceFromController("static lookup");
+
 		return s_LocalInstance;
 	}
 
@@ -831,6 +834,28 @@ class HST_CommandMenuComponent : ScriptComponent
 		DebugLog("local player menu component ready");
 		RegisterInputListeners();
 		PrintCommandMenuReadyOnce("local owner");
+	}
+
+	protected static void RecoverLocalInstanceFromController(string reason)
+	{
+		PlayerController localController = GetGame().GetPlayerController();
+		if (!localController)
+			return;
+
+		HST_CommandMenuComponent localComponent = HST_CommandMenuComponent.Cast(localController.FindComponent(HST_CommandMenuComponent));
+		if (!localComponent)
+			return;
+
+		localComponent.ClaimRecoveredLocalOwner(reason);
+	}
+
+	protected void ClaimRecoveredLocalOwner(string reason)
+	{
+		if (!m_bIsLocalOwner)
+			m_bIsLocalOwner = true;
+
+		DebugLog("recovering local command menu component via " + reason);
+		BecomeLocalOwner();
 	}
 
 	protected void PrintCommandMenuReadyOnce(string reason)

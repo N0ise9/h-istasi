@@ -112,6 +112,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT = 3;
+	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 8;
 	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
@@ -5260,12 +5261,33 @@ class HST_PhysicalWarService
 	protected int CountAliveRuntimeCrewAgents(string groupId)
 	{
 		int aliveCount;
+		bool foundNativeGroup;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
 				continue;
 
 			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity)
+				continue;
+
+			AIGroup group = AIGroup.Cast(entity);
+			if (!group)
+				continue;
+
+			foundNativeGroup = true;
+			aliveCount += GetConvoyVehicleControlAdapter().CountLivingCrew(entity);
+		}
+
+		if (foundNativeGroup)
+			return aliveCount;
+
+		for (int j = 0; j < m_aRuntimeGroupIds.Count(); j++)
+		{
+			if (m_aRuntimeGroupIds[j] != groupId || j >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[j];
 			if (!entity)
 				continue;
 
@@ -6798,7 +6820,14 @@ class HST_PhysicalWarService
 		if (TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "retry"))
 			return;
 		bool forceFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT;
-		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", forceFallback))
+		if (forceFallback && TryKickPendingNativeGroupSpawn(activeGroup, "retry"))
+		{
+			GetGame().GetCallqueue().CallLater(ConfirmSpawnedGroupAgents, ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS, false, activeGroup, requestedStatus, state, attempt + 1);
+			return;
+		}
+
+		bool forceDirectFallback = attempt >= ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT;
+		if (forceDirectFallback && TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "retry", true))
 			return;
 
 		if (attempt < ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS)
@@ -6828,7 +6857,7 @@ class HST_PhysicalWarService
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 
-		int agentCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		int agentCount = CountAliveRuntimeNativeGroupAgents(activeGroup.m_sGroupId);
 		if (agentCount <= 0)
 			return false;
 
@@ -6882,11 +6911,34 @@ class HST_PhysicalWarService
 		HST_CampaignState state = m_aPendingPopulationStates[index];
 		if (!TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "native delayed spawn event"))
 		{
-			if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "native delayed spawn event", false))
-				return;
-
-			DebugLog(string.Format("active group delayed spawn event fired before live agents were countable %1", groupId));
+			DebugLog(string.Format("active group delayed spawn event fired before durable live agents were countable %1", groupId));
 		}
+	}
+
+	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			return false;
+		if (activeGroup.m_sSpawnFallbackMode == "group_spawn_retry")
+			return false;
+
+		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
+		if (!group)
+			return false;
+
+		int existingAgents = CountLivingNativeAIGroupAgents(group);
+		if (existingAgents > 0)
+			return false;
+
+		group.SetDeleteWhenEmpty(false);
+		group.SetMaxUnitsToSpawn(Math.Max(1, activeGroup.m_iInfantryCount));
+		group.SetMemberSpawnDelay(0);
+		group.SpawnUnits();
+		activeGroup.m_sSpawnFallbackMode = "group_spawn_retry";
+		activeGroup.m_sSpawnFailureReason = "Queued native SCR_AIGroup.SpawnUnits retry via " + source;
+		DebugLog(string.Format("active group native SpawnUnits retry queued %1 expected infantry %2 via %3", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source));
+		return true;
 	}
 
 	protected bool TryPopulatePendingActiveGroupFromFactionInfantry(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source, bool allowInitializingFallback = false)
@@ -6905,7 +6957,7 @@ class HST_PhysicalWarService
 		if (group.IsInitializing() && allowInitializingFallback)
 			DebugLog(string.Format("active group forcing direct infantry fallback while native group is still initializing %1 via %2", activeGroup.m_sGroupId, source));
 
-		int existingCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		int existingCount = CountAliveRuntimeNativeGroupAgents(activeGroup.m_sGroupId);
 		if (existingCount > 0)
 			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing agents");
 
@@ -7828,6 +7880,7 @@ class HST_PhysicalWarService
 	protected int CountAliveRuntimeGroupAgents(string groupId)
 	{
 		int groupAgentCount;
+		bool foundNativeGroup;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -7839,7 +7892,10 @@ class HST_PhysicalWarService
 
 			AIGroup group = AIGroup.Cast(entity);
 			if (group)
-				groupAgentCount += Math.Max(0, group.GetAgentsCount());
+			{
+				foundNativeGroup = true;
+				groupAgentCount += CountLivingNativeAIGroupAgents(group);
+			}
 		}
 
 		int vehicleAliveCount;
@@ -7853,7 +7909,7 @@ class HST_PhysicalWarService
 				vehicleAliveCount++;
 		}
 
-		if (groupAgentCount > 0)
+		if (groupAgentCount > 0 || foundNativeGroup)
 			return groupAgentCount + vehicleAliveCount;
 
 		int aliveCount;
@@ -7875,6 +7931,7 @@ class HST_PhysicalWarService
 	protected int CountAliveRuntimeInfantryGroupAgents(string groupId)
 	{
 		int groupAgentCount;
+		bool foundNativeGroup;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -7886,10 +7943,13 @@ class HST_PhysicalWarService
 
 			AIGroup group = AIGroup.Cast(entity);
 			if (group)
-				groupAgentCount += Math.Max(0, group.GetAgentsCount());
+			{
+				foundNativeGroup = true;
+				groupAgentCount += CountLivingNativeAIGroupAgents(group);
+			}
 		}
 
-		if (groupAgentCount > 0)
+		if (groupAgentCount > 0 || foundNativeGroup)
 			return groupAgentCount;
 
 		int aliveCount;
@@ -7902,6 +7962,45 @@ class HST_PhysicalWarService
 			if (!entity || AIGroup.Cast(entity))
 				continue;
 			if (IsLivingEntity(entity))
+				aliveCount++;
+		}
+
+		return aliveCount;
+	}
+
+	protected int CountAliveRuntimeNativeGroupAgents(string groupId)
+	{
+		int aliveCount;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			AIGroup group = AIGroup.Cast(m_aRuntimeGroupEntities[i]);
+			if (!group)
+				continue;
+
+			aliveCount += CountLivingNativeAIGroupAgents(group);
+		}
+
+		return aliveCount;
+	}
+
+	protected int CountLivingNativeAIGroupAgents(AIGroup group)
+	{
+		if (!group)
+			return 0;
+
+		int aliveCount;
+		array<AIAgent> agents = new array<AIAgent>;
+		group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity controlledEntity = agent.GetControlledEntity();
+			if (IsLivingEntity(controlledEntity))
 				aliveCount++;
 		}
 
