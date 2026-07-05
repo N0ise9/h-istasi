@@ -949,9 +949,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey, m_Preset.m_sResistanceFactionKey);
-		if (changed)
+		bool defendPetrosResolved = ResolveDefendPetrosForCurrentCampaignEnd();
+		if (changed || defendPetrosResolved)
 			MarkMajorCampaignChange();
-		return changed;
+		return changed || defendPetrosResolved;
 	}
 
 	bool CaptureZoneForResistance(string zoneId, int supportReward = 10)
@@ -960,12 +961,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		bool changed = m_ZoneCapture.CaptureForResistance(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
+		bool defendPetrosResolved = ResolveDefendPetrosForCurrentCampaignEnd();
 		if (changed)
-		{
 			BroadcastCaptureChangeNotifications();
+		if (changed || defendPetrosResolved)
 			MarkMajorCampaignChange();
-		}
-		return changed;
+		return changed || defendPetrosResolved;
 	}
 
 	HST_ArsenalItemState DepositArsenalItem(string prefab, int amount, string category = "equipment", string displayName = "")
@@ -5964,6 +5965,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string beforeExample;
 		int beforeCount = CountCampaignDebugPrefixedStateRecords(prefix, beforeExample);
+		int defendPetrosCount = ClearCampaignDebugPrefixedDefendPetrosState(prefix);
 		int missionCount = RemoveCampaignDebugPrefixedMissions(prefix);
 		int objectiveCount = RemoveCampaignDebugPrefixedObjectives(prefix);
 		int runtimeEntityCount = RemoveCampaignDebugPrefixedRuntimeEntities(prefix);
@@ -5985,7 +5987,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (taggedWorldBefore >= 0)
 			taggedWorldRemoved = RemoveCampaignDebugTaggedWorldEntities(prefix, taggedWorldRemovedScanned, taggedWorldRemovedExample);
 		bool markerRebuildAttempted = false;
-		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0) && m_MapMarkers && m_Preset)
+		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0 || defendPetrosCount > 0) && m_MapMarkers && m_Preset)
 		{
 			markerRebuildAttempted = true;
 			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
@@ -6017,15 +6019,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.enemy_orders_removed", string.Format("%1", enemyOrderCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tasks_removed", string.Format("%1", taskCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.markers_removed", string.Format("%1", markerCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.defend_petros_state_cleared", string.Format("%1", defendPetrosCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_before", string.Format("%1", taggedWorldBefore), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_removed", string.Format("%1", taggedWorldRemoved), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_after", string.Format("%1", taggedWorldAfter), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.before_count", "prefixed records counted before cleanup", BuildCampaignDebugCountExample(beforeCount, beforeExample), "PASS", "");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.after_count", "no records matching cleanup prefix remain", BuildCampaignDebugCountExample(afterCount, afterExample), CampaignDebugStatus(afterCount == 0), "prefixed cleanup left campaign state records behind");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.tagged_world_entities", "world scan removes physical entities named with debug tag/prefix", taggedWorldActual, taggedWorldStatus, "tagged debug world entities remain after prefixed cleanup");
-		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.marker_rebuild", "marker rebuild attempted when prefixed marker-backed records changed", string.Format("changed %1 | attempted %2", markerCount + missionCount + supportCount + qrfCount + enemyOrderCount, markerRebuildAttempted), CampaignDebugStatus(markerCount + missionCount + supportCount + qrfCount + enemyOrderCount == 0 || markerRebuildAttempted, "WARN"), "prefixed cleanup changed marker-backed records but marker rebuild was unavailable");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.marker_rebuild", "marker rebuild attempted when prefixed marker-backed records changed", string.Format("changed %1 | attempted %2", markerCount + missionCount + supportCount + qrfCount + enemyOrderCount + defendPetrosCount, markerRebuildAttempted), CampaignDebugStatus(markerCount + missionCount + supportCount + qrfCount + enemyOrderCount + defendPetrosCount == 0 || markerRebuildAttempted, "WARN"), "prefixed cleanup changed marker-backed records but marker rebuild was unavailable");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
-		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted || taggedWorldRemoved > 0)
+		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted || taggedWorldRemoved > 0 || defendPetrosCount > 0)
 			MarkMajorCampaignChange(true);
 		return cleanupCase;
 	}
@@ -6351,6 +6354,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					example = "task " + task.m_sTaskId;
 			}
 		}
+		if (CampaignDebugDefendPetrosStateMatchesPrefix(prefix))
+		{
+			count++;
+			if (example.IsEmpty())
+				example = "defend petros state " + EmptyCampaignDebugField(m_State.m_sDefendPetrosMissionId);
+		}
 
 		return count;
 	}
@@ -6547,6 +6556,73 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return removed;
 	}
 
+	protected int ClearCampaignDebugPrefixedDefendPetrosState(string prefix)
+	{
+		if (!m_State || prefix.IsEmpty() || !CampaignDebugDefendPetrosStateMatchesPrefix(prefix))
+			return 0;
+
+		int changed;
+		if (m_State.m_bDefendPetrosActive)
+		{
+			m_State.m_bDefendPetrosActive = false;
+			changed++;
+		}
+
+		if (!m_State.m_sDefendPetrosMissionId.IsEmpty())
+		{
+			m_State.m_sDefendPetrosMissionId = "";
+			changed++;
+		}
+		if (!m_State.m_sDefendPetrosOrderId.IsEmpty())
+		{
+			m_State.m_sDefendPetrosOrderId = "";
+			changed++;
+		}
+		if (!m_State.m_sDefendPetrosSupportRequestId.IsEmpty())
+		{
+			m_State.m_sDefendPetrosSupportRequestId = "";
+			changed++;
+		}
+		if (!m_State.m_sDefendPetrosAttackerGroupId.IsEmpty())
+		{
+			m_State.m_sDefendPetrosAttackerGroupId = "";
+			changed++;
+		}
+
+		m_State.m_sDefendPetrosStatus = "campaign_debug_cleared";
+		m_State.m_sDefendPetrosFailureReason = "";
+		m_State.m_iDefendPetrosStartedSecond = 0;
+		m_State.m_iDefendPetrosEndsSecond = 0;
+		m_State.m_iDefendPetrosLastUpdateSecond = m_State.m_iElapsedSeconds;
+		m_State.m_iDefendPetrosAttackerCount = 0;
+		m_State.m_iDefendPetrosAliveAttackerCount = 0;
+		m_State.m_iDefendPetrosKilledCount = 0;
+		m_State.m_bDefendPetrosOutcomeApplied = false;
+		changed += RemoveCampaignDebugStaticDefendPetrosMarkers();
+		return Math.Max(1, changed);
+	}
+
+	protected int RemoveCampaignDebugStaticDefendPetrosMarkers()
+	{
+		if (!m_State)
+			return 0;
+
+		int removed;
+		for (int i = m_State.m_aMapMarkers.Count() - 1; i >= 0; i--)
+		{
+			HST_MapMarkerState marker = m_State.m_aMapMarkers[i];
+			if (!marker)
+				continue;
+			if (marker.m_sMarkerId != "hst_defend_petros" && marker.m_sMarkerId != "hst_defend_petros_attackers")
+				continue;
+
+			m_State.m_aMapMarkers.Remove(i);
+			removed++;
+		}
+
+		return removed;
+	}
+
 	protected bool CampaignDebugMissionMatchesPrefix(HST_ActiveMissionState mission, string prefix)
 	{
 		if (!mission)
@@ -6661,6 +6737,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return MissionValueHasCampaignDebugPrefix(task.m_sTaskId, prefix)
 			|| MissionValueHasCampaignDebugPrefix(task.m_sLinkedId, prefix);
+	}
+
+	protected bool CampaignDebugDefendPetrosStateMatchesPrefix(string prefix)
+	{
+		if (!m_State || prefix.IsEmpty())
+			return false;
+
+		return MissionValueHasCampaignDebugPrefix(m_State.m_sDefendPetrosMissionId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(m_State.m_sDefendPetrosOrderId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(m_State.m_sDefendPetrosSupportRequestId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(m_State.m_sDefendPetrosAttackerGroupId, prefix);
 	}
 
 	protected bool MissionValueHasCampaignDebugPrefix(string value, string prefix)
@@ -16327,6 +16414,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
 			return "h-istasi phase 18 smoke | failed: enemy commander not ready";
 
+		int resolvedForIsolation = ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase18_background_war_start");
 		bool arranged = ArrangeCampaignDebugBackgroundWarState();
 		CaptureCampaignDebugBackgroundWarPools(true);
 		m_iCampaignDebugBackgroundWarOrderCountBefore = m_State.m_aEnemyOrders.Count();
@@ -16346,6 +16434,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarOccupierZoneId),
 			EmptyCampaignDebugField(m_sCampaignDebugBackgroundWarInvaderZoneId)
 		);
+		report = report + string.Format("\nisolation | open orders resolved %1", resolvedForIsolation);
 		report = report + string.Format(
 			"\npools | occupier attack %1 -> %2 support %3 -> %4 | invader attack %5 -> %6 support %7 -> %8",
 			m_iCampaignDebugBackgroundWarOccupierAttackBefore,
@@ -17018,6 +17107,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
+		ResetCampaignDebugPhase24HQPressure("early game seed");
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
 		m_State.m_iFactionMoney = 750;
 		m_State.m_iHR = 10;
@@ -17044,6 +17134,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
+		ResetCampaignDebugPhase24HQPressure("mid game seed");
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
 		int changed;
 		foreach (HST_ZoneState zone : m_State.m_aZones)
@@ -17074,6 +17165,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
+		ResetCampaignDebugPhase24HQPressure("late game seed");
 		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
@@ -17101,6 +17193,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
+		ResetCampaignDebugPhase24HQPressure("escalation pressure");
 		m_CampaignDebugPhase24EscalationContext = RunCampaignDebugPhase24EscalationProbe();
 		if (!m_CampaignDebugPhase24EscalationContext)
 			return "h-istasi phase 24 escalation | failed: probe did not run";
@@ -17150,6 +17243,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase24Report(int playerId)
 	{
 		return RequestMemberInspectBalancePacing(playerId);
+	}
+
+	protected bool ResetCampaignDebugPhase24HQPressure(string reason)
+	{
+		if (!m_State)
+			return false;
+
+		bool changed;
+		if (m_State.m_iHQKnowledge != 0)
+		{
+			m_State.m_iHQKnowledge = 0;
+			changed = true;
+		}
+		if (m_State.m_iHQThreatLevel != 0)
+		{
+			m_State.m_iHQThreatLevel = 0;
+			changed = true;
+		}
+		if (m_State.m_iLastHQAttackSecond != m_State.m_iElapsedSeconds)
+		{
+			m_State.m_iLastHQAttackSecond = m_State.m_iElapsedSeconds;
+			changed = true;
+		}
+		if (m_State.m_sLastHQKnowledgeReason != "phase24 debug seed")
+		{
+			m_State.m_sLastHQKnowledgeReason = "phase24 debug seed";
+			changed = true;
+		}
+		if (m_State.m_sLastHQThreatReason != "phase24 debug seed")
+		{
+			m_State.m_sLastHQThreatReason = "phase24 debug seed";
+			changed = true;
+		}
+
+		if (changed)
+			AppendCampaignDebugLog("INFO", "phase24 hq pressure reset", reason);
+		return changed;
 	}
 
 	protected string BuildPhase22Report()
@@ -17643,6 +17773,156 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			order.m_sRuntimeStatus = "resolved_defense_failed";
 			order.m_sFailureReason = reason;
 		}
+	}
+
+	protected bool ResolveDefendPetrosForCampaignEnd(HST_ECampaignPhase endedPhase, string reason)
+	{
+		if (!m_State)
+			return false;
+		if (endedPhase != HST_ECampaignPhase.HST_CAMPAIGN_WON && endedPhase != HST_ECampaignPhase.HST_CAMPAIGN_LOST)
+			return false;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(m_State.m_sDefendPetrosMissionId);
+		if (!mission)
+			mission = FindActiveDefendPetrosMission();
+
+		HST_EnemyOrderState order = FindEnemyOrderById(m_State.m_sDefendPetrosOrderId);
+		if (!order)
+			order = FindActivePetrosAttackOrder();
+
+		if (!m_State.m_bDefendPetrosActive && !mission && !order)
+			return false;
+
+		bool succeeded = endedPhase == HST_ECampaignPhase.HST_CAMPAIGN_WON;
+		string resolutionKind = "campaign_end_loss";
+		if (succeeded)
+			resolutionKind = "campaign_end_victory";
+		if (reason.IsEmpty())
+			reason = resolutionKind;
+
+		bool changed;
+		if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
+		{
+			if (succeeded)
+				mission.m_eStatus = HST_EMissionStatus.HST_MISSION_SUCCEEDED;
+			else
+			{
+				mission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
+				mission.m_sRuntimeFailureReason = reason;
+			}
+
+			mission.m_iRemainingSeconds = 0;
+			mission.m_sRuntimePhase = resolutionKind;
+			changed = true;
+		}
+
+		if (mission)
+			changed = ResolveDefendPetrosMissionChildrenForCampaignEnd(mission, succeeded, reason) || changed;
+
+		string supportRequestId = m_State.m_sDefendPetrosSupportRequestId;
+		string attackerGroupId = m_State.m_sDefendPetrosAttackerGroupId;
+		if (order)
+		{
+			if (supportRequestId.IsEmpty())
+				supportRequestId = order.m_sSupportRequestId;
+			if (attackerGroupId.IsEmpty())
+				attackerGroupId = order.m_sGroupId;
+			if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+			{
+				order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+				order.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
+				order.m_sRuntimeStatus = "resolved_" + resolutionKind;
+				order.m_sResolutionKind = resolutionKind;
+				order.m_bOutcomeApplied = true;
+				if (!succeeded)
+					order.m_sFailureReason = reason;
+				changed = true;
+			}
+		}
+
+		HST_SupportRequestState request = m_State.FindSupportRequest(supportRequestId);
+		if (request)
+		{
+			if (attackerGroupId.IsEmpty())
+				attackerGroupId = request.m_sGroupId;
+			if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			{
+				request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED;
+				request.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
+				request.m_sRuntimeStatus = "cancelled_" + resolutionKind;
+				request.m_sResolutionKind = resolutionKind;
+				request.m_sFailureReason = reason;
+				changed = true;
+			}
+		}
+
+		HST_ActiveGroupState group = m_State.FindActiveGroup(attackerGroupId);
+		if (group && group.m_sRuntimeStatus != "eliminated" && group.m_sRuntimeStatus != "folded" && group.m_sRuntimeStatus != "spawn_failed")
+		{
+			group.m_sRuntimeStatus = "folded";
+			changed = true;
+		}
+
+		if (m_State.m_bDefendPetrosActive)
+			changed = true;
+		m_State.m_bDefendPetrosActive = false;
+		m_State.m_sDefendPetrosStatus = resolutionKind;
+		m_State.m_sDefendPetrosFailureReason = "";
+		if (!succeeded)
+			m_State.m_sDefendPetrosFailureReason = reason;
+		m_State.m_iDefendPetrosLastUpdateSecond = m_State.m_iElapsedSeconds;
+		m_State.m_bDefendPetrosOutcomeApplied = true;
+		return changed;
+	}
+
+	protected bool ResolveDefendPetrosMissionChildrenForCampaignEnd(HST_ActiveMissionState mission, bool succeeded, string reason)
+	{
+		if (!m_State || !mission)
+			return false;
+
+		bool changed;
+		foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
+		{
+			if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
+				continue;
+
+			if (succeeded && !objective.m_bComplete)
+			{
+				objective.m_iCurrentProgress = objective.m_iRequiredProgress;
+				objective.m_iCurrentCount = Math.Max(1, objective.m_iRequiredCount);
+				objective.m_bComplete = true;
+				objective.m_bFailed = false;
+				changed = true;
+			}
+			else if (!succeeded && !objective.m_bFailed)
+			{
+				objective.m_bFailed = true;
+				changed = true;
+			}
+		}
+
+		HST_CampaignTaskState task = m_State.FindCampaignTask("task_" + mission.m_sInstanceId);
+		if (task)
+		{
+			bool failed = !succeeded;
+			if (task.m_bActive)
+			{
+				task.m_bActive = false;
+				changed = true;
+			}
+			if (task.m_bSucceeded != succeeded)
+			{
+				task.m_bSucceeded = succeeded;
+				changed = true;
+			}
+			if (task.m_bFailed != failed)
+			{
+				task.m_bFailed = failed;
+				changed = true;
+			}
+		}
+
+		return changed;
 	}
 
 	protected void PreparePhase21SmokeUndercover(string identityId)
@@ -18883,7 +19163,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		m_Strategic.ApplyCampaignOutcome(m_State, outcome);
+		ResolveDefendPetrosForCurrentCampaignEnd();
 		return true;
+	}
+
+	protected bool ResolveDefendPetrosForCurrentCampaignEnd()
+	{
+		if (!m_State)
+			return false;
+
+		return ResolveDefendPetrosForCampaignEnd(m_State.m_ePhase, m_State.m_sCampaignEndReason);
 	}
 
 	bool IsCampaignActiveForVisibleMutatingCommand()
@@ -19078,11 +19367,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string title = "Enemy Operation";
 			string targetName = ResolveZoneDisplayName(order.m_sTargetZoneId);
 			string orderLabel = EnemyOrderTypeLabel(order.m_eType);
+			vector notificationPosition = order.m_vTargetPosition;
+			if (IsZeroVector(notificationPosition))
+				notificationPosition = ResolveZonePosition(order.m_sTargetZoneId);
+			if (order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+				targetName = "the resistance base";
 			string message = string.Format("%1 %2 targeting %3.", order.m_sFactionKey, orderLabel, targetName);
-			if (!ShouldBroadcastNotificationInPlayerBubble("enemy_order_" + order.m_sOrderId, "enemy", order.m_sTargetZoneId, ResolveZonePosition(order.m_sTargetZoneId)))
+			if (!ShouldBroadcastNotificationInPlayerBubble("enemy_order_" + order.m_sOrderId, "enemy", order.m_sTargetZoneId, notificationPosition))
 				continue;
 
-			BroadcastNotification("enemy_order_" + order.m_sOrderId + "_" + string.Format("%1", order.m_eStatus), "enemy", "warning", title, message, order.m_sTargetZoneId, "", ResolveZonePosition(order.m_sTargetZoneId), 6.0);
+			BroadcastNotification("enemy_order_" + order.m_sOrderId + "_" + string.Format("%1", order.m_eStatus), "enemy", "warning", title, message, order.m_sTargetZoneId, "", notificationPosition, 6.0);
 		}
 	}
 

@@ -85,13 +85,16 @@ class HST_EnemyCommanderService
 			if (!orderDetail)
 				continue;
 
+			string targetText = orderDetail.m_sTargetZoneId;
+			if (orderDetail.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+				targetText = "resistance_base near " + orderDetail.m_sTargetZoneId;
 			string detail = string.Format(
 				"\n%1 | %2 | %3 | faction %4 | target %5 | runtime %6 | support %7 | group %8 | resolve %9",
 				orderDetail.m_sOrderId,
 				orderDetail.m_eType,
 				orderDetail.m_eStatus,
 				orderDetail.m_sFactionKey,
-				orderDetail.m_sTargetZoneId,
+				targetText,
 				orderDetail.m_sRuntimeStatus,
 				orderDetail.m_sSupportRequestId,
 				orderDetail.m_sGroupId,
@@ -244,9 +247,7 @@ class HST_EnemyCommanderService
 			return null;
 
 		HST_EnemyOrderState order = state.m_aEnemyOrders[state.m_aEnemyOrders.Count() - 1];
-		order.m_vTargetPosition = state.m_vPetrosPosition;
-		if (IsZeroVector(order.m_vTargetPosition))
-			order.m_vTargetPosition = state.m_vHQPosition;
+		order.m_vTargetPosition = ResolvePetrosAttackTargetPosition(state);
 		order.m_sRuntimeStatus = "petros_attack_ordered";
 		return order;
 	}
@@ -292,6 +293,8 @@ class HST_EnemyCommanderService
 		order.m_sTargetZoneId = targetZone.m_sZoneId;
 		order.m_sRuntimeStatus = "active_abstract_pending";
 		order.m_vTargetPosition = targetZone.m_vPosition;
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			order.m_vTargetPosition = ResolvePetrosAttackTargetPosition(state);
 		order.m_vSourcePosition = ResolveOrderSourcePosition(state, preset, factionKey, targetZone);
 		order.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 		order.m_iResolveAtSecond = state.m_iElapsedSeconds + ORDER_RESOLVE_SECONDS;
@@ -301,7 +304,10 @@ class HST_EnemyCommanderService
 		state.m_aEnemyOrders.Insert(order);
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 			state.m_iLastHQAttackSecond = state.m_iElapsedSeconds;
-		Print(string.Format("h-istasi | enemy order %1 active at %2", order.m_sOrderId, targetZone.m_sZoneId));
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			Print(string.Format("h-istasi | enemy order %1 active against Petros/HQ near %2 at %3", order.m_sOrderId, targetZone.m_sZoneId, order.m_vTargetPosition));
+		else
+			Print(string.Format("h-istasi | enemy order %1 active at %2", order.m_sOrderId, targetZone.m_sZoneId));
 		return true;
 	}
 
@@ -857,13 +863,23 @@ class HST_EnemyCommanderService
 		if (!state)
 			return false;
 
-		vector target = state.m_vPetrosPosition;
-		if (IsZeroVector(target))
-			target = state.m_vHQPosition;
+		vector target = ResolvePetrosAttackTargetPosition(state);
 		if (IsZeroVector(target))
 			return false;
 
 		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(target);
+	}
+
+	protected vector ResolvePetrosAttackTargetPosition(HST_CampaignState state)
+	{
+		if (!state)
+			return "0 0 0";
+
+		vector target = state.m_vPetrosPosition;
+		if (IsZeroVector(target))
+			target = state.m_vHQPosition;
+
+		return target;
 	}
 
 	protected bool IsZeroVector(vector value)

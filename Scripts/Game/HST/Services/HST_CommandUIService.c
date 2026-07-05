@@ -1008,7 +1008,10 @@ class HST_CommandUIService
 			if (IsPersistenceSmokeMission(mission))
 				continue;
 
-			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s | phase %7 | progress %8", mission.m_sInstanceId, BuildMissionDisplayTitle(mission), mission.m_sTargetZoneId, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds, mission.m_sRuntimePhase, BuildMissionProgressText(state, mission));
+			string targetLabel = mission.m_sTargetZoneId;
+			if (mission.m_sMissionId == "dynamic_defend_petros")
+				targetLabel = BuildMissionLocationLabel(state, mission);
+			report = report + string.Format("\n%1 | %2 | target %3 | site %4 | status %5 | remaining %6s | phase %7 | progress %8", mission.m_sInstanceId, BuildMissionDisplayTitle(mission), targetLabel, mission.m_sSiteId, mission.m_eStatus, mission.m_iRemainingSeconds, mission.m_sRuntimePhase, BuildMissionProgressText(state, mission));
 		}
 
 		return report;
@@ -3576,6 +3579,8 @@ class HST_CommandUIService
 	{
 		if (!mission)
 			return "unknown location";
+		if (mission.m_sMissionId == "dynamic_defend_petros")
+			return "resistance base";
 
 		if (state && !mission.m_sTargetZoneId.IsEmpty())
 		{
