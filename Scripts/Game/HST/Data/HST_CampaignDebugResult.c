@@ -232,6 +232,7 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bStorageIssuedExistedBefore;
 	bool m_bStorageIssuedInfiniteBefore;
 	bool m_bFiniteIssuedInfiniteAfterValidApply;
+	bool m_bLoadoutApplySnapshotCaptured;
 	bool m_bLoadoutCleanupRestoredArsenal;
 	bool m_bLoadoutCleanupRestoredStorageArsenal;
 	bool m_bLoadoutCleanupRestoredIssued;
@@ -300,6 +301,8 @@ class HST_CampaignDebugVehicleLoadoutProbeContext
 	bool m_bLoadoutSessionAfterOpen;
 	bool m_bLoadoutSessionAfterClose;
 	bool m_bLiveCharacterAfterOpen;
+	ref array<ref HST_ArsenalItemState> m_aArsenalSnapshot = {};
+	ref array<ref HST_IssuedLoadoutItemState> m_aIssuedLoadoutSnapshot = {};
 }
 
 class HST_CampaignDebugGarrisonProbeContext
