@@ -3831,6 +3831,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
+		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
 		bool coverageComplete = !coverageReport.Contains("missing visible command: admin_run_campaign_debug") && !coverageReport.Contains("missing dispatch: admin_run_campaign_debug") && !coverageReport.Contains("missing visible command: admin_campaign_debug_status") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_status") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cancel") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cancel") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing visible command: member_promote_commander_choose") && !coverageReport.Contains("missing dispatch: member_promote_commander_choose") && !coverageReport.Contains("missing visible command: member_promote_commander") && !coverageReport.Contains("missing dispatch: member_promote_commander") && !coverageReport.Contains("missing visible command: admin_force_self_commander") && !coverageReport.Contains("missing dispatch: admin_force_self_commander");
 
@@ -3838,9 +3839,74 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		hqCase.m_aEvidence.Insert("command UI members payload | " + ShortCampaignDebugLine(membersPayload, 260));
 		hqCase.m_aEvidence.Insert("command UI coverage | " + ShortCampaignDebugLine(coverageReport, 260));
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_payload", "admin menu exposes campaign debug start/status/cancel/cleanup while run is active", string.Format("run %1 | status %2 | cancel %3 | cleanup %4", runVisible, statusVisible, cancelVisible, cleanupVisible), CampaignDebugStatus(runVisible && statusVisible && cancelVisible && cleanupVisible), "campaign debug controls are missing from the active admin menu payload");
+		AddCampaignDebugAssertion(hqCase, "hq.command_menu.member_names", "members menu uses player names and hides backend identity tokens", ShortCampaignDebugLine(membersPayload, 220), CampaignDebugStatus(memberPayloadHidesBackendIds), "members menu payload still exposes backend identity tokens");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "members menu is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "admin menu is missing force-self commander action");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.coverage", "campaign debug visible commands have dispatch coverage", ShortCampaignDebugLine(coverageReport, 220), CampaignDebugStatus(m_CommandUI != null && coverageComplete), "campaign debug command coverage is missing visible command or dispatch entries");
+	}
+
+	protected bool CampaignDebugMembersPayloadHidesIdentityTokens(string membersPayload)
+	{
+		if (membersPayload.Contains(" / id "))
+			return false;
+		if (!m_State)
+			return true;
+
+		array<string> lines = {};
+		membersPayload.Split("\n", lines, false);
+		foreach (HST_PlayerState player : m_State.m_aPlayers)
+		{
+			if (player && CampaignDebugVisibleMembersPayloadContainsIdentityToken(lines, player.m_sIdentityId))
+				return false;
+		}
+
+		return !CampaignDebugVisibleMembersPayloadContainsIdentityToken(lines, m_State.m_sCommanderIdentityId);
+	}
+
+	protected bool CampaignDebugVisibleMembersPayloadContainsIdentityToken(array<string> lines, string identityId)
+	{
+		if (!lines || identityId.IsEmpty())
+			return false;
+
+		foreach (string line : lines)
+		{
+			if (line.StartsWith("ROW|") || line.StartsWith("STATUS|"))
+			{
+				if (CampaignDebugPayloadContainsIdentityToken(line, identityId))
+					return true;
+				continue;
+			}
+
+			if (!line.StartsWith("ACTION|"))
+				continue;
+
+			array<string> fields = {};
+			line.Split("|", fields, false);
+			string visibleActionFields;
+			if (fields.Count() > 2)
+				visibleActionFields = visibleActionFields + "|" + fields[2];
+			if (fields.Count() > 5)
+				visibleActionFields = visibleActionFields + "|" + fields[5];
+			if (fields.Count() > 6)
+				visibleActionFields = visibleActionFields + "|" + fields[6];
+			if (CampaignDebugPayloadContainsIdentityToken(visibleActionFields, identityId))
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool CampaignDebugPayloadContainsIdentityToken(string payload, string identityId)
+	{
+		if (payload.IsEmpty() || identityId.IsEmpty())
+			return false;
+		if (payload.Contains(identityId))
+			return true;
+		if (identityId.Length() <= 12)
+			return false;
+
+		string shortIdentity = identityId.Substring(0, 6) + "." + identityId.Substring(identityId.Length() - 4, 4);
+		return payload.Contains(shortIdentity);
 	}
 
 	protected void AddCampaignDebugHQEntityAssertion(HST_CampaignDebugCaseResult hqCase, string objectId, string label, bool present, string entityKey, vector expectedPosition, vector actualPosition, float toleranceMeters)
@@ -14817,6 +14883,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
+		bool memberPayloadHidesBackendIds = CampaignDebugMembersPayloadHidesIdentityTokens(membersPayload);
 		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
 		phaseCase.m_aEvidence.Insert("admin menu | " + ShortCampaignDebugLine(adminMenu, 260));
 		phaseCase.m_aEvidence.Insert("admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
@@ -14826,6 +14893,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_dispatch", "no missing dispatch detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing dispatch:")), "Phase 23 UI coverage found missing dispatch handlers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.coverage_counts", "coverage summary reports zero missing visible/dispatch", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing visible 0") && result.Contains("missing dispatch 0")), "Phase 23 UI coverage summary does not report zero missing entries");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.debug_controls", "admin menu exposes campaign debug run/status/cancel/cleanup", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_run_campaign_debug") && adminMenu.Contains("admin_campaign_debug_status") && adminMenu.Contains("admin_campaign_debug_cancel") && adminMenu.Contains("admin_campaign_debug_cleanup")), "Phase 23 admin menu is missing campaign debug controls");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_names", "members menu uses player names and hides backend identity tokens", ShortCampaignDebugLine(membersPayload, 220), CampaignDebugStatus(memberPayloadHidesBackendIds), "Phase 23 members payload still exposes backend identity tokens");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "Phase 23 members payload is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "Phase 23 admin payload is missing force-self commander action");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.phase23_controls", "admin menu exposes Phase 23 marker/UI controls", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_phase23_ui_coverage") && adminMenu.Contains("admin_phase23_marker_audit") && adminMenu.Contains("admin_marker_native_report") && adminMenu.Contains("admin_purge_hst_native_markers") && adminMenu.Contains("admin_phase23_failed_action_sample")), "Phase 23 admin menu is missing Phase 23 controls");

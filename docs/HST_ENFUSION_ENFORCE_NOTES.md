@@ -9,7 +9,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Player display names are presentation-only.
   - Use `PlayerManager.GetPlayerName(playerId)` or `GetPlayerNameByIdentity(identityId)` to populate `HST_PlayerState.m_sDisplayName` when a player is seen.
   - Keep backend identity/SteamID64 values as the only authority for membership, commander, admin, loadout ownership, undercover state, and persistence references.
-  - Member/commander UI should show `m_sDisplayName` as the row/action label and, if needed, only a shortened identity as secondary diagnostic evidence.
+  - Member/commander UI should show `m_sDisplayName` as the row/action label and must not expose backend UUIDs, shortened UUIDs, `workbench_player_N`, or SteamID64 tokens in visible roster rows. Keep durable identity tokens internal to command arguments and debug/report evidence.
   - Current examples: `HST_PlayerLifecycleService.RefreshPlayerDisplayName()`, `HST_CommandUIService.BuildPlayerRosterName()`, and commander-transfer actions in the Members tab.
 
 - Runtime admin grants from settings should be re-applied during every authoritative player refresh, not only on the first connection/spawn event.

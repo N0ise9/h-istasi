@@ -2363,7 +2363,7 @@ class HST_CommandUIService
 			if (state.m_sCommanderIdentityId == player.m_sIdentityId)
 				suffix = " / commander";
 
-			payload = AppendRow(payload, "members", BuildPlayerRosterName(player), string.Format("%1 / money %2 / spawns %3%4 / id %5", role, player.m_iMoney, player.m_iSpawnCount, suffix, ShortIdentityLabel(player.m_sIdentityId)), tone);
+			payload = AppendRow(payload, "members", BuildPlayerRosterName(player), string.Format("%1 / money %2 / spawns %3%4", role, player.m_iMoney, player.m_iSpawnCount, suffix), tone);
 		}
 
 		return payload;
@@ -3394,7 +3394,7 @@ class HST_CommandUIService
 		if (commander)
 			return BuildPlayerRosterName(commander);
 
-		return ShortIdentityLabel(state.m_sCommanderIdentityId);
+		return "unknown commander";
 	}
 
 	protected string BuildPlayerRosterName(HST_PlayerState player)
@@ -3408,7 +3408,7 @@ class HST_CommandUIService
 		if (player.m_iLastSeenPlayerId > 0)
 			return string.Format("Player %1", player.m_iLastSeenPlayerId);
 
-		return ShortIdentityLabel(player.m_sIdentityId);
+		return "unknown player";
 	}
 
 	protected string ShortIdentityLabel(string identityId)
