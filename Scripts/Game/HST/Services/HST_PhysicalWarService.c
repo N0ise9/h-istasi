@@ -1921,7 +1921,9 @@ class HST_PhysicalWarService
 		if (!activeGroup)
 			return "group missing";
 
-		return string.Format("group %1 | expected %2 | group entity %3 | vehicle entity %4 | mismatches %5 | sample %6", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(sample));
+		string groupRootFaction = ResolveActiveGroupRuntimeRootFactionKey(activeGroup);
+		int liveMemberCount = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
+		return string.Format("group %1 | expected %2 | prefab %3 | group root faction %4 | live members %5 | group entity %6 | vehicle entity %7 | mismatches %8 | sample %9", ReportText(activeGroup.m_sGroupId), ReportText(activeGroup.m_sFactionKey), ReportText(activeGroup.m_sPrefab), ReportText(groupRootFaction), liveMemberCount, ReportBool(groupEntityPresent), ReportBool(vehicleEntityPresent), mismatchCount, ReportText(sample));
 	}
 
 	int CountCampaignDebugRuntimeFactionMismatches(HST_CampaignState state, out string evidence)
@@ -7485,6 +7487,10 @@ class HST_PhysicalWarService
 			if (faction)
 				groupChanged = group.SetFaction(faction);
 
+			string groupFactionKey = group.GetFactionName();
+			if (groupFactionKey != factionKey)
+				mismatchedCount++;
+
 			array<AIAgent> agents = new array<AIAgent>;
 			group.GetAgents(agents);
 			foreach (AIAgent agent : agents)
@@ -7551,6 +7557,15 @@ class HST_PhysicalWarService
 			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 			if (group)
 			{
+				string groupFactionKey = group.GetFactionName();
+				if (groupFactionKey != expectedFactionKey)
+				{
+					if (sample.IsEmpty())
+						sample = string.Format("group root pos %1 actual group %2", entity.GetOrigin(), ReportText(groupFactionKey));
+
+					mismatches++;
+				}
+
 				array<AIAgent> agents = new array<AIAgent>;
 				group.GetAgents(agents);
 				foreach (AIAgent agent : agents)
@@ -7582,6 +7597,41 @@ class HST_PhysicalWarService
 		}
 
 		return mismatches;
+	}
+
+	protected string ResolveActiveGroupRuntimeRootFactionKey(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty())
+			return "";
+
+		IEntity groupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(groupEntity);
+		if (!group)
+			return "";
+
+		return group.GetFactionName();
+	}
+
+	protected int CountRuntimeGroupControlledEntities(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return 0;
+
+		IEntity groupEntity = GetRuntimeCrewGroupEntity(groupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(groupEntity);
+		if (!group)
+			return 0;
+
+		array<AIAgent> agents = new array<AIAgent>;
+		group.GetAgents(agents);
+		int count;
+		foreach (AIAgent agent : agents)
+		{
+			if (agent && agent.GetControlledEntity())
+				count++;
+		}
+
+		return count;
 	}
 
 	protected int CountRuntimeEntityFactionMismatch(IEntity entity, string expectedFactionKey, out string sample)
@@ -7909,6 +7959,29 @@ class HST_PhysicalWarService
 			Print(string.Format("h-istasi | rejected missing group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
+
+		if (!IsGroupPrefabCatalogFactionMatch(prefab, factionKey))
+		{
+			Print(string.Format("h-istasi | rejected wrong-faction group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			return false;
+		}
+
+		return true;
+	}
+
+	protected bool IsGroupPrefabCatalogFactionMatch(string prefab, string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return true;
+
+		if (factionKey == "FIA")
+			return prefab.Contains("/INDFOR/") || prefab.Contains("Group_FIA_");
+
+		if (factionKey == "US")
+			return prefab.Contains("/BLUFOR/") || prefab.Contains("Group_US_");
+
+		if (factionKey == "USSR")
+			return prefab.Contains("/OPFOR/") || prefab.Contains("Group_USSR_");
 
 		return true;
 	}

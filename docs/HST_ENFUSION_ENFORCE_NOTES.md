@@ -679,6 +679,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Active AI groups cannot wait until the final retry before proving live agents.
   - Native group prefabs can spawn an `SCR_AIGroup` with zero countable agents for several ticks on a dedicated server.
   - Queue one native `SpawnUnits()` retry, then force direct faction infantry fallback before the final population grace attempt. The fallback must use the active group's faction key and debug output must prove expected faction, live count, and zero mismatches for the spawned members.
+  - Group prefab selection must reject wrong-faction catalog paths for the built-in FIA/US/USSR factions. US groups must come from BLUFOR/`Group_US_`, USSR groups from OPFOR/`Group_USSR_`, and FIA groups from INDFOR/`Group_FIA_`; changing only the runtime faction stamp is not enough proof because uniforms/loadouts still come from the prefab catalog.
+  - Runtime faction audits should report the selected prefab path, the `SCR_AIGroup` root faction, and all controlled member/vehicle faction components. A group root stuck as FIA with expected US/USSR is a mismatch even before members are countable.
   - Post-case and final cleanup should run the physical-war runtime faction audit. `post_cleanup.runtime_factions` / `cleanup.runtime_factions` must report zero mismatches across live runtime group members and runtime vehicles, otherwise the run has not disproved the "everything spawned as FIA" failure.
 
 - Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.

@@ -7544,7 +7544,13 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"Direct faction infantry fallback replacing missing runtime group entity.",
 		"active group direct infantry fallback replacing missing runtime group entity",
 		"CountCampaignDebugRuntimeFactionMismatches",
-		"campaign debug faction audit"
+		"campaign debug faction audit",
+		"IsGroupPrefabCatalogFactionMatch",
+		"rejected wrong-faction group prefab",
+		"prefab %3 | group root faction",
+		"group root faction",
+		"ResolveActiveGroupRuntimeRootFactionKey",
+		"CountRuntimeGroupControlledEntities"
 	)) {
 	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredActiveGroupPopulationRuntimeEntry)) {
 		throw "Active AIGroup population must force faction infantry fallback before the final grace attempt: $requiredActiveGroupPopulationRuntimeEntry"
