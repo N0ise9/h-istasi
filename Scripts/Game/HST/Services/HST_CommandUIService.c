@@ -289,6 +289,9 @@ class HST_CommandUIService
 		required.Insert("admin_campaign_debug_status");
 		required.Insert("admin_campaign_debug_cancel");
 		required.Insert("admin_campaign_debug_cleanup");
+		required.Insert("member_promote_commander_choose");
+		required.Insert("member_promote_commander");
+		required.Insert("admin_force_self_commander");
 		required.Insert("admin_phase14_report");
 		required.Insert("admin_phase15_report");
 		required.Insert("admin_phase16_report");
@@ -351,6 +354,7 @@ class HST_CommandUIService
 		if (commandId == "admin_campaign_debug_status") return true;
 		if (commandId == "admin_campaign_debug_cancel") return true;
 		if (commandId == "admin_campaign_debug_cleanup") return true;
+		if (commandId == "member_promote_commander_choose") return true;
 		if (commandId == "member_promote_commander") return true;
 		if (commandId == "admin_force_self_commander") return true;
 		if (commandId == "admin_phase14_report") return true;
@@ -417,6 +421,9 @@ class HST_CommandUIService
 		if (commandId == "admin_campaign_debug_status") return true;
 		if (commandId == "admin_campaign_debug_cancel") return true;
 		if (commandId == "admin_campaign_debug_cleanup") return true;
+		if (commandId == "member_promote_commander_choose") return true;
+		if (commandId == "member_promote_commander") return true;
+		if (commandId == "admin_force_self_commander") return true;
 		if (commandId == "admin_phase14_report") return true;
 		if (commandId == "admin_phase15_report") return true;
 		if (commandId == "admin_phase16_report") return true;
@@ -1464,6 +1471,9 @@ class HST_CommandUIService
 
 		if (commandId == "admin_grant")
 			return coordinator.RequestAdminSetAdminRole(playerId, argument, true);
+
+		if (commandId == "member_promote_commander_choose")
+			return true;
 
 		if (commandId == "member_promote_commander")
 			return coordinator.RequestCommanderTransferCommander(playerId, argument);

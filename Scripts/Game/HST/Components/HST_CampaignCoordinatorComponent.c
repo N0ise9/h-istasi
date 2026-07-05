@@ -3759,6 +3759,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		string adminPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "admin", "");
+		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
 		string coverageReport;
 		if (m_CommandUI)
 			coverageReport = m_CommandUI.BuildCommandCoverageReport(m_State);
@@ -3767,11 +3768,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool statusVisible = adminPayload.Contains("|admin_campaign_debug_status|");
 		bool cancelVisible = adminPayload.Contains("|admin_campaign_debug_cancel|");
 		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
-		bool coverageComplete = !coverageReport.Contains("missing visible command: admin_run_campaign_debug") && !coverageReport.Contains("missing dispatch: admin_run_campaign_debug") && !coverageReport.Contains("missing visible command: admin_campaign_debug_status") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_status") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cancel") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cancel") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cleanup");
+		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
+		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
+		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
+		bool coverageComplete = !coverageReport.Contains("missing visible command: admin_run_campaign_debug") && !coverageReport.Contains("missing dispatch: admin_run_campaign_debug") && !coverageReport.Contains("missing visible command: admin_campaign_debug_status") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_status") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cancel") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cancel") && !coverageReport.Contains("missing visible command: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing dispatch: admin_campaign_debug_cleanup") && !coverageReport.Contains("missing visible command: member_promote_commander_choose") && !coverageReport.Contains("missing dispatch: member_promote_commander_choose") && !coverageReport.Contains("missing visible command: member_promote_commander") && !coverageReport.Contains("missing dispatch: member_promote_commander") && !coverageReport.Contains("missing visible command: admin_force_self_commander") && !coverageReport.Contains("missing dispatch: admin_force_self_commander");
 
 		hqCase.m_aEvidence.Insert("command UI admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
+		hqCase.m_aEvidence.Insert("command UI members payload | " + ShortCampaignDebugLine(membersPayload, 260));
 		hqCase.m_aEvidence.Insert("command UI coverage | " + ShortCampaignDebugLine(coverageReport, 260));
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_payload", "admin menu exposes campaign debug start/status/cancel/cleanup while run is active", string.Format("run %1 | status %2 | cancel %3 | cleanup %4", runVisible, statusVisible, cancelVisible, cleanupVisible), CampaignDebugStatus(runVisible && statusVisible && cancelVisible && cleanupVisible), "campaign debug controls are missing from the active admin menu payload");
+		AddCampaignDebugAssertion(hqCase, "hq.command_menu.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "members menu is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
+		AddCampaignDebugAssertion(hqCase, "hq.command_menu.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "admin menu is missing force-self commander action");
 		AddCampaignDebugAssertion(hqCase, "hq.command_menu.coverage", "campaign debug visible commands have dispatch coverage", ShortCampaignDebugLine(coverageReport, 220), CampaignDebugStatus(m_CommandUI != null && coverageComplete), "campaign debug command coverage is missing visible command or dispatch entries");
 	}
 
@@ -14740,12 +14747,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		string adminMenu = m_CommandUI.BuildAdminMenu(m_State, m_Preset, m_MapMarkers);
+		string adminPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "admin", "");
+		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
+		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
+		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
+		bool adminForceCommanderVisible = adminPayload.Contains("|Force myself commander|admin_force_self_commander|");
 		phaseCase.m_aEvidence.Insert("admin menu | " + ShortCampaignDebugLine(adminMenu, 260));
+		phaseCase.m_aEvidence.Insert("admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
+		phaseCase.m_aEvidence.Insert("members payload | " + ShortCampaignDebugLine(membersPayload, 260));
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi UI coverage")), "Phase 23 UI coverage report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_visible", "no missing visible command detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing visible command:")), "Phase 23 UI coverage found missing visible commands");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_dispatch", "no missing dispatch detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing dispatch:")), "Phase 23 UI coverage found missing dispatch handlers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.coverage_counts", "coverage summary reports zero missing visible/dispatch", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing visible 0") && result.Contains("missing dispatch 0")), "Phase 23 UI coverage summary does not report zero missing entries");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.debug_controls", "admin menu exposes campaign debug run/status/cancel/cleanup", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_run_campaign_debug") && adminMenu.Contains("admin_campaign_debug_status") && adminMenu.Contains("admin_campaign_debug_cancel") && adminMenu.Contains("admin_campaign_debug_cleanup")), "Phase 23 admin menu is missing campaign debug controls");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.member_transfer_chooser", "members menu exposes one selectable commander-transfer chooser action", string.Format("chooser %1 | single %2", commanderTransferChooserVisible, commanderTransferSingleButton), CampaignDebugStatus(commanderTransferChooserVisible && commanderTransferSingleButton), "Phase 23 members payload is missing the commander-transfer chooser or still exposes direct per-target transfer rows");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.admin_force_commander", "admin menu exposes force-self commander action", string.Format("%1", adminForceCommanderVisible), CampaignDebugStatus(adminForceCommanderVisible), "Phase 23 admin payload is missing force-self commander action");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.phase23_controls", "admin menu exposes Phase 23 marker/UI controls", ShortCampaignDebugLine(adminMenu, 220), CampaignDebugStatus(adminMenu.Contains("admin_phase23_ui_coverage") && adminMenu.Contains("admin_phase23_marker_audit") && adminMenu.Contains("admin_marker_native_report") && adminMenu.Contains("admin_purge_hst_native_markers") && adminMenu.Contains("admin_phase23_failed_action_sample")), "Phase 23 admin menu is missing Phase 23 controls");
 	}
 
