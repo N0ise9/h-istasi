@@ -807,7 +807,6 @@ class HST_CommandMenuComponent : ScriptComponent
 		AddTab("arsenal", "Arsenal/Loot", true);
 		AddTab("garage", "Garage", true);
 		AddTab("members", "Members", true);
-		AddTab("admin", "Admin", true);
 	}
 
 	protected void AddTab(string tabId, string label, bool enabled)

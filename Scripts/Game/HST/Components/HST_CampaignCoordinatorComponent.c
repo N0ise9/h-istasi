@@ -487,7 +487,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	string GetAlphaAdminMenu(int playerId)
 	{
-		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId) || !m_CommandUI)
+		if (!Replication.IsServer() || !CanPlayerUseDebugMenuActions(playerId) || !m_CommandUI)
 			return "";
 
 		return m_CommandUI.BuildAdminMenu(m_State, m_Preset, m_MapMarkers);
@@ -19178,6 +19178,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	bool IsCampaignActiveForVisibleMutatingCommand()
 	{
 		return IsCampaignActiveForMutatingAction();
+	}
+
+	bool IsDebugMenuEnabledForVisibleCommands()
+	{
+		return m_Settings && m_Settings.m_Debug && m_Settings.m_Debug.m_bDebugMenuEnabled;
+	}
+
+	bool CanPlayerUseDebugMenuActions(int playerId)
+	{
+		return IsDebugMenuEnabledForVisibleCommands() && CanPlayerUseAdminActions(playerId);
 	}
 
 	protected bool IsCampaignActiveForMutatingAction()

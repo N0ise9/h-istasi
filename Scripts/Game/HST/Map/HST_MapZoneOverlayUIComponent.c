@@ -18,6 +18,8 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 {
 	static const float VIEWPORT_PAN_EPSILON = 0.5;
 	static const float VIEWPORT_ZOOM_EPSILON = 0.001;
+	static const int SETUP_ZONE_LABEL_TEXT_COLOR = 0xFF111111;
+	static const int SETUP_ZONE_LABEL_HALO_COLOR = 0xDDF4F0E6;
 
 	protected static ref array<ref HST_MapZoneOverlayRecord> s_aZones = {};
 	protected static bool s_bCandidateVisible;
@@ -259,7 +261,7 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 		int pointTop = centerY - pointSize / 2;
 		CreateRect(workspace, parent, pointLeft, pointTop, pointSize, pointSize, ZonePointColor(zone.m_sTone), 1.0);
 		if (diameter >= 18)
-			CreateLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), centerX + 9, centerY - 5, 0xFFE5ECEE);
+			CreateZoneLabel(workspace, parent, ShortenText(zone.m_sLabel, 24), centerX + 9, centerY - 5);
 	}
 
 	protected void DrawCandidate(WorkspaceWidget workspace, Widget parent)
@@ -376,6 +378,18 @@ class HST_MapZoneOverlayUIComponent : SCR_MapUIBaseComponent
 
 		widget.SetColorInt(color);
 		m_aWidgets.Insert(widget);
+		return textWidget;
+	}
+
+	protected TextWidget CreateZoneLabel(WorkspaceWidget workspace, Widget parent, string text, int left, int top)
+	{
+		TextWidget textWidget = CreateLabel(workspace, parent, text, left, top, SETUP_ZONE_LABEL_TEXT_COLOR);
+		if (textWidget)
+		{
+			textWidget.SetOutline(1, SETUP_ZONE_LABEL_HALO_COLOR);
+			textWidget.SetShadow(2, SETUP_ZONE_LABEL_HALO_COLOR, 1, 1, 1);
+		}
+
 		return textWidget;
 	}
 

@@ -43,6 +43,7 @@ class HST_CommandUIService
 	static const int MAX_MISSION_VEHICLE_SCAN_ENTITIES = 96;
 
 	protected ref array<IEntity> m_aMissionVehicleScanEntities = {};
+	protected bool m_bBuildDebugMenuEnabled = true;
 
 	string BuildMemberMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
@@ -443,15 +444,44 @@ class HST_CommandUIService
 		return false;
 	}
 
+	protected bool IsDebugMenuEnabled(HST_RuntimeSettings settings)
+	{
+		return settings && settings.m_Debug && settings.m_Debug.m_bDebugMenuEnabled;
+	}
+
+	protected bool IsDebugOrReportVisibleCommand(string commandId)
+	{
+		if (commandId.IsEmpty())
+			return false;
+		if (commandId.Contains("admin_"))
+			return true;
+		if (commandId.Contains("inspect_") || commandId.Contains("_report") || commandId.Contains("debug"))
+			return true;
+		if (commandId == "foundation_status" || commandId == "undercover_eligibility" || commandId == "undercover_check")
+			return true;
+		if (commandId == "capture_zone" || commandId == "progress_zone" || commandId == "activate_zone" || commandId == "deactivate_zone")
+			return true;
+		if (commandId == "award_small" || commandId == "income_now" || commandId == "progress_mission" || commandId == "complete_mission")
+			return true;
+		if (commandId == "new_campaign")
+			return true;
+
+		return false;
+	}
+
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
+		m_bBuildDebugMenuEnabled = IsDebugMenuEnabled(settings);
+		if (selectedTabId == TAB_ADMIN && !m_bBuildDebugMenuEnabled)
+			selectedTabId = TAB_OVERVIEW;
+		bool canUseDebugAdmin = canUseAdmin && m_bBuildDebugMenuEnabled;
 
 		string payload = string.Format("HST_MENU|%1|%2", selectedTabId, playerId);
 		if (settings && settings.m_Debug)
-			payload = payload + string.Format("\nDEBUG|%1", settings.m_Debug.m_bDebugLoggingEnabled);
+			payload = payload + string.Format("\nDEBUG|%1|%2", settings.m_Debug.m_bDebugLoggingEnabled, m_bBuildDebugMenuEnabled);
 		else
-			payload = payload + "\nDEBUG|0";
+			payload = payload + "\nDEBUG|0|0";
 		payload = payload + "\nTAB|setup|Setup|1";
 		payload = payload + "\nTAB|overview|Overview|1";
 		payload = payload + "\nTAB|petros|HQ/Petros|1";
@@ -461,17 +491,18 @@ class HST_CommandUIService
 		payload = payload + "\nTAB|arsenal|Arsenal/Loot|1";
 		payload = payload + "\nTAB|garage|Garage/Build|1";
 		payload = payload + "\nTAB|members|Members|1";
-		payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseAdmin);
-		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, balance, selectedTabId, canUseMember, canUseCommander, canUseAdmin);
+		if (m_bBuildDebugMenuEnabled)
+			payload = payload + string.Format("\nTAB|admin|Admin|%1", canUseDebugAdmin);
+		payload = payload + "\nSTATUS|" + BuildTabStatusText(state, preset, markers, arsenal, settings, balance, selectedTabId, canUseMember, canUseCommander, canUseDebugAdmin);
 		payload = AppendTopStats(payload, state, preset);
-		payload = AppendTabSections(payload, state, preset, markers, arsenal, recruitment, settings, balance, selectedTabId, playerId, canUseMember, canUseCommander, canUseAdmin, compositions, capture);
+		payload = AppendTabSections(payload, state, preset, markers, arsenal, recruitment, settings, balance, selectedTabId, playerId, canUseMember, canUseCommander, canUseDebugAdmin, compositions, capture);
 		payload = AppendActivityFeed(payload, state, preset, selectedTabId);
 
 		if (!lastResult.IsEmpty())
 			payload = payload + "\nRESULT|" + lastResult;
 
 		array<ref HST_CommandMenuAction> actions = {};
-		BuildTabActions(state, preset, selectedTabId, playerId, actions, canUseMember, canUseCommander, canUseAdmin);
+		BuildTabActions(state, preset, selectedTabId, playerId, actions, canUseMember, canUseCommander, canUseDebugAdmin);
 		foreach (HST_CommandMenuAction action : actions)
 			payload = payload + "\n" + action.ToPayloadLine();
 
@@ -486,6 +517,9 @@ class HST_CommandUIService
 
 		if (commandId == "noop")
 			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
+
+		if (IsDebugOrReportVisibleCommand(commandId) && !coordinator.IsDebugMenuEnabledForVisibleCommands())
+			return "h-istasi command | debug menu disabled in config";
 
 		if (commandId == "admin_run_campaign_debug")
 			return coordinator.RequestAdminRunCampaignDebug(playerId, argument);
@@ -1503,6 +1537,8 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
+			if (!m_bBuildDebugMenuEnabled)
+				return "Admin | debug menu disabled in config";
 			if (!canUseAdmin)
 				return "Admin | debug only | admin role required";
 
@@ -1578,7 +1614,7 @@ class HST_CommandUIService
 		}
 
 		if (selectedTabId == TAB_OVERVIEW)
-			return AppendOverviewSections(payload, state, preset);
+			return AppendOverviewSections(payload, state, preset, playerId);
 
 		if (selectedTabId == TAB_PETROS)
 			return AppendHQSections(payload, state, settings, playerId, canUseCommander);
@@ -1604,7 +1640,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ADMIN)
 			return AppendAdminSections(payload, state, preset, canUseAdmin, compositions);
 
-		return AppendOverviewSections(payload, state, preset);
+		return AppendOverviewSections(payload, state, preset, playerId);
 	}
 
 	protected string AppendSetupSections(string payload, HST_CampaignState state, HST_RuntimeSettings settings)
@@ -1637,7 +1673,7 @@ class HST_CommandUIService
 		return payload;
 	}
 
-	protected string AppendOverviewSections(string payload, HST_CampaignState state, HST_CampaignPreset preset)
+	protected string AppendOverviewSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, int playerId)
 	{
 		if (!state)
 			return payload;
@@ -1653,6 +1689,7 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "brief", "Commander", BuildCommanderName(state), "neutral");
 		payload = AppendRow(payload, "brief", "HQ hideout", BuildHQLabel(state), "good");
 		payload = AppendRow(payload, "brief", "Petros", string.Format("%1 / deaths %2", BuildPetrosLabel(state), state.m_iPetrosDeaths), BuildPetrosTone(state));
+		payload = AppendRow(payload, "brief", "Undercover", BuildPlayerUndercoverOverviewText(state, playerId), BuildPlayerUndercoverOverviewTone(state, playerId));
 		payload = AppendRow(payload, "brief", "Current order", BuildStrategicOrder(state, preset), "warn");
 
 		payload = AppendSection(payload, "next", "Next Best Action");
@@ -2308,6 +2345,11 @@ class HST_CommandUIService
 	protected string AppendAdminSections(string payload, HST_CampaignState state, HST_CampaignPreset preset, bool canUseAdmin, HST_ZoneCompositionService compositions = null)
 	{
 		payload = AppendSection(payload, "admin", "Admin Console");
+		if (!m_bBuildDebugMenuEnabled)
+		{
+			payload = AppendRow(payload, "admin", "Debug menu", "Disabled in config.", "neutral");
+			return payload;
+		}
 		payload = AppendRow(payload, "admin", "Access", CommanderGateLabel(canUseAdmin), CommanderGateTone(canUseAdmin));
 		if (!state)
 			return payload;
@@ -2383,6 +2425,7 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_OVERVIEW)
 		{
+			AddMenuAction(actions, TAB_OVERVIEW, BuildPlayerUndercoverActionLabel(state, playerId), BuildPlayerUndercoverActionCommand(state, playerId), "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Foundation status", "foundation_status", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Campaign overview", "inspect_campaign", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_OVERVIEW, "Balance/pacing report", "inspect_balance", "", canUseMember, "membership required");
@@ -2431,7 +2474,7 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_FORCES)
 		{
 			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
-			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops_report", "", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_FORCES, "Train FIA troops", "train_troops", "", canUseCommander, "commander required");
 			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Recruit FIA", state, recruitTargetId), "recruit_zone", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no recruit target");
 			AddMenuAction(actions, TAB_FORCES, BuildZoneActionLabel("Remove FIA garrison", state, recruitTargetId), "remove_garrison", recruitTargetId, canUseCommander && !recruitTargetId.IsEmpty(), "no garrison target");
 			AddMenuAction(actions, TAB_FORCES, "Support report", "inspect_support", "", canUseMember, "membership required");
@@ -2629,6 +2672,9 @@ class HST_CommandUIService
 
 	protected void AddMenuAction(notnull array<ref HST_CommandMenuAction> actions, string tabId, string label, string commandId, string argument, bool enabled, string disabledReason)
 	{
+		if (!m_bBuildDebugMenuEnabled && (tabId == TAB_ADMIN || IsDebugOrReportVisibleCommand(commandId)))
+			return;
+
 		HST_CommandMenuAction action = new HST_CommandMenuAction();
 		action.m_sTabId = tabId;
 		action.m_sLabel = label;
@@ -3022,6 +3068,109 @@ class HST_CommandUIService
 		}
 
 		return count;
+	}
+
+	protected string BuildPlayerUndercoverActionLabel(HST_CampaignState state, int playerId)
+	{
+		HST_PlayerUndercoverState undercover = ResolvePlayerUndercoverState(state, playerId);
+		if (IsPlayerUndercoverOn(undercover))
+			return "Clear undercover";
+
+		return "Go undercover";
+	}
+
+	protected string BuildPlayerUndercoverActionCommand(HST_CampaignState state, int playerId)
+	{
+		HST_PlayerUndercoverState undercover = ResolvePlayerUndercoverState(state, playerId);
+		if (IsPlayerUndercoverOn(undercover))
+			return "undercover_clear";
+
+		return "undercover_request";
+	}
+
+	protected string BuildPlayerUndercoverOverviewText(HST_CampaignState state, int playerId)
+	{
+		HST_PlayerUndercoverState undercover = ResolvePlayerUndercoverState(state, playerId);
+		if (!undercover)
+			return "Off | no player record";
+
+		string value = "Off";
+		if (IsPlayerUndercoverOn(undercover))
+			value = "On";
+
+		value = value + " | " + BuildUndercoverStatusLabel(undercover);
+		if (undercover.m_iWantedHeat > 0)
+			value = value + string.Format(" | heat %1", undercover.m_iWantedHeat);
+		if (!undercover.m_sLastReason.IsEmpty())
+			value = value + " | " + ShortText(undercover.m_sLastReason, 54);
+
+		return value;
+	}
+
+	protected string BuildPlayerUndercoverOverviewTone(HST_CampaignState state, int playerId)
+	{
+		HST_PlayerUndercoverState undercover = ResolvePlayerUndercoverState(state, playerId);
+		if (!undercover)
+			return "neutral";
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED || undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED)
+			return "bad";
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_SUSPICIOUS)
+			return "warn";
+		if (IsPlayerUndercoverOn(undercover))
+			return "good";
+
+		return "neutral";
+	}
+
+	protected bool IsPlayerUndercoverOn(HST_PlayerUndercoverState undercover)
+	{
+		return undercover && (undercover.m_bUndercoverRequested || undercover.m_bUndercoverApplied);
+	}
+
+	protected HST_PlayerUndercoverState ResolvePlayerUndercoverState(HST_CampaignState state, int playerId)
+	{
+		string identityId = ResolveMenuPlayerIdentityId(state, playerId);
+		if (identityId.IsEmpty() || !state)
+			return null;
+
+		return state.FindUndercoverPlayer(identityId);
+	}
+
+	protected string ResolveMenuPlayerIdentityId(HST_CampaignState state, int playerId)
+	{
+		if (!state)
+			return "";
+
+		foreach (HST_PlayerState player : state.m_aPlayers)
+		{
+			if (player && player.m_iLastSeenPlayerId == playerId && !player.m_sIdentityId.IsEmpty())
+				return player.m_sIdentityId;
+		}
+
+		if (!state.m_sCommanderIdentityId.IsEmpty())
+			return state.m_sCommanderIdentityId;
+
+		foreach (HST_PlayerState fallbackPlayer : state.m_aPlayers)
+		{
+			if (fallbackPlayer && fallbackPlayer.m_bMember && !fallbackPlayer.m_sIdentityId.IsEmpty())
+				return fallbackPlayer.m_sIdentityId;
+		}
+
+		return "";
+	}
+
+	protected string BuildUndercoverStatusLabel(HST_PlayerUndercoverState undercover)
+	{
+		if (!undercover)
+			return "clear";
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_SUSPICIOUS)
+			return "suspicious";
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED)
+			return "compromised";
+		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_WANTED)
+			return "wanted";
+
+		return "clear";
 	}
 
 	protected string BuildUndercoverCompactSummary(HST_CampaignState state)
