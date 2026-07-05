@@ -647,6 +647,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Runtime tracking arrays must stay lockstep.
   - When maintaining parallel arrays such as runtime group ids/entities, runtime vehicle group ids/entities, pending population ids/status/group/state, or blocked vehicle zone ids/reasons, remove sibling arrays at the target index before removing the key/id array. Removing the key first can make `i < sibling.Count()` false for the final element and leave orphan handles or reasons shifted out of alignment.
 
+- Campaign-debug cleanup assertions should test ownership/backing, not raw count drift.
+  - A long full-profile run can legitimately leave backed, non-debug active groups created by normal campaign services. Treat total active-group count as a metric/context line. The hard cleanup invariant is no `hst_debug_` prefixed state and no active group lacking zone, mission, support, enemy-order, or QRF backing.
+
 - Terminal campaign phases need special runner handling.
   - If `EOnFrame` returns early for `HST_CAMPAIGN_WON` or `HST_CAMPAIGN_LOST`, tick the debug runner before returning or a forced victory/loss step can strand the sequence.
   - Do not auto-repair won/lost back to active before reading the campaign-end report steps. Let the forced loss/victory helpers reset state when they need to set up their own terminal scenario.

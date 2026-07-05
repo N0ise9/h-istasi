@@ -5971,10 +5971,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int markerCount = m_State.m_aMapMarkers.Count();
 		string remainingPrefixExample;
 		int remainingPrefixedRecords = CountCampaignDebugPrefixedStateRecords(CAMPAIGN_DEBUG_PREFIX_ROOT, remainingPrefixExample);
+		string orphanGroupExample;
+		int orphanGroupCount = CountCampaignDebugOrphanActiveGroups(orphanGroupExample);
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_missions", string.Format("%1", activeMissionCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.pending_player_support", string.Format("%1", pendingPlayerSupportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.open_enemy_orders", string.Format("%1", openEnemyOrderCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_groups", string.Format("%1", activeGroupCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.orphan_active_groups", string.Format("%1", orphanGroupCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.markers", string.Format("%1", markerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.debug_prefixed_records", string.Format("%1", remainingPrefixedRecords), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.current_mission_id", "runner current/early mission ids empty", string.Format("current %1 | early %2", EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(m_sCampaignDebugCurrentMissionInstanceId.IsEmpty() && m_sCampaignDebugEarlyMissionInstanceId.IsEmpty()), "runner still references a debug mission at completion");
@@ -5982,7 +5985,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.active_mission_delta", "active mission count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartActiveMissions, activeMissionCount), CampaignDebugStatus(activeMissionCount <= m_iCampaignDebugStartActiveMissions, "WARN"), "active mission count increased during debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.pending_player_support", "no queued/active player support requests", string.Format("%1", pendingPlayerSupportCount), CampaignDebugStatus(pendingPlayerSupportCount == 0, "WARN"), "player support requests remain queued or active after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.open_enemy_orders", "open enemy order count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartEnemyOrders, openEnemyOrderCount), CampaignDebugStatus(openEnemyOrderCount <= m_iCampaignDebugStartEnemyOrders, "WARN"), "enemy orders remain open above run-start count");
-		AddCampaignDebugAssertion(cleanupCase, "cleanup.active_group_delta", "active group count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartActiveGroups, activeGroupCount), CampaignDebugStatus(activeGroupCount <= m_iCampaignDebugStartActiveGroups, "WARN"), "active groups remain above run-start count");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.orphan_active_groups", "no active groups without zone/mission/support/order/QRF backing", BuildCampaignDebugCountExample(orphanGroupCount, orphanGroupExample) + string.Format(" | total %1 -> %2", m_iCampaignDebugStartActiveGroups, activeGroupCount), CampaignDebugStatus(orphanGroupCount == 0), "orphan active groups remain after debug run");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.marker_delta", "marker count not above run start", string.Format("%1 -> %2", m_iCampaignDebugStartMarkers, markerCount), CampaignDebugStatus(markerCount <= m_iCampaignDebugStartMarkers, "WARN"), "marker count remains above run-start count");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
 		return cleanupCase;
