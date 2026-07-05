@@ -2798,6 +2798,18 @@ foreach ($requiredSupportStrikeEntry in @(
 }
 Write-Host "Base-game abstract support strike contract OK"
 
+foreach ($requiredSupportRuntimeProbeEntry in @(
+		"support.physical_population",
+		"CampaignDebugResolvePendingActiveGroupPopulation",
+		"m_bPendingPopulationResolvedBeforeRoute",
+		"support.physical_terminal_resolution"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredSupportRuntimeProbeEntry)) {
+		throw "Missing physical support runtime debug proof entry: $requiredSupportRuntimeProbeEntry"
+	}
+}
+Write-Host "Physical support runtime debug proof OK"
+
 $externalOpforGroupCopies = @(Get-ChildItem -Path "Prefabs/Groups/OPFOR" -Directory -ErrorAction SilentlyContinue)
 if ($externalOpforGroupCopies.Count -gt 0) {
 	throw "External OPFOR group copies must not remain in the base-game preset"

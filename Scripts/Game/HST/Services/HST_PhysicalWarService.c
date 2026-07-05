@@ -6981,6 +6981,50 @@ class HST_PhysicalWarService
 		}
 	}
 
+	bool CampaignDebugResolvePendingActiveGroupPopulation(HST_ActiveGroupState activeGroup, HST_CampaignState state, string requestedStatus, out string evidence)
+	{
+		evidence = "missing group";
+		if (!activeGroup)
+			return false;
+
+		string beforeStatus = activeGroup.m_sRuntimeStatus;
+		int beforeAgents = activeGroup.m_iSpawnedAgentCount;
+		bool wasPending = activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
+		bool finalized;
+		bool kickedNativeSpawn;
+		bool populatedFallback;
+
+		if (requestedStatus.IsEmpty())
+			requestedStatus = activeGroup.m_sRuntimeStatus;
+		if (requestedStatus == "spawn_pending_agents")
+			requestedStatus = "active";
+
+		if (wasPending)
+		{
+			finalized = TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "campaign debug pre-route");
+			if (!finalized)
+				kickedNativeSpawn = TryKickPendingNativeGroupSpawn(activeGroup, "campaign debug pre-route");
+			if (!finalized && kickedNativeSpawn)
+				finalized = TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "campaign debug pre-route native retry");
+			if (!finalized)
+				populatedFallback = TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug pre-route", true);
+		}
+
+		bool resolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && (activeGroup.m_bSpawnedEntity || activeGroup.m_iSpawnedAgentCount > 0 || activeGroup.m_iLastSeenAliveCount > 0);
+		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | directFallback %4 | status %5 -> %6 | agents %7 -> %8 | lastAlive %9",
+			wasPending,
+			finalized,
+			kickedNativeSpawn,
+			populatedFallback,
+			ReportText(beforeStatus),
+			ReportText(activeGroup.m_sRuntimeStatus),
+			beforeAgents,
+			activeGroup.m_iSpawnedAgentCount,
+			activeGroup.m_iLastSeenAliveCount);
+		evidence = evidence + string.Format(" | reason %1", ReportText(activeGroup.m_sSpawnFailureReason));
+		return resolved;
+	}
+
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
 	{
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")

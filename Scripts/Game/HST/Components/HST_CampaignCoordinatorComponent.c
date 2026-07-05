@@ -4261,6 +4261,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (physicalExpected && physicalPending)
 				physicalStatus = "WARN";
 			AddCampaignDebugAssertion(supportCase, "support.physicalization", "ground support physicalizes and links an active group in the inbound window", physicalActual, physicalStatus, "ground support did not physicalize a linked support group", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugMetric(supportCase, "support.physical_pending_population_attempted", string.Format("%1", probeContext.m_bPendingPopulationAttemptedBeforeRoute), "bool");
+			AddCampaignDebugMetric(supportCase, "support.physical_population_resolved", string.Format("%1", probeContext.m_bPendingPopulationResolvedBeforeRoute), "bool");
+			string populationActual = string.Format("attempted %1 | resolved %2 | status %3 -> %4 | evidence %5",
+				probeContext.m_bPendingPopulationAttemptedBeforeRoute,
+				probeContext.m_bPendingPopulationResolvedBeforeRoute,
+				EmptyCampaignDebugField(probeContext.m_sGroupStatusBeforePopulation),
+				EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterPopulation),
+				EmptyCampaignDebugField(probeContext.m_sPendingPopulationEvidence));
+			AddCampaignDebugAssertion(supportCase, "support.physical_population", "ground support group has durable runtime agents before route movement is judged", ShortCampaignDebugLine(populationActual, 260), CampaignDebugStatus(probeContext.m_bPendingPopulationResolvedBeforeRoute), "ground support route probe cannot prove movement while active group agent population is pending", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -4344,6 +4353,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bPhysicalizedAfterTick = false;
 		probeContext.m_sGroupIdAfterTick = "";
 		probeContext.m_sGroupStatusAfterTick = "";
+		probeContext.m_bPendingPopulationAttemptedBeforeRoute = false;
+		probeContext.m_bPendingPopulationResolvedBeforeRoute = false;
+		probeContext.m_sGroupStatusBeforePopulation = "";
+		probeContext.m_sGroupStatusAfterPopulation = "";
+		probeContext.m_sPendingPopulationEvidence = "";
 		probeContext.m_fDistanceBefore = -1.0;
 		probeContext.m_fDistanceAfter = -1.0;
 		probeContext.m_fDistanceAtArrival = -1.0;
@@ -4404,52 +4418,77 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (group && IsCampaignDebugPhysicalGroundSupportType(supportRequest.m_eType) && m_PhysicalWar)
 		{
-			probeContext.m_vGroupPositionBefore = group.m_vPosition;
-			probeContext.m_fDistanceBefore = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
-			int routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - (m_State.m_iElapsedSeconds % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS);
-			if (routeAdvanceSeconds <= 0)
-				routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
-			probeContext.m_iRouteAdvanceSeconds = 0;
-			SampleCampaignDebugSupportRouteProgress(probeContext, supportRequest, group, routeAdvanceSeconds, 3);
-			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-
-			int arrivalAtSecond = supportRequest.m_iRequestedAtSecond + Math.Max(0, supportRequest.m_iETASeconds);
-			int arrivalAdvanceSeconds = Math.Max(0, arrivalAtSecond - m_State.m_iElapsedSeconds);
-			int arrivalRemainder = (m_State.m_iElapsedSeconds + arrivalAdvanceSeconds) % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
-			if (arrivalRemainder != 0)
-				arrivalAdvanceSeconds = arrivalAdvanceSeconds + (HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - arrivalRemainder);
-			probeContext.m_iArrivalAdvanceSeconds = arrivalAdvanceSeconds;
-			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + arrivalAdvanceSeconds;
-			probeContext.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
-			probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
-			group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
-			if (group)
+			probeContext.m_sGroupStatusBeforePopulation = group.m_sRuntimeStatus;
+			if (group.m_sRuntimeStatus == "spawn_pending_agents")
 			{
-				probeContext.m_vGroupPositionAtArrival = group.m_vPosition;
-				probeContext.m_fDistanceAtArrival = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
-				probeContext.m_sGroupStatusAtArrival = group.m_sRuntimeStatus;
+				probeContext.m_bPendingPopulationAttemptedBeforeRoute = true;
+				string pendingPopulationEvidence;
+				probeContext.m_bPendingPopulationResolvedBeforeRoute = m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(group, m_State, "support_active", pendingPopulationEvidence);
+				probeContext.m_sPendingPopulationEvidence = pendingPopulationEvidence;
+				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 			}
-			probeContext.m_sRequestRuntimeStatusAtArrival = supportRequest.m_sRuntimeStatus;
-			if (group && supportRequest.m_sRuntimeStatus == "physical_arrived")
+			else
 			{
-				probeContext.m_sGroupStatusBeforeTerminal = group.m_sRuntimeStatus;
-				if (group.m_sRuntimeStatus == "support_arrived" || group.m_sRuntimeStatus == "support_active")
-				{
-					group.m_sRuntimeStatus = "folded";
-					probeContext.m_bTerminalStatusInjected = true;
-				}
+				probeContext.m_bPendingPopulationResolvedBeforeRoute = group.m_bSpawnedEntity || group.m_iSpawnedAgentCount > 0 || group.m_iLastSeenAliveCount > 0;
+				probeContext.m_sPendingPopulationEvidence = string.Format("pending 0 | status %1 | agents %2 | lastAlive %3", EmptyCampaignDebugField(group.m_sRuntimeStatus), group.m_iSpawnedAgentCount, group.m_iLastSeenAliveCount);
+			}
+			if (group)
+				probeContext.m_sGroupStatusAfterPopulation = group.m_sRuntimeStatus;
 
-				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
-				probeContext.m_bTerminalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+			if (!group)
+			{
+				probeContext.m_sRouteLastObserved = "support group missing after pending population resolution";
+				AppendCampaignDebugSupportRouteSampleText(probeContext, probeContext.m_sRouteLastObserved);
+			}
+			else
+			{
+				probeContext.m_vGroupPositionBefore = group.m_vPosition;
+				probeContext.m_fDistanceBefore = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
+				int routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - (m_State.m_iElapsedSeconds % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS);
+				if (routeAdvanceSeconds <= 0)
+					routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+				probeContext.m_iRouteAdvanceSeconds = 0;
+				SampleCampaignDebugSupportRouteProgress(probeContext, supportRequest, group, routeAdvanceSeconds, 3);
+				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+
+				int arrivalAtSecond = supportRequest.m_iRequestedAtSecond + Math.Max(0, supportRequest.m_iETASeconds);
+				int arrivalAdvanceSeconds = Math.Max(0, arrivalAtSecond - m_State.m_iElapsedSeconds);
+				int arrivalRemainder = (m_State.m_iElapsedSeconds + arrivalAdvanceSeconds) % HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
+				if (arrivalRemainder != 0)
+					arrivalAdvanceSeconds = arrivalAdvanceSeconds + (HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS - arrivalRemainder);
+				probeContext.m_iArrivalAdvanceSeconds = arrivalAdvanceSeconds;
+				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + arrivalAdvanceSeconds;
+				probeContext.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State);
+				probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
 				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 				if (group)
-					probeContext.m_sGroupStatusAfterTerminal = group.m_sRuntimeStatus;
-				probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
-				probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
-				probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
-				probeContext.m_bOutcomeAppliedAfterTerminal = supportRequest.m_bOutcomeApplied;
-				probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
-				probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
+				{
+					probeContext.m_vGroupPositionAtArrival = group.m_vPosition;
+					probeContext.m_fDistanceAtArrival = Math.Sqrt(DistanceSq2D(group.m_vPosition, group.m_vTargetPosition));
+					probeContext.m_sGroupStatusAtArrival = group.m_sRuntimeStatus;
+				}
+				probeContext.m_sRequestRuntimeStatusAtArrival = supportRequest.m_sRuntimeStatus;
+				if (group && supportRequest.m_sRuntimeStatus == "physical_arrived")
+				{
+					probeContext.m_sGroupStatusBeforeTerminal = group.m_sRuntimeStatus;
+					if (group.m_sRuntimeStatus == "support_arrived" || group.m_sRuntimeStatus == "support_active")
+					{
+						group.m_sRuntimeStatus = "folded";
+						probeContext.m_bTerminalStatusInjected = true;
+					}
+
+					m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+					probeContext.m_bTerminalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+					group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
+					if (group)
+						probeContext.m_sGroupStatusAfterTerminal = group.m_sRuntimeStatus;
+					probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
+					probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
+					probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
+					probeContext.m_bOutcomeAppliedAfterTerminal = supportRequest.m_bOutcomeApplied;
+					probeContext.m_bAbstractResolvedAfterTerminal = supportRequest.m_bAbstractResolved;
+					probeContext.m_iResolvedAtSecondAfterTerminal = supportRequest.m_iResolvedAtSecond;
+				}
 			}
 		}
 
