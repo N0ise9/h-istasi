@@ -3403,20 +3403,32 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		int missingInfantryPools;
 		int missingVehiclePools;
+		int factionCatalogMismatches;
+		string factionCatalogMismatchExample;
+		string localFactionCatalogMismatchExample;
 		int prefabResourceCount;
 		int missingPrefabResourceCount;
 		prefabResourceCount += CountCampaignDebugFactionPrefabResources(resistanceTemplate);
 		missingPrefabResourceCount += CountMissingCampaignDebugFactionPrefabResources(resistanceTemplate);
 		missingInfantryPools += CountCampaignDebugMissingInfantryPool(resistanceTemplate);
 		missingVehiclePools += CountCampaignDebugMissingVehiclePool(resistanceTemplate);
+		factionCatalogMismatches += CountCampaignDebugFactionCatalogMismatches(resistanceTemplate, localFactionCatalogMismatchExample);
+		if (factionCatalogMismatchExample.IsEmpty() && !localFactionCatalogMismatchExample.IsEmpty())
+			factionCatalogMismatchExample = localFactionCatalogMismatchExample;
 		prefabResourceCount += CountCampaignDebugFactionPrefabResources(occupierTemplate);
 		missingPrefabResourceCount += CountMissingCampaignDebugFactionPrefabResources(occupierTemplate);
 		missingInfantryPools += CountCampaignDebugMissingInfantryPool(occupierTemplate);
 		missingVehiclePools += CountCampaignDebugMissingVehiclePool(occupierTemplate);
+		factionCatalogMismatches += CountCampaignDebugFactionCatalogMismatches(occupierTemplate, localFactionCatalogMismatchExample);
+		if (factionCatalogMismatchExample.IsEmpty() && !localFactionCatalogMismatchExample.IsEmpty())
+			factionCatalogMismatchExample = localFactionCatalogMismatchExample;
 		prefabResourceCount += CountCampaignDebugFactionPrefabResources(invaderTemplate);
 		missingPrefabResourceCount += CountMissingCampaignDebugFactionPrefabResources(invaderTemplate);
 		missingInfantryPools += CountCampaignDebugMissingInfantryPool(invaderTemplate);
 		missingVehiclePools += CountCampaignDebugMissingVehiclePool(invaderTemplate);
+		factionCatalogMismatches += CountCampaignDebugFactionCatalogMismatches(invaderTemplate, localFactionCatalogMismatchExample);
+		if (factionCatalogMismatchExample.IsEmpty() && !localFactionCatalogMismatchExample.IsEmpty())
+			factionCatalogMismatchExample = localFactionCatalogMismatchExample;
 		if (m_Balance)
 		{
 			prefabResourceCount += CountCampaignDebugPrefabResources(m_Balance.m_aCivilianCharacterPrefabs);
@@ -3451,9 +3463,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.runtime_mission_checked", string.Format("%1", runtimeMissionPrefabCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.waypoint_checked", string.Format("%1", waypointPrefabCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.prefabs.hq_spawn_point_checked", string.Format("%1", hqSpawnPointPrefabCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.faction_templates.catalog_mismatches", string.Format("%1", factionCatalogMismatches), "count");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.present", "resistance/occupier/invader faction templates resolve", string.Format("missing %1/3", missingFactionTemplates), CampaignDebugStatus(missingFactionTemplates == 0), "one or more default faction templates did not resolve");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.infantry_pools", "every default faction has infantry prefab resources", string.Format("missing pools %1", missingInfantryPools), CampaignDebugStatus(missingInfantryPools == 0), "one or more faction templates have no infantry prefab pool");
 		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.vehicle_pools", "occupier/invader vehicle prefab pools resolve where vehicle tests require them", string.Format("missing pools %1", missingVehiclePools), CampaignDebugStatus(missingVehiclePools == 0), "one or more faction templates have no vehicle prefab pool");
+		AddCampaignDebugAssertion(preflightCase, "preflight.faction_templates.catalog_identity", "FIA uses INDFOR/FIA, US uses BLUFOR/US, and USSR uses OPFOR/USSR infantry/group catalog paths", BuildCampaignDebugFactionCatalogIdentityActual(resistanceTemplate, occupierTemplate, invaderTemplate, factionCatalogMismatches, factionCatalogMismatchExample), CampaignDebugStatus(missingFactionTemplates == 0 && factionCatalogMismatches == 0), "one or more faction templates include wrong-faction infantry/group prefab catalog entries");
 		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution", "all checked prefab resources resolve", string.Format("missing %1/%2", missingPrefabResourceCount, prefabResourceCount), CampaignDebugStatus(missingPrefabResourceCount == 0), "one or more checked prefab resources failed Resource.Load");
 		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.runtime_mission_props", "all runtime-selected mission prop and vehicle resources resolve", string.Format("missing %1/%2 | first %3", missingRuntimeMissionPrefabCount, runtimeMissionPrefabCount, EmptyCampaignDebugField(missingRuntimeMissionPrefab)), CampaignDebugStatus(runtimeMissionPrefabCount > 0 && missingRuntimeMissionPrefabCount == 0), "one or more mission runtime prop resources failed Resource.Load");
 		AddCampaignDebugAssertion(preflightCase, "preflight.prefab_resolution.waypoints", "all runtime waypoint prefab resources resolve", string.Format("missing %1/%2 | first %3", missingWaypointPrefabCount, waypointPrefabCount, EmptyCampaignDebugField(missingWaypointPrefab)), CampaignDebugStatus(waypointPrefabCount > 0 && missingWaypointPrefabCount == 0), "one or more runtime waypoint prefab resources failed Resource.Load");
@@ -3596,6 +3610,145 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return 1;
 
 		return 0;
+	}
+
+	protected int CountCampaignDebugFactionCatalogMismatches(HST_FactionTemplate faction, out string example)
+	{
+		example = "";
+		if (!faction)
+			return 0;
+
+		int count;
+		string localExample;
+		count += CountCampaignDebugFactionPrefabCatalogMismatches(faction.m_aInfantryPrefabs, faction.m_sFactionKey, false, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPrefabCatalogMismatches(faction.m_aGroupPrefabs, faction.m_sFactionKey, true, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPrefabCatalogMismatches(faction.m_aPatrolGroupPrefabs, faction.m_sFactionKey, true, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPrefabCatalogMismatches(faction.m_aQRFGroupPrefabs, faction.m_sFactionKey, true, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPoolCatalogMismatches(faction.m_aGroupPool, faction.m_sFactionKey, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPoolCatalogMismatches(faction.m_aPatrolGroupPool, faction.m_sFactionKey, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPoolCatalogMismatches(faction.m_aQRFGroupPool, faction.m_sFactionKey, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		count += CountCampaignDebugFactionPoolCatalogMismatches(faction.m_aRareGroupPool, faction.m_sFactionKey, localExample);
+		if (example.IsEmpty() && !localExample.IsEmpty())
+			example = localExample;
+		return count;
+	}
+
+	protected int CountCampaignDebugFactionPrefabCatalogMismatches(array<string> prefabs, string factionKey, bool groupPrefab, out string example)
+	{
+		example = "";
+		if (!prefabs)
+			return 0;
+
+		int count;
+		foreach (string prefab : prefabs)
+		{
+			if (prefab.IsEmpty())
+				continue;
+
+			bool matches;
+			if (groupPrefab)
+				matches = CampaignDebugGroupPrefabCatalogFactionMatch(prefab, factionKey);
+			else
+				matches = CampaignDebugCharacterPrefabCatalogFactionMatch(prefab, factionKey);
+			if (matches)
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("%1 prefab %2", factionKey, prefab);
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugFactionPoolCatalogMismatches(array<ref HST_PrefabPoolEntry> pool, string factionKey, out string example)
+	{
+		example = "";
+		if (!pool)
+			return 0;
+
+		int count;
+		foreach (HST_PrefabPoolEntry entry : pool)
+		{
+			if (!entry || entry.m_sPrefab.IsEmpty())
+				continue;
+			if (CampaignDebugGroupPrefabCatalogFactionMatch(entry.m_sPrefab, factionKey))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("%1 pooled group %2", factionKey, entry.m_sPrefab);
+		}
+
+		return count;
+	}
+
+	protected bool CampaignDebugCharacterPrefabCatalogFactionMatch(string prefab, string factionKey)
+	{
+		if (factionKey.IsEmpty() || prefab.IsEmpty())
+			return true;
+
+		if (factionKey == "FIA")
+			return prefab.Contains("/INDFOR/FIA/") || prefab.Contains("Character_FIA_");
+
+		if (factionKey == "US")
+			return prefab.Contains("/BLUFOR/US_Army/") || prefab.Contains("Character_US_");
+
+		if (factionKey == "USSR")
+			return prefab.Contains("/OPFOR/USSR_Army/") || prefab.Contains("Character_USSR_");
+
+		return true;
+	}
+
+	protected bool CampaignDebugGroupPrefabCatalogFactionMatch(string prefab, string factionKey)
+	{
+		if (factionKey.IsEmpty() || prefab.IsEmpty())
+			return true;
+
+		if (factionKey == "FIA")
+			return prefab.Contains("/INDFOR/") || prefab.Contains("Group_FIA_");
+
+		if (factionKey == "US")
+			return prefab.Contains("/BLUFOR/") || prefab.Contains("Group_US_");
+
+		if (factionKey == "USSR")
+			return prefab.Contains("/OPFOR/") || prefab.Contains("Group_USSR_");
+
+		return true;
+	}
+
+	protected string BuildCampaignDebugFactionCatalogIdentityActual(HST_FactionTemplate resistanceTemplate, HST_FactionTemplate occupierTemplate, HST_FactionTemplate invaderTemplate, int mismatches, string firstMismatch)
+	{
+		return string.Format("%1 | %2 | %3 | mismatches %4 | first %5",
+			BuildCampaignDebugFactionCatalogSummary(resistanceTemplate),
+			BuildCampaignDebugFactionCatalogSummary(occupierTemplate),
+			BuildCampaignDebugFactionCatalogSummary(invaderTemplate),
+			mismatches,
+			EmptyCampaignDebugField(firstMismatch));
+	}
+
+	protected string BuildCampaignDebugFactionCatalogSummary(HST_FactionTemplate faction)
+	{
+		if (!faction)
+			return "missing";
+
+		int directGroups = faction.m_aGroupPrefabs.Count() + faction.m_aPatrolGroupPrefabs.Count() + faction.m_aQRFGroupPrefabs.Count();
+		int pooledGroups = CountCampaignDebugPoolPrefabResources(faction.m_aGroupPool) + CountCampaignDebugPoolPrefabResources(faction.m_aPatrolGroupPool) + CountCampaignDebugPoolPrefabResources(faction.m_aQRFGroupPool) + CountCampaignDebugPoolPrefabResources(faction.m_aRareGroupPool);
+		return string.Format("%1 infantry %2 | direct groups %3 | pooled groups %4", faction.m_sFactionKey, faction.m_aInfantryPrefabs.Count(), directGroups, pooledGroups);
 	}
 
 	protected int CountCampaignDebugFactionPrefabResources(HST_FactionTemplate faction)

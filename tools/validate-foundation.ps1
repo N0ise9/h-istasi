@@ -6890,6 +6890,28 @@ foreach ($requiredPhysicalWarEntry in @(
 }
 Write-Host "Physical AI war scaffold OK"
 
+$coordinatorForPreflightText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+foreach ($requiredFactionCatalogPreflightEntry in @(
+		"preflight.faction_templates.catalog_identity",
+		"preflight.faction_templates.catalog_mismatches",
+		"CountCampaignDebugFactionCatalogMismatches",
+		"CampaignDebugCharacterPrefabCatalogFactionMatch",
+		"CampaignDebugGroupPrefabCatalogFactionMatch",
+		"BuildCampaignDebugFactionCatalogIdentityActual",
+		"FIA uses INDFOR/FIA, US uses BLUFOR/US, and USSR uses OPFOR/USSR infantry/group catalog paths",
+		"one or more faction templates include wrong-faction infantry/group prefab catalog entries",
+		'prefab.Contains("/BLUFOR/US_Army/") || prefab.Contains("Character_US_")',
+		'prefab.Contains("/OPFOR/USSR_Army/") || prefab.Contains("Character_USSR_")',
+		'prefab.Contains("/INDFOR/") || prefab.Contains("Group_FIA_")',
+		'prefab.Contains("/BLUFOR/") || prefab.Contains("Group_US_")',
+		'prefab.Contains("/OPFOR/") || prefab.Contains("Group_USSR_")'
+	)) {
+	if ($coordinatorForPreflightText -notmatch [regex]::Escape($requiredFactionCatalogPreflightEntry)) {
+		throw "Campaign-debug preflight must prove faction catalog identity before runtime spawn: $requiredFactionCatalogPreflightEntry"
+	}
+}
+Write-Host "Campaign-debug faction catalog preflight proof OK"
+
 $physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
 foreach ($requiredActiveVehicleDetachEntry in @(
 		"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
