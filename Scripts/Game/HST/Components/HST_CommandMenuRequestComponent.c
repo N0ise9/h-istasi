@@ -350,6 +350,33 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		s_ServerBroadcaster.BroadcastSetupRefresh_I();
 	}
 
+	static bool SendCampaignDebugTeleportOwner(int playerId, vector position, string reason)
+	{
+		if (!Replication.IsServer() || playerId <= 0)
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+		{
+			Print(string.Format("h-istasi campaign debug teleport | owner RPC unavailable: player controller missing player=%1 reason=%2 target=%3", playerId, reason, position), LogLevel.WARNING);
+			return false;
+		}
+
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
+		if (!request)
+		{
+			Print(string.Format("h-istasi campaign debug teleport | owner RPC unavailable: request bridge missing player=%1 reason=%2 target=%3", playerId, reason, position), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverCampaignDebugTeleport(position, reason);
+		return true;
+	}
+
 	string GetLastSnapshot()
 	{
 		return m_sLastSnapshot;
@@ -579,6 +606,37 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			setupMap.RequestSetupStateNow();
 	}
 
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_CampaignDebugTeleport(vector position, string reason)
+	{
+		int localPlayerId = ResolveLocalPlayerId();
+		IEntity playerEntity = ResolveLocalControlledEntity(localPlayerId);
+		bool nativeTeleported = false;
+		bool forcedEntityOrigin = false;
+		bool confirmed = false;
+		if (localPlayerId > 0)
+			nativeTeleported = SCR_Global.TeleportPlayer(localPlayerId, position, SCR_EPlayerTeleportedReason.DEFAULT);
+
+		playerEntity = ResolveLocalControlledEntity(localPlayerId);
+		if (playerEntity)
+		{
+			float confirmRadiusSq = 15.0 * 15.0;
+			confirmed = DistanceSq2D(playerEntity.GetOrigin(), position) <= confirmRadiusSq;
+			if (!confirmed)
+			{
+				playerEntity.SetOrigin(position);
+				forcedEntityOrigin = true;
+				confirmed = DistanceSq2D(playerEntity.GetOrigin(), position) <= confirmRadiusSq;
+			}
+		}
+
+		string actual = "missing";
+		if (playerEntity)
+			actual = string.Format("pos %1", playerEntity.GetOrigin());
+
+		Print(string.Format("h-istasi campaign debug teleport owner | reason %1 | player %2 | target %3 | native %4 | forced %5 | confirmed %6 | actual %7", reason, localPlayerId, position, nativeTeleported, forcedEntityOrigin, confirmed, actual));
+	}
+
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult)
 	{
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
@@ -797,6 +855,17 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcDo_ReceiveSetupResult, payload);
 	}
 
+	protected void DeliverCampaignDebugTeleport(vector position, string reason)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_CampaignDebugTeleport(position, reason);
+			return;
+		}
+
+		Rpc(RpcDo_CampaignDebugTeleport, position, reason);
+	}
+
 	protected void RefreshLocalOwner(IEntity owner)
 	{
 		if (m_bIsLocalOwner)
@@ -852,5 +921,25 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return 0;
 
 		return playerManager.GetPlayerIdFromControlledEntity(controlledEntity);
+	}
+
+	protected IEntity ResolveLocalControlledEntity(int localPlayerId)
+	{
+		IEntity controlledEntity = SCR_PlayerController.GetLocalControlledEntity();
+		if (controlledEntity)
+			return controlledEntity;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager || localPlayerId <= 0)
+			return null;
+
+		return playerManager.GetPlayerControlledEntity(localPlayerId);
+	}
+
+	protected float DistanceSq2D(vector a, vector b)
+	{
+		float dx = a[0] - b[0];
+		float dz = a[2] - b[2];
+		return dx * dx + dz * dz;
 	}
 }

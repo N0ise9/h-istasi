@@ -12177,15 +12177,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool TeleportCampaignDebugPlayer(vector position, string reason)
 	{
 		if (m_iCampaignDebugPlayerId <= 0 || IsZeroVector(position))
+		{
+			AppendCampaignDebugLog("WARN", "teleport " + reason, string.Format("invalid request | player %1 | target %2", m_iCampaignDebugPlayerId, position));
 			return false;
+		}
 		if (!EnsureCampaignDebugLivingPlayer(reason))
+		{
+			AppendCampaignDebugLog("WARN", "teleport " + reason, string.Format("living controlled player unavailable | player %1 | target %2", m_iCampaignDebugPlayerId, position));
 			return false;
+		}
 
 		vector resolved = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true);
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		string beforeActual = BuildCampaignDebugPlayerEntityActual(playerEntity);
 		bool nativeTeleported = SCR_Global.TeleportPlayer(m_iCampaignDebugPlayerId, resolved, SCR_EPlayerTeleportedReason.DEFAULT);
+		bool ownerRpcQueued = HST_CommandMenuRequestComponent.SendCampaignDebugTeleportOwner(m_iCampaignDebugPlayerId, resolved, reason);
 		bool forcedEntityOrigin = false;
 		bool entityConfirmed = false;
-		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		if (playerEntity)
 		{
 			float confirmRadiusSq = CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS * CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS;
@@ -12202,8 +12211,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (playerEntity && !entityConfirmed)
 			teleported = false;
 
+		string afterActual = BuildCampaignDebugPlayerEntityActual(playerEntity);
+		string details = string.Format("player %1 -> %2 | before %3 | after %4 | server native %5 | owner RPC %6 | forced %7 | confirmed %8", m_iCampaignDebugPlayerId, resolved, beforeActual, afterActual, nativeTeleported, ownerRpcQueued, forcedEntityOrigin, entityConfirmed);
 		if (teleported)
-			AppendCampaignDebugLog("INFO", "teleport " + reason, string.Format("player %1 -> %2 | native %3 | forced %4 | confirmed %5", m_iCampaignDebugPlayerId, resolved, nativeTeleported, forcedEntityOrigin, entityConfirmed));
+			AppendCampaignDebugLog("INFO", "teleport " + reason, details);
+		else
+			AppendCampaignDebugLog("WARN", "teleport " + reason, details);
 
 		return teleported;
 	}
