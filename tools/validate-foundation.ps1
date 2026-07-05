@@ -404,6 +404,32 @@ if ((Get-Content -Raw $petrosPrefabMetaPath) -notmatch '\{6985327711303300\}Pref
 	throw "Dedicated Petros prefab metadata must expose the GUID-qualified resource name"
 }
 
+$petrosGroupPrefabPath = "Prefabs/Groups/HST/HST_PetrosGroup.et"
+if (!(Test-Path $petrosGroupPrefabPath)) {
+	throw "Missing dedicated Petros AIGroup prefab: $petrosGroupPrefabPath"
+}
+
+$petrosGroupPrefabMetaPath = "$petrosGroupPrefabPath.meta"
+if (!(Test-Path $petrosGroupPrefabMetaPath)) {
+	throw "Missing dedicated Petros AIGroup prefab metadata: $petrosGroupPrefabMetaPath"
+}
+
+if ((Get-Content -Raw $petrosGroupPrefabMetaPath) -notmatch '\{6985327711303900\}Prefabs/Groups/HST/HST_PetrosGroup\.et') {
+	throw "Dedicated Petros AIGroup prefab metadata must expose the GUID-qualified resource name"
+}
+
+$petrosGroupPrefabText = Get-Content -Raw $petrosGroupPrefabPath
+foreach ($requiredPetrosGroupPrefabEntry in @(
+		'SCR_AIGroup HST_PetrosGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et"',
+		"m_bSpawnImmediately 0",
+		"m_bDeleteWhenEmpty 0",
+		'm_faction "FIA"'
+	)) {
+	if ($petrosGroupPrefabText -notmatch [regex]::Escape($requiredPetrosGroupPrefabEntry)) {
+		throw "Dedicated Petros AIGroup prefab must start empty and not queue native empty-group deletion: $requiredPetrosGroupPrefabEntry"
+	}
+}
+
 $petrosPrefabText = Get-Content -Raw $petrosPrefabPath
 $hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
@@ -511,6 +537,7 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		'EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback")',
+		'PETROS_GROUP_PREFAB = "{6985327711303900}Prefabs/Groups/HST/HST_PetrosGroup.et"',
 		"WarnPetrosAIGroupFallback",
 		"HasPetrosRuntimeAIGroup",
 		"BuildPetrosAIGroupDebugSummary",
@@ -529,6 +556,9 @@ if ($hqServiceText -match '=\s*agent\.GetParentGroup\(\)') {
 }
 if ($hqServiceText -match 'agent\.GetParentGroup\(\)\s*[!=]=\s*group' -or $hqServiceText -match 'group\s*[!=]=\s*agent\.GetParentGroup\(\)') {
 	throw "HQ Petros runtime must cast AIAgent.GetParentGroup() before comparing it with tracked SCR_AIGroup"
+}
+if ($hqServiceText -match '\{000CD338713F2B5A\}Prefabs/AI/Groups/Group_Base\.et') {
+	throw "HQ Petros runtime must use the HST-owned non-deleting Petros group prefab instead of raw Group_Base"
 }
 if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {
 	throw "Coordinator must expose a Build Mode guarded HQ runtime rebuild action"
