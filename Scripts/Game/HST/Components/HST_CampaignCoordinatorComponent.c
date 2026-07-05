@@ -210,6 +210,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
 	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
+	protected ref array<int> m_aAdminIdentityDiagnosticPlayerIds = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
 	protected string m_sCampaignDebugWorldCleanupPrefix;
 	protected string m_sCampaignDebugWorldCleanupExample;
@@ -232,6 +233,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Settings.ApplyTo(m_Preset, m_Balance);
 			if (m_Settings.m_Debug)
 				HST_UIDebug.SetRuntimeDebugEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
+			if (m_Settings.m_Membership)
+				DebugLog(string.Format("settings membership adminIdentityIds count=%1", m_Settings.m_Membership.m_aAdminIdentityIds.Count()));
 
 			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
 			if (gameMode && m_Settings.m_Features)
@@ -20328,6 +20331,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string steamId64 = ResolvePlayerSteamId64(playerId);
 			if (MatchesSettingsAdminSteamId64(steamId64))
 				return "settings SteamID64 " + steamId64;
+			LogAdminIdentityDiagnosticOnce(playerId, identityId, steamId64);
 		}
 
 		return "";
@@ -20390,6 +20394,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		normalized.Replace("\"", "");
 		normalized.ToLower();
 		return normalized;
+	}
+
+	protected void LogAdminIdentityDiagnosticOnce(int playerId, string identityId, string steamId64)
+	{
+		if (!IsDebugLoggingEnabled() || playerId <= 0 || !m_Settings || !m_Settings.m_Membership || m_Settings.m_Membership.m_aAdminIdentityIds.Count() == 0)
+			return;
+
+		if (m_aAdminIdentityDiagnosticPlayerIds.Find(playerId) >= 0)
+			return;
+
+		m_aAdminIdentityDiagnosticPlayerIds.Insert(playerId);
+		Print(string.Format("h-istasi admin | settings SteamID64 check did not match player=%1 backend=%2 platform=%3 configuredCount=%4", playerId, EmptyCampaignDebugField(identityId), EmptyCampaignDebugField(steamId64), m_Settings.m_Membership.m_aAdminIdentityIds.Count()), LogLevel.WARNING);
 	}
 
 	protected bool ApplyRuntimeAdminGrant(HST_PlayerState player, string grantReason, bool wasAdmin)

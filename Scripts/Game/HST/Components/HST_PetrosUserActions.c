@@ -25,7 +25,7 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
 		if (menu)
 		{
-			menu.OpenMenuToTab(tabId);
+			menu.OpenMenuToTab(tabId, "contextual action");
 			return;
 		}
 

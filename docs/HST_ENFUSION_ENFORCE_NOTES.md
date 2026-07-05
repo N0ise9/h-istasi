@@ -613,10 +613,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Player identity for h-istasi state and admin configuration use different durable IDs.
   - `PlayerId=2` is only a per-session connection id; it can change on reconnect and should not be stored in `membership.adminIdentityIds`.
   - `membership.adminIdentityIds` should only contain raw 17-digit SteamID64 values. Do not store backend UUIDs, `workbench_player_N`, prefixed aliases, or session player ids there.
-  - On the server, `GetGame().GetBackendApi().GetPlayerPlatformId(playerId)` exposes the SteamID64 value and can be proved in h-istasi grant logs.
+  - On the server, `GetGame().GetBackendApi().GetPlayerPlatformId(playerId)` is the intended script-side platform-id source for matching the SteamID64 value and should be proved in h-istasi grant logs. If that path does not match, log the backend UUID, platform-id candidate, and configured admin count before assuming the settings token is wrong.
   - `GetGame().GetBackendApi().GetPlayerIdentityId(playerId)` returns the backend UUID shown in backend/network logs after authentication. Use that UUID for internal persistent player/member/commander state, with `workbench_player_N` only as a local/early bootstrap placeholder, not as an admin fallback.
   - If a player was registered before the backend identity was available, migrate the placeholder record and rewrite commander/loadout/undercover owner references once the UUID resolves.
   - Server-host admin lists can be bridged through the session player id after connection: use `SCR_PlayerListedAdminManagerComponent.GetInstance().IsPlayerOnAdminList(playerId)` or `BackendApi.IsListedServerAdmin(playerId)` for runtime admin grants, but do not persist the session id as the durable h-istasi identity. This is a separate native-server admin source, not a third `membership.adminIdentityIds` token type.
+  - Runtime settings parsing must handle `adminIdentityIds` as either a compact one-line JSON array or a pretty-printed multi-line JSON array. The profile file can be reformatted by external tools; a line-only parser will silently clear the configured admin list.
+
+- The `I` key is already present in the base input config as native action `PlayerMenuInvite` under `PlayerMenuContext`.
+  - The h-istasi command menu can keep its custom `HST_CommandMenu` action/binding, but the client component should also activate `PlayerMenuContext`, activate `PlayerMenuInvite`, listen for `PlayerMenuInvite`, and include that native action state in input heartbeat logs.
+  - Petros/HQ contextual actions call the same menu renderer; log those opens as `contextual action` so they are not mistaken for successful `I` key opens.
 
 - Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.
   - Mission-sweep runtime checks should inspect the selected mission instance, then append selected convoy diagnostics only for that mission. Global mission runtime reports include completed/failed historical mission records and can poison every later mission with old `failed:` text.

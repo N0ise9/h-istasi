@@ -160,6 +160,8 @@ class HST_RuntimeSettingsService
 			ApplyBool(line, "gameMasterBudgetsEnabled", settings.m_Features.m_bGameMasterBudgetsEnabled);
 			ApplyBool(line, "showPlayerMapMarkers", settings.m_Features.m_bShowPlayerMapMarkers);
 		}
+
+		ApplyStringArrayFromLines(lines, "adminIdentityIds", settings.m_Membership.m_aAdminIdentityIds);
 	}
 
 	protected bool MigrateSettings(notnull HST_RuntimeSettings settings)
@@ -307,14 +309,61 @@ class HST_RuntimeSettingsService
 		if (!LineHasKey(line, key))
 			return;
 
-		target.Clear();
 		int open = line.IndexOf("[");
 		int close = line.IndexOf("]");
 		if (open < 0 || close <= open)
 			return;
 
 		string values = line.Substring(open + 1, close - open - 1);
+		ParseStringArrayValues(values, target);
+	}
+
+	protected void ApplyStringArrayFromLines(notnull array<string> lines, string key, notnull array<string> target)
+	{
+		bool collecting;
+		string values;
+		foreach (string line : lines)
+		{
+			if (!collecting)
+			{
+				if (!LineHasKey(line, key))
+					continue;
+
+				int open = line.IndexOf("[");
+				if (open < 0)
+					return;
+
+				int close = line.IndexOf("]");
+				if (close > open)
+				{
+					values = line.Substring(open + 1, close - open - 1);
+					ParseStringArrayValues(values, target);
+					return;
+				}
+
+				values = line.Substring(open + 1, line.Length() - open - 1);
+				collecting = true;
+				continue;
+			}
+
+			int lineClose = line.IndexOf("]");
+			if (lineClose >= 0)
+			{
+				values = values + "," + line.Substring(0, lineClose);
+				ParseStringArrayValues(values, target);
+				return;
+			}
+
+			values = values + "," + line;
+		}
+	}
+
+	protected void ParseStringArrayValues(string values, notnull array<string> target)
+	{
+		target.Clear();
 		values.Replace("\"", "");
+		values.Replace("[", "");
+		values.Replace("]", "");
 		array<string> tokens = {};
 		values.Split(",", tokens, true);
 		foreach (string token : tokens)

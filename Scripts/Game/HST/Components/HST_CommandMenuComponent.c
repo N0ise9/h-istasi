@@ -46,11 +46,13 @@ class HST_CommandMenuComponentClass : ScriptComponentClass
 class HST_CommandMenuComponent : ScriptComponent
 {
 	static const string COMMAND_MENU_CUSTOM_ACTION = "HST_CommandMenu";
+	static const string COMMAND_MENU_NATIVE_I_ACTION = "PlayerMenuInvite";
 	static const string COMMAND_MENU_UP_ACTION = "MenuUp";
 	static const string COMMAND_MENU_DOWN_ACTION = "MenuDown";
 	static const string COMMAND_MENU_SELECT_ACTION = "MenuSelect";
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
+	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -260,8 +262,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (inputManager)
 		{
 			inputManager.ActivateContext(COMMAND_MENU_INPUT_CONTEXT);
+			inputManager.ActivateContext(COMMAND_MENU_NATIVE_I_CONTEXT);
 			inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 			inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+			inputManager.ActivateAction(COMMAND_MENU_NATIVE_I_ACTION);
 			m_bCommandMenuInputConsumedThisFrame = false;
 			PollRawCommandMenuKey();
 			PollCommandMenuInput(inputManager);
@@ -351,7 +355,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 		inputManager.ActivateContext(COMMAND_MENU_INPUT_CONTEXT);
+		inputManager.ActivateContext(COMMAND_MENU_NATIVE_I_CONTEXT);
 		inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+		inputManager.ActivateAction(COMMAND_MENU_NATIVE_I_ACTION);
 	}
 
 	protected void StartPostSetupInputRecovery()
@@ -393,7 +399,9 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		inputManager.ActivateContext(MENU_INPUT_CONTEXT);
 		inputManager.ActivateContext(COMMAND_MENU_INPUT_CONTEXT);
+		inputManager.ActivateContext(COMMAND_MENU_NATIVE_I_CONTEXT);
 		inputManager.ActivateAction(COMMAND_MENU_CUSTOM_ACTION);
+		inputManager.ActivateAction(COMMAND_MENU_NATIVE_I_ACTION);
 	}
 
 	void RunCommandFromContext(string tabId, string commandId, string argument = "")
@@ -550,6 +558,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		EnsureIKeyBinding(inputManager);
 
 		inputManager.AddActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, OnCustomCommandMenuInput);
+		inputManager.AddActionListener(COMMAND_MENU_NATIVE_I_ACTION, EActionTrigger.DOWN, OnNativeCommandMenuInput);
 		inputManager.AddActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, OnSelectPreviousInput);
 		inputManager.AddActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, OnSelectNextInput);
 		inputManager.AddActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, OnExecuteSelectedInput);
@@ -569,6 +578,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		inputManager.RemoveActionListener(COMMAND_MENU_CUSTOM_ACTION, EActionTrigger.DOWN, OnCustomCommandMenuInput);
+		inputManager.RemoveActionListener(COMMAND_MENU_NATIVE_I_ACTION, EActionTrigger.DOWN, OnNativeCommandMenuInput);
 		inputManager.RemoveActionListener(COMMAND_MENU_UP_ACTION, EActionTrigger.DOWN, OnSelectPreviousInput);
 		inputManager.RemoveActionListener(COMMAND_MENU_DOWN_ACTION, EActionTrigger.DOWN, OnSelectNextInput);
 		inputManager.RemoveActionListener(COMMAND_MENU_SELECT_ACTION, EActionTrigger.DOWN, OnExecuteSelectedInput);
@@ -586,6 +596,16 @@ class HST_CommandMenuComponent : ScriptComponent
 		TryToggleCommandMenu("custom action");
 	}
 
+	protected void OnNativeCommandMenuInput(float value, EActionTrigger reason)
+	{
+		if (reason != EActionTrigger.DOWN)
+			return;
+
+		Print(string.Format("h-istasi menu | native I action input detected source=%1 value=%2 menuOpen=%3 top=%4", COMMAND_MENU_NATIVE_I_ACTION, value, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+		m_bCommandMenuInputConsumedThisFrame = true;
+		TryToggleCommandMenu("native " + COMMAND_MENU_NATIVE_I_ACTION);
+	}
+
 	protected void PollCommandMenuInput(InputManager inputManager)
 	{
 		bool keyDown = false;
@@ -594,6 +614,11 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			keyDown = true;
 			source = COMMAND_MENU_CUSTOM_ACTION;
+		}
+		else if (inputManager.GetActionTriggered(COMMAND_MENU_NATIVE_I_ACTION))
+		{
+			keyDown = true;
+			source = COMMAND_MENU_NATIVE_I_ACTION;
 		}
 
 		if (m_bCommandMenuInputConsumedThisFrame)
@@ -641,6 +666,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		int rawState = Debug.KeyState(KeyCode.KC_I);
 		bool actionTriggered = inputManager && inputManager.GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION);
+		bool nativeActionTriggered = inputManager && inputManager.GetActionTriggered(COMMAND_MENU_NATIVE_I_ACTION);
 		string heartbeat = string.Format(
 			"h-istasi menu debug | input heartbeat localPlayer=%1 resolvedPlayer=%2 ownerPlayer=%3 localOwner=%4 inputRegistered=%5 configRegistered=%6 customBinding=%7 actionTriggered=%8 rawIState=%9",
 			SCR_PlayerController.GetLocalPlayerId(),
@@ -653,6 +679,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			actionTriggered,
 			rawState
 		);
+		heartbeat = heartbeat + string.Format(" nativeActionTriggered=%1", nativeActionTriggered);
 		heartbeat = heartbeat + string.Format(" setupBlocking=%1 menuOpen=%2 top=%3", HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()));
 		Print(heartbeat);
 	}
