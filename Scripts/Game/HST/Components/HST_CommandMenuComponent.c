@@ -732,7 +732,11 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void DebugCommandMenuToggleRefused(string source, string reason)
 	{
-		Print(string.Format("h-istasi menu | input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining), LogLevel.WARNING);
+		string message = string.Format("h-istasi menu | input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining);
+		if (reason == "debounce")
+			Print(message);
+		else
+			Print(message, LogLevel.WARNING);
 		DebugLog(string.Format("input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining));
 	}
 

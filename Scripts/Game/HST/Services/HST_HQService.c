@@ -2,6 +2,7 @@ class HST_HQService
 {
 	static const string PETROS_BASE_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
 	static const string PETROS_PREFAB = "{6985327711303300}Prefabs/Characters/HST/Character_HST_Petros.et";
+	static const string PETROS_GROUP_PREFAB = "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et";
 	static const string HQ_CACHE_PREFAB = "{AB1A97B1BAE8C395}Prefabs/Compositions/Slotted/SlotFlatSmall/SupplyCache_S_FIA_01.et";
 	static const string ARSENAL_PREFAB = "{6985327711303400}Prefabs/Objects/HST/HST_HQArsenal.et";
 	static const string HQ_TENT_PREFAB = "{01AE5FD77A9A4C21}Prefabs/Structures/Military/Camps/TentSmallUS_01/TentSmallUS_01.et";
@@ -12,6 +13,7 @@ class HST_HQService
 	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
 
 	protected IEntity m_PetrosEntity;
+	protected IEntity m_PetrosGroupEntity;
 	protected IEntity m_CacheEntity;
 	protected IEntity m_ArsenalEntity;
 	protected IEntity m_TentEntity;
@@ -21,13 +23,12 @@ class HST_HQService
 	protected bool m_bWarnedPetrosResourceFailure;
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
-	protected bool m_bWarnedPetrosFallbackAnchor;
+	protected bool m_bWarnedPetrosRemovalRetry;
 	protected bool m_bLoggedPetrosSpawned;
 	protected bool m_bLoggedCacheSpawned;
 	protected bool m_bLoggedArsenalSpawned;
 	protected bool m_bLoggedTentSpawned;
 	protected bool m_bLoggedSpawnPointSpawned;
-	protected bool m_bPetrosFallbackAnchorActive;
 	protected bool m_bDebugLoggingEnabled;
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -236,23 +237,32 @@ class HST_HQService
 			if (m_PetrosEntity)
 			{
 				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
+				EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach");
 				DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
 				changed = true;
 			}
 		}
 
-		if (!m_PetrosEntity && !m_bPetrosFallbackAnchorActive && m_bLoggedPetrosSpawned)
+		if (!m_PetrosEntity && m_bLoggedPetrosSpawned)
 		{
-			m_bPetrosFallbackAnchorActive = true;
-			if (!m_bWarnedPetrosFallbackAnchor)
+			DeleteRuntimeEntity(m_PetrosGroupEntity);
+			m_PetrosGroupEntity = null;
+			if (!m_bWarnedPetrosRemovalRetry)
 			{
-				Print("h-istasi | Petros character runtime was removed after spawn; HQ runtime tracking is using the durable HQ action surface fallback", LogLevel.WARNING);
-				m_bWarnedPetrosFallbackAnchor = true;
+				Print("h-istasi | Petros character runtime was removed after spawn; retrying real grouped Petros spawn", LogLevel.WARNING);
+				m_bWarnedPetrosRemovalRetry = true;
 			}
+			m_bLoggedPetrosSpawned = false;
 			changed = true;
 		}
 
-		if (!m_PetrosEntity && !m_bPetrosFallbackAnchorActive)
+		if (m_PetrosEntity && !IsPetrosAIGroupTracked())
+		{
+			if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "repair"))
+				changed = true;
+		}
+
+		if (!m_PetrosEntity)
 		{
 			m_PetrosEntity = SpawnPetros(respawnSystem, state);
 			if (m_PetrosEntity)
@@ -534,9 +544,6 @@ class HST_HQService
 
 	string GetPetrosRuntimeEntityKey()
 	{
-		if (m_bPetrosFallbackAnchorActive && !m_PetrosEntity)
-			return "petros:fallback:" + BuildRuntimeEntityKey("hq_action_surface", ResolvePetrosRuntimeEntity());
-
 		return BuildRuntimeEntityKey("petros", m_PetrosEntity);
 	}
 
@@ -911,6 +918,7 @@ class HST_HQService
 		if (petros)
 		{
 			PreparePetrosEntity(petros, petrosPosition);
+			EnsurePetrosAIGroup(petros, petrosPosition, "dedicated prefab");
 			return petros;
 		}
 
@@ -924,7 +932,10 @@ class HST_HQService
 
 			petros = HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
 			if (petros)
+			{
 				PreparePetrosEntity(petros, petrosPosition);
+				EnsurePetrosAIGroup(petros, petrosPosition, "base fallback prefab");
+			}
 
 			return petros;
 		}
@@ -953,6 +964,98 @@ class HST_HQService
 		controller.SetMovement(0, vector.Zero);
 		controller.SetDisableMovementControls(true);
 		controller.SetDisableWeaponControls(true);
+	}
+
+	protected bool EnsurePetrosAIGroup(IEntity petros, vector position, string source)
+	{
+		if (!petros)
+			return false;
+
+		SCR_AIGroup group = ResolvePetrosAIGroup(position, source);
+		if (!group)
+			return false;
+
+		ApplyPetrosGroupFaction(group, source);
+		AIAgent agent = ResolvePetrosAIAgent(petros);
+		if (agent && agent.GetParentGroup() && agent.GetParentGroup() != group)
+			group.AddAgent(agent);
+
+		if (!group.AddAIEntityToGroup(petros))
+		{
+			Print(string.Format("h-istasi | Petros AI group attach failed via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
+			return false;
+		}
+
+		if (!IsPetrosAgentInGroup(petros, group))
+		{
+			Print(string.Format("h-istasi | Petros AI group attach unverified via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
+			return false;
+		}
+
+		ApplyFaction(petros);
+		DebugLog(string.Format("lifecycle attached Petros to AIGroup via %1 | petros=%2 group=%3", source, petros, m_PetrosGroupEntity));
+		return true;
+	}
+
+	protected SCR_AIGroup ResolvePetrosAIGroup(vector position, string source)
+	{
+		SCR_AIGroup existingGroup = SCR_AIGroup.Cast(m_PetrosGroupEntity);
+		if (existingGroup)
+			return existingGroup;
+
+		if (m_PetrosGroupEntity)
+		{
+			DeleteRuntimeEntity(m_PetrosGroupEntity);
+			m_PetrosGroupEntity = null;
+		}
+
+		ResourceName resourceName = PETROS_GROUP_PREFAB;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded || !loaded.IsValid())
+		{
+			Print(string.Format("h-istasi | Petros AI group spawn failed via %1: missing group prefab %2", source, PETROS_GROUP_PREFAB), LogLevel.WARNING);
+			return null;
+		}
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = position;
+		IEntity groupEntity = GetGame().SpawnEntityPrefabEx(resourceName, false, world, params);
+		SCR_AIGroup group = SCR_AIGroup.Cast(groupEntity);
+		if (!group)
+		{
+			DeleteRuntimeEntity(groupEntity);
+			Print(string.Format("h-istasi | Petros AI group spawn failed via %1: prefab %2 did not spawn an AIGroup", source, PETROS_GROUP_PREFAB), LogLevel.WARNING);
+			return null;
+		}
+
+		group.SetName("HST_Petros_Group");
+		group.SetOrigin(position);
+		group.SetDeleteWhenEmpty(false);
+		m_PetrosGroupEntity = groupEntity;
+		DebugLog(string.Format("lifecycle spawned Petros AIGroup via %1 prefab=%2 pos=%3 entity=%4", source, PETROS_GROUP_PREFAB, position, groupEntity));
+		return group;
+	}
+
+	protected void ApplyPetrosGroupFaction(SCR_AIGroup group, string source)
+	{
+		if (!group || !GetGame())
+			return;
+
+		FactionManager factionManager = GetGame().GetFactionManager();
+		if (!factionManager)
+			return;
+
+		Faction faction = factionManager.GetFactionByKey("FIA");
+		if (!faction)
+			return;
+
+		if (!group.SetFaction(faction))
+			DebugLog(string.Format("lifecycle Petros AIGroup faction unchanged via %1", source));
 	}
 
 	protected string ResolveArsenalPrefab(HST_CampaignState state)
@@ -1076,23 +1179,39 @@ class HST_HQService
 
 	protected bool IsPetrosRuntimeTracked()
 	{
-		return m_PetrosEntity || (m_bPetrosFallbackAnchorActive && ResolvePetrosRuntimeEntity());
+		return m_PetrosEntity && IsPetrosAIGroupTracked();
 	}
 
 	protected IEntity ResolvePetrosRuntimeEntity()
 	{
-		if (m_PetrosEntity)
-			return m_PetrosEntity;
-		if (!m_bPetrosFallbackAnchorActive)
-			return null;
-		if (m_ArsenalEntity)
-			return m_ArsenalEntity;
-		if (m_TentEntity)
-			return m_TentEntity;
-		if (m_CacheEntity)
-			return m_CacheEntity;
+		return m_PetrosEntity;
+	}
 
-		return null;
+	protected bool IsPetrosAIGroupTracked()
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
+		return group && IsPetrosAgentInGroup(m_PetrosEntity, group);
+	}
+
+	protected bool IsPetrosAgentInGroup(IEntity petros, SCR_AIGroup group)
+	{
+		if (!petros || !group)
+			return false;
+
+		AIAgent agent = ResolvePetrosAIAgent(petros);
+		return agent && agent.GetParentGroup() == group;
+	}
+
+	protected AIAgent ResolvePetrosAIAgent(IEntity petros)
+	{
+		if (!petros)
+			return null;
+
+		AIControlComponent control = AIControlComponent.Cast(petros.FindComponent(AIControlComponent));
+		if (!control)
+			return null;
+
+		return control.GetControlAIAgent();
 	}
 
 	protected vector ResolveRuntimeEntityPosition(IEntity entity)
@@ -1226,14 +1345,16 @@ class HST_HQService
 
 	protected void ClearRuntimeObjects(HST_CampaignState state, string reason = "unspecified")
 	{
-		DebugLog(string.Format("lifecycle clearing runtime objects reason=%1 petros=%2 cache=%3 arsenal=%4 tent=%5 spawn=%6", reason, m_PetrosEntity, m_CacheEntity, m_ArsenalEntity, m_TentEntity, m_SpawnPointEntity));
+		DebugLog(string.Format("lifecycle clearing runtime objects reason=%1 petros=%2 petrosGroup=%3 cache=%4 arsenal=%5 tent=%6 spawn=%7", reason, m_PetrosEntity, m_PetrosGroupEntity, m_CacheEntity, m_ArsenalEntity, m_TentEntity, m_SpawnPointEntity));
 		DeleteRuntimeEntity(m_PetrosEntity);
+		DeleteRuntimeEntity(m_PetrosGroupEntity);
 		DeleteRuntimeEntity(m_CacheEntity);
 		DeleteRuntimeEntity(m_ArsenalEntity);
 		DeleteRuntimeEntity(m_TentEntity);
 		DeleteRuntimeEntity(m_SpawnPointEntity);
 
 		m_PetrosEntity = null;
+		m_PetrosGroupEntity = null;
 		m_CacheEntity = null;
 		m_ArsenalEntity = null;
 		m_TentEntity = null;
@@ -1243,8 +1364,7 @@ class HST_HQService
 		m_bLoggedArsenalSpawned = false;
 		m_bLoggedTentSpawned = false;
 		m_bLoggedSpawnPointSpawned = false;
-		m_bPetrosFallbackAnchorActive = false;
-		m_bWarnedPetrosFallbackAnchor = false;
+		m_bWarnedPetrosRemovalRetry = false;
 
 		if (state)
 		{

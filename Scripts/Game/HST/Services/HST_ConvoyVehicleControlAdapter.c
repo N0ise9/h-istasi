@@ -723,6 +723,14 @@ class HST_ConvoyVehicleControlAdapter
 		if (!entity)
 			return false;
 
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller = character.GetCharacterController();
+			if (controller)
+				return controller.GetLifeState() != ECharacterLifeState.DEAD;
+		}
+
 		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
 		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
 	}

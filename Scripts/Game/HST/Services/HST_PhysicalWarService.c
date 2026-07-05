@@ -124,6 +124,7 @@ class HST_PhysicalWarService
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et";
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 30;
@@ -6889,7 +6890,8 @@ class HST_PhysicalWarService
 		if (activeGroup.m_iInfantryCount <= 0)
 			return false;
 
-		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
+		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
 		if (!group)
 			return false;
 		if (group.IsInitializing() && !allowInitializingFallback)
@@ -6901,12 +6903,60 @@ class HST_PhysicalWarService
 		if (existingCount > 0)
 			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing agents");
 
+		group = ReplaceEmptyNativeGroupForDirectInfantry(activeGroup, group, source);
+		if (!group)
+			return false;
+
 		int spawnedCount = SpawnFactionInfantryIntoRuntimeGroup(group, activeGroup);
 		if (spawnedCount <= 0)
 			return false;
 
 		DebugLog(string.Format("active group populated %1 with %2 direct %3 infantry after empty group prefab via %4", activeGroup.m_sGroupId, spawnedCount, activeGroup.m_sFactionKey, source));
 		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " direct infantry fallback");
+	}
+
+	protected SCR_AIGroup ReplaceEmptyNativeGroupForDirectInfantry(HST_ActiveGroupState activeGroup, SCR_AIGroup nativeGroup, string source)
+	{
+		if (!activeGroup)
+			return null;
+
+		if (nativeGroup)
+			nativeGroup.GetOnAllDelayedEntitySpawned().Remove(OnDelayedActiveGroupMembersSpawned);
+
+		DeleteRuntimeCrewEntities(activeGroup.m_sGroupId);
+
+		ResourceName resourceName = DIRECT_INFANTRY_GROUP_PREFAB;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded || !loaded.IsValid())
+		{
+			Print(string.Format("h-istasi | active group direct fallback failed %1: missing group prefab %2", activeGroup.m_sGroupId, DIRECT_INFANTRY_GROUP_PREFAB), LogLevel.WARNING);
+			return null;
+		}
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = activeGroup.m_vPosition;
+		IEntity entity = GetGame().SpawnEntityPrefabEx(resourceName, true, world, params);
+		SCR_AIGroup replacementGroup = SCR_AIGroup.Cast(entity);
+		if (!replacementGroup)
+		{
+			if (entity)
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			Print(string.Format("h-istasi | active group direct fallback failed %1: prefab %2 did not spawn an AIGroup", activeGroup.m_sGroupId, DIRECT_INFANTRY_GROUP_PREFAB), LogLevel.WARNING);
+			return null;
+		}
+
+		ApplyCampaignDebugEntityName(entity, "direct_group", activeGroup.m_sGroupId);
+		replacementGroup.SetDeleteWhenEmpty(false);
+		ApplyRuntimeGroupFaction(entity, activeGroup, source + " direct infantry group replacement");
+		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
+		m_aRuntimeGroupEntities.Insert(entity);
+		DebugLog(string.Format("active group replaced empty native AIGroup for direct infantry fallback %1 via %2", activeGroup.m_sGroupId, source));
+		return replacementGroup;
 	}
 
 	protected int SpawnFactionInfantryIntoRuntimeGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup)
@@ -7975,21 +8025,7 @@ class HST_PhysicalWarService
 
 	protected void DeleteRuntimeGroupEntity(string groupId, bool deleteVehicle = true)
 	{
-		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
-		{
-			if (m_aRuntimeGroupIds[i] != groupId)
-				continue;
-
-			IEntity entity;
-			if (i < m_aRuntimeGroupEntities.Count())
-				entity = m_aRuntimeGroupEntities[i];
-			if (entity)
-				SCR_EntityHelper.DeleteEntityAndChildren(entity);
-
-			m_aRuntimeGroupIds.Remove(i);
-			if (i < m_aRuntimeGroupEntities.Count())
-				m_aRuntimeGroupEntities.Remove(i);
-		}
+		DeleteRuntimeCrewEntities(groupId);
 
 		for (int j = m_aRuntimeVehicleGroupIds.Count() - 1; j >= 0; j--)
 		{
@@ -8005,6 +8041,25 @@ class HST_PhysicalWarService
 			m_aRuntimeVehicleGroupIds.Remove(j);
 			if (j < m_aRuntimeVehicleEntities.Count())
 				m_aRuntimeVehicleEntities.Remove(j);
+		}
+	}
+
+	protected void DeleteRuntimeCrewEntities(string groupId)
+	{
+		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId)
+				continue;
+
+			IEntity entity;
+			if (i < m_aRuntimeGroupEntities.Count())
+				entity = m_aRuntimeGroupEntities[i];
+			if (entity)
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+
+			m_aRuntimeGroupIds.Remove(i);
+			if (i < m_aRuntimeGroupEntities.Count())
+				m_aRuntimeGroupEntities.Remove(i);
 		}
 	}
 
@@ -8080,6 +8135,14 @@ class HST_PhysicalWarService
 	{
 		if (!entity)
 			return false;
+
+		ChimeraCharacter character = ChimeraCharacter.Cast(entity);
+		if (character)
+		{
+			CharacterControllerComponent controller = character.GetCharacterController();
+			if (controller)
+				return controller.GetLifeState() != ECharacterLifeState.DEAD;
+		}
 
 		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
 		return !damageManager || damageManager.GetState() != EDamageState.DESTROYED;
