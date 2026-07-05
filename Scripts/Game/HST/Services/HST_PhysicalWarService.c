@@ -112,6 +112,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_RETRY_MS = 1000;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS = 8;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_FORCE_FALLBACK_ATTEMPT = 3;
+	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
 	static const int CONVOY_RUNTIME_WAYPOINT_MAX_COUNT = 5;
 	static const float EXPIRED_CONVOY_PLAYER_RENDER_BUBBLE_METERS = 1800.0;
@@ -6840,6 +6841,8 @@ class HST_PhysicalWarService
 		activeGroup.m_iSpawnedAgentCount = agentCount;
 		activeGroup.m_iLastSeenAliveCount = agentCount;
 		activeGroup.m_iSurvivorInfantryCount = Math.Min(activeGroup.m_iInfantryCount, agentCount);
+		if (state)
+			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
 		TryBindPopulatedMissionConvoyGroup(state, activeGroup);
 		DebugLog(string.Format("active group populated %1 live agents %2 expected %3 via %4", activeGroup.m_sGroupId, agentCount, activeGroup.m_iInfantryCount, source));
@@ -6943,7 +6946,9 @@ class HST_PhysicalWarService
 		EntitySpawnParams params = new EntitySpawnParams;
 		params.TransformMode = ETransformMode.WORLD;
 		params.Transform[3] = activeGroup.m_vPosition;
+		SCR_AIGroup.IgnoreSpawning(true);
 		IEntity entity = GetGame().SpawnEntityPrefabEx(resourceName, true, world, params);
+		SCR_AIGroup.IgnoreSpawning(false);
 		SCR_AIGroup replacementGroup = SCR_AIGroup.Cast(entity);
 		if (!replacementGroup)
 		{
@@ -6954,6 +6959,7 @@ class HST_PhysicalWarService
 		}
 
 		ApplyCampaignDebugEntityName(entity, "direct_group", activeGroup.m_sGroupId);
+		replacementGroup.SetSpawnImmediately(false);
 		replacementGroup.SetDeleteWhenEmpty(false);
 		ApplyRuntimeGroupFaction(entity, activeGroup, source + " direct infantry group replacement");
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
@@ -6993,7 +6999,10 @@ class HST_PhysicalWarService
 		}
 
 		if (spawnedCount > 0)
+		{
 			ApplyRuntimeGroupFaction(group, activeGroup, "direct infantry fallback");
+			group.ActivateAI();
+		}
 
 		if (spawnedCount <= 0)
 			Print(string.Format("h-istasi | active group fallback infantry failed %1 faction %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab), LogLevel.WARNING);
@@ -7743,6 +7752,11 @@ class HST_PhysicalWarService
 				continue;
 			if (missionConvoyGroup && aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && ResolveMissionConvoyRestorableCrewCount(state, activeGroup) > 0)
 				continue;
+			if (aliveCount <= 0 && IsActiveGroupLiveCountGraceActive(state, activeGroup))
+			{
+				DebugLog(string.Format("active group live-count grace %1 | zone %2 | spawned agents %3 | last alive %4 | status %5", activeGroup.m_sGroupId, activeGroup.m_sZoneId, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_sRuntimeStatus));
+				continue;
+			}
 			if (aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && (!missionConvoyGroup || activeGroup.m_iLastSeenAliveCount <= 0))
 				continue;
 			if (aliveCount > 0 && activeGroup.m_iSpawnedAgentCount <= 0)
@@ -7797,6 +7811,18 @@ class HST_PhysicalWarService
 		}
 
 		return changed;
+	}
+
+	protected bool IsActiveGroupLiveCountGraceActive(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+		if (activeGroup.m_iSpawnedAgentCount <= 0 && activeGroup.m_iLastSeenAliveCount <= 0)
+			return false;
+		if (activeGroup.m_iSpawnedAtSecond < 0)
+			return false;
+
+		return state.m_iElapsedSeconds < activeGroup.m_iSpawnedAtSecond + ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS;
 	}
 
 	protected int CountAliveRuntimeGroupAgents(string groupId)

@@ -237,7 +237,6 @@ class HST_HQService
 			if (m_PetrosEntity)
 			{
 				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
-				EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach");
 				DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
 				changed = true;
 			}
@@ -254,12 +253,6 @@ class HST_HQService
 			}
 			m_bLoggedPetrosSpawned = false;
 			changed = true;
-		}
-
-		if (m_PetrosEntity && !IsPetrosAIGroupTracked())
-		{
-			if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "repair"))
-				changed = true;
 		}
 
 		if (!m_PetrosEntity)
@@ -980,7 +973,6 @@ class HST_HQService
 		if (petros)
 		{
 			PreparePetrosEntity(petros, petrosPosition);
-			EnsurePetrosAIGroup(petros, petrosPosition, "dedicated prefab");
 			return petros;
 		}
 
@@ -994,10 +986,7 @@ class HST_HQService
 
 			petros = HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
 			if (petros)
-			{
 				PreparePetrosEntity(petros, petrosPosition);
-				EnsurePetrosAIGroup(petros, petrosPosition, "base fallback prefab");
-			}
 
 			return petros;
 		}
@@ -1318,7 +1307,7 @@ class HST_HQService
 
 	protected bool IsPetrosRuntimeTracked()
 	{
-		return m_PetrosEntity && IsPetrosAIGroupTracked();
+		return m_PetrosEntity != null;
 	}
 
 	protected IEntity ResolvePetrosRuntimeEntity()
