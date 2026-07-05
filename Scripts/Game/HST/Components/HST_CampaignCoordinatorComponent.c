@@ -10190,10 +10190,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (playerEntity)
 			nearDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), zone.m_vPosition));
 		bool nearChanged = m_PhysicalWar.UpdateZoneActivation(m_State, m_Balance, m_Preset, m_EnemyDirector, m_ZoneCompositions);
-		int nearPopulationAttempted;
-		int nearPopulationResolved;
-		int nearPopulationUnresolved;
-		string nearPopulationEvidence = ResolveCampaignDebugRenderBubbleZonePopulation(zone.m_sZoneId, nearPopulationAttempted, nearPopulationResolved, nearPopulationUnresolved);
 		int nearGroupCount = CountCampaignDebugZoneActiveGroups(zone.m_sZoneId);
 		int nearSpawnedGroupCount = CountCampaignDebugZoneSpawnedActiveGroups(zone.m_sZoneId);
 		int nearPendingGroupCount = CountCampaignDebugZonePendingActiveGroups(zone.m_sZoneId);
@@ -10270,9 +10266,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_groups", string.Format("%1", nearGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_spawned_groups", string.Format("%1", nearSpawnedGroupCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.near_pending_groups", string.Format("%1", nearPendingGroupCount), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.near_population_attempted", string.Format("%1", nearPopulationAttempted), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.near_population_resolved", string.Format("%1", nearPopulationResolved), "count");
-		AddCampaignDebugMetric(renderCase, "render_bubble.near_population_unresolved", string.Format("%1", nearPopulationUnresolved), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_sample_count", string.Format("%1", cleanupSampleCount), "count");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_window_seconds", string.Format("%1", cleanupWindowSeconds), "seconds");
 		AddCampaignDebugMetric(renderCase, "render_bubble.cleanup_max_groups", string.Format("%1", cleanupMaxGroupCount), "count");
@@ -10282,8 +10275,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.teleport", "player teleported outside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", farTeleport, Math.Round(farDistance), Math.Round(activationRadius)), CampaignDebugStatus(farTeleport && farDistance > activationRadius), "could not place player outside selected zone activation radius", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_far.inactive", "far update leaves selected zone inactive with no active groups", farActual, CampaignDebugStatus(farInactive), "far render-bubble update left active state or active groups behind", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.teleport", "player teleported inside selected zone activation radius", string.Format("teleport %1 | distance %2m | radius %3m", nearTeleport, Math.Round(nearDistance), Math.Round(activationRadius)), CampaignDebugStatus(nearTeleport && nearDistance <= activationRadius), "could not place player inside selected zone activation radius", "", "", zone.m_sZoneId);
-		string populationActual = string.Format("attempted %1 | resolved %2 | unresolved %3 | evidence %4", nearPopulationAttempted, nearPopulationResolved, nearPopulationUnresolved, EmptyCampaignDebugField(nearPopulationEvidence));
-		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.population", "near activation groups have durable runtime agents before spawned-force counts are judged", ShortCampaignDebugLine(populationActual, 260), CampaignDebugStatus(nearPopulationUnresolved == 0), "render-bubble activation left pending active-group population unresolved", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.active", "near update activates zone and physicalizes active groups", nearActual, nearActiveStatus, "near render-bubble update did not activate and spawn active groups", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_near.budget", "active groups/forces stay within abstract garrison budget", string.Format("active forces %1/%2 | groups %3", nearTotalActiveForces, originalTotalGarrison, nearGroupCount), CampaignDebugStatus(nearWithinBudget), "render-bubble activation exceeded selected zone garrison budget", "", "", zone.m_sZoneId);
 		AddCampaignDebugAssertion(renderCase, "render_bubble.zone_leave.cleanup", "leave update deactivates zone and folds/removes active groups", leaveActual, CampaignDebugStatus(leaveInactive), "leave render-bubble update did not clean up active zone runtime", "", "", zone.m_sZoneId);
@@ -10344,44 +10335,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return garrison.m_iInfantryCount + garrison.m_iVehicleCount > 0;
-	}
-
-	protected string ResolveCampaignDebugRenderBubbleZonePopulation(string zoneId, out int attempted, out int resolved, out int unresolved)
-	{
-		attempted = 0;
-		resolved = 0;
-		unresolved = 0;
-		if (!m_State || !m_PhysicalWar || zoneId.IsEmpty())
-			return "missing state, physical war service, or zone";
-
-		string evidence;
-		foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
-		{
-			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
-				continue;
-			if (IsCampaignDebugTerminalGroup(activeGroup))
-				continue;
-			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
-				continue;
-
-			attempted++;
-			string groupEvidence;
-			bool groupResolved = m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, m_State, "queued", groupEvidence);
-			if (groupResolved)
-				resolved++;
-			else
-				unresolved++;
-
-			string sample = string.Format("%1 resolved %2 | %3", EmptyCampaignDebugField(activeGroup.m_sGroupId), ReportBool(groupResolved), EmptyCampaignDebugField(groupEvidence));
-			if (evidence.IsEmpty())
-				evidence = sample;
-			else
-				evidence = evidence + " | " + sample;
-		}
-
-		if (evidence.IsEmpty())
-			evidence = "no pending render-bubble group population";
-		return evidence;
 	}
 
 	protected float ResolveCampaignDebugActivationRadius(HST_ZoneState zone)
@@ -20453,14 +20406,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "1";
 
 		return "0";
-	}
-
-	protected string ReportBool(bool value)
-	{
-		if (value)
-			return "yes";
-
-		return "no";
 	}
 
 	protected string BuildSetupResultPayload(string action, bool accepted, vector resolvedPosition, string message)

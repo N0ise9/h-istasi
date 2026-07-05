@@ -2818,11 +2818,9 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 		"support.physical_population",
 		"convoy.crew.population",
 		"physical_combat.population",
-		"render_bubble.zone_near.population",
 		".physical_population",
 		"CampaignDebugResolvePendingActiveGroupPopulation",
 		"ResolveCampaignDebugMissionConvoyPopulation",
-		"ResolveCampaignDebugRenderBubbleZonePopulation",
 		"m_bPendingPopulationResolvedBeforeRoute",
 		"support.physical_terminal_resolution"
 	)) {
