@@ -6915,10 +6915,12 @@ foreach ($requiredConvoySpawnSafetyEntry in @(
 $missionRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
 foreach ($requiredConvoyRouteEntry in @(
 		"TryResolveConvoySpawnPlan",
+		"TryResolveConvoySpawnPlanFromGeneratedRouteSegments",
 		"ResolveConvoyRandomStartDistanceMeters",
 		"TryBuildConvoyVehicleStartSlots",
 		"ResolveConvoyEndPosition",
 		"CONVOY_START_PROBE_ATTEMPTS = 72",
+		"CONVOY_ROUTE_SEGMENT_FALLBACK_STEPS = 4",
 		"CONVOY_DESTINATION_ROAD_SEARCH_RADIUS_METERS = 300.0",
 		"CONVOY_START_ROAD_SEARCH_RADIUS_METERS = 250.0",
 		"CONVOY_SLOT_ROAD_SEARCH_RADIUS_METERS = 40.0",
@@ -6930,6 +6932,7 @@ foreach ($requiredConvoyRouteEntry in @(
 		"band valid",
 		"No road-resolved convoy destination",
 		"No road-resolved convoy spawn plan found in required 2000-5000m band",
+		"generated route segment fallback checked",
 		"convoy vehicle slot is not road-resolved",
 		"convoy road vehicle slot failed the flat vehicle footprint check"
 	)) {
@@ -6952,6 +6955,9 @@ if ($missionRuntimeServiceText -notmatch [regex]::Escape("convoyStartSlots.Count
 if ($missionRuntimeServiceText -match [regex]::Escape("vector startSlot = OffsetConvoyVehicleStartPosition(convoyRoute, convoyStart, convoyEnd, i, reservedConvoyStarts);")) {
 	throw "Convoy asset creation must not commit per-vehicle slots before full-column probing succeeds"
 }
+if ($missionRuntimeServiceText -notmatch [regex]::Escape("convoyWithoutVehicleAssets")) {
+	throw "Convoy runtime must preserve asset-plan failures as unspawned convoy state instead of generic fallback"
+}
 $commandUIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 if ($commandUIServiceText -notmatch [regex]::Escape('AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime"')) {
 	throw "Missions tab must expose Convoy Runtime Report"
@@ -6961,6 +6967,16 @@ Write-Host "Phase 2 convoy runtime report contract OK"
 $campaignSaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
 $generatedContentServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GeneratedContentService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+foreach ($requiredConvoyMissionSweepEntry in @(
+		"requiredConvoyVehicleAssets = 3",
+		"mission.m_iRequiredVehicleCount > requiredConvoyVehicleAssets",
+		"convoyVehicleAssets >= requiredConvoyVehicleAssets",
+		"convoy runtime has too few convoy vehicle assets"
+	)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredConvoyMissionSweepEntry)) {
+		throw "Missing convoy mission-sweep required asset-count assertion: $requiredConvoyMissionSweepEntry"
+	}
+}
 foreach ($requiredPhase3RouteStateEntry in @(
 		"HST_RouteWaypointState",
 		"m_iRadiusMeters",

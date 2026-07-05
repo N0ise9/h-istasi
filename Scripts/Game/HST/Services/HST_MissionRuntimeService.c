@@ -77,6 +77,7 @@ class HST_MissionRuntimeService
 	static const float CONVOY_EXPANDED_SLOT_ROAD_SEARCH_RADIUS_METERS = 90.0;
 	static const float CONVOY_VEHICLE_START_SPACING_METERS = 24.0;
 	static const float MIN_CONVOY_VEHICLE_START_SEPARATION_METERS = 18.0;
+	static const int CONVOY_ROUTE_SEGMENT_FALLBACK_STEPS = 4;
 	static const int MIN_CONVOY_VEHICLES = 3;
 	static const int MAX_CONVOY_VEHICLES = 6;
 	static const int MIN_CONVOY_IDLE_SECONDS = 300;
@@ -822,8 +823,16 @@ class HST_MissionRuntimeService
 		mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeAssets(state, mission);
 		if (!mission.m_bRuntimeSpawned)
 		{
-			mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeProp(state, mission);
-			mission.m_bRuntimeFallback = true;
+			bool convoyWithoutVehicleAssets = primitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0;
+			if (!convoyWithoutVehicleAssets)
+			{
+				mission.m_bRuntimeSpawned = TrySpawnMissionRuntimeProp(state, mission);
+				mission.m_bRuntimeFallback = true;
+			}
+			else
+			{
+				mission.m_bRuntimeFallback = false;
+			}
 		}
 		else
 		{
@@ -1113,8 +1122,19 @@ class HST_MissionRuntimeService
 			return false;
 
 		bool spawned = TrySpawnMissionRuntimeAssets(state, mission);
-		if (!spawned && !HasRuntimeEntity(mission.m_sRuntimeEntityId))
+		bool convoyWithoutVehicleAssets = mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0;
+		if (!spawned && !HasRuntimeEntity(mission.m_sRuntimeEntityId) && !convoyWithoutVehicleAssets)
 			spawned = TrySpawnMissionRuntimeProp(state, mission);
+
+		if (convoyWithoutVehicleAssets && !spawned)
+		{
+			if (!mission.m_bRuntimeSpawned && !mission.m_bRuntimeFallback)
+				return false;
+
+			mission.m_bRuntimeSpawned = false;
+			mission.m_bRuntimeFallback = false;
+			return true;
+		}
 
 		if (mission.m_bRuntimeSpawned == spawned)
 			return spawned;
@@ -4165,6 +4185,9 @@ class HST_MissionRuntimeService
 		if (TryResolveConvoySpawnPlanFromGeneratedRouteAnchors(state, mission, convoyEnd, vehicleCount, convoyStart, convoyStartSlots, reason))
 			return true;
 
+		if (TryResolveConvoySpawnPlanFromGeneratedRouteSegments(state, mission, convoyEnd, vehicleCount, convoyStart, convoyStartSlots, reason))
+			return true;
+
 		if (reason.IsEmpty())
 			reason = string.Format("no full-column convoy spawn candidate passed %1 probes", CONVOY_START_PROBE_ATTEMPTS);
 		return false;
@@ -4249,6 +4272,50 @@ class HST_MissionRuntimeService
 			reason = string.Format("no generated route anchor passed the 2000-5000m convoy start probe (%1 anchors checked)", anchorCount);
 		else
 			reason = string.Format("%1; generated route fallback checked %2 anchors", reason, anchorCount);
+		return false;
+	}
+
+	protected bool TryResolveConvoySpawnPlanFromGeneratedRouteSegments(HST_CampaignState state, HST_ActiveMissionState mission, vector convoyEnd, int vehicleCount, out vector convoyStart, array<vector> convoyStartSlots, out string reason)
+	{
+		convoyStart = "0 0 0";
+		reason = "";
+		if (!state || !convoyStartSlots)
+		{
+			reason = "generated route segment fallback missing state or slot buffer";
+			return false;
+		}
+
+		int sampleCount;
+		foreach (HST_GeneratedRouteState route : state.m_aGeneratedRoutes)
+		{
+			if (!route || route.m_aWaypoints.Count() < 2)
+				continue;
+
+			for (int index = 1; index < route.m_aWaypoints.Count(); index++)
+			{
+				HST_RouteWaypointState previous = route.m_aWaypoints[index - 1];
+				HST_RouteWaypointState current = route.m_aWaypoints[index];
+				if (!previous || !current)
+					continue;
+
+				for (int step = 1; step < CONVOY_ROUTE_SEGMENT_FALLBACK_STEPS; step++)
+				{
+					float t = step;
+					t = t / CONVOY_ROUTE_SEGMENT_FALLBACK_STEPS;
+					vector preferred = InterpolatePosition(previous.m_vPosition, current.m_vPosition, t);
+					string label = string.Format("generated route %1 segment %2 sample %3/%4", route.m_sRouteId, index, step, CONVOY_ROUTE_SEGMENT_FALLBACK_STEPS);
+					if (TryResolveConvoySpawnPlanFromAnchor(state, mission, convoyEnd, vehicleCount, preferred, label, convoyStart, convoyStartSlots, reason))
+						return true;
+
+					sampleCount++;
+				}
+			}
+		}
+
+		if (reason.IsEmpty())
+			reason = string.Format("no generated route segment sample passed the 2000-5000m convoy start probe (%1 samples checked)", sampleCount);
+		else
+			reason = string.Format("%1; generated route segment fallback checked %2 samples", reason, sampleCount);
 		return false;
 	}
 

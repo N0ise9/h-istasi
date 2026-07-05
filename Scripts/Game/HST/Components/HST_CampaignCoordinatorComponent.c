@@ -8863,6 +8863,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int assetCount = m_State.CountMissionAssets(instanceId);
 		int runtimeEntityCount = CountCampaignDebugMissionRuntimeEntities(instanceId);
 		int convoyVehicleAssets = m_State.CountMissionAssets(instanceId, "convoy_vehicle");
+		int requiredConvoyVehicleAssets = 3;
+		if (mission && mission.m_iRequiredVehicleCount > requiredConvoyVehicleAssets)
+			requiredConvoyVehicleAssets = mission.m_iRequiredVehicleCount;
 		bool reportOk = IsCampaignDebugResultSuccessful(runtimeReport);
 		bool runtimeHealthy = IsCampaignDebugMissionRuntimeHealthy(instanceId, runtimeReport);
 		bool runtimeTypeMatches = !definition || !mission || definition.m_sRuntimeType.IsEmpty() || mission.m_sRuntimeType == definition.m_sRuntimeType;
@@ -8886,7 +8889,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.target", "target zone and position remain valid", BuildCampaignDebugMissionTargetActual(mission, targetZone), CampaignDebugStatus(mission && targetZone && !IsZeroVector(mission.m_vTargetPosition)), "mission runtime target state invalid", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.marker", "mission marker model is linked to backing state", BuildCampaignDebugMarkerActual(marker), CampaignDebugStatus(marker != null, "WARN"), "mission runtime has no linked marker record", "", instanceId);
 		if (mission && mission.m_sRuntimePrimitive == "convoy_intercept")
-			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.convoy_assets", "convoy runtime has convoy vehicle assets", string.Format("%1", convoyVehicleAssets), CampaignDebugStatus(convoyVehicleAssets > 0), "convoy runtime has no convoy vehicle assets", "", instanceId);
+			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.convoy_assets", "convoy runtime has required convoy vehicle assets", string.Format("%1/%2", convoyVehicleAssets, requiredConvoyVehicleAssets), CampaignDebugStatus(convoyVehicleAssets >= requiredConvoyVehicleAssets), "convoy runtime has too few convoy vehicle assets", "", instanceId);
 		FinalizeCampaignDebugCaseFromAssertions(runtimeCase);
 		return runtimeCase;
 	}
