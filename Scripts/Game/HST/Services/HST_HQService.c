@@ -642,7 +642,7 @@ class HST_HQService
 		SCR_AIGroup group = SCR_AIGroup.Cast(m_PetrosGroupEntity);
 		SCR_AIGroup parentGroup;
 		if (agent)
-			parentGroup = agent.GetParentGroup();
+			parentGroup = SCR_AIGroup.Cast(agent.GetParentGroup());
 
 		bool parentMatches = group != null && parentGroup == group;
 		return string.Format("petros %1 | alive %2 | group %3 | agent %4 | parent matches %5", GetPetrosRuntimeEntityKey(), IsLivingRuntimeEntity(m_PetrosEntity), BuildRuntimeEntityKey("petros_group", m_PetrosGroupEntity), agent != null, parentMatches);
@@ -1106,7 +1106,10 @@ class HST_HQService
 		}
 
 		AIAgent agent = ResolvePetrosAIAgent(petros);
-		if (agent && agent.GetParentGroup() && agent.GetParentGroup() != group)
+		SCR_AIGroup parentGroup;
+		if (agent)
+			parentGroup = SCR_AIGroup.Cast(agent.GetParentGroup());
+		if (agent && parentGroup && parentGroup != group)
 			group.AddAgent(agent);
 
 		if (!group.AddAIEntityToGroup(petros) && !IsPetrosAgentInGroup(petros, group))
@@ -1427,7 +1430,10 @@ class HST_HQService
 			return false;
 
 		AIAgent agent = ResolvePetrosAIAgent(petros);
-		return agent && agent.GetParentGroup() == group;
+		SCR_AIGroup parentGroup;
+		if (agent)
+			parentGroup = SCR_AIGroup.Cast(agent.GetParentGroup());
+		return parentGroup && parentGroup == group;
 	}
 
 	protected AIAgent ResolvePetrosAIAgent(IEntity petros)

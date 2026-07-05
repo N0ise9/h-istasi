@@ -671,6 +671,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - HQ/Petros runtime proof must require the real live Petros character; AIGroup attachment is diagnostic evidence.
   - A Petros entity handle is not sufficient unless the character is alive, prepared, at the HQ Petros position, and exposed through the HQ service's tracked handle. Dedicated-server logs can show `Petros character runtime was removed after spawn`, so disappearance should still trigger a respawn.
   - After spawn or reattach, call `EnsurePetrosAIGroup()` and report `BuildPetrosAIGroupDebugSummary()` evidence, but do not delete a living Petros only because the optional `SCR_AIGroup` link is missing or later drops out of service tracking.
+  - `AIAgent.GetParentGroup()` returns base `AIGroup`. When Petros diagnostics need to compare against the tracked `SCR_AIGroup`, cast through `SCR_AIGroup.Cast(agent.GetParentGroup())` before assignment/comparison; Workbench rejects the direct base-to-derived path as unsafe down-casting.
   - The campaign-debug HQ case should include an explicit `hq.petros.ai_group` assertion as WARN-level diagnostic evidence. The hard HQ runtime proof is the live tracked Petros character plus cache/arsenal/tent/spawn-point handles.
 
 - Active AI groups cannot wait until the final retry before proving live agents.

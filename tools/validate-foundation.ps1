@@ -514,6 +514,7 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 		"WarnPetrosAIGroupFallback",
 		"HasPetrosRuntimeAIGroup",
 		"BuildPetrosAIGroupDebugSummary",
+		"SCR_AIGroup.Cast(agent.GetParentGroup())",
 		"m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity)",
 		"return IsLivingRuntimeEntity(m_PetrosEntity);",
 		'CampaignDebugStatus(m_HQ.HasPetrosRuntimeAIGroup(), "WARN")'
@@ -522,6 +523,12 @@ foreach ($requiredPetrosGroupRuntimeEntry in @(
 	if ($petrosRuntimeProofText -notmatch [regex]::Escape($requiredPetrosGroupRuntimeEntry)) {
 		throw "HQ runtime must preserve a living Petros character and report AIGroup attachment separately: $requiredPetrosGroupRuntimeEntry"
 	}
+}
+if ($hqServiceText -match '=\s*agent\.GetParentGroup\(\)') {
+	throw "HQ Petros runtime must cast AIAgent.GetParentGroup() through SCR_AIGroup.Cast before assigning to SCR_AIGroup"
+}
+if ($hqServiceText -match 'agent\.GetParentGroup\(\)\s*[!=]=\s*group' -or $hqServiceText -match 'group\s*[!=]=\s*agent\.GetParentGroup\(\)') {
+	throw "HQ Petros runtime must cast AIAgent.GetParentGroup() before comparing it with tracked SCR_AIGroup"
 }
 if ($coordinatorText -notmatch "RequestCommanderRebuildHQAssets" -or $coordinatorText -notmatch "ResolveHQRebuildPlacement") {
 	throw "Coordinator must expose a Build Mode guarded HQ runtime rebuild action"
