@@ -2258,6 +2258,8 @@ class HST_MapMarkerService
 
 		string typeLabel = SupportRequestTypeLabel(request.m_eType);
 		string targetName = ResolveZoneDisplayNameById(state, request.m_sTargetZoneId);
+		if (IsPetrosAttackSupportMarker(request))
+			targetName = "HQ/Petros";
 		string status = SupportStatusLabel(request.m_eStatus);
 		string runtimeStatus = request.m_sRuntimeStatus;
 		if (runtimeStatus.IsEmpty())
@@ -2285,6 +2287,14 @@ class HST_MapMarkerService
 		}
 
 		return string.Format("%1 %2 to %3 | %4/%5 | group %6/%7 | ETA %8s", faction, typeLabel, targetName, status, runtimeStatus, groupId, groupRuntime, remaining);
+	}
+
+	protected bool IsPetrosAttackSupportMarker(HST_SupportRequestState request)
+	{
+		if (!request)
+			return false;
+
+		return request.m_sAssetProfileId.Contains("_petros_attack") || request.m_sRuntimeStatus.Contains("petros_attack");
 	}
 
 	protected int ResolveSupportRemainingSeconds(HST_CampaignState state, HST_SupportRequestState request)

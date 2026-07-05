@@ -14264,6 +14264,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool supportExpected = physicalSupport.m_bPhysicalized && !physicalSupport.m_sGroupId.IsEmpty();
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.support_physicalized", "linked Petros attack support request physicalizes a group", supportActual, CampaignDebugStatus(supportExpected), "Phase 22 Petros support request did not physicalize a group", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, orderId);
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.support_prefix", "linked Petros attack support carries current debug prefix", EmptyCampaignDebugField(physicalSupport.m_sRequestId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(physicalSupport.m_sRequestId, m_sCampaignDebugMarkerPrefix)), "Phase 22 Petros physical support request was not prefixed for cleanup", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, orderId);
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.support_target_base_position", "linked Petros attack support request target position is HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(physicalSupport.m_vTargetPosition, physicalSupport.m_sTargetZoneId), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(physicalSupport.m_vTargetPosition)), "Phase 22 Petros support request targets the nearby zone instead of the base", physicalSupport.m_sRequestId, "", physicalSupport.m_sTargetZoneId, orderId);
 		}
 		else
 		{
@@ -14282,6 +14283,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				groupSpawnedStatus = "WARN";
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_spawned", "linked Petros attacker group exists and spawned runtime entities", groupActual, CampaignDebugStatus(groupExpected, groupSpawnedStatus), "Phase 22 Petros attacker group did not spawn runtime entities", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_prefix", "linked Petros attacker group carries current debug prefix", EmptyCampaignDebugField(physicalGroup.m_sGroupId), CampaignDebugStatus(groupPrefixed), "Phase 22 Petros attacker group was not prefixed for cleanup", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_target_base_position", "linked Petros attacker group routes toward HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(physicalGroup.m_vTargetPosition, physicalGroup.m_sZoneId), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(physicalGroup.m_vTargetPosition)), "Phase 22 Petros attacker group target points at the nearby zone instead of the base", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 		}
 		else
 		{
@@ -14359,6 +14361,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(defenseCase, "phase22.order.status", expectedStatus, string.Format("%1 | runtime %2 | resolution %3", petrosOrder.m_eStatus, EmptyCampaignDebugField(petrosOrder.m_sRuntimeStatus), EmptyCampaignDebugField(petrosOrder.m_sResolutionKind)), CampaignDebugStatus(expectedStatusOk), "Phase 22 Petros attack order status mismatch", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.order.costs", "Petros attack records attack/support costs", string.Format("attack %1 | support %2", petrosOrder.m_iAttackCost, petrosOrder.m_iSupportCost), CampaignDebugStatus(petrosOrder.m_iAttackCost >= 20 && petrosOrder.m_iSupportCost >= 8), "Phase 22 Petros attack costs are below expected values", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.order.positions", "order source and Petros target positions are valid", string.Format("source %1 | target %2", petrosOrder.m_vSourcePosition, petrosOrder.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(petrosOrder.m_vSourcePosition) && !IsZeroVector(petrosOrder.m_vTargetPosition)), "Phase 22 Petros attack source or target position is invalid", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.order.target_base_position", "Petros attack order target position is HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(petrosOrder.m_vTargetPosition, petrosOrder.m_sTargetZoneId), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(petrosOrder.m_vTargetPosition)), "Phase 22 Petros attack order targets the nearby zone instead of the base", "", "", petrosOrder.m_sTargetZoneId, petrosOrder.m_sOrderId);
 	}
 
 	protected void AddCampaignDebugPhase22MissionAssertions(HST_CampaignDebugCaseResult defenseCase, HST_ActiveMissionState defenseMission, bool expectActive)
@@ -14380,6 +14383,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(defenseCase, "phase22.mission.status", statusExpected, BuildCampaignDebugPhase22MissionActual(defenseMission), CampaignDebugStatus(statusOk), "Phase 22 Defend Petros mission status mismatch", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.mission.runtime", "mission uses state-machine hold_area runtime", string.Format("mode %1 | primitive %2 | type %3", defenseMission.m_eRuntimeMode, EmptyCampaignDebugField(defenseMission.m_sRuntimePrimitive), EmptyCampaignDebugField(defenseMission.m_sRuntimeType)), CampaignDebugStatus(defenseMission.m_eRuntimeMode == HST_EMissionRuntimeMode.HST_MISSION_RUNTIME_STATE_MACHINE && defenseMission.m_sRuntimePrimitive == "hold_area"), "Phase 22 Defend Petros runtime metadata mismatch", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.mission.target", "mission target position is valid", string.Format("zone %1 | target %2", EmptyCampaignDebugField(defenseMission.m_sTargetZoneId), defenseMission.m_vTargetPosition), CampaignDebugStatus(!IsZeroVector(defenseMission.m_vTargetPosition)), "Phase 22 Defend Petros mission target position is invalid", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.mission.target_base_position", "Defend Petros mission target position is HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(defenseMission.m_vTargetPosition, defenseMission.m_sTargetZoneId), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(defenseMission.m_vTargetPosition)), "Phase 22 Defend Petros mission targets the nearby zone instead of the base", "", defenseMission.m_sInstanceId, defenseMission.m_sTargetZoneId);
 	}
 
 	protected void AddCampaignDebugPhase22ObjectiveAssertions(HST_CampaignDebugCaseResult defenseCase, HST_MissionObjectiveState defenseObjective, bool expectActive)
@@ -14399,6 +14403,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(defenseCase, "phase22.objective.prefix", "objective id carries current debug prefix through mission id", defenseObjective.m_sObjectiveId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(defenseObjective.m_sObjectiveId, m_sCampaignDebugMarkerPrefix)), "Phase 22 objective was not prefixed for cleanup", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.objective.type", "objective is HOLD_AREA targeting Petros", BuildCampaignDebugPhase22ObjectiveActual(defenseObjective), CampaignDebugStatus(defenseObjective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA && defenseObjective.m_sTargetId == "petros"), "Phase 22 objective type or target mismatch", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.objective.status", completionExpected, BuildCampaignDebugPhase22ObjectiveActual(defenseObjective), CampaignDebugStatus(completionOk), "Phase 22 objective completion state mismatch", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.objective.target_base_position", "Defend Petros objective position is HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(defenseObjective.m_vPosition, defenseObjective.m_sTargetZoneId), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(defenseObjective.m_vPosition)), "Phase 22 Defend Petros objective points at the nearby zone instead of the base", "", defenseObjective.m_sMissionInstanceId, defenseObjective.m_sTargetZoneId);
 	}
 
 	protected void AddCampaignDebugPhase22TaskAssertions(HST_CampaignDebugCaseResult defenseCase, HST_CampaignTaskState defenseTask, bool expectActive)
@@ -14417,6 +14422,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		AddCampaignDebugAssertion(defenseCase, "phase22.task.prefix", "task id carries current debug prefix through mission id", defenseTask.m_sTaskId, CampaignDebugStatus(!m_bCampaignDebugRunning || MissionValueHasCampaignDebugPrefix(defenseTask.m_sTaskId, m_sCampaignDebugMarkerPrefix)), "Phase 22 task was not prefixed for cleanup", defenseTask.m_sTaskId);
 		AddCampaignDebugAssertion(defenseCase, "phase22.task.status", taskExpected, BuildCampaignDebugPhase22TaskActual(defenseTask), CampaignDebugStatus(taskOk), "Phase 22 task state mismatch", defenseTask.m_sTaskId);
+		AddCampaignDebugAssertion(defenseCase, "phase22.task.target_base_position", "Defend Petros task position is HQ/Petros base, not the bookkeeping zone center", BuildCampaignDebugPhase22TargetActual(defenseTask.m_vPosition, ""), CampaignDebugStatus(IsCampaignDebugPhase22TargetAtBase(defenseTask.m_vPosition)), "Phase 22 Defend Petros task points at the nearby zone instead of the base", defenseTask.m_sTaskId);
 	}
 
 	protected void AddCampaignDebugPhase22MarkerAssertions(HST_CampaignDebugCaseResult defenseCase, HST_ActiveMissionState defenseMission, bool expectDefenseMarker)
@@ -14591,6 +14597,50 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		return string.Format("id %1 | zone %2 | faction %3 | status %4 | infantry %5 | vehicles %6 | target %7 | runtime %8", EmptyCampaignDebugField(attackGroup.m_sGroupId), EmptyCampaignDebugField(attackGroup.m_sZoneId), EmptyCampaignDebugField(attackGroup.m_sFactionKey), EmptyCampaignDebugField(attackGroup.m_sRuntimeStatus), attackGroup.m_iInfantryCount, attackGroup.m_iVehicleCount, attackGroup.m_vTargetPosition, EmptyCampaignDebugField(attackGroup.m_sRuntimeEntityId));
+	}
+
+	protected vector ResolveCampaignDebugPhase22BasePosition()
+	{
+		if (!m_State)
+			return "0 0 0";
+
+		vector basePosition = m_State.m_vPetrosPosition;
+		if (IsZeroVector(basePosition))
+			basePosition = m_State.m_vHQPosition;
+
+		return basePosition;
+	}
+
+	protected bool IsCampaignDebugPhase22TargetAtBase(vector targetPosition)
+	{
+		vector basePosition = ResolveCampaignDebugPhase22BasePosition();
+		if (IsZeroVector(targetPosition) || IsZeroVector(basePosition))
+			return false;
+
+		return DistanceSq2D(targetPosition, basePosition) <= 1225.0;
+	}
+
+	protected string BuildCampaignDebugPhase22TargetActual(vector targetPosition, string targetZoneId)
+	{
+		vector basePosition = ResolveCampaignDebugPhase22BasePosition();
+		float baseDistance = -1.0;
+		if (!IsZeroVector(targetPosition) && !IsZeroVector(basePosition))
+			baseDistance = Math.Sqrt(DistanceSq2D(targetPosition, basePosition));
+
+		vector zonePosition = "0 0 0";
+		float zoneDistance = -1.0;
+		if (m_State && !targetZoneId.IsEmpty())
+		{
+			HST_ZoneState zone = m_State.FindZone(targetZoneId);
+			if (zone)
+			{
+				zonePosition = zone.m_vPosition;
+				if (!IsZeroVector(targetPosition))
+					zoneDistance = Math.Sqrt(DistanceSq2D(targetPosition, zonePosition));
+			}
+		}
+
+		return string.Format("target %1 | base %2 dist %3m | bookkeeping zone %4 pos %5 dist %6m", targetPosition, basePosition, Math.Round(baseDistance), EmptyCampaignDebugField(targetZoneId), zonePosition, Math.Round(zoneDistance));
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase23UIMarkerCase(int index, string label, string result)
