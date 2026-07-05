@@ -229,6 +229,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Input And Widget Events
 
+- Custom input actions need an active `ActionContext`, not just an `Action`.
+  - `InputBinding.CreateUserBinding()` and `AddActionListener()` can appear successful for an action defined only under top-level `Actions`, but `GetActionTriggered()` and the listener may never fire because no active context owns the action.
+  - Put mod-owned actions inside a custom `ActionContext`, register the config as a custom input config, and activate that context before polling or listening.
+  - Current example: `Configs/HST/Input/HST_Input.conf` defines `HST_CommandMenuContext` with `HST_CommandMenu`, and `HST_CommandMenuComponent` activates that context before polling the `I` key command-menu action.
+
+- Full-screen modal UIs that close on Escape need to consume both menu actions bound to Escape.
+  - Base Reforger configs bind `KC_ESCAPE` to `MenuBack` and `MenuOpen`; listening only to `MenuBack` can close the mod UI and still let the native pause menu open from the same keypress.
+  - While the modal is topmost, listen for `MenuBack`/`MenuOpen`, poll raw `KC_ESCAPE` as a fallback, call `Debug.ClearKey(KeyCode.KC_ESCAPE)`, and schedule a same-frame pause-menu dismiss guard for any native pause menu opened by listener ordering.
+  - Current example: `HST_LoadoutEditorComponent` treats Escape/gamepad menu-back as a direct editor close; the on-screen Back button still uses the editor back stack.
+
 - Real controls should be widget-driven.
   - Give interactive widgets stable `UserID`s and attach a `ScriptedWidgetEventHandler`.
   - Avoid raw coordinate hit testing for visible buttons.
@@ -590,6 +600,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Admin status alone does not imply commander status. Temporarily make the actor member/commander while the runner executes, then restore the previous commander identity on completion.
   - This avoids false failures in commander-gated systems such as HQ rebuild, income, training, and support requests.
 
+- Player identity for durable h-istasi permissions should use backend identity IDs, not session player IDs.
+  - `PlayerId=2` is only a per-session connection id; it can change on reconnect and should not be stored in `membership.adminIdentityIds`.
+  - On the server, `GetGame().GetBackendApi().GetPlayerIdentityId(playerId)` returns the UUID shown in backend/network logs after authentication. Use that UUID for admin config and persistent member/commander state, with `workbench_player_N` only as a local/early fallback.
+  - If a player was registered before the backend identity was available, migrate the placeholder record and rewrite commander/loadout/undercover owner references once the UUID resolves.
+  - Server-host admin lists can be bridged through the session player id after connection: use `SCR_PlayerListedAdminManagerComponent.GetInstance().IsPlayerOnAdminList(playerId)` or `BackendApi.IsListedServerAdmin(playerId)` for runtime admin grants, but do not persist the session id as the durable h-istasi identity.
+
 - Full-campaign debug report classification must not scan stale aggregate text as if it belonged to the current action.
   - Mission-sweep runtime checks should inspect the selected mission instance, then append selected convoy diagnostics only for that mission. Global mission runtime reports include completed/failed historical mission records and can poison every later mission with old `failed:` text.
   - Diagnostic report steps should be judged by report availability/admin errors, not by generic action failure substrings. Summaries such as `missing dispatch 0`, expected Defend Petros failure text, or historical support/order failure reasons are useful diagnostics, not proof that the current report step failed.
@@ -629,6 +645,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Standalone HQ NPC runtime handles need recovery and preparation.
   - A bare character prefab can spawn successfully and still be gone from service tracking by the next HQ lifecycle tick. Before spawning another Petros, scan near the intended HQ/Petros position for an existing matching prefab and reattach the service handle.
   - Immediately after spawn or reattach, set a stable entity name, visible/traceable/active flags, FIA faction, origin, and disabled movement/weapon controls so Petros behaves like a stationary HQ NPC instead of a normal player-controlled spawn candidate.
+  - If a Petros character spawned successfully and then disappears without an HST clear path, do not respawn it every second. Treat the durable HQ action surface/tent/cache as a temporary Petros runtime anchor so HQ runtime tracking converges and the arsenal/Petros menu remains reachable while the character-spawn lifecycle is investigated.
 
 - `AIGroup` prefab spawning is not necessarily populated on the same frame as `SpawnEntityPrefab`.
   - Native/editor logs can report that a group prefab was spawned while its agents are still invisible or pending creation.

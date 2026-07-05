@@ -506,6 +506,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
 
+		EnsureSetupRegisteredPlayer(playerId);
 		if (m_Arsenal)
 			m_Arsenal.PurgeBlockedArsenalItems(m_State);
 
@@ -517,6 +518,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !m_CommandUI)
 			return "h-istasi command | server coordinator not ready";
 
+		EnsureSetupRegisteredPlayer(playerId);
 		string result = m_CommandUI.ExecuteVisibleCommand(this, playerId, commandId, argument);
 		LogVisibleMenuCommandResult(playerId, selectedTabId, commandId, argument, result);
 		return result;
@@ -877,7 +879,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return null;
 
 		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, identityId);
-		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin || IsSettingsAdminIdentity(resolvedIdentityId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, identityId, isAdmin || IsSettingsAdminIdentity(resolvedIdentityId) || IsServerListedAdminPlayer(playerId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
 		ApplyRuntimeMembershipDefaults(player);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
@@ -19932,7 +19934,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string resolvedIdentityId = m_PlayerLifecycle.ResolveIdentityId(playerId, "");
 		bool known = m_State.FindPlayer(resolvedIdentityId) != null;
-		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, "", IsSettingsAdminIdentity(resolvedIdentityId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
+		HST_PlayerState player = m_PlayerLifecycle.RegisterConnectedPlayer(m_State, m_Authorization, playerId, "", IsSettingsAdminIdentity(resolvedIdentityId) || IsServerListedAdminPlayer(playerId) || IsDeveloperFallbackAdminIdentity(resolvedIdentityId));
 		ApplyRuntimeMembershipDefaults(player);
 		if (player && m_Civilians)
 			m_Civilians.EnsurePlayer(m_State, player.m_sIdentityId);
@@ -20091,6 +20093,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Authorization)
 			return false;
 
+		EnsureSetupRegisteredPlayer(playerId);
 		return m_Authorization.CanUseCommanderActions(m_State, ResolveTrustedIdentityId(playerId));
 	}
 
@@ -20099,6 +20102,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Settings && !m_Settings.m_Membership.m_bMembershipEnabled)
 			return true;
 
+		EnsureSetupRegisteredPlayer(playerId);
 		string identityId = ResolveTrustedIdentityId(playerId);
 		HST_PlayerState player = m_State.FindPlayer(identityId);
 		return player && player.m_bMember;
@@ -20109,6 +20113,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_Authorization)
 			return false;
 
+		EnsureSetupRegisteredPlayer(playerId);
 		string identityId = ResolveTrustedIdentityId(playerId);
 		EnsureDeveloperFallbackAdmin(identityId);
 		return m_Authorization.CanUseAdminActions(m_State, identityId);
@@ -20147,6 +20152,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return m_Settings.m_Membership.m_aAdminIdentityIds.Contains(identityId);
+	}
+
+	protected bool IsServerListedAdminPlayer(int playerId)
+	{
+		if (!Replication.IsServer() || playerId <= 0)
+			return false;
+
+		SCR_PlayerListedAdminManagerComponent listedAdminManager = SCR_PlayerListedAdminManagerComponent.GetInstance();
+		if (listedAdminManager && listedAdminManager.IsPlayerOnAdminList(playerId))
+			return true;
+
+		BackendApi backendApi = GetGame().GetBackendApi();
+		return backendApi && backendApi.IsListedServerAdmin(playerId);
 	}
 
 	protected bool IsDeveloperFallbackAdminIdentity(string identityId)
@@ -20202,7 +20220,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		if (IsSettingsAdminIdentity(player.m_sIdentityId))
+		{
 			player.m_bAdmin = true;
+			player.m_bMember = true;
+			player.m_bGuest = false;
+		}
 	}
 
 	protected IEntity ResolveControlledPlayerEntity(int playerId)

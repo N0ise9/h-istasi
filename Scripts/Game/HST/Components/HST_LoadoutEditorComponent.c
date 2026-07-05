@@ -117,6 +117,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	static const string LOADOUT_ACTION_TAB_LEFT = "MenuTabLeft";
 	static const string LOADOUT_ACTION_TAB_RIGHT = "MenuTabRight";
 	static const string LOADOUT_ACTION_BACK = "MenuBack";
+	static const string LOADOUT_ACTION_BACK_WB = "MenuBackWB";
+	static const string LOADOUT_ACTION_MENU_OPEN = "MenuOpen";
+	static const string LOADOUT_ACTION_MENU_OPEN_WB = "MenuOpenWB";
 	static const string LOADOUT_ACTION_SELECT_MOUSE = "MenuSelectMouse";
 	static const string LOADOUT_ACTION_MOUSE_RIGHT = "MouseRight";
 	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
@@ -370,6 +373,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 	protected int m_iLastActivatedFrame = -1;
 	protected bool m_bPreviewDragFocused;
 	protected bool m_bPreviewDragActive;
+	protected bool m_bRawEscapeDownLastFrame;
+	protected bool m_bPendingEscapePauseMenuDismiss;
 	protected int m_iPreviewDragLastX;
 	protected int m_iPreviewDragLastY;
 
@@ -413,6 +418,10 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		inputManager.ActivateContext(EDITOR_INPUT_CONTEXT);
 		inputManager.ActivateContext(EDITOR_CURSOR_CONTEXT);
+		PollRawEscapeCloseInput();
+		if (!m_bEditorOpen)
+			return;
+
 		HandlePreviewDragInput(inputManager);
 		AnimatePreviewCamera(timeSlice);
 	}
@@ -448,6 +457,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		TryUnequipHeldItem(userEntity);
 
 		m_bEditorOpen = true;
+		m_bRawEscapeDownLastFrame = Debug.KeyState(KeyCode.KC_ESCAPE) != 0;
 		RegisterInputListeners();
 		m_sEditorMode = "clothing";
 		m_sSelectedCategory = "clothing";
@@ -1108,6 +1118,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		inputManager.AddActionListener(LOADOUT_ACTION_TAB_LEFT, EActionTrigger.DOWN, OnLoadoutTabLeftInput);
 		inputManager.AddActionListener(LOADOUT_ACTION_TAB_RIGHT, EActionTrigger.DOWN, OnLoadoutTabRightInput);
 		inputManager.AddActionListener(LOADOUT_ACTION_BACK, EActionTrigger.DOWN, OnLoadoutBackInput);
+		inputManager.AddActionListener(LOADOUT_ACTION_BACK_WB, EActionTrigger.DOWN, OnLoadoutBackInput);
+		inputManager.AddActionListener(LOADOUT_ACTION_MENU_OPEN, EActionTrigger.DOWN, OnLoadoutMenuOpenInput);
+		inputManager.AddActionListener(LOADOUT_ACTION_MENU_OPEN_WB, EActionTrigger.DOWN, OnLoadoutMenuOpenInput);
 		m_bInputRegistered = true;
 		return true;
 	}
@@ -1124,6 +1137,9 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		inputManager.RemoveActionListener(LOADOUT_ACTION_TAB_LEFT, EActionTrigger.DOWN, OnLoadoutTabLeftInput);
 		inputManager.RemoveActionListener(LOADOUT_ACTION_TAB_RIGHT, EActionTrigger.DOWN, OnLoadoutTabRightInput);
 		inputManager.RemoveActionListener(LOADOUT_ACTION_BACK, EActionTrigger.DOWN, OnLoadoutBackInput);
+		inputManager.RemoveActionListener(LOADOUT_ACTION_BACK_WB, EActionTrigger.DOWN, OnLoadoutBackInput);
+		inputManager.RemoveActionListener(LOADOUT_ACTION_MENU_OPEN, EActionTrigger.DOWN, OnLoadoutMenuOpenInput);
+		inputManager.RemoveActionListener(LOADOUT_ACTION_MENU_OPEN_WB, EActionTrigger.DOWN, OnLoadoutMenuOpenInput);
 		m_bInputRegistered = false;
 	}
 
@@ -1157,7 +1173,64 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!CanHandleLoadoutEditorInput())
 			return;
 
-		HandleBackAction(true);
+		CloseEditorFromEscapeInput("menu back action");
+	}
+
+	protected void OnLoadoutMenuOpenInput(float value, EActionTrigger reason)
+	{
+		if (reason != EActionTrigger.DOWN || !m_bEditorOpen)
+			return;
+
+		if (!CanHandleLoadoutEditorInput())
+			return;
+
+		CloseEditorFromEscapeInput("menu open action");
+	}
+
+	protected void PollRawEscapeCloseInput()
+	{
+		int keyState = Debug.KeyState(KeyCode.KC_ESCAPE);
+		bool keyDown = keyState != 0;
+		if (keyDown && !m_bRawEscapeDownLastFrame && m_bEditorOpen && CanHandleLoadoutEditorInput())
+			CloseEditorFromEscapeInput("raw KC_ESCAPE");
+
+		m_bRawEscapeDownLastFrame = keyDown;
+	}
+
+	protected void CloseEditorFromEscapeInput(string source)
+	{
+		if (!m_bEditorOpen)
+			return;
+
+		Debug.ClearKey(KeyCode.KC_ESCAPE);
+		DebugLog(string.Format("escape close source=%1 mode=%2 category=%3", source, m_sEditorMode, m_sSelectedCategory));
+		CloseEditor(true);
+		ScheduleEscapePauseMenuDismiss();
+	}
+
+	protected void ScheduleEscapePauseMenuDismiss()
+	{
+		m_bPendingEscapePauseMenuDismiss = true;
+		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByLoadoutEscape);
+		GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByLoadoutEscape, 0, false);
+	}
+
+	protected void DismissPauseMenuOpenedByLoadoutEscape()
+	{
+		if (!m_bPendingEscapePauseMenuDismiss)
+			return;
+
+		m_bPendingEscapePauseMenuDismiss = false;
+		MenuManager menuManager = GetGame().GetMenuManager();
+		if (!menuManager)
+			return;
+
+		MenuBase pauseMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PauseMenu);
+		if (!pauseMenu)
+			return;
+
+		menuManager.CloseMenu(pauseMenu);
+		DebugLog("dismissed native pause menu opened by loadout escape");
 	}
 
 	protected bool IsLoadoutEditorTopmost()
@@ -1372,6 +1445,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		m_bPostActionRefreshQueued = false;
 		m_bPostLayoutRefreshQueued = false;
 		m_bDeferredStorageBrowserRenderQueued = false;
+		m_bRawEscapeDownLastFrame = false;
 		m_iEditorToastGeneration++;
 		m_sEditorToastText = "";
 		GetGame().GetCallqueue().Remove(ClearEditorToast);

@@ -11,6 +11,7 @@ class HST_AuthorizationService
 		{
 			player = new HST_PlayerState();
 			player.m_sIdentityId = identityId;
+			player.m_bMember = true;
 			state.m_aPlayers.Insert(player);
 		}
 
@@ -20,8 +21,11 @@ class HST_AuthorizationService
 		if (firstPlayer)
 			player.m_bMember = true;
 
-		player.m_bGuest = !player.m_bMember;
 		player.m_bAdmin = player.m_bAdmin || isAdmin;
+		if (isAdmin)
+			player.m_bMember = true;
+
+		player.m_bGuest = !player.m_bMember;
 		AssignCommanderOnVacancy(state);
 		return player;
 	}

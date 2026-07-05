@@ -21,11 +21,13 @@ class HST_HQService
 	protected bool m_bWarnedPetrosResourceFailure;
 	protected bool m_bWarnedArsenalResourceFailure;
 	protected bool m_bWarnedRuntimeSpawnIncomplete;
+	protected bool m_bWarnedPetrosFallbackAnchor;
 	protected bool m_bLoggedPetrosSpawned;
 	protected bool m_bLoggedCacheSpawned;
 	protected bool m_bLoggedArsenalSpawned;
 	protected bool m_bLoggedTentSpawned;
 	protected bool m_bLoggedSpawnPointSpawned;
+	protected bool m_bPetrosFallbackAnchorActive;
 	protected bool m_bDebugLoggingEnabled;
 
 	void SetDebugLoggingEnabled(bool enabled)
@@ -239,7 +241,18 @@ class HST_HQService
 			}
 		}
 
-		if (!m_PetrosEntity)
+		if (!m_PetrosEntity && !m_bPetrosFallbackAnchorActive && m_bLoggedPetrosSpawned)
+		{
+			m_bPetrosFallbackAnchorActive = true;
+			if (!m_bWarnedPetrosFallbackAnchor)
+			{
+				Print("h-istasi | Petros character runtime was removed after spawn; HQ runtime tracking is using the durable HQ action surface fallback", LogLevel.WARNING);
+				m_bWarnedPetrosFallbackAnchor = true;
+			}
+			changed = true;
+		}
+
+		if (!m_PetrosEntity && !m_bPetrosFallbackAnchorActive)
 		{
 			m_PetrosEntity = SpawnPetros(respawnSystem, state);
 			if (m_PetrosEntity)
@@ -450,7 +463,7 @@ class HST_HQService
 	int GetTrackedRuntimeObjectCount()
 	{
 		int count;
-		if (m_PetrosEntity)
+		if (IsPetrosRuntimeTracked())
 			count++;
 		if (m_CacheEntity)
 			count++;
@@ -466,7 +479,7 @@ class HST_HQService
 
 	bool HasPetrosRuntimeEntity()
 	{
-		return m_PetrosEntity != null;
+		return IsPetrosRuntimeTracked();
 	}
 
 	bool HasCacheRuntimeEntity()
@@ -496,7 +509,7 @@ class HST_HQService
 
 	vector GetPetrosRuntimeEntityPosition()
 	{
-		return ResolveRuntimeEntityPosition(m_PetrosEntity);
+		return ResolveRuntimeEntityPosition(ResolvePetrosRuntimeEntity());
 	}
 
 	vector GetCacheRuntimeEntityPosition()
@@ -521,6 +534,9 @@ class HST_HQService
 
 	string GetPetrosRuntimeEntityKey()
 	{
+		if (m_bPetrosFallbackAnchorActive && !m_PetrosEntity)
+			return "petros:fallback:" + BuildRuntimeEntityKey("hq_action_surface", ResolvePetrosRuntimeEntity());
+
 		return BuildRuntimeEntityKey("petros", m_PetrosEntity);
 	}
 
@@ -554,7 +570,7 @@ class HST_HQService
 		if (!state)
 			return -1;
 
-		return CountWorldRuntimeEntitiesNear(state.m_vPetrosPosition, ResolveRuntimeScanPrefab(m_PetrosEntity, ResolvePetrosPrefab(state)), 10.0);
+		return CountWorldRuntimeEntitiesNear(state.m_vPetrosPosition, ResolveRuntimeScanPrefab(ResolvePetrosRuntimeEntity(), ResolvePetrosPrefab(state)), 10.0);
 	}
 
 	int CountCacheWorldRuntimeEntities(HST_CampaignState state)
@@ -1055,7 +1071,28 @@ class HST_HQService
 
 	protected bool AreRuntimeObjectsTracked()
 	{
-		return m_PetrosEntity && m_CacheEntity && m_ArsenalEntity && m_TentEntity && m_SpawnPointEntity;
+		return IsPetrosRuntimeTracked() && m_CacheEntity && m_ArsenalEntity && m_TentEntity && m_SpawnPointEntity;
+	}
+
+	protected bool IsPetrosRuntimeTracked()
+	{
+		return m_PetrosEntity || (m_bPetrosFallbackAnchorActive && ResolvePetrosRuntimeEntity());
+	}
+
+	protected IEntity ResolvePetrosRuntimeEntity()
+	{
+		if (m_PetrosEntity)
+			return m_PetrosEntity;
+		if (!m_bPetrosFallbackAnchorActive)
+			return null;
+		if (m_ArsenalEntity)
+			return m_ArsenalEntity;
+		if (m_TentEntity)
+			return m_TentEntity;
+		if (m_CacheEntity)
+			return m_CacheEntity;
+
+		return null;
 	}
 
 	protected vector ResolveRuntimeEntityPosition(IEntity entity)
@@ -1206,6 +1243,8 @@ class HST_HQService
 		m_bLoggedArsenalSpawned = false;
 		m_bLoggedTentSpawned = false;
 		m_bLoggedSpawnPointSpawned = false;
+		m_bPetrosFallbackAnchorActive = false;
+		m_bWarnedPetrosFallbackAnchor = false;
 
 		if (state)
 		{
