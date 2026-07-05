@@ -15560,6 +15560,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, prefix + ".orders_created", string.Format("%1", profile.m_iOrdersCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".support_requests_created", string.Format("%1", profile.m_iSupportRequestsCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".active_groups_created", string.Format("%1", profile.m_iActiveGroupsCreated), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".physicalization_target_zones_activated", string.Format("%1", profile.m_iPhysicalizationTargetZonesActivated), "count");
 		if (profile.m_iCycleCount > 0)
 		{
 			AddCampaignDebugMetric(pacingCase, prefix + ".cycles", string.Format("%1", profile.m_iCycleCount), "count");
@@ -15617,7 +15618,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string actual = string.Format("war %1 | attack %2 -> %3 -> %4", profile.m_iWarLevel, profile.m_iAttackBefore, profile.m_iAttackAfterResourceTick, profile.m_iAttackAfterCommanderTick);
 		actual = actual + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
 		actual = actual + string.Format(" | aggression %1 -> %2 | orders +%3", profile.m_iAggressionBefore, profile.m_iAggressionAfter, profile.m_iOrdersCreated);
-		actual = actual + string.Format(" | support +%1 | groups +%2 | order types %3", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, EmptyCampaignDebugField(profile.m_sOrderTypes));
+		actual = actual + string.Format(" | support +%1 | groups +%2 | active targets +%3 | order types %4", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, profile.m_iPhysicalizationTargetZonesActivated, EmptyCampaignDebugField(profile.m_sOrderTypes));
 		return actual;
 	}
 
@@ -15743,6 +15744,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		profile.m_bCommanderTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, HST_EnemyCommanderService.ORDER_TICK_SECONDS);
 		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, label);
+		profile.m_iPhysicalizationTargetZonesActivated = ActivateCampaignDebugEscalationOrderTargetZones(profile.m_iOrdersBefore);
 		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
 		bool physicalizeChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
 		RetagCampaignDebugEscalationSupportRequests(profile, profile.m_iSupportRequestsBefore, label);
@@ -15769,6 +15771,41 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iActiveGroupsAfter = m_State.m_aActiveGroups.Count();
 		profile.m_iActiveGroupsCreated = Math.Max(0, profile.m_iActiveGroupsAfter - profile.m_iActiveGroupsBefore);
 		return profile;
+	}
+
+	protected int ActivateCampaignDebugEscalationOrderTargetZones(int orderStartIndex)
+	{
+		if (!m_State)
+			return 0;
+
+		int activatedCount;
+		int startIndex = Math.Max(0, orderStartIndex);
+		for (int orderIndex = startIndex; orderIndex < m_State.m_aEnemyOrders.Count(); orderIndex++)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[orderIndex];
+			if (!IsCampaignDebugPhysicalizableEscalationOrder(order))
+				continue;
+
+			HST_ZoneState targetZone = m_State.FindZone(order.m_sTargetZoneId);
+			if (!targetZone || targetZone.m_bActive)
+				continue;
+
+			targetZone.m_bActive = true;
+			activatedCount++;
+		}
+
+		return activatedCount;
+	}
+
+	protected bool IsCampaignDebugPhysicalizableEscalationOrder(HST_EnemyOrderState order)
+	{
+		if (!order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || order.m_bPhysicalized)
+			return false;
+
+		return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 	}
 
 	protected HST_CampaignDebugEscalationProfileResult RunCampaignDebugPhase24MultiCycleBackgroundWarProfile()

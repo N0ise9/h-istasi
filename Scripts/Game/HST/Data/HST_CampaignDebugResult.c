@@ -436,6 +436,7 @@ class HST_CampaignDebugEscalationProfileResult
 	int m_iActiveGroupsBefore;
 	int m_iActiveGroupsAfter;
 	int m_iActiveGroupsCreated;
+	int m_iPhysicalizationTargetZonesActivated;
 	int m_iAttackIncomeDelta;
 	int m_iSupportIncomeDelta;
 	int m_iCycleCount;

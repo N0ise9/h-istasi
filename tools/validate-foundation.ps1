@@ -7951,4 +7951,18 @@ if (!$phase18BackgroundWarContext.Success -or $phase18BackgroundWarContext.Value
 }
 Write-Host "Phase 18 background-war Petros isolation OK"
 
+foreach ($requiredPhase24EscalationPhysicalizationEntry in @(
+		"ActivateCampaignDebugEscalationOrderTargetZones",
+		"IsCampaignDebugPhysicalizableEscalationOrder",
+		"m_iPhysicalizationTargetZonesActivated",
+		"phase24.escalation.support_physicalization",
+		"physicalization_target_zones_activated",
+		"active targets +%3"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPhase24EscalationPhysicalizationEntry)) {
+		throw "Phase 24 escalation probe must activate target zones before support physicalization: $requiredPhase24EscalationPhysicalizationEntry"
+	}
+}
+Write-Host "Phase 24 escalation physicalization setup OK"
+
 Write-Host "h-istasi foundation validation passed"
