@@ -7061,18 +7061,28 @@ class HST_PhysicalWarService
 			return;
 		}
 
+		string previousFailureReason = activeGroup.m_sSpawnFailureReason;
 		ClearPendingActiveGroupPopulation(activeGroup);
 		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
 		activeGroup.m_bSpawnedEntity = false;
 		activeGroup.m_sRuntimeEntityId = "";
 		activeGroup.m_sRuntimeStatus = "spawn_failed";
-		activeGroup.m_sSpawnFailureReason = string.Format("AIGroup prefab produced zero agents after %1 population attempts.", ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+		activeGroup.m_sSpawnFailureReason = BuildFinalActiveGroupPopulationFailureReason(previousFailureReason);
 		activeGroup.m_iSpawnedAgentCount = 0;
 		activeGroup.m_iLastSeenAliveCount = 0;
 		activeGroup.m_iSurvivorInfantryCount = 0;
 		activeGroup.m_iSurvivorVehicleCount = 0;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
-		Print(string.Format("h-istasi | active group failed %1 prefab %2: zero agents after grace", activeGroup.m_sGroupId, activeGroup.m_sPrefab), LogLevel.WARNING);
+		Print(string.Format("h-istasi | active group failed %1 prefab %2: zero agents after grace | reason %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+	}
+
+	protected string BuildFinalActiveGroupPopulationFailureReason(string previousFailureReason)
+	{
+		string finalReason = string.Format("AIGroup prefab produced zero agents after %1 population attempts.", ACTIVE_GROUP_AGENT_POPULATION_MAX_ATTEMPTS);
+		if (previousFailureReason.IsEmpty() || previousFailureReason == finalReason)
+			return finalReason;
+
+		return previousFailureReason + " Final zero-agent failure: " + finalReason;
 	}
 
 	protected bool TryFinalizeSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
@@ -7188,16 +7198,35 @@ class HST_PhysicalWarService
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 		if (activeGroup.m_sSpawnFallbackMode == "group_spawn_retry")
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry already queued via earlier attempt.";
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: already queued via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 
 		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		if (!runtimeGroupEntity)
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry skipped: missing runtime group entity.";
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: missing runtime group entity via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
+
 		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
 		if (!group)
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry skipped: runtime entity is not SCR_AIGroup.";
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 
 		int existingAgents = CountLivingNativeAIGroupAgents(group);
 		if (existingAgents > 0)
+		{
+			activeGroup.m_sSpawnFailureReason = string.Format("Native SCR_AIGroup.SpawnUnits retry skipped: already has %1 live agents.", existingAgents);
+			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: already has live agents %2 via %3", activeGroup.m_sGroupId, existingAgents, source));
 			return false;
+		}
 
 		group.SetDeleteWhenEmpty(false);
 		group.SetMaxUnitsToSpawn(Math.Max(1, activeGroup.m_iInfantryCount));
@@ -7214,14 +7243,33 @@ class HST_PhysicalWarService
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 		if (activeGroup.m_iInfantryCount <= 0)
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: active group has no infantry count.";
+			DebugLog(string.Format("active group direct infantry fallback skipped %1: no infantry count via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 
 		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		if (!runtimeGroupEntity)
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: missing runtime group entity.";
+			DebugLog(string.Format("active group direct infantry fallback skipped %1: missing runtime group entity via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
+
 		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
 		if (!group)
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: runtime entity is not SCR_AIGroup.";
+			DebugLog(string.Format("active group direct infantry fallback skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 		if (group.IsInitializing() && !allowInitializingFallback)
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback skipped: native group is still initializing.";
+			DebugLog(string.Format("active group direct infantry fallback skipped %1: native group still initializing via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 		if (group.IsInitializing() && allowInitializingFallback)
 			DebugLog(string.Format("active group forcing direct infantry fallback while native group is still initializing %1 via %2", activeGroup.m_sGroupId, source));
 
@@ -7231,11 +7279,19 @@ class HST_PhysicalWarService
 
 		group = ReplaceEmptyNativeGroupForDirectInfantry(activeGroup, group, source);
 		if (!group)
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback failed: replacement group could not be created.";
+			DebugLog(string.Format("active group direct infantry fallback failed %1: replacement group could not be created via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 
 		int spawnedCount = SpawnFactionInfantryIntoRuntimeGroup(group, activeGroup);
 		if (spawnedCount <= 0)
+		{
+			activeGroup.m_sSpawnFailureReason = "Direct faction infantry fallback failed: spawned zero valid infantry members.";
+			DebugLog(string.Format("active group direct infantry fallback failed %1: spawned zero valid infantry members via %2", activeGroup.m_sGroupId, source));
 			return false;
+		}
 
 		DebugLog(string.Format("active group populated %1 with %2 direct %3 infantry after empty group prefab via %4", activeGroup.m_sGroupId, spawnedCount, activeGroup.m_sFactionKey, source));
 		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " direct infantry fallback");
