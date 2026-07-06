@@ -402,6 +402,33 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return true;
 	}
 
+	static bool SendCampaignDebugCommandMenuProofOwner(int playerId, string requestId, string selectedTabId)
+	{
+		if (!Replication.IsServer() || playerId <= 0 || requestId.IsEmpty())
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		PlayerController controller = playerManager.GetPlayerController(playerId);
+		if (!controller)
+		{
+			Print(string.Format("h-istasi campaign debug command menu | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			return false;
+		}
+
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
+		if (!request)
+		{
+			Print(string.Format("h-istasi campaign debug command menu | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			return false;
+		}
+
+		request.DeliverCampaignDebugCommandMenuProof(requestId, selectedTabId);
+		return true;
+	}
+
 	string GetLastSnapshot()
 	{
 		return m_sLastSnapshot;
@@ -520,6 +547,18 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		Rpc(RpcAsk_RequestSetupConfirmPosition, worldX, worldZ, clientPlayerId);
 	}
 
+	void ReportCampaignDebugCommandMenuProof(string requestId, string report)
+	{
+		int clientPlayerId = ResolveLocalPlayerId();
+		if (Replication.IsServer())
+		{
+			ReceiveCampaignDebugCommandMenuProofReport(requestId, report, clientPlayerId);
+			return;
+		}
+
+		Rpc(RpcAsk_ReportCampaignDebugCommandMenuProof, requestId, report, clientPlayerId);
+	}
+
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult, int clientPlayerId)
 	{
@@ -560,6 +599,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_RequestSetupConfirmPosition(float worldX, float worldZ, int clientPlayerId)
 	{
 		SendSetupConfirmResultToOwner(worldX, worldZ, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_ReportCampaignDebugCommandMenuProof(string requestId, string report, int clientPlayerId)
+	{
+		ReceiveCampaignDebugCommandMenuProofReport(requestId, report, clientPlayerId);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -667,6 +712,19 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			actual = string.Format("pos %1", playerEntity.GetOrigin());
 
 		Print(string.Format("h-istasi campaign debug teleport owner | reason %1 | player %2 | target %3 | native %4 | forced %5 | confirmed %6 | actual %7", reason, localPlayerId, position, nativeTeleported, forcedEntityOrigin, confirmed, actual));
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_CampaignDebugCommandMenuProof(string requestId, string selectedTabId)
+	{
+		HST_CommandMenuComponent menu = HST_CommandMenuComponent.GetLocalInstance();
+		if (!menu)
+		{
+			ReportCampaignDebugCommandMenuProof(requestId, string.Format("request %1 | player %2 | menu component missing", requestId, ResolveLocalPlayerId()));
+			return;
+		}
+
+		menu.RunCampaignDebugRenderedProof(requestId, selectedTabId);
 	}
 
 	protected void SendSnapshotToOwner(string selectedTabId, string lastResult, int clientPlayerId = 0)
@@ -898,6 +956,27 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		Rpc(RpcDo_CampaignDebugTeleport, position, reason);
+	}
+
+	protected void DeliverCampaignDebugCommandMenuProof(string requestId, string selectedTabId)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_CampaignDebugCommandMenuProof(requestId, selectedTabId);
+			return;
+		}
+
+		Rpc(RpcDo_CampaignDebugCommandMenuProof, requestId, selectedTabId);
+	}
+
+	protected void ReceiveCampaignDebugCommandMenuProofReport(string requestId, string report, int clientPlayerId = 0)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		int playerId = coordinator.ResolveAuthoritativePlayerId(m_OwnerEntity, clientPlayerId, "command menu rendered proof");
+		coordinator.ReceiveCampaignDebugCommandMenuProofReport(playerId, requestId, report);
 	}
 
 	protected void RefreshLocalOwner(IEntity owner)

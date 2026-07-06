@@ -335,6 +335,222 @@ class HST_CommandMenuComponent : ScriptComponent
 		RenderMenu();
 	}
 
+	void RunCampaignDebugRenderedProof(string requestId, string selectedTabId)
+	{
+		if (requestId.IsEmpty())
+			return;
+
+		selectedTabId = NormalizeTabId(selectedTabId);
+		if (selectedTabId.IsEmpty())
+			selectedTabId = "admin";
+
+		OpenMenuToTab(selectedTabId, "campaign debug rendered proof");
+		GetGame().GetCallqueue().CallLater(ReportCampaignDebugRenderedProof, 120, false, requestId, selectedTabId, 0);
+		GetGame().GetCallqueue().CallLater(ReportCampaignDebugRenderedProof, 550, false, requestId, selectedTabId, 1);
+	}
+
+	protected void ReportCampaignDebugRenderedProof(string requestId, string selectedTabId, int passIndex)
+	{
+		string report = BuildCampaignDebugRenderedProofReport(requestId, selectedTabId, passIndex);
+		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.GetLocalOwner();
+		if (request)
+			request.ReportCampaignDebugCommandMenuProof(requestId, report);
+		else
+			Print("h-istasi menu | campaign debug rendered proof request bridge missing | " + report, LogLevel.WARNING);
+
+		Print("h-istasi menu | campaign debug rendered proof | " + report);
+		if (passIndex > 0 && m_bMenuOpen)
+			CloseMenu("campaign debug rendered proof");
+	}
+
+	protected string BuildCampaignDebugRenderedProofReport(string requestId, string selectedTabId, int passIndex)
+	{
+		array<string> expectedWidgets = {};
+		BuildCampaignDebugRenderedProofWidgetList(expectedWidgets);
+		Widget root = m_wMenuRoot;
+		bool rootVisible = root && root.IsVisibleInHierarchy();
+		int expected;
+		int ready;
+		string missing = "";
+		string hidden = "";
+		string zero = "";
+		string negative = "";
+		string offscreen = "";
+		foreach (string widgetName : expectedWidgets)
+		{
+			if (widgetName.IsEmpty())
+				continue;
+
+			expected++;
+			Widget widget = null;
+			if (root)
+			{
+				widget = root.FindAnyWidget(widgetName);
+				if (!widget && root.GetName() == widgetName)
+					widget = root;
+			}
+
+			if (!widget)
+			{
+				missing = AppendCampaignDebugCsvValue(missing, widgetName);
+				continue;
+			}
+
+			bool visible = widget.IsVisibleInHierarchy();
+			bool hasNegativeBounds = CampaignDebugWidgetHasNegativeBounds(widget);
+			bool hasZeroBounds = CampaignDebugWidgetHasZeroBounds(widget);
+			bool hasBounds = CampaignDebugWidgetHasUsableBounds(widget);
+			bool outsideRoot = hasBounds && CampaignDebugWidgetIsOutsideRoot(widget, root);
+			if (visible && hasBounds && !outsideRoot)
+			{
+				ready++;
+				continue;
+			}
+
+			if (!visible)
+				hidden = AppendCampaignDebugCsvValue(hidden, CampaignDebugWidgetProblem(widgetName, widget));
+			if (hasNegativeBounds)
+				negative = AppendCampaignDebugCsvValue(negative, CampaignDebugWidgetProblem(widgetName, widget));
+			else if (hasZeroBounds)
+				zero = AppendCampaignDebugCsvValue(zero, CampaignDebugWidgetProblem(widgetName, widget));
+			else if (outsideRoot)
+				offscreen = AppendCampaignDebugCsvValue(offscreen, CampaignDebugWidgetProblem(widgetName, widget));
+		}
+
+		bool readyOk = rootVisible && expected > 0 && ready == expected && missing.IsEmpty() && hidden.IsEmpty() && zero.IsEmpty() && negative.IsEmpty() && offscreen.IsEmpty();
+		string rootSummary = "none";
+		if (root)
+			rootSummary = HST_UIDebug.WidgetSummary(root);
+
+		string report = string.Format("request %1 | player %2 | pass %3 | menuOpen %4 | tab %5 | requestedTab %6 | root %7 | readyOk %8 | ready %9", requestId, ResolveLocalPlayerId(), passIndex, m_bMenuOpen, m_sSelectedTab, selectedTabId, rootVisible, readyOk, ready);
+		report = report + string.Format("/%1 | actions %2 | tabs %3 | top %4", expected, m_aActionLabels.Count(), m_aTabLabels.Count(), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()));
+		report = report + string.Format(" | missing %1 | hidden %2 | zero %3 | negative %4 | offscreen %5", CampaignDebugEmptyList(missing), CampaignDebugEmptyList(hidden), CampaignDebugEmptyList(zero), CampaignDebugEmptyList(negative), CampaignDebugEmptyList(offscreen));
+		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
+		return report;
+	}
+
+	protected void BuildCampaignDebugRenderedProofWidgetList(array<string> widgetNames)
+	{
+		if (!widgetNames)
+			return;
+
+		widgetNames.Insert("HST_CommandMenuRoot");
+		widgetNames.Insert("CommandSurface");
+		widgetNames.Insert("Header");
+		widgetNames.Insert("HeaderTitle");
+		widgetNames.Insert("HeaderSubtitle");
+		widgetNames.Insert("HeaderTabTitle");
+		widgetNames.Insert("CloseButton");
+		widgetNames.Insert("CloseLabel");
+		widgetNames.Insert("NavigationPanel");
+		widgetNames.Insert("TabScroll");
+		widgetNames.Insert("TabItems");
+		widgetNames.Insert("StatsPanel");
+		widgetNames.Insert("StatLayout");
+		widgetNames.Insert("MainPanel");
+		widgetNames.Insert("MainScroll");
+		widgetNames.Insert("MainItems");
+		widgetNames.Insert("ActivityPanel");
+		widgetNames.Insert("ActivityScroll");
+		widgetNames.Insert("ActivityItems");
+		widgetNames.Insert("ActionsPanel");
+		widgetNames.Insert("ActionsScroll");
+		widgetNames.Insert("ActionsItems");
+	}
+
+	protected bool CampaignDebugWidgetHasUsableBounds(Widget widget)
+	{
+		if (!widget)
+			return false;
+
+		float w;
+		float h;
+		widget.GetScreenSize(w, h);
+		return w >= 1.0 && h >= 1.0;
+	}
+
+	protected bool CampaignDebugWidgetHasNegativeBounds(Widget widget)
+	{
+		if (!widget)
+			return false;
+
+		float w;
+		float h;
+		widget.GetScreenSize(w, h);
+		return w < 0.0 || h < 0.0;
+	}
+
+	protected bool CampaignDebugWidgetHasZeroBounds(Widget widget)
+	{
+		if (!widget)
+			return false;
+
+		float w;
+		float h;
+		widget.GetScreenSize(w, h);
+		return w >= 0.0 && h >= 0.0 && (w < 1.0 || h < 1.0);
+	}
+
+	protected bool CampaignDebugWidgetIsOutsideRoot(Widget widget, Widget root)
+	{
+		if (!widget || !root)
+			return false;
+		if (widget == root)
+			return false;
+
+		float rootX;
+		float rootY;
+		float rootW;
+		float rootH;
+		root.GetScreenPos(rootX, rootY);
+		root.GetScreenSize(rootW, rootH);
+		if (rootW < 1.0 || rootH < 1.0)
+			return false;
+
+		float x;
+		float y;
+		float w;
+		float h;
+		widget.GetScreenPos(x, y);
+		widget.GetScreenSize(w, h);
+		if (w < 1.0 || h < 1.0)
+			return false;
+
+		return (x + w) < rootX || (y + h) < rootY || x > (rootX + rootW) || y > (rootY + rootH);
+	}
+
+	protected string CampaignDebugWidgetProblem(string widgetName, Widget widget)
+	{
+		if (!widget)
+			return widgetName + "[null]";
+
+		float x;
+		float y;
+		float w;
+		float h;
+		widget.GetScreenPos(x, y);
+		widget.GetScreenSize(w, h);
+		return string.Format("%1[vis=%2;hier=%3;z=%4;pos=%5:%6;size=%7x%8]", widgetName, widget.IsVisible(), widget.IsVisibleInHierarchy(), widget.GetZOrder(), Math.Round(x), Math.Round(y), Math.Round(w), Math.Round(h));
+	}
+
+	protected string AppendCampaignDebugCsvValue(string values, string value)
+	{
+		if (value.IsEmpty())
+			return values;
+		if (values.IsEmpty())
+			return value;
+
+		return values + "," + value;
+	}
+
+	protected string CampaignDebugEmptyList(string values)
+	{
+		if (values.IsEmpty())
+			return "none";
+
+		return values;
+	}
+
 	void CloseMenuFromExternal()
 	{
 		CloseMenu("external");

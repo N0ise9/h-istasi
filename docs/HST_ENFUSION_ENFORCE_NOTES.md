@@ -150,6 +150,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - `ExecuteVisibleCommand()` should also reject debug/report command ids when the debug menu is disabled so manually submitted visible-menu ids cannot bypass hidden UI.
   - If a normal gameplay action previously used a `*_report` command id, expose a non-report gameplay id for the regular menu path so turning off the debug menu does not remove real gameplay controls.
   - Current examples: Overview undercover request/clear stays visible, Admin is omitted when debug menu is disabled, and Forces training uses `train_troops` instead of `train_troops_report`.
+  - Campaign-debug rendered UI proof should be owner-client reported instead of inferred from server payloads. Dispatch through the player-owned request bridge, open the command menu on the owner client, wait for post-snapshot layout, count expected visible non-zero widgets, and send the report back to the coordinator as a `CLIENT_RENDERED` assertion.
 
 - HQ arsenal user-action order must be proved from the runtime action manager.
   - `ScriptedUserAction` exposes script hooks for names, visibility, and performability, but not a script-side priority/order override. For the HST HQ arsenal, keep the custom loadout action before the HQ menu action in `Prefabs/Objects/HST/HST_HQArsenal.et`, disable inherited stock arsenal actions through `HST_HQArsenalActionFilterComponent`, then assert the first selectable runtime action through `ActionsManagerComponent.GetActionsList()`.

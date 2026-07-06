@@ -208,6 +208,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugBackgroundWarInvaderZoneId;
 	protected string m_sCampaignDebugBackgroundWarOccupierOrderId;
 	protected string m_sCampaignDebugBackgroundWarInvaderOrderId;
+	protected string m_sCampaignDebugClientMenuProofRequestId;
+	protected string m_sCampaignDebugClientMenuProofReport;
+	protected bool m_bCampaignDebugClientMenuProofRequestDispatched;
+	protected int m_iCampaignDebugClientMenuProofPlayerId;
 	protected int m_iCampaignDebugBackgroundWarUnexpectedPetrosOrders;
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
@@ -3137,6 +3141,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugSummaryPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_summary.txt";
 		m_sCampaignDebugStateDiffPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_state_diff.txt";
 		m_sCampaignDebugPreviousCommanderIdentityId = "";
+		ResetCampaignDebugClientMenuProof();
 		if (m_State)
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		ResetCampaignDebugPhase16Observations();
@@ -3186,9 +3191,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_iCampaignDebugStepIndex == 3)
 		{
+			if (!ShouldCampaignDebugRunRenderedCommandMenuStage())
+			{
+				SkipCampaignDebugStageForProfile("rendered command menu", 4);
+				return;
+			}
+
+			RunCampaignDebugRenderedCommandMenuProbeStep();
+			return;
+		}
+
+		if (m_iCampaignDebugStepIndex == 4)
+		{
 			if (!ShouldCampaignDebugRunEconomyForceStage())
 			{
-				SkipCampaignDebugStageForProfile("economy force", 4);
+				SkipCampaignDebugStageForProfile("economy force", 5);
 				return;
 			}
 
@@ -3196,11 +3213,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 4)
+		if (m_iCampaignDebugStepIndex == 5)
 		{
 			if (!ShouldCampaignDebugRunEarlyPhaseStage())
 			{
-				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 7);
+				SkipCampaignDebugStageForProfile("early mechanics, mission sweep, and phase smoke", 8);
 				return;
 			}
 
@@ -3208,11 +3225,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 5)
+		if (m_iCampaignDebugStepIndex == 6)
 		{
 			if (!ShouldCampaignDebugRunMissionSweepStage())
 			{
-				SkipCampaignDebugStageForProfile("mission sweep", 6);
+				SkipCampaignDebugStageForProfile("mission sweep", 7);
 				return;
 			}
 
@@ -3220,11 +3237,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 6)
+		if (m_iCampaignDebugStepIndex == 7)
 		{
 			if (!ShouldCampaignDebugRunPhaseSmokeStage())
 			{
-				SkipCampaignDebugStageForProfile("phase smoke", 7);
+				SkipCampaignDebugStageForProfile("phase smoke", 8);
 				return;
 			}
 
@@ -3232,7 +3249,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		if (m_iCampaignDebugStepIndex == 7)
+		if (m_iCampaignDebugStepIndex == 8)
 		{
 			RunCampaignDebugFinalReportStep();
 			return;
@@ -3300,6 +3317,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool ShouldCampaignDebugRunEconomyForceStage()
 	{
 		return !IsCampaignDebugExternalProfile() && m_sCampaignDebugProfile != "post_restart_verify";
+	}
+
+	protected bool ShouldCampaignDebugRunRenderedCommandMenuStage()
+	{
+		return !IsCampaignDebugExternalProfile();
 	}
 
 	protected bool ShouldCampaignDebugRunMissionSweepStage()
@@ -4045,6 +4067,89 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("loadout editor", RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId));
 		AdvanceCampaignDebugStep("HQ and spawn checks complete.");
+	}
+
+	protected void RunCampaignDebugRenderedCommandMenuProbeStep()
+	{
+		if (m_sCampaignDebugClientMenuProofRequestId.IsEmpty())
+		{
+			ResetCampaignDebugClientMenuProof();
+			m_sCampaignDebugClientMenuProofRequestId = "command_menu_render_" + SafeCampaignDebugToken(m_sCampaignDebugRunId);
+			m_iCampaignDebugClientMenuProofPlayerId = m_iCampaignDebugPlayerId;
+			m_bCampaignDebugClientMenuProofRequestDispatched = HST_CommandMenuRequestComponent.SendCampaignDebugCommandMenuProofOwner(m_iCampaignDebugPlayerId, m_sCampaignDebugClientMenuProofRequestId, "admin");
+			AppendCampaignDebugLog("INFO", "command menu rendered proof request", string.Format("request %1 | player %2 | dispatched %3", m_sCampaignDebugClientMenuProofRequestId, m_iCampaignDebugPlayerId, m_bCampaignDebugClientMenuProofRequestDispatched));
+			if (!m_bCampaignDebugClientMenuProofRequestDispatched)
+			{
+				RecordCampaignDebugCase(BuildCampaignDebugRenderedCommandMenuCase());
+				ResetCampaignDebugClientMenuProof();
+				AdvanceCampaignDebugStep("Rendered command menu proof blocked.");
+				return;
+			}
+
+			m_iCampaignDebugWaitSeconds = 2;
+			return;
+		}
+
+		RecordCampaignDebugCase(BuildCampaignDebugRenderedCommandMenuCase());
+		ResetCampaignDebugClientMenuProof();
+		AdvanceCampaignDebugStep("Rendered command menu proof complete.");
+	}
+
+	protected void ResetCampaignDebugClientMenuProof()
+	{
+		m_sCampaignDebugClientMenuProofRequestId = "";
+		m_sCampaignDebugClientMenuProofReport = "";
+		m_bCampaignDebugClientMenuProofRequestDispatched = false;
+		m_iCampaignDebugClientMenuProofPlayerId = 0;
+	}
+
+	void ReceiveCampaignDebugCommandMenuProofReport(int playerId, string requestId, string report)
+	{
+		if (!Replication.IsServer())
+			return;
+		if (requestId.IsEmpty())
+			return;
+		if (requestId != m_sCampaignDebugClientMenuProofRequestId)
+		{
+			Print(string.Format("h-istasi campaign debug | stale command menu proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMenuProofRequestId), playerId), LogLevel.WARNING);
+			return;
+		}
+
+		m_iCampaignDebugClientMenuProofPlayerId = playerId;
+		m_sCampaignDebugClientMenuProofReport = report;
+		AppendCampaignDebugLog("INFO", "command menu rendered proof report", ShortCampaignDebugLine(report, 260));
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderedCommandMenuCase()
+	{
+		HST_CampaignDebugCaseResult menuCase = CreateCampaignDebugCase("command_ui.rendered_command_menu", "ui", "command_ui", "rendered_owner_client");
+		string report = m_sCampaignDebugClientMenuProofReport;
+		if (report.IsEmpty())
+			report = "missing client report";
+
+		menuCase.m_aEvidence.Insert("request " + EmptyCampaignDebugField(m_sCampaignDebugClientMenuProofRequestId));
+		menuCase.m_aEvidence.Insert("client report | " + ShortCampaignDebugLine(report, 320));
+		bool requestValid = !m_sCampaignDebugClientMenuProofRequestId.IsEmpty();
+		bool reportMatched = requestValid && report.Contains("request " + m_sCampaignDebugClientMenuProofRequestId);
+		bool playerMatched = m_iCampaignDebugClientMenuProofPlayerId == m_iCampaignDebugPlayerId;
+		bool menuOpened = report.Contains("menuOpen true");
+		bool rootVisible = report.Contains("root true");
+		bool readyOk = report.Contains("readyOk true");
+		bool adminTab = report.Contains("tab admin");
+		bool actionsReady = !report.Contains("actions 0");
+		string dispatchStatus = "PASS";
+		if (!m_bCampaignDebugClientMenuProofRequestDispatched)
+			dispatchStatus = "BLOCKED";
+		string clientProofFailureStatus = "FAIL";
+		if (!m_bCampaignDebugClientMenuProofRequestDispatched)
+			clientProofFailureStatus = "BLOCKED";
+		AddCampaignDebugAssertion(menuCase, "command_ui.rendered_owner_rpc", "server dispatches an owner-client command-menu render proof request", string.Format("request %1 | player %2 | dispatched %3", EmptyCampaignDebugField(m_sCampaignDebugClientMenuProofRequestId), m_iCampaignDebugPlayerId, m_bCampaignDebugClientMenuProofRequestDispatched), dispatchStatus, "owner request bridge unavailable for rendered command-menu proof");
+		AddCampaignDebugAssertion(menuCase, "command_ui.rendered_client_report", "owner client returns matching rendered-menu report", report, CampaignDebugStatus(m_bCampaignDebugClientMenuProofRequestDispatched && reportMatched && playerMatched, clientProofFailureStatus), "owner client did not return a matching rendered command-menu report");
+		AddCampaignDebugAssertion(menuCase, "command_ui.rendered_visible_root", "command menu is open with a visible root widget on the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMenuProofRequestDispatched && reportMatched && menuOpened && rootVisible, clientProofFailureStatus), "command menu root was not visibly open on the owner client");
+		AddCampaignDebugAssertion(menuCase, "command_ui.rendered_ready_widgets", "expected command-menu widgets have non-zero visible bounds", report, CampaignDebugStatus(m_bCampaignDebugClientMenuProofRequestDispatched && reportMatched && readyOk, clientProofFailureStatus), "command menu rendered widgets are missing, hidden, zero-sized, or offscreen");
+		AddCampaignDebugAssertion(menuCase, "command_ui.rendered_admin_payload", "rendered owner-client menu is on the admin tab with action rows", report, CampaignDebugStatus(m_bCampaignDebugClientMenuProofRequestDispatched && reportMatched && adminTab && actionsReady, clientProofFailureStatus), "rendered command menu did not show admin tab action rows");
+		FinalizeCampaignDebugCaseFromAssertions(menuCase);
+		return menuCase;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugHQRuntimeCase(int spawnRequests, string rebuildResult, string runtimeSummaryBefore, string runtimeSummaryAfter, bool rebuildAttempted)
@@ -5560,6 +5665,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "cleanup_probe";
 		if (caseResult.m_sFeature == "external_harness")
 			return "manual_external_gap";
+		if (caseResult.m_sFeature == "command_ui" && caseResult.m_sStage.Contains("rendered"))
+			return "owner_client_widget_report";
 		if (caseResult.m_sFeature == "hq_runtime")
 			return "world_runtime_entity_scan";
 		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
@@ -5581,6 +5688,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "external process restart, reconnect, or long-soak harness";
 		if (caseResult.m_sFeature == "hq_runtime")
 			return "physical HQ runtime entity proof";
+		if (caseResult.m_sFeature == "command_ui" && caseResult.m_sStage.Contains("rendered"))
+			return "owner client rendered widget visibility and geometry proof";
 		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
 			return "physical vehicle, crew, driver, route, movement, and outcome proof";
 		if (caseResult.m_sCaseId.Contains("physical_combat"))

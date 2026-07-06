@@ -3180,6 +3180,22 @@ foreach ($requiredCampaignDebugAreaProofEntry in @(
 		throw "Campaign debug area primitive physical combat must stay blocked until naturally observed: $requiredCampaignDebugAreaProofEntry"
 	}
 }
+foreach ($requiredRenderedCommandMenuProofEntry in @(
+		"RunCampaignDebugRenderedCommandMenuProbeStep",
+		"command_ui.rendered_command_menu",
+		"SendCampaignDebugCommandMenuProofOwner",
+		"RpcDo_CampaignDebugCommandMenuProof",
+		"RpcAsk_ReportCampaignDebugCommandMenuProof",
+		"RunCampaignDebugRenderedProof",
+		"BuildCampaignDebugRenderedProofReport",
+		"ReportCampaignDebugCommandMenuProof",
+		"owner_client_widget_report",
+		"owner client rendered widget visibility and geometry proof"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredRenderedCommandMenuProofEntry)) {
+		throw "Campaign debug command-menu rendered proof must stay owner-client reported: $requiredRenderedCommandMenuProofEntry"
+	}
+}
 Write-Host "Campaign debug build/proof/profile contract OK"
 
 foreach ($requiredCommandMenuEntry in @(
