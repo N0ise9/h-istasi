@@ -1,0 +1,6 @@
+SCR_AIGroup HST_RuntimeEmptyGroup_USSR : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et" {
+ ID "94AA122B0CFB7E41"
+ m_bSpawnImmediately 0
+ m_bDeleteWhenEmpty 0
+ m_faction "USSR"
+}

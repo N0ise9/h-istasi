@@ -129,6 +129,8 @@ class HST_PhysicalWarService
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const string DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
+	static const string DIRECT_INFANTRY_GROUP_PREFAB_US = "{2E3755F24A57D1A0}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_US.et";
+	static const string DIRECT_INFANTRY_GROUP_PREFAB_USSR = "{94AA122B0CFB7E40}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR.et";
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
@@ -7488,11 +7490,11 @@ class HST_PhysicalWarService
 
 		DeleteRuntimeCrewEntities(activeGroup.m_sGroupId);
 
-		ResourceName resourceName = DIRECT_INFANTRY_GROUP_PREFAB;
+		ResourceName resourceName = ResolveDirectInfantryGroupPrefab(activeGroup.m_sFactionKey);
 		Resource loaded = Resource.Load(resourceName);
 		if (!loaded || !loaded.IsValid())
 		{
-			Print(string.Format("h-istasi | active group direct fallback failed %1: missing group prefab %2", activeGroup.m_sGroupId, DIRECT_INFANTRY_GROUP_PREFAB), LogLevel.WARNING);
+			Print(string.Format("h-istasi | active group direct fallback failed %1: missing group prefab %2", activeGroup.m_sGroupId, resourceName), LogLevel.WARNING);
 			return null;
 		}
 
@@ -7511,7 +7513,7 @@ class HST_PhysicalWarService
 		{
 			if (entity)
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
-			Print(string.Format("h-istasi | active group direct fallback failed %1: prefab %2 did not spawn an AIGroup", activeGroup.m_sGroupId, DIRECT_INFANTRY_GROUP_PREFAB), LogLevel.WARNING);
+			Print(string.Format("h-istasi | active group direct fallback failed %1: prefab %2 did not spawn an AIGroup", activeGroup.m_sGroupId, resourceName), LogLevel.WARNING);
 			return null;
 		}
 
@@ -7523,6 +7525,16 @@ class HST_PhysicalWarService
 		m_aRuntimeGroupEntities.Insert(entity);
 		DebugLog(string.Format("active group replaced empty native AIGroup for direct infantry fallback %1 via %2", activeGroup.m_sGroupId, source));
 		return replacementGroup;
+	}
+
+	protected string ResolveDirectInfantryGroupPrefab(string factionKey)
+	{
+		if (factionKey == "US")
+			return DIRECT_INFANTRY_GROUP_PREFAB_US;
+		if (factionKey == "USSR")
+			return DIRECT_INFANTRY_GROUP_PREFAB_USSR;
+
+		return DIRECT_INFANTRY_GROUP_PREFAB;
 	}
 
 	protected int SpawnFactionInfantryIntoRuntimeGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup)
@@ -7727,11 +7739,14 @@ class HST_PhysicalWarService
 		SCR_AIGroup group = SCR_AIGroup.Cast(root);
 		if (group)
 		{
-			Faction faction = ResolveRuntimeFaction(factionKey);
-			if (faction && group.SetFaction(faction))
-				changed++;
-
 			string groupFactionKey = group.GetFactionName();
+			if (groupFactionKey != factionKey)
+			{
+				Faction faction = ResolveRuntimeFaction(factionKey);
+				if (faction && group.SetFaction(faction))
+					changed++;
+				groupFactionKey = group.GetFactionName();
+			}
 			if (groupFactionKey != factionKey)
 			{
 				mismatches++;
@@ -8102,13 +8117,29 @@ class HST_PhysicalWarService
 			return 0;
 
 		string actualFactionKey = ResolveEntityFactionKey(entity);
-		if (actualFactionKey == expectedFactionKey)
+		string prefab = ResolveEntityPrefabName(entity);
+		bool factionMismatch = actualFactionKey != expectedFactionKey;
+		bool visualMismatch = IsInfantryCharacterPrefabVisualMismatch(prefab, expectedFactionKey);
+		if (!factionMismatch && !visualMismatch)
 			return 0;
 
 		if (sample.IsEmpty())
-			sample = string.Format("pos %1 actual %2", entity.GetOrigin(), ReportText(actualFactionKey));
+		{
+			if (visualMismatch)
+				sample = string.Format("pos %1 actual %2 prefab %3 visual mismatch expected %4", entity.GetOrigin(), ReportText(actualFactionKey), ReportText(prefab), ReportText(expectedFactionKey));
+			else
+				sample = string.Format("pos %1 actual %2 prefab %3", entity.GetOrigin(), ReportText(actualFactionKey), ReportText(prefab));
+		}
 
 		return 1;
+	}
+
+	protected bool IsInfantryCharacterPrefabVisualMismatch(string prefab, string factionKey)
+	{
+		if (prefab.IsEmpty() || !prefab.Contains("Prefabs/Characters/"))
+			return false;
+
+		return !IsInfantryCharacterPrefabCatalogFactionMatch(prefab, factionKey);
 	}
 
 	protected Faction ResolveRuntimeFaction(string factionKey)
