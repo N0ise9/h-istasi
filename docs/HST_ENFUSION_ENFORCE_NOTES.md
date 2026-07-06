@@ -329,6 +329,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Keep assertion calls flat in large debug builders: compute `actual` strings and status booleans before `AddCampaignDebugAssertion(...)` instead of nesting several helper calls inside the assertion call.
   - Avoid reusing generic parameter names such as `request` across adjacent support helpers when fixing wide signatures; a previous support probe refactor produced follow-on `Multiple declaration of variable` errors until the shared state moved into a context object and parameters were renamed to `supportRequest`.
 
+- Enforce parser diagnostics can blame the first statement inside a helper when the method signature is the real problem.
+  - Current observed case: a campaign-debug marker-audit helper with six `out` parameters reported `Broken expression (missing ';'?)` on the following `foreach` line during Workbench Game script compilation.
+  - Keep detailed debug counters in a context object or component fields and use at most a small number of `out` parameters on hot helpers.
+
 - Avoid redundant `Cast(...)` calls when the API already returns the requested base type.
   - Workbench reports this as `No need to use 'Cast' for up-casting`.
   - Current example: `AIAgent.GetMovementComponent()` can be returned directly from a method typed as `AIBaseMovementComponent`.

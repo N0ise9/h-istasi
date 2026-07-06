@@ -221,6 +221,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugWorldCleanupPrefix;
 	protected string m_sCampaignDebugWorldCleanupExample;
 	protected int m_iCampaignDebugWorldCleanupScannedCount;
+	protected int m_iCampaignDebugZoneMarkerExpectedCount;
+	protected int m_iCampaignDebugZoneMarkerMissingCount;
+	protected int m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount;
+	protected int m_iCampaignDebugZoneMarkerPresentationMismatchCount;
+	protected int m_iCampaignDebugZoneMarkerPositionMismatchCount;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -6191,14 +6196,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return count;
 	}
 
-	protected int CountCampaignDebugZoneMarkerMismatches(out string example, out int expectedZones, out int missingMarkers, out int linkOwnerMismatches, out int presentationMismatches, out int positionMismatches)
+	protected int CountCampaignDebugZoneMarkerMismatches(out string example)
 	{
 		example = "";
-		expectedZones = 0;
-		missingMarkers = 0;
-		linkOwnerMismatches = 0;
-		presentationMismatches = 0;
-		positionMismatches = 0;
+		m_iCampaignDebugZoneMarkerExpectedCount = 0;
+		m_iCampaignDebugZoneMarkerMissingCount = 0;
+		m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount = 0;
+		m_iCampaignDebugZoneMarkerPresentationMismatchCount = 0;
+		m_iCampaignDebugZoneMarkerPositionMismatchCount = 0;
 		if (!m_State)
 			return 0;
 
@@ -6207,11 +6212,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!zone)
 				continue;
 
-			expectedZones++;
+			m_iCampaignDebugZoneMarkerExpectedCount++;
 			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
 			if (!marker || !marker.m_bVisible)
 			{
-				missingMarkers++;
+				m_iCampaignDebugZoneMarkerMissingCount++;
 				if (example.IsEmpty())
 					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "missing");
 				continue;
@@ -6219,27 +6224,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 			if (marker.m_sLinkedId != zone.m_sZoneId || marker.m_sOwnerFactionKey != zone.m_sOwnerFactionKey)
 			{
-				linkOwnerMismatches++;
+				m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount++;
 				if (example.IsEmpty())
 					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "link_owner");
 			}
 
 			if (marker.m_sColorHint.IsEmpty() || marker.m_sStyleHint.IsEmpty())
 			{
-				presentationMismatches++;
+				m_iCampaignDebugZoneMarkerPresentationMismatchCount++;
 				if (example.IsEmpty())
 					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "presentation");
 			}
 
 			if (!CampaignDebugMarkerPositionMatchesZone(marker, zone))
 			{
-				positionMismatches++;
+				m_iCampaignDebugZoneMarkerPositionMismatchCount++;
 				if (example.IsEmpty())
 					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "position");
 			}
 		}
 
-		return missingMarkers + linkOwnerMismatches + presentationMismatches + positionMismatches;
+		return m_iCampaignDebugZoneMarkerMissingCount + m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount + m_iCampaignDebugZoneMarkerPresentationMismatchCount + m_iCampaignDebugZoneMarkerPositionMismatchCount;
 	}
 
 	protected bool CampaignDebugMarkerPositionMatchesZone(HST_MapMarkerState marker, HST_ZoneState zone)
@@ -15949,12 +15954,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int orphanMarkers = CountCampaignDebugOrphanMarkers(orphanExample);
 		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingExample);
 		string zoneMarkerExample;
-		int expectedZoneMarkers;
-		int missingZoneMarkers;
-		int linkOwnerZoneMarkerMismatches;
-		int presentationZoneMarkerMismatches;
-		int positionZoneMarkerMismatches;
-		int zoneMarkerMismatches = CountCampaignDebugZoneMarkerMismatches(zoneMarkerExample, expectedZoneMarkers, missingZoneMarkers, linkOwnerZoneMarkerMismatches, presentationZoneMarkerMismatches, positionZoneMarkerMismatches);
+		int zoneMarkerMismatches = CountCampaignDebugZoneMarkerMismatches(zoneMarkerExample);
+		int expectedZoneMarkers = m_iCampaignDebugZoneMarkerExpectedCount;
+		int missingZoneMarkers = m_iCampaignDebugZoneMarkerMissingCount;
+		int linkOwnerZoneMarkerMismatches = m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount;
+		int presentationZoneMarkerMismatches = m_iCampaignDebugZoneMarkerPresentationMismatchCount;
+		int positionZoneMarkerMismatches = m_iCampaignDebugZoneMarkerPositionMismatchCount;
 		string zoneMarkerActual = BuildCampaignDebugZoneMarkerAuditActual(expectedZoneMarkers, missingZoneMarkers, linkOwnerZoneMarkerMismatches, presentationZoneMarkerMismatches, positionZoneMarkerMismatches, zoneMarkerExample);
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
