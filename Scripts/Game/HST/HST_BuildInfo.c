@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r29-aiworld-budget-proof";
-	static const string BUILD_UTC = "2026-07-06T19:35:42Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r29-aiworld-budget-proof";
+	static const string BUILD_SHA = "r30-hq-rebuild-settle-proof";
+	static const string BUILD_UTC = "2026-07-06T20:00:16Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r30-hq-rebuild-settle-proof";
 
 	static string BuildSummary()
 	{

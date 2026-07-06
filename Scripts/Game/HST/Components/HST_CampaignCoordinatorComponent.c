@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r29-aiworld-budget-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-06-runtime-proof-r30-hq-rebuild-settle-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -121,6 +121,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugBlockedCount;
 	protected int m_iCampaignDebugSkippedCount;
 	protected int m_iCampaignDebugWaitSeconds;
+	protected bool m_bCampaignDebugHQRebuildAwaitingSettle;
+	protected int m_iCampaignDebugHQSpawnRequests;
 	protected int m_iCampaignDebugStartElapsed;
 	protected int m_iCampaignDebugStartMoney;
 	protected int m_iCampaignDebugStartHR;
@@ -188,6 +190,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_CampaignDebugEscalationProbeContext m_CampaignDebugPhase24EscalationContext;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
+	protected string m_sCampaignDebugHQRuntimeSummaryBefore;
+	protected string m_sCampaignDebugHQRebuildResult;
 	protected string m_sCampaignDebugLastResult;
 	protected string m_sCampaignDebugRunId;
 	protected string m_sCampaignDebugReportPath;
@@ -3136,6 +3140,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugBlockedCount = 0;
 		m_iCampaignDebugSkippedCount = 0;
 		m_iCampaignDebugWaitSeconds = 0;
+		ResetCampaignDebugHQRebuildSettle();
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		m_sCampaignDebugEarlyMissionInstanceId = "";
 		m_sCampaignDebugProfile = profile;
@@ -4109,6 +4114,32 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RunCampaignDebugHQSpawnStep()
 	{
+		if (m_bCampaignDebugHQRebuildAwaitingSettle)
+		{
+			EnsureCampaignDebugActivePhase("HQ rebuild settle");
+			if (m_HQ)
+				m_HQ.EnsureRuntimeObjects(m_State);
+
+			string runtimeSummaryAfterSettle;
+			string worldSummaryAfterSettle;
+			string petrosGroupSummaryAfterSettle;
+			if (m_HQ)
+			{
+				runtimeSummaryAfterSettle = m_HQ.BuildRuntimeObjectDebugSummary();
+				worldSummaryAfterSettle = m_HQ.BuildRuntimeWorldScanSummary(m_State);
+				petrosGroupSummaryAfterSettle = m_HQ.BuildPetrosAIGroupDebugSummary();
+			}
+
+			AppendCampaignDebugLog("INFO", "hq rebuild settle", string.Format("rebuild %1 | before %2 | after %3 | world %4 | %5", ShortCampaignDebugLine(m_sCampaignDebugHQRebuildResult, 180), EmptyCampaignDebugField(m_sCampaignDebugHQRuntimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfterSettle), EmptyCampaignDebugField(worldSummaryAfterSettle), EmptyCampaignDebugField(petrosGroupSummaryAfterSettle)));
+			RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(m_iCampaignDebugHQSpawnRequests, m_sCampaignDebugHQRebuildResult, m_sCampaignDebugHQRuntimeSummaryBefore, runtimeSummaryAfterSettle, true));
+			ResetCampaignDebugHQRebuildSettle();
+			RecordCampaignDebugObservation("HQ threat", RequestMemberInspectHQThreat(m_iCampaignDebugPlayerId));
+			RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
+			RecordCampaignDebugObservation("loadout editor", RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId));
+			AdvanceCampaignDebugStep("HQ and spawn checks complete.");
+			return;
+		}
+
 		EnsureCampaignDebugActivePhase("HQ spawn");
 		TeleportCampaignDebugPlayerToHQ("HQ spawn");
 		int spawnRequests = ProcessPlayerSpawnSweep("campaign debug HQ spawn", true);
@@ -4119,14 +4150,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			runtimeSummaryBefore = m_HQ.BuildRuntimeObjectDebugSummary();
 		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, "", runtimeSummaryBefore, runtimeSummaryBefore, false));
 		string rebuildResult = RequestCommanderRebuildHQAssetsReport(m_iCampaignDebugPlayerId);
-		string runtimeSummaryAfter;
-		if (m_HQ)
-			runtimeSummaryAfter = m_HQ.BuildRuntimeObjectDebugSummary();
-		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, rebuildResult, runtimeSummaryBefore, runtimeSummaryAfter, true));
-		RecordCampaignDebugObservation("HQ threat", RequestMemberInspectHQThreat(m_iCampaignDebugPlayerId));
-		RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
-		RecordCampaignDebugObservation("loadout editor", RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId));
-		AdvanceCampaignDebugStep("HQ and spawn checks complete.");
+		m_bCampaignDebugHQRebuildAwaitingSettle = true;
+		m_iCampaignDebugHQSpawnRequests = spawnRequests;
+		m_sCampaignDebugHQRuntimeSummaryBefore = runtimeSummaryBefore;
+		m_sCampaignDebugHQRebuildResult = rebuildResult;
+		AppendCampaignDebugLog("INFO", "hq rebuild requested", string.Format("waiting one runtime tick before world-proof assertions | %1", ShortCampaignDebugLine(rebuildResult, 220)));
+		m_iCampaignDebugWaitSeconds = 1;
+	}
+
+	protected void ResetCampaignDebugHQRebuildSettle()
+	{
+		m_bCampaignDebugHQRebuildAwaitingSettle = false;
+		m_iCampaignDebugHQSpawnRequests = 0;
+		m_sCampaignDebugHQRuntimeSummaryBefore = "";
+		m_sCampaignDebugHQRebuildResult = "";
 	}
 
 	protected void RunCampaignDebugRenderedCommandMenuProbeStep()
@@ -4250,8 +4287,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(hqCase, "hq.runtime_objects.tracked", string.Format("%1", trackedRuntimeObjects), "count");
 		bool rebuildSucceeded = IsCampaignDebugResultSuccessful(rebuildResult);
 		bool rebuildPlacementBlocked = rebuildAttempted && !rebuildSucceeded && IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult);
-		bool runtimeObjectsProven = m_HQ != null && trackedRuntimeObjects == 5 && m_State.m_bHQRuntimeObjectsSpawned;
-		bool runtimeObjectsPhysicallyProven = m_HQ != null && m_State != null && trackedRuntimeObjects == 5 && m_State.m_bPetrosAlive && petrosWorldCount == 1 && cacheWorldCount == 1 && arsenalWorldCount == 1 && tentWorldCount == 1 && spawnPointWorldCount == 1;
+		bool hqRuntimeFlag;
+		bool petrosAlive;
+		if (m_State)
+		{
+			hqRuntimeFlag = m_State.m_bHQRuntimeObjectsSpawned;
+			petrosAlive = m_State.m_bPetrosAlive;
+		}
+		bool runtimeObjectsProven = m_HQ != null && trackedRuntimeObjects == 5 && hqRuntimeFlag;
+		bool runtimeObjectsPhysicallyProven = m_HQ != null && m_State != null && trackedRuntimeObjects == 5 && petrosAlive && petrosWorldCount == 1 && cacheWorldCount == 1 && arsenalWorldCount == 1 && tentWorldCount == 1 && spawnPointWorldCount == 1;
+		string rebuildWorldScanSummary = string.Format("tracked %1/5 | flag %2 | world petros %3 cache %4 arsenal %5 tent %6 spawn %7", trackedRuntimeObjects, hqRuntimeFlag, petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
 		if (rebuildAttempted)
 		{
 			string rebuildStatus = CampaignDebugStatus(rebuildSucceeded);
@@ -4260,18 +4305,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(hqCase, "hq.rebuild.command_result", "HQ rebuild command succeeds or is blocked by placement while existing runtime objects are proven", ShortCampaignDebugLine(rebuildResult, 220), rebuildStatus, "HQ rebuild command returned failure text");
 			if (rebuildPlacementBlocked)
 			{
-				string rebuildBlockedActual = string.Format("blocked 1 | tracked %1/5 | flag %2 | world petros %3 cache %4 arsenal %5 tent %6 spawn %7", trackedRuntimeObjects, m_State.m_bHQRuntimeObjectsSpawned, petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
+				string rebuildBlockedActual = "blocked 1 | " + rebuildWorldScanSummary;
 				AddCampaignDebugAssertion(hqCase, "hq.rebuild.existing_runtime_preserved", "placement-blocked rebuild leaves existing HQ runtime proof to the existing-runtime case", rebuildBlockedActual, CampaignDebugStatus(runtimeObjectsProven || runtimeObjectsPhysicallyProven), "HQ rebuild was placement-blocked and existing runtime objects were not proven");
+			}
+			else
+			{
+				AddCampaignDebugAssertion(hqCase, "hq.rebuild.settled_world_scan", "HQ rebuild proof is sampled after a runtime settle tick and world-proves all five HQ objects", rebuildWorldScanSummary, CampaignDebugStatus(runtimeObjectsPhysicallyProven), "HQ rebuild settle tick did not world-prove all HQ objects");
 			}
 		}
 		if (!rebuildPlacementBlocked)
 		{
-			AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "HQ runtime object flag is false");
+			AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", hqRuntimeFlag), CampaignDebugStatus(hqRuntimeFlag), "HQ runtime object flag is false");
 			AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent/spawn-point runtime entities tracked", string.Format("%1/5 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 5), "HQ service is not tracking all runtime entities");
 		}
 		if (rebuildAttempted)
 			AddCampaignDebugAssertion(hqCase, "hq.rebuild.identity_refresh", "rebuild refreshes runtime object identities, starts from empty, or is blocked before mutation", string.Format("before %1 | after %2", EmptyCampaignDebugField(runtimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult) || runtimeSummaryBefore.IsEmpty() || runtimeSummaryBefore.Contains(":missing") || runtimeSummaryBefore != runtimeSummaryAfter, "WARN"), "HQ rebuild returned the same runtime identity summary; verify intentional reuse");
-		AddCampaignDebugAssertion(hqCase, "hq.petros.alive", "Petros alive true", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(m_State.m_bPetrosAlive), "Petros is not alive after HQ rebuild");
+		AddCampaignDebugAssertion(hqCase, "hq.petros.alive", "Petros alive true", string.Format("%1", petrosAlive), CampaignDebugStatus(petrosAlive), "Petros is not alive after HQ rebuild");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.position", "Petros position not zero", string.Format("%1", m_State.m_vPetrosPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vPetrosPosition)), "Petros position is zero");
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.position", "arsenal position not zero", string.Format("%1", m_State.m_vArsenalPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vArsenalPosition)), "HQ arsenal position is zero");
 		AddCampaignDebugAssertion(hqCase, "hq.spawn_point.position", "spawn point position not zero", string.Format("%1 | prefab %2", m_State.m_vHQSpawnPointPosition, EmptyCampaignDebugField(m_State.m_sHQSpawnPointPrefab)), CampaignDebugStatus(!IsZeroVector(m_State.m_vHQSpawnPointPosition)), "HQ spawn point position is zero");

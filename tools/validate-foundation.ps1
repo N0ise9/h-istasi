@@ -3180,6 +3180,9 @@ foreach ($requiredCampaignDebugHQRebuildEntry in @(
 		"runtimeObjectsPhysicallyProven",
 		"hq.rebuild.existing_runtime_preserved",
 		"placement-blocked rebuild leaves existing HQ runtime proof to the existing-runtime case",
+		"m_bCampaignDebugHQRebuildAwaitingSettle",
+		"hq.rebuild.settled_world_scan",
+		"waiting one runtime tick before world-proof assertions",
 		"if (!rebuildPlacementBlocked)",
 		"CampaignDebugStatus(runtimeObjectsProven || runtimeObjectsPhysicallyProven)"
 	)) {
