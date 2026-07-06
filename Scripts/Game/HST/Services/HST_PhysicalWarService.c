@@ -5853,12 +5853,28 @@ class HST_PhysicalWarService
 		ApplyActiveZoneCounts(state, zone);
 		if (zone.m_iActiveInfantryCount < infantryCount && infantryCount > 0)
 		{
-			Print(string.Format(
-				"h-istasi garrison | activation partial | zone %1 | requested infantry %2 | active infantry %3 | folded failures may have returned to abstract garrison",
-				zone.m_sZoneId,
-				infantryCount,
-				zone.m_iActiveInfantryCount
-			), LogLevel.WARNING);
+			int pendingInfantry = CountPendingActiveZonePopulationInfantry(state, zone);
+			int pendingGroups = CountPendingActiveZonePopulationGroups(state, zone);
+			if (pendingInfantry > 0)
+			{
+				Print(string.Format(
+					"h-istasi garrison | activation pending native population | zone %1 | requested infantry %2 | active infantry %3 | pending infantry %4 | pending groups %5",
+					zone.m_sZoneId,
+					infantryCount,
+					zone.m_iActiveInfantryCount,
+					pendingInfantry,
+					pendingGroups
+				));
+			}
+			else
+			{
+				Print(string.Format(
+					"h-istasi garrison | activation partial | zone %1 | requested infantry %2 | active infantry %3 | pending infantry 0 | folded failures may have returned to abstract garrison",
+					zone.m_sZoneId,
+					infantryCount,
+					zone.m_iActiveInfantryCount
+				), LogLevel.WARNING);
+			}
 		}
 		if (zone.m_iActiveVehicleCount < vehicleCount && vehicleCount > 0)
 		{
@@ -9627,6 +9643,42 @@ class HST_PhysicalWarService
 
 		zone.m_iActiveInfantryCount = infantryCount;
 		zone.m_iActiveVehicleCount = vehicleCount;
+	}
+
+	protected int CountPendingActiveZonePopulationInfantry(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return 0;
+
+		int infantryCount;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+				continue;
+			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+				continue;
+
+			infantryCount += Math.Max(0, activeGroup.m_iInfantryCount);
+		}
+
+		return infantryCount;
+	}
+
+	protected int CountPendingActiveZonePopulationGroups(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return 0;
+
+		int groupCount;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+				continue;
+			if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
+				groupCount++;
+		}
+
+		return groupCount;
 	}
 
 	protected void FoldActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
