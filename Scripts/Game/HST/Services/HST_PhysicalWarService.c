@@ -5639,8 +5639,7 @@ class HST_PhysicalWarService
 
 	protected int CountAliveRuntimeCrewAgents(string groupId)
 	{
-		int aliveCount;
-		bool foundNativeGroup;
+		array<IEntity> livingCrew = {};
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -5651,29 +5650,17 @@ class HST_PhysicalWarService
 				continue;
 
 			AIGroup group = AIGroup.Cast(entity);
-			if (!group)
+			if (group)
+			{
+				CollectLivingNativeAIGroupEntities(group, livingCrew);
 				continue;
+			}
 
-			foundNativeGroup = true;
-			aliveCount += GetConvoyVehicleControlAdapter().CountLivingCrew(entity);
+			if (IsLivingEntity(entity) && livingCrew.Find(entity) < 0)
+				livingCrew.Insert(entity);
 		}
 
-		if (foundNativeGroup)
-			return aliveCount;
-
-		for (int j = 0; j < m_aRuntimeGroupIds.Count(); j++)
-		{
-			if (m_aRuntimeGroupIds[j] != groupId || j >= m_aRuntimeGroupEntities.Count())
-				continue;
-
-			IEntity entity = m_aRuntimeGroupEntities[j];
-			if (!entity)
-				continue;
-
-			aliveCount += GetConvoyVehicleControlAdapter().CountLivingCrew(entity);
-		}
-
-		return aliveCount;
+		return livingCrew.Count();
 	}
 
 	protected HST_ActiveMissionState FindMissionForConvoyGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -7270,7 +7257,7 @@ class HST_PhysicalWarService
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 
-		int agentCount = CountAliveRuntimeNativeGroupAgents(activeGroup.m_sGroupId);
+		int agentCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
 		if (agentCount <= 0)
 			return false;
 
@@ -7458,7 +7445,7 @@ class HST_PhysicalWarService
 			if (group.IsInitializing() && allowInitializingFallback)
 				DebugLog(string.Format("active group forcing direct infantry fallback while native group is still initializing %1 via %2", activeGroup.m_sGroupId, source));
 
-			int existingCount = CountAliveRuntimeNativeGroupAgents(activeGroup.m_sGroupId);
+			int existingCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
 			if (existingCount > 0)
 				return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing agents");
 
@@ -8694,8 +8681,7 @@ class HST_PhysicalWarService
 
 	protected int CountAliveRuntimeGroupAgents(string groupId)
 	{
-		int groupAgentCount;
-		bool foundNativeGroup;
+		array<IEntity> livingInfantry = {};
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -8708,9 +8694,12 @@ class HST_PhysicalWarService
 			AIGroup group = AIGroup.Cast(entity);
 			if (group)
 			{
-				foundNativeGroup = true;
-				groupAgentCount += CountLivingNativeAIGroupAgents(group);
+				CollectLivingNativeAIGroupEntities(group, livingInfantry);
+				continue;
 			}
+
+			if (IsLivingEntity(entity) && livingInfantry.Find(entity) < 0)
+				livingInfantry.Insert(entity);
 		}
 
 		int vehicleAliveCount;
@@ -8724,29 +8713,12 @@ class HST_PhysicalWarService
 				vehicleAliveCount++;
 		}
 
-		if (groupAgentCount > 0 || foundNativeGroup)
-			return groupAgentCount + vehicleAliveCount;
-
-		int aliveCount;
-		for (int k = 0; k < m_aRuntimeGroupIds.Count(); k++)
-		{
-			if (m_aRuntimeGroupIds[k] != groupId || k >= m_aRuntimeGroupEntities.Count())
-				continue;
-
-			IEntity entity = m_aRuntimeGroupEntities[k];
-			if (!entity || AIGroup.Cast(entity))
-				continue;
-			if (IsLivingEntity(entity))
-				aliveCount++;
-		}
-
-		return aliveCount + vehicleAliveCount;
+		return livingInfantry.Count() + vehicleAliveCount;
 	}
 
 	protected int CountAliveRuntimeInfantryGroupAgents(string groupId)
 	{
-		int groupAgentCount;
-		bool foundNativeGroup;
+		array<IEntity> livingInfantry = {};
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -8759,28 +8731,15 @@ class HST_PhysicalWarService
 			AIGroup group = AIGroup.Cast(entity);
 			if (group)
 			{
-				foundNativeGroup = true;
-				groupAgentCount += CountLivingNativeAIGroupAgents(group);
+				CollectLivingNativeAIGroupEntities(group, livingInfantry);
+				continue;
 			}
+
+			if (IsLivingEntity(entity) && livingInfantry.Find(entity) < 0)
+				livingInfantry.Insert(entity);
 		}
 
-		if (groupAgentCount > 0 || foundNativeGroup)
-			return groupAgentCount;
-
-		int aliveCount;
-		for (int j = 0; j < m_aRuntimeGroupIds.Count(); j++)
-		{
-			if (m_aRuntimeGroupIds[j] != groupId || j >= m_aRuntimeGroupEntities.Count())
-				continue;
-
-			IEntity entity = m_aRuntimeGroupEntities[j];
-			if (!entity || AIGroup.Cast(entity))
-				continue;
-			if (IsLivingEntity(entity))
-				aliveCount++;
-		}
-
-		return aliveCount;
+		return livingInfantry.Count();
 	}
 
 	protected int CountAliveRuntimeNativeGroupAgents(string groupId)
@@ -8803,10 +8762,16 @@ class HST_PhysicalWarService
 
 	protected int CountLivingNativeAIGroupAgents(AIGroup group)
 	{
-		if (!group)
-			return 0;
+		array<IEntity> livingEntities = {};
+		CollectLivingNativeAIGroupEntities(group, livingEntities);
+		return livingEntities.Count();
+	}
 
-		int aliveCount;
+	protected void CollectLivingNativeAIGroupEntities(AIGroup group, array<IEntity> livingEntities)
+	{
+		if (!group || !livingEntities)
+			return;
+
 		array<AIAgent> agents = new array<AIAgent>;
 		group.GetAgents(agents);
 		foreach (AIAgent agent : agents)
@@ -8815,11 +8780,9 @@ class HST_PhysicalWarService
 				continue;
 
 			IEntity controlledEntity = agent.GetControlledEntity();
-			if (IsLivingEntity(controlledEntity))
-				aliveCount++;
+			if (IsLivingEntity(controlledEntity) && livingEntities.Find(controlledEntity) < 0)
+				livingEntities.Insert(controlledEntity);
 		}
-
-		return aliveCount;
 	}
 
 	protected bool HasActiveGarrisonGroup(HST_CampaignState state, HST_ZoneState zone)
