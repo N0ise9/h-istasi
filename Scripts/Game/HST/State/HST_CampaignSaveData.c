@@ -551,6 +551,11 @@ class HST_CampaignSaveData
 		target.m_iSurvivorVehicleCount = source.m_iSurvivorVehicleCount;
 		target.m_iSpawnedAgentCount = source.m_iSpawnedAgentCount;
 		target.m_iAssignedWaypointCount = source.m_iAssignedWaypointCount;
+		target.m_iMaxObservedCrewAlive = source.m_iMaxObservedCrewAlive;
+		target.m_bEverHadLivingCrew = source.m_bEverHadLivingCrew;
+		target.m_bCrewPopulationTerminallyFailed = source.m_bCrewPopulationTerminallyFailed;
+		target.m_sCrewPopulationFailureReason = source.m_sCrewPopulationFailureReason;
+		target.m_sConvoyRuntimeStage = source.m_sConvoyRuntimeStage;
 		target.m_bQRF = source.m_bQRF;
 		target.m_bSpawnAttempted = source.m_bSpawnAttempted;
 		target.m_bSpawnedEntity = source.m_bSpawnedEntity;

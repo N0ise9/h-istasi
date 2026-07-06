@@ -289,6 +289,20 @@ class HST_FactionTemplate
 }
 
 [BaseContainerProps()]
+class HST_FactionRuntimeSpawnSpec
+{
+	string m_sFactionKey;
+	string m_sGroupPrefab;
+	string m_sExpectedNativeFactionKey;
+	string m_sSourceCatalog;
+	string m_sRole;
+	string m_sSourceContext;
+	ref array<string> m_aDirectInfantryPrefabs = {};
+	ref array<string> m_aVehiclePrefabs = {};
+	ref array<string> m_aGroupPrefabs = {};
+}
+
+[BaseContainerProps()]
 class HST_ZoneDefinition
 {
 	[Attribute(defvalue: "", uiwidget: UIWidgets.EditBox, desc: "Zone identifier.", category: "HST Zone")]

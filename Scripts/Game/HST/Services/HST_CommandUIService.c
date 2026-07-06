@@ -225,7 +225,7 @@ class HST_CommandUIService
 		actions.Insert("activate_zone <zone>");
 		actions.Insert("deactivate_zone <zone>");
 		actions.Insert("award_small");
-		actions.Insert("admin_run_campaign_debug [smoke|physical|full]");
+		actions.Insert("admin_run_campaign_debug [smoke|faction|physical|full|post_restart_verify|external_required]");
 		actions.Insert("admin_campaign_debug_status");
 		actions.Insert("admin_campaign_debug_cancel");
 		actions.Insert("admin_campaign_debug_cleanup");
@@ -2574,8 +2574,11 @@ class HST_CommandUIService
 		if (selectedTabId == TAB_ADMIN)
 		{
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Smoke", "admin_run_campaign_debug", "smoke", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Faction", "admin_run_campaign_debug", "faction", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Physical", "admin_run_campaign_debug", "physical", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Full", "admin_run_campaign_debug", "full", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Post-Restart Verify", "admin_run_campaign_debug", "post_restart_verify", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "External Required", "admin_run_campaign_debug", "external_required", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Campaign Debug Status", "admin_campaign_debug_status", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cancel Campaign Debug", "admin_campaign_debug_cancel", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cleanup Campaign Debug", "admin_campaign_debug_cleanup", "", canUseAdmin, "admin required");

@@ -92,6 +92,11 @@ class HST_ActiveGroupState
 	int m_iSurvivorVehicleCount;
 	int m_iSpawnedAgentCount;
 	int m_iAssignedWaypointCount;
+	int m_iMaxObservedCrewAlive;
+	bool m_bEverHadLivingCrew;
+	bool m_bCrewPopulationTerminallyFailed;
+	string m_sCrewPopulationFailureReason;
+	string m_sConvoyRuntimeStage;
 	bool m_bQRF;
 	bool m_bSpawnAttempted;
 	bool m_bSpawnedEntity;

@@ -169,6 +169,69 @@ class HST_DefaultCatalog
 		return null;
 	}
 
+	static HST_FactionRuntimeSpawnSpec ResolveRuntimeSpawnSpec(HST_CampaignPreset preset, string factionKey, string role, string sourceContext)
+	{
+		HST_FactionTemplate faction = CreateFactionTemplate(factionKey);
+		if (!faction)
+			return null;
+
+		HST_FactionRuntimeSpawnSpec spec = new HST_FactionRuntimeSpawnSpec();
+		spec.m_sFactionKey = factionKey;
+		spec.m_sExpectedNativeFactionKey = factionKey;
+		spec.m_sRole = role;
+		spec.m_sSourceContext = sourceContext;
+		spec.m_sSourceCatalog = BuildRuntimeSpawnSpecSource(preset, factionKey, role, sourceContext);
+		AppendRuntimeSpawnSpecPrefabs(spec.m_aDirectInfantryPrefabs, faction.m_aInfantryPrefabs);
+		AppendRuntimeSpawnSpecPrefabs(spec.m_aVehiclePrefabs, faction.m_aVehiclePrefabs);
+		if (role == "qrf")
+		{
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aQRFGroupPrefabs);
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aGroupPrefabs);
+		}
+		else if (role == "patrol")
+		{
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aPatrolGroupPrefabs);
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aGroupPrefabs);
+		}
+		else if (role == "convoy_crew")
+		{
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aGroupPrefabs);
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aPatrolGroupPrefabs);
+		}
+		else
+		{
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aGroupPrefabs);
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aPatrolGroupPrefabs);
+			AppendRuntimeSpawnSpecPrefabs(spec.m_aGroupPrefabs, faction.m_aQRFGroupPrefabs);
+		}
+
+		if (spec.m_aGroupPrefabs.Count() > 0)
+			spec.m_sGroupPrefab = spec.m_aGroupPrefabs[0];
+
+		return spec;
+	}
+
+	static void AppendRuntimeSpawnSpecPrefabs(array<string> target, array<string> source)
+	{
+		if (!target || !source)
+			return;
+
+		foreach (string prefab : source)
+		{
+			if (!prefab.IsEmpty() && !target.Contains(prefab))
+				target.Insert(prefab);
+		}
+	}
+
+	static string BuildRuntimeSpawnSpecSource(HST_CampaignPreset preset, string factionKey, string role, string sourceContext)
+	{
+		string presetId = "default";
+		if (preset && !preset.m_sPresetId.IsEmpty())
+			presetId = preset.m_sPresetId;
+
+		return string.Format("default catalog %1 | faction %2 | role %3 | source %4", presetId, factionKey, role, sourceContext);
+	}
+
 	static void AddDefaultZones(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("airfield_airbase_saint_philippe", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_AIRFIELD, "4915.073 28.594 11855.36", 150, 24, "route_airfield_airbase_saint_philippe", "qrf_airfield_airbase_saint_philippe", "site_airfield_airbase_saint_philippe"), "Airbase Saint-Philippe", "tonka:base:01:MilitaryBaseAirfield", "Bases.layer", "air", 320, 23, "BOSTON", "red", "enemy_base", "comp_airfield_airbase_saint_philippe", "spawn_airfield_garrison"));

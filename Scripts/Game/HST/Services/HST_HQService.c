@@ -9,6 +9,9 @@ class HST_HQService
 	static const string HQ_SPAWN_POINT_PREFAB = "{72713ED566A531F3}PrefabsEditable/SpawnPoints/E_SpawnPoint_FIA.et";
 	static const float ARSENAL_POSITION_TOLERANCE_METERS = 4.0;
 	static const float PETROS_REATTACH_RADIUS_METERS = 8.0;
+	static const float PETROS_WORLD_UNIQUE_RADIUS_METERS = 10.0;
+	static const int PETROS_RESPAWN_DEBOUNCE_SECONDS = 10;
+	static const int PETROS_STABILITY_SAMPLE_SECONDS = 15;
 	static const string CUSTOM_SETUP_HQ_ID = "custom_setup_hq";
 	static const float SETUP_ZONE_FALLBACK_RADIUS_METERS = 150.0;
 
@@ -31,6 +34,10 @@ class HST_HQService
 	protected bool m_bLoggedTentSpawned;
 	protected bool m_bLoggedSpawnPointSpawned;
 	protected bool m_bDebugLoggingEnabled;
+	protected int m_iPetrosMissingSinceSecond = -1;
+	protected int m_iPetrosLastSpawnSecond = -999999;
+	protected int m_iPetrosSpawnCount;
+	protected string m_sPetrosStableRuntimeKey;
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
@@ -218,10 +225,10 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked() && IsUsableArsenalEntity(m_ArsenalEntity))
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity))
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked())
+		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked(state))
 			state.m_bHQRuntimeObjectsSpawned = false;
 
 		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
@@ -232,23 +239,23 @@ class HST_HQService
 		bool changed;
 		bool logDetails = !m_bWarnedRuntimeSpawnIncomplete;
 
-		if (!m_PetrosEntity)
+		IEntity worldPetros = ResolveLivingPetrosWorldEntity(state);
+		if (worldPetros && worldPetros != m_PetrosEntity)
 		{
-			m_PetrosEntity = FindWorldRuntimeEntityNear(state.m_vPetrosPosition, ResolvePetrosPrefab(state), PETROS_REATTACH_RADIUS_METERS);
-			if (m_PetrosEntity)
+			m_PetrosEntity = worldPetros;
+			PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
+			m_iPetrosMissingSinceSecond = -1;
+			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
+			if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "world reattach"))
 			{
-				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
-				if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach"))
-				{
-					DebugLog(string.Format("lifecycle reattached Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
-				}
-				else
-				{
-					WarnPetrosAIGroupFallback("reattach");
-					DebugLog(string.Format("lifecycle reattached Petros without durable AIGroup prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
-				}
-				changed = true;
+				DebugLog(string.Format("lifecycle reattached living world Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
 			}
+			else
+			{
+				WarnPetrosAIGroupFallback("world reattach");
+				DebugLog(string.Format("lifecycle reattached living world Petros without durable AIGroup prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
+			}
+			changed = true;
 		}
 
 		if (m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity))
@@ -265,9 +272,11 @@ class HST_HQService
 			m_bLoggedPetrosSpawned = false;
 			changed = true;
 		}
-		else if (m_PetrosEntity && !IsPetrosAIGroupTracked())
+		else if (m_PetrosEntity)
 		{
-			if (!EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "runtime refresh"))
+			m_iPetrosMissingSinceSecond = -1;
+			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
+			if (!IsPetrosAIGroupTracked() && !EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "runtime refresh"))
 				WarnPetrosAIGroupFallback("runtime refresh");
 		}
 
@@ -286,16 +295,34 @@ class HST_HQService
 
 		if (!m_PetrosEntity)
 		{
-			m_PetrosEntity = SpawnPetros(respawnSystem, state);
-			if (m_PetrosEntity)
+			if (m_iPetrosMissingSinceSecond < 0)
+				m_iPetrosMissingSinceSecond = state.m_iElapsedSeconds;
+
+			int missingFor = state.m_iElapsedSeconds - m_iPetrosMissingSinceSecond;
+			int sinceLastSpawn = state.m_iElapsedSeconds - m_iPetrosLastSpawnSecond;
+			bool firstSpawn = m_iPetrosSpawnCount <= 0 && !m_bLoggedPetrosSpawned;
+			bool canSpawnPetros = firstSpawn || (missingFor >= PETROS_RESPAWN_DEBOUNCE_SECONDS && sinceLastSpawn >= PETROS_RESPAWN_DEBOUNCE_SECONDS);
+			if (!canSpawnPetros)
 			{
-				PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
-				m_bLoggedPetrosSpawned = LogRuntimeObjectSpawnSuccess("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition, m_bLoggedPetrosSpawned);
-				changed = true;
+				DebugLog(string.Format("lifecycle Petros missing but respawn debounced | missingFor=%1 | sinceLastSpawn=%2 | spawnCount=%3", missingFor, sinceLastSpawn, m_iPetrosSpawnCount));
 			}
-			else if (logDetails)
+			else
 			{
-				LogRuntimeObjectSpawnFailure("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition);
+				m_PetrosEntity = SpawnPetros(respawnSystem, state);
+				if (m_PetrosEntity)
+				{
+					PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
+					m_iPetrosLastSpawnSecond = state.m_iElapsedSeconds;
+					m_iPetrosSpawnCount++;
+					m_iPetrosMissingSinceSecond = -1;
+					m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
+					m_bLoggedPetrosSpawned = LogRuntimeObjectSpawnSuccess("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition, m_bLoggedPetrosSpawned);
+					changed = true;
+				}
+				else if (logDetails)
+				{
+					LogRuntimeObjectSpawnFailure("Petros", ResolvePetrosPrefab(state), state.m_vPetrosPosition);
+				}
 			}
 		}
 
@@ -360,7 +387,7 @@ class HST_HQService
 				LogRuntimeObjectSpawnFailure("spawn point", HQ_SPAWN_POINT_PREFAB, state.m_vHQSpawnPointPosition);
 		}
 
-		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked();
+		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked(state);
 		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != allRuntimeObjectsTracked;
 		state.m_bHQRuntimeObjectsSpawned = allRuntimeObjectsTracked;
 		if (!allRuntimeObjectsTracked)
@@ -631,6 +658,29 @@ class HST_HQService
 		return BuildRuntimeEntityKey("petros", m_PetrosEntity);
 	}
 
+	int GetPetrosSpawnCount()
+	{
+		return m_iPetrosSpawnCount;
+	}
+
+	int GetPetrosRespawnDebounceSeconds()
+	{
+		return PETROS_RESPAWN_DEBOUNCE_SECONDS;
+	}
+
+	int GetPetrosStabilitySampleSeconds()
+	{
+		return PETROS_STABILITY_SAMPLE_SECONDS;
+	}
+
+	string GetPetrosStableRuntimeKey()
+	{
+		if (!m_sPetrosStableRuntimeKey.IsEmpty())
+			return m_sPetrosStableRuntimeKey;
+
+		return GetPetrosRuntimeEntityKey();
+	}
+
 	bool HasPetrosRuntimeAIGroup()
 	{
 		return IsPetrosAIGroupTracked();
@@ -678,7 +728,7 @@ class HST_HQService
 		if (!state)
 			return -1;
 
-		return CountWorldRuntimeEntitiesNear(state.m_vPetrosPosition, ResolveRuntimeScanPrefab(ResolvePetrosRuntimeEntity(), ResolvePetrosPrefab(state)), 10.0);
+		return CountLivingPetrosWorldRuntimeEntities(state);
 	}
 
 	int CountCacheWorldRuntimeEntities(HST_CampaignState state)
@@ -1396,14 +1446,20 @@ class HST_HQService
 			factionComponent.SetAffiliatedFactionByKey("FIA");
 	}
 
-	protected bool AreRuntimeObjectsTracked()
+	protected bool AreRuntimeObjectsTracked(HST_CampaignState state = null)
 	{
-		return IsPetrosRuntimeTracked() && m_CacheEntity && m_ArsenalEntity && m_TentEntity && m_SpawnPointEntity;
+		return IsPetrosRuntimeTracked(state) && m_CacheEntity && m_ArsenalEntity && m_TentEntity && m_SpawnPointEntity;
 	}
 
-	protected bool IsPetrosRuntimeTracked()
+	protected bool IsPetrosRuntimeTracked(HST_CampaignState state = null)
 	{
-		return IsLivingRuntimeEntity(m_PetrosEntity);
+		if (IsLivingRuntimeEntity(m_PetrosEntity))
+			return true;
+
+		if (!state)
+			return false;
+
+		return CountLivingPetrosWorldRuntimeEntities(state) == 1;
 	}
 
 	protected bool IsLivingRuntimeEntity(IEntity entity)
@@ -1431,6 +1487,49 @@ class HST_HQService
 	protected IEntity ResolvePetrosRuntimeEntity()
 	{
 		return m_PetrosEntity;
+	}
+
+	protected IEntity ResolveLivingPetrosWorldEntity(HST_CampaignState state)
+	{
+		if (!state)
+			return null;
+
+		IEntity found = FindWorldRuntimeEntityNear(state.m_vPetrosPosition, ResolvePetrosPrefab(state), PETROS_WORLD_UNIQUE_RADIUS_METERS);
+		if (found && IsLivingRuntimeEntity(found))
+			return found;
+
+		return null;
+	}
+
+	protected int CountLivingPetrosWorldRuntimeEntities(HST_CampaignState state)
+	{
+		if (!state)
+			return -1;
+
+		int count;
+		string prefab = ResolveRuntimeScanPrefab(ResolvePetrosRuntimeEntity(), ResolvePetrosPrefab(state));
+		if (prefab.IsEmpty())
+			prefab = PETROS_PREFAB;
+
+		if (!GetGame())
+			return -1;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return -1;
+
+		m_sWorldScanPrefab = prefab;
+		m_aWorldScanCandidates.Clear();
+		world.QueryEntitiesBySphere(state.m_vPetrosPosition, PETROS_WORLD_UNIQUE_RADIUS_METERS, AddWorldScanCandidate, null, EQueryEntitiesFlags.ALL);
+		foreach (IEntity candidate : m_aWorldScanCandidates)
+		{
+			if (IsLivingRuntimeEntity(candidate))
+				count++;
+		}
+
+		m_aWorldScanCandidates.Clear();
+		m_sWorldScanPrefab = "";
+		return count;
 	}
 
 	protected bool IsPetrosAIGroupTracked()
@@ -1526,6 +1625,9 @@ class HST_HQService
 			if (!candidate)
 				continue;
 
+			if (IsPetrosScanPrefab(m_sWorldScanPrefab) && !IsLivingRuntimeEntity(candidate))
+				continue;
+
 			found = candidate;
 			break;
 		}
@@ -1541,9 +1643,36 @@ class HST_HQService
 			return true;
 
 		if (ResolveEntityPrefabName(entity) == m_sWorldScanPrefab)
+		{
+			m_aWorldScanCandidates.Insert(entity);
+			return true;
+		}
+
+		if (IsPetrosScanPrefab(m_sWorldScanPrefab) && IsPetrosRuntimeCandidate(entity))
 			m_aWorldScanCandidates.Insert(entity);
 
 		return true;
+	}
+
+	protected bool IsPetrosScanPrefab(string prefab)
+	{
+		return prefab == PETROS_PREFAB || prefab == PETROS_BASE_PREFAB || prefab.Contains("Character_HST_Petros") || prefab.Contains("Character_FIA_Rifleman");
+	}
+
+	protected bool IsPetrosRuntimeCandidate(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		string name = entity.GetName();
+		if (name == "HST_Petros")
+			return true;
+
+		string prefab = ResolveEntityPrefabName(entity);
+		if (prefab == PETROS_PREFAB || prefab.Contains("Character_HST_Petros"))
+			return true;
+
+		return false;
 	}
 
 	protected string ResolveRuntimeScanPrefab(IEntity entity, string fallbackPrefab)
@@ -1615,6 +1744,8 @@ class HST_HQService
 		m_bLoggedSpawnPointSpawned = false;
 		m_bWarnedPetrosRemovalRetry = false;
 		m_bWarnedPetrosAIGroupFallback = false;
+		m_iPetrosMissingSinceSecond = -1;
+		m_sPetrosStableRuntimeKey = "";
 
 		if (state)
 		{

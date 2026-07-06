@@ -53,6 +53,9 @@ class HST_CampaignDebugRunResult
 	string m_sCampaignSeed;
 	string m_sPlayerIdentityId;
 	string m_sWorldName;
+	string m_sBuildSha;
+	string m_sBuildUtc;
+	string m_sBuildLabel;
 	string m_sMarkerPrefix;
 	string m_sMissionPrefix;
 	string m_sEntityTag;

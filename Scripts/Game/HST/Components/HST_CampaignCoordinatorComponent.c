@@ -227,6 +227,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		s_Instance = this;
 		Print(string.Format("h-istasi boot | authority build %1 | server coordinator loaded", RUNTIME_AUTHORITY_BUILD));
+		Print("h-istasi | build | " + HST_BuildInfo.BuildSummary());
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -3035,7 +3036,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string normalizedProfile = NormalizeCampaignDebugProfile(profile);
 		if (normalizedProfile.IsEmpty())
-			return "h-istasi campaign debug | failed: invalid profile, use smoke, physical, or full";
+			return "h-istasi campaign debug | failed: invalid profile, use smoke, faction, physical, full, post_restart_verify, or external_required";
 
 		if (m_bCampaignDebugRunning)
 			return "h-istasi campaign debug | already running\n" + BuildCampaignDebugStatusReport();
@@ -3183,6 +3184,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (m_iCampaignDebugStepIndex == 3)
 		{
+			if (!ShouldCampaignDebugRunEconomyForceStage())
+			{
+				SkipCampaignDebugStageForProfile("economy force", 4);
+				return;
+			}
+
 			RunCampaignDebugEconomyForceStep();
 			return;
 		}
@@ -3238,7 +3245,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		normalized.ToLower();
 		if (normalized.IsEmpty())
 			return CAMPAIGN_DEBUG_DEFAULT_PROFILE;
-		if (normalized == "smoke" || normalized == "physical" || normalized == "full")
+		if (normalized == "smoke" || normalized == "faction" || normalized == "physical" || normalized == "full" || normalized == "post_restart_verify" || normalized == "external_required")
 			return normalized;
 
 		return "";
@@ -3246,12 +3253,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool ShouldCampaignDebugRunEarlyPhaseStage()
 	{
-		return m_sCampaignDebugProfile != "smoke";
+		return m_sCampaignDebugProfile != "smoke" && m_sCampaignDebugProfile != "post_restart_verify" && m_sCampaignDebugProfile != "external_required";
+	}
+
+	protected bool ShouldCampaignDebugRunEconomyForceStage()
+	{
+		return m_sCampaignDebugProfile != "post_restart_verify" && m_sCampaignDebugProfile != "external_required";
 	}
 
 	protected bool ShouldCampaignDebugRunMissionSweepStage()
 	{
-		return m_sCampaignDebugProfile != "smoke";
+		return m_sCampaignDebugProfile == "physical" || m_sCampaignDebugProfile == "full";
 	}
 
 	protected bool ShouldCampaignDebugRunPhaseSmokeStage()
@@ -3336,6 +3348,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.enemy_commander", "enemy commander service non-null", string.Format("%1", m_EnemyCommander != null), CampaignDebugStatus(m_EnemyCommander != null), "enemy commander service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.hq", "HQ service non-null", string.Format("%1", m_HQ != null), CampaignDebugStatus(m_HQ != null), "HQ service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.map_markers", "map marker service non-null", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "map marker service missing");
+		bool buildProvenancePresent = !HST_BuildInfo.BUILD_SHA.IsEmpty() && !HST_BuildInfo.BUILD_UTC.IsEmpty() && !HST_BuildInfo.BUILD_LABEL.IsEmpty();
+		AddCampaignDebugAssertion(preflightCase, "preflight.build_provenance", "server build sha, utc, and label are non-empty", HST_BuildInfo.BuildSummary(), CampaignDebugStatus(buildProvenancePresent), "build provenance is missing from this server build");
+		if (m_sCampaignDebugProfile == "external_required")
+			AddCampaignDebugAssertion(preflightCase, "preflight.external_required", "real restart, reconnect, and second-client soak are not claimed by the in-process runner", "external launcher/client orchestration required", "BLOCKED", "run post_restart_verify after an actual server restart and client reconnect");
+		else if (m_sCampaignDebugProfile == "post_restart_verify")
+			AddCampaignDebugAssertion(preflightCase, "preflight.post_restart_scope", "post-restart verify checks the currently loaded restarted server process only", "in-process verification profile", "WARN", "the runner cannot prove who restarted the process");
 		AddCampaignDebugGameMasterBudgetAssertions(preflightCase);
 
 		int missionCount;
@@ -3932,24 +3950,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EnsureCampaignDebugActivePhase("HQ spawn");
 		TeleportCampaignDebugPlayerToHQ("HQ spawn");
 		int spawnRequests = ProcessPlayerSpawnSweep("campaign debug HQ spawn", true);
+		if (m_HQ)
+			m_HQ.EnsureRuntimeObjects(m_State);
 		string runtimeSummaryBefore;
 		if (m_HQ)
 			runtimeSummaryBefore = m_HQ.BuildRuntimeObjectDebugSummary();
+		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, "", runtimeSummaryBefore, runtimeSummaryBefore, false));
 		string rebuildResult = RequestCommanderRebuildHQAssetsReport(m_iCampaignDebugPlayerId);
 		string runtimeSummaryAfter;
 		if (m_HQ)
 			runtimeSummaryAfter = m_HQ.BuildRuntimeObjectDebugSummary();
-		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, rebuildResult, runtimeSummaryBefore, runtimeSummaryAfter));
+		RecordCampaignDebugCase(BuildCampaignDebugHQRuntimeCase(spawnRequests, rebuildResult, runtimeSummaryBefore, runtimeSummaryAfter, true));
 		RecordCampaignDebugObservation("HQ threat", RequestMemberInspectHQThreat(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("arsenal", RequestMemberInspectArsenal(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("loadout editor", RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId));
 		AdvanceCampaignDebugStep("HQ and spawn checks complete.");
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugHQRuntimeCase(int spawnRequests, string rebuildResult, string runtimeSummaryBefore, string runtimeSummaryAfter)
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugHQRuntimeCase(int spawnRequests, string rebuildResult, string runtimeSummaryBefore, string runtimeSummaryAfter, bool rebuildAttempted)
 	{
-		HST_CampaignDebugCaseResult hqCase = CreateCampaignDebugCase("hq.runtime_objects_after_rebuild", "hq", "hq_runtime", "hq_spawn");
-		hqCase.m_aEvidence.Insert(rebuildResult);
+		string caseId = "hq.runtime_objects_existing";
+		if (rebuildAttempted)
+			caseId = "hq.rebuild_command";
+		HST_CampaignDebugCaseResult hqCase = CreateCampaignDebugCase(caseId, "hq", "hq_runtime", "hq_spawn");
+		if (rebuildAttempted)
+			hqCase.m_aEvidence.Insert(rebuildResult);
 		hqCase.m_aEvidence.Insert("runtime objects before rebuild | " + EmptyCampaignDebugField(runtimeSummaryBefore));
 		hqCase.m_aEvidence.Insert("runtime objects after rebuild | " + EmptyCampaignDebugField(runtimeSummaryAfter));
 		AddCampaignDebugMetric(hqCase, "hq.spawn_requests", string.Format("%1", spawnRequests), "count");
@@ -3957,10 +3982,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_HQ)
 			trackedRuntimeObjects = m_HQ.GetTrackedRuntimeObjectCount();
 		AddCampaignDebugMetric(hqCase, "hq.runtime_objects.tracked", string.Format("%1", trackedRuntimeObjects), "count");
-		AddCampaignDebugAssertion(hqCase, "hq.rebuild.command_result", "HQ rebuild command accepted", ShortCampaignDebugLine(rebuildResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(rebuildResult)), "HQ rebuild command returned failure text");
+		bool runtimeObjectsProven = m_HQ != null && trackedRuntimeObjects == 5 && m_State.m_bHQRuntimeObjectsSpawned;
+		if (rebuildAttempted)
+		{
+			string rebuildStatus = CampaignDebugStatus(IsCampaignDebugResultSuccessful(rebuildResult));
+			if (!IsCampaignDebugResultSuccessful(rebuildResult) && IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult) && runtimeObjectsProven)
+				rebuildStatus = "BLOCKED";
+			AddCampaignDebugAssertion(hqCase, "hq.rebuild.command_result", "HQ rebuild command succeeds or is blocked by placement while existing runtime objects are proven", ShortCampaignDebugLine(rebuildResult, 220), rebuildStatus, "HQ rebuild command returned failure text");
+		}
 		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.flag", "HQ runtime object flag true", string.Format("%1", m_State.m_bHQRuntimeObjectsSpawned), CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned), "HQ runtime object flag is false after rebuild");
 		AddCampaignDebugAssertion(hqCase, "hq.runtime_objects.tracked_count", "Petros/cache/arsenal/tent/spawn-point runtime entities tracked", string.Format("%1/5 | %2", trackedRuntimeObjects, EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(m_HQ != null && trackedRuntimeObjects == 5), "HQ service is not tracking all runtime entities");
-		AddCampaignDebugAssertion(hqCase, "hq.rebuild.identity_refresh", "rebuild refreshes runtime object identities or starts from empty", string.Format("before %1 | after %2", EmptyCampaignDebugField(runtimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(runtimeSummaryBefore.IsEmpty() || runtimeSummaryBefore.Contains(":missing") || runtimeSummaryBefore != runtimeSummaryAfter, "WARN"), "HQ rebuild returned the same runtime identity summary; verify intentional reuse");
+		if (rebuildAttempted)
+			AddCampaignDebugAssertion(hqCase, "hq.rebuild.identity_refresh", "rebuild refreshes runtime object identities, starts from empty, or is blocked before mutation", string.Format("before %1 | after %2", EmptyCampaignDebugField(runtimeSummaryBefore), EmptyCampaignDebugField(runtimeSummaryAfter)), CampaignDebugStatus(IsCampaignDebugHQRebuildPlacementBlocked(rebuildResult) || runtimeSummaryBefore.IsEmpty() || runtimeSummaryBefore.Contains(":missing") || runtimeSummaryBefore != runtimeSummaryAfter, "WARN"), "HQ rebuild returned the same runtime identity summary; verify intentional reuse");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.alive", "Petros alive true", string.Format("%1", m_State.m_bPetrosAlive), CampaignDebugStatus(m_State.m_bPetrosAlive), "Petros is not alive after HQ rebuild");
 		AddCampaignDebugAssertion(hqCase, "hq.petros.position", "Petros position not zero", string.Format("%1", m_State.m_vPetrosPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vPetrosPosition)), "Petros position is zero");
 		AddCampaignDebugAssertion(hqCase, "hq.arsenal.position", "arsenal position not zero", string.Format("%1", m_State.m_vArsenalPosition), CampaignDebugStatus(!IsZeroVector(m_State.m_vArsenalPosition)), "HQ arsenal position is zero");
@@ -3991,6 +4024,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugMetric(hqCase, "hq.world_scan.arsenal", string.Format("%1", arsenalWorldCount), "count");
 			AddCampaignDebugMetric(hqCase, "hq.world_scan.tent", string.Format("%1", tentWorldCount), "count");
 			AddCampaignDebugMetric(hqCase, "hq.world_scan.spawn_point", string.Format("%1", spawnPointWorldCount), "count");
+			AddCampaignDebugMetric(hqCase, "hq.petros.spawn_count", string.Format("%1", m_HQ.GetPetrosSpawnCount()), "count");
+			int allowedPetrosSpawnCount = 1;
+			if (rebuildAttempted)
+				allowedPetrosSpawnCount = 2;
+			string petrosStabilityActual = string.Format("spawnCount %1/%2 | world count %3 | stable key %4 | debounce %5s", m_HQ.GetPetrosSpawnCount(), allowedPetrosSpawnCount, petrosWorldCount, EmptyCampaignDebugField(m_HQ.GetPetrosStableRuntimeKey()), m_HQ.GetPetrosRespawnDebounceSeconds());
+			AddCampaignDebugAssertion(hqCase, "hq.petros.spawn_loop_guard", "Petros has exactly one living world entity and does not require repeated lifecycle spawns", petrosStabilityActual, CampaignDebugStatus(petrosWorldCount == 1 && m_HQ.GetPetrosSpawnCount() <= allowedPetrosSpawnCount), "Petros spawn lifecycle is unstable or duplicated");
+			string runtimeFlagActual = string.Format("flag %1 | tracked %2/5 | petrosWorld %3 | cache %4 | arsenal %5 | tent %6 | spawn %7", m_State.m_bHQRuntimeObjectsSpawned, trackedRuntimeObjects, petrosWorldCount, cacheWorldCount, arsenalWorldCount, tentWorldCount, spawnPointWorldCount);
+			AddCampaignDebugAssertion(hqCase, "hq.runtime.flag_stabilizes", "HQ runtime flag is true once all five runtime objects are world-proven", runtimeFlagActual, CampaignDebugStatus(m_State.m_bHQRuntimeObjectsSpawned && petrosWorldCount == 1 && cacheWorldCount == 1 && arsenalWorldCount == 1 && tentWorldCount == 1 && spawnPointWorldCount == 1), "HQ runtime flag did not stabilize despite world object proof");
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "petros", "Petros", petrosWorldCount);
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "cache", "HQ cache", cacheWorldCount);
 			AddCampaignDebugHQWorldScanAssertion(hqCase, "arsenal", "HQ arsenal", arsenalWorldCount);
@@ -4030,6 +4071,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return hqCase;
 	}
 
+	protected bool IsCampaignDebugHQRebuildPlacementBlocked(string rebuildResult)
+	{
+		if (rebuildResult.IsEmpty())
+			return false;
+
+		return rebuildResult.Contains("build placement denied") || rebuildResult.Contains("no dry ground");
+	}
+
 	protected void AddCampaignDebugCommandMenuAvailabilityAssertions(HST_CampaignDebugCaseResult hqCase)
 	{
 		if (!hqCase)
@@ -4041,7 +4090,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_CommandUI)
 			coverageReport = m_CommandUI.BuildCommandCoverageReport(m_State);
 
-		bool runVisible = adminPayload.Contains("|admin_run_campaign_debug|smoke|") && adminPayload.Contains("|admin_run_campaign_debug|physical|") && adminPayload.Contains("|admin_run_campaign_debug|full|");
+		bool runVisible = adminPayload.Contains("|admin_run_campaign_debug|smoke|") && adminPayload.Contains("|admin_run_campaign_debug|faction|") && adminPayload.Contains("|admin_run_campaign_debug|physical|") && adminPayload.Contains("|admin_run_campaign_debug|full|") && adminPayload.Contains("|admin_run_campaign_debug|post_restart_verify|") && adminPayload.Contains("|admin_run_campaign_debug|external_required|");
 		bool statusVisible = adminPayload.Contains("|admin_campaign_debug_status|");
 		bool cancelVisible = adminPayload.Contains("|admin_campaign_debug_cancel|");
 		bool cleanupVisible = adminPayload.Contains("|admin_campaign_debug_cleanup|");
@@ -5188,9 +5237,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CampaignDebugRunResult.m_sProfile = m_sCampaignDebugProfile;
 		m_CampaignDebugRunResult.m_sPlayerIdentityId = ResolveTrustedIdentityId(playerId);
 		m_CampaignDebugRunResult.m_sWorldName = GetGame().GetWorldFile();
+		m_CampaignDebugRunResult.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		m_CampaignDebugRunResult.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		m_CampaignDebugRunResult.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
 		m_CampaignDebugRunResult.m_sMarkerPrefix = m_sCampaignDebugMarkerPrefix;
 		m_CampaignDebugRunResult.m_sMissionPrefix = m_sCampaignDebugMissionPrefix;
 		m_CampaignDebugRunResult.m_sEntityTag = m_sCampaignDebugEntityTag;
+		AddCampaignDebugRunMetric("run.build.sha", HST_BuildInfo.BUILD_SHA, "sha");
+		AddCampaignDebugRunMetric("run.build.utc", HST_BuildInfo.BUILD_UTC, "utc");
+		AddCampaignDebugRunMetric("run.build.label", HST_BuildInfo.BUILD_LABEL, "label");
 		AddCampaignDebugRunMetric("run.marker_prefix", m_sCampaignDebugMarkerPrefix, "id");
 		AddCampaignDebugRunMetric("run.mission_prefix", m_sCampaignDebugMissionPrefix, "id");
 		AddCampaignDebugRunMetric("run.entity_tag", m_sCampaignDebugEntityTag, "tag");
@@ -6014,6 +6069,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_CampaignDebugRunResult)
 		{
 			lines.Insert("world " + m_CampaignDebugRunResult.m_sWorldName);
+			lines.Insert("build " + HST_BuildInfo.BuildSummary());
 			lines.Insert("campaign seed " + m_CampaignDebugRunResult.m_sCampaignSeed);
 			lines.Insert("player " + m_CampaignDebugRunResult.m_sPlayerIdentityId);
 			lines.Insert(string.Format("started %1 | ended %2", m_CampaignDebugRunResult.m_iStartedAtSecond, m_CampaignDebugRunResult.m_iEndedAtSecond));
