@@ -6179,7 +6179,7 @@ class HST_PhysicalWarService
 
 	protected bool UpdateQRF(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector)
 	{
-		bool changed = SpawnPendingQRFs(state);
+		bool changed = SpawnPendingQRFs(state, preset);
 		changed = ResolveArrivedQRFs(state) || changed;
 		if (!enemyDirector)
 			return changed;
@@ -6223,7 +6223,7 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
-	protected bool SpawnPendingQRFs(HST_CampaignState state)
+	protected bool SpawnPendingQRFs(HST_CampaignState state, HST_CampaignPreset preset = null)
 	{
 		if (!state)
 			return false;
