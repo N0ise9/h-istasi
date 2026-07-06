@@ -1632,6 +1632,8 @@ class HST_PhysicalWarService
 			activeGroup.m_iLastSeenAliveCount = 0;
 			activeGroup.m_iSurvivorInfantryCount = 0;
 			activeGroup.m_iSpawnedAgentCount = Math.Max(1, activeGroup.m_iSpawnedAgentCount);
+			activeGroup.m_bEverHadLivingCrew = true;
+			activeGroup.m_iMaxObservedCrewAlive = Math.Max(activeGroup.m_iMaxObservedCrewAlive, 1);
 		}
 	}
 
@@ -3729,17 +3731,17 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup)
 			return false;
-		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
-			return true;
 		if (activeGroup.m_sRuntimeStatus == "spawn_failed")
 			return false;
+		if (!HasMissionConvoyCrewEverBeenObservedAlive(activeGroup))
+			return false;
+		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
+			return true;
 		if (IsConvoyCrewControlPending(state, activeGroup))
 			return false;
 		if (!activeGroup.m_bSpawnedEntity)
 			return false;
 		if (!GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId))
-			return false;
-		if (!activeGroup.m_bEverHadLivingCrew && activeGroup.m_iMaxObservedCrewAlive <= 0)
 			return false;
 		if (activeGroup.m_iSpawnedAgentCount <= 0 && activeGroup.m_iLastSeenAliveCount <= 0 && activeGroup.m_iSurvivorInfantryCount <= 0)
 			return false;
@@ -4440,14 +4442,32 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || activeGroup.m_sRuntimeStatus == "spawn_failed")
 			return false;
-		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
-			return true;
 		if (aliveCrew > 0)
 			return false;
+		if (!HasMissionConvoyCrewEverBeenObservedAlive(activeGroup))
+			return false;
+		if (activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "eliminated")
+			return true;
 		if (!IsMissionConvoyCrewEliminationObservable(state, activeGroup))
 			return false;
 
 		return true;
+	}
+
+	protected bool HasMissionConvoyCrewEverBeenObservedAlive(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (activeGroup.m_bEverHadLivingCrew)
+			return true;
+		if (activeGroup.m_iMaxObservedCrewAlive > 0)
+			return true;
+		if (activeGroup.m_iLastSeenAliveCount > 0)
+			return true;
+		if (activeGroup.m_iSurvivorInfantryCount > 0)
+			return true;
+
+		return false;
 	}
 
 	protected string ReportText(string value)
