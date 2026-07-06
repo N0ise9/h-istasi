@@ -225,7 +225,7 @@ class HST_HQService
 		if (!state || !state.m_bHQDeployed || !state.m_bPetrosAlive)
 			return false;
 
-		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked() && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity))
+		if (state.m_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked(state) && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity))
 			return false;
 
 		if (state.m_bHQRuntimeObjectsSpawned && !AreRuntimeObjectsTracked(state))
@@ -239,24 +239,8 @@ class HST_HQService
 		bool changed;
 		bool logDetails = !m_bWarnedRuntimeSpawnIncomplete;
 
-		IEntity worldPetros = ResolveLivingPetrosWorldEntity(state);
-		if (worldPetros && worldPetros != m_PetrosEntity)
-		{
-			m_PetrosEntity = worldPetros;
-			PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
-			m_iPetrosMissingSinceSecond = -1;
-			m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
-			if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach"))
-			{
-				DebugLog(string.Format("lifecycle reattached living world Petros prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
-			}
-			else
-			{
-				WarnPetrosAIGroupFallback("reattach");
-				DebugLog(string.Format("lifecycle reattached living world Petros without durable AIGroup prefab=%1 entity=%2 pos=%3", ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
-			}
+		if (ReattachUniqueLivingWorldPetros(state, "reattach"))
 			changed = true;
-		}
 
 		if (m_PetrosEntity && !IsLivingRuntimeEntity(m_PetrosEntity))
 		{
@@ -387,8 +371,12 @@ class HST_HQService
 				LogRuntimeObjectSpawnFailure("spawn point", HQ_SPAWN_POINT_PREFAB, state.m_vHQSpawnPointPosition);
 		}
 
+		if (!IsLivingRuntimeEntity(m_PetrosEntity) && ReattachUniqueLivingWorldPetros(state, "final runtime proof"))
+			changed = true;
+
 		bool allRuntimeObjectsTracked = AreRuntimeObjectsTracked(state);
-		bool runtimeObjectsReady = allRuntimeObjectsTracked && IsUsableArsenalEntity(m_ArsenalEntity) && IsLivingRuntimeEntity(m_PetrosEntity);
+		bool petrosRuntimeReady = IsPetrosRuntimeTracked(state) && IsLivingRuntimeEntity(m_PetrosEntity);
+		bool runtimeObjectsReady = allRuntimeObjectsTracked && IsUsableArsenalEntity(m_ArsenalEntity) && petrosRuntimeReady;
 		bool runtimeFlagChanged = state.m_bHQRuntimeObjectsSpawned != runtimeObjectsReady;
 		state.m_bHQRuntimeObjectsSpawned = runtimeObjectsReady;
 		if (!runtimeObjectsReady)
@@ -1479,11 +1467,8 @@ class HST_HQService
 
 	protected bool IsPetrosRuntimeTracked(HST_CampaignState state = null)
 	{
-		if (IsLivingRuntimeEntity(m_PetrosEntity))
-			return true;
-
 		if (!state)
-			return false;
+			return IsLivingRuntimeEntity(m_PetrosEntity);
 
 		return CountLivingPetrosWorldRuntimeEntities(state) == 1;
 	}
@@ -1513,6 +1498,40 @@ class HST_HQService
 	protected IEntity ResolvePetrosRuntimeEntity()
 	{
 		return m_PetrosEntity;
+	}
+
+	protected bool ReattachUniqueLivingWorldPetros(HST_CampaignState state, string source)
+	{
+		if (!state)
+			return false;
+
+		int livingPetrosCount = CountLivingPetrosWorldRuntimeEntities(state);
+		if (livingPetrosCount != 1)
+		{
+			if (livingPetrosCount > 1)
+				DebugLog(string.Format("lifecycle Petros reattach skipped via %1: expected exactly one living world Petros, found %2", source, livingPetrosCount));
+			return false;
+		}
+
+		IEntity worldPetros = ResolveLivingPetrosWorldEntity(state);
+		if (!worldPetros || worldPetros == m_PetrosEntity)
+			return false;
+
+		m_PetrosEntity = worldPetros;
+		PreparePetrosEntity(m_PetrosEntity, state.m_vPetrosPosition);
+		m_iPetrosMissingSinceSecond = -1;
+		m_sPetrosStableRuntimeKey = BuildRuntimeEntityKey("petros", m_PetrosEntity);
+		if (EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, source))
+		{
+			DebugLog(string.Format("lifecycle reattached living world Petros via %1 prefab=%2 entity=%3 pos=%4", source, ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
+		}
+		else
+		{
+			WarnPetrosAIGroupFallback(source);
+			DebugLog(string.Format("lifecycle reattached living world Petros via %1 without durable AIGroup prefab=%2 entity=%3 pos=%4", source, ResolvePetrosPrefab(state), m_PetrosEntity, ResolveRuntimeEntityPosition(m_PetrosEntity)));
+		}
+
+		return true;
 	}
 
 	protected IEntity ResolveLivingPetrosWorldEntity(HST_CampaignState state)

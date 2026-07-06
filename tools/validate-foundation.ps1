@@ -567,11 +567,14 @@ foreach ($forbiddenArsenalReadinessGate in @(
 		throw "HQ arsenal readiness must not reject visible arsenal visuals for wrapper-only component state: $forbiddenArsenalReadinessGate"
 	}
 }
-if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked\(\) && IsUsableArsenalEntity\(m_ArsenalEntity\)') {
-	throw "HQ runtime must not skip arsenal usability just because the entity exists"
+if ($hqServiceText -notmatch 'm_bHQRuntimeObjectsSpawned && AreRuntimeObjectsTracked\(state\) && IsUsableArsenalEntity\(m_ArsenalEntity\)') {
+	throw "HQ runtime must not skip state-aware Petros uniqueness or arsenal usability just because cached entity handles exist"
 }
 foreach ($requiredPetrosGroupRuntimeEntry in @(
-		'EnsurePetrosAIGroup(m_PetrosEntity, state.m_vPetrosPosition, "reattach")',
+		'ReattachUniqueLivingWorldPetros(state, "reattach")',
+		'ReattachUniqueLivingWorldPetros(state, "final runtime proof")',
+		'CountLivingPetrosWorldRuntimeEntities(state) == 1',
+		'bool petrosRuntimeReady = IsPetrosRuntimeTracked(state) && IsLivingRuntimeEntity(m_PetrosEntity);',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn")',
 		'PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback")',
 		'PETROS_GROUP_PREFAB = "{6985327711303900}Prefabs/Groups/HST/HST_PetrosGroup.et"',

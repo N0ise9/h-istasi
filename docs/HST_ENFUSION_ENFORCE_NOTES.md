@@ -696,6 +696,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Empty `SCR_AIGroup` roots can queue native deletion during init before script code gets a chance to call `SetDeleteWhenEmpty(false)`. Petros must use the HST-owned `HST_PetrosGroup.et` prefab with `m_bSpawnImmediately 0` and `m_bDeleteWhenEmpty 0`; do not attach him to raw `Group_Base.et` and then try to disable deletion after spawn.
   - The campaign-debug HQ case should include an explicit `hq.petros.ai_group` assertion as WARN-level diagnostic evidence. The hard HQ runtime proof is the live tracked Petros character plus cache/arsenal/tent/spawn-point handles.
   - Do not let `m_bHQRuntimeObjectsSpawned` go true from raw handle presence alone. The final HQ runtime flag should require tracked runtime objects, a usable HQ arsenal entity, and the live tracked Petros character; otherwise later debug phases can treat a visually spawned but unusable HQ as certified.
+  - When campaign state is available, Petros tracking should be state-aware: exactly one living prepared/world-scan Petros near the HQ slot must exist, and that entity should be reattached to `m_PetrosEntity` before `m_bHQRuntimeObjectsSpawned` can become true. A cached handle alone must not mask a missing or duplicated world Petros.
 
 - Active AI groups cannot wait until the final retry before proving live agents.
   - Native group prefabs can spawn an `SCR_AIGroup` with zero countable agents for several ticks on a dedicated server.
