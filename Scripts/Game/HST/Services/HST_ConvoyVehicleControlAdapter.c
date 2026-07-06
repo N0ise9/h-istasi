@@ -320,6 +320,9 @@ class HST_ConvoyVehicleControlAdapter
 				result.m_iIssuedOrders++;
 				result.m_bSeatingPending = true;
 			}
+
+			if (result.m_iIssuedOrders > 0)
+				RefreshSeatedCrewState(slots, livingCrew, vehicleEntity, result);
 		}
 
 		if (issueOrders && result.m_bDriverAssigned && !result.m_bSeatingPending && result.m_iIssuedOrders <= 0 && result.m_iSeatedCrew < result.m_iLivingCrew)
@@ -464,6 +467,40 @@ class HST_ConvoyVehicleControlAdapter
 		result.m_bDriverAssigned = result.m_iDriverSeatedCount > 0;
 	}
 
+	protected void RefreshSeatedCrewState(array<BaseCompartmentSlot> slots, array<IEntity> livingCrew, IEntity vehicleEntity, HST_ConvoyCrewSeatingResult result)
+	{
+		if (!slots || !livingCrew || !result)
+			return;
+
+		result.m_iSeatedCrew = 0;
+		result.m_iDriverSeatedCount = 0;
+		result.m_iTurretSeatedCount = 0;
+		result.m_iCargoSeatedCount = 0;
+
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (!slot)
+				continue;
+
+			IEntity occupant = slot.GetOccupant();
+			if (!IsCrewEntity(livingCrew, occupant))
+				continue;
+			if (!IsLivingEntity(occupant))
+				continue;
+
+			result.m_iSeatedCrew++;
+			if (IsDriverSlot(slot))
+				result.m_iDriverSeatedCount++;
+			else if (slot.GetType() == ECompartmentType.TURRET)
+				result.m_iTurretSeatedCount++;
+			else if (slot.GetType() == ECompartmentType.CARGO)
+				result.m_iCargoSeatedCount++;
+		}
+
+		result.m_bDriverAssigned = result.m_iDriverSeatedCount > 0;
+		result.m_bSeatingPending = HasCrewBoardingVehicle(livingCrew, vehicleEntity);
+	}
+
 	protected bool TryOrderNextCrewIntoSlot(array<IEntity> livingCrew, array<IEntity> orderedCrew, array<BaseCompartmentSlot> orderedSlots, IEntity vehicleEntity, array<BaseCompartmentSlot> slots, ECompartmentType compartmentType, out string reason)
 	{
 		reason = "";
@@ -554,7 +591,17 @@ class HST_ConvoyVehicleControlAdapter
 			return false;
 		}
 
-		if (!access.MoveInVehicle(vehicleEntity, compartmentType, false, slot))
+		IEntity slotOwner = slot.GetOwner();
+		if (!slotOwner)
+			slotOwner = vehicleEntity;
+
+		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		{
+			reason = "server-authoritative compartment move-in completed";
+			return true;
+		}
+
+		if (!access.MoveInVehicle(vehicleEntity, compartmentType, true, slot))
 		{
 			reason = "animated compartment move-in order was rejected";
 			return false;

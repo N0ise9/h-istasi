@@ -2573,16 +2573,15 @@ class HST_CommandUIService
 
 		if (selectedTabId == TAB_ADMIN)
 		{
-			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Smoke", "admin_run_campaign_debug", "smoke", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Faction", "admin_run_campaign_debug", "faction", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run Faction Physical", "admin_run_campaign_debug", "faction_physical", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Physical", "admin_run_campaign_debug", "physical", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run Campaign Debug Full", "admin_run_campaign_debug", "full", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Run Full Certification", "admin_run_campaign_debug", "full_certification", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Post-Restart Verify", "admin_run_campaign_debug", "post_restart_verify", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Persistence Restart External", "admin_run_campaign_debug", "persistence_restart_external", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Background Soak External", "admin_run_campaign_debug", "background_soak", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "External Required", "admin_run_campaign_debug", "external_required", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Run Full Campaign Debug", "admin_run_campaign_debug", "full_certification", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Smoke Profile", "admin_run_campaign_debug", "smoke", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Faction Profile", "admin_run_campaign_debug", "faction", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Faction Physical Profile", "admin_run_campaign_debug", "faction_physical", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Physical Profile", "admin_run_campaign_debug", "physical", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Post-Restart Verify", "admin_run_campaign_debug", "post_restart_verify", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Persistence Restart External", "admin_run_campaign_debug", "persistence_restart_external", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug Background Soak External", "admin_run_campaign_debug", "background_soak", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Debug External Required", "admin_run_campaign_debug", "external_required", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Campaign Debug Status", "admin_campaign_debug_status", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cancel Campaign Debug", "admin_campaign_debug_cancel", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Cleanup Campaign Debug", "admin_campaign_debug_cleanup", "", canUseAdmin, "admin required");

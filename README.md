@@ -155,8 +155,10 @@ raw 17-digit SteamID64 to `membership.adminIdentityIds` in
 `workbench_player_N` aliases, and per-session player IDs are not durable
 h-istasi admin tokens.
 
-The Admin tab exposes `Run Campaign Debug` profiles for `smoke`, `physical`,
-and `full` verification, plus status, cancel, and cleanup commands. Results are
+The Admin tab exposes `Run Full Campaign Debug` as the primary one-button
+in-process runtime certification run. Scoped `Debug ... Profile` buttons are
+for faster diagnosis of a smaller area, and external/restart/soak profiles are
+for cases that require a real restart, reconnect, or long window. Results are
 written under `$profile:h-istasi/debug` as structured JSON, summary text, and
 state-diff text. A valid admin grant should be visible in logs as a
 `settings SteamID64` runtime grant, and command-menu input diagnostics log the
@@ -164,9 +166,9 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 `serverStart.bat`. The server log must contain
-`h-istasi boot | authority build 2026-07-06-runtime-proof-r11-petros-faction`
+`h-istasi boot | authority build 2026-07-06-runtime-proof-r13-convoy-ui`
 and the client log must contain
-`build=2026-07-06-menu-input-r11-petros-faction` on the local command-menu ready
+`build=2026-07-06-menu-input-r13-convoy-ui` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged
 addon under `ArmaReforger/addons`, even if the repository has newer commits.
 

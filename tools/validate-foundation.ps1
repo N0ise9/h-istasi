@@ -3157,7 +3157,9 @@ foreach ($requiredCampaignDebugProfileEntry in @(
 		"IsCampaignDebugFoundationOnlyProfile",
 		"ShouldCampaignDebugPreservePersistenceSmokeState",
 		"preflight.external_required",
-		"Run Full Certification",
+		"Run Full Campaign Debug",
+		"Debug Smoke Profile",
+		"Debug Physical Profile",
 		"Persistence Restart External",
 		"Background Soak External"
 	)) {
@@ -7487,7 +7489,10 @@ foreach ($requiredPhase6SeatingEntry in @(
 		"ECompartmentType.TURRET",
 		"ECompartmentType.CARGO",
 		"SCR_CompartmentAccessComponent",
-		"MoveInVehicle(vehicleEntity, compartmentType, false, slot)",
+		"RefreshSeatedCrewState",
+		"GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
+		"server-authoritative compartment move-in completed",
+		"MoveInVehicle(vehicleEntity, compartmentType, true, slot)",
 		"HasLivingDriver",
 		"AreLivingCrewMounted",
 		"CountLivingCrew",
