@@ -1989,6 +1989,13 @@ class HST_PhysicalWarService
 			}
 
 			runtimeGroupCount++;
+			if (activeGroup.m_iInfantryCount > 0 && groupEntityPresent && liveControlledMembers <= 0 && TryRepairEmptyRuntimeGroupPopulation(state, activeGroup, "campaign debug faction audit"))
+			{
+				groupEntityPresent = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId) != null;
+				vehicleEntityPresent = GetRuntimeVehicleEntity(activeGroup.m_sGroupId) != null;
+				liveControlledMembers = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
+				liveRuntimeEntities = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
+			}
 			EnsureActiveGroupRuntimeFaction(activeGroup, "campaign debug faction audit");
 
 			string sample;
@@ -2000,6 +2007,10 @@ class HST_PhysicalWarService
 					pendingLiveCountGroups++;
 					if (firstPending.IsEmpty())
 						firstPending = activeGroup.m_sGroupId;
+
+					activeGroupMismatches++;
+					if (sample.IsEmpty())
+						sample = "pending live controlled members for infantry group";
 				}
 				else
 				{
