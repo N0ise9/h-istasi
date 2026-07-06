@@ -4113,7 +4113,7 @@ class HST_CommandUIService
 				continue;
 			if (IsPersistenceSmokeMission(mission))
 				continue;
-			bool postCompletionConvoy = IsPostCompletionConvoyOutcomeMission(mission);
+			bool postCompletionConvoy = IsPostCompletionConvoyOutcomeMission(state, mission);
 			bool expiredPlayerBound = IsExpiredPlayerBoundMissionActionCandidate(state, mission);
 			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !postCompletionConvoy && !expiredPlayerBound)
 				continue;
@@ -4291,7 +4291,7 @@ class HST_CommandUIService
 				continue;
 			if (IsPersistenceSmokeMission(mission))
 				continue;
-			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(mission) && !IsExpiredPlayerBoundMissionActionCandidate(state, mission))
+			if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyOutcomeMission(state, mission) && !IsExpiredPlayerBoundMissionActionCandidate(state, mission))
 				continue;
 
 			AddMenuAction(actions, TAB_MISSIONS, "Inspect: " + ShortText(BuildMissionDisplayTitle(mission), 24), "inspect_mission", mission.m_sInstanceId, canUseMember, disabledReason);
@@ -4388,7 +4388,7 @@ class HST_CommandUIService
 	{
 		if (!state || !mission)
 			return null;
-		if (!mission.m_bConvoyCrewEliminatedOutcomeApplied && !IsPostCompletionConvoyOutcomeMission(mission))
+		if (!mission.m_bConvoyCrewEliminatedOutcomeApplied && !IsPostCompletionConvoyOutcomeMission(state, mission))
 			return null;
 
 		HST_MissionAssetState fallbackVehicle;
@@ -4405,24 +4405,65 @@ class HST_CommandUIService
 		return fallbackVehicle;
 	}
 
-	protected bool IsPostCompletionConvoyOutcomeMission(HST_ActiveMissionState mission)
+	protected bool IsPostCompletionConvoyOutcomeMission(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
 			return false;
 		if (mission.m_sRuntimePrimitive != "convoy_intercept")
 			return false;
 
-		return HasConvoyCrewEliminatedForPostCompletion(mission);
+		return HasConvoyCrewEliminatedForPostCompletion(state, mission);
 	}
 
-	protected bool HasConvoyCrewEliminatedForPostCompletion(HST_ActiveMissionState mission)
+	protected bool HasConvoyCrewEliminatedForPostCompletion(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!mission)
 			return false;
 		if (mission.m_bConvoyCrewEliminatedOutcomeApplied)
 			return true;
 
-		return IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey);
+		return IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey) && HasConvoyEliminatedCrewEvidence(state, mission);
+	}
+
+	protected bool HasConvoyEliminatedCrewEvidence(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
+			return false;
+
+		string groupPrefix = "mission_convoy_" + mission.m_sInstanceId + "_";
+		int convoyGroups;
+		int eliminatedGroups;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || !activeGroup.m_sGroupId.Contains(groupPrefix))
+				continue;
+
+			convoyGroups++;
+			if (activeGroup.m_sRuntimeStatus != "convoy_eliminated" && activeGroup.m_sRuntimeStatus != "eliminated")
+				return false;
+			if (!HasConvoyCrewLiveHistory(activeGroup))
+				return false;
+
+			eliminatedGroups++;
+		}
+
+		return convoyGroups > 0 && eliminatedGroups == convoyGroups;
+	}
+
+	protected bool HasConvoyCrewLiveHistory(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (activeGroup.m_bEverHadLivingCrew)
+			return true;
+		if (activeGroup.m_iMaxObservedCrewAlive > 0)
+			return true;
+		if (activeGroup.m_iLastSeenAliveCount > 0)
+			return true;
+		if (activeGroup.m_iSurvivorInfantryCount > 0)
+			return true;
+
+		return false;
 	}
 
 	protected HST_MissionAssetState SelectMissionConvoyVehicleAsset(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -4462,7 +4503,7 @@ class HST_CommandUIService
 		int neutralized;
 		int total;
 		ResolveConvoyCrewProgress(state, mission, neutralized, total);
-		if (IsPostCompletionConvoyOutcomeMission(mission))
+		if (IsPostCompletionConvoyOutcomeMission(state, mission))
 			return "Convoy crew neutralized. Any mission-specific convoy outcome is already applied or no follow-up asset is available.";
 		if (mission.m_sRuntimePhase == "convoy_staging")
 			return string.Format("Convoy is staging. Prepare an ambush before it moves. Crew groups neutralized %1/%2.", neutralized, total);

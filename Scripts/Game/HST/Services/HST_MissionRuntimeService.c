@@ -2029,7 +2029,7 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-		bool allowPostCompletionConvoyInteraction = IsPostCompletionConvoyInteractionAllowed(mission, asset, commandId);
+		bool allowPostCompletionConvoyInteraction = IsPostCompletionConvoyInteractionAllowed(state, mission, asset, commandId);
 		bool allowExpiredPlayerBoundInteraction = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId);
 		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyInteraction && !allowExpiredPlayerBoundInteraction))
 		{
@@ -2133,7 +2133,7 @@ class HST_MissionRuntimeService
 		}
 
 		HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-		bool allowPostCompletionConvoyVehicleDestruction = IsPreservedConvoyVehicleAfterCrewElimination(mission, asset);
+		bool allowPostCompletionConvoyVehicleDestruction = IsPreservedConvoyVehicleAfterCrewElimination(state, mission, asset);
 		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyVehicleDestruction))
 		{
 			result = "h-istasi mission | failed: mission is no longer active";
@@ -2253,7 +2253,7 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(asset.m_sMissionInstanceId);
-			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyInteractionAllowed(mission, asset, commandId) && !IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId)))
+			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !IsPostCompletionConvoyInteractionAllowed(state, mission, asset, commandId) && !IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId)))
 				continue;
 
 			vector position = ResolveInteractionValidationPosition(asset, commandId);
@@ -2638,9 +2638,9 @@ class HST_MissionRuntimeService
 		return true;
 	}
 
-	protected bool IsPostCompletionConvoyInteractionAllowed(HST_ActiveMissionState mission, HST_MissionAssetState asset, string commandId)
+	protected bool IsPostCompletionConvoyInteractionAllowed(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset, string commandId)
 	{
-		if (!IsPreservedConvoyAssetAfterCrewElimination(mission, asset))
+		if (!IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset))
 			return false;
 
 		if (asset.m_sRole == ROLE_CONVOY_VEHICLE)
@@ -2653,18 +2653,18 @@ class HST_MissionRuntimeService
 		return false;
 	}
 
-	protected bool IsPreservedConvoyVehicleAfterCrewElimination(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	protected bool IsPreservedConvoyVehicleAfterCrewElimination(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset)
 	{
-		return IsPreservedConvoyAssetAfterCrewElimination(mission, asset) && asset.m_sRole == ROLE_CONVOY_VEHICLE;
+		return IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset) && asset.m_sRole == ROLE_CONVOY_VEHICLE;
 	}
 
-	protected bool IsPreservedConvoyAssetAfterCrewElimination(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	protected bool IsPreservedConvoyAssetAfterCrewElimination(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset)
 	{
 		if (!mission || !asset)
 			return false;
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_SUCCEEDED)
 			return false;
-		if (mission.m_sRuntimePrimitive != PRIMITIVE_CONVOY_INTERCEPT || !HasConvoyCrewEliminatedForPostCompletion(mission))
+		if (mission.m_sRuntimePrimitive != PRIMITIVE_CONVOY_INTERCEPT || !HasConvoyCrewEliminatedForPostCompletion(state, mission))
 			return false;
 		if (asset.m_sMissionInstanceId != mission.m_sInstanceId)
 			return false;
@@ -2672,14 +2672,55 @@ class HST_MissionRuntimeService
 		return !asset.m_bDestroyed && !asset.m_bDelivered;
 	}
 
-	protected bool HasConvoyCrewEliminatedForPostCompletion(HST_ActiveMissionState mission)
+	protected bool HasConvoyCrewEliminatedForPostCompletion(HST_CampaignState state, HST_ActiveMissionState mission)
 	{
 		if (!mission)
 			return false;
 		if (mission.m_bConvoyCrewEliminatedOutcomeApplied)
 			return true;
 
-		return IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey);
+		return IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey) && HasConvoyEliminatedCrewEvidence(state, mission);
+	}
+
+	protected bool HasConvoyEliminatedCrewEvidence(HST_CampaignState state, HST_ActiveMissionState mission)
+	{
+		if (!state || !mission || mission.m_sInstanceId.IsEmpty())
+			return false;
+
+		string groupPrefix = "mission_convoy_" + mission.m_sInstanceId + "_";
+		int convoyGroups;
+		int eliminatedGroups;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || !activeGroup.m_sGroupId.Contains(groupPrefix))
+				continue;
+
+			convoyGroups++;
+			if (activeGroup.m_sRuntimeStatus != "convoy_eliminated" && activeGroup.m_sRuntimeStatus != "eliminated")
+				return false;
+			if (!HasConvoyCrewLiveHistory(activeGroup))
+				return false;
+
+			eliminatedGroups++;
+		}
+
+		return convoyGroups > 0 && eliminatedGroups == convoyGroups;
+	}
+
+	protected bool HasConvoyCrewLiveHistory(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (activeGroup.m_bEverHadLivingCrew)
+			return true;
+		if (activeGroup.m_iMaxObservedCrewAlive > 0)
+			return true;
+		if (activeGroup.m_iLastSeenAliveCount > 0)
+			return true;
+		if (activeGroup.m_iSurvivorInfantryCount > 0)
+			return true;
+
+		return false;
 	}
 
 	protected bool IsConvoyPayloadOrCaptiveAsset(HST_MissionAssetState asset)
@@ -6134,7 +6175,7 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_MissionAssetState runtimeAsset = FindMissionAssetByEntityId(state, runtimeEntity.m_sRuntimeEntityId);
-			if (IsPreservedConvoyAssetAfterCrewElimination(mission, runtimeAsset))
+			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, runtimeAsset))
 				continue;
 
 			DeleteRuntimeEntity(runtimeEntity.m_sRuntimeEntityId);
@@ -6144,7 +6185,7 @@ class HST_MissionRuntimeService
 		{
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
 				continue;
-			if (IsPreservedConvoyAssetAfterCrewElimination(mission, asset))
+			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset))
 				continue;
 
 			DeleteRuntimeEntity(asset.m_sEntityId);
@@ -6189,7 +6230,7 @@ class HST_MissionRuntimeService
 				continue;
 
 			HST_MissionAssetState runtimeAsset = FindMissionAssetByEntityId(state, runtimeEntity.m_sRuntimeEntityId);
-			if (IsPreservedConvoyAssetAfterCrewElimination(mission, runtimeAsset))
+			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, runtimeAsset))
 				continue;
 
 			runtimeEntity.m_bDestroyed = true;
@@ -6207,7 +6248,7 @@ class HST_MissionRuntimeService
 			HST_MissionAssetState asset = state.m_aMissionAssets[i];
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId)
 				continue;
-			if (IsPreservedConvoyAssetAfterCrewElimination(mission, asset))
+			if (IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset))
 				continue;
 
 			asset.m_bDestroyed = asset.m_bDestroyed || !asset.m_bDelivered;

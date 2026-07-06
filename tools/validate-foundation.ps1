@@ -7854,6 +7854,29 @@ foreach ($requiredConvoyOutcomeLiveHistoryEntry in @(
 if ($convoyOutcomeServiceText -match "ShouldApplyConvoyCrewEliminatedOutcome\s*\(\s*HST_ActiveMissionState\s+mission\s*\)") {
 	throw "Convoy outcome crew-elimination guard must receive campaign state so it can prove mission_convoy_ active group live history"
 }
+foreach ($requiredConvoyPostCompletionLiveHistoryEntry in @(
+		"IsPostCompletionConvoyInteractionAllowed(state, mission, asset, commandId)",
+		"IsPreservedConvoyAssetAfterCrewElimination(state, mission, runtimeAsset)",
+		"IsPreservedConvoyAssetAfterCrewElimination(state, mission, asset)",
+		"IsConvoyCrewEliminationCompletionEvent(mission.m_sLastRuntimeEventKey) && HasConvoyEliminatedCrewEvidence(state, mission)",
+		"HasConvoyCrewLiveHistory"
+	)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredConvoyPostCompletionLiveHistoryEntry)) {
+		throw "Mission runtime post-completion convoy preservation must require state-backed live-crew history: $requiredConvoyPostCompletionLiveHistoryEntry"
+	}
+}
+foreach ($requiredConvoyUiLiveHistoryEntry in @(
+		"IsPostCompletionConvoyOutcomeMission(state, mission)",
+		"HasConvoyEliminatedCrewEvidence",
+		"HasConvoyCrewLiveHistory"
+	)) {
+	if ($commandUIServiceText -notmatch [regex]::Escape($requiredConvoyUiLiveHistoryEntry)) {
+		throw "Command UI post-completion convoy actions must require state-backed live-crew history: $requiredConvoyUiLiveHistoryEntry"
+	}
+}
+if ($missionRuntimeServiceText -match "protected bool HasConvoyCrewEliminatedForPostCompletion\s*\(\s*HST_ActiveMissionState\s+mission\s*\)" -or $commandUIServiceText -match "protected bool HasConvoyCrewEliminatedForPostCompletion\s*\(\s*HST_ActiveMissionState\s+mission\s*\)") {
+	throw "Post-completion convoy helpers must not use mission-only event-token checks"
+}
 foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4",
 		'DIRECT_INFANTRY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et"',
