@@ -8057,9 +8057,13 @@ class HST_PhysicalWarService
 			string groupFactionKey = group.GetFactionName();
 			if (groupFactionKey != factionKey)
 			{
-				Faction faction = ResolveRuntimeFaction(factionKey);
-				if (faction && group.SetFaction(faction))
+				string groupFactionMethod;
+				if (ApplyAIGroupFaction(group, factionKey, groupFactionMethod))
+				{
 					changed++;
+					if (sample.IsEmpty())
+						sample = string.Format("group root faction changed %1 -> %2 via %3", ReportText(groupFactionKey), ReportText(group.GetFactionName()), ReportText(groupFactionMethod));
+				}
 				groupFactionKey = group.GetFactionName();
 			}
 			if (groupFactionKey != factionKey)
@@ -8102,6 +8106,39 @@ class HST_PhysicalWarService
 		}
 
 		return mismatches == 0;
+	}
+
+	protected bool ApplyAIGroupFaction(SCR_AIGroup group, string factionKey, out string method)
+	{
+		method = "";
+		if (!group || factionKey.IsEmpty())
+			return false;
+
+		string before = group.GetFactionName();
+		if (before == factionKey)
+			return false;
+
+		bool changed = false;
+		if (before.IsEmpty() && group.InitFactionKey(factionKey))
+		{
+			changed = true;
+			method = "InitFactionKey";
+		}
+
+		if (group.GetFactionName() != factionKey)
+		{
+			Faction faction = ResolveRuntimeFaction(factionKey);
+			if (faction && group.SetFaction(faction))
+			{
+				changed = true;
+				if (method.IsEmpty())
+					method = "SetFaction";
+				else
+					method = method + "+SetFaction";
+			}
+		}
+
+		return changed;
 	}
 
 	protected void EnsureActiveGroupRuntimeFaction(HST_ActiveGroupState activeGroup, string source)
