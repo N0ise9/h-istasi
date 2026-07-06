@@ -6202,29 +6202,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!assertion)
 			return "none";
 
-		string reference;
+		string contextText;
 		if (!assertion.m_sMissionInstanceId.IsEmpty())
-			reference = AppendCampaignDebugReferencePart(reference, "mission " + assertion.m_sMissionInstanceId);
+			contextText = AppendCampaignDebugReferencePart(contextText, "mission " + assertion.m_sMissionInstanceId);
 		if (!assertion.m_sZoneId.IsEmpty())
-			reference = AppendCampaignDebugReferencePart(reference, "zone " + assertion.m_sZoneId);
+			contextText = AppendCampaignDebugReferencePart(contextText, "zone " + assertion.m_sZoneId);
 		if (!assertion.m_sOrderId.IsEmpty())
-			reference = AppendCampaignDebugReferencePart(reference, "order " + assertion.m_sOrderId);
+			contextText = AppendCampaignDebugReferencePart(contextText, "order " + assertion.m_sOrderId);
 		if (!assertion.m_sEntityId.IsEmpty())
-			reference = AppendCampaignDebugReferencePart(reference, "entity " + assertion.m_sEntityId);
-		if (reference.IsEmpty())
+			contextText = AppendCampaignDebugReferencePart(contextText, "entity " + assertion.m_sEntityId);
+		if (contextText.IsEmpty())
 			return "none";
 
-		return reference;
+		return contextText;
 	}
 
-	protected string AppendCampaignDebugReferencePart(string reference, string part)
+	protected string AppendCampaignDebugReferencePart(string contextText, string part)
 	{
 		if (part.IsEmpty())
-			return reference;
-		if (reference.IsEmpty())
+			return contextText;
+		if (contextText.IsEmpty())
 			return part;
 
-		return reference + " | " + part;
+		return contextText + " | " + part;
 	}
 
 	protected string BuildCampaignDebugFailurePosition(HST_CampaignDebugAssertion assertion)

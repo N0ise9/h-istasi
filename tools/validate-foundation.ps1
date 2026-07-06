@@ -6867,6 +6867,9 @@ if ($scriptText -match "GetDamageManagerComponent") {
 if ($scriptText -match 'string\.Format\([^\r\n;]*%1[0-9]') {
 	throw "Enforce string.Format calls must not use %10 or higher placeholders; split long reports into smaller format calls"
 }
+if ($scriptText -match '\bstring\s+reference\b') {
+	throw "Enforce keyword 'reference' must not be used as a string variable or parameter name"
+}
 Write-Host "Native spawn request contract OK"
 
 foreach ($requiredPhysicalWarEntry in @(

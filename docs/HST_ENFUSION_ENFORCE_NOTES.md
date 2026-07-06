@@ -319,6 +319,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - `string.Format` placeholders are limited to `%1` through `%9`.
   - Do not use `%10` or higher in diagnostics or reports; split the report into multiple `string.Format` calls or append the remaining values with string concatenation.
 
+- `reference` is an Enforce keyword, not a safe local variable or parameter name.
+  - Runtime symptom: Workbench reports `Broken expression (missing ';'?)` on a declaration such as `string reference;`.
+  - Use a normal identifier such as `contextText`, `referenceText`, or `currentText` instead.
+
 - Enforce compile validation can reject very wide helper signatures with `Maximum arguments count 16 exceeded`.
   - Campaign debug case/probe helpers should pass a small runtime context object once they need many observed fields. Current example: `HST_CampaignDebugSupportProbeContext` carries support ETA/status/physicalization observations between the support runtime probe and typed assertion builder.
   - Keep assertion calls flat in large debug builders: compute `actual` strings and status booleans before `AddCampaignDebugAssertion(...)` instead of nesting several helper calls inside the assertion call.
