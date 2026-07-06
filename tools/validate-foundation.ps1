@@ -7238,6 +7238,9 @@ $actionCaseMatch = [regex]::Match($coordinatorText, "protected HST_CampaignDebug
 if (!$actionCaseMatch.Success -or $actionCaseMatch.Value -notmatch "IsCampaignDebugResultSuccessful\(result\)") {
 	throw "Campaign-debug action reports must keep the mutating action result classifier"
 }
+if ($coordinatorText -match [regex]::Escape("protected void EnsureCampaignDebugArtifactRecorded(string artifactPath)")) {
+	throw "Campaign-debug artifact helper must avoid the artifactPath parameter spelling; Workbench reports a broken expression at that method declaration"
+}
 foreach ($requiredConvoyMissionSweepEntry in @(
 		"requiredConvoyVehicleAssets = 3",
 		"mission.m_iRequiredVehicleCount > requiredConvoyVehicleAssets",

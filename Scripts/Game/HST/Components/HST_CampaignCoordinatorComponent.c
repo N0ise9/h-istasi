@@ -6202,15 +6202,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("json %1 saved %2 | summary %3 saved %4 | state diff %5 saved %6", m_sCampaignDebugReportPath, jsonSaved, m_sCampaignDebugSummaryPath, summarySaved, m_sCampaignDebugStateDiffPath, stateDiffSaved);
 	}
 
-	protected void EnsureCampaignDebugArtifactRecorded(string artifactPath)
+	protected void EnsureCampaignDebugArtifactRecorded(string path)
 	{
-		if (!m_CampaignDebugRunResult || artifactPath.IsEmpty())
+		if (!m_CampaignDebugRunResult || path.IsEmpty())
 			return;
 
-		if (m_CampaignDebugRunResult.m_aArtifacts.Contains(artifactPath))
+		if (m_CampaignDebugRunResult.m_aArtifacts.Contains(path))
 			return;
 
-		m_CampaignDebugRunResult.m_aArtifacts.Insert(artifactPath);
+		m_CampaignDebugRunResult.m_aArtifacts.Insert(path);
 	}
 
 	protected void FinalizeCampaignDebugRunResult()
