@@ -3145,6 +3145,17 @@ foreach ($requiredCampaignDebugMissionProofEntry in @(
 		throw "Campaign debug mission proof must fail early completion except explicit abstract fallback: $requiredCampaignDebugMissionProofEntry"
 	}
 }
+foreach ($requiredCampaignDebugAreaProofEntry in @(
+		"primitive.area.physical_combat_observed",
+		"mission-owned or target-zone hostiles are observed in natural combat before objective pass",
+		'"BLOCKED", areaCombatFailure',
+		"area primitive physical combat was not observed before controlled objective setup",
+		"area primitive had no hostile population to prove natural combat before objective tick"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugAreaProofEntry)) {
+		throw "Campaign debug area primitive physical combat must stay blocked until naturally observed: $requiredCampaignDebugAreaProofEntry"
+	}
+}
 Write-Host "Campaign debug build/proof/profile contract OK"
 
 foreach ($requiredCommandMenuEntry in @(

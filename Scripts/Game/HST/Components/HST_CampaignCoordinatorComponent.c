@@ -10277,6 +10277,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool areaHoldComplete = areaObjective.m_eType != HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || areaObjective.m_iHoldSeconds >= areaRequiredHold;
 		string areaActual = string.Format("objective %1 | type %2 | hold %3/%4 | complete %5 | world %6", areaObjective.m_sObjectiveId, areaObjective.m_eType, areaObjective.m_iHoldSeconds, areaRequiredHold, areaObjective.m_bComplete, areaObjective.m_bWorldDetected);
 		areaActual = areaActual + string.Format(" | tick %1s runtime %2 objective %3 | completed %4/%5", areaTickSeconds, areaRuntimeChanged, areaObjectiveTickChanged, EmptyCampaignDebugField(areaCompletedMissionId), areaCompletedByRuntime);
+		string areaCombatActual = string.Format("group %1 | strength %2 -> %3 | entity cleaned %4", EmptyCampaignDebugField(areaHostileGroupId), areaHostileBefore, areaHostileAfter, areaHostileEntityCleaned);
+		string areaCombatFailure = "area primitive physical combat was not observed before controlled objective setup";
+		if (areaHostileBefore > 0)
+			areaCombatFailure = "area primitive used controlled hostile neutralization instead of observed combat";
+		else
+			areaCombatFailure = "area primitive had no hostile population to prove natural combat before objective tick";
 
 		AddCampaignDebugMetric(primitiveCase, "primitive.area.tick_seconds", string.Format("%1", areaTickSeconds), "seconds");
 		AddCampaignDebugMetric(primitiveCase, "primitive.area.hold_before", string.Format("%1", areaHoldBefore), "seconds");
@@ -10289,7 +10295,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.runtime_tick", "mission runtime tick processes player-near area objective", areaActual, CampaignDebugStatus(areaRuntimeChanged || areaObjectiveComplete), "area primitive runtime tick did not mutate or complete objective", "", areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.world_detected", "area objective records world/player detection", areaActual, CampaignDebugStatus(areaObjective.m_bWorldDetected), "area primitive did not record world/player detection", "", areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.area.objective_complete", "area objective completes through timed runtime path", areaActual, CampaignDebugStatus(areaObjectiveComplete && areaHoldComplete), "area primitive objective did not complete through runtime tick", "", areaInstanceId, mission.m_sTargetZoneId);
-		AddCampaignDebugAssertion(primitiveCase, "primitive.area.combat_model", "hostile engagement is physically resolved before objective pass", string.Format("group %1 | strength %2 -> %3", EmptyCampaignDebugField(areaHostileGroupId), areaHostileBefore, areaHostileAfter), CampaignDebugStatus(areaHostileBefore <= 0, "WARN"), "area primitive used controlled hostile neutralization instead of observed combat", areaHostileGroupId, areaInstanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive.area.physical_combat_observed", "mission-owned or target-zone hostiles are observed in natural combat before objective pass", areaCombatActual, "BLOCKED", areaCombatFailure, areaHostileGroupId, areaInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, areaMoneyBefore, areaHRBefore, mission.m_sRuntimePrimitive);
 	}
 
