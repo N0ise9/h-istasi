@@ -4113,10 +4113,15 @@ if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = fal
 }
 foreach ($requiredGameMasterBudgetDiagnostic in @(
 		"preflight.gm_budget.state",
+		"preflight.gm_budget.policy",
+		"preflight.gm_budget.editor_diagnostics",
 		"preflight.gm_budget.disabled_shim",
 		"preflight.gm_budget.disabled_spawn_probe",
 		"RunCampaignDebugGameMasterBudgetDisabledSpawnProbe",
 		"gm_budget_spawn_probe",
+		'CampaignDebugStatus(editorReady, "BLOCKED")',
+		'assertion.m_sAssertionId == "preflight.gm_budget.editor_diagnostics"',
+		"diagnostic_unavailable",
 		"SCR_EntityHelper.DeleteEntityAndChildren(probeEntity)",
 		"HistasiBuildGameMasterBudgetDiagnostics",
 		"HistasiIsBudgetDeficitHandlerRegistered",

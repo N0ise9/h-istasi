@@ -3704,7 +3704,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			editorActual = budgetEditor.HistasiBuildGameMasterBudgetDiagnostics();
 		}
 
-		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.editor", "budget editor diagnostics available when GM budget policy is testable", ShortCampaignDebugLine(editorActual, 260), CampaignDebugStatus(editorReady, "WARN"), "Game Master budget editor was not available for cap/deficit diagnostics");
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.editor_diagnostics", "native budget editor diagnostics are available when the engine exposes the editor component", ShortCampaignDebugLine(editorActual, 260), CampaignDebugStatus(editorReady, "BLOCKED"), "Game Master budget editor diagnostics are unavailable in this runtime; live disabled-budget policy is proven by the spawn probe");
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.managed_budget_count", string.Format("%1", managedBudgetCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.disabled_headroom_count", string.Format("%1", disabledHeadroomCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.tracked_headroom_count", string.Format("%1", trackedHeadroomCount), "count");
@@ -3713,11 +3713,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool disabledShimOk = settingsEnabled || (editorReady && managedBudgetCount > 0 && !capEnabled && disabledHeadroomCount == managedBudgetCount && trackedHeadroomCount == managedBudgetCount && deficitHandlerRegistered);
 		string disabledShimStatus = CampaignDebugStatus(disabledShimOk);
 		if (!editorReady)
-			disabledShimStatus = "WARN";
+			disabledShimStatus = "BLOCKED";
 		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_shim", "disabled GM budget mode disables placement caps, adds cap/current headroom, and registers deficit correction", ShortCampaignDebugLine(editorActual, 260), disabledShimStatus, "disabled Game Master budget shim is not fully active");
 		string spawnProbeActual;
 		bool spawnProbeOk = RunCampaignDebugGameMasterBudgetDisabledSpawnProbe(spawnProbeActual);
 		AddCampaignDebugMetric(preflightCase, "preflight.gm_budget.spawn_probe", string.Format("%1", spawnProbeOk), "bool");
+		bool policyOk = stateMatches && (settingsEnabled || spawnProbeOk);
+		string policyActual = string.Format("%1 | spawnProbe %2 | %3", stateActual, spawnProbeOk, spawnProbeActual);
+		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.policy", "settings/runtime policy agrees and disabled-budget live spawn path succeeds when GM budgets are disabled", ShortCampaignDebugLine(policyActual, 260), CampaignDebugStatus(policyOk), "Game Master budget gameplay policy did not prove disabled-budget runtime placement");
 		AddCampaignDebugAssertion(preflightCase, "preflight.gm_budget.disabled_spawn_probe", "runtime placement/spawn path succeeds and is cleaned while GM budgets are disabled", spawnProbeActual, CampaignDebugStatus(settingsEnabled || spawnProbeOk), "disabled Game Master budget placement probe failed");
 	}
 
@@ -5721,6 +5724,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!caseResult)
 			return "unknown";
 
+		if (assertion && assertion.m_sAssertionId.Contains("gm_budget.editor_diagnostics"))
+			return "diagnostic_unavailable";
 		if (IsCampaignDebugExternalProofGap(caseResult, assertion))
 			return "manual_external_gap";
 		if (assertion && assertion.m_sStatus == "WARN")
@@ -5754,6 +5759,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!caseResult)
 			return "typed assertion";
 
+		if (assertion && assertion.m_sAssertionId.Contains("gm_budget.editor_diagnostics"))
+			return "native editor diagnostics when the runtime exposes SCR_BudgetEditorComponent";
 		if (IsCampaignDebugExternalProofGap(caseResult, assertion))
 			return "external process restart, reconnect, or long-soak harness";
 		if (caseResult.m_sFeature == "hq_runtime")
@@ -5777,6 +5784,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!caseResult || !assertion)
 			return false;
 		if (assertion.m_sStatus == "WARN" || assertion.m_sStatus == "SKIPPED")
+			return false;
+		if (assertion.m_sAssertionId == "preflight.gm_budget.editor_diagnostics")
+			return false;
+		if (assertion.m_sAssertionId == "preflight.gm_budget.disabled_shim" && assertion.m_sStatus == "BLOCKED")
 			return false;
 		if (assertion.m_sProofLevel == "EXTERNAL_PROCESS")
 			return false;
