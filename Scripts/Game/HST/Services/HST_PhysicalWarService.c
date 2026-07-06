@@ -247,14 +247,14 @@ class HST_PhysicalWarService
 			if (zone.m_bActive == shouldBeActive)
 			{
 				if (shouldBeActive)
-					changed = ActivateZone(state, zone, compositions, true) || changed;
+					changed = ActivateZone(state, zone, preset, compositions, true) || changed;
 
 				continue;
 			}
 
 			zone.m_bActive = shouldBeActive;
 			if (shouldBeActive)
-				changed = ActivateZone(state, zone, compositions, true) || changed;
+				changed = ActivateZone(state, zone, preset, compositions, true) || changed;
 			else
 				changed = DeactivateZone(state, zone, compositions) || changed;
 
@@ -269,7 +269,7 @@ class HST_PhysicalWarService
 		return changed || routedGroupChanged;
 	}
 
-	bool EnsureMissionTargetZoneActive(HST_CampaignState state, string zoneId, HST_ZoneCompositionService compositions = null)
+	bool EnsureMissionTargetZoneActive(HST_CampaignState state, string zoneId, HST_CampaignPreset preset = null, HST_ZoneCompositionService compositions = null)
 	{
 		if (!state || zoneId.IsEmpty())
 			return false;
@@ -287,7 +287,7 @@ class HST_PhysicalWarService
 			changed = true;
 		}
 
-		changed = ActivateZone(state, zone, compositions, true) || changed;
+		changed = ActivateZone(state, zone, preset, compositions, true) || changed;
 		if (changed)
 		{
 			m_bMarkerRefreshNeeded = true;
@@ -5665,7 +5665,7 @@ class HST_PhysicalWarService
 		return false;
 	}
 
-	protected bool ActivateZone(HST_CampaignState state, HST_ZoneState zone, HST_ZoneCompositionService compositions = null, bool fullGarrison = false)
+	protected bool ActivateZone(HST_CampaignState state, HST_ZoneState zone, HST_CampaignPreset preset = null, HST_ZoneCompositionService compositions = null, bool fullGarrison = false)
 	{
 		bool changed;
 		array<ref HST_ZoneSpawnSlotState> slots = {};
@@ -5715,8 +5715,8 @@ class HST_PhysicalWarService
 		garrison.m_iInfantryCount = Math.Max(0, garrison.m_iInfantryCount - infantryCount);
 		garrison.m_iVehicleCount = Math.Max(0, garrison.m_iVehicleCount - vehicleCount);
 
-		int spawnedInfantryGroups = SpawnZoneInfantryGroups(state, zone, slots, infantryCount, compositions);
-		int spawnedVehicleGroups = SpawnZoneVehicleGroups(state, zone, slots, vehicleCount);
+		int spawnedInfantryGroups = SpawnZoneInfantryGroups(state, zone, preset, slots, infantryCount, compositions);
+		int spawnedVehicleGroups = SpawnZoneVehicleGroups(state, zone, preset, slots, vehicleCount);
 		ApplyActiveZoneCounts(state, zone);
 		if (zone.m_iActiveInfantryCount < infantryCount && infantryCount > 0)
 		{
@@ -6021,7 +6021,7 @@ class HST_PhysicalWarService
 		return string.Format("local_%1_%2", prefab, vehicle.GetOrigin());
 	}
 
-	protected int SpawnZoneInfantryGroups(HST_CampaignState state, HST_ZoneState zone, array<ref HST_ZoneSpawnSlotState> slots, int infantryCount, HST_ZoneCompositionService compositions)
+	protected int SpawnZoneInfantryGroups(HST_CampaignState state, HST_ZoneState zone, HST_CampaignPreset preset, array<ref HST_ZoneSpawnSlotState> slots, int infantryCount, HST_ZoneCompositionService compositions)
 	{
 		if (infantryCount <= 0)
 			return 0;
@@ -6065,7 +6065,7 @@ class HST_PhysicalWarService
 		return spawnedGroups;
 	}
 
-	protected int SpawnZoneVehicleGroups(HST_CampaignState state, HST_ZoneState zone, array<ref HST_ZoneSpawnSlotState> slots, int vehicleCount)
+	protected int SpawnZoneVehicleGroups(HST_CampaignState state, HST_ZoneState zone, HST_CampaignPreset preset, array<ref HST_ZoneSpawnSlotState> slots, int vehicleCount)
 	{
 		if (vehicleCount <= 0)
 			return 0;

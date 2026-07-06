@@ -20319,7 +20319,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MissionRuntime)
 			m_MissionRuntime.InitializeMissionRuntime(m_State, m_Preset, definition, mission, m_Content);
 		if (m_PhysicalWar && ShouldForceMissionTargetZoneActive(mission))
-			m_PhysicalWar.EnsureMissionTargetZoneActive(m_State, mission.m_sTargetZoneId, m_ZoneCompositions);
+			m_PhysicalWar.EnsureMissionTargetZoneActive(m_State, mission.m_sTargetZoneId, m_Preset, m_ZoneCompositions);
 
 		MarkMajorCampaignChange();
 		BroadcastMissionEvent("created", mission, definition);
