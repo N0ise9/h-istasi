@@ -7954,7 +7954,11 @@ class HST_PhysicalWarService
 		if (groupId.IsEmpty())
 			return "group missing";
 
-		string evidence;
+		string rootEvidence;
+		string directEvidence;
+		int rootCount;
+		int directCount;
+		int livingDirectCount;
 		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
@@ -7965,26 +7969,35 @@ class HST_PhysicalWarService
 				continue;
 
 			string entityEvidence = BuildRuntimeEntityVisualEvidence(entity);
-			if (evidence.IsEmpty())
-				evidence = entityEvidence;
-			else
-				evidence = evidence + " ; " + entityEvidence;
+			if (SCR_AIGroup.Cast(entity))
+			{
+				rootCount++;
+				if (rootEvidence.IsEmpty())
+					rootEvidence = entityEvidence;
+				continue;
+			}
 
-			if (evidence.Length() > 180)
-				break;
+			directCount++;
+			if (IsLivingEntity(entity))
+				livingDirectCount++;
+			if (directEvidence.IsEmpty())
+				directEvidence = entityEvidence;
 		}
+
+		string evidence = string.Format("roots %1 direct %2 livingDirect %3", rootCount, directCount, livingDirectCount);
+		if (!directEvidence.IsEmpty())
+			evidence = evidence + " | directSample " + directEvidence;
+		if (!rootEvidence.IsEmpty())
+			evidence = evidence + " | rootSample " + rootEvidence;
 
 		IEntity vehicleEntity = GetRuntimeVehicleEntity(groupId);
 		if (vehicleEntity)
 		{
 			string vehicleEvidence = "vehicle " + BuildRuntimeEntityVisualEvidence(vehicleEntity);
-			if (evidence.IsEmpty())
-				evidence = vehicleEvidence;
-			else
-				evidence = evidence + " ; " + vehicleEvidence;
+			evidence = evidence + " | " + vehicleEvidence;
 		}
 
-		if (evidence.IsEmpty())
+		if (rootCount <= 0 && directCount <= 0 && !vehicleEntity)
 			return "no runtime entities";
 
 		return evidence;
@@ -8072,7 +8085,9 @@ class HST_PhysicalWarService
 				continue;
 			}
 
-			if (!IsLivingEntity(entity) || checkedMemberEntities.Find(entity) >= 0)
+			if (checkedMemberEntities.Find(entity) >= 0)
+				continue;
+			if (!IsLivingEntity(entity) && !IsInfantryCharacterPrefabVisualMismatch(ResolveEntityPrefabName(entity), expectedFactionKey))
 				continue;
 
 			checkedMemberEntities.Insert(entity);

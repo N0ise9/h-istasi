@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r19-faction-visual-spawn-proof";
-	static const string BUILD_UTC = "2026-07-06T14:26:45Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r19-faction-visual-spawn-proof";
+	static const string BUILD_SHA = "r20-direct-member-visual-proof";
+	static const string BUILD_UTC = "2026-07-06T14:29:35Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r20-direct-member-visual-proof";
 
 	static string BuildSummary()
 	{
