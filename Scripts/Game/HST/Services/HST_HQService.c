@@ -1066,7 +1066,7 @@ class HST_HQService
 		}
 
 		DebugLog(string.Format("lifecycle spawning Petros prefab=%1 pos=%2 hqDeployed=%3 petrosAlive=%4 runtimeSpawned=%5", petrosPrefab, petrosPosition, hqDeployed, petrosAlive, runtimeSpawned));
-		GenericEntity petros = HST_WorldPositionService.SpawnPrefab(petrosPrefab, petrosPosition, "0 0 0");
+		GenericEntity petros = SpawnPetrosCharacterPrefab(petrosPrefab, petrosPosition);
 		if (petros && PreparePetrosRuntimeEntity(petros, petrosPosition, "dedicated Petros spawn"))
 			return petros;
 		if (petros)
@@ -1080,7 +1080,7 @@ class HST_HQService
 				m_bWarnedPetrosResourceFailure = true;
 			}
 
-			petros = HST_WorldPositionService.SpawnPrefab(PETROS_BASE_PREFAB, petrosPosition, "0 0 0");
+			petros = SpawnPetrosCharacterPrefab(PETROS_BASE_PREFAB, petrosPosition);
 			if (petros && PreparePetrosRuntimeEntity(petros, petrosPosition, "base FIA Petros fallback"))
 				return petros;
 			if (petros)
@@ -1090,6 +1090,31 @@ class HST_HQService
 		}
 
 		return null;
+	}
+
+	protected GenericEntity SpawnPetrosCharacterPrefab(string prefab, vector position)
+	{
+		if (prefab.IsEmpty())
+			return null;
+
+		ResourceName resourceName = prefab;
+		Resource loaded = Resource.Load(resourceName);
+		if (!loaded || !loaded.IsValid())
+			return null;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		EntitySpawnParams params = new EntitySpawnParams;
+		params.TransformMode = ETransformMode.WORLD;
+		params.Transform[3] = position;
+		IEntity entity = GetGame().SpawnEntityPrefabEx(resourceName, true, world, params);
+		GenericEntity genericEntity = GenericEntity.Cast(entity);
+		if (genericEntity)
+			genericEntity.SetOrigin(position);
+
+		return genericEntity;
 	}
 
 	protected bool PreparePetrosRuntimeEntity(IEntity petros, vector position, string source)

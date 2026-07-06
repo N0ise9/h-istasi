@@ -485,6 +485,7 @@ foreach ($requiredPetrosServiceEntry in @(
 		"BootstrapInitialHideout",
 		"ResolvePetrosPrefab",
 		"SpawnPetros",
+		"SpawnPetrosCharacterPrefab",
 		"ResolveArsenalPrefab",
 		"SpawnArsenal",
 		"IsUsableArsenalEntity",
@@ -514,6 +515,17 @@ foreach ($requiredPetrosServiceEntry in @(
 
 if ($hqServiceText -notmatch "SpawnPetros\(respawnSystem, state\)") {
 	throw "HQ runtime spawn must route Petros through the custom-prefab fallback helper"
+}
+if ($hqServiceText -notmatch "SpawnPetrosCharacterPrefab\(petrosPrefab, petrosPosition\)" -or $hqServiceText -notmatch "SpawnPetrosCharacterPrefab\(PETROS_BASE_PREFAB, petrosPosition\)") {
+	throw "HQ runtime Petros spawn must use the dedicated forced character prefab helper for both custom and base fallback Petros"
+}
+$spawnPetrosMethodMatch = [regex]::Match($hqServiceText, "protected GenericEntity SpawnPetros[\s\S]*?protected GenericEntity SpawnPetrosCharacterPrefab")
+if ($spawnPetrosMethodMatch.Success -and $spawnPetrosMethodMatch.Value -match "HST_WorldPositionService\.SpawnPrefab") {
+	throw "HQ runtime Petros must not use generic non-forced prefab spawning; dedicated server tests remove that character before HQ runtime stabilizes"
+}
+$spawnPetrosCharacterMethodMatch = [regex]::Match($hqServiceText, "protected GenericEntity SpawnPetrosCharacterPrefab[\s\S]*?protected bool PreparePetrosRuntimeEntity")
+if (!$spawnPetrosCharacterMethodMatch.Success -or $spawnPetrosCharacterMethodMatch.Value -notmatch "SpawnEntityPrefabEx\(resourceName, true, world, params\)") {
+	throw "HQ runtime Petros forced character spawn helper must call SpawnEntityPrefabEx with forced runtime spawning"
 }
 if ($hqServiceText -notmatch "SpawnArsenal\(respawnSystem, state\)") {
 	throw "HQ runtime spawn must route the HQ arsenal through the custom-prefab fallback helper"
