@@ -164,9 +164,9 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 `serverStart.bat`. The server log must contain
-`h-istasi boot | authority build 2026-07-05-steam64-admin-menu-v3-package-proof`
+`h-istasi boot | authority build 2026-07-06-runtime-proof-r4-convoy-proof`
 and the client log must contain
-`build=2026-07-05-menu-input-v3-package-proof` on the local command-menu ready
+`build=2026-07-06-menu-input-r4-convoy-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged
 addon under `ArmaReforger/addons`, even if the repository has newer commits.
 
