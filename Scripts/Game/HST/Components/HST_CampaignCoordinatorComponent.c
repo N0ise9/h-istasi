@@ -6202,15 +6202,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("json %1 saved %2 | summary %3 saved %4 | state diff %5 saved %6", m_sCampaignDebugReportPath, jsonSaved, m_sCampaignDebugSummaryPath, summarySaved, m_sCampaignDebugStateDiffPath, stateDiffSaved);
 	}
 
-	protected void EnsureCampaignDebugArtifactRecorded(string path)
+	protected void EnsureCampaignDebugArtifactRecorded(string artifactPath)
 	{
-		if (!m_CampaignDebugRunResult || path.IsEmpty())
+		if (!m_CampaignDebugRunResult || artifactPath.IsEmpty())
 			return;
 
-		if (m_CampaignDebugRunResult.m_aArtifacts.Contains(path))
+		if (m_CampaignDebugRunResult.m_aArtifacts.Contains(artifactPath))
 			return;
 
-		m_CampaignDebugRunResult.m_aArtifacts.Insert(path);
+		m_CampaignDebugRunResult.m_aArtifacts.Insert(artifactPath);
 	}
 
 	protected void FinalizeCampaignDebugRunResult()
@@ -11822,8 +11822,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
 		{
-			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | skipped: player inventory has no cargo or carrier slot for physical reflection check";
-			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | skipped: physical apply probe skipped because player inventory has no cargo or carrier slot";
+			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: player inventory has no cargo or carrier slot for physical reflection check";
+			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | blocked: physical apply probe blocked because player inventory has no cargo or carrier slot";
 			return;
 		}
 
@@ -12742,7 +12742,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
 			return "BLOCKED";
 		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
-			return "WARN";
+			return "BLOCKED";
 
 		bool physicalApplyPassed = vehicleLoadoutContext.m_bPhysicalLoadoutSeeded;
 		physicalApplyPassed = physicalApplyPassed && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult);
@@ -12760,7 +12760,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalDraftAccessible)
 			return "BLOCKED";
 		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
-			return "WARN";
+			return "BLOCKED";
 
 		bool draftApplyPassed = IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult);
 		draftApplyPassed = draftApplyPassed && vehicleLoadoutContext.m_bPhysicalDraftReflected;
@@ -12775,7 +12775,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
 			return "BLOCKED";
 		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
-			return "WARN";
+			return "BLOCKED";
 
 		bool restorePassed = vehicleLoadoutContext.m_bRestoreLoadoutSeeded;
 		restorePassed = restorePassed && IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
@@ -12791,7 +12791,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalDraftAccessible)
 			return "BLOCKED";
 		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
-			return "WARN";
+			return "BLOCKED";
 
 		bool draftRestorePassed = IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
 		draftRestorePassed = draftRestorePassed && vehicleLoadoutContext.m_bPhysicalDraftRestored;

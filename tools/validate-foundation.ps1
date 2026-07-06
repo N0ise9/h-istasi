@@ -6516,6 +6516,32 @@ foreach ($forbiddenStorageVolumeGeometry in @(
 		throw "Loadout storage volume fill must not calculate frame geometry: $forbiddenStorageVolumeGeometry"
 	}
 }
+foreach ($requiredCampaignDebugPhysicalLoadoutBlockEntry in @(
+		"blocked: player inventory has no cargo or carrier slot for physical reflection check",
+		"blocked: physical apply probe blocked because player inventory has no cargo or carrier slot",
+		"CampaignDebugLoadoutPhysicalApplyStatus",
+		"CampaignDebugLoadoutDraftApplyStatus",
+		"CampaignDebugLoadoutPhysicalRestoreStatus",
+		"CampaignDebugLoadoutDraftRestoreStatus"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugPhysicalLoadoutBlockEntry)) {
+		throw "Campaign debug physical loadout capacity prerequisites must be explicit BLOCKED evidence: $requiredCampaignDebugPhysicalLoadoutBlockEntry"
+	}
+}
+foreach ($physicalLoadoutStatusFunction in @(
+		"CampaignDebugLoadoutPhysicalApplyStatus",
+		"CampaignDebugLoadoutDraftApplyStatus",
+		"CampaignDebugLoadoutPhysicalRestoreStatus",
+		"CampaignDebugLoadoutDraftRestoreStatus"
+	)) {
+	$functionMatch = [regex]::Match($scriptText, "protected string $physicalLoadoutStatusFunction[\s\S]*?\r?\n\t}")
+	if (!$functionMatch.Success) {
+		throw "Campaign debug physical loadout status helper missing: $physicalLoadoutStatusFunction"
+	}
+	if ($functionMatch.Value -match [regex]::Escape('if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)') -and $functionMatch.Value -match [regex]::Escape('return "WARN";')) {
+		throw "Campaign debug physical loadout missing-capacity path must be BLOCKED, not WARN: $physicalLoadoutStatusFunction"
+	}
+}
 $loadoutPreviewChromeMethods = @(
 	@{ Name = "AddCandidatePreviewToListRow"; Pattern = "protected void AddCandidatePreviewToListRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidateListOverlayText" },
 	@{ Name = "AddNodePreviewToRow"; Pattern = "protected void AddNodePreviewToRow[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void AddCandidatePreviewToRow" },
