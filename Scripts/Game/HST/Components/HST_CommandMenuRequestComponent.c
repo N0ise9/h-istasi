@@ -1100,8 +1100,6 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 				playerMarkers++;
 				if (mapOpen && marker.EnsureHSTPlayerMarkerWidget())
 					readyPlayerMarkers++;
-				else if (!mapOpen && marker.GetRootWidget())
-					readyPlayerMarkers++;
 			}
 		}
 
