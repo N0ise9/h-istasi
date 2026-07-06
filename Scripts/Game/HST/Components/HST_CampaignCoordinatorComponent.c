@@ -413,7 +413,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (convoyRuntimeChanged)
 			BroadcastPendingMissionRuntimeEvents();
 		string completedRuntimeMissionId = m_MissionRuntime.FindCompletedActiveMissionId(m_State, m_Objectives);
-		if (!completedRuntimeMissionId.IsEmpty())
+		if (!completedRuntimeMissionId.IsEmpty() && ShouldCampaignDebugHoldRuntimeCompletion(completedRuntimeMissionId))
+			missionRuntimeChanged = true;
+		else if (!completedRuntimeMissionId.IsEmpty())
 			missionRuntimeChanged = CompleteMission(completedRuntimeMissionId) || missionRuntimeChanged || convoyRuntimeChanged || convoyOutcomeChanged;
 		string failedRuntimeMissionId = m_MissionRuntime.FindFailedActiveMissionId(m_State);
 		if (!failedRuntimeMissionId.IsEmpty())
@@ -3274,6 +3276,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool ShouldCampaignDebugPreservePersistenceSmokeState()
 	{
 		return m_sCampaignDebugProfile == "persistence_restart_external";
+	}
+
+	protected bool ShouldCampaignDebugHoldRuntimeCompletion(string instanceId)
+	{
+		if (!m_bCampaignDebugRunning || instanceId.IsEmpty() || !m_State)
+			return false;
+		if (instanceId != m_sCampaignDebugCurrentMissionInstanceId && instanceId != m_sCampaignDebugEarlyMissionInstanceId)
+			return false;
+
+		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
+		if (IsCampaignDebugInstantOrAbstractPrimitive(mission))
+			return false;
+
+		return true;
 	}
 
 	protected bool ShouldCampaignDebugRunEarlyPhaseStage()
@@ -9500,6 +9516,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool runtimeActive = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE;
 		bool runtimeAlreadySucceeded = mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED && objectiveCount > 0 && objectiveComplete >= objectiveCount;
 		bool runtimeEarlyCompletionAllowed = runtimeAlreadySucceeded && IsCampaignDebugInstantOrAbstractPrimitive(mission);
+		bool runtimeObjectivesAlreadyComplete = runtimeActive && objectiveCount > 0 && objectiveComplete >= objectiveCount;
+		bool runtimeCompletionHeld = runtimeObjectivesAlreadyComplete && ShouldCampaignDebugHoldRuntimeCompletion(instanceId);
 		string runtimeRecordStatus = CampaignDebugStatus(runtimeActive || runtimeEarlyCompletionAllowed);
 
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.objectives", string.Format("%1", objectiveCount), "count");
@@ -9508,6 +9526,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(runtimeCase, "mission.runtime.entities", string.Format("%1", runtimeEntityCount), "count");
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.report", "runtime inspection report is accepted", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(reportOk), "mission runtime report returned failure text", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.record", "mission record exists and remains active before primitive proof; only explicit abstract_fallback may already be complete", BuildCampaignDebugPrimitiveMissionActual(mission), runtimeRecordStatus, "mission runtime record missing, inactive, or completed before runtime proof", "", instanceId);
+		if (runtimeObjectivesAlreadyComplete)
+			AddCampaignDebugAssertion(runtimeCase, "mission.runtime.debug_hold", "debug-owned mission with completed objectives stays active until primitive proof", string.Format("held %1 | objectives %2/%3 | current %4 | early %5", runtimeCompletionHeld, objectiveComplete, objectiveCount, EmptyCampaignDebugField(m_sCampaignDebugCurrentMissionInstanceId), EmptyCampaignDebugField(m_sCampaignDebugEarlyMissionInstanceId)), CampaignDebugStatus(runtimeCompletionHeld || IsCampaignDebugInstantOrAbstractPrimitive(mission)), "mission completed objectives before primitive proof without debug hold evidence", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.spawned", "runtime spawned without unexpected fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(runtimeHealthy && failureClear && fallbackOk), "mission runtime did not spawn cleanly", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.primitive", "runtime primitive/type metadata is populated and matches definition", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission && !mission.m_sRuntimePrimitive.IsEmpty() && runtimeTypeMatches), "mission runtime primitive/type metadata mismatch", "", instanceId);
 		AddCampaignDebugAssertion(runtimeCase, "mission.runtime.objectives", "mission has objective records before primitive probe", BuildCampaignDebugMissionObjectiveActual(instanceId), CampaignDebugStatus(objectiveCount > 0), "mission runtime has no objective records", "", instanceId);

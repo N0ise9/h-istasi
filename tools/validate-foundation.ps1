@@ -3133,6 +3133,9 @@ foreach ($requiredCampaignDebugSmokeCleanupEntry in @(
 }
 foreach ($requiredCampaignDebugMissionProofEntry in @(
 		"IsCampaignDebugInstantOrAbstractPrimitive",
+		"ShouldCampaignDebugHoldRuntimeCompletion",
+		"missionRuntimeChanged = true",
+		"mission.runtime.debug_hold",
 		"mission runtime record missing, inactive, or completed before runtime proof",
 		"primitive mission record disappeared before runtime action proof",
 		"only explicit abstract_fallback may already be complete",
