@@ -7874,7 +7874,10 @@ if ($physicalWarServiceText -match 'DIRECT_INFANTRY_GROUP_PREFAB = "\{000CD33871
 foreach ($requiredRuntimeFactionAuditEntry in @(
 		"post_cleanup.runtime_factions",
 		"cleanup.runtime_factions",
-		"runtime_faction_mismatches"
+		"runtime_faction_mismatches",
+		"pending live-count",
+		"skipped terminal empty",
+		"zero live controlled members for infantry group"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeFactionAuditEntry)) {
 		throw "Campaign debug cleanup must audit runtime group/vehicle faction mismatches: $requiredRuntimeFactionAuditEntry"

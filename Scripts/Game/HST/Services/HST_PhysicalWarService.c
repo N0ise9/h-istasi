@@ -1961,8 +1961,12 @@ class HST_PhysicalWarService
 
 		int runtimeGroupCount;
 		int checkedGroupCount;
+		int pendingLiveCountGroups;
+		int skippedTerminalEmptyGroups;
 		int mismatchCount;
 		string firstMismatch;
+		string firstPending;
+		string firstTerminalEmpty;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sFactionKey.IsEmpty())
@@ -1973,16 +1977,35 @@ class HST_PhysicalWarService
 			if (!groupEntityPresent && !vehicleEntityPresent)
 				continue;
 
+			int liveControlledMembers = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
+			int liveRuntimeEntities = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
+			if (IsTerminalActiveGroupRuntimeStatus(activeGroup) && liveControlledMembers <= 0 && liveRuntimeEntities <= 0)
+			{
+				skippedTerminalEmptyGroups++;
+				if (firstTerminalEmpty.IsEmpty())
+					firstTerminalEmpty = activeGroup.m_sGroupId;
+				continue;
+			}
+
 			runtimeGroupCount++;
 			EnsureActiveGroupRuntimeFaction(activeGroup, "campaign debug faction audit");
 
 			string sample;
 			int activeGroupMismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, sample);
-			if (activeGroup.m_iInfantryCount > 0 && groupEntityPresent && CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId) <= 0)
+			if (activeGroup.m_iInfantryCount > 0 && groupEntityPresent && liveControlledMembers <= 0)
 			{
-				activeGroupMismatches++;
-				if (sample.IsEmpty())
-					sample = "zero live controlled members for infantry group";
+				if (IsActiveGroupLiveCountGraceActive(state, activeGroup))
+				{
+					pendingLiveCountGroups++;
+					if (firstPending.IsEmpty())
+						firstPending = activeGroup.m_sGroupId;
+				}
+				else
+				{
+					activeGroupMismatches++;
+					if (sample.IsEmpty())
+						sample = "zero live controlled members for infantry group";
+				}
 			}
 			checkedGroupCount++;
 			mismatchCount += activeGroupMismatches;
@@ -1990,7 +2013,9 @@ class HST_PhysicalWarService
 				firstMismatch = BuildActiveGroupRuntimeFactionActual(activeGroup, activeGroupMismatches, sample, groupEntityPresent, vehicleEntityPresent);
 		}
 
-		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | first %4", runtimeGroupCount, checkedGroupCount, mismatchCount, ReportText(firstMismatch));
+		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | pending live-count %4 | skipped terminal empty %5 | first %6", runtimeGroupCount, checkedGroupCount, mismatchCount, pendingLiveCountGroups, skippedTerminalEmptyGroups, ReportText(firstMismatch));
+		if (!firstPending.IsEmpty() || !firstTerminalEmpty.IsEmpty())
+			evidence = evidence + string.Format(" | first pending %1 | first terminal empty %2", ReportText(firstPending), ReportText(firstTerminalEmpty));
 		return mismatchCount;
 	}
 
