@@ -188,10 +188,10 @@ class HST_MissionRuntimeService
 
 		bool captiveInCarrier = false;
 		bool captiveGettingIn = false;
+		int boardingStateSamples = 0;
 		if (boardingAccess)
 		{
-			captiveInCarrier = boardingAccess.IsInCompartment() && boardingAccess.GetVehicle() == carrierEntity;
-			captiveGettingIn = boardingAccess.IsGettingIn();
+			RefreshCaptiveBoardingDebugState(boardingAccess, carrierEntity, captiveInCarrier, captiveGettingIn, boardingStateSamples);
 		}
 		if (boardingAccepted)
 		{
@@ -202,9 +202,10 @@ class HST_MissionRuntimeService
 			probeAsset.m_vLastKnownPosition = carrierPosition;
 		}
 
-		string boardingActual = string.Format("accepted %1 | seated %2 | gettingIn %3 | reason %4", boardingAccepted, captiveInCarrier, captiveGettingIn, boardingReason);
+		string boardingActual = string.Format("accepted %1 | seated %2 | gettingIn %3 | samples %4 | reason %5", boardingAccepted, captiveInCarrier, captiveGettingIn, boardingStateSamples, boardingReason);
+		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.state_samples", string.Format("%1", boardingStateSamples), "count");
 		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.command", "runtime captive boarding helper accepts a cargo seat", boardingActual, CaptiveBoardingDebugStatus(boardingAccepted), "captive boarding helper rejected the temporary carrier", assetId, instanceId, zoneId);
-		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.seat_state", "captive is seated in or actively boarding the temporary carrier", boardingActual, CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn, "WARN"), "captive boarding command was accepted but no immediate seat/boarding state was visible", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.seat_state", "captive is seated in or actively boarding the temporary carrier after bounded state rescan", boardingActual, CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn), "captive boarding command did not produce a seated or getting-in state after bounded rescan", assetId, instanceId, zoneId);
 		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.asset_loaded_state", "temporary captive asset records loaded carrier state", BuildCaptiveBoardingDebugAssetActual(probeAsset), CaptiveBoardingDebugStatus(probeAsset.m_sLastInteraction == PHASE_LOADED && probeAsset.m_bAttachedToCarrier && probeAsset.m_sCarriedByVehicleId == carrierId), "temporary captive asset did not enter loaded carrier state", assetId, instanceId, zoneId);
 
 		vector transportPosition;
@@ -220,17 +221,20 @@ class HST_MissionRuntimeService
 			carrierMoved = carrierMoveDistance >= 10.0;
 		}
 		bool captiveStillInCarrier = false;
+		bool captiveStillGettingIn = false;
+		int transportStateSamples = 0;
 		if (boardingAccess)
-			captiveStillInCarrier = boardingAccess.IsInCompartment() && boardingAccess.GetVehicle() == carrierEntity;
+			RefreshCaptiveBoardingDebugState(boardingAccess, carrierEntity, captiveStillInCarrier, captiveStillGettingIn, transportStateSamples);
 		if (carrierMoved && boardingAccepted)
 		{
 			probeAsset.m_vCurrentPosition = transportPosition;
 			probeAsset.m_vLastKnownPosition = transportPosition;
 		}
 
-		string transportActual = string.Format("moved %1 | distance %2m | still seated %3 | position %4", carrierMoved, Math.Round(carrierMoveDistance), captiveStillInCarrier, transportPosition);
+		string transportActual = string.Format("moved %1 | distance %2m | still seated %3 | gettingIn %4 | samples %5 | position %6", carrierMoved, Math.Round(carrierMoveDistance), captiveStillInCarrier, captiveStillGettingIn, transportStateSamples, transportPosition);
 		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.transport_distance", string.Format("%1", Math.Round(carrierMoveDistance)), "meters");
-		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.transport", "loaded captive remains associated with carrier after carrier movement", transportActual, CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveGettingIn), "WARN"), "temporary captive did not remain visibly associated with the carrier after movement", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.transport_state_samples", string.Format("%1", transportStateSamples), "count");
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.transport", "loaded captive remains associated with carrier after carrier movement", transportActual, CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveStillGettingIn)), "temporary captive did not remain visibly associated with the carrier after movement", assetId, instanceId, zoneId);
 
 		bool disembarked = false;
 		if (boardingAccess && boardingAccess.IsInCompartment())
@@ -245,6 +249,24 @@ class HST_MissionRuntimeService
 
 		FinalizeCaptiveBoardingDebugProbeCase(state, probe);
 		return probe;
+	}
+
+	protected void RefreshCaptiveBoardingDebugState(SCR_CompartmentAccessComponent access, IEntity carrierEntity, out bool captiveInCarrier, out bool captiveGettingIn, out int samples)
+	{
+		captiveInCarrier = false;
+		captiveGettingIn = false;
+		samples = 0;
+		if (!access || !carrierEntity)
+			return;
+
+		for (int i = 0; i < 5; i++)
+		{
+			samples++;
+			captiveInCarrier = access.IsInCompartment() && access.GetVehicle() == carrierEntity;
+			captiveGettingIn = access.IsGettingIn();
+			if (captiveInCarrier || captiveGettingIn)
+				return;
+		}
 	}
 
 	HST_CampaignDebugCaseResult BuildCampaignDebugExpiredPlayerBoundBubbleProbe(HST_CampaignState state, string debugPrefix, bool physicalBlocked)
@@ -3830,13 +3852,22 @@ class HST_MissionRuntimeService
 			return false;
 		}
 
-		if (!access.MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, false, slot))
+		IEntity slotOwner = slot.GetOwner();
+		if (!slotOwner)
+			slotOwner = vehicleEntity;
+		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
+		{
+			reason = "server-authoritative captive cargo move-in completed";
+			return true;
+		}
+
+		if (!access.MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, true, slot))
 		{
 			reason = "captive vehicle boarding order rejected";
 			return false;
 		}
 
-		reason = "captive vehicle boarding order issued";
+		reason = "animated captive vehicle boarding order issued";
 		return true;
 	}
 

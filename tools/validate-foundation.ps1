@@ -1576,6 +1576,24 @@ foreach ($requiredMissionPrimitive in @(
 		throw "Mission runtime service is missing physical primitive contract: $requiredMissionPrimitive"
 	}
 }
+foreach ($requiredCaptiveBoardingEntry in @(
+		"RefreshCaptiveBoardingDebugState",
+		"rescue.captive.boarding.state_samples",
+		"rescue.captive.boarding.transport_state_samples",
+		"access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
+		"access.MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, true, slot)",
+		"server-authoritative captive cargo move-in completed",
+		"captive boarding command did not produce a seated or getting-in state after bounded rescan",
+		"CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn)",
+		"CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveStillGettingIn))"
+	)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredCaptiveBoardingEntry)) {
+		throw "Captive boarding debug probe must use authoritative move-in and strict bounded seat/transport proof: $requiredCaptiveBoardingEntry"
+	}
+}
+if ($missionRuntimeServiceText -match [regex]::Escape('CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn, "WARN")') -or $missionRuntimeServiceText -match [regex]::Escape('MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, false, slot)')) {
+	throw "Captive boarding proof must not keep immediate WARN-only seat state or unpaused animated-only boarding"
+}
 foreach ($requiredExpiredMissionCompletionEntry in @(
 		"allowExpired = false",
 		"CanCompleteExpiredPlayerBoundMission(m_State, activeMission)",
