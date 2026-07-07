@@ -57,6 +57,37 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Seed them with a non-fallback data-only mode and skip physical repair for smoke mission/group ids.
   - Current examples: `HST_PersistenceSmokeTestService.EnsureSmokeActiveGroup()` and `HST_PhysicalWarService.CanAttemptMissionConvoyCrewPopulationRepair()`.
 
+## Runtime Architecture Patterns
+
+- Treat fallback use as a primary-method failure that must be visible in debug output.
+  - A fallback can keep a test moving, but the runtime certification path should still report which primary method failed, why it failed, and which fallback took over.
+  - Avoid report wording that makes fallback success look equivalent to primary success. The useful proof is: primary requested, primary observed, fallback not used.
+
+- Long-running AI work should go through a spawn queue or force-owned request layer.
+  - A practical AI-heavy pattern is: create data-only spawn requests, enqueue them, preprocess just before execution, cancel invalid/excessive requests, and process within a small per-poll time budget.
+  - Attach spawned groups to an owning force so group attach/detach, agent add/remove, kill, queued spawn count, streamed-in/out state, and cleanup can be reported from one authority instead of being re-derived by every gameplay service.
+  - HST currently does this work mostly inside `HST_PhysicalWarService`; future refactors should move toward a reusable AI force/spawn queue service while keeping current debug proof labels.
+
+- Streamed-out AI should keep explicit simulated manpower instead of pretending the live group still exists.
+  - Store surviving member prefab identities and proxied manpower before deleting a live group root for distance/streaming reasons.
+  - On stream-in, rebuild through the same stock group spawn path and reattach the rebuilt group to its owning force.
+  - This keeps performance, persistence, and Game Master state aligned: live groups are live, streamed-out groups are simulation records, and terminal dead groups are cleanup candidates.
+
+- Zone ownership, battle areas, construction areas, and illegal/player-danger areas are cleaner as components than as repeated radius checks.
+  - A zone component can own shape/polygon containment, map color/style, faction affiliation, parking/traffic effects, and tags such as battle, POI, construction, or blocked traffic.
+  - A controller component can link nearby shape zones to a POI, refresh them when faction/battle state changes, and replicate only the visible zone state.
+  - HST zones are currently data records plus marker/proximity services; if construction, traffic exclusion, front lines, or richer battle areas expand, introduce a zone component/controller layer instead of adding more ad hoc radius checks.
+
+- Player command readiness depends on vanilla player faction and group state, not just HST membership/admin state.
+  - After player handover/spawn, ensure the player controller's faction affiliation is set through the faction manager path and that the vanilla player group/controller group id are coherent.
+  - If the groups manager has a player group but `SCR_PlayerControllerGroupComponent` does not, repair the controller's group id and replicate it.
+  - This is separate from HST command-menu permissions: a player can be an HST admin and still have broken vanilla command context if faction/group handover did not finish.
+
+- Campaign mechanics become easier to test when runtime entities own their local state.
+  - Town support/threat, wanted heat, build-area contents, logistics storage, respawn tickets, garages, and missions can be component-owned and aggregated by manager systems.
+  - The manager should answer campaign-wide questions and emit reports; the component should own lifecycle hooks, replication, persistence, and local invariants.
+  - HST currently centralizes many of these as campaign-state rows; that is debuggable, but future feature growth should prefer component-local state for mechanics that are physically represented in the world.
+
 ## UI Layouts
 
 - Top-level UI layouts should be created with the workspace as the parent when they are meant to exist above game/map UI:
