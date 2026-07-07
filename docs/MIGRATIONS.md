@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `31`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `32`.
 
+- Schema 32 extends durable vehicle heat/report fields to garage vehicles so
+  reported vehicle cover state survives capture, virtual storage, redeploy, and
+  save-data roundtrips.
 - Schema 31 adds durable runtime vehicle heat/report fields so reported
   civilian vehicles, passenger compromises, report expiry, and vehicle-cover
   eligibility remain inspectable across saves.
@@ -52,6 +55,20 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 32
+
+Garage vehicle heat and undercover vehicle-cover handoff state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `32`.
+- `HST_GarageVehicleState` now persists reported state, civilian vehicle-cover
+  eligibility, heat value, report timestamps, last report reason/zone, and
+  passenger compromise count.
+- Runtime-to-garage capture and garage-to-runtime redeploy copy vehicle heat
+  metadata through the handoff. Existing schema-31 and older garage vehicles
+  backfill civilian-cover eligibility from source faction, source kind, and
+  civilian vehicle prefab hints, and start with no reported heat unless a newer
+  save already carried it.
 
 ## Schema 31
 

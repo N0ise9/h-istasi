@@ -2587,16 +2587,7 @@ class HST_CivilianService
 
 	protected bool RuntimeVehicleCanProvideCivilianUndercover(HST_RuntimeVehicleState vehicle)
 	{
-		if (!vehicle || vehicle.m_bDeleted)
-			return false;
-		if (vehicle.m_sFactionKey == CIVILIAN_FACTION_KEY)
-			return true;
-		if (vehicle.m_sRuntimeKind.Contains("CIVILIAN") || vehicle.m_sRuntimeKind.Contains("CIV"))
-			return true;
-		if (vehicle.m_sPrefab.Contains("CIV") || vehicle.m_sPrefab.Contains("S105") || vehicle.m_sPrefab.Contains("S1203"))
-			return true;
-
-		return false;
+		return HST_VehicleCapabilityPolicy.CanRuntimeVehicleProvideCivilianUndercover(vehicle);
 	}
 
 	protected bool IsRuntimeVehicle(string runtimeKind)
@@ -2625,6 +2616,7 @@ class HST_CivilianService
 		vehicle.m_vAngles = angles;
 		vehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
+		HST_VehicleCapabilityPolicy.NormalizeRuntimeVehicleCoverState(vehicle);
 		state.m_aRuntimeVehicles.Insert(vehicle);
 	}
 

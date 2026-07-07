@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r50-undercover-vehicle-heat";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r51-garage-vehicle-heat-handoff";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4883,6 +4883,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		string actual = string.Format("vehicle %1 | heat %2 | reported %3 | cover %4 | until %5", EmptyCampaignDebugField(vehicle.m_sVehicleRuntimeId), vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_bCanProvideUndercover, vehicle.m_iReportedUntilSecond);
+		actual = actual + string.Format(" | passengers %1 | zone %2 | reason %3", vehicle.m_iPassengerCompromiseCount, EmptyCampaignDebugField(vehicle.m_sLastReporterZoneId), EmptyCampaignDebugField(vehicle.m_sLastReportedReason));
+		return actual;
+	}
+
+	protected string BuildCampaignDebugGarageVehicleHeatActual(HST_GarageVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "missing";
+
+		string actual = string.Format("garage %1 | heat %2 | reported %3 | cover %4 | until %5", EmptyCampaignDebugField(vehicle.m_sVehicleId), vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_bCanProvideUndercover, vehicle.m_iReportedUntilSecond);
 		actual = actual + string.Format(" | passengers %1 | zone %2 | reason %3", vehicle.m_iPassengerCompromiseCount, EmptyCampaignDebugField(vehicle.m_sLastReporterZoneId), EmptyCampaignDebugField(vehicle.m_sLastReportedReason));
 		return actual;
 	}
@@ -13253,6 +13263,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicleLoadoutContext.m_iRedeployCost = storedVehicle.m_iRedeployCost;
 			AppendCampaignDebugVehicleLoadoutStoredCargo(storedVehicle);
 			vehicleLoadoutContext.m_iStoredCargoAfterArrange = CountCampaignDebugStoredVehicleCargoItems(storedVehicle);
+			ArrangeCampaignDebugGarageVehicleHeat(storedVehicle, SelectHQCivilianTownZoneId());
+			CaptureCampaignDebugStoredVehicleHeat(vehicleLoadoutContext, storedVehicle);
 		}
 
 		vehicleLoadoutContext.m_iMoneyBeforeRedeploy = m_State.m_iFactionMoney;
@@ -13268,6 +13280,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicleLoadoutContext.m_bRuntimeRecordFound = true;
 			vehicleLoadoutContext.m_sRuntimeVehicleId = redeployedVehicle.m_sVehicleRuntimeId;
 			vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy = CountCampaignDebugVehicleCargoForRuntime(vehicleLoadoutContext.m_sRuntimeVehicleId);
+			CaptureCampaignDebugRuntimeVehicleHeat(vehicleLoadoutContext, redeployedVehicle);
 		}
 
 		if (vehicleLoadoutContext.m_bRuntimeRecordFound)
@@ -13280,6 +13293,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			{
 				vehicleLoadoutContext.m_bCapturedRecordFound = true;
 				vehicleLoadoutContext.m_sCapturedVehicleId = capturedVehicle.m_sVehicleId;
+				CaptureCampaignDebugCapturedGarageHeat(vehicleLoadoutContext, capturedVehicle);
 			}
 		}
 		else
@@ -13331,6 +13345,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sLoadoutReportBefore);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sRedeployResult);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sCaptureResult);
+		vehicleLoadoutCase.m_aEvidence.Insert(BuildCampaignDebugVehicleLoadoutHeatActual(vehicleLoadoutContext));
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sOpenLoadoutResult);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sCloseLoadoutResult);
 		vehicleLoadoutCase.m_aEvidence.Insert(vehicleLoadoutContext.m_sValidLoadoutApplyResult);
@@ -13347,12 +13362,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.store.prefix", "stored vehicle id uses the active debug cleanup prefix", EmptyCampaignDebugField(vehicleLoadoutContext.m_sVehicleId), CampaignDebugStatus(vehicleLoadoutContext.m_bStoredPrefixValid), "debug garage vehicle id was not prefixed for cleanup", vehicleLoadoutContext.m_sVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.store.prefab", "stored vehicle prefab is a valid vehicle root", EmptyCampaignDebugField(PHASE15_SMOKE_VEHICLE_PREFAB), CampaignDebugStatus(vehicleLoadoutContext.m_bStoredPrefabValid), "stored vehicle prefab is not valid for garage redeploy", vehicleLoadoutContext.m_sVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "vehicle_cargo.arrange", "stored garage vehicle has cargo arranged before redeploy", string.Format("stored cargo %1", vehicleLoadoutContext.m_iStoredCargoAfterArrange), CampaignDebugStatus(vehicleLoadoutContext.m_iStoredCargoAfterArrange >= 2), "vehicle cargo fixture was not arranged on the stored garage vehicle", vehicleLoadoutContext.m_sVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.store.vehicle_heat", "stored debug vehicle carries reported civilian-cover heat before redeploy", BuildCampaignDebugVehicleLoadoutHeatActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_bStoredVehicleHeatArranged), "stored garage vehicle heat fixture was not arranged", vehicleLoadoutContext.m_sVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.command", "member redeploy command completes through build mode", ShortCampaignDebugLine(vehicleLoadoutContext.m_sRedeployResult, 220), CampaignDebugStatus(vehicleLoadoutContext.m_sRedeployResult.Contains("complete")), "garage redeploy command did not complete", vehicleLoadoutContext.m_sRuntimeVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.consumes_record", "redeploy consumes the stored garage record", string.Format("garage %1 -> %2 -> %3", vehicleLoadoutContext.m_iGarageCountBefore, vehicleLoadoutContext.m_iGarageCountAfterStore, vehicleLoadoutContext.m_iGarageCountAfterRedeploy), CampaignDebugStatus(vehicleLoadoutContext.m_sRedeployResult.Contains("complete") && vehicleLoadoutContext.m_iGarageCountAfterRedeploy == vehicleLoadoutContext.m_iGarageCountBefore), "redeploy did not consume exactly the debug garage record", vehicleLoadoutContext.m_sVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.runtime_vehicle", "redeploy creates a runtime vehicle record", EmptyCampaignDebugField(vehicleLoadoutContext.m_sRuntimeVehicleId), CampaignDebugStatus(vehicleLoadoutContext.m_bRuntimeRecordFound), "garage redeploy did not create a runtime vehicle record", vehicleLoadoutContext.m_sRuntimeVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.vehicle_heat", "redeploy transfers reported vehicle heat from garage to runtime vehicle state", BuildCampaignDebugVehicleLoadoutHeatActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_bRuntimeRecordFound && vehicleLoadoutContext.m_bRuntimeVehicleHeatPreserved, "BLOCKED"), "garage redeploy lost vehicle heat/cover metadata", vehicleLoadoutContext.m_sRuntimeVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "vehicle_cargo.restore", "stored cargo is restored to the redeployed runtime vehicle", string.Format("cargo entries %1 | cargo count %2 -> %3", vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy, vehicleLoadoutContext.m_iVehicleCargoCountBefore, vehicleLoadoutContext.m_iVehicleCargoCountAfterRedeploy), CampaignDebugStatus(vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy >= 2), "garage redeploy did not restore stored cargo to vehicle cargo state", vehicleLoadoutContext.m_sRuntimeVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.redeploy.cost", "redeploy applies the stored vehicle cost when economy is available", string.Format("money %1 -> %2 | cost %3", vehicleLoadoutContext.m_iMoneyBeforeRedeploy, vehicleLoadoutContext.m_iMoneyAfterRedeploy, vehicleLoadoutContext.m_iRedeployCost), CampaignDebugStatus(!vehicleLoadoutContext.m_sRedeployResult.Contains("complete") || vehicleLoadoutContext.m_iMoneyBeforeRedeploy - vehicleLoadoutContext.m_iMoneyAfterRedeploy == vehicleLoadoutContext.m_iRedeployCost), "garage redeploy money delta did not match redeploy cost", vehicleLoadoutContext.m_sVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.capture.cleanup_action", "nearby vehicle capture despawns redeployed vehicle and creates a garage record", ShortCampaignDebugLine(vehicleLoadoutContext.m_sCaptureResult, 220), CampaignDebugStatus(!vehicleLoadoutContext.m_bRuntimeRecordFound || (vehicleLoadoutContext.m_sCaptureResult.Contains("complete") && vehicleLoadoutContext.m_bCapturedRecordFound)), "capture cleanup did not complete for the redeployed vehicle", vehicleLoadoutContext.m_sCapturedVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.capture.vehicle_heat", "capture transfers reported vehicle heat from runtime vehicle state back into garage", BuildCampaignDebugVehicleLoadoutHeatActual(vehicleLoadoutContext), CampaignDebugStatus(vehicleLoadoutContext.m_bRuntimeRecordFound && vehicleLoadoutContext.m_bCapturedRecordFound && vehicleLoadoutContext.m_bCapturedVehicleHeatPreserved, "BLOCKED"), "garage capture lost vehicle heat/cover metadata", vehicleLoadoutContext.m_sCapturedVehicleId);
+		AddCampaignDebugAssertion(vehicleLoadoutCase, "garage.capture.vehicle_heat_save_roundtrip", "save-data roundtrip preserves captured garage vehicle heat metadata", vehicleLoadoutContext.m_sCapturedVehicleHeatRoundTripActual, CampaignDebugStatus(vehicleLoadoutContext.m_bCapturedRecordFound && vehicleLoadoutContext.m_bCapturedVehicleHeatRoundTrip, "BLOCKED"), "captured garage vehicle heat did not survive save-data copy", vehicleLoadoutContext.m_sCapturedVehicleId);
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.open", "loadout editor opens at HQ for the debug actor", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, true), CampaignDebugStatus(IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sOpenLoadoutResult) && vehicleLoadoutContext.m_bLoadoutSessionAfterOpen && vehicleLoadoutContext.m_sLoadoutStatusAfterOpen == "open"), "loadout editor did not open a server session for the debug actor");
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.open.draft", "open refreshes live draft slots or reports live-character availability", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, true), CampaignDebugStatus(vehicleLoadoutContext.m_iDraftSlotsAfterOpen > 0 || vehicleLoadoutContext.m_bLiveCharacterAfterOpen, "WARN"), "loadout editor opened without live draft evidence");
 		AddCampaignDebugAssertion(vehicleLoadoutCase, "loadout.close", "loadout editor closes without mutating issued-loadout ledger", BuildCampaignDebugLoadoutSessionActual(vehicleLoadoutContext, false), CampaignDebugStatus(IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sCloseLoadoutResult) && vehicleLoadoutContext.m_bLoadoutSessionAfterClose && vehicleLoadoutContext.m_sLoadoutStatusAfterClose == "closed" && vehicleLoadoutContext.m_iIssuedItemsAfterClose == vehicleLoadoutContext.m_iIssuedItemsBefore), "loadout editor close failed or issued-loadout state mutated unexpectedly");
@@ -13382,6 +13401,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.runtime_after_cleanup", string.Format("%1", vehicleLoadoutContext.m_iRuntimeVehicleCountAfterCleanup), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.vehicle_cargo_after_redeploy", string.Format("%1", vehicleLoadoutContext.m_iVehicleCargoCountAfterRedeploy), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.restored_cargo", string.Format("%1", vehicleLoadoutContext.m_iRestoredCargoAfterRedeploy), "count");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.heat_stored", string.Format("%1", vehicleLoadoutContext.m_iStoredVehicleHeatBeforeRedeploy), "heat");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.heat_redeployed", string.Format("%1", vehicleLoadoutContext.m_iRuntimeVehicleHeatAfterRedeploy), "heat");
+		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.heat_captured", string.Format("%1", vehicleLoadoutContext.m_iCapturedVehicleHeatAfterCapture), "heat");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.saved_loadouts_after_open", string.Format("%1", vehicleLoadoutContext.m_iSavedLoadoutsAfterOpen), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.draft_slots_after_open", string.Format("%1", vehicleLoadoutContext.m_iDraftSlotsAfterOpen), "count");
 		AddCampaignDebugMetric(vehicleLoadoutCase, "garage_loadout.draft_nodes_after_open", string.Format("%1", vehicleLoadoutContext.m_iDraftNodesAfterOpen), "count");
@@ -13771,6 +13793,90 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return true;
+	}
+
+	protected void ArrangeCampaignDebugGarageVehicleHeat(HST_GarageVehicleState storedVehicle, string zoneId)
+	{
+		if (!storedVehicle || !m_State)
+			return;
+
+		storedVehicle.m_sSourceFactionKey = "CIV";
+		storedVehicle.m_bCanProvideUndercover = true;
+		storedVehicle.m_bReported = true;
+		storedVehicle.m_iVehicleHeat = Math.Max(storedVehicle.m_iVehicleHeat, 6);
+		storedVehicle.m_iLastReportedSecond = m_State.m_iElapsedSeconds;
+		storedVehicle.m_iReportedUntilSecond = Math.Max(storedVehicle.m_iReportedUntilSecond, m_State.m_iElapsedSeconds + 240);
+		storedVehicle.m_iLastVehicleHeatChangedSecond = m_State.m_iElapsedSeconds;
+		storedVehicle.m_iPassengerCompromiseCount = Math.Max(storedVehicle.m_iPassengerCompromiseCount, 2);
+		storedVehicle.m_sLastReportedReason = "debug garage heat handoff";
+		storedVehicle.m_sLastReporterZoneId = zoneId;
+		HST_VehicleCapabilityPolicy.NormalizeGarageVehicleCoverState(storedVehicle);
+	}
+
+	protected void CaptureCampaignDebugStoredVehicleHeat(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext, HST_GarageVehicleState storedVehicle)
+	{
+		if (!vehicleLoadoutContext || !storedVehicle)
+			return;
+
+		vehicleLoadoutContext.m_iStoredVehicleHeatBeforeRedeploy = storedVehicle.m_iVehicleHeat;
+		vehicleLoadoutContext.m_iStoredPassengerCompromisesBeforeRedeploy = storedVehicle.m_iPassengerCompromiseCount;
+		vehicleLoadoutContext.m_bStoredVehicleReportedBeforeRedeploy = storedVehicle.m_bReported;
+		vehicleLoadoutContext.m_bStoredVehicleCoverBeforeRedeploy = storedVehicle.m_bCanProvideUndercover;
+		vehicleLoadoutContext.m_sStoredVehicleHeatReasonBeforeRedeploy = storedVehicle.m_sLastReportedReason;
+		vehicleLoadoutContext.m_bStoredVehicleHeatArranged = storedVehicle.m_bReported && storedVehicle.m_bCanProvideUndercover && storedVehicle.m_iVehicleHeat >= 6 && storedVehicle.m_iPassengerCompromiseCount >= 2 && storedVehicle.m_sLastReportedReason == "debug garage heat handoff";
+	}
+
+	protected void CaptureCampaignDebugRuntimeVehicleHeat(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext, HST_RuntimeVehicleState runtimeVehicle)
+	{
+		if (!vehicleLoadoutContext || !runtimeVehicle)
+			return;
+
+		vehicleLoadoutContext.m_iRuntimeVehicleHeatAfterRedeploy = runtimeVehicle.m_iVehicleHeat;
+		vehicleLoadoutContext.m_iRuntimePassengerCompromisesAfterRedeploy = runtimeVehicle.m_iPassengerCompromiseCount;
+		vehicleLoadoutContext.m_bRuntimeVehicleReportedAfterRedeploy = runtimeVehicle.m_bReported;
+		vehicleLoadoutContext.m_bRuntimeVehicleCoverAfterRedeploy = runtimeVehicle.m_bCanProvideUndercover;
+		if (m_Civilians)
+			vehicleLoadoutContext.m_sRuntimeVehicleHeatReasonAfterRedeploy = m_Civilians.ResolveRuntimeVehicleUndercoverReason(m_State, runtimeVehicle.m_sVehicleRuntimeId);
+		else
+			vehicleLoadoutContext.m_sRuntimeVehicleHeatReasonAfterRedeploy = BuildCampaignDebugRuntimeVehicleHeatActual(runtimeVehicle);
+
+		vehicleLoadoutContext.m_bRuntimeVehicleHeatPreserved = vehicleLoadoutContext.m_bStoredVehicleHeatArranged
+			&& runtimeVehicle.m_bReported == vehicleLoadoutContext.m_bStoredVehicleReportedBeforeRedeploy
+			&& runtimeVehicle.m_bCanProvideUndercover == vehicleLoadoutContext.m_bStoredVehicleCoverBeforeRedeploy
+			&& runtimeVehicle.m_iVehicleHeat == vehicleLoadoutContext.m_iStoredVehicleHeatBeforeRedeploy
+			&& runtimeVehicle.m_iPassengerCompromiseCount == vehicleLoadoutContext.m_iStoredPassengerCompromisesBeforeRedeploy
+			&& runtimeVehicle.m_sLastReportedReason == vehicleLoadoutContext.m_sStoredVehicleHeatReasonBeforeRedeploy;
+	}
+
+	protected void CaptureCampaignDebugCapturedGarageHeat(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext, HST_GarageVehicleState capturedVehicle)
+	{
+		if (!vehicleLoadoutContext || !capturedVehicle)
+			return;
+
+		vehicleLoadoutContext.m_iCapturedVehicleHeatAfterCapture = capturedVehicle.m_iVehicleHeat;
+		vehicleLoadoutContext.m_iCapturedPassengerCompromisesAfterCapture = capturedVehicle.m_iPassengerCompromiseCount;
+		vehicleLoadoutContext.m_bCapturedVehicleReportedAfterCapture = capturedVehicle.m_bReported;
+		vehicleLoadoutContext.m_bCapturedVehicleCoverAfterCapture = capturedVehicle.m_bCanProvideUndercover;
+		vehicleLoadoutContext.m_sCapturedVehicleHeatReasonAfterCapture = capturedVehicle.m_sLastReportedReason;
+		vehicleLoadoutContext.m_bCapturedVehicleHeatPreserved = vehicleLoadoutContext.m_bRuntimeVehicleHeatPreserved
+			&& capturedVehicle.m_bReported == vehicleLoadoutContext.m_bRuntimeVehicleReportedAfterRedeploy
+			&& capturedVehicle.m_bCanProvideUndercover == vehicleLoadoutContext.m_bRuntimeVehicleCoverAfterRedeploy
+			&& capturedVehicle.m_iVehicleHeat == vehicleLoadoutContext.m_iRuntimeVehicleHeatAfterRedeploy
+			&& capturedVehicle.m_iPassengerCompromiseCount == vehicleLoadoutContext.m_iRuntimePassengerCompromisesAfterRedeploy
+			&& capturedVehicle.m_sLastReportedReason == vehicleLoadoutContext.m_sStoredVehicleHeatReasonBeforeRedeploy;
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		saveData.ApplyTo(restoredState);
+		HST_GarageVehicleState restoredVehicle = restoredState.FindGarageVehicle(capturedVehicle.m_sVehicleId);
+		vehicleLoadoutContext.m_sCapturedVehicleHeatRoundTripActual = BuildCampaignDebugGarageVehicleHeatActual(restoredVehicle);
+		vehicleLoadoutContext.m_bCapturedVehicleHeatRoundTrip = restoredVehicle
+			&& restoredVehicle.m_bReported == capturedVehicle.m_bReported
+			&& restoredVehicle.m_bCanProvideUndercover == capturedVehicle.m_bCanProvideUndercover
+			&& restoredVehicle.m_iVehicleHeat == capturedVehicle.m_iVehicleHeat
+			&& restoredVehicle.m_iPassengerCompromiseCount == capturedVehicle.m_iPassengerCompromiseCount
+			&& restoredVehicle.m_sLastReportedReason == capturedVehicle.m_sLastReportedReason;
 	}
 
 	protected void AppendCampaignDebugVehicleLoadoutStoredCargo(HST_GarageVehicleState storedVehicle)
@@ -14510,6 +14616,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool draftRestorePassed = IsCampaignDebugResultSuccessful(vehicleLoadoutContext.m_sRestoreLoadoutApplyResult);
 		draftRestorePassed = draftRestorePassed && vehicleLoadoutContext.m_bPhysicalDraftRestored;
 		return CampaignDebugStatus(draftRestorePassed);
+	}
+
+	protected string BuildCampaignDebugVehicleLoadoutHeatActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
+	{
+		if (!vehicleLoadoutContext)
+			return "missing";
+
+		string actual = string.Format("stored heat %1 reported %2 cover %3 passengers %4 reason %5", vehicleLoadoutContext.m_iStoredVehicleHeatBeforeRedeploy, vehicleLoadoutContext.m_bStoredVehicleReportedBeforeRedeploy, vehicleLoadoutContext.m_bStoredVehicleCoverBeforeRedeploy, vehicleLoadoutContext.m_iStoredPassengerCompromisesBeforeRedeploy, EmptyCampaignDebugField(vehicleLoadoutContext.m_sStoredVehicleHeatReasonBeforeRedeploy));
+		actual = actual + string.Format(" | runtime heat %1 reported %2 cover %3 passengers %4 reason %5", vehicleLoadoutContext.m_iRuntimeVehicleHeatAfterRedeploy, vehicleLoadoutContext.m_bRuntimeVehicleReportedAfterRedeploy, vehicleLoadoutContext.m_bRuntimeVehicleCoverAfterRedeploy, vehicleLoadoutContext.m_iRuntimePassengerCompromisesAfterRedeploy, EmptyCampaignDebugField(vehicleLoadoutContext.m_sRuntimeVehicleHeatReasonAfterRedeploy));
+		actual = actual + string.Format(" | captured heat %1 reported %2 cover %3 passengers %4 reason %5", vehicleLoadoutContext.m_iCapturedVehicleHeatAfterCapture, vehicleLoadoutContext.m_bCapturedVehicleReportedAfterCapture, vehicleLoadoutContext.m_bCapturedVehicleCoverAfterCapture, vehicleLoadoutContext.m_iCapturedPassengerCompromisesAfterCapture, EmptyCampaignDebugField(vehicleLoadoutContext.m_sCapturedVehicleHeatReasonAfterCapture));
+		return actual;
 	}
 
 	protected string BuildCampaignDebugVehicleLoadoutReportActual(HST_CampaignDebugVehicleLoadoutProbeContext vehicleLoadoutContext)
@@ -15466,7 +15583,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!garageRecord)
 			return "missing";
 
-		return string.Format("id %1 | prefab %2 | kind %3 | A/R/F %4/%5/%6 | cost %7 | cargo %8", EmptyCampaignDebugField(garageRecord.m_sVehicleId), EmptyCampaignDebugField(garageRecord.m_sPrefab), EmptyCampaignDebugField(garageRecord.m_sSourceVehicleKind), garageRecord.m_bAmmoSource, garageRecord.m_bRepairSource, garageRecord.m_bFuelSource, garageRecord.m_iRedeployCost, CountCampaignDebugStoredVehicleCargoItems(garageRecord));
+		string actual = string.Format("id %1 | prefab %2 | kind %3 | A/R/F %4/%5/%6 | cost %7 | cargo %8", EmptyCampaignDebugField(garageRecord.m_sVehicleId), EmptyCampaignDebugField(garageRecord.m_sPrefab), EmptyCampaignDebugField(garageRecord.m_sSourceVehicleKind), garageRecord.m_bAmmoSource, garageRecord.m_bRepairSource, garageRecord.m_bFuelSource, garageRecord.m_iRedeployCost, CountCampaignDebugStoredVehicleCargoItems(garageRecord));
+		actual = actual + string.Format(" | heat %1 | reported %2 | cover %3 | passengers %4", garageRecord.m_iVehicleHeat, garageRecord.m_bReported, garageRecord.m_bCanProvideUndercover, garageRecord.m_iPassengerCompromiseCount);
+		return actual;
 	}
 
 	protected int CountCampaignDebugStoredVehicleCargoItems(HST_GarageVehicleState garageRecord)

@@ -256,6 +256,7 @@ class HST_ArsenalService
 
 		vehicle.m_bUnlocked = true;
 		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
+		HST_VehicleCapabilityPolicy.ApplyUndercoverToGarageVehicle(vehicle);
 		state.m_aGarageVehicles.Insert(vehicle);
 		return true;
 	}
@@ -335,6 +336,7 @@ class HST_ArsenalService
 
 			string vehicleLine = string.Format("\n%1 | %2 | cost %3 | fuel %4 | damage %5 | armed %6 | source-kind %7 | ammo %8 | repair %9", vehicle.m_sVehicleId, GarageVehicleDisplayLabel(vehicle), vehicle.m_iRedeployCost, vehicle.m_fFuel, vehicle.m_sDamageState, vehicle.m_bArmed, vehicle.m_sSourceVehicleKind, vehicle.m_bAmmoSource, vehicle.m_bRepairSource);
 			report = report + vehicleLine + string.Format(" | fuel-source %1 | cargo %2 | source %3/%4", vehicle.m_bFuelSource, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceZoneId, vehicle.m_sSourceFactionKey);
+			report = report + string.Format(" | heat %1 | reported %2 | cover %3 | passengers %4", vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_bCanProvideUndercover, vehicle.m_iPassengerCompromiseCount);
 		}
 
 		return report;
@@ -576,6 +578,7 @@ class HST_ArsenalService
 		runtimeVehicle.m_vAngles = angles;
 		runtimeVehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		runtimeVehicle.m_bDeleted = false;
+		HST_VehicleCapabilityPolicy.CopyGarageCoverStateToRuntime(garageVehicle, runtimeVehicle);
 	}
 
 	protected string GarageVehicleDisplayLabel(HST_GarageVehicleState vehicle)

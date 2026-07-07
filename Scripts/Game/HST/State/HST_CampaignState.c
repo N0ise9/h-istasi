@@ -181,6 +181,15 @@ class HST_GarageVehicleState
 	bool m_bAmmoSource;
 	bool m_bRepairSource;
 	bool m_bFuelSource;
+	bool m_bReported;
+	bool m_bCanProvideUndercover;
+	int m_iVehicleHeat;
+	int m_iLastReportedSecond;
+	int m_iReportedUntilSecond;
+	int m_iLastVehicleHeatChangedSecond;
+	int m_iPassengerCompromiseCount;
+	string m_sLastReportedReason;
+	string m_sLastReporterZoneId;
 	bool m_bUnlocked;
 	bool m_bHadPhysicalCargo;
 	ref array<ref HST_StoredVehicleCargoState> m_aStoredCargoItems = {};
@@ -720,7 +729,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 31;
+	static const int SCHEMA_VERSION = 32;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

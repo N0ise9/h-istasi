@@ -2648,11 +2648,14 @@ class HST_MissionRuntimeService
 			vehicle.m_sPrefab = asset.m_sPrefab;
 			vehicle.m_sDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(asset.m_sPrefab);
 			vehicle.m_sSourceZoneId = mission.m_sTargetZoneId;
+			if (runtimeVehicle)
+				vehicle.m_sSourceFactionKey = runtimeVehicle.m_sFactionKey;
 			vehicle.m_vPosition = playerPosition;
 			vehicle.m_vAngles = "0 0 0";
 			vehicle.m_fFuel = 1.0;
 			vehicle.m_sDamageState = "captured";
 			vehicle.m_bUnlocked = true;
+			HST_VehicleCapabilityPolicy.CopyRuntimeCoverStateToGarage(runtimeVehicle, vehicle);
 			arsenal.StoreVehicle(state, vehicle);
 		}
 

@@ -3122,7 +3122,8 @@ class HST_CommandUIService
 		if (!vehicle)
 			return "missing";
 
-		return string.Format("%1 | cost $%2 | cargo %3 | %4 | A%5 R%6 F%7", vehicle.m_sVehicleId, vehicle.m_iRedeployCost, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceVehicleKind, vehicle.m_bAmmoSource, vehicle.m_bRepairSource, vehicle.m_bFuelSource);
+		string value = string.Format("%1 | cost $%2 | cargo %3 | %4 | A%5 R%6 F%7", vehicle.m_sVehicleId, vehicle.m_iRedeployCost, CountStoredVehicleCargoItems(vehicle), vehicle.m_sSourceVehicleKind, vehicle.m_bAmmoSource, vehicle.m_bRepairSource, vehicle.m_bFuelSource);
+		return value + string.Format(" | heat %1 reported %2 cover %3", vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_bCanProvideUndercover);
 	}
 
 	protected int CountStoredVehicleCargoItems(HST_GarageVehicleState vehicle)

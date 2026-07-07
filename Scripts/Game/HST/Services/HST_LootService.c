@@ -240,6 +240,7 @@ class HST_LootService
 		vehicle.m_sDamageState = ResolveDamageState(selectedVehicle);
 		vehicle.m_bArmed = IsLikelyArmedVehicle(vehicle.m_sPrefab);
 		HST_VehicleCapabilityPolicy.ApplyToGarageVehicle(vehicle);
+		HST_VehicleCapabilityPolicy.CopyRuntimeCoverStateToGarage(runtimeVehicle, vehicle);
 		int recoveredLegacyEntries = RekeyLegacyVehiclePartCargo(state, selectedVehicle, selectedVehicleRuntimeId, vehicle.m_sPrefab, vehicle.m_sDisplayName);
 		int physicalCargoCount = CaptureVehiclePhysicalCargo(selectedVehicle, vehicle);
 		int virtualCargoCount = CopyVirtualVehicleCargoToGarage(state, selectedVehicleRuntimeId, vehicle);
@@ -1808,6 +1809,7 @@ class HST_LootService
 		else
 			record.m_sRuntimeKind = previousRuntimeKind;
 		HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(record);
+		HST_VehicleCapabilityPolicy.ApplyUndercoverToRuntimeVehicle(record);
 		record.m_vPosition = rootVehicle.GetOrigin();
 		record.m_vAngles = HST_WorldPositionService.BuildUprightAnglesFromVector(rootVehicle.GetYawPitchRoll());
 		record.m_bDeleted = false;

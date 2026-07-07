@@ -989,6 +989,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime AI contact probes need a real elapsed-time window. Spawn opposing groups, assign normal `AIGroup.AddWaypoint()` search/destroy or move waypoints, then let the standard service tick sample live counts and distance over time instead of trying to prove combat inside the same script call. Treat waypoint assignment/contact distance as setup/contact evidence and live-count loss as separate casualty-resolution evidence.
   - Physical-combat certification must prove native faction hostility before judging combat behavior. Use `Faction.IsFactionEnemy()` in both directions for the temporary resistance/enemy factions, record that relationship as an assertion, and treat no live-count loss after the full populated hostile-contact sample window as FAIL, not WARN.
 
+- Garage vehicles are part of the undercover vehicle-cover runtime truth.
+  - When a tracked runtime vehicle is captured into the virtual garage, copy reported state, vehicle heat, cover eligibility, report expiry, last report reason/zone, and passenger compromise count onto `HST_GarageVehicleState` before deleting the world entity. Otherwise a reported vehicle becomes clean by storage rather than by the heat rules.
+  - When a garage vehicle is redeployed, copy the same metadata back onto the spawned `HST_RuntimeVehicleState` after prefab/source fields are set. Runtime undercover checks should see the redeployed vehicle exactly as hot or clear as the stored record described it.
+  - Full Campaign Debug should prove both handoff directions through the real store/redeploy/capture command paths and include a save-data roundtrip for the captured garage record.
+
 - Entity-follow behavior needs an entity waypoint, not a static move waypoint.
   - The base-game pattern is `SCR_FollowGroupCommand`: spawn `{A0509D3C4DD4475E}Prefabs/AI/Waypoints/AIWaypoint_Follow.et`, cast it to `SCR_EntityWaypoint`, call `SetEntity(target)`, then `AIGroup.AddWaypoint`.
   - A patrol hierarchy waypoint such as `{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et` only moves to the sampled position. Keep it as a last-resort static move fallback, but do not expect it to remain bound to a moving player or vehicle.
