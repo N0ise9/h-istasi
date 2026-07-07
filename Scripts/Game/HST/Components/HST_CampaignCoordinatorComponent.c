@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r68-response-mixed-vehicle";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r69-support-tracking-location-taxonomy";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -296,6 +296,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_MapMarkers = new HST_MapMarkerService();
 		if (m_MapMarkers && m_Settings && m_Settings.m_Debug)
 			m_MapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
+		if (m_MapMarkers && m_Settings && m_Settings.m_Features)
+			m_MapMarkers.SetTrackResistanceSupportGroupsOnMap(m_Settings.m_Features.m_bTrackResistanceSupportGroupsOnMap);
 		m_MapMarkers.BindNativeMapRefresh();
 		m_PlayerMapMarkers = new HST_PlayerMapMarkerService();
 		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Debug)
@@ -3709,6 +3711,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int airfieldCount;
 		int seaportCount;
 		int radioCount;
+		int missionSiteCount;
 		int strategicCount;
 		if (m_State)
 		{
@@ -3730,18 +3733,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					seaportCount++;
 				if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
 					radioCount++;
+				if (zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+					missionSiteCount++;
 				if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY || zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
 					strategicCount++;
 			}
 		}
 
+		string curatedLocationMismatchExample;
+		int curatedLocationMismatches = CountCampaignDebugCuratedLocationCategoryMismatches(curatedLocationMismatchExample);
+
 		AddCampaignDebugMetric(preflightCase, "preflight.zone.towns", string.Format("%1", townCount), "count");
 		AddCampaignDebugMetric(preflightCase, "preflight.zone.strategic", string.Format("%1", strategicCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.zone.mission_sites", string.Format("%1", missionSiteCount), "count");
+		AddCampaignDebugMetric(preflightCase, "preflight.zone.curated_category_mismatches", string.Format("%1", curatedLocationMismatches), "count");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.towns", "towns count > 0", string.Format("%1", townCount), CampaignDebugStatus(townCount > 0), "no town zones found");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.outposts", "outposts count > 0", string.Format("%1", outpostCount), CampaignDebugStatus(outpostCount > 0), "no outpost zones found");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.income", "resource/factory/seaport/airfield/bank-like zones count > 0", string.Format("resource %1 | factory %2 | airfield %3 | seaport %4", resourceCount, factoryCount, airfieldCount, seaportCount), CampaignDebugStatus(resourceCount + factoryCount + airfieldCount + seaportCount > 0), "no income-producing strategic zones found");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.radio", "radio zones count > 0", string.Format("%1", radioCount), CampaignDebugStatus(radioCount > 0), "no radio zones found");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.strategic", "strategic zones count > 0", string.Format("%1", strategicCount), CampaignDebugStatus(strategicCount > 0), "no strategic zones found");
+		string curatedCountsActual = string.Format("town %1/21+ | outpost %2/3+ | resource %3/13+ | factory %4/4+ | airfield %5/1+ | seaport %6/3+ | radio %7/13+ | mission_site %8/9+", townCount, outpostCount, resourceCount, factoryCount, airfieldCount, seaportCount, radioCount, missionSiteCount);
+		bool curatedCountsExpected = townCount >= 21 && outpostCount >= 3 && resourceCount >= 13 && factoryCount >= 4 && airfieldCount >= 1 && seaportCount >= 3 && radioCount >= 13 && missionSiteCount >= 9;
+		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.curated_location_counts", "curated location taxonomy minimum counts are present while allowing extra zones", curatedCountsActual, CampaignDebugStatus(curatedCountsExpected), "one or more curated location type pools are underrepresented");
+		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.curated_location_categories", "known curated locations keep their intended zone categories", string.Format("mismatches %1 | first %2", curatedLocationMismatches, EmptyCampaignDebugField(curatedLocationMismatchExample)), CampaignDebugStatus(curatedLocationMismatches == 0), "one or more curated location zones drifted into the wrong category");
 
 		bool physicalWarEnabled = true;
 		if (m_Settings && m_Settings.m_Features)
@@ -3750,6 +3764,62 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(preflightCase);
 		return preflightCase;
+	}
+
+	protected int CountCampaignDebugCuratedLocationCategoryMismatches(out string example)
+	{
+		example = "";
+		int mismatches;
+		string actual;
+
+		if (!CampaignDebugZoneTypeMatches("airfield_airbase_saint_philippe", HST_EZoneType.HST_ZONE_AIRFIELD, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("seaport_coastal_base_chotain", HST_EZoneType.HST_ZONE_SEAPORT, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("seaport_coastal_base_lamentin", HST_EZoneType.HST_ZONE_SEAPORT, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("seaport_coastal_base_morton", HST_EZoneType.HST_ZONE_SEAPORT, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("outpost_levie_base", HST_EZoneType.HST_ZONE_OUTPOST, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("outpost_military_hospital", HST_EZoneType.HST_ZONE_OUTPOST, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("outpost_firing_range", HST_EZoneType.HST_ZONE_OUTPOST, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("resource_logistics_warehouse", HST_EZoneType.HST_ZONE_RESOURCE, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("factory_power_plant", HST_EZoneType.HST_ZONE_RESOURCE, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("depot_industrial_supply_depot", HST_EZoneType.HST_ZONE_FACTORY, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("factory_concrete_plant", HST_EZoneType.HST_ZONE_FACTORY, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("factory_montignac", HST_EZoneType.HST_ZONE_FACTORY, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("factory_saint_philippe", HST_EZoneType.HST_ZONE_FACTORY, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("town_lamentin", HST_EZoneType.HST_ZONE_TOWN, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("town_morton", HST_EZoneType.HST_ZONE_TOWN, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("town_saint_philippe", HST_EZoneType.HST_ZONE_TOWN, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("town_saint_pierre", HST_EZoneType.HST_ZONE_TOWN, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("radio_lamentin_tower", HST_EZoneType.HST_ZONE_RADIO_TOWER, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("radio_le_moule_tower", HST_EZoneType.HST_ZONE_RADIO_TOWER, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("radio_st_phillipe_relay", HST_EZoneType.HST_ZONE_RADIO_TOWER, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("radio_saint_pierre_tower", HST_EZoneType.HST_ZONE_RADIO_TOWER, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("radio_argent_tower", HST_EZoneType.HST_ZONE_RADIO_TOWER, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("radio_regina_tower", HST_EZoneType.HST_ZONE_RADIO_TOWER, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("outpost_calvary_hill", HST_EZoneType.HST_ZONE_MISSION_SITE, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("mission_radar_airport", HST_EZoneType.HST_ZONE_MISSION_SITE, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+		if (!CampaignDebugZoneTypeMatches("mission_radar_headquarters", HST_EZoneType.HST_ZONE_MISSION_SITE, actual)) { mismatches++; if (example.IsEmpty()) example = actual; }
+
+		return mismatches;
+	}
+
+	protected bool CampaignDebugZoneTypeMatches(string zoneId, HST_EZoneType expectedType, out string actual)
+	{
+		actual = "";
+		if (!m_State)
+		{
+			actual = "state missing";
+			return false;
+		}
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+		{
+			actual = string.Format("%1 missing | expected %2", zoneId, ResolveZoneTypeLabel(expectedType));
+			return false;
+		}
+
+		actual = string.Format("%1 | actual %2 | expected %3", zoneId, ResolveZoneTypeLabel(zone.m_eType), ResolveZoneTypeLabel(expectedType));
+		return zone.m_eType == expectedType;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugForceCompositionCase()
@@ -7024,6 +7094,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterPopulation),
 				EmptyCampaignDebugField(probeContext.m_sPendingPopulationEvidence));
 			AddCampaignDebugAssertion(supportCase, "support.physical_population", "ground support group has durable runtime agents before route movement is judged", ShortCampaignDebugLine(populationActual, 260), CampaignDebugStatus(probeContext.m_bPendingPopulationResolvedBeforeRoute), "ground support route probe cannot prove movement while active group agent population is pending", observedSupportRequest.m_sRequestId);
+			bool liveGroupTrackingEnabled = m_MapMarkers && m_MapMarkers.IsTrackResistanceSupportGroupsOnMapEnabled();
+			string liveMarkerStatus = "SKIPPED";
+			if (liveGroupTrackingEnabled)
+				liveMarkerStatus = CampaignDebugStatus(probeContext.m_bLiveGroupMarkerVisibleAfterPopulation, "WARN");
+			AddCampaignDebugAssertion(supportCase, "support.physical_live_marker", "spawned resistance support group has a persistent live map marker while it exists", probeContext.m_sLiveGroupMarkerActualAfterPopulation, liveMarkerStatus, "spawned resistance support group did not publish a live map marker", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -7084,6 +7159,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				&& probeContext.m_sRequestRuntimeStatusAfterTerminal == "resolved_physical_group_terminal"
 				&& probeContext.m_sResolutionKindAfterTerminal == "physical_group_terminal";
 			AddCampaignDebugAssertion(supportCase, "support.physical_terminal_resolution", "controlled terminal support group resolves through the real support tick", terminalActual, CampaignDebugStatus(terminalResolved, "WARN"), "ground support did not resolve through the physical terminal support path after arrival", observedSupportRequest.m_sRequestId);
+			string terminalMarkerStatus = "SKIPPED";
+			if (liveGroupTrackingEnabled)
+				terminalMarkerStatus = CampaignDebugStatus(!probeContext.m_bLiveGroupMarkerVisibleAfterTerminal, "WARN");
+			AddCampaignDebugAssertion(supportCase, "support.physical_live_marker_terminal", "terminal resistance support group no longer has a live map marker", probeContext.m_sLiveGroupMarkerActualAfterTerminal, terminalMarkerStatus, "terminal resistance support group still has a live map marker", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_cleanup", "support runtime group entity is removed during probe cleanup", string.Format("%1", probeContext.m_bRuntimeEntityCleaned), CampaignDebugStatus(probeContext.m_bRuntimeEntityCleaned, "WARN"), "support physical runtime entity cleanup did not confirm an entity was removed", observedSupportRequest.m_sRequestId);
 			return;
 		}
@@ -7116,6 +7195,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_sGroupStatusBeforePopulation = "";
 		probeContext.m_sGroupStatusAfterPopulation = "";
 		probeContext.m_sPendingPopulationEvidence = "";
+		probeContext.m_bLiveGroupMarkerVisibleAfterPopulation = false;
+		probeContext.m_sLiveGroupMarkerActualAfterPopulation = "";
 		probeContext.m_fDistanceBefore = -1.0;
 		probeContext.m_fDistanceAfter = -1.0;
 		probeContext.m_fDistanceAtArrival = -1.0;
@@ -7133,6 +7214,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_bTerminalTickChanged = false;
 		probeContext.m_sGroupStatusBeforeTerminal = "";
 		probeContext.m_sGroupStatusAfterTerminal = "";
+		probeContext.m_bLiveGroupMarkerVisibleAfterTerminal = false;
+		probeContext.m_sLiveGroupMarkerActualAfterTerminal = "";
 		probeContext.m_eStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
 		probeContext.m_sRequestRuntimeStatusAfterTerminal = "";
 		probeContext.m_sResolutionKindAfterTerminal = "";
@@ -7213,7 +7296,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_sPendingPopulationEvidence = string.Format("pending 0 | spawned %1 | status %2 | agents %3 | lastAlive %4", group.m_bSpawnedEntity, EmptyCampaignDebugField(group.m_sRuntimeStatus), group.m_iSpawnedAgentCount, group.m_iLastSeenAliveCount);
 			}
 			if (group)
+			{
 				probeContext.m_sGroupStatusAfterPopulation = group.m_sRuntimeStatus;
+				RefreshCampaignMarkers();
+				HST_MapMarkerState liveGroupMarker = FindCampaignDebugMarkerLinkedTo(group.m_sGroupId);
+				probeContext.m_bLiveGroupMarkerVisibleAfterPopulation = liveGroupMarker != null;
+				probeContext.m_sLiveGroupMarkerActualAfterPopulation = "after population | " + BuildCampaignDebugMarkerActual(liveGroupMarker);
+			}
 
 			if (!group)
 			{
@@ -7262,6 +7351,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 					if (group)
 						probeContext.m_sGroupStatusAfterTerminal = group.m_sRuntimeStatus;
+					RefreshCampaignMarkers();
+					HST_MapMarkerState terminalLiveGroupMarker = FindCampaignDebugMarkerLinkedTo(supportRequest.m_sGroupId);
+					probeContext.m_bLiveGroupMarkerVisibleAfterTerminal = terminalLiveGroupMarker != null;
+					probeContext.m_sLiveGroupMarkerActualAfterTerminal = "after terminal | " + BuildCampaignDebugMarkerActual(terminalLiveGroupMarker);
 					probeContext.m_eStatusAfterTerminal = supportRequest.m_eStatus;
 					probeContext.m_sRequestRuntimeStatusAfterTerminal = supportRequest.m_sRuntimeStatus;
 					probeContext.m_sResolutionKindAfterTerminal = supportRequest.m_sResolutionKind;
@@ -8481,7 +8574,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (category == "support")
 		{
-			return HasCampaignDebugSupportRequest(marker.m_sLinkedId);
+			return HasCampaignDebugSupportRequest(marker.m_sLinkedId) || HasCampaignDebugSupportGroup(marker.m_sLinkedId);
 		}
 		if (category == "qrf")
 		{
@@ -8515,6 +8608,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return false;
 	}
 
+	protected bool HasCampaignDebugSupportGroup(string groupId)
+	{
+		if (!m_State || groupId.IsEmpty())
+			return false;
+
+		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
+		{
+			if (group && group.m_sGroupId == groupId && !group.m_sSupportRequestId.IsEmpty())
+				return IsCampaignDebugResistanceSupportGroupMarkerExpected(group);
+		}
+
+		return false;
+	}
+
+	protected bool IsCampaignDebugResistanceSupportGroupMarkerExpected(HST_ActiveGroupState group)
+	{
+		if (!m_MapMarkers || !m_State || !m_Preset || !group)
+			return false;
+
+		return m_MapMarkers.ShouldShowResistanceSupportGroupMarker(m_State, m_Preset, group);
+	}
+
 	protected int CountCampaignDebugBackingStatesWithoutMarkers(out string example)
 	{
 		example = "";
@@ -8546,6 +8661,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			count++;
 			if (example.IsEmpty())
 				example = string.Format("support %1 | status %2", request.m_sRequestId, request.m_eStatus);
+		}
+
+		foreach (HST_ActiveGroupState supportGroup : m_State.m_aActiveGroups)
+		{
+			if (!IsCampaignDebugResistanceSupportGroupMarkerExpected(supportGroup))
+				continue;
+			if (FindCampaignDebugMarkerLinkedTo(supportGroup.m_sGroupId))
+				continue;
+
+			count++;
+			if (example.IsEmpty())
+				example = string.Format("support group %1 | request %2 | status %3", supportGroup.m_sGroupId, supportGroup.m_sSupportRequestId, supportGroup.m_sRuntimeStatus);
 		}
 
 		foreach (HST_QRFState qrf : m_State.m_aQRFs)

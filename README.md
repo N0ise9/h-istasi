@@ -52,7 +52,8 @@ The repository contains a broad-alpha campaign foundation:
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
   with config-backed defaults for campaign, factions, economy, membership,
   world activation, arsenal/loot, persistence, logging, and feature toggles,
-  including configurable infinite stamina and population-based campaign outcomes
+  including configurable infinite stamina, live resistance support group map
+  tracking, and population-based campaign outcomes
 - Server-side area and vehicle loot actions that deposit eligible nearby gear
   into the campaign arsenal or vehicle cargo, remove transferred source items
   when configured, and reject raw visual/support assets
@@ -140,6 +141,9 @@ so GM placement budgets are disabled automatically on game start.
 `features.infiniteStaminaEnabled` defaults to `true`; when enabled, local
 player stamina is refilled through the native stamina component and the sprint
 exhaustion vignette/blur effect is suppressed.
+`features.trackResistanceSupportGroupsOnMap` defaults to `true`; when enabled,
+spawned player-requested resistance support groups keep a live map marker until
+the group is killed, folded, or despawned.
 
 During initial HQ placement the setup map owns keyboard input; complete HQ
 placement first, then `I` opens the command menu and server snapshots add the
@@ -187,7 +191,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r68-response-mixed-vehicle`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r69-support-tracking-location-taxonomy`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

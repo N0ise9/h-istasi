@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r68-response-mixed-vehicle";
-	static const string BUILD_UTC = "2026-07-07T22:35:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r68-response-mixed-vehicle";
+	static const string BUILD_SHA = "r69-support-tracking-location-taxonomy";
+	static const string BUILD_UTC = "2026-07-07T23:10:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r69-support-tracking-location-taxonomy";
 
 	static string BuildSummary()
 	{

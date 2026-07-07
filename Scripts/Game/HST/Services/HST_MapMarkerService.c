@@ -26,12 +26,23 @@ class HST_MapMarkerService
 	protected int m_iLastNativeOwnershipSyncSecond = -999999;
 	protected int m_iNativeMapWidgetRefreshRetries;
 	protected bool m_bDebugLoggingEnabled;
+	protected bool m_bTrackResistanceSupportGroupsOnMap = true;
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
 		m_bDebugLoggingEnabled = enabled;
 		if (m_NativeReconciler)
 			m_NativeReconciler.SetDebugLoggingEnabled(enabled);
+	}
+
+	void SetTrackResistanceSupportGroupsOnMap(bool enabled)
+	{
+		m_bTrackResistanceSupportGroupsOnMap = enabled;
+	}
+
+	bool IsTrackResistanceSupportGroupsOnMapEnabled()
+	{
+		return m_bTrackResistanceSupportGroupsOnMap;
 	}
 
 	int GetLastNativeEligibleCount()
@@ -110,6 +121,7 @@ class HST_MapMarkerService
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
+		AddResistanceSupportGroupMarkers(state, preset);
 		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
 		int previousPublishedCount = m_iLastNativePublishedCount;
 		int previousEligibleCount = m_iLastNativeEligibleCount;
@@ -913,6 +925,95 @@ class HST_MapMarkerService
 			bool runtimeNative = ShouldPublishNativeSupportMarker(request) && ShouldPublishNativeTacticalMarkerInPlayerBubble(state, request.m_sTargetZoneId, position);
 			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, "POINT_OF_INTEREST", color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming", true, runtimeNative);
 		}
+	}
+
+	protected void AddResistanceSupportGroupMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!m_bTrackResistanceSupportGroupsOnMap || !state || !preset)
+			return;
+
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!ShouldShowResistanceSupportGroupMarker(state, preset, group))
+				continue;
+
+			HST_SupportRequestState request = state.FindSupportRequest(group.m_sSupportRequestId);
+			vector position = ResolveResistanceSupportGroupMarkerPosition(request, group);
+			string color = FactionToMarkerColor(group.m_sFactionKey, preset);
+			string label = BuildResistanceSupportGroupMarkerLabel(state, request, group);
+			AddMarker(state, "hst_support_group_" + group.m_sGroupId, group.m_sGroupId, label, "", "support", group.m_sFactionKey, "POINT_SPECIAL", color, position, true, FactionToMarkerTextColor(group.m_sFactionKey, preset), "support_group_live", true, true);
+		}
+	}
+
+	bool ShouldShowResistanceSupportGroupMarker(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState group)
+	{
+		if (!m_bTrackResistanceSupportGroupsOnMap || !state || !preset || !group)
+			return false;
+
+		if (group.m_sGroupId.IsEmpty() || group.m_sSupportRequestId.IsEmpty())
+			return false;
+
+		if (group.m_sFactionKey != preset.m_sResistanceFactionKey)
+			return false;
+
+		if (!group.m_bSpawnedEntity && group.m_sRuntimeEntityId.IsEmpty())
+			return false;
+
+		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed" || group.m_sRuntimeStatus == "despawned" || group.m_sRuntimeStatus == "deleted")
+			return false;
+
+		HST_SupportRequestState request = state.FindSupportRequest(group.m_sSupportRequestId);
+		if (!request || !request.m_bPlayerRequested || request.m_sFactionKey != preset.m_sResistanceFactionKey || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			return false;
+
+		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iLastSeenAliveCount));
+		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iSpawnedAgentCount));
+		if (knownAlive <= 0 && group.m_iInfantryCount <= 0 && group.m_iVehicleCount <= 0)
+			return false;
+
+		return true;
+	}
+
+	protected vector ResolveResistanceSupportGroupMarkerPosition(HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		if (!group)
+			return "0 0 0";
+
+		if (!IsZeroVector(group.m_vPosition))
+			return group.m_vPosition;
+		if (!IsZeroVector(group.m_vTargetPosition))
+			return group.m_vTargetPosition;
+		if (request && !IsZeroVector(request.m_vTargetPosition))
+			return request.m_vTargetPosition;
+		if (!IsZeroVector(group.m_vSourcePosition))
+			return group.m_vSourcePosition;
+
+		return "0 0 0";
+	}
+
+	protected string BuildResistanceSupportGroupMarkerLabel(HST_CampaignState state, HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		if (!group)
+			return "Resistance support";
+
+		string typeLabel = "Support";
+		string targetName = "field";
+		if (request)
+		{
+			typeLabel = SupportRequestTypeLabel(request.m_eType);
+			targetName = ResolveZoneDisplayNameById(state, request.m_sTargetZoneId);
+			if (IsPetrosAttackSupportMarker(request))
+				targetName = "HQ/Petros";
+		}
+
+		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iLastSeenAliveCount));
+		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iSpawnedAgentCount));
+		if (knownAlive > 0)
+			return string.Format("Resistance %1 | live | %2 alive | near %3", typeLabel, knownAlive, targetName);
+
+		return string.Format("Resistance %1 | live | near %2", typeLabel, targetName);
 	}
 
 	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint, bool deconflict = false, bool runtimeNative = true)

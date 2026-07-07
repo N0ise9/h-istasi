@@ -1905,6 +1905,40 @@ $playerMarkerConfigText = Get-Content -Raw "Configs/Map/HST_PlayerMapMarkerConfi
 $runtimeMarkerPipelineText = $markerServiceText + "`n" + $coordinatorMarkerText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 
+foreach ($requiredCuratedLocationEntry in @(
+		"ApplyEveronLocationPlanOverrides",
+		"UpsertEveronLocationPlanZone",
+		"town_lamentin",
+		"town_morton",
+		"town_saint_philippe",
+		"resource_logistics_warehouse",
+		"factory_concrete_plant",
+		"factory_montignac",
+		"radio_lamentin_tower",
+		"mission_radar_airport",
+		"HST_ZONE_MISSION_SITE",
+		"preflight.zone_graph.curated_location_categories",
+		"preflight.zone_graph.curated_location_counts"
+	)) {
+	if ($defaultCatalog -notmatch [regex]::Escape($requiredCuratedLocationEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredCuratedLocationEntry)) {
+		throw "Curated Everon location taxonomy contract is missing entry: $requiredCuratedLocationEntry"
+	}
+}
+
+foreach ($requiredSupportMarkerEntry in @(
+		"trackResistanceSupportGroupsOnMap",
+		"SetTrackResistanceSupportGroupsOnMap",
+		"AddResistanceSupportGroupMarkers",
+		"ShouldShowResistanceSupportGroupMarker",
+		"support_group_live",
+		"support.physical_live_marker",
+		"support.physical_live_marker_terminal"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredSupportMarkerEntry) -and $runtimeMarkerPipelineText -notmatch [regex]::Escape($requiredSupportMarkerEntry)) {
+		throw "Resistance support live-marker contract is missing entry: $requiredSupportMarkerEntry"
+	}
+}
+
 if ($configZones.Count -ne 79 -or $runtimeZones.Count -ne 79) {
 	throw "Everon campaign catalog must contain 79 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
 }
@@ -4200,6 +4234,7 @@ foreach ($requiredSettingsEntry in @(
 		"aggressionDecayAmount",
 		"showPlayerMapMarkers",
 		"infiniteStaminaEnabled",
+		"trackResistanceSupportGroupsOnMap",
 		"SetPlayerEventBubbleRadiusMeters",
 		"mission_category",
 		"populationOutcomeEnabled",
@@ -4212,8 +4247,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 15") {
-	throw "Runtime settings schema must be bumped to 15 for population outcome configuration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 16") {
+	throw "Runtime settings schema must be bumped to 16 for resistance support marker tracking"
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"
@@ -4223,6 +4258,9 @@ if ($scriptText -notmatch "m_bShowPlayerMapMarkers" -or $scriptText -notmatch '\
 }
 if ($scriptText -notmatch "m_bInfiniteStaminaEnabled" -or $scriptText -notmatch '\\"infiniteStaminaEnabled\\": %1') {
 	throw "Runtime settings must expose infiniteStaminaEnabled"
+}
+if ($scriptText -notmatch "m_bTrackResistanceSupportGroupsOnMap" -or $scriptText -notmatch '\\"trackResistanceSupportGroupsOnMap\\": %1') {
+	throw "Runtime settings must expose trackResistanceSupportGroupsOnMap"
 }
 if ($scriptText -notmatch "m_iPlayerRenderBubbleRadiusMeters" -or $scriptText -notmatch '\\"playerRenderBubbleRadiusMeters\\": %1') {
 	throw "Runtime settings must expose playerRenderBubbleRadiusMeters"
@@ -4284,6 +4322,9 @@ if ($scriptText -notmatch "settings.m_Features.m_bShowPlayerMapMarkers = true") 
 }
 if ($scriptText -notmatch "settings.m_Features.m_bInfiniteStaminaEnabled = true") {
 	throw "Runtime settings migration must default infinite stamina to enabled"
+}
+if ($scriptText -notmatch "settings.m_Features.m_bTrackResistanceSupportGroupsOnMap = true") {
+	throw "Runtime settings migration must default resistance support tracking to enabled"
 }
 foreach ($requiredInfiniteStaminaEntry in @(
 		"FEATURE|infiniteStamina|%1",

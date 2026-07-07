@@ -478,6 +478,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Campaign markers should use native map marker systems.
   - Let `SCR_MapMarkerManagerComponent` handle projection and pan/zoom.
   - Keep zone radius circles as optional `SCR_MapUIBaseComponent` overlays, not campaign markers.
+  - Player-requested resistance support has two marker lifetimes: the request marker follows queued/active call-in state, and the live group marker follows the spawned active group. `features.trackResistanceSupportGroupsOnMap` defaults to enabled; when it is on, keep the live marker linked to the active group id until the group is terminal, killed, folded, or despawned. Do not hide the live marker just because the request has reached resolved/arrived status.
 
 - Dynamic player markers need a marker config entry before `InsertDynamicMarker` can work.
   - `SCR_MapMarkerManagerComponent.InsertDynamicMarker(type, entity, configId)` resolves `type` through the active `SCR_MapMarkerConfig`; stock `CampaignMapMarkerConfig.conf` does not expose every dynamic marker type.
@@ -786,6 +787,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The commander mission menu should expose mission categories, not every target zone. A category command should select a mission definition in that category, then choose a valid eligible target inside the configured mission-selection radius. Keep the old direct-zone mission commands available only for debug/back-compat paths unless a UI explicitly needs them.
   - Runtime settings schema 14 owns `world.playerRenderBubbleRadiusMeters` and `world.missionSelectionRadiusMeters`. If the mission-selection radius is unset or non-positive, normalize it to the player bubble radius so category missions default to nearby rendered gameplay.
   - Runtime settings schema 15 owns default campaign outcome mode: `populationOutcomeEnabled`, `victoryPopulationSupportPercent`, and `legacyControlVictoryEnabled`.
+  - Runtime settings schema 16 owns `features.trackResistanceSupportGroupsOnMap`, defaulting to enabled for generated and migrated configs.
+  - Location taxonomy is a gameplay contract, not just map decoration. Towns must remain town/support zones, resources and factories must not be promoted from settlement names, and radar/ferry/dynamic-site pools should be mission-site/bookkeeping targets without start garrisons. Extra zones are acceptable, but curated minimum counts and known IDs should be asserted by Full Campaign Debug preflight.
   - Default campaign-end evaluation is population-first. Victory requires the FIA-supporting share of remaining town population to meet the configured threshold and all airfields to be resistance-owned. Loss requires killed population greater than one third of initial town population.
   - Keep legacy control-percent victory behind the explicit legacy toggle.
   - Full Campaign Debug Phase 24 should arrange neutral, victory, and catastrophe population fixtures before calling the real strategic outcome evaluator, and assert save-data roundtrip preservation of terminal population/airfield metadata.

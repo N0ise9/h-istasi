@@ -170,6 +170,7 @@ class HST_RuntimeSettingsService
 			ApplyBool(line, "gameMasterBudgetsEnabled", settings.m_Features.m_bGameMasterBudgetsEnabled);
 			ApplyBool(line, "showPlayerMapMarkers", settings.m_Features.m_bShowPlayerMapMarkers);
 			ApplyBool(line, "infiniteStaminaEnabled", settings.m_Features.m_bInfiniteStaminaEnabled);
+			ApplyBool(line, "trackResistanceSupportGroupsOnMap", settings.m_Features.m_bTrackResistanceSupportGroupsOnMap);
 		}
 
 		ApplyStringArrayFromLines(lines, "adminIdentityIds", settings.m_Membership.m_aAdminIdentityIds);
@@ -295,6 +296,12 @@ class HST_RuntimeSettingsService
 			settings.m_Economy.m_bPopulationOutcomeEnabled = true;
 			settings.m_Economy.m_iVictoryPopulationSupportPercent = 50;
 			settings.m_Economy.m_bLegacyControlVictoryEnabled = false;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 16)
+		{
+			settings.m_Features.m_bTrackResistanceSupportGroupsOnMap = true;
 			changed = true;
 		}
 
@@ -556,7 +563,8 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"setupUiReadOnly\": %1,", JsonBool(settings.m_Features.m_bSetupUiReadOnly)));
 		lines.Insert(string.Format("    \"gameMasterBudgetsEnabled\": %1,", JsonBool(settings.m_Features.m_bGameMasterBudgetsEnabled)));
 		lines.Insert(string.Format("    \"showPlayerMapMarkers\": %1,", JsonBool(settings.m_Features.m_bShowPlayerMapMarkers)));
-		lines.Insert(string.Format("    \"infiniteStaminaEnabled\": %1", JsonBool(settings.m_Features.m_bInfiniteStaminaEnabled)));
+		lines.Insert(string.Format("    \"infiniteStaminaEnabled\": %1,", JsonBool(settings.m_Features.m_bInfiniteStaminaEnabled)));
+		lines.Insert(string.Format("    \"trackResistanceSupportGroupsOnMap\": %1", JsonBool(settings.m_Features.m_bTrackResistanceSupportGroupsOnMap)));
 		lines.Insert("  }");
 		lines.Insert("}");
 		WriteLines(SETTINGS_FILE, lines);

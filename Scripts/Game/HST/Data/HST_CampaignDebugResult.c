@@ -111,6 +111,8 @@ class HST_CampaignDebugSupportProbeContext
 	string m_sGroupStatusBeforePopulation;
 	string m_sGroupStatusAfterPopulation;
 	string m_sPendingPopulationEvidence;
+	bool m_bLiveGroupMarkerVisibleAfterPopulation;
+	string m_sLiveGroupMarkerActualAfterPopulation;
 	bool m_bRouteTickChanged;
 	bool m_bArrivalRouteTickChanged;
 	bool m_bArrivalTickChanged;
@@ -139,6 +141,8 @@ class HST_CampaignDebugSupportProbeContext
 	bool m_bTerminalTickChanged;
 	string m_sGroupStatusBeforeTerminal;
 	string m_sGroupStatusAfterTerminal;
+	bool m_bLiveGroupMarkerVisibleAfterTerminal;
+	string m_sLiveGroupMarkerActualAfterTerminal;
 	HST_ESupportRequestStatus m_eStatusAfterTerminal = HST_ESupportRequestStatus.HST_SUPPORT_QUEUED;
 	string m_sRequestRuntimeStatusAfterTerminal;
 	string m_sResolutionKindAfterTerminal;
