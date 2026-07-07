@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r64-response-deployment-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r65-response-route-waypoints";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4613,6 +4613,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int ledgerCountBefore = m_State.m_aEnemySupportLedgers.Count();
 		int garrisonCountBefore = m_State.m_aGarrisons.Count();
 		int zoneCountBefore = m_State.m_aZones.Count();
+		int routeCountBefore = m_State.m_aGeneratedRoutes.Count();
 		int attackBefore = pool.m_iAttackResources;
 		int supportBefore = pool.m_iSupportResources;
 		int warLevelBefore = m_State.m_iWarLevel;
@@ -4620,6 +4621,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_ZoneState targetZone = BuildCampaignDebugPhysicalResponseZone(debugZoneId, factionKey, baseZone);
 		m_State.m_aZones.Insert(targetZone);
+		HST_GeneratedRouteState targetRoute = BuildCampaignDebugPhysicalResponseRoute(targetZone, baseZone);
+		m_State.m_aGeneratedRoutes.Insert(targetRoute);
 		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
 
 		bool physicalizeTickChanged;
@@ -4645,7 +4648,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			{
 				group.m_iSurvivorInfantryCount = Math.Max(1, Math.Min(group.m_iInfantryCount, 2));
 				group.m_iSurvivorVehicleCount = 0;
-				m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
+				m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
 				group = m_State.FindActiveGroup(request.m_sGroupId);
 			}
 		}
@@ -4701,6 +4704,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string deploymentActual = BuildCampaignDebugSupportRequestActual(request);
 		bool deploymentExpected = request && group && !request.m_sDeploymentRouteId.IsEmpty() && request.m_sDeploymentRouteId == group.m_sRouteId && !request.m_sDeploymentPlacementType.IsEmpty() && !request.m_sDeploymentSummary.IsEmpty() && request.m_iDeploymentTargetDistanceMeters > 0 && group.m_iVehicleCount == request.m_iCompositionVehicleCount;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.deployment_proof", "support request stores durable route, placement, distance, and vehicle-count deployment proof", deploymentActual, CampaignDebugStatus(deploymentExpected), "physical support deployment metadata missing or disconnected from active group", "", "", targetZone.m_sZoneId);
+		string routeWaypointActual = "missing";
+		bool routeWaypointExpected = false;
+		if (group)
+		{
+			routeWaypointActual = string.Format("route %1 | assigned waypoints %2 | generated routes before %3 now %4", EmptyCampaignDebugField(group.m_sRouteId), group.m_iAssignedWaypointCount, routeCountBefore, m_State.m_aGeneratedRoutes.Count());
+			routeWaypointExpected = !group.m_sRouteId.IsEmpty() && group.m_iAssignedWaypointCount >= 3;
+		}
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.route_waypoints", "physical response resolves a generated route waypoint chain for movement proof", routeWaypointActual, CampaignDebugStatus(routeWaypointExpected), "physical response did not resolve generated route waypoints", "", "", targetZone.m_sZoneId);
 		string vehicleSafeActual = "missing";
 		bool vehicleSafeExpected = false;
 		if (request)
@@ -4729,7 +4740,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool orderExpected = order && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_sRuntimeStatus == "resolved_group_folded" && order.m_bResourceRefundApplied;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_resolution", "folded physical group resolves linked enemy order and applies survivor refund once", orderActual, CampaignDebugStatus(orderExpected), "folded support group did not resolve linked enemy order/refund");
 		string roundTripActual = BuildCampaignDebugPhysicalResponseRoundTripActual(restoredOrder, restoredRequest, restoredGroup);
-		bool roundTripExpected = request && restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount && restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId && restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe;
+		bool roundTripExpected = request && group && restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount && restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId && restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe && restoredGroup.m_iAssignedWaypointCount == group.m_iAssignedWaypointCount;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
 
 		pool.m_iAttackResources = attackBefore;
@@ -4748,6 +4759,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_State.m_aGarrisons.Remove(m_State.m_aGarrisons.Count() - 1);
 		while (m_State.m_aZones.Count() > zoneCountBefore)
 			m_State.m_aZones.Remove(m_State.m_aZones.Count() - 1);
+		while (m_State.m_aGeneratedRoutes.Count() > routeCountBefore)
+			m_State.m_aGeneratedRoutes.Remove(m_State.m_aGeneratedRoutes.Count() - 1);
 
 		FinalizeCampaignDebugCaseFromAssertions(responseCase);
 		return responseCase;
@@ -4800,6 +4813,55 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return zone;
+	}
+
+	protected HST_GeneratedRouteState BuildCampaignDebugPhysicalResponseRoute(HST_ZoneState targetZone, HST_ZoneState baseZone)
+	{
+		HST_GeneratedRouteState route = new HST_GeneratedRouteState();
+		if (!targetZone)
+			return route;
+
+		route.m_sRouteId = "route_" + targetZone.m_sZoneId + "_alpha";
+		route.m_sSourceZoneId = targetZone.m_sZoneId;
+		route.m_sTargetZoneId = targetZone.m_sZoneId;
+		route.m_sSourceCategory = "campaign_debug_response";
+		route.m_sSourceLayoutId = targetZone.m_sSourceLayoutId;
+		route.m_vEndPosition = HST_WorldPositionService.ResolveSafeGroundPosition(targetZone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 4.0);
+		route.m_vStartPosition = route.m_vEndPosition;
+		if (baseZone)
+			route.m_vStartPosition = HST_WorldPositionService.ResolveSafeGroundPosition(baseZone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 4.0);
+		if (IsZeroVector(route.m_vStartPosition) || DistanceSq2D(route.m_vStartPosition, route.m_vEndPosition) < 3600.0)
+		{
+			route.m_vStartPosition = route.m_vEndPosition;
+			route.m_vStartPosition[0] = route.m_vStartPosition[0] + 360.0;
+			route.m_vStartPosition[2] = route.m_vStartPosition[2] + 120.0;
+			route.m_vStartPosition = HST_WorldPositionService.ResolveSafeGroundPosition(route.m_vStartPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 4.0);
+		}
+		route.m_vMidPosition = route.m_vStartPosition;
+		route.m_vMidPosition[0] = (route.m_vStartPosition[0] + route.m_vEndPosition[0]) * 0.5;
+		route.m_vMidPosition[2] = (route.m_vStartPosition[2] + route.m_vEndPosition[2]) * 0.5;
+		route.m_vMidPosition = HST_WorldPositionService.ResolveSafeGroundPosition(route.m_vMidPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 4.0);
+		route.m_bRoadRoute = true;
+		route.m_bValidatedForVehicles = true;
+		route.m_aWaypoints.Insert(BuildCampaignDebugPhysicalResponseRouteWaypoint(route.m_sRouteId, 0, route.m_vStartPosition, "debug_start"));
+		route.m_aWaypoints.Insert(BuildCampaignDebugPhysicalResponseRouteWaypoint(route.m_sRouteId, 1, route.m_vMidPosition, "debug_mid"));
+		route.m_aWaypoints.Insert(BuildCampaignDebugPhysicalResponseRouteWaypoint(route.m_sRouteId, 2, route.m_vEndPosition, "debug_target"));
+		route.m_iWaypointCount = route.m_aWaypoints.Count();
+		route.m_iDistanceMeters = Math.Round(Math.Sqrt(DistanceSq2D(route.m_vStartPosition, route.m_vMidPosition)) + Math.Sqrt(DistanceSq2D(route.m_vMidPosition, route.m_vEndPosition)));
+		targetZone.m_sQRFRouteId = route.m_sRouteId;
+		targetZone.m_sPatrolRouteId = route.m_sRouteId;
+		return route;
+	}
+
+	protected HST_RouteWaypointState BuildCampaignDebugPhysicalResponseRouteWaypoint(string routeId, int index, vector position, string hint)
+	{
+		HST_RouteWaypointState waypoint = new HST_RouteWaypointState();
+		waypoint.m_sRouteId = routeId;
+		waypoint.m_iIndex = index;
+		waypoint.m_vPosition = position;
+		waypoint.m_iRadiusMeters = 35;
+		waypoint.m_sHint = hint;
+		return waypoint;
 	}
 
 	protected void CleanupCampaignDebugPhysicalResponseRecords(string zoneId)
@@ -16958,7 +17020,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		string actual = string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
-		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6 | force %7/%8", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount);
+		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6 | force %7/%8 | waypoints %9", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_iAssignedWaypointCount);
 		return actual;
 	}
 

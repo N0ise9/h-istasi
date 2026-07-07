@@ -118,7 +118,8 @@ state model is versioned from day one. `HST_CampaignSaveData` is the deep-copy
 save container for current campaign fields and nested runtime arrays, including
 campaign metadata, resources, schema-35 campaign-end reason/summary/elapsed
 second/control/war/zone-count fields, outcome-mode, population/support, and
-airfield metadata, support deployment proof, HQ/Petros/cache/arsenal/tent/spawn-point fields,
+airfield metadata, support deployment proof, active-group route waypoint counts,
+HQ/Petros/cache/arsenal/tent/spawn-point fields,
 faction pools, players, zones, garrisons, active groups, QRFs, map markers,
 generated content, objectives, mission runtime, mission assets, support, enemy
 order, civilian, undercover, arsenal, garage, vehicle cargo, runtime vehicle,

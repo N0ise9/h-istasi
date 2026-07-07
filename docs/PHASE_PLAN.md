@@ -93,6 +93,9 @@ treated as future work:
   type/summary, target/road/HQ distances, road resolution, vehicle-safe result,
   and linked active-group force counts so one-button debug can prove the
   support request -> active group -> fold-back chain through save/load.
+- Routed support/QRF active groups now resolve generated target-zone route
+  waypoint chains for state-level movement when available and persist the
+  computed waypoint count on the active group.
 - Enemy support ledgers track recent damage pressure, cooldowns, max defense
   spend, same-zone stacking, and survivor refunds. Proactive background-war and
   HQ-pressure orders spend attack resources only, while QRFs, capture-triggered
@@ -113,8 +116,8 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Extend route-aware and vehicle-aware deployment proof into richer
-   counterattack/HQ-pressure waypoints and true mixed infantry/vehicle spawning.
+1. Extend generated-route response movement into richer counterattack/HQ-pressure
+   behavior, true AI waypoint assignment for infantry, and mixed vehicle spawning.
 2. Finish live undercover equipment/clothing/off-road/security-scan
    enforcement.
 3. Deepen town influence into the primary political control and mission-output

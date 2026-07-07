@@ -223,14 +223,14 @@ class HST_PhysicalWarService
 		return safe;
 	}
 
-	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state, HST_CampaignPreset preset = null)
+	bool UpdateRoutedActiveGroupsNow(HST_CampaignState state, HST_CampaignPreset preset = null, bool forceRouteUpdate = false)
 	{
 		if (!state)
 			return false;
 
 		EnsureRuntimeGroupEntities(state, preset);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
-		bool routeChanged = UpdateActiveGroupRoutes(state);
+		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
 		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
 		return survivorChanged || routeChanged || combatProbeChanged;
 	}
@@ -6487,7 +6487,8 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = CreateActiveGroup(state, targetZone, qrf.m_sFactionKey, infantryCount, vehicleCount, true, preset);
 			vector targetPosition = HST_WorldPositionService.ResolveGroundPosition(targetZone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 			vector sourcePosition = ResolveQRFStagingPosition(state, qrf, targetZone, targetPosition);
-			activeGroup.m_sRouteId = qrf.m_sSourceZoneId + "_to_" + qrf.m_sTargetZoneId;
+			string fallbackRouteId = qrf.m_sSourceZoneId + "_to_" + qrf.m_sTargetZoneId;
+			activeGroup.m_sRouteId = ResolvePhysicalResponseRouteId(state, targetZone, fallbackRouteId);
 			activeGroup.m_sQRFInstanceId = qrf.m_sInstanceId;
 			activeGroup.m_vSourcePosition = sourcePosition;
 			activeGroup.m_vTargetPosition = targetPosition;
@@ -6762,17 +6763,25 @@ class HST_PhysicalWarService
 		return activeGroup.m_iLastSeenAliveCount;
 	}
 
-	protected bool UpdateActiveGroupRoutes(HST_CampaignState state)
+	protected bool UpdateActiveGroupRoutes(HST_CampaignState state, bool forceRouteUpdate = false)
 	{
-		if (!state || state.m_iElapsedSeconds % ROUTE_STATE_UPDATE_SECONDS != 0)
+		if (!state || (!forceRouteUpdate && state.m_iElapsedSeconds % ROUTE_STATE_UPDATE_SECONDS != 0))
 			return false;
 
 		bool changed;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
-			if (!activeGroup || !activeGroup.m_bSpawnedEntity)
+			if (!activeGroup || (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active"))
 				continue;
-			if (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active")
+
+			int routeWaypointCount = ResolveActiveGroupRouteWaypointCount(state, activeGroup);
+			if (activeGroup.m_iAssignedWaypointCount != routeWaypointCount)
+			{
+				activeGroup.m_iAssignedWaypointCount = routeWaypointCount;
+				changed = true;
+			}
+
+			if (!activeGroup.m_bSpawnedEntity)
 				continue;
 
 			int duration = ResolveRouteDurationSeconds(state, activeGroup);
@@ -6781,9 +6790,15 @@ class HST_PhysicalWarService
 				elapsed = 0;
 
 			float progress = Math.Min(1.0, elapsed * 1.0 / duration);
-			vector position = LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
+			int assignedWaypointCount;
+			vector position = ResolveActiveGroupRoutePosition(state, activeGroup, progress, assignedWaypointCount);
 			position = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 			string arrivedStatus = ResolveArrivedRouteStatus(activeGroup);
+			if (activeGroup.m_iAssignedWaypointCount != assignedWaypointCount)
+			{
+				activeGroup.m_iAssignedWaypointCount = assignedWaypointCount;
+				changed = true;
+			}
 			if (DistanceSq2D(activeGroup.m_vPosition, position) < 25)
 			{
 				if (progress >= 1.0 && activeGroup.m_sRuntimeStatus != arrivedStatus)
@@ -6837,6 +6852,170 @@ class HST_PhysicalWarService
 			return "support_arrived";
 
 		return "arrived";
+	}
+
+	protected vector ResolveActiveGroupRoutePosition(HST_CampaignState state, HST_ActiveGroupState activeGroup, float progress, out int assignedWaypointCount)
+	{
+		assignedWaypointCount = 0;
+		if (!activeGroup)
+			return "0 0 0";
+
+		HST_GeneratedRouteState route = ResolveActiveGroupGeneratedRoute(state, activeGroup);
+		if (!route)
+			return LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
+
+		ref array<vector> routePositions = BuildActiveGroupRoutePositions(route, activeGroup);
+		if (!routePositions || routePositions.Count() < 2)
+			return LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
+
+		assignedWaypointCount = routePositions.Count();
+		return ResolveRoutePolylinePosition(routePositions, progress);
+	}
+
+	protected int ResolveActiveGroupRouteWaypointCount(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return 0;
+
+		HST_GeneratedRouteState route = ResolveActiveGroupGeneratedRoute(state, activeGroup);
+		if (!route)
+			return 0;
+
+		ref array<vector> routePositions = BuildActiveGroupRoutePositions(route, activeGroup);
+		if (!routePositions || routePositions.Count() < 2)
+			return 0;
+
+		return routePositions.Count();
+	}
+
+	protected HST_GeneratedRouteState ResolveActiveGroupGeneratedRoute(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return null;
+
+		if (!activeGroup.m_sRouteId.IsEmpty())
+		{
+			HST_GeneratedRouteState directRoute = state.FindGeneratedRoute(activeGroup.m_sRouteId);
+			if (directRoute)
+				return directRoute;
+		}
+
+		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
+		return ResolveGeneratedResponseRouteForZone(state, zone);
+	}
+
+	protected HST_GeneratedRouteState ResolveGeneratedResponseRouteForZone(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return null;
+
+		if (!zone.m_sQRFRouteId.IsEmpty())
+		{
+			HST_GeneratedRouteState qrfRoute = state.FindGeneratedRoute(zone.m_sQRFRouteId);
+			if (qrfRoute)
+				return qrfRoute;
+		}
+
+		if (!zone.m_sPatrolRouteId.IsEmpty())
+		{
+			HST_GeneratedRouteState patrolRoute = state.FindGeneratedRoute(zone.m_sPatrolRouteId);
+			if (patrolRoute)
+				return patrolRoute;
+		}
+
+		string generatedRouteId = "route_" + zone.m_sZoneId + "_alpha";
+		return state.FindGeneratedRoute(generatedRouteId);
+	}
+
+	protected string ResolvePhysicalResponseRouteId(HST_CampaignState state, HST_ZoneState targetZone, string fallbackRouteId)
+	{
+		HST_GeneratedRouteState route = ResolveGeneratedResponseRouteForZone(state, targetZone);
+		if (route)
+			return route.m_sRouteId;
+
+		return fallbackRouteId;
+	}
+
+	protected ref array<vector> BuildActiveGroupRoutePositions(HST_GeneratedRouteState route, HST_ActiveGroupState activeGroup)
+	{
+		ref array<vector> positions = {};
+		if (!route || !activeGroup)
+			return positions;
+
+		AppendActiveGroupRoutePosition(positions, activeGroup.m_vSourcePosition);
+		int lastIndex = -1000000;
+		while (true)
+		{
+			HST_RouteWaypointState selectedWaypoint;
+			int selectedIndex = 1000000;
+			foreach (HST_RouteWaypointState waypoint : route.m_aWaypoints)
+			{
+				if (!waypoint)
+					continue;
+				if (waypoint.m_iIndex <= lastIndex)
+					continue;
+				if (waypoint.m_iIndex >= selectedIndex)
+					continue;
+
+				selectedWaypoint = waypoint;
+				selectedIndex = waypoint.m_iIndex;
+			}
+
+			if (!selectedWaypoint)
+				break;
+
+			AppendActiveGroupRoutePosition(positions, selectedWaypoint.m_vPosition);
+			lastIndex = selectedWaypoint.m_iIndex;
+		}
+
+		AppendActiveGroupRoutePosition(positions, activeGroup.m_vTargetPosition);
+		return positions;
+	}
+
+	protected void AppendActiveGroupRoutePosition(array<vector> positions, vector position)
+	{
+		if (!positions || IsZeroVector(position))
+			return;
+		if (positions.Count() > 0 && DistanceSq2D(positions[positions.Count() - 1], position) < 9.0)
+			return;
+
+		positions.Insert(position);
+	}
+
+	protected vector ResolveRoutePolylinePosition(array<vector> positions, float progress)
+	{
+		if (!positions || positions.Count() == 0)
+			return "0 0 0";
+		if (positions.Count() == 1)
+			return positions[0];
+
+		float totalDistance;
+		for (int i = 1; i < positions.Count(); i++)
+			totalDistance += Math.Sqrt(DistanceSq2D(positions[i - 1], positions[i]));
+
+		if (totalDistance <= 1.0)
+			return positions[positions.Count() - 1];
+
+		float targetDistance = Math.Max(0.0, Math.Min(1.0, progress)) * totalDistance;
+		float traversedDistance;
+		for (int segmentIndex = 1; segmentIndex < positions.Count(); segmentIndex++)
+		{
+			vector fromPosition = positions[segmentIndex - 1];
+			vector toPosition = positions[segmentIndex];
+			float segmentDistance = Math.Sqrt(DistanceSq2D(fromPosition, toPosition));
+			if (segmentDistance <= 0.1)
+				continue;
+
+			if (traversedDistance + segmentDistance >= targetDistance)
+			{
+				float segmentProgress = (targetDistance - traversedDistance) / segmentDistance;
+				return LerpPosition(fromPosition, toPosition, segmentProgress);
+			}
+
+			traversedDistance += segmentDistance;
+		}
+
+		return positions[positions.Count() - 1];
 	}
 
 	protected HST_QRFState FindQRFByGroupId(HST_CampaignState state, string groupId)

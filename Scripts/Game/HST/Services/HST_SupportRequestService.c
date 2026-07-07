@@ -628,9 +628,7 @@ class HST_SupportRequestService
 			return false;
 		}
 
-		string routeId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
-		if (request.m_sSourceZoneId.IsEmpty() || request.m_sTargetZoneId.IsEmpty())
-			routeId = "support_" + request.m_sRequestId;
+		string routeId = ResolveSupportDeploymentRouteId(state, request);
 
 		request.m_sDeploymentRouteId = routeId;
 		request.m_sDeploymentPlacementType = placement.m_sPlacementType;
@@ -702,6 +700,50 @@ class HST_SupportRequestService
 		m_bMarkerRefreshNeeded = true;
 		Print(string.Format("h-istasi | physical support %1 %2 near %3 | spawn %4 | objective %5 | group %6 | prefab %7", request.m_sRequestId, phase, request.m_sTargetZoneId, group.m_vPosition, objectivePosition, group.m_sGroupId, group.m_sPrefab));
 		return true;
+	}
+
+	protected string ResolveSupportDeploymentRouteId(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		string fallbackRouteId;
+		if (request)
+		{
+			fallbackRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
+			if (request.m_sSourceZoneId.IsEmpty() || request.m_sTargetZoneId.IsEmpty())
+				fallbackRouteId = "support_" + request.m_sRequestId;
+		}
+
+		if (!state || !request)
+			return fallbackRouteId;
+
+		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
+		HST_GeneratedRouteState route = ResolveGeneratedSupportRouteForZone(state, targetZone);
+		if (route)
+			return route.m_sRouteId;
+
+		return fallbackRouteId;
+	}
+
+	protected HST_GeneratedRouteState ResolveGeneratedSupportRouteForZone(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return null;
+
+		if (!zone.m_sQRFRouteId.IsEmpty())
+		{
+			HST_GeneratedRouteState qrfRoute = state.FindGeneratedRoute(zone.m_sQRFRouteId);
+			if (qrfRoute)
+				return qrfRoute;
+		}
+
+		if (!zone.m_sPatrolRouteId.IsEmpty())
+		{
+			HST_GeneratedRouteState patrolRoute = state.FindGeneratedRoute(zone.m_sPatrolRouteId);
+			if (patrolRoute)
+				return patrolRoute;
+		}
+
+		string generatedRouteId = "route_" + zone.m_sZoneId + "_alpha";
+		return state.FindGeneratedRoute(generatedRouteId);
 	}
 
 	protected void MarkPhysicalSupportArrived(HST_CampaignState state, HST_SupportRequestState request)

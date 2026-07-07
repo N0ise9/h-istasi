@@ -208,6 +208,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current examples: `HST_SupportRequestService.ApplyActiveSupport()` and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
 
+- Routed response groups should consume generated route waypoint chains before
+  adding more runtime AI controls.
+  - For support/QRF active groups, resolve the route id against generated
+    routes, fall back through the target zone's route ids, then use the
+    generated `route_<zone>_alpha` convention before falling back to direct
+    source-target movement.
+  - Persist the computed waypoint count on `HST_ActiveGroupState` even if the
+    runtime AI group is still pending native population. Move live entities
+    only after the group is spawned.
+  - Current example: `HST_PhysicalWarService.UpdateActiveGroupRoutes()`.
+
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
     police/roadblock pressure hides why a town flipped and makes save/reload

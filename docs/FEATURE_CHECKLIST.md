@@ -83,7 +83,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Stable zone IDs | All strategic state anchors to durable IDs. | Implemented Foundation | Complete final Everon survey and validate site/route coverage. | High |
 | Zone type model | Towns, outposts, resources, factories, radio towers, airfields, seaports, banks, police, hideouts, and mission sites matter. | Implemented Foundation | Give every strategic type a visible economy, support, mission, or enemy-value effect. | High |
 | Generated mission sites | Mission targets are generated from stable anchors and category/site rules. | Broad Alpha | Replace fallback sites with authored or validated site sets. | High |
-| Generated routes | Convoys, QRFs, patrols, roadblocks, and mission movement use route-aware paths. | Broad Alpha | Support/QRF deployments now persist route and placement proof; extend this into richer active waypoints and garrison behavior. | Highest |
+| Generated routes | Convoys, QRFs, patrols, roadblocks, and mission movement use route-aware paths. | Broad Alpha | Support/QRF deployments now use generated route waypoint chains when available; extend this into richer garrison behavior and true AI waypoint assignment for non-convoy infantry. | Highest |
 | Physical activation bubble | Near-player zones physicalize and off-screen forces stay abstract. | Broad Alpha | Tune activation/deactivation by performance, player count, and objective type. | High |
 
 ### Factions And Relations
@@ -113,7 +113,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate and continue tuning caps/cooldowns. | High |
 | Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Add richer target scoring, proactive timing, and three-way pressure. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha | Add stronger survivor, vehicle, and garrison outcome math. | High |
-| Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support groups now persist deployment route, placement, distance, and vehicle-safe proof; next add richer HQ-pressure/counterattack waypoints and true mixed vehicle spawning. | Highest |
+| Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support groups now persist deployment route proof and follow generated route polylines in state; next add richer HQ-pressure/counterattack behavior and true mixed vehicle spawning. | Highest |
 
 ### Civilians, Town Influence, And Population
 
@@ -188,8 +188,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 1. Reconcile planning docs with current code. The implementation has advanced
    past older phase labels.
-2. Extend support/QRF deployment proof into richer counterattack/HQ-pressure
-   waypoint behavior and true mixed infantry/vehicle spawning.
+2. Extend generated-route response movement into richer counterattack/HQ-pressure
+   behavior, true AI waypoint assignment for infantry, and mixed vehicle spawning.
 3. Finish undercover enforcement from live equipment, vehicle state, off-road
    behavior, and security scans.
 4. Deepen town influence events into the primary political control layer.
