@@ -67,6 +67,8 @@ The repository contains a broad-alpha campaign foundation:
 - Enemy commander orders and support requests that can physicalize near players
   or resolve abstractly off-screen while preserving runtime status and outcome
   diagnostics
+- Physical enemy response fold-back for support/QRF groups that leave the event
+  bubble, preserving survivor state while removing live runtime handles
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records

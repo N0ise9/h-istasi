@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r47-enemy-support-spend";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r48-physical-response-foldback";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -452,7 +452,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool civilianChanged = m_Civilians.Tick(m_State, elapsedSeconds);
 		bool undercoverEnforcementChanged = TickUndercoverEnforcement();
-		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 		bool enemyOrdersChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, elapsedSeconds);
 		bool hqThreatChanged = m_HQ.TickHQThreat(m_State, m_Preset);
 		bool petrosDefenseChanged = TickDefendPetros();
@@ -4341,6 +4341,279 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("faction %1 | pool %2/%3 | %4 | %5 | cooldown %6 | max %7", EmptyCampaignDebugField(factionKey), attackResources, supportResources, BuildCampaignDebugEnemySupportLedgerActual(ledger), BuildCampaignDebugEnemyOrderSpendActual(order), EmptyCampaignDebugField(cooldownReason), EmptyCampaignDebugField(maxReason));
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhysicalResponseFoldbackCase()
+	{
+		HST_CampaignDebugCaseResult responseCase = CreateCampaignDebugCase("enemy_physical_response.foldback.runtime", "enemy_commander", "physical_response", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null && m_SupportRequests != null && m_PhysicalWar != null && m_Garrisons != null;
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.prerequisite", "state, preset, enemy commander, support, physical war, and garrison services ready", string.Format("state %1 | preset %2 | director %3 | commander %4 | support %5 | physical %6 | garrisons %7", m_State != null, m_Preset != null, m_EnemyDirector != null, m_EnemyCommander != null, m_SupportRequests != null, m_PhysicalWar != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "physical response prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(responseCase);
+			return responseCase;
+		}
+
+		string debugZoneId = "debug_enemy_physical_response_foldback";
+		CleanupCampaignDebugPhysicalResponseRecords(debugZoneId);
+		HST_ZoneState baseZone = FindCampaignDebugPhysicalResponseBaseZone();
+		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
+		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
+		bool targetReady = baseZone != null && pool != null && !factionKey.IsEmpty();
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.target", "debug target zone and enemy pool available", string.Format("base %1 | faction %2 | pool %3", ResolveZoneLabel(baseZone), EmptyCampaignDebugField(factionKey), pool != null), CampaignDebugStatus(targetReady, "BLOCKED"), "physical response target or enemy pool missing");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(responseCase);
+			return responseCase;
+		}
+
+		int orderCountBefore = m_State.m_aEnemyOrders.Count();
+		int supportCountBefore = m_State.m_aSupportRequests.Count();
+		int groupCountBefore = m_State.m_aActiveGroups.Count();
+		int ledgerCountBefore = m_State.m_aEnemySupportLedgers.Count();
+		int garrisonCountBefore = m_State.m_aGarrisons.Count();
+		int zoneCountBefore = m_State.m_aZones.Count();
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+
+		HST_ZoneState targetZone = BuildCampaignDebugPhysicalResponseZone(debugZoneId, factionKey, baseZone);
+		m_State.m_aZones.Insert(targetZone);
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
+
+		bool physicalizeTickChanged;
+		HST_SupportRequestState request;
+		if (order)
+		{
+			targetZone.m_bActive = true;
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+			physicalizeTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+			request = m_State.FindSupportRequest(order.m_sSupportRequestId);
+		}
+
+		bool supportTickChanged;
+		HST_ActiveGroupState group;
+		if (request)
+		{
+			int inboundLeadSeconds = ResolveCampaignDebugSupportInboundLeadSeconds(request);
+			if (request.m_iETASeconds > inboundLeadSeconds)
+				request.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, request.m_iETASeconds - inboundLeadSeconds);
+			supportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
+			group = m_State.FindActiveGroup(request.m_sGroupId);
+			if (group)
+			{
+				group.m_iSurvivorInfantryCount = Math.Max(1, Math.Min(group.m_iInfantryCount, 2));
+				group.m_iSurvivorVehicleCount = 0;
+				m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
+				group = m_State.FindActiveGroup(request.m_sGroupId);
+			}
+		}
+
+		string groupStatusBeforeFold;
+		if (group)
+			groupStatusBeforeFold = group.m_sRuntimeStatus;
+		bool foldTickChanged;
+		bool orderSyncChanged;
+		if (request && group)
+		{
+			targetZone.m_bActive = false;
+			int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
+			if (m_State.m_iElapsedSeconds < arrivalAtSecond)
+				m_State.m_iElapsedSeconds = arrivalAtSecond;
+			foldTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
+			group = m_State.FindActiveGroup(request.m_sGroupId);
+			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
+			orderSyncChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+			if (order)
+				order = FindCampaignDebugEnemyOrderById(order.m_sOrderId);
+			if (request)
+				request = m_State.FindSupportRequest(request.m_sRequestId);
+			if (group)
+				group = m_State.FindActiveGroup(group.m_sGroupId);
+		}
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_EnemyOrderState restoredOrder;
+		HST_SupportRequestState restoredRequest;
+		HST_ActiveGroupState restoredGroup;
+		if (order)
+			restoredOrder = FindCampaignDebugEnemyOrderInState(restoredState, order.m_sOrderId);
+		if (request)
+			restoredRequest = restoredState.FindSupportRequest(request.m_sRequestId);
+		if (group)
+			restoredGroup = restoredState.FindActiveGroup(group.m_sGroupId);
+
+		string chainActual = BuildCampaignDebugPhysicalResponseActual(order, request, group, physicalizeTickChanged, supportTickChanged, foldTickChanged, orderSyncChanged);
+		responseCase.m_aEvidence.Insert(chainActual);
+		AddCampaignDebugMetric(responseCase, "enemy_physical_response.orders_before", string.Format("%1", orderCountBefore), "count");
+		AddCampaignDebugMetric(responseCase, "enemy_physical_response.support_before", string.Format("%1", supportCountBefore), "count");
+		AddCampaignDebugMetric(responseCase, "enemy_physical_response.groups_before", string.Format("%1", groupCountBefore), "count");
+
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_created", "enemy QRF order queues through commander", BuildCampaignDebugEnemyOrderSpendActual(order), CampaignDebugStatus(order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF), "physical response debug order was not created");
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.support_created", "enemy order physicalizes into a linked support request", BuildCampaignDebugSupportRequestActual(request), CampaignDebugStatus(order && request && order.m_bPhysicalized && order.m_sSupportRequestId == request.m_sRequestId), "enemy order did not physicalize into support");
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_created", "support request physicalizes into a linked active group", BuildCampaignDebugActiveGroupActual(group), CampaignDebugStatus(request && group && request.m_bPhysicalized && request.m_sGroupId == group.m_sGroupId), "support request did not create active group");
+		string positionActual = "missing";
+		bool positionExpected = false;
+		if (group)
+		{
+			positionActual = string.Format("source %1 | target %2 | current %3 | status before fold %4", group.m_vSourcePosition, group.m_vTargetPosition, group.m_vPosition, EmptyCampaignDebugField(groupStatusBeforeFold));
+			positionExpected = !IsZeroVector(group.m_vSourcePosition) && !IsZeroVector(group.m_vTargetPosition) && (groupStatusBeforeFold == "support_active" || groupStatusBeforeFold == "support_arrived" || IsCampaignDebugAsyncRuntimePending(groupStatusBeforeFold));
+		}
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_staged", "active group has valid staging and target positions before fold-back", positionActual, CampaignDebugStatus(positionExpected, "WARN"), "physical response group did not reach a support runtime state before fold-back");
+		string foldActual = "missing";
+		bool foldExpected = false;
+		if (request && group)
+		{
+			foldActual = string.Format("fold tick %1 | group %2 -> %3 | support %4 | runtime %5 | result %6 | fail %7", foldTickChanged, EmptyCampaignDebugField(groupStatusBeforeFold), EmptyCampaignDebugField(group.m_sRuntimeStatus), request.m_eStatus, EmptyCampaignDebugField(request.m_sRuntimeStatus), EmptyCampaignDebugField(request.m_sResolutionKind), EmptyCampaignDebugField(request.m_sFailureReason));
+			foldExpected = group.m_sRuntimeStatus == "folded" && request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && request.m_sRuntimeStatus == "resolved_physical_group_terminal" && request.m_sFailureReason.Contains("folded");
+		}
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.foldback", "leaving the event bubble folds survivors and resolves support through the physical terminal path", foldActual, CampaignDebugStatus(foldExpected), "physical support did not fold/resolved cleanly after leaving event bubble");
+		string orderActual = BuildCampaignDebugEnemyOrderActual(order);
+		bool orderExpected = order && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_sRuntimeStatus == "resolved_group_folded" && order.m_bResourceRefundApplied;
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_resolution", "folded physical group resolves linked enemy order and applies survivor refund once", orderActual, CampaignDebugStatus(orderExpected), "folded support group did not resolve linked enemy order/refund");
+		string roundTripActual = BuildCampaignDebugPhysicalResponseRoundTripActual(restoredOrder, restoredRequest, restoredGroup);
+		bool roundTripExpected = restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded";
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
+
+		pool.m_iAttackResources = attackBefore;
+		pool.m_iSupportResources = supportBefore;
+		CleanupCampaignDebugPhysicalResponseRecords(debugZoneId);
+		while (m_State.m_aEnemyOrders.Count() > orderCountBefore)
+			m_State.m_aEnemyOrders.Remove(m_State.m_aEnemyOrders.Count() - 1);
+		while (m_State.m_aSupportRequests.Count() > supportCountBefore)
+			m_State.m_aSupportRequests.Remove(m_State.m_aSupportRequests.Count() - 1);
+		while (m_State.m_aActiveGroups.Count() > groupCountBefore)
+			m_State.m_aActiveGroups.Remove(m_State.m_aActiveGroups.Count() - 1);
+		while (m_State.m_aEnemySupportLedgers.Count() > ledgerCountBefore)
+			m_State.m_aEnemySupportLedgers.Remove(m_State.m_aEnemySupportLedgers.Count() - 1);
+		while (m_State.m_aGarrisons.Count() > garrisonCountBefore)
+			m_State.m_aGarrisons.Remove(m_State.m_aGarrisons.Count() - 1);
+		while (m_State.m_aZones.Count() > zoneCountBefore)
+			m_State.m_aZones.Remove(m_State.m_aZones.Count() - 1);
+
+		FinalizeCampaignDebugCaseFromAssertions(responseCase);
+		return responseCase;
+	}
+
+	protected HST_ZoneState FindCampaignDebugPhysicalResponseBaseZone()
+	{
+		if (!m_State || !m_Preset)
+			return null;
+
+		HST_ZoneState bestZone;
+		float bestDistanceSq = -1.0;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+
+			float distanceSq = DistanceSq2D(zone.m_vPosition, m_State.m_vHQPosition);
+			if (distanceSq > bestDistanceSq)
+			{
+				bestZone = zone;
+				bestDistanceSq = distanceSq;
+			}
+		}
+
+		if (bestZone)
+			return bestZone;
+
+		return FindCampaignDebugSpawnPlacementOutpost();
+	}
+
+	protected HST_ZoneState BuildCampaignDebugPhysicalResponseZone(string zoneId, string factionKey, HST_ZoneState baseZone)
+	{
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = zoneId;
+		zone.m_sDisplayName = "Enemy Physical Response Debug Zone";
+		zone.m_sOwnerFactionKey = factionKey;
+		zone.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
+		zone.m_vPosition = m_State.m_vHQPosition;
+		zone.m_iPriority = 35;
+		zone.m_iResistanceCaptureProgress = 50;
+		zone.m_bActive = true;
+		if (baseZone)
+		{
+			zone.m_vPosition = baseZone.m_vPosition;
+			zone.m_eType = baseZone.m_eType;
+			zone.m_iPriority = Math.Max(zone.m_iPriority, baseZone.m_iPriority);
+		}
+
+		return zone;
+	}
+
+	protected void CleanupCampaignDebugPhysicalResponseRecords(string zoneId)
+	{
+		if (!m_State || zoneId.IsEmpty())
+			return;
+
+		for (int groupIndex = m_State.m_aActiveGroups.Count() - 1; groupIndex >= 0; groupIndex--)
+		{
+			HST_ActiveGroupState group = m_State.m_aActiveGroups[groupIndex];
+			if (!group || group.m_sZoneId != zoneId)
+				continue;
+
+			if (m_PhysicalWar)
+				m_PhysicalWar.CleanupRuntimeGroupEntityForDebug(group.m_sGroupId);
+			m_State.m_aActiveGroups.Remove(groupIndex);
+		}
+
+		for (int garrisonIndex = m_State.m_aGarrisons.Count() - 1; garrisonIndex >= 0; garrisonIndex--)
+		{
+			HST_GarrisonState garrison = m_State.m_aGarrisons[garrisonIndex];
+			if (garrison && garrison.m_sZoneId == zoneId)
+				m_State.m_aGarrisons.Remove(garrisonIndex);
+		}
+
+		CleanupCampaignDebugEnemySupportSpendRecords(zoneId);
+
+		for (int zoneIndex = m_State.m_aZones.Count() - 1; zoneIndex >= 0; zoneIndex--)
+		{
+			HST_ZoneState zone = m_State.m_aZones[zoneIndex];
+			if (zone && zone.m_sZoneId == zoneId)
+				m_State.m_aZones.Remove(zoneIndex);
+		}
+	}
+
+	protected HST_EnemyOrderState FindCampaignDebugEnemyOrderInState(HST_CampaignState state, string orderId)
+	{
+		if (!state || orderId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (order && order.m_sOrderId == orderId)
+				return order;
+		}
+
+		return null;
+	}
+
+	protected string BuildCampaignDebugPhysicalResponseActual(HST_EnemyOrderState order, HST_SupportRequestState request, HST_ActiveGroupState group, bool physicalizeTickChanged, bool supportTickChanged, bool foldTickChanged, bool orderSyncChanged)
+	{
+		string orderId = "missing";
+		string requestId = "missing";
+		string groupId = "missing";
+		if (order)
+			orderId = EmptyCampaignDebugField(order.m_sOrderId);
+		if (request)
+			requestId = EmptyCampaignDebugField(request.m_sRequestId);
+		if (group)
+			groupId = EmptyCampaignDebugField(group.m_sGroupId);
+
+		return string.Format("order %1 | support %2 | group %3 | ticks physical %4 support %5 fold %6 sync %7", orderId, requestId, groupId, physicalizeTickChanged, supportTickChanged, foldTickChanged, orderSyncChanged);
+	}
+
+	protected string BuildCampaignDebugPhysicalResponseRoundTripActual(HST_EnemyOrderState order, HST_SupportRequestState request, HST_ActiveGroupState group)
+	{
+		string orderActual = BuildCampaignDebugEnemyOrderActual(order);
+		string requestActual = BuildCampaignDebugSupportRequestActual(request);
+		string groupActual = BuildCampaignDebugActiveGroupActual(group);
+		return string.Format("order [%1] | support [%2] | group [%3]", orderActual, requestActual, groupActual);
+	}
+
 	protected void AddCampaignDebugGameMasterBudgetAssertions(HST_CampaignDebugCaseResult preflightCase)
 	{
 		if (!preflightCase)
@@ -4785,6 +5058,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugEnemySupportSpendCase());
 		if (m_EnemyDirector)
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
+		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());
 		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
@@ -5748,7 +6022,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (supportRequest.m_iETASeconds > desiredRemaining)
 			supportRequest.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, supportRequest.m_iETASeconds - desiredRemaining);
 
-		bool changed = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		bool changed = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 		probeContext.m_iEtaRemainingAfter = RemainingCampaignDebugSupportETA(supportRequest);
 		probeContext.m_eStatusAfterTick = supportRequest.m_eStatus;
 		probeContext.m_sRuntimeStatusAfterTick = supportRequest.m_sRuntimeStatus;
@@ -5823,7 +6097,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_iArrivalAdvanceSeconds = arrivalAdvanceSeconds;
 				m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + arrivalAdvanceSeconds;
 				probeContext.m_bArrivalRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
-				probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+				probeContext.m_bArrivalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 				group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 				if (group)
 				{
@@ -5842,7 +6116,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					}
 
 					m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
-					probeContext.m_bTerminalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+					probeContext.m_bTerminalTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 					group = m_State.FindActiveGroup(supportRequest.m_sGroupId);
 					if (group)
 						probeContext.m_sGroupStatusAfterTerminal = group.m_sRuntimeStatus;
@@ -15283,7 +15557,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				physicalProbe.m_SupportRequest.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, physicalProbe.m_SupportRequest.m_iETASeconds - inboundLeadSeconds);
 		}
 
-		physicalProbe.m_bSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		physicalProbe.m_bSupportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 		physicalProbe.m_bSyncTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
 		physicalProbe.m_SupportRequest = m_State.FindSupportRequest(physicalOrder.m_sSupportRequestId);
 		if (physicalProbe.m_SupportRequest && !physicalProbe.m_SupportRequest.m_sGroupId.IsEmpty())
@@ -17509,7 +17783,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
 		bool physicalizeChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
 		RetagCampaignDebugEscalationSupportRequests(profile, profile.m_iSupportRequestsBefore, label);
-		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons);
+		bool supportChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
 		bool syncChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
 		bool routeChanged;
 		if (m_PhysicalWar)

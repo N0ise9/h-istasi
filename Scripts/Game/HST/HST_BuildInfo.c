@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r47-enemy-support-spend";
-	static const string BUILD_UTC = "2026-07-07T12:15:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r47-enemy-support-spend";
+	static const string BUILD_SHA = "r48-physical-response-foldback";
+	static const string BUILD_UTC = "2026-07-07T13:05:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r48-physical-response-foldback";
 
 	static string BuildSummary()
 	{

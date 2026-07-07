@@ -246,7 +246,7 @@ class HST_SupportRequestService
 		return result;
 	}
 
-	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons)
+	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null)
 	{
 		if (!state || !preset)
 			return false;
@@ -263,7 +263,7 @@ class HST_SupportRequestService
 			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 				continue;
 
-			changed = TickActiveSupportRequest(state, preset, garrisons, request) || changed;
+			changed = TickActiveSupportRequest(state, preset, garrisons, physicalWar, request) || changed;
 		}
 
 		return changed;
@@ -291,13 +291,13 @@ class HST_SupportRequestService
 		return true;
 	}
 
-	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	protected bool TickActiveSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
 	{
 		if (!state || !request)
 			return false;
 
 		if (IsPhysicalGroundSupport(request))
-			return TickPhysicalGroundSupport(state, preset, garrisons, request);
+			return TickPhysicalGroundSupport(state, preset, garrisons, physicalWar, request);
 
 		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		if (state.m_iElapsedSeconds < arrivalAtSecond)
@@ -306,7 +306,7 @@ class HST_SupportRequestService
 		return ResolveSupport(state, preset, garrisons, request);
 	}
 
-	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
+	protected bool TickPhysicalGroundSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
 	{
 		if (!state || !request)
 			return false;
@@ -337,6 +337,9 @@ class HST_SupportRequestService
 			{
 				if (!ShouldPhysicalizeSupport(state, preset, request))
 				{
+					if (FoldPhysicalSupportOutsideBubble(state, garrisons, physicalWar, request))
+						return ResolveSupportAsPhysicalComplete(state, request);
+
 					request.m_sRuntimeStatus = "active_waiting_abstract_eta";
 					return ResolveSupport(state, preset, garrisons, request);
 				}
@@ -346,6 +349,12 @@ class HST_SupportRequestService
 				request.m_sRuntimeStatus = "physical_arrived";
 				m_bMarkerRefreshNeeded = true;
 				return true;
+			}
+
+			if (!ShouldPhysicalizeSupport(state, preset, request))
+			{
+				if (FoldPhysicalSupportOutsideBubble(state, garrisons, physicalWar, request))
+					return ResolveSupportAsPhysicalComplete(state, request);
 			}
 
 			if (IsPhysicalSupportFinished(state, request))
@@ -363,6 +372,59 @@ class HST_SupportRequestService
 		}
 
 		return ResolveSupport(state, preset, garrisons, request);
+	}
+
+	protected bool FoldPhysicalSupportOutsideBubble(HST_CampaignState state, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
+	{
+		if (!state || !request || request.m_sGroupId.IsEmpty())
+			return false;
+
+		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+		if (!group)
+			return false;
+
+		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed")
+			return false;
+
+		bool folded;
+		if (physicalWar)
+			folded = physicalWar.FoldActiveSupportGroup(state, group.m_sGroupId);
+
+		if (!folded)
+		{
+			FoldSupportGroupDataOnly(state, garrisons, group);
+			folded = true;
+		}
+
+		if (folded)
+		{
+			request.m_sFailureReason = "physical support folded after leaving event bubble";
+			request.m_sRuntimeStatus = "physical_folded_outside_bubble";
+			request.m_sResolutionKind = "physical_group_folded";
+		}
+
+		return folded;
+	}
+
+	protected void FoldSupportGroupDataOnly(HST_CampaignState state, HST_GarrisonService garrisons, HST_ActiveGroupState group)
+	{
+		if (!state || !group)
+			return;
+
+		if (group.m_sRuntimeStatus == "folded")
+			return;
+
+		int survivorInfantry = Math.Max(0, group.m_iSurvivorInfantryCount);
+		int survivorVehicles = Math.Max(0, group.m_iSurvivorVehicleCount);
+		if (!group.m_bSpawnedEntity && survivorInfantry <= 0 && group.m_iInfantryCount > 0)
+			survivorInfantry = group.m_iInfantryCount;
+		if (!group.m_bSpawnedEntity && survivorVehicles <= 0 && group.m_iVehicleCount > 0)
+			survivorVehicles = group.m_iVehicleCount;
+
+		if (garrisons && (survivorInfantry > 0 || survivorVehicles > 0))
+			garrisons.AddAbstractForces(state, group.m_sZoneId, group.m_sFactionKey, survivorInfantry, survivorVehicles);
+
+		group.m_sRuntimeStatus = "folded";
 	}
 
 	string BuildSupportReport(HST_CampaignState state)

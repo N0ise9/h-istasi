@@ -5987,6 +5987,24 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+	bool FoldActiveSupportGroup(HST_CampaignState state, string groupId)
+	{
+		if (!state || groupId.IsEmpty())
+			return false;
+
+		HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
+		if (!activeGroup)
+			return false;
+
+		if (activeGroup.m_sRuntimeStatus == "folded")
+			return true;
+
+		FoldActiveGroup(state, activeGroup);
+		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
 	protected bool DeactivateZone(HST_CampaignState state, HST_ZoneState zone, HST_ZoneCompositionService compositions = null)
 	{
 		bool changed;

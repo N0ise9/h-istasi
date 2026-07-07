@@ -84,6 +84,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_PhysicalWarService.UpdateQRF()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugEnemySupportSpendCase()`.
 
+- Physical support groups need an owner-controlled fold-back path.
+  - Ground support/QRF groups are not normal zone garrisons, so generic zone
+    deactivation intentionally skips them. The support lifecycle must fold
+    survivors when the target is no longer inside an active player/objective
+    event bubble, delete the live runtime group handle, and keep the persistent
+    group row terminal long enough for support and enemy-order synchronization.
+  - Current examples: `HST_SupportRequestService.FoldPhysicalSupportOutsideBubble()`,
+    `HST_PhysicalWarService.FoldActiveSupportGroup()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
+
 - Force creation should start from a serializable request/result contract.
   - Tactical systems should ask for a force by intent, faction, war level,
     budget, manpower bounds, vehicle permissions, and reason, then consume a
