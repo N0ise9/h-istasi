@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r73-route-marker-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r74-cleanup-population-drain";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -8314,20 +8314,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int runtimeFactionMismatches = -1;
 		string directFallbackEvidence = "physical war service missing";
 		int directFallbackGroups = -1;
+		string populationDrainEvidence = "physical war service missing";
+		int populationDrainResolved = -1;
 		string pendingPopulationEvidence = "physical war service missing";
 		int pendingPopulationGroups = -1;
 		if (m_PhysicalWar)
 		{
+			populationDrainResolved = m_PhysicalWar.CampaignDebugResolvePendingPopulationActiveGroups(m_State, populationDrainEvidence);
 			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
 			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
 			pendingPopulationGroups = m_PhysicalWar.CountCampaignDebugPendingPopulationActiveGroups(m_State, pendingPopulationEvidence);
 		}
+		leakCase.m_aEvidence.Insert("population drain | " + ShortCampaignDebugLine(populationDrainEvidence, 220));
 
 		AddCampaignDebugMetric(leakCase, "post_cleanup.unexpected_active_missions", string.Format("%1", unexpectedActiveMissions), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_mission_assets", string.Format("%1", orphanAssets), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_active_groups", string.Format("%1", orphanGroups), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.orphan_markers", string.Format("%1", orphanMarkers), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkers), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_population_drain_resolved", string.Format("%1", populationDrainResolved), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_pending_population_groups", string.Format("%1", pendingPopulationGroups), "count");
@@ -9529,14 +9534,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int runtimeFactionMismatches = -1;
 		string directFallbackEvidence = "physical war service missing";
 		int directFallbackGroups = -1;
+		string populationDrainEvidence = "physical war service missing";
+		int populationDrainResolved = -1;
 		string pendingPopulationEvidence = "physical war service missing";
 		int pendingPopulationGroups = -1;
 		if (m_PhysicalWar)
 		{
+			populationDrainResolved = m_PhysicalWar.CampaignDebugResolvePendingPopulationActiveGroups(m_State, populationDrainEvidence);
 			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
 			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
 			pendingPopulationGroups = m_PhysicalWar.CountCampaignDebugPendingPopulationActiveGroups(m_State, pendingPopulationEvidence);
 		}
+		cleanupCase.m_aEvidence.Insert("population drain | " + ShortCampaignDebugLine(populationDrainEvidence, 220));
 		AddCampaignDebugMetric(cleanupCase, "cleanup.active_missions", string.Format("%1", activeMissionCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.pending_player_support", string.Format("%1", pendingPlayerSupportCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.open_enemy_orders", string.Format("%1", openEnemyOrderCount), "count");
@@ -9545,6 +9554,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.markers", string.Format("%1", markerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.orphan_markers", string.Format("%1", orphanMarkerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkerCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_population_drain_resolved", string.Format("%1", populationDrainResolved), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.runtime_pending_population_groups", string.Format("%1", pendingPopulationGroups), "count");

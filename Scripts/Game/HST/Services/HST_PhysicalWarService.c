@@ -1985,10 +1985,12 @@ class HST_PhysicalWarService
 		int checkedGroupCount;
 		int pendingLiveCountGroups;
 		int skippedTerminalEmptyGroups;
+		int skippedPendingPopulationGroups;
 		int mismatchCount;
 		string firstMismatch;
 		string firstPending;
 		string firstTerminalEmpty;
+		string firstSkippedPendingPopulation;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sFactionKey.IsEmpty())
@@ -1998,6 +2000,14 @@ class HST_PhysicalWarService
 			bool vehicleEntityPresent = GetRuntimeVehicleEntity(activeGroup.m_sGroupId) != null;
 			if (!groupEntityPresent && !vehicleEntityPresent)
 				continue;
+
+			if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents" || activeGroup.m_sRuntimeStatus == ACTIVE_GROUP_RUNTIME_STATUS_AIWORLD_BUDGET_DEFERRED)
+			{
+				skippedPendingPopulationGroups++;
+				if (firstSkippedPendingPopulation.IsEmpty())
+					firstSkippedPendingPopulation = activeGroup.m_sGroupId;
+				continue;
+			}
 
 			int liveControlledMembers = CountRuntimeGroupControlledEntities(activeGroup.m_sGroupId);
 			int liveRuntimeEntities = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
@@ -2039,9 +2049,10 @@ class HST_PhysicalWarService
 				firstMismatch = BuildActiveGroupRuntimeFactionActual(activeGroup, activeGroupMismatches, sample, groupEntityPresent, vehicleEntityPresent);
 		}
 
-		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | pending live-count %4 | skipped terminal empty %5 | first %6", runtimeGroupCount, checkedGroupCount, mismatchCount, pendingLiveCountGroups, skippedTerminalEmptyGroups, ReportText(firstMismatch));
-		if (!firstPending.IsEmpty() || !firstTerminalEmpty.IsEmpty())
-			evidence = evidence + string.Format(" | first pending %1 | first terminal empty %2", ReportText(firstPending), ReportText(firstTerminalEmpty));
+		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | pending live-count %4 | skipped terminal empty %5 | skipped pending population %6", runtimeGroupCount, checkedGroupCount, mismatchCount, pendingLiveCountGroups, skippedTerminalEmptyGroups, skippedPendingPopulationGroups);
+		evidence = evidence + string.Format(" | first %1", ReportText(firstMismatch));
+		if (!firstPending.IsEmpty() || !firstTerminalEmpty.IsEmpty() || !firstSkippedPendingPopulation.IsEmpty())
+			evidence = evidence + string.Format(" | first pending %1 | first terminal empty %2 | first skipped pending %3", ReportText(firstPending), ReportText(firstTerminalEmpty), ReportText(firstSkippedPendingPopulation));
 		return mismatchCount;
 	}
 
@@ -2111,6 +2122,60 @@ class HST_PhysicalWarService
 		return pendingCount;
 	}
 
+	int CampaignDebugResolvePendingPopulationActiveGroups(HST_CampaignState state, out string evidence)
+	{
+		evidence = "state missing";
+		if (!state)
+			return -1;
+
+		int attemptedCount;
+		int resolvedCount;
+		int unresolvedCount;
+		int skippedDeferredCount;
+		string firstResolved;
+		string firstUnresolved;
+		string firstDeferred;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_iInfantryCount <= 0)
+				continue;
+			if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+				continue;
+			if (activeGroup.m_sRuntimeStatus == ACTIVE_GROUP_RUNTIME_STATUS_AIWORLD_BUDGET_DEFERRED)
+			{
+				skippedDeferredCount++;
+				if (firstDeferred.IsEmpty())
+					firstDeferred = activeGroup.m_sGroupId;
+				continue;
+			}
+			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+				continue;
+
+			attemptedCount++;
+			string requestedStatus = ResolvePendingActiveGroupRequestedStatus(activeGroup, "");
+			string groupEvidence;
+			bool resolved = CampaignDebugResolvePendingActiveGroupPopulation(activeGroup, state, requestedStatus, groupEvidence);
+			if (resolved)
+			{
+				resolvedCount++;
+				if (firstResolved.IsEmpty())
+					firstResolved = string.Format("%1 | %2", activeGroup.m_sGroupId, groupEvidence);
+			}
+			else
+			{
+				unresolvedCount++;
+				if (firstUnresolved.IsEmpty())
+					firstUnresolved = string.Format("%1 | %2", activeGroup.m_sGroupId, groupEvidence);
+			}
+		}
+
+		evidence = string.Format("attempted %1 | resolved %2 | unresolved %3 | deferred %4", attemptedCount, resolvedCount, unresolvedCount, skippedDeferredCount);
+		evidence = evidence + string.Format(" | first resolved %1 | first unresolved %2", ReportText(firstResolved), ReportText(firstUnresolved));
+		if (!firstDeferred.IsEmpty())
+			evidence = evidence + string.Format(" | first deferred %1", ReportText(firstDeferred));
+		return resolvedCount;
+	}
+
 	protected string BuildActiveGroupPendingPopulationActual(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup)
@@ -2132,6 +2197,27 @@ class HST_PhysicalWarService
 			activeGroup.m_iInfantryCount,
 			ReportText(activeGroup.m_sSpawnFailureReason),
 			ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+	}
+
+	protected string ResolvePendingActiveGroupRequestedStatus(HST_ActiveGroupState activeGroup, string fallbackStatus)
+	{
+		if (!activeGroup)
+			return fallbackStatus;
+
+		int pendingIndex = FindPendingActiveGroupPopulationIndex(activeGroup.m_sGroupId);
+		if (pendingIndex >= 0 && pendingIndex < m_aPendingPopulationRequestedStatuses.Count())
+		{
+			string requestedStatus = m_aPendingPopulationRequestedStatuses[pendingIndex];
+			if (!requestedStatus.IsEmpty())
+				return requestedStatus;
+		}
+
+		if (!fallbackStatus.IsEmpty())
+			return fallbackStatus;
+		if (activeGroup.m_bQRF)
+			return "routing";
+
+		return "active";
 	}
 
 	protected string BuildActiveGroupDirectFallbackActual(HST_ActiveGroupState activeGroup)

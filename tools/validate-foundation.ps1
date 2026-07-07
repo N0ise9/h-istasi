@@ -8251,6 +8251,8 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"SpawnAllImmediately",
 		"nativeImmediate %4",
 		"CampaignDebugResolveActiveGroupRouteAssignment",
+		"CampaignDebugResolvePendingPopulationActiveGroups",
+		"ResolvePendingActiveGroupRequestedStatus",
 		"campaign debug route assignment",
 		"Assigned infantry route waypoint chain %1 via campaign debug route resolver",
 		"ResolveActiveGroupPrimarySpawnMode",
@@ -8285,11 +8287,27 @@ foreach ($requiredRouteResolverEntry in @(
 		"UpdateRoutedActiveGroupsNow(state, preset, true)",
 		"AssignActiveGroupInfantryRouteWaypoints",
 		"infantry_waypoints",
-		"infantry_sweep"
+	"infantry_sweep"
 	)) {
 	if ($campaignDebugRouteResolverMatch.Value -notmatch [regex]::Escape($requiredRouteResolverEntry)) {
 		throw "Campaign-debug route resolver must force population recovery and prove real move/sweep waypoint assignment: $requiredRouteResolverEntry"
 	}
+}
+$campaignDebugCleanupPopulationDrainMatch = [regex]::Match($physicalWarServiceText, "int CampaignDebugResolvePendingPopulationActiveGroups[\s\S]*?protected string BuildActiveGroupPendingPopulationActual")
+if (!$campaignDebugCleanupPopulationDrainMatch.Success) {
+	throw "Could not locate campaign-debug cleanup population drain helper"
+}
+foreach ($requiredCleanupPopulationDrainEntry in @(
+		"CampaignDebugResolvePendingActiveGroupPopulation",
+		"ResolvePendingActiveGroupRequestedStatus",
+		"attempted %1 | resolved %2 | unresolved %3 | deferred %4"
+	)) {
+	if ($campaignDebugCleanupPopulationDrainMatch.Value -notmatch [regex]::Escape($requiredCleanupPopulationDrainEntry)) {
+		throw "Campaign-debug cleanup population drain must force primary pending population before cleanup audits: $requiredCleanupPopulationDrainEntry"
+	}
+}
+if ($campaignDebugCleanupPopulationDrainMatch.Value -match "TryPopulatePendingActiveGroupFromFactionInfantry") {
+	throw "Campaign-debug cleanup population drain must not direct-fallback groups while certifying primary population"
 }
 $controlledStockGroupSpawnMatch = [regex]::Match($physicalWarServiceText, "protected GenericEntity SpawnControlledNativeActiveGroupPrefab[\s\S]*?protected void StabilizeRuntimeAIGroupRoot")
 if (!$controlledStockGroupSpawnMatch.Success) {
@@ -8327,11 +8345,21 @@ foreach ($requiredRuntimeFactionAuditEntry in @(
 		"cleanup.runtime_factions",
 		"runtime_faction_mismatches",
 		"pending live-count",
+		"skipped pending population",
 		"skipped terminal empty",
 		"zero live controlled members for infantry group"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeFactionAuditEntry)) {
 		throw "Campaign debug cleanup must audit runtime group/vehicle faction mismatches: $requiredRuntimeFactionAuditEntry"
+	}
+}
+foreach ($requiredCleanupPopulationDrainAssertionEntry in @(
+		"post_cleanup.runtime_population_drain_resolved",
+		"cleanup.runtime_population_drain_resolved",
+		"population drain | "
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCleanupPopulationDrainAssertionEntry)) {
+		throw "Campaign debug cleanup must drain primary pending population before final audits: $requiredCleanupPopulationDrainAssertionEntry"
 	}
 }
 if ($physicalWarServiceText -match [regex]::Escape("ApplyEntityFaction(vehicleEntity")) {

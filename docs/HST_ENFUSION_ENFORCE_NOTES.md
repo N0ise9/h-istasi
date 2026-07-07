@@ -1105,6 +1105,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Campaign-debug cleanup assertions should test ownership/backing, not raw count drift.
   - A long full-profile run can legitimately leave backed, non-debug active groups created by normal campaign services. Treat total active-group count as a metric/context line. The hard cleanup invariant is no `hst_debug_` prefixed state and no active group lacking zone, mission, support, enemy-order, or QRF backing.
+  - Before post-case or final cleanup audits runtime factions, force a primary-path pending-population drain for active groups still in `spawn_pending_agents`. Use the recorded pending requested status when available, and keep direct faction-infantry fallback out of this cleanup drain so `runtime_group_primary_spawn` remains meaningful.
+  - Runtime faction cleanup should skip groups that are still explicitly pending population or AIWorld-deferred after the drain. Those rows belong to `runtime_group_population_settled`; counting the same empty group root as both a population blocker and a faction mismatch hides the real cleanup cause.
 
 - Terminal campaign phases need special runner handling.
   - If `EOnFrame` returns early for `HST_CAMPAIGN_WON` or `HST_CAMPAIGN_LOST`, tick the debug runner before returning or a forced victory/loss step can strand the sequence.
