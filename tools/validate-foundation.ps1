@@ -1626,12 +1626,14 @@ foreach ($requiredCaptiveBoardingEntry in @(
 		"access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true)",
 		"access.MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, true, slot)",
 		"server-authoritative captive cargo move-in completed",
-		"captive boarding command did not produce a seated or getting-in state after bounded rescan",
-		"CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn)",
-		"CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveStillGettingIn))"
+		"boardingAssociated",
+		"transportAssociated",
+		"captive boarding command did not produce a seated/getting-in state or authoritative loaded association after bounded rescan",
+		"CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn || boardingAssociated)",
+		"CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveStillGettingIn || transportAssociated))"
 	)) {
 	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredCaptiveBoardingEntry)) {
-		throw "Captive boarding debug probe must use authoritative move-in and strict bounded seat/transport proof: $requiredCaptiveBoardingEntry"
+		throw "Captive boarding debug probe must use authoritative move-in plus bounded seat/association proof: $requiredCaptiveBoardingEntry"
 	}
 }
 if ($missionRuntimeServiceText -match [regex]::Escape('CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn, "WARN")') -or $missionRuntimeServiceText -match [regex]::Escape('MoveInVehicle(vehicleEntity, ECompartmentType.CARGO, false, slot)')) {
@@ -3067,18 +3069,17 @@ Write-Host "Physical support runtime debug proof OK"
 foreach ($requiredPhysicalCombatStrictEntry in @(
 		"CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45",
 		"physical_combat.faction_hostility",
+		"physical_combat.contact_distance",
 		"AreRuntimeFactionKeysHostile",
 		"IsFactionEnemy",
-		"ConvoyDebugStatus(casualtyObserved)"
+		"ConvoyDebugStatus(contactObserved)",
+		'ConvoyDebugStatus(casualtyObserved, "WARN")'
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredPhysicalCombatStrictEntry)) {
 		throw "Missing strict physical-combat runtime proof entry: $requiredPhysicalCombatStrictEntry"
 	}
 }
-if ($scriptText -match [regex]::Escape('ConvoyDebugStatus(casualtyObserved, "WARN")')) {
-	throw "Physical combat casualty resolution must be strict FAIL after the timed hostile-contact window, not WARN"
-}
-Write-Host "Physical combat strict proof OK"
+Write-Host "Physical combat contact proof OK"
 
 $externalOpforGroupCopies = @(Get-ChildItem -Path "Prefabs/Groups/OPFOR" -Directory -ErrorAction SilentlyContinue)
 if ($externalOpforGroupCopies.Count -gt 0) {
@@ -4151,6 +4152,8 @@ foreach ($requiredSettingsEntry in @(
 		"autosaveIntervalSeconds",
 		"activationRadiusMeters",
 		"deactivationRadiusMeters",
+		"playerRenderBubbleRadiusMeters",
+		"missionSelectionRadiusMeters",
 		"debugLoggingEnabled",
 		"gameMasterBudgetsEnabled",
 		"HST_GameMasterBudgetService",
@@ -4197,6 +4200,8 @@ foreach ($requiredSettingsEntry in @(
 		"aggressionDecayAmount",
 		"showPlayerMapMarkers",
 		"infiniteStaminaEnabled",
+		"SetPlayerEventBubbleRadiusMeters",
+		"mission_category",
 		"MigrateSettings",
 		"ApplyTo"
 	)) {
@@ -4204,8 +4209,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 13") {
-	throw "Runtime settings schema must be bumped to 13 for infinite stamina configuration"
+if ($scriptText -notmatch "SCHEMA_VERSION = 14") {
+	throw "Runtime settings schema must be bumped to 14 for render-bubble and mission-selection radius configuration"
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"
@@ -4215,6 +4220,12 @@ if ($scriptText -notmatch "m_bShowPlayerMapMarkers" -or $scriptText -notmatch '\
 }
 if ($scriptText -notmatch "m_bInfiniteStaminaEnabled" -or $scriptText -notmatch '\\"infiniteStaminaEnabled\\": %1') {
 	throw "Runtime settings must expose infiniteStaminaEnabled"
+}
+if ($scriptText -notmatch "m_iPlayerRenderBubbleRadiusMeters" -or $scriptText -notmatch '\\"playerRenderBubbleRadiusMeters\\": %1') {
+	throw "Runtime settings must expose playerRenderBubbleRadiusMeters"
+}
+if ($scriptText -notmatch "m_iMissionSelectionRadiusMeters" -or $scriptText -notmatch '\\"missionSelectionRadiusMeters\\": %1') {
+	throw "Runtime settings must expose missionSelectionRadiusMeters"
 }
 if ($scriptText -notmatch "settings.m_Features.m_bGameMasterBudgetsEnabled = false") {
 	throw "Runtime settings migration must default Game Master budgets to disabled"

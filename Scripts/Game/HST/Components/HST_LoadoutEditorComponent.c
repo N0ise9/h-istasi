@@ -1213,8 +1213,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 
 		ConsumeNativePauseInputActions();
 		ScheduleEscapePauseMenuDismiss();
-		DebugLog(string.Format("escape close source=%1 mode=%2 category=%3", source, m_sEditorMode, m_sSelectedCategory));
-		CloseEditor(true);
+		DebugLog(string.Format("escape back source=%1 mode=%2 category=%3", source, m_sEditorMode, m_sSelectedCategory));
+		HandleBackAction(true);
 	}
 
 	protected void ScheduleEscapePauseMenuDismiss()

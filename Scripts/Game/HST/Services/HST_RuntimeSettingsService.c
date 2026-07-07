@@ -129,6 +129,8 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "captureCounterattackChancePercent", settings.m_Capture.m_iCounterattackChancePercent);
 			ApplyInt(line, "activationRadiusMeters", settings.m_World.m_iActivationRadiusMeters);
 			ApplyInt(line, "deactivationRadiusMeters", settings.m_World.m_iDeactivationRadiusMeters);
+			ApplyInt(line, "playerRenderBubbleRadiusMeters", settings.m_World.m_iPlayerRenderBubbleRadiusMeters);
+			ApplyInt(line, "missionSelectionRadiusMeters", settings.m_World.m_iMissionSelectionRadiusMeters);
 			ApplyInt(line, "missionDefaultDurationSeconds", settings.m_World.m_iMissionDefaultDurationSeconds);
 			ApplyBool(line, "membershipEnabled", settings.m_Membership.m_bMembershipEnabled);
 			ApplyBool(line, "guestsCanOpenMenu", settings.m_Membership.m_bGuestsCanOpenMenu);
@@ -275,6 +277,13 @@ class HST_RuntimeSettingsService
 		if (settings.m_iSchemaVersion < 13)
 		{
 			settings.m_Features.m_bInfiniteStaminaEnabled = true;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 14)
+		{
+			settings.m_World.m_iPlayerRenderBubbleRadiusMeters = 1800;
+			settings.m_World.m_iMissionSelectionRadiusMeters = 1800;
 			changed = true;
 		}
 
@@ -481,6 +490,8 @@ class HST_RuntimeSettingsService
 		lines.Insert("  \"world\": {");
 		lines.Insert(string.Format("    \"activationRadiusMeters\": %1,", settings.m_World.m_iActivationRadiusMeters));
 		lines.Insert(string.Format("    \"deactivationRadiusMeters\": %1,", settings.m_World.m_iDeactivationRadiusMeters));
+		lines.Insert(string.Format("    \"playerRenderBubbleRadiusMeters\": %1,", settings.m_World.m_iPlayerRenderBubbleRadiusMeters));
+		lines.Insert(string.Format("    \"missionSelectionRadiusMeters\": %1,", settings.m_World.m_iMissionSelectionRadiusMeters));
 		lines.Insert(string.Format("    \"missionDefaultDurationSeconds\": %1", settings.m_World.m_iMissionDefaultDurationSeconds));
 		lines.Insert("  },");
 		lines.Insert("  \"membership\": {");

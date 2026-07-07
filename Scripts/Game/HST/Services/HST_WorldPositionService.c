@@ -24,6 +24,17 @@ class HST_WorldPositionService
 	static const float OPEN_WATER_SAMPLE_RADIUS_LARGE = 55.0;
 	static const float OPEN_WATER_MAX_DELTA_METERS = 0.08;
 	static const float PLAYER_EVENT_BUBBLE_RADIUS_METERS = 1800.0;
+	protected static float s_fPlayerEventBubbleRadiusMeters = PLAYER_EVENT_BUBBLE_RADIUS_METERS;
+
+	static void SetPlayerEventBubbleRadiusMeters(float radiusMeters)
+	{
+		s_fPlayerEventBubbleRadiusMeters = Math.Max(100.0, radiusMeters);
+	}
+
+	static float GetPlayerEventBubbleRadiusMeters()
+	{
+		return s_fPlayerEventBubbleRadiusMeters;
+	}
 
 	static bool TryResolveGroundPosition(vector source, float verticalOffset, out vector resolved, bool rejectWater = false)
 	{
@@ -532,7 +543,7 @@ class HST_WorldPositionService
 
 	static bool IsPositionInsidePlayerEventBubble(vector position)
 	{
-		return IsPositionNearLivingPlayer(position, PLAYER_EVENT_BUBBLE_RADIUS_METERS);
+		return IsPositionNearLivingPlayer(position, s_fPlayerEventBubbleRadiusMeters);
 	}
 
 	static bool IsPositionNearLivingPlayer(vector position, float radiusMeters)

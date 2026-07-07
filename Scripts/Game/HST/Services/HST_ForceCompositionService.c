@@ -562,6 +562,7 @@ class HST_ForceCompositionService
 		plan.m_iWeight = Math.Max(1, weight);
 		plan.m_iManpower = EstimateGroupManpower(prefab);
 		plan.m_iCost = Math.Max(2, plan.m_iManpower * 2);
+		plan.m_iCost += ResolveTierCostBonus(tier, plan.m_iCost);
 		return plan;
 	}
 
@@ -582,7 +583,20 @@ class HST_ForceCompositionService
 			plan.m_iCost += 12;
 		if (plan.m_bHeavyArmor)
 			plan.m_iCost += 24;
+		plan.m_iCost += ResolveTierCostBonus(tier, plan.m_iCost);
 		return plan;
+	}
+
+	protected int ResolveTierCostBonus(string tier, int baseCost)
+	{
+		if (tier == "heavy")
+			return Math.Max(8, baseCost / 2);
+		if (tier == "medium")
+			return Math.Max(4, baseCost / 3);
+		if (tier == "light")
+			return Math.Max(2, baseCost / 4);
+
+		return 0;
 	}
 
 	protected int EstimateGroupManpower(string prefab)

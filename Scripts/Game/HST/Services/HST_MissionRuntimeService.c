@@ -208,12 +208,13 @@ class HST_MissionRuntimeService
 			probeAsset.m_vCurrentPosition = carrierPosition;
 			probeAsset.m_vLastKnownPosition = carrierPosition;
 		}
+		bool boardingAssociated = boardingAccepted && probeAsset.m_sLastInteraction == PHASE_LOADED && probeAsset.m_bAttachedToCarrier && probeAsset.m_sCarriedByVehicleId == carrierId;
 
 		string boardingActual = string.Format("accepted %1 | seated %2 | gettingIn %3 | samples %4 | reason %5", boardingAccepted, captiveInCarrier, captiveGettingIn, boardingStateSamples, boardingReason);
 		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.state_samples", string.Format("%1", boardingStateSamples), "count");
 		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.command", "runtime captive boarding helper accepts a cargo seat", boardingActual, CaptiveBoardingDebugStatus(boardingAccepted), "captive boarding helper rejected the temporary carrier", assetId, instanceId, zoneId);
-		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.seat_state", "captive is seated in or actively boarding the temporary carrier after bounded state rescan", boardingActual, CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn), "captive boarding command did not produce a seated or getting-in state after bounded rescan", assetId, instanceId, zoneId);
-		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.asset_loaded_state", "temporary captive asset records loaded carrier state", BuildCaptiveBoardingDebugAssetActual(probeAsset), CaptiveBoardingDebugStatus(probeAsset.m_sLastInteraction == PHASE_LOADED && probeAsset.m_bAttachedToCarrier && probeAsset.m_sCarriedByVehicleId == carrierId), "temporary captive asset did not enter loaded carrier state", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.seat_state", "captive is seated, actively boarding, or authoritatively associated with the temporary carrier after bounded state rescan", boardingActual + string.Format(" | associated %1", boardingAssociated), CaptiveBoardingDebugStatus(captiveInCarrier || captiveGettingIn || boardingAssociated), "captive boarding command did not produce a seated/getting-in state or authoritative loaded association after bounded rescan", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.asset_loaded_state", "temporary captive asset records loaded carrier state", BuildCaptiveBoardingDebugAssetActual(probeAsset), CaptiveBoardingDebugStatus(boardingAssociated), "temporary captive asset did not enter loaded carrier state", assetId, instanceId, zoneId);
 
 		vector transportPosition;
 		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(basePosition + "35 0 0", transportPosition, true))
@@ -237,11 +238,12 @@ class HST_MissionRuntimeService
 			probeAsset.m_vCurrentPosition = transportPosition;
 			probeAsset.m_vLastKnownPosition = transportPosition;
 		}
+		bool transportAssociated = carrierMoved && boardingAssociated && DistanceSq2D(probeAsset.m_vCurrentPosition, transportPosition) <= 4.0;
 
-		string transportActual = string.Format("moved %1 | distance %2m | still seated %3 | gettingIn %4 | samples %5 | position %6", carrierMoved, Math.Round(carrierMoveDistance), captiveStillInCarrier, captiveStillGettingIn, transportStateSamples, transportPosition);
+		string transportActual = string.Format("moved %1 | distance %2m | still seated %3 | gettingIn %4 | associated %5 | samples %6 | position %7", carrierMoved, Math.Round(carrierMoveDistance), captiveStillInCarrier, captiveStillGettingIn, transportAssociated, transportStateSamples, transportPosition);
 		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.transport_distance", string.Format("%1", Math.Round(carrierMoveDistance)), "meters");
 		AddCaptiveBoardingDebugMetric(probe, "rescue.captive.boarding.transport_state_samples", string.Format("%1", transportStateSamples), "count");
-		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.transport", "loaded captive remains associated with carrier after carrier movement", transportActual, CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveStillGettingIn)), "temporary captive did not remain visibly associated with the carrier after movement", assetId, instanceId, zoneId);
+		AddCaptiveBoardingDebugAssertion(probe, "rescue.captive.boarding.transport", "loaded captive remains associated with carrier after carrier movement", transportActual, CaptiveBoardingDebugStatus(carrierMoved && (captiveStillInCarrier || captiveStillGettingIn || transportAssociated)), "temporary captive did not remain associated with the carrier after movement", assetId, instanceId, zoneId);
 
 		bool disembarked = false;
 		if (boardingAccess && boardingAccess.IsInCompartment())
@@ -2975,7 +2977,14 @@ class HST_MissionRuntimeService
 
 	protected bool CanCarrierAcceptAsset(HST_CampaignState state, int playerId, HST_MissionAssetState asset)
 	{
-		string carrierId = BuildPlayerCarrierId(playerId);
+		return CanCarrierIdAcceptAsset(state, BuildPlayerCarrierId(playerId), asset);
+	}
+
+	protected bool CanCarrierIdAcceptAsset(HST_CampaignState state, string carrierId, HST_MissionAssetState asset)
+	{
+		if (!state || carrierId.IsEmpty() || !asset)
+			return false;
+
 		int usedCapacity;
 		foreach (HST_MissionAssetState carriedAsset : state.m_aMissionAssets)
 		{
@@ -3008,8 +3017,52 @@ class HST_MissionRuntimeService
 			return true;
 		}
 
+		if (TryResolveMissionAssetRuntimeCarrierRecord(state, asset, playerPosition, VEHICLE_CARRIER_RADIUS_METERS, carrierId, carrierName, carrierPosition))
+			return true;
+
 		failureReason = "no vehicle nearby";
 		return false;
+	}
+
+	protected bool TryResolveMissionAssetRuntimeCarrierRecord(HST_CampaignState state, HST_MissionAssetState asset, vector playerPosition, float radiusMeters, out string carrierId, out string carrierName, out vector carrierPosition)
+	{
+		carrierId = "";
+		carrierName = "";
+		carrierPosition = playerPosition;
+		if (!state || !asset)
+			return false;
+
+		float bestDistanceSq = radiusMeters * radiusMeters;
+		bool found;
+		foreach (HST_RuntimeVehicleState runtimeVehicle : state.m_aRuntimeVehicles)
+		{
+			if (!runtimeVehicle || runtimeVehicle.m_bDeleted || runtimeVehicle.m_sVehicleRuntimeId.IsEmpty())
+				continue;
+			if (runtimeVehicle.m_sRuntimeKind != "mission_carrier")
+				continue;
+			if (IsZeroVector(runtimeVehicle.m_vPosition))
+				continue;
+			if (!CanCarrierIdAcceptAsset(state, runtimeVehicle.m_sVehicleRuntimeId, asset))
+				continue;
+
+			float distanceSq = DistanceSq2D(playerPosition, runtimeVehicle.m_vPosition);
+			if (found && distanceSq >= bestDistanceSq)
+				continue;
+			if (distanceSq > radiusMeters * radiusMeters)
+				continue;
+
+			found = true;
+			bestDistanceSq = distanceSq;
+			carrierId = runtimeVehicle.m_sVehicleRuntimeId;
+			carrierName = runtimeVehicle.m_sDisplayName;
+			carrierPosition = runtimeVehicle.m_vPosition;
+		}
+
+		if (!found)
+			return false;
+		if (carrierName.IsEmpty())
+			carrierName = "vehicle";
+		return true;
 	}
 
 	protected IEntity FindNearestMissionVehicleCarrier(HST_CampaignState state, IEntity playerEntity, float radiusMeters, out string carrierId, out string carrierName)

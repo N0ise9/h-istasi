@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r59-result-strong-ref-compile-fix";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r60-category-mission-selection-debug-fixes";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -255,6 +255,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_Settings)
 		{
 			m_Settings.ApplyTo(m_Preset, m_Balance);
+			if (m_Settings.m_World)
+				HST_WorldPositionService.SetPlayerEventBubbleRadiusMeters(m_Settings.m_World.m_iPlayerRenderBubbleRadiusMeters);
 			if (m_Settings.m_Debug)
 				HST_UIDebug.SetRuntimeDebugEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 			if (m_Settings.m_Membership)
@@ -1472,6 +1474,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return RequestCommanderStartZoneMissionReport(playerId, zone.m_sZoneId);
 	}
 
+	string RequestCommanderStartCategoryMissionReport(int playerId, string categoryKey)
+	{
+		if (!Replication.IsServer())
+			return "h-istasi mission | failed: server required";
+		if (!CanPlayerUseCommanderActions(playerId))
+			return "h-istasi mission | failed: commander required";
+
+		HST_MissionCategorySelectionResult selection = SelectCategoryMissionCandidate(playerId, categoryKey);
+		if (!selection || !selection.m_bSuccess)
+		{
+			if (selection && !selection.m_sFailureReason.IsEmpty())
+				return "h-istasi mission | failed: " + selection.m_sFailureReason;
+			return "h-istasi mission | failed: category selection unavailable";
+		}
+
+		bool changed = StartMission(selection.m_sMissionId, selection.m_sZoneId);
+		if (!changed)
+			return string.Format("h-istasi mission | failed: start returned false for %1 at %2 | category %3 | candidates %4", selection.m_sMissionId, selection.m_sZoneLabel, selection.m_sCategoryLabel, selection.m_iCandidateCount);
+
+		return string.Format(
+			"h-istasi mission | started %1 category | %2 at %3 | candidates %4 | radius %5m | distance %6m | active %7",
+			selection.m_sCategoryLabel,
+			selection.m_sMissionName,
+			selection.m_sZoneLabel,
+			selection.m_iCandidateCount,
+			selection.m_iRadiusMeters,
+			selection.m_iDistanceMeters,
+			CountFoundationActiveMissions()
+		);
+	}
+
 	string RequestCommanderProgressMissionReport(int playerId, string instanceId = "")
 	{
 		if (!Replication.IsServer())
@@ -1739,6 +1772,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return StartMission(SelectMissionForZone(zone), zone.m_sZoneId);
+	}
+
+	bool RequestCommanderStartCategoryMission(int playerId, string categoryKey)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseCommanderActions(playerId))
+			return false;
+
+		HST_MissionCategorySelectionResult selection = SelectCategoryMissionCandidate(playerId, categoryKey);
+		if (!selection || !selection.m_bSuccess)
+			return false;
+
+		return StartMission(selection.m_sMissionId, selection.m_sZoneId);
 	}
 
 	bool RequestCommanderProgressMission(int playerId, string instanceId = "")
@@ -5445,6 +5490,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string clearResult = m_Civilians.ClearVehicleHeat(m_State, vehicleRuntimeId, "debug clear vehicle report");
 		string clearReason = m_Civilians.ResolveRuntimeVehicleUndercoverReason(m_State, vehicleRuntimeId);
+		bool clearHeatZero = vehicle.m_iVehicleHeat == 0;
+		bool clearReportedFalse = !vehicle.m_bReported;
+		bool clearCoverOk = clearReason.Contains("OK");
+		string clearActual = string.Format("%1 | %2 | heat %3 | reported %4", clearResult, clearReason, vehicle.m_iVehicleHeat, vehicle.m_bReported);
 
 		HST_PlayerUndercoverState undercover = m_Civilians.EnsurePlayer(m_State, identityId);
 		if (undercover)
@@ -5480,7 +5529,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(heatCase, "vehicle_heat.seed_cover", "tracked civilian runtime vehicle starts eligible for vehicle cover", initialReason, CampaignDebugStatus(initialReason.Contains("OK") && vehicle.m_bCanProvideUndercover), "seeded runtime vehicle was not eligible for civilian vehicle cover", vehicleRuntimeId, "", zoneId);
 		AddCampaignDebugAssertion(heatCase, "vehicle_heat.report_blocks_cover", "reported vehicle heat blocks undercover vehicle cover", BuildCampaignDebugRuntimeVehicleHeatActual(vehicle) + " | reason " + hotReason, CampaignDebugStatus(vehicle.m_bReported && vehicle.m_iVehicleHeat >= 4 && hotReason.Contains("BLOCK reported vehicle")), "reported vehicle did not block undercover cover", vehicleRuntimeId, "", zoneId);
 		AddCampaignDebugAssertion(heatCase, "vehicle_heat.save_roundtrip_hot", "save-data roundtrip preserves reported vehicle heat", BuildCampaignDebugRuntimeVehicleHeatActual(restoredHotVehicle), CampaignDebugStatus(restoredHotVehicle && restoredHotVehicle.m_bReported && restoredHotVehicle.m_iVehicleHeat == reportedHeatBeforeClear && restoredHotVehicle.m_iReportedUntilSecond == reportedUntilBeforeClear), "reported vehicle heat did not survive save-data copy", vehicleRuntimeId, "", zoneId);
-		AddCampaignDebugAssertion(heatCase, "vehicle_heat.clear_restores_cover", "clearing vehicle heat restores civilian vehicle cover eligibility", clearResult + " | " + clearReason, CampaignDebugStatus(vehicle.m_iVehicleHeat == 0 && !vehicle.m_bReported && clearReason.Contains("OK")), "cleared runtime vehicle still blocked undercover cover", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.clear_restores_cover", "clearing vehicle heat restores civilian vehicle cover eligibility", clearActual, CampaignDebugStatus(clearHeatZero && clearReportedFalse && clearCoverOk), "cleared runtime vehicle still blocked undercover cover", vehicleRuntimeId, "", zoneId);
 		AddCampaignDebugAssertion(heatCase, "vehicle_heat.passenger_reports_vehicle", "vehicle exposure marks the vehicle hot and records passenger compromise count", BuildCampaignDebugRuntimeVehicleHeatActual(vehicle) + " | reason " + exposureReason, CampaignDebugStatus(vehicle.m_iPassengerCompromiseCount >= 1 && vehicle.m_bReported && vehicle.m_iVehicleHeat >= 4 && exposureReason.Contains("BLOCK reported vehicle")), "passenger exposure did not report the runtime vehicle", vehicleRuntimeId, "", zoneId);
 		AddCampaignDebugAssertion(heatCase, "vehicle_heat.exposure_compromises_player", "vehicle passenger exposure compromises the player's undercover state", BuildCampaignDebugUndercoverActual(exposedUndercover), CampaignDebugStatus(exposedUndercover && exposedUndercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED && exposedUndercover.m_sLastDetectionSource == "vehicle"), "vehicle exposure did not compromise undercover player state", identityId, "", zoneId);
 		bool exposureRoundTrip = restoredExposureVehicle && restoredExposureVehicle.m_bReported && restoredExposureVehicle.m_iVehicleHeat >= 4 && restoredExposureVehicle.m_iPassengerCompromiseCount >= 1 && restoredExposureUndercover && restoredExposureUndercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED;
@@ -5498,6 +5547,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(heatCase);
 		return heatCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCategorySelectionCase()
+	{
+		HST_CampaignDebugCaseResult selectionCase = CreateCampaignDebugCase("mission_category_selection.contract.runtime", "missions", "category_selection", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_Missions != null;
+		AddCampaignDebugAssertion(selectionCase, "mission_category.prerequisite", "state, preset, and mission service ready", string.Format("state %1 | preset %2 | missions %3", m_State != null, m_Preset != null, m_Missions != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission category selection prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(selectionCase);
+			return selectionCase;
+		}
+
+		HST_MissionCategorySelectionResult selection = SelectCategoryMissionCandidate(m_iCampaignDebugPlayerId, "logistics");
+		HST_MissionDefinition definition;
+		HST_ZoneState zone;
+		if (selection && selection.m_bSuccess)
+		{
+			definition = m_Missions.FindDefinition(selection.m_sMissionId);
+			zone = m_State.FindZone(selection.m_sZoneId);
+		}
+
+		selectionCase.m_aEvidence.Insert(BuildMissionCategorySelectionActual(selection));
+		if (selection)
+		{
+			AddCampaignDebugMetric(selectionCase, "mission_category.candidates", string.Format("%1", selection.m_iCandidateCount), "count");
+			AddCampaignDebugMetric(selectionCase, "mission_category.radius", string.Format("%1", selection.m_iRadiusMeters), "meters");
+			AddCampaignDebugMetric(selectionCase, "mission_category.distance", string.Format("%1", selection.m_iDistanceMeters), "meters");
+		}
+
+		AddCampaignDebugAssertion(selectionCase, "mission_category.selection_success", "category selector resolves a logistics mission candidate without starting it", BuildMissionCategorySelectionActual(selection), CampaignDebugStatus(selection && selection.m_bSuccess), "mission category selection did not return a candidate");
+		AddCampaignDebugAssertion(selectionCase, "mission_category.definition", "selected mission belongs to requested category", BuildCampaignDebugMissionDefinitionActual(definition), CampaignDebugStatus(definition && definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS), "selected mission definition category mismatch");
+		AddCampaignDebugAssertion(selectionCase, "mission_category.target", "selected target zone exists and is not a bookkeeping zone", BuildCampaignDebugMissionCategoryTargetActual(selection, zone), CampaignDebugStatus(zone && zone.m_eType != HST_EZoneType.HST_ZONE_HIDEOUT && zone.m_eType != HST_EZoneType.HST_ZONE_MISSION_SITE), "selected mission category target zone invalid");
+		AddCampaignDebugAssertion(selectionCase, "mission_category.radius", "selected target is inside configured category-selection radius", BuildMissionCategorySelectionActual(selection), CampaignDebugStatus(selection && selection.m_iRadiusMeters > 0 && selection.m_iDistanceMeters <= selection.m_iRadiusMeters), "selected mission category target was outside configured radius");
+
+		FinalizeCampaignDebugCaseFromAssertions(selectionCase);
+		return selectionCase;
+	}
+
+	protected string BuildCampaignDebugMissionCategoryTargetActual(HST_MissionCategorySelectionResult selection, HST_ZoneState zone)
+	{
+		if (!selection)
+			return "missing selection";
+		if (!zone)
+			return "missing zone | " + BuildMissionCategorySelectionActual(selection);
+
+		return string.Format("zone %1 | type %2 | owner %3 | selection %4", zone.m_sZoneId, zone.m_eType, EmptyCampaignDebugField(zone.m_sOwnerFactionKey), BuildMissionCategorySelectionActual(selection));
 	}
 
 	protected string BuildCampaignDebugRuntimeVehicleHeatActual(HST_RuntimeVehicleState vehicle)
@@ -5969,6 +6065,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugGarrisonFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
+		RecordCampaignDebugCase(BuildCampaignDebugMissionCategorySelectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionCompletionRewardCase());
 		RecordCampaignDebugCase(BuildCampaignDebugMissionFailurePenaltyCase());
 		if (m_Civilians)
@@ -19994,6 +20091,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return report;
 	}
 
+	protected bool ResetCampaignDebugEnemySupportLedgerForSeed(string factionKey, string zoneId, string label)
+	{
+		if (!m_bCampaignDebugRunning || !m_State || factionKey.IsEmpty() || zoneId.IsEmpty())
+			return false;
+
+		HST_EnemySupportLedgerState ledger = m_State.FindEnemySupportLedger(factionKey, zoneId);
+		if (!ledger)
+			return false;
+
+		bool changed;
+		if (ledger.m_iCooldownUntilSecond > m_State.m_iElapsedSeconds)
+		{
+			ledger.m_iCooldownUntilSecond = m_State.m_iElapsedSeconds;
+			changed = true;
+		}
+		if (ledger.m_iAttackSpent != 0 || ledger.m_iSupportSpent != 0)
+		{
+			ledger.m_iAttackSpent = 0;
+			ledger.m_iSupportSpent = 0;
+			changed = true;
+		}
+		if (changed)
+			ledger.m_sLastDecisionReason = "debug seed isolation: " + label;
+
+		return changed;
+	}
+
 	string RequestAdminPhase18SeedCounterattack(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
@@ -20007,6 +20131,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 18 smoke | failed: no FIA strategic zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
+		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase18_counterattack");
 		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
 		int orderCountBefore = m_State.m_aEnemyOrders.Count();
 		bool queued = m_EnemyCommander.TryQueueImmediateCounterattack(
@@ -20045,6 +20170,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!targetZone)
 			return "h-istasi phase 18 smoke | failed: no enemy target zone";
 
+		ResetCampaignDebugEnemySupportLedgerForSeed(targetZone.m_sOwnerFactionKey, targetZone.m_sZoneId, "phase18_rebuild");
 		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(
 			m_State,
 			m_Preset,
@@ -20076,6 +20202,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 18 smoke | failed: no town target";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
+		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase18_roadblock");
 		m_EnemyDirector.AddResources(m_State, factionKey, 50, 50);
 
 		HST_CivilianZoneState civilianZone = m_State.FindCivilianZone(targetZone.m_sZoneId);
@@ -20274,6 +20401,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi phase 19 smoke | failed: no target zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
+		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase19_enemy_ground");
 		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
 		if (!pool)
 			return "h-istasi phase 19 smoke | failed: enemy resource pool not ready";
@@ -24370,6 +24498,276 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return 4;
 
 		return 2;
+	}
+
+	protected HST_MissionCategorySelectionResult SelectCategoryMissionCandidate(int playerId, string categoryKey)
+	{
+		HST_MissionCategorySelectionResult result = new HST_MissionCategorySelectionResult();
+		result.m_sCategoryKey = NormalizeMissionCategoryKey(categoryKey);
+		result.m_sCategoryLabel = ResolveMissionCategoryLabelFromKey(result.m_sCategoryKey);
+
+		if (!m_State || !m_Preset || !m_Missions)
+			return FailMissionCategorySelection(result, "mission services not ready");
+
+		HST_EMissionCategory category;
+		if (!ResolveMissionCategoryKey(result.m_sCategoryKey, category))
+			return FailMissionCategorySelection(result, "unknown mission category " + categoryKey);
+
+		result.m_sCategoryLabel = ResolveMissionCategoryLabel(category);
+		result.m_vOrigin = ResolveMissionSelectionOrigin(playerId);
+		result.m_iRadiusMeters = ResolveMissionSelectionRadiusMeters();
+		result.m_iCandidateCount = CountMissionCategoryCandidates(category, result.m_vOrigin, result.m_iRadiusMeters);
+		if (result.m_iCandidateCount <= 0)
+			return FailMissionCategorySelection(result, string.Format("no %1 mission target inside %2m of player/HQ", result.m_sCategoryLabel, result.m_iRadiusMeters));
+
+		int seed = BuildMissionCategorySelectionSeed(playerId, result.m_sCategoryKey, result.m_vOrigin, result.m_iCandidateCount);
+		int selectedIndex = HST_DefaultCatalog.PositiveMod(seed, result.m_iCandidateCount);
+		if (!FillMissionCategorySelectionResult(category, result.m_vOrigin, result.m_iRadiusMeters, selectedIndex, result))
+			return FailMissionCategorySelection(result, "could not resolve selected mission category candidate");
+
+		result.m_bSuccess = true;
+		result.m_sDebugSummary = BuildMissionCategorySelectionActual(result);
+		return result;
+	}
+
+	protected HST_MissionCategorySelectionResult FailMissionCategorySelection(HST_MissionCategorySelectionResult result, string reason)
+	{
+		if (!result)
+			result = new HST_MissionCategorySelectionResult();
+
+		result.m_bSuccess = false;
+		result.m_sFailureReason = reason;
+		result.m_sDebugSummary = BuildMissionCategorySelectionActual(result);
+		return result;
+	}
+
+	protected string NormalizeMissionCategoryKey(string categoryKey)
+	{
+		string key = categoryKey;
+		key.ToLower();
+		key = key.Trim();
+		key.Replace(" ", "_");
+		return key;
+	}
+
+	protected bool ResolveMissionCategoryKey(string categoryKey, out HST_EMissionCategory category)
+	{
+		category = HST_EMissionCategory.HST_MISSION_DYNAMIC;
+		string key = NormalizeMissionCategoryKey(categoryKey);
+		if (key == "assassination" || key == "assassinate" || key == "hvt")
+		{
+			category = HST_EMissionCategory.HST_MISSION_ASSASSINATION;
+			return true;
+		}
+		if (key == "conquest" || key == "capture" || key == "attack")
+		{
+			category = HST_EMissionCategory.HST_MISSION_CONQUEST;
+			return true;
+		}
+		if (key == "convoy" || key == "convoys")
+		{
+			category = HST_EMissionCategory.HST_MISSION_CONVOY;
+			return true;
+		}
+		if (key == "destroy" || key == "sabotage" || key == "demolition")
+		{
+			category = HST_EMissionCategory.HST_MISSION_DESTROY;
+			return true;
+		}
+		if (key == "logistics" || key == "logistic" || key == "supply")
+		{
+			category = HST_EMissionCategory.HST_MISSION_LOGISTICS;
+			return true;
+		}
+		if (key == "rescue" || key == "extract")
+		{
+			category = HST_EMissionCategory.HST_MISSION_RESCUE;
+			return true;
+		}
+		if (key == "dynamic" || key == "opportunity")
+		{
+			category = HST_EMissionCategory.HST_MISSION_DYNAMIC;
+			return true;
+		}
+		if (key == "support" || key == "aid")
+		{
+			category = HST_EMissionCategory.HST_MISSION_SUPPORT;
+			return true;
+		}
+
+		return false;
+	}
+
+	protected string ResolveMissionCategoryLabelFromKey(string categoryKey)
+	{
+		HST_EMissionCategory category;
+		if (ResolveMissionCategoryKey(categoryKey, category))
+			return ResolveMissionCategoryLabel(category);
+
+		if (categoryKey.IsEmpty())
+			return "unknown";
+		return categoryKey;
+	}
+
+	protected string ResolveMissionCategoryLabel(HST_EMissionCategory category)
+	{
+		if (category == HST_EMissionCategory.HST_MISSION_ASSASSINATION)
+			return "Assassination";
+		if (category == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return "Conquest";
+		if (category == HST_EMissionCategory.HST_MISSION_CONVOY)
+			return "Convoy";
+		if (category == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return "Destroy";
+		if (category == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+			return "Logistics";
+		if (category == HST_EMissionCategory.HST_MISSION_RESCUE)
+			return "Rescue";
+		if (category == HST_EMissionCategory.HST_MISSION_DYNAMIC)
+			return "Dynamic";
+		if (category == HST_EMissionCategory.HST_MISSION_SUPPORT)
+			return "Support";
+
+		return "Unknown";
+	}
+
+	protected vector ResolveMissionSelectionOrigin(int playerId)
+	{
+		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+		if (playerEntity)
+			return playerEntity.GetOrigin();
+
+		if (m_State && !IsZeroVector(m_State.m_vHQPosition))
+			return m_State.m_vHQPosition;
+
+		return "0 0 0";
+	}
+
+	protected int ResolveMissionSelectionRadiusMeters()
+	{
+		if (m_Settings && m_Settings.m_World)
+			return Math.Max(100, m_Settings.m_World.m_iMissionSelectionRadiusMeters);
+		if (m_Balance)
+			return Math.Max(100, m_Balance.m_iMissionSelectionRadiusMeters);
+
+		return Math.Round(HST_WorldPositionService.GetPlayerEventBubbleRadiusMeters());
+	}
+
+	protected int CountMissionCategoryCandidates(HST_EMissionCategory category, vector origin, int radiusMeters)
+	{
+		int count;
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		foreach (HST_MissionDefinition definition : definitions)
+		{
+			if (!definition)
+				continue;
+
+			foreach (HST_ZoneState zone : m_State.m_aZones)
+			{
+				int distanceMeters;
+				if (IsMissionCategoryCandidate(definition, zone, category, origin, radiusMeters, distanceMeters))
+					count++;
+			}
+		}
+
+		return count;
+	}
+
+	protected bool FillMissionCategorySelectionResult(HST_EMissionCategory category, vector origin, int radiusMeters, int selectedIndex, HST_MissionCategorySelectionResult result)
+	{
+		int index;
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		foreach (HST_MissionDefinition definition : definitions)
+		{
+			if (!definition)
+				continue;
+
+			foreach (HST_ZoneState zone : m_State.m_aZones)
+			{
+				int distanceMeters;
+				if (!IsMissionCategoryCandidate(definition, zone, category, origin, radiusMeters, distanceMeters))
+					continue;
+
+				if (index != selectedIndex)
+				{
+					index++;
+					continue;
+				}
+
+				result.m_sMissionId = definition.m_sMissionId;
+				result.m_sMissionName = definition.m_sDisplayName;
+				if (result.m_sMissionName.IsEmpty())
+					result.m_sMissionName = definition.m_sMissionId;
+				result.m_sZoneId = zone.m_sZoneId;
+				result.m_sZoneLabel = ResolveZoneLabel(zone);
+				result.m_iDistanceMeters = distanceMeters;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	protected bool IsMissionCategoryCandidate(HST_MissionDefinition definition, HST_ZoneState zone, HST_EMissionCategory category, vector origin, int radiusMeters, out int distanceMeters)
+	{
+		distanceMeters = 0;
+		if (!definition || !zone)
+			return false;
+		if (definition.m_eCategory != category)
+			return false;
+		if (definition.m_sMissionId == "dynamic_defend_petros")
+			return false;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+			return false;
+		if (!m_Missions.CanStart(m_State, m_Preset, definition.m_sMissionId, zone.m_sZoneId))
+			return false;
+
+		vector targetPosition = zone.m_vPosition;
+		if (m_Content)
+		{
+			HST_GeneratedSiteState site = m_Content.FindMissionSiteForZone(m_State, zone.m_sZoneId, definition.m_eCategory, definition.m_sMissionId);
+			if (!site || !site.m_bValid)
+				return false;
+			targetPosition = site.m_vPosition;
+		}
+
+		float distance = Math.Sqrt(DistanceSq2D(origin, targetPosition));
+		distanceMeters = Math.Round(distance);
+		if (radiusMeters > 0 && distanceMeters > radiusMeters)
+			return false;
+
+		return true;
+	}
+
+	protected int BuildMissionCategorySelectionSeed(int playerId, string categoryKey, vector origin, int candidateCount)
+	{
+		int seed = playerId * 53 + categoryKey.Length() * 97 + candidateCount * 31;
+		if (m_State)
+			seed += m_State.m_iCampaignSeed + m_State.m_iElapsedSeconds * 17 + CountFoundationActiveMissions() * 43;
+		seed += Math.Round(origin[0]) * 3 + Math.Round(origin[2]) * 5;
+		if (seed < 0)
+			seed = -seed;
+		return seed;
+	}
+
+	protected string BuildMissionCategorySelectionActual(HST_MissionCategorySelectionResult result)
+	{
+		if (!result)
+			return "missing";
+
+		string actual = string.Format(
+			"success %1 | category %2 | mission %3 | zone %4 | candidates %5 | radius %6m | distance %7m",
+			result.m_bSuccess,
+			EmptyCampaignDebugField(result.m_sCategoryLabel),
+			EmptyCampaignDebugField(result.m_sMissionId),
+			EmptyCampaignDebugField(result.m_sZoneId),
+			result.m_iCandidateCount,
+			result.m_iRadiusMeters,
+			result.m_iDistanceMeters
+		);
+		if (!result.m_sFailureReason.IsEmpty())
+			actual = actual + " | failure " + result.m_sFailureReason;
+		return actual;
 	}
 
 	protected string SelectDefaultMissionForZone(HST_ZoneState zone)

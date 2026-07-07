@@ -1447,7 +1447,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		if (commandId == "move_hq_here" || commandId == "move_hq" || commandId == "rebuild_hq_assets")
 			return true;
-		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "complete_mission")
+		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "mission_category" || commandId == "complete_mission")
 			return true;
 		if (commandId == "mission_asset_deliver" || commandId == "mission_asset_sabotage" || commandId == "mission_vehicle_capture" || commandId == "mission_captive_extract")
 			return true;
@@ -1624,7 +1624,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "This will move the h-istasi HQ. Confirm only if the new location is intentional.";
 		if (commandId == "rebuild_hq_assets")
 			return "This will rebuild HQ assets around the current HQ location.";
-		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "debug_mission" || commandId == "debug_mission_id")
+		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "mission_category" || commandId == "debug_mission" || commandId == "debug_mission_id")
 			return "This will start a mission and update campaign mission state.";
 		if (commandId == "complete_mission")
 			return "This will force-complete the selected mission objective.";

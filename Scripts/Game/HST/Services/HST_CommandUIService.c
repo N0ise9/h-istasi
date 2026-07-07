@@ -200,8 +200,7 @@ class HST_CommandUIService
 		actions.Insert("train_troops_report");
 		actions.Insert("recruit_zone <zone>");
 		actions.Insert("remove_garrison <zone>");
-		actions.Insert("mission_zone <zone>");
-		actions.Insert("mission_random");
+		actions.Insert("mission_category <category>");
 		actions.Insert("progress_mission <id>");
 		actions.Insert("complete_mission <id>");
 		actions.Insert("call_supply");
@@ -285,6 +284,7 @@ class HST_CommandUIService
 		required.Insert("inspect_active_missions");
 		required.Insert("inspect_mission_runtime");
 		required.Insert("inspect_convoy_runtime");
+		required.Insert("mission_category");
 		required.Insert("inspect_balance");
 		required.Insert("inspect_campaign_end");
 		required.Insert("admin_run_campaign_debug");
@@ -352,6 +352,7 @@ class HST_CommandUIService
 		if (commandId == "inspect_active_missions") return true;
 		if (commandId == "inspect_mission_runtime") return true;
 		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "mission_category") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
 		if (commandId == "admin_run_campaign_debug") return true;
@@ -421,6 +422,7 @@ class HST_CommandUIService
 		if (commandId == "inspect_active_missions") return true;
 		if (commandId == "inspect_mission_runtime") return true;
 		if (commandId == "inspect_convoy_runtime") return true;
+		if (commandId == "mission_category") return true;
 		if (commandId == "inspect_balance") return true;
 		if (commandId == "inspect_campaign_end") return true;
 		if (commandId == "admin_run_campaign_debug") return true;
@@ -730,6 +732,8 @@ class HST_CommandUIService
 
 		if (commandId == "mission_random")
 			return coordinator.RequestCommanderStartRandomMissionReport(playerId);
+		if (commandId == "mission_category")
+			return coordinator.RequestCommanderStartCategoryMissionReport(playerId, argument);
 
 		if (commandId == "progress_mission")
 			return coordinator.RequestCommanderProgressMissionReport(playerId, argument);
@@ -1262,6 +1266,8 @@ class HST_CommandUIService
 
 		if (commandId == "mission_random")
 			return coordinator.RequestCommanderStartRandomMission(playerId);
+		if (commandId == "mission_category")
+			return coordinator.RequestCommanderStartCategoryMission(playerId, argument);
 
 		if (commandId == "progress_mission")
 			return coordinator.RequestCommanderProgressMission(playerId, argument);
@@ -2500,11 +2506,14 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_MISSIONS, "Inspect Active Missions", "inspect_active_missions", "", canUseMember, "membership required");
 			AddMenuAction(actions, TAB_MISSIONS, "Convoy Runtime Report", "inspect_convoy_runtime", "", canUseMember, "membership required");
 			AddMissionInspectActions(state, actions, canUseMember, "membership required");
-			AddMenuAction(actions, TAB_MISSIONS, "Start priority mission", "mission_random", "", canUseCommander, "commander required");
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start mission", state, primaryTargetId), "mission_zone", primaryTargetId, canUseCommander && !primaryTargetId.IsEmpty(), MissionStartDisabledReason(state, primaryTargetId, canUseCommander));
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start town mission", state, hostileTownId), "mission_zone", hostileTownId, canUseCommander && !hostileTownId.IsEmpty(), MissionStartDisabledReason(state, hostileTownId, canUseCommander));
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start resource mission", state, resourceTargetId), "mission_zone", resourceTargetId, canUseCommander && !resourceTargetId.IsEmpty(), MissionStartDisabledReason(state, resourceTargetId, canUseCommander));
-			AddMenuAction(actions, TAB_MISSIONS, BuildZoneActionLabel("Start outpost mission", state, outpostTargetId), "mission_zone", outpostTargetId, canUseCommander && !outpostTargetId.IsEmpty(), MissionStartDisabledReason(state, outpostTargetId, canUseCommander));
+			AddMenuAction(actions, TAB_MISSIONS, "Start Assassination mission", "mission_category", "assassination", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Conquest mission", "mission_category", "conquest", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Convoy mission", "mission_category", "convoy", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Destroy mission", "mission_category", "destroy", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Logistics mission", "mission_category", "logistics", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Rescue mission", "mission_category", "rescue", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Dynamic mission", "mission_category", "dynamic", canUseCommander, "commander required");
+			AddMenuAction(actions, TAB_MISSIONS, "Start Support mission", "mission_category", "support", canUseCommander, "commander required");
 			AddMissionNextStepActions(state, actions, playerId, canUseMember, "membership required");
 			return;
 		}

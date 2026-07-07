@@ -62,6 +62,12 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "1600", uiwidget: UIWidgets.EditBox, desc: "Physical deactivation radius in meters.", category: "HST Balance")]
 	int m_iDeactivationRadiusMeters = 1600;
 
+	[Attribute(defvalue: "1800", uiwidget: UIWidgets.EditBox, desc: "Player event/render bubble radius in meters.", category: "HST Balance")]
+	int m_iPlayerRenderBubbleRadiusMeters = 1800;
+
+	[Attribute(defvalue: "1800", uiwidget: UIWidgets.EditBox, desc: "Mission category target-selection radius in meters.", category: "HST Balance")]
+	int m_iMissionSelectionRadiusMeters = 1800;
+
 	[Attribute(defvalue: "18", uiwidget: UIWidgets.EditBox, desc: "Default arsenal unlock threshold.", category: "HST Loot")]
 	int m_iArsenalUnlockThreshold = 18;
 
