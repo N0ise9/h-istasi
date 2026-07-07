@@ -535,6 +535,10 @@ class HST_CampaignSaveData
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sPrefab = source.m_sPrefab;
+		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
+		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
+		target.m_sCompositionTier = source.m_sCompositionTier;
+		target.m_sCompositionSummary = source.m_sCompositionSummary;
 		target.m_sSpawnFallbackMode = source.m_sSpawnFallbackMode;
 		target.m_sSpawnFailureReason = source.m_sSpawnFailureReason;
 		target.m_vPosition = source.m_vPosition;
@@ -545,6 +549,10 @@ class HST_CampaignSaveData
 		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
 		target.m_iInfantryCount = source.m_iInfantryCount;
 		target.m_iVehicleCount = source.m_iVehicleCount;
+		target.m_iCompositionCost = source.m_iCompositionCost;
+		target.m_iCompositionManpower = source.m_iCompositionManpower;
+		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
+		target.m_iCompositionArmedVehicleCount = source.m_iCompositionArmedVehicleCount;
 		target.m_iSpawnedAtSecond = source.m_iSpawnedAtSecond;
 		target.m_iLastSeenAliveCount = source.m_iLastSeenAliveCount;
 		target.m_iSurvivorInfantryCount = source.m_iSurvivorInfantryCount;
@@ -1035,6 +1043,11 @@ class HST_CampaignSaveData
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sCapabilityId = source.m_sCapabilityId;
 		target.m_sAssetProfileId = source.m_sAssetProfileId;
+		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
+		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
+		target.m_sCompositionTier = source.m_sCompositionTier;
+		target.m_sCompositionSummary = source.m_sCompositionSummary;
+		target.m_sCompositionFailureReason = source.m_sCompositionFailureReason;
 		target.m_sStrikeKind = source.m_sStrikeKind;
 		target.m_sStrikeConfigResource = source.m_sStrikeConfigResource;
 		target.m_eType = source.m_eType;
@@ -1050,6 +1063,10 @@ class HST_CampaignSaveData
 		target.m_iAttackCost = source.m_iAttackCost;
 		target.m_iSupportCost = source.m_iSupportCost;
 		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iCompositionCost = source.m_iCompositionCost;
+		target.m_iCompositionManpower = source.m_iCompositionManpower;
+		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
+		target.m_iCompositionArmedVehicleCount = source.m_iCompositionArmedVehicleCount;
 		target.m_iCooldownUntilSecond = source.m_iCooldownUntilSecond;
 		target.m_bHelicopterStyle = source.m_bHelicopterStyle;
 		target.m_bPlayerRequested = source.m_bPlayerRequested;
@@ -1075,6 +1092,11 @@ class HST_CampaignSaveData
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
+		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
+		target.m_sCompositionTier = source.m_sCompositionTier;
+		target.m_sCompositionSummary = source.m_sCompositionSummary;
+		target.m_sCompositionFailureReason = source.m_sCompositionFailureReason;
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
 		target.m_sGroupId = source.m_sGroupId;
 		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
@@ -1088,6 +1110,10 @@ class HST_CampaignSaveData
 		target.m_iResolvedAtSecond = source.m_iResolvedAtSecond;
 		target.m_iAttackCost = source.m_iAttackCost;
 		target.m_iSupportCost = source.m_iSupportCost;
+		target.m_iCompositionCost = source.m_iCompositionCost;
+		target.m_iCompositionManpower = source.m_iCompositionManpower;
+		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
+		target.m_iCompositionArmedVehicleCount = source.m_iCompositionArmedVehicleCount;
 		target.m_bPhysicalized = source.m_bPhysicalized;
 		target.m_bAbstractResolved = source.m_bAbstractResolved;
 		target.m_bOutcomeApplied = source.m_bOutcomeApplied;

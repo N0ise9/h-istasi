@@ -67,6 +67,9 @@ The repository contains a broad-alpha campaign foundation:
 - Enemy commander orders and support requests that can physicalize near players
   or resolve abstractly off-screen while preserving runtime status and outcome
   diagnostics
+- Request-driven force composition for support and debug probes, with
+  serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
+  failure metadata retained on support, enemy-order, and active-group records
 - Civilian town support plus undercover eligibility, request/application,
   detection, police/roadblock scan, compromise, and clear-state enforcement
 - Commander-facing no-admin actions for initial HQ selection, random mission
@@ -170,7 +173,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r44-editable-group-membership`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r45-force-composition-suite`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

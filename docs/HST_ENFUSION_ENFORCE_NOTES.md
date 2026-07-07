@@ -59,6 +59,23 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Force creation should start from a serializable request/result contract.
+  - Tactical systems should ask for a force by intent, faction, war level,
+    budget, manpower bounds, vehicle permissions, and reason, then consume a
+    result containing selected group/vehicle plans, skipped prefab counts,
+    cost, manpower, selected tier, and a compact debug summary.
+  - Keep this contract data-only. Store composition ids, intent, summary,
+    counts, and failure reasons on support/order/active-group records, not
+    `IEntity`, `AIGroup`, vehicle, or waypoint handles.
+  - A runtime debug suite should prove low/high war-level scaling,
+    vehicle-disabled requests, invalid prefab failures, unsupported capability
+    failures, and support/order/active-group serialization before physical
+    spawn behavior is judged.
+  - Current examples: `HST_ForceCompositionService`,
+    `HST_SupportRequestService.ApplyActiveSupport()`,
+    `HST_EnemyCommanderService.SyncPhysicalizedOrder()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugForceCompositionCase()`.
+
 - Treat fallback use as a primary-method failure that must be visible in debug output.
   - A fallback can keep a test moving, but the runtime certification path should still report which primary method failed, why it failed, and which fallback took over.
   - Avoid report wording that makes fallback success look equivalent to primary success. The useful proof is: primary requested, primary observed, fallback not used.

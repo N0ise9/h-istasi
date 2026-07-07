@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `27`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `28`.
 
+- Schema 28 adds durable force-composition metadata to active groups, support
+  requests, and enemy orders. Existing saves load with empty composition
+  summaries and zero composition counts until the next force-planning event.
 - Schema 27 adds a durable display-only player name field so member/commander
   roster UI can show readable player names while backend identity remains the
   authority for permissions and ownership.
@@ -38,6 +41,21 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 28
+
+Force composition metadata.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `28`.
+- `HST_ActiveGroupState`, `HST_SupportRequestState`, and
+  `HST_EnemyOrderState` now persist composition request id, intent, selected
+  tier, summary text, planned cost, planned manpower, planned vehicle count,
+  and planned armed-vehicle count. Support requests and enemy orders also keep
+  a composition failure reason.
+- The persisted fields are diagnostics and replay hints only. Runtime entity,
+  group, vehicle, and waypoint handles remain non-persisted.
+- Existing schema-27 and older saves default these fields to empty strings and
+  zero counts; no backfill is required.
 
 ## Schema 27
 

@@ -107,6 +107,10 @@ class HST_EnemyCommanderService
 				orderDetail.m_iAttackCost,
 				orderDetail.m_iSupportCost
 			);
+			if (!orderDetail.m_sCompositionIntentId.IsEmpty() || orderDetail.m_iCompositionManpower > 0 || orderDetail.m_iCompositionVehicleCount > 0)
+				detail = detail + string.Format(" | composition %1 tier %2 compCost %3 manpower %4 vehicles %5 armed %6", orderDetail.m_sCompositionIntentId, orderDetail.m_sCompositionTier, orderDetail.m_iCompositionCost, orderDetail.m_iCompositionManpower, orderDetail.m_iCompositionVehicleCount, orderDetail.m_iCompositionArmedVehicleCount);
+			if (!orderDetail.m_sCompositionFailureReason.IsEmpty())
+				detail = detail + " | composition failure " + orderDetail.m_sCompositionFailureReason;
 			report = report + detail;
 
 			emitted++;
@@ -424,6 +428,8 @@ class HST_EnemyCommanderService
 		}
 
 		bool changed;
+		changed = SyncOrderCompositionFromSupportRequest(order, request) || changed;
+
 		if (order.m_sGroupId != request.m_sGroupId && !request.m_sGroupId.IsEmpty())
 		{
 			order.m_sGroupId = request.m_sGroupId;
@@ -465,6 +471,61 @@ class HST_EnemyCommanderService
 				order.m_sResolutionKind = "physical_group_terminal";
 				changed = true;
 			}
+		}
+
+		return changed;
+	}
+
+	protected bool SyncOrderCompositionFromSupportRequest(HST_EnemyOrderState order, HST_SupportRequestState request)
+	{
+		if (!order || !request)
+			return false;
+
+		bool changed;
+		if (!request.m_sCompositionRequestId.IsEmpty() && order.m_sCompositionRequestId != request.m_sCompositionRequestId)
+		{
+			order.m_sCompositionRequestId = request.m_sCompositionRequestId;
+			changed = true;
+		}
+		if (!request.m_sCompositionIntentId.IsEmpty() && order.m_sCompositionIntentId != request.m_sCompositionIntentId)
+		{
+			order.m_sCompositionIntentId = request.m_sCompositionIntentId;
+			changed = true;
+		}
+		if (!request.m_sCompositionTier.IsEmpty() && order.m_sCompositionTier != request.m_sCompositionTier)
+		{
+			order.m_sCompositionTier = request.m_sCompositionTier;
+			changed = true;
+		}
+		if (!request.m_sCompositionSummary.IsEmpty() && order.m_sCompositionSummary != request.m_sCompositionSummary)
+		{
+			order.m_sCompositionSummary = request.m_sCompositionSummary;
+			changed = true;
+		}
+		if (!request.m_sCompositionFailureReason.IsEmpty() && order.m_sCompositionFailureReason != request.m_sCompositionFailureReason)
+		{
+			order.m_sCompositionFailureReason = request.m_sCompositionFailureReason;
+			changed = true;
+		}
+		if (order.m_iCompositionCost != request.m_iCompositionCost)
+		{
+			order.m_iCompositionCost = request.m_iCompositionCost;
+			changed = true;
+		}
+		if (order.m_iCompositionManpower != request.m_iCompositionManpower)
+		{
+			order.m_iCompositionManpower = request.m_iCompositionManpower;
+			changed = true;
+		}
+		if (order.m_iCompositionVehicleCount != request.m_iCompositionVehicleCount)
+		{
+			order.m_iCompositionVehicleCount = request.m_iCompositionVehicleCount;
+			changed = true;
+		}
+		if (order.m_iCompositionArmedVehicleCount != request.m_iCompositionArmedVehicleCount)
+		{
+			order.m_iCompositionArmedVehicleCount = request.m_iCompositionArmedVehicleCount;
+			changed = true;
 		}
 
 		return changed;

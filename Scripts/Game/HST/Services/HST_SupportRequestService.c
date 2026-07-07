@@ -44,6 +44,13 @@ class HST_SupportRequestService
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 
 	protected bool m_bMarkerRefreshNeeded;
+	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
+
+	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
+	{
+		if (forceCompositions)
+			m_ForceCompositions = forceCompositions;
+	}
 
 	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
 	{
@@ -194,6 +201,7 @@ class HST_SupportRequestService
 		request.m_sFactionKey = factionKey;
 		request.m_sCapabilityId = CapabilityForSupport(supportType);
 		request.m_sAssetProfileId = AssetProfileForSupport(factionKey, supportType, factionKey == preset.m_sResistanceFactionKey);
+		request.m_sCompositionIntentId = HST_ForceCompositionService.IntentForSupport(supportType, request.m_sAssetProfileId);
 		request.m_sStrikeKind = StrikeKindForSupport(supportType);
 		request.m_sStrikeConfigResource = StrikeConfigForSupport(supportType);
 		request.m_eType = supportType;
@@ -397,6 +405,12 @@ class HST_SupportRequestService
 			if (request.m_bOutcomeApplied)
 				detail = detail + " | outcome applied";
 
+			string compositionDetail = "";
+			if (!request.m_sCompositionIntentId.IsEmpty() || request.m_iCompositionManpower > 0 || request.m_iCompositionVehicleCount > 0)
+				compositionDetail = string.Format(" | composition %1 tier %2 cost %3 manpower %4 vehicles %5 armed %6", request.m_sCompositionIntentId, request.m_sCompositionTier, request.m_iCompositionCost, request.m_iCompositionManpower, request.m_iCompositionVehicleCount, request.m_iCompositionArmedVehicleCount);
+			if (!request.m_sCompositionFailureReason.IsEmpty())
+				compositionDetail = compositionDetail + " | composition failure " + request.m_sCompositionFailureReason;
+
 			string line = string.Format(
 				"\n%1 | %2 | %3 | runtime %4 | target %5 | eta %6 | requested %7 | active %8 | physical %9",
 				request.m_sRequestId,
@@ -410,7 +424,7 @@ class HST_SupportRequestService
 				request.m_iPhysicalizedAtSecond
 			);
 			line = line + string.Format(" | resolved %1 | asset %2 | group %3 | mode %4 | result %5", request.m_iResolvedAtSecond, request.m_sAssetProfileId, request.m_sGroupId, request.m_sPhysicalizationMode, request.m_sResolutionKind);
-			line = line + string.Format(" | abstract %1 | physicalStrike %2%3", request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, detail);
+			line = line + string.Format(" | abstract %1 | physicalStrike %2%3%4", request.m_bAbstractResolved, request.m_bPhysicalStrikeSpawned, compositionDetail, detail);
 			report = report + line;
 		}
 
@@ -484,13 +498,27 @@ class HST_SupportRequestService
 		if (!request.m_sGroupId.IsEmpty())
 			return false;
 
-		string prefab = SelectGroupPrefab(state, request);
-		if (prefab.IsEmpty())
+		if (!m_ForceCompositions)
+			m_ForceCompositions = new HST_ForceCompositionService();
+
+		HST_ForceRequest forceRequest = m_ForceCompositions.BuildSupportForceRequest(state, preset, request);
+		HST_ForceCompositionResult composition = m_ForceCompositions.Compose(state, preset, forceRequest);
+		m_ForceCompositions.ApplyCompositionToSupportRequest(request, composition);
+		HST_GroupSpawnPlan groupPlan;
+		if (composition)
+			groupPlan = composition.GetPrimaryGroup();
+
+		if (!composition || !composition.m_bSuccess || !groupPlan)
 		{
-			request.m_sFailureReason = "no valid support group prefab";
-			request.m_sRuntimeStatus = "physicalize_failed_no_prefab";
+			request.m_sFailureReason = "force composition failed";
+			if (composition && !composition.m_sFailureReason.IsEmpty())
+				request.m_sFailureReason = composition.m_sFailureReason;
+			request.m_sRuntimeStatus = "physicalize_failed_composition";
+			request.m_sPhysicalizationMode = "ground_group_blocked";
 			return false;
 		}
+
+		string prefab = groupPlan.m_sPrefab;
 
 		vector objectivePosition = ResolvePhysicalSupportTargetPosition(state, request);
 		vector targetPosition = objectivePosition;
@@ -521,6 +549,7 @@ class HST_SupportRequestService
 		group.m_sZoneId = request.m_sTargetZoneId;
 		group.m_sFactionKey = request.m_sFactionKey;
 		group.m_sPrefab = prefab;
+		m_ForceCompositions.ApplyCompositionToActiveGroup(group, composition);
 		group.m_sSpawnFallbackMode = "support";
 		if (IsPetrosAttackSupport(request))
 			group.m_sSpawnFallbackMode = "petros_attack_support";
@@ -531,7 +560,7 @@ class HST_SupportRequestService
 		group.m_sRuntimeStatus = "support_arrived";
 		if (!arrivedAtTarget)
 			group.m_sRuntimeStatus = "support_active";
-		group.m_iInfantryCount = 4 + state.m_iWarLevel;
+		group.m_iInfantryCount = Math.Max(1, groupPlan.m_iManpower);
 		group.m_iVehicleCount = 0;
 		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		group.m_iLastSeenAliveCount = 0;

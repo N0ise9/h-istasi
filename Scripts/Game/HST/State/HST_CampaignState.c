@@ -76,6 +76,10 @@ class HST_ActiveGroupState
 	string m_sZoneId;
 	string m_sFactionKey;
 	string m_sPrefab;
+	string m_sCompositionRequestId;
+	string m_sCompositionIntentId;
+	string m_sCompositionTier;
+	string m_sCompositionSummary;
 	string m_sSpawnFallbackMode;
 	string m_sSpawnFailureReason;
 	vector m_vPosition;
@@ -86,6 +90,10 @@ class HST_ActiveGroupState
 	string m_sRuntimeStatus = "queued";
 	int m_iInfantryCount;
 	int m_iVehicleCount;
+	int m_iCompositionCost;
+	int m_iCompositionManpower;
+	int m_iCompositionVehicleCount;
+	int m_iCompositionArmedVehicleCount;
 	int m_iSpawnedAtSecond;
 	int m_iLastSeenAliveCount;
 	int m_iSurvivorInfantryCount;
@@ -508,6 +516,11 @@ class HST_SupportRequestState
 	string m_sFactionKey;
 	string m_sCapabilityId;
 	string m_sAssetProfileId;
+	string m_sCompositionRequestId;
+	string m_sCompositionIntentId;
+	string m_sCompositionTier;
+	string m_sCompositionSummary;
+	string m_sCompositionFailureReason;
 	string m_sStrikeKind;
 	string m_sStrikeConfigResource;
 	HST_ESupportRequestType m_eType;
@@ -526,6 +539,10 @@ class HST_SupportRequestState
 	int m_iAttackCost;
 	int m_iSupportCost;
 	int m_iMoneyCost;
+	int m_iCompositionCost;
+	int m_iCompositionManpower;
+	int m_iCompositionVehicleCount;
+	int m_iCompositionArmedVehicleCount;
 	int m_iCooldownUntilSecond;
 	int m_iActivatedAtSecond;
 	int m_iPhysicalizedAtSecond;
@@ -547,6 +564,11 @@ class HST_EnemyOrderState
 	HST_EEnemyOrderType m_eType;
 	HST_EEnemyOrderStatus m_eStatus;
 	string m_sTargetZoneId;
+	string m_sCompositionRequestId;
+	string m_sCompositionIntentId;
+	string m_sCompositionTier;
+	string m_sCompositionSummary;
+	string m_sCompositionFailureReason;
 	string m_sSupportRequestId;
 	string m_sGroupId;
 	string m_sRuntimeStatus = "queued";
@@ -560,6 +582,10 @@ class HST_EnemyOrderState
 	int m_iResolvedAtSecond;
 	int m_iAttackCost;
 	int m_iSupportCost;
+	int m_iCompositionCost;
+	int m_iCompositionManpower;
+	int m_iCompositionVehicleCount;
+	int m_iCompositionArmedVehicleCount;
 	bool m_bPhysicalized;
 	bool m_bAbstractResolved;
 	bool m_bOutcomeApplied;
@@ -637,7 +663,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 27;
+	static const int SCHEMA_VERSION = 28;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
