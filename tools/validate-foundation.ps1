@@ -1908,6 +1908,7 @@ $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 foreach ($requiredCuratedLocationEntry in @(
 		"ApplyEveronLocationPlanOverrides",
 		"UpsertEveronLocationPlanZone",
+		"GetEveronLocationPlanSpawnProfile",
 		"town_lamentin",
 		"town_morton",
 		"town_saint_philippe",
@@ -1923,6 +1924,21 @@ foreach ($requiredCuratedLocationEntry in @(
 	if ($defaultCatalog -notmatch [regex]::Escape($requiredCuratedLocationEntry) -and $coordinatorMarkerText -notmatch [regex]::Escape($requiredCuratedLocationEntry)) {
 		throw "Curated Everon location taxonomy contract is missing entry: $requiredCuratedLocationEntry"
 	}
+}
+
+$upsertDeclaration = [regex]::Match($defaultCatalog, 'private static void UpsertEveronLocationPlanZone\(([^\r\n]+)\)')
+if (-not $upsertDeclaration.Success) {
+	throw "Curated Everon location taxonomy upsert helper declaration is missing"
+}
+$upsertParameterCount = @($upsertDeclaration.Groups[1].Value.ToCharArray() | Where-Object { $_ -eq ',' }).Count + 1
+if ($upsertParameterCount -gt 16) {
+	throw "Curated Everon location taxonomy upsert helper exceeds Enforce's 16-argument cap: $upsertParameterCount"
+}
+if ($defaultCatalog -match 'UpsertEveronLocationPlanZone\([^\r\n]+, "comp_[^"]+", "spawn_[^"]+"\);') {
+	throw "Curated Everon location taxonomy upsert calls must not pass composition/spawn metadata positionally"
+}
+if ($defaultCatalog -notmatch 'return "spawn_none";') {
+	throw "Curated Everon mission-site taxonomy anchors must preserve no-spawn metadata"
 }
 
 foreach ($requiredSupportMarkerEntry in @(

@@ -86,6 +86,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current example:
     `HST_CampaignCoordinatorComponent.FindCampaignDebugEnemyOrderInState()`.
 
+- Enforce method signatures cap out at 16 arguments.
+  - Large catalog/import helpers should derive secondary metadata internally or
+    take a compact object instead of carrying every field as a positional
+    parameter. Exceeding the cap can also cascade into misleading follow-up
+    parser errors such as duplicate parameter declarations on later methods.
+  - Current example:
+    `HST_DefaultCatalog.UpsertEveronLocationPlanZone()` derives runtime
+    composition/spawn metadata inside the helper, with mission-site taxonomy
+    anchors forced to `spawn_none`.
+
 - Enemy abstract orders should be resolved as named, auditable outcomes.
   - Strategic enemy actions that do not need live AI still need the same
     durable order lifecycle as physical orders: spend resources, store target
