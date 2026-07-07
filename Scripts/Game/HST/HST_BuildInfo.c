@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r40-map-proof-compile-fix";
-	static const string BUILD_UTC = "2026-07-06T22:33:05Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r40-map-proof-compile-fix";
+	static const string BUILD_SHA = "r41-native-population-route-proof";
+	static const string BUILD_UTC = "2026-07-07T01:40:05Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r41-native-population-route-proof";
 
 	static string BuildSummary()
 	{

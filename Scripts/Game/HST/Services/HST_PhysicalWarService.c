@@ -133,6 +133,7 @@ class HST_PhysicalWarService
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP = "group";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY = "group_spawn_retry";
+	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_NATIVE_IMMEDIATE = "group_native_immediate";
 	static const string ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY = "group_slot_primary";
 	static const string ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK = "direct_infantry_fallback";
 	static const string ACTIVE_GROUP_SPAWN_MODE_AIWORLD_BUDGET_DEFERRED = "aiworld_budget_deferred";
@@ -7238,7 +7239,7 @@ class HST_PhysicalWarService
 		activeGroup.m_bSpawnAttempted = true;
 		string requestedStatus = activeGroup.m_sRuntimeStatus;
 		activeGroup.m_sRuntimeStatus = "spawning";
-		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP;
+		activeGroup.m_sSpawnFallbackMode = ResolveActiveGroupPrimarySpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP);
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = 0;
 		PrintActiveGroupSpawnEvidence(state, activeGroup, "request");
@@ -7492,6 +7493,8 @@ class HST_PhysicalWarService
 		}
 
 		bool forceSlotPrimary = attempt >= ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT;
+		if (forceSlotPrimary && TryFlushPendingNativeGroupSpawnImmediately(activeGroup, requestedStatus, state, "retry"))
+			return;
 		if (forceSlotPrimary && TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, requestedStatus, state, "retry"))
 			return;
 
@@ -7557,7 +7560,7 @@ class HST_PhysicalWarService
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
 		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, requestedStatus);
-		if (!IsDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode) && activeGroup.m_sSpawnFallbackMode != ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY)
+		if (!IsDirectInfantryFallbackMode(activeGroup.m_sSpawnFallbackMode) && !IsActiveGroupSpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY) && !ShouldPreserveActiveGroupSemanticSpawnMode(activeGroup.m_sSpawnFallbackMode))
 			activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP;
 		activeGroup.m_sSpawnFailureReason = "";
 		activeGroup.m_iSpawnedAgentCount = agentCount;
@@ -7623,6 +7626,7 @@ class HST_PhysicalWarService
 		bool wasPending = activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
 		bool finalized = false;
 		bool kickedNativeSpawn = false;
+		bool flushedNativeImmediate = false;
 		bool populatedSlotPrimary = false;
 		bool populatedDirectFallback = false;
 		bool nativeDelayedActiveBeforeDirectFallback = false;
@@ -7640,6 +7644,12 @@ class HST_PhysicalWarService
 			if (!finalized && kickedNativeSpawn)
 				finalized = TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, "campaign debug pre-route native retry");
 			if (!finalized)
+			{
+				flushedNativeImmediate = TryFlushPendingNativeGroupSpawnImmediately(activeGroup, requestedStatus, state, "campaign debug pre-route");
+				if (flushedNativeImmediate)
+					finalized = true;
+			}
+			if (!finalized)
 				populatedSlotPrimary = TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, requestedStatus, state, "campaign debug pre-route");
 			if (!finalized && populatedSlotPrimary)
 				finalized = true;
@@ -7653,13 +7663,15 @@ class HST_PhysicalWarService
 
 		int liveAfter = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
 		bool resolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents" && liveAfter > 0;
-		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | slotPrimary %4 | directFallback %5 | nativeDelayedBeforeDirect %6 | status %7 -> %8 | agents %9",
+		evidence = string.Format("pending %1 | finalized %2 | nativeRetry %3 | nativeImmediate %4 | slotPrimary %5 | directFallback %6 | nativeDelayedBeforeDirect %7",
 			wasPending,
 			finalized,
 			kickedNativeSpawn,
+			flushedNativeImmediate,
 			populatedSlotPrimary,
 			populatedDirectFallback,
-			nativeDelayedActiveBeforeDirectFallback,
+			nativeDelayedActiveBeforeDirectFallback);
+		evidence = evidence + string.Format(" | status %1 -> %2 | agents %3",
 			ReportText(beforeStatus),
 			ReportText(activeGroup.m_sRuntimeStatus),
 			beforeAgents);
@@ -7672,7 +7684,7 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
-		if (activeGroup.m_sSpawnFallbackMode == ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY)
+		if (IsActiveGroupSpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY))
 		{
 			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup.SpawnUnits retry already queued via earlier attempt.";
 			DebugLog(string.Format("active group native SpawnUnits retry skipped %1: already queued via %2", activeGroup.m_sGroupId, source));
@@ -7721,10 +7733,60 @@ class HST_PhysicalWarService
 		group.SetMaxUnitsToSpawn(Math.Max(1, activeGroup.m_iInfantryCount));
 		group.SetMemberSpawnDelay(0);
 		group.SpawnUnits();
-		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY;
+		activeGroup.m_sSpawnFallbackMode = ResolveActiveGroupPrimarySpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY);
 		activeGroup.m_sSpawnFailureReason = "Queued native SCR_AIGroup.SpawnUnits retry via " + source;
 		DebugLog(string.Format("active group native SpawnUnits retry queued %1 expected infantry %2 via %3 | %4", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source, BuildNativeGroupPopulationDebug(group)));
 		return true;
+	}
+
+	protected bool TryFlushPendingNativeGroupSpawnImmediately(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
+	{
+		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
+			return false;
+
+		IEntity runtimeGroupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(runtimeGroupEntity);
+		if (!group)
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup immediate flush skipped: runtime entity is not SCR_AIGroup.";
+			DebugLog(string.Format("active group native immediate flush skipped %1: runtime entity is not SCR_AIGroup via %2", activeGroup.m_sGroupId, source));
+			return false;
+		}
+
+		int existingAgents = CountLivingNativeAIGroupAgents(group);
+		if (existingAgents > 0)
+			return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " existing native members");
+
+		int queueBefore = group.GetSpawnQueueSize();
+		if (queueBefore <= 0 && !group.IsInitializing())
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup immediate flush skipped: delayed spawn queue is empty.";
+			DebugLog(string.Format("active group native immediate flush skipped %1: empty queue via %2 | %3", activeGroup.m_sGroupId, source, BuildNativeGroupPopulationDebug(group)));
+			return false;
+		}
+
+		string aiWorldBudgetFailure;
+		if (!EnsureActiveGroupAIWorldBudget(activeGroup, "native immediate queue flush " + source, aiWorldBudgetFailure))
+		{
+			activeGroup.m_sSpawnFailureReason = "Native SCR_AIGroup immediate flush deferred: " + aiWorldBudgetFailure;
+			DebugLog(string.Format("active group native immediate flush deferred %1 via %2 | %3", activeGroup.m_sGroupId, source, aiWorldBudgetFailure));
+			return false;
+		}
+
+		group.SetDeleteWhenEmpty(false);
+		group.SetMaxUnitsToSpawn(Math.Max(1, activeGroup.m_iInfantryCount));
+		group.SetMemberSpawnDelay(0);
+		group.SpawnAllImmediately();
+		activeGroup.m_sSpawnFallbackMode = ResolveActiveGroupPrimarySpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP_NATIVE_IMMEDIATE);
+
+		int queueAfter = group.GetSpawnQueueSize();
+		int liveAfter = CountLivingNativeAIGroupAgents(group);
+		activeGroup.m_sSpawnFailureReason = string.Format("Native SCR_AIGroup delayed queue flushed immediately via %1; queue %2 -> %3 live %4.", source, queueBefore, queueAfter, liveAfter);
+		DebugLog(string.Format("active group native immediate flush %1 expected infantry %2 via %3 | queue %4 -> %5 live %6 | %7", activeGroup.m_sGroupId, activeGroup.m_iInfantryCount, source, queueBefore, queueAfter, liveAfter, BuildNativeGroupPopulationDebug(group)));
+		if (liveAfter <= 0)
+			return false;
+
+		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " native immediate flush");
 	}
 
 	protected bool IsActiveGroupNativeDelayedPopulationActive(HST_ActiveGroupState activeGroup)
@@ -7938,7 +8000,7 @@ class HST_PhysicalWarService
 			return false;
 		}
 
-		activeGroup.m_sSpawnFallbackMode = ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY;
+		activeGroup.m_sSpawnFallbackMode = ResolveActiveGroupPrimarySpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP_SLOT_PRIMARY);
 		activeGroup.m_sSpawnFailureReason = "Native group prefab populated from its stock member slots via " + source + ".";
 		DebugLog(string.Format("active group populated %1 with %2 stock %3 slot members via %4 | %5", activeGroup.m_sGroupId, spawnedCount, activeGroup.m_sFactionKey, source, BuildNativeGroupPopulationDebug(group)));
 		return TryFinalizeSpawnedGroupAgents(activeGroup, requestedStatus, state, source + " stock member slots");
@@ -8099,6 +8161,36 @@ class HST_PhysicalWarService
 	protected bool IsDirectInfantryFallbackMode(string mode)
 	{
 		return mode.Contains(ACTIVE_GROUP_SPAWN_MODE_DIRECT_INFANTRY_FALLBACK);
+	}
+
+	protected bool IsActiveGroupSpawnMode(string mode, string token)
+	{
+		if (mode.IsEmpty() || token.IsEmpty())
+			return false;
+
+		return mode == token || mode.Contains(token);
+	}
+
+	protected bool ShouldPreserveActiveGroupSemanticSpawnMode(string mode)
+	{
+		if (mode.IsEmpty())
+			return false;
+
+		return mode.Contains("support") || mode.Contains("convoy");
+	}
+
+	protected string ResolveActiveGroupPrimarySpawnMode(string previousMode, string primaryMode)
+	{
+		if (primaryMode.IsEmpty())
+			return previousMode;
+		if (previousMode.IsEmpty())
+			return primaryMode;
+		if (IsActiveGroupSpawnMode(previousMode, primaryMode))
+			return previousMode;
+		if (ShouldPreserveActiveGroupSemanticSpawnMode(previousMode))
+			return previousMode + "_" + primaryMode;
+
+		return primaryMode;
 	}
 
 	protected SCR_AIGroup ReplaceEmptyNativeGroupForDirectInfantry(HST_ActiveGroupState activeGroup, SCR_AIGroup nativeGroup, string source)
@@ -9453,7 +9545,7 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 			return;
-		if (IsPetrosAttackSupportGroup(activeGroup))
+		if (IsSupportRequestActiveGroup(activeGroup))
 			return;
 		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active")
 			return;
@@ -9470,7 +9562,15 @@ class HST_PhysicalWarService
 		if (!activeGroup)
 			return false;
 
-		return activeGroup.m_sSpawnFallbackMode == "petros_attack_support";
+		return activeGroup.m_sSpawnFallbackMode.Contains("petros_attack_support");
+	}
+
+	protected bool IsSupportRequestActiveGroup(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		return activeGroup.m_sSpawnFallbackMode.Contains("support");
 	}
 
 	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state)

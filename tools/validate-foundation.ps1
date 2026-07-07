@@ -8133,6 +8133,11 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"BuildActiveGroupRuntimeVisualEvidence",
 		"BuildRuntimeEntityVisualEvidence",
 		"visual %9",
+		"TryFlushPendingNativeGroupSpawnImmediately",
+		"SpawnAllImmediately",
+		"nativeImmediate %4",
+		"ResolveActiveGroupPrimarySpawnMode",
+		"IsSupportRequestActiveGroup",
 		"CountCampaignDebugDirectFallbackActiveGroups",
 		"direct fallback groups %2 | terminal fallback groups %3"
 	)) {
@@ -8149,6 +8154,9 @@ if ($campaignDebugPopulationResolverMatch.Value -match "TryPopulatePendingActive
 }
 if ($campaignDebugPopulationResolverMatch.Value -notmatch [regex]::Escape("direct faction-infantry fallback is not certification proof")) {
 	throw "Campaign-debug pre-route population resolver must explicitly report pending primary population instead of direct fallback certification"
+}
+if ($campaignDebugPopulationResolverMatch.Value -notmatch [regex]::Escape("TryFlushPendingNativeGroupSpawnImmediately")) {
+	throw "Campaign-debug pre-route population resolver must force-drain the native delayed queue before judging route proof"
 }
 $controlledStockGroupSpawnMatch = [regex]::Match($physicalWarServiceText, "protected GenericEntity SpawnControlledNativeActiveGroupPrefab[\s\S]*?protected void StabilizeRuntimeAIGroupRoot")
 if (!$controlledStockGroupSpawnMatch.Success) {
@@ -8573,7 +8581,8 @@ $supportRequestForPetrosTargetText = Get-Content -Raw "Scripts/Game/HST/Services
 foreach ($requiredPetrosTargetPreservationEntry in @(
 		"petros_attack_support",
 		"IsPetrosAttackSupportGroup",
-		"if (IsPetrosAttackSupportGroup(activeGroup))",
+		"IsSupportRequestActiveGroup",
+		"if (IsSupportRequestActiveGroup(activeGroup))",
 		"ResolvePetrosAttackTargetPosition(state)",
 		"phase22.attack.group_target_base_position"
 	)) {
