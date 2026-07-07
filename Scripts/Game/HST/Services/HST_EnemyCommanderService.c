@@ -11,7 +11,7 @@ class HST_EnemyCommanderService
 			return false;
 
 		m_iOrderAccumulatorSeconds += elapsedSeconds;
-		bool changed = TickActiveOrderRuntime(state, preset, support, garrisons);
+		bool changed = TickActiveOrderRuntime(state, preset, support, garrisons, enemyDirector);
 		changed = ResolveOrders(state, preset, garrisons) || changed;
 		if (m_iOrderAccumulatorSeconds < ORDER_TICK_SECONDS)
 			return changed;
@@ -29,6 +29,7 @@ class HST_EnemyCommanderService
 			if (HasActiveOrderForZone(state, pool.m_sFactionKey, targetZone.m_sZoneId))
 				continue;
 
+			RecordTargetPressureSignal(state, preset, enemyDirector, pool.m_sFactionKey, targetZone);
 			HST_EEnemyOrderType orderType = SelectOrderType(state, preset, targetZone, pool);
 			if (QueueOrder(state, preset, enemyDirector, support, pool.m_sFactionKey, targetZone, orderType))
 				changed = true;
@@ -179,9 +180,10 @@ class HST_EnemyCommanderService
 		int attackCost;
 		int supportCost;
 		ResolveOrderCosts(HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, attackCost, supportCost);
-		if (!enemyDirector.CanAfford(state, factionKey, attackCost, supportCost))
+		string spendReason;
+		if (!enemyDirector.CanSpendDefense(state, capturedZone, factionKey, attackCost, supportCost, spendReason))
 		{
-			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | cannot afford attack %3 support %4", factionKey, capturedZone.m_sZoneId, attackCost, supportCost));
+			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | %3", factionKey, capturedZone.m_sZoneId, spendReason));
 			return false;
 		}
 
@@ -275,6 +277,11 @@ class HST_EnemyCommanderService
 		return resolved;
 	}
 
+	bool DebugApplySurvivorRefund(HST_CampaignState state, HST_EnemyDirectorService enemyDirector, HST_EnemyOrderState order, HST_ActiveGroupState group)
+	{
+		return ApplySurvivorRefund(state, enemyDirector, order, group);
+	}
+
 	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
@@ -283,11 +290,12 @@ class HST_EnemyCommanderService
 		int attackCost;
 		int supportCost;
 		ResolveOrderCosts(orderType, attackCost, supportCost);
-		if (!enemyDirector.CanAfford(state, factionKey, attackCost, supportCost))
+		string spendReason;
+		if (!enemyDirector.TrySpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason))
+		{
+			Print(string.Format("h-istasi enemy commander | order skipped for %1 at %2 type %3 | %4", factionKey, targetZone.m_sZoneId, orderType, spendReason));
 			return false;
-
-		if (!enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
-			return false;
+		}
 
 		HST_EnemyOrderState order = new HST_EnemyOrderState();
 		order.m_sOrderId = string.Format("order_%1_%2_%3", factionKey, state.m_iElapsedSeconds, state.m_aEnemyOrders.Count());
@@ -315,7 +323,7 @@ class HST_EnemyCommanderService
 		return true;
 	}
 
-	protected bool TickActiveOrderRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestService support, HST_GarrisonService garrisons)
+	protected bool TickActiveOrderRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestService support, HST_GarrisonService garrisons, HST_EnemyDirectorService enemyDirector)
 	{
 		bool changed;
 		if (!state)
@@ -329,7 +337,7 @@ class HST_EnemyCommanderService
 			if (ShouldPhysicalizeOrder(state, preset, order))
 				changed = TryPhysicalizeOrder(state, preset, support, order) || changed;
 
-			changed = SyncPhysicalizedOrder(state, order) || changed;
+			changed = SyncPhysicalizedOrder(state, order, enemyDirector) || changed;
 		}
 
 		return changed;
@@ -411,7 +419,7 @@ class HST_EnemyCommanderService
 		return true;
 	}
 
-	protected bool SyncPhysicalizedOrder(HST_CampaignState state, HST_EnemyOrderState order)
+	protected bool SyncPhysicalizedOrder(HST_CampaignState state, HST_EnemyOrderState order, HST_EnemyDirectorService enemyDirector)
 	{
 		if (!state || !order || !order.m_bPhysicalized || order.m_sSupportRequestId.IsEmpty())
 			return false;
@@ -465,6 +473,7 @@ class HST_EnemyCommanderService
 			HST_ActiveGroupState group = state.FindActiveGroup(order.m_sGroupId);
 			if (group && (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "folded" || group.m_sRuntimeStatus == "spawn_failed"))
 			{
+				changed = ApplySurvivorRefund(state, enemyDirector, order, group) || changed;
 				order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
 				order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
 				order.m_sRuntimeStatus = "resolved_group_" + group.m_sRuntimeStatus;
@@ -474,6 +483,34 @@ class HST_EnemyCommanderService
 		}
 
 		return changed;
+	}
+
+	protected bool ApplySurvivorRefund(HST_CampaignState state, HST_EnemyDirectorService enemyDirector, HST_EnemyOrderState order, HST_ActiveGroupState group)
+	{
+		if (!state || !enemyDirector || !order || !group || order.m_bResourceRefundApplied)
+			return false;
+
+		int survivorCount = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+		if (group.m_sRuntimeStatus != "folded" && survivorCount <= 0)
+			return false;
+
+		int attackRefund;
+		int supportRefund;
+		if (order.m_iAttackCost > 0)
+			attackRefund = Math.Max(1, Math.Round(order.m_iAttackCost * 0.35));
+		if (order.m_iSupportCost > 0)
+			supportRefund = Math.Max(1, Math.Round(order.m_iSupportCost * 0.35));
+
+		attackRefund = Math.Min(order.m_iAttackCost, attackRefund);
+		supportRefund = Math.Min(order.m_iSupportCost, supportRefund);
+		if (attackRefund <= 0 && supportRefund <= 0)
+			return false;
+
+		enemyDirector.RefundDefenseResources(state, order.m_sFactionKey, order.m_sTargetZoneId, attackRefund, supportRefund, "survivor fold-back");
+		order.m_iRefundedAttackResources = attackRefund;
+		order.m_iRefundedSupportResources = supportRefund;
+		order.m_bResourceRefundApplied = true;
+		return true;
 	}
 
 	protected bool SyncOrderCompositionFromSupportRequest(HST_EnemyOrderState order, HST_SupportRequestState request)
@@ -826,7 +863,14 @@ class HST_EnemyCommanderService
 		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
 
-		if (targetZone.m_iResistanceCaptureProgress > 0)
+		int recentDamageScore;
+		if (state && pool)
+		{
+			HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(pool.m_sFactionKey, targetZone.m_sZoneId);
+			if (ledger)
+				recentDamageScore = ledger.m_iRecentDamageScore;
+		}
+		if (targetZone.m_iResistanceCaptureProgress > 0 || recentDamageScore > 0)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
 
 		HST_GarrisonState garrison = state.FindGarrison(targetZone.m_sZoneId, pool.m_sFactionKey);
@@ -840,6 +884,31 @@ class HST_EnemyCommanderService
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
 
 		return HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL;
+	}
+
+	protected void RecordTargetPressureSignal(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone)
+	{
+		if (!state || !enemyDirector || !targetZone || factionKey.IsEmpty())
+			return;
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
+			return;
+
+		int damageScore = Math.Max(0, targetZone.m_iResistanceCaptureProgress / 5);
+		if (targetZone.m_bActive)
+			damageScore += 2;
+		if (HasActiveMissionNearZone(state, targetZone))
+			damageScore += 3;
+		if (HasActiveObjectiveNearZone(state, targetZone))
+			damageScore += 3;
+
+		if (damageScore <= 0)
+			return;
+
+		enemyDirector.RecordZoneDamageSignal(state, factionKey, targetZone, damageScore, "target pressure signal");
 	}
 
 	protected int ScoreTargetZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone, string factionKey)
@@ -1006,10 +1075,11 @@ class HST_EnemyCommanderService
 
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
 		{
-			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == resistanceFactionKey || targetZone.m_bActive))
+			int roll = ResolveSupportTypeRoll(state, targetZone, orderType);
+			if (state && state.m_iWarLevel >= 6 && targetZone && (targetZone.m_sOwnerFactionKey == resistanceFactionKey || targetZone.m_bActive) && roll < 20)
 				return HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55;
 
-			if (state && state.m_iWarLevel >= 3)
+			if (state && state.m_iWarLevel >= 3 && roll < 70)
 				return HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK;
 
 			return HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
@@ -1019,6 +1089,23 @@ class HST_EnemyCommanderService
 			return HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP;
 
 		return HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP;
+	}
+
+	protected int ResolveSupportTypeRoll(HST_CampaignState state, HST_ZoneState targetZone, HST_EEnemyOrderType orderType)
+	{
+		if (!state)
+			return 0;
+
+		int zoneHash;
+		if (targetZone)
+			zoneHash = targetZone.m_sZoneId.Length() * 31 + targetZone.m_iPriority * 17 + targetZone.m_iResistanceCaptureProgress * 7;
+		int orderTypeScore = 1;
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL)
+			orderTypeScore = 5;
+		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
+			orderTypeScore = 9;
+		int seed = state.m_iCampaignSeed + state.m_iElapsedSeconds * 3 + state.m_aEnemyOrders.Count() * 41 + state.m_iWarLevel * 19 + zoneHash + orderTypeScore * 11;
+		return HST_DefaultCatalog.PositiveMod(seed, 100);
 	}
 
 	protected void ResolveOrderCosts(HST_EEnemyOrderType orderType, out int attackCost, out int supportCost)

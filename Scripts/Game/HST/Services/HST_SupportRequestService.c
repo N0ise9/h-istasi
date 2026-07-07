@@ -134,15 +134,16 @@ class HST_SupportRequestService
 				return result;
 			}
 
-			if (!enemyDirector.CanAfford(state, factionKey, attackCost, supportCost))
+			string spendReason;
+			if (!enemyDirector.CanSpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason))
 			{
-				result.m_sFailureReason = string.Format("enemy cannot afford attack %1 support %2", attackCost, supportCost);
+				result.m_sFailureReason = "enemy support denied: " + spendReason;
 				return result;
 			}
 
-			if (!enemyDirector.TrySpend(state, factionKey, attackCost, supportCost))
+			if (!enemyDirector.TrySpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason))
 			{
-				result.m_sFailureReason = "enemy resource spend failed";
+				result.m_sFailureReason = "enemy support spend failed: " + spendReason;
 				return result;
 			}
 		}

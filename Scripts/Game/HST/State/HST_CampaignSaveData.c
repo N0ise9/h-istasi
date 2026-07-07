@@ -89,6 +89,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_MissionAssetState> m_aMissionAssets = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
+	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
@@ -254,6 +255,10 @@ class HST_CampaignSaveData
 		m_aEnemyOrders.Clear();
 		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
 			m_aEnemyOrders.Insert(CopyEnemyOrder(order));
+
+		m_aEnemySupportLedgers.Clear();
+		foreach (HST_EnemySupportLedgerState ledger : state.m_aEnemySupportLedgers)
+			m_aEnemySupportLedgers.Insert(CopyEnemySupportLedger(ledger));
 
 		m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
@@ -438,6 +443,10 @@ class HST_CampaignSaveData
 		state.m_aEnemyOrders.Clear();
 		foreach (HST_EnemyOrderState order : m_aEnemyOrders)
 			state.m_aEnemyOrders.Insert(CopyEnemyOrder(order));
+
+		state.m_aEnemySupportLedgers.Clear();
+		foreach (HST_EnemySupportLedgerState ledger : m_aEnemySupportLedgers)
+			state.m_aEnemySupportLedgers.Insert(CopyEnemySupportLedger(ledger));
 
 		state.m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
@@ -1110,6 +1119,8 @@ class HST_CampaignSaveData
 		target.m_iResolvedAtSecond = source.m_iResolvedAtSecond;
 		target.m_iAttackCost = source.m_iAttackCost;
 		target.m_iSupportCost = source.m_iSupportCost;
+		target.m_iRefundedAttackResources = source.m_iRefundedAttackResources;
+		target.m_iRefundedSupportResources = source.m_iRefundedSupportResources;
 		target.m_iCompositionCost = source.m_iCompositionCost;
 		target.m_iCompositionManpower = source.m_iCompositionManpower;
 		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
@@ -1117,6 +1128,24 @@ class HST_CampaignSaveData
 		target.m_bPhysicalized = source.m_bPhysicalized;
 		target.m_bAbstractResolved = source.m_bAbstractResolved;
 		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
+		target.m_bResourceRefundApplied = source.m_bResourceRefundApplied;
+		return target;
+	}
+
+	protected HST_EnemySupportLedgerState CopyEnemySupportLedger(HST_EnemySupportLedgerState source)
+	{
+		HST_EnemySupportLedgerState target = new HST_EnemySupportLedgerState();
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sLastDecisionReason = source.m_sLastDecisionReason;
+		target.m_iRecentDamageScore = source.m_iRecentDamageScore;
+		target.m_iLastDamageSecond = source.m_iLastDamageSecond;
+		target.m_iAttackSpent = source.m_iAttackSpent;
+		target.m_iSupportSpent = source.m_iSupportSpent;
+		target.m_iLastSpendSecond = source.m_iLastSpendSecond;
+		target.m_iCooldownUntilSecond = source.m_iCooldownUntilSecond;
+		target.m_iRefundedAttackResources = source.m_iRefundedAttackResources;
+		target.m_iRefundedSupportResources = source.m_iRefundedSupportResources;
 		return target;
 	}
 

@@ -71,6 +71,19 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_SupportRequestService.ApplyActiveSupport()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugSpawnPlacementCase()`.
 
+- Enemy support spending should go through a ledger-backed defense gate.
+  - A plain resource check is not enough for QRF/support pacing because it cannot
+    explain why a zone did or did not receive help, cannot prevent same-zone
+    stacking, and cannot safely refund survivor fold-back.
+  - Keep the ledger data-only: faction, zone, recent damage score, attack/support
+    spent, cooldown, refund totals, and last decision reason. Runtime services
+    should call the gate before spending and let reports read the ledger instead
+    of reconstructing decisions from orders or support requests.
+  - Current examples: `HST_EnemyDirectorService.CanSpendDefense()`,
+    `HST_EnemyCommanderService.QueueOrder()`,
+    `HST_PhysicalWarService.UpdateQRF()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugEnemySupportSpendCase()`.
+
 - Force creation should start from a serializable request/result contract.
   - Tactical systems should ask for a force by intent, faction, war level,
     budget, manpower bounds, vehicle permissions, and reason, then consume a

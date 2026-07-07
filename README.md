@@ -72,6 +72,9 @@ The repository contains a broad-alpha campaign foundation:
   failure metadata retained on support, enemy-order, and active-group records
 - Request-driven spawn placement for physical support and debug probes, with
   road/dry-ground/vehicle-safe validation and visible placement failure reasons
+- Enemy support-spend ledgers for QRF/support damage pressure, same-zone
+  cooldowns, max defense spend caps, survivor refunds, and reportable denial
+  reasons
 - Civilian town support plus undercover eligibility, request/application,
   detection, police/roadblock scan, compromise, and clear-state enforcement
 - Commander-facing no-admin actions for initial HQ selection, random mission

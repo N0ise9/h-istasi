@@ -6410,7 +6410,8 @@ class HST_PhysicalWarService
 			if (state.FindActiveQRF(zone.m_sZoneId, zone.m_sOwnerFactionKey))
 				continue;
 
-			if (!enemyDirector.TrySpend(state, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST))
+			string qrfSpendReason;
+			if (!enemyDirector.TrySpendDefense(state, zone, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST, qrfSpendReason))
 				continue;
 
 			HST_QRFState qrf = new HST_QRFState();

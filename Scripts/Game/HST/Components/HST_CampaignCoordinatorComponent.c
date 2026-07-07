@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r46-spawn-placement-suite";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r47-enemy-support-spend";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -3510,6 +3510,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.force_composition", "force composition service non-null", string.Format("%1", m_ForceCompositions != null), CampaignDebugStatus(m_ForceCompositions != null), "force composition service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.spawn_placement", "spawn placement service non-null", string.Format("%1", m_SpawnPlacements != null), CampaignDebugStatus(m_SpawnPlacements != null), "spawn placement service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.civilians", "civilian service non-null", string.Format("%1", m_Civilians != null), CampaignDebugStatus(m_Civilians != null), "civilian service missing");
+		AddCampaignDebugAssertion(preflightCase, "preflight.service.enemy_director", "enemy director service non-null", string.Format("%1", m_EnemyDirector != null), CampaignDebugStatus(m_EnemyDirector != null), "enemy director service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.enemy_commander", "enemy commander service non-null", string.Format("%1", m_EnemyCommander != null), CampaignDebugStatus(m_EnemyCommander != null), "enemy commander service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.hq", "HQ service non-null", string.Format("%1", m_HQ != null), CampaignDebugStatus(m_HQ != null), "HQ service missing");
 		AddCampaignDebugAssertion(preflightCase, "preflight.service.map_markers", "map marker service non-null", string.Format("%1", m_MapMarkers != null), CampaignDebugStatus(m_MapMarkers != null), "map marker service missing");
@@ -4127,6 +4128,219 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result.m_sDebugSummary;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemySupportSpendCase()
+	{
+		HST_CampaignDebugCaseResult spendCase = CreateCampaignDebugCase("enemy_support_spend.contract.runtime", "enemy_director", "support_spend_contract", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null;
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.prerequisite", "state, preset, enemy director, and enemy commander ready", string.Format("state %1 | preset %2 | director %3 | commander %4", m_State != null, m_Preset != null, m_EnemyDirector != null, m_EnemyCommander != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "enemy support spend prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(spendCase);
+			return spendCase;
+		}
+
+		string debugZoneId = "debug_enemy_support_spend_zone";
+		CleanupCampaignDebugEnemySupportSpendRecords(debugZoneId);
+		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
+		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
+		bool poolReady = pool != null;
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.pool", "enemy faction pool exists for spend proof", EmptyCampaignDebugField(factionKey), CampaignDebugStatus(poolReady, "BLOCKED"), "enemy faction pool missing");
+		if (!poolReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(spendCase);
+			return spendCase;
+		}
+
+		HST_ZoneState targetZone = BuildCampaignDebugEnemySupportSpendZone(debugZoneId, factionKey);
+		int orderCountBefore = m_State.m_aEnemyOrders.Count();
+		int ledgerCountBefore = m_State.m_aEnemySupportLedgers.Count();
+		int supportRequestCountBefore = m_State.m_aSupportRequests.Count();
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+
+		m_EnemyDirector.RecordZoneDamageSignal(m_State, factionKey, targetZone, 12, "campaign debug damage");
+		HST_EnemySupportLedgerState ledger = m_State.FindEnemySupportLedger(factionKey, debugZoneId);
+		int recentDamage = m_EnemyDirector.GetRecentDamageScore(m_State, factionKey, debugZoneId);
+
+		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, targetZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
+		ledger = m_State.FindEnemySupportLedger(factionKey, debugZoneId);
+		int attackAfterSpend = pool.m_iAttackResources;
+		int supportAfterSpend = pool.m_iSupportResources;
+		int expectedAttackAfterSpend = attackBefore + 100;
+		int expectedSupportAfterSpend = supportBefore + 100;
+		if (order)
+		{
+			expectedAttackAfterSpend -= order.m_iAttackCost;
+			expectedSupportAfterSpend -= order.m_iSupportCost;
+		}
+
+		string cooldownReason;
+		bool cooldownDenied;
+		if (order)
+			cooldownDenied = !m_EnemyDirector.CanSpendDefense(m_State, targetZone, factionKey, order.m_iAttackCost, order.m_iSupportCost, cooldownReason);
+
+		string ledgerActualAfterSpend = BuildCampaignDebugEnemySupportLedgerActual(ledger);
+		bool ledgerSpendRecorded = order && ledger && ledger.m_iAttackSpent >= order.m_iAttackCost && ledger.m_iSupportSpent >= order.m_iSupportCost && ledger.m_iCooldownUntilSecond > m_State.m_iElapsedSeconds;
+
+		int attackBeforeRefund = pool.m_iAttackResources;
+		int supportBeforeRefund = pool.m_iSupportResources;
+		HST_ActiveGroupState refundGroup = BuildCampaignDebugEnemySupportRefundGroup(debugZoneId, factionKey);
+		bool refundApplied;
+		if (order)
+			refundApplied = m_EnemyCommander.DebugApplySurvivorRefund(m_State, m_EnemyDirector, order, refundGroup);
+		int attackAfterRefund = pool.m_iAttackResources;
+		int supportAfterRefund = pool.m_iSupportResources;
+
+		string maxReason;
+		bool maxDenied;
+		if (ledger)
+		{
+			ledger.m_iCooldownUntilSecond = m_State.m_iElapsedSeconds;
+			ledger.m_iAttackSpent = 999;
+			ledger.m_iSupportSpent = 999;
+			maxDenied = !m_EnemyDirector.CanSpendDefense(m_State, targetZone, factionKey, 1, 1, maxReason);
+		}
+
+		int orderAttackRefund;
+		int orderSupportRefund;
+		if (order)
+		{
+			orderAttackRefund = order.m_iRefundedAttackResources;
+			orderSupportRefund = order.m_iRefundedSupportResources;
+		}
+
+		spendCase.m_aEvidence.Insert(BuildCampaignDebugEnemySupportSpendActual(factionKey, pool, ledger, order, cooldownReason, maxReason));
+		AddCampaignDebugMetric(spendCase, "enemy_support_spend.orders_before", string.Format("%1", orderCountBefore), "count");
+		AddCampaignDebugMetric(spendCase, "enemy_support_spend.ledgers_before", string.Format("%1", ledgerCountBefore), "count");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.damage_signal", "recent damage signal creates support ledger pressure", string.Format("damage %1 | ledger %2", recentDamage, ledger != null), CampaignDebugStatus(ledger != null && recentDamage > 0), "damage signal did not create a recent support ledger score");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.qrf_queued", "QRF order queues through enemy commander spend path", BuildCampaignDebugEnemyOrderSpendActual(order), CampaignDebugStatus(order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF), "debug QRF order did not queue");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.resources_debited", "attack/support resources decrease by queued QRF cost from debug-funded pool", string.Format("attack %1 expected %2 | support %3 expected %4", attackAfterSpend, expectedAttackAfterSpend, supportAfterSpend, expectedSupportAfterSpend), CampaignDebugStatus(order && attackAfterSpend == expectedAttackAfterSpend && supportAfterSpend == expectedSupportAfterSpend), "enemy support spend did not debit expected resources");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.ledger_spent", "ledger records attack/support spend and stack cooldown", ledgerActualAfterSpend, CampaignDebugStatus(ledgerSpendRecorded), "support ledger did not record spend/cooldown");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.cooldown_denial", "same-zone support spend is denied while cooldown is active", EmptyCampaignDebugField(cooldownReason), CampaignDebugStatus(order && cooldownDenied && cooldownReason.Contains("cooldown")), "same-zone support spend was not blocked by cooldown");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.survivor_refund", "folded survivors refund bounded attack/support resources once", string.Format("applied %1 | pool %2/%3 -> %4/%5 | order refund %6/%7", refundApplied, attackBeforeRefund, supportBeforeRefund, attackAfterRefund, supportAfterRefund, orderAttackRefund, orderSupportRefund), CampaignDebugStatus(order && refundApplied && order.m_bResourceRefundApplied && attackAfterRefund > attackBeforeRefund && supportAfterRefund > supportBeforeRefund), "survivor fold-back did not refund enemy resources");
+		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.cap_denial", "overspent zone support ledger denies additional support by max spend cap", EmptyCampaignDebugField(maxReason), CampaignDebugStatus(ledger && maxDenied && maxReason.Contains("max defense spend")), "max defense spend cap did not deny support");
+
+		pool.m_iAttackResources = attackBefore;
+		pool.m_iSupportResources = supportBefore;
+		CleanupCampaignDebugEnemySupportSpendRecords(debugZoneId);
+		while (m_State.m_aEnemyOrders.Count() > orderCountBefore)
+			m_State.m_aEnemyOrders.Remove(m_State.m_aEnemyOrders.Count() - 1);
+		while (m_State.m_aEnemySupportLedgers.Count() > ledgerCountBefore)
+			m_State.m_aEnemySupportLedgers.Remove(m_State.m_aEnemySupportLedgers.Count() - 1);
+		while (m_State.m_aSupportRequests.Count() > supportRequestCountBefore)
+			m_State.m_aSupportRequests.Remove(m_State.m_aSupportRequests.Count() - 1);
+
+		FinalizeCampaignDebugCaseFromAssertions(spendCase);
+		return spendCase;
+	}
+
+	protected string ResolveCampaignDebugEnemySupportFactionKey()
+	{
+		if (!m_State)
+			return "";
+
+		if (m_Preset && !m_Preset.m_sOccupierFactionKey.IsEmpty() && m_State.FindFactionPool(m_Preset.m_sOccupierFactionKey))
+			return m_Preset.m_sOccupierFactionKey;
+
+		if (m_Preset && !m_Preset.m_sInvaderFactionKey.IsEmpty() && m_State.FindFactionPool(m_Preset.m_sInvaderFactionKey))
+			return m_Preset.m_sInvaderFactionKey;
+
+		string resistanceFactionKey = "FIA";
+		if (m_Preset && !m_Preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+		{
+			if (pool && pool.m_sFactionKey != resistanceFactionKey)
+				return pool.m_sFactionKey;
+		}
+
+		return "";
+	}
+
+	protected HST_ZoneState BuildCampaignDebugEnemySupportSpendZone(string zoneId, string factionKey)
+	{
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = zoneId;
+		zone.m_sDisplayName = "Enemy Support Spend Debug Zone";
+		zone.m_sOwnerFactionKey = factionKey;
+		zone.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
+		zone.m_vPosition = m_State.m_vHQPosition;
+		zone.m_iPriority = 28;
+		zone.m_iResistanceCaptureProgress = 45;
+		zone.m_bActive = true;
+		return zone;
+	}
+
+	protected HST_ActiveGroupState BuildCampaignDebugEnemySupportRefundGroup(string zoneId, string factionKey)
+	{
+		HST_ActiveGroupState group = new HST_ActiveGroupState();
+		group.m_sGroupId = "debug_enemy_support_spend_group";
+		group.m_sZoneId = zoneId;
+		group.m_sFactionKey = factionKey;
+		group.m_sRuntimeStatus = "folded";
+		group.m_iInfantryCount = 6;
+		group.m_iVehicleCount = 1;
+		group.m_iSurvivorInfantryCount = 2;
+		group.m_iSurvivorVehicleCount = 1;
+		return group;
+	}
+
+	protected void CleanupCampaignDebugEnemySupportSpendRecords(string zoneId)
+	{
+		if (!m_State || zoneId.IsEmpty())
+			return;
+
+		for (int orderIndex = m_State.m_aEnemyOrders.Count() - 1; orderIndex >= 0; orderIndex--)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[orderIndex];
+			if (order && order.m_sTargetZoneId == zoneId)
+				m_State.m_aEnemyOrders.Remove(orderIndex);
+		}
+
+		for (int supportIndex = m_State.m_aSupportRequests.Count() - 1; supportIndex >= 0; supportIndex--)
+		{
+			HST_SupportRequestState request = m_State.m_aSupportRequests[supportIndex];
+			if (request && request.m_sTargetZoneId == zoneId)
+				m_State.m_aSupportRequests.Remove(supportIndex);
+		}
+
+		for (int ledgerIndex = m_State.m_aEnemySupportLedgers.Count() - 1; ledgerIndex >= 0; ledgerIndex--)
+		{
+			HST_EnemySupportLedgerState ledger = m_State.m_aEnemySupportLedgers[ledgerIndex];
+			if (ledger && ledger.m_sZoneId == zoneId)
+				m_State.m_aEnemySupportLedgers.Remove(ledgerIndex);
+		}
+	}
+
+	protected string BuildCampaignDebugEnemyOrderSpendActual(HST_EnemyOrderState order)
+	{
+		if (!order)
+			return "missing";
+
+		return string.Format("order %1 | type %2 | cost %3/%4 | target %5 | status %6", EmptyCampaignDebugField(order.m_sOrderId), order.m_eType, order.m_iAttackCost, order.m_iSupportCost, EmptyCampaignDebugField(order.m_sTargetZoneId), order.m_eStatus);
+	}
+
+	protected string BuildCampaignDebugEnemySupportLedgerActual(HST_EnemySupportLedgerState ledger)
+	{
+		if (!ledger)
+			return "missing";
+
+		return string.Format("ledger %1/%2 | damage %3 | spent %4/%5 | cooldown %6 | refunds %7/%8 | reason %9", EmptyCampaignDebugField(ledger.m_sFactionKey), EmptyCampaignDebugField(ledger.m_sZoneId), ledger.m_iRecentDamageScore, ledger.m_iAttackSpent, ledger.m_iSupportSpent, ledger.m_iCooldownUntilSecond, ledger.m_iRefundedAttackResources, ledger.m_iRefundedSupportResources, EmptyCampaignDebugField(ledger.m_sLastDecisionReason));
+	}
+
+	protected string BuildCampaignDebugEnemySupportSpendActual(string factionKey, HST_FactionPoolState pool, HST_EnemySupportLedgerState ledger, HST_EnemyOrderState order, string cooldownReason, string maxReason)
+	{
+		int attackResources;
+		int supportResources;
+		if (pool)
+		{
+			attackResources = pool.m_iAttackResources;
+			supportResources = pool.m_iSupportResources;
+		}
+
+		return string.Format("faction %1 | pool %2/%3 | %4 | %5 | cooldown %6 | max %7", EmptyCampaignDebugField(factionKey), attackResources, supportResources, BuildCampaignDebugEnemySupportLedgerActual(ledger), BuildCampaignDebugEnemyOrderSpendActual(order), EmptyCampaignDebugField(cooldownReason), EmptyCampaignDebugField(maxReason));
+	}
+
 	protected void AddCampaignDebugGameMasterBudgetAssertions(HST_CampaignDebugCaseResult preflightCase)
 	{
 		if (!preflightCase)
@@ -4568,6 +4782,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("force composition", RequestAdminForceCompositionReport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugSpawnPlacementCase());
 		RecordCampaignDebugObservation("spawn placement", RequestAdminSpawnPlacementReport(m_iCampaignDebugPlayerId));
+		RecordCampaignDebugCase(BuildCampaignDebugEnemySupportSpendCase());
+		if (m_EnemyDirector)
+			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
 		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);

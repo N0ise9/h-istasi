@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `28`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `29`.
 
+- Schema 29 adds durable enemy support-spend ledgers and enemy-order refund
+  stamps so QRF/support cooldowns, recent damage pressure, max-spend denials,
+  and survivor fold-back refunds remain inspectable across saves.
 - Schema 28 adds durable force-composition metadata to active groups, support
   requests, and enemy orders. Existing saves load with empty composition
   summaries and zero composition counts until the next force-planning event.
@@ -29,7 +32,7 @@
   vehicle cargo, runtime vehicles, saved loadouts, issued loadout items,
   captured emplacements, ammo points, active missions, generated sites/routes,
   mission objectives/runtime entities/assets, support requests, enemy orders,
-  civilian state, undercover state, and campaign tasks.
+  enemy support ledgers, civilian state, undercover state, and campaign tasks.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
@@ -41,6 +44,20 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 29
+
+Enemy support-spend ledgers and refunds.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `29`.
+- `HST_EnemySupportLedgerState` persists per-faction/per-zone recent damage
+  score, last damage time, attack/support spend, last spend time, same-zone
+  cooldown, refund totals, and the latest decision reason.
+- `HST_EnemyOrderState` now persists attack/support refund amounts and whether
+  the resource refund has already been applied, preventing survivor fold-back
+  refunds from replaying after reload.
+- Existing schema-28 and older saves default ledgers to empty and refund stamps
+  to zero/false; no destructive backfill is required.
 
 ## Schema 28
 

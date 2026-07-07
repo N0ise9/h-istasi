@@ -582,6 +582,8 @@ class HST_EnemyOrderState
 	int m_iResolvedAtSecond;
 	int m_iAttackCost;
 	int m_iSupportCost;
+	int m_iRefundedAttackResources;
+	int m_iRefundedSupportResources;
 	int m_iCompositionCost;
 	int m_iCompositionManpower;
 	int m_iCompositionVehicleCount;
@@ -589,6 +591,23 @@ class HST_EnemyOrderState
 	bool m_bPhysicalized;
 	bool m_bAbstractResolved;
 	bool m_bOutcomeApplied;
+	bool m_bResourceRefundApplied;
+}
+
+[BaseContainerProps()]
+class HST_EnemySupportLedgerState
+{
+	string m_sFactionKey;
+	string m_sZoneId;
+	string m_sLastDecisionReason;
+	int m_iRecentDamageScore;
+	int m_iLastDamageSecond;
+	int m_iAttackSpent;
+	int m_iSupportSpent;
+	int m_iLastSpendSecond;
+	int m_iCooldownUntilSecond;
+	int m_iRefundedAttackResources;
+	int m_iRefundedSupportResources;
 }
 
 [BaseContainerProps()]
@@ -663,7 +682,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 28;
+	static const int SCHEMA_VERSION = 29;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -774,6 +793,7 @@ class HST_CampaignState
 	ref array<ref HST_MissionAssetState> m_aMissionAssets = {};
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
+	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
@@ -1018,6 +1038,17 @@ class HST_CampaignState
 		{
 			if (request.m_sRequestId == requestId)
 				return request;
+		}
+
+		return null;
+	}
+
+	HST_EnemySupportLedgerState FindEnemySupportLedger(string factionKey, string zoneId)
+	{
+		foreach (HST_EnemySupportLedgerState ledger : m_aEnemySupportLedgers)
+		{
+			if (ledger && ledger.m_sFactionKey == factionKey && ledger.m_sZoneId == zoneId)
+				return ledger;
 		}
 
 		return null;
