@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r51-garage-vehicle-heat-handoff";
-	static const string BUILD_UTC = "2026-07-07T15:45:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r51-garage-vehicle-heat-handoff";
+	static const string BUILD_SHA = "r52-garrison-save-roundtrip";
+	static const string BUILD_UTC = "2026-07-07T16:05:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r52-garrison-save-roundtrip";
 
 	static string BuildSummary()
 	{

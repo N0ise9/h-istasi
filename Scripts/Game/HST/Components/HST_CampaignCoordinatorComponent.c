@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r51-garage-vehicle-heat-handoff";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r52-garrison-save-roundtrip";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -12891,6 +12891,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			garrisonContext.m_iInfantryAfterRecruit = garrisonAfterRecruit.m_iInfantryCount;
 			garrisonContext.m_iVehiclesAfterRecruit = garrisonAfterRecruit.m_iVehicleCount;
 		}
+		CaptureCampaignDebugGarrisonRecruitRoundTrip(garrisonContext);
 
 		garrisonContext.m_sRemoveResult = RequestCommanderRemoveGarrisonReport(m_iCampaignDebugPlayerId, garrisonContext.m_sZoneId, 1, 0);
 		garrisonContext.m_iMoneyAfterRemove = m_State.m_iFactionMoney;
@@ -12926,6 +12927,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return garrisonContext;
 	}
 
+	protected void CaptureCampaignDebugGarrisonRecruitRoundTrip(HST_CampaignDebugGarrisonProbeContext garrisonContext)
+	{
+		if (!garrisonContext || !m_State || garrisonContext.m_sZoneId.IsEmpty() || garrisonContext.m_sResistanceFactionKey.IsEmpty())
+			return;
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		saveData.ApplyTo(restoredState);
+		HST_GarrisonState restoredGarrison = restoredState.FindGarrison(garrisonContext.m_sZoneId, garrisonContext.m_sResistanceFactionKey);
+		garrisonContext.m_iRestoredSchemaVersionAfterRecruit = restoredState.m_iSchemaVersion;
+		garrisonContext.m_iRestoredMoneyAfterRecruit = restoredState.m_iFactionMoney;
+		garrisonContext.m_iRestoredHRAfterRecruit = restoredState.m_iHR;
+		if (restoredGarrison)
+		{
+			garrisonContext.m_iRestoredInfantryAfterRecruit = restoredGarrison.m_iInfantryCount;
+			garrisonContext.m_iRestoredVehiclesAfterRecruit = restoredGarrison.m_iVehicleCount;
+		}
+
+		garrisonContext.m_sRecruitRoundTripActual = BuildCampaignDebugGarrisonRecruitRoundTripActual(garrisonContext);
+		garrisonContext.m_bRecruitSaveRoundTrip = restoredGarrison
+			&& restoredState.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION
+			&& restoredState.m_iFactionMoney == garrisonContext.m_iMoneyAfterRecruit
+			&& restoredState.m_iHR == garrisonContext.m_iHRAfterRecruit
+			&& restoredGarrison.m_iInfantryCount == garrisonContext.m_iInfantryAfterRecruit
+			&& restoredGarrison.m_iVehicleCount == garrisonContext.m_iVehiclesAfterRecruit;
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugGarrisonRecruitRemoveCase(HST_CampaignDebugGarrisonProbeContext garrisonContext)
 	{
 		HST_CampaignDebugCaseResult garrisonCase = CreateCampaignDebugCase("early_mechanics.garrison.recruit_remove", "early_mechanics", "garrisons", "early_mechanics");
@@ -12938,6 +12967,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		garrisonCase.m_aEvidence.Insert(garrisonContext.m_sRecruitResult);
 		garrisonCase.m_aEvidence.Insert(garrisonContext.m_sRemoveResult);
+		garrisonCase.m_aEvidence.Insert(garrisonContext.m_sRecruitRoundTripActual);
 		AddCampaignDebugGarrisonProbeMetrics(garrisonCase, garrisonContext);
 
 		bool servicesReady = m_State != null && m_Preset != null && m_Recruitment != null && m_Garrisons != null && m_Economy != null;
@@ -12957,6 +12987,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.vehicle_delta", "infantry-only recruit leaves vehicle count unchanged", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iVehiclesBefore, garrisonContext.m_iVehiclesAfterRecruit, vehicleDelta), CampaignDebugStatus(vehicleDelta == 0), "early garrison infantry recruit changed vehicle count", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.money_cost", "recruit spends exactly 50 money", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iMoneyBefore, garrisonContext.m_iMoneyAfterRecruit, moneyDelta), CampaignDebugStatus(moneyDelta == -50), "early garrison recruit money delta mismatch", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.hr_cost", "recruit spends exactly 1 HR", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iHRBefore, garrisonContext.m_iHRAfterRecruit, hrDelta), CampaignDebugStatus(hrDelta == -1), "early garrison recruit HR delta mismatch", "", "", garrisonContext.m_sZoneId);
+		AddCampaignDebugAssertion(garrisonCase, "garrison.recruit.save_roundtrip", "save-data roundtrip preserves recruited garrison and spent resources", garrisonContext.m_sRecruitRoundTripActual, CampaignDebugStatus(garrisonContext.m_bRecruitSaveRoundTrip), "early garrison recruit state did not survive save-data copy", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.remove.command_result", "remove command accepted", ShortCampaignDebugLine(garrisonContext.m_sRemoveResult, 220), CampaignDebugStatus(IsCampaignDebugResultSuccessful(garrisonContext.m_sRemoveResult)), "early garrison remove command returned failure text", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.remove.infantry_delta", "remove subtracts exactly one abstract infantry", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iInfantryAfterRecruit, garrisonContext.m_iInfantryAfterRemove, removedInfantryDelta), CampaignDebugStatus(removedInfantryDelta == -1), "early garrison remove did not subtract exactly one infantry", "", "", garrisonContext.m_sZoneId);
 		AddCampaignDebugAssertion(garrisonCase, "garrison.remove.vehicle_delta", "infantry-only remove leaves vehicle count unchanged", string.Format("%1 -> %2 (delta %3)", garrisonContext.m_iVehiclesAfterRecruit, garrisonContext.m_iVehiclesAfterRemove, removedVehicleDelta), CampaignDebugStatus(removedVehicleDelta == 0), "early garrison infantry remove changed vehicle count", "", "", garrisonContext.m_sZoneId);
@@ -12981,6 +13012,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(garrisonCase, "garrison.early.money_after_recruit", string.Format("%1", garrisonContext.m_iMoneyAfterRecruit), "money");
 		AddCampaignDebugMetric(garrisonCase, "garrison.early.hr_before", string.Format("%1", garrisonContext.m_iHRBefore), "hr");
 		AddCampaignDebugMetric(garrisonCase, "garrison.early.hr_after_recruit", string.Format("%1", garrisonContext.m_iHRAfterRecruit), "hr");
+		AddCampaignDebugMetric(garrisonCase, "garrison.early.restored_infantry_after_recruit", string.Format("%1", garrisonContext.m_iRestoredInfantryAfterRecruit), "count");
+		AddCampaignDebugMetric(garrisonCase, "garrison.early.restored_schema_after_recruit", string.Format("%1", garrisonContext.m_iRestoredSchemaVersionAfterRecruit), "schema");
 	}
 
 	protected bool RemoveCampaignDebugGarrisonRecord(string zoneId, string factionKey)
@@ -13021,6 +13054,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		cleanupActual = cleanupActual + string.Format(" | vehicles %1 -> %2 -> %3 -> %4", garrisonContext.m_iVehiclesBefore, garrisonContext.m_iVehiclesAfterRecruit, garrisonContext.m_iVehiclesAfterRemove, garrisonContext.m_iVehiclesAfterCleanup);
 		cleanupActual = cleanupActual + string.Format(" | records %1 -> %2 -> %3 -> %4 | empty removed %5", garrisonContext.m_iGarrisonRecordsBefore, garrisonContext.m_iGarrisonRecordsAfterRecruit, garrisonContext.m_iGarrisonRecordsAfterRemove, garrisonContext.m_iGarrisonRecordsAfterCleanup, garrisonContext.m_bRemovedCreatedEmptyGarrison);
 		return cleanupActual;
+	}
+
+	protected string BuildCampaignDebugGarrisonRecruitRoundTripActual(HST_CampaignDebugGarrisonProbeContext garrisonContext)
+	{
+		if (!garrisonContext)
+			return "missing";
+
+		string actual = string.Format("schema %1/%2 | infantry %3/%4 | vehicles %5/%6", garrisonContext.m_iRestoredSchemaVersionAfterRecruit, HST_CampaignState.SCHEMA_VERSION, garrisonContext.m_iRestoredInfantryAfterRecruit, garrisonContext.m_iInfantryAfterRecruit, garrisonContext.m_iRestoredVehiclesAfterRecruit, garrisonContext.m_iVehiclesAfterRecruit);
+		actual = actual + string.Format(" | money %1/%2 | HR %3/%4", garrisonContext.m_iRestoredMoneyAfterRecruit, garrisonContext.m_iMoneyAfterRecruit, garrisonContext.m_iRestoredHRAfterRecruit, garrisonContext.m_iHRAfterRecruit);
+		return actual;
 	}
 
 	protected string RunCampaignDebugCivilianAidTyped()

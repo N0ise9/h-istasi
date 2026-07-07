@@ -354,6 +354,7 @@ class HST_CampaignDebugGarrisonProbeContext
 	string m_sResult;
 	string m_sRecruitResult;
 	string m_sRemoveResult;
+	string m_sRecruitRoundTripActual;
 	string m_sZoneId;
 	string m_sResistanceFactionKey;
 	string m_sOriginalOwnerFactionKey;
@@ -363,6 +364,7 @@ class HST_CampaignDebugGarrisonProbeContext
 	bool m_bHadGarrisonBefore;
 	bool m_bRemovedCreatedEmptyGarrison;
 	bool m_bRestoredZoneState;
+	bool m_bRecruitSaveRoundTrip;
 	int m_iOriginalActiveInfantry;
 	int m_iOriginalActiveVehicles;
 	int m_iGarrisonSlots;
@@ -381,9 +383,14 @@ class HST_CampaignDebugGarrisonProbeContext
 	int m_iMoneyBefore;
 	int m_iMoneyAfterRecruit;
 	int m_iMoneyAfterRemove;
+	int m_iRestoredMoneyAfterRecruit;
 	int m_iHRBefore;
 	int m_iHRAfterRecruit;
 	int m_iHRAfterRemove;
+	int m_iRestoredHRAfterRecruit;
+	int m_iRestoredInfantryAfterRecruit;
+	int m_iRestoredVehiclesAfterRecruit;
+	int m_iRestoredSchemaVersionAfterRecruit;
 }
 
 class HST_CampaignDebugEnemyOrderPhysicalProbeContext
