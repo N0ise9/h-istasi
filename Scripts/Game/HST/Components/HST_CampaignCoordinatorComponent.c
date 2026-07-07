@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r66-response-infantry-waypoints";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r67-response-sweep-waypoints";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4718,9 +4718,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (group)
 		{
 			routeWaypointActual = string.Format("route %1 | assigned waypoints %2 | mode %3 | generated routes before %4 now %5", EmptyCampaignDebugField(group.m_sRouteId), group.m_iAssignedWaypointCount, EmptyCampaignDebugField(group.m_sSpawnFallbackMode), routeCountBefore, m_State.m_aGeneratedRoutes.Count());
-			routeWaypointExpected = !group.m_sRouteId.IsEmpty() && group.m_iAssignedWaypointCount >= 2 && group.m_sSpawnFallbackMode.Contains("infantry_waypoints");
+			routeWaypointExpected = !group.m_sRouteId.IsEmpty() && group.m_iAssignedWaypointCount >= 2 && group.m_sSpawnFallbackMode.Contains("infantry_waypoints") && group.m_sSpawnFallbackMode.Contains("infantry_sweep");
 		}
-		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.route_waypoints", "physical response assigns generated-route AI waypoints to the active infantry group", routeWaypointActual, CampaignDebugStatus(routeWaypointExpected), "physical response did not assign generated route AI waypoints", "", "", targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.route_waypoints", "physical response assigns generated-route move and final sweep AI waypoints to the active infantry group", routeWaypointActual, CampaignDebugStatus(routeWaypointExpected), "physical response did not assign generated route move/sweep AI waypoints", "", "", targetZone.m_sZoneId);
 		string vehicleSafeActual = "missing";
 		bool vehicleSafeExpected = false;
 		if (request)

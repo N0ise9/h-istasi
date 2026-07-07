@@ -94,11 +94,12 @@ treated as future work:
   and linked active-group force counts so one-button debug can prove the
   support request -> active group -> fold-back chain through save/load.
 - Routed support/QRF active groups now resolve generated target-zone route
-  waypoint chains for state-level movement when available and persist the
-  computed waypoint count on the active group.
+  positions for state-level movement when available, and physicalized infantry
+  stores the assigned AI waypoint count on the active group.
 - Once a routed support/QRF infantry group is populated, physical war now
-  assigns real AI route waypoints from the generated route chain and cleans
-  those waypoint entities up with the runtime group.
+  assigns real AI route waypoints from the generated route chain, uses a final
+  search/sweep waypoint at the target, and cleans those waypoint entities up
+  with the runtime group.
 - Enemy support ledgers track recent damage pressure, cooldowns, max defense
   spend, same-zone stacking, and survivor refunds. Proactive background-war and
   HQ-pressure orders spend attack resources only, while QRFs, capture-triggered
@@ -119,8 +120,8 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Extend routed response infantry into richer counterattack/HQ-pressure
-   behavior, specialized waypoint types, and mixed vehicle spawning.
+1. Extend routed response infantry into richer counterattack/HQ-pressure target
+   behavior and mixed vehicle spawning.
 2. Finish live undercover equipment/clothing/off-road/security-scan
    enforcement.
 3. Deepen town influence into the primary political control and mission-output

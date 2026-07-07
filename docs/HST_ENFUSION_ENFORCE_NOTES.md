@@ -214,9 +214,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
     routes, fall back through the target zone's route ids, then use the
     generated `route_<zone>_alpha` convention before falling back to direct
     source-target movement.
-  - Persist the computed waypoint count on `HST_ActiveGroupState` even if the
-    runtime AI group is still pending native population. Move live entities
-    only after the group is spawned.
+  - Keep generated route positions available while the runtime AI group is still
+    pending native population, but persist assigned AI waypoint count only after
+    the group is populated. Move live entities only after the group is spawned.
   - Current example: `HST_PhysicalWarService.UpdateActiveGroupRoutes()`.
 
 - Routed infantry AI waypoints need explicit lifecycle ownership.
@@ -224,6 +224,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
     populated. Use generated-route positions as the waypoint chain, skip the
     group's current/source position, and require at least two assigned waypoint
     entities before marking the active group with `infantry_waypoints`.
+  - Use patrol waypoints for intermediate route legs and a search/sweep waypoint
+    for the final target position; mark the group with `infantry_sweep` only
+    after the final target waypoint is actually assigned.
   - Track waypoint entities by active group id and delete them in the same
     cleanup path as runtime crew entities. Otherwise repeated debug runs or
     fold-back cleanup can leave orphan waypoint entities in the world.

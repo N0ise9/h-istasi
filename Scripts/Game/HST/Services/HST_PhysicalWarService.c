@@ -144,6 +144,7 @@ class HST_PhysicalWarService
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const string ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
+	static const string ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
@@ -151,6 +152,7 @@ class HST_PhysicalWarService
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS = 70.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS = 18.0;
 	static const float ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS = 35.0;
+	static const float ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_RADIUS_METERS = 55.0;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
@@ -6781,12 +6783,15 @@ class HST_PhysicalWarService
 			ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
 			if (activeGroup.m_bSpawnedEntity && activeGroup.m_iInfantryCount > 0 && !IsMissionConvoyGroup(activeGroup) && !IsActiveGroupInfantryWaypointAssigned(activeGroup))
 			{
-				int assignedInfantryWaypoints = AssignActiveGroupInfantryRouteWaypoints(activeGroup, routePositions);
+				bool assignedFinalSweepWaypoint;
+				int assignedInfantryWaypoints = AssignActiveGroupInfantryRouteWaypoints(activeGroup, routePositions, assignedFinalSweepWaypoint);
 				if (assignedInfantryWaypoints > 1)
 				{
 					activeGroup.m_iAssignedWaypointCount = assignedInfantryWaypoints;
 					activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "infantry_waypoints");
-					activeGroup.m_sSpawnFailureReason = string.Format("Assigned infantry route waypoint chain %1.", assignedInfantryWaypoints);
+					if (assignedFinalSweepWaypoint)
+						activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "infantry_sweep");
+					activeGroup.m_sSpawnFailureReason = string.Format("Assigned infantry route waypoint chain %1 | final sweep %2.", assignedInfantryWaypoints, ReportBool(assignedFinalSweepWaypoint));
 					changed = true;
 				}
 			}
@@ -6878,8 +6883,9 @@ class HST_PhysicalWarService
 		return ResolveRoutePolylinePosition(routePositions, progress);
 	}
 
-	protected int AssignActiveGroupInfantryRouteWaypoints(HST_ActiveGroupState activeGroup, array<vector> routePositions)
+	protected int AssignActiveGroupInfantryRouteWaypoints(HST_ActiveGroupState activeGroup, array<vector> routePositions, out bool assignedFinalSweepWaypoint)
 	{
+		assignedFinalSweepWaypoint = false;
 		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || !routePositions || routePositions.Count() < 2)
 			return 0;
 
@@ -6890,6 +6896,10 @@ class HST_PhysicalWarService
 		ResourceName waypointResource = ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB;
 		Resource loaded = Resource.Load(waypointResource);
 		if (!loaded || !loaded.IsValid())
+			return 0;
+		ResourceName sweepWaypointResource = ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_PREFAB;
+		Resource sweepLoaded = Resource.Load(sweepWaypointResource);
+		if (!sweepLoaded || !sweepLoaded.IsValid())
 			return 0;
 
 		DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
@@ -6903,7 +6913,8 @@ class HST_PhysicalWarService
 			if (DistanceSq2D(activeGroup.m_vPosition, waypointPosition) < 16.0)
 				continue;
 
-			IEntity waypointEntity = SpawnActiveGroupRouteWaypoint(activeGroup.m_sGroupId, waypointPosition, assignedCount + 1);
+			bool finalSweepWaypoint = i == routePositions.Count() - 1;
+			IEntity waypointEntity = SpawnActiveGroupRouteWaypoint(activeGroup.m_sGroupId, waypointPosition, assignedCount + 1, finalSweepWaypoint);
 			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 			if (!waypoint)
 				continue;
@@ -6911,6 +6922,8 @@ class HST_PhysicalWarService
 			group.AddWaypoint(waypoint);
 			m_aRuntimeGroupWaypointIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupWaypointEntities.Insert(waypointEntity);
+			if (finalSweepWaypoint)
+				assignedFinalSweepWaypoint = true;
 			assignedCount++;
 		}
 
@@ -6923,10 +6936,20 @@ class HST_PhysicalWarService
 		return assignedCount;
 	}
 
-	protected IEntity SpawnActiveGroupRouteWaypoint(string groupId, vector position, int waypointIndex)
+	protected IEntity SpawnActiveGroupRouteWaypoint(string groupId, vector position, int waypointIndex, bool finalSweepWaypoint = false)
 	{
+		string waypointPrefab = ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB;
+		float waypointRadius = ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS;
+		string waypointName = "active_route_waypoint";
+		if (finalSweepWaypoint)
+		{
+			waypointPrefab = ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_PREFAB;
+			waypointRadius = ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_RADIUS_METERS;
+			waypointName = "active_route_sweep_waypoint";
+		}
+
 		vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
-		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(waypointPrefab, waypointPosition, "0 0 0");
 		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
 		if (!waypoint)
 		{
@@ -6935,8 +6958,8 @@ class HST_PhysicalWarService
 			return null;
 		}
 
-		ApplyCampaignDebugEntityName(waypointEntity, string.Format("active_route_waypoint_%1", waypointIndex), groupId);
-		waypoint.SetCompletionRadius(ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS);
+		ApplyCampaignDebugEntityName(waypointEntity, string.Format("%1_%2", waypointName, waypointIndex), groupId);
+		waypoint.SetCompletionRadius(waypointRadius);
 		return waypointEntity;
 	}
 

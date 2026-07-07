@@ -119,7 +119,7 @@ save container for current campaign fields and nested runtime arrays, including
 campaign metadata, resources, schema-35 campaign-end reason/summary/elapsed
 second/control/war/zone-count fields, outcome-mode, population/support, and
 airfield metadata, support deployment proof, active-group route waypoint counts,
-runtime infantry waypoint assignment state,
+runtime infantry waypoint assignment and final-sweep state,
 HQ/Petros/cache/arsenal/tent/spawn-point fields,
 faction pools, players, zones, garrisons, active groups, QRFs, map markers,
 generated content, objectives, mission runtime, mission assets, support, enemy
