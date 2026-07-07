@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r65-response-route-waypoints";
-	static const string BUILD_UTC = "2026-07-07T21:10:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r65-response-route-waypoints";
+	static const string BUILD_SHA = "r66-response-infantry-waypoints";
+	static const string BUILD_UTC = "2026-07-07T21:35:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r66-response-infantry-waypoints";
 
 	static string BuildSummary()
 	{

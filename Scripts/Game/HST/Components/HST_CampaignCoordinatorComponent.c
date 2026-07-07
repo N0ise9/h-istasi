@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r65-response-route-waypoints";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r66-response-infantry-waypoints";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4646,10 +4646,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			group = m_State.FindActiveGroup(request.m_sGroupId);
 			if (group)
 			{
-				group.m_iSurvivorInfantryCount = Math.Max(1, Math.Min(group.m_iInfantryCount, 2));
-				group.m_iSurvivorVehicleCount = 0;
-				m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
-				group = m_State.FindActiveGroup(request.m_sGroupId);
+				if (group.m_sRuntimeStatus == "spawn_pending_agents")
+				{
+					string pendingPopulationEvidence;
+					m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(group, m_State, "support_active", pendingPopulationEvidence);
+					group = m_State.FindActiveGroup(request.m_sGroupId);
+				}
+				if (group)
+				{
+					group.m_iSurvivorInfantryCount = Math.Max(1, Math.Min(group.m_iInfantryCount, 2));
+					group.m_iSurvivorVehicleCount = 0;
+					m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+					group = m_State.FindActiveGroup(request.m_sGroupId);
+				}
 			}
 		}
 
@@ -4708,10 +4717,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool routeWaypointExpected = false;
 		if (group)
 		{
-			routeWaypointActual = string.Format("route %1 | assigned waypoints %2 | generated routes before %3 now %4", EmptyCampaignDebugField(group.m_sRouteId), group.m_iAssignedWaypointCount, routeCountBefore, m_State.m_aGeneratedRoutes.Count());
-			routeWaypointExpected = !group.m_sRouteId.IsEmpty() && group.m_iAssignedWaypointCount >= 3;
+			routeWaypointActual = string.Format("route %1 | assigned waypoints %2 | mode %3 | generated routes before %4 now %5", EmptyCampaignDebugField(group.m_sRouteId), group.m_iAssignedWaypointCount, EmptyCampaignDebugField(group.m_sSpawnFallbackMode), routeCountBefore, m_State.m_aGeneratedRoutes.Count());
+			routeWaypointExpected = !group.m_sRouteId.IsEmpty() && group.m_iAssignedWaypointCount >= 2 && group.m_sSpawnFallbackMode.Contains("infantry_waypoints");
 		}
-		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.route_waypoints", "physical response resolves a generated route waypoint chain for movement proof", routeWaypointActual, CampaignDebugStatus(routeWaypointExpected), "physical response did not resolve generated route waypoints", "", "", targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.route_waypoints", "physical response assigns generated-route AI waypoints to the active infantry group", routeWaypointActual, CampaignDebugStatus(routeWaypointExpected), "physical response did not assign generated route AI waypoints", "", "", targetZone.m_sZoneId);
 		string vehicleSafeActual = "missing";
 		bool vehicleSafeExpected = false;
 		if (request)

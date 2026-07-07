@@ -30,8 +30,8 @@ The repository contains a broad-alpha campaign foundation:
   capture, garrisons, recruitment/training, and mission rewards/penalties
 - Native respawn-request bootstrap with pending spawn tracking to avoid
   Workbench duplicate-spawn loops
-- Everon alpha anchors, generated-route response movement, and route-aware zone
-  activation scaffolding for the physical AI war
+- Everon alpha anchors, generated-route response movement, routed infantry AI
+  waypoints, and route-aware zone activation scaffolding for the physical AI war
 - Dedicated Petros character prefab at
   `Prefabs/Characters/HST/Character_HST_Petros.et` for HQ contextual actions,
   with GUID metadata and a base-FIA spawn fallback only if the custom resource
@@ -186,7 +186,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r65-response-route-waypoints`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r66-response-infantry-waypoints`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

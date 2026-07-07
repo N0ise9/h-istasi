@@ -143,15 +143,19 @@ class HST_PhysicalWarService
 	static const string DIRECT_INFANTRY_GROUP_PREFAB_USSR = "{94AA122B0CFB7E40}Prefabs/Groups/HST/HST_RuntimeEmptyGroup_USSR.et";
 	static const string CAMPAIGN_DEBUG_TEMP_ENTITY_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CAMPAIGN_DEBUG_COMBAT_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
+	static const string ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 36.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS = 70.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_WAYPOINT_RADIUS_METERS = 18.0;
+	static const float ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS = 35.0;
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
+	protected ref array<string> m_aRuntimeGroupWaypointIds = {};
+	protected ref array<IEntity> m_aRuntimeGroupWaypointEntities = {};
 	protected ref array<string> m_aPendingPopulationGroupIds = {};
 	protected ref array<string> m_aPendingPopulationRequestedStatuses = {};
 	protected ref array<ref HST_ActiveGroupState> m_aPendingPopulationActiveGroups = {};
@@ -6774,11 +6778,17 @@ class HST_PhysicalWarService
 			if (!activeGroup || (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active"))
 				continue;
 
-			int routeWaypointCount = ResolveActiveGroupRouteWaypointCount(state, activeGroup);
-			if (activeGroup.m_iAssignedWaypointCount != routeWaypointCount)
+			ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
+			if (activeGroup.m_bSpawnedEntity && activeGroup.m_iInfantryCount > 0 && !IsMissionConvoyGroup(activeGroup) && !IsActiveGroupInfantryWaypointAssigned(activeGroup))
 			{
-				activeGroup.m_iAssignedWaypointCount = routeWaypointCount;
-				changed = true;
+				int assignedInfantryWaypoints = AssignActiveGroupInfantryRouteWaypoints(activeGroup, routePositions);
+				if (assignedInfantryWaypoints > 1)
+				{
+					activeGroup.m_iAssignedWaypointCount = assignedInfantryWaypoints;
+					activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "infantry_waypoints");
+					activeGroup.m_sSpawnFailureReason = string.Format("Assigned infantry route waypoint chain %1.", assignedInfantryWaypoints);
+					changed = true;
+				}
 			}
 
 			if (!activeGroup.m_bSpawnedEntity)
@@ -6791,10 +6801,10 @@ class HST_PhysicalWarService
 
 			float progress = Math.Min(1.0, elapsed * 1.0 / duration);
 			int assignedWaypointCount;
-			vector position = ResolveActiveGroupRoutePosition(state, activeGroup, progress, assignedWaypointCount);
+			vector position = ResolveActiveGroupRoutePosition(routePositions, activeGroup, progress, assignedWaypointCount);
 			position = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 			string arrivedStatus = ResolveArrivedRouteStatus(activeGroup);
-			if (activeGroup.m_iAssignedWaypointCount != assignedWaypointCount)
+			if (!IsActiveGroupInfantryWaypointAssigned(activeGroup) && activeGroup.m_iAssignedWaypointCount != assignedWaypointCount)
 			{
 				activeGroup.m_iAssignedWaypointCount = assignedWaypointCount;
 				changed = true;
@@ -6810,7 +6820,8 @@ class HST_PhysicalWarService
 			}
 
 			activeGroup.m_vPosition = position;
-			SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, position);
+			if (!IsActiveGroupInfantryWaypointAssigned(activeGroup))
+				SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, position);
 
 			if (progress >= 1.0)
 				activeGroup.m_sRuntimeStatus = arrivedStatus;
@@ -6854,17 +6865,12 @@ class HST_PhysicalWarService
 		return "arrived";
 	}
 
-	protected vector ResolveActiveGroupRoutePosition(HST_CampaignState state, HST_ActiveGroupState activeGroup, float progress, out int assignedWaypointCount)
+	protected vector ResolveActiveGroupRoutePosition(array<vector> routePositions, HST_ActiveGroupState activeGroup, float progress, out int assignedWaypointCount)
 	{
 		assignedWaypointCount = 0;
 		if (!activeGroup)
 			return "0 0 0";
 
-		HST_GeneratedRouteState route = ResolveActiveGroupGeneratedRoute(state, activeGroup);
-		if (!route)
-			return LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
-
-		ref array<vector> routePositions = BuildActiveGroupRoutePositions(route, activeGroup);
 		if (!routePositions || routePositions.Count() < 2)
 			return LerpPosition(activeGroup.m_vSourcePosition, activeGroup.m_vTargetPosition, progress);
 
@@ -6872,20 +6878,83 @@ class HST_PhysicalWarService
 		return ResolveRoutePolylinePosition(routePositions, progress);
 	}
 
-	protected int ResolveActiveGroupRouteWaypointCount(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	protected int AssignActiveGroupInfantryRouteWaypoints(HST_ActiveGroupState activeGroup, array<vector> routePositions)
 	{
-		if (!activeGroup)
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || !routePositions || routePositions.Count() < 2)
 			return 0;
 
-		HST_GeneratedRouteState route = ResolveActiveGroupGeneratedRoute(state, activeGroup);
-		if (!route)
+		AIGroup group = AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
+		if (!group)
 			return 0;
 
-		ref array<vector> routePositions = BuildActiveGroupRoutePositions(route, activeGroup);
-		if (!routePositions || routePositions.Count() < 2)
+		ResourceName waypointResource = ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB;
+		Resource loaded = Resource.Load(waypointResource);
+		if (!loaded || !loaded.IsValid())
 			return 0;
 
-		return routePositions.Count();
+		DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
+
+		int assignedCount;
+		for (int i = 1; i < routePositions.Count(); i++)
+		{
+			vector waypointPosition = routePositions[i];
+			if (IsZeroVector(waypointPosition))
+				continue;
+			if (DistanceSq2D(activeGroup.m_vPosition, waypointPosition) < 16.0)
+				continue;
+
+			IEntity waypointEntity = SpawnActiveGroupRouteWaypoint(activeGroup.m_sGroupId, waypointPosition, assignedCount + 1);
+			AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+			if (!waypoint)
+				continue;
+
+			group.AddWaypoint(waypoint);
+			m_aRuntimeGroupWaypointIds.Insert(activeGroup.m_sGroupId);
+			m_aRuntimeGroupWaypointEntities.Insert(waypointEntity);
+			assignedCount++;
+		}
+
+		if (assignedCount <= 1)
+		{
+			DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
+			return 0;
+		}
+
+		return assignedCount;
+	}
+
+	protected IEntity SpawnActiveGroupRouteWaypoint(string groupId, vector position, int waypointIndex)
+	{
+		vector waypointPosition = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
+		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB, waypointPosition, "0 0 0");
+		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+		if (!waypoint)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return null;
+		}
+
+		ApplyCampaignDebugEntityName(waypointEntity, string.Format("active_route_waypoint_%1", waypointIndex), groupId);
+		waypoint.SetCompletionRadius(ACTIVE_GROUP_ROUTE_WAYPOINT_RADIUS_METERS);
+		return waypointEntity;
+	}
+
+	protected bool IsActiveGroupInfantryWaypointAssigned(HST_ActiveGroupState activeGroup)
+	{
+		return activeGroup && activeGroup.m_iAssignedWaypointCount > 1 && activeGroup.m_sSpawnFallbackMode.Contains("infantry_waypoints");
+	}
+
+	protected string AppendActiveGroupSpawnModeToken(string mode, string token)
+	{
+		if (token.IsEmpty())
+			return mode;
+		if (mode.IsEmpty())
+			return token;
+		if (mode.Contains(token))
+			return mode;
+
+		return mode + "_" + token;
 	}
 
 	protected HST_GeneratedRouteState ResolveActiveGroupGeneratedRoute(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -10536,6 +10605,8 @@ class HST_PhysicalWarService
 
 	protected void DeleteRuntimeCrewEntities(string groupId)
 	{
+		DeleteRuntimeGroupWaypoints(groupId);
+
 		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
 		{
 			if (m_aRuntimeGroupIds[i] != groupId)
@@ -10550,6 +10621,28 @@ class HST_PhysicalWarService
 			if (i < m_aRuntimeGroupEntities.Count())
 				m_aRuntimeGroupEntities.Remove(i);
 			m_aRuntimeGroupIds.Remove(i);
+		}
+	}
+
+	protected void DeleteRuntimeGroupWaypoints(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return;
+
+		for (int waypointIndex = m_aRuntimeGroupWaypointIds.Count() - 1; waypointIndex >= 0; waypointIndex--)
+		{
+			if (m_aRuntimeGroupWaypointIds[waypointIndex] != groupId)
+				continue;
+
+			IEntity waypointEntity;
+			if (waypointIndex < m_aRuntimeGroupWaypointEntities.Count())
+				waypointEntity = m_aRuntimeGroupWaypointEntities[waypointIndex];
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+
+			if (waypointIndex < m_aRuntimeGroupWaypointEntities.Count())
+				m_aRuntimeGroupWaypointEntities.Remove(waypointIndex);
+			m_aRuntimeGroupWaypointIds.Remove(waypointIndex);
 		}
 	}
 

@@ -219,6 +219,20 @@ This file is for practical engine/script behavior, not project planning. Keep en
     only after the group is spawned.
   - Current example: `HST_PhysicalWarService.UpdateActiveGroupRoutes()`.
 
+- Routed infantry AI waypoints need explicit lifecycle ownership.
+  - Assign route waypoints only after the active group's runtime `AIGroup` has
+    populated. Use generated-route positions as the waypoint chain, skip the
+    group's current/source position, and require at least two assigned waypoint
+    entities before marking the active group with `infantry_waypoints`.
+  - Track waypoint entities by active group id and delete them in the same
+    cleanup path as runtime crew entities. Otherwise repeated debug runs or
+    fold-back cleanup can leave orphan waypoint entities in the world.
+  - Once infantry AI waypoints are assigned, keep abstract route progress in the
+    active-group state for fold-back/accounting, but do not keep teleporting the
+    runtime group root along that abstract route.
+  - Current examples: `HST_PhysicalWarService.AssignActiveGroupInfantryRouteWaypoints()`
+    and `HST_PhysicalWarService.DeleteRuntimeGroupWaypoints()`.
+
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
     police/roadblock pressure hides why a town flipped and makes save/reload
