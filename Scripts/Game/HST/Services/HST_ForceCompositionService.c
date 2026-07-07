@@ -193,7 +193,13 @@ class HST_ForceCompositionService
 	protected HST_ForceCompositionResult Fail(HST_ForceCompositionResult result, string reason)
 	{
 		if (!result)
-			result = new HST_ForceCompositionResult();
+		{
+			HST_ForceCompositionResult failedResult = new HST_ForceCompositionResult();
+			failedResult.m_bSuccess = false;
+			failedResult.m_sFailureReason = reason;
+			failedResult.m_sDebugSummary = BuildDebugSummary(null, failedResult);
+			return failedResult;
+		}
 
 		result.m_bSuccess = false;
 		result.m_sFailureReason = reason;

@@ -251,7 +251,13 @@ class HST_SpawnPlacementService
 	protected HST_SpawnPlacementResult Fail(HST_SpawnPlacementResult result, string reason)
 	{
 		if (!result)
-			result = new HST_SpawnPlacementResult();
+		{
+			HST_SpawnPlacementResult failedResult = new HST_SpawnPlacementResult();
+			failedResult.m_bSuccess = false;
+			failedResult.m_sFailureReason = reason;
+			failedResult.m_sDebugSummary = BuildDebugSummary(null, failedResult);
+			return failedResult;
+		}
 
 		result.m_bSuccess = false;
 		result.m_sFailureReason = reason;

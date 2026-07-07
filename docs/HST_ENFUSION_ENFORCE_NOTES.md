@@ -59,6 +59,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Do not assign `new` into a non-`ref` managed object parameter.
+  - Enforce treats a method parameter such as `HST_FooResult result` as a weak
+    reference for assignment purposes. `result = new HST_FooResult()` fails with
+    "Variable is not strong ref". If a factory/failure helper accepts an
+    optional existing result, create a fresh local result in the null branch and
+    return it instead of assigning into the parameter.
+  - Current examples:
+    `HST_ForceCompositionService.Fail()` and
+    `HST_SpawnPlacementService.Fail()`.
+
 - Enforce class scope does not allow duplicate helper method declarations.
   - Even identical helper bodies in different parts of a large component fail
     Game script compilation as a multiple declaration. Reuse one class-local
