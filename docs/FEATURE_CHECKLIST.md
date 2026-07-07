@@ -65,7 +65,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Server-owned coordinator | One server-side component owns lifecycle and delegates domain logic. | Implemented Foundation | Keep moving feature logic from coordinator into services when it becomes reusable. | Keep |
 | Domain services | Economy, missions, persistence, HQ, arsenal, loot, support, enemies, civilians, markers, garrisons, and physical war have service owners. | Implemented Foundation | Audit coordinator-heavy flows and extract service-level request/result contracts. | High |
 | Server-authoritative actions | Clients request actions; server resolves identity, permissions, phase, costs, targets, and mutation. | Implemented Foundation | Expand disabled-action reasons instead of hiding actions. | High |
-| Runtime diagnostics | Every major system has report/debug visibility. | Implemented Foundation | Add deeper decision reports for enemy target scoring, town influence, spawn placement, and support spend. | High |
+| Runtime diagnostics | Every major system has report/debug visibility. | Implemented Foundation | Enemy target scoring now has scored-candidate reporting and one-button proof; add deeper decision reports for town influence, spawn placement, and long-run support pressure. | High |
 
 ### Persistence And Restart Safety
 
@@ -111,7 +111,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Enemy resource pools | Enemy attack and support capacity grows from map control and pressure. | Broad Alpha / Needs Soak | Tune attack/support income and costs after real background-war runs. | Highest |
 | Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate and continue tuning caps/cooldowns. | High |
-| Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Add richer target scoring, proactive timing, and three-way pressure. | Highest |
+| Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Target scoring now exposes eligible candidates, weighted top-band selection, and bookkeeping-zone exclusion; next add proactive timing, relation-aware three-way pressure, and richer HQ/counterattack behavior. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha | Add stronger survivor, vehicle, and garrison outcome math. | High |
 | Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support infantry now receives generated-route move/sweep AI waypoints and materializes linked unclaimed response vehicles; convoy crews now retry immediate vehicle bind and register pilotable vehicles with group AI before route assignment, so next prove sustained movement and richer HQ-pressure/counterattack behavior. | Highest |
 
@@ -171,7 +171,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Keep mission starts category-based and improve disabled reasons. | High |
 | Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned; Defend Petros attacker markers are backed by live active-group state; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, and a threshold-length convoy movement window before contact; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, and isolated enemy target-scoring proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 
@@ -188,9 +188,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 1. Reconcile planning docs with current code. The implementation has advanced
    past older phase labels.
-2. Run the next server proof on the r78 convoy/marker cleanup build, then extend
-   routed response infantry into richer
-   counterattack/HQ-pressure target behavior.
+2. Run the next server proof on the r79 target-scoring build, then extend
+   routed response infantry into richer counterattack/HQ-pressure behavior.
 3. Finish undercover enforcement from live equipment, vehicle state, off-road
    behavior, and security scans.
 4. Deepen town influence events into the primary political control layer.

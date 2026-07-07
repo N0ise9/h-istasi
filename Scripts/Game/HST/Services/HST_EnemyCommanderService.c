@@ -1,3 +1,44 @@
+class HST_EnemyTargetScoreCandidate
+{
+	string m_sZoneId;
+	string m_sDisplayName;
+	string m_sOwnerFactionKey;
+	HST_EZoneType m_eType;
+	int m_iScore;
+	int m_iWeight;
+	int m_iOwnerScore;
+	int m_iPriorityScore;
+	int m_iProgressScore;
+	int m_iActivityScore;
+	int m_iSupportScore;
+	int m_iMissionScore;
+	int m_iObjectiveScore;
+	int m_iStrategicScore;
+	int m_iHQScore;
+	int m_iGarrisonScore;
+	int m_iDamageScore;
+	int m_iIncomeScore;
+	string m_sReason;
+}
+
+class HST_EnemyTargetScoreResult
+{
+	bool m_bSuccess;
+	string m_sFailureReason;
+	string m_sFactionKey;
+	string m_sSelectedZoneId;
+	string m_sBestZoneId;
+	string m_sSelectionMode;
+	string m_sReason;
+	int m_iSelectedScore;
+	int m_iBestScore;
+	int m_iCandidateCount;
+	int m_iEligibleCount;
+	int m_iTotalWeight;
+	int m_iRoll;
+	ref array<ref HST_EnemyTargetScoreCandidate> m_aCandidates = {};
+}
+
 class HST_EnemyCommanderService
 {
 	static const int ORDER_TICK_SECONDS = 180;
@@ -166,6 +207,132 @@ class HST_EnemyCommanderService
 			abstractPending,
 			physicalPending
 		);
+	}
+
+	HST_EnemyTargetScoreResult BuildTargetScoreResult(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, bool forceBest)
+	{
+		HST_EnemyTargetScoreResult result = new HST_EnemyTargetScoreResult();
+		result.m_sFactionKey = factionKey;
+		result.m_iBestScore = -9999;
+		result.m_sSelectionMode = "weighted_top_band";
+
+		if (!state || !preset || factionKey.IsEmpty())
+		{
+			result.m_sFailureReason = "state, preset, or faction missing";
+			return result;
+		}
+
+		HST_EnemyTargetScoreCandidate bestCandidate;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+
+			result.m_iCandidateCount++;
+			string ineligibleReason;
+			if (!IsEligibleTargetZone(zone, ineligibleReason))
+				continue;
+
+			HST_EnemyTargetScoreCandidate candidate = BuildTargetScoreCandidate(state, preset, zone, factionKey);
+			if (!candidate)
+				continue;
+
+			result.m_aCandidates.Insert(candidate);
+			result.m_iEligibleCount++;
+			if (!bestCandidate || candidate.m_iScore > result.m_iBestScore)
+			{
+				bestCandidate = candidate;
+				result.m_iBestScore = candidate.m_iScore;
+				result.m_sBestZoneId = candidate.m_sZoneId;
+			}
+		}
+
+		if (!bestCandidate)
+		{
+			result.m_sFailureReason = "no eligible target zones";
+			return result;
+		}
+
+		int topBandFloor = result.m_iBestScore - 12;
+		foreach (HST_EnemyTargetScoreCandidate weightedCandidate : result.m_aCandidates)
+		{
+			if (!weightedCandidate || weightedCandidate.m_iScore < topBandFloor)
+				continue;
+
+			weightedCandidate.m_iWeight = Math.Max(1, weightedCandidate.m_iScore - topBandFloor + 1);
+			result.m_iTotalWeight += weightedCandidate.m_iWeight;
+		}
+
+		HST_EnemyTargetScoreCandidate selectedCandidate = bestCandidate;
+		if (forceBest)
+		{
+			result.m_sSelectionMode = "forced_best";
+		}
+		else if (result.m_iTotalWeight > 0)
+		{
+			int rollSeed = state.m_iCampaignSeed + state.m_iElapsedSeconds * 13 + factionKey.Length() * 97 + state.m_aEnemyOrders.Count() * 43 + result.m_iEligibleCount * 17 + result.m_iBestScore * 31;
+			result.m_iRoll = HST_DefaultCatalog.PositiveMod(rollSeed, result.m_iTotalWeight);
+			int cumulative;
+			foreach (HST_EnemyTargetScoreCandidate rolledCandidate : result.m_aCandidates)
+			{
+				if (!rolledCandidate || rolledCandidate.m_iWeight <= 0)
+					continue;
+
+				cumulative += rolledCandidate.m_iWeight;
+				if (result.m_iRoll < cumulative)
+				{
+					selectedCandidate = rolledCandidate;
+					break;
+				}
+			}
+		}
+
+		result.m_bSuccess = selectedCandidate != null;
+		if (selectedCandidate)
+		{
+			result.m_sSelectedZoneId = selectedCandidate.m_sZoneId;
+			result.m_iSelectedScore = selectedCandidate.m_iScore;
+			result.m_sReason = selectedCandidate.m_sReason;
+		}
+
+		return result;
+	}
+
+	string BuildEnemyTargetScoreReport(HST_CampaignState state, HST_CampaignPreset preset, string factionKey)
+	{
+		HST_EnemyTargetScoreResult result = BuildTargetScoreResult(state, preset, factionKey, false);
+		if (!result)
+			return string.Format("h-istasi enemy target scoring | failed | faction %1 | reason scorer unavailable", ReportText(factionKey));
+		if (!result.m_bSuccess)
+			return string.Format("h-istasi enemy target scoring | failed | faction %1 | reason %2", ReportText(factionKey), ReportText(result.m_sFailureReason));
+
+		string report = string.Format(
+			"h-istasi enemy target scoring | faction %1 | selected %2 score %3 | best %4 score %5 | eligible %6/%7 | mode %8",
+			ReportText(factionKey),
+			ReportText(result.m_sSelectedZoneId),
+			result.m_iSelectedScore,
+			ReportText(result.m_sBestZoneId),
+			result.m_iBestScore,
+			result.m_iEligibleCount,
+			result.m_iCandidateCount,
+			ReportText(result.m_sSelectionMode)
+		);
+		report = report + string.Format(" | weight %1 roll %2 | reason %3", result.m_iTotalWeight, result.m_iRoll, ReportText(result.m_sReason));
+
+		int emitted;
+		int topBandFloor = result.m_iBestScore - 12;
+		foreach (HST_EnemyTargetScoreCandidate candidate : result.m_aCandidates)
+		{
+			if (!candidate || candidate.m_iScore < topBandFloor)
+				continue;
+
+			report = report + string.Format("\n%1 | score %2 | weight %3 | owner %4 | type %5 | reason %6", ReportText(candidate.m_sZoneId), candidate.m_iScore, candidate.m_iWeight, ReportText(candidate.m_sOwnerFactionKey), candidate.m_eType, ReportText(candidate.m_sReason));
+			emitted++;
+			if (emitted >= 8)
+				break;
+		}
+
+		return report;
 	}
 
 	bool TryQueueImmediateCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone, int chancePercent)
@@ -841,41 +1008,11 @@ class HST_EnemyCommanderService
 
 	protected HST_ZoneState SelectTargetZone(HST_CampaignState state, HST_CampaignPreset preset, string factionKey)
 	{
-		HST_ZoneState bestZone;
-		int bestScore = -9999;
-		int totalWeight;
-		foreach (HST_ZoneState zone : state.m_aZones)
-		{
-			if (!zone)
-				continue;
+		HST_EnemyTargetScoreResult result = BuildTargetScoreResult(state, preset, factionKey, false);
+		if (!result || !result.m_bSuccess || result.m_sSelectedZoneId.IsEmpty())
+			return null;
 
-			int score = ScoreTargetZone(state, preset, zone, factionKey);
-			totalWeight += Math.Max(1, score + 25);
-
-			if (score > bestScore)
-			{
-				bestZone = zone;
-				bestScore = score;
-			}
-		}
-
-		if (totalWeight <= 0)
-			return bestZone;
-
-		int rollSeed = state.m_iCampaignSeed + state.m_iElapsedSeconds * 13 + factionKey.Length() * 97 + state.m_aEnemyOrders.Count() * 43;
-		int roll = HST_DefaultCatalog.PositiveMod(rollSeed, totalWeight);
-		int cumulative;
-		foreach (HST_ZoneState weightedZone : state.m_aZones)
-		{
-			if (!weightedZone)
-				continue;
-
-			cumulative += Math.Max(1, ScoreTargetZone(state, preset, weightedZone, factionKey) + 25);
-			if (roll < cumulative)
-				return weightedZone;
-		}
-
-		return bestZone;
+		return state.FindZone(result.m_sSelectedZoneId);
 	}
 
 	protected HST_EEnemyOrderType SelectOrderType(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_FactionPoolState pool)
@@ -943,38 +1080,186 @@ class HST_EnemyCommanderService
 
 	protected int ScoreTargetZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone, string factionKey)
 	{
-		int score;
-		if (zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
-			score += 22;
-		else if (zone.m_sOwnerFactionKey == factionKey)
-			score += 10;
-		else
-			score += 4;
+		HST_EnemyTargetScoreCandidate candidate = BuildTargetScoreCandidate(state, preset, zone, factionKey);
+		if (!candidate)
+			return -9999;
 
-		score += zone.m_iPriority;
-		score += zone.m_iResistanceCaptureProgress / 5;
+		return candidate.m_iScore;
+	}
+
+	protected HST_EnemyTargetScoreCandidate BuildTargetScoreCandidate(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone, string factionKey)
+	{
+		if (!state || !preset || !zone || factionKey.IsEmpty())
+			return null;
+
+		string ineligibleReason;
+		if (!IsEligibleTargetZone(zone, ineligibleReason))
+			return null;
+
+		HST_EnemyTargetScoreCandidate candidate = new HST_EnemyTargetScoreCandidate();
+		candidate.m_sZoneId = zone.m_sZoneId;
+		candidate.m_sDisplayName = zone.m_sDisplayName;
+		candidate.m_sOwnerFactionKey = zone.m_sOwnerFactionKey;
+		candidate.m_eType = zone.m_eType;
+
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
+		if (zone.m_sOwnerFactionKey == resistanceFactionKey)
+		{
+			candidate.m_iOwnerScore = 24;
+			AddTargetScoreReason(candidate, "resistance_control", candidate.m_iOwnerScore);
+		}
+		else if (zone.m_sOwnerFactionKey == factionKey)
+		{
+			candidate.m_iOwnerScore = 12;
+			AddTargetScoreReason(candidate, "owned_zone_pressure", candidate.m_iOwnerScore);
+		}
+		else
+		{
+			candidate.m_iOwnerScore = 5;
+			AddTargetScoreReason(candidate, "third_party_pressure", candidate.m_iOwnerScore);
+		}
+
+		candidate.m_iPriorityScore = Math.Min(35, Math.Max(0, zone.m_iPriority));
+		AddTargetScoreReason(candidate, "priority", candidate.m_iPriorityScore);
+
+		candidate.m_iIncomeScore = Math.Min(12, Math.Max(0, zone.m_iIncomeValue / 8));
+		AddTargetScoreReason(candidate, "income", candidate.m_iIncomeScore);
+
+		candidate.m_iProgressScore = Math.Min(24, Math.Max(0, zone.m_iResistanceCaptureProgress / 4));
+		AddTargetScoreReason(candidate, "capture_progress", candidate.m_iProgressScore);
+
 		if (zone.m_bActive)
-			score += 12;
+		{
+			candidate.m_iActivityScore = 12;
+			AddTargetScoreReason(candidate, "active_runtime", candidate.m_iActivityScore);
+		}
+
 		if (zone.m_iSupport > 25)
-			score += 4 + zone.m_iSupport / 20;
+		{
+			candidate.m_iSupportScore = Math.Min(10, 4 + zone.m_iSupport / 20);
+			AddTargetScoreReason(candidate, "local_support", candidate.m_iSupportScore);
+		}
+
 		if (HasActiveMissionNearZone(state, zone))
-			score += 10;
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD || zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT)
-			score += 8;
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-			score += 6;
+		{
+			candidate.m_iMissionScore = 10;
+			AddTargetScoreReason(candidate, "active_mission", candidate.m_iMissionScore);
+		}
+
+		if (HasActiveObjectiveNearZone(state, zone))
+		{
+			candidate.m_iObjectiveScore = 8;
+			AddTargetScoreReason(candidate, "active_objective", candidate.m_iObjectiveScore);
+		}
+
+		candidate.m_iStrategicScore = StrategicTargetTypeScore(zone.m_eType);
+		AddTargetScoreReason(candidate, "strategic_type", candidate.m_iStrategicScore);
+
 		if (IsHQThreatZone(state, zone))
-			score += 9 + state.m_iWarLevel;
-		if (state.m_iHQKnowledge > 0 && IsHQThreatZone(state, zone))
-			score += state.m_iHQKnowledge / 10;
+		{
+			candidate.m_iHQScore = 10 + state.m_iWarLevel;
+			if (state.m_iHQKnowledge > 0)
+				candidate.m_iHQScore += state.m_iHQKnowledge / 10;
+			AddTargetScoreReason(candidate, "hq_pressure", candidate.m_iHQScore);
+		}
 
 		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, factionKey);
 		if (!garrison)
-			score += 5;
+		{
+			candidate.m_iGarrisonScore = 6;
+			AddTargetScoreReason(candidate, "missing_garrison", candidate.m_iGarrisonScore);
+		}
 		else if (garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel))
-			score += 4;
+		{
+			candidate.m_iGarrisonScore = 5;
+			AddTargetScoreReason(candidate, "weak_garrison", candidate.m_iGarrisonScore);
+		}
 
-		return score;
+		HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(factionKey, zone.m_sZoneId);
+		if (ledger && ledger.m_iRecentDamageScore > 0)
+		{
+			candidate.m_iDamageScore = Math.Min(18, ledger.m_iRecentDamageScore);
+			AddTargetScoreReason(candidate, "recent_damage", candidate.m_iDamageScore);
+		}
+
+		candidate.m_iScore = candidate.m_iOwnerScore
+			+ candidate.m_iPriorityScore
+			+ candidate.m_iProgressScore
+			+ candidate.m_iActivityScore
+			+ candidate.m_iSupportScore
+			+ candidate.m_iMissionScore
+			+ candidate.m_iObjectiveScore
+			+ candidate.m_iStrategicScore
+			+ candidate.m_iHQScore
+			+ candidate.m_iGarrisonScore
+			+ candidate.m_iDamageScore
+			+ candidate.m_iIncomeScore;
+
+		return candidate;
+	}
+
+	protected bool IsEligibleTargetZone(HST_ZoneState zone, out string reason)
+	{
+		reason = "";
+		if (!zone)
+		{
+			reason = "missing zone";
+			return false;
+		}
+		if (zone.m_sZoneId.IsEmpty())
+		{
+			reason = "missing zone id";
+			return false;
+		}
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT)
+		{
+			reason = "hideout bookkeeping anchor";
+			return false;
+		}
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+		{
+			reason = "mission-site bookkeeping anchor";
+			return false;
+		}
+
+		return true;
+	}
+
+	protected int StrategicTargetTypeScore(HST_EZoneType zoneType)
+	{
+		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD)
+			return 16;
+		if (zoneType == HST_EZoneType.HST_ZONE_SEAPORT)
+			return 12;
+		if (zoneType == HST_EZoneType.HST_ZONE_FACTORY)
+			return 10;
+		if (zoneType == HST_EZoneType.HST_ZONE_RESOURCE)
+			return 8;
+		if (zoneType == HST_EZoneType.HST_ZONE_BANK)
+			return 7;
+		if (zoneType == HST_EZoneType.HST_ZONE_OUTPOST || zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			return 6;
+		if (zoneType == HST_EZoneType.HST_ZONE_POLICE_STATION)
+			return 5;
+		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
+			return 4;
+
+		return 0;
+	}
+
+	protected void AddTargetScoreReason(HST_EnemyTargetScoreCandidate candidate, string label, int score)
+	{
+		if (!candidate || score <= 0)
+			return;
+
+		string part = string.Format("%1 +%2", label, score);
+		if (candidate.m_sReason.IsEmpty())
+			candidate.m_sReason = part;
+		else
+			candidate.m_sReason = candidate.m_sReason + ", " + part;
 	}
 
 	protected bool HasActiveMissionNearZone(HST_CampaignState state, HST_ZoneState zone)
@@ -1045,6 +1330,14 @@ class HST_EnemyCommanderService
 	protected bool IsZeroVector(vector value)
 	{
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected string ReportText(string value)
+	{
+		if (value.IsEmpty())
+			return "none";
+
+		return value;
 	}
 
 	protected bool IsHQThreatZone(HST_CampaignState state, HST_ZoneState zone)

@@ -139,6 +139,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_EnemyCommanderService.ApplyResolvedOrder()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugEnemyOrderResolutionCase()`.
 
+- Enemy target choice should be scored through a reusable result object.
+  - Inline score-and-roll code is hard to audit and easy to desynchronize from
+    debug proofs. Build an `HST_EnemyTargetScoreResult` with eligible
+    candidates, selected/best ids, weights, and component reasons, then let
+    production selection and one-button debug assertions consume the same path.
+  - Hideouts and mission-site anchors are bookkeeping locations, not strategic
+    attack targets. Exclude them before scoring even if they have high priority
+    metadata for marker/site generation.
+  - Current examples: `HST_EnemyCommanderService.BuildTargetScoreResult()`,
+    `HST_EnemyCommanderService.BuildEnemyTargetScoreReport()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugEnemyTargetScoringCase()`.
+
 - Active force rows need durable source ownership and baseline force counts.
   - Live manpower is mutable: groups can be queued, spawned, damaged, folded,
     deleted, or represented abstractly while the owning gameplay source still

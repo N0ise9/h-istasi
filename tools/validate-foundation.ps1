@@ -3263,6 +3263,24 @@ foreach ($requiredCampaignDebugBuildEntry in @(
 		throw "Campaign debug build provenance contract missing: $requiredCampaignDebugBuildEntry"
 	}
 }
+foreach ($requiredEnemyTargetScoringEntry in @(
+		"HST_EnemyTargetScoreCandidate",
+		"HST_EnemyTargetScoreResult",
+		"BuildTargetScoreResult",
+		"BuildEnemyTargetScoreReport",
+		"weighted_top_band",
+		"IsEligibleTargetZone",
+		"HST_ZONE_HIDEOUT",
+		"HST_ZONE_MISSION_SITE",
+		"enemy_target_scoring.contract.runtime",
+		"enemy_target_scoring.high_value_selection",
+		"enemy_target_scoring.excludes_bookkeeping_zones",
+		"RecordCampaignDebugCase(BuildCampaignDebugEnemyTargetScoringCase())"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredEnemyTargetScoringEntry)) {
+		throw "Enemy commander target scoring proof contract missing: $requiredEnemyTargetScoringEntry"
+	}
+}
 foreach ($requiredCampaignDebugProofEntry in @(
 		"m_sProofLevel",
 		"m_sObservedPath",

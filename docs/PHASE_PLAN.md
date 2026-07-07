@@ -2315,7 +2315,7 @@ needs to prove that capability before the project is considered broadly ready.
 ### Enemy Commander
 
 - [ ] resource income
-- [ ] target scoring
+- [x] target scoring
 - [ ] patrol orders
 - [ ] QRF orders
 - [ ] counterattack orders

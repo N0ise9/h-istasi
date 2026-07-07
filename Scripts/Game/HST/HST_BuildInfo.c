@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r78-support-attacker-marker-backing";
-	static const string BUILD_UTC = "2026-07-07T23:09:16Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r78-support-attacker-marker-backing";
+	static const string BUILD_SHA = "r79-enemy-target-scoring-proof";
+	static const string BUILD_UTC = "2026-07-07T23:20:49Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r79-enemy-target-scoring-proof";
 
 	static string BuildSummary()
 	{

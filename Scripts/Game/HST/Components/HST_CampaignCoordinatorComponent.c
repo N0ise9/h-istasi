@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r74-cleanup-population-drain";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r79-enemy-target-scoring-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4462,6 +4462,150 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("faction %1 | pool %2/%3 | %4 | %5 | cooldown %6 | max %7", EmptyCampaignDebugField(factionKey), attackResources, supportResources, BuildCampaignDebugEnemySupportLedgerActual(ledger), BuildCampaignDebugEnemyOrderSpendActual(order), EmptyCampaignDebugField(cooldownReason), EmptyCampaignDebugField(maxReason));
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemyTargetScoringCase()
+	{
+		HST_CampaignDebugCaseResult scoreCase = CreateCampaignDebugCase("enemy_target_scoring.contract.runtime", "enemy_commander", "strategic_targeting", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_EnemyCommander != null;
+		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.prerequisite", "state, preset, and enemy commander ready", string.Format("state %1 | preset %2 | commander %3", m_State != null, m_Preset != null, m_EnemyCommander != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "enemy target scoring prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(scoreCase);
+			return scoreCase;
+		}
+
+		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
+		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
+		if (resistanceFactionKey.IsEmpty())
+			resistanceFactionKey = "FIA";
+
+		bool factionReady = !factionKey.IsEmpty();
+		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.faction", "enemy faction key resolves for scoring proof", EmptyCampaignDebugField(factionKey), CampaignDebugStatus(factionReady, "BLOCKED"), "enemy target scoring faction missing");
+		if (!factionReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(scoreCase);
+			return scoreCase;
+		}
+
+		vector basePosition = m_State.m_vHQPosition;
+		if (IsZeroVector(basePosition))
+			basePosition = "1000 0 1000";
+
+		string highZoneId = "debug_enemy_target_high_value_airfield";
+		string lowZoneId = "debug_enemy_target_low_value_town";
+		string missionSiteZoneId = "debug_enemy_target_bookkeeping_mission_site";
+		string hideoutZoneId = "debug_enemy_target_bookkeeping_hideout";
+
+		HST_CampaignState scoringState = new HST_CampaignState();
+		scoringState.m_iCampaignSeed = Math.Max(1, m_State.m_iCampaignSeed);
+		scoringState.m_iElapsedSeconds = Math.Max(1, m_State.m_iElapsedSeconds);
+		scoringState.m_iWarLevel = Math.Max(4, m_State.m_iWarLevel);
+		scoringState.m_iHQKnowledge = 80;
+		scoringState.m_bHQDeployed = true;
+		scoringState.m_vHQPosition = basePosition;
+
+		HST_ZoneState highZone = BuildCampaignDebugEnemyOrderResolutionZone(highZoneId, "Enemy Target High Value Airfield", HST_EZoneType.HST_ZONE_AIRFIELD, resistanceFactionKey, basePosition + "220 0 0");
+		highZone.m_iPriority = 60;
+		highZone.m_iIncomeValue = 96;
+		highZone.m_iSupport = 75;
+		highZone.m_iResistanceCaptureProgress = 60;
+		highZone.m_iGarrisonSlots = 64;
+		highZone.m_bActive = true;
+
+		HST_ZoneState lowZone = BuildCampaignDebugEnemyOrderResolutionZone(lowZoneId, "Enemy Target Low Value Town", HST_EZoneType.HST_ZONE_TOWN, factionKey, basePosition + "460 0 0");
+		lowZone.m_iPriority = 5;
+		lowZone.m_iIncomeValue = 8;
+		lowZone.m_iSupport = 5;
+		lowZone.m_iResistanceCaptureProgress = 0;
+
+		HST_ZoneState missionSiteZone = BuildCampaignDebugEnemyOrderResolutionZone(missionSiteZoneId, "Enemy Target Bookkeeping Mission Site", HST_EZoneType.HST_ZONE_MISSION_SITE, resistanceFactionKey, basePosition + "540 0 0");
+		missionSiteZone.m_iPriority = 200;
+		missionSiteZone.m_iIncomeValue = 200;
+		missionSiteZone.m_iResistanceCaptureProgress = 95;
+
+		HST_ZoneState hideoutZone = BuildCampaignDebugEnemyOrderResolutionZone(hideoutZoneId, "Enemy Target Bookkeeping Hideout", HST_EZoneType.HST_ZONE_HIDEOUT, resistanceFactionKey, basePosition + "620 0 0");
+		hideoutZone.m_iPriority = 200;
+		hideoutZone.m_iIncomeValue = 200;
+		hideoutZone.m_iResistanceCaptureProgress = 95;
+
+		scoringState.m_aZones.Insert(highZone);
+		scoringState.m_aZones.Insert(lowZone);
+		scoringState.m_aZones.Insert(missionSiteZone);
+		scoringState.m_aZones.Insert(hideoutZone);
+
+		HST_GarrisonState lowGarrison = new HST_GarrisonState();
+		lowGarrison.m_sZoneId = lowZoneId;
+		lowGarrison.m_sFactionKey = factionKey;
+		lowGarrison.m_iInfantryCount = 12;
+		lowGarrison.m_iVehicleCount = 1;
+		scoringState.m_aGarrisons.Insert(lowGarrison);
+
+		HST_EnemyTargetScoreResult result = m_EnemyCommander.BuildTargetScoreResult(scoringState, m_Preset, factionKey, true);
+		HST_EnemyTargetScoreCandidate highCandidate = FindCampaignDebugEnemyTargetScoreCandidate(result, highZoneId);
+		HST_EnemyTargetScoreCandidate lowCandidate = FindCampaignDebugEnemyTargetScoreCandidate(result, lowZoneId);
+		HST_EnemyTargetScoreCandidate missionSiteCandidate = FindCampaignDebugEnemyTargetScoreCandidate(result, missionSiteZoneId);
+		HST_EnemyTargetScoreCandidate hideoutCandidate = FindCampaignDebugEnemyTargetScoreCandidate(result, hideoutZoneId);
+
+		string actual = BuildCampaignDebugEnemyTargetScoreActual(result, highCandidate, lowCandidate, missionSiteCandidate, hideoutCandidate);
+		scoreCase.m_aEvidence.Insert(m_EnemyCommander.BuildEnemyTargetScoreReport(scoringState, m_Preset, factionKey));
+		AddCampaignDebugMetric(scoreCase, "enemy_target_scoring.candidates", string.Format("%1", result.m_iCandidateCount), "count");
+		AddCampaignDebugMetric(scoreCase, "enemy_target_scoring.eligible", string.Format("%1", result.m_iEligibleCount), "count");
+		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.high_value_selection", "controlled force-best target scoring selects the high-value resistance strategic zone", actual, CampaignDebugStatus(result && result.m_bSuccess && result.m_sSelectedZoneId == highZoneId && result.m_sBestZoneId == highZoneId), "enemy target scoring did not select the controlled high-value strategic zone", "", "", highZoneId);
+		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.excludes_bookkeeping_zones", "hideout and mission-site bookkeeping anchors are excluded from enemy commander target candidates", actual, CampaignDebugStatus(result && result.m_iCandidateCount == 4 && result.m_iEligibleCount == 2 && missionSiteCandidate == null && hideoutCandidate == null), "enemy target scoring considered a hideout or mission-site bookkeeping anchor");
+		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.explainable_score", "selected target exposes component-score reasoning and beats the low-value owned town", actual, CampaignDebugStatus(highCandidate && lowCandidate && highCandidate.m_iScore > lowCandidate.m_iScore && !highCandidate.m_sReason.IsEmpty() && highCandidate.m_sReason.Contains("resistance_control")), "enemy target scoring did not expose a clear winning reason");
+
+		FinalizeCampaignDebugCaseFromAssertions(scoreCase);
+		return scoreCase;
+	}
+
+	protected HST_EnemyTargetScoreCandidate FindCampaignDebugEnemyTargetScoreCandidate(HST_EnemyTargetScoreResult result, string zoneId)
+	{
+		if (!result || zoneId.IsEmpty())
+			return null;
+
+		foreach (HST_EnemyTargetScoreCandidate candidate : result.m_aCandidates)
+		{
+			if (candidate && candidate.m_sZoneId == zoneId)
+				return candidate;
+		}
+
+		return null;
+	}
+
+	protected string BuildCampaignDebugEnemyTargetScoreActual(HST_EnemyTargetScoreResult result, HST_EnemyTargetScoreCandidate highCandidate, HST_EnemyTargetScoreCandidate lowCandidate, HST_EnemyTargetScoreCandidate missionSiteCandidate, HST_EnemyTargetScoreCandidate hideoutCandidate)
+	{
+		if (!result)
+			return "missing score result";
+
+		string actual = string.Format(
+			"selected %1 score %2 | best %3 score %4 | mode %5 | eligible %6/%7 | weight %8 roll %9",
+			EmptyCampaignDebugField(result.m_sSelectedZoneId),
+			result.m_iSelectedScore,
+			EmptyCampaignDebugField(result.m_sBestZoneId),
+			result.m_iBestScore,
+			EmptyCampaignDebugField(result.m_sSelectionMode),
+			result.m_iEligibleCount,
+			result.m_iCandidateCount,
+			result.m_iTotalWeight,
+			result.m_iRoll
+		);
+		actual = actual + string.Format(
+			" | high [%1] | low [%2] | missionSite %3 | hideout %4",
+			BuildCampaignDebugEnemyTargetCandidateActual(highCandidate),
+			BuildCampaignDebugEnemyTargetCandidateActual(lowCandidate),
+			BuildCampaignDebugEnemyTargetCandidateActual(missionSiteCandidate),
+			BuildCampaignDebugEnemyTargetCandidateActual(hideoutCandidate)
+		);
+		return actual;
+	}
+
+	protected string BuildCampaignDebugEnemyTargetCandidateActual(HST_EnemyTargetScoreCandidate candidate)
+	{
+		if (!candidate)
+			return "excluded";
+
+		return string.Format("%1 | score %2 | weight %3 | owner %4 | type %5 | reason %6", EmptyCampaignDebugField(candidate.m_sZoneId), candidate.m_iScore, candidate.m_iWeight, EmptyCampaignDebugField(candidate.m_sOwnerFactionKey), ResolveZoneTypeLabel(candidate.m_eType), EmptyCampaignDebugField(candidate.m_sReason));
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemyOrderResolutionCase()
 	{
 		HST_CampaignDebugCaseResult orderCase = CreateCampaignDebugCase("enemy_order_resolution.contract.runtime", "enemy_commander", "abstract_order_resolution", "baseline");
@@ -6254,6 +6398,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugSpawnPlacementCase());
 		RecordCampaignDebugObservation("spawn placement", RequestAdminSpawnPlacementReport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugEnemySupportSpendCase());
+		RecordCampaignDebugCase(BuildCampaignDebugEnemyTargetScoringCase());
 		RecordCampaignDebugCase(BuildCampaignDebugEnemyOrderResolutionCase());
 		if (m_EnemyDirector)
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
