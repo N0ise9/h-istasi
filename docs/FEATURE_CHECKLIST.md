@@ -65,7 +65,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Server-owned coordinator | One server-side component owns lifecycle and delegates domain logic. | Implemented Foundation | Keep moving feature logic from coordinator into services when it becomes reusable. | Keep |
 | Domain services | Economy, missions, persistence, HQ, arsenal, loot, support, enemies, civilians, markers, garrisons, and physical war have service owners. | Implemented Foundation | Audit coordinator-heavy flows and extract service-level request/result contracts. | High |
 | Server-authoritative actions | Clients request actions; server resolves identity, permissions, phase, costs, targets, and mutation. | Implemented Foundation | Expand disabled-action reasons instead of hiding actions. | High |
-| Runtime diagnostics | Every major system has report/debug visibility. | Implemented Foundation | Enemy target scoring now has scored-candidate reporting and one-button proof; add deeper decision reports for town influence, spawn placement, and long-run support pressure. | High |
+| Runtime diagnostics | Every major system has report/debug visibility. | Implemented Foundation | Enemy target scoring now has scored-candidate reporting plus relation-order branch proof; add deeper decision reports for town influence, spawn placement, and long-run support pressure. | High |
 
 ### Persistence And Restart Safety
 
@@ -91,8 +91,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Resistance faction | Players, HQ, arsenal, recruits, and support use the resistance faction consistently. | Implemented Foundation | Continue replacing hardcoded faction checks with preset-driven helpers. | Keep |
-| Occupier and invader factions | Enemy factions have separate pools, zones, support, and target behavior. | Partial | Add explicit relation helpers and use them across target scoring, civilians, support, and missions. | Highest |
-| Relation matrix | Code asks whether two factions are hostile/neutral/allied instead of assuming non-resistance means enemy. | Partial | Add a small relation service or static helper and migrate all broad enemy checks. | Highest |
+| Occupier and invader factions | Enemy factions have separate pools, zones, support, and target behavior. | Partial | Relation helpers now drive enemy targeting/order decisions; continue migrating remaining broad faction checks across civilians, support, and missions. | Highest |
+| Relation matrix | Code asks whether two factions are hostile/neutral/allied instead of assuming non-resistance means enemy. | Broad Alpha | Keep relation checks centralized and expand runtime proof wherever a system distinguishes resistance enemies, rival enemies, and neutral actors. | Highest |
 | Faction templates | Group pools, vehicles, support capabilities, equipment tiering, and fallback rules are data-driven. | Broad Alpha | Move more template data into configs and validate resources on startup. | High |
 
 ### Economy, War Level, And Strategic Score
@@ -111,7 +111,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Enemy resource pools | Enemy attack and support capacity grows from map control and pressure. | Broad Alpha / Needs Soak | Tune attack/support income and costs after real background-war runs. | Highest |
 | Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate and continue tuning caps/cooldowns. | High |
-| Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Target scoring now exposes eligible candidates, weighted top-band selection, bookkeeping-zone exclusion, and relation-aware owner scoring for resistance-held, same-faction, and rival-held zones; next add proactive timing and richer HQ/counterattack behavior. | Highest |
+| Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Target scoring now exposes eligible candidates, weighted top-band selection, bookkeeping-zone exclusion, relation-aware owner scoring, and relation-order branch proof for counterattack/QRF/rebuild/roadblock/support-call decisions; next add proactive timing and richer HQ/counterattack behavior. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha | Add stronger survivor, vehicle, and garrison outcome math. | High |
 | Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support infantry now receives generated-route move/sweep AI waypoints and materializes linked unclaimed response vehicles; convoy crews now retry immediate vehicle bind and register pilotable vehicles with group AI before route assignment, so next prove sustained movement and richer HQ-pressure/counterattack behavior. | Highest |
 
@@ -171,7 +171,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Keep mission starts category-based and improve disabled reasons. | High |
 | Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned; Defend Petros attacker markers are backed by live active-group state; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, and relation-aware enemy target-scoring proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, relation-aware enemy target-scoring proof, and relation-order decision proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 
@@ -186,11 +186,12 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Repack and rerun the dedicated server proof on the r80 relation/unclaimed
-   vehicle build, then compare the two hard failures and runtime-faction cleanup
-   blocks against the latest debug artifact.
-2. Run the next server proof on the r79 target-scoring build, then extend
-   routed response infantry into richer counterattack/HQ-pressure behavior.
+1. Repack and rerun the dedicated server proof on the r81 relation-order build,
+   then compare the two hard failures and runtime-faction cleanup blocks against
+   the latest debug artifact.
+2. Extend routed response infantry into richer counterattack/HQ-pressure
+   behavior after the r81 server artifact confirms the current relation and
+   unclaimed-vehicle proofs.
 3. Finish undercover enforcement from live equipment, vehicle state, off-road
    behavior, and security scans.
 4. Deepen town influence events into the primary political control layer.

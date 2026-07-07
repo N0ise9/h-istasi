@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r80-relation-unclaimed-vehicle-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r81-relation-order-decision-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4562,6 +4562,57 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.high_value_selection", "controlled force-best target scoring selects the high-value resistance strategic zone", actual, CampaignDebugStatus(result && result.m_bSuccess && result.m_sSelectedZoneId == highZoneId && result.m_sBestZoneId == highZoneId), "enemy target scoring did not select the controlled high-value strategic zone", "", "", highZoneId);
 		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.excludes_bookkeeping_zones", "hideout and mission-site bookkeeping anchors are excluded from enemy commander target candidates", actual, CampaignDebugStatus(result && result.m_iCandidateCount == 5 && result.m_iEligibleCount == 3 && missionSiteCandidate == null && hideoutCandidate == null), "enemy target scoring considered a hideout or mission-site bookkeeping anchor");
 		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.relation_owner_scores", "owner relation scores distinguish resistance-held, owned, and rival enemy zones", actual, CampaignDebugStatus(highCandidate && lowCandidate && rivalCandidate && highCandidate.m_sOwnerRelation == HST_FactionRelationService.RELATION_RESISTANCE_ENEMY && lowCandidate.m_sOwnerRelation == HST_FactionRelationService.RELATION_SAME && rivalCandidate.m_sOwnerRelation == HST_FactionRelationService.RELATION_RIVAL && rivalCandidate.m_sReason.Contains("rival_enemy_pressure")), "enemy target scoring did not distinguish owner relations");
+
+		HST_CampaignState relationOrderState = new HST_CampaignState();
+		relationOrderState.m_iCampaignSeed = scoringState.m_iCampaignSeed;
+		relationOrderState.m_iElapsedSeconds = Math.Max(3600, scoringState.m_iElapsedSeconds);
+		relationOrderState.m_iWarLevel = 4;
+		relationOrderState.m_iHQKnowledge = 0;
+		relationOrderState.m_bHQDeployed = false;
+		relationOrderState.m_vHQPosition = basePosition;
+
+		HST_FactionPoolState relationOrderPool = new HST_FactionPoolState();
+		relationOrderPool.m_sFactionKey = factionKey;
+		relationOrderPool.m_iAttackResources = 30;
+		relationOrderPool.m_iSupportResources = 30;
+
+		string counterOrderZoneId = "debug_enemy_order_relation_counterattack";
+		string qrfOrderZoneId = "debug_enemy_order_relation_qrf";
+		string rebuildOrderZoneId = "debug_enemy_order_relation_rebuild";
+		string roadblockOrderZoneId = "debug_enemy_order_relation_roadblock";
+		string rivalOrderZoneId = "debug_enemy_order_relation_rival";
+
+		HST_ZoneState counterOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(counterOrderZoneId, "Enemy Relation Counterattack Zone", HST_EZoneType.HST_ZONE_OUTPOST, resistanceFactionKey, basePosition + "1600 0 0");
+		HST_ZoneState qrfOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(qrfOrderZoneId, "Enemy Relation QRF Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "1680 0 0");
+		HST_ZoneState rebuildOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(rebuildOrderZoneId, "Enemy Relation Rebuild Zone", HST_EZoneType.HST_ZONE_OUTPOST, factionKey, basePosition + "1760 0 0");
+		HST_ZoneState roadblockOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(roadblockOrderZoneId, "Enemy Relation Roadblock Town", HST_EZoneType.HST_ZONE_TOWN, factionKey, basePosition + "1840 0 0");
+		HST_ZoneState rivalOrderZone = BuildCampaignDebugEnemyOrderResolutionZone(rivalOrderZoneId, "Enemy Relation Rival Zone", HST_EZoneType.HST_ZONE_OUTPOST, rivalFactionKey, basePosition + "1920 0 0");
+		qrfOrderZone.m_iResistanceCaptureProgress = 20;
+
+		relationOrderState.m_aZones.Insert(counterOrderZone);
+		relationOrderState.m_aZones.Insert(qrfOrderZone);
+		relationOrderState.m_aZones.Insert(rebuildOrderZone);
+		relationOrderState.m_aZones.Insert(roadblockOrderZone);
+		relationOrderState.m_aZones.Insert(rivalOrderZone);
+
+		HST_GarrisonState roadblockOrderGarrison = new HST_GarrisonState();
+		roadblockOrderGarrison.m_sZoneId = roadblockOrderZoneId;
+		roadblockOrderGarrison.m_sFactionKey = factionKey;
+		roadblockOrderGarrison.m_iInfantryCount = 12;
+		relationOrderState.m_aGarrisons.Insert(roadblockOrderGarrison);
+
+		HST_EEnemyOrderType counterOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, counterOrderZone, relationOrderPool);
+		HST_EEnemyOrderType qrfOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, qrfOrderZone, relationOrderPool);
+		HST_EEnemyOrderType rebuildOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, rebuildOrderZone, relationOrderPool);
+		HST_EEnemyOrderType roadblockOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, roadblockOrderZone, relationOrderPool);
+		HST_EEnemyOrderType rivalOrderType = m_EnemyCommander.ResolveOrderTypeForDebug(relationOrderState, m_Preset, rivalOrderZone, relationOrderPool);
+		string relationOrderActual = string.Format("counter %1 | qrf %2 | rebuild %3 | roadblock %4 | rival %5", EnemyOrderTypeLabel(counterOrderType), EnemyOrderTypeLabel(qrfOrderType), EnemyOrderTypeLabel(rebuildOrderType), EnemyOrderTypeLabel(roadblockOrderType), EnemyOrderTypeLabel(rivalOrderType));
+		bool relationOrderTypesExpected = counterOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			&& qrfOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			&& rebuildOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			&& roadblockOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
+			&& rivalOrderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL;
+		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.relation_order_types", "order-type resolver distinguishes resistance-held, same-faction defensive, and rival enemy targets", relationOrderActual, CampaignDebugStatus(relationOrderTypesExpected), "enemy order type relation resolver selected an incorrect branch");
 		AddCampaignDebugAssertion(scoreCase, "enemy_target_scoring.explainable_score", "selected target exposes component-score reasoning and beats the low-value owned town", actual, CampaignDebugStatus(highCandidate && lowCandidate && highCandidate.m_iScore > lowCandidate.m_iScore && !highCandidate.m_sReason.IsEmpty() && highCandidate.m_sReason.Contains("resistance_control")), "enemy target scoring did not expose a clear winning reason");
 
 		FinalizeCampaignDebugCaseFromAssertions(scoreCase);

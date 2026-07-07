@@ -337,6 +337,11 @@ class HST_EnemyCommanderService
 		return report;
 	}
 
+	HST_EEnemyOrderType ResolveOrderTypeForDebug(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_FactionPoolState pool)
+	{
+		return SelectOrderType(state, preset, targetZone, pool);
+	}
+
 	bool TryQueueImmediateCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone, int chancePercent)
 	{
 		if (!state || !preset || !enemyDirector || !capturedZone || factionKey.IsEmpty())

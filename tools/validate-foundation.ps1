@@ -3271,6 +3271,7 @@ foreach ($requiredEnemyTargetScoringEntry in @(
 		"HST_EnemyTargetScoreResult",
 		"BuildTargetScoreResult",
 		"BuildEnemyTargetScoreReport",
+		"ResolveOrderTypeForDebug",
 		"weighted_top_band",
 		"rival_enemy_pressure",
 		"IsEligibleTargetZone",
@@ -3280,6 +3281,7 @@ foreach ($requiredEnemyTargetScoringEntry in @(
 		"enemy_target_scoring.high_value_selection",
 		"enemy_target_scoring.excludes_bookkeeping_zones",
 		"enemy_target_scoring.relation_owner_scores",
+		"enemy_target_scoring.relation_order_types",
 		"RecordCampaignDebugCase(BuildCampaignDebugEnemyTargetScoringCase())"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredEnemyTargetScoringEntry)) {

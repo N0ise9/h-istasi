@@ -112,7 +112,9 @@ treated as future work:
   support resources through the ledger.
 - Enemy commander target scoring is relation-aware: same-faction holdings,
   resistance-held zones, and rival-held zones have distinct owner-score reasons,
-  while hideout and mission-site bookkeeping anchors are excluded.
+  while hideout and mission-site bookkeeping anchors are excluded. Full
+  Campaign Debug also proves the related order-type branches for counterattack,
+  QRF, rebuild, roadblock, and rival support-call decisions.
 - Civilian town influence events track support, reputation, heat, population,
   police, roadblock, active/expired modifier counts, and political ownership
   consequences.

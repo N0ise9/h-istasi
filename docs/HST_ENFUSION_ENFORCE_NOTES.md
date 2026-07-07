@@ -319,6 +319,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Defense pressure ledgers, rebuild, roadblock, and QRF behavior should only
     run for same-faction holdings. Rival-held zones may be attacked, but they
     are not a garrison-rebuild target for the evaluating faction.
+  - Full Campaign Debug should prove order-type decisions separately from
+    target scoring. Controlled relation fixtures should cover resistance-held
+    counterattack, same-faction QRF/rebuild/roadblock, and rival-held support
+    call behavior.
 
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
