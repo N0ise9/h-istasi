@@ -218,6 +218,15 @@ class HST_RuntimeVehicleState
 	bool m_bAmmoSource;
 	bool m_bRepairSource;
 	bool m_bFuelSource;
+	bool m_bReported;
+	bool m_bCanProvideUndercover;
+	int m_iVehicleHeat;
+	int m_iLastReportedSecond;
+	int m_iReportedUntilSecond;
+	int m_iLastVehicleHeatChangedSecond;
+	int m_iPassengerCompromiseCount;
+	string m_sLastReportedReason;
+	string m_sLastReporterZoneId;
 }
 
 [BaseContainerProps()]
@@ -711,7 +720,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 30;
+	static const int SCHEMA_VERSION = 31;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

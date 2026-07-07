@@ -59,6 +59,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Undercover vehicle cover should be answered from campaign state, not only
+  from the currently controlled entity.
+  - Track reported/hot vehicle state on `HST_RuntimeVehicleState`: reported
+    flag, heat value, report expiry, last report reason/zone, civilian-cover
+    eligibility, and passenger compromise count.
+  - Eligibility can still inspect the live vehicle entity when present, but a
+    tracked hot/reported runtime vehicle must block civilian vehicle cover even
+    if the current physical entity lookup is unavailable later.
+  - Current examples: `HST_CivilianService.RegisterVehicleHeat()`,
+    `ResolveRuntimeVehicleUndercoverReason()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugVehicleHeatCase()`.
+
 - Physical spawn placement should go through an explainable request/result contract.
   - Tactical systems should ask for source/target placement by intent, target
     zone, preferred source, standoff, road preference, dry-ground requirement,

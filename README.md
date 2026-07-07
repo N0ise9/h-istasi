@@ -71,6 +71,9 @@ The repository contains a broad-alpha campaign foundation:
   bubble, preserving survivor state while removing live runtime handles
 - Town influence event ledger with support, reputation, heat, population, and
   security-pressure deltas feeding political ownership flips and debug reports
+- Runtime vehicle heat/report state for undercover vehicle cover, with
+  passenger compromise counts, report expiry, save-data preservation, and
+  one-button debug proof
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
@@ -182,7 +185,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r46-spawn-placement-suite`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r50-undercover-vehicle-heat`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

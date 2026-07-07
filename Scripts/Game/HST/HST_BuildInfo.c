@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r49-town-influence-ledger";
-	static const string BUILD_UTC = "2026-07-07T14:10:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r49-town-influence-ledger";
+	static const string BUILD_SHA = "r50-undercover-vehicle-heat";
+	static const string BUILD_UTC = "2026-07-07T15:20:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r50-undercover-vehicle-heat";
 
 	static string BuildSummary()
 	{

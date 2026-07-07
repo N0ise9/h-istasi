@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `30`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `31`.
 
+- Schema 31 adds durable runtime vehicle heat/report fields so reported
+  civilian vehicles, passenger compromises, report expiry, and vehicle-cover
+  eligibility remain inspectable across saves.
 - Schema 30 adds durable town influence events plus town population and
   influence aggregate fields so aid, civilian casualties, security pressure,
   support-majority flips, and active/expired modifiers remain inspectable
@@ -49,6 +52,19 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 31
+
+Runtime vehicle heat and undercover vehicle-cover state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `31`.
+- `HST_RuntimeVehicleState` now persists whether a runtime vehicle is reported,
+  whether it can provide civilian undercover cover, its heat value, report
+  timestamps, last report reason/zone, and passenger compromise count.
+- Existing schema-30 and older saves backfill civilian-cover eligibility from
+  runtime vehicle faction, runtime kind, and civilian vehicle prefab hints.
+  Existing runtime vehicles start with no reported heat unless they were already
+  marked hot by newer state.
 
 ## Schema 30
 

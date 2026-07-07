@@ -709,6 +709,15 @@ class HST_CampaignSaveData
 		target.m_bAmmoSource = source.m_bAmmoSource;
 		target.m_bRepairSource = source.m_bRepairSource;
 		target.m_bFuelSource = source.m_bFuelSource;
+		target.m_bReported = source.m_bReported;
+		target.m_bCanProvideUndercover = source.m_bCanProvideUndercover;
+		target.m_iVehicleHeat = source.m_iVehicleHeat;
+		target.m_iLastReportedSecond = source.m_iLastReportedSecond;
+		target.m_iReportedUntilSecond = source.m_iReportedUntilSecond;
+		target.m_iLastVehicleHeatChangedSecond = source.m_iLastVehicleHeatChangedSecond;
+		target.m_iPassengerCompromiseCount = source.m_iPassengerCompromiseCount;
+		target.m_sLastReportedReason = source.m_sLastReportedReason;
+		target.m_sLastReporterZoneId = source.m_sLastReporterZoneId;
 		return target;
 	}
 
@@ -1454,6 +1463,21 @@ class HST_CampaignSaveData
 				HST_VehicleCapabilityPolicy.ApplyToRuntimeVehicle(vehicle);
 			else if (vehicle.m_sSourceVehicleKind.IsEmpty())
 				vehicle.m_sSourceVehicleKind = HST_VehicleCapabilityPolicy.ResolveSourceVehicleKindFromState(vehicle.m_sPrefab, vehicle.m_bAmmoSource, vehicle.m_bRepairSource, vehicle.m_bFuelSource);
+
+			if (restoredSchemaVersion < 31)
+				vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
+			if (vehicle.m_iVehicleHeat < 0)
+				vehicle.m_iVehicleHeat = 0;
+			if (vehicle.m_iPassengerCompromiseCount < 0)
+				vehicle.m_iPassengerCompromiseCount = 0;
+			if (vehicle.m_iLastVehicleHeatChangedSecond <= 0)
+				vehicle.m_iLastVehicleHeatChangedSecond = vehicle.m_iSpawnedAtSecond;
+			if (vehicle.m_bReported && vehicle.m_iVehicleHeat <= 0)
+				vehicle.m_iVehicleHeat = 1;
+			if (vehicle.m_bReported && vehicle.m_iLastReportedSecond <= 0)
+				vehicle.m_iLastReportedSecond = vehicle.m_iLastVehicleHeatChangedSecond;
+			if (vehicle.m_bReported && vehicle.m_sLastReportedReason.IsEmpty())
+				vehicle.m_sLastReportedReason = "legacy/backfilled";
 		}
 
 		foreach (HST_SupportRequestState request : m_aSupportRequests)
@@ -1600,6 +1624,21 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion < 23 && !undercover.m_bEnforcementEnabled)
 				undercover.m_bEnforcementEnabled = true;
 		}
+	}
+
+	protected bool RuntimeVehicleCanProvideCivilianUndercover(HST_RuntimeVehicleState vehicle)
+	{
+		if (!vehicle || vehicle.m_bDeleted)
+			return false;
+
+		if (vehicle.m_sFactionKey == "CIV")
+			return true;
+		if (vehicle.m_sRuntimeKind.Contains("CIVILIAN") || vehicle.m_sRuntimeKind.Contains("CIV"))
+			return true;
+		if (vehicle.m_sPrefab.Contains("CIV") || vehicle.m_sPrefab.Contains("S105") || vehicle.m_sPrefab.Contains("S1203"))
+			return true;
+
+		return false;
 	}
 
 	protected void MigrateRuntimeEntitiesToMissionAssets()

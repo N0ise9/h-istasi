@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r49-town-influence-ledger";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r50-undercover-vehicle-heat";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4764,6 +4764,129 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return actual;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugVehicleHeatCase()
+	{
+		HST_CampaignDebugCaseResult heatCase = CreateCampaignDebugCase("undercover_vehicle_heat.contract.runtime", "civilians", "undercover_vehicle_heat", "baseline");
+		bool servicesReady = m_State != null && m_Civilians != null;
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.prerequisite", "state and civilian service ready", string.Format("state %1 | civilians %2", m_State != null, m_Civilians != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "vehicle heat prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(heatCase);
+			return heatCase;
+		}
+
+		m_Civilians.EnsureCivilianZones(m_State);
+		string zoneId = SelectHQCivilianTownZoneId();
+		HST_CivilianZoneState town = m_State.FindCivilianZone(zoneId);
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		bool targetReady = town != null && zone != null && !zoneId.IsEmpty();
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.target", "existing civilian town selected for vehicle report proof", BuildCampaignDebugTownInfluenceActual(town, zone), CampaignDebugStatus(targetReady, "BLOCKED"), "vehicle heat target town missing");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(heatCase);
+			return heatCase;
+		}
+
+		int runtimeVehicleCountBefore = m_State.m_aRuntimeVehicles.Count();
+		int undercoverCountBefore = m_State.m_aUndercoverPlayers.Count();
+		int townHeatBefore = town.m_iWantedHeat;
+		int townIncidentSecondBefore = town.m_iLastIncidentSecond;
+		string townIncidentReasonBefore = town.m_sLastIncidentReason;
+		string townSecurityReasonBefore = town.m_sLastSecurityReason;
+
+		string vehicleRuntimeId = CAMPAIGN_DEBUG_PREFIX_ROOT + "vehicle_heat_" + string.Format("%1", m_State.m_iElapsedSeconds) + "_" + string.Format("%1", runtimeVehicleCountBefore);
+		string identityId = CAMPAIGN_DEBUG_PREFIX_ROOT + "vehicle_heat_identity_" + string.Format("%1", m_State.m_iElapsedSeconds);
+		HST_RuntimeVehicleState vehicle = new HST_RuntimeVehicleState();
+		vehicle.m_sVehicleRuntimeId = vehicleRuntimeId;
+		vehicle.m_sPrefab = CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB;
+		vehicle.m_sDisplayName = "Debug Civilian Vehicle";
+		vehicle.m_sFactionKey = "CIV";
+		vehicle.m_sZoneId = zoneId;
+		vehicle.m_sRuntimeKind = "CIV_VEHICLE";
+		vehicle.m_sSourceVehicleKind = "transport";
+		vehicle.m_vPosition = zone.m_vPosition;
+		vehicle.m_iSpawnedAtSecond = m_State.m_iElapsedSeconds;
+		vehicle.m_bCanProvideUndercover = true;
+		m_State.m_aRuntimeVehicles.Insert(vehicle);
+
+		string initialReason = m_Civilians.ResolveRuntimeVehicleUndercoverReason(m_State, vehicleRuntimeId);
+		string reportResult = m_Civilians.RegisterVehicleHeat(m_State, vehicleRuntimeId, zoneId, 4, 180, "debug roadblock vehicle report");
+		string hotReason = m_Civilians.ResolveRuntimeVehicleUndercoverReason(m_State, vehicleRuntimeId);
+		int reportedHeatBeforeClear = vehicle.m_iVehicleHeat;
+		int reportedUntilBeforeClear = vehicle.m_iReportedUntilSecond;
+		HST_CampaignSaveData hotSaveData = new HST_CampaignSaveData();
+		hotSaveData.Capture(m_State);
+		HST_CampaignState hotRestoredState = new HST_CampaignState();
+		hotSaveData.ApplyTo(hotRestoredState);
+		HST_RuntimeVehicleState restoredHotVehicle = hotRestoredState.FindRuntimeVehicle(vehicleRuntimeId);
+
+		string clearResult = m_Civilians.ClearVehicleHeat(m_State, vehicleRuntimeId, "debug clear vehicle report");
+		string clearReason = m_Civilians.ResolveRuntimeVehicleUndercoverReason(m_State, vehicleRuntimeId);
+
+		HST_PlayerUndercoverState undercover = m_Civilians.EnsurePlayer(m_State, identityId);
+		if (undercover)
+		{
+			undercover.m_bUndercoverRequested = true;
+			undercover.m_bUndercoverApplied = true;
+			undercover.m_bEnforcementEnabled = true;
+			undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
+			undercover.m_iWantedHeat = 0;
+			undercover.m_iCompromisedUntilSecond = 0;
+			undercover.m_sAppliedMode = "campaign_debug_vehicle_heat";
+			undercover.m_sLastZoneId = zoneId;
+		}
+
+		string exposureResult = m_Civilians.RegisterUndercoverVehicleExposure(m_State, identityId, zoneId, "debug hot vehicle passenger", vehicleRuntimeId);
+		HST_PlayerUndercoverState exposedUndercover = m_State.FindUndercoverPlayer(identityId);
+		string exposureReason = m_Civilians.ResolveRuntimeVehicleUndercoverReason(m_State, vehicleRuntimeId);
+		string heatReport = m_Civilians.BuildVehicleHeatReport(m_State, 4);
+		HST_CampaignSaveData exposureSaveData = new HST_CampaignSaveData();
+		exposureSaveData.Capture(m_State);
+		HST_CampaignState exposureRestoredState = new HST_CampaignState();
+		exposureSaveData.ApplyTo(exposureRestoredState);
+		HST_RuntimeVehicleState restoredExposureVehicle = exposureRestoredState.FindRuntimeVehicle(vehicleRuntimeId);
+		HST_PlayerUndercoverState restoredExposureUndercover = exposureRestoredState.FindUndercoverPlayer(identityId);
+
+		heatCase.m_aEvidence.Insert(ShortCampaignDebugLine(reportResult, 220));
+		heatCase.m_aEvidence.Insert(ShortCampaignDebugLine(exposureResult, 260));
+		heatCase.m_aEvidence.Insert(ShortCampaignDebugLine(heatReport, 320));
+		AddCampaignDebugMetric(heatCase, "vehicle_heat.runtime_before", string.Format("%1", runtimeVehicleCountBefore), "count");
+		AddCampaignDebugMetric(heatCase, "vehicle_heat.heat_after_report", string.Format("%1", vehicle.m_iVehicleHeat), "heat");
+		AddCampaignDebugMetric(heatCase, "vehicle_heat.passenger_compromises", string.Format("%1", vehicle.m_iPassengerCompromiseCount), "count");
+
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.seed_cover", "tracked civilian runtime vehicle starts eligible for vehicle cover", initialReason, CampaignDebugStatus(initialReason.Contains("OK") && vehicle.m_bCanProvideUndercover), "seeded runtime vehicle was not eligible for civilian vehicle cover", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.report_blocks_cover", "reported vehicle heat blocks undercover vehicle cover", BuildCampaignDebugRuntimeVehicleHeatActual(vehicle) + " | reason " + hotReason, CampaignDebugStatus(vehicle.m_bReported && vehicle.m_iVehicleHeat >= 4 && hotReason.Contains("BLOCK reported vehicle")), "reported vehicle did not block undercover cover", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.save_roundtrip_hot", "save-data roundtrip preserves reported vehicle heat", BuildCampaignDebugRuntimeVehicleHeatActual(restoredHotVehicle), CampaignDebugStatus(restoredHotVehicle && restoredHotVehicle.m_bReported && restoredHotVehicle.m_iVehicleHeat == reportedHeatBeforeClear && restoredHotVehicle.m_iReportedUntilSecond == reportedUntilBeforeClear), "reported vehicle heat did not survive save-data copy", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.clear_restores_cover", "clearing vehicle heat restores civilian vehicle cover eligibility", clearResult + " | " + clearReason, CampaignDebugStatus(vehicle.m_iVehicleHeat == 0 && !vehicle.m_bReported && clearReason.Contains("OK")), "cleared runtime vehicle still blocked undercover cover", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.passenger_reports_vehicle", "vehicle exposure marks the vehicle hot and records passenger compromise count", BuildCampaignDebugRuntimeVehicleHeatActual(vehicle) + " | reason " + exposureReason, CampaignDebugStatus(vehicle.m_iPassengerCompromiseCount >= 1 && vehicle.m_bReported && vehicle.m_iVehicleHeat >= 4 && exposureReason.Contains("BLOCK reported vehicle")), "passenger exposure did not report the runtime vehicle", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.exposure_compromises_player", "vehicle passenger exposure compromises the player's undercover state", BuildCampaignDebugUndercoverActual(exposedUndercover), CampaignDebugStatus(exposedUndercover && exposedUndercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED && exposedUndercover.m_sLastDetectionSource == "vehicle"), "vehicle exposure did not compromise undercover player state", identityId, "", zoneId);
+		bool exposureRoundTrip = restoredExposureVehicle && restoredExposureVehicle.m_bReported && restoredExposureVehicle.m_iVehicleHeat >= 4 && restoredExposureVehicle.m_iPassengerCompromiseCount >= 1 && restoredExposureUndercover && restoredExposureUndercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED;
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.save_roundtrip_exposure", "save-data roundtrip preserves reported vehicle plus compromised passenger state", BuildCampaignDebugRuntimeVehicleHeatActual(restoredExposureVehicle) + " | " + BuildCampaignDebugUndercoverActual(restoredExposureUndercover), CampaignDebugStatus(exposureRoundTrip), "vehicle passenger exposure state did not survive save-data copy", vehicleRuntimeId, "", zoneId);
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.report_surface", "vehicle heat report surfaces tracked hot vehicle and reason", ShortCampaignDebugLine(heatReport, 260), CampaignDebugStatus(heatReport.Contains(vehicleRuntimeId) && heatReport.Contains("debug hot vehicle passenger")), "vehicle heat report omitted the hot runtime vehicle", vehicleRuntimeId, "", zoneId);
+
+		town.m_iWantedHeat = townHeatBefore;
+		town.m_iLastIncidentSecond = townIncidentSecondBefore;
+		town.m_sLastIncidentReason = townIncidentReasonBefore;
+		town.m_sLastSecurityReason = townSecurityReasonBefore;
+		bool removedVehicle = RemoveCampaignDebugRuntimeVehicleById(vehicleRuntimeId);
+		bool removedUndercover = RemoveCampaignDebugUndercoverById(identityId);
+		bool cleaned = removedVehicle && removedUndercover && m_State.m_aRuntimeVehicles.Count() == runtimeVehicleCountBefore && m_State.m_aUndercoverPlayers.Count() == undercoverCountBefore;
+		AddCampaignDebugAssertion(heatCase, "vehicle_heat.cleanup", "debug runtime vehicle and probe identity are removed after proof", string.Format("vehicle removed %1 | undercover removed %2 | vehicles %3/%4 | undercover %5/%6", removedVehicle, removedUndercover, m_State.m_aRuntimeVehicles.Count(), runtimeVehicleCountBefore, m_State.m_aUndercoverPlayers.Count(), undercoverCountBefore), CampaignDebugStatus(cleaned), "vehicle heat proof leaked debug runtime state", vehicleRuntimeId, "", zoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(heatCase);
+		return heatCase;
+	}
+
+	protected string BuildCampaignDebugRuntimeVehicleHeatActual(HST_RuntimeVehicleState vehicle)
+	{
+		if (!vehicle)
+			return "missing";
+
+		string actual = string.Format("vehicle %1 | heat %2 | reported %3 | cover %4 | until %5", EmptyCampaignDebugField(vehicle.m_sVehicleRuntimeId), vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_bCanProvideUndercover, vehicle.m_iReportedUntilSecond);
+		actual = actual + string.Format(" | passengers %1 | zone %2 | reason %3", vehicle.m_iPassengerCompromiseCount, EmptyCampaignDebugField(vehicle.m_sLastReporterZoneId), EmptyCampaignDebugField(vehicle.m_sLastReportedReason));
+		return actual;
+	}
+
 	protected void AddCampaignDebugGameMasterBudgetAssertions(HST_CampaignDebugCaseResult preflightCase)
 	{
 		if (!preflightCase)
@@ -5210,8 +5333,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
 		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
+		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
 		if (m_Civilians)
+		{
 			RecordCampaignDebugObservation("town influence", m_Civilians.BuildTownInfluenceReport(m_State));
+			RecordCampaignDebugObservation("vehicle heat", m_Civilians.BuildVehicleHeatReport(m_State));
+		}
 		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
@@ -13858,6 +13985,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return false;
 	}
 
+	protected bool RemoveCampaignDebugUndercoverById(string identityId)
+	{
+		if (!m_State || identityId.IsEmpty())
+			return false;
+
+		for (int undercoverIndex = m_State.m_aUndercoverPlayers.Count() - 1; undercoverIndex >= 0; undercoverIndex--)
+		{
+			HST_PlayerUndercoverState undercover = m_State.m_aUndercoverPlayers[undercoverIndex];
+			if (!undercover || undercover.m_sIdentityId != identityId)
+				continue;
+
+			m_State.m_aUndercoverPlayers.Remove(undercoverIndex);
+			return true;
+		}
+
+		return false;
+	}
+
 	protected int RemoveCampaignDebugVehicleCargoForRuntime(string runtimeVehicleId)
 	{
 		if (!m_State || runtimeVehicleId.IsEmpty())
@@ -19716,8 +19861,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			undercover.m_bLastPoliceScanFailed = false;
 		}
 
+		foreach (HST_RuntimeVehicleState vehicle : m_State.m_aRuntimeVehicles)
+		{
+			if (vehicle)
+				m_Civilians.ClearVehicleHeat(m_State, vehicle.m_sVehicleRuntimeId, "phase21 heat cleared");
+		}
+
 		MarkMajorCampaignChange();
-		return "h-istasi phase 21 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State);
+		return "h-istasi phase 21 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State) + "\n" + m_Civilians.BuildVehicleHeatReport(m_State);
 	}
 
 	string RequestAdminPhase21Report(int playerId)
@@ -19731,6 +19882,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			report = report + "\n" + m_Civilians.BuildTownSupportReport(m_State, 12);
 			report = report + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
+			report = report + "\n" + m_Civilians.BuildVehicleHeatReport(m_State);
 
 			HST_UndercoverEnforcementResult enforcement = m_Civilians.EnforceUndercoverForPlayer(m_State, m_Preset, identityId, ResolveControlledPlayerEntity(playerId));
 			if (enforcement)

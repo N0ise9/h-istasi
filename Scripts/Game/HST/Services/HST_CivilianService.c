@@ -69,6 +69,8 @@ class HST_CivilianService
 	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 6;
 
 	static const int HEAT_DECAY_SECONDS = 300;
+	static const int VEHICLE_HEAT_DECAY_SECONDS = 300;
+	static const int VEHICLE_REPORT_DEFAULT_SECONDS = 300;
 	static const int UNDERCOVER_RECHECK_SECONDS = 20;
 	static const float PLAYER_USED_VEHICLE_DETACH_DISTANCE_METERS = 35.0;
 	static const float TOWN_VEHICLE_ROAD_SEARCH_RADIUS_METERS = 140.0;
@@ -166,6 +168,12 @@ class HST_CivilianService
 			}
 
 			changed = true;
+		}
+
+		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
+		{
+			if (TickRuntimeVehicleHeat(state, vehicle))
+				changed = true;
 		}
 
 		return RefreshTownInfluenceAggregates(state) || changed;
@@ -777,7 +785,7 @@ class HST_CivilianService
 		{
 			result.m_sClothingReason = ResolveClothingEligibilityReason(playerEntity);
 			result.m_sWeaponReason = ResolveWeaponEligibilityReason(playerEntity);
-			result.m_sVehicleReason = ResolveVehicleEligibilityReason(playerEntity);
+			result.m_sVehicleReason = ResolveVehicleEligibilityReason(state, playerEntity);
 			result.m_sOffroadReason = ResolveOffroadEligibilityReason(playerEntity);
 			result.m_sEnemyProximityReason = ResolveEnemyProximityReason(state, playerEntity);
 		}
@@ -1035,7 +1043,7 @@ class HST_CivilianService
 	}
 
 
-	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason)
+	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason, string vehicleRuntimeId = "")
 	{
 		if (!state || identityId.IsEmpty())
 			return "h-istasi undercover | failed: state or identity missing";
@@ -1044,10 +1052,152 @@ class HST_CivilianService
 		if (!undercover)
 			return "h-istasi undercover | failed: no undercover record";
 
+		string vehicleReport;
+		if (!vehicleRuntimeId.IsEmpty())
+			vehicleReport = RegisterVehiclePassengerCompromise(state, vehicleRuntimeId, identityId, zoneId, reason);
+
 		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
 		CompromiseUndercover(state, undercover, civilianZone, zoneId, reason, "vehicle", 90);
+		if (!vehicleReport.IsEmpty())
+			return "h-istasi undercover | compromised: " + reason + "\n" + vehicleReport;
+
 		return "h-istasi undercover | compromised: " + reason;
 	}
+
+	string RegisterVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string zoneId, int heatDelta, int durationSeconds, string reason, bool reported = true)
+	{
+		if (!state || vehicleRuntimeId.IsEmpty())
+			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
+
+		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!vehicle)
+			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
+
+		int oldHeat = vehicle.m_iVehicleHeat;
+		int appliedDelta = Math.Max(0, heatDelta);
+		vehicle.m_iVehicleHeat = Math.Max(0, Math.Min(10, vehicle.m_iVehicleHeat + appliedDelta));
+		vehicle.m_iLastVehicleHeatChangedSecond = state.m_iElapsedSeconds;
+		vehicle.m_sLastReportedReason = reason;
+		vehicle.m_sLastReporterZoneId = zoneId;
+		if (reported || vehicle.m_iVehicleHeat > 0)
+		{
+			vehicle.m_bReported = vehicle.m_iVehicleHeat > 0;
+			vehicle.m_iLastReportedSecond = state.m_iElapsedSeconds;
+			int reportDuration = durationSeconds;
+			if (reportDuration <= 0)
+				reportDuration = VEHICLE_REPORT_DEFAULT_SECONDS;
+			vehicle.m_iReportedUntilSecond = Math.Max(vehicle.m_iReportedUntilSecond, state.m_iElapsedSeconds + reportDuration);
+		}
+
+		if (vehicle.m_iVehicleHeat == 0)
+		{
+			vehicle.m_bReported = false;
+			vehicle.m_iReportedUntilSecond = 0;
+		}
+
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
+		if (civilianZone && vehicle.m_iVehicleHeat > 0)
+		{
+			civilianZone.m_iLastIncidentSecond = state.m_iElapsedSeconds;
+			civilianZone.m_sLastSecurityReason = "vehicle reported: " + reason;
+		}
+
+		string report = string.Format("h-istasi vehicle heat | %1 | heat %2 -> %3 | reported %4 | until %5", vehicleRuntimeId, oldHeat, vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_iReportedUntilSecond);
+		return report + string.Format(" | zone %1 | reason %2", EmptyRuntimeField(zoneId), EmptyRuntimeField(reason));
+	}
+
+	string RegisterVehiclePassengerCompromise(HST_CampaignState state, string vehicleRuntimeId, string identityId, string zoneId, string reason)
+	{
+		if (!state || vehicleRuntimeId.IsEmpty())
+			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
+
+		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!vehicle)
+			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
+
+		vehicle.m_iPassengerCompromiseCount = vehicle.m_iPassengerCompromiseCount + 1;
+		string report = RegisterVehicleHeat(state, vehicleRuntimeId, zoneId, 4, VEHICLE_REPORT_DEFAULT_SECONDS, reason, true);
+		return report + string.Format(" | passenger compromises %1 | identity %2", vehicle.m_iPassengerCompromiseCount, EmptyRuntimeField(identityId));
+	}
+
+	string ClearVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string reason = "cleared")
+	{
+		if (!state || vehicleRuntimeId.IsEmpty())
+			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
+
+		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!vehicle)
+			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
+
+		vehicle.m_iVehicleHeat = 0;
+		vehicle.m_bReported = false;
+		vehicle.m_iReportedUntilSecond = 0;
+		vehicle.m_iLastVehicleHeatChangedSecond = state.m_iElapsedSeconds;
+		vehicle.m_sLastReportedReason = reason;
+		return string.Format("h-istasi vehicle heat | %1 | cleared | reason %2", vehicleRuntimeId, EmptyRuntimeField(reason));
+	}
+
+	bool IsRuntimeVehicleReportedForUndercover(HST_CampaignState state, string vehicleRuntimeId)
+	{
+		if (!state || vehicleRuntimeId.IsEmpty())
+			return false;
+
+		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!vehicle || vehicle.m_bDeleted)
+			return false;
+
+		if (vehicle.m_iReportedUntilSecond > 0 && state.m_iElapsedSeconds >= vehicle.m_iReportedUntilSecond && vehicle.m_iVehicleHeat <= 0)
+			return false;
+
+		return vehicle.m_bReported || vehicle.m_iVehicleHeat > 0;
+	}
+
+	string ResolveRuntimeVehicleUndercoverReason(HST_CampaignState state, string vehicleRuntimeId)
+	{
+		if (vehicleRuntimeId.IsEmpty())
+			return "OK no runtime vehicle";
+		if (!state)
+			return "WARN runtime vehicle state unavailable";
+
+		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+		if (!vehicle)
+			return "WARN runtime vehicle not tracked";
+		if (vehicle.m_bDeleted)
+			return "BLOCK deleted runtime vehicle";
+		if (IsRuntimeVehicleReportedForUndercover(state, vehicleRuntimeId))
+			return string.Format("BLOCK reported vehicle heat %1 reason %2", vehicle.m_iVehicleHeat, EmptyRuntimeField(vehicle.m_sLastReportedReason));
+		if (!vehicle.m_bCanProvideUndercover)
+			return "BLOCK vehicle cannot provide civilian undercover";
+
+		return string.Format("OK runtime civilian vehicle heat %1", vehicle.m_iVehicleHeat);
+	}
+
+	string BuildVehicleHeatReport(HST_CampaignState state, int limit = 12)
+	{
+		if (!state)
+			return "h-istasi vehicle heat | state unavailable";
+
+		string report = string.Format("h-istasi vehicle heat | tracked %1", state.m_aRuntimeVehicles.Count());
+		int shown;
+		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
+		{
+			if (!vehicle)
+				continue;
+			if (!vehicle.m_bReported && vehicle.m_iVehicleHeat <= 0 && vehicle.m_iPassengerCompromiseCount <= 0)
+				continue;
+
+			report = report + string.Format("\n- %1 | heat %2 | reported %3 | until %4 | cover %5", EmptyRuntimeField(vehicle.m_sVehicleRuntimeId), vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_iReportedUntilSecond, vehicle.m_bCanProvideUndercover);
+			report = report + string.Format(" | zone %1 | passengers %2 | reason %3", EmptyRuntimeField(vehicle.m_sLastReporterZoneId), vehicle.m_iPassengerCompromiseCount, EmptyRuntimeField(vehicle.m_sLastReportedReason));
+			shown++;
+			if (shown >= limit)
+				break;
+		}
+
+		if (shown == 0)
+			report = report + "\n- none";
+		return report;
+	}
+
 	protected int BuildUndercoverDetectionScore(HST_CampaignState state, HST_PlayerUndercoverState undercover, HST_CivilianZoneState civilianZone, HST_UndercoverEligibilityResult eligibility, IEntity playerEntity, out string reason, out string source)
 	{
 		int score;
@@ -1154,6 +1304,9 @@ class HST_CivilianService
 			return true;
 
 		if (reason.Contains("military vehicle"))
+			return true;
+
+		if (eligibility && eligibility.m_sVehicleReason.Contains("BLOCK"))
 			return true;
 
 		if (eligibility && eligibility.m_sWantedHeatReason.Contains("BLOCK"))
@@ -1361,11 +1514,23 @@ class HST_CivilianService
 		return "OK no visible military weapon detected by Phase 20 heuristic";
 	}
 
-	protected string ResolveVehicleEligibilityReason(IEntity playerEntity)
+	protected string ResolveVehicleEligibilityReason(HST_CampaignState state, IEntity playerEntity)
 	{
 		IEntity vehicle = ResolveEntityVehicle(playerEntity);
 		if (!vehicle)
 			return "OK on foot";
+
+		string vehicleRuntimeId = ResolveRuntimeVehicleId(vehicle);
+		if (state && !vehicleRuntimeId.IsEmpty())
+		{
+			string runtimeReason = ResolveRuntimeVehicleUndercoverReason(state, vehicleRuntimeId);
+			if (runtimeReason.Contains("BLOCK"))
+				return runtimeReason;
+
+			HST_RuntimeVehicleState runtimeVehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
+			if (runtimeVehicle && runtimeVehicle.m_bCanProvideUndercover)
+				return runtimeReason;
+		}
 
 		string identity = ResolveEntityIdentity(vehicle);
 		if (identity.Contains("M998") || identity.Contains("M1025") || identity.Contains("UAZ") || identity.Contains("BTR") || identity.Contains("BMP") || identity.Contains("APC") || identity.Contains("PKM") || identity.Contains("Armed"))
@@ -2390,6 +2555,50 @@ class HST_CivilianService
 			factionComponent.SetAffiliatedFaction(null);
 	}
 
+	protected bool TickRuntimeVehicleHeat(HST_CampaignState state, HST_RuntimeVehicleState vehicle)
+	{
+		if (!state || !vehicle || vehicle.m_iVehicleHeat <= 0)
+			return false;
+
+		if (vehicle.m_iReportedUntilSecond > 0 && state.m_iElapsedSeconds >= vehicle.m_iReportedUntilSecond)
+		{
+			vehicle.m_iVehicleHeat = 0;
+			vehicle.m_bReported = false;
+			vehicle.m_iReportedUntilSecond = 0;
+			vehicle.m_iLastVehicleHeatChangedSecond = state.m_iElapsedSeconds;
+			vehicle.m_sLastReportedReason = "vehicle heat expired";
+			return true;
+		}
+
+		if (state.m_iElapsedSeconds < vehicle.m_iLastVehicleHeatChangedSecond + VEHICLE_HEAT_DECAY_SECONDS)
+			return false;
+
+		vehicle.m_iVehicleHeat = Math.Max(0, vehicle.m_iVehicleHeat - 1);
+		vehicle.m_iLastVehicleHeatChangedSecond = state.m_iElapsedSeconds;
+		if (vehicle.m_iVehicleHeat == 0)
+		{
+			vehicle.m_bReported = false;
+			vehicle.m_iReportedUntilSecond = 0;
+			vehicle.m_sLastReportedReason = "vehicle heat cooled";
+		}
+
+		return true;
+	}
+
+	protected bool RuntimeVehicleCanProvideCivilianUndercover(HST_RuntimeVehicleState vehicle)
+	{
+		if (!vehicle || vehicle.m_bDeleted)
+			return false;
+		if (vehicle.m_sFactionKey == CIVILIAN_FACTION_KEY)
+			return true;
+		if (vehicle.m_sRuntimeKind.Contains("CIVILIAN") || vehicle.m_sRuntimeKind.Contains("CIV"))
+			return true;
+		if (vehicle.m_sPrefab.Contains("CIV") || vehicle.m_sPrefab.Contains("S105") || vehicle.m_sPrefab.Contains("S1203"))
+			return true;
+
+		return false;
+	}
+
 	protected bool IsRuntimeVehicle(string runtimeKind)
 	{
 		return runtimeKind.Contains("VEHICLE");
@@ -2415,6 +2624,7 @@ class HST_CivilianService
 		vehicle.m_vPosition = position;
 		vehicle.m_vAngles = angles;
 		vehicle.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+		vehicle.m_bCanProvideUndercover = RuntimeVehicleCanProvideCivilianUndercover(vehicle);
 		state.m_aRuntimeVehicles.Insert(vehicle);
 	}
 
