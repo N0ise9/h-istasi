@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r52-garrison-save-roundtrip";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r53-garrison-foldback-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4614,6 +4614,143 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("order [%1] | support [%2] | group [%3]", orderActual, requestActual, groupActual);
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugGarrisonFoldbackCase()
+	{
+		HST_CampaignDebugCaseResult foldbackCase = CreateCampaignDebugCase("garrison.foldback.contract.runtime", "garrisons", "foldback", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_PhysicalWar != null && m_Garrisons != null;
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.prerequisite", "state, preset, physical war, and garrison services ready", string.Format("state %1 | preset %2 | physical %3 | garrisons %4", m_State != null, m_Preset != null, m_PhysicalWar != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "garrison fold-back prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(foldbackCase);
+			return foldbackCase;
+		}
+
+		HST_ZoneState targetZone = SelectCampaignDebugGarrisonZone();
+		string factionKey = ResolveCampaignDebugResistanceFactionKey();
+		bool targetReady = targetZone != null && !targetZone.m_sZoneId.IsEmpty() && !factionKey.IsEmpty();
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.target", "debug garrison zone and faction available", string.Format("zone %1 | faction %2", ResolveZoneLabel(targetZone), EmptyCampaignDebugField(factionKey)), CampaignDebugStatus(targetReady, "BLOCKED"), "garrison fold-back target zone or faction missing");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(foldbackCase);
+			return foldbackCase;
+		}
+
+		string zoneId = targetZone.m_sZoneId;
+		string groupId = ResolveCampaignDebugCleanupPrefix() + "_garrison_foldback_" + string.Format("%1_%2", m_State.m_iElapsedSeconds, m_State.m_aActiveGroups.Count());
+		int activeGroupCountBefore = m_State.m_aActiveGroups.Count();
+		HST_GarrisonState originalGarrison = m_State.FindGarrison(zoneId, factionKey);
+		bool hadOriginalGarrison = originalGarrison != null;
+		int originalInfantry = 0;
+		int originalVehicles = 0;
+		if (originalGarrison)
+		{
+			originalInfantry = originalGarrison.m_iInfantryCount;
+			originalVehicles = originalGarrison.m_iVehicleCount;
+		}
+
+		int survivorInfantry = 3;
+		int survivorVehicles = 1;
+		HST_ActiveGroupState seededGroup = new HST_ActiveGroupState();
+		seededGroup.m_sGroupId = groupId;
+		seededGroup.m_sZoneId = zoneId;
+		seededGroup.m_sFactionKey = factionKey;
+		seededGroup.m_sSpawnFallbackMode = "campaign_debug_garrison_foldback";
+		seededGroup.m_vPosition = targetZone.m_vPosition;
+		seededGroup.m_vSourcePosition = targetZone.m_vPosition;
+		seededGroup.m_vTargetPosition = targetZone.m_vPosition;
+		seededGroup.m_sRuntimeStatus = "support_arrived";
+		seededGroup.m_iInfantryCount = 4;
+		seededGroup.m_iVehicleCount = 1;
+		seededGroup.m_iLastSeenAliveCount = 4;
+		seededGroup.m_iSurvivorInfantryCount = survivorInfantry;
+		seededGroup.m_iSurvivorVehicleCount = survivorVehicles;
+		seededGroup.m_iSpawnedAgentCount = 4;
+		seededGroup.m_bQRF = true;
+		seededGroup.m_bSpawnAttempted = true;
+		seededGroup.m_bSpawnedEntity = false;
+		m_State.m_aActiveGroups.Insert(seededGroup);
+
+		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.groups_before", string.Format("%1", activeGroupCountBefore), "count");
+		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.infantry_before", string.Format("%1", originalInfantry), "infantry");
+		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.vehicles_before", string.Format("%1", originalVehicles), "vehicles");
+		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.survivor_infantry", string.Format("%1", survivorInfantry), "infantry");
+		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.survivor_vehicles", string.Format("%1", survivorVehicles), "vehicles");
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.active_group_seed", "debug active group carries explicit survivor counts before fold-back", BuildCampaignDebugActiveGroupActual(seededGroup) + string.Format(" | survivors %1/%2", seededGroup.m_iSurvivorInfantryCount, seededGroup.m_iSurvivorVehicleCount), CampaignDebugStatus(m_State.FindActiveGroup(groupId) != null && seededGroup.m_iSurvivorInfantryCount == survivorInfantry && seededGroup.m_iSurvivorVehicleCount == survivorVehicles), "debug active group was not seeded for fold-back", groupId, "", zoneId);
+
+		bool foldResult = m_PhysicalWar.FoldActiveSupportGroup(m_State, groupId);
+		HST_ActiveGroupState foldedGroup = m_State.FindActiveGroup(groupId);
+		HST_GarrisonState foldedGarrison = m_State.FindGarrison(zoneId, factionKey);
+		int expectedInfantry = originalInfantry + survivorInfantry;
+		int expectedVehicles = originalVehicles + survivorVehicles;
+		string foldActual = BuildCampaignDebugGarrisonFoldbackActual(foldedGarrison, foldedGroup, originalInfantry, originalVehicles, survivorInfantry, survivorVehicles, foldResult);
+		foldbackCase.m_aEvidence.Insert(foldActual);
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.fold_path", "public physical-war fold path accepts the active support group", foldActual, CampaignDebugStatus(foldResult && foldedGroup != null), "physical-war fold path did not accept the debug group", groupId, "", zoneId);
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.abstract_return", "fold-back returns surviving infantry and vehicles to the abstract garrison", BuildCampaignDebugGarrisonActual(foldedGarrison), CampaignDebugStatus(foldedGarrison && foldedGarrison.m_iInfantryCount == expectedInfantry && foldedGarrison.m_iVehicleCount == expectedVehicles), "fold-back did not return expected survivors to garrison", groupId, "", zoneId);
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.active_group_status", "folded active group records terminal folded status", BuildCampaignDebugActiveGroupActual(foldedGroup), CampaignDebugStatus(foldedGroup && foldedGroup.m_sRuntimeStatus == "folded" && foldedGroup.m_iSurvivorInfantryCount == survivorInfantry && foldedGroup.m_iSurvivorVehicleCount == survivorVehicles), "folded active group did not keep folded status and survivor counts", groupId, "", zoneId);
+
+		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
+		roundTripSaveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		roundTripSaveData.ApplyTo(restoredState);
+		HST_GarrisonState restoredGarrison = restoredState.FindGarrison(zoneId, factionKey);
+		HST_ActiveGroupState restoredGroup = restoredState.FindActiveGroup(groupId);
+		string roundTripActual = BuildCampaignDebugGarrisonFoldbackRoundTripActual(restoredGarrison, restoredGroup);
+		bool roundTripExpected = restoredGarrison && restoredGroup
+			&& restoredGarrison.m_iInfantryCount == expectedInfantry
+			&& restoredGarrison.m_iVehicleCount == expectedVehicles
+			&& restoredGroup.m_sRuntimeStatus == "folded"
+			&& restoredGroup.m_iSurvivorInfantryCount == survivorInfantry
+			&& restoredGroup.m_iSurvivorVehicleCount == survivorVehicles;
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.save_roundtrip", "save-data roundtrip preserves folded active group and returned garrison strength", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded active group or garrison return did not survive save-data copy", groupId, "", zoneId);
+
+		for (int groupIndex = m_State.m_aActiveGroups.Count() - 1; groupIndex >= 0; groupIndex--)
+		{
+			HST_ActiveGroupState activeGroup = m_State.m_aActiveGroups[groupIndex];
+			if (activeGroup && activeGroup.m_sGroupId == groupId)
+				m_State.m_aActiveGroups.Remove(groupIndex);
+		}
+
+		if (hadOriginalGarrison)
+		{
+			HST_GarrisonState cleanupGarrison = m_State.FindGarrison(zoneId, factionKey);
+			if (cleanupGarrison)
+			{
+				cleanupGarrison.m_iInfantryCount = originalInfantry;
+				cleanupGarrison.m_iVehicleCount = originalVehicles;
+			}
+		}
+		else
+		{
+			RemoveCampaignDebugGarrisonRecord(zoneId, factionKey);
+		}
+
+		HST_GarrisonState cleanupResultGarrison = m_State.FindGarrison(zoneId, factionKey);
+		bool cleanupExpected = m_State.FindActiveGroup(groupId) == null && m_State.m_aActiveGroups.Count() == activeGroupCountBefore;
+		if (hadOriginalGarrison)
+			cleanupExpected = cleanupExpected && cleanupResultGarrison && cleanupResultGarrison.m_iInfantryCount == originalInfantry && cleanupResultGarrison.m_iVehicleCount == originalVehicles;
+		else
+			cleanupExpected = cleanupExpected && cleanupResultGarrison == null;
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.cleanup", "debug active group is removed and original garrison counts are restored", BuildCampaignDebugGarrisonFoldbackCleanupActual(cleanupResultGarrison, activeGroupCountBefore, m_State.m_aActiveGroups.Count(), hadOriginalGarrison), CampaignDebugStatus(cleanupExpected), "garrison fold-back debug cleanup did not restore original state", groupId, "", zoneId);
+
+		FinalizeCampaignDebugCaseFromAssertions(foldbackCase);
+		return foldbackCase;
+	}
+
+	protected string BuildCampaignDebugGarrisonFoldbackActual(HST_GarrisonState garrison, HST_ActiveGroupState activeGroup, int beforeInfantry, int beforeVehicles, int survivorInfantry, int survivorVehicles, bool foldResult)
+	{
+		return string.Format("fold %1 | before %2/%3 | survivors %4/%5 | garrison [%6] | group [%7]", foldResult, beforeInfantry, beforeVehicles, survivorInfantry, survivorVehicles, BuildCampaignDebugGarrisonActual(garrison), BuildCampaignDebugActiveGroupActual(activeGroup));
+	}
+
+	protected string BuildCampaignDebugGarrisonFoldbackRoundTripActual(HST_GarrisonState garrison, HST_ActiveGroupState activeGroup)
+	{
+		return string.Format("garrison [%1] | group [%2]", BuildCampaignDebugGarrisonActual(garrison), BuildCampaignDebugActiveGroupActual(activeGroup));
+	}
+
+	protected string BuildCampaignDebugGarrisonFoldbackCleanupActual(HST_GarrisonState garrison, int groupsBefore, int groupsAfter, bool hadOriginalGarrison)
+	{
+		return string.Format("had original %1 | groups %2 -> %3 | garrison [%4]", hadOriginalGarrison, groupsBefore, groupsAfter, BuildCampaignDebugGarrisonActual(garrison));
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCase()
 	{
 		HST_CampaignDebugCaseResult influenceCase = CreateCampaignDebugCase("town_influence.ledger.runtime", "civilians", "town_influence", "baseline");
@@ -5342,6 +5479,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_EnemyDirector)
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
 		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());
+		RecordCampaignDebugCase(BuildCampaignDebugGarrisonFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugVehicleHeatCase());
 		if (m_Civilians)

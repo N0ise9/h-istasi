@@ -102,9 +102,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
     survivors when the target is no longer inside an active player/objective
     event bubble, delete the live runtime group handle, and keep the persistent
     group row terminal long enough for support and enemy-order synchronization.
+  - Fold-back should return only the active group's recorded survivor infantry
+    and vehicle counts to the abstract garrison, then preserve the folded group
+    row and returned garrison strength through save-data copy before any debug
+    cleanup restores the fixture state.
   - Current examples: `HST_SupportRequestService.FoldPhysicalSupportOutsideBubble()`,
-    `HST_PhysicalWarService.FoldActiveSupportGroup()`, and
-    `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
+    `HST_PhysicalWarService.FoldActiveSupportGroup()`,
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`,
+    and `HST_CampaignCoordinatorComponent.BuildCampaignDebugGarrisonFoldbackCase()`.
 
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
