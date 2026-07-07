@@ -748,10 +748,18 @@ class HST_PersistenceSmokeTestService
 		group.m_sPrefab = ResolveSmokeGroupPrefab(group.m_sFactionKey);
 		group.m_sRouteId = "";
 		group.m_sRuntimeStatus = phase;
+		group.m_sRuntimeEntityId = "";
+		group.m_sSpawnFallbackMode = "persistence_smoke_data";
+		group.m_sSpawnFailureReason = "";
 		group.m_vPosition = position;
 		group.m_vSourcePosition = position;
 		group.m_vTargetPosition = targetPosition;
 		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+		group.m_iMaxObservedCrewAlive = 0;
+		group.m_bEverHadLivingCrew = false;
+		group.m_bCrewPopulationTerminallyFailed = false;
+		group.m_sCrewPopulationFailureReason = "";
+		group.m_sConvoyRuntimeStage = "PERSISTENCE_SMOKE_DATA_ONLY";
 		return group;
 	}
 

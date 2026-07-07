@@ -30,6 +30,33 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The dark sprint overlay is `SCR_StaminaBlurEffect`, which drives `SuppressionVignette` and radial blur from the character `Exhaustion` signal. Suppress that effect with a modded class while infinite stamina is enabled instead of disabling unrelated damage/bleeding/drowning/poison/optic vignettes.
   - Current examples: `HST_CommandMenuRequestComponent.TickInfiniteStamina()` and `HST_StaminaBlurEffectPatch.c`.
 
+## AI Groups And Game Master
+
+- Use stock `SCR_AIGroup` population as the primary proof path for spawned squads.
+  - Working AI-heavy mods follow the vanilla pattern: spawn an `SCR_AIGroup` prefab, configure max members when needed, call `SpawnUnits()` if the group does not spawn immediately, and use `GetAgentsCount()`/agent removal events for lifecycle decisions.
+  - Direct character spawning plus manual attachment can be a recovery path, but it is not equivalent primary proof unless the attached characters become real `AIAgent` members of the displayed group.
+  - Current example: `HST_PhysicalWarService.TrySpawnActiveGroup()` uses the stock group prefab and native delayed population before any degraded recovery path.
+
+- A zero-agent group is only terminal after its delayed spawn queue is empty.
+  - AI-force logic in external reference mods uses group agent count plus delayed queue count for active/spawning accounting, and deletes an empty group only when both `GetAgentsCount()` and the queue count are zero.
+  - HST should make the same distinction: a stock group root with no current agents but `IsInitializing()` or a non-empty `GetSpawnQueueSize()` is still pending primary population, not an eliminated group.
+  - Current examples: `HST_PhysicalWarService.IsActiveGroupNativeDelayedPopulationActive()` and `UpdateRuntimeGroupSurvivors()`.
+
+- Game Master group Size comes from `SCR_EditableGroupComponent.GetSize()`, which delegates to `SCR_AIGroup.GetPlayerAndAgentCount()`.
+  - If a visible group card reports Size 0 while soldiers are alive, prove both sides: the server group must have living `AIAgent` members, and each controlled entity's editable component should be parented under the group editable component.
+  - `SCR_EditableGroupComponent.OnAgentAdded()` normally calls `SetParentEntity()` on each member; custom/manual population should reconcile that editable parent relationship and ensure the group has a living AI leader with `SetNewLeader()` if needed.
+  - Current examples: `HST_PhysicalWarService.ReconcileRuntimeGroupEditableMembership()` and `BuildEditableGroupRuntimeEvidence()`.
+
+- Non-deleting `SCR_AIGroup` roots need explicit terminal cleanup.
+  - HST keeps active group roots from auto-deleting while delayed native member population is pending. Once every controlled member is dead, the group root should be unregistered/deleted so Game Master does not retain an active Size 0 group icon.
+  - Delete the group root and HST runtime handles, but preserve dead character entities/corpses when they are not children of the group root.
+  - Current example: `HST_PhysicalWarService.CleanupTerminalActiveGroupRuntimeCrew()`.
+
+- Persistence smoke convoy rows are state-only restart sentinels.
+  - They should not trigger physical convoy crew repair, stock-slot population, or direct fallback, because that contaminates primary-spawn certification with fake smoke groups.
+  - Seed them with a non-fallback data-only mode and skip physical repair for smoke mission/group ids.
+  - Current examples: `HST_PersistenceSmokeTestService.EnsureSmokeActiveGroup()` and `HST_PhysicalWarService.CanAttemptMissionConvoyCrewPopulationRepair()`.
+
 ## UI Layouts
 
 - Top-level UI layouts should be created with the workspace as the parent when they are meant to exist above game/map UI:
@@ -826,6 +853,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Every zero-agent active-group log should include stock slot count, native queue size, raw/living agent count, `membersToSpawn`, and AIWorld limited/active budget counters. A fallback without these diagnostics hides the primary-method failure.
   - Before direct fallback, call `SCR_AIGroup.SpawnUnits()` once on the original pending group with `SetDeleteWhenEmpty(false)`, `SetMaxUnitsToSpawn(expectedInfantry)`, and zero member delay, then keep the normal retry window alive. This preserves the native prefab/member-slot path that convoy routes and combat waypoints need.
   - Disable empty-group deletion immediately after spawning a native active-group prefab and again when registering the pending-population callback. The July 5 dedicated-server convoy run showed `SCR_AIGroup` roots disappearing before the retry/fallback window, which leaves the logs stuck at `missing runtime group entity` and prevents convoy crews from ever seating.
+  - Because HST sets active `SCR_AIGroup` roots to non-deleting while delayed population is pending, terminal cleanup must explicitly unregister/delete the empty group root once the active group is eliminated or failed. Do not use broad entity deletion for this combat cleanup: preserve dead character entities/corpses, remove only the group root/runtime handles, and let the campaign state keep the terminal row for rewards, objectives, and reports.
+  - Persistence smoke convoy rows are state-only restart sentinels, not live convoy crew proof. They must not trigger physical convoy crew repair or direct-infantry fallback during normal runtime updates; refresh their spawn mode to a non-fallback data marker on seed so stale fallback metadata from an older save cannot poison primary-spawn certification.
   - If the native group root is already gone by the direct fallback attempt, create the direct faction-infantry replacement group anyway instead of skipping fallback. This keeps the final retry path able to prove a durable faction-correct `AIGroup` or fail with spawned-member evidence, rather than failing only because the original root deleted itself.
   - Direct faction-infantry fallback should spawn the HST-owned faction-specific empty group prefab, not raw `Group_Base.et`, for the same empty-root deletion reason. Use `HST_RuntimeEmptyGroup_US.et` for US, `HST_RuntimeEmptyGroup_USSR.et` for USSR, and only use the FIA root for FIA. The fallback still stamps the requested faction after spawning, so the prefab default is only a bootstrap value.
   - Captive-follow helper groups should use the same `HST_RuntimeEmptyGroup.et` non-deleting root before attaching the captive and stamping CIV. A raw empty `Group_Base.et` can disappear before `AddAgentFromControlledEntity()` verifies a durable follow group.

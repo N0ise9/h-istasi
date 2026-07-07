@@ -7319,6 +7319,7 @@ class HST_PhysicalWarService
 			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeGroupEntities.Insert(entity);
+		ReconcileRuntimeGroupEditableMembership(SCR_AIGroup.Cast(entity), activeGroup, "native immediate populated");
 		PrintActiveGroupSpawnEvidence(state, activeGroup, "spawned");
 		DebugLog(string.Format("spawned active group %1 using %2 (%3 agents)", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, agentCount));
 		return true;
@@ -7555,7 +7556,9 @@ class HST_PhysicalWarService
 		if (agentCount <= 0)
 			return false;
 
-		ApplyRuntimeGroupFaction(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId), activeGroup, source, true);
+		IEntity groupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		ApplyRuntimeGroupFaction(groupEntity, activeGroup, source, true);
+		ReconcileRuntimeGroupEditableMembership(SCR_AIGroup.Cast(groupEntity), activeGroup, source);
 		ClearPendingActiveGroupPopulation(activeGroup);
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
@@ -7950,7 +7953,165 @@ class HST_PhysicalWarService
 		if (faction)
 			factionKey = faction.GetFactionKey();
 
-		return string.Format("editableSize %1 editableFaction %2", editableGroup.GetSize(), ReportText(factionKey));
+		int editableMembers;
+		int parentedMembers;
+		int missingEditableMembers;
+		int missingControlledEntities;
+		array<AIAgent> agents = new array<AIAgent>;
+		group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity controlledEntity = agent.GetControlledEntity();
+			if (!controlledEntity)
+			{
+				missingControlledEntities++;
+				continue;
+			}
+
+			SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(controlledEntity);
+			if (!editableMember)
+			{
+				missingEditableMembers++;
+				continue;
+			}
+
+			editableMembers++;
+			if (editableMember.GetParentEntity() == editableGroup)
+				parentedMembers++;
+		}
+
+		return string.Format("editableSize %1 editableFaction %2 serverAgents %3 leader %4 editableParented %5/%6 editableMissing %7 missingControlled %8",
+			editableGroup.GetSize(),
+			ReportText(factionKey),
+			group.GetServerAgentsCount(),
+			ReportBool(group.GetLeaderAgent() != null),
+			parentedMembers,
+			editableMembers,
+			missingEditableMembers,
+			missingControlledEntities);
+	}
+
+	protected void ReconcileRuntimeGroupEditableMembership(SCR_AIGroup group, HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!group || !activeGroup)
+			return;
+
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
+		if (!editableGroup)
+		{
+			Print(string.Format("h-istasi | active group editable membership missing group component | group %1 | source %2 | visual %3", activeGroup.m_sGroupId, ReportText(source), ReportText(BuildRuntimeEntityVisualEvidence(group))), LogLevel.WARNING);
+			return;
+		}
+
+		int rawCount = group.GetAgentsCount();
+		int serverCount = group.GetServerAgentsCount();
+		int playerAndAgentCount = group.GetPlayerAndAgentCount();
+		int livingCount;
+		int editableCount;
+		int parentedBefore;
+		int parentedAfter;
+		int repairedParents;
+		int failedParents;
+		int missingEditable;
+		int missingControlled;
+		int deadControlled;
+		AIAgent firstLivingAgent;
+
+		array<AIAgent> agents = new array<AIAgent>;
+		group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			IEntity controlledEntity = agent.GetControlledEntity();
+			if (!controlledEntity)
+			{
+				missingControlled++;
+				continue;
+			}
+
+			if (IsLivingEntity(controlledEntity))
+			{
+				livingCount++;
+				if (!firstLivingAgent)
+					firstLivingAgent = agent;
+			}
+			else
+			{
+				deadControlled++;
+			}
+
+			SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(controlledEntity);
+			if (!editableMember)
+			{
+				missingEditable++;
+				continue;
+			}
+
+			editableCount++;
+			if (editableMember.GetParentEntity() == editableGroup)
+			{
+				parentedBefore++;
+				parentedAfter++;
+				continue;
+			}
+
+			editableMember.SetParentEntity(editableGroup);
+			if (editableMember.GetParentEntity() == editableGroup)
+			{
+				repairedParents++;
+				parentedAfter++;
+			}
+			else
+			{
+				failedParents++;
+			}
+		}
+
+		bool leaderChanged;
+		AIAgent currentLeader = group.GetLeaderAgent();
+		bool leaderLiving;
+		if (currentLeader && IsLivingEntity(currentLeader.GetControlledEntity()))
+			leaderLiving = true;
+		if (firstLivingAgent && !leaderLiving)
+		{
+			group.SetNewLeader(firstLivingAgent);
+			leaderChanged = true;
+		}
+
+		bool suspicious = editableGroup.GetSize() != playerAndAgentCount || playerAndAgentCount <= 0 || parentedAfter < editableCount || repairedParents > 0 || failedParents > 0 || missingEditable > 0 || missingControlled > 0 || leaderChanged;
+		if (suspicious)
+		{
+			string report = string.Format("h-istasi | active group editable membership reconciled | group %1 | source %2 | raw %3 server %4 playerAgents %5 living %6 | editableSize %7",
+				activeGroup.m_sGroupId,
+				ReportText(source),
+				rawCount,
+				serverCount,
+				playerAndAgentCount,
+				livingCount,
+				editableGroup.GetSize());
+			report = report + string.Format(" | parented %1 -> %2/%3 repaired %4 failed %5 | missingEditable %6 missingControlled %7 deadControlled %8",
+				parentedBefore,
+				parentedAfter,
+				editableCount,
+				repairedParents,
+				failedParents,
+				missingEditable,
+				missingControlled,
+				deadControlled);
+			report = report + string.Format(" | leaderChanged %1 | visual %2",
+				ReportBool(leaderChanged),
+				ReportText(BuildRuntimeEntityVisualEvidence(group)));
+			Print(report);
+		}
+		else
+		{
+			DebugLog(string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
+		}
 	}
 
 	protected bool TryPopulatePendingActiveGroupFromNativeSlots(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
@@ -8695,6 +8856,8 @@ class HST_PhysicalWarService
 			return false;
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
+		if (IsPersistenceSmokeMission(mission) || IsPersistenceSmokeActiveGroup(activeGroup))
+			return false;
 		if (!IsMissionConvoyGroupForMission(activeGroup, mission))
 			return false;
 		if (IsTerminalMissionConvoyPhase(mission) || mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
@@ -8713,6 +8876,37 @@ class HST_PhysicalWarService
 		return activeGroup.m_bSpawnAttempted || activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "spawn_pending_agents";
 	}
 
+	protected bool TryQueuePrimaryActiveGroupRespawnForRepair(HST_ActiveGroupState activeGroup, HST_CampaignState state, string requestedStatus, string source)
+	{
+		if (!activeGroup || activeGroup.m_iInfantryCount <= 0)
+			return false;
+
+		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		if (SCR_AIGroup.Cast(crewEntity))
+			return false;
+		if (crewEntity)
+			UnregisterRuntimeCrewHandlesForRespawn(activeGroup.m_sGroupId, source);
+
+		activeGroup.m_bSpawnAttempted = false;
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_sRuntimeStatus = requestedStatus;
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_sSpawnFailureReason = "Queued primary stock group respawn via " + source + ".";
+
+		if (!TrySpawnActiveGroup(activeGroup, state))
+			return false;
+
+		int liveCrew = CountAliveRuntimeCrewAgents(activeGroup);
+		if (liveCrew > 0)
+			RecordConvoyCrewObservedAlive(activeGroup, liveCrew);
+
+		Print(string.Format("h-istasi | active group repair queued primary stock group %1 | status %2 | live %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sRuntimeStatus, liveCrew, source));
+		return true;
+	}
+
 	protected bool TryRepairMissionConvoyCrewPopulation(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, string source)
 	{
 		if (!CanAttemptMissionConvoyCrewPopulationRepair(state, mission, activeGroup))
@@ -8722,6 +8916,26 @@ class HST_PhysicalWarService
 		string previousMode = activeGroup.m_sSpawnFallbackMode;
 		string previousReason = activeGroup.m_sSpawnFailureReason;
 		string previousStage = activeGroup.m_sConvoyRuntimeStage;
+
+		activeGroup.m_sRuntimeStatus = "spawn_pending_agents";
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_sSpawnFallbackMode = "convoy_crew_population_repair";
+		activeGroup.m_sSpawnFailureReason = "Convoy crew became unobserved before explicit contact; forcing stock group member-slot population via " + source + ".";
+		activeGroup.m_sConvoyRuntimeStage = "CREW_REPAIR";
+
+		if (TryQueuePrimaryActiveGroupRespawnForRepair(activeGroup, state, ResolveMissionConvoyRuntimeStatus(mission), source + " convoy crew repair"))
+		{
+			activeGroup.m_bCrewPopulationTerminallyFailed = false;
+			activeGroup.m_sCrewPopulationFailureReason = "";
+			if (CountAliveRuntimeCrewAgents(activeGroup) > 0)
+				Print(string.Format("h-istasi mission convoy | repaired zero-live crew group %1 with primary stock %2 group via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			else
+				Print(string.Format("h-istasi mission convoy | queued primary stock crew group repair %1 expected %2 via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			return true;
+		}
 
 		activeGroup.m_sRuntimeStatus = "spawn_pending_agents";
 		activeGroup.m_bSpawnedEntity = false;
@@ -9511,6 +9725,107 @@ class HST_PhysicalWarService
 		return activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == MISSION_CONVOY_ELIMINATED || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed";
 	}
 
+	protected bool IsPersistenceSmokeActiveGroup(HST_ActiveGroupState activeGroup)
+	{
+		return activeGroup && activeGroup.m_sGroupId.Contains(PERSISTENCE_SMOKE_PREFIX);
+	}
+
+	protected bool CleanupTerminalActiveGroupRuntimeCrew(HST_ActiveGroupState activeGroup, string source)
+	{
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || !IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+
+		int removedHandles;
+		int deletedGroupRoots;
+		int deletedLivingMembers;
+		int preservedDeadMembers;
+		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId)
+				continue;
+
+			IEntity entity;
+			if (i < m_aRuntimeGroupEntities.Count())
+				entity = m_aRuntimeGroupEntities[i];
+
+			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+			if (group)
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+				deletedGroupRoots++;
+			}
+			else if (entity && IsLivingEntity(entity))
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+				deletedLivingMembers++;
+			}
+			else if (entity)
+			{
+				preservedDeadMembers++;
+			}
+
+			if (i < m_aRuntimeGroupEntities.Count())
+				m_aRuntimeGroupEntities.Remove(i);
+			m_aRuntimeGroupIds.Remove(i);
+			removedHandles++;
+		}
+
+		if (removedHandles <= 0)
+			return false;
+
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		DebugLog(string.Format("active group terminal crew cleanup %1 | status %2 | removed handles %3 | deleted roots %4 | deleted living %5 | preserved dead %6 | source %7", activeGroup.m_sGroupId, activeGroup.m_sRuntimeStatus, removedHandles, deletedGroupRoots, deletedLivingMembers, preservedDeadMembers, source));
+		return true;
+	}
+
+	protected int UnregisterRuntimeCrewHandlesForRespawn(string groupId, string source)
+	{
+		if (groupId.IsEmpty())
+			return 0;
+
+		int removedHandles;
+		int deletedGroupRoots;
+		int deletedLivingMembers;
+		int preservedDeadMembers;
+		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId)
+				continue;
+
+			IEntity entity;
+			if (i < m_aRuntimeGroupEntities.Count())
+				entity = m_aRuntimeGroupEntities[i];
+
+			SCR_AIGroup group = SCR_AIGroup.Cast(entity);
+			if (group)
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+				deletedGroupRoots++;
+			}
+			else if (entity && IsLivingEntity(entity))
+			{
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+				deletedLivingMembers++;
+			}
+			else if (entity)
+			{
+				preservedDeadMembers++;
+			}
+
+			if (i < m_aRuntimeGroupEntities.Count())
+				m_aRuntimeGroupEntities.Remove(i);
+			m_aRuntimeGroupIds.Remove(i);
+			removedHandles++;
+		}
+
+		if (removedHandles > 0)
+			DebugLog(string.Format("active group respawn crew handle cleanup %1 | removed handles %2 | deleted roots %3 | deleted living %4 | preserved dead %5 | source %6", groupId, removedHandles, deletedGroupRoots, deletedLivingMembers, preservedDeadMembers, source));
+		return removedHandles;
+	}
+
 	protected void EnsureRuntimeGroupEntities(HST_CampaignState state, HST_CampaignPreset preset = null)
 	{
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
@@ -9525,13 +9840,21 @@ class HST_PhysicalWarService
 				HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
 				HST_MissionAssetState asset = FindMissionConvoyAssetForGroup(state, mission, activeGroup);
 				if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+				{
+					CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "ensure runtime");
 					continue;
+				}
 				if (mission && asset && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
 					TrySpawnMissionConvoyGroup(state, preset, mission, asset, activeGroup, ResolveMissionConvoyGroupIndex(mission, activeGroup.m_sGroupId));
 				continue;
 			}
 
-			if (IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+			if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			{
+				CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "ensure runtime");
+				continue;
+			}
+			if (HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 				continue;
 
 			if (activeGroup.m_iVehicleCount > 0 && activeGroup.m_iInfantryCount <= 0)
@@ -9608,6 +9931,11 @@ class HST_PhysicalWarService
 				RecordConvoyCrewObservedAlive(activeGroup, aliveCount);
 			if (missionConvoyGroup && aliveCount <= 0 && IsConvoyCrewControlPending(state, activeGroup))
 				continue;
+			if (aliveCount <= 0 && IsActiveGroupNativeDelayedPopulationActive(activeGroup))
+			{
+				DebugLog(string.Format("active group survivor update waiting for native delayed population %1 | zone %2 | status %3 | visual %4", activeGroup.m_sGroupId, activeGroup.m_sZoneId, activeGroup.m_sRuntimeStatus, BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)));
+				continue;
+			}
 			if (missionConvoyGroup && aliveCount <= 0 && activeGroup.m_iSpawnedAgentCount <= 0 && ResolveMissionConvoyRestorableCrewCount(state, activeGroup) > 0)
 				continue;
 			if (aliveCount <= 0 && IsActiveGroupLiveCountGraceActive(state, activeGroup))
@@ -9661,6 +9989,7 @@ class HST_PhysicalWarService
 					activeGroup.m_sRuntimeStatus = MISSION_CONVOY_ELIMINATED;
 				else
 					activeGroup.m_sRuntimeStatus = "eliminated";
+				CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "survivor update");
 				if (activeGroup.m_bQRF)
 					m_bMarkerRefreshNeeded = true;
 			}
