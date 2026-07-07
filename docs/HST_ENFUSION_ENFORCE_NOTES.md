@@ -59,6 +59,25 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Active force rows need durable source ownership and baseline force counts.
+  - Live manpower is mutable: groups can be queued, spawned, damaged, folded,
+    deleted, or represented abstractly while the owning gameplay source still
+    needs to resolve cleanup, refunds, garrison return, and mission/support
+    status.
+  - Store the source id on the active group when it is created: mission
+    instance, support request, garrison zone, or QRF instance. Also store the
+    original infantry and vehicle counts separately from survivor/current
+    counts so fold-back and debug evidence can distinguish planned force size
+    from remaining force size.
+  - Migration should backfill original counts from current counts and recover
+    source links from existing support requests, QRF rows, mission group ids,
+    or zone id as a garrison fallback.
+  - Current examples:
+    `HST_SupportRequestService.ApplyActiveSupport()`,
+    `HST_PhysicalWarService.CreateActiveGroup()`,
+    `HST_CampaignSaveData.NormalizeActiveGroupSourceLinks()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
+
 - Mission completion rewards and failure penalties should be proved through the
   coordinator wrappers, not by directly setting mission status.
   - `CompleteMission()` does more than call `HST_MissionService.Complete()`: it

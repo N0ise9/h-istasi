@@ -552,6 +552,10 @@ class HST_CampaignSaveData
 		target.m_sGroupId = source.m_sGroupId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_sGarrisonZoneId = source.m_sGarrisonZoneId;
+		target.m_sQRFInstanceId = source.m_sQRFInstanceId;
 		target.m_sPrefab = source.m_sPrefab;
 		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
 		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
@@ -567,6 +571,8 @@ class HST_CampaignSaveData
 		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
 		target.m_iInfantryCount = source.m_iInfantryCount;
 		target.m_iVehicleCount = source.m_iVehicleCount;
+		target.m_iOriginalInfantryCount = source.m_iOriginalInfantryCount;
+		target.m_iOriginalVehicleCount = source.m_iOriginalVehicleCount;
 		target.m_iCompositionCost = source.m_iCompositionCost;
 		target.m_iCompositionManpower = source.m_iCompositionManpower;
 		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
@@ -1428,6 +1434,10 @@ class HST_CampaignSaveData
 				group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
 			if (group.m_iSurvivorVehicleCount <= 0)
 				group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
+			if (group.m_iOriginalInfantryCount <= 0)
+				group.m_iOriginalInfantryCount = group.m_iInfantryCount;
+			if (group.m_iOriginalVehicleCount <= 0)
+				group.m_iOriginalVehicleCount = group.m_iVehicleCount;
 			if (group.m_iAssignedWaypointCount <= 0 && group.m_sSpawnFallbackMode == "convoy_waypoints")
 				group.m_iAssignedWaypointCount = ResolveGeneratedRouteWaypointCount(FindGeneratedRouteForMigration(group.m_sRouteId));
 		}
@@ -1544,6 +1554,8 @@ class HST_CampaignSaveData
 			if (!order.m_sSupportRequestId.IsEmpty())
 				order.m_bPhysicalized = true;
 		}
+		NormalizeActiveGroupSourceLinks();
+
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
 		{
 			if (!civilianZone)
@@ -1626,6 +1638,80 @@ class HST_CampaignSaveData
 			if (restoredSchemaVersion < 23 && !undercover.m_bEnforcementEnabled)
 				undercover.m_bEnforcementEnabled = true;
 		}
+	}
+
+	protected void NormalizeActiveGroupSourceLinks()
+	{
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+
+			if (group.m_iOriginalInfantryCount <= 0)
+				group.m_iOriginalInfantryCount = group.m_iInfantryCount;
+			if (group.m_iOriginalVehicleCount <= 0)
+				group.m_iOriginalVehicleCount = group.m_iVehicleCount;
+		}
+
+		foreach (HST_SupportRequestState request : m_aSupportRequests)
+		{
+			if (!request || request.m_sGroupId.IsEmpty())
+				continue;
+
+			HST_ActiveGroupState group = FindActiveGroupForMigration(request.m_sGroupId);
+			if (group)
+				group.m_sSupportRequestId = request.m_sRequestId;
+		}
+
+		foreach (HST_QRFState qrf : m_aQRFs)
+		{
+			if (!qrf || qrf.m_sGroupId.IsEmpty())
+				continue;
+
+			HST_ActiveGroupState group = FindActiveGroupForMigration(qrf.m_sGroupId);
+			if (group)
+				group.m_sQRFInstanceId = qrf.m_sInstanceId;
+		}
+
+		foreach (HST_ActiveMissionState mission : m_aActiveMissions)
+		{
+			if (!mission || mission.m_sInstanceId.IsEmpty())
+				continue;
+
+			string guardGroupId = "mission_group_" + mission.m_sInstanceId;
+			string convoyGroupToken = "mission_convoy_" + mission.m_sInstanceId + "_";
+			foreach (HST_ActiveGroupState group : m_aActiveGroups)
+			{
+				if (!group)
+					continue;
+				if (group.m_sGroupId == guardGroupId || group.m_sGroupId.Contains(convoyGroupToken))
+					group.m_sMissionInstanceId = mission.m_sInstanceId;
+			}
+		}
+
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (!group || group.m_sZoneId.IsEmpty())
+				continue;
+			if (!group.m_sSupportRequestId.IsEmpty() || !group.m_sMissionInstanceId.IsEmpty() || !group.m_sQRFInstanceId.IsEmpty())
+				continue;
+			if (group.m_sGarrisonZoneId.IsEmpty())
+				group.m_sGarrisonZoneId = group.m_sZoneId;
+		}
+	}
+
+	protected HST_ActiveGroupState FindActiveGroupForMigration(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return null;
+
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (group && group.m_sGroupId == groupId)
+				return group;
+		}
+
+		return null;
 	}
 
 	protected bool RuntimeVehicleCanProvideCivilianUndercover(HST_RuntimeVehicleState vehicle)

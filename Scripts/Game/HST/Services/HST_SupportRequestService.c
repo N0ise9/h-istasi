@@ -632,6 +632,7 @@ class HST_SupportRequestService
 		group.m_sGroupId = string.Format("support_%1", request.m_sRequestId);
 		group.m_sZoneId = request.m_sTargetZoneId;
 		group.m_sFactionKey = request.m_sFactionKey;
+		group.m_sSupportRequestId = request.m_sRequestId;
 		group.m_sPrefab = prefab;
 		m_ForceCompositions.ApplyCompositionToActiveGroup(group, composition);
 		group.m_sSpawnFallbackMode = "support";
@@ -646,6 +647,8 @@ class HST_SupportRequestService
 			group.m_sRuntimeStatus = "support_active";
 		group.m_iInfantryCount = Math.Max(1, groupPlan.m_iManpower);
 		group.m_iVehicleCount = 0;
+		group.m_iOriginalInfantryCount = group.m_iInfantryCount;
+		group.m_iOriginalVehicleCount = group.m_iVehicleCount;
 		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 		group.m_iLastSeenAliveCount = 0;
 		group.m_iSurvivorInfantryCount = group.m_iInfantryCount;

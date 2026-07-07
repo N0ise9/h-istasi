@@ -6455,6 +6455,7 @@ class HST_MissionRuntimeService
 		group.m_sGroupId = groupId;
 		group.m_sZoneId = zone.m_sZoneId;
 		group.m_sFactionKey = factionKey;
+		group.m_sMissionInstanceId = mission.m_sInstanceId;
 		if (composition)
 			m_ForceCompositions.ApplyCompositionToActiveGroup(group, composition);
 		if (composition && composition.m_bSuccess && groupPlan)
@@ -6474,6 +6475,8 @@ class HST_MissionRuntimeService
 			group.m_iVehicleCount = composition.m_iVehicleCount;
 		else
 			group.m_iVehicleCount = ResolveMissionGuardVehicleCount(definition);
+		group.m_iOriginalInfantryCount = group.m_iInfantryCount;
+		group.m_iOriginalVehicleCount = group.m_iVehicleCount;
 		group.m_iLastSeenAliveCount = group.m_iInfantryCount + group.m_iVehicleCount;
 		group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
 		group.m_iSurvivorVehicleCount = group.m_iVehicleCount;

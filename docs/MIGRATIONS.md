@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `32`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `33`.
 
+- Schema 33 adds durable active-group source-link fields and original force
+  count fields so support, mission, QRF, and garrison active groups can be
+  traced through fold-back, cleanup, refunds, and save-data roundtrips.
 - Schema 32 extends durable vehicle heat/report fields to garage vehicles so
   reported vehicle cover state survives capture, virtual storage, redeploy, and
   save-data roundtrips.
@@ -55,6 +58,18 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 33
+
+Active group source links and baseline force counts.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `33`.
+- `HST_ActiveGroupState` now persists source identifiers for mission, support
+  request, garrison zone, and QRF ownership, plus original infantry and vehicle
+  counts.
+- Migration backfills missing original counts from current active-group counts
+  and links existing groups from support requests, QRF records, active mission
+  guard/convoy group ids, or their zone id as a garrison-source fallback.
 
 ## Schema 32
 

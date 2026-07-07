@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r55-mission-failure-proof";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r56-active-group-source-links";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4280,6 +4280,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		group.m_sRuntimeStatus = "folded";
 		group.m_iInfantryCount = 6;
 		group.m_iVehicleCount = 1;
+		group.m_iOriginalInfantryCount = group.m_iInfantryCount;
+		group.m_iOriginalVehicleCount = group.m_iVehicleCount;
 		group.m_iSurvivorInfantryCount = 2;
 		group.m_iSurvivorVehicleCount = 1;
 		return group;
@@ -4452,6 +4454,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_created", "enemy QRF order queues through commander", BuildCampaignDebugEnemyOrderSpendActual(order), CampaignDebugStatus(order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF), "physical response debug order was not created");
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.support_created", "enemy order physicalizes into a linked support request", BuildCampaignDebugSupportRequestActual(request), CampaignDebugStatus(order && request && order.m_bPhysicalized && order.m_sSupportRequestId == request.m_sRequestId), "enemy order did not physicalize into support");
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_created", "support request physicalizes into a linked active group", BuildCampaignDebugActiveGroupActual(group), CampaignDebugStatus(request && group && request.m_bPhysicalized && request.m_sGroupId == group.m_sGroupId), "support request did not create active group");
+		bool sourceLinkExpected = request && group && group.m_sSupportRequestId == request.m_sRequestId && group.m_iOriginalInfantryCount == group.m_iInfantryCount && group.m_iOriginalVehicleCount == group.m_iVehicleCount;
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_source_link", "active support group stores durable source request linkage and original force counts", BuildCampaignDebugActiveGroupActual(group), CampaignDebugStatus(sourceLinkExpected), "physical support group did not record source linkage/original force counts", "", "", targetZone.m_sZoneId);
 		string positionActual = "missing";
 		bool positionExpected = false;
 		if (group)
@@ -4472,7 +4476,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool orderExpected = order && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_sRuntimeStatus == "resolved_group_folded" && order.m_bResourceRefundApplied;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_resolution", "folded physical group resolves linked enemy order and applies survivor refund once", orderActual, CampaignDebugStatus(orderExpected), "folded support group did not resolve linked enemy order/refund");
 		string roundTripActual = BuildCampaignDebugPhysicalResponseRoundTripActual(restoredOrder, restoredRequest, restoredGroup);
-		bool roundTripExpected = restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded";
+		bool roundTripExpected = restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
 
 		pool.m_iAttackResources = attackBefore;
@@ -4654,6 +4658,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		seededGroup.m_sGroupId = groupId;
 		seededGroup.m_sZoneId = zoneId;
 		seededGroup.m_sFactionKey = factionKey;
+		seededGroup.m_sGarrisonZoneId = zoneId;
 		seededGroup.m_sSpawnFallbackMode = "campaign_debug_garrison_foldback";
 		seededGroup.m_vPosition = targetZone.m_vPosition;
 		seededGroup.m_vSourcePosition = targetZone.m_vPosition;
@@ -4661,6 +4666,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		seededGroup.m_sRuntimeStatus = "support_arrived";
 		seededGroup.m_iInfantryCount = 4;
 		seededGroup.m_iVehicleCount = 1;
+		seededGroup.m_iOriginalInfantryCount = seededGroup.m_iInfantryCount;
+		seededGroup.m_iOriginalVehicleCount = seededGroup.m_iVehicleCount;
 		seededGroup.m_iLastSeenAliveCount = 4;
 		seededGroup.m_iSurvivorInfantryCount = survivorInfantry;
 		seededGroup.m_iSurvivorVehicleCount = survivorVehicles;
@@ -4675,7 +4682,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.vehicles_before", string.Format("%1", originalVehicles), "vehicles");
 		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.survivor_infantry", string.Format("%1", survivorInfantry), "infantry");
 		AddCampaignDebugMetric(foldbackCase, "garrison_foldback.survivor_vehicles", string.Format("%1", survivorVehicles), "vehicles");
-		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.active_group_seed", "debug active group carries explicit survivor counts before fold-back", BuildCampaignDebugActiveGroupActual(seededGroup) + string.Format(" | survivors %1/%2", seededGroup.m_iSurvivorInfantryCount, seededGroup.m_iSurvivorVehicleCount), CampaignDebugStatus(m_State.FindActiveGroup(groupId) != null && seededGroup.m_iSurvivorInfantryCount == survivorInfantry && seededGroup.m_iSurvivorVehicleCount == survivorVehicles), "debug active group was not seeded for fold-back", groupId, "", zoneId);
+		bool seedExpected = m_State.FindActiveGroup(groupId) != null
+			&& seededGroup.m_sGarrisonZoneId == zoneId
+			&& seededGroup.m_iOriginalInfantryCount == seededGroup.m_iInfantryCount
+			&& seededGroup.m_iOriginalVehicleCount == seededGroup.m_iVehicleCount
+			&& seededGroup.m_iSurvivorInfantryCount == survivorInfantry
+			&& seededGroup.m_iSurvivorVehicleCount == survivorVehicles;
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.active_group_seed", "debug active group carries durable garrison source, original force counts, and explicit survivor counts before fold-back", BuildCampaignDebugActiveGroupActual(seededGroup) + string.Format(" | survivors %1/%2", seededGroup.m_iSurvivorInfantryCount, seededGroup.m_iSurvivorVehicleCount), CampaignDebugStatus(seedExpected), "debug active group was not seeded for fold-back", groupId, "", zoneId);
 
 		bool foldResult = m_PhysicalWar.FoldActiveSupportGroup(m_State, groupId);
 		HST_ActiveGroupState foldedGroup = m_State.FindActiveGroup(groupId);
@@ -4699,9 +4712,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& restoredGarrison.m_iInfantryCount == expectedInfantry
 			&& restoredGarrison.m_iVehicleCount == expectedVehicles
 			&& restoredGroup.m_sRuntimeStatus == "folded"
+			&& restoredGroup.m_sGarrisonZoneId == zoneId
+			&& restoredGroup.m_iOriginalInfantryCount == seededGroup.m_iOriginalInfantryCount
+			&& restoredGroup.m_iOriginalVehicleCount == seededGroup.m_iOriginalVehicleCount
 			&& restoredGroup.m_iSurvivorInfantryCount == survivorInfantry
 			&& restoredGroup.m_iSurvivorVehicleCount == survivorVehicles;
-		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.save_roundtrip", "save-data roundtrip preserves folded active group and returned garrison strength", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded active group or garrison return did not survive save-data copy", groupId, "", zoneId);
+		AddCampaignDebugAssertion(foldbackCase, "garrison_foldback.save_roundtrip", "save-data roundtrip preserves folded active group source, original force counts, survivor counts, and returned garrison strength", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded active group or garrison return did not survive save-data copy", groupId, "", zoneId);
 
 		for (int groupIndex = m_State.m_aActiveGroups.Count() - 1; groupIndex >= 0; groupIndex--)
 		{
@@ -16648,7 +16664,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!activeGroup)
 			return "missing";
 
-		return string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
+		string actual = string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
+		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount);
+		return actual;
 	}
 
 	protected bool IsCampaignDebugAsyncRuntimePending(string statusOrHistory)

@@ -75,6 +75,10 @@ class HST_ActiveGroupState
 	string m_sGroupId;
 	string m_sZoneId;
 	string m_sFactionKey;
+	string m_sMissionInstanceId;
+	string m_sSupportRequestId;
+	string m_sGarrisonZoneId;
+	string m_sQRFInstanceId;
 	string m_sPrefab;
 	string m_sCompositionRequestId;
 	string m_sCompositionIntentId;
@@ -90,6 +94,8 @@ class HST_ActiveGroupState
 	string m_sRuntimeStatus = "queued";
 	int m_iInfantryCount;
 	int m_iVehicleCount;
+	int m_iOriginalInfantryCount;
+	int m_iOriginalVehicleCount;
 	int m_iCompositionCost;
 	int m_iCompositionManpower;
 	int m_iCompositionVehicleCount;
@@ -729,7 +735,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 32;
+	static const int SCHEMA_VERSION = 33;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

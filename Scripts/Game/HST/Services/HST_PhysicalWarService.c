@@ -2975,6 +2975,7 @@ class HST_PhysicalWarService
 		activeGroup.m_sGroupId = BuildMissionConvoyGroupId(mission, index);
 		activeGroup.m_sZoneId = targetZone.m_sZoneId;
 		activeGroup.m_sFactionKey = factionKey;
+		activeGroup.m_sMissionInstanceId = mission.m_sInstanceId;
 		activeGroup.m_sPrefab = SelectConvoyCrewGroupPrefab(state, preset, targetZone, factionKey, index);
 		activeGroup.m_sRouteId = ResolveMissionConvoyRouteId(state, mission);
 		activeGroup.m_vSourcePosition = asset.m_vSourcePosition;
@@ -2983,6 +2984,8 @@ class HST_PhysicalWarService
 		activeGroup.m_sRuntimeStatus = ResolveMissionConvoyRuntimeStatus(mission);
 		activeGroup.m_iInfantryCount = ResolveMissionConvoyCrewCount(state, mission, index);
 		activeGroup.m_iVehicleCount = 1;
+		activeGroup.m_iOriginalInfantryCount = activeGroup.m_iInfantryCount;
+		activeGroup.m_iOriginalVehicleCount = activeGroup.m_iVehicleCount;
 		activeGroup.m_iLastSeenAliveCount = 0;
 		activeGroup.m_iSurvivorInfantryCount = 0;
 		activeGroup.m_iSurvivorVehicleCount = 1;
@@ -6485,6 +6488,7 @@ class HST_PhysicalWarService
 			vector targetPosition = HST_WorldPositionService.ResolveGroundPosition(targetZone.m_vPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
 			vector sourcePosition = ResolveQRFStagingPosition(state, qrf, targetZone, targetPosition);
 			activeGroup.m_sRouteId = qrf.m_sSourceZoneId + "_to_" + qrf.m_sTargetZoneId;
+			activeGroup.m_sQRFInstanceId = qrf.m_sInstanceId;
 			activeGroup.m_vSourcePosition = sourcePosition;
 			activeGroup.m_vTargetPosition = targetPosition;
 			activeGroup.m_vPosition = sourcePosition;
@@ -6878,6 +6882,8 @@ class HST_PhysicalWarService
 		activeGroup.m_sGroupId = BuildGroupId(state, zone, factionKey, qrf);
 		activeGroup.m_sZoneId = zone.m_sZoneId;
 		activeGroup.m_sFactionKey = factionKey;
+		if (!qrf)
+			activeGroup.m_sGarrisonZoneId = zone.m_sZoneId;
 		activeGroup.m_sPrefab = SelectGroupPrefab(state, zone, factionKey, qrf, preset);
 		activeGroup.m_sRouteId = ResolveGroupRouteId(zone, qrf);
 		activeGroup.m_vSourcePosition = ResolveGroupSourcePosition(state, zone, activeGroup.m_sRouteId, qrf);
@@ -6886,6 +6892,8 @@ class HST_PhysicalWarService
 		activeGroup.m_sRuntimeStatus = "queued";
 		activeGroup.m_iInfantryCount = infantryCount;
 		activeGroup.m_iVehicleCount = vehicleCount;
+		activeGroup.m_iOriginalInfantryCount = infantryCount;
+		activeGroup.m_iOriginalVehicleCount = vehicleCount;
 		activeGroup.m_iLastSeenAliveCount = infantryCount + vehicleCount;
 		activeGroup.m_iSurvivorInfantryCount = infantryCount;
 		activeGroup.m_iSurvivorVehicleCount = vehicleCount;
