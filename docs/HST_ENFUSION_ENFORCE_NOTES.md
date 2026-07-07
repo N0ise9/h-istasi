@@ -59,17 +59,23 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
-- Mission completion rewards should be proved through the coordinator wrapper,
-  not by directly setting mission status.
+- Mission completion rewards and failure penalties should be proved through the
+  coordinator wrappers, not by directly setting mission status.
   - `CompleteMission()` does more than call `HST_MissionService.Complete()`: it
     progresses objectives, applies configured money/HR rewards, applies
     category-specific outcomes such as town support or capture progress,
     refreshes mission/capture notifications, and marks a major campaign change.
+  - `FailMission()` similarly routes through `HST_MissionService.Fail()`,
+    applies configured aggression penalties, applies category-specific failure
+    outcomes such as town-support loss or HQ-knowledge changes, fails linked
+    objectives, and marks a major campaign change.
   - Debug proofs that seed a mission fixture should snapshot and restore the
-    mission row, economy totals, target-zone owner/support, and marker state
-    after the save-data roundtrip check.
+    mission row, economy totals, target-zone owner/support, relevant enemy
+    resource/aggression pools, and marker state after the save-data roundtrip
+    check.
   - Current example:
-    `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionCompletionRewardCase()`.
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionCompletionRewardCase()`
+    and `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionFailurePenaltyCase()`.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.
