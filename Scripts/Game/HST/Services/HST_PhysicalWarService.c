@@ -508,6 +508,11 @@ class HST_PhysicalWarService
 				if (readiness.m_bPendingGrace || activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending")
 					groupWaypointStatus = "WARN";
 				AddConvoyDebugProbeAssertion(probe, "convoy.group_waypoints." + asset.m_sAssetId, "assigned waypoint count >= 2", string.Format("%1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(activeGroup.m_iAssignedWaypointCount >= 2, groupWaypointStatus), "convoy group has too few assigned waypoints", groupId, mission.m_sInstanceId);
+				string vehicleUsageStatus = "FAIL";
+				if (readiness.m_bPendingGrace || activeGroup.m_sSpawnFallbackMode == "convoy_seating_pending")
+					vehicleUsageStatus = "WARN";
+				bool vehicleUsageRegistered = activeGroup.m_iAssignedWaypointCount >= 2 && activeGroup.m_sSpawnFailureReason.Contains("vehicle usage registered");
+				AddConvoyDebugProbeAssertion(probe, "convoy.vehicle_usage." + asset.m_sAssetId, "AI vehicle usage registered for group movement", string.Format("waypoints %1 | mode %2 | reason %3", activeGroup.m_iAssignedWaypointCount, ReportText(activeGroup.m_sSpawnFallbackMode), ReportText(activeGroup.m_sSpawnFailureReason)), ConvoyDebugStatus(vehicleUsageRegistered, vehicleUsageStatus), "convoy vehicle was not registered with the AI vehicle usage layer", groupId, mission.m_sInstanceId);
 				EnsureActiveGroupRuntimeFaction(activeGroup, "convoy physical probe");
 				string factionSample;
 				int factionMismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, factionSample);

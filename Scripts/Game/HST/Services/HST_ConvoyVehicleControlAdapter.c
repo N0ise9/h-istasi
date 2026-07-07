@@ -125,6 +125,13 @@ class HST_ConvoyVehicleControlAdapter
 			return false;
 		}
 
+		string vehicleRegistrationReason;
+		if (!TryRegisterVehicleWithGroup(groupEntity, vehicleEntity, vehicleRegistrationReason))
+		{
+			reason = "Convoy adapter cannot assign route: " + vehicleRegistrationReason;
+			return false;
+		}
+
 		array<IEntity> spawnedWaypoints = {};
 		foreach (vector waypointPosition : waypoints)
 		{
@@ -153,7 +160,57 @@ class HST_ConvoyVehicleControlAdapter
 			assignedWaypointCount++;
 		}
 
-		reason = string.Format("Convoy adapter assigned route waypoint chain %1/%2.", assignedWaypointCount, waypoints.Count());
+		reason = string.Format("Convoy adapter assigned route waypoint chain %1/%2; %3.", assignedWaypointCount, waypoints.Count(), vehicleRegistrationReason);
+		return true;
+	}
+
+	protected bool TryRegisterVehicleWithGroup(IEntity groupEntity, IEntity vehicleEntity, out string reason)
+	{
+		reason = "";
+		if (!groupEntity)
+		{
+			reason = "crew group entity missing for AI vehicle registration";
+			return false;
+		}
+		if (!vehicleEntity)
+		{
+			reason = "vehicle entity missing for AI vehicle registration";
+			return false;
+		}
+
+		SCR_AIGroupUtilityComponent utility = SCR_AIGroupUtilityComponent.Cast(groupEntity.FindComponent(SCR_AIGroupUtilityComponent));
+		if (!utility)
+		{
+			reason = "crew group has no AI group utility component for vehicle registration";
+			return false;
+		}
+
+		IEntity vehicleUsageOwner = vehicleEntity;
+		SCR_AIVehicleUsageComponent vehicleUsage = SCR_AIVehicleUsageComponent.FindOnNearestParent(vehicleEntity, vehicleUsageOwner);
+		if (!vehicleUsage)
+		{
+			reason = "vehicle has no AI vehicle usage component";
+			return false;
+		}
+		if (!vehicleUsage.IsVehicleTypeValid())
+		{
+			reason = "vehicle AI usage component has no valid vehicle type";
+			return false;
+		}
+		if (!vehicleUsage.CanBePiloted())
+		{
+			reason = "vehicle AI usage component is not pilotable";
+			return false;
+		}
+
+		utility.AddUsableVehicle(vehicleUsage);
+		if (!utility.IsUsableVehicle(vehicleUsage))
+		{
+			reason = "vehicle usage registration was not retained by the AI group utility";
+			return false;
+		}
+
+		reason = "vehicle usage registered for group movement";
 		return true;
 	}
 

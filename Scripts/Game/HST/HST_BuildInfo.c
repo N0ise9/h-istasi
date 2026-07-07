@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r75-convoy-seat-bind";
-	static const string BUILD_UTC = "2026-07-08T01:35:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r75-convoy-seat-bind";
+	static const string BUILD_SHA = "r76-convoy-ai-vehicle-usage";
+	static const string BUILD_UTC = "2026-07-07T22:58:53Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r76-convoy-ai-vehicle-usage";
 
 	static string BuildSummary()
 	{

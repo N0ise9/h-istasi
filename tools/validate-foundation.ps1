@@ -7819,6 +7819,9 @@ foreach ($requiredPhase7AdapterEntry in @(
 		"DeleteSpawnedWaypoints",
 		"assignedWaypointCount++",
 		"Convoy adapter assigned route waypoint chain",
+		"TryRegisterVehicleWithGroup",
+		"AddUsableVehicle",
+		"vehicle usage registered for group movement",
 		"m_iRemovedOverflowCrew",
 		"RemoveUnseatedOverflowCrew",
 		"overflow removed",
@@ -7862,6 +7865,8 @@ foreach ($requiredPhase7RuntimeEntry in @(
 		"IsMissionConvoyGroupFullyDismounted",
 		"AreAllLivingCrewDismounted(crewEntity, vehicleEntity, reason)",
 		"Convoy movement interrupted because every moving convoy group lost vehicle control or waypoint assignment.",
+		"convoy.vehicle_usage.",
+		"AI vehicle usage registered for group movement",
 		"RefreshMissionConvoyCrewCount",
 		"return prefab.Contains(""SentryTeam"");"
 	)) {
