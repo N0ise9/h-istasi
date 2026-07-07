@@ -605,6 +605,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - `string.Format` placeholders are limited to `%1` through `%9`.
   - Do not use `%10` or higher in diagnostics or reports; split the report into multiple `string.Format` calls or append the remaining values with string concatenation.
 
+- Enforce can reject long boolean expressions with `Formula too complex`.
+  - Split large assertion expectations into guarded blocks and smaller named
+    booleans, then combine them over multiple assignments.
+  - Current example: the physical-response save-roundtrip assertion in
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
+
 - `reference` is an Enforce keyword, not a safe local variable or parameter name.
   - Runtime symptom: Workbench reports `Broken expression (missing ';'?)` on a declaration such as `string reference;`.
   - Use a normal identifier such as `contextText`, `referenceText`, or `currentText` instead.

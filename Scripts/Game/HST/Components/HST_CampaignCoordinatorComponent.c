@@ -4764,7 +4764,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool orderExpected = order && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_sRuntimeStatus == "resolved_group_folded" && order.m_bResourceRefundApplied;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_resolution", "folded physical group resolves linked enemy order and applies survivor refund once", orderActual, CampaignDebugStatus(orderExpected), "folded support group did not resolve linked enemy order/refund");
 		string roundTripActual = BuildCampaignDebugPhysicalResponseRoundTripActual(restoredOrder, restoredRequest, restoredGroup);
-		bool roundTripExpected = request && group && restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount && restoredGroup.m_sVehiclePrefab == group.m_sVehiclePrefab && restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId && restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe && restoredGroup.m_iAssignedWaypointCount == group.m_iAssignedWaypointCount;
+		bool roundTripExpected = false;
+		if (request && group && restoredOrder && restoredRequest && restoredGroup)
+		{
+			bool restoredOrderExpected = restoredOrder.m_bResourceRefundApplied;
+			bool restoredRequestExpected = restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
+			bool restoredGroupStatusExpected = restoredGroup.m_sRuntimeStatus == "folded";
+			bool restoredGroupLinkExpected = restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId;
+			bool restoredOriginalCountsExpected = restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount;
+			restoredOriginalCountsExpected = restoredOriginalCountsExpected && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount;
+			bool restoredVehicleExpected = restoredGroup.m_sVehiclePrefab == group.m_sVehiclePrefab;
+			bool restoredRouteExpected = restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId;
+			restoredRouteExpected = restoredRouteExpected && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId;
+			bool restoredDeploymentExpected = restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary;
+			restoredDeploymentExpected = restoredDeploymentExpected && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe;
+			bool restoredWaypointExpected = restoredGroup.m_iAssignedWaypointCount == group.m_iAssignedWaypointCount;
+
+			roundTripExpected = restoredOrderExpected && restoredRequestExpected;
+			roundTripExpected = roundTripExpected && restoredGroupStatusExpected;
+			roundTripExpected = roundTripExpected && restoredGroupLinkExpected;
+			roundTripExpected = roundTripExpected && restoredOriginalCountsExpected;
+			roundTripExpected = roundTripExpected && restoredVehicleExpected;
+			roundTripExpected = roundTripExpected && restoredRouteExpected;
+			roundTripExpected = roundTripExpected && restoredDeploymentExpected;
+			roundTripExpected = roundTripExpected && restoredWaypointExpected;
+		}
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
 
 		pool.m_iAttackResources = attackBefore;
