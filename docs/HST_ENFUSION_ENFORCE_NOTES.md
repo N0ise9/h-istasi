@@ -193,6 +193,21 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`,
     and `HST_CampaignCoordinatorComponent.BuildCampaignDebugGarrisonFoldbackCase()`.
 
+- Physical support deployment proof belongs on durable request/group state.
+  - `HST_SpawnPlacementResult` is the source of truth for route-aware support
+    staging evidence: placement type, selected spawn/target positions,
+    target/road/HQ distances, road resolution, dry-ground and vehicle-safe
+    checks, and debug summary.
+  - Copy the deployment route id and placement proof onto
+    `HST_SupportRequestState`, then copy the same route and force counts onto
+    the linked `HST_ActiveGroupState`. `HST_CampaignSaveData` should roundtrip
+    those fields so folded support can be audited after save/load without live
+    `IEntity` references.
+  - If a vehicle-capable support composition cannot find vehicle-safe staging,
+    downgrade to infantry-only deployment instead of losing the whole response.
+  - Current examples: `HST_SupportRequestService.ApplyActiveSupport()` and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
+
 - Town political support should be event-ledger backed.
   - Directly changing FIA/occupier support, reputation, heat, population, or
     police/roadblock pressure hides why a town flipped and makes save/reload

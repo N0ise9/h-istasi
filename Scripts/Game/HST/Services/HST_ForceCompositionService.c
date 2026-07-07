@@ -83,11 +83,13 @@ class HST_ForceCompositionService
 		request.m_vSourcePosition = supportRequest.m_vSourcePosition;
 		request.m_vTargetPosition = supportRequest.m_vTargetPosition;
 		request.m_iWarLevel = ResolveWarLevel(state, null);
-		request.m_iBudget = Math.Max(10, supportRequest.m_iAttackCost + supportRequest.m_iSupportCost);
+		request.m_iBudget = Math.Max(10 + request.m_iWarLevel * 4, supportRequest.m_iAttackCost + supportRequest.m_iSupportCost);
 		request.m_iMinManpower = 3;
 		request.m_iMaxManpower = 12 + request.m_iWarLevel;
 		request.m_bAllowInfantry = true;
 		request.m_bAllowVehicles = request.m_iWarLevel >= 4 || supportRequest.m_iAttackCost >= 18 || supportRequest.m_iSupportCost >= 18;
+		if (request.m_bAllowVehicles)
+			request.m_iBudget = Math.Max(request.m_iBudget, 28 + request.m_iWarLevel * 5);
 		request.m_bAllowArmedVehicles = request.m_iWarLevel >= 5;
 		request.m_bAllowLightArmor = request.m_iWarLevel >= 6;
 		request.m_bAllowHeavyArmor = false;

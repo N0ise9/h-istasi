@@ -103,9 +103,10 @@ The repository contains a broad-alpha campaign foundation:
 - Admin-only campaign debug controls expose one-button smoke, physical, and
   full runtime verification profiles with status, cancel, cleanup, structured
   result artifacts, and bootstrap identity/admin evidence
-- Persistent campaign win/loss state with schema-34 end reason, summary,
+- Persistent campaign win/loss state with schema-35 end reason, summary,
   elapsed time, strategic control, war level, FIA/enemy zone counts,
-  population/support, airfield, outcome-mode, and report generation metadata
+  population/support, airfield, outcome-mode, support deployment proof, and
+  report generation metadata
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible, with a profile JSON fallback at
@@ -185,7 +186,7 @@ local `I` key/action path when troubleshooting menu access.
 
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. The server log must contain
-`h-istasi boot | authority build 2026-07-07-runtime-proof-r63-attack-support-spend-split`
+`h-istasi boot | authority build 2026-07-07-runtime-proof-r64-response-deployment-proof`
 and the client log must contain
 `build=2026-07-06-menu-input-r14-ui-render-proof` on the local command-menu ready
 line. If either line is missing, the server/client is running a stale packaged

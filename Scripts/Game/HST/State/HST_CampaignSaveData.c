@@ -1122,6 +1122,9 @@ class HST_CampaignSaveData
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
 		target.m_sGroupId = source.m_sGroupId;
 		target.m_sRuntimeEntityId = source.m_sRuntimeEntityId;
+		target.m_sDeploymentRouteId = source.m_sDeploymentRouteId;
+		target.m_sDeploymentPlacementType = source.m_sDeploymentPlacementType;
+		target.m_sDeploymentSummary = source.m_sDeploymentSummary;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_iRequestedAtSecond = source.m_iRequestedAtSecond;
@@ -1133,10 +1136,16 @@ class HST_CampaignSaveData
 		target.m_iCompositionManpower = source.m_iCompositionManpower;
 		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
 		target.m_iCompositionArmedVehicleCount = source.m_iCompositionArmedVehicleCount;
+		target.m_iDeploymentTargetDistanceMeters = source.m_iDeploymentTargetDistanceMeters;
+		target.m_iDeploymentRoadDistanceMeters = source.m_iDeploymentRoadDistanceMeters;
+		target.m_iDeploymentHQDistanceMeters = source.m_iDeploymentHQDistanceMeters;
 		target.m_iCooldownUntilSecond = source.m_iCooldownUntilSecond;
 		target.m_bHelicopterStyle = source.m_bHelicopterStyle;
 		target.m_bPlayerRequested = source.m_bPlayerRequested;
 		target.m_bPhysicalStrikeSpawned = source.m_bPhysicalStrikeSpawned;
+		target.m_bDeploymentRoadResolved = source.m_bDeploymentRoadResolved;
+		target.m_bDeploymentVehicleSafe = source.m_bDeploymentVehicleSafe;
+		target.m_bDeploymentVehicleSafeRequired = source.m_bDeploymentVehicleSafeRequired;
 		target.m_bAbstractResolved = source.m_bAbstractResolved;
 		target.m_sRuntimeStatus = source.m_sRuntimeStatus;
 		target.m_sResolutionKind = source.m_sResolutionKind;

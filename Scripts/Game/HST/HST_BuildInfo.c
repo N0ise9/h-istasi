@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r63-attack-support-spend-split";
-	static const string BUILD_UTC = "2026-07-07T20:05:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r63-attack-support-spend-split";
+	static const string BUILD_SHA = "r64-response-deployment-proof";
+	static const string BUILD_UTC = "2026-07-07T20:45:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r64-response-deployment-proof";
 
 	static string BuildSummary()
 	{

@@ -57,7 +57,7 @@ class HST_SpawnPlacementService
 		return result;
 	}
 
-	HST_SpawnPlacementRequest BuildSupportPlacementRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState supportRequest, bool arrivedAtTarget = false)
+	HST_SpawnPlacementRequest BuildSupportPlacementRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState supportRequest, bool arrivedAtTarget = false, bool requireVehicleSafe = false)
 	{
 		HST_SpawnPlacementRequest request = new HST_SpawnPlacementRequest();
 		if (!supportRequest)
@@ -86,6 +86,7 @@ class HST_SpawnPlacementService
 			request.m_fMaxStandoffMeters = Math.Max(request.m_fMinStandoffMeters + 30.0, request.m_fMaxStandoffMeters * 0.55);
 		}
 		request.m_bRequireDryGround = true;
+		request.m_bRequireVehicleSafe = requireVehicleSafe;
 		request.m_bPreferRoadSource = true;
 		request.m_bRequireRoadSource = false;
 		request.m_bExplain = true;

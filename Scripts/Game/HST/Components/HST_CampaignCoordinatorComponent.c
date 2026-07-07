@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r63-attack-support-spend-split";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r64-response-deployment-proof";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4615,6 +4615,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int zoneCountBefore = m_State.m_aZones.Count();
 		int attackBefore = pool.m_iAttackResources;
 		int supportBefore = pool.m_iSupportResources;
+		int warLevelBefore = m_State.m_iWarLevel;
+		m_State.m_iWarLevel = Math.Max(m_State.m_iWarLevel, 5);
 
 		HST_ZoneState targetZone = BuildCampaignDebugPhysicalResponseZone(debugZoneId, factionKey, baseZone);
 		m_State.m_aZones.Insert(targetZone);
@@ -4696,6 +4698,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_created", "support request physicalizes into a linked active group", BuildCampaignDebugActiveGroupActual(group), CampaignDebugStatus(request && group && request.m_bPhysicalized && request.m_sGroupId == group.m_sGroupId), "support request did not create active group");
 		bool sourceLinkExpected = request && group && group.m_sSupportRequestId == request.m_sRequestId && group.m_iOriginalInfantryCount == group.m_iInfantryCount && group.m_iOriginalVehicleCount == group.m_iVehicleCount;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.group_source_link", "active support group stores durable source request linkage and original force counts", BuildCampaignDebugActiveGroupActual(group), CampaignDebugStatus(sourceLinkExpected), "physical support group did not record source linkage/original force counts", "", "", targetZone.m_sZoneId);
+		string deploymentActual = BuildCampaignDebugSupportRequestActual(request);
+		bool deploymentExpected = request && group && !request.m_sDeploymentRouteId.IsEmpty() && request.m_sDeploymentRouteId == group.m_sRouteId && !request.m_sDeploymentPlacementType.IsEmpty() && !request.m_sDeploymentSummary.IsEmpty() && request.m_iDeploymentTargetDistanceMeters > 0 && group.m_iVehicleCount == request.m_iCompositionVehicleCount;
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.deployment_proof", "support request stores durable route, placement, distance, and vehicle-count deployment proof", deploymentActual, CampaignDebugStatus(deploymentExpected), "physical support deployment metadata missing or disconnected from active group", "", "", targetZone.m_sZoneId);
+		string vehicleSafeActual = "missing";
+		bool vehicleSafeExpected = false;
+		if (request)
+		{
+			vehicleSafeActual = string.Format("vehicles %1 armed %2 | require safe %3 | safe %4 | road %5 | placement %6", request.m_iCompositionVehicleCount, request.m_iCompositionArmedVehicleCount, request.m_bDeploymentVehicleSafeRequired, request.m_bDeploymentVehicleSafe, request.m_bDeploymentRoadResolved, EmptyCampaignDebugField(request.m_sDeploymentPlacementType));
+			vehicleSafeExpected = request.m_iCompositionVehicleCount <= 0 || (request.m_bDeploymentVehicleSafeRequired && request.m_bDeploymentVehicleSafe);
+		}
+		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.vehicle_safe_staging", "vehicle-capable support requires and records vehicle-safe staging", vehicleSafeActual, CampaignDebugStatus(vehicleSafeExpected, "WARN"), "vehicle-capable physical support did not prove vehicle-safe staging", "", "", targetZone.m_sZoneId);
 		string positionActual = "missing";
 		bool positionExpected = false;
 		if (group)
@@ -4716,11 +4729,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool orderExpected = order && order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED && order.m_sRuntimeStatus == "resolved_group_folded" && order.m_bResourceRefundApplied;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.order_resolution", "folded physical group resolves linked enemy order and applies survivor refund once", orderActual, CampaignDebugStatus(orderExpected), "folded support group did not resolve linked enemy order/refund");
 		string roundTripActual = BuildCampaignDebugPhysicalResponseRoundTripActual(restoredOrder, restoredRequest, restoredGroup);
-		bool roundTripExpected = restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount;
+		bool roundTripExpected = request && restoredOrder && restoredRequest && restoredGroup && restoredOrder.m_bResourceRefundApplied && restoredRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && restoredGroup.m_sRuntimeStatus == "folded" && restoredGroup.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredGroup.m_iOriginalInfantryCount == restoredGroup.m_iInfantryCount && restoredGroup.m_iOriginalVehicleCount == restoredGroup.m_iVehicleCount && restoredRequest.m_sDeploymentRouteId == restoredGroup.m_sRouteId && restoredRequest.m_sDeploymentRouteId == request.m_sDeploymentRouteId && restoredRequest.m_sDeploymentSummary == request.m_sDeploymentSummary && restoredRequest.m_bDeploymentVehicleSafe == request.m_bDeploymentVehicleSafe;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
 
 		pool.m_iAttackResources = attackBefore;
 		pool.m_iSupportResources = supportBefore;
+		m_State.m_iWarLevel = warLevelBefore;
 		CleanupCampaignDebugPhysicalResponseRecords(debugZoneId);
 		while (m_State.m_aEnemyOrders.Count() > orderCountBefore)
 			m_State.m_aEnemyOrders.Remove(m_State.m_aEnemyOrders.Count() - 1);
@@ -16944,7 +16958,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		string actual = string.Format("group %1 | zone %2 | faction %3 | spawned %4 | agents %5/%6 | status %7 | route %8 | pos %9", EmptyCampaignDebugField(activeGroup.m_sGroupId), EmptyCampaignDebugField(activeGroup.m_sZoneId), EmptyCampaignDebugField(activeGroup.m_sFactionKey), activeGroup.m_bSpawnedEntity, activeGroup.m_iSpawnedAgentCount, activeGroup.m_iLastSeenAliveCount, EmptyCampaignDebugField(activeGroup.m_sRuntimeStatus), EmptyCampaignDebugField(activeGroup.m_sRouteId), activeGroup.m_vPosition);
-		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount);
+		actual = actual + string.Format(" | source mission %1 support %2 garrison %3 qrf %4 | original %5/%6 | force %7/%8", EmptyCampaignDebugField(activeGroup.m_sMissionInstanceId), EmptyCampaignDebugField(activeGroup.m_sSupportRequestId), EmptyCampaignDebugField(activeGroup.m_sGarrisonZoneId), EmptyCampaignDebugField(activeGroup.m_sQRFInstanceId), activeGroup.m_iOriginalInfantryCount, activeGroup.m_iOriginalVehicleCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount);
 		return actual;
 	}
 
@@ -17262,7 +17276,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!request)
 			return "missing";
 
-		return string.Format("id %1 | type %2 | status %3 | faction %4 | target %5 | group %6 | runtime %7 | player %8", request.m_sRequestId, request.m_eType, request.m_eStatus, EmptyCampaignDebugField(request.m_sFactionKey), EmptyCampaignDebugField(request.m_sTargetZoneId), EmptyCampaignDebugField(request.m_sGroupId), EmptyCampaignDebugField(request.m_sRuntimeStatus), request.m_bPlayerRequested);
+		string actual = string.Format("id %1 | type %2 | status %3 | faction %4 | target %5 | group %6 | runtime %7 | player %8", request.m_sRequestId, request.m_eType, request.m_eStatus, EmptyCampaignDebugField(request.m_sFactionKey), EmptyCampaignDebugField(request.m_sTargetZoneId), EmptyCampaignDebugField(request.m_sGroupId), EmptyCampaignDebugField(request.m_sRuntimeStatus), request.m_bPlayerRequested);
+		actual = actual + string.Format(" | route %1 | placement %2 | vehicles %3/%4 | safe %5/%6 | dist %7m road %8m hq %9m", EmptyCampaignDebugField(request.m_sDeploymentRouteId), EmptyCampaignDebugField(request.m_sDeploymentPlacementType), request.m_iCompositionVehicleCount, request.m_iCompositionArmedVehicleCount, request.m_bDeploymentVehicleSafeRequired, request.m_bDeploymentVehicleSafe, request.m_iDeploymentTargetDistanceMeters, request.m_iDeploymentRoadDistanceMeters, request.m_iDeploymentHQDistanceMeters);
+		return actual;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase20CivilianCase(int index, string label, string result)

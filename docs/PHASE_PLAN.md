@@ -89,6 +89,10 @@ treated as future work:
 - `HST_SpawnPlacementService` owns request/result placement for QRF staging, HQ
   attack standoff, convoy endpoints, dry-ground checks, vehicle-safe placement,
   road preference, and HQ standoff.
+- Physical support deployments persist their resolved route id, placement
+  type/summary, target/road/HQ distances, road resolution, vehicle-safe result,
+  and linked active-group force counts so one-button debug can prove the
+  support request -> active group -> fold-back chain through save/load.
 - Enemy support ledgers track recent damage pressure, cooldowns, max defense
   spend, same-zone stacking, and survivor refunds. Proactive background-war and
   HQ-pressure orders spend attack resources only, while QRFs, capture-triggered
@@ -109,8 +113,8 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Harden route-aware and vehicle-aware physical responses for QRF,
-   counterattack, support, and HQ-pressure groups.
+1. Extend route-aware and vehicle-aware deployment proof into richer
+   counterattack/HQ-pressure waypoints and true mixed infantry/vehicle spawning.
 2. Finish live undercover equipment/clothing/off-road/security-scan
    enforcement.
 3. Deepen town influence into the primary political control and mission-output

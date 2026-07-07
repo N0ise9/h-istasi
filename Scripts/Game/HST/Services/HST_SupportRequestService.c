@@ -594,16 +594,53 @@ class HST_SupportRequestService
 		if (!m_SpawnPlacements)
 			m_SpawnPlacements = new HST_SpawnPlacementService();
 
-		HST_SpawnPlacementResult placement = m_SpawnPlacements.ResolvePlacement(state, preset, m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget));
+		bool requireVehicleSafe = composition.m_iVehicleCount > 0;
+		HST_SpawnPlacementResult placement = m_SpawnPlacements.ResolvePlacement(state, preset, m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget, requireVehicleSafe));
+		if (requireVehicleSafe && placement && !placement.m_bSuccess && placement.m_sFailureReason.Contains("vehicle-safe"))
+		{
+			requireVehicleSafe = false;
+			composition.m_iVehicleCount = 0;
+			composition.m_iArmedVehicleCount = 0;
+			request.m_iCompositionVehicleCount = 0;
+			request.m_iCompositionArmedVehicleCount = 0;
+			string vehicleDowngradeSummary = "vehicle-safe staging unavailable; deployed infantry-only";
+			if (!composition.m_sDebugSummary.IsEmpty())
+				composition.m_sDebugSummary = composition.m_sDebugSummary + " | " + vehicleDowngradeSummary;
+			else
+				composition.m_sDebugSummary = vehicleDowngradeSummary;
+			request.m_sCompositionSummary = composition.m_sDebugSummary;
+			placement = m_SpawnPlacements.ResolvePlacement(state, preset, m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget, false));
+			if (placement && placement.m_bSuccess)
+				placement.m_sDebugSummary = placement.m_sDebugSummary + " | " + vehicleDowngradeSummary;
+		}
 		if (!placement || !placement.m_bSuccess)
 		{
 			request.m_sFailureReason = "spawn placement failed";
 			if (placement && !placement.m_sFailureReason.IsEmpty())
+			{
 				request.m_sFailureReason = placement.m_sFailureReason;
+				request.m_sDeploymentPlacementType = placement.m_sPlacementType;
+				request.m_sDeploymentSummary = placement.m_sDebugSummary;
+				request.m_bDeploymentVehicleSafeRequired = requireVehicleSafe;
+			}
 			request.m_sRuntimeStatus = "physicalize_failed_placement";
 			request.m_sPhysicalizationMode = "ground_group_blocked";
 			return false;
 		}
+
+		string routeId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
+		if (request.m_sSourceZoneId.IsEmpty() || request.m_sTargetZoneId.IsEmpty())
+			routeId = "support_" + request.m_sRequestId;
+
+		request.m_sDeploymentRouteId = routeId;
+		request.m_sDeploymentPlacementType = placement.m_sPlacementType;
+		request.m_sDeploymentSummary = placement.m_sDebugSummary;
+		request.m_iDeploymentTargetDistanceMeters = Math.Round(placement.m_fTargetDistanceMeters);
+		request.m_iDeploymentRoadDistanceMeters = Math.Round(placement.m_fRoadDistanceMeters);
+		request.m_iDeploymentHQDistanceMeters = Math.Round(placement.m_fHQDistanceMeters);
+		request.m_bDeploymentRoadResolved = placement.m_bRoadResolved;
+		request.m_bDeploymentVehicleSafe = placement.m_bVehicleSafe;
+		request.m_bDeploymentVehicleSafeRequired = requireVehicleSafe;
 
 		vector objectivePosition = placement.m_vTargetPosition;
 		vector targetPosition = objectivePosition;
@@ -639,7 +676,7 @@ class HST_SupportRequestService
 		group.m_sSpawnFallbackMode = "support";
 		if (IsPetrosAttackSupport(request))
 			group.m_sSpawnFallbackMode = "petros_attack_support";
-		group.m_sRouteId = request.m_sSourceZoneId + "_to_" + request.m_sTargetZoneId;
+		group.m_sRouteId = request.m_sDeploymentRouteId;
 		group.m_vSourcePosition = sourcePosition;
 		group.m_vTargetPosition = targetPosition;
 		group.m_vPosition = sourcePosition;
@@ -647,7 +684,7 @@ class HST_SupportRequestService
 		if (!arrivedAtTarget)
 			group.m_sRuntimeStatus = "support_active";
 		group.m_iInfantryCount = Math.Max(1, groupPlan.m_iManpower);
-		group.m_iVehicleCount = 0;
+		group.m_iVehicleCount = Math.Max(0, composition.m_iVehicleCount);
 		group.m_iOriginalInfantryCount = group.m_iInfantryCount;
 		group.m_iOriginalVehicleCount = group.m_iVehicleCount;
 		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;

@@ -2,8 +2,12 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `34`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `35`.
 
+- Schema 35 adds persisted support deployment proof for physicalized support:
+  deployment route id, placement type/summary, target/road/HQ distances,
+  road resolution, vehicle-safe result, and whether vehicle-safe placement was
+  required.
 - Schema 34 adds persisted population-outcome metadata for campaign-end state:
   outcome mode, initial/remaining/killed population, FIA-supporting population,
   support percent, and controlled/total airfields.
@@ -61,6 +65,21 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 35
+
+Support deployment proof.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `35`.
+- `HST_SupportRequestState` now persists the deployment route id, placement
+  type, placement summary, target/road/HQ distance meters, road resolution,
+  vehicle-safe result, and whether vehicle-safe staging was required.
+- Physical support requests now copy their placement proof into save data so a
+  support request, linked active group, and folded support resolution can be
+  audited after save/load.
+- Vehicle-capable support requests require vehicle-safe staging. If vehicle-safe
+  staging is specifically unavailable, the support deployment downgrades to
+  infantry-only staging instead of failing the whole response.
 
 ## Schema 34
 
