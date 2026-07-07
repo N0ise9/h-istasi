@@ -2999,8 +2999,7 @@ class HST_PhysicalWarService
 			string recoveryLabel = "Convoy moving recovery";
 			if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
 				recoveryLabel = "Convoy contact recovery";
-			if (travelRecovery)
-				GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin());
+			GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin());
 			if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, seatingReason))
 			{
 				if (!preserveWaypointMode)
@@ -3165,24 +3164,28 @@ class HST_PhysicalWarService
 			activeGroup.m_sSpawnFailureReason = "Convoy crew group is awaiting AI agent population.";
 			activeGroup.m_sConvoyRuntimeStage = "CREW_GROUP_CREATED";
 		}
-		else if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, adapterBindReason))
-		{
-			activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";
-			activeGroup.m_sSpawnFailureReason = adapterBindReason;
-			RefreshMissionConvoyCrewCount(activeGroup);
-			activeGroup.m_sConvoyRuntimeStage = "DRIVER_BOUND";
-		}
 		else
 		{
-			if (adapterBindReason.Contains("seating pending yes") || adapterBindReason.Contains("waiting for animated AI boarding"))
-				activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
+			GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin());
+			if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, adapterBindReason))
+			{
+				activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";
+				activeGroup.m_sSpawnFailureReason = adapterBindReason;
+				RefreshMissionConvoyCrewCount(activeGroup);
+				activeGroup.m_sConvoyRuntimeStage = "DRIVER_BOUND";
+			}
 			else
-				activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
-			activeGroup.m_sSpawnFailureReason = adapterBindReason;
-			if (activeGroup.m_sSpawnFailureReason.IsEmpty())
-				activeGroup.m_sSpawnFailureReason = "Convoy crew seating has not confirmed a seated AI driver yet.";
-			if (CountAliveRuntimeCrewAgents(activeGroup) > 0)
-				activeGroup.m_sConvoyRuntimeStage = "CREW_POPULATED";
+			{
+				if (adapterBindReason.Contains("seating pending yes") || adapterBindReason.Contains("waiting for animated AI boarding"))
+					activeGroup.m_sSpawnFallbackMode = "convoy_seating_pending";
+				else
+					activeGroup.m_sSpawnFallbackMode = "convoy_vehicle_control_unavailable";
+				activeGroup.m_sSpawnFailureReason = adapterBindReason;
+				if (activeGroup.m_sSpawnFailureReason.IsEmpty())
+					activeGroup.m_sSpawnFailureReason = "Convoy crew seating has not confirmed a seated AI driver yet.";
+				if (CountAliveRuntimeCrewAgents(activeGroup) > 0)
+					activeGroup.m_sConvoyRuntimeStage = "CREW_POPULATED";
+			}
 		}
 		int liveCrew = CountAliveRuntimeCrewAgents(activeGroup);
 		int preservedCrew = ResolveMissionConvoyRestorableCrewCount(state, activeGroup);
@@ -3587,6 +3590,7 @@ class HST_PhysicalWarService
 
 		bool preserveWaypointMode = activeGroup.m_sSpawnFallbackMode == "convoy_waypoints";
 		string seatingReason;
+		GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin());
 		if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, seatingReason))
 		{
 			if (!preserveWaypointMode)
@@ -9924,6 +9928,7 @@ class HST_PhysicalWarService
 			return false;
 
 		string seatingReason;
+		GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicleEntity, vehicleEntity.GetOrigin());
 		if (GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicleEntity, seatingReason))
 		{
 			activeGroup.m_sSpawnFallbackMode = "convoy_driver_available";

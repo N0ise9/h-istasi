@@ -183,12 +183,60 @@ class HST_ConvoyVehicleControlAdapter
 				continue;
 			if (IsCrewSeatedInVehicle(crewEntity, vehicleEntity))
 				continue;
+			if (IsCrewGettingIntoVehicle(crewEntity, vehicleEntity))
+				continue;
 
-			crewEntity.SetOrigin(position);
+			vector crewPosition = BuildCrewStagingPosition(position, moved);
+			HST_WorldPositionService.ApplyUprightEntityTransform(crewEntity, crewPosition, crewEntity.GetYawPitchRoll());
 			moved++;
 		}
 
 		return moved;
+	}
+
+	protected vector BuildCrewStagingPosition(vector centerPosition, int index)
+	{
+		vector position = centerPosition;
+		int slotIndex = index % 8;
+		float offset = 2.75;
+		if (slotIndex == 0)
+		{
+			position[0] = position[0] + offset;
+			position[2] = position[2] + offset;
+		}
+		else if (slotIndex == 1)
+		{
+			position[0] = position[0] - offset;
+			position[2] = position[2] + offset;
+		}
+		else if (slotIndex == 2)
+		{
+			position[0] = position[0] + offset;
+			position[2] = position[2] - offset;
+		}
+		else if (slotIndex == 3)
+		{
+			position[0] = position[0] - offset;
+			position[2] = position[2] - offset;
+		}
+		else if (slotIndex == 4)
+		{
+			position[0] = position[0] + offset * 1.6;
+		}
+		else if (slotIndex == 5)
+		{
+			position[0] = position[0] - offset * 1.6;
+		}
+		else if (slotIndex == 6)
+		{
+			position[2] = position[2] + offset * 1.6;
+		}
+		else
+		{
+			position[2] = position[2] - offset * 1.6;
+		}
+
+		return HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 4.0);
 	}
 
 	bool HasLivingDriver(IEntity groupEntity, IEntity vehicleEntity)
@@ -322,7 +370,11 @@ class HST_ConvoyVehicleControlAdapter
 			}
 
 			if (result.m_iIssuedOrders > 0)
+			{
 				RefreshSeatedCrewState(slots, livingCrew, vehicleEntity, result);
+				if (!result.m_bDriverAssigned)
+					result.m_bSeatingPending = true;
+			}
 		}
 
 		if (issueOrders && result.m_bDriverAssigned && !result.m_bSeatingPending && result.m_iIssuedOrders <= 0 && result.m_iSeatedCrew < result.m_iLivingCrew)
@@ -591,24 +643,27 @@ class HST_ConvoyVehicleControlAdapter
 			return false;
 		}
 
+		if (access.MoveInVehicle(vehicleEntity, compartmentType, true, slot))
+		{
+			if (access.IsInCompartment() && access.GetVehicle() == vehicleEntity)
+				reason = "server-authoritative compartment move-in completed";
+			else
+				reason = "server-authoritative compartment move-in request accepted";
+			return true;
+		}
+
 		IEntity slotOwner = slot.GetOwner();
 		if (!slotOwner)
 			slotOwner = vehicleEntity;
 
 		if (access.GetInVehicle(slotOwner, slot, true, -1, ECloseDoorAfterActions.INVALID, true))
 		{
-			reason = "server-authoritative compartment move-in completed";
+			reason = "animated compartment get-in order accepted";
 			return true;
 		}
 
-		if (!access.MoveInVehicle(vehicleEntity, compartmentType, true, slot))
-		{
-			reason = "animated compartment move-in order was rejected";
-			return false;
-		}
-
-		reason = "animated compartment move-in order issued";
-		return true;
+		reason = "compartment move-in request was rejected";
+		return false;
 	}
 
 	protected bool IsSlotForCompartmentType(BaseCompartmentSlot slot, ECompartmentType compartmentType)

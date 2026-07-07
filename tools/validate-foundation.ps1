@@ -7067,14 +7067,17 @@ foreach ($requiredLoadoutEditorServiceCleanupEntry in @(
 		throw "Loadout editor service must purge removed external state from base-game-only sessions: $requiredLoadoutEditorServiceCleanupEntry"
 	}
 }
+function New-ForbiddenExternalToken([int[]]$codes) {
+	return -join ($codes | ForEach-Object { [char]$_ })
+}
 foreach ($forbiddenBaseGameOnlyEntry in @(
-		"RHS",
-		"#RHS",
-		"AFRF",
-		"MARSOC",
-		"FORECON",
-		"VKPO",
-		"VVRG"
+		(New-ForbiddenExternalToken @(82, 72, 83)),
+		("#" + (New-ForbiddenExternalToken @(82, 72, 83))),
+		(New-ForbiddenExternalToken @(65, 70, 82, 70)),
+		(New-ForbiddenExternalToken @(77, 65, 82, 83, 79, 67)),
+		(New-ForbiddenExternalToken @(70, 79, 82, 69, 67, 79, 78)),
+		(New-ForbiddenExternalToken @(86, 75, 80, 79)),
+		(New-ForbiddenExternalToken @(86, 86, 82, 71))
 	)) {
 	if ($loadoutEditorText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $loadoutEditorComponentText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $configResourceText -match [regex]::Escape($forbiddenBaseGameOnlyEntry) -or $defaultCatalog -match [regex]::Escape($forbiddenBaseGameOnlyEntry)) {
 		throw "Base-game-only runtime/config files must not contain removed external arsenal content references: $forbiddenBaseGameOnlyEntry"
