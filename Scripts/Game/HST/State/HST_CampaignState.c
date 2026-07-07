@@ -628,6 +628,35 @@ class HST_CivilianZoneState
 	int m_iLastPoliceScanSecond;
 	string m_sLastSecurityReason;
 	bool m_bUndercoverRestricted;
+	int m_iPopulationRemaining;
+	int m_iPopulationKilled;
+	int m_iInfluenceEventCount;
+	int m_iActiveInfluenceModifierCount;
+	int m_iExpiredInfluenceModifierCount;
+	int m_iLastInfluenceEventSecond;
+	string m_sLastInfluenceEventId;
+	string m_sLastInfluenceKind;
+	string m_sLastInfluenceReason;
+}
+
+[BaseContainerProps()]
+class HST_TownInfluenceEventState
+{
+	string m_sEventId;
+	string m_sZoneId;
+	string m_sKind;
+	string m_sSourceId;
+	string m_sReason;
+	int m_iCreatedAtSecond;
+	int m_iExpiresAtSecond;
+	int m_iFIASupportDelta;
+	int m_iOccupierSupportDelta;
+	int m_iReputationDelta;
+	int m_iHeatDelta;
+	int m_iPopulationDelta;
+	int m_iPoliceDelta;
+	int m_iRoadblockDelta;
+	bool m_bApplied;
 }
 
 [BaseContainerProps()]
@@ -682,7 +711,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 29;
+	static const int SCHEMA_VERSION = 30;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -795,6 +824,7 @@ class HST_CampaignState
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
+	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -1060,6 +1090,17 @@ class HST_CampaignState
 		{
 			if (civilianZone.m_sZoneId == zoneId)
 				return civilianZone;
+		}
+
+		return null;
+	}
+
+	HST_TownInfluenceEventState FindTownInfluenceEvent(string eventId)
+	{
+		foreach (HST_TownInfluenceEventState eventState : m_aTownInfluenceEvents)
+		{
+			if (eventState && eventState.m_sEventId == eventId)
+				return eventState;
 		}
 
 		return null;

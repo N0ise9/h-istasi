@@ -94,6 +94,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_PhysicalWarService.FoldActiveSupportGroup()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
 
+- Town political support should be event-ledger backed.
+  - Directly changing FIA/occupier support, reputation, heat, population, or
+    police/roadblock pressure hides why a town flipped and makes save/reload
+    regressions hard to diagnose.
+  - Store a data-only influence event with explicit deltas, created/expiry
+    seconds, source, and reason, then derive town support, undercover
+    restriction, population killed/remaining, and active/expired modifier
+    counts from that ledger.
+  - Current examples: `HST_CivilianService.RegisterInfluenceEvent()`,
+    `HST_CivilianService.RegisterIncident()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugTownInfluenceLedgerCase()`.
+
 - Force creation should start from a serializable request/result contract.
   - Tactical systems should ask for a force by intent, faction, war level,
     budget, manpower bounds, vehicle permissions, and reason, then consume a

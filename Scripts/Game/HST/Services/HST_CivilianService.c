@@ -121,6 +121,9 @@ class HST_CivilianService
 			civilianZone.m_sLastSecurityReason = "initialized";
 			civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
 			civilianZone.m_bUndercoverRestricted = zone.m_iSupport < 25;
+			civilianZone.m_iPopulationRemaining = Math.Max(20, civilianZone.m_iCivilianPresence * 8);
+			civilianZone.m_sLastInfluenceKind = "initialized";
+			civilianZone.m_sLastInfluenceReason = "initialized";
 			state.m_aCivilianZones.Insert(civilianZone);
 		}
 
@@ -165,7 +168,7 @@ class HST_CivilianService
 			changed = true;
 		}
 
-		return changed;
+		return RefreshTownInfluenceAggregates(state) || changed;
 	}
 
 	bool UpdatePhysicalTownPopulation(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
@@ -252,29 +255,171 @@ class HST_CivilianService
 		if (!state || zoneId.IsEmpty())
 			return false;
 
+		int occupierDelta = -reputationDelta / 2;
+		if (heatDelta > 0)
+			occupierDelta += heatDelta;
+
+		return RegisterInfluenceEvent(state, zoneId, "incident", reputationDelta, occupierDelta, reputationDelta, heatDelta, 0, 0, 0, reason, preset);
+	}
+
+	bool RegisterInfluenceEvent(HST_CampaignState state, string zoneId, string eventKind, int fiaSupportDelta, int occupierSupportDelta, int reputationDelta, int heatDelta, int populationDelta, int policeDelta, int roadblockDelta, string reason, HST_CampaignPreset preset = null, int durationSeconds = 0, string sourceId = "")
+	{
+		if (!state || zoneId.IsEmpty())
+			return false;
+
 		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
 		if (!civilianZone)
 			return false;
 
-		civilianZone.m_iReputation = Math.Max(0, Math.Min(100, civilianZone.m_iReputation + reputationDelta));
-		civilianZone.m_iWantedHeat = Math.Max(0, civilianZone.m_iWantedHeat + heatDelta);
-		civilianZone.m_iLastIncidentSecond = state.m_iElapsedSeconds;
-		civilianZone.m_sLastIncidentReason = reason;
-		civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
-		civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iFIASupport + reputationDelta));
-		civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, civilianZone.m_iOccupierSupport - reputationDelta / 2));
-		if (heatDelta > 0)
-			civilianZone.m_iOccupierSupport = Math.Min(100, civilianZone.m_iOccupierSupport + heatDelta);
+		HST_TownInfluenceEventState influenceEvent = new HST_TownInfluenceEventState();
+		influenceEvent.m_sEventId = BuildTownInfluenceEventId(state, zoneId, eventKind);
+		influenceEvent.m_sZoneId = zoneId;
+		influenceEvent.m_sKind = eventKind;
+		influenceEvent.m_sSourceId = sourceId;
+		influenceEvent.m_sReason = reason;
+		influenceEvent.m_iCreatedAtSecond = state.m_iElapsedSeconds;
+		if (durationSeconds > 0)
+			influenceEvent.m_iExpiresAtSecond = state.m_iElapsedSeconds + durationSeconds;
+		influenceEvent.m_iFIASupportDelta = fiaSupportDelta;
+		influenceEvent.m_iOccupierSupportDelta = occupierSupportDelta;
+		influenceEvent.m_iReputationDelta = reputationDelta;
+		influenceEvent.m_iHeatDelta = heatDelta;
+		influenceEvent.m_iPopulationDelta = populationDelta;
+		influenceEvent.m_iPoliceDelta = policeDelta;
+		influenceEvent.m_iRoadblockDelta = roadblockDelta;
+		state.m_aTownInfluenceEvents.Insert(influenceEvent);
 
-		HST_ZoneState zone = state.FindZone(zoneId);
+		ApplyInfluenceEvent(state, civilianZone, influenceEvent, preset);
+		RefreshTownInfluenceAggregatesForZone(state, civilianZone);
+		return true;
+	}
+
+	protected void ApplyInfluenceEvent(HST_CampaignState state, HST_CivilianZoneState civilianZone, HST_TownInfluenceEventState influenceEvent, HST_CampaignPreset preset = null)
+	{
+		if (!state || !civilianZone || !influenceEvent)
+			return;
+
+		EnsureTownPopulationFields(civilianZone);
+		civilianZone.m_iReputation = Math.Max(0, Math.Min(100, civilianZone.m_iReputation + influenceEvent.m_iReputationDelta));
+		civilianZone.m_iWantedHeat = Math.Max(0, civilianZone.m_iWantedHeat + influenceEvent.m_iHeatDelta);
+		civilianZone.m_iLastIncidentSecond = state.m_iElapsedSeconds;
+		civilianZone.m_sLastIncidentReason = influenceEvent.m_sReason;
+		civilianZone.m_iLastSupportChangeSecond = state.m_iElapsedSeconds;
+		civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iFIASupport + influenceEvent.m_iFIASupportDelta));
+		civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, civilianZone.m_iOccupierSupport + influenceEvent.m_iOccupierSupportDelta));
+		civilianZone.m_iPolicePresence = Math.Max(0, civilianZone.m_iPolicePresence + influenceEvent.m_iPoliceDelta);
+		civilianZone.m_iRoadblockPresence = Math.Max(0, civilianZone.m_iRoadblockPresence + influenceEvent.m_iRoadblockDelta);
+
+		if (influenceEvent.m_iPopulationDelta < 0)
+		{
+			int killed = Math.Min(civilianZone.m_iPopulationRemaining, -influenceEvent.m_iPopulationDelta);
+			civilianZone.m_iPopulationRemaining = Math.Max(0, civilianZone.m_iPopulationRemaining - killed);
+			civilianZone.m_iPopulationKilled += killed;
+		}
+		else if (influenceEvent.m_iPopulationDelta > 0)
+		{
+			civilianZone.m_iPopulationRemaining += influenceEvent.m_iPopulationDelta;
+		}
+
+		influenceEvent.m_bApplied = true;
+		civilianZone.m_iLastInfluenceEventSecond = influenceEvent.m_iCreatedAtSecond;
+		civilianZone.m_sLastInfluenceEventId = influenceEvent.m_sEventId;
+		civilianZone.m_sLastInfluenceKind = influenceEvent.m_sKind;
+		civilianZone.m_sLastInfluenceReason = influenceEvent.m_sReason;
+
+		HST_ZoneState zone = state.FindZone(influenceEvent.m_sZoneId);
 		if (zone)
 		{
 			zone.m_iSupport = Math.Max(-100, Math.Min(100, civilianZone.m_iFIASupport - civilianZone.m_iOccupierSupport));
 			civilianZone.m_bUndercoverRestricted = zone.m_iSupport < 25;
 			ApplyTownSupportOwnershipPolicy(state, preset, civilianZone, zone);
 		}
+	}
 
-		return true;
+	protected bool RefreshTownInfluenceAggregates(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
+		{
+			if (!civilianZone)
+				continue;
+
+			int beforeEvents = civilianZone.m_iInfluenceEventCount;
+			int beforeActive = civilianZone.m_iActiveInfluenceModifierCount;
+			int beforeExpired = civilianZone.m_iExpiredInfluenceModifierCount;
+			string beforeLast = civilianZone.m_sLastInfluenceEventId;
+			RefreshTownInfluenceAggregatesForZone(state, civilianZone);
+			if (civilianZone.m_iInfluenceEventCount != beforeEvents || civilianZone.m_iActiveInfluenceModifierCount != beforeActive || civilianZone.m_iExpiredInfluenceModifierCount != beforeExpired || civilianZone.m_sLastInfluenceEventId != beforeLast)
+				changed = true;
+		}
+
+		return changed;
+	}
+
+	protected void RefreshTownInfluenceAggregatesForZone(HST_CampaignState state, HST_CivilianZoneState civilianZone)
+	{
+		if (!state || !civilianZone)
+			return;
+
+		EnsureTownPopulationFields(civilianZone);
+		int eventCount;
+		int activeCount;
+		int expiredCount;
+		int lastSecond = civilianZone.m_iLastInfluenceEventSecond;
+		string lastEventId = civilianZone.m_sLastInfluenceEventId;
+		string lastKind = civilianZone.m_sLastInfluenceKind;
+		string lastReason = civilianZone.m_sLastInfluenceReason;
+
+		foreach (HST_TownInfluenceEventState influenceEvent : state.m_aTownInfluenceEvents)
+		{
+			if (!influenceEvent || influenceEvent.m_sZoneId != civilianZone.m_sZoneId)
+				continue;
+
+			eventCount++;
+			if (influenceEvent.m_iExpiresAtSecond > 0)
+			{
+				if (influenceEvent.m_iExpiresAtSecond > state.m_iElapsedSeconds)
+					activeCount++;
+				else
+					expiredCount++;
+			}
+
+			if (influenceEvent.m_iCreatedAtSecond >= lastSecond)
+			{
+				lastSecond = influenceEvent.m_iCreatedAtSecond;
+				lastEventId = influenceEvent.m_sEventId;
+				lastKind = influenceEvent.m_sKind;
+				lastReason = influenceEvent.m_sReason;
+			}
+		}
+
+		civilianZone.m_iInfluenceEventCount = eventCount;
+		civilianZone.m_iActiveInfluenceModifierCount = activeCount;
+		civilianZone.m_iExpiredInfluenceModifierCount = expiredCount;
+		civilianZone.m_iLastInfluenceEventSecond = lastSecond;
+		civilianZone.m_sLastInfluenceEventId = lastEventId;
+		civilianZone.m_sLastInfluenceKind = lastKind;
+		civilianZone.m_sLastInfluenceReason = lastReason;
+	}
+
+	protected void EnsureTownPopulationFields(HST_CivilianZoneState civilianZone)
+	{
+		if (!civilianZone)
+			return;
+
+		if (civilianZone.m_iPopulationRemaining <= 0 && civilianZone.m_iPopulationKilled <= 0)
+			civilianZone.m_iPopulationRemaining = Math.Max(20, Math.Max(1, civilianZone.m_iCivilianPresence) * 8);
+	}
+
+	protected string BuildTownInfluenceEventId(HST_CampaignState state, string zoneId, string eventKind)
+	{
+		string safeKind = eventKind;
+		if (safeKind.IsEmpty())
+			safeKind = "event";
+		return string.Format("town_influence_%1_%2_%3_%4", zoneId, safeKind, state.m_iElapsedSeconds, state.m_aTownInfluenceEvents.Count());
 	}
 
 	protected bool ApplyTownSupportOwnershipPolicy(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianZoneState civilianZone, HST_ZoneState zone)
@@ -405,6 +550,7 @@ class HST_CivilianService
 		if (!state)
 			return "h-istasi town support | state not ready";
 
+		RefreshTownInfluenceAggregates(state);
 		int townCount;
 		int fiaSupportTotal;
 		int occupierSupportTotal;
@@ -412,12 +558,18 @@ class HST_CivilianService
 		int heatTotal;
 		int policeTotal;
 		int roadblockTotal;
+		int populationRemainingTotal;
+		int populationKilledTotal;
+		int influenceEventTotal;
+		int activeInfluenceTotal;
+		int expiredInfluenceTotal;
 
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
 		{
 			if (!civilianZone)
 				continue;
 
+			EnsureTownPopulationFields(civilianZone);
 			townCount++;
 			fiaSupportTotal += civilianZone.m_iFIASupport;
 			occupierSupportTotal += civilianZone.m_iOccupierSupport;
@@ -425,6 +577,11 @@ class HST_CivilianService
 			heatTotal += civilianZone.m_iWantedHeat;
 			policeTotal += civilianZone.m_iPolicePresence;
 			roadblockTotal += civilianZone.m_iRoadblockPresence;
+			populationRemainingTotal += civilianZone.m_iPopulationRemaining;
+			populationKilledTotal += civilianZone.m_iPopulationKilled;
+			influenceEventTotal += civilianZone.m_iInfluenceEventCount;
+			activeInfluenceTotal += civilianZone.m_iActiveInfluenceModifierCount;
+			expiredInfluenceTotal += civilianZone.m_iExpiredInfluenceModifierCount;
 		}
 
 		int avgFIA;
@@ -447,6 +604,7 @@ class HST_CivilianService
 			policeTotal,
 			roadblockTotal
 		);
+		report = report + string.Format(" | population %1 killed %2 | influence events %3 active %4 expired %5", populationRemainingTotal, populationKilledTotal, influenceEventTotal, activeInfluenceTotal, expiredInfluenceTotal);
 
 		int emitted;
 		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
@@ -454,6 +612,7 @@ class HST_CivilianService
 			if (!town || emitted >= maxRows)
 				continue;
 
+			EnsureTownPopulationFields(town);
 			HST_ZoneState zone = state.FindZone(town.m_sZoneId);
 			string label = town.m_sZoneId;
 			string owner = "";
@@ -487,7 +646,9 @@ class HST_CivilianService
 				town.m_iCivilianPresence
 			);
 			line = line + string.Format(" | restricted %1 | support %2 | active %3 | last %4s %5", town.m_bUndercoverRestricted, strategicSupport, active, age, town.m_sLastIncidentReason);
+			line = line + string.Format(" | population %1 killed %2 | influence %3 active %4 expired %5", town.m_iPopulationRemaining, town.m_iPopulationKilled, town.m_iInfluenceEventCount, town.m_iActiveInfluenceModifierCount, town.m_iExpiredInfluenceModifierCount);
 			line = line + string.Format(" | roadScan %1 | policeScan %2 | security %3", town.m_iLastRoadblockScanSecond, town.m_iLastPoliceScanSecond, town.m_sLastSecurityReason);
+			line = line + string.Format(" | lastInfluence %1 %2", town.m_sLastInfluenceKind, town.m_sLastInfluenceReason);
 			report = report + line;
 
 			emitted++;
@@ -1733,6 +1894,73 @@ class HST_CivilianService
 		string report = string.Format("runtime town %1 | active %2 | total %3 | civ chars %4 | civ vehicles %5 | military vehicles %6", EmptyRuntimeField(zoneId), HasRuntimeZone(zoneId), total, civilianCharacters, civilianVehicles, militaryVehicles);
 		if (state)
 			report = report + string.Format(" | global civ chars %1 | civ vehicles %2 | failures %3 | last failure %4", state.m_iRuntimeCivilianCharacterCount, state.m_iRuntimeCivilianVehicleCount, state.m_iRuntimeSpawnFailureCount, EmptyRuntimeField(state.m_sLastRuntimeSpawnFailurePrefab));
+
+		return report;
+	}
+
+	string BuildTownInfluenceReport(HST_CampaignState state, int maxRows = 20)
+	{
+		if (!state)
+			return "h-istasi town influence | state not ready";
+
+		RefreshTownInfluenceAggregates(state);
+		int events;
+		int applied;
+		int active;
+		int expired;
+		foreach (HST_TownInfluenceEventState influenceEvent : state.m_aTownInfluenceEvents)
+		{
+			if (!influenceEvent)
+				continue;
+
+			events++;
+			if (influenceEvent.m_bApplied)
+				applied++;
+			if (influenceEvent.m_iExpiresAtSecond > 0)
+			{
+				if (influenceEvent.m_iExpiresAtSecond > state.m_iElapsedSeconds)
+					active++;
+				else
+					expired++;
+			}
+		}
+
+		string report = string.Format("h-istasi town influence | events %1 | applied %2 | active modifiers %3 | expired modifiers %4", events, applied, active, expired);
+		int emitted;
+		for (int i = state.m_aTownInfluenceEvents.Count() - 1; i >= 0; i--)
+		{
+			if (emitted >= maxRows)
+				break;
+
+			HST_TownInfluenceEventState influenceEvent = state.m_aTownInfluenceEvents[i];
+			if (!influenceEvent)
+				continue;
+
+			int remaining;
+			if (influenceEvent.m_iExpiresAtSecond > 0)
+				remaining = influenceEvent.m_iExpiresAtSecond - state.m_iElapsedSeconds;
+
+			string line = string.Format("\n%1 | zone %2 | kind %3 | FIA %4 occ %5 rep %6 heat %7 pop %8",
+				influenceEvent.m_sEventId,
+				influenceEvent.m_sZoneId,
+				influenceEvent.m_sKind,
+				influenceEvent.m_iFIASupportDelta,
+				influenceEvent.m_iOccupierSupportDelta,
+				influenceEvent.m_iReputationDelta,
+				influenceEvent.m_iHeatDelta,
+				influenceEvent.m_iPopulationDelta);
+			line = line + string.Format(" | police %1 road %2 | applied %3 | remaining %4 | %5",
+				influenceEvent.m_iPoliceDelta,
+				influenceEvent.m_iRoadblockDelta,
+				influenceEvent.m_bApplied,
+				remaining,
+				influenceEvent.m_sReason);
+			report = report + line;
+			emitted++;
+		}
+
+		if (emitted == 0)
+			report = report + "\nno town influence events";
 
 		return report;
 	}

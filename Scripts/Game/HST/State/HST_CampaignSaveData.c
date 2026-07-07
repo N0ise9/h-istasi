@@ -91,6 +91,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
+	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
 
@@ -263,6 +264,10 @@ class HST_CampaignSaveData
 		m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
 			m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
+
+		m_aTownInfluenceEvents.Clear();
+		foreach (HST_TownInfluenceEventState influenceEvent : state.m_aTownInfluenceEvents)
+			m_aTownInfluenceEvents.Insert(CopyTownInfluenceEvent(influenceEvent));
 
 		m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : state.m_aUndercoverPlayers)
@@ -451,6 +456,10 @@ class HST_CampaignSaveData
 		state.m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
 			state.m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
+
+		state.m_aTownInfluenceEvents.Clear();
+		foreach (HST_TownInfluenceEventState influenceEvent : m_aTownInfluenceEvents)
+			state.m_aTownInfluenceEvents.Insert(CopyTownInfluenceEvent(influenceEvent));
 
 		state.m_aUndercoverPlayers.Clear();
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)
@@ -1167,6 +1176,36 @@ class HST_CampaignSaveData
 		target.m_iLastPoliceScanSecond = source.m_iLastPoliceScanSecond;
 		target.m_sLastSecurityReason = source.m_sLastSecurityReason;
 		target.m_bUndercoverRestricted = source.m_bUndercoverRestricted;
+		target.m_iPopulationRemaining = source.m_iPopulationRemaining;
+		target.m_iPopulationKilled = source.m_iPopulationKilled;
+		target.m_iInfluenceEventCount = source.m_iInfluenceEventCount;
+		target.m_iActiveInfluenceModifierCount = source.m_iActiveInfluenceModifierCount;
+		target.m_iExpiredInfluenceModifierCount = source.m_iExpiredInfluenceModifierCount;
+		target.m_iLastInfluenceEventSecond = source.m_iLastInfluenceEventSecond;
+		target.m_sLastInfluenceEventId = source.m_sLastInfluenceEventId;
+		target.m_sLastInfluenceKind = source.m_sLastInfluenceKind;
+		target.m_sLastInfluenceReason = source.m_sLastInfluenceReason;
+		return target;
+	}
+
+	protected HST_TownInfluenceEventState CopyTownInfluenceEvent(HST_TownInfluenceEventState source)
+	{
+		HST_TownInfluenceEventState target = new HST_TownInfluenceEventState();
+		target.m_sEventId = source.m_sEventId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sKind = source.m_sKind;
+		target.m_sSourceId = source.m_sSourceId;
+		target.m_sReason = source.m_sReason;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iExpiresAtSecond = source.m_iExpiresAtSecond;
+		target.m_iFIASupportDelta = source.m_iFIASupportDelta;
+		target.m_iOccupierSupportDelta = source.m_iOccupierSupportDelta;
+		target.m_iReputationDelta = source.m_iReputationDelta;
+		target.m_iHeatDelta = source.m_iHeatDelta;
+		target.m_iPopulationDelta = source.m_iPopulationDelta;
+		target.m_iPoliceDelta = source.m_iPoliceDelta;
+		target.m_iRoadblockDelta = source.m_iRoadblockDelta;
+		target.m_bApplied = source.m_bApplied;
 		return target;
 	}
 
@@ -1496,6 +1535,49 @@ class HST_CampaignSaveData
 				civilianZone.m_iLastSupportChangeSecond = civilianZone.m_iLastIncidentSecond;
 			if (civilianZone.m_sLastSecurityReason.IsEmpty())
 				civilianZone.m_sLastSecurityReason = civilianZone.m_sLastIncidentReason;
+
+			if (civilianZone.m_iPopulationRemaining <= 0)
+				civilianZone.m_iPopulationRemaining = Math.Max(20, Math.Max(1, civilianZone.m_iCivilianPresence) * 8);
+			if (civilianZone.m_sLastInfluenceReason.IsEmpty())
+				civilianZone.m_sLastInfluenceReason = civilianZone.m_sLastIncidentReason;
+			if (civilianZone.m_sLastInfluenceKind.IsEmpty())
+				civilianZone.m_sLastInfluenceKind = "legacy/backfilled";
+			if (civilianZone.m_iLastInfluenceEventSecond <= 0)
+				civilianZone.m_iLastInfluenceEventSecond = civilianZone.m_iLastSupportChangeSecond;
+
+			int influenceCount;
+			int activeInfluenceCount;
+			int expiredInfluenceCount;
+			string lastInfluenceEventId = civilianZone.m_sLastInfluenceEventId;
+			int lastInfluenceSecond = civilianZone.m_iLastInfluenceEventSecond;
+			foreach (HST_TownInfluenceEventState influenceEvent : m_aTownInfluenceEvents)
+			{
+				if (!influenceEvent || influenceEvent.m_sZoneId != civilianZone.m_sZoneId)
+					continue;
+
+				influenceCount++;
+				if (influenceEvent.m_iExpiresAtSecond > 0)
+				{
+					if (influenceEvent.m_iExpiresAtSecond > m_iElapsedSeconds)
+						activeInfluenceCount++;
+					else
+						expiredInfluenceCount++;
+				}
+
+				if (influenceEvent.m_iCreatedAtSecond >= lastInfluenceSecond)
+				{
+					lastInfluenceSecond = influenceEvent.m_iCreatedAtSecond;
+					lastInfluenceEventId = influenceEvent.m_sEventId;
+					civilianZone.m_sLastInfluenceKind = influenceEvent.m_sKind;
+					civilianZone.m_sLastInfluenceReason = influenceEvent.m_sReason;
+				}
+			}
+
+			civilianZone.m_iInfluenceEventCount = influenceCount;
+			civilianZone.m_iActiveInfluenceModifierCount = activeInfluenceCount;
+			civilianZone.m_iExpiredInfluenceModifierCount = expiredInfluenceCount;
+			civilianZone.m_iLastInfluenceEventSecond = lastInfluenceSecond;
+			civilianZone.m_sLastInfluenceEventId = lastInfluenceEventId;
 		}
 
 		foreach (HST_PlayerUndercoverState undercover : m_aUndercoverPlayers)

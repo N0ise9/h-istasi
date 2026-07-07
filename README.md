@@ -69,6 +69,8 @@ The repository contains a broad-alpha campaign foundation:
   diagnostics
 - Physical enemy response fold-back for support/QRF groups that leave the event
   bubble, preserving survivor state while removing live runtime handles
+- Town influence event ledger with support, reputation, heat, population, and
+  security-pressure deltas feeding political ownership flips and debug reports
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records

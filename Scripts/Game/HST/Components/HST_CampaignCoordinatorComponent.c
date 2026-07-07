@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r48-physical-response-foldback";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-07-runtime-proof-r49-town-influence-ledger";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -4614,6 +4614,156 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return string.Format("order [%1] | support [%2] | group [%3]", orderActual, requestActual, groupActual);
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugTownInfluenceLedgerCase()
+	{
+		HST_CampaignDebugCaseResult influenceCase = CreateCampaignDebugCase("town_influence.ledger.runtime", "civilians", "town_influence", "baseline");
+		bool servicesReady = m_State != null && m_Preset != null && m_Civilians != null;
+		AddCampaignDebugAssertion(influenceCase, "town_influence.prerequisite", "state, preset, and civilian service ready", string.Format("state %1 | preset %2 | civilians %3", m_State != null, m_Preset != null, m_Civilians != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "town influence prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(influenceCase);
+			return influenceCase;
+		}
+
+		m_Civilians.EnsureCivilianZones(m_State);
+		string targetZoneId = SelectHQCivilianTownZoneId();
+		HST_ZoneState zone = m_State.FindZone(targetZoneId);
+		HST_CivilianZoneState town = m_State.FindCivilianZone(targetZoneId);
+		bool targetReady = zone != null && town != null && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && !m_Preset.m_sResistanceFactionKey.IsEmpty() && !m_Preset.m_sOccupierFactionKey.IsEmpty();
+		AddCampaignDebugAssertion(influenceCase, "town_influence.target", "existing town target selected for influence proof", BuildCampaignDebugTownInfluenceActual(town, zone), CampaignDebugStatus(targetReady, "BLOCKED"), "town influence target missing");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(influenceCase);
+			return influenceCase;
+		}
+
+		int eventCountBefore = m_State.m_aTownInfluenceEvents.Count();
+		string ownerBefore = zone.m_sOwnerFactionKey;
+		int supportBefore = zone.m_iSupport;
+		int progressBefore = zone.m_iResistanceCaptureProgress;
+		bool activeBefore = zone.m_bActive;
+		int reputationBefore = town.m_iReputation;
+		int fiaBefore = town.m_iFIASupport;
+		int occupierBefore = town.m_iOccupierSupport;
+		int heatBefore = town.m_iWantedHeat;
+		int presenceBefore = town.m_iCivilianPresence;
+		int policeBefore = town.m_iPolicePresence;
+		int roadblockBefore = town.m_iRoadblockPresence;
+		int incidentSecondBefore = town.m_iLastIncidentSecond;
+		string incidentReasonBefore = town.m_sLastIncidentReason;
+		int supportChangeSecondBefore = town.m_iLastSupportChangeSecond;
+		int roadblockScanBefore = town.m_iLastRoadblockScanSecond;
+		int policeScanBefore = town.m_iLastPoliceScanSecond;
+		string securityReasonBefore = town.m_sLastSecurityReason;
+		bool restrictedBefore = town.m_bUndercoverRestricted;
+		int populationBefore = town.m_iPopulationRemaining;
+		int killedBefore = town.m_iPopulationKilled;
+		int influenceCountBefore = town.m_iInfluenceEventCount;
+		int activeInfluenceBefore = town.m_iActiveInfluenceModifierCount;
+		int expiredInfluenceBefore = town.m_iExpiredInfluenceModifierCount;
+		int lastInfluenceSecondBefore = town.m_iLastInfluenceEventSecond;
+		string lastInfluenceIdBefore = town.m_sLastInfluenceEventId;
+		string lastInfluenceKindBefore = town.m_sLastInfluenceKind;
+		string lastInfluenceReasonBefore = town.m_sLastInfluenceReason;
+
+		zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+		zone.m_iResistanceCaptureProgress = 0;
+		town.m_iReputation = 50;
+		town.m_iFIASupport = 48;
+		town.m_iOccupierSupport = 52;
+		town.m_iWantedHeat = 0;
+		town.m_iCivilianPresence = Math.Max(4, town.m_iCivilianPresence);
+		town.m_iPopulationRemaining = 80;
+		town.m_iPopulationKilled = 0;
+		town.m_iPolicePresence = 1;
+		town.m_iRoadblockPresence = 0;
+		zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+
+		bool aidEvent = m_Civilians.RegisterInfluenceEvent(m_State, targetZoneId, "debug_supplies", 20, -5, 12, -2, 0, 0, 0, "debug supplies increase town support", m_Preset, 300, "campaign_debug");
+		string ownerAfterAid = zone.m_sOwnerFactionKey;
+		int fiaAfterAid = town.m_iFIASupport;
+		int occupierAfterAid = town.m_iOccupierSupport;
+		int supportAfterAid = zone.m_iSupport;
+		int activeAfterAid = town.m_iActiveInfluenceModifierCount;
+		bool casualtyEvent = m_Civilians.RegisterInfluenceEvent(m_State, targetZoneId, "debug_civilian_casualties", -35, 25, -30, 20, -7, 0, 0, "debug casualties increase occupation pressure", m_Preset);
+		string ownerAfterCasualty = zone.m_sOwnerFactionKey;
+		int killedAfterCasualty = town.m_iPopulationKilled;
+		int populationAfterCasualty = town.m_iPopulationRemaining;
+		int heatAfterCasualty = town.m_iWantedHeat;
+		bool securityEvent = m_Civilians.RegisterInfluenceEvent(m_State, targetZoneId, "debug_roadblock_pressure", -3, 6, -2, 3, 0, 1, 1, "debug security pressure modifier", m_Preset, 120, "campaign_debug");
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(m_State);
+		HST_CampaignState restoredState = new HST_CampaignState();
+		saveData.ApplyTo(restoredState);
+		HST_CivilianZoneState restoredTown = restoredState.FindCivilianZone(targetZoneId);
+		HST_ZoneState restoredZone = restoredState.FindZone(targetZoneId);
+
+		int eventCountAfter = m_State.m_aTownInfluenceEvents.Count();
+		string influenceReport = m_Civilians.BuildTownInfluenceReport(m_State, 6);
+		influenceCase.m_aEvidence.Insert(ShortCampaignDebugLine(influenceReport, 360));
+		AddCampaignDebugMetric(influenceCase, "town_influence.events_before", string.Format("%1", eventCountBefore), "count");
+		AddCampaignDebugMetric(influenceCase, "town_influence.events_after", string.Format("%1", eventCountAfter), "count");
+		AddCampaignDebugMetric(influenceCase, "town_influence.population_killed", string.Format("%1", town.m_iPopulationKilled), "count");
+
+		bool eventsRecorded = aidEvent && casualtyEvent && securityEvent && eventCountAfter == eventCountBefore + 3 && town.m_iInfluenceEventCount >= 3;
+		AddCampaignDebugAssertion(influenceCase, "town_influence.events_recorded", "aid, casualty, and security influence events are durable rows", BuildCampaignDebugTownInfluenceActual(town, zone), CampaignDebugStatus(eventsRecorded), "town influence events were not recorded/applied");
+		bool aidExpected = aidEvent && ownerAfterAid == m_Preset.m_sResistanceFactionKey && fiaAfterAid == 68 && occupierAfterAid == 47 && supportAfterAid == 21 && activeAfterAid >= 1;
+		AddCampaignDebugAssertion(influenceCase, "town_influence.support_majority_flip", "support-majority aid event flips a calm town to resistance", string.Format("owner %1 | FIA %2 | occupier %3 | support %4 | active %5", ownerAfterAid, fiaAfterAid, occupierAfterAid, supportAfterAid, activeAfterAid), CampaignDebugStatus(aidExpected), "support-majority town flip did not follow influence ledger state");
+		bool casualtyExpected = casualtyEvent && ownerAfterCasualty == m_Preset.m_sOccupierFactionKey && killedAfterCasualty == 7 && populationAfterCasualty == 73 && heatAfterCasualty == 20;
+		AddCampaignDebugAssertion(influenceCase, "town_influence.casualty_pressure", "civilian casualties reduce population/support and can flip heated town pressure back to enemy", string.Format("owner %1 | population %2 killed %3 | heat %4", ownerAfterCasualty, populationAfterCasualty, killedAfterCasualty, heatAfterCasualty), CampaignDebugStatus(casualtyExpected), "casualty influence event did not update population/heat/owner");
+		bool securityExpected = securityEvent && town.m_iPolicePresence == 2 && town.m_iRoadblockPresence == 1 && town.m_iActiveInfluenceModifierCount >= 2 && town.m_sLastInfluenceKind == "debug_roadblock_pressure";
+		AddCampaignDebugAssertion(influenceCase, "town_influence.security_modifier", "security pressure event updates police/roadblock pressure and active modifier counts", BuildCampaignDebugTownInfluenceActual(town, zone), CampaignDebugStatus(securityExpected), "security influence modifier did not update pressure counters");
+		bool derivedExpected = zone.m_iSupport == Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport)) && town.m_bUndercoverRestricted == (zone.m_iSupport < 25);
+		AddCampaignDebugAssertion(influenceCase, "town_influence.derived_support", "zone support and undercover restriction derive from FIA minus occupier support", BuildCampaignDebugTownInfluenceActual(town, zone), CampaignDebugStatus(derivedExpected), "derived town support fields do not match influence totals");
+		bool roundTripExpected = restoredTown && restoredZone && restoredTown.m_iInfluenceEventCount == town.m_iInfluenceEventCount && restoredTown.m_iPopulationKilled == town.m_iPopulationKilled && restoredTown.m_sLastInfluenceKind == town.m_sLastInfluenceKind && restoredState.m_aTownInfluenceEvents.Count() == m_State.m_aTownInfluenceEvents.Count() && restoredZone.m_sOwnerFactionKey == zone.m_sOwnerFactionKey;
+		AddCampaignDebugAssertion(influenceCase, "town_influence.save_roundtrip", "save-data roundtrip preserves influence events and derived town fields", BuildCampaignDebugTownInfluenceActual(restoredTown, restoredZone), CampaignDebugStatus(roundTripExpected), "town influence state did not survive save-data copy");
+
+		while (m_State.m_aTownInfluenceEvents.Count() > eventCountBefore)
+			m_State.m_aTownInfluenceEvents.Remove(m_State.m_aTownInfluenceEvents.Count() - 1);
+		zone.m_sOwnerFactionKey = ownerBefore;
+		zone.m_iSupport = supportBefore;
+		zone.m_iResistanceCaptureProgress = progressBefore;
+		zone.m_bActive = activeBefore;
+		town.m_iReputation = reputationBefore;
+		town.m_iFIASupport = fiaBefore;
+		town.m_iOccupierSupport = occupierBefore;
+		town.m_iWantedHeat = heatBefore;
+		town.m_iCivilianPresence = presenceBefore;
+		town.m_iPolicePresence = policeBefore;
+		town.m_iRoadblockPresence = roadblockBefore;
+		town.m_iLastIncidentSecond = incidentSecondBefore;
+		town.m_sLastIncidentReason = incidentReasonBefore;
+		town.m_iLastSupportChangeSecond = supportChangeSecondBefore;
+		town.m_iLastRoadblockScanSecond = roadblockScanBefore;
+		town.m_iLastPoliceScanSecond = policeScanBefore;
+		town.m_sLastSecurityReason = securityReasonBefore;
+		town.m_bUndercoverRestricted = restrictedBefore;
+		town.m_iPopulationRemaining = populationBefore;
+		town.m_iPopulationKilled = killedBefore;
+		town.m_iInfluenceEventCount = influenceCountBefore;
+		town.m_iActiveInfluenceModifierCount = activeInfluenceBefore;
+		town.m_iExpiredInfluenceModifierCount = expiredInfluenceBefore;
+		town.m_iLastInfluenceEventSecond = lastInfluenceSecondBefore;
+		town.m_sLastInfluenceEventId = lastInfluenceIdBefore;
+		town.m_sLastInfluenceKind = lastInfluenceKindBefore;
+		town.m_sLastInfluenceReason = lastInfluenceReasonBefore;
+
+		FinalizeCampaignDebugCaseFromAssertions(influenceCase);
+		return influenceCase;
+	}
+
+	protected string BuildCampaignDebugTownInfluenceActual(HST_CivilianZoneState town, HST_ZoneState zone)
+	{
+		if (!town || !zone)
+			return "missing";
+
+		string actual = string.Format("zone %1 | owner %2 | support %3 | FIA %4 | occupier %5 | rep %6 | heat %7", town.m_sZoneId, zone.m_sOwnerFactionKey, zone.m_iSupport, town.m_iFIASupport, town.m_iOccupierSupport, town.m_iReputation, town.m_iWantedHeat);
+		actual = actual + string.Format(" | population %1 killed %2 | police %3 roadblocks %4", town.m_iPopulationRemaining, town.m_iPopulationKilled, town.m_iPolicePresence, town.m_iRoadblockPresence);
+		actual = actual + string.Format(" | events %1 active %2 expired %3 | last %4 %5", town.m_iInfluenceEventCount, town.m_iActiveInfluenceModifierCount, town.m_iExpiredInfluenceModifierCount, EmptyCampaignDebugField(town.m_sLastInfluenceKind), EmptyCampaignDebugField(town.m_sLastInfluenceReason));
+		return actual;
+	}
+
 	protected void AddCampaignDebugGameMasterBudgetAssertions(HST_CampaignDebugCaseResult preflightCase)
 	{
 		if (!preflightCase)
@@ -5059,6 +5209,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_EnemyDirector)
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
 		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());
+		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
+		if (m_Civilians)
+			RecordCampaignDebugObservation("town influence", m_Civilians.BuildTownInfluenceReport(m_State));
 		string persistenceReport = BuildCampaignDebugBaselinePersistenceReport();
 		bool persistenceHealthy = IsCampaignDebugPersistenceReportHealthy(persistenceReport);
 		bool persistenceWarning = persistenceHealthy && IsCampaignDebugPersistenceReportWarning(persistenceReport);
@@ -16255,6 +16408,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int originalZoneSupport = zone.m_iSupport;
 		string originalOwner = zone.m_sOwnerFactionKey;
 		int originalCaptureProgress = zone.m_iResistanceCaptureProgress;
+		int originalInfluenceEventRows = m_State.m_aTownInfluenceEvents.Count();
+		int originalPopulationRemaining = town.m_iPopulationRemaining;
+		int originalPopulationKilled = town.m_iPopulationKilled;
+		int originalInfluenceEventCount = town.m_iInfluenceEventCount;
+		int originalActiveInfluenceCount = town.m_iActiveInfluenceModifierCount;
+		int originalExpiredInfluenceCount = town.m_iExpiredInfluenceModifierCount;
+		int originalLastInfluenceSecond = town.m_iLastInfluenceEventSecond;
+		string originalLastInfluenceId = town.m_sLastInfluenceEventId;
+		string originalLastInfluenceKind = town.m_sLastInfluenceKind;
+		string originalLastInfluenceReason = town.m_sLastInfluenceReason;
 
 		town.m_iFIASupport = 40;
 		town.m_iOccupierSupport = 60;
@@ -16320,6 +16483,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool downMarkerOk = downMarker && downMarker.m_sLinkedId == zoneId && downMarker.m_sOwnerFactionKey == zone.m_sOwnerFactionKey && !downMarker.m_sColorHint.IsEmpty() && !downMarker.m_sStyleHint.IsEmpty();
 		string downMarkerActual = string.Format("refresh %1 | %2", downMarkerRefresh, BuildCampaignDebugMarkerActual(downMarker));
 
+		while (m_State.m_aTownInfluenceEvents.Count() > originalInfluenceEventRows)
+			m_State.m_aTownInfluenceEvents.Remove(m_State.m_aTownInfluenceEvents.Count() - 1);
 		town.m_iFIASupport = originalFIA;
 		town.m_iOccupierSupport = originalOccupier;
 		town.m_iReputation = originalReputation;
@@ -16329,10 +16494,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		town.m_sLastIncidentReason = originalIncidentReason;
 		town.m_sLastSecurityReason = originalSecurityReason;
 		town.m_bUndercoverRestricted = originalUndercoverRestricted;
+		town.m_iPopulationRemaining = originalPopulationRemaining;
+		town.m_iPopulationKilled = originalPopulationKilled;
+		town.m_iInfluenceEventCount = originalInfluenceEventCount;
+		town.m_iActiveInfluenceModifierCount = originalActiveInfluenceCount;
+		town.m_iExpiredInfluenceModifierCount = originalExpiredInfluenceCount;
+		town.m_iLastInfluenceEventSecond = originalLastInfluenceSecond;
+		town.m_sLastInfluenceEventId = originalLastInfluenceId;
+		town.m_sLastInfluenceKind = originalLastInfluenceKind;
+		town.m_sLastInfluenceReason = originalLastInfluenceReason;
 		zone.m_iSupport = originalZoneSupport;
 		zone.m_sOwnerFactionKey = originalOwner;
 		zone.m_iResistanceCaptureProgress = originalCaptureProgress;
-		bool restored = town.m_iFIASupport == originalFIA && town.m_iOccupierSupport == originalOccupier && town.m_iReputation == originalReputation && town.m_iWantedHeat == originalHeat && town.m_sLastSecurityReason == originalSecurityReason && town.m_bUndercoverRestricted == originalUndercoverRestricted && zone.m_iSupport == originalZoneSupport && zone.m_sOwnerFactionKey == originalOwner && zone.m_iResistanceCaptureProgress == originalCaptureProgress;
+		bool restored = town.m_iFIASupport == originalFIA && town.m_iOccupierSupport == originalOccupier && town.m_iReputation == originalReputation && town.m_iWantedHeat == originalHeat && town.m_sLastSecurityReason == originalSecurityReason && town.m_bUndercoverRestricted == originalUndercoverRestricted && town.m_iInfluenceEventCount == originalInfluenceEventCount && m_State.m_aTownInfluenceEvents.Count() == originalInfluenceEventRows && zone.m_iSupport == originalZoneSupport && zone.m_sOwnerFactionKey == originalOwner && zone.m_iResistanceCaptureProgress == originalCaptureProgress;
 		bool restoreMarkerRefresh = false;
 		HST_MapMarkerState restoredMarker;
 		if (m_MapMarkers && m_Preset)

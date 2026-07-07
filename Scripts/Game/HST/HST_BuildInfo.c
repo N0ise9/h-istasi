@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r48-physical-response-foldback";
-	static const string BUILD_UTC = "2026-07-07T13:05:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r48-physical-response-foldback";
+	static const string BUILD_SHA = "r49-town-influence-ledger";
+	static const string BUILD_UTC = "2026-07-07T14:10:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r49-town-influence-ledger";
 
 	static string BuildSummary()
 	{

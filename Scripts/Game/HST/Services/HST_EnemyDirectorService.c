@@ -257,8 +257,8 @@ class HST_EnemyDirectorService
 			int maxSpend = ResolveMaxDefenseSpend(state, zone, ledger);
 			int recentDamage = ResolveRecentDamageScore(state, ledger);
 			int cooldownRemaining = Math.Max(0, ledger.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
-			report = report + string.Format(
-				"\n%1/%2 | spent %3/%4 cap %5 | damage %6 | cooldown %7s | refunds %8/%9 | reason %10",
+			string line = string.Format(
+				"\n%1/%2 | spent %3/%4 cap %5 | damage %6 | cooldown %7s | refunds %8/%9",
 				ledger.m_sFactionKey,
 				ledger.m_sZoneId,
 				ledger.m_iAttackSpent,
@@ -267,9 +267,9 @@ class HST_EnemyDirectorService
 				recentDamage,
 				cooldownRemaining,
 				ledger.m_iRefundedAttackResources,
-				ledger.m_iRefundedSupportResources,
-				ledger.m_sLastDecisionReason
+				ledger.m_iRefundedSupportResources
 			);
+			report = report + line + string.Format(" | reason %1", ledger.m_sLastDecisionReason);
 			count++;
 			if (count >= 12)
 				break;

@@ -2,8 +2,12 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `29`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `30`.
 
+- Schema 30 adds durable town influence events plus town population and
+  influence aggregate fields so aid, civilian casualties, security pressure,
+  support-majority flips, and active/expired modifiers remain inspectable
+  across saves.
 - Schema 29 adds durable enemy support-spend ledgers and enemy-order refund
   stamps so QRF/support cooldowns, recent damage pressure, max-spend denials,
   and survivor fold-back refunds remain inspectable across saves.
@@ -32,7 +36,8 @@
   vehicle cargo, runtime vehicles, saved loadouts, issued loadout items,
   captured emplacements, ammo points, active missions, generated sites/routes,
   mission objectives/runtime entities/assets, support requests, enemy orders,
-  enemy support ledgers, civilian state, undercover state, and campaign tasks.
+  enemy support ledgers, civilian state, town influence events, undercover
+  state, and campaign tasks.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
@@ -44,6 +49,22 @@
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Schema 30
+
+Town influence events and population aggregates.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `30`.
+- `HST_TownInfluenceEventState` persists event id, zone id, kind, source,
+  reason, created/expiry seconds, support/reputation/heat/population/security
+  deltas, and whether the event was applied.
+- `HST_CivilianZoneState` now persists population remaining/killed, influence
+  event counts, active/expired modifier counts, and the latest influence event
+  metadata.
+- Existing schema-29 and older saves backfill town population from civilian
+  presence and mark legacy influence summaries from the last incident/security
+  fields. Existing saves start with no influence event rows until the next
+  town-support event is registered.
 
 ## Schema 29
 

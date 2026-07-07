@@ -265,14 +265,17 @@ class HST_SpawnPlacementService
 			return "spawn placement | missing result";
 
 		string summary = string.Format(
-			"spawn placement | request %1 | type %2 | success %3 | target %4 | spawn %5 | targetDistance %6m | hqDistance %7m | dry %8 | vehicleSafe %9 | road %10 roadDistance %11m | hqStandoff %12",
+			"spawn placement | request %1 | type %2 | success %3 | target %4 | spawn %5 | targetDistance %6m | hqDistance %7m",
 			EmptyField(result.m_sRequestId),
 			EmptyField(result.m_sPlacementType),
 			result.m_bSuccess,
 			result.m_vTargetPosition,
 			result.m_vSpawnPosition,
 			Math.Round(result.m_fTargetDistanceMeters),
-			Math.Round(result.m_fHQDistanceMeters),
+			Math.Round(result.m_fHQDistanceMeters)
+		);
+		summary = summary + string.Format(
+			" | dry %1 | vehicleSafe %2 | road %3 roadDistance %4m | hqStandoff %5",
 			result.m_bDryGround,
 			result.m_bVehicleSafe,
 			result.m_bRoadResolved,

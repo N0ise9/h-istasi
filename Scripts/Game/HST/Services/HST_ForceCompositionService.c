@@ -670,7 +670,7 @@ class HST_ForceCompositionService
 			return "force composition | missing result";
 
 		string summary = string.Format(
-			"force composition | request %1 | faction %2 | intent %3 | war %4 | tier %5 | success %6 | cost %7/%8 | manpower %9 | vehicles %10 armed %11 | skipped %12",
+			"force composition | request %1 | faction %2 | intent %3 | war %4 | tier %5 | success %6 | cost %7/%8 | manpower %9",
 			EmptyField(result.m_sRequestId),
 			EmptyField(result.m_sFactionKey),
 			EmptyField(result.m_sIntentId),
@@ -679,7 +679,10 @@ class HST_ForceCompositionService
 			result.m_bSuccess,
 			result.m_iTotalCost,
 			result.m_iBudget,
-			result.m_iManpower,
+			result.m_iManpower
+		);
+		summary = summary + string.Format(
+			" | vehicles %1 armed %2 | skipped %3",
 			result.m_iVehicleCount,
 			result.m_iArmedVehicleCount,
 			result.m_iSkippedPrefabCount
