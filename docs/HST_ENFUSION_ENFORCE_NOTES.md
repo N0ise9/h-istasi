@@ -59,6 +59,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Runtime Architecture Patterns
 
+- Planning/checklist docs should be first-party h-istasi documents.
+  - When converting external planning material, keep feature status, gaps,
+    priorities, implementation contracts, and acceptance tests.
+  - Strip external project/source names, comparison tables, external file
+    paths, citation blocks, and source-mapping language before committing docs.
+  - Keep third-party attribution separate and do not use planning docs as a
+    place for source provenance.
+
 - Do not assign `new` into a non-`ref` managed object parameter.
   - Enforce treats a method parameter such as `HST_FooResult result` as a weak
     reference for assignment purposes. `result = new HST_FooResult()` fails with

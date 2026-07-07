@@ -198,6 +198,9 @@ addon under `ArmaReforger/addons`, even if the repository has newer commits.
 - Use native Reforger persistence and session saves.
 - Keep off-screen forces abstract and activate physical AI only around
   players and active objectives.
+- Track feature-complete campaign work in `docs/FEATURE_CHECKLIST.md` and keep
+  planning docs focused on h-istasi behavior, status, gaps, and acceptance
+  tests.
 - Do not copy source assets from neighboring addons.
 - Do not add hidden dependencies.
 
@@ -206,5 +209,6 @@ addon under `ArmaReforger/addons`, even if the repository has newer commits.
 - `Missions/HST_Everon.conf`: full-island campaign shell
 - `Missions/HST_Dev.conf`: compact systems-development shell
 
-See `docs/ARCHITECTURE.md`, `docs/PARITY.md`, and `docs/PHASE_PLAN.md` for
-the implementation map and current phase roadmap.
+See `docs/ARCHITECTURE.md`, `docs/FEATURE_CHECKLIST.md`, `docs/PARITY.md`,
+and `docs/PHASE_PLAN.md` for the implementation map, feature checklist, and
+current phase roadmap.
