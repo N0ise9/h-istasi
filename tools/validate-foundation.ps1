@@ -7981,6 +7981,15 @@ foreach ($requiredPhase8RuntimeEntry in @(
 		throw "Missing Phase 8 convoy progress/stuck entry: $requiredPhase8RuntimeEntry"
 	}
 }
+foreach ($requiredPhase8DebugWindowEntry in @(
+		"ResolveCampaignDebugConvoyMovementWaitSeconds",
+		"HST_PhysicalWarService.CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS + HST_PhysicalWarService.CONVOY_PROGRESS_SYNC_SECONDS * 3 + 1",
+		"movement wait %5s"
+	)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredPhase8DebugWindowEntry)) {
+		throw "Missing Phase 8 convoy debug movement-window entry: $requiredPhase8DebugWindowEntry"
+	}
+}
 foreach ($requiredPhase8MissionRuntimeEntry in @(
 		"ResolveConvoyEndPosition",
 		"TryResolveConvoySpawnPlan",

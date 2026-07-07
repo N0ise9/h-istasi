@@ -7612,7 +7612,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordCampaignDebugConvoyPhysicalProbe(label, m_sCampaignDebugEarlyMissionInstanceId);
 
 		if (m_iCampaignDebugEarlyPhaseIndex == 5)
-			m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS * 3 + 1;
+			m_iCampaignDebugWaitSeconds = ResolveCampaignDebugConvoyMovementWaitSeconds();
 		else if (m_iCampaignDebugEarlyPhaseIndex == 7)
 			m_iCampaignDebugWaitSeconds = 2;
 		else if (m_iCampaignDebugEarlyPhaseIndex == 18)
@@ -11146,7 +11146,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		ForceCampaignDebugConvoyDepartureForInstance(mission.m_sInstanceId);
 		MarkMajorCampaignChange(true);
-		return string.Format("h-istasi campaign debug | convoy departure forced | instance %1 | counters %2/%3/%4", mission.m_sInstanceId, mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC);
+		return string.Format("h-istasi campaign debug | convoy departure forced | instance %1 | counters %2/%3/%4 | movement wait %5s", mission.m_sInstanceId, mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC, ResolveCampaignDebugConvoyMovementWaitSeconds());
+	}
+
+	protected int ResolveCampaignDebugConvoyMovementWaitSeconds()
+	{
+		return HST_PhysicalWarService.CONVOY_ROUTE_REISSUE_THRESHOLD_SECONDS + HST_PhysicalWarService.CONVOY_PROGRESS_SYNC_SECONDS * 3 + 1;
 	}
 
 	protected bool ForceCampaignDebugConvoyDepartureForInstance(string instanceId)
