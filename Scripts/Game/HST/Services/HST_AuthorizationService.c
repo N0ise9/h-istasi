@@ -26,8 +26,7 @@ class HST_AuthorizationService
 			player.m_bMember = true;
 
 		player.m_bGuest = !player.m_bMember;
-		if (state.m_sCommanderIdentityId.IsEmpty() && player.m_bMember)
-			state.m_sCommanderIdentityId = player.m_sIdentityId;
+		AssignCommanderOnVacancy(state);
 		return player;
 	}
 
@@ -115,53 +114,18 @@ class HST_AuthorizationService
 		return player && player.m_bAdmin;
 	}
 
-	void AssignCommanderOnVacancy(HST_CampaignState state, bool allowOfflineFallback = true)
+	void AssignCommanderOnVacancy(HST_CampaignState state)
 	{
 		if (!state.m_sCommanderIdentityId.IsEmpty())
 			return;
 
-		HST_PlayerState fallback;
 		foreach (HST_PlayerState player : state.m_aPlayers)
 		{
-			if (!player || !player.m_bMember)
+			if (!player.m_bMember)
 				continue;
-			if (IsPlayerCurrentlyConnected(player))
-			{
-				state.m_sCommanderIdentityId = player.m_sIdentityId;
-				return;
-			}
 
-			if (!fallback)
-				fallback = player;
+			state.m_sCommanderIdentityId = player.m_sIdentityId;
+			return;
 		}
-
-		if (allowOfflineFallback && fallback)
-			state.m_sCommanderIdentityId = fallback.m_sIdentityId;
-	}
-
-	bool ReassignCommanderAfterDisconnect(HST_CampaignState state, string disconnectedIdentityId)
-	{
-		if (!state || disconnectedIdentityId.IsEmpty())
-			return false;
-		if (state.m_sCommanderIdentityId != disconnectedIdentityId)
-			return false;
-
-		state.m_sCommanderIdentityId = "";
-		AssignCommanderOnVacancy(state, false);
-		return !state.m_sCommanderIdentityId.IsEmpty() && state.m_sCommanderIdentityId != disconnectedIdentityId;
-	}
-
-	protected bool IsPlayerCurrentlyConnected(HST_PlayerState player)
-	{
-		if (!player || player.m_iLastSeenPlayerId <= 0)
-			return false;
-
-		PlayerManager playerManager = GetGame().GetPlayerManager();
-		if (!playerManager)
-			return false;
-
-		array<int> playerIds = {};
-		playerManager.GetPlayers(playerIds);
-		return playerIds.Find(player.m_iLastSeenPlayerId) >= 0;
 	}
 }

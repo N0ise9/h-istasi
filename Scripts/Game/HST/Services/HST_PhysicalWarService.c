@@ -7994,11 +7994,8 @@ class HST_PhysicalWarService
 		}
 
 		vector vehicleAnchor = activeGroup.m_vPosition;
-		if (!IsRoadblockActiveGroup(activeGroup))
-		{
-			vehicleAnchor[0] = vehicleAnchor[0] + 8.0;
-			vehicleAnchor[2] = vehicleAnchor[2] + 6.0;
-		}
+		vehicleAnchor[0] = vehicleAnchor[0] + 8.0;
+		vehicleAnchor[2] = vehicleAnchor[2] + 6.0;
 		vector spawnPosition;
 		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(vehicleAnchor, spawnPosition, true) && !HST_WorldPositionService.TryResolveVehicleSpawnPosition(activeGroup.m_vPosition, spawnPosition, true))
 		{
@@ -8027,14 +8024,6 @@ class HST_PhysicalWarService
 		activeGroup.m_iLastSeenAliveCount = Math.Max(activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount + activeGroup.m_iVehicleCount);
 		DebugLog(string.Format("spawned attached active group vehicle %1 via %2 | prefab %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sSpawnFallbackMode, vehiclePrefab, source));
 		return true;
-	}
-
-	protected bool IsRoadblockActiveGroup(HST_ActiveGroupState activeGroup)
-	{
-		if (!activeGroup)
-			return false;
-
-		return activeGroup.m_sRuntimeStatus.Contains("roadblock") || activeGroup.m_sSpawnFallbackMode.Contains("roadblock");
 	}
 
 	protected void PrintActiveGroupSpawnEvidence(HST_CampaignState state, HST_ActiveGroupState activeGroup, string stage)

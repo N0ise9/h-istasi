@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r112-roadblock-support-handoff";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r111-town-police-prefabs";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -401,7 +401,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
-		HandlePlayerDisconnectedAuthority(playerId);
 		if (m_PlayerMapMarkers)
 			m_PlayerMapMarkers.RequestRefresh(string.Format("player disconnected %1", playerId));
 	}
@@ -2132,9 +2131,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return "h-istasi support | failed: air support capability unavailable";
 		}
 
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-			return "h-istasi support | failed: roadblock support requires a map target and selected HQ garage vehicle";
-
 		string targetZoneId = SelectPlayerSupportZoneId(playerId);
 		int cooldownSeconds = 0;
 		if (IsAirSupportType(supportType))
@@ -2210,42 +2206,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (IsAirSupportType(supportType))
 			cooldownSeconds = m_Balance.m_iAirSupportCooldownSeconds;
 
-		HST_SupportRequestResult result;
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-		{
-			string vehicleId = ResolveCommandMapTargetVehicleArgument(targetArgument);
-			if (vehicleId.IsEmpty())
-				return "h-istasi support | failed: roadblock vehicle selection missing";
-			if (!m_State.FindGarageVehicle(vehicleId))
-				return "h-istasi support | failed: selected HQ garage vehicle is no longer stored";
-
-			result = m_SupportRequests.RequestRoadblockAtPositionDetailed(
-				m_State,
-				m_Preset,
-				m_Economy,
-				m_EnemyDirector,
-				targetZone.m_sZoneId,
-				targetPosition,
-				vehicleId,
-				true,
-				cooldownSeconds
-			);
-		}
-		else
-		{
-			result = m_SupportRequests.RequestSupportAtPositionDetailed(
-				m_State,
-				m_Preset,
-				m_Economy,
-				m_EnemyDirector,
-				m_Preset.m_sResistanceFactionKey,
-				supportType,
-				targetZone.m_sZoneId,
-				targetPosition,
-				true,
-				cooldownSeconds
-			);
-		}
+		HST_SupportRequestResult result = m_SupportRequests.RequestSupportAtPositionDetailed(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_EnemyDirector,
+			m_Preset.m_sResistanceFactionKey,
+			supportType,
+			targetZone.m_sZoneId,
+			targetPosition,
+			true,
+			cooldownSeconds
+		);
 
 		if (result && result.m_bSuccess)
 		{
@@ -6872,144 +6844,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return supportCase;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugRoadblockMarkerCase()
-	{
-		HST_CampaignDebugCaseResult markerCase = CreateCampaignDebugCase("roadblock.markers.all_factions.runtime", "support", "roadblock_markers", "baseline");
-		bool servicesReady = m_State != null && m_Preset != null && m_MapMarkers != null;
-		AddCampaignDebugAssertion(markerCase, "roadblock.marker.prerequisite", "state, preset, and marker service ready", string.Format("state %1 | preset %2 | markers %3", m_State != null, m_Preset != null, m_MapMarkers != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "roadblock marker proof prerequisites missing");
-		if (!servicesReady)
-		{
-			FinalizeCampaignDebugCaseFromAssertions(markerCase);
-			return markerCase;
-		}
-
-		string fixturePrefix = ResolveCampaignDebugCleanupPrefix() + "_roadblock_marker";
-		RemoveCampaignDebugPrefixedSupportRequests(fixturePrefix);
-		RemoveCampaignDebugPrefixedActiveGroups(fixturePrefix);
-		RemoveCampaignDebugPrefixedMarkers(fixturePrefix);
-
-		HST_SupportRequestState resistanceRequest = SeedCampaignDebugRoadblockMarkerFixture(fixturePrefix, "resistance", m_Preset.m_sResistanceFactionKey, true, "45 0 20");
-		HST_SupportRequestState occupierRequest = SeedCampaignDebugRoadblockMarkerFixture(fixturePrefix, "occupier", m_Preset.m_sOccupierFactionKey, false, "75 0 44");
-		HST_SupportRequestState invaderRequest = SeedCampaignDebugRoadblockMarkerFixture(fixturePrefix, "invader", m_Preset.m_sInvaderFactionKey, false, "105 0 68");
-		RefreshCampaignMarkers();
-
-		HST_MapMarkerState resistanceMarker = null;
-		HST_MapMarkerState occupierMarker = null;
-		HST_MapMarkerState invaderMarker = null;
-		if (resistanceRequest)
-			resistanceMarker = FindCampaignDebugMarkerLinkedTo(resistanceRequest.m_sRequestId);
-		if (occupierRequest)
-			occupierMarker = FindCampaignDebugMarkerLinkedTo(occupierRequest.m_sRequestId);
-		if (invaderRequest)
-			invaderMarker = FindCampaignDebugMarkerLinkedTo(invaderRequest.m_sRequestId);
-
-		markerCase.m_aEvidence.Insert("resistance | " + BuildCampaignDebugRoadblockMarkerActual(resistanceRequest, resistanceMarker));
-		markerCase.m_aEvidence.Insert("occupier | " + BuildCampaignDebugRoadblockMarkerActual(occupierRequest, occupierMarker));
-		markerCase.m_aEvidence.Insert("invader | " + BuildCampaignDebugRoadblockMarkerActual(invaderRequest, invaderMarker));
-		AddCampaignDebugRoadblockMarkerAssertion(markerCase, "resistance", resistanceRequest, resistanceMarker);
-		AddCampaignDebugRoadblockMarkerAssertion(markerCase, "occupier", occupierRequest, occupierMarker);
-		AddCampaignDebugRoadblockMarkerAssertion(markerCase, "invader", invaderRequest, invaderMarker);
-
-		int removedSupport = RemoveCampaignDebugPrefixedSupportRequests(fixturePrefix);
-		int removedGroups = RemoveCampaignDebugPrefixedActiveGroups(fixturePrefix);
-		int removedMarkers = RemoveCampaignDebugPrefixedMarkers(fixturePrefix);
-		AddCampaignDebugMetric(markerCase, "roadblock.marker.removed_support", string.Format("%1", removedSupport), "count");
-		AddCampaignDebugMetric(markerCase, "roadblock.marker.removed_groups", string.Format("%1", removedGroups), "count");
-		AddCampaignDebugMetric(markerCase, "roadblock.marker.removed_markers", string.Format("%1", removedMarkers), "count");
-
-		FinalizeCampaignDebugCaseFromAssertions(markerCase);
-		return markerCase;
-	}
-
-	protected HST_SupportRequestState SeedCampaignDebugRoadblockMarkerFixture(string fixturePrefix, string label, string factionKey, bool playerRequested, vector offset)
-	{
-		if (!m_State || fixturePrefix.IsEmpty() || label.IsEmpty() || factionKey.IsEmpty())
-			return null;
-
-		string safeLabel = SafeCampaignDebugToken(label);
-		string requestId = fixturePrefix + "_request_" + safeLabel;
-		string groupId = fixturePrefix + "_group_" + safeLabel;
-		string targetZoneId = SelectHQSupportZoneId();
-		vector position = m_State.m_vHQPosition + offset;
-		if (IsZeroVector(position))
-		{
-			vector fallbackPosition = "1000 0 1000";
-			position = fallbackPosition + offset;
-		}
-		position = HST_WorldPositionService.ResolveGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
-
-		HST_ActiveGroupState group = new HST_ActiveGroupState();
-		group.m_sGroupId = groupId;
-		group.m_sSupportRequestId = requestId;
-		group.m_sFactionKey = factionKey;
-		group.m_sZoneId = targetZoneId;
-		group.m_sRuntimeStatus = "roadblock_established";
-		group.m_sSpawnFallbackMode = "roadblock_support";
-		group.m_vPosition = position;
-		group.m_vSourcePosition = position;
-		group.m_vTargetPosition = position;
-		group.m_iInfantryCount = 4;
-		group.m_iVehicleCount = 1;
-		group.m_iSurvivorInfantryCount = 4;
-		group.m_iSurvivorVehicleCount = 1;
-		group.m_iLastSeenAliveCount = 5;
-		group.m_iSpawnedAgentCount = 4;
-		group.m_bSpawnedEntity = true;
-		m_State.m_aActiveGroups.Insert(group);
-
-		HST_SupportRequestState request = new HST_SupportRequestState();
-		request.m_sRequestId = requestId;
-		request.m_sGroupId = groupId;
-		request.m_sFactionKey = factionKey;
-		request.m_eType = HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK;
-		request.m_eStatus = HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE;
-		request.m_sTargetZoneId = targetZoneId;
-		request.m_vTargetPosition = position;
-		request.m_vSourcePosition = position;
-		request.m_iRequestedAtSecond = GetCampaignDebugElapsedSecond();
-		request.m_iActivatedAtSecond = GetCampaignDebugElapsedSecond();
-		request.m_iETASeconds = 45;
-		request.m_bPlayerRequested = playerRequested;
-		request.m_bPhysicalized = true;
-		request.m_iPhysicalizedAtSecond = GetCampaignDebugElapsedSecond();
-		request.m_sPhysicalizationMode = "roadblock_group";
-		request.m_sRuntimeStatus = "roadblock_established";
-		request.m_sResolutionKind = "physical_roadblock_established";
-		request.m_iCompositionManpower = 4;
-		request.m_iCompositionVehicleCount = 1;
-		request.m_iPlannedInfantryCount = 4;
-		request.m_sDeploymentPlacementType = HST_SpawnPlacementService.TYPE_ROADBLOCK;
-		request.m_bDeploymentRoadResolved = true;
-		request.m_bDeploymentVehicleSafe = true;
-		m_State.m_aSupportRequests.Insert(request);
-		return request;
-	}
-
-	protected void AddCampaignDebugRoadblockMarkerAssertion(HST_CampaignDebugCaseResult markerCase, string label, HST_SupportRequestState request, HST_MapMarkerState marker)
-	{
-		string actual = BuildCampaignDebugRoadblockMarkerActual(request, marker);
-		bool expected = request
-			&& marker
-			&& marker.m_bVisible
-			&& marker.m_sCategory == "support"
-			&& marker.m_sOwnerFactionKey == request.m_sFactionKey
-			&& marker.m_bRuntimeNative
-			&& marker.m_sLabel.Contains("roadblock")
-			&& marker.m_sLabel.Contains("established");
-		string requestId;
-		if (request)
-			requestId = request.m_sRequestId;
-		AddCampaignDebugAssertion(markerCase, "roadblock.marker." + SafeCampaignDebugToken(label), label + " established roadblock publishes a visible native support marker", actual, CampaignDebugStatus(expected), label + " roadblock marker was missing, hidden, non-native, or not labeled as established", requestId);
-	}
-
-	protected string BuildCampaignDebugRoadblockMarkerActual(HST_SupportRequestState request, HST_MapMarkerState marker)
-	{
-		string markerExtra = "missing";
-		if (marker)
-			markerExtra = string.Format("label %1 | native %2 | visible %3", EmptyCampaignDebugField(marker.m_sLabel), marker.m_bRuntimeNative, marker.m_bVisible);
-		return string.Format("request [%1] | marker [%2 | %3]", BuildCampaignDebugSupportRequestActual(request), BuildCampaignDebugMarkerActual(marker), markerExtra);
-	}
-
 	protected string BuildCampaignDebugMissionCompletionTargetActual(HST_MissionDefinition definition, HST_ZoneState targetZone)
 	{
 		string definitionActual = BuildCampaignDebugMissionDefinitionActual(definition);
@@ -8438,7 +8272,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugObservation("balance pacing", RequestMemberInspectBalancePacing(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("campaign end", RequestMemberInspectCampaignEnd(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugHQPassiveKnowledgeCase());
-		RecordCampaignDebugCase(BuildCampaignDebugCommanderDisconnectHandoffCase());
 		RecordCampaignDebugCase(BuildCampaignDebugForceCompositionCase());
 		RecordCampaignDebugObservation("force composition", RequestAdminForceCompositionReport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugCase(BuildCampaignDebugSpawnPlacementCase());
@@ -8461,7 +8294,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(BuildCampaignDebugMissionExpiryPenaltyCase());
 		RecordCampaignDebugCase(BuildCampaignDebugConvoyOutcomeStrategicEventCase());
 		RecordCampaignDebugCase(BuildCampaignDebugSupportNearHQStrategicEventCase());
-		RecordCampaignDebugCase(BuildCampaignDebugRoadblockMarkerCase());
 		if (m_Strategic)
 			RecordCampaignDebugObservation("strategic events", m_Strategic.BuildStrategicEventReport(m_State));
 		if (m_Civilians)
@@ -8546,66 +8378,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		FinalizeCampaignDebugCaseFromAssertions(hqCase);
 		return hqCase;
-	}
-
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugCommanderDisconnectHandoffCase()
-	{
-		HST_CampaignDebugCaseResult handoffCase = CreateCampaignDebugCase("authorization.commander_disconnect_handoff.runtime", "authorization", "commander_handoff", "baseline");
-		bool servicesReady = m_State != null && m_Authorization != null && m_iCampaignDebugPlayerId > 0;
-		AddCampaignDebugAssertion(handoffCase, "commander_handoff.prerequisite", "state, authorization service, and connected debug player ready", string.Format("state %1 | auth %2 | player %3", m_State != null, m_Authorization != null, m_iCampaignDebugPlayerId), CampaignDebugStatus(servicesReady, "BLOCKED"), "commander handoff prerequisites missing");
-		if (!servicesReady)
-		{
-			FinalizeCampaignDebugCaseFromAssertions(handoffCase);
-			return handoffCase;
-		}
-
-		HST_PlayerState successor = RefreshRuntimePlayerAuthority(m_iCampaignDebugPlayerId, "commander disconnect handoff proof");
-		bool successorReady = successor && successor.m_bMember && successor.m_iLastSeenPlayerId == m_iCampaignDebugPlayerId;
-		string originalCommanderIdentityId = m_State.m_sCommanderIdentityId;
-		string disconnectedIdentityId = ResolveCampaignDebugCleanupPrefix() + "_disconnect_commander";
-		RemoveCampaignDebugPlayerByIdentity(disconnectedIdentityId);
-
-		HST_PlayerState disconnectedCommander = new HST_PlayerState();
-		disconnectedCommander.m_sIdentityId = disconnectedIdentityId;
-		disconnectedCommander.m_sDisplayName = "Debug Disconnected Commander";
-		if (m_Preset)
-			disconnectedCommander.m_sFactionKey = m_Preset.m_sResistanceFactionKey;
-		disconnectedCommander.m_bMember = true;
-		disconnectedCommander.m_bAdmin = false;
-		disconnectedCommander.m_bGuest = false;
-		disconnectedCommander.m_iLastSeenPlayerId = 987654;
-		m_State.m_aPlayers.Insert(disconnectedCommander);
-
-		m_State.m_sCommanderIdentityId = disconnectedIdentityId;
-		bool reassigned;
-		if (successorReady)
-			reassigned = m_Authorization.ReassignCommanderAfterDisconnect(m_State, disconnectedIdentityId);
-		string assignedCommanderIdentityId = m_State.m_sCommanderIdentityId;
-		bool assignedToConnectedMember = successorReady && reassigned && assignedCommanderIdentityId == successor.m_sIdentityId;
-		string actual = string.Format("successor %1 player %2 | disconnected %3 | reassigned %4 | assigned %5 | original %6", successorReady, m_iCampaignDebugPlayerId, disconnectedIdentityId, reassigned, EmptyCampaignDebugField(assignedCommanderIdentityId), EmptyCampaignDebugField(originalCommanderIdentityId));
-
-		RemoveCampaignDebugPlayerByIdentity(disconnectedIdentityId);
-		m_State.m_sCommanderIdentityId = originalCommanderIdentityId;
-		bool cleanupExpected = m_State.FindPlayer(disconnectedIdentityId) == null && m_State.m_sCommanderIdentityId == originalCommanderIdentityId;
-
-		AddCampaignDebugAssertion(handoffCase, "commander_handoff.successor_connected", "connected debug member is available as commander successor", actual, CampaignDebugStatus(successorReady, "BLOCKED"), "commander handoff had no connected member successor");
-		AddCampaignDebugAssertion(handoffCase, "commander_handoff.reassigned", "disconnecting the commander assigns commander to a connected member", actual, CampaignDebugStatus(assignedToConnectedMember), "commander disconnect did not reassign to the connected member");
-		AddCampaignDebugAssertion(handoffCase, "commander_handoff.cleanup", "temporary disconnected commander removed and original commander restored", string.Format("cleanup %1 | commander %2", cleanupExpected, EmptyCampaignDebugField(m_State.m_sCommanderIdentityId)), CampaignDebugStatus(cleanupExpected), "commander handoff proof did not restore authority fixture state");
-		FinalizeCampaignDebugCaseFromAssertions(handoffCase);
-		return handoffCase;
-	}
-
-	protected void RemoveCampaignDebugPlayerByIdentity(string identityId)
-	{
-		if (!m_State || identityId.IsEmpty())
-			return;
-
-		for (int i = m_State.m_aPlayers.Count() - 1; i >= 0; i--)
-		{
-			HST_PlayerState player = m_State.m_aPlayers[i];
-			if (player && player.m_sIdentityId == identityId)
-				m_State.m_aPlayers.Remove(i);
-		}
 	}
 
 	protected HST_CampaignState BuildCampaignDebugHQThreatFixtureState(vector basePosition)
@@ -9433,127 +9205,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(supportCase);
 	}
 
-	protected void RunCampaignDebugRoadblockSupportRequestCase(string label)
-	{
-		ClearCampaignDebugPlayerSupportRequests("before " + label);
-		HST_CampaignDebugSupportProbeContext probeContext = new HST_CampaignDebugSupportProbeContext();
-		probeContext.m_sLabel = label;
-		probeContext.m_eExpectedType = HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK;
-		int requestedAtSecond = GetCampaignDebugElapsedSecond();
-		if (m_State)
-		{
-			probeContext.m_iCountBefore = m_State.m_aSupportRequests.Count();
-			probeContext.m_iMoneyBefore = m_State.m_iFactionMoney;
-			probeContext.m_iHRBefore = m_State.m_iHR;
-			probeContext.m_iGarageVehicleCountBefore = m_State.m_aGarageVehicles.Count();
-		}
-
-		if (!m_State || !m_Preset || !m_SupportRequests)
-		{
-			probeContext.m_sCommandResult = "h-istasi support | failed: roadblock support prerequisites missing";
-		}
-		else
-		{
-			if (m_State.m_iFactionMoney < 500)
-				m_State.m_iFactionMoney = 500;
-			if (m_State.m_iHR < 10)
-				m_State.m_iHR = 10;
-			probeContext.m_iMoneyBefore = m_State.m_iFactionMoney;
-			probeContext.m_iHRBefore = m_State.m_iHR;
-
-			string garageVehicleId = EnsureCampaignDebugRoadblockGarageVehicle();
-			probeContext.m_sSelectedGarageVehicleId = garageVehicleId;
-			probeContext.m_iGarageVehicleCountBefore = m_State.m_aGarageVehicles.Count();
-			HST_ZoneState targetZone = SelectCampaignDebugRoadblockTargetZone();
-			if (garageVehicleId.IsEmpty() || !targetZone)
-			{
-				probeContext.m_sCommandResult = "h-istasi support | failed: roadblock garage vehicle or target zone missing";
-			}
-			else
-			{
-				HST_SupportRequestResult result = m_SupportRequests.RequestRoadblockAtPositionDetailed(
-					m_State,
-					m_Preset,
-					m_Economy,
-					m_EnemyDirector,
-					targetZone.m_sZoneId,
-					targetZone.m_vPosition,
-					garageVehicleId,
-					true,
-					0
-				);
-
-				if (result && result.m_bSuccess)
-				{
-					ApplyCampaignDebugSupportRequestPrefix(result.m_Request, "player_roadblock");
-					MarkMajorCampaignChange(true);
-					m_SupportRequests.ConsumeMarkerRefreshNeeded();
-				}
-
-				if (result)
-				{
-					probeContext.m_sCommandResult = result.BuildSummary();
-					probeContext.m_Request = result.m_Request;
-				}
-				else
-				{
-					probeContext.m_sCommandResult = "h-istasi support | failed: roadblock request returned no result";
-				}
-			}
-		}
-
-		if (m_State)
-		{
-			probeContext.m_iGarageVehicleCountAfter = m_State.m_aGarageVehicles.Count();
-			if (!probeContext.m_sSelectedGarageVehicleId.IsEmpty())
-				probeContext.m_bGarageVehicleRemoved = m_State.FindGarageVehicle(probeContext.m_sSelectedGarageVehicleId) == null;
-		}
-		if (!probeContext.m_Request)
-			probeContext.m_Request = FindLatestCampaignDebugSupportRequest(HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK, probeContext.m_iCountBefore, requestedAtSecond);
-		CaptureCampaignDebugSupportRequestMarkerSnapshot(probeContext);
-		probeContext.m_bRuntimeProbeRan = ProbeCampaignDebugSupportRequestRuntime(probeContext);
-		RecordCampaignDebugAction(label, probeContext.m_sCommandResult);
-		HST_CampaignDebugCaseResult supportCase = BuildCampaignDebugSupportRequestCase(probeContext);
-		CleanupCampaignDebugSupportRuntimeProbe(probeContext.m_Request);
-		RecordCampaignDebugCase(supportCase);
-	}
-
-	protected string EnsureCampaignDebugRoadblockGarageVehicle()
-	{
-		if (!m_State)
-			return "";
-
-		string vehicleId = ResolveCampaignDebugCleanupPrefix() + "_roadblock_vehicle";
-		if (m_State.FindGarageVehicle(vehicleId))
-			return vehicleId;
-
-		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
-		vehicle.m_sVehicleId = vehicleId;
-		vehicle.m_sPrefab = PHASE15_SMOKE_VEHICLE_PREFAB;
-		vehicle.m_sDisplayName = "Debug Roadblock Vehicle";
-		if (m_Preset)
-			vehicle.m_sSourceFactionKey = m_Preset.m_sResistanceFactionKey;
-		vehicle.m_sSourceVehicleKind = "transport";
-		vehicle.m_iStoredAtSecond = GetCampaignDebugElapsedSecond();
-		vehicle.m_fFuel = 1.0;
-		vehicle.m_bUnlocked = true;
-		m_State.m_aGarageVehicles.Insert(vehicle);
-		return vehicleId;
-	}
-
-	protected HST_ZoneState SelectCampaignDebugRoadblockTargetZone()
-	{
-		HST_ZoneState targetZone = FindCampaignDebugSpawnPlacementOutpost();
-		if (targetZone)
-			return targetZone;
-
-		string zoneId = SelectPlayerSupportZoneId(m_iCampaignDebugPlayerId);
-		if (!zoneId.IsEmpty() && m_State)
-			return m_State.FindZone(zoneId);
-
-		return null;
-	}
-
 	protected void CaptureCampaignDebugSupportRequestMarkerSnapshot(HST_CampaignDebugSupportProbeContext probeContext)
 	{
 		if (!probeContext || !probeContext.m_Request)
@@ -9641,12 +9292,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(supportCase, "support.hr_planned_fia", "ground support HR cost matches planned FIA soldiers", string.Format("HR %1 | planned FIA %2 | composition manpower %3", observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount, observedSupportRequest.m_iCompositionManpower), CampaignDebugStatus(observedSupportRequest.m_iHRCost > 0 && observedSupportRequest.m_iHRCost == observedSupportRequest.m_iPlannedInfantryCount), "ground support HR cost does not match planned FIA count", observedSupportRequest.m_sRequestId);
 		else
 			AddCampaignDebugAssertion(supportCase, "support.hr_non_ground_zero", "non-ground support has no HR cost", string.Format("HR %1 | planned FIA %2", observedSupportRequest.m_iHRCost, observedSupportRequest.m_iPlannedInfantryCount), CampaignDebugStatus(observedSupportRequest.m_iHRCost == 0), "non-ground support unexpectedly spent HR", observedSupportRequest.m_sRequestId);
-		if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-		{
-			string garageActual = string.Format("selected %1/%2 | consumed %3 | garage %4 -> %5 | removed %6", EmptyCampaignDebugField(observedSupportRequest.m_sSelectedGarageVehicleId), EmptyCampaignDebugField(observedSupportRequest.m_sSelectedGarageVehicleDisplayName), observedSupportRequest.m_bGarageVehicleConsumed, probeContext.m_iGarageVehicleCountBefore, probeContext.m_iGarageVehicleCountAfter, probeContext.m_bGarageVehicleRemoved);
-			bool garageConsumed = !observedSupportRequest.m_sSelectedGarageVehicleId.IsEmpty() && observedSupportRequest.m_sSelectedGarageVehicleId == probeContext.m_sSelectedGarageVehicleId && observedSupportRequest.m_bGarageVehicleConsumed && probeContext.m_bGarageVehicleRemoved && probeContext.m_iGarageVehicleCountAfter == Math.Max(0, probeContext.m_iGarageVehicleCountBefore - 1);
-			AddCampaignDebugAssertion(supportCase, "support.roadblock.garage_vehicle", "roadblock support consumes the selected HQ garage vehicle", garageActual, CampaignDebugStatus(garageConsumed), "roadblock request did not consume exactly the selected stored vehicle", observedSupportRequest.m_sRequestId);
-		}
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
@@ -9662,7 +9307,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			string physicalActual = string.Format("physical %1 -> %2 | group %3 | group status %4 | mode %5 | runtime %6", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(probeContext.m_sGroupIdAfterTick), EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTick), EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
 			bool physicalPending = IsCampaignDebugAsyncRuntimePending(probeContext.m_sGroupStatusAfterTick);
-			bool physicalExpected = probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && (probeContext.m_sGroupStatusAfterTick.Contains("support") || probeContext.m_sGroupStatusAfterTick.Contains("roadblock") || physicalPending);
+			bool physicalExpected = probeContext.m_bPhysicalizedAfterTick && !probeContext.m_sGroupIdAfterTick.IsEmpty() && (probeContext.m_sGroupStatusAfterTick.Contains("support") || physicalPending);
 			string physicalStatus = CampaignDebugStatus(physicalExpected);
 			if (physicalExpected && physicalPending)
 				physicalStatus = "WARN";
@@ -9691,11 +9336,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_ActiveGroupState supportGroup = null;
 			if (m_State && !observedSupportRequest.m_sGroupId.IsEmpty())
 				supportGroup = m_State.FindActiveGroup(observedSupportRequest.m_sGroupId);
-			if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-			{
-				AddCampaignDebugRoadblockSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest, supportGroup);
-				return;
-			}
 			string deploymentActual = string.Format("summary %1 | targetDistance %2m | groupTarget %3 | requestTarget %4", EmptyCampaignDebugField(observedSupportRequest.m_sDeploymentSummary), observedSupportRequest.m_iDeploymentTargetDistanceMeters, supportGroup != null, observedSupportRequest.m_vTargetPosition);
 			bool deploymentTargetedToRequest = supportGroup && DistanceSq2D(supportGroup.m_vTargetPosition, observedSupportRequest.m_vTargetPosition) <= 9.0;
 			bool deploymentOffset = observedSupportRequest.m_iDeploymentTargetDistanceMeters >= 180;
@@ -9780,61 +9420,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string policyActual = string.Format("physical %1 -> %2 | mode %3 | runtime %4", probeContext.m_bPhysicalizedBeforeTick, probeContext.m_bPhysicalizedAfterTick, EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode), EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus));
 		AddCampaignDebugAssertion(supportCase, "support.physicalization_policy", "non-ground support remains abstract or ETA-driven", policyActual, "PASS", "non-ground support unexpectedly used the ground physicalization path", observedSupportRequest.m_sRequestId);
-	}
-
-	protected void AddCampaignDebugRoadblockSupportRuntimeAssertions(HST_CampaignDebugCaseResult supportCase, HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState observedSupportRequest, HST_ActiveGroupState supportGroup)
-	{
-		string roadblockActual = string.Format("request %1/%2 | group %3 | status %4 | mode %5 | placement %6 | road %7 | vehicleSafe %8",
-			observedSupportRequest.m_eStatus,
-			EmptyCampaignDebugField(observedSupportRequest.m_sRuntimeStatus),
-			BuildCampaignDebugActiveGroupActual(supportGroup),
-			EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterTick),
-			EmptyCampaignDebugField(observedSupportRequest.m_sPhysicalizationMode),
-			EmptyCampaignDebugField(observedSupportRequest.m_sDeploymentPlacementType),
-			observedSupportRequest.m_bDeploymentRoadResolved,
-			observedSupportRequest.m_bDeploymentVehicleSafe
-		);
-		bool established = observedSupportRequest.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE
-			&& observedSupportRequest.m_sRuntimeStatus == "roadblock_established"
-			&& observedSupportRequest.m_sPhysicalizationMode == "roadblock_group"
-			&& supportGroup
-			&& supportGroup.m_sRuntimeStatus == "roadblock_established";
-		AddCampaignDebugAssertion(supportCase, "support.roadblock.established", "roadblock support remains active as an established checkpoint", roadblockActual, CampaignDebugStatus(established), "roadblock support did not settle into the established runtime state", observedSupportRequest.m_sRequestId);
-
-		bool placementExpected = observedSupportRequest.m_sDeploymentPlacementType == HST_SpawnPlacementService.TYPE_ROADBLOCK
-			&& observedSupportRequest.m_bDeploymentRoadResolved
-			&& observedSupportRequest.m_bDeploymentVehicleSafe
-			&& supportGroup
-			&& DistanceSq2D(supportGroup.m_vPosition, supportGroup.m_vTargetPosition) <= 9.0;
-		AddCampaignDebugAssertion(supportCase, "support.roadblock.placement", "roadblock group is established on a vehicle-safe road position", roadblockActual, CampaignDebugStatus(placementExpected), "roadblock support did not use the roadblock placement contract", observedSupportRequest.m_sRequestId);
-
-		bool vehicleExpected = supportGroup
-			&& supportGroup.m_iVehicleCount >= 1
-			&& observedSupportRequest.m_iCompositionVehicleCount >= 1
-			&& !observedSupportRequest.m_sSelectedGarageVehiclePrefab.IsEmpty()
-			&& supportGroup.m_sVehiclePrefab == observedSupportRequest.m_sSelectedGarageVehiclePrefab;
-		int groupVehicleCount;
-		string groupVehiclePrefab = "missing";
-		if (supportGroup)
-		{
-			groupVehicleCount = supportGroup.m_iVehicleCount;
-			groupVehiclePrefab = EmptyCampaignDebugField(supportGroup.m_sVehiclePrefab);
-		}
-		string vehicleActual = string.Format("request vehicles %1 | group vehicles %2 | selected %3 | group prefab %4", observedSupportRequest.m_iCompositionVehicleCount, groupVehicleCount, EmptyCampaignDebugField(observedSupportRequest.m_sSelectedGarageVehiclePrefab), groupVehiclePrefab);
-		AddCampaignDebugAssertion(supportCase, "support.roadblock.vehicle", "roadblock active group uses the consumed garage vehicle prefab", vehicleActual, CampaignDebugStatus(vehicleExpected), "roadblock active group did not retain the selected garage vehicle prefab", observedSupportRequest.m_sRequestId);
-
-		bool markerVisible = probeContext.m_bRoadblockSupportMarkerVisibleAfterPopulation;
-		string markerActual = probeContext.m_sRoadblockSupportMarkerActualAfterPopulation;
-		if (markerActual.IsEmpty())
-		{
-			HST_MapMarkerState roadblockMarker = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
-			markerVisible = roadblockMarker != null;
-			markerActual = "current | " + BuildCampaignDebugMarkerActual(roadblockMarker);
-		}
-		bool markerExpected = markerVisible && markerActual.Contains("roadblock") && markerActual.Contains("established");
-		AddCampaignDebugAssertion(supportCase, "support.roadblock.marker", "established roadblock publishes a visible map marker at runtime", ShortCampaignDebugLine(markerActual, 220), CampaignDebugStatus(markerExpected), "established roadblock support marker was not visible or user-facing", observedSupportRequest.m_sRequestId);
-
-		AddCampaignDebugAssertion(supportCase, "support.roadblock.cleanup", "roadblock runtime group entity is removed during probe cleanup", string.Format("%1", probeContext.m_bRuntimeEntityCleaned), CampaignDebugStatus(probeContext.m_bRuntimeEntityCleaned, "WARN"), "roadblock runtime entity cleanup did not confirm an entity was removed", observedSupportRequest.m_sRequestId);
 	}
 
 	protected bool ProbeCampaignDebugSupportRequestRuntime(HST_CampaignDebugSupportProbeContext probeContext)
@@ -9968,9 +9553,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				HST_MapMarkerState liveGroupMarker = FindCampaignDebugMarkerLinkedTo(group.m_sGroupId);
 				probeContext.m_bLiveGroupMarkerVisibleAfterPopulation = liveGroupMarker != null;
 				probeContext.m_sLiveGroupMarkerActualAfterPopulation = "after population | " + BuildCampaignDebugMarkerActual(liveGroupMarker);
-				HST_MapMarkerState roadblockSupportMarker = FindCampaignDebugMarkerLinkedTo(supportRequest.m_sRequestId);
-				probeContext.m_bRoadblockSupportMarkerVisibleAfterPopulation = roadblockSupportMarker != null;
-				probeContext.m_sRoadblockSupportMarkerActualAfterPopulation = "after population | " + BuildCampaignDebugMarkerActual(roadblockSupportMarker);
 			}
 
 			if (!group)
@@ -10157,7 +9739,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool IsCampaignDebugPhysicalGroundSupportType(HST_ESupportRequestType candidateSupportType)
 	{
-		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK;
+		return candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF || candidateSupportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
 	protected void CleanupCampaignDebugSupportRuntimeProbe(HST_SupportRequestState supportRequest)
@@ -10249,7 +9831,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RunCampaignDebugSupportRequestCase("QRF support", HST_ESupportRequestType.HST_SUPPORT_QRF, false);
 		RunCampaignDebugSupportRequestCase("suppressive fire support", HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE, false);
 		RunCampaignDebugSupportRequestCase("search support", HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, false);
-		RunCampaignDebugRoadblockSupportRequestCase("roadblock support");
 		RecordCampaignDebugObservation("support report", RequestMemberInspectSupport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("civilian report", RequestMemberInspectCivilians(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("town support", RequestMemberInspectTownSupport(m_iCampaignDebugPlayerId));
@@ -21990,8 +21571,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
 		string forcesWithMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
 		string forcesNoMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, false, m_ZoneCompositions, m_ZoneCapture);
-		string roadblockVehiclePayload = BuildCampaignDebugPhase23RoadblockPayload(true);
-		string roadblockNoVehiclePayload = BuildCampaignDebugPhase23RoadblockPayload(false);
 		string forcesRecallPayload = BuildCampaignDebugPhase23SupportRecallPayload();
 		bool commanderTransferChooserVisible = membersPayload.Contains("|Transfer commander|member_promote_commander_choose|");
 		bool commanderTransferSingleButton = commanderTransferChooserVisible && !membersPayload.Contains("Make commander:") && !membersPayload.Contains("|member_promote_commander|");
@@ -22006,8 +21585,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|support_qrf||false|map required") && forcesNoMapPayload.Contains("|call_supply||false|map required");
 		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|remove_garrison||false|map required");
 		bool paidActionCostsVisible = forcesWithMapPayload.Contains("Train FIA troops ($250)") && forcesWithMapPayload.Contains("Recruit FIA at map location ($100, HR 1)") && forcesWithMapPayload.Contains("Request QRF reserve at map location ($") && forcesWithMapPayload.Contains("Request search and destroy at map location ($") && forcesWithMapPayload.Contains("Deliver civilian aid ($100)");
-		bool roadblockActionEnabled = roadblockVehiclePayload.Contains("Establish roadblock at map location") && roadblockVehiclePayload.Contains("|support_roadblock|phase23_roadblock_vehicle~") && roadblockVehiclePayload.Contains("|true|") && roadblockVehiclePayload.Contains("HR ");
-		bool roadblockNoVehicleDisabled = roadblockNoVehiclePayload.Contains("Establish roadblock at map location") && roadblockNoVehiclePayload.Contains("|support_roadblock||false|no stored garage vehicle");
 		bool supportRecallChooserVisible = forcesRecallPayload.Contains("|Recall support team|support_recall_choose|") && forcesRecallPayload.Contains("QRF team") && forcesRecallPayload.Contains("FIA") && forcesRecallPayload.Contains("deployed") && forcesRecallPayload.Contains("HQ");
 		bool supportRecallHidesGroupId = !forcesRecallPayload.Contains("hst_debug_phase23_recall_group");
 		bool petrosMainHidesTechnicalRows = !petrosPayload.Contains("|Prefab|") && !petrosPayload.Contains("|HQ position|") && !petrosPayload.Contains("|Petros position|") && !petrosPayload.Contains("|Arsenal prefab|") && !petrosPayload.Contains("|Attacker group|");
@@ -22024,8 +21601,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		phaseCase.m_aEvidence.Insert("members transfer stress payload | " + ShortCampaignDebugLine(transferStressPayload, 320));
 		phaseCase.m_aEvidence.Insert("forces map payload | " + ShortCampaignDebugLine(forcesWithMapPayload, 260));
 		phaseCase.m_aEvidence.Insert("forces no-map payload | " + ShortCampaignDebugLine(forcesNoMapPayload, 260));
-		phaseCase.m_aEvidence.Insert("roadblock vehicle payload | " + ShortCampaignDebugLine(roadblockVehiclePayload, 260));
-		phaseCase.m_aEvidence.Insert("roadblock no-vehicle payload | " + ShortCampaignDebugLine(roadblockNoVehiclePayload, 260));
 		phaseCase.m_aEvidence.Insert("forces recall payload | " + ShortCampaignDebugLine(forcesRecallPayload, 260));
 		phaseCase.m_aEvidence.Insert("missions compact payload | " + ShortCampaignDebugLine(compactMissionPayload, 260));
 		AddCampaignDebugMetric(phaseCase, "phase23.ui.active_mission_rows", string.Format("%1", compactMissionRows), "count");
@@ -22043,8 +21618,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_garrison_actions", "Forces garrison actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetGarrisonVisible), "Phase 23 Forces payload is missing map-target garrison actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_required_gate", "map-target actions are disabled without a map gadget", ShortCampaignDebugLine(forcesNoMapPayload, 220), CampaignDebugStatus(noMapSupportDisabled && noMapGarrisonDisabled), "Phase 23 Forces payload allows map-target actions when the player has no map");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.paid_action_costs", "paid Forces actions show money and HR costs in labels", ShortCampaignDebugLine(forcesWithMapPayload, 260), CampaignDebugStatus(paidActionCostsVisible), "Phase 23 Forces payload is missing paid action cost labels");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.roadblock_vehicle_choice", "roadblock support is enabled only with a selectable stored garage vehicle and shows HR cost", ShortCampaignDebugLine(roadblockVehiclePayload, 260), CampaignDebugStatus(roadblockActionEnabled), "Phase 23 Forces payload is missing enabled roadblock support or vehicle choices");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.roadblock_no_vehicle_gate", "roadblock support is disabled when HQ has no stored vehicles", ShortCampaignDebugLine(roadblockNoVehiclePayload, 260), CampaignDebugStatus(roadblockNoVehicleDisabled), "Phase 23 Forces payload allows roadblock support without a stored vehicle");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.support_recall_chooser", "Forces payload exposes recall chooser with support type, FIA count, status, and relative location", ShortCampaignDebugLine(forcesRecallPayload, 260), CampaignDebugStatus(supportRecallChooserVisible && supportRecallHidesGroupId), "Phase 23 Forces payload is missing support recall chooser detail or exposes an internal group id");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.main_sections_player_facing", "always-visible menu sections hide prefabs, raw positions, and internal group ids", ShortCampaignDebugLine(petrosPayload + " " + forcesRecallPayload, 260), CampaignDebugStatus(petrosMainHidesTechnicalRows && supportRecallHidesGroupId), "Phase 23 visible menu still exposes technical HQ/support internals");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_cursor_layer", "selected map-target cursor layer renders above action dialogs", string.Format("cursor z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetCursorLayered), "Phase 23 map-target cursor layer is not above the action dialog layer");
@@ -22089,52 +21662,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		player.m_bGuest = !member;
 		player.m_iLastSeenPlayerId = playerId;
 		return player;
-	}
-
-	protected string BuildCampaignDebugPhase23RoadblockPayload(bool includeVehicle)
-	{
-		if (!m_CommandUI || !m_Preset)
-			return "";
-
-		HST_CampaignState roadblockState = new HST_CampaignState();
-		roadblockState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		roadblockState.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
-		roadblockState.m_sPresetId = "vanilla_everon";
-		roadblockState.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
-		roadblockState.m_bHQDeployed = true;
-		roadblockState.m_vHQPosition = "1000 0 1000";
-		roadblockState.m_vPetrosPosition = roadblockState.m_vHQPosition;
-		roadblockState.m_iFactionMoney = 1000;
-		roadblockState.m_iHR = 20;
-		roadblockState.m_iWarLevel = 2;
-		roadblockState.m_iTrainingLevel = 2;
-		roadblockState.m_sCommanderIdentityId = "phase23_roadblock_commander";
-		roadblockState.m_aPlayers.Insert(BuildCampaignDebugPhase23TransferPlayer("phase23_roadblock_commander", "Debug Commander", m_iCampaignDebugPlayerId, true, true));
-
-		HST_ZoneState zone = new HST_ZoneState();
-		zone.m_sZoneId = "phase23_roadblock_target";
-		zone.m_sDisplayName = "Roadblock UI Target";
-		zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
-		zone.m_eType = HST_EZoneType.HST_ZONE_OUTPOST;
-		zone.m_vPosition = "1300 0 1300";
-		zone.m_iPriority = 20;
-		zone.m_bActive = true;
-		roadblockState.m_aZones.Insert(zone);
-
-		if (includeVehicle)
-		{
-			HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
-			vehicle.m_sVehicleId = "phase23_roadblock_vehicle";
-			vehicle.m_sPrefab = PHASE15_SMOKE_VEHICLE_PREFAB;
-			vehicle.m_sDisplayName = "Roadblock Truck";
-			vehicle.m_sSourceFactionKey = m_Preset.m_sResistanceFactionKey;
-			vehicle.m_sSourceVehicleKind = "transport";
-			vehicle.m_fFuel = 1.0;
-			vehicle.m_bUnlocked = true;
-			roadblockState.m_aGarageVehicles.Insert(vehicle);
-		}
-
-		return m_CommandUI.BuildVisibleMenuPayload(roadblockState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
 	}
 
 	protected string ExtractCampaignDebugCommanderTransferChoiceArgument(string payload)
@@ -23028,7 +22555,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
 			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
-			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
 			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL
 			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 	}
@@ -27689,8 +27215,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "UMPK strike";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
 			return "cruise missile strike";
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-			return "roadblock";
 
 		return "support";
 	}
@@ -28354,45 +27878,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		return "";
 	}
-
-	protected bool HandlePlayerDisconnectedAuthority(int playerId)
-	{
-		if (!m_State || !m_Authorization || playerId <= 0)
-			return false;
-
-		HST_PlayerState disconnected = FindPlayerByLastSeenPlayerId(playerId);
-		if (!disconnected)
-			return false;
-
-		string disconnectedIdentityId = disconnected.m_sIdentityId;
-		disconnected.m_iLastSeenPlayerId = -1;
-		if (disconnectedIdentityId.IsEmpty() || m_State.m_sCommanderIdentityId != disconnectedIdentityId)
-			return false;
-
-		string previousCommander = m_State.m_sCommanderIdentityId;
-		bool reassigned = m_Authorization.ReassignCommanderAfterDisconnect(m_State, disconnectedIdentityId);
-		if (!reassigned)
-			return false;
-
-		Print(string.Format("h-istasi commander | player %1 disconnected | commander %2 -> %3", playerId, previousCommander, m_State.m_sCommanderIdentityId));
-		MarkMajorCampaignChange(true);
-		return true;
-	}
-
-	protected HST_PlayerState FindPlayerByLastSeenPlayerId(int playerId)
-	{
-		if (!m_State || playerId <= 0)
-			return null;
-
-		foreach (HST_PlayerState player : m_State.m_aPlayers)
-		{
-			if (player && player.m_iLastSeenPlayerId == playerId)
-				return player;
-		}
-
-		return null;
-	}
-
 	protected string ResolveTrustedIdentityId(int playerId)
 	{
 		if (!m_PlayerLifecycle || playerId <= 0)
@@ -28743,26 +28228,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return fallbackCount;
-	}
-
-	protected string ResolveCommandMapTargetVehicleArgument(string argument)
-	{
-		if (argument.IsEmpty())
-			return "";
-
-		array<string> parts = {};
-		argument.Split(":", parts, true);
-		for (int i = 3; i < parts.Count(); i++)
-		{
-			string part = parts[i];
-			if (part.IsEmpty())
-				continue;
-
-			if (part.StartsWith("vehicle="))
-				return part.Substring(8, part.Length() - 8);
-		}
-
-		return "";
 	}
 
 	protected HST_ZoneState ResolveSupportMapTargetZone(vector targetPosition)

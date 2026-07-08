@@ -545,7 +545,6 @@ class HST_EnemyCommanderService
 	{
 		return orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
 			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
-			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
 			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL
 			|| orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 	}
@@ -1422,7 +1421,7 @@ class HST_EnemyCommanderService
 		}
 
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK)
-			return HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK;
+			return HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP;
 
 		return HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP;
 	}

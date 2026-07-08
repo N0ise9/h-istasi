@@ -211,7 +211,6 @@ class HST_CommandUIService
 		actions.Insert("support_qrf");
 		actions.Insert("support_fire");
 		actions.Insert("support_search");
-		actions.Insert("support_roadblock");
 		actions.Insert("support_gbu");
 		actions.Insert("support_umpk");
 		actions.Insert("support_kh55");
@@ -841,12 +840,6 @@ class HST_CommandUIService
 				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, argument);
 			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
 		}
-		if (commandId == "support_roadblock")
-		{
-			if (IsMapTargetArgument(argument))
-				return coordinator.RequestCommanderCallPlayerSupportAtMapTargetReport(playerId, HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK, argument);
-			return coordinator.RequestCommanderCallPlayerSupportReport(playerId, HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK);
-		}
 		if (commandId == "support_gbu")
 		{
 			if (IsMapTargetArgument(argument))
@@ -1415,9 +1408,6 @@ class HST_CommandUIService
 
 		if (commandId == "support_search")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
-
-		if (commandId == "support_roadblock")
-			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK);
 
 		if (commandId == "support_gbu")
 			return coordinator.RequestCommanderCallPlayerSupport(playerId, HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
@@ -2611,8 +2601,6 @@ class HST_CommandUIService
 		int fireMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE);
 		int searchMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY);
 		int searchHRCost = HST_SupportRequestService.EstimatePlayerSupportHRCost(HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, ResolveWarLevelForCosts(state));
-		int roadblockMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK);
-		int roadblockHRCost = HST_SupportRequestService.EstimatePlayerSupportHRCost(HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK, ResolveWarLevelForCosts(state));
 		int gbuMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU);
 		int umpkMoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK);
 		int kh55MoneyCost = HST_SupportRequestService.GetPlayerMoneyCost(HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55);
@@ -2675,8 +2663,6 @@ class HST_CommandUIService
 			bool canUseMapTarget = canUseCommander && playerHasMap;
 			bool hasRecruitTarget = HasAnyRecruitableResistanceZone(state, preset);
 			bool hasRemovableGarrison = HasAnyRemovableResistanceGarrison(state, preset);
-			bool hasRoadblockVehicle = HasGarageVehicles(state);
-			string roadblockVehicleChoices = BuildRoadblockVehicleChoiceArgument(state);
 			string recallChoiceArgument = BuildSupportRecallChoiceArgument(state, preset);
 			int recallableSupportCount = CountRecallableSupportRequests(state, preset);
 			AddMenuAction(actions, TAB_FORCES, "Recruitment report", "inspect_recruitment", "", canUseMember, "membership required");
@@ -2688,7 +2674,6 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request QRF reserve at map location", qrfMoneyCost, qrfHRCost, qrfHRCost), "support_qrf", "", canUseMapTarget && HasResourcesForCost(state, qrfMoneyCost, qrfHRCost), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, qrfMoneyCost, qrfHRCost));
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request suppressive fire at map location", fireMoneyCost, 0, 0), "support_fire", "", canUseMapTarget && HasResourcesForCost(state, fireMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, fireMoneyCost, 0));
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request search and destroy at map location", searchMoneyCost, searchHRCost, searchHRCost), "support_search", "", canUseMapTarget && HasResourcesForCost(state, searchMoneyCost, searchHRCost), MapTargetCostDisabledReason(canUseCommander, playerHasMap, true, "", state, searchMoneyCost, searchHRCost));
-			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Establish roadblock at map location (uses garage vehicle)", roadblockMoneyCost, roadblockHRCost, roadblockHRCost), "support_roadblock", roadblockVehicleChoices, canUseMapTarget && hasRoadblockVehicle && HasResourcesForCost(state, roadblockMoneyCost, roadblockHRCost), MapTargetCostDisabledReason(canUseCommander, playerHasMap, hasRoadblockVehicle, "no stored garage vehicle", state, roadblockMoneyCost, roadblockHRCost));
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request GBU air strike at map location", gbuMoneyCost, 0, 0), "support_gbu", "", canUseMapTarget && airSupportReady && HasResourcesForCost(state, gbuMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady), state, gbuMoneyCost, 0));
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request UMPK air strike at map location", umpkMoneyCost, 0, 0), "support_umpk", "", canUseMapTarget && airSupportReady && HasResourcesForCost(state, umpkMoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady), state, umpkMoneyCost, 0));
 			AddMenuAction(actions, TAB_FORCES, BuildPaidActionLabel("Request Kh55 strike at map location", kh55MoneyCost, 0, 0), "support_kh55", "", canUseMapTarget && airSupportReady && HasResourcesForCost(state, kh55MoneyCost, 0), MapTargetCostDisabledReason(canUseCommander, playerHasMap, airSupportReady, AirSupportDisabledReason(canUseCommander, airSupportReady), state, kh55MoneyCost, 0));
@@ -3061,57 +3046,6 @@ class HST_CommandUIService
 		return "";
 	}
 
-	protected bool HasGarageVehicles(HST_CampaignState state)
-	{
-		return state && state.m_aGarageVehicles.Count() > 0;
-	}
-
-	protected string BuildRoadblockVehicleChoiceArgument(HST_CampaignState state)
-	{
-		if (!state)
-			return "";
-
-		string argument = "";
-		int emitted;
-		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
-		{
-			if (!vehicle || vehicle.m_sVehicleId.IsEmpty() || vehicle.m_sPrefab.IsEmpty())
-				continue;
-
-			if (!argument.IsEmpty())
-				argument = argument + ";";
-
-			argument = argument + SanitizeCommandChoiceField(vehicle.m_sVehicleId) + "~" + SanitizeCommandChoiceField(BuildRoadblockVehicleChoiceLabel(vehicle, emitted + 1));
-			emitted++;
-			if (emitted >= COMMAND_CHOICE_LIMIT)
-				break;
-		}
-
-		return argument;
-	}
-
-	protected string BuildRoadblockVehicleChoiceLabel(HST_GarageVehicleState vehicle, int vehicleNumber = 0)
-	{
-		if (!vehicle)
-			return "vehicle unavailable";
-
-		string label = GarageVehicleLabel(vehicle);
-		if (vehicleNumber > 0)
-			label = string.Format("%1. %2", vehicleNumber, label);
-
-		string role = "utility";
-		if (vehicle.m_bArmed)
-			role = "armed";
-		else if (vehicle.m_bAmmoSource)
-			role = "ammo";
-		else if (vehicle.m_bRepairSource)
-			role = "repair";
-		else if (vehicle.m_bFuelSource)
-			role = "fuel";
-
-		return string.Format("%1 | %2 | cargo %3", label, role, CountStoredVehicleCargoItems(vehicle));
-	}
-
 	protected string BuildSupportRecallChoiceArgument(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state)
@@ -3176,7 +3110,7 @@ class HST_CommandUIService
 
 	protected bool IsRecallableGroundSupportTypeForMenu(HST_ESupportRequestType supportType)
 	{
-		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY || supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK;
+		return supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 	}
 
 	protected string BuildSupportRecallChoiceLabel(HST_CampaignState state, HST_SupportRequestState request, int teamNumber = 0)
@@ -3362,8 +3296,6 @@ class HST_CommandUIService
 			return "QRF";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
 			return "Search and destroy";
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-			return "Roadblock";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
 			return "Suppressive fire";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP)
