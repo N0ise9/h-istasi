@@ -659,12 +659,11 @@ class HST_MapMarkerService
 	{
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
-			bool gunShopDeliveryMarker = IsGunShopDeliveryMarkerMission(mission);
-			if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !gunShopDeliveryMarker))
+			if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 				continue;
 			if (IsPersistenceSmokeMission(mission))
 				continue;
-			if (AreMissionObjectivesComplete(state, mission) && !gunShopDeliveryMarker)
+			if (AreMissionObjectivesComplete(state, mission))
 				continue;
 
 			bool exactMissionPosition;
@@ -677,20 +676,9 @@ class HST_MapMarkerService
 			if (!hasSpecificMarker)
 				AddMarker(state, markerId, mission.m_sInstanceId, BuildMissionMarkerLabel(state, mission), "", "mission", preset.m_sResistanceFactionKey, MissionToMarkerIcon(mission), MissionToMarkerColor(mission), markerPosition, true, MissionToMarkerTextColor(mission), MissionToMarkerStyle(mission), !exactMissionPosition);
 			AddMissionRouteMarkers(state, preset, mission);
-			if (!gunShopDeliveryMarker)
-				AddMissionObjectiveMarkers(state, preset, mission);
+			AddMissionObjectiveMarkers(state, preset, mission);
 			AddMissionAssetMarkers(state, preset, mission);
 		}
-	}
-
-	protected bool IsGunShopDeliveryMarkerMission(HST_ActiveMissionState mission)
-	{
-		if (!mission || mission.m_sMissionId != "dynamic_gun_shop")
-			return false;
-		if (!mission.m_bGunShopDeliverySpawned || mission.m_bGunShopDeliveryArrived)
-			return false;
-
-		return mission.m_iGunShopPurchasedTotal > 0;
 	}
 
 	protected bool IsPersistenceSmokeMission(HST_ActiveMissionState mission)
@@ -731,8 +719,7 @@ class HST_MapMarkerService
 
 	protected void AddMissionAssetMarkers(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission)
 	{
-		bool gunShopDeliveryMarker = IsGunShopDeliveryMarkerMission(mission);
-		if (AreMissionObjectivesComplete(state, mission) && !gunShopDeliveryMarker)
+		if (AreMissionObjectivesComplete(state, mission))
 			return;
 
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
@@ -746,8 +733,6 @@ class HST_MapMarkerService
 			if (!asset || asset.m_sMissionInstanceId != mission.m_sInstanceId || asset.m_bDestroyed || asset.m_bDelivered)
 				continue;
 			if (asset.m_sKind == "area")
-				continue;
-			if (asset.m_sRole == "gun_shop_delivery_driver")
 				continue;
 			if (asset.m_sRole == "convoy_vehicle" && HasMissionConvoyPayloadSatisfied(state, mission))
 				continue;
@@ -770,10 +755,7 @@ class HST_MapMarkerService
 					position = ResolveMissionAssetMarkerPosition(asset);
 			}
 
-			bool deconflict = true;
-			if (asset.m_sRole == "gun_shop_seller" || asset.m_sRole == "gun_shop_delivery_vehicle")
-				deconflict = false;
-			AddMarker(state, "hst_mission_asset_" + asset.m_sAssetId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, icon, color, position, true, MissionToMarkerTextColor(mission), style, deconflict);
+			AddMarker(state, "hst_mission_asset_" + asset.m_sAssetId, mission.m_sInstanceId, label, "", "mission_asset", preset.m_sResistanceFactionKey, icon, color, position, true, MissionToMarkerTextColor(mission), style, true);
 		}
 	}
 
@@ -1843,8 +1825,6 @@ class HST_MapMarkerService
 			return "support";
 		if (primitive == "recover_cargo" || missionId.Contains("logistics") || missionId.Contains("resource") || missionId.Contains("cache"))
 			return "logistics";
-		if (primitive == "gun_shop" || missionId == "dynamic_gun_shop")
-			return "logistics";
 		if (missionId.Contains("defend_petros"))
 			return "support";
 		if (primitive == "hold_area" || primitive == "clear_area" || missionId.Contains("conquest"))
@@ -1934,10 +1914,6 @@ class HST_MapMarkerService
 
 		if (asset.m_bPickedUp && !asset.m_bDelivered)
 			return "OBJECTIVE_MARKER";
-		if (asset.m_sRole == "gun_shop_seller")
-			return "POINT_OF_INTEREST";
-		if (asset.m_sRole == "gun_shop_delivery_vehicle")
-			return "POINT_SPECIAL";
 		if (asset.m_sRole == "convoy_vehicle")
 			return "POINT_SPECIAL";
 		if (asset.m_sRole == "hvt")
@@ -1966,10 +1942,6 @@ class HST_MapMarkerService
 
 		if (asset.m_bPickedUp && !asset.m_bDelivered)
 			return "mission_delivery";
-		if (asset.m_sRole == "gun_shop_seller")
-			return "mission_gun_shop";
-		if (asset.m_sRole == "gun_shop_delivery_vehicle")
-			return "mission_gun_shop_delivery";
 		if (asset.m_sRole == "convoy_vehicle")
 			return "mission_convoy_vehicle";
 		if (asset.m_sRole == "convoy_payload")
@@ -2035,11 +2007,6 @@ class HST_MapMarkerService
 	{
 		if (!asset)
 			return "Mission asset";
-
-		if (asset.m_sRole == "gun_shop_seller")
-			return "Gun Shop: Open Gun Shop";
-		if (asset.m_sRole == "gun_shop_delivery_vehicle")
-			return "Gun Shop Purchases Delivery";
 
 		string verb = "Locate";
 		if (!asset.m_bPickedUp && (asset.m_sKind == "cargo" || asset.m_sKind == "captive"))
@@ -2318,8 +2285,6 @@ class HST_MapMarkerService
 			return "Resource Cache";
 		if (mission.m_sMissionId == "dynamic_defend_petros")
 			return "Defend Petros";
-		if (mission.m_sMissionId == "dynamic_gun_shop")
-			return "Gun Shop";
 
 		string title = mission.m_sDisplayName;
 		if (title.IsEmpty())
@@ -2349,10 +2314,6 @@ class HST_MapMarkerService
 			return "payload";
 		if (asset.m_sRole == "convoy_captive")
 			return "prisoner";
-		if (asset.m_sRole == "gun_shop_seller")
-			return "shop civilian";
-		if (asset.m_sRole == "gun_shop_delivery_vehicle")
-			return "delivery";
 
 		string role = asset.m_sRole;
 		if (role.IsEmpty())

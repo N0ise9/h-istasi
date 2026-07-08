@@ -381,7 +381,7 @@ class HST_MissionObjectiveService
 		if (definition.m_sMissionId == "dynamic_city_flip_battle")
 			return "Win city fight";
 		if (definition.m_sMissionId == "dynamic_gun_shop")
-			return "Visit gun shop";
+			return "Secure weapons";
 
 		return "Resolve task";
 	}
