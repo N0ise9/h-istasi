@@ -53,7 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r15-map-target-selection";
+	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r16-map-target-garrison-count";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -181,6 +181,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected string m_sMapTargetArgument;
 	protected string m_sMapTargetTab;
 	protected string m_sMapTargetStatusText;
+	protected int m_iMapTargetGarrisonCount;
 	protected vector m_vMapTargetPosition = "0 0 0";
 	protected SCR_MapEntity m_MapTargetEntity;
 	protected Widget m_wMapTargetPromptRoot;
@@ -1518,12 +1519,28 @@ class HST_CommandMenuComponent : ScriptComponent
 	{
 		if (commandId == "recruit_zone" || commandId == "remove_garrison")
 			return true;
+		if (IsSupportMapTargetCommand(commandId))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsSupportMapTargetCommand(string commandId)
+	{
 		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search")
 			return true;
 		if (commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
 			return true;
 
 		return false;
+	}
+
+	protected bool ShouldReturnToCommandMenuAfterMapTarget(string commandId)
+	{
+		if (commandId == "recruit_zone" || commandId == "remove_garrison")
+			return true;
+
+		return IsSupportMapTargetCommand(commandId);
 	}
 
 	protected void BeginCommandMapTargetSelection(string label, string commandId, string argument)
@@ -1543,6 +1560,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sMapTargetArgument = argument;
 		m_sMapTargetTab = m_sSelectedTab;
 		m_sMapTargetStatusText = "Select a target location on the map.";
+		m_iMapTargetGarrisonCount = 0;
 		m_vMapTargetPosition = "0 0 0";
 		BindCommandMapTargetInvokers();
 		OpenCommandMapTarget();
@@ -1681,7 +1699,85 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sMapTargetStatusText = string.Format("Target selected at X %1 Z %2. Confirm or choose again.", Math.Round(worldX), Math.Round(worldZ));
 		SetCommandMapLocationSelectionEnabled(false);
 		RefreshCommandMapTargetPrompt();
+		if (m_sMapTargetCommand == "recruit_zone")
+		{
+			ShowCommandMapTargetGarrisonCountDialog();
+			return;
+		}
+
 		ShowCommandMapTargetConfirmDialog();
+	}
+
+	protected void ShowCommandMapTargetGarrisonCountDialog()
+	{
+		if (m_iMapTargetGarrisonCount <= 0)
+			m_iMapTargetGarrisonCount = 2;
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+		{
+			ShowCommandMapTargetConfirmDialog();
+			return;
+		}
+
+		ClearActionDialog();
+		if (!m_WidgetHandler)
+		{
+			m_WidgetHandler = new HST_CommandMenuWidgetHandler();
+			m_WidgetHandler.Bind(this);
+		}
+
+		m_aPendingChoiceLabels.Clear();
+		m_aPendingChoiceArguments.Clear();
+		AppendMapTargetGarrisonCountChoice(1);
+		AppendMapTargetGarrisonCountChoice(2);
+		AppendMapTargetGarrisonCountChoice(4);
+		AppendMapTargetGarrisonCountChoice(6);
+		AppendMapTargetGarrisonCountChoice(8);
+		AppendMapTargetGarrisonCountChoice(12);
+
+		HST_ActionChoiceDialogData data = new HST_ActionChoiceDialogData();
+		data.m_sOwner = ACTION_DIALOG_OWNER;
+		data.m_sDebugOwner = "command_map_target_garrison_count";
+		data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID;
+		data.m_iChoiceWidgetIdBase = ACTION_CHOICE_WIDGET_ID_BASE;
+		data.m_sTitle = "Garrison FIA Count";
+		string locationLabel = ResolveMapTargetLocationLabelForConfirm();
+		if (locationLabel.IsEmpty())
+			locationLabel = string.Format("X %1 Z %2", Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
+		data.m_sMessage = "Select how many FIA to garrison at " + locationLabel + ".";
+		data.m_sCancelLabel = "Choose Again";
+		foreach (string choiceLabel : m_aPendingChoiceLabels)
+			data.m_aChoiceLabels.Insert(choiceLabel);
+
+		Widget root = HST_ActionChoiceDialogController.Render(workspace, data, m_WidgetHandler);
+		if (!root)
+		{
+			m_sMapTargetStatusText = "Garrison count dialog unavailable. Select another target or close the map.";
+			SetCommandMapLocationSelectionEnabled(true);
+			RefreshCommandMapTargetPrompt();
+			return;
+		}
+
+		m_wActionDialogRoot = root;
+		m_bActionDialogOpen = true;
+		m_bMapTargetConfirmOpen = true;
+		m_sPendingActionLabel = "Select garrison count";
+		m_sPendingActionCommand = "map_target_garrison_count";
+		m_sPendingActionArgument = "";
+		ApplyCommandMapDialogState();
+		HST_UIDebug.LogPopulation("command_map_target_garrison_count", string.Format("target=%1 choices=%2", m_vMapTargetPosition, m_aPendingChoiceLabels.Count()));
+	}
+
+	protected void AppendMapTargetGarrisonCountChoice(int count)
+	{
+		if (count <= 0)
+			return;
+		if (m_aPendingChoiceArguments.Count() >= HST_ActionChoiceDialogController.MAX_CHOICES)
+			return;
+
+		m_aPendingChoiceLabels.Insert(string.Format("%1 FIA", count));
+		m_aPendingChoiceArguments.Insert(count.ToString());
 	}
 
 	protected void ShowCommandMapTargetConfirmDialog()
@@ -1735,13 +1831,42 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected string BuildCommandMapTargetArgument(vector targetPosition)
 	{
+		if (m_sMapTargetCommand == "recruit_zone")
+		{
+			int count = m_iMapTargetGarrisonCount;
+			if (count <= 0)
+				count = 2;
+			return string.Format("map_target:%1:%2:count=%3", targetPosition[0], targetPosition[2], count);
+		}
+
 		return string.Format("map_target:%1:%2", targetPosition[0], targetPosition[2]);
 	}
 
 	protected string BuildCommandMapTargetConfirmMessage()
 	{
 		string actionText = BuildActionConfirmMessage(m_sMapTargetLabel, m_sMapTargetCommand, m_sMapTargetArgument);
-		return string.Format("%1\n\nTarget: X %2 Z %3", actionText, Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
+		string message = string.Format("%1\n\nTarget: X %2 Z %3", actionText, Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
+		string locationLabel = ResolveMapTargetLocationLabelForConfirm();
+		if (!locationLabel.IsEmpty())
+			message = message + "\nLocation: " + locationLabel;
+		if (m_sMapTargetCommand == "recruit_zone")
+		{
+			int count = m_iMapTargetGarrisonCount;
+			if (count <= 0)
+				count = 2;
+			message = message + string.Format("\nGarrison: %1 FIA", count);
+		}
+
+		return message;
+	}
+
+	protected string ResolveMapTargetLocationLabelForConfirm()
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return "";
+
+		return coordinator.ResolveCommandMapTargetZoneLabel(m_sMapTargetCommand, m_vMapTargetPosition);
 	}
 
 	protected void SetCommandMapLocationSelectionEnabled(bool enabled)
@@ -1980,6 +2105,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sMapTargetArgument = "";
 		m_sMapTargetTab = "";
 		m_sMapTargetStatusText = "";
+		m_iMapTargetGarrisonCount = 0;
 		m_vMapTargetPosition = "0 0 0";
 		m_MapTargetEntity = null;
 		m_bMapTargetCompleting = false;
@@ -2114,12 +2240,27 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (choiceIndex < 0 || choiceIndex >= m_aPendingChoiceArguments.Count())
 			return;
 
+		string commandId = m_sPendingActionCommand;
+		if (commandId == "map_target_garrison_count")
+		{
+			string countArgument = m_aPendingChoiceArguments[choiceIndex];
+			int count = countArgument.ToInt();
+			if (count <= 0)
+				count = 2;
+			m_iMapTargetGarrisonCount = count;
+			ClearActionDialog();
+			m_bMapTargetConfirmOpen = false;
+			m_sMapTargetStatusText = string.Format("Garrison count %1 selected. Confirm or choose again.", count);
+			RefreshCommandMapTargetPrompt();
+			ShowCommandMapTargetConfirmDialog();
+			return;
+		}
+
 		string label = "Transfer commander";
 		if (choiceIndex < m_aPendingChoiceLabels.Count())
 			label = label + ": " + m_aPendingChoiceLabels[choiceIndex];
 
 		string argument = m_aPendingChoiceArguments[choiceIndex];
-		string commandId = m_sPendingActionCommand;
 		if (commandId.IsEmpty())
 			commandId = "member_promote_commander";
 
@@ -2210,12 +2351,20 @@ class HST_CommandMenuComponent : ScriptComponent
 		string label = m_sPendingActionLabel;
 		string commandId = m_sPendingActionCommand;
 		string argument = m_sPendingActionArgument;
+		bool returnToCommandMenu = m_bMapTargetActive && m_bMapTargetConfirmOpen && ShouldReturnToCommandMenuAfterMapTarget(commandId);
+		string returnTab = m_sMapTargetTab;
 		ClearActionDialog();
 		if (m_bMapTargetActive && m_bMapTargetConfirmOpen)
 		{
 			m_bMapTargetConfirmOpen = false;
 			CloseCommandMapTargetSelection("confirmed target", true);
 			RequestConfirmedAction(label, commandId, argument);
+			if (returnToCommandMenu)
+			{
+				if (returnTab.IsEmpty())
+					returnTab = "forces";
+				GetGame().GetCallqueue().CallLater(OpenMenuToTab, 250, false, returnTab, "map target confirmed");
+			}
 			return;
 		}
 

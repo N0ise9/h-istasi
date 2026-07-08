@@ -241,7 +241,7 @@ class HST_SupportRequestService
 		request.m_iAttackCost = attackCost;
 		request.m_iSupportCost = supportCost;
 		request.m_iMoneyCost = moneyCost;
-		if (factionKey == preset.m_sResistanceFactionKey)
+		if (factionKey == preset.m_sResistanceFactionKey && playerCooldownSeconds > 0)
 			request.m_iCooldownUntilSecond = state.m_iElapsedSeconds + Math.Max(60, playerCooldownSeconds);
 		request.m_bHelicopterStyle = IsHelicopterStyle(supportType);
 		request.m_bPlayerRequested = playerRequested;
@@ -876,26 +876,34 @@ class HST_SupportRequestService
 		}
 
 		enemyGarrison.m_iInfantryCount += 1;
+		ClampGarrisonToZoneCapacity(state, enemyGarrison);
 		request.m_sResolutionKind = "abstract_enemy_supply";
 	}
 
 	protected void ApplyQRFOutcome(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request)
 	{
-		if (!garrisons)
-		{
-			request.m_sResolutionKind = "abstract_qrf_no_garrison_service";
+		if (!state || !preset || !request)
 			return;
-		}
 
 		if (request.m_sFactionKey == preset.m_sResistanceFactionKey)
 		{
-			garrisons.AddAbstractForces(state, request.m_sTargetZoneId, preset.m_sResistanceFactionKey, 3 + state.m_iTrainingLevel, 0);
-			request.m_sResolutionKind = "abstract_fia_qrf_garrison";
+			request.m_sResolutionKind = "abstract_fia_qrf_pressure";
 			return;
 		}
 
-		garrisons.AddAbstractForces(state, request.m_sTargetZoneId, request.m_sFactionKey, 3 + state.m_iWarLevel, 0);
-		request.m_sResolutionKind = "abstract_enemy_qrf_garrison";
+		request.m_sResolutionKind = "abstract_enemy_qrf_pressure";
+	}
+
+	protected void ClampGarrisonToZoneCapacity(HST_CampaignState state, HST_GarrisonState garrison)
+	{
+		if (!state || !garrison)
+			return;
+
+		HST_ZoneState zone = state.FindZone(garrison.m_sZoneId);
+		if (!zone || zone.m_iGarrisonSlots <= 0)
+			return;
+
+		garrison.m_iInfantryCount = Math.Min(zone.m_iGarrisonSlots, Math.Max(0, garrison.m_iInfantryCount));
 	}
 
 	protected void ApplySuppressiveFireOutcome(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)

@@ -114,7 +114,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Broad Alpha | Keep as the reactive defense gate and continue tuning caps/cooldowns. | High |
 | Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Broad Alpha | Target scoring now exposes eligible candidates, weighted top-band selection, bookkeeping-zone exclusion, relation-aware owner scoring, and relation-order branch proof for counterattack/QRF/rebuild/roadblock/support-call decisions; next add proactive timing and richer HQ/counterattack behavior. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha | Add stronger survivor, vehicle, and garrison outcome math. | High |
-| Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support infantry now receives generated-route move/sweep AI waypoints and materializes linked unclaimed response vehicles; player support call-ins stage offset from the selected destination with player/active-AI clearance before routing toward the target; convoy crews now retry immediate vehicle bind and register pilotable vehicles with group AI before route assignment, so next prove sustained movement and richer HQ-pressure/counterattack behavior. | Highest |
+| Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | QRF/support infantry now receives generated-route move/sweep AI waypoints and materializes linked unclaimed response vehicles; player support call-ins stage offset from the selected destination with player/active-AI clearance before routing toward the target; QRF resolution applies pressure without abstract garrison supplementation; convoy recovery no longer teleports observed living crew back into vehicles after contact/dismount; occupied opposing-faction runtime vehicles eject players while empty/unclaimed vehicles remain usable. | Highest |
 
 ### Civilians, Town Influence, And Population
 
@@ -140,8 +140,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Garrison state | Captured zones store abstract defender manpower and vehicles. | Implemented Foundation | Garrison add/remove actions now use normal-map target selection with confirmation and map-in-inventory gating; add player-facing management polish and costs. | High |
-| Recruitment and HR costs | Commander spends HR/money to recruit forces. | Broad Alpha | Recruitment now selects the destination from the normal gameplay map and revalidates eligible resistance zones server-side; add arsenal/equipment requirements and clearer UI. | High |
+| Garrison state | Captured zones store abstract defender manpower and vehicles. | Implemented Foundation | Garrison add/remove actions now use normal-map target selection with confirmation, map-in-inventory gating, zone confirmation, count selection for FIA recruitment, and zone-slot caps for add/fold-back; add player-facing management polish and costs. | High |
+| Recruitment and HR costs | Commander spends HR/money to recruit forces. | Broad Alpha | Recruitment now selects the destination and FIA count from the normal gameplay map, revalidates eligible resistance zones server-side, and returns to the Forces menu after dispatch; add arsenal/equipment requirements and clearer UI. | High |
 | Training | Training improves resistance AI quality and caps by war level. | Partial | Tie to composition, physical AI skill, and abstract resolution. | High |
 | Static defenses | Players can assign static weapons or emplacements to garrisons. | Missing | Add durable state, placement, capture, and spawn/fold behavior. | Medium |
 | Garrison physicalization | Active zones spawn defenders from garrison and composition services. | Broad Alpha | Add route/position variety, vehicle plans, and survivor fold-back proof. | High |
@@ -170,9 +170,9 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Support, supply, recruit, and garrison-removal actions now open the normal map for target selection, require a map gadget, and confirm before dispatch; Petros/HQ no longer exposes old hardcoded HQ move buttons, while Petros' final context action now handles Relocate/Deploy HQ follow flow; keep mission starts category-based and improve disabled reasons. | High |
-| Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned; Defend Petros attacker markers are backed by live active-group state; static town/base/mission-site location markers now use non-QRF icons; continue owner-client visual proof and marker/backing consistency checks. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, marker icon deconflict proof, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, relation-aware enemy target-scoring proof, relation-order decision proof, map-target command gating, support spawn offset/player-AI clearance proof, and Petros relocate-action ordering proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
+| Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha | Support, supply, recruit, and garrison-removal actions now open the normal map for target selection, require a map gadget, confirm before dispatch, and return to the Forces menu; garrison recruitment prompts for FIA count before final target confirmation; Petros' final context action handles Relocate/Deploy HQ follow flow. | High |
+| Map markers | HQ, zones, missions, support, QRFs, and orders publish linked markers with cleanup proof. | Broad Alpha | Player-requested resistance support groups now publish live group markers while spawned and update from actual runtime entity positions; terminal support groups force marker refresh; towns, bases, radar/radio sites, and QRFs use distinct native icons while resource nodes stay unchanged; continue owner-client visual proof and marker/backing consistency checks. | High |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts. | Broad Alpha | Added live support-group marker assertions, active-group-backed attacker marker proof, curated location taxonomy preflight, marker icon deconflict proof, recursive runtime vehicle-unclaimed audits, delayed route-assignment proof, expanded native marker publication checks, cleanup-time pending-population drains, convoy seat-bind evidence, convoy AI vehicle-usage registration assertions, a threshold-length convoy movement window before contact, relation-aware enemy target-scoring proof, relation-order decision proof, map-target command gating, support spawn offset/player-AI clearance proof, Petros relocate-action ordering proof, QRF-no-garrison order resolution proof, and capped garrison fold-back proof; keep adding ARRANGE/ACT/OBSERVE/ASSERT/CLEANUP cases for every new feature. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build. | Implemented Foundation | Bump synchronized build markers for every runtime-proof behavior change. | Keep |
 
@@ -187,11 +187,11 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Repack and rerun the dedicated server proof on the r81 relation-order build,
+1. Repack and rerun the dedicated server proof on the r87 support/garrison/convoy marker build,
    then compare the two hard failures and runtime-faction cleanup blocks against
    the latest debug artifact.
 2. Extend routed response infantry into richer counterattack/HQ-pressure
-   behavior after the r81 server artifact confirms the current relation and
+   behavior after the r87 server artifact confirms the current relation and
    unclaimed-vehicle proofs.
 3. Finish undercover enforcement from live equipment, vehicle state, off-road
    behavior, and security scans.

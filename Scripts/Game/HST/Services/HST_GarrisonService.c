@@ -65,6 +65,10 @@ class HST_GarrisonService
 		if (!garrison)
 			return false;
 
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (zone && zone.m_iGarrisonSlots > 0)
+			infantryCount = Math.Min(zone.m_iGarrisonSlots, infantryCount);
+
 		garrison.m_iInfantryCount = infantryCount;
 		garrison.m_iVehicleCount = vehicleCount;
 		return true;

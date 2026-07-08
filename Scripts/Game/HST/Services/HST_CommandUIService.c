@@ -491,6 +491,32 @@ class HST_CommandUIService
 		return !argument.IsEmpty() && argument.StartsWith("map_target:");
 	}
 
+	protected int ResolveMapTargetCountArgument(string argument, int fallbackCount)
+	{
+		if (fallbackCount <= 0)
+			fallbackCount = 1;
+		if (!IsMapTargetArgument(argument))
+			return fallbackCount;
+
+		array<string> parts = {};
+		argument.Split(":", parts, true);
+		for (int i = 3; i < parts.Count(); i++)
+		{
+			string part = parts[i];
+			if (part.IsEmpty())
+				continue;
+
+			if (part.StartsWith("count="))
+				part = part.Substring(6, part.Length() - 6);
+
+			int count = part.ToInt();
+			if (count > 0)
+				return Math.Min(32, count);
+		}
+
+		return fallbackCount;
+	}
+
 	string BuildVisibleMenuPayload(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers, HST_ArsenalService arsenal, HST_RecruitmentService recruitment, HST_RuntimeSettings settings, HST_BalanceConfig balance, int playerId, string selectedTabId, string lastResult, bool canUseMember, bool canUseCommander, bool canUseAdmin, bool playerHasMap, HST_ZoneCompositionService compositions = null, HST_ZoneCaptureService capture = null)
 	{
 		selectedTabId = NormalizeTabId(selectedTabId);
@@ -734,7 +760,7 @@ class HST_CommandUIService
 		if (commandId == "recruit_zone")
 		{
 			if (IsMapTargetArgument(argument))
-				return coordinator.RequestCommanderRecruitGarrisonAtMapTargetReport(playerId, argument, 2, 0, 100, 1);
+				return coordinator.RequestCommanderRecruitGarrisonAtMapTargetReport(playerId, argument, ResolveMapTargetCountArgument(argument, 2), 0, 100, 1);
 			return coordinator.RequestCommanderRecruitGarrisonReport(playerId, argument, 2, 0, 100, 1);
 		}
 		if (commandId == "remove_garrison")
@@ -1308,9 +1334,17 @@ class HST_CommandUIService
 			return !coordinator.RequestCommanderTrainTroopsReport(playerId).Contains("failed");
 
 		if (commandId == "recruit_zone")
+		{
+			if (IsMapTargetArgument(argument))
+				return !coordinator.RequestCommanderRecruitGarrisonAtMapTargetReport(playerId, argument, ResolveMapTargetCountArgument(argument, 2), 0, 100, 1).Contains("failed");
 			return coordinator.RequestCommanderRecruitGarrison(playerId, argument, 2, 0, 100, 1);
+		}
 		if (commandId == "remove_garrison")
+		{
+			if (IsMapTargetArgument(argument))
+				return !coordinator.RequestCommanderRemoveGarrisonAtMapTargetReport(playerId, argument, 1, 0).Contains("failed");
 			return !coordinator.RequestCommanderRemoveGarrisonReport(playerId, argument, 1, 0).Contains("failed");
+		}
 
 		if (commandId == "mission_zone")
 			return coordinator.RequestCommanderStartZoneMission(playerId, argument);

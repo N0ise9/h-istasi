@@ -1265,20 +1265,38 @@ class HST_MapMarkerService
 		if (iconHint == "MINE_SINGLE")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
 
+		if (iconHint == "FORTIFICATION")
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
+
+		if (iconHint == "FORTIFICATION2")
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION2;
+
 		if (iconHint == "POINT_SPECIAL")
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
 
 		if (iconHint == "POINT_OF_INTEREST")
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
 
+		if (iconHint == "POINT_OF_INTEREST2")
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
+
 		if (iconHint == "OBSERVATION_POST")
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
+		if (iconHint == "OBSERVATION_POST2")
+			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST2;
+
+		if (iconHint == "RECON_OUTPOST")
+			return SCR_EScenarioFrameworkMarkerCustom.RECON_OUTPOST;
+
+		if (iconHint == "RECON_OUTPOST2")
+			return SCR_EScenarioFrameworkMarkerCustom.RECON_OUTPOST2;
+
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
-			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -1290,10 +1308,13 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
 
 		if (styleHint == "town" || category == "town")
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
+
+		if (styleHint == "radio" || category == "radio")
+			return SCR_EScenarioFrameworkMarkerCustom.RECON_OUTPOST;
 
 		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
-			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
 
 		if (styleHint == "mission_site" || category == "mission_site")
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -1467,11 +1488,13 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "resource" || zone.m_sMarkerStyle == "depot")
 				return "MINE_SINGLE";
 			if (zone.m_sMarkerStyle == "town")
-				return "POINT_OF_INTEREST";
+				return "POINT_OF_INTEREST2";
 			if (zone.m_sMarkerStyle == "radio")
-				return "OBSERVATION_POST";
-			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
-				return "OBSERVATION_POST";
+				return "RECON_OUTPOST";
+			if (zone.m_sMarkerStyle == "stronghold")
+				return "FORTIFICATION2";
+			if (zone.m_sMarkerStyle == "enemy_base")
+				return "FORTIFICATION";
 			if (zone.m_sMarkerStyle == "mission_site")
 				return "POINT_SPECIAL";
 			if (zone.m_sMarkerStyle == "support")
@@ -1483,19 +1506,19 @@ class HST_MapMarkerService
 			return "MINE_SINGLE";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-			return "OBSERVATION_POST";
+			return "RECON_OUTPOST";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
 			return "PICK_UP2";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
-			return "POINT_OF_INTEREST";
+			return "POINT_OF_INTEREST2";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 			return "POINT_SPECIAL";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_AIRFIELD || zoneType == HST_EZoneType.HST_ZONE_SEAPORT || zoneType == HST_EZoneType.HST_ZONE_OUTPOST)
-			return "OBSERVATION_POST";
+			return "FORTIFICATION";
 
 		return "OBJECTIVE_MARKER";
 	}

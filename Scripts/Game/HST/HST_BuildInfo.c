@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r86-petros-relocation-flow";
-	static const string BUILD_UTC = "2026-07-08T06:05:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r86-petros-relocation-flow";
+	static const string BUILD_SHA = "r87-support-garrison-convoy-marker-fixes";
+	static const string BUILD_UTC = "2026-07-08T07:20:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r87-support-garrison-convoy-marker-fixes";
 
 	static string BuildSummary()
 	{

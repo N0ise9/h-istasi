@@ -868,9 +868,6 @@ class HST_EnemyCommanderService
 			if (targetZone)
 				targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 20);
 
-			if (garrisons)
-				garrisons.AddAbstractForces(state, order.m_sTargetZoneId, order.m_sFactionKey, 1 + state.m_iWarLevel / 2, 0);
-
 			order.m_sResolutionKind = "abstract_qrf_pressure";
 			order.m_bOutcomeApplied = true;
 			return;

@@ -2999,6 +2999,17 @@ class HST_PhysicalWarService
 				continue;
 			}
 
+			string reseatBlockReason;
+			if (ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicleEntity, reseatBlockReason))
+			{
+				activeGroup.m_sSpawnFailureReason = "Convoy crew reseat blocked: " + reseatBlockReason;
+				if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+					activeGroup.m_sConvoyRuntimeStage = "CONTACT";
+				if (activeGroup.m_sSpawnFallbackMode != previousFallbackMode || activeGroup.m_sSpawnFailureReason != previousReason)
+					changed = true;
+				continue;
+			}
+
 			string seatingReason;
 			bool preserveWaypointMode = activeGroup.m_sSpawnFallbackMode == "convoy_waypoints";
 			string recoveryLabel = "Convoy moving recovery";
@@ -3049,10 +3060,41 @@ class HST_PhysicalWarService
 			return false;
 		if (mission.m_sRuntimePhase == MISSION_CONVOY_STAGING)
 			return true;
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+			return false;
 		if (!state)
 			return false;
 
 		return IsMissionConvoyTravelPhase(mission) && state.m_iElapsedSeconds % CONVOY_PROGRESS_SYNC_SECONDS == 0;
+	}
+
+	protected bool ShouldSuppressMissionConvoyCrewReseat(HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, IEntity crewEntity, IEntity vehicleEntity, out string reason)
+	{
+		reason = "";
+		if (!mission || !activeGroup)
+			return false;
+		if (!activeGroup.m_bEverHadLivingCrew && activeGroup.m_iMaxObservedCrewAlive <= 0 && activeGroup.m_iLastSeenAliveCount <= 0)
+			return false;
+
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+		{
+			reason = "convoy is in contact; AI dismounts are combat behavior";
+			return true;
+		}
+
+		if (!IsMissionConvoyTravelPhase(mission))
+			return false;
+
+		string dismountReason;
+		if (GetConvoyVehicleControlAdapter().AreAllLivingCrewDismounted(crewEntity, vehicleEntity, dismountReason))
+		{
+			reason = "all living crew are dismounted";
+			if (!dismountReason.IsEmpty())
+				reason = reason + ": " + dismountReason;
+			return true;
+		}
+
+		return false;
 	}
 
 	protected bool IsMissionConvoyTravelPhase(HST_ActiveMissionState mission)
@@ -3557,6 +3599,15 @@ class HST_PhysicalWarService
 		if (!IsZeroVector(activeGroup.m_vPosition))
 			activeGroup.m_vSourcePosition = activeGroup.m_vPosition;
 
+		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		string reseatBlockReason;
+		if (ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicleEntity, reseatBlockReason) && !GetConvoyVehicleControlAdapter().HasLivingDriver(crewEntity, vehicleEntity))
+		{
+			progress.m_sLastRecoveryResult = "route reissue blocked: " + ReportText(reseatBlockReason);
+			return true;
+		}
+
 		string driverReason;
 		if (!TryEnsureMissionConvoyDriverForRouteReissue(activeGroup, driverReason))
 		{
@@ -3626,6 +3677,12 @@ class HST_PhysicalWarService
 			return false;
 
 		progress.m_iLastRouteSnapSecond = state.m_iElapsedSeconds;
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT)
+		{
+			progress.m_sLastRecoveryResult = "route snap blocked: convoy is in contact";
+			return false;
+		}
+
 		if (progress.m_fNearestPlayerDistanceMeters >= 0 && progress.m_fNearestPlayerDistanceMeters < CONVOY_UNSTUCK_MIN_PLAYER_DISTANCE_METERS)
 		{
 			progress.m_sLastRecoveryResult = string.Format("route snap blocked: nearest player %1m is inside %2m gate", Math.Round(progress.m_fNearestPlayerDistanceMeters), Math.Round(CONVOY_UNSTUCK_MIN_PLAYER_DISTANCE_METERS));
@@ -3637,6 +3694,14 @@ class HST_PhysicalWarService
 		if (!vehicle)
 		{
 			progress.m_sLastRecoveryResult = "route snap failed: convoy vehicle entity missing";
+			return true;
+		}
+
+		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		string reseatBlockReason;
+		if (ShouldSuppressMissionConvoyCrewReseat(mission, activeGroup, crewEntity, vehicle, reseatBlockReason) && !GetConvoyVehicleControlAdapter().HasLivingDriver(crewEntity, vehicle))
+		{
+			progress.m_sLastRecoveryResult = "route snap blocked: " + ReportText(reseatBlockReason);
 			return true;
 		}
 
@@ -3653,7 +3718,6 @@ class HST_PhysicalWarService
 		HST_WorldPositionService.ApplyUprightEntityTransform(vehicle, snapPosition, angles);
 		SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, snapPosition);
 
-		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
 		int movedCrew = GetConvoyVehicleControlAdapter().MoveUnseatedLivingCrewNearVehicle(crewEntity, vehicle, snapPosition);
 		string seatingReason;
 		bool driverReady = GetConvoyVehicleControlAdapter().TryBindCrewToVehicle(activeGroup, crewEntity, vehicle, seatingReason);
@@ -9930,6 +9994,8 @@ class HST_PhysicalWarService
 		HST_ActiveMissionState mission = FindMissionForConvoyGroup(state, activeGroup);
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
+		if (mission.m_sRuntimePhase == MISSION_CONVOY_CONTACT && activeGroup.m_bEverHadLivingCrew)
+			return false;
 
 		IEntity crewEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
 		IEntity vehicleEntity = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
@@ -10498,6 +10564,9 @@ class HST_PhysicalWarService
 				changed = true;
 
 			EnsureActiveGroupRuntimeFaction(activeGroup, "survivor update");
+			EnforceOpposingOccupiedVehicleAccess(state, activeGroup);
+			if (RefreshActiveGroupLivePositionFromRuntime(activeGroup, missionConvoyGroup))
+				changed = true;
 			int aliveCount;
 			if (missionConvoyGroup)
 				aliveCount = CountAliveRuntimeCrewAgents(activeGroup);
@@ -10536,7 +10605,7 @@ class HST_PhysicalWarService
 				changed = true;
 				DebugLog(string.Format("active group populated %1 | zone %2 | live agents %3 | expected infantry %4 vehicles %5 | status %6", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, activeGroup.m_iInfantryCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
 			}
-			if (aliveCount == activeGroup.m_iLastSeenAliveCount)
+			if (aliveCount == activeGroup.m_iLastSeenAliveCount && aliveCount > 0)
 				continue;
 
 			int previousAliveCount = activeGroup.m_iLastSeenAliveCount;
@@ -10566,7 +10635,7 @@ class HST_PhysicalWarService
 				else
 					activeGroup.m_sRuntimeStatus = "eliminated";
 				CleanupTerminalActiveGroupRuntimeCrew(activeGroup, "survivor update");
-				if (activeGroup.m_bQRF)
+				if (activeGroup.m_bQRF || IsSupportRequestActiveGroup(activeGroup))
 					m_bMarkerRefreshNeeded = true;
 			}
 			DebugLog(string.Format("active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
@@ -10583,6 +10652,140 @@ class HST_PhysicalWarService
 		}
 
 		return changed;
+	}
+
+	protected bool RefreshActiveGroupLivePositionFromRuntime(HST_ActiveGroupState activeGroup, bool missionConvoyGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		vector livePosition = ResolveActiveGroupLiveRuntimePosition(activeGroup, missionConvoyGroup);
+		if (IsZeroVector(livePosition))
+			return false;
+
+		if (!IsZeroVector(activeGroup.m_vPosition) && DistanceSq2D(activeGroup.m_vPosition, livePosition) < 4.0)
+			return false;
+
+		activeGroup.m_vPosition = livePosition;
+		if (activeGroup.m_bQRF || IsSupportRequestActiveGroup(activeGroup) || missionConvoyGroup)
+			m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
+	protected vector ResolveActiveGroupLiveRuntimePosition(HST_ActiveGroupState activeGroup, bool missionConvoyGroup)
+	{
+		if (!activeGroup)
+			return "0 0 0";
+
+		array<IEntity> livingEntities = {};
+		CollectLivingRuntimeGroupEntities(activeGroup.m_sGroupId, livingEntities);
+		if (livingEntities.Count() > 0)
+		{
+			vector sum = "0 0 0";
+			foreach (IEntity entity : livingEntities)
+			{
+				if (!entity)
+					continue;
+				sum = sum + entity.GetOrigin();
+			}
+
+			vector average = sum * (1.0 / livingEntities.Count());
+			return HST_WorldPositionService.ResolveGroundPosition(average, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false);
+		}
+
+		IEntity vehicle = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (vehicle && IsLivingEntity(vehicle))
+			return vehicle.GetOrigin();
+
+		return "0 0 0";
+	}
+
+	protected void CollectLivingRuntimeGroupEntities(string groupId, array<IEntity> livingEntities)
+	{
+		if (groupId.IsEmpty() || !livingEntities)
+			return;
+
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity)
+				continue;
+
+			AIGroup group = AIGroup.Cast(entity);
+			if (group)
+			{
+				CollectLivingNativeAIGroupEntities(group, livingEntities);
+				continue;
+			}
+
+			if (IsLivingEntity(entity) && livingEntities.Find(entity) < 0)
+				livingEntities.Insert(entity);
+		}
+	}
+
+	protected bool EnforceOpposingOccupiedVehicleAccess(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+		if (activeGroup.m_sFactionKey == "FIA" || activeGroup.m_sFactionKey == "CIV")
+			return false;
+
+		IEntity vehicle = GetRuntimeVehicleEntity(activeGroup.m_sGroupId);
+		if (!vehicle)
+			return false;
+		if (!IsLivingEntity(vehicle))
+			return false;
+		if (!HasLivingRuntimeGroupMemberInVehicle(activeGroup.m_sGroupId, vehicle))
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		bool ejected;
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		foreach (int playerId : playerIds)
+		{
+			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
+			if (!IsLivingPlayerEntity(playerEntity))
+				continue;
+			if (ResolveEntityVehicle(playerEntity) != vehicle)
+				continue;
+
+			SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(playerEntity.FindComponent(SCR_CompartmentAccessComponent));
+			if (!access)
+				continue;
+
+			if (access.GetOutVehicle(EGetOutType.TELEPORT, -1, ECloseDoorAfterActions.INVALID, false, true))
+			{
+				ejected = true;
+				DebugLog(string.Format("blocked player %1 from riding in occupied opposing vehicle for group %2 faction %3", playerId, activeGroup.m_sGroupId, activeGroup.m_sFactionKey));
+			}
+		}
+
+		return ejected;
+	}
+
+	protected bool HasLivingRuntimeGroupMemberInVehicle(string groupId, IEntity vehicle)
+	{
+		if (groupId.IsEmpty() || !vehicle)
+			return false;
+
+		array<IEntity> livingEntities = {};
+		CollectLivingRuntimeGroupEntities(groupId, livingEntities);
+		foreach (IEntity entity : livingEntities)
+		{
+			if (!entity)
+				continue;
+			if (ResolveEntityVehicle(entity) == vehicle)
+				return true;
+		}
+
+		return false;
 	}
 
 	protected bool IsActiveGroupLiveCountGraceActive(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -10801,11 +11004,16 @@ class HST_PhysicalWarService
 
 		string previousStatus = activeGroup.m_sRuntimeStatus;
 		activeGroup.m_sRuntimeStatus = "folded";
-		if (activeGroup.m_bQRF)
+		if (activeGroup.m_bQRF || IsSupportRequestActiveGroup(activeGroup))
 			m_bMarkerRefreshNeeded = true;
-		garrison.m_iInfantryCount += Math.Max(0, survivorInfantry);
-		garrison.m_iVehicleCount += Math.Max(0, survivorVehicles);
-		DebugLog(string.Format("folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 vehicles %6/%7 | last alive %8 | spawned agents %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, survivorInfantry, activeGroup.m_iInfantryCount, survivorVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
+		int returnedInfantry = Math.Max(0, survivorInfantry);
+		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
+		if (zone && zone.m_iGarrisonSlots > 0)
+			returnedInfantry = Math.Min(returnedInfantry, Math.Max(0, zone.m_iGarrisonSlots - garrison.m_iInfantryCount));
+		int returnedVehicles = Math.Max(0, survivorVehicles);
+		garrison.m_iInfantryCount += returnedInfantry;
+		garrison.m_iVehicleCount += returnedVehicles;
+		DebugLog(string.Format("folded active group %1 | zone %2 | status %3 | returned infantry %4/%5 requested %6 vehicles %7/%8 | last alive %9 | spawned agents %10", activeGroup.m_sGroupId, activeGroup.m_sZoneId, previousStatus, returnedInfantry, activeGroup.m_iInfantryCount, survivorInfantry, returnedVehicles, activeGroup.m_iVehicleCount, activeGroup.m_iLastSeenAliveCount, activeGroup.m_iSpawnedAgentCount));
 	}
 
 	protected string ResolveGroupRouteId(HST_ZoneState zone, bool qrf)

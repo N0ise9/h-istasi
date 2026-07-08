@@ -95,6 +95,33 @@ This file is for practical engine/script behavior, not project planning. Keep en
     stamping a vehicle root back to the active-group faction while still
     keeping infantry and group roots factioned.
 
+- Unclaimed vehicles still need occupant rules when hostile AI are inside.
+  - Clearing the vehicle faction claim keeps empty/captured vehicles usable by
+    players, but it also means the engine will not automatically reject a player
+    who tries to ride with hostile AI.
+  - Enforce the rule at runtime from active-group state: if a non-resistance
+    active group has living members inside its linked living vehicle, eject
+    living player entities found in that same vehicle with
+    `SCR_CompartmentAccessComponent.GetOutVehicle(EGetOutType.TELEPORT, -1,
+    ECloseDoorAfterActions.INVALID, false, true)`. Do not set the vehicle's
+    faction to solve this, because that reintroduces captured-vehicle lockout.
+  - Current example:
+    `HST_PhysicalWarService.EnforceOpposingOccupiedVehicleAccess()`.
+
+- Convoy recovery should not undo deliberate AI dismounts.
+  - Initial convoy spawn/staging may move unseated living crew near the vehicle
+    and request driver binding, but once crew have been observed alive, contact
+    or a fully dismounted living crew state should block recovery reseats.
+  - Route reissue and route snap recovery must check the same suppression
+    before moving crew back to the vehicle. Otherwise convoy AI can teleport
+    back into seats after getting out to fight, or after a combat/contact phase
+    has already made the convoy a battlefield object instead of a pure route
+    object.
+  - Current examples:
+    `HST_PhysicalWarService.ShouldSuppressMissionConvoyCrewReseat()`,
+    `EnsureMissionConvoyCrewSeating()`, and
+    `TrySnapMissionConvoyVehicleToRoute()`.
+
 - Planning/checklist docs should be first-party h-istasi documents.
   - When converting external planning material, keep feature status, gaps,
     priorities, implementation contracts, and acceptance tests.
