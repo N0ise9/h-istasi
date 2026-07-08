@@ -146,8 +146,11 @@ class HST_PhysicalWarService
 	static const string ACTIVE_GROUP_ROUTE_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string ACTIVE_GROUP_ROUTE_SWEEP_WAYPOINT_PREFAB = "{B3E7B8DC2BAB8ACC}Prefabs/AI/Waypoints/AIWaypoint_SearchAndDestroy.et";
 	static const string TOWN_POLICE_PATROL_CYCLE_WAYPOINT_PREFAB = "{35BD6541CBB8AC08}Prefabs/AI/Waypoints/AIWaypoint_Cycle.et";
+	static const string TOWN_SECURITY_POLICE_PROJECTION_TOKEN = "town_security_police";
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45;
 	static const int CAMPAIGN_DEBUG_COMBAT_PROBE_INFANTRY_COUNT = 4;
+	static const int TOWN_SECURITY_POLICE_MIN_INFANTRY = 2;
+	static const int TOWN_SECURITY_POLICE_MAX_INFANTRY = 5;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_PLAYER_OFFSET_METERS = 90.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_SEPARATION_METERS = 36.0;
 	static const float CAMPAIGN_DEBUG_COMBAT_PROBE_CONTACT_METERS = 70.0;
@@ -6114,6 +6117,7 @@ class HST_PhysicalWarService
 		bool hasActiveGarrisonGroup = HasActiveGarrisonGroup(state, zone);
 		if (hasActiveGarrisonGroup && !fullGarrison)
 		{
+			changed = EnsureTownSecurityPoliceProjection(state, zone, preset, slots, compositions) || changed;
 			ApplyActiveZoneCounts(state, zone);
 			return changed;
 		}
@@ -6121,6 +6125,7 @@ class HST_PhysicalWarService
 		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
 		if (!garrison)
 		{
+			changed = EnsureTownSecurityPoliceProjection(state, zone, preset, slots, compositions) || changed;
 			ApplyActiveZoneCounts(state, zone);
 			return changed;
 		}
@@ -6154,6 +6159,12 @@ class HST_PhysicalWarService
 		int spawnedInfantryGroups = SpawnZoneInfantryGroups(state, zone, preset, slots, infantryCount, compositions);
 		int spawnedVehicleGroups = SpawnZoneVehicleGroups(state, zone, preset, slots, vehicleCount);
 		ApplyActiveZoneCounts(state, zone);
+		bool policeProjectionChanged = EnsureTownSecurityPoliceProjection(state, zone, preset, slots, compositions);
+		if (policeProjectionChanged)
+		{
+			changed = true;
+			ApplyActiveZoneCounts(state, zone);
+		}
 		if (zone.m_iActiveInfantryCount < infantryCount && infantryCount > 0)
 		{
 			int pendingInfantry = CountPendingActiveZonePopulationInfantry(state, zone);
@@ -6208,6 +6219,14 @@ class HST_PhysicalWarService
 				continue;
 			if (activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 				continue;
+			if (IsTownSecurityPoliceProjection(activeGroup))
+			{
+				DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+				state.m_aActiveGroups.Remove(i);
+				removedGroups++;
+				changed = true;
+				continue;
+			}
 			if (activeGroup.m_sFactionKey == resistanceFactionKey)
 				continue;
 
@@ -6260,6 +6279,15 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup))
 				continue;
+
+			if (IsTownSecurityPoliceProjection(activeGroup))
+			{
+				DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+				state.m_aActiveGroups.Remove(i);
+				foldedGroups++;
+				changed = true;
+				continue;
+			}
 
 			if (TryDetachPlayerUsedActiveVehicleFromZoneCleanup(state, zone, activeGroup))
 			{
@@ -6569,6 +6597,142 @@ class HST_PhysicalWarService
 		}
 
 		return spawnedVehicles;
+	}
+
+	protected bool EnsureTownSecurityPoliceProjection(HST_CampaignState state, HST_ZoneState zone, HST_CampaignPreset preset, array<ref HST_ZoneSpawnSlotState> slots, HST_ZoneCompositionService compositions)
+	{
+		if (!state || !zone)
+			return false;
+
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
+		int policePresence;
+		if (civilianZone)
+			policePresence = civilianZone.m_iPolicePresence;
+
+		if (!ShouldProjectTownSecurityPolice(state, zone, preset, policePresence))
+			return CleanupTownSecurityPoliceProjections(state, zone, "security pressure cleared or town not enemy-owned");
+
+		if (FindTownSecurityPoliceProjection(state, zone))
+			return false;
+
+		int infantryCount = ResolveTownSecurityPoliceProjectionInfantry(policePresence);
+		if (infantryCount <= 0)
+			return false;
+
+		HST_ZoneSpawnSlotState slot;
+		if (compositions)
+			slot = compositions.SelectSlot(slots, HST_ZoneCompositionService.SLOT_PATROL, CountTownSecurityPoliceProjections(state, zone));
+
+		HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, infantryCount, 0, false, preset);
+		activeGroup.m_sGroupId = BuildTownSecurityPoliceGroupId(state, zone);
+		activeGroup.m_sGarrisonZoneId = "";
+		ApplySpawnSlot(activeGroup, slot, "guard_distributed");
+		activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, TOWN_SECURITY_POLICE_PROJECTION_TOKEN);
+		activeGroup.m_sSpawnFailureReason = string.Format("Town police security projection from police presence %1.", policePresence);
+		state.m_aActiveGroups.Insert(activeGroup);
+		if (!TrySpawnActiveGroup(activeGroup, state, preset))
+		{
+			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+			state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
+			ApplyActiveZoneCounts(state, zone);
+			DebugLog(string.Format("town security police projection failed %1 | %2", zone.m_sZoneId, activeGroup.m_sSpawnFailureReason));
+			return false;
+		}
+
+		m_bMarkerRefreshNeeded = true;
+		Print(string.Format("h-istasi police | projected %1 town police at %2 from police presence %3", infantryCount, zone.m_sZoneId, policePresence));
+		return true;
+	}
+
+	protected bool ShouldProjectTownSecurityPolice(HST_CampaignState state, HST_ZoneState zone, HST_CampaignPreset preset, int policePresence)
+	{
+		if (!state || !zone || policePresence <= 0)
+			return false;
+		if (zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return false;
+		if (!HST_FactionRelationService.IsEnemyFaction(preset, zone.m_sOwnerFactionKey))
+			return false;
+
+		return true;
+	}
+
+	protected int ResolveTownSecurityPoliceProjectionInfantry(int policePresence)
+	{
+		if (policePresence <= 0)
+			return 0;
+
+		return Math.Max(TOWN_SECURITY_POLICE_MIN_INFANTRY, Math.Min(TOWN_SECURITY_POLICE_MAX_INFANTRY, policePresence + 1));
+	}
+
+	protected HST_ActiveGroupState FindTownSecurityPoliceProjection(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return null;
+
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (activeGroup && activeGroup.m_sZoneId == zone.m_sZoneId && IsTownSecurityPoliceProjection(activeGroup))
+				return activeGroup;
+		}
+
+		return null;
+	}
+
+	protected int CountTownSecurityPoliceProjections(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return 0;
+
+		int count;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (activeGroup && activeGroup.m_sZoneId == zone.m_sZoneId && IsTownSecurityPoliceProjection(activeGroup))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool CleanupTownSecurityPoliceProjections(HST_CampaignState state, HST_ZoneState zone, string reason)
+	{
+		if (!state || !zone)
+			return false;
+
+		bool changed;
+		int removed;
+		for (int i = state.m_aActiveGroups.Count() - 1; i >= 0; i--)
+		{
+			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
+			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || !IsTownSecurityPoliceProjection(activeGroup))
+				continue;
+
+			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
+			state.m_aActiveGroups.Remove(i);
+			removed++;
+			changed = true;
+		}
+
+		if (changed)
+		{
+			ApplyActiveZoneCounts(state, zone);
+			m_bMarkerRefreshNeeded = true;
+			DebugLog(string.Format("town security police projections cleaned %1 | removed %2 | reason %3", zone.m_sZoneId, removed, reason));
+		}
+
+		return changed;
+	}
+
+	protected bool IsTownSecurityPoliceProjection(HST_ActiveGroupState activeGroup)
+	{
+		return activeGroup && activeGroup.m_sSpawnFallbackMode.Contains(TOWN_SECURITY_POLICE_PROJECTION_TOKEN);
+	}
+
+	protected string BuildTownSecurityPoliceGroupId(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return "";
+
+		return string.Format("police_%1_%2_%3_%4", zone.m_sZoneId, zone.m_sOwnerFactionKey, state.m_iElapsedSeconds, state.m_aActiveGroups.Count());
 	}
 
 	protected bool SpawnActiveZoneGroup(HST_CampaignState state, HST_ZoneState zone, string factionKey, int infantryCount, int vehicleCount, bool qrf, HST_CampaignPreset preset, HST_ZoneSpawnSlotState slot, string runtimeStatus)
@@ -8799,6 +8963,44 @@ class HST_PhysicalWarService
 			ReportText(manualReason),
 			ReportText(populationEvidence));
 		return patrolAssigned;
+	}
+
+	bool CampaignDebugIsTownSecurityPoliceProjection(HST_ActiveGroupState activeGroup)
+	{
+		return IsTownSecurityPoliceProjection(activeGroup);
+	}
+
+	bool CampaignDebugDeactivateZoneForRuntimeCleanup(HST_CampaignState state, string zoneId, HST_ZoneCompositionService compositions, out string evidence)
+	{
+		evidence = "missing state or zone";
+		if (!state || zoneId.IsEmpty())
+			return false;
+
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return false;
+
+		HST_GarrisonState garrisonBefore = state.FindGarrison(zoneId, zone.m_sOwnerFactionKey);
+		int infantryBefore;
+		int vehiclesBefore;
+		if (garrisonBefore)
+		{
+			infantryBefore = garrisonBefore.m_iInfantryCount;
+			vehiclesBefore = garrisonBefore.m_iVehicleCount;
+		}
+		int projectionBefore = CountTownSecurityPoliceProjections(state, zone);
+		bool changed = DeactivateZone(state, zone, compositions);
+		HST_GarrisonState garrisonAfter = state.FindGarrison(zoneId, zone.m_sOwnerFactionKey);
+		int infantryAfter;
+		int vehiclesAfter;
+		if (garrisonAfter)
+		{
+			infantryAfter = garrisonAfter.m_iInfantryCount;
+			vehiclesAfter = garrisonAfter.m_iVehicleCount;
+		}
+		int projectionAfter = CountTownSecurityPoliceProjections(state, zone);
+		evidence = string.Format("changed %1 | projection %2 -> %3 | garrison infantry %4 -> %5 | vehicles %6 -> %7", changed, projectionBefore, projectionAfter, infantryBefore, infantryAfter, vehiclesBefore, vehiclesAfter);
+		return changed && projectionBefore > 0 && projectionAfter == 0 && infantryAfter == infantryBefore && vehiclesAfter == vehiclesBefore;
 	}
 
 	bool CampaignDebugIsActiveGroupResponseRunMovement(HST_ActiveGroupState activeGroup, out string actual)
@@ -11593,6 +11795,8 @@ class HST_PhysicalWarService
 		{
 			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_sFactionKey != zone.m_sOwnerFactionKey)
 				continue;
+			if (IsTownSecurityPoliceProjection(activeGroup))
+				continue;
 			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
 				continue;
 
@@ -11633,6 +11837,8 @@ class HST_PhysicalWarService
 		{
 			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
 				continue;
+			if (IsTownSecurityPoliceProjection(activeGroup))
+				continue;
 			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 				continue;
 
@@ -11651,6 +11857,8 @@ class HST_PhysicalWarService
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+				continue;
+			if (IsTownSecurityPoliceProjection(activeGroup))
 				continue;
 			if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
 				groupCount++;
