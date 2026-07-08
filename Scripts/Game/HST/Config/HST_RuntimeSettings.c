@@ -2,7 +2,6 @@ class HST_RuntimeSettingsCampaign
 {
 	string m_sPresetId = "vanilla_everon";
 	int m_iCampaignSeed = 1985;
-	string m_sDefaultHideoutId = "hideout_central_hills";
 }
 
 class HST_RuntimeSettingsFactions
@@ -136,7 +135,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 16;
+	static const int SCHEMA_VERSION = 17;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();
@@ -298,7 +297,7 @@ class HST_RuntimeSettings
 
 	string BuildSummary()
 	{
-		string campaign = string.Format("setup config | schema %1 | preset %2 | hideout %3", m_iSchemaVersion, m_Campaign.m_sPresetId, m_Campaign.m_sDefaultHideoutId);
+		string campaign = string.Format("setup config | schema %1 | preset %2 | seed %3", m_iSchemaVersion, m_Campaign.m_sPresetId, m_Campaign.m_iCampaignSeed);
 		string factions = string.Format("\nfactions | resistance %1 | occupier %2 | invader %3", m_Factions.m_sResistanceFactionKey, m_Factions.m_sOccupierFactionKey, m_Factions.m_sInvaderFactionKey);
 		string economy = string.Format("\neconomy | money %1 | HR %2 | training %3 | income %4s | war max %5", m_Economy.m_iStartingFactionMoney, m_Economy.m_iStartingHR, m_Economy.m_iStartingTrainingLevel, m_Economy.m_iZoneIncomeIntervalSeconds, m_Economy.m_iWarLevelMaximum);
 		string pacing = string.Format("\npacing | WL2 %1 | WL3 %2 | WL4 %3 | WL5 %4 | WL6 %5 | WL7 %6 | WL8 %7 | WL9 %8 | WL10 %9", m_Economy.m_iWarLevel2Score, m_Economy.m_iWarLevel3Score, m_Economy.m_iWarLevel4Score, m_Economy.m_iWarLevel5Score, m_Economy.m_iWarLevel6Score, m_Economy.m_iWarLevel7Score, m_Economy.m_iWarLevel8Score, m_Economy.m_iWarLevel9Score, m_Economy.m_iWarLevel10Score);

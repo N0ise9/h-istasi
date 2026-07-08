@@ -61,13 +61,24 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings are schema `16` and are migrated separately by
+- Runtime settings are schema `17` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
   written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
+
+## Runtime Settings Schema 17
+
+Generated settings hideout key removal.
+
+- `HST_RuntimeSettings.SCHEMA_VERSION` is `17`.
+- `campaign.defaultHideoutId` is no longer generated or read. Initial HQ
+  placement is selected through the setup map flow, so the profile config should
+  not imply a separate default hideout source of truth.
+- Existing settings migrate by rewriting the generated profile without the
+  obsolete hideout key while preserving the remaining scalar settings.
 
 ## Runtime Settings Schema 16
 

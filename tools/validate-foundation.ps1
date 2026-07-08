@@ -4365,8 +4365,11 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 16") {
-	throw "Runtime settings schema must be bumped to 16 for resistance support marker tracking"
+if ($scriptText -notmatch "SCHEMA_VERSION = 17") {
+	throw "Runtime settings schema must be bumped to 17 for generated settings hideout-key removal"
+}
+if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
+	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
 }
 if ($scriptText -notmatch "m_bGameMasterBudgetsEnabled" -or $scriptText -notmatch '\\"gameMasterBudgetsEnabled\\": %1') {
 	throw "Runtime settings must expose gameMasterBudgetsEnabled"

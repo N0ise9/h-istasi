@@ -1757,7 +1757,6 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "source", "Config file", "$profile:h-istasi/HST_Settings.json", "good");
 		if (settings)
 		{
-			payload = AppendRow(payload, "source", "Default hideout", settings.m_Campaign.m_sDefaultHideoutId, "neutral");
 			payload = AppendRow(payload, "source", "Membership", string.Format("enabled %1 / guests menu %2", settings.m_Membership.m_bMembershipEnabled, settings.m_Membership.m_bGuestsCanOpenMenu), "neutral");
 			payload = AppendRow(payload, "source", "Area loot", string.Format("enabled %1 / radius %2m", settings.m_Features.m_bAreaLootEnabled, settings.m_ArsenalLoot.m_iLootRadiusMeters), "neutral");
 		}
@@ -1939,7 +1938,7 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "moves", "Move here", "Uses your current position as the new HQ.", CommanderGateTone(canUseCommander));
 		payload = AppendRow(payload, "moves", "Rebuild assets", "Respawns Petros, cache, arsenal, and tent without resetting campaign state.", BuildHQRadiusTone(state, settings, playerId));
 		payload = AppendRow(payload, "moves", "North Forest", "Low-profile woodland staging area.", "neutral");
-		payload = AppendRow(payload, "moves", "Central Hills", "Default hideout near central roads.", "neutral");
+		payload = AppendRow(payload, "moves", "Central Hills", "Central hideout near main roads.", "neutral");
 		payload = AppendRow(payload, "moves", "South Woods", "Fallback hideout for southern operations.", "neutral");
 		return payload;
 	}

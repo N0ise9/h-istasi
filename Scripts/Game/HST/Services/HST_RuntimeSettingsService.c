@@ -88,7 +88,6 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "schemaVersion", settings.m_iSchemaVersion);
 			ApplyString(line, "presetId", settings.m_Campaign.m_sPresetId);
 			ApplyInt(line, "campaignSeed", settings.m_Campaign.m_iCampaignSeed);
-			ApplyString(line, "defaultHideoutId", settings.m_Campaign.m_sDefaultHideoutId);
 			ApplyString(line, "resistanceFactionKey", settings.m_Factions.m_sResistanceFactionKey);
 			ApplyString(line, "occupierFactionKey", settings.m_Factions.m_sOccupierFactionKey);
 			ApplyString(line, "invaderFactionKey", settings.m_Factions.m_sInvaderFactionKey);
@@ -305,6 +304,11 @@ class HST_RuntimeSettingsService
 			changed = true;
 		}
 
+		if (settings.m_iSchemaVersion < 17)
+		{
+			changed = true;
+		}
+
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
 		{
 			settings.m_iSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
@@ -458,8 +462,7 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("  \"schemaVersion\": %1,", settings.m_iSchemaVersion));
 		lines.Insert("  \"campaign\": {");
 		lines.Insert(string.Format("    \"presetId\": \"%1\",", settings.m_Campaign.m_sPresetId));
-		lines.Insert(string.Format("    \"campaignSeed\": %1,", settings.m_Campaign.m_iCampaignSeed));
-		lines.Insert(string.Format("    \"defaultHideoutId\": \"%1\"", settings.m_Campaign.m_sDefaultHideoutId));
+		lines.Insert(string.Format("    \"campaignSeed\": %1", settings.m_Campaign.m_iCampaignSeed));
 		lines.Insert("  },");
 		lines.Insert("  \"factions\": {");
 		lines.Insert(string.Format("    \"resistanceFactionKey\": \"%1\",", settings.m_Factions.m_sResistanceFactionKey));
