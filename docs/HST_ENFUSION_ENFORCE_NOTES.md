@@ -725,7 +725,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The native custom map cursor lives in its own workspace cursor layout at z-order `10`. Keep setup-map modal chrome above the map root but below that cursor band, for example modal root/dimmer/dialog/buttons/text in `1..9`, when the map cursor must remain visible over confirmation buttons.
   - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
   - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
-  - Current example: `HST_SetupMapComponent`.
+  - For normal gameplay-map target confirmations, a fixed selected-target indicator is acceptable when it is not an engine cursor proxy: create it as a passive workspace overlay above `Z_ACTION_DIALOG`, set `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` on every widget, convert `SCR_MapEntity.WorldToScreen()` raw coordinates with `HST_UIWorkspaceMetrics.RawToLayoutPx()`, and clear it whenever the dialog closes or the player chooses another point.
+  - Current examples: `HST_SetupMapComponent` and `HST_CommandMenuComponent`.
 
 - Notifications should not participate in blocking input.
   - Keep toast roots and children cursor-ignored and no-focus.

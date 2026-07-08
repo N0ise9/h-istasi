@@ -20,6 +20,7 @@ class HST_UIConstants
 	static const int Z_LOADOUT_EDITOR = 3600;
 	static const int Z_ACTION_DIALOG = 4300;
 	static const int Z_MISSION_DIALOG = 4300;
+	static const int Z_MAP_TARGET_CURSOR = 4400;
 
 	static string ModeName(HST_EUIScreenMode mode)
 	{

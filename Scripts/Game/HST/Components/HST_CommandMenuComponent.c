@@ -53,7 +53,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const string COMMAND_MENU_BACK_ACTION = "MenuBack";
 	static const string COMMAND_MENU_INPUT_CONTEXT = "HST_CommandMenuContext";
 	static const string COMMAND_MENU_NATIVE_I_CONTEXT = "PlayerMenuContext";
-	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r16-map-target-garrison-count";
+	static const string COMMAND_MENU_BUILD = "2026-07-08-menu-input-r17-map-target-cursor-layer";
 	static const string MENU_INPUT_CONTEXT = "InGameMenuContext";
 	static const string MENU_CURSOR_CONTEXT = "InventoryContext";
 	static const string COMMAND_MENU_KEYBOARD_BINDING = "keyboard:KC_I";
@@ -82,6 +82,9 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int ACTION_CHOICE_WIDGET_ID_BASE = 90100;
 	static const int ACTION_CHOICE_WIDGET_ID_LIMIT = 90106;
 	static const int MAP_TARGET_PROMPT_Z = 2300;
+	static const int MAP_TARGET_CURSOR_LINE_LONG = 30;
+	static const int MAP_TARGET_CURSOR_LINE_SHORT = 3;
+	static const int MAP_TARGET_CURSOR_CENTER_SIZE = 7;
 	static const int COMMAND_DIMMER_Z = 0;
 	static const int COMMAND_SURFACE_Z = 10;
 	static const int COMMAND_PANEL_Z = 20;
@@ -188,6 +191,12 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected Widget m_wMapTargetPromptPanel;
 	protected Widget m_wMapTargetPromptRule;
 	protected TextWidget m_wMapTargetPromptText;
+	protected Widget m_wMapTargetCursorRoot;
+	protected Widget m_wMapTargetCursorHorizontalShadow;
+	protected Widget m_wMapTargetCursorVerticalShadow;
+	protected Widget m_wMapTargetCursorHorizontal;
+	protected Widget m_wMapTargetCursorVertical;
+	protected Widget m_wMapTargetCursorCenter;
 
 	override void OnPostInit(IEntity owner)
 	{
@@ -1579,6 +1588,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			RefreshCommandMapTargetPrompt();
 			ApplyCommandMapDialogState();
+			RefreshCommandMapTargetCursor();
 			if (!m_bMapTargetConfirmOpen)
 				SetCommandMapLocationSelectionEnabled(true);
 			return;
@@ -1628,6 +1638,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RefreshCommandMapTargetPrompt();
 		SetCommandMapLocationSelectionEnabled(!m_bMapTargetConfirmOpen);
 		ApplyCommandMapDialogState();
+		RefreshCommandMapTargetCursor();
 	}
 
 	protected void BindCommandMapTargetInvokers()
@@ -1666,6 +1677,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		RefreshCommandMapTargetPrompt();
 		SetCommandMapLocationSelectionEnabled(!m_bMapTargetConfirmOpen);
 		ApplyCommandMapDialogState();
+		RefreshCommandMapTargetCursor();
 	}
 
 	protected void OnCommandMapTargetClose(MapConfiguration config)
@@ -1766,6 +1778,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sPendingActionCommand = "map_target_garrison_count";
 		m_sPendingActionArgument = "";
 		ApplyCommandMapDialogState();
+		RefreshCommandMapTargetCursor();
 		HST_UIDebug.LogPopulation("command_map_target_garrison_count", string.Format("target=%1 choices=%2", m_vMapTargetPosition, m_aPendingChoiceLabels.Count()));
 	}
 
@@ -1826,6 +1839,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sPendingActionCommand = m_sMapTargetCommand;
 		m_sPendingActionArgument = BuildCommandMapTargetArgument(m_vMapTargetPosition);
 		ApplyCommandMapDialogState();
+		RefreshCommandMapTargetCursor();
 		HST_UIDebug.LogPopulation("command_map_target_confirm", string.Format("label=%1 command=%2 target=%3 argument=%4", ShortenText(m_sMapTargetLabel, 64), m_sMapTargetCommand, m_vMapTargetPosition, m_sPendingActionArgument));
 	}
 
@@ -2064,6 +2078,129 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_bMapTargetPromptRefreshQueued = false;
 	}
 
+	protected void RefreshCommandMapTargetCursor()
+	{
+		if (!m_bMapTargetActive || !m_bMapTargetConfirmOpen || IsZeroVector(m_vMapTargetPosition))
+		{
+			ClearCommandMapTargetCursor();
+			return;
+		}
+
+		if (!m_MapTargetEntity || !m_MapTargetEntity.IsOpen())
+		{
+			ClearCommandMapTargetCursor();
+			return;
+		}
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+			return;
+
+		EnsureCommandMapTargetCursor(workspace);
+		if (!m_wMapTargetCursorRoot)
+			return;
+
+		int screenX;
+		int screenY;
+		m_MapTargetEntity.WorldToScreen(m_vMapTargetPosition[0], m_vMapTargetPosition[2], screenX, screenY, true);
+		int layoutX = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, screenX);
+		int layoutY = HST_UIWorkspaceMetrics.RawToLayoutPx(workspace, screenY);
+		ApplyCommandMapTargetCursorLayer(workspace, layoutX, layoutY);
+	}
+
+	protected bool IsZeroVector(vector value)
+	{
+		return Math.AbsFloat(value[0]) < 0.01 && Math.AbsFloat(value[1]) < 0.01 && Math.AbsFloat(value[2]) < 0.01;
+	}
+
+	protected void EnsureCommandMapTargetCursor(WorkspaceWidget workspace)
+	{
+		if (m_wMapTargetCursorRoot)
+			return;
+
+		m_wMapTargetCursorRoot = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(0x00FFFFFF), HST_UIConstants.Z_MAP_TARGET_CURSOR);
+		if (!m_wMapTargetCursorRoot)
+			return;
+
+		m_wMapTargetCursorRoot.SetVisible(true);
+		m_wMapTargetCursorRoot.SetOpacity(1.0);
+		m_wMapTargetCursorRoot.SetZOrder(HST_UIConstants.Z_MAP_TARGET_CURSOR);
+		m_wMapTargetCursorRoot.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS);
+
+		m_wMapTargetCursorHorizontalShadow = CreateCommandMapTargetCursorPart(workspace, m_wMapTargetCursorRoot, 0xDD000000, HST_UIConstants.Z_MAP_TARGET_CURSOR + 1);
+		m_wMapTargetCursorVerticalShadow = CreateCommandMapTargetCursorPart(workspace, m_wMapTargetCursorRoot, 0xDD000000, HST_UIConstants.Z_MAP_TARGET_CURSOR + 1);
+		m_wMapTargetCursorHorizontal = CreateCommandMapTargetCursorPart(workspace, m_wMapTargetCursorRoot, 0xFFFFD365, HST_UIConstants.Z_MAP_TARGET_CURSOR + 2);
+		m_wMapTargetCursorVertical = CreateCommandMapTargetCursorPart(workspace, m_wMapTargetCursorRoot, 0xFFFFD365, HST_UIConstants.Z_MAP_TARGET_CURSOR + 2);
+		m_wMapTargetCursorCenter = CreateCommandMapTargetCursorPart(workspace, m_wMapTargetCursorRoot, 0xFFF2F4F0, HST_UIConstants.Z_MAP_TARGET_CURSOR + 3);
+	}
+
+	protected Widget CreateCommandMapTargetCursorPart(WorkspaceWidget workspace, Widget parent, int color, int zOrder)
+	{
+		if (!workspace || !parent)
+			return null;
+
+		Widget widget = workspace.CreateWidget(WidgetType.ImageWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS | WidgetFlags.STRETCH, Color.FromInt(color), zOrder, parent);
+		if (!widget)
+			return null;
+
+		widget.SetVisible(true);
+		widget.SetOpacity(1.0);
+		widget.SetColorInt(color);
+		widget.SetZOrder(zOrder);
+		widget.SetFlags(WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS | WidgetFlags.STRETCH);
+		return widget;
+	}
+
+	protected void ApplyCommandMapTargetCursorLayer(WorkspaceWidget workspace, int centerX, int centerY)
+	{
+		if (!m_wMapTargetCursorRoot)
+			return;
+
+		int screenW;
+		int screenH;
+		HST_UIWorkspaceMetrics.GetLayoutSize(workspace, screenW, screenH);
+		FrameSlot.SetPos(m_wMapTargetCursorRoot, 0, 0);
+		FrameSlot.SetSize(m_wMapTargetCursorRoot, screenW, screenH);
+		m_wMapTargetCursorRoot.SetVisible(true);
+		m_wMapTargetCursorRoot.SetOpacity(1.0);
+		m_wMapTargetCursorRoot.SetZOrder(HST_UIConstants.Z_MAP_TARGET_CURSOR);
+
+		int longHalf = MAP_TARGET_CURSOR_LINE_LONG / 2;
+		int shortHalf = MAP_TARGET_CURSOR_LINE_SHORT / 2;
+		int centerHalf = MAP_TARGET_CURSOR_CENTER_SIZE / 2;
+
+		ApplyCommandMapTargetCursorPart(m_wMapTargetCursorHorizontalShadow, centerX - longHalf - 1, centerY - shortHalf - 1, MAP_TARGET_CURSOR_LINE_LONG + 2, MAP_TARGET_CURSOR_LINE_SHORT + 2, HST_UIConstants.Z_MAP_TARGET_CURSOR + 1);
+		ApplyCommandMapTargetCursorPart(m_wMapTargetCursorVerticalShadow, centerX - shortHalf - 1, centerY - longHalf - 1, MAP_TARGET_CURSOR_LINE_SHORT + 2, MAP_TARGET_CURSOR_LINE_LONG + 2, HST_UIConstants.Z_MAP_TARGET_CURSOR + 1);
+		ApplyCommandMapTargetCursorPart(m_wMapTargetCursorHorizontal, centerX - longHalf, centerY - shortHalf, MAP_TARGET_CURSOR_LINE_LONG, MAP_TARGET_CURSOR_LINE_SHORT, HST_UIConstants.Z_MAP_TARGET_CURSOR + 2);
+		ApplyCommandMapTargetCursorPart(m_wMapTargetCursorVertical, centerX - shortHalf, centerY - longHalf, MAP_TARGET_CURSOR_LINE_SHORT, MAP_TARGET_CURSOR_LINE_LONG, HST_UIConstants.Z_MAP_TARGET_CURSOR + 2);
+		ApplyCommandMapTargetCursorPart(m_wMapTargetCursorCenter, centerX - centerHalf, centerY - centerHalf, MAP_TARGET_CURSOR_CENTER_SIZE, MAP_TARGET_CURSOR_CENTER_SIZE, HST_UIConstants.Z_MAP_TARGET_CURSOR + 3);
+	}
+
+	protected void ApplyCommandMapTargetCursorPart(Widget widget, int left, int top, int width, int height, int zOrder)
+	{
+		if (!widget)
+			return;
+
+		FrameSlot.SetPos(widget, left, top);
+		FrameSlot.SetSize(widget, width, height);
+		widget.SetVisible(true);
+		widget.SetOpacity(1.0);
+		widget.SetZOrder(zOrder);
+	}
+
+	protected void ClearCommandMapTargetCursor()
+	{
+		if (m_wMapTargetCursorRoot)
+			m_wMapTargetCursorRoot.RemoveFromHierarchy();
+
+		m_wMapTargetCursorRoot = null;
+		m_wMapTargetCursorHorizontalShadow = null;
+		m_wMapTargetCursorVerticalShadow = null;
+		m_wMapTargetCursorHorizontal = null;
+		m_wMapTargetCursorVertical = null;
+		m_wMapTargetCursorCenter = null;
+	}
+
 	protected void CancelCommandMapTargetSelection(string reason)
 	{
 		ClearActionDialog();
@@ -2086,6 +2223,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		SetCommandMapLocationSelectionEnabled(false);
 		UnbindCommandMapTargetInvokers();
 		ClearCommandMapTargetPrompt();
+		ClearCommandMapTargetCursor();
 
 		if (closeMap)
 		{
@@ -2330,6 +2468,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		{
 			ClearActionDialog();
 			m_bMapTargetConfirmOpen = false;
+			ClearCommandMapTargetCursor();
 			m_sMapTargetStatusText = "Select a target location on the map.";
 			SetCommandMapLocationSelectionEnabled(true);
 			ApplyCommandMapDialogState();

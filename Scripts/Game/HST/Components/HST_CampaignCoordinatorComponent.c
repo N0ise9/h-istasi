@@ -49,7 +49,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_RESOURCE_CACHE_PREFAB = "{6985327711303780}Prefabs/Objects/HST/HST_MissionProp_ResourceCache.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_CONVOY_VEHICLE_PREFAB = "{4AE9D080927D3CB9}Prefabs/Vehicles/Wheeled/S1203/S1203_base.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r87-support-garrison-convoy-marker-fixes";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r88-map-target-cursor-layer";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -19244,6 +19244,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool noMapSupportDisabled = forcesNoMapPayload.Contains("|Request QRF reserve at map location|support_qrf||false|map required") && forcesNoMapPayload.Contains("|Request supply drop at map location|call_supply||false|map required");
 		bool noMapGarrisonDisabled = forcesNoMapPayload.Contains("|Recruit FIA at map location|recruit_zone||false|map required") || forcesNoMapPayload.Contains("|Remove FIA garrison at map location|remove_garrison||false|map required");
 		bool petrosHidesHQMoveActions = !petrosPayload.Contains("|Move base to my position|move_hq_here|") && !petrosPayload.Contains("|Move HQ:") && !petrosPayload.Contains("|move_hq|");
+		bool mapTargetCursorLayered = HST_UIConstants.Z_MAP_TARGET_CURSOR > HST_UIConstants.Z_ACTION_DIALOG;
 		phaseCase.m_aEvidence.Insert("admin menu | " + ShortCampaignDebugLine(adminMenu, 260));
 		phaseCase.m_aEvidence.Insert("admin payload | " + ShortCampaignDebugLine(adminPayload, 260));
 		phaseCase.m_aEvidence.Insert("petros payload | " + ShortCampaignDebugLine(petrosPayload, 260));
@@ -19262,6 +19263,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_support_actions", "Forces support actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetSupportVisible), "Phase 23 Forces payload is missing map-target support actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_garrison_actions", "Forces garrison actions select map targets", ShortCampaignDebugLine(forcesWithMapPayload, 220), CampaignDebugStatus(mapTargetGarrisonVisible), "Phase 23 Forces payload is missing map-target garrison actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_required_gate", "map-target actions are disabled without a map gadget", ShortCampaignDebugLine(forcesNoMapPayload, 220), CampaignDebugStatus(noMapSupportDisabled && noMapGarrisonDisabled), "Phase 23 Forces payload allows map-target actions when the player has no map");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_cursor_layer", "selected map-target cursor layer renders above action dialogs", string.Format("cursor z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetCursorLayered), "Phase 23 map-target cursor layer is not above the action dialog layer");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 	}
 
