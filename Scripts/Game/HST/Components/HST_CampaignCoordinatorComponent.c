@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r116-police-presence-projections";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-08-runtime-proof-r115-town-police-patrols";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -6131,117 +6131,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
-	protected HST_CampaignDebugCaseResult BuildCampaignDebugTownPolicePresenceProjectionCase()
-	{
-		HST_CampaignDebugCaseResult projectionCase = CreateCampaignDebugCase("town_police_presence_projection.contract.runtime", "physical_war", "town_police_projection", "baseline");
-		bool servicesReady = m_State != null && m_Preset != null && m_PhysicalWar != null;
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.prerequisite", "state, preset, and physical war service ready", string.Format("state %1 | preset %2 | physical %3", m_State != null, m_Preset != null, m_PhysicalWar != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "town-police projection prerequisites missing");
-		if (!servicesReady)
-		{
-			FinalizeCampaignDebugCaseFromAssertions(projectionCase);
-			return projectionCase;
-		}
-
-		string debugZoneId = "debug_town_police_projection";
-		CleanupCampaignDebugPhysicalResponseRecords(debugZoneId);
-		RemoveCampaignDebugCivilianZoneRecord(debugZoneId);
-		HST_ZoneState baseZone = FindCampaignDebugPhysicalResponseBaseZone();
-		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
-		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
-		bool targetReady = baseZone != null && pool != null && !factionKey.IsEmpty();
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.target", "debug town and enemy faction pool available", string.Format("base %1 | faction %2 | pool %3", ResolveZoneLabel(baseZone), EmptyCampaignDebugField(factionKey), pool != null), CampaignDebugStatus(targetReady, "BLOCKED"), "town-police projection target or enemy pool missing");
-		if (!targetReady)
-		{
-			FinalizeCampaignDebugCaseFromAssertions(projectionCase);
-			return projectionCase;
-		}
-
-		int groupCountBefore = m_State.m_aActiveGroups.Count();
-		int garrisonCountBefore = m_State.m_aGarrisons.Count();
-		int zoneCountBefore = m_State.m_aZones.Count();
-		int routeCountBefore = m_State.m_aGeneratedRoutes.Count();
-		int civilianZoneCountBefore = m_State.m_aCivilianZones.Count();
-
-		HST_ZoneState targetZone = BuildCampaignDebugPhysicalResponseZone(debugZoneId, factionKey, baseZone);
-		targetZone.m_sDisplayName = "Town Police Projection Debug Town";
-		targetZone.m_eType = HST_EZoneType.HST_ZONE_TOWN;
-		targetZone.m_iGarrisonSlots = 8;
-		targetZone.m_iActivationRadiusMeters = 600;
-		targetZone.m_bActive = false;
-		m_State.m_aZones.Insert(targetZone);
-		HST_GeneratedRouteState targetRoute = BuildCampaignDebugPhysicalResponseRoute(targetZone, baseZone);
-		m_State.m_aGeneratedRoutes.Insert(targetRoute);
-		HST_CivilianZoneState civilianZone = new HST_CivilianZoneState();
-		civilianZone.m_sZoneId = debugZoneId;
-		civilianZone.m_iPolicePresence = 3;
-		civilianZone.m_iCivilianPresence = 0;
-		civilianZone.m_iPopulationRemaining = 40;
-		m_State.m_aCivilianZones.Insert(civilianZone);
-
-		bool activationChanged = m_PhysicalWar.EnsureMissionTargetZoneActive(m_State, debugZoneId, m_Preset, m_ZoneCompositions);
-		HST_ActiveGroupState projectionGroup = FindCampaignDebugActiveGroupForZone(debugZoneId);
-		bool projectionTagged = projectionGroup && m_PhysicalWar.CampaignDebugIsTownSecurityPoliceProjection(projectionGroup);
-		string patrolEvidence = "not attempted";
-		bool patrolAssigned;
-		if (projectionGroup)
-			patrolAssigned = m_PhysicalWar.CampaignDebugResolveTownPolicePatrolAssignment(projectionGroup, m_State, m_Preset, projectionGroup.m_sRuntimeStatus, patrolEvidence);
-		string deactivateEvidence = "not attempted";
-		bool deactivatedWithoutGarrisonReturn = m_PhysicalWar.CampaignDebugDeactivateZoneForRuntimeCleanup(m_State, debugZoneId, m_ZoneCompositions, deactivateEvidence);
-
-		string groupActual = BuildCampaignDebugActiveGroupActual(projectionGroup);
-		bool fixtureExpected = m_State.FindZone(debugZoneId) != null && m_State.FindCivilianZone(debugZoneId) != null && m_State.FindGeneratedRoute(targetRoute.m_sRouteId) != null && m_State.FindGarrison(debugZoneId, factionKey) == null;
-		bool projectionExpected = activationChanged && projectionTagged && projectionGroup && projectionGroup.m_iInfantryCount == 4 && projectionGroup.m_sGarrisonZoneId.IsEmpty() && projectionGroup.m_iVehicleCount == 0;
-		bool routeExpected = projectionGroup && projectionGroup.m_sRouteId == targetRoute.m_sRouteId;
-		bool patrolExpected = patrolAssigned && projectionGroup && projectionGroup.m_iAssignedWaypointCount >= 2 && projectionGroup.m_sSpawnFallbackMode.Contains("town_police_patrol") && projectionGroup.m_sSpawnFallbackMode.Contains("patrol_cycle");
-		projectionCase.m_aEvidence.Insert(string.Format("activation %1 | group [%2] | patrol %3 | deactivate %4", activationChanged, groupActual, EmptyCampaignDebugField(patrolEvidence), EmptyCampaignDebugField(deactivateEvidence)));
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.fixture", "temporary enemy town has police presence, a route, and no abstract garrison", string.Format("zone %1 | town police %2 | route %3 | garrison %4", ResolveZoneLabel(targetZone), civilianZone.m_iPolicePresence, EmptyCampaignDebugField(targetRoute.m_sRouteId), BuildCampaignDebugGarrisonActual(m_State.FindGarrison(debugZoneId, factionKey))), CampaignDebugStatus(fixtureExpected), "town-police projection fixture was not seeded correctly", "", "", debugZoneId);
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.spawned", "police presence projects a tagged runtime-only town-police patrol without consuming garrison manpower", groupActual, CampaignDebugStatus(projectionExpected), "police presence did not create the expected runtime-only town-police projection", "", "", debugZoneId);
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.route", "police-presence projection receives the town patrol route", groupActual + string.Format(" | expected route %1", EmptyCampaignDebugField(targetRoute.m_sRouteId)), CampaignDebugStatus(routeExpected), "police-presence projection did not receive the town patrol route", "", "", debugZoneId);
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.patrol_cycle", "projected police patrol receives cyclic patrol waypoints", string.Format("%1 | resolver %2", groupActual, EmptyCampaignDebugField(patrolEvidence)), CampaignDebugStatus(patrolExpected), "police-presence projection did not receive patrol cycle waypoints", "", "", debugZoneId);
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.deactivation_cleanup", "deactivating the town deletes police projections without returning them to the abstract garrison", EmptyCampaignDebugField(deactivateEvidence), CampaignDebugStatus(deactivatedWithoutGarrisonReturn), "police-presence projection folded into garrison or survived deactivation", "", "", debugZoneId);
-
-		CleanupCampaignDebugPhysicalResponseRecords(debugZoneId);
-		RemoveCampaignDebugCivilianZoneRecord(debugZoneId);
-		while (m_State.m_aActiveGroups.Count() > groupCountBefore)
-			m_State.m_aActiveGroups.Remove(m_State.m_aActiveGroups.Count() - 1);
-		while (m_State.m_aGarrisons.Count() > garrisonCountBefore)
-			m_State.m_aGarrisons.Remove(m_State.m_aGarrisons.Count() - 1);
-		while (m_State.m_aZones.Count() > zoneCountBefore)
-			m_State.m_aZones.Remove(m_State.m_aZones.Count() - 1);
-		while (m_State.m_aGeneratedRoutes.Count() > routeCountBefore)
-			m_State.m_aGeneratedRoutes.Remove(m_State.m_aGeneratedRoutes.Count() - 1);
-		while (m_State.m_aCivilianZones.Count() > civilianZoneCountBefore)
-			m_State.m_aCivilianZones.Remove(m_State.m_aCivilianZones.Count() - 1);
-		bool cleanupExpected = m_State.FindZone(debugZoneId) == null
-			&& m_State.FindCivilianZone(debugZoneId) == null
-			&& m_State.FindGeneratedRoute(targetRoute.m_sRouteId) == null
-			&& m_State.FindGarrison(debugZoneId, factionKey) == null
-			&& m_State.m_aActiveGroups.Count() == groupCountBefore
-			&& m_State.m_aGarrisons.Count() == garrisonCountBefore
-			&& m_State.m_aZones.Count() == zoneCountBefore
-			&& m_State.m_aGeneratedRoutes.Count() == routeCountBefore
-			&& m_State.m_aCivilianZones.Count() == civilianZoneCountBefore;
-		string cleanupActual = string.Format("groups %1/%2 | garrisons %3/%4 | zones %5/%6 | routes %7/%8", m_State.m_aActiveGroups.Count(), groupCountBefore, m_State.m_aGarrisons.Count(), garrisonCountBefore, m_State.m_aZones.Count(), zoneCountBefore, m_State.m_aGeneratedRoutes.Count(), routeCountBefore);
-		cleanupActual = cleanupActual + string.Format(" | towns %1/%2", m_State.m_aCivilianZones.Count(), civilianZoneCountBefore);
-		AddCampaignDebugAssertion(projectionCase, "town_police_projection.cleanup", "debug police projection fixture is removed", cleanupActual, CampaignDebugStatus(cleanupExpected), "town-police projection cleanup did not restore original state", "", "", debugZoneId);
-
-		FinalizeCampaignDebugCaseFromAssertions(projectionCase);
-		return projectionCase;
-	}
-
-	protected void RemoveCampaignDebugCivilianZoneRecord(string zoneId)
-	{
-		if (!m_State || zoneId.IsEmpty())
-			return;
-
-		for (int i = m_State.m_aCivilianZones.Count() - 1; i >= 0; i--)
-		{
-			HST_CivilianZoneState civilianZone = m_State.m_aCivilianZones[i];
-			if (civilianZone && civilianZone.m_sZoneId == zoneId)
-				m_State.m_aCivilianZones.Remove(i);
-		}
-	}
-
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugGarrisonFoldbackCase()
 	{
 		HST_CampaignDebugCaseResult foldbackCase = CreateCampaignDebugCase("garrison.foldback.contract.runtime", "garrisons", "foldback", "baseline");
@@ -8740,7 +8629,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordCampaignDebugObservation("enemy resources", m_EnemyDirector.BuildEnemyResourceReport(m_State, m_Preset, m_Balance));
 		RecordCampaignDebugCase(BuildCampaignDebugPhysicalResponseFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownPolicePatrolCase());
-		RecordCampaignDebugCase(BuildCampaignDebugTownPolicePresenceProjectionCase());
 		RecordCampaignDebugCase(BuildCampaignDebugGarrisonFoldbackCase());
 		RecordCampaignDebugCase(BuildCampaignDebugTownInfluenceLedgerCase());
 		RecordCampaignDebugCase(BuildCampaignDebugRadioTownInfluenceCase());
