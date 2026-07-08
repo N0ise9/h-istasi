@@ -588,6 +588,9 @@ class HST_SupportRequestState
 	string m_sDeploymentRouteId;
 	string m_sDeploymentPlacementType;
 	string m_sDeploymentSummary;
+	string m_sSelectedGarageVehicleId;
+	string m_sSelectedGarageVehiclePrefab;
+	string m_sSelectedGarageVehicleDisplayName;
 	string m_sRuntimeStatus = "queued";
 	string m_sResolutionKind;
 	string m_sPhysicalizationMode;
@@ -624,6 +627,7 @@ class HST_SupportRequestState
 	bool m_bAbstractResolved;
 	bool m_bPhysicalized;
 	bool m_bOutcomeApplied;
+	bool m_bGarageVehicleConsumed;
 	string m_sFailureReason;
 }
 
@@ -850,7 +854,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 41;
+	static const int SCHEMA_VERSION = 42;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

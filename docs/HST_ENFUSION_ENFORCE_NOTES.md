@@ -1223,6 +1223,19 @@ This file is for practical engine/script behavior, not project planning. Keep en
     group keeps that same `m_vTargetPosition`, and deployment summary proves
     offset staging plus player/active-AI clearance before movement samples are
     judged.
+  - Roadblock support is not QRF-style movement. Player roadblocks must carry
+    selected HQ garage vehicle metadata on `HST_SupportRequestState`, consume
+    that `HST_GarageVehicleState` after money/HR spend succeeds, and create an
+    established active group at a road-oriented vehicle-safe placement. Debug
+    probes should assert garage count delta, `m_bGarageVehicleConsumed`,
+    selected vehicle prefab retention on the active group, `roadblock_group`
+    physicalization, and an established marker instead of route arrival or
+    terminal group resolution.
+  - Established roadblocks are support-request markers for all factions. Do not
+    rely on resistance-only support-group marker tracking for roadblocks; enemy
+    roadblocks are `HST_SUPPORT_ROADBLOCK` support requests linked to active
+    groups and should publish native-visible, player-facing support markers
+    while active.
   - Route-based physical probes should not fail movement or stall-timeout assertions when the sampled group is already within the target-distance tolerance. Distance closure is only meaningful while the group is still away from its objective; `distance_after <= 25m` is non-stall evidence even if the runtime status has not yet flipped to arrived.
   - Do not classify `spawn_pending_agents` or `convoy_seating_pending` as a route stall just because the debug runner advanced campaign seconds. Those states depend on real engine/callqueue population or animated boarding; keep them as WARN/pending evidence until the pending state clears, then fail only fully sampled no-progress windows.
   - Civilian aid debug probes should assert the exact clamped `RegisterIncident` result, not only direction. For the current aid command this means money -100, FIA support +12 clamped to 100, occupier support -6 clamped to 0, reputation +12 clamped to 100, wanted heat -2 floored at 0, and zone support clamped to the FIA-minus-occupier difference.
@@ -1264,6 +1277,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Routed response groups should move faster than ordinary garrison spawns. Apply `AIGroupMovementComponent.SetGroupCharactersWantedMovementType(EMovementType.RUN)` only to support/QRF/Petros attack active groups during route-waypoint assignment, record `response_run` in `m_sSpawnFallbackMode`, and do not apply that token or movement override to normal garrison population.
   - Any Phase 22 debug command that creates or reuses a Petros attack order must apply the current campaign-debug order prefix before `EnsureDefendPetrosMissionForOrder()` links state. `queue attack` and `start defense` can create orders through different paths; both must retag or cleanup/report assertions will see unprefixed `order_<faction>_<time>_<index>` records.
   - Phase 23 UI/marker smoke should assert command/menu and marker state directly: no `missing visible command:` or `missing dispatch:` detail rows, compact Missions-tab active rows with no expanded `Where`/`Timer`/`Runtime` detail-row spam, admin menu strings for campaign-debug and Phase-23 controls, every `hst_zone_<zoneId>` marker model entry with linked ID, owner, color, style, and position matching the current `HST_ZoneState`, HQ/mission/support/QRF marker coverage from `HST_CampaignState.m_aMapMarkers`, and marker/backing-state consistency via the same helpers used by post-case cleanup. The native marker report should rebuild markers before reporting, then assert native eligible/published/skipped/failed/pending counters and tracked static handle liveness through structured service getters instead of string parsing. Keep `HST_MapMarkerService` and `HST_CampaignMapMarkerDirector` native marker budgets synchronized; the curated map currently needs more than 96 native-eligible records. Failed-action samples should snapshot state before and after invalid commands so they prove reasoned failure with no campaign mutation. Native map-marker manager absence should be explicit WARN/report evidence; visual widget inspection still requires a separate UI/render probe.
+  - Phase 23 Forces UI coverage should keep roadblock support as a map-target
+    commander action that is disabled without a stored HQ vehicle, enabled with
+    a scrollable/selectable vehicle choice payload, and labeled with HR cost.
   - Marker/backing consistency probes should force `RefreshCampaignMarkers()` before counting missing backing markers. Mission/support/QRF creation often sets marker-refresh-needed flags and relies on the normal tick throttle, so checking `m_aMapMarkers` first can produce stale post-case cleanup WARNs even though the marker service can rebuild the correct backing records immediately.
   - A mission can be correctly represented by a specific objective/asset marker instead of its generic mission marker. `HST_MapMarkerService.AddMissionMarkers()` suppresses the base `mission.m_sMarkerId` when a visible mission asset or objective marker exists, so debug marker/backing verification must accept any visible marker linked to the mission instance.
   - Final cleanup should treat raw marker count deltas as metrics only. A full debug run can legitimately rebuild HQ, zone, mission, support, or QRF markers above the run-start count; cleanup pass/fail should be based on prefixed debug records, visible linked markers without backing state, and active backing records without markers after a forced marker refresh.

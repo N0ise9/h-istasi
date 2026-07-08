@@ -88,6 +88,13 @@ class HST_ForceCompositionService
 		request.m_iMaxManpower = 12 + request.m_iWarLevel;
 		request.m_bAllowInfantry = true;
 		request.m_bAllowVehicles = request.m_iWarLevel >= 4 || supportRequest.m_iAttackCost >= 18 || supportRequest.m_iSupportCost >= 18;
+		if (supportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+		{
+			request.m_iBudget = Math.Max(request.m_iBudget, 24 + request.m_iWarLevel * 3);
+			request.m_iMinManpower = 2;
+			request.m_iMaxManpower = Math.Min(6, 3 + request.m_iWarLevel);
+			request.m_bAllowVehicles = true;
+		}
 		if (request.m_bAllowVehicles)
 			request.m_iBudget = Math.Max(request.m_iBudget, 28 + request.m_iWarLevel * 5);
 		request.m_bAllowArmedVehicles = request.m_iWarLevel >= 5;
@@ -111,6 +118,8 @@ class HST_ForceCompositionService
 			return INTENT_SEARCH_PATROL;
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
 			return INTENT_CHECKPOINT;
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return INTENT_ROADBLOCK;
 
 		return INTENT_PATROL;
 	}
@@ -171,6 +180,7 @@ class HST_ForceCompositionService
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_QRF_REGULAR, 1, true, false)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_QRF_REGULAR, 5, true, true)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "USSR", INTENT_COUNTERATTACK, 5, true, true)).m_sDebugSummary;
+		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_ROADBLOCK, 3, true, true)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "FIA", INTENT_GARRISON, 2, true, false)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_TOWN_POLICE, 1, true, false)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "USSR", INTENT_TOWN_POLICE, 6, true, false)).m_sDebugSummary;

@@ -4,6 +4,7 @@ class HST_SpawnPlacementService
 	static const string TYPE_QRF_STAGING = "qrf_staging";
 	static const string TYPE_PETROS_ATTACK_STAGING = "petros_attack_staging";
 	static const string TYPE_CONVOY_ENDPOINT = "convoy_endpoint";
+	static const string TYPE_ROADBLOCK = "roadblock";
 	static const float HQ_SAFE_RADIUS_METERS = 900.0;
 	static const float PETROS_ATTACK_MIN_STANDOFF_METERS = 760.0;
 	static const float PETROS_ATTACK_STAGING_MARGIN_METERS = 90.0;
@@ -36,6 +37,12 @@ class HST_SpawnPlacementService
 				return Fail(result, failureReason);
 			selected = result.m_vSpawnPosition;
 		}
+		else if (result.m_sPlacementType == TYPE_ROADBLOCK)
+		{
+			if (!ResolveRoadblockPlacement(state, request, result, failureReason))
+				return Fail(result, failureReason);
+			selected = result.m_vSpawnPosition;
+		}
 		else
 		{
 			if (!ResolveStandoffPlacement(state, request, result, preferredSource, selected, failureReason))
@@ -45,7 +52,10 @@ class HST_SpawnPlacementService
 		result.m_vSpawnPosition = selected;
 		ApplyClearanceMetrics(state, request, result, selected);
 		result.m_bDryGround = HST_WorldPositionService.IsDryGroundPosition(selected);
-		result.m_bVehicleSafe = !request.m_bRequireVehicleSafe || HST_WorldPositionService.IsVehicleFootprintStableForTravel(selected, result.m_vTargetPosition);
+		if (result.m_sPlacementType == TYPE_ROADBLOCK)
+			result.m_bVehicleSafe = !request.m_bRequireVehicleSafe || HST_WorldPositionService.IsVehicleFootprintStableWithForward(selected, result.m_vRoadForward);
+		else
+			result.m_bVehicleSafe = !request.m_bRequireVehicleSafe || HST_WorldPositionService.IsVehicleFootprintStableForTravel(selected, result.m_vTargetPosition);
 		result.m_fTargetDistanceMeters = Distance2D(selected, result.m_vTargetPosition);
 		if (state && state.m_bHQDeployed)
 			result.m_fHQDistanceMeters = Distance2D(selected, state.m_vHQPosition);
@@ -100,6 +110,27 @@ class HST_SpawnPlacementService
 		request.m_bAvoidActiveGroups = true;
 		request.m_fMinPlayerDistanceMeters = SUPPORT_MIN_PLAYER_CLEARANCE_METERS;
 		request.m_fMinActiveGroupDistanceMeters = SUPPORT_MIN_ACTIVE_GROUP_CLEARANCE_METERS;
+		return request;
+	}
+
+	HST_SpawnPlacementRequest BuildRoadblockPlacementRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState supportRequest)
+	{
+		HST_SpawnPlacementRequest request = new HST_SpawnPlacementRequest();
+		if (!supportRequest)
+			return request;
+
+		request.m_sRequestId = "roadblock_place_" + supportRequest.m_sRequestId;
+		request.m_sPlacementType = TYPE_ROADBLOCK;
+		request.m_sSourceZoneId = supportRequest.m_sSourceZoneId;
+		request.m_sTargetZoneId = supportRequest.m_sTargetZoneId;
+		request.m_vPreferredSourcePosition = supportRequest.m_vSourcePosition;
+		request.m_vTargetPosition = supportRequest.m_vTargetPosition;
+		request.m_fRoadSearchRadiusMeters = 450.0;
+		request.m_bRequireDryGround = true;
+		request.m_bRequireVehicleSafe = true;
+		request.m_bRequireRoadTarget = true;
+		request.m_bExplain = true;
+		request.m_sReason = "roadblock support placement";
 		return request;
 	}
 
@@ -206,6 +237,39 @@ class HST_SpawnPlacementService
 		if (!HST_WorldPositionService.IsVehicleFootprintStableWithForward(roadPosition, roadForward))
 		{
 			failureReason = "convoy endpoint road point failed vehicle-safe dry-ground validation";
+			return false;
+		}
+
+		result.m_bRoadResolved = true;
+		result.m_vRoadForward = roadForward;
+		result.m_fRoadDistanceMeters = roadDistance;
+		result.m_vSpawnPosition = roadPosition;
+		return true;
+	}
+
+	protected bool ResolveRoadblockPlacement(HST_CampaignState state, HST_SpawnPlacementRequest request, HST_SpawnPlacementResult result, out string failureReason)
+	{
+		vector preferred = result.m_vTargetPosition;
+		vector destination = request.m_vPreferredSourcePosition;
+		if (state && state.m_bHQDeployed && !IsZeroVector(state.m_vHQPosition))
+			destination = state.m_vHQPosition;
+		if (IsZeroVector(destination))
+			destination = result.m_vTargetPosition;
+
+		vector roadPosition;
+		vector roadForward;
+		float roadWidth;
+		float roadDistance;
+		string roadReason;
+		if (!HST_WorldPositionService.TryResolveNearestRoadVehiclePosition(preferred, Math.Max(1.0, request.m_fRoadSearchRadiusMeters), destination, roadPosition, roadForward, roadWidth, roadDistance, roadReason))
+		{
+			failureReason = "roadblock road resolution failed: " + roadReason;
+			return false;
+		}
+
+		if (!HST_WorldPositionService.IsVehicleFootprintStableWithForward(roadPosition, roadForward))
+		{
+			failureReason = "roadblock road point failed vehicle-safe dry-ground validation";
 			return false;
 		}
 

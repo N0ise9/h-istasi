@@ -189,6 +189,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected string m_sMapTargetArgument;
 	protected string m_sMapTargetTab;
 	protected string m_sMapTargetStatusText;
+	protected string m_sMapTargetVehicleId;
+	protected string m_sMapTargetVehicleLabel;
 	protected int m_iMapTargetGarrisonCount;
 	protected vector m_vMapTargetPosition = "0 0 0";
 	protected SCR_MapEntity m_MapTargetEntity;
@@ -1622,7 +1624,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return true;
 		if (commandId == "member_promote_commander" || commandId == "admin_force_self_commander")
 			return true;
-		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search")
+		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search" || commandId == "support_roadblock")
 			return true;
 		if (commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
 			return true;
@@ -1652,7 +1654,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected bool IsSupportMapTargetCommand(string commandId)
 	{
-		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search")
+		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search" || commandId == "support_roadblock")
 			return true;
 		if (commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
 			return true;
@@ -1685,6 +1687,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sMapTargetArgument = argument;
 		m_sMapTargetTab = m_sSelectedTab;
 		m_sMapTargetStatusText = "Select a target location on the map.";
+		m_sMapTargetVehicleId = "";
+		m_sMapTargetVehicleLabel = "";
 		m_iMapTargetGarrisonCount = 0;
 		m_vMapTargetPosition = "0 0 0";
 		BindCommandMapTargetInvokers();
@@ -1832,6 +1836,11 @@ class HST_CommandMenuComponent : ScriptComponent
 			ShowCommandMapTargetGarrisonCountDialog();
 			return;
 		}
+		if (m_sMapTargetCommand == "support_roadblock")
+		{
+			ShowCommandMapTargetRoadblockVehicleDialog();
+			return;
+		}
 
 		ShowCommandMapTargetConfirmDialog();
 	}
@@ -1909,6 +1918,96 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_aPendingChoiceArguments.Insert(count.ToString());
 	}
 
+	protected void ShowCommandMapTargetRoadblockVehicleDialog()
+	{
+		ParseRoadblockVehicleChoiceArgument(m_sMapTargetArgument);
+		if (m_aPendingChoiceArguments.Count() == 0)
+		{
+			m_sMapTargetStatusText = "No HQ garage vehicles are available. Select another action or close the map.";
+			SetCommandMapLocationSelectionEnabled(true);
+			RefreshCommandMapTargetPrompt();
+			return;
+		}
+
+		WorkspaceWidget workspace = GetGame().GetWorkspace();
+		if (!workspace)
+		{
+			m_sMapTargetStatusText = "Vehicle selection UI unavailable. Select another target or close the map.";
+			SetCommandMapLocationSelectionEnabled(true);
+			RefreshCommandMapTargetPrompt();
+			return;
+		}
+
+		ClearActionDialog();
+		ParseRoadblockVehicleChoiceArgument(m_sMapTargetArgument);
+		if (!m_WidgetHandler)
+		{
+			m_WidgetHandler = new HST_CommandMenuWidgetHandler();
+			m_WidgetHandler.Bind(this);
+		}
+
+		HST_ActionChoiceDialogData data = new HST_ActionChoiceDialogData();
+		data.m_sOwner = ACTION_DIALOG_OWNER;
+		data.m_sDebugOwner = "command_map_target_roadblock_vehicle";
+		data.m_iCancelWidgetId = ACTION_MODAL_CANCEL_WIDGET_ID;
+		data.m_iChoiceWidgetIdBase = ACTION_CHOICE_WIDGET_ID_BASE;
+		data.m_sTitle = "Roadblock Vehicle";
+		string locationLabel = ResolveMapTargetLocationLabelForConfirm();
+		if (locationLabel.IsEmpty())
+			locationLabel = string.Format("X %1 Z %2", Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
+		data.m_sMessage = "Select the HQ garage vehicle to consume for the roadblock at " + locationLabel + ".";
+		data.m_sCancelLabel = "Choose Again";
+		foreach (string choiceLabel : m_aPendingChoiceLabels)
+			data.m_aChoiceLabels.Insert(choiceLabel);
+
+		Widget root = HST_ActionChoiceDialogController.Render(workspace, data, m_WidgetHandler);
+		if (!root)
+		{
+			m_sMapTargetStatusText = "Vehicle selection dialog unavailable. Select another target or close the map.";
+			SetCommandMapLocationSelectionEnabled(true);
+			RefreshCommandMapTargetPrompt();
+			return;
+		}
+
+		m_wActionDialogRoot = root;
+		m_bActionDialogOpen = true;
+		m_bMapTargetConfirmOpen = true;
+		m_sPendingActionLabel = "Select roadblock vehicle";
+		m_sPendingActionCommand = "map_target_roadblock_vehicle";
+		m_sPendingActionArgument = "";
+		ApplyCommandMapDialogState();
+		RefreshCommandMapTargetCursor();
+		HST_UIDebug.LogPopulation("command_map_target_roadblock_vehicle", string.Format("target=%1 choices=%2", m_vMapTargetPosition, m_aPendingChoiceLabels.Count()));
+	}
+
+	protected void ParseRoadblockVehicleChoiceArgument(string argument)
+	{
+		m_aPendingChoiceLabels.Clear();
+		m_aPendingChoiceArguments.Clear();
+
+		if (argument.IsEmpty())
+			return;
+
+		array<string> choices = {};
+		argument.Split(";", choices, true);
+		foreach (string choice : choices)
+		{
+			int separator = choice.IndexOf("~");
+			if (separator <= 0)
+				continue;
+
+			string vehicleId = choice.Substring(0, separator);
+			string choiceLabel = choice.Substring(separator + 1, choice.Length() - separator - 1);
+			if (vehicleId.IsEmpty() || choiceLabel.IsEmpty())
+				continue;
+
+			m_aPendingChoiceArguments.Insert(vehicleId);
+			m_aPendingChoiceLabels.Insert(ShortenText(choiceLabel, 96));
+			if (m_aPendingChoiceArguments.Count() >= HST_ActionChoiceDialogController.MAX_CHOICES)
+				break;
+		}
+	}
+
 	protected void ShowCommandMapTargetConfirmDialog()
 	{
 		WorkspaceWidget workspace = GetGame().GetWorkspace();
@@ -1969,6 +2068,9 @@ class HST_CommandMenuComponent : ScriptComponent
 			return string.Format("map_target:%1:%2:count=%3", targetPosition[0], targetPosition[2], count);
 		}
 
+		if (m_sMapTargetCommand == "support_roadblock")
+			return string.Format("map_target:%1:%2:vehicle=%3", targetPosition[0], targetPosition[2], m_sMapTargetVehicleId);
+
 		return string.Format("map_target:%1:%2", targetPosition[0], targetPosition[2]);
 	}
 
@@ -1985,6 +2087,13 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (count <= 0)
 				count = 2;
 			message = message + string.Format("\nGarrison: %1 FIA", count);
+		}
+		if (m_sMapTargetCommand == "support_roadblock")
+		{
+			if (!m_sMapTargetVehicleLabel.IsEmpty())
+				message = message + "\nVehicle: " + m_sMapTargetVehicleLabel;
+			else if (!m_sMapTargetVehicleId.IsEmpty())
+				message = message + "\nVehicle: selected HQ garage vehicle";
 		}
 
 		return message;
@@ -2359,6 +2468,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sMapTargetArgument = "";
 		m_sMapTargetTab = "";
 		m_sMapTargetStatusText = "";
+		m_sMapTargetVehicleId = "";
+		m_sMapTargetVehicleLabel = "";
 		m_iMapTargetGarrisonCount = 0;
 		m_vMapTargetPosition = "0 0 0";
 		m_MapTargetEntity = null;
@@ -2607,6 +2718,23 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
+		if (commandId == "map_target_roadblock_vehicle")
+		{
+			m_sMapTargetVehicleId = m_aPendingChoiceArguments[choiceIndex];
+			m_sMapTargetVehicleLabel = "";
+			if (choiceIndex < m_aPendingChoiceLabels.Count())
+				m_sMapTargetVehicleLabel = m_aPendingChoiceLabels[choiceIndex];
+			ClearActionDialog();
+			m_bMapTargetConfirmOpen = false;
+			if (m_sMapTargetVehicleLabel.IsEmpty())
+				m_sMapTargetStatusText = "Roadblock vehicle selected. Confirm or choose again.";
+			else
+				m_sMapTargetStatusText = "Roadblock vehicle selected: " + m_sMapTargetVehicleLabel + ". Confirm or choose again.";
+			RefreshCommandMapTargetPrompt();
+			ShowCommandMapTargetConfirmDialog();
+			return;
+		}
+
 		string label = "Transfer commander";
 		if (choiceIndex < m_aPendingChoiceLabels.Count())
 			label = label + ": " + m_aPendingChoiceLabels[choiceIndex];
@@ -2637,7 +2765,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return "This mission action will update the selected objective state.";
 		if (commandId == "remove_garrison")
 			return "This will remove FIA troops from the selected garrison.";
-		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search" || commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
+		if (commandId == "call_supply" || commandId == "support_qrf" || commandId == "support_fire" || commandId == "support_search" || commandId == "support_roadblock" || commandId == "support_gbu" || commandId == "support_umpk" || commandId == "support_kh55")
 			return "This will request campaign support at the selected target.";
 		if (commandId == "cancel_support")
 			return "This will cancel the active player support request.";
@@ -2685,6 +2813,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_bMapTargetConfirmOpen = false;
 			ClearCommandMapTargetCursor();
 			m_sMapTargetStatusText = "Select a target location on the map.";
+			m_sMapTargetVehicleId = "";
+			m_sMapTargetVehicleLabel = "";
 			SetCommandMapLocationSelectionEnabled(true);
 			ApplyCommandMapDialogState();
 			RefreshCommandMapTargetPrompt();

@@ -1171,6 +1171,9 @@ class HST_CampaignSaveData
 		target.m_sDeploymentRouteId = source.m_sDeploymentRouteId;
 		target.m_sDeploymentPlacementType = source.m_sDeploymentPlacementType;
 		target.m_sDeploymentSummary = source.m_sDeploymentSummary;
+		target.m_sSelectedGarageVehicleId = source.m_sSelectedGarageVehicleId;
+		target.m_sSelectedGarageVehiclePrefab = source.m_sSelectedGarageVehiclePrefab;
+		target.m_sSelectedGarageVehicleDisplayName = source.m_sSelectedGarageVehicleDisplayName;
 		target.m_vSourcePosition = source.m_vSourcePosition;
 		target.m_vTargetPosition = source.m_vTargetPosition;
 		target.m_iRequestedAtSecond = source.m_iRequestedAtSecond;
@@ -1207,6 +1210,7 @@ class HST_CampaignSaveData
 		target.m_bPhysicalized = source.m_bPhysicalized;
 		target.m_bOutcomeApplied = source.m_bOutcomeApplied;
 		target.m_bRecallRequested = source.m_bRecallRequested;
+		target.m_bGarageVehicleConsumed = source.m_bGarageVehicleConsumed;
 		target.m_sFailureReason = source.m_sFailureReason;
 		return target;
 	}

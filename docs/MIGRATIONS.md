@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `41`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `42`.
 
+- Schema 42 extends support request rows with selected roadblock garage vehicle
+  id, prefab, display name, and consumed-state fields so established roadblock
+  support survives save-data roundtrips with its consumed HQ vehicle evidence.
 - Schema 41 extends strategic-event rows with town influence before/after/delta
   fields so support, reputation, heat, population, killed-population, police,
   and roadblock pressure from town influence events survive save-data
@@ -101,6 +104,18 @@ Ambient civilian traffic and generated settings comments.
   ambient traffic vehicles can be active per active town.
 - Existing settings migrate by rewriting the generated profile with comments
   and the traffic cap while preserving known gameplay values.
+
+## Schema 42
+
+Roadblock support garage vehicle state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `42`.
+- `HST_SupportRequestState` now stores the selected HQ garage vehicle id,
+  vehicle prefab, vehicle display name, and whether the garage vehicle was
+  consumed when creating a roadblock support request.
+- Existing schema-41 and older support requests load with empty selected
+  vehicle metadata and `m_bGarageVehicleConsumed == false`; only new
+  player-requested roadblock support rows require and populate those fields.
 
 ## Schema 41
 

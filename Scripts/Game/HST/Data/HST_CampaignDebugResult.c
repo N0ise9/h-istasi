@@ -89,6 +89,10 @@ class HST_CampaignDebugSupportProbeContext
 	int m_iCountBefore;
 	int m_iMoneyBefore;
 	int m_iHRBefore;
+	int m_iGarageVehicleCountBefore;
+	int m_iGarageVehicleCountAfter;
+	string m_sSelectedGarageVehicleId;
+	bool m_bGarageVehicleRemoved;
 	HST_SupportRequestState m_Request;
 	bool m_bMarkerVisibleAfterRequest;
 	string m_sMarkerActualAfterRequest;
@@ -114,6 +118,8 @@ class HST_CampaignDebugSupportProbeContext
 	string m_sPendingPopulationEvidence;
 	bool m_bLiveGroupMarkerVisibleAfterPopulation;
 	string m_sLiveGroupMarkerActualAfterPopulation;
+	bool m_bRoadblockSupportMarkerVisibleAfterPopulation;
+	string m_sRoadblockSupportMarkerActualAfterPopulation;
 	bool m_bRouteTickChanged;
 	bool m_bArrivalRouteTickChanged;
 	bool m_bArrivalTickChanged;
