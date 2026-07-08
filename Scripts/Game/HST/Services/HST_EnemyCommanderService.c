@@ -45,6 +45,8 @@ class HST_EnemyCommanderService
 	static const int ORDER_TICK_SECONDS = 180;
 	static const int ORDER_RESOLVE_SECONDS = 420;
 	static const int PHYSICAL_ORDER_TIMEOUT_SECONDS = 300;
+	static const float HQ_PRESSURE_ZONE_RADIUS_METERS = 1000.0;
+	static const int HQ_PRESSURE_MIN_KNOWLEDGE_FOR_OPPORTUNITY_ATTACK = 25;
 	static const string SPEND_MODE_PROACTIVE_ATTACK = "proactive_attack";
 	static const string SPEND_MODE_REACTIVE_DEFENSE = "reactive_defense";
 	protected int m_iOrderAccumulatorSeconds;
@@ -1029,10 +1031,11 @@ class HST_EnemyCommanderService
 		bool targetOwnedByResistance = HST_FactionRelationService.IsResistanceEnemy(ownerRelation);
 		bool targetOwnedByRival = HST_FactionRelationService.IsRivalEnemy(ownerRelation);
 
-		if (state.m_iHQKnowledge >= 100 && IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 20 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
+		bool hqThreatZone = IsHQThreatZone(state, targetZone);
+		if (state.m_iHQKnowledge >= 100 && hqThreatZone && pool.m_iAttackResources >= 20 && state.m_iElapsedSeconds > state.m_iLastHQAttackSecond + 1800)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
-		if (IsHQThreatZone(state, targetZone) && pool.m_iAttackResources >= 25 && state.m_iWarLevel >= 4)
+		if (state.m_iHQKnowledge >= HQ_PRESSURE_MIN_KNOWLEDGE_FOR_OPPORTUNITY_ATTACK && hqThreatZone && pool.m_iAttackResources >= 25 && state.m_iWarLevel >= 4)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 
 		if (targetOwnedByResistance)
@@ -1168,11 +1171,10 @@ class HST_EnemyCommanderService
 		candidate.m_iStrategicScore = StrategicTargetTypeScore(zone.m_eType);
 		AddTargetScoreReason(candidate, "strategic_type", candidate.m_iStrategicScore);
 
-		if (IsHQThreatZone(state, zone))
+		if (state.m_iHQKnowledge > 0 && IsHQThreatZone(state, zone))
 		{
 			candidate.m_iHQScore = 10 + state.m_iWarLevel;
-			if (state.m_iHQKnowledge > 0)
-				candidate.m_iHQScore += state.m_iHQKnowledge / 10;
+			candidate.m_iHQScore += state.m_iHQKnowledge / 10;
 			AddTargetScoreReason(candidate, "hq_pressure", candidate.m_iHQScore);
 		}
 
@@ -1355,7 +1357,7 @@ class HST_EnemyCommanderService
 		if (!state || !zone || !state.m_bHQDeployed)
 			return false;
 
-		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= 1440000;
+		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= HQ_PRESSURE_ZONE_RADIUS_METERS * HQ_PRESSURE_ZONE_RADIUS_METERS;
 	}
 
 	protected vector ResolveOrderSourcePosition(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
