@@ -977,7 +977,7 @@ class HST_MapMarkerService
 	protected string SupportRequestToIncomingMarkerIcon(HST_SupportRequestState request)
 	{
 		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			return "SEARCH_AREA";
+			return "AMBUSH";
 
 		return "POINT_OF_INTEREST";
 	}
@@ -985,7 +985,7 @@ class HST_MapMarkerService
 	protected string SupportRequestToLiveMarkerIcon(HST_SupportRequestState request)
 	{
 		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			return "SEARCH_AREA";
+			return "AMBUSH";
 
 		return "POINT_SPECIAL";
 	}
@@ -1340,11 +1340,20 @@ class HST_MapMarkerService
 		if (iconHint == "FLAG")
 			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
 
+		if (iconHint == "FLAG2")
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG2;
+
 		if (iconHint == "RECONNAISSANCE")
 			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
 
 		if (iconHint == "SEARCH_AREA")
 			return SCR_EScenarioFrameworkMarkerCustom.SEARCH_AREA;
+
+		if (iconHint == "TARGET_REFERENCE_POINT")
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
+
+		if (iconHint == "AMBUSH")
+			return SCR_EScenarioFrameworkMarkerCustom.AMBUSH;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
@@ -1353,7 +1362,7 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "radar" || category == "radar"))
-			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -1368,10 +1377,10 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
 
 		if (styleHint == "radio" || category == "radio")
-			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG2;
 
 		if (styleHint == "radar" || category == "radar")
-			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
 		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
 			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
@@ -1550,15 +1559,15 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "town")
 				return "POINT_OF_INTEREST";
 			if (zone.m_sMarkerStyle == "radio")
-				return "FLAG";
+				return "FLAG2";
 			if (zone.m_sMarkerStyle == "radar")
-				return "RECONNAISSANCE";
+				return "TARGET_REFERENCE_POINT";
 			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
 				return "OBSERVATION_POST";
 			if (zone.m_sMarkerStyle == "mission_site")
 			{
 				if (IsRadarSiteZone(zone))
-					return "RECONNAISSANCE";
+					return "TARGET_REFERENCE_POINT";
 				return "POINT_SPECIAL";
 			}
 			if (zone.m_sMarkerStyle == "support")
@@ -1570,7 +1579,7 @@ class HST_MapMarkerService
 			return "MINE_SINGLE";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-			return "FLAG";
+			return "FLAG2";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
 			return "PICK_UP2";
@@ -1581,7 +1590,7 @@ class HST_MapMarkerService
 		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 		{
 			if (IsRadarSiteZone(zone))
-				return "RECONNAISSANCE";
+				return "TARGET_REFERENCE_POINT";
 			return "POINT_SPECIAL";
 		}
 

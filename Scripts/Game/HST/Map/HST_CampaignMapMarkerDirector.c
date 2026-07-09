@@ -178,11 +178,20 @@ class HST_CampaignMapMarkerDirector
 		if (iconHint == "FLAG")
 			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
 
+		if (iconHint == "FLAG2")
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG2;
+
 		if (iconHint == "RECONNAISSANCE")
 			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
 
 		if (iconHint == "SEARCH_AREA")
 			return SCR_EScenarioFrameworkMarkerCustom.SEARCH_AREA;
+
+		if (iconHint == "TARGET_REFERENCE_POINT")
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
+
+		if (iconHint == "AMBUSH")
+			return SCR_EScenarioFrameworkMarkerCustom.AMBUSH;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
@@ -191,7 +200,7 @@ class HST_CampaignMapMarkerDirector
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "radar" || category == "radar"))
-			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "mission_site" || category == "mission_site"))
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -209,10 +218,10 @@ class HST_CampaignMapMarkerDirector
 			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
 
 		if (styleHint == "radio" || category == "radio")
-			return SCR_EScenarioFrameworkMarkerCustom.FLAG;
+			return SCR_EScenarioFrameworkMarkerCustom.FLAG2;
 
 		if (styleHint == "radar" || category == "radar")
-			return SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE;
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
 		if (styleHint == "mission_site" || category == "mission_site")
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;

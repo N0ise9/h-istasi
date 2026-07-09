@@ -424,7 +424,6 @@ class HST_DefaultCatalog
 		UpsertEveronLocationPlanZone(state, "radio_wolf_hill_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "3845.418 162.777 4308.285", 25, 8, "Wolf Hill Radio Tower", "RSC_WolfHill", "POIs/RadioTowers/WolfHill.layer", "communications", 180, 4, "", "black", "radio");
 		UpsertEveronLocationPlanZone(state, "radio_pins_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "1166.602 40.918 11695.426", 25, 8, "Pins Radio Tower", "RSC_Pins", "POIs/RadioTowers/Pins.layer", "communications", 180, 4, "", "black", "radio");
 		UpsertEveronLocationPlanZone(state, "radio_regina_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "7070.868 156.803 2080.595", 25, 8, "Regina Radio Tower", "RSC_Regina", "POIs/RadioTowers/Regina.layer", "communications", 180, 4, "", "black", "radio");
-		UpsertEveronLocationPlanZone(state, "radio_regina2_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "7685.4 340.531 3065.327", 25, 8, "Regina2 Radio Tower", "RSC_Regina2", "POIs/RadioTowers/Regina.layer", "communications", 180, 4, "", "black", "radio");
 
 		UpsertEveronLocationPlanZone(state, "mission_radar_airport", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_MISSION_SITE, "4417.224 17.935 11717.371", 0, 0, "Airport Radar Site", "RDR_Airport", "POIs/RadarSites/Airport.layer", "radar", 120, 2, "", "black", "mission_site");
 		UpsertEveronLocationPlanZone(state, "outpost_calvary_hill", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_MISSION_SITE, "3497.976 202.983 5817.62", 0, 0, "Calvary Hill Radar Site", "RDR_CalvaryHill", "POIs/RadarSites/CalvaryHill.layer", "radar", 120, 2, "", "black", "mission_site");
@@ -918,7 +917,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "radio_andres_beacon")
 			AddZoneLinks(zone, "outpost_firing_range", "town_benac", "town_scythe");
 		if (zone.m_sZoneId == "town_goat_bay")
-			AddZoneLinks(zone, "depot_regina_supply_depot", "town_regina", "radio_regina2_tower");
+			AddZoneLinks(zone, "depot_regina_supply_depot", "town_regina", "radio_regina_tower");
 		if (zone.m_sZoneId == "town_chotain")
 			AddZoneLinks(zone, "town_laruns", "seaport_coastal_base_chotain", "depot_industrial_supply_depot");
 		if (zone.m_sZoneId == "town_durras")
@@ -940,7 +939,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "town_provins")
 			AddZoneLinks(zone, "town_figari", "depot_figari_supply_depot", "depot_industrial_supply_depot");
 		if (zone.m_sZoneId == "town_regina")
-			AddZoneLinks(zone, "depot_regina_supply_depot", "radio_regina2_tower", "outpost_pennants_pass");
+			AddZoneLinks(zone, "depot_regina_supply_depot", "radio_regina_tower", "outpost_pennants_pass");
 		if (zone.m_sZoneId == "town_tyrone")
 			AddZoneLinks(zone, "town_meaux", "resource_etoupe_gas_station", "depot_farm_supply_depot");
 		if (zone.m_sZoneId == "town_vernon")
@@ -1032,7 +1031,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "depot_sawmill_supply_depot")
 			AddZoneLinks(zone, "town_le_moule", "outpost_calvary_hill", "outpost_shepherds_pond");
 		if (zone.m_sZoneId == "depot_regina_supply_depot")
-			AddZoneLinks(zone, "town_regina", "town_goat_bay", "radio_regina2_tower");
+			AddZoneLinks(zone, "town_regina", "town_goat_bay", "radio_regina_tower");
 	}
 
 	private static void AddZoneLinks(HST_ZoneState zone, string first, string second = "", string third = "")

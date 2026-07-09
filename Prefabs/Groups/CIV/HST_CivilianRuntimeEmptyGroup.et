@@ -1,0 +1,8 @@
+SCR_AIGroup HST_CivilianRuntimeEmptyGroup {
+ ID "6985327711303921"
+ m_bSpawnImmediately 0
+ m_bDeleteWhenEmpty 0
+ m_faction "CIV"
+ m_aUnitPrefabSlots {
+ }
+}

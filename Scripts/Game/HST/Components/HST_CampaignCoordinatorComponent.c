@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r122-training-quality";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r123-marker-group-civilian-fixes";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -11120,7 +11120,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support marker uses the dedicated search-area icon", markerActual, CampaignDebugStatus(linkedMarkerState && linkedMarkerState.m_sIconHint == "SEARCH_AREA"), "search support marker did not use SEARCH_AREA", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support marker uses the dedicated ambush icon", markerActual, CampaignDebugStatus(linkedMarkerState && linkedMarkerState.m_sIconHint == "AMBUSH"), "search support marker did not use AMBUSH", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
 
@@ -11181,8 +11181,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(supportCase, "support.physical_map_destination", "ground support group routes to the requested support destination", deploymentActual, CampaignDebugStatus(deploymentTargetedToRequest), "ground support active group target does not match the support request target position", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_offset", "ground support spawns offset from the selected destination", deploymentActual, CampaignDebugStatus(deploymentOffset), "ground support staging was not offset from the selected destination", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_clearance", "ground support spawn placement records player and AI clearance", deploymentActual, CampaignDebugStatus(deploymentClearance), "ground support staging did not prove clearance from players and active AI groups", observedSupportRequest.m_sRequestId);
-			bool memberCountsVisible = supportGroup && supportGroup.m_iSpawnedAgentCount > 0 && supportGroup.m_iLastSeenAliveCount > 0;
-			AddCampaignDebugAssertion(supportCase, "support.physical_runtime_member_counts", "spawned ground support group records nonzero runtime member counts", BuildCampaignDebugActiveGroupActual(supportGroup), CampaignDebugStatus(memberCountsVisible), "ground support active group still reports zero spawned/live members after population", observedSupportRequest.m_sRequestId);
+			int editableSize = -1;
+			if (m_PhysicalWar && supportGroup)
+				editableSize = m_PhysicalWar.CampaignDebugResolveActiveGroupEditableSize(supportGroup.m_sGroupId);
+			string supportGroupActual = BuildCampaignDebugActiveGroupActual(supportGroup) + string.Format(" | editableSize %1", editableSize);
+			bool memberCountsVisible = supportGroup && supportGroup.m_iSpawnedAgentCount > 0 && supportGroup.m_iLastSeenAliveCount > 0 && editableSize > 0;
+			AddCampaignDebugAssertion(supportCase, "support.physical_runtime_member_counts", "spawned ground support group records nonzero runtime member counts and editable size", supportGroupActual, CampaignDebugStatus(memberCountsVisible), "ground support active group still reports zero spawned/live members or editable Size 0 after population", observedSupportRequest.m_sRequestId);
 			string responseRunActual = BuildCampaignDebugActiveGroupActual(supportGroup);
 			bool responseRun;
 			if (m_PhysicalWar)
@@ -13023,7 +13027,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				continue;
 
 			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
-			if (marker && marker.m_sIconHint == "RECONNAISSANCE")
+			if (marker && marker.m_sIconHint == "TARGET_REFERENCE_POINT")
 				continue;
 
 			count++;
@@ -23175,8 +23179,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			float attackerHQDistance = Math.Sqrt(DistanceSq2D(physicalGroup.m_vSourcePosition, m_State.m_vHQPosition));
 			bool attackerStagingBand = attackerHQDistance >= HST_SupportRequestService.PETROS_ATTACK_MIN_STANDOFF_METERS && attackerHQDistance <= HST_SupportRequestService.PETROS_ATTACK_MAX_STAGING_METERS;
 			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_staging_band", "Petros attacker group stages in the closer dedicated HQ attack band", string.Format("%1m | source %2 | HQ %3", Math.Round(attackerHQDistance), physicalGroup.m_vSourcePosition, m_State.m_vHQPosition), CampaignDebugStatus(attackerStagingBand), "Phase 22 Petros attacker group staged too close or too far from HQ", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
-			bool attackerMemberCountsVisible = physicalGroup.m_iSpawnedAgentCount > 0 && physicalGroup.m_iLastSeenAliveCount > 0;
-			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_runtime_member_counts", "Petros attacker group records nonzero runtime member counts after population", groupActual, CampaignDebugStatus(attackerMemberCountsVisible), "Phase 22 Petros attacker group still reports zero spawned/live members after population", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
+			int attackerEditableSize = -1;
+			if (m_PhysicalWar)
+				attackerEditableSize = m_PhysicalWar.CampaignDebugResolveActiveGroupEditableSize(physicalGroup.m_sGroupId);
+			string attackerMemberActual = groupActual + string.Format(" | editableSize %1", attackerEditableSize);
+			bool attackerMemberCountsVisible = physicalGroup.m_iSpawnedAgentCount > 0 && physicalGroup.m_iLastSeenAliveCount > 0 && attackerEditableSize > 0;
+			AddCampaignDebugAssertion(defenseCase, "phase22.attack.group_runtime_member_counts", "Petros attacker group records nonzero runtime member counts and editable size after population", attackerMemberActual, CampaignDebugStatus(attackerMemberCountsVisible), "Phase 22 Petros attacker group still reports zero spawned/live members or editable Size 0 after population", physicalGroup.m_sGroupId, "", physicalGroup.m_sZoneId, orderId);
 			string attackerRunActual = groupActual;
 			bool attackerRun;
 			if (m_PhysicalWar)
@@ -23980,7 +23988,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int locationIconCollisionCount = CountCampaignDebugStaticLocationQRFIconCollisions(locationIconCollisionExample);
 		string radioIconExample;
 		string radarIconExample;
-		int radioIconMismatches = CountCampaignDebugZoneIconMismatchesForMarkerStyle("radio", "FLAG", radioIconExample);
+		int radioIconMismatches = CountCampaignDebugZoneIconMismatchesForMarkerStyle("radio", "FLAG2", radioIconExample);
 		int radarIconMismatches = CountCampaignDebugRadarZoneIconMismatches(radarIconExample);
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
@@ -24008,8 +24016,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.location_qrf_icon_deconflict", "static location markers use icons distinct from QRF tactical markers", BuildCampaignDebugCountExample(locationIconCollisionCount, locationIconCollisionExample), CampaignDebugStatus(locationIconCollisionCount == 0), "Phase 23 found static location markers reusing the QRF tactical icon");
-		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radio_icon", "radio tower zone markers use the dedicated radio icon", BuildCampaignDebugCountExample(radioIconMismatches, radioIconExample), CampaignDebugStatus(radioIconMismatches == 0), "Phase 23 found radio tower markers without FLAG icon");
-		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radar_icon", "radar site zone markers use the dedicated radar icon", BuildCampaignDebugCountExample(radarIconMismatches, radarIconExample), CampaignDebugStatus(radarIconMismatches == 0), "Phase 23 found radar site markers without RECONNAISSANCE icon");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radio_icon", "radio tower zone markers use the dedicated radio icon", BuildCampaignDebugCountExample(radioIconMismatches, radioIconExample), CampaignDebugStatus(radioIconMismatches == 0), "Phase 23 found radio tower markers without FLAG2 icon");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radar_icon", "radar site zone markers use the dedicated radar icon", BuildCampaignDebugCountExample(radarIconMismatches, radarIconExample), CampaignDebugStatus(radarIconMismatches == 0), "Phase 23 found radar site markers without TARGET_REFERENCE_POINT icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.hq", "HQ marker exists when HQ is deployed", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(!m_State.m_bHQDeployed || hqMarker != null), "Phase 23 marker audit did not find the HQ marker");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.defense_markers", "Petros/defense markers exist while Defend Petros is active", string.Format("active %1 | Petros %2 | defend %3", m_State.m_bDefendPetrosActive, petrosMarker != null, defendMarker != null), CampaignDebugStatus(!m_State.m_bDefendPetrosActive || (petrosMarker != null && defendMarker != null)), "Phase 23 marker audit did not find active Defend Petros markers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.missions", "active missions have mission/objective/asset marker coverage", string.Format("markers %1 | active %2", missionMarkers, activeMissions), CampaignDebugStatus(activeMissions <= 0 || missionMarkers > 0), "Phase 23 active missions have no mission marker coverage");

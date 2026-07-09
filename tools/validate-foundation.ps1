@@ -485,6 +485,28 @@ foreach ($runtimeEmptyGroupPrefab in $runtimeEmptyGroupPrefabs) {
 	}
 }
 
+$civilianRuntimeEmptyGroupPath = "Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup.et"
+if (!(Test-Path $civilianRuntimeEmptyGroupPath)) {
+	throw "Missing CIV runtime empty AIGroup prefab"
+}
+if ((Get-Content -Raw "$civilianRuntimeEmptyGroupPath.meta") -notmatch '\{6985327711303920\}Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup\.et') {
+	throw "CIV runtime empty AIGroup prefab metadata must expose the GUID-qualified resource name"
+}
+$civilianRuntimeEmptyGroupText = Get-Content -Raw $civilianRuntimeEmptyGroupPath
+foreach ($requiredCivilianRuntimeEmptyGroupEntry in @(
+		"SCR_AIGroup HST_CivilianRuntimeEmptyGroup",
+		"m_bSpawnImmediately 0",
+		"m_bDeleteWhenEmpty 0",
+		'm_faction "CIV"'
+	)) {
+	if ($civilianRuntimeEmptyGroupText -notmatch [regex]::Escape($requiredCivilianRuntimeEmptyGroupEntry)) {
+		throw "CIV runtime empty AIGroup prefab must be empty, non-deleting, and CIV-tagged: $requiredCivilianRuntimeEmptyGroupEntry"
+	}
+}
+if ($civilianRuntimeEmptyGroupText -notmatch 'm_aUnitPrefabSlots\s*\{\s*\}') {
+	throw "CIV runtime empty AIGroup prefab must explicitly start with no unit slots"
+}
+
 $petrosPrefabText = Get-Content -Raw $petrosPrefabPath
 $hqServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_HQService.c"
 $coordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
@@ -1982,9 +2004,9 @@ foreach ($requiredMarkerIconDeconflictEntry in @(
 		'return "OBSERVATION_POST";',
 		'if (zone.m_sMarkerStyle == "mission_site")',
 		'return "POINT_SPECIAL";',
-		'return "FLAG";',
-		'return "RECONNAISSANCE";',
-		'return "SEARCH_AREA";',
+		'return "FLAG2";',
+		'return "TARGET_REFERENCE_POINT";',
+		'return "AMBUSH";',
 		'support.search_marker_icon',
 		'phase23.marker.radio_icon',
 		'phase23.marker.radar_icon',
@@ -2344,9 +2366,9 @@ foreach ($requiredRuntimeMarkerEntry in @(
 		"GetStaticMarkerByID",
 		"POINT_SPECIAL",
 		"OBSERVATION_POST",
-		"SEARCH_AREA",
-		"RECONNAISSANCE",
-		"FLAG",
+		"AMBUSH",
+		"TARGET_REFERENCE_POINT",
+		"FLAG2",
 		"MAX_NATIVE_MARKERS = 192",
 		"MAX_NATIVE_TACTICAL_MARKERS = 48"
 	)) {
@@ -2920,9 +2942,9 @@ foreach ($requiredNativeMarkerPublishContract in @(
 		"SCR_EScenarioFrameworkMarkerCustom.PICK_UP2",
 		"SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL",
 		"SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST",
-		"SCR_EScenarioFrameworkMarkerCustom.FLAG",
-		"SCR_EScenarioFrameworkMarkerCustom.RECONNAISSANCE",
-		"SCR_EScenarioFrameworkMarkerCustom.SEARCH_AREA",
+		"SCR_EScenarioFrameworkMarkerCustom.FLAG2",
+		"SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT",
+		"SCR_EScenarioFrameworkMarkerCustom.AMBUSH",
 		"SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER",
 		"manager.InsertStaticMarker(nativeMarker, record.m_bLocalOnly, record.m_bServerMarker)",
 		"manager.RemoveStaticMarker(marker)"
@@ -8423,6 +8445,8 @@ foreach ($requiredPhase9RuntimeEntry in @(
 		"deadTrackedMembers <= 0",
 		"DetachDeadRuntimeMembersFromGroupRoot",
 		"ReconcileTrackedRuntimeMembersWithAIGroup",
+		"DiscoverRuntimeGroupMemberHandles",
+		"RegisterRuntimeGroupEntityHandle",
 		"HasMissionConvoyCrewEverBeenObservedAlive",
 		"HasMissionConvoyExplicitEliminationContext",
 		"TryRepairMissionConvoyCrewPopulation",
@@ -8555,6 +8579,8 @@ foreach ($requiredActiveGroupPopulationRuntimeEntry in @(
 		"active group direct infantry fallback replacing missing runtime group entity",
 		"AttachFactionInfantryMemberToRuntimeGroup",
 		"ResolveRuntimeMemberAIAgent",
+		"CampaignDebugResolveActiveGroupEditableSize",
+		"active group member handles discovered",
 		"group.AddAgentFromControlledEntity(member)",
 		"active group member attach failed",
 		"direct infantry spawned",
@@ -8791,6 +8817,7 @@ foreach ($requiredCivilianRuntimeEntry in @(
 		'SetAffiliatedFactionByKey("CIV")',
 		"ResolveRuntimeEntityFactionKey",
 		"ApplyCivilianAIGroupFaction",
+		"{6985327711303920}Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup.et",
 		"CountRuntimeEntityFactionMismatchesForZone",
 		"phase20.civilian_population.civ_faction_mismatches",
 		"m_bCivilianPopulationEnabled",

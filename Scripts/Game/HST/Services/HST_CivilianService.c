@@ -98,7 +98,7 @@ class HST_CivilianService
 	static const string CIVILIAN_FACTION_KEY = "CIV";
 	static const string CIVILIAN_TRAFFIC_RUNTIME_KIND = "CIV_TRAFFIC_VEHICLE";
 	static const string CIVILIAN_VEHICLE_ENTITY_CATALOG = "{7C53DF3E1349C5B8}Configs/EntityCatalog/CIV/Vehicles_EntityCatalog_CIV.conf";
-	static const string CIVILIAN_AI_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
+	static const string CIVILIAN_AI_GROUP_PREFAB = "{6985327711303920}Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup.et";
 	static const string CIVILIAN_WANDER_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB = "{35BD6541CBB8AC08}Prefabs/AI/Waypoints/AIWaypoint_Cycle.et";
 
@@ -2545,6 +2545,11 @@ class HST_CivilianService
 		{
 			scrGroup.InitFactionKey(CIVILIAN_FACTION_KEY);
 			scrGroup.AddAgentFromControlledEntity(memberEntity);
+			if (agent.GetParentGroup() != group)
+			{
+				if (!scrGroup.AddAIEntityToGroup(memberEntity))
+					group.AddAgent(agent);
+			}
 		}
 		else
 		{

@@ -117,6 +117,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
+	static const float ACTIVE_GROUP_MEMBER_REPAIR_RADIUS_METERS = 45.0;
 	static const int ACTIVE_GROUP_AI_WORLD_MIN_LIMIT = 512;
 	static const int ACTIVE_GROUP_AI_WORLD_REQUIRED_HEADROOM = 32;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
@@ -162,6 +163,7 @@ class HST_PhysicalWarService
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
+	protected ref array<IEntity> m_aRuntimeMemberRepairCandidates = {};
 	protected ref array<string> m_aRuntimeGroupWaypointIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupWaypointEntities = {};
 	protected ref array<string> m_aPendingPopulationGroupIds = {};
@@ -8836,13 +8838,16 @@ class HST_PhysicalWarService
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 
+		IEntity groupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
+		SCR_AIGroup group = SCR_AIGroup.Cast(groupEntity);
+		ApplyRuntimeGroupFaction(groupEntity, activeGroup, source, true);
+		if (group)
+			ReconcileRuntimeGroupEditableMembership(group, activeGroup, source);
+
 		int agentCount = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
 		if (agentCount <= 0)
 			return false;
 
-		IEntity groupEntity = GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId);
-		ApplyRuntimeGroupFaction(groupEntity, activeGroup, source, true);
-		ReconcileRuntimeGroupEditableMembership(SCR_AIGroup.Cast(groupEntity), activeGroup, source);
 		ClearPendingActiveGroupPopulation(activeGroup);
 		activeGroup.m_bSpawnedEntity = true;
 		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
@@ -9596,6 +9601,10 @@ class HST_PhysicalWarService
 			}
 		}
 
+		int discoveredLiving = DiscoverRuntimeGroupMemberHandles(group, activeGroup, editableGroup, source);
+		if (discoveredLiving > livingCount)
+			livingCount = discoveredLiving;
+
 		int trackedLiving;
 		int trackedReattached;
 		int trackedParented;
@@ -9650,6 +9659,266 @@ class HST_PhysicalWarService
 		{
 			DebugLog(string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
 		}
+	}
+
+	protected int DiscoverRuntimeGroupMemberHandles(SCR_AIGroup group, HST_ActiveGroupState activeGroup, SCR_EditableGroupComponent editableGroup, string source)
+	{
+		if (!group || !activeGroup || activeGroup.m_sGroupId.IsEmpty())
+			return 0;
+
+		int registered;
+		int attached;
+		int parented;
+		int valid;
+		int deadRegistered;
+		array<AIAgent> agents = new array<AIAgent>;
+		group.GetAgents(agents);
+		foreach (AIAgent agent : agents)
+		{
+			if (!agent)
+				continue;
+
+			bool candidateRegistered;
+			bool candidateAttached;
+			bool candidateParented;
+			bool candidateLiving;
+			bool candidateDeadRegistered;
+			if (!ReconcileRuntimeGroupMemberCandidate(group, activeGroup, editableGroup, agent.GetControlledEntity(), source + " native agent", candidateRegistered, candidateAttached, candidateParented, candidateLiving, candidateDeadRegistered))
+				continue;
+
+			valid++;
+			if (candidateRegistered)
+				registered++;
+			if (candidateAttached)
+				attached++;
+			if (candidateParented)
+				parented++;
+			if (candidateDeadRegistered)
+				deadRegistered++;
+		}
+
+		int expectedHandles = ResolveActiveGroupExpectedRuntimeMemberHandles(activeGroup);
+		bool needsWorldScan = CountTrackedRuntimeMemberHandles(activeGroup.m_sGroupId) < expectedHandles;
+		needsWorldScan = needsWorldScan || group.GetAgentsCount() <= 0 || group.GetPlayerAndAgentCount() <= 0;
+		if (needsWorldScan)
+		{
+			BaseWorld world = GetGame().GetWorld();
+			if (world)
+			{
+				m_aRuntimeMemberRepairCandidates.Clear();
+				vector center = group.GetOrigin();
+				if (IsZeroVector(center))
+					center = activeGroup.m_vPosition;
+				if (IsZeroVector(center))
+					center = activeGroup.m_vTargetPosition;
+				world.QueryEntitiesBySphere(center, ACTIVE_GROUP_MEMBER_REPAIR_RADIUS_METERS, AddRuntimeMemberRepairCandidate, null, EQueryEntitiesFlags.ALL);
+
+				foreach (IEntity candidate : m_aRuntimeMemberRepairCandidates)
+				{
+					if (!candidate)
+						continue;
+					if (CountTrackedRuntimeMemberHandles(activeGroup.m_sGroupId) >= expectedHandles && group.GetPlayerAndAgentCount() > 0)
+						break;
+
+					bool scanRegistered;
+					bool scanAttached;
+					bool scanParented;
+					bool scanLiving;
+					bool scanDeadRegistered;
+					if (!ReconcileRuntimeGroupMemberCandidate(group, activeGroup, editableGroup, candidate, source + " world scan", scanRegistered, scanAttached, scanParented, scanLiving, scanDeadRegistered))
+						continue;
+
+					valid++;
+					if (scanRegistered)
+						registered++;
+					if (scanAttached)
+						attached++;
+					if (scanParented)
+						parented++;
+					if (scanDeadRegistered)
+						deadRegistered++;
+				}
+			}
+		}
+
+		int living = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		if (registered > 0 || attached > 0 || parented > 0 || deadRegistered > 0)
+		{
+			group.ActivateAllMembers();
+			group.ActivateAI();
+			DebugLog(string.Format("active group member handles discovered %1 via %2 | valid %3 registered %4 attached %5 parented %6 dead %7 living %8/%9", activeGroup.m_sGroupId, source, valid, registered, attached, parented, deadRegistered, living, expectedHandles));
+		}
+
+		return living;
+	}
+
+	protected bool AddRuntimeMemberRepairCandidate(IEntity entity)
+	{
+		if (!entity)
+			return true;
+
+		if (m_aRuntimeMemberRepairCandidates.Find(entity) < 0)
+			m_aRuntimeMemberRepairCandidates.Insert(entity);
+
+		return true;
+	}
+
+	protected bool ReconcileRuntimeGroupMemberCandidate(SCR_AIGroup group, HST_ActiveGroupState activeGroup, SCR_EditableGroupComponent editableGroup, IEntity entity, string source, out bool registered, out bool attached, out bool parented, out bool living, out bool deadRegistered)
+	{
+		registered = false;
+		attached = false;
+		parented = false;
+		living = false;
+		deadRegistered = false;
+		if (!group || !activeGroup || !entity || AIGroup.Cast(entity))
+			return false;
+		if (!IsRuntimeGroupMemberCandidate(entity, activeGroup))
+			return false;
+
+		living = IsLivingEntity(entity);
+		ApplyRuntimeInfantryMemberFaction(entity, activeGroup.m_sFactionKey);
+		if (RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, entity))
+		{
+			registered = true;
+			if (!living)
+				deadRegistered = true;
+		}
+
+		AIAgent agent = ResolveRuntimeMemberAIAgent(entity);
+		if (living && agent)
+		{
+			AIControlComponent control = AIControlComponent.Cast(entity.FindComponent(AIControlComponent));
+			if (control)
+				control.ActivateAI();
+
+			if (agent.GetParentGroup() != group)
+			{
+				group.AddAgentFromControlledEntity(entity);
+				if (agent.GetParentGroup() != group)
+				{
+					if (!group.AddAIEntityToGroup(entity))
+						group.AddAgent(agent);
+				}
+				if (agent.GetParentGroup() == group)
+					attached = true;
+			}
+
+			agent.ActivateAI();
+		}
+
+		if (editableGroup)
+		{
+			SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(entity);
+			if (editableMember && editableMember.GetParentEntity() != editableGroup)
+			{
+				editableMember.SetParentEntity(editableGroup);
+				if (editableMember.GetParentEntity() == editableGroup)
+					parented = true;
+			}
+		}
+
+		return true;
+	}
+
+	protected bool ApplyRuntimeInfantryMemberFaction(IEntity entity, string factionKey)
+	{
+		if (!entity || factionKey.IsEmpty())
+			return false;
+		if (!ChimeraCharacter.Cast(entity))
+			return false;
+
+		return ApplyEntityFaction(entity, factionKey);
+	}
+
+	protected bool IsRuntimeGroupMemberCandidate(IEntity entity, HST_ActiveGroupState activeGroup)
+	{
+		if (!entity || !activeGroup || activeGroup.m_sFactionKey.IsEmpty())
+			return false;
+		if (IsPlayerControlledRuntimeEntity(entity))
+			return false;
+		AIControlComponent control = AIControlComponent.Cast(entity.FindComponent(AIControlComponent));
+		if (!control)
+			return false;
+
+		string prefab = ResolveEntityPrefabName(entity);
+		if (!IsInfantryCharacterPrefabCatalogFactionMatch(prefab, activeGroup.m_sFactionKey))
+			return false;
+
+		return true;
+	}
+
+	protected bool IsPlayerControlledRuntimeEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		return playerManager.GetPlayerIdFromControlledEntity(entity) > 0;
+	}
+
+	protected int ResolveActiveGroupExpectedRuntimeMemberHandles(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return 1;
+
+		int expected = Math.Max(0, activeGroup.m_iInfantryCount);
+		expected = Math.Max(expected, activeGroup.m_iOriginalInfantryCount);
+		expected = Math.Max(expected, activeGroup.m_iSpawnedAgentCount);
+		expected = Math.Max(expected, activeGroup.m_iLastSeenAliveCount);
+		if (expected <= 0)
+			expected = 1;
+
+		return Math.Min(expected, 24);
+	}
+
+	protected int CountTrackedRuntimeMemberHandles(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return 0;
+
+		int count;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+			if (!m_aRuntimeGroupEntities[i] || AIGroup.Cast(m_aRuntimeGroupEntities[i]))
+				continue;
+
+			count++;
+		}
+
+		return count;
+	}
+
+	protected bool IsRuntimeGroupEntityHandleTracked(string groupId, IEntity entity)
+	{
+		if (groupId.IsEmpty() || !entity)
+			return false;
+
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+			if (m_aRuntimeGroupEntities[i] == entity)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool RegisterRuntimeGroupEntityHandle(string groupId, IEntity entity)
+	{
+		if (groupId.IsEmpty() || !entity)
+			return false;
+		if (IsRuntimeGroupEntityHandleTracked(groupId, entity))
+			return false;
+
+		m_aRuntimeGroupIds.Insert(groupId);
+		m_aRuntimeGroupEntities.Insert(entity);
+		return true;
 	}
 
 	protected int ReconcileTrackedRuntimeMembersWithAIGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup, SCR_EditableGroupComponent editableGroup, string source, out int reattached, out int parented)
@@ -10601,6 +10870,19 @@ class HST_PhysicalWarService
 	string CampaignDebugBuildActiveGroupRuntimeVisualEvidence(string groupId)
 	{
 		return BuildActiveGroupRuntimeVisualEvidence(groupId);
+	}
+
+	int CampaignDebugResolveActiveGroupEditableSize(string groupId)
+	{
+		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(groupId));
+		if (!group)
+			return -1;
+
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
+		if (!editableGroup)
+			return -1;
+
+		return editableGroup.GetSize();
 	}
 
 	protected string BuildActiveGroupRuntimeVisualEvidence(string groupId)
@@ -11564,15 +11846,15 @@ class HST_PhysicalWarService
 				return true;
 		}
 
-		int liveInfantry = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
-		int liveTotal = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
-		if (liveTotal <= 0)
-			return false;
-
 		bool changed;
 		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId));
 		if (group)
 			ReconcileRuntimeGroupEditableMembership(group, activeGroup, source + " count reconcile");
+
+		int liveInfantry = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
+		int liveTotal = CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId);
+		if (liveTotal <= 0)
+			return false;
 
 		if (!activeGroup.m_bSpawnedEntity)
 		{
@@ -11709,6 +11991,8 @@ class HST_PhysicalWarService
 			EnsureActiveGroupRuntimeFaction(activeGroup, "survivor update");
 			EnforceOpposingOccupiedVehicleAccess(state, activeGroup);
 			if (RefreshActiveGroupLivePositionFromRuntime(activeGroup, missionConvoyGroup))
+				changed = true;
+			if (ReconcileActiveGroupRuntimeMemberCounts(state, activeGroup, "survivor update"))
 				changed = true;
 			int aliveCount;
 			if (missionConvoyGroup)
