@@ -1536,13 +1536,59 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		bool toolMenuWidget = HasMapWidget(mapEntity, "ToolMenu");
 		bool toolMenuBarWidget = HasMapWidget(mapEntity, "ToolMenuBar");
 		int staticMarkers;
+		int staticMarkerRoots;
+		int staticMarkerWidgets;
+		int staticVisibleRoots;
+		int staticRootMissing;
+		int disabledStaticMarkers;
+		int disabledStaticRootMissing;
 		int dynamicMarkers;
 		int playerMarkers;
 		int readyPlayerMarkers;
+		string staticRootMissingSamples;
 		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
 		if (markerManager)
 		{
-			staticMarkers = markerManager.GetStaticMarkers().Count();
+			array<SCR_MapMarkerBase> activeStaticMarkers = markerManager.GetStaticMarkers();
+			staticMarkers = activeStaticMarkers.Count();
+			foreach (SCR_MapMarkerBase staticMarker : activeStaticMarkers)
+			{
+				if (!staticMarker)
+				{
+					staticRootMissing++;
+					continue;
+				}
+
+				Widget staticRoot = staticMarker.GetRootWidget();
+				if (staticRoot)
+				{
+					staticMarkerRoots++;
+					if (staticRoot.IsVisibleInHierarchy())
+						staticVisibleRoots++;
+				}
+				else
+				{
+					staticRootMissing++;
+					if (staticRootMissingSamples.Length() < 180)
+					{
+						if (!staticRootMissingSamples.IsEmpty())
+							staticRootMissingSamples = staticRootMissingSamples + ";";
+						staticRootMissingSamples = staticRootMissingSamples + string.Format("id=%1,type=%2,config=%3,owner=%4", staticMarker.GetMarkerID(), staticMarker.GetType(), staticMarker.GetMarkerConfigID(), staticMarker.GetMarkerOwnerID());
+					}
+				}
+
+				if (staticMarker.GetMarkerComponent())
+					staticMarkerWidgets++;
+			}
+
+			array<SCR_MapMarkerBase> disabledMarkers = markerManager.GetDisabledMarkers();
+			disabledStaticMarkers = disabledMarkers.Count();
+			foreach (SCR_MapMarkerBase disabledMarker : disabledMarkers)
+			{
+				if (!disabledMarker || !disabledMarker.GetRootWidget())
+					disabledStaticRootMissing++;
+			}
+
 			dynamicMarkers = markerManager.GetDynamicMarkers().Count();
 			if (mapOpen)
 				RefreshHSTPlayerMarkerWidgets();
@@ -1557,7 +1603,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			}
 		}
 
-		bool markersReady = markerManager != null && (staticMarkers + dynamicMarkers) > 0;
+		bool staticRootsReady = staticMarkers > 0 && staticMarkerRoots == staticMarkers && staticMarkerWidgets == staticMarkers && staticVisibleRoots > 0 && staticRootMissing == 0;
+		bool markersReady = markerManager != null && staticRootsReady;
 		bool playerReady = playerMarkers > 0 && readyPlayerMarkers >= playerMarkers;
 		string rootSummary = "none";
 		if (rootWidget)
@@ -1565,6 +1612,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		string report = string.Format("request %1 | player %2 | pass %3 | mapOpen %4 | root %5 | frame %6 | markerUI %7 | markersReady %8 | playerReady %9", requestId, ResolveLocalPlayerId(), passIndex, mapOpen, rootVisible, hasFrame, markerUI, markersReady, playerReady);
 		report = report + string.Format(" | static %1 | dynamic %2 | playerMarkers %3/%4", staticMarkers, dynamicMarkers, readyPlayerMarkers, playerMarkers);
+		report = report + string.Format(" | staticRootsReady %1 | staticRoots %2/%3 | staticWidgets %4/%5 | staticVisibleRoots %6 | staticRootMissing %7", staticRootsReady, staticMarkerRoots, staticMarkers, staticMarkerWidgets, staticMarkers, staticVisibleRoots, staticRootMissing);
+		report = report + string.Format(" | disabledStatic %1 | disabledStaticRootMissing %2", disabledStaticMarkers, disabledStaticRootMissing);
+		if (!staticRootMissingSamples.IsEmpty())
+			report = report + " | staticRootMissingSamples " + staticRootMissingSamples;
 		report = report + string.Format(" | toolMenuUI %1 | toolInteractionUI %2 | toolMenuWidget %3 | toolMenuBarWidget %4", toolMenuUI, toolInteractionUI, toolMenuWidget, toolMenuBarWidget);
 		report = report + string.Format(" | openedByProof %1", m_bCampaignDebugMapProofOpenedMap);
 		report = report + " | rootSummary " + ShortenText(rootSummary, 140);

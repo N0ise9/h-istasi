@@ -10127,6 +10127,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool frame = CampaignDebugReportBool(report, "frame");
 		bool markerUI = CampaignDebugReportBool(report, "markerUI");
 		bool markersReady = CampaignDebugReportBool(report, "markersReady");
+		bool staticRootsReady = CampaignDebugReportBool(report, "staticRootsReady");
+		bool delayedPass = report.Contains("pass 1");
 		bool playerReady = CampaignDebugReportBool(report, "playerReady");
 		bool markerModelReady = markerModelReport.Contains("h-istasi map markers") && !markerModelReport.Contains("campaign state not ready");
 		string dispatchStatus = "PASS";
@@ -10146,6 +10148,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_client_report", "owner client returns matching rendered-map report", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && playerMatched, clientProofFailureStatus), "owner client did not return a matching rendered map-marker report");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_visible_root", "map is open with a visible root widget and map frame on the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && root && frame, mapOpenFailureStatus), "map root/frame was not visibly open on the owner client");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_marker_component", "map marker UI component is active and native marker arrays are visible to the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && markerUI && markersReady, markerUiFailureStatus), "owner client did not expose active rendered marker UI and native marker counts");
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_static_marker_widgets", "delayed owner-client proof has a root and widget component for every active static marker", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && delayedPass && staticRootsReady, markerUiFailureStatus), "one or more active static markers lacked a render-ready root or widget on the delayed proof pass");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_player_marker_widget", "HST player marker widgets are ready when player markers exist", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && playerReady, markerUiFailureStatus), "owner client did not prove rendered HST player marker widgets");
 		FinalizeCampaignDebugCaseFromAssertions(mapCase);
 		return mapCase;

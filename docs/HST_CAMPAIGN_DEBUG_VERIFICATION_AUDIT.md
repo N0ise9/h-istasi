@@ -43,6 +43,14 @@ not yet been runtime-proven, and a development-session restart remains required
 because world entities, player inventory/health, delayed callbacks, and service
 caches are not campaign-save fields.
 
+Post-audit marker follow-up: the client-side static-marker manager now retries
+widget construction before update and disables a marker that remains rootless,
+preventing the stock update call from dereferencing a missing root. The delayed
+owner-client proof now reports active roots, widget components, visible roots,
+disabled-rootless counts, and bounded missing-marker identity samples. Static
+and Workbench validation pass; the prior 6,806 exceptions remain the latest
+runtime evidence until a fresh map-open run proves the guard and census.
+
 Certification is blocked until the runner is isolated, the cascading mission is
 contained, known assertion defects are corrected, marker widget readiness is
 fixed, and the genuine physical failures are rerun through scoped disposable

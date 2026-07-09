@@ -90,6 +90,12 @@ The remaining domain services are:
 - `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
   mission physicalization diagnostics.
 
+Static marker rendering has a separate client lifecycle boundary. A small
+manager patch retries root creation before the stock static-marker update and
+disables a marker that remains rootless. The rendered-map proof waits for the
+delayed client pass and inspects actual active roots and widget components;
+server publication/reconciler counts are reported only as native handles.
+
 Static helper services keep repeated low-level behavior out of the coordinator:
 `HST_WorldPositionService` resolves dry/safe positions and prefab spawning,
 `HST_DisplayNameService` normalizes item and vehicle labels,

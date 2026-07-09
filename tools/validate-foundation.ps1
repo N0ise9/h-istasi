@@ -4661,6 +4661,27 @@ foreach ($requiredDebugIsolationEntry in @(
 	}
 }
 Write-Host "Campaign debug state-isolation contract OK"
+foreach ($requiredMarkerReadinessEntry in @(
+		"modded class SCR_MapMarkerManagerComponent",
+		"if (!marker.GetRootWidget())",
+		"marker.OnCreateMarker(true)",
+		"SetStaticMarkerDisabled(marker, true)",
+		"staticRootsReady",
+		"staticRootMissing",
+		"staticRootMissingSamples",
+		"disabledStaticRootMissing",
+		"map_ui.rendered_static_marker_widgets",
+		"delayed owner-client proof has a root and widget component for every active static marker",
+		"BuildNativeHandleReport"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredMarkerReadinessEntry)) {
+		throw "Static map-marker readiness contract missing: $requiredMarkerReadinessEntry"
+	}
+}
+if ($scriptText -match "HasRuntimeNativeMarkerWidgets" -or $scriptText -match "CountRuntimeNativeMarkerWidgets" -or $scriptText -match "BuildNativeWidgetReport") {
+	throw "Server marker publication must not masquerade as client widget readiness"
+}
+Write-Host "Static map-marker readiness contract OK"
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
 }

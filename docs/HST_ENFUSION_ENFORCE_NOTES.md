@@ -104,6 +104,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Campaign marker publication is not proof that its visual widget is ready.
   - A published model or native/static marker handle can exist while the delayed map widget root is still null. Visual proof must open the map, wait through widget construction, inspect static campaign-marker root readiness, and surface any update-time VM exception; model and handle counts alone are insufficient.
+  - The stock manager can enable its update loop after `OnCreateMarker()` returned early for a missing map root/frame/config/layout. Guard the manager before it calls `SCR_MapMarkerBase.OnUpdate()`: retry `OnCreateMarker(true)`, and move a still-rootless marker to the disabled list so the normal map-pan/open recovery path can retry it safely.
+  - Census active and disabled static arrays separately. Every active static marker needs a root and `SCR_MapMarkerWidgetComponent`, and at least one active root should be visible when the map is open; disabled-rootless markers are diagnostic because off-frame markers may legitimately be disabled. Include only bounded marker ID/type/config/owner samples.
+  - Server publication and reconciler handle counts must be labeled as handles, never widgets. Widget readiness is owner-client render evidence only.
 
 - Headless Workbench script validation needs the project and Script Editor run mode explicitly.
   - Use the generic parameter shape `-gproj <project> -wbModule=ScriptEditor -run -validate PC -wbsilent -exitAfterInit`; an invocation that only initializes Workbench is not compile/validation evidence.

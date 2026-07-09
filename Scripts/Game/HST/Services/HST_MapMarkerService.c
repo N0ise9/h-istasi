@@ -269,7 +269,7 @@ class HST_MapMarkerService
 		string pending = "ready";
 		if (m_bNativePublishPending)
 			pending = "pending";
-		string tactical = string.Format(" | strategic %1 | missions %2 | QRFs/support %3 | native manager %4 | native %5/%6 visible | widgets %7 | skipped %8 | %9", strategicCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT, m_iLastNativePublishedCount, m_iLastNativeEligibleCount, BuildNativeWidgetReport(), m_iLastNativeSkippedCount, pending);
+		string tactical = string.Format(" | strategic %1 | missions %2 | QRFs/support %3 | native manager %4 | native %5/%6 visible | handles %7 | skipped %8 | %9", strategicCount, missionCount, qrfCount, NATIVE_MARKER_MANAGER_COMPONENT, m_iLastNativePublishedCount, m_iLastNativeEligibleCount, BuildNativeHandleReport(), m_iLastNativeSkippedCount, pending);
 		return summary + tactical + BuildMarkerRefreshDiagnostic(state) + BuildMarkerDetailReport(state, 20);
 	}
 
@@ -408,7 +408,7 @@ class HST_MapMarkerService
 		if (m_bNativePublishPending)
 			pending = "pending";
 
-		return string.Format("\nrefresh | state second %1 | records %2 | native %3/%4 | widgets %5 | skipped %6 | ownership sync %7 | %8", state.m_iElapsedSeconds, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, BuildNativeWidgetReport(), m_iLastNativeSkippedCount, m_iLastNativeOwnershipSyncSecond, pending);
+		return string.Format("\nrefresh | state second %1 | records %2 | native %3/%4 | handles %5 | skipped %6 | ownership sync %7 | %8", state.m_iElapsedSeconds, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, BuildNativeHandleReport(), m_iLastNativeSkippedCount, m_iLastNativeOwnershipSyncSecond, pending);
 	}
 
 	protected string BuildMarkerDetailReport(HST_CampaignState state, int maxRows)
@@ -1255,37 +1255,7 @@ class HST_MapMarkerService
 		return markerManager && m_iLastNativePublishedCount > 0;
 	}
 
-	protected bool HasRuntimeNativeMarkerWidgets()
-	{
-		return true;
-	}
-
-	protected bool IsNativeMapMarkerUIReady(SCR_MapEntity mapEntity)
-	{
-		if (!mapEntity || !mapEntity.IsOpen())
-			return false;
-
-		if (!mapEntity.GetMapUIComponent(SCR_MapMarkersUI))
-			return false;
-
-		Widget root = mapEntity.GetMapMenuRoot();
-		if (!root)
-			return false;
-
-		return root.FindAnyWidget(SCR_MapConstants.MAP_FRAME_NAME) != null;
-	}
-
-	protected int CountRuntimeNativeMarkerWidgets()
-	{
-		return m_iLastNativePublishedCount;
-	}
-
-	protected int RecreateRuntimeNativeMarkerWidgets()
-	{
-		return 0;
-	}
-
-	protected string BuildNativeWidgetReport()
+	protected string BuildNativeHandleReport()
 	{
 		if (!m_NativeReconciler)
 			return "native-managed";
