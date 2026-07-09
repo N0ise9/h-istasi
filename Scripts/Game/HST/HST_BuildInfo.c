@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r107-transfer-choice-proof";
-	static const string BUILD_UTC = "2026-07-08T23:45:00Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r107-transfer-choice-proof";
+	static const string BUILD_SHA = "r109-radio-town-influence";
+	static const string BUILD_UTC = "2026-07-08T17:46:36Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r109-radio-town-influence";
 
 	static string BuildSummary()
 	{

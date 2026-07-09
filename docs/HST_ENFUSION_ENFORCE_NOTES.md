@@ -338,6 +338,21 @@ This file is for practical engine/script behavior, not project planning. Keep en
     and report-expiry delta. Full Campaign Debug should prove both the direct
     report and passenger-exposure report branches plus save-data roundtrip and
     cleanup.
+  - Town influence should use
+    `HST_StrategicService.BeginTownInfluenceEvent()` before applying
+    `HST_CivilianService.RegisterInfluenceEvent()` deltas, then complete the
+    event after support and owner fields are updated. Keep these rows compact:
+    source id is the town influence event id, target zone is the affected town,
+    and the summary/reason carries the influence kind and source context.
+  - Radio tower support drift should run from `HST_TownService` on the normal
+    income/resource cadence, not from a per-second civilian tick. Pick only the
+    nearest eligible owned radio tower per town in the bounded influence radius,
+    skip saturated rows that would not change support/reputation/heat, and route
+    the result through `HST_CivilianService.RegisterInfluenceEvent()` as
+    `radio_broadcast` so the same town influence and strategic-event ledgers
+    explain friendly and hostile broadcasts. Full Campaign Debug should keep
+    `town_influence.radio.runtime` proving cadence, both drift directions,
+    compact strategic rows, and report visibility.
 
 - Undercover vehicle cover should be answered from campaign state, not only
   from the currently controlled entity.
