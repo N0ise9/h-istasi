@@ -7227,6 +7227,7 @@ class HST_PhysicalWarService
 				continue;
 
 			ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
+			bool simulateUnspawnedRoute = CanSimulateUnspawnedActiveGroupRoute(activeGroup);
 			if (activeGroup.m_bSpawnedEntity && activeGroup.m_iInfantryCount > 0 && !IsMissionConvoyGroup(activeGroup) && !IsActiveGroupInfantryWaypointAssigned(activeGroup))
 			{
 				bool assignedFinalSweepWaypoint;
@@ -7242,10 +7243,10 @@ class HST_PhysicalWarService
 				}
 			}
 
-			if (!activeGroup.m_bSpawnedEntity)
+			if (!activeGroup.m_bSpawnedEntity && !simulateUnspawnedRoute)
 				continue;
 
-			if (ApplyResponseGroupMovementSpeed(activeGroup, AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId))))
+			if (activeGroup.m_bSpawnedEntity && ApplyResponseGroupMovementSpeed(activeGroup, AIGroup.Cast(GetRuntimeCrewGroupEntity(activeGroup.m_sGroupId))))
 			{
 				string responseRunMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "response_run");
 				if (activeGroup.m_sSpawnFallbackMode != responseRunMode)
@@ -7265,7 +7266,7 @@ class HST_PhysicalWarService
 			vector position = ResolveActiveGroupRoutePosition(routePositions, activeGroup, progress, assignedWaypointCount);
 			position = HST_WorldPositionService.ResolveSafeGroundPosition(position, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
 			string arrivedStatus = ResolveArrivedRouteStatus(activeGroup);
-			if (!IsActiveGroupInfantryWaypointAssigned(activeGroup) && activeGroup.m_iAssignedWaypointCount != assignedWaypointCount)
+			if (activeGroup.m_bSpawnedEntity && !IsActiveGroupInfantryWaypointAssigned(activeGroup) && activeGroup.m_iAssignedWaypointCount != assignedWaypointCount)
 			{
 				activeGroup.m_iAssignedWaypointCount = assignedWaypointCount;
 				changed = true;
@@ -7275,17 +7276,21 @@ class HST_PhysicalWarService
 				if (progress >= 1.0 && activeGroup.m_sRuntimeStatus != arrivedStatus)
 				{
 					activeGroup.m_sRuntimeStatus = arrivedStatus;
+					if (IsSupportRequestActiveGroup(activeGroup))
+						m_bMarkerRefreshNeeded = true;
 					changed = true;
 				}
 				continue;
 			}
 
 			activeGroup.m_vPosition = position;
-			if (!IsActiveGroupInfantryWaypointAssigned(activeGroup))
+			if (activeGroup.m_bSpawnedEntity && !IsActiveGroupInfantryWaypointAssigned(activeGroup))
 				SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, position);
 
 			if (progress >= 1.0)
 				activeGroup.m_sRuntimeStatus = arrivedStatus;
+			if (IsSupportRequestActiveGroup(activeGroup))
+				m_bMarkerRefreshNeeded = true;
 
 			changed = true;
 		}
@@ -8511,6 +8516,12 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
+
+		if (ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup))
+		{
+			MarkActiveGroupRuntimePhysicalizationDeferred(activeGroup, state);
+			return false;
+		}
 
 		if (activeGroup.m_bSpawnAttempted && !activeGroup.m_bSpawnedEntity)
 			return false;
@@ -10963,6 +10974,11 @@ class HST_PhysicalWarService
 		return GetRuntimeVehicleEntity(groupId) != null;
 	}
 
+	bool CampaignDebugHasRuntimeGroupEntity(string groupId)
+	{
+		return HasRuntimeGroupEntity(groupId);
+	}
+
 	string CampaignDebugBuildActiveGroupRuntimeVisualEvidence(string groupId)
 	{
 		return BuildActiveGroupRuntimeVisualEvidence(groupId);
@@ -11426,6 +11442,12 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
+
+		if (ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup))
+		{
+			MarkActiveGroupRuntimePhysicalizationDeferred(activeGroup, state);
+			return false;
+		}
 
 		if (activeGroup.m_bSpawnAttempted && !activeGroup.m_bSpawnedEntity)
 			return false;
@@ -12057,6 +12079,82 @@ class HST_PhysicalWarService
 			return false;
 
 		return activeGroup.m_sSpawnFallbackMode.Contains("support");
+	}
+
+	protected bool CanSimulateUnspawnedActiveGroupRoute(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_bSpawnedEntity)
+			return false;
+		if (!IsSupportRequestActiveGroup(activeGroup))
+			return false;
+
+		return activeGroup.m_sRuntimeStatus == "support_active" || activeGroup.m_sRuntimeStatus == "support_recalling";
+	}
+
+	protected bool ShouldDeferActiveGroupRuntimePhysicalization(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+		if (!IsSupportRequestActiveGroup(activeGroup))
+			return false;
+		if (activeGroup.m_bSpawnedEntity || !activeGroup.m_sRuntimeEntityId.IsEmpty())
+			return false;
+		if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+		if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
+			return false;
+		if (HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+			return false;
+
+		vector position = ResolveActiveGroupRuntimePhysicalizationPosition(activeGroup);
+		if (IsZeroVector(position))
+			return false;
+
+		return !HST_WorldPositionService.IsPositionInsidePlayerEventBubble(position);
+	}
+
+	protected vector ResolveActiveGroupRuntimePhysicalizationPosition(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return "0 0 0";
+
+		if (!IsZeroVector(activeGroup.m_vPosition))
+			return activeGroup.m_vPosition;
+		if (!IsZeroVector(activeGroup.m_vTargetPosition))
+			return activeGroup.m_vTargetPosition;
+		if (!IsZeroVector(activeGroup.m_vSourcePosition))
+			return activeGroup.m_vSourcePosition;
+
+		return "0 0 0";
+	}
+
+	protected bool MarkActiveGroupRuntimePhysicalizationDeferred(HST_ActiveGroupState activeGroup, HST_CampaignState state)
+	{
+		if (!activeGroup)
+			return false;
+
+		bool changed;
+		string deferredMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "runtime_deferred_player_bubble");
+		if (activeGroup.m_sSpawnFallbackMode != deferredMode)
+		{
+			activeGroup.m_sSpawnFallbackMode = deferredMode;
+			changed = true;
+		}
+
+		string deferredReason = "Runtime physicalization deferred outside the player event bubble; campaign state remains simulated.";
+		if (activeGroup.m_sSpawnFailureReason != deferredReason)
+		{
+			activeGroup.m_sSpawnFailureReason = deferredReason;
+			changed = true;
+		}
+
+		if (changed)
+		{
+			m_bMarkerRefreshNeeded = true;
+			DebugLog(string.Format("active group runtime deferred %1 at %2 | status %3", activeGroup.m_sGroupId, ResolveActiveGroupRuntimePhysicalizationPosition(activeGroup), activeGroup.m_sRuntimeStatus));
+		}
+
+		return changed;
 	}
 
 	protected bool UpdateRuntimeGroupSurvivors(HST_CampaignState state)

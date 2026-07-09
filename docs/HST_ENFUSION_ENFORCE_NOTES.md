@@ -493,18 +493,27 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_PhysicalWarService.UpdateQRF()`, and
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugEnemySupportSpendCase()`.
 
-- Physical support groups need an owner-controlled fold-back path.
-  - Ground support/QRF groups are not normal zone garrisons, so generic zone
-    deactivation intentionally skips them. The support lifecycle must fold
-    survivors when the target is no longer inside an active player/objective
-    event bubble, delete the live runtime group handle, and keep the persistent
-    group row terminal long enough for support and enemy-order synchronization.
-  - Fold-back should return only the active group's recorded survivor infantry
-    and vehicle counts to the abstract garrison, then preserve the folded group
-    row and returned garrison strength through save-data copy before any debug
-    cleanup restores the fixture state.
-  - Current examples: `HST_SupportRequestService.FoldPhysicalSupportOutsideBubble()`,
+- Physical support groups should be state-first and runtime-gated by the player event bubble.
+  - Ground support/QRF/search/roadblock groups are not normal zone garrisons, so
+    generic zone deactivation intentionally skips them. The support lifecycle
+    should create the durable support request and active-group row even when the
+    target is off-screen, then keep that group simulated instead of spawning
+    runtime entities outside the player event bubble.
+  - Simulated support groups can advance their `m_vPosition` through the routed
+    active-group loop without live entities. Runtime group/vehicle creation is
+    deferred until the simulated group position enters the player event bubble;
+    do not mark these rows as spawn-failed or resolved just because they are
+    off-screen.
+  - Fold-back is still the terminal/recall cleanup path: once a support group is
+    intentionally folded, return only the active group's recorded survivor
+    infantry and vehicle counts to the abstract garrison, delete live runtime
+    handles, and keep the folded group row long enough for support and
+    enemy-order synchronization.
+  - Current examples: `HST_SupportRequestService.ApplyActiveSupport()`,
+    `HST_PhysicalWarService.ShouldDeferActiveGroupRuntimePhysicalization()`,
+    `HST_PhysicalWarService.UpdateActiveGroupRoutes()`,
     `HST_PhysicalWarService.FoldActiveSupportGroup()`,
+    `HST_CampaignCoordinatorComponent.RunCampaignDebugSupportSimulatedPhysicalizationCase()`,
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`,
     and `HST_CampaignCoordinatorComponent.BuildCampaignDebugGarrisonFoldbackCase()`.
 

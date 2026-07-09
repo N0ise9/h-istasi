@@ -11010,6 +11010,202 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return null;
 	}
 
+	protected void RunCampaignDebugSupportSimulatedPhysicalizationCase()
+	{
+		HST_CampaignDebugCaseResult supportCase = CreateCampaignDebugCase("support.simulated_physicalization", "support", "physicalization", "player_bubble");
+		bool servicesReady = m_State != null && m_Preset != null && m_SupportRequests != null && m_PhysicalWar != null && m_Garrisons != null;
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.simulated.prerequisite",
+			"state, preset, support, physical war, and garrison services ready",
+			string.Format("state %1 | preset %2 | support %3 | physical %4 | garrisons %5", m_State != null, m_Preset != null, m_SupportRequests != null, m_PhysicalWar != null, m_Garrisons != null),
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"simulated support physicalization prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(supportCase);
+			RecordCampaignDebugCase(supportCase);
+			return;
+		}
+
+		vector playerPosition = ResolveCampaignDebugPlayerRuntimePosition();
+		HST_ZoneState targetZone = FindCampaignDebugSupportSimulationFarZone(playerPosition);
+		bool targetReady = targetZone != null;
+		if (targetZone)
+			targetReady = DistanceSq2D(playerPosition, targetZone.m_vPosition) > HST_WorldPositionService.GetPlayerEventBubbleRadiusMeters() * HST_WorldPositionService.GetPlayerEventBubbleRadiusMeters();
+		vector targetZonePosition = "0 0 0";
+		string targetZoneId = "";
+		if (targetZone)
+		{
+			targetZonePosition = targetZone.m_vPosition;
+			targetZoneId = targetZone.m_sZoneId;
+		}
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.simulated.target",
+			"debug support target is outside the player event bubble",
+			string.Format("player %1 | zone %2 | pos %3", playerPosition, targetZone != null, targetZonePosition),
+			CampaignDebugStatus(targetReady, "BLOCKED"),
+			"could not find an off-bubble zone for simulated support physicalization");
+		if (!targetReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(supportCase);
+			RecordCampaignDebugCase(supportCase);
+			return;
+		}
+
+		string factionKey = ResolveCampaignDebugEnemySupportFactionKey();
+		vector targetPosition = targetZone.m_vPosition;
+		vector sourcePosition = targetPosition + "650 0 0";
+		HST_SupportRequestState request = m_SupportRequests.RequestPrepaidEnemySupport(m_State, m_Preset, factionKey, HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, targetZone.m_sZoneId, sourcePosition, targetPosition);
+		if (request)
+			ApplyCampaignDebugSupportRequestPrefix(request, "simulated_physicalization");
+
+		int inboundLeadSeconds = ResolveCampaignDebugSupportInboundLeadSeconds(request);
+		if (request)
+			request.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, request.m_iETASeconds - inboundLeadSeconds);
+		bool supportTickChanged = request && m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
+		bool physicalTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+		HST_ActiveGroupState group;
+		if (request && !request.m_sGroupId.IsEmpty())
+			group = m_State.FindActiveGroup(request.m_sGroupId);
+
+		bool outsideRuntimeExists;
+		if (group)
+			outsideRuntimeExists = m_PhysicalWar.CampaignDebugHasRuntimeGroupEntity(group.m_sGroupId);
+		bool outsideBubble = group && !HST_WorldPositionService.IsPositionInsidePlayerEventBubble(group.m_vPosition);
+		bool simulatedExpected = request && group;
+		simulatedExpected = simulatedExpected && request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE;
+		simulatedExpected = simulatedExpected && request.m_bPhysicalized;
+		simulatedExpected = simulatedExpected && !group.m_bSpawnedEntity;
+		simulatedExpected = simulatedExpected && !outsideRuntimeExists;
+		simulatedExpected = simulatedExpected && group.m_sSpawnFallbackMode.Contains("runtime_deferred_player_bubble");
+		string simulatedActual = string.Format("supportTick %1 | physicalTick %2 | outside %3 | request [%4] | group [%5] | runtime %6", supportTickChanged, physicalTickChanged, outsideBubble, BuildCampaignDebugSupportRequestActual(request), BuildCampaignDebugActiveGroupActual(group), outsideRuntimeExists);
+		string requestId = "";
+		if (request)
+			requestId = request.m_sRequestId;
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.simulated.deferred",
+			"off-bubble search support creates active campaign state without runtime entities",
+			ShortCampaignDebugLine(simulatedActual, 280),
+			CampaignDebugStatus(simulatedExpected),
+			"off-bubble support spawned runtime entities, failed to create group state, or resolved instead of simulating",
+			requestId,
+			"",
+			targetZoneId);
+
+		RefreshCampaignMarkers();
+		HST_MapMarkerState supportMarker;
+		if (request)
+			supportMarker = FindCampaignDebugMarkerLinkedTo(request.m_sRequestId);
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.simulated.marker",
+			"simulated support keeps a visible support marker while off-bubble",
+			BuildCampaignDebugMarkerActual(supportMarker),
+			CampaignDebugStatus(supportMarker != null),
+			"simulated support request marker was missing",
+			requestId,
+			"",
+			targetZoneId);
+
+		bool nearPrepared;
+		bool nearRuntimeExists;
+		bool nearPhysicalized;
+		string nearPopulationEvidence;
+		if (request && group)
+		{
+			vector nearPosition = HST_WorldPositionService.ResolveSafeGroundPosition(playerPosition + "25 0 25", HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
+			vector nearTargetPosition = HST_WorldPositionService.ResolveSafeGroundPosition(playerPosition + "80 0 35", HST_WorldPositionService.CHARACTER_GROUND_OFFSET, false, 2.0);
+			group.m_vPosition = nearPosition;
+			group.m_vSourcePosition = nearPosition;
+			group.m_vTargetPosition = nearTargetPosition;
+			group.m_sRuntimeStatus = "support_active";
+			group.m_bSpawnAttempted = false;
+			group.m_bSpawnedEntity = false;
+			group.m_sRuntimeEntityId = "";
+			group.m_iSpawnedAgentCount = 0;
+			group.m_iLastSeenAliveCount = 0;
+			group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
+			group.m_iSpawnedAtSecond = m_State.m_iElapsedSeconds;
+			request.m_vTargetPosition = nearTargetPosition;
+			request.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, request.m_iETASeconds - inboundLeadSeconds);
+			request.m_sRuntimeStatus = "physical_group_linked";
+			nearPrepared = HST_WorldPositionService.IsPositionInsidePlayerEventBubble(group.m_vPosition);
+
+			m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
+			group = m_State.FindActiveGroup(request.m_sGroupId);
+			if (group && group.m_sRuntimeStatus == "spawn_pending_agents")
+				m_PhysicalWar.CampaignDebugResolvePendingActiveGroupPopulation(group, m_State, "support_active", nearPopulationEvidence);
+			group = m_State.FindActiveGroup(request.m_sGroupId);
+			if (group)
+			{
+				nearRuntimeExists = m_PhysicalWar.CampaignDebugHasRuntimeGroupEntity(group.m_sGroupId);
+				nearPhysicalized = group.m_bSpawnedEntity || group.m_iSpawnedAgentCount > 0 || group.m_iLastSeenAliveCount > 0 || nearRuntimeExists;
+			}
+		}
+		string nearActual = string.Format("prepared %1 | runtime %2 | physicalized %3 | group [%4] | population %5", nearPrepared, nearRuntimeExists, nearPhysicalized, BuildCampaignDebugActiveGroupActual(group), EmptyCampaignDebugField(nearPopulationEvidence));
+		AddCampaignDebugAssertion(
+			supportCase,
+			"support.simulated.physicalizes_inside_bubble",
+			"simulated support physicalizes when its campaign position enters the player event bubble",
+			ShortCampaignDebugLine(nearActual, 280),
+			CampaignDebugStatus(nearPrepared && nearPhysicalized, "WARN"),
+			"simulated support did not produce runtime entities after being moved inside the player event bubble",
+			requestId,
+			"",
+			targetZoneId);
+
+		if (request)
+		{
+			CleanupCampaignDebugSupportRuntimeProbe(request);
+			RemoveCampaignDebugSupportRequestFromState(m_State, request.m_sRequestId);
+		}
+
+		FinalizeCampaignDebugCaseFromAssertions(supportCase);
+		RecordCampaignDebugCase(supportCase);
+	}
+
+	protected vector ResolveCampaignDebugPlayerRuntimePosition()
+	{
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		if (playerEntity)
+			return playerEntity.GetOrigin();
+
+		if (m_State && !IsZeroVector(m_State.m_vHQPosition))
+			return m_State.m_vHQPosition;
+
+		return "1000 0 1000";
+	}
+
+	protected HST_ZoneState FindCampaignDebugSupportSimulationFarZone(vector playerPosition)
+	{
+		if (!m_State)
+			return null;
+
+		float minimumDistanceMeters = HST_WorldPositionService.GetPlayerEventBubbleRadiusMeters() + 800.0;
+		float minimumDistanceSq = minimumDistanceMeters * minimumDistanceMeters;
+		HST_ZoneState bestZone;
+		float bestDistanceSq;
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || IsZeroVector(zone.m_vPosition))
+				continue;
+
+			float distanceSq = DistanceSq2D(playerPosition, zone.m_vPosition);
+			if (distanceSq < minimumDistanceSq)
+				continue;
+			if (bestZone && distanceSq <= bestDistanceSq)
+				continue;
+
+			bestZone = zone;
+			bestDistanceSq = distanceSq;
+		}
+
+		return bestZone;
+	}
+
 	protected void CaptureCampaignDebugSupportRequestMarkerSnapshot(HST_CampaignDebugSupportProbeContext probeContext)
 	{
 		if (!probeContext || !probeContext.m_Request)
@@ -11786,6 +11982,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RunCampaignDebugSupportRequestCase("suppressive fire support", HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE, false);
 		RunCampaignDebugSupportRequestCase("search support", HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY, false);
 		RunCampaignDebugRoadblockSupportRequestCase("roadblock support");
+		RunCampaignDebugSupportSimulatedPhysicalizationCase();
 		RecordCampaignDebugObservation("support report", RequestMemberInspectSupport(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("civilian report", RequestMemberInspectCivilians(m_iCampaignDebugPlayerId));
 		RecordCampaignDebugObservation("town support", RequestMemberInspectTownSupport(m_iCampaignDebugPlayerId));

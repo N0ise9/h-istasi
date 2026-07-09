@@ -1005,9 +1005,6 @@ class HST_MapMarkerService
 		if (group.m_sFactionKey != preset.m_sResistanceFactionKey)
 			return false;
 
-		if (!group.m_bSpawnedEntity && group.m_sRuntimeEntityId.IsEmpty())
-			return false;
-
 		if (IsTerminalActiveGroupStatus(group.m_sRuntimeStatus))
 			return false;
 
@@ -1056,13 +1053,23 @@ class HST_MapMarkerService
 				targetName = "HQ/Petros";
 		}
 
+		string groupStatus = "live";
+		if (group.m_sRuntimeStatus == "support_active")
+			groupStatus = "en route";
+		else if (group.m_sRuntimeStatus == "support_recalling")
+			groupStatus = "recalling";
+		else if (group.m_sRuntimeStatus == "support_arrived")
+			groupStatus = "arrived";
+		else if (group.m_sRuntimeStatus == "roadblock_established")
+			groupStatus = "established";
+
 		int knownAlive = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
 		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iLastSeenAliveCount));
 		knownAlive = Math.Max(knownAlive, Math.Max(0, group.m_iSpawnedAgentCount));
 		if (knownAlive > 0)
-			return string.Format("Resistance %1 | live | %2 alive | near %3", typeLabel, knownAlive, targetName);
+			return string.Format("Resistance %1 | %2 | %3 alive | near %4", typeLabel, groupStatus, knownAlive, targetName);
 
-		return string.Format("Resistance %1 | live | near %2", typeLabel, targetName);
+		return string.Format("Resistance %1 | %2 | near %3", typeLabel, groupStatus, targetName);
 	}
 
 	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint, bool deconflict = false, bool runtimeNative = true)

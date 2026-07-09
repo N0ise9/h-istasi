@@ -1836,21 +1836,7 @@ class HST_SupportRequestService
 		if (request.m_sRuntimeStatus == "physicalize_failed_no_prefab")
 			return false;
 
-		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-			return true;
-
-		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
-		if (targetZone && targetZone.m_bActive)
-			return true;
-
-		if (HasActiveMissionNearSupportTarget(state, request))
-			return true;
-
-		if (HasActiveObjectiveNearSupportTarget(state, request))
-			return true;
-
-		vector targetPosition = ResolvePhysicalSupportTargetPosition(state, request);
-		return HST_WorldPositionService.IsPositionInsidePlayerEventBubble(targetPosition);
+		return true;
 	}
 
 	protected bool HasActiveMissionNearSupportTarget(HST_CampaignState state, HST_SupportRequestState request)
