@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r119-economy-income-source-report";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r120-population-income-scaling";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -10449,6 +10449,105 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return incomeCase;
 	}
 
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPopulationIncomeCase()
+	{
+		HST_CampaignDebugCaseResult incomeCase = CreateCampaignDebugCase("economy.income.population_scaling.contract.runtime", "economy", "income", "economy_force");
+		bool servicesReady = m_Towns != null && m_Preset != null && m_Balance != null;
+		AddCampaignDebugAssertion(
+			incomeCase,
+			"economy.income.population.prerequisite",
+			"town service, preset, and balance are ready for population income proof",
+			string.Format("towns %1 | preset %2 | balance %3", m_Towns != null, m_Preset != null, m_Balance != null),
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"population income prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(incomeCase);
+			return incomeCase;
+		}
+
+		string zoneId = "debug_population_income_town";
+		HST_CampaignState healthyState = BuildCampaignDebugPopulationIncomeState(zoneId, 100, 0);
+		HST_CampaignState damagedState = BuildCampaignDebugPopulationIncomeState(zoneId, 25, 75);
+		int healthyMoney = m_Towns.CalculateResistanceIncome(healthyState, m_Preset.m_sResistanceFactionKey);
+		int damagedMoney = m_Towns.CalculateResistanceIncome(damagedState, m_Preset.m_sResistanceFactionKey);
+		int healthyHR = m_Towns.CalculateResistanceHRIncome(healthyState, m_Preset.m_sResistanceFactionKey);
+		int damagedHR = m_Towns.CalculateResistanceHRIncome(damagedState, m_Preset.m_sResistanceFactionKey);
+		int healthyPercent = m_Towns.DebugResolveTownPopulationIncomePercent(healthyState, zoneId);
+		int damagedPercent = m_Towns.DebugResolveTownPopulationIncomePercent(damagedState, zoneId);
+		int damagedZoneMoney = m_Towns.DebugCalculateZoneMoneyIncome(damagedState, zoneId);
+		string damagedReport = m_Towns.BuildIncomeReport(damagedState, m_Preset, m_Balance);
+		string actual = string.Format("healthy money %1 HR %2 population %3 pct | damaged money %4 HR %5 population %6 pct | damaged zone money %7", healthyMoney, healthyHR, healthyPercent, damagedMoney, damagedHR, damagedPercent, damagedZoneMoney);
+		incomeCase.m_aEvidence.Insert(actual);
+		incomeCase.m_aEvidence.Insert("damaged report | " + ShortCampaignDebugLine(damagedReport, 360));
+		AddCampaignDebugMetric(incomeCase, "economy.income.population.healthy_money", string.Format("%1", healthyMoney), "money");
+		AddCampaignDebugMetric(incomeCase, "economy.income.population.damaged_money", string.Format("%1", damagedMoney), "money");
+		AddCampaignDebugMetric(incomeCase, "economy.income.population.healthy_percent", string.Format("%1", healthyPercent), "percent");
+		AddCampaignDebugMetric(incomeCase, "economy.income.population.damaged_percent", string.Format("%1", damagedPercent), "percent");
+
+		int expectedHealthyMoney = 103;
+		int expectedDamagedMoney = 26;
+		bool moneyExpected = healthyMoney == expectedHealthyMoney && damagedMoney == expectedDamagedMoney && healthyMoney > damagedMoney;
+		AddCampaignDebugAssertion(
+			incomeCase,
+			"economy.income.population.money_scaling",
+			"town money income scales down with killed/remaining civilian population",
+			actual,
+			CampaignDebugStatus(moneyExpected),
+			"population damage did not reduce town money income by the expected multiplier");
+		bool hrExpected = healthyHR == 1 && damagedHR == 0;
+		AddCampaignDebugAssertion(
+			incomeCase,
+			"economy.income.population.hr_gate",
+			"town HR income requires enough surviving population as well as support",
+			actual,
+			CampaignDebugStatus(hrExpected),
+			"population damage did not gate town HR income");
+		bool reportExpected = damagedReport.Contains("town population 25 pct") && damagedReport.Contains("population 25 pct") && damagedReport.Contains("income 26");
+		AddCampaignDebugAssertion(
+			incomeCase,
+			"economy.income.population.report",
+			"income report exposes the population multiplier beside source totals and town rows",
+			ShortCampaignDebugLine(damagedReport, 360),
+			CampaignDebugStatus(reportExpected),
+			"income report did not expose the population-adjusted town income evidence");
+
+		FinalizeCampaignDebugCaseFromAssertions(incomeCase);
+		return incomeCase;
+	}
+
+	protected HST_CampaignState BuildCampaignDebugPopulationIncomeState(string zoneId, int populationRemaining, int populationKilled)
+	{
+		HST_CampaignState state = new HST_CampaignState();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		state.m_sPresetId = m_Preset.m_sPresetId;
+
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = zoneId;
+		zone.m_sDisplayName = "Debug Population Income Town";
+		zone.m_eType = HST_EZoneType.HST_ZONE_TOWN;
+		zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+		zone.m_iIncomeValue = 100;
+		zone.m_iSupport = 36;
+		zone.m_iPriority = 1;
+		zone.m_vPosition = "11000 0 11000";
+		state.m_aZones.Insert(zone);
+
+		HST_CivilianZoneState civilianZone = new HST_CivilianZoneState();
+		civilianZone.m_sZoneId = zoneId;
+		civilianZone.m_iFIASupport = 70;
+		civilianZone.m_iOccupierSupport = 20;
+		civilianZone.m_iReputation = 60;
+		civilianZone.m_iCivilianPresence = 12;
+		civilianZone.m_iPopulationRemaining = populationRemaining;
+		civilianZone.m_iPopulationKilled = populationKilled;
+		civilianZone.m_sLastInfluenceKind = "population_income_debug";
+		state.m_aCivilianZones.Insert(civilianZone);
+		return state;
+	}
+
 	protected string BuildCampaignDebugIncomeZoneActual(HST_ZoneState incomeZone)
 	{
 		if (!incomeZone)
@@ -11423,6 +11522,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugAction("seed income zone", incomeContext.m_sSeedResult);
 		RecordCampaignDebugAction("income tick", incomeContext.m_sCommandResult);
 		RecordCampaignDebugCase(BuildCampaignDebugIncomeTickCase(incomeContext));
+		RecordCampaignDebugCase(BuildCampaignDebugPopulationIncomeCase());
 		int moneyBeforeTraining = m_State.m_iFactionMoney;
 		int trainingBefore = m_State.m_iTrainingLevel;
 		string trainResult = RequestCommanderTrainTroopsReport(m_iCampaignDebugPlayerId);

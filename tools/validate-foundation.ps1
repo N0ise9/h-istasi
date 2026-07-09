@@ -3389,6 +3389,15 @@ foreach ($requiredEconomyIncomeSourceEntry in @(
 		"m_sEconomyReport",
 		"RequestMemberInspectEconomy",
 		"economy.income.report_breakdown",
+		"ApplyTownPopulationIncomeMultiplier",
+		"ResolveTownPopulationIncomePercent",
+		"DebugResolveTownPopulationIncomePercent",
+		"economy.income.population_scaling.contract.runtime",
+		"economy.income.population.money_scaling",
+		"economy.income.population.hr_gate",
+		"economy.income.population.report",
+		"town population %4 pct",
+		"population %1 pct",
 		"expectedReportMoney",
 		"expectedReportHR"
 	)) {

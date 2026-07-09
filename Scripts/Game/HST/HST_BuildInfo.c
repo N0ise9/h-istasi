@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r119-economy-income-source-report";
-	static const string BUILD_UTC = "2026-07-09T03:12:34Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r119-economy-income-source-report";
+	static const string BUILD_SHA = "r120-population-income-scaling";
+	static const string BUILD_UTC = "2026-07-09T03:28:18Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r120-population-income-scaling";
 
 	static string BuildSummary()
 	{

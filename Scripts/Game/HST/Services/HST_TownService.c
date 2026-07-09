@@ -81,14 +81,18 @@ class HST_TownService
 			if (!zone || zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 				continue;
 
+			string populationText = "";
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+				populationText = string.Format(" | population %1 pct", ResolveTownPopulationIncomePercent(state, zone));
+
 			report = report + string.Format(
 				"\n%1 | %2 | income %3 | support %4 | HR %5",
 				zone.m_sZoneId,
 				zone.m_eType,
-				CalculateZoneMoneyIncome(zone),
+				CalculateZoneMoneyIncome(state, zone),
 				zone.m_iSupport,
-				ResolveZoneHRIncome(zone)
-			);
+				ResolveZoneHRIncome(state, zone)
+			) + populationText;
 		}
 
 		report = report + string.Format("\nradio influence | radius %1m | one nearest owned tower per town per income tick", Math.Round(RADIO_TOWN_INFLUENCE_RADIUS_METERS));
@@ -157,6 +161,7 @@ class HST_TownService
 		int townMoney;
 		int townHR;
 		int townZones;
+		int townPopulationPercentTotal;
 		int resourceMoney;
 		int resourceHR;
 		int resourceZones;
@@ -181,12 +186,13 @@ class HST_TownService
 			if (!zone || zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 				continue;
 
-			int money = CalculateZoneMoneyIncome(zone);
-			int hr = ResolveZoneHRIncome(zone);
+			int money = CalculateZoneMoneyIncome(state, zone);
+			int hr = ResolveZoneHRIncome(state, zone);
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
 			{
 				townMoney += money;
 				townHR += hr;
+				townPopulationPercentTotal += ResolveTownPopulationIncomePercent(state, zone);
 				townZones++;
 			}
 			else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
@@ -227,7 +233,11 @@ class HST_TownService
 			}
 		}
 
-		string report = string.Format("income sources | towns money %1 HR %2 zones %3", townMoney, townHR, townZones);
+		int averageTownPopulationPercent = 100;
+		if (townZones > 0)
+			averageTownPopulationPercent = townPopulationPercentTotal / townZones;
+
+		string report = string.Format("income sources | towns money %1 HR %2 zones %3 town population %4 pct", townMoney, townHR, townZones, averageTownPopulationPercent);
 		report = report + string.Format(" | resources money %1 HR %2 zones %3", resourceMoney, resourceHR, resourceZones);
 		report = report + string.Format(" | factories money %1 HR %2 zones %3", factoryMoney, factoryHR, factoryZones);
 		report = report + string.Format(" | seaports money %1 HR %2 zones %3", seaportMoney, seaportHR, seaportZones);
@@ -245,7 +255,7 @@ class HST_TownService
 			if (!zone || zone.m_sOwnerFactionKey != resistanceFactionKey)
 				continue;
 
-			income += CalculateZoneMoneyIncome(zone);
+			income += CalculateZoneMoneyIncome(state, zone);
 		}
 
 		return income;
@@ -259,32 +269,51 @@ class HST_TownService
 			if (!zone || zone.m_sOwnerFactionKey != resistanceFactionKey)
 				continue;
 
-			income += ResolveZoneHRIncome(zone);
+			income += ResolveZoneHRIncome(state, zone);
 		}
 
 		return income;
 	}
 
-	protected int ResolveZoneHRIncome(HST_ZoneState zone)
+	int DebugCalculateZoneMoneyIncome(HST_CampaignState state, string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return 0;
+
+		return CalculateZoneMoneyIncome(state, state.FindZone(zoneId));
+	}
+
+	int DebugResolveTownPopulationIncomePercent(HST_CampaignState state, string zoneId)
+	{
+		if (!state || zoneId.IsEmpty())
+			return 100;
+
+		return ResolveTownPopulationIncomePercent(state, state.FindZone(zoneId));
+	}
+
+	protected int ResolveZoneHRIncome(HST_CampaignState state, HST_ZoneState zone)
 	{
 		if (!zone)
 			return 0;
 
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport >= 25)
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport >= 25 && ResolveTownPopulationIncomePercent(state, zone) >= 50)
 			return 1;
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE && zone.m_sResourceKind == "food")
 			return 1;
 		return 0;
 	}
 
-	protected int CalculateZoneMoneyIncome(HST_ZoneState zone)
+	protected int CalculateZoneMoneyIncome(HST_CampaignState state, HST_ZoneState zone)
 	{
 		if (!zone)
 			return 0;
 
 		int income = zone.m_iIncomeValue;
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+		{
 			income += Math.Max(0, zone.m_iSupport / 12);
+			income = ApplyTownPopulationIncomeMultiplier(state, zone, income);
+		}
 		else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
 			income += 12 + zone.m_iPriority / 2;
 		else if (zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY)
@@ -295,6 +324,33 @@ class HST_TownService
 			income += 50;
 
 		return income;
+	}
+
+	protected int ApplyTownPopulationIncomeMultiplier(HST_CampaignState state, HST_ZoneState zone, int income)
+	{
+		if (!state || !zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return income;
+
+		int populationPercent = ResolveTownPopulationIncomePercent(state, zone);
+		return Math.Max(0, (income * populationPercent + 50) / 100);
+	}
+
+	protected int ResolveTownPopulationIncomePercent(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return 100;
+
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
+		if (!civilianZone)
+			return 100;
+
+		int remaining = Math.Max(0, civilianZone.m_iPopulationRemaining);
+		int killed = Math.Max(0, civilianZone.m_iPopulationKilled);
+		int total = remaining + killed;
+		if (total <= 0)
+			return 100;
+
+		return Math.Max(0, Math.Min(100, (remaining * 100 + total / 2) / total));
 	}
 
 	protected bool ApplyPeriodicTownInfluence(HST_CampaignState state, HST_CampaignPreset preset, HST_CivilianService civilians)

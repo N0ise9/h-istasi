@@ -83,7 +83,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Player-facing economy reports should consume the same service-owned income math as the tick path.
   - If the Command Menu repeats income formulas locally, report totals can drift from actual money/HR mutation as town support, resource types, factories, seaports, airfields, or bank effects change.
   - Keep category/source breakdowns in the town service, then have member inspection append that report so next-income totals, source totals, and per-zone rows are all derived from `CalculateResistanceIncome()`, `CalculateResistanceHRIncome()`, `CalculateZoneMoneyIncome()`, and `ResolveZoneHRIncome()`.
+  - Civilian population does not need a separate initial-population durable field for income scaling. Derive the surviving share from `populationRemaining / (populationRemaining + populationKilled)` so old saves and influence events keep working without migration, and let missing civilian records fall back to full income.
   - Current examples:
+    `HST_TownService.ResolveTownPopulationIncomePercent()`,
     `HST_TownService.BuildIncomeSourceBreakdown()`,
     `HST_TownService.BuildIncomeReport()`, and
     `HST_CampaignCoordinatorComponent.RequestMemberInspectEconomy()`.
