@@ -39,6 +39,7 @@ class HST_SupportRequestService
 	static const int PLAYER_FIRE_COST = 350;
 	static const int PLAYER_AIRSTRIKE_COST = 750;
 	static const int PLAYER_CRUISE_MISSILE_COST = 1200;
+	static const int PLAYER_ROADBLOCK_COST = 0;
 	static const int DEFAULT_ETA_SECONDS = 120;
 	static const int HELICOPTER_STYLE_ETA_SECONDS = 180;
 	static const int PLAYER_SUPPORT_COOLDOWN_SECONDS = 600;
@@ -79,17 +80,103 @@ class HST_SupportRequestService
 		return result.m_Request;
 	}
 
-	HST_SupportRequestResult RequestSupportDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
+	HST_SupportRequestResult RequestSupportDetailed(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EconomyService economy,
+		HST_EnemyDirectorService enemyDirector,
+		string factionKey,
+		HST_ESupportRequestType supportType,
+		string targetZoneId,
+		bool playerRequested = false,
+		int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
 	{
-		return RequestSupportDetailedInternal(state, preset, economy, enemyDirector, factionKey, supportType, targetZoneId, "0 0 0", false, playerRequested, playerCooldownSeconds);
+		return RequestSupportDetailedInternal(
+			state,
+			preset,
+			economy,
+			enemyDirector,
+			factionKey,
+			supportType,
+			targetZoneId,
+			"0 0 0",
+			false,
+			playerRequested,
+			playerCooldownSeconds
+		);
 	}
 
-	HST_SupportRequestResult RequestSupportAtPositionDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, vector targetPosition, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
+	HST_SupportRequestResult RequestSupportAtPositionDetailed(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EconomyService economy,
+		HST_EnemyDirectorService enemyDirector,
+		string factionKey,
+		HST_ESupportRequestType supportType,
+		string targetZoneId,
+		vector targetPosition,
+		bool playerRequested = false,
+		int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
 	{
-		return RequestSupportDetailedInternal(state, preset, economy, enemyDirector, factionKey, supportType, targetZoneId, targetPosition, true, playerRequested, playerCooldownSeconds);
+		return RequestSupportDetailedInternal(
+			state,
+			preset,
+			economy,
+			enemyDirector,
+			factionKey,
+			supportType,
+			targetZoneId,
+			targetPosition,
+			true,
+			playerRequested,
+			playerCooldownSeconds
+		);
 	}
 
-	protected HST_SupportRequestResult RequestSupportDetailedInternal(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, vector targetPosition, bool useExplicitTargetPosition, bool playerRequested, int playerCooldownSeconds)
+	HST_SupportRequestResult RequestRoadblockAtPositionDetailed(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EconomyService economy,
+		HST_EnemyDirectorService enemyDirector,
+		string targetZoneId,
+		vector targetPosition,
+		string garageVehicleId,
+		bool playerRequested = true,
+		int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
+	{
+		string resistanceFactionKey = "FIA";
+		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
+			resistanceFactionKey = preset.m_sResistanceFactionKey;
+
+		return RequestSupportDetailedInternal(
+			state,
+			preset,
+			economy,
+			enemyDirector,
+			resistanceFactionKey,
+			HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK,
+			targetZoneId,
+			targetPosition,
+			true,
+			playerRequested,
+			playerCooldownSeconds,
+			garageVehicleId
+		);
+	}
+
+	protected HST_SupportRequestResult RequestSupportDetailedInternal(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EconomyService economy,
+		HST_EnemyDirectorService enemyDirector,
+		string factionKey,
+		HST_ESupportRequestType supportType,
+		string targetZoneId,
+		vector targetPosition,
+		bool useExplicitTargetPosition,
+		bool playerRequested,
+		int playerCooldownSeconds,
+		string selectedGarageVehicleId = "")
 	{
 		HST_SupportRequestResult result = new HST_SupportRequestResult();
 
@@ -139,6 +226,21 @@ class HST_SupportRequestService
 			supportCost,
 			playerCooldownSeconds
 		);
+
+		HST_GarageVehicleState selectedRoadblockVehicle;
+		if (factionKey == preset.m_sResistanceFactionKey && supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+		{
+			selectedRoadblockVehicle = ResolveRoadblockGarageVehicle(state, selectedGarageVehicleId);
+			if (!selectedRoadblockVehicle)
+			{
+				result.m_sFailureReason = "no stored HQ vehicle selected for roadblock";
+				if (!selectedGarageVehicleId.IsEmpty())
+					result.m_sFailureReason = "stored HQ vehicle not found for roadblock: " + selectedGarageVehicleId;
+				return result;
+			}
+
+			ApplyGarageVehicleToRoadblockRequest(request, selectedRoadblockVehicle);
+		}
 
 		if (factionKey == preset.m_sResistanceFactionKey)
 		{
@@ -190,6 +292,20 @@ class HST_SupportRequestService
 				economy.AddFactionMoney(state, moneyCost);
 				result.m_sFailureReason = "HR spend failed";
 				return result;
+			}
+
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			{
+				HST_GarageVehicleState consumedVehicle = ConsumeRoadblockGarageVehicle(state, request.m_sSelectedGarageVehicleId);
+				if (!consumedVehicle)
+				{
+					economy.AddFactionMoney(state, moneyCost);
+					economy.AddHR(state, hrCost);
+					result.m_sFailureReason = "selected HQ garage vehicle could not be consumed";
+					return result;
+				}
+
+				request.m_bGarageVehicleConsumed = true;
 			}
 		}
 		else
@@ -251,6 +367,55 @@ class HST_SupportRequestService
 		m_bMarkerRefreshNeeded = true;
 		Print(string.Format("h-istasi | prepaid enemy support %1 linked to order for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
 		return request;
+	}
+
+	protected HST_GarageVehicleState ResolveRoadblockGarageVehicle(HST_CampaignState state, string garageVehicleId)
+	{
+		if (!state || state.m_aGarageVehicles.Count() == 0)
+			return null;
+
+		if (!garageVehicleId.IsEmpty())
+			return state.FindGarageVehicle(garageVehicleId);
+
+		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
+		{
+			if (vehicle && !vehicle.m_sPrefab.IsEmpty())
+				return vehicle;
+		}
+
+		return null;
+	}
+
+	protected void ApplyGarageVehicleToRoadblockRequest(HST_SupportRequestState request, HST_GarageVehicleState vehicle)
+	{
+		if (!request || !vehicle)
+			return;
+
+		request.m_sSelectedGarageVehicleId = vehicle.m_sVehicleId;
+		request.m_sSelectedGarageVehiclePrefab = vehicle.m_sPrefab;
+		request.m_sSelectedGarageVehicleDisplayName = vehicle.m_sDisplayName;
+		if (request.m_sSelectedGarageVehicleDisplayName.IsEmpty())
+			request.m_sSelectedGarageVehicleDisplayName = HST_DisplayNameService.ResolveVehicleDisplayName(vehicle.m_sPrefab, vehicle.m_sVehicleId);
+		request.m_sDeploymentSummary = "HQ garage vehicle selected: " + request.m_sSelectedGarageVehicleDisplayName;
+		request.m_sPhysicalizationMode = "roadblock_vehicle_selected";
+	}
+
+	protected HST_GarageVehicleState ConsumeRoadblockGarageVehicle(HST_CampaignState state, string garageVehicleId)
+	{
+		if (!state || garageVehicleId.IsEmpty())
+			return null;
+
+		for (int i = 0; i < state.m_aGarageVehicles.Count(); i++)
+		{
+			HST_GarageVehicleState vehicle = state.m_aGarageVehicles[i];
+			if (!vehicle || vehicle.m_sVehicleId != garageVehicleId)
+				continue;
+
+			state.m_aGarageVehicles.Remove(i);
+			return vehicle;
+		}
+
+		return null;
 	}
 
 	protected HST_SupportRequestState BuildSupportRequestRecord(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ESupportRequestType supportType, HST_ZoneState targetZone, vector targetPosition, vector sourcePosition, bool playerRequested, int moneyCost, int attackCost, int supportCost, int playerCooldownSeconds)
@@ -402,7 +567,10 @@ class HST_SupportRequestService
 
 				request.m_bAbstractResolved = true;
 				MarkPhysicalSupportArrived(state, request);
-				request.m_sRuntimeStatus = "physical_arrived";
+				if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+					request.m_sRuntimeStatus = "roadblock_established";
+				else
+					request.m_sRuntimeStatus = "physical_arrived";
 				m_bMarkerRefreshNeeded = true;
 				return true;
 			}
@@ -600,6 +768,8 @@ class HST_SupportRequestService
 				detail = detail + " | outcome applied";
 			if (request.m_bRecallRequested)
 				detail = detail + string.Format(" | recall at %1 exit %2 refund HR %3/%4", request.m_iRecallRequestedAtSecond, request.m_vRecallExitPosition, request.m_iRefundedHR, request.m_iHRCost);
+			if (!request.m_sSelectedGarageVehicleId.IsEmpty())
+				detail = detail + string.Format(" | garage vehicle %1 %2 consumed %3", request.m_sSelectedGarageVehicleId, request.m_sSelectedGarageVehicleDisplayName, request.m_bGarageVehicleConsumed);
 
 			string compositionDetail = "";
 			if (!request.m_sCompositionIntentId.IsEmpty() || request.m_iCompositionManpower > 0 || request.m_iCompositionVehicleCount > 0)
@@ -792,13 +962,28 @@ class HST_SupportRequestService
 		}
 
 		string prefab = groupPlan.m_sPrefab;
+		bool roadblockSupport = request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK;
+		if (roadblockSupport)
+		{
+			composition.m_iVehicleCount = Math.Max(1, composition.m_iVehicleCount);
+			request.m_iCompositionVehicleCount = Math.Max(1, request.m_iCompositionVehicleCount);
+		}
 
 		if (!m_SpawnPlacements)
 			m_SpawnPlacements = new HST_SpawnPlacementService();
 
 		bool requireVehicleSafe = composition.m_iVehicleCount > 0;
-		HST_SpawnPlacementResult placement = m_SpawnPlacements.ResolvePlacement(state, preset, m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget, requireVehicleSafe));
-		if (requireVehicleSafe && placement && !placement.m_bSuccess && placement.m_sFailureReason.Contains("vehicle-safe"))
+		HST_SpawnPlacementRequest placementRequest;
+		if (roadblockSupport)
+			placementRequest = m_SpawnPlacements.BuildRoadblockPlacementRequest(state, preset, request);
+		else
+			placementRequest = m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget, requireVehicleSafe);
+		HST_SpawnPlacementResult placement = m_SpawnPlacements.ResolvePlacement(state, preset, placementRequest);
+		bool vehicleSafeDowngradeAllowed = !roadblockSupport && requireVehicleSafe;
+		vehicleSafeDowngradeAllowed = vehicleSafeDowngradeAllowed && placement;
+		vehicleSafeDowngradeAllowed = vehicleSafeDowngradeAllowed && !placement.m_bSuccess;
+		vehicleSafeDowngradeAllowed = vehicleSafeDowngradeAllowed && placement.m_sFailureReason.Contains("vehicle-safe");
+		if (vehicleSafeDowngradeAllowed)
 		{
 			requireVehicleSafe = false;
 			composition.m_iVehicleCount = 0;
@@ -811,7 +996,14 @@ class HST_SupportRequestService
 			else
 				composition.m_sDebugSummary = vehicleDowngradeSummary;
 			request.m_sCompositionSummary = composition.m_sDebugSummary;
-			placement = m_SpawnPlacements.ResolvePlacement(state, preset, m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, arrivedAtTarget, false));
+			HST_SpawnPlacementRequest infantryPlacementRequest = m_SpawnPlacements.BuildSupportPlacementRequest(
+				state,
+				preset,
+				request,
+				arrivedAtTarget,
+				false
+			);
+			placement = m_SpawnPlacements.ResolvePlacement(state, preset, infantryPlacementRequest);
 			if (placement && placement.m_bSuccess)
 				placement.m_sDebugSummary = placement.m_sDebugSummary + " | " + vehicleDowngradeSummary;
 		}
@@ -846,7 +1038,13 @@ class HST_SupportRequestService
 		vector targetPosition = objectivePosition;
 		vector sourcePosition;
 		string phase = "staged";
-		if (arrivedAtTarget)
+		if (roadblockSupport)
+		{
+			sourcePosition = placement.m_vSpawnPosition;
+			targetPosition = sourcePosition;
+			phase = "established";
+		}
+		else if (arrivedAtTarget)
 		{
 			sourcePosition = placement.m_vSpawnPosition;
 			targetPosition = sourcePosition;
@@ -876,6 +1074,8 @@ class HST_SupportRequestService
 		group.m_sSpawnFallbackMode = "support";
 		if (IsPetrosAttackSupport(request))
 			group.m_sSpawnFallbackMode = "petros_attack_support";
+		if (roadblockSupport)
+			group.m_sSpawnFallbackMode = "roadblock_support";
 		group.m_sRouteId = request.m_sDeploymentRouteId;
 		group.m_vSourcePosition = sourcePosition;
 		group.m_vTargetPosition = targetPosition;
@@ -883,8 +1083,12 @@ class HST_SupportRequestService
 		group.m_sRuntimeStatus = "support_arrived";
 		if (!arrivedAtTarget)
 			group.m_sRuntimeStatus = "support_active";
+		if (roadblockSupport)
+			group.m_sRuntimeStatus = "roadblock_established";
 		group.m_iInfantryCount = Math.Max(1, groupPlan.m_iManpower);
 		group.m_iVehicleCount = Math.Max(0, composition.m_iVehicleCount);
+		if (roadblockSupport)
+			group.m_iVehicleCount = Math.Max(1, group.m_iVehicleCount);
 		group.m_iOriginalInfantryCount = group.m_iInfantryCount;
 		group.m_iOriginalVehicleCount = group.m_iVehicleCount;
 		group.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
@@ -892,6 +1096,8 @@ class HST_SupportRequestService
 		group.m_iSurvivorInfantryCount = group.m_iInfantryCount;
 		group.m_iSurvivorVehicleCount = group.m_iVehicleCount;
 		group.m_bQRF = request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF;
+		if (roadblockSupport && !request.m_sSelectedGarageVehiclePrefab.IsEmpty())
+			group.m_sVehiclePrefab = request.m_sSelectedGarageVehiclePrefab;
 		state.m_aActiveGroups.Insert(group);
 
 		request.m_sGroupId = group.m_sGroupId;
@@ -899,6 +1105,14 @@ class HST_SupportRequestService
 		request.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
 		request.m_sPhysicalizationMode = "ground_group";
 		request.m_sRuntimeStatus = "physical_group_linked";
+		if (roadblockSupport)
+		{
+			request.m_sPhysicalizationMode = "roadblock_group";
+			request.m_sRuntimeStatus = "roadblock_established";
+			ApplyRoadblockOutcome(state, request);
+			request.m_bOutcomeApplied = true;
+			request.m_sResolutionKind = "physical_roadblock_established";
+		}
 		m_bMarkerRefreshNeeded = true;
 		Print(string.Format("h-istasi | physical support %1 %2 near %3 | spawn %4 | objective %5 | group %6 | prefab %7", request.m_sRequestId, phase, request.m_sTargetZoneId, group.m_vPosition, objectivePosition, group.m_sGroupId, group.m_sPrefab));
 		return true;
@@ -994,9 +1208,18 @@ class HST_SupportRequestService
 			return;
 		}
 
-		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+		bool qrfPressureSupport = request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF;
+		qrfPressureSupport = qrfPressureSupport || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		if (qrfPressureSupport)
 		{
 			ApplyQRFOutcome(state, preset, garrisons, request);
+			request.m_bOutcomeApplied = true;
+			return;
+		}
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+		{
+			ApplyRoadblockOutcome(state, request);
 			request.m_bOutcomeApplied = true;
 			return;
 		}
@@ -1027,6 +1250,26 @@ class HST_SupportRequestService
 
 		request.m_sResolutionKind = "abstract_no_effect";
 		request.m_bOutcomeApplied = true;
+	}
+
+	protected void ApplyRoadblockOutcome(HST_CampaignState state, HST_SupportRequestState request)
+	{
+		if (!state || !request)
+			return;
+
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(request.m_sTargetZoneId);
+		if (!civilianZone)
+		{
+			civilianZone = new HST_CivilianZoneState();
+			civilianZone.m_sZoneId = request.m_sTargetZoneId;
+			state.m_aCivilianZones.Insert(civilianZone);
+		}
+
+		civilianZone.m_iRoadblockPresence = Math.Min(3, civilianZone.m_iRoadblockPresence + 1);
+		if (!request.m_sGroupId.IsEmpty())
+			request.m_sResolutionKind = "physical_roadblock";
+		else
+			request.m_sResolutionKind = "abstract_roadblock";
 	}
 
 	protected bool ApplySupportNearHQStrategicEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_HQService hq, HST_SupportRequestState request)
@@ -1092,6 +1335,8 @@ class HST_SupportRequestService
 			return "supply_abstract";
 		if (request.m_bHelicopterStyle)
 			return "helicopter_abstract";
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return "roadblock_abstract";
 		if (IsPhysicalGroundSupport(request))
 			return "ground_abstract";
 
@@ -1192,17 +1437,28 @@ class HST_SupportRequestService
 		attackCost = 8;
 		supportCost = 4;
 
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+		bool qrfStyleCost = supportType == HST_ESupportRequestType.HST_SUPPORT_QRF;
+		qrfStyleCost = qrfStyleCost || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		if (qrfStyleCost)
 		{
 			attackCost = 15;
 			supportCost = 5;
 			return;
 		}
 
-		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING || supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
+		bool highPressureCost = supportType == HST_ESupportRequestType.HST_SUPPORT_TROOP_LANDING;
+		highPressureCost = highPressureCost || supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE;
+		if (highPressureCost)
 		{
 			attackCost = 20;
 			supportCost = 8;
+			return;
+		}
+
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+		{
+			attackCost = 8;
+			supportCost = 6;
 			return;
 		}
 
@@ -1235,6 +1491,9 @@ class HST_SupportRequestService
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
 			return 150;
 
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return 45;
+
 		if (IsHelicopterStyle(supportType))
 			return HELICOPTER_STYLE_ETA_SECONDS;
 
@@ -1260,6 +1519,9 @@ class HST_SupportRequestService
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
 			return PLAYER_CRUISE_MISSILE_COST;
 
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return PLAYER_ROADBLOCK_COST;
+
 		return PLAYER_SUPPLY_COST;
 	}
 
@@ -1270,6 +1532,8 @@ class HST_SupportRequestService
 			return Math.Max(3, Math.Min(12 + warLevel, 4 + warLevel));
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
 			return Math.Max(3, Math.Min(12 + warLevel, 3 + warLevel));
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return Math.Max(2, Math.Min(6, 2 + warLevel / 2));
 
 		return 0;
 	}
@@ -1486,6 +1750,9 @@ class HST_SupportRequestService
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
 			return "suppressive_fire";
 
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return "roadblock";
+
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU || supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
 			return "airstrike";
 
@@ -1505,6 +1772,8 @@ class HST_SupportRequestService
 				return "fia_qrf_reserve_alpha";
 			if (supportType == HST_ESupportRequestType.HST_SUPPORT_SUPPRESSIVE_FIRE)
 				return "fia_capability_suppressive_fire_alpha";
+			if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+				return "fia_roadblock_alpha";
 			if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_GBU)
 				return "fia_abstract_airstrike_alpha";
 			if (supportType == HST_ESupportRequestType.HST_SUPPORT_AIRSTRIKE_UMPK)
@@ -1538,7 +1807,14 @@ class HST_SupportRequestService
 		if (!request || request.m_bHelicopterStyle)
 			return false;
 
-		return request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return true;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return true;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return true;
+
+		return false;
 	}
 
 	protected bool IsPetrosAttackSupport(HST_SupportRequestState request)
@@ -1559,6 +1835,9 @@ class HST_SupportRequestService
 
 		if (request.m_sRuntimeStatus == "physicalize_failed_no_prefab")
 			return false;
+
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return true;
 
 		HST_ZoneState targetZone = state.FindZone(request.m_sTargetZoneId);
 		if (targetZone && targetZone.m_bActive)
@@ -2038,7 +2317,8 @@ class HST_SupportRequestService
 			return "";
 
 		int seed = BuildSupportGroupSeed(state, request);
-		bool qrfStyle = supportType == HST_ESupportRequestType.HST_SUPPORT_QRF || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		bool qrfStyle = supportType == HST_ESupportRequestType.HST_SUPPORT_QRF;
+		qrfStyle = qrfStyle || supportType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
 		array<string> candidates = {};
 		if (qrfStyle)
 		{

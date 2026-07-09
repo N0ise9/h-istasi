@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `40`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `41`.
 
+- Schema 41 extends support request rows with selected roadblock garage vehicle
+  id, prefab, display name, and consumed-state fields so established roadblock
+  support survives save-data roundtrips with its consumed HQ vehicle evidence.
 - Schema 40 adds durable gun shop mission state: generated shop item rows,
   seller/delivery asset ids, seller/delivery positions, purchase totals,
   purchase/delivery notice flags, and delivery runtime timing so purchased
@@ -97,6 +100,18 @@ Ambient civilian traffic and generated settings comments.
   ambient traffic vehicles can be active per active town.
 - Existing settings migrate by rewriting the generated profile with comments
   and the traffic cap while preserving known gameplay values.
+
+## Schema 41
+
+Roadblock support garage vehicle state.
+
+- `HST_CampaignState.SCHEMA_VERSION` is `41`.
+- `HST_SupportRequestState` now stores the selected HQ garage vehicle id,
+  vehicle prefab, vehicle display name, and whether the garage vehicle was
+  consumed when creating a roadblock support request.
+- Existing schema-40 and older support requests load with empty selected
+  vehicle metadata and `m_bGarageVehicleConsumed == false`; only new
+  player-requested roadblock support rows require and populate those fields.
 
 ## Schema 40
 

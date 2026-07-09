@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "r111-town-police-prefabs";
-	static const string BUILD_UTC = "2026-07-08T18:33:12Z";
-	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r111-town-police-prefabs";
+	static const string BUILD_SHA = "r112-roadblock-support-handoff";
+	static const string BUILD_UTC = "2026-07-08T19:12:00Z";
+	static const string BUILD_LABEL = "h-istasi-live-runtime-proof-r112-roadblock-support-handoff";
 
 	static string BuildSummary()
 	{

@@ -948,6 +948,8 @@ class HST_MapMarkerService
 			string color = FactionToMarkerColor(request.m_sFactionKey, preset);
 			string label = BuildSupportMarkerLabel(state, request);
 			bool runtimeNative = ShouldPublishNativeSupportMarker(request) && ShouldPublishNativeTacticalMarkerInPlayerBubble(state, request.m_sTargetZoneId, position);
+			if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK && !request.m_sGroupId.IsEmpty())
+				runtimeNative = true;
 			AddMarker(state, "hst_support_" + request.m_sRequestId, request.m_sRequestId, label, "", "support", request.m_sFactionKey, "POINT_OF_INTEREST", color, position, true, FactionToMarkerTextColor(request.m_sFactionKey, preset), "support_incoming", true, runtimeNative);
 		}
 	}
@@ -1065,7 +1067,14 @@ class HST_MapMarkerService
 		if (!request)
 			return false;
 
-		return request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF || request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_QRF)
+			return true;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
+			return true;
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return true;
+
+		return false;
 	}
 
 	protected bool ShouldPublishNativeTacticalMarkerInPlayerBubble(HST_CampaignState state, string zoneId, vector position)
@@ -2434,6 +2443,13 @@ class HST_MapMarkerService
 		if (!state || !request)
 			return "0 0 0";
 
+		if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK && !request.m_sGroupId.IsEmpty())
+		{
+			HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+			if (group && !IsZeroVector(group.m_vPosition))
+				return group.m_vPosition;
+		}
+
 		if (!IsZeroVector(request.m_vTargetPosition))
 			return request.m_vTargetPosition;
 
@@ -2474,6 +2490,16 @@ class HST_MapMarkerService
 		int remaining = ResolveSupportRemainingSeconds(state, request);
 		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
 		{
+			if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK && !request.m_sGroupId.IsEmpty())
+			{
+				int crewCount;
+				if (group)
+					crewCount = Math.Max(0, group.m_iSurvivorInfantryCount) + Math.Max(0, group.m_iSurvivorVehicleCount);
+				if (crewCount > 0)
+					return string.Format("%1 roadblock near %2 | established | %3 crew", faction, targetName, crewCount);
+				return string.Format("%1 roadblock near %2 | established", faction, targetName);
+			}
+
 			string deployment = "en route";
 			if (!request.m_sGroupId.IsEmpty())
 				deployment = "deployed";
@@ -2531,6 +2557,8 @@ class HST_MapMarkerService
 			return "airstrike";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_CRUISE_MISSILE_KH55)
 			return "missile strike";
+		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return "roadblock";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP)
 			return "patrol sweep";
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_TRANSPORT)
