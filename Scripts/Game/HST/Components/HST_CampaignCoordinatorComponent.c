@@ -7087,6 +7087,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		int eventCountBefore = m_State.m_aTownInfluenceEvents.Count();
+		int strategicEventCountBefore = m_State.m_aStrategicEvents.Count();
 		string ownerBefore = zone.m_sOwnerFactionKey;
 		int supportBefore = zone.m_iSupport;
 		int progressBefore = zone.m_iResistanceCaptureProgress;
@@ -7140,6 +7141,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int populationAfterCasualty = town.m_iPopulationRemaining;
 		int heatAfterCasualty = town.m_iWantedHeat;
 		bool securityEvent = m_Civilians.RegisterInfluenceEvent(m_State, targetZoneId, "debug_roadblock_pressure", -3, 6, -2, 3, 0, 1, 1, "debug security pressure modifier", m_Preset, 120, "campaign_debug");
+		string securityInfluenceEventId = town.m_sLastInfluenceEventId;
+		HST_StrategicEventState securityStrategicEvent = FindCampaignDebugStrategicEventForSourceInState(m_State, securityInfluenceEventId, "town_influence");
 
 		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
 		saveData.Capture(m_State);
@@ -7153,10 +7156,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		influenceCase.m_aEvidence.Insert(ShortCampaignDebugLine(influenceReport, 360));
 		AddCampaignDebugMetric(influenceCase, "town_influence.events_before", string.Format("%1", eventCountBefore), "count");
 		AddCampaignDebugMetric(influenceCase, "town_influence.events_after", string.Format("%1", eventCountAfter), "count");
+		AddCampaignDebugMetric(influenceCase, "town_influence.strategic_events_after", string.Format("%1", m_State.m_aStrategicEvents.Count()), "count");
 		AddCampaignDebugMetric(influenceCase, "town_influence.population_killed", string.Format("%1", town.m_iPopulationKilled), "count");
 
 		bool eventsRecorded = aidEvent && casualtyEvent && securityEvent && eventCountAfter == eventCountBefore + 3 && town.m_iInfluenceEventCount >= 3;
 		AddCampaignDebugAssertion(influenceCase, "town_influence.events_recorded", "aid, casualty, and security influence events are durable rows", BuildCampaignDebugTownInfluenceActual(town, zone), CampaignDebugStatus(eventsRecorded), "town influence events were not recorded/applied");
+		bool strategicRecorded = m_Strategic != null;
+		strategicRecorded = strategicRecorded && securityStrategicEvent != null;
+		strategicRecorded = strategicRecorded && m_State.m_aStrategicEvents.Count() == strategicEventCountBefore + 3;
+		if (strategicRecorded)
+		{
+			strategicRecorded = securityStrategicEvent.m_bApplied;
+			strategicRecorded = strategicRecorded && securityStrategicEvent.m_sKind == "town_influence";
+			strategicRecorded = strategicRecorded && securityStrategicEvent.m_sSourceId == securityInfluenceEventId;
+			strategicRecorded = strategicRecorded && securityStrategicEvent.m_sTargetZoneId == targetZoneId;
+		}
+		string strategicActual = string.Format("before %1 | after %2", strategicEventCountBefore, m_State.m_aStrategicEvents.Count());
+		strategicActual = strategicActual + " | latest " + BuildCampaignDebugStrategicEventActual(securityStrategicEvent);
+		AddCampaignDebugAssertion(
+			influenceCase,
+			"town_influence.strategic_event",
+			"town influence records compact strategic events",
+			strategicActual,
+			CampaignDebugStatus(strategicRecorded),
+			"town influence strategic event row missing or mismatched");
 		bool aidExpected = aidEvent && ownerAfterAid == m_Preset.m_sResistanceFactionKey && fiaAfterAid == 68 && occupierAfterAid == 47 && supportAfterAid == 21 && activeAfterAid >= 1;
 		AddCampaignDebugAssertion(influenceCase, "town_influence.support_majority_flip", "support-majority aid event flips a calm town to resistance", string.Format("owner %1 | FIA %2 | occupier %3 | support %4 | active %5", ownerAfterAid, fiaAfterAid, occupierAfterAid, supportAfterAid, activeAfterAid), CampaignDebugStatus(aidExpected), "support-majority town flip did not follow influence ledger state");
 		bool casualtyExpected = casualtyEvent && ownerAfterCasualty == m_Preset.m_sOccupierFactionKey && killedAfterCasualty == 7 && populationAfterCasualty == 73 && heatAfterCasualty == 20;
@@ -7170,6 +7193,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		while (m_State.m_aTownInfluenceEvents.Count() > eventCountBefore)
 			m_State.m_aTownInfluenceEvents.Remove(m_State.m_aTownInfluenceEvents.Count() - 1);
+		while (m_State.m_aStrategicEvents.Count() > strategicEventCountBefore)
+			m_State.m_aStrategicEvents.Remove(m_State.m_aStrategicEvents.Count() - 1);
 		zone.m_sOwnerFactionKey = ownerBefore;
 		zone.m_iSupport = supportBefore;
 		zone.m_iResistanceCaptureProgress = progressBefore;
@@ -20300,6 +20325,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string originalOwner = zone.m_sOwnerFactionKey;
 		int originalCaptureProgress = zone.m_iResistanceCaptureProgress;
 		int originalInfluenceEventRows = m_State.m_aTownInfluenceEvents.Count();
+		int originalStrategicEventRows = m_State.m_aStrategicEvents.Count();
 		int originalPopulationRemaining = town.m_iPopulationRemaining;
 		int originalPopulationKilled = town.m_iPopulationKilled;
 		int originalInfluenceEventCount = town.m_iInfluenceEventCount;
@@ -20376,6 +20402,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		while (m_State.m_aTownInfluenceEvents.Count() > originalInfluenceEventRows)
 			m_State.m_aTownInfluenceEvents.Remove(m_State.m_aTownInfluenceEvents.Count() - 1);
+		while (m_State.m_aStrategicEvents.Count() > originalStrategicEventRows)
+			m_State.m_aStrategicEvents.Remove(m_State.m_aStrategicEvents.Count() - 1);
 		town.m_iFIASupport = originalFIA;
 		town.m_iOccupierSupport = originalOccupier;
 		town.m_iReputation = originalReputation;
