@@ -3407,6 +3407,25 @@ foreach ($requiredEconomyIncomeSourceEntry in @(
 }
 Write-Host "Economy income source-report proof OK"
 
+foreach ($requiredTrainingWarCapEntry in @(
+		"ResolveTrainingCap",
+		"m_iTrainingCap",
+		"training capped by war level",
+		"training %1/%2",
+		"recruitment.training.war_level_cap.contract.runtime",
+		"training.war_cap.scaling",
+		"training.war_cap.low_block",
+		"training.war_cap.high_advance",
+		"training.war_cap.report",
+		"phase16.training.war_level_cap",
+		"RecordCampaignDebugCase(BuildCampaignDebugTrainingWarLevelCapCase())"
+	)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredTrainingWarCapEntry)) {
+		throw "Training war-level cap proof is missing: $requiredTrainingWarCapEntry"
+	}
+}
+Write-Host "Training war-level cap proof OK"
+
 foreach ($requiredUndercoverSecurityScanEntry in @(
 		"UNDERCOVER_ROADBLOCK_SCAN_COOLDOWN_SECONDS",
 		"UNDERCOVER_POLICE_SCAN_COOLDOWN_SECONDS",

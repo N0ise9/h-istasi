@@ -90,6 +90,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_TownService.BuildIncomeReport()`, and
     `HST_CampaignCoordinatorComponent.RequestMemberInspectEconomy()`.
 
+- Training caps should be resolved from campaign state, not saved as their own durable field.
+  - Keep the rule in `HST_RecruitmentService.ResolveTrainingCap()` so command actions, reports, and debug probes cannot drift. The current cap is war level plus two, clamped to level 10.
+  - Capped training should block without spending money or lowering existing training if a save already has training above the current cap.
+  - Recruitment reports should show `training current/cap`, and Full Campaign Debug should prove both low-war cap blocking and higher-war advancement using isolated fixture states.
+  - Current examples:
+    `HST_RecruitmentService.TrainTroopsDetailed()`,
+    `HST_RecruitmentService.BuildRecruitmentReport()`, and
+    `HST_CampaignCoordinatorComponent.BuildCampaignDebugTrainingWarLevelCapCase()`.
+
 - Civilian ambience should use the randomized CIV character prefab by default.
   - The runtime only needs generic civilian identity (`CIV_CHARACTER` / `CIV`)
     for town population, movement probes, heat, aid, and undercover systems.

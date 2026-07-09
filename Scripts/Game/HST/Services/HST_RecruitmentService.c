@@ -38,6 +38,8 @@ class HST_TrainingResult
 	int m_iOldTrainingLevel;
 	int m_iNewTrainingLevel;
 	int m_iMoneySpent;
+	int m_iWarLevel;
+	int m_iTrainingCap;
 
 	string BuildSummary()
 	{
@@ -45,16 +47,27 @@ class HST_TrainingResult
 			return "h-istasi training | failed: " + m_sFailureReason;
 
 		return string.Format(
-			"h-istasi training | complete | level %1 -> %2 | spent $%3",
+			"h-istasi training | complete | level %1 -> %2 | spent $%3 | war level %4 | cap %5",
 			m_iOldTrainingLevel,
 			m_iNewTrainingLevel,
-			m_iMoneySpent
+			m_iMoneySpent,
+			m_iWarLevel,
+			m_iTrainingCap
 		);
 	}
 }
 
 class HST_RecruitmentService
 {
+	int ResolveTrainingCap(HST_CampaignState state)
+	{
+		if (!state)
+			return 3;
+
+		int warLevel = Math.Max(1, state.m_iWarLevel);
+		return Math.Max(1, Math.Min(10, warLevel + 2));
+	}
+
 	HST_TrainingResult TrainTroopsDetailed(HST_CampaignState state, HST_EconomyService economy, int moneyCost)
 	{
 		HST_TrainingResult result = new HST_TrainingResult();
@@ -73,10 +86,12 @@ class HST_RecruitmentService
 
 		result.m_iOldTrainingLevel = state.m_iTrainingLevel;
 		result.m_iNewTrainingLevel = state.m_iTrainingLevel;
+		result.m_iWarLevel = Math.Max(1, state.m_iWarLevel);
+		result.m_iTrainingCap = ResolveTrainingCap(state);
 
-		if (state.m_iTrainingLevel >= 10)
+		if (state.m_iTrainingLevel >= result.m_iTrainingCap)
 		{
-			result.m_sFailureReason = "training already at max level";
+			result.m_sFailureReason = string.Format("training capped by war level %1 at level %2", result.m_iWarLevel, result.m_iTrainingCap);
 			return result;
 		}
 
@@ -234,18 +249,22 @@ class HST_RecruitmentService
 		}
 
 		string report = string.Format(
-			"h-istasi recruitment | training %1 | money $%2 | HR %3 | equipment %4 | unlocks %5 | FIA garrisons %6 | abstract infantry %7 vehicles %8 | active infantry %9 vehicles ",
+			"h-istasi recruitment | training %1/%2 | money $%3 | HR %4 | equipment %5 | unlocks %6",
 			state.m_iTrainingLevel,
+			ResolveTrainingCap(state),
 			state.m_iFactionMoney,
 			state.m_iHR,
 			ResolveRecruitEquipmentTier(state, arsenal),
-			BuildRecruitUnlockSummary(state),
+			BuildRecruitUnlockSummary(state)
+		);
+		report = report + string.Format(
+			" | FIA garrisons %1 | abstract infantry %2 vehicles %3 | active infantry %4 vehicles %5",
 			friendlyGarrisons,
 			friendlyInfantry,
 			friendlyVehicles,
-			activeFriendlyInfantry
+			activeFriendlyInfantry,
+			activeFriendlyVehicles
 		);
-		report = report + string.Format("%1", activeFriendlyVehicles);
 
 		foreach (HST_GarrisonState friendly : state.m_aGarrisons)
 		{

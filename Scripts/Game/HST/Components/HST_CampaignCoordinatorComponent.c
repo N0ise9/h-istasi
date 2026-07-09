@@ -54,7 +54,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_GUN_SHOP_DRIVER_PREFAB = "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
-	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r120-population-income-scaling";
+	static const string RUNTIME_AUTHORITY_BUILD = "2026-07-09-runtime-proof-r121-training-war-cap";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
 	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
@@ -10591,16 +10591,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		trainingCase.m_aEvidence.Insert(trainResult);
 		int moneyDelta = moneyAfter - moneyBefore;
 		int trainingDelta = trainingAfter - trainingBefore;
+		int trainingCap = 10;
+		if (m_Recruitment)
+			trainingCap = m_Recruitment.ResolveTrainingCap(m_State);
 		AddCampaignDebugMetric(trainingCase, "training.money_delta", string.Format("%1", moneyDelta), "money");
 		AddCampaignDebugMetric(trainingCase, "training.level_delta", string.Format("%1", trainingDelta), "level");
+		AddCampaignDebugMetric(trainingCase, "training.cap", string.Format("%1", trainingCap), "level");
 		bool commandSucceeded = IsCampaignDebugResultSuccessful(trainResult) && trainResult.Contains("complete");
 		string commandStatus = CampaignDebugStatus(commandSucceeded);
 		string commandExpected = "training command accepted";
-		if (trainingBefore >= 10)
+		if (trainingBefore >= trainingCap)
 		{
-			AddCampaignDebugAssertion(trainingCase, "training.max_level", "max-level training path reports blocked without mutation", string.Format("level %1 -> %2 | money %3 -> %4", trainingBefore, trainingAfter, moneyBefore, moneyAfter), CampaignDebugStatus(trainingAfter == trainingBefore && moneyAfter == moneyBefore, "WARN"), "training was already at max level; no increment expected");
-			commandExpected = "training command reports max-level block";
-			commandStatus = CampaignDebugStatus(trainResult.Contains("max level"), "WARN");
+			AddCampaignDebugAssertion(trainingCase, "training.war_level_cap", "war-level training cap reports blocked without mutation", string.Format("level %1 -> %2 | cap %3 | money %4 -> %5", trainingBefore, trainingAfter, trainingCap, moneyBefore, moneyAfter), CampaignDebugStatus(trainingAfter == trainingBefore && moneyAfter == moneyBefore, "WARN"), "training was already at its war-level cap; no increment expected");
+			commandExpected = "training command reports war-level cap block";
+			commandStatus = CampaignDebugStatus(trainResult.Contains("training capped"), "WARN");
 		}
 		else
 		{
@@ -10610,6 +10614,105 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(trainingCase, "training.command_result", commandExpected, ShortCampaignDebugLine(trainResult, 220), commandStatus, "training command returned failure text");
 		FinalizeCampaignDebugCaseFromAssertions(trainingCase);
 		return trainingCase;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugTrainingWarLevelCapCase()
+	{
+		HST_CampaignDebugCaseResult trainingCase = CreateCampaignDebugCase("recruitment.training.war_level_cap.contract.runtime", "economy", "training", "economy_force");
+		bool servicesReady = m_Recruitment != null && m_Economy != null && m_Preset != null;
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.war_cap.prerequisite",
+			"recruitment, economy, and preset ready for training cap proof",
+			string.Format("recruitment %1 | economy %2 | preset %3", m_Recruitment != null, m_Economy != null, m_Preset != null),
+			CampaignDebugStatus(servicesReady, "BLOCKED"),
+			"training cap prerequisites missing");
+		if (!servicesReady)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(trainingCase);
+			return trainingCase;
+		}
+
+		HST_CampaignState lowWarState = BuildCampaignDebugTrainingCapState(1, 3, 1000);
+		HST_CampaignState highWarState = BuildCampaignDebugTrainingCapState(5, 3, 1000);
+		int lowCap = m_Recruitment.ResolveTrainingCap(lowWarState);
+		int highCap = m_Recruitment.ResolveTrainingCap(highWarState);
+		int lowMoneyBefore = lowWarState.m_iFactionMoney;
+		int highMoneyBefore = highWarState.m_iFactionMoney;
+		HST_TrainingResult lowResult = m_Recruitment.TrainTroopsDetailed(lowWarState, m_Economy, 250);
+		HST_TrainingResult highResult = m_Recruitment.TrainTroopsDetailed(highWarState, m_Economy, 250);
+		string lowReport = m_Recruitment.BuildRecruitmentReport(lowWarState, m_Preset, m_Arsenal);
+		string highReport = m_Recruitment.BuildRecruitmentReport(highWarState, m_Preset, m_Arsenal);
+		string actual = string.Format(
+			"low war %1 cap %2 result %3 level %4 money %5 -> %6",
+			lowWarState.m_iWarLevel,
+			lowCap,
+			lowResult.BuildSummary(),
+			lowWarState.m_iTrainingLevel,
+			lowMoneyBefore,
+			lowWarState.m_iFactionMoney);
+		actual = actual + string.Format(
+			" | high war %1 cap %2 result %3 level %4 money %5 -> %6",
+			highWarState.m_iWarLevel,
+			highCap,
+			highResult.BuildSummary(),
+			highWarState.m_iTrainingLevel,
+			highMoneyBefore,
+			highWarState.m_iFactionMoney);
+		trainingCase.m_aEvidence.Insert(actual);
+		trainingCase.m_aEvidence.Insert("low report | " + ShortCampaignDebugLine(lowReport, 220));
+		trainingCase.m_aEvidence.Insert("high report | " + ShortCampaignDebugLine(highReport, 220));
+		AddCampaignDebugMetric(trainingCase, "training.war_cap.low", string.Format("%1", lowCap), "level");
+		AddCampaignDebugMetric(trainingCase, "training.war_cap.high", string.Format("%1", highCap), "level");
+
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.war_cap.scaling",
+			"training cap increases with war level",
+			actual,
+			CampaignDebugStatus(lowCap == 3 && highCap == 7 && highCap > lowCap),
+			"training cap did not scale with war level as expected");
+		bool lowBlocked = lowResult && !lowResult.m_bSuccess && lowResult.m_sFailureReason.Contains("training capped") && lowWarState.m_iTrainingLevel == 3 && lowWarState.m_iFactionMoney == lowMoneyBefore;
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.war_cap.low_block",
+			"low-war training at cap blocks without spending money",
+			actual,
+			CampaignDebugStatus(lowBlocked),
+			"low-war capped training mutated state or did not report the cap");
+		bool highAdvanced = highResult && highResult.m_bSuccess && highWarState.m_iTrainingLevel == 4 && highWarState.m_iFactionMoney == highMoneyBefore - 250;
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.war_cap.high_advance",
+			"higher-war training below cap advances and spends the configured cost",
+			actual,
+			CampaignDebugStatus(highAdvanced),
+			"higher-war training did not advance below its cap");
+		bool reportExpected = lowReport.Contains("training 3/3") && highReport.Contains("training 4/7");
+		AddCampaignDebugAssertion(
+			trainingCase,
+			"training.war_cap.report",
+			"recruitment report exposes current training and cap",
+			ShortCampaignDebugLine(lowReport + " | " + highReport, 300),
+			CampaignDebugStatus(reportExpected),
+			"recruitment report did not expose training cap values");
+
+		FinalizeCampaignDebugCaseFromAssertions(trainingCase);
+		return trainingCase;
+	}
+
+	protected HST_CampaignState BuildCampaignDebugTrainingCapState(int warLevel, int trainingLevel, int money)
+	{
+		HST_CampaignState state = new HST_CampaignState();
+		state.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_iLastLoadedSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		state.m_sPresetId = m_Preset.m_sPresetId;
+		state.m_iWarLevel = warLevel;
+		state.m_iTrainingLevel = trainingLevel;
+		state.m_iFactionMoney = money;
+		state.m_iHR = 10;
+		return state;
 	}
 
 	protected void RunCampaignDebugSupportRequestCase(string label, HST_ESupportRequestType requestedSupportType, bool supplyDrop)
@@ -11528,6 +11631,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string trainResult = RequestCommanderTrainTroopsReport(m_iCampaignDebugPlayerId);
 		RecordCampaignDebugAction("train troops", trainResult);
 		RecordCampaignDebugCase(BuildCampaignDebugTrainingCase(moneyBeforeTraining, trainingBefore, m_State.m_iFactionMoney, m_State.m_iTrainingLevel, trainResult));
+		RecordCampaignDebugCase(BuildCampaignDebugTrainingWarLevelCapCase());
 		RecordCampaignDebugObservation("recruitment report", RequestMemberInspectRecruitment(m_iCampaignDebugPlayerId));
 		RunCampaignDebugSupportRequestCase("supply drop", HST_ESupportRequestType.HST_SUPPORT_SUPPLY_DROP, true);
 		RunCampaignDebugSupportRequestCase("QRF support", HST_ESupportRequestType.HST_SUPPORT_QRF, false);
@@ -21264,7 +21368,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignDebugCaseResult recruitCase = CreateCampaignDebugCase("phase16." + SafeCampaignDebugToken(label), "phase_smoke", "garrisons_training", "phase16");
 		recruitCase.m_aEvidence.Insert(result);
 		string phase16CommandStatus = CampaignDebugStatus(IsCampaignDebugPhaseSmokeResultSuccessful(index, result, IsCampaignDebugPhaseSmokeReportStep(index)));
-		if (index == 11 && m_iCampaignDebugPhase16TrainingBefore >= 10 && result.Contains("max level"))
+		int phase16TrainingCap = 10;
+		if (m_Recruitment && m_State)
+			phase16TrainingCap = m_Recruitment.ResolveTrainingCap(m_State);
+		if (index == 11 && m_iCampaignDebugPhase16TrainingBefore >= phase16TrainingCap && result.Contains("training capped"))
 			phase16CommandStatus = "WARN";
 		AddCampaignDebugAssertion(recruitCase, "phase16.command_result", "phase 16 command/report accepted", ShortCampaignDebugLine(result, 220), phase16CommandStatus, "phase 16 command returned failure text");
 		if (!m_State || !m_Preset || !m_Garrisons || !m_Recruitment)
@@ -21328,11 +21435,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		int trainingDelta = m_iCampaignDebugPhase16TrainingAfter - m_iCampaignDebugPhase16TrainingBefore;
 		int trainMoneyDelta = m_iCampaignDebugPhase16TrainMoneyAfter - m_iCampaignDebugPhase16TrainMoneyBefore;
+		int trainingCap = 10;
+		if (m_Recruitment && m_State)
+			trainingCap = m_Recruitment.ResolveTrainingCap(m_State);
 		AddCampaignDebugMetric(recruitCase, "phase16.training.delta", string.Format("%1", trainingDelta), "level");
 		AddCampaignDebugMetric(recruitCase, "phase16.training.money_delta", string.Format("%1", trainMoneyDelta), "money");
-		if (m_iCampaignDebugPhase16TrainingBefore >= 10)
+		AddCampaignDebugMetric(recruitCase, "phase16.training.cap", string.Format("%1", trainingCap), "level");
+		if (m_iCampaignDebugPhase16TrainingBefore >= trainingCap)
 		{
-			AddCampaignDebugAssertion(recruitCase, "phase16.training.max_level", "max-level training path reports blocked without mutation", string.Format("level %1 -> %2 | money %3 -> %4 | result %5", m_iCampaignDebugPhase16TrainingBefore, m_iCampaignDebugPhase16TrainingAfter, m_iCampaignDebugPhase16TrainMoneyBefore, m_iCampaignDebugPhase16TrainMoneyAfter, ShortCampaignDebugLine(result, 120)), CampaignDebugStatus(trainingDelta == 0 && trainMoneyDelta == 0 && result.Contains("max level"), "WARN"), "Phase 16 training was already max level but did not report a clean no-mutation block");
+			AddCampaignDebugAssertion(recruitCase, "phase16.training.war_level_cap", "war-level training cap reports blocked without mutation", string.Format("level %1 -> %2 | cap %3 | money %4 -> %5 | result %6", m_iCampaignDebugPhase16TrainingBefore, m_iCampaignDebugPhase16TrainingAfter, trainingCap, m_iCampaignDebugPhase16TrainMoneyBefore, m_iCampaignDebugPhase16TrainMoneyAfter, ShortCampaignDebugLine(result, 120)), CampaignDebugStatus(trainingDelta == 0 && trainMoneyDelta == 0 && result.Contains("training capped"), "WARN"), "Phase 16 training was already capped by war level but did not report a clean no-mutation block");
 			return;
 		}
 
