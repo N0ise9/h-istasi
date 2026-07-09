@@ -1999,14 +1999,20 @@ if ($coordinatorMarkerText -notmatch [regex]::Escape('return qrf != null || HasC
 }
 foreach ($requiredMarkerIconDeconflictEntry in @(
 		'if (zone.m_sMarkerStyle == "town")',
-		'return "POINT_OF_INTEREST";',
+		'return "OBJECTIVE_MARKER2";',
 		'if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")',
-		'return "OBSERVATION_POST";',
+		'return "FORTIFICATION";',
+		'return "RADIO_SIGNAL";',
 		'if (zone.m_sMarkerStyle == "mission_site")',
 		'return "POINT_SPECIAL";',
-		'return "FLAG2";',
+		'return "JOIN3";',
+		'return "DOT";',
+		'return "MARK_QUESTION";',
+		'return "MARK_EXCLAMATION";',
+		'return "DESTROY2";',
+		'return "HELP";',
+		'return "OBJECTIVE_MARKER";',
 		'return "TARGET_REFERENCE_POINT";',
-		'return "AMBUSH";',
 		'support.search_marker_icon',
 		'phase23.marker.radio_icon',
 		'phase23.marker.radar_icon',
@@ -2020,8 +2026,8 @@ foreach ($requiredMarkerIconDeconflictEntry in @(
 	}
 }
 
-if ($configZones.Count -ne 78 -or $runtimeZones.Count -ne 78) {
-	throw "Everon campaign catalog must contain 78 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
+if ($configZones.Count -ne 80 -or $runtimeZones.Count -ne 80) {
+	throw "Everon campaign catalog must contain 80 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
 }
 
 $campaignBaseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "Bases\.layer"' })
@@ -2031,8 +2037,8 @@ $campaignCallsigns = @($zoneBlocks | ForEach-Object {
 			$Matches[1]
 		}
 	} | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
-if ($campaignBaseBlocks.Count -ne 70) {
-	throw "Expected 70 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
+if ($campaignBaseBlocks.Count -ne 69) {
+	throw "Expected 69 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
 }
 if ($campaignDepotBlocks.Count -ne 8) {
 	throw "Expected 8 Everon SupplyDepots.layer nodes, found $($campaignDepotBlocks.Count)"
@@ -2908,9 +2914,6 @@ $nativeMarkerPublishPipelineText = $mapMarkerServiceText + "`n" + $campaignMarke
 if ($mapMarkerServiceText -match "SCR_BaseGameMode\s+gameMode\s*=\s*GetGame\(\)\.GetGameMode\(\)") {
 	throw "Map marker manager resolver must not unsafe-assign BaseGameMode to SCR_BaseGameMode"
 }
-if ($mapMarkerServiceText -match "MARK_QUESTION") {
-	throw "Map marker service must not publish question-mark icons for campaign campaign markers"
-}
 foreach ($requiredMarkerColorContract in @(
 		'return "GREEN";',
 		'return "BLUFOR";',
@@ -2962,8 +2965,10 @@ foreach ($enumBlockMatch in [regex]::Matches($scriptText, "(?s)(?:modded\s+)?enu
 	$definedSymbols = @($definedSymbols + @([regex]::Matches($enumBlockMatch.Groups["body"].Value, "(?m)^\s*(HST_[A-Za-z0-9_]+)\b") |
 			ForEach-Object { $_.Groups[1].Value }))
 }
-$definedSymbols = @($definedSymbols | Sort-Object -Unique)
 $codeOnly = [regex]::Replace($scriptText, '"(?:\\.|[^"\\])*"', "")
+$definedSymbols = @($definedSymbols + @([regex]::Matches($codeOnly, "(?m)^\s*(?:static\s+const\s+)?(?:void|bool|int|float|string|ResourceName|vector|typename)\s+(HST_[A-Za-z0-9_]+)\s*(?:\(|=|;)") |
+		ForEach-Object { $_.Groups[1].Value }) |
+	Sort-Object -Unique)
 $referencedSymbols = @([regex]::Matches($codeOnly, "\b(HST_[A-Za-z0-9_]+)\b") |
 	ForEach-Object { $_.Groups[1].Value } |
 	Sort-Object -Unique)
@@ -4539,10 +4544,12 @@ foreach ($requiredSettingsEntry in @(
 		"arsenalUnlockThreshold",
 		"magazineUnlockMultiplier",
 		"lootRadiusMeters",
+		"lootSkipUnlockedItems",
 		"lootOnlyLockedItems",
 		"removeLootedItems",
 		"vehicleLootEnabled",
 		"vehicleLootRadiusMeters",
+		"vehicleLootSkipUnlockedItems",
 		"vehicleLootOnlyLockedItems",
 		"vehicleLootRemoveSourceItems",
 		"vehicleLootMaxItemsPerAction",
@@ -4592,8 +4599,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 19") {
-	throw "Runtime settings schema must be bumped to 19 for generated settings comments and civilian traffic settings"
+if ($scriptText -notmatch "SCHEMA_VERSION = 20") {
+	throw "Runtime settings schema must be bumped to 20 for clarified loot defaults"
 }
 if ($scriptText -match "m_sDefaultHideoutId" -or $scriptText -match '"defaultHideoutId"') {
 	throw "Runtime settings JSON must not expose defaultHideoutId after map-based HQ selection"
@@ -4725,11 +4732,17 @@ foreach ($requiredCaptureDefault in @(
 		throw "Balance config must set capture default: $requiredCaptureDefault"
 	}
 }
-if ($configResourceText -notmatch "m_bLootOnlyLockedItems 0" -or $configResourceText -notmatch "m_bVehicleLootOnlyLockedItems 0") {
-	throw "Loot defaults must deposit all recovered gear instead of leaving repeated unlocked items on sources"
+if ($configResourceText -notmatch "m_bLootOnlyLockedItems 1" -or $configResourceText -notmatch "m_bVehicleLootOnlyLockedItems 1") {
+	throw "Loot defaults must skip items already unlimited in the arsenal"
 }
-if ($scriptText -notmatch "settings.m_ArsenalLoot.m_bLootOnlyLockedItems = false" -or $scriptText -notmatch "settings.m_VehicleLoot.m_bOnlyLockedItems = false") {
-	throw "Runtime settings migration must switch old profiles to deposit-all loot defaults"
+if ($scriptText -notmatch "settings.m_ArsenalLoot.m_bLootOnlyLockedItems = true" -or $scriptText -notmatch "settings.m_VehicleLoot.m_bOnlyLockedItems = true") {
+	throw "Runtime settings migration must switch old profiles to skip-unlocked loot defaults"
+}
+if ($configResourceText -notmatch "m_bAllowExplosiveUnlocks 1" -or $configResourceText -notmatch "m_bAllowGuidedLauncherUnlocks 1") {
+	throw "Loot defaults must allow explosive and guided launcher unlocks"
+}
+if ($scriptText -notmatch "settings.m_ArsenalLoot.m_bAllowExplosiveUnlocks = true" -or $scriptText -notmatch "settings.m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks = true") {
+	throw "Runtime settings migration must default explosive and guided launcher unlocks to enabled"
 }
 if ($scriptText -match '"arsenalUnlockThreshold": 15' -or $configResourceText -match "m_iArsenalUnlockThreshold 15") {
 	throw "Generated/default balance settings must not keep the old 15-item infinite unlock threshold"

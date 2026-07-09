@@ -172,9 +172,6 @@ GenericEntity HST_ZoneAnchor_town_erquy : "{C72F956E4AC6A6E7}Prefabs/Systems/Sce
 GenericEntity HST_ZoneAnchor_radio_erquy_lighthouse : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 11347.524 62.473 11237.517
 }
-GenericEntity HST_ZoneAnchor_resource_etoupe_gas_station : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5301.91 20.614 9861.939
-}
 GenericEntity HST_ZoneAnchor_outpost_smugglers_hole : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 10755.526 35.145 2845.76
 }
@@ -207,6 +204,15 @@ GenericEntity HST_ZoneAnchor_radio_estrapade_tower : "{C72F956E4AC6A6E7}Prefabs/
 }
 GenericEntity HST_ZoneAnchor_radio_st_phillipe_relay : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 3924.682 31.384 10769.63
+}
+GenericEntity HST_ZoneAnchor_radio_regina2_tower : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 7685.4 340.531 3065.327
+}
+GenericEntity HST_ZoneAnchor_radio_airbase_northwest_tower : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4500 40 11800
+}
+GenericEntity HST_ZoneAnchor_radio_airport_south_tower : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 4800 30 11100
 }
 GenericEntity HST_ZoneAnchor_depot_green_valley_supply_depot : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 8504.755 128.823 3303.259

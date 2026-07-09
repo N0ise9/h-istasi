@@ -80,17 +80,17 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "15", uiwidget: UIWidgets.EditBox, desc: "Area loot radius in meters.", category: "HST Loot")]
 	int m_iLootRadiusMeters = 15;
 
-	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Only collect locked area loot items.", params: "", category: "HST Loot")]
-	bool m_bLootOnlyLockedItems;
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Skip area-loot items that are already unlimited in the arsenal.", params: "", category: "HST Loot")]
+	bool m_bLootOnlyLockedItems = true;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Remove collected area loot from the source.", params: "", category: "HST Loot")]
 	bool m_bRemoveLootedItems = true;
 
-	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Allow explosives to unlock in the arsenal.", params: "", category: "HST Loot")]
-	bool m_bAllowExplosiveUnlocks;
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Allow explosives to unlock in the arsenal.", params: "", category: "HST Loot")]
+	bool m_bAllowExplosiveUnlocks = true;
 
-	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Allow guided launchers to unlock in the arsenal.", params: "", category: "HST Loot")]
-	bool m_bAllowGuidedLauncherUnlocks;
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Allow guided launchers to unlock in the arsenal.", params: "", category: "HST Loot")]
+	bool m_bAllowGuidedLauncherUnlocks = true;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Enable vehicle loot collection.", params: "", category: "HST Vehicle Loot")]
 	bool m_bVehicleLootEnabled = true;
@@ -98,8 +98,8 @@ class HST_BalanceConfig
 	[Attribute(defvalue: "20", uiwidget: UIWidgets.EditBox, desc: "Vehicle loot radius in meters.", category: "HST Vehicle Loot")]
 	int m_iVehicleLootRadiusMeters = 20;
 
-	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Only collect locked vehicle loot items.", params: "", category: "HST Vehicle Loot")]
-	bool m_bVehicleLootOnlyLockedItems;
+	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Skip vehicle-loot items that are already unlimited in the arsenal.", params: "", category: "HST Vehicle Loot")]
+	bool m_bVehicleLootOnlyLockedItems = true;
 
 	[Attribute(defvalue: "true", uiwidget: UIWidgets.CheckBox, desc: "Remove collected vehicle loot from the source.", params: "", category: "HST Vehicle Loot")]
 	bool m_bVehicleLootRemoveSource = true;

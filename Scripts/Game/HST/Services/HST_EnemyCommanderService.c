@@ -51,6 +51,7 @@ class HST_EnemyCommanderService
 	static const float HQ_PRESSURE_ZONE_RADIUS_METERS = 1000.0;
 	static const int HQ_PRESSURE_MIN_KNOWLEDGE_FOR_OPPORTUNITY_ATTACK = 25;
 	static const float LOCAL_OPERATION_FRONT_RADIUS_METERS = 3000.0;
+	static const int TOWN_SUPPORT_QRF_RESPONSE_THRESHOLD = 30;
 	static const string SPEND_MODE_PROACTIVE_ATTACK = "proactive_attack";
 	static const string SPEND_MODE_REACTIVE_DEFENSE = "reactive_defense";
 	protected int m_iOrderAccumulatorSeconds;
@@ -1147,14 +1148,14 @@ class HST_EnemyCommanderService
 			if (ledger)
 				recentDamageScore = ledger.m_iRecentDamageScore;
 		}
-		if (targetOwnedByFaction && (targetZone.m_iResistanceCaptureProgress > 0 || recentDamageScore > 0))
+		if (targetOwnedByFaction && HasReactiveDefenseSignal(state, preset, pool.m_sFactionKey, targetZone, recentDamageScore))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
 
 		HST_GarrisonState garrison = state.FindGarrison(targetZone.m_sZoneId, pool.m_sFactionKey);
 		if (targetOwnedByFaction && (!garrison || garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel)) && pool.m_iSupportResources >= 10)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
 
-		if (targetOwnedByFaction && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12)
+		if (targetOwnedByFaction && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12 && HasTownRoadblockDefenseSignal(state, preset, pool.m_sFactionKey, targetZone))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK;
 
 		if (pool.m_iAttackResources >= 20 && state.m_iWarLevel >= 3)
@@ -1173,17 +1174,65 @@ class HST_EnemyCommanderService
 			return;
 
 		int damageScore = Math.Max(0, targetZone.m_iResistanceCaptureProgress / 5);
-		if (targetZone.m_bActive)
-			damageScore += 2;
 		if (HasActiveMissionNearZone(state, targetZone))
 			damageScore += 3;
 		if (HasActiveObjectiveNearZone(state, targetZone))
 			damageScore += 3;
+		if (IsTownSupportFlipThreat(preset, factionKey, targetZone))
+			damageScore += Math.Max(1, targetZone.m_iSupport / 10);
 
 		if (damageScore <= 0)
 			return;
 
 		enemyDirector.RecordZoneDamageSignal(state, factionKey, targetZone, damageScore, "target pressure signal");
+	}
+
+	protected bool HasReactiveDefenseSignal(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone, int recentDamageScore)
+	{
+		if (!targetZone)
+			return false;
+
+		if (targetZone.m_iResistanceCaptureProgress > 0)
+			return true;
+		if (recentDamageScore > 0)
+			return true;
+		if (HasActiveMissionNearZone(state, targetZone))
+			return true;
+		if (HasActiveObjectiveNearZone(state, targetZone))
+			return true;
+		if (IsTownSupportFlipThreat(preset, factionKey, targetZone))
+			return true;
+
+		return false;
+	}
+
+	protected bool HasTownRoadblockDefenseSignal(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
+	{
+		if (!targetZone || targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return false;
+
+		if (targetZone.m_iResistanceCaptureProgress > 0)
+			return true;
+		if (HasActiveMissionNearZone(state, targetZone))
+			return true;
+		if (HasActiveObjectiveNearZone(state, targetZone))
+			return true;
+		if (IsTownSupportFlipThreat(preset, factionKey, targetZone))
+			return true;
+
+		return false;
+	}
+
+	protected bool IsTownSupportFlipThreat(HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
+	{
+		if (!preset || !targetZone || targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return false;
+		if (factionKey.IsEmpty() || targetZone.m_sOwnerFactionKey != factionKey)
+			return false;
+		if (targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			return false;
+
+		return targetZone.m_iSupport >= TOWN_SUPPORT_QRF_RESPONSE_THRESHOLD;
 	}
 
 	protected int ScoreTargetZone(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState zone, string factionKey)

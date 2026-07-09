@@ -1646,34 +1646,8 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
     m_iSuppliesMax 0
     m_fOperationalRadius 50
    }
-  }
-  coords 11347.524 62.473 11237.517
  }
- HST_ConflictMapMarker_resource_etoupe_gas_station {
-  components {
-   SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
-    "faction affiliation" "US"
-   }
-   SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
-    m_fBuildingRadius 180
-   }
-   SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
-    Enabled 0
-    m_iRadius 180
-   }
-   SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
-    m_iRadius 180
-    m_bIsControlPoint 1
-    m_sBaseName "Etoupe Gas Station"
-    m_sBaseNameUpper "ETOUPE GAS STATION"
-   }
-   SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
-    m_iSupplies 0
-    m_iSuppliesMax 0
-    m_fOperationalRadius 50
-   }
-  }
-  coords 5301.91 20.614 9861.939
+ coords 11347.524 62.473 11237.517
  }
  HST_ConflictMapMarker_outpost_smugglers_hole {
   components {
@@ -1958,8 +1932,86 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
     m_iSuppliesMax 0
     m_fOperationalRadius 50
    }
+ }
+ coords 3924.682 31.384 10769.63
+ }
+ HST_ConflictMapMarker_radio_regina2_tower {
+  components {
+   SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
+    "faction affiliation" "USSR"
+   }
+   SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
+    m_fBuildingRadius 180
+   }
+   SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
+    Enabled 0
+    m_iRadius 180
+   }
+   SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
+    m_iRadius 180
+    m_bIsControlPoint 1
+    m_sBaseName "Western Heights Radio Tower"
+    m_sBaseNameUpper "WESTERN HEIGHTS RADIO TOWER"
+   }
+   SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
+    m_iSupplies 0
+    m_iSuppliesMax 0
+    m_fOperationalRadius 50
+   }
   }
-  coords 3924.682 31.384 10769.63
+  coords 7685.4 340.531 3065.327
+ }
+ HST_ConflictMapMarker_radio_airbase_northwest_tower {
+  components {
+   SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
+    "faction affiliation" "US"
+   }
+   SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
+    m_fBuildingRadius 180
+   }
+   SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
+    Enabled 0
+    m_iRadius 180
+   }
+   SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
+    m_iRadius 180
+    m_bIsControlPoint 1
+    m_sBaseName "Airbase Northwest Radio Tower"
+    m_sBaseNameUpper "AIRBASE NORTHWEST RADIO TOWER"
+   }
+   SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
+    m_iSupplies 0
+    m_iSuppliesMax 0
+    m_fOperationalRadius 50
+   }
+  }
+  coords 4500 40 11800
+ }
+ HST_ConflictMapMarker_radio_airport_south_tower {
+  components {
+   SCR_FactionAffiliationComponent "{5AFC974A2595F05D}" {
+    "faction affiliation" "US"
+   }
+   SCR_CampaignBuildingProviderComponent "{5CA897160F09AA9F}" {
+    m_fBuildingRadius 180
+   }
+   SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
+    Enabled 0
+    m_iRadius 180
+   }
+   SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
+    m_iRadius 180
+    m_bIsControlPoint 1
+    m_sBaseName "Airport South Radio Tower"
+    m_sBaseNameUpper "AIRPORT SOUTH RADIO TOWER"
+   }
+   SCR_CampaignSuppliesComponent "{5C6696724F524DA2}" {
+    m_iSupplies 0
+    m_iSuppliesMax 0
+    m_fOperationalRadius 50
+   }
+  }
+  coords 4800 30 11100
  }
  HST_ConflictMapMarker_depot_green_valley_supply_depot {
   components {

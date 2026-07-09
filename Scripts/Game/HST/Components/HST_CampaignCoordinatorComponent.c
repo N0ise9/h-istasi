@@ -11120,7 +11120,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support marker uses the dedicated ambush icon", markerActual, CampaignDebugStatus(linkedMarkerState && linkedMarkerState.m_sIconHint == "AMBUSH"), "search support marker did not use AMBUSH", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support incoming marker uses the QRF-style support icon", markerActual, CampaignDebugStatus(linkedMarkerState && linkedMarkerState.m_sIconHint == "OBJECTIVE_MARKER"), "search support marker did not use OBJECTIVE_MARKER", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
 
@@ -23633,7 +23633,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool supportRecallHidesGroupId = !forcesRecallPayload.Contains("hst_debug_phase23_recall_group");
 		bool petrosMainHidesTechnicalRows = !petrosPayload.Contains("|Prefab|") && !petrosPayload.Contains("|HQ position|") && !petrosPayload.Contains("|Petros position|") && !petrosPayload.Contains("|Arsenal prefab|") && !petrosPayload.Contains("|Attacker group|");
 		bool petrosHidesHQMoveActions = !petrosPayload.Contains("|Move base to my position|move_hq_here|") && !petrosPayload.Contains("|Move HQ:") && !petrosPayload.Contains("|move_hq|");
-		bool mapTargetCursorLayered = HST_UIConstants.Z_MAP_TARGET_CURSOR > HST_UIConstants.Z_ACTION_DIALOG;
+		bool mapTargetMarkerLayered = HST_UIConstants.Z_MAP_TARGET_CURSOR < HST_UIConstants.Z_ACTION_DIALOG;
 		string compactMissionPayload = BuildCampaignDebugPhase23CompactMissionPayload();
 		int compactMissionRows = CountCampaignDebugPayloadToken(compactMissionPayload, "\nROW|active_missions|");
 		bool compactMissionTitles = compactMissionPayload.Contains("Phase23 Convoy Probe") && compactMissionPayload.Contains("Phase23 Hold Probe");
@@ -23680,7 +23680,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"Phase 23 Forces payload allows roadblock support without a stored vehicle");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.support_recall_chooser", "Forces payload exposes recall chooser with support type, FIA count, status, and relative location", ShortCampaignDebugLine(forcesRecallPayload, 260), CampaignDebugStatus(supportRecallChooserVisible && supportRecallHidesGroupId), "Phase 23 Forces payload is missing support recall chooser detail or exposes an internal group id");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.main_sections_player_facing", "always-visible menu sections hide prefabs, raw positions, and internal group ids", ShortCampaignDebugLine(petrosPayload + " " + forcesRecallPayload, 260), CampaignDebugStatus(petrosMainHidesTechnicalRows && supportRecallHidesGroupId), "Phase 23 visible menu still exposes technical HQ/support internals");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_cursor_layer", "selected map-target cursor layer renders above action dialogs", string.Format("cursor z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetCursorLayered), "Phase 23 map-target cursor layer is not above the action dialog layer");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_marker_layer", "selected map-target marker renders below action dialogs", string.Format("marker z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetMarkerLayered), "Phase 23 map-target marker layer is not below the action dialog layer");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_no_detail_rows", "missions tab active section omits expanded per-mission detail rows", ShortCampaignDebugLine(compactMissionPayload, 220), CampaignDebugStatus(compactMissionNoDetailRows), "Phase 23 Missions payload still includes expanded active-mission detail labels");
@@ -23988,7 +23988,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int locationIconCollisionCount = CountCampaignDebugStaticLocationQRFIconCollisions(locationIconCollisionExample);
 		string radioIconExample;
 		string radarIconExample;
-		int radioIconMismatches = CountCampaignDebugZoneIconMismatchesForMarkerStyle("radio", "FLAG2", radioIconExample);
+		int radioIconMismatches = CountCampaignDebugZoneIconMismatchesForMarkerStyle("radio", "RADIO_SIGNAL", radioIconExample);
 		int radarIconMismatches = CountCampaignDebugRadarZoneIconMismatches(radarIconExample);
 		HST_MapMarkerState hqMarker = m_State.FindMapMarker("hst_hq");
 		HST_MapMarkerState petrosMarker = m_State.FindMapMarker("hst_petros");
@@ -24016,7 +24016,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.location_qrf_icon_deconflict", "static location markers use icons distinct from QRF tactical markers", BuildCampaignDebugCountExample(locationIconCollisionCount, locationIconCollisionExample), CampaignDebugStatus(locationIconCollisionCount == 0), "Phase 23 found static location markers reusing the QRF tactical icon");
-		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radio_icon", "radio tower zone markers use the dedicated radio icon", BuildCampaignDebugCountExample(radioIconMismatches, radioIconExample), CampaignDebugStatus(radioIconMismatches == 0), "Phase 23 found radio tower markers without FLAG2 icon");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radio_icon", "radio tower zone markers use the radio-signal icon", BuildCampaignDebugCountExample(radioIconMismatches, radioIconExample), CampaignDebugStatus(radioIconMismatches == 0), "Phase 23 found radio tower markers without RADIO_SIGNAL icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radar_icon", "radar site zone markers use the dedicated radar icon", BuildCampaignDebugCountExample(radarIconMismatches, radarIconExample), CampaignDebugStatus(radarIconMismatches == 0), "Phase 23 found radar site markers without TARGET_REFERENCE_POINT icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.hq", "HQ marker exists when HQ is deployed", BuildCampaignDebugMarkerActual(hqMarker), CampaignDebugStatus(!m_State.m_bHQDeployed || hqMarker != null), "Phase 23 marker audit did not find the HQ marker");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.defense_markers", "Petros/defense markers exist while Defend Petros is active", string.Format("active %1 | Petros %2 | defend %3", m_State.m_bDefendPetrosActive, petrosMarker != null, defendMarker != null), CampaignDebugStatus(!m_State.m_bDefendPetrosActive || (petrosMarker != null && defendMarker != null)), "Phase 23 marker audit did not find active Defend Petros markers");

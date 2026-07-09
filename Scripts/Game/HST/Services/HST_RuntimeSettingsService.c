@@ -142,12 +142,14 @@ class HST_RuntimeSettingsService
 			ApplyInt(line, "hqInteractionRadiusMeters", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters);
 			ApplyInt(line, "lootRadiusMeters", settings.m_ArsenalLoot.m_iLootRadiusMeters);
 			ApplyBool(line, "lootOnlyLockedItems", settings.m_ArsenalLoot.m_bLootOnlyLockedItems);
+			ApplyBool(line, "lootSkipUnlockedItems", settings.m_ArsenalLoot.m_bLootOnlyLockedItems);
 			ApplyBool(line, "removeLootedItems", settings.m_ArsenalLoot.m_bRemoveLootedItems);
 			ApplyBool(line, "allowExplosiveUnlocks", settings.m_ArsenalLoot.m_bAllowExplosiveUnlocks);
 			ApplyBool(line, "allowGuidedLauncherUnlocks", settings.m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks);
 			ApplyBool(line, "vehicleLootEnabled", settings.m_VehicleLoot.m_bEnabled);
 			ApplyInt(line, "vehicleLootRadiusMeters", settings.m_VehicleLoot.m_iRadiusMeters);
 			ApplyBool(line, "vehicleLootOnlyLockedItems", settings.m_VehicleLoot.m_bOnlyLockedItems);
+			ApplyBool(line, "vehicleLootSkipUnlockedItems", settings.m_VehicleLoot.m_bOnlyLockedItems);
 			ApplyBool(line, "vehicleLootRemoveSourceItems", settings.m_VehicleLoot.m_bRemoveSourceItems);
 			ApplyInt(line, "vehicleLootMaxItemsPerAction", settings.m_VehicleLoot.m_iMaxItemsPerAction);
 			ApplyBool(line, "airSupportEnabled", settings.m_AirSupport.m_bEnabled);
@@ -319,6 +321,15 @@ class HST_RuntimeSettingsService
 		{
 			if (settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown <= 0)
 				settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown = 2;
+			changed = true;
+		}
+
+		if (settings.m_iSchemaVersion < 20)
+		{
+			settings.m_ArsenalLoot.m_bLootOnlyLockedItems = true;
+			settings.m_VehicleLoot.m_bOnlyLockedItems = true;
+			settings.m_ArsenalLoot.m_bAllowExplosiveUnlocks = true;
+			settings.m_ArsenalLoot.m_bAllowGuidedLauncherUnlocks = true;
 			changed = true;
 		}
 
@@ -597,7 +608,9 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"hqInteractionRadiusMeters\": %1,", settings.m_ArsenalLoot.m_iHQInteractionRadiusMeters));
 		lines.Insert("    \"_comment_lootRadiusMeters\": \"Radius scanned around the player for area loot collection.\",");
 		lines.Insert(string.Format("    \"lootRadiusMeters\": %1,", settings.m_ArsenalLoot.m_iLootRadiusMeters));
-		lines.Insert("    \"_comment_lootOnlyLockedItems\": \"When true, area loot skips items that are already unlocked in the arsenal.\",");
+		lines.Insert("    \"_comment_lootSkipUnlockedItems\": \"When true, area loot skips items that are already unlimited in the arsenal. This is the normal loot flow.\",");
+		lines.Insert(string.Format("    \"lootSkipUnlockedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bLootOnlyLockedItems)));
+		lines.Insert("    \"_comment_lootOnlyLockedItems\": \"Deprecated alias for lootSkipUnlockedItems; true means skip already-unlimited items.\",");
 		lines.Insert(string.Format("    \"lootOnlyLockedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bLootOnlyLockedItems)));
 		lines.Insert("    \"_comment_removeLootedItems\": \"When true, transferred area-loot items are removed from their source containers.\",");
 		lines.Insert(string.Format("    \"removeLootedItems\": %1,", JsonBool(settings.m_ArsenalLoot.m_bRemoveLootedItems)));
@@ -612,7 +625,9 @@ class HST_RuntimeSettingsService
 		lines.Insert(string.Format("    \"vehicleLootEnabled\": %1,", JsonBool(settings.m_VehicleLoot.m_bEnabled)));
 		lines.Insert("    \"_comment_vehicleLootRadiusMeters\": \"Radius scanned around the player for eligible vehicles.\",");
 		lines.Insert(string.Format("    \"vehicleLootRadiusMeters\": %1,", settings.m_VehicleLoot.m_iRadiusMeters));
-		lines.Insert("    \"_comment_vehicleLootOnlyLockedItems\": \"When true, vehicle loot skips items already unlocked in the arsenal.\",");
+		lines.Insert("    \"_comment_vehicleLootSkipUnlockedItems\": \"When true, vehicle loot skips items already unlimited in the arsenal. This is the normal vehicle-loot flow.\",");
+		lines.Insert(string.Format("    \"vehicleLootSkipUnlockedItems\": %1,", JsonBool(settings.m_VehicleLoot.m_bOnlyLockedItems)));
+		lines.Insert("    \"_comment_vehicleLootOnlyLockedItems\": \"Deprecated alias for vehicleLootSkipUnlockedItems; true means skip already-unlimited items.\",");
 		lines.Insert(string.Format("    \"vehicleLootOnlyLockedItems\": %1,", JsonBool(settings.m_VehicleLoot.m_bOnlyLockedItems)));
 		lines.Insert("    \"_comment_vehicleLootRemoveSourceItems\": \"When true, transferred vehicle-cargo items are removed from the source vehicle.\",");
 		lines.Insert(string.Format("    \"vehicleLootRemoveSourceItems\": %1,", JsonBool(settings.m_VehicleLoot.m_bRemoveSourceItems)));

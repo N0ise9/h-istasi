@@ -82,6 +82,8 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int ACTION_CHOICE_WIDGET_ID_BASE = 90100;
 	static const int ACTION_CHOICE_WIDGET_ID_LIMIT = 90228;
 	static const int MAP_TARGET_PROMPT_Z = 2300;
+	static const int MAP_TARGET_ESCAPE_DISMISS_RETRY_MS = 50;
+	static const int MAP_TARGET_ESCAPE_DISMISS_MAX_ATTEMPTS = 8;
 	static const int MAP_TARGET_CURSOR_LINE_LONG = 30;
 	static const int MAP_TARGET_CURSOR_LINE_SHORT = 3;
 	static const int MAP_TARGET_CURSOR_CENTER_SIZE = 7;
@@ -179,6 +181,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected bool m_bMapTargetSelectionSuppressedForModal;
 	protected bool m_bMapTargetCompleting;
 	protected bool m_bMapTargetPromptRefreshQueued;
+	protected bool m_bMapTargetLocationSelected;
+	protected bool m_bRawEscapeMapTargetDownLastFrame;
+	protected bool m_bMapTargetPauseMenuGuardRegistered;
+	protected bool m_bPendingMapTargetEscapePauseDismiss;
+	protected int m_iPendingMapTargetEscapePauseDismissAttempts;
 	protected bool m_bCampaignDebugMapOpenGateMapOpenBeforeAttempt;
 	protected bool m_bCampaignDebugMapOpenGateToggleAttempted;
 	protected bool m_bCampaignDebugMapOpenGateToggleAccepted;
@@ -1698,6 +1705,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_bMapTargetActive = true;
 		m_bMapTargetCompleting = false;
 		m_bMapTargetConfirmOpen = false;
+		m_bMapTargetLocationSelected = false;
+		m_bRawEscapeMapTargetDownLastFrame = Debug.KeyState(KeyCode.KC_ESCAPE) != 0;
 		m_sMapTargetLabel = label;
 		m_sMapTargetCommand = commandId;
 		m_sMapTargetArgument = argument;
@@ -1717,6 +1726,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_bMapTargetActive)
 			return;
 
+		if (PollRawCommandMapTargetEscape())
+			return;
+
 		if (!m_MapTargetEntity)
 			m_MapTargetEntity = SCR_MapEntity.GetMapInstance();
 
@@ -1725,8 +1737,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			RefreshCommandMapTargetPrompt();
 			ApplyCommandMapDialogState();
 			RefreshCommandMapTargetCursor();
-			if (!m_bMapTargetConfirmOpen)
-				SetCommandMapLocationSelectionEnabled(true);
+			SetCommandMapLocationSelectionEnabled(CanCommandMapTargetSelectLocation());
 			return;
 		}
 
@@ -1744,7 +1755,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_MapTargetEntity && m_MapTargetEntity.IsOpen())
 		{
 			RefreshCommandMapTargetPrompt();
-			SetCommandMapLocationSelectionEnabled(!m_bMapTargetConfirmOpen);
+			SetCommandMapLocationSelectionEnabled(CanCommandMapTargetSelectLocation());
 			return;
 		}
 
@@ -1772,7 +1783,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		RefreshCommandMapTargetPrompt();
-		SetCommandMapLocationSelectionEnabled(!m_bMapTargetConfirmOpen);
+		SetCommandMapLocationSelectionEnabled(CanCommandMapTargetSelectLocation());
 		ApplyCommandMapDialogState();
 		RefreshCommandMapTargetCursor();
 	}
@@ -1811,7 +1822,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_MapTargetEntity = SCR_MapEntity.GetMapInstance();
 
 		RefreshCommandMapTargetPrompt();
-		SetCommandMapLocationSelectionEnabled(!m_bMapTargetConfirmOpen);
+		SetCommandMapLocationSelectionEnabled(CanCommandMapTargetSelectLocation());
 		ApplyCommandMapDialogState();
 		RefreshCommandMapTargetCursor();
 	}
@@ -1829,7 +1840,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void OnCommandMapTargetSelection(vector screenPos)
 	{
-		if (!m_bMapTargetActive || m_bMapTargetConfirmOpen)
+		if (!CanCommandMapTargetSelectLocation())
 			return;
 
 		if (!m_MapTargetEntity)
@@ -1845,6 +1856,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_vMapTargetPosition[0] = worldX;
 		m_vMapTargetPosition[2] = worldZ;
 		m_sMapTargetStatusText = string.Format("Target selected at X %1 Z %2. Confirm or choose again.", Math.Round(worldX), Math.Round(worldZ));
+		m_bMapTargetLocationSelected = true;
 		SetCommandMapLocationSelectionEnabled(false);
 		RefreshCommandMapTargetPrompt();
 		if (m_sMapTargetCommand == "recruit_zone")
@@ -1907,6 +1919,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!root)
 		{
 			m_sMapTargetStatusText = "Garrison count dialog unavailable. Select another target or close the map.";
+			m_bMapTargetLocationSelected = false;
+			m_vMapTargetPosition = "0 0 0";
 			SetCommandMapLocationSelectionEnabled(true);
 			RefreshCommandMapTargetPrompt();
 			return;
@@ -1940,6 +1954,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aPendingChoiceArguments.Count() == 0)
 		{
 			m_sMapTargetStatusText = "No HQ garage vehicles are available. Select another action or close the map.";
+			m_bMapTargetLocationSelected = false;
+			m_vMapTargetPosition = "0 0 0";
 			SetCommandMapLocationSelectionEnabled(true);
 			RefreshCommandMapTargetPrompt();
 			return;
@@ -1949,6 +1965,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!workspace)
 		{
 			m_sMapTargetStatusText = "Vehicle selection UI unavailable. Select another target or close the map.";
+			m_bMapTargetLocationSelected = false;
+			m_vMapTargetPosition = "0 0 0";
 			SetCommandMapLocationSelectionEnabled(true);
 			RefreshCommandMapTargetPrompt();
 			return;
@@ -1980,6 +1998,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!root)
 		{
 			m_sMapTargetStatusText = "Vehicle selection dialog unavailable. Select another target or close the map.";
+			m_bMapTargetLocationSelected = false;
+			m_vMapTargetPosition = "0 0 0";
 			SetCommandMapLocationSelectionEnabled(true);
 			RefreshCommandMapTargetPrompt();
 			return;
@@ -2058,6 +2078,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!root)
 		{
 			m_sMapTargetStatusText = "Confirmation dialog unavailable. Select another target or close the map.";
+			m_bMapTargetLocationSelected = false;
+			m_vMapTargetPosition = "0 0 0";
 			SetCommandMapLocationSelectionEnabled(true);
 			RefreshCommandMapTargetPrompt();
 			return;
@@ -2072,6 +2094,34 @@ class HST_CommandMenuComponent : ScriptComponent
 		ApplyCommandMapDialogState();
 		RefreshCommandMapTargetCursor();
 		HST_UIDebug.LogPopulation("command_map_target_confirm", string.Format("label=%1 command=%2 target=%3 argument=%4", ShortenText(m_sMapTargetLabel, 64), m_sMapTargetCommand, m_vMapTargetPosition, m_sPendingActionArgument));
+	}
+
+	protected bool CanCommandMapTargetSelectLocation()
+	{
+		if (!m_bMapTargetActive || m_bMapTargetConfirmOpen || m_bMapTargetLocationSelected)
+			return false;
+
+		if (!m_MapTargetEntity || !m_MapTargetEntity.IsOpen())
+			return false;
+
+		return true;
+	}
+
+	protected bool PollRawCommandMapTargetEscape()
+	{
+		int keyState = Debug.KeyState(KeyCode.KC_ESCAPE);
+		bool keyDown = keyState != 0;
+		if (keyDown && !m_bRawEscapeMapTargetDownLastFrame)
+		{
+			ConsumeCommandMapTargetEscapeInput();
+			ScheduleCommandMapTargetEscapePauseDismiss();
+			CancelCommandMapTargetSelection("escape", true);
+			m_bRawEscapeMapTargetDownLastFrame = keyDown;
+			return true;
+		}
+
+		m_bRawEscapeMapTargetDownLastFrame = keyDown;
+		return false;
 	}
 
 	protected string BuildCommandMapTargetArgument(vector targetPosition)
@@ -2442,16 +2492,116 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_wMapTargetCursorCenter = null;
 	}
 
-	protected void CancelCommandMapTargetSelection(string reason)
+	protected void CancelCommandMapTargetSelection(string reason, bool closeMap = false)
 	{
 		ClearActionDialog();
-		CloseCommandMapTargetSelection(reason, false);
+		CloseCommandMapTargetSelection(reason, closeMap);
 		m_sLastActionName = "Cancelled";
 		m_sLastResult = "h-istasi command | map target cancelled";
 		if (!reason.IsEmpty())
 			m_sLastResult = m_sLastResult + " | " + reason;
 		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
 		RequestSnapshot();
+	}
+
+	protected void ConsumeCommandMapTargetEscapeInput()
+	{
+		Debug.ClearKey(KeyCode.KC_ESCAPE);
+
+		InputManager inputManager = GetGame().GetInputManager();
+		if (!inputManager)
+			return;
+
+		inputManager.ResetAction(COMMAND_MENU_BACK_ACTION);
+	}
+
+	protected void ScheduleCommandMapTargetEscapePauseDismiss()
+	{
+		m_bPendingMapTargetEscapePauseDismiss = true;
+		m_iPendingMapTargetEscapePauseDismissAttempts = 0;
+		RegisterCommandMapTargetPauseMenuGuard();
+		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByMapTargetEscape);
+		GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByMapTargetEscape, 0, false);
+	}
+
+	protected void DismissPauseMenuOpenedByMapTargetEscape()
+	{
+		if (!m_bPendingMapTargetEscapePauseDismiss)
+			return;
+
+		m_iPendingMapTargetEscapePauseDismissAttempts++;
+		bool escapeStillDown = Debug.KeyState(KeyCode.KC_ESCAPE) != 0;
+		ConsumeCommandMapTargetEscapeInput();
+
+		bool closedPauseMenu = CloseNativePauseMenuOpenedByMapTargetEscape("dismiss retry");
+		if ((escapeStillDown || closedPauseMenu) && m_iPendingMapTargetEscapePauseDismissAttempts < MAP_TARGET_ESCAPE_DISMISS_MAX_ATTEMPTS)
+		{
+			GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByMapTargetEscape, MAP_TARGET_ESCAPE_DISMISS_RETRY_MS, false);
+			return;
+		}
+
+		m_bPendingMapTargetEscapePauseDismiss = false;
+		m_iPendingMapTargetEscapePauseDismissAttempts = 0;
+		UnregisterCommandMapTargetPauseMenuGuard();
+	}
+
+	protected void RegisterCommandMapTargetPauseMenuGuard()
+	{
+		if (m_bMapTargetPauseMenuGuardRegistered)
+			return;
+
+		PauseMenuUI.m_OnPauseMenuOpened.Insert(OnPauseMenuOpenedByMapTargetEscape);
+		m_bMapTargetPauseMenuGuardRegistered = true;
+	}
+
+	protected void UnregisterCommandMapTargetPauseMenuGuard()
+	{
+		if (!m_bMapTargetPauseMenuGuardRegistered)
+			return;
+
+		PauseMenuUI.m_OnPauseMenuOpened.Remove(OnPauseMenuOpenedByMapTargetEscape);
+		m_bMapTargetPauseMenuGuardRegistered = false;
+	}
+
+	protected void OnPauseMenuOpenedByMapTargetEscape()
+	{
+		if (!m_bMapTargetActive && !m_bPendingMapTargetEscapePauseDismiss)
+			return;
+
+		m_bPendingMapTargetEscapePauseDismiss = true;
+		ConsumeCommandMapTargetEscapeInput();
+		if (m_bMapTargetActive)
+		{
+			DebugLog("native pause menu opened while map target selection active; cancelling target selection");
+			CancelCommandMapTargetSelection("escape pause menu", true);
+		}
+
+		CloseNativePauseMenuOpenedByMapTargetEscape("pause menu opened event");
+		GetGame().GetCallqueue().Remove(DismissPauseMenuOpenedByMapTargetEscape);
+		GetGame().GetCallqueue().CallLater(DismissPauseMenuOpenedByMapTargetEscape, MAP_TARGET_ESCAPE_DISMISS_RETRY_MS, false);
+	}
+
+	protected bool CloseNativePauseMenuOpenedByMapTargetEscape(string source)
+	{
+		MenuManager menuManager = GetGame().GetMenuManager();
+		if (!menuManager)
+			return false;
+
+		bool closed = menuManager.CloseMenuByPreset(ChimeraMenuPreset.PauseMenu);
+		if (!closed)
+		{
+			MenuBase pauseMenu = menuManager.FindMenuByPreset(ChimeraMenuPreset.PauseMenu);
+			if (pauseMenu)
+			{
+				menuManager.CloseMenu(pauseMenu);
+				closed = true;
+			}
+		}
+
+		if (closed)
+			DebugLog("dismissed native pause menu opened by map target escape via " + source);
+
+		return closed;
 	}
 
 	protected void CloseCommandMapTargetSelection(string reason, bool closeMap)
@@ -2479,6 +2629,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_bMapTargetDialogCursorActive = false;
 		m_bMapTargetSelectionSuppressedForModal = false;
 		m_bMapTargetPromptRefreshQueued = false;
+		m_bMapTargetLocationSelected = false;
+		m_bRawEscapeMapTargetDownLastFrame = false;
 		m_sMapTargetLabel = "";
 		m_sMapTargetCommand = "";
 		m_sMapTargetArgument = "";
@@ -2490,6 +2642,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_vMapTargetPosition = "0 0 0";
 		m_MapTargetEntity = null;
 		m_bMapTargetCompleting = false;
+		if (!m_bPendingMapTargetEscapePauseDismiss)
+			UnregisterCommandMapTargetPauseMenuGuard();
 		DebugLog("closed command map target selection via " + reason);
 	}
 
@@ -2831,6 +2985,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			m_sMapTargetStatusText = "Select a target location on the map.";
 			m_sMapTargetVehicleId = "";
 			m_sMapTargetVehicleLabel = "";
+			m_bMapTargetLocationSelected = false;
+			m_vMapTargetPosition = "0 0 0";
 			SetCommandMapLocationSelectionEnabled(true);
 			ApplyCommandMapDialogState();
 			RefreshCommandMapTargetPrompt();

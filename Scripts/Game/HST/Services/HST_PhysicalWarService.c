@@ -117,7 +117,7 @@ class HST_PhysicalWarService
 	static const int ACTIVE_GROUP_AGENT_POPULATION_SLOT_PRIMARY_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_AGENT_POPULATION_DIRECT_FALLBACK_ATTEMPT = 4;
 	static const int ACTIVE_GROUP_LIVE_COUNT_GRACE_SECONDS = 8;
-	static const float ACTIVE_GROUP_MEMBER_REPAIR_RADIUS_METERS = 45.0;
+	static const float ACTIVE_GROUP_MEMBER_REPAIR_RADIUS_METERS = 160.0;
 	static const int ACTIVE_GROUP_AI_WORLD_MIN_LIMIT = 512;
 	static const int ACTIVE_GROUP_AI_WORLD_REQUIRED_HEADROOM = 32;
 	static const int CONVOY_RUNTIME_WAYPOINT_MIN_COUNT = 3;
@@ -246,11 +246,13 @@ class HST_PhysicalWarService
 		bool runtimeEntityChanged = EnsureRuntimeGroupEntities(state, preset);
 		bool survivorChanged = UpdateRuntimeGroupSurvivors(state);
 		bool townPolicePatrolChanged = UpdateTownPolicePatrols(state, preset);
+		bool zoneGarrisonPatrolChanged = UpdateZoneGarrisonPatrols(state, preset);
 		bool routeChanged = UpdateActiveGroupRoutes(state, forceRouteUpdate);
 		bool combatProbeChanged = SampleCampaignDebugPhysicalCombatProbe(state);
 		bool changed = missionCleanupChanged || runtimeEntityChanged;
 		changed = changed || survivorChanged;
 		changed = changed || townPolicePatrolChanged;
+		changed = changed || zoneGarrisonPatrolChanged;
 		changed = changed || routeChanged;
 		changed = changed || combatProbeChanged;
 		return changed;
@@ -7462,6 +7464,77 @@ class HST_PhysicalWarService
 		return changed;
 	}
 
+	protected bool UpdateZoneGarrisonPatrols(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state)
+			return false;
+
+		bool changed;
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!ShouldAssignZoneGarrisonPatrol(state, preset, activeGroup))
+				continue;
+
+			string reason;
+			if (AssignTownPolicePatrolWaypoints(state, activeGroup, reason) > 1)
+			{
+				activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "zone_garrison_patrol");
+				activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, "patrol_cycle");
+				activeGroup.m_sSpawnFailureReason = reason;
+				changed = true;
+			}
+			else if (!reason.IsEmpty())
+			{
+				AppendActiveGroupSpawnFailureNote(activeGroup, reason);
+				changed = true;
+			}
+		}
+
+		return changed;
+	}
+
+	protected bool ShouldAssignZoneGarrisonPatrol(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup)
+			return false;
+		if (!activeGroup.m_bSpawnedEntity || activeGroup.m_iInfantryCount <= 0 || activeGroup.m_iVehicleCount > 0)
+			return false;
+		if (activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || IsSupportRequestActiveGroup(activeGroup))
+			return false;
+		if (!activeGroup.m_sMissionInstanceId.IsEmpty())
+			return false;
+		if (IsTownPoliceActiveGroup(state, preset, activeGroup))
+			return false;
+		if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+		if (IsZoneGarrisonPatrolAssigned(activeGroup))
+			return false;
+		if (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active" || activeGroup.m_sRuntimeStatus == "support_recalling")
+			return false;
+		if (CountAliveRuntimeGroupAgents(activeGroup.m_sGroupId) <= 0)
+			return false;
+
+		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
+		if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT)
+			return false;
+
+		return true;
+	}
+
+	protected bool IsZoneGarrisonPatrolAssigned(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (activeGroup.m_iAssignedWaypointCount <= 1)
+			return false;
+		if (!activeGroup.m_sSpawnFallbackMode.Contains("zone_garrison_patrol"))
+			return false;
+		if (!activeGroup.m_sSpawnFallbackMode.Contains("patrol_cycle"))
+			return false;
+
+		return true;
+	}
+
 	protected bool ShouldAssignTownPolicePatrol(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
 	{
 		if (!IsTownPoliceActiveGroup(state, preset, activeGroup))
@@ -9706,12 +9779,10 @@ class HST_PhysicalWarService
 			if (world)
 			{
 				m_aRuntimeMemberRepairCandidates.Clear();
-				vector center = group.GetOrigin();
-				if (IsZeroVector(center))
-					center = activeGroup.m_vPosition;
-				if (IsZeroVector(center))
-					center = activeGroup.m_vTargetPosition;
-				world.QueryEntitiesBySphere(center, ACTIVE_GROUP_MEMBER_REPAIR_RADIUS_METERS, AddRuntimeMemberRepairCandidate, null, EQueryEntitiesFlags.ALL);
+				ScanRuntimeGroupMemberRepairCenter(world, group.GetOrigin());
+				ScanRuntimeGroupMemberRepairCenter(world, activeGroup.m_vPosition);
+				ScanRuntimeGroupMemberRepairCenter(world, activeGroup.m_vSourcePosition);
+				ScanRuntimeGroupMemberRepairCenter(world, activeGroup.m_vTargetPosition);
 
 				foreach (IEntity candidate : m_aRuntimeMemberRepairCandidates)
 				{
@@ -9752,6 +9823,14 @@ class HST_PhysicalWarService
 		return living;
 	}
 
+	protected void ScanRuntimeGroupMemberRepairCenter(BaseWorld world, vector center)
+	{
+		if (!world || IsZeroVector(center))
+			return;
+
+		world.QueryEntitiesBySphere(center, ACTIVE_GROUP_MEMBER_REPAIR_RADIUS_METERS, AddRuntimeMemberRepairCandidate, null, EQueryEntitiesFlags.ALL);
+	}
+
 	protected bool AddRuntimeMemberRepairCandidate(IEntity entity)
 	{
 		if (!entity)
@@ -9772,7 +9851,7 @@ class HST_PhysicalWarService
 		deadRegistered = false;
 		if (!group || !activeGroup || !entity || AIGroup.Cast(entity))
 			return false;
-		if (!IsRuntimeGroupMemberCandidate(entity, activeGroup))
+		if (!IsRuntimeGroupMemberCandidate(group, entity, activeGroup))
 			return false;
 
 		living = IsLivingEntity(entity);
@@ -9830,7 +9909,7 @@ class HST_PhysicalWarService
 		return ApplyEntityFaction(entity, factionKey);
 	}
 
-	protected bool IsRuntimeGroupMemberCandidate(IEntity entity, HST_ActiveGroupState activeGroup)
+	protected bool IsRuntimeGroupMemberCandidate(SCR_AIGroup group, IEntity entity, HST_ActiveGroupState activeGroup)
 	{
 		if (!entity || !activeGroup || activeGroup.m_sFactionKey.IsEmpty())
 			return false;
@@ -9840,9 +9919,26 @@ class HST_PhysicalWarService
 		if (!control)
 			return false;
 
+		AIAgent agent = control.GetControlAIAgent();
+		if (agent && group && agent.GetParentGroup() == group)
+			return true;
+		if (IsRuntimeGroupEntityHandleTracked(activeGroup.m_sGroupId, entity))
+			return true;
+
 		string prefab = ResolveEntityPrefabName(entity);
 		if (!IsInfantryCharacterPrefabCatalogFactionMatch(prefab, activeGroup.m_sFactionKey))
-			return false;
+		{
+			string entityFactionKey = ResolveEntityFactionKey(entity);
+			if (entityFactionKey != activeGroup.m_sFactionKey)
+				return false;
+
+			if (!agent)
+				return true;
+
+			AIGroup parentGroup = agent.GetParentGroup();
+			if (parentGroup && parentGroup != group)
+				return false;
+		}
 
 		return true;
 	}

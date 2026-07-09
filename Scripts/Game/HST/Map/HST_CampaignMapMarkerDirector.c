@@ -2,6 +2,7 @@ class HST_CampaignMapMarkerDirector
 {
 	static const int MAX_NATIVE_MARKERS = 192;
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
+	static const int RADIO_SIGNAL_NATIVE_ICON_INDEX = 91;
 
 	protected int m_iLastEligibleCount;
 	protected int m_iLastSkippedCount;
@@ -118,14 +119,7 @@ class HST_CampaignMapMarkerDirector
 		if (!marker)
 			return "";
 
-		if (marker.m_sCategory != "mission")
-			return ShortMarkerText(marker.m_sLabel, 42);
-
-		int separator = marker.m_sLabel.IndexOf(" |");
-		if (separator <= 0)
-			return ShortMarkerText(marker.m_sLabel, 42);
-
-		return ShortMarkerText(marker.m_sLabel.Substring(0, separator), 42);
+		return ShortMarkerText(marker.m_sLabel, 42);
 	}
 
 	protected bool IsNativeMarkerCandidate(HST_MapMarkerState marker)
@@ -158,13 +152,46 @@ class HST_CampaignMapMarkerDirector
 		return marker.m_sCategory == "mission" || marker.m_sCategory == "mission_objective" || marker.m_sCategory == "mission_asset" || marker.m_sCategory == "qrf" || marker.m_sCategory == "support";
 	}
 
-	protected SCR_EScenarioFrameworkMarkerCustom ResolveNativeIcon(string iconHint, string category, string styleHint)
+	protected int ResolveNativeIcon(string iconHint, string category, string styleHint)
 	{
+		if (iconHint == "RADIO_SIGNAL")
+			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
+
+		if (iconHint == "DOT")
+			return SCR_EScenarioFrameworkMarkerCustom.DOT;
+
+		if (iconHint == "DEFEND")
+			return SCR_EScenarioFrameworkMarkerCustom.DEFEND;
+
+		if (iconHint == "DESTROY2")
+			return SCR_EScenarioFrameworkMarkerCustom.DESTROY2;
+
+		if (iconHint == "HELP")
+			return SCR_EScenarioFrameworkMarkerCustom.HELP;
+
+		if (iconHint == "JOIN3")
+			return SCR_EScenarioFrameworkMarkerCustom.JOIN3;
+
+		if (iconHint == "MARK_EXCLAMATION")
+			return SCR_EScenarioFrameworkMarkerCustom.MARK_EXCLAMATION;
+
+		if (iconHint == "MARK_QUESTION")
+			return SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION;
+
+		if (iconHint == "OBJECTIVE_MARKER2")
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
+
 		if (iconHint == "PICK_UP2")
 			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
 
 		if (iconHint == "MINE_SINGLE")
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
+
+		if (iconHint == "FORTIFICATION")
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
+
+		if (iconHint == "FORTIFICATION2")
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION2;
 
 		if (iconHint == "POINT_SPECIAL")
 			return SCR_EScenarioFrameworkMarkerCustom.POINT_SPECIAL;
@@ -194,10 +221,10 @@ class HST_CampaignMapMarkerDirector
 			return SCR_EScenarioFrameworkMarkerCustom.AMBUSH;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
-			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "radar" || category == "radar"))
 			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
@@ -212,13 +239,13 @@ class HST_CampaignMapMarkerDirector
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
 
 		if (styleHint == "town" || category == "town")
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST;
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
 
 		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
-			return SCR_EScenarioFrameworkMarkerCustom.OBSERVATION_POST;
+			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
 
 		if (styleHint == "radio" || category == "radio")
-			return SCR_EScenarioFrameworkMarkerCustom.FLAG2;
+			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
 
 		if (styleHint == "radar" || category == "radar")
 			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;

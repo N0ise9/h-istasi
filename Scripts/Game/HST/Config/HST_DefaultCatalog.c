@@ -35,12 +35,20 @@ class HST_DefaultCatalog
 		if (!balance)
 			return;
 
-		if (balance.m_aCivilianCharacterPrefabs.Count() == 0)
-		{
-			balance.m_aCivilianCharacterPrefabs.Insert("{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et");
-		}
+		EnsureCivilianCharacterPrefab(balance, "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et");
+		EnsureCivilianCharacterPrefab(balance, "{B3AB6D12D247DDB5}Prefabs/Characters/Factions/CIV/Businessman/Character_CIV_Businessman_Randomized.et");
+		EnsureCivilianCharacterPrefab(balance, "{5882AE7A4543AFB4}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_Randomized.et");
+		EnsureCivilianCharacterPrefab(balance, "{D97EAE64721478F3}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_Randomized.et");
 
 		// Civilian vehicles are resolved from the CIV runtime entity catalog.
+	}
+
+	static void EnsureCivilianCharacterPrefab(HST_BalanceConfig balance, string prefab)
+	{
+		if (!balance || prefab.IsEmpty() || balance.m_aCivilianCharacterPrefabs.Contains(prefab))
+			return;
+
+		balance.m_aCivilianCharacterPrefabs.Insert(prefab);
 	}
 
 	static HST_PrefabPoolEntry NewPrefabPoolEntry(string prefab, int weight, string tag = "")
@@ -336,7 +344,6 @@ class HST_DefaultCatalog
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_argent", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_TOWN, "10944.771 25.522 8689.265", 56, 11, "route_town_argent", "qrf_town_argent", "site_town_argent"), "Argent", "tonka:base:56:SmallBaseArgent", "Bases.layer", "population", 285, 6, "TULSA", "black", "town", "comp_town_argent", "spawn_town_patrols"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_erquy", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_TOWN, "10923.335 25.03 11718.213", 38, 9, "route_town_erquy", "qrf_town_erquy", "site_town_erquy"), "Erquy", "tonka:base:57:SmallBaseErquy", "Bases.layer", "population", 220, 4, "", "black", "town", "comp_town_erquy", "spawn_town_patrols"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_erquy_lighthouse", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "11347.524 62.473 11237.517", 25, 8, "route_radio_erquy_lighthouse", "qrf_radio_erquy_lighthouse", "site_radio_erquy_lighthouse"), "Erquy Lighthouse", "tonka:base:58:SmallBaseErquyLighthouse", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_erquy_lighthouse", "spawn_radio_patrol"));
-		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("resource_etoupe_gas_station", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "5301.91 20.614 9861.939", 90, 14, "route_resource_etoupe_gas_station", "qrf_resource_etoupe_gas_station", "site_resource_etoupe_gas_station"), "Etoupe Gas Station", "tonka:base:59:SmallBaseEtoupeGasStation", "Bases.layer", "fuel", 180, 13, "", "gold", "resource", "comp_resource_etoupe_gas_station", "spawn_resource_guards"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("outpost_smugglers_hole", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "10755.526 35.145 2845.76", 63, 17, "route_outpost_smugglers_hole", "qrf_outpost_smugglers_hole", "site_outpost_smugglers_hole"), "Smugglers Hole", "tonka:base:60:SmallBaseSmugglersHole", "Bases.layer", "security", 250, 9, "", "red", "enemy_base", "comp_outpost_smugglers_hole", "spawn_outpost_garrison"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_pins", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1154.921 42.893 11495.366", 90, 14, "route_town_pins", "qrf_town_pins", "site_town_pins"), "Pins", "tonka:base:61:SmallBasePins", "Bases.layer", "population", 635, 9, "", "black", "town", "comp_town_pins", "spawn_town_patrols"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_fishermans_cove", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "6053.254 7.852 10159.83", 42, 9, "route_town_fishermans_cove", "qrf_town_fishermans_cove", "site_town_fishermans_cove"), "Fishermans Cove", "tonka:base:62:SmallBaseFishermansCove", "Bases.layer", "population", 230, 4, "", "black", "town", "comp_town_fishermans_cove", "spawn_town_patrols"));
@@ -348,6 +355,9 @@ class HST_DefaultCatalog
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_eastern_sea_relay", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "9215.885 27.552 9351.145", 25, 8, "route_radio_eastern_sea_relay", "qrf_radio_eastern_sea_relay", "site_radio_eastern_sea_relay"), "Eastern Sea Relay", "tonka:base:69:RelayEasternSea", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_eastern_sea_relay", "spawn_radio_patrol"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_estrapade_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "3402.537 21.509 1621.985", 25, 8, "route_radio_estrapade_tower", "qrf_radio_estrapade_tower", "site_radio_estrapade_tower"), "Estrapade Tower", "tonka:base:70:RelayEstrapade", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_estrapade_tower", "spawn_radio_patrol"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_st_phillipe_relay", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "3924.682 31.384 10769.63", 25, 8, "route_radio_st_phillipe_relay", "qrf_radio_st_phillipe_relay", "site_radio_st_phillipe_relay"), "St Phillipe Relay", "tonka:base:71:RelayStPhillipe", "Bases.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_st_phillipe_relay", "spawn_radio_patrol"));
+		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_regina2_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "7685.4 340.531 3065.327", 25, 8, "route_radio_regina2_tower", "qrf_radio_regina2_tower", "site_radio_regina2_tower"), "Western Heights Radio Tower", "RSC_WesternHeights", "POIs/RadioTowers/WesternHeights.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_regina2_tower", "spawn_radio_patrol"));
+		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_airbase_northwest_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "4500 40 11800", 25, 8, "route_radio_airbase_northwest_tower", "qrf_radio_airbase_northwest_tower", "site_radio_airbase_northwest_tower"), "Airbase Northwest Radio Tower", "RSC_AirbaseNorthwest", "POIs/RadioTowers/AirbaseNorthwest.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_airbase_northwest_tower", "spawn_radio_patrol"));
+		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("radio_airport_south_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "4800 30 11100", 25, 8, "route_radio_airport_south_tower", "qrf_radio_airport_south_tower", "site_radio_airport_south_tower"), "Airport South Radio Tower", "RSC_AirportSouth", "POIs/RadioTowers/AirportSouth.layer", "communications", 180, 4, "", "black", "radio", "comp_radio_airport_south_tower", "spawn_radio_patrol"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("depot_green_valley_supply_depot", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "8504.755 128.823 3303.259", 80, 14, "route_depot_green_valley_supply_depot", "qrf_depot_green_valley_supply_depot", "site_depot_green_valley_supply_depot"), "Green Valley Supply Depot", "tonka:depot:01:GreenValleySupply", "SupplyDepots.layer", "supplies", 180, 12, "", "gold", "depot", "comp_depot_green_valley_supply_depot", "spawn_resource_guards"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("depot_levie_supply_depot", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "6912.457 57.718 4482.109", 80, 14, "route_depot_levie_supply_depot", "qrf_depot_levie_supply_depot", "site_depot_levie_supply_depot"), "Levie Supply Depot", "tonka:depot:02:LevieSupply", "SupplyDepots.layer", "supplies", 180, 12, "", "gold", "depot", "comp_depot_levie_supply_depot", "spawn_resource_guards"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("depot_figari_supply_depot", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "4814.289 53.445 5819.508", 80, 14, "route_depot_figari_supply_depot", "qrf_depot_figari_supply_depot", "site_depot_figari_supply_depot"), "Figari Supply Depot", "tonka:depot:03:FigariSupply", "SupplyDepots.layer", "supplies", 180, 12, "", "gold", "depot", "comp_depot_figari_supply_depot", "spawn_resource_guards"));
@@ -358,6 +368,7 @@ class HST_DefaultCatalog
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("depot_regina_supply_depot", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "6589.783 7.228 2329.923", 80, 14, "route_depot_regina_supply_depot", "qrf_depot_regina_supply_depot", "site_depot_regina_supply_depot"), "Regina Supply Depot", "tonka:depot:08:ReginaSupply", "SupplyDepots.layer", "supplies", 180, 12, "", "gold", "depot", "comp_depot_regina_supply_depot", "spawn_resource_guards"));
 		ApplyEveronLocationPlanOverrides(state, preset);
 		ApplyDefaultZoneMetadata(state);
+		RemoveEveronFuelStationZones(state);
 	}
 
 	private static void ApplyEveronLocationPlanOverrides(HST_CampaignState state, HST_CampaignPreset preset)
@@ -384,12 +395,6 @@ class HST_DefaultCatalog
 		UpsertEveronLocationPlanZone(state, "resource_chotain_farm", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "6615.087 109.631 5884.541", 65, 12, "Chotain Farm", "FC_ChotainFarm", "factories.layer", "food", 170, 10, "", "gold", "resource");
 		UpsertEveronLocationPlanZone(state, "resource_montignac_farm", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "5167.388 176.272 7048.875", 65, 12, "Montignac Farm", "FC_MontiFarm", "factories.layer", "food", 170, 10, "", "gold", "resource");
 		UpsertEveronLocationPlanZone(state, "depot_farm_supply_depot", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "4992.117 25.592 9940.01", 65, 12, "Etoupe Farm", "FC_EtoupeFarm", "factories.layer", "food", 170, 10, "", "gold", "resource");
-		UpsertEveronLocationPlanZone(state, "resource_saint_pierre_fuel_station", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "9705.849 22.502 1720.1", 55, 10, "Saint-Pierre Fuel Station", "fuel_01", "fuelstations.layer", "fuel", 150, 8, "", "gold", "resource");
-		UpsertEveronLocationPlanZone(state, "resource_provins_montignac_fuel_station", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "5342.982 80.641 6313.674", 55, 10, "Provins / Montignac Fuel Station", "fuel_02", "fuelstations.layer", "fuel", 150, 8, "", "gold", "resource");
-		UpsertEveronLocationPlanZone(state, "resource_etoupe_gas_station", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "5308.575 21.303 9835.346", 55, 10, "Etoupe / Power Plant Fuel Station", "fuel_03", "fuelstations.layer", "fuel", 150, 8, "", "gold", "resource");
-		UpsertEveronLocationPlanZone(state, "resource_lamentin_fuel_station", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "1657.306 71.644 5739.421", 55, 10, "Lamentin Fuel Station", "fuel_04", "fuelstations.layer", "fuel", 150, 8, "", "gold", "resource");
-		UpsertEveronLocationPlanZone(state, "resource_saint_philippe_fuel_station", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "4609.139 18.657 10662.398", 55, 10, "Saint-Philippe Fuel Station", "fuel_05", "fuelstations.layer", "fuel", 150, 8, "", "gold", "resource");
-
 		UpsertEveronLocationPlanZone(state, "town_lamentin", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "1287.587 47.45 6013.407", 38, 8, "Lamentin", "TC_Lamentin", "towns/town_Lamentin.layer", "population", 220, 4, "", "black", "town");
 		UpsertEveronLocationPlanZone(state, "town_le_moule", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "2594.323 97.334 5439.671", 38, 9, "Le Moule", "TC_LeMoule", "towns/town_LeMoule.layer", "population", 220, 4, "LIBERTY", "black", "town");
 		UpsertEveronLocationPlanZone(state, "town_montignac", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4770.784 174.088 7036.788", 69, 12, "Montignac", "TC_Montignac", "towns/town_Montignac.layer", "population", 335, 7, "VESPER", "black", "town");
@@ -424,6 +429,9 @@ class HST_DefaultCatalog
 		UpsertEveronLocationPlanZone(state, "radio_wolf_hill_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "3845.418 162.777 4308.285", 25, 8, "Wolf Hill Radio Tower", "RSC_WolfHill", "POIs/RadioTowers/WolfHill.layer", "communications", 180, 4, "", "black", "radio");
 		UpsertEveronLocationPlanZone(state, "radio_pins_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "1166.602 40.918 11695.426", 25, 8, "Pins Radio Tower", "RSC_Pins", "POIs/RadioTowers/Pins.layer", "communications", 180, 4, "", "black", "radio");
 		UpsertEveronLocationPlanZone(state, "radio_regina_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "7070.868 156.803 2080.595", 25, 8, "Regina Radio Tower", "RSC_Regina", "POIs/RadioTowers/Regina.layer", "communications", 180, 4, "", "black", "radio");
+		UpsertEveronLocationPlanZone(state, "radio_regina2_tower", preset.m_sInvaderFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "7685.4 340.531 3065.327", 25, 8, "Western Heights Radio Tower", "RSC_WesternHeights", "POIs/RadioTowers/WesternHeights.layer", "communications", 180, 4, "", "black", "radio");
+		UpsertEveronLocationPlanZone(state, "radio_airbase_northwest_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "4500 40 11800", 25, 8, "Airbase Northwest Radio Tower", "RSC_AirbaseNorthwest", "POIs/RadioTowers/AirbaseNorthwest.layer", "communications", 180, 4, "", "black", "radio");
+		UpsertEveronLocationPlanZone(state, "radio_airport_south_tower", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RADIO_TOWER, "4800 30 11100", 25, 8, "Airport South Radio Tower", "RSC_AirportSouth", "POIs/RadioTowers/AirportSouth.layer", "communications", 180, 4, "", "black", "radio");
 
 		UpsertEveronLocationPlanZone(state, "mission_radar_airport", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_MISSION_SITE, "4417.224 17.935 11717.371", 0, 0, "Airport Radar Site", "RDR_Airport", "POIs/RadarSites/Airport.layer", "radar", 120, 2, "", "black", "mission_site");
 		UpsertEveronLocationPlanZone(state, "outpost_calvary_hill", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_MISSION_SITE, "3497.976 202.983 5817.62", 0, 0, "Calvary Hill Radar Site", "RDR_CalvaryHill", "POIs/RadarSites/CalvaryHill.layer", "radar", 120, 2, "", "black", "mission_site");
@@ -458,6 +466,59 @@ class HST_DefaultCatalog
 		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 			return "spawn_none";
 		return "";
+	}
+
+	private static void RemoveEveronFuelStationZones(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+
+		array<string> removedZoneIds = {};
+		for (int zoneIndex = state.m_aZones.Count() - 1; zoneIndex >= 0; zoneIndex--)
+		{
+			HST_ZoneState zone = state.m_aZones[zoneIndex];
+			if (!IsEveronFuelStationZone(zone))
+				continue;
+
+			removedZoneIds.Insert(zone.m_sZoneId);
+			state.m_aZones.Remove(zoneIndex);
+		}
+
+		foreach (HST_ZoneState remainingZone : state.m_aZones)
+		{
+			if (!remainingZone)
+				continue;
+
+			foreach (string removedZoneId : removedZoneIds)
+				RemoveZoneLink(remainingZone, removedZoneId);
+		}
+	}
+
+	private static bool IsEveronFuelStationZone(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+
+		if (zone.m_sResourceKind == "fuel")
+			return true;
+		if (zone.m_sZoneId.Contains("fuel_station") || zone.m_sZoneId.Contains("gas_station"))
+			return true;
+		if (zone.m_sDisplayName.Contains("Fuel Station") || zone.m_sDisplayName.Contains("Gas Station"))
+			return true;
+
+		return false;
+	}
+
+	private static void RemoveZoneLink(HST_ZoneState zone, string linkedZoneId)
+	{
+		if (!zone || linkedZoneId.IsEmpty())
+			return;
+
+		for (int linkIndex = zone.m_aLinkedZoneIds.Count() - 1; linkIndex >= 0; linkIndex--)
+		{
+			if (zone.m_aLinkedZoneIds[linkIndex] == linkedZoneId)
+				zone.m_aLinkedZoneIds.Remove(linkIndex);
+		}
 	}
 
 	private static HST_ZoneState FindDefaultCatalogZone(HST_CampaignState state, string zoneId)
@@ -756,8 +817,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return "Erquy";
 		if (zoneId == "radio_erquy_lighthouse")
 			return "Erquy Lighthouse";
-		if (zoneId == "resource_etoupe_gas_station")
-			return "Etoupe Gas Station";
 		if (zoneId == "outpost_smugglers_hole")
 			return "Smugglers Hole";
 		if (zoneId == "town_pins")
@@ -877,7 +936,10 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			return;
 
 		if (zone.m_sZoneId == "airfield_airbase_saint_philippe")
+		{
 			AddZoneLinks(zone, "town_les_creux", "outpost_north_hq", "town_maidens_bay");
+			AddZoneLinks(zone, "radio_airbase_northwest_tower", "radio_airport_south_tower", "radio_st_phillipe_relay");
+		}
 		if (zone.m_sZoneId == "outpost_levie_base")
 			AddZoneLinks(zone, "town_levie", "depot_levie_supply_depot", "town_laruns");
 		if (zone.m_sZoneId == "outpost_calvary_hill")
@@ -891,7 +953,10 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "seaport_coastal_base_morton")
 			AddZoneLinks(zone, "town_richemont", "town_figari", "town_simons_wood");
 		if (zone.m_sZoneId == "outpost_north_hq")
+		{
 			AddZoneLinks(zone, "factory_saint_philippe", "radio_st_phillipe_relay", "town_les_creux");
+			AddZoneLinks(zone, "radio_airport_south_tower", "airfield_airbase_saint_philippe");
+		}
 		if (zone.m_sZoneId == "outpost_south_hq")
 			AddZoneLinks(zone, "town_saint_pierre", "outpost_montfort_castle", "outpost_cave");
 		if (zone.m_sZoneId == "resource_quarry")
@@ -911,13 +976,13 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "town_tillers_find")
 			AddZoneLinks(zone, "town_gravette", "town_montignac", "outpost_pinewood_lake");
 		if (zone.m_sZoneId == "town_maidens_bay")
-			AddZoneLinks(zone, "resource_etoupe_gas_station", "depot_farm_supply_depot", "town_fishermans_cove");
+			AddZoneLinks(zone, "depot_farm_supply_depot", "town_fishermans_cove");
 		if (zone.m_sZoneId == "town_hornbeam_valley")
 			AddZoneLinks(zone, "depot_gorey_supply_depot", "town_entre_deux", "town_tyrone");
 		if (zone.m_sZoneId == "radio_andres_beacon")
 			AddZoneLinks(zone, "outpost_firing_range", "town_benac", "town_scythe");
 		if (zone.m_sZoneId == "town_goat_bay")
-			AddZoneLinks(zone, "depot_regina_supply_depot", "town_regina", "radio_regina_tower");
+			AddZoneLinks(zone, "depot_regina_supply_depot", "town_regina", "radio_regina2_tower");
 		if (zone.m_sZoneId == "town_chotain")
 			AddZoneLinks(zone, "town_laruns", "seaport_coastal_base_chotain", "depot_industrial_supply_depot");
 		if (zone.m_sZoneId == "town_durras")
@@ -933,15 +998,15 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "town_levie")
 			AddZoneLinks(zone, "outpost_levie_base", "depot_levie_supply_depot", "town_laruns");
 		if (zone.m_sZoneId == "town_meaux")
-			AddZoneLinks(zone, "town_tyrone", "depot_farm_supply_depot", "resource_etoupe_gas_station");
+			AddZoneLinks(zone, "town_tyrone", "depot_farm_supply_depot", "town_maidens_bay");
 		if (zone.m_sZoneId == "town_montignac")
 			AddZoneLinks(zone, "outpost_pinewood_lake", "town_tillers_find", "town_entre_deux");
 		if (zone.m_sZoneId == "town_provins")
 			AddZoneLinks(zone, "town_figari", "depot_figari_supply_depot", "depot_industrial_supply_depot");
 		if (zone.m_sZoneId == "town_regina")
-			AddZoneLinks(zone, "depot_regina_supply_depot", "radio_regina_tower", "outpost_pennants_pass");
+			AddZoneLinks(zone, "depot_regina_supply_depot", "radio_regina_tower", "radio_regina2_tower");
 		if (zone.m_sZoneId == "town_tyrone")
-			AddZoneLinks(zone, "town_meaux", "resource_etoupe_gas_station", "depot_farm_supply_depot");
+			AddZoneLinks(zone, "town_meaux", "depot_farm_supply_depot");
 		if (zone.m_sZoneId == "town_vernon")
 			AddZoneLinks(zone, "town_durras", "town_saint_pierre", "outpost_cheval_gin_lodge");
 		if (zone.m_sZoneId == "town_villeneuve")
@@ -951,7 +1016,10 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "town_kermovan")
 			AddZoneLinks(zone, "factory_power_plant", "town_fishermans_cove", "town_scythe");
 		if (zone.m_sZoneId == "town_les_creux")
+		{
 			AddZoneLinks(zone, "airfield_airbase_saint_philippe", "town_maidens_bay", "outpost_north_hq");
+			AddZoneLinks(zone, "radio_airbase_northwest_tower", "radio_airport_south_tower", "radio_st_phillipe_relay");
+		}
 		if (zone.m_sZoneId == "factory_saint_philippe")
 			AddZoneLinks(zone, "outpost_north_hq", "radio_st_phillipe_relay", "depot_farm_supply_depot");
 		if (zone.m_sZoneId == "town_redon")
@@ -992,8 +1060,6 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			AddZoneLinks(zone, "radio_erquy_lighthouse", "radio_eastern_sea_relay", "town_argent");
 		if (zone.m_sZoneId == "radio_erquy_lighthouse")
 			AddZoneLinks(zone, "town_erquy", "town_argent", "radio_eastern_sea_relay");
-		if (zone.m_sZoneId == "resource_etoupe_gas_station")
-			AddZoneLinks(zone, "depot_farm_supply_depot", "factory_power_plant", "town_maidens_bay");
 		if (zone.m_sZoneId == "outpost_smugglers_hole")
 			AddZoneLinks(zone, "outpost_cave", "outpost_cheval_gin_lodge", "town_lancre");
 		if (zone.m_sZoneId == "town_pins")
@@ -1003,7 +1069,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "town_courbet")
 			AddZoneLinks(zone, "town_le_bosc", "outpost_montfort_castle", "town_larue_bay");
 		if (zone.m_sZoneId == "factory_power_plant")
-			AddZoneLinks(zone, "town_kermovan", "town_fishermans_cove", "resource_etoupe_gas_station");
+			AddZoneLinks(zone, "town_kermovan", "town_fishermans_cove", "depot_farm_supply_depot");
 		if (zone.m_sZoneId == "town_crag_point")
 			AddZoneLinks(zone, "town_ghost_town", "town_lancre", "outpost_cave");
 		if (zone.m_sZoneId == "town_skua_point")
@@ -1015,7 +1081,16 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "radio_estrapade_tower")
 			AddZoneLinks(zone, "town_thollevast", "town_kervel", "outpost_shepherds_pond");
 		if (zone.m_sZoneId == "radio_st_phillipe_relay")
+		{
 			AddZoneLinks(zone, "outpost_north_hq", "factory_saint_philippe", "depot_farm_supply_depot");
+			AddZoneLinks(zone, "airfield_airbase_saint_philippe", "radio_airport_south_tower", "town_les_creux");
+		}
+		if (zone.m_sZoneId == "radio_regina2_tower")
+			AddZoneLinks(zone, "town_regina", "town_goat_bay", "depot_regina_supply_depot");
+		if (zone.m_sZoneId == "radio_airbase_northwest_tower")
+			AddZoneLinks(zone, "airfield_airbase_saint_philippe", "town_les_creux", "radio_airport_south_tower");
+		if (zone.m_sZoneId == "radio_airport_south_tower")
+			AddZoneLinks(zone, "airfield_airbase_saint_philippe", "outpost_north_hq", "radio_st_phillipe_relay");
 		if (zone.m_sZoneId == "depot_green_valley_supply_depot")
 			AddZoneLinks(zone, "town_durras", "resource_quarry", "outpost_pennants_pass");
 		if (zone.m_sZoneId == "depot_levie_supply_depot")
@@ -1023,7 +1098,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "depot_figari_supply_depot")
 			AddZoneLinks(zone, "outpost_pinewood_lake", "town_figari", "town_provins");
 		if (zone.m_sZoneId == "depot_farm_supply_depot")
-			AddZoneLinks(zone, "resource_etoupe_gas_station", "town_maidens_bay", "factory_saint_philippe");
+			AddZoneLinks(zone, "town_maidens_bay", "factory_saint_philippe", "factory_power_plant");
 		if (zone.m_sZoneId == "depot_gorey_supply_depot")
 			AddZoneLinks(zone, "town_hornbeam_valley", "town_gravette", "town_tyrone");
 		if (zone.m_sZoneId == "depot_industrial_supply_depot")

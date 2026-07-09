@@ -8,6 +8,7 @@ class HST_MapMarkerService
 	static const int MAX_NATIVE_MARKERS = 192;
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
 	static const int NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS = 30;
+	static const int RADIO_SIGNAL_NATIVE_ICON_INDEX = 91;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
@@ -585,8 +586,11 @@ class HST_MapMarkerService
 		if (!state.m_bHQDeployed)
 			return;
 
-		string label = string.Format("FIA HQ | Petros %1 | knowledge %2 | threat %3", state.m_bPetrosAlive, state.m_iHQKnowledge, state.m_iHQThreatLevel);
-		AddMarker(state, "hst_hq", state.m_sHQHideoutId, label, "", "hq", preset.m_sResistanceFactionKey, "PICK_UP2", FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), state.m_vHQPosition, true, "green", "support");
+		string label = string.Format("%1 HQ", preset.m_sResistanceFactionKey);
+		string icon = "PICK_UP2";
+		if (state.m_bDefendPetrosActive)
+			icon = "DEFEND";
+		AddMarker(state, "hst_hq", state.m_sHQHideoutId, label, "", "hq", preset.m_sResistanceFactionKey, icon, FactionToMarkerColor(preset.m_sResistanceFactionKey, preset), state.m_vHQPosition, true, "green", "support");
 	}
 
 	protected void AddDefendPetrosMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -807,9 +811,9 @@ class HST_MapMarkerService
 			if (ShouldShowIndividualConvoyVehicleMarkers(mission))
 				AddMissionConvoyVehicleMarkers(state, preset, mission, title);
 			else
-				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy - %1 | %2: neutralize crew", title, MissionRuntimePhaseLabel(mission)), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
+				AddMarker(state, "hst_mission_convoy_current_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyCurrentMarkerLabel(mission, title), "", "mission_asset", preset.m_sResistanceFactionKey, "POINT_SPECIAL", MissionToMarkerColor(mission), convoyPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_vehicle", true);
 		}
-		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, string.Format("Convoy destination - %1 | %2: %3", title, MissionRuntimePhaseLabel(mission), destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
+		AddMarker(state, "hst_mission_convoy_dest_" + mission.m_sInstanceId, mission.m_sInstanceId, BuildConvoyDestinationMarkerLabel(mission, title, destinationName), "", "mission_objective", preset.m_sResistanceFactionKey, "OBJECTIVE_MARKER", MissionToMarkerColor(mission), destinationPosition, true, MissionToMarkerTextColor(mission), "mission_convoy_destination", true);
 	}
 
 	protected bool ShouldShowIndividualConvoyVehicleMarkers(HST_ActiveMissionState mission)
@@ -976,18 +980,18 @@ class HST_MapMarkerService
 
 	protected string SupportRequestToIncomingMarkerIcon(HST_SupportRequestState request)
 	{
-		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			return "AMBUSH";
+		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return "JOIN3";
 
-		return "POINT_OF_INTEREST";
+		return "OBJECTIVE_MARKER";
 	}
 
 	protected string SupportRequestToLiveMarkerIcon(HST_SupportRequestState request)
 	{
-		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			return "AMBUSH";
+		if (request && request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+			return "JOIN3";
 
-		return "POINT_SPECIAL";
+		return "DOT";
 	}
 
 	bool ShouldShowResistanceSupportGroupMarker(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState group)
@@ -1206,14 +1210,7 @@ class HST_MapMarkerService
 		if (!marker)
 			return "";
 
-		if (marker.m_sCategory != "mission")
-			return ShortMarkerText(marker.m_sLabel, 42);
-
-		int separator = marker.m_sLabel.IndexOf(" |");
-		if (separator <= 0)
-			return ShortMarkerText(marker.m_sLabel, 42);
-
-		return ShortMarkerText(marker.m_sLabel.Substring(0, separator), 42);
+		return ShortMarkerText(marker.m_sLabel, 42);
 	}
 
 	protected bool HasRuntimeNativeMarkers(SCR_MapMarkerManagerComponent markerManager)
@@ -1302,8 +1299,35 @@ class HST_MapMarkerService
 		return SCR_MapMarkerManagerComponent.Cast(gameMode.FindComponent(SCR_MapMarkerManagerComponent));
 	}
 
-	protected SCR_EScenarioFrameworkMarkerCustom ResolveNativeIcon(string iconHint, string category, string styleHint)
+	protected int ResolveNativeIcon(string iconHint, string category, string styleHint)
 	{
+		if (iconHint == "RADIO_SIGNAL")
+			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
+
+		if (iconHint == "DOT")
+			return SCR_EScenarioFrameworkMarkerCustom.DOT;
+
+		if (iconHint == "DEFEND")
+			return SCR_EScenarioFrameworkMarkerCustom.DEFEND;
+
+		if (iconHint == "DESTROY2")
+			return SCR_EScenarioFrameworkMarkerCustom.DESTROY2;
+
+		if (iconHint == "HELP")
+			return SCR_EScenarioFrameworkMarkerCustom.HELP;
+
+		if (iconHint == "JOIN3")
+			return SCR_EScenarioFrameworkMarkerCustom.JOIN3;
+
+		if (iconHint == "MARK_EXCLAMATION")
+			return SCR_EScenarioFrameworkMarkerCustom.MARK_EXCLAMATION;
+
+		if (iconHint == "MARK_QUESTION")
+			return SCR_EScenarioFrameworkMarkerCustom.MARK_QUESTION;
+
+		if (iconHint == "OBJECTIVE_MARKER2")
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
+
 		if (iconHint == "PICK_UP2")
 			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
 
@@ -1356,7 +1380,7 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.AMBUSH;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "town" || category == "town"))
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
 
 		if (iconHint == "OBJECTIVE_MARKER" && (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base"))
 			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
@@ -1374,10 +1398,10 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.MINE_SINGLE;
 
 		if (styleHint == "town" || category == "town")
-			return SCR_EScenarioFrameworkMarkerCustom.POINT_OF_INTEREST2;
+			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
 
 		if (styleHint == "radio" || category == "radio")
-			return SCR_EScenarioFrameworkMarkerCustom.FLAG2;
+			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
 
 		if (styleHint == "radar" || category == "radar")
 			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
@@ -1557,13 +1581,13 @@ class HST_MapMarkerService
 			if (zone.m_sMarkerStyle == "resource" || zone.m_sMarkerStyle == "depot")
 				return "MINE_SINGLE";
 			if (zone.m_sMarkerStyle == "town")
-				return "POINT_OF_INTEREST";
+				return "OBJECTIVE_MARKER2";
 			if (zone.m_sMarkerStyle == "radio")
-				return "FLAG2";
+				return "RADIO_SIGNAL";
 			if (zone.m_sMarkerStyle == "radar")
 				return "TARGET_REFERENCE_POINT";
 			if (zone.m_sMarkerStyle == "enemy_base" || zone.m_sMarkerStyle == "stronghold")
-				return "OBSERVATION_POST";
+				return "FORTIFICATION";
 			if (zone.m_sMarkerStyle == "mission_site")
 			{
 				if (IsRadarSiteZone(zone))
@@ -1579,13 +1603,13 @@ class HST_MapMarkerService
 			return "MINE_SINGLE";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-			return "FLAG2";
+			return "RADIO_SIGNAL";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_HIDEOUT)
 			return "PICK_UP2";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_TOWN)
-			return "POINT_OF_INTEREST2";
+			return "OBJECTIVE_MARKER2";
 
 		if (zoneType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 		{
@@ -1626,11 +1650,7 @@ class HST_MapMarkerService
 		if (!zone)
 			return "unknown";
 
-		string active = "inactive";
-		if (zone.m_bActive)
-			active = "active";
-
-		return string.Format("%1 | owner %2 | capture %3 | %4", ResolveZoneDisplayName(zone), zone.m_sOwnerFactionKey, zone.m_iResistanceCaptureProgress, active);
+		return zone.m_sOwnerFactionKey;
 	}
 
 	protected string ZoneToMarkerTextColor(HST_ZoneState zone)
@@ -1962,11 +1982,11 @@ class HST_MapMarkerService
 		if (family == "convoy")
 			return "POINT_SPECIAL";
 		if (family == "rescue")
-			return "PICK_UP2";
+			return "HELP";
 		if (family == "hvt")
 			return "POINT_OF_INTEREST";
 		if (family == "destroy")
-			return "MINE_SINGLE";
+			return "DESTROY2";
 		if (family == "support")
 			return "PICK_UP2";
 		if (family == "logistics")
@@ -2000,8 +2020,10 @@ class HST_MapMarkerService
 		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_KILL_TARGET)
 			return "POINT_OF_INTEREST";
 		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DESTROY_TARGET)
-			return "MINE_SINGLE";
-		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES)
+			return "DESTROY2";
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RESCUE_CAPTIVES)
+			return "HELP";
+		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_RECOVER_LOOT || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_DELIVER_SUPPLIES)
 			return "PICK_UP2";
 		if (objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_HOLD_AREA || objective.m_eType == HST_EMissionObjectiveType.HST_OBJECTIVE_CLEAR_AREA)
 			return "OBJECTIVE_MARKER";
@@ -2017,15 +2039,15 @@ class HST_MapMarkerService
 		if (asset.m_bPickedUp && !asset.m_bDelivered)
 			return "OBJECTIVE_MARKER";
 		if (asset.m_sRole == "gun_shop_seller")
-			return "POINT_OF_INTEREST";
+			return "MARK_QUESTION";
 		if (asset.m_sRole == "gun_shop_delivery_vehicle")
-			return "POINT_SPECIAL";
+			return "MARK_EXCLAMATION";
 		if (asset.m_sRole == "convoy_vehicle")
 			return "POINT_SPECIAL";
 		if (asset.m_sRole == "hvt")
 			return "POINT_OF_INTEREST";
 		if (asset.m_sRole == "destroy_target")
-			return "MINE_SINGLE";
+			return "DESTROY2";
 		if (asset.m_sRole == "city_supplies" || asset.m_sRole == "logistics_cargo" || asset.m_sRole == "convoy_payload" || asset.m_sRole == "captive" || asset.m_sRole == "convoy_captive")
 			return "PICK_UP2";
 		if (asset.m_sKind == "target")
@@ -2077,40 +2099,62 @@ class HST_MapMarkerService
 		if (!mission)
 			return "Mission";
 
-		string family = MissionFamilyLabel(mission);
 		string title = MissionMarkerTitle(mission);
-		string targetName = ResolveZoneDisplayNameById(state, mission.m_sTargetZoneId);
+		return BuildMissionMinutesLabel(mission, title);
+	}
 
-		int complete;
-		int total;
-		if (state)
-		{
-			foreach (HST_MissionObjectiveState objective : state.m_aMissionObjectives)
-			{
-				if (!objective || objective.m_sMissionInstanceId != mission.m_sInstanceId)
-					continue;
+	protected string BuildMissionMinutesLabel(HST_ActiveMissionState mission, string title)
+	{
+		if (title.IsEmpty())
+			title = "Mission";
 
-				total++;
-				if (objective.m_bComplete)
-					complete++;
-			}
-		}
+		int minutes = 0;
+		if (mission)
+			minutes = (Math.Max(0, mission.m_iRemainingSeconds) + 59) / 60;
 
-		return string.Format("%1 - %2: %3 | %4s | %5/%6", family, title, targetName, mission.m_iRemainingSeconds, complete, total);
+		return string.Format("%1 | %2 Minutes", title, minutes);
+	}
+
+	protected string BuildConvoyCurrentMarkerLabel(HST_ActiveMissionState mission, string title)
+	{
+		if (IsConvoyStagingPhase(mission))
+			return string.Format("%1 | %2 Seconds", title, ResolveConvoyStartSeconds(mission));
+
+		return BuildMissionMinutesLabel(mission, title);
+	}
+
+	protected string BuildConvoyDestinationMarkerLabel(HST_ActiveMissionState mission, string title, string destinationName)
+	{
+		if (IsConvoyStagingPhase(mission))
+			return string.Format("%1 | %2 Seconds", title, ResolveConvoyStartSeconds(mission));
+
+		return BuildMissionMinutesLabel(mission, title);
+	}
+
+	protected bool IsConvoyStagingPhase(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return false;
+
+		return mission.m_sRuntimePhase == "convoy_staging" || mission.m_sRuntimePhase == "convoy_static" || mission.m_sRuntimePhase == "created" || mission.m_sRuntimePhase == "active";
+	}
+
+	protected int ResolveConvoyStartSeconds(HST_ActiveMissionState mission)
+	{
+		if (!mission)
+			return 0;
+
+		if (mission.m_iRuntimeETASeconds > 0)
+			return Math.Max(0, mission.m_iRuntimeETASeconds);
+		if (mission.m_iRuntimeCounterB > mission.m_iRuntimeCounterA)
+			return Math.Max(0, mission.m_iRuntimeCounterB - mission.m_iRuntimeCounterA);
+
+		return Math.Max(0, mission.m_iRemainingSeconds);
 	}
 
 	protected string BuildMissionObjectiveMarkerLabel(HST_ActiveMissionState mission, HST_MissionObjectiveState objective)
 	{
-		if (!objective)
-			return "Objective";
-
-		string label = objective.m_sLabel;
-		if (label.IsEmpty())
-			label = objective.m_sTargetId;
-		if (label.IsEmpty())
-			label = "Objective";
-
-		return string.Format("%1 - %2: %3", MissionFamilyLabel(mission), MissionMarkerTitle(mission), label);
+		return BuildMissionMinutesLabel(mission, MissionMarkerTitle(mission));
 	}
 
 	protected string BuildMissionAssetMarkerLabel(HST_ActiveMissionState mission, HST_MissionAssetState asset)
@@ -2119,7 +2163,7 @@ class HST_MapMarkerService
 			return "Mission asset";
 
 		if (asset.m_sRole == "gun_shop_seller")
-			return "Gun Shop: Open Gun Shop";
+			return BuildMissionMinutesLabel(mission, "Gun Shop");
 		if (asset.m_sRole == "gun_shop_delivery_vehicle")
 			return "Gun Shop Purchases Delivery";
 
@@ -2144,8 +2188,7 @@ class HST_MapMarkerService
 		else if (asset.m_sRole == "hvt")
 			verb = "Kill";
 
-		string role = MissionAssetReadableRole(asset);
-		return string.Format("%1 - %2: %3 %4", MissionFamilyLabel(mission), MissionMarkerTitle(mission), verb, role);
+		return BuildMissionMinutesLabel(mission, MissionMarkerTitle(mission));
 	}
 
 	protected bool AreMissionObjectivesComplete(HST_CampaignState state, HST_ActiveMissionState mission)

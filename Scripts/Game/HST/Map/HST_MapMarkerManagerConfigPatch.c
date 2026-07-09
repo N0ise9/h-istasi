@@ -1,3 +1,52 @@
+modded class SCR_MarkerIconEntry
+{
+	void HST_SetIconResource(ResourceName imageset, ResourceName imagesetGlow, string imageQuad, string categoryIdentifier = "general")
+	{
+		m_sCategoryIdentifier = categoryIdentifier;
+		m_sIconImageset = imageset;
+		m_sIconGlowImageset = imagesetGlow;
+		m_sIconImagesetQuad = imageQuad;
+	}
+}
+
+modded class SCR_MapMarkerEntryPlaced
+{
+	static const ResourceName HST_CONFLICT_ICON_IMAGESET = "{F7E8D4834A3AFF2F}UI/Imagesets/Conflict/conflict-icons-bw.imageset";
+	static const string HST_RADIO_SIGNAL_QUAD = "radio-signal";
+
+	int HST_EnsureRadioSignalIconEntry()
+	{
+		return HST_EnsureIconEntry(HST_CONFLICT_ICON_IMAGESET, "", HST_RADIO_SIGNAL_QUAD, "general");
+	}
+
+	int HST_EnsureIconEntry(ResourceName imageset, ResourceName imagesetGlow, string imageQuad, string categoryIdentifier)
+	{
+		if (imageQuad.IsEmpty())
+			return -1;
+
+		if (!m_aPlacedMarkerIcons)
+			m_aPlacedMarkerIcons = {};
+
+		ResourceName existingImageset;
+		ResourceName existingGlow;
+		string existingQuad;
+		foreach (int i, SCR_MarkerIconEntry existingEntry : m_aPlacedMarkerIcons)
+		{
+			if (!existingEntry)
+				continue;
+
+			existingEntry.GetIconResource(existingImageset, existingGlow, existingQuad);
+			if (existingImageset == imageset && existingQuad == imageQuad)
+				return i;
+		}
+
+		SCR_MarkerIconEntry entry = new SCR_MarkerIconEntry();
+		entry.HST_SetIconResource(imageset, imagesetGlow, imageQuad, categoryIdentifier);
+		m_aPlacedMarkerIcons.Insert(entry);
+		return m_aPlacedMarkerIcons.Count() - 1;
+	}
+}
+
 modded class SCR_MapMarkerManagerComponent
 {
 	bool EnsureHSTMarkerConfig(ResourceName markerConfigPath)
@@ -33,6 +82,10 @@ modded class SCR_MapMarkerManagerComponent
 		array<ref SCR_MapMarkerEntryConfig> entryConfigs = m_MarkerCfg.GetMarkerEntryConfigs();
 		if (!entryConfigs)
 			return;
+
+		SCR_MapMarkerEntryPlaced placedEntry = SCR_MapMarkerEntryPlaced.Cast(m_MarkerCfg.GetMarkerEntryConfigByType(SCR_EMapMarkerType.PLACED_CUSTOM));
+		if (placedEntry)
+			placedEntry.HST_EnsureRadioSignalIconEntry();
 
 		foreach (SCR_MapMarkerEntryConfig entryConfig : entryConfigs)
 		{
