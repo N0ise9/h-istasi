@@ -96,6 +96,7 @@ class HST_CampaignDebugSupportProbeContext
 	HST_SupportRequestState m_Request;
 	bool m_bMarkerVisibleAfterRequest;
 	string m_sMarkerActualAfterRequest;
+	string m_sMarkerIconAfterRequest;
 	bool m_bRuntimeProbeRan;
 	int m_iEtaRemainingBefore = -1;
 	int m_iEtaRemainingAfter = -1;
@@ -116,6 +117,13 @@ class HST_CampaignDebugSupportProbeContext
 	string m_sGroupStatusBeforePopulation;
 	string m_sGroupStatusAfterPopulation;
 	string m_sPendingPopulationEvidence;
+	bool m_bRuntimeGroupSnapshotCapturedBeforeFold;
+	vector m_vGroupTargetBeforeFold;
+	string m_sGroupActualBeforeFold;
+	int m_iEditableSizeBeforeFold = -1;
+	bool m_bRuntimeMemberCountsVisibleBeforeFold;
+	bool m_bResponseRunBeforeFold;
+	string m_sResponseRunActualBeforeFold;
 	bool m_bLiveGroupMarkerVisibleAfterPopulation;
 	string m_sLiveGroupMarkerActualAfterPopulation;
 	bool m_bRoadblockSupportMarkerVisibleAfterPopulation;

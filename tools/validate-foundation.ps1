@@ -3203,6 +3203,52 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 }
 Write-Host "Physical support runtime debug proof OK"
 
+foreach ($requiredCampaignDebugFalseNegativeRepair in @(
+	'CampaignDebugReportBool(observedSupportRequest.m_sDeploymentSummary, "playerClear")',
+	'CampaignDebugReportBool(observedSupportRequest.m_sDeploymentSummary, "activeGroupClear")',
+	'm_sMarkerIconAfterRequest',
+	'markerVisible && markerIcon == "OBJECTIVE_MARKER"',
+	'resource %3/12+',
+	'resourceCount >= 12',
+	'CampaignDebugStatusSeverity',
+	'resolvedReason = assertion.m_sFailureReason',
+	'CaptureCampaignDebugSupportRuntimeSnapshot',
+	'm_bRuntimeGroupSnapshotCapturedBeforeFold',
+	'm_bRuntimeMemberCountsVisibleBeforeFold',
+	'm_bResponseRunBeforeFold',
+	'GetFormationDisplacement()',
+	'formationTight'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredCampaignDebugFalseNegativeRepair)) {
+		throw "Missing Full Campaign Debug false-negative repair: $requiredCampaignDebugFalseNegativeRepair"
+	}
+}
+if ($coordinatorMarkerText -match [regex]::Escape('Contains("playerClear true")') -or $coordinatorMarkerText -match [regex]::Escape('Contains("activeGroupClear true")')) {
+	throw "Physical support clearance proof must normalize Enfusion bool text"
+}
+if ($coordinatorMarkerText -match 'resourceCount\s*>=\s*13') {
+	throw "Curated resource-site proof must use the intentional 12-site registry minimum"
+}
+$incomeProbeBlock = [regex]::Match($coordinatorMarkerText, 'protected HST_CampaignDebugIncomeProbeContext BuildCampaignDebugIncomeProbeContext\(\)[\s\S]*?\r?\n\t}')
+if (-not $incomeProbeBlock.Success) {
+	throw "Full Campaign Debug income probe boundary is missing"
+}
+$incomeReportIndex = $incomeProbeBlock.Value.IndexOf('m_sEconomyReport = RequestMemberInspectEconomy')
+$incomeTickIndex = $incomeProbeBlock.Value.IndexOf('m_sCommandResult = RequestCommanderApplyIncomeNowReport')
+if ($incomeReportIndex -lt 0 -or $incomeTickIndex -lt 0 -or $incomeReportIndex -gt $incomeTickIndex) {
+	throw "Full Campaign Debug economy report and expected delta must sample the same pre-tick state"
+}
+$supportProbeBlock = [regex]::Match($coordinatorMarkerText, 'protected bool ProbeCampaignDebugSupportRequestRuntime\([^\r\n]+\)[\s\S]*?\r?\n\t}\r?\n\r?\n\tprotected void CaptureCampaignDebugSupportRuntimeSnapshot')
+if (-not $supportProbeBlock.Success) {
+	throw "Full Campaign Debug support runtime probe boundary is missing"
+}
+$supportSnapshotIndex = $supportProbeBlock.Value.LastIndexOf('CaptureCampaignDebugSupportRuntimeSnapshot(probeContext, group)')
+$supportFoldIndex = $supportProbeBlock.Value.IndexOf('group.m_sRuntimeStatus = "folded"')
+if ($supportSnapshotIndex -lt 0 -or $supportFoldIndex -lt 0 -or $supportSnapshotIndex -gt $supportFoldIndex) {
+	throw "Full Campaign Debug support movement and formation evidence must be captured before group fold"
+}
+Write-Host "Full campaign debug false-negative guards OK"
+
 foreach ($requiredPhysicalCombatStrictEntry in @(
 		"CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS = 45",
 		"physical_combat.faction_hostility",

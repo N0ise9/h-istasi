@@ -4919,8 +4919,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.income", "resource/factory/seaport/airfield/bank-like zones count > 0", string.Format("resource %1 | factory %2 | airfield %3 | seaport %4", resourceCount, factoryCount, airfieldCount, seaportCount), CampaignDebugStatus(resourceCount + factoryCount + airfieldCount + seaportCount > 0), "no income-producing strategic zones found");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.radio", "radio zones count > 0", string.Format("%1", radioCount), CampaignDebugStatus(radioCount > 0), "no radio zones found");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.strategic", "strategic zones count > 0", string.Format("%1", strategicCount), CampaignDebugStatus(strategicCount > 0), "no strategic zones found");
-		string curatedCountsActual = string.Format("town %1/21+ | outpost %2/3+ | resource %3/13+ | factory %4/4+ | airfield %5/1+ | seaport %6/3+ | radio %7/13+ | mission_site %8/9+", townCount, outpostCount, resourceCount, factoryCount, airfieldCount, seaportCount, radioCount, missionSiteCount);
-		bool curatedCountsExpected = townCount >= 21 && outpostCount >= 3 && resourceCount >= 13 && factoryCount >= 4 && airfieldCount >= 1 && seaportCount >= 3 && radioCount >= 13 && missionSiteCount >= 9;
+		string curatedCountsActual = string.Format("town %1/21+ | outpost %2/3+ | resource %3/12+ | factory %4/4+ | airfield %5/1+ | seaport %6/3+ | radio %7/13+ | mission_site %8/9+", townCount, outpostCount, resourceCount, factoryCount, airfieldCount, seaportCount, radioCount, missionSiteCount);
+		bool curatedCountsExpected = townCount >= 21 && outpostCount >= 3 && resourceCount >= 12 && factoryCount >= 4 && airfieldCount >= 1 && seaportCount >= 3 && radioCount >= 13 && missionSiteCount >= 9;
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.curated_location_counts", "curated location taxonomy minimum counts are present while allowing extra zones", curatedCountsActual, CampaignDebugStatus(curatedCountsExpected), "one or more curated location type pools are underrepresented");
 		AddCampaignDebugAssertion(preflightCase, "preflight.zone_graph.curated_location_categories", "known curated locations keep their intended zone categories", string.Format("mismatches %1 | first %2", curatedLocationMismatches, EmptyCampaignDebugField(curatedLocationMismatchExample)), CampaignDebugStatus(curatedLocationMismatches == 0), "one or more curated location zones drifted into the wrong category");
 
@@ -10891,6 +10891,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			incomeContext.m_iResistanceIncomeZoneCount = CountCampaignDebugOwnedIncomeZones(m_Preset.m_sResistanceFactionKey);
 		}
 
+		// The report and expected values must describe the same pre-tick state.
+		incomeContext.m_sEconomyReport = RequestMemberInspectEconomy(m_iCampaignDebugPlayerId);
 		incomeContext.m_sCommandResult = RequestCommanderApplyIncomeNowReport(m_iCampaignDebugPlayerId);
 		if (m_State)
 		{
@@ -10898,8 +10900,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			incomeContext.m_iHRAfter = m_State.m_iHR;
 			incomeContext.m_iTimerAfter = m_State.m_iIncomeAccumulatorSeconds;
 		}
-		incomeContext.m_sEconomyReport = RequestMemberInspectEconomy(m_iCampaignDebugPlayerId);
-
 		return incomeContext;
 	}
 
@@ -11724,6 +11724,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MapMarkerState marker = FindCampaignDebugMarkerLinkedTo(probeContext.m_Request.m_sRequestId);
 		probeContext.m_bMarkerVisibleAfterRequest = marker != null;
 		probeContext.m_sMarkerActualAfterRequest = "after request | " + BuildCampaignDebugMarkerActual(marker);
+		probeContext.m_sMarkerIconAfterRequest = "";
+		if (marker)
+			probeContext.m_sMarkerIconAfterRequest = marker.m_sIconHint;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugSupportRequestCase(HST_CampaignDebugSupportProbeContext probeContext)
@@ -11765,10 +11768,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MapMarkerState linkedMarkerState = FindCampaignDebugMarkerLinkedTo(observedSupportRequest.m_sRequestId);
 		bool markerVisible = probeContext.m_bMarkerVisibleAfterRequest;
 		string markerActual = probeContext.m_sMarkerActualAfterRequest;
+		string markerIcon = probeContext.m_sMarkerIconAfterRequest;
 		if (markerActual.IsEmpty())
 		{
 			markerVisible = linkedMarkerState != null;
 			markerActual = "current | " + BuildCampaignDebugMarkerActual(linkedMarkerState);
+			if (linkedMarkerState)
+				markerIcon = linkedMarkerState.m_sIconHint;
 		}
 		int moneyDelta = 0;
 		int hrDelta = 0;
@@ -11825,7 +11831,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		AddCampaignDebugAssertion(supportCase, "support.marker", "linked support marker published immediately after request before runtime resolution", markerActual, CampaignDebugStatus(markerVisible, "WARN"), "support marker is not visible in marker state immediately after request", observedSupportRequest.m_sRequestId);
 		if (observedSupportRequest.m_eType == HST_ESupportRequestType.HST_SUPPORT_SEARCH_AND_DESTROY)
-			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support incoming marker uses the QRF-style support icon", markerActual, CampaignDebugStatus(linkedMarkerState && linkedMarkerState.m_sIconHint == "OBJECTIVE_MARKER"), "search support marker did not use OBJECTIVE_MARKER", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.search_marker_icon", "search support incoming marker uses the QRF-style support icon", markerActual, CampaignDebugStatus(markerVisible && markerIcon == "OBJECTIVE_MARKER"), "search support marker did not use OBJECTIVE_MARKER", observedSupportRequest.m_sRequestId);
 		AddCampaignDebugSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest);
 	}
 
@@ -11879,24 +11885,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				AddCampaignDebugRoadblockSupportRuntimeAssertions(supportCase, probeContext, observedSupportRequest, supportGroup);
 				return;
 			}
-			string deploymentActual = string.Format("summary %1 | targetDistance %2m | groupTarget %3 | requestTarget %4", EmptyCampaignDebugField(observedSupportRequest.m_sDeploymentSummary), observedSupportRequest.m_iDeploymentTargetDistanceMeters, supportGroup != null, observedSupportRequest.m_vTargetPosition);
-			bool deploymentTargetedToRequest = supportGroup && DistanceSq2D(supportGroup.m_vTargetPosition, observedSupportRequest.m_vTargetPosition) <= 9.0;
+			string deploymentActual = string.Format("summary %1 | targetDistance %2m | snapshot %3 | groupTarget %4 | requestTarget %5", EmptyCampaignDebugField(observedSupportRequest.m_sDeploymentSummary), observedSupportRequest.m_iDeploymentTargetDistanceMeters, probeContext.m_bRuntimeGroupSnapshotCapturedBeforeFold, probeContext.m_vGroupTargetBeforeFold, observedSupportRequest.m_vTargetPosition);
+			bool deploymentTargetedToRequest = probeContext.m_bRuntimeGroupSnapshotCapturedBeforeFold && DistanceSq2D(probeContext.m_vGroupTargetBeforeFold, observedSupportRequest.m_vTargetPosition) <= 9.0;
 			bool deploymentOffset = observedSupportRequest.m_iDeploymentTargetDistanceMeters >= 180;
-			bool deploymentClearance = observedSupportRequest.m_sDeploymentSummary.Contains("playerClear true") && observedSupportRequest.m_sDeploymentSummary.Contains("activeGroupClear true");
+			bool deploymentClearance = CampaignDebugReportBool(observedSupportRequest.m_sDeploymentSummary, "playerClear") && CampaignDebugReportBool(observedSupportRequest.m_sDeploymentSummary, "activeGroupClear");
 			AddCampaignDebugAssertion(supportCase, "support.physical_map_destination", "ground support group routes to the requested support destination", deploymentActual, CampaignDebugStatus(deploymentTargetedToRequest), "ground support active group target does not match the support request target position", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_offset", "ground support spawns offset from the selected destination", deploymentActual, CampaignDebugStatus(deploymentOffset), "ground support staging was not offset from the selected destination", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugAssertion(supportCase, "support.physical_spawn_clearance", "ground support spawn placement records player and AI clearance", deploymentActual, CampaignDebugStatus(deploymentClearance), "ground support staging did not prove clearance from players and active AI groups", observedSupportRequest.m_sRequestId);
-			int editableSize = -1;
-			if (m_PhysicalWar && supportGroup)
-				editableSize = m_PhysicalWar.CampaignDebugResolveActiveGroupEditableSize(supportGroup.m_sGroupId);
-			string supportGroupActual = BuildCampaignDebugActiveGroupActual(supportGroup) + string.Format(" | editableSize %1", editableSize);
-			bool memberCountsVisible = supportGroup && supportGroup.m_iSpawnedAgentCount > 0 && supportGroup.m_iLastSeenAliveCount > 0 && editableSize > 0;
-			AddCampaignDebugAssertion(supportCase, "support.physical_runtime_member_counts", "spawned ground support group records nonzero runtime member counts and editable size", supportGroupActual, CampaignDebugStatus(memberCountsVisible), "ground support active group still reports zero spawned/live members or editable Size 0 after population", observedSupportRequest.m_sRequestId);
-			string responseRunActual = BuildCampaignDebugActiveGroupActual(supportGroup);
-			bool responseRun;
-			if (m_PhysicalWar)
-				responseRun = m_PhysicalWar.CampaignDebugIsActiveGroupResponseRunMovement(supportGroup, responseRunActual);
-			AddCampaignDebugAssertion(supportCase, "support.physical_response_run", "ground support active group has native RUN movement for routed response", responseRunActual, CampaignDebugStatus(responseRun), "ground support active group did not apply native response RUN movement", observedSupportRequest.m_sRequestId);
+			string supportGroupActual = probeContext.m_sGroupActualBeforeFold + string.Format(" | editableSize %1", probeContext.m_iEditableSizeBeforeFold);
+			AddCampaignDebugAssertion(supportCase, "support.physical_runtime_member_counts", "spawned ground support group records nonzero runtime member counts and editable size before fold", supportGroupActual, CampaignDebugStatus(probeContext.m_bRuntimeMemberCountsVisibleBeforeFold), "ground support active group still reported zero spawned/live members or editable Size 0 at the pre-fold observation point", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_response_run", "ground support active group has native RUN movement for routed response before fold", probeContext.m_sResponseRunActualBeforeFold, CampaignDebugStatus(probeContext.m_bResponseRunBeforeFold), "ground support active group did not apply native response RUN movement at the pre-fold observation point", observedSupportRequest.m_sRequestId);
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_before", string.Format("%1", Math.Round(probeContext.m_fDistanceBefore)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_after", string.Format("%1", Math.Round(probeContext.m_fDistanceAfter)), "meters");
 			AddCampaignDebugMetric(supportCase, "support.physical_distance_arrival", string.Format("%1", Math.Round(probeContext.m_fDistanceAtArrival)), "meters");
@@ -12093,6 +12091,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		probeContext.m_sGroupStatusBeforePopulation = "";
 		probeContext.m_sGroupStatusAfterPopulation = "";
 		probeContext.m_sPendingPopulationEvidence = "";
+		probeContext.m_bRuntimeGroupSnapshotCapturedBeforeFold = false;
+		probeContext.m_vGroupTargetBeforeFold = "0 0 0";
+		probeContext.m_sGroupActualBeforeFold = "";
+		probeContext.m_iEditableSizeBeforeFold = -1;
+		probeContext.m_bRuntimeMemberCountsVisibleBeforeFold = false;
+		probeContext.m_bResponseRunBeforeFold = false;
+		probeContext.m_sResponseRunActualBeforeFold = "";
 		probeContext.m_bLiveGroupMarkerVisibleAfterPopulation = false;
 		probeContext.m_sLiveGroupMarkerActualAfterPopulation = "";
 		probeContext.m_fDistanceBefore = -1.0;
@@ -12196,6 +12201,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (group)
 			{
 				probeContext.m_sGroupStatusAfterPopulation = group.m_sRuntimeStatus;
+				CaptureCampaignDebugSupportRuntimeSnapshot(probeContext, group);
 				RefreshCampaignMarkers();
 				HST_MapMarkerState liveGroupMarker = FindCampaignDebugMarkerLinkedTo(group.m_sGroupId);
 				probeContext.m_bLiveGroupMarkerVisibleAfterPopulation = liveGroupMarker != null;
@@ -12240,6 +12246,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				probeContext.m_sRequestRuntimeStatusAtArrival = supportRequest.m_sRuntimeStatus;
 				if (group && supportRequest.m_sRuntimeStatus == "physical_arrived")
 				{
+					CaptureCampaignDebugSupportRuntimeSnapshot(probeContext, group);
 					probeContext.m_sGroupStatusBeforeTerminal = group.m_sRuntimeStatus;
 					if (group.m_sRuntimeStatus == "support_arrived" || group.m_sRuntimeStatus == "support_active")
 					{
@@ -12280,6 +12287,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| probeContext.m_bRouteTickChanged
 			|| probeContext.m_bArrivalTickChanged
 			|| probeContext.m_bTerminalTickChanged;
+	}
+
+	protected void CaptureCampaignDebugSupportRuntimeSnapshot(HST_CampaignDebugSupportProbeContext probeContext, HST_ActiveGroupState group)
+	{
+		if (!probeContext || !group)
+			return;
+
+		probeContext.m_bRuntimeGroupSnapshotCapturedBeforeFold = true;
+		probeContext.m_vGroupTargetBeforeFold = group.m_vTargetPosition;
+		probeContext.m_sGroupActualBeforeFold = BuildCampaignDebugActiveGroupActual(group);
+		probeContext.m_iEditableSizeBeforeFold = -1;
+		if (m_PhysicalWar)
+			probeContext.m_iEditableSizeBeforeFold = m_PhysicalWar.CampaignDebugResolveActiveGroupEditableSize(group.m_sGroupId);
+		probeContext.m_bRuntimeMemberCountsVisibleBeforeFold = group.m_iSpawnedAgentCount > 0
+			&& group.m_iLastSeenAliveCount > 0
+			&& probeContext.m_iEditableSizeBeforeFold > 0;
+
+		string responseRunActual = probeContext.m_sGroupActualBeforeFold;
+		bool responseRun;
+		if (m_PhysicalWar)
+			responseRun = m_PhysicalWar.CampaignDebugIsActiveGroupResponseRunMovement(group, responseRunActual);
+		probeContext.m_sResponseRunActualBeforeFold = responseRunActual;
+		probeContext.m_bResponseRunBeforeFold = responseRun;
 	}
 
 	protected void SampleCampaignDebugSupportRouteProgress(HST_CampaignDebugSupportProbeContext probeContext, HST_SupportRequestState supportRequest, HST_ActiveGroupState initialGroup, int firstAdvanceSeconds, int sampleLimit)
@@ -13259,37 +13289,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string resolvedStatus = "PASS";
 		string resolvedReason = caseResult.m_sReason;
+		int resolvedSeverity;
 		foreach (HST_CampaignDebugAssertion assertion : caseResult.m_aAssertions)
 		{
 			if (!assertion)
 				continue;
 
-			if (assertion.m_sStatus == "FAIL")
-			{
-				resolvedStatus = "FAIL";
-				if (resolvedReason.IsEmpty())
-					resolvedReason = assertion.m_sFailureReason;
-				break;
-			}
+			int assertionSeverity = CampaignDebugStatusSeverity(assertion.m_sStatus);
+			if (assertionSeverity <= resolvedSeverity)
+				continue;
 
-			if (assertion.m_sStatus == "BLOCKED" && resolvedStatus != "FAIL")
-			{
-				resolvedStatus = "BLOCKED";
-				if (resolvedReason.IsEmpty())
-					resolvedReason = assertion.m_sFailureReason;
-			}
-			else if (assertion.m_sStatus == "WARN" && resolvedStatus == "PASS")
-			{
-				resolvedStatus = "WARN";
-				if (resolvedReason.IsEmpty())
-					resolvedReason = assertion.m_sFailureReason;
-			}
-			else if (assertion.m_sStatus == "SKIPPED" && resolvedStatus == "PASS")
-			{
-				resolvedStatus = "SKIPPED";
-				if (resolvedReason.IsEmpty())
-					resolvedReason = assertion.m_sFailureReason;
-			}
+			resolvedSeverity = assertionSeverity;
+			resolvedStatus = assertion.m_sStatus;
+			resolvedReason = assertion.m_sFailureReason;
 		}
 
 		caseResult.m_sStatus = resolvedStatus;
@@ -13297,6 +13309,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			resolvedReason = "assertions passed";
 		caseResult.m_sReason = resolvedReason;
 		caseResult.m_iEndSecond = GetCampaignDebugElapsedSecond();
+	}
+
+	protected int CampaignDebugStatusSeverity(string status)
+	{
+		if (status == "FAIL")
+			return 4;
+		if (status == "BLOCKED")
+			return 3;
+		if (status == "WARN")
+			return 2;
+		if (status == "SKIPPED")
+			return 1;
+		return 0;
 	}
 
 	protected string BuildCampaignDebugTextCaseId(string label)

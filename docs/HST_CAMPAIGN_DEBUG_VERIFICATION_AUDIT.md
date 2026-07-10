@@ -23,13 +23,16 @@ be read as proof that a later change was executed or certified.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
-- Several red rows are known harness false negatives: support clearance expects
+- Several red rows in the inspected artifact are known harness false negatives:
+  support clearance expects
   `true` while the runtime reports boolean `1`; search-marker evidence is checked
   after teardown instead of at the captured observation point; the economy delta
   compares a pre-tick expectation with a post-tick report; the generated-site
   assertion expects 13 where the registry intentionally contains 12; the case
   headline can preserve an earlier WARN while hiding a later FAIL; and support
   movement/formation evidence can be sampled after the group has already folded.
+  Current source repairs all six, but the historical artifact remains unchanged
+  until a fresh isolated run executes the corrected harness.
 - The inspected gameplay artifact predates campaign schema 43 exact-force
   authority, schema 44 SpawnQueue authority, the schema 45 engine adapter, and
   the schema 46 exact player-QRF cutover, schema 47 exact force-runtime
@@ -53,6 +56,18 @@ Foundation checks and Workbench script validation pass for this boundary. It has
 not yet been runtime-proven, and a development-session restart remains required
 because world entities, player inventory/health, delayed callbacks, and service
 caches are not campaign-save fields.
+
+Post-audit false-negative follow-up: support clearance now uses the shared bool
+parser that accepts both `true` and `1`; the incoming search marker retains its
+icon in the immediate post-request snapshot; expected income and the economy
+report are both sampled before the forced tick; the curated resource minimum is
+12; case status and reason are selected by explicit severity; and support target,
+member-count, editable-size, RUN-movement, and formation evidence are captured
+before terminal fold. Foundation validation passes. The Game module compiled
+5,739 files/11,472 classes and created the game, and a separate normal
+WorldEditor project open remained responsive at every two-second sample through
+20 seconds with no script-error or crash signature. This proves compilation and
+startup survival, not corrected Full Campaign Debug runtime results.
 
 Post-audit marker follow-up: the client-side static-marker manager now retries
 widget construction before update and disables a marker that remains rootless,

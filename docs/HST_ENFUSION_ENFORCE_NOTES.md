@@ -1819,6 +1819,31 @@ This file is for practical engine/script behavior, not project planning. Keep en
     two-second sample through 20 seconds and did not reproduce the earlier crash.
     This is compile/startup evidence, not archive replay or restart evidence.
 
+## Campaign Debug Observation Timing
+
+- A debug assertion must consume evidence captured at the state transition it
+  claims to prove. Marker icon, active-group target, member counts, editable
+  size, native RUN movement, and formation evidence must be copied before the
+  probe intentionally tears down a marker, folds a group, or removes its runtime
+  entity. A later lookup can only be a fallback when no observation was captured.
+- Enfusion-formatted bool fields can appear as `true` or `1`. Use one normalized
+  report parser for both representations instead of matching a single literal.
+- Formula expectations and human-readable reports must describe the same state.
+  For a forced economy tick, calculate expected income and capture the inspection
+  report before applying the tick, then compare the post-tick resource delta to
+  that shared pre-tick evidence.
+- Aggregate case status and headline reason by explicit severity. A later FAIL
+  must replace an earlier WARN reason; the intended order is FAIL, BLOCKED, WARN,
+  SKIPPED, then PASS.
+- Taxonomy minimums must follow the authoritative curated registry. The resource
+  pool intentionally contains 12 sites; an assertion for 13 creates a permanent
+  harness failure without increasing gameplay coverage.
+- After these six observation repairs, the Game module still loads 5,739 files/
+  11,472 classes and creates the game. A separate normal WorldEditor project open
+  stayed responsive at every two-second sample through 20 seconds with no
+  script-error or crash signature. The corrected assertions remain runtime-open
+  until a fresh isolated Full Campaign Debug artifact executes them.
+
 ## Native Reference Sources
 
 - Native map config reference: `Configs/Map/MapFullscreen.conf`.

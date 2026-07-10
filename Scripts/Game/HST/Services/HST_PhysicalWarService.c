@@ -10325,6 +10325,8 @@ class HST_PhysicalWarService
 
 		bool responseRunToken = activeGroup.m_sSpawnFallbackMode.Contains("response_run");
 		bool groupRun;
+		bool formationTight;
+		int formationDisplacement = -1;
 		int liveAgentCount;
 		int runAgentCount;
 		string groupWanted = "none";
@@ -10339,6 +10341,8 @@ class HST_PhysicalWarService
 				EMovementType wanted = groupMovement.GetGroupCharactersMovementTypeWanted();
 				groupRun = wanted == EMovementType.RUN;
 				groupWanted = typename.EnumToString(EMovementType, wanted);
+				formationDisplacement = groupMovement.GetFormationDisplacement();
+				formationTight = formationDisplacement == 1;
 			}
 		}
 
@@ -10367,8 +10371,8 @@ class HST_PhysicalWarService
 		}
 
 		bool agentRun = liveAgentCount > 0 && runAgentCount >= liveAgentCount;
-		actual = string.Format("response_run %1 | group wanted %2 | groupRun %3 | agents run %4/%5", responseRunToken, groupWanted, groupRun, runAgentCount, liveAgentCount);
-		return responseRunToken && (groupRun || agentRun);
+		actual = string.Format("response_run %1 | group wanted %2 | groupRun %3 | formation %4 tight %5 | agents run %6/%7", responseRunToken, groupWanted, groupRun, formationDisplacement, formationTight, runAgentCount, liveAgentCount);
+		return responseRunToken && formationTight && (groupRun || agentRun);
 	}
 
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
