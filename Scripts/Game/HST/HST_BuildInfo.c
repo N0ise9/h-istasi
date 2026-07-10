@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "691134ec3345fb7350dcc5aaf1be720e29f41a62";
-	static const string BUILD_UTC = "2026-07-10T15:32:07Z";
-	static const string BUILD_LABEL = "schema48-civilian-group-projection";
+	static const string BUILD_SHA = "fdfd1058f761704c2b2a05c947036e30afa34161";
+	static const string BUILD_UTC = "2026-07-10T16:01:42Z";
+	static const string BUILD_LABEL = "schema48-authoritative-convoy-seating";
 
 	static string BuildSummary()
 	{

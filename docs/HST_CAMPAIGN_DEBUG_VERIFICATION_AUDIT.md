@@ -121,7 +121,7 @@ using the owner-RPC dispatch only as a fallback. Failed registration, seating,
 or route setup deletes the traffic projection and its owned helpers so an inert
 vehicle cannot consume the town target and suppress replacement. Foundation validation passes.
 The Game module compiles 5,740 files/11,473 classes with CRC
-`5d606f8c` and creates the game, and a separate normal WorldEditor open remained
+`4ec4bc67` and creates the game, and a separate normal WorldEditor open remained
 responsive at every two-second sample through 20 seconds with no script-error
 or new crash signature. A fresh packaged run must still prove zero
 unregistered-group RPCs and real distance-over-time pedestrian and traffic
@@ -142,7 +142,7 @@ utility before issuing any seat request, attempts forced `GetInVehicle()` first
 for locally authoritative convoy AI, retains `MoveInVehicle()` only as the
 fallback after direct rejection or for a non-local entity, and makes the physical probe query retained vehicle
 registration directly. Foundation validation passes. A fresh Game-module run
-compiled 5,740 files/11,473 classes with CRC `5d606f8c`
+compiled 5,740 files/11,473 classes with CRC `4ec4bc67`
 and created the game; a separate normal WorldEditor open stayed responsive at
 every two-second sample through 20 seconds with no script-error or new crash
 signature. A fresh scoped convoy runtime must still prove 3/3 living pilot
