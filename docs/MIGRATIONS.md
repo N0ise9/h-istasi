@@ -19,6 +19,19 @@
   preserve every accepted row in full and initialize an empty archive; migration
   never invents a terminal settlement.
 
+- The current schema-48 support route-truth repair requires no save-format bump,
+  but it does reconcile pre-repair timer-derived states. An unspawned restored
+  `support_arrived` row folds when it remains outside the player bubble or waits
+  for physicalization inside it. A spawned arrived row without the new request-
+  and-group proof provenance receives one current live-distance check, then is
+  either stamped as proven or reopened as `support_active`. Spawned
+  `support_recall_exited` likewise requires current live exit distance before
+  retirement or HR settlement; eligible unspawned abstract recall remains valid.
+  A succeeded exact QRF recalled while survivor reprojection is waiting for queue
+  capacity now settles its durable survivors without inventing a physical exit,
+  and legacy rows already stuck in unspawned `support_recalling` recover through
+  the same once-only HR settlement when no root or adapter handles remain.
+
 - Schema 47 adds the first durable exact-force runtime lifecycle for the paid
   infantry QRF path. Each successfully handed-off member slot now preserves
   ever-alive, casualty, retirement, timestamp, and revision evidence. The

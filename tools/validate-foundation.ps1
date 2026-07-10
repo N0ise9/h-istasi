@@ -3256,6 +3256,9 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 		"m_bMarkerVisibleAfterRequest",
 		"linked support marker published immediately after request before runtime resolution",
 		"support.physical_terminal_resolution",
+		"support.physical_eta_no_false_arrival",
+		"support.recall.campaign_clock_no_false_exit",
+		"CampaignDebugStatus(recallStillPhysicallyRouting)",
 		"support.physical_map_destination",
 		"support.physical_spawn_offset",
 		"support.physical_spawn_clearance",
@@ -3269,6 +3272,9 @@ foreach ($requiredSupportRuntimeProbeEntry in @(
 	if ($scriptText -notmatch [regex]::Escape($requiredSupportRuntimeProbeEntry)) {
 		throw "Missing physical support runtime debug proof entry: $requiredSupportRuntimeProbeEntry"
 	}
+}
+if ($scriptText -match [regex]::Escape('group.m_iSpawnedAtSecond = m_State.m_iElapsedSeconds - 10000;')) {
+	throw "Campaign debug must not backdate a spawned support group to synthesize recall exit"
 }
 Write-Host "Physical support runtime debug proof OK"
 
@@ -8407,6 +8413,7 @@ foreach ($requiredFactionCatalogPreflightEntry in @(
 Write-Host "Campaign-debug faction catalog preflight proof OK"
 
 $physicalWarServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$supportRequestServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_SupportRequestService.c"
 $convoyOutcomeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyOutcomeService.c"
 foreach ($requiredActiveVehicleDetachEntry in @(
 		"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
@@ -9409,6 +9416,404 @@ foreach ($requiredPrimaryGroupCertificationEntry in @(
 		throw "Campaign debug cleanup must fail active direct-fallback groups instead of certifying them: $requiredPrimaryGroupCertificationEntry"
 	}
 }
+
+$supportRouteUpdateMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool UpdateActiveGroupRoutes\(.*?(?=\r?\n\tprotected bool UpdatePhysicalSupportActiveGroupRoute\()')
+$supportPhysicalRouteMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool UpdatePhysicalSupportActiveGroupRoute\(.*?(?=\r?\n\tprotected HST_ActiveGroupRouteProgressStatus EnsureActiveGroupRouteProgressStatus\()')
+$supportRouteResetMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected void ResetActiveGroupRouteProgressForCurrentLeg\(.*?(?=\r?\n\tprotected void CleanupActiveGroupRouteProgressStatuses\()')
+$supportWaypointAssignMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected int AssignActiveGroupInfantryRouteWaypoints\(.*?(?=\r?\n\tprotected IEntity SpawnActiveGroupRouteWaypoint\()')
+$supportWaypointReadyMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected bool IsActiveGroupInfantryWaypointAssigned\(.*?(?=\r?\n\tprotected int CountRuntimeGroupWaypointEntities\()')
+$supportWaypointCountMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected int CountRuntimeGroupWaypointEntities\(.*?(?=\r?\n\tprotected bool UpdateTownPolicePatrols\()')
+$supportBuildRouteMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected ref array<vector> BuildActiveGroupRoutePositions\(.*?(?=\r?\n\tprotected ref array<vector> BuildDirectSupportRoutePositions\()')
+$supportDirectRouteMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected ref array<vector> BuildDirectSupportRoutePositions\(.*?(?=\r?\n\tprotected void AppendActiveGroupRoutePosition\()')
+$supportSpawnStatusMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected string ResolveSpawnedRuntimeStatus\(.*?(?=\r?\n\tprotected string SelectValidGroupPrefabFromList\()')
+$supportDeleteWaypointsMatch = [regex]::Match($physicalWarServiceText, '(?s)\tprotected void DeleteRuntimeGroupWaypoints\(.*?(?=\r?\n\tprotected bool IsZoneInsideHQSafeArea\()')
+$supportLiveDistanceMatch = [regex]::Match($physicalWarServiceText, '(?s)\tbool IsActiveSupportGroupPhysicallyWithinDistance\(.*?(?=\r?\n\tint CountRuntimeGroupHandlesForMission\()')
+$supportRecallRouteMatch = [regex]::Match($physicalWarServiceText, '(?s)\tbool RecallActiveSupportGroup\(.*?(?=\r?\n\tbool TryRefreshActiveSupportGroupLivePosition\()')
+$supportGroundTickMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool TickPhysicalGroundSupport\(.*?(?=\r?\n\tprotected bool TickAcceptedExactPlayerSupport\()')
+$supportExactTickMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool TickSucceededExactPlayerSupport\(.*?(?=\r?\n\tprotected bool TickRecalledExactPlayerSupport\()')
+$supportExactRecallTickMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool TickRecalledExactPlayerSupport\(.*?(?=\r?\n\tprotected bool TickRecalledPhysicalGroundSupport\()')
+$supportArrivalConfirmMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool ConfirmPhysicalSupportArrival\(.*?(?=\r?\n\tprotected bool ConfirmPhysicalSupportRecallExit\()')
+$supportRecallConfirmMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected bool ConfirmPhysicalSupportRecallExit\(.*?(?=\r?\n\tprotected bool ResolveSupport\()')
+$supportNormalRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tstring RecallSupportRequestReport\(.*?(?=\r?\n\tbool RecallSupportRequest\()')
+$supportExactRecallMatch = [regex]::Match($supportRequestServiceText, '(?s)\tprotected string BeginExactPlayerSupportRecall\(.*?(?=\r?\n\tprotected bool ApplyActiveSupport\()')
+foreach ($supportRouteBoundary in @(
+		[pscustomobject]@{ Name = "active-group route update"; Match = $supportRouteUpdateMatch },
+		[pscustomobject]@{ Name = "physical support route update"; Match = $supportPhysicalRouteMatch },
+		[pscustomobject]@{ Name = "physical support route reset"; Match = $supportRouteResetMatch },
+		[pscustomobject]@{ Name = "physical support waypoint assignment"; Match = $supportWaypointAssignMatch },
+		[pscustomobject]@{ Name = "physical support waypoint readiness"; Match = $supportWaypointReadyMatch },
+		[pscustomobject]@{ Name = "physical support waypoint handle count"; Match = $supportWaypointCountMatch },
+		[pscustomobject]@{ Name = "active-group route builder"; Match = $supportBuildRouteMatch },
+		[pscustomobject]@{ Name = "direct support route builder"; Match = $supportDirectRouteMatch },
+		[pscustomobject]@{ Name = "spawned support status resolver"; Match = $supportSpawnStatusMatch },
+		[pscustomobject]@{ Name = "runtime waypoint deletion"; Match = $supportDeleteWaypointsMatch },
+		[pscustomobject]@{ Name = "live support distance query"; Match = $supportLiveDistanceMatch },
+		[pscustomobject]@{ Name = "support recall route"; Match = $supportRecallRouteMatch },
+		[pscustomobject]@{ Name = "physical support tick"; Match = $supportGroundTickMatch },
+		[pscustomobject]@{ Name = "exact support success tick"; Match = $supportExactTickMatch },
+		[pscustomobject]@{ Name = "exact support recall tick"; Match = $supportExactRecallTickMatch },
+		[pscustomobject]@{ Name = "physical support arrival confirmation"; Match = $supportArrivalConfirmMatch },
+		[pscustomobject]@{ Name = "physical support recall confirmation"; Match = $supportRecallConfirmMatch },
+		[pscustomobject]@{ Name = "ordinary support recall command"; Match = $supportNormalRecallMatch },
+		[pscustomobject]@{ Name = "exact support recall command"; Match = $supportExactRecallMatch }
+	)) {
+	if (!$supportRouteBoundary.Match.Success) {
+		throw "Could not isolate $($supportRouteBoundary.Name) for the physical support route contract"
+	}
+}
+
+$supportRouteUpdateText = $supportRouteUpdateMatch.Value
+foreach ($requiredPhysicalSupportBranchEntry in @(
+		"bool physicalSupportRoute = activeGroup.m_bSpawnedEntity",
+		"&& activeGroup.m_iInfantryCount > 0",
+		"&& !IsMissionConvoyGroup(activeGroup)",
+		"&& IsSupportRequestActiveGroup(activeGroup);"
+	)) {
+	if ($supportRouteUpdateText -notmatch [regex]::Escape($requiredPhysicalSupportBranchEntry)) {
+		throw "Spawned physical support must branch away from elapsed-time route simulation: $requiredPhysicalSupportBranchEntry"
+	}
+}
+if ($supportRouteUpdateText -notmatch '(?s)if \(physicalSupportRoute\)\s*\{\s*changed = UpdatePhysicalSupportActiveGroupRoute\(state, activeGroup, routePositions\) \|\| changed;\s*continue;\s*\}') {
+	throw "Spawned physical support must continue after its live route update instead of entering interpolation"
+}
+$physicalSupportBranchIndex = $supportRouteUpdateText.IndexOf("bool physicalSupportRoute = activeGroup.m_bSpawnedEntity")
+foreach ($simulatedRouteWrite in @(
+		"float progress = Math.Min",
+		"vector position = ResolveActiveGroupRoutePosition",
+		"activeGroup.m_vPosition = position;",
+		"SetRuntimeGroupEntitiesOrigin(activeGroup.m_sGroupId, position)"
+	)) {
+	$simulatedRouteWriteIndex = $supportRouteUpdateText.IndexOf($simulatedRouteWrite)
+	if ($simulatedRouteWriteIndex -ge 0 -and $simulatedRouteWriteIndex -lt $physicalSupportBranchIndex) {
+		throw "Spawned physical support must branch before simulated route/origin write: $simulatedRouteWrite"
+	}
+}
+
+if ($supportRequestServiceText -match "MarkPhysicalSupportArrived") {
+	throw "Support ETA must not mutate active-group arrival through the removed MarkPhysicalSupportArrived shortcut"
+}
+foreach ($supportArrivalTick in @(
+		[pscustomobject]@{ Name = "physical support"; Text = $supportGroundTickMatch.Value },
+		[pscustomobject]@{ Name = "exact support"; Text = $supportExactTickMatch.Value }
+	)) {
+	if ($supportArrivalTick.Text -match '(?m)\b(?:group|activeGroup)\.m_sRuntimeStatus\s*=\s*"support_arrived";') {
+		throw "$($supportArrivalTick.Name) ETA must not set group arrival directly"
+	}
+	$supportArrivalConfirmIndex = $supportArrivalTick.Text.IndexOf("ConfirmPhysicalSupportArrival(")
+	$supportRequestArrivedIndex = $supportArrivalTick.Text.IndexOf('request.m_sRuntimeStatus = "physical_arrived";')
+	if ($supportArrivalConfirmIndex -lt 0 -or $supportRequestArrivedIndex -lt 0 -or $supportArrivalConfirmIndex -gt $supportRequestArrivedIndex) {
+		throw "$($supportArrivalTick.Name) must confirm live physical arrival before settling the request"
+	}
+}
+
+$supportGroundTickText = $supportGroundTickMatch.Value
+$restoredArrivalNormalizationIndex = $supportGroundTickText.IndexOf('linkedGroup.m_sRuntimeStatus == "support_arrived"')
+$abstractArrivalGateIndex = $supportGroundTickText.IndexOf('if (!request.m_bAbstractResolved)')
+if ($restoredArrivalNormalizationIndex -lt 0 -or $abstractArrivalGateIndex -lt 0 -or $restoredArrivalNormalizationIndex -gt $abstractArrivalGateIndex) {
+	throw "Restored unspawned support arrival must normalize before the abstract-resolved gate"
+}
+foreach ($requiredRestoredArrivalEntry in @(
+		"!linkedGroup.m_bSpawnedEntity",
+		"HST_WorldPositionService.IsPositionInsidePlayerEventBubble(linkedGroup.m_vPosition)",
+		'request.m_bAbstractResolved = false;',
+		'simulated_arrived_waiting_physicalization',
+		'arrivalProofRecorded',
+		'Physical arrival confirmed:',
+		'Physical support route completion confirmed'
+	)) {
+	if ($supportGroundTickText -notmatch [regex]::Escape($requiredRestoredArrivalEntry)) {
+		throw "Restored support arrival compatibility/provenance is missing: $requiredRestoredArrivalEntry"
+	}
+}
+foreach ($requiredExactSupportNormalizationEntry in @(
+		'group.m_sRuntimeStatus == EXACT_PLAYER_SUPPORT_GROUP_STATUS',
+		'group.m_sRuntimeStatus = "support_active";',
+		'group.m_iAssignedWaypointCount = 0;',
+		'request.m_bAbstractResolved = false;'
+	)) {
+	if ($supportExactTickMatch.Value -notmatch [regex]::Escape($requiredExactSupportNormalizationEntry)) {
+		throw "Successful exact support must normalize into live support routing: $requiredExactSupportNormalizationEntry"
+	}
+}
+if ($supportExactTickMatch.Value -match [regex]::Escape('group.m_sRuntimeStatus.StartsWith("exact_")') -or
+	$supportSpawnStatusMatch.Value -match [regex]::Escape('requestedStatus.StartsWith("exact_")')) {
+	throw "Exact support routing normalization must not erase unresolved exact runtime-integrity statuses"
+}
+foreach ($requiredFoldedRecallEntry in @(
+		'group.m_sRuntimeStatus == "folded" && !group.m_bSpawnedEntity',
+		'group.m_sRuntimeStatus != "support_recall_exited" && group.m_sRuntimeStatus != "folded"'
+	)) {
+	if ($supportRecallConfirmMatch.Value -notmatch [regex]::Escape($requiredFoldedRecallEntry)) {
+		throw "Spawned folded recall state must still require current live exit proof: $requiredFoldedRecallEntry"
+	}
+}
+foreach ($requiredExactRestoreRecallEntry in @(
+		'exact_restore_waiting_queue_capacity',
+		'recalled_restore_waiting_reprojection',
+		'CountDurableLivingMemberSlots(batch)'
+	)) {
+	if ($supportExactRecallMatch.Value -notmatch [regex]::Escape($requiredExactRestoreRecallEntry)) {
+		throw "Exact support recall command must settle an unspawned restore-capacity row: $requiredExactRestoreRecallEntry"
+	}
+	if ($supportExactRecallTickMatch.Value -notmatch [regex]::Escape($requiredExactRestoreRecallEntry)) {
+		throw "Exact support recall tick must recover a legacy unspawned restore-recall row: $requiredExactRestoreRecallEntry"
+	}
+}
+foreach ($requiredExactRestoreRecallRuntimeGuard in @(
+		'physicalWar.GetForceSpawnGroupRoot(group)',
+		'forceSpawnAdapter.CountHandlesForProjection(group.m_sProjectionId)',
+		'if (!runtimeProjectionPresent)'
+	)) {
+	if ($supportExactRecallTickMatch.Value -notmatch [regex]::Escape($requiredExactRestoreRecallRuntimeGuard)) {
+		throw "Exact restore-recall settlement must refuse to bypass an existing runtime projection: $requiredExactRestoreRecallRuntimeGuard"
+	}
+}
+
+$supportSpawnStatusText = $supportSpawnStatusMatch.Value
+$supportIdentityIndex = $supportSpawnStatusText.IndexOf("!activeGroup.m_sSupportRequestId.IsEmpty()")
+$exactRequestedStatusIndex = $supportSpawnStatusText.IndexOf('requestedStatus == "exact_support_spawn_queued"')
+$supportActiveStatusIndex = $supportSpawnStatusText.IndexOf('return "support_active";')
+$genericRequestedStatusIndex = $supportSpawnStatusText.IndexOf("return requestedStatus;")
+if ($supportIdentityIndex -lt 0 -or $exactRequestedStatusIndex -lt $supportIdentityIndex -or $supportActiveStatusIndex -lt $exactRequestedStatusIndex -or $genericRequestedStatusIndex -lt $supportActiveStatusIndex) {
+	throw "The benign exact support deployment status must normalize to support_active before generic requested-status retention"
+}
+
+foreach ($requiredSupportRouteConstant in @(
+		"ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT = 2",
+		"ACTIVE_GROUP_ROUTE_STALL_REISSUE_SECONDS = 45",
+		"ACTIVE_GROUP_ROUTE_REISSUE_COOLDOWN_SECONDS = 30",
+		"ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS = 3"
+	)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredSupportRouteConstant)) {
+		throw "Physical support route timing/recovery policy is missing: $requiredSupportRouteConstant"
+	}
+}
+$supportPhysicalRouteText = $supportPhysicalRouteMatch.Value
+$lastPhysicalRouteEvidenceIndex = -1
+foreach ($orderedPhysicalRouteEvidence in @(
+		"vector livePosition = ResolveActiveGroupLiveRuntimePosition(activeGroup, false);",
+		"float distanceToTargetMeters = Math.Sqrt(DistanceSq2D(livePosition, activeGroup.m_vTargetPosition));",
+		"bool newTimedSample = progress.m_iLastSampleSecond < state.m_iElapsedSeconds;",
+		"if (newTimedSample)",
+		"progress.m_fBestDistanceToTargetMeters = distanceToTargetMeters;",
+		"progress.m_fBestDistanceToTargetMeters - distanceToTargetMeters >= ACTIVE_GROUP_ROUTE_PROGRESS_THRESHOLD_METERS",
+		"progress.m_iLastProgressSecond = state.m_iElapsedSeconds;",
+		"progress.m_iRouteReissueAttemptCount = 0;",
+		"progress.m_fBestDistanceToTargetMeters = distanceToTargetMeters;",
+		"progress.m_iLastSampleSecond = state.m_iElapsedSeconds;",
+		"if (distanceToTargetMeters <= ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS)",
+		"if (newTimedSample)",
+		"progress.m_iArrivalSampleCount++;",
+		"if (progress.m_iArrivalSampleCount < ACTIVE_GROUP_ROUTE_ARRIVAL_SAMPLE_COUNT)",
+		"activeGroup.m_sRuntimeStatus = arrivedStatus;",
+		"progress.m_iArrivalSampleCount = 0;"
+	)) {
+	$physicalRouteEvidenceIndex = $supportPhysicalRouteText.IndexOf($orderedPhysicalRouteEvidence, $lastPhysicalRouteEvidenceIndex + 1)
+	if ($physicalRouteEvidenceIndex -lt 0) {
+		throw "Physical support route live-distance/sample ordering is missing: $orderedPhysicalRouteEvidence"
+	}
+	$lastPhysicalRouteEvidenceIndex = $physicalRouteEvidenceIndex
+}
+if ($supportPhysicalRouteText -notmatch '(?s)if \(newTimedSample\)\s*progress\.m_iArrivalSampleCount\+\+;') {
+	throw "Physical support arrival samples must be separated by distinct elapsed-second observations"
+}
+if ($supportPhysicalRouteText -notmatch '(?s)else if \(progress\.m_fBestDistanceToTargetMeters < 0\s*\|\| progress\.m_fBestDistanceToTargetMeters - distanceToTargetMeters >= ACTIVE_GROUP_ROUTE_PROGRESS_THRESHOLD_METERS\)\s*\{\s*progress\.m_iLastProgressSecond = state\.m_iElapsedSeconds;\s*progress\.m_iRouteReissueAttemptCount = 0;\s*progress\.m_fBestDistanceToTargetMeters = distanceToTargetMeters;\s*\}') {
+	throw "Physical support progress age and retry budget must reset only after best-distance net closure"
+}
+foreach ($forbiddenSupportProgressShortcut in @(
+		"bool routeProgressed",
+		"movedMeters >= ACTIVE_GROUP_ROUTE_PROGRESS_THRESHOLD_METERS",
+		"progress.m_fLastDistanceToTargetMeters - distanceToTargetMeters >= ACTIVE_GROUP_ROUTE_PROGRESS_THRESHOLD_METERS"
+	)) {
+	if ($supportPhysicalRouteText -match [regex]::Escape($forbiddenSupportProgressShortcut)) {
+		throw "Physical support stall recovery must use best-distance net closure, not lateral/last-sample movement: $forbiddenSupportProgressShortcut"
+	}
+}
+foreach ($requiredSupportRouteResetEntry in @(
+		"progress.m_fBestDistanceToTargetMeters = -1.0;",
+		"progress.m_iLastSampleSecond = -1;",
+		"progress.m_iLastProgressSecond = elapsedSeconds;",
+		"progress.m_iLastRouteReissueSecond = -1;",
+		"progress.m_iRouteReissueAttemptCount = 0;",
+		"progress.m_iArrivalSampleCount = 0;"
+	)) {
+	if ($supportRouteResetMatch.Value -notmatch [regex]::Escape($requiredSupportRouteResetEntry)) {
+		throw "Physical support route progress must reset per leg: $requiredSupportRouteResetEntry"
+	}
+}
+
+foreach ($requiredLiveSupportDistanceEntry in @(
+		"activeGroup.m_sSupportRequestId.IsEmpty()",
+		"activeGroup.m_bSpawnedEntity",
+		"ResolveActiveGroupLiveRuntimePosition(activeGroup, false)",
+		"Math.Sqrt(DistanceSq2D(livePosition, targetPosition))",
+		"float acceptedRadius = Math.Max(1.0, radiusMeters);",
+		"return distanceMeters <= acceptedRadius;"
+	)) {
+	if ($supportLiveDistanceMatch.Value -notmatch [regex]::Escape($requiredLiveSupportDistanceEntry)) {
+		throw "Physical support settlement must query live runtime distance: $requiredLiveSupportDistanceEntry"
+	}
+}
+foreach ($supportSettlementProof in @(
+		[pscustomobject]@{ Name = "arrival"; Text = $supportArrivalConfirmMatch.Value; Target = "request.m_vTargetPosition"; StaleStatus = 'group.m_sRuntimeStatus = "support_active";' },
+		[pscustomobject]@{ Name = "recall exit"; Text = $supportRecallConfirmMatch.Value; Target = "request.m_vRecallExitPosition"; StaleStatus = 'group.m_sRuntimeStatus = "support_recalling";' }
+	)) {
+	foreach ($requiredSettlementEntry in @(
+			"physicalWar.IsActiveSupportGroupPhysicallyWithinDistance",
+			$supportSettlementProof.Target,
+			$supportSettlementProof.StaleStatus,
+			"group.m_iAssignedWaypointCount = 0;"
+		)) {
+		if ($supportSettlementProof.Text -notmatch [regex]::Escape($requiredSettlementEntry)) {
+			throw "Physical support $($supportSettlementProof.Name) must fail closed on current live-distance evidence: $requiredSettlementEntry"
+		}
+	}
+}
+
+$supportBuildRouteText = $supportBuildRouteMatch.Value
+if ($supportBuildRouteText -notmatch '(?s)if \(IsSupportRequestActiveGroup\(activeGroup\)\)\s*return BuildDirectSupportRoutePositions\(activeGroup\);') {
+	throw "Physical support must use a direct current-position route instead of a stale generated route"
+}
+$directSupportBranchIndex = $supportBuildRouteText.IndexOf("BuildDirectSupportRoutePositions(activeGroup)")
+$generatedRouteGuardIndex = $supportBuildRouteText.IndexOf("if (!route)")
+if ($directSupportBranchIndex -lt 0 -or $generatedRouteGuardIndex -lt 0 -or $directSupportBranchIndex -gt $generatedRouteGuardIndex) {
+	throw "Physical support direct-route selection must occur before generated-route handling"
+}
+foreach ($requiredDirectSupportRouteEntry in @(
+		"vector sourcePosition = activeGroup.m_vPosition;",
+		"sourcePosition = activeGroup.m_vSourcePosition;",
+		"vector targetPosition = activeGroup.m_vTargetPosition;",
+		"AppendActiveGroupRoutePosition(positions, sourcePosition);",
+		"AppendActiveGroupRoutePosition(positions, targetPosition);"
+	)) {
+	if ($supportDirectRouteMatch.Value -notmatch [regex]::Escape($requiredDirectSupportRouteEntry)) {
+		throw "Physical support direct route must chain current live position to the active target: $requiredDirectSupportRouteEntry"
+	}
+}
+foreach ($requiredRecallRouteEntry in @(
+		"TryRefreshActiveSupportGroupLivePosition(activeGroup, livePositionEvidence);",
+		"DeleteRuntimeGroupWaypoints(groupId);",
+		"activeGroup.m_vSourcePosition = sourcePosition;",
+		"activeGroup.m_vTargetPosition = exitPosition;",
+		'activeGroup.m_sRouteId = "";',
+		'activeGroup.m_sRuntimeStatus = "support_recalling";'
+	)) {
+	if ($supportRecallRouteMatch.Value -notmatch [regex]::Escape($requiredRecallRouteEntry)) {
+		throw "Support recall must rebuild a direct route from current live position: $requiredRecallRouteEntry"
+	}
+}
+$recallLiveRefreshIndex = $supportRecallRouteMatch.Value.IndexOf("TryRefreshActiveSupportGroupLivePosition(activeGroup, livePositionEvidence);")
+$recallSourceCaptureIndex = $supportRecallRouteMatch.Value.IndexOf("vector sourcePosition = activeGroup.m_vPosition;")
+$recallOldWaypointDeleteIndex = $supportRecallRouteMatch.Value.IndexOf("DeleteRuntimeGroupWaypoints(groupId);")
+$recallTargetWriteIndex = $supportRecallRouteMatch.Value.IndexOf("activeGroup.m_vTargetPosition = exitPosition;")
+if ($recallLiveRefreshIndex -lt 0 -or $recallSourceCaptureIndex -lt $recallLiveRefreshIndex -or $recallOldWaypointDeleteIndex -lt $recallSourceCaptureIndex -or $recallTargetWriteIndex -lt $recallOldWaypointDeleteIndex) {
+	throw "Support recall must refresh and capture the live position before replacing the old route with the exit target"
+}
+foreach ($supportRecallCommand in @(
+		[pscustomobject]@{ Name = "ordinary"; Text = $supportNormalRecallMatch.Value },
+		[pscustomobject]@{ Name = "exact"; Text = $supportExactRecallMatch.Value }
+	)) {
+	$recallRefreshIndex = $supportRecallCommand.Text.IndexOf("TryRefreshActiveSupportGroupLivePosition(group, livePositionEvidence)")
+	$recallExitResolveIndex = $supportRecallCommand.Text.IndexOf("ResolveSupportRecallExitPosition(state, request, group)")
+	if ($recallRefreshIndex -lt 0 -or $recallExitResolveIndex -lt 0 -or $recallRefreshIndex -gt $recallExitResolveIndex) {
+		throw "$($supportRecallCommand.Name) support recall must refresh live position before resolving the exit vector"
+	}
+}
+
+foreach ($requiredBoundedRouteRecoveryEntry in @(
+		"lastProgressAge >= ACTIVE_GROUP_ROUTE_STALL_REISSUE_SECONDS",
+		"lastReissueAge >= ACTIVE_GROUP_ROUTE_REISSUE_COOLDOWN_SECONDS",
+		"progress.m_iRouteReissueAttemptCount < ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS",
+		"progress.m_iRouteReissueAttemptCount >= ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS",
+		"progress.m_iLastRouteReissueSecond = state.m_iElapsedSeconds;",
+		"progress.m_iRouteReissueAttemptCount++;",
+		"progress.m_iRouteReissueAttemptCount = 1;",
+		"bounded waypoint reissue attempts"
+	)) {
+	if ($supportPhysicalRouteText -notmatch [regex]::Escape($requiredBoundedRouteRecoveryEntry)) {
+		throw "Physical support stalled-route recovery must stay cooldown-gated and capped: $requiredBoundedRouteRecoveryEntry"
+	}
+}
+if ($supportPhysicalRouteText -notmatch '(?s)if \(!initialAssignment\)\s*progress\.m_iRouteReissueAttemptCount\+\+;') {
+	throw "Physical support route retry count must increment only for a reissue"
+}
+if ($supportPhysicalRouteText -notmatch '(?s)bool canRetry = stalled\s*&& lastReissueAge >= ACTIVE_GROUP_ROUTE_REISSUE_COOLDOWN_SECONDS\s*&& progress\.m_iRouteReissueAttemptCount < ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS;') {
+	throw "Physical support route reissue must require stall age, cooldown age, and remaining bounded attempts"
+}
+if ($supportPhysicalRouteText -notmatch '(?s)if \(stalled && progress\.m_iRouteReissueAttemptCount >= ACTIVE_GROUP_ROUTE_MAX_REISSUE_ATTEMPTS\)\s*\{') {
+	throw "Physical support route recovery must stop after the configured maximum reissue attempts"
+}
+
+$supportWaypointAssignText = $supportWaypointAssignMatch.Value
+foreach ($requiredTrackedWaypointEntry in @(
+		"array<IEntity> preparedEntities = {};",
+		"array<AIWaypoint> preparedWaypoints = {};",
+		"if (preparedWaypoints.Count() <= 1)",
+		"SCR_EntityHelper.DeleteEntityAndChildren(preparedEntity)",
+		"DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);",
+		"group.AddWaypoint(preparedWaypoints[preparedIndex]);",
+		"m_aRuntimeGroupWaypointIds.Insert(activeGroup.m_sGroupId);",
+		"m_aRuntimeGroupWaypointEntities.Insert(preparedEntities[preparedIndex]);",
+		'activeGroup.m_sRuntimeStatus != "support_recalling"'
+	)) {
+	if ($supportWaypointAssignText -notmatch [regex]::Escape($requiredTrackedWaypointEntry)) {
+		throw "Physical support waypoint assignment must prepare, atomically replace, and track live handles: $requiredTrackedWaypointEntry"
+	}
+}
+$preparedWaypointGuardIndex = $supportWaypointAssignText.IndexOf("if (preparedWaypoints.Count() <= 1)")
+$deletePreviousWaypointsIndex = $supportWaypointAssignText.IndexOf("DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);")
+if ($preparedWaypointGuardIndex -lt 0 -or $deletePreviousWaypointsIndex -lt 0 -or $deletePreviousWaypointsIndex -lt $preparedWaypointGuardIndex) {
+	throw "Physical support must retain its previous waypoint chain until a replacement chain is fully prepared"
+}
+foreach ($requiredLiveWaypointReadinessEntry in @(
+		"activeGroup.m_iAssignedWaypointCount > 1",
+		'activeGroup.m_sSpawnFallbackMode.Contains("infantry_waypoints")',
+		"CountRuntimeGroupWaypointEntities(activeGroup.m_sGroupId) > 1"
+	)) {
+	if ($supportWaypointReadyMatch.Value -notmatch [regex]::Escape($requiredLiveWaypointReadinessEntry)) {
+		throw "Physical support route readiness must require retained live waypoint handles: $requiredLiveWaypointReadinessEntry"
+	}
+}
+foreach ($requiredWaypointHandleCountEntry in @(
+		"m_aRuntimeGroupWaypointIds[i] != groupId",
+		"i >= m_aRuntimeGroupWaypointEntities.Count()",
+		"waypointEntity && !waypointEntity.IsDeleted()"
+	)) {
+	if ($supportWaypointCountMatch.Value -notmatch [regex]::Escape($requiredWaypointHandleCountEntry)) {
+		throw "Physical support waypoint readiness must count aligned, non-deleted handles: $requiredWaypointHandleCountEntry"
+	}
+}
+$supportDeleteWaypointsText = $supportDeleteWaypointsMatch.Value
+foreach ($requiredWaypointDeleteEntry in @(
+		"group.RemoveWaypoint(waypoint);",
+		"SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);",
+		"m_aRuntimeGroupWaypointEntities.Remove(waypointIndex);",
+		"m_aRuntimeGroupWaypointIds.Remove(waypointIndex);"
+	)) {
+	if ($supportDeleteWaypointsText -notmatch [regex]::Escape($requiredWaypointDeleteEntry)) {
+		throw "Physical support waypoint cleanup must remove group membership, entity, and tracking handle: $requiredWaypointDeleteEntry"
+	}
+}
+$removeWaypointIndex = $supportDeleteWaypointsText.IndexOf("group.RemoveWaypoint(waypoint);")
+$deleteWaypointEntityIndex = $supportDeleteWaypointsText.IndexOf("SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);")
+if ($removeWaypointIndex -lt 0 -or $deleteWaypointEntityIndex -lt 0 -or $removeWaypointIndex -gt $deleteWaypointEntityIndex) {
+	throw "Physical support waypoint cleanup must detach the waypoint from the AIGroup before deleting it"
+}
+
+$supportServerGuardIndex = $supportWaypointAssignText.IndexOf("if (!Replication.IsServer())")
+$supportMasterGuardIndex = $supportWaypointAssignText.IndexOf("if (groupReplication && !groupReplication.IsMaster())")
+foreach ($authoritativeWaypointMutation in @(
+		"SpawnActiveGroupRouteWaypoint(",
+		"DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);",
+		"group.AddWaypoint("
+	)) {
+	$authoritativeMutationIndex = $supportWaypointAssignText.IndexOf($authoritativeWaypointMutation)
+	if ($supportServerGuardIndex -lt 0 -or $supportMasterGuardIndex -lt 0 -or $authoritativeMutationIndex -lt 0 -or $supportServerGuardIndex -gt $authoritativeMutationIndex -or $supportMasterGuardIndex -gt $authoritativeMutationIndex) {
+		throw "Physical support waypoint mutation must occur only on the server/master: $authoritativeWaypointMutation"
+	}
+}
+Write-Host "Physical support live-route authority and bounded recovery contract OK"
+
 if ($physicalWarServiceText -match [regex]::Escape('TryRepairEmptyRuntimeGroupPopulation(state, activeGroup, "campaign debug faction audit")')) {
 	throw "Campaign debug faction audits must not repair empty runtime group shells while measuring primary spawn proof"
 }

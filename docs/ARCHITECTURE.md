@@ -91,7 +91,11 @@ The remaining domain services are:
 - `HST_PhysicalWarService`: player-proximity zone activation over the abstract
   garrison model, plus exact adapter registration/handoff and guards that keep
   legacy population, repair, survivor, route, patrol, and cleanup paths from
-  duplicating queue-owned projections.
+  duplicating queue-owned projections. For spawned support groups it owns live-
+  member-centroid route state, two distinct-time-sample arrival/recall
+  confirmation within 75m, direct current-to-target/exit chains, bounded route reissue, and
+  transactional replacement of service-owned waypoint entities. Exact QRF
+  handoff normalizes into `support_active` so this same route authority owns it.
 - `HST_GeneratedContentService`: generated Everon mission sites, roadblock,
   support, stash, crashsite, and route records derived from stable zone
   anchors.
@@ -103,7 +107,10 @@ The remaining domain services are:
   ETA/status/cooldown reports, native-safe ground support activation, physical
   or abstract resolution records, the schema-46 exact paid-QRF bridge from
   accepted manifest to queue-owned projection, and schema-47 survivor restore,
-  elimination, and linked ledger settlement policies.
+  elimination, and linked ledger settlement policies. ETA is only the earliest
+  physical-arrival observation; spawned requests do not become
+  `physical_arrived` or complete recall until physical war confirms current
+  living-member distance.
 - `HST_CivilianService`: town reputation/support, wanted heat,
   police/roadblock presence and scans, aid incidents, undercover eligibility,
   request/application, enforcement, compromise, clear-state records, and
@@ -168,7 +175,7 @@ production caller for pin-aware terminal SpawnQueue maintenance.
 | Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot, charges flat $250 plus one HR per member, and never recomposes after issue. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
 | Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. The active-phase coordinator drives an engine adapter once per second; player QRF creates one queue-owned active-group projection and submits its accepted manifest unchanged. All verified slots produce durable nonterminal `READY_FOR_HANDOFF`; physical war finalizes before queue `SUCCEEDED`, and only then does the support request become physical. Schema 47 retires confirmed-dead member slots idempotently, detaches their corpses, removes an ever-populated root at zero living members, and requeues one root plus only durable survivors after restart. Initial failure/cancel performs full linked settlement; failure after a prior handoff retains money and refunds survivors only. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The guarded tree loads 5,740 files/11,473 classes, and the bounded normal WorldEditor startup check produced no new crash signature. A current-build dedicated smoke exposed a recoverable recursive player-role invoker exception; the one-frame editor-listener guard preserves stock mode updates, teardown, and role ownership but still awaits packaged runtime proof. Bounded paid-QRF, force-runtime, settlement-archive, and physical-adapter proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The guarded tree loads 5,740 files/11,476 classes, and the bounded normal WorldEditor startup check produced no new crash signature. A current-build dedicated smoke exposed a recoverable recursive player-role invoker exception; the one-frame editor-listener guard preserves stock mode updates, teardown, and role ownership but still awaits packaged runtime proof. Bounded paid-QRF, force-runtime, settlement-archive, and physical-adapter proofs are implemented but are not runtime evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit

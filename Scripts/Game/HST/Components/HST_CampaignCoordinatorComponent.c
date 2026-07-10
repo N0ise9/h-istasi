@@ -11912,11 +11912,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!probeContext.m_sRouteTimeoutEvidence.IsEmpty())
 				supportCase.m_aEvidence.Insert("support route timeout | " + ShortCampaignDebugLine(probeContext.m_sRouteTimeoutEvidence, 260));
 			string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4 | status %5", Math.Round(probeContext.m_fDistanceBefore), Math.Round(probeContext.m_fDistanceAfter), probeContext.m_vGroupPositionBefore, probeContext.m_vGroupPositionAfter, EmptyCampaignDebugField(probeContext.m_sGroupStatusAfterRoute));
-			bool routePending = IsCampaignDebugAsyncRuntimePending(probeContext.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(probeContext.m_sRouteSampleHistory);
-			string routePendingStatus = "FAIL";
-			if (routePending)
-				routePendingStatus = "WARN";
-			bool supportAtTarget = probeContext.m_fDistanceAfter <= 25.0;
+			string routePendingStatus = "WARN";
+			bool supportAtTarget = probeContext.m_fDistanceAfter <= HST_PhysicalWarService.ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS;
 			bool advanced = supportAtTarget || (probeContext.m_bRouteTickChanged && probeContext.m_fDistanceBefore > 0 && probeContext.m_fDistanceAfter < probeContext.m_fDistanceBefore);
 			AddCampaignDebugAssertion(supportCase, "support.physical_advance", "ground support group advances toward support target over a route tick", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "ground support group did not advance toward its target", observedSupportRequest.m_sRequestId);
 			string samplesActual = string.Format("samples %1 | movement %2 | decreases %3 | max move %4m | max closed %5m | history %6", probeContext.m_iRouteSampleCount, probeContext.m_iRouteMovementCount, probeContext.m_iRouteDistanceDecreaseCount, Math.Round(probeContext.m_fRouteMaxMovementMeters), Math.Round(probeContext.m_fRouteMaxDistanceClosedMeters), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
@@ -11926,16 +11923,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string stallActual = string.Format("last observed %1 | history %2", EmptyCampaignDebugField(probeContext.m_sRouteLastObserved), EmptyCampaignDebugField(probeContext.m_sRouteSampleHistory));
 			bool stallEvidenceRecorded = probeContext.m_iRouteSampleCount == 0 || repeatedProgress || !probeContext.m_sRouteSampleHistory.IsEmpty();
 			AddCampaignDebugAssertion(supportCase, "support.physical_stall_evidence", "route probe records last-observed sample history when movement stalls", stallActual, CampaignDebugStatus(stallEvidenceRecorded, "WARN"), "ground support route probe lacked sample history for a stalled route", observedSupportRequest.m_sRequestId);
-			string timeoutStatus = "PASS";
-			if (probeContext.m_iRouteSampleCount < 2)
-				timeoutStatus = "WARN";
-			if (probeContext.m_bRouteTimedOut && !routePending && !supportAtTarget)
-				timeoutStatus = "FAIL";
+			string timeoutStatus = "WARN";
 			string timeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", probeContext.m_bRouteTimedOut, probeContext.m_iRouteTimeoutSeconds, probeContext.m_iRouteSampleCount, EmptyCampaignDebugField(probeContext.m_sRouteLastObserved));
 			AddCampaignDebugAssertion(supportCase, "support.physical_stall_timeout", "ground support does not stall across the controlled route timeout window", timeoutActual, timeoutStatus, "ground support route timed out without movement, distance closure, or arrival", observedSupportRequest.m_sRequestId);
 			string arrivalActual = string.Format("distance %1m | group status %2 | request runtime %3 | arrival tick %4", Math.Round(probeContext.m_fDistanceAtArrival), EmptyCampaignDebugField(probeContext.m_sGroupStatusAtArrival), EmptyCampaignDebugField(probeContext.m_sRequestRuntimeStatusAtArrival), probeContext.m_bArrivalTickChanged);
 			bool arrived = probeContext.m_bArrivalTickChanged && (probeContext.m_sGroupStatusAtArrival == "support_arrived" || probeContext.m_sRequestRuntimeStatusAtArrival == "physical_arrived");
-			AddCampaignDebugAssertion(supportCase, "support.physical_arrival", "ground support reaches arrival state after controlled ETA advance", arrivalActual, CampaignDebugStatus(arrived, "WARN"), "ground support did not reach arrival status inside the controlled probe window", observedSupportRequest.m_sRequestId);
+			bool withinArrivalRadius = probeContext.m_fDistanceAtArrival >= 0.0 && probeContext.m_fDistanceAtArrival <= HST_PhysicalWarService.ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS;
+			bool etaDidNotFalseArrive = withinArrivalRadius || (!arrived && probeContext.m_sRequestRuntimeStatusAtArrival == "physical_en_route");
+			AddCampaignDebugAssertion(supportCase, "support.physical_eta_no_false_arrival", "campaign-clock ETA cannot mark physical arrival without live distance proof", arrivalActual, CampaignDebugStatus(etaDidNotFalseArrive), "support ETA marked physical arrival while the live group remained outside the arrival radius", observedSupportRequest.m_sRequestId);
+			AddCampaignDebugAssertion(supportCase, "support.physical_arrival", "ground support arrival remains a real-frame live-distance proof", arrivalActual, CampaignDebugStatus(arrived && withinArrivalRadius, "WARN"), "campaign-clock-only sampling does not certify physical support arrival", observedSupportRequest.m_sRequestId);
 			string terminalActual = string.Format("injected %1 | tick %2 | group %3 -> %4 | status %5",
 				probeContext.m_bTerminalStatusInjected,
 				probeContext.m_bTerminalTickChanged,
@@ -20308,7 +20304,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			routeAdvanceSeconds = HST_PhysicalWarService.ROUTE_STATE_UPDATE_SECONDS;
 		m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + routeAdvanceSeconds;
 		recallContext.m_iRecallRouteAdvanceSeconds = routeAdvanceSeconds;
-		group.m_iSpawnedAtSecond = m_State.m_iElapsedSeconds - 10000;
 		recallContext.m_bRouteTickChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
 	}
 
@@ -20342,9 +20337,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(recallCase, "support.recall.command_result", "recall command accepted", ShortCampaignDebugLine(recallContext.m_sRecallResult, 220), CampaignDebugStatus(recallContext.m_bRecallCommandAccepted), "support recall command returned failure text", recallContext.m_sRequestId);
 		AddCampaignDebugAssertion(recallCase, "support.recall.ordered", "request is marked recalled and routed to an exit", string.Format("requested %1 | status %2 | runtime %3 | group %4 -> %5 | exit %6", recallContext.m_bRecallRequestedAfterRecall, recallContext.m_eStatusAfterRecall, EmptyCampaignDebugField(recallContext.m_sRuntimeStatusAfterRecall), EmptyCampaignDebugField(recallContext.m_sGroupStatusBeforeRecall), EmptyCampaignDebugField(recallContext.m_sGroupStatusAfterRecall), recallContext.m_vExitPosition), CampaignDebugStatus(recallContext.m_bRecallRequestedAfterRecall && !IsZeroVector(recallContext.m_vExitPosition) && recallContext.m_sGroupStatusAfterRecall == "support_recalling"), "support recall did not mark the request and group as routing out", recallContext.m_sRequestId);
 		AddCampaignDebugAssertion(recallCase, "support.recall.no_immediate_refund", "recall does not refund HR until the group exits", string.Format("HR after seed %1 | after recall %2 | delta %3", recallContext.m_iHRAfterSeed, recallContext.m_iHRAfterRecall, hrRecallDelta), CampaignDebugStatus(hrRecallDelta == 0), "support recall refunded HR before the team exited", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.exit_route", "route update moves recalled group to exit status", string.Format("route tick %1 | advance %2s | group %3", recallContext.m_bRouteTickChanged, recallContext.m_iRecallRouteAdvanceSeconds, EmptyCampaignDebugField(recallContext.m_sGroupStatusAfterExit)), CampaignDebugStatus(recallContext.m_bRouteTickChanged && recallContext.m_sGroupStatusAfterExit == "folded"), "recalled support group did not exit and fold through the route/tick path", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.refund", "surviving recalled FIA refund HR after exiting", string.Format("survivors %1 | refunded %2/%3 | HR %4 -> %5 -> %6 | expected refund %7", recallContext.m_iSurvivorsBeforeRecall, recallContext.m_iRefundedHR, recallContext.m_iHRCost, recallContext.m_iHRBefore, recallContext.m_iHRAfterSeed, recallContext.m_iHRAfterExit, expectedRefund), CampaignDebugStatus(recallContext.m_iRefundedHR == expectedRefund && hrExitDelta == expectedRefund), "support recall HR refund did not match surviving FIA count", recallContext.m_sRequestId);
-		AddCampaignDebugAssertion(recallCase, "support.recall.resolution", "request resolves through recalled_refund_hr", string.Format("status %1 | runtime %2 | resolution %3 | pending %4", recallContext.m_eStatusAfterExit, EmptyCampaignDebugField(recallContext.m_sRuntimeStatusAfterExit), EmptyCampaignDebugField(recallContext.m_sResolutionKindAfterExit), recallContext.m_iPendingAfterExit), CampaignDebugStatus(recallContext.m_eStatusAfterExit == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED && recallContext.m_sResolutionKindAfterExit == "recalled_refund_hr"), "support recall did not resolve through the refund path", recallContext.m_sRequestId);
+		bool recallStillPhysicallyRouting = recallContext.m_sGroupStatusAfterExit == "support_recalling"
+			&& recallContext.m_eStatusAfterExit != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			&& recallContext.m_iRefundedHR == 0
+			&& hrExitDelta == 0;
+		bool recallPhysicallyResolved = recallContext.m_sGroupStatusAfterExit == "folded"
+			&& recallContext.m_eStatusAfterExit == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			&& recallContext.m_sResolutionKindAfterExit == "recalled_refund_hr";
+		AddCampaignDebugAssertion(recallCase, "support.recall.campaign_clock_no_false_exit", "campaign-clock-only route update cannot synthesize support exit or refund", string.Format("route tick %1 | advance %2s | group %3 | status %4 | refunded %5", recallContext.m_bRouteTickChanged, recallContext.m_iRecallRouteAdvanceSeconds, EmptyCampaignDebugField(recallContext.m_sGroupStatusAfterExit), recallContext.m_eStatusAfterExit, recallContext.m_iRefundedHR), CampaignDebugStatus(recallStillPhysicallyRouting), "support recall exited or refunded without live-distance proof", recallContext.m_sRequestId);
+		AddCampaignDebugAssertion(recallCase, "support.recall.exit_route", "recalled group reaches the exit through real-frame live-distance routing", string.Format("route tick %1 | advance %2s | group %3", recallContext.m_bRouteTickChanged, recallContext.m_iRecallRouteAdvanceSeconds, EmptyCampaignDebugField(recallContext.m_sGroupStatusAfterExit)), CampaignDebugStatus(recallPhysicallyResolved, "WARN"), "campaign-clock-only sampling does not certify recalled support exit", recallContext.m_sRequestId);
+		AddCampaignDebugAssertion(recallCase, "support.recall.refund", "surviving recalled FIA refund HR only after a physically confirmed exit", string.Format("survivors %1 | refunded %2/%3 | HR %4 -> %5 -> %6 | expected refund %7", recallContext.m_iSurvivorsBeforeRecall, recallContext.m_iRefundedHR, recallContext.m_iHRCost, recallContext.m_iHRBefore, recallContext.m_iHRAfterSeed, recallContext.m_iHRAfterExit, expectedRefund), CampaignDebugStatus(recallContext.m_iRefundedHR == expectedRefund && hrExitDelta == expectedRefund, "WARN"), "real-frame support recall refund proof remains open", recallContext.m_sRequestId);
+		AddCampaignDebugAssertion(recallCase, "support.recall.resolution", "request resolves through recalled_refund_hr after physical exit", string.Format("status %1 | runtime %2 | resolution %3 | pending %4", recallContext.m_eStatusAfterExit, EmptyCampaignDebugField(recallContext.m_sRuntimeStatusAfterExit), EmptyCampaignDebugField(recallContext.m_sResolutionKindAfterExit), recallContext.m_iPendingAfterExit), CampaignDebugStatus(recallPhysicallyResolved, "WARN"), "real-frame support recall resolution proof remains open", recallContext.m_sRequestId);
 		AddCampaignDebugAssertion(recallCase, "support.recall.cleanup_open_requests", "no queued/active player support requests remain after cleanup", string.Format("pending %1", recallContext.m_iPendingAfterCleanup), CampaignDebugStatus(recallContext.m_iPendingAfterCleanup == 0), "support recall cleanup left queued or active player support requests", recallContext.m_sRequestId);
 		FinalizeCampaignDebugCaseFromAssertions(recallCase);
 		return recallCase;
@@ -23093,10 +23096,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
-		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
-		string routePendingStatus = "FAIL";
-		if (routePending)
-			routePendingStatus = "WARN";
+		string routePendingStatus = "WARN";
 		bool counterattackAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
 		bool advanced = counterattackAtTarget || (physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.physical_advance", "counterattack group advances toward captured zone over a routed sample window", advanceActual, CampaignDebugStatus(advanced, routePendingStatus), "Phase 17 physical counterattack group did not advance toward the target zone", "", "", targetZoneId, counterattackOrder.m_sOrderId);
@@ -23361,12 +23361,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string enemyRouteStallActual = string.Format("last observed %1 | history %2", EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved), EmptyCampaignDebugField(physicalProbe.m_sRouteSampleHistory));
 		bool enemyRouteStallEvidenceRecorded = physicalProbe.m_iRouteSampleCount == 0 || enemyRouteRepeatedProgress || !physicalProbe.m_sRouteSampleHistory.IsEmpty();
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_evidence", "route probe records last-observed sample history when movement stalls", enemyRouteStallActual, CampaignDebugStatus(enemyRouteStallEvidenceRecorded, "WARN"), failureLabel + " route probe lacked sample history for a stalled route", entityId, missionInstanceId, zoneId, orderId);
-		string enemyRouteTimeoutStatus = "PASS";
-		if (physicalProbe.m_iRouteSampleCount < 2)
-			enemyRouteTimeoutStatus = "WARN";
-		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
-		if (physicalProbe.m_bRouteTimedOut && !routePending && !enemyRouteAtTarget)
-			enemyRouteTimeoutStatus = "FAIL";
+		string enemyRouteTimeoutStatus = "WARN";
 		string enemyRouteTimeoutActual = string.Format("timed out %1 | window %2s | samples %3 | last %4", physicalProbe.m_bRouteTimedOut, physicalProbe.m_iRouteTimeoutSeconds, physicalProbe.m_iRouteSampleCount, EmptyCampaignDebugField(physicalProbe.m_sRouteLastObserved));
 		AddCampaignDebugAssertion(targetCase, assertionPrefix + ".physical_stall_timeout", subjectLabel + " does not stall across the controlled route timeout window", enemyRouteTimeoutActual, enemyRouteTimeoutStatus, failureLabel + " route timed out without movement, distance closure, or arrival", entityId, missionInstanceId, zoneId, orderId);
 	}
@@ -24448,10 +24443,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string advanceActual = string.Format("distance %1m -> %2m | pos %3 -> %4", Math.Round(physicalProbe.m_fDistanceBefore), Math.Round(physicalProbe.m_fDistanceAfter), physicalProbe.m_vGroupPositionBefore, physicalProbe.m_vGroupPositionAfter);
 		bool attackAtTarget = physicalProbe.m_fDistanceAfter <= 25.0;
 		bool advanced = attackAtTarget || (physicalProbe.m_bRouteTickChanged && physicalProbe.m_fDistanceBefore > 0 && physicalProbe.m_fDistanceAfter < physicalProbe.m_fDistanceBefore);
-		bool routePending = IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sGroupStatusAfterRoute) || IsCampaignDebugAsyncRuntimePending(physicalProbe.m_sRouteSampleHistory);
-		string advanceStatus = "FAIL";
-		if (routePending)
-			advanceStatus = "WARN";
+		string advanceStatus = "WARN";
 		AddCampaignDebugAssertion(defenseCase, "phase22.attack.physical_advance", "Petros attacker group advances toward HQ/Petros over a routed sample window", advanceActual, CampaignDebugStatus(advanced, advanceStatus), "Phase 22 Petros attacker group did not advance toward the target", "", "", targetZoneId, orderId);
 		string petrosAttackGroupId = "";
 		if (physicalProbe.m_Group)

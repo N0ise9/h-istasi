@@ -70,6 +70,15 @@ The repository contains a broad-alpha campaign foundation:
   diagnostics
 - Physical enemy response fold-back for support/QRF groups that leave the event
   bubble, preserving survivor state while removing live runtime handles
+- Physical support route truth that keeps spawned support state on the live
+  member centroid, treats ETA as the earliest arrival observation rather than
+  completion, requires two live samples from distinct elapsed seconds within
+  75m for arrival or
+  recall exit, and rebuilds direct current-to-target/exit waypoint chains with
+  at most three consecutive reissues without an 8m new-best distance
+  improvement. Pre-repair restored arrival/exit rows receive one current live-
+  distance revalidation. Fresh
+  packaged movement, arrival, and recall proof remains open.
 - Town influence event ledger with support, reputation, heat, population, and
   security-pressure deltas feeding political ownership flips and debug reports
 - Runtime and garage vehicle heat/report state for undercover vehicle cover,
@@ -188,16 +197,17 @@ authority, runtime projection, persistence, and client evidence trustworthy:
 4. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
    reprojection, settlement archival/replay, and once-only accounting.
 5. Runtime-prove the convoy pre-seat vehicle registration and authority-local
-   pilot entry repair with 3/3 seated living drivers, then fix any remaining
-   convoy movement, support routing, arrival, return, recall, and physical-
-   response failures in scoped disposable profiles.
+   pilot entry repair with 3/3 seated living drivers, then prove the repaired
+   support route-truth boundary through actual movement, two-sample arrival,
+   recall exit, and bounded transactional waypoint reissue in scoped disposable
+   profiles.
 6. Prove static marker widget readiness plus authoritative host/client/late-join
    projection before treating marker publication as player-visible truth.
 7. Resume deeper mission, civilian, undercover, commander, logistics, and
    balance expansion only after those integrity gates produce reliable evidence.
 
 The repository currently passes foundation validation and schema-48 Workbench
-Game compilation/creation at 5,740 files and 11,473 classes. A normal
+Game compilation/creation at 5,740 files and 11,476 classes. A normal
 WorldEditor project open produced no new crash signature during the bounded
 survival gate. The editor role-change guard still needs a fresh packaged
 dedicated-server connect before it counts as runtime proof. The same inspected
@@ -209,6 +219,13 @@ before preferring authority-local pilot entry. Foundation validation, Workbench
 Game compilation/creation, and a 20-second normal project-open survival gate
 all pass.
 Fresh packaged zero-RPC and distance-over-time movement proof remains required.
+A separate normal-play artifact marked three physical support rows arrived even
+though its logged targets and deterministic recall-exit vectors imply nominal
+current positions approximately 434m, 455m, and 505m away. Current source removes that ETA-only completion
+shortcut. A Phase 22 group populated 9/9 without observed advance, but that
+artifact sampled campaign time rather than live physical positions, so it is not
+standalone physical-stall proof. Fresh packaged support movement, arrival, and
+recall evidence is still required.
 
 For documentation authority, `docs/FEATURE_CHECKLIST.md` owns current feature
 status and next tasks; `docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md` owns the

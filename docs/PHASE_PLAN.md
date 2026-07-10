@@ -96,10 +96,10 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,740 files/11,473 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. The same smoke mapped 20 unregistered group-member RPCs exactly to 14 pedestrians plus 6 traffic drivers. The dedicated civilian root now inherits the stock behavior/replication base and uses the initial-AI attach path, but fresh zero-RPC and actual-movement proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The guarded schema-48 Game module loads 5,740 files/11,476 classes and creates the game; a normal WorldEditor open produced no new crash signature during the bounded survival gate. A current-build dedicated smoke remained live until intentional disconnect but recorded a recoverable recursive player-role invoker exception during editor-mode repair. The one-frame editor-listener guard is compile-proven and preserves stock mode updates, teardown, and role ownership; fresh packaged runtime proof remains open. The same smoke mapped 20 unregistered group-member RPCs exactly to 14 pedestrians plus 6 traffic drivers. The dedicated civilian root now inherits the stock behavior/replication base and uses the initial-AI attach path, but fresh zero-RPC and actual-movement proof remains open. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 48 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts/events, the resource ledger, and accepted-settlement replay tombstones. Paid training, visible garrison confirmation, and player-QRF confirmation/settlement are migrated. Static/Workbench validation is required on the final tree; isolated runtime and save/load certification remain pending. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | Immutable persisted manifests, expiring quotes, exact catalog validation, durable per-projection SpawnQueue authority, the first engine-facing infantry adapter, exact member lifecycle, and bounded accepted-settlement archives are implemented. Schema 48 compacts only terminal backlink-free garrison/QRF rows after 600 seconds, retains compact replay for at least 86,400 seconds, hard-bounds planning history, and production-runs pin-aware queue maintenance. Bounded proofs cover paid-QRF, force-runtime, archive persistence/replay, backlink protection, capacity, and migration but are not runtime-executed. Vehicle/asset/multi-root execution, exact garrison realization, and other paid-support migrations remain open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Convoy binding now registers usable vehicles before seating, prefers authority-local forced pilot entry, and exposes direct retained-registration proof after the latest 0/3-driver artifact. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, route progress, arrival, recall, and fold-back remain open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; first exact infantry lifecycle landed | Exact paid-QRF infantry now retains operation/manifest links, reconciles slot-specific casualties, retires the last-death root, and reprojects durable survivors after restore. Convoy binding registers usable vehicles before seating and prefers authority-local forced pilot entry. Spawned support now retains its live member centroid, treats ETA as an earliest check only, requires two distinct-time samples within 75m for normal arrival/recall exit, normalizes exact QRF handoff to `support_active`, and uses transactional direct target/exit waypoint chains with a three-attempt consecutive-stall budget reset by an 8m new-best distance improvement. Pre-repair restored arrival/exit rows receive one current live-distance revalidation. Runtime proof, event-driven death subscription, vehicle/asset lifecycle, virtual/physical transfer, actual movement/arrival/recall, and fold-back remain open. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; authority/JIP proof pending | UI, marker, ownership, town-influence, civilian, and undercover paths exist. Static-marker root guarding and delayed owner-client census are implemented. Civilian ambient roots now carry the stock behavior, pathfinding, utility, editable, and replication stack and use the native initial-AI attach path. Snapshot/delta/JIP authority, canonical ownership side effects, rendered-client proof, zero-RPC civilian projection, actual civilian movement, and deeper political consequences remain open. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; exact cutovers and parity pending | Enemy orders, 39 configured mission definitions with MVP primitives, arsenal/garage/training/undercover/HQ/end-state systems, and typed debug cases exist. Reliable operation duty/return behavior, exact resource/force cutovers, mission-family depth, progression tuning, and dedicated runtime proof remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
@@ -110,7 +110,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | --- | --- | --- |
 | Exact Forces | Implemented foundation | Execute exact training, garrison, paid-QRF, queue, and settlement replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, and survivor reprojection. |
-| Living War | Broad-alpha virtual/physical support, response, and convoy paths; the current convoy seating-order defect is repaired in source | Prove 3/3 living pilot occupants and retained vehicle registration, then fix remaining off-bubble progress, route, arrival, and contact failures. |
+| Living War | Broad-alpha virtual/physical support, response, and convoy paths; convoy seating order and spawned-support route truth are repaired in source | Prove 3/3 living pilot occupants and retained vehicle registration, then prove actual support movement, two-sample arrival, recall exit, bounded route reissue, contact, and fold-back. |
 | Reliable Orders | Broad-alpha enemy/support order state exists | Add durable duty/assignment/engagement/return states and prove recall/return without duplicate settlement. |
 | One Campaign View | Menu and marker projections exist; static-root guard implemented | Prove authoritative host/client/late-join snapshots, revisions, deletes, and modal map ownership. |
 | Political Map | Town influence, capture, ownership, security, and heat foundations exist | Canonicalize ownership side effects and deepen political control/mission outputs. |
@@ -180,15 +180,20 @@ treated as future work:
   road preference, and HQ standoff.
 - Physical support deployments persist their resolved route id, placement
   type/summary, target/road/HQ distances, road resolution, vehicle-safe result,
-  and linked active-group force counts so one-button debug can prove the
+  and linked active-group force counts so one-button debug can inspect the
   support request -> active group -> fold-back chain through save/load.
-- Routed support/QRF active groups now resolve generated target-zone route
-  positions for state-level movement when available, and physicalized infantry
-  stores the assigned AI waypoint count on the active group.
-- Once a routed support/QRF infantry group is populated, physical war now
-  assigns real AI route waypoints from the generated route chain, uses a final
-  search/sweep waypoint at the target, and cleans those waypoint entities up
-  with the runtime group.
+- Eligible unspawned non-queue-managed legacy support/QRF groups can still
+  advance abstractly; exact paid QRF remains a SpawnQueue realization exception.
+  Spawned support now retains the living-member centroid instead of elapsed-time interpolation.
+  ETA opens the arrival check; two live samples from distinct elapsed seconds within 75m confirm
+  arrival or recall exit. Exact QRF handoff normalizes to `support_active` so the
+  same route owner observes it.
+- Populated spawned support receives a direct route from the current live
+  position through a safe midpoint to the current target or recall exit. Stalled
+  chains have a maximum of three consecutive reissues until an 8m new-best
+  distance improvement resets the stall budget. Replacement is transactional:
+  prepare a complete service-owned chain first, retain the old chain on failure,
+  and remove/delete the old waypoints before attaching the replacement.
 - Vehicle-capable support/QRF active groups now persist their selected vehicle
   prefab and spawn a linked runtime vehicle entity when the infantry group
   becomes live. Runtime vehicle roots are recursively cleared of engine faction
@@ -232,9 +237,10 @@ treated as future work:
    garrison, paid-QRF, SpawnQueue, casualty/reprojection, archive replay, and
    save/restart boundaries.
 5. Prove 3/3 convoy drivers after the pre-seat vehicle-registration and local-
-   authority entry repair, then fix remaining movement, support routing,
-   physical response, arrival, contact, return, and recall failures in scoped
-   disposable profiles.
+   authority entry repair. In scoped disposable profiles, also prove actual
+   support movement, two consecutive live arrival samples within 75m, physical
+   recall exit, and transactional waypoint replacement within the three-reissue
+   cap.
 6. Prove static marker widget readiness and build authoritative host/client/JIP
    snapshot-and-delta reconciliation for the One Campaign View milestone.
 7. Add the durable operation duty/assignment/engagement/materialization model,
@@ -2029,8 +2035,10 @@ Acceptance criteria:
 
 Status: In progress - resource-limited order selection, proactive/reactive pool
 separation, physical/abstract response, target scoring, and typed smoke coverage
-exist. Durable operation duty/return state, sustained movement/contact, exact
-force cutovers, and long-window behavior remain open.
+exist. Spawned response state now uses live member position and bounded direct
+waypoint chains, but durable operation duty/return state, packaged sustained
+movement/contact proof, exact force cutovers, and long-window behavior remain
+open.
 
 Goal: turn enemy orders into visible war activity.
 
@@ -2069,7 +2077,10 @@ Acceptance criteria:
 Status: In progress - queued state, ETA, cooldown, reports, physical/abstract
 resolution, cancellation/recall scaffolding, and typed smoke coverage exist.
 Player-paid infantry QRF is the first exact support consumer; other support
-types remain legacy and still need reliable travel/arrival/return/settlement.
+types remain legacy. Spawned support now treats ETA as an earliest check and
+requires two live samples from distinct elapsed seconds within 75m for arrival
+or recall exit;
+reliable packaged travel/arrival/return/settlement proof remains open.
 
 Goal: make FIA and enemy support requests stateful and testable.
 
@@ -2081,12 +2092,19 @@ Implementation:
   helicopter-style support if no safe asset path exists.
 - Each request validates cost/cooldown, records source/target, has ETA, and
   physicalizes or resolves abstractly.
+- Spawned requests route directly from the current living-member centroid to the
+  current target or recall exit. Service-owned waypoint replacement is
+  transactional and stalled chains have a maximum of three consecutive reissues
+  until an observed 8m new-best distance improvement resets the stall budget.
 
 Acceptance criteria:
 
 - FIA support request appears in support report.
 - Enemy support request spends enemy resources.
 - Request has ETA and status.
+- ETA alone cannot complete a spawned request; live distance must confirm
+  arrival, and recall settlement must confirm the spawned group reached its
+  exit.
 - Request resolves physically when players are nearby.
 - Request resolves abstractly when players are far.
 - Cooldown prevents spam.
@@ -2153,8 +2171,11 @@ Acceptance criteria:
 
 Status: In progress - HQ knowledge/threat, Petros attack orders, linked support/
 group/mission/objective/task state, campaign consequences, and typed smoke
-coverage exist. Natural contact/arrival, multi-wave defense, recovery policy,
-restart, and multiplayer proof remain open.
+coverage exist. Spawned Petros-attack support now uses the same live-centroid,
+direct-target, two-sample arrival boundary. A historical 9/9 attacker group did
+not show advance, but campaign-time-only sampling is not physical-stall proof.
+Natural movement/contact/arrival, multi-wave defense, recovery policy, restart,
+and multiplayer proof remain open.
 
 Goal: implement the signature enemy punishment loop around HQ knowledge and
 Petros.

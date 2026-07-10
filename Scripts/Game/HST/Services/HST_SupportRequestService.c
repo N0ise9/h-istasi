@@ -805,7 +805,7 @@ class HST_SupportRequestService
 			return false;
 
 		if (request.m_bRecallRequested)
-			return TickRecalledPhysicalGroundSupport(state, economy, request);
+			return TickRecalledPhysicalGroundSupport(state, economy, physicalWar, request);
 
 		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 		int spawnAtSecond = arrivalAtSecond - ResolveInboundSpawnLeadSeconds(request);
@@ -824,11 +824,65 @@ class HST_SupportRequestService
 			}
 		}
 
+		if (!request.m_sGroupId.IsEmpty() && IsPhysicalSupportFinished(state, request))
+		{
+			HST_ActiveGroupState terminalGroup = state.FindActiveGroup(request.m_sGroupId);
+			if (!terminalGroup)
+				request.m_sFailureReason = "physical support group missing";
+			else
+				request.m_sFailureReason = "physical support group terminal: " + terminalGroup.m_sRuntimeStatus;
+
+			return ResolveSupportAsPhysicalComplete(state, request);
+		}
+
 		if (state.m_iElapsedSeconds < arrivalAtSecond)
 			return false;
 
 		if (!request.m_sGroupId.IsEmpty())
 		{
+			HST_ActiveGroupState linkedGroup = state.FindActiveGroup(request.m_sGroupId);
+			if (request.m_eType != HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK
+				&& linkedGroup && linkedGroup.m_sRuntimeStatus == "support_arrived")
+			{
+				if (!linkedGroup.m_bSpawnedEntity)
+				{
+					if (!HST_WorldPositionService.IsPositionInsidePlayerEventBubble(linkedGroup.m_vPosition))
+					{
+						if (FoldPhysicalSupportOutsideBubble(state, garrisons, physicalWar, request))
+							return ResolveSupportAsPhysicalComplete(state, request);
+					}
+
+					string simulatedReason = "Unspawned support reached its simulated target; awaiting player-bubble physicalization and live arrival proof.";
+					bool simulatedStatusChanged = request.m_bAbstractResolved
+						|| request.m_sRuntimeStatus != "simulated_arrived_waiting_physicalization"
+						|| request.m_sFailureReason != simulatedReason;
+					request.m_bAbstractResolved = false;
+					request.m_sRuntimeStatus = "simulated_arrived_waiting_physicalization";
+					request.m_sFailureReason = simulatedReason;
+					return simulatedStatusChanged;
+				}
+
+				bool arrivalProofRecorded = request.m_sFailureReason.StartsWith("Physical arrival confirmed:")
+					&& linkedGroup.m_sSpawnFailureReason.StartsWith("Physical support route completion confirmed");
+				if (request.m_bAbstractResolved && !arrivalProofRecorded)
+				{
+					string restoredArrivalEvidence;
+					if (!ConfirmPhysicalSupportArrival(state, physicalWar, request, restoredArrivalEvidence))
+					{
+						request.m_bAbstractResolved = false;
+						request.m_sRuntimeStatus = "physical_en_route";
+						request.m_sFailureReason = "Restored arrival lacked current live physical proof: " + restoredArrivalEvidence;
+						return true;
+					}
+
+					request.m_sFailureReason = "Physical arrival confirmed: " + restoredArrivalEvidence;
+					request.m_sRuntimeStatus = "physical_arrived";
+					linkedGroup.m_sSpawnFailureReason = "Physical support route completion confirmed during restored live-position revalidation: " + restoredArrivalEvidence;
+					m_bMarkerRefreshNeeded = true;
+					return true;
+				}
+			}
+
 			if (!request.m_bAbstractResolved)
 			{
 				if (!ShouldPhysicalizeSupport(state, preset, request))
@@ -840,12 +894,27 @@ class HST_SupportRequestService
 					return ResolveSupport(state, preset, garrisons, request, strategic, hq);
 				}
 
-				request.m_bAbstractResolved = true;
-				MarkPhysicalSupportArrived(state, request);
 				if (request.m_eType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
+				{
+					request.m_bAbstractResolved = true;
 					request.m_sRuntimeStatus = "roadblock_established";
-				else
-					request.m_sRuntimeStatus = "physical_arrived";
+					m_bMarkerRefreshNeeded = true;
+					return true;
+				}
+
+				string arrivalEvidence;
+				if (!ConfirmPhysicalSupportArrival(state, physicalWar, request, arrivalEvidence))
+				{
+					string waitingReason = "ETA reached; awaiting live physical arrival: " + arrivalEvidence;
+					bool statusChanged = request.m_sRuntimeStatus != "physical_en_route" || request.m_sFailureReason != waitingReason;
+					request.m_sRuntimeStatus = "physical_en_route";
+					request.m_sFailureReason = waitingReason;
+					return statusChanged;
+				}
+
+				request.m_bAbstractResolved = true;
+				request.m_sRuntimeStatus = "physical_arrived";
+				request.m_sFailureReason = "Physical arrival confirmed: " + arrivalEvidence;
 				m_bMarkerRefreshNeeded = true;
 				return true;
 			}
@@ -854,17 +923,6 @@ class HST_SupportRequestService
 			{
 				if (FoldPhysicalSupportOutsideBubble(state, garrisons, physicalWar, request))
 					return ResolveSupportAsPhysicalComplete(state, request);
-			}
-
-			if (IsPhysicalSupportFinished(state, request))
-			{
-				HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
-				if (!group)
-					request.m_sFailureReason = "physical support group missing";
-				else
-					request.m_sFailureReason = "physical support group terminal: " + group.m_sRuntimeStatus;
-
-				return ResolveSupportAsPhysicalComplete(state, request);
 			}
 
 			return false;
@@ -897,7 +955,7 @@ class HST_SupportRequestService
 			if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
 				return SettleExactPlayerSupportDeploymentTerminal(state, request, batch, "exact QRF deployment cancelled: " + batch.m_sTerminalReason, true);
 			if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
-				return TickSucceededExactPlayerSupport(state, request);
+				return TickSucceededExactPlayerSupport(state, physicalWar, request);
 
 			return UpdateExactSupportQueueRuntimeStatus(request, batch);
 		}
@@ -945,7 +1003,7 @@ class HST_SupportRequestService
 		return SettleExactPlayerSupportFullRefund(state, request, "exact QRF spawn admission failed: " + failure, false);
 	}
 
-	protected bool TickSucceededExactPlayerSupport(HST_CampaignState state, HST_SupportRequestState request)
+	protected bool TickSucceededExactPlayerSupport(HST_CampaignState state, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
 	{
 		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
 		if (request.m_sRuntimeStatus == "exact_restore_waiting_queue_capacity"
@@ -958,29 +1016,76 @@ class HST_SupportRequestService
 		}
 
 		bool changed;
+		if (group.m_sRuntimeStatus == EXACT_PLAYER_SUPPORT_GROUP_STATUS)
+		{
+			group.m_sRuntimeStatus = "support_active";
+			group.m_iAssignedWaypointCount = 0;
+			group.m_sSpawnFailureReason = "Successful exact support projection normalized to live support routing.";
+			request.m_bAbstractResolved = false;
+			changed = true;
+		}
+		else if (request.m_bAbstractResolved && group.m_sRuntimeStatus == "support_arrived"
+			&& (!request.m_sFailureReason.StartsWith("Physical arrival confirmed:")
+				|| !group.m_sSpawnFailureReason.StartsWith("Physical support route completion confirmed")))
+		{
+			string restoredArrivalEvidence;
+			if (!ConfirmPhysicalSupportArrival(state, physicalWar, request, restoredArrivalEvidence))
+			{
+				request.m_bAbstractResolved = false;
+				request.m_sRuntimeStatus = "physical_en_route";
+				request.m_sFailureReason = "Restored exact-support arrival lacked current live physical proof: " + restoredArrivalEvidence;
+				changed = true;
+			}
+			else
+			{
+				request.m_sFailureReason = "Physical arrival confirmed: " + restoredArrivalEvidence;
+				request.m_sRuntimeStatus = "physical_arrived";
+				group.m_sSpawnFailureReason = "Physical support route completion confirmed during restored live-position revalidation: " + restoredArrivalEvidence;
+				changed = true;
+				m_bMarkerRefreshNeeded = true;
+			}
+		}
 		if (!request.m_bPhysicalized)
 		{
 			request.m_bPhysicalized = true;
 			request.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
 			request.m_sPhysicalizationMode = EXACT_PLAYER_SUPPORT_MODE;
-			request.m_sRuntimeStatus = "physical_group_linked";
-			request.m_sFailureReason = "";
-			changed = true;
-			m_bMarkerRefreshNeeded = true;
-		}
-
-		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
-		if (state.m_iElapsedSeconds >= arrivalAtSecond && !request.m_bAbstractResolved)
-		{
-			request.m_bAbstractResolved = true;
-			request.m_sRuntimeStatus = "physical_arrived";
-			MarkPhysicalSupportArrived(state, request);
+			if (!request.m_bAbstractResolved)
+			{
+				request.m_sRuntimeStatus = "physical_group_linked";
+				request.m_sFailureReason = "";
+			}
 			changed = true;
 			m_bMarkerRefreshNeeded = true;
 		}
 
 		if (IsPhysicalSupportFinished(state, request))
 			return ResolveSupportAsPhysicalComplete(state, request) || changed;
+
+		int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
+		if (state.m_iElapsedSeconds >= arrivalAtSecond && !request.m_bAbstractResolved)
+		{
+			string arrivalEvidence;
+			if (ConfirmPhysicalSupportArrival(state, physicalWar, request, arrivalEvidence))
+			{
+				request.m_bAbstractResolved = true;
+				request.m_sRuntimeStatus = "physical_arrived";
+				request.m_sFailureReason = "Physical arrival confirmed: " + arrivalEvidence;
+				changed = true;
+				m_bMarkerRefreshNeeded = true;
+			}
+			else
+			{
+				string waitingReason = "ETA reached; awaiting live physical arrival: " + arrivalEvidence;
+				if (request.m_sRuntimeStatus != "physical_en_route" || request.m_sFailureReason != waitingReason)
+				{
+					request.m_sRuntimeStatus = "physical_en_route";
+					request.m_sFailureReason = waitingReason;
+					changed = true;
+				}
+			}
+		}
+
 		return changed;
 	}
 
@@ -1028,10 +1133,34 @@ class HST_SupportRequestService
 			int lostSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
 			return SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact QRF recall group was lost", "recalled_group_lost");
 		}
+		bool restoredRecallWithoutSpawn = !group.m_bSpawnedEntity
+			&& (group.m_sRuntimeStatus == "exact_restore_waiting_queue_capacity" || group.m_sRuntimeStatus == "support_recalling");
+		if (restoredRecallWithoutSpawn)
+		{
+			bool runtimeProjectionPresent = false;
+			if (physicalWar && physicalWar.GetForceSpawnGroupRoot(group))
+				runtimeProjectionPresent = true;
+			if (forceSpawnAdapter && forceSpawnAdapter.CountHandlesForProjection(group.m_sProjectionId) > 0)
+				runtimeProjectionPresent = true;
+			if (!runtimeProjectionPresent)
+			{
+				if (!m_ExactForceSpawnQueue)
+					return SetExactSupportRuntimeStatus(request, "exact_recall_settlement_queue_unavailable");
+				int restoredSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+				return SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact QRF recall recovered while survivor reprojection had no live runtime", "recalled_restore_waiting_reprojection");
+			}
+		}
 		if (group.m_sRuntimeStatus == "support_recalling")
 			return SetExactSupportRuntimeStatus(request, "recall_routing");
 		if (group.m_sRuntimeStatus != "support_recall_exited" && group.m_sRuntimeStatus != "folded")
 			return false;
+		string recallEvidence;
+		if (!ConfirmPhysicalSupportRecallExit(physicalWar, request, group, recallEvidence))
+		{
+			SetExactSupportRuntimeStatus(request, "recall_routing");
+			request.m_sFailureReason = "Recall exit awaiting live physical confirmation: " + recallEvidence;
+			return true;
+		}
 
 		if (!m_ExactForceSpawnQueue)
 			return SetExactSupportRuntimeStatus(request, "exact_recall_settlement_queue_unavailable");
@@ -1044,7 +1173,7 @@ class HST_SupportRequestService
 		return SettleExactPlayerSupportHRRefund(state, request, survivorInfantry, "exact QRF recalled survivors", "recalled_refund_hr");
 	}
 
-	protected bool TickRecalledPhysicalGroundSupport(HST_CampaignState state, HST_EconomyService economy, HST_SupportRequestState request)
+	protected bool TickRecalledPhysicalGroundSupport(HST_CampaignState state, HST_EconomyService economy, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
 	{
 		if (!state || !request)
 			return false;
@@ -1084,6 +1213,14 @@ class HST_SupportRequestService
 
 		if (group.m_sRuntimeStatus == "support_recall_exited" || group.m_sRuntimeStatus == "folded")
 		{
+			string recallEvidence;
+			if (!ConfirmPhysicalSupportRecallExit(physicalWar, request, group, recallEvidence))
+			{
+				request.m_sRuntimeStatus = "recall_routing";
+				request.m_sFailureReason = "Recall exit awaiting live physical confirmation: " + recallEvidence;
+				return true;
+			}
+
 			int survivorInfantry = Math.Max(0, group.m_iSurvivorInfantryCount);
 			if (!group.m_bSpawnedEntity && survivorInfantry <= 0 && group.m_iInfantryCount > 0)
 				survivorInfantry = group.m_iInfantryCount;
@@ -2009,9 +2146,12 @@ class HST_SupportRequestService
 			return string.Format("h-istasi support recall | %1 could not recall %2 | group %3 | refunded HR 0/%4", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iHRCost);
 		}
 
+		string livePositionEvidence;
+		if (physicalWar)
+			physicalWar.TryRefreshActiveSupportGroupLivePosition(group, livePositionEvidence);
 		vector exitPosition = ResolveSupportRecallExitPosition(state, request, group);
 		request.m_vRecallExitPosition = exitPosition;
-		bool routed;
+		bool routed = false;
 		if (physicalWar)
 			routed = physicalWar.RecallActiveSupportGroup(state, group.m_sGroupId, exitPosition);
 		if (!routed)
@@ -2098,10 +2238,23 @@ class HST_SupportRequestService
 			SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact QRF recall group was lost", "recalled_group_lost");
 			return string.Format("h-istasi support recall | %1 could not recall %2 | group %3 | refunded HR %4/%5", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iRefundedHR, request.m_iHRCost);
 		}
+		if (!group.m_bSpawnedEntity && group.m_sRuntimeStatus == "exact_restore_waiting_queue_capacity")
+		{
+			if (!m_ExactForceSpawnQueue)
+				return "h-istasi support recall | failed: exact restore-recall settlement queue is unavailable";
+			int restoredSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+			bool restoredSettled = SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact QRF recalled while survivor reprojection awaited queue capacity", "recalled_restore_waiting_reprojection");
+			if (!restoredSettled)
+				return "h-istasi support recall | failed: exact restore-recall HR refund could not settle";
+			return string.Format("h-istasi support recall | %1 recalled before survivor reprojection | retained money | refunded HR %2/%3", request.m_sRequestId, request.m_iRefundedHR, request.m_iHRCost);
+		}
 
+		string livePositionEvidence;
+		if (physicalWar)
+			physicalWar.TryRefreshActiveSupportGroupLivePosition(group, livePositionEvidence);
 		vector exitPosition = ResolveSupportRecallExitPosition(state, request, group);
 		request.m_vRecallExitPosition = exitPosition;
-		bool routed;
+		bool routed = false;
 		if (physicalWar)
 			routed = physicalWar.RecallActiveSupportGroup(state, group.m_sGroupId, exitPosition);
 		if (!routed)
@@ -2368,14 +2521,68 @@ class HST_SupportRequestService
 		return state.FindGeneratedRoute(generatedRouteId);
 	}
 
-	protected void MarkPhysicalSupportArrived(HST_CampaignState state, HST_SupportRequestState request)
+	protected bool ConfirmPhysicalSupportArrival(HST_CampaignState state, HST_PhysicalWarService physicalWar, HST_SupportRequestState request, out string evidence)
 	{
+		evidence = "linked support group is missing";
 		if (!state || !request || request.m_sGroupId.IsEmpty())
-			return;
+			return false;
 
 		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
-		if (group && group.m_sRuntimeStatus == "support_active")
-			group.m_sRuntimeStatus = "support_arrived";
+		if (!group)
+			return false;
+		if (group.m_sRuntimeStatus != "support_arrived")
+		{
+			evidence = "group status is " + group.m_sRuntimeStatus;
+			return false;
+		}
+		if (!physicalWar)
+		{
+			evidence = "physical-war live-position authority is unavailable";
+			return false;
+		}
+
+		if (physicalWar.IsActiveSupportGroupPhysicallyWithinDistance(group, request.m_vTargetPosition, HST_PhysicalWarService.ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS, evidence))
+			return true;
+
+		group.m_sRuntimeStatus = "support_active";
+		group.m_iAssignedWaypointCount = 0;
+		group.m_sSpawnFailureReason = "Rejected stale support-arrival state without current live-position proof: " + evidence;
+		return false;
+	}
+
+	protected bool ConfirmPhysicalSupportRecallExit(HST_PhysicalWarService physicalWar, HST_SupportRequestState request, HST_ActiveGroupState group, out string evidence)
+	{
+		evidence = "linked recalled support group is missing";
+		if (!request || !group)
+			return false;
+		if (group.m_sRuntimeStatus == "folded" && !group.m_bSpawnedEntity)
+		{
+			evidence = "support group was already folded";
+			return true;
+		}
+		if (group.m_sRuntimeStatus != "support_recall_exited" && group.m_sRuntimeStatus != "folded")
+		{
+			evidence = "group status is " + group.m_sRuntimeStatus;
+			return false;
+		}
+		if (!group.m_bSpawnedEntity)
+		{
+			evidence = "unspawned support recall completed through abstract route state";
+			return true;
+		}
+		if (!physicalWar)
+		{
+			evidence = "physical-war live-position authority is unavailable";
+			return false;
+		}
+
+		if (physicalWar.IsActiveSupportGroupPhysicallyWithinDistance(group, request.m_vRecallExitPosition, HST_PhysicalWarService.ACTIVE_GROUP_ROUTE_ARRIVAL_RADIUS_METERS, evidence))
+			return true;
+
+		group.m_sRuntimeStatus = "support_recalling";
+		group.m_iAssignedWaypointCount = 0;
+		group.m_sSpawnFailureReason = "Rejected stale support-recall exit without current live-position proof: " + evidence;
+		return false;
 	}
 
 	protected bool ResolveSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_SupportRequestState request, HST_StrategicService strategic = null, HST_HQService hq = null)

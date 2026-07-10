@@ -73,7 +73,14 @@
 - Stateful support request service with queued deployment pacing:
   FIA/enemy support has ETA/status/cooldown reporting, physical ground-group
   activation when players are nearby, and abstract resolution when off-screen or
-  unsupported by base-game assets
+  unsupported by base-game assets. Spawned support now retains its live member
+  centroid, treats ETA as an earliest observation only, requires two live
+  samples from distinct elapsed seconds within 75m for arrival/recall exit, and
+  uses transactional direct target/exit waypoint chains with at most three
+  consecutive reissues until an 8m new-best distance improvement resets the
+  stall budget. Pre-repair restored arrival/exit rows receive one current live-
+  distance revalidation. This
+  source boundary still needs fresh packaged runtime proof.
 - Enemy commander service with patrol/QRF/search, counterattack, rebuild,
   support-call, and Petros attack orders that track physicalized or abstract
   runtime state and outcome application
@@ -117,7 +124,7 @@
 ## Current Verification Boundary
 
 - Foundation validation and schema-48 Workbench Game compilation/creation pass
-  at 5,740 files and 11,473 classes.
+  at 5,740 files and 11,476 classes.
 - A normal WorldEditor project open produced no new crash signature during the
   bounded startup-survival gate.
 - A current-build dedicated smoke remained live until intentional disconnect,
@@ -136,6 +143,13 @@
   entry before the owner-RPC fallback, and probes retained registration
   directly; foundation and Game compile/create validation pass, while 3/3
   driver and movement proof remains open.
+- Normal-play support evidence marked three groups `physical_arrived` while its
+  logged targets and deterministic recall-exit vectors imply nominal current
+  positions approximately 434m, 455m, and 505m away. Current source removes ETA-only completion, uses the living-member
+  centroid, normalizes exact QRF handoff to `support_active`, and bounds direct
+  target/exit waypoint reissue. A Phase 22 group populated 9/9 without observed
+  advance, but campaign-time-only samples are not physical-stall proof. Fresh
+  packaged support movement, arrival, and recall proof remains open.
 - The latest inspected Full Campaign Debug artifact predates schemas 43-48,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
@@ -158,9 +172,9 @@
   garrison, paid-QRF, queue/handoff, exact casualties, survivor reprojection,
   settlement archive replay, capacity, and save/restart idempotency.
 - Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
-  authority entry repair, then repair any remaining movement, support routing,
-  physical response, arrival/contact, return, and recall failures with scoped
-  disposable debug profiles.
+  authority entry repair. Then use scoped disposable profiles to prove actual
+  support movement, two-sample arrival within 75m, physical recall exit, and
+  transactional waypoint reissue within the three-attempt bound.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
 - Add durable operation assignment/duty/engagement/materialization state before

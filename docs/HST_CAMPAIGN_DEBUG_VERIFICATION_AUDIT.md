@@ -99,7 +99,7 @@ called `UpdateLimited()`, and the synchronous Game Master role grant attempted
 to invoke the same role-change dispatcher recursively. The current tree defers
 only `SCR_EditorManagerCore.OnPlayerRoleChange()` onto the next frame while
 leaving stock mode updates, teardown, and role ownership intact. Foundation validation passes, the Game
-module compiles and creates at 5,740 files/11,473 classes, and a normal
+module compiles and creates at 5,740 files/11,476 classes, and a normal
 WorldEditor open produced no new crash signature during the bounded survival
 gate. A fresh dedicated-server connect/admin-role run is still required before
 the recursive-invoker defect is closed by runtime evidence.
@@ -120,8 +120,8 @@ registers its vehicle first and now prefers forced authority-local driver entry,
 using the owner-RPC dispatch only as a fallback. Failed registration, seating,
 or route setup deletes the traffic projection and its owned helpers so an inert
 vehicle cannot consume the town target and suppress replacement. Foundation validation passes.
-The Game module compiles 5,740 files/11,473 classes with CRC
-`4ec4bc67` and creates the game, and a separate normal WorldEditor open remained
+The Game module compiles 5,740 files/11,476 classes with CRC
+`bc5e4063` and creates the game, and a separate normal WorldEditor open remained
 responsive at every two-second sample through 20 seconds with no script-error
 or new crash signature. A fresh packaged run must still prove zero
 unregistered-group RPCs and real distance-over-time pedestrian and traffic
@@ -142,11 +142,42 @@ utility before issuing any seat request, attempts forced `GetInVehicle()` first
 for locally authoritative convoy AI, retains `MoveInVehicle()` only as the
 fallback after direct rejection or for a non-local entity, and makes the physical probe query retained vehicle
 registration directly. Foundation validation passes. A fresh Game-module run
-compiled 5,740 files/11,473 classes with CRC `4ec4bc67`
+compiled 5,740 files/11,476 classes with CRC `bc5e4063`
 and created the game; a separate normal WorldEditor open stayed responsive at
 every two-second sample through 20 seconds with no script-error or new crash
 signature. A fresh scoped convoy runtime must still prove 3/3 living pilot
 occupants, waypoint chains, movement, no static fallback, and exact cleanup.
+
+Post-audit support route-truth follow-up: the July 9
+`logs_2026-07-09_14-09-10` normal-play artifact contains affected rows
+`support_FIA_729_0`, `support_FIA_808_1`, and `support_FIA_835_3`. Reversing the
+deterministic 2,100m recall-exit projection from each logged target and exit
+vector implies nominal current positions approximately 434m, 455m, and 505m
+away despite `physical_arrived`. A fourth arrival row implied approximately 30m,
+so this is evidence of three false completions rather than a claim that every
+arrival was false.
+The prior path allowed ETA and elapsed-time route interpolation to overwrite
+physical truth. The same evidence includes a Phase 22 attacker group populated
+9/9 that did not show advance, but its sampling used campaign time rather than
+repeated live member positions; it is therefore a reproduction lead, not valid
+physical-stall proof. Current source keeps a spawned support group's persisted
+position on the living-member centroid, treats ETA as the earliest arrival check
+only, and requires two live samples from distinct elapsed seconds within 75m
+before either
+arrival or a spawned recall exit can complete. Exact-QRF handoff normalizes to
+`support_active`, and support routing builds a direct chain from the current
+live position to the target or exit. Stalled chains have a maximum of three
+consecutive reissues until an observed 8m new-best distance improvement resets
+the budget.
+Waypoint replacement is transactional and service-owned: a complete
+replacement is prepared first, a failed preparation leaves the existing chain
+intact, and a successful replacement removes the old waypoints from the group
+before deleting them. This is a source repair, not runtime success. A fresh
+packaged run must still prove actual movement, two-sample arrival, recall exit,
+bounded reissue behavior, and cleanup.
+Foundation validation passes, and the pre-provenance Game module compiles and
+creates at 5,740 files/11,476 classes with CRC `bc5e4063`. The final stamped
+compile and normal project-open crash gate remain pending at this checkpoint.
 
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
@@ -559,7 +590,7 @@ Unproven or incomplete against the pasted contract:
 | Typed harness and artifacts | Typed run/case/assertion/metric data, run IDs, JSON/summary/state-diff artifacts, status/cancel/cleanup commands, action/observation typed wrappers. | Generic action/observation rows are still classifier-backed evidence, not feature-specific physical probes. |
 | Phase smoke wrapping | Valid phase-smoke indexes 0-62 now emit typed cases instead of duplicate legacy result rows; phase persistence seed/run/report steps are typed. | Physical depth inside some phases remains partial. |
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
-| Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route samples, controlled support arrival/terminal resolution, civilian population/movement samples, controlled wanted-heat decay window, undercover compromise/clear paths. | Natural support contact/combat after arrival and broader civilian reaction behavior beyond heat/population is not proven. |
+| Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, an ETA no-false-arrival assertion, a terminal-resolution assertion conditional on prior live arrival, civilian population/movement samples, controlled wanted-heat decay, and undercover compromise/clear paths. | Real-frame support movement, two-sample arrival/recall exit, unconditional terminal-resolution execution, natural support contact/combat, and broader civilian reaction behavior beyond heat/population are not proven. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
 | Garage/loadout | Real garage store/redeploy/capture/cargo restoration plus loadout open/close session checks, valid saved-loadout apply through the real command path, finite arsenal withdrawal, issued-ledger creation, invalid apply no-mutation, non-serialized physical inventory insertion, server-side live-draft slot model reflection/restoration, serialized restore, and restoration of transient debug state. | Direct rendered/editor UI interaction and exact visual equipment-slot inspection for the seeded finite loadout item remain open. |
@@ -588,7 +619,7 @@ Unproven or incomplete against the pasted contract:
 - Preflight records typed assertions for key services, mission registry count/uniqueness/runtime/duration, compatible debug target zones, default faction/civilian prefab resource resolution, runtime-selected mission prop/vehicle prefab resolution, runtime waypoint prefab resolution, zone graph counts, and physical-war setting. Baseline persistence now records typed service/report/health/mode assertions and reports native-unavailable/profile-fallback operation as WARN instead of a legacy string row.
 - HQ runtime records typed assertions for runtime flag, tracked Petros/cache/arsenal/tent/spawn-point entity count, Petros/cache/arsenal/tent/spawn-point runtime entity keys and positions, per-slot nearby world duplicate scans, arsenal usability, HQ marker, active admin command-menu campaign-debug controls, command coverage, and player position.
 - Economy records typed exact-delta assertions for resource awards, forced income ticks, and training. The income case seeds a resistance-owned income zone, calculates expected money/HR through the town service, asserts exact money/HR deltas, records enemy-owned income potential as excluded, and checks that the force-income command does not unexpectedly mutate the passive timer.
-- Stage 3 support requests now clear prior player support, call the real support command, assert the created support request record type, faction, target zone/position, ETA, money cost, status, marker publication/pending state, controlled ETA progression, QRF/search ground-support physicalization into linked active groups, repeated routed movement samples with movement/distance-closure/stall evidence, hard FAIL timeout evidence for sampled no-progress stalls, controlled ETA arrival state, controlled physical terminal resolution through the real support tick, and runtime group cleanup before cleaning the debug probe.
+- Stage 3 support requests now clear prior player support, call the real support command, assert the created support request record type, faction, target zone/position, ETA, money cost, status, marker publication/pending state, controlled ETA progression, QRF/search ground-support physicalization into linked active groups, and repeated campaign-clock route-state samples with movement/distance-closure/stall evidence. The synchronous probe now hard-fails only if ETA invents arrival while the group remains outside 75m; movement, stall timeout, and actual arrival remain WARN/non-certifying until sampled over real elapsed time. Terminal injection/resolution runs only after prior live arrival, so its assertion otherwise remains WARN; runtime-group cleanup remains covered.
 - Early physical AI combat coverage now records `physical_combat.ai_contact`. It creates temporary resistance/enemy active groups near the controlled player, assigns search-and-destroy waypoints toward the opposing side, samples live counts and group distance through the normal physical-war tick for the configured window, asserts faction split/native hostility/runtime entities/waypoints/sample window/contact distance, records casualty-resolution as PASS or FAIL depending on observed live-count loss, and removes all temporary groups and waypoints before recording cleanup.
 - Civilian aid now records typed money/support/heat assertions, exact clamped support/reputation/heat deltas, and hard town/zone bounds. Support cancellation now seeds and cancels a real player support request by ID, captures the immediate cancellation status/resolution, runs cleanup, and asserts no queued/active player support or cooldown remains for follow-on probes.
 - Early garrison recruit/remove now records a typed case. It arranges an inactive resistance-owned zone with capacity, calls the real recruit and remove command paths, asserts exact infantry/vehicle deltas, exact money/HR cost, and restores the temporary owner/active/garrison-record state.
@@ -608,8 +639,8 @@ Unproven or incomplete against the pasted contract:
 - Phase 14 smoke now records typed arsenal assertions for finite-only loot, threshold unlock behavior at count 2, blocked-prefab rejection, raw visual asset rejection, and final report consistency.
 - Phase 15 smoke now records typed garage/source-vehicle assertions for stored vehicle records, debug-run ID prefixing, vehicle-root eligibility, redeploy metadata, cargo preservation, ammo-source metadata, and report source counts.
 - Phase 16 smoke now records typed garrison/training assertions for selected recruit-zone readiness, resistance garrison records, infantry deltas, zero-cost money/HR behavior, capacity bounds, and zero-cost training level deltas.
-- Phase 17 smoke now records typed capture/counterattack assertions for seeded capturable non-conquest-gated zones, ownership flip, progress reset, starter resistance garrison, debug-prefixed counterattack orders, order costs/positions/status, marker/report evidence, real enemy-order physicalization into a prefixed support request, linked active-group runtime spawn, WARN/pending classification for async `spawn_pending_agents`, and repeated routed movement samples with distance-closure/stall evidence and hard FAIL timeout evidence toward the captured zone.
-- Phase 22 smoke now records typed HQ/Defend Petros assertions for seeded HQ knowledge/threat, debug-prefixed Petros attack orders, order/support/group/mission/objective/task target positions at the HQ/Petros base instead of the nearby bookkeeping zone, debug-prefixed dynamic defense mission/objective/task records, active mission markers, linked support request evidence, Petros attack physicalization into a prefixed support request, linked attacker-group runtime spawn, repeated routed attacker movement samples with distance-closure/stall evidence and hard FAIL timeout evidence, admin-success resolution, Petros kill/runtime-clear behavior, and campaign-debug Petros/HQ recovery. Multi-wave/contact/arrival behavior remains WARN/not covered.
+- Phase 17 smoke now records typed capture/counterattack assertions for seeded capturable non-conquest-gated zones, ownership flip, progress reset, starter resistance garrison, debug-prefixed counterattack orders, order costs/positions/status, marker/report evidence, real enemy-order physicalization into a prefixed support request, linked active-group runtime spawn, WARN/pending classification for async `spawn_pending_agents`, and repeated campaign-clock route-state samples with WARN/non-certifying distance-closure and stall evidence. Real-frame movement and stall proof remain open.
+- Phase 22 smoke now records typed HQ/Defend Petros assertions for seeded HQ knowledge/threat, debug-prefixed Petros attack orders, order/support/group/mission/objective/task target positions at the HQ/Petros base instead of the nearby bookkeeping zone, debug-prefixed dynamic defense mission/objective/task records, active mission markers, linked support request evidence, Petros attack physicalization into a prefixed support request, linked attacker-group runtime spawn, repeated campaign-clock attacker route-state samples with WARN/non-certifying distance-closure/stall evidence, admin-success resolution, Petros kill/runtime-clear behavior, and campaign-debug Petros/HQ recovery. Real-frame movement, multi-wave/contact, and arrival behavior remain WARN/not covered.
 - Phase 23 smoke now records typed UI/marker assertions for command coverage detail rows, compact Missions-tab active rows, admin menu campaign-debug/Phase-23 controls, marker model counts, every zone marker model entry, zone marker linked ID/owner/color/style/position matching, HQ/mission/support/QRF marker coverage, marker backing-state consistency, native marker report availability, native eligible/published/skipped/failed/pending counter assertions, tracked static native-handle liveness, native marker purge reporting, player marker report inclusion, and strict failed-action sample assertions. The failed-action sample now snapshots campaign state before/after invalid HQ move, invalid zone mission start, and invalid mission completion, then asserts explicit failure reasons, aggregate rejection, tracked count no-mutation, and wider snapshot equality.
 - Phase 24 smoke now records typed campaign pacing/escalation/end assertions for early/mid/late seeded resource profiles, control percent, FIA/enemy zone counts, population and airfield metrics, max enemy pool pressure, controlled low/mid/high enemy resource and commander ticks, a short repeated multi-cycle background-war resource/commander window, monotonic war-level income scaling, debug-prefixed escalation orders/support/groups, exact aggression decay, default population-support victory metadata, default civilian-catastrophe loss metadata, campaign-end population metadata save roundtrips, and post-end terminal inactivity snapshots for elapsed time, runtime records, support, orders, money, HR, and income timer.
 - Convoy physical probing asserts vehicle asset counts, spawned vehicle entities, crew groups, alive crew, seated drivers, mobile vehicles, route assignment, waypoint assignment, readiness, progress sample presence, repeated progress sample counts, best movement/distance-closed metrics, sampled travel/contact/terminal phase-chain evidence, final convoy phase, hard-stuck count, recovery attempts, and hard no-progress timeout evidence once sampled movement windows reach the convoy recovery/reissue threshold.
@@ -626,7 +657,15 @@ Unproven or incomplete against the pasted contract:
 
 ## Not Fully Implemented
 
-- Physical runtime depth is still incomplete for natural support contact/combat, broader civilian reaction behavior beyond heat/population, natural player transport travel including POW transport over a real route, mission-owned hostile area-clearing combat, natural live convoy full phase history under physical movement, counterattack/Defend Petros multi-wave behavior, and extended autonomous background-war soak behavior. The standalone physical AI contact probe adds engine-backed opposing-group evidence but is not a substitute for those feature-specific flows.
+- Physical runtime depth is still incomplete for fresh packaged support movement,
+  two-sample arrival, recall exit, and bounded route-reissue proof; natural
+  support contact/combat; broader civilian reaction behavior beyond heat/
+  population; natural player transport travel including POW transport over a
+  real route; mission-owned hostile area-clearing combat; natural live convoy
+  full phase history under physical movement; counterattack/Defend Petros multi-
+  wave behavior; and extended autonomous background-war soak behavior. The
+  standalone physical AI contact probe adds engine-backed opposing-group
+  evidence but is not a substitute for those feature-specific flows.
 - Loadout editor rendered/visual proof is still partial: the debug runner now counts physical player-inventory reflection/restore and server-side live-draft slot model reflection/restore for a non-serialized saved loadout, but it does not inspect the rendered editor UI or visually prove the seeded finite debug item is equipped in a specific player slot.
 - Render/UI depth is still incomplete for rendered map widget inspection. Command-menu visual opening now has an owner-client rendered widget proof path, but the current audit has not yet seen a fresh runtime artifact with that report.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
