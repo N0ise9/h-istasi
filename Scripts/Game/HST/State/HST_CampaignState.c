@@ -897,7 +897,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 47;
+	static const int SCHEMA_VERSION = 48;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1028,6 +1028,7 @@ class HST_CampaignState
 	ref array<ref HST_CampaignEventState> m_aCampaignEvents = {};
 	ref array<ref HST_ForceManifestState> m_aForceManifests = {};
 	ref array<ref HST_ForceQuoteState> m_aForceQuotes = {};
+	ref array<ref HST_ForceSettlementTombstoneState> m_aForceSettlementTombstones = {};
 	ref array<ref HST_ForceSpawnResultState> m_aForceSpawnResults = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
@@ -1347,6 +1348,53 @@ class HST_CampaignState
 		}
 
 		return null;
+	}
+
+	HST_ForceSettlementTombstoneState FindForceSettlementTombstone(string quoteId)
+	{
+		foreach (HST_ForceSettlementTombstoneState tombstone : m_aForceSettlementTombstones)
+		{
+			if (tombstone && tombstone.m_sQuoteId == quoteId)
+				return tombstone;
+		}
+		return null;
+	}
+
+	HST_ForceSettlementTombstoneState FindForceSettlementTombstoneByCommandRequest(string commandRequestId)
+	{
+		if (commandRequestId.IsEmpty())
+			return null;
+		foreach (HST_ForceSettlementTombstoneState tombstone : m_aForceSettlementTombstones)
+		{
+			if (tombstone && tombstone.m_sCommandRequestId == commandRequestId)
+				return tombstone;
+		}
+		return null;
+	}
+
+	HST_ForceSettlementTombstoneState FindForceSettlementTombstoneByTransaction(string transactionId)
+	{
+		if (transactionId.IsEmpty())
+			return null;
+		foreach (HST_ForceSettlementTombstoneState tombstone : m_aForceSettlementTombstones)
+		{
+			if (tombstone && tombstone.FindTransaction(transactionId))
+				return tombstone;
+		}
+		return null;
+	}
+
+	int CountForceSettlementTombstonesByTransaction(string transactionId)
+	{
+		int count;
+		if (transactionId.IsEmpty())
+			return count;
+		foreach (HST_ForceSettlementTombstoneState tombstone : m_aForceSettlementTombstones)
+		{
+			if (tombstone && tombstone.FindTransaction(transactionId))
+				count++;
+		}
+		return count;
 	}
 
 	HST_ForceSpawnResultState FindForceSpawnResult(string resultId)

@@ -78,11 +78,16 @@ The repository contains a broad-alpha campaign foundation:
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
-- A schema-47 force-spawn authority boundary with durable per-projection results,
+- A schema-48 force-spawn authority boundary with durable per-projection results,
   explicit force/projection identity on active groups, exact required-slot
   admission, bounded priority/FIFO scheduling and retention, retry/deadline/
   cancellation handling, dependency-ordered cleanup, Game Master registration
   evidence, and once-per-restore reconciliation
+- Bounded accepted-settlement archives that replace eligible full quote,
+  manifest, and linked ledger rows only after terminal aggregate proof and all
+  physical/queue backlinks are gone. Compact rows preserve issue, confirmation,
+  and committed-ledger replay for at least 86,400 campaign seconds; new planning
+  fails closed when the shared history bound cannot safely make room.
 - An engine-facing force-spawn adapter driven by the production coordinator once
   per active-campaign second. Its first exact slice creates one infantry group
   root plus every frozen member slot, records a durable nonterminal
@@ -145,7 +150,7 @@ coverage, and persist won/lost campaign outcomes. The systems are still rough:
 cache/tent polish, save/restart soak testing, final surveyed Everon
 coordinates, richer AI waypoints, full loadout-editor HST_Dev smoke, garage
 progression polish, balance tuning, and mission-specific interactable props
-still need to be connected incrementally. The schema-47 adapter currently
+still need to be connected incrementally. The current exact adapter
 supports exactly one infantry group root and its exact member slots; vehicle,
 asset, and multi-root manifests fail closed as unsupported. Player-paid QRF is
 the first support type migrated to this path; supply, search, roadblock, fire,
@@ -244,7 +249,7 @@ local `I` key/action path when troubleshooting menu access.
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. Server boot, admin diagnostics, command-menu readiness,
 and structured debug artifacts must report the same runtime identity from
-`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 47, and
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 48, and
 runtime-settings schema. Missing or mismatched identity means the packaged
 server/client runtime is stale or mixed, even if the repository is newer.
 

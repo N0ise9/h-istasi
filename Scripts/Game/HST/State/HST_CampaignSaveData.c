@@ -109,6 +109,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_CampaignEventState> m_aCampaignEvents = {};
 	ref array<ref HST_ForceManifestState> m_aForceManifests = {};
 	ref array<ref HST_ForceQuoteState> m_aForceQuotes = {};
+	ref array<ref HST_ForceSettlementTombstoneState> m_aForceSettlementTombstones = {};
 	ref array<ref HST_ForceSpawnResultState> m_aForceSpawnResults = {};
 	ref array<ref HST_PlayerUndercoverState> m_aUndercoverPlayers = {};
 	ref array<ref HST_CampaignTaskState> m_aCampaignTasks = {};
@@ -321,6 +322,10 @@ class HST_CampaignSaveData
 		m_aForceQuotes.Clear();
 		foreach (HST_ForceQuoteState quote : state.m_aForceQuotes)
 			m_aForceQuotes.Insert(CopyForceQuote(quote));
+
+		m_aForceSettlementTombstones.Clear();
+		foreach (HST_ForceSettlementTombstoneState tombstone : state.m_aForceSettlementTombstones)
+			m_aForceSettlementTombstones.Insert(CopyForceSettlementTombstone(tombstone));
 
 		m_aForceSpawnResults.Clear();
 		foreach (HST_ForceSpawnResultState spawnResult : state.m_aForceSpawnResults)
@@ -553,6 +558,10 @@ class HST_CampaignSaveData
 		state.m_aForceQuotes.Clear();
 		foreach (HST_ForceQuoteState quote : m_aForceQuotes)
 			state.m_aForceQuotes.Insert(CopyForceQuote(quote));
+
+		state.m_aForceSettlementTombstones.Clear();
+		foreach (HST_ForceSettlementTombstoneState tombstone : m_aForceSettlementTombstones)
+			state.m_aForceSettlementTombstones.Insert(CopyForceSettlementTombstone(tombstone));
 
 		state.m_aForceSpawnResults.Clear();
 		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
@@ -1692,6 +1701,74 @@ class HST_CampaignSaveData
 		return target;
 	}
 
+	protected HST_ForceSettlementTransactionTombstoneState CopyForceSettlementTransactionTombstone(HST_ForceSettlementTransactionTombstoneState source)
+	{
+		if (!source)
+			return null;
+		HST_ForceSettlementTransactionTombstoneState target = new HST_ForceSettlementTransactionTombstoneState();
+		target.m_sTransactionId = source.m_sTransactionId;
+		target.m_sResourceType = source.m_sResourceType;
+		target.m_sLastSettlementId = source.m_sLastSettlementId;
+		target.m_eStatus = source.m_eStatus;
+		target.m_iAmount = source.m_iAmount;
+		target.m_iRefundedAmount = source.m_iRefundedAmount;
+		target.m_iSettledAtSecond = source.m_iSettledAtSecond;
+		return target;
+	}
+
+	protected HST_ForceSettlementTombstoneState CopyForceSettlementTombstone(HST_ForceSettlementTombstoneState source)
+	{
+		if (!source)
+			return null;
+		HST_ForceSettlementTombstoneState target = new HST_ForceSettlementTombstoneState();
+		target.m_sQuoteId = source.m_sQuoteId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestHash = source.m_sManifestHash;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sCommandRequestId = source.m_sCommandRequestId;
+		target.m_sConfirmationRequestId = source.m_sConfirmationRequestId;
+		target.m_sActorIdentityId = source.m_sActorIdentityId;
+		target.m_sQuoteKind = source.m_sQuoteKind;
+		target.m_sSupportRequestId = source.m_sSupportRequestId;
+		target.m_sCapabilityId = source.m_sCapabilityId;
+		target.m_sAssetProfileId = source.m_sAssetProfileId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sSourceZoneId = source.m_sSourceZoneId;
+		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_sCatalogVersion = source.m_sCatalogVersion;
+		target.m_sPolicyId = source.m_sPolicyId;
+		target.m_sMoneyTransactionId = source.m_sMoneyTransactionId;
+		target.m_sHRTransactionId = source.m_sHRTransactionId;
+		target.m_sAttackTransactionId = source.m_sAttackTransactionId;
+		target.m_sSupportTransactionId = source.m_sSupportTransactionId;
+		target.m_sSettlementKind = source.m_sSettlementKind;
+		target.m_vSourcePosition = source.m_vSourcePosition;
+		target.m_vTargetPosition = source.m_vTargetPosition;
+		target.m_eSupportType = source.m_eSupportType;
+		target.m_iRequestedMemberCount = source.m_iRequestedMemberCount;
+		target.m_iAcceptedMemberCount = source.m_iAcceptedMemberCount;
+		target.m_iRequestedVehicleCount = source.m_iRequestedVehicleCount;
+		target.m_iAcceptedVehicleCount = source.m_iAcceptedVehicleCount;
+		target.m_iMoneyCost = source.m_iMoneyCost;
+		target.m_iHRCost = source.m_iHRCost;
+		target.m_iEquipmentCost = source.m_iEquipmentCost;
+		target.m_iAttackResourceCost = source.m_iAttackResourceCost;
+		target.m_iSupportResourceCost = source.m_iSupportResourceCost;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iAcceptedAtSecond = source.m_iAcceptedAtSecond;
+		target.m_iArchivedAtSecond = source.m_iArchivedAtSecond;
+		target.m_iETASeconds = source.m_iETASeconds;
+		target.m_iCooldownSeconds = source.m_iCooldownSeconds;
+		target.m_bAllOrNothing = source.m_bAllOrNothing;
+		foreach (HST_ForceSettlementTransactionTombstoneState transaction : source.m_aTransactions)
+		{
+			HST_ForceSettlementTransactionTombstoneState transactionCopy = CopyForceSettlementTransactionTombstone(transaction);
+			if (transactionCopy)
+				target.m_aTransactions.Insert(transactionCopy);
+		}
+		return target;
+	}
+
 	protected HST_ForceSpawnSlotResultState CopyForceSpawnSlotResult(HST_ForceSpawnSlotResultState source)
 	{
 		if (!source)
@@ -2275,6 +2352,31 @@ class HST_CampaignSaveData
 			quote.m_iRevision = Math.Max(1, quote.m_iRevision);
 		}
 
+		for (int tombstoneIndex = m_aForceSettlementTombstones.Count() - 1; tombstoneIndex >= 0; tombstoneIndex--)
+		{
+			HST_ForceSettlementTombstoneState tombstone = m_aForceSettlementTombstones[tombstoneIndex];
+			if (!tombstone || tombstone.m_sQuoteId.IsEmpty() || tombstone.m_sManifestId.IsEmpty())
+			{
+				m_aForceSettlementTombstones.Remove(tombstoneIndex);
+				continue;
+			}
+			tombstone.m_iRequestedMemberCount = Math.Max(0, tombstone.m_iRequestedMemberCount);
+			tombstone.m_iAcceptedMemberCount = Math.Max(0, tombstone.m_iAcceptedMemberCount);
+			tombstone.m_iRequestedVehicleCount = Math.Max(0, tombstone.m_iRequestedVehicleCount);
+			tombstone.m_iAcceptedVehicleCount = Math.Max(0, tombstone.m_iAcceptedVehicleCount);
+			for (int transactionIndex = tombstone.m_aTransactions.Count() - 1; transactionIndex >= 0; transactionIndex--)
+			{
+				HST_ForceSettlementTransactionTombstoneState transaction = tombstone.m_aTransactions[transactionIndex];
+				if (!transaction || transaction.m_sTransactionId.IsEmpty())
+				{
+					tombstone.m_aTransactions.Remove(transactionIndex);
+					continue;
+				}
+				transaction.m_iAmount = Math.Max(0, transaction.m_iAmount);
+				transaction.m_iRefundedAmount = Math.Max(0, Math.Min(transaction.m_iAmount, transaction.m_iRefundedAmount));
+			}
+		}
+
 		for (int spawnIndex = m_aForceSpawnResults.Count() - 1; spawnIndex >= 0; spawnIndex--)
 		{
 			HST_ForceSpawnResultState spawnResult = m_aForceSpawnResults[spawnIndex];
@@ -2322,6 +2424,7 @@ class HST_CampaignSaveData
 		MigrateActiveGroupProjectionIdentity(restoredSchemaVersion, migrationSecond);
 		MigrateLegacyPlayerQRFTransactions(restoredSchemaVersion, migrationSecond);
 		MigrateForceRuntimeLifecycle(restoredSchemaVersion, migrationSecond);
+		MigrateForceSettlementArchive(restoredSchemaVersion, migrationSecond);
 
 		if (migratedLegacySpawnQueue && !HasCampaignEventId("migration_schema44_spawn_queue"))
 		{
@@ -2707,6 +2810,21 @@ class HST_CampaignSaveData
 		eventState.m_sAggregateId = "schema47";
 		eventState.m_sTransition = "successful_projection_lifecycle_backfilled";
 		eventState.m_sReason = string.Format("backfilled lifecycle evidence for %1 successful batches, %2 registered members, and %3 exact active groups without inventing casualties", migratedBatchCount, migratedMemberCount, migratedGroupCount);
+		eventState.m_iCreatedAtSecond = migrationSecond;
+		m_aCampaignEvents.Insert(eventState);
+	}
+
+	protected void MigrateForceSettlementArchive(int restoredSchemaVersion, int migrationSecond)
+	{
+		if (restoredSchemaVersion >= 48 || HasCampaignEventId("migration_schema48_force_settlement_archive"))
+			return;
+		HST_CampaignEventState eventState = new HST_CampaignEventState();
+		eventState.m_sEventId = "migration_schema48_force_settlement_archive";
+		eventState.m_sCategory = "migration";
+		eventState.m_sAggregateType = "force_settlement_archive";
+		eventState.m_sAggregateId = "schema48";
+		eventState.m_sTransition = "archive_authority_initialized";
+		eventState.m_sReason = "preserved pre-schema-48 accepted quote, manifest, and ledger rows in full without inventing settlement tombstones";
 		eventState.m_iCreatedAtSecond = migrationSecond;
 		m_aCampaignEvents.Insert(eventState);
 	}

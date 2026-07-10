@@ -124,15 +124,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Treat the receipt as campaign state, not transient UI state; save/load must preserve idempotency across reconnects and restarts.
 
 - Paid campaign mutations need a transaction ledger, not inline balance edits.
-  - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume. Campaign events and command receipts are bounded now; transaction and accepted-settlement history still require replay-safe compaction before long-campaign certification.
-  - Training is the first production consumer; exact garrison confirmation is the second. Paid support remains outside this contract until it consumes the same frozen manifest for quote, charge, spawn, persistence, recall, and refund.
+  - Use explicit reserve, commit, cancel, and refund transitions. Restore reconciliation must cancel/refund any open reservation before normal service ticks resume. Campaign events and command receipts are bounded; schema 48 also bounds accepted garrison/QRF quote, manifest, and linked transaction history.
+  - Training is the first production consumer; exact garrison confirmation is the second; exact player QRF is the first paid-support consumer of one frozen manifest across quote, charge, spawn, persistence, recall, and refund. Other paid support remains outside this contract.
 
 - A player-visible force purchase needs two server-authoritative commands.
   - The first command validates target/capacity/catalog/resources and persists an immutable, expiring quote plus exact manifest. It does not debit anything. The UI then displays the returned accepted count and cost.
   - Confirmation submits only the quote ID. Revalidate actor, active-campaign/HQ state, expiry, the member catalog/hash, ownership, zone kind, capacity snapshot, and resources; reserve each resource with deterministic transaction IDs; register the exact purchase-time strategic increment and acceptance provenance; verify the exact delta and one acceptance link; then commit every reservation.
-  - The accepted quote status is the replay guard after bounded command receipts age out. A repeated confirmation validates the frozen historical manifest and both fully linked committed transactions. It must not require the current garrison object or acceptance link: later activation, casualties, fold-back, or zone cleanup can legitimately replace that aggregate before the ForceRuntime lifecycle owns living slot identity.
+  - The accepted quote status is the replay guard while full rows remain. After terminal settlement compaction, the persisted settlement tombstone owns issue/confirmation/transaction replay. A repeated confirmation must never require recreating the aggregate or debit: later activation, casualties, fold-back, or zone cleanup can legitimately replace the original purchase-time link.
   - Quote confirmation is synchronous, but restore still treats any `ISSUED` quote with linked reservations, commits, or an accepted-garrison link as interrupted. Reconciliation removes the purchase-time aggregate contribution when it can prove the link, cancels/refunds every linked money/HR transaction that exists, and rejects the quote before the generic open-reservation sweep runs.
-  - Bound concurrent open garrison quotes independently from historical settlements. Accepted quotes/manifests and their linked ledger history are currently retained for replay/audit and are not compacted; add explicit settlement tombstones/archive compaction before claiming bounded long-campaign authority state. Schema 44 now bounds terminal SpawnQueue rows separately, so queue retention must not be cited as proof that accepted settlement history is bounded.
+  - Bound concurrent open quotes independently from historical settlements. Keep accepted rows in full for a minimum age and every live backlink, then insert the compact replay row before removing the transaction, manifest, quote, and growing garrison-provenance link. Full rows plus tombstones need one hard admission bound; replay-window expiry may remove only the oldest tombstone and an evicted ID must fail closed.
+  - `ResourceLedgerService.ReserveCost()` must consult archived transaction IDs before `SpendResource()`. Exact replay of an archived committed transaction may return an ephemeral already-applied row; identity conflict or a refunded/cancelled row must not debit or reopen the transaction.
+  - A tested queue compaction API is not production maintenance. Build pins from nonterminal support/orders and every retained active group, call `CompactTerminalRows()` from normal and terminal coordinator ticks, and return its state change through persistence tracking. Otherwise the 128-row terminal cap becomes a permanent admission deadlock and settled manifests never become archive-eligible.
   - Legacy aggregate/admin mutation helpers must remain visibly separate from the exact paid path. Both visible-command dispatchers route `recruit_zone` only to quote issuance; caller-priced coordinator wrappers are protected/internal. Do not manufacture historical member slots, prices, transactions, or refunds during migration.
   - Current examples: `HST_ForcePlanningService.IssueGarrisonQuote()`, `ConfirmGarrisonQuote()`, `HST_GarrisonService.AddManifestForcesExact()`, and schema-43 migration normalization.
 
@@ -1793,6 +1795,29 @@ This file is for practical engine/script behavior, not project planning. Keep en
   remained responsive at every two-second sample through 20 seconds and did not
   reproduce the earlier crash. These remain compile/startup evidence until the
   isolated physical and restart cases run.
+
+- Schema-48 accepted-settlement archives are intentionally separate from exact
+  member casualty tombstones.
+  - Archive only `ACCEPTED` quotes whose consumer has a provable terminal
+    settlement, whose linked transactions are unique and non-reserved, and whose
+    manifest has no active-group, enemy-order, or force-spawn backlink. Ambiguity
+    keeps full rows; it is never a reason to infer settlement.
+  - Preserve command/confirmation IDs, actor, operation, quote/manifest/hash,
+    aggregate ID, counts/costs, final transaction status, refunded amount, and
+    settlement ID. Reconstruct read-only quote/manifest/transaction objects only
+    for replay summaries and integrity checks; never put them back into full
+    campaign arrays.
+  - Use a 600-second full-row minimum, 86,400-second tombstone replay minimum,
+    256 tombstone rows, and 320 combined full/tombstone planning rows. When
+    protected history fills the bound, reject new planning rather than deleting
+    a live backlink or young replay row.
+  - Schema-47 migration initializes an empty archive and retains every accepted
+    row in full. It must not infer a settlement merely because an old request is
+    missing process-local runtime handles.
+  - The final schema-48 Game module loads 5,739 files/11,472 classes and creates
+    the game. A separate normal WorldEditor open remained responsive at every
+    two-second sample through 20 seconds and did not reproduce the earlier crash.
+    This is compile/startup evidence, not archive replay or restart evidence.
 
 ## Native Reference Sources
 

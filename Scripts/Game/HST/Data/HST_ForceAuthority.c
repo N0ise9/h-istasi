@@ -156,6 +156,73 @@ class HST_ForceQuoteState
 }
 
 [BaseContainerProps()]
+class HST_ForceSettlementTransactionTombstoneState
+{
+	string m_sTransactionId;
+	string m_sResourceType;
+	string m_sLastSettlementId;
+	HST_EResourceTransactionStatus m_eStatus = HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+	int m_iAmount;
+	int m_iRefundedAmount;
+	int m_iSettledAtSecond;
+}
+
+[BaseContainerProps()]
+class HST_ForceSettlementTombstoneState
+{
+	string m_sQuoteId;
+	string m_sManifestId;
+	string m_sManifestHash;
+	string m_sOperationId;
+	string m_sCommandRequestId;
+	string m_sConfirmationRequestId;
+	string m_sActorIdentityId;
+	string m_sQuoteKind;
+	string m_sSupportRequestId;
+	string m_sCapabilityId;
+	string m_sAssetProfileId;
+	string m_sFactionKey;
+	string m_sSourceZoneId;
+	string m_sTargetZoneId;
+	string m_sCatalogVersion;
+	string m_sPolicyId;
+	string m_sMoneyTransactionId;
+	string m_sHRTransactionId;
+	string m_sAttackTransactionId;
+	string m_sSupportTransactionId;
+	string m_sSettlementKind;
+	vector m_vSourcePosition;
+	vector m_vTargetPosition;
+	HST_ESupportRequestType m_eSupportType;
+	int m_iRequestedMemberCount;
+	int m_iAcceptedMemberCount;
+	int m_iRequestedVehicleCount;
+	int m_iAcceptedVehicleCount;
+	int m_iMoneyCost;
+	int m_iHRCost;
+	int m_iEquipmentCost;
+	int m_iAttackResourceCost;
+	int m_iSupportResourceCost;
+	int m_iCreatedAtSecond;
+	int m_iAcceptedAtSecond;
+	int m_iArchivedAtSecond;
+	int m_iETASeconds;
+	int m_iCooldownSeconds;
+	bool m_bAllOrNothing = true;
+	ref array<ref HST_ForceSettlementTransactionTombstoneState> m_aTransactions = {};
+
+	HST_ForceSettlementTransactionTombstoneState FindTransaction(string transactionId)
+	{
+		foreach (HST_ForceSettlementTransactionTombstoneState transaction : m_aTransactions)
+		{
+			if (transaction && transaction.m_sTransactionId == transactionId)
+				return transaction;
+		}
+		return null;
+	}
+}
+
+[BaseContainerProps()]
 class HST_ForceSpawnSlotResultState
 {
 	string m_sSlotId;

@@ -32,8 +32,8 @@ be read as proof that a later change was executed or certified.
   movement/formation evidence can be sampled after the group has already folded.
 - The inspected gameplay artifact predates campaign schema 43 exact-force
   authority, schema 44 SpawnQueue authority, the schema 45 engine adapter, and
-  the schema 46 exact player-QRF cutover, and schema 47 exact force-runtime
-  lifecycle authority.
+  the schema 46 exact player-QRF cutover, schema 47 exact force-runtime
+  lifecycle authority, and schema 48 accepted-settlement archive.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -141,6 +141,25 @@ schema lifecycle roundtrip, survivor-only reprojection, last-death roster state,
 and schema-46 migration. They do not prove live corpse detachment, native/GM
 counts, root/marker cleanup timing, or real process restart until an isolated
 runtime executes them.
+
+Post-audit schema-48 settlement-archive follow-up: accepted garrison and terminal
+paid-QRF authority now remains in full quote/manifest/ledger form for at least
+600 campaign seconds and while any active-group, enemy-order, or force-spawn
+backlink exists. An eligible aggregate compacts atomically into a persisted
+tombstone carrying actor, command, operation, manifest hash, aggregate, costs,
+refunds, final transaction statuses, and settlement IDs. Archived issue,
+confirmation, and committed transaction replay is checked before any new
+mutation or debit; conflicts and already-refunded reservation replay fail closed.
+Tombstones retain an 86,400-second minimum window, cap at 256, and share a hard
+320-row admission bound with full quotes. The coordinator now supplies live
+retention pins to queue terminal compaction so a full 128-row terminal history
+cannot deadlock future admission or permanently pin a settled manifest. Bounded
+`force_archive.*` cases cover both consumer kinds, refund evidence, replay,
+backlink refusal, capacity/expiry, deep-copy persistence, and schema-47 migration.
+These cases are not runtime or restart evidence until a fresh isolated run
+records them. The final schema-48 Game-module check loaded 5,739 files/11,472
+classes and created the game; a separate normal WorldEditor project open stayed
+responsive at every two-second sample through 20 seconds with no crash signature.
 
 Certification is blocked until the debug-isolation boundary and marker guard are
 runtime-proven, the cascading mission is contained, known assertion defects are

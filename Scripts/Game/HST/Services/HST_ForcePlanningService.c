@@ -16,6 +16,7 @@ class HST_ForcePlanningService
 	static const int TERMINAL_QUOTE_RETENTION_SECONDS = 600;
 	protected ref HST_ForceCatalogService m_Catalog = new HST_ForceCatalogService();
 	protected ref HST_ForcePlanningIntegrityService m_Integrity = new HST_ForcePlanningIntegrityService();
+	protected ref HST_ForceSettlementArchiveService m_SettlementArchive = new HST_ForceSettlementArchiveService();
 	protected ref HST_CampaignEventLogService m_EventLog;
 
 	void SetEventLogService(HST_CampaignEventLogService eventLog)
@@ -116,6 +117,29 @@ class HST_ForcePlanningService
 				result.m_Manifest = existingManifest;
 				return result;
 			}
+			HST_ForceSettlementTombstoneState archived = state.FindForceSettlementTombstoneByCommandRequest(commandRequestId);
+			if (archived)
+			{
+				if (archived.m_sActorIdentityId != actorIdentityId || archived.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF
+					|| archived.m_eSupportType != supportType || archived.m_sTargetZoneId != targetZoneId
+					|| !PositionsMatch(archived.m_vTargetPosition, targetPosition))
+				{
+					result.m_sFailureReason = "archived quote request id conflict";
+					return result;
+				}
+				result.m_Quote = m_SettlementArchive.BuildReplayQuote(archived);
+				result.m_Manifest = m_SettlementArchive.BuildReplayManifest(archived);
+				result.m_bSuccess = result.m_Quote && result.m_Manifest;
+				if (!result.m_bSuccess)
+					result.m_sFailureReason = "archived support quote replay integrity conflict";
+				return result;
+			}
+		}
+		string planningCapacityFailure;
+		if (!m_SettlementArchive.CanAdmitPlanningRecord(state, planningCapacityFailure))
+		{
+			result.m_sFailureReason = planningCapacityFailure;
+			return result;
 		}
 
 		if (CountOpenPlayerSupportQuotes(state) >= MAX_OPEN_GARRISON_QUOTES && !FindIssuedPlayerSupportQuote(state, actorIdentityId, supportType))
@@ -320,6 +344,21 @@ class HST_ForcePlanningService
 
 		HST_ForceQuoteState quote = state.FindForceQuote(quoteId);
 		result.m_Quote = quote;
+		if (!quote)
+		{
+			HST_ForceSettlementTombstoneState archived = state.FindForceSettlementTombstone(quoteId);
+			if (archived && archived.m_sQuoteKind == QUOTE_KIND_PLAYER_SUPPORT_QRF && archived.m_sActorIdentityId == actorIdentityId)
+			{
+				result.m_Quote = m_SettlementArchive.BuildReplayQuote(archived);
+				result.m_Manifest = m_SettlementArchive.BuildReplayManifest(archived);
+				result.m_bSuccess = result.m_Quote && result.m_Manifest;
+				result.m_bAlreadyApplied = result.m_bSuccess;
+				result.m_SupportRequest = state.FindSupportRequest(archived.m_sSupportRequestId);
+				if (!result.m_bSuccess)
+					result.m_sFailureReason = "archived support confirmation replay integrity conflict";
+				return result;
+			}
+		}
 		if (!quote || quote.m_sQuoteKind != QUOTE_KIND_PLAYER_SUPPORT_QRF)
 		{
 			result.m_sFailureReason = "player support quote not found";
@@ -689,6 +728,28 @@ class HST_ForcePlanningService
 				result.m_Manifest = existingManifest;
 				return result;
 			}
+			HST_ForceSettlementTombstoneState archived = state.FindForceSettlementTombstoneByCommandRequest(commandRequestId);
+			if (archived)
+			{
+				if (archived.m_sActorIdentityId != actorIdentityId || archived.m_sQuoteKind != QUOTE_KIND_GARRISON
+					|| archived.m_sTargetZoneId != zoneId || archived.m_iRequestedMemberCount != requestedMemberCount)
+				{
+					result.m_sFailureReason = "archived quote request id conflict";
+					return result;
+				}
+				result.m_Quote = m_SettlementArchive.BuildReplayQuote(archived);
+				result.m_Manifest = m_SettlementArchive.BuildReplayManifest(archived);
+				result.m_bSuccess = result.m_Quote && result.m_Manifest;
+				if (!result.m_bSuccess)
+					result.m_sFailureReason = "archived garrison quote replay integrity conflict";
+				return result;
+			}
+		}
+		string planningCapacityFailure;
+		if (!m_SettlementArchive.CanAdmitPlanningRecord(state, planningCapacityFailure))
+		{
+			result.m_sFailureReason = planningCapacityFailure;
+			return result;
 		}
 
 		if (CountOpenGarrisonQuotes(state) >= MAX_OPEN_GARRISON_QUOTES && !HasOpenGarrisonQuoteForActor(state, actorIdentityId))
@@ -903,6 +964,20 @@ class HST_ForcePlanningService
 
 		HST_ForceQuoteState quote = state.FindForceQuote(quoteId);
 		result.m_Quote = quote;
+		if (!quote)
+		{
+			HST_ForceSettlementTombstoneState archived = state.FindForceSettlementTombstone(quoteId);
+			if (archived && archived.m_sQuoteKind == QUOTE_KIND_GARRISON && archived.m_sActorIdentityId == actorIdentityId)
+			{
+				result.m_Quote = m_SettlementArchive.BuildReplayQuote(archived);
+				result.m_Manifest = m_SettlementArchive.BuildReplayManifest(archived);
+				result.m_bSuccess = result.m_Quote && result.m_Manifest;
+				result.m_bAlreadyApplied = result.m_bSuccess;
+				if (!result.m_bSuccess)
+					result.m_sFailureReason = "archived garrison confirmation replay integrity conflict";
+				return result;
+			}
+		}
 		if (!quote || quote.m_sQuoteKind != QUOTE_KIND_GARRISON)
 		{
 			result.m_sFailureReason = "quote not found";
@@ -1349,6 +1424,9 @@ class HST_ForcePlanningService
 		if (!state)
 			return false;
 		bool changed;
+		HST_ForceSettlementArchiveResult archiveResult = m_SettlementArchive.ArchiveSettledRecords(state);
+		if (archiveResult && archiveResult.m_bStateChanged)
+			changed = true;
 		for (int quoteIndex = 0; quoteIndex < state.m_aForceQuotes.Count(); quoteIndex++)
 		{
 			HST_ForceQuoteState quote = state.m_aForceQuotes[quoteIndex];

@@ -2,7 +2,22 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `47`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `48`.
+
+- Schema 48 adds bounded settlement archives for accepted exact-force planning
+  history. An accepted garrison purchase or terminal paid QRF remains in full
+  quote/manifest/ledger form for at least 600 campaign seconds and cannot compact
+  while an active-group, enemy-order, or force-spawn backlink exists. Eligible
+  rows compact atomically into one persisted tombstone containing quote,
+  operation, actor, manifest-hash, aggregate, cost, refund, and transaction-status
+  evidence. Issue, confirmation, and committed-ledger replay consult that compact
+  row before any mutation or debit. Tombstones retain a minimum 86,400-second
+  replay window, cap at 256 rows, and share a hard 320-row planning-history
+  admission bound with full quotes. Pin-aware queue compaction now runs in the
+  production coordinator so 128 retained terminal projections cannot deadlock
+  later admission or permanently pin a settled manifest. Pre-schema-48 saves
+  preserve every accepted row in full and initialize an empty archive; migration
+  never invents a terminal settlement.
 
 - Schema 47 adds the first durable exact-force runtime lifecycle for the paid
   infantry QRF path. Each successfully handed-off member slot now preserves
@@ -63,8 +78,9 @@
   its spawned prefab and alive verification. Runtime queue limits are 64
   nonterminal batches, 512 nonterminal slots, 64 slots per request, and 128
   terminal rows; terminal compaction requires explicit backlink pins and a
-  600-second minimum retention window. These queue bounds do not compact
-  accepted quote/manifest/ledger settlement history.
+  600-second minimum retention window. These queue bounds did not compact
+  accepted quote/manifest/ledger settlement history until schema 48 added a
+  separate accepted-aggregate archive.
   Pre-schema-44 nonterminal rows are never resumable, even if a partially
   populated save happens to contain newer identity fields, so migration
   finalizes them as explicit failures and records one migration event instead
@@ -262,6 +278,34 @@ Durable bounded spawn-queue state foundation.
 - Queue retention and active-work limits are enforced by the queue service.
   Migration never deletes valid terminal or settlement evidence merely to meet
   a cap.
+
+## Schema 48
+
+Bounded accepted-settlement history and replay authority.
+
+- Full accepted quote/manifest/transaction rows remain authoritative during a
+  600-second minimum window and for the entire lifetime of every force-spawn,
+  active-group, or enemy-order backlink.
+- Garrison rows compact only after the exact purchase-time increment and its one
+  accepted-manifest link are provable. The manifest ID then moves from the
+  garrison's growing provenance list into the settlement tombstone; infantry is
+  not added, removed, or recomposed.
+- Paid-QRF rows compact only when the linked support request is resolved or
+  cancelled and no physical/queue backlink remains. The tombstone preserves the
+  final money/HR status, refunded amount, and settlement ID.
+- Archived issue and confirmation requests reconstruct read-only summary objects
+  and return an already-applied result. `ResourceLedgerService.ReserveCost`
+  checks archived transaction IDs before `SpendResource`; exact committed replay
+  succeeds without a debit, while identity conflicts and already-refunded rows
+  fail closed.
+- Tombstones are deep-copied by `HST_CampaignSaveData`. The oldest row can leave
+  only after the 86,400-second replay window and only when the 256-row tombstone
+  cap needs room. New planning fails closed at 320 combined full/tombstone rows
+  when protected history cannot make room.
+- Schema-47 saves receive the bounded
+  `migration_schema48_force_settlement_archive` event and keep all prior accepted
+  authority in full form. No quote, transaction, refund, or tombstone is derived
+  merely because an old save was loaded.
 
 ## Schema 47
 

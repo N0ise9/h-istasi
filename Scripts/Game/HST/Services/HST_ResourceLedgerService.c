@@ -69,6 +69,32 @@ class HST_ResourceLedgerService
 			return result;
 		}
 
+		int archivedSettlementCount = state.CountForceSettlementTombstonesByTransaction(transactionId);
+		if (archivedSettlementCount > 1)
+		{
+			result.m_sFailureReason = "archived transaction identity is ambiguous";
+			return result;
+		}
+		HST_ForceSettlementTombstoneState archivedSettlement = state.FindForceSettlementTombstoneByTransaction(transactionId);
+		if (archivedSettlement)
+		{
+			HST_ForceSettlementTransactionTombstoneState archivedTransaction = archivedSettlement.FindTransaction(transactionId);
+			result.m_Transaction = BuildArchivedReplayTransaction(archivedSettlement, archivedTransaction);
+			if (!archivedTransaction || archivedSettlement.m_sConfirmationRequestId != commandRequestId
+				|| archivedSettlement.m_sOperationId != operationId || archivedSettlement.m_sActorIdentityId != actorIdentityId
+				|| archivedTransaction.m_sResourceType != resourceType || archivedTransaction.m_iAmount != amount
+				|| archivedSettlement.m_sQuoteId != quoteId || archivedSettlement.m_sManifestId != manifestId)
+			{
+				result.m_sFailureReason = "archived transaction id conflict";
+				return result;
+			}
+			result.m_bSuccess = archivedTransaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+			result.m_bAlreadyApplied = result.m_bSuccess;
+			if (!result.m_bSuccess)
+				result.m_sFailureReason = "archived transaction already settled";
+			return result;
+		}
+
 		if (!SpendResource(state, economy, resourceType, amount))
 		{
 			result.m_sFailureReason = "resource reservation spend failed";
@@ -101,7 +127,15 @@ class HST_ResourceLedgerService
 
 		HST_ResourceTransactionState transaction = state.FindResourceTransaction(transactionId);
 		if (!transaction)
-			return false;
+		{
+			if (state.CountForceSettlementTombstonesByTransaction(transactionId) != 1)
+				return false;
+			HST_ForceSettlementTombstoneState archivedSettlement = state.FindForceSettlementTombstoneByTransaction(transactionId);
+			HST_ForceSettlementTransactionTombstoneState archivedTransaction;
+			if (archivedSettlement)
+				archivedTransaction = archivedSettlement.FindTransaction(transactionId);
+			return archivedTransaction && archivedTransaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
+		}
 		if (transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED)
 			return true;
 		if (transaction.m_eStatus != HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED)
@@ -185,6 +219,29 @@ class HST_ResourceLedgerService
 		return reconciled;
 	}
 
+	protected HST_ResourceTransactionState BuildArchivedReplayTransaction(
+		HST_ForceSettlementTombstoneState settlement,
+		HST_ForceSettlementTransactionTombstoneState archived)
+	{
+		if (!settlement || !archived)
+			return null;
+		HST_ResourceTransactionState transaction = new HST_ResourceTransactionState();
+		transaction.m_sTransactionId = archived.m_sTransactionId;
+		transaction.m_sCommandRequestId = settlement.m_sConfirmationRequestId;
+		transaction.m_sOperationId = settlement.m_sOperationId;
+		transaction.m_sQuoteId = settlement.m_sQuoteId;
+		transaction.m_sManifestId = settlement.m_sManifestId;
+		transaction.m_sActorIdentityId = settlement.m_sActorIdentityId;
+		transaction.m_sResourceType = archived.m_sResourceType;
+		transaction.m_sLastSettlementId = archived.m_sLastSettlementId;
+		transaction.m_eStatus = archived.m_eStatus;
+		transaction.m_iAmount = archived.m_iAmount;
+		transaction.m_iRefundedAmount = archived.m_iRefundedAmount;
+		transaction.m_iCreatedAtSecond = settlement.m_iAcceptedAtSecond;
+		transaction.m_iSettledAtSecond = archived.m_iSettledAtSecond;
+		return transaction;
+	}
+
 	string BuildReport(HST_CampaignState state)
 	{
 		if (!state)
@@ -208,7 +265,30 @@ class HST_ResourceLedgerService
 				cancelled++;
 		}
 
-		return string.Format("resource ledger | total %1 | reserved %2 | committed %3 | refunded %4 | cancelled %5", state.m_aResourceTransactions.Count(), reserved, committed, refunded, cancelled);
+		int archivedTransactions;
+		int archivedCommitted;
+		int archivedRefunded;
+		int archivedCancelled;
+		foreach (HST_ForceSettlementTombstoneState settlement : state.m_aForceSettlementTombstones)
+		{
+			if (!settlement)
+				continue;
+			foreach (HST_ForceSettlementTransactionTombstoneState transaction : settlement.m_aTransactions)
+			{
+				if (!transaction)
+					continue;
+				archivedTransactions++;
+				if (transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED)
+					archivedCommitted++;
+				else if (transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED || transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED)
+					archivedRefunded++;
+				else if (transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_CANCELLED)
+					archivedCancelled++;
+			}
+		}
+
+		string report = string.Format("resource ledger | live total %1 | reserved %2 | committed %3 | refunded %4 | cancelled %5", state.m_aResourceTransactions.Count(), reserved, committed, refunded, cancelled);
+		return report + string.Format(" | archived total %1 | committed %2 | refunded %3 | cancelled %4", archivedTransactions, archivedCommitted, archivedRefunded, archivedCancelled);
 	}
 
 	protected bool SpendResource(HST_CampaignState state, HST_EconomyService economy, string resourceType, int amount)

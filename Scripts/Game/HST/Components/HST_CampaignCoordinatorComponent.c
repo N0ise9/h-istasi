@@ -596,9 +596,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_ForceSpawnQueue,
 			m_PhysicalWar,
 			m_State.m_iElapsedSeconds);
+		bool maintenanceChanged = CompactForceSpawnQueueTerminalHistory(m_State.m_iElapsedSeconds);
+		bool planningHistoryChanged = m_ForcePlanning && m_ForcePlanning.PrunePlanningRecords(m_State);
 		if (!tick)
-			return false;
-		return tick.m_bStateChanged || tick.m_bRuntimeChanged;
+			return maintenanceChanged || planningHistoryChanged;
+		return tick.m_bStateChanged || tick.m_bRuntimeChanged || maintenanceChanged || planningHistoryChanged;
 	}
 
 	protected bool TickForceSpawnQueueTerminalCleanup(string reason)
@@ -628,7 +630,55 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_ForceSpawnQueue,
 			m_PhysicalWar,
 			cleanupNowSecond);
-		return changed || (tick && (tick.m_bStateChanged || tick.m_bRuntimeChanged));
+		bool maintenanceChanged = CompactForceSpawnQueueTerminalHistory(cleanupNowSecond);
+		bool planningHistoryChanged = m_ForcePlanning && m_ForcePlanning.PrunePlanningRecords(m_State);
+		return changed || maintenanceChanged || planningHistoryChanged || (tick && (tick.m_bStateChanged || tick.m_bRuntimeChanged));
+	}
+
+	protected bool CompactForceSpawnQueueTerminalHistory(int nowSecond)
+	{
+		if (!m_State || !m_ForceSpawnQueue)
+			return false;
+		HST_ForceSpawnQueueRetentionPins pins = new HST_ForceSpawnQueueRetentionPins();
+		foreach (HST_ActiveGroupState group : m_State.m_aActiveGroups)
+		{
+			if (!group)
+				continue;
+			AddForceSpawnQueueRetentionPin(pins.m_aResultIds, group.m_sSpawnResultId);
+			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, group.m_sManifestId);
+			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, group.m_sOperationId);
+			AddForceSpawnQueueRetentionPin(pins.m_aForceIds, group.m_sForceId);
+			AddForceSpawnQueueRetentionPin(pins.m_aProjectionIds, group.m_sProjectionId);
+		}
+		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
+		{
+			if (!request || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				|| request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+				continue;
+			AddForceSpawnQueueRetentionPin(pins.m_aResultIds, request.m_sSpawnResultId);
+			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, request.m_sManifestId);
+			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, request.m_sOperationId);
+		}
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (!order || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+				|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+				continue;
+			AddForceSpawnQueueRetentionPin(pins.m_aResultIds, order.m_sSpawnResultId);
+			AddForceSpawnQueueRetentionPin(pins.m_aManifestIds, order.m_sManifestId);
+			AddForceSpawnQueueRetentionPin(pins.m_aOperationIds, order.m_sOperationId);
+		}
+		HST_ForceSpawnQueueMaintenanceResult maintenance = m_ForceSpawnQueue.CompactTerminalRows(
+			m_State.m_aForceSpawnResults,
+			pins,
+			nowSecond);
+		return maintenance && maintenance.m_bStateChanged;
+	}
+
+	protected void AddForceSpawnQueueRetentionPin(array<string> values, string value)
+	{
+		if (values && !value.IsEmpty() && !values.Contains(value))
+			values.Insert(value);
 	}
 
 	protected bool IsTerminalForceSpawnBatch(HST_ForceSpawnResultState batch)
@@ -764,6 +814,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (quote && (quote.m_sCommandRequestId == requestId || quote.m_sConfirmationRequestId == requestId))
 				return quote.m_sOperationId;
+		}
+		foreach (HST_ForceSettlementTombstoneState tombstone : m_State.m_aForceSettlementTombstones)
+		{
+			if (tombstone && (tombstone.m_sCommandRequestId == requestId || tombstone.m_sConfirmationRequestId == requestId))
+				return tombstone.m_sOperationId;
 		}
 		return "";
 	}
@@ -12778,6 +12833,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (expectedState.m_aResourceTransactions.Count() != actualState.m_aResourceTransactions.Count())
 			return false;
+		if (expectedState.m_aForceSettlementTombstones.Count() != actualState.m_aForceSettlementTombstones.Count())
+			return false;
 		if (expectedState.m_aCampaignEvents.Count() != actualState.m_aCampaignEvents.Count())
 			return false;
 		return true;
@@ -16030,6 +16087,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.restore_reconciliation", "every partial reserve, aggregate, and commit boundary rolls back exactly after restore", proof.m_sReconciliationEvidence, CampaignDebugStatus(proof.m_bReconciliationExact), "interrupted garrison confirmation did not reconcile exactly");
 		AppendCampaignDebugPaidSupportAuthorityAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
+		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
 	}
@@ -16074,6 +16132,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_runtime.survivor_reprojection", "restore requeues one root plus only durable living member slots and completes a second exact handoff", proof.m_sReprojectionEvidence, CampaignDebugStatus(proof.m_bSurvivorReprojectionExact), "restore respawned a confirmed casualty or failed survivor-only handoff");
 		AddCampaignDebugAssertion(forceCase, "force_runtime.terminal_roster", "the final exact member death produces zero durable living slots and a fully retired roster", proof.m_sTerminalEvidence, CampaignDebugStatus(proof.m_bTerminalRosterExact), "last-death durable terminal predicate was not exact");
 		AddCampaignDebugAssertion(forceCase, "force_runtime.schema46_migration", "schema 46 successful projections gain handoff/ever-populated lifecycle evidence without invented casualties", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bSchema46MigrationExact), "schema 46 lifecycle migration lost success evidence or invented a casualty");
+	}
+
+	protected void AppendCampaignDebugForceSettlementArchiveAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_ForceSettlementArchiveProofService proofService = new HST_ForceSettlementArchiveProofService();
+		HST_ForceSettlementArchiveProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.m_sGarrisonEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSupportEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sBacklinkEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCapacityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPersistenceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMigrationEvidence);
+		AddCampaignDebugAssertion(forceCase, "force_archive.garrison_replay", "settled garrison quote, manifest, ledger, and aggregate provenance compact atomically while issue and confirmation replay remain idempotent", proof.m_sGarrisonEvidence, CampaignDebugStatus(proof.m_bGarrisonArchiveReplayExact), "garrison settlement archive changed the aggregate or lost replay authority");
+		AddCampaignDebugAssertion(forceCase, "force_archive.support_replay", "terminal paid-QRF settlement compacts full planning rows while preserving exact transaction refund evidence and confirmation replay", proof.m_sSupportEvidence, CampaignDebugStatus(proof.m_bSupportArchiveReplayExact), "paid-QRF settlement archive lost refund or replay authority");
+		AddCampaignDebugAssertion(forceCase, "force_archive.backlink_protection", "any live force-spawn, active-group, or enemy-order backlink keeps the full accepted authority aggregate", proof.m_sBacklinkEvidence, CampaignDebugStatus(proof.m_bBacklinkProtectionExact), "settlement archive compacted a manifest that still had a live projection backlink");
+		AddCampaignDebugAssertion(forceCase, "force_archive.retention_capacity", "planning authority history is hard-bounded and only evicts tombstones after the minimum replay window", proof.m_sCapacityEvidence, CampaignDebugStatus(proof.m_bRetentionCapacityExact), "settlement archive exceeded its bound or evicted protected replay evidence");
+		AddCampaignDebugAssertion(forceCase, "force_archive.persistence", "compact transaction and replay evidence survives a current-schema deep-copy roundtrip", proof.m_sPersistenceEvidence, CampaignDebugStatus(proof.m_bPersistenceExact), "settlement tombstone did not persist or replay after restore");
+		AddCampaignDebugAssertion(forceCase, "force_archive.schema47_migration", "schema 47 saves preserve full accepted rows and initialize an empty archive without inventing settlements", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bSchema47MigrationExact), "schema 47 migration invented or lost settlement authority");
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugSpawnQueueCase()

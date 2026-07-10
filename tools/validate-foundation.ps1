@@ -4638,7 +4638,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 47",
+		"SCHEMA_VERSION = 48",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4780,6 +4780,57 @@ if ($scriptText -notmatch 'ReconcileHandedOffMemberLifecycle\(state, queue, phys
 	throw "Exact force lifecycle reconciliation must sample authoritative life state and retry zero-living cleanup before pruning deleted transient handles"
 }
 Write-Host "Schema-47 exact force-runtime casualty, cleanup, and survivor-reprojection contract OK"
+foreach ($requiredForceArchiveEntry in @(
+		'HST_ForceSettlementTransactionTombstoneState',
+		'HST_ForceSettlementTombstoneState',
+		'm_aForceSettlementTombstones',
+		'CopyForceSettlementTombstone',
+		'FindForceSettlementTombstoneByCommandRequest',
+		'FindForceSettlementTombstoneByTransaction',
+		'HST_ForceSettlementArchiveService',
+		'MIN_ACCEPTED_RECORD_RETENTION_SECONDS = 600',
+		'MIN_TOMBSTONE_RETENTION_SECONDS = 86400',
+		'MAX_TOMBSTONE_ROWS = 256',
+		'MAX_TOTAL_PLANNING_AUTHORITY_ROWS = 320',
+		'ArchiveSettledRecords',
+		'CanAdmitPlanningRecord',
+		'BuildReplayQuote',
+		'BuildReplayManifest',
+		'HasProjectionBacklink',
+		'archived transaction id conflict',
+		'CompactForceSpawnQueueTerminalHistory',
+		'HST_ForceSettlementArchiveProofService',
+		'force_archive.garrison_replay',
+		'force_archive.support_replay',
+		'force_archive.backlink_protection',
+		'force_archive.retention_capacity',
+		'force_archive.persistence',
+		'force_archive.schema47_migration',
+		'migration_schema48_force_settlement_archive'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredForceArchiveEntry)) {
+		throw "Schema-48 force settlement archive contract missing: $requiredForceArchiveEntry"
+	}
+}
+$forceArchiveBlock = [regex]::Match($scriptText, 'HST_ForceSettlementArchiveResult ArchiveSettledRecords[\s\S]*?\r?\n\t}')
+$forceArchiveValid = $forceArchiveBlock.Success
+$forceArchiveValid = $forceArchiveValid -and $forceArchiveBlock.Value -match 'm_eStatus != HST_EForceQuoteStatus\.HST_FORCE_QUOTE_ACCEPTED'
+$forceArchiveValid = $forceArchiveValid -and $forceArchiveBlock.Value -match 'ValidateArchiveCandidate'
+$forceArchiveValid = $forceArchiveValid -and $forceArchiveBlock.Value -match 'm_aForceSettlementTombstones\.Insert\(tombstone\)[\s\S]*RemoveArchivedTransactions[\s\S]*RemoveArchivedManifest[\s\S]*m_aForceQuotes\.Remove'
+if (!$forceArchiveValid) {
+	throw "Schema-48 settlement archive must prevalidate accepted aggregates and insert replay evidence before atomically removing full transaction, manifest, and quote rows"
+}
+$resourceReserveBlock = [regex]::Match($scriptText, 'HST_ResourceTransactionResult ReserveCost[\s\S]*?\r?\n\t}')
+$resourceArchiveReplayValid = $resourceReserveBlock.Success
+$resourceArchiveReplayValid = $resourceArchiveReplayValid -and $resourceReserveBlock.Value.IndexOf('FindForceSettlementTombstoneByTransaction') -ge 0
+$resourceArchiveReplayValid = $resourceArchiveReplayValid -and $resourceReserveBlock.Value.IndexOf('FindForceSettlementTombstoneByTransaction') -lt $resourceReserveBlock.Value.IndexOf('SpendResource')
+if (!$resourceArchiveReplayValid) {
+	throw "Resource reservation must consult archived transaction tombstones before any resource debit"
+}
+if ($scriptText -notmatch 'CompactTerminalRows\(\s*m_State\.m_aForceSpawnResults,\s*pins,\s*nowSecond\)') {
+	throw "Production force-spawn runtime must invoke pin-aware terminal compaction so retained rows cannot deadlock admission or settlement archival"
+}
+Write-Host "Schema-48 bounded force settlement archive and replay contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"
