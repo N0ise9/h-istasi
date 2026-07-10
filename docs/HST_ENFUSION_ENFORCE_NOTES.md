@@ -1972,9 +1972,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   multi-root force operations, other paid support, garrisons, missions, enemy
   orders, legacy `HST_QRFState` conversion, live engagement events, or client/JIP
   operation projection. It is the first operation kernel, not full Phase 4.
-- The work-in-progress schema-49 Game module provisionally loads 5,743 files/
-  11,497 classes and creates the game with CRC `fb8cdf64`. This is a pre-final
-  compile checkpoint. `HST_OperationRecordProofService` contributes eight stable
+- The stamped schema-49 source passes foundation validation, loads 5,743 files/
+  11,497 classes, and creates the game with CRC `4efe34fc`. A fresh normal
+  WorldEditor project open stays responsive through the bounded 20-second gate
+  without an unknown-config-class or crash signature. This is source/compile/
+  startup evidence, not packaged runtime proof. `HST_OperationRecordProofService`
+  contributes eight stable
   `operation_record.*` assertions to the existing force-authority campaign-debug
   case and covers issue/confirm, materialization, engagement, recall/settlement,
   restore, migration, archive, and legacy-QRF isolation. The proof is implemented

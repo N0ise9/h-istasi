@@ -27,7 +27,8 @@ be read as proof that a later change was executed or certified.
   and placed-marker entry types before stock HUD initialization received a null
   editor manager. Source audit found that those config-backed modded class
   declarations had omitted the base class's container/custom-title metadata.
-  Current source restores the matching attributes and provisionally compiles,
+  Current source restores the matching attributes and passes the stamped source
+  compile/startup gates,
   but no published runtime has verified HUD/editor recovery.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
@@ -269,10 +270,13 @@ of an operating-system process crash. The affected modded declarations now repea
 the base config contracts: config-root container metadata for the editor manager,
 the editable-budget custom enum title, and marker icon/placed-entry container
 plus custom-title attributes. A validator guard covers all four declarations.
-The schema-49 work-in-progress tree provisionally compiled and created the Game
-module at 5,743 files/11,497 classes with CRC `fb8cdf64`. This proves only source
-compatibility; a republished client/server run must show zero unknown types,
-normal stock HUD, and usable Game Master before the defect is closed.
+The stamped schema-49 source passes foundation validation and creates the Game
+module at 5,743 files/11,497 classes with CRC `4efe34fc`. A fresh normal
+WorldEditor project open remained responsive for all ten samples through the
+bounded 20-second gate and logged no unknown config class or crash signature.
+This proves only source/startup compatibility; a republished client/server run
+must show zero unknown types, normal stock HUD, and usable Game Master before the
+defect is closed.
 
 Post-audit schema-49 operation-authority follow-up: current source adds the first
 canonical `HST_OperationRecordState` only for confirmed exact paid player
@@ -296,8 +300,8 @@ archived-only, ambiguous, legacy/enemy, and other-support rows remain contract
 version `0`. Restored open physical operations normalize to strategic
 materializing until survivor reprojection; terminal archive compaction keeps
 contract version, settlement ID, revision, and typed terminal result while
-removing the full operation row. This remains source/provisional-compile
-evidence. `HST_OperationRecordProofService.Run()` is integrated into the existing
+removing the full operation row. This remains source/compile/startup evidence.
+`HST_OperationRecordProofService.Run()` is integrated into the existing
 `early_mechanics.force_authority` case through eight stable assertions:
 `operation_record.issue_confirm`, `operation_record.materialization`,
 `operation_record.engagement`, `operation_record.recall_settlement`,

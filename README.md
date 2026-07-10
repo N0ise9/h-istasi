@@ -259,12 +259,13 @@ strategic route progress/cursor/hysteresis, generalized virtualization,
 vehicles/assets, other support consumers, garrisons, missions, enemy orders, and
 client/JIP projection remain future slices.
 
-The current schema-49 work-in-progress tree has provisionally compiled and
-created the Workbench Game module at 5,743 files, 11,497 classes, and CRC
-`fb8cdf64`. This is a pre-final compile checkpoint, not packaged runtime or
-restart evidence. A prior normal WorldEditor project open produced no new crash
-signature during the bounded
-survival gate. The editor role-change guard still needs a fresh packaged
+The stamped schema-49 source tree passes foundation validation and creates the
+Workbench Game module at 5,743 files, 11,497 classes, and CRC `4efe34fc`. A
+fresh normal WorldEditor project open remained responsive at all ten two-second
+samples and produced no unknown-config-class or crash signature before the
+bounded gate stopped it at 20 seconds. This is source, compilation, and startup
+evidence, not packaged runtime or restart evidence. The editor role-change guard
+still needs a fresh packaged
 dedicated-server connect before it counts as runtime proof, and the newly
 restored config metadata still needs a published client/server retest before
 Game Master or stock HUD recovery is claimed. The same inspected

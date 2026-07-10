@@ -145,11 +145,12 @@
 
 ## Current Verification Boundary
 
-- The schema-49 work-in-progress tree provisionally compiles/creates the
-  Workbench Game module at 5,743 files, 11,497 classes, and CRC `fb8cdf64`.
-  This is a pre-final compile checkpoint, not packaged runtime or restart proof.
-- A normal WorldEditor project open produced no new crash signature during the
-  bounded startup-survival gate.
+- The stamped schema-49 source passes foundation validation and creates the
+  Workbench Game module at 5,743 files, 11,497 classes, and CRC `4efe34fc`.
+  This is source/compile/startup evidence, not packaged runtime or restart proof.
+- A fresh normal WorldEditor project open remained responsive at all ten samples
+  through the bounded 20-second gate and produced no unknown-config-class or
+  crash signature.
 - A current-build dedicated smoke remained live until intentional disconnect,
   but recorded a recoverable recursive player-role invoker exception during
   editor-mode repair. The one-frame editor-listener guard preserves stock mode
