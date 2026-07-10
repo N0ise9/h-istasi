@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "5cd7254d20d97d58d40c97fce64372b7639bb82d";
-	static const string BUILD_UTC = "2026-07-10T00:36:37Z";
-	static const string BUILD_LABEL = "campaign-runtime-integrity-workbench-proof-stability";
+	static const string BUILD_SHA = "36fc8e1f075eaad2164ad71f14ddb951a68550b4";
+	static const string BUILD_UTC = "2026-07-10T01:51:42Z";
+	static const string BUILD_LABEL = "campaign-runtime-integrity-spawn-queue-kernel";
 
 	static string BuildSummary()
 	{
