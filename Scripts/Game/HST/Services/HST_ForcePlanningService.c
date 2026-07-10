@@ -7,6 +7,7 @@ class HST_ForcePlanningService
 	static const int MAX_OPEN_GARRISON_QUOTES = 64;
 	static const int TERMINAL_QUOTE_RETENTION_SECONDS = 600;
 	protected ref HST_ForceCatalogService m_Catalog = new HST_ForceCatalogService();
+	protected ref HST_ForcePlanningIntegrityService m_Integrity = new HST_ForcePlanningIntegrityService();
 	protected ref HST_CampaignEventLogService m_EventLog;
 
 	void SetEventLogService(HST_CampaignEventLogService eventLog)
@@ -24,7 +25,7 @@ class HST_ForcePlanningService
 		bool validateResources = true)
 	{
 		HST_ForceQuoteResult result = new HST_ForceQuoteResult();
-		if (!state || !preset || !m_Catalog)
+		if (!state || !preset || !m_Catalog || !m_Integrity)
 		{
 			result.m_sFailureReason = "planning service not ready";
 			return result;
@@ -65,7 +66,7 @@ class HST_ForcePlanningService
 				}
 				string replayIntegrityFailure;
 				bool requireCurrentCatalog = existingQuote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ISSUED;
-				if (!ValidateFrozenGarrisonQuote(existingManifest, existingQuote, requireCurrentCatalog, replayIntegrityFailure))
+				if (!m_Integrity.ValidateFrozenGarrisonQuote(existingManifest, existingQuote, requireCurrentCatalog, replayIntegrityFailure))
 				{
 					result.m_sFailureReason = "existing quote integrity conflict: " + replayIntegrityFailure;
 					return result;
@@ -74,7 +75,7 @@ class HST_ForcePlanningService
 				{
 					HST_ResourceTransactionState existingMoney = state.FindResourceTransaction(existingQuote.m_sMoneyTransactionId);
 					HST_ResourceTransactionState existingHR = state.FindResourceTransaction(existingQuote.m_sHRTransactionId);
-					if (!TransactionMatchesQuote(existingMoney, existingQuote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, existingQuote.m_iMoneyCost) || !TransactionMatchesQuote(existingHR, existingQuote, HST_ResourceLedgerService.RESOURCE_HR, existingQuote.m_iHRCost))
+					if (!m_Integrity.TransactionMatchesQuote(existingMoney, existingQuote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, existingQuote.m_iMoneyCost) || !m_Integrity.TransactionMatchesQuote(existingHR, existingQuote, HST_ResourceLedgerService.RESOURCE_HR, existingQuote.m_iHRCost))
 					{
 						result.m_sFailureReason = "existing accepted quote transaction integrity conflict";
 						return result;
@@ -145,12 +146,12 @@ class HST_ForcePlanningService
 			result.m_sFailureReason = "member catalog empty";
 			return result;
 		}
-		int planningSeed = BuildDeterministicSeed(state, actorIdentityId + "|" + commandRequestId, zoneId);
+		int planningSeed = m_Integrity.BuildDeterministicSeed(state, actorIdentityId + "|" + commandRequestId, zoneId);
 		int preflightMoneyCost;
 		int preflightHRCost;
 		for (int preflightIndex = 0; preflightIndex < requestedMemberCount; preflightIndex++)
 		{
-			HST_ForceMemberCatalogEntry preflightEntry = SelectGarrisonMember(catalog, planningSeed, preflightIndex);
+			HST_ForceMemberCatalogEntry preflightEntry = m_Integrity.SelectGarrisonMember(catalog, planningSeed, preflightIndex);
 			if (!preflightEntry)
 			{
 				result.m_sFailureReason = "deterministic member selection failed";
@@ -207,7 +208,7 @@ class HST_ForcePlanningService
 
 		for (int memberIndex = 0; memberIndex < requestedMemberCount; memberIndex++)
 		{
-			HST_ForceMemberCatalogEntry catalogEntry = SelectGarrisonMember(catalog, manifest.m_iDeterministicSeed, memberIndex);
+			HST_ForceMemberCatalogEntry catalogEntry = m_Integrity.SelectGarrisonMember(catalog, manifest.m_iDeterministicSeed, memberIndex);
 			if (!catalogEntry)
 			{
 				result.m_sFailureReason = "deterministic member selection failed";
@@ -230,7 +231,7 @@ class HST_ForcePlanningService
 			manifest.m_iEquipmentCost += catalogEntry.m_iEquipmentCost;
 		}
 
-		manifest.m_sManifestHash = BuildManifestHash(manifest);
+		manifest.m_sManifestHash = m_Integrity.BuildManifestHash(manifest);
 		if (manifest.m_sManifestHash.IsEmpty())
 		{
 			result.m_sFailureReason = "manifest hash failed";
@@ -269,7 +270,7 @@ class HST_ForcePlanningService
 		quote.m_bAllOrNothing = true;
 		quote.m_sMoneyTransactionId = HST_StableIdService.BuildTransactionId(operationId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY);
 		quote.m_sHRTransactionId = HST_StableIdService.BuildTransactionId(operationId, HST_ResourceLedgerService.RESOURCE_HR);
-		quote.m_sContextHash = BuildGarrisonContextHash(state, zone, factionKey);
+		quote.m_sContextHash = m_Integrity.BuildGarrisonContextHash(state, zone, factionKey);
 
 		state.m_aForceManifests.Insert(manifest);
 		state.m_aForceQuotes.Insert(quote);
@@ -340,14 +341,14 @@ class HST_ForcePlanningService
 		if (accepted)
 		{
 			string acceptedIntegrityFailure;
-			if (!ValidateFrozenGarrisonQuote(manifest, quote, false, acceptedIntegrityFailure))
+			if (!m_Integrity.ValidateFrozenGarrisonQuote(manifest, quote, false, acceptedIntegrityFailure))
 			{
 				result.m_sFailureReason = "accepted quote integrity conflict: " + acceptedIntegrityFailure;
 				return result;
 			}
 			HST_ResourceTransactionState acceptedMoney = state.FindResourceTransaction(quote.m_sMoneyTransactionId);
 			HST_ResourceTransactionState acceptedHR = state.FindResourceTransaction(quote.m_sHRTransactionId);
-			if (!TransactionMatchesQuote(acceptedMoney, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost) || !TransactionMatchesQuote(acceptedHR, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost))
+			if (!m_Integrity.TransactionMatchesQuote(acceptedMoney, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost) || !m_Integrity.TransactionMatchesQuote(acceptedHR, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost))
 			{
 				result.m_sFailureReason = "accepted quote transaction integrity conflict";
 				return result;
@@ -373,7 +374,7 @@ class HST_ForcePlanningService
 			return result;
 		}
 		string manifestFailure;
-		if (!ValidateFrozenGarrisonQuote(manifest, quote, true, manifestFailure))
+		if (!m_Integrity.ValidateFrozenGarrisonQuote(manifest, quote, true, manifestFailure))
 		{
 			RejectQuote(state, quote, manifestFailure, confirmationRequestId);
 			result.m_bStateChanged = true;
@@ -382,7 +383,7 @@ class HST_ForcePlanningService
 		}
 
 		HST_ZoneState zone = state.FindZone(quote.m_sTargetZoneId);
-		if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE || zone.m_sOwnerFactionKey != quote.m_sFactionKey || BuildGarrisonContextHash(state, zone, quote.m_sFactionKey) != quote.m_sContextHash)
+		if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE || zone.m_sOwnerFactionKey != quote.m_sFactionKey || m_Integrity.BuildGarrisonContextHash(state, zone, quote.m_sFactionKey) != quote.m_sContextHash)
 		{
 			RejectQuote(state, quote, "garrison context changed; request a new quote", confirmationRequestId);
 			result.m_bStateChanged = true;
@@ -410,7 +411,7 @@ class HST_ForcePlanningService
 			quote.m_sQuoteId,
 			quote.m_sManifestId
 		);
-		if (!moneyReservation || !moneyReservation.m_bSuccess || !ReservationMatchesQuote(moneyReservation.m_Transaction, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost, confirmationRequestId))
+		if (!moneyReservation || !moneyReservation.m_bSuccess || !m_Integrity.ReservationMatchesQuote(moneyReservation.m_Transaction, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost, confirmationRequestId))
 		{
 			RollbackConfirmationTransactions(state, economy, ledger, quote, "money reservation integrity failure");
 			RejectQuote(state, quote, "money reservation failed", confirmationRequestId);
@@ -433,7 +434,7 @@ class HST_ForcePlanningService
 			quote.m_sQuoteId,
 			quote.m_sManifestId
 		);
-		if (!hrReservation || !hrReservation.m_bSuccess || !ReservationMatchesQuote(hrReservation.m_Transaction, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost, confirmationRequestId))
+		if (!hrReservation || !hrReservation.m_bSuccess || !m_Integrity.ReservationMatchesQuote(hrReservation.m_Transaction, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost, confirmationRequestId))
 		{
 			CancelConfirmationReservations(state, economy, ledger, quote, "garrison HR reservation failed");
 			RejectQuote(state, quote, "HR reservation failed", confirmationRequestId);
@@ -514,8 +515,8 @@ class HST_ForcePlanningService
 				continue;
 			HST_ResourceTransactionState moneyTransaction = state.FindResourceTransaction(quote.m_sMoneyTransactionId);
 			HST_ResourceTransactionState hrTransaction = state.FindResourceTransaction(quote.m_sHRTransactionId);
-			bool moneyLinked = TransactionHasQuoteIdentity(moneyTransaction, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost);
-			bool hrLinked = TransactionHasQuoteIdentity(hrTransaction, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost);
+			bool moneyLinked = m_Integrity.TransactionHasQuoteIdentity(moneyTransaction, quote, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost);
+			bool hrLinked = m_Integrity.TransactionHasQuoteIdentity(hrTransaction, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost);
 			HST_GarrisonState garrison = state.FindGarrison(quote.m_sTargetZoneId, quote.m_sFactionKey);
 			bool garrisonLinked = garrison && garrison.m_aAcceptedManifestIds.Contains(quote.m_sManifestId);
 			if (!moneyLinked && !hrLinked && !garrisonLinked)
@@ -614,110 +615,6 @@ class HST_ForcePlanningService
 		return changed;
 	}
 
-	string BuildManifestHash(HST_ForceManifestState manifest)
-	{
-		if (!manifest)
-			return "";
-		string canonical = string.Format(
-			"%1|%2|%3|%4|%5|%6|%7|%8|%9",
-			manifest.m_sManifestId,
-			manifest.m_sOperationId,
-			manifest.m_sQuoteId,
-			manifest.m_sCommandRequestId,
-			manifest.m_sForceKind,
-			manifest.m_sFactionRole,
-			manifest.m_sFactionKey,
-			manifest.m_sIntentId,
-			manifest.m_sSourceZoneId
-		);
-		canonical = canonical + string.Format(
-			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
-			manifest.m_sTargetZoneId,
-			manifest.m_sGroupPrefab,
-			manifest.m_sCatalogVersion,
-			manifest.m_sPolicyId,
-			manifest.m_iRequestedMemberCount,
-			manifest.m_iAcceptedMemberCount,
-			manifest.m_iRequestedVehicleCount,
-			manifest.m_iAcceptedVehicleCount,
-			manifest.m_iMoneyCost
-		);
-		canonical = canonical + string.Format(
-			"|%1|%2|%3|%4|%5|%6|%7",
-			manifest.m_iHRCost,
-			manifest.m_iEquipmentCost,
-			manifest.m_iAttackResourceCost,
-			manifest.m_iSupportResourceCost,
-			manifest.m_iDeterministicSeed,
-			manifest.m_iCreatedAtSecond,
-			manifest.m_bFrozen
-		);
-		foreach (HST_ForceManifestGroupState group : manifest.m_aGroups)
-		{
-			if (!group)
-				continue;
-			canonical = canonical + string.Format("|g:%1:%2:%3:%4:%5:%6:%7", group.m_sElementId, group.m_sCatalogEntryId, group.m_sPrefab, group.m_sRole, group.m_iOrdinal, group.m_iExpectedMemberCount, group.m_bRequired);
-		}
-		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
-		{
-			if (!member)
-				continue;
-			canonical = canonical + string.Format("|m:%1:%2:%3:%4:%5:%6:%7:%8:%9", member.m_sSlotId, member.m_sCatalogSlotId, member.m_sGroupElementId, member.m_sPrefab, member.m_sRole, member.m_sAssignedVehicleSlotId, member.m_sSeatRole, member.m_iSeatIndex, member.m_iOrdinal);
-			canonical = canonical + string.Format(":%1:%2:%3:%4", member.m_iMoneyCost, member.m_iHRCost, member.m_iEquipmentCost, member.m_bRequired);
-		}
-		foreach (HST_ForceManifestVehicleState vehicle : manifest.m_aVehicles)
-		{
-			if (!vehicle)
-				continue;
-			canonical = canonical + string.Format("|v:%1:%2:%3:%4:%5:%6:%7:%8:%9", vehicle.m_sSlotId, vehicle.m_sCatalogEntryId, vehicle.m_sGroupElementId, vehicle.m_sPrefab, vehicle.m_sRole, vehicle.m_iOrdinal, vehicle.m_iMoneyCost, vehicle.m_iRequiredCrew, vehicle.m_bArmed);
-			canonical = canonical + string.Format(":%1:%2:%3", vehicle.m_bLightArmor, vehicle.m_bHeavyArmor, vehicle.m_bRequired);
-		}
-		foreach (HST_ForceManifestAssetState asset : manifest.m_aAssets)
-		{
-			if (!asset)
-				continue;
-			canonical = canonical + string.Format("|a:%1:%2:%3:%4:%5:%6:%7:%8", asset.m_sSlotId, asset.m_sKind, asset.m_sPrefab, asset.m_sRole, asset.m_sAssignedVehicleSlotId, asset.m_iQuantity, asset.m_iOrdinal, asset.m_bRequired);
-		}
-		return string.Format("fm1_%1_%2", canonical.Hash(), (canonical + "|secondary").Hash());
-	}
-
-	string BuildGarrisonContextHash(HST_CampaignState state, HST_ZoneState zone, string factionKey)
-	{
-		if (!state || !zone)
-			return "";
-		int abstractInfantry;
-		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, factionKey);
-		if (garrison)
-			abstractInfantry = Math.Max(0, garrison.m_iInfantryCount);
-		string canonical = string.Format("%1|%2|%3|%4|%5|%6|%7|%8", zone.m_sZoneId, zone.m_sOwnerFactionKey, factionKey, zone.m_eType, zone.m_iGarrisonSlots, abstractInfantry, Math.Max(0, zone.m_iActiveInfantryCount), HST_ForceCatalogService.CATALOG_VERSION);
-		return string.Format("gc1_%1", canonical.Hash());
-	}
-
-	protected HST_ForceMemberCatalogEntry SelectGarrisonMember(array<ref HST_ForceMemberCatalogEntry> catalog, int seed, int memberIndex)
-	{
-		if (!catalog || catalog.Count() == 0)
-			return null;
-		if (memberIndex == 0)
-			return catalog[0];
-		int selectedIndex = PositiveModulo(seed + memberIndex * 31, catalog.Count());
-		return catalog[selectedIndex];
-	}
-
-	protected int PositiveModulo(int value, int divisor)
-	{
-		if (divisor <= 0)
-			return 0;
-		int result = value % divisor;
-		if (result < 0)
-			result += divisor;
-		return result;
-	}
-
-	protected int BuildDeterministicSeed(HST_CampaignState state, string quoteId, string zoneId)
-	{
-		return string.Format("%1|force_planning|%2|%3|%4", state.m_iCampaignSeed, quoteId, zoneId, HST_ForceCatalogService.CATALOG_VERSION).Hash();
-	}
-
 	protected int CountString(array<string> values, string expected)
 	{
 		int count;
@@ -739,153 +636,6 @@ class HST_ForcePlanningService
 				return quote;
 		}
 		return null;
-	}
-
-	protected bool ValidateFrozenGarrisonQuote(HST_ForceManifestState manifest, HST_ForceQuoteState quote, bool requireCurrentCatalog, out string failure)
-	{
-		failure = "";
-		if (!manifest || !quote)
-		{
-			failure = "quote or manifest missing";
-			return false;
-		}
-		if (requireCurrentCatalog)
-		{
-			HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateMemberCatalog(quote.m_sFactionKey, true);
-			if (!catalogValidation || !catalogValidation.m_bValid)
-			{
-				failure = "force member catalog no longer validates";
-				if (catalogValidation && !catalogValidation.m_sFailureReason.IsEmpty())
-					failure = catalogValidation.m_sFailureReason;
-				return false;
-			}
-		}
-		if (!manifest.m_bFrozen || manifest.m_sManifestHash != quote.m_sManifestHash || BuildManifestHash(manifest) != quote.m_sManifestHash || manifest.m_sCatalogVersion.IsEmpty() || manifest.m_sCatalogVersion != quote.m_sCatalogVersion)
-		{
-			failure = "manifest or catalog conflict";
-			return false;
-		}
-		if (requireCurrentCatalog && manifest.m_sCatalogVersion != HST_ForceCatalogService.CATALOG_VERSION)
-		{
-			failure = "quote catalog version is no longer current";
-			return false;
-		}
-		return ValidateGarrisonManifest(manifest, quote, requireCurrentCatalog, failure);
-	}
-
-	protected bool ValidateGarrisonManifest(HST_ForceManifestState manifest, HST_ForceQuoteState quote, bool requireCurrentCatalog, out string failure)
-	{
-		failure = "";
-		if (!manifest || !quote)
-		{
-			failure = "quote or manifest missing";
-			return false;
-		}
-		if (manifest.m_sQuoteId != quote.m_sQuoteId || manifest.m_sOperationId != quote.m_sOperationId || manifest.m_sCommandRequestId != quote.m_sCommandRequestId || manifest.m_sFactionKey != quote.m_sFactionKey || manifest.m_sTargetZoneId != quote.m_sTargetZoneId)
-		{
-			failure = "quote and manifest identity conflict";
-			return false;
-		}
-		if (manifest.m_sForceKind != "strategic_garrison" || manifest.m_sIntentId != "garrison_recruitment" || manifest.m_sPolicyId.IsEmpty() || quote.m_sPolicyId != manifest.m_sPolicyId || quote.m_sCatalogVersion != manifest.m_sCatalogVersion || !quote.m_bAllOrNothing)
-		{
-			failure = "garrison policy or catalog conflict";
-			return false;
-		}
-		if (requireCurrentCatalog && manifest.m_sPolicyId != GARRISON_POLICY_ID)
-		{
-			failure = "garrison policy is no longer current";
-			return false;
-		}
-		if (manifest.m_iRequestedMemberCount <= 0 || manifest.m_iRequestedMemberCount != manifest.m_iAcceptedMemberCount || manifest.m_iAcceptedMemberCount != manifest.m_aMembers.Count() || manifest.m_iRequestedMemberCount != quote.m_iRequestedMemberCount || manifest.m_iAcceptedMemberCount != quote.m_iAcceptedMemberCount)
-		{
-			failure = "quote and manifest member totals conflict";
-			return false;
-		}
-		if (manifest.m_iRequestedVehicleCount != 0 || manifest.m_iAcceptedVehicleCount != 0 || manifest.m_aVehicles.Count() != 0 || manifest.m_aAssets.Count() != 0 || quote.m_iRequestedVehicleCount != 0 || quote.m_iAcceptedVehicleCount != 0)
-		{
-			failure = "garrison infantry-only policy conflict";
-			return false;
-		}
-		if (manifest.m_aGroups.Count() != 1 || !manifest.m_aGroups[0] || manifest.m_aGroups[0].m_iExpectedMemberCount != manifest.m_iAcceptedMemberCount)
-		{
-			failure = "garrison group element conflict";
-			return false;
-		}
-
-		array<ref HST_ForceMemberCatalogEntry> memberCatalog = {};
-		if (requireCurrentCatalog)
-			memberCatalog = m_Catalog.BuildMemberCatalog(manifest.m_sFactionKey);
-		array<string> slotIds = {};
-		int moneyCost;
-		int hrCost;
-		int equipmentCost;
-		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
-		{
-			if (!member || member.m_sSlotId.IsEmpty() || slotIds.Contains(member.m_sSlotId) || member.m_sGroupElementId != manifest.m_aGroups[0].m_sElementId || !member.m_bRequired)
-			{
-				failure = "garrison member slot identity conflict";
-				return false;
-			}
-			if (member.m_sCatalogSlotId.IsEmpty() || member.m_sPrefab.IsEmpty() || member.m_sRole.IsEmpty() || member.m_iMoneyCost < 0 || member.m_iHRCost < 0 || member.m_iEquipmentCost < 0)
-			{
-				failure = "garrison member payload conflict";
-				return false;
-			}
-			if (requireCurrentCatalog)
-			{
-				HST_ForceMemberCatalogEntry catalogEntry = FindMemberCatalogEntry(memberCatalog, member.m_sCatalogSlotId);
-				if (!catalogEntry || catalogEntry.m_sPrefab != member.m_sPrefab || catalogEntry.m_sRole != member.m_sRole || catalogEntry.m_iMoneyCost != member.m_iMoneyCost || catalogEntry.m_iHRCost != member.m_iHRCost || catalogEntry.m_iEquipmentCost != member.m_iEquipmentCost)
-				{
-					failure = "garrison member catalog conflict";
-					return false;
-				}
-			}
-			slotIds.Insert(member.m_sSlotId);
-			moneyCost += member.m_iMoneyCost;
-			hrCost += member.m_iHRCost;
-			equipmentCost += member.m_iEquipmentCost;
-		}
-		if (moneyCost != manifest.m_iMoneyCost || hrCost != manifest.m_iHRCost || equipmentCost != manifest.m_iEquipmentCost || manifest.m_iMoneyCost != quote.m_iMoneyCost || manifest.m_iHRCost != quote.m_iHRCost || manifest.m_iEquipmentCost != quote.m_iEquipmentCost)
-		{
-			failure = "quote and manifest resource totals conflict";
-			return false;
-		}
-		if (manifest.m_iEquipmentCost != 0 || manifest.m_iAttackResourceCost != 0 || manifest.m_iSupportResourceCost != 0 || quote.m_iAttackResourceCost != 0 || quote.m_iSupportResourceCost != 0)
-		{
-			failure = "unsupported garrison resource cost";
-			return false;
-		}
-		return true;
-	}
-
-	protected HST_ForceMemberCatalogEntry FindMemberCatalogEntry(array<ref HST_ForceMemberCatalogEntry> catalog, string entryId)
-	{
-		foreach (HST_ForceMemberCatalogEntry entry : catalog)
-		{
-			if (entry && entry.m_sEntryId == entryId)
-				return entry;
-		}
-		return null;
-	}
-
-	protected bool TransactionMatchesQuote(HST_ResourceTransactionState transaction, HST_ForceQuoteState quote, string resourceType, int amount)
-	{
-		return TransactionHasQuoteIdentity(transaction, quote, resourceType, amount) && !quote.m_sConfirmationRequestId.IsEmpty() && transaction.m_sCommandRequestId == quote.m_sConfirmationRequestId && transaction.m_iRefundedAmount == 0 && transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED;
-	}
-
-	protected bool ReservationMatchesQuote(HST_ResourceTransactionState transaction, HST_ForceQuoteState quote, string resourceType, int amount, string confirmationRequestId)
-	{
-		return TransactionHasQuoteIdentity(transaction, quote, resourceType, amount) && !confirmationRequestId.IsEmpty() && transaction.m_sCommandRequestId == confirmationRequestId && transaction.m_iRefundedAmount == 0 && transaction.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_RESERVED;
-	}
-
-	protected bool TransactionHasQuoteIdentity(HST_ResourceTransactionState transaction, HST_ForceQuoteState quote, string resourceType, int amount)
-	{
-		if (!transaction || !quote)
-			return false;
-		string expectedTransactionId = quote.m_sMoneyTransactionId;
-		if (resourceType == HST_ResourceLedgerService.RESOURCE_HR)
-			expectedTransactionId = quote.m_sHRTransactionId;
-		return transaction.m_sTransactionId == expectedTransactionId && transaction.m_sQuoteId == quote.m_sQuoteId && transaction.m_sManifestId == quote.m_sManifestId && transaction.m_sOperationId == quote.m_sOperationId && transaction.m_sActorIdentityId == quote.m_sActorIdentityId && transaction.m_sResourceType == resourceType && transaction.m_iAmount == amount;
 	}
 
 	protected bool HasTransactionReference(HST_CampaignState state, string quoteId, string manifestId)
@@ -993,7 +743,7 @@ class HST_ForcePlanningService
 		if (resourceType == HST_ResourceLedgerService.RESOURCE_HR)
 			transactionId = quote.m_sHRTransactionId;
 		HST_ResourceTransactionState transaction = state.FindResourceTransaction(transactionId);
-		if (!TransactionHasQuoteIdentity(transaction, quote, resourceType, amount))
+		if (!m_Integrity.TransactionHasQuoteIdentity(transaction, quote, resourceType, amount))
 			return;
 		RollbackTransaction(state, economy, ledger, transactionId, settlementId, reason);
 	}

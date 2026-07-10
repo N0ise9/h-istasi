@@ -10,7 +10,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The generated `string` API exposes parameters `%1` through `%9`; a canonical
     manifest string with more fields must be assembled from several format calls
     or explicit concatenation.
-  - Current example: `HST_ForcePlanningService.BuildManifestHash()` builds the
+  - Current example: `HST_ForcePlanningIntegrityService.BuildManifestHash()` builds the
     immutable canonical input in bounded chunks before calling `string.Hash()`.
 
 - Enforce Script does not accept the C-style conditional `condition ? a : b`
@@ -149,6 +149,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Headless Workbench script validation needs the project and Script Editor run mode explicitly.
   - Use the generic parameter shape `-gproj <project> -wbModule=ScriptEditor -run -validate PC -wbsilent -exitAfterInit`; an invocation that only initializes Workbench is not compile/validation evidence.
+  - The validation log must name the intended addon project and reach the
+    `Module: Game` compile plus successful game creation. A missing-project or
+    fallback validation can report success without loading the addon's complete
+    class surface and is not evidence for opening the mod.
 
 - Player-facing economy reports should consume the same service-owned income math as the tick path.
   - If the Command Menu repeats income formulas locally, report totals can drift from actual money/HR mutation as town support, resource types, factories, seaports, airfields, or bank effects change.
@@ -1259,6 +1263,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Campaign debug certification output should be structured first, text second.
   - Workbench can fail with a native crash during Game script validation when large debug-verification probe batches are added, even if repository-side text/brace checks pass. Reintroduce certification slices in small increments and confirm Workbench completes Game script compilation before stacking more probes.
+  - Per-method complexity can trigger native heap corruption before Workbench
+    emits a script error. The observed force-authority proof was 324 lines,
+    roughly 25,000 characters, 234 statements, and 38 branches; disabling only
+    that method restored the same project's Game compile. Moving the monolith
+    intact is not sufficient protection. Keep the coordinator as a thin adapter
+    and split deterministic proof fixtures into focused service methods. Current
+    example: `HST_ForceAuthorityProofService`.
   - A single Workbench log directory can contain several script reload attempts. When auditing a compile failure, split by the latest `Reloading game scripts` / `Script validation` segment before deciding whether an earlier `SCRIPT (E)` line is still current. Record which later reload proves the fix, and keep later commits unproven until they have their own reload/runtime evidence.
   - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid h-istasi change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
   - Protected helper names are class-local. If a campaign-debug report path calls a helper such as `ReportBool` or `ResolveEntityPrefabName`, the calling class must define it directly; a same-named helper on another service does not satisfy the caller and Workbench reports `Undefined function`.
