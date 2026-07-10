@@ -117,7 +117,7 @@ group base and attaches initial ambient AI through `AddAIEntityToGroup()` with
 a direct `AddAgent()` fallback, matching the engine's initial composition path
 without broadcasting the player-group member-state RPC. Foundation validation
 passes. The Game module compiles 5,740 files/11,473 classes with CRC
-`c4c862a5` and creates the game, and a separate normal WorldEditor open remained
+`ca37b1c1` and creates the game, and a separate normal WorldEditor open remained
 responsive at every two-second sample through 20 seconds with no script-error
 or new crash signature. A fresh packaged run must still prove zero
 unregistered-group RPCs and real distance-over-time pedestrian and traffic
