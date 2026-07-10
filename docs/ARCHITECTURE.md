@@ -106,7 +106,11 @@ The remaining domain services are:
   elimination, and linked ledger settlement policies.
 - `HST_CivilianService`: town reputation/support, wanted heat,
   police/roadblock presence and scans, aid incidents, undercover eligibility,
-  request/application, enforcement, compromise, and clear-state records.
+  request/application, enforcement, compromise, clear-state records, and
+  disposable pedestrian/traffic projections. Ambient actors receive dedicated
+  CIV group roots that inherit the stock behavior/pathfinding/utility/
+  replication stack; initial members attach through the engine's AI-composition
+  path, and the service owns their group, driver, and waypoint cleanup.
 - `HST_EnemyCommanderService`: enemy resource spending into patrol, roadblock,
   QRF, counterattack, rebuild, support-call, and Petros attack orders with
   physical/abstract runtime state.

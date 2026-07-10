@@ -104,6 +104,25 @@ WorldEditor open produced no new crash signature during the bounded survival
 gate. A fresh dedicated-server connect/admin-role run is still required before
 the recursive-invoker defect is closed by runtime evidence.
 
+Post-audit civilian-group projection follow-up: that same current-build smoke
+recorded exactly 20 `RPC_DoOnGroupMemberStateChange` sends through unregistered
+`SCR_AIGroup` items, matching its 14 ambient pedestrian groups plus 6 hidden
+traffic-driver groups one-for-one. `HST_CivilianService` created every helper
+from a bare group resource and immediately used the player-group membership
+notification path. The resource therefore lacked the stock behavior tree,
+formation, pathfinding, movement, vehicle utility, editable, and replication
+components while helper cardinality could still make Phase 20 look behavior-
+ready. Current source makes the dedicated CIV root inherit the stock generic
+group base and attaches initial ambient AI through `AddAIEntityToGroup()` with
+a direct `AddAgent()` fallback, matching the engine's initial composition path
+without broadcasting the player-group member-state RPC. Foundation validation
+passes. The Game module compiles 5,740 files/11,473 classes with CRC
+`c4c862a5` and creates the game, and a separate normal WorldEditor open remained
+responsive at every two-second sample through 20 seconds with no script-error
+or new crash signature. A fresh packaged run must still prove zero
+unregistered-group RPCs and real distance-over-time pedestrian and traffic
+movement before this defect is closed by runtime evidence.
+
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
 rejects manifests without an executable required group root, orders priority/

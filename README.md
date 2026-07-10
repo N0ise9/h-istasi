@@ -180,22 +180,31 @@ authority, runtime projection, persistence, and client evidence trustworthy:
 
 1. Prove the editor role-change reentry guard in a packaged dedicated-server
    connect with late admin assignment and zero recursive invoker exceptions.
-2. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
+2. Prove repaired civilian group projection in a fresh packaged run: zero
+   unregistered group-member RPCs and actual pedestrian/traffic movement, not
+   helper-entity counts alone.
+3. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
-3. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
+4. Runtime-prove exact paid-QRF creation, casualty cleanup, survivor
    reprojection, settlement archival/replay, and once-only accounting.
-4. Reproduce and fix genuine convoy seating/movement, support routing, arrival,
+5. Reproduce and fix genuine convoy seating/movement, support routing, arrival,
    return, recall, and physical-response failures in scoped disposable profiles.
-5. Prove static marker widget readiness plus authoritative host/client/late-join
+6. Prove static marker widget readiness plus authoritative host/client/late-join
    projection before treating marker publication as player-visible truth.
-6. Resume deeper mission, civilian, undercover, commander, logistics, and
+7. Resume deeper mission, civilian, undercover, commander, logistics, and
    balance expansion only after those integrity gates produce reliable evidence.
 
 The repository currently passes foundation validation and schema-48 Workbench
 Game compilation/creation at 5,740 files and 11,473 classes. A normal
 WorldEditor project open produced no new crash signature during the bounded
 survival gate. The editor role-change guard still needs a fresh packaged
-dedicated-server connect before it counts as runtime proof.
+dedicated-server connect before it counts as runtime proof. The same inspected
+server smoke tied 20 unregistered group-member RPCs one-for-one to 14 ambient
+pedestrians and 6 traffic drivers. The civilian group root now inherits the
+stock behavior/pathfinding/utility/replication base and initial members use the
+native AI-composition attach path. Foundation validation, Workbench Game
+compilation/creation, and a 20-second normal project-open survival gate all pass.
+Fresh packaged zero-RPC and distance-over-time movement proof remains required.
 
 For documentation authority, `docs/FEATURE_CHECKLIST.md` owns current feature
 status and next tasks; `docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md` owns the

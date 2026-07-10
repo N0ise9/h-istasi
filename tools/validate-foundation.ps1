@@ -494,13 +494,13 @@ if ((Get-Content -Raw "$civilianRuntimeEmptyGroupPath.meta") -notmatch '\{698532
 }
 $civilianRuntimeEmptyGroupText = Get-Content -Raw $civilianRuntimeEmptyGroupPath
 foreach ($requiredCivilianRuntimeEmptyGroupEntry in @(
-		"SCR_AIGroup HST_CivilianRuntimeEmptyGroup",
+		'SCR_AIGroup HST_CivilianRuntimeEmptyGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et"',
 		"m_bSpawnImmediately 0",
 		"m_bDeleteWhenEmpty 0",
 		'm_faction "CIV"'
 	)) {
 	if ($civilianRuntimeEmptyGroupText -notmatch [regex]::Escape($requiredCivilianRuntimeEmptyGroupEntry)) {
-		throw "CIV runtime empty AIGroup prefab must be empty, non-deleting, and CIV-tagged: $requiredCivilianRuntimeEmptyGroupEntry"
+		throw "CIV runtime empty AIGroup prefab must inherit the stock behavior/replication base, remain empty and non-deleting, and be CIV-tagged: $requiredCivilianRuntimeEmptyGroupEntry"
 	}
 }
 if ($civilianRuntimeEmptyGroupText -notmatch 'm_aUnitPrefabSlots\s*\{\s*\}') {
@@ -9513,6 +9513,18 @@ foreach ($requiredCivilianRuntimeEntry in @(
 $civilianRuntimeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
 if ($civilianRuntimeServiceText -match 'HST_CivilianTownGroup' -or $civilianRuntimeServiceText -match 'm_aCivilianGroupPrefabs' -or $configResourceText -match 'm_aCivilianGroupPrefabs') {
 	throw "Civilian runtime must not spawn the broken HST civilian SCR_AIGroup prefabs"
+}
+if ($civilianRuntimeServiceText -match 'AddAgentFromControlledEntity') {
+	throw "Initial civilian AI composition must not broadcast the player-group member-state RPC"
+}
+foreach ($requiredCivilianInitialGroupAttachEntry in @(
+		"scrGroup.AddAIEntityToGroup(memberEntity)",
+		"if (agent.GetParentGroup() != group)",
+		"group.AddAgent(agent)"
+	)) {
+	if ($civilianRuntimeServiceText -notmatch [regex]::Escape($requiredCivilianInitialGroupAttachEntry)) {
+		throw "Civilian runtime must use the stock initial-AI group attach path with a direct fallback: $requiredCivilianInitialGroupAttachEntry"
+	}
 }
 if ($civilianRuntimeServiceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $configResourceText -match '"Prefabs/Characters/Factions/CIV/Character_CIV' -or $defaultCatalog -match '"Prefabs/Characters/Factions/CIV/Character_CIV') {
 	throw "Civilian character runtime must not use path-only Character_CIV resources"

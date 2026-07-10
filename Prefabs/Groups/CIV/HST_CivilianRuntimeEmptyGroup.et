@@ -1,4 +1,4 @@
-SCR_AIGroup HST_CivilianRuntimeEmptyGroup {
+SCR_AIGroup HST_CivilianRuntimeEmptyGroup : "{000CD338713F2B5A}Prefabs/AI/Groups/Group_Base.et" {
  ID "6985327711303921"
  m_bSpawnImmediately 0
  m_bDeleteWhenEmpty 0

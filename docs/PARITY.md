@@ -125,6 +125,11 @@
   editor-mode repair. The one-frame editor-listener guard preserves stock mode
   updates and role ownership; it still needs a fresh packaged server connect for
   runtime proof.
+- That smoke also emitted 20 unregistered civilian-group member RPCs, exactly
+  matching 14 pedestrians and 6 traffic drivers. The civilian root now inherits
+  the stock behavior/replication group base and uses the native initial-AI
+  attach path; foundation validation, Game compile/create, and normal project-
+  open survival pass, but zero-RPC and real movement runtime proof remains open.
 - The latest inspected Full Campaign Debug artifact predates schemas 43-48,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
@@ -137,6 +142,9 @@
 
 - Prove the editor role-change reentry guard during a packaged late-admin
   connect while retaining the expected editor access.
+- Re-run civilian town activation with the repaired group root and require zero
+  unregistered member-state RPCs plus distance-over-time pedestrian and traffic
+  movement.
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.

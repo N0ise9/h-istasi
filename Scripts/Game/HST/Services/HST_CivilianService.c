@@ -2544,12 +2544,12 @@ class HST_CivilianService
 		if (scrGroup)
 		{
 			scrGroup.InitFactionKey(CIVILIAN_FACTION_KEY);
-			scrGroup.AddAgentFromControlledEntity(memberEntity);
+			// This is initial ambient AI composition, not a player-group membership
+			// change. The stock initial-spawn path attaches through this helper without
+			// broadcasting the player-group member-state RPC.
+			scrGroup.AddAIEntityToGroup(memberEntity);
 			if (agent.GetParentGroup() != group)
-			{
-				if (!scrGroup.AddAIEntityToGroup(memberEntity))
-					group.AddAgent(agent);
-			}
+				group.AddAgent(agent);
 		}
 		else
 		{
