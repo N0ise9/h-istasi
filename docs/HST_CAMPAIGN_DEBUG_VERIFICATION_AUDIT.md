@@ -121,7 +121,7 @@ using the owner-RPC dispatch only as a fallback. Failed registration, seating,
 or route setup deletes the traffic projection and its owned helpers so an inert
 vehicle cannot consume the town target and suppress replacement. Foundation validation passes.
 The Game module compiles 5,740 files/11,476 classes with CRC
-`bc5e4063` and creates the game, and a separate normal WorldEditor open remained
+`6e01a045` and creates the game, and a separate normal WorldEditor open remained
 responsive at every two-second sample through 20 seconds with no script-error
 or new crash signature. A fresh packaged run must still prove zero
 unregistered-group RPCs and real distance-over-time pedestrian and traffic
@@ -142,7 +142,7 @@ utility before issuing any seat request, attempts forced `GetInVehicle()` first
 for locally authoritative convoy AI, retains `MoveInVehicle()` only as the
 fallback after direct rejection or for a non-local entity, and makes the physical probe query retained vehicle
 registration directly. Foundation validation passes. A fresh Game-module run
-compiled 5,740 files/11,476 classes with CRC `bc5e4063`
+compiled 5,740 files/11,476 classes with CRC `6e01a045`
 and created the game; a separate normal WorldEditor open stayed responsive at
 every two-second sample through 20 seconds with no script-error or new crash
 signature. A fresh scoped convoy runtime must still prove 3/3 living pilot
@@ -175,9 +175,11 @@ intact, and a successful replacement removes the old waypoints from the group
 before deleting them. This is a source repair, not runtime success. A fresh
 packaged run must still prove actual movement, two-sample arrival, recall exit,
 bounded reissue behavior, and cleanup.
-Foundation validation passes, and the pre-provenance Game module compiles and
-creates at 5,740 files/11,476 classes with CRC `bc5e4063`. The final stamped
-compile and normal project-open crash gate remain pending at this checkpoint.
+Foundation validation passes. The stamped Game module compiles and creates at
+5,740 files/11,476 classes with CRC `6e01a045`. A separate normal WorldEditor
+project open remained responsive at every two-second sample through 20 seconds
+with no script-error or new crash signature. This proves compilation and startup
+survival, not physical support movement or arrival/recall runtime success.
 
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
