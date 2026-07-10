@@ -4638,7 +4638,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 44",
+		"SCHEMA_VERSION = 45",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4706,10 +4706,11 @@ foreach ($requiredForceSpawnQueueStateEntry in @(
 		"m_iUpdatedAtSecond",
 		"m_bCancelRequested",
 		"m_sSpawnedPrefab",
+		"m_bGameMasterVerified",
 		"m_bAliveVerified"
 	)) {
 	if ($forceAuthorityDataText -notmatch [regex]::Escape($requiredForceSpawnQueueStateEntry) -and $scriptText -notmatch [regex]::Escape($requiredForceSpawnQueueStateEntry)) {
-		throw "Schema-44 force spawn queue state is missing entry: $requiredForceSpawnQueueStateEntry"
+		throw "Schema-45 force spawn queue state is missing entry: $requiredForceSpawnQueueStateEntry"
 	}
 }
 foreach ($requiredForceSpawnQueueCopyEntry in @(
@@ -4722,10 +4723,11 @@ foreach ($requiredForceSpawnQueueCopyEntry in @(
 		"target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;",
 		"target.m_bCancelRequested = source.m_bCancelRequested;",
 		"target.m_sSpawnedPrefab = source.m_sSpawnedPrefab;",
+		"target.m_bGameMasterVerified = source.m_bGameMasterVerified;",
 		"target.m_bAliveVerified = source.m_bAliveVerified;"
 	)) {
 	if ($forceSaveDataText -notmatch [regex]::Escape($requiredForceSpawnQueueCopyEntry)) {
-		throw "Schema-44 force spawn queue deep copy is missing entry: $requiredForceSpawnQueueCopyEntry"
+		throw "Schema-45 force spawn queue deep copy is missing entry: $requiredForceSpawnQueueCopyEntry"
 	}
 }
 foreach ($requiredForceSpawnQueueRestoreEntry in @(
@@ -4742,7 +4744,7 @@ foreach ($requiredForceSpawnQueueRestoreEntry in @(
 		"state.m_iForceSpawnQueueReconciledRestoreSequence = restoreSequence;"
 	)) {
 	if (($campaignStateText + "`n" + $forceSaveDataText + "`n" + $forcePersistenceText + "`n" + $forceSpawnQueueServiceText) -notmatch [regex]::Escape($requiredForceSpawnQueueRestoreEntry)) {
-		throw "Schema-44 force spawn queue restore contract is missing entry: $requiredForceSpawnQueueRestoreEntry"
+		throw "Schema-45 force spawn queue restore contract is missing entry: $requiredForceSpawnQueueRestoreEntry"
 	}
 }
 if ($coordinatorText -notmatch 'RestoreOrCreateCampaignState[\s\S]*?ReconcileCampaignAfterRestore\(m_State\)[\s\S]*?ReconcileInterruptedGarrisonConfirmations[\s\S]*?ReconcileOpenReservations') {
@@ -4768,6 +4770,8 @@ foreach ($requiredForceSpawnQueueApi in @(
 		"FailSlot(",
 		"DeferSlot(",
 		"RequestCancel(",
+		"FailProjectionFinal(",
+		"CompleteProjectionHandoff(",
 		"CompleteCleanup(",
 		"CompactTerminalRows(",
 		"BuildReport("
@@ -4798,7 +4802,7 @@ foreach ($requiredForceSpawnQueueIdentityEntry in @(
 }
 $spawnQueueProofFiles = @(Get-ChildItem -File "Scripts/Game/HST/Services" -Filter "*SpawnQueue*Proof*.c")
 if ($spawnQueueProofFiles.Count -eq 0) {
-	throw "Schema-44 force spawn queue requires a standalone deterministic proof service"
+	throw "Schema-45 force spawn queue requires a standalone deterministic proof service"
 }
 $spawnQueueProofText = ($spawnQueueProofFiles | ForEach-Object { Get-Content -Raw $_.FullName }) -join "`n"
 foreach ($requiredSpawnQueueProofEntry in @(
@@ -4813,19 +4817,140 @@ foreach ($requiredSpawnQueueProofEntry in @(
 		"spawn_queue.retry_backoff",
 		"spawn_queue.retry_no_duplicate",
 		"spawn_queue.stale_generation",
+		"spawn_queue.same_wave_progression",
+		"spawn_queue.cleanup_dependency_order",
 		"spawn_queue.deadline_cleanup",
 		"spawn_queue.cancel_idempotency",
 		"spawn_queue.capacity_bounds",
 		"spawn_queue.terminal_pruning",
 		"spawn_queue.interrupted_restore",
 		"spawn_queue.terminal_restore",
-		"spawn_queue.schema43_migration"
+		"spawn_queue.schema43_migration",
+		"spawn_queue.schema45_active_group_identity"
 	)) {
 	if (($coordinatorText + "`n" + $spawnQueueProofText) -notmatch [regex]::Escape($requiredSpawnQueueProofEntry)) {
 		throw "Spawn queue deterministic proof is missing phase-0 entry: $requiredSpawnQueueProofEntry"
 	}
 }
-Write-Host "Schema-44 durable bounded force spawn queue contract OK"
+Write-Host "Schema-45 durable bounded force spawn queue contract OK"
+$forceSpawnAdapterServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnAdapterService.c"
+$physicalWarServicePath = "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+if (!(Test-Path $forceSpawnAdapterServicePath)) {
+	throw "Missing exact engine-facing force spawn adapter: $forceSpawnAdapterServicePath"
+}
+if (!(Test-Path $physicalWarServicePath)) {
+	throw "Missing physical-war force spawn bridge: $physicalWarServicePath"
+}
+$forceSpawnAdapterServiceText = Get-Content -Raw $forceSpawnAdapterServicePath
+$physicalWarServiceText = Get-Content -Raw $physicalWarServicePath
+foreach ($requiredSchema45ProjectionEntry in @(
+		"string m_sForceId;",
+		"string m_sProjectionId;",
+		"target.m_sForceId = source.m_sForceId;",
+		"target.m_sProjectionId = source.m_sProjectionId;",
+		"MigrateActiveGroupProjectionIdentity",
+		"migration_schema45_active_group_projection_derived",
+		"migration_schema45_active_group_projection_unresolved"
+	)) {
+	if (($campaignStateText + "`n" + $forceSaveDataText) -notmatch [regex]::Escape($requiredSchema45ProjectionEntry)) {
+		throw "Schema-45 active-group projection identity contract is missing: $requiredSchema45ProjectionEntry"
+	}
+}
+if ($forceSpawnQueueServiceText -notmatch 'AppendCleanupWorkItemsForKind\(workItems, batch, SLOT_KIND_ASSET[\s\S]*?SLOT_KIND_MEMBER[\s\S]*?SLOT_KIND_VEHICLE[\s\S]*?SLOT_KIND_GROUP') {
+	throw "Force spawn cleanup acquisition must remain dependency ordered: asset, member, vehicle, group"
+}
+foreach ($requiredForceSpawnAdapterEntry in @(
+		"class HST_ForceSpawnAdapterService",
+		'ADAPTER_MODE = "exact_spawn_queue"',
+		"HST_FORCE_SPAWN_READY_FOR_HANDOFF",
+		"UNSUPPORTED_MANIFEST_REASON",
+		"queue.AcquireWork(",
+		"queue.CompleteSlotSuccess(",
+		"queue.CompleteCleanup(",
+		"SpawnGroupRoot(",
+		"SpawnGroupMember(",
+		"FinalizeTouchedBatches(",
+		"RetireProjectionRuntime(",
+		"PrepareForceSpawnProjectionCleanup(",
+		"m_bGameMasterVerified = gameMasterVerified;",
+		"SCR_AIGroup.IgnoreSpawning(true);",
+		"GetGame().SpawnEntityPrefabEx(resourceName, false",
+		"physical adapter supports one exact infantry group without vehicle or asset slots"
+		"MAX_RECONCILE_BATCHES_PER_TICK = 4",
+		"MAX_HANDLE_RECONCILE_PER_TICK = 8",
+		"acknowledged unmaterialized cleanup slot",
+		"TryResolveSafeGroundPosition(",
+		"active-group faction conflicts with the frozen manifest",
+		"FindActiveGroupForBatch(",
+		"PruneDeletedProjectionBindings("
+	)) {
+	if ($forceSpawnAdapterServiceText -notmatch [regex]::Escape($requiredForceSpawnAdapterEntry)) {
+		throw "Exact engine-facing force spawn adapter contract is missing: $requiredForceSpawnAdapterEntry"
+	}
+}
+foreach ($requiredForceSpawnBridgeEntry in @(
+		"IsForceSpawnQueueManaged(",
+		"ShouldHoldForceSpawnProjection(",
+		"TryRegisterForceSpawnGroupRoot(",
+		"TryRegisterForceSpawnGroupMember(",
+		"TryUnregisterForceSpawnGroupMember(",
+		"TryUnregisterForceSpawnGroupRoot(",
+		"FinalizeForceSpawnProjection(",
+		"PrepareForceSpawnProjectionCleanup(",
+		"ValidateForceSpawnGroupCardinality(",
+		"EnsureForceSpawnNextMemberAIWorldBudget(",
+		"AcquireForceSpawnRuntimeOwnership(",
+		"IsForceSpawnRuntimeOwnershipHeldForGroup(",
+		"force spawn group root cleanup requires all exact members to be removed first",
+		"if (IsForceSpawnQueueManaged(activeGroup))"
+	)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredForceSpawnBridgeEntry)) {
+		throw "Physical-war exact force spawn bridge/legacy guard is missing: $requiredForceSpawnBridgeEntry"
+	}
+}
+foreach ($requiredForceSpawnCoordinatorEntry in @(
+		"m_ForceSpawnAdapter = new HST_ForceSpawnAdapterService();",
+		"TickForceSpawnQueueRuntime()",
+		"m_ForceSpawnAdapter.Tick(",
+		"forceSpawnQueueChanged",
+		"m_ForceSpawnAdapter.BuildReport()"
+		"TickForceSpawnQueueTerminalCleanup(",
+		"HasUnsafeForceSpawnRuntimeForDebugIsolation(",
+		"physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();"
+	)) {
+	if ($coordinatorText -notmatch [regex]::Escape($requiredForceSpawnCoordinatorEntry)) {
+		throw "Coordinator exact force spawn tick wiring is missing: $requiredForceSpawnCoordinatorEntry"
+	}
+}
+if ($coordinatorText -notmatch 'm_iElapsedSeconds \+= elapsedSeconds;[\s\S]{0,300}TickForceSpawnQueueRuntime\(\)[\s\S]{0,300}m_Missions.Tick') {
+	throw "Coordinator must tick the exact force spawn adapter after elapsed time advances and before mission runtime work"
+}
+$forceSpawnAdapterProofPath = "Scripts/Game/HST/Services/HST_ForceSpawnAdapterProofService.c"
+if (!(Test-Path $forceSpawnAdapterProofPath)) {
+	throw "Missing engine-facing exact spawn-adapter proof service: $forceSpawnAdapterProofPath"
+}
+$forceSpawnAdapterProofText = Get-Content -Raw $forceSpawnAdapterProofPath
+foreach ($requiredForceSpawnAdapterProofEntry in @(
+		"class HST_ForceSpawnAdapterProofService",
+		"early_mechanics.spawn_queue_physical_adapter",
+		"spawn_adapter.root_before_members",
+		"spawn_adapter.cancel_cleanup",
+		"spawn_adapter.exact_prefabs",
+		"spawn_adapter.native_membership",
+		"spawn_adapter.game_master_membership",
+		"spawn_adapter.durable_success",
+		"spawn_adapter.active_group_handoff",
+		"spawn_adapter.retirement",
+		"spawn_adapter.same_wave_failure_cleanup",
+		"spawn_adapter.state_isolation",
+		"PruneDeletedProjectionBindings(",
+		"UNAVAILABLE_MEMBER_PREFAB"
+	)) {
+	if (($coordinatorText + "`n" + $forceSpawnAdapterProofText) -notmatch [regex]::Escape($requiredForceSpawnAdapterProofEntry)) {
+		throw "Engine-facing exact spawn-adapter proof is missing: $requiredForceSpawnAdapterProofEntry"
+	}
+}
+Write-Host "Schema-45 exact force spawn adapter and PhysicalWar bridge contract OK"
 foreach ($requiredDebugIsolationEntry in @(
 		"PrepareCampaignDebugIsolation",
 		"CaptureIsolatedCampaignDebugState",

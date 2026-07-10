@@ -6,6 +6,8 @@ class HST_SpawnQueueProofReport
 	string m_sPriorityEvidence;
 	string m_sFIFOEvidence;
 	string m_sRetryEvidence;
+	string m_sSameWaveEvidence;
+	string m_sCleanupOrderEvidence;
 	string m_sDeadlineEvidence;
 	string m_sCancelEvidence;
 	string m_sCapacityEvidence;
@@ -13,6 +15,7 @@ class HST_SpawnQueueProofReport
 	string m_sInterruptedRestoreEvidence;
 	string m_sTerminalRestoreEvidence;
 	string m_sMigrationEvidence;
+	string m_sSchema45IdentityEvidence;
 	bool m_bAdmissionExact;
 	bool m_bDuplicateIdempotent;
 	bool m_bIdentityConflictRejected;
@@ -21,6 +24,8 @@ class HST_SpawnQueueProofReport
 	bool m_bRetryBackoffExact;
 	bool m_bRetryNoDuplicate;
 	bool m_bStaleGenerationRejected;
+	bool m_bSameWaveProgressionExact;
+	bool m_bCleanupDependencyOrderExact;
 	bool m_bDeadlineCleanupExact;
 	bool m_bCancelIdempotent;
 	bool m_bCapacityBounded;
@@ -28,6 +33,7 @@ class HST_SpawnQueueProofReport
 	bool m_bInterruptedRestoreExact;
 	bool m_bTerminalRestoreExact;
 	bool m_bSchema43MigrationExact;
+	bool m_bSchema45ActiveGroupIdentityExact;
 }
 
 class HST_SpawnQueueRetryProofFixture
@@ -66,6 +72,8 @@ class HST_SpawnQueueProofService
 		ProvePriorityOrder(report);
 		ProveFIFOOrder(report);
 		ProveRetryLifecycle(report);
+		ProveSameWaveProgression(report);
+		ProveCleanupDependencyOrder(report);
 		ProveDeadlineCleanup(report);
 		ProveCancelIdempotency(report);
 		ProveCapacityBounds(report);
@@ -73,6 +81,7 @@ class HST_SpawnQueueProofService
 		ProveInterruptedRestore(report);
 		ProveTerminalRestore(report);
 		ProveSchema43Migration(report);
+		ProveSchema45ActiveGroupIdentityMigration(report);
 		return report;
 	}
 
@@ -293,12 +302,196 @@ class HST_SpawnQueueProofService
 			&& fixture.m_Batch.FindSlotResult(retryWork.m_sSlotId).m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_SPAWNING;
 
 		HST_ForceSpawnQueueSlotSuccess properSuccess = BuildProofSuccess(fixture.m_aBatches, retryWork, "retry_member_entity_2");
-		HST_ForceSpawnQueueCallbackResult completed = fixture.m_Queue.CompleteSlotSuccess(fixture.m_aBatches, fixture.m_Manifest, properSuccess, 103);
+		HST_ForceSpawnQueueCallbackResult completed = CompleteProofSuccess(fixture.m_Queue, fixture.m_aBatches, fixture.m_Manifest, retryWork, 103, "retry_member_entity_2");
 		HST_ForceSpawnQueueCallbackResult replay = fixture.m_Queue.CompleteSlotSuccess(fixture.m_aBatches, fixture.m_Manifest, properSuccess, 104);
 		fixture.m_bCompletedExactly = completed && completed.m_bAccepted
 			&& fixture.m_Batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
 			&& CountRegisteredProofSlots(fixture.m_Batch) == 4 && ProofRegisteredEntityIdsUnique(fixture.m_Batch);
 		fixture.m_bReplayIdempotent = replay && replay.m_bAccepted && replay.m_bAlreadyApplied && !replay.m_bStateChanged;
+	}
+
+	protected void ProveSameWaveProgression(HST_SpawnQueueProofReport report)
+	{
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		array<ref HST_ForceSpawnResultState> batches = {};
+		array<ref HST_ForceManifestState> manifests = {};
+		HST_ForceManifestState manifest = BuildProofManifest("same_wave", 2, false, false);
+		manifests.Insert(manifest);
+		HST_ForceSpawnQueueRequest request = BuildProofRequest("same_wave", 5, 500);
+		HST_ForceSpawnQueueEnqueueResult enqueue = queue.Enqueue(batches, manifest, request, 100);
+		HST_ForceSpawnQueueWorkItem groupWork = ResolveFirstWork(queue.AcquireWork(batches, manifests, 100));
+		if (!enqueue || !enqueue.m_bSuccess || !groupWork)
+		{
+			report.m_sSameWaveEvidence = "same-wave progression fixture unavailable";
+			return;
+		}
+		HST_ForceSpawnQueueCallbackResult groupSuccess = CompleteProofSuccess(queue, batches, manifest, groupWork, 100, "same_wave_group_entity");
+		HST_ForceSpawnQueueTickResult memberTick = queue.AcquireWork(batches, manifests, 101);
+		HST_ForceSpawnQueueWorkItem deferredWork = ResolveWork(memberTick, "same_wave_member_0");
+		HST_ForceSpawnQueueWorkItem successWork = ResolveWork(memberTick, "same_wave_member_1");
+		if (!groupSuccess || !groupSuccess.m_bAccepted || !memberTick || memberTick.m_aWorkItems.Count() != 2 || !deferredWork || !successWork)
+		{
+			report.m_sSameWaveEvidence = "same-wave member acquisition was not exact";
+			return;
+		}
+
+		HST_ForceSpawnQueueCallbackResult deferred = queue.DeferSlot(batches, manifest, request.m_sResultId, request.m_sProjectionId, deferredWork.m_sSlotId, deferredWork.m_iAttemptGeneration, 101, 104, "same-wave capacity defer");
+		HST_ForceSpawnQueueCallbackResult siblingSuccess = CompleteProofSuccess(queue, batches, manifest, successWork, 101, "same_wave_member_entity_1");
+		HST_ForceSpawnQueueTickResult settleTick = queue.AcquireWork(batches, manifests, 102);
+		HST_ForceSpawnQueueTickResult earlyTick = queue.AcquireWork(batches, manifests, 103);
+		HST_ForceSpawnQueueTickResult retryTick = queue.AcquireWork(batches, manifests, 104);
+		HST_ForceSpawnQueueWorkItem retryWork = ResolveFirstWork(retryTick);
+		HST_ForceSpawnSlotResultState registeredSibling = enqueue.m_Batch.FindSlotResult(successWork.m_sSlotId);
+		bool deferredState = deferred && deferred.m_bAccepted && siblingSuccess && siblingSuccess.m_bAccepted
+			&& settleTick && settleTick.m_aWorkItems.Count() == 0 && earlyTick && earlyTick.m_aWorkItems.Count() == 0;
+		bool retryExact = retryWork && retryTick.m_aWorkItems.Count() == 1
+			&& retryWork.m_sSlotId == deferredWork.m_sSlotId && retryWork.m_iAttemptGeneration == deferredWork.m_iAttemptGeneration + 1;
+		bool siblingPreserved = registeredSibling && registeredSibling.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+			&& registeredSibling.m_sEntityId == "same_wave_member_entity_1";
+		HST_ForceSpawnQueueCallbackResult completed;
+		if (retryWork)
+			completed = CompleteProofSuccess(queue, batches, manifest, retryWork, 104, "same_wave_member_entity_0");
+		report.m_bSameWaveProgressionExact = deferredState && retryExact && siblingPreserved && completed && completed.m_bAccepted
+			&& enqueue.m_Batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
+		report.m_sSameWaveEvidence = string.Format("defer/sibling accepted %1/%2 | settled %3 | retry exact %4 | sibling preserved %5 | terminal %6", deferred && deferred.m_bAccepted, siblingSuccess && siblingSuccess.m_bAccepted, deferredState, retryExact, siblingPreserved, enqueue.m_Batch.m_eStatus);
+	}
+
+	protected void ProveCleanupDependencyOrder(HST_SpawnQueueProofReport report)
+	{
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		array<ref HST_ForceSpawnResultState> batches = {};
+		array<ref HST_ForceManifestState> manifests = {};
+		HST_ForceManifestState manifest = BuildProofManifest("cleanup_order", 9, true, true);
+		manifests.Insert(manifest);
+		HST_ForceSpawnQueueRequest request = BuildProofRequest("cleanup_order", 4, 500);
+		HST_ForceSpawnQueueEnqueueResult enqueue = queue.Enqueue(batches, manifest, request, 100);
+		HST_ForceSpawnQueueWorkItem groupWork = ResolveFirstWork(queue.AcquireWork(batches, manifests, 100));
+		if (!enqueue || !enqueue.m_bSuccess || !groupWork)
+		{
+			report.m_sCleanupOrderEvidence = "cleanup dependency fixture unavailable";
+			return;
+		}
+
+		HST_ForceSpawnQueueCallbackResult groupSuccess = CompleteProofSuccess(queue, batches, manifest, groupWork, 100, "cleanup_order_group_entity");
+		HST_ForceSpawnQueueTickResult firstSpawnWave = queue.AcquireWork(batches, manifests, 101);
+		bool firstWaveExact = groupSuccess && groupSuccess.m_bAccepted && CompleteProofWorkWave(queue, batches, manifest, firstSpawnWave, 101, "cleanup_order_first", "");
+		HST_ForceSpawnQueueTickResult secondSpawnWave = queue.AcquireWork(batches, manifests, 102);
+		HST_ForceSpawnQueueWorkItem assetWork = ResolveWork(secondSpawnWave, "cleanup_order_asset");
+		HST_ForceSpawnQueueWorkItem assignedMemberWork = ResolveWork(secondSpawnWave, "cleanup_order_member_0");
+		HST_ForceSpawnQueueWorkItem pendingMemberWork = ResolveWork(secondSpawnWave, "cleanup_order_member_8");
+		bool secondWaveExact = firstWaveExact && secondSpawnWave && secondSpawnWave.m_aWorkItems.Count() == 3
+			&& assetWork && assignedMemberWork && pendingMemberWork;
+		if (secondWaveExact)
+		{
+			HST_ForceSpawnQueueCallbackResult memberSuccess = CompleteProofSuccess(queue, batches, manifest, assignedMemberWork, 102, "cleanup_order_assigned_member");
+			HST_ForceSpawnQueueCallbackResult assetSuccess = CompleteProofSuccess(queue, batches, manifest, assetWork, 102, "cleanup_order_asset_entity");
+			secondWaveExact = memberSuccess && memberSuccess.m_bAccepted && assetSuccess && assetSuccess.m_bAccepted;
+		}
+
+		HST_ForceSpawnQueueCallbackResult cancel;
+		if (secondWaveExact)
+			cancel = queue.RequestCancel(batches, request.m_sResultId, 103, "cleanup dependency order proof");
+		bool callbacksAccepted = cancel && cancel.m_bAccepted;
+		bool monotonic = true;
+		int previousRank = -1;
+		int assetCount;
+		int memberCount;
+		int vehicleCount;
+		int groupCount;
+		int cleanupWaveCount;
+		int firstCleanupWaveSize;
+		string sequence;
+		for (int wave = 0; wave < 4; wave++)
+		{
+			if (!enqueue.m_Batch || enqueue.m_Batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
+				break;
+			HST_ForceSpawnQueueTickResult cleanupTick = queue.AcquireWork(batches, manifests, 104 + wave);
+			if (!cleanupTick || cleanupTick.m_aWorkItems.Count() == 0)
+			{
+				callbacksAccepted = false;
+				break;
+			}
+			cleanupWaveCount++;
+			if (wave == 0)
+				firstCleanupWaveSize = cleanupTick.m_aWorkItems.Count();
+			foreach (HST_ForceSpawnQueueWorkItem cleanupWork : cleanupTick.m_aWorkItems)
+			{
+				if (!cleanupWork || cleanupWork.m_sAction != HST_ForceSpawnQueueService.ACTION_CLEANUP)
+				{
+					callbacksAccepted = false;
+					continue;
+				}
+				int rank = CleanupProofKindRank(cleanupWork.m_sSlotKind);
+				if (rank < previousRank)
+					monotonic = false;
+				previousRank = rank;
+				sequence = AppendProofToken(sequence, cleanupWork.m_sSlotKind);
+				if (cleanupWork.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_ASSET)
+					assetCount++;
+				else if (cleanupWork.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_MEMBER)
+					memberCount++;
+				else if (cleanupWork.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_VEHICLE)
+					vehicleCount++;
+				else if (cleanupWork.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
+					groupCount++;
+				HST_ForceSpawnQueueCallbackResult cleaned = queue.CompleteCleanup(batches, request.m_sResultId, request.m_sProjectionId, cleanupWork.m_sSlotId, cleanupWork.m_iAttemptGeneration, 104 + wave, true);
+				if (!cleaned || !cleaned.m_bAccepted)
+					callbacksAccepted = false;
+			}
+		}
+
+		bool exactCounts = assetCount == 1 && memberCount == 9 && vehicleCount == 1 && groupCount == 1;
+		bool terminal = enqueue.m_Batch && enqueue.m_Batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED;
+		report.m_bCleanupDependencyOrderExact = secondWaveExact && callbacksAccepted && monotonic && exactCounts
+			&& cleanupWaveCount == 2 && firstCleanupWaveSize == HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK && terminal;
+		report.m_sCleanupOrderEvidence = string.Format("partial 9-member cancel %1 | cleanup waves %2 | first wave %3 | monotonic %4", secondWaveExact, cleanupWaveCount, firstCleanupWaveSize, monotonic);
+		report.m_sCleanupOrderEvidence = report.m_sCleanupOrderEvidence + string.Format(" | asset/member/vehicle/group %1/%2/%3/%4 | terminal %5", assetCount, memberCount, vehicleCount, groupCount, terminal);
+		report.m_sCleanupOrderEvidence = report.m_sCleanupOrderEvidence + " | order " + sequence;
+	}
+
+	protected bool CompleteProofWorkWave(
+		HST_ForceSpawnQueueService queue,
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnQueueTickResult tick,
+		int nowSecond,
+		string entityPrefix,
+		string skippedSlotId)
+	{
+		if (!queue || !manifest || !tick || !tick.m_aWorkItems)
+			return false;
+		bool exact = tick.m_aWorkItems.Count() > 0;
+		int index;
+		foreach (HST_ForceSpawnQueueWorkItem work : tick.m_aWorkItems)
+		{
+			if (!work || work.m_sSlotId == skippedSlotId)
+				continue;
+			HST_ForceSpawnQueueCallbackResult completed = CompleteProofSuccess(queue, batches, manifest, work, nowSecond, string.Format("%1_%2", entityPrefix, index));
+			if (!completed || !completed.m_bAccepted)
+				exact = false;
+			index++;
+		}
+		return exact;
+	}
+
+	protected int CleanupProofKindRank(string slotKind)
+	{
+		if (slotKind == HST_ForceSpawnQueueService.SLOT_KIND_ASSET)
+			return 0;
+		if (slotKind == HST_ForceSpawnQueueService.SLOT_KIND_MEMBER)
+			return 1;
+		if (slotKind == HST_ForceSpawnQueueService.SLOT_KIND_VEHICLE)
+			return 2;
+		if (slotKind == HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
+			return 3;
+		return 4;
+	}
+
+	protected string AppendProofToken(string value, string token)
+	{
+		if (value.IsEmpty())
+			return token;
+		return value + ">" + token;
 	}
 
 	protected void ProveDeadlineCleanup(HST_SpawnQueueProofReport report)
@@ -514,7 +707,7 @@ class HST_SpawnQueueProofService
 		if (!restoredManifest || !work || work.m_sResultId != resultId)
 			return false;
 		HST_ForceSpawnQueueSlotSuccess success = BuildProofSuccess(restored.m_aForceSpawnResults, work, "restored_group_entity");
-		HST_ForceSpawnQueueCallbackResult completed = queue.CompleteSlotSuccess(restored.m_aForceSpawnResults, restoredManifest, success, nowSecond);
+		HST_ForceSpawnQueueCallbackResult completed = CompleteProofSuccess(queue, restored.m_aForceSpawnResults, restoredManifest, work, nowSecond, "restored_group_entity");
 		HST_ForceSpawnQueueCallbackResult replay = queue.CompleteSlotSuccess(restored.m_aForceSpawnResults, restoredManifest, success, nowSecond + 1);
 		HST_ForceSpawnResultState batch = restored.FindForceSpawnResult(resultId);
 		return completed && completed.m_bAccepted && batch
@@ -548,13 +741,14 @@ class HST_SpawnQueueProofService
 
 		bool terminalPreserved = batch && slot && batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
 		terminalPreserved = terminalPreserved && slot.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED;
-		terminalPreserved = terminalPreserved && slot.m_sSpawnedPrefab == "proof_group_prefab" && slot.m_bAliveVerified;
+		terminalPreserved = terminalPreserved && slot.m_sSpawnedPrefab == "proof_group_prefab"
+			&& slot.m_bAliveVerified && slot.m_bGameMasterVerified;
 		bool processIdsCleared = terminalPreserved && batch.m_sNativeGroupId.IsEmpty()
 			&& slot.m_sEntityId.IsEmpty() && slot.m_sNativeGroupId.IsEmpty();
 		bool neverReopened = tick && tick.m_aWorkItems.Count() == 0 && batch.m_iAttemptGeneration == 1;
 		bool epochNoOp = firstReconcile && firstReconcile.m_bStateChanged && repeatReconcile && !repeatReconcile.m_bStateChanged;
 		report.m_bTerminalRestoreExact = terminalPreserved && processIdsCleared && neverReopened && epochNoOp;
-		report.m_sTerminalRestoreEvidence = string.Format("success preserved %1 | prefab/verification preserved %2 | process ids cleared %3", terminalPreserved, slot && slot.m_sSpawnedPrefab == "proof_group_prefab" && slot.m_bAliveVerified, processIdsCleared);
+		report.m_sTerminalRestoreEvidence = string.Format("success preserved %1 | prefab/verification preserved %2 | process ids cleared %3", terminalPreserved, slot && slot.m_sSpawnedPrefab == "proof_group_prefab" && slot.m_bAliveVerified && slot.m_bGameMasterVerified, processIdsCleared);
 		report.m_sTerminalRestoreEvidence = report.m_sTerminalRestoreEvidence + string.Format(" | reacquired actions %1 | repeat no-op %2", ResolveWorkCount(tick), repeatReconcile && !repeatReconcile.m_bStateChanged);
 	}
 
@@ -609,6 +803,49 @@ class HST_SpawnQueueProofService
 		report.m_sMigrationEvidence = string.Format("schema 43 -> %1 | active failed closed %2 | terminal preserved %3 | event %4", ResolveSchema(restored), activeFailedClosed, terminalPreserved, eventFound);
 	}
 
+	protected void ProveSchema45ActiveGroupIdentityMigration(HST_SpawnQueueProofReport report)
+	{
+		HST_CampaignSaveData legacySave = new HST_CampaignSaveData();
+		legacySave.m_iSchemaVersion = 44;
+		legacySave.m_iElapsedSeconds = 800;
+		HST_ForceSpawnResultState linkedBatch = BuildLegacyProofBatch("schema45_linked", true);
+		legacySave.m_aForceSpawnResults.Insert(linkedBatch);
+
+		HST_ActiveGroupState linkedGroup = new HST_ActiveGroupState();
+		linkedGroup.m_sGroupId = linkedBatch.m_sForceId;
+		linkedGroup.m_sOperationId = linkedBatch.m_sOperationId;
+		linkedGroup.m_sManifestId = linkedBatch.m_sManifestId;
+		linkedGroup.m_sSpawnResultId = linkedBatch.m_sResultId;
+		legacySave.m_aActiveGroups.Insert(linkedGroup);
+
+		HST_ActiveGroupState unresolvedGroup = new HST_ActiveGroupState();
+		unresolvedGroup.m_sGroupId = "force_schema45_unresolved";
+		unresolvedGroup.m_sOperationId = "operation_schema45_unresolved";
+		unresolvedGroup.m_sManifestId = "manifest_schema45_unresolved";
+		unresolvedGroup.m_sSpawnResultId = "result_schema45_missing";
+		legacySave.m_aActiveGroups.Insert(unresolvedGroup);
+
+		HST_CampaignState restored = legacySave.Restore();
+		HST_ActiveGroupState restoredLinked;
+		HST_ActiveGroupState restoredUnresolved;
+		if (restored)
+		{
+			restoredLinked = restored.FindActiveGroup(linkedGroup.m_sGroupId);
+			restoredUnresolved = restored.FindActiveGroup(unresolvedGroup.m_sGroupId);
+		}
+
+		bool derivedExact = restoredLinked && restoredLinked.m_sForceId == linkedBatch.m_sForceId
+			&& restoredLinked.m_sProjectionId == linkedBatch.m_sProjectionId;
+		bool unresolvedExact = restoredUnresolved && restoredUnresolved.m_sForceId.IsEmpty()
+			&& restoredUnresolved.m_sProjectionId.IsEmpty();
+		bool derivedEvent = HasProofEvent(restored, "migration_schema45_active_group_projection_derived");
+		bool unresolvedEvent = HasProofEvent(restored, "migration_schema45_active_group_projection_unresolved");
+		report.m_bSchema45ActiveGroupIdentityExact = restored && restored.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION
+			&& restored.m_iLastLoadedSchemaVersion == 44 && derivedExact && unresolvedExact && derivedEvent && unresolvedEvent;
+		report.m_sSchema45IdentityEvidence = string.Format("schema 44 -> %1 | unique linked identity %2 | unresolved left empty %3", ResolveSchema(restored), derivedExact, unresolvedExact);
+		report.m_sSchema45IdentityEvidence = report.m_sSchema45IdentityEvidence + string.Format(" | derived/unresolved events %1/%2", derivedEvent, unresolvedEvent);
+	}
+
 	protected HST_ForceSpawnResultState BuildLegacyProofBatch(string token, bool terminal)
 	{
 		HST_ForceSpawnResultState batch = new HST_ForceSpawnResultState();
@@ -645,6 +882,7 @@ class HST_SpawnQueueProofService
 		slot.m_bAliveVerified = true;
 		slot.m_bFactionVerified = true;
 		slot.m_bGroupVerified = true;
+		slot.m_bGameMasterVerified = true;
 		slot.m_bProjectionVerified = true;
 		batch.m_aSlotResults.Insert(slot);
 		return batch;
@@ -781,6 +1019,7 @@ class HST_SpawnQueueProofService
 		success.m_bAliveVerified = true;
 		success.m_bFactionVerified = true;
 		success.m_bGroupVerified = true;
+		success.m_bGameMasterVerified = true;
 		success.m_bProjectionVerified = true;
 		success.m_bSeatVerified = !work.m_sAssignedVehicleSlotId.IsEmpty();
 		HST_ForceSpawnResultState batch = FindProofBatch(batches, work.m_sResultId);
@@ -802,7 +1041,17 @@ class HST_SpawnQueueProofService
 		if (!queue || !work)
 			return null;
 		HST_ForceSpawnQueueSlotSuccess success = BuildProofSuccess(batches, work, entityId);
-		return queue.CompleteSlotSuccess(batches, manifest, success, nowSecond);
+		HST_ForceSpawnQueueCallbackResult completed = queue.CompleteSlotSuccess(batches, manifest, success, nowSecond);
+		if (!completed || !completed.m_bAccepted || !completed.m_Batch
+			|| completed.m_Batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+			return completed;
+		return queue.CompleteProjectionHandoff(
+			batches,
+			manifest,
+			completed.m_Batch.m_sResultId,
+			completed.m_Batch.m_sProjectionId,
+			completed.m_Batch.m_iAttemptGeneration,
+			nowSecond);
 	}
 
 	protected HST_ForceSpawnQueueSlotFailure BuildProofFailure(

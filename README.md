@@ -78,10 +78,17 @@ The repository contains a broad-alpha campaign foundation:
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
-- A schema-44 world-free force spawn-queue kernel with durable per-projection
-  results, exact required-slot admission, priority/FIFO scheduling, bounded work
-  and retention, retry/deadline/cancellation cleanup, callback verification, and
-  once-per-restore reconciliation before normal campaign authority resumes
+- A schema-45 force-spawn authority boundary with durable per-projection results,
+  explicit force/projection identity on active groups, exact required-slot
+  admission, bounded priority/FIFO scheduling and retention, retry/deadline/
+  cancellation handling, dependency-ordered cleanup, Game Master registration
+  evidence, and once-per-restore reconciliation
+- An engine-facing force-spawn adapter driven by the production coordinator once
+  per active-campaign second. Its first exact slice creates one infantry group
+  root plus every frozen member slot, records a durable nonterminal
+  `READY_FOR_HANDOFF` boundary, finalizes the projection in physical war before
+  recording queue success, and prevents older group-population paths from
+  duplicating queue-owned projections
 - Request-driven spawn placement for physical support and debug probes, with
   road/dry-ground/vehicle-safe validation, player/active-AI clearance checks,
   and visible placement failure reasons
@@ -128,12 +135,22 @@ coverage, and persist won/lost campaign outcomes. The systems are still rough:
 cache/tent polish, save/restart soak testing, final surveyed Everon
 coordinates, richer AI waypoints, full loadout-editor HST_Dev smoke, garage
 progression polish, balance tuning, and mission-specific interactable props
-still need to be connected incrementally. The schema-44 queue is not yet ticked
-by a physical executor and does not yet create or register world entities. Paid
-support has not migrated to it, and current garrison purchase manifests contain
-purchase provenance rather than an executable group root, so queue admission
-treats them as nondeployable instead of silently materializing them through the
-older physicalization path.
+still need to be connected incrementally. The schema-45 adapter currently
+supports exactly one infantry group root and its exact member slots; vehicle,
+asset, and multi-root manifests fail closed as unsupported. Paid support has
+not migrated to this path, and current garrison purchase manifests contain
+purchase provenance rather than an executable group root, so they remain
+intentionally nondeployable. Successful runtime restore/reprojection and a
+durable casualty/living-force/retirement ledger are still open. Normal spawn
+acquisition runs once per active-campaign second. During setup or after a won/
+lost outcome, the coordinator cancels every nonterminal batch and drains its
+cleanup with a monotonic runtime-only clock without advancing campaign elapsed
+time. A batch whose exact slots are all verified remains durably
+`READY_FOR_HANDOFF` until physical-war finalization succeeds; only then does the
+queue record `SUCCEEDED`. Restoring the ready state clears process-local
+evidence and requeues the exact realization instead of treating an interrupted
+handoff as success. The physical HST_Dev proof is implemented, but it is not
+runtime evidence until a fresh isolated run executes it.
 
 ## Alpha Command Menu
 
@@ -210,7 +227,7 @@ local `I` key/action path when troubleshooting menu access.
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. Server boot, admin diagnostics, command-menu readiness,
 and structured debug artifacts must report the same runtime identity from
-`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 44, and
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 45, and
 runtime-settings schema. Missing or mismatched identity means the packaged
 server/client runtime is stale or mixed, even if the repository is newer.
 

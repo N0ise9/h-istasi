@@ -74,6 +74,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ResourceLedgerService m_ResourceLedger;
 	protected ref HST_ForcePlanningService m_ForcePlanning;
 	protected ref HST_ForceSpawnQueueService m_ForceSpawnQueue;
+	protected ref HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
+	protected ref HST_ForceSpawnAdapterProofService m_ForceSpawnAdapterProof;
 	protected ref HST_MissionService m_Missions;
 	protected ref HST_PersistenceService m_Persistence;
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
@@ -107,6 +109,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_EnemyCommanderService m_EnemyCommander;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
+	protected int m_iForceSpawnQueueRuntimeClockSecond;
 	protected int m_iLastMarkerRefreshSecond = -999999;
 	protected int m_iSpawnDiagnosticsRemaining;
 	protected int m_iSetupPayloadDebugCount;
@@ -303,6 +306,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ForcePlanning = new HST_ForcePlanningService();
 		m_ForcePlanning.SetEventLogService(m_CampaignEvents);
 		m_ForceSpawnQueue = new HST_ForceSpawnQueueService();
+		m_ForceSpawnAdapter = new HST_ForceSpawnAdapterService();
+		m_ForceSpawnAdapterProof = new HST_ForceSpawnAdapterProofService();
 		m_Missions = new HST_MissionService();
 		m_Persistence = new HST_PersistenceService();
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
@@ -470,19 +475,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
 		{
 			bool terminalHQRuntimeChanged = EnsureTerminalCampaignRuntimeObjects();
-			if (terminalHQRuntimeChanged)
-				MarkMajorCampaignChange(true);
+			bool terminalSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign outcome is terminal");
+			bool terminalSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
+			if (terminalHQRuntimeChanged || terminalSpawnCleanupChanged || terminalSpawnMarkerChanged)
+				MarkMajorCampaignChange(terminalHQRuntimeChanged || terminalSpawnMarkerChanged);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
+			bool setupSpawnCleanupChanged = TickForceSpawnQueueTerminalCleanup("campaign is in setup");
+			bool setupSpawnMarkerChanged = m_PhysicalWar && m_PhysicalWar.ConsumeMarkerRefreshNeeded();
+			if (setupSpawnCleanupChanged || setupSpawnMarkerChanged)
+				MarkMajorCampaignChange(setupSpawnMarkerChanged);
 			TickCampaignDebugRunner(elapsedSeconds);
 			return;
 		}
 
 		m_State.m_iElapsedSeconds += elapsedSeconds;
+		m_iForceSpawnQueueRuntimeClockSecond = m_State.m_iElapsedSeconds;
+		bool forceSpawnQueueChanged = TickForceSpawnQueueRuntime();
 		bool missionChanged = m_Missions.Tick(m_State, m_Preset, m_Economy, elapsedSeconds);
 		bool missionExpiryChanged = ApplyPendingMissionExpiryEvents();
 		if (missionChanged || missionExpiryChanged)
@@ -525,9 +538,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (supportChanged && m_SupportRequests)
 			supportMarkerChanged = m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		bool physicalWarMarkerChanged = false;
-		if (physicalWarChanged && m_PhysicalWar)
+		if (m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
 		bool anyStateChanged = missionChanged || missionExpiryChanged || objectiveChanged || missionRuntimeChanged;
+		anyStateChanged = anyStateChanged || forceSpawnQueueChanged;
 		anyStateChanged = anyStateChanged || convoyRuntimeChanged;
 		anyStateChanged = anyStateChanged || convoyOutcomeChanged;
 		anyStateChanged = anyStateChanged || income > 0;
@@ -538,7 +552,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || physicalWarChanged || captureChanged || campaignOutcomeChanged;
 		anyStateChanged = anyStateChanged || civilianRuntimeChanged;
 
-		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged;
+		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || forceSpawnQueueChanged;
 		markerStateChanged = markerStateChanged || convoyOutcomeChanged;
 		markerStateChanged = markerStateChanged || income > 0;
 		markerStateChanged = markerStateChanged || periodicTownInfluenceChanged;
@@ -558,6 +572,68 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		TickCampaignDebugRunner(elapsedSeconds);
+	}
+
+	protected bool TickForceSpawnQueueRuntime()
+	{
+		if (!m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return false;
+		if (m_bCampaignDebugStateIsolationActive
+			&& (!m_ForceSpawnAdapterProof || !m_ForceSpawnAdapterProof.IsRuntimeExecutionActive()))
+			return false;
+
+		HST_ForceSpawnAdapterTickResult tick = m_ForceSpawnAdapter.Tick(
+			m_State,
+			m_ForceSpawnQueue,
+			m_PhysicalWar,
+			m_State.m_iElapsedSeconds);
+		if (!tick)
+			return false;
+		return tick.m_bStateChanged || tick.m_bRuntimeChanged;
+	}
+
+	protected bool TickForceSpawnQueueTerminalCleanup(string reason)
+	{
+		if (!m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar || m_bCampaignDebugStateIsolationActive)
+			return false;
+		m_iForceSpawnQueueRuntimeClockSecond = Math.Max(
+			m_State.m_iElapsedSeconds,
+			m_iForceSpawnQueueRuntimeClockSecond + 1);
+		int cleanupNowSecond = m_iForceSpawnQueueRuntimeClockSecond;
+		bool changed;
+		foreach (HST_ForceSpawnResultState batch : m_State.m_aForceSpawnResults)
+		{
+			if (!batch || IsTerminalForceSpawnBatch(batch)
+				|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
+				continue;
+			HST_ForceSpawnQueueCallbackResult cancel = m_ForceSpawnQueue.RequestCancel(
+				m_State.m_aForceSpawnResults,
+				batch.m_sResultId,
+				cleanupNowSecond,
+				reason);
+			if (cancel && (cancel.m_bAccepted || cancel.m_bStateChanged))
+				changed = true;
+		}
+		HST_ForceSpawnAdapterTickResult tick = m_ForceSpawnAdapter.Tick(
+			m_State,
+			m_ForceSpawnQueue,
+			m_PhysicalWar,
+			cleanupNowSecond);
+		return changed || (tick && (tick.m_bStateChanged || tick.m_bRuntimeChanged));
+	}
+
+	protected bool IsTerminalForceSpawnBatch(HST_ForceSpawnResultState batch)
+	{
+		return batch && (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED);
+	}
+
+	protected int CleanupCampaignDebugForceSpawnAdapterProof()
+	{
+		if (!m_ForceSpawnAdapterProof || !m_State || !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return 0;
+		return m_ForceSpawnAdapterProof.Cleanup(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
 	}
 
 	protected bool EnsureTerminalCampaignRuntimeObjects()
@@ -3935,6 +4011,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		RestoreCampaignDebugActorCommandAccess();
 		ClearCampaignDebugPlayerSupportRequests("run cancellation");
+		CleanupCampaignDebugForceSpawnAdapterProof();
 		RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "run cancellation"), false);
 		if (!ShouldCampaignDebugPreservePersistenceSmokeState())
 			RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(PERSISTENCE_SMOKE_PREFIX, "run cancellation persistence smoke cleanup"), false);
@@ -3982,6 +4059,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugEarlyMissionInstanceId = "";
 		}
 		ClearCampaignDebugPlayerSupportRequests("admin cleanup command");
+		int spawnAdapterCleaned = CleanupCampaignDebugForceSpawnAdapterProof();
+		report = report + string.Format("\nexact spawn-adapter fixture cleanup %1", spawnAdapterCleaned);
 		HST_CampaignDebugCaseResult prefixedCleanupCase = CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "admin cleanup command");
 		report = report + "\n" + BuildCampaignDebugPrefixedCleanupReport(prefixedCleanupCase);
 		RecordCampaignDebugCase(prefixedCleanupCase, false);
@@ -4010,6 +4089,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugIsolationStatus = "state isolation unavailable";
 		if (!m_State || !m_Persistence)
 			return false;
+		if (HasUnsafeForceSpawnRuntimeForDebugIsolation())
+		{
+			m_sCampaignDebugIsolationStatus = "exact spawn work or runtime bindings must settle before state isolation";
+			return false;
+		}
 
 		if (!m_Persistence.PrepareCampaignDebugIsolation(m_State))
 		{
@@ -4033,6 +4117,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_bCampaignDebugStateIsolationActive = true;
 		m_sCampaignDebugIsolationStatus = "active | cloned campaign state | autosave suspended | isolated checkpoints enabled | pre-run state persisted | profile " + profile;
 		return true;
+	}
+
+	protected bool HasUnsafeForceSpawnRuntimeForDebugIsolation()
+	{
+		if (m_ForceSpawnAdapter && m_ForceSpawnAdapter.CountBindings() > 0)
+			return true;
+		if (!m_State)
+			return true;
+		foreach (HST_ForceSpawnResultState batch : m_State.m_aForceSpawnResults)
+		{
+			if (batch && !IsTerminalForceSpawnBatch(batch))
+				return true;
+		}
+		return false;
 	}
 
 	protected bool StartCampaignDebugRun(int playerId, string profile)
@@ -4084,6 +4182,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_aCampaignDebugPrimitiveProofReleasedMissionIds.Clear();
 		InitializeCampaignDebugRunResult(playerId);
 		RecordCampaignDebugCase(BuildCampaignDebugStateIsolationStartCase());
+		CleanupCampaignDebugForceSpawnAdapterProof();
 		HST_CampaignDebugCaseResult staleCleanupCase = CleanupCampaignDebugPrefixedState(CAMPAIGN_DEBUG_PREFIX_ROOT, "start preflight");
 		RecordCampaignDebugCase(staleCleanupCase, false);
 		EnsureCampaignDebugActorCommandAccess("start");
@@ -12248,7 +12347,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugWaitSeconds = ResolveCampaignDebugConvoyMovementWaitSeconds();
 		else if (m_iCampaignDebugEarlyPhaseIndex == 7)
 			m_iCampaignDebugWaitSeconds = 2;
-		else if (m_iCampaignDebugEarlyPhaseIndex == 19)
+		else if (m_iCampaignDebugEarlyPhaseIndex >= 19 && m_iCampaignDebugEarlyPhaseIndex <= 24)
+			m_iCampaignDebugWaitSeconds = 0;
+		else if (m_iCampaignDebugEarlyPhaseIndex == 26)
 			m_iCampaignDebugWaitSeconds = HST_PhysicalWarService.CAMPAIGN_DEBUG_COMBAT_PROBE_SAMPLE_SECONDS + 1;
 		else
 			m_iCampaignDebugWaitSeconds = 1;
@@ -12453,6 +12554,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return 0;
 
 		int cleaned;
+		cleaned += CleanupCampaignDebugForceSpawnAdapterProof();
 		if (m_PhysicalWar)
 		{
 			foreach (HST_ActiveGroupState activeGroup : m_State.m_aActiveGroups)
@@ -12582,6 +12684,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugEarlyMissionInstanceId = "";
 		}
 		ClearCampaignDebugPlayerSupportRequests("run completion");
+		CleanupCampaignDebugForceSpawnAdapterProof();
 		RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(ResolveCampaignDebugCleanupPrefix(), "run completion"), false);
 		if (!ShouldCampaignDebugPreservePersistenceSmokeState())
 			RecordCampaignDebugCase(CleanupCampaignDebugPrefixedState(PERSISTENCE_SMOKE_PREFIX, "run completion persistence smoke cleanup"), false);
@@ -12840,7 +12943,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "EXTERNAL_PROCESS";
 		if (category == "hq" || feature == "hq_runtime")
 			return "PHYSICAL_RUNTIME";
-		if (feature.Contains("convoy") || caseId.Contains("convoy_physical") || caseId.Contains("physical_combat"))
+		if (feature.Contains("convoy") || caseId.Contains("convoy_physical") || caseId.Contains("physical_combat") || caseId.Contains("spawn_queue_physical_adapter"))
 			return "PHYSICAL_RUNTIME";
 		if (caseId.Contains("render_bubble") || caseId.Contains("civilian_population") || caseId.Contains("qrf") || feature.Contains("player_support"))
 			return "PHYSICAL_RUNTIME";
@@ -12887,6 +12990,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "physical_convoy_probe";
 		if (caseResult.m_sCaseId.Contains("physical_combat"))
 			return "physical_ai_contact_probe";
+		if (caseResult.m_sCaseId.Contains("spawn_queue_physical_adapter"))
+			return "production_force_spawn_queue_adapter_probe";
 		if (caseResult.m_sCategory == "preflight")
 			return "static_and_runtime_preflight";
 
@@ -12912,6 +13017,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "physical vehicle, crew, driver, route, movement, and outcome proof";
 		if (caseResult.m_sCaseId.Contains("physical_combat"))
 			return "physical AI spawn, hostility, contact, casualty, and cleanup proof";
+		if (caseResult.m_sCaseId.Contains("spawn_queue_physical_adapter"))
+			return "production spawn queue, exact runtime adapter, physical-war membership, handoff, failure cleanup, retirement, and isolation proof";
 		if (caseResult.m_sCategory == "action" || caseResult.m_sCategory == "observation" || caseResult.m_sCategory == "legacy")
 			return "narrow typed feature case";
 		if (caseResult.m_sCategory == "cleanup")
@@ -15554,7 +15661,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected int GetCampaignDebugEarlyPhaseStepCount()
 	{
-		return 21;
+		return 28;
 	}
 
 	protected bool IsCampaignDebugEarlyPhaseReportStep(int index)
@@ -15570,7 +15677,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 11:
 			case 17:
 			case 18:
-			case 20:
+			case 25:
+			case 27:
 				return true;
 		}
 
@@ -15592,7 +15700,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 16:
 			case 17:
 			case 18:
-			case 20:
+			case 25:
+			case 27:
 				return true;
 		}
 
@@ -15622,8 +15731,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 16: return "mechanic support recall/refund";
 			case 17: return "mechanic garage/vehicle/loadout reports";
 			case 18: return "mechanic command UI coverage";
-			case 19: return "mechanic physical AI combat/contact start";
-			case 20: return "mechanic physical AI combat/contact result";
+			case 19: return "mechanic exact spawn adapter partial-cancel start";
+			case 20: return "mechanic exact spawn adapter partial-cancel transition";
+			case 21: return "mechanic exact spawn adapter success member transition";
+			case 22: return "mechanic exact spawn adapter success and failure fixture transition";
+			case 23: return "mechanic exact spawn adapter failure member transition";
+			case 24: return "mechanic exact spawn adapter same-wave failure capture";
+			case 25: return "mechanic exact spawn adapter result";
+			case 26: return "mechanic physical AI combat/contact start";
+			case 27: return "mechanic physical AI combat/contact result";
 		}
 
 		return "phase 0-13 mechanic step " + string.Format("%1", index);
@@ -15652,8 +15768,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 16: return RunCampaignDebugSupportRecallTyped();
 			case 17: return BuildCampaignDebugVehicleAndLoadoutReport();
 			case 18: return RunCampaignDebugCommandUICoverageTyped();
-			case 19: return StartCampaignDebugPhysicalCombatProbeTyped();
-			case 20: return FinishCampaignDebugPhysicalCombatProbeTyped();
+			case 19: return StartCampaignDebugForceSpawnAdapterProof();
+			case 20: return CancelCampaignDebugForceSpawnAdapterPartialAndStartSuccess();
+			case 21: return WaitCampaignDebugForceSpawnAdapterSuccessMembers();
+			case 22: return CaptureCampaignDebugForceSpawnAdapterSuccessAndStartFailure();
+			case 23: return WaitCampaignDebugForceSpawnAdapterFailureMembers();
+			case 24: return CaptureCampaignDebugForceSpawnAdapterSameWaveFailure();
+			case 25: return FinishCampaignDebugForceSpawnAdapterProofTyped();
+			case 26: return StartCampaignDebugPhysicalCombatProbeTyped();
+			case 27: return FinishCampaignDebugPhysicalCombatProbeTyped();
 		}
 
 		return "h-istasi campaign debug | failed: unknown phase 0-13 mechanic step";
@@ -15793,6 +15916,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		queueCase.m_aEvidence.Insert(proof.m_sPriorityEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sFIFOEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sRetryEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sSameWaveEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sCleanupOrderEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sDeadlineEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sCancelEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sCapacityEvidence);
@@ -15800,6 +15925,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		queueCase.m_aEvidence.Insert(proof.m_sInterruptedRestoreEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sTerminalRestoreEvidence);
 		queueCase.m_aEvidence.Insert(proof.m_sMigrationEvidence);
+		queueCase.m_aEvidence.Insert(proof.m_sSchema45IdentityEvidence);
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.admission_required_slots", "all required group, vehicle, member, and asset slots admit exactly; missing group roots reject without mutation", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionExact), "spawn queue admission was partial or accepted a manifest without an executable group root");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.duplicate_request", "exact request replay remains idempotent after its deadline", proof.m_sDuplicateEvidence, CampaignDebugStatus(proof.m_bDuplicateIdempotent), "spawn queue replay created or changed a second durable batch");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.identity_conflict", "result, request, and projection conflicts reject while the same manifest may create a new projection", proof.m_sIdentityEvidence, CampaignDebugStatus(proof.m_bIdentityConflictRejected), "spawn queue durable identity conflict was accepted or manifest reuse was blocked");
@@ -15808,6 +15934,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.retry_backoff", "retryable failure waits for the exact bounded backoff and advances generation", proof.m_sRetryEvidence, CampaignDebugStatus(proof.m_bRetryBackoffExact), "spawn queue retry backoff or generation was incorrect");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.retry_no_duplicate", "registered siblings remain authoritative and only the failed slot retries", proof.m_sRetryEvidence, CampaignDebugStatus(proof.m_bRetryNoDuplicate), "spawn queue retry duplicated or replaced a registered sibling");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.stale_generation", "stale generation callbacks reject without changing durable registration", proof.m_sRetryEvidence, CampaignDebugStatus(proof.m_bStaleGenerationRejected), "spawn queue accepted a stale callback generation");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.same_wave_progression", "a deferred member and successful same-wave sibling settle before only the deferred slot retries", proof.m_sSameWaveEvidence, CampaignDebugStatus(proof.m_bSameWaveProgressionExact), "spawn queue stranded a deferred same-wave batch or duplicated its registered sibling");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.cleanup_dependency_order", "partial cancellation cleans assets, members, vehicles, then group roots across bounded work waves", proof.m_sCleanupOrderEvidence, CampaignDebugStatus(proof.m_bCleanupDependencyOrderExact), "spawn queue cleanup dependency order or bounded wave behavior was incorrect");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.deadline_cleanup", "deadline expiry cleans registered physical evidence before final failure", proof.m_sDeadlineEvidence, CampaignDebugStatus(proof.m_bDeadlineCleanupExact), "spawn queue finalized deadline expiry before cleanup completed");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.cancel_idempotency", "accepted cancellation survives deadline crossing and cleanup/cancel replays are idempotent", proof.m_sCancelEvidence, CampaignDebugStatus(proof.m_bCancelIdempotent), "spawn queue cancellation changed disposition or applied twice");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.capacity_bounds", "per-request, total-slot, and nonterminal-batch limits reject before mutation", proof.m_sCapacityEvidence, CampaignDebugStatus(proof.m_bCapacityBounded), "spawn queue exceeded a durable admission bound");
@@ -15815,6 +15943,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.interrupted_restore", "one restore epoch reconciles interrupted work once and completes by idempotent callback", proof.m_sInterruptedRestoreEvidence, CampaignDebugStatus(proof.m_bInterruptedRestoreExact), "spawn queue interrupted restore reconciled more than once or did not resume exactly");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.terminal_restore", "terminal success keeps historical verification, clears process IDs, and never reopens", proof.m_sTerminalRestoreEvidence, CampaignDebugStatus(proof.m_bTerminalRestoreExact), "spawn queue terminal restore lost history or reacquired work");
 		AddCampaignDebugAssertion(queueCase, "spawn_queue.schema43_migration", "schema 43 nonterminal rows fail closed while terminal history remains unchanged", proof.m_sMigrationEvidence, CampaignDebugStatus(proof.m_bSchema43MigrationExact), "spawn queue schema 43 migration invented resumable work or destroyed terminal history");
+		AddCampaignDebugAssertion(queueCase, "spawn_queue.schema45_active_group_identity", "schema 44 derives only unique active-group force/projection links and leaves unresolved rows empty", proof.m_sSchema45IdentityEvidence, CampaignDebugStatus(proof.m_bSchema45ActiveGroupIdentityExact), "schema 45 active-group projection migration invented or lost durable identity");
 		FinalizeCampaignDebugCaseFromAssertions(queueCase);
 		return queueCase;
 	}
@@ -17353,6 +17482,120 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return string.Format("target %1 | zone %2 | owner %3 | pos %4", EmptyCampaignDebugField(mission.m_sTargetZoneId), EmptyCampaignDebugField(zoneId), EmptyCampaignDebugField(owner), mission.m_vTargetPosition);
+	}
+
+	protected string StartCampaignDebugForceSpawnAdapterProof()
+	{
+		if (!m_ForceSpawnAdapterProof)
+			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+		return m_ForceSpawnAdapterProof.Start(
+			m_State,
+			m_ForceSpawnQueue,
+			m_ForceSpawnAdapter,
+			m_PhysicalWar,
+			m_sCampaignDebugMarkerPrefix,
+			m_bCampaignDebugStateIsolationActive,
+			m_bCampaignDebugPhysicalBlocked);
+	}
+
+	protected string CancelCampaignDebugForceSpawnAdapterPartialAndStartSuccess()
+	{
+		if (!m_ForceSpawnAdapterProof)
+			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+		return m_ForceSpawnAdapterProof.CancelPartialAndStartSuccess(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+	}
+
+	protected string WaitCampaignDebugForceSpawnAdapterSuccessMembers()
+	{
+		return "h-istasi campaign debug | exact spawn-adapter success root transition complete; awaiting member execution tick";
+	}
+
+	protected string CaptureCampaignDebugForceSpawnAdapterSuccessAndStartFailure()
+	{
+		if (!m_ForceSpawnAdapterProof)
+			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+		return m_ForceSpawnAdapterProof.CaptureAndRetireSuccess(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+	}
+
+	protected string WaitCampaignDebugForceSpawnAdapterFailureMembers()
+	{
+		return "h-istasi campaign debug | exact spawn-adapter failure root transition complete; awaiting same-wave member execution tick";
+	}
+
+	protected string CaptureCampaignDebugForceSpawnAdapterSameWaveFailure()
+	{
+		if (!m_ForceSpawnAdapterProof)
+			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+		return m_ForceSpawnAdapterProof.CaptureSameWaveFailure(m_State, m_ForceSpawnAdapter, m_PhysicalWar);
+	}
+
+	protected string FinishCampaignDebugForceSpawnAdapterProofTyped()
+	{
+		if (!m_ForceSpawnAdapterProof)
+		{
+			HST_CampaignDebugCaseResult missingCase = CreateCampaignDebugCase("early_mechanics.spawn_queue_physical_adapter", "early_mechanics", "force_spawn_adapter", "physical_runtime");
+			AddCampaignDebugAssertion(missingCase, "spawn_adapter.prerequisite", "production spawn-adapter proof service ready", "missing", "BLOCKED", "exact spawn-adapter proof service missing");
+			FinalizeCampaignDebugCaseFromAssertions(missingCase);
+			RecordCampaignDebugCase(missingCase);
+			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+		}
+
+		HST_ForceSpawnAdapterProofReport report = m_ForceSpawnAdapterProof.Finish(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+		HST_CampaignDebugCaseResult proofCase = BuildCampaignDebugForceSpawnAdapterProofCase(report);
+		RecordCampaignDebugCase(proofCase);
+		return string.Format("h-istasi campaign debug | exact spawn-adapter proof %1 | %2", proofCase.m_sStatus, proofCase.m_sReason);
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugForceSpawnAdapterProofCase(HST_ForceSpawnAdapterProofReport proofReport)
+	{
+		HST_CampaignDebugCaseResult proofCase = CreateCampaignDebugCase("early_mechanics.spawn_queue_physical_adapter", "early_mechanics", "force_spawn_adapter", "physical_runtime");
+		string prerequisite = "report missing";
+		string cancelEvidence = "report missing";
+		string durableEvidence = "report missing";
+		string runtimeEvidence = "report missing";
+		string handoffEvidence = "report missing";
+		string retirementEvidence = "report missing";
+		string failureEvidence = "report missing";
+		string isolationEvidence = "report missing";
+		if (proofReport)
+		{
+			prerequisite = proofReport.m_sPrerequisiteEvidence;
+			cancelEvidence = proofReport.m_sCancelEvidence;
+			durableEvidence = proofReport.m_sDurableEvidence;
+			runtimeEvidence = proofReport.m_sRuntimeEvidence;
+			handoffEvidence = proofReport.m_sHandoffEvidence;
+			retirementEvidence = proofReport.m_sRetirementEvidence;
+			failureEvidence = proofReport.m_sFailureCleanupEvidence;
+			isolationEvidence = proofReport.m_sIsolationEvidence;
+		}
+		proofCase.m_aEvidence.Insert(prerequisite);
+		proofCase.m_aEvidence.Insert(cancelEvidence);
+		proofCase.m_aEvidence.Insert(durableEvidence);
+		proofCase.m_aEvidence.Insert(runtimeEvidence);
+		proofCase.m_aEvidence.Insert(handoffEvidence);
+		proofCase.m_aEvidence.Insert(retirementEvidence);
+		proofCase.m_aEvidence.Insert(failureEvidence);
+		proofCase.m_aEvidence.Insert(isolationEvidence);
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.prerequisite", "schema 45 isolated physical runtime with production queue, adapter, and physical bridge", prerequisite, CampaignDebugStatus(proofReport && proofReport.m_bPrerequisiteReady, "BLOCKED"), "exact spawn-adapter prerequisites were unavailable");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.root_before_members", "real sentry group root registers one tick before either required member", cancelEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bRootBeforeMembers), "group root was not physically isolated ahead of both members");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.cancel_cleanup", "root-only cancellation removes the root before reaching terminal CANCELLED and clears all slot identities", cancelEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bCancelCleanupExact), "root-only cancellation leaked runtime or durable slot evidence");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.exact_prefabs", "registered root and both members match the frozen manifest prefabs exactly", durableEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bExactPrefabs), "runtime or durable prefab identity differed from the frozen manifest");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.durable_success", "exact three-slot batch reaches durable SUCCEEDED with complete verification evidence", durableEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bDurableSuccessExact), "durable exact three-slot success was not proven");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.native_membership", "both live member agents belong to the exact native group root", runtimeEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bNativeMembershipExact), "native AI membership did not match the exact root");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.game_master_membership", "editable group contains exactly two members and each editable member is parented to it", runtimeEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bGameMasterMembershipExact), "editable/Game Master membership did not match native membership");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.active_group_handoff", "successful exact projection hands root and two members to the canonical active group", handoffEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bActiveGroupHandoffExact), "active-group handoff was incomplete or used the wrong identities");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.retirement", "retirement deletes exactly two members then one root and releases all bindings", retirementEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bRetirementExact), "successful projection retirement was not exact");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.same_wave_failure_cleanup", "first unavailable acquired member preempts its unmaterialized sibling; next tick acknowledges both, removes the real root, and reaches FAILED_FINAL with zero bindings", failureEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bSameWaveFailureCleanupExact), "same-wave final failure did not clean the untouched sibling and real root exactly");
+		AddCampaignDebugAssertion(proofCase, "spawn_adapter.state_isolation", "all fixture manifests, batches, active groups, runtime entities, and adapter bindings restore to baseline", isolationEvidence, CampaignDebugForceSpawnAdapterStatus(proofReport, proofReport && proofReport.m_bStateIsolationExact), "exact spawn-adapter fixture state or runtime leaked after proof cleanup");
+		FinalizeCampaignDebugCaseFromAssertions(proofCase);
+		return proofCase;
+	}
+
+	protected string CampaignDebugForceSpawnAdapterStatus(HST_ForceSpawnAdapterProofReport proofReport, bool passed)
+	{
+		if (!proofReport || !proofReport.m_bPrerequisiteReady)
+			return "BLOCKED";
+		return CampaignDebugStatus(passed);
 	}
 
 	protected string StartCampaignDebugPhysicalCombatProbeTyped()
@@ -32080,6 +32323,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			report = report + "\n" + m_ResourceLedger.BuildReport(m_State);
 		if (m_ForceSpawnQueue)
 			report = report + "\n" + m_ForceSpawnQueue.BuildReport(m_State.m_aForceSpawnResults, m_State.m_iElapsedSeconds);
+		if (m_ForceSpawnAdapter)
+			report = report + "\n" + m_ForceSpawnAdapter.BuildReport();
 		if (m_CampaignEvents)
 			report = report + "\n" + m_CampaignEvents.BuildReport(m_State);
 		return report;

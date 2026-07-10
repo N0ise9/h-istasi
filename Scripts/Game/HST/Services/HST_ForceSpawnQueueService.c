@@ -40,6 +40,7 @@ class HST_ForceSpawnQueueWorkItem
 	string m_sNativeGroupId;
 	int m_iAttemptGeneration;
 	int m_iAttemptCount;
+	int m_iOrdinal = -1;
 	int m_iSeatIndex = -1;
 	int m_iRequiredCrew;
 	bool m_bRequired;
@@ -79,6 +80,7 @@ class HST_ForceSpawnQueueSlotSuccess
 	bool m_bAliveVerified;
 	bool m_bFactionVerified;
 	bool m_bGroupVerified;
+	bool m_bGameMasterVerified;
 	bool m_bProjectionVerified;
 	bool m_bSeatVerified;
 }
@@ -831,9 +833,11 @@ class HST_ForceSpawnQueueService
 			return AdvanceCleanupIfReady(batch, nowSecond);
 		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_IN_PROGRESS)
 			return false;
+		if (AdvanceInProgressState(batch, nowSecond))
+			return true;
 		if (!AllSlotsRegisteredAndVerified(batch, manifest))
 			return false;
-		MarkBatchSucceeded(batch, nowSecond);
+		MarkBatchReadyForHandoff(batch, nowSecond);
 		return true;
 	}
 
@@ -879,6 +883,7 @@ class HST_ForceSpawnQueueService
 		slotResult.m_bAliveVerified = false;
 		slotResult.m_bFactionVerified = false;
 		slotResult.m_bGroupVerified = false;
+		slotResult.m_bGameMasterVerified = false;
 		slotResult.m_bProjectionVerified = false;
 		slotResult.m_bSeatVerified = false;
 	}
@@ -974,12 +979,30 @@ class HST_ForceSpawnQueueService
 		int budget,
 		int nowSecond)
 	{
+		int added = AppendCleanupWorkItemsForKind(workItems, batch, SLOT_KIND_ASSET, budget, nowSecond);
+		if (added < budget)
+			added += AppendCleanupWorkItemsForKind(workItems, batch, SLOT_KIND_MEMBER, budget - added, nowSecond);
+		if (added < budget)
+			added += AppendCleanupWorkItemsForKind(workItems, batch, SLOT_KIND_VEHICLE, budget - added, nowSecond);
+		if (added < budget)
+			added += AppendCleanupWorkItemsForKind(workItems, batch, SLOT_KIND_GROUP, budget - added, nowSecond);
+		return added;
+	}
+
+	protected int AppendCleanupWorkItemsForKind(
+		array<ref HST_ForceSpawnQueueWorkItem> workItems,
+		HST_ForceSpawnResultState batch,
+		string slotKind,
+		int budget,
+		int nowSecond)
+	{
 		int added;
 		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
 		{
 			if (added >= budget)
 				break;
-			if (!slotResult || slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CLEANUP_PENDING)
+			if (!slotResult || slotResult.m_sSlotKind != slotKind
+				|| slotResult.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CLEANUP_PENDING)
 				continue;
 			HST_ForceSpawnQueueWorkItem item = BuildCleanupWorkItem(batch, slotResult);
 			workItems.Insert(item);
@@ -1008,8 +1031,7 @@ class HST_ForceSpawnQueueService
 		item.m_sPrefab = slotResult.m_sSpawnedPrefab;
 		item.m_sAssignedVehicleEntityId = slotResult.m_sAssignedVehicleEntityId;
 		item.m_sEntityId = slotResult.m_sEntityId;
-		if (slotResult.m_sSlotKind == SLOT_KIND_GROUP)
-			item.m_sNativeGroupId = slotResult.m_sNativeGroupId;
+		item.m_sNativeGroupId = slotResult.m_sNativeGroupId;
 		item.m_iAttemptGeneration = batch.m_iAttemptGeneration;
 		item.m_iAttemptCount = slotResult.m_iAttemptCount;
 		item.m_bRequired = true;
@@ -1043,6 +1065,7 @@ class HST_ForceSpawnQueueService
 		item.m_sNativeGroupId = slotResult.m_sNativeGroupId;
 		item.m_iAttemptGeneration = batch.m_iAttemptGeneration;
 		item.m_iAttemptCount = slotResult.m_iAttemptCount;
+		item.m_iOrdinal = descriptor.m_iOrdinal;
 		item.m_iSeatIndex = descriptor.m_iSeatIndex;
 		item.m_iRequiredCrew = descriptor.m_iRequiredCrew;
 		item.m_bRequired = descriptor.m_bRequired;
@@ -1284,7 +1307,52 @@ class HST_ForceSpawnQueueService
 			batch.m_sNativeGroupId = success.m_sNativeGroupId;
 		batch.m_iUpdatedAtSecond = nowSecond;
 		if (AllSlotsRegisteredAndVerified(batch, manifest))
-			MarkBatchSucceeded(batch, nowSecond);
+			MarkBatchReadyForHandoff(batch, nowSecond);
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult CompleteProjectionHandoff(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int attemptGeneration,
+		int nowSecond)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		if (!batches || !manifest || resultId.IsEmpty() || projectionId.IsEmpty() || CountByResult(batches, resultId) != 1)
+		{
+			result.m_sFailureReason = "spawn handoff callback identity is missing or ambiguous";
+			return result;
+		}
+		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
+		result.m_Batch = batch;
+		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId)
+		{
+			result.m_sFailureReason = "spawn handoff callback durable identity conflicts with the queue";
+			return result;
+		}
+		if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+		{
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			return result;
+		}
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+		{
+			result.m_sFailureReason = "spawn projection is not ready for physical handoff";
+			return result;
+		}
+		if (attemptGeneration != batch.m_iAttemptGeneration)
+			return MarkStaleCallback(result, "spawn handoff callback generation is stale", false);
+		if (!ValidateBatchManifest(batch, manifest).IsEmpty() || !AllSlotsRegisteredAndVerified(batch, manifest))
+		{
+			result.m_sFailureReason = "spawn handoff callback manifest or registered-slot evidence conflicts";
+			return result;
+		}
+		MarkBatchSucceeded(batch, nowSecond);
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
 		return result;
 	}
 
@@ -1336,8 +1404,9 @@ class HST_ForceSpawnQueueService
 			return "spawn success returned no entity id";
 		if (success.m_sSpawnedPrefab != descriptor.m_sPrefab)
 			return "spawned prefab does not match exact manifest slot";
-		if (!success.m_bAliveVerified || !success.m_bFactionVerified || !success.m_bGroupVerified || !success.m_bProjectionVerified)
-			return "spawned entity failed alive, faction, group, or projection verification";
+		if (!success.m_bAliveVerified || !success.m_bFactionVerified || !success.m_bGroupVerified
+			|| !success.m_bGameMasterVerified || !success.m_bProjectionVerified)
+			return "spawned entity failed alive, faction, group, Game Master, or projection verification";
 		string expectedNativeGroupId = ResolveExpectedNativeGroup(batch, descriptor);
 		if (descriptor.m_sSlotKind == SLOT_KIND_GROUP && success.m_sNativeGroupId.IsEmpty())
 			return "spawned group root returned no native group id";
@@ -1393,6 +1462,7 @@ class HST_ForceSpawnQueueService
 		slotResult.m_bAliveVerified = success.m_bAliveVerified;
 		slotResult.m_bFactionVerified = success.m_bFactionVerified;
 		slotResult.m_bGroupVerified = success.m_bGroupVerified;
+		slotResult.m_bGameMasterVerified = success.m_bGameMasterVerified;
 		slotResult.m_bProjectionVerified = success.m_bProjectionVerified;
 		slotResult.m_bSeatVerified = success.m_bSeatVerified;
 	}
@@ -1407,7 +1477,8 @@ class HST_ForceSpawnQueueService
 			return false;
 		if (slotResult.m_bAliveVerified != success.m_bAliveVerified || slotResult.m_bFactionVerified != success.m_bFactionVerified)
 			return false;
-		if (slotResult.m_bGroupVerified != success.m_bGroupVerified || slotResult.m_bProjectionVerified != success.m_bProjectionVerified)
+		if (slotResult.m_bGroupVerified != success.m_bGroupVerified || slotResult.m_bGameMasterVerified != success.m_bGameMasterVerified
+			|| slotResult.m_bProjectionVerified != success.m_bProjectionVerified)
 			return false;
 		return slotResult.m_bSeatVerified == success.m_bSeatVerified;
 	}
@@ -1758,6 +1829,55 @@ class HST_ForceSpawnQueueService
 		return result;
 	}
 
+	HST_ForceSpawnQueueCallbackResult FailProjectionFinal(
+		array<ref HST_ForceSpawnResultState> batches,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		string reason)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		if (!batches || resultId.IsEmpty() || projectionId.IsEmpty() || CountByResult(batches, resultId) != 1)
+		{
+			result.m_sFailureReason = "spawn projection failure identity is missing or ambiguous";
+			return result;
+		}
+		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
+		result.m_Batch = batch;
+		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId)
+		{
+			result.m_sFailureReason = "spawn projection failure durable identity conflicts with the queue";
+			return result;
+		}
+		if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL)
+		{
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			return result;
+		}
+		if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING
+			&& CleanupDispositionPrefix(batch.m_sTerminalReason) == CLEANUP_DISPOSITION_FINAL)
+		{
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			result.m_bCleanupRequired = true;
+			return result;
+		}
+		if (IsTerminalBatch(batch))
+		{
+			result.m_sFailureReason = "terminal spawn projection cannot be failed again";
+			return result;
+		}
+		if (reason.IsEmpty())
+			reason = "spawn projection failed before physical handoff";
+		BeginCleanup(batch, CLEANUP_DISPOSITION_FINAL, reason, nowSecond);
+		AdvanceCleanupIfReady(batch, nowSecond);
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		result.m_bCleanupRequired = batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING;
+		return result;
+	}
+
 	HST_ForceSpawnQueueCallbackResult CompleteCleanup(
 		array<ref HST_ForceSpawnResultState> batches,
 		string resultId,
@@ -1851,6 +1971,7 @@ class HST_ForceSpawnQueueService
 		slotResult.m_bAliveVerified = false;
 		slotResult.m_bFactionVerified = false;
 		slotResult.m_bGroupVerified = false;
+		slotResult.m_bGameMasterVerified = false;
 		slotResult.m_bProjectionVerified = false;
 		slotResult.m_bSeatVerified = false;
 	}
@@ -2037,6 +2158,17 @@ class HST_ForceSpawnQueueService
 		return false;
 	}
 
+	protected void MarkBatchReadyForHandoff(HST_ForceSpawnResultState batch, int nowSecond)
+	{
+		batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF;
+		batch.m_sTerminalReason = "all exact manifest slots registered; awaiting physical handoff";
+		batch.m_sLastFailureReason = "";
+		batch.m_iNextAttemptSecond = 0;
+		batch.m_iUpdatedAtSecond = nowSecond;
+		batch.m_iCompletedAtSecond = 0;
+		batch.m_bCancelRequested = false;
+	}
+
 	protected void MarkBatchSucceeded(HST_ForceSpawnResultState batch, int nowSecond)
 	{
 		batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
@@ -2101,7 +2233,8 @@ class HST_ForceSpawnQueueService
 			return false;
 		if (slotResult.m_sProjectionId != batch.m_sProjectionId)
 			return false;
-		if (!slotResult.m_bAliveVerified || !slotResult.m_bFactionVerified || !slotResult.m_bGroupVerified || !slotResult.m_bProjectionVerified)
+		if (!slotResult.m_bAliveVerified || !slotResult.m_bFactionVerified || !slotResult.m_bGroupVerified
+			|| !slotResult.m_bGameMasterVerified || !slotResult.m_bProjectionVerified)
 			return false;
 		if (descriptor.m_sSlotKind == SLOT_KIND_GROUP)
 			return !slotResult.m_sNativeGroupId.IsEmpty();
@@ -2327,6 +2460,15 @@ class HST_ForceSpawnQueueService
 			AdvanceInProgressState(batch, nowSecond);
 			return;
 		}
+		if (restoredStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+		{
+			batch.m_sLastFailureReason = "ready physical handoff was interrupted by restore";
+			batch.m_sTerminalReason = "";
+			batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE;
+			batch.m_iNextAttemptSecond = nowSecond;
+			batch.m_iUpdatedAtSecond = nowSecond;
+			return;
+		}
 		batch.m_eStatus = restoredStatus;
 		batch.m_iUpdatedAtSecond = nowSecond;
 	}
@@ -2433,6 +2575,7 @@ class HST_ForceSpawnQueueService
 		int deferredCount;
 		int retryableCount;
 		int cleanupCount;
+		int readyCount;
 		int oldestAge;
 		foreach (HST_ForceSpawnResultState batch : batches)
 		{
@@ -2448,6 +2591,8 @@ class HST_ForceSpawnQueueService
 				retryableCount++;
 			else if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
 				cleanupCount++;
+			else if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+				readyCount++;
 			oldestAge = Math.Max(oldestAge, Math.Max(0, nowSecond - batch.m_iCreatedAtSecond));
 		}
 		string report = string.Format(
@@ -2463,9 +2608,10 @@ class HST_ForceSpawnQueueService
 			deferredCount
 		);
 		report = report + string.Format(
-			" | retryable %1 | cleanup %2 | oldest %3s",
+			" | retryable %1 | cleanup %2 | ready %3 | oldest %4s",
 			retryableCount,
 			cleanupCount,
+			readyCount,
 			oldestAge
 		);
 		if (maxRows <= 0)
@@ -2727,6 +2873,8 @@ class HST_ForceSpawnQueueService
 			return "in_progress";
 		if (status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
 			return "cleanup_pending";
+		if (status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+			return "ready_for_handoff";
 		return "pending";
 	}
 

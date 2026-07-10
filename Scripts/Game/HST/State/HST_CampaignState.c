@@ -78,6 +78,8 @@ class HST_ActiveGroupState
 	string m_sOperationId;
 	string m_sManifestId;
 	string m_sSpawnResultId;
+	string m_sForceId;
+	string m_sProjectionId;
 	string m_sZoneId;
 	string m_sFactionKey;
 	string m_sMissionInstanceId;
@@ -889,7 +891,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 44;
+	static const int SCHEMA_VERSION = 45;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

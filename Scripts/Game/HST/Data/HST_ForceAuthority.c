@@ -164,6 +164,7 @@ class HST_ForceSpawnSlotResultState
 	int m_iUpdatedAtSecond;
 	bool m_bFactionVerified;
 	bool m_bGroupVerified;
+	bool m_bGameMasterVerified;
 	bool m_bProjectionVerified;
 	bool m_bSeatVerified;
 	bool m_bAliveVerified;

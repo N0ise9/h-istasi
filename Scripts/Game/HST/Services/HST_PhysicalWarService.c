@@ -164,6 +164,8 @@ class HST_PhysicalWarService
 
 	protected ref array<string> m_aRuntimeGroupIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupEntities = {};
+	protected ref array<string> m_aForceSpawnOwnedGroupIds = {};
+	protected ref array<string> m_aForceSpawnOwnedResultIds = {};
 	protected ref array<IEntity> m_aRuntimeMemberRepairCandidates = {};
 	protected ref array<string> m_aRuntimeGroupWaypointIds = {};
 	protected ref array<IEntity> m_aRuntimeGroupWaypointEntities = {};
@@ -218,6 +220,837 @@ class HST_PhysicalWarService
 		m_bDebugLoggingEnabled = enabled;
 	}
 
+	bool IsForceSpawnQueueManaged(HST_ActiveGroupState activeGroup)
+	{
+		return activeGroup && !activeGroup.m_sSpawnResultId.IsEmpty();
+	}
+
+	bool ShouldHoldForceSpawnProjection(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!IsForceSpawnQueueManaged(activeGroup))
+			return false;
+
+		string identityFailure;
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, identityFailure);
+		if (!batch)
+			return true;
+		if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+			return true;
+
+		return !activeGroup.m_bSpawnedEntity || GetForceSpawnGroupRoot(activeGroup) == null;
+	}
+
+	bool CanSpawnForceSpawnGroupMember(HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		if (!IsForceSpawnQueueManaged(activeGroup))
+		{
+			reason = "active group is not owned by the exact force spawn queue";
+			return false;
+		}
+
+		return EnsureForceSpawnNextMemberAIWorldBudget(activeGroup, reason);
+	}
+
+	bool TryRegisterForceSpawnGroupRoot(HST_CampaignState state, HST_ActiveGroupState activeGroup, SCR_AIGroup root, out string reason)
+	{
+		reason = "";
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, reason);
+		if (!batch)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_IN_PROGRESS)
+		{
+			reason = "force spawn group root registration requires an in-progress batch";
+			return false;
+		}
+		if (!ValidateForceSpawnGroupRoot(activeGroup, root, reason))
+			return false;
+
+		SCR_AIGroup registeredRoot = GetForceSpawnGroupRoot(activeGroup);
+		if (registeredRoot)
+		{
+			if (registeredRoot != root)
+			{
+				reason = "force spawn projection already owns another runtime group root";
+				return false;
+			}
+			if (!AcquireForceSpawnRuntimeOwnership(activeGroup, reason))
+				return false;
+			reason = "force spawn group root was already registered";
+			return true;
+		}
+		if (IsRuntimeHandleTrackedByAnotherGroup(activeGroup.m_sGroupId, root))
+		{
+			reason = "force spawn group root is already registered under another active group";
+			return false;
+		}
+		bool ownershipAlreadyHeld = IsForceSpawnRuntimeOwnershipHeld(activeGroup);
+		if (!AcquireForceSpawnRuntimeOwnership(activeGroup, reason))
+			return false;
+
+		PrepareForceSpawnGroupRoot(root);
+		if (!RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, root))
+		{
+			if (!ownershipAlreadyHeld)
+				ReleaseForceSpawnRuntimeOwnership(activeGroup);
+			reason = "force spawn group root could not be registered in physical runtime ownership";
+			return false;
+		}
+
+		ApplyCampaignDebugEntityName(root, "force_spawn_group", activeGroup.m_sGroupId);
+		return true;
+	}
+
+	bool TryRegisterForceSpawnGroupMember(HST_CampaignState state, HST_ActiveGroupState activeGroup, SCR_AIGroup root, IEntity member, int ordinal, out string reason)
+	{
+		reason = "";
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, reason);
+		if (!batch)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_IN_PROGRESS)
+		{
+			reason = "force spawn member registration requires an in-progress batch";
+			return false;
+		}
+		if (!IsForceSpawnRuntimeOwnershipHeld(activeGroup))
+		{
+			reason = "force spawn runtime ownership was not acquired by the group root";
+			return false;
+		}
+		if (GetForceSpawnGroupRoot(activeGroup) != root)
+		{
+			reason = "force spawn member does not reference the exact registered group root";
+			return false;
+		}
+		if (IsRuntimeHandleTrackedByAnotherGroup(activeGroup.m_sGroupId, member))
+		{
+			reason = "force spawn member is already registered under another active group";
+			return false;
+		}
+		if (IsRuntimeGroupEntityHandleTracked(activeGroup.m_sGroupId, member))
+		{
+			if (!ValidateForceSpawnGroupMember(activeGroup, root, member, ordinal, reason))
+				return false;
+			reason = "force spawn member was already registered";
+			return true;
+		}
+		if (!AttachForceSpawnGroupMember(activeGroup, root, member, ordinal, reason))
+			return false;
+		if (!ValidateForceSpawnGroupMember(activeGroup, root, member, ordinal, reason))
+		{
+			DetachForceSpawnMember(activeGroup, member);
+			return false;
+		}
+
+		DeactivateForceSpawnMember(member);
+		if (!RegisterRuntimeGroupEntityHandle(activeGroup.m_sGroupId, member))
+		{
+			DetachForceSpawnMember(activeGroup, member);
+			reason = "force spawn member could not be registered in physical runtime ownership";
+			return false;
+		}
+
+		ApplyCampaignDebugEntityName(member, string.Format("force_spawn_member_%1", ordinal), activeGroup.m_sGroupId);
+		return true;
+	}
+
+	SCR_AIGroup GetForceSpawnGroupRoot(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty())
+			return null;
+
+		SCR_AIGroup match;
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			SCR_AIGroup candidate = SCR_AIGroup.Cast(m_aRuntimeGroupEntities[i]);
+			if (!candidate || candidate.IsDeleted())
+				continue;
+			if (match && match != candidate)
+				return null;
+			match = candidate;
+		}
+
+		return match;
+	}
+
+	bool IsForceSpawnRuntimeHandleRegistered(HST_ActiveGroupState activeGroup, IEntity entity)
+	{
+		return activeGroup && IsRuntimeGroupEntityHandleTracked(activeGroup.m_sGroupId, entity);
+	}
+
+	bool TryUnregisterForceSpawnGroupMember(HST_ActiveGroupState activeGroup, IEntity member, bool deleteEntity, out string reason)
+	{
+		reason = "";
+		if (!ValidateForceSpawnCleanupOwnership(activeGroup, reason))
+			return false;
+		if (!member)
+		{
+			reason = "force spawn member was already absent";
+			return true;
+		}
+		if (SCR_AIGroup.Cast(member))
+		{
+			reason = "force spawn member cleanup received a group root";
+			return false;
+		}
+		if (member.IsDeleted())
+		{
+			RemoveRuntimeGroupEntityHandleExact(activeGroup.m_sGroupId, member);
+			reason = "force spawn member was already deleted";
+			return true;
+		}
+		if (!IsRuntimeGroupEntityHandleTracked(activeGroup.m_sGroupId, member))
+		{
+			if (IsRuntimeHandleTrackedByAnotherGroup(activeGroup.m_sGroupId, member))
+			{
+				reason = "force spawn member is owned by another active group";
+				return false;
+			}
+			if (deleteEntity && !member.IsDeleted())
+				SCR_EntityHelper.DeleteEntityAndChildren(member);
+			reason = "force spawn member was already unregistered";
+			return true;
+		}
+
+		DetachForceSpawnMember(activeGroup, member);
+		RemoveRuntimeGroupEntityHandleExact(activeGroup.m_sGroupId, member);
+		if (deleteEntity && member)
+			SCR_EntityHelper.DeleteEntityAndChildren(member);
+		return true;
+	}
+
+	bool TryUnregisterForceSpawnGroupRoot(HST_ActiveGroupState activeGroup, SCR_AIGroup root, bool deleteEntity, out string reason)
+	{
+		reason = "";
+		if (!ValidateForceSpawnCleanupOwnership(activeGroup, reason))
+			return false;
+		if (CountForceSpawnRuntimeMembers(activeGroup) > 0)
+		{
+			reason = "force spawn group root cleanup requires all exact members to be removed first";
+			return false;
+		}
+		if (root && root.IsDeleted())
+		{
+			DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
+			RemoveRuntimeGroupEntityHandleExact(activeGroup.m_sGroupId, root);
+			reason = "force spawn group root was already deleted";
+			return true;
+		}
+
+		SCR_AIGroup registeredRoot = GetForceSpawnGroupRoot(activeGroup);
+		if (!root && !registeredRoot)
+		{
+			reason = "force spawn group root was already absent";
+			return true;
+		}
+		if (registeredRoot && registeredRoot != root)
+		{
+			reason = "force spawn group root cleanup does not match the registered root";
+			return false;
+		}
+		if (!registeredRoot)
+		{
+			if (IsRuntimeHandleTrackedByAnotherGroup(activeGroup.m_sGroupId, root))
+			{
+				reason = "force spawn group root is owned by another active group";
+				return false;
+			}
+			if (deleteEntity && root && !root.IsDeleted())
+				SCR_EntityHelper.DeleteEntityAndChildren(root);
+			reason = "force spawn group root was already unregistered";
+			return true;
+		}
+
+		DeleteRuntimeGroupWaypoints(activeGroup.m_sGroupId);
+		RemoveRuntimeGroupEntityHandleExact(activeGroup.m_sGroupId, registeredRoot);
+		if (deleteEntity && registeredRoot)
+			SCR_EntityHelper.DeleteEntityAndChildren(registeredRoot);
+		return true;
+	}
+
+	int CountForceSpawnRuntimeMembers(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty())
+			return 0;
+
+		array<IEntity> uniqueMembers = {};
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+
+			IEntity entity = m_aRuntimeGroupEntities[i];
+			if (!entity || entity.IsDeleted() || SCR_AIGroup.Cast(entity) || uniqueMembers.Contains(entity))
+				continue;
+			uniqueMembers.Insert(entity);
+		}
+
+		return uniqueMembers.Count();
+	}
+
+	bool FinalizeForceSpawnProjection(HST_CampaignState state, HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, reason);
+		if (!batch)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+		{
+			reason = "force spawn projection cannot hand off before every exact slot is ready";
+			return false;
+		}
+		bool ownershipHeld = IsForceSpawnRuntimeOwnershipHeld(activeGroup);
+		bool alreadyApplied = !ownershipHeld && activeGroup.m_bSpawnedEntity && activeGroup.m_sRuntimeEntityId == activeGroup.m_sGroupId;
+		if (!ownershipHeld && !alreadyApplied)
+		{
+			reason = "force spawn projection has no local runtime ownership";
+			return false;
+		}
+
+		SCR_AIGroup root = GetForceSpawnGroupRoot(activeGroup);
+		if (!root || root.IsDeleted() || CountRegisteredForceSpawnGroupSlots(batch) != 1)
+		{
+			reason = "force spawn projection requires exactly one registered runtime group root";
+			return false;
+		}
+		int memberCount = CountForceSpawnRuntimeMembers(activeGroup);
+		if (memberCount != CountRegisteredForceSpawnMemberSlots(batch))
+		{
+			reason = string.Format("force spawn runtime member count %1 does not match registered manifest count %2", memberCount, CountRegisteredForceSpawnMemberSlots(batch));
+			return false;
+		}
+		if (!ValidateForceSpawnGroupCardinality(root, memberCount, reason))
+			return false;
+		if (!ValidateRegisteredForceSpawnMembers(activeGroup, root, reason))
+			return false;
+
+		if (!alreadyApplied)
+		{
+			ActivateRegisteredForceSpawnMembers(activeGroup, root);
+			ApplyFinalForceSpawnProjectionState(state, activeGroup, memberCount);
+			ReleaseForceSpawnRuntimeOwnership(activeGroup);
+			RefreshActiveGroupZoneCounts(state, activeGroup);
+			m_bMarkerRefreshNeeded = true;
+		}
+		return true;
+	}
+
+	bool MarkForceSpawnProjectionFailed(HST_CampaignState state, HST_ActiveGroupState activeGroup, string failureReason)
+	{
+		string identityFailure;
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, identityFailure);
+		if (!batch)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+			return false;
+		if (GetForceSpawnGroupRoot(activeGroup) || CountForceSpawnRuntimeMembers(activeGroup) > 0)
+			return false;
+
+		activeGroup.m_bSpawnAttempted = true;
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_sRuntimeStatus = "spawn_failed";
+		activeGroup.m_sSpawnFailureReason = failureReason;
+		activeGroup.m_iSpawnedAgentCount = 0;
+		activeGroup.m_iLastSeenAliveCount = 0;
+		activeGroup.m_iSurvivorInfantryCount = 0;
+		activeGroup.m_iSurvivorVehicleCount = 0;
+		ReleaseForceSpawnRuntimeOwnership(activeGroup);
+		RefreshActiveGroupZoneCounts(state, activeGroup);
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
+	bool PrepareForceSpawnProjectionCleanup(HST_CampaignState state, HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		HST_ForceSpawnResultState batch = ValidateForceSpawnProjectionIdentity(state, activeGroup, reason);
+		if (!batch)
+			return false;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+		{
+			reason = "force spawn runtime retirement requires a successful exact projection";
+			return false;
+		}
+		if (!GetForceSpawnGroupRoot(activeGroup))
+		{
+			reason = "force spawn runtime retirement has no exact registered group root";
+			return false;
+		}
+
+		return AcquireForceSpawnRuntimeOwnership(activeGroup, reason);
+	}
+
+	bool ReleaseForceSpawnRuntimeOwnership(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		bool removed;
+		for (int i = m_aForceSpawnOwnedGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aForceSpawnOwnedGroupIds[i] != activeGroup.m_sGroupId || i >= m_aForceSpawnOwnedResultIds.Count())
+				continue;
+			if (m_aForceSpawnOwnedResultIds[i] != activeGroup.m_sSpawnResultId)
+				continue;
+
+			m_aForceSpawnOwnedResultIds.Remove(i);
+			m_aForceSpawnOwnedGroupIds.Remove(i);
+			removed = true;
+		}
+
+		return removed;
+	}
+
+	protected HST_ForceSpawnResultState ValidateForceSpawnProjectionIdentity(HST_CampaignState state, HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		if (!state || !activeGroup)
+		{
+			reason = "force spawn projection state or active group is missing";
+			return null;
+		}
+		if (activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sSpawnResultId.IsEmpty() || activeGroup.m_sManifestId.IsEmpty())
+		{
+			reason = "force spawn active-group identity is incomplete";
+			return null;
+		}
+		if (activeGroup.m_sForceId.IsEmpty() || activeGroup.m_sProjectionId.IsEmpty() || activeGroup.m_sOperationId.IsEmpty())
+		{
+			reason = "force spawn active-group force, projection, or operation identity is incomplete";
+			return null;
+		}
+		if (state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup)
+		{
+			reason = "force spawn active group is not the canonical campaign projection";
+			return null;
+		}
+
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(activeGroup.m_sSpawnResultId);
+		if (!batch)
+		{
+			reason = "force spawn result is missing";
+			return null;
+		}
+		if (batch.m_sResultId != activeGroup.m_sSpawnResultId || batch.m_sManifestId != activeGroup.m_sManifestId)
+		{
+			reason = "force spawn result or manifest identity conflicts with active group";
+			return null;
+		}
+		if (batch.m_sForceId != activeGroup.m_sForceId || batch.m_sProjectionId != activeGroup.m_sProjectionId)
+		{
+			reason = "force spawn force or projection identity conflicts with active group";
+			return null;
+		}
+		if (batch.m_sOperationId != activeGroup.m_sOperationId)
+		{
+			reason = "force spawn operation identity conflicts with active group";
+			return null;
+		}
+
+		return batch;
+	}
+
+	protected bool ValidateForceSpawnGroupRoot(HST_ActiveGroupState activeGroup, SCR_AIGroup root, out string reason)
+	{
+		reason = "";
+		if (!activeGroup || !root)
+		{
+			reason = "force spawn group root is missing";
+			return false;
+		}
+		if (root.GetAgentsCount() > 0 || root.GetServerAgentsCount() > 0 || root.GetSpawnQueueSize() > 0 || root.IsInitializing())
+		{
+			reason = "force spawn group root contains native or queued members before exact registration";
+			return false;
+		}
+
+		string actualFaction;
+		if (!IsRuntimeGroupRootFactionExpected(root, activeGroup, actualFaction))
+		{
+			reason = string.Format("force spawn group root faction mismatch: expected %1 actual %2", activeGroup.m_sFactionKey, ReportText(actualFaction));
+			return false;
+		}
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(root.FindComponent(SCR_EditableGroupComponent));
+		if (!editableGroup || !editableGroup.GetFaction() || editableGroup.GetFaction().GetFactionKey() != activeGroup.m_sFactionKey)
+		{
+			reason = "force spawn group root editable faction is missing or mismatched";
+			return false;
+		}
+
+		return true;
+	}
+
+	protected bool ValidateForceSpawnGroupMember(HST_ActiveGroupState activeGroup, SCR_AIGroup root, IEntity member, int ordinal, out string reason)
+	{
+		reason = "";
+		if (!activeGroup || !root || !member || ordinal < 0)
+		{
+			reason = "force spawn member, group root, or ordinal is invalid";
+			return false;
+		}
+		if (SCR_AIGroup.Cast(member) || IsPlayerControlledRuntimeEntity(member) || !IsLivingEntity(member))
+		{
+			reason = "force spawn member is a group root, player-controlled, or not alive";
+			return false;
+		}
+		if (ResolveEntityFactionKey(member) != activeGroup.m_sFactionKey)
+		{
+			reason = "force spawn member faction does not match the active group";
+			return false;
+		}
+
+		AIAgent agent = ResolveRuntimeMemberAIAgent(member);
+		if (!agent || agent.GetParentGroup() != root)
+		{
+			reason = "force spawn member is not attached to the exact native group root";
+			return false;
+		}
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(root.FindComponent(SCR_EditableGroupComponent));
+		SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(member);
+		if (!editableGroup || !editableMember || editableMember.GetParentEntity() != editableGroup)
+		{
+			reason = "force spawn member is not attached to the exact editable group root";
+			return false;
+		}
+
+		return true;
+	}
+
+	protected bool AttachForceSpawnGroupMember(HST_ActiveGroupState activeGroup, SCR_AIGroup root, IEntity member, int ordinal, out string reason)
+	{
+		reason = "";
+		if (!activeGroup || !root || !member || ordinal < 0)
+		{
+			reason = "force spawn member attach input is invalid";
+			return false;
+		}
+		if (SCR_AIGroup.Cast(member) || IsPlayerControlledRuntimeEntity(member) || !IsLivingEntity(member))
+		{
+			reason = "force spawn member cannot attach because it is a group root, player-controlled, or not alive";
+			return false;
+		}
+		if (ResolveEntityFactionKey(member) != activeGroup.m_sFactionKey)
+		{
+			reason = "force spawn member cannot attach with a mismatched faction";
+			return false;
+		}
+
+		AIAgent agent = ResolveRuntimeMemberAIAgent(member);
+		if (!agent)
+		{
+			reason = "force spawn member has no AI agent";
+			return false;
+		}
+		if (agent.GetParentGroup() && agent.GetParentGroup() != root)
+		{
+			reason = "force spawn member already belongs to another native group";
+			return false;
+		}
+		if (agent.GetParentGroup() != root)
+		{
+			root.AddAgentFromControlledEntity(member);
+			if (agent.GetParentGroup() != root && !root.AddAIEntityToGroup(member))
+				root.AddAgent(agent);
+		}
+		if (agent.GetParentGroup() != root)
+		{
+			reason = "force spawn member could not attach to the exact native group";
+			return false;
+		}
+
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(root.FindComponent(SCR_EditableGroupComponent));
+		SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(member);
+		if (!editableGroup || !editableMember)
+		{
+			root.RemoveAgentFromControlledEntity(member);
+			reason = "force spawn member or group is missing editable registration";
+			return false;
+		}
+		if (editableMember.GetParentEntity() && editableMember.GetParentEntity() != editableGroup)
+		{
+			root.RemoveAgentFromControlledEntity(member);
+			reason = "force spawn member already belongs to another editable group";
+			return false;
+		}
+		if (editableMember.GetParentEntity() != editableGroup)
+			editableMember.SetParentEntity(editableGroup);
+		if (editableMember.GetParentEntity() != editableGroup)
+		{
+			root.RemoveAgentFromControlledEntity(member);
+			editableMember.SetParentEntity(null);
+			reason = "force spawn member could not attach to the exact editable group";
+			return false;
+		}
+
+		DeactivateForceSpawnMember(member);
+		return true;
+	}
+
+	protected void PrepareForceSpawnGroupRoot(SCR_AIGroup root)
+	{
+		if (!root)
+			return;
+
+		root.SetSpawnImmediately(false);
+		root.SetNumberOfMembersToSpawn(0);
+		root.SetMaxUnitsToSpawn(0);
+		root.SetMemberSpawnDelay(0);
+		root.SetDeleteWhenEmpty(false);
+		root.DeactivateAI();
+	}
+
+	protected void DeactivateForceSpawnMember(IEntity member)
+	{
+		if (!member)
+			return;
+
+		AIControlComponent control = AIControlComponent.Cast(member.FindComponent(AIControlComponent));
+		if (control)
+			control.DeactivateAI();
+		AIAgent agent = ResolveRuntimeMemberAIAgent(member);
+		if (agent)
+			agent.DeactivateAI();
+	}
+
+	protected void DetachForceSpawnMember(HST_ActiveGroupState activeGroup, IEntity member)
+	{
+		if (!activeGroup || !member)
+			return;
+
+		SCR_AIGroup root = GetForceSpawnGroupRoot(activeGroup);
+		if (root)
+			root.RemoveAgentFromControlledEntity(member);
+		SCR_EditableEntityComponent editableMember = SCR_EditableEntityComponent.GetEditableEntity(member);
+		if (editableMember)
+			editableMember.SetParentEntity(null);
+	}
+
+	protected bool AcquireForceSpawnRuntimeOwnership(HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sSpawnResultId.IsEmpty())
+		{
+			reason = "force spawn runtime ownership identity is incomplete";
+			return false;
+		}
+
+		for (int i = 0; i < m_aForceSpawnOwnedGroupIds.Count(); i++)
+		{
+			if (m_aForceSpawnOwnedGroupIds[i] != activeGroup.m_sGroupId || i >= m_aForceSpawnOwnedResultIds.Count())
+				continue;
+			if (m_aForceSpawnOwnedResultIds[i] == activeGroup.m_sSpawnResultId)
+				return true;
+
+			reason = "active group is already owned by another force spawn result";
+			return false;
+		}
+
+		m_aForceSpawnOwnedGroupIds.Insert(activeGroup.m_sGroupId);
+		m_aForceSpawnOwnedResultIds.Insert(activeGroup.m_sSpawnResultId);
+		return true;
+	}
+
+	protected bool IsForceSpawnRuntimeOwnershipHeld(HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+
+		for (int i = 0; i < m_aForceSpawnOwnedGroupIds.Count(); i++)
+		{
+			if (m_aForceSpawnOwnedGroupIds[i] == activeGroup.m_sGroupId && i < m_aForceSpawnOwnedResultIds.Count() && m_aForceSpawnOwnedResultIds[i] == activeGroup.m_sSpawnResultId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected bool IsForceSpawnRuntimeOwnershipHeldForGroup(string groupId)
+	{
+		return !groupId.IsEmpty() && m_aForceSpawnOwnedGroupIds.Contains(groupId);
+	}
+
+	protected bool ValidateForceSpawnCleanupOwnership(HST_ActiveGroupState activeGroup, out string reason)
+	{
+		reason = "";
+		if (!activeGroup || !IsForceSpawnQueueManaged(activeGroup))
+		{
+			reason = "force spawn cleanup active group is missing or unmanaged";
+			return false;
+		}
+		if (!IsForceSpawnRuntimeOwnershipHeld(activeGroup))
+		{
+			reason = "force spawn cleanup does not own the local runtime projection";
+			return false;
+		}
+
+		return true;
+	}
+
+	protected bool IsRuntimeHandleTrackedByAnotherGroup(string groupId, IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (i >= m_aRuntimeGroupEntities.Count() || m_aRuntimeGroupEntities[i] != entity)
+				continue;
+			if (m_aRuntimeGroupIds[i] != groupId)
+				return true;
+		}
+
+		return false;
+	}
+
+	protected int RemoveRuntimeGroupEntityHandleExact(string groupId, IEntity entity)
+	{
+		if (groupId.IsEmpty() || !entity)
+			return 0;
+
+		int removed;
+		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)
+		{
+			if (m_aRuntimeGroupIds[i] != groupId || i >= m_aRuntimeGroupEntities.Count() || m_aRuntimeGroupEntities[i] != entity)
+				continue;
+
+			m_aRuntimeGroupEntities.Remove(i);
+			m_aRuntimeGroupIds.Remove(i);
+			removed++;
+		}
+
+		return removed;
+	}
+
+	protected int CountRegisteredForceSpawnGroupSlots(HST_ForceSpawnResultState batch)
+	{
+		return CountRegisteredForceSpawnSlotsByKind(batch, HST_ForceSpawnQueueService.SLOT_KIND_GROUP);
+	}
+
+	protected int CountRegisteredForceSpawnMemberSlots(HST_ForceSpawnResultState batch)
+	{
+		return CountRegisteredForceSpawnSlotsByKind(batch, HST_ForceSpawnQueueService.SLOT_KIND_MEMBER);
+	}
+
+	protected int CountRegisteredForceSpawnSlotsByKind(HST_ForceSpawnResultState batch, string slotKind)
+	{
+		if (!batch)
+			return 0;
+
+		int count;
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (slotResult && slotResult.m_sSlotKind == slotKind && slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected bool ValidateRegisteredForceSpawnMembers(HST_ActiveGroupState activeGroup, SCR_AIGroup root, out string reason)
+	{
+		reason = "";
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+			IEntity member = m_aRuntimeGroupEntities[i];
+			if (!member || SCR_AIGroup.Cast(member))
+				continue;
+
+			string memberReason;
+			if (!ValidateForceSpawnGroupMember(activeGroup, root, member, 0, memberReason))
+			{
+				reason = "registered force spawn member failed final validation: " + memberReason;
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	protected bool ValidateForceSpawnGroupCardinality(SCR_AIGroup root, int expectedMembers, out string reason)
+	{
+		reason = "";
+		if (!root || root.IsDeleted())
+		{
+			reason = "force spawn final group root is missing or deleted";
+			return false;
+		}
+		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(root.FindComponent(SCR_EditableGroupComponent));
+		if (!editableGroup)
+		{
+			reason = "force spawn final group root has no editable group";
+			return false;
+		}
+		if (root.IsInitializing() || root.GetSpawnQueueSize() != 0)
+		{
+			reason = "force spawn final group root still has native initialization or queued spawning";
+			return false;
+		}
+		if (root.GetAgentsCount() != expectedMembers || root.GetServerAgentsCount() != expectedMembers
+			|| root.GetPlayerAndAgentCount() != expectedMembers || editableGroup.GetSize() != expectedMembers)
+		{
+			reason = string.Format(
+				"force spawn final group cardinality mismatch: expected %1 agents/server/playerEditable %2/%3/%4/%5",
+				expectedMembers,
+				root.GetAgentsCount(),
+				root.GetServerAgentsCount(),
+				root.GetPlayerAndAgentCount(),
+				editableGroup.GetSize());
+			return false;
+		}
+		return true;
+	}
+
+	protected void ActivateRegisteredForceSpawnMembers(HST_ActiveGroupState activeGroup, SCR_AIGroup root)
+	{
+		if (!activeGroup || !root)
+			return;
+
+		for (int i = 0; i < m_aRuntimeGroupIds.Count(); i++)
+		{
+			if (m_aRuntimeGroupIds[i] != activeGroup.m_sGroupId || i >= m_aRuntimeGroupEntities.Count())
+				continue;
+			IEntity member = m_aRuntimeGroupEntities[i];
+			if (!member || SCR_AIGroup.Cast(member))
+				continue;
+
+			AIControlComponent control = AIControlComponent.Cast(member.FindComponent(AIControlComponent));
+			if (control)
+				control.ActivateAI();
+			AIAgent agent = ResolveRuntimeMemberAIAgent(member);
+			if (agent)
+				agent.ActivateAI();
+		}
+
+		root.SetMaxUnitsToSpawn(Math.Max(0, CountForceSpawnRuntimeMembers(activeGroup)));
+		root.ActivateAllMembers();
+		root.ActivateAI();
+	}
+
+	protected void ApplyFinalForceSpawnProjectionState(HST_CampaignState state, HST_ActiveGroupState activeGroup, int memberCount)
+	{
+		activeGroup.m_bSpawnAttempted = true;
+		activeGroup.m_bSpawnedEntity = true;
+		activeGroup.m_sRuntimeEntityId = activeGroup.m_sGroupId;
+		activeGroup.m_sRuntimeStatus = ResolveSpawnedRuntimeStatus(activeGroup, activeGroup.m_sRuntimeStatus);
+		activeGroup.m_sSpawnFailureReason = "";
+		activeGroup.m_iSpawnedAgentCount = memberCount;
+		activeGroup.m_iLastSeenAliveCount = memberCount;
+		activeGroup.m_iSurvivorInfantryCount = Math.Min(Math.Max(0, activeGroup.m_iInfantryCount), memberCount);
+		activeGroup.m_iSurvivorVehicleCount = Math.Max(0, activeGroup.m_iSurvivorVehicleCount);
+		if (state)
+			activeGroup.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
+	}
+
 	protected void ApplyCampaignDebugEntityName(IEntity entity, string label, string sourceId)
 	{
 		if (!entity || sourceId.IsEmpty() || !sourceId.Contains(CAMPAIGN_DEBUG_PREFIX_ROOT))
@@ -268,6 +1101,8 @@ class HST_PhysicalWarService
 
 		HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
 		if (!activeGroup || activeGroup.m_sSupportRequestId.IsEmpty())
+			return false;
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
 			return false;
 		if (IsTerminalActiveGroupRuntimeStatus(activeGroup))
 			return false;
@@ -2854,6 +3689,8 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!IsMissionConvoyGroup(activeGroup))
 				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
+				continue;
 			if (HasActiveMissionForConvoyGroup(state, activeGroup))
 				continue;
 
@@ -3224,6 +4061,8 @@ class HST_PhysicalWarService
 	protected bool TrySpawnMissionConvoyGroup(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveMissionState mission, HST_MissionAssetState asset, HST_ActiveGroupState activeGroup, int index)
 	{
 		if (!state || !mission || !asset || !activeGroup)
+			return false;
+		if (IsForceSpawnQueueManaged(activeGroup))
 			return false;
 		if (IsMissionConvoyVehicleAssetResolved(asset))
 			return false;
@@ -6128,6 +6967,11 @@ class HST_PhysicalWarService
 			changed = compositions.EnsureZoneComposition(state, zone) || changed;
 			slots = compositions.BuildZoneSpawnSlots(state, zone);
 		}
+		if (HasHeldForceSpawnGarrisonProjection(state, zone))
+		{
+			ApplyActiveZoneCounts(state, zone);
+			return changed;
+		}
 
 		bool hasActiveGarrisonGroup = HasActiveGarrisonGroup(state, zone);
 		if (hasActiveGarrisonGroup && !fullGarrison)
@@ -6236,6 +7080,8 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sZoneId != zoneId)
 				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
+				continue;
 			if (activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 				continue;
 			if (IsTownSecurityPoliceProjection(activeGroup))
@@ -6277,6 +7123,8 @@ class HST_PhysicalWarService
 		HST_ActiveGroupState activeGroup = state.FindActiveGroup(groupId);
 		if (!activeGroup)
 			return false;
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
+			return false;
 
 		if (activeGroup.m_sRuntimeStatus == "folded")
 			return true;
@@ -6297,6 +7145,8 @@ class HST_PhysicalWarService
 		{
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sZoneId != zone.m_sZoneId || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup))
+				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
 
 			if (IsTownSecurityPoliceProjection(activeGroup))
@@ -6752,6 +7602,8 @@ class HST_PhysicalWarService
 			if (activeGroup.m_sZoneId != zone.m_sZoneId)
 				continue;
 			if (!IsTownSecurityPoliceProjection(activeGroup))
+				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
 
 			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
@@ -7304,6 +8156,8 @@ class HST_PhysicalWarService
 		{
 			if (!activeGroup || (activeGroup.m_sRuntimeStatus != "routing" && activeGroup.m_sRuntimeStatus != "support_active" && activeGroup.m_sRuntimeStatus != "support_recalling"))
 				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
+				continue;
 
 			ref array<vector> routePositions = BuildActiveGroupRoutePositions(ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
 			bool simulateUnspawnedRoute = CanSimulateUnspawnedActiveGroupRoute(activeGroup);
@@ -7581,6 +8435,8 @@ class HST_PhysicalWarService
 	{
 		if (!state || !activeGroup)
 			return false;
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
+			return false;
 		if (!activeGroup.m_bSpawnedEntity || activeGroup.m_iInfantryCount <= 0 || activeGroup.m_iVehicleCount > 0)
 			return false;
 		if (activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup) || IsSupportRequestActiveGroup(activeGroup))
@@ -7622,6 +8478,8 @@ class HST_PhysicalWarService
 	protected bool ShouldAssignTownPolicePatrol(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
 	{
 		if (!IsTownPoliceActiveGroup(state, preset, activeGroup))
+			return false;
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
 			return false;
 		if (!activeGroup.m_bSpawnedEntity || activeGroup.m_iInfantryCount <= 0)
 			return false;
@@ -8597,6 +9455,8 @@ class HST_PhysicalWarService
 
 	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state = null, HST_CampaignPreset preset = null)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
 
@@ -8715,6 +9575,8 @@ class HST_PhysicalWarService
 
 	protected bool TrySpawnActiveGroupAttachedVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_iVehicleCount <= 0 || activeGroup.m_iInfantryCount <= 0 || IsMissionConvoyGroup(activeGroup))
 			return false;
 		if (GetRuntimeVehicleEntity(activeGroup.m_sGroupId))
@@ -8924,6 +9786,11 @@ class HST_PhysicalWarService
 
 	protected void ConfirmSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, int attempt)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+		{
+			ClearPendingActiveGroupPopulation(activeGroup);
+			return;
+		}
 		if (!activeGroup || activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 		{
 			ClearPendingActiveGroupPopulation(activeGroup);
@@ -9002,6 +9869,8 @@ class HST_PhysicalWarService
 
 	protected bool TryFinalizeSpawnedGroupAgents(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 
@@ -9381,6 +10250,8 @@ class HST_PhysicalWarService
 
 	protected bool TryKickPendingNativeGroupSpawn(HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 		if (IsActiveGroupSpawnMode(activeGroup.m_sSpawnFallbackMode, ACTIVE_GROUP_SPAWN_MODE_GROUP_RETRY))
@@ -9440,6 +10311,8 @@ class HST_PhysicalWarService
 
 	protected bool TryFlushPendingNativeGroupSpawnImmediately(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 
@@ -9536,6 +10409,41 @@ class HST_PhysicalWarService
 			return Math.Max(1, activeGroup.m_iInfantryCount);
 
 		return 1;
+	}
+
+	protected bool EnsureForceSpawnNextMemberAIWorldBudget(HST_ActiveGroupState activeGroup, out string failureReason)
+	{
+		failureReason = "";
+		if (!activeGroup)
+		{
+			failureReason = "AIWorld exact-member budget check failed: active group is missing.";
+			return false;
+		}
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (!aiWorld)
+		{
+			failureReason = "AIWorld exact-member budget check failed: AIWorld is missing.";
+			return false;
+		}
+
+		int registeredMembers = CountForceSpawnRuntimeMembers(activeGroup);
+		int remainingMembers = Math.Max(1, activeGroup.m_iInfantryCount - registeredMembers);
+		int currentLimited = aiWorld.GetCurrentAmountOfLimitedAIs();
+		int currentLimit = aiWorld.GetAILimit();
+		int requiredLimit = currentLimited + remainingMembers + ACTIVE_GROUP_AI_WORLD_REQUIRED_HEADROOM;
+		if (requiredLimit < ACTIVE_GROUP_AI_WORLD_MIN_LIMIT)
+			requiredLimit = ACTIVE_GROUP_AI_WORLD_MIN_LIMIT;
+		if (currentLimit < requiredLimit)
+			aiWorld.SetAILimit(requiredLimit);
+
+		currentLimited = aiWorld.GetCurrentAmountOfLimitedAIs();
+		currentLimit = aiWorld.GetAILimit();
+		if (!aiWorld.CanLimitedAIBeAdded() || (currentLimit > 0 && currentLimited + remainingMembers > currentLimit))
+		{
+			failureReason = string.Format("AIWorld exact-member budget lacks headroom: remaining %1 | %2", remainingMembers, BuildAIWorldBudgetDebug());
+			return false;
+		}
+		return true;
 	}
 
 	protected bool EnsureActiveGroupAIWorldBudget(HST_ActiveGroupState activeGroup, string source, out string failureReason)
@@ -10175,6 +11083,8 @@ class HST_PhysicalWarService
 
 	protected bool TryPopulatePendingActiveGroupFromNativeSlots(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 		if (activeGroup.m_iInfantryCount <= 0)
@@ -10228,6 +11138,8 @@ class HST_PhysicalWarService
 
 	protected int SpawnNativeSlotMembersIntoRuntimeGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return 0;
 		if (!group || !activeGroup || activeGroup.m_iInfantryCount <= 0)
 			return 0;
 		if (!group.m_aUnitPrefabSlots || group.m_aUnitPrefabSlots.Count() <= 0)
@@ -10298,6 +11210,8 @@ class HST_PhysicalWarService
 
 	protected bool TryPopulatePendingActiveGroupFromFactionInfantry(HST_ActiveGroupState activeGroup, string requestedStatus, HST_CampaignState state, string source, bool allowInitializingFallback = false)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 			return false;
 		if (activeGroup.m_iInfantryCount <= 0)
@@ -10472,6 +11386,8 @@ class HST_PhysicalWarService
 
 	protected int SpawnFactionInfantryIntoRuntimeGroup(SCR_AIGroup group, HST_ActiveGroupState activeGroup)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return 0;
 		if (!group || !activeGroup)
 			return 0;
 
@@ -10887,6 +11803,8 @@ class HST_PhysicalWarService
 
 	protected bool TryRepairEmptyRuntimeGroupPopulation(HST_CampaignState state, HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || !activeGroup.m_bSpawnedEntity || activeGroup.m_iInfantryCount <= 0)
 			return false;
 		if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents" || IsTerminalActiveGroupRuntimeStatus(activeGroup))
@@ -10932,6 +11850,8 @@ class HST_PhysicalWarService
 	{
 		if (!state || !mission || !activeGroup)
 			return false;
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
 			return false;
 		if (IsPersistenceSmokeMission(mission) || IsPersistenceSmokeActiveGroup(activeGroup))
@@ -10956,6 +11876,8 @@ class HST_PhysicalWarService
 
 	protected bool TryQueuePrimaryActiveGroupRespawnForRepair(HST_ActiveGroupState activeGroup, HST_CampaignState state, string requestedStatus, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_iInfantryCount <= 0)
 			return false;
 
@@ -10987,6 +11909,8 @@ class HST_PhysicalWarService
 
 	protected bool TryRepairMissionConvoyCrewPopulation(HST_CampaignState state, HST_ActiveMissionState mission, HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!CanAttemptMissionConvoyCrewPopulationRepair(state, mission, activeGroup))
 			return false;
 
@@ -11519,6 +12443,8 @@ class HST_PhysicalWarService
 			m_bMarkerRefreshNeeded = true;
 		if (!state || !activeGroup)
 			return;
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
+			return;
 
 		HST_ZoneState zone = state.FindZone(activeGroup.m_sZoneId);
 		if (zone)
@@ -11527,6 +12453,8 @@ class HST_PhysicalWarService
 
 	protected bool TrySpawnActiveVehicle(HST_ActiveGroupState activeGroup, HST_CampaignState state = null)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
 			return false;
 
@@ -11869,6 +12797,8 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || !IsTerminalActiveGroupRuntimeStatus(activeGroup))
 			return false;
+		if (IsForceSpawnRuntimeOwnershipHeldForGroup(activeGroup.m_sGroupId))
+			return false;
 
 		int removedHandles;
 		int deletedGroupRoots;
@@ -11921,6 +12851,8 @@ class HST_PhysicalWarService
 	protected int UnregisterRuntimeCrewHandlesForRespawn(string groupId, string source)
 	{
 		if (groupId.IsEmpty())
+			return 0;
+		if (IsForceSpawnRuntimeOwnershipHeldForGroup(groupId))
 			return 0;
 
 		int removedHandles;
@@ -12001,6 +12933,12 @@ class HST_PhysicalWarService
 		{
 			if (!activeGroup)
 				continue;
+			if (IsForceSpawnQueueManaged(activeGroup))
+			{
+				if (!ShouldHoldForceSpawnProjection(state, activeGroup))
+					NormalizeStaticActiveGroupRoute(state, preset, activeGroup);
+				continue;
+			}
 
 			NormalizeStaticActiveGroupRoute(state, preset, activeGroup);
 
@@ -12039,6 +12977,8 @@ class HST_PhysicalWarService
 
 	protected bool ReconcileActiveGroupRuntimeMemberCounts(HST_CampaignState state, HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!state || !activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup))
 			return false;
 		if (!HasRuntimeGroupEntity(activeGroup.m_sGroupId))
@@ -12120,6 +13060,8 @@ class HST_PhysicalWarService
 			HST_ActiveGroupState activeGroup = state.m_aActiveGroups[i];
 			if (!activeGroup || activeGroup.m_sMissionInstanceId.IsEmpty() || IsMissionConvoyGroup(activeGroup))
 				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
+				continue;
 
 			HST_ActiveMissionState mission = state.FindActiveMission(activeGroup.m_sMissionInstanceId);
 			if (mission && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
@@ -12136,6 +13078,8 @@ class HST_PhysicalWarService
 
 	protected void NormalizeStaticActiveGroupRoute(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup)
 	{
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
+			return;
 		if (!activeGroup || activeGroup.m_bQRF || IsMissionConvoyGroup(activeGroup))
 			return;
 		if (IsSupportRequestActiveGroup(activeGroup))
@@ -12170,6 +13114,8 @@ class HST_PhysicalWarService
 
 	protected bool CanSimulateUnspawnedActiveGroupRoute(HST_ActiveGroupState activeGroup)
 	{
+		if (IsForceSpawnQueueManaged(activeGroup))
+			return false;
 		if (!activeGroup || activeGroup.m_bSpawnedEntity)
 			return false;
 		if (!IsSupportRequestActiveGroup(activeGroup))
@@ -12253,6 +13199,8 @@ class HST_PhysicalWarService
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup || !activeGroup.m_bSpawnedEntity || activeGroup.m_sRuntimeStatus == "folded" || activeGroup.m_sRuntimeStatus == "spawn_failed")
+				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
 			bool missionConvoyGroup = IsMissionConvoyGroup(activeGroup);
 			if (missionConvoyGroup && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
@@ -12652,6 +13600,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsTownSecurityPoliceProjection(activeGroup))
 				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
+				return true;
 			if (activeGroup.m_sRuntimeStatus == "eliminated")
 				continue;
 			if (activeGroup.m_sRuntimeStatus == "spawn_failed")
@@ -12670,6 +13620,24 @@ class HST_PhysicalWarService
 		return false;
 	}
 
+	protected bool HasHeldForceSpawnGarrisonProjection(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return false;
+
+		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
+		{
+			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup))
+				continue;
+			if (activeGroup.m_sGarrisonZoneId != zone.m_sZoneId || activeGroup.m_sFactionKey != zone.m_sOwnerFactionKey)
+				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
+				return true;
+		}
+
+		return false;
+	}
+
 	protected void ApplyActiveZoneCounts(HST_CampaignState state, HST_ZoneState zone)
 	{
 		int infantryCount;
@@ -12677,6 +13645,8 @@ class HST_PhysicalWarService
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup || activeGroup.m_bQRF || IsMissionOwnedActiveGroup(activeGroup) || activeGroup.m_sZoneId != zone.m_sZoneId)
+				continue;
+			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
 
 			if (activeGroup.m_sRuntimeStatus == "eliminated" || activeGroup.m_sRuntimeStatus == "spawn_failed" || activeGroup.m_sRuntimeStatus == "folded")
@@ -12710,6 +13680,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsTownSecurityPoliceProjection(activeGroup))
 				continue;
+			if (IsForceSpawnQueueManaged(activeGroup))
+				continue;
 			if (activeGroup.m_sRuntimeStatus != "spawn_pending_agents")
 				continue;
 
@@ -12739,6 +13711,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsTownSecurityPoliceProjection(activeGroup))
 				continue;
+			if (IsForceSpawnQueueManaged(activeGroup))
+				continue;
 			if (activeGroup.m_sRuntimeStatus == "spawn_pending_agents")
 				groupCount++;
 		}
@@ -12748,6 +13722,9 @@ class HST_PhysicalWarService
 
 	protected void FoldActiveGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
+		if (!state || !activeGroup || ShouldHoldForceSpawnProjection(state, activeGroup))
+			return;
+
 		HST_GarrisonState garrison = state.FindGarrison(activeGroup.m_sZoneId, activeGroup.m_sFactionKey);
 		if (!garrison)
 		{
@@ -12869,8 +13846,12 @@ class HST_PhysicalWarService
 		}
 	}
 
-	protected void DeleteRuntimeGroupEntity(string groupId, bool deleteVehicle = true)
+	protected bool DeleteRuntimeGroupEntity(string groupId, bool deleteVehicle = true)
 	{
+		if (groupId.IsEmpty() || IsForceSpawnRuntimeOwnershipHeldForGroup(groupId))
+			return false;
+
+		bool existed = GetRuntimeGroupEntity(groupId) != null;
 		DeleteRuntimeCrewEntities(groupId);
 
 		for (int j = m_aRuntimeVehicleGroupIds.Count() - 1; j >= 0; j--)
@@ -12888,10 +13869,14 @@ class HST_PhysicalWarService
 				m_aRuntimeVehicleEntities.Remove(j);
 			m_aRuntimeVehicleGroupIds.Remove(j);
 		}
+
+		return existed;
 	}
 
 	protected void DeleteRuntimeCrewEntities(string groupId)
 	{
+		if (IsForceSpawnRuntimeOwnershipHeldForGroup(groupId))
+			return;
 		DeleteRuntimeGroupWaypoints(groupId);
 
 		for (int i = m_aRuntimeGroupIds.Count() - 1; i >= 0; i--)

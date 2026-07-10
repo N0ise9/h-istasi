@@ -653,6 +653,8 @@ class HST_CampaignSaveData
 		target.m_sOperationId = source.m_sOperationId;
 		target.m_sManifestId = source.m_sManifestId;
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
+		target.m_sForceId = source.m_sForceId;
+		target.m_sProjectionId = source.m_sProjectionId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
@@ -1696,6 +1698,7 @@ class HST_CampaignSaveData
 		target.m_iUpdatedAtSecond = source.m_iUpdatedAtSecond;
 		target.m_bFactionVerified = source.m_bFactionVerified;
 		target.m_bGroupVerified = source.m_bGroupVerified;
+		target.m_bGameMasterVerified = source.m_bGameMasterVerified;
 		target.m_bProjectionVerified = source.m_bProjectionVerified;
 		target.m_bSeatVerified = source.m_bSeatVerified;
 		target.m_bAliveVerified = source.m_bAliveVerified;
@@ -2283,6 +2286,7 @@ class HST_CampaignSaveData
 		}
 
 		int duplicateSpawnRows = FinalizeDuplicateForceSpawnQueueIdentity(restoredSchemaVersion, migrationSecond);
+		MigrateActiveGroupProjectionIdentity(restoredSchemaVersion, migrationSecond);
 
 		if (migratedLegacySpawnQueue && !HasCampaignEventId("migration_schema44_spawn_queue"))
 		{
@@ -2324,6 +2328,124 @@ class HST_CampaignSaveData
 		m_aCampaignEvents.Insert(migrationEvent);
 	}
 
+	protected void MigrateActiveGroupProjectionIdentity(int restoredSchemaVersion, int migrationSecond)
+	{
+		if (restoredSchemaVersion >= 45)
+			return;
+
+		int derivedCount;
+		int unresolvedCount;
+		foreach (HST_ActiveGroupState group : m_aActiveGroups)
+		{
+			if (!group || (!group.m_sForceId.IsEmpty() && !group.m_sProjectionId.IsEmpty()))
+				continue;
+
+			HST_ForceSpawnResultState linkedBatch;
+			int linkedCount;
+			foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+			{
+				if (!IsActiveGroupSpawnIdentityCandidate(group, spawnResult))
+					continue;
+				linkedBatch = spawnResult;
+				linkedCount++;
+				if (linkedCount > 1)
+					break;
+			}
+
+			if (linkedCount == 1 && linkedBatch)
+			{
+				if (group.m_sForceId.IsEmpty())
+					group.m_sForceId = linkedBatch.m_sForceId;
+				if (group.m_sProjectionId.IsEmpty())
+					group.m_sProjectionId = linkedBatch.m_sProjectionId;
+				derivedCount++;
+				continue;
+			}
+
+			if (HasActiveGroupSpawnLinkEvidence(group))
+				unresolvedCount++;
+		}
+
+		RecordSchema45ActiveGroupIdentityEvidence(derivedCount, unresolvedCount, migrationSecond);
+	}
+
+	protected bool IsActiveGroupSpawnIdentityCandidate(HST_ActiveGroupState group, HST_ForceSpawnResultState spawnResult)
+	{
+		if (!group || !spawnResult || spawnResult.m_sForceId.IsEmpty() || spawnResult.m_sProjectionId.IsEmpty())
+			return false;
+		if (!group.m_sForceId.IsEmpty() && group.m_sForceId != spawnResult.m_sForceId)
+			return false;
+		if (!group.m_sProjectionId.IsEmpty() && group.m_sProjectionId != spawnResult.m_sProjectionId)
+			return false;
+
+		bool resultMatch = !group.m_sSpawnResultId.IsEmpty() && group.m_sSpawnResultId == spawnResult.m_sResultId;
+		if (!group.m_sSpawnResultId.IsEmpty() && !resultMatch)
+			return false;
+		bool manifestMatch = !group.m_sManifestId.IsEmpty() && group.m_sManifestId == spawnResult.m_sManifestId;
+		if (!group.m_sManifestId.IsEmpty() && !manifestMatch)
+			return false;
+		bool operationMatch = !group.m_sOperationId.IsEmpty() && group.m_sOperationId == spawnResult.m_sOperationId;
+		if (!group.m_sOperationId.IsEmpty() && !operationMatch)
+			return false;
+
+		bool forceMatch = (!group.m_sForceId.IsEmpty() && group.m_sForceId == spawnResult.m_sForceId)
+			|| (!group.m_sGroupId.IsEmpty() && group.m_sGroupId == spawnResult.m_sForceId);
+		if (!forceMatch)
+			return false;
+		if (resultMatch)
+			return true;
+		return manifestMatch && operationMatch;
+	}
+
+	protected bool HasActiveGroupSpawnLinkEvidence(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return false;
+		if (!group.m_sSpawnResultId.IsEmpty() || !group.m_sForceId.IsEmpty() || !group.m_sProjectionId.IsEmpty())
+			return true;
+
+		foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
+		{
+			if (!spawnResult)
+				continue;
+			if (!group.m_sManifestId.IsEmpty() && group.m_sManifestId == spawnResult.m_sManifestId)
+				return true;
+			if (!group.m_sOperationId.IsEmpty() && group.m_sOperationId == spawnResult.m_sOperationId)
+				return true;
+			if (!group.m_sGroupId.IsEmpty() && group.m_sGroupId == spawnResult.m_sForceId)
+				return true;
+		}
+		return false;
+	}
+
+	protected void RecordSchema45ActiveGroupIdentityEvidence(int derivedCount, int unresolvedCount, int migrationSecond)
+	{
+		if (derivedCount > 0 && !HasCampaignEventId("migration_schema45_active_group_projection_derived"))
+		{
+			HST_CampaignEventState derivedEvent = new HST_CampaignEventState();
+			derivedEvent.m_sEventId = "migration_schema45_active_group_projection_derived";
+			derivedEvent.m_sCategory = "migration";
+			derivedEvent.m_sAggregateType = "active_group_projection";
+			derivedEvent.m_sAggregateId = "schema45";
+			derivedEvent.m_sTransition = "unique_spawn_identity_derived";
+			derivedEvent.m_sReason = string.Format("derived force and projection identity for %1 uniquely linked active groups", derivedCount);
+			derivedEvent.m_iCreatedAtSecond = migrationSecond;
+			m_aCampaignEvents.Insert(derivedEvent);
+		}
+
+		if (unresolvedCount <= 0 || HasCampaignEventId("migration_schema45_active_group_projection_unresolved"))
+			return;
+		HST_CampaignEventState unresolvedEvent = new HST_CampaignEventState();
+		unresolvedEvent.m_sEventId = "migration_schema45_active_group_projection_unresolved";
+		unresolvedEvent.m_sCategory = "migration";
+		unresolvedEvent.m_sAggregateType = "active_group_projection";
+		unresolvedEvent.m_sAggregateId = "schema45";
+		unresolvedEvent.m_sTransition = "linked_identity_unresolved";
+		unresolvedEvent.m_sReason = string.Format("left %1 linked active groups unresolved because no unique spawn identity was provable", unresolvedCount);
+		unresolvedEvent.m_iCreatedAtSecond = migrationSecond;
+		m_aCampaignEvents.Insert(unresolvedEvent);
+	}
+
 	protected bool IsForceSpawnBatchTerminal(HST_EForceSpawnBatchStatus status)
 	{
 		return status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
@@ -2359,6 +2481,7 @@ class HST_CampaignSaveData
 			slotResult.m_sNativeGroupId = "";
 			slotResult.m_bFactionVerified = false;
 			slotResult.m_bGroupVerified = false;
+			slotResult.m_bGameMasterVerified = false;
 			slotResult.m_bProjectionVerified = false;
 			slotResult.m_bSeatVerified = false;
 			slotResult.m_bAliveVerified = false;

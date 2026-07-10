@@ -90,10 +90,10 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. In-process diagnostics now use a development-world-only cloned-state boundary; runtime proof and session-restart cleanliness remain open. |
-| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 44 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts, the resource transaction ledger, and bounded event log. Paid training and visible garrison confirmation are migrated. Static validation and Workbench script compilation pass; isolated runtime and save/load certification remain pending. |
-| CRI-2: Exact force manifests | In progress | Immutable persisted manifests, expiring quotes, exact catalog validation, the visible garrison quote/confirm slice, and a schema-44 world-free SpawnQueue kernel are implemented. The queue owns per-projection results, all-required executable-slot admission, bounded priority/FIFO work, retries, cleanup, restore reconciliation, and pin-aware terminal retention. Deterministic state/service proof is not physical execution evidence. The garrison exactness claim still stops at the accepted purchase-time aggregate increment: its purchase-only manifest has no executable group root and is intentionally nondeployable. Paid support, the engine-facing queue tick/adapter, runtime entity registration, and accepted settlement compaction remain open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | Planned | Runtime forces realize manifests exactly, retain operation links through virtual/physical transitions, and prove route progress, contact, arrival, and fold-back without duplication. |
+| CRI-0: Repository truth and baseline | Complete for this checkpoint | Current code, configuration, documentation, validation, and runtime evidence are inventoried without treating broad feature presence as certification. The previously diagnosed oversized-proof Workbench compiler crash is fixed: the latest combined schema-45 Game-module compile created the game and completed script validation successfully, and a correctly launched normal project open remained responsive through the bounded survival check without reproducing the crash. In-process diagnostics use a development-world-only cloned-state boundary; fresh runtime proof and session-restart cleanliness remain open. |
+| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 45 retains persisted monotonic IDs, typed command envelopes/results, bounded idempotency receipts, the resource transaction ledger, and bounded event log. Paid training and visible garrison confirmation are migrated. Static validation and the latest schema-45 Game-module compile/create/script validation pass; isolated runtime and save/load certification remain pending. |
+| CRI-2: Exact force manifests | In progress | Immutable persisted manifests, expiring quotes, exact catalog validation, the visible garrison quote/confirm slice, durable per-projection SpawnQueue authority, and the first engine-facing infantry adapter are implemented. Schema 45 adds explicit active-group force/projection identity, Game Master registration evidence, dependency-ordered cleanup, normal one-second active-phase acquisition, durable nonterminal `READY_FOR_HANDOFF`, physical-war-before-queue-success finalization, exact single-group-root/member execution, terminal/setup cancellation cleanup on a monotonic runtime-only clock, and legacy duplicate guards. Restoring ready work requeues exact realization. The physical HST_Dev proof is implemented but not runtime-executed. Vehicle/asset/multi-root execution, paid support migration, current nondeployable purchase-only garrison manifests, successful terminal runtime restore/reprojection, durable casualty/living-force/retirement authority, and accepted settlement compaction remain open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | Planned; first physical projection slice landed under CRI-2 | Runtime forces realize all supported manifests exactly, retain operation links through virtual/physical transitions, restore successful projections, and prove route progress, contact, casualty accounting, arrival, retirement, and fold-back without duplication. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Planned; marker readiness guard landed early | UI/markers/JIP consume authoritative events and snapshots; control changes use explicit rules; civilian systems produce durable strategic consequences. Static-marker root guarding and delayed owner-client census are implemented but await fresh runtime proof. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Planned | Higher-level systems issue typed operations and resource transactions instead of bypassing the authority boundary. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
@@ -102,10 +102,12 @@ CRI-1 and the first CRI-2 vertical slice remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
 confirmation is the second and uses an immutable quote/manifest. Other command
 and cost paths remain on their legacy service contracts until their dependency
-stage supplies the required exact quote, manifest, or operation model. Schema 44
-adds queue authority but no runtime scheduling loop or native entity adapter, so
-existing broad-alpha physicalization paths do not become exact merely because
-the kernel exists.
+stage supplies the required exact quote, manifest, or operation model. Schema 45
+adds a bounded runtime scheduling loop and native adapter for one exact infantry
+group root plus exact members. Existing broad-alpha physicalization paths do not
+become exact merely because this first slice exists; only projections carrying
+the explicit queue-owned identity use it, and the legacy guards hold those
+specific projections rather than silently migrating unrelated groups.
 
 ## Current Implementation Baseline
 
@@ -123,9 +125,31 @@ treated as future work:
   retry/deadline/cancellation cleanup, verified callbacks, 64-batch/512-slot
   active bounds, 64 slots per request, 128 terminal rows with explicit pins and
   a 600-second minimum retention window, production reporting, and once-per-
-  restore reconciliation. It has no engine-facing executor or coordinator tick
-  yet; terminal entity/native-group IDs are historical evidence cleared on
-  restore, not a living roster.
+  restore reconciliation. Cleanup acquisition is dependency ordered as assets,
+  members, vehicles, then group roots across bounded waves. Terminal entity/
+  native-group IDs are historical evidence cleared on restore, not a living
+  roster.
+- `HST_ForceSpawnAdapterService` consumes queue work from the coordinator's
+  one-second active-phase tick. The implemented slice accepts exactly one
+  infantry group root with its required member slots, verifies exact prefab,
+  liveness, faction, native group, Game Master hierarchy, and projection links,
+  then records durable nonterminal `READY_FOR_HANDOFF`. It finalizes the exact
+  group in `HST_PhysicalWarService` before `CompleteProjectionHandoff` records
+  `SUCCEEDED`. Unsupported vehicle, asset, or multi-root manifests fail closed
+  rather than materializing a shorter force.
+- `HST_PhysicalWarService` exposes the narrow exact registration/handoff bridge
+  and holds legacy spawn, member-repair, survivor, route, patrol, and cleanup
+  paths while a queue-owned projection is not ready. This prevents duplicate
+  broad-alpha population without changing unrelated physical-war ownership.
+- Setup and won/lost phases do not run normal spawn acquisition. Instead, they
+  request cancellation for every nonterminal batch and drain dependency-ordered
+  cleanup with a monotonic runtime-only clock that does not advance campaign
+  elapsed time. Restoring `READY_FOR_HANDOFF` requeues exact realization, but
+  successful terminal runtime restore/reprojection and durable casualty/living-
+  force/retirement settlement remain open. Paid support is still on its previous
+  production path, and current garrison purchase manifests have no executable
+  group root and remain nondeployable. The physical HST_Dev proof service exists
+  but has not yet been executed in a fresh isolated runtime.
 - `HST_SpawnPlacementService` owns request/result placement for QRF staging, HQ
   attack standoff, convoy endpoints, dry-ground checks, vehicle-safe placement,
   road preference, and HQ standoff.

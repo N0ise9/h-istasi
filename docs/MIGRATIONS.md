@@ -2,8 +2,27 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `44`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `45`.
 
+- Schema 45 adds explicit force and projection identity fields to every active
+  physical-group row and makes Game Master/editable-hierarchy verification
+  mandatory for new successful spawn slots. Pre-schema-45 active groups derive
+  missing IDs only from one spawn batch whose result, manifest, operation, and
+  force links
+  are conflict-free; ambiguous or missing links remain empty. Stable aggregate
+  migration events record derived and unresolved linked rows without creating
+  one event per group. Existing terminal spawn history remains historical even
+  when it predates the new verification field. Cleanup work is acquired in
+  dependency-safe asset, member, vehicle, then group order across bounded work
+  waves. Once every exact slot is registered, the batch enters the durable,
+  nonterminal `READY_FOR_HANDOFF` state. Physical-war finalization must succeed
+  before `CompleteProjectionHandoff` records `SUCCEEDED`. Restoring a ready batch
+  clears process-local evidence, advances its generation, and requeues exact
+  realization; it never promotes an interrupted handoff to terminal success.
+  Existing terminal successes remain historical and are not yet runtime-
+  reprojected. Normal acquisition uses active campaign time, while setup and won/
+  lost processing cancels nonterminal work and drains cleanup through a monotonic
+  runtime-only clock without advancing the persisted campaign elapsed second.
 - Schema 44 turns typed force-spawn results into durable, per-projection queue
   records. Each batch carries a unique request ID, immutable manifest-hash
   binding, projection ID, attempt generation, retry/deadline timestamps,
@@ -210,6 +229,34 @@ Durable bounded spawn-queue state foundation.
 - Queue retention and active-work limits are enforced by the queue service.
   Migration never deletes valid terminal or settlement evidence merely to meet
   a cap.
+
+## Schema 45
+
+Active-group projection identity and Game Master registration authority.
+
+- `HST_ActiveGroupState` persists explicit `m_sForceId` and
+  `m_sProjectionId` fields beside its operation, manifest, and spawn-result
+  links. Save capture and restore deep-copy both fields.
+- A pre-schema-45 active group receives missing force/projection IDs only when
+  exactly one spawn batch is proven by conflict-free durable identity. A direct
+  spawn-result link must agree with any stored manifest and operation links and
+  with the group's force identity; without a direct result link, force,
+  manifest, and operation must all match. Existing nonempty IDs are never
+  overwritten.
+- Linked groups with no unique provable batch stay unresolved. One stable event
+  records the number of derived rows and one stable event records the number of
+  unresolved linked rows, keeping migration evidence bounded.
+- New spawn success requires alive, faction, native-group, Game Master,
+  projection, and any applicable seat verification. The Game Master result is
+  persisted, copied, replay-matched, cleared with nonterminal physical evidence,
+  and included in final registered-slot readiness.
+- Terminal history from older schemas is preserved without inventing Game
+  Master proof. Actual restore still clears only process-local entity/native
+  IDs from terminal rows while retaining their historical status, prefab, and
+  recorded verification fields.
+- Cleanup acquisition walks assets, members, vehicles, and group roots in that
+  order. The normal per-tick action cap still applies, and ordering remains
+  monotonic across successive cleanup waves.
 
 ## Runtime Settings Schema 21
 

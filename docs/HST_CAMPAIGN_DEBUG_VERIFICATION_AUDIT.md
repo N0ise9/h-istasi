@@ -30,17 +30,18 @@ be read as proof that a later change was executed or certified.
   assertion expects 13 where the registry intentionally contains 12; the case
   headline can preserve an earlier WARN while hiding a later FAIL; and support
   movement/formation evidence can be sampled after the group has already folded.
-- The inspected gameplay artifact predates both campaign schema 43 exact-force
-  authority and schema 44 SpawnQueue authority. The current authority/garrison
-  slice has passed foundation checks and Workbench script validation. Its
-  isolated state case covers quantities 1/4/7/12, an HR reservation-conflict
-  rollback, and five partial confirmation save/restore boundaries. Schema 44
-  adds the deterministic world-free `early_mechanics.spawn_queue` case for
-  admission, identity, scheduling, retry, cleanup, retention, migration, and
-  restore state. Neither case has been executed or runtime-certified by this
-  suite, and neither
-  certifies engine-backed manifest physicalization because no queue tick or
-  physical adapter is integrated.
+- The inspected gameplay artifact predates campaign schema 43 exact-force
+  authority, schema 44 SpawnQueue authority, and the schema 45 engine adapter.
+  The schema-45 authority baseline passed foundation checks and a headless
+  Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
+  an HR reservation-conflict rollback, and five partial confirmation save/
+  restore boundaries. The deterministic `early_mechanics.spawn_queue` case
+  covers admission, identity, scheduling, retry, dependency cleanup, retention,
+  migration, and restore state. Schema 45 additionally implements a production
+  one-second active-phase tick and an exact single-infantry-group/member adapter.
+  None of these later cases has been executed by the inspected run. Any physical
+  adapter proof present in current code remains harness coverage rather than
+  engine-backed evidence until a fresh isolated runtime executes it.
 
 Post-audit safety follow-up: the in-process runner now fails closed outside
 `HST_Dev`, blocks external/soak profiles, persists the live baseline, runs
@@ -59,18 +60,40 @@ disabled-rootless counts, and bounded missing-marker identity samples. Static
 and Workbench validation pass; the prior 6,806 exceptions remain the latest
 runtime evidence until a fresh map-open run proves the guard and census.
 
-Post-audit schema-44 queue follow-up: typed force-spawn results are now durable
-per-projection queue batches rather than manifest-only observations. The
-world-free kernel rejects manifests without an executable required group root,
-orders priority/FIFO work within two-batch/eight-action budgets, verifies exact
-callback identity/evidence, and handles retry, deadline, cancellation, cleanup,
-restore reconciliation, and pin-aware terminal retention. The coordinator runs
-restore reconciliation once per actual persisted restore before garrison and
-ledger reconciliation. Terminal status/prefab/verification data remains
-historical, while process-local entity and native-group IDs are cleared on
-restore. This does not make the older broad-alpha physicalization path an
-executor: paid support is not migrated, current garrison purchase-only manifests
-are nondeployable, and accepted quote/manifest/ledger history remains unbounded.
+Post-audit compiler follow-up: the native Workbench heap crash was isolated to
+one oversized force-authority proof, which was extracted into bounded service
+methods. The latest combined schema-45 Game-module compile created the game and
+completed script validation successfully. A correctly launched normal project
+open also remained responsive through the bounded survival check without
+reproducing the crash. The physical HST_Dev proof still requires its own fresh
+runtime execution before the audit can treat the adapter as engine-proven.
+
+Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
+per-projection queue batches rather than manifest-only observations. The queue
+rejects manifests without an executable required group root, orders priority/
+FIFO work within two-batch/eight-action budgets, verifies exact callback identity
+and evidence, and handles retry, deadline, cancellation, asset -> member ->
+vehicle -> group cleanup, restore reconciliation, and pin-aware terminal
+retention. Active groups now persist explicit force/projection links, and new
+slot success persists Game Master verification beside prefab, liveness, faction,
+native-group, projection, and applicable seat evidence. The production
+  coordinator runs normal adapter acquisition once per active-campaign second;
+  its current scope is exactly one infantry group root plus every frozen member.
+  Verified slots first produce durable nonterminal `READY_FOR_HANDOFF`.
+  `HST_PhysicalWarService` must finalize that exact projection before
+  `CompleteProjectionHandoff` records `SUCCEEDED`, and its legacy paths hold
+  queue-owned groups to prevent duplicate population. Restoring ready work clears
+  transient evidence and requeues exact realization rather than accepting an
+  interrupted handoff. During setup or after a won/lost outcome, the coordinator
+  cancels every nonterminal batch and drains cleanup using a monotonic runtime-only
+  clock without advancing campaign elapsed time. Vehicle/asset/multi-root
+  execution, paid support migration, successful terminal runtime restore/
+  reprojection, and a durable casualty/living-force/retirement ledger remain open.
+  Current purchase-only garrison manifests are nondeployable, and accepted quote/
+  manifest/ledger history remains unbounded. Terminal queue evidence is historical,
+  while process-local entity and native-group IDs are cleared on restore. The
+  physical HST_Dev proof is implemented but has not been runtime-executed; compile,
+  script-validation, and project-open evidence do not substitute for that run.
 
 Certification is blocked until the debug-isolation boundary and marker guard are
 runtime-proven, the cascading mission is contained, known assertion defects are
