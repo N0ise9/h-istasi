@@ -142,9 +142,9 @@ be read as proof that a later change was executed or certified.
   receipts, illegal lifecycle pairs, and casualty authority on non-member roots,
   while preserving missionless exact-looking durable claimants. They remain
   in-process fixtures, not engine/runtime evidence.
-- Before every real persistence capture, schemas 52 through 55 synchronously
+- Before every real persistence capture, schemas 52 through 56 synchronously
   reconcile mapped physical convoy, physical/dematerializing patrol, and exact
-  officer-mission guard members so
+  officer/traitor-mission guard members so
   a death cannot be saved as alive before the normal physical-war tick. Patrols
   additionally require a unique root/member adapter graph and matching
   PhysicalWar cardinality. An open outbound publication transaction,
@@ -229,6 +229,33 @@ be read as proof that a later change was executed or certified.
   real adapter bindings/casualties, actual save/restart, rendered marker/UI,
   owner-change, campaign-setup, packaged networking, reconnect, and JIP remain
   open proof gates.
+- Campaign persistence schema 56 is implemented in current source, but is not
+  yet stamped. It opts in
+  only guard infantry belonging to a newly started `assassinate_traitor`
+  mission, using contract version `2`, manifest policy
+  `exact_assassinate_traitor_guard_v1`, and malformed-current quarantine version
+  `-56`. Schema-55 officer guards remain exact under contract `1`/quarantine
+  `-55`; historical or pre-56 traitor missions, `assassinate_specops`, and all
+  other mission families remain contract `0` and gain no invented authority.
+  The traitor slice uses the same route-less held roster and separate HVT
+  identity: only durable guard members own strength across materialization,
+  observed casualties, fold, compact restore, and survivor-only re-entry, while
+  the HVT remains solely the mission objective/runtime asset. Typed terminal
+  settlement records zero refund and no legacy-force transfer; eliminating all
+  guards may settle their operation while leaving the HVT mission active. The
+  existing HVT marker/UI appends roster-authoritative guard status rather than
+  publishing a duplicate operation marker. Pre-56 restore records
+  `migration_schema56_exact_traitor_guard` without manufacturing a graph, while
+  malformed current authority records
+  `normalization_schema56_exact_traitor_guard_conflict` and remains quarantined
+  without legacy fallback. Six focused source-proof categories cover admission/
+  isolation, projection lifecycle, settlement, restore/migration, corruption
+  quarantine, and marker status. They are source fixtures only: Schema 56 has no
+  new implementation SHA, Workbench CRC/file/class result, or normal-open
+  evidence yet. Native entities, adapter casualty observation, real save/restart,
+  rendered UI, owner change, campaign setup, packaged networking, reconnect, and
+  JIP remain unclaimed. The next planned narrow cutover is newly started
+  `assassinate_specops` guards only; it is not implemented.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -249,7 +276,8 @@ be read as proof that a later change was executed or certified.
   exact-QRF operation authority, schema 50 strategic projection, schema 51
   exact enemy defensive-QRF authority, schema 52 exact mission-convoy authority,
   schema 53 exact enemy-patrol authority, schema 54 exact purchased-garrison
-  patrol authority, and schema 55 exact officer-mission guard authority.
+  patrol authority, schema 55 exact officer-mission guard authority, and schema
+  56 exact traitor-mission guard authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -1035,21 +1063,23 @@ Unproven or incomplete against the pasted contract:
   access were restored. The schema-50 marker, dialog, radio, civilian, and
   player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF,
   schema-52 exact mission-convoy, schema-53 exact enemy-patrol, and schema-54
-  exact purchased-garrison patrol and schema-55 exact officer-mission guard
-  slices remain source-only until a new package is run.
-- Strategic projection is limited to six explicit consumers: exact paid player
+  exact purchased-garrison patrol, schema-55 exact officer-mission guard, and
+  schema-56 exact traitor-mission guard slices remain source-only until a new
+  package is run.
+- Strategic projection is limited to seven explicit consumers: exact paid player
   QRF, newly planned enemy defensive QRF, newly started exact mission convoy,
   newly queued exact enemy patrol, and newly issued policy-v2 purchased
   resistance garrison patrol, plus guard infantry for newly started
-  `assassinate_officer` missions. The HVT is not a seventh force participant; it
-  remains separate mission authority. The convoy is a narrow three-vehicle/three-
-  crew exception, not generic
+  `assassinate_officer` and `assassinate_traitor` missions. The HVT is not an
+  eighth force participant; it remains separate mission authority. The convoy is
+  a narrow three-vehicle/three-crew exception, not generic
   vehicle/multi-root realization, and it does not yet simulate off-screen
   combat. Live physical contact does not yet own player-operation engagement;
   generalized virtualization, historical patrols/other enemy orders and convoys,
   policy-v1/initial/enemy aggregate and vehicle/multi-root garrisons, historical
-  officer missions, other assassination variants, other supports/missions,
-  packaged execution, and real restart/migration/archive
+  officer/traitor missions, `assassinate_specops` and other assassination
+  variants, other supports/missions, packaged execution, and real restart/
+  migration/archive
   replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
 - Cleanup/stall coverage is not universal: untagged debug leftovers cannot be deterministically removed, cleanup depends on debug spawn paths naming physical entities, and some physical categories still lack stall evidence dumps.
@@ -1084,3 +1114,7 @@ Unproven or incomplete against the pasted contract:
   casualty behavior, real save/restart, rendered HVT guard status, owner-change,
   campaign-setup, packaged networking, reconnect, and JIP remain mandatory
   packaged gates.
+- Campaign persistence schema 56 and its newly started traitor-guard contract are
+  implemented in source but are not yet stamped. No Schema-56 implementation
+  SHA, Workbench file/class/CRC result, or normal-open result is claimed; the
+  Schema-55 evidence immediately above remains the latest completed gate.

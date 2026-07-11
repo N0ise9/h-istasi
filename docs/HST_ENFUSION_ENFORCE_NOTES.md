@@ -2629,7 +2629,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   monolithic. Extracting save validation and decomposing the proof into focused
   fixture methods restored the clean headless and normal-open gates without
   removing assertions; relocating a large body intact is not a sufficient fix.
-- Packaged schema-50 through schema-55 certification remains independently open.
+- Packaged schema-50 through schema-56 certification remains independently open.
 
 ## Schema 53 Exact Enemy-Patrol Authority
 
@@ -3072,10 +3072,88 @@ This file is for practical engine/script behavior, not project planning. Keep en
     20 seconds without a crash signature. This is source/Workbench evidence;
     never promote it or the source fixtures into packaged runtime certification.
 
-- After Schema 55 is stamped, the next narrow blueprint target is guard infantry
-  for newly started `assassinate_traitor` missions only. This is a planned
-  cutover, not a Schema-56 implementation claim. Keep `assassinate_specops` and
-  every other mission family contract `0` until separately versioned.
+## Schema 56 Exact Traitor-Mission Guard Authority
+
+- Campaign persistence schema is now `56`; this source slice is implemented but
+  is not yet stamped or Workbench-validated.
+
+- Extend exact guard authority through an explicit mission-kind/version cutover.
+  - Only guard infantry created while starting a new `assassinate_traitor`
+    mission may receive `HST_OPERATION_TYPE_MISSION_GUARD` at contract version
+    `2` and manifest policy `exact_assassinate_traitor_guard_v1`.
+  - Schema-55 `assassinate_officer` guards remain exact at contract version `1`
+    with their existing `-55` quarantine boundary. Historical or pre-56 traitor
+    missions, `assassinate_specops`, and every other mission family remain
+    contract version `0`; migration must not reinterpret them as exact guards.
+  - Dispatch on mission kind plus contract version. Do not infer the traitor
+    cutover from an HVT row, a mission ID, a nearby group, or exact-looking
+    projection identifiers. Malformed current traitor authority uses quarantine
+    version `-56` and must not fall through to officer or legacy handling.
+
+- Reuse the exact route-less survivor contract without merging HVT authority.
+  - Freeze one catalog-backed `NotSpawned` empty execution root and its ordered
+    infantry members. It owns no route, vehicle, projected asset, money, HR,
+    equipment, attack resource, or support resource.
+  - Keep the traitor HVT outside the manifest, operation assets, member roster,
+    group membership, and reciprocal guard-runtime backlinks. It remains only
+    the mission objective and mission-runtime asset.
+  - Preserve the deterministic on-station guard anchor offset from the separate
+    HVT and retain the HVT position only as the tactical target. Never invent a
+    generated route, strategic travel cursor, or virtual combat simulation.
+  - The held member slots are the sole guard-strength authority. Materialize only
+    durable survivors, retire only casualties observed through exact mapped
+    physical authority, fold only after complete reconciliation, and rematerialize
+    the same survivor set. Missing runtime without observed death remains
+    unresolved rather than becoming a guessed casualty.
+
+- Keep guard settlement typed, zero-value, and independent from the HVT outcome.
+  - All guard members dead may settle the exact guard operation `DESTROYED` while
+    the `assassinate_traitor` mission and HVT objective remain active. Guard
+    elimination is not mission completion.
+  - HVT success, mission failure/expiry, campaign stop/setup, owner change, and
+    coherent spawn/assignment failure use the same typed guard terminal mapping
+    established by Schema 55. Terminalize the owned queue batch before removing
+    it, freeze survivor count before queue cancellation, and record the fixed
+    exact guard terminal receipt once.
+  - Every traitor-guard terminal path refunds zero resources and transfers zero
+    survivors into legacy force state. Replay must match the existing operation,
+    result, survivor count, and receipt or fail closed.
+
+- Preserve pre-56 history and quarantine malformed current graphs.
+  - Pre-56 validation records `migration_schema56_exact_traitor_guard` and creates
+    no operation, manifest, root, member, casualty, batch, group, projection, or
+    settlement authority for historical traitor missions.
+  - Current-schema conflict handling records
+    `normalization_schema56_exact_traitor_guard_conflict`, retains diagnostic
+    evidence at contract version `-56`, and never guesses casualties, refunds,
+    creates an HVT backlink, starts legacy guards, or fails an otherwise playable
+    HVT mission solely because guard authority is unavailable.
+  - Current exact validation requires the deterministic reciprocal mission/
+    operation/manifest/batch/group graph, empty-root/member bijection, route-less
+    stationary assignment, separate HVT ownership, legal projection pairs, and
+    typed terminal receipt. A compact settled graph may omit the batch, group,
+    and terminal HVT runtime row; a settled all-dead guard may coexist with its
+    still-active HVT mission.
+
+- Reuse the existing HVT presentation and keep proof claims bounded.
+  - Append `guards N`, `guards neutralized`, or `guard authority unavailable` to
+    the existing traitor-HVT marker and mission UI row. Do not publish a second
+    guard-operation marker, and do not treat that text as roster authority.
+  - Six focused source-proof categories cover admission/isolation, projection
+    lifecycle, typed settlement, restore/migration, corruption quarantine, and
+    marker status. These fixtures do not prove native entities, actual adapter
+    bindings or casualties, real save/restart, rendered UI, owner change,
+    campaign setup, packaged networking, reconnect, or JIP.
+  - Schema 56 is implemented in current source but has not been stamped. Do not
+    invent or reuse an implementation SHA, Workbench CRC/file/class count, or
+    normal-open result for it. The latest stamped evidence remains Schema 55:
+    implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`, 5,763 files/
+    11,570 classes, CRC `0ec8950e`, and the recorded ten-sample/20-second normal
+    WorldEditor open.
+
+- The next narrow blueprint target is guard infantry for newly started
+  `assassinate_specops` missions only. This is planned work, not an implementation
+  claim; all such missions remain contract version `0` until separately cut over.
 
 ## Native Reference Sources
 

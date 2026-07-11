@@ -93,39 +93,41 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-The active development contract is Schema 55: only newly started
-`assassinate_officer` guard infantry is moving to exact route-less mission-force
-authority. Historical missions and all other mission families remain legacy;
-the stamped tree passes source/foundation and Workbench compile/open gates, while
-packaged Schema-55 behavior evidence remains pending.
+The active development contract is Schema 56: only guard infantry belonging to a
+newly started `assassinate_traitor` mission gains contract-2 route-less exact
+authority. Schema-55 officer guards remain contract `1`; historical/pre-56
+traitor missions, `assassinate_specops`, and every other unsupported family
+remain contract `0`. Schema 56 is implemented but unstamped. The stamped
+Schema-55 source/foundation/Workbench evidence remains the latest verified
+baseline, and all Schema-56 compile/open and packaged gates are pending.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Complete for current source checkpoint | Campaign schema 55 is the current stamped source contract at implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`. Foundation, clean Workbench Game validation at 5,763 files/11,570 classes with CRC `0ec8950e`, and a ten-sample/20-second normal editor open pass. This is source/Workbench evidence only. Role-change reentry, debug isolation, both QRF paths, exact convoy/enemy-patrol/garrison-patrol/officer-guard behavior, broad support movement, packaged runtime, and restart gates remain open. |
-| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 54 adds one reciprocal policy-v2 purchased-garrison quote/manifest/garrison/operation/route/held-batch/group graph with replay-safe no-refund settlement. Only newly issued resistance purchases opt in. Historical policy-v1, initial-map, and enemy aggregate garrisons remain legacy; malformed current rows quarantine at `-54` without guessed casualty/refund or legacy conversion. Isolated runtime and save/load certification are pending. |
-| CRI-2: Exact force manifests | Foundation complete; expansion pending | The new garrison policy freezes one executable `NotSpawned` empty root and an arbitrary purchased member roster. The generic SpawnQueue adapter remains infantry-only and now serves two QRFs, enemy patrol, and purchased-garrison patrol; the convoy retains its separate path. Historical aggregate garrisons, vehicles/assets/multi-root execution, other migrations, and packaged proofs remain open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; six exact operation projections implemented in source | Schemas 50-53 retain the two QRF, convoy, and enemy-patrol paths. Schema 54 adds a held virtual infinite local garrison loop; Schema 55 adds the route-less officer-mission guard with HVT-independent all-dead settlement. Both preserve exact survivor authority across projection/fold and use typed zero-refund terminal handling. Generalized encounter/contact/vehicle realization, historical forces and missions, other families, and packaged movement/fold/restart proof remain open. |
+| CRI-0: Repository truth and baseline | Complete for current source checkpoint | Campaign schema 56 is current in source but has no final SHA/CRC/open evidence. The last stamped contract is Schema 55 implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`, with foundation, clean Workbench Game validation at 5,763 files/11,570 classes/CRC `0ec8950e`, and a ten-sample/20-second normal editor open. This is historical source/Workbench evidence only; every packaged/runtime/restart gate remains open. |
+| CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 56 adds only the traitor-guard contract-2 mission/operation/manifest/held-batch/group graph and preserves Schema-55 officer contract `1`. Both keep HVT authority separate and settle typed outcomes with zero refund. Pre-56 traitor, spec-ops, and unsupported families remain contract `0`; malformed traitor rows quarantine at `-56` without fallback or HVT failure. |
+| CRI-2: Exact force manifests | Foundation complete; expansion pending | The generic SpawnQueue adapter remains one-root infantry-only and now serves two QRFs, enemy patrol, purchased-garrison patrol, officer guard, and traitor guard; the convoy retains its separate path. Both assassination contracts use catalog-backed empty roots plus ordered members with no HVT/route/assets/resources. Historical mission/aggregate forces, vehicles/assets/multi-root execution, and packaged proofs remain open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; seven exact family projections across six operation types implemented in source | Schemas 50-55 retain prior exact paths. Schema 56 adds only the contract-2 route-less traitor guard with the same HVT-independent all-dead result, survivor-only projection/fold, typed zero-refund settlement, compact restore, and existing-HVT status as the officer guard. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
 | CRI-6 through CRI-8: Client projection, ownership, and civilian influence | Broad-alpha foundations implemented; source repairs await publish | The packaged schema-49 check proved stock HUD/Game Master recovery but exposed invalid radio icons, owner-only labels, pointer layering, duplicate transmitters, HQ-coupled civilian eligibility, repeated appearances, horns, and locality misclassification. Schema-50 source validates dynamic radio icons, labels location plus owner, fixes map-local layering, reuses authored towers, separates civilian eligibility, defaults true-town traffic to five, varies concrete actors, resets ambient horns, and treats the woodland locality as minor. Snapshot/delta/JIP authority, packaged repair proof, canonical ownership side effects, and deeper political consequences remain open. |
-| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, one exact mission, and one exact purchased-garrison policy source-complete | The enemy QRF/patrol and mission convoy retain their narrow contracts. Schema 54 adds only newly issued policy-v2 purchased resistance garrisons; historical/initial/enemy aggregate garrisons remain prior-contract forces. Runtime proof, vehicle/multi-root and historical-garrison policy, further cutovers, mission depth, and tuning remain open. |
+| CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, convoy, officer/traitor guard families, and one exact purchased-garrison policy source-complete | The enemy QRF/patrol, mission convoy, garrison patrol, and two versioned assassination-guard contracts retain narrow boundaries. Pre-56 traitor, spec-ops, other missions, historical/aggregate forces, vehicle/multi-root policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
 ### Blueprint Milestone Snapshot
 
 | Player-visible milestone | Current state | Next proof boundary |
 | --- | --- | --- |
-| Exact Forces | Implemented foundation plus policy-v2 purchased-garrison patrol | Execute exact training, garrison quote/admission/patrol, paid-QRF, queue, typed recall receipt/conflict, and settlement replay cases across save/restart. |
+| Exact Forces | Implemented foundation plus policy-v2 purchased-garrison, officer-guard, and traitor-guard slices | Execute exact training, garrison/QRF/queue, both assassination contracts, typed settlement, and replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
-| Living War | Broad-alpha paths plus six exact operation projections are in source | Prove all five exact infantry rosters and the exact three-element convoy through virtual travel and materialization/fold; separately prove player combat/recall, defensive-QRF arrival/return, enemy-patrol contact/lap/return, purchased-garrison infinite local loop/no-refund terminal behavior, officer-guard/HVT independence, and convoy interception/outcome/restart. |
+| Living War | Broad-alpha paths plus seven exact family projections are in source | Prove all six exact infantry-family rosters and the exact three-element convoy through materialization/fold; separately prove QRF/patrol/garrison behavior, officer/traitor guard-HVT independence, typed zero-refund outcomes, and convoy interception/outcome/restart. |
 | Reliable Orders | Exact player QRF, newly planned enemy defensive QRF, and newly queued enemy patrol have separate canonical operation policies; other orders remain broad-alpha | Runtime-prove immutable assignment, duty/materialization/engagement/return/settlement/restart behavior, type/version dispatch, and legacy isolation, then extend the contract one family at a time. |
 | One Campaign View | Menu and marker projections exist; schema-50 radio-icon, location/owner label, cursor-layer, and transmitter-reuse repairs are source-only | Prove the reported map/dialog/radio cases, then authoritative host/client/late-join snapshots, revisions, deletes, and modal map ownership. |
 | Political Map | Town influence, capture, ownership, security, and heat foundations exist | Canonicalize ownership side effects and deepen political control/mission outputs. |
 | Living Towns | Civilian pedestrians/traffic moved in packaged schema 49; schema-50 eligibility, taxonomy, diversity, five-car true-town default, and horn repairs are source-only | Prove Figari/Morton and minor-locality budgets, zero unregistered group RPCs, distinct actors, silent moving traffic, cleanup/recycle, and strategic consequences. |
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
-| Mission Parity | All 39 configured IDs map to MVP primitives; newly started convoys use the first exact mission operation | Runtime-prove the three-vehicle convoy contract, then replace remaining mission shortcuts with distinctive family behavior and certify each enabled mission. |
+| Mission Parity | All 39 configured IDs map to MVP primitives; convoy plus newly started officer/traitor guard families use narrow exact contracts | Runtime-prove convoy and both assassination guards, then cut over spec-ops and later families one explicitly versioned slice at a time. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; schema-50 repairs and schema-50 through schema-55 exact projections are source-only | Revalidate, republish, prove marker/civilian/radio, both exact-QRF paths, exact convoy, enemy patrol, purchased-garrison patrol, and officer-mission guard, then pass isolated dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; schema-50 repairs and schema-50 through schema-56 exact projections are source-only | Revalidate, republish, prove marker/civilian/radio, both QRFs, convoy, patrols, garrison, officer guard, and traitor guard, then pass dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -157,10 +159,14 @@ lap, physical contact hold, fold/reprojection, return-origin duty, and proactive
   survivor settlement. Schema 54 then applies the same adapter boundary only to
   newly issued policy-v2 purchased resistance garrisons, using an empty
   executable root, arbitrary exact member roster, infinite local loop,
-  survivor-only reprojection, and no-refund terminal policy. Historical
-  policy-v1, initial/enemy aggregate and vehicle garrisons, historical enemy
-  QRFs/patrols/convoys, counterattacks, roadblocks, support calls, non-convoy
-  missions, and other order families remain legacy.
+  survivor-only reprojection, and no-refund terminal policy. Schema 55 applies a
+  route-less empty-root/member guard contract only to newly started
+  `assassinate_officer` missions at version `1`. Schema 56 adds the same exact
+  survivor/HVT-separated lifecycle only to newly started `assassinate_traitor`
+  guards at contract `2`/policy `exact_assassinate_traitor_guard_v1`, with `-56`
+  quarantine and conservative pre-56 migration. Historical/pre-opt-in
+  assassination missions, `assassinate_specops`, policy-v1/aggregate garrisons,
+  other mission/order families, and vehicle/multi-root forces remain legacy.
 
 ## Current Implementation Baseline
 
@@ -408,14 +414,21 @@ treated as future work:
    Save/restart and JIP must preserve
    cursor/casualties. Historical policy-v1, initial/enemy aggregate, vehicle, and
    multi-root garrisons remain legacy.
-10. After Schema 55 is stamped, continue with one explicitly versioned mission-
+10. Runtime-prove Schema 55 officer guards and Schema 56 traitor guards without
+    conflating their contracts: only newly started officer/traitor missions use
+    versions `1`/`2`; their route-less rosters keep HVT authority separate,
+    preserve exact survivors, settle typed outcomes with zero refund, accept
+    compact restore, and project status through existing HVT rows. Prove native
+    entities/adapter casualties, actual save/restart, rendered UI, owner-change,
+    setup, packaged networking, reconnect, and JIP. Pre-56 traitor and every
+    unsupported family remain contract `0`.
+11. After Schema 56 is stamped, continue with one explicitly versioned mission-
     force consumer at a time. The next narrow target is guard infantry for newly
-    started `assassinate_traitor` missions only. This is planned, not implemented;
-    `assassinate_specops` and every other mission family remain legacy until their
-    own cutover. Keep ownership/town politics, civilian behavior, progression,
-    balance, and packaged multiplayer/restart/long-soak certification on their
-    separate dependency tracks; a later source slice does not certify earlier
-    behavior.
+    started `assassinate_specops` missions only. This is planned, not implemented;
+    every other mission family remains legacy until its own cutover. Keep
+    ownership/town politics, civilian behavior, progression, balance, and
+    packaged multiplayer/restart/long-soak certification on separate dependency
+    tracks; a later source slice does not certify earlier behavior.
 
 ## Game-Mode Target
 

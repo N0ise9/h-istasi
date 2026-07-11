@@ -1026,7 +1026,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 55;
+	static const int SCHEMA_VERSION = 56;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1363,12 +1363,17 @@ class HST_CampaignState
 			operation = FindOperation(group.m_sOperationId);
 		if (HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(this, group))
 		{
+			int expectedGuardContract;
+			if (mission)
+				expectedGuardContract = HST_MissionGuardOperationService.ResolveExpectedContractVersion(
+					mission.m_sMissionId);
 			if (!HST_MissionGuardOperationService.IsExactMissionGuardGroup(this, group)
 				|| !mission || !operation
 				|| !HST_MissionGuardOperationService.IsExactMission(mission)
+				|| expectedGuardContract <= 0
 				|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
 				|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-				|| operation.m_iContractVersion != HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION
+				|| operation.m_iContractVersion != expectedGuardContract
 				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 				|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
 				return false;

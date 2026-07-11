@@ -850,14 +850,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_OperationRecordState operation = m_State.FindOperation(batch.m_sOperationId);
 		if (!operation || operation.m_sSpawnResultId != batch.m_sResultId
 			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-			|| operation.m_iContractVersion != HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION
 			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
 			return false;
 		HST_ActiveMissionState mission = m_State.FindActiveMission(operation.m_sMissionInstanceId);
+		if (!HST_MissionGuardOperationService.IsExactMission(mission)
+			|| operation.m_iContractVersion
+				!= HST_MissionGuardOperationService.ResolveExpectedContractVersion(mission.m_sMissionId))
+			return false;
 		HST_ForceManifestState manifest = m_State.FindForceManifest(batch.m_sManifestId);
-		return HST_MissionGuardOperationService.IsExactMission(mission)
-			&& manifest && manifest.m_sOperationId == operation.m_sOperationId
-			&& manifest.m_sPolicyId == HST_MissionGuardOperationService.EXACT_POLICY_ID;
+		return manifest && manifest.m_sOperationId == operation.m_sOperationId
+			&& manifest.m_sPolicyId
+				== HST_MissionGuardOperationService.ResolveExpectedPolicyId(mission.m_sMissionId);
 	}
 
 	protected bool CompactForceSpawnQueueTerminalHistory(int nowSecond)
@@ -16485,6 +16488,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugEnemyPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugGarrisonPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugMissionGuardOperationAssertions(forceCase);
+		AppendCampaignDebugTraitorGuardOperationAssertions(forceCase);
 		AppendCampaignDebugMissionConvoyOperationAssertions(forceCase);
 		AppendCampaignDebugForceRuntimeAuthorityAssertions(forceCase);
 		AppendCampaignDebugActiveGroupLifecycleAssertions(forceCase);
@@ -16652,6 +16656,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "mission_guard.restore_migration", "current-schema restore keeps exact casualties and strategic authority, compact settled graphs remain valid, and pre-55 saves gain no invented guard graph", proof.m_sRestoreMigrationEvidence, CampaignDebugStatus(proof.m_bRestoreMigrationExact), "exact officer-guard restore, compact settlement, or pre-55 migration was incorrect");
 		AddCampaignDebugAssertion(forceCase, "mission_guard.corruption_quarantine", "duplicate and cross-linked claimant corruption quarantines only proven guard authority without refund, legacy conversion, HVT removal, or forced mission failure", proof.m_sCorruptionQuarantineEvidence, CampaignDebugStatus(proof.m_bCorruptionQuarantineExact), "exact officer-guard corruption did not fail closed at the authority boundary");
 		AddCampaignDebugAssertion(forceCase, "mission_guard.marker_status", "the existing HVT marker reports exact guard count, neutralization, or unavailable authority without creating a duplicate guard marker", proof.m_sMarkerStatusEvidence, CampaignDebugStatus(proof.m_bMarkerStatusExact), "officer-guard status did not project through the existing HVT marker exactly");
+	}
+
+	protected void AppendCampaignDebugTraitorGuardOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_TraitorGuardOperationProofService proofService = new HST_TraitorGuardOperationProofService();
+		HST_TraitorGuardOperationProofReport proof = proofService.RunTraitor();
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sProjectionLifecycleEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSettlementEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreMigrationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCorruptionQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMarkerStatusEvidence);
+		AddCampaignDebugAssertion(forceCase, "traitor_guard.admission_isolation", "one newly started traitor-assassination guard freezes the contract-2 policy and exact ordered roster while officer guards retain contract 1 and historical traitor/spec-ops missions stay contract zero", proof.m_sAdmissionIsolationEvidence, CampaignDebugStatus(proof.m_bAdmissionIsolationExact), "exact traitor-guard admission, replay, rollback, HVT isolation, or family coexistence was incorrect");
+		AddCampaignDebugAssertion(forceCase, "traitor_guard.projection_lifecycle", "strategic hold, survivor projection, casualty fold/re-entry, and all-dead settlement preserve the traitor guard roster without virtual combat or HVT mutation", proof.m_sProjectionLifecycleEvidence, CampaignDebugStatus(proof.m_bProjectionLifecycleExact), "exact traitor-guard projection or HVT-independent survivor lifecycle drifted");
+		AddCampaignDebugAssertion(forceCase, "traitor_guard.settlement", "HVT success, mission failure or expiry, campaign stop, spawn failure, and guard elimination use fixed typed zero-refund outcomes", proof.m_sSettlementEvidence, CampaignDebugStatus(proof.m_bSettlementExact), "exact traitor-guard terminal settlement was not independent or idempotent");
+		AddCampaignDebugAssertion(forceCase, "traitor_guard.restore_migration", "current-schema restore keeps the contract-2 roster and compact destroyed receipt while pre-56 traitor missions remain contract zero with no invented authority", proof.m_sRestoreMigrationEvidence, CampaignDebugStatus(proof.m_bRestoreMigrationExact), "exact traitor-guard restore or pre-56 migration invented, lost, or resurrected authority");
+		AddCampaignDebugAssertion(forceCase, "traitor_guard.corruption_quarantine", "duplicate and illegal-HVT claimant corruption quarantines proven traitor authority at -56 without refund, fallback, guessed casualty, or HVT failure", proof.m_sCorruptionQuarantineEvidence, CampaignDebugStatus(proof.m_bCorruptionQuarantineExact), "exact traitor-guard corruption did not fail closed at the family authority boundary");
+		AddCampaignDebugAssertion(forceCase, "traitor_guard.marker_status", "the existing traitor HVT marker reports exact guard count, neutralization, or unavailable authority while historical traitor rows remain unsuffixed", proof.m_sMarkerStatusEvidence, CampaignDebugStatus(proof.m_bMarkerStatusExact), "traitor-guard status did not project through the existing HVT marker exactly");
 	}
 
 	protected void AppendCampaignDebugMissionConvoyOperationAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -30651,7 +30675,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			ApplyCampaignDebugMissionPrefix(mission);
 		if (definition && definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY && m_MissionConvoyOperations)
 			m_MissionConvoyOperations.PrepareNewMissionContract(mission);
-		if (definition && mission.m_sMissionId == HST_MissionGuardOperationService.EXACT_MISSION_ID && m_MissionGuardOperations)
+		if (definition && HST_MissionGuardOperationService.IsSupportedExactMissionId(mission.m_sMissionId)
+			&& m_MissionGuardOperations)
 			m_MissionGuardOperations.PrepareNewMissionContract(mission);
 		if (m_Objectives)
 			m_Objectives.InitializeMission(m_State, m_Preset, definition, mission, m_Content);

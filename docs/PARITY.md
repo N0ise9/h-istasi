@@ -97,6 +97,21 @@
   20-second normal WorldEditor open. Native projection/casualties, save/restart,
   rendered UI, owner-change, campaign-setup, packaged networking, reconnect, and
   JIP proof remain open.
+- Newly started `assassinate_traitor` guard infantry is the seventh explicit
+  operation-family consumer and reuses the mission-guard operation type at
+  contract `2`. Its policy is `exact_assassinate_traitor_guard_v1`; malformed
+  current authority uses `-56`. The Schema-55 officer path stays contract `1`/
+  `-55`. The traitor path has the same route-less empty-root/member roster,
+  separate HVT, survivor-only materialization/fold, HVT-independent all-dead
+  result, typed zero-refund settlement, compact restore, and existing-HVT status
+  projection. Historical/pre-56 traitor missions, `assassinate_specops`, and all
+  other unsupported families remain contract `0`. Migration and conflict events
+  are `migration_schema56_exact_traitor_guard` and
+  `normalization_schema56_exact_traitor_guard_conflict`. Six source-proof
+  categories cover the boundary; native entities/adapter casualties, actual
+  save/restart, rendered UI, owner-change, setup, packaged networking, reconnect,
+  and JIP are unclaimed. The stamped Schema-55 evidence above does not verify
+  Schema 56, which has no final SHA/CRC/open evidence recorded yet.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -267,8 +282,9 @@
   tree identifies implementation `552c2c4ff5ac7608fa248c614480a254769b61a4`
   and has clean headless Game-module validation evidence at 5,763 files/11,570
   classes with CRC `0ec8950e`, plus a ten-sample/20-second normal WorldEditor
-  open. This is current source/Workbench evidence, not packaged behavior proof.
-  Schemas 54 and 55 have no packaged behavior evidence.
+  open. This is stamped Schema-55 source/Workbench evidence, not packaged behavior
+  proof or Schema-56 validation. Schemas 54 and 55 have no packaged behavior
+  evidence, and Schema 56 has no final stamp/CRC/open evidence yet.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,
   exact casualty persistence, arrival/outcome settlement, marker cleanup, or
@@ -317,6 +333,16 @@
   entity creation, real adapter bindings/casualties, physical fold/re-entry,
   actual save/restart, rendered status, owner-change, campaign setup, networking,
   reconnect, or JIP for this slice.
+- Schema 56 adds exact guard authority only for a newly started
+  `assassinate_traitor` mission at contract `2` and policy
+  `exact_assassinate_traitor_guard_v1`. The six `traitor_guard.*` source-proof
+  categories cover admission/family isolation, survivor projection/HVT
+  separation, typed settlement, restore/pre-56 migration, `-56` conflict
+  quarantine, and existing-HVT status. Officer contract `1` remains exact;
+  historical/pre-56 traitor, spec-ops, and all other unsupported missions remain
+  contract `0`. No packaged run has proved native entities, adapter casualties,
+  actual save/restart, rendered UI, owner-change, setup, networking, reconnect,
+  or JIP, and no final Schema-56 SHA/CRC/open evidence is claimed.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -343,7 +369,7 @@
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-55,
+- The latest inspected Full Campaign Debug artifact predates schemas 43-56,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
 - The in-process runner now fails closed outside `HST_Dev`, clones campaign
@@ -353,8 +379,10 @@
 
 ## Current Delivery Priorities
 
-- Publish and test the stamped schema-55 checkpoint, including its new officer-
-  guard diagnostics, while proving the schema-50 marker/dialog/radio corrections and
+- Preserve the stamped Schema-55 checkpoint as the current compile/open baseline
+  while Schema 56 remains unstamped, then publish and test the next stamped build
+  with both officer- and traitor-guard diagnostics while proving the schema-50
+  marker/dialog/radio corrections and
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
   one transmitter at authored sites, and correct radio destroy-target binding.
@@ -365,7 +393,7 @@
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-55 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-56 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
@@ -399,7 +427,16 @@
   HVT, every typed zero-refund outcome, `-55` quarantine without fallback or HVT
   failure, compact settlement, existing-HVT marker/UI status, save/restart,
   owner-change, campaign setup, networking, reconnect, and JIP. Historical
-  officer missions and every other mission family remain contract `0`.
+  officer missions remain contract `0`; the separately opted-in traitor path must
+  not alter officer contract `1`.
+- Runtime-prove the schema-56 exact traitor-mission guard: only newly started
+  `assassinate_traitor` guards receive contract `2` and policy
+  `exact_assassinate_traitor_guard_v1`. Prove the route-less exact roster, HVT
+  separation, survivor materialization/fold, typed zero-refund outcomes, compact
+  restore, `-56` quarantine, existing-HVT status, native entities/adapter
+  casualties, actual save/restart, rendered UI, owner-change, setup, networking,
+  reconnect, and JIP. Officer contract `1` must remain exact; historical/pre-56
+  traitor, spec-ops, and all other unsupported families must remain contract `0`.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
 - Runtime-prove both exact-QRF `OperationRecord` policies: player virtual combat/
@@ -408,11 +445,10 @@
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint with one explicitly versioned mission-
-  force consumer at a time. After Schema 55 is stamped, the next narrow target is
-  guard infantry for newly started `assassinate_traitor` missions only. This is
-  planned, not implemented; `assassinate_specops` and every other mission family
-  remain legacy. Packaged schema-50 through schema-55 certification remains
-  independently required.
+  force consumer at a time. After Schema 56 is stamped, the next narrow target is
+  guard infantry for newly started `assassinate_specops` missions only. This is
+  planned, not implemented; every other mission family remains legacy. Packaged
+  schema-50 through schema-56 certification remains independently required.
 
 ## Next Playable Expansion
 

@@ -4908,7 +4908,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 55",
+		"SCHEMA_VERSION = 56",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5288,7 +5288,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 55',
+		'SCHEMA_VERSION = 56',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5860,7 +5860,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 55',
+		'SCHEMA_VERSION = 56',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -13590,7 +13590,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 55",
+		"SCHEMA_VERSION = 56",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -13846,7 +13846,7 @@ $schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
 foreach ($schema54StateEntry in @(
-		"SCHEMA_VERSION = 55",
+		"SCHEMA_VERSION = 56",
 		"HST_OPERATION_TYPE_GARRISON_PATROL",
 		"IsQuarantinedActiveGroup",
 		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
@@ -14374,9 +14374,8 @@ $schema55ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Assass
 $schema55MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
 $schema55CommandUIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 
-if ($schema55StateText -notmatch 'SCHEMA_VERSION\s*=\s*55\s*;' -or
-	$schema55TypesText -notmatch [regex]::Escape('HST_OPERATION_TYPE_MISSION_GUARD')) {
-	throw "Schema-55 campaign schema or typed mission-guard operation discriminator is missing"
+if ($schema55TypesText -notmatch [regex]::Escape('HST_OPERATION_TYPE_MISSION_GUARD')) {
+	throw "Schema-55 typed mission-guard operation discriminator is missing"
 }
 
 foreach ($schema55OperationEntry in @(
@@ -14511,7 +14510,7 @@ foreach ($schema55SaveEntry in @(
 	'IsSchema55MissionGuardGroupClaimant',
 	'migration_schema55_exact_mission_guard',
 	'normalization_schema55_exact_mission_guard_conflict',
-	'PreserveHistoricalMissionGuards',
+	'PreserveHistoricalMissionFamily',
 	'inferred no manifest, roster, batch, casualty, projection, or settlement authority',
 	'ValidateHVTBoundary',
 	'ValidateCurrentCatalogRoster',
@@ -14522,7 +14521,7 @@ foreach ($schema55SaveEntry in @(
 		throw "Schema-55 exact officer-guard migration/restore boundary is missing: $schema55SaveEntry"
 	}
 }
-if ($schema55SaveText -notmatch [regex]::Escape('schema55MissionGuardValidation.Normalize(this, restoredSchemaVersion)')) {
+if ($schema55SaveText -notmatch 'schema5[56]MissionGuardValidation\.Normalize\(this, restoredSchemaVersion\)') {
 	throw "Schema-55 exact officer-guard validator is not called from campaign save normalization"
 }
 
@@ -14585,5 +14584,208 @@ if (!$schema55MigrationsText.Contains('contract zero') -and
 	throw "Schema-55 migration documentation must preserve historical mission guards on contract zero"
 }
 Write-Host "Schema-55 exact officer-guard admission, HVT isolation, survivor projection, zero-refund settlement, restore/quarantine, marker/UI, migration, and proof contract OK"
+
+# Schema 56: newly started traitor-assassination guards opt into contract 2
+# without changing Schema-55 officer authority or historical mission rows.
+$schema56ProofPath = "Scripts/Game/HST/Services/HST_TraitorGuardOperationProofService.c"
+if (!(Test-Path $schema56ProofPath)) {
+	throw "Schema-56 traitor-guard proof file is missing"
+}
+$schema56StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema56SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema56OperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionGuardOperationService.c"
+$schema56ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AssassinationGuardSaveValidationService.c"
+$schema56PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema56CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema56ProofText = Get-Content -Raw $schema56ProofPath
+
+if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*56\s*;') {
+	throw "Schema-56 campaign schema is missing"
+}
+foreach ($schema56CoreEntry in @(
+	'OFFICER_CONTRACT_VERSION = 1',
+	'OFFICER_QUARANTINED_CONTRACT_VERSION = -55',
+	'OFFICER_MISSION_ID = "assassinate_officer"',
+	'OFFICER_POLICY_ID = "exact_assassinate_officer_guard_v1"',
+	'TRAITOR_CONTRACT_VERSION = 2',
+	'TRAITOR_QUARANTINED_CONTRACT_VERSION = -56',
+	'TRAITOR_MISSION_ID = "assassinate_traitor"',
+	'TRAITOR_POLICY_ID = "exact_assassinate_traitor_guard_v1"',
+	'TRAITOR_INTENT_ID = "assassinate_traitor_guard"',
+	'IsSupportedExactMissionId',
+	'IsSupportedExactContractVersion',
+	'IsQuarantinedOperationContractVersion',
+	'ResolveExpectedContractVersion',
+	'ResolveExpectedPolicyId',
+	'ResolveExpectedIntentId',
+	'ResolveQuarantinedContractVersion',
+	'IsExactOfficerMission',
+	'IsExactTraitorMission',
+	'IsQuarantinedTraitorMission',
+	'ResolveQuarantineVersionForOperation',
+	'ValidateExactCatalogRoster'
+)) {
+	if ($schema56OperationText -notmatch [regex]::Escape($schema56CoreEntry)) {
+		throw "Schema-56 traitor-guard core contract is missing: $schema56CoreEntry"
+	}
+}
+$schema56SupportedIdBlock = Get-ScriptMethodBlock $schema56OperationText "static bool IsSupportedExactMissionId("
+if ([string]::IsNullOrEmpty($schema56SupportedIdBlock) -or
+	$schema56SupportedIdBlock -notmatch [regex]::Escape('OFFICER_MISSION_ID') -or
+	$schema56SupportedIdBlock -notmatch [regex]::Escape('TRAITOR_MISSION_ID') -or
+	$schema56SupportedIdBlock -match [regex]::Escape('assassinate_specops')) {
+	throw "Schema-56 opt-in must include only officer and traitor guard mission IDs"
+}
+$schema56PlanBlock = Get-ScriptMethodBlock $schema56OperationText "protected string BuildAdmissionPlan("
+$schema56ManifestBlock = Get-ScriptMethodBlock $schema56OperationText "protected HST_ForceManifestState BuildManifest("
+$schema56OperationBuildBlock = Get-ScriptMethodBlock $schema56OperationText "protected HST_OperationRecordState BuildOperation("
+foreach ($schema56DynamicPair in @(
+	'ResolveExpectedContractVersion(mission.m_sMissionId)',
+	'ResolveExpectedPolicyId(mission.m_sMissionId)',
+	'ResolveExpectedIntentId(mission.m_sMissionId)',
+	'definition.m_sMissionId != mission.m_sMissionId'
+)) {
+	if (($schema56PlanBlock + $schema56ManifestBlock + $schema56OperationBuildBlock) -notmatch [regex]::Escape($schema56DynamicPair)) {
+		throw "Schema-56 traitor admission is not mission-policy dynamic: $schema56DynamicPair"
+	}
+}
+foreach ($schema56UnchangedAuthorityEntry in @(
+	'group.m_sMissionAssetId = ""',
+	'operation.m_vTacticalTargetPosition = hvtPosition',
+	'operation.m_sCurrentRouteId = ""',
+	'manifest.m_iMoneyCost = 0',
+	'manifest.m_iHRCost = 0',
+	'manifest.m_iAttackResourceCost = 0',
+	'manifest.m_iSupportResourceCost = 0',
+	'SETTLEMENT_POLICY_ID = "mission_owned_no_refund"'
+)) {
+	if ($schema56OperationText -notmatch [regex]::Escape($schema56UnchangedAuthorityEntry)) {
+		throw "Schema-56 traitor guard changed the route-less HVT/zero-refund boundary: $schema56UnchangedAuthorityEntry"
+	}
+}
+
+foreach ($schema56CoordinatorEntry in @(
+	'IsSupportedExactMissionId(mission.m_sMissionId)',
+	'ResolveExpectedContractVersion(mission.m_sMissionId)',
+	'ResolveExpectedPolicyId(mission.m_sMissionId)',
+	'AppendCampaignDebugTraitorGuardOperationAssertions',
+	'HST_TraitorGuardOperationProofService',
+	'RunTraitor()'
+)) {
+	if ($schema56CoordinatorText -notmatch [regex]::Escape($schema56CoordinatorEntry)) {
+		throw "Schema-56 traitor-guard coordinator wiring is missing: $schema56CoordinatorEntry"
+	}
+}
+foreach ($schema56AssertionId in @(
+	'traitor_guard.admission_isolation',
+	'traitor_guard.projection_lifecycle',
+	'traitor_guard.settlement',
+	'traitor_guard.restore_migration',
+	'traitor_guard.corruption_quarantine',
+	'traitor_guard.marker_status'
+)) {
+	if ($schema56CoordinatorText -notmatch [regex]::Escape($schema56AssertionId)) {
+		throw "Schema-56 traitor-guard debug assertion is missing: $schema56AssertionId"
+	}
+}
+
+foreach ($schema56PersistenceEntry in @(
+	'IsSupportedExactContractVersion',
+	'IsQuarantinedOperationContractVersion',
+	'ValidatePhysicalMissionGuardSnapshots',
+	'PrepareQuarantinedAuthorityForPersistence'
+)) {
+	if ($schema56PersistenceText -notmatch [regex]::Escape($schema56PersistenceEntry)) {
+		throw "Schema-56 traitor-guard persistence boundary is missing: $schema56PersistenceEntry"
+	}
+}
+foreach ($schema56SaveEntry in @(
+	'IsSchema56MissionGuardMissionClaimant',
+	'IsSchema56MissionGuardOperationClaimant',
+	'IsSchema56MissionGuardManifestClaimant',
+	'IsSchema56MissionGuardBatchClaimant',
+	'IsSchema56MissionGuardGroupClaimant',
+	'PreserveHistoricalMissionFamily',
+	'migration_schema56_exact_traitor_guard',
+	'normalization_schema56_exact_traitor_guard_conflict',
+	'TRAITOR_QUARANTINED_CONTRACT_VERSION',
+	'ValidateCurrentCatalogRoster'
+)) {
+	if (($schema56ValidationText + $schema56SaveText) -notmatch [regex]::Escape($schema56SaveEntry)) {
+		throw "Schema-56 traitor-guard migration/restore boundary is missing: $schema56SaveEntry"
+	}
+}
+$schema56GroupClaimBlock = Get-ScriptMethodBlock $schema56ValidationText "protected static bool IsMissionGuardGroupClaimantForFamily("
+if ([string]::IsNullOrEmpty($schema56GroupClaimBlock) -or
+	$schema56GroupClaimBlock -match [regex]::Escape('"mission_group_" + mission.m_sInstanceId')) {
+	throw "Schema-56 exact claimant classification must not adopt ordinary legacy mission_group rows"
+}
+foreach ($schema56GuardedSkipEntry in @(
+	'IsSchema56MissionGuardMissionClaimant',
+	'IsSchema56MissionGuardManifestClaimant',
+	'IsSchema56MissionGuardBatchClaimant',
+	'IsSchema56MissionGuardGroupClaimant'
+)) {
+	if ($schema56SaveText -notmatch ('restoredSchemaVersion\s*>=\s*55\s*&&\s*HST_AssassinationGuardSaveValidationService\.' + [regex]::Escape($schema56GuardedSkipEntry))) {
+		throw "Schema-56 generic-normalizer skip lacks the pre-55 legacy boundary: $schema56GuardedSkipEntry"
+	}
+}
+
+foreach ($schema56ProofEntry in @(
+	'class HST_TraitorGuardOperationProofReport',
+	'class HST_TraitorGuardOperationProofService',
+	'RunTraitor',
+	'ProveAdmissionIsolation',
+	'ProveProjectionLifecycle',
+	'ProveSettlement',
+	'ProveRestoreMigration',
+	'ProveCorruptionQuarantine',
+	'ProveMarkerStatus',
+	'IsExactOfficerMission',
+	'IsExactTraitorMission',
+	'migration_schema56_exact_traitor_guard',
+	'normalization_schema56_exact_traitor_guard_conflict',
+	'unclaimed engine/package gates'
+)) {
+	if ($schema56ProofText -notmatch [regex]::Escape($schema56ProofEntry)) {
+		throw "Schema-56 traitor-guard source proof is missing: $schema56ProofEntry"
+	}
+}
+
+$schema56DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($schema56DocumentationPath in $schema56DocumentationPaths) {
+	$schema56DocumentationText = (Get-Content -Raw $schema56DocumentationPath).ToLowerInvariant()
+	$mentionsSchema56 = $schema56DocumentationText.Contains("schema 56") -or $schema56DocumentationText.Contains("schema-56")
+	if (!$mentionsSchema56 -or !$schema56DocumentationText.Contains("traitor") -or
+		!$schema56DocumentationText.Contains("guard") -or
+		!$schema56DocumentationText.Contains("packaged")) {
+		throw "$schema56DocumentationPath must describe the Schema-56 traitor-guard and packaged-runtime boundary"
+	}
+}
+$schema56MigrationsText = (Get-Content -Raw "docs/MIGRATIONS.md").ToLowerInvariant()
+foreach ($schema56MigrationNote in @(
+	'migration_schema56_exact_traitor_guard',
+	'normalization_schema56_exact_traitor_guard_conflict',
+	'exact_assassinate_traitor_guard_v1',
+	'contract `2`',
+	'version `-56`',
+	'contract zero',
+	'zero refund',
+	'packaged'
+)) {
+	if (!$schema56MigrationsText.Contains($schema56MigrationNote)) {
+		throw "Schema-56 migration documentation is missing: $schema56MigrationNote"
+	}
+}
+Write-Host "Schema-56 traitor-guard contract-2 admission, officer coexistence, HVT isolation, survivor projection, zero-refund settlement, migration/quarantine, marker/UI, and proof contract OK"
 
 Write-Host "h-istasi foundation validation passed"

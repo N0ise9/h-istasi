@@ -1,7 +1,7 @@
-// Schema-55 restore boundary for the exact guard force attached to the
-// assassinate-officer mission. Historical missions and their aggregate guard
-// groups remain contract-zero; this service never infers exact authority from
-// a mission id, a mission-instance backlink, or a projection id alone.
+// Schema-55/56 restore boundary for exact assassination-mission guard forces.
+// Historical officer and traitor missions and their aggregate mission_group_*
+// rows remain contract-zero. Exact authority is never inferred from a mission
+// id, a mission-instance backlink, or a projection id alone.
 class HST_AssassinationGuardSaveValidationService
 {
 	protected HST_CampaignSaveData m_SaveData;
@@ -12,18 +12,26 @@ class HST_AssassinationGuardSaveValidationService
 		if (!m_SaveData)
 			return;
 		if (restoredSchemaVersion < 55)
+			PreserveHistoricalMissionFamily(HST_MissionGuardOperationService.OFFICER_MISSION_ID, 55);
+		if (restoredSchemaVersion < 56)
+			PreserveHistoricalMissionFamily(HST_MissionGuardOperationService.TRAITOR_MISSION_ID, 56);
+		if (restoredSchemaVersion < 55)
 		{
-			PreserveHistoricalMissionGuards();
 			m_SaveData = null;
 			return;
 		}
 
-		array<string> validatedOperationIds = {};
-		int validatedCount;
-		int quarantinedCount;
+		array<string> handledOperationIds = {};
+		int validatedOfficerCount;
+		int validatedTraitorCount;
+		int quarantinedOfficerCount;
+		int quarantinedTraitorCount;
 		foreach (HST_ActiveMissionState mission : m_SaveData.m_aActiveMissions)
 		{
 			if (!mission || !HST_MissionGuardOperationService.IsExactMission(mission))
+				continue;
+			if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID
+				&& restoredSchemaVersion < 56)
 				continue;
 
 			HST_OperationRecordState operation = FindUniqueOperation(mission.m_sOperationId);
@@ -45,47 +53,126 @@ class HST_AssassinationGuardSaveValidationService
 				hvt);
 			if (!failure.IsEmpty())
 			{
-				QuarantineAggregate(mission, operation, batch, group, failure);
-				quarantinedCount++;
+				if (operation && !operation.m_sOperationId.IsEmpty()
+					&& !handledOperationIds.Contains(operation.m_sOperationId))
+					handledOperationIds.Insert(operation.m_sOperationId);
+				QuarantineAggregate(
+					mission,
+					operation,
+					batch,
+					group,
+					mission.m_sMissionId,
+					failure);
+				if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
+					quarantinedTraitorCount++;
+				else
+					quarantinedOfficerCount++;
 				continue;
 			}
 
 			NormalizeValidAggregate(mission, operation, batch, group);
-			validatedOperationIds.Insert(operation.m_sOperationId);
-			validatedCount++;
+			handledOperationIds.Insert(operation.m_sOperationId);
+			if (mission.m_sMissionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
+				validatedTraitorCount++;
+			else
+				validatedOfficerCount++;
 		}
 
-		quarantinedCount += PreserveOrphanClaimants(validatedOperationIds);
-		if (quarantinedCount > 0 && !HasEvent("normalization_schema55_exact_mission_guard_conflict"))
+		quarantinedOfficerCount += PreserveOrphanClaimants(
+			handledOperationIds,
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID);
+		if (restoredSchemaVersion >= 56)
 		{
-			HST_CampaignEventState eventState = new HST_CampaignEventState();
-			eventState.m_sEventId = "normalization_schema55_exact_mission_guard_conflict";
-			eventState.m_sCategory = "normalization";
-			eventState.m_sAggregateType = "mission_guard_authority";
-			eventState.m_sAggregateId = "schema55";
-			eventState.m_sTransition = "corrupt_exact_mission_guards_quarantined";
-			eventState.m_sReason = string.Format(
-				"validated %1 exact assassination guard authorities and quarantined %2 incomplete, conflicting, unsupported, or non-unique graphs without claiming or changing their HVT assets",
-				validatedCount,
-				quarantinedCount);
-			eventState.m_iCreatedAtSecond = Math.Max(0, m_SaveData.m_iElapsedSeconds);
-			m_SaveData.m_aCampaignEvents.Insert(eventState);
+			quarantinedTraitorCount += PreserveOrphanClaimants(
+				handledOperationIds,
+				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+		}
+		RecordNormalizationConflict(
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID,
+			validatedOfficerCount,
+			quarantinedOfficerCount);
+		if (restoredSchemaVersion >= 56)
+		{
+			RecordNormalizationConflict(
+				HST_MissionGuardOperationService.TRAITOR_MISSION_ID,
+				validatedTraitorCount,
+				quarantinedTraitorCount);
 		}
 		m_SaveData = null;
+	}
+
+	protected void RecordNormalizationConflict(
+		string missionId,
+		int validatedCount,
+		int quarantinedCount)
+	{
+		if (quarantinedCount <= 0)
+			return;
+		bool traitor = missionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
+		string eventId = "normalization_schema55_exact_mission_guard_conflict";
+		string aggregateId = "schema55";
+		string transition = "corrupt_exact_mission_guards_quarantined";
+		string familyLabel = "officer";
+		if (traitor)
+		{
+			eventId = "normalization_schema56_exact_traitor_guard_conflict";
+			aggregateId = "schema56";
+			transition = "corrupt_exact_traitor_guards_quarantined";
+			familyLabel = "traitor";
+		}
+		if (HasEvent(eventId))
+			return;
+		HST_CampaignEventState eventState = new HST_CampaignEventState();
+		eventState.m_sEventId = eventId;
+		eventState.m_sCategory = "normalization";
+		eventState.m_sAggregateType = "mission_guard_authority";
+		eventState.m_sAggregateId = aggregateId;
+		eventState.m_sTransition = transition;
+		eventState.m_sReason = string.Format(
+			"validated %1 exact %2 guard authorities and quarantined %3 incomplete, conflicting, unsupported, or non-unique graphs without claiming or changing their HVT assets",
+			validatedCount,
+			familyLabel,
+			quarantinedCount);
+		eventState.m_iCreatedAtSecond = Math.Max(0, m_SaveData.m_iElapsedSeconds);
+		m_SaveData.m_aCampaignEvents.Insert(eventState);
 	}
 
 	static bool IsSchema55MissionGuardMissionClaimant(
 		HST_CampaignSaveData saveData,
 		HST_ActiveMissionState mission)
 	{
-		if (!saveData || !mission)
+		return IsMissionGuardMissionClaimantForFamily(
+			saveData,
+			mission,
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID);
+	}
+
+	static bool IsSchema56MissionGuardMissionClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ActiveMissionState mission)
+	{
+		return IsSchema55MissionGuardMissionClaimant(saveData, mission)
+			|| IsMissionGuardMissionClaimantForFamily(
+				saveData,
+				mission,
+				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	protected static bool IsMissionGuardMissionClaimantForFamily(
+		HST_CampaignSaveData saveData,
+		HST_ActiveMissionState mission,
+		string missionId)
+	{
+		if (!saveData || !mission || mission.m_sMissionId != missionId)
 			return false;
-		if (HST_MissionGuardOperationService.IsExactMission(mission)
-			|| HST_MissionGuardOperationService.IsQuarantinedMission(mission))
+		int expectedContract = HST_MissionGuardOperationService.ResolveExpectedContractVersion(missionId);
+		int quarantineVersion = HST_MissionGuardOperationService.ResolveQuarantinedContractVersion(missionId);
+		if (mission.m_iOperationContractVersion == expectedContract
+			|| mission.m_iOperationContractVersion == quarantineVersion)
 			return true;
 		foreach (HST_OperationRecordState operation : saveData.m_aOperations)
 		{
-			if (!IsSchema55MissionGuardOperationClaimant(saveData, operation)
+			if (!IsMissionGuardOperationClaimantForFamily(saveData, operation, missionId)
 				|| operation.m_sOperationId.IsEmpty()
 				|| operation.m_sMissionInstanceId.IsEmpty())
 				continue;
@@ -102,21 +189,62 @@ class HST_AssassinationGuardSaveValidationService
 		HST_CampaignSaveData saveData,
 		HST_OperationRecordState operation)
 	{
+		return IsMissionGuardOperationClaimantForFamily(
+			saveData,
+			operation,
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID);
+	}
+
+	static bool IsSchema56MissionGuardOperationClaimant(
+		HST_CampaignSaveData saveData,
+		HST_OperationRecordState operation)
+	{
 		return saveData && operation
 			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD;
+	}
+
+	protected static bool IsMissionGuardOperationClaimantForFamily(
+		HST_CampaignSaveData saveData,
+		HST_OperationRecordState operation,
+		string missionId)
+	{
+		return IsSchema56MissionGuardOperationClaimant(saveData, operation)
+			&& ResolveOperationFamily(saveData, operation) == missionId;
 	}
 
 	static bool IsSchema55MissionGuardManifestClaimant(
 		HST_CampaignSaveData saveData,
 		HST_ForceManifestState manifest)
 	{
+		return IsMissionGuardManifestClaimantForFamily(
+			saveData,
+			manifest,
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID);
+	}
+
+	static bool IsSchema56MissionGuardManifestClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ForceManifestState manifest)
+	{
+		return IsSchema55MissionGuardManifestClaimant(saveData, manifest)
+			|| IsMissionGuardManifestClaimantForFamily(
+				saveData,
+				manifest,
+				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	protected static bool IsMissionGuardManifestClaimantForFamily(
+		HST_CampaignSaveData saveData,
+		HST_ForceManifestState manifest,
+		string missionId)
+	{
 		if (!saveData || !manifest)
 			return false;
-		if (manifest.m_sPolicyId == HST_MissionGuardOperationService.EXACT_POLICY_ID)
+		if (manifest.m_sPolicyId == HST_MissionGuardOperationService.ResolveExpectedPolicyId(missionId))
 			return true;
 		foreach (HST_OperationRecordState operation : saveData.m_aOperations)
 		{
-			if (!IsSchema55MissionGuardOperationClaimant(saveData, operation)
+			if (!IsMissionGuardOperationClaimantForFamily(saveData, operation, missionId)
 				|| operation.m_sOperationId.IsEmpty())
 				continue;
 			if (manifest.m_sOperationId == operation.m_sOperationId
@@ -131,11 +259,33 @@ class HST_AssassinationGuardSaveValidationService
 		HST_CampaignSaveData saveData,
 		HST_ForceSpawnResultState batch)
 	{
+		return IsMissionGuardBatchClaimantForFamily(
+			saveData,
+			batch,
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID);
+	}
+
+	static bool IsSchema56MissionGuardBatchClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ForceSpawnResultState batch)
+	{
+		return IsSchema55MissionGuardBatchClaimant(saveData, batch)
+			|| IsMissionGuardBatchClaimantForFamily(
+				saveData,
+				batch,
+				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	protected static bool IsMissionGuardBatchClaimantForFamily(
+		HST_CampaignSaveData saveData,
+		HST_ForceSpawnResultState batch,
+		string missionId)
+	{
 		if (!saveData || !batch)
 			return false;
 		foreach (HST_OperationRecordState operation : saveData.m_aOperations)
 		{
-			if (!IsSchema55MissionGuardOperationClaimant(saveData, operation)
+			if (!IsMissionGuardOperationClaimantForFamily(saveData, operation, missionId)
 				|| operation.m_sOperationId.IsEmpty()
 				|| batch.m_sOperationId != operation.m_sOperationId)
 				continue;
@@ -147,7 +297,7 @@ class HST_AssassinationGuardSaveValidationService
 		}
 		foreach (HST_ForceManifestState manifest : saveData.m_aForceManifests)
 		{
-			if (!IsSchema55MissionGuardManifestClaimant(saveData, manifest)
+			if (!IsMissionGuardManifestClaimantForFamily(saveData, manifest, missionId)
 				|| manifest.m_sOperationId.IsEmpty()
 				|| manifest.m_sManifestId.IsEmpty())
 				continue;
@@ -162,19 +312,33 @@ class HST_AssassinationGuardSaveValidationService
 		HST_CampaignSaveData saveData,
 		HST_ActiveGroupState group)
 	{
+		return IsMissionGuardGroupClaimantForFamily(
+			saveData,
+			group,
+			HST_MissionGuardOperationService.OFFICER_MISSION_ID);
+	}
+
+	static bool IsSchema56MissionGuardGroupClaimant(
+		HST_CampaignSaveData saveData,
+		HST_ActiveGroupState group)
+	{
+		return IsSchema55MissionGuardGroupClaimant(saveData, group)
+			|| IsMissionGuardGroupClaimantForFamily(
+				saveData,
+				group,
+				HST_MissionGuardOperationService.TRAITOR_MISSION_ID);
+	}
+
+	protected static bool IsMissionGuardGroupClaimantForFamily(
+		HST_CampaignSaveData saveData,
+		HST_ActiveGroupState group,
+		string missionId)
+	{
 		if (!saveData || !group)
 			return false;
-		if (group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.EXACT_GROUP_MODE
-			|| group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS
-			|| group.m_sRuntimeStatus.StartsWith("exact_mission_guard_")
-			|| group.m_sRuntimeStatus.StartsWith("mission_guard_virtual")
-			|| group.m_sRuntimeStatus.StartsWith("mission_guard_materializing")
-			|| group.m_sRuntimeStatus.StartsWith("mission_guard_physical")
-			|| group.m_sRuntimeStatus.StartsWith("mission_guard_dematerializing"))
-			return true;
 		foreach (HST_OperationRecordState operation : saveData.m_aOperations)
 		{
-			if (!IsSchema55MissionGuardOperationClaimant(saveData, operation)
+			if (!IsMissionGuardOperationClaimantForFamily(saveData, operation, missionId)
 				|| operation.m_sOperationId.IsEmpty()
 				|| group.m_sOperationId != operation.m_sOperationId)
 				continue;
@@ -185,52 +349,138 @@ class HST_AssassinationGuardSaveValidationService
 				|| (!group.m_sProjectionId.IsEmpty() && group.m_sProjectionId == operation.m_sProjectionId))
 				return true;
 		}
-		return false;
+		bool exactMode = group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.EXACT_GROUP_MODE
+			|| group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS;
+		bool exactStatus = group.m_sRuntimeStatus.StartsWith("exact_mission_guard_")
+			|| group.m_sRuntimeStatus.StartsWith("mission_guard_");
+		if (!exactMode && !exactStatus)
+			return false;
+		return ResolveGroupFamily(saveData, group) == missionId;
 	}
 
-	protected void PreserveHistoricalMissionGuards()
+	protected static string ResolveOperationFamily(
+		HST_CampaignSaveData saveData,
+		HST_OperationRecordState operation)
+	{
+		if (!saveData || !operation
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
+			return "";
+		if (operation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_CONTRACT_VERSION
+			|| operation.m_iContractVersion == HST_MissionGuardOperationService.TRAITOR_QUARANTINED_CONTRACT_VERSION)
+			return HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
+		if (operation.m_iContractVersion == HST_MissionGuardOperationService.OFFICER_CONTRACT_VERSION
+			|| operation.m_iContractVersion == HST_MissionGuardOperationService.OFFICER_QUARANTINED_CONTRACT_VERSION)
+			return HST_MissionGuardOperationService.OFFICER_MISSION_ID;
+		foreach (HST_ForceManifestState manifest : saveData.m_aForceManifests)
+		{
+			if (!manifest || manifest.m_sManifestId != operation.m_sManifestId
+				|| manifest.m_sOperationId != operation.m_sOperationId)
+				continue;
+			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID)
+				return HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
+			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.OFFICER_POLICY_ID)
+				return HST_MissionGuardOperationService.OFFICER_MISSION_ID;
+		}
+		foreach (HST_ActiveMissionState mission : saveData.m_aActiveMissions)
+		{
+			if (!mission || mission.m_sInstanceId != operation.m_sMissionInstanceId
+				|| !HST_MissionGuardOperationService.IsSupportedExactMissionId(mission.m_sMissionId))
+				continue;
+			return mission.m_sMissionId;
+		}
+		// Typed operation authority predates the traitor contract; retain the
+		// Schema-55 officer quarantine default when no traitor evidence exists.
+		return HST_MissionGuardOperationService.OFFICER_MISSION_ID;
+	}
+
+	protected static string ResolveGroupFamily(
+		HST_CampaignSaveData saveData,
+		HST_ActiveGroupState group)
+	{
+		if (!saveData || !group)
+			return "";
+		foreach (HST_OperationRecordState operation : saveData.m_aOperations)
+		{
+			if (!operation || operation.m_sOperationId.IsEmpty()
+				|| group.m_sOperationId != operation.m_sOperationId)
+				continue;
+			return ResolveOperationFamily(saveData, operation);
+		}
+		foreach (HST_ForceManifestState manifest : saveData.m_aForceManifests)
+		{
+			if (!manifest || manifest.m_sManifestId.IsEmpty()
+				|| group.m_sManifestId != manifest.m_sManifestId)
+				continue;
+			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.TRAITOR_POLICY_ID)
+				return HST_MissionGuardOperationService.TRAITOR_MISSION_ID;
+			if (manifest.m_sPolicyId == HST_MissionGuardOperationService.OFFICER_POLICY_ID)
+				return HST_MissionGuardOperationService.OFFICER_MISSION_ID;
+		}
+		foreach (HST_ActiveMissionState mission : saveData.m_aActiveMissions)
+		{
+			if (mission && mission.m_sInstanceId == group.m_sMissionInstanceId
+				&& HST_MissionGuardOperationService.IsSupportedExactMissionId(mission.m_sMissionId))
+				return mission.m_sMissionId;
+		}
+		return HST_MissionGuardOperationService.OFFICER_MISSION_ID;
+	}
+
+	protected void PreserveHistoricalMissionFamily(string missionId, int schemaVersion)
 	{
 		int legacyMissionCount;
 		int legacyGroupCount;
 		int unsupportedOperationCount;
 		foreach (HST_ActiveMissionState mission : m_SaveData.m_aActiveMissions)
 		{
-			if (!mission || mission.m_sMissionId != HST_MissionGuardOperationService.EXACT_MISSION_ID)
+			if (!mission || mission.m_sMissionId != missionId)
 				continue;
 			mission.m_iOperationContractVersion = 0;
 			legacyMissionCount++;
 			foreach (HST_ActiveGroupState group : m_SaveData.m_aActiveGroups)
 			{
-				if (!group)
-					continue;
-				if (group.m_sMissionInstanceId == mission.m_sInstanceId
-					|| group.m_sGroupId == "mission_group_" + mission.m_sInstanceId)
+				if (group && group.m_sGroupId == "mission_group_" + mission.m_sInstanceId)
 					legacyGroupCount++;
 			}
 		}
 		foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)
 		{
-			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
+			if (!operation || ResolveOperationFamily(m_SaveData, operation) != missionId)
 				continue;
 			QuarantineAggregate(
 				null,
 				operation,
 				FindUniqueBatch(operation.m_sSpawnResultId),
 				FindUniqueGroup(operation.m_sGroupId),
-				"pre-schema-55 save carried an unsupported exact assassination guard operation");
+				missionId,
+				string.Format(
+					"pre-schema-%1 save carried an unsupported exact %2 guard operation",
+					schemaVersion,
+					missionId));
 			unsupportedOperationCount++;
 		}
-		if (HasEvent("migration_schema55_exact_mission_guard"))
+		string eventId = "migration_schema55_exact_mission_guard";
+		string aggregateId = "schema55";
+		string transition = "legacy_assassination_guards_preserved";
+		string familyLabel = "officer";
+		if (missionId == HST_MissionGuardOperationService.TRAITOR_MISSION_ID)
+		{
+			eventId = "migration_schema56_exact_traitor_guard";
+			aggregateId = "schema56";
+			transition = "legacy_traitor_guards_preserved";
+			familyLabel = "traitor";
+		}
+		if (HasEvent(eventId))
 			return;
 		HST_CampaignEventState eventState = new HST_CampaignEventState();
-		eventState.m_sEventId = "migration_schema55_exact_mission_guard";
+		eventState.m_sEventId = eventId;
 		eventState.m_sCategory = "migration";
 		eventState.m_sAggregateType = "mission_guard_authority";
-		eventState.m_sAggregateId = "schema55";
-		eventState.m_sTransition = "legacy_assassination_guards_preserved";
+		eventState.m_sAggregateId = aggregateId;
+		eventState.m_sTransition = transition;
 		eventState.m_sReason = string.Format(
-			"preserved %1 historical officer missions and %2 historical mission groups on contract zero; quarantined %3 unsupported exact-operation rows and inferred no manifest, roster, batch, casualty, projection, or settlement authority",
+			"preserved %1 historical %2 missions and %3 historical mission_group rows on contract zero; quarantined %4 unsupported exact-operation rows and inferred no manifest, roster, batch, casualty, projection, or settlement authority",
 			legacyMissionCount,
+			familyLabel,
 			legacyGroupCount,
 			unsupportedOperationCount);
 		eventState.m_iCreatedAtSecond = Math.Max(0, m_SaveData.m_iElapsedSeconds);
@@ -280,11 +530,14 @@ class HST_AssassinationGuardSaveValidationService
 		HST_ForceSpawnResultState batch,
 		HST_ActiveGroupState group)
 	{
+		int expectedContract = HST_MissionGuardOperationService.ResolveExpectedContractVersion(
+			mission.m_sMissionId);
 		if (!HST_MissionGuardOperationService.IsExactMission(mission)
+			|| expectedContract <= 0
 			|| mission.m_sRuntimePrimitive != "kill_hvt"
 			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-			|| operation.m_iContractVersion != HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION
-			|| mission.m_iOperationContractVersion != HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION)
+			|| operation.m_iContractVersion != expectedContract
+			|| mission.m_iOperationContractVersion != expectedContract)
 			return "exact assassination guard mission or operation contract conflicts";
 		if (mission.m_sInstanceId.IsEmpty() || mission.m_sOperationId.IsEmpty()
 			|| mission.m_sManifestId.IsEmpty() || mission.m_sSpawnResultId.IsEmpty()
@@ -424,9 +677,14 @@ class HST_AssassinationGuardSaveValidationService
 		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
 		if (manifest.m_sManifestHash != integrity.BuildManifestHash(manifest))
 			return "exact assassination guard frozen manifest hash conflicts";
-		if (manifest.m_sPolicyId != HST_MissionGuardOperationService.EXACT_POLICY_ID
+		string expectedPolicy = HST_MissionGuardOperationService.ResolveExpectedPolicyId(
+			mission.m_sMissionId);
+		string expectedIntent = HST_MissionGuardOperationService.ResolveExpectedIntentId(
+			mission.m_sMissionId);
+		if (expectedPolicy.IsEmpty() || expectedIntent.IsEmpty()
+			|| manifest.m_sPolicyId != expectedPolicy
 			|| manifest.m_sForceKind != HST_MissionGuardOperationService.EXACT_FORCE_KIND
-			|| manifest.m_sIntentId != HST_MissionGuardOperationService.EXACT_INTENT_ID
+			|| manifest.m_sIntentId != expectedIntent
 			|| manifest.m_sFactionRole != "enemy" || !manifest.m_sSourceZoneId.IsEmpty()
 			|| !manifest.m_sQuoteId.IsEmpty() || !manifest.m_sCommandRequestId.IsEmpty()
 			|| manifest.m_sCatalogVersion != HST_ForceCatalogService.CATALOG_VERSION)
@@ -659,9 +917,11 @@ class HST_AssassinationGuardSaveValidationService
 		HST_ForceSpawnResultState batch,
 		HST_ActiveGroupState group)
 	{
+		string expectedIntent = HST_MissionGuardOperationService.ResolveExpectedIntentId(
+			mission.m_sMissionId);
 		if (group.m_sSpawnFallbackMode != HST_MissionGuardOperationService.EXACT_GROUP_MODE
 			|| group.m_sCompositionRequestId != manifest.m_sManifestId
-			|| group.m_sCompositionIntentId != HST_MissionGuardOperationService.EXACT_INTENT_ID
+			|| expectedIntent.IsEmpty() || group.m_sCompositionIntentId != expectedIntent
 			|| group.m_sMissionAssetId != "" || group.m_bQRF
 			|| !group.m_sSupportRequestId.IsEmpty() || !group.m_sEnemyOrderId.IsEmpty()
 			|| !group.m_sConvoyElementId.IsEmpty() || !group.m_sGarrisonZoneId.IsEmpty()
@@ -794,7 +1054,9 @@ class HST_AssassinationGuardSaveValidationService
 		operation.m_iStrategicLastUpdateSecond = restoreSecond;
 		operation.m_iVirtualCombatLastStepSecond = restoreSecond;
 		operation.m_iLastProgressAtSecond = restoreSecond;
-		operation.m_sLastProjectionReason = "schema-55 restore folded exact mission guard into held strategic survivor authority";
+		operation.m_sLastProjectionReason = string.Format(
+			"schema-56 restore folded exact %1 guard into held strategic survivor authority",
+			mission.m_sMissionId);
 		NormalizeBatchForStrategicHold(batch, restoreSecond);
 		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
 		int living = queue.CountStrategicLivingMemberSlots(batch);
@@ -935,20 +1197,26 @@ class HST_AssassinationGuardSaveValidationService
 		HST_OperationRecordState operation,
 		HST_ForceSpawnResultState batch,
 		HST_ActiveGroupState group,
+		string missionId,
 		string reason)
 	{
+		int quarantineVersion = HST_MissionGuardOperationService.ResolveQuarantinedContractVersion(
+			missionId);
+		if (quarantineVersion >= 0)
+			return;
 		if (reason.IsEmpty())
-			reason = "schema-55 exact assassination guard authority conflict";
-		if (mission && (HST_MissionGuardOperationService.IsExactMission(mission)
+			reason = "exact assassination guard authority conflict";
+		if (mission && mission.m_sMissionId == missionId
+			&& (HST_MissionGuardOperationService.IsExactMission(mission)
 			|| HST_MissionGuardOperationService.IsQuarantinedMission(mission)
 			|| MissionStronglyClaimsOperation(mission, operation)))
 		{
-			mission.m_iOperationContractVersion = HST_MissionGuardOperationService.QUARANTINED_CONTRACT_VERSION;
+			mission.m_iOperationContractVersion = quarantineVersion;
 			mission.m_sRuntimeFailureReason = reason;
 		}
 		if (operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD)
 		{
-			operation.m_iContractVersion = HST_MissionGuardOperationService.QUARANTINED_CONTRACT_VERSION;
+			operation.m_iContractVersion = quarantineVersion;
 			if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
 			{
 				operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
@@ -964,12 +1232,15 @@ class HST_AssassinationGuardSaveValidationService
 		HoldStrongClaimants(mission, operation, reason);
 	}
 
-	protected int PreserveOrphanClaimants(array<string> validatedOperationIds)
+	protected int PreserveOrphanClaimants(
+		array<string> validatedOperationIds,
+		string missionId)
 	{
 		int quarantinedCount;
 		foreach (HST_ActiveMissionState mission : m_SaveData.m_aActiveMissions)
 		{
-			if (!mission || (!HST_MissionGuardOperationService.IsExactMission(mission)
+			if (!mission || mission.m_sMissionId != missionId
+				|| (!HST_MissionGuardOperationService.IsExactMission(mission)
 				&& !HST_MissionGuardOperationService.IsQuarantinedMission(mission)))
 				continue;
 			if (validatedOperationIds.Contains(mission.m_sOperationId))
@@ -984,18 +1255,19 @@ class HST_AssassinationGuardSaveValidationService
 			}
 			string reason = "exact assassination guard mission has no validated reciprocal authority graph";
 			if (HST_MissionGuardOperationService.IsQuarantinedMission(mission))
-				reason = "schema-55 exact assassination guard remained quarantined after restore";
+				reason = "exact assassination guard remained quarantined after restore";
 			QuarantineAggregate(
 				mission,
 				operation,
 				batch,
 				group,
+				missionId,
 				reason);
 			quarantinedCount++;
 		}
 		foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)
 		{
-			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+			if (!operation || ResolveOperationFamily(m_SaveData, operation) != missionId
 				|| validatedOperationIds.Contains(operation.m_sOperationId))
 				continue;
 			HST_ActiveMissionState mission = FindUniqueMission(operation.m_sMissionInstanceId);
@@ -1004,17 +1276,20 @@ class HST_AssassinationGuardSaveValidationService
 				operation,
 				FindUniqueBatch(operation.m_sSpawnResultId),
 				FindUniqueGroup(operation.m_sGroupId),
+				missionId,
 				"exact assassination guard operation has no validated reciprocal mission graph");
 			quarantinedCount++;
 		}
 		foreach (HST_ActiveGroupState group : m_SaveData.m_aActiveGroups)
 		{
-			if (!IsSchema55MissionGuardGroupClaimant(m_SaveData, group))
-				continue;
 			HST_OperationRecordState operation = FindUniqueOperation(group.m_sOperationId);
+			if (!operation || ResolveOperationFamily(m_SaveData, operation) != missionId)
+				continue;
 			if (operation && validatedOperationIds.Contains(operation.m_sOperationId))
 				continue;
-			HoldGroup(group, "exact assassination guard group has no validated reciprocal authority graph");
+			HST_ActiveMissionState mission = FindUniqueMission(operation.m_sMissionInstanceId);
+			if (GroupClaimsAuthority(group, mission, operation))
+				HoldGroup(group, "exact assassination guard group has no validated reciprocal authority graph");
 		}
 		return quarantinedCount;
 	}

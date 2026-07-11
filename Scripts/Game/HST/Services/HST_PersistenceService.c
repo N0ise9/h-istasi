@@ -302,7 +302,8 @@ class HST_PersistenceService
 			bool exactGarrisonPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
 				&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION;
 			bool exactMissionGuard = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-				&& operation.m_iContractVersion == HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION;
+				&& HST_MissionGuardOperationService.IsSupportedExactContractVersion(
+					operation.m_iContractVersion);
 			if (!exactEnemyPatrol && !exactGarrisonPatrol && !exactMissionGuard)
 				continue;
 			if (operation.m_eMaterializationState
@@ -410,7 +411,8 @@ class HST_PersistenceService
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
 			if (operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-				&& operation.m_iContractVersion == HST_MissionGuardOperationService.QUARANTINED_CONTRACT_VERSION)
+				&& HST_MissionGuardOperationService.IsQuarantinedOperationContractVersion(
+					operation.m_iContractVersion))
 				return true;
 		}
 		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
@@ -435,7 +437,8 @@ class HST_PersistenceService
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
 			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-				|| operation.m_iContractVersion != HST_MissionGuardOperationService.QUARANTINED_CONTRACT_VERSION)
+				|| !HST_MissionGuardOperationService.IsQuarantinedOperationContractVersion(
+					operation.m_iContractVersion))
 				continue;
 			HST_ForceSpawnResultState batch;
 			int batchMatches;
@@ -513,7 +516,8 @@ class HST_PersistenceService
 				continue;
 			HST_OperationRecordState operation = state.FindOperation(orphanGroup.m_sOperationId);
 			if (operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-				&& operation.m_iContractVersion == HST_MissionGuardOperationService.QUARANTINED_CONTRACT_VERSION
+				&& HST_MissionGuardOperationService.IsQuarantinedOperationContractVersion(
+					operation.m_iContractVersion)
 				&& QuarantinedMissionGuardGroupClaimsOperation(orphanGroup, operation))
 				continue;
 			if (orphanGroup.m_bSpawnedEntity || !orphanGroup.m_sRuntimeEntityId.IsEmpty()
@@ -1168,7 +1172,8 @@ class HST_PersistenceService
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
 			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
-				|| operation.m_iContractVersion != HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION
+				|| !HST_MissionGuardOperationService.IsSupportedExactContractVersion(
+					operation.m_iContractVersion)
 				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 				|| (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 					&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING))
