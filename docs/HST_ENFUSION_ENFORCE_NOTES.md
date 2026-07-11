@@ -2605,12 +2605,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Remove the aggregate marker after terminal settlement. Source compilation
     and deterministic state checks are not proof of client rendering or cleanup.
 
-- The current unstamped schema-52 implementation passes repository validation
-  and a clean headless Workbench Game-module compile/create gate at 5,753 files/
-  11,537 classes with CRC `fc0449bd`. A normal WorldEditor open created the same
+- The final stamped schema-52 tree identifies implementation
+  `fa5e7e45dbd8741269e614e60c51d4edee6bf223`, passes repository validation, and
+  passes a clean headless Workbench Game-module compile/create gate at 5,753 files/
+  11,537 classes with CRC `e868739b`. A normal WorldEditor open created the same
   Game module and remained responsive for all 10 bounded samples without a
-  script-error or native-crash signature. Its build identity remains schema 51
-  until stamping. This is source/startup evidence only. Packaged proof remains
+  script-error or native-crash signature. This is source/startup evidence only.
+  Packaged proof remains
   open for three vehicles and seated drivers,
   movement, physical interception, fold/rematerialization, casualty persistence,
   arrival/outcome settlement, marker rendering/cleanup, and process restart.

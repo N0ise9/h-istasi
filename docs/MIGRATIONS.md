@@ -129,12 +129,13 @@
   savepoint is requested. Autosave/major-change intent remains pending and
   retries on the bounded debounce.
 
-- The current unstamped schema-52 implementation passes repository validation
-  and a clean headless Workbench Game-module compile/create gate at 5,753 files/
-  11,537 classes with CRC `fc0449bd`. A normal WorldEditor open created the same
+- The final stamped schema-52 tree identifies implementation
+  `fa5e7e45dbd8741269e614e60c51d4edee6bf223`, passes repository validation, and
+  passes a clean headless Workbench Game-module compile/create gate at 5,753 files/
+  11,537 classes with CRC `e868739b`. A normal WorldEditor open created the same
   Game module and remained responsive for all 10 bounded samples without a
-  script-error or native-crash signature. Its build identity remains schema 51
-  until stamping. That is source/startup evidence, not packaged-runtime evidence.
+  script-error or native-crash signature. That is source/startup evidence, not
+  packaged-runtime evidence.
   A republished server/client run must still prove three physical vehicles and
   crews, virtual travel, interception,
   casualty-preserving fold/rematerialization, arrival/outcome settlement,

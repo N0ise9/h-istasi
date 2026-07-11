@@ -73,16 +73,13 @@ be read as proof that a later change was executed or certified.
   only when no intact, damageable transmitter exists. These fixes are source-
   validated only and require the requested republished map/dialog/radio mission
   check.
-- Schema-51 implementation and hardening pass foundation validation. The final
-  stamped headless Workbench run compiles 5,749 Game files/11,516 classes,
-  creates the game with CRC `85ccf2e0`, and reports no script error. The current
-  unstamped schema-52 implementation passes foundation validation and a clean
+- The final stamped schema-52 tree identifies implementation
+  `fa5e7e45dbd8741269e614e60c51d4edee6bf223`, passes foundation validation, and passes a clean
   headless Game-module compile/create at 5,753 files/11,537 classes with CRC
-  `fc0449bd`. A normal WorldEditor open created the same Game module and remained
+  `e868739b`. A normal WorldEditor open created the same Game module and remained
   responsive for all ten two-second samples without a script error, unknown
-  class, or native-crash signature. Its build identity remains schema 51 until
-  stamping, and this is source/startup evidence rather than packaged gameplay
-  proof. During schema 50, the initial
+  class, or native-crash signature. This is source/startup evidence rather than
+  packaged gameplay proof. During schema 50, the initial
   correctly quoted Workbench attempts exposed a native compiler edge in the
   already-large Phase-20 civilian population debug method: adding five
   appearance/horn count locals caused `0xc0000374` before `Module: Game` without
@@ -985,14 +982,11 @@ Unproven or incomplete against the pasted contract:
 
 - `git diff --check` passes for the current documentation update.
 - `tools/validate-foundation.ps1` passes for the current schema-52 source tree.
-- The final stamped schema-51 tree passes a headless Workbench Game-module
-  compile/create pass at 5,749 files/11,516 classes with CRC `85ccf2e0`; its exact
-  implementation identity remains authoritative in `HST_BuildInfo`.
-- The current unstamped schema-52 mission-convoy implementation passes a clean
+- The final stamped schema-52 tree identifies implementation
+  `fa5e7e45dbd8741269e614e60c51d4edee6bf223` in `HST_BuildInfo` and passes a clean
   headless Workbench Game-module compile/create source gate at 5,753 files/
-  11,537 classes with CRC `fc0449bd`, with no script error or native-crash marker.
+  11,537 classes with CRC `e868739b`, with no script error or native-crash marker.
   A normal WorldEditor open created the same Game module and remained responsive
-  for all 10 bounded samples without a script-error or crash signature. Its
-  build identity remains schema 51 until stamping, and it has not been packaged
-  or executed as gameplay proof. Source/compile/startup gates are not packaged
+  for all 10 bounded samples without a script-error or crash signature. It has
+  not been packaged or executed as gameplay proof. Source/compile/startup gates are not packaged
   runtime certification.

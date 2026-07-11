@@ -387,16 +387,14 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The final stamped schema-51 tree passes foundation validation
-and a headless Workbench Game-module compile/create pass at 5,749 files/11,516
-classes with CRC `85ccf2e0`. The current unstamped schema-52 implementation
-passes foundation validation and a clean headless Workbench Game-module
-compile/create pass at 5,753 files/11,537 classes with CRC `fc0449bd`; a normal
+schema-50 repairs. The final stamped schema-52 tree identifies implementation
+`fa5e7e45dbd8741269e614e60c51d4edee6bf223`, passes foundation validation, and
+passes a clean headless Workbench Game-module compile/create at 5,753 files/
+11,537 classes with CRC `e868739b`; a normal
 WorldEditor open created the same Game module and remained responsive for all
 10 bounded samples with no script-error or native-crash signature. This is
-source/startup evidence, not packaged gameplay proof, and its build identity
-remains schema 51 until the implementation is committed and stamped. A
-republished server/client test is still required before those repairs, either
+source/startup evidence, not packaged gameplay proof. A republished
+server/client test is still required before those repairs, either
 exact-QRF projection path,
 or the source-validated schema-52 convoy path is called runtime-proven. The late-admin
 role-change guard, campaign-debug
