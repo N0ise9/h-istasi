@@ -14635,7 +14635,7 @@ $schema56PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema56CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema56ProofText = Get-Content -Raw $schema56ProofPath
 
-if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57|58)\s*;') {
+if ($schema56StateText -notmatch 'SCHEMA_VERSION\s*=\s*(56|57|58|59)\s*;') {
 	throw "Schema-56 campaign schema lineage is missing"
 }
 foreach ($schema56CoreEntry in @(
@@ -14838,7 +14838,7 @@ $schema57PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema57CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema57ProofText = Get-Content -Raw $schema57ProofPath
 
-if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*(57|58)\s*;') {
+if ($schema57StateText -notmatch 'SCHEMA_VERSION\s*=\s*(57|58|59)\s*;') {
 	throw "Schema-57 campaign schema is missing"
 }
 foreach ($schema57CoreEntry in @(

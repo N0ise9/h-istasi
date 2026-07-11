@@ -407,6 +407,14 @@ The repository contains a broad-alpha campaign foundation:
   linked quarantine cleanup. Source and Workbench gates do not substitute for
   native authored binding, explosives, streaming, real
   restart, rendered UI, packaged networking, reconnect, or JIP evidence.
+  The stamped Schema-59 source/Workbench checkpoint identifies implementation
+  `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+  `schema59-radio-site-lifecycle`. The full Foundation gate passes. Final
+  stamped-tree Workbench Game validation loaded 5,773 files/11,608 classes with
+  CRC `96914c26` and `Script validation successful`; the bounded hidden normal
+  WorldEditor open stayed alive and responsive for 10/10 samples over 20 seconds
+  with no script-compile or crash signature. Its one Steamworks stats-request
+  error was nonfatal. Packaged gameplay proof remains independently open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death

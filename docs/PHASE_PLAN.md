@@ -127,9 +127,13 @@ current linked rows while preserving coherent terminal history.
 Focused proof calls production transitions and durable evidence, rejects a
 direct second rebuild admission, proves linked quarantine cleanup, and replaces
 only projection seams.
-Schema 59 is the current source/Workbench implementation boundary; final hash,
-build label, foundation result, Workbench CRC, and normal-open evidence are
-recorded with its stamp. Schema 58 remains the preceding stamped checkpoint at
+Schema 59 is the current stamped source/Workbench implementation boundary at
+implementation `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+`schema59-radio-site-lifecycle`. The full Foundation gate passes; Workbench
+loaded 5,773 files/11,608 classes with CRC `96914c26` and reported
+`Script validation successful`. The bounded normal open stayed alive/responding
+for 10/10 samples over 20 seconds with no script-compile/crash signature; its one
+Steamworks stats-request error was nonfatal. Schema 58 remains the preceding stamped checkpoint at
 implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
 `schema58-exact-rescue-pows`. Schema-59 native discovery/damage/projection,
 actual save/restart, rendered UI, campaign setup, packaged networking,
@@ -139,7 +143,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 59 is the current source/Workbench implementation boundary | Stamp and publish the exact radio-site lifecycle, then runtime-prove its packaged behavior. Schema 58 remains the preceding stamped checkpoint. Every native/save-restart/rendered-UI/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-0: Repository truth and baseline | Schema 59 is the current stamped source/Workbench implementation boundary | Publish and runtime-prove the exact radio-site lifecycle. Schema 58 remains the preceding stamped checkpoint. Every native/save-restart/rendered-UI/setup/network/reconnect/JIP gate remains independently open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | SpawnQueue executes the Schema-58 guard root/member subgraph and explicitly excludes its three external captive slots. The mission-rescue service owns those typed asset rows. Existing QRF/patrol/guard/convoy shapes remain unchanged; generic vehicle/asset/multi-root execution and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; nine exact family projections across seven operation types implemented in source | Schema 58 keeps guard and captive outcomes separate, folds unbound POWs without virtual damage, retains custody projections, preserves exact deaths/receipts through restore, and settles normal failure/success plus custody-only grace. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
@@ -2531,9 +2535,12 @@ Acceptance criteria:
 Status: In progress - broad-alpha command-menu and marker paths exist, and the
 packaged schema-49 run proved that map publication returned with the stock HUD.
 It also exposed invalid radio icons as giant boxes, owner-only labels, pointer-
-under-dialog ordering, and duplicate radio transmitters. Schema-50 source
-validates/resolves the radio icon dynamically, labels location plus owner, keeps
-map-local overlays below the native pointer, and reuses authored transmitters.
+under-dialog ordering, and duplicate radio transmitters. Schema 59 retains the
+dynamic icon validation, location-plus-owner label, and pointer-layer repairs,
+then makes its radio-site lifecycle service the sole transmitter projection
+owner. Markers append ONLINE/DESTROYED/REBUILDING/UNRESOLVED/QUARANTINED state;
+authored transmitters are borrowed without deletion, and a generated replacement
+appears only after completed rebuild settlement.
 Schema 51 additionally publishes the open exact enemy defensive-QRF operation at
 its strategic/live cursor with living count, duty, endpoints, and ETA. Schema
 52 publishes one aggregate exact-convoy marker at its strategic/live operation
@@ -2554,8 +2561,8 @@ Implementation:
   resources by identity, and reject invalid icon entries rather than assuming a
   stock array index.
 - Keep map-target prompt/indicator/dialog in the map-local layer below the native
-  pointer, and bind radio missions to an existing damageable transmitter when
-  one is already present.
+  pointer, and route both radio mission IDs through the Schema-59 lifecycle
+  owner rather than generic composition/runtime projection.
 - Publish one marker for every open schema-51 exact enemy defensive-QRF
   operation at its strategic or live position, including faction, living count,
   duty, immutable route endpoints, and ETA. Remove it when the operation closes.
@@ -2568,7 +2575,8 @@ Acceptance criteria:
 - Convoy marker updates while moving.
 - Zone markers update after capture.
 - Zone marker text contains both the location name and current owner.
-- Radio markers remain normal-sized and an authored radio site has one tower.
+- Radio markers remain normal-sized, show location plus owner plus lifecycle
+  status, and an authored radio site has one canonical tower.
 - The native pointer remains visible over map-target confirmation dialogs.
 - Support/QRF markers appear when relevant.
 - Exact enemy defensive-QRF markers follow virtual/physical travel and disappear

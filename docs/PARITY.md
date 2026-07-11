@@ -183,6 +183,13 @@
   through projection-only seams. Native discovery, natural explosives, damage
   reapplication, generated replacement, stream re-entry, actual save/restart,
   rendered UI, setup, packaged networking, reconnect, and JIP remain open.
+  The stamped Schema-59 source/Workbench checkpoint identifies implementation
+  `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+  `schema59-radio-site-lifecycle`. The full Foundation gate passes; Workbench
+  loaded 5,773 files/11,608 classes with CRC `96914c26` and reported
+  `Script validation successful`. The bounded normal open stayed alive/
+  responding for 10/10 samples over 20 seconds with no script-compile/crash
+  signature; one Steamworks stats-request error was nonfatal.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate

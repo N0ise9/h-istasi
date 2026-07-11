@@ -3412,6 +3412,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   mission histories cannot alias one physical row. Every mission asset snapshots
   the ownership and authored descriptor present at admission, so a later
   ownership handoff cannot relabel historical evidence. Quarantine uses `-59`.
+  The stamped checkpoint identifies implementation
+  `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+  `schema59-radio-site-lifecycle`. The full Foundation gate passes. Stamped-tree
+  Workbench validation loaded 5,773 files/11,608 classes with CRC `96914c26` and
+  `Script validation successful`; a bounded normal open stayed alive/responding
+  for 10/10 samples over 20 seconds with no script-compile/crash signature. Its
+  one Steamworks stats-request error was nonfatal.
 
 - Initial projection binding is conservative. Search the logical zone within a
   bounded radius, normalize child hits to roots, accept supported transmitter

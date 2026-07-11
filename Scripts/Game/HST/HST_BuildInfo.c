@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "f0ba07ff2bc295d12542a3ea34b4c913e99b1869";
-	static const string BUILD_UTC = "2026-07-11T16:43:51Z";
-	static const string BUILD_LABEL = "schema58-exact-rescue-pows";
+	static const string BUILD_SHA = "37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21";
+	static const string BUILD_UTC = "2026-07-11T20:01:02Z";
+	static const string BUILD_LABEL = "schema59-radio-site-lifecycle";
 
 	static string BuildSummary()
 	{

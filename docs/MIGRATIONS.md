@@ -100,6 +100,13 @@
   damage-state reapplication, generated replacement visuals, streaming, real
   process restart, rendered UI, packaged networking, reconnect, and JIP remain
   packaged-runtime gates until a republished run supplies evidence.
+  The stamped Schema-59 source/Workbench checkpoint identifies implementation
+  `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+  `schema59-radio-site-lifecycle`. The full Foundation gate passes. Final
+  Workbench validation loaded 5,773 files/11,608 classes with CRC `96914c26` and
+  `Script validation successful`; a bounded normal open stayed alive/responding
+  for 10/10 samples over 20 seconds with no script-compile/crash signature. Its
+  one Steamworks stats-request error was nonfatal.
 
 ## Schema 58
 

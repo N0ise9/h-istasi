@@ -360,6 +360,13 @@ be read as proof that a later change was executed or certified.
   Workbench compilation do not certify native candidate discovery, explosives, damage-state
   reapplication, generated replacement visuals, streaming, process restart,
   rendered UI, owner change, setup, packaged networking, reconnect, or JIP.
+  The stamped Schema-59 source/Workbench checkpoint identifies implementation
+  `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+  `schema59-radio-site-lifecycle`. The full Foundation gate passes; Workbench
+  loaded 5,773 files/11,608 classes with CRC `96914c26` and reported
+  `Script validation successful`. The bounded normal WorldEditor open stayed
+  alive/responding for 10/10 samples over 20 seconds with no script-compile or
+  crash signature; one Steamworks stats-request error was nonfatal.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -1251,3 +1258,13 @@ Unproven or incomplete against the pasted contract:
   stayed responsive for 10/10 samples over 20 seconds with zero crash/error
   matches. All packaged/native/save-restart/rendered-UI/owner-change/setup/
   network/reconnect/JIP gates remain open.
+- The stamped Schema-59 tree identifies implementation
+  `37fb5f0ffbc80c4bba3151ba1e5d8be6ffcf8a21` with build label
+  `schema59-radio-site-lifecycle`. The full Foundation gate passes, including
+  the durable radio-site lifecycle checks. Final stamped-tree Workbench Game
+  validation loaded 5,773 files/11,608 classes with CRC `96914c26` and reported
+  `Script validation successful`; the bounded hidden normal WorldEditor open
+  stayed alive/responding for 10/10 samples over 20 seconds with no script-
+  compile or crash signature. One Steamworks stats-request error was nonfatal.
+  All packaged/native/save-restart/rendered-UI/owner-change/setup/network/
+  reconnect/JIP gates remain open.
