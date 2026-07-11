@@ -139,7 +139,8 @@
   and its log had no script-error/crash signature. All packaged/native/restart/
   UI/network gates remain open.
 - Newly started `rescue_pows` is the ninth exact family consumer and introduces
-  `HST_OPERATION_TYPE_MISSION_RESCUE`. Schema-58 contract `1`, policy
+  `HST_OPERATION_TYPE_MISSION_RESCUE` as the seventh operation type. Schema-58
+  contract `1`, policy
   `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58` own
   one guard roster plus exactly three typed captive slots. HELD/FREED captives
   fold outside the bubble; FOLLOWING/BOARDING/BOARDED retain stable escort/
@@ -151,7 +152,14 @@
   conflict events are `migration_schema58_exact_rescue_pows` and
   `normalization_schema58_exact_rescue_pows_conflict`. Source proof does not
   claim packaged native entities, vehicle seats, restart, rendered UI, owner
-  change, setup, networking, reconnect, or JIP.
+  change, setup, networking, reconnect, or JIP. Schema 58 is the current stamped
+  source/Workbench baseline at implementation
+  `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+  `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
+  tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
+  `aa73883a` and `Script validation successful`; the bounded hidden normal
+  WorldEditor open stayed responsive for 10/10 samples over 20 seconds with zero
+  crash/error matches.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -409,9 +417,14 @@
   casualty/success/grace outcomes, and restore/quarantine. The queue executes
   only group/member slots; the rescue service owns three captive rows. Missing
   entities never imply death, HQ is the only extraction point, and configured
-  target-town support uses the normal once-only reward path. Native/packaged/
-  restart/rendered-UI/owner-change/setup/network/reconnect/JIP proof remains
-  open.
+  target-town support uses the normal once-only reward path. This is the current
+  stamped source/Workbench baseline at implementation
+  `f0ba07ff2bc295d12542a3ea34b4c913e99b1869`, label
+  `schema58-exact-rescue-pows`. Final stamped-tree Workbench validation loaded
+  5,770 files/11,594 classes with CRC `aa73883a` and
+  `Script validation successful`; its bounded normal open passed 10/10 samples
+  over 20 seconds with zero crash/error matches. Native/packaged/restart/rendered-UI/owner-change/
+  setup/network/reconnect/JIP proof remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
@@ -438,7 +451,7 @@
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-57,
+- The latest inspected Full Campaign Debug artifact predates schemas 43-58,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
 - The in-process runner now fails closed outside `HST_Dev`, clones campaign
@@ -448,9 +461,9 @@
 
 ## Current Delivery Priorities
 
-- Publish and test the stamped Schema-57 build with officer-, traitor-, and spec-ops-
-  guard diagnostics while preserving the stamped Schema-56 checkpoint and
-  proving the schema-50
+- Publish and test the stamped Schema-58 build with exact POW-rescue plus officer-,
+  traitor-, and spec-ops-guard diagnostics while preserving the historical
+  Schema-57 checkpoint and proving the schema-50
   marker/dialog/radio corrections and
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
@@ -462,7 +475,7 @@
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-57 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-58 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
@@ -518,6 +531,13 @@
   setup, networking, reconnect, and JIP. Officer contract `1` and traitor
   contract `2` must remain exact; historical/pre-57 spec-ops guards, ordinary
   `mission_group_*` rows, and unsupported families must remain contract `0`.
+- Runtime-prove the schema-58 exact POW rescue: only newly started `rescue_pows`
+  may use the ninth explicit family consumer across the seventh operation type.
+  Prove the exact guard roster plus three captive identities, live action
+  projection, natural boarding/seat evidence, fold/re-entry, casualty failure,
+  three-receipt HQ success, custody-only grace, actual save/restart, owner change,
+  campaign setup, packaged networking, reconnect, and JIP. Historical POWs,
+  `rescue_refugees`, and unsupported rescue families must remain contract `0`.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
 - Runtime-prove both exact-QRF `OperationRecord` policies: player virtual combat/

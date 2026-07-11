@@ -48,35 +48,35 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current stamped development save contract is Schema 57. It adds contract-3
-exact authority only for guards belonging to a
-newly started `assassinate_specops` mission, using policy
-`exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
-quarantine `-57`. Officer `1`/`-55` and traitor `2`/`-56` remain exact.
-Historical/pre-57 spec-ops, ordinary `mission_group_*` rows, rescue missions,
-and unsupported families remain contract `0`. Generic spec-ops composition may
-propose multiple groups; contract `3` deterministically selects the strongest
-executable group, keeps the stable first group on ties, freezes only that
-selected catalog roster, and grants discarded groups no authority. Schema 57 is
-stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with
-build label `schema57-exact-specops-guard`. The full foundation gate passes,
-including Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/
-11,576 classes with CRC `e0b8578e` and `Script validation successful`; the
-bounded hidden normal WorldEditor open stayed alive for 10/10 samples over 20
-seconds, and its log had no script-error/crash signature. Packaged behavior
-gates remain open. The preceding Schema-56 stamped baseline remains historical:
+The current stamped development save contract is Schema 58. It opts in only a
+newly started `rescue_pows` mission through mission-rescue contract `1`, policy
+`exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58`. One
+frozen composite manifest owns an exact guard roster plus exactly three
+externally managed captive slots. Historical/pre-58 POW missions,
+`rescue_refugees`, ordinary `mission_group_*` rows, and unsupported families
+remain contract `0`. The stamp identifies implementation
+`f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+`schema58-exact-rescue-pows`. The full foundation gate passes. The final stamped
+tree passed Workbench Game validation at 5,770 files/11,594
+classes with CRC `aa73883a` and `Script validation successful`; its bounded
+normal WorldEditor open stayed alive for 10/10 samples over 20 seconds with zero
+crash/error matches. These are source/compiler/startup gates only. Native guard
+and captive behavior, vehicle seating, actual save/restart, rendered UI,
+owner-change, campaign setup, packaged networking, reconnect, and JIP remain
+open. Schema 57 remains the preceding historical checkpoint at implementation
+`514ebdcbeb1ddfb2a383b19590382517113e2ff6` and label
+`schema57-exact-specops-guard`; Schema 56 remains earlier history at
 implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
-`03a65cd33bee69c6320389803cdd5a2ec8576fb0`, label
-`schema56-exact-traitor-guard`, 5,764 files/11,573 classes, CRC `a18c67a5`, and
-10/10 normal-open samples over 20 seconds.
+`03a65cd33bee69c6320389803cdd5a2ec8576fb0`, and label
+`schema56-exact-traitor-guard`.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Schema 57 is the current stamped source checkpoint | Full foundation plus stamped Workbench validation/open pass; packaged runtime pending | No | Schema 57 is stamped at implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` / label `schema57-exact-specops-guard`. The full foundation gate, including Schema-55/56/57, passes. Workbench loaded 5,765 files/11,576 classes with CRC `e0b8578e` and `Script validation successful`; the bounded hidden normal open passed 10/10 samples over 20 seconds with no log script-error/crash signature. The latest Full Campaign Debug artifact predates schemas 43-57 and is not certification evidence. |
-| CRI-1 Authority foundation | Complete | Prior vertical slices plus all three versioned assassination-guard families | Schema-57 source proof and stamped Workbench gates pass; packaged runtime pending | No | Only newly started spec-ops guards gain contract `3`, policy `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and `-57` quarantine. Officer `1`/`-55` and traitor `2`/`-56` remain exact. Historical/pre-57 spec-ops and unsupported families remain contract `0`; ordinary `mission_group_*` rows are not claimants. |
-| CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, seven exact infantry-family consumers, and exact three-element mission convoy | Schema-57 source proof and stamped Workbench gates pass; native projection/restart pending | No | Schema 57 deterministically selects the strongest executable group from a generic spec-ops proposal (stable first on ties), freezes only its catalog roster beneath one empty root, and grants discarded groups no authority. It owns no HVT, route, vehicle, asset, resource, or virtual-combat entry. The generic adapter remains one-root infantry-only; the convoy retains its separate path. Historical mission guards, vehicles/assets, generic multi-root execution, and other consumers remain open. |
-| CRI-3 Force runtime | Complete in source for seven exact infantry-family consumers, one exact mission convoy, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and all three mission-guard folds, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-57 source proof and stamped Workbench gates pass; native/package gates pending | No | Officer, traitor, and spec-ops guards are route-less held rosters whose mapped casualties persist across fold/re-entry; all guards dead can settle independently of the HVT and no guard family simulates virtual combat. Exact/quarantined claimants are isolated from generic mutation. Native entities, adapter casualties, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven. |
-| CRI-4 Operation records | Complete for six operation types and eight explicit family consumers | Mission-guard contract `1`/`2`/`3` dispatch plus typed materialization/position/settlement state, durable roster linkage, restore normalization, and fail-closed isolation | Six Schema-57 source-proof categories and stamped Workbench gates pass; packaged runtime pending | No | Schema 57 adds only spec-ops guards as contract `3` on `HST_OPERATION_TYPE_MISSION_GUARD`, preserving officer `1` and traitor `2`. It reuses route-less survivor state, HVT-independent `DESTROYED`, typed zero-refund outcomes, compact restore, existing-HVT status, and `-57` quarantine. Historical/pre-57 spec-ops, rescue, and unsupported families remain contract `0`. |
+| CRI-0 Truth and baseline | Complete | Schema 58 is the current stamped source checkpoint | Full foundation plus final stamped-tree Workbench validation/open pass; packaged runtime pending | No | Schema 58 is stamped at implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` / label `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-tree Workbench validation loaded 5,770 files/11,594 classes with CRC `aa73883a` and `Script validation successful`; the normal open passed 10/10 samples over 20 seconds with zero crash/error matches. The latest Full Campaign Debug artifact predates schemas 43-58 and is not certification evidence. |
+| CRI-1 Authority foundation | Complete | Prior vertical slices, all three versioned assassination-guard families, and the first exact rescue family | Schema-58 source proof and final stamped-tree Workbench gates pass; packaged runtime pending | No | Only newly started `rescue_pows` gain mission-rescue contract `1`, policy `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and `-58` quarantine. One reciprocal mission/operation/composite graph owns a separate exact guard roster and exactly three typed captive rows. Historical/pre-58 POWs, refugees, ordinary mission-group rows, and unsupported families remain contract `0`. |
+| CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, eight exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-58 source proof and final stamped-tree Workbench gates pass; native projection/restart pending | No | Schema 58 freezes one guard root/member subgraph plus exactly three policy-validated captive descriptors. SpawnQueue executes only the guard subgraph; the rescue service owns the captive rows. Existing QRF, patrol, assassination-guard, and convoy shapes remain unchanged. Generic vehicle/asset/multi-root execution, historical mission guards, and unsupported consumers remain open. |
+| CRI-3 Force runtime | Complete in source for eight exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, patrol and all three assassination-guard folds, rescue guard/captive fold and custody rules, convoy-element fold/rematerialization, and mixed-group cleanup | Schema-58 source proof and final stamped-tree Workbench gates pass; native/package gates pending | No | The rescue guard folds independently without virtual combat; HELD/FREED captives can fold, while FOLLOWING/BOARDING/BOARDED custody remains projected. Observed deaths and exact extraction receipts persist through restore. Native entities, natural combat/vehicle seating, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP remain unproven. |
+| CRI-4 Operation records | Complete for seven operation types and nine explicit family consumers | Mission-guard contracts `1`/`2`/`3` plus mission-rescue contract `1`, typed materialization/custody/position/receipt/settlement state, durable linkage, restore normalization, and fail-closed isolation | Schema-58 source proof and final stamped-tree Workbench gates pass; packaged runtime pending | No | Schema 58 adds the separate route-less mission-rescue operation only for newly started `rescue_pows`. Guard outcome remains independent; one POW death fails, exactly three frozen-HQ extraction receipts succeed, and custody-only grace is bounded and replay-safe. Historical POWs, refugees, and unsupported families remain contract `0`; malformed claimants quarantine at `-58`. |
 
 ## Implementation Contract
 
@@ -128,7 +128,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Zone type model | Towns, outposts, resources, factories, radio towers, airfields, seaports, banks, police, hideouts, and mission sites matter. | Broad Alpha | Figari and Morton remain stock town-center locations. Simon's Wood is normalized in place as a food/resource farm with a small guard footprint and two ambient civilians, rather than duplicating or treating it as a full town. Full Campaign Debug preflight asserts the taxonomy; continue reviewing the remaining minor named localities. | High |
 | Generated mission sites | Mission targets are generated from stable anchors and category/site rules. | Broad Alpha | Replace fallback sites with authored or validated site sets. | High |
 | Generated routes | Convoys, QRFs, patrols, roadblocks, and mission movement use route-aware paths. | Broad Alpha / Needs Runtime Proof | All three exact assassination-guard contracts deliberately create no route: officer, traitor, and spec-ops guards remain on station at deterministic offsets from separate HVTs. Pre-opt-in/historical assassination missions retain prior paths. | Highest |
-| Physical activation bubble | Near-player zones physicalize and off-screen forces stay abstract unless an active objective requires runtime entities. | Broad Alpha | Eight explicit family consumers now exist across six operation types. Officer/traitor/spec-ops guards release only living slots inside the bubble and fold the same survivors outside it. Exact/quarantined claimants remain isolated from generic owners; packaged native projection/fold proof is open. | Highest |
+| Physical activation bubble | Near-player zones physicalize and off-screen forces stay abstract unless an active objective requires runtime entities. | Broad Alpha | Nine explicit family consumers now exist across seven operation types. Officer/traitor/spec-ops guards and the Schema-58 rescue guard release only living slots inside the bubble. HELD/FREED captives can fold outside it, while FOLLOWING/BOARDING/BOARDED custody stays projected. Exact/quarantined claimants remain isolated from generic owners; packaged native projection/fold proof is open. | Highest |
 | Canonical ownership transition | One server transition updates owner, garrison/security policy, support, facilities/logistics, markers/GM/menu, economy, enemy consequences, events, and persistence. | Partial | Capture and political flips exist, but side effects remain distributed. Introduce one idempotent ownership-transition service with revisioned output and prove every projection plus save state changes together. | Highest |
 
 ### Factions And Relations
@@ -253,7 +253,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Publish the stamped Schema-57 build and run a focused client/server feedback
+1. Publish the stamped Schema-58 build and run a focused client/server feedback
    pass. Confirm that
    the stock HUD/Game Master recovery already observed in packaged schema 49 is
    preserved, then require normal-sized radio icons, location-plus-owner labels,

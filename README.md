@@ -348,8 +348,14 @@ The repository contains a broad-alpha campaign foundation:
   deadline plus 300 seconds, and forbids new claims. Pre-58
   POW missions and `rescue_refugees` remain contract `0`; malformed current
   authority quarantines without invented captives, deaths, extractions, rewards,
-  or fallback. Source proof and Workbench evidence are recorded with the
-  Schema-58 stamp; packaged/native/restart/rendered-UI/network/JIP proof remains
+  or fallback. Schema 58 is the current stamped source/Workbench baseline at
+  implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+  `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
+  tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
+  `aa73883a` and `Script validation successful`; the bounded hidden normal
+  WorldEditor open stayed responsive for 10/10 samples over 20 seconds with zero
+  crash/error matches. These remain source/Workbench gates only. Packaged/native/
+  restart/rendered-UI/owner-change/setup/network/reconnect/JIP proof remains
   open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
@@ -481,7 +487,8 @@ and retains missionless or partially unlinked exact-looking rows as quarantine
   evidence rather than deleting them through generic cleanup. General lifecycle
   authority beyond the two exact infantry-QRF consumers, the exact enemy-patrol,
   the exact purchased-garrison patrol, the three exact assassination-mission
-  guard families, and the narrow exact mission-convoy consumer remains open. Normal spawn
+  guard families, the narrow exact mission-convoy consumer, and the exact
+  `rescue_pows` guard-plus-captive consumer remains open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
@@ -503,10 +510,13 @@ Schema 58 is the active exact-authority boundary. Only newly started
 `rescue_pows` opt into mission-rescue contract `1`; historical POW rows,
 `rescue_refugees`, ordinary `mission_group_*` rows, policy-v1 purchases,
 initial/enemy aggregate garrisons, and unsupported families remain contract `0`.
-The stamped Schema-57 assassination family remains unchanged. Schema 58 owns
-three typed captive identities and a separate guard roster, preserves them
-through render folding and save normalization, and settles through the normal
-mission success/failure pipeline. Packaged schema-50 through schema-58
+The historical stamped Schema-57 assassination family remains unchanged. The
+current stamped Schema-58 baseline is implementation
+`f0ba07ff2bc295d12542a3ea34b4c913e99b1869` under label
+`schema58-exact-rescue-pows`; it owns three typed captive identities and a
+separate guard roster, preserves them through render folding and save
+normalization, and settles through the normal mission success/failure pipeline.
+Packaged schema-50 through schema-58
 certification remains independently open; source or Workbench validation does
 not certify native entities, restart, rendered UI, networking, reconnect, or JIP.
 
@@ -592,6 +602,15 @@ not certify native entities, restart, rendered UI, networking, reconnect, or JIP
     contract `1` and traitor contract `2`. Historical/pre-57 spec-ops, ordinary
     `mission_group_*` rows, rescue missions, and unsupported families must remain
     contract `0`. Cover every packaged/native/restart/UI/network gate still open.
+13. Runtime-prove the schema-58 exact POW rescue: only newly started
+    `rescue_pows` may use mission-rescue contract `1`, policy
+    `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and `-58` quarantine.
+    Prove one exact guard roster plus three captive identities, rendered action
+    legality, natural boarding/seat evidence, fold/re-entry, casualty failure,
+    three-receipt HQ success, custody-only grace, actual save/restart, owner
+    change, campaign setup, packaged networking, reconnect, and JIP. Historical
+    POWs, `rescue_refugees`, and unsupported rescue families must remain contract
+    `0`.
 
 The schema-50 player exact-QRF projection slice, schema-51 enemy defensive-QRF
 slice, schema-52 exact mission-convoy slice, schema-53 exact enemy-patrol slice,
@@ -633,18 +652,19 @@ The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also
 evidence for the newly reported marker, cursor, radio, classification,
 appearance, horn, and military/civilian activation defects—not proof of the
-schema-50 repairs. The stamped Schema-57 tree identifies implementation
-`514ebdcbeb1ddfb2a383b19590382517113e2ff6`, build label
-`schema57-exact-specops-guard`, and passes the full foundation gate, including
-Schema-55/56/57. Workbench Game validation loaded 5,765 files/11,576 classes
-with CRC `e0b8578e` and reported
+schema-50 repairs. The current stamped Schema-58 tree identifies implementation
+`f0ba07ff2bc295d12542a3ea34b4c913e99b1869`, build label
+`schema58-exact-rescue-pows`, and passes the full foundation gate through the
+exact rescue authority checks. Final stamped-tree Workbench Game validation
+loaded 5,770 files/11,594 classes with CRC `aa73883a` and reported
 `Script validation successful`; the bounded hidden normal WorldEditor open stayed
-alive for 10/10 samples over 20 seconds, with no script-error/crash signature
-in its latest log. This is source/Workbench evidence, not
+responsive for 10/10 samples over 20 seconds with zero crash/error matches. This
+is source/Workbench evidence, not
 packaged gameplay proof. A republished server/client test is still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
-  schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard paths
+  schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/
+  schema-58 exact POW-rescue paths
 is called runtime-proven. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart

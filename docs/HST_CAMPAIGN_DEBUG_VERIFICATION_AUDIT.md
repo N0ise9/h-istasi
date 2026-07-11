@@ -261,7 +261,7 @@ be read as proof that a later change was executed or certified.
   JIP remain unclaimed. The next planned narrow cutover is newly started
   `assassinate_specops` guards only; that statement is retained here solely as
   the stamped Schema-56 historical boundary.
-- Campaign persistence Schema 57 is stamped. It opts in only
+- The historical campaign-persistence Schema 57 checkpoint is stamped. It opts in only
   guards belonging to a newly started `assassinate_specops` mission at contract
   `3`, policy `exact_assassinate_specops_guard_v1`, intent
   `assassinate_specops_guard`, and malformed-current quarantine version `-57`.
@@ -288,7 +288,7 @@ be read as proof that a later change was executed or certified.
   error/crash signature. Native entities/adapter casualties, real save/restart,
   rendered UI, owner change, campaign setup, packaged networking, reconnect,
   and JIP remain open. The assassination-guard family is exhausted.
-- Campaign persistence Schema 58 implements the later separate rescue cutover
+- Campaign persistence Schema 58 is the current stamped separate rescue cutover
   only for newly started `rescue_pows`. Contract `1`, policy
   `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and quarantine `-58` bind
   one guard roster plus three typed POW slots. The queue executes only the
@@ -304,8 +304,14 @@ be read as proof that a later change was executed or certified.
   without invented death, extraction, reward, fallback, or force transfer.
   Six source-proof categories cover admission isolation, composite authority,
   captive transitions, guard independence, outcome/grace, and restore/
-  quarantine. Native entities, natural guard combat and vehicle seats, actual
-  save/restart, rendered UI, owner change, setup, packaged networking,
+  quarantine. Schema 58 is the current stamped source/Workbench baseline at
+  implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+  `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
+  tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
+  `aa73883a` and `Script validation successful`; the bounded hidden normal
+  WorldEditor open stayed responsive for 10/10 samples over 20 seconds with zero
+  crash/error matches. Native entities, natural guard combat and vehicle seats,
+  actual save/restart, rendered UI, owner change, setup, packaged networking,
   reconnect, and JIP remain open until a fresh published runtime artifact.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
@@ -1115,22 +1121,25 @@ Unproven or incomplete against the pasted contract:
   player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF,
   schema-52 exact mission-convoy, schema-53 exact enemy-patrol, and schema-54
   exact purchased-garrison patrol, schema-55 exact officer-mission guard, and
-  schema-56 exact traitor-mission guard, and schema-57 exact spec-ops-mission
-  guard slices remain source-only until a new
+  schema-56 exact traitor-mission guard, schema-57 exact spec-ops-mission guard,
+  and schema-58 exact POW-rescue slices remain source-only until a new
   package is run.
-- Strategic projection is limited to eight explicit consumers: exact paid player
+- Strategic projection is limited to nine explicit family consumers across seven
+  operation types: exact paid player
   QRF, newly planned enemy defensive QRF, newly started exact mission convoy,
   newly queued exact enemy patrol, and newly issued policy-v2 purchased
   resistance garrison patrol, plus guard infantry for newly started
   `assassinate_officer`, `assassinate_traitor`, and `assassinate_specops`
-  missions. The HVT is not a ninth force participant; it remains separate
-  mission authority. The convoy is
+  missions, plus the exact guard-and-three-captive authority for newly started
+  `rescue_pows`. The HVT remains separate mission authority and is not an
+  additional force participant. The convoy is
   a narrow three-vehicle/three-crew exception, not generic
   vehicle/multi-root realization, and it does not yet simulate off-screen
   combat. Live physical contact does not yet own player-operation engagement;
   generalized virtualization, historical patrols/other enemy orders and convoys,
   policy-v1/initial/enemy aggregate and vehicle/multi-root garrisons, historical
-  pre-opt-in assassination missions, rescue and other mission variants, other
+  pre-opt-in assassination missions, historical/pre-58 POWs, `rescue_refugees`,
+  other rescue and mission variants, other
   supports/missions, packaged execution, and real restart/
   migration/archive
   replay remain open.
@@ -1186,3 +1195,12 @@ Unproven or incomplete against the pasted contract:
   seconds, and its log had no script-error/crash signature. All packaged/native/
   save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gates remain
   open.
+- The stamped Schema-58 tree is the current source/Workbench baseline and
+  identifies implementation `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with
+  build label `schema58-exact-rescue-pows`. The full foundation gate passes,
+  including the exact rescue authority checks. Final stamped-tree Workbench Game
+  validation loaded 5,770 files/11,594 classes with CRC `aa73883a` and reported
+  `Script validation successful`; the bounded hidden normal WorldEditor open
+  stayed responsive for 10/10 samples over 20 seconds with zero crash/error
+  matches. All packaged/native/save-restart/rendered-UI/owner-change/setup/
+  network/reconnect/JIP gates remain open.

@@ -76,8 +76,9 @@ The state model already has the right campaign save-game spine:
 - mission runtime entities
 - mission assets
 - support requests
-- canonical exact player/enemy defensive-QRF and mission-convoy operation
-  records with schema-50/51/52 strategic projection
+- canonical exact operation records for both infantry QRFs, mission convoy,
+  enemy and purchased-garrison patrols, all three assassination guards, and
+  newly started POW rescue across schemas 50-58
 - enemy orders
 - civilian zone state
 - undercover records
@@ -99,17 +100,23 @@ gain mission-rescue contract `1`, policy `exact_rescue_pows_v1`, intent
 roster and exactly three typed captive slots with stable escort/carrier/seat and
 casualty/extraction receipts. Historical POWs, `rescue_refugees`, ordinary
 `mission_group_*` rows, and every unsupported family remain contract `0`.
-Schema 57 remains the preceding stamped baseline at implementation
-`514ebdcbeb1ddfb2a383b19590382517113e2ff6`, build label
-`schema57-exact-specops-guard`, 5,765 files/11,576 classes, CRC `e0b8578e`, and
-10/10 bounded normal-open samples over 20 seconds. Packaged/native/save-restart/
-rendered-UI/owner-change/setup/network/reconnect/JIP gates remain open.
+Schema 58 is the current stamped source/Workbench baseline at implementation
+`f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+`schema58-exact-rescue-pows`. The full foundation gate passes. The final stamped
+tree passed Workbench Game validation at 5,770 files/11,594
+classes with CRC `aa73883a` and `Script validation successful`; its bounded
+normal WorldEditor open stayed alive for 10/10 samples over 20 seconds with zero
+crash/error matches. These are source/compiler/startup gates only. Packaged/
+native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gates
+remain open. Schema 57 remains the preceding historical checkpoint at
+implementation `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
+`schema57-exact-specops-guard`.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 58 implementation and verification in progress; Schema 57 remains the stamped fallback | Stamp Schema 58 only after full foundation, Workbench Game validation, and bounded normal-open checks pass. Every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-0: Repository truth and baseline | Schema 58 is the current stamped source/Workbench checkpoint | Publish and runtime-prove the Schema-58 artifact. The final stamped tree passed full foundation, Workbench Game validation at 5,770 files/11,594 classes with CRC `aa73883a`, and 10/10 normal-open samples over 20 seconds with zero crash/error matches. Every packaged/native/save-restart/rendered-UI/owner-change/setup/network/reconnect/JIP gate remains independently open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 58 adds only the new-POW mission/operation/composite-manifest/external-batch/guard/three-captive graph. Historical POWs, refugees, unsupported families, and ordinary mission-group rows remain contract `0`; malformed strong claimants quarantine at `-58` without fallback, guessed death/extraction, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; expansion pending | SpawnQueue executes the Schema-58 guard root/member subgraph and explicitly excludes its three external captive slots. The mission-rescue service owns those typed asset rows. Existing QRF/patrol/guard/convoy shapes remain unchanged; generic vehicle/asset/multi-root execution and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; nine exact family projections across seven operation types implemented in source | Schema 58 keeps guard and captive outcomes separate, folds unbound POWs without virtual damage, retains custody projections, preserves exact deaths/receipts through restore, and settles normal failure/success plus custody-only grace. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
@@ -121,7 +128,7 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Player-visible milestone | Current state | Next proof boundary |
 | --- | --- | --- |
-| Exact Forces | Implemented foundation plus policy-v2 purchased-garrison and officer-/traitor-/spec-ops-guard slices | Execute exact training, garrison/QRF/queue, all three assassination contracts, typed settlement, and replay cases across save/restart. |
+| Exact Forces | Implemented foundation plus policy-v2 purchased-garrison, all three assassination-guard slices, and the first composite rescue slice | Execute exact training, garrison/QRF/queue, all three assassination contracts, the Schema-58 guard-plus-three-captive graph, typed settlement, and replay cases across save/restart. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented | Prove native/GM/strategic living counts, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
 | Living War | Broad-alpha paths plus nine exact family projections are in source | Prove all exact infantry rosters, the three-element convoy, and the three-POW rescue aggregate through materialization/fold/re-entry; separately prove casualty, carrier/seat, outcome, grace, and restart behavior. |
 | Reliable Orders | Exact player QRF, newly planned enemy defensive QRF, and newly queued enemy patrol have separate canonical operation policies; other orders remain broad-alpha | Runtime-prove immutable assignment, duty/materialization/engagement/return/settlement/restart behavior, type/version dispatch, and legacy isolation, then extend the contract one family at a time. |
@@ -131,7 +138,7 @@ that roadmap remains useful for feature history and acceptance detail.
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 58 adds source authority but is not packaged proof | Stamp and publish Schema 58, then prove marker/civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; stamped Schema 58 adds source/Workbench authority but is not packaged proof | Publish and runtime-prove Schema 58, including marker/civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue, before dedicated-server, JIP/reconnect, restart/migration, fault-injection, and long-soak gates. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison

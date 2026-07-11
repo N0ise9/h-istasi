@@ -2629,7 +2629,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   monolithic. Extracting save validation and decomposing the proof into focused
   fixture methods restored the clean headless and normal-open gates without
   removing assertions; relocating a large body intact is not a sufficient fix.
-- Packaged schema-50 through schema-57 certification remains independently open.
+- Packaged schema-50 through schema-58 certification remains independently open.
 
 ## Schema 53 Exact Enemy-Patrol Authority
 
@@ -3157,7 +3157,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Schema 57 Exact Spec-Ops-Mission Guard Authority
 
-- Campaign persistence schema is now `57`. The stamped implementation is
+- At the Schema-57 historical checkpoint, campaign persistence schema was `57`.
+  Its stamped implementation is
   `514ebdcbeb1ddfb2a383b19590382517113e2ff6` with build label
   `schema57-exact-specops-guard`. The full foundation gate passes, including
   Schema-55/56/57. Stamped Workbench Game validation loaded 5,765 files/11,576
@@ -3204,12 +3205,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   casualties, actual save/restart, rendered UI, owner change, campaign setup,
   packaged networking, reconnect, and JIP remain open.
 
-- Schema 57 exhausts the assassination-guard family. Schema 58 is the later
-  separate cutover for newly started `rescue_pows` only.
+- Schema 57 exhausts the assassination-guard family. Schema 58 is the current
+  separate successor cutover for newly started `rescue_pows` only.
 
 ## Schema 58 Exact POW-Rescue Authority
 
-- Campaign persistence schema is now `58`. Use a separate
+- Campaign persistence schema is now `58`. This is the current stamped source/
+  Workbench baseline at implementation
+  `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+  `schema58-exact-rescue-pows`. This is the ninth explicit family consumer across
+  seven operation types. Use a separate
   `HST_OPERATION_TYPE_MISSION_RESCUE`; do not extend the assassination-guard
   owner. Only newly started `rescue_pows` use contract `1`, policy
   `exact_rescue_pows_v1`, intent `rescue_pows_guard`, projection contract `1`,
@@ -3339,12 +3344,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
     claimants. Quarantine creates no fallback, captive, casualty, extraction,
     reward, refund, or force transfer.
 
-- Current source gates: the full foundation suite passes. Workbench Game
-  validation loaded 5,769 files/11,590 classes with CRC `d553b006` and reported
-  `Script validation successful`. These are source/compiler gates only. Native
-  captive/guard behavior, natural vehicle seating, actual save/restart, rendered
-  marker/action state, owner change, setup, packaged networking, reconnect, and
-  JIP remain open until a fresh published runtime run.
+- Current stamped source gates: the full foundation suite passes. Final stamped-
+  tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
+  `aa73883a` and reported
+  `Script validation successful`. The bounded hidden normal WorldEditor open
+  stayed responsive for 10/10 samples over 20 seconds with zero crash/error
+  matches. These are source/Workbench gates only. Native captive/guard behavior,
+  natural vehicle seating, actual save/restart, rendered marker/action state,
+  owner change, campaign setup, packaged networking, reconnect, and JIP remain
+  open until a fresh published runtime run.
 
 ## Native Reference Sources
 

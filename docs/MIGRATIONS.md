@@ -9,7 +9,8 @@
 - Schema 58 opts in only a newly started `rescue_pows` mission. The mission and
   reciprocal `HST_OPERATION_TYPE_MISSION_RESCUE` operation use contract `1`,
   manifest policy `exact_rescue_pows_v1`, guard intent `rescue_pows_guard`,
-  projection contract `1`, and malformed-current quarantine version `-58`.
+  projection contract `1`, and malformed-current quarantine version `-58`. It is
+  the ninth explicit family consumer across the seventh operation type.
   Historical/pre-58 `rescue_pows`, `rescue_refugees`, generic captive rows, and
   every other unsupported family remain contract `0`.
 
@@ -80,9 +81,15 @@
   external asset execution, captive transition/idempotency and carrier/seat
   evidence, render fold/re-entry, casualty/success/grace settlement, save
   roundtrip/migration, corruption quarantine, and state-derived UI/marker text.
-  Native entity behavior, actual process restart, rendered UI, owner change,
-  campaign setup, packaged networking, reconnect, and JIP remain open until a
-  republished runtime run supplies those artifacts.
+  Schema 58 is the current stamped source/Workbench baseline at implementation
+  `f0ba07ff2bc295d12542a3ea34b4c913e99b1869` with build label
+  `schema58-exact-rescue-pows`. The full foundation gate passes. Final stamped-
+  tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
+  `aa73883a` and `Script validation successful`; the bounded hidden normal
+  WorldEditor open stayed responsive for 10/10 samples over 20 seconds with zero
+  crash/error matches. Native entity behavior, actual process restart, rendered
+  UI, owner change, campaign setup, packaged networking, reconnect, and JIP
+  remain open until a republished runtime run supplies those artifacts.
 
 ## Schema 57
 
@@ -167,8 +174,8 @@
   packaged networking, reconnect, and JIP remain open.
 
 - Schema 57 exhausts the assassination-guard family and opts in no rescue
-  authority. Schema 58, documented above, is the later separate cutover for
-  newly started `rescue_pows` only.
+  authority. Schema 58, documented above, is the current separate successor
+  cutover for newly started `rescue_pows` only.
 
 ## Schema 56
 

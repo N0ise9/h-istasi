@@ -1645,6 +1645,17 @@ if ($campaignStateText -notmatch "SCHEMA_VERSION\s*=\s*(\d+)") {
 	throw "Unable to parse HST_CampaignState.SCHEMA_VERSION"
 }
 $campaignSchemaVersion = [int] $Matches[1]
+$buildInfoText = Get-Content -Raw "Scripts/Game/HST/HST_BuildInfo.c"
+$buildShaMatch = [regex]::Match($buildInfoText, 'BUILD_SHA\s*=\s*"(?<sha>[0-9a-f]{40})"')
+$buildLabelMatch = [regex]::Match($buildInfoText, 'BUILD_LABEL\s*=\s*"(?<label>[^"]+)"')
+if (!$buildShaMatch.Success -or !$buildLabelMatch.Success) {
+	throw "Unable to parse the stamped HST build hash and label"
+}
+$currentBuildSha = $buildShaMatch.Groups['sha'].Value
+$currentBuildLabel = $buildLabelMatch.Groups['label'].Value
+if (!$currentBuildLabel.StartsWith("schema$campaignSchemaVersion-")) {
+	throw "HST build label must identify current campaign schema $campaignSchemaVersion"
+}
 $migrationsPath = "docs/MIGRATIONS.md"
 if (!(Test-Path $migrationsPath)) {
 	throw "Missing campaign migration notes: $migrationsPath"
@@ -1669,6 +1680,20 @@ foreach ($currentStateDocPath in $currentStateDocPaths) {
 	}
 	if ($currentStateDocText -match '(?im)[A-Za-z]:\\|/home/|/Users/|file://') {
 		throw "$currentStateDocPath must not contain local filesystem paths"
+	}
+	if (!$currentStateDocText.Contains($currentBuildSha) -or !$currentStateDocText.Contains($currentBuildLabel)) {
+		throw "$currentStateDocPath must identify the current stamped implementation hash and build label"
+	}
+}
+$stampEvidenceDocPaths = @(
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md"
+)
+foreach ($stampEvidenceDocPath in $stampEvidenceDocPaths) {
+	$stampEvidenceDocText = Get-Content -Raw $stampEvidenceDocPath
+	if (!$stampEvidenceDocText.Contains($currentBuildSha) -or !$stampEvidenceDocText.Contains($currentBuildLabel)) {
+		throw "$stampEvidenceDocPath must identify the current stamped implementation hash and build label"
 	}
 }
 $commandMenuMapTargetText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
