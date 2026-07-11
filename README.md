@@ -240,6 +240,30 @@ The repository contains a broad-alpha campaign foundation:
   Those gates provide source/Workbench proof only. Packaged native movement,
   casualty, fold/rematerialization, save/restart, marker rendering, networking,
   and JIP evidence remains open.
+- Schema 55 makes only newly started `assassinate_officer` guard infantry an
+  exact, route-less mission operation. One empty execution root and its ordered
+  catalog members remain a held survivor roster across materialization, mapped
+  casualties, fold, and re-entry. It has no generated route or virtual-combat
+  clock: while abstract it remains on station at a deterministic offset from the
+  objective, and re-entry realizes only durable survivors. The HVT stays
+  separate mission-objective/runtime-asset authority and is never a manifest
+  member, operation asset, or group backlink. Eliminating every guard settles
+  only the guard operation as `DESTROYED`, so the HVT mission can remain active.
+  HVT success settles surviving guards `COMPLETED`; mission failure/expiry,
+  campaign stop, or setup settles them `CANCELLED`; target-owner change is
+  `INVALIDATED`; and coherent spawn/assignment failure is `SPAWN_FAILED`. Every
+  path records the fixed terminal receipt once with zero refund or legacy-force
+  transfer. Historical officer missions, the other assassination variants, and
+  all remaining mission families stay contract `0`. Schema-55 restore invents
+  nothing for those rows, accepts compact settled exact graphs, and quarantines
+  malformed current authority at `-55` without a legacy fallback, guessed
+  casualty, HVT backlink, or refund. Quarantine leaves the HVT mission playable
+  and projects a diagnostic instead of substituting legacy guards.
+  The existing HVT marker/UI row reports authoritative guard strength; no
+  second marker is added. Deterministic fixtures are source evidence only;
+  Schema-55 Workbench compile/open, native entity/adapter/casualty behavior,
+  actual save/restart, rendered marker/UI, owner-change, campaign-setup,
+  networking, reconnect, and JIP proof remain open for this slice.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -297,8 +321,8 @@ The repository contains a broad-alpha campaign foundation:
   checkpoint requests when saving is possible, with a profile JSON fallback at
   `$profile:h-istasi/HST_CampaignSaveData.json`. Before every real capture,
   persistence synchronously reconciles mapped physical exact-convoy, exact-
-  enemy-patrol, and exact-garrison-patrol members so a newly dead soldier cannot
-  be serialized as alive
+  enemy-patrol, exact-garrison-patrol, and exact-mission-guard members so a newly
+  dead soldier cannot be serialized as alive
   between physical-war ticks. An open publication transaction, missing/
   conflicting mapping, unverifiable live patrol position, or nonphysical
   operation retaining member mappings defers the checkpoint before any older
@@ -333,8 +357,12 @@ return-to-origin duty, exact survivor-proportional settlement, and one operation
   patrol rows remain contract version zero. Schema 54 adds a fifth exact
   operation consumer only for newly issued policy-v2 purchased resistance
   garrisons. Historical policy-v1 purchases, initial/enemy aggregate garrisons,
-  counterattacks, roadblocks, support calls, non-convoy mission forces, and other
-  support types remain on their prior state paths. Newly started convoy missions
+  counterattacks, roadblocks, support calls, and other support types remain on
+  their prior state paths. Schema 55 adds the sixth exact operation consumer only
+  for guard infantry created with a newly started `assassinate_officer` mission;
+  its HVT remains separate, while historical officer missions, every other
+  assassination variant, and all other mission families remain on contract `0`.
+  Newly started convoy missions
   use the schema-52 exact contract; restored historical convoy rows remain
   version zero.
 Policy-v2 garrison purchase manifests now carry one executable empty-root group
@@ -359,8 +387,8 @@ on member slots, enumerates legal open duty and materialization/position pairs,
 and retains missionless or partially unlinked exact-looking rows as quarantine
   evidence rather than deleting them through generic cleanup. General lifecycle
   authority beyond the two exact infantry-QRF consumers, the exact enemy-patrol,
-  the exact purchased-garrison patrol, and the narrow exact mission-convoy
-  consumer remains open. Normal spawn
+  the exact purchased-garrison patrol, the exact officer-mission guard, and the
+  narrow exact mission-convoy consumer remains open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
@@ -378,11 +406,15 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 54 exact authority for newly issued policy-v2 purchased resistance
-garrisons is implemented in the current development tree. Historical policy-v1
-purchases and initial/enemy aggregate garrisons remain legacy. Packaged
-schema-50 through schema-54 certification gates remain independently open;
+Schema 55 exact authority for newly started `assassinate_officer` guard infantry
+is implemented in the current development tree after the schema-54 purchased-
+garrison slice. Historical officer missions, other assassination variants,
+policy-v1 purchases, and initial/enemy aggregate garrisons remain legacy.
+Packaged schema-50 through schema-55 certification gates remain independently open;
 beginning another source slice does not certify any earlier behavior.
+After Schema 55 is stamped, the next narrow source target is newly started
+`assassinate_traitor` guard infantry only. `assassinate_specops`, historical
+missions, and every other mission family remain legacy until separately opted in.
 
 1. After the schema-52 implementation is stamped, publish and test that build,
    including the schema-50 marker,
@@ -440,11 +472,20 @@ beginning another source slice does not certify any earlier behavior.
    stop. Save/restart and late join must preserve the same roster and cursor.
    Historical policy-v1, initial-map, enemy aggregate, vehicle, and multi-root
    garrisons must remain isolated on their legacy paths.
+10. Runtime-prove the schema-55 exact officer-assassination guard: only a newly
+    started `assassinate_officer` mission may admit one route-less empty-root/
+    member roster. Prove native materialization, mapped casualties, fold/re-entry,
+    all-guards-dead independence from the HVT objective, every typed zero-refund
+    terminal outcome, `-55` quarantine without fallback, compact settlement,
+    existing-HVT marker/UI status, save/restart, owner change, campaign setup,
+    reconnect, and JIP. Historical officer missions, other assassination
+    variants, and every other mission family must remain contract `0`.
 
 The schema-50 player exact-QRF projection slice, schema-51 enemy defensive-QRF
 slice, schema-52 exact mission-convoy slice, schema-53 exact enemy-patrol slice,
-and schema-54 exact purchased-garrison patrol slice are implemented in current
-source for five explicit operation consumers.
+schema-54 exact purchased-garrison patrol slice, and schema-55 exact officer-
+mission guard slice are implemented in current source for six explicit operation
+consumers.
 The infantry-QRF virtual routes use a conservative direct
 campaign cursor, materialization uses separate in/out distances, and the frozen
 manifest slots remain the living/dead roster across fold and restore. Player
@@ -459,14 +500,18 @@ cursor, holds route progress during physical contact, and settles the surviving
   proactive-attack fraction on return. The purchased-garrison patrol instead
   remains assigned to its zone, loops locally without a terminal lap count, and
   keeps its paid roster as the sole virtual/physical survivor authority with no
-  refund path. The convoy does not yet simulate off-screen
+  refund path. The officer-mission guard remains route-less and on station; its
+  held exact roster virtualizes only observed survivor state, while the separate
+  HVT keeps mission outcome authority. The convoy does not yet simulate off-screen
 combat; virtual convoy casualties change only
 from previously observed physical state. This does not complete the broader
 operations milestone: generalized live-contact authority, terrain and
   ammunition effects, broad legacy supports, historical/initial/enemy aggregate
-  garrisons, garrison vehicles and multi-root forces, non-convoy missions, other
-  enemy orders, historical patrols, and client/JIP projection remain future
-  slices.
+  garrisons, garrison vehicles and multi-root forces, other mission forces,
+  other enemy orders, historical patrols, and client/JIP projection remain
+  future slices. The next narrow blueprint target is guard infantry for newly
+  started `assassinate_traitor` missions only; `assassinate_specops` and every
+  other mission family remain legacy until their own explicit cutover.
 
 The last published schema-49 server/client check is runtime evidence that stock
 HUD, Game Master, map markers, and civilian traffic initialize again. It is also

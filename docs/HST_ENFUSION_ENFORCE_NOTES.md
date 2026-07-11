@@ -2629,7 +2629,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   monolithic. Extracting save validation and decomposing the proof into focused
   fixture methods restored the clean headless and normal-open gates without
   removing assertions; relocating a large body intact is not a sufficient fix.
-- Packaged schema-50 through schema-54 certification remains independently open.
+- Packaged schema-50 through schema-55 certification remains independently open.
 
 ## Schema 53 Exact Enemy-Patrol Authority
 
@@ -2936,6 +2936,144 @@ This file is for practical engine/script behavior, not project planning. Keep en
     waypoint movement, authoritative casualty
     observation, fold/rematerialization, save/restart, marker rendering,
     replication, reconnect, and JIP behavior remain open proof obligations.
+
+## Schema 55 Exact Officer-Mission Guard Authority
+
+- Opt in only from a newly started officer-assassination mission.
+  - Only guard infantry created while starting `assassinate_officer` may receive
+    `HST_OPERATION_TYPE_MISSION_GUARD` at contract version `1` and manifest policy
+    `exact_assassinate_officer_guard_v1`. Historical officer missions,
+    `assassinate_traitor`, `assassinate_specops`, and every other mission family
+    stay contract version `0`. Never infer opt-in from a mission ID, an HVT
+    runtime row, a nearby hostile group, or an exact-looking projection ID.
+  - Freeze one catalog-backed `NotSpawned` infantry execution root and every
+    ordered guard member slot. The root is an empty container; it must not
+    self-populate. The manifest contains no vehicle, projected asset, money, HR,
+    equipment, attack-resource, or support-resource authority.
+  - Keep the HVT outside every guard-force identity. It remains the mission
+    objective and mission-runtime asset, never a manifest member, manifest asset,
+    operation asset, group member, or reciprocal runtime backlink. A complete
+    exact guard graph links only mission, operation, manifest, held SpawnQueue
+    batch, and mission-owned active group.
+  - Admission is fail-closed and atomic. Prepare exact authority before creating
+    mission runtime, then admit it only after the separate HVT objective/runtime
+    asset exists. If preparation, HVT creation, or reciprocal admission fails,
+    roll back the uncommitted guard aggregate and fail the mission start with a
+    typed reason; do not leave a detached batch or silently start legacy guards.
+
+- Treat the guard as a route-less on-station survivor roster.
+  - Derive a deterministic guard anchor 6-30 meters from the HVT so the group
+    root and members do not overlap the target. Preserve the HVT position as the
+    tactical target, but do not create a generated route, waypoint cursor, lap,
+    travel ETA, or strategic movement owner for this operation.
+  - Outside the materialization bubble, retain the held roster and its last
+    authoritative position. There is no virtual guard combat or guessed passage
+    of a fight. Only observed mapped physical deaths may retire member slots.
+  - Inside the materialization radius, release the empty root and exactly the
+    durable living member slots. After complete adapter-to-PhysicalWar handoff,
+    live mapped members own position and casualty evidence. Contact and recent
+    confirmed casualties hold the physical projection.
+  - Outside the larger fold radius, first reconcile all mapped members and sample
+    live position while the operation is `PHYSICAL` or `DEMATERIALIZING`; then
+    retire only process-local projection ownership, return the successful batch
+    to strategic hold, and preserve the same living/dead slots. Re-entry must
+    realize only survivors. Missing runtime without observed death is unresolved,
+    never a guessed casualty.
+  - Assignment restart may require a fully `PHYSICAL` projection, but live-
+    position resolution during fold/persistence must also accept the deliberate
+    `DEMATERIALIZING` transition. Otherwise the service can change state before
+    asking PhysicalWar for the position and then falsely quarantine a valid fold.
+
+- Keep exact mission-guard ownership separate from every generic mission path.
+  - Tag the active group with exact mode `exact_mission_guard`, force kind
+    `mission_guard`, and intent `assassinate_officer_guard`. Require reciprocal
+    mission/operation/manifest/batch/group ownership for mutating runtime access.
+  - Non-mutating isolation scans should recognize both strong reciprocal claims
+    and intrinsic exact/quarantine mode or contract evidence. An orphaned exact-
+    shaped row must remain preserved evidence; it must not fall into legacy
+    mission guard creation, survivor repair, route assignment, garrison fold,
+    captured-zone cleanup, async population callbacks, or generic terminal
+    deletion.
+  - `HST_MissionRuntimeService` skips legacy hostile-group creation only for the
+    current exact or quarantined officer mission. Historical officer missions and
+    every other family retain their prior contract-zero path.
+  - `HST_CampaignState.IsOperationalActiveGroup()` must reject quarantined guard
+    claimants. A diagnostic group must not affect capture, combat, spawn
+    clearance, or generic lifecycle mutation after runtime retirement.
+
+- Keep guard outcome and HVT outcome independent.
+  - When the last durable guard member dies, settle the operation `DESTROYED`
+    with zero survivors. The `assassinate_officer` mission and its HVT objective
+    remain active and playable; guard elimination is not mission success.
+  - HVT mission success settles surviving guards `COMPLETED`. Mission failure or
+    expiry, campaign stop, or setup settles them `CANCELLED`. Target-owner change
+    settles `INVALIDATED`. A coherent spawn or assignment failure settles
+    `SPAWN_FAILED`.
+  - Freeze the terminal survivor count before terminalizing the queue. Queue
+    cancellation can clear living slot flags, so reading survivors afterward
+    loses settlement evidence.
+  - Terminalize the typed queue batch before removing it from the aggregate.
+    Final settlement cleanup must refuse a nonterminal batch instead of erasing
+    pending, ready, or successful runtime authority prematurely.
+  - Record the fixed settlement kind `exact_mission_guard_terminal` once. Every
+    terminal result refunds zero resources and transfers zero survivors to a
+    legacy garrison or mission group. Replay must reproduce the same operation,
+    result, survivor count, and settlement identity or fail closed.
+
+- Migrate and restore conservatively.
+  - `HST_AssassinationGuardSaveValidationService` records
+    `migration_schema55_exact_mission_guard` for a pre-55 restore and invents no
+    manifest, root, member, casualty, operation, batch, group, projection, or
+    settlement from historical officer missions, HVTs, legacy `mission_group_*`
+    rows, or aggregate counts.
+  - Current-schema validation requires deterministic unique mission/operation/
+    manifest/batch/group identity; exact empty-root/member bijection; offset
+    stationary assignment; zero route/vehicle/asset/resource authority; legal
+    materialization/position pairs; separate HVT ownership; and the fixed
+    terminal receipt.
+  - Normalize a coherent open physical-shaped graph to one held virtual survivor
+    roster after clearing process-local IDs. Defer a real capture while guard
+    materialization is incomplete or a physical/dematerializing binding and live
+    position cannot be proven.
+  - A compact settled graph may legitimately omit its batch, active group, and
+    terminal HVT runtime row. A settled `DESTROYED` guard may coexist with an
+    active HVT mission. `COMPLETED`, `CANCELLED`, `INVALIDATED`, and
+    `SPAWN_FAILED` require the corresponding non-active mission outcome.
+
+- Quarantine malformed current authority without taking over the HVT.
+  - Use contract version `-55` for malformed current exact authority. Preserve
+    diagnostic rows and never fall back to legacy guard creation, guess a death,
+    create an HVT backlink, issue a refund, or mark the HVT mission failed merely
+    because guard authority is unavailable.
+  - Strongly owned live projections may be drained only through typed mapped-
+    casualty reconciliation and exact projection-key cleanup. Foreign,
+    coincident, crossed, or ambiguous rows remain untouched and keep persistence
+    deferred while possible runtime casualty evidence exists.
+  - A restored quarantined `SUCCEEDED` batch may be terminalized directly only
+    after restore normalization proves both adapter and PhysicalWar registries
+    are empty. Ordinary in-process disappearance is not that proven-absence case
+    and must remain strict.
+
+- Project status through the existing HVT presentation.
+  - Append roster-authoritative `guards N`, `guards neutralized`, or `guard
+    authority unavailable` to the existing HVT map marker and mission UI row. Do
+    not publish a second operation marker, and do not treat presentation text as
+    roster or outcome authority.
+  - Focused `mission_guard.*` source assertions cover admission/legacy isolation,
+    projection/HVT separation, typed settlement, restore/migration, corruption
+    quarantine, and marker status. They do not prove native entity creation,
+    actual adapter handles/casualties, physical return-to-anchor behavior, real
+    save/restart, rendered UI, owner-change, campaign-setup, packaged networking,
+    reconnect, or JIP.
+  - Schema 55 has no final implementation commit, Workbench CRC/file/class count,
+    or compile/open evidence recorded in this section yet. Preserve the stamped
+    Schema-54 evidence above until the Schema-55 gates are actually run; do not
+    promote source fixtures into runtime certification.
+
+- After Schema 55 is stamped, the next narrow blueprint target is guard infantry
+  for newly started `assassinate_traitor` missions only. This is a planned
+  cutover, not a Schema-56 implementation claim. Keep `assassinate_specops` and
+  every other mission family contract `0` until separately versioned.
 
 ## Native Reference Sources
 

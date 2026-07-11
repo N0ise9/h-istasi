@@ -5150,6 +5150,9 @@ class HST_CommandUIService
 		string holdProgress = BuildMissionHoldProgressText(state, mission);
 		if (!holdProgress.IsEmpty())
 			progress = progress + " | " + holdProgress;
+		string guardStatus = HST_MissionGuardOperationService.BuildGuardStatusText(state, mission);
+		if (!guardStatus.IsEmpty())
+			progress = progress + " | " + guardStatus;
 		return progress;
 	}
 

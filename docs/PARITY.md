@@ -24,7 +24,7 @@
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Schema-54 campaign authority foundation with persisted monotonic IDs, typed
+- Schema-55 campaign authority foundation with persisted monotonic IDs, typed
   command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, exact paid-infantry-QRF runtime
   lifecycle, bounded accepted-settlement replay tombstones, and the first
@@ -82,6 +82,19 @@
   initial-map, enemy aggregate,
   vehicle, and multi-root garrisons remain legacy; malformed current rows use
   version `-54` quarantine without legacy conversion.
+- Newly started `assassinate_officer` guard infantry is the sixth explicit
+  version-1 operation type. One zero-cost empty execution root and its exact
+  catalog members own a route-less guard assignment offset from—but never
+  linked as owner of—the HVT. Guard casualties survive fold/re-entry; all guards
+  dead settles only the guard as `DESTROYED` while the HVT objective remains
+  active. Mission, owner-change, and coherent spawn/assignment outcomes map to
+  typed zero-refund settlement. Historical officer missions, other assassination
+  variants, and every remaining mission family remain contract `0`; pre-55
+  migration invents nothing. Malformed current rows use version `-55` quarantine
+  without fallback or HVT failure. The existing HVT marker/UI row reports guard
+  strength. Workbench compile/open, native projection/casualties, save/restart,
+  rendered UI, owner-change, campaign-setup, networking, reconnect, and JIP
+  proof remain open.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -222,9 +235,9 @@
 
 ## Current Verification Boundary
 
-- The prior stamped schema-49 source passed its foundation, Workbench Game
-  creation, script-validation, and bounded project-open gates. Those results are
-  historical source evidence, not certification of current schema-54 edits.
+- The stamped Schema-54 tree passed foundation, Workbench Game creation/script
+  validation, and bounded project-open gates. Those results are historical
+  source evidence, not verification of current Schema-55 edits.
 - A published schema-49 server/client check verified that normal stock HUD, Game
   Master access, map publication, and civilian traffic initialize again. This
   closes the earlier missing-config-metadata regression. The late-admin recursive
@@ -253,7 +266,8 @@
   has clean headless Game-module compile/create evidence at 5,760 files/11,560
   classes with CRC `c62de929`, plus a ten-sample/20-second normal WorldEditor
   open. This is current source/Workbench evidence, not packaged behavior proof.
-  Schema 54 has no packaged behavior evidence.
+  Schema 54 has no packaged behavior evidence. Schema 55 does not yet claim its
+  own stamped implementation/CRC or Workbench compile/open result.
 - Schema 52 adds the exact mission-convoy aggregate in source. No packaged run has yet proved its
   three physical vehicles/crews, virtual route movement, materialization/fold,
   exact casualty persistence, arrival/outcome settlement, marker cleanup, or
@@ -292,14 +306,24 @@
   not yet have equivalent deterministic fixtures. No packaged run has proved native
   waypoint movement, observed casualties, fold/rematerialization, save/restart,
   client marker rendering, reconnect, or JIP for this slice.
+- Schema 55 adds exact guard authority only for a newly started
+  `assassinate_officer` mission. Source fixtures cover admission/legacy
+  isolation, held-survivor projection, HVT-independent all-dead settlement,
+  typed zero-refund outcomes, restore/migration, `-55` quarantine, and existing-
+  HVT marker/UI status. Historical officer missions and every other mission
+  family remain contract `0`; the HVT is not a manifest member or operation
+  asset, and quarantine does not terminate it. No packaged run has proved native
+  entity creation, real adapter bindings/casualties, physical fold/re-entry,
+  actual save/restart, rendered status, owner-change, campaign setup, networking,
+  reconnect, or JIP for this slice.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
   entry before the owner-RPC fallback, and probes retained registration
   directly. Current schema-52 source validation passes as described
   above, while 3/3 driver and movement proof remains open.
-- Every real persistence capture now reconciles mapped physical exact-convoy and
-  exact-patrol members first. An open outbound publication transaction,
+- Every real persistence capture now reconciles mapped physical exact-convoy,
+  exact-patrol, and exact-mission-guard members first. An open outbound publication transaction,
   ambiguous mapping, or unverifiable live patrol position defers capture without
   flushing stale state or requesting a savepoint, retains intent, and retries on
   the bounded debounce. Real death-between-ticks, deferred-save retry, restore,
@@ -318,7 +342,7 @@
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest inspected Full Campaign Debug artifact predates schemas 43-54,
+- The latest inspected Full Campaign Debug artifact predates schemas 43-55,
   contains a destructive save contamination and a large defense-probe cascade,
   and is not current certification evidence.
 - The in-process runner now fails closed outside `HST_Dev`, clones campaign
@@ -328,8 +352,8 @@
 
 ## Current Delivery Priorities
 
-- Publish the stamped schema-54 checkpoint and prove
-  the schema-50 marker/dialog/radio corrections while
+- Publish and test the stamped schema-55 checkpoint, including its new officer-
+  guard diagnostics, while proving the schema-50 marker/dialog/radio corrections and
   preserving the already restored stock HUD and Game Master behavior. Require
   valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
   one transmitter at authored sites, and correct radio destroy-target binding.
@@ -340,7 +364,7 @@
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-54 authority chain: exact training,
+- Runtime-prove the schema-43 through schema-55 authority chain: exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
@@ -368,6 +392,13 @@
   settlement, marker/UI cleanup, save/restart, reconnect, and JIP all preserve one
   roster/cursor. Historical policy-v1,
   initial/enemy aggregate, vehicle, and multi-root garrisons remain legacy.
+- Runtime-prove the schema-55 exact officer-mission guard: only newly started
+  `assassinate_officer` guards receive one route-less empty-root/member roster.
+  Prove native materialization/casualties/fold, all-guards-dead with an active
+  HVT, every typed zero-refund outcome, `-55` quarantine without fallback or HVT
+  failure, compact settlement, existing-HVT marker/UI status, save/restart,
+  owner-change, campaign setup, networking, reconnect, and JIP. Historical
+  officer missions and every other mission family remain contract `0`.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
 - Runtime-prove both exact-QRF `OperationRecord` policies: player virtual combat/
@@ -376,11 +407,11 @@
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint with one explicitly versioned mission-
-  force consumer at a time. The next narrow target is newly started
-  `assassinate_officer` guard infantry only; historical missions, other
-  assassination variants, and every other mission family remain legacy.
-  Packaged schema-50 through schema-54 certification remains independently
-  required.
+  force consumer at a time. After Schema 55 is stamped, the next narrow target is
+  guard infantry for newly started `assassinate_traitor` missions only. This is
+  planned, not implemented; `assassinate_specops` and every other mission family
+  remain legacy. Packaged schema-50 through schema-55 certification remains
+  independently required.
 
 ## Next Playable Expansion
 

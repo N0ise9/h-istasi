@@ -8669,6 +8669,8 @@ class HST_MissionRuntimeService
 			return;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT)
 			return;
+		if (HST_MissionGuardOperationService.IsExactOrQuarantinedMission(mission))
+			return;
 
 		string groupId = "mission_group_" + mission.m_sInstanceId;
 		if (state.FindActiveGroup(groupId))

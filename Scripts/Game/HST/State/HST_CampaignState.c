@@ -1026,7 +1026,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 54;
+	static const int SCHEMA_VERSION = 55;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1361,6 +1361,20 @@ class HST_CampaignState
 		HST_OperationRecordState operation;
 		if (!group.m_sOperationId.IsEmpty())
 			operation = FindOperation(group.m_sOperationId);
+		if (HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(this, group))
+		{
+			if (!HST_MissionGuardOperationService.IsExactMissionGuardGroup(this, group)
+				|| !mission || !operation
+				|| !HST_MissionGuardOperationService.IsExactMission(mission)
+				|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+				|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
+				|| operation.m_iContractVersion != HST_MissionGuardOperationService.EXACT_CONTRACT_VERSION
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+				return false;
+			return mission.m_sOperationId == operation.m_sOperationId
+				&& operation.m_sGroupId == group.m_sGroupId;
+		}
 		bool exactMissionClaim = mission && mission.m_sRuntimePrimitive == "convoy_intercept"
 			&& mission.m_iOperationContractVersion != 0;
 		bool exactOperationClaim = operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY;
@@ -1433,12 +1447,14 @@ class HST_CampaignState
 	{
 		if (!group)
 			return false;
-		if (group.m_sRuntimeStatus == "exact_garrison_patrol_quarantined"
+		if (group.m_sRuntimeStatus == HST_MissionGuardOperationService.QUARANTINE_STATUS
+			|| group.m_sRuntimeStatus == "exact_garrison_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"
 			|| group.m_sRuntimeStatus == "exact_runtime_authority_quarantined")
 			return true;
-		return group.m_sSpawnFallbackMode == "exact_garrison_patrol_quarantined"
+		return group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS
+			|| group.m_sSpawnFallbackMode == "exact_garrison_patrol_quarantined"
 			|| group.m_sSpawnFallbackMode == "exact_enemy_patrol_quarantined";
 	}
 

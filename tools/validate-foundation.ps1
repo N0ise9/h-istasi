@@ -4908,7 +4908,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 54",
+		"SCHEMA_VERSION = 55",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5288,7 +5288,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 54',
+		'SCHEMA_VERSION = 55',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5860,7 +5860,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 54',
+		'SCHEMA_VERSION = 55',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -13590,7 +13590,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 54",
+		"SCHEMA_VERSION = 55",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -13846,7 +13846,7 @@ $schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
 foreach ($schema54StateEntry in @(
-		"SCHEMA_VERSION = 54",
+		"SCHEMA_VERSION = 55",
 		"HST_OPERATION_TYPE_GARRISON_PATROL",
 		"IsQuarantinedActiveGroup",
 		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
@@ -14156,8 +14156,8 @@ if ($schema54PatrolSurvivorSkip -notmatch [regex]::Escape('IsExactGarrisonPatrol
 }
 
 foreach ($schema54PersistenceEntry in @(
-		"hasMaterializingExactPatrol",
-		"checkpoint deferred: exact patrol materialization is in progress",
+		"hasMaterializingExactInfantry",
+		"checkpoint deferred: exact infantry materialization is in progress",
 		"ValidatePhysicalGarrisonPatrolSnapshots",
 		"DeferPhysicalGarrisonPatrolSnapshot",
 		"TryResolveExactGarrisonPatrolLivePosition",
@@ -14347,5 +14347,243 @@ foreach ($schema54MigrationNote in @(
 	}
 }
 Write-Host "Schema-54 exact purchased-garrison admission, infinite route, survivor projection, legacy isolation, persistence, no-refund settlement, marker/UI, migration, and proof contract OK"
+
+# Schema 55: newly started officer-assassination guards are one exact, mission-owned,
+# route-less infantry projection. Historical mission groups remain contract-zero.
+$schema55RequiredPaths = @(
+	"Scripts/Game/HST/Services/HST_MissionGuardOperationService.c",
+	"Scripts/Game/HST/Services/HST_MissionGuardOperationProofService.c",
+	"Scripts/Game/HST/Services/HST_AssassinationGuardSaveValidationService.c"
+)
+foreach ($schema55RequiredPath in $schema55RequiredPaths) {
+	if (!(Test-Path $schema55RequiredPath)) {
+		throw "Schema-55 exact officer-guard file is missing: $schema55RequiredPath"
+	}
+}
+
+$schema55TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema55StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema55CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema55OperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionGuardOperationService.c"
+$schema55ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionGuardOperationProofService.c"
+$schema55RuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MissionRuntimeService.c"
+$schema55PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema55PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema55SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema55ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AssassinationGuardSaveValidationService.c"
+$schema55MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema55CommandUIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+
+if ($schema55StateText -notmatch 'SCHEMA_VERSION\s*=\s*55\s*;' -or
+	$schema55TypesText -notmatch [regex]::Escape('HST_OPERATION_TYPE_MISSION_GUARD')) {
+	throw "Schema-55 campaign schema or typed mission-guard operation discriminator is missing"
+}
+
+foreach ($schema55OperationEntry in @(
+	'class HST_MissionGuardOperationService',
+	'EXACT_MISSION_ID = "assassinate_officer"',
+	'EXACT_CONTRACT_VERSION = 1',
+	'QUARANTINED_CONTRACT_VERSION = -55',
+	'EXACT_POLICY_ID = "exact_assassinate_officer_guard_v1"',
+	'EXACT_FORCE_KIND = "mission_guard"',
+	'EXACT_INTENT_ID = "assassinate_officer_guard"',
+	'EXACT_GROUP_MODE = "exact_mission_guard"',
+	'SETTLEMENT_POLICY_ID = "mission_owned_no_refund"',
+	'PrepareNewMissionContract',
+	'CanAdmitNewMission',
+	'AdmitNewMission',
+	'RollbackAdmission',
+	'TickBeforePhysical',
+	'ReconcileAfterMissionOutcomes',
+	'ReconcileAfterRestore',
+	'PrepareOpenPhysicalAuthorityForPersistence',
+	'PrepareQuarantinedAuthorityForPersistence',
+	'SettleOpenOperationsForCampaignStop',
+	'ReconcileSettledRuntimeCleanup',
+	'BuildGuardStatusText'
+)) {
+	if ($schema55OperationText -notmatch [regex]::Escape($schema55OperationEntry)) {
+		throw "Schema-55 exact officer-guard operation boundary is missing: $schema55OperationEntry"
+	}
+}
+foreach ($schema55AuthorityEntry in @(
+	'group.m_sMissionAssetId = ""',
+	'operation.m_vTacticalTargetPosition = hvtPosition',
+	'operation.m_sCurrentRouteId = ""',
+	'manifest.m_iMoneyCost = 0',
+	'manifest.m_iHRCost = 0',
+	'manifest.m_iAttackResourceCost = 0',
+	'manifest.m_iSupportResourceCost = 0',
+	'manifest.m_aAssets.Count() != 0',
+	'HST_OPERATION_TERMINAL_DESTROYED',
+	'HST_OPERATION_TERMINAL_COMPLETED',
+	'HST_OPERATION_TERMINAL_CANCELLED',
+	'HST_OPERATION_TERMINAL_INVALIDATED',
+	'HST_OPERATION_TERMINAL_SPAWN_FAILED',
+	'CompleteQuarantinedSuccessfulProjectionCancellation',
+	'exact mission guard authority quarantined without refund or legacy conversion'
+)) {
+	if ($schema55OperationText -notmatch [regex]::Escape($schema55AuthorityEntry)) {
+		throw "Schema-55 route-less HVT/roster/settlement authority is missing: $schema55AuthorityEntry"
+	}
+}
+if ($schema55OperationText -notmatch [regex]::Escape('return hvtPosition + "10 0 0"') -or
+	$schema55OperationText -notmatch [regex]::Escape('return hvtPosition + "7 0 7"')) {
+	throw "Schema-55 guard anchor must remain a deterministic non-zero offset from the mission-owned HVT"
+}
+
+foreach ($schema55CoordinatorEntry in @(
+	'm_MissionGuardOperations = new HST_MissionGuardOperationService()',
+	'SetMissionGuardOperationService',
+	'm_MissionGuardOperations.ReconcileAfterRestore',
+	'm_MissionGuardOperations.TickBeforePhysical',
+	'm_MissionGuardOperations.ReconcileAfterMissionOutcomes',
+	'm_MissionGuardOperations.PrepareOpenPhysicalAuthorityForSettlement',
+	'm_MissionGuardOperations.SettleOpenOperationsForCampaignStop',
+	'm_MissionGuardOperations.PrepareNewMissionContract',
+	'm_MissionGuardOperations.AdmitNewMission',
+	'AppendCampaignDebugMissionGuardOperationAssertions'
+)) {
+	if ($schema55CoordinatorText -notmatch [regex]::Escape($schema55CoordinatorEntry)) {
+		throw "Schema-55 exact officer-guard coordinator wiring is missing: $schema55CoordinatorEntry"
+	}
+}
+foreach ($schema55AssertionId in @(
+	'mission_guard.admission_isolation',
+	'mission_guard.projection_lifecycle',
+	'mission_guard.settlement',
+	'mission_guard.restore_migration',
+	'mission_guard.corruption_quarantine',
+	'mission_guard.marker_status'
+)) {
+	if ($schema55CoordinatorText -notmatch [regex]::Escape($schema55AssertionId)) {
+		throw "Schema-55 exact officer-guard debug assertion is missing: $schema55AssertionId"
+	}
+}
+
+if ($schema55RuntimeText -notmatch [regex]::Escape('HST_MissionGuardOperationService.IsExactOrQuarantinedMission(mission)')) {
+	throw "Schema-55 exact/quarantined officer guards must bypass legacy mission hostile-group creation"
+}
+foreach ($schema55PhysicalEntry in @(
+	'IsExactOrQuarantinedMissionGuardGroup',
+	'IsExactMissionGuardGroup',
+	'HasExactMissionGuardRuntime',
+	'TryResolveExactMissionGuardLivePosition',
+	'HasExactMissionGuardLiveContactEvidence',
+	'RestartExactMissionGuardInfantryAssignment',
+	'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING'
+)) {
+	if ($schema55PhysicalText -notmatch [regex]::Escape($schema55PhysicalEntry)) {
+		throw "Schema-55 exact officer-guard PhysicalWar isolation is missing: $schema55PhysicalEntry"
+	}
+}
+
+foreach ($schema55PersistenceEntry in @(
+	'SetMissionGuardOperationService',
+	'HasQuarantinedMissionGuardAuthority',
+	'ValidateQuarantinedMissionGuardCleanup',
+	'PrepareQuarantinedAuthorityForPersistence',
+	'PrepareOpenPhysicalAuthorityForPersistence',
+	'ValidatePhysicalMissionGuardSnapshots',
+	'TryResolveExactMissionGuardLivePosition',
+	'hasMaterializingExactInfantry'
+)) {
+	if ($schema55PersistenceText -notmatch [regex]::Escape($schema55PersistenceEntry)) {
+		throw "Schema-55 exact officer-guard checkpoint boundary is missing: $schema55PersistenceEntry"
+	}
+}
+foreach ($schema55StateEntry in @(
+	'HST_MissionGuardOperationService.IsMissionGuardGroupClaimant',
+	'HST_MissionGuardOperationService.IsExactMissionGuardGroup',
+	'HST_MissionGuardOperationService.QUARANTINE_STATUS'
+)) {
+	if ($schema55StateText -notmatch [regex]::Escape($schema55StateEntry)) {
+		throw "Schema-55 campaign operational/quarantine classification is missing: $schema55StateEntry"
+	}
+}
+
+foreach ($schema55SaveEntry in @(
+	'class HST_AssassinationGuardSaveValidationService',
+	'IsSchema55MissionGuardMissionClaimant',
+	'IsSchema55MissionGuardOperationClaimant',
+	'IsSchema55MissionGuardManifestClaimant',
+	'IsSchema55MissionGuardBatchClaimant',
+	'IsSchema55MissionGuardGroupClaimant',
+	'migration_schema55_exact_mission_guard',
+	'normalization_schema55_exact_mission_guard_conflict',
+	'PreserveHistoricalMissionGuards',
+	'inferred no manifest, roster, batch, casualty, projection, or settlement authority',
+	'ValidateHVTBoundary',
+	'ValidateCurrentCatalogRoster',
+	'BuildGroupCatalog',
+	'HST_OPERATION_TERMINAL_DESTROYED'
+)) {
+	if (($schema55ValidationText + $schema55SaveText) -notmatch [regex]::Escape($schema55SaveEntry)) {
+		throw "Schema-55 exact officer-guard migration/restore boundary is missing: $schema55SaveEntry"
+	}
+}
+if ($schema55SaveText -notmatch [regex]::Escape('schema55MissionGuardValidation.Normalize(this, restoredSchemaVersion)')) {
+	throw "Schema-55 exact officer-guard validator is not called from campaign save normalization"
+}
+
+foreach ($schema55UIEntry in @('BuildGuardStatusText', 'guards neutralized', 'guard authority unavailable')) {
+	if (($schema55OperationText + $schema55MarkerText + $schema55CommandUIText) -notmatch [regex]::Escape($schema55UIEntry)) {
+		throw "Schema-55 existing HVT marker/UI status boundary is missing: $schema55UIEntry"
+	}
+}
+foreach ($schema55ProofEntry in @(
+	'class HST_MissionGuardOperationProofService',
+	'ProveAdmissionIsolation',
+	'ProveProjectionLifecycle',
+	'ProveSettlement',
+	'ProveRestoreMigration',
+	'ProveCorruptionQuarantine',
+	'ProveMarkerStatus',
+	'ProveCompactSettledRestore',
+	'packaged gates not claimed'
+)) {
+	if ($schema55ProofText -notmatch [regex]::Escape($schema55ProofEntry)) {
+		throw "Schema-55 exact officer-guard source proof is missing: $schema55ProofEntry"
+	}
+}
+
+$schema55DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($schema55DocumentationPath in $schema55DocumentationPaths) {
+	$schema55DocumentationText = (Get-Content -Raw $schema55DocumentationPath).ToLowerInvariant()
+	if (!$schema55DocumentationText.Contains("schema 55") -and !$schema55DocumentationText.Contains("schema-55")) {
+		throw "$schema55DocumentationPath must identify the Schema-55 officer-guard boundary"
+	}
+	foreach ($schema55DocumentationTerm in @("officer", "guard", "packaged")) {
+		if (!$schema55DocumentationText.Contains($schema55DocumentationTerm)) {
+			throw "$schema55DocumentationPath must describe the Schema-55 officer-guard packaged-runtime boundary: $schema55DocumentationTerm"
+		}
+	}
+}
+$schema55MigrationsText = (Get-Content -Raw "docs/MIGRATIONS.md").ToLowerInvariant()
+foreach ($schema55MigrationNote in @(
+	'migration_schema55_exact_mission_guard',
+	'normalization_schema55_exact_mission_guard_conflict',
+	'exact_assassinate_officer_guard_v1',
+	'zero refund',
+	'packaged'
+)) {
+	if (!$schema55MigrationsText.Contains($schema55MigrationNote)) {
+		throw "Schema-55 migration documentation is missing: $schema55MigrationNote"
+	}
+}
+if (!$schema55MigrationsText.Contains('contract zero') -and
+	!$schema55MigrationsText.Contains('contract-zero')) {
+	throw "Schema-55 migration documentation must preserve historical mission guards on contract zero"
+}
+Write-Host "Schema-55 exact officer-guard admission, HVT isolation, survivor projection, zero-refund settlement, restore/quarantine, marker/UI, migration, and proof contract OK"
 
 Write-Host "h-istasi foundation validation passed"

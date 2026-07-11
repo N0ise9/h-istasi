@@ -76,7 +76,7 @@ be read as proof that a later change was executed or certified.
 - The final stamped schema-54 tree identifies implementation
   `09a1470a4c27dbef866e8cbdba182a7df65fa027` and has clean headless Game-module
   compile/create evidence at 5,760 files/11,560 classes with CRC `c62de929`. This is source/
-  compile evidence rather than packaged gameplay proof. A normal schema-53
+  compile evidence rather than packaged gameplay proof. A normal schema-54
   WorldEditor open also remained alive for all ten samples over 20 seconds with
   no crash signature. During schema 50, the initial
   correctly quoted Workbench attempts exposed a native compiler edge in the
@@ -142,8 +142,9 @@ be read as proof that a later change was executed or certified.
   receipts, illegal lifecycle pairs, and casualty authority on non-member roots,
   while preserving missionless exact-looking durable claimants. They remain
   in-process fixtures, not engine/runtime evidence.
-- Before every real persistence capture, schemas 52 through 54 synchronously
-  reconcile mapped physical convoy and physical/dematerializing patrol members so
+- Before every real persistence capture, schemas 52 through 55 synchronously
+  reconcile mapped physical convoy, physical/dematerializing patrol, and exact
+  officer-mission guard members so
   a death cannot be saved as alive before the normal physical-war tick. Patrols
   additionally require a unique root/member adapter graph and matching
   PhysicalWar cardinality. An open outbound publication transaction,
@@ -194,10 +195,36 @@ be read as proof that a later change was executed or certified.
   Forces UI row expose virtual/live position, location/current owner, role, and
   survivors. Nine deterministic `garrison_patrol.*` assertions cover admission,
   replay/rollback, roster projection, route loop, projection hold, settlement,
-  restore, corruption, and marker lifecycle. This is source evidence; Schema-54
-  Workbench compile/open gates remain pending. Packaged native waypoint
+  restore, corruption, and marker lifecycle. The stamped Schema-54 Workbench
+  compile/open gates passed as recorded above. Packaged native waypoint
   movement, casualty observation, fold/rematerialization, save/restart, client
   marker rendering, replication, reconnect, and JIP proof remain open.
+- Schema 55 adds exact authority only for guard infantry belonging to a newly
+  started `assassinate_officer` mission. Admission freezes one catalog-backed
+  `NotSpawned` empty execution root and ordered infantry members, with no route,
+  vehicles, assets, resources, or HVT entry. The held roster is the only guard-
+  strength authority across materialization, mapped casualties, fold, restore,
+  and survivor-only re-entry. While virtual it remains on station at a
+  deterministic offset from the separate HVT; there is no virtual guard combat.
+  All guards dead settles the operation `DESTROYED` while the HVT mission can
+  remain active. HVT success settles surviving guards `COMPLETED`; mission
+  failure/expiry, campaign stop, or setup maps to `CANCELLED`; target-owner
+  change maps to `INVALIDATED`; and coherent spawn/assignment failure maps to
+  `SPAWN_FAILED`. Every terminal branch records
+  `exact_mission_guard_terminal` once with zero refund or legacy-force transfer.
+  Historical officer missions, `assassinate_traitor`, `assassinate_specops`, and
+  all other mission families remain contract `0`; pre-55 migration invents no
+  operation, roster, casualty, or settlement authority for them. Compact settled
+  graphs may omit their batch, group, and terminal HVT runtime row. Malformed
+  current graphs use `-55` quarantine without fallback, guessed casualty, HVT
+  backlink, or refund; the diagnostic quarantine does not fail the otherwise
+  playable HVT mission. Existing HVT marker/UI rows append authoritative guard
+  status and no duplicate operation marker is published. Focused
+  `mission_guard.*` source fixtures cover admission/isolation, survivor/HVT
+  separation, typed settlement, restore/migration, corruption quarantine, and
+  marker status. Schema-55 Workbench compile/open, native entities, real adapter
+  bindings/casualties, actual save/restart, rendered marker/UI, owner-change,
+  campaign-setup, networking, reconnect, and JIP remain open proof gates.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -217,8 +244,8 @@ be read as proof that a later change was executed or certified.
   lifecycle authority, schema 48 accepted-settlement archive, schema 49
   exact-QRF operation authority, schema 50 strategic projection, schema 51
   exact enemy defensive-QRF authority, schema 52 exact mission-convoy authority,
-  schema 53 exact enemy-patrol authority, and schema 54 exact purchased-garrison
-  patrol authority.
+  schema 53 exact enemy-patrol authority, schema 54 exact purchased-garrison
+  patrol authority, and schema 55 exact officer-mission guard authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -1004,18 +1031,21 @@ Unproven or incomplete against the pasted contract:
   access were restored. The schema-50 marker, dialog, radio, civilian, and
   player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF,
   schema-52 exact mission-convoy, schema-53 exact enemy-patrol, and schema-54
-  exact purchased-garrison patrol slices remain source-only until a new package
-  is run.
-- Strategic projection is limited to five explicit consumers: exact paid player
+  exact purchased-garrison patrol and schema-55 exact officer-mission guard
+  slices remain source-only until a new package is run.
+- Strategic projection is limited to six explicit consumers: exact paid player
   QRF, newly planned enemy defensive QRF, newly started exact mission convoy,
   newly queued exact enemy patrol, and newly issued policy-v2 purchased
-  resistance garrison patrol. The convoy is a narrow three-vehicle/three-
+  resistance garrison patrol, plus guard infantry for newly started
+  `assassinate_officer` missions. The HVT is not a seventh force participant; it
+  remains separate mission authority. The convoy is a narrow three-vehicle/three-
   crew exception, not generic
   vehicle/multi-root realization, and it does not yet simulate off-screen
   combat. Live physical contact does not yet own player-operation engagement;
   generalized virtualization, historical patrols/other enemy orders and convoys,
-  policy-v1/initial/enemy aggregate and vehicle/multi-root garrisons, other
-  supports/missions, packaged execution, and real restart/migration/archive
+  policy-v1/initial/enemy aggregate and vehicle/multi-root garrisons, historical
+  officer missions, other assassination variants, other supports/missions,
+  packaged execution, and real restart/migration/archive
   replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
 - Cleanup/stall coverage is not universal: untagged debug leftovers cannot be deterministically removed, cleanup depends on debug spawn paths naming physical entities, and some physical categories still lack stall evidence dumps.
@@ -1042,3 +1072,10 @@ Unproven or incomplete against the pasted contract:
   samples over 20 seconds without a crash signature. Schema 54 has not been
   packaged or executed as gameplay proof. Source/compile/open gates are not
   packaged runtime certification.
+- Schema 55 is implemented in the current source tree, but this audit does not
+  claim a final Schema-55 implementation commit, CRC, class/file count, Workbench
+  compile/open, or packaged-runtime result yet. Its focused source proofs and
+  foundation checks must be executed and stamped before they become verification
+  evidence. Native projection/casualty behavior, real save/restart, rendered HVT
+  guard status, owner-change, campaign-setup, networking, reconnect, and JIP
+  remain mandatory packaged gates.

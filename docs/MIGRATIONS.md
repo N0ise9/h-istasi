@@ -2,7 +2,89 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `54`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `55`.
+
+## Schema 55
+
+- Schema 55 opts in only guard infantry belonging to a newly started
+  `assassinate_officer` mission. The mission contract and reciprocal
+  `HST_OPERATION_TYPE_MISSION_GUARD` operation use version `1`; the frozen
+  manifest policy is `exact_assassinate_officer_guard_v1`. Historical officer
+  missions, `assassinate_traitor`, `assassinate_specops`, and every other mission
+  family remain contract version `0`. The HVT remains a mission objective and
+  mission-runtime asset: it is never a manifest member, projected asset, or
+  operation-owned entity.
+
+- Admission freezes one catalog-backed `NotSpawned` execution root and every
+  ordered infantry member slot, with no vehicles, projected assets, money, HR,
+  equipment, attack-resource, or support-resource cost. The mission, operation,
+  manifest, held SpawnQueue batch, and mission-owned active group form one
+  reciprocal aggregate. A deterministic guard anchor is offset from the HVT so
+  the root and its members do not overlap the target; the HVT position remains
+  the immutable tactical target. No route or generated-route cursor is created.
+
+- The held roster is the only guard-strength authority. Entering the
+  materialization radius releases the root and durable living member slots;
+  mapped physical deaths retire only their member slots. Contact and recent
+  casualties hold the physical projection. Leaving the larger radius retires
+  the runtime projection and requeues the same survivors at their last confirmed
+  position. Re-entry realizes only those survivors. Generic mission-group,
+  zone-garrison, survivor-repair, route, captured-zone, and cleanup paths exclude
+  exact and quarantined guard claimants.
+
+- Guard elimination and HVT outcome remain independent. If every guard member
+  dies, the operation settles `DESTROYED` with zero survivors while the active
+  HVT objective remains playable. HVT success settles surviving guards
+  `COMPLETED`; mission failure or expiry and campaign stop/setup settle
+  `CANCELLED`; coherent spawn/assignment failure settles `SPAWN_FAILED`; target
+  owner change settles `INVALIDATED`. Every terminal path first reconciles and
+  retires typed runtime authority, terminalizes the queue batch, records the
+  fixed settlement kind `exact_mission_guard_terminal` once, and applies zero
+  refund or legacy-force transfer.
+
+- Restores from schema 54 or earlier record
+  `migration_schema55_exact_mission_guard` and preserve historical officer
+  missions, HVTs, objectives, and `mission_group_*` guards exactly as legacy
+  contract-zero state. Migration never infers a manifest, member roster,
+  casualty, operation, projection, or settlement from aggregate counts or an
+  officer mission ID. Unsupported pre-schema-55 exact-shaped operations are
+  retained as quarantined evidence instead of being adopted.
+
+- Current-schema validation requires unique deterministic mission/operation/
+  manifest/batch/group identity, an exact empty-root/member bijection, the
+  offset stationary assignment, zero vehicle/asset/resource authority, legal
+  virtual/physical state, and the fixed terminal receipt. Coherent physical
+  state restores to one held survivor roster with process-local IDs cleared.
+  Compact settled graphs may legitimately have already removed their batch,
+  group, and terminal HVT runtime row. A settled `DESTROYED` guard may coexist
+  with an active HVT mission; other terminal outcomes require a non-active
+  mission.
+
+- Malformed current authority becomes contract version `-55`. Quarantined rows
+  are non-operational and never create a legacy fallback, guessed casualty,
+  refund, or HVT ownership backlink. Strongly owned successful projections use
+  typed casualty reconciliation and projection-key cleanup; foreign or
+  ambiguous rows remain untouched. This boundary records
+  `normalization_schema55_exact_mission_guard_conflict`. Persistence defers while materialization is
+  incomplete or a live/quarantined binding cannot be proven. Existing HVT map
+  and mission UI rows append roster-authoritative `guards N`, `guards
+  neutralized`, or `guard authority unavailable`; no duplicate guard marker is
+  published.
+
+- Deterministic source proofs cover admission/replay/rollback and legacy
+  isolation, survivor/HVT separation, typed terminal mapping, restore/migration,
+  corruption quarantine, and marker-status projection. Native entity creation,
+  real adapter bindings and casualties, physical return-to-anchor behavior,
+  actual process restart, rendered UI, packaged multiplayer, reconnect, and JIP
+  remain open until a scoped packaged run proves them. Owner-change and campaign-
+  setup settlement are also open engine/runtime gates. Workbench compile/open
+  evidence for Schema 55 is pending this implementation pass; no final commit,
+  CRC, file count, or class count is claimed here yet.
+
+- After Schema 55 is stamped, the next planned narrow cutover is guard infantry
+  for newly started `assassinate_traitor` missions only. This is not a Schema-56
+  implementation claim. `assassinate_specops` and every other mission family
+  remain contract `0` until separately versioned.
 
 ## Schema 54
 

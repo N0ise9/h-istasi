@@ -858,7 +858,7 @@ class HST_MapMarkerService
 			vector position = asset.m_vCurrentPosition;
 			string icon = MissionAssetToMarkerIcon(mission, asset);
 			string style = MissionAssetToMarkerStyle(mission, asset);
-			string label = BuildMissionAssetMarkerLabel(mission, asset);
+			string label = BuildMissionAssetMarkerLabel(state, mission, asset);
 			string color = MissionAssetToMarkerColor(mission, asset);
 
 			if (!asset.m_bPickedUp && (asset.m_sRole == "city_supplies" || asset.m_sRole == "logistics_cargo" || asset.m_sRole == "convoy_payload"))
@@ -2824,7 +2824,7 @@ class HST_MapMarkerService
 		return BuildMissionMinutesLabel(mission, MissionMarkerTitle(mission));
 	}
 
-	protected string BuildMissionAssetMarkerLabel(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	protected string BuildMissionAssetMarkerLabel(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset)
 	{
 		if (!asset)
 			return "Mission asset";
@@ -2855,7 +2855,15 @@ class HST_MapMarkerService
 		else if (asset.m_sRole == "hvt")
 			verb = "Kill";
 
-		return BuildMissionMinutesLabel(mission, MissionMarkerTitle(mission));
+		string title = MissionMarkerTitle(mission);
+		if (asset.m_sRole == "hvt")
+		{
+			string guardStatus = HST_MissionGuardOperationService.BuildGuardStatusText(state, mission);
+			if (!guardStatus.IsEmpty())
+				title = title + " | " + guardStatus;
+		}
+
+		return BuildMissionMinutesLabel(mission, title);
 	}
 
 	protected bool AreMissionObjectivesComplete(HST_CampaignState state, HST_ActiveMissionState mission)
