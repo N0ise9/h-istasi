@@ -148,6 +148,39 @@ class HST_ForceSpawnAdapterService
 		return result;
 	}
 
+	HST_ForceSpawnAdapterTickResult ReconcileQuarantinedExactInfantryProjectionAuthority(
+		HST_CampaignState state,
+		HST_ForceSpawnQueueService queue,
+		HST_PhysicalWarService physicalWar,
+		int nowSecond,
+		string projectionId)
+	{
+		HST_ForceSpawnAdapterTickResult result = new HST_ForceSpawnAdapterTickResult();
+		if (!state || !queue || !physicalWar || projectionId.IsEmpty())
+		{
+			result.m_iFailedCount = 1;
+			result.m_sSummary = "quarantined exact infantry projection reconciliation is unavailable";
+			return result;
+		}
+		ReconcileHandedOffMemberLifecycle(
+			state,
+			queue,
+			physicalWar,
+			nowSecond,
+			result,
+			true,
+			projectionId,
+			true);
+		ReconcileZeroLivingProjectionCleanup(state, queue, physicalWar, nowSecond, result, projectionId);
+		result.m_sSummary = string.Format(
+			"quarantined exact infantry reconciliation | projection %1 | casualties %2 | eliminated %3 | failures %4",
+			projectionId,
+			result.m_iCasualtyCount,
+			result.m_iEliminatedCount,
+			result.m_iFailedCount);
+		return result;
+	}
+
 	protected bool ValidateExactLivingMemberBindingsForPersistence(
 		HST_ForceSpawnResultState batch,
 		HST_ForceSpawnQueueService queue,
@@ -313,6 +346,12 @@ class HST_ForceSpawnAdapterService
 				failure = "exact physical infantry projection contains a foreign adapter slot " + handle.m_sSlotId;
 				return false;
 			}
+			if (handle.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+				&& !physicalWar.IsForceSpawnRuntimeHandleRegistered(activeGroup, handle.m_Entity))
+			{
+				failure = "exact physical infantry adapter member is absent from its PhysicalWar projection " + handle.m_sSlotId;
+				return false;
+			}
 			entityIds.Insert(handle.m_sEntityId);
 			entities.Insert(handle.m_Entity);
 			if (handle.m_sSlotKind == HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
@@ -340,7 +379,8 @@ class HST_ForceSpawnAdapterService
 		int nowSecond,
 		HST_ForceSpawnAdapterTickResult result,
 		bool exhaustive = false,
-		string projectionFilterId = "")
+		string projectionFilterId = "",
+		bool typedQuarantine = false)
 	{
 		if (!state || !queue || !physicalWar || !result)
 			return;
@@ -381,15 +421,30 @@ class HST_ForceSpawnAdapterService
 			if (!batch || batch.m_sProjectionId != handle.m_sProjectionId
 				|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
 				continue;
-			HST_ForceSpawnQueueCallbackResult casualty = queue.ConfirmRegisteredMemberCasualty(
-				state.m_aForceSpawnResults,
-				state.FindForceManifest(batch.m_sManifestId),
-				handle.m_sResultId,
-				handle.m_sProjectionId,
-				handle.m_sSlotId,
-				handle.m_sEntityId,
-				nowSecond,
-				"authoritative runtime life state confirmed exact member death");
+			HST_ForceSpawnQueueCallbackResult casualty;
+			if (typedQuarantine)
+			{
+				casualty = queue.ConfirmQuarantinedRegisteredMemberCasualty(
+					state.m_aForceSpawnResults,
+					handle.m_sResultId,
+					handle.m_sProjectionId,
+					handle.m_sSlotId,
+					handle.m_sEntityId,
+					nowSecond,
+					"authoritative runtime life state confirmed exact member death during typed quarantine");
+			}
+			else
+			{
+				casualty = queue.ConfirmRegisteredMemberCasualty(
+					state.m_aForceSpawnResults,
+					state.FindForceManifest(batch.m_sManifestId),
+					handle.m_sResultId,
+					handle.m_sProjectionId,
+					handle.m_sSlotId,
+					handle.m_sEntityId,
+					nowSecond,
+					"authoritative runtime life state confirmed exact member death");
+			}
 			if (!casualty || !casualty.m_bAccepted)
 			{
 				result.m_iFailedCount++;
@@ -1677,6 +1732,14 @@ class HST_ForceSpawnAdapterService
 		if (resultId.IsEmpty())
 			return 0;
 		return CountHandlesForResult(resultId);
+	}
+
+	bool ValidateExactProjectionRuntimeKeys(
+		HST_ForceSpawnResultState batch,
+		out string failure)
+	{
+		failure = FindProjectionBindingConflict(batch);
+		return failure.IsEmpty();
 	}
 
 	int PruneDeletedProjectionBindings(string projectionId)

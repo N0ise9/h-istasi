@@ -179,14 +179,19 @@ class HST_ForceRuntimeAuthorityProofService
 				109);
 			HST_ForceSpawnSlotResultState retired = restoredBatch.FindSlotResult("runtime_member_0");
 			HST_ForceSpawnSlotResultState survivor = restoredBatch.FindSlotResult("runtime_member_1");
+			bool reprojectionCallbacksExact = requeue && requeue.m_bAccepted
+				&& handoff && handoff.m_bAccepted;
+			bool reprojectionBatchExact = restoredBatch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				&& restoredBatch.m_iSuccessfulHandoffCount == 2
+				&& restoredBatch.m_iReprojectionCount == 1;
+			bool reprojectionSlotsExact = retired
+				&& retired.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& survivor
+				&& survivor.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED;
 			report.m_bSurvivorReprojectionExact = adapterRosterExact
 				&& invalidPreflightReadOnly && validPreflightReadOnly
-				&& requeue && requeue.m_bAccepted && rootOnly && survivorOnly
-				&& handoff && handoff.m_bAccepted
-				&& restoredBatch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
-				&& restoredBatch.m_iSuccessfulHandoffCount == 2 && restoredBatch.m_iReprojectionCount == 1
-				&& retired && retired.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
-				&& survivor && survivor.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+				&& reprojectionCallbacksExact && rootOnly && survivorOnly
+				&& reprojectionBatchExact && reprojectionSlotsExact
 				&& queue.CountDurableLivingMemberSlots(restoredBatch) == 1;
 			report.m_sReprojectionEvidence = string.Format(
 				"preflight invalid/valid read-only %1/%2 | requeue/root/survivor/handoff %3/%4/%5/%6 | handoffs/reprojections %7/%8",

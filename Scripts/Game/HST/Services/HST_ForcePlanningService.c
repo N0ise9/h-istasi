@@ -16,7 +16,8 @@ class HST_ForcePlanningService
 {
 	static const string QUOTE_KIND_GARRISON = "garrison_recruitment";
 	static const string QUOTE_KIND_PLAYER_SUPPORT_QRF = "player_support_qrf";
-	static const string GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1";
+	static const string LEGACY_GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1";
+	static const string GARRISON_POLICY_ID = "garrison_exact_patrol_2";
 	static const string SUPPORT_QRF_POLICY_ID = "support_qrf_exact_infantry_1";
 	static const int GARRISON_QUOTE_LIFETIME_SECONDS = 120;
 	static const int SUPPORT_QRF_QUOTE_LIFETIME_SECONDS = 120;
@@ -33,11 +34,18 @@ class HST_ForcePlanningService
 	protected ref HST_ForcePlanningIntegrityService m_Integrity = new HST_ForcePlanningIntegrityService();
 	protected ref HST_ForceSettlementArchiveService m_SettlementArchive = new HST_ForceSettlementArchiveService();
 	protected ref HST_OperationService m_Operations = new HST_OperationService();
+	protected ref HST_GarrisonService m_GarrisonReader = new HST_GarrisonService();
+	protected ref HST_GarrisonPatrolOperationService m_GarrisonPatrolOperations;
 	protected ref HST_CampaignEventLogService m_EventLog;
 
 	void SetEventLogService(HST_CampaignEventLogService eventLog)
 	{
 		m_EventLog = eventLog;
+	}
+
+	void SetExactGarrisonPatrolAuthorityService(HST_GarrisonPatrolOperationService operations)
+	{
+		m_GarrisonPatrolOperations = operations;
 	}
 
 	HST_EnemyDefensiveQRFManifestResult PlanExactEnemyDefensiveQRF(
@@ -1142,15 +1150,16 @@ class HST_ForcePlanningService
 		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
 		if (garrison)
 			abstractInfantry = Math.Max(0, garrison.m_iInfantryCount);
+		int exactInfantry = m_GarrisonReader.CountExecutableManifestInfantry(state, garrison);
 		int activeInfantry = Math.Max(0, zone.m_iActiveInfantryCount);
-		if (zone.m_iGarrisonSlots > 0 && abstractInfantry + activeInfantry + requestedMemberCount > zone.m_iGarrisonSlots)
+		if (zone.m_iGarrisonSlots > 0 && abstractInfantry + exactInfantry + activeInfantry + requestedMemberCount > zone.m_iGarrisonSlots)
 		{
-			int remaining = Math.Max(0, zone.m_iGarrisonSlots - abstractInfantry - activeInfantry);
+			int remaining = Math.Max(0, zone.m_iGarrisonSlots - abstractInfantry - exactInfantry - activeInfantry);
 			result.m_sFailureReason = string.Format("all-or-nothing capacity conflict: requested %1, remaining %2", requestedMemberCount, remaining);
 			return result;
 		}
 
-		HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateMemberCatalog(factionKey, validateResources);
+		HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateFactionCatalog(factionKey, validateResources);
 		if (!catalogValidation || !catalogValidation.m_bValid)
 		{
 			result.m_sFailureReason = "force member catalog invalid";
@@ -1160,12 +1169,19 @@ class HST_ForcePlanningService
 		}
 
 		array<ref HST_ForceMemberCatalogEntry> catalog = m_Catalog.BuildMemberCatalog(factionKey);
-		if (catalog.Count() == 0)
+		array<ref HST_ForceGroupCatalogEntry> groupCatalog = m_Catalog.BuildGroupCatalog(factionKey);
+		if (catalog.Count() == 0 || groupCatalog.Count() == 0)
 		{
-			result.m_sFailureReason = "member catalog empty";
+			result.m_sFailureReason = "garrison execution catalog empty";
 			return result;
 		}
 		int planningSeed = m_Integrity.BuildDeterministicSeed(state, actorIdentityId + "|" + commandRequestId, zoneId);
+		HST_ForceGroupCatalogEntry executionGroup = m_Integrity.SelectGarrisonExecutionGroup(groupCatalog, planningSeed);
+		if (!executionGroup || executionGroup.m_sFactionKey != factionKey || executionGroup.m_sExecutionPrefab.IsEmpty())
+		{
+			result.m_sFailureReason = "deterministic garrison group-root selection failed";
+			return result;
+		}
 		int preflightMoneyCost;
 		int preflightHRCost;
 		for (int preflightIndex = 0; preflightIndex < requestedMemberCount; preflightIndex++)
@@ -1210,6 +1226,7 @@ class HST_ForcePlanningService
 		manifest.m_sFactionKey = factionKey;
 		manifest.m_sIntentId = "garrison_recruitment";
 		manifest.m_sTargetZoneId = zoneId;
+		manifest.m_sGroupPrefab = executionGroup.m_sExecutionPrefab;
 		manifest.m_sCatalogVersion = HST_ForceCatalogService.CATALOG_VERSION;
 		manifest.m_sPolicyId = GARRISON_POLICY_ID;
 		manifest.m_iRequestedMemberCount = requestedMemberCount;
@@ -1220,8 +1237,10 @@ class HST_ForcePlanningService
 
 		HST_ForceManifestGroupState groupElement = new HST_ForceManifestGroupState();
 		groupElement.m_sElementId = manifestId + "_group_1";
-		groupElement.m_sCatalogEntryId = "strategic_garrison_roster";
-		groupElement.m_sRole = "garrison";
+		groupElement.m_sCatalogEntryId = executionGroup.m_sEntryId;
+		groupElement.m_sPrefab = executionGroup.m_sExecutionPrefab;
+		groupElement.m_sRole = executionGroup.m_sRole;
+		groupElement.m_iOrdinal = 0;
 		groupElement.m_iExpectedMemberCount = requestedMemberCount;
 		manifest.m_aGroups.Insert(groupElement);
 
@@ -1289,7 +1308,7 @@ class HST_ForcePlanningService
 		quote.m_bAllOrNothing = true;
 		quote.m_sMoneyTransactionId = HST_StableIdService.BuildTransactionId(operationId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY);
 		quote.m_sHRTransactionId = HST_StableIdService.BuildTransactionId(operationId, HST_ResourceLedgerService.RESOURCE_HR);
-		quote.m_sContextHash = m_Integrity.BuildGarrisonContextHash(state, zone, factionKey);
+		quote.m_sContextHash = m_Integrity.BuildGarrisonContextHash(state, zone, factionKey, GARRISON_POLICY_ID);
 
 		state.m_aForceManifests.Insert(manifest);
 		state.m_aForceQuotes.Insert(quote);
@@ -1370,6 +1389,8 @@ class HST_ForcePlanningService
 			result.m_sFailureReason = "manifest missing";
 			return result;
 		}
+		bool executablePolicy = quote.m_sPolicyId == GARRISON_POLICY_ID
+			&& manifest.m_sPolicyId == GARRISON_POLICY_ID;
 
 		if (accepted)
 		{
@@ -1385,6 +1406,26 @@ class HST_ForcePlanningService
 			{
 				result.m_sFailureReason = "accepted quote transaction integrity conflict";
 				return result;
+			}
+			if (executablePolicy)
+			{
+				if (!m_GarrisonPatrolOperations)
+				{
+					result.m_sFailureReason = "accepted executable garrison authority service is unavailable";
+					return result;
+				}
+				HST_GarrisonPatrolAdmissionResult replay = m_GarrisonPatrolOperations.ResolveCommittedAdmission(
+					state,
+					quote,
+					manifest,
+					garrisons);
+				if (!replay || !replay.m_bSuccess)
+				{
+					result.m_sFailureReason = "accepted executable garrison authority conflicts";
+					if (replay && !replay.m_sFailureReason.IsEmpty())
+						result.m_sFailureReason = result.m_sFailureReason + ": " + replay.m_sFailureReason;
+					return result;
+				}
 			}
 			result.m_bSuccess = true;
 			result.m_bAlreadyApplied = true;
@@ -1416,12 +1457,38 @@ class HST_ForcePlanningService
 		}
 
 		HST_ZoneState zone = state.FindZone(quote.m_sTargetZoneId);
-		if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE || zone.m_sOwnerFactionKey != quote.m_sFactionKey || m_Integrity.BuildGarrisonContextHash(state, zone, quote.m_sFactionKey) != quote.m_sContextHash)
+		if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE || zone.m_sOwnerFactionKey != quote.m_sFactionKey || m_Integrity.BuildGarrisonContextHash(state, zone, quote.m_sFactionKey, quote.m_sPolicyId) != quote.m_sContextHash)
 		{
 			RejectQuote(state, quote, "garrison context changed; request a new quote", confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
 			return result;
+		}
+		if (executablePolicy)
+		{
+			if (!m_GarrisonPatrolOperations)
+			{
+				RejectQuote(state, quote, "exact garrison patrol authority service is unavailable", confirmationRequestId);
+				result.m_bStateChanged = true;
+				result.m_sFailureReason = quote.m_sRejectionReason;
+				return result;
+			}
+			HST_GarrisonPatrolAdmissionResult admissionPreflight = m_GarrisonPatrolOperations.CanAdmitPreparedPurchase(
+				state,
+				quote,
+				manifest,
+				garrisons,
+				confirmationRequestId);
+			if (!admissionPreflight || !admissionPreflight.m_bSuccess)
+			{
+				string admissionFailure = "exact garrison patrol admission preflight failed";
+				if (admissionPreflight && !admissionPreflight.m_sFailureReason.IsEmpty())
+					admissionFailure = admissionPreflight.m_sFailureReason;
+				RejectQuote(state, quote, admissionFailure, confirmationRequestId);
+				result.m_bStateChanged = true;
+				result.m_sFailureReason = quote.m_sRejectionReason;
+				return result;
+			}
 		}
 		if (state.m_iFactionMoney < quote.m_iMoneyCost || state.m_iHR < quote.m_iHRCost)
 		{
@@ -1481,19 +1548,56 @@ class HST_ForcePlanningService
 		int beforeInfantry;
 		if (beforeGarrison)
 			beforeInfantry = beforeGarrison.m_iInfantryCount;
-		if (!garrisons.AddManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, manifest))
+		HST_GarrisonPatrolAdmissionResult exactAdmission;
+		bool authorityRegistered;
+		if (executablePolicy)
+		{
+			exactAdmission = m_GarrisonPatrolOperations.AdmitPreparedPurchase(
+				state,
+				quote,
+				manifest,
+				garrisons,
+				confirmationRequestId);
+			authorityRegistered = exactAdmission && exactAdmission.m_bSuccess;
+		}
+		else
+		{
+			authorityRegistered = garrisons.AddManifestForcesExact(
+				state,
+				quote.m_sTargetZoneId,
+				quote.m_sFactionKey,
+				manifest);
+		}
+		if (!authorityRegistered)
 		{
 			CancelConfirmationReservations(state, economy, ledger, quote, "exact garrison mutation failed");
-			RejectQuote(state, quote, "exact garrison mutation failed", confirmationRequestId);
+			string authorityFailure = "exact garrison mutation failed";
+			if (exactAdmission && !exactAdmission.m_sFailureReason.IsEmpty())
+				authorityFailure = exactAdmission.m_sFailureReason;
+			RejectQuote(state, quote, authorityFailure, confirmationRequestId);
 			result.m_bStateChanged = true;
 			result.m_sFailureReason = quote.m_sRejectionReason;
 			return result;
 		}
 
 		HST_GarrisonState afterGarrison = state.FindGarrison(quote.m_sTargetZoneId, quote.m_sFactionKey);
-		if (!afterGarrison || afterGarrison.m_iInfantryCount - beforeInfantry != manifest.m_iAcceptedMemberCount || CountString(afterGarrison.m_aAcceptedManifestIds, manifest.m_sManifestId) != 1)
+		bool garrisonVerified = afterGarrison
+			&& CountString(afterGarrison.m_aAcceptedManifestIds, manifest.m_sManifestId) == 1;
+		if (executablePolicy)
+			garrisonVerified = garrisonVerified && afterGarrison.m_iInfantryCount == beforeInfantry
+				&& exactAdmission && exactAdmission.m_Operation && exactAdmission.m_Batch
+				&& exactAdmission.m_Group && exactAdmission.m_Batch.m_bStrategicProjectionHeld;
+		else
+			garrisonVerified = garrisonVerified
+				&& afterGarrison.m_iInfantryCount - beforeInfantry == manifest.m_iAcceptedMemberCount;
+		if (!garrisonVerified)
 		{
-			garrisons.RemoveManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, manifest);
+			if (executablePolicy && exactAdmission)
+				m_GarrisonPatrolOperations.RollbackAdmission(state, quote, manifest, garrisons,
+					exactAdmission.m_Operation, exactAdmission.m_Batch, exactAdmission.m_Group,
+					"exact garrison verification failed");
+			else
+				garrisons.RemoveManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, manifest);
 			CancelConfirmationReservations(state, economy, ledger, quote, "exact garrison verification failed");
 			RejectQuote(state, quote, "exact garrison verification failed", confirmationRequestId);
 			result.m_bStateChanged = true;
@@ -1505,7 +1609,12 @@ class HST_ForcePlanningService
 		bool hrCommitted = ledger.CommitReserved(state, quote.m_sHRTransactionId);
 		if (!moneyCommitted || !hrCommitted)
 		{
-			garrisons.RemoveManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, manifest);
+			if (executablePolicy && exactAdmission)
+				m_GarrisonPatrolOperations.RollbackAdmission(state, quote, manifest, garrisons,
+					exactAdmission.m_Operation, exactAdmission.m_Batch, exactAdmission.m_Group,
+					"garrison ledger commit failed");
+			else
+				garrisons.RemoveManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, manifest);
 			RollbackConfirmationTransactions(state, economy, ledger, quote, "garrison ledger commit failed");
 			RejectQuote(state, quote, "resource transaction commit failed", confirmationRequestId);
 			result.m_bStateChanged = true;
@@ -1519,7 +1628,10 @@ class HST_ForcePlanningService
 		quote.m_iRevision++;
 		result.m_bSuccess = true;
 		result.m_bStateChanged = true;
-		AppendQuoteEvent(state, quote, "accepted", "exact strategic garrison increment registered and resource transactions committed", confirmationRequestId);
+		string acceptedReason = "exact strategic garrison increment registered and resource transactions committed";
+		if (executablePolicy)
+			acceptedReason = "exact garrison patrol authority admitted, strategically held, and resource transactions committed";
+		AppendQuoteEvent(state, quote, "accepted", acceptedReason, confirmationRequestId);
 		return result;
 	}
 
@@ -1552,11 +1664,42 @@ class HST_ForcePlanningService
 			bool hrLinked = m_Integrity.TransactionHasQuoteIdentity(hrTransaction, quote, HST_ResourceLedgerService.RESOURCE_HR, quote.m_iHRCost);
 			HST_GarrisonState garrison = state.FindGarrison(quote.m_sTargetZoneId, quote.m_sFactionKey);
 			bool garrisonLinked = garrison && garrison.m_aAcceptedManifestIds.Contains(quote.m_sManifestId);
-			if (!moneyLinked && !hrLinked && !garrisonLinked)
+			HST_ForceManifestState manifest = state.FindForceManifest(quote.m_sManifestId);
+			bool executablePolicy = quote.m_sPolicyId == GARRISON_POLICY_ID;
+			bool typedAdmissionLinked;
+			if (executablePolicy && manifest && m_GarrisonPatrolOperations)
+				typedAdmissionLinked = m_GarrisonPatrolOperations.HasInterruptedAdmissionAuthority(state, quote, manifest);
+			if (executablePolicy && !typedAdmissionLinked)
+			{
+				typedAdmissionLinked = state.FindOperation(quote.m_sOperationId) != null
+					|| state.FindForceSpawnResultByManifest(quote.m_sManifestId) != null
+					|| state.FindActiveGroup("projection_" + quote.m_sOperationId) != null
+					|| state.FindGeneratedRoute("route_garrison_" + quote.m_sQuoteId) != null
+					|| garrisonLinked;
+			}
+			if (!moneyLinked && !hrLinked && !garrisonLinked && !typedAdmissionLinked)
 				continue;
 
-			HST_ForceManifestState manifest = state.FindForceManifest(quote.m_sManifestId);
-			if (garrisonLinked && manifest)
+			if (executablePolicy && typedAdmissionLinked)
+			{
+				bool graphRolledBack = manifest && m_GarrisonPatrolOperations
+					&& m_GarrisonPatrolOperations.RollbackInterruptedAdmission(
+						state,
+						quote,
+						manifest,
+						garrisons,
+						"interrupted exact garrison patrol confirmation rolled back during restore");
+				if (!graphRolledBack)
+				{
+					quote.m_eStatus = HST_EForceQuoteStatus.HST_FORCE_QUOTE_REJECTED;
+					quote.m_sRejectionReason = "interrupted exact garrison patrol authority requires manual integrity review";
+					quote.m_iRevision++;
+					AppendQuoteEvent(state, quote, "restore_reconcile_blocked", quote.m_sRejectionReason);
+					reconciled++;
+					continue;
+				}
+			}
+			else if (garrisonLinked && manifest)
 				garrisons.RemoveManifestForcesExact(state, quote.m_sTargetZoneId, quote.m_sFactionKey, manifest);
 			RollbackConfirmationTransactions(state, economy, ledger, quote, "interrupted garrison confirmation rolled back during restore");
 			quote.m_eStatus = HST_EForceQuoteStatus.HST_FORCE_QUOTE_REJECTED;

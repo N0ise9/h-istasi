@@ -1,6 +1,7 @@
 class HST_ForcePlanningIntegrityService
 {
-	static const string GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1";
+	static const string LEGACY_GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1";
+	static const string GARRISON_POLICY_ID = "garrison_exact_patrol_2";
 	static const string SUPPORT_QRF_POLICY_ID = "support_qrf_exact_infantry_1";
 	static const int SUPPORT_QRF_MONEY_COST = 250;
 	protected ref HST_ForceCatalogService m_Catalog = new HST_ForceCatalogService();
@@ -72,7 +73,11 @@ class HST_ForcePlanningIntegrityService
 		return string.Format("fm1_%1_%2", canonical.Hash(), (canonical + "|secondary").Hash());
 	}
 
-	string BuildGarrisonContextHash(HST_CampaignState state, HST_ZoneState zone, string factionKey)
+	string BuildGarrisonContextHash(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		string factionKey,
+		string policyId = LEGACY_GARRISON_POLICY_ID)
 	{
 		if (!state || !zone)
 			return "";
@@ -81,6 +86,12 @@ class HST_ForcePlanningIntegrityService
 		if (garrison)
 			abstractInfantry = Math.Max(0, garrison.m_iInfantryCount);
 		string canonical = string.Format("%1|%2|%3|%4|%5|%6|%7|%8", zone.m_sZoneId, zone.m_sOwnerFactionKey, factionKey, zone.m_eType, zone.m_iGarrisonSlots, abstractInfantry, Math.Max(0, zone.m_iActiveInfantryCount), HST_ForceCatalogService.CATALOG_VERSION);
+		if (policyId == GARRISON_POLICY_ID)
+		{
+			int exactInfantry = CountExecutableGarrisonInfantry(state, garrison);
+			canonical = canonical + string.Format("|%1|%2", policyId, exactInfantry);
+			return string.Format("gc2_%1_%2", canonical.Hash(), (canonical + "|secondary").Hash());
+		}
 		return string.Format("gc1_%1", canonical.Hash());
 	}
 
@@ -173,6 +184,26 @@ class HST_ForcePlanningIntegrityService
 		return catalog[selectedIndex];
 	}
 
+	HST_ForceGroupCatalogEntry SelectGarrisonExecutionGroup(
+		array<ref HST_ForceGroupCatalogEntry> catalog,
+		int seed)
+	{
+		if (!catalog || catalog.Count() == 0)
+			return null;
+		array<ref HST_ForceGroupCatalogEntry> executable = {};
+		foreach (HST_ForceGroupCatalogEntry entry : catalog)
+		{
+			if (entry && !entry.m_sEntryId.IsEmpty() && !entry.m_sFactionKey.IsEmpty()
+				&& !entry.m_sRole.IsEmpty() && !entry.m_sExecutionPrefab.IsEmpty()
+				&& entry.m_sExecutionPrefab != entry.m_sAuthoredPrefab
+				&& entry.m_sExecutionPrefab.Contains("NotSpawned"))
+				executable.Insert(entry);
+		}
+		if (executable.Count() == 0)
+			return null;
+		return executable[PositiveModulo(seed, executable.Count())];
+	}
+
 	int BuildDeterministicSeed(HST_CampaignState state, string requestIdentity, string zoneId)
 	{
 		return string.Format("%1|force_planning|%2|%3|%4", state.m_iCampaignSeed, requestIdentity, zoneId, HST_ForceCatalogService.CATALOG_VERSION).Hash();
@@ -188,7 +219,11 @@ class HST_ForcePlanningIntegrityService
 		}
 		if (requireCurrentCatalog)
 		{
-			HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateMemberCatalog(quote.m_sFactionKey, true);
+			HST_ForceCatalogValidationResult catalogValidation;
+			if (manifest.m_sPolicyId == GARRISON_POLICY_ID)
+				catalogValidation = m_Catalog.ValidateFactionCatalog(quote.m_sFactionKey, true);
+			else
+				catalogValidation = m_Catalog.ValidateMemberCatalog(quote.m_sFactionKey, true);
 			if (!catalogValidation || !catalogValidation.m_bValid)
 			{
 				failure = "force member catalog no longer validates";
@@ -414,6 +449,32 @@ class HST_ForcePlanningIntegrityService
 			failure = "garrison group element conflict";
 			return false;
 		}
+		HST_ForceManifestGroupState group = manifest.m_aGroups[0];
+		if (manifest.m_sPolicyId == GARRISON_POLICY_ID)
+		{
+			if (group.m_sElementId.IsEmpty() || group.m_sCatalogEntryId.IsEmpty()
+				|| group.m_sPrefab.IsEmpty() || group.m_sPrefab != manifest.m_sGroupPrefab
+				|| group.m_sRole.IsEmpty() || group.m_iOrdinal != 0 || !group.m_bRequired)
+			{
+				failure = "executable garrison group root conflict";
+				return false;
+			}
+			if (requireCurrentCatalog)
+			{
+				HST_ForceGroupCatalogEntry catalogGroup = FindGroupCatalogEntry(
+					m_Catalog.BuildGroupCatalog(manifest.m_sFactionKey),
+					group.m_sCatalogEntryId);
+				if (!catalogGroup || catalogGroup.m_sFactionKey != manifest.m_sFactionKey
+					|| catalogGroup.m_sExecutionPrefab != group.m_sPrefab
+					|| catalogGroup.m_sRole != group.m_sRole
+					|| catalogGroup.m_sExecutionPrefab == catalogGroup.m_sAuthoredPrefab
+					|| !catalogGroup.m_sExecutionPrefab.Contains("NotSpawned"))
+				{
+					failure = "executable garrison group catalog conflict";
+					return false;
+				}
+			}
+		}
 
 		array<ref HST_ForceMemberCatalogEntry> memberCatalog = {};
 		if (requireCurrentCatalog)
@@ -422,9 +483,11 @@ class HST_ForcePlanningIntegrityService
 		int moneyCost;
 		int hrCost;
 		int equipmentCost;
-		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
+		for (int memberIndex = 0; memberIndex < manifest.m_aMembers.Count(); memberIndex++)
 		{
-			if (!ValidateManifestMember(member, manifest.m_aGroups[0], slotIds, memberCatalog, requireCurrentCatalog))
+			HST_ForceManifestMemberState member = manifest.m_aMembers[memberIndex];
+			if (!ValidateManifestMember(member, group, slotIds, memberCatalog, requireCurrentCatalog)
+				|| member.m_iOrdinal != memberIndex)
 			{
 				failure = "garrison member slot or catalog conflict";
 				return false;
@@ -512,11 +575,18 @@ class HST_ForcePlanningIntegrityService
 	{
 		if (manifest.m_sForceKind != "strategic_garrison" || manifest.m_sIntentId != "garrison_recruitment")
 			return false;
-		if (manifest.m_sPolicyId.IsEmpty() || quote.m_sPolicyId != manifest.m_sPolicyId)
+		if ((manifest.m_sPolicyId != LEGACY_GARRISON_POLICY_ID && manifest.m_sPolicyId != GARRISON_POLICY_ID)
+			|| quote.m_sPolicyId != manifest.m_sPolicyId)
 			return false;
 		if (quote.m_sCatalogVersion != manifest.m_sCatalogVersion || !quote.m_bAllOrNothing)
 			return false;
-		return !requireCurrentCatalog || manifest.m_sPolicyId == GARRISON_POLICY_ID;
+		return true;
+	}
+
+	protected int CountExecutableGarrisonInfantry(HST_CampaignState state, HST_GarrisonState garrison)
+	{
+		HST_GarrisonService garrisons = new HST_GarrisonService();
+		return garrisons.CountExecutableManifestInfantry(state, garrison);
 	}
 
 	protected bool ValidateManifestCounts(HST_ForceManifestState manifest, HST_ForceQuoteState quote)

@@ -1026,7 +1026,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 53;
+	static const int SCHEMA_VERSION = 54;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1353,6 +1353,8 @@ class HST_CampaignState
 	{
 		if (!group)
 			return false;
+		if (IsQuarantinedActiveGroup(group))
+			return false;
 		HST_ActiveMissionState mission;
 		if (!group.m_sMissionInstanceId.IsEmpty())
 			mission = FindActiveMission(group.m_sMissionInstanceId);
@@ -1425,6 +1427,19 @@ class HST_CampaignState
 			&& mission.m_iOperationContractVersion == 1
 			&& operation.m_iContractVersion == 1
 			&& !group.m_sConvoyElementId.IsEmpty();
+	}
+
+	bool IsQuarantinedActiveGroup(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return false;
+		if (group.m_sRuntimeStatus == "exact_garrison_patrol_quarantined"
+			|| group.m_sRuntimeStatus == "exact_patrol_quarantined"
+			|| group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"
+			|| group.m_sRuntimeStatus == "exact_runtime_authority_quarantined")
+			return true;
+		return group.m_sSpawnFallbackMode == "exact_garrison_patrol_quarantined"
+			|| group.m_sSpawnFallbackMode == "exact_enemy_patrol_quarantined";
 	}
 
 	int CountOperationalActiveGroups()

@@ -2,7 +2,85 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `53`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `54`.
+
+## Schema 54
+
+- Schema 54 opts in only a newly issued, newly accepted policy-v2 purchased
+  resistance garrison. Its manifest policy is `garrison_exact_patrol_2`; its
+  canonical operation type is `HST_OPERATION_TYPE_GARRISON_PATROL` at contract
+  version `1`. Admission freezes one executable `NotSpawned` group root that
+  contributes no self-populated soldiers plus the arbitrary ordered infantry
+  member slots selected and priced by the quote. The accepted quote, manifest,
+  resource transactions, garrison backlink, operation, held SpawnQueue batch,
+  generated local route, and active-group projection form one reciprocal graph.
+  The legacy aggregate infantry count is not incremented for this policy; exact
+  living slots reserve garrison capacity through their accepted-manifest link.
+
+- The exact purchased roster begins in strategic hold and remains assigned to
+  its immutable resistance-owned zone. Its four-point local generated route uses
+  the shared persisted waypoint/lap/leg cursor as an infinite on-station patrol
+  loop. Virtual ticks continue that route outside the render bubble. Entering
+  the materialize-in radius releases the empty root plus only durable living
+  member slots; leaving the larger radius after the casualty/contact hold folds
+  the authoritative live position and survivors back into the same held batch.
+  The adapter roster check now compares current infantry to the durable living
+  slot count after first handoff, so a partial survivor roster can rematerialize
+  without restoring the original purchased count. Confirmed dead slots never
+  return.
+
+- `HST_PhysicalWarService` recognizes `exact_garrison_patrol` ownership and
+  excludes those groups from legacy aggregate zone activation, broad composition,
+  garrison patrol assignment, population repair, survivor fold, route mutation,
+  and cleanup. Legacy PhysicalWar remains the sole owner for initial-map, enemy,
+  historical aggregate, vehicle, and other non-policy-v2 garrisons. Schema 54 is
+  an infantry-only single-root cutover, not generic vehicle or multi-root
+  garrison realization.
+
+- This purchase has a zero refund policy: no survivor or terminal refund. Owner
+  change, exact all-dead authority, campaign stop, setup, or typed spawn/route
+  failure retires runtime ownership and records the
+  deterministic settlement kind `exact_garrison_patrol_terminal` exactly once.
+  Fold, rematerialization, quarantine, and terminal cleanup never mutate the
+  committed money or HR transactions. Settlement removes the live garrison
+  backlink only after adapter and PhysicalWar ownership are safely retired.
+
+- Every save restored from schema 53 or earlier preserves accepted policy-v1
+  purchases and all initial/enemy aggregate garrisons on their existing legacy
+  representation. Migration records `migration_schema54_exact_garrison_patrol`
+  and deliberately creates no exact operation, roster, batch, group, route,
+  casualty, or settlement identity for historical rows. A pre-schema-54 save
+  that somehow contains an exact garrison-patrol operation is unsupported and is
+  retained as quarantine evidence rather than executed or converted to an
+  aggregate count.
+
+- A current-schema policy-v2 graph must validate unique quote/manifest/garrison/
+  operation/batch/group/route identity, exact policy and hash, member-only
+  casualty tombstones, legal lifecycle state, and terminal receipt. Coherent
+  open physical-shaped state clears process-local handles and resumes as one
+  held virtual survivor roster with the same local route cursor. Malformed,
+  conflicting, non-unique, or unsupported current authority becomes contract
+  version `-54`; it cannot fall into legacy activation, invent a casualty, or
+  refund the purchase. Capture remains deferred while adapter or PhysicalWar
+  runtime ownership survives, after which process-local residue may be cleared
+  while the diagnostic graph remains durable.
+
+- Persistence defers capture while an exact patrol is still materializing so a
+  partial, not-yet-handed-off spawn wave cannot become durable or resurrect an
+  unrecorded death. Once fully physical or dematerializing, persistence
+  reconciles member deaths, exact binding cardinality, and live position before
+  capture. An unexplained missing or aliased binding defers the checkpoint
+  before stale tracked state is flushed.
+  One roster-authoritative operation marker follows the virtual/live patrol and
+  reports location, owner, role, and survivor count; Forces UI reports exact
+  patrol infantry separately from legacy aggregate infantry. Nine deterministic
+  `garrison_patrol.*` assertions cover admission, replay/rollback, roster
+  projection, route loop, projection hold, settlement, restore, corruption, and
+  marker lifecycle. These fixtures are source evidence; the Schema-54 Workbench
+  compile/open gates are pending and will remain source evidence when run.
+  Packaged native waypoint movement,
+  casualty observation, fold/rematerialization, save/restart, marker rendering,
+  network replication, reconnect, and JIP proof remain open.
 
 ## Schema 53
 
@@ -84,9 +162,6 @@
   for ten samples over 20 seconds without a crash signature, are source/Workbench
   evidence only; packaged movement, contact, fold/reprojection, accounting,
   marker rendering, and process-restart proof remain open.
-
-- No schema-54 target is asserted here. The next source migration will be
-  selected from the implementation blueprint after the schema-53 checkpoint.
 
 ## Schema 52
 

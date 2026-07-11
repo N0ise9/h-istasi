@@ -4908,7 +4908,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 53",
+		"SCHEMA_VERSION = 54",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -5288,7 +5288,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 53',
+		'SCHEMA_VERSION = 54',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5860,7 +5860,7 @@ $physicalWarText = Get-Content -Raw $physicalWarPath
 $schema52SaveValidationCorpus = $forceSaveDataText + "`n" + $missionConvoySaveValidationText
 $schema52StateCorpus = $operationTypesText + "`n" + $campaignStateText + "`n" + $schema52SaveValidationCorpus
 foreach ($requiredSchema52StateEntry in @(
-		'SCHEMA_VERSION = 53',
+		'SCHEMA_VERSION = 54',
 		'HST_OPERATION_TYPE_MISSION_CONVOY',
 		'HST_CONVOY_ELEMENT_DISPOSITION_ABANDONED',
 		'class HST_ConvoyElementState',
@@ -8052,8 +8052,18 @@ foreach ($requiredForceSpawnCoordinatorEntry in @(
 		throw "Coordinator exact force spawn tick wiring is missing: $requiredForceSpawnCoordinatorEntry"
 	}
 }
-if ($coordinatorText -notmatch 'm_iElapsedSeconds \+= elapsedSeconds;[\s\S]{0,300}TickForceSpawnQueueRuntime\(\)[\s\S]{0,300}m_Missions.Tick') {
-	throw "Coordinator must tick the exact force spawn adapter after elapsed time advances and before mission runtime work"
+$forceRuntimeElapsedIndex = $coordinatorText.IndexOf("m_State.m_iElapsedSeconds += elapsedSeconds;")
+$forceRuntimeQueueIndex = $coordinatorText.IndexOf("bool forceSpawnQueueChanged = TickForceSpawnQueueRuntime();", $forceRuntimeElapsedIndex + 1)
+$forceRuntimeGarrisonCleanupIndex = $coordinatorText.IndexOf("bool exactGarrisonPatrolCleanupChanged = m_GarrisonPatrolOperations", $forceRuntimeQueueIndex + 1)
+$forceRuntimeGarrisonTickIndex = $coordinatorText.IndexOf("bool exactGarrisonPatrolChanged = m_GarrisonPatrolOperations", $forceRuntimeGarrisonCleanupIndex + 1)
+$forceRuntimeMissionIndex = $coordinatorText.IndexOf("bool missionChanged = m_Missions.Tick", $forceRuntimeGarrisonTickIndex + 1)
+$forceRuntimeOrderExact = $forceRuntimeElapsedIndex -ge 0
+$forceRuntimeOrderExact = $forceRuntimeOrderExact -and $forceRuntimeQueueIndex -gt $forceRuntimeElapsedIndex
+$forceRuntimeOrderExact = $forceRuntimeOrderExact -and $forceRuntimeGarrisonCleanupIndex -gt $forceRuntimeQueueIndex
+$forceRuntimeOrderExact = $forceRuntimeOrderExact -and $forceRuntimeGarrisonTickIndex -gt $forceRuntimeGarrisonCleanupIndex
+$forceRuntimeOrderExact = $forceRuntimeOrderExact -and $forceRuntimeMissionIndex -gt $forceRuntimeGarrisonTickIndex
+if (!$forceRuntimeOrderExact) {
+	throw "Coordinator must order active runtime as elapsed time -> exact queue -> exact garrison cleanup/tick -> mission work"
 }
 $forceSpawnAdapterProofPath = "Scripts/Game/HST/Services/HST_ForceSpawnAdapterProofService.c"
 if (!(Test-Path $forceSpawnAdapterProofPath)) {
@@ -13580,7 +13590,7 @@ $schema53CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 
 $schema53StateCorpus = $schema53TypesText + "`n" + $schema53StateText + "`n" + $schema53SaveText
 foreach ($schema53StateEntry in @(
-		"SCHEMA_VERSION = 53",
+		"SCHEMA_VERSION = 54",
 		"HST_OPERATION_TYPE_ENEMY_PATROL",
 		"int m_iRouteWaypointIndex = -1;",
 		"int m_iRouteLapCount;",
@@ -13803,5 +13813,539 @@ foreach ($schema53MigrationNote in @(
 	}
 }
 Write-Host "Schema-53 exact enemy-patrol admission, route, projection, persistence, settlement, marker, migration, and proof contract OK"
+
+$schema54Paths = @(
+	"Scripts/Game/HST/Services/HST_GarrisonPatrolOperationService.c",
+	"Scripts/Game/HST/Services/HST_GarrisonPatrolSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_GarrisonPatrolOperationProofService.c"
+)
+foreach ($schema54Path in $schema54Paths) {
+	if (!(Test-Path $schema54Path)) {
+		throw "Schema-54 exact purchased-garrison patrol source is missing: $schema54Path"
+	}
+}
+
+$schema54TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema54StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema54SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema54PlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+$schema54IntegrityText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningIntegrityService.c"
+$schema54GarrisonText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GarrisonService.c"
+$schema54RecruitmentText = Get-Content -Raw "Scripts/Game/HST/Services/HST_RecruitmentService.c"
+$schema54OperationText = Get-Content -Raw $schema54Paths[0]
+$schema54ValidationText = Get-Content -Raw $schema54Paths[1]
+$schema54ProofText = Get-Content -Raw $schema54Paths[2]
+$schema54AdapterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnAdapterService.c"
+$schema54RuntimeProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceRuntimeAuthorityProofService.c"
+$schema54PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema54PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema54MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema54UIServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$schema54ArchiveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSettlementArchiveService.c"
+$schema54CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+
+$schema54StateCorpus = $schema54TypesText + "`n" + $schema54StateText + "`n" + $schema54SaveText
+foreach ($schema54StateEntry in @(
+		"SCHEMA_VERSION = 54",
+		"HST_OPERATION_TYPE_GARRISON_PATROL",
+		"IsQuarantinedActiveGroup",
+		"HST_GarrisonPatrolSaveValidationService schema54GarrisonPatrolValidation",
+		"schema54GarrisonPatrolValidation.Normalize(this, restoredSchemaVersion);"
+	)) {
+	if ($schema54StateCorpus -notmatch [regex]::Escape($schema54StateEntry)) {
+		throw "Schema-54 purchased-garrison state/migration contract is missing: $schema54StateEntry"
+	}
+}
+$schema54OperationalGroupBlock = Get-ScriptMethodBlock $schema54StateText "bool IsOperationalActiveGroup("
+$schema54QuarantinedGroupBlock = Get-ScriptMethodBlock $schema54StateText "bool IsQuarantinedActiveGroup("
+if ([string]::IsNullOrEmpty($schema54OperationalGroupBlock) -or [string]::IsNullOrEmpty($schema54QuarantinedGroupBlock) -or
+	$schema54OperationalGroupBlock -notmatch [regex]::Escape('if (IsQuarantinedActiveGroup(group))') -or
+	$schema54QuarantinedGroupBlock -notmatch [regex]::Escape('exact_garrison_patrol_quarantined')) {
+	throw "Schema-54 quarantined garrison patrols must be globally non-operational and non-combat-present"
+}
+
+foreach ($schema54PolicyEntry in @(
+		'LEGACY_GARRISON_POLICY_ID = "garrison_exact_all_or_nothing_1"',
+		'GARRISON_POLICY_ID = "garrison_exact_patrol_2"',
+		"SelectGarrisonExecutionGroup",
+		"NotSpawned",
+		"manifest.m_iAcceptedMemberCount = requestedMemberCount;",
+		"manifest.m_aGroups.Insert(groupElement);",
+		"SetExactGarrisonPatrolAuthorityService",
+		"CanAdmitPreparedPurchase",
+		"AdmitPreparedPurchase"
+	)) {
+	if (($schema54PlanningText + "`n" + $schema54IntegrityText) -notmatch [regex]::Escape($schema54PolicyEntry)) {
+		throw "Schema-54 policy-v2 empty-root/arbitrary-member planning is missing: $schema54PolicyEntry"
+	}
+}
+
+foreach ($schema54GarrisonEntry in @(
+		"LinkExecutableManifestExact",
+		"UnlinkExecutableManifestExact",
+		"CountExecutableManifestInfantry",
+		"ResolveUniqueReciprocalExactPatrolOperation",
+		"HST_GarrisonPatrolOperationService.EXACT_POLICY_ID",
+		"Missing or ambiguous open authority remains capacity-reserved"
+	)) {
+	if ($schema54GarrisonText -notmatch [regex]::Escape($schema54GarrisonEntry)) {
+		throw "Schema-54 exact purchased-garrison capacity/backlink boundary is missing: $schema54GarrisonEntry"
+	}
+}
+$schema54GarrisonCapacityBlock = Get-ScriptMethodBlock $schema54GarrisonText "int CountExecutableManifestInfantry("
+$schema54GarrisonReciprocalBlock = Get-ScriptMethodBlock $schema54GarrisonText "protected HST_OperationRecordState ResolveUniqueReciprocalExactPatrolOperation("
+if ([string]::IsNullOrEmpty($schema54GarrisonCapacityBlock) -or
+	[string]::IsNullOrEmpty($schema54GarrisonReciprocalBlock)) {
+	throw "Schema-54 reciprocal purchased-garrison capacity authority is missing"
+}
+foreach ($schema54TerminalCapacityEntry in @(
+		"ResolveUniqueReciprocalExactPatrolOperation",
+		"EXACT_CONTRACT_VERSION",
+		"EXACT_PROJECTION_CONTRACT_VERSION",
+		"ASSIGNMENT_KIND",
+		"SETTLEMENT_POLICY_ID",
+		"HST_OPERATION_SETTLEMENT_SETTLED",
+		"HST_OPERATION_MATERIALIZATION_RETIRED",
+		"SETTLEMENT_KIND"
+	)) {
+	if ($schema54GarrisonCapacityBlock -notmatch [regex]::Escape($schema54TerminalCapacityEntry)) {
+		throw "Schema-54 settled purchased-garrison capacity release is missing reciprocal terminal proof: $schema54TerminalCapacityEntry"
+	}
+}
+foreach ($schema54ReciprocalCapacityEntry in @(
+		"operation.m_sOperationId != manifest.m_sOperationId",
+		"operation.m_sManifestId != manifest.m_sManifestId",
+		"resolved.m_sQuoteId != manifest.m_sQuoteId",
+		"resolved.m_sOwnerFactionKey != garrison.m_sFactionKey",
+		"resolved.m_sAssignmentZoneId != garrison.m_sZoneId",
+		"authorityMatches != 1"
+	)) {
+	if ($schema54GarrisonReciprocalBlock -notmatch [regex]::Escape($schema54ReciprocalCapacityEntry)) {
+		throw "Schema-54 capacity must reserve malformed, foreign, or ambiguous exact operation backlinks: $schema54ReciprocalCapacityEntry"
+	}
+}
+
+$schema54RecruitmentReportBlock = Get-ScriptMethodBlock $schema54RecruitmentText "string BuildRecruitmentReport("
+$schema54RecruitmentAdmissionBlock = Get-ScriptMethodBlock $schema54RecruitmentText "protected HST_RecruitmentResult RecruitGarrisonForFaction("
+$schema54RecruitmentCapacityBlock = Get-ScriptMethodBlock $schema54RecruitmentText "protected int ResolveRecruitOccupiedInfantry("
+$schema54RecruitmentMapBlock = Get-ScriptMethodBlock $schema54CoordinatorText "protected bool IsRecruitableResistanceMapZone("
+foreach ($schema54RecruitmentCapacityEntry in @(
+	"CountExecutableManifestInfantry",
+	"exact patrol infantry",
+	"BuildRecruitCapacityLabel(state, capacityGarrisons, friendly, slots, activeInfantry)"
+)) {
+	if ([string]::IsNullOrEmpty($schema54RecruitmentReportBlock) -or
+		$schema54RecruitmentReportBlock -notmatch [regex]::Escape($schema54RecruitmentCapacityEntry)) {
+		throw "Schema-54 recruitment report does not expose exact patrol capacity: $schema54RecruitmentCapacityEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema54RecruitmentCapacityBlock) -or
+	$schema54RecruitmentCapacityBlock -notmatch [regex]::Escape("garrisons.CountExecutableManifestInfantry(state, garrison)")) {
+	throw "Schema-54 direct recruitment capacity must include exact living/reserved patrol infantry"
+}
+foreach ($schema54RecruitmentAdmissionEntry in @(
+	"ResolveRecruitOccupiedInfantry",
+	"if (requestedInfantry > infantryCapacity)",
+	"direct recruitment is all-or-nothing",
+	"addedInfantry != requestedInfantry || addedVehicles != requestedVehicles",
+	"partial change rolled back before charge"
+)) {
+	if ([string]::IsNullOrEmpty($schema54RecruitmentAdmissionBlock) -or
+		$schema54RecruitmentAdmissionBlock -notmatch [regex]::Escape($schema54RecruitmentAdmissionEntry)) {
+		throw "Schema-54 direct recruitment exact-capacity admission is missing: $schema54RecruitmentAdmissionEntry"
+	}
+}
+$schema54CapacityRejectIndex = $schema54RecruitmentAdmissionBlock.IndexOf("if (requestedInfantry > infantryCapacity)")
+$schema54AddIndex = $schema54RecruitmentAdmissionBlock.IndexOf("garrisons.AddAbstractForces")
+$schema54ExactDeltaIndex = $schema54RecruitmentAdmissionBlock.IndexOf("addedInfantry != requestedInfantry || addedVehicles != requestedVehicles")
+$schema54SpendIndex = $schema54RecruitmentAdmissionBlock.IndexOf("economy.SpendFactionMoney")
+if ($schema54CapacityRejectIndex -lt 0 -or $schema54AddIndex -le $schema54CapacityRejectIndex -or
+	$schema54ExactDeltaIndex -le $schema54AddIndex -or $schema54SpendIndex -le $schema54ExactDeltaIndex) {
+	throw "Schema-54 direct recruitment must reject insufficient capacity before mutation and verify exact admission before charging"
+}
+if ([string]::IsNullOrEmpty($schema54RecruitmentMapBlock) -or
+	$schema54RecruitmentMapBlock -notmatch [regex]::Escape("m_Garrisons.CountExecutableManifestInfantry(m_State, garrison)")) {
+	throw "Schema-54 resistance map recruitment gate must reserve exact garrison-patrol living infantry capacity"
+}
+
+foreach ($schema54OperationEntry in @(
+		"class HST_GarrisonPatrolOperationService",
+		"EXACT_CONTRACT_VERSION = 1",
+		"QUARANTINED_CONTRACT_VERSION = -54",
+		'EXACT_POLICY_ID = "garrison_exact_patrol_2"',
+		'EXACT_GROUP_MODE = "exact_garrison_patrol"',
+		'SETTLEMENT_KIND = "exact_garrison_patrol_terminal"',
+		"HST_OPERATION_TYPE_GARRISON_PATROL",
+		"BuildLocalPatrolRoute",
+		"HoldPendingProjectionForStrategicSimulation",
+		"AdvanceInfinitePatrolLoop",
+		"LOOP_COUNTER_WRAP_LAPS",
+		"ReleaseStrategicProjectionForMaterialization",
+		"RequeueSuccessfulProjectionForStrategicHold",
+		"ValidateExactLivingProjectionBindingsForPersistence",
+		"RestartExactGarrisonPatrolInfantryRoute",
+		"owner_changed",
+		"SettleOpenOperationsForCampaignStop",
+		"PrepareOpenPhysicalAuthorityForSettlement",
+		"QuarantineOperationAuthority",
+		"TryRetireQuarantinedSuccessfulProjection",
+		"ResolveQuarantinedSuccessfulProjectionContext",
+		"CompleteQuarantinedSuccessfulProjectionCancellation"
+	)) {
+	if ($schema54OperationText -notmatch [regex]::Escape($schema54OperationEntry)) {
+		throw "Schema-54 exact purchased-garrison patrol lifecycle is missing: $schema54OperationEntry"
+	}
+}
+$schema54RetireAndSettleBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool RetireAndSettle("
+if ([string]::IsNullOrEmpty($schema54RetireAndSettleBlock)) {
+	throw "Schema-54 exact purchased-garrison terminal retirement boundary is missing"
+}
+foreach ($schema54TerminalRuntimeEntry in @(
+		"establishedLiveAuthority",
+		"CountDurableLivingMemberSlots",
+		"!physicalRuntime && durableLiving > 0",
+		"QuarantineOperationAuthority",
+		"live runtime without successful batch authority"
+	)) {
+	if ($schema54RetireAndSettleBlock -notmatch [regex]::Escape($schema54TerminalRuntimeEntry)) {
+		throw "Schema-54 live terminal transition may settle unresolved survivor authority: $schema54TerminalRuntimeEntry"
+	}
+}
+$schema54MissingRuntimeGuardIndex = $schema54RetireAndSettleBlock.IndexOf('!physicalRuntime && durableLiving > 0')
+$schema54SettleCallIndex = $schema54RetireAndSettleBlock.IndexOf('return SettleOperation')
+if ($schema54MissingRuntimeGuardIndex -lt 0 -or $schema54SettleCallIndex -le $schema54MissingRuntimeGuardIndex) {
+	throw "Schema-54 missing-live-runtime survivor quarantine must execute before terminal settlement"
+}
+$schema54QuarantineStatusBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool ApplyQuarantineStatus("
+$schema54QuarantineRetirementBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool RetireQuarantinedSuccessfulProjectionWithRuntimeIdentity("
+$schema54QuarantineBatchClaimBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool BatchClaimsOperationAuthority("
+$schema54QuarantineGroupClaimBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool GroupClaimsOperationAuthority("
+if ([string]::IsNullOrEmpty($schema54QuarantineStatusBlock) -or [string]::IsNullOrEmpty($schema54QuarantineRetirementBlock) -or
+	[string]::IsNullOrEmpty($schema54QuarantineBatchClaimBlock) -or [string]::IsNullOrEmpty($schema54QuarantineGroupClaimBlock)) {
+	throw "Schema-54 typed successful-projection quarantine retirement is missing"
+}
+if ($schema54QuarantineBatchClaimBlock -notmatch [regex]::Escape('batch.m_sOperationId != operation.m_sOperationId') -or
+	$schema54QuarantineGroupClaimBlock -notmatch [regex]::Escape('group.m_sOperationId != operation.m_sOperationId')) {
+	throw "Schema-54 quarantine may mutate a batch/group only from operation identity plus an independent runtime backlink"
+}
+$schema54QuarantineRetireCallIndex = $schema54QuarantineStatusBlock.IndexOf('TryRetireQuarantinedSuccessfulProjection')
+$schema54QuarantineCancelIndex = $schema54QuarantineStatusBlock.IndexOf('m_SpawnQueue.RequestCancel')
+if ($schema54QuarantineRetireCallIndex -lt 0 -or $schema54QuarantineCancelIndex -le $schema54QuarantineRetireCallIndex) {
+	throw "Schema-54 successful physical quarantine must retire exact runtime before queue cancellation"
+}
+$schema54QuarantineReconcileIndex = $schema54QuarantineRetirementBlock.IndexOf('ReconcileQuarantinedExactInfantryProjectionAuthority')
+$schema54QuarantineBindingIndex = $schema54QuarantineRetirementBlock.IndexOf('ValidateExactLivingProjectionBindingsForPersistence')
+$schema54QuarantineRuntimeRetireIndex = $schema54QuarantineRetirementBlock.IndexOf('RetireProjectionRuntime')
+$schema54QuarantineTerminalIndex = $schema54QuarantineRetirementBlock.IndexOf('CompleteQuarantinedSuccessfulProjectionCancellation')
+if ($schema54QuarantineReconcileIndex -lt 0 -or $schema54QuarantineBindingIndex -le $schema54QuarantineReconcileIndex -or
+	$schema54QuarantineRuntimeRetireIndex -le $schema54QuarantineBindingIndex -or
+	$schema54QuarantineTerminalIndex -le $schema54QuarantineRuntimeRetireIndex -or
+	$schema54QuarantineRetirementBlock -match 'CanRequeueSuccessfulProjectionForStrategicHold|RequeueSuccessfulProjectionForStrategicHold') {
+	throw "Schema-54 physical quarantine must reconcile typed casualties, prove bindings, retire runtime, then terminalize without normal requeue capacity"
+}
+$schema54QuarantineAdapterBlock = Get-ScriptMethodBlock $schema54AdapterText "HST_ForceSpawnAdapterTickResult ReconcileQuarantinedExactInfantryProjectionAuthority("
+$schema54QuarantineCasualtyBlock = Get-ScriptMethodBlock (Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c") "HST_ForceSpawnQueueCallbackResult ConfirmQuarantinedRegisteredMemberCasualty("
+$schema54QuarantineTerminalBlock = Get-ScriptMethodBlock (Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c") "HST_ForceSpawnQueueCallbackResult CompleteQuarantinedSuccessfulProjectionCancellation("
+if ([string]::IsNullOrEmpty($schema54QuarantineAdapterBlock) -or [string]::IsNullOrEmpty($schema54QuarantineCasualtyBlock) -or
+	[string]::IsNullOrEmpty($schema54QuarantineTerminalBlock)) {
+	throw "Schema-54 projection-key quarantine adapter/queue authority is missing"
+}
+if ($schema54QuarantineAdapterBlock -notmatch [regex]::Escape('ReconcileHandedOffMemberLifecycle') -or
+	$schema54AdapterText -notmatch [regex]::Escape('ConfirmQuarantinedRegisteredMemberCasualty')) {
+	throw "Schema-54 quarantine reconciliation must preserve mapped casualty tombstones without requiring a valid manifest backlink"
+}
+foreach ($schema54QuarantineTerminalEntry in @(
+		'resultMatches != 1',
+		'projectionMatches != 1',
+		'HST_FORCE_SPAWN_SUCCEEDED',
+		'HST_FORCE_SLOT_RETIRED',
+		'm_bCasualtyConfirmed',
+		'HST_FORCE_SLOT_CANCELLED',
+		'HST_FORCE_SPAWN_CANCELLED'
+	)) {
+	if ($schema54QuarantineTerminalBlock -notmatch [regex]::Escape($schema54QuarantineTerminalEntry)) {
+		throw "Schema-54 projection-key quarantine terminalizer is missing: $schema54QuarantineTerminalEntry"
+	}
+}
+if ($schema54QuarantineTerminalBlock -match 'MAX_NONTERMINAL|CanEnqueue|Requeue') {
+	throw "Schema-54 quarantine terminalization must not depend on normal admission or reprojection capacity"
+}
+$schema54RestoreRuntimeBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool NormalizeRestoredOpenRuntime("
+if ([string]::IsNullOrEmpty($schema54RestoreRuntimeBlock) -or
+	$schema54RestoreRuntimeBlock -notmatch [regex]::Escape('CompleteQuarantinedSuccessfulProjectionCancellation')) {
+	throw "Schema-54 restore must terminalize a proven-retired successful batch when normal strategic requeue cannot admit it"
+}
+$schema54SettlementBlock = Get-ScriptMethodBlock $schema54OperationText "protected bool SettleOperation("
+if ([string]::IsNullOrEmpty($schema54SettlementBlock)) {
+	throw "Schema-54 exact purchased-garrison terminal settlement method is missing"
+}
+foreach ($schema54SettlementEntry in @(
+		"SETTLEMENT_KIND",
+		"HST_OPERATION_SETTLEMENT_SETTLED",
+		"FinalizeSettledRuntime"
+	)) {
+	if ($schema54SettlementBlock -notmatch [regex]::Escape($schema54SettlementEntry)) {
+		throw "Schema-54 exact purchased-garrison terminal receipt is missing: $schema54SettlementEntry"
+	}
+}
+if ($schema54SettlementBlock -match '(?i)refund|AddAbstractForces|m_iInfantryCount\s*\+') {
+	throw "Schema-54 exact purchased-garrison operation settlement must not refund resources or transfer survivors to aggregate infantry"
+}
+
+$schema54AdapterRosterBlock = Get-ScriptMethodBlock $schema54AdapterText "protected string ValidateExactInfantryExecutionRoster("
+$schema54AdapterBindingBlock = Get-ScriptMethodBlock $schema54AdapterText "bool ValidateExactLivingProjectionBindingsForPersistence("
+foreach ($schema54AdapterEntry in @(
+		"CountDurableLivingMemberSlots",
+		"batch.m_iSuccessfulHandoffCount <= 0",
+		"CountStrategicLivingMemberSlots",
+		"activeGroup.m_iInfantryCount != livingCount"
+	)) {
+	if ([string]::IsNullOrEmpty($schema54AdapterRosterBlock) -or $schema54AdapterRosterBlock -notmatch [regex]::Escape($schema54AdapterEntry)) {
+		throw "Schema-54 survivor-only rematerialization roster fix is missing: $schema54AdapterEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema54AdapterBindingBlock) -or
+	$schema54AdapterBindingBlock -notmatch [regex]::Escape('physicalWar.IsForceSpawnRuntimeHandleRegistered(activeGroup, handle.m_Entity)')) {
+	throw "Schema-54 exact persistence/retirement preflight must prove every adapter member belongs to the same PhysicalWar projection"
+}
+foreach ($schema54AdapterProofEntry in @(
+		"first/survivor",
+		"rematerialized survivor",
+		"stale/original rejected"
+	)) {
+	if ($schema54RuntimeProofText -notmatch [regex]::Escape($schema54AdapterProofEntry)) {
+		throw "Schema-54 survivor-only adapter proof is missing: $schema54AdapterProofEntry"
+	}
+}
+
+foreach ($schema54PhysicalEntry in @(
+		"RestartExactGarrisonPatrolInfantryRoute",
+		"IsExactGarrisonPatrolRouteRecoveryExhausted",
+		"TryResolveExactGarrisonPatrolLivePosition",
+		"HasExactGarrisonPatrolLiveContactEvidence",
+		"IsExactGarrisonPatrolGroup"
+	)) {
+	if ($schema54PhysicalText -notmatch [regex]::Escape($schema54PhysicalEntry)) {
+		throw "Schema-54 exact purchased-garrison PhysicalWar isolation is missing: $schema54PhysicalEntry"
+	}
+}
+foreach ($schema54LegacyIsolationEntry in @(
+		"IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup)",
+		"!IsExactGarrisonPatrolGroup(state, activeGroup)",
+		"IsExactGarrisonPatrolActiveGroup"
+	)) {
+	if ($schema54PhysicalText -notmatch [regex]::Escape($schema54LegacyIsolationEntry)) {
+		throw "Schema-54 exact purchased-garrison group is not isolated from a legacy PhysicalWar owner: $schema54LegacyIsolationEntry"
+	}
+}
+$schema54GenericSurvivorBlock = Get-ScriptMethodBlock $schema54PhysicalText "protected bool UpdateRuntimeGroupSurvivors("
+if ([string]::IsNullOrEmpty($schema54GenericSurvivorBlock)) {
+	throw "Schema-54 generic survivor boundary is missing"
+}
+$schema54PatrolSurvivorSkipStart = $schema54GenericSurvivorBlock.IndexOf('if (IsExactEnemyPatrolGroup(state, activeGroup)')
+$schema54PatrolSurvivorSkipEnd = $schema54GenericSurvivorBlock.IndexOf('bool missionConvoyGroup', $schema54PatrolSurvivorSkipStart)
+if ($schema54PatrolSurvivorSkipStart -lt 0 -or $schema54PatrolSurvivorSkipEnd -le $schema54PatrolSurvivorSkipStart) {
+	throw "Schema-54 exact patrol groups must be isolated before generic survivor mutation"
+}
+$schema54PatrolSurvivorSkip = $schema54GenericSurvivorBlock.Substring(
+	$schema54PatrolSurvivorSkipStart,
+	$schema54PatrolSurvivorSkipEnd - $schema54PatrolSurvivorSkipStart)
+if ($schema54PatrolSurvivorSkip -notmatch [regex]::Escape('IsExactGarrisonPatrolGroup(state, activeGroup)') -or
+	$schema54PatrolSurvivorSkip -notmatch 'continue\s*;') {
+	throw "Schema-54 exact garrison patrol casualties must bypass the aggregate survivor/cleanup owner"
+}
+
+foreach ($schema54PersistenceEntry in @(
+		"hasMaterializingExactPatrol",
+		"checkpoint deferred: exact patrol materialization is in progress",
+		"ValidatePhysicalGarrisonPatrolSnapshots",
+		"DeferPhysicalGarrisonPatrolSnapshot",
+		"TryResolveExactGarrisonPatrolLivePosition",
+		"ValidateExactLivingProjectionBindingsForPersistence"
+	)) {
+	if ($schema54PersistenceText -notmatch [regex]::Escape($schema54PersistenceEntry)) {
+		throw "Schema-54 pre-save exact purchased-garrison boundary is missing: $schema54PersistenceEntry"
+	}
+}
+$schema54PrepareCaptureBlock = Get-ScriptMethodBlock $schema54PersistenceText "protected bool PrepareStateForCapture("
+$schema54QuarantineDrainBlock = Get-ScriptMethodBlock $schema54PersistenceText "protected bool NormalizeRetiredQuarantinedGarrisonPatrolAuthority("
+$schema54QuarantineBatchCleanupBlock = Get-ScriptMethodBlock $schema54PersistenceText "protected bool IsQuarantinedGarrisonBatchCleanupComplete("
+if ([string]::IsNullOrEmpty($schema54PrepareCaptureBlock) -or [string]::IsNullOrEmpty($schema54QuarantineDrainBlock) -or
+	[string]::IsNullOrEmpty($schema54QuarantineBatchCleanupBlock)) {
+	throw "Schema-54 quarantined-runtime checkpoint boundary is missing"
+}
+if ($schema54PrepareCaptureBlock.IndexOf('NormalizeRetiredQuarantinedGarrisonPatrolAuthority') -lt 0 -or
+	$schema54PrepareCaptureBlock.IndexOf('NormalizeRetiredQuarantinedGarrisonPatrolAuthority') -gt $schema54PrepareCaptureBlock.IndexOf('foreach (HST_OperationRecordState operation')) {
+	throw "Schema-54 quarantine cleanup must run before current exact-operation checkpoint classification"
+}
+foreach ($schema54QuarantineDrainEntry in @(
+		'HST_GarrisonPatrolOperationService.QUARANTINED_CONTRACT_VERSION',
+		'CountHandlesForProjection',
+		'CountHandlesForResultId',
+		'GetForceSpawnGroupRoot',
+		'CountForceSpawnRuntimeMembers',
+		'IsQuarantinedGarrisonBatchCleanupComplete',
+		'NormalizeQuarantinedGarrisonPatrolProcessResidue'
+	)) {
+	if ($schema54QuarantineDrainBlock -notmatch [regex]::Escape($schema54QuarantineDrainEntry)) {
+		throw "Schema-54 quarantined-runtime checkpoint proof is missing: $schema54QuarantineDrainEntry"
+	}
+}
+foreach ($schema54QuarantineBatchCleanupEntry in @(
+		'HST_FORCE_SPAWN_CANCELLED',
+		'HST_FORCE_SPAWN_FAILED_FINAL',
+		'HST_FORCE_SLOT_REGISTERED',
+		'HST_FORCE_SLOT_SPAWNING',
+		'HST_FORCE_SLOT_CLEANUP_PENDING'
+	)) {
+	if ($schema54QuarantineBatchCleanupBlock -notmatch [regex]::Escape($schema54QuarantineBatchCleanupEntry)) {
+		throw "Schema-54 quarantine queue-drain proof is missing: $schema54QuarantineBatchCleanupEntry"
+	}
+}
+
+foreach ($schema54RestoreEntry in @(
+		"class HST_GarrisonPatrolSaveValidationService",
+		"migration_schema54_exact_garrison_patrol",
+		"normalization_schema54_exact_garrison_patrol_conflict",
+		"HST_GarrisonPatrolOperationService.QUARANTINED_CONTRACT_VERSION",
+		"PreserveHistoricalGarrisons",
+		"created no exact operation, roster, batch, group, route, casualty, or settlement identity"
+	)) {
+	if ($schema54ValidationText -notmatch [regex]::Escape($schema54RestoreEntry)) {
+		throw "Schema-54 exact purchased-garrison migration/quarantine contract is missing: $schema54RestoreEntry"
+	}
+}
+$schema54RestoreBatchClaimBlock = Get-ScriptMethodBlock $schema54ValidationText "static bool IsSchema54GarrisonPatrolBatchClaimant("
+$schema54RestoreGroupClaimBlock = Get-ScriptMethodBlock $schema54ValidationText "static bool IsSchema54GarrisonPatrolGroupClaimant("
+$schema54RestoreHoldBatchClaimBlock = Get-ScriptMethodBlock $schema54ValidationText "protected bool BatchClaimsAuthority("
+$schema54RestoreHoldGroupClaimBlock = Get-ScriptMethodBlock $schema54ValidationText "protected bool GroupClaimsAuthority("
+foreach ($schema54StrongClaimBlock in @(
+		$schema54RestoreBatchClaimBlock,
+		$schema54RestoreGroupClaimBlock,
+		$schema54RestoreHoldBatchClaimBlock,
+		$schema54RestoreHoldGroupClaimBlock
+	)) {
+	if ([string]::IsNullOrEmpty($schema54StrongClaimBlock) -or
+		$schema54StrongClaimBlock -notmatch 'm_sOperationId\s*==\s*operation\.m_sOperationId|m_sOperationId\s*!=\s*operation\.m_sOperationId') {
+		throw "Schema-54 restore quarantine must require operation identity plus an independent claimant backlink before mutating batch/group rows"
+	}
+}
+
+foreach ($schema54MarkerEntry in @(
+		"AddExactGarrisonPatrolOperationMarkers",
+		"ShouldShowExactGarrisonPatrolMarker",
+		"hst_exact_garrison_patrol_",
+		"garrison_patrol_exact",
+		"garrison patrol",
+		"survivors"
+	)) {
+	if ($schema54MarkerText -notmatch [regex]::Escape($schema54MarkerEntry)) {
+		throw "Schema-54 exact purchased-garrison marker is missing: $schema54MarkerEntry"
+	}
+}
+foreach ($schema54UIEntry in @(
+		"CountExecutableManifestInfantry",
+		"exact patrol",
+		"legacy fielded"
+	)) {
+	if ($schema54UIServiceText -notmatch [regex]::Escape($schema54UIEntry)) {
+		throw "Schema-54 exact purchased-garrison Forces UI projection is missing: $schema54UIEntry"
+	}
+}
+
+foreach ($schema54ArchiveEntry in @(
+		"HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION",
+		"HST_GarrisonPatrolOperationService.SETTLEMENT_KIND",
+		"settled exact garrison patrol"
+	)) {
+	if ($schema54ArchiveText -notmatch [regex]::Escape($schema54ArchiveEntry)) {
+		throw "Schema-54 exact purchased-garrison settlement archive contract is missing: $schema54ArchiveEntry"
+	}
+}
+
+foreach ($schema54CoordinatorEntry in @(
+		"m_GarrisonPatrolOperations = new HST_GarrisonPatrolOperationService()",
+		"SetExactGarrisonPatrolAuthorityService",
+		"m_GarrisonPatrolOperations.ReconcileAfterRestore",
+		"m_GarrisonPatrolOperations.Tick",
+		"PrepareOpenPhysicalAuthorityForSettlement",
+		"SettleOpenOperationsForCampaignStop",
+		"preserveOpenExactGarrisonPatrol",
+		"ReconcileSettledRuntimeCleanup",
+		"AppendCampaignDebugGarrisonPatrolOperationAssertions"
+	)) {
+	if ($schema54CoordinatorText -notmatch [regex]::Escape($schema54CoordinatorEntry)) {
+		throw "Schema-54 exact purchased-garrison coordinator wiring is missing: $schema54CoordinatorEntry"
+	}
+}
+
+foreach ($schema54ProofEntry in @(
+		"class HST_GarrisonPatrolOperationProofService",
+		"ProveAdmission",
+		"ProveReplayCollisionAndRollback",
+		"ProveRosterFoldAndReprojection",
+		"ProveInfiniteRouteLoop",
+		"ProveProjectionHysteresisAndCasualtyHold",
+		"ProveTerminalSettlement",
+		"ProveRestoreNormalization",
+		"ProveCorruptGraphQuarantine",
+		"ProveForeignSettlementCapacityReservation",
+		"ProveTypedQuarantineTerminalization",
+		"ProveMarkers"
+	)) {
+	if ($schema54ProofText -notmatch [regex]::Escape($schema54ProofEntry)) {
+		throw "Schema-54 exact purchased-garrison source proof is missing: $schema54ProofEntry"
+	}
+}
+foreach ($schema54AssertionId in @(
+		"garrison_patrol.admission",
+		"garrison_patrol.replay_rollback",
+		"garrison_patrol.roster_projection",
+		"garrison_patrol.route_loop",
+		"garrison_patrol.projection_hold",
+		"garrison_patrol.settlement",
+		"garrison_patrol.restore",
+		"garrison_patrol.corruption",
+		"garrison_patrol.marker"
+	)) {
+	if ($schema54CoordinatorText -notmatch [regex]::Escape($schema54AssertionId)) {
+		throw "Schema-54 exact purchased-garrison debug assertion is missing: $schema54AssertionId"
+	}
+}
+
+$schema54DocumentationPaths = @(
+	"README.md",
+	"docs/ARCHITECTURE.md",
+	"docs/FEATURE_CHECKLIST.md",
+	"docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md",
+	"docs/HST_ENFUSION_ENFORCE_NOTES.md",
+	"docs/MIGRATIONS.md",
+	"docs/PARITY.md",
+	"docs/PHASE_PLAN.md"
+)
+foreach ($schema54DocumentationPath in $schema54DocumentationPaths) {
+	$schema54DocumentationText = (Get-Content -Raw $schema54DocumentationPath).ToLowerInvariant()
+	$mentionsSchema54 = $schema54DocumentationText.Contains("schema 54") -or $schema54DocumentationText.Contains("schema-54")
+	$mentionsSchema54Policy = $schema54DocumentationText.Contains("policy-v2")
+	$mentionsSchema54Garrison = $schema54DocumentationText.Contains("garrison")
+	$mentionsSchema54PackagedGap = $schema54DocumentationText.Contains("packaged")
+	if (!$mentionsSchema54 -or !$mentionsSchema54Policy -or !$mentionsSchema54Garrison -or !$mentionsSchema54PackagedGap) {
+		throw "$schema54DocumentationPath must describe the schema-54 policy-v2 purchased-garrison boundary and packaged-runtime gap"
+	}
+}
+$schema54MigrationsText = (Get-Content -Raw "docs/MIGRATIONS.md").ToLowerInvariant()
+foreach ($schema54MigrationNote in @(
+		"migration_schema54_exact_garrison_patrol",
+		"garrison_exact_patrol_2",
+		'version `-54`',
+		"policy-v1",
+		"zero refund",
+		"packaged"
+	)) {
+	if (!$schema54MigrationsText.Contains($schema54MigrationNote)) {
+		throw "Schema-54 migration documentation is missing: $schema54MigrationNote"
+	}
+}
+Write-Host "Schema-54 exact purchased-garrison admission, infinite route, survivor projection, legacy isolation, persistence, no-refund settlement, marker/UI, migration, and proof contract OK"
 
 Write-Host "h-istasi foundation validation passed"

@@ -758,7 +758,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Long-running AI work should go through a spawn queue or force-owned request layer.
   - A practical AI-heavy pattern is: create data-only spawn requests, enqueue them, preprocess just before execution, cancel invalid/excessive requests, and process within a small per-poll time budget.
   - Attach spawned groups to an owning force so group attach/detach, agent add/remove, kill, queued spawn count, streamed-in/out state, and cleanup can be reported from one authority instead of being re-derived by every gameplay service.
-  - Schema 44 introduced the durable authority kernel in `HST_ForceSpawnQueueService`; schema 45 connects its first exact engine-facing adapter. Admission requires a frozen, hash-valid manifest whose group, vehicle, member, and asset slots are all required and whose dependencies resolve. An empty group list is a hard rejection; the current purchase-only garrison manifest is therefore nondeployable rather than eligible for an implicit broad-alpha fallback.
+  - Schema 44 introduced the durable authority kernel in `HST_ForceSpawnQueueService`; schema 45 connects its first exact engine-facing adapter. Admission requires a frozen, hash-valid manifest whose group, vehicle, member, and asset slots are all required and whose dependencies resolve. An empty group list remains a hard rejection. Schema 54 policy-v2 garrison purchases therefore freeze one executable `NotSpawned` container root plus the arbitrary priced member slots; the root exists as execution authority but contributes no self-populated soldiers. Historical policy-v1 purchase manifests remain nondeployable provenance and must not gain an implicit broad-alpha fallback.
   - Queue identity is per result, request, and projection. A manifest can be projected more than once, so its ID/hash binds immutable input but must not be used as the unique projection or idempotency key. Exact replay is accepted only when the entire frozen payload still matches; key reuse with another payload fails closed.
   - Acquire at most two batches and eight actions per service tick, ordered by cleanup first and then priority/FIFO. Cleanup walks assets, members, vehicles, then group roots so dependency removal remains monotonic across bounded waves. The active bounds are 64 nonterminal batches, 512 nonterminal slots, and 64 slots per request.
   - Schema 45 persists explicit force and projection IDs on the linked active-group row. Missing pre-schema-45 IDs may be derived only from one conflict-free spawn batch; ambiguous links stay empty rather than borrowing identity from a near match.
@@ -2629,7 +2629,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   monolithic. Extracting save validation and decomposing the proof into focused
   fixture methods restored the clean headless and normal-open gates without
   removing assertions; relocating a large body intact is not a sufficient fix.
-- Packaged schema-50 through schema-53 certification remains independently open.
+- Packaged schema-50 through schema-54 certification remains independently open.
 
 ## Schema 53 Exact Enemy-Patrol Authority
 
@@ -2643,9 +2643,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
     defensive QRF, quarantine, unsupported, or legacy ownership from both type
     and version. Never let a positive unsupported or negative quarantined row
     fall through to the old patrol timer.
-  - A future garrison-patrol policy needs its own operation type. It must claim
-    and return garrison manpower, not reuse the enemy commander's proactive
-    attack-resource order merely because both use patrol waypoints.
+  - The later schema-54 garrison-patrol policy uses its own operation type and
+    purchased-roster authority. It does not reuse the enemy commander's
+    proactive attack-resource order merely because both use patrol waypoints.
 
 - Admission is one atomic proactive-resource and force-authority transition.
   - Resolve a usable persisted generated route before the debit. Freeze one
@@ -2756,8 +2756,183 @@ This file is for practical engine/script behavior, not project planning. Keep en
     a normal WorldEditor open remained alive for ten samples
     over 20 seconds without a crash signature. It still needs packaged movement, contact, fold/
     reprojection, accounting, marker rendering/cleanup, and process-restart proof.
-    After the schema-53 checkpoint, select the next source target from the
-    implementation blueprint.
+    Schema 54 selects the next source target: newly issued purchased resistance
+    garrison patrols.
+
+## Schema 54 Exact Purchased-Garrison Patrol Authority
+
+- Opt in by purchase policy, faction, and complete reciprocal graph.
+  - Only a newly issued `garrison_exact_patrol_2` resistance quote and manifest
+    may create `HST_OPERATION_TYPE_GARRISON_PATROL` contract version `1`.
+    Historical `garrison_exact_all_or_nothing_1` purchases, initial-map
+    garrisons, enemy garrisons, and other aggregate records stay on their legacy
+    representation. Never infer opt-in from a garrison ID, accepted-manifest ID,
+    zone owner, or a group that happens to have patrol waypoints.
+  - The manifest freezes one executable group element whose prefab is a
+    `NotSpawned` AIGroup container. It is an empty execution root, not an empty
+    manifest: all arbitrary purchased member slots remain required, priced,
+    hashed, ordered, and spawned separately. This supports a requested roster
+    that need not equal an authored group prefab's built-in composition.
+  - Admission links the accepted quote, manifest, committed money/HR receipts,
+    stable garrison backlink, operation, held batch, active group, and generated
+    route atomically. Policy-v2 exact members do not increment
+    `m_iInfantryCount`; capacity reads the living held batch through the accepted
+    manifest link. Missing/ambiguous open authority remains capacity-reserved
+    until typed validation resolves it without guessing.
+  - Every recruitment-capacity reader must use the same mixed-authority sum:
+    legacy `m_iInfantryCount`, `CountExecutableManifestInfantry()` for exact
+    living/reserved patrol slots, and the zone's active legacy infantry. This
+    applies to reports, map-target eligibility, and legacy direct recruitment;
+    omitting the exact term can overbook a zone without changing the exact
+    operation itself.
+  - A terminal operation frees exact capacity only when it reciprocally owns the
+    same manifest, quote, faction, assignment zone, exact contract, and fixed
+    settlement receipt. A coincident or foreign settled operation ID is not
+    evidence that the linked roster retired; malformed or ambiguous authority
+    keeps the full accepted count reserved until typed validation resolves it.
+  - Legacy direct recruitment is all-or-nothing at its own mutation boundary.
+    Reject a request that does not fully fit, then verify the exact infantry and
+    vehicle deltas after `AddAbstractForces()` and before spending money or HR.
+    If the delta is partial, roll it back before any charge. Do not prorate a
+    caller-supplied bundle cost after silently admitting fewer units.
+
+- Treat the operation as one indefinitely assigned local patrol.
+  - Freeze a small generated route around the immutable assignment zone and use
+    the shared ordered waypoint/lap/leg cursor. The operation starts on station,
+    advances the same loop virtually outside the render bubble, and starts the
+    next leg after every arrival. There is no required-lap terminal transition;
+    wrap only the very large persisted lap counter, not the duty itself.
+  - Materialization uses the existing in/out hysteresis. Release the empty root
+    and only durable living member slots, obtain a full adapter-to-PhysicalWar
+    root/member bijection, issue the persisted current route leg, and then move
+    position authority to live state. Recent confirmed casualties hold route and
+    fold long enough for authoritative reconciliation.
+  - Dematerialization first reconciles each mapped casualty and validates every
+    survivor binding, retires only runtime projection ownership, requeues the
+    successful batch into strategic hold, folds the live position into the
+    cursor, and resumes virtual movement. Never add survivors to the aggregate
+    garrison count; the held exact slots already own them.
+
+- Survivor-only rematerialization must validate against living authority.
+  - The adapter's original roster size remains equal to the accepted manifest,
+    but its current infantry count must equal `CountDurableLivingMemberSlots()`
+    after the first successful handoff, or the strategic living count before
+    that handoff. Comparing current infantry to the original accepted count
+    resurrects casualties or rejects a correct partial roster.
+  - A durable casualty needs a slot-mapped entity's observed dead state. A
+    deleted or missing binding without observed death remains unresolved and
+    blocks movement, fold, settlement, save, and cleanup; it is never selected as
+    a convenient casualty.
+  - Exact binding preflight must prove membership, not only cardinality. For
+    every durable living slot, the mapped adapter entity must also be the entity
+    registered under that active group in PhysicalWar. Equal counts can hide a
+    crossed member; retiring the adapter entity in that shape can delete it
+    before discovering the different PhysicalWar member still owned by the
+    projection.
+
+- Keep exact and legacy garrison ownership mutually exclusive.
+  - Tag exact groups with `exact_garrison_patrol` and recognize their canonical
+    operation, policy, projection, route, and composition backlinks. Exclude them
+    from legacy zone activation composition, zone-garrison waypoint assignment,
+    delayed population repair, abstract survivor fold, route fallback, and
+    generic group cleanup. Conversely, do not let the exact service claim
+    historical policy-v1, initial, enemy, vehicle, or unlinked aggregate groups.
+  - The generic `UpdateRuntimeGroupSurvivors()` loop must skip exact enemy and
+    exact garrison patrols before repair, aggregate-count mutation, elimination,
+    or terminal cleanup. The adapter's mapped member-slot observation is their
+    sole physical casualty authority; running both owners can remove registry
+    evidence before the exact tombstone is committed.
+  - Typed-quarantine groups remain durable diagnostics, not campaign actors.
+    `HST_CampaignState.IsOperationalActiveGroup()` must reject them before its
+    broad non-convoy fallback so they cannot exert capture pressure, reserve
+    spawn-clearance space, enter combat queries, or reach generic lifecycle
+    mutation after their physical projection is gone.
+  - This is one infantry-root slice. Generic garrison vehicles, assets,
+    emplacements, multiple roots, and conversion of historical aggregate
+    defenders remain separate future contracts.
+
+- Settlement is terminal retirement, never a refund or survivor transfer.
+  - Owner change, all members dead, campaign stop, setup, or typed spawn/route
+    failure settles the fixed `exact_garrison_patrol_terminal` identity once.
+    Reconcile and retire any live
+    projection first, retain the exact terminal survivor count for evidence,
+    then remove the runtime batch/group/route and accepted-manifest garrison
+    backlink only when every identity is unique.
+  - Owner change is not permission to bypass live-authority reconciliation. If a
+    `PHYSICAL` or `DEMATERIALIZING` operation still has durable living slots but
+    its adapter and PhysicalWar runtime have vanished, quarantine the graph and
+    preserve every row. Never settle the stale survivor count merely because the
+    ownership transition is terminal; a missing runtime is still missing
+    casualty evidence.
+  - The purchase already committed money and HR. Owner change, casualty loss,
+    fold, quarantine, and campaign stop return zero resources and add zero legacy
+    infantry. A replay must find the same terminal result and settlement ID or
+    quarantine the conflict.
+
+- Schema-54 migration and quarantine preserve history conservatively.
+  - `HST_GarrisonPatrolSaveValidationService` records
+    `migration_schema54_exact_garrison_patrol` for a pre-54 restore and creates no
+    exact operation, roster, batch, group, route, casualty, or settlement
+    identity for historical purchases/aggregates. A pre-54 exact-shaped
+    operation is unsupported evidence, not permission to execute it.
+  - Current-schema validation requires one unique quote/manifest/garrison/
+    operation/batch/group/route graph, policy/hash/slot integrity, legal
+    materialization/position state, and coherent settlement. Normalize a valid
+    open physical-shaped graph to one held virtual batch with the same cursor and
+    casualties after clearing process-local handles.
+  - Malformed current authority becomes version `-54` with no refund, legacy
+    conversion, or guessed retirement. A quarantine may be raised after the
+    adapter tick, so pre-save normalization must recognize `-54` independently
+    of the current `+1` classifier. Defer capture until the linked batch is
+    terminal-cancelled/final-failed with no registered, spawning, or cleanup
+    slots and both adapter and PhysicalWar registries prove empty. Only then may
+    process-local group residue be cleared while the diagnostic graph remains.
+  - A physically handed-off batch is already `SUCCEEDED`, so generic queue
+    cancellation must refuse it. Typed quarantine drainage must instead resolve
+    one unambiguous projection/result runtime owner that also matches the
+    quarantined operation ID plus another durable backlink, reconcile mapped deaths
+    through a quarantine-specific slot callback, validate every remaining live
+    binding, retire that exact runtime projection, and terminal-cancel its
+    process-free slots directly. This terminalizer must not consume normal
+    reprojection capacity and must work for a zero-survivor roster. Temporarily
+    aligning a uniquely selected runtime group to its batch may enable existing
+    adapter/PhysicalWar checks, but restore the corrupt diagnostic backlinks
+    afterward. If any runtime key or binding is ambiguous, keep the projection
+    quarantined and checkpoint blocked; never discard a possible casualty or a
+    competing operation's entity.
+  - Restore has a special proven-absence case: after restore normalization has
+    confirmed or completed runtime retirement, normal strategic requeue can
+    still fail because the nonterminal queue is full. Terminalize that already
+    process-free successful batch at the failure site before applying `-54`;
+    do not make typed cleanup mistake its living durable slots for unexplained
+    missing runtime. Restore/save claimant scans must likewise require operation
+    identity plus another backlink before tagging or cancelling a group/batch;
+    one coincident projection ID is never destructive ownership.
+
+- Persist and project only authoritative state.
+  - Defer a real checkpoint while an exact infantry patrol is still
+    `MATERIALIZING`. Staged roots/members have not completed the all-required
+    handoff, so their process handles are not yet a complete durable roster and
+    a mid-wave snapshot could otherwise resurrect an unrecorded death on
+    restart. Resume capture after the batch becomes fully physical, returns to
+    strategic hold, or reaches a typed terminal result.
+  - Before every real capture and campaign-stop/setup settlement, reconcile
+    physical or dematerializing mapped members, validate the complete binding
+    graph, and sample the live position. A failure defers capture before stale
+    tracked state is flushed and protects the batch from generic terminal
+    cleanup.
+  - Publish one exact patrol marker from virtual/live operation position with
+    location, current owner, role, and durable survivors. Forces UI may report
+    exact patrol infantry separately from legacy aggregate infantry, but neither
+    presentation is roster authority.
+  - Nine deterministic `garrison_patrol.*` assertions cover admission, replay/
+    rollback, roster projection, route loop, projection/casualty hold,
+    settlement, restore, corruption quarantine, and marker lifecycle.
+    Deterministic fixtures are source evidence. The Schema-54 Workbench compile/
+    open gates are pending and remain source evidence when run. Packaged native
+    waypoint movement, authoritative casualty
+    observation, fold/rematerialization, save/restart, marker rendering,
+    replication, reconnect, and JIP behavior remain open proof obligations.
 
 ## Native Reference Sources
 

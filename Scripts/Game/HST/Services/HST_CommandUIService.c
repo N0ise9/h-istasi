@@ -2295,6 +2295,7 @@ class HST_CommandUIService
 			string owner = "";
 			int activeInfantry;
 			int activeVehicles;
+			int exactPatrolInfantry = CountExecutableGarrisonInfantry(state, garrison);
 			int slots;
 
 			if (zone)
@@ -2309,13 +2310,13 @@ class HST_CommandUIService
 
 			string capacity = "uncapped";
 			if (slots > 0)
-				capacity = string.Format("%1/%2", garrison.m_iInfantryCount + activeInfantry, slots);
+				capacity = string.Format("%1/%2", garrison.m_iInfantryCount + exactPatrolInfantry + activeInfantry, slots);
 
 			payload = AppendRow(
 				payload,
 				"friendly_garrisons",
 				ShortText(label, 22),
-				string.Format("%1 | reserves %2 infantry / %3 vehicle(s) | fielded %4/%5 | capacity %6", owner, garrison.m_iInfantryCount, garrison.m_iVehicleCount, activeInfantry, activeVehicles, capacity),
+				string.Format("%1 | reserves %2 infantry / %3 vehicle(s) | exact patrol %4 | legacy fielded %5/%6 | capacity %7", owner, garrison.m_iInfantryCount, garrison.m_iVehicleCount, exactPatrolInfantry, activeInfantry, activeVehicles, capacity),
 				"good"
 			);
 
@@ -3768,7 +3769,7 @@ class HST_CommandUIService
 		int currentInfantry;
 		HST_GarrisonState garrison = state.FindGarrison(zone.m_sZoneId, preset.m_sResistanceFactionKey);
 		if (garrison)
-			currentInfantry = garrison.m_iInfantryCount;
+			currentInfantry = garrison.m_iInfantryCount + CountExecutableGarrisonInfantry(state, garrison);
 		currentInfantry += Math.Max(0, zone.m_iActiveInfantryCount);
 		return currentInfantry < zone.m_iGarrisonSlots;
 	}
@@ -6417,10 +6418,16 @@ class HST_CommandUIService
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 		{
 			if (garrison)
-				count += garrison.m_iInfantryCount;
+				count += garrison.m_iInfantryCount + CountExecutableGarrisonInfantry(state, garrison);
 		}
 
 		return count;
+	}
+
+	protected int CountExecutableGarrisonInfantry(HST_CampaignState state, HST_GarrisonState garrison)
+	{
+		HST_GarrisonService reader = new HST_GarrisonService();
+		return reader.CountExecutableManifestInfantry(state, garrison);
 	}
 
 	protected int CountGarrisonVehicles(HST_CampaignState state)

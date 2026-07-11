@@ -198,9 +198,13 @@ class HST_ForceSettlementArchiveService
 			return false;
 		if (tombstone.m_iOperationContractVersion > 0)
 		{
-			if (tombstone.m_iOperationContractVersion != HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION
-				|| tombstone.m_sQuoteKind != HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
-				|| tombstone.m_eSupportType != HST_ESupportRequestType.HST_SUPPORT_QRF
+			bool exactPlayerQRF = tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_QRF
+				&& tombstone.m_iOperationContractVersion == HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION
+				&& tombstone.m_eSupportType == HST_ESupportRequestType.HST_SUPPORT_QRF;
+			bool exactGarrisonPatrol = tombstone.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_GARRISON
+				&& tombstone.m_iOperationContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION
+				&& tombstone.m_sSettlementKind == HST_GarrisonPatrolOperationService.SETTLEMENT_KIND;
+			if ((!exactPlayerQRF && !exactGarrisonPatrol)
 				|| tombstone.m_sOperationSettlementId.IsEmpty() || tombstone.m_iOperationRevision <= 0
 				|| tombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
 				|| tombstone.m_eOperationTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
@@ -276,9 +280,46 @@ class HST_ForceSettlementArchiveService
 					garrison = candidate;
 				}
 			}
-			if (acceptedLinkCount != 1 || !garrison || garrison.m_sZoneId != quote.m_sTargetZoneId || garrison.m_sFactionKey != quote.m_sFactionKey)
-				return "accepted garrison provenance is missing or ambiguous";
-			settlementKind = "strategic_garrison_registered";
+			bool exactPolicy = manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID;
+			if (!exactPolicy)
+			{
+				if (acceptedLinkCount != 1 || !garrison || garrison.m_sZoneId != quote.m_sTargetZoneId
+					|| garrison.m_sFactionKey != quote.m_sFactionKey)
+					return "accepted garrison provenance is missing or ambiguous";
+				settlementKind = "strategic_garrison_registered";
+				return "";
+			}
+
+			if (acceptedLinkCount > 1 || (acceptedLinkCount == 1
+				&& (!garrison || garrison.m_sZoneId != quote.m_sTargetZoneId
+					|| garrison.m_sFactionKey != quote.m_sFactionKey)))
+				return "settled exact garrison patrol provenance is ambiguous";
+			int operationCount;
+			foreach (HST_OperationRecordState candidateOperation : state.m_aOperations)
+			{
+				if (!candidateOperation || candidateOperation.m_sOperationId != quote.m_sOperationId)
+					continue;
+				operation = candidateOperation;
+				operationCount++;
+			}
+			if (operationCount != 1 || !operation
+				|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				|| operation.m_iContractVersion != HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION
+				|| operation.m_sQuoteId != quote.m_sQuoteId
+				|| operation.m_sManifestId != manifest.m_sManifestId)
+				return "settled exact garrison patrol operation identity is missing or ambiguous";
+			settlementKind = HST_GarrisonPatrolOperationService.SETTLEMENT_KIND;
+			if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+				|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
+				|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED
+				|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+				return "exact garrison patrol operation is not terminal for archive";
+			if (operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+				|| operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
+				|| operation.m_sSettlementId != HST_OperationService.BuildSettlementId(operation.m_sOperationId, settlementKind))
+				return "exact garrison patrol settlement receipt conflicts with archive";
+			if (!operation.m_sCurrentRouteId.IsEmpty() && state.FindGeneratedRoute(operation.m_sCurrentRouteId))
+				return "exact garrison patrol owned route cleanup is incomplete";
 			return "";
 		}
 

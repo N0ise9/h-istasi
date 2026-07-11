@@ -142,7 +142,7 @@ be read as proof that a later change was executed or certified.
   receipts, illegal lifecycle pairs, and casualty authority on non-member roots,
   while preserving missionless exact-looking durable claimants. They remain
   in-process fixtures, not engine/runtime evidence.
-- Before every real persistence capture, schemas 52 and 53 synchronously
+- Before every real persistence capture, schemas 52 through 54 synchronously
   reconcile mapped physical convoy and physical/dematerializing patrol members so
   a death cannot be saved as alive before the normal physical-war tick. Patrols
   additionally require a unique root/member adapter graph and matching
@@ -171,9 +171,33 @@ be read as proof that a later change was executed or certified.
   replay/refund, route loop, queue/roster bookkeeping, contact transition,
   settlement, physical-shaped restore, corruption, dispatch/priority isolation,
   and marker lifecycle.
-  They are source fixtures, not packaged gameplay or restart proof. After the
-  schema-53 checkpoint, the next source target will be selected from the
-  implementation blueprint.
+  They are source fixtures, not packaged gameplay or restart proof.
+- Schema 54 adds exact authority only for newly issued policy-v2 purchased
+  resistance garrisons. Admission freezes one executable `NotSpawned` empty
+  group root plus the arbitrary ordered members priced by the quote, then links
+  quote/manifest/garrison/operation/held-batch/local-route/active-group identity.
+  The accepted roster does not increment the legacy aggregate infantry count;
+  its living held slots reserve capacity and advance an infinite local patrol
+  loop while virtual. Near-player materialization releases only survivors, and
+  fold returns the same casualties/cursor to strategic hold. Adapter roster
+  validation now compares current infantry with durable living slots after first
+  handoff, closing the prior survivor-only rematerialization rejection.
+  PhysicalWar excludes these exact groups from legacy garrison activation,
+  composition, waypoint, population, survivor-fold, route, and cleanup paths.
+  Owner change, all-dead, campaign stop, setup, or typed spawn/route failure
+  records one
+  `exact_garrison_patrol_terminal` receipt with zero refund or aggregate survivor
+  transfer. Pre-schema-54 policy-v1 purchases and initial/enemy aggregate
+  garrisons remain legacy with no invented operation/roster/route/settlement;
+  malformed current graphs retain evidence under version `-54` without legacy
+  conversion, refund, or guessed casualty. A roster-authoritative marker and
+  Forces UI row expose virtual/live position, location/current owner, role, and
+  survivors. Nine deterministic `garrison_patrol.*` assertions cover admission,
+  replay/rollback, roster projection, route loop, projection hold, settlement,
+  restore, corruption, and marker lifecycle. This is source evidence; Schema-54
+  Workbench compile/open gates remain pending. Packaged native waypoint
+  movement, casualty observation, fold/rematerialization, save/restart, client
+  marker rendering, replication, reconnect, and JIP proof remain open.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -193,7 +217,8 @@ be read as proof that a later change was executed or certified.
   lifecycle authority, schema 48 accepted-settlement archive, schema 49
   exact-QRF operation authority, schema 50 strategic projection, schema 51
   exact enemy defensive-QRF authority, schema 52 exact mission-convoy authority,
-  and schema 53 exact enemy-patrol authority.
+  schema 53 exact enemy-patrol authority, and schema 54 exact purchased-garrison
+  patrol authority.
   The schema-45 authority baseline passed foundation checks and a headless
   Workbench Game compile. Its isolated state case covers quantities 1/4/7/12,
   an HR reservation-conflict rollback, and five partial confirmation save/
@@ -497,8 +522,11 @@ native-group, projection, and applicable seat evidence. The production
   reprojection, and a durable casualty/living-force/retirement ledger were still
   open at that schema-45 checkpoint and are superseded in part by the schema-47
   follow-up below.
-  Current purchase-only garrison manifests are nondeployable, and accepted quote/
-  manifest/ledger history remains unbounded. Terminal queue evidence is historical,
+  At that schema-45 checkpoint, purchase-only garrison manifests were
+  nondeployable and accepted quote/manifest/ledger history remained unbounded.
+  Schema 48 later bounded that history, and schema 54 now makes only newly issued
+  policy-v2 purchased resistance garrisons executable exact patrols; historical
+  policy-v1 provenance remains nondeployable. Terminal queue evidence is historical,
   while process-local entity and native-group IDs are cleared on restore. The
   physical HST_Dev proof is implemented but has not been runtime-executed; compile,
   script-validation, and project-open evidence do not substitute for that run.
@@ -975,15 +1003,18 @@ Unproven or incomplete against the pasted contract:
 - The later packaged schema-49 check confirmed that stock HUD and Game Master
   access were restored. The schema-50 marker, dialog, radio, civilian, and
   player strategic-projection follow-ups plus the schema-51 enemy defensive-QRF,
-  schema-52 exact mission-convoy, and schema-53 exact enemy-patrol slices remain
-  source-only until a new package is run.
-- Strategic projection is limited to four explicit consumers: exact paid player
-  QRF, newly planned enemy defensive QRF, newly started exact mission convoy, and
-  newly queued exact enemy patrol. The convoy is a narrow three-vehicle/three-
+  schema-52 exact mission-convoy, schema-53 exact enemy-patrol, and schema-54
+  exact purchased-garrison patrol slices remain source-only until a new package
+  is run.
+- Strategic projection is limited to five explicit consumers: exact paid player
+  QRF, newly planned enemy defensive QRF, newly started exact mission convoy,
+  newly queued exact enemy patrol, and newly issued policy-v2 purchased
+  resistance garrison patrol. The convoy is a narrow three-vehicle/three-
   crew exception, not generic
   vehicle/multi-root realization, and it does not yet simulate off-screen
   combat. Live physical contact does not yet own player-operation engagement;
-  generalized virtualization, historical patrols/other enemy orders and convoys, other
+  generalized virtualization, historical patrols/other enemy orders and convoys,
+  policy-v1/initial/enemy aggregate and vehicle/multi-root garrisons, other
   supports/missions, packaged execution, and real restart/migration/archive
   replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
@@ -1000,11 +1031,15 @@ Unproven or incomplete against the pasted contract:
 ## Validation Run
 
 - `git diff --check` passes for the current documentation update.
-- `tools/validate-foundation.ps1` passes for the current schema-53 source tree.
+- `tools/validate-foundation.ps1` passes for the current schema-54 source tree,
+  including all nine coordinator-integrated `garrison_patrol.*` fixtures and the
+  ordered elapsed-time -> queue -> exact-garrison cleanup/tick -> mission-work
+  runtime contract. Schema-54 Workbench compile/open gates remain pending until
+  the in-progress source pass is finalized.
 - The final stamped schema-53 tree identifies implementation
   `8ab694fdf61e56c6a5e343782f2225660d3aeeb7` in `HST_BuildInfo` and has clean headless Workbench
   Game-module compile/create evidence at 5,757 files/11,550 classes with CRC
   `3232b15a`; its normal WorldEditor open remained alive for ten samples over
-  20 seconds without a crash signature. It has not been packaged or executed as
-  gameplay proof. Source/
-  compile gates are not packaged runtime certification.
+  20 seconds without a crash signature. That remains the last stamped checkpoint.
+  Schema 54 is not stamped yet and has not been packaged or executed as gameplay
+  proof. Source/compile gates are not packaged runtime certification.

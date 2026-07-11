@@ -26,6 +26,10 @@ class HST_ForceAuthorityProofFixture
 {
 	ref HST_CampaignState m_AcceptedState;
 	ref HST_ForcePlanningService m_AcceptedPlanning;
+	ref HST_ForceSpawnQueueService m_AcceptedQueue;
+	ref HST_ForceSpawnAdapterService m_AcceptedAdapter;
+	ref HST_PhysicalWarService m_AcceptedPhysicalWar;
+	ref HST_GarrisonPatrolOperationService m_AcceptedGarrisonPatrolOperations;
 	ref HST_EconomyService m_AcceptedEconomy;
 	ref HST_GarrisonService m_AcceptedGarrisons;
 	ref HST_ResourceLedgerService m_AcceptedLedger;
@@ -69,6 +73,14 @@ class HST_ForceAuthorityProofService
 			HST_ResourceLedgerService proofLedger = new HST_ResourceLedgerService();
 			proofLedger.SetEventLogService(proofEvents);
 			HST_ForcePlanningService proofPlanning = new HST_ForcePlanningService();
+			HST_ForceSpawnQueueService proofQueue = new HST_ForceSpawnQueueService();
+			HST_ForceSpawnAdapterService proofAdapter = new HST_ForceSpawnAdapterService();
+			HST_PhysicalWarService proofPhysicalWar = new HST_PhysicalWarService();
+			HST_GarrisonPatrolOperationService proofGarrisonPatrolOperations = ConfigureCampaignDebugExactGarrisonPlanning(
+				proofPlanning,
+				proofQueue,
+				proofAdapter,
+				proofPhysicalWar);
 			proofPlanning.SetEventLogService(proofEvents);
 			string quoteRequestId = string.Format("force_proof_quote_%1", quantity);
 			string confirmRequestId = string.Format("force_proof_confirm_%1", quantity);
@@ -93,8 +105,32 @@ class HST_ForceAuthorityProofService
 				exact = quoteResult.m_Manifest.m_iMoneyCost == quantity * 50 && quoteResult.m_Manifest.m_iHRCost == quantity && quoteResult.m_Quote.m_iMoneyCost == quantity * 50 && quoteResult.m_Quote.m_iHRCost == quantity;
 			if (exact)
 				exact = CampaignDebugForceManifestSlotsUnique(quoteResult.m_Manifest) && confirmResult && confirmResult.m_bSuccess && !confirmResult.m_bAlreadyApplied;
+			HST_OperationRecordState operation;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			HST_GeneratedRouteState route;
+			if (quoteResult && quoteResult.m_Quote)
+			{
+				operation = proofState.FindOperation(quoteResult.m_Quote.m_sOperationId);
+				if (operation)
+				{
+					batch = proofState.FindForceSpawnResult(operation.m_sSpawnResultId);
+					group = proofState.FindActiveGroup(operation.m_sGroupId);
+					route = proofState.FindGeneratedRoute(operation.m_sCurrentRouteId);
+				}
+			}
 			if (exact)
-				exact = garrison && garrison.m_iInfantryCount == quantity && CountCampaignDebugString(garrison.m_aAcceptedManifestIds, quoteResult.m_Manifest.m_sManifestId) == 1;
+				exact = CampaignDebugExactGarrisonAuthorityMatches(
+					proofState,
+					quoteResult.m_Quote,
+					quoteResult.m_Manifest,
+					garrison,
+					operation,
+					batch,
+					group,
+					route,
+					proofQueue,
+					quantity);
 			if (exact)
 				exact = proofState.m_iFactionMoney == 5000 - quantity * 50 && proofState.m_iHR == 100 - quantity && proofState.m_aResourceTransactions.Count() == 2;
 			if (exact)
@@ -106,12 +142,28 @@ class HST_ForceAuthorityProofService
 			int evidenceGarrisonCount = -1;
 			if (garrison)
 				evidenceGarrisonCount = garrison.m_iInfantryCount;
-			quantityEvidence = quantityEvidence + string.Format("q%1 exact=%2 money=%3 HR=%4 roster=%5 tx=%6", quantity, exact, proofState.m_iFactionMoney, proofState.m_iHR, evidenceGarrisonCount, proofState.m_aResourceTransactions.Count());
+			int evidenceLivingCount = -1;
+			if (batch)
+				evidenceLivingCount = proofQueue.CountStrategicLivingMemberSlots(batch);
+			quantityEvidence = quantityEvidence + string.Format(
+				"q%1 exact=%2 money=%3 HR=%4 legacy=%5 living=%6 held=%7 tx=%8",
+				quantity,
+				exact,
+				proofState.m_iFactionMoney,
+				proofState.m_iHR,
+				evidenceGarrisonCount,
+				evidenceLivingCount,
+				batch && batch.m_bStrategicProjectionHeld,
+				proofState.m_aResourceTransactions.Count());
 
 			if (quantity == 4)
 			{
 				fixture.m_AcceptedState = proofState;
 				fixture.m_AcceptedPlanning = proofPlanning;
+				fixture.m_AcceptedQueue = proofQueue;
+				fixture.m_AcceptedAdapter = proofAdapter;
+				fixture.m_AcceptedPhysicalWar = proofPhysicalWar;
+				fixture.m_AcceptedGarrisonPatrolOperations = proofGarrisonPatrolOperations;
 				fixture.m_AcceptedEconomy = proofEconomy;
 				fixture.m_AcceptedGarrisons = proofGarrisons;
 				fixture.m_AcceptedLedger = proofLedger;
@@ -137,6 +189,10 @@ class HST_ForceAuthorityProofService
 			int moneyBeforeDuplicate = fixture.m_AcceptedState.m_iFactionMoney;
 			int hrBeforeDuplicate = fixture.m_AcceptedState.m_iHR;
 			int transactionsBeforeDuplicate = fixture.m_AcceptedState.m_aResourceTransactions.Count();
+			int operationsBeforeDuplicate = fixture.m_AcceptedState.m_aOperations.Count();
+			int batchesBeforeDuplicate = fixture.m_AcceptedState.m_aForceSpawnResults.Count();
+			int groupsBeforeDuplicate = fixture.m_AcceptedState.m_aActiveGroups.Count();
+			int routesBeforeDuplicate = fixture.m_AcceptedState.m_aGeneratedRoutes.Count();
 			HST_GarrisonState duplicateGarrison = fixture.m_AcceptedState.FindGarrison("force_proof_zone", "FIA");
 			int infantryBeforeDuplicate;
 			int manifestLinksBeforeDuplicate;
@@ -150,10 +206,30 @@ class HST_ForceAuthorityProofService
 			duplicateIdempotent = duplicateResult && duplicateResult.m_bSuccess && duplicateResult.m_bAlreadyApplied;
 			duplicateIdempotent = duplicateIdempotent && fixture.m_AcceptedState.m_iFactionMoney == moneyBeforeDuplicate && fixture.m_AcceptedState.m_iHR == hrBeforeDuplicate && fixture.m_AcceptedState.m_aResourceTransactions.Count() == transactionsBeforeDuplicate;
 			duplicateIdempotent = duplicateIdempotent && duplicateGarrison && duplicateGarrison.m_iInfantryCount == infantryBeforeDuplicate && duplicateGarrison.m_aAcceptedManifestIds.Count() == manifestLinksBeforeDuplicate;
+			duplicateIdempotent = duplicateIdempotent
+				&& fixture.m_AcceptedState.m_aOperations.Count() == operationsBeforeDuplicate
+				&& fixture.m_AcceptedState.m_aForceSpawnResults.Count() == batchesBeforeDuplicate
+				&& fixture.m_AcceptedState.m_aActiveGroups.Count() == groupsBeforeDuplicate
+				&& fixture.m_AcceptedState.m_aGeneratedRoutes.Count() == routesBeforeDuplicate;
 			int duplicateInfantryEvidence = -1;
 			if (duplicateGarrison)
 				duplicateInfantryEvidence = duplicateGarrison.m_iInfantryCount;
-			duplicateEvidence = string.Format("already %1 | money %2/%3 | HR %4/%5 | tx %6/%7 | infantry %8", duplicateResult && duplicateResult.m_bAlreadyApplied, moneyBeforeDuplicate, fixture.m_AcceptedState.m_iFactionMoney, hrBeforeDuplicate, fixture.m_AcceptedState.m_iHR, transactionsBeforeDuplicate, fixture.m_AcceptedState.m_aResourceTransactions.Count(), duplicateInfantryEvidence);
+			duplicateEvidence = string.Format(
+				"already %1 | money %2/%3 | HR %4/%5 | tx %6/%7 | legacy infantry %8",
+				duplicateResult && duplicateResult.m_bAlreadyApplied,
+				moneyBeforeDuplicate,
+				fixture.m_AcceptedState.m_iFactionMoney,
+				hrBeforeDuplicate,
+				fixture.m_AcceptedState.m_iHR,
+				transactionsBeforeDuplicate,
+				fixture.m_AcceptedState.m_aResourceTransactions.Count(),
+				duplicateInfantryEvidence);
+			duplicateEvidence = duplicateEvidence + string.Format(
+				" | graph %1/%2/%3/%4",
+				fixture.m_AcceptedState.m_aOperations.Count(),
+				fixture.m_AcceptedState.m_aForceSpawnResults.Count(),
+				fixture.m_AcceptedState.m_aActiveGroups.Count(),
+				fixture.m_AcceptedState.m_aGeneratedRoutes.Count());
 		}
 
 		report.m_sDuplicateEvidence = duplicateEvidence;
@@ -164,6 +240,7 @@ class HST_ForceAuthorityProofService
 	{
 		HST_CampaignState deterministicState = CreateCampaignDebugForceAuthorityState(32);
 		HST_ForcePlanningService deterministicPlanning = new HST_ForcePlanningService();
+		ConfigureCampaignDebugExactGarrisonPlanning(deterministicPlanning);
 		HST_ForceQuoteResult deterministicQuote = deterministicPlanning.IssueGarrisonQuote(deterministicState, proofPreset, "force_proof_actor", "force_proof_zone", 7, "force_proof_quote_7", false);
 		bool deterministic = deterministicQuote && deterministicQuote.m_bSuccess && deterministicQuote.m_Manifest.m_sManifestHash == fixture.m_sDeterministicHash && BuildCampaignDebugForceRoster(deterministicQuote.m_Manifest) == fixture.m_sDeterministicRoster;
 		string deterministicActualHash = "missing";
@@ -189,6 +266,7 @@ class HST_ForceAuthorityProofService
 		capacityGarrison.m_iInfantryCount = 10;
 		capacityState.m_aGarrisons.Insert(capacityGarrison);
 		HST_ForcePlanningService capacityPlanning = new HST_ForcePlanningService();
+		ConfigureCampaignDebugExactGarrisonPlanning(capacityPlanning);
 		HST_ForceQuoteResult capacityQuote = capacityPlanning.IssueGarrisonQuote(capacityState, proofPreset, "force_proof_actor", "force_proof_zone", 4, "force_proof_capacity", false);
 		bool capacityRejected = capacityQuote && !capacityQuote.m_bSuccess && capacityQuote.m_sFailureReason.Contains("all-or-nothing capacity conflict") && capacityGarrison.m_iInfantryCount == 10 && capacityState.m_iFactionMoney == 5000 && capacityState.m_iHR == 100 && capacityState.m_aForceQuotes.Count() == 0 && capacityState.m_aForceManifests.Count() == 0 && capacityState.m_aResourceTransactions.Count() == 0;
 		string capacityReason = "missing";
@@ -207,6 +285,7 @@ class HST_ForceAuthorityProofService
 		HST_GarrisonService staleGarrisons = new HST_GarrisonService();
 		HST_ResourceLedgerService staleLedger = new HST_ResourceLedgerService();
 		HST_ForcePlanningService stalePlanning = new HST_ForcePlanningService();
+		ConfigureCampaignDebugExactGarrisonPlanning(stalePlanning);
 		HST_ForceQuoteResult staleQuote = stalePlanning.IssueGarrisonQuote(staleState, proofPreset, "force_proof_actor", "force_proof_zone", 4, "force_proof_stale", false);
 		staleState.FindZone("force_proof_zone").m_iActiveInfantryCount = 1;
 		HST_ForceConfirmationResult staleConfirm;
@@ -229,6 +308,7 @@ class HST_ForceAuthorityProofService
 		HST_GarrisonService reservationConflictGarrisons = new HST_GarrisonService();
 		HST_ResourceLedgerService reservationConflictLedger = new HST_ResourceLedgerService();
 		HST_ForcePlanningService reservationConflictPlanning = new HST_ForcePlanningService();
+		ConfigureCampaignDebugExactGarrisonPlanning(reservationConflictPlanning);
 		HST_ForceQuoteResult reservationConflictQuote = reservationConflictPlanning.IssueGarrisonQuote(reservationConflictState, proofPreset, "force_proof_actor", "force_proof_zone", 4, "force_proof_reservation_conflict", false);
 		if (reservationConflictQuote && reservationConflictQuote.m_bSuccess)
 		{
@@ -258,38 +338,24 @@ class HST_ForceAuthorityProofService
 	{
 		bool roundtrip;
 		string roundtripEvidence = "missing accepted fixture";
-		if (fixture.m_AcceptedState && fixture.m_AcceptedQuote && fixture.m_AcceptedQuote.m_Manifest && fixture.m_AcceptedQuote.m_Quote)
+		if (fixture.m_AcceptedState && fixture.m_AcceptedQueue
+			&& fixture.m_AcceptedQuote && fixture.m_AcceptedQuote.m_Manifest
+			&& fixture.m_AcceptedQuote.m_Quote)
 		{
-			HST_ForceSpawnResultState spawnResult = new HST_ForceSpawnResultState();
-			spawnResult.m_sResultId = "force_proof_spawn_result";
-			spawnResult.m_sManifestId = fixture.m_AcceptedQuote.m_Manifest.m_sManifestId;
-			spawnResult.m_sOperationId = fixture.m_AcceptedQuote.m_Manifest.m_sOperationId;
-			spawnResult.m_sForceId = "force_proof_force";
-			spawnResult.m_sNativeGroupId = "force_proof_native_group";
-			spawnResult.m_sProjectionId = "force_proof_projection";
-			spawnResult.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
-			spawnResult.m_iExpectedSlotCount = fixture.m_AcceptedQuote.m_Manifest.m_aMembers.Count();
-			foreach (HST_ForceManifestMemberState member : fixture.m_AcceptedQuote.m_Manifest.m_aMembers)
-			{
-				HST_ForceSpawnSlotResultState slotResult = new HST_ForceSpawnSlotResultState();
-				slotResult.m_sSlotId = member.m_sSlotId;
-				slotResult.m_sSlotKind = "member";
-				slotResult.m_sEntityId = "force_proof_entity_" + member.m_sSlotId;
-				slotResult.m_sNativeGroupId = spawnResult.m_sNativeGroupId;
-				slotResult.m_sProjectionId = spawnResult.m_sProjectionId;
-				slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED;
-				slotResult.m_bFactionVerified = true;
-				slotResult.m_bGroupVerified = true;
-				slotResult.m_bProjectionVerified = true;
-				spawnResult.m_aSlotResults.Insert(slotResult);
-			}
-			fixture.m_AcceptedState.m_aForceSpawnResults.Insert(spawnResult);
+			HST_OperationRecordState acceptedOperation = fixture.m_AcceptedState.FindOperation(
+				fixture.m_AcceptedQuote.m_Quote.m_sOperationId);
+			HST_ForceSpawnResultState acceptedBatch;
+			if (acceptedOperation)
+				acceptedBatch = fixture.m_AcceptedState.FindForceSpawnResult(acceptedOperation.m_sSpawnResultId);
 			HST_CampaignSaveData saveData = new HST_CampaignSaveData();
 			saveData.Capture(fixture.m_AcceptedState);
 			HST_CampaignState restoredState = saveData.Restore();
 			HST_ForceManifestState restoredManifest;
 			HST_ForceQuoteState restoredQuote;
-			HST_ForceSpawnResultState restoredSpawn;
+			HST_OperationRecordState restoredOperation;
+			HST_ForceSpawnResultState restoredBatch;
+			HST_ActiveGroupState restoredGroup;
+			HST_GeneratedRouteState restoredRoute;
 			HST_GarrisonState restoredGarrison;
 			HST_ResourceTransactionState restoredMoneyTransaction;
 			HST_ResourceTransactionState restoredHRTransaction;
@@ -297,7 +363,13 @@ class HST_ForceAuthorityProofService
 			{
 				restoredManifest = restoredState.FindForceManifest(fixture.m_AcceptedQuote.m_Manifest.m_sManifestId);
 				restoredQuote = restoredState.FindForceQuote(fixture.m_AcceptedQuote.m_Quote.m_sQuoteId);
-				restoredSpawn = restoredState.FindForceSpawnResult("force_proof_spawn_result");
+				restoredOperation = restoredState.FindOperation(fixture.m_AcceptedQuote.m_Quote.m_sOperationId);
+				if (restoredOperation)
+				{
+					restoredBatch = restoredState.FindForceSpawnResult(restoredOperation.m_sSpawnResultId);
+					restoredGroup = restoredState.FindActiveGroup(restoredOperation.m_sGroupId);
+					restoredRoute = restoredState.FindGeneratedRoute(restoredOperation.m_sCurrentRouteId);
+				}
 				restoredGarrison = restoredState.FindGarrison("force_proof_zone", "FIA");
 				if (restoredQuote)
 				{
@@ -305,13 +377,27 @@ class HST_ForceAuthorityProofService
 					restoredHRTransaction = restoredState.FindResourceTransaction(restoredQuote.m_sHRTransactionId);
 				}
 			}
-			roundtrip = restoredState && restoredState.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION && restoredManifest && restoredQuote && restoredSpawn && restoredGarrison;
+			roundtrip = acceptedBatch && restoredState
+				&& restoredState.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION
+				&& restoredManifest && restoredQuote && restoredOperation && restoredBatch
+				&& restoredGroup && restoredRoute && restoredGarrison;
 			if (roundtrip)
 				roundtrip = restoredManifest != fixture.m_AcceptedQuote.m_Manifest && restoredManifest.m_sManifestHash == fixture.m_AcceptedQuote.m_Manifest.m_sManifestHash && restoredManifest.m_aMembers.Count() == 4 && restoredManifest.m_aMembers[0] != fixture.m_AcceptedQuote.m_Manifest.m_aMembers[0];
 			if (roundtrip)
-				roundtrip = restoredQuote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ACCEPTED && restoredSpawn.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED && restoredSpawn.m_aSlotResults.Count() == 4 && CampaignDebugAllSpawnSlotsRegistered(restoredSpawn);
+				roundtrip = restoredQuote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ACCEPTED
+					&& restoredOperation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+					&& restoredOperation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION
+					&& restoredBatch.m_bStrategicProjectionHeld
+					&& restoredBatch.m_aSlotResults.Count() == 5
+					&& fixture.m_AcceptedQueue.CountStrategicLivingMemberSlots(restoredBatch) == 4;
 			if (roundtrip)
-				roundtrip = CountCampaignDebugString(restoredGarrison.m_aAcceptedManifestIds, restoredManifest.m_sManifestId) == 1 && restoredMoneyTransaction && restoredHRTransaction && restoredMoneyTransaction.m_sManifestId == restoredManifest.m_sManifestId && restoredHRTransaction.m_sQuoteId == restoredQuote.m_sQuoteId;
+				roundtrip = restoredGarrison.m_iInfantryCount == 0
+					&& CountCampaignDebugString(restoredGarrison.m_aAcceptedManifestIds, restoredManifest.m_sManifestId) == 1
+					&& restoredOperation.m_sCurrentRouteId == restoredRoute.m_sRouteId
+					&& restoredGroup.m_sRouteId == restoredRoute.m_sRouteId
+					&& restoredMoneyTransaction && restoredHRTransaction
+					&& restoredMoneyTransaction.m_sManifestId == restoredManifest.m_sManifestId
+					&& restoredHRTransaction.m_sQuoteId == restoredQuote.m_sQuoteId;
 			int restoredSchemaEvidence = -1;
 			int restoredMemberEvidence = -1;
 			int restoredSlotEvidence = -1;
@@ -319,9 +405,24 @@ class HST_ForceAuthorityProofService
 				restoredSchemaEvidence = restoredState.m_iSchemaVersion;
 			if (restoredManifest)
 				restoredMemberEvidence = restoredManifest.m_aMembers.Count();
-			if (restoredSpawn)
-				restoredSlotEvidence = restoredSpawn.m_aSlotResults.Count();
-			roundtripEvidence = string.Format("schema %1 | manifest %2 members %3 | quote %4 | spawn %5 slots %6 | accepted garrison provenance %7", restoredSchemaEvidence, restoredManifest != null, restoredMemberEvidence, restoredQuote != null, restoredSpawn != null, restoredSlotEvidence, restoredGarrison && restoredManifest && restoredGarrison.m_aAcceptedManifestIds.Contains(restoredManifest.m_sManifestId));
+			if (restoredBatch)
+				restoredSlotEvidence = restoredBatch.m_aSlotResults.Count();
+			roundtripEvidence = string.Format(
+				"schema %1 | manifest %2 members %3 | quote/operation %4/%5 | held batch %6 slots/living %7/%8",
+				restoredSchemaEvidence,
+				restoredManifest != null,
+				restoredMemberEvidence,
+				restoredQuote != null,
+				restoredOperation != null,
+				restoredBatch && restoredBatch.m_bStrategicProjectionHeld,
+				restoredSlotEvidence,
+				fixture.m_AcceptedQueue.CountStrategicLivingMemberSlots(restoredBatch));
+			roundtripEvidence = roundtripEvidence + string.Format(
+				" | route/group %1/%2 | backlink %3",
+				restoredRoute != null,
+				restoredGroup != null,
+				restoredGarrison && restoredManifest
+					&& restoredGarrison.m_aAcceptedManifestIds.Contains(restoredManifest.m_sManifestId));
 		}
 
 		report.m_sRoundtripEvidence = roundtripEvidence;
@@ -414,6 +515,10 @@ class HST_ForceAuthorityProofService
 				evidence = evidence + string.Format("stage%1 issue_failed | ", stage);
 				continue;
 			}
+			// This fixture intentionally proves the policy-v1 aggregate reconciliation
+			// contract. Newly issued policy-v2 purchases are operation-owned and are
+			// covered by HST_GarrisonPatrolOperationProofService instead.
+			ConvertCampaignDebugGarrisonQuoteToLegacyPolicy(state, issued.m_Quote, issued.m_Manifest);
 			HST_ForceQuoteState quote = issued.m_Quote;
 			ledger.ReserveCost(state, economy, quote.m_sMoneyTransactionId, confirmRequestId, quote.m_sOperationId, quote.m_sActorIdentityId, HST_ResourceLedgerService.RESOURCE_FACTION_MONEY, quote.m_iMoneyCost, "reconcile proof", quote.m_sQuoteId, quote.m_sManifestId);
 			if (stage >= 2)
@@ -453,6 +558,120 @@ class HST_ForceAuthorityProofService
 			evidence = evidence + string.Format("stage%1 exact=%2 money=%3 HR=%4 link=%5 reconciled=%6", stage, exact, restored.m_iFactionMoney, restored.m_iHR, !noLink, reconciled);
 		}
 		return allExact;
+	}
+
+	protected HST_GarrisonPatrolOperationService ConfigureCampaignDebugExactGarrisonPlanning(
+		HST_ForcePlanningService planning,
+		HST_ForceSpawnQueueService queue = null,
+		HST_ForceSpawnAdapterService adapter = null,
+		HST_PhysicalWarService physicalWar = null)
+	{
+		if (!planning)
+			return null;
+		ref HST_ForceSpawnQueueService resolvedQueue = queue;
+		ref HST_ForceSpawnAdapterService resolvedAdapter = adapter;
+		ref HST_PhysicalWarService resolvedPhysicalWar = physicalWar;
+		if (!resolvedQueue)
+			resolvedQueue = new HST_ForceSpawnQueueService();
+		if (!resolvedAdapter)
+			resolvedAdapter = new HST_ForceSpawnAdapterService();
+		if (!resolvedPhysicalWar)
+			resolvedPhysicalWar = new HST_PhysicalWarService();
+		HST_GarrisonPatrolOperationService operations = new HST_GarrisonPatrolOperationService();
+		operations.SetRuntimeServices(resolvedQueue, resolvedAdapter, resolvedPhysicalWar);
+		planning.SetExactGarrisonPatrolAuthorityService(operations);
+		return operations;
+	}
+
+	protected bool CampaignDebugExactGarrisonAuthorityMatches(
+		HST_CampaignState state,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest,
+		HST_GarrisonState garrison,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group,
+		HST_GeneratedRouteState route,
+		HST_ForceSpawnQueueService queue,
+		int expectedMembers)
+	{
+		if (!state || !quote || !manifest || !garrison || !operation || !batch
+			|| !group || !route || !queue || expectedMembers <= 0)
+			return false;
+		bool manifestExact = manifest.m_aGroups.Count() == 1 && manifest.m_aGroups[0]
+			&& manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID
+			&& manifest.m_sGroupPrefab == manifest.m_aGroups[0].m_sPrefab
+			&& manifest.m_aGroups[0].m_iExpectedMemberCount == expectedMembers
+			&& manifest.m_aGroups[0].m_sPrefab.Contains("NotSpawned")
+			&& manifest.m_aMembers.Count() == expectedMembers;
+		bool graphExact = state.m_aOperations.Count() == 1
+			&& state.m_aForceSpawnResults.Count() == 1
+			&& state.m_aActiveGroups.Count() == 1
+			&& state.m_aGeneratedRoutes.Count() == 1
+			&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+			&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION
+			&& operation.m_sQuoteId == quote.m_sQuoteId
+			&& operation.m_sManifestId == manifest.m_sManifestId
+			&& operation.m_sSpawnResultId == batch.m_sResultId
+			&& operation.m_sGroupId == group.m_sGroupId
+			&& operation.m_sCurrentRouteId == route.m_sRouteId;
+		bool routeExact = route.m_sSourceCategory == HST_GarrisonPatrolOperationService.EXACT_GROUP_MODE
+			&& route.m_sSourceLayoutId == operation.m_sOperationId
+			&& route.m_sSourceZoneId == quote.m_sTargetZoneId
+			&& route.m_sTargetZoneId == quote.m_sTargetZoneId
+			&& route.m_aWaypoints.Count() == 4
+			&& operation.m_sRouteContractHash != ""
+			&& group.m_sRouteId == route.m_sRouteId;
+		bool rosterExact = batch.m_bStrategicProjectionHeld
+			&& batch.m_iExpectedSlotCount == expectedMembers + 1
+			&& batch.m_aSlotResults.Count() == expectedMembers + 1
+			&& queue.CountStrategicLivingMemberSlots(batch) == expectedMembers
+			&& CampaignDebugHeldBatchMatchesManifest(batch, manifest)
+			&& group.m_iInfantryCount == expectedMembers
+			&& group.m_iOriginalInfantryCount == expectedMembers
+			&& group.m_iDurableLivingInfantryCount == expectedMembers;
+		bool garrisonExact = garrison.m_iInfantryCount == 0
+			&& CountCampaignDebugString(garrison.m_aAcceptedManifestIds, manifest.m_sManifestId) == 1;
+		return manifestExact && graphExact && routeExact && rosterExact && garrisonExact;
+	}
+
+	protected bool CampaignDebugHeldBatchMatchesManifest(
+		HST_ForceSpawnResultState batch,
+		HST_ForceManifestState manifest)
+	{
+		if (!batch || !manifest || manifest.m_aGroups.Count() != 1 || !manifest.m_aGroups[0])
+			return false;
+		HST_ForceSpawnSlotResultState root = batch.FindSlotResult(manifest.m_aGroups[0].m_sElementId);
+		if (!root || root.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
+			return false;
+		foreach (HST_ForceManifestMemberState member : manifest.m_aMembers)
+		{
+			HST_ForceSpawnSlotResultState slot = batch.FindSlotResult(member.m_sSlotId);
+			if (!slot || slot.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+				|| slot.m_bCasualtyConfirmed)
+				return false;
+		}
+		return true;
+	}
+
+	protected void ConvertCampaignDebugGarrisonQuoteToLegacyPolicy(
+		HST_CampaignState state,
+		HST_ForceQuoteState quote,
+		HST_ForceManifestState manifest)
+	{
+		if (!state || !quote || !manifest)
+			return;
+		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
+		manifest.m_sPolicyId = HST_ForcePlanningService.LEGACY_GARRISON_POLICY_ID;
+		quote.m_sPolicyId = HST_ForcePlanningService.LEGACY_GARRISON_POLICY_ID;
+		manifest.m_sManifestHash = integrity.BuildManifestHash(manifest);
+		quote.m_sManifestHash = manifest.m_sManifestHash;
+		HST_ZoneState zone = state.FindZone(quote.m_sTargetZoneId);
+		quote.m_sContextHash = integrity.BuildGarrisonContextHash(
+			state,
+			zone,
+			quote.m_sFactionKey,
+			HST_ForcePlanningService.LEGACY_GARRISON_POLICY_ID);
 	}
 
 	protected HST_CampaignState CreateCampaignDebugForceAuthorityState(int garrisonSlots)

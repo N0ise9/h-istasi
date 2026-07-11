@@ -312,9 +312,11 @@ class HST_RecruitmentService
 		string resistanceFactionKey = ResolveResistanceFactionKey(preset);
 		int friendlyGarrisons;
 		int friendlyInfantry;
+		int friendlyExactInfantry;
 		int friendlyVehicles;
 		int activeFriendlyInfantry;
 		int activeFriendlyVehicles;
+		HST_GarrisonService capacityGarrisons = new HST_GarrisonService();
 
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 		{
@@ -323,6 +325,7 @@ class HST_RecruitmentService
 
 			friendlyGarrisons++;
 			friendlyInfantry += Math.Max(0, garrison.m_iInfantryCount);
+			friendlyExactInfantry += capacityGarrisons.CountExecutableManifestInfantry(state, garrison);
 			friendlyVehicles += Math.Max(0, garrison.m_iVehicleCount);
 		}
 
@@ -353,6 +356,7 @@ class HST_RecruitmentService
 			activeFriendlyInfantry,
 			activeFriendlyVehicles
 		);
+		report = report + string.Format(" | exact patrol infantry %1", friendlyExactInfantry);
 
 		foreach (HST_GarrisonState friendly : state.m_aGarrisons)
 		{
@@ -365,6 +369,7 @@ class HST_RecruitmentService
 			int slots;
 			int activeInfantry;
 			int activeVehicles;
+			int exactInfantry = capacityGarrisons.CountExecutableManifestInfantry(state, friendly);
 
 			if (zone)
 			{
@@ -377,14 +382,18 @@ class HST_RecruitmentService
 			}
 
 			report = report + string.Format(
-				"\n%1 | owner %2 | abstract %3/%4 | active %5/%6 | cap %7",
+				"\n%1 | owner %2 | abstract %3/%4 | exact %5",
 				zoneName,
 				owner,
 				friendly.m_iInfantryCount,
 				friendly.m_iVehicleCount,
+				exactInfantry
+			);
+			report = report + string.Format(
+				" | active %1/%2 | cap %3",
 				activeInfantry,
 				activeVehicles,
-				BuildRecruitCapacityLabel(friendly, slots, activeInfantry)
+				BuildRecruitCapacityLabel(state, capacityGarrisons, friendly, slots, activeInfantry)
 			);
 		}
 
@@ -416,12 +425,26 @@ class HST_RecruitmentService
 		}
 
 		int activeInfantry = Math.Max(0, zone.m_iActiveInfantryCount);
+		int occupiedInfantry = ResolveRecruitOccupiedInfantry(
+			state,
+			garrisons,
+			garrison,
+			activeInfantry);
 
 		int infantryCapacity = Math.Max(0, requestedInfantry);
 		if (zone.m_iGarrisonSlots > 0)
-			infantryCapacity = Math.Max(0, zone.m_iGarrisonSlots - beforeInfantry - activeInfantry);
+			infantryCapacity = Math.Max(0, zone.m_iGarrisonSlots - occupiedInfantry);
 
-		int infantryToAdd = Math.Min(Math.Max(0, requestedInfantry), infantryCapacity);
+		if (requestedInfantry > infantryCapacity)
+		{
+			result.m_sFailureReason = string.Format(
+				"garrison capacity admits %1 of %2 requested infantry; direct recruitment is all-or-nothing",
+				infantryCapacity,
+				requestedInfantry);
+			return result;
+		}
+
+		int infantryToAdd = Math.Max(0, requestedInfantry);
 		int vehiclesToAdd = Math.Max(0, requestedVehicles);
 
 		if (infantryToAdd <= 0 && vehiclesToAdd <= 0)
@@ -446,9 +469,18 @@ class HST_RecruitmentService
 		int addedInfantry = Math.Max(0, afterGarrison.m_iInfantryCount - beforeInfantry);
 		int addedVehicles = Math.Max(0, afterGarrison.m_iVehicleCount - beforeVehicles);
 
-		if (addedInfantry <= 0 && addedVehicles <= 0)
+		if (addedInfantry != requestedInfantry || addedVehicles != requestedVehicles)
 		{
-			result.m_sFailureReason = "no garrison change";
+			if (addedInfantry > 0 || addedVehicles > 0)
+				garrisons.RemoveAbstractForces(
+					state,
+					zone.m_sZoneId,
+					factionKey,
+					addedInfantry,
+					addedVehicles);
+			if (!hadGarrison)
+				RemoveEmptyRecruitGarrison(state, zone.m_sZoneId, factionKey);
+			result.m_sFailureReason = "garrison admission was not exact; partial change rolled back before charge";
 			return result;
 		}
 
@@ -496,7 +528,8 @@ class HST_RecruitmentService
 			if (!garrison || garrison.m_sZoneId != zoneId || garrison.m_sFactionKey != factionKey)
 				continue;
 
-			if (garrison.m_iInfantryCount <= 0 && garrison.m_iVehicleCount <= 0)
+			if (garrison.m_iInfantryCount <= 0 && garrison.m_iVehicleCount <= 0
+				&& garrison.m_aAcceptedManifestIds.Count() == 0)
 				state.m_aGarrisons.Remove(i);
 			return;
 		}
@@ -510,12 +543,37 @@ class HST_RecruitmentService
 		return "FIA";
 	}
 
-	protected string BuildRecruitCapacityLabel(HST_GarrisonState garrison, int slots, int activeInfantry)
+	protected int ResolveRecruitOccupiedInfantry(
+		HST_CampaignState state,
+		HST_GarrisonService garrisons,
+		HST_GarrisonState garrison,
+		int activeInfantry)
+	{
+		int legacyInfantry;
+		int exactInfantry;
+		if (garrison)
+		{
+			legacyInfantry = Math.Max(0, garrison.m_iInfantryCount);
+			if (state && garrisons)
+				exactInfantry = garrisons.CountExecutableManifestInfantry(state, garrison);
+		}
+		return legacyInfantry + Math.Max(0, exactInfantry) + Math.Max(0, activeInfantry);
+	}
+
+	protected string BuildRecruitCapacityLabel(
+		HST_CampaignState state,
+		HST_GarrisonService garrisons,
+		HST_GarrisonState garrison,
+		int slots,
+		int activeInfantry)
 	{
 		if (!garrison || slots <= 0)
 			return "uncapped";
 
-		return string.Format("%1/%2", garrison.m_iInfantryCount + activeInfantry, slots);
+		return string.Format(
+			"%1/%2",
+			ResolveRecruitOccupiedInfantry(state, garrisons, garrison, activeInfantry),
+			slots);
 	}
 
 	protected string BuildRecruitUnlockSummary(HST_CampaignState state)

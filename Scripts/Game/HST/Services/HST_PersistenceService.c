@@ -233,8 +233,19 @@ class HST_PersistenceService
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
+		if (!NormalizeRetiredQuarantinedGarrisonPatrolAuthority(state, quarantineFailure))
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact garrison patrol quarantine cleanup is incomplete during %1 | %2",
+				context,
+				quarantineFailure);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
 		bool hasExactMissionConvoy;
 		bool hasPhysicalExactEnemyPatrol;
+		bool hasPhysicalExactGarrisonPatrol;
+		bool hasMaterializingExactPatrol;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (mission && mission.m_sRuntimePrimitive == "convoy_intercept"
@@ -246,21 +257,42 @@ class HST_PersistenceService
 		}
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
-			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
-				|| operation.m_iContractVersion != HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION
+			if (!operation
 				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
 				|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
 				continue;
+			bool exactEnemyPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
+				&& operation.m_iContractVersion == HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
+			bool exactGarrisonPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION;
+			if (!exactEnemyPatrol && !exactGarrisonPatrol)
+				continue;
+			if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+			{
+				hasMaterializingExactPatrol = true;
+				continue;
+			}
 			if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 				|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
 			{
-				hasPhysicalExactEnemyPatrol = true;
-				break;
+				if (exactEnemyPatrol)
+					hasPhysicalExactEnemyPatrol = true;
+				else
+					hasPhysicalExactGarrisonPatrol = true;
 			}
+		}
+		if (hasMaterializingExactPatrol)
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact patrol materialization is in progress during %1",
+				context);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
 		}
 		if (!m_PhysicalWar)
 		{
-			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyPatrol)
+			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyPatrol && !hasPhysicalExactGarrisonPatrol)
 				return true;
 			state.m_sLastPersistenceStatus = "checkpoint deferred: exact physical roster reconciler is unavailable";
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
@@ -274,7 +306,7 @@ class HST_PersistenceService
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
-		if (!hasPhysicalExactEnemyPatrol)
+		if (!hasPhysicalExactEnemyPatrol && !hasPhysicalExactGarrisonPatrol)
 			return true;
 		if (!m_ForceSpawnQueue || !m_ForceSpawnAdapter)
 		{
@@ -300,7 +332,9 @@ class HST_PersistenceService
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
-		return ValidatePhysicalEnemyPatrolSnapshots(state, context);
+		if (!ValidatePhysicalEnemyPatrolSnapshots(state, context))
+			return false;
+		return ValidatePhysicalGarrisonPatrolSnapshots(state, context);
 	}
 
 	protected bool NormalizeRetiredQuarantinedEnemyPatrolAuthority(
@@ -486,6 +520,223 @@ class HST_PersistenceService
 		return true;
 	}
 
+	protected bool NormalizeRetiredQuarantinedGarrisonPatrolAuthority(
+		HST_CampaignState state,
+		out string failure)
+	{
+		failure = "";
+		if (!state)
+		{
+			failure = "campaign state is unavailable";
+			return false;
+		}
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation
+				|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				|| operation.m_iContractVersion != HST_GarrisonPatrolOperationService.QUARANTINED_CONTRACT_VERSION)
+				continue;
+
+			HST_ActiveGroupState group;
+			int groupMatches;
+			foreach (HST_ActiveGroupState candidateGroup : state.m_aActiveGroups)
+			{
+				if (!QuarantinedGarrisonGroupClaimsOperation(candidateGroup, operation))
+					continue;
+				groupMatches++;
+				group = candidateGroup;
+			}
+			if (groupMatches > 1)
+			{
+				failure = "quarantined exact garrison patrol group authority is ambiguous " + operation.m_sOperationId;
+				return false;
+			}
+
+			HST_ForceSpawnResultState batch;
+			int batchMatches;
+			foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+			{
+				if (!QuarantinedGarrisonBatchClaimsOperation(candidateBatch, operation, group))
+					continue;
+				batchMatches++;
+				batch = candidateBatch;
+			}
+			if (batchMatches > 1)
+			{
+				failure = "quarantined exact garrison patrol spawn authority is ambiguous " + operation.m_sOperationId;
+				return false;
+			}
+
+			string projectionId = operation.m_sProjectionId;
+			if (projectionId.IsEmpty() && group)
+				projectionId = group.m_sProjectionId;
+			if (projectionId.IsEmpty() && batch)
+				projectionId = batch.m_sProjectionId;
+			int projectionHandles;
+			int resultHandles;
+			if (m_ForceSpawnAdapter)
+			{
+				if (!projectionId.IsEmpty())
+					projectionHandles = m_ForceSpawnAdapter.CountHandlesForProjection(projectionId);
+				if (batch && !batch.m_sResultId.IsEmpty())
+					resultHandles = m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId);
+			}
+			if (projectionHandles > 0 || resultHandles > 0)
+			{
+				failure = string.Format(
+					"quarantined exact garrison patrol still owns adapter bindings %1 | projection %2 | result %3",
+					operation.m_sOperationId,
+					projectionHandles,
+					resultHandles);
+				return false;
+			}
+
+			bool operationLive = operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+				|| operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+				|| operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				|| operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING;
+			bool groupProcessEvidence = QuarantinedGarrisonGroupHasProcessAuthority(group);
+			bool batchCleanupIncomplete = !IsQuarantinedGarrisonBatchCleanupComplete(batch);
+			bool runtimeShaped = operationLive || groupProcessEvidence || batchCleanupIncomplete;
+			if (runtimeShaped && !m_ForceSpawnAdapter)
+			{
+				failure = "quarantined exact garrison patrol adapter authority is unavailable " + operation.m_sOperationId;
+				return false;
+			}
+			if (group)
+			{
+				if (!m_PhysicalWar)
+				{
+					failure = "quarantined exact garrison patrol PhysicalWar authority is unavailable " + operation.m_sOperationId;
+					return false;
+				}
+				if (m_PhysicalWar.GetForceSpawnGroupRoot(group)
+					|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0)
+				{
+					failure = "quarantined exact garrison patrol still owns PhysicalWar runtime entities " + operation.m_sOperationId;
+					return false;
+				}
+			}
+			else if (operationLive)
+			{
+				failure = "quarantined exact garrison patrol live authority has no group registry key " + operation.m_sOperationId;
+				return false;
+			}
+			if (batchCleanupIncomplete)
+			{
+				failure = "quarantined exact garrison patrol queue cleanup is incomplete " + operation.m_sOperationId;
+				return false;
+			}
+			if (!operationLive && !groupProcessEvidence)
+				continue;
+
+			NormalizeQuarantinedGarrisonPatrolProcessResidue(state, operation, batch, group);
+		}
+		return true;
+	}
+
+	protected bool QuarantinedGarrisonGroupClaimsOperation(
+		HST_ActiveGroupState group,
+		HST_OperationRecordState operation)
+	{
+		if (!group || !operation)
+			return false;
+		if (operation.m_sOperationId.IsEmpty()
+			|| group.m_sOperationId != operation.m_sOperationId)
+			return false;
+		return (!operation.m_sGroupId.IsEmpty() && group.m_sGroupId == operation.m_sGroupId)
+			|| (!operation.m_sManifestId.IsEmpty() && group.m_sManifestId == operation.m_sManifestId)
+			|| (!operation.m_sSpawnResultId.IsEmpty() && group.m_sSpawnResultId == operation.m_sSpawnResultId)
+			|| (!operation.m_sForceId.IsEmpty() && group.m_sForceId == operation.m_sForceId)
+			|| (!operation.m_sProjectionId.IsEmpty() && group.m_sProjectionId == operation.m_sProjectionId);
+	}
+
+	protected bool QuarantinedGarrisonBatchClaimsOperation(
+		HST_ForceSpawnResultState batch,
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group)
+	{
+		if (!batch || !operation)
+			return false;
+		if (operation.m_sOperationId.IsEmpty()
+			|| batch.m_sOperationId != operation.m_sOperationId)
+			return false;
+		return (!operation.m_sSpawnResultId.IsEmpty() && batch.m_sResultId == operation.m_sSpawnResultId)
+			|| (!operation.m_sManifestId.IsEmpty() && batch.m_sManifestId == operation.m_sManifestId)
+			|| (!operation.m_sForceId.IsEmpty() && batch.m_sForceId == operation.m_sForceId)
+			|| (!operation.m_sProjectionId.IsEmpty() && batch.m_sProjectionId == operation.m_sProjectionId)
+			|| (group && !group.m_sSpawnResultId.IsEmpty()
+				&& batch.m_sResultId == group.m_sSpawnResultId);
+	}
+
+	protected bool QuarantinedGarrisonGroupHasProcessAuthority(HST_ActiveGroupState group)
+	{
+		return group && (group.m_bSpawnedEntity
+			|| !group.m_sRuntimeEntityId.IsEmpty()
+			|| group.m_iSpawnedAgentCount > 0
+			|| group.m_iAssignedWaypointCount > 0);
+	}
+
+	protected bool IsQuarantinedGarrisonBatchCleanupComplete(HST_ForceSpawnResultState batch)
+	{
+		if (!batch)
+			return true;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL)
+			return false;
+		if (!batch.m_sNativeGroupId.IsEmpty())
+			return false;
+		foreach (HST_ForceSpawnSlotResultState slot : batch.m_aSlotResults)
+		{
+			if (!slot)
+				continue;
+			if (!slot.m_sEntityId.IsEmpty()
+				|| !slot.m_sAssignedVehicleEntityId.IsEmpty()
+				|| !slot.m_sNativeGroupId.IsEmpty())
+				return false;
+			if (slot.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+				|| slot.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_SPAWNING
+				|| slot.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CLEANUP_PENDING)
+				return false;
+		}
+		return true;
+	}
+
+	protected void NormalizeQuarantinedGarrisonPatrolProcessResidue(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!state || !operation)
+			return;
+		int nowSecond = Math.Max(0, state.m_iElapsedSeconds);
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+		{
+			if (group && HasNonZeroPosition(group.m_vPosition))
+				operation.m_vStrategicPosition = group.m_vPosition;
+			operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+			operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+			operation.m_iMaterializationStateEnteredAtSecond = nowSecond;
+			operation.m_iLastProgressAtSecond = nowSecond;
+			operation.m_iRevision++;
+		}
+		if (batch)
+			batch.m_sNativeGroupId = "";
+		if (!group)
+			return;
+		group.m_bSpawnedEntity = false;
+		group.m_sRuntimeEntityId = "";
+		group.m_iSpawnedAgentCount = 0;
+		group.m_iAssignedWaypointCount = 0;
+		group.m_sRuntimeStatus = "exact_garrison_patrol_quarantined";
+		group.m_iLifecycleRevision++;
+	}
+
 	protected bool QuarantinedOperationClaimsOrder(
 		HST_OperationRecordState operation,
 		HST_EnemyOrderState order)
@@ -596,6 +847,53 @@ class HST_PersistenceService
 	{
 		state.m_sLastPersistenceStatus = string.Format(
 			"checkpoint deferred: exact patrol live snapshot failed during %1 | operation %2 | %3",
+			context,
+			operationId,
+			evidence);
+		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		return false;
+	}
+
+	protected bool ValidatePhysicalGarrisonPatrolSnapshots(HST_CampaignState state, string context)
+	{
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				|| operation.m_iContractVersion != HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+					&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING))
+				continue;
+			HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
+			if (!group || !batch || m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch) <= 0)
+				return DeferPhysicalGarrisonPatrolSnapshot(state, context, operation.m_sOperationId, "durable living roster is unavailable");
+			string bindingEvidence;
+			if (!m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				state,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingEvidence))
+			{
+				return DeferPhysicalGarrisonPatrolSnapshot(state, context, operation.m_sOperationId, bindingEvidence);
+			}
+			vector livePosition;
+			string liveEvidence;
+			if (!m_PhysicalWar.TryResolveExactGarrisonPatrolLivePosition(state, group, livePosition, liveEvidence))
+				return DeferPhysicalGarrisonPatrolSnapshot(state, context, operation.m_sOperationId, liveEvidence);
+		}
+		return true;
+	}
+
+	protected bool DeferPhysicalGarrisonPatrolSnapshot(
+		HST_CampaignState state,
+		string context,
+		string operationId,
+		string evidence)
+	{
+		state.m_sLastPersistenceStatus = string.Format(
+			"checkpoint deferred: exact garrison patrol live snapshot failed during %1 | operation %2 | %3",
 			context,
 			operationId,
 			evidence);

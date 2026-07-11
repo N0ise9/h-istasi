@@ -122,6 +122,7 @@ class HST_MapMarkerService
 		AddQRFMarkers(state, preset);
 		AddExactEnemyQRFOperationMarkers(state, preset);
 		AddExactEnemyPatrolOperationMarkers(state, preset);
+		AddExactGarrisonPatrolOperationMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
 		AddResistanceSupportGroupMarkers(state, preset);
 		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
@@ -289,6 +290,8 @@ class HST_MapMarkerService
 		int exactEnemyQRFMarkers = CountMarkersWithPrefix(state, "hst_exact_enemy_qrf_");
 		int openExactEnemyPatrols = CountOpenExactEnemyPatrols(state);
 		int exactEnemyPatrolMarkers = CountMarkersWithPrefix(state, "hst_exact_enemy_patrol_");
+		int openExactGarrisonPatrols = CountOpenExactGarrisonPatrols(state);
+		int exactGarrisonPatrolMarkers = CountMarkersWithPrefix(state, "hst_exact_garrison_patrol_");
 		bool hqMarker = HasMarker(state, "hst_hq");
 		bool petrosMarker = HasMarker(state, "hst_petros");
 		bool defendMarker = HasMarker(state, "hst_defend_petros");
@@ -308,11 +311,14 @@ class HST_MapMarkerService
 			status = "WARN";
 		if (exactEnemyPatrolMarkers != openExactEnemyPatrols)
 			status = "WARN";
+		if (exactGarrisonPatrolMarkers != openExactGarrisonPatrols)
+			status = "WARN";
 
 		string report = string.Format("h-istasi phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
 		report = report + string.Format("\ncoverage | HQ %1 | Petros %2 | defend %3 | missions %4/%5 | support %6/%7 | qrf %8/%9", hqMarker, petrosMarker, defendMarker, missionMarkers, activeMissions, supportMarkers, activeSupport, qrfMarkers, activeQRFs);
 		report = report + string.Format(" | exact enemy qrf %1/%2", exactEnemyQRFMarkers, openExactEnemyQRFs);
 		report = report + string.Format(" | exact enemy patrol %1/%2", exactEnemyPatrolMarkers, openExactEnemyPatrols);
+		report = report + string.Format(" | exact garrison patrol %1/%2", exactGarrisonPatrolMarkers, openExactGarrisonPatrols);
 		report = report + string.Format("\ncategories | hq %1 | town %2 | strategic %3 | mission %4 | objective %5 | asset %6 | support %7 | qrf %8", CountMarkersByCategory(state, "hq"), CountMarkersByCategory(state, "town"), CountMarkersByCategory(state, "strategic"), CountMarkersByCategory(state, "mission"), CountMarkersByCategory(state, "mission_objective"), CountMarkersByCategory(state, "mission_asset"), supportMarkers, qrfMarkers);
 		report = report + BuildMarkerRefreshDiagnostic(state);
 		return report + BuildMarkerDetailReport(state, 30);
@@ -653,6 +659,21 @@ class HST_MapMarkerService
 		foreach (HST_OperationRecordState operation : state.m_aOperations)
 		{
 			if (ShouldShowExactEnemyPatrolMarker(state, operation))
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountOpenExactGarrisonPatrols(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (ShouldShowExactGarrisonPatrolMarker(state, operation))
 				count++;
 		}
 
@@ -1149,6 +1170,176 @@ class HST_MapMarkerService
 				false,
 				true);
 		}
+	}
+
+	protected void AddExactGarrisonPatrolOperationMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return;
+
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!ShouldShowExactGarrisonPatrolMarker(state, operation))
+				continue;
+
+			HST_ActiveGroupState group = ResolveExactGarrisonPatrolMarkerGroup(state, operation);
+			vector position = ResolveExactGarrisonPatrolMarkerPosition(state, operation, group);
+			int living = ResolveExactGarrisonPatrolMarkerLiving(state, operation);
+			string label = BuildExactGarrisonPatrolOperationLabel(state, operation, living);
+			AddMarker(
+				state,
+				"hst_exact_garrison_patrol_" + operation.m_sOperationId,
+				operation.m_sOperationId,
+				label,
+				"",
+				"strategic",
+				operation.m_sOwnerFactionKey,
+				"DOT",
+				FactionToMarkerColor(operation.m_sOwnerFactionKey, preset),
+				position,
+				true,
+				FactionToMarkerTextColor(operation.m_sOwnerFactionKey, preset),
+				"garrison_patrol_exact",
+				true,
+				true);
+		}
+	}
+
+	protected bool ShouldShowExactGarrisonPatrolMarker(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation)
+			return false;
+		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+			|| operation.m_iContractVersion != HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION)
+			return false;
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_sOperationId.IsEmpty())
+			return false;
+		if (operation.m_sAssignmentZoneId.IsEmpty() || operation.m_sOwnerFactionKey.IsEmpty())
+			return false;
+
+		HST_ForceSpawnResultState batch = ResolveExactGarrisonPatrolMarkerBatch(state, operation);
+		if (!batch)
+			return false;
+		HST_ForceManifestState manifest = state.FindForceManifest(operation.m_sManifestId);
+		if (!manifest || !manifest.m_bFrozen
+			|| manifest.m_sOperationId != operation.m_sOperationId
+			|| manifest.m_sPolicyId != HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
+			return false;
+		HST_ActiveGroupState group = ResolveExactGarrisonPatrolMarkerGroup(state, operation);
+		if (!group)
+			return false;
+		HST_GeneratedRouteState route = state.FindGeneratedRoute(operation.m_sCurrentRouteId);
+		ref array<vector> routePositions = HST_OperationRouteCursorService.BuildOrderedRoutePositions(route);
+		if (!route || routePositions.Count() < 3
+			|| operation.m_sRouteContractHash != HST_OperationRouteCursorService.BuildRouteContractHash(route, routePositions))
+			return false;
+		HST_GarrisonState garrison = state.FindGarrison(operation.m_sAssignmentZoneId, operation.m_sOwnerFactionKey);
+		if (!garrison || !garrison.m_aAcceptedManifestIds.Contains(manifest.m_sManifestId))
+			return false;
+		return ResolveExactGarrisonPatrolMarkerLiving(state, operation) > 0;
+	}
+
+	protected HST_ForceSpawnResultState ResolveExactGarrisonPatrolMarkerBatch(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation)
+			return null;
+		if (operation.m_sSpawnResultId.IsEmpty() || operation.m_sManifestId.IsEmpty())
+			return null;
+		if (operation.m_sForceId.IsEmpty() || operation.m_sProjectionId.IsEmpty())
+			return null;
+
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(operation.m_sSpawnResultId);
+		if (!batch || batch.m_sResultId != operation.m_sSpawnResultId)
+			return null;
+		if (batch.m_sOperationId != operation.m_sOperationId
+			|| batch.m_sManifestId != operation.m_sManifestId)
+			return null;
+		if (batch.m_sForceId != operation.m_sForceId
+			|| batch.m_sProjectionId != operation.m_sProjectionId)
+			return null;
+		return batch;
+	}
+
+	protected HST_ActiveGroupState ResolveExactGarrisonPatrolMarkerGroup(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation || operation.m_sGroupId.IsEmpty())
+			return null;
+		HST_ActiveGroupState group = state.FindActiveGroup(operation.m_sGroupId);
+		if (!group || group.m_sGroupId != operation.m_sGroupId)
+			return null;
+		if (group.m_sOperationId != operation.m_sOperationId
+			|| group.m_sManifestId != operation.m_sManifestId)
+			return null;
+		if (group.m_sSpawnResultId != operation.m_sSpawnResultId
+			|| group.m_sForceId != operation.m_sForceId
+			|| group.m_sProjectionId != operation.m_sProjectionId)
+			return null;
+		if (group.m_sZoneId != operation.m_sAssignmentZoneId
+			|| group.m_sGarrisonZoneId != operation.m_sAssignmentZoneId
+			|| group.m_sFactionKey != operation.m_sOwnerFactionKey)
+			return null;
+		return group;
+	}
+
+	protected int ResolveExactGarrisonPatrolMarkerLiving(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		HST_ForceSpawnResultState batch = ResolveExactGarrisonPatrolMarkerBatch(state, operation);
+		if (!batch)
+			return 0;
+
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		return Math.Max(0, queue.CountStrategicLivingMemberSlots(batch));
+	}
+
+	protected vector ResolveExactGarrisonPatrolMarkerPosition(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group)
+	{
+		if (!operation)
+			return "0 0 0";
+		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			&& group && group.m_bSpawnedEntity && !IsZeroVector(group.m_vPosition))
+			return group.m_vPosition;
+		if (!IsZeroVector(operation.m_vStrategicPosition))
+			return operation.m_vStrategicPosition;
+		if (!IsZeroVector(operation.m_vAssignmentPosition))
+			return operation.m_vAssignmentPosition;
+		HST_ZoneState zone;
+		if (state)
+			zone = state.FindZone(operation.m_sAssignmentZoneId);
+		if (zone && !IsZeroVector(zone.m_vPosition))
+			return zone.m_vPosition;
+		return operation.m_vOriginPosition;
+	}
+
+	protected string BuildExactGarrisonPatrolOperationLabel(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		int living)
+	{
+		string zoneOwner = operation.m_sOwnerFactionKey;
+		HST_ZoneState zone;
+		if (state)
+			zone = state.FindZone(operation.m_sAssignmentZoneId);
+		if (zone && !zone.m_sOwnerFactionKey.IsEmpty())
+			zoneOwner = zone.m_sOwnerFactionKey;
+		return string.Format(
+			"%1 | owner %2 | garrison patrol | %3 survivors",
+			ResolveZoneDisplayNameById(state, operation.m_sAssignmentZoneId),
+			zoneOwner,
+			Math.Max(0, living));
 	}
 
 	protected bool ShouldShowExactEnemyPatrolMarker(HST_CampaignState state, HST_OperationRecordState operation)
