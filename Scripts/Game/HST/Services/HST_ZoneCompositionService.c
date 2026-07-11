@@ -14,12 +14,15 @@ class HST_ZoneCompositionService
 	static const string MISSION_DESTROY_RADIO_TOWER = "destroy_radio_tower";
 	static const string MISSION_STOP_TOWER_REBUILD = "dynamic_stop_tower_rebuild";
 	static const string ROLE_DESTROY_TARGET = "destroy_target";
-	static const float HQ_SAFE_RADIUS_METERS = 900.0;
+	static const float HQ_IMMEDIATE_CLEARANCE_METERS = 150.0;
+	static const float EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS = 220.0;
+	static const string RADIO_TOWER_PREFAB_TOKEN = "TransmitterTower_01";
 
 	protected ref array<string> m_aRuntimeZoneIds = {};
 	protected ref array<string> m_aRuntimeSlotIds = {};
 	protected ref array<string> m_aRuntimePrefabs = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
+	protected ref array<IEntity> m_aExistingRadioTowerCandidates = {};
 	protected ref array<string> m_aReportedSkipKeys = {};
 	protected int m_iLastSpawnedCount;
 	protected int m_iLastSkippedPrefabCount;
@@ -83,6 +86,12 @@ class HST_ZoneCompositionService
 			if (ShouldSkipRadioTowerStaticForMissionTarget(state, zone, slot, prefab))
 			{
 				RecordSkip(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "active mission target owns radio tower");
+				continue;
+			}
+
+			if (ShouldUseExistingRadioTower(zone, slot, prefab))
+			{
+				RecordSkip(zone.m_sZoneId, slot.m_sSlotId, prefab, slot.m_vPosition, "existing world radio tower retained");
 				continue;
 			}
 
@@ -291,9 +300,9 @@ class HST_ZoneCompositionService
 			return false;
 		}
 
-		if (IsInsideHQSafeRadius(state, resolved))
+		if (IsInsideHQImmediateClearance(state, resolved))
 		{
-			RecordFailure(zone.m_sZoneId, slotId, "", resolved, "inside HQ safe radius");
+			RecordFailure(zone.m_sZoneId, slotId, "", resolved, "inside immediate HQ clearance");
 			return false;
 		}
 
@@ -355,6 +364,60 @@ class HST_ZoneCompositionService
 		}
 
 		return false;
+	}
+
+	protected bool ShouldUseExistingRadioTower(HST_ZoneState zone, HST_ZoneSpawnSlotState slot, string prefab)
+	{
+		if (!zone || !slot || prefab != PROP_DESTROY_TARGET)
+			return false;
+		if (zone.m_eType != HST_EZoneType.HST_ZONE_RADIO_TOWER || slot.m_sKind != SLOT_STATIC)
+			return false;
+
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return false;
+
+		m_aExistingRadioTowerCandidates.Clear();
+		world.QueryEntitiesBySphere(zone.m_vPosition, EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS, AddExistingRadioTowerCandidate, null, EQueryEntitiesFlags.ALL);
+		bool found = m_aExistingRadioTowerCandidates.Count() > 0;
+		m_aExistingRadioTowerCandidates.Clear();
+		return found;
+	}
+
+	protected bool AddExistingRadioTowerCandidate(IEntity entity)
+	{
+		if (!IsTransmitterTowerEntity(entity))
+			return true;
+		if (m_aRuntimeEntities.Contains(entity))
+			return true;
+		if (HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent)))
+			return true;
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
+			return true;
+
+		m_aExistingRadioTowerCandidates.Insert(entity);
+		return true;
+	}
+
+	protected bool IsTransmitterTowerEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		MapDescriptorComponent descriptor = MapDescriptorComponent.Cast(entity.FindComponent(MapDescriptorComponent));
+		if (descriptor && descriptor.GetBaseType() == EMapDescriptorType.MDT_TRANSMITTER)
+			return true;
+		if (!entity.GetPrefabData())
+			return false;
+
+		string prefab = entity.GetPrefabData().GetPrefabName();
+		if (!prefab.Contains(RADIO_TOWER_PREFAB_TOKEN))
+			return false;
+		if (prefab.Contains("TransmitterTower_01_light") || prefab.Contains("_base.et"))
+			return false;
+
+		return true;
 	}
 
 	protected bool HasLiveMissionDestroyTarget(HST_CampaignState state, string instanceId)
@@ -503,12 +566,12 @@ class HST_ZoneCompositionService
 		return seed;
 	}
 
-	protected bool IsInsideHQSafeRadius(HST_CampaignState state, vector position)
+	protected bool IsInsideHQImmediateClearance(HST_CampaignState state, vector position)
 	{
 		if (!state || !state.m_bHQDeployed)
 			return false;
 
-		return DistanceSq2D(state.m_vHQPosition, position) <= HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS;
+		return DistanceSq2D(state.m_vHQPosition, position) <= HQ_IMMEDIATE_CLEARANCE_METERS * HQ_IMMEDIATE_CLEARANCE_METERS;
 	}
 
 	protected bool IsValidPrefab(string prefab)

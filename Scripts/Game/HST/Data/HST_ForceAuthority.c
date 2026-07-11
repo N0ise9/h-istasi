@@ -280,9 +280,11 @@ class HST_ForceSpawnResultState
 	int m_iExpectedSlotCount;
 	int m_iSuccessfulHandoffCount;
 	int m_iReprojectionCount;
+	int m_iStrategicHoldSinceSecond;
 	int m_iLifecycleRevision;
 	int m_iLastLifecycleSecond;
 	bool m_bCancelRequested;
+	bool m_bStrategicProjectionHeld;
 	ref array<ref HST_ForceSpawnSlotResultState> m_aSlotResults = {};
 
 	HST_ForceSpawnSlotResultState FindSlotResult(string slotId)

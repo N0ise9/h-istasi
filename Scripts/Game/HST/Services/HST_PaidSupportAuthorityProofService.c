@@ -154,6 +154,13 @@ class HST_PaidSupportAuthorityProofService
 	{
 		HST_ForceQuoteState quote = fixture.m_Issue.m_Quote;
 		HST_ForceManifestState manifest = fixture.m_Issue.m_Manifest;
+		HST_OperationRecordState operationBeforeEnqueue = fixture.m_State.FindOperation(fixture.m_Request.m_sOperationId);
+		bool stagingBeforeEnqueue = operationBeforeEnqueue
+			&& operationBeforeEnqueue.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
+		bool routeReadyWhileStaging = stagingBeforeEnqueue
+			&& operationBeforeEnqueue.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
+			&& operationBeforeEnqueue.m_iRouteVersion == HST_StrategicMovementService.DIRECT_ROUTE_VERSION
+			&& operationBeforeEnqueue.m_fRouteTotalDistanceMeters > 0;
 		vector canonicalSource = fixture.m_Request.m_vSourcePosition;
 		vector canonicalTarget = fixture.m_Request.m_vTargetPosition;
 		fixture.m_Enqueue = fixture.m_Support.EnqueueAcceptedExactPlayerSupportProjection(
@@ -180,6 +187,9 @@ class HST_PaidSupportAuthorityProofService
 			batch = fixture.m_Enqueue.m_Batch;
 		if (batch)
 			group = fixture.m_State.FindActiveGroup(batch.m_sProjectionId);
+		HST_OperationRecordState operationAfterEnqueue = fixture.m_State.FindOperation(fixture.m_Request.m_sOperationId);
+		bool outboundAfterEnqueue = operationAfterEnqueue
+			&& operationAfterEnqueue.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND;
 		bool exact = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess && batch && group;
 		if (exact)
 			exact = batch.m_iExpectedSlotCount == manifest.m_aMembers.Count() + 1 && group.m_sManifestId == manifest.m_sManifestId && group.m_sSupportRequestId == fixture.m_Request.m_sRequestId;
@@ -187,11 +197,19 @@ class HST_PaidSupportAuthorityProofService
 			exact = PositionsMatch(fixture.m_Request.m_vSourcePosition, canonicalSource) && PositionsMatch(fixture.m_Request.m_vTargetPosition, canonicalTarget);
 		if (exact)
 			exact = replay && replay.m_bSuccess && replay.m_bAlreadyApplied && fixture.m_State.m_iFactionMoney == moneyBeforeReplay && fixture.m_State.m_iHR == hrBeforeReplay && fixture.m_State.m_aResourceTransactions.Count() == transactionsBeforeReplay;
+		if (exact)
+			exact = routeReadyWhileStaging && outboundAfterEnqueue;
 		int batchSlotCount = -1;
 		if (batch)
 			batchSlotCount = batch.m_iExpectedSlotCount;
 		report.m_bQueueReplayExact = exact;
-		report.m_sQueueReplayEvidence = string.Format("enqueue %1 | slots %2/%3 | group %4 | canonical positions %5 | replay %6 | money %7 HR %8 tx %9", fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess, batchSlotCount, manifest.m_aMembers.Count() + 1, group != null, PositionsMatch(fixture.m_Request.m_vSourcePosition, canonicalSource) && PositionsMatch(fixture.m_Request.m_vTargetPosition, canonicalTarget), replay && replay.m_bAlreadyApplied, fixture.m_State.m_iFactionMoney, fixture.m_State.m_iHR, fixture.m_State.m_aResourceTransactions.Count());
+		bool enqueueSucceeded = fixture.m_Enqueue && fixture.m_Enqueue.m_bSuccess;
+		bool canonicalPositions = PositionsMatch(fixture.m_Request.m_vSourcePosition, canonicalSource)
+			&& PositionsMatch(fixture.m_Request.m_vTargetPosition, canonicalTarget);
+		bool replayApplied = replay && replay.m_bAlreadyApplied;
+		report.m_sQueueReplayEvidence = string.Format("enqueue %1 | slots %2/%3 | group %4 | canonical positions %5 | replay %6", enqueueSucceeded, batchSlotCount, manifest.m_aMembers.Count() + 1, group != null, canonicalPositions, replayApplied);
+		report.m_sQueueReplayEvidence = report.m_sQueueReplayEvidence + string.Format(" | route ready in staging %1 | outbound commit %2", routeReadyWhileStaging, outboundAfterEnqueue);
+		report.m_sQueueReplayEvidence = report.m_sQueueReplayEvidence + string.Format(" | money %1 HR %2 tx %3", fixture.m_State.m_iFactionMoney, fixture.m_State.m_iHR, fixture.m_State.m_aResourceTransactions.Count());
 	}
 
 	protected void ProveRoundtrip(HST_PaidSupportAuthorityProofReport report, HST_PaidSupportAuthorityProofFixture fixture)
@@ -212,7 +230,7 @@ class HST_PaidSupportAuthorityProofService
 		}
 		bool exact = restored && restored.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION && restoredQuote && restoredManifest && restoredRequest && restoredBatch;
 		if (exact)
-			exact = restoredQuote.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredQuote.m_iETASeconds == HST_ForcePlanningService.SUPPORT_QRF_ETA_SECONDS && restoredQuote.m_iCooldownSeconds == HST_ForcePlanningService.SUPPORT_QRF_COOLDOWN_SECONDS;
+			exact = restoredQuote.m_sSupportRequestId == restoredRequest.m_sRequestId && restoredQuote.m_iETASeconds == fixture.m_Issue.m_Quote.m_iETASeconds && restoredQuote.m_iCooldownSeconds == HST_ForcePlanningService.SUPPORT_QRF_COOLDOWN_SECONDS;
 		if (exact)
 			exact = restoredQuote.m_eStatus == HST_EForceQuoteStatus.HST_FORCE_QUOTE_ACCEPTED && restoredManifest.m_aGroups.Count() == 1 && restoredManifest.m_aMembers.Count() == fixture.m_Issue.m_Manifest.m_aMembers.Count();
 		if (exact)
@@ -226,54 +244,203 @@ class HST_PaidSupportAuthorityProofService
 
 	protected void ProveFailureRefund(HST_PaidSupportAuthorityProofReport report, HST_PaidSupportAuthorityProofFixture fixture)
 	{
-		HST_ForceSpawnResultState batch;
-		if (fixture.m_Enqueue)
-			batch = fixture.m_Enqueue.m_Batch;
-		if (batch)
+		HST_PaidSupportAuthorityProofReport preCommitReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture preCommit = BuildAcceptedFixture(preCommitReport);
+		HST_OperationRecordState preCommitOperation;
+		HST_ForceSpawnResultState preCommitBatch;
+		bool preCommitWasStaging;
+		if (preCommit)
 		{
-			batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
-			batch.m_sTerminalReason = "paid support proof terminal failure";
+			preCommitOperation = preCommit.m_State.FindOperation(preCommit.m_Request.m_sOperationId);
+			preCommitWasStaging = preCommitOperation
+				&& preCommitOperation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
+			preCommitBatch = BuildSyntheticTerminalFailureBatch(preCommit, "paid support proof pre-commit terminal failure");
 		}
-		bool settled = fixture.m_Support.TickExactPlayerSupportSettlements(fixture.m_State);
-		HST_ResourceTransactionState money = fixture.m_State.FindResourceTransaction(fixture.m_Issue.m_Quote.m_sMoneyTransactionId);
-		HST_ResourceTransactionState hr = fixture.m_State.FindResourceTransaction(fixture.m_Issue.m_Quote.m_sHRTransactionId);
-		int moneyAfterSettlement = fixture.m_State.m_iFactionMoney;
-		int hrAfterSettlement = fixture.m_State.m_iHR;
-		HST_ForceConfirmationResult refundedReplay = fixture.m_Planning.ConfirmPlayerSupportQuote(
-			fixture.m_State,
-			fixture.m_Preset,
-			fixture.m_Economy,
-			fixture.m_Support,
-			fixture.m_Ledger,
-			"paid_support_proof_actor",
-			fixture.m_Issue.m_Quote.m_sQuoteId,
-			"paid_support_proof_refunded_replay");
-		HST_ForceQuoteResult replacementQuote = fixture.m_Planning.IssuePlayerSupportQuote(
-			fixture.m_State,
-			fixture.m_Preset,
-			"paid_support_proof_actor",
-			HST_ESupportRequestType.HST_SUPPORT_QRF,
-			"paid_support_target",
-			"1600 20 1600",
-			"paid_support_proof_replacement_issue",
-			true);
-		bool exact = settled && fixture.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED;
-		if (exact)
-			exact = money && money.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED && money.m_iRefundedAmount == money.m_iAmount;
-		if (exact)
-			exact = hr && hr.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED && hr.m_iRefundedAmount == hr.m_iAmount;
-		if (exact)
-			exact = moneyAfterSettlement == fixture.m_iInitialMoney && hrAfterSettlement == fixture.m_iInitialHR;
-		if (exact)
-			exact = fixture.m_Request.m_sGroupId.IsEmpty() && refundedReplay && refundedReplay.m_bSuccess && refundedReplay.m_bAlreadyApplied && replacementQuote && replacementQuote.m_bSuccess && fixture.m_State.m_iFactionMoney == moneyAfterSettlement && fixture.m_State.m_iHR == hrAfterSettlement;
-		int moneyRefund = -1;
-		int hrRefund = -1;
-		if (money)
-			moneyRefund = money.m_iRefundedAmount;
-		if (hr)
-			hrRefund = hr.m_iRefundedAmount;
-		report.m_bFailureRefundExact = exact;
-		report.m_sFailureRefundEvidence = string.Format("settled %1 | status %2 | money %3/%4 | HR %5/%6 | group removed %7 | replacement quote %8 | replay %9", settled, fixture.m_Request.m_eStatus, moneyRefund, fixture.m_Request.m_iMoneyCost, hrRefund, fixture.m_Request.m_iHRCost, fixture.m_Request.m_sGroupId.IsEmpty(), replacementQuote && replacementQuote.m_bSuccess, refundedReplay && refundedReplay.m_bAlreadyApplied);
+		bool preCommitSettled;
+		bool preCommitReplayApplied;
+		bool preCommitIdempotent;
+		HST_ResourceTransactionState preCommitMoney;
+		HST_ResourceTransactionState preCommitHR;
+		if (preCommit && preCommitBatch)
+		{
+			preCommitSettled = preCommit.m_Support.TickExactPlayerSupportSettlements(preCommit.m_State);
+			preCommitMoney = preCommit.m_State.FindResourceTransaction(preCommit.m_Request.m_sMoneyTransactionId);
+			preCommitHR = preCommit.m_State.FindResourceTransaction(preCommit.m_Request.m_sHRTransactionId);
+			int settledMoney = preCommit.m_State.m_iFactionMoney;
+			int settledHR = preCommit.m_State.m_iHR;
+			HST_ForceConfirmationResult replay = preCommit.m_Planning.ConfirmPlayerSupportQuote(
+				preCommit.m_State,
+				preCommit.m_Preset,
+				preCommit.m_Economy,
+				preCommit.m_Support,
+				preCommit.m_Ledger,
+				"paid_support_proof_actor",
+				preCommit.m_Issue.m_Quote.m_sQuoteId,
+				"paid_support_proof_precommit_replay");
+			preCommitReplayApplied = replay && replay.m_bSuccess && replay.m_bAlreadyApplied;
+			bool replayTickChanged = preCommit.m_Support.TickExactPlayerSupportSettlements(preCommit.m_State);
+			preCommitIdempotent = !replayTickChanged
+				&& preCommit.m_State.m_iFactionMoney == settledMoney
+				&& preCommit.m_State.m_iHR == settledHR;
+		}
+		bool preCommitExact = preCommitWasStaging && preCommitSettled && preCommitReplayApplied && preCommitIdempotent;
+		if (preCommitExact)
+			preCommitExact = preCommit.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& preCommit.m_Request.m_sResolutionKind == "exact_deployment_failed_refunded";
+		if (preCommitExact)
+			preCommitExact = preCommitMoney && preCommitHR
+				&& preCommitMoney.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED
+				&& preCommitHR.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_REFUNDED
+				&& preCommitMoney.m_iRefundedAmount == preCommit.m_Request.m_iMoneyCost
+				&& preCommitHR.m_iRefundedAmount == preCommit.m_Request.m_iHRCost;
+		if (preCommitExact)
+			preCommitExact = preCommit.m_State.m_iFactionMoney == preCommit.m_iInitialMoney
+				&& preCommit.m_State.m_iHR == preCommit.m_iInitialHR;
+
+		HST_ForceSpawnResultState outboundBatch;
+		if (fixture.m_Enqueue)
+			outboundBatch = fixture.m_Enqueue.m_Batch;
+		HST_OperationRecordState outboundOperation = fixture.m_State.FindOperation(fixture.m_Request.m_sOperationId);
+		bool outboundWasCommitted = outboundOperation
+			&& outboundOperation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND;
+		int outboundSurvivors = Math.Min(2, Math.Max(0, fixture.m_Request.m_iHRCost - 1));
+		if (outboundOperation)
+			outboundOperation.m_iLastVirtualFriendlyCount = outboundSurvivors;
+		if (outboundBatch)
+		{
+			outboundBatch.m_iSuccessfulHandoffCount = 0;
+			outboundBatch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+			outboundBatch.m_sTerminalReason = "paid support proof outbound materialization failure";
+		}
+		bool outboundSettled = fixture.m_Support.TickExactPlayerSupportSettlements(fixture.m_State);
+		HST_ResourceTransactionState outboundMoney = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sMoneyTransactionId);
+		HST_ResourceTransactionState outboundHR = fixture.m_State.FindResourceTransaction(fixture.m_Request.m_sHRTransactionId);
+		int outboundMoneyAfter = fixture.m_State.m_iFactionMoney;
+		int outboundHRAfter = fixture.m_State.m_iHR;
+		bool outboundReplayChanged = fixture.m_Support.TickExactPlayerSupportSettlements(fixture.m_State);
+		bool outboundIdempotent = !outboundReplayChanged
+			&& fixture.m_State.m_iFactionMoney == outboundMoneyAfter
+			&& fixture.m_State.m_iHR == outboundHRAfter;
+		bool outboundExact = outboundWasCommitted && outboundSurvivors > 0 && outboundSettled && outboundIdempotent;
+		if (outboundExact)
+			outboundExact = fixture.m_Request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& fixture.m_Request.m_sResolutionKind == "materialization_failed_virtual_survivors_refunded";
+		if (outboundExact)
+			outboundExact = outboundMoney && outboundHR
+				&& outboundMoney.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED
+				&& outboundMoney.m_iRefundedAmount == 0
+				&& outboundHR.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_PARTIALLY_REFUNDED
+				&& outboundHR.m_iRefundedAmount == outboundSurvivors
+				&& fixture.m_Request.m_iRefundedHR == outboundSurvivors;
+		if (outboundExact)
+			outboundExact = outboundMoneyAfter == fixture.m_iInitialMoney - fixture.m_Request.m_iMoneyCost
+				&& outboundHRAfter == fixture.m_iInitialHR - fixture.m_Request.m_iHRCost + outboundSurvivors;
+
+		HST_PaidSupportAuthorityProofReport onStationReport = new HST_PaidSupportAuthorityProofReport();
+		HST_PaidSupportAuthorityProofFixture onStation = BuildAcceptedFixture(onStationReport);
+		HST_OperationRecordState onStationOperation;
+		HST_ForceSpawnResultState onStationBatch;
+		HST_ActiveGroupState onStationGroup;
+		bool onStationTransitionAccepted;
+		int onStationSurvivors;
+		if (onStation)
+		{
+			onStation.m_Enqueue = onStation.m_Support.EnqueueAcceptedExactPlayerSupportProjection(
+				onStation.m_State,
+				onStation.m_Preset,
+				onStation.m_Request,
+				"1200 20 1200",
+				"1600 20 1600");
+			if (onStation.m_Enqueue)
+				onStationBatch = onStation.m_Enqueue.m_Batch;
+			onStationOperation = onStation.m_State.FindOperation(onStation.m_Request.m_sOperationId);
+			if (onStationBatch)
+				onStationGroup = onStation.m_State.FindActiveGroup(onStationBatch.m_sProjectionId);
+			if (onStationOperation && onStationGroup)
+			{
+				onStationOperation.m_fRouteProgressMeters = onStationOperation.m_fRouteTotalDistanceMeters;
+				onStationOperation.m_vStrategicPosition = onStationOperation.m_vRouteEndPosition;
+				onStationGroup.m_vPosition = onStationOperation.m_vStrategicPosition;
+				HST_OperationService operations = new HST_OperationService();
+				HST_OperationTransitionResult arrival = operations.MarkVirtualOnStation(onStation.m_State, onStation.m_Request, onStationGroup);
+				onStationTransitionAccepted = arrival && arrival.m_bAccepted
+					&& onStationOperation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION;
+				onStationSurvivors = Math.Min(1, Math.Max(0, onStation.m_Request.m_iHRCost - 1));
+				onStationOperation.m_iLastVirtualFriendlyCount = onStationSurvivors;
+			}
+			if (onStationBatch)
+			{
+				onStationBatch.m_iSuccessfulHandoffCount = 0;
+				onStationBatch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+				onStationBatch.m_sTerminalReason = "paid support proof on-station materialization failure";
+			}
+		}
+		bool onStationSettled;
+		bool onStationIdempotent;
+		HST_ResourceTransactionState onStationMoney;
+		HST_ResourceTransactionState onStationHR;
+		if (onStation && onStationBatch)
+		{
+			onStationSettled = onStation.m_Support.TickExactPlayerSupportSettlements(onStation.m_State);
+			onStationMoney = onStation.m_State.FindResourceTransaction(onStation.m_Request.m_sMoneyTransactionId);
+			onStationHR = onStation.m_State.FindResourceTransaction(onStation.m_Request.m_sHRTransactionId);
+			int settledMoney = onStation.m_State.m_iFactionMoney;
+			int settledHR = onStation.m_State.m_iHR;
+			bool replayChanged = onStation.m_Support.TickExactPlayerSupportSettlements(onStation.m_State);
+			onStationIdempotent = !replayChanged
+				&& onStation.m_State.m_iFactionMoney == settledMoney
+				&& onStation.m_State.m_iHR == settledHR;
+		}
+		bool onStationExact = onStationTransitionAccepted && onStationSurvivors > 0 && onStationSettled && onStationIdempotent;
+		if (onStationExact)
+			onStationExact = onStationMoney && onStationHR
+				&& onStationMoney.m_eStatus == HST_EResourceTransactionStatus.HST_TRANSACTION_COMMITTED
+				&& onStationMoney.m_iRefundedAmount == 0
+				&& onStationHR.m_iRefundedAmount == onStationSurvivors
+				&& onStation.m_Request.m_iRefundedHR == onStationSurvivors
+				&& onStation.m_Request.m_sResolutionKind == "materialization_failed_virtual_survivors_refunded";
+
+		report.m_bFailureRefundExact = preCommitExact && outboundExact && onStationExact;
+		int preCommitMoneyRefund = -1;
+		int preCommitHRRefund = -1;
+		if (preCommitMoney)
+			preCommitMoneyRefund = preCommitMoney.m_iRefundedAmount;
+		if (preCommitHR)
+			preCommitHRRefund = preCommitHR.m_iRefundedAmount;
+		int outboundMoneyRefund = -1;
+		int outboundHRRefund = -1;
+		if (outboundMoney)
+			outboundMoneyRefund = outboundMoney.m_iRefundedAmount;
+		if (outboundHR)
+			outboundHRRefund = outboundHR.m_iRefundedAmount;
+		int onStationMoneyRefund = -1;
+		int onStationHRRefund = -1;
+		if (onStationMoney)
+			onStationMoneyRefund = onStationMoney.m_iRefundedAmount;
+		if (onStationHR)
+			onStationHRRefund = onStationHR.m_iRefundedAmount;
+		report.m_sFailureRefundEvidence = string.Format("staging full refund %1 | money/HR %2/%3 | replay/idempotent %4/%5", preCommitExact, preCommitMoneyRefund, preCommitHRRefund, preCommitReplayApplied, preCommitIdempotent);
+		report.m_sFailureRefundEvidence = report.m_sFailureRefundEvidence + string.Format(" | outbound survivor settlement %1 | money refund %2 | HR refund %3/%4 | idempotent %5", outboundExact, outboundMoneyRefund, outboundHRRefund, outboundSurvivors, outboundIdempotent);
+		report.m_sFailureRefundEvidence = report.m_sFailureRefundEvidence + string.Format(" | on-station survivor settlement %1 | money refund %2 | HR refund %3/%4 | idempotent %5", onStationExact, onStationMoneyRefund, onStationHRRefund, onStationSurvivors, onStationIdempotent);
+	}
+
+	protected HST_ForceSpawnResultState BuildSyntheticTerminalFailureBatch(HST_PaidSupportAuthorityProofFixture fixture, string reason)
+	{
+		if (!fixture || !fixture.m_State || !fixture.m_Request || !fixture.m_Issue || !fixture.m_Issue.m_Manifest)
+			return null;
+		HST_ForceSpawnResultState batch = new HST_ForceSpawnResultState();
+		batch.m_sResultId = fixture.m_Request.m_sSpawnResultId;
+		batch.m_sRequestId = fixture.m_Request.m_sRequestId;
+		batch.m_sManifestId = fixture.m_Request.m_sManifestId;
+		batch.m_sManifestHash = fixture.m_Issue.m_Manifest.m_sManifestHash;
+		batch.m_sOperationId = fixture.m_Request.m_sOperationId;
+		batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL;
+		batch.m_sTerminalReason = reason;
+		batch.m_iSuccessfulHandoffCount = 0;
+		batch.m_iCreatedAtSecond = fixture.m_State.m_iElapsedSeconds;
+		batch.m_iCompletedAtSecond = fixture.m_State.m_iElapsedSeconds;
+		fixture.m_State.m_aForceSpawnResults.Insert(batch);
+		return batch;
 	}
 
 	protected void ProveCancelRefund(HST_PaidSupportAuthorityProofReport report)

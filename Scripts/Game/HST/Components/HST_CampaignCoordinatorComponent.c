@@ -446,6 +446,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_PlayerSpawn.Tick(timeSlice);
+		if (m_Civilians)
+			m_Civilians.SuppressAmbientTrafficHornInput();
 		if (m_MapMarkers)
 			m_MapMarkers.TickNativePublish(m_State, m_Preset, timeSlice);
 		if (m_PlayerMapMarkers)
@@ -13900,7 +13902,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					example = BuildCampaignDebugZoneMarkerMismatchExample(zone, marker, "link_owner");
 			}
 
-			if (marker.m_sColorHint.IsEmpty() || marker.m_sStyleHint.IsEmpty())
+			if (marker.m_sColorHint.IsEmpty() || marker.m_sStyleHint.IsEmpty() || !CampaignDebugZoneMarkerLabelMatchesState(zone, marker))
 			{
 				m_iCampaignDebugZoneMarkerPresentationMismatchCount++;
 				if (example.IsEmpty())
@@ -13916,6 +13918,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return m_iCampaignDebugZoneMarkerMissingCount + m_iCampaignDebugZoneMarkerLinkOwnerMismatchCount + m_iCampaignDebugZoneMarkerPresentationMismatchCount + m_iCampaignDebugZoneMarkerPositionMismatchCount;
+	}
+
+	protected bool CampaignDebugZoneMarkerLabelMatchesState(HST_ZoneState zone, HST_MapMarkerState marker)
+	{
+		if (!zone || !marker)
+			return false;
+
+		string locationName = zone.m_sDisplayName.Trim();
+		if (locationName.IsEmpty())
+			locationName = zone.m_sZoneId;
+		if (locationName.Length() > 28)
+			locationName = locationName.Substring(0, 25) + "...";
+
+		string ownerName = zone.m_sOwnerFactionKey.Trim();
+		if (ownerName.IsEmpty())
+			ownerName = "unclaimed";
+
+		return marker.m_sLabel == string.Format("%1 | Owner: %2", locationName, ownerName);
 	}
 
 	protected int CountCampaignDebugStaticLocationQRFIconCollisions(out string example)
@@ -16191,7 +16211,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_issue_confirm", "paid QRF issue freezes one exact catalog group without debit and confirmation commits one linked support request plus money/HR transactions", proof.m_sIssueConfirmEvidence, CampaignDebugStatus(proof.m_bIssueConfirmExact), "paid QRF quote or confirmation authority was not exact");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_queue_replay", "the accepted manifest admits one exact projection and confirmation replay remains idempotent after placement", proof.m_sQueueReplayEvidence, CampaignDebugStatus(proof.m_bQueueReplayExact), "paid QRF queue admission changed canonical quote inputs or broke accepted replay");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_persistence", "accepted paid QRF quote, manifest, support, ledger, active-group, and spawn-batch links survive current-schema roundtrip", proof.m_sRoundtripEvidence, CampaignDebugStatus(proof.m_bRoundtripExact), "paid QRF authority links did not survive persistence roundtrip");
-		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_failure_refund", "terminal deployment failure refunds money and HR once, removes the unhanded projection, permits a replacement quote, and keeps accepted replay idempotent", proof.m_sFailureRefundEvidence, CampaignDebugStatus(proof.m_bFailureRefundExact), "paid QRF terminal failure did not settle exactly");
+		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_failure_refund", "terminal failure while the operation is still staging refunds money and HR once; failure after virtual outbound or on-station commitment retains money and refunds only the operation survivor count, idempotently", proof.m_sFailureRefundEvidence, CampaignDebugStatus(proof.m_bFailureRefundExact), "paid QRF commit-boundary terminal settlement did not settle exactly");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_cancel_refund", "commander cancellation before queue admission refunds both committed transactions once and permits a replacement quote", proof.m_sCancelRefundEvidence, CampaignDebugStatus(proof.m_bCancelRefundExact), "paid QRF predeployment cancellation did not settle exactly");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_recall_refund", "pre-success recall cancels queue work, retains committed support money, refunds HR once, and removes the unhanded projection", proof.m_sRecallRefundEvidence, CampaignDebugStatus(proof.m_bRecallRefundExact), "paid QRF pre-success recall did not settle exactly");
 		AddCampaignDebugAssertion(forceCase, "force_authority.paid_qrf_recall_typed_text", "an accepted terminal recall remains APPLIED even when its presentation sentence describes a failed deployment", proof.m_sRecallTypedTextEvidence, CampaignDebugStatus(proof.m_bRecallTypedTextExact), "paid QRF recall authority still depended on presentation wording");
@@ -16219,10 +16239,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "operation_record.materialization", "the exact QRF operation advances from virtual staging through linked materialization and physical handoff to on-station duty without changing its assignment", proof.m_sMaterializationEvidence, CampaignDebugStatus(proof.m_bMaterializationExact), "exact paid QRF materialization did not preserve linked operation authority");
 		AddCampaignDebugAssertion(forceCase, "operation_record.engagement", "only CLEAR to CONTACT to ENGAGED to DISENGAGING to CLEAR is accepted, while duty and resume duty remain orthogonal", proof.m_sEngagementEvidence, CampaignDebugStatus(proof.m_bEngagementExact), "OperationRecord engagement transitions were illegal or changed duty authority");
 		AddCampaignDebugAssertion(forceCase, "operation_record.recall_settlement", "recall changes the tactical target but not the immutable assignment, then one typed terminal result settles idempotently and rejects a conflicting result", proof.m_sRecallSettlementEvidence, CampaignDebugStatus(proof.m_bRecallSettlementExact), "OperationRecord recall or typed terminal settlement was not exact");
-		AddCampaignDebugAssertion(forceCase, "operation_record.restore_projection", "current-schema restore deep-copies physical operation authority as strategic MATERIALIZING state at the saved active-group position while preserving duty and assignment", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bRestoreProjectionExact), "physical OperationRecord restore did not transfer projection authority conservatively");
+		AddCampaignDebugAssertion(forceCase, "operation_record.restore_projection", "current-schema restore deep-copies process-local physical authority as a strategic virtual operation at the saved active-group position, preserves duty/assignment, and normalizes the linked request to virtual status", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bRestoreProjectionExact), "physical OperationRecord restore did not transfer projection authority conservatively");
 		AddCampaignDebugAssertion(forceCase, "operation_record.schema48_migration", "schema 48 backfills only a unique coherent active exact QRF with committed ledger authority and leaves pre-exact, ambiguous, incomplete, and terminal rows on contract zero", proof.m_sSchema48MigrationEvidence, CampaignDebugStatus(proof.m_bSchema48MigrationExact), "schema 48 OperationRecord migration invented authority or skipped a coherent exact QRF");
 		AddCampaignDebugAssertion(forceCase, "operation_record.archive", "a settled contract operation compacts into a persistent typed tombstone, removes the full operation and planning rows, and retains confirmation replay", proof.m_sArchiveEvidence, CampaignDebugStatus(proof.m_bArchiveExact), "settled OperationRecord archive lost typed terminal or replay authority");
 		AddCampaignDebugAssertion(forceCase, "operation_record.legacy_qrf_isolation", "legacy enemy QRF rows remain independent and never acquire exact paid-support OperationRecords during schema 48 migration", proof.m_sLegacyQRFIsolationEvidence, CampaignDebugStatus(proof.m_bLegacyQRFIsolationExact), "schema 48 migration conflated legacy enemy QRF state with exact paid-support operations");
+		AppendCampaignDebugOperationProjectionAssertions(forceCase);
+	}
+
+	protected void AppendCampaignDebugOperationProjectionAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_OperationProjectionProofService service = new HST_OperationProjectionProofService();
+		HST_OperationProjectionProofReport proof = service.Run();
+		AddCampaignDebugAssertion(forceCase, "operation_projection.movement", "exact infantry-QRF travel advances from route distance and strategic speed with bounded campaign-time catch-up, then starts its combat clock only on arrival", proof.m_sMovementEvidence, CampaignDebugStatus(proof.m_bMovementExact), "exact infantry-QRF strategic travel or arrival clock was not deterministic");
+		AddCampaignDebugAssertion(forceCase, "operation_projection.hysteresis", "materialize-in and larger materialize-out distances retain a physical projection inside the hysteresis band", proof.m_sHysteresisEvidence, CampaignDebugStatus(proof.m_bHysteresisExact), "exact infantry-QRF materialization hysteresis is invalid");
+		AddCampaignDebugAssertion(forceCase, "operation_projection.roster_transfer", "virtual casualty, materialization, physical fold, and survivor reprojection preserve the exact living manifest slots without treating fold deletion as death", proof.m_sRosterTransferEvidence, CampaignDebugStatus(proof.m_bRosterTransferExact), "exact infantry-QRF roster authority drifted across projection modes");
+		AddCampaignDebugAssertion(forceCase, "operation_projection.combat_restore", "virtual combat processes bounded deterministic power steps and schema-50 restore resumes one held strategic projection with the same exact survivors", proof.m_sCombatRestoreEvidence, CampaignDebugStatus(proof.m_bCombatRestoreExact), "exact infantry-QRF virtual combat or restore duplicated or lost projection authority");
 	}
 
 	protected void AppendCampaignDebugForceRuntimeAuthorityAssertions(HST_CampaignDebugCaseResult forceCase)
@@ -24187,6 +24220,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
+		RunCampaignDebugCivilianPopulationProbe(phaseCase, populationTown);
+	}
+
+	protected void RunCampaignDebugCivilianPopulationProbe(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState populationTown)
+	{
+
 		string zoneId = populationTown.m_sZoneId;
 		HST_ZoneState populationZone = m_State.FindZone(zoneId);
 		int originalPresence = populationTown.m_iCivilianPresence;
@@ -24200,12 +24239,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		vector townPosition = populationZone.m_vPosition;
 		bool teleported = TeleportCampaignDebugPlayer(townPosition + "8 0 8", "phase20 civilian population");
-		playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+		IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
 		float playerDistance = 999999.0;
 		if (playerEntity)
 			playerDistance = Math.Sqrt(DistanceSq2D(playerEntity.GetOrigin(), townPosition));
 
-		populationZone.m_bActive = true;
+		populationZone.m_bActive = false;
 		populationZone.m_iActiveInfantryCount = 0;
 		populationZone.m_iActiveVehicleCount = 0;
 		bool runtimeChanged = m_Civilians.UpdatePhysicalTownPopulationForZone(m_State, m_Preset, m_Balance, zoneId, true);
@@ -24215,6 +24254,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int civilianVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE");
 		int civilianTrafficVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV");
 		int civilianTrafficVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE");
+		HST_CivilianProjectionProofSummary projectionProof = m_Civilians.BuildProjectionProofSummary(zoneId, populationTown, populationZone, m_Balance, civilianCharacters, civilianTrafficVehicles);
 		int pedestrianBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_CHARACTER", "CIV", 3);
 		int trafficBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV", 5);
 		int civilianFactionMismatches = m_Civilians.CountRuntimeEntityFactionMismatchesForZone(zoneId, "CIV_CHARACTER", "CIV");
@@ -24223,7 +24263,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool runtimeZoneActive = m_Civilians.HasRuntimeTownZone(zoneId);
 		float populationRadius = Math.Max(ResolveCampaignDebugActivationRadius(populationZone), 120.0);
 		int outsideRadius = m_Civilians.CountRuntimeEntitiesForZoneOutsideRadius(zoneId, townPosition, populationRadius);
-		int expectedCharacters = Math.Min(populationTown.m_iCivilianPresence, m_Balance.m_iCivilianMaxActivePerTown);
 		int spawnFailuresAfter = m_State.m_iRuntimeSpawnFailureCount;
 		string populationActual = m_Civilians.BuildRuntimeTownPopulationReport(m_State, zoneId);
 		populationActual = populationActual + string.Format(" | update changed %1 | runtime zone %2", runtimeChanged, runtimeZoneActive);
@@ -24284,10 +24323,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool vehicleConfigured = m_Balance.m_iCivilianVehicleMaxPerTown > 0;
 		bool vehicleCountOk = !vehicleConfigured || (civilianVehicles >= m_Balance.m_iCivilianVehicleMinPerTown && civilianVehicles <= m_Balance.m_iCivilianVehicleMaxPerTown);
-		bool trafficConfigured = m_Balance.m_iCivilianDrivingVehicleCountPerTown > 0;
-		bool trafficCountOk = !trafficConfigured || civilianTrafficVehicles == m_Balance.m_iCivilianDrivingVehicleCountPerTown;
+		bool trafficCountOk = !projectionProof.m_bTrafficConfigured || civilianTrafficVehicles == projectionProof.m_iExpectedTrafficVehicles;
 		bool pedestrianBehaviorOk = civilianCharacters > 0 && pedestrianBehavior == civilianCharacters;
-		bool trafficBehaviorOk = !trafficConfigured || (civilianTrafficVehicles > 0 && trafficBehavior == civilianTrafficVehicles);
+		bool trafficBehaviorOk = !projectionProof.m_bTrafficConfigured || (civilianTrafficVehicles > 0 && trafficBehavior == civilianTrafficVehicles);
 		bool knownRuntimeKinds = totalRuntime == civilianCharacterAnyFaction + civilianVehicleAnyFaction + civilianTrafficVehicleAnyFaction + militaryVehicles;
 		bool civilianFactionOk = civilianCharacters == civilianCharacterAnyFaction && civilianVehicles == civilianVehicleAnyFaction && civilianTrafficVehicles == civilianTrafficVehicleAnyFaction;
 		bool civilianActualFactionOk = civilianFactionMismatches == 0;
@@ -24298,10 +24336,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		phaseCase.m_aEvidence.Insert("civilian movement samples | " + ShortCampaignDebugLine(movementSampleHistory, 260));
 		phaseCase.m_aEvidence.Insert(string.Format("civilian population cleanup | changed %1 | runtime left %2 | vehicle records removed %3", cleanupChanged, cleanupRuntime, removedRuntimeVehicles));
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.characters", string.Format("%1", civilianCharacters), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.unique_character_prefabs", string.Format("%1", projectionProof.m_iUniquePedestrianPrefabs), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.unique_actor_prefabs", string.Format("%1", projectionProof.m_iUniqueActorPrefabs), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.vehicles", string.Format("%1", civilianVehicles), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_vehicles", string.Format("%1", civilianTrafficVehicles), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.pedestrian_behavior", string.Format("%1", pedestrianBehavior), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_behavior", string.Format("%1", trafficBehavior), "count");
+		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.traffic_horn_inputs", string.Format("%1", projectionProof.m_iTrafficDriversWithHornInput), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.civ_faction_mismatches", string.Format("%1", civilianFactionMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.outside_radius", string.Format("%1", outsideRadius), "count");
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.movement_window_seconds", string.Format("%1", movementWindowSeconds), "seconds");
@@ -24309,12 +24350,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase20.civilian_population.max_character_movement", string.Format("%1", Math.Round(maxCharacterMovement)), "meters");
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.town_selected", "clean inactive town selected for population probe", BuildCampaignDebugCivilianPopulationTownActual(populationTown, populationZone), CampaignDebugStatus(populationZone != null && !originalActive && CountActiveMissionsAtZone(zoneId) == 0), "civilian population probe town was not clean/inactive", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.player_bubble", "player teleported inside town population bubble", string.Format("teleport %1 | distance %2m | radius %3m", teleported, Math.Round(playerDistance), Math.Round(populationRadius)), CampaignDebugStatus(teleported && playerDistance <= populationRadius), "player was not inside the civilian town bubble", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.inactive_zone_projection", "nearby civilian locality remains projection-eligible while hostile-garrison activation is false", string.Format("zone active %1 | civilian eligible %2 | player distance %3m", false, projectionProof.m_bProjectionEligible, Math.Round(playerDistance)), CampaignDebugStatus(!populationZone.m_bActive && projectionProof.m_bProjectionEligible), "civilian projection remained coupled to the military zone-active flag", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.runtime_zone", "civilian service marks town as runtime-active with population", populationActual, CampaignDebugStatus(runtimePopulationActive), "civilian runtime update did not leave an active populated town runtime", "", "", zoneId);
-		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.character_count", "CIV character count equals capped town presence", populationActual, CampaignDebugStatus(civilianCharacters == expectedCharacters && civilianCharacters > 0), "civilian character runtime count does not match configured town presence/cap", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.character_count", "CIV character count equals capped town presence", populationActual, CampaignDebugStatus(civilianCharacters == projectionProof.m_iExpectedPedestrians && civilianCharacters > 0), "civilian character runtime count does not match configured town presence/cap", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.character_diversity", "each projected pedestrian and traffic-driver actor resolves a distinct concrete stock civilian prefab", string.Format("pedestrians %1/%2 | all actors %3/%4", projectionProof.m_iUniquePedestrianPrefabs, civilianCharacters, projectionProof.m_iUniqueActorPrefabs, projectionProof.m_iActorAppearances), CampaignDebugStatus(projectionProof.m_bAppearanceDiversityExact), "civilian runtime repeated a concrete appearance prefab inside one town projection", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.vehicle_count", "civilian vehicles spawn when configured and stay within configured bounds", populationActual, CampaignDebugStatus(vehicleCountOk), "civilian vehicle runtime count outside configured bounds", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_count", "ambient civilian traffic vehicles match configured active-town count", populationActual, CampaignDebugStatus(trafficCountOk), "civilian traffic vehicle runtime count does not match configured count", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.pedestrian_behavior", "spawned civilian pedestrians receive AI group and cyclic wander helpers", behaviorActual, CampaignDebugStatus(pedestrianBehaviorOk), "civilian pedestrians spawned without behavior helpers", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_behavior", "spawned civilian traffic receives driver, AI group, and route helpers", behaviorActual, CampaignDebugStatus(trafficBehaviorOk), "civilian traffic vehicles spawned without driver/route helpers", "", "", zoneId);
+		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.traffic_horn_suppression", "every ambient traffic driver exposes a controller and its horn input is cleared", string.Format("driver controllers %1/%2 | sounding %3", projectionProof.m_iTrafficDriverControllers, civilianTrafficVehicles, projectionProof.m_iTrafficDriversWithHornInput), CampaignDebugStatus(projectionProof.m_bHornSuppressionExact), "ambient civilian traffic retained a horn input or lacked a controllable driver", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.civ_faction", "civilian characters/vehicles are tagged CIV and runtime kinds are known", populationActual, CampaignDebugStatus(civilianFactionOk && civilianActualFactionOk && knownRuntimeKinds), "civilian runtime entities missing CIV faction tag or unknown runtime kind", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.positions", "runtime civilian entities stay inside town bubble radius", string.Format("outside %1/%2 | radius %3m", outsideRadius, totalRuntime, Math.Round(populationRadius)), CampaignDebugStatus(totalRuntime > 0 && outsideRadius == 0), "civilian runtime entities spawned outside the town bubble", "", "", zoneId);
 		AddCampaignDebugAssertion(phaseCase, "phase20.civilian_population.movement_samples", "bounded civilian movement window records repeated samples and timeout evidence", movementActual + " | history " + ShortCampaignDebugLine(movementSampleHistory, 180), CampaignDebugStatus(movementActualSampleCount == movementSampleTargetCount && !movementSampleHistory.IsEmpty()), "civilian movement sample window did not record repeated sample evidence", "", "", zoneId);
@@ -24998,7 +25042,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool supportRecallHidesGroupId = !forcesRecallPayload.Contains("hst_debug_phase23_recall_group");
 		bool petrosMainHidesTechnicalRows = !petrosPayload.Contains("|Prefab|") && !petrosPayload.Contains("|HQ position|") && !petrosPayload.Contains("|Petros position|") && !petrosPayload.Contains("|Arsenal prefab|") && !petrosPayload.Contains("|Attacker group|");
 		bool petrosHidesHQMoveActions = !petrosPayload.Contains("|Move base to my position|move_hq_here|") && !petrosPayload.Contains("|Move HQ:") && !petrosPayload.Contains("|move_hq|");
-		bool mapTargetMarkerLayered = HST_UIConstants.Z_MAP_TARGET_CURSOR < HST_UIConstants.Z_ACTION_DIALOG;
+		bool mapTargetMarkerLayered = HST_UIConstants.Z_MAP_TARGET_PROMPT < HST_UIConstants.Z_MAP_TARGET_CURSOR
+			&& HST_UIConstants.Z_MAP_TARGET_CURSOR < HST_UIConstants.Z_MAP_ACTION_DIALOG
+			&& HST_UIConstants.Z_MAP_ACTION_DIALOG < HST_UIConstants.Z_NATIVE_MAP_CURSOR;
 		string compactMissionPayload = BuildCampaignDebugPhase23CompactMissionPayload();
 		int compactMissionRows = CountCampaignDebugPayloadToken(compactMissionPayload, "\nROW|active_missions|");
 		bool compactMissionTitles = compactMissionPayload.Contains("Phase23 Convoy Probe") && compactMissionPayload.Contains("Phase23 Hold Probe");
@@ -25045,7 +25091,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"Phase 23 Forces payload allows roadblock support without a stored vehicle");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.support_recall_chooser", "Forces payload exposes recall chooser with support type, FIA count, status, and relative location", ShortCampaignDebugLine(forcesRecallPayload, 260), CampaignDebugStatus(supportRecallChooserVisible && supportRecallHidesGroupId), "Phase 23 Forces payload is missing support recall chooser detail or exposes an internal group id");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.main_sections_player_facing", "always-visible menu sections hide prefabs, raw positions, and internal group ids", ShortCampaignDebugLine(petrosPayload + " " + forcesRecallPayload, 260), CampaignDebugStatus(petrosMainHidesTechnicalRows && supportRecallHidesGroupId), "Phase 23 visible menu still exposes technical HQ/support internals");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_marker_layer", "selected map-target marker renders below action dialogs", string.Format("marker z %1 | dialog z %2", HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_ACTION_DIALOG), CampaignDebugStatus(mapTargetMarkerLayered), "Phase 23 map-target marker layer is not below the action dialog layer");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.map_target_marker_layer", "map-target prompt, selection marker, and confirmation dialog stay below the native map pointer", string.Format("prompt z %1 | marker z %2 | dialog z %3 | pointer z %4", HST_UIConstants.Z_MAP_TARGET_PROMPT, HST_UIConstants.Z_MAP_TARGET_CURSOR, HST_UIConstants.Z_MAP_ACTION_DIALOG, HST_UIConstants.Z_NATIVE_MAP_CURSOR), CampaignDebugStatus(mapTargetMarkerLayered), "Phase 23 map-target overlay ordering does not keep the native pointer above the confirmation dialog");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_hq_move_menu_actions", "Petros menu hides HQ relocation actions", ShortCampaignDebugLine(petrosPayload, 220), CampaignDebugStatus(petrosHidesHQMoveActions), "Phase 23 Petros payload still exposes HQ move actions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_compact_rows", "missions tab renders one compact active-mission row per mission", string.Format("rows %1 | titles %2 | payload %3", compactMissionRows, compactMissionTitles, ShortCampaignDebugLine(compactMissionPayload, 180)), CampaignDebugStatus(compactMissionRows == 2 && compactMissionTitles), "Phase 23 Missions payload did not render compact rows for the synthetic active missions");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.missions_no_detail_rows", "missions tab active section omits expanded per-mission detail rows", ShortCampaignDebugLine(compactMissionPayload, 220), CampaignDebugStatus(compactMissionNoDetailRows), "Phase 23 Missions payload still includes expanded active-mission detail labels");
@@ -25379,7 +25425,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi phase 23 marker audit")), "Phase 23 marker audit report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.records", "marker model has records", string.Format("%1", totalMarkers), CampaignDebugStatus(totalMarkers > 0), "Phase 23 marker model has no records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
-		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker label, linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.location_qrf_icon_deconflict", "static location markers use icons distinct from QRF tactical markers", BuildCampaignDebugCountExample(locationIconCollisionCount, locationIconCollisionExample), CampaignDebugStatus(locationIconCollisionCount == 0), "Phase 23 found static location markers reusing the QRF tactical icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radio_icon", "radio tower zone markers use the radio-signal icon", BuildCampaignDebugCountExample(radioIconMismatches, radioIconExample), CampaignDebugStatus(radioIconMismatches == 0), "Phase 23 found radio tower markers without RADIO_SIGNAL icon");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.radar_icon", "radar site zone markers use the dedicated radar icon", BuildCampaignDebugCountExample(radarIconMismatches, radarIconExample), CampaignDebugStatus(radarIconMismatches == 0), "Phase 23 found radar site markers without TARGET_REFERENCE_POINT icon");
@@ -28975,6 +29021,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!town || !zone || !m_State || !m_Civilians)
 			return false;
 		if (zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return false;
+		if (!m_Civilians.IsTrueTownLocation(zone))
 			return false;
 		if (zone.m_bActive || zone.m_iActiveInfantryCount > 0 || zone.m_iActiveVehicleCount > 0)
 			return false;

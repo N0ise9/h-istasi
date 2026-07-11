@@ -785,6 +785,23 @@ class HST_CampaignSaveData
 		target.m_vTacticalTargetPosition = source.m_vTacticalTargetPosition;
 		target.m_vStrategicPosition = source.m_vStrategicPosition;
 		target.m_sCurrentRouteId = source.m_sCurrentRouteId;
+		target.m_iProjectionContractVersion = source.m_iProjectionContractVersion;
+		target.m_iRouteVersion = source.m_iRouteVersion;
+		target.m_vRouteStartPosition = source.m_vRouteStartPosition;
+		target.m_vRouteEndPosition = source.m_vRouteEndPosition;
+		target.m_fRouteTotalDistanceMeters = source.m_fRouteTotalDistanceMeters;
+		target.m_fRouteProgressMeters = source.m_fRouteProgressMeters;
+		target.m_fStrategicSpeedMetersPerSecond = source.m_fStrategicSpeedMetersPerSecond;
+		target.m_iStrategicLastUpdateSecond = source.m_iStrategicLastUpdateSecond;
+		target.m_iLastProjectionDecisionSecond = source.m_iLastProjectionDecisionSecond;
+		target.m_iVirtualCombatLastStepSecond = source.m_iVirtualCombatLastStepSecond;
+		target.m_iVirtualCombatStepIndex = source.m_iVirtualCombatStepIndex;
+		target.m_iVirtualCombatFriendlyDamageCarry = source.m_iVirtualCombatFriendlyDamageCarry;
+		target.m_iVirtualCombatHostileDamageCarry = source.m_iVirtualCombatHostileDamageCarry;
+		target.m_iLastVirtualFriendlyCount = source.m_iLastVirtualFriendlyCount;
+		target.m_iLastVirtualHostileCount = source.m_iLastVirtualHostileCount;
+		target.m_sLastProjectionReason = source.m_sLastProjectionReason;
+		target.m_sLastVirtualCombatReason = source.m_sLastVirtualCombatReason;
 		target.m_sRecallPolicyId = source.m_sRecallPolicyId;
 		target.m_sSettlementPolicyId = source.m_sSettlementPolicyId;
 		target.m_eDutyState = source.m_eDutyState;
@@ -1913,9 +1930,11 @@ class HST_CampaignSaveData
 		target.m_iExpectedSlotCount = source.m_iExpectedSlotCount;
 		target.m_iSuccessfulHandoffCount = source.m_iSuccessfulHandoffCount;
 		target.m_iReprojectionCount = source.m_iReprojectionCount;
+		target.m_iStrategicHoldSinceSecond = source.m_iStrategicHoldSinceSecond;
 		target.m_iLifecycleRevision = source.m_iLifecycleRevision;
 		target.m_iLastLifecycleSecond = source.m_iLastLifecycleSecond;
 		target.m_bCancelRequested = source.m_bCancelRequested;
+		target.m_bStrategicProjectionHeld = source.m_bStrategicProjectionHeld;
 		foreach (HST_ForceSpawnSlotResultState slotResult : source.m_aSlotResults)
 		{
 			HST_ForceSpawnSlotResultState slotCopy = CopyForceSpawnSlotResult(slotResult);
@@ -2334,7 +2353,9 @@ class HST_CampaignSaveData
 		NormalizeActiveGroupSourceLinks();
 		NormalizeForceAuthority(restoredSchemaVersion);
 		NormalizeOperationAuthority(restoredSchemaVersion);
+		NormalizeOperationProjectionAuthority(restoredSchemaVersion);
 		NormalizeRestoredOperationProjectionState();
+		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)
@@ -2665,10 +2686,29 @@ class HST_CampaignSaveData
 	protected void NormalizeRestoredOperationProjectionState()
 	{
 		int restoreSecond = Math.Max(0, m_iElapsedSeconds);
+		HST_StrategicMovementService movement = new HST_StrategicMovementService();
 		foreach (HST_OperationRecordState operation : m_aOperations)
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 				continue;
+			if (operation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION)
+			{
+				HST_ActiveGroupState strategicGroup = FindActiveGroupForMigration(operation.m_sGroupId);
+				if (strategicGroup && strategicGroup.m_sOperationId == operation.m_sOperationId
+					&& strategicGroup.m_sProjectionId == operation.m_sProjectionId && !IsZeroVector(strategicGroup.m_vPosition))
+					operation.m_vStrategicPosition = strategicGroup.m_vPosition;
+				movement.SyncRouteProgressFromPosition(operation, operation.m_vStrategicPosition);
+				operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+				operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+				operation.m_iMaterializationStateEnteredAtSecond = restoreSecond;
+				operation.m_iStrategicLastUpdateSecond = restoreSecond;
+				operation.m_iVirtualCombatLastStepSecond = restoreSecond;
+				operation.m_iLastProgressAtSecond = restoreSecond;
+				operation.m_sLastProjectionReason = "restored as strategic authority without process-local entities";
+				NormalizeRestoredStrategicProjectionBatch(operation, strategicGroup, restoreSecond);
+				operation.m_iRevision++;
+				continue;
+			}
 			if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 				&& operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
 				continue;
@@ -2686,6 +2726,210 @@ class HST_CampaignSaveData
 			operation.m_iLastProgressAtSecond = restoreSecond;
 			operation.m_iRevision++;
 		}
+	}
+
+	protected void NormalizeOperationProjectionAuthority(int restoredSchemaVersion)
+	{
+		if (restoredSchemaVersion >= 50 || HasCampaignEventId("migration_schema50_operation_projection"))
+			return;
+		int migratedCount;
+		int unsupportedCount;
+		HST_StrategicMovementService movement = new HST_StrategicMovementService();
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		foreach (HST_OperationRecordState operation : m_aOperations)
+		{
+			if (!operation || operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_PLAYER_SUPPORT_QRF
+				|| operation.m_iContractVersion != HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+				continue;
+			HST_SupportRequestState request = FindSupportRequestForProjectionMigration(operation.m_sSupportRequestId);
+			HST_ForceManifestState manifest = FindForceManifestForProjectionMigration(operation.m_sManifestId);
+			if (!request || !manifest || !movement.IsSupportedExactInfantryManifest(manifest))
+			{
+				unsupportedCount++;
+				continue;
+			}
+
+			operation.m_iProjectionContractVersion = HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION;
+			operation.m_iRouteVersion = HST_StrategicMovementService.DIRECT_ROUTE_VERSION;
+			operation.m_vRouteStartPosition = operation.m_vOriginPosition;
+			operation.m_vRouteEndPosition = operation.m_vTacticalTargetPosition;
+			if (IsZeroVector(operation.m_vRouteEndPosition))
+				operation.m_vRouteEndPosition = operation.m_vAssignmentPosition;
+			operation.m_fRouteTotalDistanceMeters = Math.Sqrt(DistanceSq2D(operation.m_vRouteStartPosition, operation.m_vRouteEndPosition));
+			operation.m_fStrategicSpeedMetersPerSecond = HST_StrategicMovementService.EXACT_PLAYER_QRF_SPEED_METERS_PER_SECOND;
+			if (IsZeroVector(operation.m_vStrategicPosition))
+				operation.m_vStrategicPosition = operation.m_vRouteStartPosition;
+			movement.SyncRouteProgressFromPosition(operation, operation.m_vStrategicPosition);
+			operation.m_iStrategicLastUpdateSecond = Math.Max(0, m_iElapsedSeconds);
+			operation.m_iVirtualCombatLastStepSecond = Math.Max(0, m_iElapsedSeconds);
+			operation.m_iLastProjectionDecisionSecond = Math.Max(0, m_iElapsedSeconds);
+			operation.m_sLastProjectionReason = "schema 50 strategic projection initialized";
+			HST_ForceSpawnResultState batch = FindForceSpawnResultForMigration(operation.m_sSpawnResultId);
+			if (batch && batch.m_iSuccessfulHandoffCount > 0)
+				operation.m_iLastVirtualFriendlyCount = queue.CountDurableLivingMemberSlots(batch);
+			else if (batch)
+				operation.m_iLastVirtualFriendlyCount = queue.CountStrategicLivingMemberSlots(batch);
+			else
+				operation.m_iLastVirtualFriendlyCount = manifest.m_iAcceptedMemberCount;
+			migratedCount++;
+		}
+
+		HST_CampaignEventState eventState = new HST_CampaignEventState();
+		eventState.m_sEventId = "migration_schema50_operation_projection";
+		eventState.m_sCategory = "migration";
+		eventState.m_sAggregateType = "operation_projection";
+		eventState.m_sAggregateId = "schema50";
+		eventState.m_sTransition = "exact_infantry_qrf_projection_initialized";
+		eventState.m_sReason = string.Format("initialized %1 exact infantry-QRF strategic projections; left %2 unsupported vehicle, asset, multi-root, or incomplete records on the operation-only contract", migratedCount, unsupportedCount);
+		eventState.m_iCreatedAtSecond = Math.Max(0, m_iElapsedSeconds);
+		m_aCampaignEvents.Insert(eventState);
+	}
+
+	protected void NormalizeRestoredStrategicProjectionBatch(HST_OperationRecordState operation, HST_ActiveGroupState group, int restoreSecond)
+	{
+		if (!operation)
+			return;
+		HST_SupportRequestState request = FindSupportRequestForProjectionMigration(operation.m_sSupportRequestId);
+		if (request && request.m_sOperationId == operation.m_sOperationId)
+		{
+			request.m_bPhysicalized = false;
+			if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			{
+				request.m_bAbstractResolved = true;
+				request.m_sRuntimeStatus = "exact_virtual_on_station";
+			}
+			else
+			{
+				request.m_bAbstractResolved = false;
+				request.m_sRuntimeStatus = "exact_restore_survivor_virtual";
+			}
+		}
+		HST_ForceSpawnResultState batch = FindForceSpawnResultForMigration(operation.m_sSpawnResultId);
+		if (batch && batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+		{
+			bool wasSuccessfulPhysical = batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				&& !batch.m_bStrategicProjectionHeld;
+			batch.m_sNativeGroupId = "";
+			batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING;
+			batch.m_bStrategicProjectionHeld = true;
+			if (wasSuccessfulPhysical)
+				batch.m_iReprojectionCount++;
+			batch.m_iStrategicHoldSinceSecond = restoreSecond;
+			batch.m_iNextAttemptSecond = 0;
+			batch.m_iUpdatedAtSecond = restoreSecond;
+			batch.m_iCompletedAtSecond = 0;
+			batch.m_iAttemptGeneration++;
+			batch.m_iLifecycleRevision++;
+			batch.m_iLastLifecycleSecond = restoreSecond;
+			foreach (HST_ForceSpawnSlotResultState slot : batch.m_aSlotResults)
+			{
+				if (!slot)
+					continue;
+				slot.m_sSpawnedPrefab = "";
+				slot.m_sEntityId = "";
+				slot.m_sAssignedVehicleEntityId = "";
+				slot.m_sNativeGroupId = "";
+				slot.m_bAliveVerified = false;
+				slot.m_bFactionVerified = false;
+				slot.m_bGroupVerified = false;
+				slot.m_bGameMasterVerified = false;
+				slot.m_bProjectionVerified = false;
+				slot.m_bSeatVerified = false;
+				slot.m_iUpdatedAtSecond = restoreSecond;
+				if (slot.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED || !slot.m_bCasualtyConfirmed)
+					slot.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_QUEUED;
+			}
+		}
+		if (!group)
+			return;
+		group.m_bSpawnedEntity = false;
+		group.m_sRuntimeEntityId = "";
+		group.m_iSpawnedAgentCount = 0;
+		group.m_sRuntimeStatus = "support_virtual";
+		if (batch)
+		{
+			HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+			int living = operation.m_iLastVirtualFriendlyCount;
+			if (batch.m_bStrategicProjectionHeld)
+				living = queue.CountStrategicLivingMemberSlots(batch);
+			else if (batch.m_iSuccessfulHandoffCount > 0)
+				living = queue.CountDurableLivingMemberSlots(batch);
+			operation.m_iLastVirtualFriendlyCount = Math.Max(0, living);
+			group.m_iDurableLivingInfantryCount = Math.Max(0, living);
+			group.m_iLastSeenAliveCount = Math.Max(0, living);
+			group.m_iSurvivorInfantryCount = Math.Max(0, living);
+		}
+	}
+
+	protected HST_SupportRequestState FindSupportRequestForProjectionMigration(string requestId)
+	{
+		HST_SupportRequestState match;
+		foreach (HST_SupportRequestState request : m_aSupportRequests)
+		{
+			if (!request || request.m_sRequestId != requestId)
+				continue;
+			if (match)
+				return null;
+			match = request;
+		}
+		return match;
+	}
+
+	protected HST_ForceManifestState FindForceManifestForProjectionMigration(string manifestId)
+	{
+		HST_ForceManifestState match;
+		foreach (HST_ForceManifestState manifest : m_aForceManifests)
+		{
+			if (!manifest || manifest.m_sManifestId != manifestId)
+				continue;
+			if (match)
+				return null;
+			match = manifest;
+		}
+		return match;
+	}
+
+	protected void NormalizeSchema50LocationTaxonomy(int restoredSchemaVersion)
+	{
+		if (restoredSchemaVersion >= 50 || HasCampaignEventId("migration_schema50_location_taxonomy"))
+			return;
+		foreach (HST_ZoneState zone : m_aZones)
+		{
+			if (!zone || zone.m_sZoneId != "town_simons_wood")
+				continue;
+			zone.m_eType = HST_EZoneType.HST_ZONE_RESOURCE;
+			zone.m_sResourceKind = "food";
+			zone.m_iCaptureRadiusMeters = 180;
+			zone.m_iGarrisonSlots = 6;
+			zone.m_sSpawnProfileId = "spawn_resource_guards";
+			zone.m_sMarkerTextColor = "gold";
+			zone.m_sMarkerStyle = "resource";
+			break;
+		}
+		foreach (HST_CivilianZoneState civilian : m_aCivilianZones)
+		{
+			if (!civilian || civilian.m_sZoneId != "town_simons_wood")
+				continue;
+			int previousPresence = Math.Max(0, civilian.m_iCivilianPresence);
+			int previousBaseline = Math.Max(20, previousPresence * 8);
+			if (civilian.m_iPopulationKilled == 0 && civilian.m_iPopulationRemaining == previousBaseline)
+				civilian.m_iPopulationRemaining = 16;
+			civilian.m_iCivilianPresence = 2;
+			civilian.m_iPolicePresence = 0;
+			civilian.m_iRoadblockPresence = 0;
+			break;
+		}
+		HST_CampaignEventState taxonomyEvent = new HST_CampaignEventState();
+		taxonomyEvent.m_sEventId = "migration_schema50_location_taxonomy";
+		taxonomyEvent.m_sCategory = "migration";
+		taxonomyEvent.m_sAggregateType = "location_taxonomy";
+		taxonomyEvent.m_sAggregateId = "schema50";
+		taxonomyEvent.m_sTransition = "minor_locality_reclassified";
+		taxonomyEvent.m_sReason = "reclassified the known woodland locality as a food resource and preserved any existing civilian casualty ledger";
+		taxonomyEvent.m_iCreatedAtSecond = Math.Max(0, m_iElapsedSeconds);
+		m_aCampaignEvents.Insert(taxonomyEvent);
 	}
 
 	protected bool IsSchema49OperationMigrationCandidate(HST_SupportRequestState request)

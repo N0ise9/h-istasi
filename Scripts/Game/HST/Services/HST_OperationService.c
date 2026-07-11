@@ -67,6 +67,15 @@ class HST_OperationService
 		operation.m_sTacticalTargetZoneId = quote.m_sTargetZoneId;
 		operation.m_vTacticalTargetPosition = quote.m_vTargetPosition;
 		operation.m_vStrategicPosition = quote.m_vSourcePosition;
+		operation.m_iProjectionContractVersion = HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION;
+		operation.m_iRouteVersion = HST_StrategicMovementService.DIRECT_ROUTE_VERSION;
+		operation.m_vRouteStartPosition = quote.m_vSourcePosition;
+		operation.m_vRouteEndPosition = quote.m_vTargetPosition;
+		operation.m_fRouteTotalDistanceMeters = Distance2D(quote.m_vSourcePosition, quote.m_vTargetPosition);
+		operation.m_fStrategicSpeedMetersPerSecond = HST_StrategicMovementService.EXACT_PLAYER_QRF_SPEED_METERS_PER_SECOND;
+		operation.m_iStrategicLastUpdateSecond = state.m_iElapsedSeconds;
+		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
+		operation.m_iLastVirtualFriendlyCount = manifest.m_iAcceptedMemberCount;
 		operation.m_sRecallPolicyId = EXACT_PLAYER_QRF_RECALL_POLICY;
 		operation.m_sSettlementPolicyId = EXACT_PLAYER_QRF_SETTLEMENT_POLICY;
 		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
@@ -85,6 +94,178 @@ class HST_OperationService
 		operation.m_iRevision = 1;
 		state.m_aOperations.Insert(operation);
 		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult LinkOutboundVirtual(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch)
+	{
+		HST_OperationRecordState operation;
+		string failure = ResolveTransitionOperation(state, request, operation);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		if (!group || !batch || batch.m_sOperationId != operation.m_sOperationId
+			|| group.m_sOperationId != operation.m_sOperationId || group.m_sManifestId != operation.m_sManifestId
+			|| batch.m_sManifestId != operation.m_sManifestId || group.m_sSpawnResultId != batch.m_sResultId
+			|| group.m_sProjectionId != batch.m_sProjectionId || group.m_sForceId != batch.m_sForceId
+			|| !batch.m_bStrategicProjectionHeld)
+			return BuildRejected("exact player QRF virtual projection links conflict with operation authority");
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			return BuildRejected("settled exact player QRF operation cannot become virtual outbound");
+		if ((operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING
+			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND)
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return BuildRejected("exact player QRF virtual outbound transition is illegal from the current operation state");
+		if (!LinkMatchesOrEmpty(operation.m_sSpawnResultId, batch.m_sResultId)
+			|| !LinkMatchesOrEmpty(operation.m_sForceId, batch.m_sForceId)
+			|| !LinkMatchesOrEmpty(operation.m_sProjectionId, batch.m_sProjectionId)
+			|| !LinkMatchesOrEmpty(operation.m_sGroupId, group.m_sGroupId))
+			return BuildRejected("exact player QRF virtual outbound would replace an authoritative projection link");
+
+		bool changed;
+		changed = AssignString(operation.m_sSpawnResultId, batch.m_sResultId) || changed;
+		changed = AssignString(operation.m_sForceId, batch.m_sForceId) || changed;
+		changed = AssignString(operation.m_sProjectionId, batch.m_sProjectionId) || changed;
+		changed = AssignString(operation.m_sGroupId, group.m_sGroupId) || changed;
+		changed = AssignString(operation.m_sCurrentRouteId, group.m_sRouteId) || changed;
+		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
+		changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND, state.m_iElapsedSeconds) || changed;
+		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult MarkMaterializingFromVirtual(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		string failure = ResolveTransitionOperation(state, request, operation);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		if (!group || !batch || batch.m_bStrategicProjectionHeld
+			|| operation.m_sSpawnResultId != batch.m_sResultId || operation.m_sGroupId != group.m_sGroupId
+			|| group.m_sOperationId != operation.m_sOperationId || group.m_sProjectionId != operation.m_sProjectionId)
+			return BuildRejected("exact player QRF materialization release conflicts with virtual authority");
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return BuildRejected("exact player QRF cannot materialize from the current projection state");
+		bool changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds);
+		changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult UpdatePhysicalPosition(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationRecordState operation;
+		string failure = ResolveTransitionOperation(state, request, operation);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		if (!group || group.m_sGroupId != operation.m_sGroupId || group.m_sOperationId != operation.m_sOperationId)
+			return BuildRejected("physical position sample conflicts with operation projection identity");
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return BuildRejected("physical position sample does not own live authority");
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult BeginDematerialization(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		string failure = ResolveTransitionOperation(state, request, operation);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		if (!group || group.m_sGroupId != operation.m_sGroupId || group.m_sOperationId != operation.m_sOperationId)
+			return BuildRejected("dematerialization projection identity conflicts");
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return BuildRejected("exact player QRF cannot dematerialize from the current projection state");
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE, state.m_iElapsedSeconds) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult CompleteDematerialization(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		HST_OperationRecordState operation;
+		string failure = ResolveTransitionOperation(state, request, operation);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		if (!group || !batch || !batch.m_bStrategicProjectionHeld
+			|| group.m_sGroupId != operation.m_sGroupId || batch.m_sResultId != operation.m_sSpawnResultId)
+			return BuildRejected("dematerialization completion lacks held exact projection authority");
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return BuildRejected("exact player QRF dematerialization completion is out of order");
+		bool changed = AssignVector(operation.m_vStrategicPosition, group.m_vPosition);
+		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC, state.m_iElapsedSeconds) || changed;
+		changed = AssignString(operation.m_sLastProjectionReason, reason) || changed;
+		operation.m_iStrategicLastUpdateSecond = state.m_iElapsedSeconds;
+		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
+		operation.m_sLastVirtualCombatReason = "physical interval excluded from virtual combat catch-up";
+		operation.m_iLastProjectionDecisionSecond = state.m_iElapsedSeconds;
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	HST_OperationTransitionResult MarkVirtualOnStation(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationRecordState operation;
+		string failure = ResolveTransitionOperation(state, request, operation);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (!operation)
+			return BuildAccepted(null, false, true);
+		if (!group || group.m_sGroupId != operation.m_sGroupId || group.m_sOperationId != operation.m_sOperationId
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return BuildRejected("exact player QRF virtual arrival conflicts with strategic authority");
+		if (operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
+			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ASSIGNMENT
+			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			return BuildRejected("exact player QRF virtual arrival transition is illegal from the current duty state");
+		bool changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION, state.m_iElapsedSeconds);
+		changed = AssignVector(operation.m_vStrategicPosition, operation.m_vRouteEndPosition) || changed;
+		changed = AssignVector(group.m_vPosition, operation.m_vStrategicPosition) || changed;
+		changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
+		operation.m_iVirtualCombatLastStepSecond = state.m_iElapsedSeconds;
+		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
 	}
 
 	HST_OperationTransitionResult RemoveUncommittedExactPlayerQRF(
@@ -187,6 +368,7 @@ class HST_OperationService
 			|| !LinkMatchesOrEmpty(operation.m_sGroupId, group.m_sGroupId))
 			return BuildRejected("exact player QRF physical handoff would replace an authoritative projection link");
 
+		bool completingPhysicalHandoff = operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING;
 		bool changed;
 		changed = AssignString(operation.m_sSpawnResultId, batch.m_sResultId) || changed;
 		changed = AssignString(operation.m_sForceId, batch.m_sForceId) || changed;
@@ -195,10 +377,52 @@ class HST_OperationService
 		changed = AssignString(operation.m_sCurrentRouteId, group.m_sRouteId) || changed;
 		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING)
 			changed = SetDuty(operation, HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND, state.m_iElapsedSeconds) || changed;
+		if (completingPhysicalHandoff)
+		{
+			HST_OperationTransitionResult engagementHandoff = NormalizeAbstractEngagementForPhysicalHandoff(state, operation);
+			if (!engagementHandoff || !engagementHandoff.m_bAccepted)
+				return BuildRejected("exact player QRF abstract engagement could not hand off to physical authority");
+			changed = engagementHandoff.m_bStateChanged || changed;
+			operation.m_sLastVirtualCombatReason = "abstract engagement handed off clear to physical projection";
+		}
 		if (operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR)
 			changed = SetResumeDuty(operation, operation.m_eDutyState) || changed;
 		changed = SetMaterialization(operation, HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL, HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE, state.m_iElapsedSeconds) || changed;
 		return FinishTransition(operation, changed, state.m_iElapsedSeconds);
+	}
+
+	protected HST_OperationTransitionResult NormalizeAbstractEngagementForPhysicalHandoff(
+		HST_CampaignState state,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !operation)
+			return BuildRejected("physical engagement handoff context is missing");
+		bool changed;
+		HST_OperationTransitionResult transition;
+		if (operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CONTACT)
+		{
+			transition = RecordEngagement(state, operation.m_sOperationId, HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_ENGAGED);
+			if (!transition || !transition.m_bAccepted)
+				return BuildRejected("contact could not advance during physical engagement handoff");
+			changed = transition.m_bStateChanged || changed;
+		}
+		if (operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_ENGAGED)
+		{
+			transition = RecordEngagement(state, operation.m_sOperationId, HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_DISENGAGING);
+			if (!transition || !transition.m_bAccepted)
+				return BuildRejected("engaged contact could not disengage during physical handoff");
+			changed = transition.m_bStateChanged || changed;
+		}
+		if (operation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_DISENGAGING)
+		{
+			transition = RecordEngagement(state, operation.m_sOperationId, HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR);
+			if (!transition || !transition.m_bAccepted)
+				return BuildRejected("disengaging contact could not clear during physical handoff");
+			changed = transition.m_bStateChanged || changed;
+		}
+		if (operation.m_eEngagementMode != HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR)
+			return BuildRejected("physical handoff does not support the current abstract engagement mode");
+		return BuildAccepted(operation, changed, !changed);
 	}
 
 	HST_OperationTransitionResult MarkOnStation(
@@ -474,11 +698,23 @@ class HST_OperationService
 		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
 			return "physical exact player QRF operation does not own live position authority";
+		if (operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING
+			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return "dematerializing exact player QRF operation does not retain live position authority";
 		if ((operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
 			|| operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED)
 			&& operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
 			return "nonphysical exact player QRF operation does not own strategic position authority";
+		if (operation.m_iProjectionContractVersion > 0)
+		{
+			if (operation.m_iProjectionContractVersion != HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
+				|| operation.m_iRouteVersion != HST_StrategicMovementService.DIRECT_ROUTE_VERSION
+				|| operation.m_fRouteTotalDistanceMeters < 0 || operation.m_fRouteProgressMeters < 0
+				|| operation.m_fRouteProgressMeters > operation.m_fRouteTotalDistanceMeters + 1.0
+				|| operation.m_fStrategicSpeedMetersPerSecond <= 0)
+				return "exact player QRF strategic projection contract conflicts";
+		}
 		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
 		{
 			if (operation.m_eTerminalResult == HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_UNKNOWN
@@ -700,5 +936,12 @@ class HST_OperationService
 	protected bool IsZeroVector(vector value)
 	{
 		return value[0] == 0 && value[1] == 0 && value[2] == 0;
+	}
+
+	protected float Distance2D(vector left, vector right)
+	{
+		float dx = left[0] - right[0];
+		float dz = left[2] - right[2];
+		return Math.Sqrt(dx * dx + dz * dz);
 	}
 }

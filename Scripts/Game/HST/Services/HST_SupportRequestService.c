@@ -95,12 +95,16 @@ class HST_SupportRequestService
 	static const int EXACT_PLAYER_SUPPORT_PRIORITY = 100;
 	static const int EXACT_PLAYER_SUPPORT_MAX_RETRIES = 3;
 	static const int EXACT_PLAYER_SUPPORT_DEPLOYMENT_GRACE_SECONDS = 120;
+	static const string EXACT_PLAYER_SUPPORT_VIRTUAL_ELIMINATION_REASON = "exact QRF virtual roster eliminated";
 
 	protected bool m_bMarkerRefreshNeeded;
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
 	protected ref HST_SpawnPlacementService m_SpawnPlacements = new HST_SpawnPlacementService();
 	protected ref HST_ForcePlanningIntegrityService m_ForceIntegrity = new HST_ForcePlanningIntegrityService();
 	protected ref HST_OperationService m_Operations = new HST_OperationService();
+	protected ref HST_StrategicMovementService m_StrategicMovement = new HST_StrategicMovementService();
+	protected ref HST_MaterializationService m_Materialization = new HST_MaterializationService();
+	protected ref HST_VirtualCombatService m_VirtualCombat = new HST_VirtualCombatService();
 	protected ref HST_ForceSpawnQueueService m_ExactForceSpawnQueue;
 	protected ref HST_ResourceLedgerService m_ExactResourceLedger;
 	protected ref HST_EconomyService m_ExactEconomy;
@@ -787,24 +791,57 @@ class HST_SupportRequestService
 				RemoveExactSupportActiveGroup(state, projectionId);
 			return result;
 		}
+		HST_ForceSpawnQueueCallbackResult strategicHold = m_ExactForceSpawnQueue.HoldPendingProjectionForStrategicSimulation(
+			state.m_aForceSpawnResults,
+			manifest,
+			result.m_Batch.m_sResultId,
+			result.m_Batch.m_sProjectionId,
+			state.m_iElapsedSeconds);
+		if (!strategicHold || !strategicHold.m_bAccepted)
+		{
+			string holdFailure = "exact support strategic hold failed";
+			if (strategicHold && !strategicHold.m_sFailureReason.IsEmpty())
+				holdFailure = holdFailure + ": " + strategicHold.m_sFailureReason;
+			m_ExactForceSpawnQueue.RequestCancel(state.m_aForceSpawnResults, result.m_Batch.m_sResultId, state.m_iElapsedSeconds, holdFailure);
+			if (createdGroup)
+				RemoveExactSupportActiveGroup(state, projectionId);
+			request.m_sFailureReason = holdFailure;
+			result.m_bSuccess = false;
+			result.m_bStateChanged = true;
+			result.m_sFailureReason = holdFailure;
+			return result;
+		}
 
 		request.m_sGroupId = activeGroup.m_sGroupId;
 		request.m_sDeploymentRouteId = activeGroup.m_sRouteId;
-		HST_OperationTransitionResult operationMaterializing = m_Operations.MarkOutboundMaterializing(state, request, activeGroup, result.m_Batch);
-		if (!operationMaterializing || !operationMaterializing.m_bAccepted)
+		HST_OperationRecordState stagingOperation = state.FindOperation(request.m_sOperationId);
+		bool routeInitialized = m_StrategicMovement.InitializeExactPlayerQRFRoute(
+			state,
+			stagingOperation,
+			request,
+			manifest,
+			activeGroup);
+		HST_OperationTransitionResult operationVirtual;
+		if (routeInitialized)
+			operationVirtual = m_Operations.LinkOutboundVirtual(state, request, activeGroup, result.m_Batch);
+		if (!operationVirtual || !operationVirtual.m_bAccepted || !routeInitialized)
 		{
-			string operationFailure = "exact player QRF operation rejected spawn admission";
-			if (operationMaterializing && !operationMaterializing.m_sFailureReason.IsEmpty())
-				operationFailure = operationFailure + ": " + operationMaterializing.m_sFailureReason;
+			string operationFailure = "exact player QRF operation rejected strategic projection admission";
+			if (operationVirtual && !operationVirtual.m_sFailureReason.IsEmpty())
+				operationFailure = operationFailure + ": " + operationVirtual.m_sFailureReason;
 			request.m_sRuntimeStatus = "exact_operation_conflict_cleanup_pending";
 			request.m_sFailureReason = operationFailure;
 			if (result.m_Batch)
 				m_ExactForceSpawnQueue.RequestCancel(state.m_aForceSpawnResults, result.m_Batch.m_sResultId, state.m_iElapsedSeconds, operationFailure);
+			result.m_bSuccess = false;
+			result.m_bStateChanged = true;
+			result.m_sFailureReason = operationFailure;
 			m_bMarkerRefreshNeeded = true;
 			return result;
 		}
-		request.m_sRuntimeStatus = EXACT_PLAYER_SUPPORT_GROUP_STATUS;
+		request.m_sRuntimeStatus = "exact_virtual_outbound";
 		request.m_sPhysicalizationMode = EXACT_PLAYER_SUPPORT_MODE;
+		request.m_bPhysicalized = false;
 		m_bMarkerRefreshNeeded = true;
 		return result;
 	}
@@ -1025,54 +1062,70 @@ class HST_SupportRequestService
 		if (!contextFailure.IsEmpty())
 			return FailClosedExactPlayerSupport(state, request, batch, contextFailure);
 
+		HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
+		if (operation && operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+		{
+			HST_ActiveGroupState foldingGroup = state.FindActiveGroup(request.m_sGroupId);
+			if (!foldingGroup || !batch)
+				return FailClosedExactPlayerSupport(state, request, batch, "exact QRF dematerialization owner is missing");
+			return ContinueDematerializeExactPlayerSupport(
+				state,
+				physicalWar,
+				forceSpawnAdapter,
+				request,
+				foldingGroup,
+				manifest,
+				batch,
+				operation,
+				operation.m_sLastProjectionReason);
+		}
+
 		if (request.m_bRecallRequested)
 			return TickRecalledExactPlayerSupport(state, physicalWar, forceSpawnAdapter, request, batch);
 
 		if (batch)
 		{
 			if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL)
+			{
+				if (batch.m_sTerminalReason == EXACT_PLAYER_SUPPORT_VIRTUAL_ELIMINATION_REASON)
+					return SettleEliminatedExactPlayerSupport(state, request, state.FindActiveGroup(request.m_sGroupId));
 				return SettleExactPlayerSupportDeploymentTerminal(state, request, batch, "exact QRF deployment failed: " + batch.m_sTerminalReason, false);
+			}
 			if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
 				return SettleExactPlayerSupportDeploymentTerminal(state, request, batch, "exact QRF deployment cancelled: " + batch.m_sTerminalReason, true);
 			if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
-				return TickSucceededExactPlayerSupport(state, physicalWar, request);
+				return TickSucceededExactPlayerSupport(state, physicalWar, forceSpawnAdapter, request);
+			if (batch.m_bStrategicProjectionHeld)
+				return TickVirtualExactPlayerSupport(state, request, manifest, batch);
 
 			return UpdateExactSupportQueueRuntimeStatus(request, batch);
 		}
-
-		int spawnAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds) - ResolveInboundSpawnLeadSeconds(request);
-		if (state.m_iElapsedSeconds < spawnAtSecond)
-			return SetExactSupportRuntimeStatus(request, "exact_waiting_eta");
 
 		return TryStartExactPlayerSupportProjection(state, preset, request);
 	}
 
 	protected bool TryStartExactPlayerSupportProjection(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
 	{
-		if (!m_SpawnPlacements)
-			m_SpawnPlacements = new HST_SpawnPlacementService();
-		HST_SpawnPlacementRequest placementRequest = m_SpawnPlacements.BuildSupportPlacementRequest(state, preset, request, false, false);
-		HST_SpawnPlacementResult placement = m_SpawnPlacements.ResolvePlacement(state, preset, placementRequest);
-		if (!placement || !placement.m_bSuccess)
-		{
-			string reason = "exact QRF placement unavailable";
-			if (placement && !placement.m_sFailureReason.IsEmpty())
-				reason = placement.m_sFailureReason;
-			request.m_sFailureReason = reason;
-			if (state.m_iElapsedSeconds >= ResolveExactSupportDeploymentDeadline(request))
-				return SettleExactPlayerSupportFullRefund(state, request, "exact QRF placement deadline expired: " + reason, false);
-			return SetExactSupportRuntimeStatus(request, "exact_waiting_placement");
-		}
-
-		ApplyExactSupportPlacementEvidence(request, placement);
+		HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
+		if (!operation || IsZeroVector(operation.m_vStrategicPosition) || IsZeroVector(operation.m_vTacticalTargetPosition))
+			return FailClosedExactPlayerSupport(state, request, null, "exact QRF strategic route endpoints are incomplete");
 		HST_ForceSpawnQueueEnqueueResult enqueue = EnqueueAcceptedExactPlayerSupportProjection(
 			state,
 			preset,
 			request,
-			placement.m_vSpawnPosition,
-			placement.m_vTargetPosition);
+			operation.m_vStrategicPosition,
+			operation.m_vTacticalTargetPosition);
 		if (enqueue && enqueue.m_bSuccess)
+		{
+			request.m_sDeploymentPlacementType = "strategic_direct_route";
+			request.m_sDeploymentSummary = string.Format(
+				"persistent exact infantry QRF route | speed %1m/s | distance %2m | ETA %3s",
+				operation.m_fStrategicSpeedMetersPerSecond,
+				Math.Round(operation.m_fRouteTotalDistanceMeters),
+				request.m_iETASeconds);
+			request.m_iDeploymentTargetDistanceMeters = Math.Round(operation.m_fRouteTotalDistanceMeters);
 			return true;
+		}
 
 		string failure = "exact QRF spawn admission failed";
 		if (enqueue && !enqueue.m_sFailureReason.IsEmpty())
@@ -1083,7 +1136,138 @@ class HST_SupportRequestService
 		return SettleExactPlayerSupportFullRefund(state, request, "exact QRF spawn admission failed: " + failure, false);
 	}
 
-	protected bool TickSucceededExactPlayerSupport(HST_CampaignState state, HST_PhysicalWarService physicalWar, HST_SupportRequestState request)
+	protected bool TickVirtualExactPlayerSupport(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch)
+	{
+		if (!state || !request || !manifest || !batch || !m_ExactForceSpawnQueue)
+			return false;
+		HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
+		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
+		if (!operation || !group)
+			return FailClosedExactPlayerSupport(state, request, batch, "exact QRF strategic projection owner is missing");
+		if (!m_StrategicMovement.InitializeExactPlayerQRFRoute(state, operation, request, manifest, group))
+			return FailClosedExactPlayerSupport(state, request, batch, "exact QRF strategic route contract is invalid or unsupported");
+
+		int livingBefore = m_ExactForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		if (livingBefore <= 0)
+			return SettleVirtualExactPlayerSupportElimination(state, request, manifest, batch, group);
+
+		bool changed;
+		HST_StrategicMovementResult movement = m_StrategicMovement.AdvanceExactPlayerQRF(state, operation, group);
+		if (!movement || !movement.m_bAccepted)
+		{
+			request.m_sFailureReason = "exact QRF strategic movement rejected";
+			if (movement && !movement.m_sFailureReason.IsEmpty())
+				request.m_sFailureReason = request.m_sFailureReason + ": " + movement.m_sFailureReason;
+			return SetExactSupportRuntimeStatus(request, "exact_virtual_route_conflict");
+		}
+		changed = movement.m_bStateChanged;
+		if (movement.m_bArrived && operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+		{
+			HST_OperationTransitionResult arrival = m_Operations.MarkVirtualOnStation(state, request, group);
+			if (!arrival || !arrival.m_bAccepted)
+				return SetExactSupportRuntimeStatus(request, "exact_virtual_arrival_conflict") || changed;
+			request.m_bAbstractResolved = true;
+			request.m_sRuntimeStatus = "exact_virtual_on_station";
+			request.m_sFailureReason = "";
+			group.m_sRuntimeStatus = "support_arrived_virtual";
+			changed = true;
+		}
+
+		HST_OperationProjectionDecision decision = m_Materialization.EvaluateExactPlayerQRF(operation, operation.m_vStrategicPosition);
+		operation.m_sLastProjectionReason = decision.m_sReason;
+		if (decision.m_eDecision == HST_EOperationProjectionDecision.HST_OPERATION_PROJECTION_MATERIALIZE)
+		{
+			int deadlineSecond = state.m_iElapsedSeconds + EXACT_PLAYER_SUPPORT_DEPLOYMENT_GRACE_SECONDS;
+			HST_ForceSpawnQueueCallbackResult release = m_ExactForceSpawnQueue.ReleaseStrategicProjectionForMaterialization(
+				state.m_aForceSpawnResults,
+				manifest,
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				state.m_iElapsedSeconds,
+				deadlineSecond);
+			if (!release || !release.m_bAccepted)
+			{
+				request.m_sFailureReason = "exact QRF materialization release failed";
+				if (release && !release.m_sFailureReason.IsEmpty())
+					request.m_sFailureReason = request.m_sFailureReason + ": " + release.m_sFailureReason;
+				return SetExactSupportRuntimeStatus(request, "exact_materialization_release_conflict") || changed;
+			}
+			group.m_vPosition = operation.m_vStrategicPosition;
+			group.m_vSourcePosition = operation.m_vStrategicPosition;
+			group.m_sRuntimeStatus = EXACT_PLAYER_SUPPORT_GROUP_STATUS;
+			HST_OperationTransitionResult materializing = m_Operations.MarkMaterializingFromVirtual(state, request, group, batch, decision.m_sReason);
+			if (!materializing || !materializing.m_bAccepted)
+			{
+				HST_ForceSpawnQueueCallbackResult rollbackHold = m_ExactForceSpawnQueue.HoldPendingProjectionForStrategicSimulation(
+					state.m_aForceSpawnResults,
+					manifest,
+					batch.m_sResultId,
+					batch.m_sProjectionId,
+					state.m_iElapsedSeconds);
+				if (rollbackHold && rollbackHold.m_bAccepted)
+					group.m_sRuntimeStatus = "support_virtual";
+				else
+					request.m_sFailureReason = "exact QRF operation rejected materialization after queue release and the strategic hold rollback failed";
+				return SetExactSupportRuntimeStatus(request, "exact_operation_materialization_conflict")
+					|| (rollbackHold && rollbackHold.m_bStateChanged) || changed;
+			}
+			request.m_sRuntimeStatus = "exact_materialization_queued";
+			group.m_iDurableLivingInfantryCount = m_ExactForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+			group.m_iLastSeenAliveCount = group.m_iDurableLivingInfantryCount;
+			group.m_iSurvivorInfantryCount = group.m_iDurableLivingInfantryCount;
+			m_bMarkerRefreshNeeded = true;
+			return true;
+		}
+
+		HST_VirtualCombatResult combat = m_VirtualCombat.TickExactPlayerQRF(state, operation, request, manifest, batch, group, m_ExactForceSpawnQueue);
+		if (!combat || !combat.m_bAccepted)
+		{
+			request.m_sFailureReason = "exact QRF virtual combat rejected";
+			if (combat && !combat.m_sFailureReason.IsEmpty())
+				request.m_sFailureReason = request.m_sFailureReason + ": " + combat.m_sFailureReason;
+			return SetExactSupportRuntimeStatus(request, "exact_virtual_combat_conflict") || changed;
+		}
+		changed = combat.m_bStateChanged || changed;
+		if (combat.m_bFriendlyEliminated || m_ExactForceSpawnQueue.CountStrategicLivingMemberSlots(batch) <= 0)
+			return SettleVirtualExactPlayerSupportElimination(state, request, manifest, batch, group) || changed;
+
+		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			changed = SetExactSupportRuntimeStatus(request, "exact_virtual_on_station") || changed;
+		else
+			changed = SetExactSupportRuntimeStatus(request, "exact_virtual_outbound") || changed;
+
+		group.m_iDurableLivingInfantryCount = m_ExactForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		group.m_iLastSeenAliveCount = group.m_iDurableLivingInfantryCount;
+		group.m_iSurvivorInfantryCount = group.m_iDurableLivingInfantryCount;
+		if (changed)
+			m_bMarkerRefreshNeeded = true;
+		return changed;
+	}
+
+	protected bool SettleVirtualExactPlayerSupportElimination(
+		HST_CampaignState state,
+		HST_SupportRequestState request,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		HST_ForceSpawnQueueCallbackResult terminal = m_ExactForceSpawnQueue.CompleteStrategicProjectionElimination(
+			state.m_aForceSpawnResults,
+			manifest,
+			batch.m_sResultId,
+			batch.m_sProjectionId,
+			state.m_iElapsedSeconds,
+			EXACT_PLAYER_SUPPORT_VIRTUAL_ELIMINATION_REASON);
+		if (!terminal || !terminal.m_bAccepted)
+			return SetExactSupportRuntimeStatus(request, "exact_virtual_elimination_conflict");
+		return SettleEliminatedExactPlayerSupport(state, request, group);
+	}
+
+	protected bool TickSucceededExactPlayerSupport(HST_CampaignState state, HST_PhysicalWarService physicalWar, HST_ForceSpawnAdapterService forceSpawnAdapter, HST_SupportRequestState request)
 	{
 		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
 		if (request.m_sRuntimeStatus == "exact_restore_waiting_queue_capacity"
@@ -1107,10 +1291,18 @@ class HST_SupportRequestService
 		bool changed;
 		if (group.m_sRuntimeStatus == EXACT_PLAYER_SUPPORT_GROUP_STATUS)
 		{
-			group.m_sRuntimeStatus = "support_active";
+			if (operationPhysical.m_Operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			{
+				group.m_sRuntimeStatus = "support_arrived";
+				request.m_bAbstractResolved = true;
+			}
+			else
+			{
+				group.m_sRuntimeStatus = "support_active";
+				request.m_bAbstractResolved = false;
+			}
 			group.m_iAssignedWaypointCount = 0;
 			group.m_sSpawnFailureReason = "Successful exact support projection normalized to live support routing.";
-			request.m_bAbstractResolved = false;
 			changed = true;
 		}
 		else if (request.m_bAbstractResolved && group.m_sRuntimeStatus == "support_arrived"
@@ -1155,6 +1347,14 @@ class HST_SupportRequestService
 			changed = true;
 			m_bMarkerRefreshNeeded = true;
 		}
+		HST_OperationTransitionResult livePosition = m_Operations.UpdatePhysicalPosition(state, request, group);
+		if (!livePosition || !livePosition.m_bAccepted)
+			return SetExactSupportRuntimeStatus(request, "exact_physical_position_conflict") || changed;
+		changed = livePosition.m_bStateChanged || changed;
+		HST_OperationProjectionDecision projectionDecision = m_Materialization.EvaluateExactPlayerQRF(operationPhysical.m_Operation, group.m_vPosition);
+		operationPhysical.m_Operation.m_sLastProjectionReason = projectionDecision.m_sReason;
+		if (projectionDecision.m_eDecision == HST_EOperationProjectionDecision.HST_OPERATION_PROJECTION_DEMATERIALIZE)
+			return TryDematerializeExactPlayerSupport(state, physicalWar, forceSpawnAdapter, request, group, batch, projectionDecision.m_sReason) || changed;
 
 		if (IsPhysicalSupportFinished(state, request))
 		{
@@ -1203,6 +1403,107 @@ class HST_SupportRequestService
 		return changed;
 	}
 
+	protected bool TryDematerializeExactPlayerSupport(
+		HST_CampaignState state,
+		HST_PhysicalWarService physicalWar,
+		HST_ForceSpawnAdapterService forceSpawnAdapter,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!state || !physicalWar || !forceSpawnAdapter || !request || !group || !batch || !m_ExactForceSpawnQueue)
+			return false;
+		HST_ForceManifestState manifest = state.FindForceManifest(request.m_sManifestId);
+		int deadlineSecond = state.m_iElapsedSeconds + EXACT_PLAYER_SUPPORT_DEPLOYMENT_GRACE_SECONDS;
+		HST_ForceSpawnQueueCallbackResult preflight = m_ExactForceSpawnQueue.CanRequeueSuccessfulProjectionForStrategicHold(
+			state.m_aForceSpawnResults,
+			manifest,
+			batch.m_sResultId,
+			batch.m_sProjectionId,
+			state.m_iElapsedSeconds,
+			deadlineSecond);
+		if (!preflight || !preflight.m_bAccepted)
+			return SetExactSupportRuntimeStatus(request, "exact_dematerialization_capacity_blocked");
+
+		HST_OperationTransitionResult begun = m_Operations.BeginDematerialization(state, request, group, reason);
+		if (!begun || !begun.m_bAccepted)
+			return SetExactSupportRuntimeStatus(request, "exact_dematerialization_operation_conflict");
+		return ContinueDematerializeExactPlayerSupport(
+			state,
+			physicalWar,
+			forceSpawnAdapter,
+			request,
+			group,
+			manifest,
+			batch,
+			begun.m_Operation,
+			reason);
+	}
+
+	protected bool ContinueDematerializeExactPlayerSupport(
+		HST_CampaignState state,
+		HST_PhysicalWarService physicalWar,
+		HST_ForceSpawnAdapterService forceSpawnAdapter,
+		HST_SupportRequestState request,
+		HST_ActiveGroupState group,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_OperationRecordState operation,
+		string reason)
+	{
+		if (!state || !physicalWar || !forceSpawnAdapter || !request || !group || !manifest || !batch || !operation || !m_ExactForceSpawnQueue)
+			return false;
+		if (operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+			return SetExactSupportRuntimeStatus(request, "exact_dematerialization_operation_conflict");
+		if (reason.IsEmpty())
+			reason = "all living players left materialize-out distance";
+		if (!RetireExactSupportProjectionRuntime(state, physicalWar, forceSpawnAdapter, group))
+			return SetExactSupportRuntimeStatus(request, "exact_dematerialization_retirement_pending");
+
+		if (!batch.m_bStrategicProjectionHeld)
+		{
+			int deadlineSecond = state.m_iElapsedSeconds + EXACT_PLAYER_SUPPORT_DEPLOYMENT_GRACE_SECONDS;
+			HST_ForceSpawnQueueCallbackResult held = m_ExactForceSpawnQueue.RequeueSuccessfulProjectionForStrategicHold(
+				state.m_aForceSpawnResults,
+				manifest,
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				state.m_iElapsedSeconds,
+				deadlineSecond);
+			if (!held || !held.m_bAccepted)
+			{
+				request.m_sFailureReason = "exact QRF retired runtime but survivor projection could not enter strategic hold";
+				return SetExactSupportRuntimeStatus(request, "exact_dematerialization_requeue_conflict");
+			}
+		}
+
+		m_StrategicMovement.SyncRouteProgressFromPosition(operation, group.m_vPosition);
+		group.m_bSpawnedEntity = false;
+		group.m_sRuntimeEntityId = "";
+		group.m_sRuntimeStatus = "support_virtual";
+		group.m_iSpawnedAgentCount = 0;
+		int living = m_ExactForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		group.m_iDurableLivingInfantryCount = living;
+		group.m_iLastSeenAliveCount = living;
+		group.m_iSurvivorInfantryCount = living;
+		group.m_iLifecycleRevision++;
+		HST_OperationTransitionResult completed = m_Operations.CompleteDematerialization(state, request, group, batch, reason);
+		if (!completed || !completed.m_bAccepted)
+		{
+			request.m_sFailureReason = "exact QRF survivor hold conflicts with operation position authority";
+			return SetExactSupportRuntimeStatus(request, "exact_dematerialization_completion_conflict");
+		}
+		request.m_bPhysicalized = false;
+		if (completed.m_Operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			request.m_sRuntimeStatus = "exact_virtual_on_station";
+		else
+			request.m_sRuntimeStatus = "exact_virtual_outbound";
+		request.m_sFailureReason = "";
+		m_bMarkerRefreshNeeded = true;
+		return true;
+	}
+
 	protected bool TickRecalledExactPlayerSupport(
 		HST_CampaignState state,
 		HST_PhysicalWarService physicalWar,
@@ -1218,6 +1519,12 @@ class HST_SupportRequestService
 			{
 				if (!m_ExactForceSpawnQueue)
 					return false;
+				if (batch.m_bStrategicProjectionHeld)
+				{
+					HST_OperationRecordState virtualOperation = state.FindOperation(request.m_sOperationId);
+					if (virtualOperation)
+						virtualOperation.m_iLastVirtualFriendlyCount = m_ExactForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+				}
 				HST_ForceSpawnQueueCallbackResult cancel = m_ExactForceSpawnQueue.RequestCancel(state.m_aForceSpawnResults, batch.m_sResultId, state.m_iElapsedSeconds, "exact QRF recalled before deployment");
 				if (!cancel || !cancel.m_bAccepted)
 					return false;
@@ -1225,6 +1532,9 @@ class HST_SupportRequestService
 			}
 
 			int eligibleInfantry = request.m_iHRCost;
+			HST_OperationRecordState recalledOperation = state.FindOperation(request.m_sOperationId);
+			if (recalledOperation && recalledOperation.m_iProjectionContractVersion > 0)
+				eligibleInfantry = Math.Max(0, recalledOperation.m_iLastVirtualFriendlyCount);
 			if (batch && batch.m_iSuccessfulHandoffCount > 0)
 			{
 				if (!m_ExactForceSpawnQueue)
@@ -1544,7 +1854,7 @@ class HST_SupportRequestService
 			}
 
 			int deadlineSecond = state.m_iElapsedSeconds + Math.Max(EXACT_PLAYER_SUPPORT_DEPLOYMENT_GRACE_SECONDS, request.m_iETASeconds);
-			HST_ForceSpawnQueueCallbackResult requeue = m_ExactForceSpawnQueue.RequeueSuccessfulProjectionAfterRestore(
+			HST_ForceSpawnQueueCallbackResult requeue = m_ExactForceSpawnQueue.RequeueSuccessfulProjectionForStrategicHold(
 				state.m_aForceSpawnResults,
 				state.FindForceManifest(request.m_sManifestId),
 				batch.m_sResultId,
@@ -1571,24 +1881,24 @@ class HST_SupportRequestService
 				continue;
 			}
 
-			HST_OperationTransitionResult restoreMaterializing = m_Operations.MarkRestoreMaterializing(state, request, group);
-			if (!restoreMaterializing || !restoreMaterializing.m_bAccepted)
+			HST_OperationRecordState restoredOperation = state.FindOperation(request.m_sOperationId);
+			if (!restoredOperation
+				|| restoredOperation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+				|| restoredOperation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
 			{
 				group.m_bSpawnedEntity = false;
 				group.m_sRuntimeEntityId = "";
 				group.m_sRuntimeStatus = "exact_restore_operation_conflict";
 				request.m_bPhysicalized = false;
 				request.m_sRuntimeStatus = "exact_restore_operation_conflict";
-				request.m_sFailureReason = "exact QRF restore reprojection conflicts with operation authority";
-				if (restoreMaterializing && !restoreMaterializing.m_sFailureReason.IsEmpty())
-					request.m_sFailureReason = request.m_sFailureReason + ": " + restoreMaterializing.m_sFailureReason;
+				request.m_sFailureReason = "exact QRF restore survivor hold conflicts with strategic operation authority";
 				changed = true;
 				continue;
 			}
 
 			group.m_bSpawnedEntity = false;
 			group.m_sRuntimeEntityId = "";
-			group.m_sRuntimeStatus = EXACT_PLAYER_SUPPORT_GROUP_STATUS;
+			group.m_sRuntimeStatus = "support_virtual";
 			group.m_sSpawnFailureReason = "";
 			group.m_iSpawnedAgentCount = 0;
 			group.m_iLastSeenAliveCount = livingMembers;
@@ -1596,7 +1906,7 @@ class HST_SupportRequestService
 			group.m_iDurableLivingInfantryCount = livingMembers;
 			group.m_iLifecycleRevision++;
 			request.m_bPhysicalized = false;
-			request.m_sRuntimeStatus = "exact_restore_survivor_reprojection_queued";
+			request.m_sRuntimeStatus = "exact_restore_survivor_virtual";
 			request.m_sFailureReason = "";
 			changed = true;
 			m_bMarkerRefreshNeeded = true;
@@ -1920,7 +2230,20 @@ class HST_SupportRequestService
 		bool cancelled)
 	{
 		if (!batch || batch.m_iSuccessfulHandoffCount <= 0)
-			return SettleExactPlayerSupportFullRefund(state, request, reason, cancelled);
+		{
+			HST_OperationRecordState operation = state.FindOperation(request.m_sOperationId);
+			if (!HasExactSupportStrategicServiceCommitted(operation))
+				return SettleExactPlayerSupportFullRefund(state, request, reason, cancelled);
+			int virtualSurvivors = Math.Max(0, operation.m_iLastVirtualFriendlyCount);
+			string virtualResolutionKind = "materialization_failed_virtual_survivors_refunded";
+			HST_EOperationTerminalResult virtualTerminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_SPAWN_FAILED;
+			if (cancelled)
+			{
+				virtualResolutionKind = "materialization_cancelled_virtual_survivors_refunded";
+				virtualTerminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
+			}
+			return SettleExactPlayerSupportHRRefund(state, request, virtualSurvivors, reason, virtualResolutionKind, virtualTerminalResult);
+		}
 		if (!m_ExactForceSpawnQueue)
 			return SetExactSupportRuntimeStatus(request, "exact_terminal_settlement_queue_unavailable");
 		int survivingInfantry = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
@@ -1931,6 +2254,15 @@ class HST_SupportRequestService
 		if (cancelled)
 			terminalResult = HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_CANCELLED;
 		return SettleExactPlayerSupportHRRefund(state, request, survivingInfantry, reason, resolutionKind, terminalResult);
+	}
+
+	protected bool HasExactSupportStrategicServiceCommitted(HST_OperationRecordState operation)
+	{
+		if (!operation || operation.m_iProjectionContractVersion <= 0)
+			return false;
+
+		return operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN
+			&& operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_STAGING;
 	}
 
 	protected bool SettleEliminatedExactPlayerSupport(

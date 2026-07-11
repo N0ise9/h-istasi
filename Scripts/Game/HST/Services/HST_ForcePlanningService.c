@@ -7,6 +7,7 @@ class HST_ForcePlanningService
 	static const int GARRISON_QUOTE_LIFETIME_SECONDS = 120;
 	static const int SUPPORT_QRF_QUOTE_LIFETIME_SECONDS = 120;
 	static const int SUPPORT_QRF_MONEY_COST = 250;
+	// Retained for synthetic legacy fixtures; production quotes derive ETA from route distance and strategic speed.
 	static const int SUPPORT_QRF_ETA_SECONDS = 120;
 	static const int SUPPORT_QRF_COOLDOWN_SECONDS = 600;
 	static const string SUPPORT_QRF_CAPABILITY_ID = "qrf";
@@ -298,7 +299,7 @@ class HST_ForcePlanningService
 		quote.m_iHRCost = manifest.m_iHRCost;
 		quote.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 		quote.m_iExpiresAtSecond = state.m_iElapsedSeconds + SUPPORT_QRF_QUOTE_LIFETIME_SECONDS;
-		quote.m_iETASeconds = SUPPORT_QRF_ETA_SECONDS;
+		quote.m_iETASeconds = HST_StrategicMovementService.ResolveExactPlayerQRFETASeconds(quote.m_vSourcePosition, quote.m_vTargetPosition);
 		quote.m_iCooldownSeconds = SUPPORT_QRF_COOLDOWN_SECONDS;
 		quote.m_iExpectedWarLevel = Math.Max(1, state.m_iWarLevel);
 		quote.m_bAllOrNothing = true;

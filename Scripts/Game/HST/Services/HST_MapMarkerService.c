@@ -8,7 +8,6 @@ class HST_MapMarkerService
 	static const int MAX_NATIVE_MARKERS = 192;
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
 	static const int NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS = 30;
-	static const int RADIO_SIGNAL_NATIVE_ICON_INDEX = 91;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
 	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
@@ -1091,7 +1090,11 @@ class HST_MapMarkerService
 		}
 
 		string groupStatus = "live";
-		if (group.m_sRuntimeStatus == "support_active")
+		if (group.m_sRuntimeStatus == "support_virtual" || group.m_sRuntimeStatus == "exact_virtual_outbound")
+			groupStatus = "virtual en route";
+		else if (group.m_sRuntimeStatus == "support_arrived_virtual" || group.m_sRuntimeStatus == "exact_virtual_on_station")
+			groupStatus = "virtual on station";
+		else if (group.m_sRuntimeStatus == "support_active")
 			groupStatus = "en route";
 		else if (group.m_sRuntimeStatus == "support_recalling")
 			groupStatus = "recalling";
@@ -1316,7 +1319,7 @@ class HST_MapMarkerService
 	protected int ResolveNativeIcon(string iconHint, string category, string styleHint)
 	{
 		if (iconHint == "RADIO_SIGNAL")
-			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
 		if (iconHint == "DOT")
 			return SCR_EScenarioFrameworkMarkerCustom.DOT;
@@ -1415,7 +1418,7 @@ class HST_MapMarkerService
 			return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER2;
 
 		if (styleHint == "radio" || category == "radio")
-			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
+			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
 		if (styleHint == "radar" || category == "radar")
 			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
@@ -1662,9 +1665,18 @@ class HST_MapMarkerService
 	protected string BuildZoneMarkerLabel(HST_ZoneState zone)
 	{
 		if (!zone)
-			return "unknown";
+			return "Unknown location | Owner: unknown";
 
-		return zone.m_sOwnerFactionKey;
+		string locationName = zone.m_sDisplayName.Trim();
+		if (locationName.IsEmpty())
+			locationName = zone.m_sZoneId;
+		locationName = ShortMarkerText(locationName, 28);
+
+		string ownerName = zone.m_sOwnerFactionKey.Trim();
+		if (ownerName.IsEmpty())
+			ownerName = "unclaimed";
+
+		return string.Format("%1 | Owner: %2", locationName, ownerName);
 	}
 
 	protected string ZoneToMarkerTextColor(HST_ZoneState zone)

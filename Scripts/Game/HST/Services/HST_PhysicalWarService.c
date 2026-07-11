@@ -90,6 +90,7 @@ class HST_PhysicalWarService
 	static const int QRF_CHANCE_REJECT_COOLDOWN_SECONDS = 300;
 	static const int ROUTE_STATE_UPDATE_SECONDS = 5;
 	static const float HQ_SAFE_RADIUS_METERS = 900;
+	static const float HQ_ZONE_ACTIVATION_FALLBACK_RADIUS_METERS = 150.0;
 	static const float QRF_MIN_STANDOFF_METERS = 220.0;
 	static const float QRF_EXTRA_STANDOFF_METERS = 140.0;
 	static const float QRF_MAX_STANDOFF_METERS = 650.0;
@@ -1371,7 +1372,7 @@ class HST_PhysicalWarService
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
 			bool forceMissionZone = ShouldForceMissionZoneActive(state, zone);
-			bool shouldBeActive = !IsZoneInsideHQSafeArea(state, zone) && (IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance) || forceMissionZone);
+			bool shouldBeActive = !IsZoneInsideHQActivationExclusion(state, zone) && (IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance) || forceMissionZone);
 			if (zone.m_bActive == shouldBeActive)
 			{
 				if (shouldBeActive)
@@ -1405,7 +1406,7 @@ class HST_PhysicalWarService
 			return false;
 
 		HST_ZoneState zone = state.FindZone(zoneId);
-		if (!zone || IsZoneInsideHQSafeArea(state, zone))
+		if (!zone || IsZoneInsideHQActivationExclusion(state, zone))
 			return false;
 
 		bool changed;
@@ -14645,6 +14646,18 @@ class HST_PhysicalWarService
 			return false;
 
 		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS;
+	}
+
+	protected bool IsZoneInsideHQActivationExclusion(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone || !state.m_bHQDeployed)
+			return false;
+
+		// The 900 m operation-staging radius must not erase whole nearby towns.
+		// Setup already rejects HQ placement inside a location's capture footprint;
+		// keep this smaller guard for legacy saves and emergency placement only.
+		float radius = Math.Max(HQ_ZONE_ACTIVATION_FALLBACK_RADIUS_METERS, zone.m_iCaptureRadiusMeters);
+		return DistanceSq2D(state.m_vHQPosition, zone.m_vPosition) <= radius * radius;
 	}
 
 	protected bool IsInsideHQSafeRadius(HST_CampaignState state, vector position)

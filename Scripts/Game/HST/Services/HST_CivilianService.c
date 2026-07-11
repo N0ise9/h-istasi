@@ -64,9 +64,26 @@ class HST_UndercoverEnforcementResult
 	}
 }
 
+class HST_CivilianProjectionProofSummary
+{
+	bool m_bProjectionEligible;
+	bool m_bTrafficConfigured;
+	bool m_bAppearanceDiversityExact;
+	bool m_bHornSuppressionExact;
+	int m_iExpectedPedestrians;
+	int m_iExpectedTrafficVehicles;
+	int m_iUniquePedestrianPrefabs;
+	int m_iTrafficDriverControllers;
+	int m_iTrafficDriversWithHornInput;
+	int m_iActorAppearances;
+	int m_iUniqueActorPrefabs;
+}
+
 class HST_CivilianService
 {
 	static const int MIN_CIVILIAN_CHARACTER_PREFABS = 1;
+	static const int MINOR_LOCALITY_CIVILIAN_COUNT = 2;
+	static const int CIVILIAN_APPEARANCE_SEED_SALT = 1701;
 
 	static const int HEAT_DECAY_SECONDS = 300;
 	static const int VEHICLE_HEAT_DECAY_SECONDS = 300;
@@ -101,6 +118,7 @@ class HST_CivilianService
 	static const string CIVILIAN_AI_GROUP_PREFAB = "{6985327711303920}Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup.et";
 	static const string CIVILIAN_WANDER_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB = "{35BD6541CBB8AC08}Prefabs/AI/Waypoints/AIWaypoint_Cycle.et";
+	static const string SIMONS_WOOD_ZONE_ID = "town_simons_wood";
 
 	protected ref array<string> m_aRuntimeZoneIds = {};
 	protected ref array<string> m_aRuntimeEntityZoneIds = {};
@@ -123,20 +141,44 @@ class HST_CivilianService
 
 	bool EnsureCivilianZones(HST_CampaignState state)
 	{
-		if (!state || state.m_aCivilianZones.Count() > 0)
+		if (!state)
 			return false;
 
+		bool changed;
+		int inserted;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			if (!zone)
 				continue;
+
+			if (NormalizeKnownMinorLocality(zone))
+				changed = true;
+			if (!IsCivilianLocality(zone))
+				continue;
+
+			HST_CivilianZoneState existing = state.FindCivilianZone(zone.m_sZoneId);
+			if (existing)
+			{
+				if (zone.m_sZoneId == SIMONS_WOOD_ZONE_ID && NormalizeMinorLocalityCivilianRecord(existing))
+					changed = true;
+				continue;
+			}
 
 			HST_CivilianZoneState civilianZone = new HST_CivilianZoneState();
 			civilianZone.m_sZoneId = zone.m_sZoneId;
 			civilianZone.m_iReputation = 50;
-			civilianZone.m_iCivilianPresence = Math.Max(4, zone.m_iIncomeValue / 8);
-			civilianZone.m_iPolicePresence = Math.Max(1, zone.m_iGarrisonSlots / 6);
-			civilianZone.m_iRoadblockPresence = 1;
+			if (IsTrueTownLocation(zone))
+			{
+				civilianZone.m_iCivilianPresence = Math.Max(4, zone.m_iIncomeValue / 8);
+				civilianZone.m_iPolicePresence = Math.Max(1, zone.m_iGarrisonSlots / 6);
+				civilianZone.m_iRoadblockPresence = 1;
+			}
+			else
+			{
+				civilianZone.m_iCivilianPresence = MINOR_LOCALITY_CIVILIAN_COUNT;
+				civilianZone.m_iPolicePresence = 0;
+				civilianZone.m_iRoadblockPresence = 0;
+			}
 			civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, 50 + zone.m_iSupport / 2));
 			civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 50 - zone.m_iSupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));
 			civilianZone.m_sLastIncidentReason = "initialized";
@@ -147,10 +189,177 @@ class HST_CivilianService
 			civilianZone.m_sLastInfluenceKind = "initialized";
 			civilianZone.m_sLastInfluenceReason = "initialized";
 			state.m_aCivilianZones.Insert(civilianZone);
+			inserted++;
+			changed = true;
 		}
 
-		Print(string.Format("h-istasi | initialized %1 civilian town record(s)", state.m_aCivilianZones.Count()));
-		return true;
+		if (inserted > 0)
+			Print(string.Format("h-istasi | initialized %1 missing civilian locality record(s); total %2", inserted, state.m_aCivilianZones.Count()));
+		return changed;
+	}
+
+	bool IsTrueTownLocation(HST_ZoneState zone)
+	{
+		// The curated strategic type is the runtime authority. Source-layout
+		// metadata remains provenance, but many valid towns were originally
+		// imported through base overlays rather than TC_* world objects.
+		return zone && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN;
+	}
+
+	bool IsMinorCivilianLocality(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+		if (zone.m_sZoneId == SIMONS_WOOD_ZONE_ID)
+			return true;
+
+		return false;
+	}
+
+	bool IsCivilianLocality(HST_ZoneState zone)
+	{
+		return IsTrueTownLocation(zone) || IsMinorCivilianLocality(zone);
+	}
+
+	int ResolveCivilianPedestrianTarget(HST_CivilianZoneState civilianZone, HST_ZoneState zone, HST_BalanceConfig balance)
+	{
+		if (!civilianZone || !zone || !balance || !IsCivilianLocality(zone))
+			return 0;
+
+		int target = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
+		if (IsMinorCivilianLocality(zone))
+			target = Math.Min(target, MINOR_LOCALITY_CIVILIAN_COUNT);
+		if (civilianZone.m_iPopulationRemaining <= 0 && civilianZone.m_iPopulationKilled > 0)
+			return 0;
+		if (civilianZone.m_iPopulationRemaining > 0)
+			target = Math.Min(target, civilianZone.m_iPopulationRemaining);
+
+		return Math.Max(0, target);
+	}
+
+	int ResolveCivilianTrafficTarget(HST_BalanceConfig balance, HST_ZoneState zone)
+	{
+		if (!balance || !IsTrueTownLocation(zone))
+			return 0;
+
+		return Math.Max(0, balance.m_iCivilianDrivingVehicleCountPerTown);
+	}
+
+	bool IsCivilianProjectionEligible(HST_ZoneState zone, HST_BalanceConfig balance)
+	{
+		if (!zone || !balance || !IsCivilianLocality(zone))
+			return false;
+		if (zone.m_bActive)
+			return true;
+
+		float radius = zone.m_iActivationRadiusMeters;
+		if (radius <= 0)
+			radius = balance.m_iActivationRadiusMeters;
+		return HST_WorldPositionService.IsPositionNearLivingPlayer(zone.m_vPosition, Math.Max(100.0, radius));
+	}
+
+	HST_CivilianProjectionProofSummary BuildProjectionProofSummary(
+		string zoneId,
+		HST_CivilianZoneState civilianZone,
+		HST_ZoneState zone,
+		HST_BalanceConfig balance,
+		int observedPedestrians,
+		int observedTrafficVehicles)
+	{
+		HST_CivilianProjectionProofSummary summary = new HST_CivilianProjectionProofSummary();
+		summary.m_bProjectionEligible = IsCivilianProjectionEligible(zone, balance);
+		summary.m_iExpectedPedestrians = ResolveCivilianPedestrianTarget(civilianZone, zone, balance);
+		summary.m_iExpectedTrafficVehicles = ResolveCivilianTrafficTarget(balance, zone);
+		summary.m_bTrafficConfigured = summary.m_iExpectedTrafficVehicles > 0;
+		summary.m_iUniquePedestrianPrefabs = CountUniqueRuntimeEntityPrefabsForZone(zoneId, "CIV_CHARACTER", CIVILIAN_FACTION_KEY);
+		summary.m_iTrafficDriverControllers = SuppressAmbientTrafficHornInput(zoneId);
+		summary.m_iTrafficDriversWithHornInput = CountAmbientTrafficDriversWithHornInput(zoneId);
+		summary.m_iActorAppearances = CountCivilianActorAppearancesForZone(zoneId);
+		summary.m_iUniqueActorPrefabs = CountUniqueCivilianActorPrefabsForZone(zoneId);
+		summary.m_bAppearanceDiversityExact = observedPedestrians > 0;
+		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact && summary.m_iUniquePedestrianPrefabs == observedPedestrians;
+		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact && summary.m_iActorAppearances == observedPedestrians + summary.m_iTrafficDriverControllers;
+		summary.m_bAppearanceDiversityExact = summary.m_bAppearanceDiversityExact && summary.m_iUniqueActorPrefabs == summary.m_iActorAppearances;
+		summary.m_bHornSuppressionExact = !summary.m_bTrafficConfigured;
+		if (summary.m_bTrafficConfigured)
+			summary.m_bHornSuppressionExact = summary.m_iTrafficDriverControllers == observedTrafficVehicles && summary.m_iTrafficDriversWithHornInput == 0;
+		return summary;
+	}
+
+	protected bool NormalizeKnownMinorLocality(HST_ZoneState zone)
+	{
+		if (!zone || zone.m_sZoneId != SIMONS_WOOD_ZONE_ID)
+			return false;
+
+		bool changed;
+		if (zone.m_eType != HST_EZoneType.HST_ZONE_RESOURCE)
+		{
+			zone.m_eType = HST_EZoneType.HST_ZONE_RESOURCE;
+			changed = true;
+		}
+		if (zone.m_sResourceKind != "food")
+		{
+			zone.m_sResourceKind = "food";
+			changed = true;
+		}
+		if (zone.m_iCaptureRadiusMeters != 180)
+		{
+			zone.m_iCaptureRadiusMeters = 180;
+			changed = true;
+		}
+		if (zone.m_iGarrisonSlots != 6)
+		{
+			zone.m_iGarrisonSlots = 6;
+			changed = true;
+		}
+		if (zone.m_sSpawnProfileId != "spawn_resource_guards")
+		{
+			zone.m_sSpawnProfileId = "spawn_resource_guards";
+			changed = true;
+		}
+		if (zone.m_sMarkerTextColor != "gold")
+		{
+			zone.m_sMarkerTextColor = "gold";
+			changed = true;
+		}
+		if (zone.m_sMarkerStyle != "resource")
+		{
+			zone.m_sMarkerStyle = "resource";
+			changed = true;
+		}
+
+		return changed;
+	}
+
+	protected bool NormalizeMinorLocalityCivilianRecord(HST_CivilianZoneState civilianZone)
+	{
+		if (!civilianZone)
+			return false;
+
+		bool changed;
+		int previousPresence = civilianZone.m_iCivilianPresence;
+		if (civilianZone.m_iCivilianPresence != MINOR_LOCALITY_CIVILIAN_COUNT)
+		{
+			civilianZone.m_iCivilianPresence = MINOR_LOCALITY_CIVILIAN_COUNT;
+			changed = true;
+		}
+		if (civilianZone.m_iPopulationKilled <= 0 && civilianZone.m_iPopulationRemaining == Math.Max(20, previousPresence * 8))
+		{
+			civilianZone.m_iPopulationRemaining = MINOR_LOCALITY_CIVILIAN_COUNT * 8;
+			changed = true;
+		}
+		if (civilianZone.m_iPolicePresence != 0)
+		{
+			civilianZone.m_iPolicePresence = 0;
+			changed = true;
+		}
+		if (civilianZone.m_iRoadblockPresence != 0)
+		{
+			civilianZone.m_iRoadblockPresence = 0;
+			changed = true;
+		}
+
+		return changed;
 	}
 
 	bool Tick(HST_CampaignState state, int elapsedSeconds)
@@ -219,7 +428,7 @@ class HST_CivilianService
 			if (!zone)
 				continue;
 
-			if (zone.m_bActive)
+			if (IsCivilianProjectionEligible(zone, balance))
 			{
 				if (!HasRuntimeZone(zone.m_sZoneId))
 					changed = SpawnActiveZoneRuntime(state, preset, balance, zone) || changed;
@@ -233,6 +442,7 @@ class HST_CivilianService
 				changed = true;
 		}
 
+		SuppressAmbientTrafficHornInput();
 		return PublishRuntimeDiagnostics(state) || changed;
 	}
 
@@ -252,7 +462,7 @@ class HST_CivilianService
 		if (!zone)
 			return PublishRuntimeDiagnostics(state) || changed;
 
-		if (active)
+		if (active && IsCivilianLocality(zone))
 		{
 			if (!HasRuntimeZone(zoneId))
 				changed = SpawnActiveZoneRuntime(state, preset, balance, zone) || changed;
@@ -264,6 +474,7 @@ class HST_CivilianService
 			changed = true;
 		}
 
+		SuppressAmbientTrafficHornInput();
 		return PublishRuntimeDiagnostics(state) || changed;
 	}
 
@@ -2327,41 +2538,42 @@ class HST_CivilianService
 
 	protected bool SpawnActiveZoneRuntime(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)
 	{
-		if (!state || !balance || !zone)
+		if (!state || !balance || !zone || !IsCivilianLocality(zone))
 			return false;
 
 		m_aRuntimeZoneIds.Insert(zone.m_sZoneId);
 
 		int spawned;
 		int civilianVehicleCount;
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
+		if (civilianZone)
 		{
-			HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
-			if (civilianZone)
+			int civilianCount = ResolveCivilianPedestrianTarget(civilianZone, zone, balance);
+			if (civilianCount > 0 && CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
+				WarnMissingCivilianCharacterPool(zone, civilianCount);
+
+			int appearanceSeed = BuildZoneSeed(state, zone, CIVILIAN_APPEARANCE_SEED_SALT);
+			for (int i = 0; i < civilianCount; i++)
 			{
-				int civilianCount = Math.Min(civilianZone.m_iCivilianPresence, balance.m_iCivilianMaxActivePerTown);
-				if (civilianCount > 0 && CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
-					WarnMissingCivilianCharacterPool(zone, civilianCount);
+				int civilianSeed = BuildZoneSeed(state, zone, 1000 + i);
+				string civilianPrefab = SelectCivilianCharacterPrefab(balance, i, appearanceSeed);
+				if (civilianPrefab.IsEmpty())
+					continue;
 
-				for (int i = 0; i < civilianCount; i++)
+				vector position = ResolveTownCharacterSpawnPosition(zone, i, civilianSeed);
+				vector angles = BuildSpawnAngles(civilianSeed);
+				int beforeCivilianSpawn = m_aRuntimeEntities.Count();
+				if (SpawnRuntimeEntity(state, zone.m_sZoneId, civilianPrefab, position, angles, "CIV", "CIV_CHARACTER"))
 				{
-					int civilianSeed = BuildZoneSeed(state, zone, 1000 + i);
-					string civilianPrefab = SelectCivilianCharacterPrefab(balance, i, civilianSeed);
-					if (civilianPrefab.IsEmpty())
-						continue;
-
-					vector position = ResolveTownCharacterSpawnPosition(zone, i, civilianSeed);
-					vector angles = BuildSpawnAngles(civilianSeed);
-					int beforeCivilianSpawn = m_aRuntimeEntities.Count();
-					if (SpawnRuntimeEntity(state, zone.m_sZoneId, civilianPrefab, position, angles, "CIV", "CIV_CHARACTER"))
-					{
-						spawned++;
-						if (beforeCivilianSpawn < m_aRuntimeEntities.Count())
-							AssignCivilianPedestrianBehavior(m_aRuntimeEntities[beforeCivilianSpawn], zone, i, civilianSeed);
-					}
+					spawned++;
+					if (beforeCivilianSpawn < m_aRuntimeEntities.Count())
+						AssignCivilianPedestrianBehavior(m_aRuntimeEntities[beforeCivilianSpawn], zone, i, civilianSeed);
 				}
 			}
+		}
 
+		if (IsTrueTownLocation(zone))
+		{
 			civilianVehicleCount = ResolveDeterministicCount(balance.m_iCivilianVehicleMinPerTown, balance.m_iCivilianVehicleMaxPerTown, BuildZoneSeed(state, zone, 101));
 			array<vector> occupiedVehiclePositions = {};
 			for (int j = 0; j < civilianVehicleCount; j++)
@@ -2398,10 +2610,10 @@ class HST_CivilianService
 
 	protected bool MaintainActiveZoneTraffic(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)
 	{
-		if (!state || !balance || !zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		if (!state || !balance || !zone || !IsTrueTownLocation(zone))
 			return false;
 
-		int targetTraffic = Math.Max(0, balance.m_iCivilianDrivingVehicleCountPerTown);
+		int targetTraffic = ResolveCivilianTrafficTarget(balance, zone);
 		int currentTraffic = CountRuntimeEntitiesForZone(zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
 		if (currentTraffic >= targetTraffic)
 			return false;
@@ -2414,10 +2626,10 @@ class HST_CivilianService
 
 	protected int SpawnZoneCivilianTraffic(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, array<vector> occupiedVehiclePositions, int baseSlotIndex)
 	{
-		if (!state || !balance || !zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		if (!state || !balance || !zone || !IsTrueTownLocation(zone))
 			return 0;
 
-		int targetTraffic = Math.Max(0, balance.m_iCivilianDrivingVehicleCountPerTown);
+		int targetTraffic = ResolveCivilianTrafficTarget(balance, zone);
 		int currentTraffic = CountRuntimeEntitiesForZone(zone.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND, "CIV");
 		if (currentTraffic >= targetTraffic)
 			return 0;
@@ -2493,6 +2705,7 @@ class HST_CivilianService
 			Print(string.Format("h-istasi civilians | ambient traffic driver seating failed for %1: %2", zone.m_sZoneId, seatingReason), LogLevel.WARNING);
 			return false;
 		}
+		ClearAmbientTrafficDriverHornInput(driverEntity);
 
 		array<vector> routePositions = {};
 		BuildCivilianTrafficRoute(zone, vehicleEntity.GetOrigin(), index, seed, routePositions);
@@ -2524,7 +2737,12 @@ class HST_CivilianService
 		if (!state || !balance || !zone || !vehicleEntity)
 			return null;
 
-		string driverPrefab = SelectCivilianCharacterPrefab(balance, index, seed + 19);
+		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
+		int appearanceSlot = ResolveCivilianPedestrianTarget(civilianZone, zone, balance) + index;
+		int appearanceSeed = BuildZoneSeed(state, zone, CIVILIAN_APPEARANCE_SEED_SALT);
+		array<string> usedAppearancePrefabs = {};
+		BuildUsedCivilianActorAppearancePrefabs(zone.m_sZoneId, usedAppearancePrefabs);
+		string driverPrefab = SelectCivilianCharacterPrefabAvoiding(balance, appearanceSlot, appearanceSeed, usedAppearancePrefabs);
 		if (driverPrefab.IsEmpty())
 			return null;
 
@@ -2542,6 +2760,78 @@ class HST_CivilianService
 		ApplyFaction(driverEntity, CIVILIAN_FACTION_KEY, "CIV_CHARACTER");
 		RegisterRuntimeHelper(vehicleEntity, driverEntity);
 		return driverEntity;
+	}
+
+	int SuppressAmbientTrafficHornInput(string zoneId = "")
+	{
+		int cleared;
+		for (int i = 0; i < m_aRuntimeHelperEntities.Count(); i++)
+		{
+			if (i >= m_aRuntimeHelperOwners.Count())
+				continue;
+
+			IEntity owner = m_aRuntimeHelperOwners[i];
+			int runtimeIndex = m_aRuntimeEntities.Find(owner);
+			if (runtimeIndex < 0 || runtimeIndex >= m_aRuntimeEntityKinds.Count())
+				continue;
+			if (m_aRuntimeEntityKinds[runtimeIndex] != CIVILIAN_TRAFFIC_RUNTIME_KIND)
+				continue;
+			if (!zoneId.IsEmpty() && (runtimeIndex >= m_aRuntimeEntityZoneIds.Count() || m_aRuntimeEntityZoneIds[runtimeIndex] != zoneId))
+				continue;
+
+			if (ClearAmbientTrafficDriverHornInput(m_aRuntimeHelperEntities[i]))
+				cleared++;
+		}
+
+		return cleared;
+	}
+
+	int CountAmbientTrafficDriversWithHornInput(string zoneId = "")
+	{
+		int sounding;
+		for (int i = 0; i < m_aRuntimeHelperEntities.Count(); i++)
+		{
+			if (i >= m_aRuntimeHelperOwners.Count())
+				continue;
+
+			IEntity owner = m_aRuntimeHelperOwners[i];
+			int runtimeIndex = m_aRuntimeEntities.Find(owner);
+			if (runtimeIndex < 0 || runtimeIndex >= m_aRuntimeEntityKinds.Count())
+				continue;
+			if (m_aRuntimeEntityKinds[runtimeIndex] != CIVILIAN_TRAFFIC_RUNTIME_KIND)
+				continue;
+			if (!zoneId.IsEmpty() && (runtimeIndex >= m_aRuntimeEntityZoneIds.Count() || m_aRuntimeEntityZoneIds[runtimeIndex] != zoneId))
+				continue;
+
+			IEntity helper = m_aRuntimeHelperEntities[i];
+			if (!helper)
+				continue;
+			SCR_CharacterControllerComponent controller = SCR_CharacterControllerComponent.Cast(helper.FindComponent(SCR_CharacterControllerComponent));
+			if (!controller)
+				continue;
+			CharacterInputContext inputContext = controller.GetInputContext();
+			if (inputContext && inputContext.GetVehicleHorn() != 0)
+				sounding++;
+		}
+
+		return sounding;
+	}
+
+	protected bool ClearAmbientTrafficDriverHornInput(IEntity driverEntity)
+	{
+		if (!driverEntity)
+			return false;
+
+		SCR_CharacterControllerComponent controller = SCR_CharacterControllerComponent.Cast(driverEntity.FindComponent(SCR_CharacterControllerComponent));
+		if (!controller)
+			return false;
+
+		CharacterInputContext inputContext = controller.GetInputContext();
+		if (!inputContext)
+			return false;
+
+		inputContext.SetVehicleHorn(0);
+		return true;
 	}
 
 	protected AIGroup EnsureCivilianAIGroup(IEntity helperOwner, IEntity memberEntity, string factionKey)
@@ -3274,6 +3564,91 @@ class HST_CivilianService
 		return count;
 	}
 
+	int CountUniqueRuntimeEntityPrefabsForZone(string zoneId, string runtimeKind = "", string factionKey = "")
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		array<string> prefabs = {};
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (!MatchesRuntimeEntityFilter(i, zoneId, runtimeKind, factionKey))
+				continue;
+
+			IEntity entity = m_aRuntimeEntities[i];
+			if (!entity || !entity.GetPrefabData())
+				continue;
+			string prefab = entity.GetPrefabData().GetPrefabName();
+			if (!prefab.IsEmpty() && !prefabs.Contains(prefab))
+				prefabs.Insert(prefab);
+		}
+
+		return prefabs.Count();
+	}
+
+	int CountCivilianActorAppearancesForZone(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		int count = CountRuntimeEntitiesForZone(zoneId, "CIV_CHARACTER", CIVILIAN_FACTION_KEY);
+		for (int i = 0; i < m_aRuntimeHelperEntities.Count(); i++)
+		{
+			if (IsAmbientTrafficDriverHelper(i, zoneId))
+				count++;
+		}
+		return count;
+	}
+
+	int CountUniqueCivilianActorPrefabsForZone(string zoneId)
+	{
+		array<string> prefabs = {};
+		BuildUsedCivilianActorAppearancePrefabs(zoneId, prefabs);
+		return prefabs.Count();
+	}
+
+	protected void BuildUsedCivilianActorAppearancePrefabs(string zoneId, array<string> prefabs)
+	{
+		if (zoneId.IsEmpty() || !prefabs)
+			return;
+
+		for (int i = 0; i < m_aRuntimeEntities.Count(); i++)
+		{
+			if (!MatchesRuntimeEntityFilter(i, zoneId, "CIV_CHARACTER", CIVILIAN_FACTION_KEY))
+				continue;
+			AppendEntityPrefabIfUnique(m_aRuntimeEntities[i], prefabs);
+		}
+		for (int helperIndex = 0; helperIndex < m_aRuntimeHelperEntities.Count(); helperIndex++)
+		{
+			if (!IsAmbientTrafficDriverHelper(helperIndex, zoneId))
+				continue;
+			AppendEntityPrefabIfUnique(m_aRuntimeHelperEntities[helperIndex], prefabs);
+		}
+	}
+
+	protected bool IsAmbientTrafficDriverHelper(int helperIndex, string zoneId)
+	{
+		if (helperIndex < 0 || helperIndex >= m_aRuntimeHelperEntities.Count() || helperIndex >= m_aRuntimeHelperOwners.Count())
+			return false;
+		IEntity owner = m_aRuntimeHelperOwners[helperIndex];
+		int runtimeIndex = m_aRuntimeEntities.Find(owner);
+		if (runtimeIndex < 0 || runtimeIndex >= m_aRuntimeEntityKinds.Count() || m_aRuntimeEntityKinds[runtimeIndex] != CIVILIAN_TRAFFIC_RUNTIME_KIND)
+			return false;
+		if (!zoneId.IsEmpty() && (runtimeIndex >= m_aRuntimeEntityZoneIds.Count() || m_aRuntimeEntityZoneIds[runtimeIndex] != zoneId))
+			return false;
+		IEntity helper = m_aRuntimeHelperEntities[helperIndex];
+		return helper && SCR_CharacterControllerComponent.Cast(helper.FindComponent(SCR_CharacterControllerComponent)) != null;
+	}
+
+	protected void AppendEntityPrefabIfUnique(IEntity entity, array<string> prefabs)
+	{
+		if (!entity || !prefabs || !entity.GetPrefabData())
+			return;
+		string prefab = entity.GetPrefabData().GetPrefabName();
+		if (!prefab.IsEmpty() && !prefabs.Contains(prefab))
+			prefabs.Insert(prefab);
+	}
+
 	int CountRuntimeEntityFactionMismatchesForZone(string zoneId, string runtimeKind, string expectedFactionKey)
 	{
 		if (zoneId.IsEmpty() || expectedFactionKey.IsEmpty())
@@ -3776,6 +4151,23 @@ class HST_CivilianService
 		}
 
 		return "";
+	}
+
+	protected string SelectCivilianCharacterPrefabAvoiding(HST_BalanceConfig balance, int index, int seed, array<string> excludedPrefabs)
+	{
+		if (!balance || CountGuidQualifiedCivilianCharacterPrefabs(balance) < MIN_CIVILIAN_CHARACTER_PREFABS)
+			return "";
+
+		for (int i = 0; i < balance.m_aCivilianCharacterPrefabs.Count(); i++)
+		{
+			string prefab = balance.m_aCivilianCharacterPrefabs[ModInt(seed + index + i, balance.m_aCivilianCharacterPrefabs.Count())];
+			if (!IsGuidQualifiedResource(prefab))
+				continue;
+			if (!excludedPrefabs || !excludedPrefabs.Contains(prefab))
+				return prefab;
+		}
+
+		return SelectCivilianCharacterPrefab(balance, index, seed);
 	}
 
 	protected string SelectCivilianVehiclePrefab(HST_BalanceConfig balance, int index, int seed)

@@ -119,10 +119,16 @@ class HST_MissionRuntimeService
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
+	static const string MISSION_DESTROY_RADIO_TOWER = "destroy_radio_tower";
+	static const string MISSION_STOP_TOWER_REBUILD = "dynamic_stop_tower_rebuild";
+	static const float EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS = 220.0;
+	static const string RADIO_TOWER_PREFAB_TOKEN = "TransmitterTower_01";
 
 	protected ref HST_ForceCompositionService m_ForceCompositions = new HST_ForceCompositionService();
 	protected ref array<string> m_aRuntimeEntityIds = {};
 	protected ref array<IEntity> m_aRuntimeEntities = {};
+	protected ref array<IEntity> m_aBorrowedWorldEntities = {};
+	protected ref array<IEntity> m_aExistingRadioTowerCandidates = {};
 	protected ref array<IEntity> m_aMissionVehicleScanEntities = {};
 	protected ref array<string> m_aRestoredMissionCarrierRestoreMissionIds = {};
 	protected ref array<string> m_aCaptiveFollowWaypointAssetIds = {};
@@ -1789,6 +1795,12 @@ class HST_MissionRuntimeService
 				continue;
 			}
 
+			if (TryBindExistingRadioTower(state, mission, asset))
+			{
+				hasUsableAsset = true;
+				continue;
+			}
+
 			vector position;
 			if (asset.m_sKind == ASSET_KIND_VEHICLE)
 			{
@@ -1847,6 +1859,118 @@ class HST_MissionRuntimeService
 		}
 
 		return foundAsset && hasUsableAsset;
+	}
+
+	protected bool TryBindExistingRadioTower(HST_CampaignState state, HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!ShouldBindExistingRadioTower(mission, asset))
+			return false;
+
+		vector searchCenter = asset.m_vCurrentPosition;
+		HST_ZoneState zone = state.FindZone(mission.m_sTargetZoneId);
+		if (zone)
+			searchCenter = zone.m_vPosition;
+
+		IEntity tower = FindExistingRadioTower(searchCenter);
+		if (!tower)
+			return false;
+
+		vector position = tower.GetOrigin();
+		vector angles = tower.GetYawPitchRoll();
+		asset.m_bSpawned = true;
+		asset.m_bAlive = true;
+		asset.m_vSourcePosition = position;
+		asset.m_vCurrentPosition = position;
+		asset.m_vLastKnownPosition = position;
+		m_aRuntimeEntityIds.Insert(asset.m_sEntityId);
+		m_aRuntimeEntities.Insert(tower);
+		m_aBorrowedWorldEntities.Insert(tower);
+		RegisterAssetRuntimeEntityState(state, asset, position, angles);
+
+		string prefab = ResolveEntityPrefab(tower);
+		HST_MissionRuntimeEntityState runtimeEntity = state.FindMissionRuntimeEntity(asset.m_sEntityId);
+		if (runtimeEntity && !prefab.IsEmpty())
+			runtimeEntity.m_sPrefab = prefab;
+
+		Print(string.Format("h-istasi mission runtime | bound existing radio tower %1 to asset %2 for %3 at %4", prefab, asset.m_sAssetId, mission.m_sInstanceId, position));
+		return true;
+	}
+
+	protected bool ShouldBindExistingRadioTower(HST_ActiveMissionState mission, HST_MissionAssetState asset)
+	{
+		if (!mission || !asset)
+			return false;
+		if (mission.m_sRuntimePrimitive != PRIMITIVE_DESTROY_TARGET || asset.m_sKind != ASSET_KIND_TARGET || asset.m_sRole != ROLE_DESTROY_TARGET)
+			return false;
+
+		return mission.m_sMissionId == MISSION_DESTROY_RADIO_TOWER || mission.m_sMissionId == MISSION_STOP_TOWER_REBUILD;
+	}
+
+	protected IEntity FindExistingRadioTower(vector searchCenter)
+	{
+		BaseWorld world = GetGame().GetWorld();
+		if (!world)
+			return null;
+
+		m_aExistingRadioTowerCandidates.Clear();
+		world.QueryEntitiesBySphere(searchCenter, EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS, AddExistingRadioTowerCandidate, null, EQueryEntitiesFlags.ALL);
+
+		IEntity nearest;
+		float nearestDistanceSq = EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS * EXISTING_RADIO_TOWER_SEARCH_RADIUS_METERS;
+		foreach (IEntity candidate : m_aExistingRadioTowerCandidates)
+		{
+			float distanceSq = DistanceSq2D(searchCenter, candidate.GetOrigin());
+			if (nearest && distanceSq >= nearestDistanceSq)
+				continue;
+
+			nearest = candidate;
+			nearestDistanceSq = distanceSq;
+		}
+
+		m_aExistingRadioTowerCandidates.Clear();
+		return nearest;
+	}
+
+	protected bool AddExistingRadioTowerCandidate(IEntity entity)
+	{
+		if (!IsTransmitterTowerEntity(entity))
+			return true;
+		if (m_aRuntimeEntities.Contains(entity))
+			return true;
+		if (HST_MissionAssetComponent.Cast(entity.FindComponent(HST_MissionAssetComponent)))
+			return true;
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(entity.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
+			return true;
+
+		m_aExistingRadioTowerCandidates.Insert(entity);
+		return true;
+	}
+
+	protected bool IsTransmitterTowerEntity(IEntity entity)
+	{
+		if (!entity)
+			return false;
+
+		MapDescriptorComponent descriptor = MapDescriptorComponent.Cast(entity.FindComponent(MapDescriptorComponent));
+		if (descriptor && descriptor.GetBaseType() == EMapDescriptorType.MDT_TRANSMITTER)
+			return true;
+
+		string prefab = ResolveEntityPrefab(entity);
+		if (!prefab.Contains(RADIO_TOWER_PREFAB_TOKEN))
+			return false;
+		if (prefab.Contains("TransmitterTower_01_light") || prefab.Contains("_base.et"))
+			return false;
+
+		return true;
+	}
+
+	protected string ResolveEntityPrefab(IEntity entity)
+	{
+		if (!entity || !entity.GetPrefabData())
+			return "";
+
+		return entity.GetPrefabData().GetPrefabName();
 	}
 
 	protected bool TrySpawnMissionRuntimeProp(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -7432,11 +7556,21 @@ class HST_MissionRuntimeService
 			if (i < m_aRuntimeEntities.Count())
 			{
 				IEntity entity = m_aRuntimeEntities[i];
-				if (entity)
+				if (entity && !m_aBorrowedWorldEntities.Contains(entity))
 					SCR_EntityHelper.DeleteEntityAndChildren(entity);
+				ForgetBorrowedWorldEntity(entity);
 				m_aRuntimeEntities.Remove(i);
 			}
 			m_aRuntimeEntityIds.Remove(i);
+		}
+	}
+
+	protected void ForgetBorrowedWorldEntity(IEntity entity)
+	{
+		for (int i = m_aBorrowedWorldEntities.Count() - 1; i >= 0; i--)
+		{
+			if (m_aBorrowedWorldEntities[i] == entity)
+				m_aBorrowedWorldEntities.Remove(i);
 		}
 	}
 
@@ -7522,6 +7656,7 @@ class HST_MissionRuntimeService
 			IEntity entity = m_aRuntimeEntities[i];
 			if (!entity)
 			{
+				ForgetBorrowedWorldEntity(entity);
 				m_aRuntimeEntityIds.Remove(i);
 				m_aRuntimeEntities.Remove(i);
 				continue;
@@ -7533,7 +7668,9 @@ class HST_MissionRuntimeService
 				continue;
 			}
 
-			SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			if (!m_aBorrowedWorldEntities.Contains(entity))
+				SCR_EntityHelper.DeleteEntityAndChildren(entity);
+			ForgetBorrowedWorldEntity(entity);
 			m_aRuntimeEntityIds.Remove(i);
 			m_aRuntimeEntities.Remove(i);
 		}

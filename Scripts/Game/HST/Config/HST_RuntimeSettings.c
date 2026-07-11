@@ -106,7 +106,7 @@ class HST_RuntimeSettingsCivilians
 	int m_iMaxActivePerTown = 12;
 	int m_iCivilianVehicleMinPerTown = 1;
 	int m_iCivilianVehicleMaxPerTown = 5;
-	int m_iCivilianDrivingVehicleCountPerTown = 2;
+	int m_iCivilianDrivingVehicleCountPerTown = 5;
 	int m_iOccupierVehicleMinPerTown;
 	int m_iOccupierVehicleMaxPerTown = 2;
 }
@@ -136,7 +136,7 @@ class HST_RuntimeSettingsFeatures
 
 class HST_RuntimeSettings
 {
-	static const int SCHEMA_VERSION = 21;
+	static const int SCHEMA_VERSION = 22;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	ref HST_RuntimeSettingsCampaign m_Campaign = new HST_RuntimeSettingsCampaign();

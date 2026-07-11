@@ -29,7 +29,62 @@ be read as proof that a later change was executed or certified.
   declarations had omitted the base class's container/custom-title metadata.
   Current source restores the matching attributes and passes the stamped source
   compile/startup gates,
-  but no published runtime has verified HUD/editor recovery.
+  A later published schema-49 user check verified that normal UI, map markers,
+  and Game Master access were available again, closing that specific metadata
+  regression. The same check exposed separate marker-presentation and civilian
+  ambience issues; those follow-up source changes are not runtime-certified yet.
+- The latest packaged civilian evidence showed full civilian ambience at
+  Simon's Wood, but none at Figari or Morton. The save already contained Figari
+  and Morton as town-center zones with civilian ledgers. Their absence was
+  caused by the HQ being within the 900-meter hostile safe radius: physical-war
+  activation forced both zone-active flags false, and civilian ambience was
+  incorrectly coupled to that military flag. Current source separates civilian
+  player-distance eligibility and also separates the 900-meter hostile-operation
+  staging clearance from location activation: only an HQ inside the location's
+  capture footprint suppresses that location, while individual composition
+  slots retain a 150-meter immediate HQ clearance. That allows Figari and
+  Morton to physicalize normally without permitting a hostile group or prop to
+  spawn on the HQ. The same source classifies Simon's Wood as a two-person farm
+  locality, uses concrete appearance variants, defaults true-town traffic to
+  five, and clears ambient driver horn input. Phase 20 now measures appearance
+  uniqueness across the complete projected civilian actor set, including both
+  pedestrians and traffic drivers, but a republished run is still required.
+- The location review did not apply one flat garrison increase. Major military
+  sites already carry substantially larger strategic garrison capacities (for
+  example, airfield/seaport records versus town records), and physical-war caps
+  add infantry and a second vehicle for airfields/seaports. That distinction is
+  retained; runtime population and frame cost should be measured before raising
+  the major-site caps further.
+- The same packaged check showed eighteen radio markers paired with eighteen
+  empty-imageset widget errors and giant colored marker boxes. The active
+  config already contained the player entry, so the old ensure path returned
+  before appending a radio icon; publication nevertheless used hard-coded index
+  `91`. The attempted resource also named a quad absent from that imageset.
+  Current source preserves/validates the canonical table, repairs or appends
+  `radio-signal` from the stock wrapper normal/glow imagesets, resolves its real
+  runtime index, rejects invalid placed icons, and labels zones as
+  `Location | Owner: Faction`. Map-target prompts/dialogs now live below the
+  native workspace pointer, so the pointer should remain visible over Confirm.
+  Radio-zone composition retains an existing transmitter, and radio destroy
+  missions borrow that entity without deleting it during generic cleanup.
+  Authored-transmitter detection first recognizes a map descriptor whose base
+  type is `MDT_TRANSMITTER`, then uses the transmitter prefab token as a fallback
+  for stock wrapper entities; generated or mission-prefab towers remain fallbacks
+  only when no intact, damageable transmitter exists. These fixes are source-
+  validated only and require the requested republished map/dialog/radio mission
+  check.
+- Current schema-50 source validation now passes its source gates. The initial
+  correctly quoted Workbench attempts exposed a native compiler edge in the
+  already-large Phase-20 civilian population debug method: adding five
+  appearance/horn count locals caused `0xc0000374` before `Module: Game` without
+  a script diagnostic, while the production civilian and strategic services
+  compiled in isolation. Splitting the post-selection probe and aggregating the
+  new counts in `HST_CivilianProjectionProofSummary` removes that method-local
+  pressure without dropping assertions. The foundation validator passes;
+  Workbench script validation loads 5,747 files/11,508 classes with CRC
+  `edd1a720`; and a correctly launched WorldEditor remains responsive for all
+  ten samples over 20 seconds with no script-error, unknown-class, or crash
+  signature. This is compile/startup evidence, not packaged-runtime proof.
 - Not every hard failure is a cascade. Convoy movement/seating, support routing,
   and physical response behavior retain genuine runtime failures that need
   scoped reproduction after debug isolation is fixed.
@@ -312,6 +367,22 @@ Real restart/migration and archive replay are pending, and schema 49 does not cl
 cursor/hysteresis, generalized virtualization, vehicle/assets/multi-root forces,
 or complete Phase 4 behavior.
 
+Post-audit schema-50 strategic-projection follow-up: the first exact paid
+infantry-QRF consumer now moves continuously on a held direct-route projection,
+materializes exact survivors inside the player bubble, folds them back outside
+the hysteresis radius, and runs bounded deterministic infantry-only combat while
+virtually on station. Route preparation is valid while the operation remains
+`STAGING`; `LinkOutboundVirtual` is the delivered-service commit to `OUTBOUND`.
+Terminal failure before that boundary fully refunds money and HR. Failure after
+commit, including an `OUTBOUND` or `ON_STATION` materialization failure with no
+physical handoff, retains money and refunds exactly
+`m_iLastVirtualFriendlyCount` HR. The deterministic paid-QRF proof now checks
+both sides and replay idempotency. Restore normalizes the linked request with the
+operation and batch: it clears `m_bPhysicalized`, keeps on-station work abstract-
+resolved as `exact_virtual_on_station`, and uses
+`exact_restore_survivor_virtual` for other open duty. These are source-level
+contracts until a republished run executes the proof and a real process restart.
+
 Post-audit schema-45 force-spawn follow-up: typed force-spawn results are durable
 per-projection queue batches rather than manifest-only observations. The queue
 rejects manifests without an executable required group root, orders priority/
@@ -350,11 +421,11 @@ HR, registers one linked support request, commits both transactions, and marks
 the quote accepted last. At inbound staging the request creates one stable
 queue-owned active-group projection and submits the accepted manifest without
 calling the broad composition service or prefab-name manpower estimation. The
-request becomes physical only after queue `SUCCEEDED`. Terminal deployment
-failure and pre-success commander cancellation refund both transactions once,
-remove unhanded group state, and permit a replacement quote without erasing the
-historical cooldown; recall uses the
-linked HR settlement policy. The current typed recall layer supplies explicit
+request becomes physical only after queue `SUCCEEDED`. Schema 50 refines the
+original deployment settlement rule: failure while still `STAGING` fully
+refunds, while committed virtual `OUTBOUND`/`ON_STATION` service retains money
+and refunds only its recorded virtual survivors even when materialization never
+hands off. Recall uses the linked HR settlement policy. The current typed recall layer supplies explicit
 receipt status/operation identity, checks lost-group settlement results, and
 prevalidates both legs before a full refund. Restore reconciliation rolls back interrupted
 confirmations before the generic reservation sweep. Schema 47 supersedes the
@@ -810,12 +881,12 @@ Unproven or incomplete against the pasted contract:
   evidence but is not a substitute for those feature-specific flows.
 - Loadout editor rendered/visual proof is still partial: the debug runner now counts physical player-inventory reflection/restore and server-side live-draft slot model reflection/restore for a non-serialized saved loadout, but it does not inspect the rendered editor UI or visually prove the seeded finite debug item is equipped in a specific player slot.
 - Render/UI depth is still incomplete for rendered map widget inspection. Command-menu visual opening now has an owner-client rendered widget proof path, but the current audit has not yet seen a fresh runtime artifact with that report.
-- The latest packaged client could not initialize stock HUD or Game Master because
-  config-backed modded classes lost their base container metadata. Source now
-  restores the attributes, but only a republished run can prove the repair.
-- Schema-49 operation depth is limited to confirmed exact paid player infantry
-  QRFs. Live combat contact does not drive engagement; strategic route progress/
-  cursor/hysteresis, generalized virtualization, other force/order families,
+- The later packaged schema-49 check confirmed that stock HUD and Game Master
+  access were restored. The schema-50 marker, dialog, radio, civilian, and
+  strategic-projection follow-ups remain source-only until a new package is run.
+- Schema-50 strategic projection remains limited to one exact paid player
+  infantry QRF consumer. Live physical contact does not yet own engagement;
+  generalized virtualization, other force/order families, vehicles/assets,
   packaged execution of the integrated assertions, and real restart/migration/
   archive replay remain open.
 - Persistence depth is still incomplete for real process restart, multiclient reconnect/soak, and physical field-vehicle respawn after a process restore.
@@ -831,6 +902,11 @@ Unproven or incomplete against the pasted contract:
 
 ## Validation Run
 
-- `git diff --check` passed, with only CRLF warnings reported by Git.
-- Basic brace counts matched for the touched script files.
-- `tools/validate-foundation.ps1` passed.
+- `git diff --check` passed for the current documentation update.
+- `tools/validate-foundation.ps1` passes for the current schema-50 source.
+- Correctly quoted headless Workbench validation exits successfully after
+  loading 5,747 Game files/11,508 classes with CRC `edd1a720` and reporting
+  successful script validation. A separate normal WorldEditor project open
+  remained responsive at every two-second sample through 20 seconds with no
+  `SCRIPT (E)`, unknown-class, or crash signature. These are schema-50 source
+  compile/startup gates, not packaged runtime certification.

@@ -2,7 +2,9 @@ class HST_CampaignMapMarkerDirector
 {
 	static const int MAX_NATIVE_MARKERS = 192;
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
-	static const int RADIO_SIGNAL_NATIVE_ICON_INDEX = 91;
+	static const ResourceName RADIO_SIGNAL_IMAGESET = "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset";
+	static const ResourceName RADIO_SIGNAL_GLOW_IMAGESET = "{00FE3DBDFD15227B}UI/Textures/Icons/icons_wrapperUI-glow.imageset";
+	static const string RADIO_SIGNAL_QUAD = "radio-signal";
 
 	protected int m_iLastEligibleCount;
 	protected int m_iLastSkippedCount;
@@ -72,7 +74,17 @@ class HST_CampaignMapMarkerDirector
 		record.m_iPriority = ResolveMarkerPriority(marker);
 		record.m_eMarkerType = SCR_EMapMarkerType.PLACED_CUSTOM;
 		record.m_iConfigId = -1;
-		record.m_iIconEntry = ResolveNativeIcon(marker.m_sIconHint, marker.m_sCategory, marker.m_sStyleHint);
+		if (IsRadioSignalMarker(marker.m_sIconHint, marker.m_sCategory, marker.m_sStyleHint))
+		{
+			record.m_iIconEntry = -1;
+			record.m_sIconImageset = RADIO_SIGNAL_IMAGESET;
+			record.m_sIconGlowImageset = RADIO_SIGNAL_GLOW_IMAGESET;
+			record.m_sIconQuad = RADIO_SIGNAL_QUAD;
+		}
+		else
+		{
+			record.m_iIconEntry = ResolveNativeIcon(marker.m_sIconHint, marker.m_sCategory, marker.m_sStyleHint);
+		}
 		record.m_iColorEntry = ResolveNativeColor(marker, preset);
 		record.m_iFactionFlags = 0;
 		record.m_bVisible = marker.m_bVisible;
@@ -154,9 +166,6 @@ class HST_CampaignMapMarkerDirector
 
 	protected int ResolveNativeIcon(string iconHint, string category, string styleHint)
 	{
-		if (iconHint == "RADIO_SIGNAL")
-			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
-
 		if (iconHint == "DOT")
 			return SCR_EScenarioFrameworkMarkerCustom.DOT;
 
@@ -244,9 +253,6 @@ class HST_CampaignMapMarkerDirector
 		if (styleHint == "enemy_base" || styleHint == "stronghold" || category == "enemy_base")
 			return SCR_EScenarioFrameworkMarkerCustom.FORTIFICATION;
 
-		if (styleHint == "radio" || category == "radio")
-			return RADIO_SIGNAL_NATIVE_ICON_INDEX;
-
 		if (styleHint == "radar" || category == "radar")
 			return SCR_EScenarioFrameworkMarkerCustom.TARGET_REFERENCE_POINT;
 
@@ -257,6 +263,11 @@ class HST_CampaignMapMarkerDirector
 			return SCR_EScenarioFrameworkMarkerCustom.PICK_UP2;
 
 		return SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER;
+	}
+
+	protected bool IsRadioSignalMarker(string iconHint, string category, string styleHint)
+	{
+		return iconHint == "RADIO_SIGNAL" || styleHint == "radio" || category == "radio";
 	}
 
 	protected SCR_EScenarioFrameworkMarkerCustomColor ResolveNativeColor(HST_MapMarkerState marker, HST_CampaignPreset preset)

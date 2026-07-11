@@ -221,17 +221,33 @@ class HST_OperationRecordProofService
 		runtime.m_Group = runtime.m_Base.m_State.FindActiveGroup(runtime.m_Batch.m_sProjectionId);
 		bool outbound = runtime.m_Group
 			&& runtime.m_Operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
-			&& runtime.m_Operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			&& runtime.m_Operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 			&& runtime.m_Operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& runtime.m_Batch.m_bStrategicProjectionHeld
+			&& runtime.m_Operation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
 			&& runtime.m_Operation.m_sSpawnResultId == runtime.m_Batch.m_sResultId
 			&& runtime.m_Operation.m_sGroupId == runtime.m_Group.m_sGroupId
 			&& runtime.m_Operation.m_sProjectionId == runtime.m_Group.m_sProjectionId;
 
+		HST_ForceSpawnQueueCallbackResult release = runtime.m_Base.m_Queue.ReleaseStrategicProjectionForMaterialization(
+			runtime.m_Base.m_State.m_aForceSpawnResults,
+			runtime.m_Base.m_Issue.m_Manifest,
+			runtime.m_Batch.m_sResultId,
+			runtime.m_Batch.m_sProjectionId,
+			runtime.m_Base.m_State.m_iElapsedSeconds,
+			runtime.m_Base.m_State.m_iElapsedSeconds + 120);
+		HST_OperationService operations = new HST_OperationService();
+		HST_OperationTransitionResult materializing = operations.MarkMaterializingFromVirtual(
+			runtime.m_Base.m_State,
+			runtime.m_Base.m_Request,
+			runtime.m_Group,
+			runtime.m_Batch,
+			"operation proof entered materialize-in distance");
 		runtime.m_Batch.m_eStatus = HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED;
 		runtime.m_Base.m_State.m_iElapsedSeconds++;
-		HST_OperationService operations = new HST_OperationService();
 		HST_OperationTransitionResult physical = operations.MarkPhysical(runtime.m_Base.m_State, runtime.m_Base.m_Request, runtime.m_Group, runtime.m_Batch);
 		bool physicalExact = physical && physical.m_bAccepted && physical.m_bStateChanged
+			&& release && release.m_bAccepted && materializing && materializing.m_bAccepted
 			&& runtime.m_Operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
 			&& runtime.m_Operation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE;
 		runtime.m_Base.m_State.m_iElapsedSeconds++;
@@ -334,26 +350,56 @@ class HST_OperationRecordProofService
 			return;
 		}
 
+		runtime.m_Group.m_vPosition = "1425 20 1510";
+		runtime.m_Base.m_Request.m_bPhysicalized = true;
+		runtime.m_Base.m_Request.m_bAbstractResolved = true;
+		runtime.m_Base.m_Request.m_sRuntimeStatus = "physical_arrived";
+		HST_OperationService operations = new HST_OperationService();
+		HST_OperationTransitionResult sampled = operations.UpdatePhysicalPosition(
+			runtime.m_Base.m_State,
+			runtime.m_Base.m_Request,
+			runtime.m_Group);
 		int sourceRevision = runtime.m_Operation.m_iRevision;
+		int sourceReprojectionCount = runtime.m_Batch.m_iReprojectionCount;
 		vector savedGroupPosition = runtime.m_Group.m_vPosition;
 		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
 		saveData.Capture(runtime.m_Base.m_State);
 		HST_CampaignState restored = saveData.Restore();
 		HST_OperationRecordState restoredOperation;
 		HST_SupportRequestState restoredRequest;
+		HST_ForceSpawnResultState restoredBatch;
+		HST_ActiveGroupState restoredGroup;
+		HST_ForceManifestState restoredManifest;
 		if (restored)
 		{
 			restoredOperation = restored.FindOperation(runtime.m_Operation.m_sOperationId);
 			restoredRequest = restored.FindSupportRequest(runtime.m_Base.m_Request.m_sRequestId);
+			restoredBatch = restored.FindForceSpawnResult(runtime.m_Batch.m_sResultId);
+			restoredGroup = restored.FindActiveGroup(runtime.m_Group.m_sGroupId);
+			restoredManifest = restored.FindForceManifest(runtime.m_Base.m_Issue.m_Manifest.m_sManifestId);
 		}
-		bool exact = restored && restoredOperation && restoredRequest;
+		bool restoreRecordsPresent = restored && restoredOperation && restoredRequest;
+		restoreRecordsPresent = restoreRecordsPresent && restoredBatch && restoredGroup && restoredManifest;
+		bool routeInitialized;
+		if (restoreRecordsPresent)
+		{
+			HST_StrategicMovementService movement = new HST_StrategicMovementService();
+			routeInitialized = movement.InitializeExactPlayerQRFRoute(
+				restored,
+				restoredOperation,
+				restoredRequest,
+				restoredManifest,
+				restoredGroup);
+		}
+		bool exact = sampled && sampled.m_bAccepted && restoreRecordsPresent && routeInitialized;
 		if (exact)
 			exact = restored.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION
 				&& restoredOperation != runtime.m_Operation && restored.m_aOperations.Count() == 1
 				&& restoredRequest.m_iOperationContractVersion == HST_OperationService.EXACT_PLAYER_QRF_CONTRACT_VERSION;
 		if (exact)
-			exact = restoredOperation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			exact = restoredOperation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
 				&& restoredOperation.m_ePositionAuthority == HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+				&& restoredOperation.m_iProjectionContractVersion == HST_StrategicMovementService.EXACT_PLAYER_QRF_PROJECTION_CONTRACT_VERSION
 				&& restoredOperation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
 				&& restoredOperation.m_eResumeDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
 				&& restoredOperation.m_eEngagementMode == HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
@@ -361,9 +407,26 @@ class HST_OperationRecordProofService
 			exact = restoredOperation.m_sAssignmentZoneId == runtime.m_sAssignmentZoneId
 				&& PositionsMatch(restoredOperation.m_vAssignmentPosition, runtime.m_vAssignmentPosition)
 				&& PositionsMatch(restoredOperation.m_vStrategicPosition, savedGroupPosition)
+				&& PositionsMatch(restoredOperation.m_vRouteStartPosition, savedGroupPosition)
+				&& PositionsMatch(restoredGroup.m_vPosition, savedGroupPosition)
 				&& restoredOperation.m_sGroupId == runtime.m_Group.m_sGroupId
 				&& restoredOperation.m_iRevision == sourceRevision + 1;
+		if (exact)
+			exact = restoredBatch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
+				&& restoredBatch.m_bStrategicProjectionHeld
+				&& restoredBatch.m_iReprojectionCount == sourceReprojectionCount + 1;
+		if (exact)
+			exact = !restoredRequest.m_bPhysicalized
+				&& restoredRequest.m_bAbstractResolved
+				&& restoredRequest.m_sRuntimeStatus == "exact_virtual_on_station";
 		report.m_bRestoreProjectionExact = exact;
+		bool requestVirtualized;
+		string restoredRequestStatus;
+		if (restoredRequest)
+		{
+			requestVirtualized = !restoredRequest.m_bPhysicalized;
+			restoredRequestStatus = restoredRequest.m_sRuntimeStatus;
+		}
 		report.m_sRestoreProjectionEvidence = string.Format(
 			"schema %1 | restored operation %2 deep copy %3 | materialization %4 position %5 | strategic group position %6 | duty/resume %7/%8",
 			restored && restored.m_iSchemaVersion,
@@ -375,9 +438,16 @@ class HST_OperationRecordProofService
 			restoredOperation && restoredOperation.m_eDutyState,
 			restoredOperation && restoredOperation.m_eResumeDutyState);
 		report.m_sRestoreProjectionEvidence = report.m_sRestoreProjectionEvidence + string.Format(
-			" | revision %1/%2",
+			" | cursor/init %1/%2 | reprojection %3",
+			restoredOperation && PositionsMatch(restoredOperation.m_vRouteStartPosition, savedGroupPosition),
+			routeInitialized,
+			restoredBatch && restoredBatch.m_iReprojectionCount);
+		report.m_sRestoreProjectionEvidence = report.m_sRestoreProjectionEvidence + string.Format(
+			" | revision %1/%2 | request virtualized %3 status %4",
 			restoredOperation && restoredOperation.m_iRevision,
-			sourceRevision + 1);
+			sourceRevision + 1,
+			requestVirtualized,
+			restoredRequestStatus);
 	}
 
 	protected void ProveRecallSettlement(HST_OperationRecordProofReport report, HST_OperationRecordRuntimeFixture runtime)

@@ -170,6 +170,23 @@ class HST_OperationRecordState
 	vector m_vTacticalTargetPosition;
 	vector m_vStrategicPosition;
 	string m_sCurrentRouteId;
+	int m_iProjectionContractVersion;
+	int m_iRouteVersion;
+	vector m_vRouteStartPosition;
+	vector m_vRouteEndPosition;
+	float m_fRouteTotalDistanceMeters;
+	float m_fRouteProgressMeters;
+	float m_fStrategicSpeedMetersPerSecond;
+	int m_iStrategicLastUpdateSecond;
+	int m_iLastProjectionDecisionSecond;
+	int m_iVirtualCombatLastStepSecond;
+	int m_iVirtualCombatStepIndex;
+	int m_iVirtualCombatFriendlyDamageCarry;
+	int m_iVirtualCombatHostileDamageCarry;
+	int m_iLastVirtualFriendlyCount;
+	int m_iLastVirtualHostileCount;
+	string m_sLastProjectionReason;
+	string m_sLastVirtualCombatReason;
 	string m_sRecallPolicyId;
 	string m_sSettlementPolicyId;
 	HST_EOperationDutyState m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_UNKNOWN;
@@ -946,7 +963,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 49;
+	static const int SCHEMA_VERSION = 50;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

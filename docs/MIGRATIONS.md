@@ -2,7 +2,70 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `49`.
+`HST_CampaignState.SCHEMA_VERSION` is currently `50`.
+
+## Schema 50
+
+- Schema 50 advances the first canonical operation consumer—confirmed exact
+  player-paid resistance infantry QRFs—from a lifecycle kernel to persistent
+  strategic projection. The operation now stores a versioned direct-route
+  cursor, route distance, conservative 2.5 m/s campaign speed, strategic
+  position, bounded update clock, materialization decision evidence, and
+  deterministic virtual-combat clock and damage carries. Quote ETA is derived
+  from route distance and that speed. Strategic ticks catch up at no more than
+  30 campaign seconds per invocation; no nearby player is required.
+
+- The exact spawn batch can be held strategically. While held, its frozen
+  manifest member slots are the exact living/dead roster and the physical spawn
+  queue performs no work. Entering the configured player bubble releases the
+  batch at the current route cursor. Leaving the larger materialize-out radius
+  while clear of contact samples the live position and roster, retires only the
+  disposable runtime projection, and requeues exactly the confirmed survivors.
+  The fold boundary rebases the remaining direct route at that live position and
+  resets the virtual-combat clock, so physical time is never replayed as abstract
+  casualties. Abstract virtual contact is legally cleared during the v1 physical
+  handoff until a physical contact adapter becomes authoritative.
+  Projection deletion is neither a casualty nor a refund. Vehicles, cargo,
+  assets, multi-root forces, and other support families deliberately fail closed
+  or remain on their previous contracts.
+
+- Virtual combat is initially limited to an on-station exact infantry QRF and
+  the hostile abstract infantry garrison at its target. It advances in bounded
+  30-second deterministic power steps, can retire at most one exact friendly
+  member slot per processed step, and preserves its fractional damage carries.
+  The contact clock resets on outbound-to-on-station arrival, so elapsed travel
+  time cannot be backfilled as combat. Broader encounters, vehicle damage,
+  ammunition, terrain modifiers, and capture outcomes remain future work.
+
+- Pre-schema-50 coherent exact infantry-QRF operations receive this projection
+  contract without changing economy or terminal history. Unsupported manifests
+  remain operation-only. Every nonterminal projection restores as virtual with
+  strategic position authority; pending, interrupted, ready, and previously
+  successful physical batches become one held pending survivor projection with
+  process-local IDs cleared. A successful physical batch records exactly one
+  reprojection on that transition; already-held pending work does not. The saved
+  live group position rebases the restored route before initialization, preventing
+  a snap back to an older cursor. This prevents restart from duplicating physical
+  entities. The linked support request is normalized at the same time:
+  `m_bPhysicalized` is cleared, on-station duty publishes
+  `exact_virtual_on_station`, and other open duty publishes
+  `exact_restore_survivor_virtual`. Schema 50 also reclassifies the known woodland minor locality as a
+  food resource and reduces its ambient civilian baseline while preserving any
+  existing casualty ledger.
+
+- Route preparation does not itself deliver the paid service. The operation may
+  initialize its route while `STAGING`; `LinkOutboundVirtual` is the commit that
+  advances it to `OUTBOUND`. Terminal failure before that commit refunds money
+  and HR. Once committed, including `ON_STATION`, a materialization failure with
+  no physical handoff retains money and refunds only
+  `m_iLastVirtualFriendlyCount` HR. Both terminal paths are deterministic and
+  idempotent.
+
+- The same source boundary separates HQ clearances that previously shared one
+  900-meter constant. Hostile operation staging retains that distance, location
+  activation now uses the location capture footprint with a 150-meter fallback,
+  and generated composition slots keep a 150-meter immediate clearance. This
+  allows valid nearby locations to project without spawning entities on HQ.
 
 - Schema 49 adds the first canonical `HST_OperationRecordState` contract for one
   already-exact consumer: confirmed player-paid resistance infantry QRFs. Quote
@@ -240,7 +303,7 @@
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
   ledgers are copied, and personal templates are also written under
   `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
-- Runtime settings are schema `21` and are migrated separately by
+- Runtime settings are schema `22` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
   scripted persistence cannot flush, the current same-container data can be
@@ -462,18 +525,21 @@ authority.
   projection with stable force/projection/result identities and submits the
   accepted manifest to SpawnQueue. The request is not physicalized until the
   queue reaches `SUCCEEDED` after physical-war handoff.
-- Placement/admission/final spawn failure and commander cancellation before
-  success refund money and HR once, remove an unhanded active-group projection,
-  and let a replacement quote bypass the historical cooldown. Pre-success recall refunds HR only;
-  post-success recall settles verified survivors through the HR transaction.
+- Placement/admission failure while the operation is still `STAGING` and
+  commander cancellation before strategic service commitment refund money and
+  HR once and let a replacement quote bypass the historical cooldown. Once
+  `LinkOutboundVirtual` commits `OUTBOUND`, money remains paid; a later
+  no-handoff materialization failure refunds only the operation's last virtual
+  survivor count through the HR transaction. Recall and post-handoff failure
+  retain their survivor-only HR policies.
   The current no-schema-bump typed recall layer checks every settlement result,
   rejects lost-group or terminal-failure settlement conflicts explicitly, and
   preflights both legs of a full refund before either leg changes.
 - Setup and terminal campaign frames continue queue cancellation/cleanup and run
   exact-support settlement even though campaign elapsed time is frozen.
-- A restored `SUCCEEDED` QRF without a recoverable live projection is removed
-  and fully refunded. This is a temporary fail-closed policy; successful runtime
-  reprojection and the general living-force/casualty ledger remain open.
+- Schema 47 and schema 50 supersede the former restored-`SUCCEEDED` full-refund
+  fallback. Restore now retains exact casualty history, requeues one held
+  survivor projection, and normalizes the linked request to virtual authority.
 - Legacy positive player-QRF cost fields are historical charge evidence only.
   Migration creates linked transaction rows without changing balances and never
   invents a quote or manifest. Ambiguous conflicts remain visible through one
@@ -507,11 +573,25 @@ Active-group projection identity and Game Master registration authority.
   order. The normal per-tick action cap still applies, and ordering remains
   monotonic across successive cleanup waves.
 
+## Runtime Settings Schema 22
+
+True-town civilian traffic default and deterministic appearance correction.
+
+- `HST_RuntimeSettings.SCHEMA_VERSION` is `22`.
+- Five civilian-driven traffic vehicles are the default for stock town-center
+  locations. Minor localities do not inherit that town-scale traffic budget.
+- A schema-21 value of `2`, the prior shipped default, migrates to `5`.
+  Non-default operator values remain unchanged.
+- Direct runtime civilian pools now use concrete stock appearance variants.
+  The stock editor-randomized entries do not select a random default variant
+  when directly spawned, which previously produced one repeated appearance per
+  location.
+
 ## Runtime Settings Schema 21
 
 Loot-setting key cleanup.
 
-- `HST_RuntimeSettings.SCHEMA_VERSION` is `21`.
+- `HST_RuntimeSettings.SCHEMA_VERSION` was `21`.
 - Generated settings keep `lootSkipUnlockedItems` and
   `vehicleLootSkipUnlockedItems` as the canonical keys.
 - Obsolete `lootOnlyLockedItems` and `vehicleLootOnlyLockedItems` aliases are

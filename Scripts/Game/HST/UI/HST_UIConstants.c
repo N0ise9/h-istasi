@@ -11,14 +11,18 @@ enum HST_EUIScreenMode
 
 class HST_UIConstants
 {
-	// Keep the native map root low enough that the engine-owned map cursor stays usable.
+	// Map-target overlays are children of the native map root. The engine-owned
+	// pointer is a workspace child at z 10, so map-local dialogs must stay below it.
 	static const int Z_SETUP_MAP = 0;
 	static const int Z_SETUP_PROMPT = 2300;
 	static const int Z_SETUP_MODAL = 0;
 	static const int Z_COMMAND_MENU = 2500;
 	static const int Z_NOTIFICATION = 2850;
 	static const int Z_LOADOUT_EDITOR = 3600;
-	static const int Z_MAP_TARGET_CURSOR = 4200;
+	static const int Z_MAP_TARGET_PROMPT = 7;
+	static const int Z_MAP_TARGET_CURSOR = 8;
+	static const int Z_MAP_ACTION_DIALOG = 9;
+	static const int Z_NATIVE_MAP_CURSOR = 10;
 	static const int Z_ACTION_DIALOG = 4300;
 	static const int Z_MISSION_DIALOG = 4300;
 

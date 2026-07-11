@@ -8,6 +8,8 @@ class HST_ActionDialogData
 	string m_sMessage;
 	string m_sCancelLabel = "Cancel";
 	string m_sConfirmLabel = "Confirm";
+	Widget m_Parent;
+	int m_iZOrder = HST_UIConstants.Z_ACTION_DIALOG;
 }
 
 class HST_ActionChoiceDialogData
@@ -20,6 +22,8 @@ class HST_ActionChoiceDialogData
 	string m_sMessage;
 	string m_sCancelLabel = "Cancel";
 	ref array<string> m_aChoiceLabels = {};
+	Widget m_Parent;
+	int m_iZOrder = HST_UIConstants.Z_ACTION_DIALOG;
 }
 
 class HST_ActionDialogController
@@ -37,14 +41,17 @@ class HST_ActionDialogController
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, data.m_sDebugOwner);
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
-		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT, workspace);
+		Widget parent = data.m_Parent;
+		if (!parent)
+			parent = workspace;
+		Widget root = workspace.CreateWidgets(ACTION_DIALOG_LAYOUT, parent);
 		HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner, ACTION_DIALOG_LAYOUT, root, workspace);
 		if (!root)
 			return null;
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(HST_UIConstants.Z_ACTION_DIALOG);
+		root.SetZOrder(data.m_iZOrder);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG, data.m_sOwner, root, false, false, true))
 		{
 			HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner, ACTION_DIALOG_LAYOUT, root, "UI root refused action modal");
@@ -153,14 +160,17 @@ class HST_ActionChoiceDialogController
 		HST_UIWorkspaceMetrics.DebugWorkspaceMetrics(workspace, data.m_sDebugOwner);
 		float scale = HST_UIWorkspaceMetrics.GetScale(screenW, screenH, 0.70, 1.12);
 
-		Widget root = workspace.CreateWidgets(ACTION_CHOICE_DIALOG_LAYOUT, workspace);
+		Widget parent = data.m_Parent;
+		if (!parent)
+			parent = workspace;
+		Widget root = workspace.CreateWidgets(ACTION_CHOICE_DIALOG_LAYOUT, parent);
 		HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner, ACTION_CHOICE_DIALOG_LAYOUT, root, workspace);
 		if (!root)
 			return null;
 
 		root.SetVisible(true);
 		root.SetOpacity(1.0);
-		root.SetZOrder(HST_UIConstants.Z_ACTION_DIALOG);
+		root.SetZOrder(data.m_iZOrder);
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG, data.m_sOwner, root, false, false, true))
 		{
 			HST_UIDebug.LogLayoutRejected(data.m_sDebugOwner, ACTION_CHOICE_DIALOG_LAYOUT, root, "UI root refused action choice modal");

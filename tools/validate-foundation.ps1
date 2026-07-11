@@ -788,18 +788,15 @@ if ($balanceConfigTextEarly -match '"Prefabs/Characters/Factions/CIV/Character_C
 	throw "Civilian character pools must not contain path-only Character_CIV resources"
 }
 $civilianCharacterPoolEntriesEarly = [regex]::Matches($balanceConfigTextEarly + "`n" + $defaultCatalogEarly, '"\{[0-9A-F]{16}\}Prefabs/Characters/Factions/CIV/[^"]+Character_CIV_[^"]+\.et"')
-if ($civilianCharacterPoolEntriesEarly.Count -lt 2) {
-	throw "Civilian character pools must expose the randomized GUID-qualified stock CIV character resource in config and runtime defaults"
+if ($civilianCharacterPoolEntriesEarly.Count -lt 40) {
+	throw "Civilian character pools must expose the concrete GUID-qualified stock CIV appearance variants in config and runtime defaults"
 }
-if ($balanceConfigTextEarly -notmatch "Character_CIV_Randomized.et" -or $defaultCatalogEarly -notmatch "Character_CIV_Randomized.et") {
-	throw "Civilian character pools must use the randomized CIV character resource"
-}
-if ($balanceConfigTextEarly -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck" -or $defaultCatalogEarly -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck") {
-	throw "Civilian character pools must not list explicit clothing variants; use Character_CIV_Randomized.et only"
+if ($balanceConfigTextEarly -match "Character_CIV_Randomized.et" -or $defaultCatalogEarly -match "Character_CIV_Randomized.et") {
+	throw "Direct civilian runtime pools must use concrete appearance variants because stock editor-randomized entries do not randomize direct runtime spawns"
 }
 $civilianServiceTextEarly = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
 if ($civilianServiceTextEarly -notmatch "MIN_CIVILIAN_CHARACTER_PREFABS = 1") {
-	throw "Civilian character prefab minimum must stay at 1 for randomized-only civilian spawning"
+	throw "Civilian character prefab minimum must retain the configured-pool availability guard"
 }
 Write-Host "Civilian character runtime resource surface OK"
 
@@ -1295,6 +1292,10 @@ foreach ($requiredUIRootEntry in @(
 		"Z_COMMAND_MENU",
 		"Z_NOTIFICATION",
 		"Z_LOADOUT_EDITOR",
+		"Z_MAP_TARGET_PROMPT",
+		"Z_MAP_TARGET_CURSOR",
+		"Z_MAP_ACTION_DIALOG",
+		"Z_NATIVE_MAP_CURSOR",
 		"Z_ACTION_DIALOG",
 		"Z_MISSION_DIALOG"
 	)) {
@@ -1416,8 +1417,10 @@ foreach ($requiredActionDialogControllerEntry in @(
 		"class HST_ActionDialogData",
 		"class HST_ActionDialogController",
 		'ACTION_DIALOG_LAYOUT = "{D66CFA01E5AA4200}UI/layouts/HST_ActionDialog.layout"',
-		"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT, workspace)",
-		"root.SetZOrder(HST_UIConstants.Z_ACTION_DIALOG)",
+		"Widget m_Parent",
+		"int m_iZOrder = HST_UIConstants.Z_ACTION_DIALOG",
+		"workspace.CreateWidgets(ACTION_DIALOG_LAYOUT, parent)",
+		"root.SetZOrder(data.m_iZOrder)",
 		"HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.ACTION_DIALOG",
 		"HST_UIRootService.Get().NotifyClosed(HST_EUIScreenMode.ACTION_DIALOG",
 		"HST_UIDebug.LogLayoutCreate(data.m_sDebugOwner",
@@ -1613,6 +1616,18 @@ foreach ($currentStateDocPath in $currentStateDocPaths) {
 	}
 	if ($currentStateDocText -match '(?im)[A-Za-z]:\\|/home/|/Users/|file://') {
 		throw "$currentStateDocPath must not contain local filesystem paths"
+	}
+}
+$commandMenuMapTargetText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
+foreach ($requiredMapTargetLayerEntry in @(
+		"ResolveCommandMapOverlayParent",
+		"m_MapTargetEntity.GetMapMenuRoot()",
+		"data.m_iZOrder = HST_UIConstants.Z_MAP_ACTION_DIALOG",
+		"HST_UIConstants.Z_MAP_TARGET_PROMPT",
+		"HST_UIConstants.Z_MAP_TARGET_CURSOR"
+	)) {
+	if ($commandMenuMapTargetText -notmatch [regex]::Escape($requiredMapTargetLayerEntry)) {
+		throw "Map-target overlays must stay on the map-local layer below the native pointer: $requiredMapTargetLayerEntry"
 	}
 }
 $featureChecklistText = Get-Content -Raw "docs/FEATURE_CHECKLIST.md"
@@ -1983,6 +1998,32 @@ $playerMarkerConfigText = Get-Content -Raw "Configs/Map/HST_PlayerMapMarkerConfi
 $runtimeMarkerPipelineText = $markerServiceText + "`n" + $coordinatorMarkerText + "`n" + $campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText
 $zoneBlocks = @(Get-ConfigBlocks $mapConfig "HST_ZoneDefinition")
 
+$simonsWoodBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sZoneId\s+"town_simons_wood"' })
+if ($simonsWoodBlocks.Count -ne 1) {
+	throw "Everon taxonomy must contain exactly one stable Simon's Wood zone"
+}
+foreach ($requiredSimonsWoodEntry in @(
+		'm_eType HST_ZONE_RESOURCE',
+		'm_sResourceKind "food"',
+		'm_iGarrisonSlots 6',
+		'm_sSpawnProfileId "spawn_resource_guards"',
+		'm_sMarkerStyle "resource"'
+	)) {
+	if ($simonsWoodBlocks[0] -notmatch [regex]::Escape($requiredSimonsWoodEntry)) {
+		throw "Simon's Wood must remain a minor farm/resource locality: $requiredSimonsWoodEntry"
+	}
+}
+foreach ($trueTownId in @("town_figari", "town_morton")) {
+	$trueTownBlocks = @($zoneBlocks | Where-Object { $_ -match ('m_sZoneId\s+"' + [regex]::Escape($trueTownId) + '"') })
+	if ($trueTownBlocks.Count -ne 1 -or $trueTownBlocks[0] -notmatch 'm_eType HST_ZONE_TOWN' -or $trueTownBlocks[0] -notmatch 'm_sSourceLayoutId "TC_') {
+		throw "Everon taxonomy must retain $trueTownId as one stock town-center locality"
+	}
+}
+if ($defaultCatalog -notmatch 'NewZoneState\("town_morton"' -or $defaultCatalog -notmatch 'NewZoneState\("town_simons_wood"[^\r\n]+HST_EZoneType\.HST_ZONE_RESOURCE') {
+	throw "Runtime and config location registries must agree on Morton and Simon's Wood taxonomy"
+}
+Write-Host "Everon true-town/minor-locality taxonomy OK"
+
 foreach ($requiredCuratedLocationEntry in @(
 		"ApplyEveronLocationPlanOverrides",
 		"UpsertEveronLocationPlanZone",
@@ -2030,6 +2071,12 @@ foreach ($requiredSupportMarkerEntry in @(
 		"support.physical_map_destination",
 		"support.physical_spawn_offset",
 		"support.physical_spawn_clearance",
+		"support_virtual",
+		"support_arrived_virtual",
+		"exact_virtual_outbound",
+		"exact_virtual_on_station",
+		"virtual en route",
+		"virtual on station",
 		"hst_defend_petros_attackers",
 		"IsTerminalActiveGroupStatus",
 		"HasCampaignDebugLiveActiveGroup",
@@ -2071,8 +2118,8 @@ foreach ($requiredMarkerIconDeconflictEntry in @(
 	}
 }
 
-if ($configZones.Count -ne 80 -or $runtimeZones.Count -ne 80) {
-	throw "Everon campaign catalog must contain 80 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
+if ($configZones.Count -ne 81 -or $runtimeZones.Count -ne 81) {
+	throw "Everon campaign catalog must contain 81 zones in config/runtime, found config=$($configZones.Count) runtime=$($runtimeZones.Count)"
 }
 
 $campaignBaseBlocks = @($zoneBlocks | Where-Object { $_ -match 'm_sSourceLayerName "Bases\.layer"' })
@@ -2082,8 +2129,8 @@ $campaignCallsigns = @($zoneBlocks | ForEach-Object {
 			$Matches[1]
 		}
 	} | Where-Object { ![string]::IsNullOrWhiteSpace($_) })
-if ($campaignBaseBlocks.Count -ne 69) {
-	throw "Expected 69 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
+if ($campaignBaseBlocks.Count -ne 68) {
+	throw "Expected 68 Everon Bases.layer nodes, found $($campaignBaseBlocks.Count)"
 }
 if ($campaignDepotBlocks.Count -ne 8) {
 	throw "Expected 8 Everon SupplyDepots.layer nodes, found $($campaignDepotBlocks.Count)"
@@ -2259,8 +2306,12 @@ foreach ($requiredPlayerMarkerManagerPatchEntry in @(
 		"m_MarkerCfg.GetMarkerEntryConfigByType(SCR_EMapMarkerType.HST_PLAYER)",
 		"BaseContainerTools.LoadContainer(markerConfigPath)",
 		"BaseContainerTools.CreateInstanceFromContainer",
-		"m_MarkerCfg = markerConfig",
-		"InitHSTMarkerConfigEntries()",
+		"HST_CANONICAL_MARKER_CONFIG",
+		"ResolveValidPlacedEntry",
+		"entryConfigs.Insert(playerEntry)",
+		"HST_EnsureRadioSignalIconEntry",
+		"HST_EnsurePlacedIconEntry",
+		"HST_ResolveValidPlacedIconEntry",
 		"dynamicEntry.InitServerLogic()",
 		"dynamicEntry.InitClientLogic()"
 	)) {
@@ -2659,6 +2710,21 @@ foreach ($requiredEditorRoleGuardEntry in @(
 	if ($editorRoleGuardText -notmatch [regex]::Escape($requiredEditorRoleGuardEntry)) {
 		throw "Editor player-role reentry guard is missing: $requiredEditorRoleGuardEntry"
 	}
+}
+foreach ($requiredRadioMarkerResourceEntry in @(
+		'RADIO_SIGNAL_IMAGESET = "{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset"',
+		'RADIO_SIGNAL_GLOW_IMAGESET = "{00FE3DBDFD15227B}UI/Textures/Icons/icons_wrapperUI-glow.imageset"',
+		'RADIO_SIGNAL_QUAD = "radio-signal"',
+		"record.m_sIconImageset = RADIO_SIGNAL_IMAGESET",
+		"manager.HST_EnsurePlacedIconEntry",
+		"manager.HST_ResolveValidPlacedIconEntry"
+	)) {
+	if (($campaignMarkerDirectorText + "`n" + $nativeMarkerReconcilerText) -notmatch [regex]::Escape($requiredRadioMarkerResourceEntry)) {
+		throw "Radio map markers must resolve a validated runtime icon resource rather than a hard-coded placed-icon index: $requiredRadioMarkerResourceEntry"
+	}
+}
+if (($campaignMarkerDirectorText + "`n" + $markerServiceText) -match "RADIO_SIGNAL_NATIVE_ICON_INDEX") {
+	throw "Radio map markers must not depend on a hard-coded placed-icon array index"
 }
 if ($editorRoleGuardText -match "GivePlayerRole" -or $editorRoleGuardText -match "ClearPlayerRole") {
 	throw "Editor player-role reentry guard must defer stock role synchronization rather than own player roles"
@@ -4746,8 +4812,8 @@ foreach ($requiredSettingsEntry in @(
 		throw "Missing runtime settings generated-config contract entry: $requiredSettingsEntry"
 	}
 }
-if ($scriptText -notmatch "SCHEMA_VERSION = 21") {
-	throw "Runtime settings schema must be bumped to 21 for removed loot alias settings"
+if ($scriptText -notmatch "SCHEMA_VERSION = 22") {
+	throw "Runtime settings schema must be 22 for the true-town civilian traffic default migration"
 }
 if ($scriptText -notmatch 'BUILD_SHA\s*=\s*"[0-9a-f]{40}"') {
 	throw "HST_BuildInfo.BUILD_SHA must be a full lowercase Git revision"
@@ -4789,7 +4855,7 @@ foreach ($requiredAuthorityFoundationEntry in @(
 }
 Write-Host "Campaign authority foundation contract OK"
 foreach ($requiredForceAuthorityEntry in @(
-		"SCHEMA_VERSION = 49",
+		"SCHEMA_VERSION = 50",
 		"HST_ForceManifestState",
 		"HST_ForceQuoteState",
 		"HST_ForceSpawnResultState",
@@ -4876,6 +4942,29 @@ $paidQRFEnqueueBlock = [regex]::Match($scriptText, 'HST_ForceSpawnQueueEnqueueRe
 if (!$paidQRFEnqueueBlock.Success -or $paidQRFEnqueueBlock.Value -match '\.Compose\(' -or $paidQRFEnqueueBlock.Value -match 'EstimatePlayerSupportHRCost') {
 	throw "Exact paid-QRF queue admission must consume the frozen manifest without composition or prefab-name manpower estimation"
 }
+$paidQRFRouteInitializeIndex = $paidQRFEnqueueBlock.Value.IndexOf('InitializeExactPlayerQRFRoute(')
+$paidQRFOutboundCommitIndex = $paidQRFEnqueueBlock.Value.IndexOf('LinkOutboundVirtual(')
+if ($paidQRFRouteInitializeIndex -lt 0 -or $paidQRFOutboundCommitIndex -lt 0 -or $paidQRFRouteInitializeIndex -gt $paidQRFOutboundCommitIndex) {
+	throw "Exact paid-QRF admission must initialize its strategic route while staging before LinkOutboundVirtual commits OUTBOUND service"
+}
+foreach ($requiredPaidQRFCommitSettlementProofEntry in @(
+	'route ready in staging',
+	'outbound commit',
+	'staging full refund',
+	'outbound survivor settlement',
+	'on-station survivor settlement',
+	'materialization_failed_virtual_survivors_refunded',
+	'outboundMoney.m_iRefundedAmount == 0',
+	'outboundHR.m_iRefundedAmount == outboundSurvivors',
+	'preCommitMoney.m_iRefundedAmount == preCommit.m_Request.m_iMoneyCost',
+	'preCommitHR.m_iRefundedAmount == preCommit.m_Request.m_iHRCost',
+	'bool outboundReplayChanged = fixture.m_Support.TickExactPlayerSupportSettlements',
+	'bool replayChanged = onStation.m_Support.TickExactPlayerSupportSettlements'
+)) {
+	if ($scriptText -notmatch [regex]::Escape($requiredPaidQRFCommitSettlementProofEntry)) {
+		throw "Exact paid-QRF commit-boundary settlement proof is missing: $requiredPaidQRFCommitSettlementProofEntry"
+	}
+}
 $paidQRFIssueBlock = [regex]::Match($scriptText, 'HST_ForceQuoteResult IssuePlayerSupportQuote[\s\S]*?\r?\n\t}')
 if (!$paidQRFIssueBlock.Success -or $paidQRFIssueBlock.Value -match 'SpendFactionMoney' -or $paidQRFIssueBlock.Value -match 'SpendHR') {
 	throw "Exact paid-QRF issue must freeze a quote without directly debiting resources"
@@ -4918,10 +5007,21 @@ if ($scriptText -match 'successful exact QRF projection could not be restored; t
 }
 $forceRuntimeSettlementBlock = [regex]::Match($scriptText, 'protected bool SettleExactPlayerSupportDeploymentTerminal[\s\S]*?\r?\n\t}')
 $forceRuntimeSettlementValid = $forceRuntimeSettlementBlock.Success
-$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match 'm_iSuccessfulHandoffCount <= 0\)\s*return SettleExactPlayerSupportFullRefund'
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match 'm_iSuccessfulHandoffCount <= 0\)\s*\{'
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match 'FindOperation\(request\.m_sOperationId\)'
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match '!HasExactSupportStrategicServiceCommitted\(operation\)\)\s*return SettleExactPlayerSupportFullRefund'
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match 'operation\.m_iLastVirtualFriendlyCount'
+$forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match 'SettleExactPlayerSupportHRRefund\(state, request, virtualSurvivors'
 $forceRuntimeSettlementValid = $forceRuntimeSettlementValid -and $forceRuntimeSettlementBlock.Value -match '!m_ExactForceSpawnQueue\)\s*return SetExactSupportRuntimeStatus\(request, "exact_terminal_settlement_queue_unavailable"\)'
 if (!$forceRuntimeSettlementValid) {
-	throw "Exact force terminal settlement must permit a full refund only before any successful handoff and must wait when post-handoff queue authority is unavailable"
+	throw "Exact force terminal settlement must fully refund only before strategic service commitment, use the virtual survivor count after commitment, and wait when post-handoff queue authority is unavailable"
+}
+$strategicCommitClassifierBlock = [regex]::Match($scriptText, 'protected bool HasExactSupportStrategicServiceCommitted[\s\S]*?\r?\n\t}')
+if (!$strategicCommitClassifierBlock.Success -or
+	$strategicCommitClassifierBlock.Value -notmatch 'm_iProjectionContractVersion <= 0' -or
+	$strategicCommitClassifierBlock.Value -notmatch 'HST_OPERATION_DUTY_UNKNOWN' -or
+	$strategicCommitClassifierBlock.Value -notmatch 'HST_OPERATION_DUTY_STAGING') {
+	throw "Exact force strategic-service commitment must exclude unknown and staging operations from post-commit settlement"
 }
 $forceRuntimeCleanupBlock = [regex]::Match($scriptText, 'bool FinalizeEliminatedForceSpawnProjection[\s\S]*?\r?\n\t}')
 if (!$forceRuntimeCleanupBlock.Success -or $forceRuntimeCleanupBlock.Value -notmatch 'DetachForceSpawnMember' -or $forceRuntimeCleanupBlock.Value -match 'DeleteEntityAndChildren\(member\)') {
@@ -4985,6 +5085,10 @@ Write-Host "Schema-48 bounded force settlement archive and replay contract OK"
 $operationTypesPath = "Scripts/Game/HST/HST_Types.c"
 $operationServicePath = "Scripts/Game/HST/Services/HST_OperationService.c"
 $operationProofPath = "Scripts/Game/HST/Services/HST_OperationRecordProofService.c"
+$operationProjectionProofPath = "Scripts/Game/HST/Services/HST_OperationProjectionProofService.c"
+$strategicMovementPath = "Scripts/Game/HST/Services/HST_StrategicMovementService.c"
+$materializationPath = "Scripts/Game/HST/Services/HST_MaterializationService.c"
+$virtualCombatPath = "Scripts/Game/HST/Services/HST_VirtualCombatService.c"
 $operationSupportPath = "Scripts/Game/HST/Services/HST_SupportRequestService.c"
 $operationArchivePath = "Scripts/Game/HST/Services/HST_ForceSettlementArchiveService.c"
 $operationPlanningPath = "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
@@ -4992,6 +5096,10 @@ foreach ($requiredOperationFile in @(
 		$operationTypesPath,
 		$operationServicePath,
 		$operationProofPath,
+		$operationProjectionProofPath,
+		$strategicMovementPath,
+		$materializationPath,
+		$virtualCombatPath,
 		$operationSupportPath,
 		$operationArchivePath,
 		$operationPlanningPath
@@ -5003,6 +5111,11 @@ foreach ($requiredOperationFile in @(
 $operationTypesText = Get-Content -Raw $operationTypesPath
 $operationServiceText = Get-Content -Raw $operationServicePath
 $operationProofText = Get-Content -Raw $operationProofPath
+$operationProjectionProofText = Get-Content -Raw $operationProjectionProofPath
+$strategicMovementText = Get-Content -Raw $strategicMovementPath
+$materializationText = Get-Content -Raw $materializationPath
+$virtualCombatText = Get-Content -Raw $virtualCombatPath
+$operationProjectionQueueText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 $operationSupportText = Get-Content -Raw $operationSupportPath
 $operationArchiveText = Get-Content -Raw $operationArchivePath
 $operationPlanningText = Get-Content -Raw $operationPlanningPath
@@ -5122,7 +5235,7 @@ foreach ($requiredOperationStateEntry in @(
 	}
 }
 foreach ($requiredOperationStateRootEntry in @(
-		'SCHEMA_VERSION = 49',
+		'SCHEMA_VERSION = 50',
 		'ref array<ref HST_OperationRecordState> m_aOperations = {};',
 		'HST_OperationRecordState FindOperation(string operationId)',
 		'int m_iOperationContractVersion;'
@@ -5195,10 +5308,12 @@ foreach ($requiredOperationReplayValidationEntry in @(
 	}
 }
 foreach ($requiredOperationLifecycleHook in @(
-		'm_Operations.MarkOutboundMaterializing(state, request, activeGroup, result.m_Batch)',
+		'm_Operations.LinkOutboundVirtual(state, request, activeGroup, result.m_Batch)',
+		'm_Operations.MarkMaterializingFromVirtual',
 		'm_Operations.MarkPhysical(state, request, group, batch)',
 		'm_Operations.MarkOnStation(state, request, group)',
-		'm_Operations.MarkRestoreMaterializing(state, request, group)',
+		'm_Operations.BeginDematerialization',
+		'm_Operations.CompleteDematerialization',
 		'm_Operations.CanBeginRecall(state, request)',
 		'm_Operations.MarkRecallExiting(state, request, group, exitPosition)',
 		'm_Operations.CanSettleExactPlayerQRF',
@@ -5285,6 +5400,28 @@ if (!$operationRestoreProjectionBlock.Success -or
 	$operationRestoreProjectionBlock.Value -notmatch 'm_iRevision\+\+') {
 	throw "Current-schema restore must return process-local physical OperationRecords to strategic materialization authority"
 }
+$operationRestoreRequestProjectionBlock = [regex]::Match($forceSaveDataText, 'protected void NormalizeRestoredStrategicProjectionBatch[\s\S]*?\r?\n\t}')
+foreach ($requiredRestoreRequestProjectionEntry in @(
+	'request.m_bPhysicalized = false;',
+	'request.m_bAbstractResolved = true;',
+	'request.m_sRuntimeStatus = "exact_virtual_on_station";',
+	'request.m_bAbstractResolved = false;',
+	'request.m_sRuntimeStatus = "exact_restore_survivor_virtual";'
+)) {
+	if (!$operationRestoreRequestProjectionBlock.Success -or $operationRestoreRequestProjectionBlock.Value -notmatch [regex]::Escape($requiredRestoreRequestProjectionEntry)) {
+		throw "Schema-50 restore must normalize linked request projection authority: $requiredRestoreRequestProjectionEntry"
+	}
+}
+foreach ($requiredRestoreRequestProofEntry in @(
+	'runtime.m_Base.m_Request.m_bPhysicalized = true;',
+	'!restoredRequest.m_bPhysicalized',
+	'restoredRequest.m_sRuntimeStatus == "exact_virtual_on_station"',
+	'request virtualized %3 status %4'
+)) {
+	if ($operationProofText -notmatch [regex]::Escape($requiredRestoreRequestProofEntry)) {
+		throw "Operation restore proof must assert linked request virtualization: $requiredRestoreRequestProofEntry"
+	}
+}
 
 foreach ($requiredOperationArchiveEntry in @(
 		'm_sOperationSettlementId',
@@ -5347,6 +5484,55 @@ foreach ($requiredOperationProofEntry in @(
 	}
 }
 Write-Host "Schema-49 exact paid-QRF OperationRecord authority, persistence, migration, archive, and proof contract OK"
+foreach ($requiredOperationProjectionEntry in @(
+		'class HST_StrategicMovementService',
+		'EXACT_PLAYER_QRF_SPEED_METERS_PER_SECOND = 2.5',
+		'Math.Ceil(distance / EXACT_PLAYER_QRF_SPEED_METERS_PER_SECOND)',
+		'bool routeInitialized',
+		'MAX_CATCHUP_SECONDS_PER_TICK = 30',
+		'ResolveExactPlayerQRFETASeconds',
+		'AdvanceExactPlayerQRF',
+		'class HST_MaterializationService',
+		'MIN_HYSTERESIS_METERS = 350.0',
+		'HST_OPERATION_PROJECTION_MATERIALIZE',
+		'HST_OPERATION_PROJECTION_DEMATERIALIZE',
+		'class HST_VirtualCombatService',
+		'COMBAT_STEP_SECONDS = 30',
+		'MAX_COMBAT_STEPS_PER_TICK = 4',
+		'ConfirmStrategicMemberCasualty',
+		'HoldPendingProjectionForStrategicSimulation',
+		'ReleaseStrategicProjectionForMaterialization',
+		'RequeueSuccessfulProjectionForStrategicHold',
+		'CompleteStrategicProjectionElimination',
+		'm_bStrategicProjectionHeld',
+		'm_iProjectionContractVersion',
+		'm_fRouteProgressMeters',
+		'm_iVirtualCombatLastStepSecond',
+		'physical interval excluded from virtual combat catch-up',
+		'NormalizeAbstractEngagementForPhysicalHandoff',
+		'abstract engagement handed off clear to physical projection',
+		'foldCombatClockExact',
+		'physicalEngagementClear',
+		'wasSuccessfulPhysical',
+		'restoredBatch.m_iReprojectionCount == sourceReprojectionCount + 1',
+		'PositionsMatch(restoredOperation.m_vRouteStartPosition, savedGroupPosition)',
+		'NormalizeOperationProjectionAuthority(restoredSchemaVersion);',
+		'NormalizeRestoredStrategicProjectionBatch',
+		'migration_schema50_operation_projection',
+		'class HST_OperationProjectionProofService',
+		'operation_projection.movement',
+		'operation_projection.hysteresis',
+		'operation_projection.roster_transfer',
+		'operation_projection.combat_restore',
+		'virtual en route',
+		'virtual on station'
+	)) {
+	$operationProjectionCorpus = $strategicMovementText + "`n" + $materializationText + "`n" + $virtualCombatText + "`n" + $operationProjectionProofText + "`n" + $operationServiceText + "`n" + $operationSupportText + "`n" + $operationProjectionQueueText + "`n" + $forceAuthorityDataText + "`n" + $forceSaveDataText + "`n" + $campaignStateText + "`n" + $markerServiceText + "`n" + $scriptText
+	if ($operationProjectionCorpus -notmatch [regex]::Escape($requiredOperationProjectionEntry)) {
+		throw "Schema-50 exact infantry-QRF strategic projection contract missing: $requiredOperationProjectionEntry"
+	}
+}
+Write-Host "Schema-50 exact infantry-QRF strategic movement, hysteresis, roster transfer, virtual combat, restore, and proof contract OK"
 $forceSpawnQueueServicePath = "Scripts/Game/HST/Services/HST_ForceSpawnQueueService.c"
 if (!(Test-Path $forceSpawnQueueServicePath)) {
 	throw "Missing durable force spawn queue service: $forceSpawnQueueServicePath"
@@ -5808,6 +5994,7 @@ foreach ($requiredCivilianDefault in @(
 		"m_iCivilianMaxActivePerTown = 12",
 		"m_iCivilianVehicleMinPerTown = 1",
 		"m_iCivilianVehicleMaxPerTown = 5",
+		"m_iCivilianDrivingVehicleCountPerTown = 5",
 		"m_iOccupierVehicleMinPerTown",
 		"m_iOccupierVehicleMaxPerTown = 2"
 	)) {
@@ -5819,6 +6006,7 @@ foreach ($requiredCivilianBalanceDefault in @(
 		"m_iCivilianMaxActivePerTown 12",
 		"m_iCivilianVehicleMinPerTown 1",
 		"m_iCivilianVehicleMaxPerTown 5",
+		"m_iCivilianDrivingVehicleCountPerTown 5",
 		"m_iOccupierVehicleMinPerTown 0",
 		"m_iOccupierVehicleMaxPerTown 2"
 	)) {
@@ -8755,7 +8943,9 @@ foreach ($requiredPhysicalWarEntry in @(
 		"AddResistanceCaptureProgress",
 		"CAPTURE_PROGRESS_REQUIRED",
 		"HQ_SAFE_RADIUS_METERS",
+		"HQ_ZONE_ACTIVATION_FALLBACK_RADIUS_METERS",
 		"IsZoneInsideHQSafeArea",
+		"IsZoneInsideHQActivationExclusion",
 		"IsAnyLivingPlayerNearZone",
 		"DeleteEntityAndChildren",
 		"m_vPosition",
@@ -8812,6 +9002,15 @@ $supportRequestServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Sup
 $paidSupportAuthorityProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PaidSupportAuthorityProofService.c"
 $campaignCommandServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CampaignCommandService.c"
 $convoyOutcomeServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ConvoyOutcomeService.c"
+foreach ($requiredHQZoneActivationEntry in @(
+		"!IsZoneInsideHQActivationExclusion(state, zone)",
+		"Math.Max(HQ_ZONE_ACTIVATION_FALLBACK_RADIUS_METERS, zone.m_iCaptureRadiusMeters)",
+		"HQ_SAFE_RADIUS_METERS * HQ_SAFE_RADIUS_METERS"
+	)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredHQZoneActivationEntry)) {
+		throw "HQ policy must separate location-footprint activation from operation staging clearance: $requiredHQZoneActivationEntry"
+	}
+}
 foreach ($requiredActiveVehicleDetachEntry in @(
 		"PLAYER_USED_ACTIVE_VEHICLE_DETACH_DISTANCE_METERS",
 		"m_aVehicleSpawnBlockedZoneIds",
@@ -10146,10 +10345,15 @@ foreach ($simulatedRouteWrite in @(
 if ($supportRequestServiceText -match "MarkPhysicalSupportArrived") {
 	throw "Support ETA must not mutate active-group arrival through the removed MarkPhysicalSupportArrived shortcut"
 }
+$exactSupportArrivalText = $supportExactTickMatch.Value
+$exactSupportArrivalGateIndex = $exactSupportArrivalText.IndexOf("int arrivalAtSecond")
+if ($exactSupportArrivalGateIndex -ge 0) {
+	$exactSupportArrivalText = $exactSupportArrivalText.Substring($exactSupportArrivalGateIndex)
+}
 foreach ($supportArrivalTick in @(
 		[pscustomobject]@{ Name = "physical support"; Text = $supportGroundTickMatch.Value },
-		[pscustomobject]@{ Name = "exact support"; Text = $supportExactTickMatch.Value }
-	)) {
+		[pscustomobject]@{ Name = "exact support"; Text = $exactSupportArrivalText }
+)) {
 	if ($supportArrivalTick.Text -match '(?m)\b(?:group|activeGroup)\.m_sRuntimeStatus\s*=\s*"support_arrived";') {
 		throw "$($supportArrivalTick.Name) ETA must not set group arrival directly"
 	}
@@ -10181,6 +10385,7 @@ foreach ($requiredRestoredArrivalEntry in @(
 }
 foreach ($requiredExactSupportNormalizationEntry in @(
 		'group.m_sRuntimeStatus == EXACT_PLAYER_SUPPORT_GROUP_STATUS',
+		'operationPhysical.m_Operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION',
 		'group.m_sRuntimeStatus = "support_active";',
 		'group.m_iAssignedWaypointCount = 0;',
 		'request.m_bAbstractResolved = false;'
@@ -10597,6 +10802,23 @@ foreach ($requiredCivilianRuntimeEntry in @(
 		"{6985327711303920}Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup.et",
 		"CountRuntimeEntityFactionMismatchesForZone",
 		"phase20.civilian_population.civ_faction_mismatches",
+		"IsTrueTownLocation",
+		"IsMinorCivilianLocality",
+		"IsCivilianProjectionEligible",
+		"ResolveCivilianPedestrianTarget",
+		"ResolveCivilianTrafficTarget",
+		"HST_CivilianProjectionProofSummary",
+		"BuildProjectionProofSummary",
+		"RunCampaignDebugCivilianPopulationProbe",
+		"CountUniqueRuntimeEntityPrefabsForZone",
+		"CountCivilianActorAppearancesForZone",
+		"CountUniqueCivilianActorPrefabsForZone",
+		"SuppressAmbientTrafficHornInput",
+		"CountAmbientTrafficDriversWithHornInput",
+		"SetVehicleHorn(0)",
+		"phase20.civilian_population.character_diversity",
+		"phase20.civilian_population.traffic_horn_suppression",
+		"phase20.civilian_population.inactive_zone_projection",
 		"m_bCivilianPopulationEnabled",
 		"m_iCivilianMaxActivePerTown",
 		"m_iCivilianVehicleMinPerTown",
@@ -10674,14 +10896,11 @@ if ($civilianRuntimeServiceText -match '"Prefabs/Characters/Factions/CIV/Charact
 	throw "Civilian character runtime must not use path-only Character_CIV resources"
 }
 $civilianCharacterPoolEntries = [regex]::Matches($configResourceText + "`n" + $defaultCatalog, '"\{[0-9A-F]{16}\}Prefabs/Characters/Factions/CIV/[^"]+Character_CIV_[^"]+\.et"')
-if ($civilianCharacterPoolEntries.Count -lt 2) {
-	throw "Civilian character runtime must ship the randomized GUID-qualified default CIV character resource in config and runtime defaults"
+if ($civilianCharacterPoolEntries.Count -lt 40) {
+	throw "Civilian character runtime must ship a broad concrete GUID-qualified stock CIV appearance pool in config and runtime defaults"
 }
-if ($configResourceText -notmatch "Character_CIV_Randomized.et" -or $defaultCatalog -notmatch "Character_CIV_Randomized.et") {
-	throw "Civilian character runtime must use the randomized default CIV character resource"
-}
-if ($configResourceText -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck" -or $defaultCatalog -match "Character_CIV_CottonShirt|Character_CIV_DenimJacket|Character_CIV_Turtleneck") {
-	throw "Civilian character runtime must not ship explicit clothing-variant CIV character resources"
+if ($configResourceText -match "Character_CIV_Randomized.et" -or $defaultCatalog -match "Character_CIV_Randomized.et") {
+	throw "Civilian character runtime must not use editor-randomized entries for direct runtime spawning"
 }
 if ($civilianRuntimeServiceText -match 'DoSpawn\(prefab, position, "0 0 0"\)') {
 	throw "Ambient civilian/military runtime spawns must pass deterministic angles instead of hard-coded zero angles"
@@ -10698,15 +10917,41 @@ foreach ($requiredMissionUprightEntry in @(
 	}
 }
 $zoneCompositionServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCompositionService.c"
+foreach ($requiredHQCompositionClearanceEntry in @(
+		"HQ_IMMEDIATE_CLEARANCE_METERS = 150.0",
+		"IsInsideHQImmediateClearance",
+		"inside immediate HQ clearance"
+	)) {
+	if ($zoneCompositionServiceText -notmatch [regex]::Escape($requiredHQCompositionClearanceEntry)) {
+		throw "Zone composition must use immediate HQ clearance without suppressing nearby locations: $requiredHQCompositionClearanceEntry"
+	}
+}
 foreach ($requiredZoneCompositionRadioEntry in @(
 		"ShouldSkipRadioTowerStaticForMissionTarget",
 		"HasLiveMissionDestroyTarget",
 		"active mission target owns radio tower",
+		"ShouldUseExistingRadioTower",
+		"existing world radio tower retained",
+		"IsTransmitterTowerEntity",
+		"EMapDescriptorType.MDT_TRANSMITTER",
+		"RADIO_TOWER_PREFAB_TOKEN",
 		"RecordSkip",
 		"ApplyUprightEntityTransform(entity, slot.m_vPosition, slot.m_vAngles)"
 	)) {
 	if ($zoneCompositionServiceText -notmatch [regex]::Escape($requiredZoneCompositionRadioEntry)) {
 		throw "Zone composition must keep radio mission duplicate-tower guard: $requiredZoneCompositionRadioEntry"
+	}
+}
+foreach ($requiredAuthoredRadioMissionEntry in @(
+		"TryBindExistingRadioTower",
+		"FindExistingRadioTower",
+		"m_aBorrowedWorldEntities",
+		"bound existing radio tower",
+		"!m_aBorrowedWorldEntities.Contains(entity)",
+		"ForgetBorrowedWorldEntity(entity)"
+	)) {
+	if ($missionRuntimeServiceText -notmatch [regex]::Escape($requiredAuthoredRadioMissionEntry)) {
+		throw "Radio destroy missions must bind and preserve an existing world tower when one is available: $requiredAuthoredRadioMissionEntry"
 	}
 }
 $missionDestroyTargetComponentText = Get-Content -Raw "Scripts/Game/HST/Components/HST_MissionDestroyTargetComponent.c"

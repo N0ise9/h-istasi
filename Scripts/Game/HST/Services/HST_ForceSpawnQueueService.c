@@ -817,15 +817,17 @@ class HST_ForceSpawnQueueService
 		}
 		if (IsAcceptedCancellationCleanup(batch))
 			return AdvanceCleanupIfReady(batch, nowSecond);
-		if (batch.m_iDeadlineSecond > 0 && nowSecond >= batch.m_iDeadlineSecond)
-		{
-			BeginCleanup(batch, CLEANUP_DISPOSITION_FINAL, "spawn deadline expired", nowSecond);
-			AdvanceCleanupIfReady(batch, nowSecond);
-			return true;
-		}
 		if (batch.m_bCancelRequested)
 		{
 			BeginCleanup(batch, CLEANUP_DISPOSITION_CANCEL, "spawn cancellation requested", nowSecond);
+			AdvanceCleanupIfReady(batch, nowSecond);
+			return true;
+		}
+		if (batch.m_bStrategicProjectionHeld)
+			return false;
+		if (batch.m_iDeadlineSecond > 0 && nowSecond >= batch.m_iDeadlineSecond)
+		{
+			BeginCleanup(batch, CLEANUP_DISPOSITION_FINAL, "spawn deadline expired", nowSecond);
 			AdvanceCleanupIfReady(batch, nowSecond);
 			return true;
 		}
@@ -911,6 +913,8 @@ class HST_ForceSpawnQueueService
 	protected bool IsWorkEligible(HST_ForceSpawnResultState batch, HST_ForceManifestState manifest, int nowSecond)
 	{
 		if (!batch || batch.m_iNextAttemptSecond > nowSecond)
+			return false;
+		if (batch.m_bStrategicProjectionHeld)
 			return false;
 		if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING)
 			return HasCleanupWork(batch);
@@ -1540,6 +1544,307 @@ class HST_ForceSpawnQueueService
 		result.m_bAccepted = true;
 		result.m_bStateChanged = true;
 		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult HoldPendingProjectionForStrategicSimulation(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		HST_ForceSpawnResultState batch = ResolveStrategicProjectionBatch(batches, manifest, resultId, projectionId, result);
+		if (!batch)
+			return result;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE)
+		{
+			result.m_sFailureReason = "only an idle projection can enter strategic hold";
+			return result;
+		}
+		if (batch.m_bStrategicProjectionHeld)
+		{
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			return result;
+		}
+		batch.m_bStrategicProjectionHeld = true;
+		batch.m_iStrategicHoldSinceSecond = Math.Max(0, nowSecond);
+		batch.m_iNextAttemptSecond = 0;
+		batch.m_iUpdatedAtSecond = Math.Max(batch.m_iUpdatedAtSecond, nowSecond);
+		batch.m_iLifecycleRevision++;
+		batch.m_iLastLifecycleSecond = Math.Max(0, nowSecond);
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult ReleaseStrategicProjectionForMaterialization(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		int deadlineSecond)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		HST_ForceSpawnResultState batch = ResolveStrategicProjectionBatch(batches, manifest, resultId, projectionId, result);
+		if (!batch)
+			return result;
+		if (!batch.m_bStrategicProjectionHeld)
+		{
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			return result;
+		}
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
+			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE)
+		{
+			result.m_sFailureReason = "strategically held projection is not idle for materialization";
+			return result;
+		}
+		if (deadlineSecond <= nowSecond)
+		{
+			result.m_sFailureReason = "strategic projection materialization deadline must be in the future";
+			return result;
+		}
+		batch.m_bStrategicProjectionHeld = false;
+		batch.m_iStrategicHoldSinceSecond = 0;
+		batch.m_iDeadlineSecond = deadlineSecond;
+		batch.m_iNextAttemptSecond = nowSecond;
+		batch.m_iUpdatedAtSecond = nowSecond;
+		batch.m_iLifecycleRevision++;
+		batch.m_iLastLifecycleSecond = nowSecond;
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult RequeueSuccessfulProjectionForStrategicHold(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		int deadlineSecond)
+	{
+		HST_ForceSpawnQueueCallbackResult result = RequeueSuccessfulProjectionAfterRestore(
+			batches,
+			manifest,
+			resultId,
+			projectionId,
+			nowSecond,
+			deadlineSecond);
+		if (!result || !result.m_bAccepted || !result.m_Batch)
+			return result;
+		result.m_Batch.m_bStrategicProjectionHeld = true;
+		result.m_Batch.m_iStrategicHoldSinceSecond = Math.Max(0, nowSecond);
+		result.m_Batch.m_iNextAttemptSecond = 0;
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult CanRequeueSuccessfulProjectionForStrategicHold(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		int deadlineSecond)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		HST_ForceSpawnResultState batch = ResolveStrategicProjectionBatch(batches, manifest, resultId, projectionId, result);
+		if (!batch)
+			return result;
+		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_iSuccessfulHandoffCount <= 0)
+		{
+			result.m_sFailureReason = "strategic fold requires a previously successful projection";
+			return result;
+		}
+		if (deadlineSecond <= nowSecond)
+		{
+			result.m_sFailureReason = "strategic fold reprojection deadline must be in the future";
+			return result;
+		}
+		if (CountNonterminalBatches(batches) >= MAX_NONTERMINAL_BATCHES
+			|| CountNonterminalSlots(batches) + batch.m_aSlotResults.Count() > MAX_TOTAL_SLOT_ROWS)
+		{
+			result.m_sFailureReason = "strategic fold would exceed nonterminal queue capacity";
+			return result;
+		}
+		if (CountDurableLivingMemberSlots(batch) <= 0)
+		{
+			result.m_sFailureReason = "strategic fold has no durable living member slots";
+			return result;
+		}
+		result.m_bAccepted = true;
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult ConfirmStrategicMemberCasualty(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		string slotId,
+		int nowSecond,
+		string reason)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		HST_ForceSpawnResultState batch = ResolveStrategicProjectionBatch(batches, manifest, resultId, projectionId, result);
+		if (!batch)
+			return result;
+		if (!batch.m_bStrategicProjectionHeld)
+		{
+			result.m_sFailureReason = "strategic casualty requires virtual projection authority";
+			return result;
+		}
+		HST_ForceSpawnQueueManifestValidation validation = ValidateManifest(manifest);
+		HST_ForceSpawnQueueManifestSlot descriptor = FindManifestSlot(validation.m_aSlots, slotId, SLOT_KIND_MEMBER);
+		HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(slotId);
+		if (!descriptor || !slotResult || slotResult.m_sSlotKind != SLOT_KIND_MEMBER)
+		{
+			result.m_sFailureReason = "strategic casualty does not resolve to an exact member slot";
+			return result;
+		}
+		if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED && slotResult.m_bCasualtyConfirmed)
+		{
+			result.m_bAccepted = true;
+			result.m_bAlreadyApplied = true;
+			return result;
+		}
+		if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+			|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_SPAWNING
+			|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CLEANUP_PENDING)
+		{
+			result.m_sFailureReason = "strategic casualty conflicts with physical slot evidence";
+			return result;
+		}
+		if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL
+			|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CANCELLED)
+		{
+			result.m_sFailureReason = "strategic casualty slot is not part of the living roster";
+			return result;
+		}
+		if (reason.IsEmpty())
+			reason = "deterministic virtual combat casualty";
+		ClearSlotPhysicalEvidence(slotResult, nowSecond);
+		slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED;
+		slotResult.m_bEverAlive = true;
+		slotResult.m_bCasualtyConfirmed = true;
+		slotResult.m_iCasualtyAtSecond = Math.Max(0, nowSecond);
+		slotResult.m_iUpdatedAtSecond = Math.Max(0, nowSecond);
+		slotResult.m_iLifecycleRevision++;
+		slotResult.m_sRetirementReason = reason;
+		batch.m_iLifecycleRevision++;
+		batch.m_iLastLifecycleSecond = Math.Max(0, nowSecond);
+		batch.m_iUpdatedAtSecond = Math.Max(batch.m_iUpdatedAtSecond, nowSecond);
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		return result;
+	}
+
+	HST_ForceSpawnQueueCallbackResult CompleteStrategicProjectionElimination(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		int nowSecond,
+		string reason)
+	{
+		HST_ForceSpawnQueueCallbackResult result = new HST_ForceSpawnQueueCallbackResult();
+		HST_ForceSpawnResultState batch = ResolveStrategicProjectionBatch(batches, manifest, resultId, projectionId, result);
+		if (!batch)
+			return result;
+		if (!batch.m_bStrategicProjectionHeld || CountStrategicLivingMemberSlots(batch) > 0)
+		{
+			result.m_sFailureReason = "strategic elimination requires a held projection with zero living member slots";
+			return result;
+		}
+		if (reason.IsEmpty())
+			reason = "exact strategic roster eliminated";
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (!slotResult || (slotResult.m_sSlotKind == SLOT_KIND_MEMBER && slotResult.m_bCasualtyConfirmed))
+				continue;
+			ClearSlotPhysicalEvidence(slotResult, nowSecond);
+			slotResult.m_eStatus = HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL;
+			slotResult.m_sFailureReason = reason;
+			slotResult.m_iLifecycleRevision++;
+		}
+		MarkBatchTerminal(batch, HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL, reason, nowSecond);
+		result.m_bAccepted = true;
+		result.m_bStateChanged = true;
+		return result;
+	}
+
+	int CountStrategicLivingMemberSlots(HST_ForceSpawnResultState batch)
+	{
+		int count;
+		if (!batch)
+			return count;
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (!slotResult || slotResult.m_sSlotKind != SLOT_KIND_MEMBER || slotResult.m_bCasualtyConfirmed)
+				continue;
+			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL
+				|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CANCELLED)
+				continue;
+			count++;
+		}
+		return count;
+	}
+
+	string SelectStrategicLivingMemberSlotId(HST_ForceSpawnResultState batch, int deterministicIndex)
+	{
+		int livingCount = CountStrategicLivingMemberSlots(batch);
+		if (livingCount <= 0)
+			return "";
+		int normalizedIndex = deterministicIndex;
+		if (normalizedIndex < 0)
+			normalizedIndex = -normalizedIndex;
+		int selectedIndex = normalizedIndex % livingCount;
+		int currentIndex;
+		foreach (HST_ForceSpawnSlotResultState slotResult : batch.m_aSlotResults)
+		{
+			if (!slotResult || slotResult.m_sSlotKind != SLOT_KIND_MEMBER || slotResult.m_bCasualtyConfirmed)
+				continue;
+			if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_FINAL
+				|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_CANCELLED)
+				continue;
+			if (currentIndex == selectedIndex)
+				return slotResult.m_sSlotId;
+			currentIndex++;
+		}
+		return "";
+	}
+
+	protected HST_ForceSpawnResultState ResolveStrategicProjectionBatch(
+		array<ref HST_ForceSpawnResultState> batches,
+		HST_ForceManifestState manifest,
+		string resultId,
+		string projectionId,
+		HST_ForceSpawnQueueCallbackResult result)
+	{
+		if (!batches || !manifest || resultId.IsEmpty() || projectionId.IsEmpty() || CountByResult(batches, resultId) != 1)
+		{
+			result.m_sFailureReason = "strategic projection identity is missing or ambiguous";
+			return null;
+		}
+		HST_ForceSpawnResultState batch = FindByResult(batches, resultId);
+		result.m_Batch = batch;
+		if (!BatchHasUniqueKeys(batches, batch) || batch.m_sProjectionId != projectionId
+			|| !ValidateBatchManifest(batch, manifest).IsEmpty())
+		{
+			result.m_sFailureReason = "strategic projection identity or manifest conflicts with the queue";
+			return null;
+		}
+		return batch;
 	}
 
 	int CountDurableLivingMemberSlots(HST_ForceSpawnResultState batch)
@@ -2405,6 +2710,8 @@ class HST_ForceSpawnQueueService
 		batch.m_iLifecycleRevision++;
 		batch.m_iLastLifecycleSecond = nowSecond;
 		batch.m_bCancelRequested = false;
+		batch.m_bStrategicProjectionHeld = false;
+		batch.m_iStrategicHoldSinceSecond = 0;
 	}
 
 	protected void MarkBatchTerminal(
@@ -2423,6 +2730,8 @@ class HST_ForceSpawnQueueService
 		batch.m_iCompletedAtSecond = nowSecond;
 		if (status == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
 			batch.m_bCancelRequested = true;
+		batch.m_bStrategicProjectionHeld = false;
+		batch.m_iStrategicHoldSinceSecond = 0;
 	}
 
 	protected bool AllSlotsRegisteredAndVerified(HST_ForceSpawnResultState batch, HST_ForceManifestState manifest)
@@ -2614,7 +2923,7 @@ class HST_ForceSpawnQueueService
 			AdvanceRestoredDisposition(batch, restoredStatus, restoredDisposition, nowSecond);
 			return true;
 		}
-		if (batch.m_iDeadlineSecond > 0 && nowSecond >= batch.m_iDeadlineSecond)
+		if (!batch.m_bStrategicProjectionHeld && batch.m_iDeadlineSecond > 0 && nowSecond >= batch.m_iDeadlineSecond)
 		{
 			BeginCleanup(batch, CLEANUP_DISPOSITION_FINAL, "restored spawn deadline expired", nowSecond);
 			AdvanceCleanupIfReady(batch, nowSecond);

@@ -28,6 +28,9 @@ class HST_MapMarkerRecord
 	int m_iIconEntry;
 	int m_iColorEntry;
 	int m_iFactionFlags;
+	ResourceName m_sIconImageset;
+	ResourceName m_sIconGlowImageset;
+	string m_sIconQuad;
 
 	bool m_bVisible = true;
 	bool m_bCanPlayerRemove;
@@ -57,11 +60,14 @@ class HST_MapMarkerRecord
 			m_eMarkerType,
 			m_iConfigId,
 			m_iIconEntry);
-		return signature + string.Format("|%1|%2|%3|%4",
+		return signature + string.Format("|%1|%2|%3|%4|%5|%6|%7",
 			m_iColorEntry,
 			m_iFactionFlags,
 			m_bLocalOnly,
-			m_bServerMarker);
+			m_bServerMarker,
+			m_sIconImageset,
+			m_sIconGlowImageset,
+			m_sIconQuad);
 	}
 }
 

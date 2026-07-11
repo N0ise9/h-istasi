@@ -181,6 +181,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `Module: Game` compile plus successful game creation. A missing-project or
     fallback validation can report success without loading the addon's complete
     class surface and is not evidence for opening the mod.
+  - Current schema-50 validation demonstrates why the completion boundary matters.
+    The first correctly quoted launches reached Game script compilation but
+    terminated with native `0xc0000374` before `Module: Game`. Isolation proved
+    that the already-large Phase-20 civilian population debug method crossed a
+    native compiler edge when five appearance/horn count locals were added;
+    production civilian/strategic services and the new projection proof compiled
+    independently. Split the post-selection probe and aggregate related counts
+    in one result object instead of shaving assertions. After that refactor,
+    headless script validation exits successfully with 5,747 Game files/11,508
+    classes and CRC `edd1a720`, and a normal WorldEditor open remains responsive
+    for all ten samples over 20 seconds. These are compile/startup gates, not a
+    packaged-runtime certificate.
 
 - Player-facing economy reports should consume the same service-owned income math as the tick path.
   - If the Command Menu repeats income formulas locally, report totals can drift from actual money/HR mutation as town support, resource types, factories, seaports, airfields, or bank effects change.
@@ -977,7 +989,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Late join/spawn should force a native campaign-marker republish. Native static marker handles can look published to the server while a newly joined client has not received/constructed the expected map widgets yet; clearing the campaign reconciler and rebuilding from durable marker state is safer than assuming the old handles are visible.
   - Player-requested resistance support has two marker lifetimes: the request marker follows queued/active call-in state, and the live group marker follows the spawned active group. `features.trackResistanceSupportGroupsOnMap` defaults to enabled; when it is on, keep the live marker linked to the active group id until the group is terminal, killed, folded, or despawned. Do not hide the live marker just because the request has reached resolved/arrived status.
   - Keep marker icon deconflicts synchronized in both `HST_MapMarkerService` and `HST_CampaignMapMarkerDirector`. Current campaign semantics: towns use `OBJECTIVE_MARKER2`, military installations use `FORTIFICATION`, radio towers use the injected native `radio-signal` placed-marker icon, roadblocks use `JOIN3`, live resistance support groups use `DOT`, gun-shop seller/delivery markers use `MARK_QUESTION`/`MARK_EXCLAMATION`, destroy missions use `DESTROY2`, rescue POW missions use `HELP`, and generic incoming response support remains on `OBJECTIVE_MARKER`. Stale resolver values can make Workbench previews and runtime native markers disagree.
-  - Native placed-marker configs can be patched at runtime when the stock placed marker entry does not expose a needed quad from another imageset. Add the `SCR_MarkerIconEntry` resource data before publishing the marker and keep the returned icon index stable in both the runtime service and campaign-map director. Current example: `HST_MapMarkerManagerConfigPatch.c` injects the Conflict `radio-signal` quad for radio tower locations.
+  - Native placed-marker configs can be patched at runtime when the stock placed marker entry does not expose a needed quad from another imageset. Publish the imageset/quad identity in the desired marker record, resolve or append it against the active placed-marker entry, and validate the resolved entry before creating the native marker. Do not hard-code the appended array index: stock updates can change the inherited icon count. Reapplying an existing entry should also repair its glow resource and category so hot-reloaded legacy entries do not remain half-configured.
+
+- Radio sites should reuse an existing world transmitter instead of projecting a second tower.
+  - Before spawning a radio-zone static prop, query the zone for an intact,
+    damageable structural transmitter and retain it when present. Identify an
+    authored transmitter first through `MapDescriptorComponent` base type
+    `MDT_TRANSMITTER`, then use the transmitter prefab token as a fallback for
+    stock wrapper entities. A destroyed authored transmitter is not a usable
+    existing tower: ignoring it lets the generated fallback represent an actual
+    rebuild and prevents a later destroy/rebuild objective from binding an
+    already-destroyed entity and completing immediately.
+  - Destroy/rebuild mission assets can bind the nearest existing transmitter `IEntity` into the normal runtime-entity/asset records, allowing the existing damage-manager polling to own completion. Mark that handle as borrowed: generic mission cancel, expiry, restore cleanup, or success cleanup must untrack it without deleting an intact authored/composition entity.
 
 - Dynamic player markers need a marker config entry before `InsertDynamicMarker` can work.
   - `SCR_MapMarkerManagerComponent.InsertDynamicMarker(type, entity, configId)` resolves `type` through the active `SCR_MapMarkerConfig`; stock `CampaignMapMarkerConfig.conf` does not expose every dynamic marker type.
@@ -985,8 +1008,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The custom config must be the marker manager config on every gameplay/dev world layer that should show the marker. Having `Configs/Map/HST_PlayerMapMarkerConfig.conf` in the addon is not enough if the active layer still points at a config without `SCR_EMapMarkerType.HST_PLAYER`.
   - If a world layer still points at the vanilla marker config, patch the active `SCR_MapMarkerManagerComponent` before reconciliation with `EnsureHSTMarkerConfig`, loading `Configs/Map/HST_PlayerMapMarkerConfig.conf` and initializing its dynamic entries. The service should retry and log config readiness instead of silently inserting an unconfigured marker type.
   - Server-side config repair is not enough for dynamic marker rendering. `SCR_MapMarkerEntity.OnCreateMarker()` resolves its widget entry on the client from the local marker manager config, so custom player marker entities must also ensure `HST_PlayerMapMarkerConfig.conf` before vanilla widget creation asks for `SCR_EMapMarkerType.HST_PLAYER`.
-  - Inherit the custom config from the known `CampaignMapMarkerConfig.conf` parent and copy required HQC squad entries into the HST config. Do not depend on an unverified parent GUID for `CampaignHQCMapMarkerConfig.conf`; a bad parent resource ID makes the whole marker config fail before the HST entry can be used.
-  - Do not use `PLACED_CUSTOM` for tracked entities; it is a static marker type. For h-istasi player tracking, the world layers point the marker manager at `Configs/Map/HST_PlayerMapMarkerConfig.conf`, which inherits the campaign marker config and adds `HST_PlayerMapMarkerEntry`.
+  - Validate that the active config still resolves a usable `PLACED_CUSTOM` objective icon before publishing campaign markers. If config repair is needed, load the canonical campaign table and merge only the custom player entry; do not replace a healthy active table merely because the player entry already exists.
+  - Do not use `PLACED_CUSTOM` for tracked entities; it is a static marker type. The custom player entry can live in a small source config, while `EnsureHSTMarkerConfig` preserves the canonical placed-marker table and initializes only entries appended after the manager's normal init pass.
   - Do not reuse `SCR_EMapMarkerType.DYNAMIC_EXAMPLE` for custom dynamic markers. `SCR_MapMarkerConfig.GetMarkerEntryConfigByType` returns the first matching entry, and the parent map marker config already defines the stock example entry. Add a dedicated modded enum value such as `SCR_EMapMarkerType.HST_PLAYER`.
   - The stock `SCR_MapMarkerEntryDynamicExample` registers its own spawn/death handlers. If h-istasi owns marker lifecycle through a service/reconciler, use a custom `SCR_MapMarkerEntryDynamic` subclass, call `super.InitServerLogic()` to bind the manager, and do not register stock events.
   - Custom marker entry classes used from `.conf` need the same `[BaseContainerProps(), SCR_MapMarkerTitle()]` attributes as stock marker entries; without them the config entry can fail to instantiate even though the script class exists.
@@ -1098,7 +1121,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The native custom map cursor lives in its own workspace cursor layout at z-order `10`. Keep setup-map modal chrome above the map root but below that cursor band, for example modal root/dimmer/dialog/buttons/text in `1..9`, when the map cursor must remain visible over confirmation buttons.
   - Do not force `WidgetManager.SetCursor(0)` over an active map cursor; the native map cursor already hides the real cursor and forcing it back creates a second pointer.
   - Avoid modal-owned cursor proxy widgets over native map dialogs. They are easy to layer above the dialog, but they create a third visible cursor and drift from the engine cursor lifecycle.
-  - For normal gameplay-map target confirmations, a fixed selected-target indicator is acceptable when it is not an engine cursor proxy: create it as a passive workspace overlay above `Z_ACTION_DIALOG`, set `WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS` on every widget, convert `SCR_MapEntity.WorldToScreen()` raw coordinates with `HST_UIWorkspaceMetrics.RawToLayoutPx()`, and clear it whenever the dialog closes or the player chooses another point.
+  - For normal gameplay-map target confirmations, parent the prompt, fixed selected-target indicator, and confirmation dialog to `SCR_MapEntity.GetMapMenuRoot()` and keep them in the map-local `7..9` band. The engine pointer remains a workspace child at z-order `10`, so it then renders over the dialog without adding a cursor proxy. Keep the selected-target widgets passive (`IGNORE_CURSOR | NOFOCUS`) and clear them whenever the dialog closes or the player chooses another point.
   - Current examples: `HST_SetupMapComponent` and `HST_CommandMenuComponent`.
 
 - Notifications should not participate in blocking input.
@@ -1294,8 +1317,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Runtime settings schema 16 owns `features.trackResistanceSupportGroupsOnMap`, defaulting to enabled for generated and migrated configs.
   - Runtime settings schema 17 removes `campaign.defaultHideoutId`. Initial HQ placement is selected through the setup map and persisted in campaign state, so generated settings should not load, write, or display a default hideout id.
   - Runtime settings schema 18 adds JSON-safe `_comment` and `_comment_*` fields to generated settings. Do not use raw `//` or block comments in profile JSON; keep comments as ignored string fields so the line-scanning loader and external JSON tools remain compatible.
-  - Runtime settings schema 19 owns `civilianDrivingVehicleCountPerTown` and generated comments together. The traffic cap is per active town, and traffic cleanup must delete the vehicle, driver, group, and waypoint helpers when the car leaves the render bubble.
+  - Runtime settings schema 19 introduced `civilianDrivingVehicleCountPerTown` and generated comments. Schema 22 changes its shipped true-town default from two to five while preserving non-default values. Use the curated `HST_ZONE_TOWN` classification as runtime authority: much of the valid town catalog still carries imported base-overlay provenance rather than `TC_`/`towns/` metadata. Reclassify a known minor locality explicitly (type, resource kind, garrison, and civilian budget) instead of inferring all older town rows are minor from provenance alone. Minor localities must resolve a zero traffic target rather than multiplying the town budget.
   - Runtime settings schema 21 removes the old arsenal and vehicle loot alias keys. The only user-facing keys are `lootSkipUnlockedItems` / `vehicleLootSkipUnlockedItems`; `true` means skip items that are already unlimited in the arsenal, which is the normal default loot flow. Explosive and guided-launcher unlocks default to enabled.
+  - Stock `Character_CIV_*_Randomized.et` resources are editor-facing variant selectors with default randomization disabled. Direct runtime spawning therefore creates the base appearance repeatedly. Build the ambient pool from GUID-qualified concrete stock variants and select them with one zone appearance seed plus the stable actor slot; keep placement/angle seeds separate. Appearance-collision proof must count the complete projected civilian actor set for the locality, including pedestrians and traffic drivers; checking pedestrians alone can miss duplicates introduced by driver replacement.
+  - Do not use the hostile-garrison `zone.m_bActive` bit as the sole civilian render condition. A nearby living player should still see town/locality ambience even when military projection is suppressed. Resolve civilian projection eligibility from locality classification plus player distance, while leaving military activation authoritative in the physical-war service.
+  - Do not reuse one HQ radius for unrelated policies. The 900 m clearance belongs to hostile operation/QRF staging. Static location activation should be suppressed only when a legacy/emergency HQ lies inside that location's capture footprint (150 m fallback), matching setup placement rules. Composition slots need only an immediate 150 m HQ clearance. A 900 m location-activation exclusion silently erases otherwise valid nearby towns and bases.
+  - AI traffic can retain `CharacterInputContext.GetVehicleHorn() != 0` after forced seating/route control. Reset only HST-owned ambient driver inputs with `SetVehicleHorn(0)` after seating and during frame maintenance; do not patch global vehicle prefabs or unrelated AI.
   - Location taxonomy is a gameplay contract, not just map decoration. Towns must remain town/support zones, resources and factories must not be promoted from settlement names, and radar/ferry/dynamic-site pools should be mission-site/bookkeeping targets without start garrisons. Extra zones are acceptable, but curated minimum counts and known IDs should be asserted by Full Campaign Debug preflight.
   - Static location marker icons should not reuse QRF/attacker tactical icons. Keep QRF-style response markers on `OBJECTIVE_MARKER`, publish towns as `OBJECTIVE_MARKER2`, military bases/installations as `FORTIFICATION`, radio towers as `RADIO_SIGNAL`, roadblocks as `JOIN3`, and mission-specific markers by mission family. Phase 23 should assert no static town/base/radio/mission marker has drifted back to a reused tactical icon.
   - Default campaign-end evaluation is population-first. Victory requires the FIA-supporting share of remaining town population to meet the configured threshold and all airfields to be resistance-owned. Loss requires killed population greater than one third of initial town population.
@@ -1788,12 +1815,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   verified. Replay validation must accept committed, partially refunded, and
   refunded transactions so later failure/recall settlement cannot turn a valid
   accepted replay into an authority conflict.
-- Terminal placement/admission/spawn failure and commander cancellation before
-  success refund the linked money and HR transactions once, remove an unhanded
-  queue-owned active-group row, and let a fully refunded terminal request bypass
-  cooldown gating without rewriting its accepted quote history. A failed-final batch
-  takes precedence over a simultaneously requested recall; otherwise recall
-  could under-refund a deployment that had already failed.
+- Treat strategic service commitment as an explicit settlement boundary. While
+  the operation remains `STAGING`, terminal placement/admission failure refunds
+  linked money and HR once. Route initialization is allowed in `STAGING`, but
+  `LinkOutboundVirtual()` is the final commit to `OUTBOUND`. From that point,
+  including `ON_STATION` and a materialization failure with no physical handoff,
+  retain the paid money and refund only
+  `operation.m_iLastVirtualFriendlyCount` HR. Both sides are idempotent. A
+  failed-final batch takes precedence over a simultaneously requested recall;
+  otherwise recall could apply the wrong settlement policy.
 - A two-resource full refund needs paired preflight before its first mutation.
   Validate both transaction identities, refund bounds/status coherence,
   settleability, and the deterministic settlement-ID replay guard. Otherwise
@@ -1859,12 +1889,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   slots with ever-alive and no confirmed casualty, then require a fresh exact
   handoff. The immutable manifest stays unchanged; the queue's resolved-slot
   check treats a valid retired member tombstone as complete but nonphysical.
-- An initial deployment failure has delivered no force and keeps the schema-46
-  full money/HR refund policy. A failure after `successfulHandoffCount > 0` is a
-  technical reprojection retirement: retain money and refund only durable
-  surviving HR. If durable queue authority is unavailable after a handoff,
-  settlement must wait rather than falling back to a full refund. This
-  distinction must survive save/restart.
+- A failure before strategic service commitment keeps the full money/HR refund
+  policy. `successfulHandoffCount > 0` remains durable proof of physical
+  delivery, but it is no longer the earliest delivery boundary: an exact held
+  force is already delivered as a virtual service after `OUTBOUND`. A later
+  no-handoff materialization failure therefore retains money and refunds the
+  operation's virtual survivor count; a post-handoff failure uses the durable
+  slot survivor count. If required queue authority is unavailable after a
+  handoff, settlement waits instead of inventing a full refund. This distinction
+  must survive save/restart.
 - Pre-schema-47 successful batches backfill one historical handoff and ever-
   alive evidence from registered alive slots. Linked active groups receive
   spawn-completed/ever-populated plus the exact registered living count. Do not
@@ -1983,6 +2016,60 @@ This file is for practical engine/script behavior, not project planning. Keep en
   restore, migration, archive, and legacy-QRF isolation. The proof is implemented
   and compiles, but packaged execution and real save/restart/migration/archive
   replay are still required.
+- That successful compile/open belongs only to the stamped schema-49 revision. Do
+  not carry it forward as validation for schema 50 or any later source change.
+
+## Schema 50 Exact Infantry-QRF Strategic Projection
+
+- Campaign travel owns a versioned route segment, cursor, speed, and last-update
+  clock. Derive ETA with `ceil(distance / speed)`, advance only campaign time,
+  and cap catch-up work per tick; a player render bubble decides projection mode,
+  not whether the strategic force continues moving.
+- A physical-to-virtual fold is an authority transfer, not a casualty. Preserve
+  exact retired casualty slots, requeue only living manifest slots, rebase the
+  remaining route at the last live position, and reset the virtual-combat clock
+  at the fold second so physical time cannot be resolved twice.
+- Treat materialization and dematerialization as retryable multi-step transfers.
+  If queue release succeeds but the operation rejects materialization, put the
+  pending batch back on strategic hold before it can spawn. If runtime retirement,
+  survivor requeue, or fold completion pauses after `DEMATERIALIZING`, resume that
+  same transfer before normal batch dispatch on the next tick; never strand the
+  operation between live and strategic authority.
+- Evaluate player proximity before advancing virtual combat. Once a living player
+  is inside materialize-in distance, queue the exact current survivor roster for
+  physical handoff without also resolving another abstract combat step on that
+  tick. Conversely, every virtual engagement/clock/damage-carry mutation must
+  report `stateChanged`, even when no casualty threshold is crossed.
+- Restore has the same one-owner rule. A previously successful physical batch
+  becomes one held pending projection and increments its reprojection diagnostic
+  once; an already-held pending batch does not. Rebase route state at the saved
+  group position before normal route initialization to prevent origin snapback.
+- Normalize the linked support request at that same boundary. Clear
+  `m_bPhysicalized`; an on-station operation remains abstract-resolved with
+  `exact_virtual_on_station`, while other open duties resume as
+  `exact_restore_survivor_virtual`. Normalizing only the operation and batch
+  leaves a contradictory request that can advertise nonexistent physical
+  authority after restart.
+- Until physical contact callbacks own engagement, a successful virtual-to-
+  physical handoff must legally walk abstract contact through disengaging to
+  `CLEAR`. This makes the larger materialize-out boundary foldable; virtual
+  combat will deterministically reacquire target-garrison contact after folding.
+- The current virtual-combat consumer is intentionally narrow: one exact paid
+  infantry QRF versus the hostile target-zone infantry garrison, in bounded
+  deterministic 30-second steps. Vehicles, assets, multi-root forces, broader
+  encounters, and capture resolution still fail closed or remain on prior paths.
+- Route validation occurs while the operation is `STAGING`; `LinkOutboundVirtual`
+  is the durable strategic-service commit boundary. A failure before that link is
+  eligible for the original full money/HR refund. A terminal materialization
+  failure after `OUTBOUND`/`ON_STATION` retains the spent service money and refunds
+  only the exact last virtual survivors' HR, with the normal settlement ID making
+  replay idempotent.
+- The current schema-50 source passes foundation validation and Workbench script
+  validation. The Game module loads 5,747 files/11,508 classes with CRC
+  `edd1a720`, and the correctly quoted normal WorldEditor project open remains
+  responsive through ten two-second samples without a script-error,
+  unknown-class, or crash signature. These gates prove source compile/startup,
+  not packaged movement, projection, combat, or restart behavior.
 
 ## Crewless Mixed Active-Group Lifecycle
 

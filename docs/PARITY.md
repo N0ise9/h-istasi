@@ -24,21 +24,24 @@
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Schema-49 campaign authority foundation with persisted monotonic IDs, typed
+- Schema-50 campaign authority foundation with persisted monotonic IDs, typed
   command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, exact paid-infantry-QRF runtime
   lifecycle, bounded accepted-settlement replay tombstones, and the first
-  canonical operation aggregate
+  canonical operation aggregate with persistent strategic projection
 - One versioned `OperationRecord` for each newly confirmed exact paid player
   infantry QRF, plus conservative backfill for uniquely coherent accepted active
   schema-48 rows. It separates immutable origin/assignment from tactical target
   and persists typed duty, engagement, materialization, position, settlement,
-  policy, terminal, execution-link, timing, and revision authority. Queue,
-  handoff, arrival, restore, recall, terminal settlement, and archival transitions
-  are integrated. Live combat-contact wiring, strategic route cursor/hysteresis,
-  generalized virtualization, and every other operation family remain open.
-  Eight focused assertions are coordinator-integrated into the force-authority
-  debug case and compile, but have not run in a packaged runtime.
+  policy, terminal, execution-link, timing, revision, direct-route cursor,
+  projection-decision, and virtual-combat authority. Schema 50 makes that one
+  consumer travel while virtual, materialize/fold with hysteresis, preserve its
+  exact living/dead slots, and fight only hostile abstract infantry at its target
+  in bounded deterministic steps. Live physical combat-contact wiring,
+  vehicles/assets, broader encounter simulation, generalized virtualization,
+  and every other operation family remain open. Four projection assertions join
+  the existing eight operation-record assertions, but none is packaged runtime
+  proof until executed there.
 - Typed support-recall completion across service, coordinator, visible-command
   dispatch, durable receipt, and diagnostics. Accepted terminal wording cannot
   be reclassified by presentation text; exact paired full refunds prevalidate
@@ -54,6 +57,10 @@
 - Physical-war activation scaffold that marks nearby zones active, moves
   abstract garrison counts into route-aware active groups, and folds survivor
   counts back on deactivation
+- Source-only HQ policy split: 900m protects hostile operation staging, whole-
+  location activation uses the location capture footprint with a 150m fallback,
+  and static composition clearance uses 150m. Nearby towns/bases are no longer
+  erased wholesale by the staging radius; packaged proof remains open.
 - Personnel-authoritative lifecycle for non-queue-managed mixed groups: an
   intact attached vehicle cannot keep a previously populated zero-infantry QRF
   combat-effective. The terminal transition clears capture/marker pressure,
@@ -103,12 +110,26 @@
   stall budget. Pre-repair restored arrival/exit rows receive one current live-
   distance revalidation. This
   source boundary still needs fresh packaged runtime proof.
+- Exact paid player infantry QRF is the first and only support consumer on the
+  schema-50 strategic projection path. Its frozen manifest slots remain the
+  roster while virtual; a direct 2.5 m/s campaign cursor advances without a
+  nearby player, proximity releases exact survivors for physical projection,
+  leaving the larger radius while clear of contact folds the live roster back,
+  and on-station virtual combat updates exact casualties plus the hostile
+  abstract infantry garrison. Supply, search, roadblock, fire, air support,
+  legacy/enemy QRF, vehicles, convoys, garrisons, missions, and enemy orders are
+  not migrated by this slice.
 - Enemy commander service with patrol/QRF/search, counterattack, rebuild,
   support-call, and Petros attack orders that track physicalized or abstract
   runtime state and outcome application
 - Civilian/undercover service with town support/reputation, wanted heat, police
   and roadblock presence/scans, aid effects, undercover eligibility,
-  request/application, enforcement, compromise, and clear-state records
+  request/application, enforcement, compromise, and clear-state records.
+  Current source separates true town centers from minor localities, decouples
+  nearby civilian projection from HQ-suppressed hostile activation, selects
+  distinct concrete appearances, defaults true towns to five driven vehicles,
+  limits the known woodland locality to two pedestrians, and clears HST-owned
+  ambient driver horn input. Republished behavior proof remains open.
 - Command menu actions for setup hideout selection, dynamic mission targets,
   mission runtime and persistence inspection, HQ threat/Defend Petros reports,
   FIA support requests/cancel, support/enemy-order reports, civilian aid,
@@ -136,7 +157,11 @@
   de-dupe across reloads
 - Marker/UI polish with marker status/detail/audit reports, native marker
   publish diagnostics, command/report coverage audits, menu summaries, and
-  clear failed-action text
+  clear failed-action text. Current source validates and dynamically resolves
+  the radio icon instead of assuming an array index, includes location and owner
+  in zone labels, keeps the map pointer above target-confirmation dialogs, and
+  reuses authored radio transmitters for compositions and destroy targets.
+  These repairs await packaged proof.
 - Balance/pacing diagnostics for strategic score, control percentage, war-level
   thresholds, enemy pressure, victory readiness, and recommended next pressure
 - Strategic victory/loss evaluation with persistent campaign-end reason,
@@ -145,34 +170,40 @@
 
 ## Current Verification Boundary
 
-- The stamped schema-49 source passes foundation validation and creates the
-  Workbench Game module at 5,743 files, 11,497 classes, and CRC `4efe34fc`.
-  This is source/compile/startup evidence, not packaged runtime or restart proof.
-- A fresh normal WorldEditor project open remained responsive at all ten samples
-  through the bounded 20-second gate and produced no unknown-config-class or
-  crash signature.
-- A current-build dedicated smoke remained live until intentional disconnect,
-  but recorded a recoverable recursive player-role invoker exception during
-  editor-mode repair. The one-frame editor-listener guard preserves stock mode
-  updates and role ownership; it still needs a fresh packaged server connect for
-  runtime proof.
-- A newer packaged check of the stamped schema-48 build could not initialize
-  Game Master or normal stock HUD. Config logs showed the modded editor manager,
-  editable-budget setting, and placed-marker entry types were unknown, followed
-  by null editor-manager HUD initialization. Current source restores the base
-  container and custom-title metadata on those config-backed modded classes and
-  compiles, but only a republished server/client run can close the regression.
-- That smoke also emitted 20 unregistered civilian-group member RPCs, exactly
-  matching 14 pedestrians and 6 traffic drivers. The civilian root now inherits
-  the stock behavior/replication group base and uses the native initial-AI
-  attach path; foundation validation, Game compile/create, and normal project-
-  open survival pass, but zero-RPC and real movement runtime proof remains open.
+- The prior stamped schema-49 source passed its foundation, Workbench Game
+  creation, script-validation, and bounded project-open gates. Those results are
+  historical source evidence, not certification of current schema-50 edits.
+- A published schema-49 server/client check verified that normal stock HUD, Game
+  Master access, map publication, and civilian traffic initialize again. This
+  closes the earlier missing-config-metadata regression. The late-admin recursive
+  role-change guard still needs a clean packaged check.
+- The same run exposed eighteen invalid radio markers as giant colored boxes,
+  location markers without names, and a map pointer rendered beneath the support
+  confirmation dialog. It also showed a generated tower next to an existing
+  transmitter. The marker-table, label, z-order, composition, and mission-target
+  corrections exist only in current source and must be republished before they
+  count as fixed.
+- Civilian vehicles moved in that run, but town actors repeated one appearance,
+  drivers held the horn, Figari and Morton projected no civilians because HQ
+  safety cleared their shared military-active bit, and the known woodland
+  locality projected full town ambience. Current source separates civilian
+  eligibility, uses concrete variants, defaults true towns to five traffic
+  vehicles, limits the minor locality to two pedestrians, and clears ambient
+  horn input. Those outcomes are not yet runtime-proven.
+- The current schema-50 exact-QRF strategic movement/materialization/virtual-
+  combat path has deterministic fixtures and persistence coverage in source.
+  The packaged schema-49 check did not accept an exact paid QRF, so it provides
+  no operation, movement, fold, virtual-combat, or restart evidence for this
+  slice. Repository foundation validation and current Workbench script
+  validation pass; the Game module loads 5,747 files/11,508 classes with CRC
+  `edd1a720`, and the correctly launched WorldEditor remains responsive through
+  the bounded 20-second gate. Packaged behavior remains open.
 - The non-cascade convoy artifact populated all three crew groups 2/2 but
   confirmed zero seated drivers through the full grace window. Current source
   registers each usable vehicle before seating, tries authority-local forced
   entry before the owner-RPC fallback, and probes retained registration
-  directly; foundation and Game compile/create validation pass, while 3/3
-  driver and movement proof remains open.
+  directly. Current schema-50 compile/startup validation passes as described
+  above, while 3/3 driver and movement proof remains open.
 - Normal-play support evidence marked three groups `physical_arrived` while its
   logged targets and deterministic recall-exit vectors imply nominal current
   positions approximately 434m, 455m, and 505m away. Current source removes ETA-only completion, uses the living-member
@@ -197,21 +228,22 @@
 
 ## Current Delivery Priorities
 
-- Publish and prove the config-container metadata repair in a packaged client/
-  server connect: normal stock HUD, working Game Master, no unknown editor/
-  budget/placed-marker config types, and no recursive role-change exception
-  during late admin assignment.
-- Re-run civilian town activation with the repaired group root and require zero
-  unregistered member-state RPCs plus distance-over-time pedestrian and traffic
-  movement.
+- Publish and prove the schema-50 marker/dialog/radio corrections while
+  preserving the already restored stock HUD and Game Master behavior. Require
+  valid-sized icons, location-plus-owner labels, pointer-over-dialog ordering,
+  one transmitter at authored sites, and correct radio destroy-target binding.
+- Re-run civilian town/locality activation and require zero unregistered member-
+  state RPCs, distinct appearances, five moving traffic vehicles per true town,
+  two pedestrians at the minor woodland locality, no stuck horns, and Figari/
+  Morton ambience independent of HQ-suppressed hostile activation.
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-49 authority chain: exact training,
-  garrison, paid-QRF, queue/handoff, exact casualties, survivor reprojection,
-  operation registration/transitions/migration, settlement archive replay, typed
-  recall receipt status, rejected paired-settlement conflicts, capacity, and
-  save/restart idempotency.
+- Runtime-prove the schema-43 through schema-50 authority chain: exact training,
+  garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
+  hysteresis, exact casualty/survivor transfer, bounded virtual combat,
+  operation migration, settlement archive replay, typed recall receipt status,
+  rejected paired-settlement conflicts, capacity, and save/restart idempotency.
 - Runtime-prove 3/3 convoy drivers after the pre-seat registration and local-
   authority entry repair. Then use scoped disposable profiles to prove actual
   support movement, two-sample arrival within 75m, physical recall exit, and
@@ -220,10 +252,10 @@
   marker pressure, no duplicate record, and restart-stable terminal state.
 - Prove static marker widget readiness and implement authoritative host/client/
   late-join snapshot, revision, delete, acknowledgement, and resync behavior.
-- Runtime-prove the schema-49 exact-QRF `OperationRecord` kernel, then connect
-  live contact/disengagement, strategic route progress/cursor/hysteresis, and
-  generalized virtualization before extending exact runtime authority to
-  vehicles, assets, garrisons, missions, enemy orders, or other supports.
+- Runtime-prove the schema-50 exact-QRF `OperationRecord` projection slice, then
+  connect live physical contact/disengagement and deepen encounter simulation
+  before extending exact runtime authority to vehicles, assets, garrisons,
+  missions, enemy orders, or other supports.
 
 ## Next Playable Expansion
 

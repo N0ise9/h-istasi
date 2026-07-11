@@ -336,6 +336,15 @@ class HST_RuntimeSettingsService
 			changed = true;
 		}
 
+		if (settings.m_iSchemaVersion < 22)
+		{
+			// Preserve non-default operator choices. A value of 2 was the shipped
+			// schema-21 default and is migrated to the new true-town default.
+			if (settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown == 2)
+				settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown = 5;
+			changed = true;
+		}
+
 		if (settings.m_iSchemaVersion < HST_RuntimeSettings.SCHEMA_VERSION)
 		{
 			settings.m_iSchemaVersion = HST_RuntimeSettings.SCHEMA_VERSION;
@@ -644,17 +653,17 @@ class HST_RuntimeSettingsService
 		lines.Insert("    \"_comment\": \"Civilian population and ambient vehicle caps used by town runtime systems.\",");
 		lines.Insert("    \"_comment_civilianPopulationEnabled\": \"Enables civilian population and town support simulation.\",");
 		lines.Insert(string.Format("    \"civilianPopulationEnabled\": %1,", JsonBool(settings.m_Civilians.m_bEnabled)));
-		lines.Insert("    \"_comment_civilianMaxActivePerTown\": \"Maximum active civilian characters per town when the town is active.\",");
+		lines.Insert("    \"_comment_civilianMaxActivePerTown\": \"Maximum nearby civilian pedestrians projected per true town. Civilian proximity is independent of military zone activation.\",");
 		lines.Insert(string.Format("    \"civilianMaxActivePerTown\": %1,", settings.m_Civilians.m_iMaxActivePerTown));
-		lines.Insert("    \"_comment_civilianVehicleMinPerTown\": \"Minimum civilian vehicles spawned or tracked per active town.\",");
+		lines.Insert("    \"_comment_civilianVehicleMinPerTown\": \"Minimum parked civilian vehicles projected per nearby true town.\",");
 		lines.Insert(string.Format("    \"civilianVehicleMinPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMinPerTown));
-		lines.Insert("    \"_comment_civilianVehicleMaxPerTown\": \"Maximum civilian vehicles spawned or tracked per active town.\",");
+		lines.Insert("    \"_comment_civilianVehicleMaxPerTown\": \"Maximum parked civilian vehicles projected per nearby true town.\",");
 		lines.Insert(string.Format("    \"civilianVehicleMaxPerTown\": %1,", settings.m_Civilians.m_iCivilianVehicleMaxPerTown));
-		lines.Insert("    \"_comment_civilianDrivingVehicleCountPerTown\": \"Number of active civilian-driven traffic vehicles per active town. These vehicles despawn with their drivers after leaving the player render bubble.\",");
+		lines.Insert("    \"_comment_civilianDrivingVehicleCountPerTown\": \"Number of civilian-driven traffic vehicles per nearby true town. These vehicles despawn with their drivers after leaving the player render bubble.\",");
 		lines.Insert(string.Format("    \"civilianDrivingVehicleCountPerTown\": %1,", settings.m_Civilians.m_iCivilianDrivingVehicleCountPerTown));
-		lines.Insert("    \"_comment_occupierVehicleMinPerTown\": \"Minimum occupier security vehicles associated with active towns.\",");
+		lines.Insert("    \"_comment_occupierVehicleMinPerTown\": \"Minimum occupier security vehicles associated with nearby true towns.\",");
 		lines.Insert(string.Format("    \"occupierVehicleMinPerTown\": %1,", settings.m_Civilians.m_iOccupierVehicleMinPerTown));
-		lines.Insert("    \"_comment_occupierVehicleMaxPerTown\": \"Maximum occupier security vehicles associated with active towns.\",");
+		lines.Insert("    \"_comment_occupierVehicleMaxPerTown\": \"Maximum occupier security vehicles associated with nearby true towns.\",");
 		lines.Insert(string.Format("    \"occupierVehicleMaxPerTown\": %1", settings.m_Civilians.m_iOccupierVehicleMaxPerTown));
 		lines.Insert("  },");
 		lines.Insert("  \"persistence\": {");

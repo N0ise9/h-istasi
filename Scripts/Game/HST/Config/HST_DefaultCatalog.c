@@ -35,10 +35,34 @@ class HST_DefaultCatalog
 		if (!balance)
 			return;
 
-		EnsureCivilianCharacterPrefab(balance, "{22E43956740A6794}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Randomized.et");
-		EnsureCivilianCharacterPrefab(balance, "{B3AB6D12D247DDB5}Prefabs/Characters/Factions/CIV/Businessman/Character_CIV_Businessman_Randomized.et");
-		EnsureCivilianCharacterPrefab(balance, "{5882AE7A4543AFB4}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_Randomized.et");
-		EnsureCivilianCharacterPrefab(balance, "{D97EAE64721478F3}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_Randomized.et");
+		// The stock "Randomized" editor entries do not randomize their default
+		// variant when spawned directly at runtime. Use their concrete stock
+		// variants so deterministic slot selection also produces visible variety.
+		EnsureCivilianCharacterPrefab(balance, "{11EB9A0D2A5899EA}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_DenimJacket_1.et");
+		EnsureCivilianCharacterPrefab(balance, "{3AE3C1A509298D9D}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_DenimJacket_2.et");
+		EnsureCivilianCharacterPrefab(balance, "{C943F3CC53D187B6}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Turtleneck_1.et");
+		EnsureCivilianCharacterPrefab(balance, "{1FFE2B88BEF51840}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Turtleneck_2.et");
+		EnsureCivilianCharacterPrefab(balance, "{3A2FBAD5B929AC4B}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_Turtleneck_3.et");
+		EnsureCivilianCharacterPrefab(balance, "{8C7093AF368F496A}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_1.et");
+		EnsureCivilianCharacterPrefab(balance, "{DF7F8D5C05CC1AF6}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_2.et");
+		EnsureCivilianCharacterPrefab(balance, "{408B8BD5E3F09FF3}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_3.et");
+		EnsureCivilianCharacterPrefab(balance, "{035F8F1CEF3B187F}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_4.et");
+		EnsureCivilianCharacterPrefab(balance, "{E6C3C3E5E3DE8F14}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_5.et");
+		EnsureCivilianCharacterPrefab(balance, "{8A97F7055F1A003A}Prefabs/Characters/Factions/CIV/GenericCivilians/Character_CIV_CottonShirt_6.et");
+		EnsureCivilianCharacterPrefab(balance, "{E024A74F8A4BC644}Prefabs/Characters/Factions/CIV/Businessman/Character_CIV_Businessman_1.et");
+		EnsureCivilianCharacterPrefab(balance, "{A517C72CEF150898}Prefabs/Characters/Factions/CIV/Businessman/Character_CIV_Businessman_2.et");
+		EnsureCivilianCharacterPrefab(balance, "{626874113CAE4387}Prefabs/Characters/Factions/CIV/Businessman/Character_CIV_Businessman_3.et");
+		EnsureCivilianCharacterPrefab(balance, "{C6FAF52907A544AC}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_1.et");
+		EnsureCivilianCharacterPrefab(balance, "{2CDFBF355F3410DD}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_2.et");
+		EnsureCivilianCharacterPrefab(balance, "{2366B9D00B40D3C7}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_3.et");
+		EnsureCivilianCharacterPrefab(balance, "{472F2B06FF9BF37D}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_4.et");
+		EnsureCivilianCharacterPrefab(balance, "{A2B367FFF37E6416}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_5.et");
+		EnsureCivilianCharacterPrefab(balance, "{CEE7531F4FBAEB38}Prefabs/Characters/Factions/CIV/Dockworker/Character_CIV_Dockworker_6.et");
+		EnsureCivilianCharacterPrefab(balance, "{6F5A71376479B353}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_1.et");
+		EnsureCivilianCharacterPrefab(balance, "{C97B985FCFC3E4D6}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_2.et");
+		EnsureCivilianCharacterPrefab(balance, "{2CE7D4A6C32673BD}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_3.et");
+		EnsureCivilianCharacterPrefab(balance, "{11D3F19EB64AFA8A}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_4.et");
+		EnsureCivilianCharacterPrefab(balance, "{F44FBD67BAAF6DE1}Prefabs/Characters/Factions/CIV/ConstructionWorker/Character_CIV_ConstructionWorker_5.et");
 
 		// Civilian vehicles are resolved from the CIV runtime entity catalog.
 	}
@@ -298,8 +322,9 @@ class HST_DefaultCatalog
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("resource_quarry", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "8819.119 198.157 3909.07", 75, 14, "route_resource_quarry", "qrf_resource_quarry", "site_resource_quarry"), "Quarry", "tonka:base:10:SmallBaseQuarry", "Bases.layer", "materials", 185, 12, "BROOKLYN", "gold", "resource", "comp_resource_quarry", "spawn_resource_guards"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("outpost_black_lake", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "9452.499 209.48 2946.152", 42, 15, "route_outpost_black_lake", "qrf_outpost_black_lake", "site_outpost_black_lake"), "Black Lake", "tonka:base:11:SmallBaseBlackLake", "Bases.layer", "security", 240, 7, "OMAHA", "red", "enemy_base", "comp_outpost_black_lake", "spawn_outpost_garrison"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("outpost_pennants_pass", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "8232.763 223.125 2164.719", 42, 15, "route_outpost_pennants_pass", "qrf_outpost_pennants_pass", "site_outpost_pennants_pass"), "Pennants Pass", "tonka:base:12:SmallBasePennantsPass", "Bases.layer", "security", 240, 7, "CONCORD", "red", "enemy_base", "comp_outpost_pennants_pass", "spawn_outpost_garrison"));
-		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_simons_wood", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "6311.913 104.423 5226.068", 44, 9, "route_town_simons_wood", "qrf_town_simons_wood", "site_town_simons_wood"), "Simon's Wood", "tonka:base:13:SmallBaseSimonsWood", "Bases.layer", "population", 235, 4, "PRINCETON", "black", "town", "comp_town_simons_wood", "spawn_town_patrols"));
+		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_simons_wood", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_RESOURCE, "6311.913 104.423 5226.068", 44, 6, "route_town_simons_wood", "qrf_town_simons_wood", "site_town_simons_wood"), "Simon's Wood", "tonka:base:13:SmallBaseSimonsWood", "Bases.layer", "food", 180, 4, "PRINCETON", "gold", "resource", "comp_town_simons_wood", "spawn_resource_guards"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_richemont", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "4451.371 64.043 5010.427", 31, 8, "route_town_richemont", "qrf_town_richemont", "site_town_richemont"), "Richemont", "tonka:base:14:SmallBaseMortonValley", "Bases.layer", "population", 220, 3, "DENVER", "black", "town", "comp_town_richemont", "spawn_town_patrols"));
+		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_morton", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "5082.813 14.852 3954.27", 38, 8, "route_town_morton", "qrf_town_morton", "site_town_morton"), "Morton", "TC_Morton", "towns/town_Morton.layer", "population", 220, 4, "", "black", "town", "comp_town_morton", "spawn_town_patrols"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("outpost_shepherds_pond", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "3319.675 121.874 4438.134", 58, 17, "route_outpost_shepherds_pond", "qrf_outpost_shepherds_pond", "site_outpost_shepherds_pond"), "Shepherd's Pond", "tonka:base:15:SmallBaseShepherdsPond", "Bases.layer", "security", 240, 9, "TUCSON", "red", "enemy_base", "comp_outpost_shepherds_pond", "spawn_outpost_garrison"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("outpost_pinewood_lake", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_OUTPOST, "4509.178 57.291 6231.707", 58, 17, "route_outpost_pinewood_lake", "qrf_outpost_pinewood_lake", "site_outpost_pinewood_lake"), "Pinewood Lake", "tonka:base:16:SmallBasePinewoodLake", "Bases.layer", "security", 240, 9, "SEATTLE", "red", "enemy_base", "comp_outpost_pinewood_lake", "spawn_outpost_garrison"));
 		state.m_aZones.Insert(ConfigureImportedZone(NewZoneState("town_tillers_find", preset.m_sOccupierFactionKey, HST_EZoneType.HST_ZONE_TOWN, "3789.583 59.781 6997.688", 31, 8, "route_town_tillers_find", "qrf_town_tillers_find", "site_town_tillers_find"), "Tiller's Find", "tonka:base:17:SmallBaseTillersFind", "Bases.layer", "population", 220, 3, "TAMPA", "black", "town", "comp_town_tillers_find", "spawn_town_patrols"));
@@ -951,7 +976,7 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 		if (zone.m_sZoneId == "seaport_coastal_base_lamentin")
 			AddZoneLinks(zone, "town_le_moule", "town_villeneuve", "town_redon");
 		if (zone.m_sZoneId == "seaport_coastal_base_morton")
-			AddZoneLinks(zone, "town_richemont", "town_figari", "town_simons_wood");
+			AddZoneLinks(zone, "town_morton", "town_richemont", "town_figari");
 		if (zone.m_sZoneId == "outpost_north_hq")
 		{
 			AddZoneLinks(zone, "factory_saint_philippe", "radio_st_phillipe_relay", "town_les_creux");
@@ -969,6 +994,8 @@ static array<ref HST_MissionDefinition> CreateMissionRegistry()
 			AddZoneLinks(zone, "depot_levie_supply_depot", "town_figari", "town_provins");
 		if (zone.m_sZoneId == "town_richemont")
 			AddZoneLinks(zone, "depot_figari_supply_depot", "town_figari", "seaport_coastal_base_morton");
+		if (zone.m_sZoneId == "town_morton")
+			AddZoneLinks(zone, "seaport_coastal_base_morton", "town_richemont", "town_figari");
 		if (zone.m_sZoneId == "outpost_shepherds_pond")
 			AddZoneLinks(zone, "depot_sawmill_supply_depot", "town_kervel", "town_le_moule");
 		if (zone.m_sZoneId == "outpost_pinewood_lake")

@@ -4,7 +4,7 @@
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-49 authority services are:
+schema-42 through schema-50 authority services are:
 
 - `HST_StableIdService`: allocates persisted, monotonic IDs for generated
   commands and events, and builds deterministic operation/transaction links.
@@ -28,7 +28,7 @@ schema-42 through schema-49 authority services are:
 - `HST_ForceSettlementArchiveService`: compacts only terminal, backlink-free
   accepted planning aggregates into bounded persisted replay tombstones. It owns
   full-row retention, archive capacity, replay reconstruction, and fail-closed
-  admission when protected history cannot make room. For schema-49 exact-QRF
+  admission when protected history cannot make room. For canonical exact-QRF
   operations, compaction additionally requires a coherently settled record,
   copies its typed terminal/revision/settlement evidence, and removes the full
   record with the other accepted aggregate rows.
@@ -37,16 +37,34 @@ schema-42 through schema-49 authority services are:
   successful confirmation; preserves immutable origin/assignment separately
   from the mutable tactical target; validates duty, materialization, engagement,
   recall, and settlement transitions; and rejects identity or terminal replay
-  conflicts. `HST_OperationRecordProofService` contributes eight focused
-  assertions to the coordinator's existing force-authority debug case. They
-  compile but have not run in a packaged runtime. The engagement API is not yet
-  connected to live combat contact.
+  conflicts. Schema 50 adds strategic-route, projection-decision, and virtual-
+  combat authority without widening the consumer set. Virtual combat drives the
+  legal engagement transitions for this one abstract encounter; live physical
+  combat contact is still not connected.
+- `HST_StrategicMovementService`: owns the schema-50 direct-route cursor and
+  conservative 2.5 m/s campaign movement for the exact paid infantry-QRF
+  consumer. It derives ETA from route distance, advances only while strategic
+  position authority is active, and caps catch-up at 30 campaign seconds per
+  invocation.
+- `HST_MaterializationService`: evaluates the exact QRF against a player-bubble
+  materialize-in distance and a larger materialize-out distance. The hysteresis
+  band prevents churn; an engaged physical projection cannot fold.
+- `HST_VirtualCombatService`: resolves only an on-station exact infantry QRF
+  against hostile abstract infantry in its target garrison. It advances in
+  deterministic 30-second power steps, processes at most four steps per tick,
+  retires exact manifest member slots, and persists fractional damage carries.
+- `HST_OperationProjectionProofService`: adds focused movement, hysteresis,
+  roster-transfer, and combat/restore assertions beside the existing eight
+  operation-record assertions. These are source-level debug fixtures until a
+  packaged runtime executes them.
 - `HST_ForceSpawnQueueService`: owns schema-44 durable per-projection spawn
   batches, bounded priority/FIFO work acquisition, verified callbacks,
   retry/deadline/cancellation cleanup, pin-aware terminal retention, reporting,
   dependency-ordered cleanup, a durable nonterminal `READY_FOR_HANDOFF` state,
-  explicit post-handoff completion, and once-per-actual-restore reconciliation.
-- `HST_ForceSpawnAdapterService`: consumes queue work from the production
+  explicit post-handoff completion, once-per-actual-restore reconciliation, and
+  schema-50 strategic holds. A held batch performs no physical queue work and
+  uses its frozen member slots as exact living/dead roster authority.
+- `HST_ForceSpawnAdapterService`: consumes eligible released queue work from the production
   one-second active-campaign coordinator tick. The first engine-facing slice
   creates exactly one infantry `SCR_AIGroup` root plus all frozen member slots,
   returns exact prefab/liveness/faction/native-group/Game Master/projection
@@ -117,7 +135,11 @@ The remaining domain services are:
   cleanup zeros strategic strength, fails an unresolved linked QRF, unregisters
   combat ownership, and releases an intact vehicle as neutral salvage. An
   existing durable field/loot/garage record remains durable; otherwise the
-  salvage record is session-only.
+  salvage record is session-only. HQ safety uses separate scopes: 900m remains
+  the hostile operation-staging exclusion, but whole-location activation is
+  blocked only inside the location capture footprint (at least 150m for legacy
+  records). Zone composition uses its own 150m immediate-clearance guard. This
+  split is implemented in source and awaits packaged behavior proof.
 - `HST_GeneratedContentService`: generated Everon mission sites, roadblock,
   support, stash, crashsite, and route records derived from stable zone
   anchors.
@@ -137,16 +159,33 @@ The remaining domain services are:
   disposition, failure, request, and operation identity. Exact paired full
   refunds validate both linked transactions and their settlement eligibility
   before either refund begins. New confirmed exact paid infantry QRFs also opt
-  into the schema-49 operation contract: queue admission, handoff, arrival,
-  restore reprojection, recall, and terminal settlement advance the canonical
-  record beside the existing request, group, queue, and ledger authorities.
+  into the canonical operation contract. In schema 50 they begin as held virtual
+  projections, follow the strategic route, run the narrow on-station virtual-
+  combat policy, materialize exact survivors near a player, and fold exact live
+  survivors back to the held roster after players leave the larger radius while
+  the operation is clear of contact. Queue admission, projection transfers,
+  restore, recall, and settlement update the same operation/request/group/
+  manifest/batch identities. Route initialization occurs while duty is still
+  `STAGING`; `LinkOutboundVirtual` commits delivered strategic service by moving
+  duty to `OUTBOUND`. A terminal failure before that commit fully refunds money
+  and HR. A later no-handoff materialization failure retains money and refunds
+  only the operation's last virtual-friendly count, including from
+  `ON_STATION`, with replay-idempotent settlement. Restore also clears the linked
+  request's physicalized flag and publishes a virtual runtime status so request,
+  operation, and held batch cannot disagree about projection ownership.
 - `HST_CivilianService`: town reputation/support, wanted heat,
   police/roadblock presence and scans, aid incidents, undercover eligibility,
   request/application, enforcement, compromise, clear-state records, and
   disposable pedestrian/traffic projections. Ambient actors receive dedicated
   CIV group roots that inherit the stock behavior/pathfinding/utility/
   replication stack; initial members attach through the engine's AI-composition
-  path, and the service owns their group, driver, and waypoint cleanup.
+  path, and the service owns their group, driver, and waypoint cleanup. Current
+  source classifies stock town-center locations separately from minor localities,
+  permits civilian projection even when HQ safety suppresses hostile military
+  activation, selects deterministic non-repeating concrete appearances, defaults
+  true towns to five driven vehicles, limits the known woodland locality to two
+  pedestrians, and clears horn input only on HST-owned ambient drivers. These
+  behavior corrections await a republished runtime test.
 - `HST_EnemyCommanderService`: enemy resource spending into patrol, roadblock,
   QRF, counterattack, rebuild, support-call, and Petros attack orders with
   physical/abstract runtime state.
@@ -154,9 +193,14 @@ The remaining domain services are:
   status/detail/audit reports for strategic zones, missions, objectives,
   Defend Petros, support, QRFs, HQ, and convoy state. Linked terminal-group
   state is checked before unresolved-QRF visibility, preventing a dead response
-  from retaining a tactical marker.
+  from retaining a tactical marker. Schema-50 source labels static zones with
+  location and owner and reports virtual exact-QRF travel/on-station state.
 - `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
-  mission physicalization diagnostics.
+  mission physicalization diagnostics. Radio-site composition now retains a
+  nearby intact authored transmitter instead of spawning a parallel tower; the mission
+  runtime can borrow that damageable entity for destroy-target tracking without
+  deleting it during generic cleanup. Generated towers remain a fallback for a
+  missing or destroyed authored transmitter, including rebuild outcomes.
 
 Static marker rendering has a separate client lifecycle boundary. A small
 manager patch retries root creation before the stock static-marker update and
@@ -164,11 +208,14 @@ disables a marker that remains rootless. The rendered-map proof waits for the
 delayed client pass and inspects actual active roots and widget components;
 server publication/reconciler counts are reported only as native handles.
 Config-backed modded classes on this path must also repeat the base class's
-container metadata. The latest packaged schema-48 test failed to deserialize the
-modded editor manager, editable-budget setting, and placed-marker entries after
-those declarations were omitted, which prevented normal Game Master and stock
-HUD initialization. Current source restores the original `BaseContainerProps`
-and custom-title attributes; packaged runtime verification is still pending.
+container metadata. A packaged schema-49 test verified that restoring the
+original `BaseContainerProps` and custom-title attributes brought normal Game
+Master and stock HUD initialization back. That run then exposed eighteen invalid
+radio icon entries as giant boxes. Current source preserves the canonical placed-
+marker table, appends or repairs a validated normal/glow radio icon by resource
+identity instead of a hard-coded index, and rejects invalid entries. The map-
+target prompt, target indicator, and dialog now share a map-local z-order below
+the native workspace pointer. Those follow-up fixes still need packaged proof.
 
 Static helper services keep repeated low-level behavior out of the coordinator:
 `HST_WorldPositionService` resolves dry/safe positions and prefab spawning,
@@ -207,17 +254,22 @@ Schema 49 adds a canonical, versioned operation aggregate for newly confirmed
 exact paid player infantry QRFs and uniquely coherent active schema-48 rows.
 That narrow slice is not a claim that legacy QRFs, other support, missions,
 garrisons, enemy orders, or every force projection use the aggregate.
+Schema 50 adds persistent strategic projection to that same narrow consumer:
+direct-route progress, held exact roster authority, proximity hysteresis,
+physical-to-virtual survivor transfer, bounded virtual infantry combat, and
+restore normalization to one virtual projection. It does not migrate vehicles,
+assets, convoys, garrisons, broad legacy supports, missions, or enemy orders.
 
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
-| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Schema-49 contract-version-1 exact QRFs bind that identity to one canonical operation row. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
+| Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Contract-version-1 exact QRFs bind that identity to one canonical operation row and schema-50 projection state. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
 | Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Support recall is the first production visible command to map a typed domain result into explicit receipt status and operation identity; its presentation sentence cannot turn an accepted terminal outcome into a rejection. Other visible commands still use the compatibility classifier. Full accepted state and schema-48 settlement tombstones prevent later duplicate issue/confirmation/ledger replay from charging again, including after QRF settlement. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
 | Resource integrity | Troop training, visible garrison confirmation, and player-QRF confirmation/terminal settlement use the ledger. Exact QRF full-refund paths preflight the paired money/HR identities, coherent state, settleability, and deterministic settlement IDs before either mutation; this is a bounded paired preflight, not a general transactional rollback layer. Other support consumers still mutate resources through legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
 | Force exactness | Visible garrison recruitment freezes an exact priced purchase-provenance manifest. Player QRF freezes one executable authored group root plus every ordered member slot, charges flat $250 plus one HR per member, and never recomposes after issue. Garrison activation still does not consume its purchase manifest. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
-| Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. The active-phase coordinator drives an engine adapter once per second; player QRF creates one queue-owned active-group projection and submits its accepted manifest unchanged. All verified slots produce durable nonterminal `READY_FOR_HANDOFF`; physical war finalizes before queue `SUCCEEDED`, and only then does the support request become physical. Schema 47 retires confirmed-dead member slots idempotently, detaches their corpses, removes an ever-populated root at zero living members, and requeues one root plus only durable survivors after restart. Initial failure/cancel performs full linked settlement; failure after a prior handoff retains money and refunds survivors only. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
-| Operation lifecycle | Schema 49 creates one canonical record after exact paid-QRF confirmation, keeps immutable assignment separate from tactical recall target, and advances typed duty/materialization/position/settlement state through queue, handoff, arrival, restore, recall, terminal settlement, and archive. A legal engagement transition API preserves resumable duty, but no live combat-contact adapter calls it. Legacy/enemy QRFs, other support, garrisons, missions, and enemy orders remain outside this contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
+| Force realization | SpawnQueue accepts only frozen, hash-valid, all-required executable manifests with a group root. An exact paid infantry QRF begins as one held virtual batch whose member slots are the roster. Entering the materialize-in radius releases exactly the living slots to the adapter; all verified slots reach `READY_FOR_HANDOFF`, physical war finalizes them, and then the queue records `SUCCEEDED`. Leaving the materialize-out radius while clear of contact samples the live roster and position, retires disposable entities, and returns the exact survivors to strategic hold. Confirmed casualties remain retired across every transfer and restore. Vehicle, asset, and multi-root manifests remain unsupported; garrison manifests remain nondeployable. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
+| Operation lifecycle | Schema 50 keeps one canonical record after exact paid-QRF confirmation, separates immutable assignment from tactical recall target, and advances typed duty/materialization/position/settlement state through strategic travel, physical/virtual transfer, on-station virtual infantry combat, restore, recall, terminal settlement, and archive. Virtual combat uses the engagement API; live physical contact does not yet drive it. Legacy/enemy QRFs, broad legacy supports, garrisons, missions, and enemy orders remain outside this contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Static validation and Workbench compilation/game creation/script validation cover the compiled authority surface. The stamped schema-49 source loads 5,743 files/11,497 classes and creates the game with CRC `4efe34fc`; a fresh normal WorldEditor project open remained responsive for the bounded 20-second gate with no unknown-config-class or crash signature. This is not packaged runtime proof. The latest packaged schema-48 client exposed missing container metadata on modded config-backed classes, leaving Game Master and stock HUD unavailable. Matching metadata is restored in source, while the earlier recursive player-role guard and this config repair both still await packaged proof. Bounded authority proofs are not engine evidence until executed in an isolated development run. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Certification | Repository foundation validation covers the current schema-50 source contracts. Workbench script validation loads 5,747 files/11,508 classes with CRC `edd1a720`, and the correctly launched WorldEditor remains responsive through the bounded 20-second gate. A packaged schema-49 check verified restored stock HUD and Game Master startup, then exposed marker and civilian defects repaired only in schema-50 source. The strategic projection fixtures, marker/cursor/radio corrections, civilian classification/diversity/traffic/horn corrections, late-admin guard, and save/restart projection behavior still need packaged execution. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
@@ -280,7 +332,7 @@ service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The state model is
 versioned from day one. `HST_CampaignSaveData` is the deep-copy save container
-for current campaign fields and nested runtime arrays. Schema 49 persists the
+for current campaign fields and nested runtime arrays. Schema 50 persists the
 monotonic authority sequence, bounded command receipts, resource transactions,
 campaign events, stable operation/garrison links, immutable force manifests,
 expiring quotes, durable per-projection spawn batches/slot evidence,
@@ -292,7 +344,10 @@ restore/reconciliation epochs, plus bounded accepted-settlement replay tombstone
 and their final resource-status/refund evidence. It also persists canonical
 exact-QRF operation records with immutable assignment, mutable tactical target,
 typed duty/engagement/materialization/position/settlement state, execution links,
-policy IDs, timestamps, terminal result, and revision, alongside campaign
+policy IDs, timestamps, terminal result, revision, direct-route cursor and
+distance, strategic speed/update clock, projection decisions, virtual-combat
+clock/damage carries, exact virtual force counts, and strategic batch holds,
+alongside campaign
 metadata, resources, campaign-end
 reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
 population/support, airfield metadata, support deployment proof, active-group
@@ -307,26 +362,28 @@ loadouts and issued-item ledgers are copied into the save container. Save compat
 still needs broader Workbench restart/load soak testing before it is promised
 to players. An actual persisted restore increments its epoch once, then the
 coordinator reconciles the queue before garrison/player-QRF confirmation and
-open-resource reservations. Accepted successful QRFs never reacquire saved
-entity IDs: their root and durable survivors are requeued, while confirmed-dead
-slots remain retired. A post-handoff technical failure retains paid money and
-refunds durable survivors only. Nonterminal rows clear process-local entity
-evidence and resume or settle from durable state. `READY_FOR_HANDOFF` is
-nonterminal: restore clears its
-transient entity/group evidence, advances generation, and requeues every exact
-slot for realization because an interrupted physical handoff is not success.
-Terminal status plus prefab, verification, handoff, and casualty history are
-retained, but terminal entity/native-group IDs are historical observations and
-are cleared rather than reacquired as living authority.
+open-resource reservations. Accepted exact QRFs never reacquire saved entity
+IDs. Schema 50 clears process-local root/member/native-group evidence and keeps
+one nonterminal batch in strategic hold; its confirmed-dead slots remain retired
+and only exact survivors can be released for later materialization. Interrupted
+pending, `READY_FOR_HANDOFF`, and previously successful physical batches all
+normalize to that same virtual authority instead of assuming an interrupted
+handoff succeeded or respawning immediately. A post-handoff technical failure
+still retains paid money and refunds durable survivors only. Terminal prefab,
+verification, handoff, and casualty history remains evidence, while terminal
+entity/native-group IDs are cleared rather than reacquired as living authority.
 
-Schema-48 migration creates a contract-version-1 operation only for a uniquely
-coherent accepted nonterminal exact paid player QRF. It preserves request,
+The schema-49 migration from schema 48 creates a contract-version-1 operation
+only for a uniquely coherent accepted nonterminal exact paid player QRF. It preserves request,
 quote, manifest, queue, group, transaction, and balance state and leaves every
 pre-exact, terminal, archived-only, incomplete, or ambiguous row on contract
-version `0`. On every restore, an open saved physical/dematerializing operation
-becomes strategic `MATERIALIZING` until survivor reprojection completes; duty
-and immutable assignment remain intact. These rules have deterministic/source
-coverage and stamped source compilation, but no packaged process-restart evidence.
+version `0`. Schema-50 migration opts only coherent exact infantry-QRF
+operations into strategic projection. On every restore, a nonterminal opted-in
+projection clears process-local entity IDs, becomes one held virtual batch with
+strategic position authority, and retains exact survivor/casualty slots, duty,
+assignment, economy, and terminal history. Unsupported or ambiguous aggregates
+remain operation-only. These rules have deterministic source coverage but no
+packaged process-restart evidence.
 
 Normal adapter acquisition runs only after the campaign enters the active phase.
 During setup and won/lost phases, the coordinator requests cancellation for all
@@ -334,14 +391,16 @@ nonterminal batches and keeps draining dependency-ordered cleanup with a
 monotonic runtime-only clock. That cleanup clock advances retry/defer eligibility
 without advancing campaign elapsed time. Schema 47 implements successful
 survivor reprojection and casualty/retirement authority for the exact paid
-infantry-QRF consumer. It confirms death only from a present slot-mapped entity's
-authoritative life state; deletion or a missing entity is not casualty evidence.
-Event-driven life-state subscription, vehicle/asset rosters, generalized virtual
-folding, strategic route cursor/hysteresis, live engagement events, and
-generalization to every force consumer remain open. Paid support is only
-partially migrated to this path: player QRF is exact, while supply, search,
-roadblock, fire, and air support remain legacy. Current garrison purchase
-manifests remain nondeployable.
+infantry-QRF consumer. It confirms physical death only from a present slot-
+mapped entity's authoritative life state; deletion or a missing entity is not
+casualty evidence. Schema 50 adds virtual roster transfer, direct strategic
+movement, materialization hysteresis, and narrow virtual combat for that same
+consumer. Event-driven physical life-state subscription, vehicle/asset rosters,
+generalized folding, live physical engagement events, and generalization to
+every force consumer remain open. Paid support is only partially migrated to
+this path: player QRF is exact, while supply, search, roadblock, fire, and air
+support remain on legacy services. Current garrison purchase manifests remain
+nondeployable.
 
 ## World Layout
 
@@ -419,9 +478,18 @@ Broad-alpha services generate mission sites/routes, attach
 objectives/tasks to started missions, poll physical MVP mission primitives from
 world conditions, spend scaled enemy pools into orders/support calls, and let
 orders/support either physicalize near players or resolve abstractly off-screen.
+The schema-50 exception is the newly confirmed exact paid infantry QRF: its
+single operation and frozen member roster move continuously through virtual,
+materializing, physical, dematerializing, and virtual states rather than using a
+one-shot abstract outcome. That path remains intentionally isolated from
+vehicles, convoys, garrisons, enemy orders, missions, and broad legacy support.
 HQ knowledge feeds HQ threat, Defend Petros, markers, and campaign-end pressure;
 civilian town support and undercover enforcement feed wanted heat, roadblock and
-police scans, and HQ exposure. Loot, vehicle cargo, virtual garage, build
+police scans, and HQ exposure. Civilian render eligibility is separate from the
+hostile military activation bit so HQ safety does not erase nearby town life.
+Radio compositions prefer an existing world transmitter, and radio destroy
+missions can borrow it as their tracked damage target. Loot, vehicle cargo,
+virtual garage, build
 placement, vehicle capability classification, and loadout editor systems are
 owned by campaign state instead of stock arsenal behavior. Mission success,
 failure, timeout, convoy outcome, support resolution, enemy orders, vehicle/cargo

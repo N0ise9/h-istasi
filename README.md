@@ -95,12 +95,12 @@ The repository contains a broad-alpha campaign foundation:
 - Request-driven force composition for support, mission, garrison, and debug probes, with
   serializable intent, tier, cost, manpower, vehicle-plan, skipped-prefab, and
   failure metadata retained on support, enemy-order, and active-group records
-- A schema-49 force/operation authority boundary with durable per-projection results,
+- A schema-50 force/operation authority boundary with durable per-projection results,
   explicit force/projection identity on active groups, exact required-slot
   admission, bounded priority/FIFO scheduling and retention, retry/deadline/
   cancellation handling, dependency-ordered cleanup, Game Master registration
-  evidence, once-per-restore reconciliation, and a canonical operation record for
-  confirmed exact paid infantry QRFs
+  evidence, once-per-restore reconciliation, and a canonical operation record
+  with persistent strategic projection for confirmed exact paid infantry QRFs
 - Bounded accepted-settlement archives that replace eligible full quote,
   manifest, and linked ledger rows only after terminal aggregate proof and all
   physical/queue backlinks are gone. Compact rows preserve issue, confirmation,
@@ -124,17 +124,16 @@ The repository contains a broad-alpha campaign foundation:
   of presentation wording. Exact full-refund settlement prevalidates both
   linked money and HR transaction identity, state, and deterministic settlement
   replay before refunding either transaction.
-- Schema 49 gives each newly confirmed exact paid infantry QRF one versioned
+- Schema 50 advances each newly confirmed exact paid infantry QRF's versioned
   `OperationRecord`: immutable origin and assignment, mutable tactical target,
   typed duty/engagement/materialization/position/settlement state, stable
-  execution links, revision, and terminal settlement identity. Queue admission,
-  handoff, arrival, restore reprojection, recall, and terminal ledger paths now
-  advance that record idempotently. The engagement transition API exists, but no
-  live combat-contact adapter drives it yet; strategic route cursor/hysteresis,
-  generalized virtualization, and other operation families remain open. Eight
-  focused `operation_record.*` assertions are integrated into the existing
-  force-authority campaign-debug case and compile, but they have not yet run in
-  a packaged runtime.
+  execution links, revision, terminal settlement identity, direct-route cursor,
+  strategic position, projection-decision evidence, and deterministic virtual-
+  combat clocks. The first consumer can travel while virtual, materialize near a
+  living player, fold clear of contact outside a larger radius, preserve exact
+  survivor slots, and resolve bounded infantry-only combat against its target's
+  abstract garrison. Physical combat contact, vehicles/assets, other operation
+  families, and packaged runtime/restart proof remain open.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -163,13 +162,20 @@ The repository contains a broad-alpha campaign foundation:
   command coverage smoke paths, clear failed-action text, HQ threat/Defend
   Petros reports, enemy order and physical-response reports, support
   ETA/status reports, balance/pacing diagnostics, and campaign-end summaries
-- The latest packaged schema-48 check exposed a real Game Master and stock-HUD
-  startup regression: config-backed modded editor, budget, and placed-marker
-  classes had lost their original container metadata, so native config objects
-  failed to load and editor/HUD initialization cascaded through a null manager.
-  Current source restores the matching `BaseContainerProps` and custom-title
-  attributes. Compilation now accepts those declarations, but the repair remains
-  runtime-unverified until the next published server/client build.
+- A packaged schema-49 check verified that the restored config metadata brings
+  back normal stock HUD and Game Master access. That run also exposed separate
+  marker and ambience defects: invalid radio icon entries rendered as giant
+  boxes, zone markers lacked location names, the map pointer fell below a
+  confirmation dialog, nearby civilian projection was coupled to hostile-zone
+  activation, town actors repeated one appearance, traffic defaulted too low,
+  drivers held the horn, and radio sites could receive a duplicate tower.
+  Current schema-50 source contains focused repairs, but they still require a
+  republished runtime check.
+- HQ proximity policy now keeps the 900m radius for hostile operation staging,
+  while whole-location activation is excluded only inside that location's
+  capture footprint (with a 150m legacy fallback) and composition clearance is
+  limited to 150m. This source-only split prevents HQ safety from erasing nearby
+  towns and bases while still keeping hostile spawns away from HQ.
 - Admin-only campaign debug controls expose one-button smoke, physical, and
   full runtime verification profiles with status, cancel, cleanup, structured
   result artifacts, and bootstrap identity/admin evidence
@@ -195,28 +201,30 @@ progression polish, balance tuning, and mission-specific interactable props
 still need to be connected incrementally. The current exact adapter
 supports exactly one infantry group root and its exact member slots; vehicle,
 asset, and multi-root manifests fail closed as unsupported. Player-paid QRF is
-the first support type migrated to this path and, in schema 49, the first force
-with a canonical operation aggregate. Only newly confirmed exact paid player
-infantry QRFs and uniquely coherent active schema-48 rows opt into that
-contract; supply, search, roadblock, fire, air-support, legacy/enemy QRF,
-garrison, mission, and enemy-order operations remain on legacy state. Current
-garrison
-purchase manifests contain purchase provenance rather than an executable group
-root, so they remain intentionally nondeployable. Successful paid-QRF restore
-now clears process-local IDs, retains confirmed casualty tombstones, and queues
-one new root plus only durable surviving member slots. Initial deployment
-failure still refunds money and HR; a technical reprojection failure retains the
-already-delivered money cost and refunds surviving HR only. General lifecycle
-authority for other force consumers remains open. Normal spawn
+the first support type migrated to this path and, in schema 50, the first force
+with persistent strategic movement, materialization hysteresis, exact virtual
+roster authority, and bounded virtual combat. Only newly confirmed exact paid
+player infantry QRFs and coherently migrated exact rows opt into that contract;
+supply, search, roadblock, fire, air-support, legacy/enemy QRF, garrison,
+mission, and enemy-order operations remain on their existing state paths.
+Current garrison purchase manifests contain purchase provenance rather than an
+executable group root, so they remain intentionally nondeployable. Paid-QRF
+restore clears process-local IDs and creates one held virtual batch with the
+same confirmed casualty tombstones and durable survivor slots. Entering the
+materialize-in radius then releases one new root plus only those survivors.
+Initial deployment failure still refunds money and HR; a technical reprojection
+failure retains the already-delivered money cost and refunds surviving HR only.
+General lifecycle authority for other force consumers remains open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
 time. A batch whose exact slots are all verified remains durably
 `READY_FOR_HANDOFF` until physical-war finalization succeeds; only then does the
-queue record `SUCCEEDED`. Restoring the ready state clears process-local
-evidence and requeues the exact realization instead of treating an interrupted
-handoff as success. The physical HST_Dev proof is implemented, but it is not
-runtime evidence until a fresh isolated run executes it.
+queue record `SUCCEEDED`. Restoring pending, ready, or previously physical state
+clears process-local evidence and returns the operation to the single held
+virtual projection instead of treating interrupted handoff as success or
+respawning immediately. The focused HST_Dev proofs are implemented, but they are
+not runtime evidence until a fresh isolated run executes them.
 
 ## Current Delivery Priorities
 
@@ -224,21 +232,24 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-1. Publish and retest the config-container metadata repair in a packaged
-   dedicated-server/client connect. Require normal stock HUD initialization,
-   working Game Master access, and zero unknown editor/budget/placed-marker
-   config types. In the same boundary, prove late admin assignment produces no
-   recursive player-role invoker exception.
-2. Prove repaired civilian group projection in a fresh packaged run: zero
-   unregistered group-member RPCs and actual pedestrian/traffic movement, not
-   helper-entity counts alone.
+1. Publish and test the schema-50 marker, map-dialog, radio-site, and civilian
+   repairs. Require valid-sized marker icons, `Location | Owner` labels, a
+   visible pointer over the support confirmation dialog, one authored radio
+   tower per existing site, and correct destroy-target binding. The already
+   restored stock HUD and Game Master access must remain intact.
+2. Prove civilian projection in a fresh packaged run: zero unregistered group-
+   member RPCs, varied concrete appearances, five driven vehicles per true
+   town, two pedestrians at the known minor woodland locality, no stuck horns,
+   and actual distance-over-time movement. Figari and Morton must project
+   civilians and eligible military garrisons near a player; the separate
+   900 m hostile-operation staging clearance must not erase either location.
 3. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
-4. Runtime-prove exact paid-QRF creation, schema-49 operation registration and
-   duty/materialization/recall/settlement transitions, casualty cleanup, survivor
-   reprojection, settlement archival/replay, typed terminal-recall completion,
-   rejected settlement conflicts, durable receipt replay, and once-only
-   accounting across save/restart.
+4. Runtime-prove exact paid-QRF creation and the schema-50 operation path:
+   strategic travel from the direct-route cursor, bounded catch-up, proximity
+   materialization/fold hysteresis, exact casualty/survivor transfer, on-station
+   virtual combat, recall/settlement, archive replay, and once-only accounting
+   across save/restart.
 5. Runtime-prove the convoy pre-seat vehicle registration and authority-local
    pilot entry repair with 3/3 seated living drivers, then prove the repaired
    support route-truth boundary through actual movement, two-sample arrival,
@@ -252,38 +263,29 @@ authority, runtime projection, persistence, and client evidence trustworthy:
 7. Resume deeper mission, civilian, undercover, commander, logistics, and
    balance expansion only after those integrity gates produce reliable evidence.
 
-The schema-49 exact-QRF `OperationRecord` kernel is now implemented in source for
-one already-exact force consumer. It does not complete the broader operations
-milestone: live combat contact does not yet drive engagement transitions, and
-strategic route progress/cursor/hysteresis, generalized virtualization,
-vehicles/assets, other support consumers, garrisons, missions, enemy orders, and
-client/JIP projection remain future slices.
+The schema-50 exact-QRF projection slice is implemented in current source for
+one already-exact force consumer. Its virtual route uses a conservative direct
+campaign cursor, materialization uses separate in/out distances, and the frozen
+manifest slots remain the living/dead roster across fold and restore. Virtual
+combat is deliberately limited to an on-station infantry QRF against abstract
+target-garrison infantry in bounded deterministic steps. This does not complete
+the broader operations milestone: live physical combat contact, terrain and
+ammunition effects, vehicles/assets, broad legacy supports, garrisons, missions,
+enemy orders, and client/JIP projection remain future slices.
 
-The stamped schema-49 source tree passes foundation validation and creates the
-Workbench Game module at 5,743 files, 11,497 classes, and CRC `4efe34fc`. A
-fresh normal WorldEditor project open remained responsive at all ten two-second
-samples and produced no unknown-config-class or crash signature before the
-bounded gate stopped it at 20 seconds. This is source, compilation, and startup
-evidence, not packaged runtime or restart evidence. The editor role-change guard
-still needs a fresh packaged
-dedicated-server connect before it counts as runtime proof, and the newly
-restored config metadata still needs a published client/server retest before
-Game Master or stock HUD recovery is claimed. The same inspected
-server smoke tied 20 unregistered group-member RPCs one-for-one to 14 ambient
-pedestrians and 6 traffic drivers. The civilian group root now inherits the
-stock behavior/pathfinding/utility/replication base and initial members use the
-native AI-composition attach path; traffic drivers also register their vehicle
-before preferring authority-local pilot entry. Foundation validation, Workbench
-Game compilation/creation, and a 20-second normal project-open survival gate
-all pass.
-Fresh packaged zero-RPC and distance-over-time movement proof remains required.
-A separate normal-play artifact marked three physical support rows arrived even
-though its logged targets and deterministic recall-exit vectors imply nominal
-current positions approximately 434m, 455m, and 505m away. Current source removes that ETA-only completion
-shortcut. A Phase 22 group populated 9/9 without observed advance, but that
-artifact sampled campaign time rather than live physical positions, so it is not
-standalone physical-stall proof. Fresh packaged support movement, arrival, and
-recall evidence is still required.
+The last published schema-49 server/client check is runtime evidence that stock
+HUD, Game Master, map markers, and civilian traffic initialize again. It is also
+evidence for the newly reported marker, cursor, radio, classification,
+appearance, horn, and military/civilian activation defects—not proof of the
+schema-50 repairs. Current schema-50 source and its focused debug assertions
+pass the repository foundation validator and Workbench script validation; the
+Game module loads 5,747 files/11,508 classes with CRC `edd1a720`, and a correctly
+launched WorldEditor remained responsive for all ten samples over 20 seconds.
+A republished server/client test is still required before those repairs or the
+exact-QRF projection path are called runtime-proven. The late-admin
+role-change guard, campaign-debug
+isolation, convoy seating, physical support movement/arrival/recall, and restart
+boundaries remain open as separate gates.
 
 For documentation authority, `docs/FEATURE_CHECKLIST.md` owns current feature
 status and next tasks; `docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md` owns the
@@ -369,7 +371,7 @@ local `I` key/action path when troubleshooting menu access.
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. Server boot, admin diagnostics, command-menu readiness,
 and structured debug artifacts must report the same runtime identity from
-`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 49, and
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 50, and
 runtime-settings schema. Missing or mismatched identity means the packaged
 server/client runtime is stale or mixed, even if the repository is newer.
 

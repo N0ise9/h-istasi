@@ -80,7 +80,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	static const int ACTION_MODAL_CONFIRM_WIDGET_ID = 90011;
 	static const int ACTION_CHOICE_WIDGET_ID_BASE = 90100;
 	static const int ACTION_CHOICE_WIDGET_ID_LIMIT = 90228;
-	static const int MAP_TARGET_PROMPT_Z = 2300;
+	static const int MAP_TARGET_PROMPT_Z = HST_UIConstants.Z_MAP_TARGET_PROMPT;
 	static const int MAP_TARGET_ESCAPE_DISMISS_RETRY_MS = 50;
 	static const int MAP_TARGET_ESCAPE_DISMISS_MAX_ATTEMPTS = 8;
 	static const int MAP_TARGET_CURSOR_LINE_LONG = 30;
@@ -1914,6 +1914,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			locationLabel = string.Format("X %1 Z %2", Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
 		data.m_sMessage = "Select how many FIA to include in the exact server quote for " + locationLabel + ". This step does not charge resources.";
 		data.m_sCancelLabel = "Choose Again";
+		ConfigureCommandMapDialogLayer(data);
 		foreach (string choiceLabel : m_aPendingChoiceLabels)
 			data.m_aChoiceLabels.Insert(choiceLabel);
 
@@ -1993,6 +1994,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			locationLabel = string.Format("X %1 Z %2", Math.Round(m_vMapTargetPosition[0]), Math.Round(m_vMapTargetPosition[2]));
 		data.m_sMessage = "Select the HQ garage vehicle to consume for the roadblock at " + locationLabel + ".";
 		data.m_sCancelLabel = "Choose Again";
+		ConfigureCommandMapDialogLayer(data);
 		foreach (string choiceLabel : m_aPendingChoiceLabels)
 			data.m_aChoiceLabels.Insert(choiceLabel);
 
@@ -2075,6 +2077,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		data.m_sMessage = BuildCommandMapTargetConfirmMessage();
 		data.m_sCancelLabel = "Choose Again";
 		data.m_sConfirmLabel = "Confirm";
+		ConfigureCommandMapDialogLayer(data);
 
 		Widget root = HST_ActionDialogController.Render(workspace, data, m_WidgetHandler);
 		if (!root)
@@ -2107,6 +2110,24 @@ class HST_CommandMenuComponent : ScriptComponent
 			return false;
 
 		return true;
+	}
+
+	protected void ConfigureCommandMapDialogLayer(HST_ActionDialogData data)
+	{
+		if (!data)
+			return;
+
+		data.m_Parent = ResolveCommandMapOverlayParent(GetGame().GetWorkspace());
+		data.m_iZOrder = HST_UIConstants.Z_MAP_ACTION_DIALOG;
+	}
+
+	protected void ConfigureCommandMapDialogLayer(HST_ActionChoiceDialogData data)
+	{
+		if (!data)
+			return;
+
+		data.m_Parent = ResolveCommandMapOverlayParent(GetGame().GetWorkspace());
+		data.m_iZOrder = HST_UIConstants.Z_MAP_ACTION_DIALOG;
 	}
 
 	protected bool PollRawCommandMapTargetEscape()
@@ -2259,7 +2280,8 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (!m_wMapTargetPromptRoot)
 		{
-			m_wMapTargetPromptRoot = workspace.CreateWidgets(MAP_TARGET_PROMPT_LAYOUT, workspace);
+			Widget parent = ResolveCommandMapOverlayParent(workspace);
+			m_wMapTargetPromptRoot = workspace.CreateWidgets(MAP_TARGET_PROMPT_LAYOUT, parent);
 			HST_UIDebug.LogLayoutCreate("command_map_target_prompt", MAP_TARGET_PROMPT_LAYOUT, m_wMapTargetPromptRoot, workspace);
 			if (!m_wMapTargetPromptRoot)
 				return;
@@ -2411,7 +2433,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_wMapTargetCursorRoot)
 			return;
 
-		m_wMapTargetCursorRoot = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(0x00FFFFFF), HST_UIConstants.Z_MAP_TARGET_CURSOR);
+		Widget parent = ResolveCommandMapOverlayParent(workspace);
+		m_wMapTargetCursorRoot = workspace.CreateWidget(WidgetType.FrameWidgetTypeID, WidgetFlags.VISIBLE | WidgetFlags.IGNORE_CURSOR | WidgetFlags.NOFOCUS, Color.FromInt(0x00FFFFFF), HST_UIConstants.Z_MAP_TARGET_CURSOR, parent);
 		if (!m_wMapTargetCursorRoot)
 			return;
 
@@ -2492,6 +2515,18 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_wMapTargetCursorHorizontal = null;
 		m_wMapTargetCursorVertical = null;
 		m_wMapTargetCursorCenter = null;
+	}
+
+	protected Widget ResolveCommandMapOverlayParent(WorkspaceWidget workspace)
+	{
+		if (m_MapTargetEntity)
+		{
+			Widget mapRoot = m_MapTargetEntity.GetMapMenuRoot();
+			if (mapRoot)
+				return mapRoot;
+		}
+
+		return workspace;
 	}
 
 	protected void CancelCommandMapTargetSelection(string reason, bool closeMap = false)

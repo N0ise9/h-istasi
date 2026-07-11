@@ -295,13 +295,20 @@ class HST_NativeMapMarkerReconciler
 		if (!manager || !record)
 			return false;
 
+		int iconEntry = ResolveValidIconEntry(manager, record);
+		if (iconEntry < 0)
+		{
+			DebugLog(string.Format("create static rejected id=%1 because no valid placed-marker icon resource is available", record.m_sId));
+			return false;
+		}
+
 		SCR_MapMarkerBase nativeMarker = new SCR_MapMarkerBase();
 		nativeMarker.SetType(record.m_eMarkerType);
 		nativeMarker.SetMarkerConfigID(record.m_iConfigId);
 		nativeMarker.SetMarkerOwnerID(-1);
 		nativeMarker.SetWorldPos(Math.Round(record.m_vWorldPosition[0]), Math.Round(record.m_vWorldPosition[2]));
 		nativeMarker.SetCustomText(record.m_sShortLabel);
-		nativeMarker.SetIconEntry(record.m_iIconEntry);
+		nativeMarker.SetIconEntry(iconEntry);
 		nativeMarker.SetColorEntry(record.m_iColorEntry);
 		nativeMarker.SetMarkerFactionFlags(record.m_iFactionFlags);
 		nativeMarker.SetCanBeRemovedByOwner(record.m_bCanPlayerRemove);
@@ -317,6 +324,24 @@ class HST_NativeMapMarkerReconciler
 		m_mStaticDomainIdToMarker.Set(record.m_sId, handle);
 		m_mPublishedRevisionByDomainId.Set(record.m_sId, record.m_iRevision);
 		return true;
+	}
+
+	protected int ResolveValidIconEntry(SCR_MapMarkerManagerComponent manager, HST_MapMarkerRecord record)
+	{
+		if (!manager || !record)
+			return -1;
+
+		int requestedIconEntry = record.m_iIconEntry;
+		if (!record.m_sIconQuad.IsEmpty())
+		{
+			requestedIconEntry = manager.HST_EnsurePlacedIconEntry(
+				record.m_sIconImageset,
+				record.m_sIconGlowImageset,
+				record.m_sIconQuad,
+				"general");
+		}
+
+		return manager.HST_ResolveValidPlacedIconEntry(requestedIconEntry, SCR_EScenarioFrameworkMarkerCustom.OBJECTIVE_MARKER);
 	}
 
 	protected void ReconcileDynamic(SCR_MapMarkerManagerComponent manager, HST_MapMarkerRecord record)

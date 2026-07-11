@@ -1,8 +1,8 @@
-GenericEntity HST_TownAnchor_simons_wood : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 6311.913 104.423 5226.068
-}
 GenericEntity HST_TownAnchor_richemont : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 4451.371 64.043 5010.427
+}
+GenericEntity HST_TownAnchor_morton : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
+ coords 5082.813 14.852 3954.27
 }
 GenericEntity HST_TownAnchor_tillers_find : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 3789.583 59.781 6997.688
@@ -26,7 +26,7 @@ GenericEntity HST_TownAnchor_entre_deux : "{C72F956E4AC6A6E7}Prefabs/Systems/Sce
  coords 5754.045 217.12 7053.081
 }
 GenericEntity HST_TownAnchor_figari : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
- coords 5281.364 62.97 5361.538
+ coords 5239.172 62.582 5356.463
 }
 GenericEntity HST_TownAnchor_laruns : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Components/Area.et" {
  coords 7573.111 82.461 5525.154
