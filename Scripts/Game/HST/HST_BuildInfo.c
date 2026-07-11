@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "3361f59b8cc863bd47c0e78858ae601cf1512fb4";
-	static const string BUILD_UTC = "2026-07-11T00:05:32Z";
-	static const string BUILD_LABEL = "schema50-strategic-projection-feedback-repairs";
+	static const string BUILD_SHA = "b5eaa91a081a41d9460b543ac8c87380d78cca6c";
+	static const string BUILD_UTC = "2026-07-11T01:30:41Z";
+	static const string BUILD_LABEL = "schema51-exact-enemy-defensive-qrf";
 
 	static string BuildSummary()
 	{
