@@ -551,7 +551,7 @@ class HST_ForceSpawnAdapterService
 	{
 		HST_ActiveGroupState activeGroup;
 		HST_ForceManifestState manifest;
-		string contextFailure = ResolveExecutionContext(state, work, activeGroup, manifest);
+		string contextFailure = ResolveExecutionContext(state, queue, work, activeGroup, manifest);
 		if (!contextFailure.IsEmpty())
 		{
 			FailWork(state, queue, manifest, work, nowSecond, contextFailure, false, result);
@@ -1254,13 +1254,14 @@ class HST_ForceSpawnAdapterService
 
 	protected string ResolveExecutionContext(
 		HST_CampaignState state,
+		HST_ForceSpawnQueueService queue,
 		HST_ForceSpawnQueueWorkItem work,
 		out HST_ActiveGroupState activeGroup,
 		out HST_ForceManifestState manifest)
 	{
 		activeGroup = null;
 		manifest = null;
-		if (!state || !work)
+		if (!state || !queue || !work)
 			return "spawn execution context missing";
 		manifest = state.FindForceManifest(work.m_sManifestId);
 		if (!manifest)
@@ -1291,11 +1292,44 @@ class HST_ForceSpawnAdapterService
 			expectedGroupPrefab = manifest.m_sGroupPrefab;
 		if (expectedGroupPrefab.IsEmpty() || activeGroup.m_sPrefab != expectedGroupPrefab)
 			return "active-group prefab conflicts with the frozen group projection";
-		if (activeGroup.m_iInfantryCount != manifest.m_iAcceptedMemberCount
-			|| manifestGroup.m_iExpectedMemberCount != manifest.m_iAcceptedMemberCount)
-			return "active-group infantry count conflicts with the frozen manifest";
+		string rosterFailure = ValidateExactInfantryExecutionRoster(activeGroup, manifest, batch, queue);
+		if (!rosterFailure.IsEmpty())
+			return rosterFailure;
 		if (activeGroup.m_iVehicleCount != manifest.m_iAcceptedVehicleCount)
 			return "active-group vehicle count conflicts with the frozen manifest";
+		return "";
+	}
+
+	protected string ValidateExactInfantryExecutionRoster(
+		HST_ActiveGroupState activeGroup,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ForceSpawnQueueService queue)
+	{
+		if (!activeGroup || !manifest || !batch || !queue)
+			return "exact infantry execution roster context missing";
+		if (manifest.m_aGroups.Count() != 1 || !manifest.m_aGroups[0])
+			return "frozen manifest does not contain exactly one group projection";
+
+		HST_ForceManifestGroupState manifestGroup = manifest.m_aGroups[0];
+		int acceptedCount = manifest.m_iAcceptedMemberCount;
+		if (acceptedCount <= 0 || manifest.m_aMembers.Count() != acceptedCount
+			|| manifestGroup.m_iExpectedMemberCount != acceptedCount
+			|| activeGroup.m_iOriginalInfantryCount != acceptedCount)
+		{
+			return "active-group original infantry count conflicts with the frozen manifest";
+		}
+
+		int livingCount = queue.CountDurableLivingMemberSlots(batch);
+		if (batch.m_iSuccessfulHandoffCount <= 0)
+			livingCount = queue.CountStrategicLivingMemberSlots(batch);
+		if (activeGroup.m_iInfantryCount != livingCount)
+		{
+			return string.Format(
+				"active-group current infantry count %1 conflicts with durable living roster %2",
+				activeGroup.m_iInfantryCount,
+				livingCount);
+		}
 		return "";
 	}
 

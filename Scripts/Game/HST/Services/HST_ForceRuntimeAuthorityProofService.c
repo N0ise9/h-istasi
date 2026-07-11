@@ -12,6 +12,18 @@ class HST_ForceRuntimeAuthorityProofReport
 	string m_sMigrationEvidence;
 }
 
+class HST_ForceSpawnAdapterRosterProofHarness : HST_ForceSpawnAdapterService
+{
+	string ValidateRoster(
+		HST_ActiveGroupState activeGroup,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ForceSpawnQueueService queue)
+	{
+		return ValidateExactInfantryExecutionRoster(activeGroup, manifest, batch, queue);
+	}
+}
+
 class HST_ForceRuntimeAuthorityProofService
 {
 	protected ref HST_ForcePlanningIntegrityService m_Integrity = new HST_ForcePlanningIntegrityService();
@@ -19,6 +31,8 @@ class HST_ForceRuntimeAuthorityProofService
 	HST_ForceRuntimeAuthorityProofReport Run()
 	{
 		HST_ForceRuntimeAuthorityProofReport report = new HST_ForceRuntimeAuthorityProofReport();
+		string adapterRosterEvidence;
+		bool adapterRosterExact = ProveAdapterExecutionRoster(adapterRosterEvidence);
 		HST_CampaignState state = BuildState("runtime");
 		HST_ForceManifestState manifest = BuildManifest("runtime", 2);
 		state.m_aForceManifests.Insert(manifest);
@@ -165,7 +179,8 @@ class HST_ForceRuntimeAuthorityProofService
 				109);
 			HST_ForceSpawnSlotResultState retired = restoredBatch.FindSlotResult("runtime_member_0");
 			HST_ForceSpawnSlotResultState survivor = restoredBatch.FindSlotResult("runtime_member_1");
-			report.m_bSurvivorReprojectionExact = invalidPreflightReadOnly && validPreflightReadOnly
+			report.m_bSurvivorReprojectionExact = adapterRosterExact
+				&& invalidPreflightReadOnly && validPreflightReadOnly
 				&& requeue && requeue.m_bAccepted && rootOnly && survivorOnly
 				&& handoff && handoff.m_bAccepted
 				&& restoredBatch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
@@ -184,9 +199,10 @@ class HST_ForceRuntimeAuthorityProofService
 				restoredBatch.m_iSuccessfulHandoffCount,
 				restoredBatch.m_iReprojectionCount);
 			report.m_sReprojectionEvidence = report.m_sReprojectionEvidence + string.Format(
-				" | living/dead %1/%2",
+				" | living/dead %1/%2 | adapter roster %3",
 				queue.CountDurableLivingMemberSlots(restoredBatch),
-				queue.CountConfirmedCasualtyMemberSlots(restoredBatch));
+				queue.CountConfirmedCasualtyMemberSlots(restoredBatch),
+				adapterRosterEvidence);
 
 			HST_ForceSpawnQueueCallbackResult lastCasualty = queue.ConfirmRegisteredMemberCasualty(
 				restored.m_aForceSpawnResults,
@@ -210,6 +226,90 @@ class HST_ForceRuntimeAuthorityProofService
 
 		RunSchema46MigrationProof(report);
 		return report;
+	}
+
+	protected bool ProveAdapterExecutionRoster(out string evidence)
+	{
+		evidence = "";
+		HST_CampaignState state = BuildState("adapter_roster");
+		HST_ForceManifestState manifest = BuildManifest("adapter_roster", 2);
+		state.m_aForceManifests.Insert(manifest);
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		HST_ForceSpawnQueueRequest request = new HST_ForceSpawnQueueRequest();
+		request.m_sResultId = "adapter_roster_result";
+		request.m_sRequestId = "adapter_roster_request";
+		request.m_sForceId = "adapter_roster_force";
+		request.m_sProjectionId = "adapter_roster_projection";
+		request.m_iPriority = 100;
+		request.m_iMaxRetries = 2;
+		request.m_iDeadlineSecond = 300;
+		HST_ForceSpawnQueueEnqueueResult enqueue = queue.Enqueue(
+			state.m_aForceSpawnResults,
+			manifest,
+			request,
+			100);
+		if (!enqueue || !enqueue.m_bSuccess || !enqueue.m_Batch)
+		{
+			evidence = "fixture enqueue failed";
+			return false;
+		}
+
+		HST_ForceSpawnResultState batch = enqueue.m_Batch;
+		HST_ActiveGroupState group = BuildActiveGroup(state, manifest, batch);
+		HST_ForceSpawnAdapterRosterProofHarness adapter = new HST_ForceSpawnAdapterRosterProofHarness();
+		string firstFailure = adapter.ValidateRoster(group, manifest, batch, queue);
+
+		HST_ForceSpawnQueueCallbackResult held = queue.HoldPendingProjectionForStrategicSimulation(
+			state.m_aForceSpawnResults,
+			manifest,
+			batch.m_sResultId,
+			batch.m_sProjectionId,
+			101);
+		HST_ForceSpawnSlotResultState casualtySlot = batch.FindSlotResult("adapter_roster_member_0");
+		HST_ForceSpawnQueueCallbackResult casualty;
+		if (held && held.m_bAccepted && casualtySlot)
+		{
+			casualty = queue.ConfirmStrategicMemberCasualty(
+				state.m_aForceSpawnResults,
+				manifest,
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				casualtySlot.m_sSlotId,
+				102,
+				"adapter roster proof virtual casualty");
+		}
+		group.m_iInfantryCount = 1;
+		group.m_iSurvivorInfantryCount = 1;
+		group.m_iDurableLivingInfantryCount = 1;
+		string firstSurvivorFailure = adapter.ValidateRoster(group, manifest, batch, queue);
+
+		HST_ForceSpawnSlotResultState survivorSlot = batch.FindSlotResult("adapter_roster_member_1");
+		if (survivorSlot)
+			survivorSlot.m_bEverAlive = true;
+		batch.m_iSuccessfulHandoffCount = 1;
+		string survivorFailure = adapter.ValidateRoster(group, manifest, batch, queue);
+
+		group.m_iInfantryCount = manifest.m_iAcceptedMemberCount;
+		string staleCurrentFailure = adapter.ValidateRoster(group, manifest, batch, queue);
+		group.m_iInfantryCount = 1;
+		group.m_iOriginalInfantryCount = 1;
+		string originalFailure = adapter.ValidateRoster(group, manifest, batch, queue);
+
+		bool exact = firstFailure.IsEmpty()
+			&& held && held.m_bAccepted
+			&& casualty && casualty.m_bAccepted
+			&& firstSurvivorFailure.IsEmpty()
+			&& survivorFailure.IsEmpty()
+			&& staleCurrentFailure.Contains("current infantry count")
+			&& originalFailure.Contains("original infantry count");
+		evidence = string.Format(
+			"first/full %1 | first/survivor %2 | rematerialized survivor %3 | stale/original rejected %4/%5",
+			firstFailure.IsEmpty(),
+			firstSurvivorFailure.IsEmpty(),
+			survivorFailure.IsEmpty(),
+			staleCurrentFailure.Contains("current infantry count"),
+			originalFailure.Contains("original infantry count"));
+		return exact;
 	}
 
 	protected HST_ForceSpawnResultState EnqueueAndCompleteInitialProjection(
