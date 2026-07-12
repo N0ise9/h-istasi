@@ -115,6 +115,11 @@ class HST_StrategicService
 		if (cause == "military_capture" || cause == "mission_capture")
 			eventState.m_sKind = "zone_captured";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		eventState.m_sSourceType = sourceType;
 		if (eventState.m_sSourceType.IsEmpty())
 			eventState.m_sSourceType = "ownership_transition";
@@ -185,6 +190,11 @@ class HST_StrategicService
 		}
 
 		HST_StrategicEventState eventState = CreateMissionOutcomeEvent(state, preset, definition, activeMission, succeeded);
+		if (!eventState)
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		result.m_Event = eventState;
 		result.m_sEventId = eventState.m_sEventId;
 		result.m_bRecorded = true;
@@ -224,6 +234,11 @@ class HST_StrategicService
 		HST_StrategicEventState existingEvent = FindMissionStrategicEvent(state, activeMission.m_sInstanceId, "mission_expired");
 		if (existingEvent)
 		{
+			if (existingEvent.m_sEventId.IsEmpty())
+			{
+				result.m_sReason = "existing strategic event id unavailable";
+				return result;
+			}
 			result.m_Event = existingEvent;
 			result.m_sEventId = existingEvent.m_sEventId;
 			result.m_bRecorded = true;
@@ -233,6 +248,11 @@ class HST_StrategicService
 		}
 
 		HST_StrategicEventState eventState = CreateMissionExpiryEvent(state, preset, definition, activeMission);
+		if (!eventState)
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		result.m_Event = eventState;
 		result.m_sEventId = eventState.m_sEventId;
 		result.m_bRecorded = true;
@@ -265,6 +285,11 @@ class HST_StrategicService
 		else
 			eventState.m_sKind = kind;
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		eventState.m_sSourceType = "convoy_outcome";
 		if (sourceId.IsEmpty())
 			eventState.m_sSourceId = mission.m_sInstanceId;
@@ -300,6 +325,11 @@ class HST_StrategicService
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
 		eventState.m_sKind = "support_near_hq";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		eventState.m_sSourceType = "support_request";
 		eventState.m_sSourceId = request.m_sRequestId;
 		eventState.m_sTargetZoneId = request.m_sTargetZoneId;
@@ -327,6 +357,11 @@ class HST_StrategicService
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
 		eventState.m_sKind = "vehicle_reported";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		eventState.m_sSourceType = "runtime_vehicle";
 		eventState.m_sSourceId = vehicle.m_sVehicleRuntimeId;
 		eventState.m_sVehicleRuntimeId = vehicle.m_sVehicleRuntimeId;
@@ -370,6 +405,11 @@ class HST_StrategicService
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
 		eventState.m_sKind = "town_influence";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+		{
+			result.m_sReason = "strategic event id unavailable";
+			return result;
+		}
 		eventState.m_sSourceType = "town_influence";
 		eventState.m_sSourceId = influenceEvent.m_sEventId;
 		eventState.m_sTargetZoneId = influenceEvent.m_sZoneId;
@@ -676,6 +716,8 @@ class HST_StrategicService
 		else
 			eventState.m_sKind = "mission_failure";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+			return null;
 		eventState.m_sSourceType = "mission";
 		eventState.m_sSourceId = activeMission.m_sInstanceId;
 		eventState.m_sMissionId = definition.m_sMissionId;
@@ -692,6 +734,8 @@ class HST_StrategicService
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
 		eventState.m_sKind = "mission_expired";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		if (eventState.m_sEventId.IsEmpty())
+			return null;
 		eventState.m_sSourceType = "mission";
 		eventState.m_sSourceId = activeMission.m_sInstanceId;
 		eventState.m_sMissionId = definition.m_sMissionId;
@@ -745,6 +789,14 @@ class HST_StrategicService
 			return "";
 
 		string targetFactionKey = "";
+		if (!influenceEvent.m_sAggressionFactionKey.IsEmpty())
+		{
+			return ResolveStrategicEventTargetFactionForZone(
+				state,
+				preset,
+				influenceEvent.m_sZoneId,
+				influenceEvent.m_sAggressionFactionKey);
+		}
 		if (preset)
 		{
 			if (influenceEvent.m_iContractVersion == HST_TownInfluenceService.EXACT_CONTRACT_VERSION)
@@ -819,6 +871,14 @@ class HST_StrategicService
 			influenceEvent.m_iPoliceDelta,
 			influenceEvent.m_iRoadblockDelta
 		);
+		if (!influenceEvent.m_sAggressionFactionKey.IsEmpty()
+			|| influenceEvent.m_iAggressionDelta != 0)
+		{
+			reason = reason + string.Format(
+				" aggression %1 %2",
+				influenceEvent.m_sAggressionFactionKey,
+				influenceEvent.m_iAggressionDelta);
+		}
 		if (!influenceEvent.m_sReason.IsEmpty())
 			reason = reason + " | " + influenceEvent.m_sReason;
 		return reason;
@@ -1096,11 +1156,31 @@ class HST_StrategicService
 
 	protected string BuildStrategicEventId(HST_CampaignState state, string kind)
 	{
+		if (!state)
+			return "";
 		string safeKind = kind;
 		if (safeKind.IsEmpty())
 			safeKind = "event";
-
-		return string.Format("strategic_%1_%2_%3", safeKind, state.m_iElapsedSeconds, state.m_aStrategicEvents.Count());
+		for (int attempt; attempt < 64; attempt++)
+		{
+			string candidate = HST_StableIdService.NextId(
+				state,
+				"strategic_" + safeKind);
+			if (candidate.IsEmpty())
+				return "";
+			bool duplicate;
+			foreach (HST_StrategicEventState existing : state.m_aStrategicEvents)
+			{
+				if (existing && existing.m_sEventId == candidate)
+				{
+					duplicate = true;
+					break;
+				}
+			}
+			if (!duplicate)
+				return candidate;
+		}
+		return "";
 	}
 
 	protected int ResolveFactionAggression(HST_CampaignState state, string factionKey)

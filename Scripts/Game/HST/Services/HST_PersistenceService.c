@@ -255,7 +255,7 @@ class HST_PersistenceService
 		if (!m_Civilians)
 		{
 			state.m_sLastPersistenceStatus = string.Format(
-				"checkpoint deferred: ambient vehicle persistence authority is unavailable during %1",
+				"checkpoint deferred: ambient civilian persistence authority is unavailable during %1",
 				context);
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
@@ -263,7 +263,7 @@ class HST_PersistenceService
 		if (!m_Civilians.PrepareAmbientVehiclePersistence(state))
 		{
 			state.m_sLastPersistenceStatus = string.Format(
-				"checkpoint deferred: ambient vehicle persistence reconciliation failed during %1",
+				"checkpoint deferred: ambient civilian persistence reconciliation failed during %1",
 				context);
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;

@@ -7,6 +7,7 @@ class HST_AmbientActorRuntimeProofReport
 	bool m_bProgressResetExact;
 	bool m_bBudgetReadinessExact;
 	bool m_bDeterministicEvidenceExact;
+	bool m_bPanicRecoveryExact;
 	string m_sPedestrianPathEvidence;
 	string m_sTrafficPathEvidence;
 	string m_sIllegalTransitionEvidence;
@@ -14,6 +15,7 @@ class HST_AmbientActorRuntimeProofReport
 	string m_sProgressResetEvidence;
 	string m_sBudgetReadinessEvidence;
 	string m_sDeterministicEvidence;
+	string m_sPanicRecoveryEvidence;
 
 	bool AllExact()
 	{
@@ -23,13 +25,14 @@ class HST_AmbientActorRuntimeProofReport
 			&& m_bBoundedRecoveryExact
 			&& m_bProgressResetExact
 			&& m_bBudgetReadinessExact
-			&& m_bDeterministicEvidenceExact;
+			&& m_bDeterministicEvidenceExact
+			&& m_bPanicRecoveryExact;
 	}
 
 	string BuildReport()
 	{
 		return string.Format(
-			"ambient actor runtime proof | all exact %1 | pedestrian %2 | traffic %3 | illegal read-only %4 | bounded recovery %5 | progress reset %6 | budget/readiness %7 | deterministic %8",
+			"ambient actor runtime proof | all exact %1 | pedestrian %2 | traffic %3 | illegal read-only %4 | bounded recovery %5 | progress reset %6 | budget/readiness %7 | deterministic %8 | panic/recovery %9",
 			AllExact(),
 			m_bPedestrianPathExact,
 			m_bTrafficPathExact,
@@ -37,7 +40,8 @@ class HST_AmbientActorRuntimeProofReport
 			m_bBoundedRecoveryExact,
 			m_bProgressResetExact,
 			m_bBudgetReadinessExact,
-			m_bDeterministicEvidenceExact);
+			m_bDeterministicEvidenceExact,
+			m_bPanicRecoveryExact);
 	}
 }
 
@@ -59,6 +63,7 @@ class HST_AmbientActorRuntimeProofService
 		ProveProgressReset(report);
 		ProveBudgetAndReadiness(report);
 		ProveDeterministicEvidence(report);
+		ProvePanicRecovery(report);
 		return report;
 	}
 
@@ -371,6 +376,109 @@ class HST_AmbientActorRuntimeProofService
 			firstEvidence);
 	}
 
+	protected void ProvePanicRecovery(
+		HST_AmbientActorRuntimeProofReport report)
+	{
+		HST_AmbientActorRuntimeRecord record = BuildReadyPedestrian(
+			"panic_runtime",
+			"town_hotel",
+			400);
+		bool began = m_Service.BeginOrExtendPanic(
+			record,
+			403,
+			5,
+			"nearby_combat");
+		bool extended = m_Service.BeginOrExtendPanic(
+			record,
+			405,
+			6,
+			"nearby_combat_repeat");
+		bool noOpExtensionReadOnly = !m_Service.BeginOrExtendPanic(
+			record,
+			406,
+			1,
+			"shorter_repeat");
+		bool firstDeadline = !m_Service.ShouldBeginPanicRecovery(record, 410)
+			&& m_Service.ShouldBeginPanicRecovery(record, 411);
+		bool firstRecovery = m_Service.BeginPanicRecovery(record, 411, 2)
+			&& !m_Service.IsRetryDue(record, 412)
+			&& m_Service.IsRetryDue(record, 413);
+		bool rebound = m_Service.BeginOrExtendPanic(
+			record,
+			412,
+			5,
+			"combat_rebound");
+		bool secondDeadline = !m_Service.ShouldBeginPanicRecovery(record, 416)
+			&& m_Service.ShouldBeginPanicRecovery(record, 417);
+		bool secondRecovery = m_Service.BeginPanicRecovery(record, 417, 2)
+			&& m_Service.IsRetryDue(record, 419);
+		bool resumed = m_Service.TryTransition(
+			record,
+			HST_AmbientActorRuntimeService.STATE_WANDERING,
+			"panic_recovery_acknowledged",
+			419);
+		HST_AmbientActorRuntimeRecord blocked = BuildReadyPedestrian(
+			"panic_route_bound_runtime",
+			"town_india",
+			500);
+		bool blockedBegan = m_Service.BeginOrExtendPanic(
+			blocked,
+			503,
+			30,
+			"blocked_route");
+		bool blockedAttemptOne = m_Service.RecordPanicRouteRecoveryAttempt(
+			blocked,
+			504,
+			2,
+			"blocked_route_1");
+		bool blockedAttemptTwo = m_Service.RecordPanicRouteRecoveryAttempt(
+			blocked,
+			505,
+			2,
+			"blocked_route_2");
+		bool blockedExhausted = m_Service.RecordPanicRouteRecoveryAttempt(
+			blocked,
+			506,
+			2,
+			"blocked_route_3");
+		bool boundedRouteExact = blockedBegan
+			&& blockedAttemptOne && blockedAttemptTwo && blockedExhausted
+			&& blocked.m_iPanicRouteRecoveryCount == 2
+			&& blocked.m_iRecoveryCount == 0
+			&& blocked.m_sStateId
+				== HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED;
+
+		bool panicTransitionsExact = began && extended
+			&& noOpExtensionReadOnly && firstDeadline && firstRecovery
+			&& rebound && secondDeadline && secondRecovery && resumed;
+		bool panicFinalStateExact = record
+			&& record.m_sStateId
+				== HST_AmbientActorRuntimeService.STATE_WANDERING
+			&& record.m_iPanicCount == 2
+			&& record.m_iPanicUntilSecond == -1
+			&& record.m_iRecoveryCount == 0
+			&& m_Service.IsBehaviorReady(record)
+			&& m_Service.IsBudgetReservation(record);
+		report.m_bPanicRecoveryExact = panicTransitionsExact
+			&& boundedRouteExact && panicFinalStateExact;
+		report.m_sPanicRecoveryEvidence = string.Format(
+			"begin/extend/no-op %1/%2/%3 | first deadline/recovery %4/%5 | rebound %6 | second deadline/recovery %7/%8 | resume %9",
+			began,
+			extended,
+			noOpExtensionReadOnly,
+			firstDeadline,
+			firstRecovery,
+			rebound,
+			secondDeadline,
+			secondRecovery,
+			resumed);
+		report.m_sPanicRecoveryEvidence
+			= report.m_sPanicRecoveryEvidence + string.Format(
+				" | panic episodes %1 | route bound %2",
+				ResolvePanicCount(record),
+				boundedRouteExact);
+	}
+
 	protected HST_AmbientActorRuntimeRecord BuildReadyPedestrian(
 		string runtimeId,
 		string zoneId,
@@ -523,6 +631,13 @@ class HST_AmbientActorRuntimeProofService
 		if (!record)
 			return -1;
 		return record.m_iRecoveryCount;
+	}
+
+	protected int ResolvePanicCount(HST_AmbientActorRuntimeRecord record)
+	{
+		if (!record)
+			return -1;
+		return record.m_iPanicCount;
 	}
 
 	protected int ResolveSampleSecond(HST_AmbientActorRuntimeRecord record)

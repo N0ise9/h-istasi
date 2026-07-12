@@ -18,6 +18,7 @@ class HST_AmbientActorRuntimeRecord
 	int m_iLastProgressAtSecond = -1;
 	int m_iRetryAtSecond = -1;
 	int m_iDespawnQueuedAtSecond = -1;
+	int m_iPanicUntilSecond = -1;
 	vector m_vLastSamplePosition;
 	// Immutable session identity for deterministic replacement and recovery.
 	// Slot is unique within one zone/kind reservation set; seed is the actor's
@@ -25,9 +26,19 @@ class HST_AmbientActorRuntimeRecord
 	int m_iProjectionSlot = -1;
 	int m_iProjectionSeed;
 	int m_iRecoveryCount;
+	int m_iPanicCount;
 	bool m_bAdmitted;
 	bool m_bMovementObserved;
 	bool m_bHasMovementSample;
+	bool m_bCasualtyObserved;
+	string m_sCasualtyReceiptId;
+	// A native death can arrive while the bounded callback queue is full. Keep
+	// the exact observation on its already-budgeted actor record until a queue
+	// slot opens; deletion is then not misclassified as a new casualty.
+	bool m_bCasualtyAdmissionPending;
+	string m_sPendingCasualtyFactionKey;
+	vector m_vPendingCasualtyPosition;
+	int m_iPanicRouteRecoveryCount;
 }
 
 // Pure lifecycle kernel. It deliberately does not discover, spawn, delete, or
@@ -41,6 +52,7 @@ class HST_AmbientActorRuntimeService
 	static const string STATE_SPAWN_QUEUED = "SpawnQueued";
 	static const string STATE_BEHAVIOR_INITIALIZING = "BehaviorInitializing";
 	static const string STATE_WANDERING = "Wandering";
+	static const string STATE_PANICKED = "Panicked";
 	static const string STATE_VEHICLE_SPAWNED = "VehicleSpawned";
 	static const string STATE_DRIVER_SPAWNED = "DriverSpawned";
 	static const string STATE_SEATING = "Seating";
@@ -55,6 +67,8 @@ class HST_AmbientActorRuntimeService
 	static const string REASON_TRANSITION = "transition";
 	static const string REASON_RECOVERY_REQUESTED = "recovery_requested";
 	static const string REASON_RECOVERY_EXHAUSTED = "recovery_exhausted";
+	static const string REASON_PANIC_STARTED = "panic_started";
+	static const string REASON_PANIC_RECOVERY = "panic_recovery";
 	static const string REASON_DESPAWN_REQUESTED = "despawn_requested";
 
 	HST_AmbientActorRuntimeRecord CreateRecord(
@@ -137,6 +151,7 @@ class HST_AmbientActorRuntimeService
 		{
 			record.m_bMovementObserved = true;
 			record.m_iLastProgressAtSecond = nowSecond;
+			record.m_iPanicRouteRecoveryCount = 0;
 		}
 		return moved;
 	}
@@ -146,10 +161,104 @@ class HST_AmbientActorRuntimeService
 		if (!record || !record.m_bAdmitted)
 			return false;
 		if (record.m_sKindId == KIND_PEDESTRIAN)
-			return record.m_sStateId == STATE_WANDERING;
+			return record.m_sStateId == STATE_WANDERING
+				|| record.m_sStateId == STATE_PANICKED;
 		if (record.m_sKindId == KIND_TRAFFIC)
 			return record.m_sStateId == STATE_ROUTE_FOLLOWING;
 		return false;
+	}
+
+	// Panic is a behavior-ready projection state rather than a recovery failure.
+	// Repeated danger samples only extend the same episode; they do not reset the
+	// actor's lifecycle identity or consume the stuck-recovery budget.
+	bool BeginOrExtendPanic(
+		HST_AmbientActorRuntimeRecord record,
+		int nowSecond,
+		int minimumDurationSeconds,
+		string reasonId)
+	{
+		if (!record
+			|| record.m_sKindId != KIND_PEDESTRIAN
+			|| !record.m_bAdmitted
+			|| nowSecond < record.m_iStateChangedAtSecond)
+			return false;
+
+		int normalizedDuration = Math.Max(1, minimumDurationSeconds);
+		int panicUntilSecond = int.MAX;
+		if (nowSecond <= int.MAX - normalizedDuration)
+			panicUntilSecond = nowSecond + normalizedDuration;
+		if (record.m_sStateId == STATE_PANICKED)
+		{
+			if (panicUntilSecond > record.m_iPanicUntilSecond)
+			{
+				record.m_iPanicUntilSecond = panicUntilSecond;
+				return true;
+			}
+			return false;
+		}
+		if (record.m_sStateId != STATE_WANDERING
+			&& record.m_sStateId != STATE_RECOVERING)
+			return false;
+
+		if (reasonId.Trim().IsEmpty())
+			reasonId = REASON_PANIC_STARTED;
+		ApplyTransition(record, STATE_PANICKED, reasonId, nowSecond);
+		record.m_iPanicUntilSecond = panicUntilSecond;
+		record.m_iPanicCount++;
+		record.m_iPanicRouteRecoveryCount = 0;
+		return true;
+	}
+
+	// Panic route failures use their own bounded counter. Entering or extending
+	// panic never consumes ordinary stuck-recovery authority, but a blocked flee
+	// route still cannot churn helpers forever.
+	bool RecordPanicRouteRecoveryAttempt(
+		HST_AmbientActorRuntimeRecord record,
+		int nowSecond,
+		int maxAttempts,
+		string reasonId)
+	{
+		if (!record || record.m_sKindId != KIND_PEDESTRIAN
+			|| (record.m_sStateId != STATE_PANICKED
+				&& record.m_sStateId != STATE_WANDERING
+				&& record.m_sStateId != STATE_RECOVERING)
+			|| nowSecond < record.m_iStateChangedAtSecond)
+			return false;
+		int boundedMax = Math.Max(0, maxAttempts);
+		if (record.m_iPanicRouteRecoveryCount >= boundedMax)
+			return QueueDespawn(record, reasonId + "; panic route exhausted", nowSecond);
+		record.m_iPanicRouteRecoveryCount++;
+		record.m_sReasonId = NormalizeReason(reasonId);
+		return true;
+	}
+
+	bool ShouldBeginPanicRecovery(
+		HST_AmbientActorRuntimeRecord record,
+		int nowSecond)
+	{
+		return record
+			&& record.m_sKindId == KIND_PEDESTRIAN
+			&& record.m_sStateId == STATE_PANICKED
+			&& record.m_iPanicUntilSecond >= 0
+			&& nowSecond >= record.m_iPanicUntilSecond;
+	}
+
+	bool BeginPanicRecovery(
+		HST_AmbientActorRuntimeRecord record,
+		int nowSecond,
+		int retryBackoffSeconds,
+		string reasonId = REASON_PANIC_RECOVERY)
+	{
+		if (!ShouldBeginPanicRecovery(record, nowSecond))
+			return false;
+		if (reasonId.Trim().IsEmpty())
+			reasonId = REASON_PANIC_RECOVERY;
+		if (!TryTransition(record, STATE_RECOVERING, reasonId, nowSecond))
+			return false;
+		record.m_iPanicRouteRecoveryCount = 0;
+		record.m_iRetryAtSecond = nowSecond
+			+ Math.Max(0, retryBackoffSeconds);
+		return true;
 	}
 
 	bool IsBudgetReservation(HST_AmbientActorRuntimeRecord record)
@@ -248,6 +357,7 @@ class HST_AmbientActorRuntimeService
 		return stateId == STATE_SPAWN_QUEUED
 			|| stateId == STATE_BEHAVIOR_INITIALIZING
 			|| stateId == STATE_WANDERING
+			|| stateId == STATE_PANICKED
 			|| stateId == STATE_VEHICLE_SPAWNED
 			|| stateId == STATE_DRIVER_SPAWNED
 			|| stateId == STATE_SEATING
@@ -271,6 +381,8 @@ class HST_AmbientActorRuntimeService
 			if (currentStateId == STATE_BEHAVIOR_INITIALIZING)
 				return nextStateId == STATE_WANDERING;
 			if (currentStateId == STATE_WANDERING)
+				return nextStateId == STATE_RECOVERING;
+			if (currentStateId == STATE_PANICKED)
 				return nextStateId == STATE_RECOVERING;
 			if (currentStateId == STATE_RECOVERING)
 				return nextStateId == STATE_WANDERING
@@ -314,6 +426,7 @@ class HST_AmbientActorRuntimeService
 		record.m_iStateChangedAtSecond = nowSecond;
 
 		bool readyState = nextStateId == STATE_WANDERING
+			|| nextStateId == STATE_PANICKED
 			|| nextStateId == STATE_ROUTE_FOLLOWING;
 		if (readyState)
 		{
@@ -325,6 +438,8 @@ class HST_AmbientActorRuntimeService
 			record.m_iRetryAtSecond = -1;
 			record.m_vLastSamplePosition = "0 0 0";
 			record.m_bHasMovementSample = false;
+			if (nextStateId == STATE_WANDERING)
+				record.m_iPanicUntilSecond = -1;
 		}
 		else if (nextStateId == STATE_RECOVERING)
 		{
@@ -335,6 +450,7 @@ class HST_AmbientActorRuntimeService
 			record.m_bAdmitted = false;
 			record.m_iRetryAtSecond = -1;
 			record.m_iDespawnQueuedAtSecond = nowSecond;
+			record.m_iPanicUntilSecond = -1;
 		}
 	}
 

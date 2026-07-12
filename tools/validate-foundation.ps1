@@ -1653,8 +1653,13 @@ if (!$buildShaMatch.Success -or !$buildLabelMatch.Success) {
 }
 $currentBuildSha = $buildShaMatch.Groups['sha'].Value
 $currentBuildLabel = $buildLabelMatch.Groups['label'].Value
-if (!$currentBuildLabel.StartsWith("schema$campaignSchemaVersion-")) {
-	throw "HST build label must identify current campaign schema $campaignSchemaVersion"
+$runtimeSettingsSchemaText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
+if ($runtimeSettingsSchemaText -notmatch "SCHEMA_VERSION\s*=\s*(\d+)") {
+	throw "Unable to parse HST_RuntimeSettings.SCHEMA_VERSION"
+}
+$runtimeSettingsSchemaVersion = [int] $Matches[1]
+if (!$currentBuildLabel.StartsWith("schema$campaignSchemaVersion-settings$runtimeSettingsSchemaVersion-")) {
+	throw "HST build label must identify current campaign schema $campaignSchemaVersion and settings schema $runtimeSettingsSchemaVersion"
 }
 $migrationsPath = "docs/MIGRATIONS.md"
 if (!(Test-Path $migrationsPath)) {
@@ -21384,8 +21389,8 @@ $schema63SettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_R
 $schema63BalanceText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
 $schema63BalanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
 
-if ($schema63StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*64;') {
-	throw "Schema-63 combat presence must remain present in current HST_CampaignState schema 64"
+if ($schema63StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*65;') {
+	throw "Schema-63 combat presence must remain present in current HST_CampaignState schema 65"
 }
 foreach ($schema63StateEntry in @(
 	'HST_ECombatPresenceState',
@@ -21770,16 +21775,16 @@ $schema64CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Civilian
 $schema64PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
 $schema64PersistenceSmokeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceSmokeTestService.c"
 
-if ($schema64StateText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0 -or
+if ($schema64StateText.IndexOf('static const int SCHEMA_VERSION = 65;') -lt 0 -or
 	$schema64TownText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0 -or
 	$schema64TownSaveText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0) {
-	throw "Schema-64 state, runtime authority, and save boundary must share schema 64"
+	throw "Schema-64 town authority/save boundary must remain schema 64 inside current CampaignState schema 65"
 }
 $schema64RecordBlock = Get-ScriptMethodBlock $schema64StateText 'class HST_TownInfluenceRecord'
 $schema64EventBlock = Get-ScriptMethodBlock $schema64StateText 'class HST_TownInfluenceEventState'
 $schema64RecordFields = @([regex]::Matches($schema64RecordBlock, '\b(m_[A-Za-z0-9_]+)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 $schema64EventFields = @([regex]::Matches($schema64EventBlock, '\b(m_[A-Za-z0-9_]+)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
-if ($schema64RecordFields.Count -ne 39 -or $schema64EventFields.Count -ne 39) {
+if ($schema64RecordFields.Count -ne 39 -or $schema64EventFields.Count -ne 43) {
 	throw "Schema-64 canonical record/event field surfaces changed without an explicit persistence-contract update: $($schema64RecordFields.Count)/$($schema64EventFields.Count)"
 }
 $schema64CopyRecordBlock = Get-ScriptMethodBlock $schema64SaveText 'protected HST_TownInfluenceRecord CopyTownInfluenceRecord('
@@ -21792,6 +21797,20 @@ foreach ($schema64RecordField in $schema64RecordFields) {
 foreach ($schema64EventField in $schema64EventFields) {
 	if ($schema64CopyEventBlock.IndexOf("target.$schema64EventField = source.$schema64EventField;") -lt 0) {
 		throw "Schema-64 town event save copy is missing: $schema64EventField"
+	}
+}
+foreach ($schema65AggressionField in @(
+		'm_sAggressionFactionKey',
+		'm_iAggressionDelta',
+		'm_iAggressionBefore',
+		'm_iAggressionAfter'
+	)) {
+	if ($schema64EventBlock.IndexOf($schema65AggressionField) -lt 0) {
+		throw "Schema-65 town event aggression evidence is missing: $schema65AggressionField"
+	}
+	$schema65AggressionCopyPattern = 'target\.' + [regex]::Escape($schema65AggressionField) + '\s*=\s*source\.' + [regex]::Escape($schema65AggressionField) + '\s*;'
+	if ($schema64CopyEventBlock -notmatch $schema65AggressionCopyPattern) {
+		throw "Schema-65 town event aggression save copy is missing: $schema65AggressionField"
 	}
 }
 
@@ -21979,6 +21998,917 @@ foreach ($schema64ProofEntry in @(
 }
 
 Write-Host "Schema-64 canonical town influence, strict political hysteresis, conservative migration/restore, consumer convergence, deterministic Map/War projection, hot-path repairs, and source proofs OK"
+
+$schema65Paths = @(
+	"Scripts/Game/HST/Services/HST_CivilianConsequenceService.c",
+	"Scripts/Game/HST/Services/HST_CivilianConsequenceSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_CivilianConsequenceProofService.c"
+)
+foreach ($schema65Path in $schema65Paths) {
+	if (!(Test-Path $schema65Path)) {
+		throw "Schema-65 civilian-consequence authority source is missing: $schema65Path"
+	}
+}
+$schema65StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema65SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema65ConsequenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianConsequenceService.c"
+$schema65ConsequenceSaveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianConsequenceSaveValidationService.c"
+$schema65ConsequenceProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianConsequenceProofService.c"
+$schema65CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema65CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+$schema65TownText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceService.c"
+$schema65TownSaveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceSaveValidationService.c"
+$schema65StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
+$schema65AmbientRuntimeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeService.c"
+$schema65AmbientRuntimeProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_AmbientActorRuntimeProofService.c"
+$schema65PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema65RuntimeSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
+
+if ($campaignSchemaVersion -ne 65 -or
+	$schema65StateText.IndexOf('static const int SCHEMA_VERSION = 65;') -lt 0) {
+	throw "Schema-65 civilian consequences require CampaignState schema 65"
+}
+if ($runtimeSettingsSchemaVersion -ne 24 -or
+	$schema65RuntimeSettingsText.IndexOf('SCHEMA_VERSION = 24') -lt 0) {
+	throw "Schema-65 civilian consequences must preserve runtime-settings schema 24"
+}
+
+$schema65ZoneBlock = Get-ScriptMethodBlock $schema65StateText 'class HST_ZoneState'
+$schema65CopyZoneBlock = Get-ScriptMethodBlock $schema65SaveText 'protected HST_ZoneState CopyZone('
+foreach ($schema65ZoneField in @(
+		'm_iCivilianConsequenceContractVersion',
+		'm_iCivilianConsequenceRevision',
+		'm_bCivilianCombatDangerActive',
+		'm_iCivilianCombatEpisodeCount',
+		'm_iCivilianAdoptedCombatEpisodeCount',
+		'm_iCivilianLastAppliedCombatEpisodeCount',
+		'm_iCivilianLastCombatPresenceRevision',
+		'm_iCivilianDangerChangedSecond',
+		'm_iCivilianPanicUntilSecond',
+		'm_sCivilianLastConsequenceEventId',
+		'm_sCivilianConsequenceAuthorityFailure'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65ZoneBlock) -or
+		$schema65ZoneBlock.IndexOf($schema65ZoneField) -lt 0) {
+		throw "Schema-65 civilian-consequence zone envelope field is missing: $schema65ZoneField"
+	}
+	$schema65ZoneCopyPattern = 'target\.' + [regex]::Escape($schema65ZoneField) + '\s*=\s*source\.' + [regex]::Escape($schema65ZoneField) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema65CopyZoneBlock) -or
+		$schema65CopyZoneBlock -notmatch $schema65ZoneCopyPattern) {
+		throw "Schema-65 civilian-consequence zone save copy is missing: $schema65ZoneField"
+	}
+}
+
+foreach ($schema65ConsequenceEntry in @(
+		'class HST_CivilianConsequenceService',
+		'CONTRACT_VERSION = 1',
+		'MAX_EPISODE_COUNT = 1000000',
+		'MAX_MINOR_EXACT_RECEIPTS = 4096',
+		'EVENT_CIVILIAN_CASUALTY = "civilian_casualty"',
+		'EVENT_CIVILIAN_VEHICLE_THEFT = "civilian_vehicle_theft"',
+		'EVENT_CIVILIAN_NEARBY_COMBAT = "civilian_nearby_combat"',
+		'RegisterPedestrianCasualty(',
+		'RegisterCivilianVehicleTheft(',
+		'ObserveNearbyCombat(',
+		'ExecutePoliticalConsequence(',
+		'ApplyCombatEpisodeReceipt('
+	)) {
+	if ($schema65ConsequenceText.IndexOf($schema65ConsequenceEntry) -lt 0) {
+		throw "Schema-65 civilian-consequence policy contract is missing: $schema65ConsequenceEntry"
+	}
+}
+foreach ($schema65ConsequenceSaveEntry in @(
+		'SCHEMA_VERSION = 65',
+		'CONTRACT_VERSION = 1',
+		'QUARANTINE_CONTRACT_VERSION = -65',
+		'MigrateSchema64Envelope(',
+		'ValidateOrQuarantine(',
+		'HasUniqueConsequenceEvent('
+	)) {
+	if ($schema65ConsequenceSaveText.IndexOf($schema65ConsequenceSaveEntry) -lt 0) {
+		throw "Schema-65 civilian-consequence save boundary is missing: $schema65ConsequenceSaveEntry"
+	}
+}
+foreach ($schema65ConsequenceProofEntry in @(
+		'class HST_CivilianConsequenceProofService',
+		'm_bResistanceCasualtyExact',
+		'm_bReplayAndConflictExact',
+		'm_bEnemyAndUnknownExact',
+		'm_bVehicleTheftExact',
+		'm_bCombatEpisodeExact',
+		'm_bMinorLocalityExact',
+		'm_bMalformedInputExact',
+		'hotAloneIgnored',
+		'AllExact()'
+	)) {
+	if ($schema65ConsequenceProofText.IndexOf($schema65ConsequenceProofEntry) -lt 0) {
+		throw "Schema-65 civilian-consequence deterministic proof is missing: $schema65ConsequenceProofEntry"
+	}
+}
+
+$schema65MigrationBlock = Get-ScriptMethodBlock $schema65SaveText 'void MigrateToCurrentSchema()'
+$schema65TownPostIndex = $schema65MigrationBlock.IndexOf('schema64TownInfluenceValidation.ValidateAfterOwnership(this);')
+$schema65ValidationConstructionIndex = $schema65MigrationBlock.IndexOf('new HST_CivilianConsequenceSaveValidationService()')
+$schema65ValidationNormalizeIndex = $schema65MigrationBlock.IndexOf('schema65CivilianConsequenceValidation.Normalize(this, restoredSchemaVersion);')
+if ($schema65TownPostIndex -lt 0 -or $schema65ValidationConstructionIndex -lt 0 -or
+	$schema65ValidationNormalizeIndex -lt 0 -or
+	$schema65TownPostIndex -gt $schema65ValidationConstructionIndex -or
+	$schema65ValidationConstructionIndex -gt $schema65ValidationNormalizeIndex) {
+	throw "Schema-64 to Schema-65 civilian migration must run after canonical town post-validation"
+}
+if ($schema65TownSaveText.IndexOf('AGGRESSION_SCHEMA_VERSION = 65') -lt 0 -or
+	$schema65TownSaveText.IndexOf('ClearPreSchema65AggressionEvidence(') -lt 0) {
+	throw "Schema-64 town restore must explicitly neutralize pre-Schema-65 aggression evidence"
+}
+$schema65TownPreOwnershipBlock = Get-ScriptMethodBlock $schema65TownSaveText 'void ValidateCurrentAuthorityBeforeOwnership('
+$schema65AggressionClearIndex = $schema65TownPreOwnershipBlock.IndexOf('ClearPreSchema65AggressionEvidence(saveData)')
+$schema65TownEventValidationIndex = $schema65TownPreOwnershipBlock.IndexOf('ValidateCurrentInfluenceEvents(saveData)')
+if ($schema65AggressionClearIndex -lt 0 -or $schema65TownEventValidationIndex -lt 0 -or
+	$schema65AggressionClearIndex -gt $schema65TownEventValidationIndex) {
+	throw "Schema-65 aggression defaults must be neutralized before exact Schema-64 town-event validation"
+}
+$schema65NoEffectMigrationBlock = Get-ScriptMethodBlock $schema65ConsequenceSaveText 'protected void MigrateSchema64Envelope('
+if ($schema65ConsequenceSaveText.IndexOf('if (restoredSchemaVersion < SCHEMA_VERSION)') -lt 0) {
+	throw "Schema-65 save normalization must distinguish Schema-64 migration from current validation"
+}
+foreach ($schema65NoEffectMigrationEntry in @(
+		'zone.m_iCivilianConsequenceContractVersion = CONTRACT_VERSION',
+		'zone.m_iCivilianLastAppliedCombatEpisodeCount',
+		'= zone.m_iCivilianCombatEpisodeCount',
+		'zone.m_sCivilianLastConsequenceEventId = ""'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65NoEffectMigrationBlock) -or
+		$schema65NoEffectMigrationBlock.IndexOf($schema65NoEffectMigrationEntry) -lt 0) {
+		throw "Schema-65 no-effect migration baseline is missing: $schema65NoEffectMigrationEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema65NoEffectMigrationBlock) -or
+	$schema65NoEffectMigrationBlock -match 'm_aTownInfluenceEvents\.(Insert|Remove)|RegisterPedestrianCasualty|RegisterCivilianVehicleTheft|ExecutePoliticalConsequence|m_TownInfluence|m_Economy|m_Strategic') {
+	throw "Schema-64 to Schema-65 migration must baseline receipts without replaying gameplay effects"
+}
+
+$schema65CoordinatorInitBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'override void OnPostInit('
+foreach ($schema65CoordinatorInitEntry in @(
+		'm_TownInfluence.SetEconomyService(m_Economy)',
+		'm_CivilianConsequences = new HST_CivilianConsequenceService()',
+		'm_CivilianConsequences.SetCampaignPreset(m_Preset)',
+		'm_CivilianConsequences.SetTownInfluenceService(m_TownInfluence)',
+		'm_Civilians.SetCivilianConsequenceService(',
+		'm_CivilianConsequences'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65CoordinatorInitBlock) -or
+		$schema65CoordinatorInitBlock.IndexOf($schema65CoordinatorInitEntry) -lt 0) {
+		throw "Schema-65 coordinator civilian-consequence construction/injection is missing: $schema65CoordinatorInitEntry"
+	}
+}
+$schema65DestroyedBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'override void OnControllableDestroyed('
+foreach ($schema65DestroyedEntry in @(
+		'super.OnControllableDestroyed(instigatorContextData)',
+		'!Replication.IsServer()',
+		'm_Civilians.ObserveAmbientCivilianDestroyed(',
+		'instigatorContextData'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65DestroyedBlock) -or
+		$schema65DestroyedBlock.IndexOf($schema65DestroyedEntry) -lt 0) {
+		throw "Schema-65 native civilian destruction observation is missing: $schema65DestroyedEntry"
+	}
+}
+if ($schema65DestroyedBlock.IndexOf('RegisterPedestrianCasualty(') -ge 0 -or
+	$schema65DestroyedBlock.IndexOf('FlushPendingCivilianConsequences(') -ge 0) {
+	throw "Schema-65 native destruction callback must enqueue immutable evidence, not apply durable effects re-entrantly"
+}
+$schema65FrameBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'override void EOnFrame('
+$schema65FrameFlushIndex = $schema65FrameBlock.IndexOf('m_Civilians.FlushPendingCivilianConsequences(m_State)')
+$schema65FrameClaimIndex = $schema65FrameBlock.IndexOf('m_Civilians.ObservePlayerAmbientVehicleClaims(m_State)')
+$schema65FramePersistenceIndex = $schema65FrameBlock.IndexOf('m_Persistence.Tick(')
+if ($schema65FrameFlushIndex -lt 0 -or $schema65FrameClaimIndex -lt 0 -or
+	$schema65FramePersistenceIndex -lt 0 -or
+	$schema65FrameFlushIndex -gt $schema65FrameClaimIndex -or
+	$schema65FrameClaimIndex -gt $schema65FramePersistenceIndex) {
+	throw "Schema-65 casualty flush and player-first theft observation must precede frame persistence"
+}
+$schema65CombatHeatIndex = $schema65FrameBlock.IndexOf('m_CombatPresence.TickAllZoneHeat(')
+$schema65CombatConsequenceIndex = $schema65FrameBlock.IndexOf('m_Civilians.TickCivilianCombatConsequences(m_State)')
+$schema65PhysicalPopulationIndex = $schema65FrameBlock.IndexOf('m_Civilians.UpdatePhysicalTownPopulation(')
+if ($schema65CombatHeatIndex -lt 0 -or $schema65CombatConsequenceIndex -lt 0 -or
+	$schema65PhysicalPopulationIndex -lt 0 -or
+	$schema65CombatHeatIndex -gt $schema65CombatConsequenceIndex -or
+	$schema65CombatConsequenceIndex -gt $schema65PhysicalPopulationIndex) {
+	throw "Schema-65 civilian combat consequences must observe canonical combat facts before physical projection"
+}
+
+$schema65ObserveCasualtyBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool ObserveAmbientCivilianDestroyed('
+foreach ($schema65CasualtyQueueEntry in @(
+		'MAX_PENDING_CIVILIAN_CASUALTIES = 256',
+		'm_aPendingCivilianCasualtyZoneIds.Count()',
+		'>= MAX_PENDING_CIVILIAN_CASUALTIES',
+		'record.m_bCasualtyObserved = true',
+		'record.m_sCasualtyReceiptId = eventId',
+		'HST_StableIdService.NextId(state, "civilian_casualty")'
+	)) {
+	if (($schema65CivilianText + "`n" + $schema65ObserveCasualtyBlock).IndexOf($schema65CasualtyQueueEntry) -lt 0) {
+		throw "Schema-65 bounded exact casualty queue is missing: $schema65CasualtyQueueEntry"
+	}
+}
+$schema65CasualtyFlushBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool FlushPendingCivilianConsequences('
+foreach ($schema65CasualtyRetryEntry in @(
+		'MAX_CIVILIAN_CASUALTY_RETRIES = 3',
+		'm_CivilianConsequences.RegisterPedestrianCasualty(',
+		'Math.Min(',
+		'MAX_CIVILIAN_CASUALTY_RETRIES',
+		'm_aPendingCivilianCasualtyRetrySeconds[index]',
+		'RemovePendingCivilianCasualtyAt(index)'
+	)) {
+	if (($schema65CivilianText + "`n" + $schema65CasualtyFlushBlock).IndexOf($schema65CasualtyRetryEntry) -lt 0) {
+		throw "Schema-65 bounded casualty retry/receipt drain is missing: $schema65CasualtyRetryEntry"
+	}
+}
+$schema65CasualtyFallbackBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool QueueAmbientCivilianCasualtyFallback('
+if ([string]::IsNullOrEmpty($schema65CasualtyFallbackBlock) -or
+	$schema65CasualtyFallbackBlock.IndexOf('ECharacterLifeState.DEAD') -lt 0 -or
+	$schema65CasualtyFallbackBlock.IndexOf('RetainPendingCasualtyObservation(record') -lt 0 -or
+	$schema65CasualtyFallbackBlock.IndexOf('TryAdmitRetainedCasualtyObservation(state, record)') -lt 0) {
+	throw "Schema-65 ambient health fallback must preserve exactly-once casualty evidence"
+}
+
+$schema65ClaimBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool ObservePlayerAmbientVehicleClaims('
+$schema65PromoteClaimBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool PromoteClaimedRuntimeVehicleWithConsequences('
+if ([string]::IsNullOrEmpty($schema65ClaimBlock) -or
+	$schema65ClaimBlock.IndexOf('CollectPlayerOccupiedVehicleRoots(') -lt 0 -or
+	$schema65ClaimBlock.IndexOf('PromoteClaimedRuntimeVehicleWithConsequences(') -lt 0) {
+	throw "Schema-65 civilian vehicle theft must use player-first claim observation"
+}
+$schema65PromoteFirstIndex = $schema65PromoteClaimBlock.IndexOf('PromoteRuntimeVehicleToPersistentField(')
+$schema65TheftReceiptIndex = $schema65PromoteClaimBlock.IndexOf('m_CivilianConsequences.RegisterCivilianVehicleTheft(')
+if ($schema65PromoteFirstIndex -lt 0 -or $schema65TheftReceiptIndex -lt 0 -or
+	$schema65PromoteFirstIndex -gt $schema65TheftReceiptIndex -or
+	$schema65PromoteClaimBlock.IndexOf('CIVILIAN_TRAFFIC_RUNTIME_KIND') -lt 0 -or
+	$schema65PromoteClaimBlock.IndexOf('"civilian_theft_" + vehicle.m_sVehicleRuntimeId') -lt 0) {
+	throw "Schema-65 civilian theft must follow successful durable promotion with an exact vehicle-ID receipt"
+}
+
+foreach ($schema65PanicEntry in @(
+		'CIVILIAN_FLEE_WAYPOINT_PREFAB = "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et"',
+		'BeginOrMaintainAmbientPedestrianPanic(',
+		'TickPanickedPedestrianMovement(',
+		'AssignAmbientPedestrianPanicWaypoint(',
+		'm_AmbientRuntime.BeginOrExtendPanic(',
+		'm_AmbientRuntime.ShouldBeginPanicRecovery(',
+		'EMovementType.RUN'
+	)) {
+	if ($schema65CivilianText.IndexOf($schema65PanicEntry) -lt 0) {
+		throw "Schema-65 bounded physical pedestrian panic/recovery is missing: $schema65PanicEntry"
+	}
+}
+$schema65PanicWaypointBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool AssignAmbientPedestrianPanicWaypoint('
+foreach ($schema65PanicWaypointEntry in @(
+		'ResolveCivilianPanicThreat(zone)',
+		'CIVILIAN_PANIC_FLEE_MIN_DISTANCE_METERS',
+		'HST_WorldPositionService.ResolveSafeGroundPosition(',
+		'CIVILIAN_FLEE_WAYPOINT_PREFAB',
+		'record.m_Group.AddWaypoint(waypoint)'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65PanicWaypointBlock) -or
+		$schema65PanicWaypointBlock.IndexOf($schema65PanicWaypointEntry) -lt 0) {
+		throw "Schema-65 panic move-waypoint construction is missing: $schema65PanicWaypointEntry"
+	}
+}
+
+$schema65CombatObservationBlock = Get-ScriptMethodBlock $schema65ConsequenceText 'HST_CivilianConsequenceResult ObserveNearbyCombat('
+foreach ($schema65CombatFactEntry in @(
+		'currentOperationCount > 0',
+		'recentFireCount > 0',
+		'ExecutePoliticalConsequence(',
+		'm_iCivilianLastAppliedCombatEpisodeCount'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65CombatObservationBlock) -or
+		$schema65CombatObservationBlock.IndexOf($schema65CombatFactEntry) -lt 0) {
+		throw "Schema-65 combat consequence exact-fact gate is missing: $schema65CombatFactEntry"
+	}
+}
+if ($schema65CombatObservationBlock.IndexOf('HST_COMBAT_PRESENCE_HOT') -ge 0 -or
+	$schema65CombatObservationBlock.IndexOf('m_eCombatPresenceState') -ge 0) {
+	throw "Schema-65 civilian consequences must not treat HOT aggregate state alone as combat"
+}
+
+$schema65CommandBlock = Get-ScriptMethodBlock $schema65TownText 'class HST_TownInfluenceCommand'
+foreach ($schema65AggressionCommandEntry in @(
+		'm_sAggressionFactionKey',
+		'm_iAggressionDelta'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65CommandBlock) -or
+		$schema65CommandBlock.IndexOf($schema65AggressionCommandEntry) -lt 0) {
+		throw "Schema-65 exact town aggression command field is missing: $schema65AggressionCommandEntry"
+	}
+}
+$schema65AdmissionBlock = Get-ScriptMethodBlock $schema65TownText 'protected string ValidateNewEventAdmission('
+foreach ($schema65AggressionPreflightEntry in @(
+		'if (!m_Economy || !m_Strategic)',
+		'FindUniqueFactionPool(',
+		'> int.MAX - command.m_iAggressionDelta',
+		'HasStrategicTownInfluenceSourceClaim(',
+		'command.m_sEventId'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65AdmissionBlock) -or
+		$schema65AdmissionBlock.IndexOf($schema65AggressionPreflightEntry) -lt 0) {
+		throw "Schema-65 town aggression preflight is missing: $schema65AggressionPreflightEntry"
+	}
+}
+$schema65BuildEventBlock = Get-ScriptMethodBlock $schema65TownText 'protected HST_TownInfluenceEventState BuildEvent('
+$schema65ApplyEventBlock = Get-ScriptMethodBlock $schema65TownText 'protected void ApplyEvent('
+foreach ($schema65AggressionBuildEntry in @(
+		'eventState.m_sAggressionFactionKey = command.m_sAggressionFactionKey',
+		'eventState.m_iAggressionDelta = command.m_iAggressionDelta',
+		'eventState.m_iAggressionBefore = aggressionPool.m_iAggression'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65BuildEventBlock) -or
+		$schema65BuildEventBlock.IndexOf($schema65AggressionBuildEntry) -lt 0) {
+		throw "Schema-65 aggression before-state capture is missing: $schema65AggressionBuildEntry"
+	}
+}
+foreach ($schema65AggressionApplyEntry in @(
+		'm_Economy.AddAggression(',
+		'eventState.m_iAggressionAfter = aggressionPool.m_iAggression'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65ApplyEventBlock) -or
+		$schema65ApplyEventBlock.IndexOf($schema65AggressionApplyEntry) -lt 0) {
+		throw "Schema-65 aggression after-state application is missing: $schema65AggressionApplyEntry"
+	}
+}
+$schema65ExecuteBlock = Get-ScriptMethodBlock $schema65TownText 'protected HST_TownInfluenceResult ExecuteWithPreset('
+$schema65ExactMatchBlock = Get-ScriptMethodBlock $schema65TownText 'protected bool ExactEventMatches('
+foreach ($schema65AggressionFingerprintEntry in @(
+		'eventState.m_sAggressionFactionKey',
+		'command.m_sAggressionFactionKey',
+		'eventState.m_iAggressionDelta != command.m_iAggressionDelta'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65ExactMatchBlock) -or
+		$schema65ExactMatchBlock.IndexOf($schema65AggressionFingerprintEntry) -lt 0) {
+		throw "Schema-65 exact town aggression replay fingerprint is missing: $schema65AggressionFingerprintEntry"
+	}
+}
+$schema65StrategicReceiptIndex = $schema65ExecuteBlock.IndexOf('m_Strategic.BeginTownInfluenceEvent(')
+$schema65ApplyEventIndex = $schema65ExecuteBlock.IndexOf('ApplyEvent(')
+if ($schema65StrategicReceiptIndex -lt 0 -or $schema65ApplyEventIndex -lt 0 -or
+	$schema65StrategicReceiptIndex -gt $schema65ApplyEventIndex -or
+	$schema65ExecuteBlock.IndexOf('town influence aggression strategic receipt could not be admitted') -lt 0) {
+	throw "Schema-65 aggression mutation must pre-admit its exact strategic receipt"
+}
+$schema65AggressionSaveBlock = Get-ScriptMethodBlock $schema65TownSaveText 'protected bool HasValidAggressionEventShape('
+$schema65AggressionReceiptBlock = Get-ScriptMethodBlock $schema65TownSaveText 'protected bool HasExactAggressionStrategicReceipt('
+foreach ($schema65AggressionSaveEntry in @(
+		'm_iAggressionBefore',
+		'm_iAggressionAfter',
+		'int.MAX - eventState.m_iAggressionDelta',
+		'HasExactAggressionStrategicReceipt('
+	)) {
+	if ([string]::IsNullOrEmpty($schema65AggressionSaveBlock) -or
+		$schema65AggressionSaveBlock.IndexOf($schema65AggressionSaveEntry) -lt 0) {
+		throw "Schema-65 aggression restore preflight is missing: $schema65AggressionSaveEntry"
+	}
+}
+foreach ($schema65AggressionReceiptEntry in @(
+		'strategicInfluenceSourceIdCounts.Find(',
+		'strategicByInfluenceSourceId.Get(influenceEvent.m_sEventId)',
+		'm_sTargetFactionKey',
+		'm_iAggressionDelta',
+		'm_bApplied'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65AggressionReceiptBlock) -or
+		$schema65AggressionReceiptBlock.IndexOf($schema65AggressionReceiptEntry) -lt 0) {
+		throw "Schema-65 exact aggression strategic receipt validation is missing: $schema65AggressionReceiptEntry"
+	}
+}
+$schema65StrategicTargetBlock = Get-ScriptMethodBlock $schema65StrategicText 'protected string ResolveTownInfluenceTargetFaction('
+if ([string]::IsNullOrEmpty($schema65StrategicTargetBlock) -or
+	$schema65StrategicTargetBlock.IndexOf('influenceEvent.m_sAggressionFactionKey') -lt 0) {
+	throw "Schema-65 strategic projection must retain the exact town aggression target"
+}
+
+$schema65RuntimeAuthorityBlock = Get-ScriptMethodBlock $schema65ConsequenceText 'protected string ValidateZoneAuthority('
+$schema65SaveEnvelopeBlock = Get-ScriptMethodBlock $schema65ConsequenceSaveText 'protected string ValidateEnvelope('
+$schema65CombatReceiptShapePattern = '(?s)zone\.m_iCivilianAdoptedCombatEpisodeCount\s*<\s*0.*zone\.m_iCivilianAdoptedCombatEpisodeCount\s*>\s*1.*zone\.m_iCivilianAdoptedCombatEpisodeCount\s*>\s*zone\.m_iCivilianLastAppliedCombatEpisodeCount.*zone\.m_iCivilianCombatEpisodeCount\s*-\s*zone\.m_iCivilianLastAppliedCombatEpisodeCount\s*>\s*1'
+if ([string]::IsNullOrEmpty($schema65RuntimeAuthorityBlock) -or
+	$schema65RuntimeAuthorityBlock -notmatch $schema65CombatReceiptShapePattern) {
+	throw "Schema-65 runtime authority must bound the adopted episode and allow at most one pending combat receipt"
+}
+if ([string]::IsNullOrEmpty($schema65SaveEnvelopeBlock) -or
+	$schema65SaveEnvelopeBlock -notmatch $schema65CombatReceiptShapePattern) {
+	throw "Schema-65 save authority must bound the adopted episode and allow at most one pending combat receipt"
+}
+if ([string]::IsNullOrEmpty($schema65NoEffectMigrationBlock) -or
+	$schema65NoEffectMigrationBlock -notmatch 'zone\.m_iCivilianAdoptedCombatEpisodeCount\s*=\s*zone\.m_iCivilianCombatEpisodeCount\s*;') {
+	throw "Schema-65 migration must identify its one no-effect adopted combat episode explicitly"
+}
+foreach ($schema65AdoptedEpisodeProofEntry in @(
+		'baseline.m_Zone.m_iCivilianAdoptedCombatEpisodeCount = 1',
+		'savedZone.m_iCivilianAdoptedCombatEpisodeCount == 0',
+		'migratedZone.m_iCivilianAdoptedCombatEpisodeCount == 1',
+		'missingCombatReceiptExact'
+	)) {
+	if ($schema65ConsequenceProofText.IndexOf($schema65AdoptedEpisodeProofEntry) -lt 0) {
+		throw "Schema-65 adopted/live combat receipt proof is missing: $schema65AdoptedEpisodeProofEntry"
+	}
+}
+
+$schema65ConsequenceNormalizeBlock = Get-ScriptMethodBlock $schema65ConsequenceSaveText 'void Normalize('
+$schema65BuildInfluenceIndexBlock = Get-ScriptMethodBlock $schema65ConsequenceSaveText 'protected void BuildInfluenceEventIndex('
+$schema65AppliedCombatReceiptsBlock = Get-ScriptMethodBlock $schema65ConsequenceSaveText 'protected bool HasExactAppliedCombatReceipts('
+$schema65IndexBuildIndex = $schema65ConsequenceNormalizeBlock.IndexOf('BuildInfluenceEventIndex(')
+$schema65ZoneValidationLoopIndex = $schema65ConsequenceNormalizeBlock.IndexOf('foreach (HST_ZoneState zone')
+if ($schema65IndexBuildIndex -lt 0 -or $schema65ZoneValidationLoopIndex -lt 0 -or
+	$schema65IndexBuildIndex -gt $schema65ZoneValidationLoopIndex) {
+	throw "Schema-65 consequence restore must build the town-event receipt index before validating zones"
+}
+foreach ($schema65InfluenceIndexEntry in @(
+		'foreach (HST_TownInfluenceEventState eventState : saveData.m_aTownInfluenceEvents)',
+		'influenceEventIdCounts.Set(eventState.m_sEventId, 2)',
+		'influenceByEventId.Set(eventState.m_sEventId, eventState)'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65BuildInfluenceIndexBlock) -or
+		$schema65BuildInfluenceIndexBlock.IndexOf($schema65InfluenceIndexEntry) -lt 0) {
+		throw "Schema-65 consequence restore town-event index is incomplete: $schema65InfluenceIndexEntry"
+	}
+}
+foreach ($schema65AppliedCombatReceiptEntry in @(
+		'zone.m_iCivilianAdoptedCombatEpisodeCount + 1',
+		'zone.m_iCivilianLastAppliedCombatEpisodeCount',
+		'influenceByEventId.Find(eventId, eventState)',
+		'influenceEventIdCounts.Find(eventId, eventCount)',
+		'HST_CivilianConsequenceService.KIND_NEARBY_COMBAT',
+		'adoptedEventCount != 0'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65AppliedCombatReceiptsBlock) -or
+		$schema65AppliedCombatReceiptsBlock.IndexOf($schema65AppliedCombatReceiptEntry) -lt 0) {
+		throw "Schema-65 applied combat receipt validation is missing indexed exact evidence: $schema65AppliedCombatReceiptEntry"
+	}
+}
+if ($schema65AppliedCombatReceiptsBlock -match 'foreach\s*\(HST_TownInfluenceEventState|saveData\.m_aTownInfluenceEvents\s*\[') {
+	throw "Schema-65 applied combat receipt validation must use the prebuilt event index, not a nested full scan"
+}
+$schema65CanonicalCombatFingerprintBlock = Get-ScriptMethodBlock $schema65ConsequenceSaveText 'protected bool HasCanonicalCombatEventFingerprint('
+foreach ($schema65CanonicalCombatFingerprintEntry in @(
+		'eventState.m_sSourceId == eventState.m_sEventId',
+		'== "civilian danger from nearby combat episode"',
+		'eventState.m_iExpiresAtSecond == 0',
+		'eventState.m_iFIASupportDelta == 0',
+		'eventState.m_iOccupierSupportDelta == 0',
+		'eventState.m_iReputationDelta == 0',
+		'eventState.m_iHeatDelta == 4',
+		'eventState.m_iPopulationDelta == 0',
+		'eventState.m_iPoliceDelta == 0',
+		'eventState.m_iRoadblockDelta == 0',
+		'eventState.m_sAggressionFactionKey.IsEmpty()',
+		'eventState.m_iAggressionDelta == 0',
+		'eventState.m_iAggressionBefore == 0',
+		'eventState.m_iAggressionAfter == 0',
+		'eventState.m_iRequestedFIABasisPointDelta == 0',
+		'eventState.m_iRequestedOccupierBasisPointDelta == 0',
+		'eventState.m_iRequestedInvaderBasisPointDelta == 0',
+		'eventState.m_iEffectiveFIABasisPointDelta == 0',
+		'eventState.m_iEffectiveOccupierBasisPointDelta == 0',
+		'eventState.m_iEffectiveInvaderBasisPointDelta == 0',
+		'eventState.m_iFIABasisPointsBefore',
+		'== eventState.m_iFIABasisPointsAfter',
+		'eventState.m_iOccupierBasisPointsBefore',
+		'== eventState.m_iOccupierBasisPointsAfter',
+		'eventState.m_iInvaderBasisPointsBefore',
+		'== eventState.m_iInvaderBasisPointsAfter',
+		'eventState.m_iInitialPopulationBefore',
+		'== eventState.m_iInitialPopulationAfter',
+		'eventState.m_iRemainingPopulationBefore',
+		'== eventState.m_iRemainingPopulationAfter',
+		'eventState.m_iDestroyedPopulationBefore',
+		'== eventState.m_iDestroyedPopulationAfter',
+		'!eventState.m_bPopulationScaled',
+		'!eventState.m_bAbsoluteDebugSeed',
+		'return commandExact && aggressionExact',
+		'&& supportExact && populationExact'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65CanonicalCombatFingerprintBlock) -or
+		$schema65CanonicalCombatFingerprintBlock.IndexOf($schema65CanonicalCombatFingerprintEntry) -lt 0) {
+		throw "Schema-65 live combat receipts must retain the canonical no-side-effect fingerprint: $schema65CanonicalCombatFingerprintEntry"
+	}
+}
+if ($schema65AppliedCombatReceiptsBlock.IndexOf('HasCanonicalCombatEventFingerprint(eventState)') -lt 0) {
+	throw "Schema-65 every indexed live combat receipt must pass canonical fingerprint validation"
+}
+foreach ($schema65WrongCombatFingerprintProofEntry in @(
+		'HST_CampaignSaveData wrongCombatFingerprint',
+		'wrongCombatFingerprint.Capture(fixture.m_State)',
+		'wrongCombatEvent.m_iHeatDelta = 0',
+		'consequenceValidator.Normalize(',
+		'bool wrongCombatFingerprintExact',
+		'HST_CivilianConsequenceSaveValidationService.QUARANTINE_CONTRACT_VERSION',
+		'&& wrongCombatFingerprintExact',
+		'missing/wrong live combat receipt quarantined'
+	)) {
+	if ($schema65ConsequenceProofText.IndexOf($schema65WrongCombatFingerprintProofEntry) -lt 0) {
+		throw "Schema-65 wrong combat fingerprint quarantine proof is missing: $schema65WrongCombatFingerprintProofEntry"
+	}
+}
+
+$schema65AmbientRecordBlock = Get-ScriptMethodBlock $schema65AmbientRuntimeText 'class HST_AmbientActorRuntimeRecord'
+foreach ($schema65RetainedObservationField in @(
+		'm_bCasualtyObserved',
+		'm_sCasualtyReceiptId',
+		'm_bCasualtyAdmissionPending',
+		'm_sPendingCasualtyFactionKey',
+		'm_vPendingCasualtyPosition'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65AmbientRecordBlock) -or
+		$schema65AmbientRecordBlock.IndexOf($schema65RetainedObservationField) -lt 0) {
+		throw "Schema-65 retained casualty observation field is missing: $schema65RetainedObservationField"
+	}
+}
+$schema65RetainObservationBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected void RetainPendingCasualtyObservation('
+$schema65AdmitObservationBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool TryAdmitRetainedCasualtyObservation('
+foreach ($schema65RetainObservationEntry in @(
+		'record.m_bCasualtyObserved = true',
+		'record.m_bCasualtyAdmissionPending = true',
+		'record.m_sPendingCasualtyFactionKey = factionKey.Trim()',
+		'record.m_vPendingCasualtyPosition = position'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65RetainObservationBlock) -or
+		$schema65RetainObservationBlock.IndexOf($schema65RetainObservationEntry) -lt 0) {
+		throw "Schema-65 callback-safe retained casualty observation is incomplete: $schema65RetainObservationEntry"
+	}
+}
+foreach ($schema65AdmitObservationEntry in @(
+		'record.m_bCasualtyAdmissionPending',
+		'>= MAX_PENDING_CIVILIAN_CASUALTIES',
+		'BuildAmbientCasualtyEventId(state, record)',
+		'm_aPendingCivilianCasualtyEventIds.Insert(eventId)',
+		'record.m_bCasualtyAdmissionPending = false',
+		'record.m_sCasualtyReceiptId = eventId'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65AdmitObservationBlock) -or
+		$schema65AdmitObservationBlock.IndexOf($schema65AdmitObservationEntry) -lt 0) {
+		throw "Schema-65 retained casualty admission is incomplete: $schema65AdmitObservationEntry"
+	}
+}
+foreach ($schema65ObserveRetainedEntry in @(
+		'RetainPendingCasualtyObservation(',
+		'TryAdmitRetainedCasualtyObservation(state, record)',
+		'return true;'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65ObserveCasualtyBlock) -or
+		$schema65ObserveCasualtyBlock.IndexOf($schema65ObserveRetainedEntry) -lt 0) {
+		throw "Schema-65 native casualty callback must retain evidence even when immediate queue admission is unavailable: $schema65ObserveRetainedEntry"
+	}
+}
+foreach ($schema65RetainedDrainEntry in @(
+		'foreach (HST_AmbientActorRuntimeRecord retainedRecord : m_aAmbientActorRecords)',
+		'retainedRecord.m_bCasualtyAdmissionPending',
+		'TryAdmitRetainedCasualtyObservation(state, retainedRecord)'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65CasualtyFlushBlock) -or
+		$schema65CasualtyFlushBlock.IndexOf($schema65RetainedDrainEntry) -lt 0) {
+		throw "Schema-65 frame drain must retry retained casualty observations: $schema65RetainedDrainEntry"
+	}
+}
+$schema65PerFrameCapCount = ([regex]::Matches(
+	$schema65CasualtyFlushBlock,
+	[regex]::Escape('MAX_CIVILIAN_CONSEQUENCE_TRANSACTIONS_PER_FRAME'))).Count
+if ($schema65CivilianText.IndexOf('MAX_CIVILIAN_CONSEQUENCE_TRANSACTIONS_PER_FRAME = 4') -lt 0 -or
+	$schema65PerFrameCapCount -lt 2) {
+	throw "Schema-65 casualty/theft consequence execution must share the bounded per-frame transaction cap"
+}
+$schema65PruneAmbientRecordsBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected void PruneDeletedAmbientActorRecords('
+if ([string]::IsNullOrEmpty($schema65PruneAmbientRecordsBlock) -or
+	$schema65PruneAmbientRecordsBlock.IndexOf('record.m_bCasualtyAdmissionPending') -lt 0 -or
+	$schema65PruneAmbientRecordsBlock.IndexOf('TryAdmitRetainedCasualtyObservation(state, record)') -lt 0) {
+	throw "Schema-65 actor pruning must retain an unadmitted native casualty observation"
+}
+
+foreach ($schema65PendingTheftField in @(
+		'm_aPendingCivilianTheftZoneIds',
+		'm_aPendingCivilianTheftEventIds',
+		'm_aPendingCivilianTheftFactionKeys',
+		'm_aPendingCivilianTheftSourceIds',
+		'm_aPendingCivilianTheftAttempts',
+		'm_aPendingCivilianTheftRetrySeconds'
+	)) {
+	if ($schema65CivilianText.IndexOf($schema65PendingTheftField) -lt 0) {
+		throw "Schema-65 pending theft receipt queue field is missing: $schema65PendingTheftField"
+	}
+}
+$schema65QueueTheftBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool QueuePendingCivilianTheft('
+foreach ($schema65QueueTheftEntry in @(
+		'HasExactPendingCivilianTheftArrays()',
+		'm_aPendingCivilianTheftEventIds.Find(eventId)',
+		'>= MAX_PENDING_CIVILIAN_THEFTS',
+		'm_aPendingCivilianTheftZoneIds.Insert(zoneId)',
+		'm_aPendingCivilianTheftRetrySeconds.Insert(0)'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65QueueTheftBlock) -or
+		$schema65QueueTheftBlock.IndexOf($schema65QueueTheftEntry) -lt 0) {
+		throw "Schema-65 pending theft queue is incomplete: $schema65QueueTheftEntry"
+	}
+}
+foreach ($schema65TheftDrainEntry in @(
+		'm_CivilianConsequences.RegisterCivilianVehicleTheft(',
+		'RemovePendingCivilianTheftAt(index)',
+		'm_aPendingCivilianTheftRetrySeconds[index]'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65CasualtyFlushBlock) -or
+		$schema65CasualtyFlushBlock.IndexOf($schema65TheftDrainEntry) -lt 0) {
+		throw "Schema-65 pending theft receipt drain is incomplete: $schema65TheftDrainEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema65PromoteClaimBlock) -or
+	$schema65PromoteClaimBlock.IndexOf('QueuePendingCivilianTheft(') -lt 0 -or
+	$schema65PromoteClaimBlock.IndexOf('MAX_PENDING_CIVILIAN_THEFTS') -lt 0) {
+	throw "Schema-65 failed post-promotion theft consequence must enter the exact bounded retry queue"
+}
+
+$schema65ExactClaimantBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected string ResolveExactVehicleClaimantFaction('
+foreach ($schema65ExactPilotEntry in @(
+		'ResolveCompartmentManager(vehicleEntity)',
+		'compartmentManager.GetCompartments(slots)',
+		'slot.IsPiloting()',
+		'ECompartmentType.PILOT',
+		'slot.GetOccupant()',
+		'playerManager.GetPlayerIdFromControlledEntity(occupant)',
+		'SCR_PossessingManagerComponent.GetPlayerIdFromMainEntity(',
+		'SCR_FactionManager.SGetPlayerFaction(selectedPlayerId)'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65ExactClaimantBlock) -or
+		$schema65ExactClaimantBlock.IndexOf($schema65ExactPilotEntry) -lt 0) {
+		throw "Schema-65 ambient vehicle claim lacks exact pilot-compartment evidence: $schema65ExactPilotEntry"
+	}
+}
+if ($schema65ExactClaimantBlock.IndexOf('HasPlayerOccupant(') -ge 0) {
+	throw "Schema-65 theft attribution must not treat passenger occupancy as pilot control"
+}
+$schema65ClaimantResolutionIndex = $schema65ClaimBlock.IndexOf('ResolveExactVehicleClaimantFaction(entity)')
+$schema65ClaimPromotionIndex = $schema65ClaimBlock.IndexOf('PromoteClaimedRuntimeVehicleWithConsequences(')
+if ($schema65ClaimantResolutionIndex -lt 0 -or $schema65ClaimPromotionIndex -lt 0 -or
+	$schema65ClaimantResolutionIndex -gt $schema65ClaimPromotionIndex) {
+	throw "Schema-65 ambient promotion must resolve exact pilot faction before applying theft consequences"
+}
+
+$schema65RecycleAmbientActorBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool RecycleAmbientActorAt('
+$schema65RecycleTrafficGuardIndex = $schema65RecycleAmbientActorBlock.IndexOf('record.m_sKindId == HST_AmbientActorRuntimeService.KIND_TRAFFIC')
+$schema65RecycleOccupantGuardIndex = $schema65RecycleAmbientActorBlock.IndexOf('rootEntity && HasPlayerOccupant(rootEntity)')
+$schema65RecycleRecordRemovalIndex = $schema65RecycleAmbientActorBlock.IndexOf(
+	'm_aAmbientActorRecords.Remove(recordIndex)',
+	[Math]::Max(0, $schema65RecycleOccupantGuardIndex))
+$schema65RecycleRootDeleteIndex = $schema65RecycleAmbientActorBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(rootEntity)')
+if ([string]::IsNullOrEmpty($schema65RecycleAmbientActorBlock) -or
+	$schema65CivilianText.IndexOf('protected void RecycleAmbientActorAt(') -ge 0 -or
+	$schema65RecycleTrafficGuardIndex -lt 0 -or
+	$schema65RecycleOccupantGuardIndex -lt 0 -or
+	$schema65RecycleRecordRemovalIndex -lt 0 -or
+	$schema65RecycleRootDeleteIndex -lt 0 -or
+	$schema65RecycleTrafficGuardIndex -gt $schema65RecycleOccupantGuardIndex -or
+	$schema65RecycleOccupantGuardIndex -gt $schema65RecycleRecordRemovalIndex -or
+	$schema65RecycleOccupantGuardIndex -gt $schema65RecycleRootDeleteIndex) {
+	throw "Schema-65 ambient recycle must return success/failure and refuse player-occupied traffic before removing authority or deleting the root"
+}
+$schema65RemoveExcessAmbientActorsBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool RemoveExcessAmbientActors('
+$schema65RemoveExcessRecycleIndex = $schema65RemoveExcessAmbientActorsBlock.IndexOf('if (RecycleAmbientActorAt(')
+$schema65RemoveExcessCountIndex = $schema65RemoveExcessAmbientActorsBlock.IndexOf('currentCount--')
+$schema65RemoveExcessChangedIndex = $schema65RemoveExcessAmbientActorsBlock.IndexOf('changed = true')
+$schema65RemoveExcessCountCount = ([regex]::Matches(
+	$schema65RemoveExcessAmbientActorsBlock,
+	[regex]::Escape('currentCount--'))).Count
+if ([string]::IsNullOrEmpty($schema65RemoveExcessAmbientActorsBlock) -or
+	$schema65RemoveExcessRecycleIndex -lt 0 -or
+	$schema65RemoveExcessCountIndex -lt 0 -or
+	$schema65RemoveExcessChangedIndex -lt 0 -or
+	$schema65RemoveExcessRecycleIndex -gt $schema65RemoveExcessCountIndex -or
+	$schema65RemoveExcessCountIndex -gt $schema65RemoveExcessChangedIndex -or
+	$schema65RemoveExcessCountCount -ne 1) {
+	throw "Schema-65 ambient budget reduction must decrement reservations only after RecycleAmbientActorAt confirms removal"
+}
+
+$schema65CivilianPersistenceBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool PrepareAmbientVehiclePersistence('
+$schema65PersistenceClaimIndex = $schema65CivilianPersistenceBlock.IndexOf('ObservePlayerAmbientVehicleClaims(state)')
+$schema65PersistenceFlushIndex = $schema65CivilianPersistenceBlock.IndexOf('FlushPendingCivilianConsequences(state)')
+$schema65PersistencePendingIndex = $schema65CivilianPersistenceBlock.IndexOf('HasPendingCivilianConsequenceWork()')
+$schema65PersistenceCaptureIndex = $schema65CivilianPersistenceBlock.IndexOf('m_PersistentFieldVehicles.PrepareForCapture(state)')
+if ($schema65PersistenceClaimIndex -lt 0 -or $schema65PersistenceFlushIndex -lt 0 -or
+	$schema65PersistencePendingIndex -lt 0 -or $schema65PersistenceCaptureIndex -lt 0 -or
+	$schema65PersistenceClaimIndex -gt $schema65PersistenceFlushIndex -or
+	$schema65PersistenceFlushIndex -gt $schema65PersistencePendingIndex -or
+	$schema65PersistencePendingIndex -gt $schema65PersistenceCaptureIndex) {
+	throw "Schema-65 capture must observe claims, drain receipts, and defer on pending consequence work before persistent-field capture"
+}
+foreach ($schema65PersistenceStatusEntry in @(
+		'checkpoint deferred: ambient civilian persistence authority is unavailable during %1',
+		'checkpoint deferred: ambient civilian persistence reconciliation failed during %1'
+	)) {
+	if ($schema65PersistenceText.IndexOf($schema65PersistenceStatusEntry) -lt 0) {
+		throw "Schema-65 persistence status must name the full ambient civilian authority boundary: $schema65PersistenceStatusEntry"
+	}
+}
+if ($schema65PersistenceText.IndexOf('checkpoint deferred: ambient vehicle persistence') -ge 0) {
+	throw "Schema-65 persistence status must not describe the broader civilian consequence boundary as vehicle-only"
+}
+
+$schema65ConsequenceResetBlock = Get-ScriptMethodBlock $schema65ConsequenceText 'void ResetRuntimeSession('
+if ([string]::IsNullOrEmpty($schema65ConsequenceResetBlock) -or
+	$schema65ConsequenceResetBlock.IndexOf('m_mMinorExactReceiptFingerprints.Clear()') -lt 0) {
+	throw "Schema-65 consequence reset must clear session-only minor-locality exact receipts"
+}
+$schema65CivilianResetBlock = Get-ScriptMethodBlock $schema65CivilianText 'bool ResetRuntimeSession('
+$schema65ResetPrepareIndex = $schema65CivilianResetBlock.IndexOf('PrepareAmbientVehiclePersistence(previousState)')
+$schema65ResetConsequenceIndex = $schema65CivilianResetBlock.IndexOf('m_CivilianConsequences.ResetRuntimeSession()')
+if ($schema65ResetPrepareIndex -lt 0 -or $schema65ResetConsequenceIndex -lt 0 -or
+	$schema65ResetPrepareIndex -gt $schema65ResetConsequenceIndex) {
+	throw "Schema-65 civilian reset must reconcile pending consequences before clearing the consequence session"
+}
+$schema65CoordinatorResetBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'bool RequestAdminNewCampaignReset('
+$schema65CoordinatorCivilianResetIndex = $schema65CoordinatorResetBlock.IndexOf('m_Civilians.ResetRuntimeSession(m_State)')
+$schema65CoordinatorNewStateIndex = $schema65CoordinatorResetBlock.IndexOf('m_State = CreateInitialCampaignState()')
+if ($schema65CoordinatorCivilianResetIndex -lt 0 -or $schema65CoordinatorNewStateIndex -lt 0 -or
+	$schema65CoordinatorCivilianResetIndex -gt $schema65CoordinatorNewStateIndex) {
+	throw "Schema-65 new-campaign reset must clear the old civilian consequence session before replacing campaign state"
+}
+
+if ([string]::IsNullOrEmpty($schema65AmbientRecordBlock) -or
+	$schema65AmbientRecordBlock.IndexOf('m_iPanicRouteRecoveryCount') -lt 0) {
+	throw "Schema-65 panic route retries require their own actor-record counter"
+}
+$schema65PanicRouteAttemptBlock = Get-ScriptMethodBlock $schema65AmbientRuntimeText 'bool RecordPanicRouteRecoveryAttempt('
+foreach ($schema65PanicRouteAttemptEntry in @(
+		'int boundedMax = Math.Max(0, maxAttempts)',
+		'record.m_iPanicRouteRecoveryCount >= boundedMax',
+		'QueueDespawn(record, reasonId + "; panic route exhausted", nowSecond)',
+		'record.m_iPanicRouteRecoveryCount++'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65PanicRouteAttemptBlock) -or
+		$schema65PanicRouteAttemptBlock.IndexOf($schema65PanicRouteAttemptEntry) -lt 0) {
+		throw "Schema-65 bounded panic-route recovery is incomplete: $schema65PanicRouteAttemptEntry"
+	}
+}
+if ($schema65PanicRouteAttemptBlock.IndexOf('m_iRecoveryCount') -ge 0) {
+	throw "Schema-65 panic-route recovery must not consume the ordinary stuck-recovery budget"
+}
+$schema65PanicProofBlock = Get-ScriptMethodBlock $schema65AmbientRuntimeProofText 'protected void ProvePanicRecovery('
+foreach ($schema65PanicProofEntry in @(
+		'noOpExtensionReadOnly',
+		'RecordPanicRouteRecoveryAttempt(',
+		'blocked.m_iPanicRouteRecoveryCount == 2',
+		'blocked.m_iRecoveryCount == 0',
+		'HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED',
+		'boundedRouteExact'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65PanicProofBlock) -or
+		$schema65PanicProofBlock.IndexOf($schema65PanicProofEntry) -lt 0) {
+		throw "Schema-65 panic/no-op bounded-route proof is missing: $schema65PanicProofEntry"
+	}
+}
+$schema65BeginPanicBlock = Get-ScriptMethodBlock $schema65AmbientRuntimeText 'bool BeginOrExtendPanic('
+foreach ($schema65NoOpPanicEntry in @(
+		'if (record.m_sStateId == STATE_PANICKED)',
+		'if (panicUntilSecond > record.m_iPanicUntilSecond)',
+		'record.m_iPanicUntilSecond = panicUntilSecond',
+		'return false;'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65BeginPanicBlock) -or
+		$schema65BeginPanicBlock.IndexOf($schema65NoOpPanicEntry) -lt 0) {
+		throw "Schema-65 repeated panic observation must be a read-only no-op unless it extends the deadline: $schema65NoOpPanicEntry"
+	}
+}
+$schema65MaintainPanicBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool BeginOrMaintainAmbientPedestrianPanic('
+$schema65PanicWaypointAssignmentCount = ([regex]::Matches(
+	$schema65MaintainPanicBlock,
+	'waypointChanged\s*=\s*AssignAmbientPedestrianPanicWaypoint\(')).Count
+foreach ($schema65MaintainPanicEntry in @(
+		'record.m_sStateId',
+		'!= HST_AmbientActorRuntimeService.STATE_PANICKED',
+		'|| !HasActiveCivilianWaypoint(record.m_Group)',
+		'previousDeadline = record.m_iPanicUntilSecond',
+		'return waypointChanged;'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65MaintainPanicBlock) -or
+		$schema65MaintainPanicBlock.IndexOf($schema65MaintainPanicEntry) -lt 0) {
+		throw "Schema-65 physical panic maintenance must avoid repeated no-op route churn: $schema65MaintainPanicEntry"
+	}
+}
+if ($schema65PanicWaypointAssignmentCount -ne 1) {
+	throw "Schema-65 physical panic maintenance must admit at most one replacement waypoint per observation"
+}
+$schema65PanicThreatResolverBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected vector ResolveCivilianPanicThreat('
+if ([string]::IsNullOrEmpty($schema65PanicThreatResolverBlock) -or
+	$schema65PanicThreatResolverBlock.IndexOf('m_aCivilianPanicThreatZoneIds.Find(') -lt 0 -or
+	$schema65PanicThreatResolverBlock -match '\.Insert\(|\.Set\(|SetCivilianPanicThreat\(') {
+	throw "Schema-65 panic threat resolution must be read-only"
+}
+$schema65NativeThreatBlock = Get-ScriptMethodBlock $schema65CivilianText 'protected bool IsAmbientPedestrianThreatened('
+if ([string]::IsNullOrEmpty($schema65NativeThreatBlock) -or
+	$schema65NativeThreatBlock.IndexOf('ResolveCivilianAgentReadOnly(') -lt 0 -or
+	$schema65NativeThreatBlock.IndexOf('info.GetThreatState()') -lt 0 -or
+	$schema65NativeThreatBlock -match 'ResolveCivilianAgent\(') {
+	throw "Schema-65 native panic threat observation must use the read-only AI resolver"
+}
+
+$schema65ValidateEventsBlock = Get-ScriptMethodBlock $schema65TownSaveText 'protected void ValidateCurrentInfluenceEvents('
+$schema65BuildAggressionIndexBlock = Get-ScriptMethodBlock $schema65TownSaveText 'protected void BuildAggressionStrategicReceiptIndex('
+$schema65IndexedAggressionReceiptBlock = Get-ScriptMethodBlock $schema65TownSaveText 'protected bool HasExactAggressionStrategicReceipt('
+$schema65BuildAggressionIndexIndex = $schema65ValidateEventsBlock.IndexOf('BuildAggressionStrategicReceiptIndex(')
+$schema65ValidateEventLoopIndex = $schema65ValidateEventsBlock.IndexOf('foreach (HST_TownInfluenceEventState eventState')
+if ($schema65BuildAggressionIndexIndex -lt 0 -or $schema65ValidateEventLoopIndex -lt 0 -or
+	$schema65BuildAggressionIndexIndex -gt $schema65ValidateEventLoopIndex) {
+	throw "Schema-65 aggression restore must build its strategic receipt indexes before validating influence rows"
+}
+foreach ($schema65AggressionIndexEntry in @(
+		'foreach (HST_StrategicEventState strategic : saveData.m_aStrategicEvents)',
+		'strategic.m_sSourceType != "town_influence"',
+		'strategicEventIdCounts.Set(strategic.m_sEventId, 2)',
+		'strategicInfluenceSourceIdCounts.Set(',
+		'strategicByInfluenceSourceId.Set('
+	)) {
+	if ([string]::IsNullOrEmpty($schema65BuildAggressionIndexBlock) -or
+		$schema65BuildAggressionIndexBlock.IndexOf($schema65AggressionIndexEntry) -lt 0) {
+		throw "Schema-65 aggression strategic receipt index is incomplete: $schema65AggressionIndexEntry"
+	}
+}
+foreach ($schema65IndexedAggressionReceiptEntry in @(
+		'strategicInfluenceSourceIdCounts.Find(',
+		'strategicByInfluenceSourceId.Get(influenceEvent.m_sEventId)',
+		'strategicEventIdCounts.Find(match.m_sEventId, strategicEventIdCount)',
+		'strategicEventIdCount == 1'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65IndexedAggressionReceiptBlock) -or
+		$schema65IndexedAggressionReceiptBlock.IndexOf($schema65IndexedAggressionReceiptEntry) -lt 0) {
+		throw "Schema-65 aggression receipt lookup is missing indexed exact evidence: $schema65IndexedAggressionReceiptEntry"
+	}
+}
+if ($schema65IndexedAggressionReceiptBlock -match 'foreach\s*\(HST_StrategicEventState|m_aStrategicEvents') {
+	throw "Schema-65 per-influence aggression validation must not rescan the full strategic event array"
+}
+$schema65PresetRoleBlock = Get-ScriptMethodBlock $schema65TownText 'bool ValidateRestoredAggressionFactionRoles('
+foreach ($schema65PresetRoleEntry in @(
+		'HST_FactionRelationService.IsEnemyFaction(',
+		'eventState.m_sAggressionFactionKey',
+		'HST_TownInfluenceSaveValidationService.QUARANTINE_CONTRACT_VERSION',
+		'eventState.m_bApplied = false',
+		'HST_CivilianConsequenceSaveValidationService.QUARANTINE_CONTRACT_VERSION'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65PresetRoleBlock) -or
+		$schema65PresetRoleBlock.IndexOf($schema65PresetRoleEntry) -lt 0) {
+		throw "Schema-65 preset-aware restored aggression role validation is incomplete: $schema65PresetRoleEntry"
+	}
+}
+$schema65RestoreIndex = $schema65CoordinatorInitBlock.IndexOf('m_Persistence.RestoreOrCreateCampaignState(')
+$schema65PresetRoleIndex = $schema65CoordinatorInitBlock.IndexOf('m_TownInfluence.ValidateRestoredAggressionFactionRoles(')
+$schema65PostRestoreReconcileIndex = $schema65CoordinatorInitBlock.IndexOf('m_ForceSpawnQueue.ReconcileCampaignAfterRestore(')
+if ($schema65RestoreIndex -lt 0 -or $schema65PresetRoleIndex -lt 0 -or
+	$schema65PostRestoreReconcileIndex -lt 0 -or
+	$schema65RestoreIndex -gt $schema65PresetRoleIndex -or
+	$schema65PresetRoleIndex -gt $schema65PostRestoreReconcileIndex -or
+	$schema65CoordinatorInitBlock.IndexOf('m_Preset', $schema65PresetRoleIndex) -lt 0) {
+	throw "Schema-65 coordinator must validate restored aggression roles under the live preset before post-restore reconciliation"
+}
+
+$schema65StrategicBuildBlock = Get-ScriptMethodBlock $schema65StrategicText 'protected string BuildStrategicEventId('
+foreach ($schema65StrategicBuildEntry in @(
+		'HST_StableIdService.NextId(',
+		'if (candidate.IsEmpty())',
+		'foreach (HST_StrategicEventState existing : state.m_aStrategicEvents)',
+		'if (!duplicate)',
+		'return "";'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65StrategicBuildBlock) -or
+		$schema65StrategicBuildBlock.IndexOf($schema65StrategicBuildEntry) -lt 0) {
+		throw "Schema-65 strategic ID allocation must fail closed on exhaustion or collision: $schema65StrategicBuildEntry"
+	}
+}
+$schema65StrategicIdAssignmentPattern = 'eventState\.m_sEventId\s*=\s*BuildStrategicEventId\([^;]+;'
+$schema65StrategicIdGuardPattern = 'eventState\.m_sEventId\s*=\s*BuildStrategicEventId\([^;]+;\s*if\s*\(\s*eventState\.m_sEventId\.IsEmpty\(\)\s*\)'
+$schema65StrategicIdAssignmentCount = ([regex]::Matches(
+	$schema65StrategicText,
+	$schema65StrategicIdAssignmentPattern)).Count
+$schema65StrategicIdGuardCount = ([regex]::Matches(
+	$schema65StrategicText,
+	$schema65StrategicIdGuardPattern)).Count
+if ($schema65StrategicIdAssignmentCount -le 0 -or
+	$schema65StrategicIdGuardCount -ne $schema65StrategicIdAssignmentCount) {
+	throw "Schema-65 every BuildStrategicEventId caller must reject an empty allocation before publishing state: $schema65StrategicIdGuardCount/$schema65StrategicIdAssignmentCount"
+}
+
+$schema65DebugBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'protected void AppendCampaignDebugAmbientPopulationAssertions('
+foreach ($schema65DebugEntry in @(
+		'new HST_CivilianConsequenceProofService()',
+		'civilian_consequence.aggregate',
+		'civilian_consequence.replay',
+		'civilian_consequence.combat_episode',
+		'civilian_consequence.persistence',
+		'civilian_consequence.aggression_admission',
+		'consequenceProof.m_bPersistenceExact',
+		'consequenceProof.m_bAggressionAdmissionExact',
+		'consequenceProof.AllExact()'
+	)) {
+	if ([string]::IsNullOrEmpty($schema65DebugBlock) -or
+		$schema65DebugBlock.IndexOf($schema65DebugEntry) -lt 0) {
+		throw "Schema-65 Campaign Debug consequence proof wiring is missing: $schema65DebugEntry"
+	}
+}
+
+Write-Host "Schema-65 exact civilian casualty/theft/combat consequences, no-effect migration, aggression receipts, and bounded panic authority OK"
 
 $ambientPhase8Paths = @(
 	"Scripts/Game/HST/Services/HST_AmbientPopulationBudgetService.c",

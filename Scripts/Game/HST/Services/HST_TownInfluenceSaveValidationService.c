@@ -5,6 +5,7 @@
 class HST_TownInfluenceSaveValidationService
 {
 	static const int SCHEMA_VERSION = 64;
+	static const int AGGRESSION_SCHEMA_VERSION = 65;
 	static const int CONTRACT_VERSION = 1;
 	static const int QUARANTINE_CONTRACT_VERSION = -64;
 	static const int MIN_BASIS_POINTS = 0;
@@ -20,6 +21,8 @@ class HST_TownInfluenceSaveValidationService
 		if (!saveData)
 			return;
 		EnsureArrays(saveData);
+		if (restoredSchemaVersion < AGGRESSION_SCHEMA_VERSION)
+			ClearPreSchema65AggressionEvidence(saveData);
 		if (restoredSchemaVersion < SCHEMA_VERSION)
 		{
 			MigrateLegacyTownInfluence(saveData);
@@ -36,6 +39,8 @@ class HST_TownInfluenceSaveValidationService
 		if (!saveData)
 			return;
 		EnsureArrays(saveData);
+		if (restoredSchemaVersion < AGGRESSION_SCHEMA_VERSION)
+			ClearPreSchema65AggressionEvidence(saveData);
 		// Pre-schema-64 event rows deserialize with the new field defaults. Relabel
 		// and materialize their canonical town records before schema-62 ownership
 		// validates completed support receipts against this authority.
@@ -224,6 +229,26 @@ class HST_TownInfluenceSaveValidationService
 			eventState.m_iRemainingPopulationAfter = 0;
 			eventState.m_iDestroyedPopulationBefore = 0;
 			eventState.m_iDestroyedPopulationAfter = 0;
+			eventState.m_sAggressionFactionKey = "";
+			eventState.m_iAggressionDelta = 0;
+			eventState.m_iAggressionBefore = 0;
+			eventState.m_iAggressionAfter = 0;
+		}
+	}
+
+	protected void ClearPreSchema65AggressionEvidence(
+		HST_CampaignSaveData saveData)
+	{
+		if (!saveData)
+			return;
+		foreach (HST_TownInfluenceEventState eventState : saveData.m_aTownInfluenceEvents)
+		{
+			if (!eventState)
+				continue;
+			eventState.m_sAggressionFactionKey = "";
+			eventState.m_iAggressionDelta = 0;
+			eventState.m_iAggressionBefore = 0;
+			eventState.m_iAggressionAfter = 0;
 		}
 	}
 
@@ -452,6 +477,16 @@ class HST_TownInfluenceSaveValidationService
 			else
 				eventIdCounts.Set(countedEvent.m_sEventId, 1);
 		}
+		map<string, ref HST_StrategicEventState> strategicByInfluenceSourceId
+			= new map<string, ref HST_StrategicEventState>();
+		map<string, int> strategicInfluenceSourceIdCounts
+			= new map<string, int>();
+		map<string, int> strategicEventIdCounts = new map<string, int>();
+		BuildAggressionStrategicReceiptIndex(
+			saveData,
+			strategicByInfluenceSourceId,
+			strategicInfluenceSourceIdCounts,
+			strategicEventIdCounts);
 
 		foreach (HST_TownInfluenceEventState eventState : saveData.m_aTownInfluenceEvents)
 		{
@@ -463,7 +498,14 @@ class HST_TownInfluenceSaveValidationService
 			if (duplicateCount == 1)
 			{
 				if (eventState.m_iContractVersion == CONTRACT_VERSION)
-					valid = IsValidCurrentExactEvent(saveData, eventState);
+				{
+					valid = IsValidCurrentExactEvent(
+						saveData,
+						eventState,
+						strategicByInfluenceSourceId,
+						strategicInfluenceSourceIdCounts,
+						strategicEventIdCounts);
+				}
 				else if (eventState.m_iContractVersion == 0)
 					valid = IsValidCurrentLegacyEvent(saveData, eventState);
 			}
@@ -492,13 +534,21 @@ class HST_TownInfluenceSaveValidationService
 		if (eventState.m_iCreatedAtSecond < 0
 			|| eventState.m_iCreatedAtSecond > saveData.m_iElapsedSeconds)
 			return false;
+		if (!eventState.m_sAggressionFactionKey.IsEmpty()
+			|| eventState.m_iAggressionDelta != 0
+			|| eventState.m_iAggressionBefore != 0
+			|| eventState.m_iAggressionAfter != 0)
+			return false;
 		return eventState.m_iExpiresAtSecond == 0
 			|| eventState.m_iExpiresAtSecond > eventState.m_iCreatedAtSecond;
 	}
 
 	protected bool IsValidCurrentExactEvent(
 		HST_CampaignSaveData saveData,
-		HST_TownInfluenceEventState eventState)
+		HST_TownInfluenceEventState eventState,
+		map<string, ref HST_StrategicEventState> strategicByInfluenceSourceId,
+		map<string, int> strategicInfluenceSourceIdCounts,
+		map<string, int> strategicEventIdCounts)
 	{
 		if (!saveData || !eventState || !eventState.m_bApplied
 			|| !IsValidId(eventState.m_sEventId)
@@ -532,6 +582,13 @@ class HST_TownInfluenceSaveValidationService
 			|| !IsBoundedNonSupportDelta(eventState.m_iRoadblockDelta)
 			|| eventState.m_iPopulationDelta < -HST_TownInfluenceService.MAX_POPULATION_DELTA
 			|| eventState.m_iPopulationDelta > HST_TownInfluenceService.MAX_POPULATION_DELTA)
+			return false;
+		if (!HasValidAggressionEventShape(
+			saveData,
+			eventState,
+			strategicByInfluenceSourceId,
+			strategicInfluenceSourceIdCounts,
+			strategicEventIdCounts))
 			return false;
 		if (eventState.m_iPopulationUsed <= 0
 			|| eventState.m_iPopulationUsed
@@ -591,6 +648,151 @@ class HST_TownInfluenceSaveValidationService
 			&& eventState.m_iInvaderBasisPointsAfter == ClampBasisPoints(
 				eventState.m_iInvaderBasisPointsBefore
 					+ eventState.m_iEffectiveInvaderBasisPointDelta);
+	}
+
+	protected bool HasValidAggressionEventShape(
+		HST_CampaignSaveData saveData,
+		HST_TownInfluenceEventState eventState,
+		map<string, ref HST_StrategicEventState> strategicByInfluenceSourceId,
+		map<string, int> strategicInfluenceSourceIdCounts,
+		map<string, int> strategicEventIdCounts)
+	{
+		if (!saveData || !eventState)
+			return false;
+		if (eventState.m_sAggressionFactionKey
+				!= eventState.m_sAggressionFactionKey.Trim()
+			|| eventState.m_sAggressionFactionKey.Length()
+				> MAX_ID_CHARACTERS
+			|| eventState.m_iAggressionDelta < 0
+			|| eventState.m_iAggressionDelta
+				> HST_TownInfluenceService.MAX_AGGRESSION_DELTA)
+			return false;
+		bool hasTarget = !eventState.m_sAggressionFactionKey.IsEmpty();
+		if (hasTarget != (eventState.m_iAggressionDelta > 0))
+			return false;
+		if (!hasTarget)
+		{
+			return eventState.m_iAggressionBefore == 0
+				&& eventState.m_iAggressionAfter == 0;
+		}
+		if (eventState.m_bAbsoluteDebugSeed
+			|| eventState.m_iAggressionBefore < 0
+			|| eventState.m_iAggressionBefore
+				> int.MAX - eventState.m_iAggressionDelta
+			|| eventState.m_iAggressionAfter
+				!= eventState.m_iAggressionBefore
+					+ eventState.m_iAggressionDelta)
+			return false;
+		HST_FactionPoolState targetPool;
+		if (!FindUniqueFactionPool(
+			saveData,
+			eventState.m_sAggressionFactionKey,
+			targetPool)
+			|| targetPool.m_iAggression < 0)
+			return false;
+		return HasExactAggressionStrategicReceipt(
+			eventState,
+			strategicByInfluenceSourceId,
+			strategicInfluenceSourceIdCounts,
+			strategicEventIdCounts);
+	}
+
+	protected bool FindUniqueFactionPool(
+		HST_CampaignSaveData saveData,
+		string factionKey,
+		out HST_FactionPoolState match)
+	{
+		match = null;
+		if (!saveData || factionKey.IsEmpty())
+			return false;
+		foreach (HST_FactionPoolState pool : saveData.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey != factionKey)
+				continue;
+			if (match)
+				return false;
+			match = pool;
+		}
+		return match != null;
+	}
+
+	protected void BuildAggressionStrategicReceiptIndex(
+		HST_CampaignSaveData saveData,
+		map<string, ref HST_StrategicEventState> strategicByInfluenceSourceId,
+		map<string, int> strategicInfluenceSourceIdCounts,
+		map<string, int> strategicEventIdCounts)
+	{
+		if (!saveData || !strategicByInfluenceSourceId
+			|| !strategicInfluenceSourceIdCounts || !strategicEventIdCounts)
+			return;
+		foreach (HST_StrategicEventState strategic : saveData.m_aStrategicEvents)
+		{
+			if (!strategic)
+				continue;
+			int eventIdCount;
+			if (strategicEventIdCounts.Find(
+				strategic.m_sEventId,
+				eventIdCount))
+			{
+				strategicEventIdCounts.Set(strategic.m_sEventId, 2);
+			}
+			else
+				strategicEventIdCounts.Set(strategic.m_sEventId, 1);
+
+			if (strategic.m_sSourceType != "town_influence")
+				continue;
+			int sourceIdCount;
+			if (strategicInfluenceSourceIdCounts.Find(
+				strategic.m_sSourceId,
+				sourceIdCount))
+			{
+				// A saturated duplicate marker is enough to fail every claimant
+				// closed without allowing an attacker-sized counter to overflow.
+				strategicInfluenceSourceIdCounts.Set(
+					strategic.m_sSourceId,
+					2);
+				continue;
+			}
+			strategicInfluenceSourceIdCounts.Set(strategic.m_sSourceId, 1);
+			strategicByInfluenceSourceId.Set(
+				strategic.m_sSourceId,
+				strategic);
+		}
+	}
+
+	protected bool HasExactAggressionStrategicReceipt(
+		HST_TownInfluenceEventState influenceEvent,
+		map<string, ref HST_StrategicEventState> strategicByInfluenceSourceId,
+		map<string, int> strategicInfluenceSourceIdCounts,
+		map<string, int> strategicEventIdCounts)
+	{
+		if (!influenceEvent || !strategicByInfluenceSourceId
+			|| !strategicInfluenceSourceIdCounts || !strategicEventIdCounts)
+			return false;
+		int sourceIdCount;
+		if (!strategicInfluenceSourceIdCounts.Find(
+			influenceEvent.m_sEventId,
+			sourceIdCount)
+			|| sourceIdCount != 1)
+			return false;
+		HST_StrategicEventState match
+			= strategicByInfluenceSourceId.Get(influenceEvent.m_sEventId);
+		int strategicEventIdCount;
+		if (match)
+			strategicEventIdCounts.Find(match.m_sEventId, strategicEventIdCount);
+		return match
+			&& strategicEventIdCount == 1
+			&& IsValidId(match.m_sEventId)
+			&& match.m_sKind == "town_influence"
+			&& match.m_sTargetZoneId == influenceEvent.m_sZoneId
+			&& match.m_sTargetFactionKey
+				== influenceEvent.m_sAggressionFactionKey
+			&& match.m_iCreatedAtSecond
+				== influenceEvent.m_iCreatedAtSecond
+			&& match.m_iAggressionDelta
+				== influenceEvent.m_iAggressionDelta
+			&& match.m_bApplied
+			&& !match.m_sSummary.Trim().IsEmpty();
 	}
 
 	protected bool HasValidSupportEventShape(
@@ -1520,5 +1722,9 @@ class HST_TownInfluenceSaveValidationService
 			saveData.m_aCivilianZones = new array<ref HST_CivilianZoneState>();
 		if (!saveData.m_aCampaignEvents)
 			saveData.m_aCampaignEvents = new array<ref HST_CampaignEventState>();
+		if (!saveData.m_aFactionPools)
+			saveData.m_aFactionPools = new array<ref HST_FactionPoolState>();
+		if (!saveData.m_aStrategicEvents)
+			saveData.m_aStrategicEvents = new array<ref HST_StrategicEventState>();
 	}
 }

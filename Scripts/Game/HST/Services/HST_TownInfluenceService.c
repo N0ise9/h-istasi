@@ -14,6 +14,8 @@ class HST_TownInfluenceCommand
 	int m_iPopulationDelta;
 	int m_iPoliceDelta;
 	int m_iRoadblockDelta;
+	string m_sAggressionFactionKey;
+	int m_iAggressionDelta;
 	int m_iDurationSeconds;
 	bool m_bPopulationScaled;
 	bool m_bMarkContacted;
@@ -93,6 +95,7 @@ class HST_TownInfluenceService
 	static const int MAX_POPULATION_DELTA = 1000000;
 	static const int MAX_TOWN_POPULATION = 1000000;
 	static const int MAX_NON_SUPPORT_DELTA = 1000000;
+	static const int MAX_AGGRESSION_DELTA = 1000;
 	static const int MAX_LEGACY_PRESSURE = 1000000;
 	static const int MAX_MUTABLE_REVISION = int.MAX - 16;
 	static const int DEBUG_SEED_REVISION_HEADROOM = 4;
@@ -104,6 +107,7 @@ class HST_TownInfluenceService
 
 	protected HST_CampaignPreset m_Preset;
 	protected HST_StrategicService m_Strategic;
+	protected HST_EconomyService m_Economy;
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
 	protected int m_iNextOwnershipPolicyReconcileSecond;
 	protected string m_sLastAuthorityFailure;
@@ -126,9 +130,64 @@ class HST_TownInfluenceService
 		m_Strategic = strategic;
 	}
 
+	void SetEconomyService(HST_EconomyService economy)
+	{
+		m_Economy = economy;
+	}
+
 	void SetOwnershipTransitionService(HST_OwnershipTransitionService ownershipTransitions)
 	{
 		m_OwnershipTransitions = ownershipTransitions;
+	}
+
+	// Save-shape validation can prove pool uniqueness and receipt arithmetic but
+	// the preset faction roles are intentionally not serialized. Finish restore
+	// under the live preset before any political reconciliation can consume an
+	// aggressive row.
+	bool ValidateRestoredAggressionFactionRoles(
+		HST_CampaignState state,
+		HST_CampaignPreset preset)
+	{
+		if (!state)
+			return false;
+		bool changed;
+		foreach (HST_TownInfluenceEventState eventState : state.m_aTownInfluenceEvents)
+		{
+			if (!eventState || !eventState.m_bApplied
+				|| eventState.m_iContractVersion != EXACT_CONTRACT_VERSION
+				|| eventState.m_iAggressionDelta <= 0)
+				continue;
+			if (preset && HST_FactionRelationService.IsEnemyFaction(
+				preset,
+				eventState.m_sAggressionFactionKey))
+				continue;
+			eventState.m_iContractVersion
+				= HST_TownInfluenceSaveValidationService.QUARANTINE_CONTRACT_VERSION;
+			eventState.m_bApplied = false;
+			foreach (HST_TownInfluenceRecord record : state.m_aTownInfluenceRecords)
+			{
+				if (!record || record.m_sTownId != eventState.m_sZoneId)
+					continue;
+				record.m_iContractVersion
+					= HST_TownInfluenceSaveValidationService.QUARANTINE_CONTRACT_VERSION;
+				record.m_sAuthorityFailure = LimitText(
+					"schema65 aggression target is not a configured enemy faction",
+					MAX_REASON_CHARACTERS);
+			}
+			HST_ZoneState zone = state.FindZone(eventState.m_sZoneId);
+			if (zone)
+			{
+				zone.m_iCivilianConsequenceContractVersion
+					= HST_CivilianConsequenceSaveValidationService.QUARANTINE_CONTRACT_VERSION;
+				zone.m_bCivilianCombatDangerActive = false;
+				zone.m_iCivilianPanicUntilSecond = 0;
+				zone.m_sCivilianConsequenceAuthorityFailure = LimitText(
+					"schema65 aggression target is not a configured enemy faction",
+					MAX_REASON_CHARACTERS);
+			}
+			changed = true;
+		}
+		return changed;
 	}
 
 	string GetLastAuthorityFailure()
@@ -804,7 +863,7 @@ class HST_TownInfluenceService
 		bool allowNestedOwnership)
 	{
 		HST_TownInfluenceResult result = new HST_TownInfluenceResult();
-		string failure = ValidateCommand(state, command);
+		string failure = ValidateCommand(state, command, preset);
 		if (!failure.IsEmpty())
 			return Reject(result, failure);
 
@@ -859,9 +918,28 @@ class HST_TownInfluenceService
 		HST_StrategicEventApplyResult strategicEvent;
 		if (m_Strategic)
 			strategicEvent = m_Strategic.BeginTownInfluenceEvent(state, preset, eventState);
+		if (command.m_iAggressionDelta > 0
+			&& (!strategicEvent || !strategicEvent.m_bRecorded
+				|| !strategicEvent.m_Event
+				|| strategicEvent.m_Event.m_sEventId.IsEmpty()))
+		{
+			if (strategicEvent && strategicEvent.m_Event)
+				m_Strategic.DiscardStrategicEvent(state, strategicEvent);
+			state.m_aTownInfluenceEvents.Remove(
+				state.m_aTownInfluenceEvents.Count() - 1);
+			result.m_Event = null;
+			return Reject(
+				result,
+				"town influence aggression strategic receipt could not be admitted");
+		}
 		ApplyEvent(state, zone, record, eventState, command, preset);
 		result.m_bAccepted = true;
 		result.m_bChanged = true;
+		// Close the town receipt before ownership reconciliation. A threshold
+		// transition owns a separate strategic receipt and may apply retaliation
+		// aggression; folding it into this event would destroy exact attribution.
+		if (m_Strategic && strategicEvent && strategicEvent.m_Event)
+			m_Strategic.CompleteStrategicEvent(state, strategicEvent, true, true);
 
 		if (command.m_bReconcileOwnership)
 		{
@@ -869,8 +947,6 @@ class HST_TownInfluenceService
 				result.m_sFailureReason = m_sLastAuthorityFailure;
 		}
 		result.m_bOwnershipPending = !record.m_sPendingOwnerFactionKey.IsEmpty();
-		if (m_Strategic && strategicEvent && strategicEvent.m_Event)
-			m_Strategic.CompleteStrategicEvent(state, strategicEvent, true, true);
 		return result;
 	}
 
@@ -905,6 +981,15 @@ class HST_TownInfluenceService
 		eventState.m_iPopulationDelta = command.m_iPopulationDelta;
 		eventState.m_iPoliceDelta = command.m_iPoliceDelta;
 		eventState.m_iRoadblockDelta = command.m_iRoadblockDelta;
+		eventState.m_sAggressionFactionKey = command.m_sAggressionFactionKey;
+		eventState.m_iAggressionDelta = command.m_iAggressionDelta;
+		if (eventState.m_iAggressionDelta > 0)
+		{
+			HST_FactionPoolState aggressionPool
+				= state.FindFactionPool(eventState.m_sAggressionFactionKey);
+			if (aggressionPool)
+				eventState.m_iAggressionBefore = aggressionPool.m_iAggression;
+		}
 		eventState.m_iPopulationUsed = record.m_iInitialPopulation;
 		eventState.m_bPopulationScaled = command.m_bPopulationScaled;
 		eventState.m_bAbsoluteDebugSeed = command.m_bAbsoluteDebugSeed;
@@ -1051,6 +1136,19 @@ class HST_TownInfluenceService
 
 		if (command.m_bMarkContacted || command.m_bMarkResistanceActivity)
 			ApplyContactEvidence(record, state, eventState, command.m_bMarkResistanceActivity);
+		if (m_Economy
+			&& !eventState.m_sAggressionFactionKey.IsEmpty()
+			&& eventState.m_iAggressionDelta != 0)
+		{
+			m_Economy.AddAggression(
+				state,
+				eventState.m_sAggressionFactionKey,
+				eventState.m_iAggressionDelta);
+			HST_FactionPoolState aggressionPool
+				= state.FindFactionPool(eventState.m_sAggressionFactionKey);
+			if (aggressionPool)
+				eventState.m_iAggressionAfter = aggressionPool.m_iAggression;
+		}
 		ApplyEventKindAggregates(
 			record,
 			eventState,
@@ -1627,7 +1725,8 @@ class HST_TownInfluenceService
 
 	protected string ValidateCommand(
 		HST_CampaignState state,
-		HST_TownInfluenceCommand command)
+		HST_TownInfluenceCommand command,
+		HST_CampaignPreset preset)
 	{
 		if (!state || !command)
 			return "state or town influence command is unavailable";
@@ -1648,11 +1747,15 @@ class HST_TownInfluenceService
 		command.m_sEventKind = LimitText(command.m_sEventKind.Trim(), MAX_ID_CHARACTERS);
 		command.m_sSourceId = LimitText(command.m_sSourceId.Trim(), MAX_ID_CHARACTERS);
 		command.m_sReason = LimitText(command.m_sReason.Trim(), MAX_REASON_CHARACTERS);
+		command.m_sAggressionFactionKey
+			= command.m_sAggressionFactionKey.Trim();
 		if (command.m_sReason.IsEmpty())
 			command.m_sReason = "town influence " + command.m_sEventKind;
 		if (command.m_sEventId.Length() > MAX_ID_CHARACTERS
-			|| command.m_sCommandId.Length() > MAX_ID_CHARACTERS)
-			return "town influence exact id is too long";
+			|| command.m_sCommandId.Length() > MAX_ID_CHARACTERS
+			|| command.m_sAggressionFactionKey.Length()
+				> MAX_ID_CHARACTERS)
+			return "town influence exact id or faction key is too long";
 		if (command.m_iDurationSeconds < 0
 			|| command.m_iDurationSeconds > MAX_DURATION_SECONDS)
 			return "town influence duration is invalid";
@@ -1665,6 +1768,20 @@ class HST_TownInfluenceService
 			|| !IsNonSupportDelta(command.m_iPoliceDelta)
 			|| !IsNonSupportDelta(command.m_iRoadblockDelta))
 			return "town influence ambient or security delta is outside the bounded range";
+		if (command.m_iAggressionDelta < 0
+			|| command.m_iAggressionDelta > MAX_AGGRESSION_DELTA)
+			return "town influence aggression delta is outside the bounded range";
+		if (command.m_sAggressionFactionKey.IsEmpty()
+			!= (command.m_iAggressionDelta == 0))
+			return "town influence aggression target and delta are inconsistent";
+		if (command.m_iAggressionDelta > 0
+			&& command.m_sEventId.IsEmpty())
+			return "town influence aggression requires an exact event id";
+		if (!command.m_sAggressionFactionKey.IsEmpty()
+			&& (!preset || !HST_FactionRelationService.IsEnemyFaction(
+				preset,
+				command.m_sAggressionFactionKey)))
+			return "town influence aggression target is not an enemy faction";
 		HST_TownInfluenceRecord record = FindValidRecord(state, zone.m_sZoneId);
 		if (!record)
 			return "canonical town influence record is unavailable";
@@ -1684,7 +1801,9 @@ class HST_TownInfluenceService
 				|| command.m_iReputationDelta != 0
 				|| command.m_iHeatDelta != 0
 				|| command.m_iPoliceDelta != 0
-				|| command.m_iRoadblockDelta != 0)
+				|| command.m_iRoadblockDelta != 0
+				|| !command.m_sAggressionFactionKey.IsEmpty()
+				|| command.m_iAggressionDelta != 0)
 				return "absolute town seed carries non-seed modifiers";
 		}
 		else if (command.m_iTargetFIASupportBasisPoints != 0
@@ -1707,6 +1826,26 @@ class HST_TownInfluenceService
 	{
 		if (!state || !command || !record)
 			return "new town influence admission authority is unavailable";
+		if (command.m_iAggressionDelta != 0)
+		{
+			if (!m_Economy || !m_Strategic)
+				return "town influence aggression authority is unavailable";
+			HST_FactionPoolState aggressionPool;
+			if (!FindUniqueFactionPool(
+				state,
+				command.m_sAggressionFactionKey,
+				aggressionPool))
+				return "town influence aggression target authority is not unique";
+			if (aggressionPool.m_iAggression < 0)
+				return "town influence aggression target authority is invalid";
+			if (aggressionPool.m_iAggression
+				> int.MAX - command.m_iAggressionDelta)
+				return "town influence aggression delta would overflow authority";
+			if (HasStrategicTownInfluenceSourceClaim(
+				state,
+				command.m_sEventId))
+				return "town influence aggression strategic source is already claimed";
+		}
 		if (command.m_iDurationSeconds > 0
 			&& state.m_iElapsedSeconds
 				> int.MAX - command.m_iDurationSeconds)
@@ -1743,6 +1882,41 @@ class HST_TownInfluenceService
 		return "";
 	}
 
+	protected bool FindUniqueFactionPool(
+		HST_CampaignState state,
+		string factionKey,
+		out HST_FactionPoolState match)
+	{
+		match = null;
+		if (!state || factionKey.IsEmpty())
+			return false;
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey != factionKey)
+				continue;
+			if (match)
+				return false;
+			match = pool;
+		}
+		return match != null;
+	}
+
+	protected bool HasStrategicTownInfluenceSourceClaim(
+		HST_CampaignState state,
+		string influenceEventId)
+	{
+		if (!state || influenceEventId.IsEmpty())
+			return false;
+		foreach (HST_StrategicEventState strategic : state.m_aStrategicEvents)
+		{
+			if (strategic
+				&& strategic.m_sSourceType == "town_influence"
+				&& strategic.m_sSourceId == influenceEventId)
+				return true;
+		}
+		return false;
+	}
+
 	protected bool ExactEventMatches(
 		HST_TownInfluenceEventState eventState,
 		HST_TownInfluenceCommand command)
@@ -1775,6 +1949,10 @@ class HST_TownInfluenceService
 			|| eventState.m_iRoadblockDelta != command.m_iRoadblockDelta
 			|| eventState.m_bPopulationScaled != command.m_bPopulationScaled
 			|| eventState.m_iPopulationUsed <= 0)
+			return false;
+		if (eventState.m_sAggressionFactionKey
+				!= command.m_sAggressionFactionKey
+			|| eventState.m_iAggressionDelta != command.m_iAggressionDelta)
 			return false;
 		if (eventState.m_bAbsoluteDebugSeed
 			!= command.m_bAbsoluteDebugSeed)

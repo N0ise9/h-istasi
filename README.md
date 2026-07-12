@@ -1,56 +1,96 @@
 # h-istasi
 
-The current sealed source/Workbench checkpoint keeps campaign-state Schema 64
-and advances runtime settings from Schema 23 to Schema 24 for the first
-Blueprint Phase 8 ambient-population runtime slice. It identifies implementation
+The current development tree is an unsealed Campaign Schema 65/runtime-settings
+Schema 24 Blueprint Phase 8 civilian-consequence slice. It extends the sealed
+ambient runtime without making disposable actor topology authoritative. Logical
+town population, faction support, reputation/wanted heat, and enemy aggression
+remain durable even when no pedestrian is rendered. Each locality also persists
+a revisioned combat-danger episode envelope: current danger, episode and applied-
+receipt counts, the consumed combat-presence revision, transition time, panic
+deadline, last consequence ID, and fail-closed authority diagnostics.
+
+The server game-mode destruction callback now identifies an exact tracked
+civilian victim and retains it for admission to a 256-row casualty queue. A
+separate 64-row queue owns deferred theft receipts. The callback never performs
+the political mutation itself: the server drains at most four combined
+consequence transactions per frame before claim observation and persistence.
+Rejected rows retry indefinitely with a bounded 5/10/15-second backoff, and a
+full queue retains the observation instead of discarding or re-identifying it.
+Any retained observation, queued receipt, or queue-authority fault defers save
+capture. A dead-character health check is a once-only fallback. Accepted
+canonical-town casualties use the exact town-influence boundary to update
+population, support, reputation, wanted heat, and any attributable enemy
+aggression. Exact replay is read-only and a reused ID with different facts fails
+closed.
+
+A civilian vehicle theft consequence is admitted only after the live vehicle has
+successfully crossed into durable `field_vehicle` authority. Its event ID is
+derived from that durable vehicle ID. Only an exact resistance player in a pilot
+seat can claim a civilian traffic/static vehicle for theft; passenger-only roots
+remain non-recyclable during budget/health cleanup until exit or pilot claim but
+do not promote or create a theft receipt. Nearby combat similarly consumes only the current combat-presence
+revision and its exact current-operation/recent-fire counts. `HOT` or cooling
+status by itself is deliberately inert, so a routine garrison cannot create
+repeated civilian pressure. Any previously opened but unapplied combat receipt
+drains before a new edge is admitted. A new danger edge opens one durable
+episode and can apply at most one canonical-town political event; continued
+observations refresh the envelope without replaying the event.
+
+Physical pedestrians now follow the bounded `Wandering -> Panicked -> Recovering`
+path. A danger or exact casualty threat replaces wander behavior with a running
+move waypoint away from the threat; expiry restores walking/wander behavior only
+after native waypoint acknowledgement. Panic-route loss/stall uses its own
+bounded recovery counter, while repeated danger extends or re-enters panic
+without consuming the ordinary stuck-recovery budget. Route maintenance does not
+re-run AI activation on the hot path. This slice does not add a traffic panic
+state. Minor localities still have no canonical political town
+record: casualty and nearby-combat observations may drive panic only, using a
+bounded session-memory receipt fingerprint, while vehicle-theft political
+consequences require a canonical town. That minor-locality de-duplication receipt
+does not survive restart and never invents support, population, heat, or
+aggression history.
+
+Schema-64 saves migrate by initializing the new episode envelope from the exact
+current-operation/recent-fire facts already stored on each zone. An active
+baseline becomes the adopted applied floor and receives a bounded panic deadline,
+but migration does not create or replay a casualty, theft, combat, town-
+influence, or strategic aggression event. The adopted floor is limited to zero
+or one, and current authority requires `episode - lastApplied <= 1`. Pre-65 town
+events receive empty aggression evidence. Current Schema-65 restore builds
+bounded event/receipt indexes, validates each live town's last-event backlink and
+the structural aggression before/after/strategic chain, and then checks the
+aggression target against the live preset after restore because faction roles
+are not serialized. Every post-adoption live combat event must also retain the
+canonical fingerprint: heat `+4`, zero other political/aggression/population
+effects, exact source/reason, and unchanged support/population before/after.
+Structural or preset-role inconsistency is quarantined
+instead of guessed. Exhausted stable-ID authority also fails strategic admission
+before mutation rather than wrapping.
+
+The deterministic state-only proof suites are complete and wired for casualty
+policy and attribution, replay/conflict handling, theft, `HOT`-only rejection,
+danger episode edges, minor-locality panic-only behavior, malformed authority,
+aggression admission, save-copy/restore validation, and pedestrian panic/
+recovery transitions. They do not create native entities or perform real profile
+I/O. Campaign Debug execution, native callback/waypoint behavior, real save/
+restart, rendered observation, packaged server/client and multiplayer proof, and
+the ten-town/ten-minute stutter/churn soak remain open. Preliminary unstamped
+normal compile/create and all-five-configuration validation of the unsealed
+Schema-65 tree are clean at 5,802 Game files/11,728 classes with CRC `be076102`,
+`Script validation successful`, zero HST script errors, and zero surviving
+Workbench processes. Final Foundation, stamped-tree reruns, native, package,
+real-profile, multiplayer, and soak gates remain open; these checks are not
+runtime proof or a publishable identity.
+
+The last sealed and therefore last publishable checkpoint remains Campaign
+Schema 64/runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
-`schema64-settings24-ambient-runtime-authority`.
-One global actor budget and a nested traffic budget now cover all eligible
-localities; traffic drivers consume the actor budget, constrained allocations
-use a stable fair rotation on leases of at least 120 seconds, and only four
-ambient root-spawn transactions may begin per global health update. Pedestrians
-and traffic reserve budget while their asynchronous setup is pending, but count
-as behavior-ready only after native group/waypoint acknowledgement and, for
-traffic, exact pilot-seat, running-engine, and current-route acknowledgement.
-Movement health checks use bounded recovery and recycle instead of unbounded
-respawn or replan loops. Every actor retains an immutable slot within its
-zone/kind projection set, and recovery derives a new slot-specific route without
-turning mutable position or population counts into identity.
-
-Unclaimed ambient actors, vehicles, and their transient runtime rows are
-session-only and do not alter logical town population. Before persistence on
-every server frame, a player-first occupancy observation promotes a live ambient
-vehicle to durable `field_vehicle` authority; a synchronous pre-capture barrier
-repeats that observation and defers capture if exact durable reconciliation
-fails. Destroyed vehicles and dead controlled occupants cannot create claims.
-A shared live-root tracker registers ambient promotions, restored/adopted field
-vehicles, and garage redeploys so current transform, destruction state, and
-linked cargo position are captured. Saved durable IDs remain stable across
-restart instead of being rekeyed to process-local replication IDs; restore and
-tracker registration run before first-frame claim observation. Garage redeploy
-allocates a fresh campaign ID and joins the tracker before stored-row removal or
-payment, with root/row/cargo/binding rollback on failure. New-campaign reset can carry forward an
-occupied live tracked `loot_vehicle`, `field_vehicle`, or `garage_redeploy`
-root, normalizes each retained row to `field_vehicle`, copies its vehicle/cargo
-rows before replacing state, and deletes every other bound root once. Save capture/restore
-excludes unclaimed ambience and linked cargo, and legacy detached ambient claims
-normalize to the same durable field-vehicle boundary. Routine ambient movement
-and reconciliation no longer report a durable state change, removing another
-autosave/dirty-state path behind the reported one-second stutter. This remains a
-source mitigation until runtime profiling proves the result.
-
-The current sealed source/Workbench evidence is Foundation at 711 script-
-symbol references, normal compilation at 5,799 files/11,718 classes with CRC
-`bb083672`, successful validation for all five configurations, zero HST script
-errors, and zero surviving Workbench processes. The pure allocation, lifecycle,
-settings-migration, and save-boundary proofs are compiled and wired but have not
-been executed through Campaign Debug. Native server execution, a ten-town/
-ten-minute soak, brief enter/exit observation, autosave/restart, promoted-root
-destruction and new-campaign-reset behavior, Campaign Debug Phase 20 production-path execution,
-automatic casualty/theft/nearby-combat influence and panic/recovery consequences,
-rendered behavior, stutter
-measurement, and multiplayer proof remain open.
+`schema64-settings24-ambient-runtime-authority`. Its final sealed-tree evidence is
+Foundation at 711 script-symbol references, normal compilation at 5,799 files/
+11,718 classes with CRC `bb083672`, successful validation for all five
+configurations, zero HST script errors, and zero surviving Workbench processes.
+No Schema-65 build identity or package is sealed yet.
 
 The preceding sealed checkpoint is campaign Schema 64 on runtime-settings
 Schema 23. `HST_TownInfluenceRecord` is its sole political support and town-
@@ -264,12 +304,35 @@ The repository contains a broad-alpha campaign foundation:
   deletes every other bound root once. Save capture/restore drops unclaimed
   ambient rows and cargo and converts a legacy live detached ambient claim to
   that field-vehicle form. Deterministic allocator, lifecycle, settings-
-  migration, and save-boundary proof services are compiled and wired; Campaign
+  migration, and save-boundary proof services are complete and wired; Campaign
   Debug, a native server, ten-town/ten-minute soak, native brief enter/exit,
-  autosave/restart, destruction, reset, and automatic casualty/theft/nearby-
-  combat influence and panic/recovery proof remain open. Commander aid and
-  ownership/security-pressure paths exist in source but still need runtime proof;
-  deeper local-security behavior remains implementation work.
+  autosave/restart, destruction, and reset remain open.
+- The unsealed Schema-65 civilian-consequence layer observes exact ambient
+  deaths through a server callback and uses bounded 256-casualty/64-theft queues,
+  a combined four-transaction frame cap, and bounded-backoff indefinite retry
+  outside that callback. Pending authority defers capture. Successful durable
+  promotion by an exact resistance pilot applies one theft receipt keyed by its
+  durable vehicle ID; passenger occupancy only protects the transient root.
+  Nearby-
+  combat policy requires the current combat-presence revision plus a positive
+  current-operation or recent-fire count; `HOT` alone has no effect. Canonical-
+  town events preserve population, faction support, reputation, wanted heat,
+  enemy aggression, and exact strategic receipts while a persisted episode
+  envelope drains any older pending receipt before a new edge and preserves
+  `episode - lastApplied <= 1`. Physical pedestrians run the bounded
+  `Wandering -> Panicked -> Recovering` lifecycle with a separate bounded panic-
+  route recovery counter and no hot-path AI reactivation. Minor localities remain panic-
+  only where allowed and use session-only de-duplication, never invented
+  political facts. The casualty, replay/conflict, attribution, theft, combat,
+  minor-locality, malformed, aggression, persistence, and panic-transition proof
+  cases are complete and wired. Preliminary unstamped normal Workbench compile/
+  create and all-five validation are clean at 5,802 Game files/11,728 classes
+  with CRC `be076102`, `Script validation successful`, zero HST script errors,
+  and zero surviving processes. Final Foundation, stamped Workbench reruns,
+  native callbacks, movement, profile restart, package, multiplayer, and
+  rendered behavior remain open. Commander aid and
+  ownership/security-pressure paths also still need runtime proof; deeper local-
+  security behavior remains implementation work.
 - Runtime and garage vehicle heat/report state for undercover vehicle cover,
   with passenger compromise counts, report expiry, capture/redeploy handoff,
   save-data preservation, and one-button debug proof
@@ -951,19 +1014,27 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-The current source/Workbench checkpoint is a sealed Blueprint Phase 8
-ambient-runtime slice on campaign Schema 64 and runtime-settings Schema 24. It
-identifies implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC
+The current development tree is the unsealed Campaign Schema 65/runtime-settings
+Schema 24 civilian-consequence continuation of Blueprint Phase 8. It adds the
+server casualty queue, durable-promotion theft receipt, exact combat-danger
+episode envelope, durable political/aggression consequences, and physical
+pedestrian panic/recovery described above. Its deterministic state proofs are
+complete and wired. Preliminary unstamped normal Workbench compile/create and
+all-five validation are clean at 5,802 Game files/11,728 classes with CRC
+`be076102`, `Script validation successful`, zero HST script errors, and zero
+surviving Workbench processes, but it has no sealed build identity and does not
+yet have final Foundation, stamped reruns, native, profile-I/O, packaged,
+multiplayer, or soak evidence.
+
+The last sealed and publishable tree remains the Campaign Schema 64/runtime-
+settings Schema 24 ambient-runtime checkpoint. It identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
-`schema64-settings24-ambient-runtime-authority`. It adds globally bounded,
-leased fair allocation; transactional behavior admission; bounded movement
-recovery with immutable projection slots; session-only ambience; per-frame
-occupancy observation; and a fail-closed durable field-vehicle save boundary.
-Foundation passes at 711 references. Normal Workbench
-compilation and all-five-configuration validation pass at 5,799 files/11,718
-classes with CRC `bb083672`, zero HST script errors, and zero surviving
-Workbench processes. Those checks are source/compile evidence, not Campaign
-Debug or native runtime proof.
+`schema64-settings24-ambient-runtime-authority`. Foundation passes at 711
+references. Normal Workbench compilation and all-five-configuration validation
+pass at 5,799 files/11,718 classes with CRC `bb083672`, zero HST script errors,
+and zero surviving Workbench processes. Those checks are source/compile evidence,
+not Campaign Debug or native runtime proof.
 
 Schema 64/runtime-settings Schema 23 is the preceding sealed source/Workbench tree.
 It canonicalizes curated-town support/population, strict political hysteresis,
@@ -982,10 +1053,11 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Publish only the sealed Schema-64/settings-24 implementation identity recorded
-   above, then require the package, server, clients, logs, and artifacts to report
-   that exact identity. A package carrying any other identity is not evidence for
-   this checkpoint.
+1. Do not publish the unsealed Schema-65 tree as the sealed Schema-64 build. Until
+   a new stamp is created, the only publishable identity is the sealed Schema-64/
+   settings-24 implementation recorded above. Require any package, server,
+   clients, logs, and artifacts claimed for that checkpoint to report its exact
+   identity.
 2. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event
@@ -1011,10 +1083,17 @@ networking, reconnect, or JIP.
    staging clearance must not erase either location. Confirm that the observed
    once-per-second stutter and continuous AI horns are gone. Also prove real
    save/restart, short player-use vehicle claims without loss or duplication,
-   automatic casualty/theft/nearby-combat influence and panic/recovery behavior.
-   Commander aid and ownership/security-pressure paths also need runtime proof,
-   while deeper local-security behavior remains implementation work. Source
-   inspection alone does not close any of those runtime gates.
+   exact server casualty queue/drain attribution, civilian theft only after
+   durable promotion by an exact resistance pilot, and at most one canonical-
+   town nearby-combat consequence per danger episode. Passengers must protect a
+   live ambient root without promoting it or creating theft.
+   Demonstrate that `HOT` alone is inert, logical population/support/heat/
+   aggression survives with no rendered actors, and pedestrians complete
+   `Wandering -> Panicked -> Recovering`. Include the panic-only minor-locality
+   restart limitation explicitly. Commander aid and ownership/security-pressure
+   paths also need runtime proof, while deeper local-security behavior remains
+   implementation work. Source inspection alone does not close any of those
+   runtime gates.
 4. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
 5. Runtime-prove exact paid-QRF creation and the schema-50 operation path:
@@ -1162,7 +1241,8 @@ operations milestone: generalized live-contact authority, terrain and
   contract. Schema 63 likewise adds no force family; it gives existing force
   projections one shared crew-aware combat-presence/heat boundary. Sealed
   Schema 64 also adds no force family; it canonicalizes town political state and
-  its Map/War projection. The
+  its Map/War projection. Unsealed Schema 65 adds civilian consequence and panic
+  authority without widening any force-operation contract. The
   assassination-guard family is exhausted after Schema 57;
   Schema 58 implements the first rescue vertical only. Schema 59 separately
   implements the exact radio-site lifecycle. Schema 60 adds only the new player

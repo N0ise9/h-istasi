@@ -44,7 +44,10 @@ class HST_EconomyService
 		if (!pool)
 			return;
 
-		pool.m_iAggression = Math.Max(0, pool.m_iAggression + amount);
+		if (amount > 0 && pool.m_iAggression > int.MAX - amount)
+			pool.m_iAggression = int.MAX;
+		else
+			pool.m_iAggression = Math.Max(0, pool.m_iAggression + amount);
 	}
 
 	bool TickAggressionDecay(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)

@@ -149,6 +149,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_HQService m_HQ;
 	protected ref HST_PlayerLifecycleService m_PlayerLifecycle;
 	protected ref HST_TownInfluenceService m_TownInfluence;
+	protected ref HST_CivilianConsequenceService m_CivilianConsequences;
 	protected ref HST_TownService m_Towns;
 	protected ref HST_GarrisonService m_Garrisons;
 	protected ref HST_RecruitmentService m_Recruitment;
@@ -397,6 +398,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_TownInfluence = new HST_TownInfluenceService();
 		m_TownInfluence.SetCampaignPreset(m_Preset);
 		m_TownInfluence.SetStrategicService(m_Strategic);
+		m_TownInfluence.SetEconomyService(m_Economy);
+		m_CivilianConsequences = new HST_CivilianConsequenceService();
+		m_CivilianConsequences.SetCampaignPreset(m_Preset);
+		m_CivilianConsequences.SetTownInfluenceService(m_TownInfluence);
 		m_Strategic.SetTownInfluenceService(m_TownInfluence);
 		m_Economy.SetTownInfluenceService(m_TownInfluence);
 		m_Arsenal = new HST_ArsenalService();
@@ -513,6 +518,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Civilians.SetCampaignPreset(m_Preset);
 			m_Civilians.SetCombatPresenceService(m_CombatPresence);
 			m_Civilians.SetTownInfluenceService(m_TownInfluence);
+			m_Civilians.SetCivilianConsequenceService(
+				m_CivilianConsequences);
 			m_Civilians.SetPersistentFieldVehicleRuntimeService(
 				m_PersistentFieldVehicles);
 			if (m_Persistence)
@@ -568,6 +575,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		if (m_TownInfluence)
+			m_TownInfluence.ValidateRestoredAggressionFactionRoles(
+				m_State,
+				m_Preset);
 		if (m_ForceSpawnQueue)
 			m_ForceSpawnQueue.ReconcileCampaignAfterRestore(m_State);
 		if (m_ForcePlanning && m_Garrisons && m_ResourceLedger)
@@ -651,6 +662,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_PlayerMapMarkers.RequestRefresh(string.Format("player connected %1", playerId));
 	}
 
+	override void OnControllableDestroyed(
+		notnull SCR_InstigatorContextData instigatorContextData)
+	{
+		super.OnControllableDestroyed(instigatorContextData);
+		if (!Replication.IsServer() || !m_State || !m_Civilians)
+			return;
+		m_Civilians.ObserveAmbientCivilianDestroyed(
+			m_State,
+			instigatorContextData);
+	}
+
 	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
@@ -685,6 +707,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_Civilians)
 		{
+			if (m_Civilians.FlushPendingCivilianConsequences(m_State))
+				MarkMajorCampaignChange(false);
 			if (m_Civilians.ObservePlayerAmbientVehicleClaims(m_State))
 				MarkMajorCampaignChange(false);
 			m_Civilians.SuppressAmbientTrafficHornInput();
@@ -963,6 +987,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Preset,
 			m_Balance,
 			m_Preset.m_sResistanceFactionKey);
+		bool civilianConsequenceChanged = m_Civilians
+			&& m_Civilians.TickCivilianCombatConsequences(m_State);
 		bool captureChanged = m_ZoneCapture.TickContestedCapture(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, elapsedSeconds);
 		bool campaignOutcomeChanged = EvaluateCampaignOutcomeNow();
 		bool civilianRuntimeChanged = m_Civilians.UpdatePhysicalTownPopulation(m_State, m_Preset, m_Balance);
@@ -997,6 +1023,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || undercoverEnforcementChanged || supportChanged || enemyOrdersChanged;
 		anyStateChanged = anyStateChanged || petrosRelocationChanged || hqThreatChanged || petrosDefenseChanged || hqRuntimeChanged;
 		anyStateChanged = anyStateChanged || physicalWarChanged || combatPresenceSampleChanged;
+		anyStateChanged = anyStateChanged || civilianConsequenceChanged;
 		anyStateChanged = anyStateChanged || combatPresenceChanged || captureChanged || campaignOutcomeChanged;
 		anyStateChanged = anyStateChanged || civilianRuntimeChanged;
 
@@ -17479,9 +17506,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_AmbientActorRuntimeProofService runtimeProofService
 			= new HST_AmbientActorRuntimeProofService();
 		HST_AmbientActorRuntimeProofReport runtimeProof = runtimeProofService.Run();
-		if (!budgetProof || !runtimeProof)
+		HST_CivilianConsequenceProofService consequenceProofService
+			= new HST_CivilianConsequenceProofService();
+		HST_CivilianConsequenceProofReport consequenceProof
+			= consequenceProofService.Run();
+		if (!budgetProof || !runtimeProof || !consequenceProof)
 		{
-			AddCampaignDebugAssertion(forceCase, "ambient_population.source_proof", "ambient budget and runtime source proof reports exist", "missing", "BLOCKED", "ambient-population source proof did not return both reports");
+			AddCampaignDebugAssertion(forceCase, "ambient_population.source_proof", "ambient budget, runtime, and consequence source proof reports exist", "missing", "BLOCKED", "ambient-population source proof did not return every report");
 			return;
 		}
 
@@ -17502,11 +17533,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		forceCase.m_aEvidence.Insert(runtimeProof.m_sProgressResetEvidence);
 		forceCase.m_aEvidence.Insert(runtimeProof.m_sBudgetReadinessEvidence);
 		forceCase.m_aEvidence.Insert(runtimeProof.m_sDeterministicEvidence);
+		forceCase.m_aEvidence.Insert(runtimeProof.m_sPanicRecoveryEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.BuildReport());
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sResistanceCasualtyEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sReplayAndConflictEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sEnemyAndUnknownEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sVehicleTheftEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sCombatEpisodeEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sMinorLocalityEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sMalformedInputEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sPersistenceEvidence);
+		forceCase.m_aEvidence.Insert(consequenceProof.m_sAggressionAdmissionEvidence);
 		AddCampaignDebugAssertion(forceCase, "ambient_population.budget", "ten-town allocation is deterministic, fair, and globally bounded", budgetProof.BuildReport(), CampaignDebugStatus(budgetProof.AllExact()), "ambient actor budget proof failed");
 		AddCampaignDebugAssertion(forceCase, "ambient_population.driver_budget", "traffic drivers consume the same total actor budget as pedestrians", budgetProof.m_sTrafficDriversInTotalEvidence, CampaignDebugStatus(budgetProof.m_bTrafficDriversInTotalExact), "traffic drivers escaped the global actor budget");
 		AddCampaignDebugAssertion(forceCase, "ambient_population.rotation", "constrained town floors rotate deterministically across epochs", budgetProof.m_sRotationFairnessEvidence, CampaignDebugStatus(budgetProof.m_bRotationFairnessExact), "ambient town allocation was not fair across epochs");
 		AddCampaignDebugAssertion(forceCase, "ambient_population.lifecycle", "the lifecycle kernel permits admission only after modeled acknowledgement states", runtimeProof.BuildReport(), CampaignDebugStatus(runtimeProof.AllExact()), "ambient actor lifecycle kernel proof failed");
 		AddCampaignDebugAssertion(forceCase, "ambient_population.recovery", "the lifecycle kernel bounds modeled recovery and queues disposal after its retry budget", runtimeProof.m_sBoundedRecoveryEvidence, CampaignDebugStatus(runtimeProof.m_bBoundedRecoveryExact), "ambient actor recovery kernel was unbounded or failed to recycle");
+		AddCampaignDebugAssertion(forceCase, "ambient_population.panic_recovery", "pedestrian panic remains behavior-ready, extends one episode, rebounds, and returns through bounded recovery", runtimeProof.m_sPanicRecoveryEvidence, CampaignDebugStatus(runtimeProof.m_bPanicRecoveryExact), "ambient pedestrian panic/recovery lifecycle was not exact");
+		AddCampaignDebugAssertion(forceCase, "civilian_consequence.aggregate", "Schema-65 civilian casualty, theft, combat, and minor-locality policies are exact", consequenceProof.BuildReport(), CampaignDebugStatus(consequenceProof.AllExact()), "civilian consequence source proof failed");
+		AddCampaignDebugAssertion(forceCase, "civilian_consequence.replay", "exact casualty and theft replays are read-only while conflicting fingerprints fail closed", consequenceProof.m_sReplayAndConflictEvidence, CampaignDebugStatus(consequenceProof.m_bReplayAndConflictExact), "civilian consequence replay or conflict handling was not exact");
+		AddCampaignDebugAssertion(forceCase, "civilian_consequence.combat_episode", "garrison heat alone is inert and each real combat episode applies once", consequenceProof.m_sCombatEpisodeEvidence, CampaignDebugStatus(consequenceProof.m_bCombatEpisodeExact), "civilian combat danger episode authority was not exact");
+		AddCampaignDebugAssertion(forceCase, "civilian_consequence.persistence", "Schema-64 adoption is no-effect and Schema-65 envelopes/aggression receipts round-trip or quarantine exactly", consequenceProof.m_sPersistenceEvidence, CampaignDebugStatus(consequenceProof.m_bPersistenceExact), "civilian consequence persistence or migration authority was not exact");
+		AddCampaignDebugAssertion(forceCase, "civilian_consequence.aggression_admission", "aggression requires unique enemy pools, exact services, bounded headroom, and an unclaimed strategic source", consequenceProof.m_sAggressionAdmissionEvidence, CampaignDebugStatus(consequenceProof.m_bAggressionAdmissionExact), "civilian aggression admission failed open or mutated rejected state");
 		AppendCampaignDebugAmbientPersistenceAssertions(forceCase);
 	}
 

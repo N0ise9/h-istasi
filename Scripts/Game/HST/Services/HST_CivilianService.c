@@ -112,6 +112,14 @@ class HST_CivilianService
 	static const float CIVILIAN_WANDER_MIN_RADIUS_METERS = 16.0;
 	static const int CIVILIAN_WANDER_RADIUS_VARIANCE_METERS = 36;
 	static const float CIVILIAN_WANDER_COMPLETION_RADIUS_METERS = 3.0;
+	static const float CIVILIAN_PANIC_FLEE_MIN_DISTANCE_METERS = 45.0;
+	static const int CIVILIAN_PANIC_FLEE_DISTANCE_VARIANCE_METERS = 25;
+	static const float CIVILIAN_PANIC_WAYPOINT_RADIUS_METERS = 5.0;
+	static const int CIVILIAN_LOCAL_THREAT_PANIC_SECONDS = 30;
+	static const int MAX_PENDING_CIVILIAN_CASUALTIES = 256;
+	static const int MAX_PENDING_CIVILIAN_THEFTS = 64;
+	static const int MAX_CIVILIAN_CONSEQUENCE_TRANSACTIONS_PER_FRAME = 4;
+	static const int MAX_CIVILIAN_CASUALTY_RETRIES = 3;
 	static const float CIVILIAN_TRAFFIC_ROUTE_MIN_RADIUS_METERS = 220.0;
 	static const int CIVILIAN_TRAFFIC_ROUTE_RADIUS_VARIANCE_METERS = 420;
 	static const float CIVILIAN_TRAFFIC_WAYPOINT_RADIUS_METERS = 18.0;
@@ -128,6 +136,7 @@ class HST_CivilianService
 	static const string CIVILIAN_AI_GROUP_PREFAB = "{6985327711303920}Prefabs/Groups/CIV/HST_CivilianRuntimeEmptyGroup.et";
 	static const string CIVILIAN_WANDER_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const string CIVILIAN_WANDER_CYCLE_WAYPOINT_PREFAB = "{35BD6541CBB8AC08}Prefabs/AI/Waypoints/AIWaypoint_Cycle.et";
+	static const string CIVILIAN_FLEE_WAYPOINT_PREFAB = "{750A8D1695BD6998}Prefabs/AI/Waypoints/AIWaypoint_Move.et";
 	static const string SIMONS_WOOD_ZONE_ID = "town_simons_wood";
 
 	protected ref array<string> m_aRuntimeZoneIds = {};
@@ -147,6 +156,22 @@ class HST_CivilianService
 	protected ref array<int> m_aStaticCivilianVehicleSlotsCompleted = {};
 	protected ref array<int> m_aStaticMilitaryVehicleSlotsCompleted = {};
 	protected ref array<string> m_aStaticMilitaryInitializationOwnerKeys = {};
+	protected ref array<string> m_aPendingCivilianCasualtyZoneIds = {};
+	protected ref array<string> m_aPendingCivilianCasualtyEventIds = {};
+	protected ref array<string> m_aPendingCivilianCasualtyFactionKeys = {};
+	protected ref array<string> m_aPendingCivilianCasualtySourceIds = {};
+	protected ref array<vector> m_aPendingCivilianCasualtyPositions = {};
+	protected ref array<int> m_aPendingCivilianCasualtyAttempts = {};
+	protected ref array<int> m_aPendingCivilianCasualtyRetrySeconds = {};
+	protected ref array<string> m_aPendingCivilianTheftZoneIds = {};
+	protected ref array<string> m_aPendingCivilianTheftEventIds = {};
+	protected ref array<string> m_aPendingCivilianTheftFactionKeys = {};
+	protected ref array<string> m_aPendingCivilianTheftSourceIds = {};
+	protected ref array<int> m_aPendingCivilianTheftAttempts = {};
+	protected ref array<int> m_aPendingCivilianTheftRetrySeconds = {};
+	protected bool m_bPendingCivilianConsequenceAuthorityFault;
+	protected ref array<string> m_aCivilianPanicThreatZoneIds = {};
+	protected ref array<vector> m_aCivilianPanicThreatPositions = {};
 	// Promoted ambient roots leave projection ownership immediately, but retain
 	// this lightweight live binding so every checkpoint can snapshot their
 	// current transform and terminal destruction state.
@@ -169,6 +194,7 @@ class HST_CivilianService
 	protected HST_StrategicService m_Strategic;
 	protected HST_OwnershipTransitionService m_OwnershipTransitions;
 	protected HST_TownInfluenceService m_TownInfluence;
+	protected HST_CivilianConsequenceService m_CivilianConsequences;
 	protected HST_PersistentFieldVehicleRuntimeService m_PersistentFieldVehicles;
 	protected HST_CampaignPreset m_Preset;
 
@@ -187,6 +213,12 @@ class HST_CivilianService
 		m_TownInfluence = townInfluence;
 	}
 
+	void SetCivilianConsequenceService(
+		HST_CivilianConsequenceService civilianConsequences)
+	{
+		m_CivilianConsequences = civilianConsequences;
+	}
+
 	void SetPersistentFieldVehicleRuntimeService(
 		HST_PersistentFieldVehicleRuntimeService persistentFieldVehicles)
 	{
@@ -199,12 +231,533 @@ class HST_CivilianService
 			m_CombatPresence = combatPresence;
 	}
 
+	// The native destruction callback only admits an immutable receipt. Durable
+	// town/population mutation is drained at the next server frame before the
+	// persistence tick, so native callback re-entry cannot partially apply it.
+	bool ObserveAmbientCivilianDestroyed(
+		HST_CampaignState state,
+		notnull SCR_InstigatorContextData context)
+	{
+		if (!state || !m_CivilianConsequences)
+			return false;
+		SCR_ECharacterDeathStatusRelations relation
+			= context.GetVictimKillerRelation();
+		if (relation == SCR_ECharacterDeathStatusRelations.DELETED
+			|| relation == SCR_ECharacterDeathStatusRelations.DELETED_BY_EDITOR)
+			return false;
+		IEntity victim = context.GetVictimEntity();
+		if (!victim)
+			return false;
+		HST_AmbientActorRuntimeRecord record
+			= FindAmbientCivilianRecordForVictim(victim);
+		if (!record || record.m_bCasualtyObserved)
+			return false;
+		RetainPendingCasualtyObservation(
+			record,
+			ResolveCivilianConsequenceFaction(context),
+			victim.GetOrigin());
+		TryAdmitRetainedCasualtyObservation(state, record);
+		SetCivilianPanicThreat(record.m_sZoneId, victim.GetOrigin());
+		return true;
+	}
+
+	bool FlushPendingCivilianConsequences(HST_CampaignState state)
+	{
+		if (!state || !m_CivilianConsequences)
+			return false;
+		foreach (HST_AmbientActorRuntimeRecord retainedRecord : m_aAmbientActorRecords)
+		{
+			if (retainedRecord && retainedRecord.m_bCasualtyAdmissionPending)
+				TryAdmitRetainedCasualtyObservation(state, retainedRecord);
+		}
+		if (!HasExactPendingCivilianCasualtyArrays()
+			|| !HasExactPendingCivilianTheftArrays())
+		{
+			if (!m_bPendingCivilianConsequenceAuthorityFault)
+			{
+				Print(
+					"h-istasi civilians | pending consequence queue authority is inconsistent",
+					LogLevel.ERROR);
+			}
+			m_bPendingCivilianConsequenceAuthorityFault = true;
+			return false;
+		}
+		bool changed;
+		int index;
+		int transactionCount;
+		while (index < m_aPendingCivilianCasualtyZoneIds.Count()
+			&& transactionCount
+				< MAX_CIVILIAN_CONSEQUENCE_TRANSACTIONS_PER_FRAME)
+		{
+			if (state.m_iElapsedSeconds
+				< m_aPendingCivilianCasualtyRetrySeconds[index])
+			{
+				index++;
+				continue;
+			}
+			transactionCount++;
+			HST_CivilianConsequenceResult result
+				= m_CivilianConsequences.RegisterPedestrianCasualty(
+					state,
+					m_aPendingCivilianCasualtyZoneIds[index],
+					m_aPendingCivilianCasualtyEventIds[index],
+					m_aPendingCivilianCasualtyFactionKeys[index],
+					m_aPendingCivilianCasualtySourceIds[index]);
+			if (result)
+				changed = result.m_bChanged || changed;
+			bool accepted = result && result.m_bAccepted;
+			if (accepted)
+			{
+				RemovePendingCivilianCasualtyAt(index);
+				continue;
+			}
+			int casualtyAttempt = m_aPendingCivilianCasualtyAttempts[index];
+			if (casualtyAttempt < int.MAX - 1)
+				casualtyAttempt++;
+			m_aPendingCivilianCasualtyAttempts[index] = casualtyAttempt;
+			int boundedAttempt = Math.Min(
+				MAX_CIVILIAN_CASUALTY_RETRIES,
+				m_aPendingCivilianCasualtyAttempts[index]);
+			int retryDelay = Math.Max(1, boundedAttempt * 5);
+			int retrySecond = int.MAX;
+			if (state.m_iElapsedSeconds <= int.MAX - retryDelay)
+				retrySecond = state.m_iElapsedSeconds + retryDelay;
+			m_aPendingCivilianCasualtyRetrySeconds[index] = retrySecond;
+			if (m_aPendingCivilianCasualtyAttempts[index] == 1
+				|| m_aPendingCivilianCasualtyAttempts[index]
+					== MAX_CIVILIAN_CASUALTY_RETRIES)
+			{
+				string failure = "unknown";
+				if (result && !result.m_sFailureReason.IsEmpty())
+					failure = result.m_sFailureReason;
+				Print(string.Format(
+					"h-istasi civilians | casualty consequence retained for retry in %1: %2",
+					m_aPendingCivilianCasualtyZoneIds[index],
+					failure), LogLevel.ERROR);
+			}
+			index++;
+		}
+
+		index = 0;
+		while (index < m_aPendingCivilianTheftZoneIds.Count()
+			&& transactionCount
+				< MAX_CIVILIAN_CONSEQUENCE_TRANSACTIONS_PER_FRAME)
+		{
+			if (state.m_iElapsedSeconds
+				< m_aPendingCivilianTheftRetrySeconds[index])
+			{
+				index++;
+				continue;
+			}
+			transactionCount++;
+			HST_CivilianConsequenceResult theftResult
+				= m_CivilianConsequences.RegisterCivilianVehicleTheft(
+					state,
+					m_aPendingCivilianTheftZoneIds[index],
+					m_aPendingCivilianTheftEventIds[index],
+					m_aPendingCivilianTheftFactionKeys[index],
+					m_aPendingCivilianTheftSourceIds[index]);
+			if (theftResult)
+				changed = theftResult.m_bChanged || changed;
+			if (theftResult && theftResult.m_bAccepted)
+			{
+				RemovePendingCivilianTheftAt(index);
+				continue;
+			}
+			int theftAttempt = m_aPendingCivilianTheftAttempts[index];
+			if (theftAttempt < int.MAX - 1)
+				theftAttempt++;
+			m_aPendingCivilianTheftAttempts[index] = theftAttempt;
+			int boundedTheftAttempt = Math.Min(
+				MAX_CIVILIAN_CASUALTY_RETRIES,
+				theftAttempt);
+			int theftRetryDelay = Math.Max(1, boundedTheftAttempt * 5);
+			int theftRetrySecond = int.MAX;
+			if (state.m_iElapsedSeconds <= int.MAX - theftRetryDelay)
+				theftRetrySecond = state.m_iElapsedSeconds + theftRetryDelay;
+			m_aPendingCivilianTheftRetrySeconds[index] = theftRetrySecond;
+			if (theftAttempt == 1
+				|| theftAttempt == MAX_CIVILIAN_CASUALTY_RETRIES)
+			{
+				string theftFailure = "unknown";
+				if (theftResult
+					&& !theftResult.m_sFailureReason.IsEmpty())
+					theftFailure = theftResult.m_sFailureReason;
+				Print(string.Format(
+					"h-istasi civilians | theft consequence retained for retry in %1: %2",
+					m_aPendingCivilianTheftZoneIds[index],
+					theftFailure), LogLevel.ERROR);
+			}
+			index++;
+		}
+		return changed;
+	}
+
+	bool TickCivilianCombatConsequences(HST_CampaignState state)
+	{
+		if (!state || !m_CivilianConsequences)
+			return false;
+		bool changed;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || !IsCivilianLocality(zone)
+				|| zone.m_iCombatPresenceRevision <= 0)
+				continue;
+			bool dangerFacts = zone.m_iCombatPresenceCurrentOperationCount > 0
+				|| zone.m_iCombatPresenceRecentFireCount > 0;
+			if (!dangerFacts && !zone.m_bCivilianCombatDangerActive
+				&& zone.m_iCivilianLastCombatPresenceRevision
+					== zone.m_iCombatPresenceRevision
+				&& zone.m_iCivilianLastAppliedCombatEpisodeCount
+					== zone.m_iCivilianCombatEpisodeCount
+				&& (zone.m_iCivilianPanicUntilSecond == 0
+					|| zone.m_iCivilianPanicUntilSecond
+						> state.m_iElapsedSeconds))
+				continue;
+			HST_CivilianConsequenceResult result
+				= m_CivilianConsequences.ObserveNearbyCombat(
+					state,
+					zone.m_sZoneId,
+					zone.m_iCombatPresenceRevision,
+					zone.m_iCombatPresenceCurrentOperationCount,
+					zone.m_iCombatPresenceRecentFireCount,
+					zone.m_sCombatPresenceContributorHash);
+			if (result)
+				changed = result.m_bChanged || changed;
+			if (zone.m_bCivilianCombatDangerActive
+				|| zone.m_iCivilianPanicUntilSecond > state.m_iElapsedSeconds)
+				SetCivilianPanicThreat(zone.m_sZoneId, zone.m_vPosition);
+		}
+		return changed;
+	}
+
+	protected HST_AmbientActorRuntimeRecord FindAmbientCivilianRecordForVictim(
+		IEntity victim)
+	{
+		if (!victim)
+			return null;
+		foreach (HST_AmbientActorRuntimeRecord record : m_aAmbientActorRecords)
+		{
+			if (!record)
+				continue;
+			if (record.m_sKindId
+					== HST_AmbientActorRuntimeService.KIND_PEDESTRIAN
+				&& record.m_RootEntity == victim)
+				return record;
+			if (record.m_sKindId
+					== HST_AmbientActorRuntimeService.KIND_TRAFFIC
+				&& record.m_DriverEntity == victim)
+				return record;
+		}
+		return null;
+	}
+
+	protected string BuildAmbientCasualtyEventId(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !record || record.m_sRuntimeId.IsEmpty())
+			return "";
+		// The ambient runtime sequence is session-only and may repeat after a
+		// restart. Allocate the receipt from persisted campaign authority so a new
+		// physical civilian can never alias an older casualty event.
+		return HST_StableIdService.NextId(state, "civilian_casualty");
+	}
+
+	protected void RetainPendingCasualtyObservation(
+		HST_AmbientActorRuntimeRecord record,
+		string factionKey,
+		vector position)
+	{
+		if (!record)
+			return;
+		record.m_bCasualtyObserved = true;
+		record.m_bCasualtyAdmissionPending = true;
+		record.m_sPendingCasualtyFactionKey = factionKey.Trim();
+		record.m_vPendingCasualtyPosition = position;
+	}
+
+	protected bool TryAdmitRetainedCasualtyObservation(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!state || !record || !record.m_bCasualtyAdmissionPending)
+			return false;
+		if (!HasExactPendingCivilianCasualtyArrays())
+		{
+			m_bPendingCivilianConsequenceAuthorityFault = true;
+			return false;
+		}
+		if (m_aPendingCivilianCasualtyZoneIds.Count()
+			>= MAX_PENDING_CIVILIAN_CASUALTIES)
+			return false;
+		string eventId = BuildAmbientCasualtyEventId(state, record);
+		if (eventId.IsEmpty())
+		{
+			m_bPendingCivilianConsequenceAuthorityFault = true;
+			return false;
+		}
+		m_aPendingCivilianCasualtyZoneIds.Insert(record.m_sZoneId);
+		m_aPendingCivilianCasualtyEventIds.Insert(eventId);
+		m_aPendingCivilianCasualtyFactionKeys.Insert(
+			record.m_sPendingCasualtyFactionKey);
+		m_aPendingCivilianCasualtySourceIds.Insert(record.m_sRuntimeId);
+		m_aPendingCivilianCasualtyPositions.Insert(
+			record.m_vPendingCasualtyPosition);
+		m_aPendingCivilianCasualtyAttempts.Insert(0);
+		m_aPendingCivilianCasualtyRetrySeconds.Insert(0);
+		record.m_bCasualtyAdmissionPending = false;
+		record.m_sPendingCasualtyFactionKey = "";
+		record.m_sCasualtyReceiptId = eventId;
+		return true;
+	}
+
+	protected bool QueueAmbientCivilianCasualtyFallback(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record,
+		IEntity victim)
+	{
+		if (!state || !record || record.m_bCasualtyObserved || !victim
+			|| !victim.GetWorld() || !ChimeraCharacter.Cast(victim))
+			return false;
+		CharacterControllerComponent controller
+			= ChimeraCharacter.Cast(victim).GetCharacterController();
+		if (!controller || controller.GetLifeState() != ECharacterLifeState.DEAD)
+			return false;
+		RetainPendingCasualtyObservation(record, "", victim.GetOrigin());
+		bool admitted = TryAdmitRetainedCasualtyObservation(state, record);
+		SetCivilianPanicThreat(record.m_sZoneId, victim.GetOrigin());
+		return admitted;
+	}
+
+	protected string ResolveCivilianConsequenceFaction(
+		notnull SCR_InstigatorContextData context)
+	{
+		string factionKey;
+		int playerId = context.GetKillerPlayerID();
+		if (playerId > 0)
+		{
+			Faction playerFaction = SCR_FactionManager.SGetPlayerFaction(playerId);
+			if (playerFaction)
+				factionKey = playerFaction.GetFactionKey();
+		}
+		if (factionKey.IsEmpty())
+			factionKey = ResolveEntityFactionKey(context.GetKillerEntity());
+		if (factionKey.IsEmpty())
+		{
+			Instigator instigator = context.GetInstigator();
+			if (instigator)
+				factionKey = ResolveEntityFactionKey(
+					instigator.GetInstigatorEntity());
+		}
+		factionKey = factionKey.Trim();
+		if (!m_Preset)
+			return "";
+		if (factionKey == m_Preset.m_sResistanceFactionKey
+			|| factionKey == m_Preset.m_sOccupierFactionKey
+			|| factionKey == m_Preset.m_sInvaderFactionKey)
+			return factionKey;
+		return "";
+	}
+
+	protected string ResolveEntityFactionKey(IEntity entity)
+	{
+		if (!entity)
+			return "";
+		FactionAffiliationComponent affiliation
+			= FactionAffiliationComponent.Cast(
+				entity.FindComponent(FactionAffiliationComponent));
+		if (!affiliation)
+			return "";
+		return affiliation.GetAffiliatedFactionKey();
+	}
+
+	protected bool HasExactPendingCivilianCasualtyArrays()
+	{
+		int count = m_aPendingCivilianCasualtyZoneIds.Count();
+		return count == m_aPendingCivilianCasualtyEventIds.Count()
+			&& count == m_aPendingCivilianCasualtyFactionKeys.Count()
+			&& count == m_aPendingCivilianCasualtySourceIds.Count()
+			&& count == m_aPendingCivilianCasualtyPositions.Count()
+			&& count == m_aPendingCivilianCasualtyAttempts.Count()
+			&& count == m_aPendingCivilianCasualtyRetrySeconds.Count();
+	}
+
+	protected bool HasExactPendingCivilianTheftArrays()
+	{
+		int count = m_aPendingCivilianTheftZoneIds.Count();
+		return count == m_aPendingCivilianTheftEventIds.Count()
+			&& count == m_aPendingCivilianTheftFactionKeys.Count()
+			&& count == m_aPendingCivilianTheftSourceIds.Count()
+			&& count == m_aPendingCivilianTheftAttempts.Count()
+			&& count == m_aPendingCivilianTheftRetrySeconds.Count();
+	}
+
+	protected bool HasPendingCivilianConsequenceWork()
+	{
+		return m_bPendingCivilianConsequenceAuthorityFault
+			|| !HasExactPendingCivilianCasualtyArrays()
+			|| !HasExactPendingCivilianTheftArrays()
+			|| !m_aPendingCivilianCasualtyZoneIds.IsEmpty()
+			|| !m_aPendingCivilianTheftZoneIds.IsEmpty();
+	}
+
+	protected bool HasPendingCivilianCasualtyRow(int index)
+	{
+		return index >= 0
+			&& index < m_aPendingCivilianCasualtyZoneIds.Count()
+			&& index < m_aPendingCivilianCasualtyEventIds.Count()
+			&& index < m_aPendingCivilianCasualtyFactionKeys.Count()
+			&& index < m_aPendingCivilianCasualtySourceIds.Count()
+			&& index < m_aPendingCivilianCasualtyPositions.Count()
+			&& index < m_aPendingCivilianCasualtyAttempts.Count()
+			&& index < m_aPendingCivilianCasualtyRetrySeconds.Count();
+	}
+
+	protected void RemovePendingCivilianCasualtyAt(int index)
+	{
+		if (!HasPendingCivilianCasualtyRow(index))
+			return;
+		m_aPendingCivilianCasualtyZoneIds.Remove(index);
+		m_aPendingCivilianCasualtyEventIds.Remove(index);
+		m_aPendingCivilianCasualtyFactionKeys.Remove(index);
+		m_aPendingCivilianCasualtySourceIds.Remove(index);
+		m_aPendingCivilianCasualtyPositions.Remove(index);
+		m_aPendingCivilianCasualtyAttempts.Remove(index);
+		m_aPendingCivilianCasualtyRetrySeconds.Remove(index);
+	}
+
+	protected void ClearPendingCivilianCasualties()
+	{
+		m_aPendingCivilianCasualtyZoneIds.Clear();
+		m_aPendingCivilianCasualtyEventIds.Clear();
+		m_aPendingCivilianCasualtyFactionKeys.Clear();
+		m_aPendingCivilianCasualtySourceIds.Clear();
+		m_aPendingCivilianCasualtyPositions.Clear();
+		m_aPendingCivilianCasualtyAttempts.Clear();
+		m_aPendingCivilianCasualtyRetrySeconds.Clear();
+	}
+
+	protected bool QueuePendingCivilianTheft(
+		string zoneId,
+		string eventId,
+		string factionKey,
+		string sourceId)
+	{
+		if (!HasExactPendingCivilianTheftArrays())
+		{
+			m_bPendingCivilianConsequenceAuthorityFault = true;
+			return false;
+		}
+		int existingIndex = m_aPendingCivilianTheftEventIds.Find(eventId);
+		if (existingIndex >= 0)
+		{
+			return m_aPendingCivilianTheftZoneIds[existingIndex] == zoneId
+				&& m_aPendingCivilianTheftFactionKeys[existingIndex]
+					== factionKey
+				&& m_aPendingCivilianTheftSourceIds[existingIndex]
+					== sourceId;
+		}
+		if (zoneId.IsEmpty() || eventId.IsEmpty() || factionKey.IsEmpty()
+			|| sourceId.IsEmpty()
+			|| m_aPendingCivilianTheftZoneIds.Count()
+				>= MAX_PENDING_CIVILIAN_THEFTS)
+			return false;
+		m_aPendingCivilianTheftZoneIds.Insert(zoneId);
+		m_aPendingCivilianTheftEventIds.Insert(eventId);
+		m_aPendingCivilianTheftFactionKeys.Insert(factionKey);
+		m_aPendingCivilianTheftSourceIds.Insert(sourceId);
+		m_aPendingCivilianTheftAttempts.Insert(0);
+		m_aPendingCivilianTheftRetrySeconds.Insert(0);
+		return true;
+	}
+
+	protected bool HasPendingCivilianTheftRow(int index)
+	{
+		return index >= 0
+			&& index < m_aPendingCivilianTheftZoneIds.Count()
+			&& index < m_aPendingCivilianTheftEventIds.Count()
+			&& index < m_aPendingCivilianTheftFactionKeys.Count()
+			&& index < m_aPendingCivilianTheftSourceIds.Count()
+			&& index < m_aPendingCivilianTheftAttempts.Count()
+			&& index < m_aPendingCivilianTheftRetrySeconds.Count();
+	}
+
+	protected void RemovePendingCivilianTheftAt(int index)
+	{
+		if (!HasPendingCivilianTheftRow(index))
+			return;
+		m_aPendingCivilianTheftZoneIds.Remove(index);
+		m_aPendingCivilianTheftEventIds.Remove(index);
+		m_aPendingCivilianTheftFactionKeys.Remove(index);
+		m_aPendingCivilianTheftSourceIds.Remove(index);
+		m_aPendingCivilianTheftAttempts.Remove(index);
+		m_aPendingCivilianTheftRetrySeconds.Remove(index);
+	}
+
+	protected void ClearPendingCivilianThefts()
+	{
+		m_aPendingCivilianTheftZoneIds.Clear();
+		m_aPendingCivilianTheftEventIds.Clear();
+		m_aPendingCivilianTheftFactionKeys.Clear();
+		m_aPendingCivilianTheftSourceIds.Clear();
+		m_aPendingCivilianTheftAttempts.Clear();
+		m_aPendingCivilianTheftRetrySeconds.Clear();
+	}
+
+	protected void SetCivilianPanicThreat(string zoneId, vector position)
+	{
+		zoneId = zoneId.Trim();
+		if (zoneId.IsEmpty())
+			return;
+		int index = m_aCivilianPanicThreatZoneIds.Find(zoneId);
+		if (index >= 0)
+		{
+			if (index < m_aCivilianPanicThreatPositions.Count())
+				m_aCivilianPanicThreatPositions[index] = position;
+			return;
+		}
+		m_aCivilianPanicThreatZoneIds.Insert(zoneId);
+		m_aCivilianPanicThreatPositions.Insert(position);
+	}
+
+	protected vector ResolveCivilianPanicThreat(
+		HST_ZoneState zone)
+	{
+		if (!zone)
+			return "0 0 0";
+		int index = m_aCivilianPanicThreatZoneIds.Find(zone.m_sZoneId);
+		if (index >= 0 && index < m_aCivilianPanicThreatPositions.Count())
+			return m_aCivilianPanicThreatPositions[index];
+		return zone.m_vPosition;
+	}
+
 	bool ResetRuntimeSession(HST_CampaignState previousState)
 	{
-		if (!previousState || !PrepareAmbientVehiclePersistence(previousState))
+		if (!previousState)
 			return false;
+		array<IEntity> resetOccupancyPreflight = {};
+		CollectPlayerOccupiedVehicleRoots(resetOccupancyPreflight);
+		foreach (IEntity occupiedRoot : resetOccupancyPreflight)
+		{
+			int occupiedIndex = m_aRuntimeEntities.Find(occupiedRoot);
+			if (occupiedIndex >= 0
+				&& occupiedIndex < m_aRuntimeEntityKinds.Count()
+				&& IsRuntimeVehicle(m_aRuntimeEntityKinds[occupiedIndex])
+				&& ResolveExactVehicleClaimantFaction(occupiedRoot).IsEmpty())
+				return false;
+		}
+		if (!PrepareAmbientVehiclePersistence(previousState))
+			return false;
+		if (m_CivilianConsequences)
+			m_CivilianConsequences.ResetRuntimeSession();
 		m_aResetPreservedPlayerVehicles.Clear();
 		m_aResetPreservedPlayerVehicleCargo.Clear();
+		ClearPendingCivilianCasualties();
+		ClearPendingCivilianThefts();
+		m_bPendingCivilianConsequenceAuthorityFault = false;
+		m_aCivilianPanicThreatZoneIds.Clear();
+		m_aCivilianPanicThreatPositions.Clear();
 		array<string> claimedRuntimeIds = {};
 		// A new campaign must not inherit every old field vehicle. Preserve only
 		// live roots that a player occupies at the reset boundary, including an
@@ -3817,9 +4370,14 @@ class HST_CivilianService
 			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
 			if (!record || record.m_sZoneId != zoneId || record.m_sKindId != kindId)
 				continue;
-			RecycleAmbientActorAt(state, index, "budget allocation reduced");
-			currentCount--;
-			changed = true;
+			if (RecycleAmbientActorAt(
+				state,
+				index,
+				"budget allocation reduced"))
+			{
+				currentCount--;
+				changed = true;
+			}
 		}
 		return changed;
 	}
@@ -3835,6 +4393,9 @@ class HST_CivilianService
 		for (int index = m_aAmbientActorRecords.Count() - 1; index >= 0; index--)
 		{
 			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
+			if (record && record.m_bCasualtyAdmissionPending
+				&& !TryAdmitRetainedCasualtyObservation(state, record))
+				continue;
 			if (!record || !record.m_RootEntity)
 			{
 				m_aAmbientActorRecords.Remove(index);
@@ -3843,8 +4404,10 @@ class HST_CivilianService
 			}
 			if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED)
 			{
-				RecycleAmbientActorAt(state, index, record.m_sReasonId);
-				changed = true;
+				changed = RecycleAmbientActorAt(
+					state,
+					index,
+					record.m_sReasonId) || changed;
 				continue;
 			}
 
@@ -3871,15 +4434,38 @@ class HST_CivilianService
 		if (!state || !balance || !record)
 			return false;
 		int nowSecond = state.m_iElapsedSeconds;
+		if (record.m_bCasualtyAdmissionPending
+			&& !TryAdmitRetainedCasualtyObservation(state, record))
+			return false;
 		if (!IsLivingAmbientCharacter(record.m_RootEntity)
 			|| !IsExactCivilianFaction(record.m_RootEntity)
 			|| !IsExactCivilianGroupMembership(record.m_RootEntity, record.m_Group))
 		{
+			QueueAmbientCivilianCasualtyFallback(
+				state,
+				record,
+				record.m_RootEntity);
 			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, "CIV_CHARACTER");
 			m_AmbientRuntime.QueueDespawn(record, "pedestrian authority lost", nowSecond);
 			RecycleAmbientActorAt(state, recordIndex, "pedestrian authority lost");
 			return true;
 		}
+		HST_ZoneState panicZone = state.FindZone(record.m_sZoneId);
+		bool nativeThreat = IsAmbientPedestrianThreatened(record);
+		int panicDurationSeconds;
+		if (panicZone
+			&& panicZone.m_iCivilianConsequenceContractVersion
+				== HST_CivilianConsequenceService.CONTRACT_VERSION
+			&& panicZone.m_iCivilianPanicUntilSecond > nowSecond)
+		{
+			panicDurationSeconds
+				= panicZone.m_iCivilianPanicUntilSecond - nowSecond;
+		}
+		if (nativeThreat)
+			panicDurationSeconds = Math.Max(
+				panicDurationSeconds,
+				CIVILIAN_LOCAL_THREAT_PANIC_SECONDS);
+		bool shouldPanic = panicDurationSeconds > 0;
 
 		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_BEHAVIOR_INITIALIZING)
 		{
@@ -3892,6 +4478,16 @@ class HST_CivilianService
 					nowSecond);
 				if (admitted)
 					m_AmbientRuntime.RecordMovementProgress(record, record.m_RootEntity.GetOrigin(), nowSecond, AMBIENT_PROGRESS_DISTANCE_METERS);
+				if (admitted && shouldPanic)
+				{
+					return BeginOrMaintainAmbientPedestrianPanic(
+						state,
+						record,
+						panicZone,
+						panicDurationSeconds,
+						balance.m_iCivilianRuntimeMaxRecoveryAttempts,
+						"danger active at pedestrian admission") || admitted;
+				}
 				return admitted;
 			}
 
@@ -3901,6 +4497,70 @@ class HST_CivilianService
 			m_AmbientRuntime.QueueDespawn(record, "pedestrian behavior acknowledgement timed out", nowSecond);
 			RecycleAmbientActorAt(state, recordIndex, "pedestrian behavior acknowledgement timed out");
 			return true;
+		}
+
+		if (shouldPanic
+			&& (record.m_sStateId
+					== HST_AmbientActorRuntimeService.STATE_WANDERING
+				|| record.m_sStateId
+					== HST_AmbientActorRuntimeService.STATE_PANICKED
+				|| record.m_sStateId
+					== HST_AmbientActorRuntimeService.STATE_RECOVERING))
+		{
+			string panicReason = "locality combat danger";
+			if (nativeThreat)
+				panicReason = "native civilian threat";
+			bool panicChanged = BeginOrMaintainAmbientPedestrianPanic(
+				state,
+				record,
+				panicZone,
+				panicDurationSeconds,
+				balance.m_iCivilianRuntimeMaxRecoveryAttempts,
+				panicReason);
+			if (record.m_sStateId
+				== HST_AmbientActorRuntimeService.STATE_PANICKED)
+			{
+				bool panicMovementChanged = TickPanickedPedestrianMovement(
+					state,
+					balance,
+					record,
+					panicZone);
+				return panicChanged || panicMovementChanged;
+			}
+			return panicChanged;
+		}
+
+		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_PANICKED)
+		{
+			if (m_AmbientRuntime.ShouldBeginPanicRecovery(record, nowSecond))
+			{
+				if (!m_AmbientRuntime.BeginPanicRecovery(
+					record,
+					nowSecond,
+					balance.m_iCivilianRuntimeRetryBackoffSeconds))
+					return false;
+				if (TryRecoverAmbientPedestrian(state, record))
+				{
+					if (HasActiveCivilianWaypoint(record.m_Group))
+					{
+						return m_AmbientRuntime.TryTransition(
+							record,
+							HST_AmbientActorRuntimeService.STATE_WANDERING,
+							"panic recovery waypoint acknowledged",
+							nowSecond);
+					}
+					record.m_sReasonId
+						= AMBIENT_PEDESTRIAN_RECOVERY_ACK_REASON;
+					record.m_iRetryAtSecond = nowSecond
+						+ balance.m_iCivilianRuntimeHealthIntervalSeconds;
+				}
+				return true;
+			}
+			return TickPanickedPedestrianMovement(
+				state,
+				balance,
+				record,
+				panicZone);
 		}
 
 		if (record.m_sStateId == HST_AmbientActorRuntimeService.STATE_RECOVERING)
@@ -3970,6 +4630,193 @@ class HST_CivilianService
 		return BeginAmbientRecoveryOrRecycle(state, balance, recordIndex, record, "pedestrian movement stalled");
 	}
 
+	protected bool IsAmbientPedestrianThreatened(
+		HST_AmbientActorRuntimeRecord record)
+	{
+		if (!record || !record.m_RootEntity)
+			return false;
+		AIAgent agent = ResolveCivilianAgentReadOnly(record.m_RootEntity);
+		if (!agent)
+			return false;
+		SCR_AIInfoComponent info = SCR_AIInfoComponent.Cast(
+			agent.FindComponent(SCR_AIInfoComponent));
+		if (!info)
+			return false;
+		EAIThreatState threatState = info.GetThreatState();
+		return threatState == EAIThreatState.ALERTED
+			|| threatState == EAIThreatState.THREATENED;
+	}
+
+	protected bool BeginOrMaintainAmbientPedestrianPanic(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record,
+		HST_ZoneState zone,
+		int durationSeconds,
+		int maxRouteRecoveryAttempts,
+		string reason)
+	{
+		if (!state || !record || !zone || durationSeconds <= 0)
+			return false;
+		string previousState = record.m_sStateId;
+		int previousDeadline = record.m_iPanicUntilSecond;
+		bool waypointChanged;
+		if (record.m_sStateId
+				!= HST_AmbientActorRuntimeService.STATE_PANICKED
+			|| !HasActiveCivilianWaypoint(record.m_Group))
+		{
+			waypointChanged = AssignAmbientPedestrianPanicWaypoint(
+				state,
+				record,
+				zone);
+			if (!waypointChanged)
+			{
+				return m_AmbientRuntime.RecordPanicRouteRecoveryAttempt(
+					record,
+					state.m_iElapsedSeconds,
+					maxRouteRecoveryAttempts,
+					"panic waypoint admission failed");
+			}
+		}
+		if (waypointChanged
+			|| previousState != HST_AmbientActorRuntimeService.STATE_PANICKED)
+		{
+			ApplyCivilianMovementSpeed(
+				record.m_RootEntity,
+				record.m_Group,
+				EMovementType.RUN);
+		}
+		if (!m_AmbientRuntime.BeginOrExtendPanic(
+			record,
+			state.m_iElapsedSeconds,
+			durationSeconds,
+			reason))
+			return waypointChanged;
+		return waypointChanged
+			|| record.m_sStateId != previousState
+			|| record.m_iPanicUntilSecond != previousDeadline;
+	}
+
+	protected bool TickPanickedPedestrianMovement(
+		HST_CampaignState state,
+		HST_BalanceConfig balance,
+		HST_AmbientActorRuntimeRecord record,
+		HST_ZoneState zone)
+	{
+		if (!state || !balance || !record || !zone)
+			return false;
+		if (!HasActiveCivilianWaypoint(record.m_Group))
+		{
+			if (!m_AmbientRuntime.RecordPanicRouteRecoveryAttempt(
+				record,
+				state.m_iElapsedSeconds,
+				balance.m_iCivilianRuntimeMaxRecoveryAttempts,
+				"panic waypoint lost"))
+				return false;
+			if (record.m_sStateId
+				== HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED)
+				return true;
+			AssignAmbientPedestrianPanicWaypoint(state, record, zone);
+			return true;
+		}
+		bool moved = m_AmbientRuntime.RecordMovementProgress(
+			record,
+			record.m_RootEntity.GetOrigin(),
+			state.m_iElapsedSeconds,
+			AMBIENT_PROGRESS_DISTANCE_METERS);
+		if (moved)
+			return false;
+		int progressSecond = Math.Max(
+			record.m_iStateChangedAtSecond,
+			record.m_iLastProgressAtSecond);
+		if (state.m_iElapsedSeconds - progressSecond
+			< Math.Max(1, balance.m_iCivilianRuntimeStuckSeconds))
+			return false;
+		if (!m_AmbientRuntime.RecordPanicRouteRecoveryAttempt(
+			record,
+			state.m_iElapsedSeconds,
+			balance.m_iCivilianRuntimeMaxRecoveryAttempts,
+			"panic movement stalled"))
+			return false;
+		if (record.m_sStateId
+			== HST_AmbientActorRuntimeService.STATE_DESPAWN_QUEUED)
+			return true;
+		bool rebuilt = AssignAmbientPedestrianPanicWaypoint(
+			state,
+			record,
+			zone);
+		if (rebuilt)
+			record.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		return true;
+	}
+
+	protected bool AssignAmbientPedestrianPanicWaypoint(
+		HST_CampaignState state,
+		HST_AmbientActorRuntimeRecord record,
+		HST_ZoneState zone)
+	{
+		if (!state || !record || !record.m_RootEntity || !record.m_Group
+			|| !zone)
+			return false;
+		vector origin = record.m_RootEntity.GetOrigin();
+		vector threat = ResolveCivilianPanicThreat(zone);
+		float directionX = origin[0] - threat[0];
+		float directionZ = origin[2] - threat[2];
+		float lengthSquared = directionX * directionX
+			+ directionZ * directionZ;
+		if (lengthSquared < 1.0)
+		{
+			float angle = ModInt(
+				record.m_iProjectionSeed
+					+ record.m_iPanicCount * 137
+					+ record.m_iPanicRouteRecoveryCount * 83
+					+ zone.m_iCivilianCombatEpisodeCount * 59,
+				360) * 0.0174533;
+			directionX = Math.Sin(angle);
+			directionZ = Math.Cos(angle);
+		}
+		else
+		{
+			float length = Math.Sqrt(lengthSquared);
+			directionX = directionX / length;
+			directionZ = directionZ / length;
+		}
+		float fleeDistance = CIVILIAN_PANIC_FLEE_MIN_DISTANCE_METERS
+			+ ModInt(
+				record.m_iProjectionSeed
+					+ record.m_iPanicCount * 43
+					+ record.m_iPanicRouteRecoveryCount * 17,
+				CIVILIAN_PANIC_FLEE_DISTANCE_VARIANCE_METERS);
+		vector target = origin;
+		target[0] = target[0] + directionX * fleeDistance;
+		target[2] = target[2] + directionZ * fleeDistance;
+		target = HST_WorldPositionService.ResolveSafeGroundPosition(
+			target,
+			HST_WorldPositionService.CHARACTER_GROUND_OFFSET,
+			true,
+			4.0);
+		GenericEntity waypointEntity = HST_WorldPositionService.SpawnPrefab(
+			CIVILIAN_FLEE_WAYPOINT_PREFAB,
+			target,
+			"0 0 0");
+		AIWaypoint waypoint = AIWaypoint.Cast(waypointEntity);
+		if (!waypoint)
+		{
+			if (waypointEntity)
+				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
+			return false;
+		}
+		ClearAmbientMovementHelpers(record);
+		waypoint.SetCompletionRadius(CIVILIAN_PANIC_WAYPOINT_RADIUS_METERS);
+		RegisterRuntimeHelper(record.m_RootEntity, waypointEntity);
+		record.m_Group.AddWaypoint(waypoint);
+		record.m_Group.ActivateAllMembers();
+		ApplyCivilianMovementSpeed(
+			record.m_RootEntity,
+			record.m_Group,
+			EMovementType.RUN);
+		return HasAssignedCivilianWaypoint(record.m_Group);
+	}
+
 	protected bool TryRecoverAmbientPedestrian(
 		HST_CampaignState state,
 		HST_AmbientActorRuntimeRecord record)
@@ -3981,6 +4828,10 @@ class HST_CivilianService
 			return false;
 
 		ClearAmbientMovementHelpers(record);
+		ApplyCivilianMovementSpeed(
+			record.m_RootEntity,
+			record.m_Group,
+			EMovementType.WALK);
 		int projectionSeedSalt = record.m_iProjectionSeed % 997;
 		if (projectionSeedSalt < 0)
 			projectionSeedSalt = -projectionSeedSalt;
@@ -4050,11 +4901,18 @@ class HST_CivilianService
 		if (!state || !balance || !record)
 			return false;
 		int nowSecond = state.m_iElapsedSeconds;
+		if (record.m_bCasualtyAdmissionPending
+			&& !TryAdmitRetainedCasualtyObservation(state, record))
+			return false;
 		if (!IsLivingAmbientEntity(record.m_RootEntity)
 			|| !IsLivingAmbientCharacter(record.m_DriverEntity)
 			|| !IsExactCivilianFaction(record.m_DriverEntity)
 			|| !IsExactCivilianGroupMembership(record.m_DriverEntity, record.m_Group))
 		{
+			QueueAmbientCivilianCasualtyFallback(
+				state,
+				record,
+				record.m_DriverEntity);
 			SetAmbientSpawnRetry(state, balance, record.m_sZoneId, CIVILIAN_TRAFFIC_RUNTIME_KIND);
 			m_AmbientRuntime.QueueDespawn(record, "traffic authority lost", nowSecond);
 			RecycleAmbientActorAt(state, recordIndex, "traffic authority lost");
@@ -4314,7 +5172,7 @@ class HST_CivilianService
 	{
 		if (!memberEntity || !group)
 			return false;
-		AIAgent agent = ResolveCivilianAgent(memberEntity);
+		AIAgent agent = ResolveCivilianAgentReadOnly(memberEntity);
 		if (!agent || agent.GetParentGroup() != group)
 			return false;
 		array<AIAgent> agents = {};
@@ -4434,21 +5292,27 @@ class HST_CivilianService
 		}
 	}
 
-	protected void RecycleAmbientActorAt(
+	protected bool RecycleAmbientActorAt(
 		HST_CampaignState state,
 		int recordIndex,
 		string reason)
 	{
 		if (recordIndex < 0 || recordIndex >= m_aAmbientActorRecords.Count())
-			return;
+			return false;
 		HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[recordIndex];
 		if (!record)
 		{
 			m_aAmbientActorRecords.Remove(recordIndex);
-			return;
+			return true;
 		}
+		if (record.m_bCasualtyAdmissionPending
+			&& !TryAdmitRetainedCasualtyObservation(state, record))
+			return false;
 
 		IEntity rootEntity = record.m_RootEntity;
+		if (record.m_sKindId == HST_AmbientActorRuntimeService.KIND_TRAFFIC
+			&& rootEntity && HasPlayerOccupant(rootEntity))
+			return false;
 		int nowSecond;
 		if (state)
 			nowSecond = state.m_iElapsedSeconds;
@@ -4456,7 +5320,7 @@ class HST_CivilianService
 			m_AmbientRuntime.QueueDespawn(record, reason, nowSecond);
 		m_aAmbientActorRecords.Remove(recordIndex);
 		if (!rootEntity)
-			return;
+			return true;
 
 		int runtimeIndex = m_aRuntimeEntities.Find(rootEntity);
 		DeleteRuntimeHelpersForOwner(rootEntity);
@@ -4464,6 +5328,7 @@ class HST_CivilianService
 		SCR_EntityHelper.DeleteEntityAndChildren(rootEntity);
 		if (runtimeIndex >= 0)
 			RemoveRuntimeEntityAt(runtimeIndex);
+		return true;
 	}
 
 	protected void QueueAndRemoveAmbientActorRecordForEntity(
@@ -4478,6 +5343,17 @@ class HST_CivilianService
 			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
 			if (!record || record.m_RootEntity != entity)
 				continue;
+			if (record.m_bCasualtyAdmissionPending
+				&& !TryAdmitRetainedCasualtyObservation(state, record))
+			{
+				// The caller may now delete or promote the live root. Retain only
+				// the already-cached consequence observation so its later admission
+				// cannot recycle a durable vehicle or a replacement entity.
+				record.m_RootEntity = null;
+				record.m_DriverEntity = null;
+				record.m_Group = null;
+				continue;
+			}
 			int nowSecond;
 			if (state)
 				nowSecond = state.m_iElapsedSeconds;
@@ -4492,6 +5368,9 @@ class HST_CivilianService
 		for (int index = m_aAmbientActorRecords.Count() - 1; index >= 0; index--)
 		{
 			HST_AmbientActorRuntimeRecord record = m_aAmbientActorRecords[index];
+			if (record && record.m_bCasualtyAdmissionPending
+				&& !TryAdmitRetainedCasualtyObservation(state, record))
+				continue;
 			if (!record || !record.m_RootEntity)
 			{
 				if (record && m_AmbientRuntime)
@@ -4556,7 +5435,20 @@ class HST_CivilianService
 				continue;
 			}
 
-			if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+			string runtimeKind = m_aRuntimeEntityKinds[index];
+			string zoneId = m_aRuntimeEntityZoneIds[index];
+			string claimantFactionKey
+				= ResolveExactVehicleClaimantFaction(entity);
+			// Passenger occupancy protects the live ambient root from cleanup but
+			// is not a theft or durable-claim signal. Wait for exact pilot control.
+			if (claimantFactionKey.IsEmpty())
+				continue;
+			if (!PromoteClaimedRuntimeVehicleWithConsequences(
+				state,
+				entity,
+				runtimeKind,
+				zoneId,
+				claimantFactionKey))
 			{
 				Print("h-istasi civilians | player-used ambient vehicle could not enter persistent field authority", LogLevel.ERROR);
 				exact = false;
@@ -4567,8 +5459,6 @@ class HST_CivilianService
 				state,
 				"promoted_player_claim");
 			DeleteRuntimeHelpersForOwner(entity);
-			string runtimeKind = m_aRuntimeEntityKinds[index];
-			string zoneId = m_aRuntimeEntityZoneIds[index];
 			RemoveRuntimeEntityAt(index);
 			Print(string.Format("h-istasi civilians | promoted player-used %1 from %2 to persistent field vehicle", runtimeKind, zoneId));
 			changed = true;
@@ -4585,10 +5475,13 @@ class HST_CivilianService
 	// or transient authority.
 	bool PrepareAmbientVehiclePersistence(HST_CampaignState state)
 	{
-		if (!state)
+		if (!state || !m_CivilianConsequences)
 			return false;
 		ObservePlayerAmbientVehicleClaims(state);
-		if (!m_bLastAmbientClaimObservationExact || !m_PersistentFieldVehicles)
+		FlushPendingCivilianConsequences(state);
+		if (!m_bLastAmbientClaimObservationExact
+			|| HasPendingCivilianConsequenceWork()
+			|| !m_PersistentFieldVehicles)
 			return false;
 		return m_PersistentFieldVehicles.PrepareForCapture(state);
 	}
@@ -4931,19 +5824,29 @@ class HST_CivilianService
 
 	protected AIAgent ResolveCivilianAgent(IEntity entity)
 	{
+		AIAgent agent = ResolveCivilianAgentReadOnly(entity);
+		if (agent)
+		{
+			AIControlComponent control = AIControlComponent.Cast(
+				entity.FindComponent(AIControlComponent));
+			if (control)
+			control.ActivateAI();
+		}
+
+		return agent;
+	}
+
+	protected AIAgent ResolveCivilianAgentReadOnly(IEntity entity)
+	{
 		if (!entity)
 			return null;
-
-		AIControlComponent control = AIControlComponent.Cast(entity.FindComponent(AIControlComponent));
+		AIControlComponent control = AIControlComponent.Cast(
+			entity.FindComponent(AIControlComponent));
 		if (!control)
 			return null;
-
 		AIAgent agent = control.GetControlAIAgent();
 		if (!agent)
 			agent = control.GetAIAgent();
-		if (agent)
-			control.ActivateAI();
-
 		return agent;
 	}
 
@@ -5355,7 +6258,16 @@ class HST_CivilianService
 				&& ShouldDetachFromTownCleanup(state, entity, runtimeKind);
 			if (playerClaim)
 			{
-				if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+				string claimantFactionKey
+					= ResolveExactVehicleClaimantFaction(entity);
+				if (claimantFactionKey.IsEmpty())
+					continue;
+				if (!PromoteClaimedRuntimeVehicleWithConsequences(
+					state,
+					entity,
+					runtimeKind,
+					zoneId,
+					claimantFactionKey))
 				{
 					Print("h-istasi civilians | town cleanup retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
 					continue;
@@ -5428,7 +6340,19 @@ class HST_CivilianService
 				&& ShouldDetachFromTownCleanup(state, entity, runtimeKind);
 			if (playerClaim)
 			{
-				if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+				string runtimeZoneId = "";
+				if (i < m_aRuntimeEntityZoneIds.Count())
+					runtimeZoneId = m_aRuntimeEntityZoneIds[i];
+				string claimantFactionKey
+					= ResolveExactVehicleClaimantFaction(entity);
+				if (claimantFactionKey.IsEmpty())
+					continue;
+				if (!PromoteClaimedRuntimeVehicleWithConsequences(
+					state,
+					entity,
+					runtimeKind,
+					runtimeZoneId,
+					claimantFactionKey))
 				{
 					Print("h-istasi civilians | runtime shutdown retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
 					continue;
@@ -5753,7 +6677,7 @@ class HST_CivilianService
 			IEntity controlledHelper = m_aRuntimeHelperEntities[helperIndex];
 			if (!IsPlayerControlledEntity(controlledHelper))
 				continue;
-			AIAgent controlledAgent = ResolveCivilianAgent(controlledHelper);
+			AIAgent controlledAgent = ResolveCivilianAgentReadOnly(controlledHelper);
 			if (!controlledAgent)
 				continue;
 			AIGroup parentGroup = controlledAgent.GetParentGroup();
@@ -6578,6 +7502,102 @@ class HST_CivilianService
 				return candidate;
 		}
 		return "";
+	}
+
+	protected bool PromoteClaimedRuntimeVehicleWithConsequences(
+		HST_CampaignState state,
+		IEntity entity,
+		string originalRuntimeKind,
+		string zoneId,
+		string claimantFactionKey)
+	{
+		if (!state || !entity || claimantFactionKey.IsEmpty())
+			return false;
+		bool requiresTheft = false;
+		HST_ZoneState zone;
+		HST_RuntimeVehicleState vehicle;
+		string eventId;
+		if (originalRuntimeKind == CIVILIAN_TRAFFIC_RUNTIME_KIND
+			|| originalRuntimeKind == "CIV_VEHICLE")
+		{
+			zone = state.FindZone(zoneId);
+			if (zone && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN
+				&& !m_Preset)
+				return false;
+			if (zone && zone.m_eType == HST_EZoneType.HST_ZONE_TOWN
+				&& claimantFactionKey == m_Preset.m_sResistanceFactionKey)
+			{
+				if (!m_CivilianConsequences
+					|| !HasExactPendingCivilianTheftArrays()
+					|| m_aPendingCivilianTheftZoneIds.Count()
+						>= MAX_PENDING_CIVILIAN_THEFTS)
+					return false;
+				vehicle = ResolveRuntimeVehicleRecord(state, entity);
+				if (!vehicle || vehicle.m_sVehicleRuntimeId.IsEmpty())
+					return false;
+				eventId = "civilian_theft_" + vehicle.m_sVehicleRuntimeId;
+				if (eventId.Length()
+					> HST_CivilianConsequenceService.MAX_ID_CHARACTERS)
+					return false;
+				requiresTheft = true;
+			}
+		}
+		if (!PromoteRuntimeVehicleToPersistentField(state, entity))
+			return false;
+		if (!requiresTheft)
+			return true;
+		HST_CivilianConsequenceResult consequence
+			= m_CivilianConsequences.RegisterCivilianVehicleTheft(
+				state,
+				zone.m_sZoneId,
+				eventId,
+				claimantFactionKey,
+				vehicle.m_sVehicleRuntimeId);
+		if (consequence && consequence.m_bAccepted)
+			return true;
+		return QueuePendingCivilianTheft(
+			zone.m_sZoneId,
+			eventId,
+			claimantFactionKey,
+			vehicle.m_sVehicleRuntimeId);
+	}
+
+	protected string ResolveExactVehicleClaimantFaction(IEntity vehicleEntity)
+	{
+		if (!vehicleEntity)
+			return "";
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return "";
+		BaseCompartmentManagerComponent compartmentManager
+			= ResolveCompartmentManager(vehicleEntity);
+		if (!compartmentManager)
+			return "";
+		array<BaseCompartmentSlot> slots = {};
+		compartmentManager.GetCompartments(slots);
+		int selectedPlayerId = int.MAX;
+		foreach (BaseCompartmentSlot slot : slots)
+		{
+			if (!slot
+				|| (!slot.IsPiloting()
+					&& slot.GetType() != ECompartmentType.PILOT))
+				continue;
+			IEntity occupant = slot.GetOccupant();
+			if (!occupant)
+				continue;
+			int playerId = playerManager.GetPlayerIdFromControlledEntity(occupant);
+			if (playerId <= 0)
+				playerId = SCR_PossessingManagerComponent.GetPlayerIdFromMainEntity(
+					occupant);
+			if (playerId > 0 && playerId < selectedPlayerId)
+				selectedPlayerId = playerId;
+		}
+		if (selectedPlayerId == int.MAX)
+			return "";
+		Faction faction = SCR_FactionManager.SGetPlayerFaction(selectedPlayerId);
+		if (!faction)
+			return "";
+		return faction.GetFactionKey();
 	}
 
 	protected bool PromoteRuntimeVehicleToPersistentField(

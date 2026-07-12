@@ -542,7 +542,7 @@ Consequences:
 - Frame-frequency horn clearing walks the bounded ambient actor records directly;
   helper-by-root nested lookup is forbidden on this hot path.
 - Pure allocator, lifecycle, settings-migration, and save-boundary proofs are
-  compiled and wired into Campaign Debug. The current sealed source/Workbench
+  compiled and wired into Campaign Debug. The last sealed source/Workbench
   checkpoint identifies implementation
   `6afadc7c13681b78171939a740862e52328beffd`, UTC
   `2026-07-12T15:57:55Z`, and label
@@ -558,3 +558,97 @@ Consequences:
   remain open gates. Commander aid and ownership/
   security-pressure paths exist in source but need runtime proof; deeper local-
   security behavior remains implementation work.
+
+## CRI-012 - Route Civilian Consequences Through Exact Town Authority
+
+- Status: Accepted; implementation unsealed
+- Date: 2026-07-12
+
+Context: The sealed ambient allocator could create, move, recover, recycle, and
+promote disposable civilian projections, but actor death, vehicle theft, nearby
+combat, and panic still had no automatic authority boundary. Applying these
+effects directly from native callbacks would risk duplicate population loss,
+aggression, and support changes. Treating every `HOT` zone as a civilian battle
+would also turn an ordinary garrison into permanent fear and political pressure.
+Minor localities need visible reactions without being promoted into political
+towns.
+
+Decision: Campaign Schema 65 adds one bounded civilian-consequence envelope to
+each locality while keeping runtime-settings at Schema 24. Native observation is
+an adapter only. A tracked civilian death reserves an exact event ID from the
+persisted monotonic campaign allocator and enters a session queue capped at 256
+rows; deferred theft uses a separate 64-row queue. The two queues share a maximum
+of four attempted consequence transactions per server frame. Failed rows remain
+queued indefinitely with bounded 5/10/15-second backoff, and capacity exhaustion
+retains the observation rather than dropping it. Any retained receipt, queue
+row, or authority fault defers persistence capture. A civilian vehicle is
+promoted by the player-first claim path before a resistance theft event is
+derived from its durable runtime ID. Only an exact player pilot is a claimant;
+passenger-only roots remain non-recyclable during budget/health cleanup until
+exit or pilot claim, but passengers do not promote the root or create theft.
+Nearby combat begins a new consequence episode only when combat
+presence supplies a current-operation or recent-fire fact; `HOT` without those
+facts is inert, and an older pending episode receipt drains before a new edge.
+
+Town events may carry one enemy aggression target, a positive bounded delta, and
+exact before/after values. Admission requires unique target-pool authority,
+arithmetic headroom, economy and strategic services, and an unclaimed strategic
+source. One applied `town_influence` strategic receipt must match the event's
+source, target faction, zone, timestamp, and aggression delta. Exact replay may
+return that evidence but may not mutate town or aggression state again.
+
+Physical pedestrians react through a native adapter. A danger episode or native
+`EAIThreatState` transitions an admitted pedestrian from `Wandering` to
+`Panicked`, replaces wander helpers with one move waypoint away from the threat,
+and requests `EMovementType.RUN`. Once calm, the actor enters `Recovering`,
+restores deterministic wander helpers at `EMovementType.WALK`, and returns to
+`Wandering` after native waypoint acknowledgement. Panic remains behavior-ready
+and does not spend the ordinary stuck-recovery budget. Lost/stalled panic routes
+use a separate bounded recovery counter; the panic/recovery hot path never calls
+AI activation again.
+
+Consequences:
+
+- Casualty callback re-entry cannot partially mutate durable authority. The
+  actor's observed flag and exact receipt fence the callback and dead-character
+  fallback. Queue capacities, per-frame work, and retry delay remain bounded,
+  but rejected receipts are never discarded merely because the backoff cap was
+  reached.
+- Resistance casualty and theft policy may add enemy aggression only through an
+  exact town event and its matching strategic receipt. Enemy or unknown casualty
+  attribution follows its own bounded support/heat policy and cannot be silently
+  redirected.
+- Combat episode count, the adopted Schema-64 baseline floor, last-applied
+  episode, last combat-presence revision, danger state, panic deadline, last
+  event ID, and envelope revision survive restart. The adopted floor is `0..1`,
+  `episode - lastApplied` cannot exceed one, and a canonical-town edge can append
+  at most one political event. Ambient actors, panic waypoints, threat positions,
+  and callback queue rows remain disposable session topology.
+- Current restore requires each post-adoption live combat receipt to retain
+  exact `+4` heat, zero other political/aggression/population effects, canonical
+  source/reason, and unchanged support/population before/after values.
+- Restore builds bounded influence/strategic indexes and validates structural
+  town/aggression evidence before the civilian envelope, including the exact
+  live-town last-event backlink. Pre-65 events gain empty/zero aggression fields
+  without invented history. Save shape can prove unique pools, arithmetic, and
+  receipts but not unserialized faction roles, so the coordinator immediately
+  checks every restored aggression target against the live preset and
+  quarantines a non-enemy chain. Malformed town/strategic evidence quarantines
+  at `-64`, then malformed consequence-envelope authority quarantines at `-65`
+  with danger/panic cleared. Restore never replays an applied consequence.
+- Persisted stable-ID exhaustion never wraps. If strategic admission cannot
+  obtain a new exact ID, the event fails before state mutation.
+- A minor locality is panic-only: it receives no political population, support,
+  aggression, or strategic event. Its bounded exact fingerprint map is session-
+  only, so cross-process minor-locality replay/conflict identity remains an
+  explicit limitation rather than a claimed restart guarantee.
+- The current Schema-65/settings-24 tree is unsealed. The last sealed identity
+  remains implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC
+  `2026-07-12T15:57:55Z`, label
+  `schema64-settings24-ambient-runtime-authority`. Preliminary unstamped normal
+  Workbench compile/create and all-five validation of the unsealed source are
+  clean at 5,802 Game files/11,728 classes with CRC `be076102`, `Script
+  validation successful`, zero HST script errors, and zero surviving Workbench
+  processes. Final Foundation, stamped Workbench reruns, Campaign Debug, native
+  package, real profile save/restart, multiplayer, and soak gates for Schema 65
+  remain open.

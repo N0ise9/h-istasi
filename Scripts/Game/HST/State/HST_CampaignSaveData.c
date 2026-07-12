@@ -744,6 +744,19 @@ class HST_CampaignSaveData
 			target.m_aCombatPresenceContributorIds.Insert(combatContributorId);
 		foreach (string combatContributorFact : source.m_aCombatPresenceContributorFacts)
 			target.m_aCombatPresenceContributorFacts.Insert(combatContributorFact);
+		target.m_iCivilianConsequenceContractVersion = source.m_iCivilianConsequenceContractVersion;
+		target.m_iCivilianConsequenceRevision = source.m_iCivilianConsequenceRevision;
+		target.m_bCivilianCombatDangerActive = source.m_bCivilianCombatDangerActive;
+		target.m_iCivilianCombatEpisodeCount = source.m_iCivilianCombatEpisodeCount;
+		target.m_iCivilianAdoptedCombatEpisodeCount
+			= source.m_iCivilianAdoptedCombatEpisodeCount;
+		target.m_iCivilianLastAppliedCombatEpisodeCount
+			= source.m_iCivilianLastAppliedCombatEpisodeCount;
+		target.m_iCivilianLastCombatPresenceRevision = source.m_iCivilianLastCombatPresenceRevision;
+		target.m_iCivilianDangerChangedSecond = source.m_iCivilianDangerChangedSecond;
+		target.m_iCivilianPanicUntilSecond = source.m_iCivilianPanicUntilSecond;
+		target.m_sCivilianLastConsequenceEventId = source.m_sCivilianLastConsequenceEventId;
+		target.m_sCivilianConsequenceAuthorityFailure = source.m_sCivilianConsequenceAuthorityFailure;
 		target.m_sPatrolRouteId = source.m_sPatrolRouteId;
 		target.m_sQRFRouteId = source.m_sQRFRouteId;
 		target.m_sMissionSiteId = source.m_sMissionSiteId;
@@ -1884,6 +1897,10 @@ class HST_CampaignSaveData
 		target.m_iPopulationDelta = source.m_iPopulationDelta;
 		target.m_iPoliceDelta = source.m_iPoliceDelta;
 		target.m_iRoadblockDelta = source.m_iRoadblockDelta;
+		target.m_sAggressionFactionKey = source.m_sAggressionFactionKey;
+		target.m_iAggressionDelta = source.m_iAggressionDelta;
+		target.m_iAggressionBefore = source.m_iAggressionBefore;
+		target.m_iAggressionAfter = source.m_iAggressionAfter;
 		target.m_iRequestedFIABasisPointDelta = source.m_iRequestedFIABasisPointDelta;
 		target.m_iRequestedOccupierBasisPointDelta = source.m_iRequestedOccupierBasisPointDelta;
 		target.m_iRequestedInvaderBasisPointDelta = source.m_iRequestedInvaderBasisPointDelta;
@@ -2846,6 +2863,9 @@ class HST_CampaignSaveData
 		// Town influence validates pending political receipt links only after the
 		// canonical ownership rows they reference have been normalized.
 		schema64TownInfluenceValidation.ValidateAfterOwnership(this);
+		HST_CivilianConsequenceSaveValidationService schema65CivilianConsequenceValidation
+			= new HST_CivilianConsequenceSaveValidationService();
+		schema65CivilianConsequenceValidation.Normalize(this, restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)

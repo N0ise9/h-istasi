@@ -2,30 +2,36 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` remains `64`; this sealed Blueprint Phase 8
-source/Workbench slice adds no campaign-state fields.
-`HST_RuntimeSettings.SCHEMA_VERSION` advances
-from `23` to `24` for global ambient-population budgets and bounded runtime-
-health controls. The current sealed checkpoint identifies implementation
+`HST_CampaignState.SCHEMA_VERSION` is `65` in the current unsealed Blueprint
+Phase 8 civilian-consequence tree. `HST_RuntimeSettings.SCHEMA_VERSION` remains
+`24`; this pass adds no generated-settings migration. Schema 65 persists a
+revisioned locality consequence envelope and exact aggression before/after
+evidence on town-influence events while keeping ambient actor topology session-
+only. The deterministic casualty, replay/conflict, attribution, theft, combat-
+episode, minor-locality, malformed-authority, aggression-admission, persistence,
+and pedestrian panic/recovery proof cases are complete and wired. They are
+state-only source proofs, not native entities, real profile serialization,
+package, server/client, or multiplayer evidence. Preliminary unstamped normal
+Workbench compile/create and all-five validation are clean at 5,802 Game files/
+11,728 classes with CRC `be076102`, `Script validation successful`, zero HST
+script errors, and zero surviving Workbench processes. Final Foundation, stamped
+Workbench reruns, native, package, real-profile, multiplayer, and soak gates
+remain open.
+
+The last sealed and therefore last publishable checkpoint remains Campaign
+Schema 64/runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
-`schema64-settings24-ambient-runtime-authority`.
+`schema64-settings24-ambient-runtime-authority`. Its final sealed-tree evidence is
+Foundation at 711 script-symbol references and normal compilation at 5,799 files/
+11,718 classes with CRC `bb083672`, explicit validation success for all five
+configurations, zero HST script errors, and zero surviving Workbench processes.
+No Schema-65 stamp or package exists yet. Campaign Debug, real profile save/
+restart, native callbacks and movement, rendered behavior, ten-town/ten-minute
+stutter/churn measurement, and multiplayer remain open.
 
-Final sealed-tree source/Workbench evidence is Foundation at 711 script-symbol
-references and normal compilation at 5,799 files/11,718 classes with CRC
-`bb083672`, explicit validation success for all five configurations, zero HST
-script errors, and zero surviving Workbench processes. Deterministic budget, lifecycle, settings-
-migration, and save-boundary proofs are compiled and wired but have not run in
-Campaign Debug. Real profile serialization/restart, native server execution,
-ten-town/ten-minute soak, brief enter/exit observation, promoted-root
-destruction, new-campaign reset, Campaign Debug Phase 20 production-path
-execution, rendered behavior, stutter measurement, and multiplayer remain open.
-Aid and ownership/security-pressure source paths still need runtime proof;
-automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper
-local-security behavior remain unimplemented.
-
-The preceding sealed checkpoint is campaign Schema 64 on runtime-settings
-Schema 23.
+The earlier sealed checkpoint is Campaign Schema 64 on runtime-settings Schema
+23.
 It adds the canonical curated-town political support/population boundary on top
 of the sealed Schema-62 ownership and Schema-63 combat-presence dependencies.
 That checkpoint identifies implementation
@@ -55,12 +61,106 @@ remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
 
+## Schema 65
+
+- Every locality persists a contract-`1`, revisioned civilian-consequence
+  envelope: danger-active state, combat-episode count, adopted Schema-64 baseline
+  floor, last applied episode, consumed combat-presence revision, danger-
+  transition second, panic deadline, last exact consequence ID, and fail-closed
+  authority failure. The adopted floor is `0..1`; runtime and restore require
+  `episode - lastApplied <= 1`. Ambient actor, group, waypoint, threat-position,
+  casualty/theft queue, and minor-locality receipt-fingerprint topology remains
+  session-only.
+- The server destruction callback observes only an exact tracked pedestrian or
+  traffic driver and retains the observation for a 256-row casualty queue. A
+  separate 64-row queue owns deferred theft. The queues share a four-attempt-per-
+  frame drain before claim observation and persistence. Failed receipts remain
+  queued indefinitely with bounded 5/10/15-second backoff; queue exhaustion
+  retains the observation before ID admission, and pending/faulted consequence
+  authority defers capture. A dead-character health check supplies a once-only
+  fallback.
+- An accepted canonical-town casualty is at most one exact town-influence event. It
+  changes the logical remaining/destroyed population, faction support,
+  reputation, wanted heat, and attributable enemy aggression without depending
+  on whether any other physical civilians exist. Replay with the same
+  fingerprint is read-only; conflicting reuse fails closed.
+- A civilian traffic/static vehicle theft event can be admitted only after the
+  live root successfully promotes to durable `field_vehicle` authority. The
+  exact receipt is derived from the durable vehicle ID and applies only for a
+  resistance-attributed exact player-pilot claim. Passenger occupancy keeps the
+  transient live root out of budget/health recycling until exit or pilot claim,
+  but is not promotion or theft evidence.
+  Military vehicles and enemy-attributed claims do not receive this consequence.
+- Nearby combat consumes the current combat-presence revision and the exact
+  current-operation and recent-fire counts stored for the zone. At least one of
+  those counts must be positive. `HOT`, `COOLING`, or a garrison presence alone
+  cannot open an episode. An already admitted but unapplied receipt drains before
+  a new false-to-true edge; that edge advances the persisted episode once and
+  applies at most one exact canonical-town event. Repeated observations refresh
+  panic without replaying political effects.
+- Canonical-town consequence events keep logical population/support in
+  `HST_TownInfluenceRecord`, reputation/wanted heat in the durable civilian town
+  state, and aggression in the targeted faction pool. Each nonzero aggression
+  mutation now records target, delta, and exact before/after values on the town
+  event plus one matching applied strategic receipt. Restore validates all of
+  those correlations before accepting the event.
+- Physical pedestrians use the bounded `Wandering -> Panicked -> Recovering`
+  lifecycle. Danger replaces wander behavior with a running move waypoint away
+  from the stored threat; recovery restores walking and a deterministic wander
+  path only after native acknowledgement. Rebound danger returns the actor to
+  panic without spending the ordinary stuck-recovery budget. Lost/stalled panic
+  routes use a separate bounded recovery counter, and the hot path does not call
+  AI activation. This is physical projection behavior, not logical population
+  authority, and traffic has no panic state in this slice.
+- A minor locality has no canonical political record. Casualty and nearby-
+  combat paths may therefore trigger panic only and use a bounded in-memory
+  exact-receipt fingerprint; they cannot write population, support, heat, or
+  aggression. That de-duplication receipt does not survive restart. Vehicle-
+  theft political consequences require a canonical town and fail closed for a
+  minor locality.
+- Schema-64 migration clears the newly introduced aggression evidence on every
+  older town event, then initializes each zone envelope from its already stored
+  combat facts. Positive current-operation/recent-fire facts create episode `1`,
+  mark that baseline as the adopted applied floor, and set a bounded 45-second panic deadline;
+  otherwise the envelope starts inactive. Migration creates no casualty, theft,
+  combat, town-influence, aggression, or strategic event and replays no older
+  event effects.
+- Current Schema-65 restore validates envelope bounds, revision ordering,
+  present danger against the current exact combat facts, adopted-floor/applied
+  bounds, panic time, and the canonical town's exact live last-consequence
+  backlink. Bounded indexes resolve influence events and strategic receipts once
+  for per-zone validation. Save shape proves unique pool/arithmetic/receipt
+  structure but cannot know unserialized preset roles, so the coordinator runs a
+  post-restore live-preset pass and quarantines any aggression target that is not
+  a configured enemy. Invalid envelope authority is quarantined at `-65` with
+  danger and panic disabled; inconsistent exact town-influence/aggression
+  authority follows the existing Schema-64 fail-closed event/record quarantine
+  rather than being repaired by replay.
+- Each post-adoption live combat receipt must have exact `+4` heat; zero support,
+  reputation, population, police, roadblock, and aggression effects; canonical
+  source/reason; and unchanged support/population before/after. ID/kind alone is
+  insufficient.
+- Stable ID allocation no longer wraps at exhaustion. An empty strategic ID
+  fails event admission before mutation.
+- Deterministic state-only proofs are complete and wired for resistance/enemy/
+  unknown casualty attribution, population scaling, replay/conflict, theft,
+  `HOT`-only inertness, danger episode edges, minor-locality panic-only behavior,
+  malformed input, aggression admission, save-copy/current-restore quarantine,
+  and pedestrian panic/recovery transitions. Preliminary unstamped normal and
+  all-five Workbench checks are clean, but final Foundation/stamped validation,
+  native callback ordering, actual death attribution, waypoint movement, profile
+  I/O/restart, package execution, rendered behavior, multiplayer, and soak remain
+  open gates.
+
 ## Runtime Settings Schema 24
 
-- Campaign-state Schema remains `64`; Schema 24 changes the generated runtime-
-  settings contract only. Schema-23 files receive the new class defaults when
-  keys are absent, retain explicit valid operator values, normalize every value
-  to its documented performance bound, then rewrite as Schema 24.
+- The `23 -> 24` settings migration changed the generated runtime-settings
+  contract only and originally left Campaign Schema 64 unchanged. The current
+  development save contract later advances independently to Campaign Schema 65;
+  runtime settings remain Schema 24. Schema-23 settings files receive the new
+  class defaults when keys are absent, retain explicit valid operator values,
+  normalize every value to its documented performance bound, then rewrite as
+  Schema 24.
 - `civilianGlobalActorBudgetBase` defaults to `48`, and
   `civilianGlobalActorBudgetPerPlayer` defaults to `12`. This is the global cap
   for physically projected pedestrian actors plus traffic drivers. It never
@@ -166,11 +266,12 @@ evidence remains open.
 - Pure budget and actor-lifecycle proofs cover ten-town bounded allocation,
   shared driver accounting, lease rotation, zero/capped demand, strict
   transition paths, read-only illegal edges, movement progress, and bounded
-  recycle. They are wired into Campaign Debug but have not been executed there;
-  the ten-town/ten-minute native soak and real save/restart remain open gates.
-  Aid and ownership/security-pressure source paths still need runtime proof;
-  automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper
-  local-security behavior remain open implementation work.
+  recycle. The unsealed Schema-65 continuation adds the separate civilian-
+  consequence and panic proofs described above. These source suites are complete
+  and wired, but the ten-town/ten-minute native soak and real save/restart remain
+  open gates. Aid and ownership/security-pressure source paths still need
+  runtime proof, and deeper local-security behavior remains open implementation
+  work.
 
 ## Schema 64
 

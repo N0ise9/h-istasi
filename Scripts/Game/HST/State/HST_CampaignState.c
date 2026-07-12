@@ -71,6 +71,20 @@ class HST_ZoneState
 	string m_sCombatPresenceReason = "cold";
 	ref array<string> m_aCombatPresenceContributorIds = {};
 	ref array<string> m_aCombatPresenceContributorFacts = {};
+	int m_iCivilianConsequenceContractVersion = 1;
+	int m_iCivilianConsequenceRevision = 1;
+	bool m_bCivilianCombatDangerActive;
+	int m_iCivilianCombatEpisodeCount;
+	// Schema-64 adoption may acknowledge one already-active episode without
+	// inventing a political event. Live Schema-65 receipts always sit above this
+	// immutable migration floor and can therefore be linked on restore.
+	int m_iCivilianAdoptedCombatEpisodeCount;
+	int m_iCivilianLastAppliedCombatEpisodeCount;
+	int m_iCivilianLastCombatPresenceRevision;
+	int m_iCivilianDangerChangedSecond;
+	int m_iCivilianPanicUntilSecond;
+	string m_sCivilianLastConsequenceEventId;
+	string m_sCivilianConsequenceAuthorityFailure;
 	string m_sPatrolRouteId;
 	string m_sQRFRouteId;
 	string m_sMissionSiteId;
@@ -1101,6 +1115,10 @@ class HST_TownInfluenceEventState
 	int m_iPopulationDelta;
 	int m_iPoliceDelta;
 	int m_iRoadblockDelta;
+	string m_sAggressionFactionKey;
+	int m_iAggressionDelta;
+	int m_iAggressionBefore;
+	int m_iAggressionAfter;
 	int m_iRequestedFIABasisPointDelta;
 	int m_iRequestedOccupierBasisPointDelta;
 	int m_iRequestedInvaderBasisPointDelta;
@@ -1267,7 +1285,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 64;
+	static const int SCHEMA_VERSION = 65;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

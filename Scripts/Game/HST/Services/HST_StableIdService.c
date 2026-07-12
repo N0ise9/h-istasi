@@ -9,6 +9,8 @@ class HST_StableIdService
 			prefix = "id";
 
 		int sequence = Math.Max(1, state.m_iNextAuthoritySequence);
+		if (sequence >= int.MAX)
+			return "";
 		state.m_iNextAuthoritySequence = sequence + 1;
 		return string.Format("%1_%2_%3", prefix, state.m_iCampaignSeed, sequence);
 	}

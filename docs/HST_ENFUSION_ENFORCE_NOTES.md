@@ -1,6 +1,14 @@
 # h-istasi Enfusion / Enforce Notes
 
-The current sealed campaign source/Workbench checkpoint is Campaign Schema 64
+Current development source is an unsealed Campaign Schema 65/runtime-settings
+Schema 24 civilian-consequence slice. The sealed Schema 64/settings 24 identity
+below remains unchanged. Preliminary unstamped normal Workbench compile/create
+and all-five validation of the unsealed delta are clean at 5,802 Game files/
+11,728 classes with CRC `be076102`, `Script validation successful`, zero HST
+script errors, and zero surviving Workbench processes. Final Foundation, stamped
+Workbench reruns, and every runtime gate remain open.
+
+The last sealed campaign source/Workbench checkpoint is Campaign Schema 64
 on runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -1282,6 +1290,29 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `string.Format` placeholders are limited to `%1` through `%9`.
   - Do not use `%10` or higher in diagnostics or reports; split the report into multiple `string.Format` calls or append the remaining values with string concatenation.
+
+- Do not use the C-style ternary expression in Enforce Script.
+  - Resolve the branch into an explicitly typed local with `if`/`else`, then use
+    that local. Workbench commonly reports the failure as a broken expression at
+    the enclosing call rather than at the `?` token. This is the same parser rule
+    recorded in the expression notes near the top of this document.
+
+- Keep the `foreach` colon with the iterator declaration.
+  - Use `foreach (Type value : values)`; do not split the declaration and `:`
+    across lines. Enforce can report a broken expression at the loop body even
+    though the wrapped `foreach` header is the actual parse failure.
+
+- Do not apply postfix or prefix increment directly to an indexed array value.
+  - Replace `values[index]++` with
+    `values[index] = values[index] + 1`. An indexed lookup is a temporary value
+    for this parser boundary and is not a safe increment target.
+
+- Native AI threat state is `EAIThreatState`.
+  - Resolve the actor's `AIAgent`, cast its info component to
+    `SCR_AIInfoComponent`, and call `GetThreatState()`. Treat
+    `EAIThreatState.ALERTED` and `EAIThreatState.THREATENED` as the explicit
+    pedestrian danger states. Do not infer native threat from campaign `HOT`, and
+    do not substitute an unrelated threat enum or a bool-return assumption.
 
 - Enforce can reject long boolean expressions with `Formula too complex`.
   - Split large assertion expectations into guarded blocks and smaller named
@@ -4556,9 +4587,118 @@ This file is for practical engine/script behavior, not project planning. Keep en
   native brief enter/exit, autosave/process restart, promoted-root destruction,
   new-campaign reset, and Campaign Debug Phase 20 production-path execution still
   need proof. Commander aid and ownership/security-pressure paths exist in source
-  but need runtime proof. Automatic civilian casualty, theft, nearby-combat
-  influence, panic/recovery, and deeper local-security behavior remain gameplay
-  implementation work; do not infer them from allocator or lifecycle success.
+  but need runtime proof. At this sealed Schema-64 checkpoint, automatic civilian
+  casualty, theft, nearby-combat influence, panic/recovery, and deeper local-
+  security behavior were still gameplay implementation work; do not infer them
+  from allocator or lifecycle success.
+
+## Unsealed Schema 65 Civilian Consequence Mechanics
+
+- Campaign Schema 65 is required because persisted shape changes: exact town
+  events gain aggression target/delta/before/after fields, and each locality
+  gains a revisioned civilian danger/episode/last-applied/panic envelope. Runtime-
+  settings remains Schema 24 because no new balance setting is introduced. Do
+  not rewrite or reuse the sealed Schema-64/settings-24 stamp for this tree.
+
+- Keep native death observation separate from durable mutation. The game-mode
+  `OnControllableDestroyed` callback should only recognize a tracked ambient
+  pedestrian or traffic driver, retain the immutable observation, reserve an
+  exact ID through the persisted monotonic campaign allocator only when capacity
+  exists, and append a session queue row. Cap casualty rows at 256 and deferred
+  theft rows at 64; drain at most four combined transactions per server frame
+  before player claims and persistence. Rejected rows retry indefinitely, while
+  capping backoff at 15 seconds after 5- and 10-second delays. A full queue must
+  retain the observation rather than drop or re-identify it. Any retained row,
+  queued receipt, or queue-authority fault must defer capture. An actor-local
+  observed flag and receipt ID fence callback re-entry and the health-tick dead-
+  character fallback. Queue topology is transient; the consumed monotonic
+  sequence and accepted town event are durable.
+
+- Apply civilian vehicle theft after, never before, player-first promotion to
+  durable `field_vehicle` authority. Use the promoted durable runtime ID as the
+  exact event source/identity. Only a resistance claimant of civilian traffic or
+  a civilian static vehicle receives the theft consequence. Require an exact
+  player in the pilot compartment. Passenger occupancy makes the live root non-
+  recyclable during budget/health cleanup until exit or exact pilot claim, but
+  is not a durable claim or theft signal. Military ambience, movement distance,
+  and a non-resistance claimant are not theft evidence.
+
+- `HOT` is a combat-presence/cooling classification, not proof of civilian
+  danger. Begin or retain a civilian episode only when the exact zone snapshot
+  has a current-operation or recent-fire count. Persist the observed combat
+  revision, false-to-true episode counter, adopted Schema-64 baseline floor,
+  last-applied episode, danger-change time, panic deadline, and last consequence
+  event. Drain an already admitted but unapplied receipt before opening another
+  edge. Require adopted floor `0..1` and `episode - lastApplied <= 1`. Repeated
+  samples inside one episode may refresh panic; a canonical town may append at
+  most one political event for that edge.
+
+- On current restore, validate the full canonical live combat fingerprint, not
+  only event ID/kind: `+4` heat, zero support/reputation/population/police/
+  roadblock/aggression deltas, source ID equal to event ID, the exact canonical
+  nearby-combat reason, and unchanged support/population before/after values.
+
+- When a canonical town consequence raises enemy aggression, put the target
+  faction, bounded requested delta, and exact before/after values on the same
+  town event. Before any mutation, require a unique valid enemy pool, arithmetic
+  headroom, economy and strategic dependencies, and no existing strategic source
+  claim. The matching applied strategic receipt must have source type
+  `town_influence`, source ID equal to the town event ID, and the same target
+  faction, zone, timestamp, and aggression delta. Exact replay returns existing
+  evidence and cannot add aggression twice.
+
+- Never wrap the persisted stable-ID sequence. `NextId()` returns empty at
+  exhaustion, and strategic/town admission must reject that result before any
+  mutation or receipt publication.
+
+- Preserve restore dependency order. Normalize and validate current/pre-65 town
+  event and aggression shape first, invalidate combat-presence physical samples,
+  normalize ownership and marker authority, validate town pending-owner and
+  strategic receipt links, and only then migrate or validate the Schema-65
+  locality envelope. Build bounded influence-event and strategic-receipt indexes
+  once before per-zone checks; do not re-scan full history for each locality.
+  Require each live canonical town's last consequence ID to resolve to exactly
+  one applied exact civilian event for that town. Save-shape validation can prove
+  pool uniqueness, arithmetic, and receipt structure, but preset faction roles
+  are not serialized. Immediately after restore, validate every aggression
+  target against the live preset and quarantine the town/event/locality chain if
+  it is not a configured enemy. Pre-65 events receive empty target and zero
+  delta/before/after fields; do not invent historical aggression. Malformed town/
+  aggression/strategic evidence quarantines the town at `-64`. Malformed
+  civilian episode, adopted floor, revision, panic, or last-event authority
+  quarantines the locality envelope at `-65` and clears active danger/panic.
+  Restore validates; it never reapplies the consequence.
+
+- Keep political population independent of physical ambience. Canonical town
+  casualty effects can persist after every actor leaves the bubble; ambient
+  actor roots, groups, waypoints, movement samples, and panic threat positions
+  remain disposable. A minor locality is panic-only and must not gain a town
+  influence or strategic event. Its bounded exact receipt-fingerprint map is
+  session-only, so it can reject conflicting ID reuse in one process but cannot
+  claim the same exact conflict fence across restart.
+
+- Model pedestrian panic as a behavior-ready lifecycle state. Resolve native
+  threat from `SCR_AIInfoComponent.GetThreatState()` using `EAIThreatState`, or
+  consume the exact locality danger deadline. Replace wander helpers with one
+  move waypoint away from the threat and apply `EMovementType.RUN`. On calm,
+  transition through `Recovering`, rebuild the deterministic wander path at
+  `EMovementType.WALK`, and return to `Wandering` only after the waypoint is
+  acknowledged. A threat rebound during recovery returns to panic without
+  spending the ordinary stuck-recovery budget. Lost or stalled panic routes use
+  a separate bounded route-recovery counter so bad geometry cannot churn helpers
+  forever. Keep `ActivateAI()` in construction/admission helpers; never call it
+  from per-health-tick panic or recovery maintenance. Traffic panic is not part
+  of this first slice.
+
+- Pure consequence and lifecycle proofs can establish formula, replay,
+  conflict, migration, and state-machine invariants only. Foundation and
+  preliminary unstamped Workbench checks are distinct gates: normal compile/
+  create and all-five validation are clean at 5,802 Game files/11,728 classes
+  with CRC `be076102`, `Script validation successful`, zero HST script errors,
+  and zero surviving processes. Final Foundation, stamped Workbench reruns,
+  native callback attribution, move-waypoint activation, RUN/WALK
+  behavior, real profile save/restart, package, multiplayer, and ten-town/ten-
+  minute soak evidence all remain open.
 
 ## Native Reference Sources
 
