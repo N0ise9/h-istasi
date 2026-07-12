@@ -385,3 +385,65 @@ Consequences:
   Script Editor open compiled/created 5,788 files/11,670 classes with CRC
   `a40056c5`, no HST script errors, and no crash. Explicit validation also passes
   for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`.
+
+## CRI-010 - Canonicalize Town Influence Before Expanding Political Gameplay
+
+- Status: Accepted
+- Date: 2026-07-12
+
+Context: Town political truth was split between signed zone support and a
+civilian FIA/occupier pair, while population and modifier aggregates lived on
+the civilian row. Several production callers could mutate those fields through
+different wrappers, and the per-second civilian tick folded every town across
+all influence events. That made faction attribution, migration, flip ownership,
+and the reported one-second stutter difficult to reason about. The Map/War tab
+also displayed an arbitrary zone subset rather than contacted political truth.
+
+Decision: Provisional Schema 64 introduces exactly one revisioned
+`HST_TownInfluenceRecord` for each unique curated town. It is the sole owner of
+separate FIA/occupier/invader basis-point support, initial/remaining/destroyed
+population, contact/activity, event aggregates, and pending political intent.
+Legacy zone/civilian support and population fields become projections only.
+Typed influence events use the population formula pinned to commit
+`6e4226d3863ca8673535386c2fff8b6e08a806c4`, and political ownership uses strict
+hysteresis: resistance above `8000` basis points, enemy below `4000`, with
+equality neutral. Every flip is submitted to `HST_OwnershipTransitionService`.
+
+Consequences:
+
+- Golden scaling is contractual: raw `+1` at initial populations 100, 25, and
+  400 yields `+100`, `+200`, and `+50` basis points. Occupier and invader remain
+  distinct even when a legacy signed projection uses the stronger enemy.
+- Exact event identity is idempotent and preserves requested/effective deltas,
+  population basis, before/after support, before/after population triples, and
+  record revisions. Authorized absolute debug seeds set all three support
+  targets and the population triple through the same event/replay path without
+  rounding or owner-based enemy redirection. Current restore requires a
+  continuous population chain and exact final-record match even when unrelated
+  revisions fall between events.
+  Political callers, mission outcomes, convoy/order effects, radio drift, and
+  security pressure cannot write legacy support as truth or publish an owner
+  directly.
+- Contact requires explicit player, mission, incident, or resistance-activity
+  evidence. Global radio/security drift alone does not reveal a town. Zone
+  Pressure contains contacted valid towns only, current first and then stable
+  FIA-support/name/ID order. Resistance Territory contains the complete
+  published resistance-owned non-mission set in deterministic type/name/ID
+  order and shares the marker projection's completed-parent publication fence.
+- Pre-64 migration gives the legacy signed margin deterministic precedence on
+  disagreement, adjusts the civilian pair minimally, records one bounded
+  conflict fact, preserves legitimate destroyed population, and never replays
+  legacy events. Malformed current authority quarantines at `-64` rather than
+  being guessed. Simon's Wood remains ambient-only; the Maiden's Bay Logistics
+  Warehouse remains nonpolitical.
+- Influence aggregates update at mutation time. Event history is scanned only
+  when a canonical record's next expiry is due. Verbose changed active-group
+  survivor/count logs are throttled to 30 seconds. Both are source mitigations,
+  not evidence that the one-second stutter is fixed.
+- Schema 64 remains provisional until its exact implementation identity is
+  sealed. Foundation passes at 696 references, and normal/all-five-
+  configuration Workbench validation passes at 5,793 files/11,695 classes with
+  CRC `e1a7b03d`, zero HST script errors, and zero surviving Workbench
+  processes. Campaign Debug, save/restart, packaged runtime, rendered UI,
+  performance, and multiplayer gates remain open; this decision assigns no
+  final implementation identity.

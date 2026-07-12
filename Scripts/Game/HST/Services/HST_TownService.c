@@ -13,6 +13,12 @@ class HST_TownService
 	static const int SECURITY_PRESSURE_MAX_ROADBLOCKS = 4;
 
 	protected bool m_bLastPeriodicInfluenceChanged;
+	protected HST_TownInfluenceService m_TownInfluence;
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
+	}
 
 	int TickIncome(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, HST_CampaignPreset preset, int elapsedSeconds, HST_CivilianService civilians = null)
 	{
@@ -54,12 +60,18 @@ class HST_TownService
 
 	bool AddSupport(HST_CampaignState state, string zoneId, int amount)
 	{
-		HST_ZoneState zone = state.FindZone(zoneId);
-		if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		if (!state || !m_TownInfluence)
 			return false;
-
-		zone.m_iSupport = Math.Max(-100, Math.Min(100, zone.m_iSupport + amount));
-		return true;
+		return m_TownInfluence.AddSupportChange(
+			state,
+			zoneId,
+			amount,
+			"canonical town support change",
+			null,
+			"town_service",
+			"",
+			true,
+			true);
 	}
 
 	string BuildIncomeReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
@@ -90,7 +102,7 @@ class HST_TownService
 				zone.m_sZoneId,
 				zone.m_eType,
 				CalculateZoneMoneyIncome(state, zone),
-				zone.m_iSupport,
+				ResolveZoneSupportPercent(state, zone),
 				ResolveZoneHRIncome(state, zone)
 			) + populationText;
 		}
@@ -296,7 +308,7 @@ class HST_TownService
 		if (!zone)
 			return 0;
 
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && zone.m_iSupport >= 25 && ResolveTownPopulationIncomePercent(state, zone) >= 50)
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && ResolveZoneSupportPercent(state, zone) >= 25 && ResolveTownPopulationIncomePercent(state, zone) >= 50)
 			return 1;
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE && zone.m_sResourceKind == "food")
 			return 1;
@@ -311,7 +323,7 @@ class HST_TownService
 		int income = zone.m_iIncomeValue;
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
 		{
-			income += Math.Max(0, zone.m_iSupport / 12);
+			income += Math.Max(0, ResolveZoneSupportPercent(state, zone) / 12);
 			income = ApplyTownPopulationIncomeMultiplier(state, zone, income);
 		}
 		else if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE)
@@ -340,13 +352,14 @@ class HST_TownService
 		if (!state || !zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
 			return 100;
 
-		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
-		if (!civilianZone)
-			return 100;
+		if (!m_TownInfluence)
+			return 0;
+		HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(state, zone.m_sZoneId);
+		if (!record)
+			return 0;
 
-		int remaining = Math.Max(0, civilianZone.m_iPopulationRemaining);
-		int killed = Math.Max(0, civilianZone.m_iPopulationKilled);
-		int total = remaining + killed;
+		int remaining = Math.Max(0, record.m_iRemainingPopulation);
+		int total = Math.Max(0, record.m_iInitialPopulation);
 		if (total <= 0)
 			return 100;
 
@@ -421,10 +434,18 @@ class HST_TownService
 				continue;
 			}
 
-			if (!WouldRadioInfluenceChange(civilianZone, fiaDelta, occupierDelta, reputationDelta, heatDelta))
+			int invaderDelta;
+			if (!preset.m_sInvaderFactionKey.IsEmpty()
+				&& radioZone.m_sOwnerFactionKey == preset.m_sInvaderFactionKey)
+			{
+				invaderDelta = occupierDelta;
+				occupierDelta = 0;
+			}
+
+			if (!WouldRadioInfluenceChange(state, civilianZone, fiaDelta, occupierDelta, invaderDelta, reputationDelta, heatDelta))
 				continue;
 
-			if (civilians.RegisterInfluenceEvent(state, townZone.m_sZoneId, "radio_broadcast", fiaDelta, occupierDelta, reputationDelta, heatDelta, 0, 0, 0, reason, preset, 0, radioZone.m_sZoneId))
+			if (m_TownInfluence && m_TownInfluence.RegisterInfluenceEvent(state, townZone.m_sZoneId, "radio_broadcast", fiaDelta, occupierDelta, reputationDelta, heatDelta, 0, 0, 0, reason, preset, 0, radioZone.m_sZoneId, invaderDelta, true))
 				changed = true;
 		}
 
@@ -457,8 +478,8 @@ class HST_TownService
 			if (policeDelta == 0 && roadblockDelta == 0)
 				continue;
 
-			string reason = BuildSecurityPressureReason(townZone, civilianZone, targetPolice, targetRoadblocks);
-			if (civilians.RegisterInfluenceEvent(state, townZone.m_sZoneId, "security_pressure", 0, 0, 0, 0, 0, policeDelta, roadblockDelta, reason, preset, 0, townZone.m_sZoneId))
+			string reason = BuildSecurityPressureReason(state, townZone, civilianZone, targetPolice, targetRoadblocks);
+			if (m_TownInfluence && m_TownInfluence.RegisterInfluenceEvent(state, townZone.m_sZoneId, "security_pressure", 0, 0, 0, 0, 0, policeDelta, roadblockDelta, reason, preset, 0, townZone.m_sZoneId))
 				changed = true;
 		}
 
@@ -499,18 +520,24 @@ class HST_TownService
 		return bestRadio;
 	}
 
-	protected bool WouldRadioInfluenceChange(HST_CivilianZoneState civilianZone, int fiaDelta, int occupierDelta, int reputationDelta, int heatDelta)
+	protected bool WouldRadioInfluenceChange(HST_CampaignState state, HST_CivilianZoneState civilianZone, int fiaDelta, int occupierDelta, int invaderDelta, int reputationDelta, int heatDelta)
 	{
-		if (!civilianZone)
+		if (!state || !civilianZone || !m_TownInfluence)
 			return false;
 
-		int nextFIA = Math.Max(0, Math.Min(100, civilianZone.m_iFIASupport + fiaDelta));
-		int nextOccupier = Math.Max(0, Math.Min(100, civilianZone.m_iOccupierSupport + occupierDelta));
+		HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(state, civilianZone.m_sZoneId);
+		if (!record)
+			return false;
+		int nextFIA = Math.Max(0, Math.Min(10000, record.m_iFIASupportBasisPoints + HST_TownInfluenceService.CalculateEffectiveSupportDeltaBasisPoints(fiaDelta, record.m_iInitialPopulation, true)));
+		int nextOccupier = Math.Max(0, Math.Min(10000, record.m_iOccupierSupportBasisPoints + HST_TownInfluenceService.CalculateEffectiveSupportDeltaBasisPoints(occupierDelta, record.m_iInitialPopulation, true)));
+		int nextInvader = Math.Max(0, Math.Min(10000, record.m_iInvaderSupportBasisPoints + HST_TownInfluenceService.CalculateEffectiveSupportDeltaBasisPoints(invaderDelta, record.m_iInitialPopulation, true)));
 		int nextReputation = Math.Max(0, Math.Min(100, civilianZone.m_iReputation + reputationDelta));
 		int nextHeat = Math.Max(0, civilianZone.m_iWantedHeat + heatDelta);
-		if (nextFIA != civilianZone.m_iFIASupport)
+		if (nextFIA != record.m_iFIASupportBasisPoints)
 			return true;
-		if (nextOccupier != civilianZone.m_iOccupierSupport)
+		if (nextOccupier != record.m_iOccupierSupportBasisPoints)
+			return true;
+		if (nextInvader != record.m_iInvaderSupportBasisPoints)
 			return true;
 		if (nextReputation != civilianZone.m_iReputation)
 			return true;
@@ -542,7 +569,8 @@ class HST_TownService
 
 		int target = 1;
 		target += Math.Min(2, Math.Max(0, civilianZone.m_iWantedHeat / 6));
-		int occupierMargin = civilianZone.m_iOccupierSupport - civilianZone.m_iFIASupport;
+		int occupierMargin = ResolveDominantEnemySupportPercent(state, townZone.m_sZoneId)
+			- ResolveFIASupportPercent(state, townZone.m_sZoneId);
 		if (occupierMargin >= 20)
 			target++;
 		if (state.m_iWarLevel >= 4)
@@ -578,7 +606,8 @@ class HST_TownService
 			target++;
 		if (civilianZone.m_iWantedHeat >= 12)
 			target++;
-		int occupierMargin = civilianZone.m_iOccupierSupport - civilianZone.m_iFIASupport;
+		int occupierMargin = ResolveDominantEnemySupportPercent(state, townZone.m_sZoneId)
+			- ResolveFIASupportPercent(state, townZone.m_sZoneId);
 		if (occupierMargin >= 25)
 			target++;
 		if (state.m_iWarLevel >= 5 && civilianZone.m_iWantedHeat >= 6)
@@ -595,7 +624,7 @@ class HST_TownService
 		return 0;
 	}
 
-	protected string BuildSecurityPressureReason(HST_ZoneState townZone, HST_CivilianZoneState civilianZone, int targetPolice, int targetRoadblocks)
+	protected string BuildSecurityPressureReason(HST_CampaignState state, HST_ZoneState townZone, HST_CivilianZoneState civilianZone, int targetPolice, int targetRoadblocks)
 	{
 		string label = "town";
 		if (townZone && !townZone.m_sZoneId.IsEmpty())
@@ -607,8 +636,8 @@ class HST_TownService
 			"security pressure in %1 | heat %2 | FIA %3 | occupier %4 | target police %5 roadblocks %6",
 			label,
 			civilianZone.m_iWantedHeat,
-			civilianZone.m_iFIASupport,
-			civilianZone.m_iOccupierSupport,
+			ResolveFIASupportPercent(state, townZone.m_sZoneId),
+			ResolveDominantEnemySupportPercent(state, townZone.m_sZoneId),
 			targetPolice,
 			targetRoadblocks
 		);
@@ -623,6 +652,34 @@ class HST_TownService
 		if (!radioZone.m_sZoneId.IsEmpty())
 			return radioZone.m_sZoneId;
 		return "radio tower";
+	}
+
+	protected int ResolveZoneSupportPercent(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!zone)
+			return 0;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && m_TownInfluence)
+			return m_TownInfluence.ResolveSignedSupportPercent(state, zone.m_sZoneId);
+		return zone.m_iSupport;
+	}
+
+	protected int ResolveFIASupportPercent(HST_CampaignState state, string townId)
+	{
+		if (!state || !m_TownInfluence)
+			return 0;
+		return m_TownInfluence.ResolveFIASupportPercent(state, townId);
+	}
+
+	protected int ResolveDominantEnemySupportPercent(HST_CampaignState state, string townId)
+	{
+		if (!state || !m_TownInfluence)
+			return 0;
+		HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(state, townId);
+		if (!record)
+			return 0;
+		return Math.Round(Math.Max(
+			record.m_iOccupierSupportBasisPoints,
+			record.m_iInvaderSupportBasisPoints) / 100.0);
 	}
 
 	protected float DistanceSq2D(vector first, vector second)

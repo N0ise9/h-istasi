@@ -2,7 +2,7 @@
 
 Original audit: 2026-06-25
 
-Current-state synchronization: 2026-07-11
+Current-state synchronization: 2026-07-12
 
 This audit tracks the current UI rewrite state against the layout-driven Enfusion UI goal. Classifications use the requested buckets: Allowed, Needs conversion helper, Should move to layout file, and Should be deleted.
 
@@ -45,6 +45,18 @@ Current state:
   replicated-entity path. Deterministic registry fixtures and Workbench
   compilation do not prove rendered marker roots, input layering, reconnect, or
   late-join behavior.
+- Provisional Schema 64 changes Map/War data projection, not screen geometry.
+  Zone Pressure now consumes only explicitly contacted valid canonical towns,
+  places the current town first, and sorts remaining rows by FIA support plus
+  stable name/ID ties. Resistance Territory emits the complete published
+  resistance-owned strategic set in deterministic type/name/ID order, and the
+  redundant capture-status presentation is removed. The projection is source-
+  wired and passes the 696-reference Foundation gate plus normal/all-
+  configuration Workbench compile validation at 5,793 files/11,695 classes with
+  CRC `e1a7b03d` and zero HST script errors. Its identity remains provisional,
+  and it has no Campaign Debug, rendered UI, save/restart, reconnect, or JIP
+  proof. All Workbench instances were closed after verification and the process
+  count was zero.
 - The completed Schema-61 source/Workbench stamp identifies implementation
   `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, label
   `schema61-authoritative-marker-projection`, Foundation 655, and Workbench CRC

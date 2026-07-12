@@ -739,50 +739,6 @@ class HST_ZoneCaptureService
 		return found;
 	}
 
-	protected void ApplyLinkedTownSupport(HST_CampaignState state, HST_ZoneState capturedZone, int supportReward)
-	{
-		if (!state || !capturedZone || supportReward == 0)
-			return;
-
-		array<string> appliedZoneIds = {};
-		foreach (string linkedZoneId : capturedZone.m_aLinkedZoneIds)
-			ApplyTownSupportById(state, linkedZoneId, supportReward, appliedZoneIds);
-
-		ApplyNearbyTownSupport(state, capturedZone, supportReward, appliedZoneIds);
-	}
-
-	protected void ApplyTownSupportById(HST_CampaignState state, string zoneId, int supportReward, notnull array<string> appliedZoneIds)
-	{
-		if (!state || zoneId.IsEmpty() || appliedZoneIds.Contains(zoneId))
-			return;
-
-		HST_ZoneState linkedZone = state.FindZone(zoneId);
-		if (!linkedZone || linkedZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
-			return;
-
-		linkedZone.m_iSupport = Math.Max(-100, Math.Min(100, linkedZone.m_iSupport + supportReward));
-		appliedZoneIds.Insert(zoneId);
-	}
-
-	protected void ApplyNearbyTownSupport(HST_CampaignState state, HST_ZoneState capturedZone, int supportReward, notnull array<string> appliedZoneIds)
-	{
-		if (!state || !capturedZone)
-			return;
-
-		float supportRadiusSq = 1500 * 1500;
-		foreach (HST_ZoneState zone : state.m_aZones)
-		{
-			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN || appliedZoneIds.Contains(zone.m_sZoneId))
-				continue;
-
-			if (DistanceSq2D(zone.m_vPosition, capturedZone.m_vPosition) > supportRadiusSq)
-				continue;
-
-			zone.m_iSupport = Math.Max(-100, Math.Min(100, zone.m_iSupport + supportReward));
-			appliedZoneIds.Insert(zone.m_sZoneId);
-		}
-	}
-
 	protected void TryQueueCounterattack(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_EnemyCommanderService enemyCommander, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState capturedZone)
 	{
 		if (!state || !preset || !enemyCommander || !enemyDirector || factionKey.IsEmpty() || !capturedZone)

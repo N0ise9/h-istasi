@@ -1,5 +1,12 @@
 class HST_EconomyService
 {
+	protected HST_TownInfluenceService m_TownInfluence;
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
+	}
+
 	void AddFactionMoney(HST_CampaignState state, int amount)
 	{
 		state.m_iFactionMoney = Math.Max(0, state.m_iFactionMoney + amount);
@@ -251,22 +258,15 @@ class HST_EconomyService
 		if (!balance.m_bPopulationOutcomeEnabled)
 			return string.Format("legacy control %1 | airfields %2 | seaports %3", controlReady, airfieldsReady, seaportsReady);
 
-		int remainingPopulation;
-		int fiaSupportPopulation;
-		int killedPopulation;
-		int initialPopulation;
-		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
-		{
-			if (!town)
-				continue;
-
-			int remaining = Math.Max(0, town.m_iPopulationRemaining);
-			int killed = Math.Max(0, town.m_iPopulationKilled);
-			remainingPopulation += remaining;
-			killedPopulation += killed;
-			initialPopulation += remaining + killed;
-			fiaSupportPopulation += Math.Round(remaining * Math.Max(0, Math.Min(100, town.m_iFIASupport)) / 100.0);
-		}
+		HST_TownPopulationAggregate population;
+		if (m_TownInfluence)
+			population = m_TownInfluence.BuildPopulationAggregate(state);
+		if (!population || !population.m_bAuthorityValid)
+			return "population authority unavailable | outcome checks fail closed";
+		int remainingPopulation = population.m_iRemainingPopulation;
+		int fiaSupportPopulation = population.m_iFIASupportPopulation;
+		int killedPopulation = population.m_iDestroyedPopulation;
+		int initialPopulation = population.m_iInitialPopulation;
 
 		int supportPercent;
 		if (remainingPopulation > 0)
@@ -274,7 +274,11 @@ class HST_EconomyService
 		int killedPercent;
 		if (initialPopulation > 0)
 			killedPercent = Math.Round(killedPopulation * 100.0 / initialPopulation);
-		bool supportReady = remainingPopulation > 0 && fiaSupportPopulation * 100 >= remainingPopulation * balance.m_iVictoryPopulationSupportPercent;
+		bool supportReady
+			= HST_TownInfluenceService.MeetsPopulationSupportThreshold(
+				fiaSupportPopulation,
+				remainingPopulation,
+				balance.m_iVictoryPopulationSupportPercent);
 		bool lossRisk = initialPopulation > 0 && killedPopulation * 3 > initialPopulation;
 		return string.Format("population support %1 pct ready %2 | killed %3 pct loss %4 | airfields %5 | legacy control %6", supportPercent, supportReady, killedPercent, lossRisk, airfieldsReady, controlReady);
 	}

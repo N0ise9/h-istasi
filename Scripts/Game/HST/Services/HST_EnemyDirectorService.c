@@ -6,6 +6,12 @@ class HST_EnemyDirectorService
 	static const int RECENT_DAMAGE_WINDOW_SECONDS = 900;
 	static const int MAX_DEFENCE_SPEND_BASE = 28;
 	static const int MAX_DEFENCE_SPEND_PER_WAR_LEVEL = 7;
+	protected ref HST_TownInfluenceService m_TownInfluence;
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
+	}
 
 	bool TickResources(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
@@ -453,8 +459,11 @@ class HST_EnemyDirectorService
 			income += 2;
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER || zone.m_eType == HST_EZoneType.HST_ZONE_POLICE_STATION)
 			income += 1;
-		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
-			income += Math.Max(0, 1 - zone.m_iSupport / 50);
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN && m_TownInfluence)
+		{
+			int signedSupport = m_TownInfluence.ResolveSignedSupportPercent(state, zone.m_sZoneId);
+			income += Math.Max(0, 1 - signedSupport / 50);
+		}
 
 		int multiplier = 100 + state.m_iWarLevel * Math.Max(0, balance.m_iEnemySupportIncomeWarPercent);
 		income = Math.Max(1, Math.Round(income * multiplier / 100.0));

@@ -1040,8 +1040,53 @@ class HST_CivilianZoneState
 }
 
 [BaseContainerProps()]
+class HST_TownInfluenceRecord
+{
+	int m_iContractVersion = 1;
+	string m_sTownId;
+	int m_iRevision = 1;
+	int m_iFIASupportBasisPoints;
+	int m_iOccupierSupportBasisPoints;
+	int m_iInvaderSupportBasisPoints;
+	int m_iInitialPopulation;
+	int m_iRemainingPopulation;
+	int m_iDestroyedPopulation;
+	bool m_bContacted;
+	bool m_bResistanceActivityStarted;
+	int m_iContactedAtSecond;
+	string m_sContactSourceId;
+	string m_sContactReason;
+	string m_sHysteresisBand = "neutral";
+	string m_sPendingOwnerFactionKey;
+	int m_iPendingOwnerSinceSecond;
+	int m_iOwnershipCooldownUntilSecond;
+	int m_iLastHysteresisEvaluationSecond;
+	string m_sPendingOwnershipRequestId;
+	string m_sLastFlipOwnerFactionKey;
+	int m_iLastFlipSecond;
+	int m_iLastFlipOwnershipRevision;
+	int m_iFIARadioBasisPoints;
+	int m_iOccupierRadioBasisPoints;
+	int m_iInvaderRadioBasisPoints;
+	int m_iFIAPropagandaBasisPoints;
+	int m_iOccupierPropagandaBasisPoints;
+	int m_iInvaderPropagandaBasisPoints;
+	int m_iInfluenceEventCount;
+	int m_iActiveInfluenceModifierCount;
+	int m_iExpiredInfluenceModifierCount;
+	int m_iNextInfluenceExpirySecond;
+	string m_sLastInfluenceEventId;
+	string m_sLastInfluenceEventKind;
+	string m_sLastInfluenceEventReason;
+	int m_iLastInfluenceEventSecond;
+	string m_sLastMutationId;
+	string m_sAuthorityFailure;
+}
+
+[BaseContainerProps()]
 class HST_TownInfluenceEventState
 {
+	int m_iContractVersion = 1;
 	string m_sEventId;
 	string m_sZoneId;
 	string m_sKind;
@@ -1056,6 +1101,29 @@ class HST_TownInfluenceEventState
 	int m_iPopulationDelta;
 	int m_iPoliceDelta;
 	int m_iRoadblockDelta;
+	int m_iRequestedFIABasisPointDelta;
+	int m_iRequestedOccupierBasisPointDelta;
+	int m_iRequestedInvaderBasisPointDelta;
+	int m_iEffectiveFIABasisPointDelta;
+	int m_iEffectiveOccupierBasisPointDelta;
+	int m_iEffectiveInvaderBasisPointDelta;
+	int m_iPopulationUsed;
+	bool m_bPopulationScaled;
+	int m_iRecordRevisionBefore;
+	int m_iRecordRevisionAfter;
+	int m_iFIABasisPointsBefore;
+	int m_iFIABasisPointsAfter;
+	int m_iOccupierBasisPointsBefore;
+	int m_iOccupierBasisPointsAfter;
+	int m_iInvaderBasisPointsBefore;
+	int m_iInvaderBasisPointsAfter;
+	bool m_bAbsoluteDebugSeed;
+	int m_iInitialPopulationBefore;
+	int m_iInitialPopulationAfter;
+	int m_iRemainingPopulationBefore;
+	int m_iRemainingPopulationAfter;
+	int m_iDestroyedPopulationBefore;
+	int m_iDestroyedPopulationAfter;
 	bool m_bApplied;
 }
 
@@ -1199,7 +1267,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 63;
+	static const int SCHEMA_VERSION = 64;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1329,6 +1397,7 @@ class HST_CampaignState
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
+	ref array<ref HST_TownInfluenceRecord> m_aTownInfluenceRecords = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
 	ref array<ref HST_StrategicEventState> m_aStrategicEvents = {};
 	ref array<ref HST_CommandReceiptState> m_aCommandReceipts = {};
@@ -1862,6 +1931,30 @@ class HST_CampaignState
 		}
 
 		return null;
+	}
+
+	HST_TownInfluenceRecord FindTownInfluenceRecord(string townId)
+	{
+		if (townId.IsEmpty())
+			return null;
+		foreach (HST_TownInfluenceRecord record : m_aTownInfluenceRecords)
+		{
+			if (record && record.m_sTownId == townId)
+				return record;
+		}
+
+		return null;
+	}
+
+	int CountTownInfluenceRecords()
+	{
+		int count;
+		foreach (HST_TownInfluenceRecord record : m_aTownInfluenceRecords)
+		{
+			if (record)
+				count++;
+		}
+		return count;
 	}
 
 	HST_TownInfluenceEventState FindTownInfluenceEvent(string eventId)

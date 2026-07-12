@@ -515,7 +515,10 @@ class HST_OwnershipTransitionSaveValidationService
 	{
 		if (!saveData || !transition || zoneId.IsEmpty())
 			return "ownership support influence-event correlation is unavailable";
-		string expectedEventId = string.Format(
+		string expectedEventId = HST_TownInfluenceService.BuildOwnershipRewardEventId(
+			zoneId,
+			transition.m_sRequestId);
+		string legacyExpectedEventId = string.Format(
 			"town_influence_ownership_%1_%2",
 			zoneId,
 			transition.m_sRequestId.Hash());
@@ -524,7 +527,8 @@ class HST_OwnershipTransitionSaveValidationService
 		HST_TownInfluenceEventState correlatedEvent;
 		foreach (HST_TownInfluenceEventState influenceEvent : saveData.m_aTownInfluenceEvents)
 		{
-			if (influenceEvent && influenceEvent.m_sEventId == expectedEventId)
+			if (influenceEvent && (influenceEvent.m_sEventId == expectedEventId
+				|| influenceEvent.m_sEventId == legacyExpectedEventId))
 			{
 				exactIdCount++;
 				correlatedEvent = influenceEvent;
@@ -536,12 +540,28 @@ class HST_OwnershipTransitionSaveValidationService
 			correlatedCount++;
 		}
 		if (exactIdCount != 1 || correlatedCount != 1 || !correlatedEvent
-			|| correlatedEvent.m_sEventId != expectedEventId)
+			|| (correlatedEvent.m_sEventId != expectedEventId
+				&& correlatedEvent.m_sEventId != legacyExpectedEventId))
 			return "ownership applied-support claim lacks one deterministic influence event";
 		if (correlatedEvent.m_sKind != "ownership_support"
 			|| correlatedEvent.m_sSourceId != transition.m_sRequestId
 			|| correlatedEvent.m_sZoneId != zoneId)
 			return "ownership applied-support exact event row is not causally correlated";
+		if (correlatedEvent.m_iContractVersion != 0
+			&& correlatedEvent.m_iContractVersion
+				!= HST_TownInfluenceService.EXACT_CONTRACT_VERSION)
+			return "ownership applied-support event contract is invalid";
+		if (correlatedEvent.m_iContractVersion
+			== HST_TownInfluenceService.EXACT_CONTRACT_VERSION)
+		{
+			HST_TownInfluenceRecord influenceRecord
+				= FindUniqueTownInfluenceRecord(saveData, zoneId);
+			if (!influenceRecord
+				|| influenceRecord.m_iContractVersion
+					!= HST_TownInfluenceService.EXACT_CONTRACT_VERSION
+				|| !influenceRecord.m_sAuthorityFailure.IsEmpty())
+				return "ownership applied-support event lacks canonical town authority";
+		}
 
 		int expectedFIADelta;
 		int expectedOccupierDelta;
@@ -1141,20 +1161,31 @@ class HST_OwnershipTransitionSaveValidationService
 			|| (child.m_bCompleted
 				&& !parent.m_aAppliedSupportZoneIds.Contains(child.m_sZoneId)))
 			return "nested ownership transition is outside its parent's applied frozen support policy";
-		string expectedEventId = string.Format(
+		string expectedEventId = HST_TownInfluenceService.BuildOwnershipRewardEventId(
+			child.m_sZoneId,
+			parent.m_sRequestId);
+		string legacyExpectedEventId = string.Format(
 			"town_influence_ownership_%1_%2",
 			child.m_sZoneId,
 			parent.m_sRequestId.Hash());
 		string eventFailure = ValidateAppliedSupportEvent(saveData, parent, child.m_sZoneId);
 		if (!eventFailure.IsEmpty())
 			return "nested ownership transition parent support event is invalid: " + eventFailure;
-		if (child.m_sSourceId != expectedEventId)
+		if (child.m_sSourceId != expectedEventId
+			&& child.m_sSourceId != legacyExpectedEventId)
 			return "nested ownership transition source is not the parent support event";
-		string expectedRequestId = string.Format(
-			"ownership_political_%1_%2_%3",
+		string expectedRequestId = HST_TownInfluenceService.BuildPoliticalOwnershipRequestId(
 			child.m_sZoneId,
 			child.m_iExpectedRevision,
-			expectedEventId.Hash());
+			child.m_sSourceId);
+		if (child.m_sSourceId == legacyExpectedEventId)
+		{
+			expectedRequestId = string.Format(
+				"ownership_political_%1_%2_%3",
+				child.m_sZoneId,
+				child.m_iExpectedRevision,
+				child.m_sSourceId.Hash());
+		}
 		if (child.m_sRequestId != expectedRequestId)
 			return "nested ownership transition request identity is not deterministic";
 		return ValidatePoliticalThresholdEvidence(saveData, child, parent);
@@ -1420,6 +1451,24 @@ class HST_OwnershipTransitionSaveValidationService
 			if (marker && marker.m_sMarkerId == markerId)
 				saveData.m_aMapMarkers.Remove(markerIndex);
 		}
+	}
+
+	protected HST_TownInfluenceRecord FindUniqueTownInfluenceRecord(
+		HST_CampaignSaveData saveData,
+		string townId)
+	{
+		if (!saveData || townId.IsEmpty())
+			return null;
+		HST_TownInfluenceRecord match;
+		foreach (HST_TownInfluenceRecord record : saveData.m_aTownInfluenceRecords)
+		{
+			if (!record || record.m_sTownId != townId)
+				continue;
+			if (match)
+				return null;
+			match = record;
+		}
+		return match;
 	}
 
 	protected HST_ZoneState FindZone(HST_CampaignSaveData saveData, string zoneId)

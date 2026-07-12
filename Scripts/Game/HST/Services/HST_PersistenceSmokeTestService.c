@@ -370,7 +370,7 @@ class HST_PersistenceSmokeTestService
 
 	protected HST_ZoneState EnsureSmokeZone(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		HST_ZoneState existing = SelectSmokeTargetZone(state, preset);
+		HST_ZoneState existing = SelectSmokeTargetZone(state);
 		if (existing)
 			return existing;
 
@@ -390,26 +390,13 @@ class HST_PersistenceSmokeTestService
 		return zone;
 	}
 
-	protected HST_ZoneState SelectSmokeTargetZone(HST_CampaignState state, HST_CampaignPreset preset)
+	protected HST_ZoneState SelectSmokeTargetZone(HST_CampaignState state)
 	{
-		HST_ZoneState smokeZone = state.FindZone(SMOKE_ZONE_ID);
-		if (smokeZone)
-			return smokeZone;
-
-		string resistance = ResolveResistanceFaction(preset);
-		foreach (HST_ZoneState zone : state.m_aZones)
-		{
-			if (zone && zone.m_sOwnerFactionKey != resistance)
-				return zone;
-		}
-
-		foreach (HST_ZoneState fallback : state.m_aZones)
-		{
-			if (fallback)
-				return fallback;
-		}
-
-		return null;
+		if (!state)
+			return null;
+		// Persistence smoke owns one nonpolitical sentinel. Never reuse a curated
+		// town: its legacy civilian fixture is intentionally not political truth.
+		return state.FindZone(SMOKE_ZONE_ID);
 	}
 
 	protected void EnsureSmokeGarrison(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone)

@@ -1404,6 +1404,14 @@ class HST_MaidensBayLocationSaveValidationService
 	protected int RemoveLegacyTownInfluenceRows()
 	{
 		int removed;
+		for (int recordIndex = m_SaveData.m_aTownInfluenceRecords.Count() - 1; recordIndex >= 0; recordIndex--)
+		{
+			HST_TownInfluenceRecord record = m_SaveData.m_aTownInfluenceRecords[recordIndex];
+			if (!record || record.m_sTownId != LEGACY_ZONE_ID)
+				continue;
+			m_SaveData.m_aTownInfluenceRecords.Remove(recordIndex);
+			removed++;
+		}
 		for (int index = m_SaveData.m_aTownInfluenceEvents.Count() - 1; index >= 0; index--)
 		{
 			HST_TownInfluenceEventState influence = m_SaveData.m_aTownInfluenceEvents[index];

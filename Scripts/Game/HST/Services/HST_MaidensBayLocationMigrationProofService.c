@@ -233,6 +233,13 @@ class HST_MaidensBayLocationMigrationProofService
 		influence.m_sEventId = "maidens_proof_influence";
 		influence.m_sZoneId = LEGACY_ZONE_ID;
 		saveData.m_aTownInfluenceEvents.Insert(influence);
+		HST_TownInfluenceRecord influenceRecord = new HST_TownInfluenceRecord();
+		influenceRecord.m_sTownId = LEGACY_ZONE_ID;
+		influenceRecord.m_iFIASupportBasisPoints = 7300;
+		influenceRecord.m_iOccupierSupportBasisPoints = 2700;
+		influenceRecord.m_iInitialPopulation = 48;
+		influenceRecord.m_iRemainingPopulation = 48;
+		saveData.m_aTownInfluenceRecords.Insert(influenceRecord);
 
 		HST_MapMarkerState zoneMarker = new HST_MapMarkerState();
 		zoneMarker.m_sMarkerId = HST_MaidensBayLocationSaveValidationService.LEGACY_ZONE_MARKER_ID;
@@ -577,6 +584,7 @@ class HST_MaidensBayLocationMigrationProofService
 			&& !FindMarker(saveData, HST_MaidensBayLocationSaveValidationService.LEGACY_ZONE_MARKER_ID)
 			&& !FindCivilian(saveData, LEGACY_ZONE_ID)
 			&& !FindInfluence(saveData, "maidens_proof_influence")
+			&& !FindInfluenceRecord(saveData, LEGACY_ZONE_ID)
 			&& !FindRuntimeVehicle(saveData, "maidens_proof_ambient_vehicle");
 		return canonicalExact && manpowerExact && projectionRetired
 			&& CountMigrationEvent(saveData) == 1;
@@ -814,10 +822,11 @@ class HST_MaidensBayLocationMigrationProofService
 			saveData.m_aGeneratedRoutes.Count(),
 			saveData.m_aCampaignEvents.Count());
 		snapshot += string.Format(
-			"|extra %1/%2/%3/%4/%5",
+			"|extra %1/%2/%3/%4/%5/%6",
 			saveData.m_aGarageVehicles.Count(),
 			saveData.m_aRuntimeVehicles.Count(),
 			saveData.m_aTownInfluenceEvents.Count(),
+			saveData.m_aTownInfluenceRecords.Count(),
 			saveData.m_aUndercoverPlayers.Count(),
 			saveData.m_aEnemySupportLedgers.Count());
 		foreach (HST_ZoneState zone : saveData.m_aZones)
@@ -881,6 +890,11 @@ class HST_MaidensBayLocationMigrationProofService
 		{
 			if (influence)
 				snapshot += "\nN " + influence.m_sEventId + "|" + influence.m_sZoneId;
+		}
+		foreach (HST_TownInfluenceRecord influenceRecord : saveData.m_aTownInfluenceRecords)
+		{
+			if (influenceRecord)
+				snapshot += "\nJ " + influenceRecord.m_sTownId;
 		}
 		foreach (HST_PlayerUndercoverState undercover : saveData.m_aUndercoverPlayers)
 			snapshot += "\nU " + string.Format(
@@ -1304,6 +1318,18 @@ class HST_MaidensBayLocationMigrationProofService
 		{
 			if (influence && influence.m_sEventId == eventId)
 				return influence;
+		}
+		return null;
+	}
+
+	protected HST_TownInfluenceRecord FindInfluenceRecord(HST_CampaignSaveData saveData, string townId)
+	{
+		if (!saveData)
+			return null;
+		foreach (HST_TownInfluenceRecord record : saveData.m_aTownInfluenceRecords)
+		{
+			if (record && record.m_sTownId == townId)
+				return record;
 		}
 		return null;
 	}

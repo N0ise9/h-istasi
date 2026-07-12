@@ -73,6 +73,7 @@ class HST_OwnershipTransitionService
 	protected HST_StrategicService m_Strategic;
 	protected HST_GarrisonService m_Garrisons;
 	protected HST_CivilianService m_Civilians;
+	protected HST_TownInfluenceService m_TownInfluence;
 	protected HST_CampaignEventLogService m_CampaignEvents;
 	protected HST_EnemyCommanderService m_EnemyCommander;
 	protected HST_EnemyDirectorService m_EnemyDirector;
@@ -118,6 +119,11 @@ class HST_OwnershipTransitionService
 		m_PhysicalWar = physicalWar;
 		m_GarrisonPatrols = garrisonPatrols;
 		m_ZoneCapture = zoneCapture;
+	}
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
 	}
 
 	void ConfigureProjectionServices(
@@ -782,7 +788,7 @@ class HST_OwnershipTransitionService
 	protected bool DependenciesReady(HST_OwnershipTransitionRequest request)
 	{
 		if (!m_Preset || !m_Balance || !m_Economy || !m_Strategic || !m_Garrisons
-			|| !m_Civilians || !m_CampaignEvents || !m_PhysicalWar || !m_GarrisonPatrols
+			|| !m_Civilians || !m_TownInfluence || !m_CampaignEvents || !m_PhysicalWar || !m_GarrisonPatrols
 			|| !m_ZoneCapture || !m_MapMarkers || !m_Persistence)
 			return false;
 		if (request.m_bApplyEnemyConsequences && (!m_EnemyCommander || !m_EnemyDirector))
@@ -864,7 +870,8 @@ class HST_OwnershipTransitionService
 			town.m_iPolicePresence = Math.Max(1, Math.Max(town.m_iPolicePresence, zone.m_iGarrisonSlots / 6));
 			town.m_sLastSecurityReason = "canonical ownership transition established enemy town security";
 		}
-		town.m_bUndercoverRestricted = zone.m_iSupport < 25;
+		town.m_bUndercoverRestricted
+			= m_TownInfluence.ResolveSignedSupportPercent(state, zone.m_sZoneId) < 25;
 		transition.m_sSecurityDecision = town.m_sLastSecurityReason;
 	}
 
@@ -941,7 +948,7 @@ class HST_OwnershipTransitionService
 					transition,
 					zoneId))
 				reconcileOwnership = false;
-			if (!m_Civilians.RegisterOwnershipSupportReward(
+			if (!m_TownInfluence.RegisterOwnershipSupportReward(
 					state,
 					m_Preset,
 					zoneId,

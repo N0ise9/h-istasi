@@ -1,17 +1,20 @@
 # h-istasi Phase Plan
 
-Active development is on campaign Schema 63 and runtime-settings
-Schema 23. This slice implements canonical crew-aware combat presence, persisted
-`HOT -> COOLING -> COLD` diagnostics with a 30-second default cooling window,
-and render activation/deactivation hysteresis. Foundation passes with 681
-script-symbol references. A normal Workbench Script Editor open compiled/created
-the Game module at 5,788 files/11,670 classes with CRC `a40056c5`, remained
-responsive without a crash, and produced no HST script errors. Explicit
-validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`; all
-Workbench instances were closed after testing. Campaign Debug, packaged
-runtime, save/restart, and multiplayer proof are pending.
+Active development is the provisional campaign Schema 64 source pass on
+runtime-settings Schema 23. This slice canonicalizes curated-town political
+support/population, strict political hysteresis through the Schema-62 ownership
+transaction, explicit contact, and Zone Pressure/Resistance Territory
+projection. It also replaces unconditional per-second influence-event folds
+with due-expiry processing and throttles verbose active-group change logs.
+Schema 64 has no sealed implementation identity, Campaign Debug result, or
+packaged runtime evidence. Foundation passes at 696 script-symbol references,
+including the dedicated Schema-64 gate. Normal Workbench compilation and all-
+five-configuration validation pass at 5,793 files/11,695 classes with CRC
+`e1a7b03d`, successful validation, and zero HST script errors. Every Workbench
+instance was closed and the verified process count was zero. Save/restart,
+rendered UI, stutter measurement, and multiplayer proof are pending.
 
-The sealed Schema-63 checkpoint identifies implementation
+Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
@@ -110,6 +113,8 @@ The state model already has the right campaign save-game spine:
   assassination guards, and newly started POW rescue across schemas 50-60
 - enemy orders
 - civilian zone state
+- provisional Schema-64 canonical town-influence records and exact/legacy
+  influence events
 - undercover records
 - campaign tasks
 - monotonic authority sequence
@@ -123,9 +128,24 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-The active development save contract is sealed Schema 63 and the active
-runtime-settings contract is sealed Schema 23. Schema 63 gives existing
-forces one canonical crew-aware combat-presence and zone-heat authority. Fresh
+The active development save contract is provisional Schema 64 and the active
+runtime-settings contract remains sealed Schema 23. Schema 64 gives each curated
+town one canonical political support/population/contact/flip record. FIA,
+occupier, and invader support remain separate basis-point values. The scaling
+formula pinned to commit `6e4226d3863ca8673535386c2fff8b6e08a806c4`
+produces 100/200/50 basis points for raw `+1` at populations 100/25/400.
+Resistance requires strictly more than 8000 basis points; enemy ownership
+requires strictly less than 4000; equality is neutral. Every flip uses the
+Schema-62 ownership service. Legacy fields are projections only, pre-64 facts
+migrate once, and malformed current authority quarantines at `-64`. Exact events
+preserve population before/after, absolute debug seeds share their idempotent
+path, and restore validates the event chain through the final record. Zone
+Pressure is contacted-only/current-first; Resistance Territory is complete,
+deterministically ordered, and parent-publication fenced. Foundation and
+Workbench compile/validation pass; Campaign Debug and runtime proof remain open.
+
+Schema 63 remains the preceding sealed dependency and gives existing forces one
+canonical crew-aware combat-presence and zone-heat authority. Fresh
 registered physical samples count conscious dismounted infantry, operational
 occupied armed mobile platforms, and operational occupied static weapons;
 cargo, empty vehicles, destroyed/burning platforms, immobile mobile platforms,
@@ -141,11 +161,12 @@ deactivation radius. Unresolved spawned-group authority invalidates affected
 queries, and capture requires a living conscious character player rather than a
 spectator or Game Master proxy. Indexed runtime registrations, reusable sampling
 buffers, and contribution/authority-gap/radius caches keep the one-second path
-allocation-light. This sealed tree passes Foundation, normal Workbench
+allocation-light. Its sealed tree passes Foundation, normal Workbench
 compile/create, and explicit five-configuration validation; runtime execution
 remains open.
 
-Schema 63 layers on the sealed Schema-62 ownership boundary. One canonical
+Schema 64 composes Schema-63 combat presence with the sealed Schema-62 ownership
+boundary. One canonical
 ownership service owns military capture, mission capture, political support, admin, debug
 seed, and migration repair. Each location has contract version `1`, a monotonic
 owner revision, one active transition backlink, and one latest-completed
@@ -161,7 +182,10 @@ authority.
 Military/mission capture keeps enemy consequences; admin reconciles security and
 notifies without retaliation; debug seed also suppresses notification; migration
 repair preserves security and suppresses retaliation/notification.
-Admission and current-save normalization enforce those cause flags.
+Admission and current-save normalization enforce those cause flags. Political
+support callers submit typed town-influence events; strict threshold intent is
+pending until this ownership service accepts/completes it. No legacy support
+projection may publish an owner.
 
 Schema 61 remains the sealed marker-only client-projection foundation. Protocol
 `2` now includes the source ownership revision independently from each marker's
@@ -314,11 +338,11 @@ that roadmap remains useful for feature history and acceptance detail.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Schema 63/settings 23 are sealed at implementation `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC `2026-07-12T08:22:05Z`, label `schema63-canonical-combat-presence`; Foundation passes at 681 references and normal Workbench compile/create passes at 5,788 files/11,670 classes with CRC `a40056c5`, no HST script errors, and no crash. Explicit validation passes for all five configurations. Schema 62 is the preceding sealed source/Workbench checkpoint at implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC `2026-07-12T06:11:19Z`, label `schema62-canonical-ownership-transition`, Foundation 670, and Workbench CRC `22c13a32` at 5,785 files/11,652 classes | Package-test the exact sealed Schema-63 identity. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
+| CRI-0: Repository truth and baseline | Schema 64/settings 23 are active provisionally with no final identity. Foundation passes at 696 references, including the dedicated Schema-64 gate; normal and all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `e1a7b03d`, successful validation, zero HST script errors, and zero surviving Workbench processes. Schema 63 remains the preceding sealed checkpoint | Seal Schema 64 before package testing. Every packaged/native/save-restart/rendered-UI/stutter-horn/setup/network/reconnect/JIP gate remains independently open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; ten exact family projections across eight operation types implemented in source | Schema 60 adds direct travel, exact survivor materialize/fold, bounded virtual combat, displaced-fold return to assignment, on-station hold, commander recall, and `0`/`-60` restore isolation for player Search-and-Destroy. Generalized encounters, historical forces/missions, other families, and packaged movement/fold/restart proof remain open. |
-| CRI-6 through CRI-8: Client projection, ownership, combat presence, and civilian influence | Schema-62 ownership/protocol-2 and Schema-63 shared crew-aware pressure, zone heat, restore rules, and render hysteresis are sealed; civilian repair awaits packaged proof | Prove ownership with native security/restart/host-client rendering, then prove conscious registered infantry, manned armed mobile/static rules, empty/cargo-only vehicle exclusion, all shared consumers, exact 30-second cooling, conservative restore, and activation/deactivation boundary behavior. Broader encounter simulation and town truth remain open. |
+| CRI-6 through CRI-8: Client projection, ownership, combat presence, and civilian influence | Schema-62 ownership/protocol-2 and Schema-63 combat presence are sealed. Schema-64 canonical town influence, contact, Map/War projection, migration, and hot-path repairs are provisional; Foundation and Workbench checks pass | Execute Campaign Debug and prove ownership/security/restart/host-client rendering, combat classifications/cooling, 100/200/50-bp scaling, strict 8000/4000 equality, separate enemy support, no owner bypass, pre-64 migration/current quarantine, contacted Zone Pressure, complete territory, and due-expiry-only cost. |
 | CRI-9 through CRI-11: Enemy commander, missions, and progression | Broad-alpha foundations implemented; two exact enemy orders, convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
@@ -331,12 +355,12 @@ that roadmap remains useful for feature history and acceptance detail.
 | Living War | Broad-alpha paths plus ten exact family projections and a sealed shared combat-presence/heat boundary are in source | Prove all exact infantry rosters through materialization/fold/re-entry plus every Schema-63 consumer and `HOT -> COOLING -> COLD`; separately prove casualty, virtual combat, carrier/seat, outcome, grace, restart, and broader encounter behavior. |
 | Reliable Orders | Exact player QRF/Search-and-Destroy, newly planned enemy defensive QRF, and newly queued enemy patrol have separate canonical operation policies; other orders remain broad-alpha | Runtime-prove immutable assignment, duty/materialization/engagement/return/settlement/restart behavior, type/version dispatch, and legacy isolation, then extend the contract one family at a time. |
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision, prior-snapshot fencing, and parent-owned nested publication; menu/tasks/general notifications and dynamic player markers remain separate | Prove host/two-client/late-join equality, projection/source revisions, nested ownership atomicity, forced gap/resync, map-close continuity, duplicate-free native rendering, and real restart alongside normal-sized radio icons, location-plus-owner status, cursor layering, and exact radio target behavior. |
-| Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies canonical crew-aware capture pressure and persisted zone heat | Runtime-prove ownership routes, exact security, nested flips, restart/rendering, every combat-presence classification/consumer, cooling restore, and render hysteresis; then deepen encounter and town-truth consequences. |
+| Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies combat pressure/heat; provisional Schema 64 supplies sole town support/population truth and contacted/territory projections, with Foundation and Workbench checks passed | Execute the fixtures, then runtime-prove ownership routes, formula/hysteresis, contact/current-first ordering, complete territory, migration/restart/rendering, combat presence, cooling, and no bypass. Broader encounter/facility consequences remain. |
 | Living Towns | Civilian pedestrians/traffic moved in packaged schema 49; later eligibility, taxonomy, diversity, five-car default, Maiden's Bay cleanup, and Schema-60 wheeled-base horn repair are source-only | Prove Figari/Morton and minor-locality budgets, one Logistics Warehouse at Maiden's Bay, zero unregistered group RPCs, distinct actors, silent moving traffic/other AI wheeled vehicles, cleanup/recycle, and strategic consequences. |
 | Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF, and exact newly queued patrol operations exist | Prove each debit/roster/policy independently: QRF defensive arrival/return and patrol generated-route contact/lap/return, exact casualties, proportional settlement, marker cleanup, restart, and long-window behavior. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 63/settings 23 are the latest sealed source/Workbench checkpoint and pass Foundation plus explicit five-configuration Workbench validation | Package exact Schema 63, then runtime-prove combat presence/heat/hysteresis, ownership atomicity/restart, marker convergence, Search-and-Destroy, Maiden's Bay, stutter/horns, civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before fault-injection and long-soak closure. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 63/settings 23 remain the latest sealed source/Workbench checkpoint, while Schema 64 is provisional | Seal Schema 64, package that exact identity, then runtime-prove town influence/Map/War, combat presence/heat, ownership atomicity/restart, marker convergence, Search-and-Destroy, Maiden's Bay, stutter/horns, civilian/radio, both QRFs, convoy, patrols, garrison, all assassination guards, and the three-POW rescue before fault-injection and long-soak closure. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -649,9 +673,10 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Publish the exact sealed Schema-63 identity. Require the package,
-   server, clients, logs, and debug artifacts to report one matching
-   `HST_BuildInfo` identity.
+1. Seal the Foundation- and Workbench-verified Schema-64 tree under one exact
+   implementation identity, and only then publish.
+   Require package, server, clients, logs, and debug artifacts to report that
+   matching `HST_BuildInfo` identity.
 2. Runtime-prove all Schema-62 ownership routes, one revision increment,
    replay/conflict/stale behavior, pre-owner retry, reciprocal exact-security
    settlement, orphan/late-authority rejection, post-liberation policy, retained
@@ -660,8 +685,11 @@ treated as future work:
    and retention. In the same isolated boundary, prove Schema-63 conscious/
    crew-aware sampling, empty/cargo-only asset exclusion, all shared consumers,
    30-second heat/cooling timing, conservative restore, per-second cache
-   invalidation, and activation/deactivation hysteresis. Then continue Blueprint
-   Phase 7 with broader encounter and town-truth consequences.
+   invalidation, and activation/deactivation hysteresis. In the same isolated
+   boundary, prove Schema-64 canonical-record uniqueness, scaling goldens,
+   strict flip equality, occupier/invader separation, ownership delegation,
+   legacy projection, pre-64 migration/current quarantine, contact, Zone
+   Pressure/territory ordering, due-expiry processing, and save/restart.
 3. In the published server check, preserve
    stock HUD/Game Master access, require valid-sized location-plus-owner radio
    markers, pointer-over-dialog order, one authored transmitter per site, and
@@ -2628,10 +2656,12 @@ pressure with one crew-aware shared authority and revisioned
 security settlement, support, owner, town/facility/logistics derivation,
 retaliation, economy/outcome, events, parent-aware projection, notification, and
 persistence scheduling. Later capture/mission/admin/migration requests remain
-durable as array-ordered pre-owner receipts behind an active publisher. Packaged
-native security/restart/protocol-2 convergence, Schema-63 explicit Script
-validation and runtime execution, broader encounter/town truth, and soak remain
-open; Foundation and normal Workbench compile/create already pass.
+durable as array-ordered pre-owner receipts behind an active publisher.
+Provisional Schema 64 routes strict town-support hysteresis into the same receipt
+and removes legacy/direct political owner mutation. Packaged native security/
+restart/protocol-2 convergence, Schema-64 Campaign Debug/runtime execution,
+broader encounter consequences, and soak remain open; the preceding Schema-63
+Foundation and Workbench gates pass.
 
 Goal: make the map conquest loop work.
 
@@ -2785,25 +2815,37 @@ Acceptance criteria:
 
 ## Phase 20 - Civilians, Town Support, And Undercover Reports
 
-Status: In progress - town influence/population ledgers, aid, ownership
-consequences, civilian projection, undercover eligibility, and typed reports/
-smoke coverage exist. A packaged schema-49 run proved civilian traffic can move
+Status: In progress - provisional Schema 64 makes one revisioned town-influence
+record the sole support/population/contact/flip authority for curated towns and
+routes strict political intent through canonical ownership. Aid, civilian
+projection, undercover eligibility, and typed reports/smoke coverage exist. A
+packaged schema-49 run proved civilian traffic can move
 but exposed repeated town appearances, stuck horns, missing Figari/Morton
 ambience from HQ-coupled military activation, and full-town ambience at a minor
 woodland locality. Schema-50 source separates civilian eligibility, selects
 concrete variants, defaults true towns to five traffic vehicles, limits that
 locality to two pedestrians, and clears HST-owned ambient horn input. Schema 60
 adds the native wheeled-base horn suppression and removes the overlapping
-Maiden's Bay town while keeping the Logistics Warehouse. Publish/soak proof,
-political mission outputs, and canonical ownership remain open.
+Maiden's Bay town while keeping the Logistics Warehouse. Schema 64 also keeps
+Simon's Wood ambient-only, preserves separate occupier/invader support, adds
+contacted Zone Pressure and complete Resistance Territory, processes influence
+history only when an expiry is due, and throttles verbose active-group change
+logs to 30 seconds. Foundation and Workbench checks pass; Campaign Debug,
+publish/soak, save/restart, rendered political UI, and stutter proof remain open.
 
 Goal: make the civilian layer visible and start enforcing undercover rules
 gradually.
 
 Implementation:
 
-- Town support report: FIA support, occupier support, reputation, wanted heat,
-  police presence, and roadblock presence.
+- Town support report: canonical FIA/occupier/invader basis points, signed
+  support, record revision/contact/hysteresis/population, reputation, wanted
+  heat, police presence, and roadblock presence.
+- Population-scaled political changes use the pinned formula goldens
+  100/200/50 basis points for raw `+1` at populations 100/25/400. Strictly more
+  than 8000 requests resistance ownership; strictly less than 4000 requests
+  enemy ownership; equality stays neutral. All flips use
+  `HST_OwnershipTransitionService`.
 - Classify curated stock town centers separately from minor localities; military
   HQ-safety suppression must not erase civilian life near a player.
 - Give true towns five driven ambient vehicles by default and deterministic
@@ -2830,6 +2872,10 @@ Acceptance criteria:
   two pedestrians and no town traffic.
 - Maiden's Bay publishes only the Logistics Warehouse, and both ambient and
   other AI-driven wheeled vehicles remain silent without a one-second stutter.
+- Simon's Wood remains a two-pedestrian ambient locality with no political town
+  record. Contacted Zone Pressure lists the current town first, and Resistance
+  Territory lists every published resistance-owned strategic zone in stable
+  type/name/ID order.
 
 ## Phase 21 - Undercover Enforcement And Police/Roadblocks
 

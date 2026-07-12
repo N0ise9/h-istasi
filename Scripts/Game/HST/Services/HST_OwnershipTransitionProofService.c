@@ -311,6 +311,7 @@ class HST_OwnershipTransitionProofFixture
 	ref HST_EconomyService m_Economy;
 	ref HST_GarrisonService m_Garrisons;
 	ref HST_CivilianService m_Civilians;
+	ref HST_TownInfluenceService m_TownInfluence;
 	ref HST_CampaignEventLogService m_CampaignEvents;
 	ref HST_OwnershipTransitionZoneCaptureProofHarness m_ZoneCapture;
 	ref HST_OwnershipTransitionMapProofHarness m_MapMarkers;
@@ -320,6 +321,8 @@ class HST_OwnershipTransitionProofFixture
 
 class HST_OwnershipTransitionProofFixtureFactory
 {
+	protected HST_TownInfluenceService m_CurrentTownInfluence;
+
 	HST_OwnershipTransitionProofFixture Build(string suffix)
 	{
 		HST_CampaignState state = new HST_CampaignState();
@@ -357,6 +360,7 @@ class HST_OwnershipTransitionProofFixtureFactory
 		fixture.m_Economy = new HST_EconomyService();
 		fixture.m_Garrisons = new HST_GarrisonService();
 		fixture.m_Civilians = new HST_CivilianService();
+		fixture.m_TownInfluence = new HST_TownInfluenceService();
 		fixture.m_CampaignEvents = new HST_CampaignEventLogService();
 		fixture.m_ZoneCapture = new HST_OwnershipTransitionZoneCaptureProofHarness();
 		fixture.m_MapMarkers = new HST_OwnershipTransitionMapProofHarness();
@@ -365,6 +369,9 @@ class HST_OwnershipTransitionProofFixtureFactory
 		HST_EnemyCommanderService enemyCommander = new HST_EnemyCommanderService();
 		HST_EnemyDirectorService enemyDirector = new HST_EnemyDirectorService();
 		HST_SupportRequestService supportRequests = new HST_SupportRequestService();
+		enemyCommander.SetTownInfluenceService(fixture.m_TownInfluence);
+		enemyDirector.SetTownInfluenceService(fixture.m_TownInfluence);
+		supportRequests.SetTownInfluenceService(fixture.m_TownInfluence);
 		HST_PhysicalWarService physicalWar = new HST_PhysicalWarService();
 		HST_GarrisonPatrolOperationService garrisonPatrols = new HST_GarrisonPatrolOperationService();
 		fixture.m_Persistence = new HST_OwnershipTransitionPersistenceProofHarness();
@@ -385,9 +392,17 @@ class HST_OwnershipTransitionProofFixtureFactory
 			garrisonPatrols,
 			fixture.m_ZoneCapture);
 		fixture.m_Service.ConfigureProjectionServices(fixture.m_MapMarkers, null, fixture.m_Persistence);
+		fixture.m_TownInfluence.SetCampaignPreset(preset);
+		fixture.m_TownInfluence.SetStrategicService(fixture.m_Strategic);
+		fixture.m_Strategic.SetTownInfluenceService(fixture.m_TownInfluence);
+		fixture.m_TownInfluence.SetOwnershipTransitionService(fixture.m_Service);
+		fixture.m_Service.SetTownInfluenceService(fixture.m_TownInfluence);
 		fixture.m_ZoneCapture.SetOwnershipTransitionService(fixture.m_Service);
 		fixture.m_Civilians.SetStrategicService(fixture.m_Strategic);
 		fixture.m_Civilians.SetOwnershipTransitionService(fixture.m_Service);
+		fixture.m_Civilians.SetCampaignPreset(preset);
+		fixture.m_Civilians.SetTownInfluenceService(fixture.m_TownInfluence);
+		m_CurrentTownInfluence = fixture.m_TownInfluence;
 		return fixture;
 	}
 
@@ -426,6 +441,8 @@ class HST_OwnershipTransitionProofFixtureFactory
 		civilianZone.m_iRoadblockPresence = 1;
 		civilianZone.m_iPopulationRemaining = 64;
 		state.m_aCivilianZones.Insert(civilianZone);
+		if (m_CurrentTownInfluence)
+			m_CurrentTownInfluence.EnsureRecords(state);
 		return civilianZone;
 	}
 }
@@ -2339,10 +2356,7 @@ class HST_OwnershipTransitionProofService
 			0,
 			"map",
 			"",
-			true,
-			true,
-			true,
-			true,
+			HST_CommandMenuAccess.Create(true, true, true, true),
 			null,
 			fixture.m_ZoneCapture);
 		return zoneReport.Contains("owner " + ownerFactionKey)
@@ -2379,10 +2393,7 @@ class HST_OwnershipTransitionProofService
 			0,
 			"map",
 			"",
-			true,
-			true,
-			true,
-			true,
+			HST_CommandMenuAccess.Create(true, true, true, true),
 			null,
 			fixture.m_ZoneCapture);
 		return zoneReport.Contains("resistance 0 | enemy 0")
@@ -3346,6 +3357,7 @@ class HST_OwnershipTransitionProofService
 		bool supportEventExact = ProveAppliedSupportEventCorrelationFailClosed();
 		bool supportTargetExact = ProveSupportTargetAuthorityFailClosed();
 		bool derivedCorrelationExact = ProveReceiptDerivedCorrelationFailClosed();
+		bool pre64SupportReceiptExact = ProvePre64AppliedSupportReceiptMigration();
 		report.m_bMigrationRetentionExact = migrationExact
 			&& quarantineExact
 			&& retentionExact
@@ -3355,7 +3367,8 @@ class HST_OwnershipTransitionProofService
 			&& revisionCeilingExact
 			&& supportEventExact
 			&& supportTargetExact
-			&& derivedCorrelationExact;
+			&& derivedCorrelationExact
+			&& pre64SupportReceiptExact;
 		report.m_sAuthorityEvidence = report.m_sAuthorityEvidence + string.Format(
 			" | migration/quarantine/retention %1/%2/%3 | retained %4 | forged child/history %5/%6 | cause/revision/support-event %7/%8/%9",
 			migrationExact,
@@ -3369,9 +3382,104 @@ class HST_OwnershipTransitionProofService
 			supportEventExact);
 		report.m_sAuthorityEvidence = report.m_sAuthorityEvidence
 			+ string.Format(
-				" | deterministic support targets/prefix %1 | derived correlations %2",
+				" | deterministic support targets/prefix %1 | derived correlations %2 | pre64 support receipt %3",
 				supportTargetExact,
-				derivedCorrelationExact);
+				derivedCorrelationExact,
+				pre64SupportReceiptExact);
+	}
+
+	protected bool ProvePre64AppliedSupportReceiptMigration()
+	{
+		HST_OwnershipTransitionProofFixture fixture
+			= m_Factory.Build("pre64_support_receipt_migration");
+		HST_ZoneState capturedZone = m_Factory.AddZone(
+			fixture.m_State,
+			"ownership_proof_pre64_support_site",
+			fixture.m_Preset.m_sOccupierFactionKey,
+			HST_EZoneType.HST_ZONE_OUTPOST,
+			"11800 20 14800");
+		HST_ZoneState linkedTown = m_Factory.AddZone(
+			fixture.m_State,
+			"ownership_proof_pre64_support_town",
+			fixture.m_Preset.m_sOccupierFactionKey,
+			HST_EZoneType.HST_ZONE_TOWN,
+			"12100 20 14800");
+		capturedZone.m_aLinkedZoneIds.Insert(linkedTown.m_sZoneId);
+		m_Factory.AddCivilianZone(
+			fixture.m_State,
+			linkedTown.m_sZoneId,
+			60,
+			40);
+		bool captured = fixture.m_ZoneCapture.CaptureForResistance(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_Strategic,
+			fixture.m_Economy,
+			fixture.m_Balance,
+			capturedZone.m_sZoneId,
+			10);
+		string parentRequestId = capturedZone.m_sLastOwnershipTransitionRequestId;
+		HST_OwnershipTransitionState parentBefore
+			= fixture.m_State.FindOwnershipTransition(parentRequestId);
+		if (!captured || !parentBefore || !parentBefore.m_bCompleted
+			|| !parentBefore.m_bSupportApplied)
+			return false;
+
+		HST_CampaignSaveData restored = new HST_CampaignSaveData();
+		restored.Capture(fixture.m_State);
+		// Schema 63 had no canonical record array and no serialized influence
+		// contract field. In the current class layout those absent event fields
+		// deserialize to one until the schema-64 prepass relabels them.
+		restored.m_aTownInfluenceRecords.Clear();
+		HST_TownInfluenceSaveValidationService townValidator
+			= new HST_TownInfluenceSaveValidationService();
+		townValidator.ValidateCurrentAuthorityBeforeOwnership(restored, 63);
+		HST_OwnershipTransitionSaveValidationService ownershipValidator
+			= new HST_OwnershipTransitionSaveValidationService();
+		ownershipValidator.Normalize(restored, 63);
+		townValidator.ValidateAfterOwnership(restored);
+
+		HST_OwnershipTransitionState parentAfter;
+		foreach (HST_OwnershipTransitionState candidate : restored.m_aOwnershipTransitions)
+		{
+			if (candidate && candidate.m_sRequestId == parentRequestId)
+			{
+				parentAfter = candidate;
+				break;
+			}
+		}
+		HST_TownInfluenceRecord townRecord;
+		foreach (HST_TownInfluenceRecord candidateRecord : restored.m_aTownInfluenceRecords)
+		{
+			if (candidateRecord && candidateRecord.m_sTownId == linkedTown.m_sZoneId)
+			{
+				townRecord = candidateRecord;
+				break;
+			}
+		}
+		HST_TownInfluenceEventState supportEvent;
+		foreach (HST_TownInfluenceEventState candidateEvent : restored.m_aTownInfluenceEvents)
+		{
+			if (candidateEvent
+				&& candidateEvent.m_sKind == "ownership_support"
+				&& candidateEvent.m_sSourceId == parentRequestId
+				&& candidateEvent.m_sZoneId == linkedTown.m_sZoneId)
+			{
+				supportEvent = candidateEvent;
+				break;
+			}
+		}
+		return parentAfter && parentAfter.m_bCompleted
+			&& parentAfter.m_bSupportApplied
+			&& !parentAfter.m_bQuarantined
+			&& parentAfter.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& supportEvent && supportEvent.m_bApplied
+			&& supportEvent.m_iContractVersion == 0
+			&& townRecord
+			&& townRecord.m_iContractVersion
+				== HST_TownInfluenceService.EXACT_CONTRACT_VERSION
+			&& townRecord.m_sAuthorityFailure.IsEmpty();
 	}
 
 	protected bool ProveForgedUnreleasedChildQuarantine()

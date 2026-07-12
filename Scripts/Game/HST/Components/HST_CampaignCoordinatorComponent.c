@@ -87,6 +87,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_EnemyDirectorService m_EnemyDirector;
 	protected ref HST_HQService m_HQ;
 	protected ref HST_PlayerLifecycleService m_PlayerLifecycle;
+	protected ref HST_TownInfluenceService m_TownInfluence;
 	protected ref HST_TownService m_Towns;
 	protected ref HST_GarrisonService m_Garrisons;
 	protected ref HST_RecruitmentService m_Recruitment;
@@ -98,6 +99,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ForceCompositionService m_ForceCompositions;
 	protected ref HST_SpawnPlacementService m_SpawnPlacements;
 	protected ref HST_MapMarkerService m_MapMarkers;
+	protected ref HST_MapWarProjectionService m_MapWarProjection;
 	protected ref HST_ClientProjectionService m_ClientProjection;
 	protected ref HST_PlayerMapMarkerService m_PlayerMapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
@@ -266,6 +268,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
 	protected ref array<string> m_aCampaignDebugPrimitiveProofReleasedMissionIds = {};
 	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
+	protected ref array<int> m_aTownContactPlayerIdScratch = {};
 	protected ref array<int> m_aAdminIdentityDiagnosticPlayerIds = {};
 	protected ref HST_CampaignDebugRunResult m_CampaignDebugRunResult;
 	protected ref HST_CampaignState m_CampaignDebugLiveState;
@@ -329,13 +332,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_PersistenceSmokeTest = new HST_PersistenceSmokeTestService();
 		m_Authorization = new HST_AuthorizationService();
 		m_Strategic = new HST_StrategicService();
+		m_TownInfluence = new HST_TownInfluenceService();
+		m_TownInfluence.SetCampaignPreset(m_Preset);
+		m_TownInfluence.SetStrategicService(m_Strategic);
+		m_Strategic.SetTownInfluenceService(m_TownInfluence);
+		m_Economy.SetTownInfluenceService(m_TownInfluence);
 		m_Arsenal = new HST_ArsenalService();
 		m_EnemyDirector = new HST_EnemyDirectorService();
+		m_EnemyDirector.SetTownInfluenceService(m_TownInfluence);
 		m_HQ = new HST_HQService();
 		if (m_HQ && m_Settings && m_Settings.m_Debug)
 			m_HQ.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		m_PlayerLifecycle = new HST_PlayerLifecycleService();
 		m_Towns = new HST_TownService();
+		m_Towns.SetTownInfluenceService(m_TownInfluence);
 		m_Garrisons = new HST_GarrisonService();
 		m_Recruitment = new HST_RecruitmentService();
 		m_CombatPresence = new HST_CombatPresenceService();
@@ -371,7 +381,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_PlayerMapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
 		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Features)
 			m_PlayerMapMarkers.SetEnabled(m_Settings.m_Features.m_bShowPlayerMapMarkers);
+		m_MapWarProjection = new HST_MapWarProjectionService();
+		m_MapWarProjection.SetTownInfluenceService(m_TownInfluence);
+		m_MapWarProjection.SetMapMarkerService(m_MapMarkers);
 		m_CommandUI = new HST_CommandUIService();
+		if (m_CommandUI)
+		{
+			m_CommandUI.SetMapWarProjectionService(m_MapWarProjection);
+			m_CommandUI.SetTownInfluenceService(m_TownInfluence);
+		}
 		m_Loot = new HST_LootService();
 		m_BuildMode = new HST_BuildModeService();
 		m_LoadoutEditor = new HST_LoadoutEditorService();
@@ -415,6 +433,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_SupportRequests = new HST_SupportRequestService();
 		if (m_SupportRequests)
 		{
+			m_SupportRequests.SetTownInfluenceService(m_TownInfluence);
 			m_SupportRequests.SetForceCompositionService(m_ForceCompositions);
 			m_SupportRequests.SetSpawnPlacementService(m_SpawnPlacements);
 			m_SupportRequests.SetExactForceAuthorityServices(m_ForceSpawnQueue, m_ResourceLedger, m_Economy);
@@ -425,10 +444,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_Civilians.SetStrategicService(m_Strategic);
 			m_Civilians.SetCampaignPreset(m_Preset);
 			m_Civilians.SetCombatPresenceService(m_CombatPresence);
+			m_Civilians.SetTownInfluenceService(m_TownInfluence);
 		}
 		m_EnemyCommander = new HST_EnemyCommanderService();
 		if (m_EnemyCommander)
+		{
 			m_EnemyCommander.SetCombatPresenceService(m_CombatPresence);
+			m_EnemyCommander.SetTownInfluenceService(m_TownInfluence);
+		}
 		m_EnemyQRFOperations = new HST_EnemyQRFOperationService();
 		if (m_EnemyQRFOperations)
 			m_EnemyQRFOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
@@ -467,6 +490,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_MapMarkers,
 			m_ClientProjection,
 			m_Persistence);
+		m_OwnershipTransitions.SetTownInfluenceService(m_TownInfluence);
+		m_TownInfluence.SetOwnershipTransitionService(m_OwnershipTransitions);
 		m_Civilians.SetOwnershipTransitionService(m_OwnershipTransitions);
 		m_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);
 
@@ -485,6 +510,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		if (m_OwnershipTransitions)
 			m_OwnershipTransitions.ReconcileAfterRestore(m_State);
+		// Schema-64 migration/remap and due-expiry maintenance must complete
+		// before the restored state is captured under the current schema.
+		if (m_TownInfluence)
+			m_TownInfluence.ReconcileTownOwnershipPolicies(
+				m_State,
+				m_Preset,
+				true);
 		EnsureCampaignFoundation();
 		if (m_RadioSites)
 			m_RadioSites.ReconcileAfterRestore(m_State);
@@ -611,13 +643,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			ownershipRetryChanged = m_OwnershipTransitions.TickPending(m_State, !activeCampaign);
 		bool factionSanitizationChanged = TickFactionSanitizationRepairs(m_State, elapsedSeconds);
 		bool townOwnershipPolicyChanged;
-		if (m_Civilians)
-			townOwnershipPolicyChanged = m_Civilians.ReconcileTownOwnershipPolicies(
+		bool townContactChanged;
+		if (m_TownInfluence)
+		{
+			townContactChanged = MarkPlayerTownContacts();
+			townOwnershipPolicyChanged = m_TownInfluence.ReconcileTownOwnershipPolicies(
 				m_State,
 				m_Preset,
 				!activeCampaign);
+		}
 		bool ownershipMaintenanceChanged = ownershipRetryChanged || factionSanitizationChanged
-			|| townOwnershipPolicyChanged;
+			|| townOwnershipPolicyChanged || townContactChanged;
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
 		{
 			string terminalPatrolAuthorityFailure;
@@ -1344,8 +1380,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool canUseCommander = !identityId.IsEmpty() && m_State && m_State.m_sCommanderIdentityId == identityId;
 		bool canUseAdmin = player && player.m_bAdmin;
 		bool playerHasMap = PlayerHasMapInInventory(playerId);
+		vector playerPosition = "0 0 0";
+		IEntity controlledEntity = ResolveControlledPlayerEntity(playerId);
+		if (controlledEntity)
+			playerPosition = controlledEntity.GetOrigin();
 		DebugLog(string.Format("menu payload access | player=%1 identity=%2 tab=%3 member=%4 commander=%5 admin=%6 map=%7", playerId, EmptyCampaignDebugField(identityId), selectedTabId, canUseMember, canUseCommander, canUseAdmin, playerHasMap));
-		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, canUseMember, canUseCommander, canUseAdmin, playerHasMap, m_ZoneCompositions, m_ZoneCapture);
+		HST_CommandMenuAccess access = HST_CommandMenuAccess.Create(
+			canUseMember,
+			canUseCommander,
+			canUseAdmin,
+			playerHasMap);
+		return m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, playerId, selectedTabId, lastResult, access, m_ZoneCompositions, m_ZoneCapture, playerPosition);
 	}
 
 	bool IsInfiniteStaminaEnabled()
@@ -5007,7 +5052,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"h-istasi admin capture | failed: %1 | owner %2 | support %3",
 				ownershipFailureReason,
 				publishedOwnerFactionKey,
-				zone.m_iSupport);
+				ResolveZoneSupportPercent(zone));
 		}
 		if (!ownershipResult.m_bCompleted)
 		{
@@ -5021,7 +5066,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				ownershipRequestId);
 		}
 
-		return string.Format("h-istasi admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, zone.m_iSupport);
+		return string.Format("h-istasi admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, ResolveZoneSupportPercent(zone));
 	}
 
 	string RequestAdminAddCaptureProgressReport(int playerId, string zoneId, int progress = 50)
@@ -17331,7 +17376,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase);
 		AppendCampaignDebugMaidensBayLocationMigrationAssertion(forceCase);
 		AppendCampaignDebugOwnershipTransitionAssertions(forceCase);
+		AppendCampaignDebugTownInfluenceAssertions(forceCase);
 		AppendCampaignDebugMarkerProjectionAssertions(forceCase);
+		AppendCampaignDebugMapWarProjectionAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
 	}
@@ -17406,6 +17453,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "ownership_transition.migration_retention", "schema migration preserves facts and current authority quarantines or prunes conservatively", proof.m_sAuthorityEvidence, CampaignDebugStatus(proof.m_bMigrationRetentionExact), "ownership migration, quarantine, or retention contract failed");
 	}
 
+	protected void AppendCampaignDebugTownInfluenceAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_TownInfluenceProofService proofService = new HST_TownInfluenceProofService();
+		HST_TownInfluenceProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "town_influence.source_proof", "source proof report exists", "missing", "BLOCKED", "Schema-64 town-influence source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sGoldenScalingEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sStrictThresholdEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sIdempotencyEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sLegacyProjectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPopulationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sTargetRejectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAuthorityFailureEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sExternalCompletionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPre64InvaderRemapEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sLegacyMigrationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCurrentRestoreValidationEvidence);
+		AddCampaignDebugAssertion(forceCase, "town_influence.aggregate", "every Schema-64 canonical town-influence proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more town-influence source proofs failed");
+		AddCampaignDebugAssertion(forceCase, "town_influence.scaling", "population scaling matches the pinned golden basis-point fixtures", proof.m_sGoldenScalingEvidence, CampaignDebugStatus(proof.m_bGoldenScalingExact), "town support population scaling drifted");
+		AddCampaignDebugAssertion(forceCase, "town_influence.hysteresis", "strict ownership thresholds preserve both equality boundaries", proof.m_sStrictThresholdEvidence, CampaignDebugStatus(proof.m_bStrictThresholdsExact), "town ownership hysteresis boundary changed");
+		AddCampaignDebugAssertion(forceCase, "town_influence.idempotency", "exact influence commands apply once and conflicting replays fail closed", proof.m_sIdempotencyEvidence, CampaignDebugStatus(proof.m_bIdempotencyRevisionExact), "town influence replay or revision authority failed");
+		AddCampaignDebugAssertion(forceCase, "town_influence.projection", "legacy fields remain exact read-only projections of canonical support", proof.m_sLegacyProjectionEvidence, CampaignDebugStatus(proof.m_bLegacyProjectionExact), "legacy town support projection diverged");
+		AddCampaignDebugAssertion(forceCase, "town_influence.population", "remaining and destroyed population move through the canonical record", proof.m_sPopulationEvidence, CampaignDebugStatus(proof.m_bPopulationMovementExact), "canonical town population accounting failed");
+		AddCampaignDebugAssertion(forceCase, "town_influence.rejection", "orphaned and non-town political targets fail closed", proof.m_sTargetRejectionEvidence, CampaignDebugStatus(proof.m_bTargetRejectionExact), "invalid town influence target was accepted");
+		AddCampaignDebugAssertion(forceCase, "town_influence.ownership_authority", "threshold intent remains pending when ownership authority is unavailable", proof.m_sAuthorityFailureEvidence, CampaignDebugStatus(proof.m_bAuthorityFailureExact), "town influence bypassed ownership authority");
+		AddCampaignDebugAssertion(forceCase, "town_influence.external_completion", "an externally completed matching receipt clears pending intent once", proof.m_sExternalCompletionEvidence, CampaignDebugStatus(proof.m_bExternalCompletionExact), "town influence did not reconcile completed ownership authority");
+		AddCampaignDebugAssertion(forceCase, "town_influence.pre64_invader", "pre-Schema-64 enemy support remaps once to the configured invader bucket", proof.m_sPre64InvaderRemapEvidence, CampaignDebugStatus(proof.m_bPre64InvaderRemapExact), "legacy invader support normalization was not exact or idempotent");
+		AddCampaignDebugAssertion(forceCase, "town_influence.migration", "legacy support conflicts and population migrate deterministically into one canonical record", proof.m_sLegacyMigrationEvidence, CampaignDebugStatus(proof.m_bLegacyMigrationExact), "Schema-64 town influence migration was not exact");
+		AddCampaignDebugAssertion(forceCase, "town_influence.current_restore", "current exact event chains use revisions rather than row order and orphan ownership links quarantine", proof.m_sCurrentRestoreValidationEvidence, CampaignDebugStatus(proof.m_bCurrentRestoreValidationExact), "Schema-64 current restore validation accepted ambiguous authority or rejected a valid reordered chain");
+	}
+
 	protected void AppendCampaignDebugMarkerProjectionAssertions(
 		HST_CampaignDebugCaseResult forceCase)
 	{
@@ -17439,6 +17526,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "marker_projection.ack_pruning", "server retains journal entries through a lagging acknowledgement and prunes after every ready session advances", proof.m_sAcknowledgePruningEvidence, CampaignDebugStatus(proof.m_bAcknowledgePruningExact), "marker projection acknowledgement or journal pruning contract failed");
 		AddCampaignDebugAssertion(forceCase, "marker_projection.malformed", "malformed projection payload fails closed without changing the ready registry", proof.m_sMalformedFailClosedEvidence, CampaignDebugStatus(proof.m_bMalformedFailClosedExact), "malformed marker projection payload mutated client state");
 		AddCampaignDebugAssertion(forceCase, "marker_projection.schema61", "schema-60 derived marker rows rebuild once under a fresh projection epoch without inventing domain facts", proof.m_sSchemaMigrationEvidence, CampaignDebugStatus(proof.m_bSchemaMigrationExact), "schema-61 marker projection migration was not exact or idempotent");
+	}
+
+	protected void AppendCampaignDebugMapWarProjectionAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_MapWarProjectionProofService proofService = new HST_MapWarProjectionProofService();
+		HST_MapWarProjectionProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "map_war_projection.source_proof", "source proof report exists", "missing", "BLOCKED", "Schema-64 Map/War source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.m_sEvidence);
+		AddCampaignDebugAssertion(forceCase, "map_war_projection.contact", "Zone Pressure contains only contacted canonical towns", proof.m_sEvidence, CampaignDebugStatus(proof.m_bContactFilterExact), "Zone Pressure exposed an uncontacted or invalid town");
+		AddCampaignDebugAssertion(forceCase, "map_war_projection.current_first", "the eligible current town is first without hiding any other contacted town", proof.m_sEvidence, CampaignDebugStatus(proof.m_bCurrentTownFirstExact), "the current contacted town was not first");
+		AddCampaignDebugAssertion(forceCase, "map_war_projection.support_order", "remaining contacted towns sort by FIA support and stable identity", proof.m_sEvidence, CampaignDebugStatus(proof.m_bSupportSortExact), "Zone Pressure ordering was not deterministic");
+		AddCampaignDebugAssertion(forceCase, "map_war_projection.territory_complete", "Resistance Territory contains every canonical published FIA strategic zone", proof.m_sEvidence, CampaignDebugStatus(proof.m_bTerritoryCompleteExact), "Resistance Territory was incomplete or included unpublished authority");
+		AddCampaignDebugAssertion(forceCase, "map_war_projection.territory_order", "Resistance Territory has deterministic type, name, and identity ordering", proof.m_sEvidence, CampaignDebugStatus(proof.m_bTerritoryOrderExact), "Resistance Territory ordering was not deterministic");
+		AddCampaignDebugAssertion(forceCase, "map_war_projection.invalid_authority", "duplicate town influence authority fails closed", proof.m_sEvidence, CampaignDebugStatus(proof.m_bInvalidAuthorityExcluded), "ambiguous town influence authority leaked into Map/War projection");
 	}
 
 	protected void AppendCampaignDebugMaidensBayLocationMigrationAssertion(
@@ -25581,7 +25691,32 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(phaseCase, "phase20.heat_decay.live_state_unchanged", "decay probe uses temporary copied state only", BuildCampaignDebugUndercoverActual(undercover), CampaignDebugStatus(liveStateUnchanged), "civilian heat decay probe mutated live campaign state", undercover.m_sIdentityId, "", town.m_sZoneId);
 	}
 
-	protected void AddCampaignDebugTownSupportTransitionAssertions(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_ZoneState zone)
+	protected void AddCampaignDebugTownSupportTransitionAssertions(
+		HST_CampaignDebugCaseResult phaseCase,
+		HST_CivilianZoneState town,
+		HST_ZoneState zone)
+	{
+		if (!phaseCase)
+			return;
+		HST_TownInfluenceProofService proofService
+			= new HST_TownInfluenceProofService();
+		HST_TownInfluenceProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(phaseCase, "phase20.town_support.canonical_proof", "detached canonical town-influence proof exists", "missing", "BLOCKED", "canonical town-influence proof did not return a report");
+			return;
+		}
+		phaseCase.m_aEvidence.Insert(proof.BuildReport());
+		phaseCase.m_aEvidence.Insert(proof.m_sIdempotencyEvidence);
+		phaseCase.m_aEvidence.Insert(proof.m_sStrictThresholdEvidence);
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.canonical_proof", "detached canonical support, persistence, and ownership fixtures are exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more canonical town-influence fixtures failed");
+		AddCampaignDebugAssertion(phaseCase, "phase20.town_support.transition_policy", "strict support thresholds route political ownership through exact receipt authority", proof.m_sStrictThresholdEvidence, CampaignDebugStatus(proof.m_bStrictThresholdsExact && proof.m_bExternalCompletionExact), "canonical political ownership hysteresis or receipt completion failed");
+	}
+
+	// Historical Phase-20 probe retained as non-routed reference only. The active
+	// command now uses the detached canonical proof above and never mutates live
+	// compatibility projections or owner fields for test setup.
+	protected void AddCampaignDebugTownSupportTransitionAssertionsLegacy(HST_CampaignDebugCaseResult phaseCase, HST_CivilianZoneState town, HST_ZoneState zone)
 	{
 		if (!phaseCase)
 			return;
@@ -25830,7 +25965,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int civilianVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_VEHICLE");
 		int civilianTrafficVehicles = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV");
 		int civilianTrafficVehicleAnyFaction = m_Civilians.CountRuntimeEntitiesForZone(zoneId, "CIV_TRAFFIC_VEHICLE");
-		HST_CivilianProjectionProofSummary projectionProof = m_Civilians.BuildProjectionProofSummary(zoneId, populationTown, populationZone, m_Balance, civilianCharacters, civilianTrafficVehicles);
+		HST_CivilianProjectionProofSummary projectionProof = m_Civilians.BuildProjectionProofSummary(zoneId, populationTown, populationZone, m_Balance, civilianCharacters, civilianTrafficVehicles, m_State);
 		int pedestrianBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_CHARACTER", "CIV", 3);
 		int trafficBehavior = m_Civilians.CountRuntimeEntitiesForZoneWithHelpers(zoneId, "CIV_TRAFFIC_VEHICLE", "CIV", 5);
 		int civilianFactionMismatches = m_Civilians.CountRuntimeEntityFactionMismatchesForZone(zoneId, "CIV_CHARACTER", "CIV");
@@ -26590,8 +26725,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string adminPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "admin", "");
 		string petrosPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "petros", "");
 		string membersPayload = BuildVisibleMenuPayload(m_iCampaignDebugPlayerId, "members", "");
-		string forcesWithMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
-		string forcesNoMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, false, m_ZoneCompositions, m_ZoneCapture);
+		HST_CommandMenuAccess fullMapAccess = HST_CommandMenuAccess.Create(
+			true, true, true, true);
+		HST_CommandMenuAccess noMapAccess = HST_CommandMenuAccess.Create(
+			true, true, true, false);
+		string forcesWithMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", fullMapAccess, m_ZoneCompositions, m_ZoneCapture);
+		string forcesNoMapPayload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", noMapAccess, m_ZoneCompositions, m_ZoneCapture);
 		string roadblockVehiclePayload = BuildCampaignDebugPhase23RoadblockPayload(true);
 		string roadblockNoVehiclePayload = BuildCampaignDebugPhase23RoadblockPayload(false);
 		string forcesRecallPayload = BuildCampaignDebugPhase23SupportRecallPayload();
@@ -26695,7 +26834,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		for (int i = 1; i <= 8; i++)
 			transferState.m_aPlayers.Insert(BuildCampaignDebugPhase23TransferPlayer(string.Format("phase23_transfer_target_%1", i), string.Format("Debug Member %1", i), 9000 + i, true, false));
 
-		return m_CommandUI.BuildVisibleMenuPayload(transferState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "members", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
+		HST_CommandMenuAccess access = HST_CommandMenuAccess.Create(
+			true, true, true, true);
+		return m_CommandUI.BuildVisibleMenuPayload(transferState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "members", "", access, m_ZoneCompositions, m_ZoneCapture);
 	}
 
 	protected HST_PlayerState BuildCampaignDebugPhase23TransferPlayer(string identityId, string displayName, int playerId, bool member, bool admin)
@@ -26765,10 +26906,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_iCampaignDebugPlayerId,
 			"forces",
 			"",
-			true,
-			true,
-			true,
-			true,
+			HST_CommandMenuAccess.Create(true, true, true, true),
 			m_ZoneCompositions,
 			m_ZoneCapture);
 	}
@@ -26830,7 +26968,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		compactState.m_iTrainingLevel = 2;
 		compactState.m_aActiveMissions.Insert(BuildCampaignDebugPhase23Mission("phase23_compact_convoy", "Phase23 Convoy Probe", "convoy_intercept", "convoy_moving", 1180, "phase23_zone_a", "1200 0 1200"));
 		compactState.m_aActiveMissions.Insert(BuildCampaignDebugPhase23Mission("phase23_compact_hold", "Phase23 Hold Probe", "hold_area", "active", 640, "phase23_zone_b", "1250 0 1180"));
-		return m_CommandUI.BuildVisibleMenuPayload(compactState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "missions", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
+		HST_CommandMenuAccess access = HST_CommandMenuAccess.Create(
+			true, true, true, true);
+		return m_CommandUI.BuildVisibleMenuPayload(compactState, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "missions", "", access, m_ZoneCompositions, m_ZoneCapture);
 	}
 
 	protected string BuildCampaignDebugPhase23SupportRecallPayload()
@@ -26870,7 +27010,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_aSupportRequests.Insert(request);
 		m_State.m_aActiveGroups.Insert(group);
-		string payload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", true, true, true, true, m_ZoneCompositions, m_ZoneCapture);
+		HST_CommandMenuAccess access = HST_CommandMenuAccess.Create(
+			true, true, true, true);
+		string payload = m_CommandUI.BuildVisibleMenuPayload(m_State, m_Preset, m_MapMarkers, m_Arsenal, m_Recruitment, m_Settings, m_Balance, m_iCampaignDebugPlayerId, "forces", "", access, m_ZoneCompositions, m_ZoneCapture);
 		RemoveCampaignDebugSupportRequestRecord(requestId);
 		RemoveCampaignDebugActiveGroupRecord(groupId);
 		return payload;
@@ -29162,26 +29304,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "h-istasi phase 20 smoke | failed: admin required";
-		if (!m_Civilians)
-			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+		if (!m_Civilians || !m_TownInfluence)
+			return "h-istasi phase 20 smoke | failed: civilian or town influence service not ready";
 
 		HST_CivilianZoneState town = SelectPhase20SmokeTown();
 		if (!town)
 			return "h-istasi phase 20 smoke | failed: no civilian town record";
 
-		town.m_iFIASupport = 65;
-		town.m_iOccupierSupport = 35;
-		town.m_iReputation = 70;
-		town.m_iWantedHeat = 1;
-		town.m_iPolicePresence = Math.Max(1, town.m_iPolicePresence);
-		town.m_iRoadblockPresence = Math.Max(1, town.m_iRoadblockPresence);
-		town.m_sLastIncidentReason = "phase20 support smoke";
-		town.m_iLastIncidentSecond = m_State.m_iElapsedSeconds;
-		town.m_iLastSupportChangeSecond = m_State.m_iElapsedSeconds;
-
 		HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
-		if (zone)
-			zone.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iFIASupport - town.m_iOccupierSupport));
+		HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(
+			m_State,
+			town.m_sZoneId);
+		if (!zone || !record)
+			return "h-istasi phase 20 smoke | failed: canonical town influence authority unavailable";
+
+		HST_TownInfluenceCommand command = new HST_TownInfluenceCommand();
+		command.m_sCommandId = string.Format(
+			"phase20_seed_%1_%2",
+			town.m_sZoneId.Hash(),
+			record.m_iRevision);
+		command.m_sEventId = command.m_sCommandId;
+		command.m_sTownId = town.m_sZoneId;
+		command.m_sEventKind = "admin_phase20_seed";
+		command.m_sSourceId = "phase20_admin";
+		command.m_sReason = "phase20 support smoke";
+		command.m_iRawFIASupportDelta = Math.Round(
+			(6500 - record.m_iFIASupportBasisPoints) / 100.0);
+		command.m_iRawOccupierSupportDelta = Math.Round(
+			(3500 - record.m_iOccupierSupportBasisPoints) / 100.0);
+		command.m_iRawInvaderSupportDelta = Math.Round(
+			(0 - record.m_iInvaderSupportBasisPoints) / 100.0);
+		if (m_Preset && !m_Preset.m_sInvaderFactionKey.IsEmpty()
+			&& zone.m_sOwnerFactionKey == m_Preset.m_sInvaderFactionKey)
+		{
+			command.m_iRawOccupierSupportDelta = Math.Round(
+				(0 - record.m_iOccupierSupportBasisPoints) / 100.0);
+			command.m_iRawInvaderSupportDelta = Math.Round(
+				(3500 - record.m_iInvaderSupportBasisPoints) / 100.0);
+		}
+		command.m_iReputationDelta = 70 - town.m_iReputation;
+		command.m_iHeatDelta = 1 - town.m_iWantedHeat;
+		command.m_iPoliceDelta = Math.Max(1, town.m_iPolicePresence)
+			- town.m_iPolicePresence;
+		command.m_iRoadblockDelta = Math.Max(1, town.m_iRoadblockPresence)
+			- town.m_iRoadblockPresence;
+		command.m_bMarkContacted = true;
+		command.m_bMarkResistanceActivity = true;
+		command.m_bReconcileOwnership = true;
+		HST_TownInfluenceResult result = m_TownInfluence.Execute(m_State, command);
+		if (!result || !result.m_bAccepted)
+			return "h-istasi phase 20 smoke | failed: canonical town influence seed rejected";
 
 		MarkMajorCampaignChange();
 		return "h-istasi phase 20 smoke | seeded town support\n" + m_Civilians.BuildTownSupportReport(m_State, 8);
@@ -29847,8 +30019,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void ArrangePhase24NeutralPopulation(int fiaSupport)
 	{
-		if (!m_State)
+		if (!m_State || !m_TownInfluence)
 			return;
+		int boundedFIAPercent = Math.Max(0, Math.Min(100, fiaSupport));
 
 		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
 		{
@@ -29856,17 +30029,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				continue;
 
 			int population = Math.Max(80, Math.Max(1, town.m_iCivilianPresence) * 8);
-			town.m_iPopulationRemaining = population;
-			town.m_iPopulationKilled = 0;
-			town.m_iFIASupport = Math.Max(0, Math.Min(100, fiaSupport));
-			town.m_iOccupierSupport = Math.Max(0, 100 - town.m_iFIASupport);
-			town.m_sLastInfluenceKind = "phase24_population_seed";
-			town.m_sLastInfluenceReason = "phase24 neutral outcome seed";
-			town.m_iLastInfluenceEventSecond = m_State.m_iElapsedSeconds;
-
 			HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
-			if (zone)
-				zone.m_iSupport = town.m_iFIASupport;
+			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+				continue;
+			int occupierBasisPoints = (100 - boundedFIAPercent) * 100;
+			int invaderBasisPoints;
+			if (m_Preset && !m_Preset.m_sInvaderFactionKey.IsEmpty()
+				&& zone.m_sOwnerFactionKey == m_Preset.m_sInvaderFactionKey)
+			{
+				invaderBasisPoints = occupierBasisPoints;
+				occupierBasisPoints = 0;
+			}
+			m_TownInfluence.ApplyDebugSeed(
+				m_State,
+				town.m_sZoneId,
+				boundedFIAPercent * 100,
+				occupierBasisPoints,
+				invaderBasisPoints,
+				population,
+				population,
+				0,
+				string.Format(
+					"phase24_population_seed_%1_%2",
+					town.m_sZoneId.Hash(),
+					m_State.m_iElapsedSeconds));
 		}
 	}
 
@@ -29880,7 +30066,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void ArrangePhase24PopulationCatastrophe()
 	{
-		if (!m_State)
+		if (!m_State || !m_TownInfluence)
 			return;
 
 		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
@@ -29888,17 +30074,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!town)
 				continue;
 
-			town.m_iPopulationRemaining = 60;
-			town.m_iPopulationKilled = 40;
-			town.m_iFIASupport = 5;
-			town.m_iOccupierSupport = 95;
-			town.m_sLastInfluenceKind = "phase24_population_loss_seed";
-			town.m_sLastInfluenceReason = "phase24 civilian catastrophe seed";
-			town.m_iLastInfluenceEventSecond = m_State.m_iElapsedSeconds;
-
 			HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
-			if (zone)
-				zone.m_iSupport = town.m_iFIASupport;
+			if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+				continue;
+			int occupierBasisPoints = 9500;
+			int invaderBasisPoints;
+			if (m_Preset && !m_Preset.m_sInvaderFactionKey.IsEmpty()
+				&& zone.m_sOwnerFactionKey == m_Preset.m_sInvaderFactionKey)
+			{
+				invaderBasisPoints = occupierBasisPoints;
+				occupierBasisPoints = 0;
+			}
+			m_TownInfluence.ApplyDebugSeed(
+				m_State,
+				town.m_sZoneId,
+				500,
+				occupierBasisPoints,
+				invaderBasisPoints,
+				100,
+				60,
+				40,
+				string.Format(
+					"phase24_population_loss_seed_%1_%2",
+					town.m_sZoneId.Hash(),
+					m_State.m_iElapsedSeconds));
 		}
 	}
 
@@ -31043,7 +31242,41 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			zone.m_iPriority = priority;
 			changed = true;
 		}
-		if (zone.m_iSupport != support)
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+		{
+			HST_TownInfluenceRecord record;
+			if (m_TownInfluence)
+				record = m_TownInfluence.FindValidRecord(m_State, zone.m_sZoneId);
+			if (!record)
+				return false;
+			int fiaPercent = Math.Max(0, Math.Min(100, 50 + support / 2));
+			int enemyBasisPoints = Math.Max(0, Math.Min(100, 50 - support / 2)) * 100;
+			int occupierBasisPoints = enemyBasisPoints;
+			int invaderBasisPoints;
+			if (m_Preset && !m_Preset.m_sInvaderFactionKey.IsEmpty()
+				&& ownerFactionKey == m_Preset.m_sInvaderFactionKey)
+			{
+				invaderBasisPoints = enemyBasisPoints;
+				occupierBasisPoints = 0;
+			}
+			bool seeded = m_TownInfluence.ApplyDebugSeed(
+				m_State,
+				zone.m_sZoneId,
+				fiaPercent * 100,
+				occupierBasisPoints,
+				invaderBasisPoints,
+				record.m_iInitialPopulation,
+				record.m_iRemainingPopulation,
+				record.m_iDestroyedPopulation,
+				string.Format(
+					"background_war_seed_%1_%2",
+					zone.m_sZoneId.Hash(),
+					record.m_iRevision));
+			if (!seeded)
+				return false;
+			changed = true;
+		}
+		else if (zone.m_iSupport != support)
 		{
 			zone.m_iSupport = support;
 			changed = true;
@@ -31760,6 +31993,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_RadioSites.EnsureSites(m_State);
 		if (m_Civilians)
 			m_Civilians.EnsureCivilianZones(m_State);
+		if (m_TownInfluence)
+			m_TownInfluence.EnsureRecords(m_State);
 		if (m_Arsenal && m_Arsenal.CleanupInvalidGarageRecords(m_State) > 0)
 			m_State.m_sLastVehicleTargetStatus = "removed invalid saved vehicle/cargo records";
 
@@ -33219,7 +33454,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (player && (!known || membershipChanged || adminChanged || displayNameChanged))
 			MarkMajorCampaignChange(false);
 
-		if (player && IsDebugLoggingEnabled())
+		if (player && IsDebugLoggingEnabled() && (!known || membershipChanged || adminChanged || displayNameChanged))
 		{
 			string grantLabel = adminGrantReason;
 			if (grantLabel.IsEmpty())
@@ -34768,6 +35003,61 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return x * x + z * z;
 	}
 
+	protected int ResolveZoneSupportPercent(HST_ZoneState zone)
+	{
+		if (!zone)
+			return 0;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+		{
+			if (!m_TownInfluence)
+				return 0;
+			return m_TownInfluence.ResolveSignedSupportPercent(m_State, zone.m_sZoneId);
+		}
+		return zone.m_iSupport;
+	}
+
+	protected bool MarkPlayerTownContacts()
+	{
+		if (!m_State || !m_TownInfluence)
+			return false;
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return false;
+
+		m_aTownContactPlayerIdScratch.Clear();
+		playerManager.GetPlayers(m_aTownContactPlayerIdScratch);
+		bool changed;
+		foreach (int playerId : m_aTownContactPlayerIdScratch)
+		{
+			IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
+			if (!IsLivingEntity(playerEntity))
+				continue;
+			vector playerPosition = playerEntity.GetOrigin();
+			foreach (HST_TownInfluenceRecord record : m_State.m_aTownInfluenceRecords)
+			{
+				if (!record || record.m_bContacted
+					|| m_TownInfluence.FindValidRecord(m_State, record.m_sTownId) != record)
+					continue;
+				HST_ZoneState town = m_State.FindZone(record.m_sTownId);
+				if (!town || town.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+					continue;
+				float radius = Math.Max(250.0, town.m_iCaptureRadiusMeters);
+				if (DistanceSq2D(playerPosition, town.m_vPosition) > radius * radius)
+					continue;
+				string identityId = ResolveTrustedIdentityId(playerId);
+				string sourceId = string.Format("player_contact_%1", identityId.Hash());
+				if (m_TownInfluence.MarkContacted(
+						m_State,
+						town.m_sZoneId,
+						sourceId,
+						"living resistance player entered the town radius",
+						true))
+					changed = true;
+			}
+		}
+		return changed;
+	}
+
 	protected string ResolvePublishedZoneOwnerFactionKey(HST_ZoneState zone)
 	{
 		if (!zone)
@@ -34920,7 +35210,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicles = ownerGarrison.m_iVehicleCount;
 		}
 
-		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, publishedOwnerLabel, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport);
+		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, publishedOwnerLabel, ZoneTypeToLabel(zone.m_eType), ResolveZoneSupportPercent(zone));
 		int captureRequired = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
 		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
 			captureRequired = m_Balance.m_iCaptureProgressRequired;

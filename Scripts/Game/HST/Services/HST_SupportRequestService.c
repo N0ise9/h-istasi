@@ -109,6 +109,7 @@ class HST_SupportRequestService
 	protected ref HST_ForceSpawnQueueService m_ExactForceSpawnQueue;
 	protected ref HST_ResourceLedgerService m_ExactResourceLedger;
 	protected ref HST_EconomyService m_ExactEconomy;
+	protected ref HST_TownInfluenceService m_TownInfluence;
 	protected bool m_bSuccessfulExactPlayerSupportRestorePassComplete;
 
 	void SetForceCompositionService(HST_ForceCompositionService forceCompositions)
@@ -128,6 +129,11 @@ class HST_SupportRequestService
 		m_ExactForceSpawnQueue = spawnQueue;
 		m_ExactResourceLedger = resourceLedger;
 		m_ExactEconomy = economy;
+	}
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
 	}
 
 	HST_SupportRequestState RequestSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ESupportRequestType supportType, string targetZoneId, bool playerRequested = false, int playerCooldownSeconds = PLAYER_SUPPORT_COOLDOWN_SECONDS)
@@ -3480,7 +3486,8 @@ class HST_SupportRequestService
 		if (IsStrikeSupport(request.m_eType))
 		{
 			ResolveStrikeSupport(state, preset, request);
-			request.m_sResolutionKind = "abstract_strike";
+			if (request.m_sResolutionKind.IsEmpty())
+				request.m_sResolutionKind = "abstract_strike";
 			request.m_bOutcomeApplied = true;
 			return;
 		}
@@ -3649,12 +3656,62 @@ class HST_SupportRequestService
 			return;
 		}
 
-		if (targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
-			targetZone.m_iSupport = Math.Max(-100, targetZone.m_iSupport - 6);
-		else
+		if (targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey || targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		{
 			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 12);
+			request.m_sResolutionKind = "abstract_enemy_suppressive_fire_capture_pressure";
+			return;
+		}
 
-		request.m_sResolutionKind = "abstract_enemy_suppressive_fire";
+		if (!RegisterEnemyTownInfluence(
+			state,
+			preset,
+			targetZone,
+			request,
+			-6,
+			"enemy_suppressive_fire",
+			"abstract enemy suppressive fire"))
+		{
+			request.m_sResolutionKind = "abstract_enemy_suppressive_fire_town_influence_authority_unavailable";
+			request.m_sFailureReason = "canonical town influence authority unavailable";
+			return;
+		}
+
+		request.m_sResolutionKind = "abstract_enemy_suppressive_fire_town_influence";
+	}
+
+	protected bool RegisterEnemyTownInfluence(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_ZoneState targetZone,
+		HST_SupportRequestState request,
+		int fiaSupportDelta,
+		string eventKind,
+		string reason)
+	{
+		if (!state || !preset || !targetZone || !request || !m_TownInfluence
+			|| targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN
+			|| request.m_sRequestId.IsEmpty())
+			return false;
+
+		string eventId = string.Format(
+			"town_enemy_support_%1_%2_%3",
+			targetZone.m_sZoneId.Hash(),
+			request.m_sRequestId.Hash(),
+			eventKind.Hash());
+		HST_TownInfluenceCommand command = new HST_TownInfluenceCommand();
+		command.m_sCommandId = eventId;
+		command.m_sEventId = eventId;
+		command.m_sTownId = targetZone.m_sZoneId;
+		command.m_sEventKind = eventKind;
+		command.m_sSourceId = request.m_sRequestId;
+		command.m_sReason = reason;
+		command.m_iRawFIASupportDelta = fiaSupportDelta;
+		command.m_bPopulationScaled = true;
+		return m_TownInfluence.RegisterInfluenceEventExact(
+			state,
+			command,
+			preset);
 	}
 
 	protected bool ResolveSupportAsPhysicalComplete(HST_CampaignState state, HST_SupportRequestState request)
@@ -4424,17 +4481,41 @@ class HST_SupportRequestService
 			if (targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 				targetZone.m_iResistanceCaptureProgress = Math.Min(HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED - 1, targetZone.m_iResistanceCaptureProgress + StrikeCaptureProgress(request.m_eType));
 
+			request.m_sResolutionKind = "abstract_fia_strike_capture_pressure";
 			return;
 		}
 
 		if (targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
 		{
-			targetZone.m_iSupport = Math.Max(0, targetZone.m_iSupport - StrikeSupportDamage(request.m_eType));
 			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - StrikeCaptureProgress(request.m_eType));
+			if (targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			{
+				request.m_sResolutionKind = "abstract_enemy_strike_non_town_capture_pressure";
+				return;
+			}
+
+			int strikeSupportDamage = StrikeSupportDamage(request.m_eType);
+			string strikeKind = StrikeKindForSupport(request.m_eType);
+			if (!RegisterEnemyTownInfluence(
+				state,
+				preset,
+				targetZone,
+				request,
+				-strikeSupportDamage,
+				"enemy_" + strikeKind,
+				"abstract enemy " + strikeKind + " pressure"))
+			{
+				request.m_sResolutionKind = "abstract_enemy_strike_town_influence_authority_unavailable_capture_pressure";
+				request.m_sFailureReason = "canonical town influence authority unavailable";
+				return;
+			}
+
+			request.m_sResolutionKind = "abstract_enemy_strike_town_influence_and_capture_pressure";
 		}
 		else
 		{
 			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - StrikeSupportDamage(request.m_eType));
+			request.m_sResolutionKind = "abstract_enemy_strike_capture_pressure";
 		}
 	}
 

@@ -61,10 +61,18 @@ class HST_CampaignOutcomeResult
 	int m_iSupportPercent;
 	int m_iAirfieldsControlled;
 	int m_iAirfieldsTotal;
+	bool m_bPopulationAuthorityValid;
 }
 
 class HST_StrategicService
 {
+	protected HST_TownInfluenceService m_TownInfluence;
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
+	}
+
 	HST_StrategicEventApplyResult BeginZoneCaptureEvent(HST_CampaignState state, string zoneId, string previousOwner, string newOwner, string sourceId = "")
 	{
 		return BeginOwnershipTransitionEvent(
@@ -431,16 +439,6 @@ class HST_StrategicService
 		result.m_sSummary = eventState.m_sSummary;
 	}
 
-	bool AddTownSupport(HST_CampaignState state, string zoneId, int amount)
-	{
-		HST_ZoneState zone = state.FindZone(zoneId);
-		if (!zone)
-			return false;
-
-		zone.m_iSupport = Math.Max(-100, Math.Min(100, zone.m_iSupport + amount));
-		return true;
-	}
-
 	bool SetZoneActive(HST_CampaignState state, string zoneId, bool active)
 	{
 		HST_ZoneState zone = state.FindZone(zoneId);
@@ -749,15 +747,42 @@ class HST_StrategicService
 		string targetFactionKey = "";
 		if (preset)
 		{
-			int resistancePressure = influenceEvent.m_iFIASupportDelta + Math.Max(0, influenceEvent.m_iReputationDelta);
-			int occupierPressure = influenceEvent.m_iOccupierSupportDelta;
-			occupierPressure += Math.Max(0, influenceEvent.m_iHeatDelta);
-			occupierPressure += Math.Max(0, influenceEvent.m_iPoliceDelta);
-			occupierPressure += Math.Max(0, influenceEvent.m_iRoadblockDelta);
-			if (resistancePressure >= occupierPressure)
-				targetFactionKey = preset.m_sResistanceFactionKey;
+			if (influenceEvent.m_iContractVersion == HST_TownInfluenceService.EXACT_CONTRACT_VERSION)
+			{
+				int resistancePressure = Math.Max(0, influenceEvent.m_iEffectiveFIABasisPointDelta);
+				resistancePressure += Math.Max(0, -influenceEvent.m_iEffectiveOccupierBasisPointDelta);
+				resistancePressure += Math.Max(0, -influenceEvent.m_iEffectiveInvaderBasisPointDelta);
+				resistancePressure += Math.Max(0, influenceEvent.m_iReputationDelta) * 100;
+				int sharedEnemyPressure = Math.Max(0, -influenceEvent.m_iEffectiveFIABasisPointDelta);
+				sharedEnemyPressure += Math.Max(0, influenceEvent.m_iHeatDelta) * 100;
+				sharedEnemyPressure += Math.Max(0, influenceEvent.m_iPoliceDelta) * 100;
+				sharedEnemyPressure += Math.Max(0, influenceEvent.m_iRoadblockDelta) * 100;
+				int occupierPressure = Math.Max(0, influenceEvent.m_iEffectiveOccupierBasisPointDelta);
+				int invaderPressure = Math.Max(0, influenceEvent.m_iEffectiveInvaderBasisPointDelta);
+				HST_ZoneState zone = state.FindZone(influenceEvent.m_sZoneId);
+				if (zone && zone.m_sOwnerFactionKey == preset.m_sInvaderFactionKey)
+					invaderPressure += sharedEnemyPressure;
+				else
+					occupierPressure += sharedEnemyPressure;
+				if (invaderPressure > resistancePressure && invaderPressure > occupierPressure)
+					targetFactionKey = preset.m_sInvaderFactionKey;
+				else if (occupierPressure > resistancePressure)
+					targetFactionKey = preset.m_sOccupierFactionKey;
+				else
+					targetFactionKey = preset.m_sResistanceFactionKey;
+			}
 			else
-				targetFactionKey = preset.m_sOccupierFactionKey;
+			{
+				int resistancePressure = influenceEvent.m_iFIASupportDelta + Math.Max(0, influenceEvent.m_iReputationDelta);
+				int occupierPressure = influenceEvent.m_iOccupierSupportDelta;
+				occupierPressure += Math.Max(0, influenceEvent.m_iHeatDelta);
+				occupierPressure += Math.Max(0, influenceEvent.m_iPoliceDelta);
+				occupierPressure += Math.Max(0, influenceEvent.m_iRoadblockDelta);
+				if (resistancePressure >= occupierPressure)
+					targetFactionKey = preset.m_sResistanceFactionKey;
+				else
+					targetFactionKey = preset.m_sOccupierFactionKey;
+			}
 		}
 
 		return ResolveStrategicEventTargetFactionForZone(state, preset, influenceEvent.m_sZoneId, targetFactionKey);
@@ -768,14 +793,26 @@ class HST_StrategicService
 		if (!influenceEvent)
 			return "town influence";
 
+		int invaderDelta = influenceEvent.m_iRequestedInvaderBasisPointDelta / 100;
+		if (influenceEvent.m_bAbsoluteDebugSeed)
+			invaderDelta = influenceEvent.m_iRequestedInvaderBasisPointDelta;
 		string reason = string.Format(
-			"town influence %1 | FIA %2 occupier %3 rep %4 heat %5",
+			"town influence %1 | FIA %2 occupier %3 invader %4 rep %5 heat %6",
 			EmptyReportField(influenceEvent.m_sKind),
 			influenceEvent.m_iFIASupportDelta,
 			influenceEvent.m_iOccupierSupportDelta,
+			invaderDelta,
 			influenceEvent.m_iReputationDelta,
 			influenceEvent.m_iHeatDelta
 		);
+		if (influenceEvent.m_iContractVersion == HST_TownInfluenceService.EXACT_CONTRACT_VERSION)
+		{
+			reason = reason + string.Format(
+				" | effective FIA/occupier/invader %1/%2/%3 bp",
+				influenceEvent.m_iEffectiveFIABasisPointDelta,
+				influenceEvent.m_iEffectiveOccupierBasisPointDelta,
+				influenceEvent.m_iEffectiveInvaderBasisPointDelta);
+		}
 		reason = reason + string.Format(
 			" pop %1 police %2 roadblocks %3",
 			influenceEvent.m_iPopulationDelta,
@@ -805,6 +842,19 @@ class HST_StrategicService
 		return null;
 	}
 
+	protected int ResolveCanonicalZoneSupport(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return 0;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+		{
+			if (!m_TownInfluence)
+				return 0;
+			return m_TownInfluence.ResolveSignedSupportPercent(state, zone.m_sZoneId);
+		}
+		return zone.m_iSupport;
+	}
+
 	protected void CaptureStrategicEventBefore(HST_CampaignState state, HST_StrategicEventState eventState)
 	{
 		if (!state || !eventState)
@@ -819,9 +869,10 @@ class HST_StrategicService
 		if (zone)
 		{
 			eventState.m_sOwnerBefore = zone.m_sOwnerFactionKey;
-			eventState.m_iSupportBefore = zone.m_iSupport;
-			eventState.m_iSupportAfter = zone.m_iSupport;
-			eventState.m_iTownSupportDelta = -zone.m_iSupport;
+			int signedSupport = ResolveCanonicalZoneSupport(state, zone);
+			eventState.m_iSupportBefore = signedSupport;
+			eventState.m_iSupportAfter = signedSupport;
+			eventState.m_iTownSupportDelta = -signedSupport;
 			eventState.m_iCaptureProgressBefore = zone.m_iResistanceCaptureProgress;
 			eventState.m_iCaptureProgressAfter = zone.m_iResistanceCaptureProgress;
 			eventState.m_iCaptureProgressDelta = -zone.m_iResistanceCaptureProgress;
@@ -880,8 +931,9 @@ class HST_StrategicService
 		if (zone)
 		{
 			eventState.m_sOwnerAfter = zone.m_sOwnerFactionKey;
-			eventState.m_iSupportAfter = zone.m_iSupport;
-			eventState.m_iTownSupportDelta += zone.m_iSupport;
+			int signedSupport = ResolveCanonicalZoneSupport(state, zone);
+			eventState.m_iSupportAfter = signedSupport;
+			eventState.m_iTownSupportDelta += signedSupport;
 			eventState.m_iCaptureProgressAfter = zone.m_iResistanceCaptureProgress;
 			eventState.m_iCaptureProgressDelta += zone.m_iResistanceCaptureProgress;
 		}
@@ -1098,10 +1150,17 @@ class HST_StrategicService
 		result.m_iWarLevel = state.m_iWarLevel;
 		result.m_iFIAZones = fiaZones;
 		result.m_iEnemyZones = enemyZones;
-		result.m_iInitialPopulation = GetTotalInitialPopulation(state);
-		result.m_iRemainingPopulation = GetTotalRemainingPopulation(state);
-		result.m_iKilledPopulation = GetTotalKilledPopulation(state);
-		result.m_iFIASupportPopulation = GetTotalFIASupportPopulation(state);
+		HST_TownPopulationAggregate population;
+		if (m_TownInfluence)
+			population = m_TownInfluence.BuildPopulationAggregate(state);
+		if (population && population.m_bAuthorityValid)
+		{
+			result.m_bPopulationAuthorityValid = true;
+			result.m_iInitialPopulation = population.m_iInitialPopulation;
+			result.m_iRemainingPopulation = population.m_iRemainingPopulation;
+			result.m_iKilledPopulation = population.m_iDestroyedPopulation;
+			result.m_iFIASupportPopulation = population.m_iFIASupportPopulation;
+		}
 		result.m_iSupportPercent = CalculatePopulationSupportPercent(result.m_iFIASupportPopulation, result.m_iRemainingPopulation);
 		result.m_iAirfieldsTotal = CountZonesOfType(state, HST_EZoneType.HST_ZONE_AIRFIELD);
 		result.m_iAirfieldsControlled = CountTypeOwnedBy(state, HST_EZoneType.HST_ZONE_AIRFIELD, resistanceFactionKey);
@@ -1109,6 +1168,12 @@ class HST_StrategicService
 
 		if (!IsCampaignOutcomeCheckDue(state, balance))
 			return result;
+		if (balance.m_bPopulationOutcomeEnabled
+			&& !result.m_bPopulationAuthorityValid)
+		{
+			result.m_sReason = "blocked: canonical town population authority unavailable";
+			return result;
+		}
 
 		if (balance.m_bPopulationOutcomeEnabled)
 		{
@@ -1121,7 +1186,11 @@ class HST_StrategicService
 				return result;
 			}
 
-			bool populationSupportReady = result.m_iRemainingPopulation > 0 && result.m_iFIASupportPopulation * 100 >= result.m_iRemainingPopulation * balance.m_iVictoryPopulationSupportPercent;
+			bool populationSupportReady
+				= HST_TownInfluenceService.MeetsPopulationSupportThreshold(
+					result.m_iFIASupportPopulation,
+					result.m_iRemainingPopulation,
+					balance.m_iVictoryPopulationSupportPercent);
 			bool populationAirfieldsReady = !balance.m_bVictoryRequiresAirfields || AreAllAirfieldsControlledBy(state, resistanceFactionKey);
 			if (populationSupportReady && populationAirfieldsReady)
 			{
@@ -1334,68 +1403,46 @@ class HST_StrategicService
 
 	int GetTotalInitialPopulation(HST_CampaignState state)
 	{
-		int total;
-		if (!state)
-			return total;
-
-		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
-		{
-			if (!town)
-				continue;
-
-			total += Math.Max(0, town.m_iPopulationRemaining) + Math.Max(0, town.m_iPopulationKilled);
-		}
-
-		return total;
+		if (!m_TownInfluence)
+			return 0;
+		HST_TownPopulationAggregate aggregate
+			= m_TownInfluence.BuildPopulationAggregate(state);
+		if (!aggregate || !aggregate.m_bAuthorityValid)
+			return 0;
+		return aggregate.m_iInitialPopulation;
 	}
 
 	int GetTotalRemainingPopulation(HST_CampaignState state)
 	{
-		int total;
-		if (!state)
-			return total;
-
-		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
-		{
-			if (town)
-				total += Math.Max(0, town.m_iPopulationRemaining);
-		}
-
-		return total;
+		if (!m_TownInfluence)
+			return 0;
+		HST_TownPopulationAggregate aggregate
+			= m_TownInfluence.BuildPopulationAggregate(state);
+		if (!aggregate || !aggregate.m_bAuthorityValid)
+			return 0;
+		return aggregate.m_iRemainingPopulation;
 	}
 
 	int GetTotalKilledPopulation(HST_CampaignState state)
 	{
-		int total;
-		if (!state)
-			return total;
-
-		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
-		{
-			if (town)
-				total += Math.Max(0, town.m_iPopulationKilled);
-		}
-
-		return total;
+		if (!m_TownInfluence)
+			return 0;
+		HST_TownPopulationAggregate aggregate
+			= m_TownInfluence.BuildPopulationAggregate(state);
+		if (!aggregate || !aggregate.m_bAuthorityValid)
+			return 0;
+		return aggregate.m_iDestroyedPopulation;
 	}
 
 	int GetTotalFIASupportPopulation(HST_CampaignState state)
 	{
-		int total;
-		if (!state)
-			return total;
-
-		foreach (HST_CivilianZoneState town : state.m_aCivilianZones)
-		{
-			if (!town)
-				continue;
-
-			int remaining = Math.Max(0, town.m_iPopulationRemaining);
-			int support = Math.Max(0, Math.Min(100, town.m_iFIASupport));
-			total += Math.Round(remaining * support / 100.0);
-		}
-
-		return total;
+		if (!m_TownInfluence)
+			return 0;
+		HST_TownPopulationAggregate aggregate
+			= m_TownInfluence.BuildPopulationAggregate(state);
+		if (!aggregate || !aggregate.m_bAuthorityValid)
+			return 0;
+		return aggregate.m_iFIASupportPopulation;
 	}
 
 	bool AreAllAirfieldsControlledBy(HST_CampaignState state, string factionKey)

@@ -108,6 +108,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
+	ref array<ref HST_TownInfluenceRecord> m_aTownInfluenceRecords = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
 	ref array<ref HST_StrategicEventState> m_aStrategicEvents = {};
 	ref array<ref HST_CommandReceiptState> m_aCommandReceipts = {};
@@ -335,6 +336,10 @@ class HST_CampaignSaveData
 		m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
 			m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
+
+		m_aTownInfluenceRecords.Clear();
+		foreach (HST_TownInfluenceRecord influenceRecord : state.m_aTownInfluenceRecords)
+			m_aTownInfluenceRecords.Insert(CopyTownInfluenceRecord(influenceRecord));
 
 		m_aTownInfluenceEvents.Clear();
 		foreach (HST_TownInfluenceEventState influenceEvent : state.m_aTownInfluenceEvents)
@@ -589,6 +594,10 @@ class HST_CampaignSaveData
 		state.m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
 			state.m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
+
+		state.m_aTownInfluenceRecords.Clear();
+		foreach (HST_TownInfluenceRecord influenceRecord : m_aTownInfluenceRecords)
+			state.m_aTownInfluenceRecords.Insert(CopyTownInfluenceRecord(influenceRecord));
 
 		state.m_aTownInfluenceEvents.Clear();
 		foreach (HST_TownInfluenceEventState influenceEvent : m_aTownInfluenceEvents)
@@ -1789,9 +1798,55 @@ class HST_CampaignSaveData
 		return target;
 	}
 
+	protected HST_TownInfluenceRecord CopyTownInfluenceRecord(HST_TownInfluenceRecord source)
+	{
+		HST_TownInfluenceRecord target = new HST_TownInfluenceRecord();
+		target.m_iContractVersion = source.m_iContractVersion;
+		target.m_sTownId = source.m_sTownId;
+		target.m_iRevision = source.m_iRevision;
+		target.m_iFIASupportBasisPoints = source.m_iFIASupportBasisPoints;
+		target.m_iOccupierSupportBasisPoints = source.m_iOccupierSupportBasisPoints;
+		target.m_iInvaderSupportBasisPoints = source.m_iInvaderSupportBasisPoints;
+		target.m_iInitialPopulation = source.m_iInitialPopulation;
+		target.m_iRemainingPopulation = source.m_iRemainingPopulation;
+		target.m_iDestroyedPopulation = source.m_iDestroyedPopulation;
+		target.m_bContacted = source.m_bContacted;
+		target.m_bResistanceActivityStarted = source.m_bResistanceActivityStarted;
+		target.m_iContactedAtSecond = source.m_iContactedAtSecond;
+		target.m_sContactSourceId = source.m_sContactSourceId;
+		target.m_sContactReason = source.m_sContactReason;
+		target.m_sHysteresisBand = source.m_sHysteresisBand;
+		target.m_sPendingOwnerFactionKey = source.m_sPendingOwnerFactionKey;
+		target.m_iPendingOwnerSinceSecond = source.m_iPendingOwnerSinceSecond;
+		target.m_iOwnershipCooldownUntilSecond = source.m_iOwnershipCooldownUntilSecond;
+		target.m_iLastHysteresisEvaluationSecond = source.m_iLastHysteresisEvaluationSecond;
+		target.m_sPendingOwnershipRequestId = source.m_sPendingOwnershipRequestId;
+		target.m_sLastFlipOwnerFactionKey = source.m_sLastFlipOwnerFactionKey;
+		target.m_iLastFlipSecond = source.m_iLastFlipSecond;
+		target.m_iLastFlipOwnershipRevision = source.m_iLastFlipOwnershipRevision;
+		target.m_iFIARadioBasisPoints = source.m_iFIARadioBasisPoints;
+		target.m_iOccupierRadioBasisPoints = source.m_iOccupierRadioBasisPoints;
+		target.m_iInvaderRadioBasisPoints = source.m_iInvaderRadioBasisPoints;
+		target.m_iFIAPropagandaBasisPoints = source.m_iFIAPropagandaBasisPoints;
+		target.m_iOccupierPropagandaBasisPoints = source.m_iOccupierPropagandaBasisPoints;
+		target.m_iInvaderPropagandaBasisPoints = source.m_iInvaderPropagandaBasisPoints;
+		target.m_iInfluenceEventCount = source.m_iInfluenceEventCount;
+		target.m_iActiveInfluenceModifierCount = source.m_iActiveInfluenceModifierCount;
+		target.m_iExpiredInfluenceModifierCount = source.m_iExpiredInfluenceModifierCount;
+		target.m_iNextInfluenceExpirySecond = source.m_iNextInfluenceExpirySecond;
+		target.m_sLastInfluenceEventId = source.m_sLastInfluenceEventId;
+		target.m_sLastInfluenceEventKind = source.m_sLastInfluenceEventKind;
+		target.m_sLastInfluenceEventReason = source.m_sLastInfluenceEventReason;
+		target.m_iLastInfluenceEventSecond = source.m_iLastInfluenceEventSecond;
+		target.m_sLastMutationId = source.m_sLastMutationId;
+		target.m_sAuthorityFailure = source.m_sAuthorityFailure;
+		return target;
+	}
+
 	protected HST_TownInfluenceEventState CopyTownInfluenceEvent(HST_TownInfluenceEventState source)
 	{
 		HST_TownInfluenceEventState target = new HST_TownInfluenceEventState();
+		target.m_iContractVersion = source.m_iContractVersion;
 		target.m_sEventId = source.m_sEventId;
 		target.m_sZoneId = source.m_sZoneId;
 		target.m_sKind = source.m_sKind;
@@ -1806,6 +1861,29 @@ class HST_CampaignSaveData
 		target.m_iPopulationDelta = source.m_iPopulationDelta;
 		target.m_iPoliceDelta = source.m_iPoliceDelta;
 		target.m_iRoadblockDelta = source.m_iRoadblockDelta;
+		target.m_iRequestedFIABasisPointDelta = source.m_iRequestedFIABasisPointDelta;
+		target.m_iRequestedOccupierBasisPointDelta = source.m_iRequestedOccupierBasisPointDelta;
+		target.m_iRequestedInvaderBasisPointDelta = source.m_iRequestedInvaderBasisPointDelta;
+		target.m_iEffectiveFIABasisPointDelta = source.m_iEffectiveFIABasisPointDelta;
+		target.m_iEffectiveOccupierBasisPointDelta = source.m_iEffectiveOccupierBasisPointDelta;
+		target.m_iEffectiveInvaderBasisPointDelta = source.m_iEffectiveInvaderBasisPointDelta;
+		target.m_iPopulationUsed = source.m_iPopulationUsed;
+		target.m_bPopulationScaled = source.m_bPopulationScaled;
+		target.m_iRecordRevisionBefore = source.m_iRecordRevisionBefore;
+		target.m_iRecordRevisionAfter = source.m_iRecordRevisionAfter;
+		target.m_iFIABasisPointsBefore = source.m_iFIABasisPointsBefore;
+		target.m_iFIABasisPointsAfter = source.m_iFIABasisPointsAfter;
+		target.m_iOccupierBasisPointsBefore = source.m_iOccupierBasisPointsBefore;
+		target.m_iOccupierBasisPointsAfter = source.m_iOccupierBasisPointsAfter;
+		target.m_iInvaderBasisPointsBefore = source.m_iInvaderBasisPointsBefore;
+		target.m_iInvaderBasisPointsAfter = source.m_iInvaderBasisPointsAfter;
+		target.m_bAbsoluteDebugSeed = source.m_bAbsoluteDebugSeed;
+		target.m_iInitialPopulationBefore = source.m_iInitialPopulationBefore;
+		target.m_iInitialPopulationAfter = source.m_iInitialPopulationAfter;
+		target.m_iRemainingPopulationBefore = source.m_iRemainingPopulationBefore;
+		target.m_iRemainingPopulationAfter = source.m_iRemainingPopulationAfter;
+		target.m_iDestroyedPopulationBefore = source.m_iDestroyedPopulationBefore;
+		target.m_iDestroyedPopulationAfter = source.m_iDestroyedPopulationAfter;
 		target.m_bApplied = source.m_bApplied;
 		return target;
 	}
@@ -2702,12 +2780,17 @@ class HST_CampaignSaveData
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		HST_MaidensBayLocationSaveValidationService schema60MaidensBayLocationValidation = new HST_MaidensBayLocationSaveValidationService();
 		schema60MaidensBayLocationValidation.Normalize(this, restoredSchemaVersion);
+		HST_TownInfluenceSaveValidationService schema64TownInfluenceValidation = new HST_TownInfluenceSaveValidationService();
+		schema64TownInfluenceValidation.ValidateCurrentAuthorityBeforeOwnership(this, restoredSchemaVersion);
 		HST_CombatPresenceSaveValidationService schema63CombatPresenceValidation = new HST_CombatPresenceSaveValidationService();
 		schema63CombatPresenceValidation.Normalize(this, restoredSchemaVersion);
 		HST_OwnershipTransitionSaveValidationService schema62OwnershipTransitionValidation = new HST_OwnershipTransitionSaveValidationService();
 		schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion);
 		HST_MarkerProjectionSaveValidationService schema61MarkerProjectionValidation = new HST_MarkerProjectionSaveValidationService();
 		schema61MarkerProjectionValidation.Normalize(this, restoredSchemaVersion);
+		// Town influence validates pending political receipt links only after the
+		// canonical ownership rows they reference have been normalized.
+		schema64TownInfluenceValidation.ValidateAfterOwnership(this);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)
@@ -2718,11 +2801,15 @@ class HST_CampaignSaveData
 			if (!civilianZone)
 				continue;
 
-			if (civilianZone.m_iFIASupport == 0 && civilianZone.m_iReputation > 0)
-				civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iReputation));
+			bool hasTownInfluenceAuthority = HasTownInfluenceRecordForZone(civilianZone.m_sZoneId);
+			if (!hasTownInfluenceAuthority)
+			{
+				if (civilianZone.m_iFIASupport == 0 && civilianZone.m_iReputation > 0)
+					civilianZone.m_iFIASupport = Math.Max(0, Math.Min(100, civilianZone.m_iReputation));
 
-			if (civilianZone.m_iOccupierSupport == 0)
-				civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 100 - civilianZone.m_iFIASupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));
+				if (civilianZone.m_iOccupierSupport == 0)
+					civilianZone.m_iOccupierSupport = Math.Max(0, Math.Min(100, 100 - civilianZone.m_iFIASupport / 2 + civilianZone.m_iPolicePresence * 2 + civilianZone.m_iRoadblockPresence * 3));
+			}
 
 			if (civilianZone.m_sLastIncidentReason.IsEmpty())
 				civilianZone.m_sLastIncidentReason = "legacy/backfilled";
@@ -2730,8 +2817,10 @@ class HST_CampaignSaveData
 				civilianZone.m_iLastSupportChangeSecond = civilianZone.m_iLastIncidentSecond;
 			if (civilianZone.m_sLastSecurityReason.IsEmpty())
 				civilianZone.m_sLastSecurityReason = civilianZone.m_sLastIncidentReason;
+			if (hasTownInfluenceAuthority)
+				continue;
 
-			if (civilianZone.m_iPopulationRemaining <= 0)
+			if (civilianZone.m_iPopulationRemaining <= 0 && civilianZone.m_iPopulationKilled <= 0)
 				civilianZone.m_iPopulationRemaining = Math.Max(20, Math.Max(1, civilianZone.m_iCivilianPresence) * 8);
 			if (civilianZone.m_sLastInfluenceReason.IsEmpty())
 				civilianZone.m_sLastInfluenceReason = civilianZone.m_sLastIncidentReason;
@@ -4646,6 +4735,18 @@ class HST_CampaignSaveData
 		foreach (HST_CampaignEventState eventState : m_aCampaignEvents)
 		{
 			if (eventState && eventState.m_sEventId == eventId)
+				return true;
+		}
+		return false;
+	}
+
+	protected bool HasTownInfluenceRecordForZone(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return false;
+		foreach (HST_TownInfluenceRecord record : m_aTownInfluenceRecords)
+		{
+			if (record && record.m_sTownId == zoneId)
 				return true;
 		}
 		return false;

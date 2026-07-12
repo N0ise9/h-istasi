@@ -19870,7 +19870,10 @@ class HST_PhysicalWarService
 		if (changed)
 		{
 			RefreshActiveGroupZoneCounts(state, activeGroup);
-			DebugLog(string.Format("active group count reconcile %1 via %2 | infantry live %3/%4 | total live %5 | spawned %6 | status %7", activeGroup.m_sGroupId, ReportText(source), liveInfantry, activeGroup.m_iInfantryCount, liveTotal, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus));
+			DebugLogThrottled(
+				"count_reconcile_" + activeGroup.m_sGroupId,
+				string.Format("active group count reconcile %1 via %2 | infantry live %3/%4 | total live %5 | spawned %6 | status %7", activeGroup.m_sGroupId, ReportText(source), liveInfantry, activeGroup.m_iInfantryCount, liveTotal, activeGroup.m_iSpawnedAgentCount, activeGroup.m_sRuntimeStatus),
+				30000);
 		}
 
 		return changed;
@@ -20478,7 +20481,10 @@ class HST_PhysicalWarService
 					|| IsExactGarrisonPatrolGroup(state, activeGroup))
 					m_bMarkerRefreshNeeded = true;
 			}
-			DebugLog(string.Format("active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus));
+			DebugLogThrottled(
+				"survivors_" + activeGroup.m_sGroupId,
+				string.Format("active group survivors %1 | zone %2 | alive %3 from %4 | survivors infantry %5/%6 vehicles %7/%8 | status %9", activeGroup.m_sGroupId, activeGroup.m_sZoneId, aliveCount, previousAliveCount, activeGroup.m_iSurvivorInfantryCount, activeGroup.m_iInfantryCount, activeGroup.m_iSurvivorVehicleCount, activeGroup.m_iVehicleCount, activeGroup.m_sRuntimeStatus),
+				30000);
 			changed = true;
 		}
 

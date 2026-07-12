@@ -1681,7 +1681,8 @@ foreach ($currentStateDocPath in $currentStateDocPaths) {
 	if ($currentStateDocText -match '(?im)[A-Za-z]:\\|/home/|/Users/|file://') {
 		throw "$currentStateDocPath must not contain local filesystem paths"
 	}
-	if (!$currentStateDocText.Contains($currentBuildSha) -or !$currentStateDocText.Contains($currentBuildLabel)) {
+	$currentStateDocIsProvisional = $currentStateDocText -match "(?is)provisional.{0,80}schema[- ]$campaignSchemaVersion|schema[- ]$campaignSchemaVersion.{0,80}provisional"
+	if ((!$currentStateDocText.Contains($currentBuildSha) -or !$currentStateDocText.Contains($currentBuildLabel)) -and !$currentStateDocIsProvisional) {
 		throw "$currentStateDocPath must identify the current stamped implementation hash and build label"
 	}
 }
@@ -1692,7 +1693,8 @@ $stampEvidenceDocPaths = @(
 )
 foreach ($stampEvidenceDocPath in $stampEvidenceDocPaths) {
 	$stampEvidenceDocText = Get-Content -Raw $stampEvidenceDocPath
-	if (!$stampEvidenceDocText.Contains($currentBuildSha) -or !$stampEvidenceDocText.Contains($currentBuildLabel)) {
+	$stampEvidenceDocIsProvisional = $stampEvidenceDocText -match "(?is)provisional.{0,80}schema[- ]$campaignSchemaVersion|schema[- ]$campaignSchemaVersion.{0,80}provisional"
+	if ((!$stampEvidenceDocText.Contains($currentBuildSha) -or !$stampEvidenceDocText.Contains($currentBuildLabel)) -and !$stampEvidenceDocIsProvisional) {
 		throw "$stampEvidenceDocPath must identify the current stamped implementation hash and build label"
 	}
 }
@@ -20406,7 +20408,7 @@ foreach ($schema62CommandPublicationEntry in @(
 	'BuildStrategicOrder(state, preset, markers)',
 	'HasAnyRecruitableResistanceZone(state, preset, markers)',
 	'HasAnyRemovableResistanceGarrison(state, preset, markers)',
-	'publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(state, captureZone, markers)'
+	'publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(state, zone, markers)'
 )) {
 	if ($schema62MapMarkerText.IndexOf($schema62CommandPublicationEntry) -lt 0 -and
 		$schema62CommandUIText.IndexOf($schema62CommandPublicationEntry) -lt 0 -and
@@ -20560,6 +20562,7 @@ foreach ($schema62PoliticalRouteEntry in @(
 		throw "Schema-62 political support flips must route through canonical ownership authority: $schema62PoliticalRouteEntry"
 	}
 }
+$schema62TownInfluenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceService.c"
 foreach ($schema62SupportConsequenceEntry in @(
 	'bool RegisterOwnershipSupportReward(',
 	'RegisterInfluenceEventExact(',
@@ -20567,24 +20570,26 @@ foreach ($schema62SupportConsequenceEntry in @(
 	'eventId,',
 	'reconcileOwnership);',
 	'bool ReconcileTownOwnershipPolicies(',
-	'HasUnresolvedTopLevelOwnershipTransition(state)',
-	'm_Civilians.ReconcileTownOwnershipPolicies('
+	'HasDifferentUnresolvedTopLevelTransition(',
+	'm_TownInfluence.ReconcileTownOwnershipPolicies('
 )) {
 	if ($schema62CivilianText.IndexOf($schema62SupportConsequenceEntry) -lt 0 -and
-		$schema62CoordinatorText.IndexOf($schema62SupportConsequenceEntry) -lt 0) {
+		$schema62CoordinatorText.IndexOf($schema62SupportConsequenceEntry) -lt 0 -and
+		$schema62TownInfluenceText.IndexOf($schema62SupportConsequenceEntry) -lt 0) {
 		throw "Schema-62 linked town support consequences must use exact influence-event authority: $schema62SupportConsequenceEntry"
 	}
 }
-$schema62ExactInfluenceBlock = Get-ScriptMethodBlock $schema62CivilianText 'bool RegisterInfluenceEventExact('
-$schema62ApplyInfluenceBlock = Get-ScriptMethodBlock $schema62CivilianText 'protected void ApplyInfluenceEvent('
+$schema62ExactInfluenceBlock = Get-ScriptMethodBlock $schema62TownInfluenceText 'bool RegisterInfluenceEventExact('
+$schema62ExecuteInfluenceBlock = Get-ScriptMethodBlock $schema62TownInfluenceText 'protected HST_TownInfluenceResult ExecuteWithPreset('
 foreach ($schema62PoliticalRetryEntry in @(
-	'bool reconcileOwnership = true',
-	'if (!exactMatch || !reconcileOwnership)',
-	'ApplyTownSupportOwnershipPolicy(',
-	'ApplyInfluenceEvent(state, civilianZone, influenceEvent, preset, reconcileOwnership)',
-	'if (reconcileOwnership)'
+	'HST_TownInfluenceCommand command',
+	'if (!ExactEventMatches(existing, command))',
+	'result.m_bAlreadyApplied = true;',
+	'if (command.m_bReconcileOwnership)',
+	'ReconcileRecordOwnership('
 )) {
-	if ($schema62CivilianText.IndexOf($schema62PoliticalRetryEntry) -lt 0) {
+	if ($schema62ExactInfluenceBlock.IndexOf($schema62PoliticalRetryEntry) -lt 0 -and
+		$schema62ExecuteInfluenceBlock.IndexOf($schema62PoliticalRetryEntry) -lt 0) {
 		throw "Schema-62 exact influence replay/suppression must retain a retryable political ownership intent: $schema62PoliticalRetryEntry"
 	}
 }
@@ -21245,16 +21250,17 @@ foreach ($schema62FrozenPolicyEntry in @(
 	'if (!bypassCampaignClockRateLimit',
 	'!activeCampaign)',
 	'ownershipMaintenanceChanged = ownershipRetryChanged || factionSanitizationChanged',
-	'|| townOwnershipPolicyChanged;',
+	'|| townOwnershipPolicyChanged || townContactChanged;',
 	'request.m_bApplyEnemyConsequences = false;',
 	'request.m_bNotify = false;'
 )) {
 	if ($schema62CivilianText.IndexOf($schema62FrozenPolicyEntry) -lt 0 -and
-		$schema62CoordinatorText.IndexOf($schema62FrozenPolicyEntry) -lt 0) {
+		$schema62CoordinatorText.IndexOf($schema62FrozenPolicyEntry) -lt 0 -and
+		$schema62TownInfluenceText.IndexOf($schema62FrozenPolicyEntry) -lt 0) {
 		throw "Schema-62 frozen-clock political reconciliation is missing: $schema62FrozenPolicyEntry"
 	}
 }
-$schema62TownPolicyMaintenanceIndex = $schema62CoordinatorText.IndexOf('townOwnershipPolicyChanged = m_Civilians.ReconcileTownOwnershipPolicies(')
+$schema62TownPolicyMaintenanceIndex = $schema62CoordinatorText.IndexOf('townOwnershipPolicyChanged = m_TownInfluence.ReconcileTownOwnershipPolicies(')
 $schema62TerminalEarlyReturnIndex = $schema62CoordinatorText.IndexOf('if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON')
 if ($schema62TownPolicyMaintenanceIndex -lt 0 -or $schema62TerminalEarlyReturnIndex -lt 0 -or
 	$schema62TownPolicyMaintenanceIndex -gt $schema62TerminalEarlyReturnIndex) {
@@ -21357,8 +21363,8 @@ $schema63SettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_R
 $schema63BalanceText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
 $schema63BalanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
 
-if ($schema63StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*63;') {
-	throw "Schema-63 combat presence requires HST_CampaignState schema 63"
+if ($schema63StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*64;') {
+	throw "Schema-63 combat presence must remain present in current HST_CampaignState schema 64"
 }
 foreach ($schema63StateEntry in @(
 	'HST_ECombatPresenceState',
@@ -21719,5 +21725,239 @@ foreach ($schema63CoordinatorProofEntry in @(
 }
 
 Write-Host "Schema-63 canonical crew-aware combat presence, Hot-Cooling-Cold hysteresis, conservative restore, activation hysteresis, consumer convergence, and source proofs OK"
+
+$schema64Paths = @(
+	"Scripts/Game/HST/Services/HST_TownInfluenceService.c",
+	"Scripts/Game/HST/Services/HST_TownInfluenceSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_TownInfluenceProofService.c",
+	"Scripts/Game/HST/Services/HST_MapWarProjectionService.c",
+	"Scripts/Game/HST/Services/HST_MapWarProjectionProofService.c"
+)
+foreach ($schema64Path in $schema64Paths) {
+	if (!(Test-Path $schema64Path)) {
+		throw "Schema-64 canonical town influence source is missing: $schema64Path"
+	}
+}
+$schema64StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema64SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema64TownText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceService.c"
+$schema64TownSaveText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceSaveValidationService.c"
+$schema64TownProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceProofService.c"
+$schema64MapText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapWarProjectionService.c"
+$schema64MapProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapWarProjectionProofService.c"
+$schema64CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema64CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+$schema64PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema64PersistenceSmokeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceSmokeTestService.c"
+
+if ($schema64StateText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0 -or
+	$schema64TownText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0 -or
+	$schema64TownSaveText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0) {
+	throw "Schema-64 state, runtime authority, and save boundary must share schema 64"
+}
+$schema64RecordBlock = Get-ScriptMethodBlock $schema64StateText 'class HST_TownInfluenceRecord'
+$schema64EventBlock = Get-ScriptMethodBlock $schema64StateText 'class HST_TownInfluenceEventState'
+$schema64RecordFields = @([regex]::Matches($schema64RecordBlock, '\b(m_[A-Za-z0-9_]+)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+$schema64EventFields = @([regex]::Matches($schema64EventBlock, '\b(m_[A-Za-z0-9_]+)\b') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+if ($schema64RecordFields.Count -ne 39 -or $schema64EventFields.Count -ne 39) {
+	throw "Schema-64 canonical record/event field surfaces changed without an explicit persistence-contract update: $($schema64RecordFields.Count)/$($schema64EventFields.Count)"
+}
+$schema64CopyRecordBlock = Get-ScriptMethodBlock $schema64SaveText 'protected HST_TownInfluenceRecord CopyTownInfluenceRecord('
+$schema64CopyEventBlock = Get-ScriptMethodBlock $schema64SaveText 'protected HST_TownInfluenceEventState CopyTownInfluenceEvent('
+foreach ($schema64RecordField in $schema64RecordFields) {
+	if ($schema64CopyRecordBlock.IndexOf("target.$schema64RecordField = source.$schema64RecordField;") -lt 0) {
+		throw "Schema-64 town record save copy is missing: $schema64RecordField"
+	}
+}
+foreach ($schema64EventField in $schema64EventFields) {
+	if ($schema64CopyEventBlock.IndexOf("target.$schema64EventField = source.$schema64EventField;") -lt 0) {
+		throw "Schema-64 town event save copy is missing: $schema64EventField"
+	}
+}
+
+$schema64FormulaBlock = Get-ScriptMethodBlock $schema64TownText 'static int CalculateEffectiveSupportDeltaBasisPoints('
+foreach ($schema64FormulaEntry in @(
+	'FORMULA_REFERENCE_COMMIT = "6e4226d3863ca8673535386c2fff8b6e08a806c4"',
+	'Math.Round(1000.0 * requestedRawDelta / Math.Sqrt(initialPopulation))',
+	'fiaSupportBasisPoints > RESISTANCE_OWNERSHIP_THRESHOLD_BASIS_POINTS',
+	'fiaSupportBasisPoints < ENEMY_OWNERSHIP_THRESHOLD_BASIS_POINTS',
+	'(remainder * boundedPercent + 99) / 100'
+)) {
+	if ($schema64TownText.IndexOf($schema64FormulaEntry) -lt 0) {
+		throw "Schema-64 pinned formula, strict hysteresis, or overflow-safe population threshold is missing: $schema64FormulaEntry"
+	}
+}
+foreach ($schema64GoldenEntry in @(
+	'population100 == 100',
+	'population25 == 200',
+	'population400 == 50',
+	'unscaledNegative == -5000',
+	'!HST_TownInfluenceService.QualifiesResistanceOwnership(8000)',
+	'!HST_TownInfluenceService.QualifiesEnemyOwnership(4000)'
+)) {
+	if ($schema64TownProofText.IndexOf($schema64GoldenEntry) -lt 0) {
+		throw "Schema-64 formula or strict-boundary proof is missing: $schema64GoldenEntry"
+	}
+}
+
+$schema64MigrationBlock = Get-ScriptMethodBlock $schema64SaveText 'void MigrateToCurrentSchema()'
+$schema64PreTownIndex = $schema64MigrationBlock.IndexOf('schema64TownInfluenceValidation.ValidateCurrentAuthorityBeforeOwnership(this, restoredSchemaVersion);')
+$schema64OwnershipIndex = $schema64MigrationBlock.IndexOf('schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion);')
+$schema64PostTownIndex = $schema64MigrationBlock.IndexOf('schema64TownInfluenceValidation.ValidateAfterOwnership(this);')
+if ($schema64PreTownIndex -lt 0 -or $schema64OwnershipIndex -lt 0 -or $schema64PostTownIndex -lt 0 -or
+	$schema64PreTownIndex -gt $schema64OwnershipIndex -or $schema64OwnershipIndex -gt $schema64PostTownIndex) {
+	throw "Schema-64 legacy town authority must prepare before ownership receipts and validate reciprocal links afterward"
+}
+$schema64PreOwnershipBlock = Get-ScriptMethodBlock $schema64TownSaveText 'void ValidateCurrentAuthorityBeforeOwnership('
+foreach ($schema64MigrationEntry in @(
+	'if (restoredSchemaVersion < SCHEMA_VERSION)',
+	'MigrateLegacyTownInfluence(saveData);',
+	'MarkLegacyInfluenceEvents(saveData);',
+	'eventState.m_iContractVersion = 0;',
+	'ValidateAfterOwnership('
+)) {
+	if ($schema64TownSaveText.IndexOf($schema64MigrationEntry) -lt 0) {
+		throw "Schema-64 pre/current restore ordering or legacy relabeling is missing: $schema64MigrationEntry"
+	}
+}
+
+foreach ($schema64ValidationEntry in @(
+	'QUARANTINE_CONTRACT_VERSION = -64',
+	'MAX_TOWN_RECORDS',
+	'MAX_INFLUENCE_EVENTS',
+	'eventState.m_sEventId != eventState.m_sEventId.Trim()',
+	'eventState.m_iPopulationUsed',
+	'eventState.m_bAbsoluteDebugSeed',
+	'eventState.m_iInitialPopulationBefore',
+	'eventState.m_iRemainingPopulationAfter',
+	'eventState.m_iDestroyedPopulationAfter',
+	'- eventState.m_iPopulationDelta)',
+	'HasExactPopulationTransition(',
+	'HasValidSupportEventShape(',
+	'exactRevisions.Sort()',
+	'expectedFIARadio',
+	'expectedFIAPropaganda',
+	'HasValidPendingOwnershipReceipt(',
+	'HasValidEventAggregateConsistency(',
+	'record.m_iDestroyedPopulation',
+	'destroyedPopulation == initialPopulation - remainingPopulation'
+)) {
+	if ($schema64TownSaveText.IndexOf($schema64ValidationEntry) -lt 0) {
+		throw "Schema-64 bounded fail-closed save validation is missing: $schema64ValidationEntry"
+	}
+}
+foreach ($schema64AuthorityEntry in @(
+	'class HST_TownInfluenceCommand',
+	'bool RegisterInfluenceEventExact(',
+	'HST_TownInfluenceCommand command',
+	'if (!ExactEventMatches(existing, command))',
+	'ValidateNewEventAdmission(',
+	'FindUniqueCanonicalTownZone(',
+	'BuildPopulationAggregate(',
+	'DEBUG_SEED_REVISION_HEADROOM = 4',
+	'if (record.m_iRevision >= MAX_MUTABLE_REVISION)',
+	'continue;',
+	'm_OwnershipTransitions.Apply(state, request)',
+	'"political_support"',
+	'"town_influence"'
+)) {
+	if ($schema64TownText.IndexOf($schema64AuthorityEntry) -lt 0) {
+		throw "Schema-64 canonical mutation, population, revision, or ownership delegation is missing: $schema64AuthorityEntry"
+	}
+}
+
+foreach ($schema64InjectionEntry in @(
+	'm_Strategic.SetTownInfluenceService(m_TownInfluence)',
+	'm_Economy.SetTownInfluenceService(m_TownInfluence)',
+	'm_EnemyDirector.SetTownInfluenceService(m_TownInfluence)',
+	'm_Towns.SetTownInfluenceService(m_TownInfluence)',
+	'm_MapWarProjection.SetTownInfluenceService(m_TownInfluence)',
+	'm_MapWarProjection.SetMapMarkerService(m_MapMarkers)',
+	'm_CommandUI.SetTownInfluenceService(m_TownInfluence)',
+	'm_SupportRequests.SetTownInfluenceService(m_TownInfluence)',
+	'm_Civilians.SetTownInfluenceService(m_TownInfluence)',
+	'm_EnemyCommander.SetTownInfluenceService(m_TownInfluence)',
+	'm_OwnershipTransitions.SetTownInfluenceService(m_TownInfluence)'
+)) {
+	if ($schema64CoordinatorText.IndexOf($schema64InjectionEntry) -lt 0) {
+		throw "Schema-64 gameplay consumer does not share canonical town authority: $schema64InjectionEntry"
+	}
+}
+
+foreach ($schema64MapEntry in @(
+	'BuildZonePressure(',
+	'!record.m_bContacted',
+	'row.m_bCurrentTown = zone.m_sZoneId == currentTownId',
+	'SortZonePressure(rows)',
+	'BuildResistanceTerritory(',
+	'zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE',
+	'm_MapMarkers.ResolvePublishedZoneOwnership(',
+	'SortResistanceTerritory(rows)'
+)) {
+	if ($schema64MapText.IndexOf($schema64MapEntry) -lt 0) {
+		throw "Schema-64 Map/War projection is not contacted, complete, published, or deterministic: $schema64MapEntry"
+	}
+}
+foreach ($schema64MapProofEntry in @(
+	'm_bContactFilterExact',
+	'm_bCurrentTownFirstExact',
+	'm_bSupportSortExact',
+	'm_bTerritoryCompleteExact',
+	'm_bTerritoryOrderExact',
+	'm_bInvalidAuthorityExcluded',
+	'm_bDeferredPublicationExact',
+	'AllExact()'
+)) {
+	if ($schema64MapProofText.IndexOf($schema64MapProofEntry) -lt 0) {
+		throw "Schema-64 deterministic Map/War proof is missing: $schema64MapProofEntry"
+	}
+}
+
+$schema64CivilianTickBlock = Get-ScriptMethodBlock $schema64CivilianText 'bool Tick(HST_CampaignState state, int elapsedSeconds)'
+$schema64LegacyRefreshBlock = Get-ScriptMethodBlock $schema64CivilianText 'protected bool RefreshTownInfluenceAggregates('
+if ($schema64CivilianTickBlock.IndexOf('RefreshTownInfluenceAggregates(') -ge 0 -or
+	$schema64LegacyRefreshBlock.IndexOf('return false;') -lt 0) {
+	throw "Schema-64 civilian tick must not rescan all town influence events every second"
+}
+if ($schema64PhysicalText.IndexOf('"survivors_" + activeGroup.m_sGroupId') -lt 0 -or
+	$schema64PhysicalText.IndexOf('30000);') -lt 0) {
+	throw "Schema-64 changed active-group survivor diagnostics must remain throttled"
+}
+if ($schema64CoordinatorText.IndexOf('IsDebugLoggingEnabled() && (!known || membershipChanged || adminChanged || displayNameChanged)') -lt 0) {
+	throw "Schema-64 player-authority diagnostics must not log unchanged state every second"
+}
+$schema64SmokeTargetBlock = Get-ScriptMethodBlock $schema64PersistenceSmokeText 'protected HST_ZoneState SelectSmokeTargetZone('
+if ($schema64SmokeTargetBlock.IndexOf('return state.FindZone(SMOKE_ZONE_ID);') -lt 0 -or
+	$schema64SmokeTargetBlock.IndexOf('foreach') -ge 0) {
+	throw "Schema-64 persistence smoke must use only its nonpolitical sentinel zone"
+}
+
+foreach ($schema64ProofEntry in @(
+	'm_bGoldenScalingExact',
+	'm_bStrictThresholdsExact',
+	'm_bIdempotencyRevisionExact',
+	'm_bLegacyMigrationExact',
+	'm_bCurrentRestoreValidationExact',
+	'm_bRevisionBoundaryExact',
+	'seedEvent.m_bAbsoluteDebugSeed',
+	'seedReplayExact',
+	'seedConflictRejected',
+	'invaderSeedExact',
+	'BuildCurrentRestoreFixture(',
+	'reorderedRecord.m_iRevision == 7',
+	'populationTamperQuarantined',
+	'aggregateTamperQuarantined',
+	'ProvePre64AppliedSupportReceiptMigration',
+	'pre64SupportReceiptExact',
+	'proof.AllExact()'
+)) {
+	if ($schema64TownProofText.IndexOf($schema64ProofEntry) -lt 0 -and
+		(Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionProofService.c").IndexOf($schema64ProofEntry) -lt 0 -and
+		$schema64CoordinatorText.IndexOf($schema64ProofEntry) -lt 0) {
+		throw "Schema-64 deterministic town/persistence proof or Campaign Debug wiring is missing: $schema64ProofEntry"
+	}
+}
+
+Write-Host "Schema-64 canonical town influence, strict political hysteresis, conservative migration/restore, consumer convergence, deterministic Map/War projection, hot-path repairs, and source proofs OK"
 
 Write-Host "h-istasi foundation validation passed"

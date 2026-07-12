@@ -65,11 +65,17 @@ class HST_EnemyCommanderService
 	protected ref HST_EnemyQRFOperationService m_ExactEnemyQRF;
 	protected ref HST_EnemyPatrolOperationService m_ExactEnemyPatrol;
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
+	protected ref HST_TownInfluenceService m_TownInfluence;
 
 	void SetCombatPresenceService(HST_CombatPresenceService combatPresence)
 	{
 		if (combatPresence)
 			m_CombatPresence = combatPresence;
+	}
+
+	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
+	{
+		m_TownInfluence = townInfluence;
 	}
 
 	void SetExactEnemyQRFAuthorityServices(
@@ -1422,8 +1428,28 @@ class HST_EnemyCommanderService
 			return;
 		}
 
-		targetZone.m_iSupport = Math.Max(-100, targetZone.m_iSupport - 8);
-		order.m_sResolutionKind = "abstract_counterattack_support_damage";
+		if (targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		{
+			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 8);
+			order.m_sResolutionKind = "abstract_counterattack_non_town_capture_pressure";
+			return;
+		}
+
+		if (!RegisterEnemyTownInfluence(
+			state,
+			preset,
+			targetZone,
+			order,
+			-8,
+			"enemy_counterattack",
+			"abstract enemy counterattack pressure"))
+		{
+			order.m_sResolutionKind = "abstract_counterattack_town_influence_authority_unavailable";
+			order.m_sFailureReason = "canonical town influence authority unavailable";
+			return;
+		}
+
+		order.m_sResolutionKind = "abstract_counterattack_town_influence";
 	}
 
 	protected void ApplyAbstractSupportPressure(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyOrderState order)
@@ -1439,12 +1465,62 @@ class HST_EnemyCommanderService
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
 			resistanceFactionKey = preset.m_sResistanceFactionKey;
 
-		if (targetZone.m_sOwnerFactionKey == resistanceFactionKey)
-			targetZone.m_iSupport = Math.Max(-100, targetZone.m_iSupport - 6);
-		else
+		if (targetZone.m_sOwnerFactionKey != resistanceFactionKey || targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		{
 			targetZone.m_iResistanceCaptureProgress = Math.Max(0, targetZone.m_iResistanceCaptureProgress - 12);
+			order.m_sResolutionKind = "abstract_support_capture_pressure";
+			return;
+		}
 
-		order.m_sResolutionKind = "abstract_support_pressure";
+		if (!RegisterEnemyTownInfluence(
+			state,
+			preset,
+			targetZone,
+			order,
+			-6,
+			"enemy_support_pressure",
+			"abstract enemy support pressure"))
+		{
+			order.m_sResolutionKind = "abstract_support_town_influence_authority_unavailable";
+			order.m_sFailureReason = "canonical town influence authority unavailable";
+			return;
+		}
+
+		order.m_sResolutionKind = "abstract_support_town_influence";
+	}
+
+	protected bool RegisterEnemyTownInfluence(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_ZoneState targetZone,
+		HST_EnemyOrderState order,
+		int fiaSupportDelta,
+		string eventKind,
+		string reason)
+	{
+		if (!state || !preset || !targetZone || !order || !m_TownInfluence
+			|| targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN
+			|| order.m_sOrderId.IsEmpty())
+			return false;
+
+		string eventId = string.Format(
+			"town_enemy_order_%1_%2_%3",
+			targetZone.m_sZoneId.Hash(),
+			order.m_sOrderId.Hash(),
+			eventKind.Hash());
+		HST_TownInfluenceCommand command = new HST_TownInfluenceCommand();
+		command.m_sCommandId = eventId;
+		command.m_sEventId = eventId;
+		command.m_sTownId = targetZone.m_sZoneId;
+		command.m_sEventKind = eventKind;
+		command.m_sSourceId = order.m_sOrderId;
+		command.m_sReason = reason;
+		command.m_iRawFIASupportDelta = fiaSupportDelta;
+		command.m_bPopulationScaled = true;
+		return m_TownInfluence.RegisterInfluenceEventExact(
+			state,
+			command,
+			preset);
 	}
 
 	protected void ApplyAbstractPetrosPressure(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyOrderState order)
@@ -1577,8 +1653,8 @@ class HST_EnemyCommanderService
 			damageScore += 3;
 		if (HasActiveObjectiveNearZone(state, targetZone))
 			damageScore += 3;
-		if (IsTownSupportFlipThreat(preset, factionKey, targetZone))
-			damageScore += Math.Max(1, targetZone.m_iSupport / 10);
+		if (IsTownSupportFlipThreat(state, preset, factionKey, targetZone))
+			damageScore += Math.Max(1, ResolveZoneSupportPercent(state, targetZone) / 10);
 
 		if (damageScore <= 0)
 			return;
@@ -1601,7 +1677,7 @@ class HST_EnemyCommanderService
 			return true;
 		if (HasActiveObjectiveNearZone(state, targetZone))
 			return true;
-		if (IsTownSupportFlipThreat(preset, factionKey, targetZone))
+		if (IsTownSupportFlipThreat(state, preset, factionKey, targetZone))
 			return true;
 
 		return false;
@@ -1620,7 +1696,7 @@ class HST_EnemyCommanderService
 			return true;
 		if (HasActiveObjectiveNearZone(state, targetZone))
 			return true;
-		if (IsTownSupportFlipThreat(preset, factionKey, targetZone))
+		if (IsTownSupportFlipThreat(state, preset, factionKey, targetZone))
 			return true;
 
 		return false;
@@ -1647,16 +1723,27 @@ class HST_EnemyCommanderService
 		return presence && presence.m_bQueryValid && presence.m_bHasLiveContributors;
 	}
 
-	protected bool IsTownSupportFlipThreat(HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
+	protected bool IsTownSupportFlipThreat(HST_CampaignState state, HST_CampaignPreset preset, string factionKey, HST_ZoneState targetZone)
 	{
-		if (!preset || !targetZone || targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+		if (!state || !preset || !targetZone || targetZone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
 			return false;
 		if (factionKey.IsEmpty() || targetZone.m_sOwnerFactionKey != factionKey)
 			return false;
 		if (targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
 			return false;
 
-		return targetZone.m_iSupport >= TOWN_SUPPORT_QRF_RESPONSE_THRESHOLD;
+		return ResolveZoneSupportPercent(state, targetZone) >= TOWN_SUPPORT_QRF_RESPONSE_THRESHOLD;
+	}
+
+	protected int ResolveZoneSupportPercent(HST_CampaignState state, HST_ZoneState zone)
+	{
+		if (!state || !zone)
+			return 0;
+		if (zone.m_eType != HST_EZoneType.HST_ZONE_TOWN)
+			return 0;
+		if (!m_TownInfluence)
+			return 0;
+		return m_TownInfluence.ResolveSignedSupportPercent(state, zone.m_sZoneId);
 	}
 
 	protected bool ShouldRetaliateWithSupport(HST_CampaignState state, HST_ZoneState targetZone, HST_FactionPoolState pool, HST_EEnemyOrderType orderType, int baseThreatScore, out string reason)
@@ -1830,9 +1917,10 @@ class HST_EnemyCommanderService
 			AddTargetScoreReason(candidate, "combat_presence", candidate.m_iActivityScore);
 		}
 
-		if (zone.m_iSupport > 25)
+		int localSupport = ResolveZoneSupportPercent(state, zone);
+		if (localSupport > 25)
 		{
-			candidate.m_iSupportScore = Math.Min(10, 4 + zone.m_iSupport / 20);
+			candidate.m_iSupportScore = Math.Min(10, 4 + localSupport / 20);
 			AddTargetScoreReason(candidate, "local_support", candidate.m_iSupportScore);
 		}
 

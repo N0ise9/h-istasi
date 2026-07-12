@@ -2,18 +2,20 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is sealed at `63`, and
-`HST_RuntimeSettings.SCHEMA_VERSION` is sealed at `23`. Schema 63 adds
-canonical crew-aware combat presence and persisted zone heat on top of the
-sealed Schema-62 ownership boundary. Foundation passes on the Schema-63 tree
-with 681 script-symbol references. A normal Workbench Script Editor open
-compiled/created the Game module at 5,788 files/11,670 classes with CRC
-`a40056c5`, no HST script errors, and no crash. Explicit validation passed for
-WORKBENCH, PC, XBOX, PS4, and PS5 and exited with code `0`; all Workbench
-instances were closed afterward. Real serialization, save/restart, Campaign
-Debug, packaged runtime, and multiplayer proof remain pending.
+`HST_CampaignState.SCHEMA_VERSION` is provisionally `64`, and
+`HST_RuntimeSettings.SCHEMA_VERSION` remains sealed at `23`. Schema 64 adds the
+canonical curated-town political support/population boundary on top of the
+sealed Schema-62 ownership and Schema-63 combat-presence dependencies. Schema
+64 is not sealed: its final implementation identity and stamp remain
+provisional. Foundation passes at 696 script-symbol references, including the
+dedicated Schema-64 gate. Normal Workbench compilation and all-five-
+configuration validation pass at 5,793 files/11,695 classes with CRC
+`e1a7b03d`, successful validation, and zero HST script errors. Every Workbench
+instance was closed and the verified process count was zero. Campaign Debug,
+real serialization, save/restart, packaged runtime, rendered UI, stutter
+measurement, and multiplayer proof remain pending.
 
-The sealed Schema-63 checkpoint identifies implementation
+Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
@@ -28,6 +30,81 @@ classes with CRC `22c13a32` and zero script errors; the normal Script Editor ope
 remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
+
+## Schema 64
+
+- One contract-`1` `HST_TownInfluenceRecord` per unique curated
+  `HST_ZONE_TOWN` is the sole political support and population authority. It
+  persists revision, separate FIA/occupier/invader support in `0..10000` basis
+  points, initial/remaining/destroyed population, explicit contact and
+  resistance-activity evidence, hysteresis/pending ownership state, radio and
+  propaganda aggregates, influence-event counts/next expiry, and last mutation
+  evidence.
+- The population-scaled formula is pinned to reference commit
+  `6e4226d3863ca8673535386c2fff8b6e08a806c4`: effective basis points are
+  `round(1000 * raw delta / sqrt(initial population))`. Golden fixtures require
+  raw `+1` at populations 100, 25, and 400 to produce `+100`, `+200`, and `+50`
+  basis points. Unscaled raw `-50` produces `-5000` basis points.
+- Political hysteresis is strict. FIA support above `8000` basis points may
+  request resistance ownership; FIA support below `4000` may request enemy
+  ownership. Exactly `8000` and exactly `4000` remain neutral. Occupier and
+  invader support stay distinct, and enemy selection uses canonical faction
+  support/owner evidence rather than collapsing them into one stored total.
+  Every flip request and retry goes through `HST_OwnershipTransitionService`;
+  migration and compatibility projections never publish an owner.
+- Exact influence events add contract version, requested/effective basis-point
+  deltas per faction, initial population used, scaling flag, record revisions,
+  before/after faction support, and before/after initial/remaining/destroyed
+  population. Authorized absolute debug seeds record exact support basis-point
+  differences and population changes rather than rounding targets or writing
+  the record directly. Replaying an identical event is a no-op; conflicting
+  identity fails closed. Permanent events use no expiry. Timed modifiers record
+  an expiry, update aggregate counts at mutation time, and trigger an event-
+  history rescan only when a canonical record's next expiry is due, avoiding
+  the former all-towns-by-all-events one-second scan.
+- Pre-64 migration creates records only for unique curated towns. The legacy
+  zone signed-support margin has precedence when it disagrees with the civilian
+  FIA/occupier pair; the pair is adjusted minimally and one bounded migration-
+  conflict event records the disagreement. With no valid civilian pair,
+  migration starts from neutral `50/50` and projects the signed margin. Existing
+  destroyed population is preserved; migration does not resurrect a town whose
+  remaining population is legitimately zero. Legacy influence events become
+  contract `0` evidence and are never replayed as Schema-64 mutations.
+- Current-schema restore removes null rows, requires exactly one valid canonical
+  record per curated town, validates event/revision/aggregate/contact/pending-
+  receipt reciprocity, validates every exact population transition and adjacent
+  before/after chain, requires the final record population to equal the latest
+  exact event, and projects compatibility fields only after authority passes.
+  Duplicate, missing, orphaned, malformed, inconsistent, or event-linked
+  authority quarantines at contract `-64` rather than being guessed or replayed.
+- `HST_ZoneState.m_iSupport` and civilian support/population fields remain only
+  signed/read-model compatibility projections. FIA signed support is canonical
+  FIA basis points minus the greater of occupier or invader basis points. No
+  production political mutation may write those legacy fields as truth.
+- Schema-60 Maiden's Bay normalization now also removes a retired town-influence
+  record. The Logistics Warehouse is the only canonical Maiden's Bay location
+  and is nonpolitical. Simon's Wood remains a resource/minor-locality ambience
+  source and receives no canonical town-influence record.
+- Town contact is explicit evidence from player, mission, incident, or
+  resistance activity; global radio/security drift alone does not reveal a
+  town. Zone Pressure emits only valid contacted towns, with the current town
+  first and remaining rows ordered by FIA support, display name, and ID.
+  Resistance Territory emits every published resistance-owned strategic zone
+  except mission bookkeeping in deterministic type/name/ID order and observes
+  incomplete ownership-transition publication authority through the same
+  completed-parent resolver used by marker projection.
+- Schema 64 also throttles verbose changed active-group survivor/count logs to
+  30 seconds. Together with due-expiry-only influence rescans, this is a source
+  mitigation for the reported one-second stutter, not runtime proof that the
+  stutter is gone.
+- Persistence smoke now always creates/reuses its reserved nonpolitical mission-
+  site sentinel. It cannot select a curated town and write legacy civilian
+  support beside canonical town authority.
+- Migration and quarantine code passes the full 696-reference Foundation gate
+  and normal/all-configuration Workbench compile validation at 5,793 files/
+  11,695 classes with CRC `e1a7b03d` and zero HST script errors. These checks do
+  not serialize a real profile or prove a process restart; the deterministic
+  migration fixtures also remain unexecuted until Campaign Debug runs.
 
 ## Schema 63
 

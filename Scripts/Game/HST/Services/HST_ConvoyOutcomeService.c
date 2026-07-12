@@ -385,11 +385,13 @@ class HST_ConvoyOutcomeService
 			return false;
 
 		targetLabel = town.m_sZoneId;
-		if (towns)
-			return towns.AddSupport(state, town.m_sZoneId, amount);
+		if (!towns)
+		{
+			targetLabel = targetLabel + " (town influence authority unavailable)";
+			return false;
+		}
 
-		town.m_iSupport = Math.Max(-100, Math.Min(100, town.m_iSupport + amount));
-		return true;
+		return towns.AddSupport(state, town.m_sZoneId, amount);
 	}
 
 	protected HST_ZoneState ResolveSupportTown(HST_CampaignState state, HST_ActiveMissionState mission)

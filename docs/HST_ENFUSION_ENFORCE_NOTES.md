@@ -1,16 +1,18 @@
 # h-istasi Enfusion / Enforce Notes
 
-Active development is on campaign Schema 63 and runtime-settings
-Schema 23. Its combat-presence sampling and persistence rules below are based on
-source/API inspection and deterministic fixtures. Foundation passes with 681
-script-symbol references. A normal Workbench Script Editor open compiled/created
-the Game module at 5,788 files/11,670 classes with CRC `a40056c5`, remained
-responsive without a crash, and produced no HST script errors. Explicit
-validation passed for WORKBENCH, PC, XBOX, PS4, and PS5 with exit code `0`; all
-Workbench instances were closed afterward. Campaign Debug, packaged runtime,
-save/restart, and multiplayer execution remain pending.
+Active development is the provisional campaign Schema 64 source pass on
+runtime-settings Schema 23. Its canonical town-influence, migration, political-
+hysteresis, and Map/War rules below are based on source inspection and
+deterministic fixtures that have not yet run. Schema 64 has no sealed
+implementation identity or runtime result. Foundation passes at 696 script-
+symbol references, including the dedicated Schema-64 gate. Normal Workbench
+compilation and all-five-configuration validation pass at 5,793 files/11,695
+classes with CRC `e1a7b03d`, successful validation, and zero HST script errors.
+Every Workbench instance was closed and the verified process count was zero.
+Campaign Debug, packaged runtime, save/restart, rendered UI, stutter measurement,
+and multiplayer execution remain pending.
 
-The sealed Schema-63 checkpoint identifies implementation
+Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
@@ -567,25 +569,28 @@ This file is for practical engine/script behavior, not project planning. Keep en
     report and passenger-exposure report branches plus save-data roundtrip and
     cleanup.
   - Town influence should use
-    `HST_StrategicService.BeginTownInfluenceEvent()` before applying
-    `HST_CivilianService.RegisterInfluenceEvent()` deltas, then complete the
-    event after support and owner fields are updated. Keep these rows compact:
-    source id is the town influence event id, target zone is the affected town,
-    and the summary/reason carries the influence kind and source context.
+    `HST_StrategicService.BeginTownInfluenceEvent()` around the typed
+    `HST_TownInfluenceService` command. Civilian/town compatibility wrappers may
+    delegate to it, but they must not own support or population. Complete the
+    strategic event only after the canonical town record and any accepted
+    ownership intent are updated. Keep these rows compact: source id is the
+    influence event id, target zone is the curated town, and summary/reason
+    carries the kind and source context.
   - Radio tower support drift should run from `HST_TownService` on the normal
     income/resource cadence, not from a per-second civilian tick. Pick only the
     nearest eligible owned radio tower per town in the bounded influence radius,
     skip saturated rows that would not change support/reputation/heat, and route
-    the result through `HST_CivilianService.RegisterInfluenceEvent()` as
-    `radio_broadcast` so the same town influence and strategic-event ledgers
-    explain friendly and hostile broadcasts. Full Campaign Debug should keep
+    the result through the canonical influence service as `radio_broadcast` so
+    the same town influence and strategic-event ledgers explain friendly and
+    hostile broadcasts. Radio drift is not town-contact evidence. Full Campaign Debug should keep
     `town_influence.radio.runtime` proving cadence, both drift directions,
     compact strategic rows, and report visibility.
   - Police and roadblock security pressure should also run from
     `HST_TownService` on the income/resource cadence. Derive target pressure from
     town owner relation, wanted heat, occupier-vs-FIA support margin, and war
-    level, then move only one police/roadblock step per tick through
-    `HST_CivilianService.RegisterInfluenceEvent()` as `security_pressure`.
+    level, then move only one police/roadblock step per tick through the
+    canonical influence service as `security_pressure`. Security drift is not
+    town-contact evidence.
     Resistance-held towns should shed enemy security pressure unless heat is
     extreme. Full Campaign Debug should keep
     `town_influence.security_pressure.runtime` proving enemy pressure growth,
@@ -774,17 +779,85 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Apply the same locality gate in both target scoring and direct order queueing so debug/admin entry points do not bypass normal commander behavior.
   - Current examples: `HST_EnemyCommanderService.IsLocalOperationTargetAllowed()` and the `enemy_target_scoring.local_front_gate` Full Campaign Debug assertion.
 
-- Town political support should be event-ledger backed.
-  - Directly changing FIA/occupier support, reputation, heat, population, or
-    police/roadblock pressure hides why a town flipped and makes save/reload
-    regressions hard to diagnose.
-  - Store a data-only influence event with explicit deltas, created/expiry
-    seconds, source, and reason, then derive town support, undercover
-    restriction, population killed/remaining, and active/expired modifier
-    counts from that ledger.
-  - Current examples: `HST_CivilianService.RegisterInfluenceEvent()`,
-    `HST_CivilianService.RegisterIncident()`, and
-    `HST_CampaignCoordinatorComponent.BuildCampaignDebugTownInfluenceLedgerCase()`.
+- Curated-town political support and population require one canonical record.
+  - `HST_TownInfluenceRecord` is the sole truth. It owns revisioned FIA,
+    occupier, and invader support in basis points; initial, remaining, and
+    destroyed population; explicit contact/activity evidence; radio/propaganda
+    aggregates; event counts and next expiry; last event/mutation evidence; and
+    pending ownership intent. Keep occupier and invader separate even though a
+    compatibility signed margin uses the stronger enemy value.
+  - `HST_ZoneState.m_iSupport` and the support/population fields on
+    `HST_CivilianZoneState` are projections for legacy readers and migration.
+    Do not read them to decide a political mutation, and never write them as a
+    second authority. Project only from a unique valid canonical record.
+  - Send typed `HST_TownInfluenceCommand` values through
+    `HST_TownInfluenceService.Execute()`. The event preserves requested and
+    effective faction deltas, population used, scaling flag, before/after basis
+    points, before/after initial/remaining/destroyed population, record
+    revisions, source, reason, and duration. Identical replay is a no-op;
+    conflicting reuse fails closed.
+  - Keep new-event admission checks separate from exact-replay validation. An
+    absolute debug seed's original population delta is relative to its recorded
+    before state; rechecking that delta against the already-mutated current
+    record rejects a valid replay. Validate the current-state delta only after
+    no matching event exists, then compare replay against the durable event.
+    Fingerprint all three requested support targets as well as the population
+    target. Encode authorized absolute support changes as exact basis-point
+    differences, and do not apply normal population scaling or owner-based
+    occupier-to-invader redirection to that debug-only event.
+  - Current restore must validate each exact event's population transition,
+    chain every next `before` triple to the preceding `after` triple even across
+    unrelated revision gaps, and require the record to equal the last exact
+    `after` triple. Shape-only population validation cannot detect a plausible
+    but unevidenced save edit.
+  - Population scaling is pinned to reference commit
+    `6e4226d3863ca8673535386c2fff8b6e08a806c4` and uses
+    `round(1000 * raw delta / sqrt(initial population))`. The non-negotiable
+    goldens are raw `+1` at populations 100, 25, and 400 producing `+100`,
+    `+200`, and `+50` basis points. Unscaled raw `-50` is `-5000` basis points.
+    Use initial population so casualties do not accelerate later political
+    swings.
+  - Hysteresis is strict: FIA support `>8000` basis points may request
+    resistance ownership, and FIA support `<4000` may request the strongest
+    canonical enemy. Equality at either boundary is neutral. The town service
+    records pending intent and calls `HST_OwnershipTransitionService`; it never
+    mutates owner, revision, markers, or derived policy itself. If ownership
+    authority is temporarily unavailable, keep pending evidence and retry on
+    the bounded policy cadence.
+  - Contact must have explicit player, mission, incident, or resistance-
+    activity evidence. A global radio broadcast or security-pressure tick is
+    not sufficient. Only curated `HST_ZONE_TOWN` rows receive political records:
+    Simon's Wood remains ambient-only, and the Maiden's Bay Logistics Warehouse
+    remains nonpolitical.
+  - Permanent influence events use no expiry. For timed events, update record
+    aggregates when the event is accepted and persist the earliest next expiry.
+    The one-second tick should inspect only records whose expiry is due, then
+    scan history only for that due subset. Do not restore the former
+    towns-by-all-events scan on every tick.
+  - Pre-64 migration gives legacy zone signed support precedence when it
+    conflicts with the civilian FIA/occupier pair, adjusts the pair minimally,
+    records one bounded conflict event, preserves legitimate zero remaining/
+    destroyed population, and does not replay legacy events. Current duplicate,
+    missing, orphaned, malformed, inconsistent, or event-linked authority
+    quarantines at contract `-64` instead of being repaired speculatively.
+  - `HST_MapWarProjectionService` is pure state projection. Zone Pressure emits
+    only valid contacted towns; the current town sorts first, then FIA basis
+    points, normalized display name, and town ID. Resistance Territory emits
+    every published resistance-owned non-mission-bookkeeping zone in stable
+    type/name/ID order. Reuse `HST_MapMarkerService`'s canonical published-owner
+    resolver so a completed nested child remains hidden while its parent
+    transition is incomplete.
+  - State-only persistence smoke may keep legacy civilian support fixtures only
+    on its reserved nonpolitical mission-site sentinel. Never fall back to an
+    arbitrary existing zone: selecting a curated town would create a second
+    support writer whose values are correctly overwritten by canonical restore,
+    producing false restart drift.
+  - Current examples: `HST_TownInfluenceService`,
+    `HST_TownInfluenceSaveValidationService`,
+    `HST_MapWarProjectionService`, and their deterministic proof services. They
+    pass Foundation and normal/all-configuration Workbench compile validation,
+    but remain unexecuted fixtures until Campaign Debug runs and do not prove
+    packaged save/restart, rendered UI, or gameplay behavior.
 
 - Force creation should start from a serializable request/result contract.
   - Tactical systems should ask for a force by intent, faction, war level,
@@ -4280,6 +4353,19 @@ This file is for practical engine/script behavior, not project planning. Keep en
   consumers multiplier without allowing stale mission/support/order/projection
   state to leak into heat or capture. Runtime profiling is still required before
   treating the observed one-second stutter as fixed.
+
+- Canonical town-influence aggregates must not re-evaluate every event for every
+  town each second. Update total/active counts and earliest expiry when a typed
+  event is accepted. On the one-second path, skip event history entirely unless
+  at least one unique valid record says its next expiry is due; when due, scan
+  history only to rebuild that due-town subset. This changes an unconditional
+  towns-by-events multiplier into mutation work plus due-expiry work.
+
+- Changed active-group count/survivor diagnostics can still be expensive and
+  noisy when an unstable native observation toggles. Route those verbose lines
+  through the keyed throttle at 30 seconds rather than formatting/emitting them
+  each second. This is diagnostic-cost mitigation, not permission to hide the
+  underlying state change or runtime proof that the stutter is fixed.
 
 - Recurring undercover/maintenance authorization reads should use the already
   registered player state. Keep full identity/membership refresh at connect,
