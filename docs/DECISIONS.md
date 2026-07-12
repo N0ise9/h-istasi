@@ -542,8 +542,8 @@ Consequences:
 - Frame-frequency horn clearing walks the bounded ambient actor records directly;
   helper-by-root nested lookup is forbidden on this hot path.
 - Pure allocator, lifecycle, settings-migration, and save-boundary proofs are
-  compiled and wired into Campaign Debug. The last sealed source/Workbench
-  checkpoint identifies implementation
+  compiled and wired into Campaign Debug. The sealed Schema-64 source/Workbench
+  checkpoint for this decision identifies implementation
   `6afadc7c13681b78171939a740862e52328beffd`, UTC
   `2026-07-12T15:57:55Z`, and label
   `schema64-settings24-ambient-runtime-authority`. It passes
@@ -561,7 +561,7 @@ Consequences:
 
 ## CRI-012 - Route Civilian Consequences Through Exact Town Authority
 
-- Status: Accepted; implementation unsealed
+- Status: Accepted; source/Workbench sealed
 - Date: 2026-07-12
 
 Context: The sealed ambient allocator could create, move, recover, recycle, and
@@ -642,13 +642,13 @@ Consequences:
   aggression, or strategic event. Its bounded exact fingerprint map is session-
   only, so cross-process minor-locality replay/conflict identity remains an
   explicit limitation rather than a claimed restart guarantee.
-- The current Schema-65/settings-24 tree is unsealed. The last sealed identity
-  remains implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC
-  `2026-07-12T15:57:55Z`, label
-  `schema64-settings24-ambient-runtime-authority`. Preliminary unstamped normal
-  Workbench compile/create and all-five validation of the unsealed source are
-  clean at 5,802 Game files/11,728 classes with CRC `be076102`, `Script
-  validation successful`, zero HST script errors, and zero surviving Workbench
-  processes. Final Foundation, stamped Workbench reruns, Campaign Debug, native
-  package, real profile save/restart, multiplayer, and soak gates for Schema 65
-  remain open.
+- The current Schema-65/settings-24 source/Workbench checkpoint identifies
+  implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC
+  `2026-07-12T18:30:29Z`, and label
+  `schema65-settings24-civilian-consequence-authority`. Final stamped normal and
+  all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC
+  `c0a672b9`, `Script validation successful`, zero HST script errors, and zero
+  surviving Workbench processes. Foundation passes at 717 script-symbol
+  references. Campaign Debug, native package, real profile save/restart,
+  multiplayer, and soak gates remain open. Schema 64/settings 24 is the previous
+  sealed checkpoint.

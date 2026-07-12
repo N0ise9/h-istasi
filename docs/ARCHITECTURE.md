@@ -1,19 +1,21 @@
 # h-istasi Architecture
 
-Current development source is an unsealed Campaign Schema 65/runtime-settings
-Schema 24 civilian-consequence slice. It extends the sealed ambient-runtime
+Current development source is the sealed Campaign Schema 65/runtime-settings
+Schema 24 civilian-consequence source/Workbench checkpoint. It identifies
+implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC
+`2026-07-12T18:30:29Z`, and label
+`schema65-settings24-civilian-consequence-authority`. It extends the sealed ambient-runtime
 foundation with exact casualty, resistance vehicle-theft, and nearby-combat
 consequences; persisted locality danger episodes; and a native pedestrian
-`Wandering -> Panicked -> Recovering -> Wandering` adapter. This source has not
-yet inherited any Foundation, stamped-tree, Campaign Debug, package, restart, or
-soak evidence from the seal below. Preliminary unstamped normal Workbench
+`Wandering -> Panicked -> Recovering -> Wandering` adapter. Final stamped normal
 compile/create and all-five validation are clean at 5,802 Game files/11,728
-classes with CRC `be076102`, `Script validation successful`, zero HST script
-errors, and zero surviving Workbench processes. That is source/Workbench
-evidence only. The last publishable source/Workbench identity remains the sealed
-Schema 64/settings 24 checkpoint.
+classes with CRC `c0a672b9`; all-five reports `Script validation successful`,
+both runs exited `0`, zero HST script errors were observed, and zero Workbench
+processes survived cleanup. The preceding unstamped CRC `be076102` remains
+preliminary evidence only. Foundation passes at 717 script-symbol references;
+Campaign Debug, package, restart, and soak evidence remain open.
 
-The last sealed source/Workbench checkpoint keeps campaign-state Schema 64
+The previous sealed source/Workbench checkpoint keeps campaign-state Schema 64
 and advances runtime settings from Schema 23 to Schema 24 for a Blueprint Phase
 8 ambient-runtime slice. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
@@ -72,7 +74,7 @@ Debug and packaged-runtime evidence remain open.
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through unsealed schema-65 authority services, plus the sealed
+schema-42 through sealed schema-65 source/Workbench authority services, plus the sealed
 Blueprint Phase 8 transient runtime services, are:
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
@@ -232,7 +234,7 @@ the hot tick without making cached presentation state an authorization source.
   or recycles. Static military ambience detects owner/policy-key changes,
   recycles unclaimed old roots, promotes player claims, resets its bounded
   initialization slots, and repopulates through the same transaction cap.
-- `HST_CivilianConsequenceService`: is the unsealed Schema-65 state authority
+- `HST_CivilianConsequenceService`: is the sealed Schema-65 source/Workbench state authority
   for automatic pedestrian casualties, resistance theft of civilian vehicles,
   and civilian reaction to nearby combat. Canonical towns submit exact typed
   commands through `HST_TownInfluenceService`; minor localities are deliberately
@@ -1422,10 +1424,10 @@ balance or native-spawn evidence.
 | Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support consequences, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. Schema 64 submits strict political threshold intent to this service and cannot publish town ownership itself. | Runtime-prove exact security settlement, political retry/resume, native projection, save/restart, counterattack/economy consequences, nested publication, and all caller routes. |
 | Canonical combat presence | Sealed Schema 63 separates registered physical infantry/manned-mobile/static samples, eligible virtual infantry, bounded cached queries, and revisioned zone heat from render state and empty assets. Capture, missions, HQ, civilians, enemy strategy, and the legacy wrapper share one injected service. Foundation, normal Workbench compile/create, and explicit five-configuration Script validation pass. | Runtime-prove native occupant/platform classification, every consumer, fail-closed authority/player filtering, allocation/cache invalidation/order, 30-second cooling, conservative restore, no save-dirty churn, and activation/deactivation hysteresis before deepening encounter and town truth. |
 | Canonical town influence | Sealed Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections only. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Foundation passes at 696 references, and normal plus all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017` and zero HST script errors. | Execute deterministic proofs, then prove every production caller, formula goldens, equality, owner delegation, save/restart, expiry, distinct enemy support, town taxonomy, and no stutter regression. |
-| Civilian consequences | Unsealed Schema 65 adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Preliminary unstamped normal Workbench compile/create and all-five validation are clean at 5,802 Game files/11,728 classes with CRC `be076102`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Pass final Foundation and stamped-tree reruns, execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
+| Civilian consequences | Sealed Schema 65 source/Workbench adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
-| Certification | Schema 64/settings 24 remains the last sealed source/Workbench checkpoint at implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC `2026-07-12T15:57:55Z`, label `schema64-settings24-ambient-runtime-authority`, Foundation 711, and Workbench CRC `bb083672` at 5,799 files/11,718 classes with zero HST script errors and zero surviving Workbench processes. Schema 65/settings 24 is unsealed working source with only the preliminary unstamped normal/all-five evidence recorded above. | Publish only the sealed exact identity until Schema 65 passes final Foundation and stamped-tree reruns and receives a distinct stamp. Isolated physical runtime, profile save/load/reprojection, rendered UI, performance, dedicated-server, multiplayer, reconnect, and JIP evidence then certifies each boundary. |
+| Certification | Schema 65/settings 24 is the current sealed source/Workbench checkpoint at implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC `2026-07-12T18:30:29Z`, label `schema65-settings24-civilian-consequence-authority`, Foundation 717, and Workbench CRC `c0a672b9` at 5,802 files/11,728 classes with zero HST script errors and zero surviving Workbench processes. Schema 64/settings 24 is the previous sealed checkpoint with Foundation 711 and Workbench CRC `bb083672`. | Preserve the exact Schema-65 identity. Isolated physical runtime, profile save/load/reprojection, rendered UI, performance, dedicated-server, multiplayer, reconnect, and JIP evidence then certifies each boundary. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

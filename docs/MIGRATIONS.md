@@ -2,8 +2,11 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is `65` in the current unsealed Blueprint
-Phase 8 civilian-consequence tree. `HST_RuntimeSettings.SCHEMA_VERSION` remains
+`HST_CampaignState.SCHEMA_VERSION` is `65` in the current sealed Blueprint
+Phase 8 civilian-consequence source/Workbench checkpoint. It identifies implementation
+`609add9eeadf73816764c497178e2d35081307d1`, UTC
+`2026-07-12T18:30:29Z`, and label
+`schema65-settings24-civilian-consequence-authority`. `HST_RuntimeSettings.SCHEMA_VERSION` remains
 `24`; this pass adds no generated-settings migration. Schema 65 persists a
 revisioned locality consequence envelope and exact aggression before/after
 evidence on town-influence events while keeping ambient actor topology session-
@@ -11,14 +14,15 @@ only. The deterministic casualty, replay/conflict, attribution, theft, combat-
 episode, minor-locality, malformed-authority, aggression-admission, persistence,
 and pedestrian panic/recovery proof cases are complete and wired. They are
 state-only source proofs, not native entities, real profile serialization,
-package, server/client, or multiplayer evidence. Preliminary unstamped normal
-Workbench compile/create and all-five validation are clean at 5,802 Game files/
-11,728 classes with CRC `be076102`, `Script validation successful`, zero HST
-script errors, and zero surviving Workbench processes. Final Foundation, stamped
-Workbench reruns, native, package, real-profile, multiplayer, and soak gates
-remain open.
+package, server/client, or multiplayer evidence. Final stamped normal Workbench
+compile/create and all-five validation are clean at 5,802 Game files/11,728
+classes with CRC `c0a672b9`; all-five reports `Script validation successful`,
+both runs exited `0`, zero HST script errors were observed, and zero Workbench
+processes survived cleanup. The preceding unstamped CRC `be076102` remains
+preliminary evidence only. Foundation passes at 717 script-symbol references;
+native, package, real-profile, multiplayer, and soak gates remain open.
 
-The last sealed and therefore last publishable checkpoint remains Campaign
+The previous sealed checkpoint is Campaign
 Schema 64/runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -26,7 +30,7 @@ Schema 64/runtime-settings Schema 24. It identifies implementation
 Foundation at 711 script-symbol references and normal compilation at 5,799 files/
 11,718 classes with CRC `bb083672`, explicit validation success for all five
 configurations, zero HST script errors, and zero surviving Workbench processes.
-No Schema-65 stamp or package exists yet. Campaign Debug, real profile save/
+Campaign Debug, real profile save/
 restart, native callbacks and movement, rendered behavior, ten-town/ten-minute
 stutter/churn measurement, and multiplayer remain open.
 
@@ -146,9 +150,10 @@ evidence remains open.
   unknown casualty attribution, population scaling, replay/conflict, theft,
   `HOT`-only inertness, danger episode edges, minor-locality panic-only behavior,
   malformed input, aggression admission, save-copy/current-restore quarantine,
-  and pedestrian panic/recovery transitions. Preliminary unstamped normal and
-  all-five Workbench checks are clean, but final Foundation/stamped validation,
-  native callback ordering, actual death attribution, waypoint movement, profile
+  and pedestrian panic/recovery transitions. Final stamped normal and all-five
+  Workbench checks are clean at 5,802 Game files/11,728 classes with CRC
+  `c0a672b9`; Foundation passes at 717 script-symbol references. Native callback
+  ordering, actual death attribution, waypoint movement, profile
   I/O/restart, package execution, rendered behavior, multiplayer, and soak remain
   open gates.
 
@@ -266,7 +271,7 @@ evidence remains open.
 - Pure budget and actor-lifecycle proofs cover ten-town bounded allocation,
   shared driver accounting, lease rotation, zero/capped demand, strict
   transition paths, read-only illegal edges, movement progress, and bounded
-  recycle. The unsealed Schema-65 continuation adds the separate civilian-
+  recycle. The sealed Schema-65 source/Workbench continuation adds the separate civilian-
   consequence and panic proofs described above. These source suites are complete
   and wired, but the ten-town/ten-minute native soak and real save/restart remain
   open gates. Aid and ownership/security-pressure source paths still need

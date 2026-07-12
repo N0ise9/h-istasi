@@ -1,14 +1,18 @@
 # h-istasi Enfusion / Enforce Notes
 
-Current development source is an unsealed Campaign Schema 65/runtime-settings
-Schema 24 civilian-consequence slice. The sealed Schema 64/settings 24 identity
-below remains unchanged. Preliminary unstamped normal Workbench compile/create
-and all-five validation of the unsealed delta are clean at 5,802 Game files/
-11,728 classes with CRC `be076102`, `Script validation successful`, zero HST
-script errors, and zero surviving Workbench processes. Final Foundation, stamped
-Workbench reruns, and every runtime gate remain open.
+Current development source is the sealed Campaign Schema 65/runtime-settings
+Schema 24 civilian-consequence source/Workbench checkpoint. It identifies implementation
+`609add9eeadf73816764c497178e2d35081307d1`, UTC
+`2026-07-12T18:30:29Z`, and label
+`schema65-settings24-civilian-consequence-authority`. Final stamped normal
+Workbench compile/create and all-five validation are clean at 5,802 Game files/
+11,728 classes with CRC `c0a672b9`; all-five reports `Script validation
+successful`, both runs exited `0`, zero HST script errors were observed, and
+zero Workbench processes survived cleanup. The preceding unstamped CRC
+`be076102` remains preliminary evidence only. Foundation passes at 717 script-
+symbol references, and every runtime gate remains open.
 
-The last sealed campaign source/Workbench checkpoint is Campaign Schema 64
+The previous sealed campaign source/Workbench checkpoint is Campaign Schema 64
 on runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -4592,13 +4596,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   security behavior were still gameplay implementation work; do not infer them
   from allocator or lifecycle success.
 
-## Unsealed Schema 65 Civilian Consequence Mechanics
+## Sealed Schema 65 Source/Workbench Civilian Consequence Mechanics
 
 - Campaign Schema 65 is required because persisted shape changes: exact town
   events gain aggression target/delta/before/after fields, and each locality
   gains a revisioned civilian danger/episode/last-applied/panic envelope. Runtime-
-  settings remains Schema 24 because no new balance setting is introduced. Do
-  not rewrite or reuse the sealed Schema-64/settings-24 stamp for this tree.
+  settings remains Schema 24 because no new balance setting is introduced. The
+  exact checkpoint is implementation `609add9eeadf73816764c497178e2d35081307d1`,
+  UTC `2026-07-12T18:30:29Z`, and label
+  `schema65-settings24-civilian-consequence-authority`; never report it under the
+  previous Schema-64/settings-24 stamp.
 
 - Keep native death observation separate from durable mutation. The game-mode
   `OnControllableDestroyed` callback should only recognize a tracked ambient
@@ -4691,12 +4698,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   of this first slice.
 
 - Pure consequence and lifecycle proofs can establish formula, replay,
-  conflict, migration, and state-machine invariants only. Foundation and
-  preliminary unstamped Workbench checks are distinct gates: normal compile/
-  create and all-five validation are clean at 5,802 Game files/11,728 classes
-  with CRC `be076102`, `Script validation successful`, zero HST script errors,
-  and zero surviving processes. Final Foundation, stamped Workbench reruns,
-  native callback attribution, move-waypoint activation, RUN/WALK
+  conflict, migration, and state-machine invariants only. Final stamped normal
+  compile/create and all-five validation are clean at 5,802 Game files/11,728
+  classes with CRC `c0a672b9`, `Script validation successful`, zero HST script
+  errors, and zero surviving processes. Foundation passes at 717 script-symbol
+  references. Native callback attribution, move-waypoint activation, RUN/WALK
   behavior, real profile save/restart, package, multiplayer, and ten-town/ten-
   minute soak evidence all remain open.
 

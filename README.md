@@ -1,7 +1,10 @@
 # h-istasi
 
-The current development tree is an unsealed Campaign Schema 65/runtime-settings
-Schema 24 Blueprint Phase 8 civilian-consequence slice. It extends the sealed
+The current development tree is the sealed Campaign Schema 65/runtime-settings
+Schema 24 Blueprint Phase 8 civilian-consequence source/Workbench checkpoint. It
+identifies implementation `609add9eeadf73816764c497178e2d35081307d1`, UTC
+`2026-07-12T18:30:29Z`, and label
+`schema65-settings24-civilian-consequence-authority`. It extends the sealed
 ambient runtime without making disposable actor topology authoritative. Logical
 town population, faction support, reputation/wanted heat, and enemy aggression
 remain durable even when no pedestrian is rendered. Each locality also persists
@@ -74,15 +77,16 @@ aggression admission, save-copy/restore validation, and pedestrian panic/
 recovery transitions. They do not create native entities or perform real profile
 I/O. Campaign Debug execution, native callback/waypoint behavior, real save/
 restart, rendered observation, packaged server/client and multiplayer proof, and
-the ten-town/ten-minute stutter/churn soak remain open. Preliminary unstamped
-normal compile/create and all-five-configuration validation of the unsealed
-Schema-65 tree are clean at 5,802 Game files/11,728 classes with CRC `be076102`,
-`Script validation successful`, zero HST script errors, and zero surviving
-Workbench processes. Final Foundation, stamped-tree reruns, native, package,
-real-profile, multiplayer, and soak gates remain open; these checks are not
-runtime proof or a publishable identity.
+the ten-town/ten-minute stutter/churn soak remain open. Final stamped normal
+compile/create and all-five-configuration validation are clean at 5,802 Game
+files/11,728 classes with CRC `c0a672b9`; all-five reports `Script validation
+successful`, both runs exited `0`, zero HST script errors were observed, and
+zero Workbench processes survived cleanup. The immediately preceding unstamped
+CRC `be076102` remains preliminary evidence only. Foundation passes at 717
+script-symbol references. Native, package, real-profile, multiplayer, and soak
+gates remain open.
 
-The last sealed and therefore last publishable checkpoint remains Campaign
+The previous sealed checkpoint is Campaign
 Schema 64/runtime-settings Schema 24. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -90,7 +94,6 @@ Schema 64/runtime-settings Schema 24. It identifies implementation
 Foundation at 711 script-symbol references, normal compilation at 5,799 files/
 11,718 classes with CRC `bb083672`, successful validation for all five
 configurations, zero HST script errors, and zero surviving Workbench processes.
-No Schema-65 build identity or package is sealed yet.
 
 The preceding sealed checkpoint is campaign Schema 64 on runtime-settings
 Schema 23. `HST_TownInfluenceRecord` is its sole political support and town-
@@ -307,7 +310,7 @@ The repository contains a broad-alpha campaign foundation:
   migration, and save-boundary proof services are complete and wired; Campaign
   Debug, a native server, ten-town/ten-minute soak, native brief enter/exit,
   autosave/restart, destruction, and reset remain open.
-- The unsealed Schema-65 civilian-consequence layer observes exact ambient
+- The sealed Schema-65 civilian-consequence source/Workbench layer observes exact ambient
   deaths through a server callback and uses bounded 256-casualty/64-theft queues,
   a combined four-transaction frame cap, and bounded-backoff indefinite retry
   outside that callback. Pending authority defers capture. Successful durable
@@ -325,11 +328,11 @@ The repository contains a broad-alpha campaign foundation:
   only where allowed and use session-only de-duplication, never invented
   political facts. The casualty, replay/conflict, attribution, theft, combat,
   minor-locality, malformed, aggression, persistence, and panic-transition proof
-  cases are complete and wired. Preliminary unstamped normal Workbench compile/
-  create and all-five validation are clean at 5,802 Game files/11,728 classes
-  with CRC `be076102`, `Script validation successful`, zero HST script errors,
-  and zero surviving processes. Final Foundation, stamped Workbench reruns,
-  native callbacks, movement, profile restart, package, multiplayer, and
+  cases are complete and wired. Final stamped normal and all-five Workbench
+  checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`,
+  `Script validation successful`, zero HST script errors, and zero surviving
+  processes. Foundation passes at 717 script-symbol references. Native
+  callbacks, movement, profile restart, package, multiplayer, and
   rendered behavior remain open. Commander aid and
   ownership/security-pressure paths also still need runtime proof; deeper local-
   security behavior remains implementation work.
@@ -1014,19 +1017,20 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-The current development tree is the unsealed Campaign Schema 65/runtime-settings
-Schema 24 civilian-consequence continuation of Blueprint Phase 8. It adds the
+The current development tree is the sealed Campaign Schema 65/runtime-settings
+Schema 24 civilian-consequence source/Workbench continuation of Blueprint Phase
+8 under implementation `609add9eeadf73816764c497178e2d35081307d1` and label
+`schema65-settings24-civilian-consequence-authority`. It adds the
 server casualty queue, durable-promotion theft receipt, exact combat-danger
 episode envelope, durable political/aggression consequences, and physical
 pedestrian panic/recovery described above. Its deterministic state proofs are
-complete and wired. Preliminary unstamped normal Workbench compile/create and
-all-five validation are clean at 5,802 Game files/11,728 classes with CRC
-`be076102`, `Script validation successful`, zero HST script errors, and zero
-surviving Workbench processes, but it has no sealed build identity and does not
-yet have final Foundation, stamped reruns, native, profile-I/O, packaged,
-multiplayer, or soak evidence.
+complete and wired. Final stamped normal and all-five Workbench checks are clean
+at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation
+successful`, zero HST script errors, and zero surviving Workbench processes.
+Foundation passes at 717 script-symbol references; native, profile-I/O,
+packaged, multiplayer, and soak evidence remain open.
 
-The last sealed and publishable tree remains the Campaign Schema 64/runtime-
+The previous sealed tree is the Campaign Schema 64/runtime-
 settings Schema 24 ambient-runtime checkpoint. It identifies implementation
 `6afadc7c13681b78171939a740862e52328beffd`, UTC
 `2026-07-12T15:57:55Z`, and label
@@ -1053,11 +1057,13 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Do not publish the unsealed Schema-65 tree as the sealed Schema-64 build. Until
-   a new stamp is created, the only publishable identity is the sealed Schema-64/
-   settings-24 implementation recorded above. Require any package, server,
-   clients, logs, and artifacts claimed for that checkpoint to report its exact
-   identity.
+1. Do not publish the sealed Schema-65 source/Workbench tree as the earlier
+   Schema-64 build. Require every package, server, client, log, and artifact
+   claimed for Schema 65 to report implementation
+   `609add9eeadf73816764c497178e2d35081307d1` and label
+   `schema65-settings24-civilian-consequence-authority`; Foundation passes at
+   717 script-symbol references, while all package/native/runtime gates remain
+   independently required.
 2. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event
@@ -1241,7 +1247,7 @@ operations milestone: generalized live-contact authority, terrain and
   contract. Schema 63 likewise adds no force family; it gives existing force
   projections one shared crew-aware combat-presence/heat boundary. Sealed
   Schema 64 also adds no force family; it canonicalizes town political state and
-  its Map/War projection. Unsealed Schema 65 adds civilian consequence and panic
+  its Map/War projection. Sealed Schema 65 source/Workbench adds civilian consequence and panic
   authority without widening any force-operation contract. The
   assassination-guard family is exhausted after Schema 57;
   Schema 58 implements the first rescue vertical only. Schema 59 separately
