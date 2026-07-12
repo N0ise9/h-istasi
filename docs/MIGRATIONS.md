@@ -2,15 +2,16 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is provisionally `64`, and
+`HST_CampaignState.SCHEMA_VERSION` is sealed at `64`, and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains sealed at `23`. Schema 64 adds the
 canonical curated-town political support/population boundary on top of the
 sealed Schema-62 ownership and Schema-63 combat-presence dependencies. Schema
-64 is not sealed: its final implementation identity and stamp remain
-provisional. Foundation passes at 696 script-symbol references, including the
+64 identifies implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
+Foundation passes at 696 script-symbol references, including the
 dedicated Schema-64 gate. Normal Workbench compilation and all-five-
 configuration validation pass at 5,793 files/11,695 classes with CRC
-`e1a7b03d`, successful validation, and zero HST script errors. Every Workbench
+`36d5b017`, successful validation, and zero HST script errors. Every Workbench
 instance was closed and the verified process count was zero. Campaign Debug,
 real serialization, save/restart, packaged runtime, rendered UI, stutter
 measurement, and multiplayer proof remain pending.
@@ -102,7 +103,7 @@ evidence remains open.
   support beside canonical town authority.
 - Migration and quarantine code passes the full 696-reference Foundation gate
   and normal/all-configuration Workbench compile validation at 5,793 files/
-  11,695 classes with CRC `e1a7b03d` and zero HST script errors. These checks do
+  11,695 classes with CRC `36d5b017` and zero HST script errors. These checks do
   not serialize a real profile or prove a process restart; the deterministic
   migration fixtures also remain unexecuted until Campaign Debug runs.
 

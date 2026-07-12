@@ -1,13 +1,15 @@
 # h-istasi Enfusion / Enforce Notes
 
-Active development is the provisional campaign Schema 64 source pass on
+The current campaign source/Workbench checkpoint is sealed Schema 64 on
 runtime-settings Schema 23. Its canonical town-influence, migration, political-
 hysteresis, and Map/War rules below are based on source inspection and
-deterministic fixtures that have not yet run. Schema 64 has no sealed
-implementation identity or runtime result. Foundation passes at 696 script-
+deterministic fixtures that have not yet run. Schema 64 identifies implementation
+`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`. It has no
+runtime result. Foundation passes at 696 script-
 symbol references, including the dedicated Schema-64 gate. Normal Workbench
 compilation and all-five-configuration validation pass at 5,793 files/11,695
-classes with CRC `e1a7b03d`, successful validation, and zero HST script errors.
+classes with CRC `36d5b017`, successful validation, and zero HST script errors.
 Every Workbench instance was closed and the verified process count was zero.
 Campaign Debug, packaged runtime, save/restart, rendered UI, stutter measurement,
 and multiplayer execution remain pending.

@@ -399,7 +399,7 @@ all influence events. That made faction attribution, migration, flip ownership,
 and the reported one-second stutter difficult to reason about. The Map/War tab
 also displayed an arbitrary zone subset rather than contacted political truth.
 
-Decision: Provisional Schema 64 introduces exactly one revisioned
+Decision: Schema 64 introduces exactly one revisioned
 `HST_TownInfluenceRecord` for each unique curated town. It is the sole owner of
 separate FIA/occupier/invader basis-point support, initial/remaining/destroyed
 population, contact/activity, event aggregates, and pending political intent.
@@ -440,10 +440,11 @@ Consequences:
   when a canonical record's next expiry is due. Verbose changed active-group
   survivor/count logs are throttled to 30 seconds. Both are source mitigations,
   not evidence that the one-second stutter is fixed.
-- Schema 64 remains provisional until its exact implementation identity is
-  sealed. Foundation passes at 696 references, and normal/all-five-
+- Schema 64 is sealed at implementation
+  `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+  `2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
+  Foundation passes at 696 references, and normal/all-five-
   configuration Workbench validation passes at 5,793 files/11,695 classes with
-  CRC `e1a7b03d`, zero HST script errors, and zero surviving Workbench
+  CRC `36d5b017`, zero HST script errors, and zero surviving Workbench
   processes. Campaign Debug, save/restart, packaged runtime, rendered UI,
-  performance, and multiplayer gates remain open; this decision assigns no
-  final implementation identity.
+  performance, and multiplayer gates remain open.

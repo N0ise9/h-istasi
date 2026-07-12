@@ -1,14 +1,16 @@
 # h-istasi Architecture
 
-Active development is the provisional campaign Schema 64 source pass on
+The current campaign source/Workbench checkpoint is sealed Schema 64 on
 runtime-settings Schema 23. It adds one canonical town-influence state owner,
 strict political hysteresis through the existing ownership transaction, a
 conservative migration/quarantine boundary, and pure contacted-town/territory
 Map/War projections. Legacy support/population fields are compatibility
-projections only. Schema 64 has no sealed implementation identity or Campaign
-Debug/package result. Its dedicated Foundation gate passes within the complete
+projections only. Schema 64 identifies implementation
+`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`. It has no
+Campaign Debug/package result. Its dedicated Foundation gate passes within the complete
 696-reference run. Normal Workbench compilation and all-five-configuration
-validation pass at 5,793 files/11,695 classes with CRC `e1a7b03d`, successful
+validation pass at 5,793 files/11,695 classes with CRC `36d5b017`, successful
 validation, and zero HST script errors. Every Workbench instance was closed;
 the verified post-run process count was zero. Real save/restart, rendered UI,
 stutter measurement, and multiplayer execution remain unproven.
@@ -32,7 +34,7 @@ Debug and packaged-runtime evidence remain open.
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through provisional schema-64 authority services are:
+schema-42 through sealed schema-64 authority services are:
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
 the one-second maintenance path reuses registered player authority, while
@@ -111,7 +113,7 @@ the hot tick without making cached presentation state an authorization source.
   derives zone heat before capture. This prevents a one-second cached result from
   surviving a same-tick mutation while avoiding the former zones-by-groups-by-
   consumers hot path. Runtime profiling and behavior validation remain pending.
-- `HST_TownInfluenceService`: is the provisional Schema-64 political support
+- `HST_TownInfluenceService`: is the sealed Schema-64 political support
   and town-population owner. Exactly one valid contract-`1` record per curated
   town stores separate FIA/occupier/invader basis points, population, contact,
   influence aggregates, and pending ownership intent. Typed command/event
@@ -1206,13 +1208,13 @@ balance or native-spawn evidence.
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
 | Canonical ownership | Schema 62 routes military capture, mission capture, political support, admin, debug seed, and migration repair through one revisioned, idempotent receipt. The receipt owns security, support consequences, owner, town/facility/logistics derivation, retaliation, economy/outcome, events, parent-aware projection, notification, and persistence scheduling. Schema 64 submits strict political threshold intent to this service and cannot publish town ownership itself. | Runtime-prove exact security settlement, political retry/resume, native projection, save/restart, counterattack/economy consequences, nested publication, and all caller routes. |
 | Canonical combat presence | Sealed Schema 63 separates registered physical infantry/manned-mobile/static samples, eligible virtual infantry, bounded cached queries, and revisioned zone heat from render state and empty assets. Capture, missions, HQ, civilians, enemy strategy, and the legacy wrapper share one injected service. Foundation, normal Workbench compile/create, and explicit five-configuration Script validation pass. | Runtime-prove native occupant/platform classification, every consumer, fail-closed authority/player filtering, allocation/cache invalidation/order, 30-second cooling, conservative restore, no save-dirty churn, and activation/deactivation hysteresis before deepening encounter and town truth. |
-| Canonical town influence | Provisional Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections only. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Foundation passes at 696 references, and normal plus all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `e1a7b03d` and zero HST script errors. | Execute deterministic proofs, then prove every production caller, formula goldens, equality, owner delegation, save/restart, expiry, distinct enemy support, town taxonomy, and no stutter regression. |
-| Political Map/War projection | Provisional Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
+| Canonical town influence | Sealed Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections only. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Foundation passes at 696 references, and normal plus all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017` and zero HST script errors. | Execute deterministic proofs, then prove every production caller, formula goldens, equality, owner delegation, save/restart, expiry, distinct enemy support, town taxonomy, and no stutter regression. |
+| Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
-| Certification | Schema 64/settings 23 are the active provisional contract with no final identity. Foundation passes at 696 references, including the dedicated Schema-64 gate; normal and all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `e1a7b03d`, successful validation, zero HST script errors, and zero surviving Workbench processes. Schema 63 remains the preceding sealed checkpoint. | Seal Schema 64 before publishing. Isolated physical runtime, save/load/reprojection, rendered UI, performance, dedicated-server, reconnect, and JIP evidence then certifies the boundary. |
+| Certification | Schema 64/settings 23 are sealed at implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC `2026-07-12T11:28:41Z`, label `schema64-canonical-town-influence`, Foundation 696, and Workbench CRC `36d5b017` at 5,793 files/11,695 classes with zero HST script errors and zero surviving Workbench processes. Schema 63 is the preceding sealed checkpoint. | Publish only this exact identity. Isolated physical runtime, save/load/reprojection, rendered UI, performance, dedicated-server, reconnect, and JIP evidence then certifies the boundary. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
-heat dependency remain sealed through Schema 63. Provisional Schema 64 adds the
+heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the
 town-truth and political-map dependency and has passed Foundation plus normal
 and all-configuration Workbench validation. Together they advance Blueprint
 Phase 7 but do not finish it: native

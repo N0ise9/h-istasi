@@ -45,7 +45,7 @@ Current state:
   replicated-entity path. Deterministic registry fixtures and Workbench
   compilation do not prove rendered marker roots, input layering, reconnect, or
   late-join behavior.
-- Provisional Schema 64 changes Map/War data projection, not screen geometry.
+- Sealed Schema 64 changes Map/War data projection, not screen geometry.
   Zone Pressure now consumes only explicitly contacted valid canonical towns,
   places the current town first, and sorts remaining rows by FIA support plus
   stable name/ID ties. Resistance Territory emits the complete published
@@ -53,8 +53,10 @@ Current state:
   redundant capture-status presentation is removed. The projection is source-
   wired and passes the 696-reference Foundation gate plus normal/all-
   configuration Workbench compile validation at 5,793 files/11,695 classes with
-  CRC `e1a7b03d` and zero HST script errors. Its identity remains provisional,
-  and it has no Campaign Debug, rendered UI, save/restart, reconnect, or JIP
+  CRC `36d5b017` and zero HST script errors. Its sealed identity is implementation
+  `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+  `2026-07-12T11:28:41Z`, label `schema64-canonical-town-influence`; it has no
+  Campaign Debug, rendered UI, save/restart, reconnect, or JIP
   proof. All Workbench instances were closed after verification and the process
   count was zero.
 - The completed Schema-61 source/Workbench stamp identifies implementation
