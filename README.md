@@ -1,8 +1,11 @@
 # h-istasi
 
-The current working tree keeps campaign-state Schema 64 and advances runtime
-settings from Schema 23 to Schema 24 for the first Blueprint Phase 8 ambient-population
-runtime slice. It is unsealed until a final implementation identity is recorded.
+The current sealed source/Workbench checkpoint keeps campaign-state Schema 64
+and advances runtime settings from Schema 23 to Schema 24 for the first
+Blueprint Phase 8 ambient-population runtime slice. It identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`.
 One global actor budget and a nested traffic budget now cover all eligible
 localities; traffic drivers consume the actor budget, constrained allocations
 use a stable fair rotation on leases of at least 120 seconds, and only four
@@ -37,9 +40,9 @@ and reconciliation no longer report a durable state change, removing another
 autosave/dirty-state path behind the reported one-second stutter. This remains a
 source mitigation until runtime profiling proves the result.
 
-The current unsealed source/Workbench evidence is Foundation at 711 script-
+The current sealed source/Workbench evidence is Foundation at 711 script-
 symbol references, normal compilation at 5,799 files/11,718 classes with CRC
-`a6fc06df`, successful validation for all five configurations, zero HST script
+`bb083672`, successful validation for all five configurations, zero HST script
 errors, and zero surviving Workbench processes. The pure allocation, lifecycle,
 settings-migration, and save-boundary proofs are compiled and wired but have not
 been executed through Campaign Debug. Native server execution, a ten-town/
@@ -49,7 +52,7 @@ automatic casualty/theft/nearby-combat influence and panic/recovery consequences
 rendered behavior, stutter
 measurement, and multiplayer proof remain open.
 
-The last sealed checkpoint remains campaign Schema 64 on runtime-settings
+The preceding sealed checkpoint is campaign Schema 64 on runtime-settings
 Schema 23. `HST_TownInfluenceRecord` is its sole political support and town-
 population authority for curated towns, with FIA, occupier, and invader support
 stored separately in basis points. Compatibility support and population fields
@@ -61,7 +64,7 @@ plus a complete deterministic Resistance Territory list. Incremental influence
 aggregates scan event history only when a recorded expiry is due, and verbose
 active-group survivor/count logs are throttled to 30 seconds.
 
-That sealed Schema-64 checkpoint identifies implementation
+That preceding sealed Schema-64/settings-23 checkpoint identifies implementation
 `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
 `2026-07-12T11:28:41Z`, and label
 `schema64-canonical-town-influence`. The full Foundation gate passes at 696 script-symbol references,
@@ -73,12 +76,12 @@ the post-run process count was zero. Campaign Debug, packaged runtime, real
 save/restart, rendered UI, stutter measurement, and multiplayer proof remain
 pending for that sealed checkpoint.
 
-Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
+Schema 63 is an earlier sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
 
-Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
+Schema 62 is an earlier sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -216,7 +219,7 @@ The repository contains a broad-alpha campaign foundation:
   their parent transition publishes. Simon's Wood remains an ambient-only
   minor locality, and Maiden's Bay remains the Logistics Warehouse without a
   political town record.
-- The current unsealed Blueprint Phase 8 ambient slice gives all eligible localities one
+- The sealed Blueprint Phase 8 ambient slice gives all eligible localities one
   deterministic global projection plan. Pedestrian floors precede traffic
   floors, then a rotating one-actor-per-town fair remainder shares both the
   actor cap and the nested traffic cap; traffic drivers count against both.
@@ -687,7 +690,7 @@ The repository contains a broad-alpha campaign foundation:
   host/two-client equality, reconnect/late join, native widget rendering,
   map-close continuity, and real save/restart remain open; the fixtures have not
   been executed as a Campaign Debug or packaged runtime result.
-- Schema 62 is the preceding sealed canonical ownership-transition source/
+- Schema 62 is an earlier sealed canonical ownership-transition source/
   Workbench boundary. Every
   location has ownership contract version `1`, a monotonic ownership revision,
   and active/latest receipt backlinks. Military capture, mission capture,
@@ -948,25 +951,28 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-The current working tree is an unsealed Blueprint Phase 8 ambient-runtime slice on
-campaign Schema 64 and runtime-settings Schema 24. It adds globally bounded,
+The current source/Workbench checkpoint is a sealed Blueprint Phase 8
+ambient-runtime slice on campaign Schema 64 and runtime-settings Schema 24. It
+identifies implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`. It adds globally bounded,
 leased fair allocation; transactional behavior admission; bounded movement
 recovery with immutable projection slots; session-only ambience; per-frame
 occupancy observation; and a fail-closed durable field-vehicle save boundary.
 Foundation passes at 711 references. Normal Workbench
 compilation and all-five-configuration validation pass at 5,799 files/11,718
-classes with CRC `a6fc06df`, zero HST script errors, and zero surviving
+classes with CRC `bb083672`, zero HST script errors, and zero surviving
 Workbench processes. Those checks are source/compile evidence, not Campaign
 Debug or native runtime proof.
 
-Schema 64/runtime-settings Schema 23 is the last sealed source/Workbench tree.
+Schema 64/runtime-settings Schema 23 is the preceding sealed source/Workbench tree.
 It canonicalizes curated-town support/population, strict political hysteresis,
 contact discovery, and Map/War political projection while retaining Schema-62
 ownership receipts as the only owner mutation path. Its Foundation and
-Workbench evidence remains recorded above. Schema 63 remains the preceding sealed
+Workbench evidence remains recorded above. Schema 63 remains an earlier sealed
 source/Workbench checkpoint; it centralizes crew-aware combat presence, zone
 heat, conservative restore, and render activation/deactivation hysteresis.
-Schema 62 is the preceding sealed canonical-ownership checkpoint and Schema 61
+Schema 62 is an earlier sealed canonical-ownership checkpoint and Schema 61
 the marker-projection foundation beneath it.
 Schema 62 centralizes ownership mutations and adds
 source-revision correlation to the existing marker stream; it does not certify
@@ -976,10 +982,10 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Seal the current tree with one final `HST_BuildInfo` identity before
-   publishing, then require the package, server, clients, logs, and artifacts to
-   report that exact identity. Until then, the sealed Schema-64/settings-23
-   identity recorded above is the last publishable checkpoint.
+1. Publish only the sealed Schema-64/settings-24 implementation identity recorded
+   above, then require the package, server, clients, logs, and artifacts to report
+   that exact identity. A package carrying any other identity is not evidence for
+   this checkpoint.
 2. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event
@@ -1174,7 +1180,7 @@ location fixes. Schema 61 remains the preceding sealed marker-projection
 foundation at implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
 `2026-07-12T01:02:39Z`, label `schema61-authoritative-marker-projection`,
 Foundation 655, and Workbench CRC `df41a779` at 5,782 files/11,631 classes.
-Schema 62 is the preceding sealed source/Workbench checkpoint at implementation
+Schema 62 is an earlier sealed source/Workbench checkpoint at implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-

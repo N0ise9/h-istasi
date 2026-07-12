@@ -1,16 +1,18 @@
 # h-istasi Architecture
 
-The current working tree keeps campaign-state Schema 64 and advances runtime
-settings from Schema 23 to Schema 24 for an unsealed Blueprint Phase 8 ambient-runtime
-slice. One transient authority now owns global actor and traffic budgeting,
+The current sealed source/Workbench checkpoint keeps campaign-state Schema 64
+and advances runtime settings from Schema 23 to Schema 24 for a Blueprint Phase
+8 ambient-runtime slice. It identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`. One transient authority now owns global actor and traffic budgeting,
 leased fair locality allocation, asynchronous behavior admission, movement
 health, bounded recovery, and recycle. Ambient projection remains separate from
 logical population and persistence: only an observed player-occupied vehicle is
-promoted to durable `field_vehicle` authority. The tree remains unsealed until
-its final implementation identity is recorded.
+promoted to durable `field_vehicle` authority.
 
 Current source/Workbench evidence is Foundation at 711 script-symbol references;
-normal compilation at 5,799 files/11,718 classes with CRC `a6fc06df`; successful
+normal compilation at 5,799 files/11,718 classes with CRC `bb083672`; successful
 validation for all five configurations; zero HST script errors; and zero
 surviving Workbench processes. Deterministic allocator, lifecycle, settings-
 migration, and save-boundary proofs are compiled and wired but have not run
@@ -22,7 +24,7 @@ behavior, stutter measurement, and multiplayer remain open. Commander aid and
 ownership/security-pressure paths exist in source but still need runtime proof;
 deeper local-security behavior remains implementation work.
 
-The last sealed checkpoint is campaign Schema 64 on runtime-settings Schema 23.
+The preceding sealed checkpoint is campaign Schema 64 on runtime-settings Schema 23.
 It adds one canonical town-influence state owner, strict political hysteresis
 through the existing ownership transaction, a conservative migration/quarantine
 boundary, and pure contacted-town/territory Map/War projections. Legacy
@@ -38,12 +40,12 @@ the verified post-run process count was zero. Real save/restart, rendered UI,
 stutter measurement, and multiplayer execution remain unproven for that sealed
 checkpoint.
 
-Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
+Schema 63 is an earlier sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
 
-Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
+Schema 62 is an earlier sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -57,8 +59,8 @@ Debug and packaged-runtime evidence remain open.
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through sealed schema-64 authority services, plus the current
-unsealed Blueprint Phase 8 transient runtime services, are:
+schema-42 through sealed schema-64 authority services, plus the sealed Blueprint
+Phase 8 transient runtime services, are:
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
 the one-second maintenance path reuses registered player authority, while
@@ -1203,8 +1205,8 @@ priority/stable-ID ordering makes marker caps deterministic. The compiled source
 proof defines ordering, idempotency, gaps/resync, reconnect/JIP-shaped snapshots,
 rapid mutations, lost ACK, epoch reset, pruning, malformed/oversize input, and migration. Packaged host/two-client equality,
 actual reconnect/late join, native widget behavior, and process restart remain
-open, and its fixtures have not been executed as runtime evidence. Schema 61 is
-the latest completed source/Workbench checkpoint at implementation
+open, and its fixtures have not been executed as runtime evidence. The sealed
+Schema-61 marker checkpoint identifies implementation
 `27672e67ce4285810f313130293df1ac917c9bdf`, UTC `2026-07-12T01:02:39Z`, and
 label `schema61-authoritative-marker-projection`. Full Foundation passes with
 655 symbol references; final Workbench Game validation loaded 5,782 files/
@@ -1343,7 +1345,7 @@ balance or native-spawn evidence.
 | Canonical town influence | Sealed Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections only. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Foundation passes at 696 references, and normal plus all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017` and zero HST script errors. | Execute deterministic proofs, then prove every production caller, formula goldens, equality, owner delegation, save/restart, expiry, distinct enemy support, town taxonomy, and no stutter regression. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
-| Certification | Schema 64/settings 23 are sealed at implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC `2026-07-12T11:28:41Z`, label `schema64-canonical-town-influence`, Foundation 696, and Workbench CRC `36d5b017` at 5,793 files/11,695 classes with zero HST script errors and zero surviving Workbench processes. Schema 63 is the preceding sealed checkpoint. | Publish only this exact identity. Isolated physical runtime, save/load/reprojection, rendered UI, performance, dedicated-server, reconnect, and JIP evidence then certifies the boundary. |
+| Certification | Schema 64/settings 24 are sealed for source/Workbench at implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC `2026-07-12T15:57:55Z`, label `schema64-settings24-ambient-runtime-authority`, Foundation 711, and Workbench CRC `bb083672` at 5,799 files/11,718 classes with zero HST script errors and zero surviving Workbench processes. Schema 64/settings 23 are the preceding sealed checkpoint. | Publish only the current exact identity. Isolated physical runtime, save/load/reprojection, rendered UI, performance, dedicated-server, reconnect, and JIP evidence then certifies the boundary. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

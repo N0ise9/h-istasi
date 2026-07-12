@@ -1,35 +1,40 @@
 # h-istasi Capability Map
 
-The last sealed campaign source/Workbench checkpoint remains Campaign Schema 64
-on runtime-settings Schema 23. It introduces one canonical curated-town
-support/population record, separate FIA/occupier/invader basis-point authority,
-strict political hysteresis through the existing ownership-transition service,
-explicit town contact, and deterministic Map/War political projections. Legacy
-town support/population fields are migration/read-only projections. Schema 64
-identifies implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
-`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
-Foundation passes for that sealed checkpoint at 696 script-symbol references.
-
-The current unsealed worktree keeps Campaign persistence at Schema 64 and
-advances runtime settings from Schema 23 to 24 for the Blueprint Phase 8
-ambient-runtime slice. It adds capped and fairly rotated physical town
-population, bounded spawn/readiness/recovery lifecycle, stable runtime vehicle identity, and a
-transient-versus-claimed save boundary. Foundation passes at 711 script-symbol
-references. Normal Workbench compilation and all-five-configuration validation
-pass at 5,799 files/11,718 classes with CRC `a6fc06df`, successful validation,
-zero HST script errors, and zero surviving Workbench processes. Static source
-checks plus Workbench compile/validation pass; deterministic proof services are
+The current sealed campaign source/Workbench checkpoint keeps Campaign
+persistence at Schema 64 and advances runtime settings from Schema 23 to 24 for
+the Blueprint Phase 8 ambient-runtime slice. It adds capped and fairly rotated
+physical town population, bounded spawn/readiness/recovery lifecycle, stable
+runtime vehicle identity, and a transient-versus-claimed save boundary. It
+identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`. Final sealed-tree evidence is
+Foundation at 711 script-symbol references plus normal Workbench compilation
+and all-five-configuration validation at 5,799 files/11,718 classes with CRC
+`bb083672`, explicit validation success, zero HST script errors, and zero
+surviving Workbench processes. Static source checks plus Workbench compile/
+validation pass; deterministic proof services are
 compiled and wired but have not executed in Campaign Debug. This is not native
 runtime proof.
 Packaged runtime, real save/restart, rendered UI, ten-town/ten-minute stutter/
 churn/performance soak, and multiplayer execution remain pending.
 
-Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
+The preceding sealed checkpoint is Campaign Schema 64 on runtime-settings
+Schema 23. It introduces one canonical curated-town support/population record,
+separate FIA/occupier/invader basis-point authority, strict political hysteresis
+through the existing ownership-transition service, explicit town contact, and
+deterministic Map/War political projections. Legacy town support/population
+fields are migration/read-only projections. That checkpoint identifies
+implementation `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
+Foundation passes for it at 696 script-symbol references.
+
+Schema 63 is an earlier sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
 
-Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
+Schema 62 is an earlier sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -107,7 +112,8 @@ Debug and packaged-runtime gates remain open.
   published resistance-owned strategic set in type/name/ID order and shares the
   marker projection's completed-parent publication fence. Simon's Wood remains
   ambient-only, and the Maiden's Bay Logistics Warehouse remains nonpolitical.
-- Unsealed Blueprint Phase 8 ambient runtime on Settings Schema 24: global actor
+- Sealed source/Workbench Blueprint Phase 8 ambient runtime on Settings Schema
+  24: global actor
   and traffic caps combine base, per-player, war-level, population, time-of-day,
   and heat policy before physical projection. Deterministic 120-second-or-longer
   leases and a separate reconcile cursor rotate scarce capacity fairly. Normal
@@ -138,8 +144,8 @@ Debug and packaged-runtime gates remain open.
   `field_vehicle`, copies their vehicle/cargo rows before state replacement, and
   deletes every other bound root once. Destroyed roots and dead controlled
   occupants cannot claim.
-  Foundation and Workbench compile/validation pass; this tree is not sealed and
-  has no Campaign Debug, packaged, native brief enter/exit, autosave/restart,
+  Foundation and Workbench compile/validation pass under the sealed Settings-24
+  identity above; it has no Campaign Debug, packaged, native brief enter/exit, autosave/restart,
   destruction/reset, two-nearby-same-prefab no-collapse restoration, or Campaign
   Debug Phase 20 execution result.
 - One versioned `OperationRecord` for each newly confirmed exact paid player
@@ -363,7 +369,7 @@ Debug and packaged-runtime gates remain open.
   11,631 classes with CRC `df41a779` and created the game; hidden normal
   WorldEditor stayed responsive 10/10 over 20 seconds without a first-party
   error/crash signature.
-- Schema 62 is the preceding sealed canonical ownership-transition source/
+- Schema 62 is an earlier sealed canonical ownership-transition source/
   Workbench boundary.
   Locations carry ownership contract version `1`, monotonic revisions, and
   active/latest receipt backlinks. Military capture, mission capture, political
@@ -586,7 +592,7 @@ Debug and packaged-runtime gates remain open.
   low-heat traffic target (default five) when population and global budgets permit. The known
   woodland locality remains limited to two pedestrians. Scoped ambient driver
   horn clearing and the Schema-60 native wheeled-base override remain in place.
-  Settings-24 source additionally supplies leased fair allocation, bounded
+  Sealed Settings-24 source additionally supplies leased fair allocation, bounded
   scheduling/readiness/recovery, owner-aware static refresh, and transient-
   vehicle save filtering. Republished behavior, real restart, and soak proof
   remain open.
@@ -633,7 +639,18 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Schema 62 is the preceding sealed source/Workbench checkpoint at implementation
+- The current sealed source/Workbench checkpoint keeps Campaign Schema 64 and
+  advances runtime-settings Schema 24 under implementation
+  `6afadc7c13681b78171939a740862e52328beffd`, UTC
+  `2026-07-12T15:57:55Z`, and label
+  `schema64-settings24-ambient-runtime-authority`. Final sealed-tree evidence is
+  Foundation at 711 script-symbol references plus normal and all-five-
+  configuration Workbench checks at 5,799 files/11,718 classes with CRC
+  `bb083672`, explicit validation success,
+  zero HST script errors, and zero surviving Workbench processes. Deterministic
+  proofs remain unexecuted in Campaign Debug, and no native, packaged, restart,
+  rendered-UI, multiplayer, or certification claim follows from this evidence.
+- Schema 62 is an earlier sealed source/Workbench checkpoint at implementation
   `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
   `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -672,7 +689,7 @@ Debug and packaged-runtime gates remain open.
   eligibility, uses concrete variants, gives true towns a configurable budget-
   limited daytime/low-heat traffic target (default five), limits the minor
   locality to two pedestrians, clears ambient horn input, and applies the
-  wheeled-base horn override. The unsealed Settings-24 allocator/lifecycle work
+  wheeled-base horn override. The sealed source/Workbench Settings-24 allocator/lifecycle work
   supersedes the old
   unconditional projection policy, but those outcomes are not yet runtime-
   proven.
@@ -844,7 +861,9 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Publish only the exact sealed Schema-64 identity. Preserve the already restored
+- Publish only the exact sealed Campaign Schema-64/runtime-settings Schema-24
+  identity `schema64-settings24-ambient-runtime-authority`. Preserve the already
+  restored
   stock HUD/Game Master
   behavior. Require every ownership cause, one revision increment, retry-before-
   owner, exact-security settlement, nested publication, save/restart resume,
@@ -1003,8 +1022,9 @@ Debug and packaged-runtime gates remain open.
   64 adds canonical town influence and political Map/War projection without a
   force family. Other rescue and unsupported mission/support families remain
   legacy. Packaged schema-50 through schema-64 certification remains
-  independently required. Schema 64 has passed Foundation/Workbench and still
-  requires a sealed identity.
+  independently required. The current Campaign Schema-64/runtime-settings
+  Schema-24 checkpoint is sealed only at the source/Workbench boundary; native,
+  packaged, restart, rendered-UI, multiplayer, and certification gates remain.
 
 ## Next Playable Expansion
 

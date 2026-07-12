@@ -1,24 +1,19 @@
 # HST Campaign Debug Verification Audit
 
-The last sealed campaign source/Workbench checkpoint remains Campaign Schema 64
-on runtime-settings Schema 23. Its canonical town-influence, strict political-
-hysteresis, migration/quarantine, and Map/War projection fixtures are wired in
-source but have not run. Schema 64 identifies implementation
-`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
-`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`. It has no
-Campaign Debug result or packaged server/client evidence. Foundation passes for
-that sealed checkpoint at 696 script-symbol references.
-
-The current unsealed worktree keeps Campaign persistence at Schema 64 and moves
-runtime settings from Schema 23 to 24 for the Blueprint Phase 8 ambient-runtime
-slice.
+The current sealed campaign source/Workbench checkpoint is Campaign Schema 64
+on runtime-settings Schema 24. It identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`. It keeps campaign persistence
+at Schema 64 and moves runtime settings from Schema 23 to 24 for the Blueprint
+Phase 8 ambient-runtime slice.
 Global actor/traffic caps, leased fair allocation, bounded root scheduling,
 asynchronous readiness admission, immutable projection slots, bounded slot-
 specific recovery, per-frame player-first claim observation, and fail-closed
 transient-versus-claimed vehicle persistence are source-complete. Foundation
-passes at 711 script-symbol references. Normal Workbench compilation and all-
-five-configuration validation pass at 5,799 files/11,718 classes with CRC
-`a6fc06df`, successful validation, zero HST script errors, and zero surviving
+passes at 711 script-symbol references. Stamped-tree normal Workbench compilation
+and all-five-configuration validation pass at 5,799 files/11,718 classes with CRC
+`bb083672`, successful validation, zero HST script errors, and zero surviving
 Workbench processes. Pure allocator/lifecycle/save-boundary fixtures do not
 prove native groups, seating, engine start, waypoint activation, movement,
 recovery, or recycling. Campaign Debug, packaged server/client execution, native
@@ -26,12 +21,17 @@ brief enter/exit, autosave/restart, promoted-root destruction, new-campaign
 reset, Campaign Debug Phase 20 production-path execution, rendered UI, and the
 ten-town/ten-minute stutter/churn/performance soak are pending.
 
-Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
+Campaign Schema 64/runtime-settings Schema 23 is the preceding sealed canonical-
+town-influence checkpoint. It identifies implementation
+`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
+
+Schema 63 is an earlier sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
 
-Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
+Schema 62 is an earlier sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -55,13 +55,17 @@ server, restart, or multiplayer exit gates. Deferred native tests must be
 backfilled; reaching a later phase, sealing source, or publishing a build does
 not waive them.
 
-### Unexecuted Current Source/Workbench Delta
+### Unexecuted Current Sealed Source/Workbench Checkpoint
 
-- The current Blueprint Phase 8 ambient-runtime worktree is unsealed. Campaign
-  persistence deliberately remains Schema 64; only runtime settings advance from Schema 23
-  to 24. Foundation passes at 711 script-symbol references. Normal Workbench
+- The current Blueprint Phase 8 ambient-runtime checkpoint is sealed in source/
+  Workbench only at implementation
+  `6afadc7c13681b78171939a740862e52328beffd`, UTC
+  `2026-07-12T15:57:55Z`, and label
+  `schema64-settings24-ambient-runtime-authority`. Campaign persistence
+  deliberately remains Schema 64; only runtime settings advance from Schema 23
+  to 24. Foundation passes at 711 script-symbol references. Stamped-tree Workbench
   compilation and explicit validation for all five configurations pass at
-  5,799 files/11,718 classes and CRC `a6fc06df`, with successful validation,
+  5,799 files/11,718 classes and CRC `bb083672`, with successful validation,
   zero HST script errors, and zero surviving Workbench processes.
 - The ambient allocator now applies global actor and traffic caps, player-count
   additions, war-level pressure, deterministic fair rotation, and leases of at
@@ -138,7 +142,8 @@ not waive them.
   town filtering, current-first/support ordering, complete deterministic
   territory, invalid authority exclusion, and deferred-parent publication.
   None has executed in Campaign Debug.
-- The sealed Schema-64 repository-side Foundation gate passes at 696 script-symbol references,
+- The preceding Schema-64/settings-23 canonical-town checkpoint's repository-
+  side Foundation gate passes at 696 script-symbol references,
   including its dedicated Schema-64 contract checks. Normal Workbench
   compilation and explicit validation for all five configurations pass with the
   Game module at 5,793 files/11,695 classes and CRC `36d5b017`; validation
@@ -181,7 +186,7 @@ not waive them.
   normal Workbench compile/open is not profiling evidence and no packaged server
   measurement exists yet.
 - Zones now persist revisioned `HOT -> COOLING -> COLD` diagnostics. Cooling
-  defaults to 30 seconds through runtime-settings Schema 23, begins once when
+  retains its 30-second default in runtime-settings Schema 24, begins once when
   live presence clears, does not extend on stable ticks, blocks capture until
   expiry, and does not dirty persistence merely for a freshness timestamp.
   Physical zone projection separately enters at the activation radius and exits
@@ -282,8 +287,8 @@ not waive them.
 ### Inspected Packaged Runtime Evidence From Earlier Builds
 
 The entries below are observations from explicitly identified earlier packaged
-runs. They do not execute or certify the current unsealed Blueprint Phase 8
-source/Workbench delta above.
+runs. They do not execute or certify the current sealed Blueprint Phase 8
+source/Workbench checkpoint above.
 
 - The run recorded **663 cases: 367 PASS, 61 WARN, 218 FAIL, and 17 BLOCKED**.
   It is not a passing certification result.
@@ -707,7 +712,7 @@ source/Workbench delta above.
   Workbench structure only. No packaged host/two-
   client equality, actual reconnect/late join, rendered native-marker cleanup,
   map-close continuity, serialization/restart, or mixed-version behavior has
-  been observed. Schema 61 is the latest completed source/Workbench stamp at
+  been observed. The sealed Schema-61 marker stamp identifies
   implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
   `2026-07-12T01:02:39Z`, and label
   `schema61-authoritative-marker-projection`. Full Foundation passes with 655
@@ -715,7 +720,7 @@ source/Workbench delta above.
   classes with CRC `df41a779` and created the game; hidden normal WorldEditor
   stayed responsive 10/10 over 20 seconds without a first-party error/crash
   signature.
-- Campaign persistence Schema 62 is the preceding sealed canonical ownership source/
+- Campaign persistence Schema 62 is an earlier sealed canonical ownership source/
   Workbench boundary at implementation
   `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
@@ -1499,10 +1504,10 @@ Unproven or incomplete against the pasted contract:
 | Phase smoke wrapping | Valid phase-smoke indexes 0-62 now emit typed cases instead of duplicate legacy result rows; phase persistence seed/run/report steps are typed. | Physical depth inside some phases remains partial. |
 | Bootstrap/preflight/HQ | Server/admin/member/commander, phase repair, HQ/Petros/player presence, service/registry/prefab/zone graph checks, HQ runtime and duplicate scans. | Command-menu visual opening remains inferred through service/menu data, not rendered UI. |
 | Economy/recruitment/support/civilians/undercover | Exact resource/income/training deltas, garrison recruit/remove, support records/ETA/markers/QRF/search route-state samples, typed recall receipt and paired-settlement conflict cases, eight coordinator-integrated schema-49 operation assertions, plus civilian/undercover probes. | Operation assertions still need packaged execution; production RPC/save-restart recall replay, real-frame support movement, two-sample arrival/recall exit, unconditional terminal resolution, natural support contact/combat, and broader civilian reaction behavior remain unproven. |
-| Blueprint Phase 8 ambient runtime | Unsealed Settings-24 source and pure proof kernels cover global actor/traffic caps, 120-second-or-longer fair leases, deterministic rotation, four-root transaction-start scheduling, asynchronous readiness state, immutable per-zone/kind slots, bounded slot-specific recovery/recycle decisions, static military owner/policy refresh, settings migration, session-only topology, save/cargo filtering, field-vehicle promotion, and legacy detached-claim migration. Production observes claims player-first every server frame without a full ambient-root occupancy scan. Every `HST_PersistenceService` capture/checkpoint path plus new-campaign reset repeats reconciliation. One tracker registers promoted/restored/adopted/garage roots for current transform/destruction/cargo position, resolves exact registered bindings first, permits a unique same-prefab root within 8 meters only for initial/recovery binding, and fails closed on ambiguity. Reset can retain occupied live tracked `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots, normalizes them to `field_vehicle`, and copies retained vehicle/cargo before replacing state. Campaign Debug Phase 20 consumes the production global plan/four-root transaction-start cap. Foundation passes at 711 references; normal and all-five Workbench checks pass at 5,799 files/11,718 classes with CRC `a6fc06df`, zero HST script errors, and zero surviving processes. | Campaign Debug has not run. Package-prove exact CIV group/faction membership and waypoint activity; exact pilot seating, engine start, route activation, movement, recovery, recycle, and teardown; daytime/heat/population/budget demand; owner refresh; native brief enter/exit; autosave/restart; promoted-root destruction; new-campaign reset; two nearby same-prefab durable rows restore to two distinct physical roots without collapse; Campaign Debug Phase 20 production-path behavior; and ten towns for ten minutes without allocation churn or the one-second stutter. Aid and ownership/security-pressure paths exist but need runtime proof; automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper local-security behavior remain open. |
+| Blueprint Phase 8 ambient runtime | The sealed Settings-24 source/Workbench checkpoint and pure proof kernels cover global actor/traffic caps, 120-second-or-longer fair leases, deterministic rotation, four-root transaction-start scheduling, asynchronous readiness state, immutable per-zone/kind slots, bounded slot-specific recovery/recycle decisions, static military owner/policy refresh, settings migration, session-only topology, save/cargo filtering, field-vehicle promotion, and legacy detached-claim migration. Production observes claims player-first every server frame without a full ambient-root occupancy scan. Every `HST_PersistenceService` capture/checkpoint path plus new-campaign reset repeats reconciliation. One tracker registers promoted/restored/adopted/garage roots for current transform/destruction/cargo position, resolves exact registered bindings first, permits a unique same-prefab root within 8 meters only for initial/recovery binding, and fails closed on ambiguity. Reset can retain occupied live tracked `loot_vehicle`, `field_vehicle`, and `garage_redeploy` roots, normalizes them to `field_vehicle`, and copies retained vehicle/cargo before replacing state. Campaign Debug Phase 20 consumes the production global plan/four-root transaction-start cap. Foundation passes at 711 references; stamped-tree normal and all-five Workbench checks pass at 5,799 files/11,718 classes with CRC `bb083672`, zero HST script errors, and zero surviving processes. The exact sealed identity is implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC `2026-07-12T15:57:55Z`, and label `schema64-settings24-ambient-runtime-authority`. | Campaign Debug has not run. Package-prove exact CIV group/faction membership and waypoint activity; exact pilot seating, engine start, route activation, movement, recovery, recycle, and teardown; daytime/heat/population/budget demand; owner refresh; native brief enter/exit; autosave/restart; promoted-root destruction; new-campaign reset; two nearby same-prefab durable rows restore to two distinct physical roots without collapse; Campaign Debug Phase 20 production-path behavior; and ten towns for ten minutes without allocation churn or the one-second stutter. Aid and ownership/security-pressure paths exist but need runtime proof; automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper local-security behavior remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction. | Execute the proof, then package-test native security, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support or legacy projection may bypass the transition service. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
-| Town influence and political Map/War | Sealed Schema-64 source wires one canonical town service, save validator, and pure Map/War projection. Deterministic fixtures cover 100/200/50-bp scaling, strict 8000/4000 equality, idempotency/revision, legacy projection, ordinary population movement, exact arbitrary-basis-point absolute support/population seed replay and conflict rejection under an invader owner, population/aggregate tamper quarantine, invalid target/authority failure, external ownership completion, contact filtering, current-first/support order, complete territory/order, duplicate-authority exclusion, and deferred-parent publication. Foundation passes at 696 references; normal and all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017`, successful validation, zero HST script errors, and zero surviving Workbench processes. | The fixtures have not executed. Prove pre-64 conflict migration, current `-64` quarantine, separate occupier/invader state, every production caller, no owner bypass, real serialization/restart, rendered rows, current-town detection, contact discovery, reconnect/JIP, due-expiry cost, and no one-second stutter. |
+| Town influence and political Map/War | The preceding sealed Schema-64/settings-23 source checkpoint wires one canonical town service, save validator, and pure Map/War projection. Deterministic fixtures cover 100/200/50-bp scaling, strict 8000/4000 equality, idempotency/revision, legacy projection, ordinary population movement, exact arbitrary-basis-point absolute support/population seed replay and conflict rejection under an invader owner, population/aggregate tamper quarantine, invalid target/authority failure, external ownership completion, contact filtering, current-first/support order, complete territory/order, duplicate-authority exclusion, and deferred-parent publication. Foundation passes at 696 references; normal and all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017`, successful validation, zero HST script errors, and zero surviving Workbench processes. | The fixtures have not executed. Prove pre-64 conflict migration, current `-64` quarantine, separate occupier/invader state, every production caller, no owner bypass, real serialization/restart, rendered rows, current-town detection, contact discovery, reconnect/JIP, due-expiry cost, and no one-second stutter. |
 | Active-group lifecycle | Deterministic `active_group_lifecycle.*` cases prove one mixed-QRF personnel-terminal transition, linked QRF failure, zero capture pressure, terminal-before-unresolved marker ordering, replay no-op, schema-48 roundtrip, and living-mixed/vehicle-only controls. | Physical neutral-salvage detachment, entity/handle cleanup, player capture, dedicated replication, ownership-flip behavior, and process restart remain external runtime gaps. |
 | Physical AI combat | Timed `physical_combat.ai_contact` probe spawns temporary resistance/enemy active groups in the player render bubble, proves native faction hostility, assigns opposing search-and-destroy waypoints, samples live counts/distance through the normal physical-war tick, requires live-count loss during the hostile-contact window, and cleans all temporary groups/waypoints. | This does not yet prove support-arrival combat, primitive area-clearing combat, or multi-wave Petros/counterattack resolution. |
 | Missions and primitives | All-mission start/runtime/cleanup cases, primitive-specific probes for kill/destroy/recover/deliver/rescue/hold/clear, exact reward assertions, mission cleanup checks, and explicit admin-cleanup WARN classification. | Natural player driving/path travel, mission-owned hostile combat/area clearing, and true runtime completion for every mission remain partial. |
@@ -1725,7 +1730,7 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   packaged multiplayer artifact: it does not demonstrate a real host, two
   clients, disconnect/reconnect, late join, native widget roots, map close/
   reopen, process restart, or the absence of mixed-version clients.
-- Schema 62 is the preceding sealed ownership source/Workbench checkpoint at
+- Schema 62 is an earlier sealed ownership source/Workbench checkpoint at
   implementation `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
   `2026-07-12T06:11:19Z`, and label
   `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -1734,7 +1739,7 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   bounded normal open remained responsive without a crash and zero Workbench
   processes survived. Campaign Debug, packaged behavior, actual restart,
   networking, reconnect, and JIP evidence remain open.
-- Schema 64 is the last sealed source/Workbench checkpoint for canonical town influence
+- Schema 64/settings 23 is the preceding sealed source/Workbench checkpoint for canonical town influence
   and political Map/War projection. Its deterministic assertions are wired.
   Foundation passes at 696 script-symbol references, including its dedicated
   gate. Normal Workbench compilation and all-five-configuration validation pass
@@ -1744,11 +1749,14 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   reconnect, and JIP have not run. Its sealed identity is implementation
   `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
   `2026-07-12T11:28:41Z`, label `schema64-canonical-town-influence`.
-- The current Blueprint Phase 8 ambient-runtime worktree is unsealed. It keeps
-  Campaign Schema 64, migrates runtime settings `23 -> 24`, passes Foundation at 711
-  references, and passes normal plus all-five Workbench validation at 5,799
-  files/11,718 classes and CRC `a6fc06df`, with zero HST script errors and zero
-  surviving processes. No Campaign Debug, packaged runtime, native brief
+- The current Blueprint Phase 8 ambient-runtime checkpoint is sealed in source/
+  Workbench at implementation `6afadc7c13681b78171939a740862e52328beffd`, UTC
+  `2026-07-12T15:57:55Z`, and label
+  `schema64-settings24-ambient-runtime-authority`. It keeps Campaign Schema 64,
+  migrates runtime settings `23 -> 24`, passes Foundation at 711 references, and
+  its stamped tree passes normal plus all-five Workbench validation at 5,799
+  files/11,718 classes and CRC `bb083672`, with zero HST script errors and
+  zero surviving processes. No Campaign Debug, packaged runtime, native brief
   enter/exit, actual autosave/restart, destruction/reset, Campaign Debug Phase 20
   production-path, or ten-town/ten-minute soak result exists yet.
 - Sealed Schema 63 passes Foundation with 681 script-symbol references. A

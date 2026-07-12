@@ -1,30 +1,31 @@
 # h-istasi Enfusion / Enforce Notes
 
-The last sealed campaign source/Workbench checkpoint remains Campaign Schema 64
-on runtime-settings Schema 23. Its canonical town-influence, migration,
-political-hysteresis, and Map/War rules below are based on source inspection and
-deterministic fixtures that have not yet run. Schema 64 identifies implementation
-`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
-`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`. It has no
-runtime result. Foundation passes for that sealed checkpoint at 696 script-
-symbol references.
-
-The current unsealed worktree keeps Campaign persistence at Schema 64 and
-advances runtime settings from Schema 23 to 24 for the Blueprint Phase 8
-ambient-runtime slice. Foundation passes at 711 script-symbol references. Normal Workbench
-compilation and all-five-configuration validation pass at 5,799 files/11,718
-classes with CRC `a6fc06df`, successful validation, zero HST script errors, and
+The current sealed campaign source/Workbench checkpoint is Campaign Schema 64
+on runtime-settings Schema 24. It identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`. It keeps campaign persistence
+at Schema 64 and advances runtime settings from Schema 23 to 24 for the
+Blueprint Phase 8 ambient-runtime slice. Foundation passes at 711 script-symbol
+references. Stamped-tree normal Workbench compilation and all-five-configuration
+validation pass at 5,799 files/11,718 classes with CRC `bb083672`, successful
+validation, zero HST script errors, and
 zero surviving Workbench processes. This validates source shape and pure
 deterministic kernels only. Campaign Debug, packaged runtime, actual
 save/restart, native movement/recovery/recycling, rendered UI, a ten-town/ten-
 minute stutter/churn/performance soak, and multiplayer execution remain pending.
 
-Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
+Campaign Schema 64/runtime-settings Schema 23 is the preceding sealed canonical-
+town-influence checkpoint. It identifies implementation
+`6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
+`2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
+
+Schema 63 is an earlier sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
 
-Schema 62 is the preceding sealed canonical-ownership checkpoint under implementation
+Schema 62 is an earlier sealed canonical-ownership checkpoint under implementation
 `7c93e0a485bcabe5a364c0b0cfeca235accb50f7`, UTC
 `2026-07-12T06:11:19Z`, and label
 `schema62-canonical-ownership-transition`. Foundation passes with 670 script-
@@ -3972,7 +3973,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   native rendering, map close/reopen, disconnect/reconnect, late join, and real
   save/restart remain separate runtime gates.
 
-- Schema 61 is the latest completed source/Workbench checkpoint at
+- The sealed Schema-61 marker checkpoint identifies
   implementation `27672e67ce4285810f313130293df1ac917c9bdf`, UTC
   `2026-07-12T01:02:39Z`, and label
   `schema61-authoritative-marker-projection`. Full Foundation passes with 655
@@ -4420,7 +4421,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   in the prior run, so static resource resolution or Workbench creation is not
   sufficient behavior proof.
 
-## Unsealed Blueprint Phase 8 Ambient Runtime Mechanics
+## Sealed Source/Workbench Blueprint Phase 8 Ambient Runtime Mechanics
 
 - Work has reached Blueprint Phase 8 of 13 as a sequence position, not eight
   completed phases. Every earlier Blueprint phase still retains native,
@@ -4437,8 +4438,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   24 is a separate `23 -> 24` migration for civilian global actor/traffic base
   budgets, per-player additions, war-level penalty, health interval, startup
   grace, stuck threshold, bounded recovery count, and retry backoff. Do not bump
-  the campaign schema for settings-only controls or label this unsealed tree as
-  the sealed Schema-64 implementation.
+  the campaign schema for settings-only controls. This source/Workbench
+  checkpoint is sealed only under implementation
+  `6afadc7c13681b78171939a740862e52328beffd`, UTC
+  `2026-07-12T15:57:55Z`, and label
+  `schema64-settings24-ambient-runtime-authority`; do not reuse the preceding
+  settings-23 stamp or treat this seal as Campaign Debug, packaged, restart,
+  rendered, or multiplayer certification.
 
 - Budget physical ambience globally before reconciling any town. Allocation is
   deterministic and fair across eligible towns, with a lease of at least 120
@@ -4539,9 +4545,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   migration, and save filtering are pure kernels. They do not prove native CIV
   faction/group propagation, exact one-member cardinality, pilot seating, engine
   start, waypoint/route activation, movement, recovery, recycling, serialization,
-  or restart. Current source passes Foundation at 711 references and normal plus
-  all-five Workbench validation at 5,799 files/11,718 classes with CRC
-  `a6fc06df`, zero HST script errors, and zero surviving processes. Campaign
+  or restart. The sealed source/Workbench checkpoint passes Foundation at 711
+  references; its stamped tree passes normal plus all-five Workbench validation
+  at 5,799 files/11,718 classes with CRC `bb083672`, zero
+  HST script errors, and zero surviving processes. Campaign
   Debug, packaged execution, real save/restart, and a ten-town/ten-minute churn,
   performance, and stutter soak remain required.
 

@@ -192,7 +192,7 @@ Consequences:
   identity uniqueness, and absence of live backlinks must also pass. Historical
   contract-0 QRF retains minimal compatibility; malformed or quarantined typed
   pairs remain durable evidence.
-- Schema 60 is the latest stamped source/Workbench checkpoint under label
+- Schema 60 is the sealed checkpoint for this historical decision under label
   `schema60-exact-search-destroy`, implementation
   `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, and UTC
   `2026-07-11T23:24:55Z`. Full Foundation passes with 644 symbol references and
@@ -440,7 +440,7 @@ Consequences:
   when a canonical record's next expiry is due. Verbose changed active-group
   survivor/count logs are throttled to 30 seconds. Both are source mitigations,
   not evidence that the one-second stutter is fixed.
-- Schema 64 is sealed at implementation
+- The preceding Schema 64/settings-23 checkpoint is sealed at implementation
   `6f3c913eaed66926cce38b2ecafcff94084898a3`, UTC
   `2026-07-12T11:28:41Z`, and label `schema64-canonical-town-influence`.
   Foundation passes at 696 references, and normal/all-five-
@@ -542,17 +542,19 @@ Consequences:
 - Frame-frequency horn clearing walks the bounded ambient actor records directly;
   helper-by-root nested lookup is forbidden on this hot path.
 - Pure allocator, lifecycle, settings-migration, and save-boundary proofs are
-  compiled and wired into Campaign Debug. The current unsealed tree passes
+  compiled and wired into Campaign Debug. The current sealed source/Workbench
+  checkpoint identifies implementation
+  `6afadc7c13681b78171939a740862e52328beffd`, UTC
+  `2026-07-12T15:57:55Z`, and label
+  `schema64-settings24-ambient-runtime-authority`. It passes
   Foundation at 711 references and normal/all-five Workbench validation at
-  5,799 files/11,718 classes with CRC `a6fc06df`, zero HST script errors, and
+  5,799 files/11,718 classes with CRC `bb083672`, zero HST script errors, and
   zero surviving Workbench processes.
 - Campaign Debug execution, a native server, ten simultaneously eligible towns
   for ten minutes, native brief enter/exit, autosave/restart, promoted-root
   destruction, new-campaign reset, Campaign Debug Phase 20 production-path execution,
   rendered movement, profiling, multiplayer, and automatic casualty/theft/nearby-
   combat influence and panic/recovery behavior
-  remain open gates. The last sealed identity remains Schema 64/settings 23 implementation
-  `6f3c913eaed66926cce38b2ecafcff94084898a3`; this Blueprint Phase 8 tree remains
-  unsealed until its final identity is recorded. Commander aid and ownership/
+  remain open gates. Commander aid and ownership/
   security-pressure paths exist in source but need runtime proof; deeper local-
   security behavior remains implementation work.

@@ -2,17 +2,19 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` remains `64`; this transient Blueprint
-Phase 8 slice adds no campaign-state fields.
+`HST_CampaignState.SCHEMA_VERSION` remains `64`; this sealed Blueprint Phase 8
+source/Workbench slice adds no campaign-state fields.
 `HST_RuntimeSettings.SCHEMA_VERSION` advances
 from `23` to `24` for global ambient-population budgets and bounded runtime-
-health controls. The current working tree is unsealed until a final
-implementation identity is recorded.
+health controls. The current sealed checkpoint identifies implementation
+`6afadc7c13681b78171939a740862e52328beffd`, UTC
+`2026-07-12T15:57:55Z`, and label
+`schema64-settings24-ambient-runtime-authority`.
 
-Current source/Workbench evidence is Foundation at 711 script-symbol references,
-normal compilation at 5,799 files/11,718 classes with CRC `a6fc06df`, successful
-validation for all five configurations, zero HST script errors, and zero
-surviving Workbench processes. Deterministic budget, lifecycle, settings-
+Final sealed-tree source/Workbench evidence is Foundation at 711 script-symbol
+references and normal compilation at 5,799 files/11,718 classes with CRC
+`bb083672`, explicit validation success for all five configurations, zero HST
+script errors, and zero surviving Workbench processes. Deterministic budget, lifecycle, settings-
 migration, and save-boundary proofs are compiled and wired but have not run in
 Campaign Debug. Real profile serialization/restart, native server execution,
 ten-town/ten-minute soak, brief enter/exit observation, promoted-root
@@ -22,7 +24,8 @@ Aid and ownership/security-pressure source paths still need runtime proof;
 automatic casualty, theft, nearby-combat influence, panic/recovery, and deeper
 local-security behavior remain unimplemented.
 
-The last sealed checkpoint is campaign Schema 64 on runtime-settings Schema 23.
+The preceding sealed checkpoint is campaign Schema 64 on runtime-settings
+Schema 23.
 It adds the canonical curated-town political support/population boundary on top
 of the sealed Schema-62 ownership and Schema-63 combat-presence dependencies.
 That checkpoint identifies implementation
@@ -36,7 +39,7 @@ instance was closed and the verified process count was zero. Campaign Debug,
 real serialization, save/restart, packaged runtime, rendered UI, stutter
 measurement, and multiplayer proof remain pending for that sealed checkpoint.
 
-Schema 63 is the preceding sealed source/Workbench checkpoint. It identifies implementation
+Schema 63 is an earlier sealed source/Workbench checkpoint. It identifies implementation
 `85a75c65e9c148a890d8d78b0288ae6483a5ccd9`, UTC
 `2026-07-12T08:22:05Z`, and label
 `schema63-canonical-combat-presence`.
