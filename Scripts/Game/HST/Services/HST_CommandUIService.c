@@ -1792,7 +1792,7 @@ class HST_CommandUIService
 			if (!canUseAdmin)
 				return "Admin | debug only | admin role required";
 
-			return string.Format("Admin | debug only | campaign %1 | markers %2", CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
+			return string.Format("Admin | debug only | campaign %1 | marker records %2", CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
 		}
 
 		return string.Format("h-istasi command | %1", BuildNextBestAction(state, preset));

@@ -2,11 +2,84 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `60`. Schema 60 is the latest
-stamped source/Workbench checkpoint: implementation
+`HST_CampaignState.SCHEMA_VERSION` is currently `61`. Schema 61 is the current
+source implementation boundary for marker-only authoritative client projection.
+Its packaged multiplayer, reconnect, late-join, rendered-widget, and real
+save/restart gates remain open. Schema 60 remains the latest completed stamped
+source/Workbench checkpoint while the Schema-61 implementation/stamp cycle is
+being finalized: implementation
 `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
 `2026-07-11T23:24:55Z`, build label `schema60-exact-search-destroy`, and final
-Workbench CRC `7aa80fc9`. Schema 59 is the preceding checkpoint.
+Workbench CRC `7aa80fc9`.
+
+## Schema 61
+
+- Schema 61 makes `HST_CampaignState.m_aMapMarkers` a durable, revisioned
+  marker-projection journal boundary. Every marker record now carries a
+  per-record revision, the global stream sequence that last changed it, a
+  tombstone flag, and tombstone time. Campaign state additionally persists a
+  positive projection epoch and monotonic global projection sequence.
+- Marker rebuild compares each desired record with the prior record by stable
+  marker ID and all projected content. An unchanged rebuild preserves revision
+  and stream sequence. Create or content update increments that record's
+  revision and consumes exactly one global sequence. Removal emits a revisioned
+  tombstone instead of silently deleting the projection event. Reusable marker
+  identities retain their tombstones so a later recreation cannot reset their
+  revision; other tombstones use bounded age/count retention.
+- The server owns a marker-only current registry and bounded delta journal.
+  Protocol version `1` encodes bounded string packets: snapshot chunks carry
+  epoch, snapshot identity, watermark, chunk index/count, total-record count,
+  and registry hash; delta packets carry an ordered from/to sequence range and
+  final registry hash. Payload decoding rejects malformed, oversized,
+  unsupported-version, noncontiguous, or invalid-record input without mutating
+  client state. The builders enforce the same row, packet, record, and chunk
+  limits before a session can wait for an ACK.
+- A player-owned request bridge announces readiness and sends contiguous ACKs
+  and resync requests over reliable owner/server RPCs. The server derives the
+  player from component ownership, keeps one session per connected player,
+  replays retained contiguous deltas when safe, and sends a fresh snapshot for
+  first join, reconnect, late join, epoch/hash mismatch, journal gap, invalid
+  ACK, or explicit resync. Journal pruning is constrained by the slowest valid
+  connected acknowledgement. Each owner has one in-flight delta batch; only its
+  final hash-bearing packet ACKs and triggers presentation. Immediate post-ACK
+  catch-up plus a five-second readiness heartbeat recover rapid mutations,
+  incomplete streams, and lost ACKs without overlapping a fresh delta.
+- The client registry is independent of whether the map widget is open. It
+  stages all snapshot chunks, verifies count and hash, and swaps them atomically.
+  It then accepts only the next contiguous stream sequence and the next legal
+  per-record revision. An already-applied delta is idempotently acknowledged;
+  a future gap requests resync without partially applying the packet.
+- Native campaign marker entities are now reconciled locally from that client
+  registry. Server-native campaign marker publication is retired to prevent a
+  duplicate server/client marker set. Dynamic player markers remain on their
+  existing replicated-entity path and are not part of the Schema-61 stream.
+  Shared priority/stable-ID ordering makes the native cap deterministic. The
+  stock authored zone descriptor is cached and hidden only after its custom
+  replacement is confirmed live; its prior visibility is restored if that
+  replacement fails or disappears.
+- Static authored marker binding no longer polls a radius every 30 seconds.
+  `HST_MapMarkerService` performs exact cached lookup using the authored
+  `HST_ConflictMapMarker_<zoneId>` entity name, retries only unresolved names,
+  compares the entity's actual affiliated faction before skipping a write, and
+  reports missing/bound identity explicitly.
+- Pre-61 map-marker rows are derived presentation state, not campaign facts.
+  Migration clears and deterministically rebuilds them from authoritative
+  campaign state, preserves no guessed marker revision, and records
+  `migration_schema61_marker_projection` once. A malformed Schema-61 projection
+  clears and rebuilds the derived rows, advances the epoch so clients cannot
+  reuse the old stream, and records
+  `normalization_schema61_marker_projection_rebuild` once. Neither path invents
+  zones, owners, missions, forces, or outcomes.
+- The compiled deterministic `HST_MarkerProjectionProofService` defines initial/late-join
+  snapshot equality, stable rebuild semantics, ordered create/update/delete,
+  duplicate idempotency, snapshot-pending and rapid mutation catch-up,
+  final-chunk-only multi-packet ACK, lost-ACK heartbeat recovery, dropped-delta
+  resync with atomic snapshot staging, lower-watermark epoch reset, reconnect
+  snapshot, acknowledgement-constrained pruning, malformed/oversize rejection,
+  and migration idempotency fixtures. They have not been executed as Campaign
+  Debug or packaged runtime evidence. A packaged host plus two-client run must still prove
+  equal hashes/watermarks, disconnect/reconnect and late join, native marker
+  rendering/cleanup, map-close continuity, and real save/restart.
 
 ## Schema 60
 

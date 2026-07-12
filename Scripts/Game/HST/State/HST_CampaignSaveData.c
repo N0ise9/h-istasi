@@ -35,6 +35,8 @@ class HST_CampaignSaveData
 	int m_iEnemyResourceAccumulatorSeconds;
 	int m_iAggressionAccumulatorSeconds;
 	int m_iNextAuthoritySequence;
+	int m_iMarkerProjectionEpoch;
+	int m_iMarkerProjectionSequence;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -156,6 +158,8 @@ class HST_CampaignSaveData
 		m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds;
 		m_iAggressionAccumulatorSeconds = state.m_iAggressionAccumulatorSeconds;
 		m_iNextAuthoritySequence = state.m_iNextAuthoritySequence;
+		m_iMarkerProjectionEpoch = state.m_iMarkerProjectionEpoch;
+		m_iMarkerProjectionSequence = state.m_iMarkerProjectionSequence;
 		m_sCommanderIdentityId = state.m_sCommanderIdentityId;
 		m_sHQHideoutId = state.m_sHQHideoutId;
 		m_vHQPosition = state.m_vHQPosition;
@@ -421,6 +425,8 @@ class HST_CampaignSaveData
 		state.m_iEnemyResourceAccumulatorSeconds = m_iEnemyResourceAccumulatorSeconds;
 		state.m_iAggressionAccumulatorSeconds = m_iAggressionAccumulatorSeconds;
 		state.m_iNextAuthoritySequence = m_iNextAuthoritySequence;
+		state.m_iMarkerProjectionEpoch = m_iMarkerProjectionEpoch;
+		state.m_iMarkerProjectionSequence = m_iMarkerProjectionSequence;
 		state.m_sCommanderIdentityId = m_sCommanderIdentityId;
 		state.m_sHQHideoutId = m_sHQHideoutId;
 		state.m_vHQPosition = m_vHQPosition;
@@ -911,6 +917,10 @@ class HST_CampaignSaveData
 		target.m_vPosition = source.m_vPosition;
 		target.m_bVisible = source.m_bVisible;
 		target.m_bRuntimeNative = source.m_bRuntimeNative;
+		target.m_iRevision = source.m_iRevision;
+		target.m_iStreamSequence = source.m_iStreamSequence;
+		target.m_bTombstone = source.m_bTombstone;
+		target.m_iTombstonedAtSecond = source.m_iTombstonedAtSecond;
 		return target;
 	}
 
@@ -2580,6 +2590,8 @@ class HST_CampaignSaveData
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		HST_MaidensBayLocationSaveValidationService schema60MaidensBayLocationValidation = new HST_MaidensBayLocationSaveValidationService();
 		schema60MaidensBayLocationValidation.Normalize(this, restoredSchemaVersion);
+		HST_MarkerProjectionSaveValidationService schema61MarkerProjectionValidation = new HST_MarkerProjectionSaveValidationService();
+		schema61MarkerProjectionValidation.Normalize(this, restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)

@@ -1,5 +1,6 @@
 class HST_MapMarkerService
 {
+	static const bool CLIENT_PROJECTION_OWNS_NATIVE_MARKERS = true;
 	static const string NATIVE_MARKER_MANAGER_COMPONENT = "SCR_MapMarkerManagerComponent";
 	static const string NATIVE_MARKER_CONFIG = "{3583D42139D9A10B}Configs/Map/CampaignMapMarkerConfig.conf";
 	static const float MARKER_DECONFLICT_RADIUS_METERS = 14.0;
@@ -7,14 +8,18 @@ class HST_MapMarkerService
 	static const int MARKER_DECONFLICT_ATTEMPTS = 12;
 	static const int MAX_NATIVE_MARKERS = 192;
 	static const int MAX_NATIVE_TACTICAL_MARKERS = 48;
-	static const int NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS = 30;
+	static const int MARKER_TOMBSTONE_RETENTION_SECONDS = 600;
+	static const int MAX_MARKER_TOMBSTONES = 256;
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
 
-	protected ref array<IEntity> m_aNativeMarkerCandidates = {};
 	protected ref HST_CampaignMapMarkerDirector m_MarkerDirector = new HST_CampaignMapMarkerDirector();
 	protected ref HST_NativeMapMarkerReconciler m_NativeReconciler = new HST_NativeMapMarkerReconciler();
 	protected ref map<string, ref HST_MapMarkerRecord> m_mDesiredNativeMarkers = new map<string, ref HST_MapMarkerRecord>();
-	protected string m_sNativeMarkerEntityName;
+	protected ref map<string, IEntity> m_mAuthoredMarkerByZoneId = new map<string, IEntity>();
+	protected ref map<string, string> m_mAuthoredMarkerOwnerByZoneId = new map<string, string>();
+	protected bool m_bAuthoredMarkerBindingsInitialized;
+	protected int m_iAuthoredMarkerBindingCount;
+	protected int m_iAuthoredMarkerMissingCount;
 	protected bool m_bNativePublishPending;
 	protected bool m_bNativeMapRefreshBound;
 	protected float m_fNativePublishRetrySeconds;
@@ -99,9 +104,17 @@ class HST_MapMarkerService
 		if (!state || !preset)
 			return false;
 
+		int previousProjectionSequence = state.m_iMarkerProjectionSequence;
+		array<ref HST_MapMarkerState> previousMarkers = {};
+		foreach (HST_MapMarkerState previousMarker : state.m_aMapMarkers)
+		{
+			if (previousMarker)
+				previousMarkers.Insert(previousMarker);
+		}
 		state.m_aMapMarkers.Clear();
 		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
+			FinalizeProjectionRecords(state, previousMarkers);
 			int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
 			int previousPublishedCount = m_iLastNativePublishedCount;
 			int previousEligibleCount = m_iLastNativeEligibleCount;
@@ -112,7 +125,7 @@ class HST_MapMarkerService
 				DebugLog(string.Format("setup phase marker publisher empty, native %1/%2 published, %3 skipped", m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
 				m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
 			}
-			return setupPublished;
+			return setupPublished || state.m_iMarkerProjectionSequence != previousProjectionSequence;
 		}
 
 		AddHQMarker(state, preset);
@@ -125,6 +138,7 @@ class HST_MapMarkerService
 		AddExactGarrisonPatrolOperationMarkers(state, preset);
 		AddSupportRequestMarkers(state, preset);
 		AddResistanceSupportGroupMarkers(state, preset);
+		FinalizeProjectionRecords(state, previousMarkers);
 		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
 		int previousPublishedCount = m_iLastNativePublishedCount;
 		int previousEligibleCount = m_iLastNativeEligibleCount;
@@ -136,7 +150,7 @@ class HST_MapMarkerService
 			DebugLog(string.Format("rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
 			m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
 		}
-		return published || ownershipSynced;
+		return published || ownershipSynced || state.m_iMarkerProjectionSequence != previousProjectionSequence;
 	}
 
 	void BindNativeMapRefresh()
@@ -204,6 +218,11 @@ class HST_MapMarkerService
 		m_iLastNativeSkippedCount = 0;
 		m_iLastReportedMarkerRecordCount = -1;
 		m_iLastNativeOwnershipSyncSecond = -999999;
+		m_mAuthoredMarkerByZoneId.Clear();
+		m_mAuthoredMarkerOwnerByZoneId.Clear();
+		m_bAuthoredMarkerBindingsInitialized = false;
+		m_iAuthoredMarkerBindingCount = 0;
+		m_iAuthoredMarkerMissingCount = 0;
 		m_bNativePublishPending = false;
 		m_iNativeMapWidgetRefreshRetries = 0;
 		if (!state)
@@ -252,7 +271,7 @@ class HST_MapMarkerService
 		int qrfCount;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (!marker || !marker.m_bVisible)
+			if (!marker || marker.m_bTombstone || !marker.m_bVisible)
 				continue;
 
 			if (marker.m_sCategory == "hq")
@@ -267,7 +286,7 @@ class HST_MapMarkerService
 				strategicCount++;
 		}
 
-		string summary = string.Format("h-istasi map markers | total %1 | HQ %2 | towns %3", state.m_aMapMarkers.Count(), hqCount, townCount);
+		string summary = string.Format("h-istasi map markers | total %1 | HQ %2 | towns %3", CountLiveVisibleMarkers(state), hqCount, townCount);
 		string pending = "ready";
 		if (m_bNativePublishPending)
 			pending = "pending";
@@ -314,7 +333,7 @@ class HST_MapMarkerService
 		if (exactGarrisonPatrolMarkers != openExactGarrisonPatrols)
 			status = "WARN";
 
-		string report = string.Format("h-istasi phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
+		string report = string.Format("h-istasi phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, CountLiveVisibleMarkers(state), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
 		report = report + string.Format("\ncoverage | HQ %1 | Petros %2 | defend %3 | missions %4/%5 | support %6/%7 | qrf %8/%9", hqMarker, petrosMarker, defendMarker, missionMarkers, activeMissions, supportMarkers, activeSupport, qrfMarkers, activeQRFs);
 		report = report + string.Format(" | exact enemy qrf %1/%2", exactEnemyQRFMarkers, openExactEnemyQRFs);
 		report = report + string.Format(" | exact enemy patrol %1/%2", exactEnemyPatrolMarkers, openExactEnemyPatrols);
@@ -425,7 +444,10 @@ class HST_MapMarkerService
 		if (m_bNativePublishPending)
 			pending = "pending";
 
-		return string.Format("\nrefresh | state second %1 | records %2 | native %3/%4 | handles %5 | skipped %6 | ownership sync %7 | %8", state.m_iElapsedSeconds, state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, BuildNativeHandleReport(), m_iLastNativeSkippedCount, m_iLastNativeOwnershipSyncSecond, pending);
+		string report = string.Format("\nrefresh | state second %1 | records %2 | stream epoch %3 sequence %4", state.m_iElapsedSeconds, state.m_aMapMarkers.Count(), state.m_iMarkerProjectionEpoch, state.m_iMarkerProjectionSequence);
+		report = report + string.Format(" | native %1/%2 | handles %3 | skipped %4", m_iLastNativePublishedCount, m_iLastNativeEligibleCount, BuildNativeHandleReport(), m_iLastNativeSkippedCount);
+		report = report + string.Format(" | authored bindings %1 missing %2 | ownership sync %3 | %4", m_iAuthoredMarkerBindingCount, m_iAuthoredMarkerMissingCount, m_iLastNativeOwnershipSyncSecond, pending);
+		return report;
 	}
 
 	protected string BuildMarkerDetailReport(HST_CampaignState state, int maxRows)
@@ -435,9 +457,10 @@ class HST_MapMarkerService
 
 		string report = "\nmarker detail";
 		int emitted;
+		int visibleCount = CountLiveVisibleMarkers(state);
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (!marker || !marker.m_bVisible)
+			if (!marker || marker.m_bTombstone || !marker.m_bVisible)
 				continue;
 
 			report = report + string.Format("\n%1 | %2 | category %3 | owner %4 | style %5 | native %6 | pos %7", marker.m_sMarkerId, ShortMarkerText(marker.m_sLabel, 70), marker.m_sCategory, marker.m_sOwnerFactionKey, marker.m_sStyleHint, marker.m_bRuntimeNative, marker.m_vPosition);
@@ -448,8 +471,8 @@ class HST_MapMarkerService
 
 		if (emitted == 0)
 			report = report + "\nnone";
-		else if (state.m_aMapMarkers.Count() > emitted)
-			report = report + string.Format("\n... %1 more marker(s)", state.m_aMapMarkers.Count() - emitted);
+		else if (visibleCount > emitted)
+			report = report + string.Format("\n... %1 more marker(s)", visibleCount - emitted);
 
 		return report;
 	}
@@ -461,7 +484,7 @@ class HST_MapMarkerService
 
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_sMarkerId == markerId && marker.m_bVisible)
+			if (marker && !marker.m_bTombstone && marker.m_sMarkerId == markerId && marker.m_bVisible)
 				return true;
 		}
 
@@ -561,7 +584,22 @@ class HST_MapMarkerService
 		int count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_bVisible && marker.m_sCategory == category)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sCategory == category)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountLiveVisibleMarkers(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && !marker.m_bTombstone && marker.m_bVisible)
 				count++;
 		}
 
@@ -576,7 +614,7 @@ class HST_MapMarkerService
 		int count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_bVisible && marker.m_sMarkerId.IndexOf(markerPrefix) == 0)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sMarkerId.IndexOf(markerPrefix) == 0)
 				count++;
 		}
 
@@ -1735,6 +1773,137 @@ class HST_MapMarkerService
 		return string.Format("Resistance %1 | %2 | near %3", typeLabel, groupStatus, targetName);
 	}
 
+	protected void FinalizeProjectionRecords(HST_CampaignState state, notnull array<ref HST_MapMarkerState> previousMarkers)
+	{
+		if (!state)
+			return;
+
+		state.m_iMarkerProjectionEpoch = Math.Max(1, state.m_iMarkerProjectionEpoch);
+		foreach (HST_MapMarkerState previousSequenceMarker : previousMarkers)
+		{
+			if (previousSequenceMarker)
+				state.m_iMarkerProjectionSequence = Math.Max(state.m_iMarkerProjectionSequence, previousSequenceMarker.m_iStreamSequence);
+		}
+
+		map<string, ref HST_MapMarkerState> previousById = new map<string, ref HST_MapMarkerState>();
+		foreach (HST_MapMarkerState previousMarker : previousMarkers)
+		{
+			if (!previousMarker || previousMarker.m_sMarkerId.IsEmpty() || previousById.Contains(previousMarker.m_sMarkerId))
+				continue;
+			previousById.Set(previousMarker.m_sMarkerId, previousMarker);
+		}
+
+		array<ref HST_MapMarkerState> desiredMarkers = {};
+		map<string, bool> desiredIds = new map<string, bool>();
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (!marker || marker.m_sMarkerId.IsEmpty())
+				continue;
+			if (desiredIds.Contains(marker.m_sMarkerId))
+			{
+				Print("h-istasi marker projection | duplicate desired marker id rejected: " + marker.m_sMarkerId, LogLevel.ERROR);
+				continue;
+			}
+
+			desiredIds.Set(marker.m_sMarkerId, true);
+			HST_MapMarkerState previous = previousById.Get(marker.m_sMarkerId);
+			marker.m_bTombstone = false;
+			marker.m_iTombstonedAtSecond = 0;
+			if (previous && !previous.m_bTombstone && previous.m_iRevision > 0 && previous.m_iStreamSequence > 0 && HST_MarkerProjectionCodec.ContentEquals(previous, marker))
+			{
+				marker.m_iRevision = previous.m_iRevision;
+				marker.m_iStreamSequence = previous.m_iStreamSequence;
+			}
+			else
+			{
+				marker.m_iRevision = 1;
+				if (previous && previous.m_iRevision > 0)
+					marker.m_iRevision = previous.m_iRevision + 1;
+				state.m_iMarkerProjectionSequence++;
+				marker.m_iStreamSequence = state.m_iMarkerProjectionSequence;
+			}
+			desiredMarkers.Insert(marker);
+		}
+
+		foreach (HST_MapMarkerState removedMarker : previousMarkers)
+		{
+			if (!removedMarker || removedMarker.m_sMarkerId.IsEmpty() || desiredIds.Contains(removedMarker.m_sMarkerId))
+				continue;
+			if (previousById.Get(removedMarker.m_sMarkerId) != removedMarker)
+				continue;
+
+			HST_MapMarkerState tombstone;
+			if (removedMarker.m_bTombstone)
+			{
+				if (!ShouldRetainReusableMarkerTombstone(removedMarker.m_sMarkerId)
+					&& removedMarker.m_iTombstonedAtSecond > 0
+					&& state.m_iElapsedSeconds - removedMarker.m_iTombstonedAtSecond > MARKER_TOMBSTONE_RETENTION_SECONDS)
+					continue;
+				tombstone = HST_MarkerProjectionCodec.CopyMarker(removedMarker);
+			}
+			else
+			{
+				tombstone = HST_MarkerProjectionCodec.CopyMarker(removedMarker);
+				tombstone.m_bTombstone = true;
+				tombstone.m_bVisible = false;
+				tombstone.m_iRevision = Math.Max(0, removedMarker.m_iRevision) + 1;
+				state.m_iMarkerProjectionSequence++;
+				tombstone.m_iStreamSequence = state.m_iMarkerProjectionSequence;
+				tombstone.m_iTombstonedAtSecond = state.m_iElapsedSeconds;
+			}
+
+			if (tombstone)
+				desiredMarkers.Insert(tombstone);
+		}
+
+		state.m_aMapMarkers.Clear();
+		foreach (HST_MapMarkerState finalizedMarker : desiredMarkers)
+			state.m_aMapMarkers.Insert(finalizedMarker);
+
+		PruneProjectionTombstones(state);
+	}
+
+	protected void PruneProjectionTombstones(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+
+		int tombstoneCount;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && marker.m_bTombstone)
+				tombstoneCount++;
+		}
+
+		while (tombstoneCount > MAX_MARKER_TOMBSTONES)
+		{
+			int oldestIndex = -1;
+			int oldestSequence = int.MAX;
+			for (int i; i < state.m_aMapMarkers.Count(); i++)
+			{
+				HST_MapMarkerState candidate = state.m_aMapMarkers[i];
+				if (!candidate || !candidate.m_bTombstone || ShouldRetainReusableMarkerTombstone(candidate.m_sMarkerId))
+					continue;
+				if (candidate.m_iStreamSequence >= oldestSequence)
+					continue;
+				oldestSequence = candidate.m_iStreamSequence;
+				oldestIndex = i;
+			}
+
+			if (oldestIndex < 0)
+				break;
+			state.m_aMapMarkers.Remove(oldestIndex);
+			tombstoneCount--;
+		}
+	}
+
+	protected bool ShouldRetainReusableMarkerTombstone(string markerId)
+	{
+		if (markerId == "hst_hq" || markerId == "hst_petros" || markerId == "hst_defend_petros" || markerId == "hst_defend_petros_attackers")
+			return true;
+		return markerId.IndexOf("hst_zone_") == 0;
+	}
+
 	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint, bool deconflict = false, bool runtimeNative = true)
 	{
 		HST_MapMarkerState marker = new HST_MapMarkerState();
@@ -1751,6 +1920,7 @@ class HST_MapMarkerService
 		marker.m_vPosition = ResolveMarkerPresentationPosition(state, markerId, position, deconflict);
 		marker.m_bVisible = visible;
 		marker.m_bRuntimeNative = runtimeNative;
+		marker.m_bTombstone = false;
 		state.m_aMapMarkers.Insert(marker);
 	}
 
@@ -1789,7 +1959,21 @@ class HST_MapMarkerService
 		if (!state)
 			return false;
 
+		m_MarkerDirector.BuildDesiredMarkers(state, preset, m_mDesiredNativeMarkers);
 		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
+		if (CLIENT_PROJECTION_OWNS_NATIVE_MARKERS)
+		{
+			bool retiredServerPublication;
+			if (markerManager)
+				retiredServerPublication = m_NativeReconciler.Clear(markerManager);
+			m_iLastNativeEligibleCount = m_MarkerDirector.GetLastEligibleCount();
+			m_iLastNativePublishedCount = 0;
+			m_iLastNativeSkippedCount = m_MarkerDirector.GetLastSkippedCount();
+			m_bNativePublishPending = false;
+			m_fNativePublishRetrySeconds = 0;
+			return retiredServerPublication;
+		}
+
 		if (!markerManager)
 		{
 			m_bNativePublishPending = true;
@@ -1798,7 +1982,6 @@ class HST_MapMarkerService
 			return false;
 		}
 
-		m_MarkerDirector.BuildDesiredMarkers(state, preset, m_mDesiredNativeMarkers);
 		bool changed = m_NativeReconciler.Reconcile(markerManager, m_mDesiredNativeMarkers);
 		HST_MapMarkerReconcileResult result = m_NativeReconciler.GetLastResult();
 		m_iLastNativeEligibleCount = m_MarkerDirector.GetLastEligibleCount();
@@ -1898,7 +2081,7 @@ class HST_MapMarkerService
 
 	protected bool IsNativeMarkerCandidate(HST_MapMarkerState marker)
 	{
-		return marker && marker.m_bVisible && marker.m_bRuntimeNative;
+		return marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_bRuntimeNative;
 	}
 
 	protected bool CanPublishNativeMarker(HST_MapMarkerState marker, int tacticalCount, int publishedCount)
@@ -2105,52 +2288,87 @@ class HST_MapMarkerService
 		if (!state)
 			return false;
 
-		if (state.m_iElapsedSeconds - m_iLastNativeOwnershipSyncSecond < NATIVE_OWNERSHIP_SYNC_INTERVAL_SECONDS)
-			return false;
-
-		m_iLastNativeOwnershipSyncSecond = state.m_iElapsedSeconds;
-		SyncVisibleNativeMarkerOwnership(state);
-		return true;
+		return SyncVisibleNativeMarkerOwnership(state);
 	}
 
-	protected void SyncVisibleNativeMarkerOwnership(HST_CampaignState state)
+	protected bool SyncVisibleNativeMarkerOwnership(HST_CampaignState state)
 	{
 		if (!state)
-			return;
+			return false;
 
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
-			return;
+			return false;
+
+		if (!m_bAuthoredMarkerBindingsInitialized || m_iAuthoredMarkerMissingCount > 0)
+			BindAuthoredNativeMarkers(state, world);
+
+		bool changed;
 
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
 			if (!zone || zone.m_sOwnerFactionKey.IsEmpty())
 				continue;
 
-			m_sNativeMarkerEntityName = "HST_ConflictMapMarker_" + zone.m_sZoneId;
-			m_aNativeMarkerCandidates.Clear();
-			world.QueryEntitiesBySphere(zone.m_vPosition, 4, AddNativeMarkerCandidate, null, EQueryEntitiesFlags.ALL);
-			foreach (IEntity markerEntity : m_aNativeMarkerCandidates)
+			IEntity markerEntity = m_mAuthoredMarkerByZoneId.Get(zone.m_sZoneId);
+			if (!markerEntity)
+				continue;
+
+			FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(markerEntity.FindComponent(FactionAffiliationComponent));
+			if (!factionComponent)
+				continue;
+			if (factionComponent.GetAffiliatedFactionKey() == zone.m_sOwnerFactionKey)
 			{
-				FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(markerEntity.FindComponent(FactionAffiliationComponent));
-				if (factionComponent)
-					factionComponent.SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey);
+				m_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+				continue;
 			}
+
+			factionComponent.SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey);
+			m_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+			changed = true;
 		}
 
-		m_sNativeMarkerEntityName = "";
-		m_aNativeMarkerCandidates.Clear();
+		m_iLastNativeOwnershipSyncSecond = state.m_iElapsedSeconds;
+		return changed;
 	}
 
-	protected bool AddNativeMarkerCandidate(IEntity entity)
+	protected void BindAuthoredNativeMarkers(HST_CampaignState state, BaseWorld world)
 	{
-		if (!entity || m_sNativeMarkerEntityName.IsEmpty())
-			return true;
+		if (!m_bAuthoredMarkerBindingsInitialized)
+		{
+			m_mAuthoredMarkerByZoneId.Clear();
+			m_mAuthoredMarkerOwnerByZoneId.Clear();
+		}
+		m_iAuthoredMarkerMissingCount = 0;
+		m_bAuthoredMarkerBindingsInitialized = true;
+		if (!state || !world)
+			return;
 
-		if (entity.GetName() == m_sNativeMarkerEntityName)
-			m_aNativeMarkerCandidates.Insert(entity);
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || zone.m_sZoneId.IsEmpty())
+				continue;
+			if (m_mAuthoredMarkerByZoneId.Contains(zone.m_sZoneId))
+				continue;
 
-		return true;
+			string entityName = "HST_ConflictMapMarker_" + zone.m_sZoneId;
+			IEntity markerEntity = world.FindEntityByName(entityName);
+			if (!markerEntity || markerEntity.GetName() != entityName)
+			{
+				m_iAuthoredMarkerMissingCount++;
+				continue;
+			}
+
+			FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(markerEntity.FindComponent(FactionAffiliationComponent));
+			if (!factionComponent)
+			{
+				m_iAuthoredMarkerMissingCount++;
+				continue;
+			}
+
+			m_mAuthoredMarkerByZoneId.Set(zone.m_sZoneId, markerEntity);
+		}
+		m_iAuthoredMarkerBindingCount = m_mAuthoredMarkerByZoneId.Count();
 	}
 
 	protected string FactionToMarkerColor(string factionKey, HST_CampaignPreset preset)
@@ -2492,7 +2710,7 @@ class HST_MapMarkerService
 		float radiusSq = MARKER_DECONFLICT_RADIUS_METERS * MARKER_DECONFLICT_RADIUS_METERS;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (!marker || !marker.m_bVisible)
+			if (!marker || marker.m_bTombstone || !marker.m_bVisible)
 				continue;
 
 			if (DistanceSq2D(marker.m_vPosition, position) <= radiusSq)

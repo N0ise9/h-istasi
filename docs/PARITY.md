@@ -24,12 +24,13 @@
   Petros-loss penalties, HQ knowledge/threat, and Defend Petros state
 - Versioned campaign save container for current state fields and nested arrays,
   with schema migration and restored-state application helpers
-- Campaign authority foundation through Schema 60 with persisted monotonic IDs,
+- Campaign authority foundation through Schema 61 with persisted monotonic IDs,
   typed command receipts, resource transactions, exact force quotes/manifests,
   durable per-projection SpawnQueue state, bounded accepted-settlement replay
   tombstones, separately typed exact player QRF/Search-and-Destroy and enemy-QRF
   operations, exact convoy/patrol/mission-guard/rescue operations, and durable
-  radio-site lifecycle
+  radio-site lifecycle, plus marker-record revision/tombstone state, one marker-
+  projection epoch/global sequence, and a bounded authoritative client stream
 - One versioned `OperationRecord` for each newly confirmed exact paid player
   infantry QRF, plus conservative backfill for uniquely coherent accepted active
   schema-48 rows. It separates immutable origin/assignment from tactical target
@@ -220,7 +221,33 @@
   prune/restore and corrupt retention but has not run. Diff check is clean apart
   from line-ending warnings. Packaged movement/combat, actual restart, rendered
   UI, stutter/horn, networking, reconnect, and JIP evidence remains open.
-- The same checkpoint represents Maiden's Bay once as the Logistics Warehouse.
+- Schema 61 is the current marker-only authoritative client-projection source
+  boundary. Logical campaign markers retain stable IDs, per-record revisions,
+  last stream sequences, and deletion tombstones under one persisted epoch and
+  global watermark. The server publishes bounded hashed snapshot chunks or
+  retained contiguous deltas through ownership-derived player sessions, and the
+  client atomically maintains a widget-independent registry before reconciling
+  client-local native campaign markers. One in-flight batch, final-only ACK,
+  post-ACK catch-up, readiness heartbeat, and per-dispatch restart age cover
+  rapid mutation, incomplete delivery, and lost ACK without overlapping a fresh
+  stream. Builders and decoders share hard payload bounds. Duplicate replay is
+  idempotent; gaps,
+  invalid revisions, epoch/hash mismatch, malformed packets, reconnect, late
+  join, or unavailable journal history converge through resync/full snapshot.
+  Server-native campaign marker publication is retired, while dynamic player
+  markers remain on their existing replicated-entity path. Native capping uses
+  deterministic priority/stable-ID ordering. Authored stock descriptors
+  hide only behind a confirmed live custom replacement and restore on failure.
+  Pre-61 derived rows rebuild without inventing domain facts, and malformed
+  current projection advances the epoch. Compiled deterministic source fixtures
+  define ordering, rapid/snapshot-pending catch-up, lost-ACK recovery, resync,
+  epoch reset, reconnect/JIP shape, ACK pruning, malformed/oversize input, and
+  migration, but packaged
+  host/two-client equality, rendered native cleanup, map close/reopen, and real
+  save/restart remain open, and the fixtures have not run in Campaign Debug.
+  Schema 60 remains the latest completed stamp until
+  the Schema-61 implementation/stamp cycle is finalized.
+- The Schema-60 checkpoint represents Maiden's Bay once as the Logistics Warehouse.
   Restore cleanup is no-op when neither location row exists and fails closed
   before rewrites when location authority is ambiguous. With one authority it
   preserves canonical warehouse ownership/economy, removes the duplicate
@@ -376,7 +403,10 @@
   the radio icon instead of assuming an array index, includes location and owner
   in zone labels, keeps the map pointer above target-confirmation dialogs, and
   reuses authored radio transmitters for compositions and destroy targets.
-  These repairs await packaged proof.
+  Schema 61 additionally streams logical campaign markers through a revisioned,
+  tombstoned client registry and makes that registry the sole owner of local
+  native campaign marker reconciliation. Exact authored static-marker names are
+  cached instead of radius-polled. These repairs await packaged proof.
 - Balance/pacing diagnostics for strategic score, control percentage, war-level
   thresholds, enemy pressure, victory readiness, and recommended next pressure
 - Strategic victory/loss evaluation with persistent campaign-end reason,
@@ -385,7 +415,8 @@
 
 ## Current Verification Boundary
 
-- Schema 60 is the latest stamped source/Workbench checkpoint under label
+- Schema 61 is the current marker-projection source boundary. Schema 60 remains
+  the latest completed stamped source/Workbench checkpoint under label
   `schema60-exact-search-destroy`, with implementation
   `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
   `2026-07-11T23:24:55Z`, and CRC `7aa80fc9`. Schema 59 is the preceding
@@ -394,7 +425,8 @@
   `location_taxonomy.maidens_bay_schema60`, but Campaign Debug has not executed
   that assertion; the Search-and-Destroy proof and typed-QRF mismatch assertion
   are also compiled/wired but unexecuted. No packaged restore/restart, rendered
-  UI, stutter/horn, or live behavior evidence exists.
+  UI, stutter/horn, or live behavior evidence exists. Schema-61 source fixtures
+  are not host/client/reconnect/JIP runtime evidence.
 - A published schema-49 server/client check verified that normal stock HUD, Game
   Master access, map publication, and civilian traffic initialize again. This
   closes the earlier missing-config-metadata regression. The late-admin recursive
@@ -581,9 +613,9 @@
 
 ## Current Delivery Priorities
 
-- Publish the exact stamped `schema60-exact-search-destroy` package while
-  preserving Schema 59 as the preceding checkpoint
-  and the already restored stock HUD/Game Master behavior. Require valid-sized
+- Finish/stamp the Schema-61 marker-projection checkpoint, publish that exact
+  package, and preserve the already restored stock HUD/Game Master behavior.
+  Require host/client registry identity plus valid-sized
   icons, location-plus-owner-plus-status
   labels, pointer-over-dialog ordering, exactly one borrowed authored
   transmitter, reciprocal physical destroy evidence with 0.75-meter authored
@@ -686,8 +718,17 @@
   networking, reconnect, and JIP. Missing or ambiguous initial targets must
   remain unresolved rather than generating a substitute; projection-seam source
   proof is not packaged verification.
-- Prove static marker widget readiness and implement authoritative host/client/
-  late-join snapshot, revision, delete, acknowledgement, and resync behavior.
+- Prove static marker widget readiness and the implemented Schema-61
+  authoritative host/client/late-join snapshot, revision, tombstone,
+  acknowledgement, gap, and resync behavior. Require equal hashes/watermarks,
+  map-close continuity, no duplicate server-native campaign set, and real
+  reconnect/save-restart; keep dynamic player markers and non-marker campaign
+  projection outside this claim.
+- Continue the next source slice with one canonical idempotent ownership-
+  transition service before adding virtual capture outcomes or broader
+  encounter simulation. One revisioned result must own every strategic side
+  effect and feed marker/menu/GM projections rather than duplicating mutation
+  policy across capture and political-flip callers.
 - Runtime-prove both exact-QRF `OperationRecord` policies: player virtual combat/
   recall/archive and enemy defensive arrival/return/proportional settlement,
   including physical/virtual transfer, marker cleanup, and restore for both.
@@ -697,8 +738,8 @@
   force consumer at a time. Schema 57 exhausts assassination guards and Schema
   58 implements only the first rescue slice; Schema 59 separately exactifies
   radio-site identity and lifecycle; Schema 60 adds only the player Search-and-
-  Destroy force consumer. Other rescue and unsupported mission/support families
-  remain legacy. Packaged schema-50 through schema-60
+  Destroy force consumer; Schema 61 adds only marker projection. Other rescue
+  and unsupported mission/support families remain legacy. Packaged schema-50 through schema-61
   certification remains independently required.
 
 ## Next Playable Expansion

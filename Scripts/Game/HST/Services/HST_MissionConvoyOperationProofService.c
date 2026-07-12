@@ -2045,7 +2045,7 @@ class HST_MissionConvoyOperationProofService
 			&& Distance2D(recoveryDestination.m_vPosition, recovery.m_State.m_vHQPosition) < 0.1
 			&& recoveryDestination.m_sLabel.Contains("HQ");
 		markers.CleanupMarkers(recovery.m_State);
-		bool recoveryCleanupExact = recovery.m_State.m_aMapMarkers.Count() == 0;
+		bool recoveryCleanupExact = CountLiveMarkers(recovery.m_State) == 0;
 
 		HST_MissionConvoyOperationProofFixture supplyRecovery = BuildAdmittedFixture("marker_supply_recovery", true, "convoy_supplies");
 		bool supplyRecoveryPrepared = Ready(supplyRecovery) && EliminateExactCrewAuthority(supplyRecovery);
@@ -2086,7 +2086,7 @@ class HST_MissionConvoyOperationProofService
 				&& Distance2D(supplyDestination.m_vPosition, expectedSupplyDestination.m_vPosition) < 0.1
 				&& supplyDestination.m_sLabel.Contains("Proof Support Town");
 		markers.CleanupMarkers(supplyRecovery.m_State);
-		bool supplyCleanupExact = supplyRecovery.m_State.m_aMapMarkers.Count() == 0;
+		bool supplyCleanupExact = CountLiveMarkers(supplyRecovery.m_State) == 0;
 
 		HST_MissionConvoyOperationProofFixture vehicleRecovery = BuildAdmittedFixture("marker_vehicle_recovery", true, "convoy_ammo");
 		bool vehicleRecoveryPrepared = Ready(vehicleRecovery) && EliminateExactCrewAuthority(vehicleRecovery);
@@ -2110,7 +2110,7 @@ class HST_MissionConvoyOperationProofService
 			&& Distance2D(vehicleDestination.m_vPosition, expectedVehicleDestination.m_vCurrentPosition) < 0.1
 			&& vehicleDestination.m_sLabel.Contains("vehicle recovery");
 		markers.CleanupMarkers(vehicleRecovery.m_State);
-		bool vehicleCleanupExact = vehicleRecovery.m_State.m_aMapMarkers.Count() == 0;
+		bool vehicleCleanupExact = CountLiveMarkers(vehicleRecovery.m_State) == 0;
 
 		report.m_bMarkerExact = aggregateExact && cleanupExact
 			&& recoveryAggregateExact && recoveryCleanupExact
@@ -3196,7 +3196,7 @@ class HST_MissionConvoyOperationProofService
 			return count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_sLinkedId == missionInstanceId && marker.m_bVisible)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sLinkedId == missionInstanceId)
 				count++;
 		}
 		return count;
@@ -3209,7 +3209,7 @@ class HST_MissionConvoyOperationProofService
 			return count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_sMarkerId == markerId)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sMarkerId == markerId)
 				count++;
 		}
 		return count;
@@ -3222,7 +3222,20 @@ class HST_MissionConvoyOperationProofService
 			return count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_sMarkerId.IndexOf(markerIdPrefix) == 0)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sMarkerId.IndexOf(markerIdPrefix) == 0)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountLiveMarkers(HST_CampaignState state)
+	{
+		int count;
+		if (!state)
+			return count;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && !marker.m_bTombstone && marker.m_bVisible)
 				count++;
 		}
 		return count;

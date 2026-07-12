@@ -8,6 +8,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	static const int CLIENT_MAP_MARKER_REFRESH_MAX_RETRIES = 10;
 	static const int CLIENT_MAP_MARKER_REFRESH_RETRY_MS = 250;
 	static const float RUNTIME_FEATURE_SETTINGS_RETRY_SECONDS = 0.5;
+	static const float MARKER_PROJECTION_READY_RETRY_SECONDS = 1.0;
+	static const float MARKER_PROJECTION_KEEPALIVE_SECONDS = 5.0;
 	static const float INFINITE_STAMINA_REFILL_INTERVAL_SECONDS = 0.1;
 	static const float INFINITE_STAMINA_TARGET = 0.98;
 	static const ResourceName PLAYER_MARKER_CONFIG = "{6985327711306212}Configs/Map/HST_PlayerMapMarkerConfig.conf";
@@ -19,6 +21,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected IEntity m_OwnerEntity;
 	protected string m_sLastSnapshot;
 	protected string m_sLastResult;
+	protected ref HST_ClientMarkerProjectionService m_ClientMarkerProjection = new HST_ClientMarkerProjectionService();
 	protected bool m_bIsLocalOwner;
 	protected bool m_bNativeMapMarkerRefreshBound;
 	protected bool m_bNativeMapMarkerRefreshQueued;
@@ -29,6 +32,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected bool m_bPlayerMarkerConfigUnavailable;
 	protected float m_fOwnerRetryAccumulator;
 	protected float m_fRuntimeFeatureSettingsRetryAccumulator;
+	protected float m_fMarkerProjectionReadyRetryAccumulator;
 	protected float m_fInfiniteStaminaAccumulator;
 	protected int m_iNativeMapMarkerRefreshRetries;
 	protected int m_iInfiniteStaminaRefillCount;
@@ -57,6 +61,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (m_bIsLocalOwner)
 		{
 			UnbindNativeMapMarkerRefresh();
+			if (m_ClientMarkerProjection)
+				m_ClientMarkerProjection.Clear();
 			SCR_StaminaBlurEffect.SetHistasiInfiniteStaminaVisualSuppressed(false);
 		}
 
@@ -78,6 +84,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (m_bIsLocalOwner)
 		{
 			TickRuntimeFeatureSettingsRequest(timeSlice);
+			TickMarkerProjectionReadiness(timeSlice);
 			TickInfiniteStamina(timeSlice);
 			return;
 		}
@@ -111,6 +118,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		s_LocalOwner = this;
 		BindNativeMapMarkerRefresh();
 		RequestRuntimeFeatureSettingsNow("local owner");
+		RequestMarkerProjectionReadyNow("local owner");
 	}
 
 	protected static void RecoverLocalOwnerFromController(string reason)
@@ -167,6 +175,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 
 		m_iNativeMapMarkerRefreshRetries = 0;
+		if (m_ClientMarkerProjection)
+			m_ClientMarkerProjection.RetryMissingAuthoredZoneDescriptorBindings();
 		QueueClientNativeMapMarkerRefresh(0);
 	}
 
@@ -226,7 +236,10 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		DebugLog(string.Format("map ui ready | root %1 markerUI %2 toolMenuUI %3 toolInteractionUI %4 toolMenuWidget %5 toolMenuBarWidget %6 retry %7", rootName, markerUIReady, toolMenuUIReady, toolInteractionUIReady, toolMenuWidgetReady, toolMenuBarWidgetReady, m_iNativeMapMarkerRefreshRetries));
-		if (!RefreshHSTPlayerMarkerWidgets())
+		bool campaignMarkersReady = true;
+		if (m_ClientMarkerProjection)
+			campaignMarkersReady = m_ClientMarkerProjection.ReconcileNativeMarkers();
+		if (!campaignMarkersReady || !RefreshHSTPlayerMarkerWidgets())
 			RetryClientNativeMapMarkerRefresh();
 	}
 
@@ -485,6 +498,54 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		}
 
 		return bridgeCount;
+	}
+
+	static int PublishPendingMarkerProjectionToConnectedOwners(string reason)
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		int delivered;
+		foreach (int playerId : playerIds)
+		{
+			HST_CommandMenuRequestComponent request = ResolvePlayerRequestBridge(playerManager, playerId);
+			if (!request)
+				continue;
+
+			if (request.SendPendingMarkerProjection(reason, playerId))
+				delivered++;
+		}
+
+		return delivered;
+	}
+
+	static int ResetMarkerProjectionForConnectedOwners(string reason)
+	{
+		if (!Replication.IsServer())
+			return 0;
+
+		PlayerManager playerManager = GetGame().GetPlayerManager();
+		if (!playerManager)
+			return 0;
+
+		array<int> playerIds = {};
+		playerManager.GetPlayers(playerIds);
+		int resetCount;
+		foreach (int playerId : playerIds)
+		{
+			HST_CommandMenuRequestComponent request = ResolvePlayerRequestBridge(playerManager, playerId);
+			if (!request)
+				continue;
+			request.DeliverMarkerProjectionReset(reason);
+			resetCount++;
+		}
+		return resetCount;
 	}
 
 	static bool SendPetrosRelocationStateOwner(int playerId, bool active)
@@ -762,6 +823,88 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		return ResolveNativeLocalPlayerId();
 	}
 
+	void RequestMarkerProjectionReadyNow(string reason)
+	{
+		if (!m_bIsLocalOwner || !m_ClientMarkerProjection)
+			return;
+
+		HST_ClientMarkerProjectionRegistry registry = m_ClientMarkerProjection.GetRegistry();
+		int knownEpoch;
+		int knownSequence;
+		string knownHash;
+		if (registry && registry.IsReady())
+		{
+			knownEpoch = registry.GetEpoch();
+			knownSequence = registry.GetWatermark();
+			knownHash = registry.GetRegistryHash();
+		}
+
+		int clientPlayerId = ResolveLocalPlayerId();
+		m_fMarkerProjectionReadyRetryAccumulator = 0;
+		if (Replication.IsServer())
+		{
+			SendMarkerProjectionReady(
+				HST_MarkerProjectionCodec.PROTOCOL_VERSION,
+				knownEpoch,
+				knownSequence,
+				knownHash,
+				clientPlayerId,
+				reason);
+			return;
+		}
+
+		Rpc(
+			RpcAsk_MarkerProjectionReady,
+			HST_MarkerProjectionCodec.PROTOCOL_VERSION,
+			knownEpoch,
+			knownSequence,
+			knownHash,
+			clientPlayerId,
+			reason);
+	}
+
+	protected void AcknowledgeMarkerProjection(HST_MarkerProjectionApplyResult result)
+	{
+		if (!result || !result.m_bNeedsAcknowledge)
+			return;
+
+		int clientPlayerId = ResolveLocalPlayerId();
+		if (Replication.IsServer())
+		{
+			SendMarkerProjectionAcknowledge(
+				HST_MarkerProjectionCodec.PROTOCOL_VERSION,
+				result.m_iEpoch,
+				result.m_sSnapshotId,
+				result.m_iAcknowledgeSequence,
+				result.m_sRegistryHash,
+				clientPlayerId);
+			return;
+		}
+
+		Rpc(
+			RpcAsk_MarkerProjectionAcknowledge,
+			HST_MarkerProjectionCodec.PROTOCOL_VERSION,
+			result.m_iEpoch,
+			result.m_sSnapshotId,
+			result.m_iAcknowledgeSequence,
+			result.m_sRegistryHash,
+			clientPlayerId);
+	}
+
+	protected void RequestMarkerProjectionResync(string reason)
+	{
+		if (m_ClientMarkerProjection)
+			m_ClientMarkerProjection.RequireSnapshot("resync requested: " + reason);
+		int clientPlayerId = ResolveLocalPlayerId();
+		if (Replication.IsServer())
+		{
+			SendMarkerProjectionResync(reason, clientPlayerId);
+			return;
+		}
+
+		Rpc(RpcAsk_MarkerProjectionResync, reason, clientPlayerId);
+	}
+
 	void RequestSnapshot(string selectedTabId, string lastResult = "")
 	{
 		int clientPlayerId = ResolveLocalPlayerId();
@@ -904,6 +1047,24 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_MarkerProjectionReady(int protocolVersion, int knownEpoch, int knownSequence, string knownRegistryHash, int clientPlayerId, string reason)
+	{
+		SendMarkerProjectionReady(protocolVersion, knownEpoch, knownSequence, knownRegistryHash, clientPlayerId, reason);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_MarkerProjectionAcknowledge(int protocolVersion, int epoch, string snapshotId, int sequence, string registryHash, int clientPlayerId)
+	{
+		SendMarkerProjectionAcknowledge(protocolVersion, epoch, snapshotId, sequence, registryHash, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
+	protected void RpcAsk_MarkerProjectionResync(string reason, int clientPlayerId)
+	{
+		SendMarkerProjectionResync(reason, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Server)]
 	protected void RpcAsk_RequestSnapshot(string selectedTabId, string lastResult, int clientPlayerId)
 	{
 		SendSnapshotToOwner(selectedTabId, lastResult, clientPlayerId);
@@ -967,6 +1128,41 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	protected void RpcAsk_ReportCampaignDebugMapProof(string requestId, string report, int clientPlayerId)
 	{
 		ReceiveCampaignDebugMapProofReport(requestId, report, clientPlayerId);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ReceiveMarkerProjectionPacket(string payload)
+	{
+		if (!m_ClientMarkerProjection)
+			m_ClientMarkerProjection = new HST_ClientMarkerProjectionService();
+
+		HST_MarkerProjectionApplyResult result = m_ClientMarkerProjection.ReceivePacket(payload);
+		if (!result)
+		{
+			RequestMarkerProjectionResync("client projection apply returned no result");
+			return;
+		}
+		if (result.m_bNeedsResync)
+		{
+			RequestMarkerProjectionResync(result.m_sReason);
+			return;
+		}
+		if (result.m_bAccepted
+			&& result.m_bRegistryChanged
+			&& (result.m_bSnapshotCommitted || result.m_bNeedsAcknowledge))
+			QueueClientNativeMapMarkerRefresh(0);
+		if (result.m_bNeedsAcknowledge)
+			AcknowledgeMarkerProjection(result);
+	}
+
+	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
+	protected void RpcDo_ResetMarkerProjection(string reason)
+	{
+		if (!m_ClientMarkerProjection)
+			m_ClientMarkerProjection = new HST_ClientMarkerProjectionService();
+		m_ClientMarkerProjection.Clear();
+		QueueClientNativeMapMarkerRefresh(0);
+		RequestMarkerProjectionReadyNow("server projection reset: " + reason);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1150,6 +1346,128 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		DebugLog(string.Format("snapshot request | selected=%1 ownerPlayer=%2 clientHint=%3", selectedTabId, playerId, clientPlayerId));
 		string payload = coordinator.BuildVisibleMenuPayload(playerId, selectedTabId, lastResult);
 		DeliverSnapshot(payload, lastResult);
+	}
+
+	protected void SendMarkerProjectionReady(
+		int protocolVersion,
+		int knownEpoch,
+		int knownSequence,
+		string knownRegistryHash,
+		int clientPlayerId,
+		string reason)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		HST_MarkerProjectionDispatch dispatch = coordinator.RequestMarkerProjectionReady(
+			m_OwnerEntity,
+			clientPlayerId,
+			protocolVersion,
+			knownEpoch,
+			knownSequence,
+			knownRegistryHash);
+		DeliverMarkerProjectionDispatch(dispatch);
+	}
+
+	protected void SendMarkerProjectionAcknowledge(
+		int protocolVersion,
+		int epoch,
+		string snapshotId,
+		int sequence,
+		string registryHash,
+		int clientPlayerId)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		string result = coordinator.AcknowledgeMarkerProjection(
+			m_OwnerEntity,
+			clientPlayerId,
+			protocolVersion,
+			epoch,
+			snapshotId,
+			sequence,
+			registryHash);
+		if (result.IndexOf("accepted:") == 0)
+		{
+			HST_MarkerProjectionDispatch pending = coordinator.BuildPendingMarkerProjection(
+				m_OwnerEntity,
+				clientPlayerId,
+				"post-acknowledgement catch-up");
+			DeliverMarkerProjectionDispatch(pending);
+			return;
+		}
+
+		HST_MarkerProjectionDispatch dispatch = coordinator.BuildPendingMarkerProjection(
+			m_OwnerEntity,
+			clientPlayerId,
+			"acknowledgement recovery");
+		DeliverMarkerProjectionDispatch(dispatch);
+	}
+
+	protected void SendMarkerProjectionResync(string reason, int clientPlayerId)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return;
+
+		HST_MarkerProjectionDispatch dispatch = coordinator.RequestMarkerProjectionResync(
+			m_OwnerEntity,
+			clientPlayerId,
+			reason);
+		DeliverMarkerProjectionDispatch(dispatch);
+	}
+
+	protected bool SendPendingMarkerProjection(string reason, int clientPlayerId)
+	{
+		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
+		if (!coordinator)
+			return false;
+
+		HST_MarkerProjectionDispatch dispatch = coordinator.BuildPendingMarkerProjection(
+			m_OwnerEntity,
+			clientPlayerId,
+			reason);
+		return DeliverMarkerProjectionDispatch(dispatch) > 0;
+	}
+
+	protected int DeliverMarkerProjectionDispatch(HST_MarkerProjectionDispatch dispatch)
+	{
+		if (!dispatch || !dispatch.HasPackets())
+			return 0;
+
+		int delivered;
+		foreach (string packet : dispatch.m_aPackets)
+		{
+			if (packet.IsEmpty())
+				continue;
+			DeliverMarkerProjectionPacket(packet);
+			delivered++;
+		}
+		return delivered;
+	}
+
+	protected void DeliverMarkerProjectionPacket(string payload)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_ReceiveMarkerProjectionPacket(payload);
+			return;
+		}
+
+		Rpc(RpcDo_ReceiveMarkerProjectionPacket, payload);
+	}
+
+	protected void DeliverMarkerProjectionReset(string reason)
+	{
+		if (Replication.IsServer() && IsLocalOwner(m_OwnerEntity))
+		{
+			RpcDo_ResetMarkerProjection(reason);
+			return;
+		}
+		Rpc(RpcDo_ResetMarkerProjection, reason);
 	}
 
 	protected void SendRuntimeFeatureSettingsToOwner(int clientPlayerId = 0)
@@ -1618,6 +1936,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			report = report + " | staticRootMissingSamples " + staticRootMissingSamples;
 		report = report + string.Format(" | toolMenuUI %1 | toolInteractionUI %2 | toolMenuWidget %3 | toolMenuBarWidget %4", toolMenuUI, toolInteractionUI, toolMenuWidget, toolMenuBarWidget);
 		report = report + string.Format(" | openedByProof %1", m_bCampaignDebugMapProofOpenedMap);
+		if (m_ClientMarkerProjection)
+			report = report + " | projection " + ShortenText(m_ClientMarkerProjection.BuildReport(), 260);
 		report = report + " | rootSummary " + ShortenText(rootSummary, 140);
 		return report;
 	}
@@ -1645,6 +1965,25 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		m_fRuntimeFeatureSettingsRetryAccumulator = 0;
 		RequestRuntimeFeatureSettingsNow("retry");
+	}
+
+	protected void TickMarkerProjectionReadiness(float timeSlice)
+	{
+		if (!m_ClientMarkerProjection)
+			m_ClientMarkerProjection = new HST_ClientMarkerProjectionService();
+		HST_ClientMarkerProjectionRegistry registry = m_ClientMarkerProjection.GetRegistry();
+		m_fMarkerProjectionReadyRetryAccumulator += timeSlice;
+		float requestInterval = MARKER_PROJECTION_READY_RETRY_SECONDS;
+		if (registry && registry.IsReady())
+			requestInterval = MARKER_PROJECTION_KEEPALIVE_SECONDS;
+		if (m_fMarkerProjectionReadyRetryAccumulator < requestInterval)
+			return;
+
+		m_fMarkerProjectionReadyRetryAccumulator = 0;
+		if (registry && registry.IsReady())
+			RequestMarkerProjectionReadyNow("readiness keepalive");
+		else
+			RequestMarkerProjectionReadyNow("readiness retry");
 	}
 
 	protected void RequestRuntimeFeatureSettingsNow(string reason)

@@ -4,7 +4,7 @@
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through schema-60 authority services are:
+schema-42 through schema-61 authority services are:
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
 the one-second maintenance path reuses registered player authority, while
@@ -551,7 +551,38 @@ The remaining domain services are:
   Schema 54 publishes one marker per open exact purchased-garrison patrol at its
   virtual/live position with assignment location, current owner, role, and
   durable survivor count. Forces UI reports exact patrol infantry separately
-  from legacy aggregate infantry; neither presentation owns the roster.
+  from legacy aggregate infantry; neither presentation owns the roster. Schema
+  61 makes this rebuild the source of a revisioned logical marker registry: an
+  unchanged stable ID keeps its revision/sequence, create or content update
+  advances both record revision and the global stream, and removal emits a
+  bounded tombstone. Server-native campaign marker publication is retired;
+  clients reconcile native campaign markers from the authoritative registry.
+  Authored static markers bind through one cached exact
+  `HST_ConflictMapMarker_<zoneId>` entity-name lookup; the prior periodic
+  radius scan is not part of identity or refresh authority.
+- `HST_MarkerProjectionCodec`: owns marker protocol version `1`, bounded string
+  encoding/decoding, escaped fields, snapshot/delta headers, packet record and
+  character limits, and deterministic live-registry hashing. It rejects malformed
+  or oversized payloads before a client registry can mutate.
+- `HST_ClientProjectionService`: owns the server's current marker registry,
+  bounded ordered event journal, and one readiness/ACK session per connected
+  player. It sends hashed chunked snapshots for first join, reconnect, late join,
+  epoch/hash mismatch, unavailable history, or resync; otherwise it replays only
+  a retained contiguous delta range. The slowest valid connected ACK constrains
+  pruning.
+- `HST_ClientMarkerProjectionService`: owns the widget-independent client
+  registry and native-marker reconciliation. Snapshot chunks stage until the
+  complete count and hash validate, then replace the registry atomically.
+  Deltas must begin at the next global sequence and advance each marker's
+  revision exactly once. Old duplicates are acknowledged idempotently; a gap or
+  invalid revision requests resync without partial mutation. Map open/reopen
+  only reconciles widgets from this already-current registry.
+- `HST_MarkerProjectionSaveValidationService`: rebuilds pre-61 derived marker
+  rows without inventing campaign facts and advances the epoch before replacing
+  malformed current projection state. `HST_MarkerProjectionProofService`
+  defines fixtures for snapshot/JIP, ordered create/update/delete, duplicate replay,
+  dropped-delta resync, reconnect, ACK pruning, malformed input, and migration
+  idempotency; they remain unexecuted deterministic source fixtures.
 - `HST_ZoneCompositionService`: runtime alpha composition slots for zone and
   mission physicalization diagnostics. Schema 59 removes radio transmitters
   from this generic owner's spawn and cleanup authority. The radio-site service
@@ -559,11 +590,16 @@ The remaining domain services are:
   borrowed authored entity, and creates a generated transmitter only after a
   rebuild actually completes; unresolved initial sites receive no fallback.
 
-Static marker rendering has a separate client lifecycle boundary. A small
-manager patch retries root creation before the stock static-marker update and
-disables a marker that remains rootless. The rendered-map proof waits for the
-delayed client pass and inspects actual active roots and widget components;
-server publication/reconciler counts are reported only as native handles.
+Static marker rendering has a separate client lifecycle boundary. Schema 61
+keeps the authoritative marker registry alive whether or not the map widget is
+open, then creates/updates/removes client-local native campaign markers from that
+registry when the native map surface is available. A small manager patch retries
+root creation before the stock static-marker update and disables a marker that
+remains rootless. The rendered-map proof waits for the delayed client pass and
+inspects actual active roots and widget components; protocol registry equality
+and native handle/widget readiness are distinct proof gates. Dynamic player
+markers remain on the existing replicated-entity path and are not records in the
+Schema-61 stream.
 Config-backed modded classes on this path must also repeat the base class's
 container metadata. A packaged schema-49 test verified that restoring the
 original `BaseContainerProps` and custom-title attributes brought normal Game
@@ -591,6 +627,10 @@ Client UI requests flow through player-owned request/RPC components and
 ownership-resolved coordinator methods, so the server resolves the trusted
 identity and enforces member, commander, and admin permissions instead of
 trusting client-provided player IDs.
+The same player-owned bridge carries marker-projection readiness, contiguous
+acknowledgements, resync requests, and reliable owner-targeted payloads. Server
+session identity is derived from the owned controller/component; a client-
+supplied player ID is diagnostic input only and cannot select another session.
 
 ## Campaign Authority Boundary
 
@@ -803,6 +843,23 @@ pass with 644 symbol references, and final Workbench CRC `7aa80fc9` at 5,777
 files/11,615 classes. Schema 59 is the preceding checkpoint. This provenance is
 not packaged or live-behavior certification.
 
+Schema 61 adds the first bounded authoritative client projection without adding
+an operation family. The durable marker registry uses stable IDs, record
+revisions, tombstones, an epoch, and a monotonic global sequence. A server
+snapshot/delta journal and ownership-derived ACK sessions feed widget-independent
+client registries, which in turn own local native campaign markers. One in-flight
+delta batch, final-packet ACK, post-ACK catch-up, bounded readiness heartbeat,
+and per-dispatch restart age prevent overlap while recovering lost ACKs or
+incomplete streams. Builders and decoders enforce the same payload limits. The
+client caches authored descriptor bindings and hides one only after its custom
+zone replacement is live, restoring prior visibility on failure. Shared
+priority/stable-ID ordering makes marker caps deterministic. The compiled source
+proof defines ordering, idempotency, gaps/resync, reconnect/JIP-shaped snapshots,
+rapid mutations, lost ACK, epoch reset, pruning, malformed/oversize input, and migration. Packaged host/two-client equality,
+actual reconnect/late join, native widget behavior, and process restart remain
+open, and its fixtures have not been executed as runtime evidence. Schema 60 remains the latest completed stamp until the Schema-61
+implementation/stamp cycle is finalized.
+
 | Concern | Current implementation | Target architecture |
 | --- | --- | --- |
 | Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Schema 58 additionally binds the rescue operation/guard graph to three deterministic captive slots, one frozen extraction position, and stable escort, carrier, seat, command, casualty, extraction, and projection evidence. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
@@ -812,7 +869,14 @@ not packaged or live-behavior certification.
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, player Search-and-Destroy, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-59 retain their exact paths. Schema 60 adds a separately typed player Search-and-Destroy operation with direct-route progress, exact virtual/physical survivors, bounded virtual combat, return-to-assignment after displaced fold, on-station hold after hostile clear, commander recall, and fail-closed restore isolation. Historical requests remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
 | Event history | New command and ledger decisions append to a bounded persisted campaign event log. | All authoritative state transitions emit typed events consumed by projections, UI, diagnostics, and restore reconciliation. |
-| Certification | Schema 60 is the latest stamped source/Workbench boundary at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`. Full Foundation passes with 644 symbol references. Final Workbench Game validation loaded 5,777 files/11,615 classes with CRC `7aa80fc9` and created the game; the correctly targeted hidden normal WorldEditor stayed alive/responding 10/10 samples over 20 seconds with no first-party error/crash signature. Diff check was clean apart from line-ending warnings. Schema 59 is the preceding checkpoint. Both Schema-60 proof services and the typed-QRF mismatch assertion are compiled/wired but unexecuted. Every packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect/JIP gate remains open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+| Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; dynamic player markers remain separate. | Extend the same explicit projection discipline only after each additional menu/task/notification model has a bounded DTO and authority contract. |
+| Certification | Schema 61 is the current marker-projection source boundary; Schema 60 remains the latest completed stamped source/Workbench boundary at implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, and CRC `7aa80fc9` until the Schema-61 implementation/stamp cycle is finalized. Schema-61 deterministic fixtures and Workbench compilation are source evidence only. Every packaged server/client, actual restart, rendered-UI, stutter/horn, live-behavior, network/reconnect/JIP gate remains open. | Isolated physical runtime, save/load/reprojection, dedicated-server, reconnect, and JIP evidence certifies the full boundary. |
+
+The next source dependency is the canonical idempotent ownership transition:
+one service/result must own owner, garrison/security, support, facility/logistics,
+economy, enemy consequence, event, persistence, and derived projection changes.
+Schema 61 provides the marker consumer for that transition; it does not make the
+currently distributed capture and political-flip mutations canonical by itself.
 
 Concurrent open garrison quotes are capped and expired/terminal unreferenced
 planning rows can be pruned. SpawnQueue terminal projection rows have explicit
@@ -932,7 +996,9 @@ reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
 population/support, airfield metadata, support deployment proof, active-group
 vehicle prefab, active-group route waypoint counts, runtime infantry waypoint assignment and final-sweep state,
 HQ/Petros/cache/arsenal/tent/spawn-point fields,
-faction pools, players, zones, garrisons, active groups, QRFs, map markers,
+faction pools, players, zones, garrisons, active groups, QRFs, map markers with
+Schema-61 per-record revision/stream/tombstone metadata plus the marker-
+projection epoch and global sequence,
 generated content, objectives, mission runtime, mission assets, support, enemy
 order, civilian, undercover, arsenal, garage, vehicle cargo, runtime vehicle,
 saved loadout, issued-item, ammo point, and captured-emplacement records.
@@ -945,7 +1011,8 @@ coordinator reconciles the queue before garrison/player-QRF confirmation,
   enemy-patrol normalization, schema-54 purchased-garrison patrol normalization,
   schema-55 officer-mission guard normalization, schema-56 traitor-mission guard
   normalization, schema-57 spec-ops-mission guard normalization, Schema-60
-  player Search-and-Destroy normalization, Maiden's Bay location retirement, and
+  player Search-and-Destroy normalization, Maiden's Bay location retirement,
+  Schema-61 marker-projection normalization, and
 open-resource reservations. Accepted exact
 QRFs never reacquire saved entity IDs. Schema 50 clears process-local root/
 member/native-group evidence and keeps one nonterminal batch in strategic hold;
@@ -1046,6 +1113,16 @@ deep canonical clones support new generation. Mutable lookup resolves the
 warehouse, and detached old-ID lookup plus runtime ID equivalence protects
 frozen historical links. The isolated migration proof is compiled and wired to
 Campaign Debug but has not been executed; packaged restore/restart remains open.
+
+Schema-61 migration treats map markers as derived projection state. Pre-61
+records are cleared and rebuilt from zones, missions, forces, and other durable
+owners with fresh revision/stream metadata; migration never infers one of those
+owners from an old marker. A current-state projection with invalid epoch,
+sequence, revision, tombstone, stable-ID, or stream relationships is also cleared
+and rebuilt, but first advances the epoch so a connected client cannot continue
+an incompatible stream. The migration and normalization events are idempotent.
+The source proof exercises this boundary in memory; serialization and a real
+process restart remain packaged-runtime gates.
 
 Event-driven physical life-state subscription, generalized
 vehicle/asset rosters, generalized folding, live physical engagement events,

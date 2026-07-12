@@ -96,6 +96,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_ForceCompositionService m_ForceCompositions;
 	protected ref HST_SpawnPlacementService m_SpawnPlacements;
 	protected ref HST_MapMarkerService m_MapMarkers;
+	protected ref HST_ClientProjectionService m_ClientProjection;
 	protected ref HST_PlayerMapMarkerService m_PlayerMapMarkers;
 	protected ref HST_CommandUIService m_CommandUI;
 	protected ref HST_LootService m_Loot;
@@ -351,6 +352,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MapMarkers && m_Settings && m_Settings.m_Features)
 			m_MapMarkers.SetTrackResistanceSupportGroupsOnMap(m_Settings.m_Features.m_bTrackResistanceSupportGroupsOnMap);
 		m_MapMarkers.BindNativeMapRefresh();
+		m_ClientProjection = new HST_ClientProjectionService();
 		m_PlayerMapMarkers = new HST_PlayerMapMarkerService();
 		if (m_PlayerMapMarkers && m_Settings && m_Settings.m_Debug)
 			m_PlayerMapMarkers.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
@@ -504,6 +506,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
 		HandlePlayerDisconnectedAuthority(playerId);
+		if (m_ClientProjection)
+			m_ClientProjection.RemovePlayer(playerId);
 		if (m_PlayerMapMarkers)
 			m_PlayerMapMarkers.RequestRefresh(string.Format("player disconnected %1", playerId));
 	}
@@ -1120,6 +1124,87 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	HST_CampaignState GetState()
 	{
 		return m_State;
+	}
+
+	HST_MarkerProjectionDispatch RequestMarkerProjectionReady(
+		IEntity requestOwner,
+		int clientPlayerId,
+		int protocolVersion,
+		int knownEpoch,
+		int knownSequence,
+		string knownRegistryHash)
+	{
+		if (!Replication.IsServer() || !m_ClientProjection)
+			return new HST_MarkerProjectionDispatch();
+
+		int playerId = ResolveAuthoritativePlayerId(requestOwner, clientPlayerId, "marker projection ready");
+		if (playerId <= 0)
+			return new HST_MarkerProjectionDispatch();
+		return m_ClientProjection.RegisterReady(
+			playerId,
+			protocolVersion,
+			knownEpoch,
+			knownSequence,
+			knownRegistryHash,
+			"owner readiness");
+	}
+
+	HST_MarkerProjectionDispatch BuildPendingMarkerProjection(IEntity requestOwner, int clientPlayerId, string reason)
+	{
+		if (!Replication.IsServer() || !m_ClientProjection)
+			return new HST_MarkerProjectionDispatch();
+
+		int playerId = ResolveAuthoritativePlayerId(requestOwner, clientPlayerId, "marker projection publish");
+		if (playerId <= 0)
+			return new HST_MarkerProjectionDispatch();
+		return m_ClientProjection.BuildPendingDispatch(playerId, reason);
+	}
+
+	string AcknowledgeMarkerProjection(
+		IEntity requestOwner,
+		int clientPlayerId,
+		int protocolVersion,
+		int epoch,
+		string snapshotId,
+		int sequence,
+		string registryHash)
+	{
+		if (!Replication.IsServer() || !m_ClientProjection)
+			return "rejected: marker projection service not ready";
+
+		int playerId = ResolveAuthoritativePlayerId(requestOwner, clientPlayerId, "marker projection acknowledgement");
+		if (playerId <= 0)
+			return "rejected: authoritative player identity unavailable";
+		return m_ClientProjection.Acknowledge(
+			playerId,
+			protocolVersion,
+			epoch,
+			snapshotId,
+			sequence,
+			registryHash);
+	}
+
+	HST_MarkerProjectionDispatch RequestMarkerProjectionResync(IEntity requestOwner, int clientPlayerId, string reason)
+	{
+		if (!Replication.IsServer() || !m_ClientProjection)
+			return new HST_MarkerProjectionDispatch();
+
+		int playerId = ResolveAuthoritativePlayerId(requestOwner, clientPlayerId, "marker projection resync");
+		if (playerId <= 0)
+			return new HST_MarkerProjectionDispatch();
+		reason.Replace("\r", " ");
+		reason.Replace("\n", " ");
+		if (reason.Length() > HST_ClientProjectionService.MAX_CLIENT_REASON_CHARACTERS)
+			reason = reason.Substring(0, HST_ClientProjectionService.MAX_CLIENT_REASON_CHARACTERS);
+		m_ClientProjection.RequestResync(playerId, reason);
+		return m_ClientProjection.BuildPendingDispatch(playerId, "explicit resync: " + reason);
+	}
+
+	string BuildMarkerProjectionReport()
+	{
+		if (!m_ClientProjection)
+			return "h-istasi marker projection | service not ready";
+		return m_ClientProjection.BuildReport();
 	}
 
 	string GetAlphaMemberMenu(int playerId)
@@ -8873,6 +8958,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int removedSupport = RemoveCampaignDebugPrefixedSupportRequests(fixturePrefix);
 		int removedGroups = RemoveCampaignDebugPrefixedActiveGroups(fixturePrefix);
 		int removedMarkers = RemoveCampaignDebugPrefixedMarkers(fixturePrefix);
+		RefreshCampaignMarkers();
 		AddCampaignDebugMetric(markerCase, "roadblock.marker.removed_support", string.Format("%1", removedSupport), "count");
 		AddCampaignDebugMetric(markerCase, "roadblock.marker.removed_groups", string.Format("%1", removedGroups), "count");
 		AddCampaignDebugMetric(markerCase, "roadblock.marker.removed_markers", string.Format("%1", removedMarkers), "count");
@@ -13335,7 +13421,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			if (marker && marker.m_sLinkedId == linkedId)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sLinkedId == linkedId)
 				return marker;
 		}
 
@@ -13905,7 +13991,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugStartActiveGroups = m_State.m_aActiveGroups.Count();
 		m_iCampaignDebugStartSupportRequests = m_State.m_aSupportRequests.Count();
 		m_iCampaignDebugStartEnemyOrders = m_State.m_aEnemyOrders.Count();
-		m_iCampaignDebugStartMarkers = m_State.m_aMapMarkers.Count();
+		m_iCampaignDebugStartMarkers = CountCampaignDebugLiveMarkers();
 		m_iCampaignDebugStartGarageVehicles = m_State.m_aGarageVehicles.Count();
 		m_iCampaignDebugStartArsenalItems = m_State.m_aArsenalItems.Count();
 		m_iCampaignDebugStartCivilianZones = m_State.m_aCivilianZones.Count();
@@ -14533,7 +14619,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			if (!marker || !marker.m_bVisible || marker.m_sLinkedId.IsEmpty())
+			if (!marker || marker.m_bTombstone || !marker.m_bVisible || marker.m_sLinkedId.IsEmpty())
 				continue;
 			if (HasCampaignDebugMarkerBacking(marker))
 				continue;
@@ -14704,7 +14790,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 			m_iCampaignDebugZoneMarkerExpectedCount++;
 			HST_MapMarkerState marker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
-			if (!marker || !marker.m_bVisible)
+			if (!marker || marker.m_bTombstone || !marker.m_bVisible)
 			{
 				m_iCampaignDebugZoneMarkerMissingCount++;
 				if (example.IsEmpty())
@@ -14764,7 +14850,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			if (!marker || !marker.m_bVisible)
+			if (!marker || marker.m_bTombstone || !marker.m_bVisible)
 				continue;
 			if (marker.m_sMarkerId.IndexOf("hst_zone_") != 0)
 				continue;
@@ -15131,7 +15217,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		lines.Insert(string.Format("active groups %1 -> %2 | delta %3", m_iCampaignDebugStartActiveGroups, m_State.m_aActiveGroups.Count(), m_State.m_aActiveGroups.Count() - m_iCampaignDebugStartActiveGroups));
 		lines.Insert(string.Format("support requests %1 -> %2 | delta %3", m_iCampaignDebugStartSupportRequests, m_State.m_aSupportRequests.Count(), m_State.m_aSupportRequests.Count() - m_iCampaignDebugStartSupportRequests));
 		lines.Insert(string.Format("enemy orders %1 -> %2 | delta %3", m_iCampaignDebugStartEnemyOrders, m_State.m_aEnemyOrders.Count(), m_State.m_aEnemyOrders.Count() - m_iCampaignDebugStartEnemyOrders));
-		lines.Insert(string.Format("markers %1 -> %2 | delta %3", m_iCampaignDebugStartMarkers, m_State.m_aMapMarkers.Count(), m_State.m_aMapMarkers.Count() - m_iCampaignDebugStartMarkers));
+		int currentMarkerCount = CountCampaignDebugLiveMarkers();
+		lines.Insert(string.Format("markers %1 -> %2 | delta %3", m_iCampaignDebugStartMarkers, currentMarkerCount, currentMarkerCount - m_iCampaignDebugStartMarkers));
 		lines.Insert(string.Format("garage vehicles %1 -> %2 | delta %3", m_iCampaignDebugStartGarageVehicles, m_State.m_aGarageVehicles.Count(), m_State.m_aGarageVehicles.Count() - m_iCampaignDebugStartGarageVehicles));
 		lines.Insert(string.Format("arsenal items %1 -> %2 | delta %3", m_iCampaignDebugStartArsenalItems, m_State.m_aArsenalItems.Count(), m_State.m_aArsenalItems.Count() - m_iCampaignDebugStartArsenalItems));
 		lines.Insert(string.Format("civilian zones %1 -> %2 | delta %3", m_iCampaignDebugStartCivilianZones, m_State.m_aCivilianZones.Count(), m_State.m_aCivilianZones.Count() - m_iCampaignDebugStartCivilianZones));
@@ -15634,7 +15721,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int pendingPlayerSupportCount = CountCampaignDebugPendingPlayerSupportRequests();
 		int openEnemyOrderCount = CountCampaignDebugOpenEnemyOrders();
 		int activeGroupCount = m_State.m_aActiveGroups.Count();
-		int markerCount = m_State.m_aMapMarkers.Count();
+		int markerCount = CountCampaignDebugLiveMarkers();
 		string remainingPrefixExample;
 		int remainingPrefixedRecords = CountCampaignDebugPrefixedStateRecords(CAMPAIGN_DEBUG_PREFIX_ROOT, remainingPrefixExample);
 		string remainingSmokeExample;
@@ -15740,7 +15827,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0 || defendPetrosCount > 0) && m_MapMarkers && m_Preset)
 		{
 			markerRebuildAttempted = true;
-			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
+			RefreshCampaignMarkers();
 		}
 
 		string afterExample;
@@ -15964,15 +16051,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || oldLinkedId.IsEmpty() || newLinkedId.IsEmpty())
 			return;
 
-		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
-		{
-			if (!marker)
-				continue;
-			if (marker.m_sLinkedId == oldLinkedId)
-				marker.m_sLinkedId = newLinkedId;
-			if (!marker.m_sMarkerId.IsEmpty() && marker.m_sMarkerId.Contains(oldLinkedId))
-				marker.m_sMarkerId.Replace(oldLinkedId, newLinkedId);
-		}
+		// Marker rows are a derived projection. Rebuild from the retagged backing
+		// state so the old stable ID becomes a tombstone and the new ID receives
+		// its own revisioned create event.
+		RefreshCampaignMarkers();
 	}
 
 	protected string BuildCampaignDebugPrefixedCleanupReport(HST_CampaignDebugCaseResult cleanupCase)
@@ -16302,18 +16384,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected int RemoveCampaignDebugPrefixedMarkers(string prefix)
 	{
-		int removed;
-		for (int i = m_State.m_aMapMarkers.Count() - 1; i >= 0; i--)
+		int matched;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			HST_MapMarkerState marker = m_State.m_aMapMarkers[i];
 			if (CampaignDebugMarkerMatchesPrefix(marker, prefix))
-			{
-				m_State.m_aMapMarkers.Remove(i);
-				removed++;
-			}
+				matched++;
 		}
 
-		return removed;
+		// The backing-state cleanup and marker rebuild must see the previous live
+		// rows so the projection finalizer can emit authoritative tombstones.
+		return matched;
 	}
 
 	protected int RemoveCampaignDebugPrefixedCampaignTasks(string prefix)
@@ -16383,20 +16463,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State)
 			return 0;
 
-		int removed;
-		for (int i = m_State.m_aMapMarkers.Count() - 1; i >= 0; i--)
+		int matched;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			HST_MapMarkerState marker = m_State.m_aMapMarkers[i];
-			if (!marker)
+			if (!marker || marker.m_bTombstone)
 				continue;
 			if (marker.m_sMarkerId != "hst_defend_petros" && marker.m_sMarkerId != "hst_defend_petros_attackers")
 				continue;
 
-			m_State.m_aMapMarkers.Remove(i);
-			removed++;
+			matched++;
 		}
 
-		return removed;
+		return matched;
 	}
 
 	protected bool CampaignDebugMissionMatchesPrefix(HST_ActiveMissionState mission, string prefix)
@@ -16512,7 +16590,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool CampaignDebugMarkerMatchesPrefix(HST_MapMarkerState marker, string prefix)
 	{
-		if (!marker)
+		if (!marker || marker.m_bTombstone)
 			return false;
 
 		return MissionValueHasCampaignDebugPrefix(marker.m_sMarkerId, prefix)
@@ -17015,8 +17093,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
 		AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase);
 		AppendCampaignDebugMaidensBayLocationMigrationAssertion(forceCase);
+		AppendCampaignDebugMarkerProjectionAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
+	}
+
+	protected void AppendCampaignDebugMarkerProjectionAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_MarkerProjectionProofService proofService = new HST_MarkerProjectionProofService();
+		HST_MarkerProjectionProofReport proof = proofService.Run();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "marker_projection.source_proof", "source proof report exists", "missing", "BLOCKED", "schema-61 marker-projection source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sInitialSnapshotJIPEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sStableRebuildEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOrderedDeltaRevisionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sDuplicateIdempotencyEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sGapResyncEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sReconnectSnapshotEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAcknowledgePruningEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sMalformedFailClosedEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSchemaMigrationEvidence);
+		AddCampaignDebugAssertion(forceCase, "marker_projection.snapshot_jip", "initial and join-in-progress snapshots atomically establish equal revisioned registries", proof.m_sInitialSnapshotJIPEvidence, CampaignDebugStatus(proof.m_bInitialSnapshotJIPExact), "initial or join-in-progress marker snapshot was not exact");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.stable_rebuild", "unchanged authoritative marker rebuild leaves revisions, sequence, hash, and journal stable", proof.m_sStableRebuildEvidence, CampaignDebugStatus(proof.m_bStableRebuildExact), "unchanged marker rebuild created projection churn");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.ordered_deltas", "create, update, and tombstone deltas apply contiguously with monotonic record revisions", proof.m_sOrderedDeltaRevisionEvidence, CampaignDebugStatus(proof.m_bOrderedDeltaRevisionExact), "ordered marker delta or revision contract failed");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.duplicate", "duplicate delta delivery is accepted idempotently without registry mutation", proof.m_sDuplicateIdempotencyEvidence, CampaignDebugStatus(proof.m_bDuplicateIdempotencyExact), "duplicate marker delta changed client registry state");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.gap_resync", "a dropped delta packet is rejected without partial mutation and recovered by an atomic resync snapshot", proof.m_sGapResyncEvidence, CampaignDebugStatus(proof.m_bGapResyncExact), "marker delta gap did not fail closed and resynchronize exactly");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.reconnect", "reconnected owner receives a fresh snapshot equal to the authoritative registry", proof.m_sReconnectSnapshotEvidence, CampaignDebugStatus(proof.m_bReconnectSnapshotExact), "reconnect marker snapshot was not exact");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.ack_pruning", "server retains journal entries through a lagging acknowledgement and prunes after every ready session advances", proof.m_sAcknowledgePruningEvidence, CampaignDebugStatus(proof.m_bAcknowledgePruningExact), "marker projection acknowledgement or journal pruning contract failed");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.malformed", "malformed projection payload fails closed without changing the ready registry", proof.m_sMalformedFailClosedEvidence, CampaignDebugStatus(proof.m_bMalformedFailClosedExact), "malformed marker projection payload mutated client state");
+		AddCampaignDebugAssertion(forceCase, "marker_projection.schema61", "schema-60 derived marker rows rebuild once under a fresh projection epoch without inventing domain facts", proof.m_sSchemaMigrationEvidence, CampaignDebugStatus(proof.m_bSchemaMigrationExact), "schema-61 marker projection migration was not exact or idempotent");
 	}
 
 	protected void AppendCampaignDebugMaidensBayLocationMigrationAssertion(
@@ -20506,7 +20620,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int markerCount;
 		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			if (marker && marker.m_sLinkedId == instanceId)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sLinkedId == instanceId)
 				markerCount++;
 		}
 
@@ -20683,6 +20797,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int removedAssetCount = RemoveCampaignDebugPrefixedMissionAssets(instanceId);
 		int removedRuntimeVehicleCount = RemoveCampaignDebugPrefixedRuntimeVehicles(instanceId);
 		int removedMarkerCount = RemoveCampaignDebugPrefixedMarkers(instanceId);
+		RefreshCampaignMarkers();
 		if (hadOriginalGarrison)
 		{
 			HST_GarrisonState cleanupGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
@@ -26502,7 +26617,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return;
 
-		int totalMarkers = m_State.m_aMapMarkers.Count();
+		int totalMarkers = CountCampaignDebugLiveMarkers();
 		int hqMarkers = CountCampaignDebugMarkersByCategory("hq");
 		int missionMarkers = CountCampaignDebugMarkersByCategory("mission") + CountCampaignDebugMarkersByCategory("mission_objective") + CountCampaignDebugMarkersByCategory("mission_asset");
 		int supportMarkers = CountCampaignDebugMarkersByCategory("support");
@@ -26578,6 +26693,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int nativeFailed = m_MapMarkers.GetLastNativeReconcileFailedCount();
 		int nativeMissingStatic = m_MapMarkers.GetTrackedNativeStaticMissingCount();
 		bool nativePending = m_MapMarkers.IsNativePublishPending();
+		bool clientProjectionOwnsNative = HST_MapMarkerService.CLIENT_PROJECTION_OWNS_NATIVE_MARKERS;
 		string nativeActual = BuildCampaignDebugNativeMarkerActual(nativeEligible, nativePublished, nativeSkipped, nativeFailed, nativeMissingStatic, nativePending);
 		AddCampaignDebugMetric(phaseCase, "phase23.native.eligible", string.Format("%1", nativeEligible), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.native.published", string.Format("%1", nativePublished), "count");
@@ -26592,7 +26708,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.state_records", "native report includes desired/state/native handle counts", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("desired records:") && result.Contains("state records:") && result.Contains("tracked native handles:")), "Phase 23 native marker report missing record/handle counts");
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.reconcile", "native report includes reconciliation details", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("last reconcile") || result.Contains("reconciler")), "Phase 23 native marker report missing reconcile details");
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.eligible_records", "marker refresh produced native-eligible marker records", nativeActual, CampaignDebugStatus(nativeEligible > 0), "Phase 23 native marker refresh found no eligible marker records");
-			AddCampaignDebugAssertion(phaseCase, "phase23.native.published_records", "all native-eligible marker records are published without skipped/failed/pending state", nativeActual, CampaignDebugStatus(nativeEligible > 0 && nativePublished == nativeEligible && nativeSkipped == 0 && nativeFailed == 0 && !nativePending), "Phase 23 native marker records were not fully published");
+			if (clientProjectionOwnsNative)
+			{
+				bool projectionReady = m_ClientProjection != null
+					&& result.Contains("h-istasi marker projection")
+					&& nativePublished == 0
+					&& nativeSkipped == 0
+					&& nativeFailed == 0
+					&& !nativePending;
+				AddCampaignDebugAssertion(phaseCase, "phase23.native.published_records", "server-native campaign publication is retired while the revisioned owner projection has the complete source registry", ShortCampaignDebugLine(result, 260), CampaignDebugStatus(projectionReady), "Phase 23 client-owned marker projection boundary was not ready or retained server-native publication");
+			}
+			else
+			{
+				AddCampaignDebugAssertion(phaseCase, "phase23.native.published_records", "all native-eligible marker records are published without skipped/failed/pending state", nativeActual, CampaignDebugStatus(nativeEligible > 0 && nativePublished == nativeEligible && nativeSkipped == 0 && nativeFailed == 0 && !nativePending), "Phase 23 native marker records were not fully published");
+			}
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.tracked_static", "tracked static native marker handles remain live", nativeActual, CampaignDebugStatus(nativeMissingStatic == 0), "Phase 23 native marker report found missing tracked static handles");
 		}
 		AddCampaignDebugAssertion(phaseCase, "phase23.native.player_report", "player marker runtime report included", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(m_PlayerMapMarkers != null && result.Contains("h-istasi player marker report"), "WARN"), "Phase 23 native marker report did not include player marker runtime state");
@@ -26606,6 +26735,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool purgeSucceeded = result.Contains("purged") && result.Contains("native HST marker");
 		AddCampaignDebugAssertion(phaseCase, "phase23.purge.native", "native HST marker purge completed", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(purgeSucceeded), "Phase 23 native marker purge did not report success");
+		AddCampaignDebugAssertion(phaseCase, "phase23.purge.client_projection", "every connected owner bridge resets and rehydrates its local campaign marker projection", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(!HST_MapMarkerService.CLIENT_PROJECTION_OWNS_NATIVE_MARKERS || result.Contains("client campaign marker projection reset")), "Phase 23 native marker purge did not reset client-owned campaign marker handles");
 		AddCampaignDebugAssertion(phaseCase, "phase23.purge.player", "player marker clear attempted/reported", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("player marker purge"), "WARN"), "Phase 23 native marker purge did not report player marker cleanup");
 	}
 
@@ -26665,7 +26795,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			assetCount = m_State.m_aMissionAssets.Count();
 			supportCount = m_State.m_aSupportRequests.Count();
 			orderCount = m_State.m_aEnemyOrders.Count();
-			markerCount = m_State.m_aMapMarkers.Count();
+			markerCount = CountCampaignDebugLiveMarkers();
 		}
 
 		if (beforeActions)
@@ -26697,7 +26827,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string snapshot = string.Format("phase %1 | hq %2 | hq deployed %3 | petros %4", m_State.m_ePhase, EmptyCampaignDebugField(m_State.m_sHQHideoutId), m_State.m_bHQDeployed, m_State.m_bPetrosAlive);
 		snapshot = snapshot + string.Format(" | hq pos %1 | money %2 | HR %3 | training %4 | war %5 | elapsed %6", m_State.m_vHQPosition, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iTrainingLevel, m_State.m_iWarLevel, m_State.m_iElapsedSeconds);
 		snapshot = snapshot + string.Format(" | missions %1 objectives %2 assets %3 groups %4 vehicles %5", m_State.m_aActiveMissions.Count(), m_State.m_aMissionObjectives.Count(), m_State.m_aMissionAssets.Count(), m_State.m_aActiveGroups.Count(), m_State.m_aRuntimeVehicles.Count());
-		snapshot = snapshot + string.Format(" | support %1 orders %2 qrf %3 markers %4 tasks %5", m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_aCampaignTasks.Count());
+		snapshot = snapshot + string.Format(" | support %1 orders %2 qrf %3 markers %4 tasks %5", m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aQRFs.Count(), CountCampaignDebugLiveMarkers(), m_State.m_aCampaignTasks.Count());
 		snapshot = snapshot + string.Format(" | garage %1 arsenal %2 civilian %3 undercover %4", m_State.m_aGarageVehicles.Count(), m_State.m_aArsenalItems.Count(), m_State.m_aCivilianZones.Count(), m_State.m_aUndercoverPlayers.Count());
 		return snapshot;
 	}
@@ -26745,7 +26875,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int count;
 		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
 		{
-			if (marker && marker.m_bVisible && marker.m_sCategory == category)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sCategory == category)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountCampaignDebugLiveMarkers()
+	{
+		if (!m_State)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : m_State.m_aMapMarkers)
+		{
+			if (marker && !marker.m_bTombstone && marker.m_bVisible)
 				count++;
 		}
 
@@ -29090,7 +29235,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return "h-istasi phase 23 marker audit | failed: marker service not ready";
 
-		return m_MapMarkers.BuildMarkerAuditReport(m_State, m_Preset) + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
+		string report = m_MapMarkers.BuildMarkerAuditReport(m_State, m_Preset) + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
+		if (m_ClientProjection)
+			report = report + "\n" + m_ClientProjection.BuildReport();
+		return report;
 	}
 
 	string RequestAdminNativeMarkerReport(int playerId)
@@ -29101,9 +29249,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi native marker report | failed: marker service not ready";
 
 		if (m_State && m_Preset)
+		{
 			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
+			if (m_ClientProjection)
+			{
+				m_ClientProjection.Synchronize(m_State, "admin native marker report");
+				HST_CommandMenuRequestComponent.PublishPendingMarkerProjectionToConnectedOwners("admin native marker report");
+			}
+		}
 
 		string report = m_MapMarkers.BuildNativeMarkerRuntimeReport(m_State);
+		if (m_ClientProjection)
+			report = report + "\n" + m_ClientProjection.BuildReport();
 		if (m_PlayerMapMarkers)
 			return report + "\n" + m_PlayerMapMarkers.BuildRuntimeReport();
 
@@ -29118,6 +29275,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "h-istasi admin | native marker purge failed: marker service not ready";
 
 		string report = m_MapMarkers.AdminPurgeNativeHSTMarkers();
+		if (m_ClientProjection)
+			m_ClientProjection.ForceAllReadySessionsToSnapshot("admin native marker purge");
+		int projectionOwnersReset = HST_CommandMenuRequestComponent.ResetMarkerProjectionForConnectedOwners("admin native marker purge");
+		report = report + string.Format("\nclient campaign marker projection reset | owners %1", projectionOwnersReset);
 		if (!m_PlayerMapMarkers)
 			return report + "\nplayer marker purge | service not ready";
 
@@ -31092,6 +31253,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string commanderIdentityId = m_State.m_sCommanderIdentityId;
+		int nextMarkerProjectionEpoch = Math.Max(1, m_State.m_iMarkerProjectionEpoch + 1);
 		if (m_RadioSites)
 		{
 			string radioResetFailure;
@@ -31102,6 +31264,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 		}
 		m_State = CreateInitialCampaignState();
+		m_State.m_iMarkerProjectionEpoch = nextMarkerProjectionEpoch;
 		foreach (HST_PlayerState existingPlayer : existingPlayers)
 			m_State.m_aPlayers.Insert(existingPlayer);
 		m_State.m_sCommanderIdentityId = commanderIdentityId;
@@ -31613,6 +31776,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_MapMarkers)
 			m_MapMarkers.RebuildAllMarkers(m_State, m_Preset);
+		if (m_ClientProjection)
+		{
+			m_ClientProjection.Synchronize(m_State);
+			HST_CommandMenuRequestComponent.PublishPendingMarkerProjectionToConnectedOwners("campaign marker refresh");
+		}
 	}
 
 	protected void ForceCampaignMarkerRepublishForClient(string reason)
@@ -31620,8 +31788,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers || !m_State || !m_Preset)
 			return;
 
-		m_MapMarkers.ForceNativeRepublish(m_State, m_Preset);
-		DebugLog("campaign marker native republish requested: " + reason);
+		RefreshCampaignMarkers();
+		DebugLog("campaign marker projection readiness refresh requested: " + reason);
 	}
 
 	protected void RepublishExistingCampaignMarkersAfterDebugRestore(string reason)
@@ -31630,6 +31798,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_MapMarkers.ForceNativeRepublishExistingState(m_State, m_Preset);
+		if (m_ClientProjection)
+		{
+			m_ClientProjection.Synchronize(m_State, "campaign debug live-state restore: " + reason);
+			HST_CommandMenuRequestComponent.PublishPendingMarkerProjectionToConnectedOwners("campaign debug live-state restore: " + reason);
+		}
 		DebugLog("existing campaign markers republished after debug restore: " + reason);
 	}
 
@@ -33948,7 +34121,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string economySummary = string.Format("h-istasi campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
 		economySummary = economySummary + string.Format(" | training %1 | persistence %2", m_State.m_iTrainingLevel, m_State.m_sLastPersistenceStatus);
 		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | active missions %3", resistanceZones, enemyZones, CountFoundationActiveMissions());
-		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), m_State.m_aMapMarkers.Count(), m_State.m_sHQHideoutId);
+		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), CountCampaignDebugLiveMarkers(), m_State.m_sHQHideoutId);
 		runtimeSummary = runtimeSummary + string.Format(" | deployed %1 | runtime objects %2", m_State.m_bHQDeployed, m_State.m_bHQRuntimeObjectsSpawned);
 		string alphaSummary = string.Format(" | sites %1 | support requests %2 | enemy orders %3 | civilian towns %4", m_State.m_aGeneratedSites.Count(), m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aCivilianZones.Count());
 		return economySummary + zoneSummary + runtimeSummary + alphaSummary;

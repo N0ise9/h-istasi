@@ -18,14 +18,24 @@ class HST_CampaignMapMarkerDirector
 		if (!state)
 			return;
 
-		int tacticalCount;
-		int publishedCount;
+		map<string, ref HST_MapMarkerState> candidatesByPriority = new map<string, ref HST_MapMarkerState>();
+		array<string> orderedKeys = {};
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
 			if (!IsNativeMarkerCandidate(marker))
 				continue;
-
 			m_iLastEligibleCount++;
+			string orderKey = string.Format("%1|%2", 999 - ResolveMarkerPriority(marker), marker.m_sMarkerId);
+			candidatesByPriority.Set(orderKey, marker);
+			orderedKeys.Insert(orderKey);
+		}
+
+		orderedKeys.Sort();
+		int tacticalCount;
+		int publishedCount;
+		foreach (string orderKey : orderedKeys)
+		{
+			HST_MapMarkerState marker = candidatesByPriority.Get(orderKey);
 			if (!CanPublishNativeMarker(marker, tacticalCount, publishedCount))
 			{
 				m_iLastSkippedCount++;
@@ -91,6 +101,7 @@ class HST_CampaignMapMarkerDirector
 		record.m_bCanPlayerRemove = false;
 		record.m_bLocalOnly = false;
 		record.m_bServerMarker = true;
+		record.m_iRevision = marker.m_iRevision;
 		record.m_iLastChangedSecond = elapsedSeconds;
 		return record;
 	}
@@ -136,7 +147,7 @@ class HST_CampaignMapMarkerDirector
 
 	protected bool IsNativeMarkerCandidate(HST_MapMarkerState marker)
 	{
-		return marker && marker.m_bVisible && marker.m_bRuntimeNative;
+		return marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_bRuntimeNative;
 	}
 
 	protected bool CanPublishNativeMarker(HST_MapMarkerState marker, int tacticalCount, int publishedCount)

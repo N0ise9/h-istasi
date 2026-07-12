@@ -18201,4 +18201,1247 @@ if ($schema60WheeledMetaText -notmatch 'Name\s+"\{62F416029692CE40\}Prefabs/Vehi
 
 Write-Host "Schema-60 exact paid Search-and-Destroy planning/UI/type/route, legacy isolation, fail-close restore, durable projection/settlement/persistence/archive proofs, stutter mitigations, and registered native horn suppression OK"
 
+$schema61RequiredPaths = @(
+	"Scripts/Game/HST/Map/HST_MarkerProjectionProtocol.c",
+	"Scripts/Game/HST/Map/HST_ClientMarkerProjectionService.c",
+	"Scripts/Game/HST/Services/HST_ClientProjectionService.c",
+	"Scripts/Game/HST/Services/HST_MarkerProjectionSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_MarkerProjectionProofService.c"
+)
+foreach ($schema61RequiredPath in $schema61RequiredPaths) {
+	if (!(Test-Path -LiteralPath $schema61RequiredPath -PathType Leaf)) {
+		throw "Schema-61 authoritative marker-projection source is missing: $schema61RequiredPath"
+	}
+}
+
+$schema61StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema61SaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema61SaveValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MarkerProjectionSaveValidationService.c"
+$schema61MapMarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema61ProtocolText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MarkerProjectionProtocol.c"
+$schema61ServerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ClientProjectionService.c"
+$schema61ClientText = Get-Content -Raw "Scripts/Game/HST/Map/HST_ClientMarkerProjectionService.c"
+$schema61DirectorText = Get-Content -Raw "Scripts/Game/HST/Map/HST_CampaignMapMarkerDirector.c"
+$schema61BridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
+$schema61CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema61ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MarkerProjectionProofService.c"
+
+if ($schema61StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*61;') {
+	throw "Schema-61 marker projection requires HST_CampaignState schema 61"
+}
+$schema61MarkerStateBlock = Get-ScriptMethodBlock $schema61StateText 'class HST_MapMarkerState'
+foreach ($schema61MarkerField in @(
+	'int m_iRevision;',
+	'int m_iStreamSequence;',
+	'bool m_bTombstone;',
+	'int m_iTombstonedAtSecond;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61MarkerStateBlock) -or $schema61MarkerStateBlock.IndexOf($schema61MarkerField) -lt 0) {
+		throw "Schema-61 marker rows are missing revision/stream/tombstone metadata: $schema61MarkerField"
+	}
+}
+foreach ($schema61ProjectionStateField in @(
+	'int m_iMarkerProjectionEpoch = 1;',
+	'int m_iMarkerProjectionSequence;'
+)) {
+	if ($schema61StateText.IndexOf($schema61ProjectionStateField) -lt 0) {
+		throw "Schema-61 campaign state is missing marker-projection stream metadata: $schema61ProjectionStateField"
+	}
+}
+$schema61VisibleLookupBlock = Get-ScriptMethodBlock $schema61StateText 'HST_MapMarkerState FindMapMarker(string markerId)'
+if ([string]::IsNullOrEmpty($schema61VisibleLookupBlock) -or
+	$schema61VisibleLookupBlock.IndexOf('!marker.m_bTombstone') -lt 0) {
+	throw "Schema-61 visible marker lookup must hide projection tombstones"
+}
+$schema61ProjectionLookupBlock = Get-ScriptMethodBlock $schema61StateText 'HST_MapMarkerState FindMapMarkerProjectionRecord(string markerId)'
+if ([string]::IsNullOrEmpty($schema61ProjectionLookupBlock) -or
+	$schema61ProjectionLookupBlock.IndexOf('marker.m_sMarkerId == markerId') -lt 0 -or
+	$schema61ProjectionLookupBlock.IndexOf('m_bTombstone') -ge 0) {
+	throw "Schema-61 projection-record lookup must resolve stable IDs including tombstones"
+}
+
+$schema61CaptureBlock = Get-ScriptMethodBlock $schema61SaveDataText 'void Capture(HST_CampaignState state)'
+$schema61RestoreBlock = Get-ScriptMethodBlock $schema61SaveDataText 'HST_CampaignState Restore()'
+$schema61ApplyToBlock = Get-ScriptMethodBlock $schema61SaveDataText 'void ApplyTo(HST_CampaignState state, bool migrate = true)'
+$schema61CopyMarkerBlock = Get-ScriptMethodBlock $schema61SaveDataText 'protected HST_MapMarkerState CopyMapMarker('
+foreach ($schema61SaveEntry in @(
+	'm_iMarkerProjectionEpoch = state.m_iMarkerProjectionEpoch;',
+	'm_iMarkerProjectionSequence = state.m_iMarkerProjectionSequence;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61CaptureBlock) -or $schema61CaptureBlock.IndexOf($schema61SaveEntry) -lt 0) {
+		throw "Schema-61 save capture is missing projection metadata: $schema61SaveEntry"
+	}
+}
+foreach ($schema61RestoreEntry in @(
+	'state.m_iMarkerProjectionEpoch = m_iMarkerProjectionEpoch;',
+	'state.m_iMarkerProjectionSequence = m_iMarkerProjectionSequence;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61RestoreBlock) -or
+		$schema61RestoreBlock.IndexOf('ApplyTo(state, false)') -lt 0 -or
+		[string]::IsNullOrEmpty($schema61ApplyToBlock) -or
+		$schema61ApplyToBlock.IndexOf($schema61RestoreEntry) -lt 0) {
+		throw "Schema-61 save restore is missing projection metadata: $schema61RestoreEntry"
+	}
+}
+foreach ($schema61MarkerCopyEntry in @(
+	'target.m_iRevision = source.m_iRevision;',
+	'target.m_iStreamSequence = source.m_iStreamSequence;',
+	'target.m_bTombstone = source.m_bTombstone;',
+	'target.m_iTombstonedAtSecond = source.m_iTombstonedAtSecond;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61CopyMarkerBlock) -or $schema61CopyMarkerBlock.IndexOf($schema61MarkerCopyEntry) -lt 0) {
+		throw "Schema-61 marker save copy is missing stream metadata: $schema61MarkerCopyEntry"
+	}
+}
+$schema61MigrationBlock = Get-ScriptMethodBlock $schema61SaveDataText 'void MigrateToCurrentSchema()'
+foreach ($schema61MigrationHook in @(
+	'HST_MarkerProjectionSaveValidationService schema61MarkerProjectionValidation',
+	'schema61MarkerProjectionValidation.Normalize(this, restoredSchemaVersion)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61MigrationBlock) -or $schema61MigrationBlock.IndexOf($schema61MigrationHook) -lt 0) {
+		throw "Schema-61 save migration hook is missing: $schema61MigrationHook"
+	}
+}
+
+$schema61SaveNormalizeBlock = Get-ScriptMethodBlock $schema61SaveValidationText 'void Normalize('
+foreach ($schema61SaveNormalizeEntry in @(
+	'SCHEMA_VERSION = 61',
+	'migration_schema61_marker_projection',
+	'normalization_schema61_marker_projection_rebuild',
+	'if (restoredSchemaVersion < SCHEMA_VERSION)',
+	'saveData.m_aMapMarkers.Clear();',
+	'saveData.m_iMarkerProjectionSequence = 0;',
+	'saveData.m_iMarkerProjectionEpoch++;',
+	'ValidateCurrentRows(saveData)',
+	'RecordEvent('
+)) {
+	if ($schema61SaveValidationText.IndexOf($schema61SaveNormalizeEntry) -lt 0) {
+		throw "Schema-61 marker projection migration/repair boundary is missing: $schema61SaveNormalizeEntry"
+	}
+}
+foreach ($schema61ForbiddenMigrationMutation in @(
+	'm_iFactionMoney',
+	'm_iHR',
+	'm_aZones.Clear',
+	'm_aGarrisons.Clear',
+	'm_aActiveGroups.Clear'
+)) {
+	if (![string]::IsNullOrEmpty($schema61SaveNormalizeBlock) -and
+		$schema61SaveNormalizeBlock.IndexOf($schema61ForbiddenMigrationMutation) -ge 0) {
+		throw "Schema-61 derived marker migration must not invent or mutate campaign-domain authority: $schema61ForbiddenMigrationMutation"
+	}
+}
+$schema61ValidateRowsBlock = Get-ScriptMethodBlock $schema61SaveValidationText 'protected string ValidateCurrentRows('
+foreach ($schema61ValidationEntry in @(
+	'ids.Contains(marker.m_sMarkerId)',
+	'marker.m_iRevision <= 0 || marker.m_iStreamSequence <= 0',
+	'sequences.Contains(marker.m_iStreamSequence)',
+	'marker.m_bTombstone && marker.m_bVisible',
+	'saveData.m_iMarkerProjectionSequence < highestSequence'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ValidateRowsBlock) -or $schema61ValidateRowsBlock.IndexOf($schema61ValidationEntry) -lt 0) {
+		throw "Schema-61 current marker projection restore must reject malformed metadata: $schema61ValidationEntry"
+	}
+}
+$schema61RecordEventBlock = Get-ScriptMethodBlock $schema61SaveValidationText 'protected void RecordEvent('
+$schema61HasEventBlock = Get-ScriptMethodBlock $schema61SaveValidationText 'protected bool HasEvent('
+if ([string]::IsNullOrEmpty($schema61RecordEventBlock) -or
+	$schema61RecordEventBlock.IndexOf('HasEvent(saveData, eventId)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61HasEventBlock) -or
+	$schema61HasEventBlock.IndexOf('eventState.m_sEventId == eventId') -lt 0) {
+	throw "Schema-61 marker projection migration/repair events must be idempotent"
+}
+
+$schema61FinalizeBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'protected void FinalizeProjectionRecords('
+foreach ($schema61FinalizeEntry in @(
+	'state.m_iMarkerProjectionEpoch = Math.Max(1, state.m_iMarkerProjectionEpoch);',
+	'HST_MarkerProjectionCodec.ContentEquals(previous, marker)',
+	'marker.m_iRevision = previous.m_iRevision;',
+	'marker.m_iStreamSequence = previous.m_iStreamSequence;',
+	'marker.m_iRevision = previous.m_iRevision + 1;',
+	'state.m_iMarkerProjectionSequence++;',
+	'marker.m_iStreamSequence = state.m_iMarkerProjectionSequence;',
+	'tombstone.m_bTombstone = true;',
+	'tombstone.m_bVisible = false;',
+	'tombstone.m_iRevision = Math.Max(0, removedMarker.m_iRevision) + 1;',
+	'tombstone.m_iTombstonedAtSecond = state.m_iElapsedSeconds;',
+	'PruneProjectionTombstones(state)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61FinalizeBlock) -or $schema61FinalizeBlock.IndexOf($schema61FinalizeEntry) -lt 0) {
+		throw "Schema-61 stable marker revision/sequence/tombstone finalization is missing: $schema61FinalizeEntry"
+	}
+}
+if (([regex]::Matches($schema61MapMarkerText, 'FinalizeProjectionRecords\(')).Count -lt 3) {
+	throw "Schema-61 every marker rebuild route must pass through projection finalization"
+}
+$schema61PruneBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'protected void PruneProjectionTombstones('
+$schema61ReusableTombstoneBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'protected bool ShouldRetainReusableMarkerTombstone('
+foreach ($schema61TombstoneEntry in @(
+	'MARKER_TOMBSTONE_RETENTION_SECONDS = 600',
+	'MAX_MARKER_TOMBSTONES = 256',
+	'while (tombstoneCount > MAX_MARKER_TOMBSTONES)',
+	'ShouldRetainReusableMarkerTombstone(candidate.m_sMarkerId)'
+)) {
+	if ($schema61MapMarkerText.IndexOf($schema61TombstoneEntry) -lt 0) {
+		throw "Schema-61 tombstone retention/cap contract is missing: $schema61TombstoneEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema61PruneBlock) -or [string]::IsNullOrEmpty($schema61ReusableTombstoneBlock) -or
+	$schema61ReusableTombstoneBlock.IndexOf('hst_zone_') -lt 0) {
+	throw "Schema-61 reusable stable marker IDs must retain tombstone revision history"
+}
+
+$schema61AuthoredBindingBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'protected void BindAuthoredNativeMarkers('
+foreach ($schema61AuthoredBindingEntry in @(
+	'if (!m_bAuthoredMarkerBindingsInitialized)',
+	'm_iAuthoredMarkerMissingCount = 0;',
+	'if (m_mAuthoredMarkerByZoneId.Contains(zone.m_sZoneId))',
+	'string entityName = "HST_ConflictMapMarker_" + zone.m_sZoneId;',
+	'IEntity markerEntity = world.FindEntityByName(entityName);',
+	'markerEntity.GetName() != entityName',
+	'm_mAuthoredMarkerByZoneId.Set(zone.m_sZoneId, markerEntity)',
+	'm_iAuthoredMarkerBindingCount = m_mAuthoredMarkerByZoneId.Count();'
+)) {
+	if ([string]::IsNullOrEmpty($schema61AuthoredBindingBlock) -or $schema61AuthoredBindingBlock.IndexOf($schema61AuthoredBindingEntry) -lt 0) {
+		throw "Schema-61 authored marker binding must use the exact stable entity name: $schema61AuthoredBindingEntry"
+	}
+}
+if (([regex]::Matches($schema61AuthoredBindingBlock, 'FindEntityByName\(')).Count -ne 1 -or
+	$schema61AuthoredBindingBlock -match 'QueryEntitiesBy(Sphere|AABB|OBB)|GetEntitiesIn') {
+	throw "Schema-61 authored marker binding must perform one exact-name lookup per zone without a radius/area scan"
+}
+$schema61OwnershipSyncBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'protected bool SyncVisibleNativeMarkerOwnership('
+foreach ($schema61OwnershipSyncEntry in @(
+	'if (!m_bAuthoredMarkerBindingsInitialized || m_iAuthoredMarkerMissingCount > 0)',
+	'BindAuthoredNativeMarkers(state, world)',
+	'm_mAuthoredMarkerByZoneId.Get(zone.m_sZoneId)',
+	'FactionAffiliationComponent',
+	'factionComponent.GetAffiliatedFactionKey() == zone.m_sOwnerFactionKey',
+	'factionComponent.SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey)',
+	'm_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, zone.m_sOwnerFactionKey)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61OwnershipSyncBlock) -or $schema61OwnershipSyncBlock.IndexOf($schema61OwnershipSyncEntry) -lt 0) {
+		throw "Schema-61 authored marker ownership cache is missing: $schema61OwnershipSyncEntry"
+	}
+}
+
+$schema61PacketLimitMatch = [regex]::Match($schema61ProtocolText, 'MAX_PACKET_CHARACTERS\s*=\s*(\d+)')
+$schema61RecordLimitMatch = [regex]::Match($schema61ProtocolText, 'MAX_RECORDS_PER_PACKET\s*=\s*(\d+)')
+$schema61SnapshotChunkLimitMatch = [regex]::Match($schema61ProtocolText, 'MAX_SNAPSHOT_CHUNKS\s*=\s*(\d+)')
+$schema61SnapshotRecordLimitMatch = [regex]::Match($schema61ProtocolText, 'MAX_SNAPSHOT_RECORDS\s*=\s*(\d+)')
+$schema61DeltaDispatchLimitMatch = [regex]::Match($schema61ProtocolText, 'MAX_DELTA_DISPATCH_RECORDS\s*=\s*(\d+)')
+if (!$schema61PacketLimitMatch.Success -or [int]$schema61PacketLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61PacketLimitMatch.Groups[1].Value -gt 12000) {
+	throw "Schema-61 marker projection packet character limit must be positive and no greater than 12000"
+}
+if (!$schema61RecordLimitMatch.Success -or [int]$schema61RecordLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61RecordLimitMatch.Groups[1].Value -gt 32) {
+	throw "Schema-61 marker projection record-per-packet limit must be positive and no greater than 32"
+}
+if (!$schema61SnapshotChunkLimitMatch.Success -or [int]$schema61SnapshotChunkLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61SnapshotChunkLimitMatch.Groups[1].Value -gt 64) {
+	throw "Schema-61 marker projection snapshot chunk limit must be positive and no greater than 64"
+}
+if (!$schema61SnapshotRecordLimitMatch.Success -or [int]$schema61SnapshotRecordLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61SnapshotRecordLimitMatch.Groups[1].Value -gt 2048) {
+	throw "Schema-61 marker projection snapshot record limit must be positive and no greater than 2048"
+}
+if (!$schema61DeltaDispatchLimitMatch.Success -or [int]$schema61DeltaDispatchLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61DeltaDispatchLimitMatch.Groups[1].Value -gt 512) {
+	throw "Schema-61 marker projection delta dispatch limit must be positive and no greater than 512"
+}
+foreach ($schema61ProtocolEntry in @(
+	'PROTOCOL_VERSION = 1',
+	'SNAPSHOT_HEADER = "HST_MARKER_SNAPSHOT"',
+	'DELTA_HEADER = "HST_MARKER_DELTA"',
+	'int m_iEpoch;',
+	'int m_iWatermark;',
+	'int m_iFromSequence;',
+	'int m_iToSequence;',
+	'string m_sRegistryHash;'
+)) {
+	if ($schema61ProtocolText.IndexOf($schema61ProtocolEntry) -lt 0) {
+		throw "Schema-61 marker projection protocol metadata is missing: $schema61ProtocolEntry"
+	}
+}
+$schema61RegistryHashBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static string BuildLiveRegistryHash('
+foreach ($schema61HashEntry in @(
+	'if (marker && !marker.m_bTombstone)',
+	'ids.Sort();',
+	'BuildContentSignature(marker)',
+	'canonical.Hash()'
+)) {
+	if ([string]::IsNullOrEmpty($schema61RegistryHashBlock) -or $schema61RegistryHashBlock.IndexOf($schema61HashEntry) -lt 0) {
+		throw "Schema-61 live registry hash must be stable, sorted, and tombstone-independent: $schema61HashEntry"
+	}
+}
+$schema61DecodeRecordBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static HST_MapMarkerState DecodeRecord('
+foreach ($schema61DecodeRecordEntry in @(
+	'fields.Count() != 20',
+	'!IsStrictInteger(fields[1], false)',
+	'!IsStrictInteger(fields[2], false)',
+	'!IsStrictBoolean(fields[3])',
+	'!IsStrictInteger(fields[4], false)',
+	'!IsStrictFloat(fields[15])',
+	'!IsStrictFloat(fields[16])',
+	'!IsStrictFloat(fields[17])',
+	'!IsStrictBoolean(fields[18])',
+	'!IsStrictBoolean(fields[19])',
+	'marker.m_sMarkerId.IsEmpty() || marker.m_iRevision <= 0 || marker.m_iStreamSequence <= 0',
+	'marker.m_bTombstone && marker.m_bVisible'
+)) {
+	if ([string]::IsNullOrEmpty($schema61DecodeRecordBlock) -or $schema61DecodeRecordBlock.IndexOf($schema61DecodeRecordEntry) -lt 0) {
+		throw "Schema-61 marker record decoder must fail closed on malformed stream rows: $schema61DecodeRecordEntry"
+	}
+}
+$schema61DecodePacketBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static HST_MarkerProjectionPacket DecodePacket('
+foreach ($schema61DecodePacketEntry in @(
+	'payload.Length() > MAX_PACKET_CHARACTERS',
+	'!IsStrictInteger(header[1], false)',
+	'!IsStrictInteger(header[2], false)',
+	'!IsStrictInteger(header[3], false)',
+	'!IsStrictInteger(header[4], false)',
+	'!IsStrictInteger(header[5], false)',
+	'!IsStrictInteger(header[6], false)',
+	'!IsStrictInteger(header[7], false)',
+	'packet.m_iChunkCount > MAX_SNAPSHOT_CHUNKS',
+	'packet.m_iTotalRecordCount > MAX_SNAPSHOT_RECORDS',
+	'packet.m_iChunkIndex >= packet.m_iChunkCount',
+	'packet.m_iToSequence < packet.m_iFromSequence',
+	'packet.m_iTotalRecordCount > MAX_RECORDS_PER_PACKET',
+	'packet.m_iProtocolVersion != PROTOCOL_VERSION',
+	'packet.m_aRecords.Count() != packet.m_iTotalRecordCount'
+)) {
+	if ([string]::IsNullOrEmpty($schema61DecodePacketBlock) -or $schema61DecodePacketBlock.IndexOf($schema61DecodePacketEntry) -lt 0) {
+		throw "Schema-61 marker packet decoder must validate its bounded envelope: $schema61DecodePacketEntry"
+	}
+}
+$schema61StrictBooleanBlock = Get-ScriptMethodBlock $schema61ProtocolText 'protected static bool IsStrictBoolean('
+if ([string]::IsNullOrEmpty($schema61StrictBooleanBlock) -or
+	$schema61StrictBooleanBlock.IndexOf('value == "0" || value == "1"') -lt 0) {
+	throw "Schema-61 marker projection boolean tokens must accept only canonical zero/one values"
+}
+$schema61StrictIntegerBlock = Get-ScriptMethodBlock $schema61ProtocolText 'protected static bool IsStrictInteger('
+foreach ($schema61StrictIntegerEntry in @(
+	'value.IsEmpty()',
+	'if (!allowNegative || value.Length() == 1)',
+	'if (!value.IsDigitAt(i))'
+)) {
+	if ([string]::IsNullOrEmpty($schema61StrictIntegerBlock) -or
+		$schema61StrictIntegerBlock.IndexOf($schema61StrictIntegerEntry) -lt 0) {
+		throw "Schema-61 marker projection integer token validation is incomplete: $schema61StrictIntegerEntry"
+	}
+}
+$schema61StrictFloatBlock = Get-ScriptMethodBlock $schema61ProtocolText 'protected static bool IsStrictFloat('
+foreach ($schema61StrictFloatEntry in @(
+	'value.IsEmpty()',
+	'bool foundDigit;',
+	'bool foundDecimal;',
+	'!foundDecimal && value.Substring(i, 1) == "."',
+	'return foundDigit;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61StrictFloatBlock) -or
+		$schema61StrictFloatBlock.IndexOf($schema61StrictFloatEntry) -lt 0) {
+		throw "Schema-61 marker projection float token validation is incomplete: $schema61StrictFloatEntry"
+	}
+}
+$schema61SnapshotBuildBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static bool BuildSnapshotPackets('
+foreach ($schema61SnapshotEntry in @(
+	'if (epoch <= 0 || snapshotId.IsEmpty() || watermark < 0)',
+	'ids.Sort();',
+	'ids.Count() > MAX_SNAPSHOT_RECORDS',
+	'marker.m_iRevision <= 0 || marker.m_iStreamSequence <= 0 || (marker.m_bTombstone && marker.m_bVisible)',
+	'line.Length() > MAX_PACKET_CHARACTERS - 512',
+	'bodyRecords >= MAX_RECORDS_PER_PACKET',
+	'MAX_PACKET_CHARACTERS - 256',
+	'bodies.Count() > MAX_SNAPSHOT_CHUNKS',
+	'packet.Length() > MAX_PACKET_CHARACTERS',
+	'packets.Clear();',
+	'return !packets.IsEmpty();',
+	'EncodeField(snapshotId)',
+	'bodies.Count()',
+	'ids.Count()',
+	'EncodeField(registryHash)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61SnapshotBuildBlock) -or $schema61SnapshotBuildBlock.IndexOf($schema61SnapshotEntry) -lt 0) {
+		throw "Schema-61 snapshot packet chunking/header contract is missing: $schema61SnapshotEntry"
+	}
+}
+$schema61DeltaBuildBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static bool BuildDeltaPackets('
+foreach ($schema61DeltaEntry in @(
+	'orderedEvents.Count() > MAX_DELTA_DISPATCH_RECORDS',
+	'marker.m_iRevision <= 0 || marker.m_iStreamSequence <= 0 || (marker.m_bTombstone && marker.m_bVisible)',
+	'marker.m_iStreamSequence != expectedSequence',
+	'line.Length() > MAX_PACKET_CHARACTERS - 256',
+	'bodyRecords >= MAX_RECORDS_PER_PACKET',
+	'MAX_PACKET_CHARACTERS - 256',
+	'fromSequence = marker.m_iStreamSequence;',
+	'toSequence = marker.m_iStreamSequence;',
+	'if (i == bodies.Count() - 1)',
+	'packetHash = registryHash;',
+	'packet.Length() > MAX_PACKET_CHARACTERS',
+	'packets.Clear();',
+	'return !packets.IsEmpty();',
+	'BuildDeltaPacket(epoch, fromSequences[i], toSequences[i], recordCounts[i], packetHash, bodies[i])'
+)) {
+	if ([string]::IsNullOrEmpty($schema61DeltaBuildBlock) -or $schema61DeltaBuildBlock.IndexOf($schema61DeltaEntry) -lt 0) {
+		throw "Schema-61 ordered delta packet chunking/hash contract is missing: $schema61DeltaEntry"
+	}
+}
+$schema61EncodeFieldBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static string EncodeField('
+foreach ($schema61EncodeEntry in @('value.Replace("%", "%25")', 'value.Replace("|", "%7C")')) {
+	if ([string]::IsNullOrEmpty($schema61EncodeFieldBlock) -or $schema61EncodeFieldBlock.IndexOf($schema61EncodeEntry) -lt 0) {
+		throw "Schema-61 marker projection string framing is not safely escaped: $schema61EncodeEntry"
+	}
+}
+
+$schema61JournalLimitMatch = [regex]::Match($schema61ServerText, 'MAX_JOURNAL_EVENTS\s*=\s*(\d+)')
+$schema61RequestCooldownMatch = [regex]::Match($schema61ServerText, 'REQUEST_COOLDOWN_MS\s*=\s*(\d+)')
+$schema61SnapshotRestartCooldownMatch = [regex]::Match($schema61ServerText, 'SNAPSHOT_RESTART_COOLDOWN_MS\s*=\s*(\d+)')
+$schema61ClientHashLimitMatch = [regex]::Match($schema61ServerText, 'MAX_CLIENT_HASH_CHARACTERS\s*=\s*(\d+)')
+$schema61ClientReasonLimitMatch = [regex]::Match($schema61ServerText, 'MAX_CLIENT_REASON_CHARACTERS\s*=\s*(\d+)')
+if (!$schema61JournalLimitMatch.Success -or [int]$schema61JournalLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61JournalLimitMatch.Groups[1].Value -gt 512) {
+	throw "Schema-61 marker projection journal limit must be positive and no greater than 512"
+}
+if (!$schema61RequestCooldownMatch.Success -or [int]$schema61RequestCooldownMatch.Groups[1].Value -le 0 -or
+	[int]$schema61RequestCooldownMatch.Groups[1].Value -gt 1000) {
+	throw "Schema-61 marker projection request cooldown must be positive and no greater than one second"
+}
+if (!$schema61SnapshotRestartCooldownMatch.Success -or [int]$schema61SnapshotRestartCooldownMatch.Groups[1].Value -lt 1000 -or
+	[int]$schema61SnapshotRestartCooldownMatch.Groups[1].Value -gt 5000) {
+	throw "Schema-61 marker projection in-flight restart backoff must be bounded between one and five seconds"
+}
+if (!$schema61ClientHashLimitMatch.Success -or [int]$schema61ClientHashLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61ClientHashLimitMatch.Groups[1].Value -gt 128) {
+	throw "Schema-61 client-supplied marker projection hashes/identities must be capped at 128 characters"
+}
+if (!$schema61ClientReasonLimitMatch.Success -or [int]$schema61ClientReasonLimitMatch.Groups[1].Value -le 0 -or
+	[int]$schema61ClientReasonLimitMatch.Groups[1].Value -gt 120) {
+	throw "Schema-61 client-supplied marker projection reasons must be capped at 120 characters"
+}
+$schema61ServerClassBlock = Get-ScriptMethodBlock $schema61ServerText 'class HST_ClientProjectionService'
+foreach ($schema61ServerStateEntry in @(
+	'm_mCurrentRecords',
+	'm_aJournal',
+	'm_mSessions',
+	'm_iCurrentSequence',
+	'm_sCurrentRegistryHash',
+	'm_bAllowImmediateSnapshotRestart',
+	'm_iLastSnapshotDispatchTick',
+	'm_iInFlightDispatchTick'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ServerClassBlock) -or $schema61ServerClassBlock.IndexOf($schema61ServerStateEntry) -lt 0) {
+		throw "Schema-61 server projection authority is missing durable runtime state: $schema61ServerStateEntry"
+	}
+}
+$schema61SynchronizeBlock = Get-ScriptMethodBlock $schema61ServerText 'void Synchronize('
+foreach ($schema61SynchronizeEntry in @(
+	'm_bInitialized && epoch < m_iEpoch',
+	'epoch = m_iEpoch + 1;',
+	'epoch != m_iEpoch',
+	'sequence < m_iLastObservedSequence',
+	'FindRecordBySequence(state, expectedSequence)',
+	'StateMatchesExpectedProjection(state, newEvents)',
+	'm_iEpoch = Math.Max(m_iEpoch + 1, epoch + 1);',
+	'state.m_iMarkerProjectionEpoch = m_iEpoch;',
+	'm_aJournal.Clear();',
+	'ForceAllSessionsToSnapshot("projection registry discontinuity")',
+	'CaptureCurrentRecords(state)',
+	'PruneJournal()'
+)) {
+	if ([string]::IsNullOrEmpty($schema61SynchronizeBlock) -or $schema61SynchronizeBlock.IndexOf($schema61SynchronizeEntry) -lt 0) {
+		throw "Schema-61 server synchronization/gap isolation is missing: $schema61SynchronizeEntry"
+	}
+}
+$schema61DiscontinuityIndex = $schema61SynchronizeBlock.IndexOf('if (journalGap || !StateMatchesExpectedProjection(state, newEvents))')
+$schema61JournalAppendIndex = $schema61SynchronizeBlock.IndexOf('foreach (HST_MapMarkerState newEvent : newEvents)')
+if ($schema61DiscontinuityIndex -lt 0 -or $schema61JournalAppendIndex -lt 0 -or
+	$schema61DiscontinuityIndex -gt $schema61JournalAppendIndex) {
+	throw "Schema-61 full-registry continuity must be verified before new events enter the retained journal"
+}
+$schema61ExpectedProjectionBlock = Get-ScriptMethodBlock $schema61ServerText 'protected bool StateMatchesExpectedProjection('
+foreach ($schema61ExpectedProjectionEntry in @(
+	'expected.Set(eventMarker.m_sMarkerId, HST_MarkerProjectionCodec.CopyMarker(eventMarker))',
+	'actual.Contains(stateMarker.m_sMarkerId)',
+	'actual.Count() != expected.Count()',
+	'HST_MarkerProjectionCodec.TransportEquals(expectedMarker, actualMarker)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ExpectedProjectionBlock) -or
+		$schema61ExpectedProjectionBlock.IndexOf($schema61ExpectedProjectionEntry) -lt 0) {
+		throw "Schema-61 server must isolate a discontinuous registry before journaling deltas: $schema61ExpectedProjectionEntry"
+	}
+}
+$schema61ReadyBlock = Get-ScriptMethodBlock $schema61ServerText 'HST_MarkerProjectionDispatch RegisterReady('
+foreach ($schema61ReadyEntry in @(
+	'playerId <= 0',
+	'knownRegistryHash.Length() > MAX_CLIENT_HASH_CHARACTERS',
+	'session.m_bAwaitingSnapshotAcknowledge || session.m_bAwaitingDeltaAcknowledge',
+	'knownSequence == inFlightWatermark',
+	'knownRegistryHash == session.m_sExpectedAcknowledgeHash',
+	'session.m_iAcknowledgedSequence = knownSequence;',
+	'session.m_iInFlightDispatchTick = 0;',
+	'BuildPendingDispatch(playerId, "readiness recovered lost acknowledgement")',
+	'IsRequestRateLimited(session.m_iLastReadyRequestTick, nowTick)',
+	'IsInFlightRestartRateLimited(session, nowTick)',
+	'ForceSessionToSnapshot(session, "readiness restarted incomplete in-flight dispatch")',
+	'BuildSnapshotDispatch(session, "readiness retransmit snapshot")',
+	'session.m_iLastReadyRequestTick = nowTick;',
+	'session.m_sLastReason = SanitizeClientText(reason, MAX_CLIENT_REASON_CHARACTERS);',
+	'protocolVersion != HST_MarkerProjectionCodec.PROTOCOL_VERSION',
+	'knownEpoch == m_iEpoch && knownSequence == m_iCurrentSequence && knownRegistryHash == m_sCurrentRegistryHash',
+	'CanReplayFrom(knownSequence + 1)',
+	'BuildDeltaDispatch(session, knownSequence + 1',
+	'BuildSnapshotDispatch(session, "ready snapshot")'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ReadyBlock) -or $schema61ReadyBlock.IndexOf($schema61ReadyEntry) -lt 0) {
+		throw "Schema-61 initial/JIP readiness negotiation is missing: $schema61ReadyEntry"
+	}
+}
+$schema61PendingBlock = Get-ScriptMethodBlock $schema61ServerText 'HST_MarkerProjectionDispatch BuildPendingDispatch('
+foreach ($schema61PendingEntry in @(
+	'session.m_bAwaitingSnapshotAcknowledge',
+	'session.m_bAwaitingDeltaAcknowledge',
+	'session.m_bForceSnapshot || session.m_iEpoch != m_iEpoch',
+	'session.m_iAcknowledgedSequence + 1',
+	'CanReplayFrom(fromSequence)',
+	'BuildDeltaDispatch(session, fromSequence, reason)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61PendingBlock) -or $schema61PendingBlock.IndexOf($schema61PendingEntry) -lt 0) {
+		throw "Schema-61 pending dispatch must resume from the contiguous acknowledged watermark: $schema61PendingEntry"
+	}
+}
+$schema61AcknowledgeBlock = Get-ScriptMethodBlock $schema61ServerText 'string Acknowledge('
+foreach ($schema61AcknowledgeEntry in @(
+	'!session || !session.m_bReady',
+	'protocolVersion != HST_MarkerProjectionCodec.PROTOCOL_VERSION',
+	'RejectAcknowledgement(session, "rejected: protocol mismatch", "acknowledgement protocol mismatch")',
+	'snapshotId.Length() > MAX_CLIENT_HASH_CHARACTERS || registryHash.Length() > MAX_CLIENT_HASH_CHARACTERS',
+	'epoch != m_iEpoch || epoch != session.m_iEpoch',
+	'RejectAcknowledgement(session, "rejected: projection epoch mismatch", "acknowledgement epoch mismatch")',
+	'sequence < session.m_iAcknowledgedSequence || sequence > m_iCurrentSequence || sequence > session.m_iLastSentSequence',
+	'snapshotId != session.m_sSnapshotId || sequence != session.m_iSnapshotWatermark || registryHash != session.m_sExpectedAcknowledgeHash',
+	'else if (session.m_bAwaitingDeltaAcknowledge)',
+	'sequence != session.m_iLastSentSequence || registryHash != session.m_sExpectedAcknowledgeHash',
+	'session.m_iAcknowledgedSequence = sequence;',
+	'session.m_iInFlightDispatchTick = 0;',
+	'PruneJournal()'
+)) {
+	if ([string]::IsNullOrEmpty($schema61AcknowledgeBlock) -or $schema61AcknowledgeBlock.IndexOf($schema61AcknowledgeEntry) -lt 0) {
+		throw "Schema-61 acknowledgement validation/pruning is missing: $schema61AcknowledgeEntry"
+	}
+}
+$schema61BuildDeltaDispatchBlock = Get-ScriptMethodBlock $schema61ServerText 'protected HST_MarkerProjectionDispatch BuildDeltaDispatch('
+foreach ($schema61BuildDeltaDispatchEntry in @(
+	'bool deltaBuilt = HST_MarkerProjectionCodec.BuildDeltaPackets(events, m_iEpoch, m_sCurrentRegistryHash, dispatch.m_aPackets);',
+	'if (!deltaBuilt || dispatch.m_aPackets.IsEmpty())',
+	'ForceSessionToSnapshot(session, reason + " | delta payload exceeds protocol bounds")',
+	'BuildSnapshotDispatch(session, reason + " | delta fallback snapshot")',
+	'session.m_iLastSentSequence = m_iCurrentSequence;',
+	'session.m_bAwaitingDeltaAcknowledge = true;',
+	'session.m_iInFlightDispatchTick = System.GetTickCount();',
+	'session.m_sExpectedAcknowledgeHash = m_sCurrentRegistryHash;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61BuildDeltaDispatchBlock) -or
+		$schema61BuildDeltaDispatchBlock.IndexOf($schema61BuildDeltaDispatchEntry) -lt 0) {
+		throw "Schema-61 delta dispatch must retain one in-flight full-watermark acknowledgement contract: $schema61BuildDeltaDispatchEntry"
+	}
+}
+$schema61BuildSnapshotDispatchBlock = Get-ScriptMethodBlock $schema61ServerText 'protected HST_MarkerProjectionDispatch BuildSnapshotDispatch('
+foreach ($schema61BuildSnapshotDispatchEntry in @(
+	'!session.m_bAllowImmediateSnapshotRestart && IsSnapshotRestartRateLimited(session, nowTick)',
+	'session.m_bForceSnapshot = true;',
+	'session.m_bAllowImmediateSnapshotRestart = false;',
+	'bool snapshotBuilt = HST_MarkerProjectionCodec.BuildSnapshotPackets(',
+	'if (!snapshotBuilt || dispatch.m_aPackets.IsEmpty())',
+	'dispatch.m_aPackets.Clear();',
+	'" | snapshot payload exceeds protocol bounds"',
+	'session.m_iLastSnapshotDispatchTick = nowTick;',
+	'session.m_iInFlightDispatchTick = nowTick;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61BuildSnapshotDispatchBlock) -or
+		$schema61BuildSnapshotDispatchBlock.IndexOf($schema61BuildSnapshotDispatchEntry) -lt 0) {
+		throw "Schema-61 snapshot dispatch must apply payload bounds and restart backoff: $schema61BuildSnapshotDispatchEntry"
+	}
+}
+$schema61ResyncBlock = Get-ScriptMethodBlock $schema61ServerText 'void RequestResync('
+$schema61RemovePlayerBlock = Get-ScriptMethodBlock $schema61ServerText 'void RemovePlayer('
+if ([string]::IsNullOrEmpty($schema61ResyncBlock) -or
+	$schema61ResyncBlock.IndexOf('!m_bInitialized || playerId <= 0') -lt 0 -or
+	$schema61ResyncBlock.IndexOf('IsRequestRateLimited(session.m_iLastResyncRequestTick, nowTick)') -lt 0 -or
+	$schema61ResyncBlock.IndexOf('bool recoveringDelta = session.m_bAwaitingDeltaAcknowledge;') -lt 0 -or
+	$schema61ResyncBlock.IndexOf('!recoveringDelta && IsInFlightRestartRateLimited(session, nowTick)') -lt 0 -or
+	$schema61ResyncBlock.IndexOf('session.m_iLastResyncRequestTick = nowTick;') -lt 0 -or
+	$schema61ResyncBlock.IndexOf('ForceSessionToSnapshot(session, SanitizeClientText(reason, MAX_CLIENT_REASON_CHARACTERS))') -lt 0 -or
+	$schema61ResyncBlock.IndexOf('session.m_bAllowImmediateSnapshotRestart = recoveringDelta;') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61RemovePlayerBlock) -or
+	$schema61RemovePlayerBlock.IndexOf('m_mSessions.Remove(playerId)') -lt 0) {
+	throw "Schema-61 resync/reconnect session lifecycle is incomplete"
+}
+$schema61ForceSessionSnapshotBlock = Get-ScriptMethodBlock $schema61ServerText 'protected void ForceSessionToSnapshot('
+foreach ($schema61EpochResetEntry in @(
+	'session.m_bForceSnapshot = true;',
+	'session.m_bAwaitingSnapshotAcknowledge = false;',
+	'session.m_bAwaitingDeltaAcknowledge = false;',
+	'session.m_bAllowImmediateSnapshotRestart = false;',
+	'session.m_iEpoch = m_iEpoch;',
+	'session.m_iAcknowledgedSequence = 0;',
+	'session.m_iLastSentSequence = 0;',
+	'session.m_iSnapshotWatermark = 0;',
+	'session.m_iInFlightDispatchTick = 0;',
+	'session.m_sSnapshotId = "";',
+	'session.m_sExpectedAcknowledgeHash = "";'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ForceSessionSnapshotBlock) -or
+		$schema61ForceSessionSnapshotBlock.IndexOf($schema61EpochResetEntry) -lt 0) {
+		throw "Schema-61 forced snapshot must reset all ACK state inside the new epoch: $schema61EpochResetEntry"
+	}
+}
+$schema61RejectAckBlock = Get-ScriptMethodBlock $schema61ServerText 'protected string RejectAcknowledgement('
+foreach ($schema61RejectAckEntry in @(
+	'IsRequestRateLimited(session.m_iLastRejectedAcknowledgeTick, nowTick)',
+	'session.m_iLastRejectedAcknowledgeTick = nowTick;',
+	'bool recoveringDelta = session.m_bAwaitingDeltaAcknowledge;',
+	'ForceSessionToSnapshot(session, reason)',
+	'session.m_bAllowImmediateSnapshotRestart = recoveringDelta;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61RejectAckBlock) -or
+		$schema61RejectAckBlock.IndexOf($schema61RejectAckEntry) -lt 0) {
+		throw "Schema-61 rejected ACK recovery must be rate-limited and epoch-scoped: $schema61RejectAckEntry"
+	}
+}
+$schema61RateLimitBlock = Get-ScriptMethodBlock $schema61ServerText 'protected bool IsRequestRateLimited('
+$schema61SnapshotRestartLimitBlock = Get-ScriptMethodBlock $schema61ServerText 'protected bool IsSnapshotRestartRateLimited('
+$schema61InFlightRestartLimitBlock = Get-ScriptMethodBlock $schema61ServerText 'protected bool IsInFlightRestartRateLimited('
+$schema61SanitizeTextBlock = Get-ScriptMethodBlock $schema61ServerText 'protected string SanitizeClientText('
+if ([string]::IsNullOrEmpty($schema61RateLimitBlock) -or
+	$schema61RateLimitBlock.IndexOf('nowTick - previousTick < REQUEST_COOLDOWN_MS') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61SnapshotRestartLimitBlock) -or
+	$schema61SnapshotRestartLimitBlock.IndexOf('nowTick - session.m_iLastSnapshotDispatchTick < SNAPSHOT_RESTART_COOLDOWN_MS') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61InFlightRestartLimitBlock) -or
+	$schema61InFlightRestartLimitBlock.IndexOf('nowTick - session.m_iInFlightDispatchTick < SNAPSHOT_RESTART_COOLDOWN_MS') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61SanitizeTextBlock) -or
+	$schema61SanitizeTextBlock.IndexOf('value.Replace("\r", " ")') -lt 0 -or
+	$schema61SanitizeTextBlock.IndexOf('value.Replace("\n", " ")') -lt 0 -or
+	$schema61SanitizeTextBlock.IndexOf('return value.Substring(0, maxCharacters)') -lt 0) {
+	throw "Schema-61 client marker projection request text must be bounded, sanitized, and rate-limited"
+}
+$schema61CanReplayBlock = Get-ScriptMethodBlock $schema61ServerText 'protected bool CanReplayFrom('
+$schema61PruneJournalBlock = Get-ScriptMethodBlock $schema61ServerText 'protected void PruneJournal('
+foreach ($schema61JournalEntry in @(
+	'FindJournalRecord(sequence)',
+	'session.m_bAwaitingSnapshotAcknowledge',
+	'minimumAck = Math.Min(minimumAck, session.m_iAcknowledgedSequence)',
+	'm_iStreamSequence <= minimumAck',
+	'm_aJournal.Count() > MAX_JOURNAL_EVENTS'
+)) {
+	if (([string]::IsNullOrEmpty($schema61CanReplayBlock) -or $schema61CanReplayBlock.IndexOf($schema61JournalEntry) -lt 0) -and
+		([string]::IsNullOrEmpty($schema61PruneJournalBlock) -or $schema61PruneJournalBlock.IndexOf($schema61JournalEntry) -lt 0)) {
+		throw "Schema-61 retained journal replay/ACK pruning is missing: $schema61JournalEntry"
+	}
+}
+if ($schema61ServerClassBlock -match 'SCR_MapMarkerManagerComponent|Menu|Widget') {
+	throw "Schema-61 server marker projection stream must remain independent of UI/widget state"
+}
+
+$schema61RegistryClassBlock = Get-ScriptMethodBlock $schema61ClientText 'class HST_ClientMarkerProjectionRegistry'
+if ([string]::IsNullOrEmpty($schema61RegistryClassBlock) -or
+	$schema61RegistryClassBlock -match 'SCR_MapMarkerManagerComponent|Widget|Menu') {
+	throw "Schema-61 client marker registry must remain widget-independent"
+}
+$schema61RegistryRequireSnapshotBlock = Get-ScriptMethodBlock $schema61ClientText 'void RequireSnapshot(string reason)'
+if ([string]::IsNullOrEmpty($schema61RegistryRequireSnapshotBlock) -or
+	$schema61RegistryRequireSnapshotBlock.IndexOf('ResetSnapshotStaging()') -lt 0 -or
+	$schema61RegistryRequireSnapshotBlock.IndexOf('m_bReady = false;') -lt 0) {
+	throw "Schema-61 client resync must reject deltas until a fresh atomic snapshot commits"
+}
+$schema61SnapshotApplyBlock = Get-ScriptMethodBlock $schema61ClientText 'protected HST_MarkerProjectionApplyResult ApplySnapshotChunk('
+foreach ($schema61SnapshotApplyEntry in @(
+	'packet.m_iEpoch < m_iEpoch',
+	'm_mSnapshotStaging',
+	'm_iSnapshotEpoch = packet.m_iEpoch;',
+	'm_aSnapshotChunksReceived.Resize(packet.m_iChunkCount)',
+	'm_aSnapshotChunksReceived[packet.m_iChunkIndex]',
+	'm_mSnapshotStaging.Count() != m_iSnapshotExpectedRecords',
+	'HST_MarkerProjectionCodec.BuildLiveRegistryHash(m_mSnapshotStaging)',
+	'stagedHash != m_sSnapshotExpectedHash',
+	'm_mRecords.Clear();',
+	'm_bReady = true;',
+	'm_iEpoch = m_iSnapshotEpoch;',
+	'm_iWatermark = m_iSnapshotWatermark;',
+	'result.m_bSnapshotCommitted = true;',
+	'result.m_bNeedsAcknowledge = true;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61SnapshotApplyBlock) -or $schema61SnapshotApplyBlock.IndexOf($schema61SnapshotApplyEntry) -lt 0) {
+		throw "Schema-61 client snapshot staging/atomic commit is missing: $schema61SnapshotApplyEntry"
+	}
+}
+$schema61SnapshotHashIndex = $schema61SnapshotApplyBlock.IndexOf('stagedHash != m_sSnapshotExpectedHash')
+$schema61SnapshotCommitIndex = $schema61SnapshotApplyBlock.IndexOf('m_mRecords.Clear();')
+if ($schema61SnapshotHashIndex -lt 0 -or $schema61SnapshotCommitIndex -lt 0 -or $schema61SnapshotHashIndex -gt $schema61SnapshotCommitIndex) {
+	throw "Schema-61 snapshot registry hash must validate before the live registry mutates"
+}
+$schema61DeltaApplyBlock = Get-ScriptMethodBlock $schema61ClientText 'protected HST_MarkerProjectionApplyResult ApplyDelta('
+foreach ($schema61DeltaApplyEntry in @(
+	'if (!m_bReady)',
+	'packet.m_iEpoch != m_iEpoch',
+	'packet.m_iToSequence <= m_iWatermark',
+	'duplicate.m_bNeedsAcknowledge = !packet.m_sRegistryHash.IsEmpty();',
+	'packet.m_iFromSequence != m_iWatermark + 1',
+	'packet.m_aRecords.Count() != packet.m_iToSequence - packet.m_iFromSequence + 1',
+	'marker.m_iStreamSequence != expectedSequence',
+	'marker.m_iRevision != 1',
+	'marker.m_iRevision != existing.m_iRevision + 1',
+	'HST_MarkerProjectionCodec.BuildLiveRegistryHash(working)',
+	'workingHash != packet.m_sRegistryHash',
+	'm_iWatermark = packet.m_iToSequence;',
+	'result.m_bNeedsAcknowledge = !packet.m_sRegistryHash.IsEmpty();'
+)) {
+	if ([string]::IsNullOrEmpty($schema61DeltaApplyBlock) -or $schema61DeltaApplyBlock.IndexOf($schema61DeltaApplyEntry) -lt 0) {
+		throw "Schema-61 client contiguous/idempotent delta application is missing: $schema61DeltaApplyEntry"
+	}
+}
+$schema61DeltaHashIndex = $schema61DeltaApplyBlock.IndexOf('workingHash != packet.m_sRegistryHash')
+$schema61DeltaCommitIndex = $schema61DeltaApplyBlock.IndexOf('m_mRecords.Clear();')
+if ($schema61DeltaHashIndex -lt 0 -or $schema61DeltaCommitIndex -lt 0 -or $schema61DeltaHashIndex -gt $schema61DeltaCommitIndex) {
+	throw "Schema-61 delta registry hash must validate before the live registry mutates"
+}
+$schema61NativeReconcileBlock = Get-ScriptMethodBlock $schema61ClientText 'bool ReconcileNativeMarkers('
+$schema61ClientReceiveBlock = Get-ScriptMethodBlock $schema61ClientText 'HST_MarkerProjectionApplyResult ReceivePacket('
+foreach ($schema61ClientReceiveEntry in @(
+	'result.m_bAccepted',
+	'result.m_bRegistryChanged',
+	'result.m_bSnapshotCommitted || result.m_bNeedsAcknowledge',
+	'ReconcileNativeMarkers()'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ClientReceiveBlock) -or
+		$schema61ClientReceiveBlock.IndexOf($schema61ClientReceiveEntry) -lt 0) {
+		throw "Schema-61 native reconciliation must wait for an atomic snapshot or final delta packet: $schema61ClientReceiveEntry"
+	}
+}
+foreach ($schema61NativeReconcileEntry in @(
+	'm_Registry.CopyRecords(records, false)',
+	'markerIds.Sort();',
+	'm_Director.BuildDesiredMarkers(projectionState, null, m_mDesired)',
+	'record.m_bLocalOnly = true;',
+	'record.m_bServerMarker = false;',
+	'm_Reconciler.Reconcile(markerManager, m_mDesired)',
+	'ReconcileAuthoredZoneDescriptors(markerManager, records)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61NativeReconcileBlock) -or $schema61NativeReconcileBlock.IndexOf($schema61NativeReconcileEntry) -lt 0) {
+		throw "Schema-61 client-local native marker reconciliation is missing: $schema61NativeReconcileEntry"
+	}
+}
+$schema61AuthoredDescriptorBlock = Get-ScriptMethodBlock $schema61ClientText 'protected bool ReconcileAuthoredZoneDescriptors('
+foreach ($schema61AuthoredDescriptorEntry in @(
+	'm_mSuppressedAuthoredZoneIds',
+	'm_mDesired.Contains(suppressedMarkerId)',
+	'm_Reconciler.IsDomainIdLive(markerManager, suppressedMarkerId)',
+	'RestoreAuthoredZoneDescriptor(suppressedZoneId)',
+	'markerId.IndexOf("hst_zone_") != 0',
+	'marker.m_sLinkedId.IsEmpty()',
+	'!m_mDesired.Contains(markerId) || !m_Reconciler.IsDomainIdLive(markerManager, markerId)',
+	'MapItem mapItem = ResolveAuthoredZoneMapItem(marker.m_sLinkedId, world);',
+	'm_mAuthoredZonePriorVisibility.Set(marker.m_sLinkedId, mapItem.IsVisible())',
+	'if (mapItem.IsVisible())',
+	'mapItem.SetVisible(false);',
+	'm_mSuppressedAuthoredZoneIds.Set(marker.m_sLinkedId, true)',
+	'return m_iLastAuthoredZoneDescriptorsMissing == 0;'
+)) {
+	if ([string]::IsNullOrEmpty($schema61AuthoredDescriptorBlock) -or
+		$schema61AuthoredDescriptorBlock.IndexOf($schema61AuthoredDescriptorEntry) -lt 0) {
+		throw "Schema-61 client projection must suppress the exact authored zone descriptor: $schema61AuthoredDescriptorEntry"
+	}
+}
+$schema61ResolveAuthoredDescriptorBlock = Get-ScriptMethodBlock $schema61ClientText 'protected MapItem ResolveAuthoredZoneMapItem('
+foreach ($schema61ResolveAuthoredDescriptorEntry in @(
+	'm_mAuthoredZoneMapItemByZoneId.Get(zoneId)',
+	'm_mAuthoredZoneLookupAttempted.Contains(zoneId)',
+	'm_mAuthoredZoneLookupAttempted.Set(zoneId, true)',
+	'string entityName = "HST_ConflictMapMarker_" + zoneId;',
+	'IEntity markerEntity = world.FindEntityByName(entityName);',
+	'markerEntity.GetName() != entityName',
+	'SCR_CampaignMilitaryBaseMapDescriptorComponent.Cast(markerEntity.FindComponent(SCR_CampaignMilitaryBaseMapDescriptorComponent))',
+	'MapItem mapItem = descriptor.Item();',
+	'm_mAuthoredZoneMapItemByZoneId.Set(zoneId, mapItem)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ResolveAuthoredDescriptorBlock) -or
+		$schema61ResolveAuthoredDescriptorBlock.IndexOf($schema61ResolveAuthoredDescriptorEntry) -lt 0) {
+		throw "Schema-61 client authored-zone descriptor binding/cache is missing: $schema61ResolveAuthoredDescriptorEntry"
+	}
+}
+if (([regex]::Matches($schema61ResolveAuthoredDescriptorBlock, 'FindEntityByName\(')).Count -ne 1 -or
+	$schema61ResolveAuthoredDescriptorBlock -match 'QueryEntitiesBy(Sphere|AABB|OBB)|GetEntitiesIn') {
+	throw "Schema-61 client authored-zone descriptor resolution must use one cached exact-name lookup without an area scan"
+}
+$schema61RestoreAuthoredDescriptorBlock = Get-ScriptMethodBlock $schema61ClientText 'protected void RestoreAuthoredZoneDescriptor('
+foreach ($schema61RestoreAuthoredDescriptorEntry in @(
+	'm_mAuthoredZonePriorVisibility.Contains(zoneId)',
+	'mapItem.SetVisible(m_mAuthoredZonePriorVisibility.Get(zoneId))',
+	'm_mSuppressedAuthoredZoneIds.Remove(zoneId)',
+	'm_mAuthoredZonePriorVisibility.Remove(zoneId)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61RestoreAuthoredDescriptorBlock) -or
+		$schema61RestoreAuthoredDescriptorBlock.IndexOf($schema61RestoreAuthoredDescriptorEntry) -lt 0) {
+		throw "Schema-61 authored-zone suppression must restore the descriptor's prior visibility: $schema61RestoreAuthoredDescriptorEntry"
+	}
+}
+$schema61RestoreAllAuthoredDescriptorsBlock = Get-ScriptMethodBlock $schema61ClientText 'protected void RestoreAllAuthoredZoneDescriptors('
+$schema61RetryAuthoredDescriptorsBlock = Get-ScriptMethodBlock $schema61ClientText 'void RetryMissingAuthoredZoneDescriptorBindings('
+$schema61ClientClearBlock = Get-ScriptMethodBlock $schema61ClientText 'void Clear('
+if ([string]::IsNullOrEmpty($schema61RestoreAllAuthoredDescriptorsBlock) -or
+	$schema61RestoreAllAuthoredDescriptorsBlock.IndexOf('RestoreAuthoredZoneDescriptor(zoneId)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61RetryAuthoredDescriptorsBlock) -or
+	$schema61RetryAuthoredDescriptorsBlock.IndexOf('m_mAuthoredZoneLookupAttempted.Remove(zoneId)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61ClientClearBlock) -or
+	$schema61ClientClearBlock.IndexOf('RestoreAllAuthoredZoneDescriptors()') -lt 0) {
+	throw "Schema-61 authored-zone descriptor cache must retry missing bindings and restore visibility on client clear"
+}
+$schema61NativeReconcileIndex = $schema61NativeReconcileBlock.IndexOf('m_Reconciler.Reconcile(markerManager, m_mDesired)')
+$schema61DescriptorSuppressIndex = $schema61NativeReconcileBlock.IndexOf('ReconcileAuthoredZoneDescriptors(markerManager, records)')
+if ($schema61NativeReconcileIndex -lt 0 -or $schema61DescriptorSuppressIndex -lt 0 -or
+	$schema61NativeReconcileIndex -gt $schema61DescriptorSuppressIndex) {
+	throw "Schema-61 client reconcile must hide authored zone descriptors after publishing local replacement markers"
+}
+$schema61DirectorCandidateBlock = Get-ScriptMethodBlock $schema61DirectorText 'protected bool IsNativeMarkerCandidate('
+$schema61DirectorRecordBlock = Get-ScriptMethodBlock $schema61DirectorText 'protected HST_MapMarkerRecord BuildRecord('
+$schema61DirectorBuildBlock = Get-ScriptMethodBlock $schema61DirectorText 'void BuildDesiredMarkers('
+if ([string]::IsNullOrEmpty($schema61DirectorCandidateBlock) -or
+	$schema61DirectorCandidateBlock.IndexOf('!marker.m_bTombstone') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61DirectorRecordBlock) -or
+	$schema61DirectorRecordBlock.IndexOf('record.m_iRevision = marker.m_iRevision') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61DirectorBuildBlock)) {
+	throw "Schema-61 marker director must exclude tombstones and preserve record revisions"
+}
+foreach ($schema61DirectorOrderingEntry in @(
+	'map<string, ref HST_MapMarkerState> candidatesByPriority',
+	'string orderKey = string.Format("%1|%2", 999 - ResolveMarkerPriority(marker), marker.m_sMarkerId)',
+	'orderedKeys.Sort();',
+	'foreach (string orderKey : orderedKeys)',
+	'HST_MapMarkerState marker = candidatesByPriority.Get(orderKey)'
+)) {
+	if ($schema61DirectorBuildBlock.IndexOf($schema61DirectorOrderingEntry) -lt 0) {
+		throw "Schema-61 shared marker director must select capped markers in stable priority/ID order: $schema61DirectorOrderingEntry"
+	}
+}
+if ($schema61MapMarkerText.IndexOf('m_MarkerDirector.BuildDesiredMarkers(state, preset, m_mDesiredNativeMarkers)') -lt 0 -or
+	$schema61NativeReconcileBlock.IndexOf('m_Director.BuildDesiredMarkers(projectionState, null, m_mDesired)') -lt 0) {
+	throw "Schema-61 server and client marker paths must share the same priority-stable director"
+}
+
+foreach ($schema61RpcPattern in @(
+	'\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Server\)\]\s*protected void RpcAsk_MarkerProjectionReady\(',
+	'\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Server\)\]\s*protected void RpcAsk_MarkerProjectionAcknowledge\(',
+	'\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Server\)\]\s*protected void RpcAsk_MarkerProjectionResync\(',
+	'\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Owner\)\]\s*protected void RpcDo_ReceiveMarkerProjectionPacket\(',
+	'\[RplRpc\(RplChannel\.Reliable,\s*RplRcver\.Owner\)\]\s*protected void RpcDo_ResetMarkerProjection\('
+)) {
+	if ($schema61BridgeText -notmatch $schema61RpcPattern) {
+		throw "Schema-61 marker projection RPC bridge is missing a reliable server/owner route: $schema61RpcPattern"
+	}
+}
+$schema61BridgeReadyBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void SendMarkerProjectionReady('
+$schema61BridgeAckBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void SendMarkerProjectionAcknowledge('
+$schema61BridgeResyncBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void SendMarkerProjectionResync('
+$schema61BridgePendingBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected bool SendPendingMarkerProjection('
+foreach ($schema61BridgeRoute in @(
+	@($schema61BridgeReadyBlock, 'coordinator.RequestMarkerProjectionReady('),
+	@($schema61BridgeAckBlock, 'coordinator.AcknowledgeMarkerProjection('),
+	@($schema61BridgeResyncBlock, 'coordinator.RequestMarkerProjectionResync('),
+	@($schema61BridgePendingBlock, 'coordinator.BuildPendingMarkerProjection(')
+)) {
+	if ([string]::IsNullOrEmpty($schema61BridgeRoute[0]) -or
+		$schema61BridgeRoute[0].IndexOf('m_OwnerEntity') -lt 0 -or
+		$schema61BridgeRoute[0].IndexOf($schema61BridgeRoute[1]) -lt 0) {
+		throw "Schema-61 marker projection requests must derive authority from the owned request bridge: $($schema61BridgeRoute[1])"
+	}
+}
+foreach ($schema61PostAckCatchupEntry in @(
+	'if (result.IndexOf("accepted:") == 0)',
+	'coordinator.BuildPendingMarkerProjection(',
+	'"post-acknowledgement catch-up"',
+	'DeliverMarkerProjectionDispatch(pending)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61BridgeAckBlock) -or
+		$schema61BridgeAckBlock.IndexOf($schema61PostAckCatchupEntry) -lt 0) {
+		throw "Schema-61 accepted ACK must immediately drain mutations accumulated behind the in-flight dispatch: $schema61PostAckCatchupEntry"
+	}
+}
+$schema61ReceivePacketBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void RpcDo_ReceiveMarkerProjectionPacket('
+foreach ($schema61ReceivePacketEntry in @(
+	'm_ClientMarkerProjection.ReceivePacket(payload)',
+	'if (result.m_bNeedsResync)',
+	'RequestMarkerProjectionResync(result.m_sReason)',
+	'if (result.m_bNeedsAcknowledge)',
+	'AcknowledgeMarkerProjection(result)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ReceivePacketBlock) -or $schema61ReceivePacketBlock.IndexOf($schema61ReceivePacketEntry) -lt 0) {
+		throw "Schema-61 owner packet apply/ACK/resync bridge is missing: $schema61ReceivePacketEntry"
+	}
+}
+$schema61MapOpenBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void OnNativeMapOpenComplete('
+$schema61MapRefreshBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void RefreshClientNativeMapMarkerWidgets('
+if ([string]::IsNullOrEmpty($schema61MapOpenBlock) -or
+	$schema61MapOpenBlock.IndexOf('m_ClientMarkerProjection.RetryMissingAuthoredZoneDescriptorBindings()') -lt 0 -or
+	$schema61MapOpenBlock.IndexOf('QueueClientNativeMapMarkerRefresh(0)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61MapRefreshBlock) -or
+	$schema61MapRefreshBlock.IndexOf('m_ClientMarkerProjection.ReconcileNativeMarkers()') -lt 0 -or
+	$schema61MapRefreshBlock.IndexOf('RetryClientNativeMapMarkerRefresh()') -lt 0) {
+	throw "Schema-61 client marker/map refresh must repeatedly reconcile local markers and re-hide authored descriptors"
+}
+$schema61BridgeFrameBlock = Get-ScriptMethodBlock $schema61BridgeText 'override void EOnFrame('
+$schema61ReadinessTickBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void TickMarkerProjectionReadiness('
+if ([string]::IsNullOrEmpty($schema61BridgeFrameBlock) -or
+	$schema61BridgeFrameBlock.IndexOf('TickMarkerProjectionReadiness(timeSlice)') -lt 0 -or
+	$schema61BridgeText.IndexOf('MARKER_PROJECTION_KEEPALIVE_SECONDS = 5.0') -lt 0 -or
+	[string]::IsNullOrEmpty($schema61ReadinessTickBlock) -or
+	$schema61ReadinessTickBlock.IndexOf('m_ClientMarkerProjection.GetRegistry()') -lt 0 -or
+	$schema61ReadinessTickBlock.IndexOf('requestInterval = MARKER_PROJECTION_KEEPALIVE_SECONDS') -lt 0 -or
+	$schema61ReadinessTickBlock.IndexOf('RequestMarkerProjectionReadyNow("readiness keepalive")') -lt 0 -or
+	$schema61ReadinessTickBlock.IndexOf('RequestMarkerProjectionReadyNow("readiness retry")') -lt 0) {
+	throw "Schema-61 client readiness must run independently of menu/map widget lifetime"
+}
+$schema61ClientResyncBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void RequestMarkerProjectionResync('
+if ([string]::IsNullOrEmpty($schema61ClientResyncBlock) -or
+	$schema61ClientResyncBlock.IndexOf('m_ClientMarkerProjection.RequireSnapshot("resync requested: " + reason)') -lt 0 -or
+	$schema61ClientResyncBlock.IndexOf('Rpc(RpcAsk_MarkerProjectionResync, reason, clientPlayerId)') -lt 0) {
+	throw "Schema-61 client resync must mark its registry unready before requesting the recovery snapshot"
+}
+$schema61CoordinatorReadyBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'HST_MarkerProjectionDispatch RequestMarkerProjectionReady('
+$schema61CoordinatorPendingBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'HST_MarkerProjectionDispatch BuildPendingMarkerProjection('
+$schema61CoordinatorAckBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'string AcknowledgeMarkerProjection('
+$schema61CoordinatorResyncBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'HST_MarkerProjectionDispatch RequestMarkerProjectionResync('
+foreach ($schema61CoordinatorAuthorityRoute in @(
+	$schema61CoordinatorReadyBlock,
+	$schema61CoordinatorPendingBlock,
+	$schema61CoordinatorAckBlock,
+	$schema61CoordinatorResyncBlock
+)) {
+	if ([string]::IsNullOrEmpty($schema61CoordinatorAuthorityRoute) -or
+		$schema61CoordinatorAuthorityRoute.IndexOf('ResolveAuthoritativePlayerId(requestOwner, clientPlayerId') -lt 0 -or
+		$schema61CoordinatorAuthorityRoute.IndexOf('if (playerId <= 0)') -lt 0) {
+		throw "Schema-61 coordinator projection routes must derive the player from request ownership, not trust the client hint"
+	}
+}
+$schema61DisconnectBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'override void OnPlayerDisconnected('
+if ([string]::IsNullOrEmpty($schema61DisconnectBlock) -or
+	$schema61DisconnectBlock.IndexOf('m_ClientProjection.RemovePlayer(playerId)') -lt 0) {
+	throw "Schema-61 server projection session must be removed on player disconnect"
+}
+$schema61PublishOwnersBlock = Get-ScriptMethodBlock $schema61BridgeText 'static int PublishPendingMarkerProjectionToConnectedOwners('
+foreach ($schema61PublishOwnersEntry in @(
+	'playerManager.GetPlayers(playerIds)',
+	'ResolvePlayerRequestBridge(playerManager, playerId)',
+	'request.SendPendingMarkerProjection(reason, playerId)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61PublishOwnersBlock) -or $schema61PublishOwnersBlock.IndexOf($schema61PublishOwnersEntry) -lt 0) {
+		throw "Schema-61 server marker mutations must publish through each owned player-controller bridge: $schema61PublishOwnersEntry"
+	}
+}
+$schema61ResetOwnersBlock = Get-ScriptMethodBlock $schema61BridgeText 'static int ResetMarkerProjectionForConnectedOwners('
+foreach ($schema61ResetOwnersEntry in @(
+	'playerManager.GetPlayers(playerIds)',
+	'ResolvePlayerRequestBridge(playerManager, playerId)',
+	'request.DeliverMarkerProjectionReset(reason)',
+	'resetCount++'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ResetOwnersBlock) -or
+		$schema61ResetOwnersBlock.IndexOf($schema61ResetOwnersEntry) -lt 0) {
+		throw "Schema-61 admin projection reset must address every connected owner bridge: $schema61ResetOwnersEntry"
+	}
+}
+$schema61OwnerResetBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void RpcDo_ResetMarkerProjection('
+foreach ($schema61OwnerResetEntry in @(
+	'm_ClientMarkerProjection.Clear()',
+	'QueueClientNativeMapMarkerRefresh(0)',
+	'RequestMarkerProjectionReadyNow("server projection reset: " + reason)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61OwnerResetBlock) -or
+		$schema61OwnerResetBlock.IndexOf($schema61OwnerResetEntry) -lt 0) {
+		throw "Schema-61 owner projection reset must clear and immediately request authoritative rehydration: $schema61OwnerResetEntry"
+	}
+}
+$schema61DeliverResetBlock = Get-ScriptMethodBlock $schema61BridgeText 'protected void DeliverMarkerProjectionReset('
+if ([string]::IsNullOrEmpty($schema61DeliverResetBlock) -or
+	$schema61DeliverResetBlock.IndexOf('Replication.IsServer() && IsLocalOwner(m_OwnerEntity)') -lt 0 -or
+	$schema61DeliverResetBlock.IndexOf('RpcDo_ResetMarkerProjection(reason)') -lt 0 -or
+	$schema61DeliverResetBlock.IndexOf('Rpc(RpcDo_ResetMarkerProjection, reason)') -lt 0) {
+	throw "Schema-61 owner projection reset must support both listen-host and remote owner delivery"
+}
+
+$schema61DebugRepublishBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'protected void RepublishExistingCampaignMarkersAfterDebugRestore('
+foreach ($schema61DebugRepublishEntry in @(
+	'm_MapMarkers.ForceNativeRepublishExistingState(m_State, m_Preset)',
+	'm_ClientProjection.Synchronize(m_State, "campaign debug live-state restore: " + reason)',
+	'HST_CommandMenuRequestComponent.PublishPendingMarkerProjectionToConnectedOwners("campaign debug live-state restore: " + reason)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61DebugRepublishBlock) -or
+		$schema61DebugRepublishBlock.IndexOf($schema61DebugRepublishEntry) -lt 0) {
+		throw "Schema-61 Campaign Debug live-state restore must synchronize and publish the restored projection: $schema61DebugRepublishEntry"
+	}
+}
+$schema61DebugCancelBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'string RequestAdminCancelCampaignDebug('
+$schema61DebugCompleteBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'protected void CompleteCampaignDebugRun('
+foreach ($schema61DebugRestoreRoute in @(
+	@($schema61DebugCancelBlock, 'RestoreCampaignDebugStateSnapshot("run cancellation")', 'RepublishExistingCampaignMarkersAfterDebugRestore("campaign debug cancellation restored live state")'),
+	@($schema61DebugCompleteBlock, 'RestoreCampaignDebugStateSnapshot("run completion")', 'RepublishExistingCampaignMarkersAfterDebugRestore("campaign debug completion restored live state")')
+)) {
+	if ([string]::IsNullOrEmpty($schema61DebugRestoreRoute[0])) {
+		throw "Schema-61 Campaign Debug cancellation/completion restore route is missing: $($schema61DebugRestoreRoute[2])"
+	}
+	$schema61RestoreIndex = $schema61DebugRestoreRoute[0].IndexOf($schema61DebugRestoreRoute[1])
+	$schema61RepublishIndex = $schema61DebugRestoreRoute[0].IndexOf($schema61DebugRestoreRoute[2])
+	if ($schema61RestoreIndex -lt 0 -or $schema61RepublishIndex -lt 0 -or
+		$schema61RestoreIndex -gt $schema61RepublishIndex) {
+		throw "Schema-61 Campaign Debug cancellation/completion must republish only after restoring live state: $($schema61DebugRestoreRoute[2])"
+	}
+}
+$schema61AdminReportBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'string RequestAdminNativeMarkerReport('
+if ([string]::IsNullOrEmpty($schema61AdminReportBlock) -or
+	$schema61AdminReportBlock.IndexOf('m_ClientProjection.Synchronize(m_State, "admin native marker report")') -lt 0 -or
+	$schema61AdminReportBlock.IndexOf('HST_CommandMenuRequestComponent.PublishPendingMarkerProjectionToConnectedOwners("admin native marker report")') -lt 0) {
+	throw "Schema-61 admin native marker report must synchronize and publish the authoritative owner projection"
+}
+$schema61AdminPurgeBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'string RequestAdminPurgeNativeHSTMarkers('
+foreach ($schema61AdminPurgeEntry in @(
+	'm_MapMarkers.AdminPurgeNativeHSTMarkers()',
+	'm_ClientProjection.ForceAllReadySessionsToSnapshot("admin native marker purge")',
+	'HST_CommandMenuRequestComponent.ResetMarkerProjectionForConnectedOwners("admin native marker purge")',
+	'client campaign marker projection reset'
+)) {
+	if ([string]::IsNullOrEmpty($schema61AdminPurgeBlock) -or
+		$schema61AdminPurgeBlock.IndexOf($schema61AdminPurgeEntry) -lt 0) {
+		throw "Schema-61 admin native-marker purge must reset and rehydrate every owner projection: $schema61AdminPurgeEntry"
+	}
+}
+$schema61ForceReadySnapshotsBlock = Get-ScriptMethodBlock $schema61ServerText 'void ForceAllReadySessionsToSnapshot('
+if ([string]::IsNullOrEmpty($schema61ForceReadySnapshotsBlock) -or
+	$schema61ForceReadySnapshotsBlock.IndexOf('if (!m_bInitialized)') -lt 0 -or
+	$schema61ForceReadySnapshotsBlock.IndexOf('ForceAllSessionsToSnapshot(reason)') -lt 0) {
+	throw "Schema-61 admin reset must first force all initialized server sessions to a fresh snapshot"
+}
+$schema61AdminServerResetIndex = $schema61AdminPurgeBlock.IndexOf('m_ClientProjection.ForceAllReadySessionsToSnapshot("admin native marker purge")')
+$schema61AdminClientResetIndex = $schema61AdminPurgeBlock.IndexOf('HST_CommandMenuRequestComponent.ResetMarkerProjectionForConnectedOwners("admin native marker purge")')
+if ($schema61AdminServerResetIndex -lt 0 -or $schema61AdminClientResetIndex -lt 0 -or
+	$schema61AdminServerResetIndex -gt $schema61AdminClientResetIndex) {
+	throw "Schema-61 admin purge must reset server session ACK state before clearing connected owner projections"
+}
+
+$schema61ServerNativePublishBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'protected bool PublishRuntimeNativeMarkers('
+foreach ($schema61NativeCutoverEntry in @(
+	'static const bool CLIENT_PROJECTION_OWNS_NATIVE_MARKERS = true;',
+	'if (CLIENT_PROJECTION_OWNS_NATIVE_MARKERS)',
+	'm_NativeReconciler.Clear(markerManager)',
+	'm_iLastNativePublishedCount = 0;',
+	'return retiredServerPublication;'
+)) {
+	if ($schema61MapMarkerText.IndexOf($schema61NativeCutoverEntry) -lt 0) {
+		throw "Schema-61 client-local marker ownership cutover is missing: $schema61NativeCutoverEntry"
+	}
+}
+$schema61CutoverReturnIndex = $schema61ServerNativePublishBlock.IndexOf('return retiredServerPublication;')
+$schema61ServerReconcileIndex = $schema61ServerNativePublishBlock.IndexOf('m_NativeReconciler.Reconcile(', [Math]::Max(0, $schema61CutoverReturnIndex))
+if ([string]::IsNullOrEmpty($schema61ServerNativePublishBlock) -or
+	$schema61CutoverReturnIndex -lt 0 -or $schema61ServerReconcileIndex -lt 0 -or
+	$schema61CutoverReturnIndex -gt $schema61ServerReconcileIndex) {
+	throw "Schema-61 server-native campaign marker publication must return after clearing before legacy reconcile"
+}
+
+foreach ($schema61ProofEntry in @(
+	'class HST_MarkerProjectionProofReport',
+	'class HST_MarkerProjectionProofService',
+	'm_bInitialSnapshotJIPExact',
+	'm_bStableRebuildExact',
+	'm_bOrderedDeltaRevisionExact',
+	'm_bDuplicateIdempotencyExact',
+	'm_bGapResyncExact',
+	'm_bReconnectSnapshotExact',
+	'm_bAcknowledgePruningExact',
+	'm_bMalformedFailClosedExact',
+	'm_bSchemaMigrationExact',
+	'ProveStreamLifecycle(report)',
+	'ProveMutationWhileSnapshotPending(',
+	'ProveReadinessRecoversLostAcknowledge(',
+	'ProveRapidMutationInFlight(',
+	'ProveMultiPacketRuntimeAcknowledgement(',
+	'ProveEpochResetAfterHighWatermark(',
+	'ProveDroppedDeltaResync(report)',
+	'ProveMalformedPacketFailClosed(report)',
+	'ProveSchemaMigration(report)',
+	'RegistryMatchesServer(',
+	'RegistriesEqual('
+)) {
+	if ($schema61ProofText.IndexOf($schema61ProofEntry) -lt 0) {
+		throw "Schema-61 authoritative marker projection source proof is missing: $schema61ProofEntry"
+	}
+}
+$schema61ProofLifecycleBlock = Get-ScriptMethodBlock $schema61ProofText 'protected void ProveStreamLifecycle('
+foreach ($schema61ProofLifecycleEntry in @(
+	'bool snapshotCatchupExact = ProveMutationWhileSnapshotPending(snapshotCatchupEvidence);',
+	'bool lostAcknowledgeExact = ProveReadinessRecoversLostAcknowledge(lostAcknowledgeEvidence);',
+	'primarySnapshotExact && jipSnapshotExact && snapshotCatchupExact && lostAcknowledgeExact',
+	'bool rapidMutationExact = ProveRapidMutationInFlight(rapidMutationEvidence);',
+	'bool multiPacketExact = ProveMultiPacketRuntimeAcknowledgement(multiPacketEvidence);',
+	'&& rapidMutationExact',
+	'&& multiPacketExact',
+	'bool epochResetExact = ProveEpochResetAfterHighWatermark(epochResetEvidence);',
+	'&& epochResetExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ProofLifecycleBlock) -or
+		$schema61ProofLifecycleBlock.IndexOf($schema61ProofLifecycleEntry) -lt 0) {
+		throw "Schema-61 stream proof must aggregate the post-review concurrency case: $schema61ProofLifecycleEntry"
+	}
+}
+$schema61LostAckProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected bool ProveReadinessRecoversLostAcknowledge('
+foreach ($schema61LostAckProofEntry in @(
+	'HST_MarkerProjectionApplyResult snapshotResult = ApplyDispatch(client, snapshot);',
+	'server.Synchronize(state, "lost ACK mutation")',
+	'server.RegisterReady(',
+	'client.GetEpoch()',
+	'client.GetWatermark()',
+	'client.GetRegistryHash()',
+	'IsSingleSequenceDelta(heartbeatRecovery, 2)',
+	'RegistryMatchesServer(client, server)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61LostAckProofBlock) -or
+		$schema61LostAckProofBlock.IndexOf($schema61LostAckProofEntry) -lt 0) {
+		throw "Schema-61 proof must recover a lost ACK through the readiness heartbeat: $schema61LostAckProofEntry"
+	}
+}
+$schema61SnapshotPendingProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected bool ProveMutationWhileSnapshotPending('
+foreach ($schema61SnapshotPendingProofEntry in @(
+	'server.Synchronize(state, "snapshot catch-up mutation")',
+	'server.BuildPendingDispatch(SNAPSHOT_CATCHUP_PLAYER_ID, "snapshot still pending")',
+	'!blocked.HasPackets()',
+	'IsSingleSequenceDelta(catchup, 2)',
+	'RegistryMatchesServer(client, server)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61SnapshotPendingProofBlock) -or
+		$schema61SnapshotPendingProofBlock.IndexOf($schema61SnapshotPendingProofEntry) -lt 0) {
+		throw "Schema-61 proof must cover mutation while a snapshot ACK is pending: $schema61SnapshotPendingProofEntry"
+	}
+}
+$schema61RapidMutationProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected bool ProveRapidMutationInFlight('
+foreach ($schema61RapidMutationProofEntry in @(
+	'server.BuildPendingDispatch(RAPID_MUTATION_PLAYER_ID, "rapid mutation first delivery")',
+	'server.Synchronize(state, "rapid mutation three")',
+	'!overlap.HasPackets()',
+	'IsSingleSequenceDelta(second, 3)',
+	'RegistryMatchesServer(client, server)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61RapidMutationProofBlock) -or
+		$schema61RapidMutationProofBlock.IndexOf($schema61RapidMutationProofEntry) -lt 0) {
+		throw "Schema-61 proof must cover rapid mutation behind one in-flight delta: $schema61RapidMutationProofEntry"
+	}
+}
+$schema61MultiPacketProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected bool ProveMultiPacketRuntimeAcknowledgement('
+foreach ($schema61MultiPacketProofEntry in @(
+	'HST_MarkerProjectionCodec.MAX_RECORDS_PER_PACKET + 1',
+	'burst.m_aPackets.Count() == 2',
+	'!firstResult.m_bNeedsAcknowledge',
+	'finalResult.m_bNeedsAcknowledge',
+	'RegistryMatchesServer(client, server)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61MultiPacketProofBlock) -or
+		$schema61MultiPacketProofBlock.IndexOf($schema61MultiPacketProofEntry) -lt 0) {
+		throw "Schema-61 proof must require final-packet-only ACK for a multi-packet delta: $schema61MultiPacketProofEntry"
+	}
+}
+$schema61GapProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected void ProveDroppedDeltaResync('
+foreach ($schema61AtomicStagingProofEntry in @(
+	'int stagedEpochBefore = client.GetEpoch();',
+	'int stagedWatermarkBefore = client.GetWatermark();',
+	'int stagedRecordsBefore = client.GetRecordCount();',
+	'string stagedHashBefore = client.GetRegistryHash();',
+	'!firstSnapshotChunk.m_bSnapshotCommitted',
+	'!firstSnapshotChunk.m_bRegistryChanged',
+	'intermediateEpoch == stagedEpochBefore',
+	'intermediateWatermark == stagedWatermarkBefore',
+	'intermediateRecords == stagedRecordsBefore',
+	'intermediateHash == stagedHashBefore',
+	'&& stagingAtomic'
+)) {
+	if ([string]::IsNullOrEmpty($schema61GapProofBlock) -or
+		$schema61GapProofBlock.IndexOf($schema61AtomicStagingProofEntry) -lt 0) {
+		throw "Schema-61 resync proof must demonstrate atomic multi-chunk snapshot staging: $schema61AtomicStagingProofEntry"
+	}
+}
+$schema61EpochResetProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected bool ProveEpochResetAfterHighWatermark('
+foreach ($schema61EpochResetProofEntry in @(
+	'state.m_iMarkerProjectionSequence = 40;',
+	'state.m_iMarkerProjectionEpoch = 32;',
+	'state.m_iMarkerProjectionSequence = 2;',
+	'resetSnapshot.m_bSnapshot',
+	'client.GetEpoch() == 32',
+	'client.GetWatermark() == 2',
+	'!client.FindRecord("old_epoch_marker")',
+	'client.FindRecord("new_epoch_marker")',
+	'RegistryMatchesServer(client, server)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61EpochResetProofBlock) -or
+		$schema61EpochResetProofBlock.IndexOf($schema61EpochResetProofEntry) -lt 0) {
+		throw "Schema-61 proof must cover an epoch reset below the old high watermark: $schema61EpochResetProofEntry"
+	}
+}
+$schema61MalformedProofBlock = Get-ScriptMethodBlock $schema61ProofText 'protected void ProveMalformedPacketFailClosed('
+foreach ($schema61StrictMalformedProofEntry in @(
+	'invalidBooleanLine.Replace("M|1|1|0|", "M|1|1|invalid|")',
+	'!invalidBooleanDecoded',
+	'while (oversizedLabel.Length() <= HST_MarkerProjectionCodec.MAX_PACKET_CHARACTERS)',
+	'bool oversizedSnapshotBuilt = HST_MarkerProjectionCodec.BuildSnapshotPackets(',
+	'bool oversizedDeltaBuilt = HST_MarkerProjectionCodec.BuildDeltaPackets(',
+	'!oversizedSnapshotBuilt',
+	'oversizedSnapshotPackets.IsEmpty()',
+	'!oversizedDeltaBuilt',
+	'oversizedDeltaPackets.IsEmpty()',
+	'decoderExact && boundsExact && registryStable'
+)) {
+	if ([string]::IsNullOrEmpty($schema61MalformedProofBlock) -or
+		$schema61MalformedProofBlock.IndexOf($schema61StrictMalformedProofEntry) -lt 0) {
+		throw "Schema-61 malformed-packet proof must reject non-canonical boolean tokens: $schema61StrictMalformedProofEntry"
+	}
+}
+$schema61ProofAllBlock = Get-ScriptMethodBlock $schema61ProofText 'bool AllExact('
+foreach ($schema61ProofBoolean in @(
+	'm_bInitialSnapshotJIPExact',
+	'm_bStableRebuildExact',
+	'm_bOrderedDeltaRevisionExact',
+	'm_bDuplicateIdempotencyExact',
+	'm_bGapResyncExact',
+	'm_bReconnectSnapshotExact',
+	'm_bAcknowledgePruningExact',
+	'm_bMalformedFailClosedExact',
+	'm_bSchemaMigrationExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ProofAllBlock) -or $schema61ProofAllBlock.IndexOf($schema61ProofBoolean) -lt 0) {
+		throw "Schema-61 proof AllExact aggregation is missing: $schema61ProofBoolean"
+	}
+}
+$schema61ForceDebugBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+$schema61AppendProofIndex = $schema61ForceDebugBlock.IndexOf('AppendCampaignDebugMarkerProjectionAssertions(forceCase)')
+$schema61FinalizeProofIndex = $schema61ForceDebugBlock.IndexOf('FinalizeCampaignDebugCaseFromAssertions(forceCase)')
+if ([string]::IsNullOrEmpty($schema61ForceDebugBlock) -or $schema61AppendProofIndex -lt 0 -or
+	$schema61FinalizeProofIndex -lt 0 -or $schema61AppendProofIndex -gt $schema61FinalizeProofIndex) {
+	throw "Schema-61 force-authority case must append marker projection proof assertions before finalization"
+}
+$schema61CoordinatorProofBlock = Get-ScriptMethodBlock $schema61CoordinatorText 'protected void AppendCampaignDebugMarkerProjectionAssertions('
+foreach ($schema61AssertionEntry in @(
+	'new HST_MarkerProjectionProofService()',
+	'marker_projection.snapshot_jip',
+	'marker_projection.stable_rebuild',
+	'marker_projection.ordered_deltas',
+	'marker_projection.duplicate',
+	'marker_projection.gap_resync',
+	'marker_projection.reconnect',
+	'marker_projection.ack_pruning',
+	'marker_projection.malformed',
+	'marker_projection.schema61'
+)) {
+	if ([string]::IsNullOrEmpty($schema61CoordinatorProofBlock) -or $schema61CoordinatorProofBlock.IndexOf($schema61AssertionEntry) -lt 0) {
+		throw "Schema-61 coordinator marker projection proof assertion is missing: $schema61AssertionEntry"
+	}
+}
+
+Write-Host "Schema-61 revisioned marker state/save migration, fail-closed bounded builders, heartbeat/lost-ACK recovery with restart backoff, atomic widget-independent registry, stable-priority local-native descriptor cutover/restore, debug restore, admin rehydration, and concurrency proofs OK"
+
 Write-Host "h-istasi foundation validation passed"

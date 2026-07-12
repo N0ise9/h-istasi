@@ -1450,7 +1450,7 @@ class HST_GarrisonPatrolOperationProofService
 			return count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_sMarkerId == markerId)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sMarkerId == markerId)
 				count++;
 		}
 		return count;

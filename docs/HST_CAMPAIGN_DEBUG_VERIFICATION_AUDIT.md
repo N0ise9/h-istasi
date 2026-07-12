@@ -399,6 +399,35 @@ be read as proof that a later change was executed or certified.
   restart, rendered UI, networking, reconnect, or JIP evidence.
   No packaged server/client, actual save/restart, rendered UI, stutter/horn,
   networking, reconnect, JIP, or live-behavior proof exists.
+- Campaign persistence Schema 61 is the current marker-only authoritative
+  client-projection source boundary. Marker records now carry per-ID revisions,
+  last global stream sequences, and tombstones under a persisted epoch and
+  monotonic watermark. The server owns a bounded current registry/journal and
+  ownership-derived player readiness/ACK sessions; it emits hashed chunked
+  snapshots or retained contiguous deltas, and falls back to snapshot for first
+  join, reconnect, late join, gap, mismatch, or explicit resync. The client
+  stages snapshots atomically, applies only contiguous record revisions, and
+  keeps its registry independent of map-widget readiness before reconciling
+  client-local native campaign markers. Server-native campaign marker
+  publication is retired; dynamic player markers remain on the existing path.
+  One in-flight batch, final-only ACK, post-ACK catch-up, five-second readiness
+  heartbeat, and per-dispatch restart age cover rapid mutation, incomplete
+  delivery, and lost ACK. Builders fail closed under the same bounds as the
+  decoder. Static authored zone markers bind by exact cached entity name with
+  unresolved-only retry rather than a periodic radius query. A stock descriptor
+  hides only after its deterministic-priority custom replacement is live and
+  restores prior visibility on failure. Migration rebuilds pre-61 derived rows without
+  inventing domain facts; malformed current projection advances the epoch before
+  rebuild. The compiled deterministic proof defines initial/late-join snapshot
+  equality, stable rebuilds, ordered create/update/delete, snapshot-pending and
+  rapid mutation, final-only multi-packet ACK, lost-ACK recovery, dropped-delta
+  resync, epoch reset, reconnect, ACK pruning, malformed/oversize input, and migration
+  idempotency fixtures, but they have not run in Campaign Debug. This is source/
+  Workbench structure only. No packaged host/two-
+  client equality, actual reconnect/late join, rendered native-marker cleanup,
+  map-close continuity, serialization/restart, or mixed-version behavior has
+  been observed. Schema 60 remains the latest completed stamp until the
+  Schema-61 implementation/stamp cycle is finalized.
 - The compiled/wired operation-record archive proof now includes typed exact-QRF
   receipt-mismatch retention under forced capacity. It has not been executed by
   Campaign Debug and is not a final Schema-60 gate result.
@@ -1168,7 +1197,7 @@ Unproven or incomplete against the pasted contract:
 | Convoys | Asset/entity/crew/driver/mobile/route/waypoint/readiness/progress/stall/recovery/contact evidence with no-progress failures, sampled travel/contact-or-terminal/terminal phase-chain assertions, plus a separate controlled state-machine probe that proves staging -> moving -> contact -> eliminated on temporary debug records through the real physical-war helpers. | Natural live staging -> moving -> contact -> arrival/elimination phase history is still WARN unless every phase is actually observed for the convoy under test; the controlled probe does not prove physical driving or the arrival failure path. |
 | POW/captives | Free/follow/extract state, repeated follow samples, alive/extracted counts, exact reward deltas, and a debug-only temporary captive boarding/transport compartment probe. | Natural player-driven POW transport over a real route remains open. |
 | Phase 17/22 enemy response | Counterattack/Petros attack orders, support physicalization, linked active groups, routed movement samples, stall evidence, and Phase 22 base-position assertions proving Defend Petros targets HQ/Petros rather than the nearby bookkeeping zone. | Multi-wave/contact/arrival/resolution behavior remains open. |
-| Markers/UI/native markers | Command coverage, menu controls, zone/HQ/mission/support/QRF model markers, owner/color/style/position, native publication counters, handle liveness, purge reporting, strict failed-action rejection/no-mutation assertions, and source restoration of config-container metadata. | Earlier evidence emitted 6,806 null-widget-root marker exceptions; the newer packaged client lost stock HUD/Game Master at config load. Republish and prove known config types, editor/HUD readiness, delayed marker roots, and rendered owner-client widgets. |
+| Markers/UI/native markers | Prior command/model/native-handle assertions plus Schema-61 source fixtures for revision/tombstone records, epoch/watermark, hashed snapshot/delta, duplicate/gap/resync, reconnect/JIP-shaped snapshot, ACK pruning, malformed rejection, migration, and a widget-independent client registry. | Earlier packaged evidence still owns the rendered baseline. Republish and prove host/two-client hash/watermark equality, editor/HUD readiness, delayed marker roots, no duplicate server/client campaign set, map close/reopen, actual reconnect/late join, and native rendered cleanup. Dynamic player markers and non-marker campaign projection remain separate. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. | Rendered inspection and multiple zone-type windows remain open. |
 | Persistence | Baseline typed persistence and seeded smoke roundtrip exist; schema-49 source and focused assertions cover deep copy, conservative schema-48 migration, restored physical-authority normalization, and terminal archival evidence. | The new assertions need packaged execution; real process restart/migration/archive replay, multiclient reconnect/soak, and physical field-vehicle respawn remain external/manual gaps. |
@@ -1378,3 +1407,11 @@ garrison, or mutable old-ID state while a frozen old-ID operation remains valid.
   and the typed-QRF mismatch assertion are compiled/wired but unexecuted. No
   packaged server/client, actual save/restart, rendered UI, horn/stutter, or live
   behavior result is recorded here; Schema 59 remains preceding history.
+- Schema 61 is implemented as the next source boundary for marker-only
+  authoritative client projection. Its deterministic proof service is not a
+  packaged multiplayer artifact: it does not demonstrate a real host, two
+  clients, disconnect/reconnect, late join, native widget roots, map close/
+  reopen, process restart, or the absence of mixed-version clients. Final
+  implementation/stamp provenance must be recorded only after the complete
+  Foundation, Workbench compile/create, bounded normal-open, diff, and build-
+  identity cycle finishes.

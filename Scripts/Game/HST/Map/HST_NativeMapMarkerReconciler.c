@@ -91,6 +91,17 @@ class HST_NativeMapMarkerReconciler
 		return count;
 	}
 
+	bool IsDomainIdLive(SCR_MapMarkerManagerComponent manager, string domainId)
+	{
+		if (!manager || domainId.IsEmpty())
+			return false;
+		HST_NativeStaticMarkerHandle staticHandle = m_mStaticDomainIdToMarker.Get(domainId);
+		if (staticHandle && IsStaticHandleLive(manager, staticHandle))
+			return true;
+		SCR_MapMarkerEntity dynamicMarker = m_mDynamicDomainIdToMarkerEntity.Get(domainId);
+		return dynamicMarker && IsDynamicMarkerLive(manager, dynamicMarker);
+	}
+
 	bool Reconcile(notnull map<string, ref HST_MapMarkerRecord> desired)
 	{
 		return Reconcile(ResolveMarkerManager(), desired);

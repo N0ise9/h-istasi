@@ -247,3 +247,63 @@ Consequences:
   Debug, but has not been executed there. A source fixture cannot replace a
   packaged pre-update save/restart test.
 - A packaged pre-update-save test must prove the duplicate does not return.
+
+## CRI-008 - Project Campaign Markers From One Revisioned Client View
+
+- Status: Accepted
+- Date: 2026-07-11
+
+Context: Server marker-state rebuilds and native marker publication did not give
+each client a durable logical registry, global ordering, deletion history, or a
+late-join/reconnect convergence contract. Publication counters therefore could
+not prove that the host and every client held the same marker view, and sending
+both server-native and client-local campaign markers would create duplicate
+presentation owners.
+
+Decision: Schema 61 introduces a marker-only authoritative projection stream.
+Every logical marker keeps a stable ID, per-record revision, last global stream
+sequence, and tombstone. The server publishes bounded, hashed snapshot chunks
+or contiguous deltas from one monotonic epoch/sequence, accepts only
+ownership-derived readiness and acknowledgements, and falls back to a fresh
+snapshot whenever retained history cannot prove continuity. Each client keeps a
+widget-independent registry, commits a snapshot only after all chunks pass
+count/hash validation, applies deltas only in order, and reconciles native
+campaign markers locally from that registry.
+
+Consequences:
+
+- Server-native campaign marker publication is retired. Dynamic player markers
+  remain on their existing replicated-entity path and are explicitly outside
+  this marker-only protocol.
+- Duplicate or already-applied deltas are idempotent; a forward gap, invalid
+  revision, epoch mismatch, malformed packet, or hash mismatch cannot partially
+  mutate the client registry and instead requires resync.
+- Each owner has at most one unacknowledged delta batch. Only its final
+  hash-bearing packet is acknowledged and allowed to trigger native
+  reconciliation; post-ACK mutations are dispatched immediately. A bounded
+  readiness heartbeat confirms lost ACKs or restarts a genuinely incomplete
+  in-flight stream without replacing a fresh delta.
+- Encoder limits are authoritative too: an oversize row, snapshot, or delta is
+  rejected before the session enters an impossible ACK wait.
+- First join, late join, reconnect, an unavailable journal range, and explicit
+  client recovery all converge through a complete snapshot. Connected-client
+  ACK watermarks constrain bounded journal pruning.
+- Authored static marker binding uses exact cached entity-name lookup with retry
+  only for unresolved bindings and actual-faction verification. A periodic
+  radius search is not a legitimate identity or performance boundary.
+- The client hides an authored zone descriptor only after its replacement
+  custom zone marker is confirmed live, caches that binding, and restores the
+  descriptor's prior visibility on replacement failure/removal. The authored
+  entity and its mechanics remain intact while duplicate stock/custom icons do
+  not.
+- Migration may discard and rebuild derived marker rows, but it may not infer a
+  zone, owner, mission, force, or outcome. Malformed current projection state
+  advances the epoch before rebuild so an old client stream cannot be reused.
+- Deterministic stream fixtures and Workbench compilation are source evidence,
+  not multiplayer certification. The gate remains open until a packaged host,
+  two clients, reconnect, late join, map open/close, native widget rendering,
+  and real save/restart all converge on the same epoch, watermark, and registry
+  hash.
+- This decision does not canonicalize zone ownership mutation. The next source
+  slice remains one idempotent ownership-transition service whose complete side
+  effects then feed the marker projection as derived output.

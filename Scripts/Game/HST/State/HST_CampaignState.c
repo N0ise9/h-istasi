@@ -273,6 +273,10 @@ class HST_MapMarkerState
 	vector m_vPosition;
 	bool m_bVisible = true;
 	bool m_bRuntimeNative;
+	int m_iRevision;
+	int m_iStreamSequence;
+	bool m_bTombstone;
+	int m_iTombstonedAtSecond;
 }
 
 [BaseContainerProps()]
@@ -1100,7 +1104,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 60;
+	static const int SCHEMA_VERSION = 61;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1136,6 +1140,8 @@ class HST_CampaignState
 	int m_iEnemyResourceAccumulatorSeconds;
 	int m_iAggressionAccumulatorSeconds;
 	int m_iNextAuthoritySequence = 1;
+	int m_iMarkerProjectionEpoch = 1;
+	int m_iMarkerProjectionSequence;
 	string m_sCommanderIdentityId;
 	string m_sHQHideoutId;
 	vector m_vHQPosition;
@@ -1683,10 +1689,20 @@ class HST_CampaignState
 	{
 		foreach (HST_MapMarkerState marker : m_aMapMarkers)
 		{
-			if (marker.m_sMarkerId == markerId)
+			if (marker && marker.m_sMarkerId == markerId && !marker.m_bTombstone)
 				return marker;
 		}
 
+		return null;
+	}
+
+	HST_MapMarkerState FindMapMarkerProjectionRecord(string markerId)
+	{
+		foreach (HST_MapMarkerState marker : m_aMapMarkers)
+		{
+			if (marker && marker.m_sMarkerId == markerId)
+				return marker;
+		}
 		return null;
 	}
 

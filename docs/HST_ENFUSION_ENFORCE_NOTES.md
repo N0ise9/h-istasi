@@ -3732,6 +3732,126 @@ This file is for practical engine/script behavior, not project planning. Keep en
   requires both its tombstone and request to remain while another eligible row
   leaves. This mismatch-retention assertion has not run in Campaign Debug.
 
+## Schema 61 Marker Projection And Owner RPC Transport
+
+- A logical marker must have authority before it has a native entity or widget.
+  Keep the client registry independent of map-open state, native manager
+  readiness, and root-widget creation. The map lifecycle may delay or retry
+  native reconciliation, but it must never reset the registry epoch, watermark,
+  revision, or deletion history.
+
+- Use one monotonic global sequence for ordering and a separate revision per
+  stable marker ID. An unchanged rebuild preserves both. A create starts at
+  revision one, an update advances the prior revision once, and a delete is a
+  new revisioned tombstone with its own global sequence. Do not erase a record
+  and later recreate it at revision one when its ID is reusable; retain the
+  tombstone through that reuse boundary.
+
+- Bounded primitive payloads are a practical reliable-RPC boundary for a
+  projection DTO in Enforce. `HST_MarkerProjectionCodec` caps packet characters
+  and records, escapes separators, includes protocol version in every header,
+  and explicitly parses each marker field. This avoids making a custom nested
+  class graph part of the network serializer contract and keeps malformed-input
+  checks visible. Assemble large headers/rows in several expressions because
+  `string.Format()` still accepts only nine substitution arguments and very
+  large single expressions can pressure the native compiler.
+
+- A multi-packet snapshot is not live state until it is complete. Stage records
+  under one snapshot ID, epoch, watermark, expected chunk count, expected record
+  count, and registry hash. Reject conflicting metadata, duplicate-ID content,
+  or a record newer than the snapshot watermark. Only after every chunk arrives
+  and count/hash match should one atomic swap make the registry ready. An
+  interrupted snapshot must leave the previous committed view untouched.
+
+- Delta application must be transactional. Require `fromSequence` to equal
+  `currentWatermark + 1`, require each row's stream sequence to be contiguous,
+  and validate every per-ID revision before changing the live map. Apply to a
+  temporary copy, verify the final registry hash when supplied, then commit.
+  An already-applied range is safe to acknowledge again. A future range,
+  missing row, wrong revision, epoch mismatch, or hash mismatch requests resync
+  without partial state mutation.
+
+- Keep only one unacknowledged delta batch per owner. A second mutation waits
+  behind that batch and is published immediately after its final hash-bearing
+  packet is acknowledged. Intermediate delta chunks commit registry progress
+  but do not ACK or reconcile native markers; the final chunk owns the hash,
+  ACK, and presentation pass. This avoids overlapping `ack + 1` ranges under
+  normal network latency.
+
+- Reliable delivery still needs recovery state. A five-second readiness
+  heartbeat can confirm a committed in-flight watermark when its ACK was lost,
+  or restart an incomplete snapshot after that specific dispatch has aged out.
+  Track snapshot and delta send time separately so a heartbeat cannot replace a
+  fresh healthy delta. Explicit gap recovery may replace one delta immediately;
+  subsequent full-snapshot restarts use the longer cooldown to bound owner-
+  scoped bandwidth amplification.
+
+- Packet limits must be enforced by both decoder and builder. Refuse an
+  overlong encoded row, too many snapshot records/chunks, too many delta rows,
+  or a final packet beyond the character cap before marking a session in
+  flight. A server must never wait for an ACK to a payload its own client is
+  required to reject.
+
+- Initial join, late join, reconnect, journal truncation, and explicit recovery
+  share the same full-snapshot path. Delta replay is safe only if the server
+  retains every event after the client's acknowledged watermark and the client's
+  epoch/hash match the corresponding server view. Bound the journal and prune
+  only behind the slowest valid connected ACK; a disconnected session must not
+  pin history forever.
+
+- Run projection RPCs through an existing player-owned controller component.
+  Client-to-server readiness, ACK, and resync use reliable server RPCs; packets
+  use reliable owner RPCs. Resolve the authoritative session player from the
+  component/controller owner on the server. A client-supplied player ID is not
+  authority and must never select another player's session or ACK watermark.
+
+- Campaign marker publication needs one native owner. With client-local
+  reconciliation enabled, clear/retire server-native campaign marker handles
+  and do not publish a second server set. Dynamic player markers are a separate
+  replicated-entity feature and remain outside the marker projection until they
+  receive their own explicit cutover.
+
+- Authored static marker identity should be exact and cached. Name each authored
+  marker `HST_ConflictMapMarker_<zoneId>` and resolve it with one exact
+  `FindEntityByName` lookup. Cache successful bindings, retry only unresolved
+  names on later refreshes, compare the entity's actual affiliated faction
+  before skipping an owner write, and report unresolved authoring explicitly.
+  Repeated radius queries are both weaker identity and an avoidable hot-path
+  cost.
+
+- An authored zone descriptor and a client custom zone marker cannot both own
+  presentation. Cache the authored descriptor's `MapItem` on each client and
+  hide it only after the corresponding `hst_zone_*` custom marker is confirmed
+  live in the reconciler. Preserve and restore its prior visibility if the
+  replacement disappears or fails, and retry unresolved descriptor bindings on
+  map open. This preserves the authored base entity and mechanics while
+  preventing stacked stock/custom icons.
+
+- Tombstones are projection records, not live gameplay markers. UI totals,
+  cleanup assertions, collision checks, and operation marker proofs must filter
+  `m_bTombstone` (normally also require visibility). Diagnostics explicitly
+  labelled record/journal/state counts may include them. Never delete or retag
+  a derived row before rebuild; mutate backing authority and let the finalizer
+  emit the old-ID tombstone and new-ID create.
+
+- Marker migration is allowed to discard presentation state, not domain facts.
+  Pre-61 records have no reliable revision stream, so clear and rebuild them
+  from authoritative campaign owners and record
+  `migration_schema61_marker_projection` once. If current projection metadata is
+  malformed, advance the epoch before the rebuild and record
+  `normalization_schema61_marker_projection_rebuild` once. Never infer a zone,
+  owner, mission, force, casualty, or outcome from an old marker row.
+
+- Deterministic fixtures should prove initial/late-join snapshot equality,
+  unchanged rebuilds, ordered create/update/delete, duplicate replay, dropped
+  multi-packet delta resync, mutation during snapshot ACK, rapid in-flight
+  mutation, final-chunk-only ACK, lost-ACK heartbeat recovery, lower-watermark
+  epoch reset, reconnect snapshot, ACK-constrained pruning, malformed/oversize
+  rejection, and migration idempotency. Those fixtures and a clean Workbench
+  compile are source evidence only. Packaged host/two-client hash equality,
+  native rendering, map close/reopen, disconnect/reconnect, late join, and real
+  save/restart remain separate runtime gates.
+
 ## One-Second Runtime Hot-Path Repair
 
 - A visible once-per-second stutter aligned with the coordinator's active-

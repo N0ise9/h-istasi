@@ -48,8 +48,24 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current development save contract is Schema 60. It is the latest stamped
-source/Workbench checkpoint under implementation
+The current development save contract is Schema 61. It is the marker-only
+authoritative client-projection source boundary: marker records now carry
+per-record revisions, last global stream sequences, and tombstones under one
+persisted epoch and monotonic watermark. The server emits bounded hashed
+snapshot chunks or retained contiguous deltas through ownership-derived player
+sessions; clients keep an atomic widget-independent registry, acknowledge only
+contiguous state, and request a snapshot after a gap or mismatch. Native
+campaign markers are reconciled locally from that registry, while dynamic
+player markers remain on their existing replicated-entity path. Pre-61 derived
+marker rows rebuild without inventing domain facts; malformed current projection
+state advances the epoch before rebuild. Compiled deterministic fixtures cover snapshot/
+JIP shape, ordered create/update/delete, duplicate replay, dropped-delta resync,
+reconnect, ACK pruning, malformed packets, and migration idempotency. They are
+source/Workbench structure, not an executed Campaign Debug or packaged
+multiplayer proof.
+
+Schema 60 remains the latest completed stamped source/Workbench checkpoint
+while the Schema-61 implementation/stamp cycle is finalized, under implementation
 `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
 `2026-07-11T23:24:55Z`, and label `schema60-exact-search-destroy`; it is not a
 packaged-runtime checkpoint. Only newly quoted
@@ -104,11 +120,12 @@ implementation `bab5748d817ba434dae701cfbb3b92805d463678`, stamp
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Complete | Schema 60 is the latest stamped source/Workbench checkpoint; Schema 59 is preceding | Schema-60 full Foundation, stamped Workbench Game, and bounded normal-open gates pass | No | Implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, CRC `7aa80fc9`, 5,777 files/11,615 classes, 644 symbol references, and 10/10 responsive normal-open samples. Both Schema-60 proof services and typed-QRF mismatch assertion are compiled/wired but unexecuted. No packaged/live certification exists. |
+| CRI-0 Truth and baseline | Complete | Schema 61 is the current source boundary; Schema 60 remains the latest completed stamp until the Schema-61 stamp cycle finishes | Interim Workbench Game compile/create passes; deterministic assertions are compiled but not runtime-executed | No | Schema 61 is marker-only authoritative projection and does not certify gameplay/network behavior. The preceding completed stamp is implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC `2026-07-11T23:24:55Z`, label `schema60-exact-search-destroy`, and CRC `7aa80fc9`. No Schema-61 packaged/live certification exists. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner | Schema-59 source proof and stamped-tree Workbench gates pass; packaged runtime pending | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. New exact radio missions use contract `1`; active legacy rows fail closed and malformed current rows quarantine at `-59`. |
 | CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, nine exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-60 source/Workbench gates pass; native projection/restart pending for the new consumer | No | Search-and-Destroy freezes one catalog-backed infantry root/member roster with no vehicles/assets/multi-root fallback. Existing QRF, patrol, rescue, assassination-guard, and convoy shapes remain unchanged. Generic vehicle/asset/multi-root execution, historical mission guards, and unsupported consumers remain open. |
 | CRI-3 Force runtime | Complete in source for nine exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Exact casualty/reprojection, virtual/physical survivor transfer, Search-and-Destroy return-to-assignment, patrol/guard/rescue/convoy folds, and mixed-group cleanup | Schema-60 source/Workbench gates pass; native/package/restart gates pending | No | Search-and-Destroy keeps exact survivors across physical/virtual transitions and simulates hostile-garrison combat only while on station. Projection retirement and capture now fail closed unless exhaustive casualty reconciliation and living root/member binding cardinality succeed, and capture refreshes live position. The deterministic casualty/fold/immediate-recall fixture uses synthetic queue state; live adapter retirement and physical recall exit remain unproven alongside native entities, natural combat/vehicle seating, real save/restart, rendered UI, owner-change, setup, networking, reconnect, and JIP. |
 | CRI-4 Operation records | Complete in source for eight operation types and ten explicit family consumers | Separate player Search-and-Destroy type plus the existing QRF, convoy, patrol, mission-guard, and rescue contracts | Schema-60 source/Workbench gates pass; packaged runtime pending | No | Only newly confirmed Search-and-Destroy uses contract `1`; pre-60 rows remain `0`, and malformed current claimants retain evidence under `-60` quarantine. Quarantined groups are globally non-operational/non-combat-present. Exact-support capacity eviction requires a valid unique backlink-free tombstone/terminal-request pair with reciprocal receipts; corrupt pairs remain. Schema 58 rescue and Schema 59 radio contracts remain unchanged. |
+| CRI-5 Marker client projection | Complete for marker records in source | Revision/tombstone records, epoch/global sequence, bounded snapshot/delta journal, ownership-derived ACK/gap/resync sessions, JIP/reconnect snapshots, atomic client registry, and client-local native reconciliation | Proof code/Workbench compile only; fixtures not runtime-executed | No | A packaged host plus two clients must prove equal epoch/watermark/hash after initial join, ordered create/update/delete, forced gap/resync, disconnect/reconnect, late join, map close/reopen, and real save/restart. Native widget/root readiness and duplicate-free cleanup remain separate visual gates. Menu/tasks/notifications and dynamic player markers are outside this protocol. |
 
 ## Implementation Contract
 
@@ -146,7 +163,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
-| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation / Schema-60 Stamped Source/Workbench | Schema 60 preserves pre-60 Search-and-Destroy at contract `0`, validates current exact quote/manifest/ledger/operation/batch/group authority, and quarantines malformed current claimants at `-60` without invented balances or survivors. Capacity pruning removes only a valid, unique, backlink-free exact-support tombstone/terminal-request pair with reciprocal terminal receipts; malformed/quarantined pairs remain. Its Maiden's Bay cleanup is anchor-gated and fail-closed under ambiguous authority; mutable generic references canonicalize, while nonzero typed graphs and frozen generated content keep their IDs behind detached historical lookup/runtime ID equivalence. The isolated proofs are compiled and wired but have not been executed by Campaign Debug. Real restart, rendered UI, and JIP proof remain open. | Highest |
+| Versioned save state | Durable campaign facts survive restarts and schema migration. | Implemented Foundation / Schema-61 Source Boundary | Schema 61 persists marker projection epoch/sequence and record revision/tombstone metadata. Pre-61 derived marker rows rebuild without inventing domain facts; malformed current projection advances the epoch and rebuilds. Schema 60 retains the exact Search-and-Destroy and Maiden's Bay contracts described in migration history. Deterministic migration fixtures are source evidence only; real serialization, restart, reconnect, rendered UI, and JIP proof remain open. | Highest |
 | Runtime settings migration | Generated profile settings migrate forward without keeping obsolete setup knobs. | Implemented Foundation | Schema 22 retains the schema-21 loot-key cleanup, changes the prior shipped civilian-traffic default from two to five for true towns, and preserves non-default traffic values. | Keep |
 | Profile fallback saves | Scripted saves work when native persistence is unavailable. | Implemented Foundation / Needs Soak | Repeat restart tests before promising long-campaign safety. | High |
 | Active runtime restore | Active missions, support, enemy orders, groups, vehicles, garage records, and undercover state restore without duplication. | Broad Alpha / Needs Soak | Build one repeatable restart route that touches all active record types. | Highest |
@@ -266,8 +283,8 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Command menu | One in-game menu exposes setup, missions, forces, map/war, arsenal, garage, members, and admin controls. | Broad Alpha / Needs Runtime Proof | Packaged schema 49 proved stock HUD/Game Master recovery but not later source. Schema 60 exposes Search-and-Destroy as an exact server quote/confirm flow with frozen roster, $350, exact HR, and ETA while preserving legacy pre-60 requests. Republish and prove HUD/Game Master preservation, quote/action visibility, duplicate replay, pointer layering, and supported resolutions. | Highest |
-| Map markers | HQ, zones, missions, support, QRFs, orders, garrison patrols, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Needs Runtime Proof | Schema 59 preserves `Location | Owner` plus radio lifecycle. Schema 60 retires the overlapping Maiden's Bay town marker and keeps only the Logistics Warehouse while exact Search-and-Destroy follows its strategic/live operation position. Republish and prove icon sizing, status, duplicate cleanup, reconnect/JIP, and the existing POW presentation. | Highest |
-| Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Missing | Current menu/marker publication is not a complete campaign projection protocol. Add DTO snapshots, global stream sequence/watermark, per-record revisions/tombstones, acknowledgements, gap detection, resync, and host/two-client/late-join equality proof. | Highest |
+| Map markers | HQ, zones, missions, support, QRFs, orders, garrison patrols, and active deliveries publish linked markers with cleanup proof. | Broad Alpha / Schema-61 Projection Implemented / Needs Runtime Proof | Logical campaign markers now stream to a widget-independent client registry and reconcile as client-local native markers; server-native campaign publication is retired. Priority/stable-ID capping is deterministic, and an authored stock descriptor hides only after its custom `Location | Owner` replacement is live, with prior-visibility restore on failure. Schema 59 lifecycle labels and Schema 60 Maiden's Bay/Search-and-Destroy behavior remain. Republish and prove icon sizing, status, no stacked stock/custom set, cleanup, map close/reopen, reconnect/JIP, and existing POW presentation. Dynamic player markers remain on the prior path. | Highest |
+| Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies per-marker revisions/tombstones, epoch/global sequence, symmetric builder/decoder bounds, one in-flight batch, final-only ACK, post-ACK catch-up, five-second lost-ACK/incomplete-stream heartbeat recovery, gap resync, reconnect/JIP snapshots, and an atomic client registry. Prove host/two-client/late-join equality and native rendering in the packaged mod. Menu snapshots, campaign tasks, notifications, and dynamic player markers are not yet unified under this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Partial | Replace generic first-zone pressure with contacted towns only, current town first, then ascending resistance support with stable ties/pagination. Add Resistance Territory grouped by canonical owner/type/name and remove redundant capture-status presentation. | High |
 | Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Needs Runtime Proof | Schema 59 adds focused radio binding/admission, lifecycle/replay, durable production-evidence dedupe, direct repeat-admission rejection, linked restore/quarantine cleanup, influence, and ownership-handoff source assertions. They do not substitute for native entities, explosives, streaming, real restart, owner-change/setup, rendered UI, networking, reconnect, JIP, or mandatory process restart. | Highest |
@@ -285,20 +302,23 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Publish the exact stamped Schema-60 package for a focused client/server
-   feedback pass. Keep evidence tied to implementation
-   `fdf78493dd15915afe8d53f61a8ad1efd65b5635` and CRC `7aa80fc9`. Confirm that
-   the stock HUD/Game Master recovery already observed in packaged schema 49 is
-   preserved, then require normal-sized radio icons, location-plus-owner labels,
-   pointer-over-dialog ordering, one intact tower per radio site, and correct
-   destroy/rebuild target behavior.
-2. Runtime-prove civilian projection at several towns plus Figari, Morton, and
+1. Finish and stamp the Schema-61 marker-projection checkpoint, publish that
+   exact package, and require its `HST_BuildInfo` identity in server/client
+   evidence. Preserve stock HUD/Game Master recovery, then prove normal-sized
+   radio icons, location-plus-owner labels, pointer-over-dialog ordering, one
+   intact tower per radio site, and correct destroy/rebuild target behavior.
+2. Continue source work with one canonical idempotent ownership-transition
+   service. One revisioned result must own owner, garrison/security, support,
+   facilities/logistics, economy, enemy consequences, events, persistence, and
+   all derived projections; capture and political flips must not each implement
+   a different side-effect subset.
+3. Runtime-prove civilian projection at several towns plus Figari, Morton, and
    Simon's Wood: five moving traffic vehicles per true town, two pedestrians at
    the minor locality, unique pedestrian/driver appearances after replacement,
    silent horns, correct military strength, and clean render-bubble teardown.
    Require Maiden's Bay to appear only as the Logistics Warehouse and compare
    freezes-per-minute against the observed once-per-second stutter.
-3. Runtime-prove the Schema-60 exact player Search-and-Destroy operation: one
+4. Runtime-prove the Schema-60 exact player Search-and-Destroy operation: one
    immutable infantry-only quote/manifest, $350 and exact-slot HR accounting,
    direct virtual travel, proximity materialization/fold, mapped casualties,
    off-screen combat, return-to-assignment after a displaced fold, on-station
@@ -308,17 +328,17 @@ projections of campaign state and must be restorable, foldable, or disposable.
    Include a live adapter-observed casualty followed by cardinality-checked
    fold/root retirement and a separate physical recall exit; synthetic queue-
    slot proof does not close either runtime gate.
-4. Runtime-prove the schema-50 exact paid infantry-QRF operation through ten
+5. Runtime-prove the schema-50 exact paid infantry-QRF operation through ten
    off-bubble minutes, materialize/fold hysteresis, exact casualties, on-station
    virtual combat, recall, pre/post-commit failure settlement, and save/restart at
    every projection state. Do not promote source assertions to runtime proof.
-5. Runtime-prove the schema-51 infantry-only enemy defensive QRF: one prepaid
+6. Runtime-prove the schema-51 infantry-only enemy defensive QRF: one prepaid
    frozen roster from a distinct source, no parallel legacy response, strategic
    outbound/return travel, materialization/fold hysteresis, exact casualties,
    two-sample physical arrival, once-only defensive pressure, proportional
    survivor refund, marker movement/cleanup, and save/restart replay. Do not
    widen the claim to counterattacks, vehicles, patrols, or convoys.
-6. Runtime-prove the schema-52 exact mission convoy: one frozen route, exactly
+7. Runtime-prove the schema-52 exact mission convoy: one frozen route, exactly
    three vehicle/crew elements, optional cargo/captive on vehicle zero, virtual
    travel without timer arrival, 3/3 physical drivers, interception, contact-
    to-clear transition, exact non-suffix casualty identity, partial crewless-
@@ -327,20 +347,20 @@ projections of campaign state and must be restorable, foldable, or disposable.
    two-sample arrival, once-only outcome/settlement, aggregate current/
    destination marker cleanup, and save/restart. Historical
    restored convoys must remain contract version `0`.
-7. Runtime-prove the schema-53 exact enemy patrol: one proactive debit, one
+8. Runtime-prove the schema-53 exact enemy patrol: one proactive debit, one
    frozen infantry root, outbound virtual movement, physical materialization,
    mapped casualty fold/reprojection, contact-held progress, one closed route
    lap, return, survivor refund, marker cleanup, and save/restart. Historical
    patrols must remain contract version `0`, and corrupt current rows must remain
    quarantined without legacy fallback.
-8. Runtime-prove the schema-54 exact purchased-garrison patrol: only a new
+9. Runtime-prove the schema-54 exact purchased-garrison patrol: only a new
    policy-v2 resistance purchase gets one exact empty root and arbitrary member
    roster, a held virtual infinite local loop, survivor-only materialization/
    fold, owner-change/all-dead/campaign-stop/setup and typed spawn/route-failure
    no-refund settlement, marker/UI cleanup, and save/restart/JIP continuity.
    Historical policy-v1, initial/enemy
     aggregate, vehicle, and multi-root garrisons must remain legacy.
-9. Runtime-prove the schema-55 exact officer-mission guard: only a newly started
+10. Runtime-prove the schema-55 exact officer-mission guard: only a newly started
    `assassinate_officer` mission gets one route-less empty root and ordered guard
    roster. Prove survivor-only materialization/fold, all-guards-dead/HVT-active
    independence, all typed zero-refund outcomes, compact settlement, `-55`
@@ -348,7 +368,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
    native adapter/casualties, save/restart, owner-change, campaign setup,
    networking, reconnect, and JIP. Historical officer missions stay contract `0`;
    the separate Schema-56 traitor policy must not alter officer contract `1`.
-10. Runtime-prove the schema-56 exact traitor-mission guard: only a newly started
+11. Runtime-prove the schema-56 exact traitor-mission guard: only a newly started
    `assassinate_traitor` mission gets contract `2` and policy
    `exact_assassinate_traitor_guard_v1`. Prove the same route-less roster/HVT
    separation, survivor lifecycle, typed zero-refund outcomes, compact restore,
@@ -357,7 +377,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
     owner-change, setup, networking, reconnect, and JIP. Pre-56 traitor, spec-ops,
    and every unsupported family must remain contract `0` within the Schema-56
    historical boundary; the separate Schema-57 path must not alter contract `2`.
-11. Runtime-prove the schema-57 exact spec-ops-mission guard: only a newly
+12. Runtime-prove the schema-57 exact spec-ops-mission guard: only a newly
     started `assassinate_specops` mission gets contract `3`, policy
     `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
     `-57` quarantine. Prove route-less survivor materialization/fold/re-entry,
@@ -366,13 +386,14 @@ projections of campaign state and must be restorable, foldable, or disposable.
     save/restart, rendered UI, owner change, setup, networking, reconnect, and
     JIP. Officer `1` and traitor `2` must remain exact; historical/pre-57
     spec-ops and ordinary `mission_group_*` rows must remain contract `0`.
-12. Execute the isolated campaign-debug suite in `HST_Dev`, prove completion,
+13. Execute the isolated campaign-debug suite in `HST_Dev`, prove completion,
     cancellation, interrupted-run recovery, and unchanged live persistence, then
     replace the historical contaminated artifact.
-13. Add the authoritative snapshot/delta/JIP projection protocol and prove host,
-    client, reconnect, and late-join equality with revisions and tombstones.
-14. Introduce one idempotent ownership-transition service before adding virtual
-    capture outcomes or wider encounter simulation.
+14. Runtime-prove Schema 61 with one host, two clients, reconnect, and late join.
+    Require equal epoch/watermark/registry hash after initial snapshot, ordered
+    create/update/delete, a forced dropped-delta resync, map close/reopen, native
+    marker cleanup, and real save/restart. Confirm there is no duplicate server-
+    native campaign marker set and keep dynamic player markers out of this claim.
 15. Schema 58 completes the first separately versioned rescue vertical for
     newly started `rescue_pows`. Runtime-prove its three POW projections,
     vehicle seats, fold/re-entry, death/success/grace outcomes, restart,

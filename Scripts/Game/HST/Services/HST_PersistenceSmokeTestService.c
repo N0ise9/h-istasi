@@ -110,7 +110,7 @@ class HST_PersistenceSmokeTestService
 		summary = summary + string.Format("|civilian_fia_support=%1|civilian_occupier_support=%2|civilian_heat=%3|undercover_requested=%4|undercover_eligible=%5", SumCivilianFIASupport(state), SumCivilianOccupierSupport(state), SumCivilianWantedHeat(state), CountUndercoverRequested(state), CountUndercoverEligible(state));
 		summary = summary + string.Format("|undercover_applied=%1|undercover_compromised=%2|undercover_detection=%3|roadblock_scans=%4|police_scans=%5", CountUndercoverApplied(state), CountUndercoverCompromised(state), SumUndercoverDetectionScore(state), SumRoadblockScans(state), SumPoliceScans(state));
 		summary = summary + string.Format("|hq_knowledge=%1|hq_threat=%2|defend_petros_active=%3|petros_alive=%4|petros_deaths=%5", state.m_iHQKnowledge, state.m_iHQThreatLevel, state.m_bDefendPetrosActive, state.m_bPetrosAlive, state.m_iPetrosDeaths);
-		summary = summary + string.Format("|markers=%1|mission_markers=%2|support_markers=%3|qrf_markers=%4|hq_marker=%5|ui_schema=%6", state.m_aMapMarkers.Count(), CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset"), CountMarkersByCategory(state, "support"), CountMarkersByCategory(state, "qrf"), HasMarker(state, "hst_hq"), state.m_iSchemaVersion);
+		summary = summary + string.Format("|markers=%1|mission_markers=%2|support_markers=%3|qrf_markers=%4|hq_marker=%5|ui_schema=%6", CountLiveMarkers(state), CountMarkersByCategory(state, "mission") + CountMarkersByCategory(state, "mission_objective") + CountMarkersByCategory(state, "mission_asset"), CountMarkersByCategory(state, "support"), CountMarkersByCategory(state, "qrf"), HasMarker(state, "hst_hq"), state.m_iSchemaVersion);
 		summary = summary + string.Format("|campaign_phase=%1|end_second=%2|end_reason=%3|end_control=%4|end_war=%5|end_fia=%6|end_enemy=%7|end_mode=%8", state.m_ePhase, state.m_iCampaignEndedAtSecond, state.m_sCampaignEndReason, state.m_iCampaignEndControlPercent, state.m_iCampaignEndWarLevel, state.m_iCampaignEndFIAZones, state.m_iCampaignEndEnemyZones, state.m_sCampaignEndOutcomeMode);
 		summary = summary + string.Format("|end_pop=%1/%2/%3|end_support_pop=%4|end_airfields=%5/%6|end_report=%7", state.m_iCampaignEndInitialPopulation, state.m_iCampaignEndRemainingPopulation, state.m_iCampaignEndKilledPopulation, state.m_iCampaignEndFIASupportPopulation, state.m_iCampaignEndAirfieldsControlled, state.m_iCampaignEndAirfieldsTotal, state.m_bCampaignEndReportGenerated);
 		return summary;
@@ -123,7 +123,7 @@ class HST_PersistenceSmokeTestService
 
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_bVisible && marker.m_sMarkerId == markerId)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sMarkerId == markerId)
 				return true;
 		}
 
@@ -138,7 +138,22 @@ class HST_PersistenceSmokeTestService
 		int count;
 		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
 		{
-			if (marker && marker.m_bVisible && marker.m_sCategory == category)
+			if (marker && !marker.m_bTombstone && marker.m_bVisible && marker.m_sCategory == category)
+				count++;
+		}
+
+		return count;
+	}
+
+	protected int CountLiveMarkers(HST_CampaignState state)
+	{
+		if (!state)
+			return 0;
+
+		int count;
+		foreach (HST_MapMarkerState marker : state.m_aMapMarkers)
+		{
+			if (marker && !marker.m_bTombstone && marker.m_bVisible)
 				count++;
 		}
 

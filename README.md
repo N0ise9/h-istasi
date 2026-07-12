@@ -476,6 +476,38 @@ The repository contains a broad-alpha campaign foundation:
   the scoped ambient-driver input clear. These results certify only the stamped
   source/Workbench boundary. No Schema-60 packaged server/client, actual save/
   restart, rendered UI, stutter/horn, or live gameplay behavior proof exists.
+- Schema 61 is the current marker-only authoritative client-projection source
+  boundary. Each logical campaign marker now carries a stable ID, per-record
+  revision, last global stream sequence, and retained deletion tombstone under
+  one persisted epoch and monotonic watermark. The server publishes bounded,
+  hashed snapshot chunks or contiguous deltas through each player-owned request
+  bridge, tracks ownership-derived readiness/ACK state, replays retained history
+  when it is complete, and falls back to a snapshot for first join, reconnect,
+  late join, gap, mismatch, or explicit resync. The client keeps this registry
+  independently of the map widget, commits a snapshot atomically only after all
+  chunks pass count/hash validation, and applies only contiguous record
+  revisions. Campaign native markers are reconciled locally from that registry;
+  server-native campaign-marker publication is retired to prevent duplicates.
+  One in-flight delta batch, final-packet-only ACK, immediate post-ACK catch-up,
+  and a five-second readiness heartbeat cover rapid mutations, incomplete
+  snapshots, and lost ACKs without overlapping ranges. Both encoder and decoder
+  enforce row/packet/chunk bounds before an ACK wait begins.
+  Dynamic player markers remain on their existing replicated-entity path.
+  Authored static zone markers bind by exact cached entity name with
+  unresolved-only retry instead of a periodic radius search. Each client hides
+  an authored descriptor only after the authoritative custom `Location | Owner`
+  replacement is live, and restores its prior visibility on failure, so the
+  authored mechanics remain without a stacked second icon. Pre-61 derived
+  marker rows rebuild without inventing campaign facts, while malformed current
+  projection state advances the epoch before rebuild. The compiled deterministic
+  source fixtures cover
+  snapshot/JIP, ordered create/update/delete, rapid and snapshot-pending
+  mutation, final-only multi-packet ACK, lost-ACK recovery, dropped-delta
+  resync, reconnect, epoch reset, ACK pruning, malformed/oversize input, and
+  migration idempotency. Packaged
+  host/two-client equality, reconnect/late join, native widget rendering,
+  map-close continuity, and real save/restart remain open; the fixtures have not
+  been executed as a Campaign Debug or packaged runtime result.
 - The first exact force-runtime lifecycle slice: handed-off member slots retain
   durable ever-alive/casualty evidence, confirmed dead members detach from the
   native and Game Master group without deleting their corpses, the last death
@@ -630,23 +662,21 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-Schema 60 is the latest stamped source/Workbench development boundary, not a
-runtime-proven checkpoint. It adds only the new exact player Search-and-Destroy
-contract plus the conservative Maiden's Bay retirement and focused stutter/horn
-repairs described above. The Maiden's Bay migration fixture is compiled and
-wired into Campaign Debug, but the assertion has not run and no packaged save/
-restart has exercised it. The Search-and-Destroy proof and typed-QRF archive-
-mismatch assertion are likewise compiled/wired but unexecuted. Schema 59 is the
-preceding stamped checkpoint and its exact radio-site lifecycle is unchanged.
-Packaged schema-50
-through schema-60 certification remains independently open; source or Workbench
-validation does not certify native entities, actual restart, rendered UI,
-networking, reconnect, or JIP.
+Schema 61 is the current source implementation boundary, while Schema 60 remains
+the latest completed stamped source/Workbench checkpoint until the Schema-61
+implementation/stamp cycle is finalized. Schema 61 closes the source dependency
+for marker-only snapshot/delta/JIP projection; it does not certify packaged
+multiplayer convergence and does not replicate the full command menu, tasks,
+notifications, or dynamic player markers. Packaged schema-50 through schema-61
+certification remains independently open; source or Workbench validation does
+not certify native entities, actual restart, rendered UI, networking, reconnect,
+or JIP.
 
-1. Publish the exact stamped Schema-60 package for the next server check.
-   Preserve its recorded implementation, UTC, label, and CRC so runtime evidence
-   remains tied to this checkpoint; Schema 59 is the preceding boundary.
-2. In that published check, cover the schema-50 marker,
+1. Finish and stamp the Schema-61 marker-projection checkpoint, then publish
+   that exact package for the next server check. Runtime evidence must report
+   the same `HST_BuildInfo` identity as the package under test.
+2. In that published check, prove the Schema-61 host/client marker registry as
+   well as the earlier schema-50 marker,
    map-dialog, radio-site, and civilian repairs. Require valid-sized marker
    icons, `Location | Owner` labels, a
    visible pointer over the support confirmation dialog, one authored radio
@@ -701,8 +731,12 @@ networking, reconnect, or JIP.
    recall-exit path; the deterministic queue casualty/fold fixture is source
    bookkeeping evidence only. Clearing hostile infantry must leave the group on
    station until recalled.
-9. Prove static marker widget readiness plus authoritative host/client/late-join
-   projection before treating marker publication as player-visible truth.
+9. Runtime-prove the Schema-61 marker-only projection with one host, two clients,
+   reconnect, and late join. Require equal epoch/watermark/registry hash after
+   initial snapshot, ordered create/update/delete, a forced gap/resync, map
+   close/reopen, and real save/restart; also require clean client-local native
+   marker cleanup and no duplicate server-native campaign markers. Dynamic
+   player markers remain a separate existing path.
 10. Runtime-prove the schema-53 exact newly queued enemy-patrol slice: one frozen
    infantry roster, once-only proactive attack debit, outbound virtual travel,
    materialization/fold with mapped casualties, physical contact hold, one
@@ -751,6 +785,11 @@ networking, reconnect, or JIP.
     change, campaign setup, packaged networking, reconnect, and JIP. Historical
     POWs, `rescue_refugees`, and unsupported rescue families must remain contract
     `0`.
+16. Continue source implementation with one canonical, idempotent ownership-
+    transition service. It must update owner, garrison/security policy,
+    support, facilities/logistics, economy, enemy consequences, events,
+    persistence, and every derived projection from one revisioned result rather
+    than distributing side effects across capture and political-flip callers.
 
 The schema-50 player exact-QRF projection slice, schema-51 enemy defensive-QRF
 slice, schema-52 exact mission-convoy slice, schema-53 exact enemy-patrol slice,
@@ -787,8 +826,9 @@ from previously observed physical state. This does not complete the broader
 operations milestone: generalized live-contact authority, terrain and
   ammunition effects, broad legacy supports, historical/initial/enemy aggregate
   garrisons, garrison vehicles and multi-root forces, other mission forces,
-  other enemy orders, historical patrols, and client/JIP projection remain
-  future slices. The assassination-guard family is exhausted after Schema 57;
+  other enemy orders, historical patrols, and full campaign/menu/task client
+  projection remain future slices. Schema 61 implements only marker projection;
+  it does not widen any operation contract. The assassination-guard family is exhausted after Schema 57;
   Schema 58 implements the first rescue vertical only. Schema 59 separately
   implements the exact radio-site lifecycle. Schema 60 adds only the new player
   Search-and-Destroy force consumer; further rescue and unsupported mission/
@@ -801,16 +841,17 @@ military/civilian activation defects, not proof of later source repairs. A newer
 user server check additionally observed a pronounced once-per-second stutter,
 continuous AI horns, and overlapping Maiden's Bay town/warehouse markers. Those
 observations are the runtime baseline for the Schema-60 performance, horn, and
-location fixes. Schema 60 is the latest stamped source/Workbench checkpoint at
+location fixes. Schema 61 is the current marker-projection source boundary;
+Schema 60 remains the latest completed stamped source/Workbench checkpoint at
 implementation `fdf78493dd15915afe8d53f61a8ad1efd65b5635`, UTC
 `2026-07-11T23:24:55Z`, build label `schema60-exact-search-destroy`, and CRC
-`7aa80fc9`; Schema 59 is the preceding checkpoint. A republished server/client
+`7aa80fc9` until the Schema-61 stamp is finalized. A republished server/client
 test is still required
 before those repairs, either exact-QRF projection path, or any source-validated
 schema-52 convoy/schema-53 enemy-patrol/schema-54 purchased-garrison-patrol/
   schema-55 officer-guard/schema-56 traitor-guard/schema-57 spec-ops-guard/
   schema-58 exact POW-rescue/Schema-59 radio-site/Schema-60 exact Search-and-
-  Destroy paths
+  Destroy paths, or the Schema-61 marker stream
 is called runtime-proven. The late-admin
 role-change guard, campaign-debug
 isolation, convoy seating, physical support movement/arrival/recall, and restart
@@ -900,7 +941,7 @@ local `I` key/action path when troubleshooting menu access.
 For dedicated server tests, repack/publish the Workbench addon before launching
 the dedicated server. Server boot, admin diagnostics, command-menu readiness,
 and structured debug artifacts must report the same runtime identity from
-`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 52, and
+`HST_BuildInfo`: full commit SHA, UTC build time, label, campaign schema 61, and
 runtime-settings schema. Missing or mismatched identity means the packaged
 server/client runtime is stale or mixed, even if the repository is newer.
 

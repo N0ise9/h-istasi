@@ -1278,7 +1278,7 @@ class HST_MaidensBayLocationMigrationProofService
 			return null;
 		foreach (HST_MapMarkerState marker : saveData.m_aMapMarkers)
 		{
-			if (marker && marker.m_sMarkerId == markerId)
+			if (marker && !marker.m_bTombstone && marker.m_sMarkerId == markerId)
 				return marker;
 		}
 		return null;
