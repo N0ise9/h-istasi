@@ -77,6 +77,7 @@ class HST_NativeStaticMarkerHandle
 	int m_iNativeMarkerId = -1;
 	ref SCR_MapMarkerBase m_Marker;
 	string m_sRevisionSignature;
+	string m_sIntegritySignature;
 }
 
 class HST_MapMarkerReconcileResult

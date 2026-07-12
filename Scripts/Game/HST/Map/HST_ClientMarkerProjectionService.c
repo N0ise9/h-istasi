@@ -336,6 +336,22 @@ class HST_ClientMarkerProjectionService
 		return m_Reconciler.GetLastResult().m_iFailed == 0 && authoredDescriptorsReady;
 	}
 
+	bool RepairNativeMarkersIfNeeded()
+	{
+		if (!m_Registry.IsReady())
+			return false;
+
+		SCR_MapMarkerManagerComponent markerManager = SCR_MapMarkerManagerComponent.GetInstance();
+		if (!markerManager)
+			return false;
+		if (m_Registry.GetLiveRecordCount() > 0 && m_mDesired.Count() == 0)
+			return ReconcileNativeMarkers();
+		if (m_Reconciler.IsProjectionIntegrityCurrent(markerManager, m_mDesired))
+			return true;
+
+		return ReconcileNativeMarkers();
+	}
+
 	protected bool ReconcileAuthoredZoneDescriptors(
 		SCR_MapMarkerManagerComponent markerManager,
 		notnull map<string, ref HST_MapMarkerState> liveRecords)

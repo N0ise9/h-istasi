@@ -1981,7 +1981,12 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		m_fMarkerProjectionReadyRetryAccumulator = 0;
 		if (registry && registry.IsReady())
+		{
+			// Keep the native projection authoritative even when the stream itself is unchanged.
+			// This repairs a missing or mutated campaign marker without touching player markers.
+			m_ClientMarkerProjection.RepairNativeMarkersIfNeeded();
 			RequestMarkerProjectionReadyNow("readiness keepalive");
+		}
 		else
 			RequestMarkerProjectionReadyNow("readiness retry");
 	}

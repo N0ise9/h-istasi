@@ -102,6 +102,55 @@ class HST_NativeMapMarkerReconciler
 		return dynamicMarker && IsDynamicMarkerLive(manager, dynamicMarker);
 	}
 
+	bool IsProjectionIntegrityCurrent(
+		SCR_MapMarkerManagerComponent manager,
+		notnull map<string, ref HST_MapMarkerRecord> desired)
+	{
+		if (!manager)
+			return false;
+
+		foreach (string staticId, HST_NativeStaticMarkerHandle staleStaticHandle : m_mStaticDomainIdToMarker)
+		{
+			if (!desired.Contains(staticId))
+				return false;
+		}
+		foreach (string dynamicId, SCR_MapMarkerEntity staleDynamicMarker : m_mDynamicDomainIdToMarkerEntity)
+		{
+			if (!desired.Contains(dynamicId))
+				return false;
+		}
+
+		foreach (string id, HST_MapMarkerRecord record : desired)
+		{
+			if (!record || !record.m_bVisible)
+				return false;
+			if (record.m_eRenderMode == HST_EMapMarkerRenderMode.AREA_OVERLAY)
+				continue;
+			if (record.m_eRenderMode == HST_EMapMarkerRenderMode.DYNAMIC_ENTITY)
+			{
+				SCR_MapMarkerEntity dynamicMarker = m_mDynamicDomainIdToMarkerEntity.Get(id);
+				if (!dynamicMarker || !IsDynamicMarkerLive(manager, dynamicMarker))
+					return false;
+				if (dynamicMarker.GetType() != record.m_eMarkerType
+					|| dynamicMarker.GetMarkerConfigID() != record.m_iConfigId
+					|| dynamicMarker.GetTarget() != record.m_TargetEntity
+					|| dynamicMarker.GetText() != record.m_sShortLabel)
+					return false;
+				continue;
+			}
+
+			HST_NativeStaticMarkerHandle handle = m_mStaticDomainIdToMarker.Get(id);
+			SCR_MapMarkerBase liveMarker = ResolveLiveStaticMarker(manager, handle);
+			if (!handle
+				|| !liveMarker
+				|| handle.m_sRevisionSignature != record.BuildNativeSignature()
+				|| handle.m_sIntegritySignature != BuildStaticIntegritySignature(liveMarker))
+				return false;
+		}
+
+		return true;
+	}
+
 	bool Reconcile(notnull map<string, ref HST_MapMarkerRecord> desired)
 	{
 		return Reconcile(ResolveMarkerManager(), desired);
@@ -278,7 +327,13 @@ class HST_NativeMapMarkerReconciler
 
 		string signature = record.BuildNativeSignature();
 		HST_NativeStaticMarkerHandle handle = m_mStaticDomainIdToMarker.Get(record.m_sId);
-		if (handle && IsStaticHandleLive(manager, handle) && handle.m_sRevisionSignature == signature)
+		SCR_MapMarkerBase liveMarker;
+		if (handle)
+			liveMarker = ResolveLiveStaticMarker(manager, handle);
+		if (handle
+			&& liveMarker
+			&& handle.m_sRevisionSignature == signature
+			&& handle.m_sIntegritySignature == BuildStaticIntegritySignature(liveMarker))
 		{
 			m_Result.m_iUnchanged++;
 			return;
@@ -325,16 +380,52 @@ class HST_NativeMapMarkerReconciler
 		nativeMarker.SetCanBeRemovedByOwner(record.m_bCanPlayerRemove);
 		nativeMarker.SetTimestampVisibility(false);
 
-		manager.InsertStaticMarker(nativeMarker, record.m_bLocalOnly, record.m_bServerMarker);
+		// The native local insertion path assigns the local player before creating the widget.
+		// Protected projection records need system ownership from their first visible frame.
+		if (record.m_bLocalOnly && !record.m_bCanPlayerRemove)
+			manager.HST_InsertProtectedLocalStaticMarker(nativeMarker);
+		else
+			manager.InsertStaticMarker(nativeMarker, record.m_bLocalOnly, record.m_bServerMarker);
+
+		if (!record.m_bCanPlayerRemove)
+		{
+			nativeMarker.SetMarkerOwnerID(-1);
+			nativeMarker.SetCanBeRemovedByOwner(false);
+		}
 
 		HST_NativeStaticMarkerHandle handle = new HST_NativeStaticMarkerHandle();
 		handle.m_sDomainId = record.m_sId;
 		handle.m_iNativeMarkerId = nativeMarker.GetMarkerID();
 		handle.m_Marker = nativeMarker;
 		handle.m_sRevisionSignature = signature;
+		handle.m_sIntegritySignature = BuildStaticIntegritySignature(nativeMarker);
 		m_mStaticDomainIdToMarker.Set(record.m_sId, handle);
 		m_mPublishedRevisionByDomainId.Set(record.m_sId, record.m_iRevision);
 		return true;
+	}
+
+	protected string BuildStaticIntegritySignature(SCR_MapMarkerBase marker)
+	{
+		if (!marker)
+			return "";
+
+		int position[2];
+		marker.GetWorldPos(position);
+		string signature = string.Format("%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			marker.GetType(),
+			marker.GetMarkerConfigID(),
+			marker.GetMarkerOwnerID(),
+			position[0],
+			position[1],
+			marker.GetCustomText(),
+			marker.GetIconEntry(),
+			marker.GetColorEntry(),
+			marker.GetMarkerFactionFlags());
+		return signature + string.Format("|%1|%2|%3|%4",
+			marker.GetFlags(),
+			marker.GetRotation(),
+			marker.CanBeRemovedByOwner(),
+			marker.IsTimestampVisible());
 	}
 
 	protected int ResolveValidIconEntry(SCR_MapMarkerManagerComponent manager, HST_MapMarkerRecord record)

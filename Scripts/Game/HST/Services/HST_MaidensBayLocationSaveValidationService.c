@@ -611,6 +611,10 @@ class HST_MaidensBayLocationSaveValidationService
 	{
 		if (!group)
 			return false;
+		if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(
+			m_SaveData,
+			group))
+			return true;
 		if (!group.m_sMissionInstanceId.IsEmpty() && FindMission(group.m_sMissionInstanceId))
 			return true;
 		if (!group.m_sSupportRequestId.IsEmpty() && FindSupportRequest(group.m_sSupportRequestId))
@@ -743,7 +747,8 @@ class HST_MaidensBayLocationSaveValidationService
 			|| HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(m_SaveData, group)
 			|| HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(m_SaveData, group)
 			|| HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardGroupClaimant(m_SaveData, group)
-			|| HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(m_SaveData, group))
+			|| HST_RescuePOWSaveValidationService.IsSchema58RescuePOWGroupClaimant(m_SaveData, group)
+			|| HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(m_SaveData, group))
 			return true;
 		foreach (HST_SupportRequestState request : m_SaveData.m_aSupportRequests)
 		{
@@ -803,6 +808,10 @@ class HST_MaidensBayLocationSaveValidationService
 	{
 		if (!manifest)
 			return false;
+		if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityManifestClaimant(
+			m_SaveData,
+			manifest))
+			return true;
 		string policyId = manifest.m_sPolicyId;
 		policyId.ToLower();
 		if (policyId.Contains("exact"))
@@ -863,7 +872,8 @@ class HST_MaidensBayLocationSaveValidationService
 				|| HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(m_SaveData, batch)
 				|| HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant(m_SaveData, batch)
 				|| HST_AssassinationGuardSaveValidationService.IsSchema57MissionGuardBatchClaimant(m_SaveData, batch)
-				|| HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(m_SaveData, batch))
+				|| HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(m_SaveData, batch)
+				|| HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityBatchClaimant(m_SaveData, batch))
 				return true;
 			foreach (HST_ForceManifestState manifest : m_SaveData.m_aForceManifests)
 			{
@@ -904,7 +914,12 @@ class HST_MaidensBayLocationSaveValidationService
 
 	protected bool IsTypedOperationClaimant(HST_OperationRecordState operation, bool requireOpen)
 	{
-		if (!operation || operation.m_iContractVersion == 0)
+		if (!operation)
+			return false;
+		if (operation.m_iContractVersion == 0
+			&& !HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityOperationClaimant(
+				m_SaveData,
+				operation))
 			return false;
 		if (requireOpen
 			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)

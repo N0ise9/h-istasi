@@ -85,6 +85,7 @@ class HST_ZoneState
 	int m_iCivilianPanicUntilSecond;
 	string m_sCivilianLastConsequenceEventId;
 	string m_sCivilianConsequenceAuthorityFailure;
+	string m_sLocalSecurityPatrolId;
 	string m_sPatrolRouteId;
 	string m_sQRFRouteId;
 	string m_sMissionSiteId;
@@ -138,6 +139,41 @@ class HST_GarrisonState
 }
 
 [BaseContainerProps()]
+class HST_LocalSecurityPatrolState
+{
+	int m_iContractVersion = 1;
+	int m_iRevision = 1;
+	string m_sPatrolId;
+	string m_sZoneId;
+	string m_sFactionKey;
+	int m_iOwnershipRevision;
+	int m_iEpoch;
+	string m_sSourceType;
+	string m_sSourceId;
+	bool m_bBaseline;
+	string m_sPolicyId;
+	int m_iPoliceStrength;
+	string m_sOperationId;
+	string m_sManifestId;
+	string m_sManifestHash;
+	string m_sSpawnResultId;
+	string m_sForceId;
+	string m_sProjectionId;
+	string m_sGroupId;
+	string m_sStatus = "active";
+	int m_iOriginalInfantryCount;
+	int m_iLivingInfantryCount;
+	int m_iCreatedAtSecond;
+	int m_iLastChangedAtSecond;
+	int m_iTerminalAtSecond;
+	string m_sLossEventId;
+	bool m_bLossEventApplied;
+	int m_iLossEventAppliedAtSecond;
+	string m_sTerminalReason;
+	string m_sAuthorityFailure;
+}
+
+[BaseContainerProps()]
 class HST_ActiveGroupState
 {
 	string m_sGroupId;
@@ -155,6 +191,7 @@ class HST_ActiveGroupState
 	string m_sMissionAssetId;
 	string m_sGarrisonZoneId;
 	string m_sQRFInstanceId;
+	string m_sLocalSecurityPatrolId;
 	string m_sPrefab;
 	string m_sVehiclePrefab;
 	string m_sCompositionRequestId;
@@ -232,6 +269,7 @@ class HST_OperationRecordState
 	string m_sSupportRequestId;
 	string m_sEnemyOrderId;
 	string m_sMissionInstanceId;
+	string m_sLocalSecurityPatrolId;
 	string m_sQuoteId;
 	string m_sManifestId;
 	string m_sSpawnResultId;
@@ -1285,7 +1323,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 65;
+	static const int SCHEMA_VERSION = 66;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1391,6 +1429,7 @@ class HST_CampaignState
 	ref array<ref HST_OwnershipTransitionState> m_aOwnershipTransitions = {};
 	ref array<ref HST_RadioSiteState> m_aRadioSites = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
+	ref array<ref HST_LocalSecurityPatrolState> m_aLocalSecurityPatrols = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
 	ref array<ref HST_OperationRecordState> m_aOperations = {};
@@ -1662,6 +1701,38 @@ class HST_CampaignState
 		return null;
 	}
 
+	HST_LocalSecurityPatrolState FindLocalSecurityPatrol(string zoneId)
+	{
+		HST_LocalSecurityPatrolState match;
+		if (zoneId.IsEmpty())
+			return null;
+		foreach (HST_LocalSecurityPatrolState patrol : m_aLocalSecurityPatrols)
+		{
+			if (!patrol || patrol.m_sZoneId != zoneId)
+				continue;
+			if (match)
+				return null;
+			match = patrol;
+		}
+		return match;
+	}
+
+	HST_LocalSecurityPatrolState FindLocalSecurityPatrolById(string patrolId)
+	{
+		HST_LocalSecurityPatrolState match;
+		if (patrolId.IsEmpty())
+			return null;
+		foreach (HST_LocalSecurityPatrolState patrol : m_aLocalSecurityPatrols)
+		{
+			if (!patrol || patrol.m_sPatrolId != patrolId)
+				continue;
+			if (match)
+				return null;
+			match = patrol;
+		}
+		return match;
+	}
+
 	HST_RadioSiteState FindRadioSite(string siteId)
 	{
 		HST_RadioSiteState match;
@@ -1728,6 +1799,13 @@ class HST_CampaignState
 		HST_OperationRecordState operation;
 		if (!group.m_sOperationId.IsEmpty())
 			operation = FindOperation(group.m_sOperationId);
+		bool localSecurityClaim = !group.m_sLocalSecurityPatrolId.IsEmpty()
+			|| group.m_sSpawnFallbackMode == "exact_local_security_patrol"
+			|| group.m_sSpawnFallbackMode.StartsWith("exact_local_security_patrol_")
+			|| (operation
+				&& operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL);
+		if (localSecurityClaim)
+			return IsOperationalLocalSecurityGroup(group, operation);
 		if (HST_MissionGuardOperationService.IsMissionGuardGroupClaimant(this, group))
 		{
 			int expectedGuardContract;
@@ -1815,6 +1893,72 @@ class HST_CampaignState
 			&& !group.m_sConvoyElementId.IsEmpty();
 	}
 
+	protected bool IsOperationalLocalSecurityGroup(
+		HST_ActiveGroupState group,
+		HST_OperationRecordState operation)
+	{
+		if (!group || !operation || group.m_sGroupId.IsEmpty()
+			|| FindActiveGroup(group.m_sGroupId) != group)
+			return false;
+		HST_LocalSecurityPatrolState patrol = FindLocalSecurityPatrolById(
+			group.m_sLocalSecurityPatrolId);
+		if (!patrol || patrol.m_iContractVersion != 1 || patrol.m_sStatus != "active"
+			|| patrol.m_iLivingInfantryCount <= 0
+			|| !patrol.m_sAuthorityFailure.IsEmpty()
+			|| patrol.m_sGroupId != group.m_sGroupId
+			|| patrol.m_sOperationId != group.m_sOperationId
+			|| patrol.m_sManifestId != group.m_sManifestId
+			|| patrol.m_sSpawnResultId != group.m_sSpawnResultId
+			|| patrol.m_sForceId != group.m_sForceId
+			|| patrol.m_sProjectionId != group.m_sProjectionId)
+			return false;
+		HST_ZoneState zone = FindZone(patrol.m_sZoneId);
+		if (!zone || zone.m_eType != HST_EZoneType.HST_ZONE_TOWN
+			|| zone.m_sLocalSecurityPatrolId != patrol.m_sPatrolId
+			|| zone.m_sOwnerFactionKey != patrol.m_sFactionKey
+			|| zone.m_iOwnershipRevision != patrol.m_iOwnershipRevision)
+			return false;
+		if (operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL
+			|| operation.m_iContractVersion != 1
+			|| operation.m_sLocalSecurityPatrolId != patrol.m_sPatrolId
+			|| operation.m_sManifestId != patrol.m_sManifestId
+			|| operation.m_sSpawnResultId != patrol.m_sSpawnResultId
+			|| operation.m_sForceId != patrol.m_sForceId
+			|| operation.m_sProjectionId != patrol.m_sProjectionId
+			|| operation.m_sGroupId != patrol.m_sGroupId
+			|| operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult
+				!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+			return false;
+		HST_ForceManifestState manifest = FindForceManifest(patrol.m_sManifestId);
+		if (!manifest || !manifest.m_bFrozen
+			|| manifest.m_sOperationId != patrol.m_sOperationId
+			|| manifest.m_sManifestHash != patrol.m_sManifestHash
+			|| manifest.m_sPolicyId != "exact_local_security_patrol_v1"
+			|| manifest.m_sForceKind != "local_security_patrol"
+			|| manifest.m_sIntentId != "town_police")
+			return false;
+		HST_ForceSpawnResultState batch = FindForceSpawnResult(patrol.m_sSpawnResultId);
+		if (!batch || batch.m_sRequestId != patrol.m_sPatrolId
+			|| batch.m_sOperationId != patrol.m_sOperationId
+			|| batch.m_sManifestId != patrol.m_sManifestId
+			|| batch.m_sManifestHash != patrol.m_sManifestHash
+			|| batch.m_sForceId != patrol.m_sForceId
+			|| batch.m_sProjectionId != patrol.m_sProjectionId)
+			return false;
+		return group.m_sLocalSecurityPatrolId == patrol.m_sPatrolId
+			&& group.m_sZoneId == patrol.m_sZoneId
+			&& group.m_sFactionKey == patrol.m_sFactionKey
+			&& group.m_sGroupId == group.m_sProjectionId
+			&& group.m_iOriginalInfantryCount == patrol.m_iOriginalInfantryCount
+			&& group.m_iInfantryCount == patrol.m_iLivingInfantryCount
+			&& group.m_iSurvivorInfantryCount == patrol.m_iLivingInfantryCount
+			&& group.m_iDurableLivingInfantryCount == patrol.m_iLivingInfantryCount
+			&& (group.m_sSpawnFallbackMode == "exact_local_security_patrol"
+				|| group.m_sSpawnFallbackMode.StartsWith("exact_local_security_patrol_"));
+	}
+
 	bool IsQuarantinedActiveGroup(HST_ActiveGroupState group)
 	{
 		if (!group)
@@ -1824,11 +1968,14 @@ class HST_CampaignState
 			|| group.m_sRuntimeStatus == "exact_patrol_quarantined"
 			|| group.m_sRuntimeStatus == "exact_patrol_orphan_quarantined"
 			|| group.m_sRuntimeStatus == HST_PlayerSearchDestroySaveValidationService.QUARANTINE_STATUS
+			|| group.m_sRuntimeStatus == "exact_local_security_quarantined"
+			|| group.m_sRuntimeStatus == "local_security_quarantined"
 			|| group.m_sRuntimeStatus == "exact_runtime_authority_quarantined")
 			return true;
 		return group.m_sSpawnFallbackMode == HST_MissionGuardOperationService.QUARANTINE_STATUS
 			|| group.m_sSpawnFallbackMode == "exact_garrison_patrol_quarantined"
 			|| group.m_sSpawnFallbackMode == "exact_enemy_patrol_quarantined"
+			|| group.m_sSpawnFallbackMode == "exact_local_security_patrol_quarantined"
 			|| group.m_sSpawnFallbackMode == HST_PlayerSearchDestroySaveValidationService.QUARANTINE_MODE;
 	}
 

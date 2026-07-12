@@ -558,11 +558,7 @@ class HST_TownService
 			return 0;
 
 		if (HST_FactionRelationService.IsResistanceFaction(preset, townZone.m_sOwnerFactionKey))
-		{
-			if (civilianZone.m_iWantedHeat >= 12)
-				return 1;
 			return 0;
-		}
 
 		if (!HST_FactionRelationService.IsEnemyFaction(preset, townZone.m_sOwnerFactionKey))
 			return Math.Max(0, Math.Min(SECURITY_PRESSURE_MAX_POLICE, civilianZone.m_iPolicePresence));
@@ -592,11 +588,7 @@ class HST_TownService
 			return 0;
 
 		if (HST_FactionRelationService.IsResistanceFaction(preset, townZone.m_sOwnerFactionKey))
-		{
-			if (civilianZone.m_iWantedHeat >= 15)
-				return 1;
 			return 0;
-		}
 
 		if (!HST_FactionRelationService.IsEnemyFaction(preset, townZone.m_sOwnerFactionKey))
 			return Math.Max(0, Math.Min(SECURITY_PRESSURE_MAX_ROADBLOCKS, civilianZone.m_iRoadblockPresence));

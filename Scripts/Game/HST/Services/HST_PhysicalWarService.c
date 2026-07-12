@@ -1924,6 +1924,94 @@ class HST_PhysicalWarService
 		return nearestPlayerMeters <= acceptedRadius;
 	}
 
+	bool TryResolveExactLocalSecurityPatrolLivePosition(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		out vector livePosition,
+		out string evidence)
+	{
+		livePosition = "0 0 0";
+		evidence = "missing exact open physical local-security patrol";
+		if (!IsExactOpenPhysicalLocalSecurityPatrolGroup(state, activeGroup))
+			return false;
+
+		livePosition = ResolveActiveGroupLiveRuntimePosition(activeGroup, false);
+		if (IsZeroVector(livePosition))
+		{
+			evidence = "exact local-security patrol has no living runtime member position";
+			return false;
+		}
+		evidence = string.Format("exact local-security patrol live position %1", livePosition);
+		return true;
+	}
+
+	bool HasExactLocalSecurityPatrolLiveContactEvidence(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		float contactRadiusMeters,
+		out string evidence)
+	{
+		vector livePosition;
+		if (!TryResolveExactLocalSecurityPatrolLivePosition(state, activeGroup, livePosition, evidence))
+			return false;
+
+		float nearestPlayerMeters = ResolveNearestLivingPlayerDistanceMeters(livePosition);
+		if (nearestPlayerMeters < 0)
+		{
+			evidence = "exact local-security patrol has no living player contact candidate";
+			return false;
+		}
+		float acceptedRadius = Math.Max(1.0, contactRadiusMeters);
+		evidence = string.Format(
+			"exact local-security patrol nearest living player %1m/%2m at %3",
+			Math.Round(nearestPlayerMeters),
+			Math.Round(acceptedRadius),
+			livePosition);
+		return nearestPlayerMeters <= acceptedRadius;
+	}
+
+	bool AssignExactLocalSecurityPatrolWaypoints(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		out string evidence)
+	{
+		evidence = "missing exact open physical local-security patrol";
+		if (!IsExactOpenPhysicalLocalSecurityPatrolGroup(state, activeGroup))
+			return false;
+		if (ShouldHoldForceSpawnProjection(state, activeGroup))
+		{
+			evidence = "exact local-security patrol physical handoff is not complete";
+			return false;
+		}
+		if (IsTownPolicePatrolAssigned(activeGroup))
+		{
+			evidence = string.Format(
+				"exact local-security patrol already owns %1 cycle waypoints",
+				activeGroup.m_iAssignedWaypointCount);
+			return true;
+		}
+
+		string reason;
+		int waypointCount = AssignTownPolicePatrolWaypoints(state, activeGroup, reason);
+		if (waypointCount <= 1)
+		{
+			evidence = reason;
+			if (evidence.IsEmpty())
+				evidence = "exact local-security patrol could not acquire cycle waypoints";
+			return false;
+		}
+
+		activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(
+			activeGroup.m_sSpawnFallbackMode,
+			"town_police_patrol");
+		activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(
+			activeGroup.m_sSpawnFallbackMode,
+			"patrol_cycle");
+		activeGroup.m_sSpawnFailureReason = reason;
+		evidence = reason;
+		return true;
+	}
+
 	bool HasExactMissionGuardRuntime(HST_CampaignState state, HST_ActiveGroupState activeGroup)
 	{
 		if (!HasOpenPhysicalMissionGuardRuntimeAuthority(state, activeGroup))
@@ -13017,6 +13105,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+				continue;
 			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
 			if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
@@ -13066,6 +13156,8 @@ class HST_PhysicalWarService
 			return false;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 		if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
 			return false;
 		if (IsExactPlayerSupportActiveGroup(state, activeGroup))
@@ -13097,6 +13189,8 @@ class HST_PhysicalWarService
 				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 				continue;
 			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
@@ -13483,44 +13577,13 @@ class HST_PhysicalWarService
 		if (!zone)
 			return false;
 
-		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zone.m_sZoneId);
-		int policePresence;
-		if (civilianZone)
-			policePresence = civilianZone.m_iPolicePresence;
-
-		if (!ShouldProjectTownSecurityPolice(state, zone, preset, policePresence))
-			return CleanupTownSecurityPoliceProjections(state, zone, "security pressure cleared or town not enemy-owned");
-
-		if (FindTownSecurityPoliceProjection(state, zone))
-			return false;
-
-		int infantryCount = ResolveTownSecurityPoliceProjectionInfantry(policePresence);
-		if (infantryCount <= 0)
-			return false;
-
-		HST_ZoneSpawnSlotState slot;
-		if (compositions)
-			slot = compositions.SelectSlot(slots, HST_ZoneCompositionService.SLOT_PATROL, CountTownSecurityPoliceProjections(state, zone));
-
-		HST_ActiveGroupState activeGroup = CreateActiveGroup(state, zone, zone.m_sOwnerFactionKey, infantryCount, 0, false, preset);
-		activeGroup.m_sGroupId = BuildTownSecurityPoliceGroupId(state, zone);
-		activeGroup.m_sGarrisonZoneId = "";
-		ApplySpawnSlot(activeGroup, slot, "guard_distributed");
-		activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(activeGroup.m_sSpawnFallbackMode, TOWN_SECURITY_POLICE_PROJECTION_TOKEN);
-		activeGroup.m_sSpawnFailureReason = string.Format("Town police security projection from police presence %1.", policePresence);
-		state.m_aActiveGroups.Insert(activeGroup);
-		if (!TrySpawnActiveGroup(activeGroup, state, preset))
-		{
-			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);
-			state.m_aActiveGroups.Remove(state.m_aActiveGroups.Count() - 1);
-			ApplyActiveZoneCounts(state, zone);
-			DebugLog(string.Format("town security police projection failed %1 | %2", zone.m_sZoneId, activeGroup.m_sSpawnFailureReason));
-			return false;
-		}
-
-		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi police | projected %1 town police at %2 from police presence %3", infantryCount, zone.m_sZoneId, policePresence));
-		return true;
+		// Schema-66 exact local-security authority owns all new police patrols.
+		// This compatibility seam only retires backlink-free legacy projections;
+		// it must never fall back to an aggregate runtime group.
+		return CleanupTownSecurityPoliceProjections(
+			state,
+			zone,
+			"legacy town-security projection retired by exact local-security authority");
 	}
 
 	protected bool ShouldProjectTownSecurityPolice(HST_CampaignState state, HST_ZoneState zone, HST_CampaignPreset preset, int policePresence)
@@ -13621,6 +13684,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactGarrisonPatrolGroup(state, activeGroup))
 				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+				continue;
 			if (!IsTownSecurityPoliceProjection(activeGroup))
 				continue;
 			if (ShouldHoldForceSpawnProjection(state, activeGroup))
@@ -13646,8 +13711,18 @@ class HST_PhysicalWarService
 	{
 		if (!activeGroup)
 			return false;
+		if (!activeGroup.m_sSpawnFallbackMode.Contains(TOWN_SECURITY_POLICE_PROJECTION_TOKEN))
+			return false;
+		if (!activeGroup.m_sOperationId.IsEmpty() || !activeGroup.m_sManifestId.IsEmpty()
+			|| !activeGroup.m_sSpawnResultId.IsEmpty() || !activeGroup.m_sForceId.IsEmpty()
+			|| !activeGroup.m_sProjectionId.IsEmpty() || !activeGroup.m_sLocalSecurityPatrolId.IsEmpty()
+			|| !activeGroup.m_sMissionInstanceId.IsEmpty() || !activeGroup.m_sSupportRequestId.IsEmpty()
+			|| !activeGroup.m_sEnemyOrderId.IsEmpty() || !activeGroup.m_sConvoyElementId.IsEmpty()
+			|| !activeGroup.m_sGarrisonZoneId.IsEmpty() || !activeGroup.m_sQRFInstanceId.IsEmpty()
+			|| activeGroup.m_bQRF)
+			return false;
 
-		return activeGroup.m_sSpawnFallbackMode.Contains(TOWN_SECURITY_POLICE_PROJECTION_TOKEN);
+		return true;
 	}
 
 	protected string BuildTownSecurityPoliceGroupId(HST_CampaignState state, HST_ZoneState zone)
@@ -14737,6 +14812,8 @@ class HST_PhysicalWarService
 			return false;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 		if (ShouldHoldForceSpawnProjection(state, activeGroup))
 			return false;
 		if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
@@ -14804,6 +14881,9 @@ class HST_PhysicalWarService
 		if (!activeGroup)
 			return false;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup)
+			&& !IsExactOpenPhysicalLocalSecurityPatrolGroup(state, activeGroup))
 			return false;
 		if (activeGroup.m_bQRF)
 			return false;
@@ -15793,6 +15873,8 @@ class HST_PhysicalWarService
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 		if (IsForceSpawnQueueManaged(activeGroup))
 			return false;
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
@@ -15918,6 +16000,8 @@ class HST_PhysicalWarService
 
 	protected bool TrySpawnActiveGroupAttachedVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_ActiveGroupState activeGroup, string source)
 	{
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 		if (IsForceSpawnQueueManaged(activeGroup))
 			return false;
 		if (!activeGroup || activeGroup.m_iVehicleCount <= 0 || activeGroup.m_iInfantryCount <= 0 || IsMissionConvoyGroup(activeGroup))
@@ -16131,6 +16215,11 @@ class HST_PhysicalWarService
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+		{
+			ClearPendingActiveGroupPopulation(activeGroup);
+			return;
+		}
 		HST_ActiveMissionState exactMission;
 		if (state && activeGroup)
 			exactMission = state.FindActiveMission(activeGroup.m_sMissionInstanceId);
@@ -17076,6 +17165,8 @@ class HST_PhysicalWarService
 		if (!activeGroup)
 			return;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+			return;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 			return;
 
 		ClearPendingActiveGroupPopulation(activeGroup);
@@ -18407,6 +18498,8 @@ class HST_PhysicalWarService
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 		if (IsExactGarrisonPatrolGroup(state, activeGroup))
 			return false;
 		if (IsForceSpawnQueueManaged(activeGroup))
@@ -19079,6 +19172,8 @@ class HST_PhysicalWarService
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 		if (IsForceSpawnQueueManaged(activeGroup))
 			return false;
 		if (!activeGroup || IsTerminalActiveGroupRuntimeStatus(activeGroup) || HasRuntimeGroupEntity(activeGroup.m_sGroupId))
@@ -19581,6 +19676,8 @@ class HST_PhysicalWarService
 			return false;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
 
 		bool preserveFoldedSurvivorState = activeGroup.m_sRuntimeStatus == "folded";
 		int foldedLastSeenAlive = activeGroup.m_iLastSeenAliveCount;
@@ -19637,6 +19734,8 @@ class HST_PhysicalWarService
 		if (!state || !activeGroup)
 			return false;
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 			return false;
 
 		int livingInfantry = CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId);
@@ -19748,6 +19847,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+				continue;
 			if (IsExactGarrisonPatrolGroup(state, activeGroup) && !IsForceSpawnQueueManaged(activeGroup))
 				continue;
 			if (IsForceSpawnQueueManaged(activeGroup))
@@ -19794,6 +19895,8 @@ class HST_PhysicalWarService
 	protected bool ReconcileActiveGroupRuntimeMemberCounts(HST_CampaignState state, HST_ActiveGroupState activeGroup, string source)
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+			return false;
+		if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 			return false;
 		if (IsExactGarrisonPatrolGroup(state, activeGroup))
 			return false;
@@ -19891,6 +19994,8 @@ class HST_PhysicalWarService
 			if (!activeGroup || activeGroup.m_sMissionInstanceId.IsEmpty() || IsMissionConvoyGroup(activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 				continue;
 			if (IsExactGarrisonPatrolGroup(state, activeGroup))
 				continue;
@@ -20018,6 +20123,140 @@ class HST_PhysicalWarService
 			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF,
 			HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
 			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION);
+	}
+
+	bool IsLocalSecurityPatrolClaimant(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!activeGroup)
+			return false;
+		if (!activeGroup.m_sLocalSecurityPatrolId.IsEmpty())
+			return true;
+
+		string intrinsicHint = activeGroup.m_sGroupId + " "
+			+ activeGroup.m_sSpawnFallbackMode + " "
+			+ activeGroup.m_sRuntimeStatus;
+		intrinsicHint.ToLower();
+		if (intrinsicHint.Contains("local_security") || intrinsicHint.Contains("local-security"))
+			return true;
+		if (!state)
+			return false;
+
+		HST_OperationRecordState operation = state.FindOperation(activeGroup.m_sOperationId);
+		if (operation && operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL)
+			return true;
+
+		foreach (HST_LocalSecurityPatrolState patrol : state.m_aLocalSecurityPatrols)
+		{
+			if (!patrol)
+				continue;
+			if (!activeGroup.m_sGroupId.IsEmpty() && patrol.m_sGroupId == activeGroup.m_sGroupId)
+				return true;
+			if (!activeGroup.m_sOperationId.IsEmpty() && patrol.m_sOperationId == activeGroup.m_sOperationId)
+				return true;
+			if (!activeGroup.m_sManifestId.IsEmpty() && patrol.m_sManifestId == activeGroup.m_sManifestId)
+				return true;
+			if (!activeGroup.m_sSpawnResultId.IsEmpty() && patrol.m_sSpawnResultId == activeGroup.m_sSpawnResultId)
+				return true;
+			if (!activeGroup.m_sForceId.IsEmpty() && patrol.m_sForceId == activeGroup.m_sForceId)
+				return true;
+			if (!activeGroup.m_sProjectionId.IsEmpty() && patrol.m_sProjectionId == activeGroup.m_sProjectionId)
+				return true;
+		}
+		return false;
+	}
+
+	bool IsExactOpenPhysicalLocalSecurityPatrolGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
+	{
+		if (!state || !activeGroup || !IsLocalSecurityPatrolClaimant(state, activeGroup))
+			return false;
+		if (HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION <= 0
+			|| activeGroup.m_sLocalSecurityPatrolId.IsEmpty()
+			|| activeGroup.m_sOperationId.IsEmpty() || activeGroup.m_sManifestId.IsEmpty()
+			|| activeGroup.m_sSpawnResultId.IsEmpty() || activeGroup.m_sForceId.IsEmpty()
+			|| activeGroup.m_sProjectionId.IsEmpty() || activeGroup.m_sGroupId.IsEmpty()
+			|| state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup)
+			return false;
+
+		string mode = activeGroup.m_sSpawnFallbackMode;
+		if (mode != HST_LocalSecurityOperationService.EXACT_GROUP_MODE
+			&& !mode.StartsWith(HST_LocalSecurityOperationService.EXACT_GROUP_MODE + "_"))
+			return false;
+		if (!activeGroup.m_bSpawnedEntity || IsTerminalActiveGroupRuntimeStatus(activeGroup))
+			return false;
+		if (!activeGroup.m_sEnemyOrderId.IsEmpty() || !activeGroup.m_sMissionInstanceId.IsEmpty()
+			|| !activeGroup.m_sSupportRequestId.IsEmpty() || !activeGroup.m_sGarrisonZoneId.IsEmpty()
+			|| activeGroup.m_bQRF)
+			return false;
+
+		HST_LocalSecurityPatrolState patrol = state.FindLocalSecurityPatrolById(activeGroup.m_sLocalSecurityPatrolId);
+		if (!patrol
+			|| patrol.m_iContractVersion != HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION
+			|| patrol.m_sPatrolId != activeGroup.m_sLocalSecurityPatrolId
+			|| patrol.m_sZoneId.IsEmpty() || patrol.m_sZoneId != activeGroup.m_sZoneId
+			|| patrol.m_sFactionKey.IsEmpty() || patrol.m_sFactionKey != activeGroup.m_sFactionKey
+			|| patrol.m_sOperationId != activeGroup.m_sOperationId
+			|| patrol.m_sManifestId != activeGroup.m_sManifestId
+			|| patrol.m_sSpawnResultId != activeGroup.m_sSpawnResultId
+			|| patrol.m_sForceId != activeGroup.m_sForceId
+			|| patrol.m_sProjectionId != activeGroup.m_sProjectionId
+			|| patrol.m_sGroupId != activeGroup.m_sGroupId
+			|| patrol.m_sStatus != "active" || patrol.m_iTerminalAtSecond > 0
+			|| !patrol.m_sAuthorityFailure.IsEmpty())
+			return false;
+
+		HST_ZoneState zone = state.FindZone(patrol.m_sZoneId);
+		if (!zone || zone.m_sLocalSecurityPatrolId != patrol.m_sPatrolId
+			|| zone.m_sOwnerFactionKey != patrol.m_sFactionKey)
+			return false;
+
+		HST_OperationRecordState operation = state.FindOperation(activeGroup.m_sOperationId);
+		if (!operation
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL
+			|| operation.m_iContractVersion != HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION
+			|| operation.m_sLocalSecurityPatrolId != patrol.m_sPatrolId
+			|| operation.m_sManifestId != activeGroup.m_sManifestId
+			|| operation.m_sSpawnResultId != activeGroup.m_sSpawnResultId
+			|| operation.m_sForceId != activeGroup.m_sForceId
+			|| operation.m_sProjectionId != activeGroup.m_sProjectionId
+			|| operation.m_sGroupId != activeGroup.m_sGroupId
+			|| operation.m_sOwnerFactionKey != activeGroup.m_sFactionKey
+			|| operation.m_sAssignmentKind != HST_LocalSecurityOperationService.ASSIGNMENT_KIND
+			|| operation.m_sAssignmentZoneId != activeGroup.m_sZoneId
+			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority != HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return false;
+
+		HST_ForceManifestState manifest = state.FindForceManifest(activeGroup.m_sManifestId);
+		if (!manifest || !manifest.m_bFrozen
+			|| manifest.m_sManifestId != patrol.m_sManifestId
+			|| manifest.m_sManifestHash.IsEmpty() || manifest.m_sManifestHash != patrol.m_sManifestHash
+			|| manifest.m_sOperationId != operation.m_sOperationId
+			|| manifest.m_sFactionKey != operation.m_sOwnerFactionKey
+			|| manifest.m_sTargetZoneId != operation.m_sAssignmentZoneId
+			|| manifest.m_sForceKind != HST_LocalSecurityOperationService.EXACT_FORCE_KIND
+			|| manifest.m_sPolicyId != HST_LocalSecurityOperationService.EXACT_POLICY_ID
+			|| manifest.m_sIntentId != HST_LocalSecurityOperationService.EXACT_MANIFEST_INTENT
+			|| manifest.m_aGroups.Count() != 1 || !manifest.m_aGroups[0]
+			|| manifest.m_aGroups[0].m_sPrefab != activeGroup.m_sPrefab)
+			return false;
+
+		HST_ForceSpawnResultState batch = state.FindForceSpawnResult(activeGroup.m_sSpawnResultId);
+		if (!batch
+			|| batch.m_sResultId != patrol.m_sSpawnResultId
+			|| batch.m_sManifestId != manifest.m_sManifestId
+			|| batch.m_sManifestHash != manifest.m_sManifestHash
+			|| batch.m_sOperationId != operation.m_sOperationId
+			|| batch.m_sForceId != operation.m_sForceId
+			|| batch.m_sProjectionId != operation.m_sProjectionId
+			|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| batch.m_bStrategicProjectionHeld || batch.m_iSuccessfulHandoffCount <= 0)
+			return false;
+
+		SCR_AIGroup root = GetForceSpawnGroupRoot(activeGroup);
+		return root && !root.IsDeleted()
+			&& activeGroup.m_sGroupId == activeGroup.m_sProjectionId;
 	}
 
 	protected bool IsExactEnemyPatrolGroup(HST_CampaignState state, HST_ActiveGroupState activeGroup)
@@ -20338,6 +20577,8 @@ class HST_PhysicalWarService
 			if (missionConvoysOnly && !missionConvoyGroup)
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 				continue;
 			if (ShouldHoldForceSpawnProjection(state, activeGroup))
 				continue;
@@ -20795,6 +21036,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+				continue;
 			if (activeGroup.m_bQRF)
 				continue;
 			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
@@ -20840,6 +21083,8 @@ class HST_PhysicalWarService
 				|| IsExactPlayerSupportActiveGroup(state, activeGroup))
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
 				continue;
 			if (IsExactEnemyPatrolGroup(state, activeGroup) || IsExactGarrisonPatrolGroup(state, activeGroup))
 				continue;
@@ -20893,6 +21138,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+				continue;
 			if (activeGroup.m_bQRF)
 				continue;
 			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
@@ -20930,6 +21177,8 @@ class HST_PhysicalWarService
 				continue;
 			if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 				continue;
+			if (IsLocalSecurityPatrolClaimant(state, activeGroup))
+				continue;
 			if (activeGroup.m_bQRF)
 				continue;
 			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
@@ -20955,6 +21204,7 @@ class HST_PhysicalWarService
 	{
 		if (!state || !activeGroup || ShouldHoldForceSpawnProjection(state, activeGroup)
 			|| IsExactOrQuarantinedMissionGuardGroup(state, activeGroup)
+			|| IsLocalSecurityPatrolClaimant(state, activeGroup)
 			|| IsExactEnemyPatrolGroup(state, activeGroup)
 			|| IsExactGarrisonPatrolGroup(state, activeGroup)
 			|| IsExactPlayerSupportActiveGroup(state, activeGroup))

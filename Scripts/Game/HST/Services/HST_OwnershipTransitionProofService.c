@@ -373,6 +373,7 @@ class HST_OwnershipTransitionProofFixtureFactory
 		enemyDirector.SetTownInfluenceService(fixture.m_TownInfluence);
 		supportRequests.SetTownInfluenceService(fixture.m_TownInfluence);
 		HST_PhysicalWarService physicalWar = new HST_PhysicalWarService();
+		HST_LocalSecurityOperationService localSecurityPatrols = new HST_LocalSecurityOperationService();
 		HST_GarrisonPatrolOperationService garrisonPatrols = new HST_GarrisonPatrolOperationService();
 		fixture.m_Persistence = new HST_OwnershipTransitionPersistenceProofHarness();
 
@@ -389,6 +390,7 @@ class HST_OwnershipTransitionProofFixtureFactory
 			enemyDirector,
 			supportRequests,
 			physicalWar,
+			localSecurityPatrols,
 			garrisonPatrols,
 			fixture.m_ZoneCapture);
 		fixture.m_Service.ConfigureProjectionServices(fixture.m_MapMarkers, null, fixture.m_Persistence);

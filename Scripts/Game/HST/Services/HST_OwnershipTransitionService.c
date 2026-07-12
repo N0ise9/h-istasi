@@ -79,6 +79,7 @@ class HST_OwnershipTransitionService
 	protected HST_EnemyDirectorService m_EnemyDirector;
 	protected HST_SupportRequestService m_SupportRequests;
 	protected HST_PhysicalWarService m_PhysicalWar;
+	protected HST_LocalSecurityOperationService m_LocalSecurityPatrols;
 	protected HST_GarrisonPatrolOperationService m_GarrisonPatrols;
 	protected HST_ZoneCaptureService m_ZoneCapture;
 	protected HST_MapMarkerService m_MapMarkers;
@@ -110,6 +111,7 @@ class HST_OwnershipTransitionService
 		HST_EnemyDirectorService enemyDirector,
 		HST_SupportRequestService supportRequests,
 		HST_PhysicalWarService physicalWar,
+		HST_LocalSecurityOperationService localSecurityPatrols,
 		HST_GarrisonPatrolOperationService garrisonPatrols,
 		HST_ZoneCaptureService zoneCapture)
 	{
@@ -117,6 +119,7 @@ class HST_OwnershipTransitionService
 		m_EnemyDirector = enemyDirector;
 		m_SupportRequests = supportRequests;
 		m_PhysicalWar = physicalWar;
+		m_LocalSecurityPatrols = localSecurityPatrols;
 		m_GarrisonPatrols = garrisonPatrols;
 		m_ZoneCapture = zoneCapture;
 	}
@@ -455,6 +458,16 @@ class HST_OwnershipTransitionService
 					transition.m_sNewOwnerFactionKey);
 				if (!authorityFailure.IsEmpty())
 					return NeedsRetry(transition, result, authorityFailure);
+				bool localSecurityChanged;
+				string localSecurityFailure;
+				if (!m_LocalSecurityPatrols.ReconcileZoneOwnershipChange(
+					state,
+					zone.m_sZoneId,
+					transition.m_sNewOwnerFactionKey,
+					localSecurityChanged,
+					localSecurityFailure))
+					return NeedsRetry(transition, result, localSecurityFailure);
+				result.m_bStateChanged = localSecurityChanged || result.m_bStateChanged;
 				bool patrolChanged;
 				string patrolFailure;
 				if (!m_GarrisonPatrols.ReconcileZoneOwnershipChange(
@@ -760,6 +773,14 @@ class HST_OwnershipTransitionService
 
 	protected string ValidateOldSecurityAuthority(HST_CampaignState state, HST_ZoneState zone, string newOwnerFactionKey)
 	{
+		string localSecurityFailure;
+		if (!m_LocalSecurityPatrols.CanReconcileZoneOwnershipChange(
+			state,
+			zone.m_sZoneId,
+			newOwnerFactionKey,
+			localSecurityFailure))
+			return localSecurityFailure;
+
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 		{
 			if (!garrison || garrison.m_sZoneId != zone.m_sZoneId || garrison.m_sFactionKey == newOwnerFactionKey)
@@ -788,7 +809,8 @@ class HST_OwnershipTransitionService
 	protected bool DependenciesReady(HST_OwnershipTransitionRequest request)
 	{
 		if (!m_Preset || !m_Balance || !m_Economy || !m_Strategic || !m_Garrisons
-			|| !m_Civilians || !m_TownInfluence || !m_CampaignEvents || !m_PhysicalWar || !m_GarrisonPatrols
+			|| !m_Civilians || !m_TownInfluence || !m_CampaignEvents || !m_PhysicalWar
+			|| !m_LocalSecurityPatrols || !m_GarrisonPatrols
 			|| !m_ZoneCapture || !m_MapMarkers || !m_Persistence)
 			return false;
 		if (request.m_bApplyEnemyConsequences && (!m_EnemyCommander || !m_EnemyDirector))

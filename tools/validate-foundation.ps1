@@ -18250,6 +18250,9 @@ $schema61DirectorText = Get-Content -Raw "Scripts/Game/HST/Map/HST_CampaignMapMa
 $schema61BridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuRequestComponent.c"
 $schema61CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema61ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MarkerProjectionProofService.c"
+$schema61NativeReconcilerText = Get-Content -Raw "Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c"
+$schema61MarkerRecordText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MapMarkerRecord.c"
+$schema61MarkerManagerPatchText = Get-Content -Raw "Scripts/Game/HST/Patches/HST_MapMarkerManagerPatch.c"
 
 if ($campaignSchemaVersion -lt 61) {
 	throw "Schema-61 marker projection requires HST_CampaignState schema 61 or newer"
@@ -18961,6 +18964,47 @@ foreach ($schema61NativeReconcileEntry in @(
 	if ([string]::IsNullOrEmpty($schema61NativeReconcileBlock) -or $schema61NativeReconcileBlock.IndexOf($schema61NativeReconcileEntry) -lt 0) {
 		throw "Schema-61 client-local native marker reconciliation is missing: $schema61NativeReconcileEntry"
 	}
+}
+$schema61ProtectedInsertBlock = Get-ScriptMethodBlock $schema61MarkerManagerPatchText 'void HST_InsertProtectedLocalStaticMarker('
+foreach ($schema61ProtectedInsertEntry in @(
+	'marker.SetMarkerID(-1)',
+	'marker.SetMarkerOwnerID(-1)',
+	'marker.SetCanBeRemovedByOwner(false)',
+	'm_aStaticMarkers.Insert(marker)',
+	'marker.OnCreateMarker(true)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61ProtectedInsertBlock) -or
+		$schema61ProtectedInsertBlock.IndexOf($schema61ProtectedInsertEntry) -lt 0) {
+		throw "Schema-61 protected campaign-marker insertion is missing: $schema61ProtectedInsertEntry"
+	}
+}
+$schema61OwnerIndex = $schema61ProtectedInsertBlock.IndexOf('marker.SetMarkerOwnerID(-1)')
+$schema61RemoveIndex = $schema61ProtectedInsertBlock.IndexOf('marker.SetCanBeRemovedByOwner(false)')
+$schema61CreateIndex = $schema61ProtectedInsertBlock.IndexOf('marker.OnCreateMarker(true)')
+if ($schema61OwnerIndex -lt 0 -or $schema61RemoveIndex -lt 0 -or $schema61CreateIndex -lt 0 -or
+	$schema61OwnerIndex -gt $schema61CreateIndex -or $schema61RemoveIndex -gt $schema61CreateIndex) {
+	throw "Schema-61 campaign markers must become system-owned and non-removable before native widget creation"
+}
+$schema61CreateStaticBlock = Get-ScriptMethodBlock $schema61NativeReconcilerText 'protected bool CreateStatic('
+foreach ($schema61ImmutableNativeEntry in @(
+	'record.m_bLocalOnly && !record.m_bCanPlayerRemove',
+	'manager.HST_InsertProtectedLocalStaticMarker(nativeMarker)',
+	'manager.InsertStaticMarker(nativeMarker, record.m_bLocalOnly, record.m_bServerMarker)',
+	'nativeMarker.SetMarkerOwnerID(-1)',
+	'nativeMarker.SetCanBeRemovedByOwner(false)',
+	'handle.m_sIntegritySignature = BuildStaticIntegritySignature(nativeMarker)'
+)) {
+	if ([string]::IsNullOrEmpty($schema61CreateStaticBlock) -or
+		$schema61CreateStaticBlock.IndexOf($schema61ImmutableNativeEntry) -lt 0) {
+		throw "Schema-61 campaign/player marker ownership isolation is missing: $schema61ImmutableNativeEntry"
+	}
+}
+if ($schema61MarkerRecordText.IndexOf('string m_sIntegritySignature;') -lt 0 -or
+	$schema61NativeReconcilerText.IndexOf('bool IsProjectionIntegrityCurrent(') -lt 0 -or
+	$schema61NativeReconcilerText.IndexOf('BuildStaticIntegritySignature(liveMarker)') -lt 0 -or
+	$schema61ClientText.IndexOf('bool RepairNativeMarkersIfNeeded()') -lt 0 -or
+	$schema61BridgeText.IndexOf('m_ClientMarkerProjection.RepairNativeMarkersIfNeeded()') -lt 0) {
+	throw "Schema-61 protected native campaign markers must self-heal without routing player-created markers through the protected insertion path"
 }
 $schema61AuthoredDescriptorBlock = Get-ScriptMethodBlock $schema61ClientText 'protected bool ReconcileAuthoredZoneDescriptors('
 foreach ($schema61AuthoredDescriptorEntry in @(
@@ -22024,9 +22068,8 @@ $schema65AmbientRuntimeProofText = Get-Content -Raw "Scripts/Game/HST/Services/H
 $schema65PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
 $schema65RuntimeSettingsText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
 
-if ($campaignSchemaVersion -ne 65 -or
-	$schema65StateText.IndexOf('static const int SCHEMA_VERSION = 65;') -lt 0) {
-	throw "Schema-65 civilian consequences require CampaignState schema 65"
+if ($campaignSchemaVersion -lt 65) {
+	throw "Schema-65 civilian consequences require CampaignState schema 65 or newer"
 }
 if ($runtimeSettingsSchemaVersion -ne 24 -or
 	$schema65RuntimeSettingsText.IndexOf('SCHEMA_VERSION = 24') -lt 0) {
@@ -23446,5 +23489,269 @@ foreach ($ambientDebugEntry in @(
 }
 
 Write-Host "Blueprint Phase 8 fair ambient budget, stable-slot actor transactions, bounded recovery, pre-capture player claims, live field snapshots, transient save filtering, and source proofs OK"
+
+$schema66Paths = @(
+	"Scripts/Game/HST/Services/HST_LocalSecurityCatalogService.c",
+	"Scripts/Game/HST/Services/HST_LocalSecurityOperationService.c",
+	"Scripts/Game/HST/Services/HST_LocalSecuritySaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_LocalSecurityOperationProofService.c"
+)
+foreach ($schema66Path in $schema66Paths) {
+	if (!(Test-Path -LiteralPath $schema66Path -PathType Leaf)) {
+		throw "Schema-66 local-security authority source is missing: $schema66Path"
+	}
+}
+
+$schema66TypesText = Get-Content -Raw "Scripts/Game/HST/HST_Types.c"
+$schema66StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema66SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema66CatalogText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LocalSecurityCatalogService.c"
+$schema66OperationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LocalSecurityOperationService.c"
+$schema66ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LocalSecuritySaveValidationService.c"
+$schema66ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_LocalSecurityOperationProofService.c"
+$schema66PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema66TownText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownService.c"
+$schema66CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema66PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+$schema66OwnershipText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionService.c"
+$schema66MaidensText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MaidensBayLocationSaveValidationService.c"
+
+if ($campaignSchemaVersion -ne 66 -or
+	$schema66StateText.IndexOf('static const int SCHEMA_VERSION = 66;') -lt 0) {
+	throw "Schema-66 local-security authority requires CampaignState schema 66"
+}
+if ($runtimeSettingsSchemaVersion -ne 24) {
+	throw "Schema-66 local-security authority must preserve runtime-settings schema 24"
+}
+if ($schema66TypesText.IndexOf('HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL') -lt 0) {
+	throw "Schema-66 local-security operation type is missing"
+}
+
+$schema66EnvelopeBlock = Get-ScriptMethodBlock $schema66StateText 'class HST_LocalSecurityPatrolState'
+$schema66CopyEnvelopeBlock = Get-ScriptMethodBlock $schema66SaveText 'protected HST_LocalSecurityPatrolState CopyLocalSecurityPatrol('
+foreach ($schema66EnvelopeField in @(
+	'm_iContractVersion',
+	'm_sPatrolId',
+	'm_sZoneId',
+	'm_sFactionKey',
+	'm_iOwnershipRevision',
+	'm_iEpoch',
+	'm_sSourceId',
+	'm_sOperationId',
+	'm_sManifestId',
+	'm_sManifestHash',
+	'm_sSpawnResultId',
+	'm_sForceId',
+	'm_sProjectionId',
+	'm_sGroupId',
+	'm_iOriginalInfantryCount',
+	'm_iLivingInfantryCount',
+	'm_sLossEventId',
+	'm_bLossEventApplied',
+	'm_sAuthorityFailure'
+)) {
+	if ([string]::IsNullOrEmpty($schema66EnvelopeBlock) -or
+		$schema66EnvelopeBlock.IndexOf($schema66EnvelopeField) -lt 0) {
+		throw "Schema-66 local-security envelope field is missing: $schema66EnvelopeField"
+	}
+	$schema66CopyPattern = 'target\.' + [regex]::Escape($schema66EnvelopeField) + '\s*=\s*source\.' + [regex]::Escape($schema66EnvelopeField) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema66CopyEnvelopeBlock) -or
+		$schema66CopyEnvelopeBlock -notmatch $schema66CopyPattern) {
+		throw "Schema-66 local-security envelope save copy is missing: $schema66EnvelopeField"
+	}
+}
+foreach ($schema66StateEntry in @(
+	'ref array<ref HST_LocalSecurityPatrolState> m_aLocalSecurityPatrols = {}',
+	'HST_LocalSecurityPatrolState FindLocalSecurityPatrol(string zoneId)',
+	'HST_LocalSecurityPatrolState FindLocalSecurityPatrolById(string patrolId)',
+	'string m_sLocalSecurityPatrolId;'
+)) {
+	if ($schema66StateText.IndexOf($schema66StateEntry) -lt 0) {
+		throw "Schema-66 local-security state/backlink authority is missing: $schema66StateEntry"
+	}
+}
+
+foreach ($schema66CatalogEntry in @(
+	'CATALOG_VERSION = "local_security_catalog_1"',
+	'MIN_MEMBER_COUNT = 2',
+	'MAX_MEMBER_COUNT = 5',
+	'HST_DefaultCatalog.ResolveTownPoliceGroupPrefab(',
+	'groupSource.Get("m_aUnitPrefabSlots", slots)',
+	'memberType.IsInherited(SCR_ChimeraCharacter)'
+)) {
+	if ($schema66CatalogText.IndexOf($schema66CatalogEntry) -lt 0) {
+		throw "Schema-66 authored local-security catalog contract is missing: $schema66CatalogEntry"
+	}
+}
+foreach ($schema66OperationEntry in @(
+	'EXACT_CONTRACT_VERSION = 1',
+	'QUARANTINED_CONTRACT_VERSION = -66',
+	'EXACT_POLICY_ID = "exact_local_security_patrol_v1"',
+	'bool Tick(HST_CampaignState state, HST_CampaignPreset preset)',
+	'bool ReconcileAfterRestore(',
+	'bool CanReconcileZoneOwnershipChange(',
+	'bool ReconcileZoneOwnershipChange(',
+	'bool PrepareOpenPhysicalAuthorityForPersistence(',
+	'bool PrepareQuarantinedAuthorityForPersistence(',
+	'bool SettleOpenOperationsForCampaignStop(',
+	'CompleteQuarantinedSuccessfulProjectionCancellation(',
+	'LOSS_EVENT_KIND = "local_security_patrol_destroyed"',
+	'command.m_iPoliceDelta = -1',
+	'FindPositivePoliceSourceAfterTerminal('
+)) {
+	if ($schema66OperationText.IndexOf($schema66OperationEntry) -lt 0) {
+		throw "Schema-66 exact local-security lifecycle contract is missing: $schema66OperationEntry"
+	}
+}
+$schema66TickPhysicalBlock = Get-ScriptMethodBlock $schema66OperationText 'protected bool TickPhysical('
+$schema66TickActiveIndex = $schema66TickPhysicalBlock.IndexOf('if (zone.m_bActive)')
+$schema66TickSnapshotIndex = $schema66TickPhysicalBlock.IndexOf('operation.m_vStrategicPosition = livePosition;')
+if ($schema66TickActiveIndex -lt 0 -or $schema66TickSnapshotIndex -lt 0 -or
+	$schema66TickActiveIndex -gt $schema66TickSnapshotIndex) {
+	throw "Schema-66 physical local security must snapshot live position only at dematerialization, not dirty durable state every second"
+}
+$schema66LivePositionBlock = Get-ScriptMethodBlock $schema66PhysicalText 'bool TryResolveExactLocalSecurityPatrolLivePosition('
+if ([string]::IsNullOrEmpty($schema66LivePositionBlock) -or
+	$schema66LivePositionBlock.IndexOf('ResolveActiveGroupLiveRuntimePosition(activeGroup, false)') -lt 0 -or
+	$schema66LivePositionBlock -match 'm_bMarkerRefreshNeeded|activeGroup\.m_vPosition\s*=') {
+	throw "Schema-66 local-security live-position observation must remain read-only between durable boundaries"
+}
+
+foreach ($schema66ValidationEntry in @(
+	'SCHEMA_VERSION = 66',
+	'QUARANTINE_CONTRACT_VERSION = -66',
+	'MigrateLegacyLocalSecurity()',
+	'LEGACY_GROUP_MODE_TOKEN = "town_security_police"',
+	'IsSchema66LocalSecurityOperationClaimant(',
+	'IsSchema66LocalSecurityManifestClaimant(',
+	'IsSchema66LocalSecurityBatchClaimant(',
+	'IsSchema66LocalSecurityGroupClaimant(',
+	'NormalizeActiveRuntime(',
+	'QuarantineAggregate('
+)) {
+	if ($schema66ValidationText.IndexOf($schema66ValidationEntry) -lt 0) {
+		throw "Schema-66 local-security migration/restore boundary is missing: $schema66ValidationEntry"
+	}
+}
+$schema66MigrateBlock = Get-ScriptMethodBlock $schema66SaveText 'void MigrateToCurrentSchema()'
+$schema66PrepareIndex = $schema66MigrateBlock.IndexOf('schema66LocalSecurityValidation.PrepareBeforeGenericNormalization(this, restoredSchemaVersion)')
+$schema66NormalizeIndex = $schema66MigrateBlock.IndexOf('schema66LocalSecurityValidation.Normalize(this, restoredSchemaVersion)')
+if ($schema66PrepareIndex -lt 0 -or $schema66NormalizeIndex -lt 0 -or
+	$schema66PrepareIndex -gt $schema66NormalizeIndex) {
+	throw "Schema-66 strong local-security claimants must be prepared before generic normalization and validated afterward"
+}
+foreach ($schema66ClaimantFence in @(
+	'IsSchema66LocalSecurityOperationClaimant',
+	'IsSchema66LocalSecurityManifestClaimant',
+	'IsSchema66LocalSecurityBatchClaimant',
+	'IsSchema66LocalSecurityGroupClaimant'
+)) {
+	if ($schema66SaveText.IndexOf($schema66ClaimantFence) -lt 0 -or
+		$schema66MaidensText.IndexOf($schema66ClaimantFence) -lt 0) {
+		throw "Schema-66 local-security claimant fencing is incomplete: $schema66ClaimantFence"
+	}
+}
+if ($schema66PhysicalText.IndexOf('IsLocalSecurityPatrolClaimant(') -lt 0 -or
+	$schema66PhysicalText.IndexOf('IsExactOpenPhysicalLocalSecurityPatrolGroup(') -lt 0) {
+	throw "Schema-66 PhysicalWar isolation/exact adapter boundary is missing"
+}
+
+$schema66CoordinatorInitBlock = Get-ScriptMethodBlock $schema66CoordinatorText 'override void OnPostInit('
+foreach ($schema66CoordinatorEntry in @(
+	'm_LocalSecurityPatrolOperations = new HST_LocalSecurityOperationService()',
+	'm_LocalSecurityPatrolOperations.SetRuntimeServices(',
+	'm_Persistence.SetLocalSecurityOperationService(m_LocalSecurityPatrolOperations)',
+	'm_LocalSecurityPatrolOperations.ReconcileAfterRestore(m_State, m_Preset)',
+	'm_LocalSecurityPatrolOperations.Tick(m_State, m_Preset)',
+	'm_LocalSecurityPatrolOperations.PrepareOpenPhysicalAuthorityForSettlement(',
+	'm_LocalSecurityPatrolOperations.SettleOpenOperationsForCampaignStop('
+)) {
+	if ($schema66CoordinatorText.IndexOf($schema66CoordinatorEntry) -lt 0) {
+		throw "Schema-66 coordinator local-security wiring is missing: $schema66CoordinatorEntry"
+	}
+}
+$schema66FrameBlock = Get-ScriptMethodBlock $schema66CoordinatorText 'override void EOnFrame('
+$schema66TownIncomeIndex = $schema66FrameBlock.IndexOf('m_Towns.TickIncome(')
+$schema66LocalTickIndex = $schema66FrameBlock.IndexOf('m_LocalSecurityPatrolOperations.Tick(m_State, m_Preset)')
+$schema66PhysicalActivationIndex = $schema66FrameBlock.IndexOf('m_PhysicalWar.UpdateZoneActivation(')
+if ($schema66TownIncomeIndex -lt 0 -or $schema66LocalTickIndex -lt 0 -or
+	$schema66PhysicalActivationIndex -lt 0 -or
+	$schema66TownIncomeIndex -gt $schema66LocalTickIndex -or
+	$schema66LocalTickIndex -gt $schema66PhysicalActivationIndex) {
+	throw "Schema-66 local-security consequence/admission tick must follow town policy and precede generic physical activation"
+}
+foreach ($schema66PersistenceEntry in @(
+	'SetLocalSecurityOperationService(',
+	'PrepareQuarantinedAuthorityForPersistence(',
+	'PrepareOpenPhysicalAuthorityForPersistence(',
+	'HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL'
+)) {
+	if ($schema66PersistenceText.IndexOf($schema66PersistenceEntry) -lt 0) {
+		throw "Schema-66 local-security persistence gate is missing: $schema66PersistenceEntry"
+	}
+}
+foreach ($schema66OwnershipEntry in @(
+	'm_LocalSecurityPatrols.CanReconcileZoneOwnershipChange(',
+	'm_LocalSecurityPatrols.ReconcileZoneOwnershipChange(',
+	'localSecurityChanged'
+)) {
+	if ($schema66OwnershipText.IndexOf($schema66OwnershipEntry) -lt 0) {
+		throw "Schema-66 ownership transition local-security commit step is missing: $schema66OwnershipEntry"
+	}
+}
+$schema66OwnershipReconcileBlock = Get-ScriptMethodBlock $schema66OperationText 'bool ReconcileZoneOwnershipChange('
+foreach ($schema66OwnershipRosterEntry in @(
+	'ReconcileExactInfantryProjectionAuthority(',
+	'CountDurableLivingMemberSlots(batch)',
+	'bool settled;',
+	'if (!settled || patrol.m_sStatus != "terminal")'
+)) {
+	if ($schema66OwnershipReconcileBlock.IndexOf($schema66OwnershipRosterEntry) -lt 0) {
+		throw "Schema-66 ownership must reconcile exact live casualties before terminal settlement: $schema66OwnershipRosterEntry"
+	}
+}
+
+$schema66PoliceTargetBlock = Get-ScriptMethodBlock $schema66TownText 'protected int ResolveTargetPolicePresence('
+$schema66RoadblockTargetBlock = Get-ScriptMethodBlock $schema66TownText 'protected int ResolveTargetRoadblockPresence('
+foreach ($schema66ResistanceZeroBlock in @($schema66PoliceTargetBlock, $schema66RoadblockTargetBlock)) {
+	if ([string]::IsNullOrEmpty($schema66ResistanceZeroBlock) -or
+		$schema66ResistanceZeroBlock.IndexOf('HST_FactionRelationService.IsResistanceFaction(') -lt 0 -or
+		$schema66ResistanceZeroBlock.IndexOf('return 0;') -lt 0) {
+		throw "Schema-66 resistance towns must have zero automatic police and roadblock pressure"
+	}
+}
+
+foreach ($schema66ProofEntry in @(
+	'm_bCatalogExact',
+	'm_bAdmissionReplayExact',
+	'm_bEligibilityIsolationExact',
+	'm_bSurvivorRestoreExact',
+	'm_bDestructionReplayExact',
+	'm_bNonLossSettlementExact',
+	'm_bOwnerEpochRearmExact',
+	'm_bConflictQuarantineExact',
+	'PrepareQuarantinedAuthorityForPersistence(',
+	'runtimeRetired'
+)) {
+	if ($schema66ProofText.IndexOf($schema66ProofEntry) -lt 0) {
+		throw "Schema-66 deterministic local-security proof is missing: $schema66ProofEntry"
+	}
+}
+foreach ($schema66DebugEntry in @(
+	'AppendCampaignDebugLocalSecurityOperationAssertions(forceCase)',
+	'local_security.admission_replay',
+	'local_security.survivor_restore',
+	'local_security.destruction_replay',
+	'local_security.conflict_quarantine'
+)) {
+	if ($schema66CoordinatorText.IndexOf($schema66DebugEntry) -lt 0) {
+		throw "Schema-66 Campaign Debug local-security proof wiring is missing: $schema66DebugEntry"
+	}
+}
+if ($schema66CoordinatorText -match 'RecordCampaignDebugCase\(BuildCampaignDebugTownPolice(Patrol|PresenceProjection)Case\(\)\)') {
+	throw "Schema-66 Campaign Debug must not execute obsolete disposable town-police projection cases"
+}
+
+Write-Host "Schema-66 exact enemy-town local security, durable survivor epochs, no-resurrection loss/rearm, ownership/persistence/quarantine gates, resistance isolation, immutable campaign markers, and source proofs OK"
 
 Write-Host "h-istasi foundation validation passed"

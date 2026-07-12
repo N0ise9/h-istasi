@@ -85,6 +85,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_OwnershipTransitionState> m_aOwnershipTransitions = {};
 	ref array<ref HST_RadioSiteState> m_aRadioSites = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
+	ref array<ref HST_LocalSecurityPatrolState> m_aLocalSecurityPatrols = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
 	ref array<ref HST_QRFState> m_aQRFs = {};
 	ref array<ref HST_OperationRecordState> m_aOperations = {};
@@ -227,6 +228,10 @@ class HST_CampaignSaveData
 		m_aGarrisons.Clear();
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 			m_aGarrisons.Insert(CopyGarrison(garrison));
+
+		m_aLocalSecurityPatrols.Clear();
+		foreach (HST_LocalSecurityPatrolState patrol : state.m_aLocalSecurityPatrols)
+			m_aLocalSecurityPatrols.Insert(CopyLocalSecurityPatrol(patrol));
 
 		m_aActiveGroups.Clear();
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
@@ -506,6 +511,10 @@ class HST_CampaignSaveData
 		foreach (HST_GarrisonState garrison : m_aGarrisons)
 			state.m_aGarrisons.Insert(CopyGarrison(garrison));
 
+		state.m_aLocalSecurityPatrols.Clear();
+		foreach (HST_LocalSecurityPatrolState patrol : m_aLocalSecurityPatrols)
+			state.m_aLocalSecurityPatrols.Insert(CopyLocalSecurityPatrol(patrol));
+
 		state.m_aActiveGroups.Clear();
 		foreach (HST_ActiveGroupState activeGroup : m_aActiveGroups)
 			state.m_aActiveGroups.Insert(CopyActiveGroup(activeGroup));
@@ -757,6 +766,7 @@ class HST_CampaignSaveData
 		target.m_iCivilianPanicUntilSecond = source.m_iCivilianPanicUntilSecond;
 		target.m_sCivilianLastConsequenceEventId = source.m_sCivilianLastConsequenceEventId;
 		target.m_sCivilianConsequenceAuthorityFailure = source.m_sCivilianConsequenceAuthorityFailure;
+		target.m_sLocalSecurityPatrolId = source.m_sLocalSecurityPatrolId;
 		target.m_sPatrolRouteId = source.m_sPatrolRouteId;
 		target.m_sQRFRouteId = source.m_sQRFRouteId;
 		target.m_sMissionSiteId = source.m_sMissionSiteId;
@@ -776,6 +786,44 @@ class HST_CampaignSaveData
 		target.m_iVehicleCount = source.m_iVehicleCount;
 		foreach (string manifestId : source.m_aAcceptedManifestIds)
 			target.m_aAcceptedManifestIds.Insert(manifestId);
+		return target;
+	}
+
+	protected HST_LocalSecurityPatrolState CopyLocalSecurityPatrol(HST_LocalSecurityPatrolState source)
+	{
+		if (!source)
+			return null;
+		HST_LocalSecurityPatrolState target = new HST_LocalSecurityPatrolState();
+		target.m_iContractVersion = source.m_iContractVersion;
+		target.m_iRevision = source.m_iRevision;
+		target.m_sPatrolId = source.m_sPatrolId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_iOwnershipRevision = source.m_iOwnershipRevision;
+		target.m_iEpoch = source.m_iEpoch;
+		target.m_sSourceType = source.m_sSourceType;
+		target.m_sSourceId = source.m_sSourceId;
+		target.m_bBaseline = source.m_bBaseline;
+		target.m_sPolicyId = source.m_sPolicyId;
+		target.m_iPoliceStrength = source.m_iPoliceStrength;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sManifestHash = source.m_sManifestHash;
+		target.m_sSpawnResultId = source.m_sSpawnResultId;
+		target.m_sForceId = source.m_sForceId;
+		target.m_sProjectionId = source.m_sProjectionId;
+		target.m_sGroupId = source.m_sGroupId;
+		target.m_sStatus = source.m_sStatus;
+		target.m_iOriginalInfantryCount = source.m_iOriginalInfantryCount;
+		target.m_iLivingInfantryCount = source.m_iLivingInfantryCount;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iLastChangedAtSecond = source.m_iLastChangedAtSecond;
+		target.m_iTerminalAtSecond = source.m_iTerminalAtSecond;
+		target.m_sLossEventId = source.m_sLossEventId;
+		target.m_bLossEventApplied = source.m_bLossEventApplied;
+		target.m_iLossEventAppliedAtSecond = source.m_iLossEventAppliedAtSecond;
+		target.m_sTerminalReason = source.m_sTerminalReason;
+		target.m_sAuthorityFailure = source.m_sAuthorityFailure;
 		return target;
 	}
 
@@ -911,6 +959,7 @@ class HST_CampaignSaveData
 		target.m_sMissionAssetId = source.m_sMissionAssetId;
 		target.m_sGarrisonZoneId = source.m_sGarrisonZoneId;
 		target.m_sQRFInstanceId = source.m_sQRFInstanceId;
+		target.m_sLocalSecurityPatrolId = source.m_sLocalSecurityPatrolId;
 		target.m_sPrefab = source.m_sPrefab;
 		target.m_sVehiclePrefab = source.m_sVehiclePrefab;
 		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
@@ -993,6 +1042,7 @@ class HST_CampaignSaveData
 		target.m_sSupportRequestId = source.m_sSupportRequestId;
 		target.m_sEnemyOrderId = source.m_sEnemyOrderId;
 		target.m_sMissionInstanceId = source.m_sMissionInstanceId;
+		target.m_sLocalSecurityPatrolId = source.m_sLocalSecurityPatrolId;
 		target.m_sQuoteId = source.m_sQuoteId;
 		target.m_sManifestId = source.m_sManifestId;
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
@@ -2501,6 +2551,8 @@ class HST_CampaignSaveData
 			m_bDefendPetrosActive = true;
 		HST_PlayerSearchDestroySaveValidationService schema60PlayerSearchDestroyValidation = new HST_PlayerSearchDestroySaveValidationService();
 		schema60PlayerSearchDestroyValidation.Normalize(this, restoredSchemaVersion);
+		HST_LocalSecuritySaveValidationService schema66LocalSecurityValidation = new HST_LocalSecuritySaveValidationService();
+		schema66LocalSecurityValidation.PrepareBeforeGenericNormalization(this, restoredSchemaVersion);
 		if (restoredSchemaVersion < 26)
 		{
 			if (m_bHQDeployed && !IsZeroVector(m_vHQPosition))
@@ -2638,6 +2690,8 @@ class HST_CampaignSaveData
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group)
+				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group))
 				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				continue;
@@ -2863,6 +2917,7 @@ class HST_CampaignSaveData
 		// Town influence validates pending political receipt links only after the
 		// canonical ownership rows they reference have been normalized.
 		schema64TownInfluenceValidation.ValidateAfterOwnership(this);
+		schema66LocalSecurityValidation.Normalize(this, restoredSchemaVersion);
 		HST_CivilianConsequenceSaveValidationService schema65CivilianConsequenceValidation
 			= new HST_CivilianConsequenceSaveValidationService();
 		schema65CivilianConsequenceValidation.Normalize(this, restoredSchemaVersion);
@@ -2986,6 +3041,8 @@ class HST_CampaignSaveData
 				m_aForceManifests.Remove(manifestIndex);
 				continue;
 			}
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityManifestClaimant(this, manifest))
+				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyManifestClaimant(this, manifest))
 				continue;
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolManifestClaimant(this, manifest))
@@ -3071,6 +3128,8 @@ class HST_CampaignSaveData
 				m_aForceSpawnResults.Remove(spawnIndex);
 				continue;
 			}
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityBatchClaimant(this, spawnResult))
+				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, spawnResult))
 				continue;
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant(this, spawnResult))
@@ -3235,6 +3294,8 @@ class HST_CampaignSaveData
 		foreach (HST_OperationRecordState operation : m_aOperations)
 		{
 			if (!operation || operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityOperationClaimant(this, operation))
 				continue;
 			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
@@ -4464,6 +4525,8 @@ class HST_CampaignSaveData
 		{
 			if (!group || (!group.m_sForceId.IsEmpty() && !group.m_sProjectionId.IsEmpty()))
 				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group))
+				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				continue;
 
@@ -4471,6 +4534,8 @@ class HST_CampaignSaveData
 			int linkedCount;
 			foreach (HST_ForceSpawnResultState spawnResult : m_aForceSpawnResults)
 			{
+				if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityBatchClaimant(this, spawnResult))
+					continue;
 				if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult))
 					continue;
 				if (!IsActiveGroupSpawnIdentityCandidate(group, spawnResult))
@@ -4586,6 +4651,8 @@ class HST_CampaignSaveData
 		{
 			if (!spawnResult)
 				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityBatchClaimant(this, spawnResult))
+				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult))
 				continue;
 			if (spawnResult.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
@@ -4616,6 +4683,8 @@ class HST_CampaignSaveData
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group || group.m_sSpawnResultId.IsEmpty())
+				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group))
 				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				continue;
@@ -4744,6 +4813,8 @@ class HST_CampaignSaveData
 			HST_ForceSpawnResultState first = m_aForceSpawnResults[firstIndex];
 			if (!first || IsForceSpawnBatchTerminal(first.m_eStatus))
 				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityBatchClaimant(this, first))
+				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, first))
 				continue;
 			if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolBatchClaimant(this, first))
@@ -4763,6 +4834,8 @@ class HST_CampaignSaveData
 
 				HST_ForceSpawnResultState second = m_aForceSpawnResults[secondIndex];
 				if (!second)
+					continue;
+				if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityBatchClaimant(this, second))
 					continue;
 				if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyBatchClaimant(this, second))
 					continue;
@@ -4833,6 +4906,8 @@ class HST_CampaignSaveData
 		{
 			if (!group)
 				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group))
+				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
@@ -4864,6 +4939,7 @@ class HST_CampaignSaveData
 
 			HST_ActiveGroupState group = FindActiveGroupForMigration(request.m_sGroupId);
 			if (group
+				&& !HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group)
 				&& !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
@@ -4880,6 +4956,7 @@ class HST_CampaignSaveData
 
 			HST_ActiveGroupState group = FindActiveGroupForMigration(qrf.m_sGroupId);
 			if (group
+				&& !HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group)
 				&& !(restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
 				&& !(restoredSchemaVersion >= 55
@@ -4919,6 +4996,8 @@ class HST_CampaignSaveData
 			{
 				if (!group)
 					continue;
+				if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group))
+					continue;
 				if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 					continue;
 				if (restoredSchemaVersion >= 54 && HST_GarrisonPatrolSaveValidationService.IsSchema54GarrisonPatrolGroupClaimant(this, group))
@@ -4938,6 +5017,8 @@ class HST_CampaignSaveData
 		foreach (HST_ActiveGroupState group : m_aActiveGroups)
 		{
 			if (!group || group.m_sZoneId.IsEmpty())
+				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityGroupClaimant(this, group))
 				continue;
 			if (restoredSchemaVersion >= 52 && HST_MissionConvoySaveValidationService.IsSchema52MissionConvoyGroupClaimant(this, group))
 				continue;

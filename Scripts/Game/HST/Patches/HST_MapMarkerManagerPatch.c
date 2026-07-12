@@ -1,5 +1,17 @@
 modded class SCR_MapMarkerManagerComponent
 {
+	void HST_InsertProtectedLocalStaticMarker(SCR_MapMarkerBase marker)
+	{
+		if (!marker)
+			return;
+
+		marker.SetMarkerID(-1);
+		marker.SetMarkerOwnerID(-1);
+		marker.SetCanBeRemovedByOwner(false);
+		m_aStaticMarkers.Insert(marker);
+		marker.OnCreateMarker(true);
+	}
+
 	override void Update(float timeSlice)
 	{
 		if (!m_MapEntity)

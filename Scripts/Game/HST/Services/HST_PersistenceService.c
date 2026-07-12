@@ -17,6 +17,7 @@ class HST_PersistenceService
 	protected HST_PhysicalWarService m_PhysicalWar;
 	protected HST_ForceSpawnQueueService m_ForceSpawnQueue;
 	protected HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
+	protected HST_LocalSecurityOperationService m_LocalSecurityPatrolOperations;
 	protected HST_MissionGuardOperationService m_MissionGuardOperations;
 	protected HST_RescuePOWOperationService m_RescuePOWOperations;
 	protected HST_CivilianService m_Civilians;
@@ -37,6 +38,12 @@ class HST_PersistenceService
 	void SetMissionGuardOperationService(HST_MissionGuardOperationService missionGuardOperations)
 	{
 		m_MissionGuardOperations = missionGuardOperations;
+	}
+
+	void SetLocalSecurityOperationService(
+		HST_LocalSecurityOperationService localSecurityPatrolOperations)
+	{
+		m_LocalSecurityPatrolOperations = localSecurityPatrolOperations;
 	}
 
 	void SetRescuePOWOperationService(HST_RescuePOWOperationService rescuePOWOperations)
@@ -310,6 +317,60 @@ class HST_PersistenceService
 			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
+		bool hasOpenExactLocalSecurity;
+		bool hasQuarantinedLocalSecurity;
+		foreach (HST_LocalSecurityPatrolState localSecurityPatrol : state.m_aLocalSecurityPatrols)
+		{
+			if (!localSecurityPatrol)
+				continue;
+			if (localSecurityPatrol.m_iContractVersion
+					== HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION
+				&& localSecurityPatrol.m_sStatus == "active")
+				hasOpenExactLocalSecurity = true;
+			if (localSecurityPatrol.m_iContractVersion
+					== HST_LocalSecurityOperationService.QUARANTINED_CONTRACT_VERSION
+				|| localSecurityPatrol.m_sStatus == "quarantined")
+				hasQuarantinedLocalSecurity = true;
+		}
+		if ((hasOpenExactLocalSecurity || hasQuarantinedLocalSecurity)
+			&& !m_LocalSecurityPatrolOperations)
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact local-security persistence authority is unavailable during %1",
+				context);
+			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+		if (hasQuarantinedLocalSecurity)
+		{
+			string localSecurityQuarantineFailure;
+			if (!m_LocalSecurityPatrolOperations.PrepareQuarantinedAuthorityForPersistence(
+				state,
+				localSecurityQuarantineFailure))
+			{
+				state.m_sLastPersistenceStatus = string.Format(
+					"checkpoint deferred: quarantined local-security cleanup failed during %1 | %2",
+					context,
+					localSecurityQuarantineFailure);
+				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				return false;
+			}
+		}
+		if (hasOpenExactLocalSecurity)
+		{
+			string localSecurityFailure;
+			if (!m_LocalSecurityPatrolOperations.PrepareOpenPhysicalAuthorityForPersistence(
+				state,
+				localSecurityFailure))
+			{
+				state.m_sLastPersistenceStatus = string.Format(
+					"checkpoint deferred: exact local-security roster reconciliation failed during %1 | %2",
+					context,
+					localSecurityFailure);
+				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				return false;
+			}
+		}
 		bool hasQuarantinedMissionGuard = HasQuarantinedMissionGuardAuthority(state);
 		if (!m_MissionGuardOperations && hasQuarantinedMissionGuard)
 		{
@@ -341,6 +402,7 @@ class HST_PersistenceService
 		}
 		bool hasExactMissionConvoy;
 		bool hasPhysicalExactEnemyPatrol;
+		bool hasPhysicalExactLocalSecurity;
 		bool hasPhysicalExactGarrisonPatrol;
 		bool hasPhysicalExactMissionGuard;
 		bool hasPhysicalExactPlayerSupport;
@@ -364,12 +426,17 @@ class HST_PersistenceService
 				&& operation.m_iContractVersion == HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
 			bool exactGarrisonPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
 				&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION;
+			bool exactLocalSecurity = operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL
+				&& operation.m_iContractVersion
+					== HST_LocalSecurityOperationService.EXACT_CONTRACT_VERSION;
 			bool exactMissionGuard = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
 				&& HST_MissionGuardOperationService.IsSupportedExactContractVersion(
 					operation.m_iContractVersion);
 			bool exactPlayerSupport = HST_OperationService.IsExactPlayerSupportOperationType(operation.m_eType)
 				&& operation.m_iContractVersion != 0;
-			if (!exactEnemyPatrol && !exactGarrisonPatrol && !exactMissionGuard && !exactPlayerSupport)
+			if (!exactEnemyPatrol && !exactLocalSecurity && !exactGarrisonPatrol
+				&& !exactMissionGuard && !exactPlayerSupport)
 				continue;
 			if (operation.m_eMaterializationState
 				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
@@ -382,6 +449,8 @@ class HST_PersistenceService
 			{
 				if (exactEnemyPatrol)
 					hasPhysicalExactEnemyPatrol = true;
+				else if (exactLocalSecurity)
+					hasPhysicalExactLocalSecurity = true;
 				else if (exactGarrisonPatrol)
 					hasPhysicalExactGarrisonPatrol = true;
 				else if (exactMissionGuard)
@@ -401,7 +470,8 @@ class HST_PersistenceService
 		if (!m_PhysicalWar)
 		{
 			if (!hasExactMissionConvoy && !hasPhysicalExactEnemyPatrol
-				&& !hasPhysicalExactGarrisonPatrol && !hasPhysicalExactMissionGuard
+				&& !hasPhysicalExactLocalSecurity && !hasPhysicalExactGarrisonPatrol
+				&& !hasPhysicalExactMissionGuard
 				&& !hasPhysicalExactPlayerSupport)
 				return true;
 			state.m_sLastPersistenceStatus = "checkpoint deferred: exact physical roster reconciler is unavailable";
@@ -434,7 +504,8 @@ class HST_PersistenceService
 				return false;
 			}
 		}
-		if (!hasPhysicalExactEnemyPatrol && !hasPhysicalExactGarrisonPatrol
+		if (!hasPhysicalExactEnemyPatrol && !hasPhysicalExactLocalSecurity
+			&& !hasPhysicalExactGarrisonPatrol
 			&& !hasPhysicalExactMissionGuard && !hasPhysicalExactPlayerSupport)
 			return true;
 		if (!m_ForceSpawnQueue || !m_ForceSpawnAdapter)
