@@ -1,7 +1,60 @@
-# h-istasi Architecture
+# Partisan Architecture
 
-The current sealed source/Workbench checkpoint advances the campaign save contract to Schema 66
-while runtime settings remains Schema 24. The current source stamp identifies
+The active provisional source boundary advances the campaign save contract to
+Schema 67 while runtime settings remains Schema 24, under the working label
+`schema67-settings24-enemy-strategic-resource-authority`. It has no final
+implementation SHA, UTC seal, validation counts, or CRC. This begins Blueprint
+Phase 9 source work; it does not certify the still-open Blueprint Phase 8 native,
+restart, package, multiplayer, marker-input, or soak gates.
+
+The public product identity is **Partisan: Everon** and the repository identity
+is **Partisan**. `HST_*` and the non-public `histasi` Workbench project ID remain
+the internal code/resource namespace. The
+legacy `$profile:h-istasi` persistence directory is intentionally stable so the
+branding migration does not strand existing saves, settings, debug artifacts,
+or personal loadouts.
+
+Schema 67 version-controls `HST_FactionPoolState` as the sole per-enemy owner of
+attack resources, support resources, aggression, and independent resource/
+aggression cadence accumulators plus last-processed bucket checkpoints. Bounded
+`HST_EnemyStrategicMutationState` receipts retain immutable mutation identity,
+faction identity, kind, per-faction operational sequence, before/delta/after
+values, source, time, and linked order, operation, and accounting evidence. One
+server-side mutation boundary owns income, spend, refund, aggression, and live
+admin/debug adjustment; exact replay is read-only, conflicting identity fails
+closed, and underflow/overflow rejects atomically. Accepted zero-effect
+operational commands retain receipts instead of disappearing as no-ops.
+
+Operational history is an explicit lifetime admission bound, not an archive:
+Schema 67 never evicts or compacts operational receipts. Each enemy role owns a
+contiguous sequence of at most 4,096 operational receipts; reaching the bound
+blocks only later operational mutations for that role. The rival role and
+periodic income/decay continue independently. Periodic evidence is different:
+one receipt per enemy/kind is compacted as newer buckets complete, while the
+persisted accumulator and last-bucket checkpoint must close to the campaign
+clock. Rejected/orphan/prior-quarantine rows are attributed and quarantined before
+being purged from the canonical array, so they cannot consume valid per-role
+capacity.
+
+Existing exact defensive-QRF and enemy-patrol operation shapes remain unchanged
+but their debit/refund evidence links reciprocally through the order's resource
+mutation IDs. Restore additionally validates matching faction/operation/
+manifest/zone facts, a unique support ledger for defense mutations, and typed
+town-influence and ownership-transition sources. Unsupported enemy order
+families remain legacy/deferred. Pre-67 migration adopts valid current
+balances/aggression and legacy resource/aggression cadence accumulators as the
+baseline, initializes the cadence checkpoints, and creates no history, spend,
+refund, settlement, order, or planning decision; malformed current graphs
+quarantine at `-67`. Mission terminal results admit a deep-copy-preflighted
+strategic plan before status/reward/capture publication. Ownership transitions
+admit the stable aggression mutation before security/support reconciliation and
+owner publication. Nested Campaign Debug state cases use disposable clones, and
+the focused physical-response case materializes/cleans only its supplied group
+while restoring shared marker and AIWorld state. Persisted planning cadence and frozen decision fingerprints
+are deliberately the next Phase 9 slice, not part of Schema 67.
+
+The immediately preceding sealed source/Workbench checkpoint advances the campaign save contract to Schema 66
+while runtime settings remains Schema 24. The sealed Schema-66 stamp identifies
 implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
 `schema66-settings24-local-security-marker-integrity`.
@@ -27,7 +80,7 @@ unlinked disposable legacy police projection rows while preserving logical
 political/security/garrison facts and inventing no casualties, roster, fold
 credit, operation, or refund. Malformed current authority quarantines at `-66`.
 
-The same active source repairs the Schema-61 client-local campaign-marker
+That sealed source also repairs the Schema-61 client-local campaign-marker
 ownership regression introduced at commit `27672e6`. Protected projection
 records bypass the native local-owner assignment, enter the static marker array
 as system-owned/non-removable markers, and retain those flags after widget
@@ -115,8 +168,38 @@ Debug and packaged-runtime evidence remain open.
 
 `HST_CampaignCoordinatorComponent` is the server-side entry point. It owns a
 single `HST_CampaignState` and delegates to small services. The cross-cutting
-schema-42 through active schema-66 source authority services, plus the sealed
+schema-42 through provisional schema-67 source authority services, plus the sealed
 Blueprint Phase 8 transient runtime services, are:
+
+- The Schema-67 enemy strategic resource boundary makes each versioned
+  `HST_FactionPoolState` authoritative for one enemy role's attack resources,
+  support resources, aggression, and persisted resource-income/aggression-decay
+  accumulators/last-bucket checkpoints, plus its operational receipt count. It
+  must be addressed by stable faction ID,
+  never by an ambiguous first-enemy lookup.
+- `HST_EnemyStrategicMutationState` is bounded durable replay evidence, not an
+  event-sourcing requirement. Each receipt freezes mutation ID, contract/applied state,
+  faction, mutation kind, per-faction operational sequence, signed deltas,
+  before/after values, source, campaign second, and any exact order/operation/
+  transaction backlinks. Accepted zero-effect operational commands also retain
+  one row. Exact replay
+  returns the retained result without mutating; fingerprint conflict and
+  arithmetic underflow/overflow leave every value unchanged and fail closed.
+- `HST_EnemyStrategicResourceService` owns income, spend, refund, aggression,
+  and live admin/debug adjustment. Operational history is never compacted and
+  hard-stops at 4,096 rows per faction; periodic evidence compacts separately.
+  Exact defensive-QRF and enemy-patrol code retains its
+  operation and settlement policy but receives canonical debit/refund receipt
+  links. Legacy/deferred order families remain on their explicit compatibility
+  paths until separate cutovers.
+- This resource boundary does not persist commander planning cadence or freeze
+  target/source/order decisions. Those decision inputs and fingerprints are the
+  immediate next Blueprint Phase 9 contract on top of Schema 67.
+- `HST_EnemyStrategicResourceProofService` is the deterministic state-only proof
+  owner for legacy baseline adoption, replay/conflict/atomicity, income catch-up
+  and contribution fingerprinting, attack-versus-support separation, faction
+  isolation, aggression-versus-war-level independence, roundtrip, and `-67`
+  quarantine. It is not Campaign Debug, process restart, or packaged evidence.
 
 Schema 60 also separates recurring enforcement reads from identity refreshes:
 the one-second maintenance path reuses registered player authority, while
@@ -1482,7 +1565,7 @@ balance or native-spawn evidence.
 | --- | --- | --- |
 | Stable identity | A persisted monotonic allocator creates authority IDs; garrisons, quotes, manifests, transactions, and selected support/order/group records carry explicit stable links. Schema 58 additionally binds the rescue operation/guard graph to three deterministic captive slots, one frozen extraction position, and stable escort, carrier, seat, command, casualty, extraction, and projection evidence. | Every durable operation, force, projection, command, transaction, and event has a stable ID and explicit links. |
 | Command idempotency | Visible command requests carry request IDs; bounded receipts cover migrated training and quote/confirm commands. Support recall maps a typed result into explicit receipt status. Schema 58 additionally keeps accepted and rejected captive request/actor/command/result/revision rows, rejects cross-captive or changed-fingerprint reuse before live checks, and reserves one non-evicting terminal slot. Other visible commands still use the compatibility classifier. | Every player-visible and scheduled campaign mutation enters through a typed command envelope and produces one durable receipt. |
-| Resource integrity | Troop training, visible garrison confirmation, player-QRF, and Schema-60 Search-and-Destroy confirmation/terminal settlement use the resource ledger. The new support freezes $350 plus exact roster HR and settles eligible living HR through commander recall. Enemy QRF and enemy patrol own separate proportional settlements. Other support/order consumers still use legacy services. | All resource changes use reserve/commit/cancel/refund transactions, with no direct debit paths outside the ledger. |
+| Resource integrity | Troop training, visible garrison confirmation, player-QRF, and Schema-60 Search-and-Destroy confirmation/terminal settlement use the resistance resource ledger. Provisional Schema 67 separately makes versioned enemy attack/support/aggression pools and bounded strategic mutation receipts canonical; exact enemy QRF/patrol debit/refund policy links into that boundary while unsupported orders remain legacy. | All resource changes use reserve/commit/cancel/refund transactions or the typed per-enemy strategic mutation boundary, with no direct debit paths outside the owning authority. |
 | Force exactness | Existing exact infantry/convoy/rescue shapes remain unchanged. Schema 60 adds one infantry-only Search-and-Destroy root/member manifest and rejects vehicles, assets, empty rosters, and multi-root substitution. Historical Search-and-Destroy, other support/mission families, policy-v1/initial/enemy aggregate garrisons, and unsupported vehicle/multi-root policy remain outside these cutovers. | A quoted immutable force manifest is the only input to paid creation, and creation is all-or-nothing before any physical or virtual projection is published. |
 | Force realization | SpawnQueue accepts frozen, hash-valid, all-required one-root infantry manifests. Both QRFs, player Search-and-Destroy, exact enemy patrol, policy-v2 purchased-garrison patrol, and all three exact assassination guards begin held and release only durable living member slots; each empty root contributes no authored members. The schema-52 convoy keeps its separate three-element PhysicalWar adapter. Confirmed casualties remain retired across transfer/restore. Generic vehicle/asset/multi-root, historical mission guards, and historical aggregate-garrison realization remain unsupported. | One adapter realizes every supported manifest, registers each slot exactly once, restores successful projections safely, and feeds durable living-force/casualty/retirement authority without bypass paths. |
 | Operation lifecycle | Schemas 50-59 retain their exact paths. Schema 60 adds a separately typed player Search-and-Destroy operation with direct-route progress, exact virtual/physical survivors, bounded virtual combat, return-to-assignment after displaced fold, on-station hold after hostile clear, commander recall, and fail-closed restore isolation. Historical requests remain outside the contract. | Every force/order uses one versioned operation aggregate with event-driven engagement, strategic movement progress, physical/virtual transfer, settlement, and client/JIP projection. |
@@ -1492,9 +1575,10 @@ balance or native-spawn evidence.
 | Canonical town influence | Sealed Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections only. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Foundation passes at 696 references, and normal plus all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017` and zero HST script errors. | Execute deterministic proofs, then prove every production caller, formula goldens, equality, owner delegation, save/restart, expiry, distinct enemy support, town taxonomy, and no stutter regression. |
 | Civilian consequences | Sealed Schema 65 source/Workbench adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
 | Enemy-town local security | Sealed Schema 66 source/Workbench gives each eligible canonical enemy town one deterministic exact patrol epoch backed by a frozen authored 2–5 member roster and held SpawnQueue slots. Casualties survive physical fold and restore; no generic police projection may refill or fold counts into it. Destruction applies exactly one police `-1` event, while owner/pressure clear, setup/stop, and spawn failure settle without loss. Same-epoch resurrection is forbidden; a newer owner revision or later positive police event is required for rearm. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and drops only backlink-free disposable legacy projections. | Run the wired deterministic proof, then package-prove native roster, waypoint movement, casualty observation, bubble fold/re-entry, no refill/no resurrection, exact rearm, ownership ordering, persistence/restart, campaign terminal cleanup, multiplayer, and balance. |
+| Canonical enemy strategic resources | Active provisional Schema 67 makes each versioned `HST_FactionPoolState` the unique attack/support/aggression/cadence owner for one enemy role. Compact periodic receipts and last-bucket checkpoints are separate from a contiguous un-compacted operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutation; restore validates exact order/ledger/town/ownership backlinks. Pre-67 restore adopts baseline values/checkpoints without invented history; malformed current graphs quarantine at `-67`. | Execute and stamp the wired source fixtures, then real-restart cadence, cap, reciprocal backlinks, and no-bypass behavior before persisting a deterministic planning cadence and decision fingerprint. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. The sealed Schema-66 repair makes protected campaign markers system-owned/non-removable and self-heals native deletion or mutation from the committed registry. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; editable player markers remain separate. | Package-prove manual delete/move/edit rejection and keepalive self-heal on host/client alongside snapshot/delta, map reopen, reconnect, and JIP behavior before widening client projection. |
-| Certification | Schema 66/settings 24 is the current sealed source/Workbench checkpoint at implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC `2026-07-12T20:28:33Z`, label `schema66-settings24-local-security-marker-integrity`, Foundation 729, and Workbench CRC `ec860be7` at 5,806 files/11,740 classes with `Script validation successful`, zero HST script errors, and zero surviving Workbench processes. | Independently prove physical local security, profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
+| Certification | Schema 67/settings 24 is active and provisional with no final identity or validation stamp. Schema 66/settings 24 remains the current sealed source/Workbench checkpoint at implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC `2026-07-12T20:28:33Z`, label `schema66-settings24-local-security-marker-integrity`, Foundation 729, and Workbench CRC `ec860be7` at 5,806 files/11,740 classes. | Stamp Schema 67 only after its static/Workbench gates pass; independently prove Schema 66 physical local security, profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the
@@ -1565,7 +1649,20 @@ service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
 if no restored `PersistenceSystem` state is available. The state model is
 versioned from day one. `HST_CampaignSaveData` is the deep-copy save container
-for current campaign fields and nested runtime arrays. Schema-66 restore first
+for current campaign fields and nested runtime arrays. Provisional Schema-67
+restore first establishes one versioned faction-pool authority per configured
+enemy and validates its bounded strategic mutation receipts before any service
+can mutate income, spend, refunds, aggression, or live pool targets. Pre-67 state adopts valid
+pool balances, aggression, and legacy cadence as a baseline with initialized
+bucket checkpoints and no synthesized receipt or
+planning/order/accounting history. Current duplicate pools, invalid enemy roles,
+noncanonical arithmetic/operational sequences, cadence checkpoint divergence,
+broken exact order/ledger/town/ownership backlinks, conflicting receipt
+identities, or out-of-bound histories quarantine at `-67`; restore never
+replays a retained mutation. Planner cadence and decision fingerprints remain
+absent and cannot be inferred from pool or order history.
+
+Schema-66 restore then
 isolates exact local-security claimants before generic group/manifest/batch
 normalization, then applies the existing Schema-65 dependency order. Pre-66
 migration clears stale patrol backlinks and removes only unlinked disposable
@@ -1653,7 +1750,8 @@ reason/summary/elapsed second/control/war/zone-count fields, outcome-mode,
 population/support, airfield metadata, support deployment proof, active-group
 vehicle prefab, active-group route waypoint counts, runtime infantry waypoint assignment and final-sweep state,
 HQ/Petros/cache/arsenal/tent/spawn-point fields,
-faction pools, players, zones, garrisons, active groups, QRFs, map markers with
+versioned faction pools and provisional Schema-67 bounded enemy strategic
+mutation receipts, players, zones, garrisons, active groups, QRFs, map markers with
 Schema-62 per-record projection/source revision, stream, and tombstone metadata
 plus the marker-projection epoch and global sequence, durable ownership-
 transition receipts and zone active/latest ownership backlinks,
@@ -1851,7 +1949,7 @@ creating duplicate bodies while Reforger is still finalizing ownership.
 spawnpoint slots and FIA role-selection loadouts, but those are now authoring
 metadata and a debug fallback, not the normal player-side path. US
 remains the occupier in the strategic preset. Game Master-spawned characters
-are still not expected to advance h-istasi's player lifecycle. Workbench
+are still not expected to advance Partisan's player lifecycle. Workbench
 offline play may log blank identity ID errors from stock reconnect or
 editable-entity systems; treat those as non-blocking if a character is spawned
 and possessed.
@@ -1859,7 +1957,7 @@ and possessed.
 `HST_HQService` owns the server-side HQ lifecycle: setup-driven initial hideout
 selection, HQ movement between authored hideouts, Petros/cache/arsenal/tent/spawn-point
 runtime positions, and Petros-loss penalties. Runtime Petros spawning tries the
-custom h-istasi prefab first through its GUID-qualified metadata resource and
+custom Partisan prefab first through its GUID-qualified metadata resource and
 falls back to the base FIA character only if that resource cannot spawn. The HQ
 arsenal uses a GUID-indexed HST supply-cache prefab whose contextual actions
 open the same Arsenal/Loot menu path used by the I-key menu and the custom
@@ -1869,7 +1967,7 @@ FIA cache fallback is only used if the custom object cannot spawn.
 The alpha HQ menu is procedural rather than layout-resource loaded. The server
 keeps the existing `HST_MENU`, `TAB`, `STATUS`, `RESULT`, and `ACTION` payload
 lines while adding optional `STAT`, `SECTION`, `ROW`, and `FEED` lines for the
-h-istasi overview, HQ/Petros, missions, map/war, forces, arsenal/loot,
+Partisan overview, HQ/Petros, missions, map/war, forces, arsenal/loot,
 garage/build, members, and admin panels. The custom loadout editor has its own
 `HST_LOADOUT_EDITOR` and `HST_LOADOUT_CANDIDATES` payloads but still routes
 mutations through the same server-authoritative request bridge. Contextual

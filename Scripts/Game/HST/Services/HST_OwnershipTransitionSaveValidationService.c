@@ -822,9 +822,13 @@ class HST_OwnershipTransitionSaveValidationService
 		if (!transition.m_bEnemyConsequencesApplied)
 		{
 			if (transition.m_bCounterattackQueued || !transition.m_sEnemyOrderId.IsEmpty()
-				|| transition.m_iAggressionApplied != 0
 				|| !transition.m_sEnemyConsequenceDecision.IsEmpty())
 				return "ownership transition has enemy-consequence residue before apply";
+			if (transition.m_iAggressionApplied > 0
+				&& (!transition.m_bApplyEnemyConsequences
+					|| transition.m_bOwnerApplied || transition.m_bCompleted
+					|| transition.m_sStatus != "applying"))
+				return "ownership transition has invalid pre-owner aggression admission";
 			return "";
 		}
 		string nonApplicableDecision = "enemy retaliation not applicable for this ownership policy";

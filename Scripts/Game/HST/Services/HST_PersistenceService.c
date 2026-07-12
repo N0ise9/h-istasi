@@ -93,7 +93,7 @@ class HST_PersistenceService
 			m_fMajorChangeElapsed += timeSlice;
 			if (m_fMajorChangeElapsed >= majorChangeDebounceSeconds)
 			{
-				bool majorCheckpointSaved = RequestCheckpoint("h-istasi major change", state);
+				bool majorCheckpointSaved = RequestCheckpoint("Partisan major change", state);
 				m_fMajorChangeElapsed = 0;
 				if (majorCheckpointSaved)
 				{
@@ -112,7 +112,7 @@ class HST_PersistenceService
 		if (m_fAutosaveElapsed < autosaveIntervalSeconds)
 			return;
 
-		if (RequestCheckpoint("h-istasi autosave", state))
+		if (RequestCheckpoint("Partisan autosave", state))
 			m_fAutosaveElapsed = 0;
 		else
 		{
@@ -264,7 +264,7 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: ambient civilian persistence authority is unavailable during %1",
 				context);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (!m_Civilians.PrepareAmbientVehiclePersistence(state))
@@ -272,7 +272,7 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: ambient civilian persistence reconciliation failed during %1",
 				context);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		bool hasExactRescueAuthority = HasExactRescuePOWAuthority(state);
@@ -281,7 +281,7 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: exact rescue POW persistence authority is unavailable during %1",
 				context);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (hasExactRescueAuthority)
@@ -294,7 +294,7 @@ class HST_PersistenceService
 					"checkpoint deferred: exact rescue POW authority reconciliation failed during %1 | %2",
 					context,
 					rescueFailure);
-				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 				return false;
 			}
 		}
@@ -305,7 +305,7 @@ class HST_PersistenceService
 				"checkpoint deferred: exact patrol quarantine cleanup is incomplete during %1 | %2",
 				context,
 				quarantineFailure);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (!NormalizeRetiredQuarantinedGarrisonPatrolAuthority(state, quarantineFailure))
@@ -314,7 +314,7 @@ class HST_PersistenceService
 				"checkpoint deferred: exact garrison patrol quarantine cleanup is incomplete during %1 | %2",
 				context,
 				quarantineFailure);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		bool hasOpenExactLocalSecurity;
@@ -338,7 +338,7 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: exact local-security persistence authority is unavailable during %1",
 				context);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (hasQuarantinedLocalSecurity)
@@ -352,7 +352,7 @@ class HST_PersistenceService
 					"checkpoint deferred: quarantined local-security cleanup failed during %1 | %2",
 					context,
 					localSecurityQuarantineFailure);
-				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 				return false;
 			}
 		}
@@ -367,7 +367,7 @@ class HST_PersistenceService
 					"checkpoint deferred: exact local-security roster reconciliation failed during %1 | %2",
 					context,
 					localSecurityFailure);
-				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 				return false;
 			}
 		}
@@ -377,7 +377,7 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: exact mission guard quarantine cleanup is unavailable during %1",
 				context);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (hasQuarantinedMissionGuard && m_MissionGuardOperations
@@ -387,7 +387,7 @@ class HST_PersistenceService
 				"checkpoint deferred: exact mission guard quarantine cleanup is incomplete during %1 | %2",
 				context,
 				quarantineFailure);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (hasQuarantinedMissionGuard
@@ -397,7 +397,7 @@ class HST_PersistenceService
 				"checkpoint deferred: exact mission guard quarantine residue remains during %1 | %2",
 				context,
 				quarantineFailure);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		bool hasExactMissionConvoy;
@@ -464,7 +464,7 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format(
 				"checkpoint deferred: exact infantry materialization is in progress during %1",
 				context);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (!m_PhysicalWar)
@@ -475,7 +475,7 @@ class HST_PersistenceService
 				&& !hasPhysicalExactPlayerSupport)
 				return true;
 			state.m_sLastPersistenceStatus = "checkpoint deferred: exact physical roster reconciler is unavailable";
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 
@@ -483,7 +483,7 @@ class HST_PersistenceService
 		if (!m_PhysicalWar.PrepareExactMissionConvoyAuthorityForPersistence(state, reconcileFailure))
 		{
 			state.m_sLastPersistenceStatus = string.Format("checkpoint deferred: exact convoy roster reconciliation failed during %1 | %2", context, reconcileFailure);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (hasPhysicalExactMissionGuard)
@@ -491,7 +491,7 @@ class HST_PersistenceService
 			if (!m_MissionGuardOperations)
 			{
 				state.m_sLastPersistenceStatus = "checkpoint deferred: exact mission guard persistence authority is unavailable";
-				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 				return false;
 			}
 			if (!m_MissionGuardOperations.PrepareOpenPhysicalAuthorityForPersistence(state, reconcileFailure))
@@ -500,7 +500,7 @@ class HST_PersistenceService
 					"checkpoint deferred: exact mission guard roster reconciliation failed during %1 | %2",
 					context,
 					reconcileFailure);
-				Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+				Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 				return false;
 			}
 		}
@@ -511,7 +511,7 @@ class HST_PersistenceService
 		if (!m_ForceSpawnQueue || !m_ForceSpawnAdapter)
 		{
 			state.m_sLastPersistenceStatus = "checkpoint deferred: exact infantry roster authority is unavailable";
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 
@@ -529,7 +529,7 @@ class HST_PersistenceService
 				"checkpoint deferred: exact infantry roster reconciliation failed during %1 | %2",
 				context,
 				rosterEvidence);
-			Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
 		if (!ValidatePhysicalEnemyPatrolSnapshots(state, context))
@@ -1521,7 +1521,7 @@ class HST_PersistenceService
 			BoundPlayerSupportPersistenceStatusPart(context, 72),
 			BoundPlayerSupportPersistenceStatusPart(operationId, 72),
 			BoundPlayerSupportPersistenceStatusPart(evidence, 192));
-		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 		return false;
 	}
 
@@ -1578,7 +1578,7 @@ class HST_PersistenceService
 			context,
 			operationId,
 			evidence);
-		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 		return false;
 	}
 
@@ -1625,7 +1625,7 @@ class HST_PersistenceService
 			context,
 			operationId,
 			evidence);
-		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 		return false;
 	}
 
@@ -1696,7 +1696,7 @@ class HST_PersistenceService
 			context,
 			operationId,
 			evidence);
-		Print("h-istasi persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 		return false;
 	}
 
@@ -1748,7 +1748,7 @@ class HST_PersistenceService
 	string BuildPersistenceReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi persistence | state not ready";
+			return "Partisan persistence | state not ready";
 
 		string saveManagerStatus = "save manager unavailable";
 		SaveGameManager saveManager = SaveGameManager.Get();
@@ -1765,7 +1765,7 @@ class HST_PersistenceService
 		if (m_RestoredCampaignSave)
 			restored = string.Format("restored schema %1 | migrated to %2", m_RestoredCampaignSave.m_iLastLoadedSchemaVersion, m_RestoredCampaignSave.m_iSchemaVersion);
 
-		return string.Format("h-istasi persistence | %1 | last save %2 | last restore %3 | %4\n%5\n%6\n%7\n%8", state.m_sLastPersistenceStatus, state.m_iLastSaveSecond, state.m_iLastRestoreSecond, saveManagerStatus, persistenceSystemStatus, profileFallbackStatus, tracked, restored);
+		return string.Format("Partisan persistence | %1 | last save %2 | last restore %3 | %4\n%5\n%6\n%7\n%8", state.m_sLastPersistenceStatus, state.m_iLastSaveSecond, state.m_iLastRestoreSecond, saveManagerStatus, persistenceSystemStatus, profileFallbackStatus, tracked, restored);
 	}
 
 	protected HST_CampaignSaveData GetRestoredCampaignSaveData()
@@ -1829,12 +1829,12 @@ class HST_PersistenceService
 		{
 			m_bProfileFallbackSaved = true;
 			m_sProfileFallbackStatus = string.Format("profile fallback saved schema %1 to %2", saveData.m_iSchemaVersion, PROFILE_SAVE_FILE);
-			Print("h-istasi persistence | " + m_sProfileFallbackStatus);
+			Print("Partisan persistence | " + m_sProfileFallbackStatus);
 			return true;
 		}
 
 		m_sProfileFallbackStatus = string.Format("profile fallback save failed at %1", PROFILE_SAVE_FILE);
-		Print("h-istasi persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
+		Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 		return false;
 	}
 
@@ -1850,7 +1850,7 @@ class HST_PersistenceService
 		if (!context.LoadFromFile(PROFILE_SAVE_FILE))
 		{
 			m_sProfileFallbackStatus = string.Format("profile fallback load failed at %1", PROFILE_SAVE_FILE);
-			Print("h-istasi persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 			return null;
 		}
 
@@ -1858,13 +1858,13 @@ class HST_PersistenceService
 		if (!context.ReadValue("", saveData))
 		{
 			m_sProfileFallbackStatus = string.Format("profile fallback read failed at %1", PROFILE_SAVE_FILE);
-			Print("h-istasi persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
+			Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 			return null;
 		}
 
 		m_bProfileFallbackLoaded = true;
 		m_sProfileFallbackStatus = string.Format("profile fallback loaded schema %1 from %2", saveData.m_iSchemaVersion, PROFILE_SAVE_FILE);
-		Print("h-istasi persistence | " + m_sProfileFallbackStatus);
+		Print("Partisan persistence | " + m_sProfileFallbackStatus);
 		return saveData;
 	}
 

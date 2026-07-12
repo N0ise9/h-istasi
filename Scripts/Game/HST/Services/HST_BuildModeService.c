@@ -44,7 +44,7 @@ class HST_BuildModeService
 	{
 		HST_BuildModePlacement placement = new HST_BuildModePlacement();
 		placement.m_sKind = "hq_assets";
-		placement.m_sPrefab = "h-istasi HQ runtime assets";
+		placement.m_sPrefab = "Partisan HQ runtime assets";
 
 		if (!state || !state.m_bHQDeployed)
 			return RejectPlacement(state, placement, "HQ is not deployed");
@@ -103,9 +103,9 @@ class HST_BuildModeService
 		state.m_fLastBuildModeYaw = placement.m_vAngles[0];
 
 		if (failure.IsEmpty())
-			Print(string.Format("h-istasi build mode | %1 | prefab %2 | position %3 | yaw %4 | cost %5", placement.m_sKind, placement.m_sPrefab, placement.m_vPosition, placement.m_vAngles[0], placement.m_iCost));
+			Print(string.Format("Partisan build mode | %1 | prefab %2 | position %3 | yaw %4 | cost %5", placement.m_sKind, placement.m_sPrefab, placement.m_vPosition, placement.m_vAngles[0], placement.m_iCost));
 		else
-			Print(string.Format("h-istasi build mode | %1 failed | prefab %2 | reason %3", placement.m_sKind, placement.m_sPrefab, failure), LogLevel.WARNING);
+			Print(string.Format("Partisan build mode | %1 failed | prefab %2 | reason %3", placement.m_sKind, placement.m_sPrefab, failure), LogLevel.WARNING);
 	}
 
 	protected vector BuildPlayerForwardOffset(IEntity playerEntity, int distanceMeters)

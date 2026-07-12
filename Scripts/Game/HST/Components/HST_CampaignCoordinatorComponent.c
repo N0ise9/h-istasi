@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Server-authoritative h-istasi campaign coordinator")]
+[ComponentEditorProps(category: "Partisan", description: "Server-authoritative Partisan campaign coordinator")]
 class HST_CampaignCoordinatorComponentClass : SCR_BaseGameModeComponentClass
 {
 }
@@ -145,6 +145,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_AuthorizationService m_Authorization;
 	protected ref HST_StrategicService m_Strategic;
 	protected ref HST_ArsenalService m_Arsenal;
+	protected ref HST_EnemyStrategicResourceService m_EnemyStrategicResources;
 	protected ref HST_EnemyDirectorService m_EnemyDirector;
 	protected ref HST_HQService m_HQ;
 	protected ref HST_PlayerLifecycleService m_PlayerLifecycle;
@@ -354,7 +355,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		s_Instance = this;
-		Print("h-istasi boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
+		Print("Partisan boot | authority build " + HST_BuildInfo.BuildRuntimeSummary() + " | server coordinator loaded");
 		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
 		m_Balance = HST_DefaultCatalog.CreateBalance();
 		m_SettingsService = new HST_RuntimeSettingsService();
@@ -369,7 +370,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_Settings.m_Membership)
 			{
 				DebugLog(string.Format("settings membership adminIdentityIds count=%1", m_Settings.m_Membership.m_aAdminIdentityIds.Count()));
-				Print(string.Format("h-istasi admin | authority build %1 | settings path %2 | membership enabled %3 | configured admin SteamID64 %4", HST_BuildInfo.BuildRuntimeSummary(), m_SettingsService.GetSettingsFilePath(), m_Settings.m_Membership.m_bMembershipEnabled, BuildRuntimeAdminSettingsSummary()));
+				Print(string.Format("Partisan admin | authority build %1 | settings path %2 | membership enabled %3 | configured admin SteamID64 %4", HST_BuildInfo.BuildRuntimeSummary(), m_SettingsService.GetSettingsFilePath(), m_Settings.m_Membership.m_bMembershipEnabled, BuildRuntimeAdminSettingsSummary()));
 			}
 
 			SCR_BaseGameMode gameMode = SCR_BaseGameMode.Cast(GetGame().GetGameMode());
@@ -405,9 +406,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_CivilianConsequences.SetTownInfluenceService(m_TownInfluence);
 		m_Strategic.SetTownInfluenceService(m_TownInfluence);
 		m_Economy.SetTownInfluenceService(m_TownInfluence);
+		m_EnemyStrategicResources = new HST_EnemyStrategicResourceService();
+		m_EnemyStrategicResources.SetTownInfluenceService(m_TownInfluence);
+		m_Economy.SetCampaignPreset(m_Preset);
+		m_Economy.SetEnemyStrategicResourceAuthority(m_EnemyStrategicResources);
 		m_Arsenal = new HST_ArsenalService();
 		m_EnemyDirector = new HST_EnemyDirectorService();
 		m_EnemyDirector.SetTownInfluenceService(m_TownInfluence);
+		m_EnemyDirector.SetCampaignPreset(m_Preset);
+		m_EnemyDirector.SetEnemyStrategicResourceAuthority(m_EnemyStrategicResources);
 		m_HQ = new HST_HQService();
 		if (m_HQ && m_Settings && m_Settings.m_Debug)
 			m_HQ.SetDebugLoggingEnabled(m_Settings.m_Debug.m_bDebugLoggingEnabled);
@@ -588,6 +595,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation
+			= new HST_EnemyStrategicResourceSaveValidationService();
+		schema67StrategicResourceValidation.ValidateRestoredFactionRoles(
+			m_State,
+			m_Preset);
 		if (m_TownInfluence)
 			m_TownInfluence.ValidateRestoredAggressionFactionRoles(
 				m_State,
@@ -614,6 +626,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_Preset,
 				true);
 		EnsureCampaignFoundation();
+		// Foundation repair may canonicalize faction keys or install a fail-closed
+		// placeholder for a missing configured enemy pool. Validate the resulting
+		// live roles before the operation restore reconcilers can spend or refund.
+		schema67StrategicResourceValidation.ValidateRestoredFactionRoles(
+			m_State,
+			m_Preset,
+			HST_CampaignState.SCHEMA_VERSION);
 		if (m_LocalSecurityPatrolOperations)
 			m_LocalSecurityPatrolOperations.ReconcileAfterRestore(m_State, m_Preset);
 		if (m_RadioSites)
@@ -637,7 +656,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		ArmPlayerSpawnSweep(6);
 		SetEventMask(owner, EntityEvent.FRAME);
-		Print("h-istasi | campaign coordinator initialized");
+		Print("Partisan | campaign coordinator initialized");
 	}
 
 	override void OnDelete(IEntity owner)
@@ -715,7 +734,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				int restoredFieldVehicles = m_Loot.RestorePersistentFieldVehicles(m_State);
 				if (restoredFieldVehicles > 0)
 				{
-					Print(string.Format("h-istasi vehicle persistence | restored %1 field vehicle(s) after campaign load", restoredFieldVehicles));
+					Print(string.Format("Partisan vehicle persistence | restored %1 field vehicle(s) after campaign load", restoredFieldVehicles));
 					MarkMajorCampaignChange(false);
 				}
 			}
@@ -1490,7 +1509,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string BuildMarkerProjectionReport()
 	{
 		if (!m_ClientProjection)
-			return "h-istasi marker projection | service not ready";
+			return "Partisan marker projection | service not ready";
 		return m_ClientProjection.BuildReport();
 	}
 
@@ -1529,7 +1548,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string BuildVisibleMenuPayload(int playerId, string selectedTabId, string lastResult = "")
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
-			return "HST_MENU|offline|0\nSTATUS|h-istasi menu | server coordinator not ready\nEND";
+			return "HST_MENU|offline|0\nSTATUS|Partisan menu | server coordinator not ready\nEND";
 
 		HST_PlayerState player = RefreshRuntimePlayerAuthority(playerId, "visible menu payload");
 		if (m_Arsenal)
@@ -1566,7 +1585,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestVisibleMenuCommand(int playerId, string selectedTabId, string commandId, string argument = "", string requestId = "")
 	{
 		if (!Replication.IsServer() || !m_CommandUI)
-			return "h-istasi command | server coordinator not ready";
+			return "Partisan command | server coordinator not ready";
 
 		EnsureSetupRegisteredPlayer(playerId);
 		HST_CampaignCommandEnvelope envelope;
@@ -1761,7 +1780,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (m_bCampaignDebugStateIsolationActive)
 				m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated setup HQ checkpoint");
 			else
-				m_Persistence.RequestCheckpoint("h-istasi setup HQ placed", m_State);
+				m_Persistence.RequestCheckpoint("Partisan setup HQ placed", m_State);
 		}
 		ArmPlayerSpawnSweep(6);
 		MarkMajorCampaignChange(true);
@@ -1860,7 +1879,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestLoadoutEditorCommand(int playerId, string commandId, string argument = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi loadout editor | server required";
+			return "Partisan loadout editor | server required";
 
 		if (commandId == "loadout_editor_open_hq_arsenal")
 			return RequestMemberOpenLoadoutEditor(playerId);
@@ -1869,10 +1888,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return RequestMemberCloseLoadoutEditor(playerId);
 
 		if (commandId == "loadout_editor_candidates")
-			return "h-istasi loadout editor | candidate request acknowledged";
+			return "Partisan loadout editor | candidate request acknowledged";
 
 		if (commandId == "loadout_editor_refresh")
-			return "h-istasi loadout editor | refreshed";
+			return "Partisan loadout editor | refreshed";
 
 		if (commandId == "loadout_save" || commandId == "save_loadout")
 			return RequestMemberSaveLoadoutDraft(playerId, argument);
@@ -1910,7 +1929,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (commandId == "loadout_delete" || commandId == "delete_loadout")
 			return RequestMemberDeleteSavedLoadout(playerId, argument);
 
-		return "h-istasi loadout editor | unknown command: " + commandId;
+		return "Partisan loadout editor | unknown command: " + commandId;
 	}
 
 	int ResolveAuthoritativePlayerId(IEntity requestOwner, int clientHintPlayerId = 0, string source = "")
@@ -1944,11 +1963,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int fallbackPlayerId = ResolveSingleConnectedPlayerFallback(playerManager, clientHintPlayerId);
 		if (fallbackPlayerId > 0)
 		{
-			Print(string.Format("h-istasi menu | authoritative player fallback source=%1 clientHint=%2 resolved=%3", source, clientHintPlayerId, fallbackPlayerId), LogLevel.WARNING);
+			Print(string.Format("Partisan menu | authoritative player fallback source=%1 clientHint=%2 resolved=%3", source, clientHintPlayerId, fallbackPlayerId), LogLevel.WARNING);
 			return fallbackPlayerId;
 		}
 
-		Print(string.Format("h-istasi menu | failed to resolve authoritative player source=%1 clientHint=%2 connected=%3", source, clientHintPlayerId, CountConnectedPlayers(playerManager)), LogLevel.WARNING);
+		Print(string.Format("Partisan menu | failed to resolve authoritative player source=%1 clientHint=%2 connected=%3", source, clientHintPlayerId, CountConnectedPlayers(playerManager)), LogLevel.WARNING);
 
 		return 0;
 	}
@@ -2252,7 +2271,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_bCampaignDebugStateIsolationActive)
 			return m_Persistence.CaptureIsolatedCampaignDebugState(m_State, "isolated manual checkpoint");
 
-		return m_Persistence.RequestCheckpoint("h-istasi manual checkpoint", m_State);
+		return m_Persistence.RequestCheckpoint("Partisan manual checkpoint", m_State);
 	}
 
 	bool SelectInitialHideout(string hideoutId)
@@ -2297,12 +2316,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MissionDefinition definition;
 		if (activeMission)
 			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
+		if (!activeMission || !definition || !m_Strategic)
+			return false;
+
+		bool applyDefinitionRewards = !ShouldSuppressDefinitionRewardForConvoyCompletion(activeMission);
+		bool allowExpiredPlayerBoundCompletion = activeMission
+			&& activeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED
+			&& m_MissionRuntime
+			&& m_MissionRuntime.CanCompleteExpiredPlayerBoundMission(m_State, activeMission);
+		bool allowLegacyExpiredDefendPetrosCompletion = activeMission
+			&& activeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED
+			&& activeMission.m_sMissionId == "dynamic_defend_petros"
+			&& m_State.m_bPetrosAlive;
+		bool allowExpiredCompletion = allowExpiredPlayerBoundCompletion
+			|| allowLegacyExpiredDefendPetrosCompletion;
+		if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			&& !allowExpiredCompletion)
+			return false;
+		HST_StrategicEventApplyResult strategicOutcome = m_Strategic.ApplyMissionOutcomeEvent(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_Balance,
+			m_Towns,
+			m_ZoneCapture,
+			m_Garrisons,
+			m_EnemyCommander,
+			m_EnemyDirector,
+			m_SupportRequests,
+			m_HQ,
+			definition,
+			activeMission,
+			true,
+			applyDefinitionRewards);
+		if (!IsMissionStrategicOutcomeAdmitted(strategicOutcome))
+			return false;
 
 		if (m_Objectives && !exactRescueAuthority && !exactRadioAuthority)
 			m_Objectives.ProgressMission(m_State, instanceId, 999);
-
-		bool applyDefinitionRewards = !ShouldSuppressDefinitionRewardForConvoyCompletion(activeMission);
-		bool allowExpiredCompletion = activeMission && activeMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && m_MissionRuntime && m_MissionRuntime.CanCompleteExpiredPlayerBoundMission(m_State, activeMission);
 		bool changed = m_Missions.Complete(m_State, m_Economy, instanceId, false, allowExpiredCompletion);
 		if (changed && exactRadioAuthority)
 		{
@@ -2319,8 +2370,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return false;
 			}
 		}
-		if (changed && m_Strategic)
-			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, true, applyDefinitionRewards);
 		if (changed && m_MissionGuardOperations)
 			m_MissionGuardOperations.ReconcileAfterMissionOutcomes(m_State);
 		if (changed && m_RescuePOWOperations)
@@ -2359,7 +2408,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_MissionDefinition definition;
 		if (activeMission)
 			definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
+		if (!activeMission || !definition || !m_Strategic)
+			return false;
+		if (activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
+			return false;
 
+		HST_StrategicEventApplyResult strategicOutcome = m_Strategic.ApplyMissionOutcomeEvent(
+			m_State,
+			m_Preset,
+			m_Economy,
+			m_Balance,
+			m_Towns,
+			m_ZoneCapture,
+			m_Garrisons,
+			m_EnemyCommander,
+			m_EnemyDirector,
+			m_SupportRequests,
+			m_HQ,
+			definition,
+			activeMission,
+			false);
+		if (!IsMissionStrategicOutcomeAdmitted(strategicOutcome))
+			return false;
 		bool changed = m_Missions.Fail(m_State, m_Preset, m_Economy, instanceId, false);
 		bool exactRadioAuthority = HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission);
 		if (changed && exactRadioAuthority)
@@ -2377,8 +2447,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return true;
 			}
 		}
-		if (changed && m_Strategic)
-			m_Strategic.ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, false);
 		if (changed && m_Objectives && !exactRadioAuthority)
 			m_Objectives.FailMissionObjectives(m_State, instanceId);
 		if (changed && m_MissionGuardOperations)
@@ -2410,21 +2478,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!m_State || !m_Preset || !m_Missions || !m_Strategic || !m_Economy)
 			return false;
-		if (!activeMission || activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_EXPIRED)
+		if (!activeMission
+			|| activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			|| activeMission.m_sRuntimePhase != HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE)
 			return false;
 		if (activeMission.m_sMissionId == "dynamic_defend_petros")
-			return false;
-		if (activeMission.m_sMissionId == "dynamic_gun_shop")
 			return false;
 
 		HST_MissionDefinition definition = m_Missions.FindDefinition(activeMission.m_sMissionId);
 		if (!definition)
 			return false;
 
+		HST_StrategicEventApplyResult result = m_Strategic.ApplyMissionExpiryEvent(m_State, m_Preset, m_Economy, definition, activeMission, m_EnemyDirector);
+		if (!IsMissionStrategicOutcomeAdmitted(result))
+		{
+			string rejectionReason = "strategic mission-expiry admission rejected";
+			if (result && !result.m_sReason.IsEmpty())
+				rejectionReason = result.m_sReason;
+			return m_Missions.MarkExpiryStrategicAdmissionRejected(
+				m_State,
+				activeMission.m_sInstanceId,
+				rejectionReason);
+		}
+
+		bool changed = m_Missions.CommitExpiry(
+			m_State,
+			activeMission.m_sInstanceId);
+		if (!changed)
+			return false;
+
 		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission))
 		{
 			if (!HST_RadioSiteLifecycleService.IsExactMission(activeMission) || !m_RadioSites)
-				return true;
+				return changed;
 			HST_RadioSiteTransitionResult radioOutcome = m_RadioSites.OnMissionExpired(m_State, activeMission);
 			if (!radioOutcome || !radioOutcome.m_bAccepted)
 			{
@@ -2434,10 +2520,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_RadioSites.QuarantineMissionAggregate(m_State, activeMission, radioFailure);
 				return true;
 			}
+			changed = radioOutcome.m_bStateChanged || changed;
 		}
 
-		HST_StrategicEventApplyResult result = m_Strategic.ApplyMissionExpiryEvent(m_State, m_Preset, m_Economy, definition, activeMission, m_EnemyDirector);
-		return result.m_bApplied || result.m_bChanged;
+		return changed || result.m_bChanged;
+	}
+
+	protected bool IsMissionStrategicOutcomeAdmitted(
+		HST_StrategicEventApplyResult result)
+	{
+		return result
+			&& result.m_bRecorded
+			&& result.m_bApplied
+			&& result.m_Event
+			&& !result.m_sEventId.IsEmpty()
+			&& result.m_Event.m_sEventId == result.m_sEventId;
 	}
 
 	bool MoveHQ(string hideoutId)
@@ -2590,98 +2687,98 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderSelectInitialHideoutReport(int playerId, string hideoutId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi setup | failed: server required";
+			return "Partisan setup | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi setup | failed: commander required";
+			return "Partisan setup | failed: commander required";
 		if (hideoutId.IsEmpty())
-			return "h-istasi setup | failed: hideout id missing";
+			return "Partisan setup | failed: hideout id missing";
 		if (!HST_DefaultCatalog.IsKnownHideout(hideoutId))
-			return "h-istasi setup | failed: unknown hideout " + hideoutId;
+			return "Partisan setup | failed: unknown hideout " + hideoutId;
 		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
-			return string.Format("h-istasi setup | failed: campaign phase %1 is not setup", m_State.m_ePhase);
+			return string.Format("Partisan setup | failed: campaign phase %1 is not setup", m_State.m_ePhase);
 
 		bool changed = SelectInitialHideout(hideoutId);
 		if (!changed)
-			return string.Format("h-istasi setup | failed: could not select %1", hideoutId);
+			return string.Format("Partisan setup | failed: could not select %1", hideoutId);
 
-		return string.Format("h-istasi setup | HQ selected %1 | phase %2 | Petros %3", m_State.m_sHQHideoutId, m_State.m_ePhase, m_State.m_bPetrosAlive);
+		return string.Format("Partisan setup | HQ selected %1 | phase %2 | Petros %3", m_State.m_sHQHideoutId, m_State.m_ePhase, m_State.m_bPetrosAlive);
 	}
 
 	string RequestCommanderMoveHQReport(int playerId, string hideoutId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi HQ | failed: server required";
+			return "Partisan HQ | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi HQ | failed: commander required";
+			return "Partisan HQ | failed: commander required";
 		if (hideoutId.IsEmpty())
-			return "h-istasi HQ | failed: hideout id missing";
+			return "Partisan HQ | failed: hideout id missing";
 		if (!HST_DefaultCatalog.IsKnownHideout(hideoutId))
-			return "h-istasi HQ | failed: unknown hideout " + hideoutId;
+			return "Partisan HQ | failed: unknown hideout " + hideoutId;
 		if (HasOpenFrozenHQExtractionAuthority())
-			return "h-istasi HQ | failed: finish the active POW rescue before moving its frozen HQ extraction point";
+			return "Partisan HQ | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		bool changed = MoveHQ(hideoutId);
 		if (!changed)
-			return string.Format("h-istasi HQ | failed: could not move HQ to %1 | Petros alive %2 | phase %3", hideoutId, m_State.m_bPetrosAlive, m_State.m_ePhase);
+			return string.Format("Partisan HQ | failed: could not move HQ to %1 | Petros alive %2 | phase %3", hideoutId, m_State.m_bPetrosAlive, m_State.m_ePhase);
 
-		return string.Format("h-istasi HQ | moved to %1 | knowledge %2 | Petros %3", m_State.m_sHQHideoutId, m_State.m_iHQKnowledge, m_State.m_bPetrosAlive);
+		return string.Format("Partisan HQ | moved to %1 | knowledge %2 | Petros %3", m_State.m_sHQHideoutId, m_State.m_iHQKnowledge, m_State.m_bPetrosAlive);
 	}
 
 	string RequestCommanderMoveHQToPlayerReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi HQ | failed: server required";
+			return "Partisan HQ | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi HQ | failed: commander required";
+			return "Partisan HQ | failed: commander required";
 		if (!ResolveControlledPlayerEntity(playerId))
-			return "h-istasi HQ | failed: player entity not found";
+			return "Partisan HQ | failed: player entity not found";
 		if (HasOpenFrozenHQExtractionAuthority())
-			return "h-istasi HQ | failed: finish the active POW rescue before moving its frozen HQ extraction point";
+			return "Partisan HQ | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		bool changed = MoveHQToPlayer(playerId);
 		if (!changed)
-			return string.Format("h-istasi HQ | failed: could not move HQ to player | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
+			return string.Format("Partisan HQ | failed: could not move HQ to player | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
 
-		return string.Format("h-istasi HQ | moved to player position | HQ %1 | knowledge %2", m_State.m_vHQPosition, m_State.m_iHQKnowledge);
+		return string.Format("Partisan HQ | moved to player position | HQ %1 | knowledge %2", m_State.m_vHQPosition, m_State.m_iHQKnowledge);
 	}
 
 	string RequestCommanderStartPetrosRelocationReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi HQ relocation | failed: server required";
+			return "Partisan HQ relocation | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi HQ relocation | failed: commander required";
+			return "Partisan HQ relocation | failed: commander required";
 		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !m_State.m_bHQDeployed)
-			return "h-istasi HQ relocation | failed: campaign HQ is not deployed";
+			return "Partisan HQ relocation | failed: campaign HQ is not deployed";
 		if (!m_State.m_bPetrosAlive)
-			return "h-istasi HQ relocation | failed: Petros is down";
+			return "Partisan HQ relocation | failed: Petros is down";
 		if (!m_HQ)
-			return "h-istasi HQ relocation | failed: HQ service not ready";
+			return "Partisan HQ relocation | failed: HQ service not ready";
 		if (HasOpenFrozenHQExtractionAuthority())
-			return "h-istasi HQ relocation | failed: finish the active POW rescue before moving its frozen HQ extraction point";
+			return "Partisan HQ relocation | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 		if (!playerEntity || !IsLivingEntity(playerEntity))
-			return "h-istasi HQ relocation | failed: player entity not found";
+			return "Partisan HQ relocation | failed: player entity not found";
 
 		IEntity petrosEntity = ResolvePetrosRelocationEntity();
 		if (!petrosEntity)
-			return "h-istasi HQ relocation | failed: Petros entity not found";
+			return "Partisan HQ relocation | failed: Petros entity not found";
 
 		if (m_bPetrosRelocationActive)
 		{
 			if (IsPetrosRelocationOwnedByPlayer(playerId))
 			{
 				HST_CommandMenuRequestComponent.SendPetrosRelocationStateOwner(playerId, true);
-				return "h-istasi HQ relocation | Petros is already following you";
+				return "Partisan HQ relocation | Petros is already following you";
 			}
 
-			return "h-istasi HQ relocation | failed: Petros is already following " + ResolvePetrosRelocationPlayerName();
+			return "Partisan HQ relocation | failed: Petros is already following " + ResolvePetrosRelocationPlayerName();
 		}
 
 		HST_MissionCaptiveFollowComponent follow = HST_MissionCaptiveFollowComponent.Cast(petrosEntity.FindComponent(HST_MissionCaptiveFollowComponent));
 		if (!follow)
-			return "h-istasi HQ relocation | failed: Petros follow component missing";
+			return "Partisan HQ relocation | failed: Petros follow component missing";
 
 		string playerName = ResolvePlayerDisplayNameForPetrosRelocation(playerId);
 		string identityId = ResolveTrustedIdentityId(playerId);
@@ -2702,39 +2799,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string publicPayload = BuildPetrosRelocationNotificationPayload("petros_relocation_start_" + playerId + "_" + m_State.m_iElapsedSeconds, "info", "Petros", publicMessage, petrosEntity.GetOrigin(), 6.0);
 		HST_CommandMenuRequestComponent.BroadcastNotification(publicPayload, publicMessage);
 		SendPetrosRelocationOwnerHint(playerId, petrosEntity.GetOrigin());
-		return "h-istasi HQ relocation | " + publicMessage;
+		return "Partisan HQ relocation | " + publicMessage;
 	}
 
 	string RequestCommanderDeployPetrosRelocationReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi HQ relocation | failed: server required";
+			return "Partisan HQ relocation | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi HQ relocation | failed: commander required";
+			return "Partisan HQ relocation | failed: commander required";
 		if (!m_bPetrosRelocationActive)
-			return "h-istasi HQ relocation | failed: Petros is not following you";
+			return "Partisan HQ relocation | failed: Petros is not following you";
 		if (!IsPetrosRelocationOwnedByPlayer(playerId))
-			return "h-istasi HQ relocation | failed: Petros is following " + ResolvePetrosRelocationPlayerName();
+			return "Partisan HQ relocation | failed: Petros is following " + ResolvePetrosRelocationPlayerName();
 		if (!m_State || m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE || !m_State.m_bHQDeployed)
-			return "h-istasi HQ relocation | failed: campaign HQ is not deployed";
+			return "Partisan HQ relocation | failed: campaign HQ is not deployed";
 		if (!m_State.m_bPetrosAlive)
-			return "h-istasi HQ relocation | failed: Petros is down";
+			return "Partisan HQ relocation | failed: Petros is down";
 		if (!m_HQ)
-			return "h-istasi HQ relocation | failed: HQ service not ready";
+			return "Partisan HQ relocation | failed: HQ service not ready";
 		if (HasOpenFrozenHQExtractionAuthority())
-			return "h-istasi HQ relocation | failed: finish the active POW rescue before moving its frozen HQ extraction point";
+			return "Partisan HQ relocation | failed: finish the active POW rescue before moving its frozen HQ extraction point";
 
 		IEntity petrosEntity = ResolvePetrosRelocationEntity();
 		if (!petrosEntity)
-			return "h-istasi HQ relocation | failed: Petros entity not found";
+			return "Partisan HQ relocation | failed: Petros entity not found";
 
 		SCR_CompartmentAccessComponent access = SCR_CompartmentAccessComponent.Cast(petrosEntity.FindComponent(SCR_CompartmentAccessComponent));
 		if (access && access.IsInCompartment())
-			return "h-istasi HQ relocation | failed: Petros must be on foot before deploying HQ";
+			return "Partisan HQ relocation | failed: Petros must be on foot before deploying HQ";
 
 		vector deployPosition;
 		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(petrosEntity.GetOrigin(), HST_WorldPositionService.HQ_GROUND_OFFSET, deployPosition, true, 6.0))
-			return "h-istasi HQ relocation | failed: Petros is not standing on dry ground";
+			return "Partisan HQ relocation | failed: Petros is not standing on dry ground";
 
 		StopPetrosRelocationFollow();
 		if (m_HQ)
@@ -2743,85 +2840,85 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool changed = m_HQ.MoveHQToPosition(m_State, deployPosition, "field_hq", true);
 		ClearPetrosRelocationState(true);
 		if (!changed)
-			return string.Format("h-istasi HQ relocation | failed: could not deploy HQ at Petros position | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
+			return string.Format("Partisan HQ relocation | failed: could not deploy HQ at Petros position | Petros alive %1 | phase %2", m_State.m_bPetrosAlive, m_State.m_ePhase);
 
 		m_HQ.EnsureRuntimeObjects(m_State);
 		m_HQ.ReduceHQKnowledge(m_State, 50, "HQ relocated with Petros");
 		MarkMajorCampaignChange();
 		BroadcastNotification("petros_relocation_deploy_" + playerId + "_" + m_State.m_iElapsedSeconds, "hq", "success", "HQ Relocated", "HQ deployed at Petros' position.", "", "", deployPosition, 6.0);
-		return string.Format("h-istasi HQ relocation | deployed HQ at Petros position | HQ %1 | Petros %2 | knowledge %3", m_State.m_vHQPosition, m_State.m_vPetrosPosition, m_State.m_iHQKnowledge);
+		return string.Format("Partisan HQ relocation | deployed HQ at Petros position | HQ %1 | Petros %2 | knowledge %3", m_State.m_vHQPosition, m_State.m_vPetrosPosition, m_State.m_iHQKnowledge);
 	}
 
 	string RequestCommanderRebuildHQAssetsReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi HQ assets | failed: server required";
+			return "Partisan HQ assets | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi HQ assets | failed: commander required";
+			return "Partisan HQ assets | failed: commander required";
 		if (!m_HQ || !m_BuildMode)
-			return "h-istasi HQ assets | failed: HQ/build service not ready";
+			return "Partisan HQ assets | failed: HQ/build service not ready";
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return "h-istasi HQ assets | failed: player outside HQ interaction radius";
+			return "Partisan HQ assets | failed: player outside HQ interaction radius";
 
 		HST_BuildModePlacement placement = m_BuildMode.ResolveHQRebuildPlacement(m_State, playerId);
 		if (!placement || !placement.m_bValid)
-			return "h-istasi HQ assets | failed: build placement denied | " + m_State.m_sLastBuildModeFailure;
+			return "Partisan HQ assets | failed: build placement denied | " + m_State.m_sLastBuildModeFailure;
 
 		bool changed = RequestCommanderRebuildHQAssets(playerId);
 		if (!changed)
-			return string.Format("h-istasi HQ assets | failed: rebuild returned false | runtime %1 | arsenal %2", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus);
+			return string.Format("Partisan HQ assets | failed: rebuild returned false | runtime %1 | arsenal %2", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus);
 
-		return string.Format("h-istasi HQ assets | rebuilt | runtime %1 | arsenal %2 | failure %3", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus, m_State.m_sLastHQArsenalFailure);
+		return string.Format("Partisan HQ assets | rebuilt | runtime %1 | arsenal %2 | failure %3", m_State.m_bHQRuntimeObjectsSpawned, m_State.m_sHQArsenalRuntimeStatus, m_State.m_sLastHQArsenalFailure);
 	}
 
 	string RequestCommanderApplyIncomeNowReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi income | failed: server required";
+			return "Partisan income | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi income | failed: commander required";
+			return "Partisan income | failed: commander required";
 
 		int income = ApplyIncomeNow();
 		if (income <= 0)
-			return string.Format("h-istasi income | failed: no income applied | FIA zones %1 | timer %2", CountResistanceZones(), m_State.m_iIncomeAccumulatorSeconds);
+			return string.Format("Partisan income | failed: no income applied | FIA zones %1 | timer %2", CountResistanceZones(), m_State.m_iIncomeAccumulatorSeconds);
 
-		return string.Format("h-istasi income | applied $%1 | money %2 | HR %3", income, m_State.m_iFactionMoney, m_State.m_iHR);
+		return string.Format("Partisan income | applied $%1 | money %2 | HR %3", income, m_State.m_iFactionMoney, m_State.m_iHR);
 	}
 
 	string RequestCommanderStartZoneMissionReport(int playerId, string zoneId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | failed: server required";
+			return "Partisan mission | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi mission | failed: commander required";
+			return "Partisan mission | failed: commander required";
 		if (zoneId.IsEmpty())
-			return "h-istasi mission | failed: zone id missing";
+			return "Partisan mission | failed: zone id missing";
 
 		HST_ZoneState zone = m_State.FindZone(zoneId);
 		if (!zone)
-			return "h-istasi mission | failed: zone not found " + zoneId;
+			return "Partisan mission | failed: zone not found " + zoneId;
 
 		string missionId = SelectMissionForZone(zone);
 		if (!m_Missions || !m_Missions.CanStart(m_State, m_Preset, missionId, zoneId))
-			return string.Format("h-istasi mission | failed: %1 cannot start at %2 | phase %3 | active at zone %4", missionId, ResolveZoneLabel(zone), m_State.m_ePhase, CountActiveMissionsAtZone(zoneId));
+			return string.Format("Partisan mission | failed: %1 cannot start at %2 | phase %3 | active at zone %4", missionId, ResolveZoneLabel(zone), m_State.m_ePhase, CountActiveMissionsAtZone(zoneId));
 
 		bool changed = StartMission(missionId, zoneId);
 		if (!changed)
-			return string.Format("h-istasi mission | failed: start returned false for %1 at %2", missionId, ResolveZoneLabel(zone));
+			return string.Format("Partisan mission | failed: start returned false for %1 at %2", missionId, ResolveZoneLabel(zone));
 
-		return string.Format("h-istasi mission | started %1 at %2 | active %3", missionId, ResolveZoneLabel(zone), CountFoundationActiveMissions());
+		return string.Format("Partisan mission | started %1 at %2 | active %3", missionId, ResolveZoneLabel(zone), CountFoundationActiveMissions());
 	}
 
 	string RequestCommanderStartRandomMissionReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | failed: server required";
+			return "Partisan mission | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi mission | failed: commander required";
+			return "Partisan mission | failed: commander required";
 
 		HST_ZoneState zone = SelectRandomMissionZone();
 		if (!zone)
-			return "h-istasi mission | failed: no compatible random target zone";
+			return "Partisan mission | failed: no compatible random target zone";
 
 		return RequestCommanderStartZoneMissionReport(playerId, zone.m_sZoneId);
 	}
@@ -2829,24 +2926,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderStartCategoryMissionReport(int playerId, string categoryKey)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | failed: server required";
+			return "Partisan mission | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi mission | failed: commander required";
+			return "Partisan mission | failed: commander required";
 
 		HST_MissionCategorySelectionResult selection = SelectCategoryMissionCandidate(playerId, categoryKey);
 		if (!selection || !selection.m_bSuccess)
 		{
 			if (selection && !selection.m_sFailureReason.IsEmpty())
-				return "h-istasi mission | failed: " + selection.m_sFailureReason;
-			return "h-istasi mission | failed: category selection unavailable";
+				return "Partisan mission | failed: " + selection.m_sFailureReason;
+			return "Partisan mission | failed: category selection unavailable";
 		}
 
 		bool changed = StartMission(selection.m_sMissionId, selection.m_sZoneId);
 		if (!changed)
-			return string.Format("h-istasi mission | failed: start returned false for %1 at %2 | category %3 | candidates %4", selection.m_sMissionId, selection.m_sZoneLabel, selection.m_sCategoryLabel, selection.m_iCandidateCount);
+			return string.Format("Partisan mission | failed: start returned false for %1 at %2 | category %3 | candidates %4", selection.m_sMissionId, selection.m_sZoneLabel, selection.m_sCategoryLabel, selection.m_iCandidateCount);
 
 		return string.Format(
-			"h-istasi mission | started %1 category | %2 at %3 | candidates %4 | radius %5m | distance %6m | active %7",
+			"Partisan mission | started %1 category | %2 at %3 | candidates %4 | radius %5m | distance %6m | active %7",
 			selection.m_sCategoryLabel,
 			selection.m_sMissionName,
 			selection.m_sZoneLabel,
@@ -2860,79 +2957,79 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderProgressMissionReport(int playerId, string instanceId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | failed: server required";
+			return "Partisan mission | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi mission | failed: commander required";
+			return "Partisan mission | failed: commander required";
 		if (!m_Objectives)
-			return "h-istasi mission | failed: objective service not ready";
+			return "Partisan mission | failed: objective service not ready";
 
 		string resolvedInstanceId = ResolveMissionInstanceId(instanceId);
 		if (resolvedInstanceId.IsEmpty())
-			return "h-istasi mission | failed: no active mission to progress";
+			return "Partisan mission | failed: no active mission to progress";
 
 		HST_ActiveMissionState mission = m_State.FindActiveMission(resolvedInstanceId);
 		if (!mission)
-			return "h-istasi mission | failed: mission not found " + resolvedInstanceId;
+			return "Partisan mission | failed: mission not found " + resolvedInstanceId;
 
 		bool changed = RequestCommanderProgressMission(playerId, resolvedInstanceId);
 		if (!changed)
-			return string.Format("h-istasi mission | failed: progress blocked for %1 | status %2 | phase %3 | failure %4", resolvedInstanceId, mission.m_eStatus, mission.m_sRuntimePhase, mission.m_sRuntimeFailureReason);
+			return string.Format("Partisan mission | failed: progress blocked for %1 | status %2 | phase %3 | failure %4", resolvedInstanceId, mission.m_eStatus, mission.m_sRuntimePhase, mission.m_sRuntimeFailureReason);
 
-		return string.Format("h-istasi mission | progressed %1 | phase %2 | remaining %3s", resolvedInstanceId, mission.m_sRuntimePhase, mission.m_iRemainingSeconds);
+		return string.Format("Partisan mission | progressed %1 | phase %2 | remaining %3s", resolvedInstanceId, mission.m_sRuntimePhase, mission.m_iRemainingSeconds);
 	}
 
 	string RequestCommanderCompleteMissionReport(int playerId, string instanceId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | failed: server required";
+			return "Partisan mission | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi mission | failed: commander required";
+			return "Partisan mission | failed: commander required";
 		if (instanceId.IsEmpty())
-			return "h-istasi mission | failed: mission id missing";
+			return "Partisan mission | failed: mission id missing";
 
 		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
 		if (!mission)
-			return "h-istasi mission | failed: mission not found " + instanceId;
+			return "Partisan mission | failed: mission not found " + instanceId;
 
 		bool changed = CompleteMission(instanceId);
 		if (!changed)
-			return string.Format("h-istasi mission | failed: complete blocked for %1 | status %2 | phase %3 | failure %4", instanceId, mission.m_eStatus, mission.m_sRuntimePhase, mission.m_sRuntimeFailureReason);
+			return string.Format("Partisan mission | failed: complete blocked for %1 | status %2 | phase %3 | failure %4", instanceId, mission.m_eStatus, mission.m_sRuntimePhase, mission.m_sRuntimeFailureReason);
 
-		return string.Format("h-istasi mission | completed %1 | status %2 | money %3 | HR %4", instanceId, mission.m_eStatus, m_State.m_iFactionMoney, m_State.m_iHR);
+		return string.Format("Partisan mission | completed %1 | status %2 | money %3 | HR %4", instanceId, mission.m_eStatus, m_State.m_iFactionMoney, m_State.m_iHR);
 	}
 
 	string RequestCommanderCancelSupportReport(int playerId, string requestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi support | failed: server required";
+			return "Partisan support | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi support | failed: commander required";
+			return "Partisan support | failed: commander required";
 		if (!m_SupportRequests)
-			return "h-istasi support | failed: support service not ready";
+			return "Partisan support | failed: support service not ready";
 
 		string target = requestId;
 		if (target.IsEmpty())
 			target = ResolveFirstCancelablePlayerSupportRequestId();
 		if (target.IsEmpty())
-			return "h-istasi support | failed: no queued or active player support request";
+			return "Partisan support | failed: no queued or active player support request";
 
 		bool changed = RequestCommanderCancelSupport(playerId, target);
 		if (!changed)
-			return "h-istasi support | failed: could not cancel request " + target;
+			return "Partisan support | failed: could not cancel request " + target;
 
-		return "h-istasi support | cancelled " + target + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		return "Partisan support | cancelled " + target + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 	}
 
 	HST_SupportRecallResult RequestCommanderRecallSupportDetailed(int playerId, string requestId = "")
 	{
 		if (!Replication.IsServer())
-			return BuildRejectedSupportRecallResult("server_required", "h-istasi support recall | failed: server required", "server required");
+			return BuildRejectedSupportRecallResult("server_required", "Partisan support recall | failed: server required", "server required");
 		if (!CanPlayerUseCommanderActions(playerId))
-			return BuildRejectedSupportRecallResult("commander_required", "h-istasi support recall | failed: commander required", "commander required");
+			return BuildRejectedSupportRecallResult("commander_required", "Partisan support recall | failed: commander required", "commander required");
 		if (!m_SupportRequests)
-			return BuildRejectedSupportRecallResult("service_unavailable", "h-istasi support recall | failed: support service not ready", "support service not ready");
+			return BuildRejectedSupportRecallResult("service_unavailable", "Partisan support recall | failed: support service not ready", "support service not ready");
 		if (!m_State || !m_Preset)
-			return BuildRejectedSupportRecallResult("context_unavailable", "h-istasi support recall | failed: campaign state or preset not ready", "campaign state or preset not ready");
+			return BuildRejectedSupportRecallResult("context_unavailable", "Partisan support recall | failed: campaign state or preset not ready", "campaign state or preset not ready");
 
 		HST_SupportRecallResult result = m_SupportRequests.RecallSupportRequestDetailed(m_State, m_Preset, m_Economy, m_PhysicalWar, requestId, true);
 		if (result && result.m_bStateChanged)
@@ -2945,7 +3042,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	string BuildCommanderRecallSupportReport(HST_SupportRecallResult result)
 	{
-		string report = "h-istasi support recall | failed: typed recall result missing";
+		string report = "Partisan support recall | failed: typed recall result missing";
 		if (result)
 			report = result.BuildSummary();
 		if (m_SupportRequests && m_State)
@@ -2973,23 +3070,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderAidNearestTownReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi civilian aid | failed: server required";
+			return "Partisan civilian aid | failed: server required";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi civilian aid | failed: commander required";
+			return "Partisan civilian aid | failed: commander required";
 		if (!m_Civilians)
-			return "h-istasi civilian aid | failed: civilian service not ready";
+			return "Partisan civilian aid | failed: civilian service not ready";
 
 		string targetZoneId = SelectHQCivilianTownZoneId();
 		if (targetZoneId.IsEmpty())
-			return "h-istasi civilian aid | failed: no nearby town target";
+			return "Partisan civilian aid | failed: no nearby town target";
 		if (m_State.m_iFactionMoney < 100)
-			return string.Format("h-istasi civilian aid | failed: need $100, have $%1", m_State.m_iFactionMoney);
+			return string.Format("Partisan civilian aid | failed: need $100, have $%1", m_State.m_iFactionMoney);
 
 		bool changed = RequestCommanderAidNearestTown(playerId);
 		if (!changed)
-			return "h-istasi civilian aid | failed: incident registration returned false for " + targetZoneId;
+			return "Partisan civilian aid | failed: incident registration returned false for " + targetZoneId;
 
-		return string.Format("h-istasi civilian aid | delivered to %1 | money %2", targetZoneId, m_State.m_iFactionMoney);
+		return string.Format("Partisan civilian aid | delivered to %1 | money %2", targetZoneId, m_State.m_iFactionMoney);
 	}
 	bool RequestCommanderMoveHQ(int playerId, string hideoutId)
 	{
@@ -3066,19 +3163,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string RequestCommanderRecruitGarrisonReport(int playerId, string zoneId, int infantryCount, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi recruitment | failed: server authority unavailable";
+			return "Partisan recruitment | failed: server authority unavailable";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi recruitment | failed: commander permission required";
+			return "Partisan recruitment | failed: commander permission required";
 
 		if (!m_Recruitment)
-			return "h-istasi recruitment | failed: recruitment service not ready";
+			return "Partisan recruitment | failed: recruitment service not ready";
 
 		HST_RecruitmentResult result = m_Recruitment.RecruitGarrisonDetailed(m_State, m_Preset, m_Balance, m_Economy, m_Garrisons, m_Arsenal, zoneId, infantryCount, vehicleCount, moneyCost, hrCost);
 		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
 
-		string summary = "h-istasi recruitment | failed: no result";
+		string summary = "Partisan recruitment | failed: no result";
 		if (result)
 			summary = result.BuildSummary();
 
@@ -3088,20 +3185,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string RequestCommanderRecruitGarrisonAtMapTargetReport(int playerId, string targetArgument, int infantryCount = 2, int vehicleCount = 0, int moneyCost = 100, int hrCost = 1)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi recruitment | failed: server authority unavailable";
+			return "Partisan recruitment | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi recruitment | failed: commander permission required";
+			return "Partisan recruitment | failed: commander permission required";
 		if (!PlayerHasMapInInventory(playerId))
-			return "h-istasi recruitment | failed: map required";
+			return "Partisan recruitment | failed: map required";
 
 		vector targetPosition;
 		string failureReason;
 		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
-			return "h-istasi recruitment | failed: " + failureReason;
+			return "Partisan recruitment | failed: " + failureReason;
 
 		HST_ZoneState zone = ResolveRecruitGarrisonMapTargetZone(targetPosition);
 		if (!zone)
-			return string.Format("h-istasi recruitment | failed: no eligible resistance garrison zone at selected map target %1", targetPosition);
+			return string.Format("Partisan recruitment | failed: no eligible resistance garrison zone at selected map target %1", targetPosition);
 
 		infantryCount = ResolveCommandMapTargetCountArgument(targetArgument, infantryCount);
 		string report = RequestCommanderRecruitGarrisonReport(playerId, zone.m_sZoneId, infantryCount, vehicleCount, moneyCost, hrCost);
@@ -3111,28 +3208,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderQuoteGarrisonAtMapTargetReport(int playerId, string targetArgument, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi force quote | failed: server authority unavailable";
+			return "Partisan force quote | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi force quote | failed: commander permission required";
+			return "Partisan force quote | failed: commander permission required";
 		if (!PlayerHasMapInInventory(playerId))
-			return "h-istasi force quote | failed: map required";
+			return "Partisan force quote | failed: map required";
 		if (!m_ForcePlanning)
-			return "h-istasi force quote | failed: planning service not ready";
+			return "Partisan force quote | failed: planning service not ready";
 
 		vector targetPosition;
 		string failureReason;
 		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
-			return "h-istasi force quote | failed: " + failureReason;
+			return "Partisan force quote | failed: " + failureReason;
 
 		HST_ZoneState zone = ResolveRecruitGarrisonMapTargetZone(targetPosition);
 		if (!zone)
-			return string.Format("h-istasi force quote | failed: no eligible resistance garrison zone at selected map target %1", targetPosition);
+			return string.Format("Partisan force quote | failed: no eligible resistance garrison zone at selected map target %1", targetPosition);
 
 		int infantryCount = ResolveCommandMapTargetCountArgument(targetArgument, 2);
 		string actorIdentityId = ResolveTrustedIdentityId(playerId);
 		HST_ForceQuoteResult result = m_ForcePlanning.IssueGarrisonQuote(m_State, m_Preset, actorIdentityId, zone.m_sZoneId, infantryCount, commandRequestId);
 		if (!result)
-			return "h-istasi force quote | failed: no result";
+			return "Partisan force quote | failed: no result";
 		if (result.m_bStateChanged)
 			MarkMajorCampaignChange();
 		if (!result.m_bSuccess || !result.m_Quote)
@@ -3145,16 +3242,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderConfirmGarrisonQuoteReport(int playerId, string quoteId, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi garrison confirmation | failed: server authority unavailable";
+			return "Partisan garrison confirmation | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi garrison confirmation | failed: commander permission required";
+			return "Partisan garrison confirmation | failed: commander permission required";
 		if (!m_ForcePlanning || !m_ResourceLedger || !m_Garrisons || !m_Economy)
-			return "h-istasi garrison confirmation | failed: authority services not ready";
+			return "Partisan garrison confirmation | failed: authority services not ready";
 
 		string actorIdentityId = ResolveTrustedIdentityId(playerId);
 		HST_ForceConfirmationResult result = m_ForcePlanning.ConfirmGarrisonQuote(m_State, m_Economy, m_Garrisons, m_ResourceLedger, actorIdentityId, quoteId, commandRequestId);
 		if (!result)
-			return "h-istasi garrison confirmation | failed: no result";
+			return "Partisan garrison confirmation | failed: no result";
 		if (result.m_bStateChanged)
 			MarkMajorCampaignChange();
 		return result.BuildSummary() + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
@@ -3163,17 +3260,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderCancelGarrisonQuoteReport(int playerId, string quoteId, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi force quote | failed: server authority unavailable";
+			return "Partisan force quote | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi force quote | failed: commander permission required";
+			return "Partisan force quote | failed: commander permission required";
 		if (!m_ForcePlanning)
-			return "h-istasi force quote | failed: planning service not ready";
+			return "Partisan force quote | failed: planning service not ready";
 
 		bool cancelled = m_ForcePlanning.CancelGarrisonQuote(m_State, ResolveTrustedIdentityId(playerId), quoteId, "cancelled by actor", commandRequestId);
 		if (!cancelled)
-			return "h-istasi force quote | failed: quote is not open or is not owned by this commander";
+			return "Partisan force quote | failed: quote is not open or is not owned by this commander";
 		MarkMajorCampaignChange();
-		return "h-istasi force quote | cancelled " + quoteId;
+		return "Partisan force quote | cancelled " + quoteId;
 	}
 
 	bool RequestCommanderTrainTroops(int playerId, int moneyCost = 250)
@@ -3187,19 +3284,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderTrainTroopsReport(int playerId, string requestId = "", int moneyCost = 250)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi training | failed: server authority unavailable";
+			return "Partisan training | failed: server authority unavailable";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi training | failed: commander permission required";
+			return "Partisan training | failed: commander permission required";
 
 		if (!m_Recruitment)
-			return "h-istasi training | failed: recruitment service not ready";
+			return "Partisan training | failed: recruitment service not ready";
 
 		HST_TrainingResult result = m_Recruitment.TrainTroopsDetailed(m_State, m_Economy, moneyCost, m_ResourceLedger, requestId, ResolveTrustedIdentityId(playerId));
 		if (result && result.m_bSuccess && !result.m_bAlreadyApplied)
 			MarkMajorCampaignChange();
 
-		string summary = "h-istasi training | failed: no result";
+		string summary = "Partisan training | failed: no result";
 		if (result)
 			summary = result.BuildSummary();
 
@@ -3209,20 +3306,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderRemoveGarrisonReport(int playerId, string zoneId, int infantryCount = 1, int vehicleCount = 0)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi garrison | failed: server authority unavailable";
+			return "Partisan garrison | failed: server authority unavailable";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi garrison | failed: commander permission required";
+			return "Partisan garrison | failed: commander permission required";
 
 		if (!m_State || !m_Preset || !m_Garrisons)
-			return "h-istasi garrison | failed: service not ready";
+			return "Partisan garrison | failed: service not ready";
 
 		HST_ZoneState zone = m_State.FindZone(zoneId);
 		if (!zone)
-			return "h-istasi garrison | failed: zone not found";
+			return "Partisan garrison | failed: zone not found";
 
 		if (zone.m_bActive || zone.m_iActiveInfantryCount > 0 || zone.m_iActiveVehicleCount > 0)
-			return string.Format("h-istasi garrison | failed: %1 is active; fold/deactivate the zone before removing abstract garrison units", ResolveZoneLabel(zone));
+			return string.Format("Partisan garrison | failed: %1 is active; fold/deactivate the zone before removing abstract garrison units", ResolveZoneLabel(zone));
 
 		string factionKey = m_Preset.m_sResistanceFactionKey;
 		if (factionKey.IsEmpty())
@@ -3230,19 +3327,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_GarrisonState garrison = m_State.FindGarrison(zoneId, factionKey);
 		if (!garrison)
-			return string.Format("h-istasi garrison | failed: no FIA garrison at %1", ResolveZoneLabel(zone));
+			return string.Format("Partisan garrison | failed: no FIA garrison at %1", ResolveZoneLabel(zone));
 
 		int beforeInfantry = garrison.m_iInfantryCount;
 		int beforeVehicles = garrison.m_iVehicleCount;
 
 		bool changed = m_Garrisons.RemoveAbstractForces(m_State, zoneId, factionKey, infantryCount, vehicleCount);
 		if (!changed)
-			return string.Format("h-istasi garrison | failed: no removable forces at %1", ResolveZoneLabel(zone));
+			return string.Format("Partisan garrison | failed: no removable forces at %1", ResolveZoneLabel(zone));
 
 		MarkMajorCampaignChange();
 
 		return string.Format(
-			"h-istasi garrison | removed from %1 | infantry %2 -> %3 | vehicles %4 -> %5",
+			"Partisan garrison | removed from %1 | infantry %2 -> %3 | vehicles %4 -> %5",
 			ResolveZoneLabel(zone),
 			beforeInfantry,
 			garrison.m_iInfantryCount,
@@ -3254,20 +3351,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderRemoveGarrisonAtMapTargetReport(int playerId, string targetArgument, int infantryCount = 1, int vehicleCount = 0)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi garrison | failed: server authority unavailable";
+			return "Partisan garrison | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi garrison | failed: commander permission required";
+			return "Partisan garrison | failed: commander permission required";
 		if (!PlayerHasMapInInventory(playerId))
-			return "h-istasi garrison | failed: map required";
+			return "Partisan garrison | failed: map required";
 
 		vector targetPosition;
 		string failureReason;
 		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
-			return "h-istasi garrison | failed: " + failureReason;
+			return "Partisan garrison | failed: " + failureReason;
 
 		HST_ZoneState zone = ResolveRemoveGarrisonMapTargetZone(targetPosition);
 		if (!zone)
-			return string.Format("h-istasi garrison | failed: no removable FIA garrison at selected map target %1", targetPosition);
+			return string.Format("Partisan garrison | failed: no removable FIA garrison at selected map target %1", targetPosition);
 
 		string report = RequestCommanderRemoveGarrisonReport(playerId, zone.m_sZoneId, infantryCount, vehicleCount);
 		return report + string.Format("\nmap target | selected %1 | zone %2", targetPosition, ResolveZoneLabel(zone));
@@ -3348,15 +3445,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderCallSupplyDropReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi support | failed: server required";
+			return "Partisan support | failed: server required";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi support | failed: commander permission required";
+			return "Partisan support | failed: commander permission required";
 
 		if (!m_SupportRequests)
-			return "h-istasi support | failed: service not ready";
+			return "Partisan support | failed: service not ready";
 		if (!m_State || !m_Preset)
-			return "h-istasi support | failed: campaign state or preset not ready";
+			return "Partisan support | failed: campaign state or preset not ready";
 
 		string targetZoneId = SelectHQSupportZoneId();
 		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
@@ -3393,26 +3490,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderCallPlayerSupportReport(int playerId, HST_ESupportRequestType supportType)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi support | failed: server required";
+			return "Partisan support | failed: server required";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi support | failed: commander permission required";
+			return "Partisan support | failed: commander permission required";
 
 		if (!m_SupportRequests)
-			return "h-istasi support | failed: service not ready";
+			return "Partisan support | failed: service not ready";
 		if (!m_State || !m_Preset)
-			return "h-istasi support | failed: campaign state or preset not ready";
+			return "Partisan support | failed: campaign state or preset not ready";
 		if (HST_OperationService.IsExactPlayerSupportType(supportType))
-			return "h-istasi exact support quote | failed: a map target is required before a quote can be issued";
+			return "Partisan exact support quote | failed: a map target is required before a quote can be issued";
 
 		if (IsAirSupportType(supportType))
 		{
 			if (!m_Balance.m_bAirSupportEnabled || !HasResistanceAirSupportCapability())
-				return "h-istasi support | failed: air support capability unavailable";
+				return "Partisan support | failed: air support capability unavailable";
 		}
 
 		if (supportType == HST_ESupportRequestType.HST_SUPPORT_ROADBLOCK)
-			return "h-istasi support | failed: roadblock support requires a map target and selected HQ garage vehicle";
+			return "Partisan support | failed: roadblock support requires a map target and selected HQ garage vehicle";
 
 		string targetZoneId = SelectPlayerSupportZoneId(playerId);
 		int cooldownSeconds = 0;
@@ -3448,9 +3545,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		bool debugAllowed = m_bCampaignDebugStateIsolationActive || adminDebugAuthorized;
 		if (!debugAllowed)
-			return "h-istasi campaign debug legacy support | failed: debug authority required";
+			return "Partisan campaign debug legacy support | failed: debug authority required";
 		if (!m_SupportRequests || !m_State || !m_Preset)
-			return "h-istasi campaign debug legacy support | failed: service, campaign state, or preset not ready";
+			return "Partisan campaign debug legacy support | failed: service, campaign state, or preset not ready";
 
 		HST_SupportRequestResult result = m_SupportRequests.RequestCampaignDebugLegacyPlayerSupportDetailed(
 			m_State,
@@ -3464,7 +3561,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			cooldownSeconds
 		);
 		if (!result)
-			return "h-istasi campaign debug legacy support | failed: no result";
+			return "Partisan campaign debug legacy support | failed: no result";
 		if (result.m_bSuccess)
 		{
 			ApplyCampaignDebugSupportRequestPrefix(result.m_Request, debugPrefix);
@@ -3472,7 +3569,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_SupportRequests.ConsumeMarkerRefreshNeeded();
 		}
 
-		string report = "h-istasi campaign debug legacy player support | lifecycle-only seed; not exact QRF authority proof\n" + result.BuildSummary();
+		string report = "Partisan campaign debug legacy player support | lifecycle-only seed; not exact QRF authority proof\n" + result.BuildSummary();
 		report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 		report = report + "\n" + m_SupportRequests.BuildSupportCooldownReport(m_State);
 		return report;
@@ -3491,35 +3588,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string RequestCommanderCallSupportAtMapTargetReport(int playerId, HST_ESupportRequestType supportType, string targetArgument, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi support | failed: server required";
+			return "Partisan support | failed: server required";
 
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi support | failed: commander permission required";
+			return "Partisan support | failed: commander permission required";
 
 		if (!PlayerHasMapInInventory(playerId))
-			return "h-istasi support | failed: map required";
+			return "Partisan support | failed: map required";
 
 		if (!m_SupportRequests)
-			return "h-istasi support | failed: service not ready";
+			return "Partisan support | failed: service not ready";
 		if (!m_State || !m_Preset)
-			return "h-istasi support | failed: campaign state or preset not ready";
+			return "Partisan support | failed: campaign state or preset not ready";
 		if (HST_OperationService.IsExactPlayerSupportType(supportType) && !m_ForcePlanning)
-			return "h-istasi exact support quote | failed: planning service not ready";
+			return "Partisan exact support quote | failed: planning service not ready";
 
 		if (IsAirSupportType(supportType))
 		{
 			if (!m_Balance.m_bAirSupportEnabled || !HasResistanceAirSupportCapability())
-				return "h-istasi support | failed: air support capability unavailable";
+				return "Partisan support | failed: air support capability unavailable";
 		}
 
 		vector targetPosition;
 		string failureReason;
 		if (!TryParseCommandMapTargetArgument(targetArgument, targetPosition, failureReason))
-			return "h-istasi support | failed: " + failureReason;
+			return "Partisan support | failed: " + failureReason;
 
 		HST_ZoneState targetZone = ResolveSupportMapTargetZone(targetPosition);
 		if (!targetZone)
-			return string.Format("h-istasi support | failed: no campaign location could back selected map target %1", targetPosition);
+			return string.Format("Partisan support | failed: no campaign location could back selected map target %1", targetPosition);
 
 		if (HST_OperationService.IsExactPlayerSupportType(supportType))
 		{
@@ -3533,7 +3630,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				commandRequestId
 			);
 			if (!quoteResult)
-				return "h-istasi exact support quote | failed: no result";
+				return "Partisan exact support quote | failed: no result";
 			if (quoteResult.m_bStateChanged)
 				MarkMajorCampaignChange(false);
 			if (!quoteResult.m_bSuccess || !quoteResult.m_Quote)
@@ -3552,9 +3649,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			string vehicleId = ResolveCommandMapTargetVehicleArgument(targetArgument);
 			if (vehicleId.IsEmpty())
-				return "h-istasi support | failed: roadblock vehicle selection missing";
+				return "Partisan support | failed: roadblock vehicle selection missing";
 			if (!m_State.FindGarageVehicle(vehicleId))
-				return "h-istasi support | failed: selected HQ garage vehicle is no longer stored";
+				return "Partisan support | failed: selected HQ garage vehicle is no longer stored";
 
 			result = m_SupportRequests.RequestRoadblockAtPositionDetailed(
 				m_State,
@@ -3601,11 +3698,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderConfirmPlayerSupportQuoteReport(int playerId, string quoteId, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi exact support confirmation | failed: server authority unavailable";
+			return "Partisan exact support confirmation | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi exact support confirmation | failed: commander permission required";
+			return "Partisan exact support confirmation | failed: commander permission required";
 		if (!m_State || !m_Preset || !m_ForcePlanning || !m_ResourceLedger || !m_SupportRequests || !m_Economy)
-			return "h-istasi exact support confirmation | failed: authority services not ready";
+			return "Partisan exact support confirmation | failed: authority services not ready";
 
 		HST_ForceConfirmationResult result = m_ForcePlanning.ConfirmPlayerSupportQuote(
 			m_State,
@@ -3618,7 +3715,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			commandRequestId
 		);
 		if (!result)
-			return "h-istasi exact support confirmation | failed: no result";
+			return "Partisan exact support confirmation | failed: no result";
 		if (result.m_bStateChanged)
 		{
 			MarkMajorCampaignChange(true);
@@ -3631,11 +3728,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestCommanderCancelPlayerSupportQuoteReport(int playerId, string quoteId, string commandRequestId = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi exact support quote | failed: server authority unavailable";
+			return "Partisan exact support quote | failed: server authority unavailable";
 		if (!CanPlayerUseCommanderActions(playerId))
-			return "h-istasi exact support quote | failed: commander permission required";
+			return "Partisan exact support quote | failed: commander permission required";
 		if (!m_State || !m_ForcePlanning || !m_ResourceLedger || !m_SupportRequests || !m_Economy)
-			return "h-istasi exact support quote | failed: authority services not ready";
+			return "Partisan exact support quote | failed: authority services not ready";
 
 		bool cancelled = m_ForcePlanning.CancelPlayerSupportQuote(
 			m_State,
@@ -3648,10 +3745,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			commandRequestId
 		);
 		if (!cancelled)
-			return "h-istasi exact support quote | failed: quote is not open or is not owned by this commander";
+			return "Partisan exact support quote | failed: quote is not open or is not owned by this commander";
 
 		MarkMajorCampaignChange(false);
-		return "h-istasi exact support quote | cancelled " + quoteId;
+		return "Partisan exact support quote | cancelled " + quoteId;
 	}
 
 	bool RequestCommanderCallPlayerSupport(int playerId, HST_ESupportRequestType supportType)
@@ -3743,30 +3840,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberManualCheckpointReport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi checkpoint | not available | server required";
+			return "Partisan checkpoint | not available | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi checkpoint | not available | membership required";
+			return "Partisan checkpoint | not available | membership required";
 		if (!m_Persistence)
-			return "h-istasi checkpoint | not available | persistence service not ready";
+			return "Partisan checkpoint | not available | persistence service not ready";
 		if (!m_State)
-			return "h-istasi checkpoint | not available | campaign state not ready";
+			return "Partisan checkpoint | not available | campaign state not ready";
 
 		bool success = RequestManualCheckpoint();
 		if (success)
-			return "h-istasi checkpoint | success | " + m_State.m_sLastPersistenceStatus;
+			return "Partisan checkpoint | success | " + m_State.m_sLastPersistenceStatus;
 
 		string reason = m_State.m_sLastPersistenceStatus;
 		if (reason.IsEmpty())
 			reason = "checkpoint request returned false";
-		return "h-istasi checkpoint | not available | " + reason;
+		return "Partisan checkpoint | not available | " + reason;
 	}
 
 	string RequestMemberFoundationStatus(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi foundation | server required";
+			return "Partisan foundation | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi foundation | membership required";
+			return "Partisan foundation | membership required";
 
 		return BuildFoundationStatusReport();
 	}
@@ -3790,11 +3887,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectCapture(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi capture | server required";
+			return "Partisan capture | server required";
 		if (!CanPlayerUseMemberActions(playerId) && !CanPlayerUseAdminActions(playerId))
-			return "h-istasi capture | membership required";
+			return "Partisan capture | membership required";
 		if (!m_ZoneCapture)
-			return "h-istasi capture | service not ready";
+			return "Partisan capture | service not ready";
 
 		return m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance, m_MapMarkers);
 	}
@@ -3802,11 +3899,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectCampaignEnd(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi campaign end | server required";
+			return "Partisan campaign end | server required";
 		if (!CanPlayerUseMemberActions(playerId) && !CanPlayerUseAdminActions(playerId))
-			return "h-istasi campaign end | membership required";
+			return "Partisan campaign end | membership required";
 		if (!m_Strategic)
-			return "h-istasi campaign end | strategic service not ready";
+			return "Partisan campaign end | strategic service not ready";
 
 		return m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
 	}
@@ -3814,9 +3911,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectBalancePacing(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi balance | server required";
+			return "Partisan balance | server required";
 		if (!CanPlayerUseMemberActions(playerId) && !CanPlayerUseAdminActions(playerId))
-			return "h-istasi balance | membership required";
+			return "Partisan balance | membership required";
 
 		string report = m_Economy.BuildPacingReport(m_State, m_Balance, m_Preset);
 		if (m_Towns)
@@ -3843,11 +3940,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectRecruitment(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi recruitment | server required";
+			return "Partisan recruitment | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi recruitment | membership required";
+			return "Partisan recruitment | membership required";
 		if (!m_Recruitment)
-			return "h-istasi recruitment | service not ready";
+			return "Partisan recruitment | service not ready";
 
 		return m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
@@ -3871,11 +3968,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectActiveMissions(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission runtime | server required";
+			return "Partisan mission runtime | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi mission runtime | membership required";
+			return "Partisan mission runtime | membership required";
 		if (!m_MissionRuntime)
-			return "h-istasi mission runtime | service not ready";
+			return "Partisan mission runtime | service not ready";
 
 		string report = m_MissionRuntime.BuildRuntimeReport(m_State);
 		if (m_PhysicalWar)
@@ -3886,22 +3983,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectMissionSummary(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi missions | server required";
+			return "Partisan missions | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi missions | membership required";
+			return "Partisan missions | membership required";
 		if (!m_CommandUI)
-			return "h-istasi missions | UI service not ready";
+			return "Partisan missions | UI service not ready";
 
 		return m_CommandUI.BuildActiveMissionSummaryReport(m_State);
 	}
 	string RequestMemberInspectMission(int playerId, string instanceId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission runtime | server required";
+			return "Partisan mission runtime | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi mission runtime | membership required";
+			return "Partisan mission runtime | membership required";
 		if (!m_MissionRuntime)
-			return "h-istasi mission runtime | service not ready";
+			return "Partisan mission runtime | service not ready";
 
 		return m_MissionRuntime.BuildRuntimeReportForMission(m_State, instanceId);
 	}
@@ -3909,11 +4006,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectConvoyRuntime(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi convoy runtime | server required";
+			return "Partisan convoy runtime | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi convoy runtime | membership required";
+			return "Partisan convoy runtime | membership required";
 		if (!m_PhysicalWar)
-			return "h-istasi convoy runtime | service not ready";
+			return "Partisan convoy runtime | service not ready";
 
 		return m_PhysicalWar.BuildConvoyRuntimeReport(m_State);
 	}
@@ -3971,11 +4068,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectHQThreat(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi HQ threat | server required";
+			return "Partisan HQ threat | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi HQ threat | membership required";
+			return "Partisan HQ threat | membership required";
 
-		string report = "h-istasi phase 22 | HQ threat";
+		string report = "Partisan phase 22 | HQ threat";
 		if (m_HQ)
 			report = report + "\n" + m_HQ.BuildHQThreatReport(m_State);
 		if (m_EnemyCommander)
@@ -3996,11 +4093,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectTownSupport(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi town support | server required";
+			return "Partisan town support | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi town support | membership required";
+			return "Partisan town support | membership required";
 		if (!m_Civilians)
-			return "h-istasi town support | service not ready";
+			return "Partisan town support | service not ready";
 
 		return m_Civilians.BuildTownSupportReport(m_State);
 	}
@@ -4016,16 +4113,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberInspectUndercoverEligibility(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi undercover eligibility | server required";
+			return "Partisan undercover eligibility | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi undercover eligibility | membership required";
+			return "Partisan undercover eligibility | membership required";
 		if (!m_Civilians)
-			return "h-istasi undercover eligibility | service not ready";
+			return "Partisan undercover eligibility | service not ready";
 
 		HST_UndercoverEligibilityResult result = m_Civilians.BuildUndercoverEligibility(m_State, ResolveTrustedIdentityId(playerId), ResolveControlledPlayerEntity(playerId));
 		MarkMajorCampaignChange(false);
 		if (!result)
-			return "h-istasi undercover eligibility | failed: no result";
+			return "Partisan undercover eligibility | failed: no result";
 
 		return result.BuildReport();
 	}
@@ -4033,11 +4130,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberRunUndercoverCheck(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi undercover enforcement | server required";
+			return "Partisan undercover enforcement | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi undercover enforcement | membership required";
+			return "Partisan undercover enforcement | membership required";
 		if (!m_Civilians)
-			return "h-istasi undercover enforcement | service not ready";
+			return "Partisan undercover enforcement | service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
 		HST_UndercoverEnforcementResult result = m_Civilians.EnforceUndercoverForPlayer(m_State, m_Preset, identityId, ResolveControlledPlayerEntity(playerId));
@@ -4045,18 +4142,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange();
 
 		if (!result)
-			return "h-istasi undercover enforcement | failed: no result";
+			return "Partisan undercover enforcement | failed: no result";
 
 		return result.BuildReport() + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
 	string RequestMemberRequestUndercover(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi undercover | server required";
+			return "Partisan undercover | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi undercover | membership required";
+			return "Partisan undercover | membership required";
 		if (!m_Civilians)
-			return "h-istasi undercover | service not ready";
+			return "Partisan undercover | service not ready";
 
 		string result = m_Civilians.RequestUndercover(m_State, ResolveTrustedIdentityId(playerId), ResolveControlledPlayerEntity(playerId));
 		if (!result.Contains("failed"))
@@ -4068,11 +4165,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberClearUndercover(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi undercover | server required";
+			return "Partisan undercover | server required";
 		if (!CanPlayerUseMemberActions(playerId))
-			return "h-istasi undercover | membership required";
+			return "Partisan undercover | membership required";
 		if (!m_Civilians)
-			return "h-istasi undercover | service not ready";
+			return "Partisan undercover | service not ready";
 
 		string result = m_Civilians.ClearUndercoverCompromise(m_State, ResolveTrustedIdentityId(playerId));
 		if (!result.Contains("failed"))
@@ -4108,19 +4205,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_LoadoutEditor)
 			return "";
 
-		return "h-istasi loadout editor | " + m_LoadoutEditor.BuildEditorReport(m_State, ResolveTrustedIdentityId(playerId));
+		return "Partisan loadout editor | " + m_LoadoutEditor.BuildEditorReport(m_State, ResolveTrustedIdentityId(playerId));
 	}
 
 	string RequestMemberOpenLoadoutEditor(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.OpenEditor(m_State, ResolveTrustedIdentityId(playerId), playerId);
 		MarkMajorCampaignChange(false);
@@ -4130,10 +4227,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberCloseLoadoutEditor(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		return m_LoadoutEditor.CloseEditor(m_State, ResolveTrustedIdentityId(playerId));
 	}
@@ -4141,13 +4238,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberSaveLoadoutDraft(int playerId, string loadoutName = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.SaveCurrentDraft(m_State, ResolveTrustedIdentityId(playerId), loadoutName, playerId);
 		if (!result.Contains("failed"))
@@ -4158,13 +4255,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberApplySavedLoadout(int playerId, string loadoutId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.ApplySavedLoadout(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, loadoutId);
 		if (result.Contains("applied"))
@@ -4175,13 +4272,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberRenameSavedLoadout(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.RenameSavedLoadout(m_State, ResolveTrustedIdentityId(playerId), argument);
 		if (!result.Contains("failed"))
@@ -4192,13 +4289,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberAddLoadoutDraftItem(int playerId, string itemPrefab)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.AddDraftItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, itemPrefab);
 		if (!result.Contains("failed"))
@@ -4209,13 +4306,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberRemoveLoadoutDraftSlot(int playerId, string slotId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.RemoveDraftSlot(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, slotId);
 		if (!result.Contains("failed"))
@@ -4226,13 +4323,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberSetLoadoutDraftSlotQuantity(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.SetDraftSlotQuantity(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, argument);
 		if (!result.Contains("failed"))
@@ -4243,13 +4340,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberReplaceLoadoutDraftSlotItem(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.ReplaceDraftSlotItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, argument);
 		if (!result.Contains("failed"))
@@ -4260,13 +4357,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberSetLoadoutNodeItem(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.SetNodeItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, argument);
 		if (!result.Contains("failed"))
@@ -4277,13 +4374,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberRemoveLoadoutNodeItem(int playerId, string nodeId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.RemoveNodeItem(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId, nodeId);
 		if (!result.Contains("failed"))
@@ -4294,13 +4391,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberClearLoadoutDraft(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor || !m_Arsenal)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.ClearDraft(m_State, m_Arsenal, ResolveTrustedIdentityId(playerId), playerId);
 		if (!result.Contains("failed"))
@@ -4311,13 +4408,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberSelectSavedLoadout(int playerId, string loadoutId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		return m_LoadoutEditor.SelectSavedLoadout(m_State, ResolveTrustedIdentityId(playerId), loadoutId);
 	}
@@ -4325,13 +4422,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberDeleteSavedLoadout(int playerId, string loadoutId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loadout editor | membership required";
+			return "Partisan loadout editor | membership required";
 
 		if (!m_LoadoutEditor)
-			return "h-istasi loadout editor | service not ready";
+			return "Partisan loadout editor | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loadout editor");
+			return BuildHQInteractionDenied("Partisan loadout editor");
 
 		string result = m_LoadoutEditor.DeleteSavedLoadout(m_State, ResolveTrustedIdentityId(playerId), loadoutId);
 		if (!result.Contains("failed"))
@@ -4354,10 +4451,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberMissionInteraction(int playerId, string commandId, string argument = "", string requestId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi mission | membership required";
+			return "Partisan mission | membership required";
 
 		if (!m_MissionRuntime)
-			return "h-istasi mission | service not ready";
+			return "Partisan mission | service not ready";
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 		string result;
@@ -4424,7 +4521,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		out string missionInstanceId)
 	{
 		handled = false;
-		result = "h-istasi mission | no change";
+		result = "Partisan mission | no change";
 		eventType = "";
 		missionInstanceId = "";
 		if (!m_State || assetId.IsEmpty())
@@ -4440,24 +4537,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!HST_RescuePOWOperationService.IsExactMission(mission)
 			|| captive.m_iRescueContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
 		{
-			result = "h-istasi mission | failed: exact rescue authority is quarantined";
+			result = "Partisan mission | failed: exact rescue authority is quarantined";
 			return false;
 		}
 		if (commandId != "mission_captive_extract" && commandId != "mission_captive_follow"
 			&& commandId != "mission_captive_board")
 		{
-			result = "h-istasi mission | failed: unsupported exact rescue command";
+			result = "Partisan mission | failed: unsupported exact rescue command";
 			return false;
 		}
 		string actorIdentityId = ResolveTrustedIdentityId(playerId);
 		if (actorIdentityId.IsEmpty() || requestId.IsEmpty())
 		{
-			result = "h-istasi mission | failed: stable actor or command request identity is unavailable";
+			result = "Partisan mission | failed: stable actor or command request identity is unavailable";
 			return false;
 		}
 		if (!m_RescuePOWOperations)
 		{
-			result = "h-istasi mission | failed: exact rescue transition authority is unavailable";
+			result = "Partisan mission | failed: exact rescue transition authority is unavailable";
 			return false;
 		}
 		HST_RescuePOWTransitionResult durableReplay;
@@ -4470,11 +4567,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			durableReplay))
 		{
 			if (durableReplay && durableReplay.m_bSuccess)
-				result = "h-istasi mission | POW transition " + durableReplay.m_sResult;
+				result = "Partisan mission | POW transition " + durableReplay.m_sResult;
 			else if (durableReplay)
-				result = "h-istasi mission | failed: " + durableReplay.m_sFailureReason;
+				result = "Partisan mission | failed: " + durableReplay.m_sFailureReason;
 			else
-				result = "h-istasi mission | failed: exact rescue durable replay returned no result";
+				result = "Partisan mission | failed: exact rescue durable replay returned no result";
 			return false;
 		}
 		if (captive.m_sRescueLastCommandRequestId == requestId)
@@ -4487,27 +4584,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				actorIdentityId,
 				requestId);
 			if (replay && replay.m_bSuccess)
-				result = "h-istasi mission | POW transition " + replay.m_sResult;
+				result = "Partisan mission | POW transition " + replay.m_sResult;
 			else if (replay)
-				result = "h-istasi mission | failed: " + replay.m_sFailureReason;
+				result = "Partisan mission | failed: " + replay.m_sFailureReason;
 			else
-				result = "h-istasi mission | failed: exact rescue replay returned no result";
+				result = "Partisan mission | failed: exact rescue replay returned no result";
 			return false;
 		}
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 		{
-			result = "h-istasi mission | failed: rescue mission is no longer active";
+			result = "Partisan mission | failed: rescue mission is no longer active";
 			return false;
 		}
 		if (!playerEntity)
 		{
-			result = "h-istasi mission | failed: no controlled player entity";
+			result = "Partisan mission | failed: no controlled player entity";
 			return false;
 		}
 		SCR_DamageManagerComponent playerDamage = SCR_DamageManagerComponent.Cast(playerEntity.FindComponent(SCR_DamageManagerComponent));
 		if (playerDamage && playerDamage.GetState() == EDamageState.DESTROYED)
 		{
-			result = "h-istasi mission | failed: player is not alive";
+			result = "Partisan mission | failed: player is not alive";
 			return false;
 		}
 		if (m_MissionRuntime)
@@ -4519,14 +4616,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MissionRuntime.TryResolveExactRescueCaptiveInteractionEvidence(
 			m_State, mission, captive, validationPosition, interactionEvidence))
 		{
-			result = "h-istasi mission | failed: live POW interaction evidence is unavailable";
+			result = "Partisan mission | failed: live POW interaction evidence is unavailable";
 			return false;
 		}
 		captive.m_vCurrentPosition = validationPosition;
 		captive.m_vLastKnownPosition = validationPosition;
 		if (DistanceSq2D(playerPosition, validationPosition) > interactionRadius * interactionRadius)
 		{
-			result = string.Format("h-istasi mission | failed: move within %1m of POW %2", Math.Round(interactionRadius), captive.m_iRescueOrdinal + 1);
+			result = string.Format("Partisan mission | failed: move within %1m of POW %2", Math.Round(interactionRadius), captive.m_iRescueOrdinal + 1);
 			return false;
 		}
 		bool extractAttempt = commandId == "mission_captive_extract"
@@ -4540,7 +4637,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| DistanceSq2D(m_State.m_vHQPosition, mission.m_vRescueExtractionPosition) > 1.0
 				|| DistanceSq2D(playerPosition, extractionPosition) > interactionRadius * interactionRadius)
 			{
-				result = "h-istasi mission | failed: bring the POW to the HQ extraction point";
+				result = "Partisan mission | failed: bring the POW to the HQ extraction point";
 				return false;
 			}
 		}
@@ -4553,15 +4650,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			requestId);
 		if (!transition)
 		{
-			result = "h-istasi mission | failed: exact rescue transition returned no result";
+			result = "Partisan mission | failed: exact rescue transition returned no result";
 			return false;
 		}
 		if (!transition.m_bSuccess)
 		{
-			result = "h-istasi mission | failed: " + transition.m_sFailureReason;
+			result = "Partisan mission | failed: " + transition.m_sFailureReason;
 			return transition.m_bStateChanged;
 		}
-		result = "h-istasi mission | POW transition " + transition.m_sResult;
+		result = "Partisan mission | POW transition " + transition.m_sResult;
 		if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FREED)
 			eventType = "rescue_captive_freed";
 		else if (captive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_FOLLOWING)
@@ -4577,13 +4674,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberOpenGunShopReport(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi gun shop | membership required";
+			return "Partisan gun shop | membership required";
 
 		HST_ActiveMissionState mission = ResolveGunShopMissionFromArgument(argument);
 		if (!IsGunShopMissionOpen(mission))
-			return "h-istasi gun shop | failed: no open gun shop nearby";
+			return "Partisan gun shop | failed: no open gun shop nearby";
 		if (!IsPlayerNearGunShopSeller(playerId, mission))
-			return "h-istasi gun shop | failed: stand near the gun shop civilian";
+			return "Partisan gun shop | failed: stand near the gun shop civilian";
 
 		return BuildGunShopOpenReport(mission);
 	}
@@ -4591,25 +4688,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberBuyGunShopItemReport(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi gun shop | membership required";
+			return "Partisan gun shop | membership required";
 		if (!m_State || !m_Economy)
-			return "h-istasi gun shop | failed: service not ready";
+			return "Partisan gun shop | failed: service not ready";
 
 		HST_ActiveMissionState mission;
 		HST_GunShopItemState item;
 		string parseFailure;
 		if (!TryResolveGunShopItemArgument(argument, mission, item, parseFailure))
-			return "h-istasi gun shop | failed: " + parseFailure;
+			return "Partisan gun shop | failed: " + parseFailure;
 		if (!IsGunShopMissionOpen(mission))
-			return "h-istasi gun shop | failed: shop is not open";
+			return "Partisan gun shop | failed: shop is not open";
 		if (!IsPlayerNearGunShopSeller(playerId, mission))
-			return "h-istasi gun shop | failed: stand near the gun shop civilian";
+			return "Partisan gun shop | failed: stand near the gun shop civilian";
 		if (item.m_iAvailableCount <= 0)
-			return "h-istasi gun shop | failed: item is sold out";
+			return "Partisan gun shop | failed: item is sold out";
 		if (m_State.m_iFactionMoney < item.m_iBuyCost)
-			return string.Format("h-istasi gun shop | failed: need $%1", item.m_iBuyCost);
+			return string.Format("Partisan gun shop | failed: need $%1", item.m_iBuyCost);
 		if (!m_Economy.SpendFactionMoney(m_State, item.m_iBuyCost))
-			return string.Format("h-istasi gun shop | failed: need $%1", item.m_iBuyCost);
+			return string.Format("Partisan gun shop | failed: need $%1", item.m_iBuyCost);
 
 		item.m_iAvailableCount--;
 		item.m_iPurchasedCount++;
@@ -4625,27 +4722,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		BroadcastNotification("gun_shop_purchase_" + mission.m_sInstanceId + "_" + item.m_sItemId + "_" + m_State.m_iElapsedSeconds, "mission", "success", "Gun Shop", "Your purchases will arrive at your HQ after the Gun Shop expires.", mission.m_sTargetZoneId, mission.m_sInstanceId, ResolveGunShopSellerPosition(mission), 6.0);
 		MarkMajorCampaignChange();
-		return string.Format("h-istasi gun shop | purchased %1 for $%2 | reserved %3 item(s)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iBuyCost, mission.m_iGunShopPurchasedTotal);
+		return string.Format("Partisan gun shop | purchased %1 for $%2 | reserved %3 item(s)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iBuyCost, mission.m_iGunShopPurchasedTotal);
 	}
 
 	string RequestMemberSellGunShopItemReport(int playerId, string argument)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi gun shop | membership required";
+			return "Partisan gun shop | membership required";
 		if (!m_State || !m_Economy)
-			return "h-istasi gun shop | failed: service not ready";
+			return "Partisan gun shop | failed: service not ready";
 
 		HST_ActiveMissionState mission;
 		HST_GunShopItemState item;
 		string parseFailure;
 		if (!TryResolveGunShopItemArgument(argument, mission, item, parseFailure))
-			return "h-istasi gun shop | failed: " + parseFailure;
+			return "Partisan gun shop | failed: " + parseFailure;
 		if (!IsGunShopMissionOpen(mission))
-			return "h-istasi gun shop | failed: shop is not open";
+			return "Partisan gun shop | failed: shop is not open";
 		if (!IsPlayerNearGunShopSeller(playerId, mission))
-			return "h-istasi gun shop | failed: stand near the gun shop civilian";
+			return "Partisan gun shop | failed: stand near the gun shop civilian";
 		if (!item.m_bCanSell || item.m_iPurchasedCount <= 0)
-			return "h-istasi gun shop | failed: no reserved purchase to sell back";
+			return "Partisan gun shop | failed: no reserved purchase to sell back";
 
 		item.m_iPurchasedCount--;
 		item.m_iAvailableCount++;
@@ -4655,7 +4752,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			mission.m_bGunShopPurchaseMade = false;
 
 		MarkMajorCampaignChange();
-		return string.Format("h-istasi gun shop | sold back %1 for $%2 | reserved %3 item(s)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iSellCost, mission.m_iGunShopPurchasedTotal);
+		return string.Format("Partisan gun shop | sold back %1 for $%2 | reserved %3 item(s)", HST_DisplayNameService.ResolveShortItemDisplayName(item.m_sDisplayName, item.m_sPrefab), item.m_iSellCost, mission.m_iGunShopPurchasedTotal);
 	}
 
 	protected bool TryResolveGunShopItemArgument(string argument, out HST_ActiveMissionState mission, out HST_GunShopItemState item, out string failureReason)
@@ -4827,9 +4924,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string BuildGunShopOpenReport(HST_ActiveMissionState mission)
 	{
 		if (!mission)
-			return "h-istasi gun shop | unavailable";
+			return "Partisan gun shop | unavailable";
 
-		string report = string.Format("h-istasi gun shop | %1 | %2s remaining | reserved %3 item(s)", mission.m_sDisplayName, Math.Max(0, mission.m_iRemainingSeconds), CountGunShopPurchasedItems(mission));
+		string report = string.Format("Partisan gun shop | %1 | %2s remaining | reserved %3 item(s)", mission.m_sDisplayName, Math.Max(0, mission.m_iRemainingSeconds), CountGunShopPurchasedItems(mission));
 		int emitted;
 		foreach (HST_GunShopItemState item : mission.m_aGunShopItems)
 		{
@@ -4846,10 +4943,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestServerMissionAssetDestroyed(string assetId, vector position)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | server required";
+			return "Partisan mission | server required";
 
 		if (!m_MissionRuntime)
-			return "h-istasi mission | service not ready";
+			return "Partisan mission | service not ready";
 
 		HST_MissionAssetState exactRescueCaptive = m_State.FindMissionAsset(assetId);
 		HST_ActiveMissionState exactRescueMission;
@@ -4859,15 +4956,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!HST_RescuePOWOperationService.IsExactMission(exactRescueMission)
 				|| exactRescueCaptive.m_iRescueContractVersion != HST_RescuePOWOperationService.EXACT_CONTRACT_VERSION)
-				return "h-istasi mission | failed: exact rescue casualty authority is quarantined";
+				return "Partisan mission | failed: exact rescue casualty authority is quarantined";
 			if (exactRescueCaptive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_EXTRACTED)
-				return "h-istasi mission | ignored stale casualty evidence for extracted POW";
+				return "Partisan mission | ignored stale casualty evidence for extracted POW";
 			if (exactRescueCaptive.m_eRescueDisposition == HST_ERescueCaptiveDisposition.HST_RESCUE_CAPTIVE_DISPOSITION_KILLED
 				&& exactRescueCaptive.m_bRescueDeathObserved
 				&& !exactRescueCaptive.m_sRescueCasualtyReceiptId.IsEmpty())
-				return "h-istasi mission | POW casualty already recorded";
+				return "Partisan mission | POW casualty already recorded";
 			if (exactRescueMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
-				return "h-istasi mission | ignored stale POW casualty evidence after mission settlement";
+				return "Partisan mission | ignored stale POW casualty evidence after mission settlement";
 			if (!IsZeroVector(position))
 			{
 				exactRescueCaptive.m_vCurrentPosition = position;
@@ -4878,7 +4975,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				exactRescueMission,
 				exactRescueCaptive,
 				"authoritative runtime damage state"))
-				return "h-istasi mission | failed: exact rescue casualty receipt was not accepted";
+				return "Partisan mission | failed: exact rescue casualty receipt was not accepted";
 			m_MissionRuntime.FoldExactRescueCaptiveProjection(
 				m_State,
 				exactRescueMission,
@@ -4893,7 +4990,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_Missions.FindDefinition(exactRescueMission.m_sMissionId));
 			BroadcastPendingMissionOutcomeEvents();
 			MarkMajorCampaignChange();
-			return "h-istasi mission | exact rescue POW casualty recorded";
+			return "Partisan mission | exact rescue POW casualty recorded";
 		}
 
 		HST_MissionAssetState exactRadioAsset = m_State.FindMissionAsset(assetId);
@@ -4904,7 +5001,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(exactRadioAsset))
 		{
 			if (!m_RadioSites || !HST_RadioSiteLifecycleService.IsExactMission(exactRadioMission))
-				return "h-istasi radio site | exact destruction authority is quarantined";
+				return "Partisan radio site | exact destruction authority is quarantined";
 			string radioResult;
 			string radioMissionInstanceId;
 			bool radioChanged = m_RadioSites.HandleAssetDestroyed(
@@ -4957,10 +5054,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestServerMissionAssetExplosiveDamage(string assetId, vector position, float damage, string sourceLabel)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi mission | server required";
+			return "Partisan mission | server required";
 
 		if (!m_MissionRuntime)
-			return "h-istasi mission | service not ready";
+			return "Partisan mission | service not ready";
 
 		HST_MissionAssetState exactRadioAsset = m_State.FindMissionAsset(assetId);
 		HST_ActiveMissionState exactRadioMission;
@@ -4970,7 +5067,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(exactRadioAsset))
 		{
 			if (!m_RadioSites || !HST_RadioSiteLifecycleService.IsExactMission(exactRadioMission))
-				return "h-istasi radio site | exact demolition authority is quarantined";
+				return "Partisan radio site | exact demolition authority is quarantined";
 			string radioResult;
 			string radioMissionInstanceId;
 			bool radioChanged = m_RadioSites.ApplyExplosiveDamage(
@@ -5025,23 +5122,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberLootNearby(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi loot | membership required";
+			return "Partisan loot | membership required";
 
 		if (!m_Settings || !m_Settings.m_Features.m_bAreaLootEnabled)
-			return "h-istasi loot | area loot disabled by config";
+			return "Partisan loot | area loot disabled by config";
 
 		if (!m_Loot || !m_Arsenal)
-			return "h-istasi loot | service not ready";
+			return "Partisan loot | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi loot");
+			return BuildHQInteractionDenied("Partisan loot");
 
 		HST_LootResult result = m_Loot.LootNearbyToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId);
 		if (result && result.m_iItemsDeposited > 0)
 			MarkMajorCampaignChange();
 
 		if (!result)
-			return "h-istasi loot | no result";
+			return "Partisan loot | no result";
 
 		return result.BuildSummary();
 	}
@@ -5049,13 +5146,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberWithdrawBestArsenalItem(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi arsenal | membership required";
+			return "Partisan arsenal | membership required";
 
 		if (!m_Arsenal)
-			return "h-istasi arsenal | service not ready";
+			return "Partisan arsenal | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi arsenal");
+			return BuildHQInteractionDenied("Partisan arsenal");
 
 		string result = m_Arsenal.WithdrawBestAvailableItem(m_State);
 		if (!result.IsEmpty())
@@ -5066,13 +5163,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberCaptureNearbyVehicle(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi garage | failed: membership required";
+			return "Partisan garage | failed: membership required";
 
 		if (!m_Loot || !m_Arsenal)
-			return "h-istasi garage | failed: service not ready";
+			return "Partisan garage | failed: service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi garage | failed");
+			return BuildHQInteractionDenied("Partisan garage | failed");
 
 		string result = m_Loot.CaptureNearbyVehicleToGarage(m_State, m_Preset, m_Arsenal, playerId);
 		if (result.Contains("complete"))
@@ -5084,20 +5181,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberCollectVehicleLoot(int playerId, string vehicleRuntimeId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi vehicle loot | membership required";
+			return "Partisan vehicle loot | membership required";
 
 		if (!m_Settings || !m_Settings.m_Features.m_bAreaLootEnabled)
-			return "h-istasi vehicle loot | area loot disabled by config";
+			return "Partisan vehicle loot | area loot disabled by config";
 
 		if (!m_Loot || !m_Arsenal)
-			return "h-istasi vehicle loot | service not ready";
+			return "Partisan vehicle loot | service not ready";
 
 		HST_LootResult result = m_Loot.CollectNearbyLootToVehicle(m_State, m_Preset, m_Balance, m_Arsenal, playerId, vehicleRuntimeId);
 		if (result && result.m_iItemsDeposited > 0)
 			MarkMajorCampaignChange();
 
 		if (!result)
-			return "h-istasi vehicle loot | no result";
+			return "Partisan vehicle loot | no result";
 
 		BroadcastNotification("vehicle_loot_" + playerId + "_" + m_State.m_iElapsedSeconds, "vehicle", ResolveResultSeverity(result.BuildSummary()), "Vehicle Loot", result.BuildSummary(), "", "", "0 0 0", 5.0);
 		return result.BuildSummary();
@@ -5106,13 +5203,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberUnloadVehicleCargo(int playerId, string vehicleRuntimeId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi vehicle loot | membership required";
+			return "Partisan vehicle loot | membership required";
 
 		if (!m_Loot || !m_Arsenal)
-			return "h-istasi vehicle loot | service not ready";
+			return "Partisan vehicle loot | service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi vehicle loot");
+			return BuildHQInteractionDenied("Partisan vehicle loot");
 
 		string result = m_Loot.UnloadNearestVehicleCargoToArsenal(m_State, m_Preset, m_Balance, m_Arsenal, playerId, vehicleRuntimeId);
 		if (!result.Contains("no stored cargo") && !result.Contains("no eligible vehicle") && !result.Contains("no living player"))
@@ -5142,21 +5239,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestMemberRedeployGarageVehicle(int playerId, string vehicleId = "")
 	{
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId))
-			return "h-istasi garage | failed: membership required";
+			return "Partisan garage | failed: membership required";
 
 		if (!m_Arsenal || !m_BuildMode || !m_PersistentFieldVehicles)
-			return "h-istasi garage | failed: service not ready";
+			return "Partisan garage | failed: service not ready";
 
 		if (!IsPlayerWithinHQInteractionRadius(playerId))
-			return BuildHQInteractionDenied("h-istasi garage | failed");
+			return BuildHQInteractionDenied("Partisan garage | failed");
 
 		HST_GarageVehicleState vehicle = SelectGarageVehicleForBuildMode(vehicleId);
 		if (!vehicle)
-			return "h-istasi garage | failed: selected vehicle not found";
+			return "Partisan garage | failed: selected vehicle not found";
 
 		HST_BuildModePlacement placement = m_BuildMode.ResolveGarageRedeployPlacement(m_State, playerId, vehicle);
 		if (!placement || !placement.m_bValid)
-			return string.Format("h-istasi garage | failed: build placement denied | %1", m_State.m_sLastBuildModeFailure);
+			return string.Format("Partisan garage | failed: build placement denied | %1", m_State.m_sLastBuildModeFailure);
 
 		vehicle.m_vAngles = placement.m_vAngles;
 		string result = m_Arsenal.RedeployGarageVehicle(m_State, m_Economy, vehicle.m_sVehicleId, placement.m_vPosition);
@@ -5168,38 +5265,38 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminSetZoneActiveReport(int playerId, string zoneId, bool active)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi admin zone | failed: server required";
+			return "Partisan admin zone | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin zone | failed: admin required";
+			return "Partisan admin zone | failed: admin required";
 		if (zoneId.IsEmpty())
-			return "h-istasi admin zone | failed: zone id missing";
+			return "Partisan admin zone | failed: zone id missing";
 
 		HST_ZoneState zone = m_State.FindZone(zoneId);
 		if (!zone)
-			return "h-istasi admin zone | failed: zone not found " + zoneId;
+			return "Partisan admin zone | failed: zone not found " + zoneId;
 
 		bool changed = RequestAdminSetZoneActive(playerId, zoneId, active);
 		if (!changed)
-			return string.Format("h-istasi admin zone | failed: active already %1 at %2", zone.m_bActive, ResolveZoneLabel(zone));
+			return string.Format("Partisan admin zone | failed: active already %1 at %2", zone.m_bActive, ResolveZoneLabel(zone));
 
 		string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
 		if (publishedOwnerFactionKey.IsEmpty())
 			publishedOwnerFactionKey = "publication unavailable";
-		return string.Format("h-istasi admin zone | %1 active %2 | owner %3", ResolveZoneLabel(zone), zone.m_bActive, publishedOwnerFactionKey);
+		return string.Format("Partisan admin zone | %1 active %2 | owner %3", ResolveZoneLabel(zone), zone.m_bActive, publishedOwnerFactionKey);
 	}
 
 	string RequestAdminCaptureZoneForResistanceReport(int playerId, string zoneId, int supportReward = 10)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi admin capture | failed: server required";
+			return "Partisan admin capture | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin capture | failed: admin required";
+			return "Partisan admin capture | failed: admin required";
 		if (zoneId.IsEmpty())
-			return "h-istasi admin capture | failed: zone id missing";
+			return "Partisan admin capture | failed: zone id missing";
 
 		HST_ZoneState zone = m_State.FindZone(zoneId);
 		if (!zone)
-			return "h-istasi admin capture | failed: zone not found " + zoneId;
+			return "Partisan admin capture | failed: zone not found " + zoneId;
 
 		HST_OwnershipTransitionResult ownershipResult = RequestAdminCaptureZoneForResistanceDetailed(
 			playerId,
@@ -5214,7 +5311,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (ownershipResult && !ownershipResult.m_sFailureReason.IsEmpty())
 				ownershipFailureReason = ownershipResult.m_sFailureReason;
 			return string.Format(
-				"h-istasi admin capture | failed: %1 | owner %2 | support %3",
+				"Partisan admin capture | failed: %1 | owner %2 | support %3",
 				ownershipFailureReason,
 				publishedOwnerFactionKey,
 				ResolveZoneSupportPercent(zone));
@@ -5225,27 +5322,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (ownershipResult.m_Transition)
 				ownershipRequestId = ownershipResult.m_Transition.m_sRequestId;
 			return string.Format(
-				"h-istasi admin capture | accepted pending | %1 | owner %2 | request %3",
+				"Partisan admin capture | accepted pending | %1 | owner %2 | request %3",
 				ResolveZoneLabel(zone),
 				publishedOwnerFactionKey,
 				ownershipRequestId);
 		}
 
-		return string.Format("h-istasi admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, ResolveZoneSupportPercent(zone));
+		return string.Format("Partisan admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, ResolveZoneSupportPercent(zone));
 	}
 
 	string RequestAdminAddCaptureProgressReport(int playerId, string zoneId, int progress = 50)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi admin capture | failed: server required";
+			return "Partisan admin capture | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin capture | failed: admin required";
+			return "Partisan admin capture | failed: admin required";
 		if (zoneId.IsEmpty())
-			return "h-istasi admin capture | failed: zone id missing";
+			return "Partisan admin capture | failed: zone id missing";
 
 		HST_ZoneState zone = m_State.FindZone(zoneId);
 		if (!zone)
-			return "h-istasi admin capture | failed: zone not found " + zoneId;
+			return "Partisan admin capture | failed: zone not found " + zoneId;
 
 		int before = zone.m_iResistanceCaptureProgress;
 		bool changed = RequestAdminAddCaptureProgress(playerId, zoneId, progress);
@@ -5254,7 +5351,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
 			if (publishedOwnerFactionKey.IsEmpty())
 				publishedOwnerFactionKey = "publication unavailable";
-			return string.Format("h-istasi admin capture | failed: progress blocked at %1 | owner %2 | progress %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, zone.m_iResistanceCaptureProgress);
+			return string.Format("Partisan admin capture | failed: progress blocked at %1 | owner %2 | progress %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, zone.m_iResistanceCaptureProgress);
 		}
 
 		HST_OwnershipTransitionState pendingOwnership;
@@ -5262,50 +5359,50 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			pendingOwnership = m_State.FindOwnershipTransition(zone.m_sActiveOwnershipTransitionRequestId);
 		if (pendingOwnership && !pendingOwnership.m_bCompleted)
 			return string.Format(
-				"h-istasi admin capture | progress accepted; ownership pending | %1 | %2 -> %3 | request %4",
+				"Partisan admin capture | progress accepted; ownership pending | %1 | %2 -> %3 | request %4",
 				ResolveZoneLabel(zone),
 				before,
 				zone.m_iResistanceCaptureProgress,
 				pendingOwnership.m_sRequestId);
-		return string.Format("h-istasi admin capture | progress %1 | %2 -> %3", ResolveZoneLabel(zone), before, zone.m_iResistanceCaptureProgress);
+		return string.Format("Partisan admin capture | progress %1 | %2 -> %3", ResolveZoneLabel(zone), before, zone.m_iResistanceCaptureProgress);
 	}
 
 	string RequestAdminStartDebugMissionReport(int playerId, string zoneId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi admin mission | failed: server required";
+			return "Partisan admin mission | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin mission | failed: admin required";
+			return "Partisan admin mission | failed: admin required";
 
 		string target = zoneId;
 		if (target.IsEmpty())
 			target = SelectFirstAdminZoneId();
 		if (target.IsEmpty())
-			return "h-istasi admin mission | failed: no debug target zone";
+			return "Partisan admin mission | failed: no debug target zone";
 
 		HST_ZoneState zone = m_State.FindZone(target);
 		if (!zone)
-			return "h-istasi admin mission | failed: zone not found " + target;
+			return "Partisan admin mission | failed: zone not found " + target;
 
 		bool changed = RequestAdminStartDebugMission(playerId, target);
 		if (!changed)
-			return string.Format("h-istasi admin mission | failed: could not start debug mission at %1 | phase %2", ResolveZoneLabel(zone), m_State.m_ePhase);
+			return string.Format("Partisan admin mission | failed: could not start debug mission at %1 | phase %2", ResolveZoneLabel(zone), m_State.m_ePhase);
 
-		return string.Format("h-istasi admin mission | started debug mission at %1 | active %2", ResolveZoneLabel(zone), CountFoundationActiveMissions());
+		return string.Format("Partisan admin mission | started debug mission at %1 | active %2", ResolveZoneLabel(zone), CountFoundationActiveMissions());
 	}
 
 	string RequestAdminAwardResourcesReport(int playerId, int money, int hr)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi admin resources | failed: server required";
+			return "Partisan admin resources | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin resources | failed: admin required";
+			return "Partisan admin resources | failed: admin required";
 
 		bool changed = RequestAdminAwardResources(playerId, money, hr);
 		if (!changed)
-			return "h-istasi admin resources | failed: award returned false";
+			return "Partisan admin resources | failed: award returned false";
 
-		return string.Format("h-istasi admin resources | awarded $%1 HR %2 | money %3 | HR %4", money, hr, m_State.m_iFactionMoney, m_State.m_iHR);
+		return string.Format("Partisan admin resources | awarded $%1 HR %2 | money %3 | HR %4", money, hr, m_State.m_iFactionMoney, m_State.m_iHR);
 	}
 	bool RequestAdminSetZoneActive(int playerId, string zoneId, bool active)
 	{
@@ -5385,33 +5482,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminStartMissionById(int playerId, string missionId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin | force mission | failed: admin required";
+			return "Partisan admin | force mission | failed: admin required";
 
 		if (!m_Missions || missionId.IsEmpty())
-			return "h-istasi admin | force mission | failed: mission service not ready";
+			return "Partisan admin | force mission | failed: mission service not ready";
 
 		HST_MissionDefinition definition = m_Missions.FindDefinition(missionId);
 		if (!definition)
-			return "h-istasi admin | force mission | failed: mission definition not found";
+			return "Partisan admin | force mission | failed: mission definition not found";
 
 		bool repairedPhase = EnsureDebugMissionStartReady();
 		if (!repairedPhase)
-			return "h-istasi admin | force mission | failed: campaign is not active; select an HQ first";
+			return "Partisan admin | force mission | failed: campaign is not active; select an HQ first";
 
 		string targetZoneId = SelectDebugMissionTargetZoneId(definition);
 		if (targetZoneId.IsEmpty() && !m_Missions.CanForceStart(m_State, m_Preset, missionId, ""))
-			return string.Format("h-istasi admin | force %1 | failed: no compatible target", definition.m_sDisplayName);
+			return string.Format("Partisan admin | force %1 | failed: no compatible target", definition.m_sDisplayName);
 
 		bool started = StartMission_S(missionId, targetZoneId, true);
 		if (!started)
-			return string.Format("h-istasi admin | force %1 | failed: duplicate active mission or invalid target", definition.m_sDisplayName);
+			return string.Format("Partisan admin | force %1 | failed: duplicate active mission or invalid target", definition.m_sDisplayName);
 
 		HST_ZoneState targetZone = m_State.FindZone(targetZoneId);
 		string targetName = "open area";
 		if (targetZone)
 			targetName = ResolveZoneLabel(targetZone);
 
-		return string.Format("h-istasi admin | force %1 at %2 | complete", definition.m_sDisplayName, targetName);
+		return string.Format("Partisan admin | force %1 at %2 | complete", definition.m_sDisplayName, targetName);
 	}
 
 	protected bool EnsureDebugMissionStartReady()
@@ -5460,10 +5557,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminSeedPersistenceTestState(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi persistence smoke | admin required";
+			return "Partisan persistence smoke | admin required";
 
 		if (!m_PersistenceSmokeTest)
-			return "h-istasi persistence smoke | service not ready";
+			return "Partisan persistence smoke | service not ready";
 
 		string result = m_PersistenceSmokeTest.SeedTestState(m_State, m_Preset, ResolveTrustedIdentityId(playerId));
 		bool checkpoint = RequestManualCheckpoint();
@@ -5473,10 +5570,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminRunPersistenceSmokeTest(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi persistence smoke | admin required";
+			return "Partisan persistence smoke | admin required";
 
 		if (!m_PersistenceSmokeTest)
-			return "h-istasi persistence smoke | service not ready";
+			return "Partisan persistence smoke | service not ready";
 
 		bool checkpoint = RequestManualCheckpoint();
 		return m_PersistenceSmokeTest.RunSmokeTest(m_State) + string.Format("\nmanual checkpoint %1", checkpoint);
@@ -5485,10 +5582,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPersistenceSmokeReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi persistence smoke | admin required";
+			return "Partisan persistence smoke | admin required";
 
 		if (!m_PersistenceSmokeTest)
-			return "h-istasi persistence smoke | service not ready";
+			return "Partisan persistence smoke | service not ready";
 
 		return m_PersistenceSmokeTest.BuildReport(m_State);
 	}
@@ -5496,44 +5593,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminRunCampaignDebug(int playerId, string profile = "")
 	{
 		if (!Replication.IsServer())
-			return "h-istasi campaign debug | failed: server required";
+			return "Partisan campaign debug | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi campaign debug | failed: admin required";
+			return "Partisan campaign debug | failed: admin required";
 
 		string normalizedProfile = NormalizeCampaignDebugProfile(profile);
 		if (normalizedProfile.IsEmpty())
-			return "h-istasi campaign debug | failed: invalid profile, use smoke, admin_smoke, foundation, faction, faction_physical, physical, support_physical, mission_matrix_state, mission_matrix_physical, civilian_undercover, arsenal_garage_build, persistence_inprocess, full, full_certification, post_restart_verify, persistence_restart_external, background_soak, or external_required";
+			return "Partisan campaign debug | failed: invalid profile, use smoke, admin_smoke, foundation, faction, faction_physical, physical, support_physical, mission_matrix_state, mission_matrix_physical, civilian_undercover, arsenal_garage_build, persistence_inprocess, full, full_certification, post_restart_verify, persistence_restart_external, background_soak, or external_required";
 		if (normalizedProfile == "persistence_restart_external" || normalizedProfile == "background_soak" || normalizedProfile == "external_required")
-			return "h-istasi campaign debug | failed: external profiles require an externally managed disposable campaign profile and launcher";
+			return "Partisan campaign debug | failed: external profiles require an externally managed disposable campaign profile and launcher";
 		if (RequiresDisposableCampaignDebugWorld(normalizedProfile) && !IsDisposableCampaignDebugWorld())
-			return "h-istasi campaign debug | failed: runtime debug profiles are restricted to the disposable development world";
+			return "Partisan campaign debug | failed: runtime debug profiles are restricted to the disposable development world";
 
 		if (m_bCampaignDebugRunning)
-			return "h-istasi campaign debug | already running\n" + BuildCampaignDebugStatusReport();
+			return "Partisan campaign debug | already running\n" + BuildCampaignDebugStatusReport();
 
 		if (!StartCampaignDebugRun(playerId, normalizedProfile))
-			return "h-istasi campaign debug | failed: " + m_sCampaignDebugIsolationStatus;
-		return "h-istasi campaign debug | started " + normalizedProfile + " sequenced run\n" + BuildCampaignDebugStatusReport();
+			return "Partisan campaign debug | failed: " + m_sCampaignDebugIsolationStatus;
+		return "Partisan campaign debug | started " + normalizedProfile + " sequenced run\n" + BuildCampaignDebugStatusReport();
 	}
 
 	string RequestAdminCampaignDebugStatus(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi campaign debug | failed: server required";
+			return "Partisan campaign debug | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi campaign debug | failed: admin required";
+			return "Partisan campaign debug | failed: admin required";
 
-		return "h-istasi campaign debug | status\n" + BuildCampaignDebugStatusReport();
+		return "Partisan campaign debug | status\n" + BuildCampaignDebugStatusReport();
 	}
 
 	string RequestAdminCancelCampaignDebug(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi campaign debug | failed: server required";
+			return "Partisan campaign debug | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi campaign debug | failed: admin required";
+			return "Partisan campaign debug | failed: admin required";
 		if (!m_bCampaignDebugRunning)
-			return "h-istasi campaign debug | not running\n" + BuildCampaignDebugStatusReport();
+			return "Partisan campaign debug | not running\n" + BuildCampaignDebugStatusReport();
 
 		RestoreCampaignDebugActorCommandAccess();
 		ClearCampaignDebugPlayerSupportRequests("run cancellation");
@@ -5558,17 +5655,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!artifactStatus.IsEmpty())
 			AppendCampaignDebugLog("INFO", "artifacts", artifactStatus);
 		BroadcastCampaignDebugNotification("campaign_debug_cancelled", "warning", "Campaign Debug", m_sCampaignDebugLastResult);
-		return "h-istasi campaign debug | cancelled\n" + BuildCampaignDebugStatusReport();
+		return "Partisan campaign debug | cancelled\n" + BuildCampaignDebugStatusReport();
 	}
 
 	string RequestAdminCleanupCampaignDebug(int playerId)
 	{
 		if (!Replication.IsServer())
-			return "h-istasi campaign debug | failed: server required";
+			return "Partisan campaign debug | failed: server required";
 		if (!CanPlayerUseAdminActions(playerId))
-			return "h-istasi campaign debug | failed: admin required";
+			return "Partisan campaign debug | failed: admin required";
 
-		string report = "h-istasi campaign debug | cleanup";
+		string report = "Partisan campaign debug | cleanup";
 		string completionStatus;
 		if (!m_sCampaignDebugCurrentMissionInstanceId.IsEmpty())
 		{
@@ -6813,7 +6910,162 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return result.m_sDebugSummary;
 	}
 
+	protected HST_CampaignState BuildCampaignDebugDisposableStateClone()
+	{
+		if (!m_State)
+			return null;
+		HST_CampaignSaveData snapshot = new HST_CampaignSaveData();
+		snapshot.Capture(m_State);
+		return snapshot.Restore();
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugDisposableStateCloneFailure(
+		string caseId,
+		string subsystem,
+		string contract)
+	{
+		HST_CampaignDebugCaseResult blockedCase
+			= CreateCampaignDebugCase(caseId, subsystem, contract, "baseline");
+		AddCampaignDebugAssertion(
+			blockedCase,
+			caseId + ".disposable_state",
+			"case runs on a disposable nested campaign-state clone",
+			"clone unavailable",
+			"BLOCKED",
+			"campaign debug could not create the disposable case-state clone");
+		FinalizeCampaignDebugCaseFromAssertions(blockedCase);
+		return blockedCase;
+	}
+
+	protected void AppendCampaignDebugDisposableStateAssertion(
+		HST_CampaignDebugCaseResult result,
+		string assertionId,
+		HST_CampaignState parentState,
+		HST_CampaignState caseState)
+	{
+		if (!result)
+			return;
+		bool distinct = parentState && caseState && parentState != caseState;
+		AddCampaignDebugAssertion(
+			result,
+			assertionId,
+			"fixture cleanup is confined to a disposable nested state clone",
+			string.Format("parent %1 | clone %2 | distinct %3", parentState != null, caseState != null, distinct),
+			CampaignDebugStatus(distinct),
+			"fixture cleanup could affect the enclosing Campaign Debug state");
+		FinalizeCampaignDebugCaseFromAssertions(result);
+	}
+
+	protected string BuildCampaignDebugEnemyStrategicAuthorityFingerprint(
+		HST_CampaignState state)
+	{
+		if (!state)
+			return "missing";
+
+		int primaryHash = 0;
+		int secondaryHash = 0;
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			string poolRow = "null_pool";
+			if (pool)
+			{
+				poolRow = string.Format(
+					"%1|%2|%3|%4|%5|%6|%7|%8|%9",
+					pool.m_sFactionKey,
+					pool.m_iAttackResources,
+					pool.m_iSupportResources,
+					pool.m_iAggression,
+					pool.m_iStrategicContractVersion,
+					pool.m_iStrategicRevision,
+					pool.m_iStrategicOperationalMutationCount,
+					pool.m_iResourceAccumulatorSeconds,
+					pool.m_iAggressionAccumulatorSeconds);
+				poolRow = poolRow + string.Format(
+					"|%1|%2|%3|%4",
+					pool.m_iLastResourceBucketSecond,
+					pool.m_iLastAggressionBucketSecond,
+					pool.m_sLastStrategicMutationId,
+					pool.m_sStrategicAuthorityFailure);
+			}
+			primaryHash = string.Format("%1|%2", primaryHash, poolRow).Hash();
+			secondaryHash = string.Format(
+				"%1|%2|pool_secondary",
+				secondaryHash,
+				poolRow).Hash();
+		}
+
+		foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)
+		{
+			string mutationRow = "null_mutation";
+			if (mutation)
+			{
+				mutationRow = string.Format(
+					"%1|%2|%3|%4",
+					mutation.m_sMutationId,
+					mutation.m_sFactionKey,
+					mutation.m_sFingerprint,
+					HST_EnemyStrategicResourceService.BuildMutationFingerprint(mutation));
+			}
+			primaryHash = string.Format("%1|%2", primaryHash, mutationRow).Hash();
+			secondaryHash = string.Format(
+				"%1|%2|mutation_secondary",
+				secondaryHash,
+				mutationRow).Hash();
+		}
+
+		return string.Format(
+			"esri1_%1_%2_%3_%4",
+			state.m_aFactionPools.Count(),
+			state.m_aEnemyStrategicMutations.Count(),
+			primaryHash,
+			secondaryHash);
+	}
+
+	protected void AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion(
+		HST_CampaignDebugCaseResult result,
+		string assertionId,
+		HST_CampaignState parentState,
+		string authorityBefore)
+	{
+		if (!result)
+			return;
+		string authorityAfter
+			= BuildCampaignDebugEnemyStrategicAuthorityFingerprint(parentState);
+		bool exact = authorityBefore != "missing"
+			&& authorityBefore == authorityAfter;
+		AddCampaignDebugAssertion(
+			result,
+			assertionId,
+			"enclosing enemy strategic receipts, pool revisions, operational counts, and cadence authority are unchanged",
+			string.Format("before %1 | after %2", authorityBefore, authorityAfter),
+			CampaignDebugStatus(exact),
+			"mission outcome proof leaked Schema-67 enemy strategic authority into the enclosing Campaign Debug state");
+		FinalizeCampaignDebugCaseFromAssertions(result);
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemySupportSpendCase()
+	{
+		HST_CampaignState previousState = m_State;
+		HST_CampaignState caseState = BuildCampaignDebugDisposableStateClone();
+		if (!caseState)
+			return BuildCampaignDebugDisposableStateCloneFailure(
+				"enemy_support_spend.contract.runtime",
+				"enemy_director",
+				"support_spend_contract");
+
+		m_State = caseState;
+		HST_CampaignDebugCaseResult result
+			= BuildCampaignDebugEnemySupportSpendCaseOnDisposableClone();
+		m_State = previousState;
+		AppendCampaignDebugDisposableStateAssertion(
+			result,
+			"enemy_support_spend.disposable_state",
+			previousState,
+			caseState);
+		return result;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemySupportSpendCaseOnDisposableClone()
 	{
 		HST_CampaignDebugCaseResult spendCase = CreateCampaignDebugCase("enemy_support_spend.contract.runtime", "enemy_director", "support_spend_contract", "baseline");
 		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null;
@@ -6909,8 +7161,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.survivor_refund", "folded survivors refund bounded support resources once", string.Format("applied %1 | pool %2/%3 -> %4/%5 | order refund %6/%7", refundApplied, attackBeforeRefund, supportBeforeRefund, attackAfterRefund, supportAfterRefund, orderAttackRefund, orderSupportRefund), CampaignDebugStatus(order && refundApplied && order.m_bResourceRefundApplied && attackAfterRefund >= attackBeforeRefund && supportAfterRefund > supportBeforeRefund), "survivor fold-back did not refund support resources");
 		AddCampaignDebugAssertion(spendCase, "enemy_support_spend.cap_denial", "overspent zone support ledger denies additional support by max spend cap", EmptyCampaignDebugField(maxReason), CampaignDebugStatus(ledger && maxDenied && maxReason.Contains("max defense spend")), "max defense spend cap did not deny support");
 
-		pool.m_iAttackResources = attackBefore;
-		pool.m_iSupportResources = supportBefore;
+		SetEnemyStrategicPoolTargets(
+			m_State,
+			factionKey,
+			attackBefore,
+			supportBefore,
+			pool.m_iAggression,
+			"campaign_debug_compensation",
+			"enemy_support_spend_cleanup");
 		CleanupCampaignDebugEnemySupportSpendRecords(debugZoneId);
 		while (m_State.m_aEnemyOrders.Count() > orderCountBefore)
 			m_State.m_aEnemyOrders.Remove(m_State.m_aEnemyOrders.Count() - 1);
@@ -7373,6 +7631,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemyOrderResolutionCase()
 	{
+		HST_CampaignState previousState = m_State;
+		HST_CampaignState caseState = BuildCampaignDebugDisposableStateClone();
+		if (!caseState)
+			return BuildCampaignDebugDisposableStateCloneFailure(
+				"enemy_order_resolution.contract.runtime",
+				"enemy_commander",
+				"order_resolution");
+
+		m_State = caseState;
+		HST_CampaignDebugCaseResult result
+			= BuildCampaignDebugEnemyOrderResolutionCaseOnDisposableClone();
+		m_State = previousState;
+		AppendCampaignDebugDisposableStateAssertion(
+			result,
+			"enemy_order_resolution.disposable_state",
+			previousState,
+			caseState);
+		return result;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugEnemyOrderResolutionCaseOnDisposableClone()
+	{
 		HST_CampaignDebugCaseResult orderCase = CreateCampaignDebugCase("enemy_order_resolution.contract.runtime", "enemy_commander", "abstract_order_resolution", "baseline");
 		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null && m_Garrisons != null;
 		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.prerequisite", "state, preset, enemy director, enemy commander, and garrison service ready", string.Format("state %1 | preset %2 | director %3 | commander %4 | garrisons %5", m_State != null, m_Preset != null, m_EnemyDirector != null, m_EnemyCommander != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "enemy order resolution prerequisites missing");
@@ -7498,8 +7778,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& restoredTown.m_iRoadblockPresence == 1;
 		AddCampaignDebugAssertion(orderCase, "enemy_order_resolution.save_roundtrip", "save-data roundtrip preserves resolved abstract order outcomes", BuildCampaignDebugEnemyOrderResolutionActual(restoredRebuildOrder, restoredRoadblockOrder, restoredGarrison, restoredTown) + string.Format(" | qrf [%1] | qrf garrison [%2]", BuildCampaignDebugEnemyOrderActual(restoredQrfOrder), BuildCampaignDebugGarrisonActual(restoredQrfGarrison)), CampaignDebugStatus(roundTripExpected), "resolved abstract order outcomes did not survive save-data copy");
 
-		pool.m_iAttackResources = attackBefore;
-		pool.m_iSupportResources = supportBefore;
+		SetEnemyStrategicPoolTargets(
+			m_State,
+			factionKey,
+			attackBefore,
+			supportBefore,
+			pool.m_iAggression,
+			"campaign_debug_compensation",
+			"enemy_order_resolution_cleanup");
 		CleanupCampaignDebugEnemyOrderResolutionRecords(rebuildZoneId, roadblockZoneId, qrfZoneId);
 		bool cleanupExpected = m_State.FindZone(rebuildZoneId) == null
 			&& m_State.FindZone(roadblockZoneId) == null
@@ -7592,6 +7878,51 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhysicalResponseFoldbackCase()
 	{
+		HST_CampaignState previousState = m_State;
+		HST_CampaignState caseState = BuildCampaignDebugDisposableStateClone();
+		if (!caseState)
+			return BuildCampaignDebugDisposableStateCloneFailure(
+				"enemy_physical_response.foldback.runtime",
+				"enemy_commander",
+				"physical_response");
+
+		bool supportMarkerRefreshBefore;
+		if (m_SupportRequests)
+			supportMarkerRefreshBefore
+				= m_SupportRequests.CaptureCampaignDebugMarkerRefreshNeeded();
+		bool physicalMarkerRefreshBefore;
+		int physicalAIWorldLimitBefore = -1;
+		if (m_PhysicalWar)
+		{
+			physicalMarkerRefreshBefore
+				= m_PhysicalWar.CaptureCampaignDebugMarkerRefreshNeeded();
+			physicalAIWorldLimitBefore
+				= m_PhysicalWar.CaptureCampaignDebugAIWorldLimit();
+		}
+		m_State = caseState;
+		HST_CampaignDebugCaseResult result
+			= BuildCampaignDebugPhysicalResponseFoldbackCaseOnDisposableClone();
+		m_State = previousState;
+		if (m_SupportRequests)
+			m_SupportRequests.RestoreCampaignDebugMarkerRefreshNeeded(
+				supportMarkerRefreshBefore);
+		if (m_PhysicalWar)
+		{
+			m_PhysicalWar.RestoreCampaignDebugMarkerRefreshNeeded(
+				physicalMarkerRefreshBefore);
+			m_PhysicalWar.RestoreCampaignDebugAIWorldLimit(
+				physicalAIWorldLimitBefore);
+		}
+		AppendCampaignDebugDisposableStateAssertion(
+			result,
+			"enemy_physical_response.disposable_state",
+			previousState,
+			caseState);
+		return result;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhysicalResponseFoldbackCaseOnDisposableClone()
+	{
 		HST_CampaignDebugCaseResult responseCase = CreateCampaignDebugCase("enemy_physical_response.foldback.runtime", "enemy_commander", "physical_response", "baseline");
 		bool servicesReady = m_State != null && m_Preset != null && m_EnemyDirector != null && m_EnemyCommander != null && m_SupportRequests != null && m_PhysicalWar != null && m_Garrisons != null;
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.prerequisite", "state, preset, enemy commander, support, physical war, and garrison services ready", string.Format("state %1 | preset %2 | director %3 | commander %4 | support %5 | physical %6 | garrisons %7", m_State != null, m_Preset != null, m_EnemyDirector != null, m_EnemyCommander != null, m_SupportRequests != null, m_PhysicalWar != null, m_Garrisons != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "physical response prerequisites missing");
@@ -7638,7 +7969,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			targetZone.m_bActive = true;
 			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
-			physicalizeTickChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+			physicalizeTickChanged = m_EnemyCommander.DebugTickLegacyOrderNow(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				m_SupportRequests,
+				m_Garrisons,
+				order);
 			request = m_State.FindSupportRequest(order.m_sSupportRequestId);
 		}
 
@@ -7651,7 +7988,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int inboundLeadSeconds = ResolveCampaignDebugSupportInboundLeadSeconds(request);
 			if (request.m_iETASeconds > inboundLeadSeconds)
 				request.m_iRequestedAtSecond = m_State.m_iElapsedSeconds - Math.Max(0, request.m_iETASeconds - inboundLeadSeconds);
-			supportTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
+			supportTickChanged = m_SupportRequests.TickCampaignDebugSupportRequest(
+				m_State,
+				m_Preset,
+				m_Garrisons,
+				request,
+				m_PhysicalWar);
 			group = m_State.FindActiveGroup(request.m_sGroupId);
 			if (group)
 			{
@@ -7661,7 +8003,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				{
 					group.m_iSurvivorInfantryCount = Math.Max(1, Math.Min(group.m_iInfantryCount, 2));
 					group.m_iSurvivorVehicleCount = 0;
-					m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset, true);
 					group = m_State.FindActiveGroup(request.m_sGroupId);
 				}
 			}
@@ -7685,10 +8026,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int arrivalAtSecond = request.m_iRequestedAtSecond + Math.Max(0, request.m_iETASeconds);
 			if (m_State.m_iElapsedSeconds < arrivalAtSecond)
 				m_State.m_iElapsedSeconds = arrivalAtSecond;
-			foldTickChanged = m_SupportRequests.Tick(m_State, m_Preset, m_Garrisons, m_PhysicalWar);
+			foldTickChanged = m_SupportRequests.TickCampaignDebugSupportRequest(
+				m_State,
+				m_Preset,
+				m_Garrisons,
+				request,
+				m_PhysicalWar);
 			group = m_State.FindActiveGroup(request.m_sGroupId);
 			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + 1;
-			orderSyncChanged = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 1);
+			orderSyncChanged = m_EnemyCommander.DebugTickLegacyOrderNow(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				m_SupportRequests,
+				m_Garrisons,
+				order);
 			if (order)
 				order = FindCampaignDebugEnemyOrderById(order.m_sOrderId);
 			if (request)
@@ -7796,8 +8148,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		AddCampaignDebugAssertion(responseCase, "enemy_physical_response.save_roundtrip", "save-data roundtrip preserves folded order/support/group state without losing linkage", roundTripActual, CampaignDebugStatus(roundTripExpected), "folded physical response state did not survive save-data copy");
 
-		pool.m_iAttackResources = attackBefore;
-		pool.m_iSupportResources = supportBefore;
+		SetEnemyStrategicPoolTargets(
+			m_State,
+			factionKey,
+			attackBefore,
+			supportBefore,
+			pool.m_iAggression,
+			"campaign_debug_compensation",
+			"enemy_physical_response_cleanup");
 		m_State.m_iWarLevel = warLevelBefore;
 		CleanupCampaignDebugPhysicalResponseRecords(debugZoneId);
 		while (m_State.m_aEnemyOrders.Count() > orderCountBefore)
@@ -8654,6 +9012,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCase()
 	{
+		HST_CampaignState previousState = m_State;
+		string strategicAuthorityBefore
+			= BuildCampaignDebugEnemyStrategicAuthorityFingerprint(previousState);
+		HST_CampaignState caseState = BuildCampaignDebugDisposableStateClone();
+		if (!caseState)
+			return BuildCampaignDebugDisposableStateCloneFailure(
+				"mission_completion.reward.contract.runtime",
+				"missions",
+				"completion");
+
+		m_State = caseState;
+		HST_CampaignDebugCaseResult result
+			= BuildCampaignDebugMissionCompletionRewardCaseOnDisposableClone();
+		m_State = previousState;
+		AppendCampaignDebugDisposableStateAssertion(
+			result,
+			"mission_completion.disposable_state",
+			previousState,
+			caseState);
+		AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion(
+			result,
+			"mission_completion.strategic_authority_isolation",
+			previousState,
+			strategicAuthorityBefore);
+		return result;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCaseOnDisposableClone()
+	{
 		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("mission_completion.reward.contract.runtime", "missions", "completion", "baseline");
 		bool servicesReady = m_State != null && m_Preset != null && m_Missions != null && m_Economy != null && m_Towns != null;
 		AddCampaignDebugAssertion(missionCase, "mission_completion.prerequisite", "state, preset, mission, economy, and town services ready", string.Format("state %1 | preset %2 | missions %3 | economy %4 | towns %5", m_State != null, m_Preset != null, m_Missions != null, m_Economy != null, m_Towns != null), CampaignDebugStatus(servicesReady, "BLOCKED"), "mission completion prerequisites missing");
@@ -8769,12 +9156,210 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& targetZone.m_sOwnerFactionKey == ownerBefore
 			&& targetZone.m_iSupport == supportBefore;
 		AddCampaignDebugAssertion(missionCase, "mission_completion.cleanup", "debug mission row and mutated campaign totals are restored", BuildCampaignDebugMissionCompletionCleanupActual(activeMissionCountBefore, m_State.m_aActiveMissions.Count(), targetZone, moneyBefore, m_State.m_iFactionMoney, hrBefore, m_State.m_iHR), CampaignDebugStatus(cleanupExpected), "mission completion debug cleanup did not restore original state", "", instanceId, targetZone.m_sZoneId);
+		AppendCampaignDebugMissionCaptureAdmissionAtomicityAssertion(missionCase);
 
 		FinalizeCampaignDebugCaseFromAssertions(missionCase);
 		return missionCase;
 	}
 
+	protected void AppendCampaignDebugMissionCaptureAdmissionAtomicityAssertion(
+		HST_CampaignDebugCaseResult missionCase)
+	{
+		if (!missionCase || !m_State || !m_Preset || !m_Strategic
+			|| !m_Economy || !m_ZoneCapture)
+			return;
+		HST_CampaignSaveData snapshot = new HST_CampaignSaveData();
+		snapshot.Capture(m_State);
+		HST_CampaignState proofState = snapshot.Restore();
+		HST_FactionPoolState enemyPool = proofState.FindFactionPool(
+			m_Preset.m_sOccupierFactionKey);
+		if (!proofState || !enemyPool)
+		{
+			AddCampaignDebugAssertion(
+				missionCase,
+				"mission_completion.capture_admission_atomicity",
+				"threshold capture admission rejects without partial mission effects",
+				"isolated state or occupier pool unavailable",
+				"BLOCKED",
+				"capture-admission atomicity proof prerequisites are unavailable");
+			return;
+		}
+
+		int required = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
+		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
+			required = m_Balance.m_iCaptureProgressRequired;
+		HST_ZoneState zone;
+		foreach (HST_ZoneState candidateZone : proofState.m_aZones)
+		{
+			if (!candidateZone
+				|| candidateZone.m_sOwnerFactionKey
+					!= m_Preset.m_sOccupierFactionKey
+				|| !candidateZone.m_sActiveOwnershipTransitionRequestId.IsEmpty())
+				continue;
+			if (candidateZone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST
+				|| candidateZone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE
+				|| candidateZone.m_eType == HST_EZoneType.HST_ZONE_FACTORY
+				|| candidateZone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT
+				|| candidateZone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD
+				|| candidateZone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
+			{
+				zone = candidateZone;
+				break;
+			}
+		}
+		if (!zone)
+		{
+			AddCampaignDebugAssertion(
+				missionCase,
+				"mission_completion.capture_admission_atomicity",
+				"threshold capture admission rejects without partial mission effects",
+				"occupier-owned capturable proof zone unavailable",
+				"BLOCKED",
+				"capture-admission atomicity proof target is unavailable");
+			return;
+		}
+		string zoneId = zone.m_sZoneId;
+		zone.m_iResistanceCaptureProgress = Math.Max(0, required - 35);
+
+		proofState.m_aOwnershipTransitions.Clear();
+		while (proofState.m_aOwnershipTransitions.Count()
+			< HST_OwnershipTransitionService.MAX_TRANSITION_ROWS)
+		{
+			HST_OwnershipTransitionState pinned
+				= new HST_OwnershipTransitionState();
+			pinned.m_sRequestId = string.Format(
+				"mission_capture_admission_pinned_%1",
+				proofState.m_aOwnershipTransitions.Count());
+			pinned.m_iContractVersion
+				= HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION;
+			pinned.m_sStatus = "applying";
+			proofState.m_aOwnershipTransitions.Insert(pinned);
+		}
+
+		HST_MissionDefinition definition = new HST_MissionDefinition();
+		definition.m_sMissionId = "debug_mission_capture_admission";
+		definition.m_sDisplayName = "Mission Capture Admission Proof";
+		definition.m_eCategory = HST_EMissionCategory.HST_MISSION_DESTROY;
+		definition.m_iRewardMoney = 123;
+		definition.m_iRewardHR = 2;
+		HST_ActiveMissionState activeMission = new HST_ActiveMissionState();
+		activeMission.m_sInstanceId = ResolveCampaignDebugCleanupPrefix()
+			+ "_mission_capture_admission";
+		activeMission.m_sMissionId = definition.m_sMissionId;
+		activeMission.m_sDisplayName = definition.m_sDisplayName;
+		activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_ACTIVE;
+		activeMission.m_sTargetZoneId = zoneId;
+		activeMission.m_vTargetPosition = zone.m_vPosition;
+		activeMission.m_sRuntimePhase = "created";
+		proofState.m_aActiveMissions.Insert(activeMission);
+
+		int eventCountBefore = proofState.m_aStrategicEvents.Count();
+		int mutationCountBefore = proofState.m_aEnemyStrategicMutations.Count();
+		int ownershipCountBefore = proofState.m_aOwnershipTransitions.Count();
+		int moneyBefore = proofState.m_iFactionMoney;
+		int hrBefore = proofState.m_iHR;
+		int progressBefore = zone.m_iResistanceCaptureProgress;
+		int attackBefore = enemyPool.m_iAttackResources;
+		int supportBefore = enemyPool.m_iSupportResources;
+		int aggressionBefore = enemyPool.m_iAggression;
+		int revisionBefore = enemyPool.m_iStrategicRevision;
+		int operationalBefore = enemyPool.m_iStrategicOperationalMutationCount;
+		int authoritySequenceBefore = proofState.m_iNextAuthoritySequence;
+		HST_StrategicEventApplyResult rejected = m_Strategic.ApplyMissionOutcomeEvent(
+			proofState,
+			m_Preset,
+			m_Economy,
+			m_Balance,
+			m_Towns,
+			m_ZoneCapture,
+			m_Garrisons,
+			m_EnemyCommander,
+			m_EnemyDirector,
+			m_SupportRequests,
+			m_HQ,
+			definition,
+			activeMission,
+			true);
+		bool exact = !IsMissionStrategicOutcomeAdmitted(rejected)
+			&& rejected && rejected.m_sReason.Contains("history is full");
+		exact = exact
+			&& proofState.m_aStrategicEvents.Count() == eventCountBefore
+			&& proofState.m_aEnemyStrategicMutations.Count() == mutationCountBefore
+			&& proofState.m_aOwnershipTransitions.Count() == ownershipCountBefore;
+		exact = exact && proofState.m_iFactionMoney == moneyBefore
+			&& proofState.m_iHR == hrBefore
+			&& zone.m_iResistanceCaptureProgress == progressBefore
+			&& zone.m_sOwnerFactionKey == m_Preset.m_sOccupierFactionKey;
+		exact = exact && enemyPool.m_iAttackResources == attackBefore
+			&& enemyPool.m_iSupportResources == supportBefore
+			&& enemyPool.m_iAggression == aggressionBefore;
+		exact = exact && enemyPool.m_iStrategicRevision == revisionBefore
+			&& enemyPool.m_iStrategicOperationalMutationCount == operationalBefore
+			&& proofState.m_iNextAuthoritySequence == authoritySequenceBefore;
+		string rejectionReason = "missing";
+		if (rejected)
+			rejectionReason = EmptyCampaignDebugField(rejected.m_sReason);
+		string actual = string.Format(
+			"reason %1 | events %2/%3 | mutations %4/%5 | ownership %6/%7",
+			rejectionReason,
+			proofState.m_aStrategicEvents.Count(),
+			eventCountBefore,
+			proofState.m_aEnemyStrategicMutations.Count(),
+			mutationCountBefore,
+			proofState.m_aOwnershipTransitions.Count(),
+			ownershipCountBefore);
+		actual = actual + string.Format(
+			" | money/HR %1/%2 -> %3/%4 | progress %5/%6 | sequence %7/%8",
+			moneyBefore,
+			hrBefore,
+			proofState.m_iFactionMoney,
+			proofState.m_iHR,
+			zone.m_iResistanceCaptureProgress,
+			progressBefore,
+			proofState.m_iNextAuthoritySequence,
+			authoritySequenceBefore);
+		AddCampaignDebugAssertion(
+			missionCase,
+			"mission_completion.capture_admission_atomicity",
+			"threshold capture ownership rejection leaves mission event, rewards, progress, resource receipts, and authority sequence unchanged",
+			actual,
+			CampaignDebugStatus(exact),
+			"threshold mission capture rejection left partial direct or ownership effects",
+			"",
+			activeMission.m_sInstanceId,
+			zoneId);
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionFailurePenaltyCase()
+	{
+		HST_CampaignState previousState = m_State;
+		string strategicAuthorityBefore
+			= BuildCampaignDebugEnemyStrategicAuthorityFingerprint(previousState);
+		HST_CampaignState caseState = BuildCampaignDebugDisposableStateClone();
+		if (!caseState)
+			return BuildCampaignDebugDisposableStateCloneFailure(
+				"mission_failure.penalty.contract.runtime",
+				"missions",
+				"failure");
+
+		m_State = caseState;
+		HST_CampaignDebugCaseResult result
+			= BuildCampaignDebugMissionFailurePenaltyCaseOnDisposableClone();
+		m_State = previousState;
+		AppendCampaignDebugDisposableStateAssertion(
+			result,
+			"mission_failure.disposable_state",
+			previousState,
+			caseState);
+		AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion(
+			result,
+			"mission_failure.strategic_authority_isolation",
+			previousState,
+			strategicAuthorityBefore);
+		return result;
+	}
+
+	protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionFailurePenaltyCaseOnDisposableClone()
 	{
 		HST_CampaignDebugCaseResult missionCase = CreateCampaignDebugCase("mission_failure.penalty.contract.runtime", "missions", "failure", "baseline");
 		bool servicesReady = m_State != null && m_Preset != null && m_Missions != null && m_Economy != null && m_Towns != null;
@@ -8886,7 +9471,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iHR = hrBefore;
 		targetZone.m_sOwnerFactionKey = ownerBefore;
 		targetZone.m_iSupport = supportBefore;
-		occupierPool.m_iAggression = aggressionBefore;
 		RefreshCampaignMarkers();
 		bool cleanupExpected = m_State.FindActiveMission(instanceId) == null
 			&& m_State.m_aActiveMissions.Count() == activeMissionCountBefore
@@ -8894,9 +9478,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& m_State.m_iFactionMoney == moneyBefore
 			&& m_State.m_iHR == hrBefore
 			&& targetZone.m_sOwnerFactionKey == ownerBefore
-			&& targetZone.m_iSupport == supportBefore
-			&& occupierPool.m_iAggression == aggressionBefore;
-		AddCampaignDebugAssertion(missionCase, "mission_failure.cleanup", "debug failed mission row and mutated penalty state are restored", BuildCampaignDebugMissionFailureCleanupActual(activeMissionCountBefore, m_State.m_aActiveMissions.Count(), targetZone, occupierPool, aggressionBefore, moneyBefore, m_State.m_iFactionMoney, hrBefore, m_State.m_iHR), CampaignDebugStatus(cleanupExpected), "mission failure debug cleanup did not restore original state", "", instanceId, targetZone.m_sZoneId);
+			&& targetZone.m_iSupport == supportBefore;
+		AddCampaignDebugAssertion(missionCase, "mission_failure.cleanup", "non-strategic fixture rows and values are reset before the disposable clone is discarded", BuildCampaignDebugMissionFailureCleanupActual(activeMissionCountBefore, m_State.m_aActiveMissions.Count(), targetZone, occupierPool, aggressionBefore, moneyBefore, m_State.m_iFactionMoney, hrBefore, m_State.m_iHR), CampaignDebugStatus(cleanupExpected), "mission failure debug fixture cleanup did not reset the clone-local mission, event, economy, and town fields", "", instanceId, targetZone.m_sZoneId);
 
 		FinalizeCampaignDebugCaseFromAssertions(missionCase);
 		return missionCase;
@@ -8979,10 +9562,55 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(missionCase, "mission_expiry.support_before", string.Format("%1", proofSupportBefore), "support");
 		AddCampaignDebugAssertion(missionCase, "mission_expiry.seed", "debug active mission record is inserted before expiry tick", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(proofState.FindActiveMission(instanceId) != null && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE), "debug mission record was not seeded active for expiry proof", "", instanceId, targetZone.m_sZoneId);
 
+		int authoritySequenceBefore = proofState.m_iNextAuthoritySequence;
 		bool ticked = m_Missions.Tick(proofState, m_Preset, m_Economy, 1);
+		HST_ActiveMissionState pendingMission = proofState.FindActiveMission(instanceId);
+		int occupierPoolIndex = -1;
+		for (int poolIndex; poolIndex < proofState.m_aFactionPools.Count(); poolIndex++)
+		{
+			HST_FactionPoolState poolCandidate = proofState.m_aFactionPools[poolIndex];
+			if (poolCandidate && poolCandidate.m_sFactionKey == m_Preset.m_sOccupierFactionKey)
+			{
+				occupierPoolIndex = poolIndex;
+				break;
+			}
+		}
+		if (occupierPoolIndex >= 0)
+			proofState.m_aFactionPools.Remove(occupierPoolIndex);
+		HST_StrategicEventApplyResult rejectedExpiry = m_Strategic.ApplyMissionExpiryEvent(
+			proofState,
+			m_Preset,
+			m_Economy,
+			definition,
+			pendingMission);
+		bool rejectionFailClosed = !IsMissionStrategicOutcomeAdmitted(rejectedExpiry)
+			&& pendingMission
+			&& pendingMission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+			&& pendingMission.m_sRuntimePhase == HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore
+			&& occupierPool.m_iAggression == aggressionBefore
+			&& proofState.m_iNextAuthoritySequence == authoritySequenceBefore;
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.admission_rejection", "missing strategic pool rejects expiry admission without publishing a terminal mission, event, aggression change, or authority-ID consumption", BuildCampaignDebugPrimitiveMissionActual(pendingMission) + string.Format(" | admitted %1 | events %2/%3 | aggression %4/%5 | authority sequence %6/%7", IsMissionStrategicOutcomeAdmitted(rejectedExpiry), proofState.m_aStrategicEvents.Count(), strategicEventCountBefore, occupierPool.m_iAggression, aggressionBefore, proofState.m_iNextAuthoritySequence, authoritySequenceBefore), CampaignDebugStatus(rejectionFailClosed), "mission expiry crossed the terminal boundary or consumed authority identity after rejected strategic admission", "", instanceId, targetZone.m_sZoneId);
+
+		proofState.m_aFactionPools.Insert(occupierPool);
+		HST_StrategicEventApplyResult expiryResult = m_Strategic.ApplyMissionExpiryEvent(
+			proofState,
+			m_Preset,
+			m_Economy,
+			definition,
+			pendingMission);
+		bool expiryAdmitted = IsMissionStrategicOutcomeAdmitted(expiryResult);
+		bool expiryCommitted;
+		if (expiryAdmitted)
+			expiryCommitted = m_Missions.CommitExpiry(proofState, instanceId);
 		HST_ActiveMissionState expiredMission = proofState.FindActiveMission(instanceId);
-		HST_StrategicEventApplyResult expiryResult = m_Strategic.ApplyMissionExpiryEvent(proofState, m_Preset, m_Economy, definition, expiredMission);
 		HST_StrategicEventState strategicEvent = expiryResult.m_Event;
+		HST_StrategicEventApplyResult replayResult = m_Strategic.ApplyMissionExpiryEvent(
+			proofState,
+			m_Preset,
+			m_Economy,
+			definition,
+			expiredMission);
 		int moneyAfter = proofState.m_iFactionMoney;
 		int hrAfter = proofState.m_iHR;
 		int supportAfter = targetZone.m_iSupport;
@@ -8990,7 +9618,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int expectedAggressionAfter = aggressionBefore + definition.m_iFailureAggression;
 		string penaltyActual = string.Format("support %1 -> %2 expected %3 | aggression %4 -> %5 expected %6", proofSupportBefore, supportAfter, proofSupportBefore, aggressionBefore, aggressionAfter, expectedAggressionAfter);
 		string noRewardActual = string.Format("money %1 -> %2 | HR %3 -> %4", moneyBefore, moneyAfter, hrBefore, hrAfter);
-		AddCampaignDebugAssertion(missionCase, "mission_expiry.tick_result", "mission service tick expires the mission before strategic expiry is applied", BuildCampaignDebugPrimitiveMissionActual(expiredMission), CampaignDebugStatus(ticked && expiredMission && expiredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && expiredMission.m_sRuntimePhase == "expired"), "mission tick did not set expired status", "", instanceId, targetZone.m_sZoneId);
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.tick_result", "mission tick publishes a durable active/pending boundary, then successful strategic admission commits expired status", BuildCampaignDebugPrimitiveMissionActual(expiredMission), CampaignDebugStatus(ticked && expiryAdmitted && expiryCommitted && expiredMission && expiredMission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && expiredMission.m_sRuntimePhase == "expired"), "mission expiry did not remain pending until strategic admission committed", "", instanceId, targetZone.m_sZoneId);
 		AddCampaignDebugAssertion(missionCase, "mission_expiry.penalties", "mission expiry applies configured aggression without town-support loss", penaltyActual, CampaignDebugStatus(supportAfter == proofSupportBefore && aggressionAfter == expectedAggressionAfter), "mission expiry did not apply expected aggression-only penalty", "", instanceId, targetZone.m_sZoneId);
 		AddCampaignDebugAssertion(missionCase, "mission_expiry.no_rewards", "mission expiry does not pay completion rewards", noRewardActual, CampaignDebugStatus(moneyAfter == moneyBefore && hrAfter == hrBefore), "mission expiry changed money or HR rewards", "", instanceId, targetZone.m_sZoneId);
 		bool strategicEventExpected = strategicEvent
@@ -9004,6 +9632,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& strategicEvent.m_sTargetZoneId == targetZone.m_sZoneId
 			&& strategicEvent.m_sTargetFactionKey == m_Preset.m_sOccupierFactionKey;
 		AddCampaignDebugAssertion(missionCase, "mission_expiry.strategic_event", "mission expiry records one applied strategic event with the aggression delta", BuildCampaignDebugStrategicEventActual(strategicEvent), CampaignDebugStatus(strategicEventExpected), "mission expiry did not record the expected strategic event", "", instanceId, targetZone.m_sZoneId);
+		bool replayExpected = IsMissionStrategicOutcomeAdmitted(replayResult)
+			&& replayResult.m_Event == strategicEvent
+			&& proofState.m_aStrategicEvents.Count() == strategicEventCountBefore + 1
+			&& occupierPool.m_iAggression == aggressionAfter;
+		AddCampaignDebugAssertion(missionCase, "mission_expiry.admission_replay", "terminal retry resolves the exact applied strategic event without duplicating penalties or event rows", BuildCampaignDebugStrategicEventActual(replayResult.m_Event) + string.Format(" | events %1 | aggression %2", proofState.m_aStrategicEvents.Count(), occupierPool.m_iAggression), CampaignDebugStatus(replayExpected), "mission expiry strategic replay duplicated or rejected the admitted outcome", "", instanceId, targetZone.m_sZoneId);
 
 		HST_CampaignSaveData roundTripSaveData = new HST_CampaignSaveData();
 		roundTripSaveData.Capture(proofState);
@@ -11767,7 +12400,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		if (requestId != m_sCampaignDebugClientMenuProofRequestId)
 		{
-			Print(string.Format("h-istasi campaign debug | stale command menu proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMenuProofRequestId), playerId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug | stale command menu proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMenuProofRequestId), playerId), LogLevel.WARNING);
 			return;
 		}
 
@@ -11784,7 +12417,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		if (requestId != m_sCampaignDebugClientMapOpenGateProofRequestId)
 		{
-			Print(string.Format("h-istasi campaign debug | stale command menu map-open gate proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMapOpenGateProofRequestId), playerId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug | stale command menu map-open gate proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMapOpenGateProofRequestId), playerId), LogLevel.WARNING);
 			return;
 		}
 
@@ -11801,7 +12434,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		if (requestId != m_sCampaignDebugClientMapProofRequestId)
 		{
-			Print(string.Format("h-istasi campaign debug | stale map proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMapProofRequestId), playerId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug | stale map proof report ignored request=%1 expected=%2 player=%3", requestId, EmptyCampaignDebugField(m_sCampaignDebugClientMapProofRequestId), playerId), LogLevel.WARNING);
 			return;
 		}
 
@@ -11867,7 +12500,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool staticRootsReady = CampaignDebugReportBool(report, "staticRootsReady");
 		bool delayedPass = report.Contains("pass 1");
 		bool playerReady = CampaignDebugReportBool(report, "playerReady");
-		bool markerModelReady = markerModelReport.Contains("h-istasi map markers") && !markerModelReport.Contains("campaign state not ready");
+		bool markerModelReady = markerModelReport.Contains("Partisan map markers") && !markerModelReport.Contains("campaign state not ready");
 		string dispatchStatus = "PASS";
 		if (!m_bCampaignDebugClientMapProofRequestDispatched)
 			dispatchStatus = "BLOCKED";
@@ -11886,7 +12519,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_visible_root", "map is open with a visible root widget and map frame on the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && root && frame, mapOpenFailureStatus), "map root/frame was not visibly open on the owner client");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_marker_component", "map marker UI component is active and native marker arrays are visible to the owner client", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && markerUI && markersReady, markerUiFailureStatus), "owner client did not expose active rendered marker UI and native marker counts");
 		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_static_marker_widgets", "delayed owner-client proof has a root and widget component for every active static marker", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && delayedPass && staticRootsReady, markerUiFailureStatus), "one or more active static markers lacked a render-ready root or widget on the delayed proof pass");
-		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_player_marker_widget", "HST player marker widgets are ready when player markers exist", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && playerReady, markerUiFailureStatus), "owner client did not prove rendered HST player marker widgets");
+		AddCampaignDebugAssertion(mapCase, "map_ui.rendered_player_marker_widget", "Partisan player marker widgets are ready when player markers exist", report, CampaignDebugStatus(m_bCampaignDebugClientMapProofRequestDispatched && reportMatched && mapOpen && playerReady, markerUiFailureStatus), "owner client did not prove rendered Partisan player marker widgets");
 		FinalizeCampaignDebugCaseFromAssertions(mapCase);
 		return mapCase;
 	}
@@ -12791,7 +13424,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		prerequisitesReady = prerequisitesReady && m_SupportRequests != null;
 		if (!prerequisitesReady)
 		{
-			probeContext.m_sCommandResult = "h-istasi support | failed: roadblock support prerequisites missing";
+			probeContext.m_sCommandResult = "Partisan support | failed: roadblock support prerequisites missing";
 		}
 		else
 		{
@@ -12808,7 +13441,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_ZoneState targetZone = SelectCampaignDebugRoadblockTargetZone();
 			if (garageVehicleId.IsEmpty() || !targetZone)
 			{
-				probeContext.m_sCommandResult = "h-istasi support | failed: roadblock garage vehicle or target zone missing";
+				probeContext.m_sCommandResult = "Partisan support | failed: roadblock garage vehicle or target zone missing";
 			}
 			else
 			{
@@ -12838,7 +13471,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				}
 				else
 				{
-					probeContext.m_sCommandResult = "h-istasi support | failed: roadblock request returned no result";
+					probeContext.m_sCommandResult = "Partisan support | failed: roadblock request returned no result";
 				}
 			}
 		}
@@ -14062,7 +14695,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void RunCampaignDebugFinalReportStep()
 	{
-		string report = "h-istasi campaign debug final report";
+		string report = "Partisan campaign debug final report";
 		report = report + "\n" + RequestMemberFoundationStatus(m_iCampaignDebugPlayerId);
 		report = report + "\n" + RequestMemberInspectCampaign(m_iCampaignDebugPlayerId);
 		report = report + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
@@ -14619,7 +15252,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (caseResult.m_sFeature == "command_ui" && caseResult.m_sStage.Contains("rendered"))
 			return "owner client rendered widget visibility and geometry proof";
 		if (caseResult.m_sFeature == "map_ui" && caseResult.m_sStage.Contains("rendered"))
-			return "owner client rendered map root, marker UI, native marker counts, and HST player marker widget proof";
+			return "owner client rendered map root, marker UI, native marker counts, and Partisan player marker widget proof";
 		if (caseResult.m_sFeature.Contains("convoy") || caseResult.m_sCaseId.Contains("convoy_physical"))
 			return "physical vehicle, crew, driver, route, movement, and outcome proof";
 		if (caseResult.m_sCaseId.Contains("physical_combat"))
@@ -15576,7 +16209,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected array<string> BuildCampaignDebugSummaryLines()
 	{
 		array<string> lines = {};
-		lines.Insert("h-istasi campaign debug complete");
+		lines.Insert("Partisan campaign debug complete");
 		lines.Insert("run " + m_sCampaignDebugRunId);
 		lines.Insert("profile " + EmptyCampaignDebugField(m_sCampaignDebugProfile));
 		lines.Insert("marker prefix " + EmptyCampaignDebugField(m_sCampaignDebugMarkerPrefix));
@@ -15632,7 +16265,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected array<string> BuildCampaignDebugStateDiffLines()
 	{
 		array<string> lines = {};
-		lines.Insert("h-istasi campaign debug state diff");
+		lines.Insert("Partisan campaign debug state diff");
 		lines.Insert("run " + m_sCampaignDebugRunId);
 		lines.Insert("marker prefix " + EmptyCampaignDebugField(m_sCampaignDebugMarkerPrefix));
 		lines.Insert("mission prefix " + EmptyCampaignDebugField(m_sCampaignDebugMissionPrefix));
@@ -16139,7 +16772,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(markerCase, "cleanup.player_markers.desired", string.Format("%1", desiredCount), "count");
 		AddCampaignDebugMetric(markerCase, "cleanup.player_markers.tracked", string.Format("%1", trackedCount), "count");
 		AddCampaignDebugMetric(markerCase, "cleanup.player_markers.live", string.Format("%1", liveCount), "count");
-		AddCampaignDebugAssertion(markerCase, "cleanup.player_marker.config", "HST player marker config entry is ready", actual, CampaignDebugStatus(!enabled || entryReady, "WARN"), "player marker config entry missing after campaign debug completion");
+		AddCampaignDebugAssertion(markerCase, "cleanup.player_marker.config", "Partisan player marker config entry is ready", actual, CampaignDebugStatus(!enabled || entryReady, "WARN"), "player marker config entry missing after campaign debug completion");
 		AddCampaignDebugAssertion(markerCase, "cleanup.player_marker.live", "enabled player marker service has desired/tracked/live marker after cleanup", actual, CampaignDebugStatus(!enabled || (desiredCount > 0 && trackedCount >= desiredCount && liveCount >= desiredCount), "WARN"), "player marker did not reconcile after campaign debug completion");
 		FinalizeCampaignDebugCaseFromAssertions(markerCase);
 		return markerCase;
@@ -17162,14 +17795,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string SeedCampaignDebugIncomeZone()
 	{
 		if (!m_State || !m_Preset)
-			return "h-istasi campaign debug | failed: campaign state or preset not ready";
+			return "Partisan campaign debug | failed: campaign state or preset not ready";
 
 		HST_ZoneState zone = SelectCampaignDebugIncomeZone();
 		if (!zone)
-			return "h-istasi campaign debug | failed: no income-producing zone found";
+			return "Partisan campaign debug | failed: no income-producing zone found";
 
 		if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
-			return "h-istasi campaign debug | income zone already FIA | " + ResolveZoneLabel(zone);
+			return "Partisan campaign debug | income zone already FIA | " + ResolveZoneLabel(zone);
 
 		bool changed = SetZoneOwner(
 			zone.m_sZoneId,
@@ -17178,10 +17811,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			BuildOwnershipTransitionSourceId("income_zone_seed", zone),
 			ResolveTrustedIdentityId(m_iCampaignDebugPlayerId));
 		if (!changed && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
-			return "h-istasi campaign debug | failed: could not seed income zone " + ResolveZoneLabel(zone);
+			return "Partisan campaign debug | failed: could not seed income zone " + ResolveZoneLabel(zone);
 
 		MarkMajorCampaignChange(true);
-		return "h-istasi campaign debug | income zone seeded | " + ResolveZoneLabel(zone);
+		return "Partisan campaign debug | income zone seeded | " + ResolveZoneLabel(zone);
 	}
 
 	protected HST_ZoneState SelectCampaignDebugIncomeZone()
@@ -17400,7 +18033,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 27: return FinishCampaignDebugPhysicalCombatProbeTyped();
 		}
 
-		return "h-istasi campaign debug | failed: unknown phase 0-13 mechanic step";
+		return "Partisan campaign debug | failed: unknown phase 0-13 mechanic step";
 	}
 
 	protected string BuildCampaignDebugPhase0Report()
@@ -17411,7 +18044,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_State)
 			lastSaveSecondBefore = m_State.m_iLastSaveSecond;
 
-		string report = "h-istasi campaign debug | phase 0 foundation";
+		string report = "Partisan campaign debug | phase 0 foundation";
 		string foundationReport = RequestMemberFoundationStatus(m_iCampaignDebugPlayerId);
 		string checkpointReport = RequestMemberManualCheckpointReport(m_iCampaignDebugPlayerId);
 		report = report + "\n" + foundationReport;
@@ -17531,6 +18164,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugEnemyQRFOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugLocalSecurityOperationAssertions(forceCase);
+		AppendCampaignDebugEnemyStrategicResourceAssertions(forceCase);
 		AppendCampaignDebugGarrisonPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugMissionGuardOperationAssertions(forceCase);
 		AppendCampaignDebugTraitorGuardOperationAssertions(forceCase);
@@ -17960,6 +18594,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "search_destroy.restore_quarantine", "a malformed current exact graph quarantines its linked request, operation, batch, and group without changing faction balances", proof.m_sRestoreQuarantineEvidence, CampaignDebugStatus(proof.m_bRestoreQuarantineExact), "malformed current Search-and-Destroy authority remained executable or changed balances");
 	}
 
+	protected void AppendCampaignDebugEnemyStrategicResourceAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_EnemyStrategicResourceProofService proofService
+			= new HST_EnemyStrategicResourceProofService();
+		HST_EnemyStrategicResourceProofReport proof = proofService.BuildReport();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.proof", "source proof report exists", "missing", "BLOCKED", "enemy strategic resource source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.m_sAdoptionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sReplayAtomicityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCadenceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSeparationIsolationEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPersistenceEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.legacy_adoption", "pre-schema-67 enemy pool snapshots adopt exactly without inventing historical debits, refunds, or receipts", proof.m_sAdoptionEvidence, CampaignDebugStatus(proof.m_bLegacyAdoptionExact), "legacy enemy resource adoption changed balances, lost cadence, or invented history");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.replay_conflict", "same-fingerprint mutation replay is inert while conflicting reuse quarantines without a second balance change", proof.m_sReplayAtomicityEvidence, CampaignDebugStatus(proof.m_bReplayConflictExact), "enemy strategic mutation replay or conflict handling was not exact");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.atomicity", "underflow and overflow reject atomically without a receipt or partial pool mutation", proof.m_sReplayAtomicityEvidence, CampaignDebugStatus(proof.m_bAtomicityExact), "enemy strategic mutation arithmetic changed only part of a pool");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.income_catchup", "per-enemy income cadence is deterministic, contribution-order stable, compact, and catch-up bounded", proof.m_sCadenceEvidence, CampaignDebugStatus(proof.m_bIncomeCatchupExact), "enemy strategic income cadence or fingerprint was not deterministic");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.pool_separation", "attack, support, and aggression mutations change only their declared resource dimensions", proof.m_sSeparationIsolationEvidence, CampaignDebugStatus(proof.m_bPoolSeparationExact), "enemy attack, support, or aggression pools crossed resource dimensions");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.aggression_war_independence", "aggression decay remains independent of war tier while war tier still scales enemy income", proof.m_sCadenceEvidence, CampaignDebugStatus(proof.m_bAggressionWarIndependenceExact), "enemy aggression decay or war-scaled income crossed policy boundaries");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.faction_isolation", "resistance cannot enter enemy resource authority and rival enemy pools mutate independently", proof.m_sSeparationIsolationEvidence, CampaignDebugStatus(proof.m_bFactionIsolationExact), "enemy strategic resource authority crossed faction boundaries");
+		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.roundtrip_quarantine", "current receipts round-trip exactly while tamper and duplicate-pool corruption quarantine without guessed repair", proof.m_sPersistenceEvidence, CampaignDebugStatus(proof.m_bRoundtripQuarantineExact), "enemy strategic resource persistence or corruption handling was not exact");
+	}
+
 	protected void AppendCampaignDebugEnemyQRFOperationAssertions(HST_CampaignDebugCaseResult forceCase)
 	{
 		if (!forceCase)
@@ -18306,7 +18969,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(foundationCase, "foundation.active_groups", string.Format("%1", activeGroupsAfter), "count");
 
 		string foundationActual = BuildCampaignDebugFoundationActual(activeMissionsAfter, activeGroupsAfter);
-		AddCampaignDebugAssertion(foundationCase, "foundation.report", "foundation report includes expected campaign foundation prefix", ShortCampaignDebugLine(foundationReport, 220), CampaignDebugStatus(foundationReport.Contains("h-istasi foundation")), "foundation status report missing expected prefix");
+		AddCampaignDebugAssertion(foundationCase, "foundation.report", "foundation report includes expected campaign foundation prefix", ShortCampaignDebugLine(foundationReport, 220), CampaignDebugStatus(foundationReport.Contains("Partisan foundation")), "foundation status report missing expected prefix");
 		AddCampaignDebugAssertion(foundationCase, "foundation.schema", "campaign schema matches current script schema", foundationActual, CampaignDebugStatus(m_State.m_iSchemaVersion == HST_CampaignState.SCHEMA_VERSION), "campaign schema does not match current script schema");
 		AddCampaignDebugAssertion(foundationCase, "foundation.phase", "campaign phase is ACTIVE for early mechanics", foundationActual, CampaignDebugStatus(m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE), "campaign phase is not ACTIVE during early mechanics");
 		AddCampaignDebugAssertion(foundationCase, "foundation.hq_state", "HQ is deployed with non-empty hideout and Petros alive", foundationActual, CampaignDebugStatus(m_State.m_bHQDeployed && !m_State.m_sHQHideoutId.IsEmpty() && m_State.m_bPetrosAlive), "HQ/Petros foundation state invalid");
@@ -18345,7 +19008,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildCampaignDebugPhase1Report()
 	{
-		string report = "h-istasi campaign debug | phase 1 mission runtime visibility";
+		string report = "Partisan campaign debug | phase 1 mission runtime visibility";
 		string summaryReport = RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
 		string activeMissionsReport = RequestMemberInspectActiveMissions(m_iCampaignDebugPlayerId);
 		string runtimeReport = RequestMemberInspectMissionRuntime(m_iCampaignDebugPlayerId);
@@ -18461,10 +19124,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(runtimeCase, "mission_runtime.runtime_entities", string.Format("%1", runtimeEntityCount), "count");
 
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.registry.visible", "mission registry has definitions for runtime visibility", string.Format("definitions %1", definitionCount), CampaignDebugStatus(definitionCount > 0), "mission registry is empty during runtime visibility probe");
-		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.summary_report", "active mission summary report is available", ShortCampaignDebugLine(summaryReport, 220), CampaignDebugStatus(summaryReport.Contains("h-istasi active mission summary")), "active mission summary report missing expected prefix");
-		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_report", "active mission runtime report is available", ShortCampaignDebugLine(activeMissionsReport, 220), CampaignDebugStatus(activeMissionsReport.Contains("h-istasi mission runtime")), "active mission runtime report missing expected prefix");
-		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.runtime_report", "mission runtime report is available", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(runtimeReport.Contains("h-istasi mission runtime")), "mission runtime report missing expected prefix");
-		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.objective_report", "objective report is available", ShortCampaignDebugLine(objectivesReport, 220), CampaignDebugStatus(objectivesReport.Contains("h-istasi objectives")), "objective report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.summary_report", "active mission summary report is available", ShortCampaignDebugLine(summaryReport, 220), CampaignDebugStatus(summaryReport.Contains("Partisan active mission summary")), "active mission summary report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_report", "active mission runtime report is available", ShortCampaignDebugLine(activeMissionsReport, 220), CampaignDebugStatus(activeMissionsReport.Contains("Partisan mission runtime")), "active mission runtime report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.runtime_report", "mission runtime report is available", ShortCampaignDebugLine(runtimeReport, 220), CampaignDebugStatus(runtimeReport.Contains("Partisan mission runtime")), "mission runtime report missing expected prefix");
+		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.objective_report", "objective report is available", ShortCampaignDebugLine(objectivesReport, 220), CampaignDebugStatus(objectivesReport.Contains("Partisan objectives")), "objective report missing expected prefix");
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.no_active_summary", "zero-active state is explicitly reported when no missions are active", string.Format("active %1 | summary %2", activeMissionCount, ShortCampaignDebugLine(summaryReport, 160)), CampaignDebugStatus(activeMissionCount > 0 || summaryReport.Contains("no active mission")), "active mission summary did not explain the zero-active state");
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_identity", "active mission records expose instance and mission ids", BuildCampaignDebugMissionRuntimeVisibilityActual(activeMissionCount, missingInstanceIds, missingMissionIds, missingRuntimePhases, missingRuntimePrimitives), CampaignDebugStatus(missingInstanceIds == 0 && missingMissionIds == 0), "one or more active mission records have missing identifiers");
 		AddCampaignDebugAssertion(runtimeCase, "mission_runtime.active_metadata", "active mission records expose runtime primitive and phase metadata", BuildCampaignDebugMissionRuntimeVisibilityActual(activeMissionCount, missingInstanceIds, missingMissionIds, missingRuntimePhases, missingRuntimePrimitives), CampaignDebugStatus(activeMissionCount == 0 || (missingRuntimePhases == 0 && missingRuntimePrimitives == 0)), "one or more active mission records have missing runtime metadata");
@@ -18645,7 +19308,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(contentCase, "generated_content.valid_sites", string.Format("%1", validSiteCount), "count");
 		AddCampaignDebugMetric(contentCase, "generated_content.routes", string.Format("%1", routeCount), "count");
 		AddCampaignDebugMetric(contentCase, "generated_content.min_waypoints", string.Format("%1", minWaypointCount), "count");
-		AddCampaignDebugAssertion(contentCase, "generated_content.report", "generated content report is available", ShortCampaignDebugLine(report, 220), CampaignDebugStatus(!report.IsEmpty() && report.Contains("h-istasi generated content")), "generated content report missing expected summary");
+		AddCampaignDebugAssertion(contentCase, "generated_content.report", "generated content report is available", ShortCampaignDebugLine(report, 220), CampaignDebugStatus(!report.IsEmpty() && report.Contains("Partisan generated content")), "generated content report missing expected summary");
 		AddCampaignDebugAssertion(contentCase, "generated_content.site_count", "generated sites include primary, roadblock, support, and secondary anchors for every zone", string.Format("sites %1 | expected >= %2 | zones %3", siteCount, expectedMinimumSites, zoneCount), CampaignDebugStatus(zoneCount > 0 && siteCount >= expectedMinimumSites), "generated site count is below per-zone minimum");
 		AddCampaignDebugAssertion(contentCase, "generated_content.route_count", "generated routes exist for every zone", string.Format("routes %1 | zones %2", routeCount, zoneCount), CampaignDebugStatus(zoneCount > 0 && routeCount >= zoneCount), "generated route count is below zone count");
 		AddCampaignDebugAssertion(contentCase, "generated_content.per_zone_anchors", "every zone has primary, roadblock, support, and stash/crashsite anchors", string.Format("missing primary %1 | roadblock %2 | support %3 | secondary %4", missingPrimarySites, missingRoadblockSites, missingSupportSites, missingSecondarySites), CampaignDebugStatus(missingPrimarySites == 0 && missingRoadblockSites == 0 && missingSupportSites == 0 && missingSecondarySites == 0), "one or more zones are missing generated mission anchors");
@@ -18674,14 +19337,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugCurrentMissionInstanceId = m_sCampaignDebugEarlyMissionInstanceId;
 		TeleportCampaignDebugPlayerToMission(m_sCampaignDebugEarlyMissionInstanceId, "convoy_ammo");
 		if (m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
-			return "h-istasi campaign debug | failed: convoy sample instance not found";
+			return "Partisan campaign debug | failed: convoy sample instance not found";
 
-		return startResult + "\nh-istasi campaign debug | convoy sample instance " + m_sCampaignDebugEarlyMissionInstanceId;
+		return startResult + "\nPartisan campaign debug | convoy sample instance " + m_sCampaignDebugEarlyMissionInstanceId;
 	}
 
 	protected string BuildCampaignDebugConvoySampleReport()
 	{
-		string report = "h-istasi campaign debug | convoy phase sample";
+		string report = "Partisan campaign debug | convoy phase sample";
 		if (!m_sCampaignDebugEarlyMissionInstanceId.IsEmpty())
 			report = report + "\n" + BuildCampaignDebugMissionRuntimeReport(m_sCampaignDebugEarlyMissionInstanceId);
 		else
@@ -18693,13 +19356,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_ActiveMissionState mission = ResolveCampaignDebugEarlyMission();
 		if (!mission)
-			return "h-istasi campaign debug | failed: no convoy sample mission to force";
+			return "Partisan campaign debug | failed: no convoy sample mission to force";
 		if (mission.m_sRuntimePrimitive != "convoy_intercept")
-			return "h-istasi campaign debug | failed: early sample is not a convoy mission";
+			return "Partisan campaign debug | failed: early sample is not a convoy mission";
 
 		ForceCampaignDebugConvoyDepartureForInstance(mission.m_sInstanceId);
 		MarkMajorCampaignChange(true);
-		return string.Format("h-istasi campaign debug | convoy departure forced | instance %1 | counters %2/%3/%4 | movement wait %5s", mission.m_sInstanceId, mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC, ResolveCampaignDebugConvoyMovementWaitSeconds());
+		return string.Format("Partisan campaign debug | convoy departure forced | instance %1 | counters %2/%3/%4 | movement wait %5s", mission.m_sInstanceId, mission.m_iRuntimeCounterA, mission.m_iRuntimeCounterB, mission.m_iRuntimeCounterC, ResolveCampaignDebugConvoyMovementWaitSeconds());
 	}
 
 	protected int ResolveCampaignDebugConvoyMovementWaitSeconds()
@@ -18730,20 +19393,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_ActiveMissionState mission = ResolveCampaignDebugEarlyMission();
 		if (!mission)
-			return "h-istasi campaign debug | failed: no convoy sample mission for contact probe";
+			return "Partisan campaign debug | failed: no convoy sample mission for contact probe";
 
 		bool teleported = TeleportCampaignDebugPlayerToConvoy(mission.m_sInstanceId, "phase9 convoy contact");
 		if (!teleported)
-			return "h-istasi campaign debug | failed: could not teleport to convoy sample";
+			return "Partisan campaign debug | failed: could not teleport to convoy sample";
 
-		return "h-istasi campaign debug | convoy contact teleport probe | instance " + mission.m_sInstanceId;
+		return "Partisan campaign debug | convoy contact teleport probe | instance " + mission.m_sInstanceId;
 	}
 
 	protected string CompleteCampaignDebugConvoySample()
 	{
 		HST_ActiveMissionState mission = ResolveCampaignDebugEarlyMission();
 		if (!mission)
-			return "h-istasi campaign debug | failed: no convoy sample mission to complete";
+			return "Partisan campaign debug | failed: no convoy sample mission to complete";
 
 		string instanceId = mission.m_sInstanceId;
 		string completionStatus;
@@ -18752,9 +19415,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugEarlyMissionInstanceId = "";
 		m_sCampaignDebugCurrentMissionInstanceId = "";
 		if (!completed)
-			return "h-istasi campaign debug | failed: convoy sample completion returned false | " + instanceId + " | " + completionStatus;
+			return "Partisan campaign debug | failed: convoy sample completion returned false | " + instanceId + " | " + completionStatus;
 
-		return "h-istasi campaign debug | convoy sample completed | " + instanceId + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
+		return "Partisan campaign debug | convoy sample completed | " + instanceId + "\n" + RequestMemberInspectMissionSummary(m_iCampaignDebugPlayerId);
 	}
 
 	protected string RunCampaignDebugPersistenceSmoke()
@@ -18764,7 +19427,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string reportResult = RequestAdminPersistenceSmokeReport(m_iCampaignDebugPlayerId);
 		RecordCampaignDebugCase(BuildCampaignDebugPersistenceSmokeCase(seedResult, smokeResult, reportResult));
 
-		string report = "h-istasi campaign debug | phase 12 persistence smoke";
+		string report = "Partisan campaign debug | phase 12 persistence smoke";
 		report = report + "\n" + seedResult;
 		report = report + "\n" + smokeResult;
 		report = report + "\n" + reportResult;
@@ -18788,7 +19451,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return persistenceCase;
 		}
 
-		bool seedAccepted = IsCampaignDebugResultSuccessful(seedResult) && seedResult.Contains("h-istasi persistence smoke | seeded") && CampaignDebugPersistenceReportPassed(seedResult);
+		bool seedAccepted = IsCampaignDebugResultSuccessful(seedResult) && seedResult.Contains("Partisan persistence smoke | seeded") && CampaignDebugPersistenceReportPassed(seedResult);
 		bool smokeAccepted = IsCampaignDebugResultSuccessful(smokeResult) && CampaignDebugPersistenceReportHealthy(smokeResult);
 		bool smokeExact = CampaignDebugPersistenceReportPassed(smokeResult);
 		bool reportAccepted = CampaignDebugPersistenceReportHealthy(reportResult);
@@ -18919,7 +19582,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (reportText.IsEmpty())
 			return false;
 
-		return reportText.Contains("h-istasi persistence smoke | PASS") && reportText.Contains("missing/zero none");
+		return reportText.Contains("Partisan persistence smoke | PASS") && reportText.Contains("missing/zero none");
 	}
 
 	protected bool CampaignDebugPersistenceReportHealthy(string reportText)
@@ -18927,7 +19590,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (reportText.IsEmpty())
 			return false;
 
-		bool statusOk = reportText.Contains("h-istasi persistence smoke | PASS") || reportText.Contains("h-istasi persistence smoke | WARN");
+		bool statusOk = reportText.Contains("Partisan persistence smoke | PASS") || reportText.Contains("Partisan persistence smoke | WARN");
 		return statusOk && reportText.Contains("missing/zero none");
 	}
 
@@ -19197,13 +19860,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (instanceId.IsEmpty())
 		{
 			RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, instanceId, "", false, "instance not found"));
-			return "h-istasi campaign debug | failed: primitive sample instance not found";
+			return "Partisan campaign debug | failed: primitive sample instance not found";
 		}
 
 		TeleportCampaignDebugPlayerToMission(instanceId, "rescue_pows");
 		ProcessPlayerSpawnSweep("campaign debug primitive runtime", true);
 		string runtimeReport = BuildCampaignDebugMissionRuntimeReport(instanceId);
-		string report = "h-istasi campaign debug | phase 13 primitive sample";
+		string report = "Partisan campaign debug | phase 13 primitive sample";
 		report = report + "\n" + startResult;
 		report = report + "\n" + runtimeReport;
 		RecordCampaignDebugCase(BuildCampaignDebugCaptiveProbeCase(instanceId));
@@ -19211,9 +19874,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool completed = CompleteCampaignDebugMissionInstance(instanceId, completionStatus);
 		RecordCampaignDebugCase(BuildCampaignDebugPrimitiveRuntimeSampleCase(startResult, instanceId, runtimeReport, completed, completionStatus));
 		if (!completed)
-			return report + "\nh-istasi campaign debug | failed: primitive sample completion returned false | " + completionStatus;
+			return report + "\nPartisan campaign debug | failed: primitive sample completion returned false | " + completionStatus;
 
-		return report + "\nh-istasi campaign debug | primitive sample completed | " + instanceId;
+		return report + "\nPartisan campaign debug | primitive sample completed | " + instanceId;
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPrimitiveRuntimeSampleCase(string startResult, string instanceId, string runtimeReport, bool completed, string completionStatus)
@@ -19256,7 +19919,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.prefix", "sample mission instance uses the current debug run prefix", EmptyCampaignDebugField(instanceId), CampaignDebugStatus(prefixedInstance), "primitive runtime sample mission was not tagged with the current debug prefix", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.primitive", "sample mission uses rescue_extract runtime primitive", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_sMissionId == "rescue_pows" && mission.m_sRuntimePrimitive == "rescue_extract"), "primitive runtime sample is not the expected rescue_extract mission", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_spawned", "sample runtime spawned without fallback/failure", BuildCampaignDebugPrimitiveMissionActual(mission), CampaignDebugStatus(mission.m_bRuntimeSpawned && !mission.m_bRuntimeFallback && mission.m_sRuntimeFailureReason.IsEmpty()), "primitive runtime sample did not spawn cleanly", "", instanceId, mission.m_sTargetZoneId);
-		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_report", "selected mission runtime report includes instance and primitive evidence", ShortCampaignDebugLine(runtimeReport, 260), CampaignDebugStatus(runtimeReport.Contains("h-istasi mission runtime | selected mission") && runtimeReport.Contains(instanceId) && runtimeReport.Contains("rescue_extract")), "primitive runtime sample report is missing selected mission/runtime evidence", "", instanceId, mission.m_sTargetZoneId);
+		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.runtime_report", "selected mission runtime report includes instance and primitive evidence", ShortCampaignDebugLine(runtimeReport, 260), CampaignDebugStatus(runtimeReport.Contains("Partisan mission runtime | selected mission") && runtimeReport.Contains(instanceId) && runtimeReport.Contains("rescue_extract")), "primitive runtime sample report is missing selected mission/runtime evidence", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.objectives", "sample mission has objective records and completion evidence after captive probe", string.Format("objectives %1 | complete %2", objectiveCount, objectiveComplete), CampaignDebugStatus(objectiveCount > 0 && objectiveComplete > 0), "primitive runtime sample did not expose objective completion evidence", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.assets", "sample mission has required captive assets", string.Format("assets %1 | captives %2/%3", assetCount, captiveAssetCount, mission.m_iRequiredCaptiveCount), CampaignDebugStatus(captiveAssetCount >= Math.Max(1, mission.m_iRequiredCaptiveCount)), "primitive runtime sample did not expose required captive assets", "", instanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive_sample.completion", "sample mission completes through primitive probe or cleanup recognizes existing success", ShortCampaignDebugLine(completionStatus, 220), CampaignDebugStatus(completed && mission.m_eStatus == HST_EMissionStatus.HST_MISSION_SUCCEEDED), "primitive runtime sample mission did not end in succeeded status", "", instanceId, mission.m_sTargetZoneId);
@@ -19827,7 +20490,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string StartCampaignDebugForceSpawnAdapterProof()
 	{
 		if (!m_ForceSpawnAdapterProof)
-			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+			return "Partisan campaign debug | failed: exact spawn-adapter proof service missing";
 		return m_ForceSpawnAdapterProof.Start(
 			m_State,
 			m_ForceSpawnQueue,
@@ -19841,31 +20504,31 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string CancelCampaignDebugForceSpawnAdapterPartialAndStartSuccess()
 	{
 		if (!m_ForceSpawnAdapterProof)
-			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+			return "Partisan campaign debug | failed: exact spawn-adapter proof service missing";
 		return m_ForceSpawnAdapterProof.CancelPartialAndStartSuccess(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
 	}
 
 	protected string WaitCampaignDebugForceSpawnAdapterSuccessMembers()
 	{
-		return "h-istasi campaign debug | exact spawn-adapter success root transition complete; awaiting member execution tick";
+		return "Partisan campaign debug | exact spawn-adapter success root transition complete; awaiting member execution tick";
 	}
 
 	protected string CaptureCampaignDebugForceSpawnAdapterSuccessAndStartFailure()
 	{
 		if (!m_ForceSpawnAdapterProof)
-			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+			return "Partisan campaign debug | failed: exact spawn-adapter proof service missing";
 		return m_ForceSpawnAdapterProof.CaptureAndRetireSuccess(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
 	}
 
 	protected string WaitCampaignDebugForceSpawnAdapterFailureMembers()
 	{
-		return "h-istasi campaign debug | exact spawn-adapter failure root transition complete; awaiting same-wave member execution tick";
+		return "Partisan campaign debug | exact spawn-adapter failure root transition complete; awaiting same-wave member execution tick";
 	}
 
 	protected string CaptureCampaignDebugForceSpawnAdapterSameWaveFailure()
 	{
 		if (!m_ForceSpawnAdapterProof)
-			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+			return "Partisan campaign debug | failed: exact spawn-adapter proof service missing";
 		return m_ForceSpawnAdapterProof.CaptureSameWaveFailure(m_State, m_ForceSpawnAdapter, m_PhysicalWar);
 	}
 
@@ -19877,13 +20540,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(missingCase, "spawn_adapter.prerequisite", "production spawn-adapter proof service ready", "missing", "BLOCKED", "exact spawn-adapter proof service missing");
 			FinalizeCampaignDebugCaseFromAssertions(missingCase);
 			RecordCampaignDebugCase(missingCase);
-			return "h-istasi campaign debug | failed: exact spawn-adapter proof service missing";
+			return "Partisan campaign debug | failed: exact spawn-adapter proof service missing";
 		}
 
 		HST_ForceSpawnAdapterProofReport report = m_ForceSpawnAdapterProof.Finish(m_State, m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
 		HST_CampaignDebugCaseResult proofCase = BuildCampaignDebugForceSpawnAdapterProofCase(report);
 		RecordCampaignDebugCase(proofCase);
-		return string.Format("h-istasi campaign debug | exact spawn-adapter proof %1 | %2", proofCase.m_sStatus, proofCase.m_sReason);
+		return string.Format("Partisan campaign debug | exact spawn-adapter proof %1 | %2", proofCase.m_sStatus, proofCase.m_sReason);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugForceSpawnAdapterProofCase(HST_ForceSpawnAdapterProofReport proofReport)
@@ -19941,12 +20604,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string StartCampaignDebugPhysicalCombatProbeTyped()
 	{
 		if (!m_PhysicalWar)
-			return "h-istasi campaign debug | failed: physical war service missing for physical combat probe";
+			return "Partisan campaign debug | failed: physical war service missing for physical combat probe";
 
 		string result;
 		m_PhysicalWar.StartCampaignDebugPhysicalCombatProbe(m_State, m_Preset, m_sCampaignDebugMarkerPrefix, m_bCampaignDebugPhysicalBlocked, result);
 		if (result.IsEmpty())
-			result = "h-istasi campaign debug | physical combat probe start returned no result";
+			result = "Partisan campaign debug | physical combat probe start returned no result";
 
 		return result;
 	}
@@ -19959,15 +20622,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(serviceCase, "physical_combat.service", "physical war service ready", "missing", "FAIL", "physical war service missing for physical combat probe");
 			FinalizeCampaignDebugCaseFromAssertions(serviceCase);
 			RecordCampaignDebugCase(serviceCase);
-			return "h-istasi campaign debug | failed: physical war service missing for physical combat probe";
+			return "Partisan campaign debug | failed: physical war service missing for physical combat probe";
 		}
 
 		HST_CampaignDebugCaseResult probe = m_PhysicalWar.FinishCampaignDebugPhysicalCombatProbe(m_State, m_bCampaignDebugPhysicalBlocked);
 		if (!probe)
-			return "h-istasi campaign debug | failed: physical combat probe produced no result case";
+			return "Partisan campaign debug | failed: physical combat probe produced no result case";
 
 		RecordCampaignDebugCase(probe);
-		return string.Format("h-istasi campaign debug | physical combat probe %1 | %2", probe.m_sStatus, probe.m_sReason);
+		return string.Format("Partisan campaign debug | physical combat probe %1 | %2", probe.m_sStatus, probe.m_sReason);
 	}
 
 	protected void RecordCampaignDebugConvoyPhysicalProbe(string label, string instanceId)
@@ -20140,7 +20803,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vector sellerPosition = ResolveCampaignDebugMissionAssetProbePosition(sellerAsset, mission);
 		bool sellerTeleport = TeleportCampaignDebugPlayer(sellerPosition + "2 0 2", "gun shop seller");
 		string openReport = RequestMemberOpenGunShopReport(m_iCampaignDebugPlayerId, mission.m_sInstanceId);
-		bool openAccepted = IsCampaignDebugResultSuccessful(openReport) && openReport.Contains("h-istasi gun shop");
+		bool openAccepted = IsCampaignDebugResultSuccessful(openReport) && openReport.Contains("Partisan gun shop");
 		AddCampaignDebugAssertion(primitiveCase, "primitive.gun_shop.open_command", "open action works near the seller", ShortCampaignDebugLine(openReport, 220), CampaignDebugStatus(sellerTeleport && openAccepted), "gun shop open command failed near seller", sellerAsset.m_sAssetId, instanceId, mission.m_sTargetZoneId);
 
 		int originalMoney = m_State.m_iFactionMoney;
@@ -20320,7 +20983,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMissionAssetReadinessAssertions(primitiveCase, mission, destroyAsset, "primitive.destroy.asset", "WARN");
 		string destroyResult;
 		if (destroyAlreadyDestroyedBefore)
-			destroyResult = "h-istasi mission | already destroyed before primitive probe";
+			destroyResult = "Partisan mission | already destroyed before primitive probe";
 		else
 			destroyResult = RequestServerMissionAssetExplosiveDamage(destroyAsset.m_sAssetId, destroyPosition, destroyDamage, "campaign_debug_primitive");
 		primitiveCase.m_aEvidence.Insert("destroy_target explosive action | " + ShortCampaignDebugLine(destroyResult, 220));
@@ -21391,7 +22054,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordCampaignDebugCase(missionAssetCase);
 		HST_CampaignDebugCaseResult convoyCase = BuildCampaignDebugRenderBubbleConvoyCase();
 		RecordCampaignDebugCase(convoyCase);
-		return string.Format("h-istasi campaign debug | render bubble zone activation | %1 | %2 | mission target bubble %3 | mission asset bubble %4 | convoy bubble %5", renderCase.m_sStatus, renderCase.m_sReason, missionTargetCase.m_sStatus, missionAssetCase.m_sStatus, convoyCase.m_sStatus);
+		return string.Format("Partisan campaign debug | render bubble zone activation | %1 | %2 | mission target bubble %3 | mission asset bubble %4 | convoy bubble %5", renderCase.m_sStatus, renderCase.m_sReason, missionTargetCase.m_sStatus, missionAssetCase.m_sStatus, convoyCase.m_sStatus);
 	}
 
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugRenderBubbleMissionAssetCase()
@@ -21858,7 +22521,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected HST_CampaignDebugGarrisonProbeContext BuildCampaignDebugGarrisonProbeContext()
 	{
 		HST_CampaignDebugGarrisonProbeContext garrisonContext = new HST_CampaignDebugGarrisonProbeContext();
-		garrisonContext.m_sResult = "h-istasi campaign debug | failed: no garrison test zone available";
+		garrisonContext.m_sResult = "Partisan campaign debug | failed: no garrison test zone available";
 		if (!m_State || !m_Preset)
 			return garrisonContext;
 
@@ -21894,7 +22557,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				BuildOwnershipTransitionSourceId("garrison_probe_arrange", garrisonZone));
 			if (!arrangeOwnership || !arrangeOwnership.m_bAccepted || !arrangeOwnership.m_bCompleted)
 			{
-				garrisonContext.m_sResult = "h-istasi campaign debug | failed: garrison owner arrangement did not complete canonically";
+				garrisonContext.m_sResult = "Partisan campaign debug | failed: garrison owner arrangement did not complete canonically";
 				return garrisonContext;
 			}
 		}
@@ -22503,14 +23166,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicleLoadoutContext.m_sGarageReportBefore = RequestMemberInspectGarage(m_iCampaignDebugPlayerId);
 		vehicleLoadoutContext.m_sVehicleCargoReportBefore = RequestMemberInspectVehicleCargo(m_iCampaignDebugPlayerId);
 		vehicleLoadoutContext.m_sLoadoutReportBefore = RequestMemberInspectLoadoutEditor(m_iCampaignDebugPlayerId);
-		vehicleLoadoutContext.m_sReport = "h-istasi campaign debug | garage vehicle cargo loadout actions";
+		vehicleLoadoutContext.m_sReport = "Partisan campaign debug | garage vehicle cargo loadout actions";
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sGarageReportBefore;
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sVehicleCargoReportBefore;
 		vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\n" + vehicleLoadoutContext.m_sLoadoutReportBefore;
 
 		if (!m_State)
 		{
-			vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\nh-istasi campaign debug | garage/loadout probe skipped | campaign state not ready";
+			vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\nPartisan campaign debug | garage/loadout probe skipped | campaign state not ready";
 			return vehicleLoadoutContext;
 		}
 
@@ -22522,7 +23185,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (!m_Arsenal || !m_Loot || !m_BuildMode || !m_LoadoutEditor)
 		{
-			vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\nh-istasi campaign debug | garage/loadout probe skipped | service not ready";
+			vehicleLoadoutContext.m_sReport = vehicleLoadoutContext.m_sReport + "\nPartisan campaign debug | garage/loadout probe skipped | service not ready";
 			return vehicleLoadoutContext;
 		}
 
@@ -22578,7 +23241,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		else
 		{
-			vehicleLoadoutContext.m_sCaptureResult = "h-istasi garage | skipped: no redeployed runtime vehicle";
+			vehicleLoadoutContext.m_sCaptureResult = "Partisan garage | skipped: no redeployed runtime vehicle";
 			vehicleLoadoutContext.m_iGarageCountAfterCapture = m_State.m_aGarageVehicles.Count();
 		}
 
@@ -22724,11 +23387,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicleLoadoutContext.m_sInvalidLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_invalid";
 		vehicleLoadoutContext.m_sPhysicalLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_physical";
 		vehicleLoadoutContext.m_sRestoreLoadoutId = ResolveCampaignDebugCleanupPrefix() + "_loadout_restore";
-		vehicleLoadoutContext.m_sValidLoadoutApplyResult = "h-istasi loadout editor | skipped: valid apply probe not arranged";
-		vehicleLoadoutContext.m_sInvalidLoadoutApplyResult = "h-istasi loadout editor | skipped: invalid apply probe not arranged";
-		vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | skipped: physical apply probe not arranged";
-		vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | skipped: physical apply restore not arranged";
-		vehicleLoadoutContext.m_sPostApplyCloseResult = "h-istasi loadout editor | skipped: apply probe did not open a session";
+		vehicleLoadoutContext.m_sValidLoadoutApplyResult = "Partisan loadout editor | skipped: valid apply probe not arranged";
+		vehicleLoadoutContext.m_sInvalidLoadoutApplyResult = "Partisan loadout editor | skipped: invalid apply probe not arranged";
+		vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "Partisan loadout editor | skipped: physical apply probe not arranged";
+		vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "Partisan loadout editor | skipped: physical apply restore not arranged";
+		vehicleLoadoutContext.m_sPostApplyCloseResult = "Partisan loadout editor | skipped: apply probe did not open a session";
 
 		if (!m_State || !m_Arsenal || !m_LoadoutEditor || vehicleLoadoutContext.m_sIdentityId.IsEmpty())
 			return;
@@ -22763,9 +23426,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (vehicleLoadoutContext.m_bValidLoadoutSeeded)
 			vehicleLoadoutContext.m_sValidLoadoutApplyResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sValidLoadoutId);
 		else if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable)
-			vehicleLoadoutContext.m_sValidLoadoutApplyResult = "h-istasi loadout editor | blocked: " + EmptyCampaignDebugField(vehicleLoadoutContext.m_sSerializedLoadoutFailure);
+			vehicleLoadoutContext.m_sValidLoadoutApplyResult = "Partisan loadout editor | blocked: " + EmptyCampaignDebugField(vehicleLoadoutContext.m_sSerializedLoadoutFailure);
 		else
-			vehicleLoadoutContext.m_sValidLoadoutApplyResult = "h-istasi loadout editor | failed: could not seed valid debug loadout";
+			vehicleLoadoutContext.m_sValidLoadoutApplyResult = "Partisan loadout editor | failed: could not seed valid debug loadout";
 
 		vehicleLoadoutContext.m_iFiniteArsenalCountAfterValidApply = CountCampaignDebugArsenalItem(CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 		vehicleLoadoutContext.m_iFiniteIssuedCountAfterValidApply = CountCampaignDebugIssuedLoadoutPrefab(vehicleLoadoutContext.m_sIdentityId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
@@ -22775,7 +23438,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (vehicleLoadoutContext.m_bInvalidLoadoutSeeded)
 			vehicleLoadoutContext.m_sInvalidLoadoutApplyResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sInvalidLoadoutId);
 		else
-			vehicleLoadoutContext.m_sInvalidLoadoutApplyResult = "h-istasi loadout editor | failed: could not seed invalid debug loadout";
+			vehicleLoadoutContext.m_sInvalidLoadoutApplyResult = "Partisan loadout editor | failed: could not seed invalid debug loadout";
 
 		vehicleLoadoutContext.m_iFiniteArsenalCountAfterInvalidApply = CountCampaignDebugArsenalItem(CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 		vehicleLoadoutContext.m_iFiniteIssuedCountAfterInvalidApply = CountCampaignDebugIssuedLoadoutPrefab(vehicleLoadoutContext.m_sIdentityId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
@@ -22813,15 +23476,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable || !vehicleLoadoutContext.m_bPhysicalInventoryAccessible)
 		{
 			if (!vehicleLoadoutContext.m_bSerializedLoadoutAvailable)
-				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: original serialized loadout unavailable for physical apply restore";
+				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "Partisan loadout editor | blocked: original serialized loadout unavailable for physical apply restore";
 			else
-				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: player inventory not accessible for physical reflection check";
+				vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "Partisan loadout editor | blocked: player inventory not accessible for physical reflection check";
 			return;
 		}
 		if (!vehicleLoadoutContext.m_bPhysicalInventoryCapacityAvailable)
 		{
-			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | blocked: player inventory has no cargo or carrier slot for physical reflection check";
-			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | blocked: physical apply probe blocked because player inventory has no cargo or carrier slot";
+			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "Partisan loadout editor | blocked: player inventory has no cargo or carrier slot for physical reflection check";
+			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "Partisan loadout editor | blocked: physical apply probe blocked because player inventory has no cargo or carrier slot";
 			return;
 		}
 
@@ -22853,7 +23516,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (vehicleLoadoutContext.m_bPhysicalLoadoutSeeded)
 			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sPhysicalLoadoutId);
 		else
-			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "h-istasi loadout editor | failed: could not seed physical debug loadout";
+			vehicleLoadoutContext.m_sPhysicalLoadoutApplyResult = "Partisan loadout editor | failed: could not seed physical debug loadout";
 
 		vehicleLoadoutContext.m_iFiniteArsenalCountAfterPhysicalApply = CountCampaignDebugArsenalItem(CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
 		vehicleLoadoutContext.m_iFiniteIssuedCountAfterPhysicalApply = CountCampaignDebugIssuedLoadoutPrefab(vehicleLoadoutContext.m_sIdentityId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB);
@@ -22877,7 +23540,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (vehicleLoadoutContext.m_bRestoreLoadoutSeeded)
 			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = RequestMemberApplySavedLoadout(m_iCampaignDebugPlayerId, vehicleLoadoutContext.m_sRestoreLoadoutId);
 		else
-			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "h-istasi loadout editor | failed: could not seed restore debug loadout";
+			vehicleLoadoutContext.m_sRestoreLoadoutApplyResult = "Partisan loadout editor | failed: could not seed restore debug loadout";
 
 		int inventoryCountAfterRestore;
 		bool inventoryCountAfterRestoreAvailable = CountCampaignDebugPlayerInventoryPrefab(m_iCampaignDebugPlayerId, CAMPAIGN_DEBUG_LOADOUT_FINITE_PREFAB, inventoryCountAfterRestore);
@@ -24164,7 +24827,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildCampaignDebugPhase25SoakReport()
 	{
-		string report = "h-istasi phase25 full-campaign soak summary";
+		string report = "Partisan phase25 full-campaign soak summary";
 		report = report + string.Format("\nprogrammatic coverage | phases 0-13 steps %1/%2 | mission definitions %3 | phase 14-24 smoke steps %4/%5",
 			m_iCampaignDebugEarlyPhaseIndex,
 			GetCampaignDebugEarlyPhaseStepCount(),
@@ -24434,7 +25097,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		while (m_aCampaignDebugRecentLog.Count() > CAMPAIGN_DEBUG_RECENT_LOG_LIMIT)
 			m_aCampaignDebugRecentLog.Remove(0);
 
-		Print("h-istasi campaign debug | " + line);
+		Print("Partisan campaign debug | " + line);
 	}
 
 	protected bool IsCampaignDebugResultSuccessful(string result)
@@ -24475,7 +25138,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string report = m_Persistence.BuildPersistenceReport(m_State);
 		if (m_PersistenceSmokeTest)
-			report = report + "\nh-istasi persistence smoke | baseline deferred until seeded persistence smoke step";
+			report = report + "\nPartisan persistence smoke | baseline deferred until seeded persistence smoke step";
 
 		return report;
 	}
@@ -26741,7 +27404,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (defenseAlreadySucceeded)
 			{
 				AddCampaignDebugAssertion(defenseCase, "phase22.report.completed_before_report", "report checkpoint accepts clean Defend Petros success before active report", BuildCampaignDebugPhase22DefenseActual(), CampaignDebugStatus(true), "Phase 22 report reached after successful defense completion");
-				AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "report output includes HQ threat or completed defense state", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi HQ threat") || result.Contains("Defend Petros")), "Phase 22 report output did not include HQ threat or completed defense state");
+				AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "report output includes HQ threat or completed defense state", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("Partisan HQ threat") || result.Contains("Defend Petros")), "Phase 22 report output did not include HQ threat or completed defense state");
 				AddCampaignDebugPhase22SuccessAssertions(defenseCase, petrosOrder, defenseMission, defenseObjective, defenseTask);
 			}
 			else
@@ -26797,7 +27460,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_SupportRequestState refreshedAttackSupport = ResolveCampaignDebugPhase22Support(petrosOrder);
 		HST_ActiveGroupState refreshedAttackGroup = ResolveCampaignDebugPhase22Group(petrosOrder, refreshedAttackSupport);
 		AddCampaignDebugPhase22SupportAssertions(defenseCase, refreshedAttackSupport, refreshedAttackGroup, true);
-		AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "active/report output includes HQ threat report", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi HQ threat")), "Phase 22 active defense output did not include HQ threat state");
+		AddCampaignDebugAssertion(defenseCase, "phase22.report.hq_threat", "active/report output includes HQ threat report", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("Partisan HQ threat")), "Phase 22 active defense output did not include HQ threat state");
 	}
 
 	protected void AddCampaignDebugPhase22PhysicalAdvanceAssertions(HST_CampaignDebugCaseResult defenseCase, HST_EnemyOrderState petrosOrder)
@@ -27331,7 +27994,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		phaseCase.m_aEvidence.Insert("forces recall payload | " + ShortCampaignDebugLine(forcesRecallPayload, 260));
 		phaseCase.m_aEvidence.Insert("missions compact payload | " + ShortCampaignDebugLine(compactMissionPayload, 260));
 		AddCampaignDebugMetric(phaseCase, "phase23.ui.active_mission_rows", string.Format("%1", compactMissionRows), "count");
-		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi UI coverage")), "Phase 23 UI coverage report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.ui.report_header", "coverage report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("Partisan UI coverage")), "Phase 23 UI coverage report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_visible", "no missing visible command detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing visible command:")), "Phase 23 UI coverage found missing visible commands");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.no_missing_dispatch", "no missing dispatch detail rows", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(!result.Contains("missing dispatch:")), "Phase 23 UI coverage found missing dispatch handlers");
 		AddCampaignDebugAssertion(phaseCase, "phase23.ui.coverage_counts", "coverage summary reports zero missing visible/dispatch", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("missing visible 0") && result.Contains("missing dispatch 0")), "Phase 23 UI coverage summary does not report zero missing entries");
@@ -27695,7 +28358,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.radio_icon_mismatch", string.Format("%1", radioIconMismatches), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.markers.radar_icon_mismatch", string.Format("%1", radarIconMismatches), "count");
 
-		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi phase 23 marker audit")), "Phase 23 marker audit report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.marker.report_header", "marker audit report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("Partisan phase 23 marker audit")), "Phase 23 marker audit report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.records", "marker model has records", string.Format("%1", totalMarkers), CampaignDebugStatus(totalMarkers > 0), "Phase 23 marker model has no records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.coverage", "every campaign zone has a visible marker model entry", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && missingZoneMarkers == 0), "Phase 23 marker audit found zones without visible marker model records");
 		AddCampaignDebugAssertion(phaseCase, "phase23.marker.zones.state", "zone marker label, linked id, owner, color, style, and position match zone state", zoneMarkerActual, CampaignDebugStatus(expectedZoneMarkers > 0 && zoneMarkerMismatches == 0), "Phase 23 marker audit found zone marker state mismatches");
@@ -27732,7 +28395,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(phaseCase, "phase23.native.failed", string.Format("%1", nativeFailed), "count");
 		AddCampaignDebugMetric(phaseCase, "phase23.native.static_missing", string.Format("%1", nativeMissingStatic), "count");
 
-		AddCampaignDebugAssertion(phaseCase, "phase23.native.report_header", "native marker report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("h-istasi native marker report")), "Phase 23 native marker report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.native.report_header", "native marker report generated", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(result.Contains("Partisan native marker report")), "Phase 23 native marker report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.native.manager", "native marker manager ready or explicit environment warning", ShortCampaignDebugLine(result, 160), CampaignDebugStatus(nativeManagerReady, "WARN"), "Native marker manager unavailable during Phase 23 report");
 		if (nativeManagerReady)
 		{
@@ -27742,7 +28405,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (clientProjectionOwnsNative)
 			{
 				bool projectionReady = m_ClientProjection != null
-					&& result.Contains("h-istasi marker projection")
+					&& result.Contains("Partisan marker projection")
 					&& nativePublished == 0
 					&& nativeSkipped == 0
 					&& nativeFailed == 0
@@ -27755,7 +28418,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 			AddCampaignDebugAssertion(phaseCase, "phase23.native.tracked_static", "tracked static native marker handles remain live", nativeActual, CampaignDebugStatus(nativeMissingStatic == 0), "Phase 23 native marker report found missing tracked static handles");
 		}
-		AddCampaignDebugAssertion(phaseCase, "phase23.native.player_report", "player marker runtime report included", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(m_PlayerMapMarkers != null && result.Contains("h-istasi player marker report"), "WARN"), "Phase 23 native marker report did not include player marker runtime state");
+		AddCampaignDebugAssertion(phaseCase, "phase23.native.player_report", "player marker runtime report included", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(m_PlayerMapMarkers != null && result.Contains("Partisan player marker report"), "WARN"), "Phase 23 native marker report did not include player marker runtime state");
 	}
 
 	protected void AddCampaignDebugPhase23NativePurgeAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
@@ -27764,15 +28427,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_MapMarkers)
 			return;
 
-		bool purgeSucceeded = result.Contains("purged") && result.Contains("native HST marker");
-		AddCampaignDebugAssertion(phaseCase, "phase23.purge.native", "native HST marker purge completed", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(purgeSucceeded), "Phase 23 native marker purge did not report success");
+		bool purgeSucceeded = result.Contains("purged") && result.Contains("native Partisan marker");
+		AddCampaignDebugAssertion(phaseCase, "phase23.purge.native", "native Partisan marker purge completed", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(purgeSucceeded), "Phase 23 native marker purge did not report success");
 		AddCampaignDebugAssertion(phaseCase, "phase23.purge.client_projection", "every connected owner bridge resets and rehydrates its local campaign marker projection", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(!HST_MapMarkerService.CLIENT_PROJECTION_OWNS_NATIVE_MARKERS || result.Contains("client campaign marker projection reset")), "Phase 23 native marker purge did not reset client-owned campaign marker handles");
 		AddCampaignDebugAssertion(phaseCase, "phase23.purge.player", "player marker clear attempted/reported", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("player marker purge"), "WARN"), "Phase 23 native marker purge did not report player marker cleanup");
 	}
 
 	protected void AddCampaignDebugPhase23FailedActionAssertions(HST_CampaignDebugCaseResult phaseCase, string result)
 	{
-		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.report_header", "failed-action sample report generated", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("h-istasi phase 23 failed-action sample")), "Phase 23 failed-action sample report header missing");
+		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.report_header", "failed-action sample report generated", ShortCampaignDebugLine(result, 180), CampaignDebugStatus(result.Contains("Partisan phase 23 failed-action sample")), "Phase 23 failed-action sample report header missing");
 		AddCampaignDebugAssertion(phaseCase, "phase23.failed_sample.report_evidence", "report includes all three negative-path identifiers", ShortCampaignDebugLine(result, 220), CampaignDebugStatus(result.Contains("missing_hideout_id") && result.Contains("missing_zone_id") && result.Contains("missing_mission_id")), "Phase 23 failed-action sample missing one or more negative-path identifiers");
 		HST_CampaignDebugFailedActionProbeContext failedActionContext = m_CampaignDebugPhase23FailedActionContext;
 		if (!failedActionContext || !failedActionContext.m_bRan)
@@ -28281,7 +28944,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			decayStatus = "PASS";
 
 		string decayActual = string.Format("before %1 | after %2 | expected %3 | amount %4 | pools %5", escalationContext.m_iDecayBefore, escalationContext.m_iDecayAfter, expectedAfter, escalationContext.m_iDecayAmount, escalationContext.m_iDecayEnemyPoolCount);
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.aggression_decay", "aggression decay applies exact configured amount per enemy pool without underflow", decayActual, decayStatus, "aggression decay did not match configured pacing");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.aggression_decay", "aggression decay applies every due per-enemy cadence bucket without underflow", decayActual, decayStatus, "aggression decay did not match configured pacing");
 	}
 
 	protected HST_CampaignDebugEscalationProbeContext RunCampaignDebugPhase24EscalationProbe()
@@ -28289,7 +28952,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignDebugEscalationProbeContext escalationContext = new HST_CampaignDebugEscalationProbeContext();
 		if (!m_State || !m_Preset || !m_Balance || !m_Economy || !m_EnemyDirector || !m_EnemyCommander || !m_SupportRequests)
 		{
-			escalationContext.m_sReport = "h-istasi phase 24 escalation pressure | failed: services not ready";
+			escalationContext.m_sReport = "Partisan phase 24 escalation pressure | failed: services not ready";
 			return escalationContext;
 		}
 
@@ -28324,9 +28987,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iOrdersBefore = m_State.m_aEnemyOrders.Count();
 		profile.m_iSupportRequestsBefore = m_State.m_aSupportRequests.Count();
 		profile.m_iActiveGroupsBefore = m_State.m_aActiveGroups.Count();
-		m_State.m_iEnemyResourceAccumulatorSeconds = 0;
-
-		profile.m_bResourceTickChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, HST_EnemyDirectorService.RESOURCE_TICK_SECONDS);
+		int resourceElapsedSeconds = PrepareCampaignDebugStrategicCadenceTick(
+			HST_EnemyDirectorService.RESOURCE_TICK_SECONDS,
+			false,
+			true);
+		profile.m_bResourceTickChanged = resourceElapsedSeconds > 0
+			&& m_EnemyDirector.TickResources(
+				m_State,
+				m_Preset,
+				m_Balance,
+				resourceElapsedSeconds);
 		int attackAfterResource;
 		int supportAfterResource;
 		int aggressionAfterResource;
@@ -28436,8 +29106,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			int supportBeforeResource;
 			int aggressionBeforeResource;
 			CaptureCampaignDebugEnemyPoolTotals(attackBeforeResource, supportBeforeResource, aggressionBeforeResource);
-			m_State.m_iEnemyResourceAccumulatorSeconds = 0;
-			bool resourceChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, HST_EnemyDirectorService.RESOURCE_TICK_SECONDS);
+			int resourceElapsedSeconds = PrepareCampaignDebugStrategicCadenceTick(
+				HST_EnemyDirectorService.RESOURCE_TICK_SECONDS,
+				false,
+				true);
+			bool resourceChanged = resourceElapsedSeconds > 0
+				&& m_EnemyDirector.TickResources(
+					m_State,
+					m_Preset,
+					m_Balance,
+					resourceElapsedSeconds);
 			int attackAfterResource;
 			int supportAfterResource;
 			int aggressionAfterResource;
@@ -28491,8 +29169,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iWarLevel = warLevel;
 		m_State.m_iHQKnowledge = 0;
 		m_State.m_iHQThreatLevel = 0;
-		m_State.m_iEnemyResourceAccumulatorSeconds = 0;
-
 		HST_ZoneState resistanceProfileZone = m_State.FindZone(m_sCampaignDebugBackgroundWarResistanceZoneId);
 		if (resistanceProfileZone)
 		{
@@ -28519,16 +29195,108 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int poolCount;
 		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
 		{
-			if (!pool || pool.m_sFactionKey == m_Preset.m_sResistanceFactionKey)
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(
+				m_Preset,
+				pool.m_sFactionKey))
 				continue;
 
-			pool.m_iAttackResources = Math.Max(0, attack);
-			pool.m_iSupportResources = Math.Max(0, support);
-			pool.m_iAggression = Math.Max(0, aggression);
-			poolCount++;
+			if (SetEnemyStrategicPoolTargets(
+				m_State,
+				pool.m_sFactionKey,
+				Math.Max(0, attack),
+				Math.Max(0, support),
+				Math.Max(0, aggression),
+				"campaign_debug_absolute_target",
+				"phase24_escalation_profile"))
+				poolCount++;
 		}
 
 		return poolCount;
+	}
+
+	// Schema-67 cadence authority derives each pool checkpoint from the campaign
+	// clock. Full Campaign Debug also advances its isolated clock for commander
+	// probes, so fold that unprocessed gap into the next cadence-service call.
+	protected int PrepareCampaignDebugStrategicCadenceTick(
+		int cadenceIntervalSeconds,
+		bool aggressionCadence,
+		bool alignSingleBucket = false)
+	{
+		if (!m_State || !m_Preset || cadenceIntervalSeconds <= 0
+			|| m_State.m_iElapsedSeconds < 0)
+			return -1;
+
+		int observedSecond = -1;
+		int largestAccumulatorSeconds;
+		int sharedAccumulatorSeconds = -1;
+		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+		{
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(
+				m_Preset,
+				pool.m_sFactionKey))
+				continue;
+			if (pool.m_iStrategicContractVersion
+				!= HST_EnemyStrategicResourceService.CONTRACT_VERSION
+				|| !pool.m_sStrategicAuthorityFailure.IsEmpty())
+				return -1;
+			int poolObservedSecond;
+			int poolAccumulatorSeconds;
+			int poolLastBucketSecond;
+			if (aggressionCadence)
+			{
+				poolAccumulatorSeconds = pool.m_iAggressionAccumulatorSeconds;
+				poolLastBucketSecond = pool.m_iLastAggressionBucketSecond;
+			}
+			else
+			{
+				poolAccumulatorSeconds = pool.m_iResourceAccumulatorSeconds;
+				poolLastBucketSecond = pool.m_iLastResourceBucketSecond;
+			}
+			if (poolAccumulatorSeconds < 0 || poolLastBucketSecond < 0
+				|| poolLastBucketSecond > int.MAX - poolAccumulatorSeconds)
+				return -1;
+			poolObservedSecond = poolLastBucketSecond + poolAccumulatorSeconds;
+			largestAccumulatorSeconds = Math.Max(
+				largestAccumulatorSeconds,
+				poolAccumulatorSeconds);
+			if (sharedAccumulatorSeconds < 0)
+				sharedAccumulatorSeconds = poolAccumulatorSeconds;
+			else if (alignSingleBucket
+				&& sharedAccumulatorSeconds != poolAccumulatorSeconds)
+				return -1;
+			if (poolObservedSecond == 0)
+				poolObservedSecond = m_State.m_iElapsedSeconds;
+			if (poolObservedSecond < 0
+				|| poolObservedSecond > m_State.m_iElapsedSeconds)
+				return -1;
+			if (observedSecond < 0)
+				observedSecond = poolObservedSecond;
+			else if (observedSecond != poolObservedSecond)
+				return -1;
+		}
+		if (observedSecond < 0)
+			return -1;
+
+		int unprocessedSeconds = m_State.m_iElapsedSeconds - observedSecond;
+		if (largestAccumulatorSeconds > int.MAX - unprocessedSeconds)
+			return -1;
+		int cadenceAdvanceSeconds = cadenceIntervalSeconds;
+		if (alignSingleBucket)
+		{
+			int pendingSeconds = largestAccumulatorSeconds + unprocessedSeconds;
+			if (pendingSeconds < cadenceIntervalSeconds)
+				cadenceAdvanceSeconds = cadenceIntervalSeconds - pendingSeconds;
+			else
+				cadenceAdvanceSeconds = 1;
+		}
+		if (m_State.m_iElapsedSeconds > int.MAX - cadenceAdvanceSeconds
+			|| unprocessedSeconds > int.MAX - cadenceAdvanceSeconds)
+			return -1;
+		int serviceElapsedSeconds = unprocessedSeconds + cadenceAdvanceSeconds;
+		if (largestAccumulatorSeconds > int.MAX - serviceElapsedSeconds)
+			return -1;
+		m_State.m_iElapsedSeconds += cadenceAdvanceSeconds;
+		return serviceElapsedSeconds;
 	}
 
 	protected void CaptureCampaignDebugEnemyPoolTotals(out int attack, out int support, out int aggression)
@@ -28661,16 +29429,51 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		escalationContext.m_iDecayEnemyPoolCount = SetCampaignDebugEnemyPoolsForEscalation(50, 50, 80);
-		m_State.m_iAggressionAccumulatorSeconds = 0;
 		int decayAttackBefore;
 		int decaySupportBefore;
 		int decayAggressionBefore;
 		CaptureCampaignDebugEnemyPoolTotals(decayAttackBefore, decaySupportBefore, decayAggressionBefore);
 		escalationContext.m_iDecayBefore = decayAggressionBefore;
-		escalationContext.m_iDecayElapsedSeconds = Math.Max(60, m_Balance.m_iAggressionDecayIntervalSeconds);
+		int decayIntervalSeconds = Math.Max(
+			60,
+			m_Balance.m_iAggressionDecayIntervalSeconds);
+		escalationContext.m_iDecayElapsedSeconds = decayIntervalSeconds;
 		escalationContext.m_iDecayAmount = Math.Max(0, m_Balance.m_iAggressionDecayAmount);
-		escalationContext.m_iExpectedDecayTotal = escalationContext.m_iDecayAmount * escalationContext.m_iDecayEnemyPoolCount;
-		escalationContext.m_bDecayChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, escalationContext.m_iDecayElapsedSeconds);
+		int decayServiceElapsed = PrepareCampaignDebugStrategicCadenceTick(
+			decayIntervalSeconds,
+			true);
+		if (decayServiceElapsed > 0)
+		{
+			escalationContext.m_iDecayElapsedSeconds = decayServiceElapsed;
+			foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
+			{
+				if (!pool || !HST_FactionRelationService.IsEnemyFaction(
+					m_Preset,
+					pool.m_sFactionKey))
+					continue;
+				int dueBuckets = Math.Min(
+					HST_EnemyStrategicResourceService.MAX_CATCHUP_STEPS_PER_TICK,
+					(pool.m_iAggressionAccumulatorSeconds + decayServiceElapsed)
+						/ decayIntervalSeconds);
+				int remainingAggression = Math.Max(0, pool.m_iAggression);
+				for (int bucketIndex = 0; bucketIndex < dueBuckets; bucketIndex++)
+				{
+					if (remainingAggression <= 0)
+						break;
+					int bucketDecay = Math.Min(
+						remainingAggression,
+						escalationContext.m_iDecayAmount);
+					escalationContext.m_iExpectedDecayTotal += bucketDecay;
+					remainingAggression -= bucketDecay;
+				}
+			}
+		}
+		escalationContext.m_bDecayChanged = decayServiceElapsed > 0
+			&& m_Economy.TickAggressionDecay(
+				m_State,
+				m_Preset,
+				m_Balance,
+				decayServiceElapsed);
 		int decayAttackAfter;
 		int decaySupportAfter;
 		int decayAggressionAfter;
@@ -28681,9 +29484,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string BuildCampaignDebugPhase24EscalationReport(HST_CampaignDebugEscalationProbeContext escalationContext)
 	{
 		if (!escalationContext)
-			return "h-istasi phase 24 escalation pressure | failed: missing context";
+			return "Partisan phase 24 escalation pressure | failed: missing context";
 
-		string report = "h-istasi phase 24 escalation pressure";
+		string report = "Partisan phase 24 escalation pressure";
 		report = report + string.Format("\narranged %1", escalationContext.m_bArranged);
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Low);
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Mid);
@@ -29100,58 +29903,58 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			case 62: return RequestAdminPhase24Report(m_iCampaignDebugPlayerId);
 		}
 
-		return "h-istasi campaign debug | failed: unknown phase smoke step";
+		return "Partisan campaign debug | failed: unknown phase smoke step";
 	}
 
 	string RequestAdminPhase14SeedFinite(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 14 smoke | admin required";
+			return "Partisan phase 14 smoke | admin required";
 
 		if (!m_Arsenal)
-			return "h-istasi phase 14 smoke | arsenal service not ready";
+			return "Partisan phase 14 smoke | arsenal service not ready";
 
 		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_FINITE_PREFAB, 1, "utility", "Phase 14 Finite Only");
 		if (item)
 			MarkMajorCampaignChange();
 
-		return string.Format("h-istasi phase 14 smoke | finite-only seed %1\n%2", item != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
+		return string.Format("Partisan phase 14 smoke | finite-only seed %1\n%2", item != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
 	}
 
 	string RequestAdminPhase14SeedThreshold(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 14 smoke | admin required";
+			return "Partisan phase 14 smoke | admin required";
 
 		if (!m_Arsenal)
-			return "h-istasi phase 14 smoke | arsenal service not ready";
+			return "Partisan phase 14 smoke | arsenal service not ready";
 
 		HST_ArsenalItemState item = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_THRESHOLD_PREFAB, 2, "utility", "Phase 14 Threshold Item");
 		if (item)
 			MarkMajorCampaignChange();
 
-		return string.Format("h-istasi phase 14 smoke | threshold seed %1\n%2", item != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
+		return string.Format("Partisan phase 14 smoke | threshold seed %1\n%2", item != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
 	}
 
 	string RequestAdminPhase14SeedBlocked(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 14 smoke | admin required";
+			return "Partisan phase 14 smoke | admin required";
 
 		if (!m_Arsenal)
-			return "h-istasi phase 14 smoke | arsenal service not ready";
+			return "Partisan phase 14 smoke | arsenal service not ready";
 
 		HST_ArsenalItemState blockedItem = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_BLOCKED_PREFAB, 1, "utility", "Phase 14 Blocked Item");
 		HST_ArsenalItemState rawItem = m_Arsenal.DepositItem(m_State, m_Balance, PHASE14_RAW_ASSET_PREFAB, 1, "utility", "Phase 14 Raw Asset");
-		return string.Format("h-istasi phase 14 smoke | blocked prefab accepted %1 | raw asset accepted %2\n%3", blockedItem != null, rawItem != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
+		return string.Format("Partisan phase 14 smoke | blocked prefab accepted %1 | raw asset accepted %2\n%3", blockedItem != null, rawItem != null, m_Arsenal.BuildArsenalReport(m_State, m_Balance));
 	}
 
 	string RequestAdminPhase14Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 14 smoke | admin required";
+			return "Partisan phase 14 smoke | admin required";
 
-		string report = "h-istasi phase 14 smoke report";
+		string report = "Partisan phase 14 smoke report";
 		if (m_Arsenal)
 			report = report + "\n" + m_Arsenal.BuildArsenalReport(m_State, m_Balance);
 		if (m_Loot)
@@ -29165,14 +29968,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		ResetCampaignDebugPhase16SeedObservation();
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 16 smoke | failed: admin required";
+			return "Partisan phase 16 smoke | failed: admin required";
 
 		if (!m_State || !m_Preset || !m_Garrisons || !m_Recruitment)
-			return "h-istasi phase 16 smoke | failed: service not ready";
+			return "Partisan phase 16 smoke | failed: service not ready";
 
 		HST_ZoneState zone = SelectPhase16FriendlyRecruitZone();
 		if (!zone)
-			return "h-istasi phase 16 smoke | failed: no friendly zone available";
+			return "Partisan phase 16 smoke | failed: no friendly zone available";
 
 		string resistanceFactionKey = m_Preset.m_sResistanceFactionKey;
 		if (resistanceFactionKey.IsEmpty())
@@ -29180,7 +29983,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (zone.m_sOwnerFactionKey != resistanceFactionKey
 			&& !ApplyCampaignDebugZoneOwner(zone, resistanceFactionKey, "phase16_seed"))
-			return "h-istasi phase 16 smoke | failed: ownership transition rejected recruit-zone seed";
+			return "Partisan phase 16 smoke | failed: ownership transition rejected recruit-zone seed";
 		zone.m_bActive = false;
 		zone.m_iActiveInfantryCount = 0;
 		zone.m_iActiveVehicleCount = 0;
@@ -29219,21 +30022,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
 
-		string summary = "h-istasi recruitment | failed: no result";
+		string summary = "Partisan recruitment | failed: no result";
 		if (result)
 			summary = result.BuildSummary();
 
-		return "h-istasi phase 16 smoke | seed\n" + summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+		return "Partisan phase 16 smoke | seed\n" + summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
 
 	string RequestAdminPhase16Train(int playerId)
 	{
 		ResetCampaignDebugPhase16TrainObservation();
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 16 smoke | failed: admin required";
+			return "Partisan phase 16 smoke | failed: admin required";
 
 		if (!m_Recruitment)
-			return "h-istasi phase 16 smoke | failed: recruitment service not ready";
+			return "Partisan phase 16 smoke | failed: recruitment service not ready";
 
 		if (m_State)
 		{
@@ -29249,22 +30052,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (result && result.m_bSuccess)
 			MarkMajorCampaignChange();
 
-		string summary = "h-istasi training | failed: no result";
+		string summary = "Partisan training | failed: no result";
 		if (result)
 			summary = result.BuildSummary();
 
-		return "h-istasi phase 16 smoke | train\n" + summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
+		return "Partisan phase 16 smoke | train\n" + summary + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 	}
 
 	string RequestAdminPhase16Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 16 smoke | failed: admin required";
+			return "Partisan phase 16 smoke | failed: admin required";
 
 		if (!m_Recruitment)
-			return "h-istasi phase 16 smoke | failed: recruitment service not ready";
+			return "Partisan phase 16 smoke | failed: recruitment service not ready";
 
-		string report = "h-istasi phase 16 smoke report";
+		string report = "Partisan phase 16 smoke report";
 		report = report + "\n" + m_Recruitment.BuildRecruitmentReport(m_State, m_Preset, m_Arsenal);
 
 		if (m_CommandUI)
@@ -29277,18 +30080,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		ResetCampaignDebugPhase17Observations();
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 17 smoke | failed: admin required";
+			return "Partisan phase 17 smoke | failed: admin required";
 
 		if (!m_State || !m_Preset || !m_ZoneCapture)
-			return "h-istasi phase 17 smoke | failed: service not ready";
+			return "Partisan phase 17 smoke | failed: service not ready";
 
 		HST_ZoneState zone = SelectPhase17CaptureTarget();
 		if (!zone)
-			return "h-istasi phase 17 smoke | failed: no capturable target";
+			return "Partisan phase 17 smoke | failed: no capturable target";
 
 		if (zone.m_sOwnerFactionKey != m_Preset.m_sOccupierFactionKey
 			&& !ApplyCampaignDebugZoneOwner(zone, m_Preset.m_sOccupierFactionKey, "phase17_seed"))
-			return "h-istasi phase 17 smoke | failed: ownership transition rejected capture-zone seed";
+			return "Partisan phase 17 smoke | failed: ownership transition rejected capture-zone seed";
 		zone.m_iResistanceCaptureProgress = 0;
 		zone.m_bActive = false;
 		zone.m_iActiveInfantryCount = 0;
@@ -29317,7 +30120,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		MarkMajorCampaignChange(true);
 		return string.Format(
-			"h-istasi phase 17 smoke | seeded empty capturable zone %1 | owner %2 | progress %3",
+			"Partisan phase 17 smoke | seeded empty capturable zone %1 | owner %2 | progress %3",
 			ResolveZoneLabel(zone),
 			zone.m_sOwnerFactionKey,
 			zone.m_iResistanceCaptureProgress
@@ -29327,14 +30130,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase17ForceProgress(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 17 smoke | failed: admin required";
+			return "Partisan phase 17 smoke | failed: admin required";
 
 		if (!m_State || !m_Preset || !m_ZoneCapture)
-			return "h-istasi phase 17 smoke | failed: service not ready";
+			return "Partisan phase 17 smoke | failed: service not ready";
 
 		HST_ZoneState zone = ResolveCampaignDebugPhase17CaptureTarget();
 		if (!zone)
-			return "h-istasi phase 17 smoke | failed: no capturable target";
+			return "Partisan phase 17 smoke | failed: no capturable target";
 
 		int progress = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
 		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
@@ -29374,7 +30177,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange(markerChanged);
 
 		return string.Format(
-			"h-istasi phase 17 smoke | force progress %1 | changed %2 | marker %3\n%4",
+			"Partisan phase 17 smoke | force progress %1 | changed %2 | marker %3\n%4",
 			zone.m_sZoneId,
 			changed,
 			markerChanged,
@@ -29385,14 +30188,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase17ForceCounterattack(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 17 smoke | failed: admin required";
+			return "Partisan phase 17 smoke | failed: admin required";
 
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
-			return "h-istasi phase 17 smoke | failed: enemy services not ready";
+			return "Partisan phase 17 smoke | failed: enemy services not ready";
 
 		HST_ZoneState zone = ResolveCampaignDebugPhase17CapturedZone();
 		if (!zone)
-			return "h-istasi phase 17 smoke | failed: no captured FIA zone";
+			return "Partisan phase 17 smoke | failed: no captured FIA zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
@@ -29425,7 +30228,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		CaptureCampaignDebugPhase17CounterattackOrder(zone.m_sZoneId, factionKey);
 		MarkMajorCampaignChange(true);
 		return string.Format(
-			"h-istasi phase 17 smoke | force counterattack at %1 | queued %2\n%3",
+			"Partisan phase 17 smoke | force counterattack at %1 | queued %2\n%3",
 			ResolveZoneLabel(zone),
 			queued,
 			m_EnemyCommander.BuildEnemyOrderReport(m_State)
@@ -29435,9 +30238,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase17Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 17 smoke | failed: admin required";
+			return "Partisan phase 17 smoke | failed: admin required";
 
-		string report = "h-istasi phase 17 smoke report";
+		string report = "Partisan phase 17 smoke report";
 		if (m_ZoneCapture)
 			report = report + "\n" + m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance, m_MapMarkers);
 		if (m_MapMarkers)
@@ -29498,14 +30301,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase18SeedCounterattack(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 18 smoke | failed: admin required";
+			return "Partisan phase 18 smoke | failed: admin required";
 
 		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
-			return "h-istasi phase 18 smoke | failed: service not ready";
+			return "Partisan phase 18 smoke | failed: service not ready";
 
 		HST_ZoneState targetZone = SelectFirstResistanceCapturableZone();
 		if (!targetZone)
-			return "h-istasi phase 18 smoke | failed: no FIA strategic zone";
+			return "Partisan phase 18 smoke | failed: no FIA strategic zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase18_counterattack");
@@ -29528,7 +30331,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return string.Format(
-			"h-istasi phase 18 smoke | counterattack seed target %1 | queued %2\n%3",
+			"Partisan phase 18 smoke | counterattack seed target %1 | queued %2\n%3",
 			ResolveZoneLabel(targetZone),
 			queued,
 			m_EnemyCommander.BuildEnemyOrderReport(m_State)
@@ -29538,14 +30341,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase18SeedRebuild(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 18 smoke | failed: admin required";
+			return "Partisan phase 18 smoke | failed: admin required";
 
 		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
-			return "h-istasi phase 18 smoke | failed: service not ready";
+			return "Partisan phase 18 smoke | failed: service not ready";
 
 		HST_ZoneState targetZone = SelectEnemyOrderTargetZone(false);
 		if (!targetZone)
-			return "h-istasi phase 18 smoke | failed: no enemy target zone";
+			return "Partisan phase 18 smoke | failed: no enemy target zone";
 
 		ResetCampaignDebugEnemySupportLedgerForSeed(targetZone.m_sOwnerFactionKey, targetZone.m_sZoneId, "phase18_rebuild");
 		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(
@@ -29563,20 +30366,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange(true);
 		}
 
-		return string.Format("h-istasi phase 18 smoke | rebuild seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+		return string.Format("Partisan phase 18 smoke | rebuild seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
 	}
 
 	string RequestAdminPhase18SeedRoadblock(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 18 smoke | failed: admin required";
+			return "Partisan phase 18 smoke | failed: admin required";
 
 		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
-			return "h-istasi phase 18 smoke | failed: service not ready";
+			return "Partisan phase 18 smoke | failed: service not ready";
 
 		HST_ZoneState targetZone = SelectTownOrderTargetZone();
 		if (!targetZone)
-			return "h-istasi phase 18 smoke | failed: no town target";
+			return "Partisan phase 18 smoke | failed: no town target";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase18_roadblock");
@@ -29605,30 +30408,30 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange(true);
 		}
 
-		return string.Format("h-istasi phase 18 smoke | roadblock seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+		return string.Format("Partisan phase 18 smoke | roadblock seed %1\n%2", order != null, m_EnemyCommander.BuildEnemyOrderReport(m_State));
 	}
 
 	string RequestAdminPhase18ResolveNow(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 18 smoke | failed: admin required";
+			return "Partisan phase 18 smoke | failed: admin required";
 
 		if (!m_EnemyCommander)
-			return "h-istasi phase 18 smoke | failed: enemy commander not ready";
+			return "Partisan phase 18 smoke | failed: enemy commander not ready";
 
 		int resolved = m_EnemyCommander.DebugResolveDueOrdersNow(m_State, m_Preset, m_Garrisons);
 		if (resolved > 0)
 			MarkMajorCampaignChange(true);
 
-		return string.Format("h-istasi phase 18 smoke | resolved %1 order(s)\n%2", resolved, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+		return string.Format("Partisan phase 18 smoke | resolved %1 order(s)\n%2", resolved, m_EnemyCommander.BuildEnemyOrderReport(m_State));
 	}
 
 	string RequestAdminPhase18Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 18 smoke | failed: admin required";
+			return "Partisan phase 18 smoke | failed: admin required";
 
-		string report = "h-istasi phase 18 smoke report";
+		string report = "Partisan phase 18 smoke report";
 		if (m_EnemyCommander)
 		{
 			report = report + "\n" + m_EnemyCommander.BuildEnemyOrderReport(m_State);
@@ -29645,10 +30448,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase18CommanderTickReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 18 smoke | failed: admin required";
+			return "Partisan phase 18 smoke | failed: admin required";
 
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
-			return "h-istasi phase 18 smoke | failed: enemy commander not ready";
+			return "Partisan phase 18 smoke | failed: enemy commander not ready";
 
 		int resolvedForIsolation = ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase18_background_war_start");
 		bool arranged = ArrangeCampaignDebugBackgroundWarState();
@@ -29664,7 +30467,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange(true);
 
 		string report = string.Format(
-			"h-istasi phase 18 smoke | commander tick %1 | orders %2 -> %3 | resistance %4 | occupier %5 | invader %6",
+			"Partisan phase 18 smoke | commander tick %1 | orders %2 -> %3 | resistance %4 | occupier %5 | invader %6",
 			changed,
 			m_iCampaignDebugBackgroundWarOrderCountBefore,
 			m_iCampaignDebugBackgroundWarOrderCountAfter,
@@ -29702,12 +30505,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase19SeedFIASupply(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 19 smoke | failed: admin required";
+			return "Partisan phase 19 smoke | failed: admin required";
 
 		if (!m_SupportRequests)
-			return "h-istasi phase 19 smoke | failed: support service not ready";
+			return "Partisan phase 19 smoke | failed: support service not ready";
 		if (!m_State || !m_Preset)
-			return "h-istasi phase 19 smoke | failed: campaign state or preset not ready";
+			return "Partisan phase 19 smoke | failed: campaign state or preset not ready";
 
 		string targetZoneId = SelectHQSupportZoneId();
 		HST_SupportRequestResult result = m_SupportRequests.RequestSupportDetailed(
@@ -29728,43 +30531,43 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange(true);
 		}
 
-		return "h-istasi phase 19 smoke | FIA supply\n" + result.BuildSummary() + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		return "Partisan phase 19 smoke | FIA supply\n" + result.BuildSummary() + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 	}
 
 	string RequestAdminPhase19SeedFIAGround(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 19 smoke | failed: admin required";
+			return "Partisan phase 19 smoke | failed: admin required";
 
 		if (!m_SupportRequests)
-			return "h-istasi phase 19 smoke | failed: support service not ready";
+			return "Partisan phase 19 smoke | failed: support service not ready";
 		if (!m_State || !m_Preset)
-			return "h-istasi phase 19 smoke | failed: campaign state or preset not ready";
+			return "Partisan phase 19 smoke | failed: campaign state or preset not ready";
 
 		string targetZoneId = SelectPlayerSupportZoneId(playerId);
 		string result = RequestCampaignDebugLegacyPlayerSupportReport(HST_ESupportRequestType.HST_SUPPORT_QRF, targetZoneId, "phase19_fia_ground", 60, true);
-		return "h-istasi phase 19 smoke | FIA ground debug-only legacy seed; not exact QRF proof\n" + result;
+		return "Partisan phase 19 smoke | FIA ground debug-only legacy seed; not exact QRF proof\n" + result;
 	}
 
 	string RequestAdminPhase19SeedEnemyGround(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 19 smoke | failed: admin required";
+			return "Partisan phase 19 smoke | failed: admin required";
 
 		if (!m_EnemyDirector || !m_SupportRequests)
-			return "h-istasi phase 19 smoke | failed: services not ready";
+			return "Partisan phase 19 smoke | failed: services not ready";
 		if (!m_State || !m_Preset)
-			return "h-istasi phase 19 smoke | failed: campaign state or preset not ready";
+			return "Partisan phase 19 smoke | failed: campaign state or preset not ready";
 
 		HST_ZoneState targetZone = SelectEnemyOrderTargetZone(false);
 		if (!targetZone)
-			return "h-istasi phase 19 smoke | failed: no target zone";
+			return "Partisan phase 19 smoke | failed: no target zone";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase19_enemy_ground");
 		HST_FactionPoolState pool = m_State.FindFactionPool(factionKey);
 		if (!pool)
-			return "h-istasi phase 19 smoke | failed: enemy resource pool not ready";
+			return "Partisan phase 19 smoke | failed: enemy resource pool not ready";
 
 		int beforeAttack = pool.m_iAttackResources;
 		int beforeSupport = pool.m_iSupportResources;
@@ -29806,16 +30609,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string resources = string.Format("enemy resources %1 before %2/%3 after %4/%5", factionKey, beforeAttack, beforeSupport, afterAttack, afterSupport);
-		return "h-istasi phase 19 smoke | enemy ground\n" + result.BuildSummary() + "\n" + resources + "\n" + m_SupportRequests.BuildSupportReport(m_State);
+		return "Partisan phase 19 smoke | enemy ground\n" + result.BuildSummary() + "\n" + resources + "\n" + m_SupportRequests.BuildSupportReport(m_State);
 	}
 
 	string RequestAdminPhase19ForceSupportETA(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 19 smoke | failed: admin required";
+			return "Partisan phase 19 smoke | failed: admin required";
 
 		if (!m_State || !m_SupportRequests)
-			return "h-istasi phase 19 smoke | failed: support service not ready";
+			return "Partisan phase 19 smoke | failed: support service not ready";
 
 		int changed;
 		foreach (HST_SupportRequestState request : m_State.m_aSupportRequests)
@@ -29833,15 +30636,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (changed > 0)
 			MarkMajorCampaignChange(true);
 
-		return string.Format("h-istasi phase 19 smoke | forced ETA on %1 request(s)\n%2", changed, m_SupportRequests.BuildSupportReport(m_State));
+		return string.Format("Partisan phase 19 smoke | forced ETA on %1 request(s)\n%2", changed, m_SupportRequests.BuildSupportReport(m_State));
 	}
 
 	string RequestAdminPhase19Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 19 smoke | failed: admin required";
+			return "Partisan phase 19 smoke | failed: admin required";
 
-		string report = "h-istasi phase 19 smoke report";
+		string report = "Partisan phase 19 smoke report";
 		if (m_SupportRequests)
 		{
 			report = report + "\n" + m_SupportRequests.BuildSupportReport(m_State);
@@ -29858,20 +30661,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase20SeedTownSupport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 20 smoke | failed: admin required";
+			return "Partisan phase 20 smoke | failed: admin required";
 		if (!m_Civilians || !m_TownInfluence)
-			return "h-istasi phase 20 smoke | failed: civilian or town influence service not ready";
+			return "Partisan phase 20 smoke | failed: civilian or town influence service not ready";
 
 		HST_CivilianZoneState town = SelectPhase20SmokeTown();
 		if (!town)
-			return "h-istasi phase 20 smoke | failed: no civilian town record";
+			return "Partisan phase 20 smoke | failed: no civilian town record";
 
 		HST_ZoneState zone = m_State.FindZone(town.m_sZoneId);
 		HST_TownInfluenceRecord record = m_TownInfluence.FindValidRecord(
 			m_State,
 			town.m_sZoneId);
 		if (!zone || !record)
-			return "h-istasi phase 20 smoke | failed: canonical town influence authority unavailable";
+			return "Partisan phase 20 smoke | failed: canonical town influence authority unavailable";
 
 		HST_TownInfluenceCommand command = new HST_TownInfluenceCommand();
 		command.m_sCommandId = string.Format(
@@ -29908,22 +30711,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		command.m_bReconcileOwnership = true;
 		HST_TownInfluenceResult result = m_TownInfluence.Execute(m_State, command);
 		if (!result || !result.m_bAccepted)
-			return "h-istasi phase 20 smoke | failed: canonical town influence seed rejected";
+			return "Partisan phase 20 smoke | failed: canonical town influence seed rejected";
 
 		MarkMajorCampaignChange();
-		return "h-istasi phase 20 smoke | seeded town support\n" + m_Civilians.BuildTownSupportReport(m_State, 8);
+		return "Partisan phase 20 smoke | seeded town support\n" + m_Civilians.BuildTownSupportReport(m_State, 8);
 	}
 
 	string RequestAdminPhase20SeedWantedHeat(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 20 smoke | failed: admin required";
+			return "Partisan phase 20 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+			return "Partisan phase 20 smoke | failed: civilian service not ready";
 
 		HST_CivilianZoneState town = SelectPhase20SmokeTown();
 		if (!town)
-			return "h-istasi phase 20 smoke | failed: no civilian town record";
+			return "Partisan phase 20 smoke | failed: no civilian town record";
 
 		town.m_iWantedHeat = 5;
 		town.m_sLastIncidentReason = "phase20 wanted heat smoke";
@@ -29940,19 +30743,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		MarkMajorCampaignChange();
-		return "h-istasi phase 20 smoke | seeded wanted heat\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
+		return "Partisan phase 20 smoke | seeded wanted heat\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
 	}
 
 	string RequestAdminPhase20SeedEligibleUndercover(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 20 smoke | failed: admin required";
+			return "Partisan phase 20 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+			return "Partisan phase 20 smoke | failed: civilian service not ready";
 
 		HST_PlayerUndercoverState undercover = m_Civilians.EnsurePlayer(m_State, ResolveTrustedIdentityId(playerId));
 		if (!undercover)
-			return "h-istasi phase 20 smoke | failed: no undercover record";
+			return "Partisan phase 20 smoke | failed: no undercover record";
 
 		undercover.m_bUndercoverRequested = true;
 		undercover.m_bLastEligibilityResult = true;
@@ -29970,15 +30773,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		undercover.m_iLastEligibilityCheckSecond = m_State.m_iElapsedSeconds;
 
 		MarkMajorCampaignChange();
-		return "h-istasi phase 20 smoke | seeded eligible undercover\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
+		return "Partisan phase 20 smoke | seeded eligible undercover\n" + m_Civilians.BuildUndercoverReport(m_State, ResolveTrustedIdentityId(playerId));
 	}
 
 	string RequestAdminPhase20ClearHeat(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 20 smoke | failed: admin required";
+			return "Partisan phase 20 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 20 smoke | failed: civilian service not ready";
+			return "Partisan phase 20 smoke | failed: civilian service not ready";
 
 		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
 		{
@@ -29999,15 +30802,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		MarkMajorCampaignChange();
-		return "h-istasi phase 20 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State);
+		return "Partisan phase 20 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State);
 	}
 
 	string RequestAdminPhase20Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 20 smoke | failed: admin required";
+			return "Partisan phase 20 smoke | failed: admin required";
 
-		string report = "h-istasi phase 20 smoke report";
+		string report = "Partisan phase 20 smoke report";
 		if (m_Civilians)
 		{
 			report = report + "\n" + m_Civilians.BuildTownSupportReport(m_State, 12);
@@ -30023,9 +30826,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase21ApplyUndercover(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 21 smoke | failed: civilian service not ready";
+			return "Partisan phase 21 smoke | failed: civilian service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
 		HST_CivilianZoneState town = SelectPhase21SmokeTown(playerId);
@@ -30042,48 +30845,48 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string result = m_Civilians.RequestUndercover(m_State, identityId, ResolveControlledPlayerEntity(playerId), false);
 		MarkMajorCampaignChange();
-		return "h-istasi phase 21 smoke | apply undercover\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
+		return "Partisan phase 21 smoke | apply undercover\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
 
 	string RequestAdminPhase21SimulateWeaponFire(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 21 smoke | failed: civilian service not ready";
+			return "Partisan phase 21 smoke | failed: civilian service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
 		string zoneId = ResolveNearestCivilianZoneIdForPlayer(playerId);
 		string result = m_Civilians.RegisterUndercoverCombatExposure(m_State, identityId, zoneId, "phase21 simulated weapon fire");
 		MarkMajorCampaignChange();
-		return "h-istasi phase 21 smoke | weapon fire\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
+		return "Partisan phase 21 smoke | weapon fire\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
 
 	string RequestAdminPhase21SimulateMilitaryVehicle(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 21 smoke | failed: civilian service not ready";
+			return "Partisan phase 21 smoke | failed: civilian service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
 		string zoneId = ResolveNearestCivilianZoneIdForPlayer(playerId);
 		string result = m_Civilians.RegisterUndercoverVehicleExposure(m_State, identityId, zoneId, "phase21 simulated military vehicle");
 		MarkMajorCampaignChange();
-		return "h-istasi phase 21 smoke | military vehicle\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
+		return "Partisan phase 21 smoke | military vehicle\n" + result + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
 
 	string RequestAdminPhase21SimulateRoadblock(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 21 smoke | failed: civilian service not ready";
+			return "Partisan phase 21 smoke | failed: civilian service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
 		HST_CivilianZoneState town = SelectPhase21SmokeTown(playerId);
 		if (!town)
-			return "h-istasi phase 21 smoke | failed: no civilian town";
+			return "Partisan phase 21 smoke | failed: no civilian town";
 
 		PreparePhase21SmokeUndercover(identityId);
 		town.m_iRoadblockPresence = Math.Max(5, town.m_iRoadblockPresence);
@@ -30094,22 +30897,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_UndercoverEnforcementResult result = m_Civilians.EnforceUndercoverForPlayer(m_State, m_Preset, identityId, ResolveControlledPlayerEntity(playerId));
 		MarkMajorCampaignChange();
 		if (!result)
-			return "h-istasi phase 21 smoke | failed: no roadblock result";
+			return "Partisan phase 21 smoke | failed: no roadblock result";
 
-		return "h-istasi phase 21 smoke | roadblock scan\n" + result.BuildReport() + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
+		return "Partisan phase 21 smoke | roadblock scan\n" + result.BuildReport() + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
 
 	string RequestAdminPhase21SimulatePolice(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 21 smoke | failed: civilian service not ready";
+			return "Partisan phase 21 smoke | failed: civilian service not ready";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
 		HST_CivilianZoneState town = SelectPhase21SmokeTown(playerId);
 		if (!town)
-			return "h-istasi phase 21 smoke | failed: no civilian town";
+			return "Partisan phase 21 smoke | failed: no civilian town";
 
 		PreparePhase21SmokeUndercover(identityId);
 		town.m_iPolicePresence = Math.Max(5, town.m_iPolicePresence);
@@ -30120,17 +30923,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_UndercoverEnforcementResult result = m_Civilians.EnforceUndercoverForPlayer(m_State, m_Preset, identityId, ResolveControlledPlayerEntity(playerId));
 		MarkMajorCampaignChange();
 		if (!result)
-			return "h-istasi phase 21 smoke | failed: no police result";
+			return "Partisan phase 21 smoke | failed: no police result";
 
-		return "h-istasi phase 21 smoke | police scan\n" + result.BuildReport() + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
+		return "Partisan phase 21 smoke | police scan\n" + result.BuildReport() + "\n" + m_Civilians.BuildUndercoverReport(m_State, identityId);
 	}
 
 	string RequestAdminPhase21ClearHeat(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 		if (!m_Civilians)
-			return "h-istasi phase 21 smoke | failed: civilian service not ready";
+			return "Partisan phase 21 smoke | failed: civilian service not ready";
 
 		foreach (HST_CivilianZoneState town : m_State.m_aCivilianZones)
 		{
@@ -30163,16 +30966,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		MarkMajorCampaignChange();
-		return "h-istasi phase 21 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State) + "\n" + m_Civilians.BuildVehicleHeatReport(m_State);
+		return "Partisan phase 21 smoke | heat cleared\n" + m_Civilians.BuildCivilianReport(m_State) + "\n" + m_Civilians.BuildVehicleHeatReport(m_State);
 	}
 
 	string RequestAdminPhase21Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 21 smoke | failed: admin required";
+			return "Partisan phase 21 smoke | failed: admin required";
 
 		string identityId = ResolveTrustedIdentityId(playerId);
-		string report = "h-istasi phase 21 smoke report";
+		string report = "Partisan phase 21 smoke report";
 		if (m_Civilians)
 		{
 			report = report + "\n" + m_Civilians.BuildTownSupportReport(m_State, 12);
@@ -30194,24 +30997,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase22SeedHQKnowledge(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 22 smoke | failed: admin required";
+			return "Partisan phase 22 smoke | failed: admin required";
 		if (!m_State || !m_HQ)
-			return "h-istasi phase 22 smoke | failed: HQ service not ready";
+			return "Partisan phase 22 smoke | failed: HQ service not ready";
 
 		m_HQ.AddHQKnowledge(m_State, 100, "phase22 admin seed");
 		m_State.m_iHQThreatLevel = Math.Max(m_State.m_iHQThreatLevel, m_State.m_iHQKnowledge);
 		m_State.m_sLastHQThreatReason = "phase22 admin seed";
 		m_State.m_iLastHQActivitySecond = m_State.m_iElapsedSeconds;
 		MarkMajorCampaignChange(true);
-		return "h-istasi phase 22 smoke | HQ knowledge seeded\n" + BuildPhase22Report();
+		return "Partisan phase 22 smoke | HQ knowledge seeded\n" + BuildPhase22Report();
 	}
 
 	string RequestAdminPhase22QueuePetrosAttack(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 22 smoke | failed: admin required";
+			return "Partisan phase 22 smoke | failed: admin required";
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
-			return "h-istasi phase 22 smoke | failed: enemy services not ready";
+			return "Partisan phase 22 smoke | failed: enemy services not ready";
 
 		string factionKey = m_Preset.m_sOccupierFactionKey;
 		if (factionKey.IsEmpty())
@@ -30227,15 +31030,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			MarkMajorCampaignChange(true);
 		}
 
-		return string.Format("h-istasi phase 22 smoke | queue Petros attack %1\n%2", order != null, BuildPhase22Report());
+		return string.Format("Partisan phase 22 smoke | queue Petros attack %1\n%2", order != null, BuildPhase22Report());
 	}
 
 	string RequestAdminPhase22StartDefense(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 22 smoke | failed: admin required";
+			return "Partisan phase 22 smoke | failed: admin required";
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
-			return "h-istasi phase 22 smoke | failed: services not ready";
+			return "Partisan phase 22 smoke | failed: services not ready";
 
 		HST_EnemyOrderState order = FindActivePetrosAttackOrder();
 		if (!order)
@@ -30252,33 +31055,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (mission)
 			MarkMajorCampaignChange(true);
 
-		return string.Format("h-istasi phase 22 smoke | start defense mission %1 | order %2\n%3", mission != null, order != null, BuildPhase22Report());
+		return string.Format("Partisan phase 22 smoke | start defense mission %1 | order %2\n%3", mission != null, order != null, BuildPhase22Report());
 	}
 
 	string RequestAdminPhase22KillPetros(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 22 smoke | failed: admin required";
+			return "Partisan phase 22 smoke | failed: admin required";
 
 		OnPetrosKilled();
-		return "h-istasi phase 22 smoke | Petros killed\n" + BuildPhase22Report();
+		return "Partisan phase 22 smoke | Petros killed\n" + BuildPhase22Report();
 	}
 
 	string RequestAdminPhase22SucceedDefense(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 22 smoke | failed: admin required";
+			return "Partisan phase 22 smoke | failed: admin required";
 
 		bool changed = CompleteDefendPetrosMission("phase22 admin success");
 		if (changed)
 			MarkMajorCampaignChange(true);
-		return string.Format("h-istasi phase 22 smoke | succeed defense %1\n%2", changed, BuildPhase22Report());
+		return string.Format("Partisan phase 22 smoke | succeed defense %1\n%2", changed, BuildPhase22Report());
 	}
 
 	string RequestAdminPhase22Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 22 smoke | failed: admin required";
+			return "Partisan phase 22 smoke | failed: admin required";
 
 		return BuildPhase22Report();
 	}
@@ -30286,9 +31089,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase23UICoverageReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 23 | failed: admin required";
+			return "Partisan phase 23 | failed: admin required";
 		if (!m_CommandUI)
-			return "h-istasi phase 23 | failed: command UI not ready";
+			return "Partisan phase 23 | failed: command UI not ready";
 
 		return m_CommandUI.BuildCommandCoverageReport(m_State);
 	}
@@ -30296,9 +31099,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase23MarkerAudit(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 23 marker audit | failed: admin required";
+			return "Partisan phase 23 marker audit | failed: admin required";
 		if (!m_MapMarkers)
-			return "h-istasi phase 23 marker audit | failed: marker service not ready";
+			return "Partisan phase 23 marker audit | failed: marker service not ready";
 
 		string report = m_MapMarkers.BuildMarkerAuditReport(m_State, m_Preset) + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
 		if (m_ClientProjection)
@@ -30309,9 +31112,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminNativeMarkerReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi native marker report | failed: admin required";
+			return "Partisan native marker report | failed: admin required";
 		if (!m_MapMarkers)
-			return "h-istasi native marker report | failed: marker service not ready";
+			return "Partisan native marker report | failed: marker service not ready";
 
 		if (m_State && m_Preset)
 		{
@@ -30329,15 +31132,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_PlayerMapMarkers)
 			return report + "\n" + m_PlayerMapMarkers.BuildRuntimeReport();
 
-		return report + "\nh-istasi player marker report | service not ready";
+		return report + "\nPartisan player marker report | service not ready";
 	}
 
 	string RequestAdminPurgeNativeHSTMarkers(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi admin | native marker purge failed: admin required";
+			return "Partisan admin | native marker purge failed: admin required";
 		if (!m_MapMarkers)
-			return "h-istasi admin | native marker purge failed: marker service not ready";
+			return "Partisan admin | native marker purge failed: marker service not ready";
 
 		string report = m_MapMarkers.AdminPurgeNativeHSTMarkers();
 		if (m_ClientProjection)
@@ -30357,10 +31160,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase23FailedActionSample(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 23 failed-action sample | failed: admin required";
+			return "Partisan phase 23 failed-action sample | failed: admin required";
 
 		m_CampaignDebugPhase23FailedActionContext = BuildCampaignDebugFailedActionContext();
-		string report = "h-istasi phase 23 failed-action sample";
+		string report = "Partisan phase 23 failed-action sample";
 		if (!m_CampaignDebugPhase23FailedActionContext)
 			m_CampaignDebugPhase23FailedActionContext = new HST_CampaignDebugFailedActionProbeContext();
 		m_CampaignDebugPhase23FailedActionContext.m_bRan = true;
@@ -30378,7 +31181,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase24SeedEarlyGame(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 24 | failed: admin required";
+			return "Partisan phase 24 | failed: admin required";
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -30391,22 +31194,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iWarLevel = 1;
 		foreach (HST_FactionPoolState pool : m_State.m_aFactionPools)
 		{
-			if (!pool || pool.m_sFactionKey == m_Preset.m_sResistanceFactionKey)
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(
+				m_Preset,
+				pool.m_sFactionKey))
 				continue;
 
-			pool.m_iAttackResources = Math.Min(pool.m_iAttackResources, 60);
-			pool.m_iSupportResources = Math.Min(pool.m_iSupportResources, 60);
-			pool.m_iAggression = 0;
+			SetEnemyStrategicPoolTargets(
+				m_State,
+				pool.m_sFactionKey,
+				Math.Min(pool.m_iAttackResources, 60),
+				Math.Min(pool.m_iSupportResources, 60),
+				0,
+				"admin_absolute_target",
+				"phase24_early_game_seed");
 		}
 
 		MarkMajorCampaignChange(true);
-		return "h-istasi phase 24 | early game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+		return "Partisan phase 24 | early game seeded\n" + RequestMemberInspectBalancePacing(playerId);
 	}
 
 	string RequestAdminPhase24SeedMidGame(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 24 | failed: admin required";
+			return "Partisan phase 24 | failed: admin required";
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -30433,13 +31243,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iHR = Math.Max(m_State.m_iHR, 18);
 		m_State.m_iTrainingLevel = Math.Max(m_State.m_iTrainingLevel, 3);
 		MarkMajorCampaignChange(true);
-		return "h-istasi phase 24 | mid game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+		return "Partisan phase 24 | mid game seeded\n" + RequestMemberInspectBalancePacing(playerId);
 	}
 
 	string RequestAdminPhase24SeedLateGame(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 24 | failed: admin required";
+			return "Partisan phase 24 | failed: admin required";
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -30462,16 +31272,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iHR = Math.Max(m_State.m_iHR, 30);
 		m_State.m_iTrainingLevel = Math.Max(m_State.m_iTrainingLevel, 6);
 		MarkMajorCampaignChange(true);
-		return "h-istasi phase 24 | late game seeded\n" + RequestMemberInspectBalancePacing(playerId);
+		return "Partisan phase 24 | late game seeded\n" + RequestMemberInspectBalancePacing(playerId);
 	}
 
 	string RequestAdminPhase24EscalationPressure(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 24 escalation | failed: admin required";
+			return "Partisan phase 24 escalation | failed: admin required";
 
 		if (!m_State || !m_Preset || !m_Balance || !m_Economy || !m_EnemyDirector || !m_EnemyCommander || !m_SupportRequests)
-			return "h-istasi phase 24 escalation | failed: services not ready";
+			return "Partisan phase 24 escalation | failed: services not ready";
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -30479,7 +31289,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		ArrangePhase24NeutralPopulation(30);
 		m_CampaignDebugPhase24EscalationContext = RunCampaignDebugPhase24EscalationProbe();
 		if (!m_CampaignDebugPhase24EscalationContext)
-			return "h-istasi phase 24 escalation | failed: probe did not run";
+			return "Partisan phase 24 escalation | failed: probe did not run";
 
 		MarkMajorCampaignChange(true);
 		return m_CampaignDebugPhase24EscalationContext.m_sReport;
@@ -30488,7 +31298,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase24ForceVictory(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 24 | failed: admin required";
+			return "Partisan phase 24 | failed: admin required";
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -30508,13 +31318,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_Economy.RecalculateWarLevel(m_State, m_Balance, m_Preset.m_sResistanceFactionKey);
 		EvaluateCampaignOutcomeNow();
 		MarkMajorCampaignChange(true);
-		return "h-istasi phase 24 | victory forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
+		return "Partisan phase 24 | victory forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
 	}
 
 	string RequestAdminPhase24ForceLoss(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 24 | failed: admin required";
+			return "Partisan phase 24 | failed: admin required";
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -30527,7 +31337,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_iIncomeAccumulatorSeconds = 0;
 		EvaluateCampaignOutcomeNow();
 		MarkMajorCampaignChange(true);
-		return "h-istasi phase 24 | loss forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
+		return "Partisan phase 24 | loss forced\n" + m_Strategic.BuildCampaignEndReport(m_State, m_Economy, m_Balance, m_Preset);
 	}
 
 	string RequestAdminPhase24Report(int playerId)
@@ -30658,7 +31468,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string BuildPhase22Report()
 	{
-		string report = "h-istasi phase 22 smoke report";
+		string report = "Partisan phase 22 smoke report";
 		if (m_HQ)
 			report = report + "\n" + m_HQ.BuildHQThreatReport(m_State);
 		if (m_EnemyCommander)
@@ -31076,7 +31886,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		bool shouldApplyOutcome = !m_State.m_bDefendPetrosOutcomeApplied;
-		m_State.m_bDefendPetrosOutcomeApplied = true;
 		if (mission)
 		{
 			foreach (HST_MissionObjectiveState objective : m_State.m_aMissionObjectives)
@@ -31094,12 +31903,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				}
 			}
 
-			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
-				changed = CompleteMission(mission.m_sInstanceId) || changed;
-			else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED && m_Missions)
-				changed = m_Missions.Complete(m_State, m_Economy, mission.m_sInstanceId, false, true) || changed;
+			if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE
+				|| mission.m_eStatus == HST_EMissionStatus.HST_MISSION_EXPIRED)
+			{
+				bool missionSettled = CompleteMission(mission.m_sInstanceId);
+				changed = missionSettled || changed;
+				if (!missionSettled)
+				{
+					if (m_State.m_sDefendPetrosStatus != "strategic_admission_pending")
+					{
+						m_State.m_sDefendPetrosStatus = "strategic_admission_pending";
+						changed = true;
+					}
+					return changed;
+				}
+			}
 		}
 
+		m_State.m_bDefendPetrosOutcomeApplied = true;
 		if (shouldApplyOutcome && m_HQ)
 			changed = m_HQ.ReduceHQKnowledge(m_State, 60, "Defend Petros succeeded: " + reason) || changed;
 
@@ -31869,21 +32690,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!pool)
 			return false;
 
-		bool changed;
-		int attackTopUp = Math.Max(0, minAttack - pool.m_iAttackResources);
-		int supportTopUp = Math.Max(0, minSupport - pool.m_iSupportResources);
-		if (attackTopUp > 0 || supportTopUp > 0)
-		{
-			m_EnemyDirector.AddResources(m_State, factionKey, attackTopUp, supportTopUp);
-			changed = true;
-		}
-		if (pool.m_iAggression < minAggression)
-		{
-			pool.m_iAggression = minAggression;
-			changed = true;
-		}
-
-		return changed;
+		int targetAttack = Math.Max(pool.m_iAttackResources, minAttack);
+		int targetSupport = Math.Max(pool.m_iSupportResources, minSupport);
+		int targetAggression = Math.Max(pool.m_iAggression, minAggression);
+		if (targetAttack == pool.m_iAttackResources
+			&& targetSupport == pool.m_iSupportResources
+			&& targetAggression == pool.m_iAggression)
+			return false;
+		return SetEnemyStrategicPoolTargets(
+			m_State,
+			factionKey,
+			targetAttack,
+			targetSupport,
+			targetAggression,
+			"campaign_debug_absolute_target",
+			"background_war_minimum");
 	}
 
 	protected void CaptureCampaignDebugBackgroundWarPools(bool beforeTick)
@@ -32116,10 +32937,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminPhase15SeedGarage(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 15 smoke | admin required";
+			return "Partisan phase 15 smoke | admin required";
 
 		if (!m_State || !m_Arsenal)
-			return "h-istasi phase 15 smoke | arsenal service not ready";
+			return "Partisan phase 15 smoke | arsenal service not ready";
 
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
 		vehicle.m_sVehicleId = BuildPhase15SmokeVehicleId("garage");
@@ -32146,23 +32967,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicle.m_aStoredCargoItems.Insert(cargo);
 
 		if (!m_Arsenal.StoreVehicle(m_State, vehicle))
-			return "h-istasi phase 15 smoke | failed: garage vehicle not stored";
+			return "Partisan phase 15 smoke | failed: garage vehicle not stored";
 
 		MarkMajorCampaignChange();
-		return "h-istasi phase 15 smoke | seeded garage vehicle\n" + m_Arsenal.BuildGarageReport(m_State);
+		return "Partisan phase 15 smoke | seeded garage vehicle\n" + m_Arsenal.BuildGarageReport(m_State);
 	}
 
 	string RequestAdminPhase15SeedSourceVehicle(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 15 smoke | admin required";
+			return "Partisan phase 15 smoke | admin required";
 
 		if (!m_State || !m_Arsenal)
-			return "h-istasi phase 15 smoke | arsenal service not ready";
+			return "Partisan phase 15 smoke | arsenal service not ready";
 
 		string sourcePrefab = ResolveFirstLoadablePhase15SourceVehiclePrefab();
 		if (sourcePrefab.IsEmpty())
-			return "h-istasi phase 15 smoke | failed: no loadable source vehicle prefab candidate configured";
+			return "Partisan phase 15 smoke | failed: no loadable source vehicle prefab candidate configured";
 
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
 		vehicle.m_sVehicleId = BuildPhase15SmokeVehicleId("source");
@@ -32179,19 +33000,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		vehicle.m_bUnlocked = true;
 
 		if (!m_Arsenal.StoreVehicle(m_State, vehicle))
-			return "h-istasi phase 15 smoke | failed: source vehicle not stored";
+			return "Partisan phase 15 smoke | failed: source vehicle not stored";
 
 		ApplyPhase15SmokeSourceCapability(vehicle);
 		MarkMajorCampaignChange();
-		return "h-istasi phase 15 smoke | seeded explicit ammo-source metadata\n" + m_Arsenal.BuildGarageReport(m_State);
+		return "Partisan phase 15 smoke | seeded explicit ammo-source metadata\n" + m_Arsenal.BuildGarageReport(m_State);
 	}
 
 	string RequestAdminPhase15Report(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi phase 15 smoke | admin required";
+			return "Partisan phase 15 smoke | admin required";
 
-		string report = "h-istasi phase 15 smoke report";
+		string report = "Partisan phase 15 smoke report";
 		if (m_Arsenal)
 			report = report + "\n" + m_Arsenal.BuildGarageReport(m_State);
 		if (m_Loot)
@@ -32305,10 +33126,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminInspectZoneComposition(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi zone composition | admin required";
+			return "Partisan zone composition | admin required";
 
 		if (!m_ZoneCompositions)
-			return "h-istasi zone composition | service not ready";
+			return "Partisan zone composition | service not ready";
 
 		return m_ZoneCompositions.BuildCompositionReport(m_State);
 	}
@@ -32316,10 +33137,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminForceCompositionReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi force composition | admin required";
+			return "Partisan force composition | admin required";
 
 		if (!m_ForceCompositions)
-			return "h-istasi force composition | service not ready";
+			return "Partisan force composition | service not ready";
 
 		string report = m_ForceCompositions.BuildCompositionReport(m_State, m_Preset);
 		HST_CampaignDebugCaseResult debugCase = BuildCampaignDebugForceCompositionCase();
@@ -32332,10 +33153,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	string RequestAdminSpawnPlacementReport(int playerId)
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return "h-istasi spawn placement | admin required";
+			return "Partisan spawn placement | admin required";
 
 		if (!m_SpawnPlacements)
-			return "h-istasi spawn placement | service not ready";
+			return "Partisan spawn placement | service not ready";
 
 		string report = m_SpawnPlacements.BuildPlacementReport(m_State, m_Preset);
 		HST_CampaignDebugCaseResult debugCase = BuildCampaignDebugSpawnPlacementCase();
@@ -32347,14 +33168,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void LogVisibleMenuCommandResult(int playerId, string selectedTabId, string commandId, string argument, string result)
 	{
-		string label = string.Format("h-istasi menu command | player %1 | tab %2 | command %3", playerId, selectedTabId, commandId);
+		string label = string.Format("Partisan menu command | player %1 | tab %2 | command %3", playerId, selectedTabId, commandId);
 		if (!argument.IsEmpty())
 			label = label + string.Format(" | arg %1", argument);
 
 		Print(string.Format("%1", label));
 		if (result.IsEmpty())
 		{
-			Print("h-istasi menu command result | <empty>");
+			Print("Partisan menu command result | <empty>");
 			return;
 		}
 
@@ -32375,7 +33196,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 
 			if (!line.IsEmpty())
-				Print("h-istasi menu command result | " + line);
+				Print("Partisan menu command result | " + line);
 		}
 	}
 
@@ -32384,9 +33205,73 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return false;
 
-		m_EnemyDirector.AddResources(m_State, factionKey, attackResources, supportResources);
+		if (!m_EnemyDirector.AddResources(
+			m_State,
+			factionKey,
+			attackResources,
+			supportResources))
+			return false;
 		MarkMajorCampaignChange();
 		return true;
+	}
+
+	// Debug/admin setup still changes the canonical enemy pool. Expressing an
+	// absolute target as one authority mutation preserves revision continuity,
+	// including when a smoke test compensates an earlier debit or refund.
+	protected bool SetEnemyStrategicPoolTargets(
+		HST_CampaignState state,
+		string factionKey,
+		int targetAttack,
+		int targetSupport,
+		int targetAggression,
+		string mutationKind,
+		string sourceId)
+	{
+		if (!state || !m_Preset || !m_EnemyStrategicResources
+			|| factionKey.IsEmpty() || targetAttack < 0
+			|| targetSupport < 0 || targetAggression < 0)
+			return false;
+
+		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		if (!pool || pool.m_iStrategicContractVersion
+			!= HST_EnemyStrategicResourceService.CONTRACT_VERSION
+			|| !pool.m_sStrategicAuthorityFailure.IsEmpty()
+			|| pool.m_iAttackResources < 0 || pool.m_iSupportResources < 0
+			|| pool.m_iAggression < 0)
+			return false;
+		int attackDelta = targetAttack - pool.m_iAttackResources;
+		int supportDelta = targetSupport - pool.m_iSupportResources;
+		int aggressionDelta = targetAggression - pool.m_iAggression;
+		if (attackDelta == 0 && supportDelta == 0 && aggressionDelta == 0)
+			return true;
+
+		string mutationId = HST_StableIdService.NextId(
+			state,
+			"enemy_resource_absolute");
+		if (mutationId.IsEmpty())
+			return false;
+		mutationKind = mutationKind.Trim();
+		if (mutationKind.IsEmpty())
+			mutationKind = "admin_absolute_target";
+		sourceId = sourceId.Trim();
+		if (sourceId.IsEmpty())
+			sourceId = mutationId;
+
+		HST_EnemyStrategicMutationCommand command
+			= new HST_EnemyStrategicMutationCommand();
+		command.m_sMutationId = mutationId;
+		command.m_sFactionKey = factionKey;
+		command.m_sKind = mutationKind;
+		command.m_sSourceId = sourceId;
+		command.m_iAttackDelta = attackDelta;
+		command.m_iSupportDelta = supportDelta;
+		command.m_iAggressionDelta = aggressionDelta;
+		HST_EnemyStrategicMutationResult result
+			= m_EnemyStrategicResources.ApplyMutation(
+				state,
+				m_Preset,
+				command);
+		return result && result.m_bAccepted;
 	}
 
 	bool RequestAdminNewCampaignReset(int playerId)
@@ -32565,7 +33450,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			m_HQ.ResetInitialHQSelection(m_State);
 			m_State.m_sLastPersistenceStatus = "setup HQ selection pending";
-			Print("h-istasi | setup campaign had a preselected HQ; reset to commander placement flow");
+			Print("Partisan | setup campaign had a preselected HQ; reset to commander placement flow");
 		}
 	}
 
@@ -32648,7 +33533,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			RecordFactionSanitizationDiagnostic(
 				state,
-				"h-istasi ownership migration | deferred | canonical ownership authority is unavailable",
+				"Partisan ownership migration | deferred | canonical ownership authority is unavailable",
 				false);
 			return false;
 		}
@@ -32661,7 +33546,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				quarantinedBlocker.m_sRequestId);
 			bool blockerChanged = RecordFactionSanitizationDiagnostic(
 				state,
-				"h-istasi ownership migration | " + blockerReason,
+				"Partisan ownership migration | " + blockerReason,
 				true);
 			HST_ZoneState blockedZone = FindNextInvalidOwnerMigrationZone(state);
 			if (blockedZone)
@@ -32676,7 +33561,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordFactionSanitizationDiagnostic(
 				state,
 				string.Format(
-					"h-istasi ownership migration | deferred accepted receipt | zone %1 | request %2 | normal retry remains authoritative",
+					"Partisan ownership migration | deferred accepted receipt | zone %1 | request %2 | normal retry remains authoritative",
 					pendingRepair.m_sZoneId,
 					pendingRepair.m_sRequestId),
 				false);
@@ -32751,7 +33636,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordFactionSanitizationDiagnostic(
 				state,
 				string.Format(
-					"h-istasi ownership migration | completed | zone %1 | request %2 | %3",
+					"Partisan ownership migration | completed | zone %1 | request %2 | %3",
 					zoneId,
 					requestId,
 					context),
@@ -32764,7 +33649,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RecordFactionSanitizationDiagnostic(
 				state,
 				string.Format(
-					"h-istasi ownership migration | deferred accepted receipt | zone %1 | request %2 | retry %3 | %4",
+					"Partisan ownership migration | deferred accepted receipt | zone %1 | request %2 | retry %3 | %4",
 					zoneId,
 					requestId,
 					result.m_bNeedsRetry,
@@ -32782,7 +33667,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		RecordFactionSanitizationDiagnostic(
 			state,
 			string.Format(
-				"h-istasi ownership migration | deferred unclassified rejection | zone %1 | request %2 | %3",
+				"Partisan ownership migration | deferred unclassified rejection | zone %1 | request %2 | %3",
 				zoneId,
 				requestId,
 				failureReason),
@@ -32908,7 +33793,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		changed = RecordFactionSanitizationDiagnostic(
 			state,
 			string.Format(
-				"h-istasi ownership migration | quarantined | zone %1 | %2",
+				"Partisan ownership migration | quarantined | zone %1 | %2",
 				zone.m_sZoneId,
 				authorityFailure),
 			true) || changed;
@@ -32949,6 +33834,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_FactionPoolState createdPool = new HST_FactionPoolState();
 		createdPool.m_sFactionKey = factionKey;
+		if (m_Preset && HST_FactionRelationService.IsEnemyFaction(m_Preset, factionKey))
+		{
+			createdPool.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+			createdPool.m_iStrategicRevision = 1;
+		}
 		createdPool.m_iAttackResources = attackResources;
 		createdPool.m_iSupportResources = supportResources;
 		state.m_aFactionPools.Insert(createdPool);
@@ -33555,7 +34445,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		string payload = string.Format("HST_NOTIFICATION|%1|%2|%3|%4|%5|%6|%7|%8|%9", eventId, category, severity, PayloadText(title), PayloadText(message), zoneId, missionId, position, durationSeconds);
 		HST_CommandMenuRequestComponent.BroadcastNotification(payload, title + ": " + message);
-		Print(string.Format("h-istasi notification | %1 | %2", title, message));
+		Print(string.Format("Partisan notification | %1 | %2", title, message));
 	}
 
 	protected string ResolveResultSeverity(string result)
@@ -34333,7 +35223,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!reassigned)
 			return false;
 
-		Print(string.Format("h-istasi commander | player %1 disconnected | commander %2 -> %3", playerId, previousCommander, m_State.m_sCommanderIdentityId));
+		Print(string.Format("Partisan commander | player %1 disconnected | commander %2 -> %3", playerId, previousCommander, m_State.m_sCommanderIdentityId));
 		MarkMajorCampaignChange(true);
 		return true;
 	}
@@ -34556,7 +35446,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		m_aAdminIdentityDiagnosticPlayerIds.Insert(playerId);
-		Print(string.Format("h-istasi admin | settings SteamID64 check did not match player=%1 identity=%2 platformSteamID64=%3 configured=%4", playerId, EmptyCampaignDebugField(identityId), EmptyCampaignDebugField(steamId64), BuildRuntimeAdminSettingsSummary()), LogLevel.WARNING);
+		Print(string.Format("Partisan admin | settings SteamID64 check did not match player=%1 identity=%2 platformSteamID64=%3 configured=%4", playerId, EmptyCampaignDebugField(identityId), EmptyCampaignDebugField(steamId64), BuildRuntimeAdminSettingsSummary()), LogLevel.WARNING);
 	}
 
 	protected bool ApplyRuntimeAdminGrant(HST_PlayerState player, string grantReason, bool wasAdmin)
@@ -34577,7 +35467,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		player.m_bGuest = false;
 
 		if (!wasAdmin || changed)
-			Print(string.Format("h-istasi admin | granted runtime admin to %1 via %2", player.m_sIdentityId, grantReason));
+			Print(string.Format("Partisan admin | granted runtime admin to %1 via %2", player.m_sIdentityId, grantReason));
 
 		return changed || !wasAdmin;
 	}
@@ -35666,7 +36556,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				enemyZones++;
 		}
 
-		string economySummary = string.Format("h-istasi campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
+		string economySummary = string.Format("Partisan campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
 		economySummary = economySummary + string.Format(" | training %1 | persistence %2", m_State.m_iTrainingLevel, m_State.m_sLastPersistenceStatus);
 		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | publication unavailable %3 | active missions %4", resistanceZones, enemyZones, unpublishedZones, CountFoundationActiveMissions());
 		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), CountCampaignDebugLiveMarkers(), m_State.m_sHQHideoutId);
@@ -35678,7 +36568,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string BuildFoundationStatusReport()
 	{
 		if (!m_State)
-			return "h-istasi foundation | campaign state not ready";
+			return "Partisan foundation | campaign state not ready";
 
 		string hqHideout = m_State.m_sHQHideoutId;
 		if (hqHideout.IsEmpty())
@@ -35688,7 +36578,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (persistence.IsEmpty())
 			persistence = "none";
 
-		string report = string.Format("h-istasi foundation | phase %1 | schema %2/%3", m_State.m_ePhase, m_State.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION);
+		string report = string.Format("Partisan foundation | phase %1 | schema %2/%3", m_State.m_ePhase, m_State.m_iSchemaVersion, HST_CampaignState.SCHEMA_VERSION);
 		report = report + " | build " + HST_BuildInfo.BuildRuntimeSummary();
 		report = report + string.Format(" | HQ hideout %1 | deployed %2 | Petros alive %3 | runtime objects %4", hqHideout, m_State.m_bHQDeployed, m_State.m_bPetrosAlive, m_State.m_bHQRuntimeObjectsSpawned);
 		report = report + string.Format(" | active missions %1 | active groups %2", CountFoundationActiveMissions(), CountVisibleActiveGroups());
@@ -35756,7 +36646,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		HST_ZoneState zone = m_State.FindZone(zoneId);
 		if (!zone)
-			return "h-istasi zone report | zone not found";
+			return "Partisan zone report | zone not found";
 
 		string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
 		string publishedOwnerLabel = publishedOwnerFactionKey;
@@ -35773,7 +36663,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicles = ownerGarrison.m_iVehicleCount;
 		}
 
-		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, publishedOwnerLabel, ZoneTypeToLabel(zone.m_eType), ResolveZoneSupportPercent(zone));
+		string zoneSummary = string.Format("Partisan zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, publishedOwnerLabel, ZoneTypeToLabel(zone.m_eType), ResolveZoneSupportPercent(zone));
 		int captureRequired = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
 		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
 			captureRequired = m_Balance.m_iCaptureProgressRequired;
@@ -35846,7 +36736,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool isFrameSweep = reason == "frame";
 		bool diagnostics = IsDebugLoggingEnabled() && (forceDiagnostics || (!isFrameSweep && m_iSpawnDiagnosticsRemaining > 0));
 		if (diagnostics && !reason.IsEmpty())
-			Print("h-istasi | FIA spawn sweep triggered by " + reason);
+			Print("Partisan | FIA spawn sweep triggered by " + reason);
 
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
@@ -35918,6 +36808,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!IsDebugLoggingEnabled())
 			return;
 
-		Print("h-istasi debug | " + message);
+		Print("Partisan debug | " + message);
 	}
 }

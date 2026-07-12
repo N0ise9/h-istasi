@@ -180,7 +180,7 @@ class HST_ForceCompositionService
 
 	string BuildCompositionReport(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		string report = "h-istasi force composition";
+		string report = "Partisan force composition";
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_QRF_REGULAR, 1, true, false)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "US", INTENT_QRF_REGULAR, 5, true, true)).m_sDebugSummary;
 		report = report + "\n" + Compose(state, preset, BuildDebugRequest(state, preset, "USSR", INTENT_COUNTERATTACK, 5, true, true)).m_sDebugSummary;

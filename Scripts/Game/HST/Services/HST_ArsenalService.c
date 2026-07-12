@@ -16,14 +16,14 @@ class HST_ArsenalService
 		Resource loaded = Resource.Load(prefab);
 		if (!loaded || !loaded.IsValid())
 		{
-			Print("h-istasi arsenal | skipped invalid item resource deposit " + prefab);
+			Print("Partisan arsenal | skipped invalid item resource deposit " + prefab);
 			return null;
 		}
 
 		string depositReason;
 		if (!CanDepositItem(balance, prefab, category, false, depositReason, displayName))
 		{
-			Print(string.Format("h-istasi arsenal | blocked item deposit %1 | %2", prefab, depositReason));
+			Print(string.Format("Partisan arsenal | blocked item deposit %1 | %2", prefab, depositReason));
 			return null;
 		}
 
@@ -179,7 +179,7 @@ class HST_ArsenalService
 	string WithdrawBestAvailableItem(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi arsenal | campaign state not ready";
+			return "Partisan arsenal | campaign state not ready";
 
 		HST_ArsenalItemState selectedItem;
 		foreach (HST_ArsenalItemState item : state.m_aArsenalItems)
@@ -192,27 +192,27 @@ class HST_ArsenalService
 		}
 
 		if (!selectedItem)
-			return "h-istasi arsenal | no stored item available";
+			return "Partisan arsenal | no stored item available";
 
 		if (!WithdrawItem(state, selectedItem.m_sPrefab, 1))
-			return "h-istasi arsenal | selected item could not be withdrawn";
+			return "Partisan arsenal | selected item could not be withdrawn";
 
 		string label = selectedItem.m_sDisplayName;
 		label = HST_DisplayNameService.ResolveItemDisplayName(null, selectedItem.m_sPrefab, label);
 
 		if (selectedItem.m_bUnlocked)
-			return string.Format("h-istasi arsenal | issued unlocked item %1", label);
+			return string.Format("Partisan arsenal | issued unlocked item %1", label);
 
-		return string.Format("h-istasi arsenal | issued %1 | remaining %2", label, selectedItem.m_iCount);
+		return string.Format("Partisan arsenal | issued %1 | remaining %2", label, selectedItem.m_iCount);
 	}
 
 	string BuildArsenalReport(HST_CampaignState state, HST_BalanceConfig balance = null)
 	{
 		if (!state)
-			return "h-istasi arsenal | campaign state not ready";
+			return "Partisan arsenal | campaign state not ready";
 
 		int purged = PurgeBlockedArsenalItems(state);
-		string report = string.Format("h-istasi arsenal | tracked items %1", state.m_aArsenalItems.Count());
+		string report = string.Format("Partisan arsenal | tracked items %1", state.m_aArsenalItems.Count());
 		if (purged > 0)
 			report = report + string.Format(" | purged blocked %1", purged);
 
@@ -291,7 +291,7 @@ class HST_ArsenalService
 
 			state.m_aGarageVehicles.Remove(garageIndex);
 			removed++;
-			Print(string.Format("h-istasi garage | removed invalid stored vehicle record %1 | prefab %2", garageId, garagePrefab), LogLevel.WARNING);
+			Print(string.Format("Partisan garage | removed invalid stored vehicle record %1 | prefab %2", garageId, garagePrefab), LogLevel.WARNING);
 		}
 
 		for (int cargoIndex = state.m_aVehicleCargoItems.Count() - 1; cargoIndex >= 0; cargoIndex--)
@@ -310,7 +310,7 @@ class HST_ArsenalService
 
 			state.m_aVehicleCargoItems.Remove(cargoIndex);
 			removed++;
-			Print(string.Format("h-istasi vehicle cargo | removed invalid vehicle cargo record %1 | prefab %2", cargoId, cargoPrefab), LogLevel.WARNING);
+			Print(string.Format("Partisan vehicle cargo | removed invalid vehicle cargo record %1 | prefab %2", cargoId, cargoPrefab), LogLevel.WARNING);
 		}
 
 		return removed;
@@ -334,9 +334,9 @@ class HST_ArsenalService
 	string BuildGarageReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi garage | campaign state not ready";
+			return "Partisan garage | campaign state not ready";
 
-		string report = string.Format("h-istasi garage | vehicles %1 | emplacements %2 | ammo points %3 | redeploy policy consume-on-deploy", state.m_aGarageVehicles.Count(), state.m_aCapturedEmplacements.Count(), state.m_aAmmoPoints.Count());
+		string report = string.Format("Partisan garage | vehicles %1 | emplacements %2 | ammo points %3 | redeploy policy consume-on-deploy", state.m_aGarageVehicles.Count(), state.m_aCapturedEmplacements.Count(), state.m_aAmmoPoints.Count());
 		foreach (HST_GarageVehicleState vehicle : state.m_aGarageVehicles)
 		{
 			if (!vehicle)
@@ -353,18 +353,18 @@ class HST_ArsenalService
 	string RedeployGarageVehicle(HST_CampaignState state, HST_EconomyService economy, string vehicleId, vector deployPosition)
 	{
 		if (!state || state.m_aGarageVehicles.Count() == 0)
-			return "h-istasi garage | failed: no stored vehicle";
+			return "Partisan garage | failed: no stored vehicle";
 		if (!m_PersistentFieldVehicles)
-			return "h-istasi garage | failed: durable vehicle tracker not ready";
+			return "Partisan garage | failed: durable vehicle tracker not ready";
 
 		HST_GarageVehicleState vehicle = SelectGarageVehicle(state, vehicleId);
 		if (!vehicle || vehicle.m_sPrefab.IsEmpty())
-			return "h-istasi garage | failed: selected vehicle not found";
+			return "Partisan garage | failed: selected vehicle not found";
 
 		if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(vehicle.m_sPrefab))
 		{
-			Print(string.Format("h-istasi garage | refused redeploy of invalid stored vehicle prefab %1 | vehicle %2", vehicle.m_sPrefab, vehicle.m_sVehicleId), LogLevel.WARNING);
-			return string.Format("h-istasi garage | failed: stored prefab is not a valid vehicle root (%1)", GarageVehicleDisplayLabel(vehicle));
+			Print(string.Format("Partisan garage | refused redeploy of invalid stored vehicle prefab %1 | vehicle %2", vehicle.m_sPrefab, vehicle.m_sVehicleId), LogLevel.WARNING);
+			return string.Format("Partisan garage | failed: stored prefab is not a valid vehicle root (%1)", GarageVehicleDisplayLabel(vehicle));
 		}
 
 		int cost = vehicle.m_iRedeployCost;
@@ -372,22 +372,22 @@ class HST_ArsenalService
 			cost = ResolveRedeployCost(vehicle);
 
 		if (economy && state.m_iFactionMoney < cost)
-			return string.Format("h-istasi garage | failed: redeploy requires $%1", cost);
+			return string.Format("Partisan garage | failed: redeploy requires $%1", cost);
 
 		SCR_RespawnSystemComponent respawnSystem = SCR_RespawnSystemComponent.GetInstance();
 		if (!respawnSystem)
-			return "h-istasi garage | failed: respawn system not ready";
+			return "Partisan garage | failed: respawn system not ready";
 
 		vector resolvedDeployPosition;
 		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(deployPosition, resolvedDeployPosition, true))
-			return string.Format("h-istasi garage | failed: no dry redeploy ground near %1", deployPosition);
+			return string.Format("Partisan garage | failed: no dry redeploy ground near %1", deployPosition);
 
 		vector deployAngles = ResolveRedeployAngles(vehicle, resolvedDeployPosition);
 		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(vehicle.m_sPrefab, resolvedDeployPosition, deployAngles);
 		if (!entity)
 		{
-			Print(string.Format("h-istasi garage | failed to spawn garage vehicle %1 | prefab %2 | position %3 | yaw %4", GarageVehicleDisplayLabel(vehicle), vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0]), LogLevel.WARNING);
-			return string.Format("h-istasi garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
+			Print(string.Format("Partisan garage | failed to spawn garage vehicle %1 | prefab %2 | position %3 | yaw %4", GarageVehicleDisplayLabel(vehicle), vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0]), LogLevel.WARNING);
+			return string.Format("Partisan garage | failed: could not spawn %1", GarageVehicleDisplayLabel(vehicle));
 		}
 		HST_WorldPositionService.ApplyUprightEntityTransform(entity, resolvedDeployPosition, deployAngles);
 		HST_VehicleRootPolicy.ClearVehicleFactionAffiliationRecursive(entity);
@@ -408,7 +408,7 @@ class HST_ArsenalService
 				state,
 				entity,
 				registeredRuntimeId);
-			return "h-istasi garage | failed: durable vehicle tracking rejected";
+			return "Partisan garage | failed: durable vehicle tracking rejected";
 		}
 		string restoredRuntimeId = runtimeVehicle.m_sVehicleRuntimeId;
 		string restoreFailure;
@@ -423,7 +423,7 @@ class HST_ArsenalService
 				state,
 				entity,
 				restoredRuntimeId);
-			return "h-istasi garage | failed: cargo restore failed | " + restoreFailure;
+			return "Partisan garage | failed: cargo restore failed | " + restoreFailure;
 		}
 
 		HST_GarageVehicleState removedVehicle
@@ -434,7 +434,7 @@ class HST_ArsenalService
 				state,
 				entity,
 				restoredRuntimeId);
-			return "h-istasi garage | failed: stored vehicle commit was unavailable";
+			return "Partisan garage | failed: stored vehicle commit was unavailable";
 		}
 		if (economy && !economy.SpendFactionMoney(state, cost))
 		{
@@ -443,12 +443,12 @@ class HST_ArsenalService
 				state,
 				entity,
 				restoredRuntimeId);
-			return string.Format("h-istasi garage | failed: redeploy requires $%1", cost);
+			return string.Format("Partisan garage | failed: redeploy requires $%1", cost);
 		}
 
 		string label = GarageVehicleDisplayLabel(vehicle);
-		Print(string.Format("h-istasi garage | redeployed %1 | prefab %2 | position %3 | yaw %4 | cost %5 | restored cargo %6 to %7", label, vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0], cost, CountStoredVehicleCargoItems(vehicle), restoredRuntimeId));
-		return string.Format("h-istasi garage | redeployed %1 | restored cargo %2 | complete", label, CountStoredVehicleCargoItems(vehicle));
+		Print(string.Format("Partisan garage | redeployed %1 | prefab %2 | position %3 | yaw %4 | cost %5 | restored cargo %6 to %7", label, vehicle.m_sPrefab, resolvedDeployPosition, deployAngles[0], cost, CountStoredVehicleCargoItems(vehicle), restoredRuntimeId));
+		return string.Format("Partisan garage | redeployed %1 | restored cargo %2 | complete", label, CountStoredVehicleCargoItems(vehicle));
 	}
 
 	bool RedeployFirstGarageVehicle(HST_CampaignState state, HST_EconomyService economy, vector deployPosition)

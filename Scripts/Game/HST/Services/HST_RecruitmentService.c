@@ -16,10 +16,10 @@ class HST_RecruitmentResult
 	string BuildSummary()
 	{
 		if (!m_bSuccess)
-			return "h-istasi recruitment | failed: " + m_sFailureReason;
+			return "Partisan recruitment | failed: " + m_sFailureReason;
 
 		return string.Format(
-			"h-istasi recruitment | complete | zone %1 | +%2 infantry +%3 vehicles | spent $%4 / HR %5 | training %6 | equipment %7",
+			"Partisan recruitment | complete | zone %1 | +%2 infantry +%3 vehicles | spent $%4 / HR %5 | training %6 | equipment %7",
 			m_sZoneId,
 			m_iAddedInfantry,
 			m_iAddedVehicles,
@@ -48,12 +48,12 @@ class HST_TrainingResult
 	string BuildSummary()
 	{
 		if (!m_bSuccess)
-			return "h-istasi training | failed: " + m_sFailureReason;
+			return "Partisan training | failed: " + m_sFailureReason;
 		if (m_bAlreadyApplied)
-			return string.Format("h-istasi training | already applied | request %1 | level %2", m_sCommandRequestId, m_iNewTrainingLevel);
+			return string.Format("Partisan training | already applied | request %1 | level %2", m_sCommandRequestId, m_iNewTrainingLevel);
 
 		string summary = string.Format(
-			"h-istasi training | complete | level %1 -> %2 | spent $%3 | war level %4 | cap %5",
+			"Partisan training | complete | level %1 -> %2 | spent $%3 | war level %4 | cap %5",
 			m_iOldTrainingLevel,
 			m_iNewTrainingLevel,
 			m_iMoneySpent,
@@ -307,7 +307,7 @@ class HST_RecruitmentService
 	string BuildRecruitmentReport(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal)
 	{
 		if (!state)
-			return "h-istasi recruitment | campaign state not ready";
+			return "Partisan recruitment | campaign state not ready";
 
 		string resistanceFactionKey = ResolveResistanceFactionKey(preset);
 		int friendlyGarrisons;
@@ -339,7 +339,7 @@ class HST_RecruitmentService
 		}
 
 		string report = string.Format(
-			"h-istasi recruitment | training %1/%2 | quality +%3 pct | money $%4 | HR %5 | equipment %6 | unlocks %7",
+			"Partisan recruitment | training %1/%2 | quality +%3 pct | money $%4 | HR %5 | equipment %6 | unlocks %7",
 			state.m_iTrainingLevel,
 			ResolveTrainingCap(state),
 			ResolveTrainingQualityBonusPercent(state),

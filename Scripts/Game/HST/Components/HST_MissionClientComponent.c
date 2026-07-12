@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Client mission notifications, intel cache, and detail panel")]
+[ComponentEditorProps(category: "Partisan", description: "Client mission notifications, intel cache, and detail panel")]
 class HST_MissionClientComponentClass : ScriptComponentClass
 {
 }
@@ -124,7 +124,7 @@ class HST_MissionClientComponent : ScriptComponent
 	{
 		if (payload.IsEmpty() || !payload.Contains("HST_NOTIFICATION|"))
 		{
-			ShowTopMissionNotification(summary, "h-istasi", "info", "h-istasi", summary, 5.0);
+			ShowTopMissionNotification(summary, "Partisan", "info", "Partisan", summary, 5.0);
 			return;
 		}
 
@@ -139,7 +139,7 @@ class HST_MissionClientComponent : ScriptComponent
 		if (eventId.IsEmpty())
 			eventId = category + "_" + title + "_" + message;
 		if (title.IsEmpty())
-			title = "h-istasi";
+			title = "Partisan";
 		if (message.IsEmpty())
 			message = summary;
 

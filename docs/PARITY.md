@@ -1,7 +1,35 @@
-# h-istasi Capability Map
+# Partisan Capability Map
 
-The current sealed source/Workbench checkpoint is Campaign Schema 66/runtime-settings Schema 24.
-The current source stamp identifies implementation
+The active provisional source contract is Campaign Schema 67/runtime-settings
+Schema 24 under the working label
+`schema67-settings24-enemy-strategic-resource-authority`. It version-controls
+one versioned `HST_FactionPoolState` attack/support/aggression pool with
+independent resource/aggression cadence accumulators and last-bucket checkpoints
+per enemy. Immutable `HST_EnemyStrategicMutationState` receipts sit behind one
+income/spend/refund/aggression/live-adjustment API. Periodic evidence compacts to
+one row per enemy/kind; operational evidence never compacts and carries a
+contiguous per-faction sequence capped at 4,096 accepted rows. Accepted
+zero-effect operations also retain receipts. Exact replay is
+read-only; conflicts and underflow/overflow fail atomically; rival roles remain
+independent; and existing exact QRF/patrol debit-refund policy links to the new
+receipts without changing those operation contracts. Restore checks reciprocal
+order, defense-ledger, town-influence, and ownership-transition links. Pre-67 migration adopts
+balances/aggression plus valid legacy resource/aggression cadence accumulators as
+a baseline with matching bucket checkpoints only, and current malformed authority
+quarantines at `-67`. Rejected/orphan receipt rows are purged only after
+attribution/quarantine and do not consume valid operational capacity. Mission
+terminal outcomes admit a preflighted strategic plan before publication;
+ownership aggression admission occurs before security/support replacement and
+owner publication. Nested state-only proofs and focused one-group physicalization
+keep Campaign Debug changes disposable.
+
+Schema 67 has no final implementation identity or validation stamp. Persisted
+planning cadence and frozen decision fingerprints are the immediate next Phase
+9 slice. Phase 8 native/restart/package/multiplayer/marker-input/soak gates remain
+open.
+
+The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66/runtime-settings Schema 24.
+The sealed Schema-66 stamp identifies implementation
 `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
 `schema66-settings24-local-security-marker-integrity`. It adds one exact enemy-town local-security patrol epoch with an authored 2–5
@@ -13,7 +41,7 @@ police and roadblocks. Pre-66 migration preserves logical security/ownership/
 support/garrison facts and removes only unlinked disposable legacy projections;
 current malformed graphs quarantine at `-66`.
 
-The active tree also repairs the `27672e6` client-local campaign-marker ownership
+That sealed tree also repairs the `27672e6` client-local campaign-marker ownership
 regression. Protected campaign markers are system-owned/non-removable and self-
 heal from the authoritative client registry after native deletion or mutation;
 player-created/dynamic markers remain editable. Foundation passes at 729 script-
@@ -217,7 +245,7 @@ Debug and packaged-runtime gates remain open.
   aggression targets because roles are not serialized. Stable-ID exhaustion
   fails strategic admission before mutation. Native and packaged evidence
   remains open.
-- Active Schema-66 exact local security: each eligible canonical enemy town with
+- Sealed Schema-66 exact local security: each eligible canonical enemy town with
   positive police pressure owns one deterministic patrol epoch, one authored
   frozen 2–5 member manifest, one typed operation, and one held exact projection.
   Native roots and cyclic waypoints exist only while the town is active. Exact
@@ -611,8 +639,8 @@ Debug and packaged-runtime gates remain open.
 - HQ arsenal supply-cache prefab with contextual actions for opening the
   Arsenal/Loot tab, opening the custom loadout editor, and depositing nearby
   loot into campaign arsenal state; inherited stock arsenal actions are
-  filtered from the h-istasi HQ arsenal surface
-- Procedural h-istasi HQ menu with resource stats, overview, HQ/Petros,
+  filtered from the Partisan HQ arsenal surface
+- Procedural Partisan HQ menu with resource stats, overview, HQ/Petros,
   mission board, map/war, forces, arsenal/loot, garage/build, member, admin,
   action, and activity/result panels
 - Broad-alpha persistent state for generated sites/routes, mission objectives,
@@ -622,7 +650,7 @@ Debug and packaged-runtime gates remain open.
   priority, composition IDs, spawn profiles, and linked-zone hints
 - Everon 4x-style alpha campaign graph expansion with additional outposts,
   factories, resource depots, seaports, radio towers, banks, and police nodes,
-  authored as h-istasi-owned config/anchors/marker stubs
+  authored as Partisan-owned config/anchors/marker stubs
 - Generated Everon content service that creates alpha mission sites,
   roadblock/support/stash/crashsite points, and simple route records from the
   existing strategic zone anchors
@@ -735,7 +763,17 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- The current sealed source/Workbench tree is Campaign Schema 66/runtime-settings
+- The active provisional source tree is Campaign Schema 67/runtime-settings 24.
+  It has no final SHA/UTC/validation/CRC identity and no executed Campaign Debug,
+  restart, or packaged result. Core source fixtures are registered for legacy
+  adoption, replay/conflict including zero-effect evidence, atomic arithmetic,
+  deterministic/bounded cadence, resource separation, aggression/war behavior,
+  per-faction cap isolation, and roundtrip/quarantine. Exact QRF/patrol suites
+  now carry reciprocal mutation IDs. Static/real-restart proof still owns the
+  complete order/ledger/town/ownership backlink graph, 4,096-row exhaustion,
+  cadence checkpoint continuity, and direct-write rejection. This does not close
+  any Blueprint Phase 8 gate.
+- The current sealed source/Workbench checkpoint is Campaign Schema 66/runtime-settings
   Schema 24. It adds exact enemy-town local-security authority and the protected
   campaign-marker integrity repair described above. Foundation passes at 729
   references; final normal/all-five Workbench checks pass at 5,806 Game files/
@@ -1002,6 +1040,16 @@ Debug and packaged-runtime gates remain open.
   epoch, no epoch renewal from stopped equipment, pending-stream recovery,
   linked quarantine cleanup, new-campaign authored-target restoration, and one
   generated replacement only when the rebuild completes.
+- Complete and stamp the provisional Schema-67 strategic-resource authority.
+  Execute canonical per-enemy attack/support/aggression, zero-effect replay,
+  conflict/arithmetic, cadence-checkpoint, cap-isolation, migration, and
+  quarantine fixtures. Statically and through real restart prove the contiguous
+  un-compacted operational sequence, the 4,096-row per-faction fail-stop,
+  reciprocal order/ledger/town/ownership links, copy/restore, and no duplicate
+  charge/refund. Then
+  implement persisted planning cadence and frozen decision fingerprints as the
+  immediate next Phase 9 slice; do not skip directly to another exact order
+  family.
 - In the same isolated runtime boundary, prove Schema-63 registered conscious
   infantry, cargo exclusion, pilot/turret and armed-mobile/static classification,
   destroyed/burning/immobile exclusion, empty-vehicle behavior, virtual survivor
@@ -1056,7 +1104,9 @@ Debug and packaged-runtime gates remain open.
 - Prove campaign-debug isolation through completion, cancellation, interrupted
   recovery, and development-session restart, then replace the historical full
   artifact with corrected evidence.
-- Runtime-prove the schema-43 through schema-60 authority chain: exact training,
+- Runtime-prove the schema-43 through sealed schema-66 authority chain, then the
+  provisional schema-67 resource boundary under its eventual stamped identity:
+  exact training,
   garrison, paid-QRF, queue/handoff, strategic travel, materialization/fold
   hysteresis, exact casualty/survivor transfer, bounded virtual combat,
   operation migration, settlement archive replay, typed recall receipt status,
@@ -1151,22 +1201,27 @@ Debug and packaged-runtime gates remain open.
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
-- Continue the implementation blueprint with one explicitly versioned mission-
-  force consumer at a time. Schema 57 exhausts assassination guards and Schema
-  58 implements only the first rescue slice; Schema 59 separately exactifies
-  radio-site identity and lifecycle; Schema 60 adds only the player Search-and-
-  Destroy force consumer; Schema 61 adds only marker projection; Schema 62 adds
-  canonical location ownership without adding a force family; Schema 63 adds
-  shared combat presence/heat without adding a force family; sealed Schema
-  64 adds canonical town influence and political Map/War projection without a
-  force family. Other rescue and unsupported mission/support families remain
-  legacy. Packaged schema-50 through schema-64 certification remains
-  independently required. The previous sealed Campaign Schema-64/runtime-settings
-  Schema-24 checkpoint is sealed only at the source/Workbench boundary; native,
-  packaged, restart, rendered-UI, multiplayer, and certification gates remain.
+- Continue the implementation blueprint in dependency order. Finish the
+  provisional Schema-67 enemy strategic resource authority, then persist one
+  independent planner cadence and deterministic decision fingerprint per enemy
+  before opting another enemy order family into an exact operation contract.
+  Unsupported enemy orders and other rescue/mission/support families remain
+  legacy/deferred. Every schema-50 through schema-66 native, packaged, restart,
+  rendered-UI, multiplayer, and certification gate remains independently open;
+  later Phase 9 source work cannot certify them.
 
 ## Next Playable Expansion
 
+- First close the Blueprint Phase 8 runtime exit with the sealed Schema-66
+  package: native civilian/local-security behavior, marker input integrity, real
+  save/restart, multiplayer, and the ten-town/ten-minute soak.
+- Finish and stamp provisional Schema 67, then implement the next Phase 9
+  persisted enemy-planning cadence and deterministic decision fingerprint.
+  Broader counterattack/support/HQ-attack exactification follows that shared
+  planning boundary rather than preceding it.
+- The restart, progression, logistics, mission-polish, and pacing work below is
+  still required, but it is not a substitute for the Phase 8 exit or the Phase 9
+  Enemy Commander dependency.
 - Restart/migration testing for `HST_CampaignSaveData` under native Reforger
   save/load, including active support/order/Defend Petros and won/lost saves
 - HST_Dev end-to-end smoke and UX polish for the custom loadout editor,
@@ -1189,7 +1244,7 @@ Debug and packaged-runtime gates remain open.
 
 - Exact full-Everon coordinate survey and replacement of remaining 4x-style
   alpha anchors once a Workbench/PAC extraction path is available
-- Authored h-istasi HQ entities for cache/tent polish and customized Petros
+- Authored Partisan HQ entities for cache/tent polish and customized Petros
   appearance/loadout
 - Full player-facing member, guest, commander election, and admin UI polish
 - Deeper town, factory, resource, radio tower, police, and city-flip behavior

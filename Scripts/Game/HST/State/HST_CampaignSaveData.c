@@ -108,6 +108,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
+	ref array<ref HST_EnemyStrategicMutationState> m_aEnemyStrategicMutations = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceRecord> m_aTownInfluenceRecords = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
@@ -340,6 +341,10 @@ class HST_CampaignSaveData
 		m_aEnemySupportLedgers.Clear();
 		foreach (HST_EnemySupportLedgerState ledger : state.m_aEnemySupportLedgers)
 			m_aEnemySupportLedgers.Insert(CopyEnemySupportLedger(ledger));
+
+		m_aEnemyStrategicMutations.Clear();
+		foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)
+			m_aEnemyStrategicMutations.Insert(CopyEnemyStrategicMutation(mutation));
 
 		m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
@@ -623,6 +628,10 @@ class HST_CampaignSaveData
 		foreach (HST_EnemySupportLedgerState ledger : m_aEnemySupportLedgers)
 			state.m_aEnemySupportLedgers.Insert(CopyEnemySupportLedger(ledger));
 
+		state.m_aEnemyStrategicMutations.Clear();
+		foreach (HST_EnemyStrategicMutationState mutation : m_aEnemyStrategicMutations)
+			state.m_aEnemyStrategicMutations.Insert(CopyEnemyStrategicMutation(mutation));
+
 		state.m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
 			state.m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
@@ -685,6 +694,48 @@ class HST_CampaignSaveData
 		target.m_iMoney = source.m_iMoney;
 		target.m_iHR = source.m_iHR;
 		target.m_iAggression = source.m_iAggression;
+		target.m_iStrategicContractVersion = source.m_iStrategicContractVersion;
+		target.m_iStrategicRevision = source.m_iStrategicRevision;
+		target.m_iStrategicOperationalMutationCount = source.m_iStrategicOperationalMutationCount;
+		target.m_iResourceAccumulatorSeconds = source.m_iResourceAccumulatorSeconds;
+		target.m_iAggressionAccumulatorSeconds = source.m_iAggressionAccumulatorSeconds;
+		target.m_iLastResourceBucketSecond = source.m_iLastResourceBucketSecond;
+		target.m_iLastAggressionBucketSecond = source.m_iLastAggressionBucketSecond;
+		target.m_sLastStrategicMutationId = source.m_sLastStrategicMutationId;
+		target.m_sStrategicAuthorityFailure = source.m_sStrategicAuthorityFailure;
+		return target;
+	}
+
+	protected HST_EnemyStrategicMutationState CopyEnemyStrategicMutation(HST_EnemyStrategicMutationState source)
+	{
+		if (!source)
+			return null;
+		HST_EnemyStrategicMutationState target = new HST_EnemyStrategicMutationState();
+		target.m_iContractVersion = source.m_iContractVersion;
+		target.m_sMutationId = source.m_sMutationId;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_sKind = source.m_sKind;
+		target.m_sSourceId = source.m_sSourceId;
+		target.m_sOrderId = source.m_sOrderId;
+		target.m_sOperationId = source.m_sOperationId;
+		target.m_sManifestId = source.m_sManifestId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iPoolRevisionBefore = source.m_iPoolRevisionBefore;
+		target.m_iPoolRevisionAfter = source.m_iPoolRevisionAfter;
+		target.m_iOperationalSequence = source.m_iOperationalSequence;
+		target.m_iAttackBefore = source.m_iAttackBefore;
+		target.m_iAttackDelta = source.m_iAttackDelta;
+		target.m_iAttackAfter = source.m_iAttackAfter;
+		target.m_iSupportBefore = source.m_iSupportBefore;
+		target.m_iSupportDelta = source.m_iSupportDelta;
+		target.m_iSupportAfter = source.m_iSupportAfter;
+		target.m_iAggressionBefore = source.m_iAggressionBefore;
+		target.m_iAggressionDelta = source.m_iAggressionDelta;
+		target.m_iAggressionAfter = source.m_iAggressionAfter;
+		target.m_sContributionHash = source.m_sContributionHash;
+		target.m_sFingerprint = source.m_sFingerprint;
+		target.m_bApplied = source.m_bApplied;
 		return target;
 	}
 
@@ -1824,6 +1875,8 @@ class HST_CampaignSaveData
 		target.m_iCompositionManpower = source.m_iCompositionManpower;
 		target.m_iCompositionVehicleCount = source.m_iCompositionVehicleCount;
 		target.m_iCompositionArmedVehicleCount = source.m_iCompositionArmedVehicleCount;
+		target.m_sResourceDebitMutationId = source.m_sResourceDebitMutationId;
+		target.m_sResourceRefundMutationId = source.m_sResourceRefundMutationId;
 		target.m_sResourceSettlementId = source.m_sResourceSettlementId;
 		target.m_sResourceSettlementKind = source.m_sResourceSettlementKind;
 		target.m_iSettlementAcceptedMemberCount = source.m_iSettlementAcceptedMemberCount;
@@ -2553,6 +2606,11 @@ class HST_CampaignSaveData
 		schema60PlayerSearchDestroyValidation.Normalize(this, restoredSchemaVersion);
 		HST_LocalSecuritySaveValidationService schema66LocalSecurityValidation = new HST_LocalSecuritySaveValidationService();
 		schema66LocalSecurityValidation.PrepareBeforeGenericNormalization(this, restoredSchemaVersion);
+		HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation
+			= new HST_EnemyStrategicResourceSaveValidationService();
+		schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(
+			this,
+			restoredSchemaVersion);
 		if (restoredSchemaVersion < 26)
 		{
 			if (m_bHQDeployed && !IsZeroVector(m_vHQPosition))
@@ -2921,6 +2979,12 @@ class HST_CampaignSaveData
 		HST_CivilianConsequenceSaveValidationService schema65CivilianConsequenceValidation
 			= new HST_CivilianConsequenceSaveValidationService();
 		schema65CivilianConsequenceValidation.Normalize(this, restoredSchemaVersion);
+		// Strategic-resource receipts link canonical orders, ledgers, town events,
+		// ownership transitions, and Maiden's Bay aliases. Validate those links only
+		// after every prerequisite authority has normalized its current shape.
+		schema67StrategicResourceValidation.Normalize(
+			this,
+			restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)
 			m_aCommandReceipts.Remove(0);
 		while (m_aCampaignEvents.Count() > HST_CampaignEventLogService.MAX_EVENT_ROWS)

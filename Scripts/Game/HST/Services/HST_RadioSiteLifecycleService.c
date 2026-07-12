@@ -760,7 +760,7 @@ class HST_RadioSiteLifecycleService
 		out string resultText,
 		out string missionInstanceId)
 	{
-		resultText = "h-istasi radio site | target not managed by exact radio authority";
+		resultText = "Partisan radio site | target not managed by exact radio authority";
 		missionInstanceId = "";
 		if (!state || assetId.IsEmpty())
 			return false;
@@ -773,28 +773,28 @@ class HST_RadioSiteLifecycleService
 		HST_RadioSiteState site = state.FindRadioSite(asset.m_sRadioSiteId);
 		if (!IsExactMission(mission) || !site || site.m_iContractVersion != EXACT_CONTRACT_VERSION)
 		{
-			resultText = "h-istasi radio site | exact target authority is quarantined";
+			resultText = "Partisan radio site | exact target authority is quarantined";
 			return false;
 		}
 		if (asset.m_bDestroyed)
 		{
-			resultText = "h-istasi radio site | target destruction already recorded";
+			resultText = "Partisan radio site | target destruction already recorded";
 			return false;
 		}
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 		{
-			resultText = "h-istasi radio site | ignored stale destruction evidence after mission settlement";
+			resultText = "Partisan radio site | ignored stale destruction evidence after mission settlement";
 			return false;
 		}
 		if (!MissionOwnsCurrentSiteLock(state, site, mission, asset))
 		{
-			resultText = "h-istasi radio site | stale or cross-linked destruction evidence quarantined";
+			resultText = "Partisan radio site | stale or cross-linked destruction evidence quarantined";
 			return QuarantineMissionAggregate(state, mission, "direct destruction evidence lost its reciprocal radio-site lock");
 		}
 		if (site.m_eTargetOwnership != HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD
 			|| mission.m_sMissionId != DESTROY_MISSION_ID)
 		{
-			resultText = "h-istasi radio site | generated targets require exact explosive-score evidence";
+			resultText = "Partisan radio site | generated targets require exact explosive-score evidence";
 			return false;
 		}
 
@@ -804,7 +804,7 @@ class HST_RadioSiteLifecycleService
 			damageManager = SCR_DamageManagerComponent.Cast(projection.FindComponent(SCR_DamageManagerComponent));
 		if (!damageManager || damageManager.GetState() != EDamageState.DESTROYED)
 		{
-			resultText = "h-istasi radio site | direct destruction rejected without authoritative physical damage state";
+			resultText = "Partisan radio site | direct destruction rejected without authoritative physical damage state";
 			return false;
 		}
 
@@ -816,7 +816,7 @@ class HST_RadioSiteLifecycleService
 				site.m_vTargetPosition,
 				PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS))
 		{
-			resultText = "h-istasi radio site | direct destruction position does not match the verified target";
+			resultText = "Partisan radio site | direct destruction position does not match the verified target";
 			return false;
 		}
 		bool changed = MarkPhysicalTargetDestroyed(
@@ -827,10 +827,10 @@ class HST_RadioSiteLifecycleService
 			projectionPosition,
 			"authoritative physical destruction callback");
 		if (changed)
-			resultText = "h-istasi radio site | exact target physically destroyed";
+			resultText = "Partisan radio site | exact target physically destroyed";
 		if (changed)
 			return true;
-		resultText = "h-istasi radio site | physical destruction could not commit its reciprocal runtime state";
+		resultText = "Partisan radio site | physical destruction could not commit its reciprocal runtime state";
 		return QuarantineMissionAggregate(
 			state,
 			mission,
@@ -846,7 +846,7 @@ class HST_RadioSiteLifecycleService
 		out string resultText,
 		out string missionInstanceId)
 	{
-		resultText = "h-istasi radio site | target not managed by exact radio authority";
+		resultText = "Partisan radio site | target not managed by exact radio authority";
 		missionInstanceId = "";
 		if (!state || assetId.IsEmpty() || damage <= 0.0 || sourceLabel.Trim().IsEmpty())
 			return false;
@@ -858,27 +858,27 @@ class HST_RadioSiteLifecycleService
 		HST_RadioSiteState site = state.FindRadioSite(asset.m_sRadioSiteId);
 		if (!IsExactMission(mission) || !site || site.m_iContractVersion != EXACT_CONTRACT_VERSION)
 		{
-			resultText = "h-istasi radio site | exact demolition authority is quarantined";
+			resultText = "Partisan radio site | exact demolition authority is quarantined";
 			return false;
 		}
 		if (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 		{
-			resultText = "h-istasi radio site | ignored stale explosive evidence after mission settlement";
+			resultText = "Partisan radio site | ignored stale explosive evidence after mission settlement";
 			return false;
 		}
 		if (!MissionOwnsCurrentSiteLock(state, site, mission, asset))
 		{
-			resultText = "h-istasi radio site | stale or cross-linked explosive evidence quarantined";
+			resultText = "Partisan radio site | stale or cross-linked explosive evidence quarantined";
 			return QuarantineMissionAggregate(state, mission, "explosive evidence lost its reciprocal radio-site lock");
 		}
 		if (site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD)
 		{
-			resultText = "h-istasi radio site | authored transmitter requires observed physical destruction";
+			resultText = "Partisan radio site | authored transmitter requires observed physical destruction";
 			return false;
 		}
 		if (asset.m_bDestroyed)
 		{
-			resultText = "h-istasi radio site | target destruction already recorded";
+			resultText = "Partisan radio site | target destruction already recorded";
 			return false;
 		}
 
@@ -892,7 +892,7 @@ class HST_RadioSiteLifecycleService
 			|| projectionAsset.GetMissionInstanceId() != mission.m_sInstanceId
 			|| projectionAsset.GetRole() != asset.m_sRole)
 		{
-			resultText = "h-istasi radio site | explosive evidence rejected without the configured live target";
+			resultText = "Partisan radio site | explosive evidence rejected without the configured live target";
 			return false;
 		}
 		vector projectionPosition = projection.GetOrigin();
@@ -901,7 +901,7 @@ class HST_RadioSiteLifecycleService
 		if (!PositionsMatch2D(position, projectionPosition, PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)
 			|| !PositionsMatch2D(projectionPosition, site.m_vTargetPosition, PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS))
 		{
-			resultText = "h-istasi radio site | explosive evidence position does not match the live target";
+			resultText = "Partisan radio site | explosive evidence position does not match the live target";
 			return false;
 		}
 
@@ -921,7 +921,7 @@ class HST_RadioSiteLifecycleService
 				thresholdReached,
 				evidenceAlreadyApplied))
 		{
-			resultText = "h-istasi radio site | explosive evidence receipt is invalid or exhausted";
+			resultText = "Partisan radio site | explosive evidence receipt is invalid or exhausted";
 			bool evidenceStateChanged = asset.m_fDemolitionRequiredDamage != previousRequiredDamage
 				|| asset.m_fDemolitionDamage != previousDamage
 				|| asset.m_aDemolitionEvidenceKeys.Count() != previousEvidenceCount;
@@ -933,13 +933,13 @@ class HST_RadioSiteLifecycleService
 		}
 		if (evidenceAlreadyApplied)
 		{
-			resultText = "h-istasi radio site | explosive evidence receipt already applied";
+			resultText = "Partisan radio site | explosive evidence receipt already applied";
 			return false;
 		}
 		if (!thresholdReached)
 		{
 			resultText = string.Format(
-				"h-istasi radio site | demolition progress %1/%2",
+				"Partisan radio site | demolition progress %1/%2",
 				Math.Round(asset.m_fDemolitionDamage),
 				Math.Round(asset.m_fDemolitionRequiredDamage));
 			return true;
@@ -951,7 +951,7 @@ class HST_RadioSiteLifecycleService
 			&& (!damageManager.SetHealthScaled(0.0)
 				|| damageManager.GetState() != EDamageState.DESTROYED)))
 		{
-			resultText = "h-istasi radio site | exact demolition score could not destroy the live target projection";
+			resultText = "Partisan radio site | exact demolition score could not destroy the live target projection";
 			QuarantineMissionAggregate(
 				state,
 				mission,
@@ -968,14 +968,14 @@ class HST_RadioSiteLifecycleService
 			projectionPosition,
 			"exact explosive score threshold"))
 		{
-			resultText = "h-istasi radio site | exact demolition state could not commit after physical destruction";
+			resultText = "Partisan radio site | exact demolition state could not commit after physical destruction";
 			QuarantineMissionAggregate(
 				state,
 				mission,
 				"generated target destruction could not commit its durable exact outcome");
 			return true;
 		}
-		resultText = "h-istasi radio site | exact demolition target destroyed";
+		resultText = "Partisan radio site | exact demolition target destroyed";
 		return true;
 	}
 

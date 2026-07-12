@@ -33,7 +33,7 @@ class HST_NotificationToastController
 			return;
 
 		if (title.IsEmpty())
-			title = "h-istasi";
+			title = "Partisan";
 
 		HST_NotificationToastRequest request = new HST_NotificationToastRequest();
 		request.m_sEventId = eventId;

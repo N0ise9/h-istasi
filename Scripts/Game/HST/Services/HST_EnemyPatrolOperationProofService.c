@@ -173,11 +173,19 @@ class HST_EnemyPatrolProofFixtureFactory
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
 		if (pool)
 			fixture.m_iAttackBeforeDebit = pool.m_iAttackResources;
+		fixture.m_Order.m_sResourceDebitMutationId
+			= "enemy_resource_debit_" + fixture.m_Order.m_sOrderId;
 		fixture.m_bDebitAccepted = fixture.m_EnemyDirector.TrySpendProactiveAttack(
 			fixture.m_State,
 			PROOF_FACTION_KEY,
 			fixture.m_Order.m_iAttackCost,
-			fixture.m_sDebitReason);
+			fixture.m_sDebitReason,
+			fixture.m_Order.m_sResourceDebitMutationId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOperationId,
+			fixture.m_Manifest.m_sManifestId,
+			fixture.m_Order.m_sTargetZoneId);
 		if (pool)
 			fixture.m_iAttackAfterDebit = pool.m_iAttackResources;
 		if (!fixture.m_bDebitAccepted)
@@ -248,6 +256,8 @@ class HST_EnemyPatrolProofFixtureFactory
 	{
 		HST_FactionPoolState pool = new HST_FactionPoolState();
 		pool.m_sFactionKey = PROOF_FACTION_KEY;
+		pool.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+		pool.m_iStrategicRevision = 1;
 		pool.m_iAttackResources = 200;
 		pool.m_iSupportResources = 200;
 		pool.m_iAggression = 50;
@@ -504,11 +514,19 @@ class HST_EnemyPatrolOperationProofService
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(HST_EnemyPatrolProofFixtureFactory.PROOF_FACTION_KEY);
 		int attackBefore = pool.m_iAttackResources;
 		string debitReason;
+		fixture.m_Order.m_sResourceDebitMutationId
+			= "enemy_resource_debit_" + fixture.m_Order.m_sOrderId;
 		bool spent = fixture.m_EnemyDirector.TrySpendProactiveAttack(
 			fixture.m_State,
 			fixture.m_Order.m_sFactionKey,
 			fixture.m_Order.m_iAttackCost,
-			debitReason);
+			debitReason,
+			fixture.m_Order.m_sResourceDebitMutationId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOperationId,
+			fixture.m_Manifest.m_sManifestId,
+			fixture.m_Order.m_sTargetZoneId);
 		fixture.m_State.m_aEnemyOrders.Insert(fixture.m_Order);
 		fixture.m_Route.m_sTargetZoneId = "enemy_patrol_proof_invalid_route_target";
 		HST_EnemyPatrolAdmissionResult failed = fixture.m_Service.AdmitPreparedOrder(
@@ -592,11 +610,19 @@ class HST_EnemyPatrolOperationProofService
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(HST_EnemyPatrolProofFixtureFactory.PROOF_FACTION_KEY);
 		int attackBefore = pool.m_iAttackResources;
 		string spendReason;
+		fixture.m_Order.m_sResourceDebitMutationId
+			= "enemy_resource_debit_" + fixture.m_Order.m_sOrderId;
 		bool spent = fixture.m_EnemyDirector.TrySpendProactiveAttack(
 			fixture.m_State,
 			fixture.m_Order.m_sFactionKey,
 			fixture.m_Order.m_iAttackCost,
-			spendReason);
+			spendReason,
+			fixture.m_Order.m_sResourceDebitMutationId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOperationId,
+			fixture.m_Manifest.m_sManifestId,
+			fixture.m_Order.m_sTargetZoneId);
 		fixture.m_State.m_aEnemyOrders.Insert(fixture.m_Order);
 		HST_ForceSpawnResultState foreignBatch = BuildForeignCollisionBatch(fixture.m_Order, "post_debit");
 		fixture.m_State.m_aForceSpawnResults.Insert(foreignBatch);

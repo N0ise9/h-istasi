@@ -7,13 +7,13 @@ class HST_SupportRequestResult
 	string BuildSummary()
 	{
 		if (!m_bSuccess)
-			return "h-istasi support | failed: " + m_sFailureReason;
+			return "Partisan support | failed: " + m_sFailureReason;
 
 		if (!m_Request)
-			return "h-istasi support | failed: request missing after success";
+			return "Partisan support | failed: request missing after success";
 
 		string summary = string.Format(
-			"h-istasi support | requested %1 | %2 | target %3 at %4 | eta %5s",
+			"Partisan support | requested %1 | %2 | target %3 at %4 | eta %5s",
 			m_Request.m_sRequestId,
 			m_Request.m_eType,
 			m_Request.m_sTargetZoneId,
@@ -63,8 +63,8 @@ class HST_SupportRecallResult
 		if (!m_sDisplayMessage.IsEmpty())
 			return m_sDisplayMessage;
 		if (!m_sFailureReason.IsEmpty())
-			return "h-istasi support recall | failed: " + m_sFailureReason;
-		return "h-istasi support recall | failed: no typed recall outcome";
+			return "Partisan support recall | failed: " + m_sFailureReason;
+		return "Partisan support recall | failed: no typed recall outcome";
 	}
 }
 
@@ -459,7 +459,18 @@ class HST_SupportRequestService
 				return result;
 			}
 
-			if (!enemyDirector.TrySpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason))
+			if (!enemyDirector.TrySpendDefense(
+				state,
+				targetZone,
+				factionKey,
+				attackCost,
+				supportCost,
+				spendReason,
+				"enemy_resource_debit_" + request.m_sRequestId,
+				request.m_sRequestId,
+				"",
+				request.m_sOperationId,
+				request.m_sManifestId))
 			{
 				result.m_sFailureReason = "enemy support spend failed: " + spendReason;
 				return result;
@@ -471,7 +482,7 @@ class HST_SupportRequestService
 		result.m_Request = request;
 		result.m_bSuccess = true;
 
-		Print(string.Format("h-istasi | support request %1 queued for %2 at %3 target %4", request.m_sRequestId, factionKey, targetZone.m_sZoneId, resolvedTargetPosition));
+		Print(string.Format("Partisan | support request %1 queued for %2 at %3 target %4", request.m_sRequestId, factionKey, targetZone.m_sZoneId, resolvedTargetPosition));
 		return result;
 	}
 
@@ -500,7 +511,7 @@ class HST_SupportRequestService
 		HST_SupportRequestState request = BuildSupportRequestRecord(state, preset, factionKey, supportType, targetZone, resolvedTargetPosition, resolvedSourcePosition, false, 0, attackCost, supportCost, 0);
 		state.m_aSupportRequests.Insert(request);
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi | prepaid enemy support %1 linked to order for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
+		Print(string.Format("Partisan | prepaid enemy support %1 linked to order for %2 at %3", request.m_sRequestId, factionKey, targetZone.m_sZoneId));
 		return request;
 	}
 
@@ -860,6 +871,16 @@ class HST_SupportRequestService
 		return result;
 	}
 
+	bool CaptureCampaignDebugMarkerRefreshNeeded()
+	{
+		return m_bMarkerRefreshNeeded;
+	}
+
+	void RestoreCampaignDebugMarkerRefreshNeeded(bool markerRefreshNeeded)
+	{
+		m_bMarkerRefreshNeeded = markerRefreshNeeded;
+	}
+
 	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_GarrisonService garrisons, HST_PhysicalWarService physicalWar = null, HST_StrategicService strategic = null, HST_HQService hq = null, HST_EconomyService economy = null, HST_ForceSpawnAdapterService forceSpawnAdapter = null)
 	{
 		if (!state || !preset)
@@ -882,6 +903,33 @@ class HST_SupportRequestService
 		}
 
 		return changed;
+	}
+
+	bool TickCampaignDebugSupportRequest(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_GarrisonService garrisons,
+		HST_SupportRequestState request,
+		HST_PhysicalWarService physicalWar = null,
+		HST_StrategicService strategic = null,
+		HST_HQService hq = null,
+		HST_EconomyService economy = null,
+		HST_ForceSpawnAdapterService forceSpawnAdapter = null)
+	{
+		if (!state || !preset || !request)
+			return false;
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+			|| request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			return false;
+
+		bool changed;
+		if (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_QUEUED)
+			changed = ActivateSupportRequest(state, preset, request);
+
+		if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE)
+			return changed;
+
+		return TickActiveSupportRequest(state, preset, garrisons, physicalWar, request, strategic, hq, economy, forceSpawnAdapter) || changed;
 	}
 
 	protected bool ActivateSupportRequest(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)
@@ -2710,7 +2758,7 @@ class HST_SupportRequestService
 	string BuildSupportReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi support | state not ready";
+			return "Partisan support | state not ready";
 
 		int queued;
 		int active;
@@ -2741,7 +2789,7 @@ class HST_SupportRequestService
 				helicopterStyle++;
 		}
 
-		string report = string.Format("h-istasi support | queued %1 | active %2 | resolved %3 | cancelled %4 | physical %5 | abstract %6 | helo-style %7", queued, active, resolved, cancelled, physicalized, abstractResolved, helicopterStyle);
+		string report = string.Format("Partisan support | queued %1 | active %2 | resolved %3 | cancelled %4 | physical %5 | abstract %6 | helo-style %7", queued, active, resolved, cancelled, physicalized, abstractResolved, helicopterStyle);
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
 		{
 			if (!request)
@@ -2788,9 +2836,9 @@ class HST_SupportRequestService
 	string BuildSupportCooldownReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi support cooldowns | state not ready";
+			return "Partisan support cooldowns | state not ready";
 
-		string report = "h-istasi support cooldowns";
+		string report = "Partisan support cooldowns";
 		int emitted;
 
 		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
@@ -2854,7 +2902,7 @@ class HST_SupportRequestService
 	HST_SupportRecallResult RecallSupportRequestDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_PhysicalWarService physicalWar, string requestId, bool playerRequestedOnly = true)
 	{
 		if (!state || !preset)
-			return BuildSupportRecallResult(false, false, "invalid_context", null, "h-istasi support recall | failed: campaign state or preset not ready", "campaign state or preset not ready");
+			return BuildSupportRecallResult(false, false, "invalid_context", null, "Partisan support recall | failed: campaign state or preset not ready", "campaign state or preset not ready");
 
 		HST_SupportRequestState request = ResolveRecallableRequest(state, requestId, playerRequestedOnly);
 		if (!request)
@@ -2863,8 +2911,8 @@ class HST_SupportRequestService
 			if (!requestId.IsEmpty())
 				existing = state.FindSupportRequest(requestId);
 			if (existing && existing.m_bRecallRequested && (!playerRequestedOnly || existing.m_bPlayerRequested) && IsPhysicalGroundSupport(existing))
-				return BuildSupportRecallResult(true, false, "already_ordered", existing, "h-istasi support recall | already ordered for " + existing.m_sRequestId, "", true);
-			return BuildSupportRecallResult(false, false, "not_recallable", existing, "h-istasi support recall | failed: no recallable support team", "no recallable support team");
+				return BuildSupportRecallResult(true, false, "already_ordered", existing, "Partisan support recall | already ordered for " + existing.m_sRequestId, "", true);
+			return BuildSupportRecallResult(false, false, "not_recallable", existing, "Partisan support recall | failed: no recallable support team", "no recallable support team");
 		}
 
 		if (HasExactPlayerSupportAuthorityIdentity(request))
@@ -2879,7 +2927,7 @@ class HST_SupportRequestService
 			request.m_sRuntimeStatus = "resolved_recalled_before_deploy";
 			request.m_sResolutionKind = "recalled_before_deploy";
 			m_bMarkerRefreshNeeded = true;
-			return BuildSupportRecallResult(true, true, "recalled_before_deploy", request, string.Format("h-istasi support recall | %1 recalled before deployment | refunded HR %2/%3", request.m_sRequestId, refunded, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "recalled_before_deploy", request, string.Format("Partisan support recall | %1 recalled before deployment | refunded HR %2/%3", request.m_sRequestId, refunded, request.m_iHRCost));
 		}
 
 		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
@@ -2892,7 +2940,7 @@ class HST_SupportRequestService
 			request.m_sResolutionKind = "recalled_missing_group";
 			request.m_sFailureReason = "recall group missing";
 			m_bMarkerRefreshNeeded = true;
-			return BuildSupportRecallResult(true, true, "recalled_missing_group", request, string.Format("h-istasi support recall | %1 resolved: group missing | refunded HR 0/%2", request.m_sRequestId, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "recalled_missing_group", request, string.Format("Partisan support recall | %1 resolved: group missing | refunded HR 0/%2", request.m_sRequestId, request.m_iHRCost));
 		}
 
 		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed")
@@ -2904,7 +2952,7 @@ class HST_SupportRequestService
 			request.m_sResolutionKind = "recalled_group_lost";
 			request.m_sFailureReason = "recall group terminal: " + group.m_sRuntimeStatus;
 			m_bMarkerRefreshNeeded = true;
-			return BuildSupportRecallResult(true, true, "recalled_group_lost", request, string.Format("h-istasi support recall | %1 could not recall %2 | group %3 | refunded HR 0/%4", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "recalled_group_lost", request, string.Format("Partisan support recall | %1 could not recall %2 | group %3 | refunded HR 0/%4", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iHRCost));
 		}
 
 		string livePositionEvidence;
@@ -2923,19 +2971,19 @@ class HST_SupportRequestService
 		{
 			request.m_sRuntimeStatus = "active_recall_route_failed";
 			request.m_sFailureReason = "recall route failed";
-			return BuildSupportRecallResult(false, true, "route_failed", request, string.Format("h-istasi support recall | failed: could not route %1 out of area", request.m_sRequestId), "recall route failed");
+			return BuildSupportRecallResult(false, true, "route_failed", request, string.Format("Partisan support recall | failed: could not route %1 out of area", request.m_sRequestId), "recall route failed");
 		}
 
 		MarkSupportRecallAccepted(state, request, "recall_routing");
 		request.m_sFailureReason = "";
-		return BuildSupportRecallResult(true, true, "routing", request, string.Format("h-istasi support recall | ordered %1 | group %2 | survivors %3/%4 | exit %5 | HR refund pending", request.m_sRequestId, group.m_sGroupId, Math.Max(0, group.m_iSurvivorInfantryCount), request.m_iHRCost, exitPosition));
+		return BuildSupportRecallResult(true, true, "routing", request, string.Format("Partisan support recall | ordered %1 | group %2 | survivors %3/%4 | exit %5 | HR refund pending", request.m_sRequestId, group.m_sGroupId, Math.Max(0, group.m_iSurvivorInfantryCount), request.m_iHRCost, exitPosition));
 	}
 
 	string RecallSupportRequestReport(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_PhysicalWarService physicalWar, string requestId, bool playerRequestedOnly = true)
 	{
 		HST_SupportRecallResult result = RecallSupportRequestDetailed(state, preset, economy, physicalWar, requestId, playerRequestedOnly);
 		if (!result)
-			return "h-istasi support recall | failed: typed recall result missing";
+			return "Partisan support recall | failed: typed recall result missing";
 		return result.BuildSummary();
 	}
 
@@ -2953,7 +3001,7 @@ class HST_SupportRequestService
 			string operationFailure = "exact player support operation rejected recall";
 			if (recallPreflight && !recallPreflight.m_sFailureReason.IsEmpty())
 				operationFailure = operationFailure + ": " + recallPreflight.m_sFailureReason;
-			return BuildSupportRecallResult(false, false, "operation_conflict", request, "h-istasi support recall | failed: " + operationFailure, operationFailure);
+			return BuildSupportRecallResult(false, false, "operation_conflict", request, "Partisan support recall | failed: " + operationFailure, operationFailure);
 		}
 		HST_ForceSpawnResultState batch = FindExactSupportSpawnBatch(state, request);
 		if (batch && batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL)
@@ -2961,18 +3009,18 @@ class HST_SupportRequestService
 			bool failedSettled = SettleExactPlayerSupportDeploymentTerminal(state, request, batch, "exact player support deployment failed before recall: " + batch.m_sTerminalReason, false);
 			bool terminalSettled = failedSettled && (request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED || request.m_eStatus == HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED);
 			if (!terminalSettled)
-				return BuildSupportRecallResult(false, failedSettled, "deployment_failure_settlement_failed", request, "h-istasi support recall | failed: exact deployment failure refund could not settle", "exact deployment failure refund could not settle");
+				return BuildSupportRecallResult(false, failedSettled, "deployment_failure_settlement_failed", request, "Partisan support recall | failed: exact deployment failure refund could not settle", "exact deployment failure refund could not settle");
 			MarkSupportRecallAccepted(state, request);
 			if (batch.m_iSuccessfulHandoffCount > 0)
-				return BuildSupportRecallResult(true, true, "reprojection_failed_settled", request, string.Format("h-istasi support recall | %1 reprojection failed after prior handoff | retained money | refunded survivor HR %2", request.m_sRequestId, request.m_iRefundedHR));
-			return BuildSupportRecallResult(true, true, "deployment_failed_settled", request, string.Format("h-istasi support recall | %1 deployment failed before recall | refunded $%2 and HR %3", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR));
+				return BuildSupportRecallResult(true, true, "reprojection_failed_settled", request, string.Format("Partisan support recall | %1 reprojection failed after prior handoff | retained money | refunded survivor HR %2", request.m_sRequestId, request.m_iRefundedHR));
+			return BuildSupportRecallResult(true, true, "deployment_failed_settled", request, string.Format("Partisan support recall | %1 deployment failed before recall | refunded $%2 and HR %3", request.m_sRequestId, request.m_iMoneyCost, request.m_iRefundedHR));
 		}
 		if (!batch || batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
 		{
 			if (batch && !IsTerminalExactSupportBatch(batch))
 			{
 				if (!m_ExactForceSpawnQueue)
-					return BuildSupportRecallResult(false, false, "spawn_queue_unavailable", request, "h-istasi support recall | failed: exact spawn queue not ready", "exact spawn queue not ready");
+					return BuildSupportRecallResult(false, false, "spawn_queue_unavailable", request, "Partisan support recall | failed: exact spawn queue not ready", "exact spawn queue not ready");
 				if (batch.m_bStrategicProjectionHeld)
 				{
 					HST_OperationRecordState heldOperation = state.FindOperation(request.m_sOperationId);
@@ -2982,30 +3030,30 @@ class HST_SupportRequestService
 				}
 				HST_ForceSpawnQueueCallbackResult cancel = m_ExactForceSpawnQueue.RequestCancel(state.m_aForceSpawnResults, batch.m_sResultId, state.m_iElapsedSeconds, "exact player support recalled before deployment");
 				if (!cancel || !cancel.m_bAccepted)
-					return BuildSupportRecallResult(false, cancel && cancel.m_bStateChanged, "predeployment_cancellation_rejected", request, "h-istasi support recall | failed: exact predeployment cancellation was rejected", "exact predeployment cancellation was rejected");
+					return BuildSupportRecallResult(false, cancel && cancel.m_bStateChanged, "predeployment_cancellation_rejected", request, "Partisan support recall | failed: exact predeployment cancellation was rejected", "exact predeployment cancellation was rejected");
 				HST_OperationTransitionResult recallOrdered = m_Operations.BeginRecall(state, request, request.m_vSourcePosition);
 				if (!recallOrdered || !recallOrdered.m_bAccepted)
-					return BuildSupportRecallResult(false, true, "operation_conflict_cleanup_pending", request, "h-istasi support recall | exact queue cancellation accepted but operation recall transition conflicted", "operation recall transition conflicted after queue cancellation");
+					return BuildSupportRecallResult(false, true, "operation_conflict_cleanup_pending", request, "Partisan support recall | exact queue cancellation accepted but operation recall transition conflicted", "operation recall transition conflicted after queue cancellation");
 				MarkSupportRecallAccepted(state, request, "exact_recall_waiting_cleanup");
 				m_bMarkerRefreshNeeded = true;
-				return BuildSupportRecallResult(true, true, "predeployment_cleanup_pending", request, string.Format("h-istasi support recall | %1 cancellation ordered before deployment | HR refund pending exact cleanup", request.m_sRequestId));
+				return BuildSupportRecallResult(true, true, "predeployment_cleanup_pending", request, string.Format("Partisan support recall | %1 cancellation ordered before deployment | HR refund pending exact cleanup", request.m_sRequestId));
 			}
 
 			int eligibleInfantry = request.m_iHRCost;
 			if (batch && batch.m_iSuccessfulHandoffCount > 0)
 			{
 				if (!m_ExactForceSpawnQueue)
-					return BuildSupportRecallResult(false, false, "settlement_queue_unavailable", request, "h-istasi support recall | failed: exact settlement queue is unavailable", "exact settlement queue is unavailable");
+					return BuildSupportRecallResult(false, false, "settlement_queue_unavailable", request, "Partisan support recall | failed: exact settlement queue is unavailable", "exact settlement queue is unavailable");
 				eligibleInfantry = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
 			}
 			HST_OperationTransitionResult virtualRecall = m_Operations.BeginRecall(state, request, request.m_vSourcePosition);
 			if (!virtualRecall || !virtualRecall.m_bAccepted)
-				return BuildSupportRecallResult(false, false, "operation_conflict", request, "h-istasi support recall | failed: exact virtual recall operation transition conflicted", "exact virtual recall operation transition conflicted");
+				return BuildSupportRecallResult(false, false, "operation_conflict", request, "Partisan support recall | failed: exact virtual recall operation transition conflicted", "exact virtual recall operation transition conflicted");
 			bool settled = SettleExactPlayerSupportHRRefund(state, request, eligibleInfantry, "exact player support recalled before deployment", "recalled_before_deploy", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 			if (!settled)
-				return BuildSupportRecallResult(false, false, "predeployment_settlement_failed", request, "h-istasi support recall | failed: exact predeployment HR refund could not settle", "exact predeployment HR refund could not settle");
+				return BuildSupportRecallResult(false, false, "predeployment_settlement_failed", request, "Partisan support recall | failed: exact predeployment HR refund could not settle", "exact predeployment HR refund could not settle");
 			MarkSupportRecallAccepted(state, request);
-			return BuildSupportRecallResult(true, true, "recalled_before_deploy", request, string.Format("h-istasi support recall | %1 recalled before deployment | retained money | refunded HR %2/%3", request.m_sRequestId, request.m_iRefundedHR, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "recalled_before_deploy", request, string.Format("Partisan support recall | %1 recalled before deployment | retained money | refunded HR %2/%3", request.m_sRequestId, request.m_iRefundedHR, request.m_iHRCost));
 		}
 
 		HST_ActiveGroupState group = state.FindActiveGroup(request.m_sGroupId);
@@ -3013,32 +3061,32 @@ class HST_SupportRequestService
 		{
 			request.m_sRuntimeStatus = "exact_recall_projection_missing";
 			request.m_sFailureReason = "exact player support recall projection is missing";
-			return BuildSupportRecallResult(false, true, "projection_missing", request, "h-istasi support recall | failed: exact deployed group is missing", "exact deployed group is missing");
+			return BuildSupportRecallResult(false, true, "projection_missing", request, "Partisan support recall | failed: exact deployed group is missing", "exact deployed group is missing");
 		}
 		if (group.m_sRuntimeStatus == "eliminated" || group.m_sRuntimeStatus == "spawn_failed")
 		{
 			if (!m_ExactForceSpawnQueue)
-				return BuildSupportRecallResult(false, false, "settlement_queue_unavailable", request, "h-istasi support recall | failed: exact settlement queue is unavailable", "exact settlement queue is unavailable");
+				return BuildSupportRecallResult(false, false, "settlement_queue_unavailable", request, "Partisan support recall | failed: exact settlement queue is unavailable", "exact settlement queue is unavailable");
 			int lostSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
 			bool lostSettled = SettleExactPlayerSupportHRRefund(state, request, lostSurvivors, "exact player support recall group was lost", "recalled_group_lost", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED);
 			if (!lostSettled)
-				return BuildSupportRecallResult(false, false, "lost_group_settlement_failed", request, "h-istasi support recall | failed: exact lost-group HR refund could not settle", "exact lost-group HR refund could not settle");
+				return BuildSupportRecallResult(false, false, "lost_group_settlement_failed", request, "Partisan support recall | failed: exact lost-group HR refund could not settle", "exact lost-group HR refund could not settle");
 			MarkSupportRecallAccepted(state, request);
-			return BuildSupportRecallResult(true, true, "recalled_group_lost", request, string.Format("h-istasi support recall | %1 could not recall %2 | group %3 | refunded HR %4/%5", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iRefundedHR, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "recalled_group_lost", request, string.Format("Partisan support recall | %1 could not recall %2 | group %3 | refunded HR %4/%5", request.m_sRequestId, group.m_sGroupId, group.m_sRuntimeStatus, request.m_iRefundedHR, request.m_iHRCost));
 		}
 		if (!group.m_bSpawnedEntity && group.m_sRuntimeStatus == "exact_restore_waiting_queue_capacity")
 		{
 			if (!m_ExactForceSpawnQueue)
-				return BuildSupportRecallResult(false, false, "restore_settlement_queue_unavailable", request, "h-istasi support recall | failed: exact restore-recall settlement queue is unavailable", "exact restore-recall settlement queue is unavailable");
+				return BuildSupportRecallResult(false, false, "restore_settlement_queue_unavailable", request, "Partisan support recall | failed: exact restore-recall settlement queue is unavailable", "exact restore-recall settlement queue is unavailable");
 			int restoredSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
 			HST_OperationTransitionResult restoredRecall = m_Operations.BeginRecall(state, request, request.m_vSourcePosition);
 			if (!restoredRecall || !restoredRecall.m_bAccepted)
-				return BuildSupportRecallResult(false, false, "operation_conflict", request, "h-istasi support recall | failed: restore-recall operation transition conflicted", "restore-recall operation transition conflicted");
+				return BuildSupportRecallResult(false, false, "operation_conflict", request, "Partisan support recall | failed: restore-recall operation transition conflicted", "restore-recall operation transition conflicted");
 			bool restoredSettled = SettleExactPlayerSupportHRRefund(state, request, restoredSurvivors, "exact player support recalled while survivor reprojection awaited queue capacity", "recalled_restore_waiting_reprojection", HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED);
 			if (!restoredSettled)
-				return BuildSupportRecallResult(false, false, "restore_settlement_failed", request, "h-istasi support recall | failed: exact restore-recall HR refund could not settle", "exact restore-recall HR refund could not settle");
+				return BuildSupportRecallResult(false, false, "restore_settlement_failed", request, "Partisan support recall | failed: exact restore-recall HR refund could not settle", "exact restore-recall HR refund could not settle");
 			MarkSupportRecallAccepted(state, request);
-			return BuildSupportRecallResult(true, true, "recalled_restore_waiting_reprojection", request, string.Format("h-istasi support recall | %1 recalled before survivor reprojection | retained money | refunded HR %2/%3", request.m_sRequestId, request.m_iRefundedHR, request.m_iHRCost));
+			return BuildSupportRecallResult(true, true, "recalled_restore_waiting_reprojection", request, string.Format("Partisan support recall | %1 recalled before survivor reprojection | retained money | refunded HR %2/%3", request.m_sRequestId, request.m_iRefundedHR, request.m_iHRCost));
 		}
 
 		string livePositionEvidence;
@@ -3055,7 +3103,7 @@ class HST_SupportRequestService
 		{
 			request.m_sRuntimeStatus = "exact_recall_route_failed";
 			request.m_sFailureReason = "exact recall route failed";
-			return BuildSupportRecallResult(false, true, "route_failed", request, string.Format("h-istasi support recall | failed: could not route exact player support %1 out of area", request.m_sRequestId), "exact recall route failed");
+			return BuildSupportRecallResult(false, true, "route_failed", request, string.Format("Partisan support recall | failed: could not route exact player support %1 out of area", request.m_sRequestId), "exact recall route failed");
 		}
 		HST_OperationTransitionResult recallExiting = m_Operations.MarkRecallExiting(state, request, group, exitPosition);
 		if (!recallExiting || !recallExiting.m_bAccepted)
@@ -3064,7 +3112,7 @@ class HST_SupportRequestService
 			request.m_sFailureReason = "exact recall route accepted but operation transition conflicted";
 			if (recallExiting && !recallExiting.m_sFailureReason.IsEmpty())
 				request.m_sFailureReason = request.m_sFailureReason + ": " + recallExiting.m_sFailureReason;
-			return BuildSupportRecallResult(false, true, "operation_conflict", request, "h-istasi support recall | failed: " + request.m_sFailureReason, request.m_sFailureReason);
+			return BuildSupportRecallResult(false, true, "operation_conflict", request, "Partisan support recall | failed: " + request.m_sFailureReason, request.m_sFailureReason);
 		}
 
 		MarkSupportRecallAccepted(state, request, "recall_routing");
@@ -3073,7 +3121,7 @@ class HST_SupportRequestService
 		int durableSurvivors = Math.Max(0, group.m_iSurvivorInfantryCount);
 		if (m_ExactForceSpawnQueue)
 			durableSurvivors = m_ExactForceSpawnQueue.CountDurableLivingMemberSlots(batch);
-		return BuildSupportRecallResult(true, true, "routing", request, string.Format("h-istasi support recall | ordered %1 | group %2 | survivors %3/%4 | exit %5 | ledger HR refund pending", request.m_sRequestId, group.m_sGroupId, durableSurvivors, request.m_iHRCost, exitPosition));
+		return BuildSupportRecallResult(true, true, "routing", request, string.Format("Partisan support recall | ordered %1 | group %2 | survivors %3/%4 | exit %5 | ledger HR refund pending", request.m_sRequestId, group.m_sGroupId, durableSurvivors, request.m_iHRCost, exitPosition));
 	}
 
 	protected HST_SupportRecallResult BuildSupportRecallResult(bool accepted, bool stateChanged, string disposition, HST_SupportRequestState request, string displayMessage, string failureReason = "", bool alreadyApplied = false)
@@ -3303,7 +3351,7 @@ class HST_SupportRequestService
 			request.m_sResolutionKind = "physical_roadblock_established";
 		}
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi | physical support %1 %2 near %3 | spawn %4 | objective %5 | group %6 | prefab %7", request.m_sRequestId, phase, request.m_sTargetZoneId, group.m_vPosition, objectivePosition, group.m_sGroupId, group.m_sPrefab));
+		Print(string.Format("Partisan | physical support %1 %2 near %3 | spawn %4 | objective %5 | group %6 | prefab %7", request.m_sRequestId, phase, request.m_sTargetZoneId, group.m_vPosition, objectivePosition, group.m_sGroupId, group.m_sPrefab));
 		return true;
 	}
 
@@ -4463,7 +4511,7 @@ class HST_SupportRequestService
 
 		request.m_sRuntimeEntityId = "abstract_strike";
 		request.m_bPhysicalStrikeSpawned = false;
-		Print(string.Format("h-istasi | abstract strike support %1 active", request.m_sRequestId));
+		Print(string.Format("Partisan | abstract strike support %1 active", request.m_sRequestId));
 	}
 
 	protected void ResolveStrikeSupport(HST_CampaignState state, HST_CampaignPreset preset, HST_SupportRequestState request)

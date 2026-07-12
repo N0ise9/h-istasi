@@ -1,6 +1,6 @@
 # Arma Public License No Derivatives (APL-ND)
 
-Copyright (c) 2026 h-istasi contributors.
+Copyright (c) 2026 Partisan contributors.
 
 This project is licensed under the Arma Public License No Derivatives
 (APL-ND). The authoritative license text is published by Bohemia Interactive:

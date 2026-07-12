@@ -721,7 +721,7 @@ class HST_OperationService
 		return prepared;
 	}
 
-	HST_OperationTransitionResult RecordExactEnemyDefensiveQRFResourceSettlement(
+	HST_OperationTransitionResult CanRecordExactEnemyDefensiveQRFResourceSettlement(
 		HST_CampaignState state,
 		HST_EnemyOrderState order,
 		string settlementKind,
@@ -751,6 +751,28 @@ class HST_OperationService
 		if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
 			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
 			return BuildRejected("exact enemy defensive QRF contains partial resource settlement authority");
+		return BuildAccepted(operation, false, false);
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyDefensiveQRFResourceSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		string settlementKind,
+		int acceptedMemberCount,
+		int survivorMemberCount)
+	{
+		HST_OperationTransitionResult preflight
+			= CanRecordExactEnemyDefensiveQRFResourceSettlement(
+				state,
+				order,
+				settlementKind,
+				acceptedMemberCount,
+				survivorMemberCount);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		HST_OperationRecordState operation = preflight.m_Operation;
+		string settlementId = BuildSettlementId(operation.m_sOperationId, settlementKind);
 		order.m_sResourceSettlementId = settlementId;
 		order.m_sResourceSettlementKind = settlementKind;
 		order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;

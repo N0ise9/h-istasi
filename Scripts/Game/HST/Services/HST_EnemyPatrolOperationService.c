@@ -1435,6 +1435,7 @@ class HST_EnemyPatrolOperationService
 		if (fullRefund)
 			attackRefund = Math.Max(0, order.m_iAttackCost);
 		string settlementId = HST_OperationService.BuildSettlementId(order.m_sOperationId, settlementKind);
+		string refundMutationId = "enemy_resource_refund_" + settlementId;
 		if (order.m_bResourceSettlementApplied)
 			return ValidateAppliedResourceSettlement(order, manifest, settlementKind, survivors);
 		if (HasPartialResourceSettlementAuthority(order) || order.m_bResourceRefundApplied)
@@ -1453,11 +1454,18 @@ class HST_EnemyPatrolOperationService
 			state,
 			order.m_sFactionKey,
 			attackRefund,
-			reason))
+			reason,
+			refundMutationId,
+			settlementId,
+			order.m_sOrderId,
+			order.m_sOperationId,
+			order.m_sManifestId,
+			order.m_sTargetZoneId))
 		{
 			ClearResourceSettlementReceipt(order);
 			return false;
 		}
+		order.m_sResourceRefundMutationId = refundMutationId;
 		return true;
 	}
 

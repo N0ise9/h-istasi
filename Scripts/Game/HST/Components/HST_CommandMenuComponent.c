@@ -38,7 +38,7 @@ class HST_CommandMenuLayoutMetrics
 	int m_iFontHeader;
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Client-side h-istasi command menu key listener and widget controller")]
+[ComponentEditorProps(category: "Partisan", description: "Client-side Partisan command menu key listener and widget controller")]
 class HST_CommandMenuComponentClass : ScriptComponentClass
 {
 }
@@ -99,7 +99,7 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected string m_sLastPayload;
 	protected string m_sLastResult;
 	protected string m_sLastActionName;
-	protected string m_sStatusText = "h-istasi menu | waiting for server snapshot";
+	protected string m_sStatusText = "Partisan menu | waiting for server snapshot";
 	protected int m_iSelectedControl;
 	protected ref array<string> m_aTabIds = {};
 	protected ref array<string> m_aTabLabels = {};
@@ -344,11 +344,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	void ShowExternalNotification(string title, string message, float durationSeconds)
 	{
 		if (title.IsEmpty())
-			title = "h-istasi";
+			title = "Partisan";
 		if (message.IsEmpty())
 			return;
 
-		HST_NotificationToastController.Get().Show(title + "_" + message, "h-istasi", "info", title, message, durationSeconds);
+		HST_NotificationToastController.Get().Show(title + "_" + message, "Partisan", "info", title, message, durationSeconds);
 	}
 
 	void OpenPetrosMenu()
@@ -446,9 +446,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (request)
 			request.ReportCampaignDebugCommandMenuMapOpenGateProof(requestId, report);
 		else
-			Print("h-istasi menu | campaign debug map-open gate proof request bridge missing | " + report, LogLevel.WARNING);
+			Print("Partisan menu | campaign debug map-open gate proof request bridge missing | " + report, LogLevel.WARNING);
 
-		Print("h-istasi menu | campaign debug map-open gate proof | " + report);
+		Print("Partisan menu | campaign debug map-open gate proof | " + report);
 		if (m_bMenuOpen)
 			CloseMenu("campaign debug map-open gate cleanup");
 
@@ -489,9 +489,9 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (request)
 			request.ReportCampaignDebugCommandMenuProof(requestId, report);
 		else
-			Print("h-istasi menu | campaign debug rendered proof request bridge missing | " + report, LogLevel.WARNING);
+			Print("Partisan menu | campaign debug rendered proof request bridge missing | " + report, LogLevel.WARNING);
 
-		Print("h-istasi menu | campaign debug rendered proof | " + report);
+		Print("Partisan menu | campaign debug rendered proof | " + report);
 		if (passIndex > 0 && m_bMenuOpen)
 			CloseMenu("campaign debug rendered proof");
 	}
@@ -833,7 +833,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_bMenuOpen)
 			RenderMenu();
 		else if (showClosedResult)
-			ShowMenuHint(lastResult, "h-istasi", 3.0);
+			ShowMenuHint(lastResult, "Partisan", 3.0);
 	}
 
 	bool OnWidgetClicked(int widgetId, int button = 0)
@@ -928,7 +928,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!m_bLoggedInputManagerMissing)
 			{
 				m_bLoggedInputManagerMissing = true;
-				Print("h-istasi menu | input manager unavailable while registering command menu input", LogLevel.WARNING);
+				Print("Partisan menu | input manager unavailable while registering command menu input", LogLevel.WARNING);
 			}
 
 			return false;
@@ -971,7 +971,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN)
 			return;
 
-		Print(string.Format("h-istasi menu | action input detected source=%1 value=%2 menuOpen=%3 top=%4", COMMAND_MENU_CUSTOM_ACTION, value, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+		Print(string.Format("Partisan menu | action input detected source=%1 value=%2 menuOpen=%3 top=%4", COMMAND_MENU_CUSTOM_ACTION, value, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
 		m_bCommandMenuInputConsumedThisFrame = true;
 		TryToggleCommandMenu("custom action");
 	}
@@ -981,7 +981,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (reason != EActionTrigger.DOWN)
 			return;
 
-		Print(string.Format("h-istasi menu | native I action input detected source=%1 value=%2 menuOpen=%3 top=%4", COMMAND_MENU_NATIVE_I_ACTION, value, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+		Print(string.Format("Partisan menu | native I action input detected source=%1 value=%2 menuOpen=%3 top=%4", COMMAND_MENU_NATIVE_I_ACTION, value, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
 		m_bCommandMenuInputConsumedThisFrame = true;
 		TryToggleCommandMenu("native " + COMMAND_MENU_NATIVE_I_ACTION);
 	}
@@ -1009,7 +1009,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (keyDown && !m_bCommandMenuKeyDownLastFrame)
 		{
-			Print(string.Format("h-istasi menu | polled action input detected source=%1 menuOpen=%2 top=%3", source, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+			Print(string.Format("Partisan menu | polled action input detected source=%1 menuOpen=%2 top=%3", source, m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
 			m_bCommandMenuInputConsumedThisFrame = true;
 			TryToggleCommandMenu("poll " + source);
 		}
@@ -1023,7 +1023,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		bool keyDown = keyState != 0;
 		if (keyDown && !m_bRawIKeyDownLastFrame)
 		{
-			Print(string.Format("h-istasi menu | raw I input detected menuOpen=%1 top=%2", m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
+			Print(string.Format("Partisan menu | raw I input detected menuOpen=%1 top=%2", m_bMenuOpen, HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode())));
 			m_bCommandMenuInputConsumedThisFrame = true;
 			TryToggleCommandMenu("raw KC_I");
 			Debug.ClearKey(KeyCode.KC_I);
@@ -1048,7 +1048,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		bool actionTriggered = inputManager && inputManager.GetActionTriggered(COMMAND_MENU_CUSTOM_ACTION);
 		bool nativeActionTriggered = inputManager && inputManager.GetActionTriggered(COMMAND_MENU_NATIVE_I_ACTION);
 		string heartbeat = string.Format(
-			"h-istasi menu debug | input heartbeat localPlayer=%1 resolvedPlayer=%2 ownerPlayer=%3 localOwner=%4 inputRegistered=%5 configRegistered=%6 customBinding=%7 actionTriggered=%8 rawIState=%9",
+			"Partisan menu debug | input heartbeat localPlayer=%1 resolvedPlayer=%2 ownerPlayer=%3 localOwner=%4 inputRegistered=%5 configRegistered=%6 customBinding=%7 actionTriggered=%8 rawIState=%9",
 			SCR_PlayerController.GetLocalPlayerId(),
 			ResolveLocalPlayerId(),
 			ResolveOwnerPlayerId(m_OwnerEntity),
@@ -1099,7 +1099,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		if (!HST_CommandMenuRequestComponent.GetLocalOwner() && !Replication.IsServer())
-			Print("h-istasi menu | input toggle continuing without local request bridge; menu will show cached/local data if available", LogLevel.WARNING);
+			Print("Partisan menu | input toggle continuing without local request bridge; menu will show cached/local data if available", LogLevel.WARNING);
 
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		m_fCommandMenuDebounceRemaining = 0.15;
@@ -1111,7 +1111,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		}
 
 		DebugLog(string.Format("input toggle source=%1 setupBlocking=%2 menuOpen=%3 localOwner=%4", source, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner));
-		Print(string.Format("h-istasi menu | input toggle source=%1 menuOpen=%2 localOwner=%3 inputRegistered=%4 customBinding=%5", source, m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady));
+		Print(string.Format("Partisan menu | input toggle source=%1 menuOpen=%2 localOwner=%3 inputRegistered=%4 customBinding=%5", source, m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady));
 		ToggleMenu(source);
 		return true;
 	}
@@ -1124,7 +1124,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected void DebugCommandMenuToggleRefused(string source, string reason)
 	{
-		string message = string.Format("h-istasi menu | input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining);
+		string message = string.Format("Partisan menu | input refused source=%1 reason=%2 setupBlocking=%3 menuOpen=%4 localOwner=%5 inputRegistered=%6 customBinding=%7 debounce=%8", source, reason, HST_SetupMapComponent.IsSetupBlocking(), m_bMenuOpen, m_bIsLocalOwner, m_bInputRegistered, m_bCustomBindingReady, m_fCommandMenuDebounceRemaining);
 		if (reason == "debounce")
 			Print(message);
 		else
@@ -1234,7 +1234,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 
 		m_bLoggedLocalReadyPrinted = true;
-		Print(string.Format("h-istasi menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5 | build=%6", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady, HST_BuildInfo.BuildRuntimeSummary()));
+		Print(string.Format("Partisan menu | local command menu component ready via %1 | localPlayer=%2 ownerPlayer=%3 inputRegistered=%4 customBinding=%5 | build=%6", reason, SCR_PlayerController.GetLocalPlayerId(), ResolveOwnerPlayerId(m_OwnerEntity), m_bInputRegistered, m_bCustomBindingReady, HST_BuildInfo.BuildRuntimeSummary()));
 	}
 
 	protected void RefreshLocalOwnership(IEntity owner)
@@ -1389,7 +1389,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!HST_UIRootService.Get().CanOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent"))
 			{
 				DebugLog("open refused by UI root via " + source);
-				Print(string.Format("h-istasi menu | open refused by UI root source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
+				Print(string.Format("Partisan menu | open refused by UI root source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 				m_fCommandMenuDebounceRemaining = 0;
 				return;
 			}
@@ -1398,7 +1398,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (HST_SetupMapComponent.IsSetupBlocking())
 		{
 			DebugLog("open refused while setup is still blocking via " + source);
-			Print(string.Format("h-istasi menu | open refused by setup blocking source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
+			Print(string.Format("Partisan menu | open refused by setup blocking source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 			m_fCommandMenuDebounceRemaining = 0;
 			return;
 		}
@@ -1406,7 +1406,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (IsNativeMapOpen())
 		{
 			DebugLog("open refused while native map is open via " + source);
-			Print(string.Format("h-istasi menu | open refused by native map source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
+			Print(string.Format("Partisan menu | open refused by native map source=%1 current=%2 top=%3 owner=%4", source, HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 			m_fCommandMenuDebounceRemaining = 0;
 			return;
 		}
@@ -1420,7 +1420,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		BuildTabList();
 		BuildActionList();
 		m_iSelectedControl = Math.Max(0, m_aTabIds.Find(m_sSelectedTab));
-		m_sStatusText = "h-istasi menu | requesting server snapshot";
+		m_sStatusText = "Partisan menu | requesting server snapshot";
 		RequestSnapshot();
 		if (!RenderMenu())
 		{
@@ -1429,12 +1429,12 @@ class HST_CommandMenuComponent : ScriptComponent
 			ClearActionDialog();
 			ClearWidgets();
 			DebugLog("open aborted: command menu layout root unavailable");
-			Print(string.Format("h-istasi menu | open aborted because command menu root unavailable source=%1", source), LogLevel.WARNING);
+			Print(string.Format("Partisan menu | open aborted because command menu root unavailable source=%1", source), LogLevel.WARNING);
 			return;
 		}
 
 		DebugLog("opened via " + source);
-		ShowMenuHint("Command menu opened", "h-istasi", 2.0);
+		ShowMenuHint("Command menu opened", "Partisan", 2.0);
 	}
 
 	protected void RecoverStaleSetupRootStateForCommandOpen(string source)
@@ -1514,8 +1514,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_aActionEnabled[actionIndex])
 		{
 			m_sLastActionName = m_aActionLabels[actionIndex];
-			m_sLastResult = "h-istasi command | " + m_aActionLabels[actionIndex] + " | " + m_aActionDisabledReasons[actionIndex];
-			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+			m_sLastResult = "Partisan command | " + m_aActionLabels[actionIndex] + " | " + m_aActionDisabledReasons[actionIndex];
+			ShowMenuHint(m_sLastResult, "Partisan", 2.0);
 			RenderMenu();
 			return;
 		}
@@ -1554,7 +1554,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_sSelectedTab = NormalizeTabId(m_aTabIds[tabIndex]);
 		m_iSelectedControl = tabIndex;
 		ResetMenuScroll();
-		m_sStatusText = "h-istasi menu | requesting " + m_aTabLabels[tabIndex];
+		m_sStatusText = "Partisan menu | requesting " + m_aTabLabels[tabIndex];
 		if (!m_aTabEnabled[tabIndex])
 			m_sStatusText = m_sStatusText + " (locked)";
 		BuildActionList();
@@ -1578,7 +1578,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
-		OnServerSnapshot("HST_MENU|offline|0\nSTATUS|h-istasi menu | player request bridge not ready\nEND", "request bridge not ready");
+		OnServerSnapshot("HST_MENU|offline|0\nSTATUS|Partisan menu | player request bridge not ready\nEND", "request bridge not ready");
 	}
 
 	protected void RequestAction(string commandId, string argument)
@@ -1598,7 +1598,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			return;
 		}
 
-		OnServerSnapshot("HST_MENU|offline|0\nSTATUS|h-istasi command | player request bridge not ready\nEND", "request bridge not ready");
+		OnServerSnapshot("HST_MENU|offline|0\nSTATUS|Partisan command | player request bridge not ready\nEND", "request bridge not ready");
 	}
 
 	protected void RequestConfirmedAction(string label, string commandId, string argument)
@@ -1607,8 +1607,8 @@ class HST_CommandMenuComponent : ScriptComponent
 			label = commandId;
 
 		m_sLastActionName = label;
-		m_sLastResult = "h-istasi command | requested " + label;
-		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		m_sLastResult = "Partisan command | requested " + label;
+		ShowMenuHint(m_sLastResult, "Partisan", 2.0);
 		RequestAction(commandId, argument);
 		if (m_bMenuOpen)
 			RenderMenu();
@@ -1720,7 +1720,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		m_vMapTargetPosition = "0 0 0";
 		BindCommandMapTargetInvokers();
 		OpenCommandMapTarget();
-		ShowMenuHint("Select a target location on the map", "h-istasi", 3.0);
+		ShowMenuHint("Select a target location on the map", "Partisan", 3.0);
 	}
 
 	protected void TickCommandMapTarget(float timeSlice)
@@ -2534,10 +2534,10 @@ class HST_CommandMenuComponent : ScriptComponent
 		ClearActionDialog();
 		CloseCommandMapTargetSelection(reason, closeMap);
 		m_sLastActionName = "Cancelled";
-		m_sLastResult = "h-istasi command | map target cancelled";
+		m_sLastResult = "Partisan command | map target cancelled";
 		if (!reason.IsEmpty())
 			m_sLastResult = m_sLastResult + " | " + reason;
-		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		ShowMenuHint(m_sLastResult, "Partisan", 2.0);
 		RequestSnapshot();
 	}
 
@@ -2728,8 +2728,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aPendingChoiceArguments.Count() == 0)
 		{
 			m_sLastActionName = label;
-			m_sLastResult = "h-istasi command | transfer commander | no other member players";
-			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+			m_sLastResult = "Partisan command | transfer commander | no other member players";
+			ShowMenuHint(m_sLastResult, "Partisan", 2.0);
 			if (m_bMenuOpen)
 				RenderMenu();
 			return;
@@ -2739,7 +2739,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!workspace)
 		{
 			m_sLastActionName = label;
-			m_sLastResult = "h-istasi command | transfer commander | selection UI unavailable";
+			m_sLastResult = "Partisan command | transfer commander | selection UI unavailable";
 			RequestSnapshot();
 			return;
 		}
@@ -2785,8 +2785,8 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (m_aPendingChoiceArguments.Count() == 0)
 		{
 			m_sLastActionName = label;
-			m_sLastResult = "h-istasi command | recall support | no deployed support teams";
-			ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+			m_sLastResult = "Partisan command | recall support | no deployed support teams";
+			ShowMenuHint(m_sLastResult, "Partisan", 2.0);
 			if (m_bMenuOpen)
 				RenderMenu();
 			return;
@@ -2796,7 +2796,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!workspace)
 		{
 			m_sLastActionName = label;
-			m_sLastResult = "h-istasi command | recall support | selection UI unavailable";
+			m_sLastResult = "Partisan command | recall support | selection UI unavailable";
 			RequestSnapshot();
 			return;
 		}
@@ -2957,11 +2957,11 @@ class HST_CommandMenuComponent : ScriptComponent
 	protected string BuildActionConfirmMessage(string label, string commandId, string argument)
 	{
 		if (commandId == "new_campaign")
-			return "This will reset the h-istasi campaign state and return the campaign to initial setup. Confirm only if you intend to start over.";
+			return "This will reset the Partisan campaign state and return the campaign to initial setup. Confirm only if you intend to start over.";
 		if (commandId == "admin_purge_hst_native_markers")
-			return "This will remove h-istasi native map markers and rebuild marker state from campaign data.";
+			return "This will remove Partisan native map markers and rebuild marker state from campaign data.";
 		if (commandId == "move_hq_here" || commandId == "move_hq")
-			return "This will move the h-istasi HQ. Confirm only if the new location is intentional.";
+			return "This will move the Partisan HQ. Confirm only if the new location is intentional.";
 		if (commandId == "rebuild_hq_assets")
 			return "This will rebuild HQ assets around the current HQ location.";
 		if (commandId == "mission_random" || commandId == "mission_zone" || commandId == "mission_category" || commandId == "debug_mission" || commandId == "debug_mission_id")
@@ -3027,14 +3027,14 @@ class HST_CommandMenuComponent : ScriptComponent
 			SetCommandMapLocationSelectionEnabled(true);
 			ApplyCommandMapDialogState();
 			RefreshCommandMapTargetPrompt();
-			ShowMenuHint("Select another target location", "h-istasi", 2.0);
+			ShowMenuHint("Select another target location", "Partisan", 2.0);
 			return;
 		}
 
 		ClearActionDialog();
 		m_sLastActionName = "Cancelled";
-		m_sLastResult = "h-istasi command | cancelled";
-		ShowMenuHint(m_sLastResult, "h-istasi", 2.0);
+		m_sLastResult = "Partisan command | cancelled";
+		ShowMenuHint(m_sLastResult, "Partisan", 2.0);
 		if (m_bMenuOpen)
 			RenderMenu();
 	}
@@ -3130,7 +3130,7 @@ class HST_CommandMenuComponent : ScriptComponent
 			if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", m_wMenuRoot, true, false, false))
 			{
 				HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, m_wMenuRoot, "UI root refused reused command menu");
-				Print(string.Format("h-istasi menu | UI root refused reused command menu | current=%1 top=%2 owner=%3", HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
+				Print(string.Format("Partisan menu | UI root refused reused command menu | current=%1 top=%2 owner=%3", HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 				return null;
 			}
 
@@ -3160,7 +3160,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!HST_UIRootService.Get().RequestOpen(HST_EUIScreenMode.COMMAND_MENU, "HST_CommandMenuComponent", root, true, false, false))
 		{
 			HST_UIDebug.LogLayoutRejected("command_menu", COMMAND_MENU_LAYOUT, root, "UI root refused command menu");
-			Print(string.Format("h-istasi menu | UI root refused command menu | current=%1 top=%2 owner=%3", HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
+			Print(string.Format("Partisan menu | UI root refused command menu | current=%1 top=%2 owner=%3", HST_UIConstants.ModeName(HST_UIRootService.Get().GetCurrentMode()), HST_UIConstants.ModeName(HST_UIRootService.Get().GetTopmostMode()), HST_UIRootService.Get().GetTopmostOwner()), LogLevel.WARNING);
 			root.RemoveFromHierarchy();
 			m_wMenuRoot = null;
 			return null;
@@ -3279,7 +3279,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!m_Layout)
 			return;
 
-		SetMenuText(root, "HeaderTitle", "h-istasi HQ", 0xFFF2D18B, m_Layout.m_iFontHeader, true, false);
+		SetMenuText(root, "HeaderTitle", "Partisan HQ", 0xFFF2D18B, m_Layout.m_iFontHeader, true, false);
 		SetMenuText(root, "HeaderSubtitle", "FIA Resistance Command", 0xFFB7C7D7, m_Layout.m_iFontNormal, false, false);
 		SetMenuText(root, "HeaderTabTitle", "", 0xFFECE6D2, m_Layout.m_iFontTitle, true, true);
 		SetMenuText(root, "CloseLabel", "Close", 0xFFF4EBD6, m_Layout.m_iFontNormal, true, false);
@@ -3708,7 +3708,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 		if (!row)
 		{
-			Print("h-istasi menu debug | ui row failed to create " + label, LogLevel.WARNING);
+			Print("Partisan menu debug | ui row failed to create " + label, LogLevel.WARNING);
 			return;
 		}
 
@@ -3966,7 +3966,7 @@ class HST_CommandMenuComponent : ScriptComponent
 
 	protected string BuildConsoleMenuText()
 	{
-		string text = "h-istasi menu | " + m_sSelectedTab + "\n" + m_sStatusText;
+		string text = "Partisan menu | " + m_sSelectedTab + "\n" + m_sStatusText;
 		for (int i = 0; i < m_aActionLabels.Count(); i++)
 			text = text + "\n" + m_aActionLabels[i];
 
@@ -4272,7 +4272,7 @@ class HST_CommandMenuComponent : ScriptComponent
 		if (!IsDebugLoggingEnabled())
 			return;
 
-		Print("h-istasi menu debug | " + message);
+		Print("Partisan menu debug | " + message);
 	}
 
 	protected string NormalizeTabId(string tabId)

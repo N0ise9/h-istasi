@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Keeps freed mission captives following their assigned player through AI movement")]
+[ComponentEditorProps(category: "Partisan", description: "Keeps freed mission captives following their assigned player through AI movement")]
 class HST_MissionCaptiveFollowComponentClass : ScriptComponentClass
 {
 }
@@ -167,7 +167,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		{
 			if (!m_bLoggedMissingMovement)
 			{
-				Print(string.Format("h-istasi %1 | no AI movement component for %2", m_sFollowLogLabel, owner.GetName()), LogLevel.WARNING);
+				Print(string.Format("Partisan %1 | no AI movement component for %2", m_sFollowLogLabel, owner.GetName()), LogLevel.WARNING);
 				m_bLoggedMissingMovement = true;
 			}
 			return;
@@ -179,7 +179,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			return;
 		if (forceWaypointRefresh && !m_bLoggedStuckRecovery)
 		{
-			Print(string.Format("h-istasi %1 | direct follow stalled, refreshing waypoint | owner %2 | target %3", m_sFollowLogLabel, owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
+			Print(string.Format("Partisan %1 | direct follow stalled, refreshing waypoint | owner %2 | target %3", m_sFollowLogLabel, owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
 			m_bLoggedStuckRecovery = true;
 		}
 
@@ -187,7 +187,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		{
 			if (!m_bLoggedRequestFailed)
 			{
-				Print(string.Format("h-istasi %1 | RequestFollowPathOfEntity failed for %2 | group %3 | owner %4 | target %5", m_sFollowLogLabel, owner.GetName(), HasParentAIGroup(owner), owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
+				Print(string.Format("Partisan %1 | RequestFollowPathOfEntity failed for %2 | group %3 | owner %4 | target %5", m_sFollowLogLabel, owner.GetName(), HasParentAIGroup(owner), owner.GetOrigin(), m_FollowTarget.GetOrigin()), LogLevel.WARNING);
 				m_bLoggedRequestFailed = true;
 			}
 			m_bDirectFollowUnavailable = true;
@@ -241,7 +241,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_iNoProgressTicks = 0;
 		if (!m_bLoggedDirectCatchup)
 		{
-			Print(string.Format("h-istasi %1 | direct catch-up after stalled follow | owner %2 -> %3 | target %4 | distance %5m", m_sFollowLogLabel, ownerPosition, catchupPosition, followPosition, Math.Round(distance)), LogLevel.WARNING);
+			Print(string.Format("Partisan %1 | direct catch-up after stalled follow | owner %2 -> %3 | target %4 | distance %5m", m_sFollowLogLabel, ownerPosition, catchupPosition, followPosition, Math.Round(distance)), LogLevel.WARNING);
 			m_bLoggedDirectCatchup = true;
 		}
 
@@ -329,7 +329,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_WaypointPosition = waypointPosition;
 		if (!m_bLoggedWaypointFallback)
 		{
-			Print(string.Format("h-istasi %1 | using entity follow waypoint fallback | target %2", m_sFollowLogLabel, targetEntity.GetName()));
+			Print(string.Format("Partisan %1 | using entity follow waypoint fallback | target %2", m_sFollowLogLabel, targetEntity.GetName()));
 			m_bLoggedWaypointFallback = true;
 		}
 		return true;
@@ -348,7 +348,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 				SCR_EntityHelper.DeleteEntityAndChildren(waypointEntity);
 			if (!m_bLoggedWaypointFailed)
 			{
-				Print(string.Format("h-istasi %1 | failed to create follow waypoint", m_sFollowLogLabel), LogLevel.WARNING);
+				Print(string.Format("Partisan %1 | failed to create follow waypoint", m_sFollowLogLabel), LogLevel.WARNING);
 				m_bLoggedWaypointFailed = true;
 			}
 			return false;
@@ -362,7 +362,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		m_WaypointPosition = waypointPosition;
 		if (!m_bLoggedWaypointFallback)
 		{
-			Print(string.Format("h-istasi %1 | using refreshed waypoint fallback | target %2", m_sFollowLogLabel, waypointPosition));
+			Print(string.Format("Partisan %1 | using refreshed waypoint fallback | target %2", m_sFollowLogLabel, waypointPosition));
 			m_bLoggedWaypointFallback = true;
 		}
 		return true;
@@ -405,7 +405,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 			{
 				if (!m_bLoggedGroupFailed)
 				{
-					Print(string.Format("h-istasi %1 | failed to create follower AI group", m_sFollowLogLabel), LogLevel.WARNING);
+					Print(string.Format("Partisan %1 | failed to create follower AI group", m_sFollowLogLabel), LogLevel.WARNING);
 					m_bLoggedGroupFailed = true;
 				}
 				return null;
@@ -430,7 +430,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 		agent.ActivateAI();
 		if (!m_bLoggedGroupCreated)
 		{
-			Print(string.Format("h-istasi %1 | attached follower to AI group | group agents %2", m_sFollowLogLabel, group.GetAgentsCount()));
+			Print(string.Format("Partisan %1 | attached follower to AI group | group agents %2", m_sFollowLogLabel, group.GetAgentsCount()));
 			m_bLoggedGroupCreated = true;
 		}
 		return group;
@@ -454,7 +454,7 @@ class HST_MissionCaptiveFollowComponent : ScriptComponent
 
 			if (!m_bLoggedVehicleBoardingFailed)
 			{
-				Print(string.Format("h-istasi %1 | vehicle boarding failed: %2", m_sFollowLogLabel, reason), LogLevel.WARNING);
+				Print(string.Format("Partisan %1 | vehicle boarding failed: %2", m_sFollowLogLabel, reason), LogLevel.WARNING);
 				m_bLoggedVehicleBoardingFailed = true;
 			}
 			return false;

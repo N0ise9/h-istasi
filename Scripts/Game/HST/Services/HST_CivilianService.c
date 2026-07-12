@@ -14,7 +14,7 @@ class HST_UndercoverEligibilityResult
 	string BuildReport()
 	{
 		string report = string.Format(
-			"h-istasi undercover eligibility | %1 | eligible %2 | zone %3 | clothing %4 | weapon %5 | vehicle %6 | offroad %7 | enemy proximity %8 | wanted heat %9",
+			"Partisan undercover eligibility | %1 | eligible %2 | zone %3 | clothing %4 | weapon %5 | vehicle %6 | offroad %7 | enemy proximity %8 | wanted heat %9",
 			m_sIdentityId,
 			m_bEligible,
 			m_sZoneId,
@@ -49,7 +49,7 @@ class HST_UndercoverEnforcementResult
 	string BuildReport()
 	{
 		string report = string.Format(
-			"h-istasi undercover enforcement | %1 | changed %2 | compromised %3 | suspicious %4 | clear %5 | blocked %6 | zone %7 | score %8 | player heat %9",
+			"Partisan undercover enforcement | %1 | changed %2 | compromised %3 | suspicious %4 | clear %5 | blocked %6 | zone %7 | score %8 | player heat %9",
 			m_sIdentityId,
 			m_bChanged,
 			m_bCompromised,
@@ -276,7 +276,7 @@ class HST_CivilianService
 			if (!m_bPendingCivilianConsequenceAuthorityFault)
 			{
 				Print(
-					"h-istasi civilians | pending consequence queue authority is inconsistent",
+					"Partisan civilians | pending consequence queue authority is inconsistent",
 					LogLevel.ERROR);
 			}
 			m_bPendingCivilianConsequenceAuthorityFault = true;
@@ -331,7 +331,7 @@ class HST_CivilianService
 				if (result && !result.m_sFailureReason.IsEmpty())
 					failure = result.m_sFailureReason;
 				Print(string.Format(
-					"h-istasi civilians | casualty consequence retained for retry in %1: %2",
+					"Partisan civilians | casualty consequence retained for retry in %1: %2",
 					m_aPendingCivilianCasualtyZoneIds[index],
 					failure), LogLevel.ERROR);
 			}
@@ -384,7 +384,7 @@ class HST_CivilianService
 					&& !theftResult.m_sFailureReason.IsEmpty())
 					theftFailure = theftResult.m_sFailureReason;
 				Print(string.Format(
-					"h-istasi civilians | theft consequence retained for retry in %1: %2",
+					"Partisan civilians | theft consequence retained for retry in %1: %2",
 					m_aPendingCivilianTheftZoneIds[index],
 					theftFailure), LogLevel.ERROR);
 			}
@@ -905,7 +905,7 @@ class HST_CivilianService
 		}
 
 		if (inserted > 0)
-			Print(string.Format("h-istasi | initialized %1 missing civilian locality record(s); total %2", inserted, state.m_aCivilianZones.Count()));
+			Print(string.Format("Partisan | initialized %1 missing civilian locality record(s); total %2", inserted, state.m_aCivilianZones.Count()));
 		return changed;
 	}
 
@@ -1670,7 +1670,7 @@ class HST_CivilianService
 	string BuildCivilianReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi civilians | state not ready";
+			return "Partisan civilians | state not ready";
 
 		int reputationTotal;
 		int heatTotal;
@@ -1693,17 +1693,17 @@ class HST_CivilianService
 		if (townCount > 0)
 			averageReputation = reputationTotal / townCount;
 
-		string summary = string.Format("h-istasi civilians | towns %1 | avg reputation %2 | heat %3 | police %4 | roadblocks %5", townCount, averageReputation, heatTotal, policeTotal, roadblocks);
+		string summary = string.Format("Partisan civilians | towns %1 | avg reputation %2 | heat %3 | police %4 | roadblocks %5", townCount, averageReputation, heatTotal, policeTotal, roadblocks);
 		return summary + "\n" + BuildTownSupportReport(state);
 	}
 
 	string BuildTownSupportReport(HST_CampaignState state, int maxRows = 20)
 	{
 		if (!state)
-			return "h-istasi town support | state not ready";
+			return "Partisan town support | state not ready";
 
 		if (!m_TownInfluence)
-			return "h-istasi town support | canonical authority unavailable";
+			return "Partisan town support | canonical authority unavailable";
 		int townCount;
 		int fiaSupportTotal;
 		int occupierSupportTotal;
@@ -1754,7 +1754,7 @@ class HST_CivilianService
 		}
 
 		string report = string.Format(
-			"h-istasi town support | towns %1 | avg FIA %2 | avg occupier %3 | avg rep %4 | heat %5 | police %6 | roadblocks %7",
+			"Partisan town support | towns %1 | avg FIA %2 | avg occupier %3 | avg rep %4 | heat %5 | police %6 | roadblocks %7",
 			townCount,
 			avgFIA,
 			avgOccupier,
@@ -1828,16 +1828,16 @@ class HST_CivilianService
 	string BuildUndercoverReport(HST_CampaignState state, string identityId = "")
 	{
 		if (!state)
-			return "h-istasi undercover | state not ready";
+			return "Partisan undercover | state not ready";
 
 		if (!identityId.IsEmpty())
 		{
 			HST_PlayerUndercoverState undercover = state.FindUndercoverPlayer(identityId);
 			if (!undercover)
-				return "h-istasi undercover | no record";
+				return "Partisan undercover | no record";
 
 			string report = string.Format(
-				"h-istasi undercover | %1 | requested %2 | applied %3 | eligible %4 | status %5 | heat %6 | zone %7 | enforcement zone %8 | score %9",
+				"Partisan undercover | %1 | requested %2 | applied %3 | eligible %4 | status %5 | heat %6 | zone %7 | enforcement zone %8 | score %9",
 				identityId,
 				undercover.m_bUndercoverRequested,
 				undercover.m_bUndercoverApplied,
@@ -1885,7 +1885,7 @@ class HST_CivilianService
 		}
 
 		return string.Format(
-			"h-istasi undercover | tracked %1 | requested %2 | applied %3 | eligible %4 | clear %5 | suspicious %6 | compromised %7 | wanted %8",
+			"Partisan undercover | tracked %1 | requested %2 | applied %3 | eligible %4 | clear %5 | suspicious %6 | compromised %7 | wanted %8",
 			tracked,
 			requested,
 			applied,
@@ -1978,11 +1978,11 @@ class HST_CivilianService
 	string RequestUndercover(HST_CampaignState state, string identityId, IEntity playerEntity, bool checkCurrentEntity = true)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi undercover | failed: state or identity missing";
+			return "Partisan undercover | failed: state or identity missing";
 
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!undercover)
-			return "h-istasi undercover | failed: could not create player record";
+			return "Partisan undercover | failed: could not create player record";
 
 		HST_UndercoverEligibilityResult eligibility = BuildUndercoverEligibility(state, identityId, playerEntity, checkCurrentEntity);
 		if (!eligibility || !eligibility.m_bEligible)
@@ -1995,11 +1995,11 @@ class HST_CivilianService
 			if (eligibility)
 			{
 				undercover.m_sLastReason = "request denied: " + eligibility.m_sSummary;
-				return "h-istasi undercover | request denied\n" + eligibility.BuildReport();
+				return "Partisan undercover | request denied\n" + eligibility.BuildReport();
 			}
 
 			undercover.m_sLastReason = "request denied: no eligibility result";
-			return "h-istasi undercover | request denied";
+			return "Partisan undercover | request denied";
 		}
 
 		undercover.m_bUndercoverRequested = true;
@@ -2012,23 +2012,23 @@ class HST_CivilianService
 		undercover.m_sLastCompromiseReason = "";
 		undercover.m_sLastDetectionSource = "request";
 		undercover.m_iLastEnforcementSecond = state.m_iElapsedSeconds - UNDERCOVER_RECHECK_SECONDS;
-		return "h-istasi undercover | request accepted\n" + eligibility.BuildReport();
+		return "Partisan undercover | request accepted\n" + eligibility.BuildReport();
 	}
 
 	string ClearUndercoverCompromise(HST_CampaignState state, string identityId)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi undercover | failed: state or identity missing";
+			return "Partisan undercover | failed: state or identity missing";
 
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!undercover)
-			return "h-istasi undercover | failed: no player record";
+			return "Partisan undercover | failed: no player record";
 
 		if (undercover.m_iWantedHeat > 0)
-			return string.Format("h-istasi undercover | failed: wanted heat %1 must cool before clearing", undercover.m_iWantedHeat);
+			return string.Format("Partisan undercover | failed: wanted heat %1 must cool before clearing", undercover.m_iWantedHeat);
 
 		if (undercover.m_eStatus == HST_EUndercoverStatus.HST_UNDERCOVER_COMPROMISED && state.m_iElapsedSeconds < undercover.m_iCompromisedUntilSecond)
-			return string.Format("h-istasi undercover | failed: compromised for %1s", undercover.m_iCompromisedUntilSecond - state.m_iElapsedSeconds);
+			return string.Format("Partisan undercover | failed: compromised for %1s", undercover.m_iCompromisedUntilSecond - state.m_iElapsedSeconds);
 
 		undercover.m_eStatus = HST_EUndercoverStatus.HST_UNDERCOVER_CLEAR;
 		undercover.m_bUndercoverRequested = false;
@@ -2041,7 +2041,7 @@ class HST_CivilianService
 		undercover.m_bLastPoliceScanFailed = false;
 		undercover.m_iCompromisedUntilSecond = 0;
 		undercover.m_sLastReason = "cleared by player";
-		return "h-istasi undercover | cleared";
+		return "Partisan undercover | cleared";
 	}
 
 	HST_UndercoverEnforcementResult EnforceUndercoverForPlayer(HST_CampaignState state, HST_CampaignPreset preset, string identityId, IEntity playerEntity)
@@ -2188,26 +2188,26 @@ class HST_CivilianService
 	string RegisterUndercoverCombatExposure(HST_CampaignState state, string identityId, string zoneId, string reason)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi undercover | failed: state or identity missing";
+			return "Partisan undercover | failed: state or identity missing";
 
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!undercover)
-			return "h-istasi undercover | failed: no undercover record";
+			return "Partisan undercover | failed: no undercover record";
 
 		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
 		CompromiseUndercover(state, undercover, civilianZone, zoneId, reason, "combat", 100);
-		return "h-istasi undercover | compromised: " + reason;
+		return "Partisan undercover | compromised: " + reason;
 	}
 
 
 	string RegisterUndercoverVehicleExposure(HST_CampaignState state, string identityId, string zoneId, string reason, string vehicleRuntimeId = "", HST_StrategicService strategic = null)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi undercover | failed: state or identity missing";
+			return "Partisan undercover | failed: state or identity missing";
 
 		HST_PlayerUndercoverState undercover = EnsurePlayer(state, identityId);
 		if (!undercover)
-			return "h-istasi undercover | failed: no undercover record";
+			return "Partisan undercover | failed: no undercover record";
 
 		string vehicleReport;
 		if (!vehicleRuntimeId.IsEmpty())
@@ -2216,19 +2216,19 @@ class HST_CivilianService
 		HST_CivilianZoneState civilianZone = state.FindCivilianZone(zoneId);
 		CompromiseUndercover(state, undercover, civilianZone, zoneId, reason, "vehicle", 90);
 		if (!vehicleReport.IsEmpty())
-			return "h-istasi undercover | compromised: " + reason + "\n" + vehicleReport;
+			return "Partisan undercover | compromised: " + reason + "\n" + vehicleReport;
 
-		return "h-istasi undercover | compromised: " + reason;
+		return "Partisan undercover | compromised: " + reason;
 	}
 
 	string RegisterVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string zoneId, int heatDelta, int durationSeconds, string reason, bool reported = true, HST_StrategicService strategic = null)
 	{
 		if (!state || vehicleRuntimeId.IsEmpty())
-			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
+			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
 		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
 		if (!vehicle)
-			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
+			return "Partisan vehicle heat | failed: runtime vehicle not tracked";
 
 		int oldHeat = vehicle.m_iVehicleHeat;
 		bool reportedBefore = vehicle.m_bReported;
@@ -2274,18 +2274,18 @@ class HST_CivilianService
 			eventStrategic.CompleteStrategicEvent(state, eventResult, true, changed);
 		}
 
-		string report = string.Format("h-istasi vehicle heat | %1 | heat %2 -> %3 | reported %4 | until %5", vehicleRuntimeId, oldHeat, vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_iReportedUntilSecond);
+		string report = string.Format("Partisan vehicle heat | %1 | heat %2 -> %3 | reported %4 | until %5", vehicleRuntimeId, oldHeat, vehicle.m_iVehicleHeat, vehicle.m_bReported, vehicle.m_iReportedUntilSecond);
 		return report + string.Format(" | zone %1 | reason %2", EmptyRuntimeField(zoneId), EmptyRuntimeField(reason));
 	}
 
 	string RegisterVehiclePassengerCompromise(HST_CampaignState state, string vehicleRuntimeId, string identityId, string zoneId, string reason, HST_StrategicService strategic = null)
 	{
 		if (!state || vehicleRuntimeId.IsEmpty())
-			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
+			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
 		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
 		if (!vehicle)
-			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
+			return "Partisan vehicle heat | failed: runtime vehicle not tracked";
 
 		vehicle.m_iPassengerCompromiseCount = vehicle.m_iPassengerCompromiseCount + 1;
 		string report = RegisterVehicleHeat(state, vehicleRuntimeId, zoneId, 4, VEHICLE_REPORT_DEFAULT_SECONDS, reason, true, strategic);
@@ -2295,18 +2295,18 @@ class HST_CivilianService
 	string ClearVehicleHeat(HST_CampaignState state, string vehicleRuntimeId, string reason = "cleared")
 	{
 		if (!state || vehicleRuntimeId.IsEmpty())
-			return "h-istasi vehicle heat | failed: state or runtime vehicle id missing";
+			return "Partisan vehicle heat | failed: state or runtime vehicle id missing";
 
 		HST_RuntimeVehicleState vehicle = state.FindRuntimeVehicle(vehicleRuntimeId);
 		if (!vehicle)
-			return "h-istasi vehicle heat | failed: runtime vehicle not tracked";
+			return "Partisan vehicle heat | failed: runtime vehicle not tracked";
 
 		vehicle.m_iVehicleHeat = 0;
 		vehicle.m_bReported = false;
 		vehicle.m_iReportedUntilSecond = 0;
 		vehicle.m_iLastVehicleHeatChangedSecond = state.m_iElapsedSeconds;
 		vehicle.m_sLastReportedReason = reason;
-		return string.Format("h-istasi vehicle heat | %1 | cleared | reason %2", vehicleRuntimeId, EmptyRuntimeField(reason));
+		return string.Format("Partisan vehicle heat | %1 | cleared | reason %2", vehicleRuntimeId, EmptyRuntimeField(reason));
 	}
 
 	bool IsRuntimeVehicleReportedForUndercover(HST_CampaignState state, string vehicleRuntimeId)
@@ -2347,9 +2347,9 @@ class HST_CivilianService
 	string BuildVehicleHeatReport(HST_CampaignState state, int limit = 12)
 	{
 		if (!state)
-			return "h-istasi vehicle heat | state unavailable";
+			return "Partisan vehicle heat | state unavailable";
 
-		string report = string.Format("h-istasi vehicle heat | tracked %1", state.m_aRuntimeVehicles.Count());
+		string report = string.Format("Partisan vehicle heat | tracked %1", state.m_aRuntimeVehicles.Count());
 		int shown;
 		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
 		{
@@ -3644,7 +3644,7 @@ class HST_CivilianService
 				Math.Max(0, trafficTarget));
 		}
 
-		Print(string.Format("h-istasi civilians | zone %1 active | spawned %2 runtime civilian/military ambience entity(s)", zone.m_sZoneId, spawned));
+		Print(string.Format("Partisan civilians | zone %1 active | spawned %2 runtime civilian/military ambience entity(s)", zone.m_sZoneId, spawned));
 		return true;
 	}
 
@@ -4096,13 +4096,13 @@ class HST_CivilianService
 
 		if (!TryRegisterCivilianVehicleWithGroup(group, vehicleEntity))
 		{
-			Print(string.Format("h-istasi civilians | ambient traffic vehicle registration failed for %1", zone.m_sZoneId), LogLevel.WARNING);
+			Print(string.Format("Partisan civilians | ambient traffic vehicle registration failed for %1", zone.m_sZoneId), LogLevel.WARNING);
 			return false;
 		}
 		string seatingReason;
 		if (!TryMoveCivilianDriverIntoVehicle(driverEntity, vehicleEntity, seatingReason))
 		{
-			Print(string.Format("h-istasi civilians | ambient traffic driver seating failed for %1: %2", zone.m_sZoneId, seatingReason), LogLevel.WARNING);
+			Print(string.Format("Partisan civilians | ambient traffic driver seating failed for %1: %2", zone.m_sZoneId, seatingReason), LogLevel.WARNING);
 			return false;
 		}
 		ClearAmbientTrafficDriverHornInput(driverEntity);
@@ -4111,7 +4111,7 @@ class HST_CivilianService
 		BuildCivilianTrafficRoute(zone, vehicleEntity.GetOrigin(), index, seed, routePositions);
 		if (AssignCivilianCycleWaypoints(vehicleEntity, group, routePositions, CIVILIAN_TRAFFIC_WAYPOINT_RADIUS_METERS, true) < 2)
 		{
-			Print(string.Format("h-istasi civilians | ambient traffic route assignment failed for %1", zone.m_sZoneId), LogLevel.WARNING);
+			Print(string.Format("Partisan civilians | ambient traffic route assignment failed for %1", zone.m_sZoneId), LogLevel.WARNING);
 			return false;
 		}
 
@@ -5450,7 +5450,7 @@ class HST_CivilianService
 				zoneId,
 				claimantFactionKey))
 			{
-				Print("h-istasi civilians | player-used ambient vehicle could not enter persistent field authority", LogLevel.ERROR);
+				Print("Partisan civilians | player-used ambient vehicle could not enter persistent field authority", LogLevel.ERROR);
 				exact = false;
 				continue;
 			}
@@ -5460,7 +5460,7 @@ class HST_CivilianService
 				"promoted_player_claim");
 			DeleteRuntimeHelpersForOwner(entity);
 			RemoveRuntimeEntityAt(index);
-			Print(string.Format("h-istasi civilians | promoted player-used %1 from %2 to persistent field vehicle", runtimeKind, zoneId));
+			Print(string.Format("Partisan civilians | promoted player-used %1 from %2 to persistent field vehicle", runtimeKind, zoneId));
 			changed = true;
 		}
 		// Per-frame work is claim discovery only. Full transform/destruction/cargo
@@ -5607,7 +5607,7 @@ class HST_CivilianService
 		SCR_EntityHelper.DeleteEntityAndChildren(runtimeEntity);
 		if (runtimeIndex >= 0)
 			RemoveRuntimeEntityAt(runtimeIndex);
-		Print(string.Format("h-istasi civilians | removed failed ambient %1 projection for %2", runtimeKind, zoneId), LogLevel.WARNING);
+		Print(string.Format("Partisan civilians | removed failed ambient %1 projection for %2", runtimeKind, zoneId), LogLevel.WARNING);
 	}
 
 	protected IEntity SpawnCivilianTrafficDriver(HST_CampaignState state, HST_BalanceConfig balance, HST_ZoneState zone, IEntity vehicleEntity, int index, int seed)
@@ -6237,7 +6237,7 @@ class HST_CivilianService
 		m_aRuntimeEntityVehicleIds.Insert(stableVehicleRuntimeId);
 		m_aRuntimeEntitySpawnPositions.Insert(position);
 		m_aRuntimeEntities.Insert(entity);
-		Print(string.Format("h-istasi civilians | spawn ok | zone %1 | kind %2 | faction %3 | prefab %4 | pos %5 | yaw %6", zoneId, runtimeKind, runtimeFactionKey, prefab, position, angles[0]));
+		Print(string.Format("Partisan civilians | spawn ok | zone %1 | kind %2 | faction %3 | prefab %4 | pos %5 | yaw %6", zoneId, runtimeKind, runtimeFactionKey, prefab, position, angles[0]));
 		return true;
 	}
 
@@ -6269,7 +6269,7 @@ class HST_CivilianService
 					zoneId,
 					claimantFactionKey))
 				{
-					Print("h-istasi civilians | town cleanup retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
+					Print("Partisan civilians | town cleanup retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
 					continue;
 				}
 				QueueAndRemoveAmbientActorRecordForEntity(
@@ -6277,7 +6277,7 @@ class HST_CivilianService
 					state,
 					"promoted_player_claim");
 				DeleteRuntimeHelpersForOwner(entity);
-				Print(string.Format("h-istasi civilians | promoted player-used runtime %1 from town cleanup for %2", runtimeKind, zoneId));
+				Print(string.Format("Partisan civilians | promoted player-used runtime %1 from town cleanup for %2", runtimeKind, zoneId));
 			}
 			else if (entity)
 			{
@@ -6311,7 +6311,7 @@ class HST_CivilianService
 		ClearStaticVehicleInitialization(zoneId);
 
 		if (changed)
-			Print(string.Format("h-istasi civilians | cleaned runtime town population for %1", zoneId));
+			Print(string.Format("Partisan civilians | cleaned runtime town population for %1", zoneId));
 
 		return changed;
 	}
@@ -6354,7 +6354,7 @@ class HST_CivilianService
 					runtimeZoneId,
 					claimantFactionKey))
 				{
-					Print("h-istasi civilians | runtime shutdown retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
+					Print("Partisan civilians | runtime shutdown retained player-used vehicle because persistent field admission failed", LogLevel.ERROR);
 					continue;
 				}
 				QueueAndRemoveAmbientActorRecordForEntity(
@@ -6362,7 +6362,7 @@ class HST_CivilianService
 					state,
 					"promoted_player_claim");
 				DeleteRuntimeHelpersForOwner(entity);
-				Print(string.Format("h-istasi civilians | promoted player-used runtime %1 while civilian runtime disabled", runtimeKind));
+				Print(string.Format("Partisan civilians | promoted player-used runtime %1 while civilian runtime disabled", runtimeKind));
 			}
 			else if (entity)
 			{
@@ -6914,7 +6914,7 @@ class HST_CivilianService
 	string BuildTownInfluenceReport(HST_CampaignState state, int maxRows = 20)
 	{
 		if (!state)
-			return "h-istasi town influence | state not ready";
+			return "Partisan town influence | state not ready";
 
 		int events;
 		int applied;
@@ -6937,7 +6937,7 @@ class HST_CivilianService
 			}
 		}
 
-		string report = string.Format("h-istasi town influence ledger | events %1 | applied %2 | active modifiers %3 | expired modifiers %4", events, applied, active, expired);
+		string report = string.Format("Partisan town influence ledger | events %1 | applied %2 | active modifiers %3 | expired modifiers %4", events, applied, active, expired);
 		if (m_TownInfluence)
 			report = m_TownInfluence.BuildTownInfluenceReport(state, maxRows) + "\n" + report;
 		int emitted;
@@ -7263,7 +7263,7 @@ class HST_CivilianService
 		int catalogCount = AppendRuntimeCivilianVehicleCatalogPrefabs(candidates);
 		if (catalogCount <= 0 && !m_bWarnedMissingCivilianVehicleCatalog)
 		{
-			Print(string.Format("h-istasi civilians | CIV vehicle catalog unavailable or empty (%1); using configured/internal civilian vehicle fallback pool", CIVILIAN_VEHICLE_ENTITY_CATALOG), LogLevel.WARNING);
+			Print(string.Format("Partisan civilians | CIV vehicle catalog unavailable or empty (%1); using configured/internal civilian vehicle fallback pool", CIVILIAN_VEHICLE_ENTITY_CATALOG), LogLevel.WARNING);
 			m_bWarnedMissingCivilianVehicleCatalog = true;
 		}
 
@@ -7341,7 +7341,7 @@ class HST_CivilianService
 			}
 		}
 
-		Print(string.Format("h-istasi civilians | no non-aircraft faction vehicle available for %1; skipping owner vehicle", factionKey), LogLevel.WARNING);
+		Print(string.Format("Partisan civilians | no non-aircraft faction vehicle available for %1; skipping owner vehicle", factionKey), LogLevel.WARNING);
 		return "";
 	}
 
@@ -7724,7 +7724,7 @@ class HST_CivilianService
 	{
 		if (!m_bWarnedMissingCivilianCharacterPool)
 		{
-			Print(string.Format("h-istasi civilians | fewer than %1 GUID-qualified civilian character prefabs configured; skipping civilian character ambience instead of spawning broken CIV group shells", MIN_CIVILIAN_CHARACTER_PREFABS), LogLevel.WARNING);
+			Print(string.Format("Partisan civilians | fewer than %1 GUID-qualified civilian character prefabs configured; skipping civilian character ambience instead of spawning broken CIV group shells", MIN_CIVILIAN_CHARACTER_PREFABS), LogLevel.WARNING);
 			m_bWarnedMissingCivilianCharacterPool = true;
 		}
 
@@ -7736,7 +7736,7 @@ class HST_CivilianService
 	{
 		m_iRuntimeSpawnFailureCount++;
 		m_sLastRuntimeSpawnFailurePrefab = prefab;
-		Print(string.Format("h-istasi civilians | spawn failed | zone %1 | kind %2 | prefab %3 | pos %4 | yaw %5", zoneId, runtimeKind, prefab, position, angles[0]), LogLevel.WARNING);
+		Print(string.Format("Partisan civilians | spawn failed | zone %1 | kind %2 | prefab %3 | pos %4 | yaw %5", zoneId, runtimeKind, prefab, position, angles[0]), LogLevel.WARNING);
 	}
 
 	protected bool PublishRuntimeDiagnostics(HST_CampaignState state)

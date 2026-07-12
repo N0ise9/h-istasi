@@ -18,7 +18,7 @@ GenericEntity HST_HQArsenal : "{39568880CC1F9CED}Prefabs/Props/Military/Arsenal/
       "default"
      }
      UIInfo UIInfo "{698532771130340B}" {
-      Name "h-istasi HQ Menu"
+      Name "Partisan HQ Menu"
      }
     }
    }

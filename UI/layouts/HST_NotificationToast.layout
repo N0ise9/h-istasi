@@ -71,7 +71,7 @@ FrameWidgetClass "{A34F448C7E830601}" {
      "Is Visible" 1
      "Ignore Cursor" 1
      "No Localization" 1
-     Text "h-istasi"
+     Text "Partisan"
     }
     TextWidgetClass "{A34F448C7E83060B}" {
      Name "Message"

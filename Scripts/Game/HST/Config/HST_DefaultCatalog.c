@@ -131,7 +131,7 @@ class HST_DefaultCatalog
 	{
 		HST_CampaignPreset preset = new HST_CampaignPreset();
 		preset.m_sPresetId = "vanilla_everon";
-		preset.m_sDisplayName = "h-istasi Everon: FIA vs US vs USSR";
+		preset.m_sDisplayName = "Partisan: Everon - FIA vs US vs USSR";
 		preset.m_sResistanceFactionKey = "FIA";
 		preset.m_sOccupierFactionKey = "US";
 		preset.m_sInvaderFactionKey = "USSR";
@@ -152,12 +152,16 @@ class HST_DefaultCatalog
 
 		HST_FactionPoolState occupier = new HST_FactionPoolState();
 		occupier.m_sFactionKey = preset.m_sOccupierFactionKey;
+		occupier.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+		occupier.m_iStrategicRevision = 1;
 		occupier.m_iAttackResources = balance.m_iStartingOccupierAttackPool;
 		occupier.m_iSupportResources = balance.m_iStartingOccupierSupportPool;
 		state.m_aFactionPools.Insert(occupier);
 
 		HST_FactionPoolState invader = new HST_FactionPoolState();
 		invader.m_sFactionKey = preset.m_sInvaderFactionKey;
+		invader.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+		invader.m_iStrategicRevision = 1;
 		invader.m_iAttackResources = balance.m_iStartingInvaderAttackPool;
 		invader.m_iSupportResources = balance.m_iStartingInvaderSupportPool;
 		state.m_aFactionPools.Insert(invader);

@@ -79,7 +79,7 @@ class HST_LoadoutEditorLayoutMetrics
 	int m_iFontTitle;
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Client-side fullscreen h-istasi loadout editor")]
+[ComponentEditorProps(category: "Partisan", description: "Client-side fullscreen Partisan loadout editor")]
 class HST_LoadoutEditorComponentClass : ScriptComponentClass
 {
 }
@@ -476,7 +476,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		ClearStorageSearchState();
 		m_bCandidateMode = false;
 		ResetLoadoutScroll();
-		m_sStatusText = "Opening h-istasi arsenal editor. Counts, INF unlocks, and apply validation stay server-authoritative.";
+		m_sStatusText = "Opening Partisan arsenal editor. Counts, INF unlocks, and apply validation stay server-authoritative.";
 		m_sLastResult = "requested editor session";
 		if (!RenderEditor())
 		{
@@ -1797,7 +1797,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Walnut";
 			if (preset == 4)
 				return "Navy";
-			return "HST";
+			return "Partisan";
 		}
 		if (settingId == "accent")
 		{
@@ -1811,7 +1811,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Blue";
 			if (preset == 5)
 				return "Sand";
-			return "HST";
+			return "Partisan";
 		}
 		if (settingId == "row")
 		{
@@ -1823,7 +1823,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Brown";
 			if (preset == 4)
 				return "Blue";
-			return "HST";
+			return "Partisan";
 		}
 		if (settingId == "world")
 		{
@@ -1835,7 +1835,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 				return "Dawn";
 			if (preset == 4)
 				return "Night";
-			return "HST";
+			return "Partisan";
 		}
 
 		return "";
@@ -3983,8 +3983,8 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			return "";
 
 		string text = rawText;
-		text.Replace("h-istasi loadout editor | ", "");
-		text.Replace("h-istasi arsenal | ", "");
+		text.Replace("Partisan loadout editor | ", "");
+		text.Replace("Partisan arsenal | ", "");
 		text = text.Trim();
 
 		if (!IsFailureToastText(text))
@@ -4879,7 +4879,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 			{
 				if (FindStringIndex(m_aLoadedCandidateNodeIds, nodeId) < 0)
 					m_aLoadedCandidateNodeIds.Insert(nodeId);
-				m_sLastResult = "h-istasi loadout editor | compatible item request timed out";
+				m_sLastResult = "Partisan loadout editor | compatible item request timed out";
 				SetCandidateEmptyReason(nodeId, "Compatible item request timed out");
 				return;
 			}
@@ -6280,7 +6280,7 @@ class HST_LoadoutEditorComponent : ScriptComponent
 		if (!IsDebugLoggingEnabled())
 			return;
 
-		Print("h-istasi loadout editor debug | " + message);
+		Print("Partisan loadout editor debug | " + message);
 	}
 
 	protected float ParsePayloadFloat(string value, float fallback = 0.0)

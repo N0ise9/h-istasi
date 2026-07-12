@@ -1,12 +1,12 @@
 name: Feature request
-description: "Suggest a new h-istasi feature, system, mission behavior, UI flow, or gameplay improvement."
+description: "Suggest a new Partisan feature, system, mission behavior, UI flow, or gameplay improvement."
 title: "[Feature]: "
 labels: ["enhancement", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping shape h-istasi. Strong feature requests explain the player problem, desired behavior, implementation constraints, and how we would know the feature is complete.
+        Thanks for helping shape Partisan. Strong feature requests explain the player problem, desired behavior, implementation constraints, and how we would know the feature is complete.
 
   - type: checkboxes
     id: preflight
@@ -15,7 +15,7 @@ body:
       options:
         - label: "I searched existing issues/discussions and did not find this request already covered."
           required: true
-        - label: "This request is for h-istasi, not base Arma Reforger or another addon."
+        - label: "This request is for Partisan, not base Arma Reforger or another addon."
           required: true
 
   - type: dropdown

@@ -1,41 +1,41 @@
-[ComponentEditorProps(category: "h-istasi", description: "Explosive-only mission demolition target")]
+[ComponentEditorProps(category: "Partisan", description: "Explosive-only mission demolition target")]
 class HST_MissionDestroyTargetComponentClass : ScriptComponentClass
 {
 }
 
 class HST_MissionDestroyTargetComponent : ScriptComponent
 {
-	[Attribute(defvalue: "300", uiwidget: UIWidgets.EditBox, desc: "Explosive score required before the mission target is destroyed.", category: "HST Mission")]
+	[Attribute(defvalue: "300", uiwidget: UIWidgets.EditBox, desc: "Explosive score required before the mission target is destroyed.", category: "Partisan Mission")]
 	protected float m_fRequiredExplosiveDamage;
 
-	[Attribute(defvalue: "100", uiwidget: UIWidgets.EditBox, desc: "Score for RPG, AT, and rocket hits.", category: "HST Mission")]
+	[Attribute(defvalue: "100", uiwidget: UIWidgets.EditBox, desc: "Score for RPG, AT, and rocket hits.", category: "Partisan Mission")]
 	protected float m_fRocketDamageScore;
 
-	[Attribute(defvalue: "160", uiwidget: UIWidgets.EditBox, desc: "Score for satchel and demolition charge hits.", category: "HST Mission")]
+	[Attribute(defvalue: "160", uiwidget: UIWidgets.EditBox, desc: "Score for satchel and demolition charge hits.", category: "Partisan Mission")]
 	protected float m_fDemoChargeDamageScore;
 
-	[Attribute(defvalue: "35", uiwidget: UIWidgets.EditBox, desc: "Score for 40mm HE and small explosive hits.", category: "HST Mission")]
+	[Attribute(defvalue: "35", uiwidget: UIWidgets.EditBox, desc: "Score for 40mm HE and small explosive hits.", category: "Partisan Mission")]
 	protected float m_fSmallExplosiveDamageScore;
 
-	[Attribute(defvalue: "0.35", uiwidget: UIWidgets.EditBox, desc: "Seconds before the same explosive source can score again.", category: "HST Mission")]
+	[Attribute(defvalue: "0.35", uiwidget: UIWidgets.EditBox, desc: "Seconds before the same explosive source can score again.", category: "Partisan Mission")]
 	protected float m_fDuplicateHitWindowSeconds;
 
-	[Attribute(defvalue: "45", uiwidget: UIWidgets.EditBox, desc: "Radius used to detect short-lived explosive projectile and blast entities around the target.", category: "HST Mission")]
+	[Attribute(defvalue: "45", uiwidget: UIWidgets.EditBox, desc: "Radius used to detect short-lived explosive projectile and blast entities around the target.", category: "Partisan Mission")]
 	protected float m_fExplosiveWitnessRadius;
 
-	[Attribute(defvalue: "0.05", uiwidget: UIWidgets.EditBox, desc: "Seconds between nearby explosive witness scans.", category: "HST Mission")]
+	[Attribute(defvalue: "0.05", uiwidget: UIWidgets.EditBox, desc: "Seconds between nearby explosive witness scans.", category: "Partisan Mission")]
 	protected float m_fExplosiveWitnessPollIntervalSeconds;
 
-	[Attribute(defvalue: "0.75", uiwidget: UIWidgets.EditBox, desc: "Seconds before the same nearby explosive witness source can score again.", category: "HST Mission")]
+	[Attribute(defvalue: "0.75", uiwidget: UIWidgets.EditBox, desc: "Seconds before the same nearby explosive witness source can score again.", category: "Partisan Mission")]
 	protected float m_fExplosiveWitnessSourceCooldownSeconds;
 
-	[Attribute(defvalue: "96", uiwidget: UIWidgets.EditBox, desc: "Maximum entities collected by each nearby explosive witness scan.", category: "HST Mission")]
+	[Attribute(defvalue: "96", uiwidget: UIWidgets.EditBox, desc: "Maximum entities collected by each nearby explosive witness scan.", category: "Partisan Mission")]
 	protected int m_iMaxExplosiveWitnessScanEntities;
 
-	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Legacy debug fallback. Keep disabled for radio tower demolition missions.", category: "HST Mission")]
+	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Legacy debug fallback. Keep disabled for radio tower demolition missions.", category: "Partisan Mission")]
 	protected bool m_bAllowStockDamageDestroyedCompletion;
 
-	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Print nearby explosive witness candidates and damage callback scores.", category: "HST Mission Debug")]
+	[Attribute(defvalue: "false", uiwidget: UIWidgets.CheckBox, desc: "Print nearby explosive witness candidates and damage callback scores.", category: "Partisan Mission Debug")]
 	protected bool m_bDebugExplosiveWitnesses;
 
 	protected bool m_bReportedDestroyed;
@@ -110,7 +110,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 		float score = ResolveExplosiveDamageScore(rawDamage, sourceEntity, sourcePrefab, damageTypeText);
 		string sourceKey = BuildDamageSourceKey(sourceEntity, sourcePrefab, damageTypeText);
-		Print(string.Format("h-istasi mission target | damage callback | raw=%1 | sourcePrefab=%2 | type=%3 | sourceKey=%4 | score=%5", rawDamage, sourcePrefab, damageTypeText, sourceKey, score));
+		Print(string.Format("Partisan mission target | damage callback | raw=%1 | sourcePrefab=%2 | type=%3 | sourceKey=%4 | score=%5", rawDamage, sourcePrefab, damageTypeText, sourceKey, score));
 		if (score <= 0.0)
 			return;
 
@@ -160,7 +160,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			string witnessText = BuildEntityIdentityText(candidate);
 			float score = ResolveExplosiveWitnessDamageScore(witnessText);
 			if (m_bDebugExplosiveWitnesses)
-				Print(string.Format("h-istasi mission target | witness candidate | text=%1 | score=%2", witnessText, score));
+				Print(string.Format("Partisan mission target | witness candidate | text=%1 | score=%2", witnessText, score));
 
 			if (score <= 0.0)
 				continue;
@@ -168,7 +168,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			string sourceKey = BuildExplosiveWitnessSourceKey(candidate, witnessText);
 			if (TryApplyExplosiveDamageScore(owner, score, sourceKey, true))
 			{
-				Print(string.Format("h-istasi mission target | explosive witness accepted | source %1 | score %2", sourceKey, score));
+				Print(string.Format("Partisan mission target | explosive witness accepted | source %1 | score %2", sourceKey, score));
 				return;
 			}
 		}
@@ -203,7 +203,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 			return;
 
 		m_fWitnessDebugSummaryRemainingSeconds = 1.0;
-		Print(string.Format("h-istasi mission target | witness scan summary | queried=%1 | potential=%2 | kept=%3", m_iLastWitnessQueryCount, m_iLastWitnessPotentialCount, m_aExplosiveWitnessCandidates.Count()));
+		Print(string.Format("Partisan mission target | witness scan summary | queried=%1 | potential=%2 | kept=%3", m_iLastWitnessQueryCount, m_iLastWitnessPotentialCount, m_aExplosiveWitnessCandidates.Count()));
 	}
 
 	protected bool TryApplyExplosiveDamageScore(IEntity owner, float score, string sourceKey, bool isWitness)
@@ -277,11 +277,11 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(owner.FindComponent(SCR_DamageManagerComponent));
 		if (!damageManager)
 		{
-			Print("h-istasi mission target | no SCR_DamageManagerComponent on demolition target/proxy; using explosive witness fallback", LogLevel.WARNING);
+			Print("Partisan mission target | no SCR_DamageManagerComponent on demolition target/proxy; using explosive witness fallback", LogLevel.WARNING);
 			return;
 		}
 
-		Print("h-istasi mission target | damage manager found, but damage callback bridge still needs Workbench hit-zone invoker wiring; using explosive witness fallback", LogLevel.WARNING);
+		Print("Partisan mission target | damage manager found, but damage callback bridge still needs Workbench hit-zone invoker wiring; using explosive witness fallback", LogLevel.WARNING);
 	}
 
 	protected void ReportDestroyedByLegacyDamageState(IEntity owner)
@@ -900,7 +900,7 @@ class HST_MissionDestroyTargetComponent : ScriptComponent
 
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Relays damage from a demolition hit proxy to the mission target root")]
+[ComponentEditorProps(category: "Partisan", description: "Relays damage from a demolition hit proxy to the mission target root")]
 class HST_MissionDestroyTargetProxyComponentClass : ScriptComponentClass
 {
 }
@@ -944,11 +944,11 @@ class HST_MissionDestroyTargetProxyComponent : ScriptComponent
 		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(owner.FindComponent(SCR_DamageManagerComponent));
 		if (!damageManager)
 		{
-			Print("h-istasi mission target proxy | no damage manager on proxy", LogLevel.WARNING);
+			Print("Partisan mission target proxy | no damage manager on proxy", LogLevel.WARNING);
 			return;
 		}
 
-		Print("h-istasi mission target proxy | damage manager found; bind proxy hit-zone damage invoker to RelayDamage");
+		Print("Partisan mission target proxy | damage manager found; bind proxy hit-zone damage invoker to RelayDamage");
 	}
 
 	void RelayDamage(IEntity proxyOwner, float rawDamage, IEntity sourceEntity, string sourcePrefab, string damageTypeText)
@@ -996,13 +996,13 @@ class HST_MissionDestroyTargetSabotageAction : HST_MissionUserActionBase
 		if (!demolition)
 		{
 			if (HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet())
-				Print("h-istasi mission debug | demolition failed: component missing", LogLevel.WARNING);
+				Print("Partisan mission debug | demolition failed: component missing", LogLevel.WARNING);
 			return;
 		}
 
 		bool applied = demolition.DebugApplyRocketScore(pOwnerEntity);
 		if (HST_RuntimeSettingsService.LoadDebugLoggingEnabledQuiet())
-			Print(string.Format("h-istasi mission debug | demolition debug rocket score applied %1", applied));
+			Print(string.Format("Partisan mission debug | demolition debug rocket score applied %1", applied));
 	}
 
 	override bool GetActionNameScript(out string outName)

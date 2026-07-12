@@ -24,7 +24,7 @@ class HST_PlayerMapMarkerEntry : SCR_MapMarkerEntryDynamic
 		widgetComp.SetColor(markerColor);
 		widgetComp.SetTextVisible(true);
 		widgetComp.SetText(label);
-		Print(string.Format("h-istasi player map marker debug | client widget init player=%1 label=%2 color=%3", marker.GetMarkerConfigID(), label, markerColor.PackToInt()));
+		Print(string.Format("Partisan player map marker debug | client widget init player=%1 label=%2 color=%3", marker.GetMarkerConfigID(), label, markerColor.PackToInt()));
 		ApplyPlayerMarkerLabel(marker, widgetComp, 0);
 
 		HST_PlayerMapMarkerDynamicWComponent playerWidgetComp = HST_PlayerMapMarkerDynamicWComponent.Cast(widgetComp);

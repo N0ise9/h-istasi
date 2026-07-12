@@ -2,16 +2,39 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is `66` in the current sealed Blueprint Phase
-8 local-security source/Workbench checkpoint. `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`;
-there is no generated-settings migration. The current source stamp identifies
+`HST_CampaignState.SCHEMA_VERSION` is provisionally `67` in the active Blueprint
+Phase 9 enemy-strategic-resource source slice.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`; there is no generated-settings
+migration. The working label is
+`schema67-settings24-enemy-strategic-resource-authority`. No final
+implementation SHA, UTC seal, validation count, or CRC exists yet. Schema 67
+versions one `HST_FactionPoolState` per enemy role and persists bounded
+`HST_EnemyStrategicMutationState` receipts for canonical income, spend, refund,
+and aggression mutation. Operational receipts use a contiguous per-faction
+sequence, include accepted zero-effect commands, never compact, and hard-stop at
+4,096 per faction. Periodic receipts compact independently and are fenced by
+persisted last-bucket checkpoints. Pre-67 migration adopts valid current balances,
+aggression, and legacy cadence accumulators only; it invents no mutation history, spend, refund, settlement,
+order, or planning decision. Malformed current authority quarantines at `-67`.
+Persisted planning cadence and frozen decision fingerprints remain the next
+Phase 9 schema slice.
+
+The Partisan: Everon branding change does not alter campaign or settings schema.
+The non-public `histasi` Workbench project ID and `HST_*` source/resource
+convention remain stable. The legacy `$profile:h-istasi` directory remains
+the persistence namespace so existing saves, settings, debug artifacts, and
+loadouts continue to load without a path migration.
+
+The current sealed source/Workbench checkpoint remains Schema 66/settings 24.
+It is the Blueprint Phase 8 local-security checkpoint, not runtime
+certification. Its source stamp identifies
 implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
 `schema66-settings24-local-security-marker-integrity`. Schema 66 persists one exact enemy-
 town local-security envelope with deterministic ownership-revision/epoch
 identity, an authored frozen 2–5 member roster, operation/manifest/batch/group
 links, exact living counts, terminal/loss receipts, and rearm evidence. Physical
-roots and cyclic waypoints remain process-local. The active source also repairs
+roots and cyclic waypoints remain process-local. That sealed source also repairs
 the `27672e6` client-local campaign-marker ownership regression; marker state is
 derived presentation and does not add save fields. Foundation passes at 729
 script-symbol references. Final normal/all-five Workbench checks pass at 5,806
@@ -79,6 +102,78 @@ classes with CRC `22c13a32` and zero script errors; the normal Script Editor ope
 remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
+
+## Schema 67
+
+- `HST_EnemyStrategicResourceSaveValidationService` owns pre-67 baseline adoption,
+  current-shape validation, receipt/pool quarantine, and post-copy validation.
+- Each configured enemy role owns exactly one versioned `HST_FactionPoolState`.
+  Its canonical durable facts are faction identity with a validated live-preset
+  enemy role, attack-resource balance,
+  support-resource balance, aggression, resource/aggression cadence accumulators
+  and last-bucket checkpoints, contract/revision, per-faction operational count,
+  migration baseline, bounded receipt history, and fail-closed
+  authority diagnostics. A duplicate or
+  non-enemy pool is not silently merged or selected by array order.
+- Every accepted operational spend, refund, aggression, or adjustment command,
+  including a zero-effect command, retains one bounded
+  immutable `HST_EnemyStrategicMutationState`. The receipt freezes stable
+  mutation identity, contract/applied state, faction, mutation kind, operational
+  sequence, and signed deltas,
+  before/after values, source identity, campaign second, and any required enemy
+  order, exact operation, or accounting backlinks.
+- Restore validates retained receipts without replaying them. Each receipt's own
+  before/delta/after arithmetic must be exact; when a predecessor revision is
+  retained, its after values must match the next before values; the unique latest
+  retained receipt must match the pool revision/projection. Identity/fingerprint
+  and retained revisions remain unique. Exact replay is an API result, never a
+  restore mutation.
+- Exact defensive-QRF and enemy-patrol contracts remain unchanged. Linked exact
+  rows resolve their reciprocal debit/refund mutation IDs;
+  the receipt must name the same faction, order/operation, mutation purpose,
+  amount, and terminal/admission source. Historical/legacy enemy orders receive
+  no invented exact backlink and keep their compatibility lifecycle, while any
+  post-67 resource/aggression mutation still enters the canonical API.
+- Operational receipt retention never compacts or evicts in Schema 67. Each
+  faction must retain exactly one row for every operational sequence from `1`
+  through its persisted count, up to 4,096. Reaching the cap rejects later
+  operational mutations for only that faction. The rival pool and periodic
+  cadence remain independent. Periodic income/decay is the only compacted
+  evidence: at most one current row per faction/kind, with the corresponding
+  last-bucket checkpoint equal to elapsed time minus its accumulator.
+- For every pre-67 save, preserve each unique valid enemy pool's current attack
+  resources, support resources, and aggression as its Schema-67 baseline. Set
+  the version/revision to the migration baseline, copy the valid legacy global
+  resource-income and aggression-decay accumulators into each enemy pool, and
+  initialize last-bucket checkpoints from elapsed time minus those accumulators,
+  a zero operational count, and an empty mutation history. Do not derive receipts by diffing totals, replay old strategic events,
+  or infer income, spend, refunds, settlements, orders, targets, or decisions.
+- Pre-67 missing/duplicate/invalid pool data follows the established conservative
+  pool normalization policy only when the canonical enemy role and values are
+  unambiguous. Ambiguity fails closed; migration must not move values between
+  occupier and invader or choose the first row. A missing configured role inserts
+  an inert `-67` placeholder instead of silently inventing a zero-valued pool.
+- A current Schema-67 duplicate pool, invalid role, malformed contract/revision,
+  broken arithmetic or operational sequence chain, conflicting mutation identity,
+  invalid cadence checkpoint/bound/order, missing required exact-consumer,
+  support-ledger, town-event, or ownership-transition backlink
+  quarantines at `-67`. Quarantine changes authority metadata but never repairs
+  or replays resource projections; it cannot fall
+  back to direct pool mutation or legacy exact-QRF/patrol accounting.
+- Restore removes invalid, orphaned, rejected-role, and prior `-67` receipt
+  tombstones from the canonical receipt array only after attribution and
+  quarantine are recorded. Those rows are not accepted replay evidence and do
+  not count against either faction's 4,096-row operational capacity. The
+  attributed pool remains quarantined; purging the rejected row never converts
+  malformed authority into a valid mutation.
+- Schema-67 deep-copy/restore includes every versioned pool field and bounded
+  receipt field. Real restart must preserve identical balances, aggression,
+  revisions, operational counts/sequences, cadence checkpoints, fingerprints,
+  and backlinks without applying any retained mutation again.
+- Schema 67 does not persist enemy-planning cadence, candidate sets, selected
+  target/source/order, cost quote, or decision fingerprint. The immediate next
+  Phase 9 schema slice must add those facts without reconstructing them from
+  Schema-67 resource receipts or historical orders.
 
 ## Schema 66
 

@@ -472,7 +472,7 @@ class HST_ClientMarkerProjectionService
 	string BuildReport()
 	{
 		string report = string.Format(
-			"h-istasi client marker projection | ready %1 | epoch %2 | watermark %3 | records %4 live %5 | hash %6 | status %7",
+			"Partisan client marker projection | ready %1 | epoch %2 | watermark %3 | records %4 live %5 | hash %6 | status %7",
 			m_Registry.IsReady(),
 			m_Registry.GetEpoch(),
 			m_Registry.GetWatermark(),

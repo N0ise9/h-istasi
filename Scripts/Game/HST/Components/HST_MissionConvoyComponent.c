@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Reports destroyed mission convoy vehicle state to the server coordinator")]
+[ComponentEditorProps(category: "Partisan", description: "Reports destroyed mission convoy vehicle state to the server coordinator")]
 class HST_MissionConvoyComponentClass : ScriptComponentClass
 {
 }

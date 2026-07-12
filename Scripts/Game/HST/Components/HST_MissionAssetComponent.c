@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Marker component for h-istasi mission-owned physical assets")]
+[ComponentEditorProps(category: "Partisan", description: "Marker component for Partisan mission-owned physical assets")]
 class HST_MissionAssetComponentClass : ScriptComponentClass
 {
 }

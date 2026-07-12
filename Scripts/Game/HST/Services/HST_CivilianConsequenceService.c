@@ -14,7 +14,7 @@ class HST_CivilianConsequenceResult
 	string BuildReport()
 	{
 		return string.Format(
-			"h-istasi civilian consequence | accepted %1 | replay %2 | changed %3 | panic %4 | panic-only %5 | danger %6 | kind %7 | event %8 | %9",
+			"Partisan civilian consequence | accepted %1 | replay %2 | changed %3 | panic %4 | panic-only %5 | danger %6 | kind %7 | event %8 | %9",
 			m_bAccepted,
 			m_bAlreadyApplied,
 			m_bChanged,

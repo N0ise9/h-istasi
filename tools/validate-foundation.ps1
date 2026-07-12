@@ -377,7 +377,7 @@ foreach ($runtimeLayer in $runtimeLayers) {
 	}
 
 	if ($text -match "SCR_MapMarkerDotCircle\s+HST_NativeMapMarker_") {
-		throw "Runtime layer must not use red dot-circle native markers for h-istasi map locations: $runtimeLayer"
+		throw "Runtime layer must not use red dot-circle native markers for Partisan map locations: $runtimeLayer"
 	}
 
 	foreach ($forbiddenAddonFactionEntry in @(
@@ -775,7 +775,7 @@ foreach ($requiredArsenalPrefabEntry in @(
 		"Open Loadout Editor"
 	)) {
 	if ($hqArsenalPrefabText -notmatch [regex]::Escape($requiredArsenalPrefabEntry)) {
-		throw "HST HQ arsenal prefab is missing h-istasi-only arsenal entry: $requiredArsenalPrefabEntry"
+		throw "HST HQ arsenal prefab is missing Partisan-only arsenal entry: $requiredArsenalPrefabEntry"
 	}
 }
 $petrosActionText = Get-Content -Raw "Scripts/Game/HST/Components/HST_PetrosUserActions.c"
@@ -801,8 +801,8 @@ foreach ($forbiddenArsenalPrefabEntry in @(
 		'{B53B98CEA2D72735}Prefabs/Props/Military/Compositions/FIA/ArsenalBox_FIA.et',
 		"HST_HQArsenalOpenAction",
 		"HST_HQArsenalLootNearbyAction",
-		"Open h-istasi Arsenal",
-		"Loot nearby to h-istasi Arsenal",
+		"Open Partisan Arsenal",
+		"Loot nearby to Partisan Arsenal",
 		"SupplyCache_S_FIA_01.et",
 		"Prefabs/Compositions/Slotted/SlotFlatSmall",
 		"SupplyDrop/Parts",
@@ -1325,7 +1325,7 @@ foreach ($requiredUIDebugEntry in @(
 		"GetScreenSize",
 		"screen=%1,%2 size=%3x%4",
 		"negative=%8 offscreen=%9",
-		"h-istasi ui layout debug"
+		"Partisan ui layout debug"
 	)) {
 	if ($uiDebugText -notmatch [regex]::Escape($requiredUIDebugEntry)) {
 		throw "UI debug helper must expose layout diagnostics: $requiredUIDebugEntry"
@@ -1820,7 +1820,8 @@ foreach ($requiredExpiredMissionCompletionEntry in @(
 		"allowExpired = false",
 		"CanCompleteExpiredPlayerBoundMission(m_State, activeMission)",
 		"m_Missions.Complete(m_State, m_Economy, instanceId, false, allowExpiredCompletion)",
-		"ApplyMissionOutcomeEvent(m_State, m_Preset, m_Economy, m_Balance, m_Towns, m_ZoneCapture, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests, m_HQ, definition, activeMission, true, applyDefinitionRewards)",
+		"HST_StrategicEventApplyResult strategicOutcome = m_Strategic.ApplyMissionOutcomeEvent(",
+		"IsMissionStrategicOutcomeAdmitted(strategicOutcome)",
 		"IsExpiredPlayerBoundMissionActionCandidate",
 		"SelectExpiredPlayerBoundMissionAsset",
 		"IsExpiredPlayerBoundMissionAsset"
@@ -2666,6 +2667,7 @@ $missionGuardAdmissionBlock = Get-ScriptMethodBlock $maidensBayMissionGuardOpera
 $rescuePOWAdmissionBlock = Get-ScriptMethodBlock $maidensBayRescuePOWOperationText 'protected string BuildAdmissionPlan('
 $garrisonPatrolAdmissionBlock = Get-ScriptMethodBlock $maidensBayGarrisonPatrolOperationText 'protected string ValidateAdmissionContext('
 $enemyDirectorLedgerCreationBlock = Get-ScriptMethodBlock $maidensBayEnemyDirectorText 'protected HST_EnemySupportLedgerState FindOrCreateSupportLedger('
+$enemyDirectorLedgerResolverBlock = Get-ScriptMethodBlock $maidensBayEnemyDirectorText 'protected int ResolveSupportLedgerCount('
 foreach ($requiredImmutableRuntimeBlock in @(
 	@('garrison patrol runtime', $garrisonPatrolRuntimeContextBlock),
 	@('garrison patrol tick', $garrisonPatrolTickBlock),
@@ -2674,7 +2676,8 @@ foreach ($requiredImmutableRuntimeBlock in @(
 	@('mission guard admission', $missionGuardAdmissionBlock),
 	@('rescue POW admission', $rescuePOWAdmissionBlock),
 	@('garrison patrol admission', $garrisonPatrolAdmissionBlock),
-	@('enemy ledger creation', $enemyDirectorLedgerCreationBlock)
+	@('enemy ledger creation', $enemyDirectorLedgerCreationBlock),
+	@('enemy ledger resolver', $enemyDirectorLedgerResolverBlock)
 	)) {
 	if ([string]::IsNullOrWhiteSpace($requiredImmutableRuntimeBlock[1])) {
 		throw "Maiden's Bay immutable runtime coverage is missing method block: $($requiredImmutableRuntimeBlock[0])"
@@ -2730,11 +2733,22 @@ if ($legacyGarrisonQuoteRejectIndex -lt 0 -or $mutableGarrisonQuoteLookupIndex -
 	throw "New exact garrison patrol admission must reject old-location quotes before mutable canonical lookup"
 }
 $ledgerCanonicalizeIndex = $enemyDirectorLedgerCreationBlock.IndexOf('ResolveCanonicalZoneId(zoneId)')
-$ledgerLookupIndex = $enemyDirectorLedgerCreationBlock.IndexOf('state.FindEnemySupportLedger(factionKey, zoneId)')
+$ledgerLookupIndex = $enemyDirectorLedgerCreationBlock.IndexOf('ResolveSupportLedgerCount(')
 $ledgerCreateIndex = $enemyDirectorLedgerCreationBlock.IndexOf('ledger.m_sZoneId = zoneId')
 if ($ledgerCanonicalizeIndex -lt 0 -or $ledgerLookupIndex -le $ledgerCanonicalizeIndex -or
 	$ledgerCreateIndex -le $ledgerCanonicalizeIndex) {
 	throw "EnemyDirector ledger lookup and creation must canonicalize a retired Maiden's Bay zone ID before addressing durable authority"
+}
+foreach ($requiredLedgerResolverEntry in @(
+	'ResolveCanonicalZoneId(zoneId)',
+	'foreach (HST_EnemySupportLedgerState ledger : state.m_aEnemySupportLedgers)',
+	'AreEquivalentZoneIds(',
+	'ledger.m_sZoneId',
+	'zoneId'
+	)) {
+	if ($enemyDirectorLedgerResolverBlock -notmatch [regex]::Escape($requiredLedgerResolverEntry)) {
+		throw "EnemyDirector ledger resolution must count every equivalent canonical zone authority: $requiredLedgerResolverEntry"
+	}
 }
 
 foreach ($requiredGeneratedContentEntry in @(
@@ -3143,7 +3157,7 @@ if ($playerMarkerServiceText -notmatch [regex]::Escape("m_Reconciler.CountTracke
 }
 foreach ($requiredPlayerMarkerReportContract in @(
 		"string BuildRuntimeReport()",
-		"h-istasi player marker report",
+		"Partisan player marker report",
 		"m_Reconciler.GetTrackedDynamicHandleCount()",
 		"m_Reconciler.CountTrackedDynamicLive()",
 		"SCR_MapMarkerManagerComponent.GetInstance()",
@@ -4332,8 +4346,8 @@ foreach ($requiredCoordinatorEntry in @(
 		"RequestMemberManualCheckpointReport",
 		"RequestMemberFoundationStatus",
 		"BuildFoundationStatusReport",
-		"h-istasi checkpoint | success",
-		"h-istasi checkpoint | not available",
+		"Partisan checkpoint | success",
+		"Partisan checkpoint | not available",
 		"schema %2/%3",
 		"active missions %1 | active groups %2",
 		"RequestMemberInspectCampaign",
@@ -8405,7 +8419,7 @@ if ($schema52RequestCheckpointBlock -notmatch [regex]::Escape('state && !Capture
 foreach ($requiredSchema52PersistenceRetryEntry in @(
 		'bool majorCheckpointSaved = RequestCheckpoint',
 		'if (majorCheckpointSaved)',
-		'if (RequestCheckpoint("h-istasi autosave", state))',
+		'if (RequestCheckpoint("Partisan autosave", state))',
 		'retrySeconds'
 	)) {
 	if ($schema52PersistenceTickBlock -notmatch [regex]::Escape($requiredSchema52PersistenceRetryEntry)) {
@@ -8912,11 +8926,57 @@ foreach ($requiredDebugIsolationEntry in @(
 		'CaptureIsolatedCampaignDebugState(m_State, "isolated manual checkpoint")',
 		'RecordCampaignDebugCase(RestoreCampaignDebugStateSnapshot("run cancellation"))',
 		'RecordCampaignDebugCase(RestoreCampaignDebugStateSnapshot("run completion"))',
+		"BuildCampaignDebugDisposableStateClone",
+		"BuildCampaignDebugEnemyStrategicAuthorityFingerprint",
+		"AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion",
+		"CaptureCampaignDebugMarkerRefreshNeeded",
+		"RestoreCampaignDebugMarkerRefreshNeeded",
+		"CaptureCampaignDebugAIWorldLimit",
+		"RestoreCampaignDebugAIWorldLimit",
+		"CleanupRuntimeGroupEntityForDebug",
 		"isolation.world_scope",
 		"development session restart required"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredDebugIsolationEntry)) {
 		throw "Campaign debug state-isolation contract missing: $requiredDebugIsolationEntry"
+	}
+}
+$missionCompletionIsolationBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCase()'
+$missionCompletionCloneBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionCompletionRewardCaseOnDisposableClone()'
+$missionFailureIsolationBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionFailurePenaltyCase()'
+$missionFailureCloneBlock = Get-ScriptMethodBlock $coordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionFailurePenaltyCaseOnDisposableClone()'
+foreach ($missionOutcomeIsolationFixture in @(
+		[pscustomobject]@{ IsolationBlock = $missionCompletionIsolationBlock; CloneBlock = $missionCompletionCloneBlock; CaseId = 'mission_completion'; ProductionCall = 'CompleteMission(instanceId)' },
+		[pscustomobject]@{ IsolationBlock = $missionFailureIsolationBlock; CloneBlock = $missionFailureCloneBlock; CaseId = 'mission_failure'; ProductionCall = 'FailMission(instanceId)' }
+	)) {
+	$missionOutcomeIsolationBlock = $missionOutcomeIsolationFixture.IsolationBlock
+	$missionOutcomeCloneBlock = $missionOutcomeIsolationFixture.CloneBlock
+	$missionOutcomeCaseId = $missionOutcomeIsolationFixture.CaseId
+	$missionOutcomeProductionCall = $missionOutcomeIsolationFixture.ProductionCall
+	if ([string]::IsNullOrEmpty($missionOutcomeIsolationBlock) -or
+		[string]::IsNullOrEmpty($missionOutcomeCloneBlock) -or
+		$missionOutcomeIsolationBlock.IndexOf('BuildCampaignDebugDisposableStateClone()') -lt 0 -or
+		$missionOutcomeIsolationBlock.IndexOf('m_State = caseState;') -lt 0 -or
+		$missionOutcomeIsolationBlock.IndexOf('m_State = previousState;') -lt 0 -or
+		$missionOutcomeIsolationBlock.IndexOf('AppendCampaignDebugDisposableStateAssertion(') -lt 0 -or
+		$missionOutcomeIsolationBlock.IndexOf('AppendCampaignDebugEnemyStrategicAuthorityIsolationAssertion(') -lt 0 -or
+		$missionOutcomeCloneBlock.IndexOf($missionOutcomeProductionCall) -lt 0) {
+		throw "Campaign debug $missionOutcomeCaseId must exercise the production mission-outcome path on a disposable state clone and prove enclosing Schema-67 strategic authority unchanged"
+	}
+}
+if ($missionFailureCloneBlock.IndexOf('SetEnemyStrategicPoolTargets(') -ge 0 -or
+	$missionFailureCloneBlock.IndexOf('campaign_debug_compensation') -ge 0) {
+	throw "Campaign debug mission failure must discard its disposable strategic outcome instead of appending a compensating mutation that can false-pass cleanup"
+}
+$missionOutcomeStrategicFingerprintBlock = Get-ScriptMethodBlock $coordinatorText 'protected string BuildCampaignDebugEnemyStrategicAuthorityFingerprint('
+foreach ($requiredMissionOutcomeStrategicField in @(
+		'm_iStrategicRevision',
+		'm_iStrategicOperationalMutationCount',
+		'm_aEnemyStrategicMutations.Count()',
+		'HST_EnemyStrategicResourceService.BuildMutationFingerprint(mutation)'
+	)) {
+	if ($missionOutcomeStrategicFingerprintBlock.IndexOf($requiredMissionOutcomeStrategicField) -lt 0) {
+		throw "Campaign debug mission-outcome isolation fingerprint is missing: $requiredMissionOutcomeStrategicField"
 	}
 }
 Write-Host "Campaign debug state-isolation contract OK"
@@ -9352,7 +9412,7 @@ foreach ($requiredLootEntry in @(
 		"IsEligibleVehicleRootPrefab",
 		"BuildVehicleRootRejectReason",
 		"ResolveRuntimeVehicleRecord",
-		"selected registered h-istasi runtime vehicle",
+		"selected registered Partisan runtime vehicle",
 		"IsLikelyVehicleRootPrefab",
 		"IsRejectedVehicleRootPrefab",
 		"IsVehiclePartEntity",
@@ -11842,11 +11902,11 @@ foreach ($requiredRuntimeVehicleEntry in @(
 		"resolved direct editor/base-game vehicle root",
 		"resolved known base-game vehicle basename root",
 		"ResolveVehicleIdentityName",
-		"selected registered h-istasi runtime vehicle",
+		"selected registered Partisan runtime vehicle",
 		"MarkRuntimeVehicleDeleted"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredRuntimeVehicleEntry)) {
-		throw "Vehicle targeting must support registered h-istasi runtime vehicles: $requiredRuntimeVehicleEntry"
+		throw "Vehicle targeting must support registered Partisan runtime vehicles: $requiredRuntimeVehicleEntry"
 	}
 }
 foreach ($requiredVehicleDiagnosticEntry in @(
@@ -13142,9 +13202,10 @@ if (!$campaignDebugRouteResolverMatch.Success) {
 	throw "Could not locate campaign-debug route assignment resolver"
 }
 foreach ($requiredRouteResolverEntry in @(
+		"TrySpawnActiveGroup",
 		"CampaignDebugResolvePendingActiveGroupPopulation",
 		'TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, requestedStatus, state, "campaign debug route assignment", true)',
-		"UpdateRoutedActiveGroupsNow(state, preset, true)",
+		"CampaignDebugUpdateActiveGroupRouteOnly",
 		"AssignActiveGroupInfantryRouteWaypoints",
 		"infantry_waypoints",
 	"infantry_sweep"
@@ -13192,6 +13253,21 @@ foreach ($requiredPrimaryGroupCertificationEntry in @(
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredPrimaryGroupCertificationEntry)) {
 		throw "Campaign debug cleanup must fail active direct-fallback groups instead of certifying them: $requiredPrimaryGroupCertificationEntry"
+	}
+}
+if ($campaignDebugRouteResolverMatch.Value -match [regex]::Escape("UpdateRoutedActiveGroupsNow(")) {
+	throw "Campaign-debug route resolver must not iterate or materialize unrelated active groups"
+}
+if ($campaignDebugRouteResolverMatch.Value -match [regex]::Escape("EnsureRuntimeGroupEntities(")) {
+	throw "Campaign-debug route resolver must materialize only its supplied active group"
+}
+foreach ($requiredFocusedMaterializationEntry in @(
+		"bool forceCampaignDebugMaterialization = false",
+		"!forceCampaignDebugMaterialization",
+		"ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup)"
+	)) {
+	if ($physicalWarServiceText -notmatch [regex]::Escape($requiredFocusedMaterializationEntry)) {
+		throw "Campaign-debug focused materialization must bypass player-bubble deferral only through its explicit debug flag: $requiredFocusedMaterializationEntry"
 	}
 }
 
@@ -13853,7 +13929,7 @@ foreach ($requiredPhase9MissionRuntimeEntry in @(
 		throw "Missing Phase 9 convoy contact mission-runtime entry: $requiredPhase9MissionRuntimeEntry"
 	}
 }
-if ($missionRuntimeServiceText -match [regex]::Escape("mission.m_sRuntimePhase = PHASE_CAPTURED;`r`n`t`tresult = `"h-istasi mission | captured `" + BuildAssetShortLabel(asset);")) {
+if ($missionRuntimeServiceText -match [regex]::Escape("mission.m_sRuntimePhase = PHASE_CAPTURED;`r`n`t`tresult = `"Partisan mission | captured `" + BuildAssetShortLabel(asset);")) {
 	throw "Phase 9 convoy vehicle capture must not unconditionally replace convoy_contact with generic captured phase"
 }
 if ($missionRuntimeServiceText -match [regex]::Escape("if (mission)`r`n`t`t`tmission.m_sRuntimePhase = PHASE_DESTROYED;")) {
@@ -17179,35 +17255,88 @@ $schema59ProgressGuardIndex = $schema59CompleteBlock.IndexOf('!exactRadioAuthori
 $schema59MissionCompleteIndex = $schema59CompleteBlock.IndexOf('m_Missions.Complete(')
 $schema59LifecycleSuccessIndex = $schema59CompleteBlock.IndexOf('m_RadioSites.OnMissionSucceeded(')
 $schema59StrategicSuccessIndex = $schema59CompleteBlock.IndexOf('m_Strategic.ApplyMissionOutcomeEvent(')
+$schema59StrategicSuccessAdmissionIndex = $schema59CompleteBlock.IndexOf('IsMissionStrategicOutcomeAdmitted(strategicOutcome)')
 if ([string]::IsNullOrEmpty($schema59CompleteBlock) -or $schema59CanCompleteIndex -lt 0 -or
 	$schema59GenericProgressIndex -lt 0 -or $schema59ProgressGuardIndex -lt 0 -or
 	$schema59MissionCompleteIndex -lt 0 -or $schema59LifecycleSuccessIndex -lt 0 -or
-	$schema59StrategicSuccessIndex -lt 0 -or $schema59CanCompleteIndex -gt $schema59MissionCompleteIndex -or
+	$schema59StrategicSuccessIndex -lt 0 -or $schema59StrategicSuccessAdmissionIndex -lt 0 -or
+	$schema59CanCompleteIndex -gt $schema59StrategicSuccessIndex -or
+	$schema59StrategicSuccessIndex -gt $schema59StrategicSuccessAdmissionIndex -or
+	$schema59StrategicSuccessAdmissionIndex -gt $schema59GenericProgressIndex -or
+	$schema59GenericProgressIndex -gt $schema59MissionCompleteIndex -or
 	$schema59ProgressGuardIndex -gt $schema59GenericProgressIndex -or
 	$schema59MissionCompleteIndex -gt $schema59LifecycleSuccessIndex -or
-	$schema59LifecycleSuccessIndex -gt $schema59StrategicSuccessIndex) {
-	throw "Schema-59 exact completion must skip generic progress and commit lifecycle before Strategic"
+	$schema59StrategicSuccessAdmissionIndex -gt $schema59MissionCompleteIndex) {
+	throw "Schema-67 mission success must admit its applied strategic outcome before objective, terminal-status, and radio lifecycle publication"
 }
 $schema59FailBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'bool FailMission('
 $schema59FailureLifecycleIndex = $schema59FailBlock.IndexOf('m_RadioSites.OnMissionFailed(')
 $schema59FailureStrategicIndex = $schema59FailBlock.IndexOf('m_Strategic.ApplyMissionOutcomeEvent(')
+$schema59FailureStrategicAdmissionIndex = $schema59FailBlock.IndexOf('IsMissionStrategicOutcomeAdmitted(strategicOutcome)')
+$schema59MissionFailIndex = $schema59FailBlock.IndexOf('m_Missions.Fail(')
 $schema59FailureRadioGuardIndex = $schema59FailBlock.IndexOf('HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(activeMission)')
 $schema59FailureObjectiveIndex = $schema59FailBlock.IndexOf('m_Objectives.FailMissionObjectives(m_State, instanceId)')
 $schema59FailureObjectiveGuardIndex = $schema59FailBlock.IndexOf('!exactRadioAuthority', [Math]::Max(0, $schema59FailureLifecycleIndex))
 if ($schema59FailureLifecycleIndex -lt 0 -or $schema59FailureStrategicIndex -lt 0 -or
+	$schema59FailureStrategicAdmissionIndex -lt 0 -or $schema59MissionFailIndex -lt 0 -or
 	$schema59FailureRadioGuardIndex -lt 0 -or $schema59FailureObjectiveIndex -lt 0 -or
 	$schema59FailureObjectiveGuardIndex -lt 0 -or
+	$schema59FailureStrategicIndex -gt $schema59FailureStrategicAdmissionIndex -or
+	$schema59FailureStrategicAdmissionIndex -gt $schema59MissionFailIndex -or
+	$schema59MissionFailIndex -gt $schema59FailureLifecycleIndex -or
 	$schema59FailureRadioGuardIndex -gt $schema59FailureLifecycleIndex -or
-	$schema59FailureLifecycleIndex -gt $schema59FailureStrategicIndex -or
 	$schema59FailureObjectiveGuardIndex -gt $schema59FailureObjectiveIndex) {
-	throw "Schema-59 failed mission lifecycle must settle before Strategic and skip generic objective failure mutation"
+	throw "Schema-67 mission failure must admit its applied strategic outcome before terminal-status and radio lifecycle publication"
 }
 $schema59ExpiryBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected bool ApplyMissionExpiryEventForMission('
 $schema59ExpiryLifecycleIndex = $schema59ExpiryBlock.IndexOf('m_RadioSites.OnMissionExpired(')
 $schema59ExpiryStrategicIndex = $schema59ExpiryBlock.IndexOf('m_Strategic.ApplyMissionExpiryEvent(')
+$schema59ExpiryStrategicAdmissionIndex = $schema59ExpiryBlock.IndexOf('IsMissionStrategicOutcomeAdmitted(result)')
+$schema59ExpiryCommitIndex = $schema59ExpiryBlock.IndexOf('m_Missions.CommitExpiry(')
 if ($schema59ExpiryLifecycleIndex -lt 0 -or $schema59ExpiryStrategicIndex -lt 0 -or
-	$schema59ExpiryLifecycleIndex -gt $schema59ExpiryStrategicIndex) {
-	throw "Schema-59 expired mission lifecycle must settle before Strategic expiry consequences"
+	$schema59ExpiryStrategicAdmissionIndex -lt 0 -or $schema59ExpiryCommitIndex -lt 0 -or
+	$schema59ExpiryStrategicIndex -gt $schema59ExpiryStrategicAdmissionIndex -or
+	$schema59ExpiryStrategicAdmissionIndex -gt $schema59ExpiryCommitIndex -or
+	$schema59ExpiryCommitIndex -gt $schema59ExpiryLifecycleIndex -or
+	$schema59ExpiryBlock.IndexOf('HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE') -lt 0 -or
+	$schema59ExpiryBlock.IndexOf('MarkExpiryStrategicAdmissionRejected(') -lt 0) {
+	throw "Schema-67 mission expiry must remain active/pending and retry until strategic admission precedes terminal and radio lifecycle publication"
+}
+$schema67MissionTickBlock = Get-ScriptMethodBlock $schema59MissionServiceText 'bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, int elapsedSeconds)'
+$schema67MissionCommitExpiryBlock = Get-ScriptMethodBlock $schema59MissionServiceText 'bool CommitExpiry('
+if ([string]::IsNullOrEmpty($schema67MissionTickBlock) -or
+	$schema67MissionTickBlock.IndexOf('activeMission.m_sRuntimePhase = EXPIRY_ADMISSION_PENDING_PHASE;') -lt 0 -or
+	$schema67MissionTickBlock.IndexOf('m_aLastExpiredMissionIds.Insert(activeMission.m_sInstanceId);') -lt 0 -or
+	$schema67MissionTickBlock.IndexOf('HST_MISSION_EXPIRED') -ge 0 -or
+	[string]::IsNullOrEmpty($schema67MissionCommitExpiryBlock) -or
+	$schema67MissionCommitExpiryBlock.IndexOf('activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;') -lt 0 -or
+	$schema67MissionCommitExpiryBlock.IndexOf('activeMission.m_sRuntimePhase != EXPIRY_ADMISSION_PENDING_PHASE') -lt 0) {
+	throw "Schema-67 mission timer must persist a retryable pending boundary and reserve expired status for CommitExpiry"
+}
+$schema67MissionRuntimeTickBlock = Get-ScriptMethodBlock $schema59RuntimeText 'bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_MissionObjectiveService objectives, int elapsedSeconds)'
+if ([string]::IsNullOrEmpty($schema67MissionRuntimeTickBlock) -or
+	$schema67MissionRuntimeTickBlock.IndexOf('HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE') -lt 0 -or
+	$schema67MissionRuntimeTickBlock.IndexOf('mission.m_sMissionId != "dynamic_defend_petros"') -lt 0) {
+	throw "Schema-67 mission runtime must not cross a rejected expiry-admission boundary"
+}
+$schema67DefendRuntimeBlock = Get-ScriptMethodBlock $schema59RuntimeText 'protected bool TickDefendPetrosRuntime('
+if ([string]::IsNullOrEmpty($schema67DefendRuntimeBlock) -or
+	$schema67DefendRuntimeBlock.IndexOf('remaining <= 0') -lt 0 -or
+	$schema67DefendRuntimeBlock.IndexOf('CompleteWorldObjective(objective)') -lt 0 -or
+	$schema67DefendRuntimeBlock.IndexOf('mission.m_sRuntimePhase = "defense_secured";') -lt 0) {
+	throw "Schema-67 Defend Petros timer must convert its pending expiry boundary into a normal completion candidate"
+}
+$schema67CompleteDefendBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'protected bool CompleteDefendPetrosMission('
+$schema67CompleteDefendAdmissionIndex = $schema67CompleteDefendBlock.IndexOf('bool missionSettled = CompleteMission(mission.m_sInstanceId);')
+$schema67CompleteDefendOutcomeIndex = $schema67CompleteDefendBlock.IndexOf('m_State.m_bDefendPetrosOutcomeApplied = true;')
+$schema67CompleteDefendPendingReturnIndex = $schema67CompleteDefendBlock.IndexOf('return changed;', [Math]::Max(0, $schema67CompleteDefendAdmissionIndex))
+if ([string]::IsNullOrEmpty($schema67CompleteDefendBlock) -or
+	$schema67CompleteDefendAdmissionIndex -lt 0 -or $schema67CompleteDefendOutcomeIndex -lt 0 -or
+	$schema67CompleteDefendAdmissionIndex -gt $schema67CompleteDefendOutcomeIndex -or
+	$schema67CompleteDefendBlock.IndexOf('m_State.m_sDefendPetrosStatus = "strategic_admission_pending";') -lt 0 -or
+	$schema67CompleteDefendPendingReturnIndex -lt 0 -or
+	$schema67CompleteDefendPendingReturnIndex -gt $schema67CompleteDefendOutcomeIndex) {
+	throw "Schema-67 Defend Petros outcome publication must wait for the retryable strategic mission-success admission"
 }
 
 $schema59FrameBlock = Get-ScriptMethodBlock $schema59CoordinatorText 'override void EOnFrame('
@@ -19993,11 +20122,13 @@ $schema62ApplyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'HST_Ownershi
 $schema62ScopedContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueAcceptedTransitionScoped('
 $schema62ContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueAcceptedTransition('
 $schema62SecurityContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueSecurityAndSupportSteps('
+$schema62PreOwnerAdmissionBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinuePreOwnerStrategicAdmissionSteps('
 $schema62OwnerContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueOwnerAndDerivedSteps('
 $schema62OutcomeContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueOutcomeAndEventSteps('
 $schema62ProjectionContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueProjectionAndDurabilitySteps('
 $schema62CompleteTransitionBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult CompleteAcceptedTransition('
 $schema62ContinueSurface = $schema62ContinueBlock + "`n" + $schema62SecurityContinueBlock
+$schema62ContinueSurface += "`n" + $schema62PreOwnerAdmissionBlock
 $schema62ContinueSurface += "`n" + $schema62OwnerContinueBlock + "`n" + $schema62OutcomeContinueBlock
 $schema62ContinueSurface += "`n" + $schema62ProjectionContinueBlock + "`n" + $schema62CompleteTransitionBlock
 $schema62ValidateRequestBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ValidateNewRequest('
@@ -20010,7 +20141,8 @@ $schema62ReleaseDeferredBlock = Get-ScriptMethodBlock $schema62OwnershipText 'pr
 $schema62ValidateDeferredBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ValidateDeferredChildPublications('
 $schema62DeferredPublicationSurface = $schema62ReleaseDeferredBlock + "`n" + $schema62ValidateDeferredBlock
 $schema62FreezeEnemyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void FreezeEnemyConsequenceDecision('
-$schema62ApplyEnemyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void ApplyEnemyConsequences('
+$schema62ApplyEnemyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected bool ApplyEnemyConsequences('
+$schema62AdmitAggressionBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string AdmitEnemyAggression('
 $schema62RetryBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult NeedsRetry('
 $schema62PartialPersistenceBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void SchedulePartialPersistence('
 $schema62PruneBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void PruneCompletedHistory('
@@ -20072,6 +20204,43 @@ foreach ($schema62ScopedContinueEntry in @(
 		$schema62ScopedContinueBlock.IndexOf($schema62ScopedContinueEntry) -lt 0) {
 		throw "Schema-62 nested ownership application stack must be pushed and popped around the canonical checklist: $schema62ScopedContinueEntry"
 	}
+}
+$schema62PreOwnerAdmissionIndex = $schema62ContinueBlock.IndexOf('ContinuePreOwnerStrategicAdmissionSteps(')
+$schema62PreOwnerSecurityIndex = $schema62ContinueBlock.IndexOf('ContinueSecurityAndSupportSteps(')
+$schema62OwnerPublicationIndex = $schema62ContinueBlock.IndexOf('ContinueOwnerAndDerivedSteps(')
+if ($schema62PreOwnerAdmissionIndex -lt 0 -or $schema62PreOwnerSecurityIndex -lt 0 -or
+	$schema62OwnerPublicationIndex -lt 0 -or
+	$schema62PreOwnerAdmissionIndex -gt $schema62PreOwnerSecurityIndex -or
+	$schema62PreOwnerSecurityIndex -gt $schema62OwnerPublicationIndex) {
+	throw "Schema-67 ownership aggression admission must run before security/support mutation and visible owner/revision publication"
+}
+foreach ($schema62PreOwnerAdmissionEntry in @(
+	'ValidateStrategicOwnerEffectAdmission(',
+	'AdmitEnemyAggression(',
+	'return NeedsRetry(transition, result, aggressionFailure)',
+	'transition.m_iAggressionApplied != aggressionBefore'
+)) {
+	if ([string]::IsNullOrEmpty($schema62PreOwnerAdmissionBlock) -or
+		$schema62PreOwnerAdmissionBlock.IndexOf($schema62PreOwnerAdmissionEntry) -lt 0) {
+		throw "Schema-67 ownership pre-publication aggression checklist is missing: $schema62PreOwnerAdmissionEntry"
+	}
+}
+foreach ($schema62AggressionAdmissionEntry in @(
+	'm_Economy.AddAggression(',
+	'"enemy_aggression_ownership_" + transition.m_sRequestId',
+	'"ownership_transition"',
+	'transition.m_sRequestId',
+	'transition.m_sZoneId',
+	'transition.m_iAggressionApplied = aggression'
+)) {
+	if ([string]::IsNullOrEmpty($schema62AdmitAggressionBlock) -or
+		$schema62AdmitAggressionBlock.IndexOf($schema62AggressionAdmissionEntry) -lt 0) {
+		throw "Schema-67 ownership aggression admission/backlink is missing: $schema62AggressionAdmissionEntry"
+	}
+}
+if ($schema62OwnerContinueBlock.IndexOf('m_Economy.AddAggression(') -ge 0 -or
+	$schema62ApplyEnemyBlock.IndexOf('m_Economy.AddAggression(') -ge 0) {
+	throw "Schema-67 ownership aggression admission must not remain fallible after owner publication"
 }
 $schema62CreateTransitionBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionState CreateTransition('
 if ([string]::IsNullOrEmpty($schema62CreateTransitionBlock) -or
@@ -20610,16 +20779,21 @@ foreach ($schema62PendingRetryEntry in @(
 }
 
 $schema62CaptureForResistanceBlock = Get-ScriptMethodBlock $schema62CaptureText 'HST_OwnershipTransitionResult CaptureForResistanceDetailed('
+$schema62CaptureRequestBlock = Get-ScriptMethodBlock $schema62CaptureText 'protected HST_OwnershipTransitionRequest BuildResistanceCaptureRequest('
 foreach ($schema62CaptureRouteEntry in @(
 	'm_OwnershipTransitions.BuildRequest(',
 	'"military_capture"',
-	'"mission_capture"',
-	'm_OwnershipTransitions.Apply(state, request)'
+	'"mission_capture"'
 )) {
-	if ([string]::IsNullOrEmpty($schema62CaptureForResistanceBlock) -or
-		$schema62CaptureForResistanceBlock.IndexOf($schema62CaptureRouteEntry) -lt 0) {
+	if ([string]::IsNullOrEmpty($schema62CaptureRequestBlock) -or
+		$schema62CaptureRequestBlock.IndexOf($schema62CaptureRouteEntry) -lt 0) {
 		throw "Schema-62 military/mission capture must route through canonical ownership authority: $schema62CaptureRouteEntry"
 	}
+}
+if ([string]::IsNullOrEmpty($schema62CaptureForResistanceBlock) -or
+	$schema62CaptureForResistanceBlock.IndexOf('BuildResistanceCaptureRequest(') -lt 0 -or
+	$schema62CaptureForResistanceBlock.IndexOf('m_OwnershipTransitions.Apply(state, request)') -lt 0) {
+	throw "Schema-62 military/mission capture must apply the shared canonical ownership request"
 }
 $schema62PoliticalBlock = Get-ScriptMethodBlock $schema62CivilianText 'protected bool ApplyPoliticalOwnershipTransition('
 foreach ($schema62PoliticalRouteEntry in @(
@@ -21004,6 +21178,23 @@ foreach ($schema62ProofEntry in @(
 	'class HST_OwnershipTransitionProofReport',
 	'class HST_OwnershipTransitionProofService',
 	'bool AllExact(',
+	'm_bPreOwnerAggressionAtomicityExact',
+	'ProvePreOwnerAggressionAdmissionAtomicity',
+	'fixture.m_Economy.SetEnemyStrategicResourceAuthority(null)',
+	'request.m_bReconcileSecurity',
+	'request.m_bCreateSecurity',
+	'blockedExact = blockedExact && blocked.m_bNeedsRetry',
+	'&& !blocked.m_bCompleted',
+	'!receipt.m_bOwnerApplied',
+	'!receipt.m_bOldSecurityRetired',
+	'receipt.m_bOldSecurityRetired',
+	'oldSecurity.m_iInfantryCount == 6',
+	'oldSecurity.m_iInfantryCount == 0',
+	'zone.m_iOwnershipRevision == ownerRevisionBefore',
+	'fixture.m_State.FindEnemyStrategicMutation(mutationId)',
+	'replay.m_bAlreadyApplied && replay.m_bCompleted',
+	'HST_EnemyStrategicResourceSaveValidationService resourceValidator',
+	'restoredMutation.m_sSourceId == restoredReceipt.m_sRequestId',
 	'CaptureForResistance(',
 	'RegisterInfluenceEventExact(',
 	'ReconcileAfterRestore(',
@@ -21229,6 +21420,7 @@ foreach ($schema62CurrentSaveInvariantEntry in @(
 	'HST_StableIdService.BuildGarrisonId(zoneId, factionKey)',
 	'incomplete pre-owner transition lacks required new-garrison authority',
 	'ValidateTransitionCounterattackCorrelation(',
+	'ownership transition has invalid pre-owner aggression admission',
 	'ownership transition frozen counterattack selection contradicts its roll',
 	'ownership transition aggression evidence cannot be negative',
 	'enemy retaliation not applicable for this ownership policy',
@@ -22359,6 +22551,7 @@ foreach ($schema65AggressionPreflightEntry in @(
 }
 $schema65BuildEventBlock = Get-ScriptMethodBlock $schema65TownText 'protected HST_TownInfluenceEventState BuildEvent('
 $schema65ApplyEventBlock = Get-ScriptMethodBlock $schema65TownText 'protected void ApplyEvent('
+$schema65ExecuteBlock = Get-ScriptMethodBlock $schema65TownText 'protected HST_TownInfluenceResult ExecuteWithPreset('
 foreach ($schema65AggressionBuildEntry in @(
 		'eventState.m_sAggressionFactionKey = command.m_sAggressionFactionKey',
 		'eventState.m_iAggressionDelta = command.m_iAggressionDelta',
@@ -22373,12 +22566,11 @@ foreach ($schema65AggressionApplyEntry in @(
 		'm_Economy.AddAggression(',
 		'eventState.m_iAggressionAfter = aggressionPool.m_iAggression'
 	)) {
-	if ([string]::IsNullOrEmpty($schema65ApplyEventBlock) -or
-		$schema65ApplyEventBlock.IndexOf($schema65AggressionApplyEntry) -lt 0) {
+	if ([string]::IsNullOrEmpty($schema65ExecuteBlock) -or
+		$schema65ExecuteBlock.IndexOf($schema65AggressionApplyEntry) -lt 0) {
 		throw "Schema-65 aggression after-state application is missing: $schema65AggressionApplyEntry"
 	}
 }
-$schema65ExecuteBlock = Get-ScriptMethodBlock $schema65TownText 'protected HST_TownInfluenceResult ExecuteWithPreset('
 $schema65ExactMatchBlock = Get-ScriptMethodBlock $schema65TownText 'protected bool ExactEventMatches('
 foreach ($schema65AggressionFingerprintEntry in @(
 		'eventState.m_sAggressionFactionKey',
@@ -23516,9 +23708,8 @@ $schema66PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Persi
 $schema66OwnershipText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionService.c"
 $schema66MaidensText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MaidensBayLocationSaveValidationService.c"
 
-if ($campaignSchemaVersion -ne 66 -or
-	$schema66StateText.IndexOf('static const int SCHEMA_VERSION = 66;') -lt 0) {
-	throw "Schema-66 local-security authority requires CampaignState schema 66"
+if ($campaignSchemaVersion -lt 66) {
+	throw "Schema-66 local-security authority requires CampaignState schema 66 or newer"
 }
 if ($runtimeSettingsSchemaVersion -ne 24) {
 	throw "Schema-66 local-security authority must preserve runtime-settings schema 24"
@@ -23754,4 +23945,781 @@ if ($schema66CoordinatorText -match 'RecordCampaignDebugCase\(BuildCampaignDebug
 
 Write-Host "Schema-66 exact enemy-town local security, durable survivor epochs, no-resurrection loss/rearm, ownership/persistence/quarantine gates, resistance isolation, immutable campaign markers, and source proofs OK"
 
-Write-Host "h-istasi foundation validation passed"
+$schema67Paths = @(
+	"Scripts/Game/HST/Services/HST_EnemyStrategicResourceService.c",
+	"Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_EnemyStrategicResourceProofService.c"
+)
+foreach ($schema67Path in $schema67Paths) {
+	if (!(Test-Path -LiteralPath $schema67Path -PathType Leaf)) {
+		throw "Schema-67 enemy strategic resource authority source is missing: $schema67Path"
+	}
+}
+
+$schema67StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema67SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema67ResourceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceService.c"
+$schema67ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c"
+$schema67ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceProofService.c"
+$schema67CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema67EnemyDirectorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyDirectorService.c"
+$schema67EconomyText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EconomyService.c"
+$schema67EnemyCommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$schema67EnemyQRFText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyQRFOperationService.c"
+$schema67EnemyQRFProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyQRFOperationProofService.c"
+$schema67EnemyPatrolText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPatrolOperationService.c"
+$schema67EnemyPatrolProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPatrolOperationProofService.c"
+$schema67TownInfluenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_TownInfluenceService.c"
+$schema67OwnershipText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionService.c"
+$schema67StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
+$schema67ZoneCaptureText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCaptureService.c"
+$schema67CommandUIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+
+if ($campaignSchemaVersion -ne 67 -or
+	$schema67StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*67;') {
+	throw "Schema-67 enemy strategic resource authority requires CampaignState schema 67"
+}
+if ($runtimeSettingsSchemaVersion -ne 24) {
+	throw "Schema-67 enemy strategic resource authority must preserve runtime-settings schema 24"
+}
+
+$schema67PoolBlock = Get-ScriptMethodBlock $schema67StateText 'class HST_FactionPoolState'
+$schema67CopyPoolBlock = Get-ScriptMethodBlock $schema67SaveText 'protected HST_FactionPoolState CopyFactionPool('
+foreach ($schema67PoolField in @(
+	'm_iStrategicContractVersion',
+	'm_iStrategicRevision',
+	'm_iStrategicOperationalMutationCount',
+	'm_iResourceAccumulatorSeconds',
+	'm_iAggressionAccumulatorSeconds',
+	'm_iLastResourceBucketSecond',
+	'm_iLastAggressionBucketSecond',
+	'm_sLastStrategicMutationId',
+	'm_sStrategicAuthorityFailure'
+)) {
+	if ([string]::IsNullOrEmpty($schema67PoolBlock) -or
+		$schema67PoolBlock.IndexOf($schema67PoolField) -lt 0) {
+		throw "Schema-67 faction-pool strategic authority field is missing: $schema67PoolField"
+	}
+	$schema67PoolCopyPattern = 'target\.' + [regex]::Escape($schema67PoolField) + '\s*=\s*source\.' + [regex]::Escape($schema67PoolField) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema67CopyPoolBlock) -or
+		$schema67CopyPoolBlock -notmatch $schema67PoolCopyPattern) {
+		throw "Schema-67 faction-pool strategic save copy is missing: $schema67PoolField"
+	}
+}
+
+$schema67MutationBlock = Get-ScriptMethodBlock $schema67StateText 'class HST_EnemyStrategicMutationState'
+$schema67CopyMutationBlock = Get-ScriptMethodBlock $schema67SaveText 'protected HST_EnemyStrategicMutationState CopyEnemyStrategicMutation('
+foreach ($schema67MutationField in @(
+	'm_iContractVersion',
+	'm_sMutationId',
+	'm_sFactionKey',
+	'm_sKind',
+	'm_sSourceId',
+	'm_sOrderId',
+	'm_sOperationId',
+	'm_sManifestId',
+	'm_sZoneId',
+	'm_iCreatedAtSecond',
+	'm_iPoolRevisionBefore',
+	'm_iPoolRevisionAfter',
+	'm_iOperationalSequence',
+	'm_iAttackBefore',
+	'm_iAttackDelta',
+	'm_iAttackAfter',
+	'm_iSupportBefore',
+	'm_iSupportDelta',
+	'm_iSupportAfter',
+	'm_iAggressionBefore',
+	'm_iAggressionDelta',
+	'm_iAggressionAfter',
+	'm_sContributionHash',
+	'm_sFingerprint',
+	'm_bApplied'
+)) {
+	if ([string]::IsNullOrEmpty($schema67MutationBlock) -or
+		$schema67MutationBlock.IndexOf($schema67MutationField) -lt 0) {
+		throw "Schema-67 strategic mutation receipt field is missing: $schema67MutationField"
+	}
+	$schema67MutationCopyPattern = 'target\.' + [regex]::Escape($schema67MutationField) + '\s*=\s*source\.' + [regex]::Escape($schema67MutationField) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema67CopyMutationBlock) -or
+		$schema67CopyMutationBlock -notmatch $schema67MutationCopyPattern) {
+		throw "Schema-67 strategic mutation receipt save copy is missing: $schema67MutationField"
+	}
+}
+
+$schema67EnemyOrderBlock = Get-ScriptMethodBlock $schema67StateText 'class HST_EnemyOrderState'
+$schema67CopyEnemyOrderBlock = Get-ScriptMethodBlock $schema67SaveText 'protected HST_EnemyOrderState CopyEnemyOrder('
+foreach ($schema67OrderReceiptField in @(
+	'm_sResourceDebitMutationId',
+	'm_sResourceRefundMutationId'
+)) {
+	if ([string]::IsNullOrEmpty($schema67EnemyOrderBlock) -or
+		$schema67EnemyOrderBlock.IndexOf($schema67OrderReceiptField) -lt 0) {
+		throw "Schema-67 reciprocal enemy-order resource field is missing: $schema67OrderReceiptField"
+	}
+	$schema67OrderCopyPattern = 'target\.' + [regex]::Escape($schema67OrderReceiptField) + '\s*=\s*source\.' + [regex]::Escape($schema67OrderReceiptField) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema67CopyEnemyOrderBlock) -or
+		$schema67CopyEnemyOrderBlock -notmatch $schema67OrderCopyPattern) {
+		throw "Schema-67 reciprocal enemy-order resource save copy is missing: $schema67OrderReceiptField"
+	}
+}
+
+foreach ($schema67StateEntry in @(
+	'ref array<ref HST_EnemyStrategicMutationState> m_aEnemyStrategicMutations = {}',
+	'HST_EnemyStrategicMutationState FindEnemyStrategicMutation(string mutationId)'
+)) {
+	if ($schema67StateText.IndexOf($schema67StateEntry) -lt 0) {
+		throw "Schema-67 strategic mutation runtime state boundary is missing: $schema67StateEntry"
+	}
+}
+foreach ($schema67SaveEntry in @(
+	'ref array<ref HST_EnemyStrategicMutationState> m_aEnemyStrategicMutations = {}',
+	'foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)',
+	'foreach (HST_EnemyStrategicMutationState mutation : m_aEnemyStrategicMutations)',
+	'CopyEnemyStrategicMutation(mutation)'
+)) {
+	if ($schema67SaveText.IndexOf($schema67SaveEntry) -lt 0) {
+		throw "Schema-67 strategic mutation save roundtrip boundary is missing: $schema67SaveEntry"
+	}
+}
+$schema67MigrateBlock = Get-ScriptMethodBlock $schema67SaveText 'void MigrateToCurrentSchema()'
+$schema67MigrationPrepareIndex = $schema67MigrateBlock.IndexOf('schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(')
+$schema67MigrationNormalizeIndex = $schema67MigrateBlock.IndexOf('schema67StrategicResourceValidation.Normalize(')
+if ([string]::IsNullOrEmpty($schema67MigrateBlock) -or
+	$schema67MigrateBlock.IndexOf('HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation') -lt 0 -or
+	$schema67MigrationPrepareIndex -lt 0 -or $schema67MigrationNormalizeIndex -lt 0 -or
+	$schema67MigrationPrepareIndex -gt $schema67MigrationNormalizeIndex) {
+	throw "Schema-67 strategic resource claimants must be prepared and normalized in migration order"
+}
+foreach ($schema67PrerequisiteNormalizer in @(
+	'schema60MaidensBayLocationValidation.Normalize(',
+	'schema64TownInfluenceValidation.ValidateAfterOwnership(',
+	'schema66LocalSecurityValidation.Normalize(',
+	'schema65CivilianConsequenceValidation.Normalize('
+)) {
+	$schema67PrerequisiteNormalizeIndex = $schema67MigrateBlock.IndexOf($schema67PrerequisiteNormalizer)
+	if ($schema67PrerequisiteNormalizeIndex -lt 0 -or
+		$schema67PrerequisiteNormalizeIndex -gt $schema67MigrationNormalizeIndex) {
+		throw "Schema-67 cross-domain backlink validation must run after prerequisite normalization: $schema67PrerequisiteNormalizer"
+	}
+}
+
+foreach ($schema67ResourceEntry in @(
+	'class HST_EnemyStrategicResourceService',
+	'SCHEMA_VERSION = 67',
+	'CONTRACT_VERSION = 1',
+	'QUARANTINE_CONTRACT_VERSION = -67',
+	'MAX_CATCHUP_STEPS_PER_TICK = 24',
+	'MAX_OPERATIONAL_MUTATIONS = 4096',
+	'MAX_TOTAL_OPERATIONAL_MUTATIONS = MAX_OPERATIONAL_MUTATIONS * 2',
+	'MAX_MUTATION_ROWS = MAX_TOTAL_OPERATIONAL_MUTATIONS + MAX_PERIODIC_MUTATIONS',
+	'EXACT_POLICY_ID = "schema67_enemy_strategic_resource_exact1"',
+	'BuildMutationFingerprint(',
+	'ApplyMutation(',
+	'DebitResources(',
+	'RefundResources(',
+	'ApplyResourceDelta(',
+	'ApplyAggressionDelta(',
+	'bool TickIncome(',
+	'bool TickAggressionDecay(',
+	'ExistingMatchesCommand(',
+	'TryApplyNonnegativeDelta(',
+	'ResolveExactEnemyPool(',
+	'ValidatePresetRoles(',
+	'CountOperationalMutationsForFaction(',
+	'result.m_bAlreadyApplied = true',
+	'state.m_aEnemyStrategicMutations.Insert(mutation)'
+)) {
+	if ($schema67ResourceText.IndexOf($schema67ResourceEntry) -lt 0) {
+		throw "Schema-67 canonical enemy strategic resource service contract is missing: $schema67ResourceEntry"
+	}
+}
+$schema67ApplyMutationBlock = Get-ScriptMethodBlock $schema67ResourceText 'HST_EnemyStrategicMutationResult ApplyMutation('
+$schema67AtomicValidationIndex = $schema67ApplyMutationBlock.IndexOf('TryApplyNonnegativeDelta(')
+$schema67AtomicCommitIndex = $schema67ApplyMutationBlock.IndexOf('pool.m_iAttackResources = attackAfter;')
+$schema67AtomicSupportCommitIndex = $schema67ApplyMutationBlock.IndexOf('pool.m_iSupportResources = supportAfter;')
+$schema67AtomicAggressionCommitIndex = $schema67ApplyMutationBlock.IndexOf('pool.m_iAggression = aggressionAfter;')
+$schema67AtomicReceiptIndex = $schema67ApplyMutationBlock.IndexOf('state.m_aEnemyStrategicMutations.Insert(mutation);')
+$schema67PoolValueWriteCount = ([regex]::Matches(
+	$schema67ApplyMutationBlock,
+	'pool\.m_i(?:AttackResources|SupportResources|Aggression)\s*=')).Count
+if ([string]::IsNullOrEmpty($schema67ApplyMutationBlock) -or
+	$schema67AtomicValidationIndex -lt 0 -or $schema67AtomicCommitIndex -lt 0 -or
+	$schema67AtomicSupportCommitIndex -lt 0 -or $schema67AtomicAggressionCommitIndex -lt 0 -or
+	$schema67AtomicReceiptIndex -lt 0 -or
+	$schema67AtomicValidationIndex -gt $schema67AtomicCommitIndex -or
+	$schema67AtomicCommitIndex -gt $schema67AtomicSupportCommitIndex -or
+	$schema67AtomicSupportCommitIndex -gt $schema67AtomicAggressionCommitIndex -or
+	$schema67AtomicAggressionCommitIndex -gt $schema67AtomicReceiptIndex -or
+	$schema67PoolValueWriteCount -ne 3) {
+	throw "Schema-67 strategic mutation admission must validate first and commit all three pool values with one receipt atomically"
+}
+$schema67OperationalCommitIndex = $schema67ApplyMutationBlock.IndexOf('pool.m_iStrategicOperationalMutationCount')
+if ($schema67OperationalCommitIndex -lt 0 -or
+	$schema67OperationalCommitIndex -gt $schema67AtomicReceiptIndex) {
+	throw "Schema-67 operational sequence count must commit with its durable receipt"
+}
+
+$schema67AdmissionBlock = Get-ScriptMethodBlock $schema67ResourceText 'protected string ValidateNewMutationAdmission('
+$schema67PeriodicAdmissionIndex = $schema67AdmissionBlock.IndexOf('if (IsPeriodicKind(command.m_sKind))')
+$schema67FactionCapIndex = $schema67AdmissionBlock.IndexOf('pool.m_iStrategicOperationalMutationCount >= MAX_OPERATIONAL_MUTATIONS')
+if ([string]::IsNullOrEmpty($schema67AdmissionBlock) -or
+	$schema67PeriodicAdmissionIndex -lt 0 -or $schema67FactionCapIndex -lt 0 -or
+	$schema67PeriodicAdmissionIndex -gt $schema67FactionCapIndex -or
+	$schema67AdmissionBlock.IndexOf('CountOperationalMutationsForFaction(state, pool.m_sFactionKey)') -lt 0 -or
+	$schema67AdmissionBlock.IndexOf('bounded faction strategic operational receipt history is full') -lt 0) {
+	throw "Schema-67 must enforce a 4096-row operational hard stop per faction without blocking periodic cadence"
+}
+if (([regex]::Matches($schema67ResourceText, 'BuildNoopResult\(')).Count -ne 1 -or
+	$schema67ResourceText -match 'return\s+BuildNoopResult\(') {
+	throw "Schema-67 zero-effect operational commands must retain receipts instead of returning an untracked no-op"
+}
+$schema67ExistingMatchesPoolBlock = Get-ScriptMethodBlock $schema67ResourceText 'protected bool ExistingMatchesPool('
+foreach ($schema67ReplayProjectionEntry in @(
+	'existing.m_iPoolRevisionAfter > pool.m_iStrategicRevision',
+	'pool.m_sLastStrategicMutationId == existing.m_sMutationId',
+	'pool.m_iAttackResources == existing.m_iAttackAfter',
+	'pool.m_iSupportResources == existing.m_iSupportAfter',
+	'pool.m_iAggression == existing.m_iAggressionAfter'
+)) {
+	if ([string]::IsNullOrEmpty($schema67ExistingMatchesPoolBlock) -or
+		$schema67ExistingMatchesPoolBlock.IndexOf($schema67ReplayProjectionEntry) -lt 0) {
+		throw "Schema-67 runtime replay must validate the current pool projection: $schema67ReplayProjectionEntry"
+	}
+}
+$schema67BuildMutationBlock = Get-ScriptMethodBlock $schema67ResourceText 'protected HST_EnemyStrategicMutationState BuildMutation('
+if ([string]::IsNullOrEmpty($schema67BuildMutationBlock) -or
+	$schema67BuildMutationBlock.IndexOf('mutation.m_iOperationalSequence = 0;') -lt 0 -or
+	$schema67BuildMutationBlock.IndexOf('pool.m_iStrategicOperationalMutationCount + 1') -lt 0) {
+	throw "Schema-67 periodic receipts must use sequence zero and operational receipts must advance the faction sequence"
+}
+$schema67IncomeTickBlock = Get-ScriptMethodBlock $schema67ResourceText 'bool TickIncome('
+foreach ($schema67IncomeCheckpointEntry in @(
+	'pool.m_iLastResourceBucketSecond = previousElapsedSecond',
+	'pool.m_iLastResourceBucketSecond = bucketEndSecond',
+	'state.m_iElapsedSeconds - pool.m_iResourceAccumulatorSeconds',
+	'enemy resource cadence checkpoint diverged',
+	'enemy resource cadence checkpoint did not close'
+)) {
+	if ([string]::IsNullOrEmpty($schema67IncomeTickBlock) -or
+		$schema67IncomeTickBlock.IndexOf($schema67IncomeCheckpointEntry) -lt 0) {
+		throw "Schema-67 income cadence checkpoint contract is missing: $schema67IncomeCheckpointEntry"
+	}
+}
+$schema67AggressionTickBlock = Get-ScriptMethodBlock $schema67ResourceText 'bool TickAggressionDecay('
+foreach ($schema67AggressionCheckpointEntry in @(
+	'pool.m_iLastAggressionBucketSecond = previousElapsedSecond',
+	'pool.m_iLastAggressionBucketSecond = bucketEndSecond',
+	'state.m_iElapsedSeconds - pool.m_iAggressionAccumulatorSeconds',
+	'enemy aggression cadence checkpoint diverged',
+	'enemy aggression cadence checkpoint did not close'
+)) {
+	if ([string]::IsNullOrEmpty($schema67AggressionTickBlock) -or
+		$schema67AggressionTickBlock.IndexOf($schema67AggressionCheckpointEntry) -lt 0) {
+		throw "Schema-67 aggression cadence checkpoint contract is missing: $schema67AggressionCheckpointEntry"
+	}
+}
+foreach ($schema67ValidationEntry in @(
+	'class HST_EnemyStrategicResourceSaveValidationService',
+	'SCHEMA_VERSION = 67',
+	'CONTRACT_VERSION = 1',
+	'QUARANTINE_CONTRACT_VERSION = -67',
+	'MAX_OPERATIONAL_MUTATIONS = 4096',
+	'MAX_TOTAL_OPERATIONAL_MUTATIONS = MAX_OPERATIONAL_MUTATIONS * 2',
+	'PrepareBeforeGenericNormalization(',
+	'Normalize(',
+	'ValidateRestoredFactionRoles(',
+	'ValidateMutationShape(',
+	'RejectUnexpectedPre67Receipts(',
+	'ValidateReceiptIdentitiesAndShapes(',
+	'ValidatePoolReceiptChains(',
+	'ValidateMutationBacklinks(',
+	'ValidateOrderBacklink(',
+	'ValidateTownInfluenceBacklink(',
+	'ValidateOwnershipTransitionBacklink(',
+	'pendingPreOwnerAdmission',
+	'QuarantineSavedPoolsForMutation(',
+	'PurgePreviouslyQuarantinedSavedReceipts(',
+	'PurgeRejectedSavedReceipts(',
+	'PurgeRejectedRuntimeReceipts(',
+	'IsSavedCadenceUninitialized(',
+	'IsRuntimeCadenceUninitialized(',
+	'AdoptLegacyEnemyPool(',
+	'InsertMissingRuntimePoolPlaceholder(',
+	'ArithmeticExact(',
+	'ValidatePresetRoles(',
+	'QuarantineSavedPool(',
+	'QuarantineSavedMutation(',
+	'QuarantineRuntimePool(',
+	'QuarantineRuntimeMutation('
+)) {
+	if ($schema67ValidationText.IndexOf($schema67ValidationEntry) -lt 0) {
+		throw "Schema-67 enemy strategic resource restore boundary is missing: $schema67ValidationEntry"
+	}
+}
+$schema67PrepareValidationBlock = Get-ScriptMethodBlock $schema67ValidationText 'void PrepareBeforeGenericNormalization('
+$schema67NormalizeValidationBlock = Get-ScriptMethodBlock $schema67ValidationText 'void Normalize('
+$schema67RoleValidationBlock = Get-ScriptMethodBlock $schema67ValidationText 'bool ValidateRestoredFactionRoles('
+if ([string]::IsNullOrEmpty($schema67PrepareValidationBlock) -or
+	$schema67PrepareValidationBlock.IndexOf('restoredSchemaVersion < SCHEMA_VERSION') -lt 0 -or
+	$schema67PrepareValidationBlock.IndexOf('RejectUnexpectedPre67Receipts()') -lt 0) {
+	throw "Schema-67 pre-current restore must reject invented strategic mutation history before generic normalization"
+}
+if ([string]::IsNullOrEmpty($schema67NormalizeValidationBlock) -or
+	$schema67NormalizeValidationBlock.IndexOf('ValidateReceiptIdentitiesAndShapes()') -lt 0 -or
+	$schema67NormalizeValidationBlock.IndexOf('ValidatePoolReceiptChains()') -lt 0 -or
+	$schema67NormalizeValidationBlock.IndexOf('PurgePreviouslyQuarantinedSavedReceipts()') -lt 0 -or
+	$schema67NormalizeValidationBlock.IndexOf('PurgeRejectedSavedReceipts()') -lt 0 -or
+	$schema67NormalizeValidationBlock.LastIndexOf('PurgeRejectedSavedReceipts()') -lt
+		$schema67NormalizeValidationBlock.IndexOf('ValidatePoolReceiptChains()')) {
+	throw "Schema-67 current restore must validate receipt identity, arithmetic, fingerprints, and pool chains"
+}
+if ([string]::IsNullOrEmpty($schema67RoleValidationBlock) -or
+	$schema67RoleValidationBlock.IndexOf('AdoptLegacyEnemyPool(') -lt 0 -or
+	$schema67RoleValidationBlock.IndexOf('HST_FactionRelationService.IsEnemyFaction(') -lt 0 -or
+	$schema67RoleValidationBlock.IndexOf('m_aEnemyStrategicMutations.IsEmpty()') -lt 0 -or
+	$schema67RoleValidationBlock.IndexOf('PurgeRejectedRuntimeReceipts(state)') -lt 0) {
+	throw "Schema-67 live-preset role validation must adopt only receipt-free legacy enemy baselines and isolate non-enemy authority"
+}
+$schema67SavedReceiptPurgeBlock = Get-ScriptMethodBlock $schema67ValidationText 'protected void PurgeRejectedSavedReceipts('
+foreach ($schema67SavedReceiptPurgeEntry in @(
+	'mutation.m_iContractVersion == CONTRACT_VERSION',
+	'mutation.m_bApplied',
+	'FindUniqueSavedPool(mutation.m_sFactionKey)',
+	'pool.m_iStrategicContractVersion == CONTRACT_VERSION',
+	'm_aEnemyStrategicMutations.Remove(mutationIndex)'
+)) {
+	if ([string]::IsNullOrEmpty($schema67SavedReceiptPurgeBlock) -or
+		$schema67SavedReceiptPurgeBlock.IndexOf($schema67SavedReceiptPurgeEntry) -lt 0) {
+		throw "Schema-67 rejected saved receipt purge is missing: $schema67SavedReceiptPurgeEntry"
+	}
+}
+$schema67PoolShapeBlock = Get-ScriptMethodBlock $schema67ValidationText 'protected string ValidatePoolShape('
+foreach ($schema67PoolShapeEntry in @(
+	'm_iStrategicOperationalMutationCount > MAX_OPERATIONAL_MUTATIONS',
+	'm_iLastResourceBucketSecond',
+	'm_iLastAggressionBucketSecond',
+	'm_SaveData.m_iElapsedSeconds - pool.m_iResourceAccumulatorSeconds',
+	'm_SaveData.m_iElapsedSeconds - pool.m_iAggressionAccumulatorSeconds',
+	'IsSavedCadenceUninitialized('
+)) {
+	if ([string]::IsNullOrEmpty($schema67PoolShapeBlock) -or
+		$schema67PoolShapeBlock.IndexOf($schema67PoolShapeEntry) -lt 0) {
+		throw "Schema-67 saved pool count/cadence checkpoint validation is missing: $schema67PoolShapeEntry"
+	}
+}
+$schema67PoolChainBlock = Get-ScriptMethodBlock $schema67ValidationText 'protected string ValidatePoolReceiptChain('
+foreach ($schema67PoolChainEntry in @(
+	'array<int> sequenceCounts = {}',
+	'sequenceCounts.Resize(pool.m_iStrategicOperationalMutationCount + 1)',
+	'operationalCount++',
+	'operationalCount != pool.m_iStrategicOperationalMutationCount',
+	'sequence <= pool.m_iStrategicOperationalMutationCount',
+	'sequenceCounts[sequence] != 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema67PoolChainBlock) -or
+		$schema67PoolChainBlock.IndexOf($schema67PoolChainEntry) -lt 0) {
+		throw "Schema-67 saved operational sequence validation is missing: $schema67PoolChainEntry"
+	}
+}
+$schema67BacklinkBlock = Get-ScriptMethodBlock $schema67ValidationText 'protected string ValidateMutationBacklinks('
+foreach ($schema67BacklinkEntry in @(
+	'ValidateOrderBacklink(mutation)',
+	'CountSavedSupportLedgers(',
+	'ValidateTownInfluenceBacklink(mutation)',
+	'ValidateOwnershipTransitionBacklink(mutation)'
+)) {
+	if ([string]::IsNullOrEmpty($schema67BacklinkBlock) -or
+		$schema67BacklinkBlock.IndexOf($schema67BacklinkEntry) -lt 0) {
+		throw "Schema-67 cross-domain strategic backlink validation is missing: $schema67BacklinkEntry"
+	}
+}
+$schema67OrderBacklinkBlock = Get-ScriptMethodBlock $schema67ValidationText 'protected string ValidateOrderBacklink('
+foreach ($schema67OrderBacklinkEntry in @(
+	'order.m_sResourceDebitMutationId != mutation.m_sMutationId',
+	'order.m_sResourceRefundMutationId != mutation.m_sMutationId',
+	'order.m_sOperationId != mutation.m_sOperationId',
+	'order.m_sManifestId != mutation.m_sManifestId',
+	'mutation.m_sSourceId != order.m_sResourceSettlementId'
+)) {
+	if ([string]::IsNullOrEmpty($schema67OrderBacklinkBlock) -or
+		$schema67OrderBacklinkBlock.IndexOf($schema67OrderBacklinkEntry) -lt 0) {
+		throw "Schema-67 reciprocal enemy-order strategic backlink validation is missing: $schema67OrderBacklinkEntry"
+	}
+}
+$schema67LegacyAdoptionBlock = Get-ScriptMethodBlock $schema67ValidationText 'protected bool AdoptLegacyEnemyPool('
+foreach ($schema67LegacyAdoptionEntry in @(
+	'pool.m_iStrategicOperationalMutationCount = 0',
+	'state.m_iElapsedSeconds - pool.m_iResourceAccumulatorSeconds',
+	'state.m_iElapsedSeconds - pool.m_iAggressionAccumulatorSeconds',
+	'InsertMissingRuntimePoolPlaceholder('
+)) {
+	if ([string]::IsNullOrEmpty($schema67LegacyAdoptionBlock) -or
+		$schema67LegacyAdoptionBlock.IndexOf($schema67LegacyAdoptionEntry) -lt 0) {
+		throw "Schema-67 baseline adoption count/checkpoint/placeholder contract is missing: $schema67LegacyAdoptionEntry"
+	}
+}
+foreach ($schema67ProofEntry in @(
+	'class HST_EnemyStrategicResourceProofService',
+	'm_bLegacyAdoptionExact',
+	'm_bReplayConflictExact',
+	'm_bAtomicityExact',
+	'm_bIncomeCatchupExact',
+	'm_bPoolSeparationExact',
+	'm_bAggressionWarIndependenceExact',
+	'm_bFactionIsolationExact',
+	'm_bRoundtripQuarantineExact',
+	'ProveLegacyAdoption(',
+	'ProveReplayConflictAndAtomicity(',
+	'ProveIncomeCatchupAndFingerprint(',
+	'ProveSeparationAndIsolation(',
+	'ProveAggressionWarIndependence(',
+	'ProveRoundtripAndQuarantine(',
+	'ProveMiddleOperationalDeletionQuarantine(',
+	'ProveCompactedCadenceRoundtripAndTamper(',
+	'ProveOrderBacklinkQuarantine(',
+	'ProveTownInfluenceBacklinkQuarantine(',
+	'ProveOwnershipBacklinkQuarantine(',
+	'ProveOrphanReceiptCapacityIsolation(',
+	'BuildAdversarialReceipt(',
+	'capacityStealingRowCount',
+	'orphanRowsPurged',
+	'invalidGraphRejected',
+	'capacityUnaffected',
+	'proof_zero_delta_exact',
+	'MAX_OPERATIONAL_MUTATIONS',
+	'm_iLastResourceBucketSecond == 600',
+	'AllExact()'
+)) {
+	if ($schema67ProofText.IndexOf($schema67ProofEntry) -lt 0) {
+		throw "Schema-67 deterministic strategic resource proof contract is missing: $schema67ProofEntry"
+	}
+}
+
+foreach ($schema67ExactConsumerProof in @(
+	@('enemy defensive QRF', $schema67EnemyQRFProofText),
+	@('enemy patrol', $schema67EnemyPatrolProofText)
+)) {
+	$schema67ExactConsumerLabel = $schema67ExactConsumerProof[0]
+	$schema67ExactConsumerProofText = $schema67ExactConsumerProof[1]
+	if ($schema67ExactConsumerProofText.IndexOf('m_sResourceDebitMutationId') -lt 0) {
+		throw "Schema-67 $schema67ExactConsumerLabel proof must assert the reciprocal debit mutation identity"
+	}
+}
+if ($schema67EnemyQRFProofText.IndexOf('m_sResourceRefundMutationId') -lt 0) {
+	throw "Schema-67 enemy defensive-QRF proof must assert the reciprocal refund mutation identity"
+}
+
+foreach ($schema67CoordinatorEntry in @(
+	'protected ref HST_EnemyStrategicResourceService m_EnemyStrategicResources',
+	'm_EnemyStrategicResources = new HST_EnemyStrategicResourceService()',
+	'm_Economy.SetEnemyStrategicResourceAuthority(m_EnemyStrategicResources)',
+	'm_EnemyDirector.SetEnemyStrategicResourceAuthority(m_EnemyStrategicResources)',
+	'schema67StrategicResourceValidation.ValidateRestoredFactionRoles(',
+	'new HST_EnemyStrategicResourceProofService()',
+	'HST_EnemyStrategicResourceProofReport',
+	'proofService.BuildReport()',
+	'AppendCampaignDebugEnemyStrategicResourceAssertions(forceCase)'
+)) {
+	if ($schema67CoordinatorText.IndexOf($schema67CoordinatorEntry) -lt 0) {
+		throw "Schema-67 coordinator strategic resource authority wiring is missing: $schema67CoordinatorEntry"
+	}
+}
+$schema67CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'override void OnPostInit('
+$schema67MigrationAwareRolePattern = 'ValidateRestoredFactionRoles\(\s*m_State,\s*m_Preset\s*\);'
+$schema67CurrentRolePattern = 'ValidateRestoredFactionRoles\(\s*m_State,\s*m_Preset,\s*HST_CampaignState\.SCHEMA_VERSION\s*\);'
+$schema67FoundationRepairIndex = $schema67CoordinatorRestoreBlock.IndexOf('EnsureCampaignFoundation();')
+$schema67MigrationAwareRoleMatch = [regex]::Match($schema67CoordinatorRestoreBlock, $schema67MigrationAwareRolePattern)
+$schema67CurrentRoleMatch = [regex]::Match($schema67CoordinatorRestoreBlock, $schema67CurrentRolePattern)
+if ([string]::IsNullOrEmpty($schema67CoordinatorRestoreBlock) -or
+	!$schema67MigrationAwareRoleMatch.Success -or !$schema67CurrentRoleMatch.Success -or
+	$schema67FoundationRepairIndex -lt 0 -or
+	$schema67MigrationAwareRoleMatch.Index -gt $schema67FoundationRepairIndex -or
+	$schema67CurrentRoleMatch.Index -lt $schema67FoundationRepairIndex) {
+	throw "Schema-67 restore must preserve migration-aware first role validation and explicitly validate current authority after foundation repair"
+}
+foreach ($schema67DebugProofEntry in @(
+	'protected void AppendCampaignDebugEnemyStrategicResourceAssertions(',
+	'enemy_strategic_resource.legacy_adoption',
+	'enemy_strategic_resource.replay_conflict',
+	'enemy_strategic_resource.atomicity',
+	'enemy_strategic_resource.income_catchup',
+	'enemy_strategic_resource.pool_separation',
+	'enemy_strategic_resource.aggression_war_independence',
+	'enemy_strategic_resource.faction_isolation',
+	'enemy_strategic_resource.roundtrip_quarantine'
+)) {
+	if ($schema67CoordinatorText.IndexOf($schema67DebugProofEntry) -lt 0) {
+		throw "Schema-67 Campaign Debug strategic resource proof registration is missing: $schema67DebugProofEntry"
+	}
+}
+foreach ($schema67FacadeText in @($schema67EnemyDirectorText, $schema67EconomyText)) {
+	if ($schema67FacadeText.IndexOf('SetEnemyStrategicResourceAuthority(') -lt 0) {
+		throw "Schema-67 EnemyDirector/Economy facade is missing canonical resource-authority injection"
+	}
+}
+foreach ($schema67DirectorMutationEntry in @(
+	'm_EnemyStrategicResources.DebitResources(',
+	'm_EnemyStrategicResources.RefundResources(',
+	'm_EnemyStrategicResources.ApplyResourceDelta('
+)) {
+	if ($schema67EnemyDirectorText.IndexOf($schema67DirectorMutationEntry) -lt 0) {
+		throw "Schema-67 EnemyDirector resource facade is missing canonical mutation delegation: $schema67DirectorMutationEntry"
+	}
+}
+if ($schema67EconomyText.IndexOf('m_EnemyStrategicResources.ApplyAggressionDelta(') -lt 0) {
+	throw "Schema-67 Economy aggression facade is missing canonical mutation delegation"
+}
+$schema67EconomyAggressionBlock = Get-ScriptMethodBlock $schema67EconomyText 'bool AddAggression('
+if ([string]::IsNullOrEmpty($schema67EconomyAggressionBlock) -or
+	$schema67EconomyAggressionBlock.IndexOf('m_EnemyStrategicResources.ApplyAggressionDelta(') -lt 0 -or
+	$schema67EconomyAggressionBlock -match 'amount\s*==\s*0') {
+	throw "Schema-67 Economy must send zero-effect aggression commands through canonical authority"
+}
+if ($schema67EnemyDirectorText -match 'pool\.m_i(?:AttackResources|SupportResources)\s*[-+]?=' -or
+	$schema67EconomyText -match 'pool\.m_iAggression\s*[-+]?=') {
+	throw "Schema-67 EnemyDirector/Economy facades must not retain direct strategic pool mutation"
+}
+
+foreach ($schema67ExactConsumerSource in @(
+	@('enemy commander debit', $schema67EnemyCommanderText, 'order.m_sResourceDebitMutationId = debitMutationId'),
+	@('enemy commander refund', $schema67EnemyCommanderText, 'order.m_sResourceRefundMutationId = refundMutationId'),
+	@('enemy defensive-QRF refund', $schema67EnemyQRFText, 'order.m_sResourceRefundMutationId = refundMutationId'),
+	@('enemy patrol refund', $schema67EnemyPatrolText, 'order.m_sResourceRefundMutationId = refundMutationId'),
+	@('town aggression', $schema67TownInfluenceText, '"town_influence"'),
+	@('ownership aggression', $schema67OwnershipText, '"ownership_transition"')
+)) {
+	$schema67ExactConsumerLabel = $schema67ExactConsumerSource[0]
+	$schema67ExactConsumerText = $schema67ExactConsumerSource[1]
+	$schema67ExactConsumerEntry = $schema67ExactConsumerSource[2]
+	if ($schema67ExactConsumerText.IndexOf($schema67ExactConsumerEntry) -lt 0) {
+		throw "Schema-67 cross-domain source link is missing for $schema67ExactConsumerLabel"
+	}
+}
+
+$schema67MissionOutcomeEventBlock = Get-ScriptMethodBlock $schema67StrategicText 'protected HST_StrategicEventState CreateMissionOutcomeEvent('
+$schema67MissionExpiryEventBlock = Get-ScriptMethodBlock $schema67StrategicText 'protected HST_StrategicEventState CreateMissionExpiryEvent('
+$schema67MissionEventIdBlock = Get-ScriptMethodBlock $schema67StrategicText 'protected string BuildMissionStrategicEventId('
+foreach ($schema67MissionEventBlock in @(
+	$schema67MissionOutcomeEventBlock,
+	$schema67MissionExpiryEventBlock
+)) {
+	if ([string]::IsNullOrEmpty($schema67MissionEventBlock) -or
+		$schema67MissionEventBlock.IndexOf('BuildMissionStrategicEventId(') -lt 0 -or
+		$schema67MissionEventBlock.IndexOf('BuildStrategicEventId(') -ge 0) {
+		throw "Schema-67 mission terminal events must use retry-stable identities without consuming the authority sequence"
+	}
+}
+if ([string]::IsNullOrEmpty($schema67MissionEventIdBlock) -or
+	$schema67MissionEventIdBlock.IndexOf('"strategic_" + kind + "_" + missionInstanceId') -lt 0 -or
+	$schema67MissionEventIdBlock.IndexOf('HST_StableIdService.NextId(') -ge 0 -or
+	$schema67MissionEventIdBlock.IndexOf('state.m_iNextAuthoritySequence') -ge 0) {
+	throw "Schema-67 mission event identity builder must be deterministic and authority-sequence neutral"
+}
+$schema67OwnershipCanApplyBlock = Get-ScriptMethodBlock $schema67OwnershipText 'bool CanApply('
+foreach ($schema67OwnershipPreflightEntry in @(
+	'ValidateNewRequest(state, request)',
+	'CanEnsureAdmissionCapacity(state)',
+	'm_Strategic.CanBuildStrategicEventId(state, eventKind, failure)'
+)) {
+	if ([string]::IsNullOrEmpty($schema67OwnershipCanApplyBlock) -or
+		$schema67OwnershipCanApplyBlock.IndexOf($schema67OwnershipPreflightEntry) -lt 0) {
+		throw "Schema-67 read-only ownership admission fence is missing: $schema67OwnershipPreflightEntry"
+	}
+}
+if ($schema67OwnershipCanApplyBlock -match 'm_aOwnershipTransitions\.(?:Insert|Remove)' -or
+	$schema67OwnershipCanApplyBlock -match 'm_sOwnerFactionKey\s*=') {
+	throw "Schema-67 ownership admission preflight must remain read-only"
+}
+$schema67CaptureCanApplyBlock = Get-ScriptMethodBlock $schema67ZoneCaptureText 'bool CanCaptureForResistanceDetailed('
+if ([string]::IsNullOrEmpty($schema67CaptureCanApplyBlock) -or
+	$schema67CaptureCanApplyBlock.IndexOf('BuildResistanceCaptureRequest(') -lt 0 -or
+	$schema67CaptureCanApplyBlock.IndexOf('m_OwnershipTransitions.CanApply(state, request, failure)') -lt 0) {
+	throw "Schema-67 mission capture preflight must use the same ownership request fingerprint as live capture"
+}
+$schema67MissionCapturePreflightBlock = Get-ScriptMethodBlock $schema67StrategicText 'protected bool BuildMissionCaptureMutationPreflight('
+$schema67MissionOwnershipAdmissionIndex = $schema67MissionCapturePreflightBlock.IndexOf('zoneCapture.CanCaptureForResistanceDetailed(')
+$schema67MissionDeferredMutationIndex = $schema67MissionCapturePreflightBlock.IndexOf('deferredPreflightPlan.Insert(command);')
+if ([string]::IsNullOrEmpty($schema67MissionCapturePreflightBlock) -or
+	$schema67MissionOwnershipAdmissionIndex -lt 0 -or
+	$schema67MissionDeferredMutationIndex -lt 0 -or
+	$schema67MissionOwnershipAdmissionIndex -gt $schema67MissionDeferredMutationIndex -or
+	$schema67MissionCapturePreflightBlock.IndexOf('ResolveMissionSuccessCaptureSupportReward(') -lt 0) {
+	throw "Schema-67 threshold mission capture must preflight canonical ownership admission before direct mutation commit"
+}
+$schema67MissionExpiryProofBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugMissionExpiryPenaltyCase('
+$schema67MissionCaptureProofBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected void AppendCampaignDebugMissionCaptureAdmissionAtomicityAssertion('
+foreach ($schema67MissionProofEntry in @(
+	'proofState.m_iNextAuthoritySequence == authoritySequenceBefore',
+	'mission_completion.capture_admission_atomicity',
+	'proofState.m_aEnemyStrategicMutations.Count() == mutationCountBefore',
+	'proofState.m_aOwnershipTransitions.Count() == ownershipCountBefore'
+)) {
+	if (($schema67MissionExpiryProofBlock + $schema67MissionCaptureProofBlock).IndexOf($schema67MissionProofEntry) -lt 0) {
+		throw "Schema-67 mission rejection atomicity proof is missing: $schema67MissionProofEntry"
+	}
+}
+
+$schema67LivePoolSetterBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected bool SetEnemyStrategicPoolTargets('
+if ([string]::IsNullOrEmpty($schema67LivePoolSetterBlock) -or
+	$schema67LivePoolSetterBlock.IndexOf('m_EnemyStrategicResources.ApplyMutation(') -lt 0 -or
+	$schema67LivePoolSetterBlock.IndexOf('command.m_iAttackDelta = attackDelta;') -lt 0 -or
+	$schema67LivePoolSetterBlock.IndexOf('command.m_iSupportDelta = supportDelta;') -lt 0 -or
+	$schema67LivePoolSetterBlock.IndexOf('command.m_iAggressionDelta = aggressionDelta;') -lt 0) {
+	throw "Schema-67 live admin/debug absolute pool targets must enter the canonical mutation authority"
+}
+foreach ($schema67LiveMutationMethod in @(
+	'protected int SetCampaignDebugEnemyPoolsForEscalation(',
+	'string RequestAdminPhase24SeedEarlyGame(',
+	'protected bool EnsureCampaignDebugBackgroundWarPool('
+)) {
+	$schema67LiveMutationBlock = Get-ScriptMethodBlock $schema67CoordinatorText $schema67LiveMutationMethod
+	if ([string]::IsNullOrEmpty($schema67LiveMutationBlock) -or
+		$schema67LiveMutationBlock.IndexOf('SetEnemyStrategicPoolTargets(') -lt 0 -or
+		$schema67LiveMutationBlock -match 'pool\.m_i(?:AttackResources|SupportResources|Aggression)\s*[-+]?=') {
+		throw "Schema-67 live coordinator path bypasses canonical pool mutation: $schema67LiveMutationMethod"
+	}
+}
+$schema67Phase24CadenceBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected int PrepareCampaignDebugStrategicCadenceTick('
+foreach ($schema67Phase24CadenceEntry in @(
+	'pool.m_iLastResourceBucketSecond',
+	'pool.m_iLastAggressionBucketSecond',
+	'poolObservedSecond = poolLastBucketSecond + poolAccumulatorSeconds',
+	'int unprocessedSeconds = m_State.m_iElapsedSeconds - observedSecond',
+	'int serviceElapsedSeconds = unprocessedSeconds + cadenceAdvanceSeconds'
+)) {
+	if ([string]::IsNullOrEmpty($schema67Phase24CadenceBlock) -or
+		$schema67Phase24CadenceBlock.IndexOf($schema67Phase24CadenceEntry) -lt 0) {
+		throw "Schema-67 Phase-24 probe must account for per-pool cadence checkpoints and unprocessed clock gaps: $schema67Phase24CadenceEntry"
+	}
+}
+
+$schema67AdminUIBlock = Get-ScriptMethodBlock $schema67CommandUIText 'protected string AppendAdminSections('
+$schema67CadenceUIBlock = Get-ScriptMethodBlock $schema67CommandUIText 'protected string BuildEnemyPoolCadenceText('
+if ([string]::IsNullOrEmpty($schema67AdminUIBlock) -or
+	$schema67AdminUIBlock.IndexOf('BuildEnemyPoolCadenceText(state, preset)') -lt 0 -or
+	$schema67AdminUIBlock.IndexOf('state.m_iEnemyResourceAccumulatorSeconds') -ge 0 -or
+	[string]::IsNullOrEmpty($schema67CadenceUIBlock) -or
+	$schema67CadenceUIBlock.IndexOf('pool.m_iResourceAccumulatorSeconds') -lt 0 -or
+	$schema67CadenceUIBlock.IndexOf('pool.m_iAggressionAccumulatorSeconds') -lt 0) {
+	throw "Schema-67 admin UI must report per-enemy pool cadence instead of the retired global timer"
+}
+$schema67DirectorTickBlock = Get-ScriptMethodBlock $schema67EnemyDirectorText 'bool TickResources('
+if ([string]::IsNullOrEmpty($schema67DirectorTickBlock) -or
+	$schema67DirectorTickBlock.IndexOf('m_EnemyStrategicResources.TickIncome(') -lt 0 -or
+	$schema67DirectorTickBlock.IndexOf('state.m_iEnemyResourceAccumulatorSeconds') -ge 0) {
+	throw "Schema-67 EnemyDirector.TickResources must delegate income cadence to the canonical per-enemy authority"
+}
+$schema67EconomyDecayBlock = Get-ScriptMethodBlock $schema67EconomyText 'bool TickAggressionDecay('
+if ([string]::IsNullOrEmpty($schema67EconomyDecayBlock) -or
+	$schema67EconomyDecayBlock.IndexOf('m_EnemyStrategicResources.TickAggressionDecay(') -lt 0 -or
+	$schema67EconomyDecayBlock.IndexOf('state.m_iAggressionAccumulatorSeconds') -ge 0) {
+	throw "Schema-67 Economy.TickAggressionDecay must delegate decay cadence to the canonical per-enemy authority"
+}
+
+if ($migrationsText -notmatch '(?im)^##\s+Schema\s+67\b') {
+	throw "docs/MIGRATIONS.md must document the Schema-67 enemy strategic resource migration"
+}
+$schema67MigrationSectionMatch = [regex]::Match(
+	$migrationsText,
+	'(?ims)^##\s+Schema\s+67\b(?<body>.*?)(?=^##\s+Schema\s+66\b)')
+if (!$schema67MigrationSectionMatch.Success) {
+	throw "docs/MIGRATIONS.md must keep a bounded Schema-67 migration section"
+}
+$schema67MigrationSection = $schema67MigrationSectionMatch.Groups['body'].Value
+foreach ($schema67MigrationDocEntry in @(
+	'4,096',
+	'never compacts or evicts',
+	'zero-effect',
+	'last-bucket checkpoint',
+	'operational sequence',
+	'ownership-transition backlink'
+)) {
+	if ($schema67MigrationSection.IndexOf($schema67MigrationDocEntry) -lt 0) {
+		throw "docs/MIGRATIONS.md Schema-67 contract is missing: $schema67MigrationDocEntry"
+	}
+}
+if ($schema67MigrationSection -match '(?i)operational.{0,120}(may compact|evict eligible|compact terminal)') {
+	throw "docs/MIGRATIONS.md must not claim operational Schema-67 receipt compaction"
+}
+foreach ($schema67CurrentDocPath in @(
+	'README.md',
+	'docs/ARCHITECTURE.md',
+	'docs/FEATURE_CHECKLIST.md',
+	'docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md',
+	'docs/HST_ENFUSION_ENFORCE_NOTES.md',
+	'docs/PARITY.md',
+	'docs/PHASE_PLAN.md'
+)) {
+	$schema67CurrentDocText = Get-Content -Raw $schema67CurrentDocPath
+	if ($schema67CurrentDocText.IndexOf('4,096') -lt 0 -or
+		$schema67CurrentDocText -notmatch '(?i)(never compact|un-compacted|no operational eviction)') {
+		throw "$schema67CurrentDocPath must disclose the Schema-67 per-faction hard stop and no operational compaction"
+	}
+}
+if ($featureChecklistText -match 'Provisional Schema-67 Strategic-Resource Fixtures Required' -or
+	$featureChecklistText -match 'Schema 67 must add per-role baseline') {
+	throw "docs/FEATURE_CHECKLIST.md must distinguish wired Schema-67 core fixtures from unexecuted runtime proof"
+}
+
+$partisanProjectText = Get-Content -Raw 'addon.gproj'
+$partisanEveronMissionText = Get-Content -Raw 'Missions/HST_Everon.conf'
+if ($partisanProjectText.IndexOf('ID "histasi"') -lt 0 -or
+	$partisanProjectText.IndexOf('TITLE "Partisan: Everon"') -lt 0) {
+	throw "Addon project must preserve the internal histasi resource ID and expose Partisan: Everon branding"
+}
+if ($partisanEveronMissionText.IndexOf('m_sName "Partisan: Everon"') -lt 0 -or
+	$partisanEveronMissionText.IndexOf('m_sGameMode "Partisan: Everon"') -lt 0) {
+	throw "Everon mission header must expose Partisan: Everon branding"
+}
+$partisanReadmeText = Get-Content -Raw 'README.md'
+if ($partisanReadmeText.IndexOf('# Partisan: Everon') -ne 0) {
+	throw "README title must expose Partisan: Everon branding"
+}
+$legacyBrandToken = 'h-' + 'istasi'
+$brandingScanPaths = @(
+	'README.md',
+	'LICENSE.md',
+	'addon.gproj',
+	'.github',
+	'Configs',
+	'Missions',
+	'Prefabs',
+	'Scripts',
+	'Worlds',
+	'docs',
+	'tools'
+)
+foreach ($brandingScanPath in $brandingScanPaths) {
+	$brandingFiles = @()
+	if (Test-Path -LiteralPath $brandingScanPath -PathType Leaf) {
+		$brandingFiles = @(Get-Item -LiteralPath $brandingScanPath)
+	}
+	else {
+		$brandingFiles = @(Get-ChildItem -LiteralPath $brandingScanPath -File -Recurse)
+	}
+	foreach ($brandingFile in $brandingFiles) {
+		if ($brandingFile.Name -match '(?i)third[_-]?party') {
+			continue
+		}
+		$brandingText = Get-Content -Raw -LiteralPath $brandingFile.FullName
+		$brandingText = $brandingText.Replace('$profile:' + $legacyBrandToken, '')
+		$brandingText = $brandingText.Replace($legacyBrandToken + '-live-runtime-proof', '')
+		if ($brandingText.IndexOf($legacyBrandToken, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+			throw "Legacy public branding remains outside an approved persistence or historical-build identifier: $($brandingFile.FullName)"
+		}
+	}
+}
+foreach ($schema67DocFile in Get-ChildItem -File 'docs' -Filter '*.md') {
+	if ($schema67DocFile.Name -match '(?i)third[_-]?party') {
+		continue
+	}
+	$schema67DocText = Get-Content -Raw $schema67DocFile.FullName
+	if ($schema67DocText -match '(?im)[A-Za-z]:\\|/home/|/Users/|file://') {
+		throw "$($schema67DocFile.Name) must not contain local filesystem paths"
+	}
+}
+
+Write-Host "Schema-67 per-enemy resources/aggression, zero-effect operational sequence and hard stop, cadence checkpoints, reciprocal domain links, live-write fencing, migration/quarantine, and registered source proofs OK"
+
+Write-Host "Partisan foundation validation passed"

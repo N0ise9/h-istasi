@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Reports definitive exact-rescue captive death evidence to server authority")]
+[ComponentEditorProps(category: "Partisan", description: "Reports definitive exact-rescue captive death evidence to server authority")]
 class HST_RescueCaptiveLifecycleComponentClass : ScriptComponentClass
 {
 }

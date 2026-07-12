@@ -237,7 +237,7 @@ class HST_UIRootService
 		string request = string.Format("event=%1 request=%2 owner=%3 modal=%4 blocksGameplay=%5 blocksMap=%6", eventName, HST_UIConstants.ModeName(mode), owner, modal, blocksGameplay, blocksMap);
 		string state = string.Format("current=%1 modalScreen=%2 topmost=%3 topOwner=%4 notifications=%5 revision=%6", DescribeScreen(m_CurrentScreen), DescribeScreen(m_ModalScreen), HST_UIConstants.ModeName(GetTopmostMode()), GetTopmostOwner(), m_iNotificationDepth, m_iRevision);
 		string rootSummary = "root=" + HST_UIDebug.WidgetSummary(root);
-		string message = string.Format("h-istasi ui root | %1 | %2 | %3", request, state, rootSummary);
+		string message = string.Format("Partisan ui root | %1 | %2 | %3", request, state, rootSummary);
 		if (warning)
 			Print(message, LogLevel.WARNING);
 		else

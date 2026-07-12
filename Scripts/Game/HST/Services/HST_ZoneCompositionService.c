@@ -121,7 +121,7 @@ class HST_ZoneCompositionService
 			m_aRuntimePrefabs.Insert(prefab);
 			m_aRuntimeEntities.Insert(entity);
 			m_iLastSpawnedCount++;
-			Print(string.Format("h-istasi zone composition | spawned %1 at %2 slot %3 prefab %4", zone.m_sZoneId, slot.m_vPosition, slot.m_sSlotId, prefab));
+			Print(string.Format("Partisan zone composition | spawned %1 at %2 slot %3 prefab %4", zone.m_sZoneId, slot.m_vPosition, slot.m_sSlotId, prefab));
 		}
 
 		if (m_iLastSpawnedCount <= 0)
@@ -155,7 +155,7 @@ class HST_ZoneCompositionService
 		}
 
 		if (changed)
-			Print(string.Format("h-istasi zone composition | cleaned runtime props for %1", zoneId));
+			Print(string.Format("Partisan zone composition | cleaned runtime props for %1", zoneId));
 
 		return changed;
 	}
@@ -198,7 +198,7 @@ class HST_ZoneCompositionService
 		m_sLastFailedSlotId = zoneId + "_distributed_guard";
 		m_sLastFailedPrefab = "";
 		m_sLastFailedSlotReason = "distributed guard slots active";
-		Print(string.Format("h-istasi zone composition | %1 | distributed guard slots active", zoneId));
+		Print(string.Format("Partisan zone composition | %1 | distributed guard slots active", zoneId));
 	}
 
 	string BuildCompositionReport(HST_CampaignState state)
@@ -214,7 +214,7 @@ class HST_ZoneCompositionService
 		if (lastReason.IsEmpty())
 			lastReason = "none";
 
-		return string.Format("h-istasi zone composition | active zones %1 | runtime props %2 | last spawned %3 | skipped prefabs %4 | last failed prefab %5 | last failed slot %6 | last reason %7", activeZoneCount, m_aRuntimeEntities.Count(), m_iLastSpawnedCount, m_iLastSkippedPrefabCount, lastPrefab, lastSlot, lastReason);
+		return string.Format("Partisan zone composition | active zones %1 | runtime props %2 | last spawned %3 | skipped prefabs %4 | last failed prefab %5 | last failed slot %6 | last reason %7", activeZoneCount, m_aRuntimeEntities.Count(), m_iLastSpawnedCount, m_iLastSkippedPrefabCount, lastPrefab, lastSlot, lastReason);
 	}
 
 	int GetLastSpawnedCount()
@@ -603,7 +603,7 @@ class HST_ZoneCompositionService
 		m_sLastFailedPrefab = prefab;
 		m_sLastFailedSlotReason = reason;
 		if (ShouldPrintSkipLog(zoneId, slotId, prefab, reason))
-			Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason), LogLevel.WARNING);
+			Print(string.Format("Partisan zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason), LogLevel.WARNING);
 	}
 
 	protected void RecordSkip(string zoneId, string slotId, string prefab, vector position, string reason)
@@ -614,7 +614,7 @@ class HST_ZoneCompositionService
 		m_sLastFailedPrefab = prefab;
 		m_sLastFailedSlotReason = reason;
 		if (ShouldPrintSkipLog(zoneId, slotId, prefab, reason))
-			Print(string.Format("h-istasi zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason));
+			Print(string.Format("Partisan zone composition | spawn skipped | zone %1 | slot %2 | prefab %3 | pos %4 | reason %5", zoneId, slotId, prefab, position, reason));
 	}
 
 	protected bool ShouldPrintSkipLog(string zoneId, string slotId, string prefab, string reason)

@@ -103,16 +103,64 @@ class HST_ZoneCaptureService
 
 	HST_OwnershipTransitionResult CaptureForResistanceDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int supportReward, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
 	{
-		if (!state || !preset || !m_OwnershipTransitions)
-			return BuildRejectedOwnershipResult("capture state, preset, or ownership authority is unavailable");
+		string failure;
+		HST_OwnershipTransitionRequest request = BuildResistanceCaptureRequest(
+			state,
+			preset,
+			zoneId,
+			supportReward,
+			eventSourceId,
+			failure);
+		if (!request)
+			return BuildRejectedOwnershipResult(failure);
+		return m_OwnershipTransitions.Apply(state, request);
+	}
 
+	bool CanCaptureForResistanceDetailed(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string zoneId,
+		int supportReward,
+		string eventSourceId,
+		out string failure)
+	{
+		HST_OwnershipTransitionRequest request = BuildResistanceCaptureRequest(
+			state,
+			preset,
+			zoneId,
+			supportReward,
+			eventSourceId,
+			failure);
+		if (!request)
+			return false;
+		return m_OwnershipTransitions.CanApply(state, request, failure);
+	}
+
+	protected HST_OwnershipTransitionRequest BuildResistanceCaptureRequest(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string zoneId,
+		int supportReward,
+		string eventSourceId,
+		out string failure)
+	{
+		failure = "";
+		if (!state || !preset || !m_OwnershipTransitions)
+		{
+			failure = "capture state, preset, or ownership authority is unavailable";
+			return null;
+		}
 		HST_ZoneState zone = state.FindZone(zoneId);
 		if (!zone)
-			return BuildRejectedOwnershipResult("capture zone was not found");
-
-		string oldOwner = zone.m_sOwnerFactionKey;
-		if (oldOwner == preset.m_sResistanceFactionKey)
-			return BuildRejectedOwnershipResult("capture zone is already resistance-owned");
+		{
+			failure = "capture zone was not found";
+			return null;
+		}
+		if (zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+		{
+			failure = "capture zone is already resistance-owned";
+			return null;
+		}
 
 		string cause = "military_capture";
 		string sourceType = "zone_capture";
@@ -123,9 +171,11 @@ class HST_ZoneCaptureService
 			sourceType = "mission";
 		}
 		else
-			sourceId = string.Format("presence_%1_%2", zone.m_sZoneId, Math.Max(1, zone.m_iOwnershipRevision));
-
-		HST_OwnershipTransitionRequest request = m_OwnershipTransitions.BuildRequest(
+			sourceId = string.Format(
+				"presence_%1_%2",
+				zone.m_sZoneId,
+				Math.Max(1, zone.m_iOwnershipRevision));
+		return m_OwnershipTransitions.BuildRequest(
 			state,
 			zoneId,
 			preset.m_sResistanceFactionKey,
@@ -135,7 +185,6 @@ class HST_ZoneCaptureService
 			"zone captured by resistance",
 			supportReward,
 			"ownership_capture_" + zone.m_sZoneId + "_" + sourceId);
-		return m_OwnershipTransitions.Apply(state, request);
 	}
 
 	bool AddResistanceCaptureProgress(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int amount, int supportReward = 10, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
@@ -149,7 +198,7 @@ class HST_ZoneCaptureService
 
 		int required = ResolveCaptureProgressRequired(balance);
 		zone.m_iResistanceCaptureProgress = Math.Min(required, Math.Max(0, zone.m_iResistanceCaptureProgress + amount));
-		Print(string.Format("h-istasi capture | zone %1 resistance progress %2/%3", zoneId, zone.m_iResistanceCaptureProgress, required));
+		Print(string.Format("Partisan capture | zone %1 resistance progress %2/%3", zoneId, zone.m_iResistanceCaptureProgress, required));
 		if (HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, required - 1))
 		{
 			zone.m_iResistanceCaptureProgress = Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, required - 1);
@@ -377,9 +426,9 @@ class HST_ZoneCaptureService
 		int maxRows = 20)
 	{
 		if (!state)
-			return "h-istasi capture | campaign state not ready";
+			return "Partisan capture | campaign state not ready";
 
-		string report = "h-istasi capture | strategic capture report";
+		string report = "Partisan capture | strategic capture report";
 		int emitted;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{

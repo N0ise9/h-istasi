@@ -101,7 +101,7 @@ class HST_PlayerLifecycleService
 			if (placeholder.m_iLastSeenPlayerId <= 0)
 				placeholder.m_iLastSeenPlayerId = playerId;
 			RewriteIdentityReferences(state, placeholderIdentityId, resolvedIdentityId);
-			Print(string.Format("h-istasi player lifecycle | migrated player %1 identity %2 -> %3", playerId, placeholderIdentityId, resolvedIdentityId));
+			Print(string.Format("Partisan player lifecycle | migrated player %1 identity %2 -> %3", playerId, placeholderIdentityId, resolvedIdentityId));
 			return;
 		}
 
@@ -110,7 +110,7 @@ class HST_PlayerLifecycleService
 			resolved.m_iLastSeenPlayerId = playerId;
 		RewriteIdentityReferences(state, placeholderIdentityId, resolvedIdentityId);
 		RemovePlayerState(state, placeholderIdentityId);
-		Print(string.Format("h-istasi player lifecycle | merged player %1 placeholder identity %2 into %3", playerId, placeholderIdentityId, resolvedIdentityId));
+		Print(string.Format("Partisan player lifecycle | merged player %1 placeholder identity %2 into %3", playerId, placeholderIdentityId, resolvedIdentityId));
 	}
 
 	protected void MergePlayerState(HST_PlayerState target, HST_PlayerState source)

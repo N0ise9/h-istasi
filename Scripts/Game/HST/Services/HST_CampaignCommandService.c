@@ -27,7 +27,7 @@ class HST_CampaignCommandResult
 		if (!m_sMessage.IsEmpty())
 			return m_sMessage;
 
-		return "h-istasi command | no result";
+		return "Partisan command | no result";
 	}
 }
 
@@ -63,7 +63,7 @@ class HST_CampaignCommandService
 		if (!state || !envelope || envelope.m_sRequestId.IsEmpty() || envelope.m_sCommandId.IsEmpty())
 		{
 			result.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
-			result.m_sMessage = "h-istasi command | invalid command envelope";
+			result.m_sMessage = "Partisan command | invalid command envelope";
 			return result;
 		}
 
@@ -80,7 +80,7 @@ class HST_CampaignCommandService
 		if (existing.m_sActorIdentityId != envelope.m_sActorIdentityId || existing.m_sCommandId != envelope.m_sCommandId || existing.m_sArgument != envelope.m_sArgument)
 		{
 			result.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_CONFLICT;
-			result.m_sMessage = "h-istasi command | request id conflict: " + envelope.m_sRequestId;
+			result.m_sMessage = "Partisan command | request id conflict: " + envelope.m_sRequestId;
 			AppendCommandEvent(state, envelope, "conflict", result.m_sMessage);
 			return result;
 		}
@@ -112,7 +112,7 @@ class HST_CampaignCommandService
 		if (!state || !envelope || envelope.m_sRequestId.IsEmpty())
 		{
 			result.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
-			result.m_sMessage = "h-istasi command | could not record command result";
+			result.m_sMessage = "Partisan command | could not record command result";
 			return result;
 		}
 
@@ -122,7 +122,7 @@ class HST_CampaignCommandService
 		if (completionStatus != HST_ECampaignCommandStatus.HST_COMMAND_APPLIED && completionStatus != HST_ECampaignCommandStatus.HST_COMMAND_REJECTED)
 		{
 			result.m_eStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
-			result.m_sMessage = "h-istasi command | invalid explicit completion status";
+			result.m_sMessage = "Partisan command | invalid explicit completion status";
 			return result;
 		}
 

@@ -311,14 +311,14 @@ class HST_ForceQuoteResult
 	string BuildSummary()
 	{
 		if (!m_bSuccess || !m_Quote || !m_Manifest)
-			return "h-istasi force quote | failed: " + m_sFailureReason;
+			return "Partisan force quote | failed: " + m_sFailureReason;
 		if (HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(m_Quote.m_sQuoteKind))
 		{
 			string supportKind = "QRF";
 			if (m_Quote.m_sQuoteKind == HST_ForcePlanningService.QUOTE_KIND_PLAYER_SUPPORT_SEARCH_DESTROY)
 				supportKind = "Search-and-Destroy";
 			string summary = string.Format(
-				"h-istasi %1 quote | %2 exact fighters from %3 to %4 | cost $%5 and %6 HR | ETA %7s | cooldown %8s",
+				"Partisan %1 quote | %2 exact fighters from %3 to %4 | cost $%5 and %6 HR | ETA %7s | cooldown %8s",
 				supportKind,
 				m_Manifest.m_iAcceptedMemberCount,
 				m_Quote.m_sSourceZoneId,
@@ -336,7 +336,7 @@ class HST_ForceQuoteResult
 		}
 
 		return string.Format(
-			"h-istasi garrison quote | %1 fighters at %2 | exact cost $%3 and %4 HR | all-or-nothing | quote %5 | expires at campaign second %6",
+			"Partisan garrison quote | %1 fighters at %2 | exact cost $%3 and %4 HR | all-or-nothing | quote %5 | expires at campaign second %6",
 			m_Manifest.m_iAcceptedMemberCount,
 			m_Quote.m_sTargetZoneId,
 			m_Manifest.m_iMoneyCost,
@@ -362,8 +362,8 @@ class HST_ForceConfirmationResult
 		if (!m_bSuccess || !m_Quote || !m_Manifest)
 		{
 			if (m_Quote && HST_ForcePlanningService.IsExactPlayerSupportQuoteKind(m_Quote.m_sQuoteKind))
-				return "h-istasi exact support confirmation | failed: " + m_sFailureReason;
-			return "h-istasi force confirmation | failed: " + m_sFailureReason;
+				return "Partisan exact support confirmation | failed: " + m_sFailureReason;
+			return "Partisan force confirmation | failed: " + m_sFailureReason;
 		}
 
 		string disposition = "accepted";
@@ -378,7 +378,7 @@ class HST_ForceConfirmationResult
 			if (m_SupportRequest)
 				supportRequestId = m_SupportRequest.m_sRequestId;
 			return string.Format(
-				"h-istasi %1 confirmation | %2 | %3 exact fighters queued for %4 | charged $%5 and %6 HR | manifest %7 | support %8",
+				"Partisan %1 confirmation | %2 | %3 exact fighters queued for %4 | charged $%5 and %6 HR | manifest %7 | support %8",
 				supportKind,
 				disposition,
 				m_Manifest.m_iAcceptedMemberCount,
@@ -390,7 +390,7 @@ class HST_ForceConfirmationResult
 			);
 		}
 		return string.Format(
-			"h-istasi garrison confirmation | %1 | %2 fighters registered at %3 | charged $%4 and %5 HR | manifest %6",
+			"Partisan garrison confirmation | %1 | %2 fighters registered at %3 | charged $%4 and %5 HR | manifest %6",
 			disposition,
 			m_Manifest.m_iAcceptedMemberCount,
 			m_Quote.m_sTargetZoneId,

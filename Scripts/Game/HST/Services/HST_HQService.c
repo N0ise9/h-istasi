@@ -76,7 +76,7 @@ class HST_HQService
 			return false;
 
 		SetHQPosition(state, resolvedHideoutId, hqPosition);
-		Print(string.Format("h-istasi | starter HQ bootstrapped at %1 while campaign remains in setup", resolvedHideoutId));
+		Print(string.Format("Partisan | starter HQ bootstrapped at %1 while campaign remains in setup", resolvedHideoutId));
 		return true;
 	}
 
@@ -221,7 +221,7 @@ class HST_HQService
 		vector resolvedPosition;
 		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(hqPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
-			Print(string.Format("h-istasi | requested HQ move rejected: no dry ground at %1", hqPosition), LogLevel.WARNING);
+			Print(string.Format("Partisan | requested HQ move rejected: no dry ground at %1", hqPosition), LogLevel.WARNING);
 			return false;
 		}
 
@@ -278,7 +278,7 @@ class HST_HQService
 		{
 			if (!m_bWarnedPetrosRemovalRetry)
 			{
-				Print("h-istasi | Petros runtime is no longer alive; retrying real Petros spawn", LogLevel.WARNING);
+				Print("Partisan | Petros runtime is no longer alive; retrying real Petros spawn", LogLevel.WARNING);
 				m_bWarnedPetrosRemovalRetry = true;
 			}
 			DeleteRuntimeEntity(m_PetrosEntity);
@@ -306,7 +306,7 @@ class HST_HQService
 			m_PetrosGroupEntity = null;
 			if (!m_bWarnedPetrosRemovalRetry)
 			{
-				Print("h-istasi | Petros character runtime was removed after spawn; retrying real Petros spawn", LogLevel.WARNING);
+				Print("Partisan | Petros character runtime was removed after spawn; retrying real Petros spawn", LogLevel.WARNING);
 				m_bWarnedPetrosRemovalRetry = true;
 			}
 			m_bLoggedPetrosSpawned = false;
@@ -402,7 +402,7 @@ class HST_HQService
 		else if (!IsUsableArsenalEntity(m_ArsenalEntity))
 		{
 			string failure = ResolveArsenalReadinessFailure(m_ArsenalEntity, state.m_vArsenalPosition, true);
-			Print(string.Format("h-istasi | HQ arsenal runtime entity failed readiness check: %1; deleting only arsenal for retry", failure), LogLevel.WARNING);
+			Print(string.Format("Partisan | HQ arsenal runtime entity failed readiness check: %1; deleting only arsenal for retry", failure), LogLevel.WARNING);
 			state.m_sLastHQArsenalFailure = failure;
 			state.m_sHQArsenalRuntimeStatus = "retrying after readiness failure";
 			DeleteRuntimeEntity(m_ArsenalEntity);
@@ -477,7 +477,7 @@ class HST_HQService
 		{
 			if (!m_bWarnedRuntimeSpawnIncomplete)
 			{
-				Print("h-istasi | HQ runtime object spawn incomplete; successful pieces were preserved for retry", LogLevel.WARNING);
+				Print("Partisan | HQ runtime object spawn incomplete; successful pieces were preserved for retry", LogLevel.WARNING);
 				m_bWarnedRuntimeSpawnIncomplete = true;
 			}
 		}
@@ -590,10 +590,10 @@ class HST_HQService
 	string BuildHQThreatReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi HQ threat | state not ready";
+			return "Partisan HQ threat | state not ready";
 
 		string report = string.Format(
-			"h-istasi HQ threat | knowledge %1/100 | threat %2 | last knowledge %3s | reason %4 | last scan %5s | scan reason %6 | defend active %7 | status %8 | mission %9",
+			"Partisan HQ threat | knowledge %1/100 | threat %2 | last knowledge %3s | reason %4 | last scan %5s | scan reason %6 | defend active %7 | status %8 | mission %9",
 			state.m_iHQKnowledge,
 			state.m_iHQThreatLevel,
 			state.m_iHQKnowledgeLastChangedSecond,
@@ -695,11 +695,11 @@ class HST_HQService
 	string BuildArsenalActionSurfaceReport(IEntity userEntity)
 	{
 		if (!m_ArsenalEntity)
-			return "h-istasi HQ arsenal actions | entity missing";
+			return "Partisan HQ arsenal actions | entity missing";
 
 		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(m_ArsenalEntity.FindComponent(ActionsManagerComponent));
 		if (!actionsManager)
-			return "h-istasi HQ arsenal actions | actions manager missing";
+			return "Partisan HQ arsenal actions | actions manager missing";
 
 		array<BaseUserAction> actions = {};
 		int actionCount = actionsManager.GetActionsList(actions);
@@ -743,18 +743,18 @@ class HST_HQService
 		if (firstResolved)
 			firstSummary = string.Format("#%1 %2 | %3", firstActionIndex, firstActionName, firstActionKind);
 
-		return string.Format("h-istasi HQ arsenal actions | count %1 | disabled %2 | shown %3 | selectable %4 | first selectable %5 | loadout index %6 | HQ menu index %7%8", actionCount, disabledCount, shownCount, selectableCount, firstSummary, loadoutIndex, hqMenuIndex, rows);
+		return string.Format("Partisan HQ arsenal actions | count %1 | disabled %2 | shown %3 | selectable %4 | first selectable %5 | loadout index %6 | HQ menu index %7%8", actionCount, disabledCount, shownCount, selectableCount, firstSummary, loadoutIndex, hqMenuIndex, rows);
 	}
 
 	string BuildPetrosActionSurfaceReport(IEntity userEntity)
 	{
 		if (!m_PetrosEntity)
-			return "h-istasi Petros actions | entity missing";
+			return "Partisan Petros actions | entity missing";
 
 		EnsurePetrosActionFilterApplied();
 		ActionsManagerComponent actionsManager = ActionsManagerComponent.Cast(m_PetrosEntity.FindComponent(ActionsManagerComponent));
 		if (!actionsManager)
-			return "h-istasi Petros actions | actions manager missing";
+			return "Partisan Petros actions | actions manager missing";
 
 		array<BaseUserAction> actions = {};
 		int actionCount = actionsManager.GetActionsList(actions);
@@ -801,7 +801,7 @@ class HST_HQService
 		if (lastResolved)
 			lastSummary = string.Format("#%1 %2 | %3", lastActionIndex, lastActionName, lastActionKind);
 
-		return string.Format("h-istasi Petros actions | count %1 | disabled %2 | shown %3 | selectable %4 | last selectable %5 | HQ menu index %6 | arsenal index %7 | relocate index %8%9", actionCount, disabledCount, shownCount, selectableCount, lastSummary, menuIndex, arsenalIndex, relocateIndex, rows);
+		return string.Format("Partisan Petros actions | count %1 | disabled %2 | shown %3 | selectable %4 | last selectable %5 | HQ menu index %6 | arsenal index %7 | relocate index %8%9", actionCount, disabledCount, shownCount, selectableCount, lastSummary, menuIndex, arsenalIndex, relocateIndex, rows);
 	}
 
 	protected void EnsurePetrosActionFilterApplied()
@@ -1059,7 +1059,7 @@ class HST_HQService
 
 			if (TryResolveHideout(fallbackHideout, resolvedHideoutId, resolvedPosition))
 			{
-				Print(string.Format("h-istasi | requested HQ hideout %1 was not dry/valid; using %2", requestedHideoutId, resolvedHideoutId), LogLevel.WARNING);
+				Print(string.Format("Partisan | requested HQ hideout %1 was not dry/valid; using %2", requestedHideoutId, resolvedHideoutId), LogLevel.WARNING);
 				return true;
 			}
 		}
@@ -1068,14 +1068,14 @@ class HST_HQService
 		if (HST_WorldPositionService.TryResolveSafeGroundPosition(emergencyPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
 			resolvedHideoutId = "hideout_emergency";
-			Print(string.Format("h-istasi | no dry HQ hideout surface found for %1; using emergency dry HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
+			Print(string.Format("Partisan | no dry HQ hideout surface found for %1; using emergency dry HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
 			return true;
 		}
 
 		emergencyPosition[1] = emergencyPosition[1] + HST_WorldPositionService.HQ_GROUND_OFFSET;
 		resolvedHideoutId = "hideout_emergency";
 		resolvedPosition = emergencyPosition;
-		Print(string.Format("h-istasi | no dry HQ hideout surface found for %1; using positive emergency HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
+		Print(string.Format("Partisan | no dry HQ hideout surface found for %1; using positive emergency HQ position %2", requestedHideoutId, resolvedPosition), LogLevel.WARNING);
 		return true;
 	}
 
@@ -1088,7 +1088,7 @@ class HST_HQService
 
 		if (!HST_WorldPositionService.TryResolveSafeGroundPosition(hideout.m_vPosition, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedPosition, true, 6.0))
 		{
-			Print(string.Format("h-istasi | HQ hideout %1 rejected: no dry ground at %2", hideout.m_sHideoutId, hideout.m_vPosition), LogLevel.WARNING);
+			Print(string.Format("Partisan | HQ hideout %1 rejected: no dry ground at %2", hideout.m_sHideoutId, hideout.m_vPosition), LogLevel.WARNING);
 			return false;
 		}
 
@@ -1154,7 +1154,7 @@ class HST_HQService
 		state.m_sHQSpawnPointPrefab = HQ_SPAWN_POINT_PREFAB;
 		state.m_sHQArsenalRuntimeStatus = "pending spawn";
 		state.m_sLastHQArsenalFailure = "";
-		Print(string.Format("h-istasi | HQ %1 placed at %2; Petros %3 cache %4 arsenal %5 tent %6 spawn %7", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition, state.m_vHQSpawnPointPosition));
+		Print(string.Format("Partisan | HQ %1 placed at %2; Petros %3 cache %4 arsenal %5 tent %6 spawn %7", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition, state.m_vHQSpawnPointPosition));
 		DebugLog(string.Format("HQ position set hideout=%1 hq=%2 petros=%3 cache=%4 arsenal=%5 tent=%6 spawn=%7", hideoutId, state.m_vHQPosition, state.m_vPetrosPosition, state.m_vHQCachePosition, state.m_vArsenalPosition, state.m_vHQTentPosition, state.m_vHQSpawnPointPosition));
 	}
 
@@ -1163,7 +1163,7 @@ class HST_HQService
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi HQ debug | " + message);
+		Print("Partisan HQ debug | " + message);
 	}
 
 	protected void EnsureRuntimeGroundPlacement(HST_CampaignState state)
@@ -1179,7 +1179,7 @@ class HST_HQService
 			vector fallbackHQ = HST_DefaultCatalog.GetHideoutPosition(HST_DefaultCatalog.GetDefaultHideoutId());
 			if (HST_WorldPositionService.TryResolveSafeGroundPosition(fallbackHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true, 6.0))
 			{
-				Print(string.Format("h-istasi | restored HQ position %1 was not dry; re-seating HQ at default hideout %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
+				Print(string.Format("Partisan | restored HQ position %1 was not dry; re-seating HQ at default hideout %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
 				state.m_vHQPosition = resolvedHQ;
 			}
 			else
@@ -1187,13 +1187,13 @@ class HST_HQService
 				vector emergencyHQ = HST_DefaultCatalog.GetEmergencySpawnPosition();
 				if (HST_WorldPositionService.TryResolveSafeGroundPosition(emergencyHQ, HST_WorldPositionService.HQ_GROUND_OFFSET, resolvedHQ, true, 6.0))
 				{
-					Print(string.Format("h-istasi | restored HQ position %1 and default hideout were not dry; re-seating HQ at emergency position %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
+					Print(string.Format("Partisan | restored HQ position %1 and default hideout were not dry; re-seating HQ at emergency position %2", state.m_vHQPosition, resolvedHQ), LogLevel.WARNING);
 					state.m_vHQPosition = resolvedHQ;
 				}
 				else
 				{
 					emergencyHQ[1] = emergencyHQ[1] + HST_WorldPositionService.HQ_GROUND_OFFSET;
-					Print(string.Format("h-istasi | restored HQ position %1 and default hideout were not dry; using positive emergency HQ position %2", state.m_vHQPosition, emergencyHQ), LogLevel.WARNING);
+					Print(string.Format("Partisan | restored HQ position %1 and default hideout were not dry; using positive emergency HQ position %2", state.m_vHQPosition, emergencyHQ), LogLevel.WARNING);
 					state.m_vHQPosition = emergencyHQ;
 				}
 			}
@@ -1265,7 +1265,7 @@ class HST_HQService
 		{
 			if (!m_bWarnedPetrosResourceFailure)
 			{
-				Print(string.Format("h-istasi | dedicated Petros prefab %1 failed to spawn; using base FIA fallback", petrosPrefab), LogLevel.WARNING);
+				Print(string.Format("Partisan | dedicated Petros prefab %1 failed to spawn; using base FIA fallback", petrosPrefab), LogLevel.WARNING);
 				m_bWarnedPetrosResourceFailure = true;
 			}
 
@@ -1392,7 +1392,7 @@ class HST_HQService
 			return;
 
 		m_bWarnedPetrosAIGroupFallback = true;
-		Print(string.Format("h-istasi | Petros spawned via %1 without durable AIGroup attachment; preserving living HQ character and reporting AIGroup as diagnostic WARN", source), LogLevel.WARNING);
+		Print(string.Format("Partisan | Petros spawned via %1 without durable AIGroup attachment; preserving living HQ character and reporting AIGroup as diagnostic WARN", source), LogLevel.WARNING);
 	}
 
 	protected void PreparePetrosEntity(IEntity petros, vector position)
@@ -1458,7 +1458,7 @@ class HST_HQService
 
 		if (!AttachPetrosToAIGroup(petros, group, source))
 		{
-			Print(string.Format("h-istasi | Petros AI group attach unverified via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
+			Print(string.Format("Partisan | Petros AI group attach unverified via %1 | petros %2 | group %3", source, petros, group), LogLevel.WARNING);
 			return false;
 		}
 
@@ -1513,7 +1513,7 @@ class HST_HQService
 		Resource loaded = Resource.Load(resourceName);
 		if (!loaded || !loaded.IsValid())
 		{
-			Print(string.Format("h-istasi | Petros AI group spawn failed via %1: missing group prefab %2", source, PETROS_GROUP_PREFAB), LogLevel.WARNING);
+			Print(string.Format("Partisan | Petros AI group spawn failed via %1: missing group prefab %2", source, PETROS_GROUP_PREFAB), LogLevel.WARNING);
 			return null;
 		}
 
@@ -1529,7 +1529,7 @@ class HST_HQService
 		if (!group)
 		{
 			DeleteRuntimeEntity(groupEntity);
-			Print(string.Format("h-istasi | Petros AI group spawn failed via %1: prefab %2 did not spawn an AIGroup", source, PETROS_GROUP_PREFAB), LogLevel.WARNING);
+			Print(string.Format("Partisan | Petros AI group spawn failed via %1: prefab %2 did not spawn an AIGroup", source, PETROS_GROUP_PREFAB), LogLevel.WARNING);
 			return null;
 		}
 
@@ -1592,19 +1592,19 @@ class HST_HQService
 				state.m_sLastHQArsenalFailure = "";
 			}
 
-			Print(string.Format("h-istasi | HQ arsenal visual/action surface ready at %1 using %2; item authority remains h-istasi services", arsenalPosition, arsenalPrefab));
+			Print(string.Format("Partisan | HQ arsenal visual/action surface ready at %1 using %2; item authority remains Partisan services", arsenalPosition, arsenalPrefab));
 			return arsenal;
 		}
 
 		if (arsenal)
 		{
-			Print(string.Format("h-istasi | HQ arsenal prefab %1 spawned at %2 but failed readiness check: %3", arsenalPrefab, arsenalPosition, failure), LogLevel.WARNING);
+			Print(string.Format("Partisan | HQ arsenal prefab %1 spawned at %2 but failed readiness check: %3", arsenalPrefab, arsenalPosition, failure), LogLevel.WARNING);
 			DeleteRuntimeEntity(arsenal);
 		}
 
 		if (!m_bWarnedArsenalResourceFailure)
 		{
-			Print(string.Format("h-istasi | HQ arsenal prefab %1 failed to spawn ready at %2 | %3", arsenalPrefab, arsenalPosition, failure), LogLevel.WARNING);
+			Print(string.Format("Partisan | HQ arsenal prefab %1 failed to spawn ready at %2 | %3", arsenalPrefab, arsenalPosition, failure), LogLevel.WARNING);
 			m_bWarnedArsenalResourceFailure = true;
 		}
 
@@ -2140,7 +2140,7 @@ class HST_HQService
 
 	protected void LogRuntimeObjectSpawnFailure(string label, string prefab, vector position)
 	{
-		Print(string.Format("h-istasi | HQ %1 spawn failed at %2 using %3", label, position, prefab), LogLevel.WARNING);
+		Print(string.Format("Partisan | HQ %1 spawn failed at %2 using %3", label, position, prefab), LogLevel.WARNING);
 	}
 
 	protected bool LogRuntimeObjectSpawnSuccess(string label, string prefab, vector position, bool alreadyLogged)
@@ -2148,7 +2148,7 @@ class HST_HQService
 		if (alreadyLogged)
 			return true;
 
-		Print(string.Format("h-istasi | HQ %1 spawned at %2 using %3", label, position, prefab));
+		Print(string.Format("Partisan | HQ %1 spawned at %2 using %3", label, position, prefab));
 		return true;
 	}
 

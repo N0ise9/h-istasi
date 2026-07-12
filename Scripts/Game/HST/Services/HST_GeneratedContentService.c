@@ -21,7 +21,7 @@ class HST_GeneratedContentService
 		if (hasGeneratedContent && !ShouldRegenerateGeneratedContent(state))
 			return false;
 		if (hasGeneratedContent)
-			Print("h-istasi | regenerating generated content after validation drift or stale route/site data");
+			Print("Partisan | regenerating generated content after validation drift or stale route/site data");
 
 		state.m_aGeneratedSites.Clear();
 		state.m_aGeneratedRoutes.Clear();
@@ -48,7 +48,7 @@ class HST_GeneratedContentService
 			state.m_aGeneratedRoutes.Insert(CreateRoute(state, zone, primary));
 		}
 
-		Print(string.Format("h-istasi | generated %1 alpha site(s) and %2 route(s)", state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count()));
+		Print(string.Format("Partisan | generated %1 alpha site(s) and %2 route(s)", state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count()));
 		return true;
 	}
 
@@ -174,7 +174,7 @@ class HST_GeneratedContentService
 	string BuildContentReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi content | state not ready";
+			return "Partisan content | state not ready";
 
 		int validSites;
 		int roadblocks;
@@ -221,7 +221,7 @@ class HST_GeneratedContentService
 		if (minWaypointCount == 999999)
 			minWaypointCount = 0;
 
-		string summary = string.Format("h-istasi generated content | sites %1/%2 valid | routes %3", validSites, state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count());
+		string summary = string.Format("Partisan generated content | sites %1/%2 valid | routes %3", validSites, state.m_aGeneratedSites.Count(), state.m_aGeneratedRoutes.Count());
 		summary = summary + string.Format(" | roadblocks %1 | crashsites %2", roadblocks, crashsites);
 		summary = summary + string.Format(" | vehicle-safe routes %1 | invalid routes %2 | min route waypoints %3", vehicleSafeRoutes, invalidRoutes, minWaypointCount);
 		return summary + siteDetails + routeDetails;

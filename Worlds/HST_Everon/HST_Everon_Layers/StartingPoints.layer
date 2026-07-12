@@ -3,8 +3,8 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
   components {
    SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
     m_bCanBeHQ 1
-    m_sBaseName "h-istasi North Forest Hideout"
-    m_sBaseNameUpper "H-ISTASI NORTH FOREST HIDEOUT"
+    m_sBaseName "Partisan North Forest Hideout"
+    m_sBaseNameUpper "PARTISAN NORTH FOREST HIDEOUT"
    }
    SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
     Enabled 0
@@ -34,8 +34,8 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
   components {
    SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
     m_bCanBeHQ 1
-    m_sBaseName "h-istasi Central Hills Hideout"
-    m_sBaseNameUpper "H-ISTASI CENTRAL HILLS HIDEOUT"
+    m_sBaseName "Partisan Central Hills Hideout"
+    m_sBaseNameUpper "PARTISAN CENTRAL HILLS HIDEOUT"
    }
    SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
     Enabled 0
@@ -65,8 +65,8 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
   components {
    SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
     m_bCanBeHQ 1
-    m_sBaseName "h-istasi South Woods Hideout"
-    m_sBaseNameUpper "H-ISTASI SOUTH WOODS HIDEOUT"
+    m_sBaseName "Partisan South Woods Hideout"
+    m_sBaseNameUpper "PARTISAN SOUTH WOODS HIDEOUT"
    }
    SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
     Enabled 0
@@ -126,7 +126,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
           m_fSpawnRadius 20
           m_sFaction "FIA"
           m_Info SCR_UIInfo "{661CCDAC181BA9ED}" {
-           Name "h-istasi North Forest Hideout"
+           Name "Partisan North Forest Hideout"
           }
          }
         }
@@ -169,7 +169,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
           m_fSpawnRadius 20
           m_sFaction "FIA"
           m_Info SCR_UIInfo "{661CCDAC181BA9ED}" {
-           Name "h-istasi Central Hills Hideout"
+           Name "Partisan Central Hills Hideout"
           }
          }
         }
@@ -213,7 +213,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
           m_fSpawnRadius 20
           m_sFaction "FIA"
           m_Info SCR_UIInfo "{661CCDAC181BA9ED}" {
-           Name "h-istasi South Woods Hideout"
+           Name "Partisan South Woods Hideout"
           }
          }
         }

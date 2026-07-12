@@ -184,7 +184,7 @@ class HST_PlayerMapMarkerService
 				playerEntryReady = true;
 		}
 
-		string report = string.Format("h-istasi player marker report | enabled %1 | desired %2 | tracked %3 | live %4 | refresh %5", enabledText, m_mDesiredPlayerMarkers.Count(), trackedDynamic, liveDynamic, refreshText);
+		string report = string.Format("Partisan player marker report | enabled %1 | desired %2 | tracked %3 | live %4 | refresh %5", enabledText, m_mDesiredPlayerMarkers.Count(), trackedDynamic, liveDynamic, refreshText);
 		report = report + string.Format("\nnative marker manager | ready %1 | hst player entry %2 | native dynamic %3", managerReady, playerEntryReady, nativeDynamic);
 		report = report + string.Format("\nlast reconcile | created %1 | updated %2 | removed %3 | unchanged %4 | failed %5", created, updated, removed, unchanged, failed);
 
@@ -278,7 +278,7 @@ class HST_PlayerMapMarkerService
 			return;
 
 		m_sLastFailureReportSignature = reportSignature;
-		Print(string.Format("h-istasi player map marker | native reconcile failed | desired=%1 failed=%2 trackedDynamic=%3 | verify SCR_MapMarkerManagerComponent uses HST_PlayerMapMarkerConfig.conf and SCR_EMapMarkerType.HST_PLAYER has an active HST_PlayerMapMarkerEntry", m_mDesiredPlayerMarkers.Count(), result.m_iFailed, m_Reconciler.GetTrackedDynamicHandleCount()), LogLevel.WARNING);
+		Print(string.Format("Partisan player map marker | native reconcile failed | desired=%1 failed=%2 trackedDynamic=%3 | verify SCR_MapMarkerManagerComponent uses HST_PlayerMapMarkerConfig.conf and SCR_EMapMarkerType.HST_PLAYER has an active HST_PlayerMapMarkerEntry", m_mDesiredPlayerMarkers.Count(), result.m_iFailed, m_Reconciler.GetTrackedDynamicHandleCount()), LogLevel.WARNING);
 	}
 
 	protected bool EnsurePlayerMarkerConfig()
@@ -304,7 +304,7 @@ class HST_PlayerMapMarkerService
 			return;
 
 		m_sLastFailureReportSignature = reportSignature;
-		Print("h-istasi player map marker | player tracking markers disabled for this session because the marker config entry was not available", LogLevel.WARNING);
+		Print("Partisan player map marker | player tracking markers disabled for this session because the marker config entry was not available", LogLevel.WARNING);
 	}
 
 	protected HST_MapMarkerRecord BuildPlayerRecord(int playerId, IEntity entity, string playerName, string factionKey, HST_CampaignState state)
@@ -422,6 +422,6 @@ class HST_PlayerMapMarkerService
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi player map marker debug | " + message);
+		Print("Partisan player map marker debug | " + message);
 	}
 }

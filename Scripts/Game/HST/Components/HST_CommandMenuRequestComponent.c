@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Player-owned h-istasi command menu request/RPC bridge")]
+[ComponentEditorProps(category: "Partisan", description: "Player-owned Partisan command menu request/RPC bridge")]
 class HST_CommandMenuRequestComponentClass : ScriptComponentClass
 {
 }
@@ -407,7 +407,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi request bridge debug | " + message);
+		Print("Partisan request bridge debug | " + message);
 	}
 
 	static void BroadcastMissionEvent(string payload, string summary)
@@ -417,7 +417,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		if (!s_ServerBroadcaster)
 		{
-			Print("h-istasi mission event | no server broadcaster ready", LogLevel.WARNING);
+			Print("Partisan mission event | no server broadcaster ready", LogLevel.WARNING);
 			return;
 		}
 
@@ -431,7 +431,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 
 		if (!s_ServerBroadcaster)
 		{
-			Print("h-istasi notification | no server broadcaster ready", LogLevel.WARNING);
+			Print("Partisan notification | no server broadcaster ready", LogLevel.WARNING);
 			return;
 		}
 
@@ -450,14 +450,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		PlayerController controller = playerManager.GetPlayerController(playerId);
 		if (!controller)
 		{
-			Print(string.Format("h-istasi notification | owner RPC unavailable: player controller missing player=%1", playerId), LogLevel.WARNING);
+			Print(string.Format("Partisan notification | owner RPC unavailable: player controller missing player=%1", playerId), LogLevel.WARNING);
 			return false;
 		}
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 		if (!request)
 		{
-			Print(string.Format("h-istasi notification | owner RPC unavailable: request bridge missing player=%1", playerId), LogLevel.WARNING);
+			Print(string.Format("Partisan notification | owner RPC unavailable: request bridge missing player=%1", playerId), LogLevel.WARNING);
 			return false;
 		}
 
@@ -560,14 +560,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		PlayerController controller = playerManager.GetPlayerController(playerId);
 		if (!controller)
 		{
-			Print(string.Format("h-istasi Petros relocation | owner state RPC unavailable: player controller missing player=%1 active=%2", playerId, active), LogLevel.WARNING);
+			Print(string.Format("Partisan Petros relocation | owner state RPC unavailable: player controller missing player=%1 active=%2", playerId, active), LogLevel.WARNING);
 			return false;
 		}
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 		if (!request)
 		{
-			Print(string.Format("h-istasi Petros relocation | owner state RPC unavailable: request bridge missing player=%1 active=%2", playerId, active), LogLevel.WARNING);
+			Print(string.Format("Partisan Petros relocation | owner state RPC unavailable: request bridge missing player=%1 active=%2", playerId, active), LogLevel.WARNING);
 			return false;
 		}
 
@@ -693,14 +693,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		PlayerController controller = playerManager.GetPlayerController(playerId);
 		if (!controller)
 		{
-			Print(string.Format("h-istasi campaign debug teleport | owner RPC unavailable: player controller missing player=%1 reason=%2 target=%3", playerId, reason, position), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug teleport | owner RPC unavailable: player controller missing player=%1 reason=%2 target=%3", playerId, reason, position), LogLevel.WARNING);
 			return false;
 		}
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 		if (!request)
 		{
-			Print(string.Format("h-istasi campaign debug teleport | owner RPC unavailable: request bridge missing player=%1 reason=%2 target=%3", playerId, reason, position), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug teleport | owner RPC unavailable: request bridge missing player=%1 reason=%2 target=%3", playerId, reason, position), LogLevel.WARNING);
 			return false;
 		}
 
@@ -720,14 +720,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		PlayerController controller = playerManager.GetPlayerController(playerId);
 		if (!controller)
 		{
-			Print(string.Format("h-istasi campaign debug command menu | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug command menu | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
 			return false;
 		}
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 		if (!request)
 		{
-			Print(string.Format("h-istasi campaign debug command menu | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug command menu | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
 			return false;
 		}
 
@@ -747,14 +747,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		PlayerController controller = playerManager.GetPlayerController(playerId);
 		if (!controller)
 		{
-			Print(string.Format("h-istasi campaign debug command menu map gate | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug command menu map gate | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
 			return false;
 		}
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 		if (!request)
 		{
-			Print(string.Format("h-istasi campaign debug command menu map gate | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug command menu map gate | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
 			return false;
 		}
 
@@ -774,14 +774,14 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		PlayerController controller = playerManager.GetPlayerController(playerId);
 		if (!controller)
 		{
-			Print(string.Format("h-istasi campaign debug map | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug map | owner RPC unavailable: player controller missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
 			return false;
 		}
 
 		HST_CommandMenuRequestComponent request = HST_CommandMenuRequestComponent.Cast(controller.FindComponent(HST_CommandMenuRequestComponent));
 		if (!request)
 		{
-			Print(string.Format("h-istasi campaign debug map | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
+			Print(string.Format("Partisan campaign debug map | owner RPC unavailable: request bridge missing player=%1 request=%2", playerId, requestId), LogLevel.WARNING);
 			return false;
 		}
 
@@ -1199,7 +1199,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (missionClient)
 			missionClient.OnServerMissionEvent(payload, summary);
 		else
-			Print("h-istasi mission event | " + summary);
+			Print("Partisan mission event | " + summary);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1209,7 +1209,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (missionClient)
 			missionClient.OnServerMissionEvent(payload, summary);
 		else
-			Print("h-istasi mission event | " + summary);
+			Print("Partisan mission event | " + summary);
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Broadcast)]
@@ -1298,7 +1298,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		if (playerEntity)
 			actual = string.Format("pos %1", playerEntity.GetOrigin());
 
-		Print(string.Format("h-istasi campaign debug teleport owner | reason %1 | player %2 | target %3 | native %4 | forced %5 | confirmed %6 | actual %7", reason, localPlayerId, position, nativeTeleported, forcedEntityOrigin, confirmed, actual));
+		Print(string.Format("Partisan campaign debug teleport owner | reason %1 | player %2 | target %3 | native %4 | forced %5 | confirmed %6 | actual %7", reason, localPlayerId, position, nativeTeleported, forcedEntityOrigin, confirmed, actual));
 	}
 
 	[RplRpc(RplChannel.Reliable, RplRcver.Owner)]
@@ -1338,7 +1338,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
 		{
-			DeliverSnapshot("HST_MENU|offline|0\nSTATUS|h-istasi menu | coordinator not ready\nEND", lastResult);
+			DeliverSnapshot("HST_MENU|offline|0\nSTATUS|Partisan menu | coordinator not ready\nEND", lastResult);
 			return;
 		}
 
@@ -1554,8 +1554,8 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 			return;
 		}
 
-		Print("h-istasi notification | local fallback | " + summary);
-		commandMenu.ShowExternalNotification("h-istasi", summary, 5.0);
+		Print("Partisan notification | local fallback | " + summary);
+		commandMenu.ShowExternalNotification("Partisan", summary, 5.0);
 	}
 
 	protected bool IsDuplicateLocalNotification(string key)
@@ -1578,7 +1578,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
 		{
-			DeliverSnapshot("HST_MENU|offline|0\nSTATUS|h-istasi command | coordinator not ready\nEND", "coordinator not ready");
+			DeliverSnapshot("HST_MENU|offline|0\nSTATUS|Partisan command | coordinator not ready\nEND", "coordinator not ready");
 			return;
 		}
 
@@ -1828,7 +1828,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 	{
 		string report = BuildCampaignDebugMapProofReport(requestId, passIndex);
 		ReportCampaignDebugMapProof(requestId, report);
-		Print("h-istasi map | campaign debug rendered proof | " + report);
+		Print("Partisan map | campaign debug rendered proof | " + report);
 		if (passIndex > 0 && m_bCampaignDebugMapProofOpenedMap)
 		{
 			MenuManager menuManager = GetGame().GetMenuManager();
@@ -2015,7 +2015,7 @@ class HST_CommandMenuRequestComponent : ScriptComponent
 		m_fRuntimeFeatureSettingsRetryAccumulator = 0;
 		SCR_StaminaBlurEffect.SetHistasiInfiniteStaminaVisualSuppressed(enabled);
 		if (changed)
-			Print(string.Format("h-istasi stamina | owner setting sync | infinite stamina %1 | sprint vignette suppressed %2 | source %3 | player %4", enabled, enabled, source, ResolveLocalPlayerId()));
+			Print(string.Format("Partisan stamina | owner setting sync | infinite stamina %1 | sprint vignette suppressed %2 | source %3 | player %4", enabled, enabled, source, ResolveLocalPlayerId()));
 	}
 
 	protected void TickInfiniteStamina(float timeSlice)

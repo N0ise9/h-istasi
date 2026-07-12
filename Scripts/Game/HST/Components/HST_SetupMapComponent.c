@@ -40,7 +40,7 @@ class HST_SetupMapWidgetHandler : ScriptedWidgetEventHandler
 	}
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Client setup tactical map for initial HQ placement")]
+[ComponentEditorProps(category: "Partisan", description: "Client setup tactical map for initial HQ placement")]
 class HST_SetupMapComponentClass : ScriptComponentClass
 {
 }
@@ -1687,7 +1687,7 @@ class HST_SetupMapComponent : ScriptComponent
 		if (!IsDebugLoggingEnabled())
 			return;
 
-		Print("h-istasi setup ui debug | " + message);
+		Print("Partisan setup ui debug | " + message);
 	}
 
 	protected void DebugHeartbeat(float timeSlice)

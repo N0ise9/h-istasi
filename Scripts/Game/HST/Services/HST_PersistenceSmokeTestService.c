@@ -33,7 +33,7 @@ class HST_PersistenceSmokeTestService
 	string SeedTestState(HST_CampaignState state, HST_CampaignPreset preset, string adminIdentityId)
 	{
 		if (!state)
-			return "h-istasi persistence smoke | FAIL | state not ready";
+			return "Partisan persistence smoke | FAIL | state not ready";
 
 		string before = BuildSummary(state);
 		m_iSeedChangedCount = 0;
@@ -58,13 +58,13 @@ class HST_PersistenceSmokeTestService
 		StoreExpectedSummary(state, "pending");
 		string after = BuildSummary(state);
 		StoreExpectedSummary(state, after);
-		return string.Format("h-istasi persistence smoke | seeded %1 record(s)\nbefore %2\nafter  %3\n%4", m_iSeedChangedCount, before, after, BuildReport(state));
+		return string.Format("Partisan persistence smoke | seeded %1 record(s)\nbefore %2\nafter  %3\n%4", m_iSeedChangedCount, before, after, BuildReport(state));
 	}
 
 	string RunSmokeTest(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi persistence smoke | FAIL | state not ready";
+			return "Partisan persistence smoke | FAIL | state not ready";
 
 		return BuildReport(state);
 	}
@@ -72,7 +72,7 @@ class HST_PersistenceSmokeTestService
 	string BuildReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi persistence smoke | FAIL | state not ready";
+			return "Partisan persistence smoke | FAIL | state not ready";
 
 		string current = BuildSummary(state);
 		string expected = GetExpectedSummary(state);
@@ -85,7 +85,7 @@ class HST_PersistenceSmokeTestService
 		if (expectedLine.IsEmpty())
 			expectedLine = "missing baseline; run admin_seed_persistence_test_state before restart";
 
-		return string.Format("h-istasi persistence smoke | %1\nexpected %2\ncurrent  %3\nmissing/zero %4", status, expectedLine, current, missing);
+		return string.Format("Partisan persistence smoke | %1\nexpected %2\ncurrent  %3\nmissing/zero %4", status, expectedLine, current, missing);
 	}
 
 	string BuildSummary(HST_CampaignState state)

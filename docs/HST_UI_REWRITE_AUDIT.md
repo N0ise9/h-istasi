@@ -1,4 +1,4 @@
-# h-istasi UI Rewrite Audit
+# Partisan UI Rewrite Audit
 
 Original audit: 2026-06-25
 

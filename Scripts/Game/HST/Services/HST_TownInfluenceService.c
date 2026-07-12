@@ -53,7 +53,7 @@ class HST_TownInfluenceResult
 		if (m_Event)
 			eventId = m_Event.m_sEventId;
 		return string.Format(
-			"h-istasi town influence | accepted %1 | replay %2 | changed %3 | ownership pending %4 | town %5 | event %6 | revision %7 | %8",
+			"Partisan town influence | accepted %1 | replay %2 | changed %3 | ownership pending %4 | town %5 | event %6 | revision %7 | %8",
 			m_bAccepted,
 			m_bAlreadyApplied,
 			m_bChanged,
@@ -786,7 +786,7 @@ class HST_TownInfluenceService
 	string BuildTownInfluenceReport(HST_CampaignState state, int maxRows = 20)
 	{
 		if (!state)
-			return "h-istasi town influence | state not ready";
+			return "Partisan town influence | state not ready";
 		int boundedRows = Math.Max(0, Math.Min(40, maxRows));
 		int validCount;
 		int fiaTotal;
@@ -845,7 +845,7 @@ class HST_TownInfluenceService
 			averageInvader = invaderTotal / validCount;
 		}
 		return string.Format(
-			"h-istasi town influence | records %1 | contacted %2 | average FIA/occupier/invader %3/%4/%5 bp | population remaining/destroyed %6/%7 | formula source %8",
+			"Partisan town influence | records %1 | contacted %2 | average FIA/occupier/invader %3/%4/%5 bp | population remaining/destroyed %6/%7 | formula source %8",
 			validCount,
 			contactedCount,
 			averageFIA,
@@ -931,6 +931,35 @@ class HST_TownInfluenceService
 			return Reject(
 				result,
 				"town influence aggression strategic receipt could not be admitted");
+		}
+		if (eventState.m_iAggressionDelta != 0
+			&& !m_Economy.AddAggression(
+				state,
+				eventState.m_sAggressionFactionKey,
+				eventState.m_iAggressionDelta,
+				"enemy_aggression_town_" + eventState.m_sEventId,
+				"town_influence",
+				eventState.m_sEventId,
+				"",
+				"",
+				"",
+				eventState.m_sZoneId))
+		{
+			if (m_Strategic && strategicEvent && strategicEvent.m_Event)
+				m_Strategic.DiscardStrategicEvent(state, strategicEvent);
+			state.m_aTownInfluenceEvents.Remove(
+				state.m_aTownInfluenceEvents.Count() - 1);
+			result.m_Event = null;
+			return Reject(
+				result,
+				"town influence aggression resource mutation could not be admitted");
+		}
+		if (eventState.m_iAggressionDelta != 0)
+		{
+			HST_FactionPoolState aggressionPool
+				= state.FindFactionPool(eventState.m_sAggressionFactionKey);
+			if (aggressionPool)
+				eventState.m_iAggressionAfter = aggressionPool.m_iAggression;
 		}
 		ApplyEvent(state, zone, record, eventState, command, preset);
 		result.m_bAccepted = true;
@@ -1136,19 +1165,6 @@ class HST_TownInfluenceService
 
 		if (command.m_bMarkContacted || command.m_bMarkResistanceActivity)
 			ApplyContactEvidence(record, state, eventState, command.m_bMarkResistanceActivity);
-		if (m_Economy
-			&& !eventState.m_sAggressionFactionKey.IsEmpty()
-			&& eventState.m_iAggressionDelta != 0)
-		{
-			m_Economy.AddAggression(
-				state,
-				eventState.m_sAggressionFactionKey,
-				eventState.m_iAggressionDelta);
-			HST_FactionPoolState aggressionPool
-				= state.FindFactionPool(eventState.m_sAggressionFactionKey);
-			if (aggressionPool)
-				eventState.m_iAggressionAfter = aggressionPool.m_iAggression;
-		}
 		ApplyEventKindAggregates(
 			record,
 			eventState,

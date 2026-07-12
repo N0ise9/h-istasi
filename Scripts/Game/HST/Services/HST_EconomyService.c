@@ -1,10 +1,32 @@
 class HST_EconomyService
 {
 	protected HST_TownInfluenceService m_TownInfluence;
+	protected ref HST_CampaignPreset m_Preset;
+	protected ref HST_EnemyStrategicResourceService m_EnemyStrategicResources;
+
+	void HST_EconomyService()
+	{
+		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
+		m_EnemyStrategicResources = new HST_EnemyStrategicResourceService();
+	}
 
 	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
 	{
 		m_TownInfluence = townInfluence;
+		if (m_EnemyStrategicResources)
+			m_EnemyStrategicResources.SetTownInfluenceService(townInfluence);
+	}
+
+	void SetCampaignPreset(HST_CampaignPreset preset)
+	{
+		m_Preset = preset;
+	}
+
+	void SetEnemyStrategicResourceAuthority(HST_EnemyStrategicResourceService authority)
+	{
+		m_EnemyStrategicResources = authority;
+		if (m_EnemyStrategicResources && m_TownInfluence)
+			m_EnemyStrategicResources.SetTownInfluenceService(m_TownInfluence);
 	}
 
 	void AddFactionMoney(HST_CampaignState state, int amount)
@@ -35,54 +57,53 @@ class HST_EconomyService
 		return true;
 	}
 
-	void AddAggression(HST_CampaignState state, string factionKey, int amount)
+	bool AddAggression(
+		HST_CampaignState state,
+		string factionKey,
+		int amount,
+		string mutationId = "",
+		string kind = "aggression_adjustment",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "",
+		string zoneId = "")
 	{
-		if (!state || factionKey.IsEmpty() || amount == 0)
-			return;
+		if (!state || factionKey.IsEmpty())
+			return false;
+		if (!m_EnemyStrategicResources || !m_Preset)
+			return false;
+		if (mutationId.IsEmpty())
+			mutationId = HST_StableIdService.NextId(state, "enemy_aggression");
+		if (mutationId.IsEmpty())
+			return false;
 
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
-		if (!pool)
-			return;
-
-		if (amount > 0 && pool.m_iAggression > int.MAX - amount)
-			pool.m_iAggression = int.MAX;
-		else
-			pool.m_iAggression = Math.Max(0, pool.m_iAggression + amount);
+		HST_EnemyStrategicMutationResult result
+			= m_EnemyStrategicResources.ApplyAggressionDelta(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			amount,
+			kind,
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			zoneId);
+		return result && result.m_bAccepted;
 	}
 
 	bool TickAggressionDecay(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
-		if (!state || !preset || !balance || elapsedSeconds <= 0)
+		if (!m_EnemyStrategicResources)
 			return false;
 
-		int interval = Math.Max(60, balance.m_iAggressionDecayIntervalSeconds);
-		int decayAmount = Math.Max(0, balance.m_iAggressionDecayAmount);
-		if (decayAmount <= 0)
-			return false;
-
-		state.m_iAggressionAccumulatorSeconds += elapsedSeconds;
-		if (state.m_iAggressionAccumulatorSeconds < interval)
-			return false;
-
-		int decaySteps = state.m_iAggressionAccumulatorSeconds / interval;
-		state.m_iAggressionAccumulatorSeconds = state.m_iAggressionAccumulatorSeconds % interval;
-		int totalDecay = decaySteps * decayAmount;
-
-		bool changed;
-		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
-		{
-			if (!pool || !HST_FactionRelationService.IsEnemyFaction(preset, pool.m_sFactionKey) || pool.m_iAggression <= 0)
-				continue;
-
-			int nextAggression = Math.Max(0, pool.m_iAggression - totalDecay);
-			if (nextAggression == pool.m_iAggression)
-				continue;
-
-			pool.m_iAggression = nextAggression;
-			changed = true;
-		}
-
-		return changed;
+		return m_EnemyStrategicResources.TickAggressionDecay(
+			state,
+			preset,
+			balance,
+			elapsedSeconds);
 	}
 
 	void RecalculateWarLevel(HST_CampaignState state, HST_BalanceConfig balance, string resistanceFactionKey = "FIA")
@@ -183,13 +204,13 @@ class HST_EconomyService
 	string BuildPacingReport(HST_CampaignState state, HST_BalanceConfig balance, HST_CampaignPreset preset)
 	{
 		if (!state || !balance || !preset)
-			return "h-istasi pacing | state/balance/preset not ready";
+			return "Partisan pacing | state/balance/preset not ready";
 
 		int score = CalculateResistanceStrategicScore(state, preset.m_sResistanceFactionKey);
 		int totalScore = CalculateTotalStrategicScore(state);
 		int controlPercent = ResolveControlPercent(score, totalScore);
 		string report = string.Format(
-			"h-istasi pacing | phase %1 | war level %2/%3 | band %4 | score %5/%6 (%7 pct) | next threshold %8 | money %9",
+			"Partisan pacing | phase %1 | war level %2/%3 | band %4 | score %5/%6 (%7 pct) | next threshold %8 | money %9",
 			state.m_ePhase,
 			state.m_iWarLevel,
 			balance.m_iWarLevelMaximum,

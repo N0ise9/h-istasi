@@ -3,8 +3,8 @@ $grp GenericEntity : "{6985327711306400}Prefabs/Systems/MilitaryBase/HST_Conflic
   components {
    SCR_CampaignMilitaryBaseComponent "{5AFC974A70234D1C}" {
     m_bCanBeHQ 1
-    m_sBaseName "h-istasi Dev Hideout"
-    m_sBaseNameUpper "H-ISTASI DEV HIDEOUT"
+    m_sBaseName "Partisan Dev Hideout"
+    m_sBaseNameUpper "PARTISAN DEV HIDEOUT"
    }
    SCR_CampaignSeizingComponent "{5C66967235FBEEA3}" {
     Enabled 0
@@ -63,7 +63,7 @@ $grp GenericEntity : "{C72F956E4AC6A6E7}Prefabs/Systems/ScenarioFramework/Compon
           m_fSpawnRadius 20
           m_sFaction "FIA"
           m_Info SCR_UIInfo "{661CCDAC181BA9ED}" {
-           Name "h-istasi Dev Hideout"
+           Name "Partisan Dev Hideout"
           }
          }
         }

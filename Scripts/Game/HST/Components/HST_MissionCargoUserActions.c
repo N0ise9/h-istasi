@@ -39,7 +39,7 @@ class HST_MissionUserActionBase : HST_ContextualUserActionBase
 		string assetId = ResolveMissionAssetId(owner);
 		if (assetId.IsEmpty())
 		{
-			Print("h-istasi mission action | failed: mission asset component missing", LogLevel.WARNING);
+			Print("Partisan mission action | failed: mission asset component missing", LogLevel.WARNING);
 			return;
 		}
 
@@ -47,7 +47,7 @@ class HST_MissionUserActionBase : HST_ContextualUserActionBase
 	}
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Keeps mission-owned context actions visible while suppressing inherited stock actions")]
+[ComponentEditorProps(category: "Partisan", description: "Keeps mission-owned context actions visible while suppressing inherited stock actions")]
 class HST_MissionActionFilterComponentClass : ScriptComponentClass
 {
 }
@@ -108,7 +108,7 @@ class HST_MissionActionFilterComponent : ScriptComponent
 			m_bActionsFiltered = true;
 			m_iFilterFrames++;
 			if (m_iFilterFrames == 1)
-				Print("h-istasi mission action | retained inherited action surface; no mission actions attached");
+				Print("Partisan mission action | retained inherited action surface; no mission actions attached");
 			return;
 		}
 
@@ -133,7 +133,7 @@ class HST_MissionActionFilterComponent : ScriptComponent
 		if (inheritedActions < 0)
 			inheritedActions = 0;
 		if (m_iFilterFrames == 1 && inheritedActions > 0)
-			Print(string.Format("h-istasi mission action | filtered %1 inherited action(s); mission actions %2 remain visible", inheritedActions, missionActions));
+			Print(string.Format("Partisan mission action | filtered %1 inherited action(s); mission actions %2 remain visible", inheritedActions, missionActions));
 	}
 }
 

@@ -11,10 +11,10 @@ class HST_StrategicEventApplyResult
 	string BuildReport()
 	{
 		if (!m_Event)
-			return "h-istasi strategic event | missing event";
+			return "Partisan strategic event | missing event";
 
 		string report = string.Format(
-			"h-istasi strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5",
+			"Partisan strategic event | id %1 | kind %2 | mission %3 | zone %4 | faction %5",
 			m_Event.m_sEventId,
 			m_Event.m_sKind,
 			m_Event.m_sMissionId,
@@ -188,6 +188,23 @@ class HST_StrategicService
 			result.m_sReason = "state/preset/economy/mission not ready";
 			return result;
 		}
+		string outcomeKind = "mission_failure";
+		if (succeeded)
+			outcomeKind = "mission_success";
+		HST_StrategicEventState existingEvent = FindMissionStrategicEvent(
+			state,
+			activeMission.m_sInstanceId,
+			outcomeKind);
+		if (existingEvent)
+		{
+			result.m_Event = existingEvent;
+			result.m_sEventId = existingEvent.m_sEventId;
+			result.m_bRecorded = true;
+			result.m_bApplied = existingEvent.m_bApplied;
+			result.m_sReason = "mission outcome already recorded";
+			result.m_sSummary = existingEvent.m_sSummary;
+			return result;
+		}
 
 		HST_StrategicEventState eventState = CreateMissionOutcomeEvent(state, preset, definition, activeMission, succeeded);
 		if (!eventState)
@@ -197,9 +214,36 @@ class HST_StrategicService
 		}
 		result.m_Event = eventState;
 		result.m_sEventId = eventState.m_sEventId;
-		result.m_bRecorded = true;
-		state.m_aStrategicEvents.Insert(eventState);
 		CaptureStrategicEventBefore(state, eventState);
+		array<ref HST_EnemyStrategicMutationCommand> mutationPlan = {};
+		array<ref HST_EnemyStrategicMutationCommand> deferredMutationPreflightPlan = {};
+		string mutationFailure;
+		if (!BuildMissionOutcomeMutationPlan(
+			state,
+			preset,
+			balance,
+			definition,
+			activeMission,
+			succeeded,
+			towns,
+			zoneCapture,
+			mutationPlan,
+			deferredMutationPreflightPlan,
+			mutationFailure)
+			|| !ApplyMissionMutationPlan(
+				state,
+				preset,
+				mutationPlan,
+				deferredMutationPreflightPlan,
+				mutationFailure))
+		{
+			result.m_sReason = mutationFailure;
+			if (result.m_sReason.IsEmpty())
+				result.m_sReason = "mission strategic mutation plan was rejected";
+			return result;
+		}
+		state.m_aStrategicEvents.Insert(eventState);
+		result.m_bRecorded = true;
 
 		bool changed;
 		if (succeeded)
@@ -242,6 +286,7 @@ class HST_StrategicService
 			result.m_Event = existingEvent;
 			result.m_sEventId = existingEvent.m_sEventId;
 			result.m_bRecorded = true;
+			result.m_bApplied = existingEvent.m_bApplied;
 			result.m_sReason = "mission expiry already recorded";
 			result.m_sSummary = existingEvent.m_sSummary;
 			return result;
@@ -255,9 +300,31 @@ class HST_StrategicService
 		}
 		result.m_Event = eventState;
 		result.m_sEventId = eventState.m_sEventId;
-		result.m_bRecorded = true;
-		state.m_aStrategicEvents.Insert(eventState);
 		CaptureStrategicEventBefore(state, eventState);
+		array<ref HST_EnemyStrategicMutationCommand> mutationPlan = {};
+		array<ref HST_EnemyStrategicMutationCommand> deferredMutationPreflightPlan = {};
+		string mutationFailure;
+		if (!BuildMissionExpiryMutationPlan(
+			state,
+			preset,
+			definition,
+			activeMission,
+			mutationPlan,
+			mutationFailure)
+			|| !ApplyMissionMutationPlan(
+				state,
+				preset,
+				mutationPlan,
+				deferredMutationPreflightPlan,
+				mutationFailure))
+		{
+			result.m_sReason = mutationFailure;
+			if (result.m_sReason.IsEmpty())
+				result.m_sReason = "mission expiry strategic mutation plan was rejected";
+			return result;
+		}
+		state.m_aStrategicEvents.Insert(eventState);
+		result.m_bRecorded = true;
 
 		bool changed = ApplyMissionExpiryConsequences(state, preset, economy, definition, activeMission, enemyDirector);
 
@@ -521,24 +588,20 @@ class HST_StrategicService
 		if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 		{
 			string targetFactionKey = zone.m_sOwnerFactionKey;
-			int aggressionBefore = ResolveFactionAggression(state, targetFactionKey);
 			int aggressionDelta = ResolveMissionSuccessAggression(definition);
-			economy.AddAggression(state, targetFactionKey, aggressionDelta);
 			RecordEnemySupportThreat(state, enemyDirector, targetFactionKey, zone, Math.Max(3, aggressionDelta), "mission success pressure: " + definition.m_sMissionId);
-			changed = changed || ResolveFactionAggression(state, zone.m_sOwnerFactionKey) != aggressionBefore;
+			changed = aggressionDelta != 0 || changed;
 		}
 
-		// Schema-59 lifecycle has already committed the exact physical outcome.
-		// Strategic processing applies rewards/consequences only; it never mutates
-		// transmitter state. Keep stop-rebuild reachable despite its DYNAMIC category.
+		// Strategic admission intentionally precedes terminal mission/lifecycle
+		// publication. It applies rewards/consequences only and never mutates the
+		// transmitter aggregate. Keep stop-rebuild reachable despite DYNAMIC category.
 		if (HST_RadioSiteLifecycleService.IsExactMission(activeMission))
 		{
 			if (hq)
 				changed = hq.ReduceHQKnowledge(state, 20, "mission success: " + definition.m_sMissionId) || changed;
 			if (activeMission.m_sMissionId == HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
 			{
-				if (enemyDirector)
-					enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -12, -6);
 				if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
 					changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId) || changed;
 				return true;
@@ -564,8 +627,6 @@ class HST_StrategicService
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
 		{
-			if (enemyDirector)
-				enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -12, -6);
 			if ((definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild") && hq)
 				changed = hq.ReduceHQKnowledge(state, 20, "mission success: " + definition.m_sMissionId) || changed;
 			if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
@@ -580,8 +641,6 @@ class HST_StrategicService
 				economy.AddFactionMoney(state, 150);
 				economy.AddHR(state, 1);
 			}
-			if (enemyDirector)
-				enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -8, -4);
 			return true;
 		}
 
@@ -626,10 +685,7 @@ class HST_StrategicService
 
 	protected bool ApplyMissionFailureEvent(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, HST_TownService towns, HST_HQService hq, HST_EnemyDirectorService enemyDirector, HST_MissionDefinition definition, HST_ActiveMissionState activeMission)
 	{
-		bool changed;
-		int occupierAggressionBefore = ResolveFactionAggression(state, preset.m_sOccupierFactionKey);
-		economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
-		changed = changed || ResolveFactionAggression(state, preset.m_sOccupierFactionKey) != occupierAggressionBefore;
+		bool changed = definition.m_iFailureAggression != 0;
 		HST_ZoneState failureZone = null;
 		if (!activeMission.m_sTargetZoneId.IsEmpty())
 			failureZone = state.FindZone(activeMission.m_sTargetZoneId);
@@ -673,11 +729,9 @@ class HST_StrategicService
 			HST_ZoneState targetZone = state.FindZone(activeMission.m_sTargetZoneId);
 			if (targetZone && targetZone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey)
 			{
-				int targetAggressionBefore = ResolveFactionAggression(state, targetZone.m_sOwnerFactionKey);
 				int targetAggressionDelta = Math.Max(1, definition.m_iFailureAggression / 2);
-				economy.AddAggression(state, targetZone.m_sOwnerFactionKey, targetAggressionDelta);
 				RecordEnemySupportThreat(state, enemyDirector, targetZone.m_sOwnerFactionKey, targetZone, Math.Max(2, targetAggressionDelta), "mission failure local pressure: " + definition.m_sMissionId);
-				return ResolveFactionAggression(state, targetZone.m_sOwnerFactionKey) != targetAggressionBefore || changed;
+				return targetAggressionDelta != 0 || changed;
 			}
 		}
 
@@ -689,15 +743,13 @@ class HST_StrategicService
 		if (definition.m_sMissionId == "dynamic_defend_petros")
 			return false;
 
-		int occupierAggressionBefore = ResolveFactionAggression(state, preset.m_sOccupierFactionKey);
-		economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
 		if (definition.m_iFailureAggression > 0 && activeMission && !activeMission.m_sTargetZoneId.IsEmpty())
 		{
 			HST_ZoneState targetZone = state.FindZone(activeMission.m_sTargetZoneId);
 			if (targetZone)
 				RecordEnemySupportThreat(state, enemyDirector, preset.m_sOccupierFactionKey, targetZone, Math.Max(2, definition.m_iFailureAggression), "mission expiry pressure: " + definition.m_sMissionId);
 		}
-		return ResolveFactionAggression(state, preset.m_sOccupierFactionKey) != occupierAggressionBefore;
+		return definition.m_iFailureAggression != 0;
 	}
 
 	protected void RecordEnemySupportThreat(HST_CampaignState state, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, int threatScore, string reason)
@@ -715,7 +767,10 @@ class HST_StrategicService
 			eventState.m_sKind = "mission_success";
 		else
 			eventState.m_sKind = "mission_failure";
-		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sEventId = BuildMissionStrategicEventId(
+			state,
+			eventState.m_sKind,
+			activeMission.m_sInstanceId);
 		if (eventState.m_sEventId.IsEmpty())
 			return null;
 		eventState.m_sSourceType = "mission";
@@ -733,7 +788,10 @@ class HST_StrategicService
 	{
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
 		eventState.m_sKind = "mission_expired";
-		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
+		eventState.m_sEventId = BuildMissionStrategicEventId(
+			state,
+			eventState.m_sKind,
+			activeMission.m_sInstanceId);
 		if (eventState.m_sEventId.IsEmpty())
 			return null;
 		eventState.m_sSourceType = "mission";
@@ -1103,9 +1161,9 @@ class HST_StrategicService
 	string BuildStrategicEventReport(HST_CampaignState state, int maxRows = 20)
 	{
 		if (!state)
-			return "h-istasi strategic events | state not ready";
+			return "Partisan strategic events | state not ready";
 
-		string report = string.Format("h-istasi strategic events | total %1 | showing %2", state.m_aStrategicEvents.Count(), maxRows);
+		string report = string.Format("Partisan strategic events | total %1 | showing %2", state.m_aStrategicEvents.Count(), maxRows);
 		int emitted;
 		for (int i = state.m_aStrategicEvents.Count() - 1; i >= 0; i--)
 		{
@@ -1181,6 +1239,507 @@ class HST_StrategicService
 				return candidate;
 		}
 		return "";
+	}
+
+	// Mission terminal identities derive from the durable mission identity. A
+	// rejected resource or ownership preflight therefore cannot consume the
+	// campaign-wide authority sequence, and an exact retry addresses the same
+	// event without relying on a process-local allocation attempt.
+	protected string BuildMissionStrategicEventId(
+		HST_CampaignState state,
+		string kind,
+		string missionInstanceId)
+	{
+		if (!state || kind.IsEmpty() || missionInstanceId.IsEmpty())
+			return "";
+		string candidate = "strategic_" + kind + "_" + missionInstanceId;
+		foreach (HST_StrategicEventState existing : state.m_aStrategicEvents)
+		{
+			if (existing && existing.m_sEventId == candidate)
+				return "";
+		}
+		return candidate;
+	}
+
+	// Read-only counterpart to BuildStrategicEventId for authorities that must
+	// prove a later admission cannot fail after another domain commits.
+	bool CanBuildStrategicEventId(
+		HST_CampaignState state,
+		string kind,
+		out string failure)
+	{
+		failure = "";
+		if (!state)
+		{
+			failure = "strategic event state is unavailable";
+			return false;
+		}
+		string safeKind = kind;
+		if (safeKind.IsEmpty())
+			safeKind = "event";
+		int sequence = Math.Max(1, state.m_iNextAuthoritySequence);
+		for (int attempt; attempt < 64; attempt++)
+		{
+			if (sequence >= int.MAX)
+			{
+				failure = "strategic event authority sequence is exhausted";
+				return false;
+			}
+			string candidate = string.Format(
+				"%1_%2_%3",
+				"strategic_" + safeKind,
+				state.m_iCampaignSeed,
+				sequence);
+			bool duplicate;
+			foreach (HST_StrategicEventState existing : state.m_aStrategicEvents)
+			{
+				if (existing && existing.m_sEventId == candidate)
+				{
+					duplicate = true;
+					break;
+				}
+			}
+			if (!duplicate)
+				return true;
+			sequence++;
+		}
+		failure = "strategic event identity collision budget is exhausted";
+		return false;
+	}
+
+	protected bool BuildMissionOutcomeMutationPlan(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission,
+		bool succeeded,
+		HST_TownService towns,
+		HST_ZoneCaptureService zoneCapture,
+		notnull array<ref HST_EnemyStrategicMutationCommand> plan,
+		notnull array<ref HST_EnemyStrategicMutationCommand> deferredPreflightPlan,
+		out string failure)
+	{
+		failure = "";
+		if (!state || !preset || !definition || !activeMission)
+		{
+			failure = "mission strategic mutation planning authority is unavailable";
+			return false;
+		}
+		if (succeeded)
+		{
+			if (!BuildMissionSuccessMutationPlan(
+				state,
+				preset,
+				definition,
+				activeMission,
+				plan,
+				failure))
+				return false;
+			return BuildMissionCaptureMutationPreflight(
+				state,
+				preset,
+				balance,
+				definition,
+				activeMission,
+				zoneCapture,
+				deferredPreflightPlan,
+				failure);
+		}
+		return BuildMissionFailureMutationPlan(
+			state,
+			preset,
+			definition,
+			activeMission,
+			towns,
+			plan,
+			failure);
+	}
+
+	protected bool BuildMissionSuccessMutationPlan(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission,
+		notnull array<ref HST_EnemyStrategicMutationCommand> plan,
+		out string failure)
+	{
+		failure = "";
+		if (activeMission.m_sTargetZoneId.IsEmpty()
+			|| definition.m_sMissionId == "dynamic_defend_petros")
+			return true;
+		HST_ZoneState zone = state.FindZone(activeMission.m_sTargetZoneId);
+		if (!zone || zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			return true;
+
+		plan.Insert(BuildMissionMutationCommand(
+			"enemy_aggression_mission_success_" + activeMission.m_sInstanceId,
+			zone.m_sOwnerFactionKey,
+			"mission_success",
+			activeMission,
+			0,
+			0,
+			ResolveMissionSuccessAggression(definition)));
+
+		int requestedAttackDamage;
+		int requestedSupportDamage;
+		if (HST_RadioSiteLifecycleService.IsExactMission(activeMission)
+			&& activeMission.m_sMissionId == HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
+		{
+			requestedAttackDamage = 12;
+			requestedSupportDamage = 6;
+		}
+		else if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+		{
+			requestedAttackDamage = 12;
+			requestedSupportDamage = 6;
+		}
+		else if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONVOY
+			|| definition.m_eCategory == HST_EMissionCategory.HST_MISSION_LOGISTICS)
+		{
+			requestedAttackDamage = 8;
+			requestedSupportDamage = 4;
+		}
+		if (requestedAttackDamage <= 0 && requestedSupportDamage <= 0)
+			return true;
+
+		string resourceMutationId
+			= "enemy_resource_mission_success_" + activeMission.m_sInstanceId;
+		int attackDelta;
+		int supportDelta;
+		HST_EnemyStrategicMutationState existing
+			= state.FindEnemyStrategicMutation(resourceMutationId);
+		if (existing)
+		{
+			attackDelta = existing.m_iAttackDelta;
+			supportDelta = existing.m_iSupportDelta;
+		}
+		else
+		{
+			HST_FactionPoolState pool = state.FindFactionPool(zone.m_sOwnerFactionKey);
+			if (!pool)
+			{
+				failure = "mission success enemy resource pool is unavailable";
+				return false;
+			}
+			attackDelta = -Math.Min(
+				Math.Max(0, pool.m_iAttackResources),
+				requestedAttackDamage);
+			supportDelta = -Math.Min(
+				Math.Max(0, pool.m_iSupportResources),
+				requestedSupportDamage);
+		}
+		if (attackDelta == 0 && supportDelta == 0 && !existing)
+			return true;
+		plan.Insert(BuildMissionMutationCommand(
+			resourceMutationId,
+			zone.m_sOwnerFactionKey,
+			"mission_success_resource_damage",
+			activeMission,
+			attackDelta,
+			supportDelta,
+			0));
+		return true;
+	}
+
+	// Capture progress can synchronously enter the ownership authority. Its
+	// Schema-67 aggression command is admitted against the same preflight clone,
+	// but remains deferred to that authority so it cannot become an orphan if an
+	// earlier ownership-domain admission rejects for an unrelated reason.
+	protected bool BuildMissionCaptureMutationPreflight(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission,
+		HST_ZoneCaptureService zoneCapture,
+		notnull array<ref HST_EnemyStrategicMutationCommand> deferredPreflightPlan,
+		out string failure)
+	{
+		failure = "";
+		if (!zoneCapture || activeMission.m_sTargetZoneId.IsEmpty())
+			return true;
+		HST_ZoneState zone = state.FindZone(activeMission.m_sTargetZoneId);
+		if (!zone || zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey
+			|| !IsMissionCaptureTarget(zone))
+			return true;
+
+		int progressAmount = ResolveMissionSuccessCaptureProgressAmount(
+			definition,
+			activeMission,
+			zone);
+		if (progressAmount <= 0)
+			return true;
+		int required = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
+		if (balance && balance.m_iCaptureProgressRequired > 0)
+			required = balance.m_iCaptureProgressRequired;
+		int projectedProgress = Math.Min(
+			required,
+			Math.Max(0, zone.m_iResistanceCaptureProgress + progressAmount));
+		if (zoneCapture.HasIncompleteConquestMissionForZone(state, zone)
+			&& projectedProgress >= Math.Min(
+				HST_ZoneCaptureService.CONQUEST_OBJECTIVE_PROGRESS_CAP,
+				required - 1))
+			return true;
+		if (projectedProgress < required)
+			return true;
+
+		int supportReward = ResolveMissionSuccessCaptureSupportReward(
+			definition,
+			activeMission);
+		string ownershipAdmissionFailure;
+		if (!zoneCapture.CanCaptureForResistanceDetailed(
+				state,
+				preset,
+				zone.m_sZoneId,
+				supportReward,
+				activeMission.m_sInstanceId,
+				ownershipAdmissionFailure))
+		{
+			failure = "mission capture ownership admission rejected";
+			if (!ownershipAdmissionFailure.IsEmpty())
+				failure = ownershipAdmissionFailure;
+			return false;
+		}
+
+		string ownershipRequestId = "ownership_capture_"
+			+ zone.m_sZoneId + "_" + activeMission.m_sInstanceId;
+		HST_EnemyStrategicMutationCommand command
+			= new HST_EnemyStrategicMutationCommand();
+		command.m_sMutationId = "enemy_aggression_ownership_"
+			+ ownershipRequestId;
+		command.m_sFactionKey = zone.m_sOwnerFactionKey;
+		command.m_sKind = "ownership_transition";
+		command.m_sSourceId = ownershipRequestId;
+		command.m_sZoneId = zone.m_sZoneId;
+		int captureAggression = 10;
+		if (balance && balance.m_iCaptureAggressionBase > 0)
+			captureAggression = balance.m_iCaptureAggressionBase;
+		command.m_iAggressionDelta = captureAggression
+			+ Math.Max(0, zone.m_iPriority / 5);
+		deferredPreflightPlan.Insert(command);
+		return true;
+	}
+
+	protected int ResolveMissionSuccessCaptureSupportReward(
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission)
+	{
+		if (HST_RadioSiteLifecycleService.IsExactMission(activeMission))
+		{
+			if (activeMission.m_sMissionId
+				== HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
+				return 10;
+			return 5;
+		}
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return 15;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return 10;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DYNAMIC
+			&& definition.m_sMissionId == "dynamic_city_flip_battle")
+			return 10;
+		return 5;
+	}
+
+	protected int ResolveMissionSuccessCaptureProgressAmount(
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission,
+		HST_ZoneState zone)
+	{
+		if (HST_RadioSiteLifecycleService.IsExactMission(activeMission))
+		{
+			if (activeMission.m_sMissionId
+				== HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
+				return 35;
+			return 20;
+		}
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
+			return 60;
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_DESTROY)
+			return 35;
+		if (definition.m_eCategory != HST_EMissionCategory.HST_MISSION_DYNAMIC
+			|| HST_RescuePOWOperationService.IsExactMission(activeMission))
+			return 0;
+		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
+			return 0;
+		if (definition.m_sMissionId == "dynamic_city_flip_battle")
+			return 50;
+		return 20;
+	}
+
+	protected bool IsMissionCaptureTarget(HST_ZoneState zone)
+	{
+		if (!zone)
+			return false;
+		return zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_SEAPORT
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_AIRFIELD
+			|| zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER;
+	}
+
+	protected bool BuildMissionFailureMutationPlan(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission,
+		HST_TownService towns,
+		notnull array<ref HST_EnemyStrategicMutationCommand> plan,
+		out string failure)
+	{
+		failure = "";
+		plan.Insert(BuildMissionMutationCommand(
+			"enemy_aggression_mission_failure_primary_" + activeMission.m_sInstanceId,
+			preset.m_sOccupierFactionKey,
+			"mission_failure",
+			activeMission,
+			0,
+			0,
+			definition.m_iFailureAggression));
+		if (definition.m_sMissionId == "dynamic_defend_petros"
+			|| definition.m_iFailureAggression >= 4
+			|| activeMission.m_sTargetZoneId.IsEmpty())
+			return true;
+		HST_ZoneState targetZone = state.FindZone(activeMission.m_sTargetZoneId);
+		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_SUPPORT
+			&& targetZone && towns)
+			return true;
+		if (!targetZone
+			|| targetZone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
+			return true;
+		plan.Insert(BuildMissionMutationCommand(
+			"enemy_aggression_mission_failure_local_" + activeMission.m_sInstanceId,
+			targetZone.m_sOwnerFactionKey,
+			"mission_failure_local",
+			activeMission,
+			0,
+			0,
+			Math.Max(1, definition.m_iFailureAggression / 2)));
+		return true;
+	}
+
+	protected bool BuildMissionExpiryMutationPlan(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState activeMission,
+		notnull array<ref HST_EnemyStrategicMutationCommand> plan,
+		out string failure)
+	{
+		failure = "";
+		if (!state || !preset || !definition || !activeMission)
+		{
+			failure = "mission expiry strategic mutation planning authority is unavailable";
+			return false;
+		}
+		plan.Insert(BuildMissionMutationCommand(
+			"enemy_aggression_mission_expiry_" + activeMission.m_sInstanceId,
+			preset.m_sOccupierFactionKey,
+			"mission_expiry",
+			activeMission,
+			0,
+			0,
+			definition.m_iFailureAggression));
+		return true;
+	}
+
+	protected HST_EnemyStrategicMutationCommand BuildMissionMutationCommand(
+		string mutationId,
+		string factionKey,
+		string kind,
+		HST_ActiveMissionState activeMission,
+		int attackDelta,
+		int supportDelta,
+		int aggressionDelta)
+	{
+		HST_EnemyStrategicMutationCommand command
+			= new HST_EnemyStrategicMutationCommand();
+		command.m_sMutationId = mutationId;
+		command.m_sFactionKey = factionKey;
+		command.m_sKind = kind;
+		command.m_sSourceId = activeMission.m_sInstanceId;
+		command.m_sOperationId = activeMission.m_sOperationId;
+		command.m_sManifestId = activeMission.m_sManifestId;
+		command.m_sZoneId = activeMission.m_sTargetZoneId;
+		command.m_iAttackDelta = attackDelta;
+		command.m_iSupportDelta = supportDelta;
+		command.m_iAggressionDelta = aggressionDelta;
+		return command;
+	}
+
+	// Dry-run the complete mutation set against an exact deep copy. The live pass
+	// then executes the same deterministic commands without any intervening state
+	// mutation, so no reward/support/capture write can precede a rejected receipt.
+	protected bool ApplyMissionMutationPlan(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		notnull array<ref HST_EnemyStrategicMutationCommand> plan,
+		notnull array<ref HST_EnemyStrategicMutationCommand> deferredPreflightPlan,
+		out string failure)
+	{
+		failure = "";
+		if (!state || !preset)
+		{
+			failure = "mission strategic mutation authority is unavailable";
+			return false;
+		}
+		if (plan.IsEmpty() && deferredPreflightPlan.IsEmpty())
+			return true;
+		HST_CampaignSaveData snapshot = new HST_CampaignSaveData();
+		snapshot.Capture(state);
+		HST_CampaignState preflightState = new HST_CampaignState();
+		snapshot.ApplyTo(preflightState, false);
+		HST_EnemyStrategicResourceService preflightAuthority
+			= new HST_EnemyStrategicResourceService();
+		foreach (HST_EnemyStrategicMutationCommand command : plan)
+		{
+			HST_EnemyStrategicMutationResult preflight
+				= preflightAuthority.ApplyMutation(
+					preflightState,
+					preset,
+					command);
+			if (preflight && preflight.m_bAccepted)
+				continue;
+			failure = "mission strategic mutation preflight rejected";
+			if (preflight && !preflight.m_sFailureReason.IsEmpty())
+				failure = preflight.m_sFailureReason;
+			return false;
+		}
+		foreach (HST_EnemyStrategicMutationCommand deferredCommand : deferredPreflightPlan)
+		{
+			HST_EnemyStrategicMutationResult deferredPreflight
+				= preflightAuthority.ApplyMutation(
+					preflightState,
+					preset,
+					deferredCommand);
+			if (deferredPreflight && deferredPreflight.m_bAccepted)
+				continue;
+			failure = "mission deferred strategic mutation preflight rejected";
+			if (deferredPreflight
+				&& !deferredPreflight.m_sFailureReason.IsEmpty())
+				failure = deferredPreflight.m_sFailureReason;
+			return false;
+		}
+
+		HST_EnemyStrategicResourceService liveAuthority
+			= new HST_EnemyStrategicResourceService();
+		foreach (HST_EnemyStrategicMutationCommand commandToApply : plan)
+		{
+			HST_EnemyStrategicMutationResult applied
+				= liveAuthority.ApplyMutation(
+					state,
+					preset,
+					commandToApply);
+			if (applied && applied.m_bAccepted)
+				continue;
+			failure = "mission strategic mutation live commit diverged from preflight";
+			if (applied && !applied.m_sFailureReason.IsEmpty())
+				failure = applied.m_sFailureReason;
+			return false;
+		}
+		return true;
 	}
 
 	protected int ResolveFactionAggression(HST_CampaignState state, string factionKey)
@@ -1335,7 +1894,7 @@ class HST_StrategicService
 	string BuildCampaignEndReport(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, HST_CampaignPreset preset)
 	{
 		if (!state)
-			return "h-istasi campaign end | state not ready";
+			return "Partisan campaign end | state not ready";
 
 		string resistanceFactionKey = "FIA";
 		if (preset && !preset.m_sResistanceFactionKey.IsEmpty())
@@ -1373,7 +1932,7 @@ class HST_StrategicService
 		}
 
 		string report = string.Format(
-			"h-istasi campaign end | phase %1 | ended %2 | reason %3 | summary %4 | control %5 pct | score %6/%7 | war %8 | FIA zones %9",
+			"Partisan campaign end | phase %1 | ended %2 | reason %3 | summary %4 | control %5 pct | score %6/%7 | war %8 | FIA zones %9",
 			phase,
 			state.m_iCampaignEndedAtSecond,
 			state.m_sCampaignEndReason,

@@ -31,10 +31,10 @@ class HST_OwnershipTransitionResult
 	string BuildReport()
 	{
 		if (!m_Transition)
-			return "h-istasi ownership transition | rejected | " + m_sFailureReason;
+			return "Partisan ownership transition | rejected | " + m_sFailureReason;
 
 		string report = string.Format(
-			"h-istasi ownership transition | request %1 | zone %2 | owner %3 -> %4 | revision %5 -> %6 | status %7",
+			"Partisan ownership transition | request %1 | zone %2 | owner %3 -> %4 | revision %5 -> %6 | status %7",
 			m_Transition.m_sRequestId,
 			m_Transition.m_sZoneId,
 			m_Transition.m_sPreviousOwnerFactionKey,
@@ -269,6 +269,64 @@ class HST_OwnershipTransitionService
 		return ContinueAcceptedTransitionScoped(state, transition, result);
 	}
 
+	// Read-only admission fence used when another authority must commit first.
+	// It mirrors every fallible step before a new durable receipt is inserted;
+	// accepted partial/completed receipts are exact replay, not new admission.
+	bool CanApply(
+		HST_CampaignState state,
+		HST_OwnershipTransitionRequest request,
+		out string failure)
+	{
+		failure = "";
+		if (!state || !request)
+		{
+			failure = "state or ownership request is unavailable";
+			return false;
+		}
+		HST_OwnershipTransitionState existing
+			= state.FindOwnershipTransition(request.m_sRequestId);
+		if (existing)
+		{
+			if (!RequestMatches(existing, request))
+			{
+				failure = "ownership request id was reused with a different fingerprint";
+				return false;
+			}
+			if (existing.m_bQuarantined
+				|| existing.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
+			{
+				failure = "ownership transition authority is quarantined: "
+					+ existing.m_sFailureReason;
+				return false;
+			}
+			if (existing.m_bCompleted)
+				return true;
+			HST_ZoneState existingZone = state.FindZone(existing.m_sZoneId);
+			if (!existingZone || !ResumeStateMatches(existingZone, existing))
+			{
+				failure = "zone owner/revision diverged from the transition receipt";
+				return false;
+			}
+			return true;
+		}
+
+		failure = ValidateNewRequest(state, request);
+		if (!failure.IsEmpty())
+			return false;
+		if (!CanEnsureAdmissionCapacity(state))
+		{
+			failure = "ownership transition history is full of pinned or replay-retained authority";
+			return false;
+		}
+		string eventKind = "ownership_transition";
+		if (request.m_sCause == "military_capture"
+			|| request.m_sCause == "mission_capture")
+			eventKind = "zone_captured";
+		if (!m_Strategic.CanBuildStrategicEventId(state, eventKind, failure))
+			return false;
+		return true;
+	}
+
 	bool ReconcileAfterRestore(HST_CampaignState state)
 	{
 		if (!state)
@@ -410,7 +468,19 @@ class HST_OwnershipTransitionService
 				result,
 				"ownership transition is durably queued behind earlier publication authority");
 
-		HST_OwnershipTransitionResult stopped = ContinueSecurityAndSupportSteps(
+		// Schema-67 admission is the first fallible domain handoff. A bounded
+		// resource rejection must leave old/new security, hostile runtime, and
+		// support policy untouched so retry resumes from one exact pre-owner state.
+		HST_OwnershipTransitionResult stopped
+			= ContinuePreOwnerStrategicAdmissionSteps(
+			state,
+			zone,
+			transition,
+			result);
+		if (stopped)
+			return stopped;
+
+		stopped = ContinueSecurityAndSupportSteps(
 			state,
 			zone,
 			transition,
@@ -518,6 +588,45 @@ class HST_OwnershipTransitionService
 		return null;
 	}
 
+	// Schema-67 aggression admission is fallible and durable. It must settle
+	// before the visible zone owner/revision changes so a bounded-capacity,
+	// role, arithmetic, or backlink rejection can retry without publishing a
+	// half-applied owner. The stable mutation ID makes this step replay-safe if
+	// an older partial receipt resumes after its owner was already applied.
+	protected HST_OwnershipTransitionResult ContinuePreOwnerStrategicAdmissionSteps(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		HST_OwnershipTransitionState transition,
+		HST_OwnershipTransitionResult result)
+	{
+		if (!transition || transition.m_bEnemyConsequencesApplied)
+			return null;
+
+		if (!transition.m_bOwnerApplied)
+		{
+			string ownerEffectFailure = ValidateStrategicOwnerEffectAdmission(
+				state,
+				transition);
+			if (!ownerEffectFailure.IsEmpty())
+				return QuarantineResult(
+					state,
+					transition,
+					result,
+					ownerEffectFailure);
+		}
+
+		int aggressionBefore = transition.m_iAggressionApplied;
+		string aggressionFailure = AdmitEnemyAggression(
+			state,
+			zone,
+			transition);
+		if (!aggressionFailure.IsEmpty())
+			return NeedsRetry(transition, result, aggressionFailure);
+		if (transition.m_iAggressionApplied != aggressionBefore)
+			result.m_bStateChanged = true;
+		return null;
+	}
+
 	protected HST_OwnershipTransitionResult ContinueOwnerAndDerivedSteps(
 		HST_CampaignState state,
 		HST_ZoneState zone,
@@ -568,7 +677,11 @@ class HST_OwnershipTransitionService
 
 		if (!transition.m_bEnemyConsequencesApplied)
 		{
-			ApplyEnemyConsequences(state, zone, transition);
+			if (!ApplyEnemyConsequences(state, zone, transition))
+				return NeedsRetry(
+					transition,
+					result,
+					transition.m_sEnemyConsequenceDecision);
 			transition.m_bEnemyConsequencesApplied = true;
 			result.m_bStateChanged = true;
 		}
@@ -1054,7 +1167,7 @@ class HST_OwnershipTransitionService
 			generatedSitesChanged);
 	}
 
-	protected void ApplyEnemyConsequences(
+	protected bool ApplyEnemyConsequences(
 		HST_CampaignState state,
 		HST_ZoneState zone,
 		HST_OwnershipTransitionState transition)
@@ -1065,17 +1178,20 @@ class HST_OwnershipTransitionService
 			|| transition.m_sPreviousOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
 		{
 			transition.m_sEnemyConsequenceDecision = "enemy retaliation not applicable for this ownership policy";
-			return;
+			return true;
 		}
 
-		int aggression = ResolveCaptureAggression(zone);
-		m_Economy.AddAggression(state, transition.m_sPreviousOwnerFactionKey, aggression);
-		transition.m_iAggressionApplied = aggression;
+		if (transition.m_iAggressionApplied <= 0)
+		{
+			transition.m_sEnemyConsequenceDecision
+				= "enemy aggression resource mutation was not admitted before owner publication";
+			return false;
+		}
 		m_EnemyDirector.RecordZoneDamageSignal(
 			state,
 			transition.m_sPreviousOwnerFactionKey,
 			zone,
-			Math.Max(8, aggression),
+			Math.Max(8, transition.m_iAggressionApplied),
 			"canonical ownership transition pressure");
 
 		if (transition.m_bCounterattackSelected)
@@ -1104,6 +1220,55 @@ class HST_OwnershipTransitionService
 			transition.m_bCounterattackSelected,
 			transition.m_bCounterattackQueued,
 			transition.m_sEnemyOrderId);
+		return true;
+	}
+
+	protected string AdmitEnemyAggression(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		HST_OwnershipTransitionState transition)
+	{
+		if (!transition.m_bApplyEnemyConsequences
+			|| transition.m_sNewOwnerFactionKey != m_Preset.m_sResistanceFactionKey
+			|| transition.m_sPreviousOwnerFactionKey.IsEmpty()
+			|| transition.m_sPreviousOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			return "";
+
+		int aggression = ResolveCaptureAggression(zone);
+		if (transition.m_iAggressionApplied > 0
+			&& transition.m_iAggressionApplied != aggression)
+			return "ownership aggression amount diverged before owner publication";
+		if (!m_Economy.AddAggression(
+			state,
+			transition.m_sPreviousOwnerFactionKey,
+			aggression,
+			"enemy_aggression_ownership_" + transition.m_sRequestId,
+			"ownership_transition",
+			transition.m_sRequestId,
+			"",
+			"",
+			"",
+			transition.m_sZoneId))
+			return "enemy aggression resource mutation could not be admitted before owner publication";
+		transition.m_iAggressionApplied = aggression;
+		return "";
+	}
+
+	protected string ValidateStrategicOwnerEffectAdmission(
+		HST_CampaignState state,
+		HST_OwnershipTransitionState transition)
+	{
+		if (!state || !transition || transition.m_sStrategicEventId.IsEmpty()
+			|| transition.m_sPreviousOwnerFactionKey.IsEmpty()
+			|| transition.m_sNewOwnerFactionKey.IsEmpty())
+			return "ownership strategic event is unavailable before resource admission";
+		HST_StrategicEventState eventState
+			= state.FindStrategicEvent(transition.m_sStrategicEventId);
+		if (!eventState || eventState.m_bApplied
+			|| (eventState.m_sKind != "ownership_transition"
+				&& eventState.m_sKind != "zone_captured"))
+			return "ownership strategic event cannot accept owner evidence before resource admission";
+		return "";
 	}
 
 	protected string ProjectTransition(
@@ -1372,6 +1537,20 @@ class HST_OwnershipTransitionService
 	{
 		PruneCompletedHistory(state);
 		return state.m_aOwnershipTransitions.Count() < MAX_TRANSITION_ROWS;
+	}
+
+	protected bool CanEnsureAdmissionCapacity(HST_CampaignState state)
+	{
+		if (!state)
+			return false;
+		if (state.m_aOwnershipTransitions.Count() < MAX_TRANSITION_ROWS)
+			return true;
+		foreach (HST_OwnershipTransitionState candidate : state.m_aOwnershipTransitions)
+		{
+			if (CanPruneTransition(state, candidate))
+				return true;
+		}
+		return false;
 	}
 
 	protected void PruneCompletedHistory(HST_CampaignState state)

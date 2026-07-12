@@ -90,7 +90,7 @@ FrameWidgetClass "{A7B8C9D001234550}" {
        }
        "No Localization" 1
        "Ignore Cursor" 1
-       Text "h-istasi HQ"
+       Text "Partisan HQ"
       }
       TextWidgetClass "{A7B8C9D001236026}" {
        Name "HeaderSubtitle"

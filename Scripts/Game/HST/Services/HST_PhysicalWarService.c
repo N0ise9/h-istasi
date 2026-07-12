@@ -2391,9 +2391,67 @@ class HST_PhysicalWarService
 		if (groupId.IsEmpty())
 			return false;
 
+		bool pendingPopulationRemoved
+			= ClearPendingActiveGroupPopulationForDebug(groupId);
+		bool routeProgressRemoved
+			= RemoveActiveGroupRouteProgressForDebug(groupId);
 		bool existed = GetRuntimeGroupEntity(groupId) != null;
 		DeleteRuntimeGroupEntity(groupId);
-		return existed;
+		return existed || pendingPopulationRemoved || routeProgressRemoved;
+	}
+
+	protected bool ClearPendingActiveGroupPopulationForDebug(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return false;
+		SCR_AIGroup group = SCR_AIGroup.Cast(GetRuntimeGroupEntity(groupId));
+		if (group)
+			group.GetOnAllDelayedEntitySpawned().Remove(
+				OnDelayedActiveGroupMembersSpawned);
+
+		bool removed;
+		for (int pendingIndex = m_aPendingPopulationGroupIds.Count() - 1; pendingIndex >= 0; pendingIndex--)
+		{
+			if (m_aPendingPopulationGroupIds[pendingIndex] != groupId)
+				continue;
+			HST_ActiveGroupState pendingGroup;
+			if (pendingIndex < m_aPendingPopulationActiveGroups.Count())
+				pendingGroup = m_aPendingPopulationActiveGroups[pendingIndex];
+			if (pendingGroup)
+			{
+				// CallLater population retries retain this object directly. Moving
+				// it out of spawn_pending_agents makes queued retries self-cancel.
+				pendingGroup.m_bSpawnedEntity = false;
+				pendingGroup.m_sRuntimeEntityId = "";
+				pendingGroup.m_sRuntimeStatus = "campaign_debug_cleaned";
+			}
+			if (pendingIndex < m_aPendingPopulationRequestedStatuses.Count())
+				m_aPendingPopulationRequestedStatuses.Remove(pendingIndex);
+			if (pendingIndex < m_aPendingPopulationActiveGroups.Count())
+				m_aPendingPopulationActiveGroups.Remove(pendingIndex);
+			if (pendingIndex < m_aPendingPopulationStates.Count())
+				m_aPendingPopulationStates.Remove(pendingIndex);
+			m_aPendingPopulationGroupIds.Remove(pendingIndex);
+			removed = true;
+		}
+		return removed;
+	}
+
+	protected bool RemoveActiveGroupRouteProgressForDebug(string groupId)
+	{
+		if (groupId.IsEmpty())
+			return false;
+		bool removed;
+		for (int progressIndex = m_aActiveGroupRouteProgressStatuses.Count() - 1; progressIndex >= 0; progressIndex--)
+		{
+			HST_ActiveGroupRouteProgressStatus progress
+				= m_aActiveGroupRouteProgressStatuses[progressIndex];
+			if (!progress || progress.m_sGroupId != groupId)
+				continue;
+			m_aActiveGroupRouteProgressStatuses.Remove(progressIndex);
+			removed = true;
+		}
+		return removed;
 	}
 
 	protected bool ShouldForceMissionZoneActive(HST_CampaignState state, HST_ZoneState zone)
@@ -2433,10 +2491,41 @@ class HST_PhysicalWarService
 		return result;
 	}
 
+	bool CaptureCampaignDebugMarkerRefreshNeeded()
+	{
+		return m_bMarkerRefreshNeeded;
+	}
+
+	void RestoreCampaignDebugMarkerRefreshNeeded(bool markerRefreshNeeded)
+	{
+		m_bMarkerRefreshNeeded = markerRefreshNeeded;
+	}
+
+	int CaptureCampaignDebugAIWorldLimit()
+	{
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (!aiWorld)
+			return -1;
+
+		return aiWorld.GetAILimit();
+	}
+
+	void RestoreCampaignDebugAIWorldLimit(int aiLimit)
+	{
+		if (aiLimit < 0)
+			return;
+
+		AIWorld aiWorld = GetGame().GetAIWorld();
+		if (!aiWorld || aiWorld.GetAILimit() == aiLimit)
+			return;
+
+		aiWorld.SetAILimit(aiLimit);
+	}
+
 	string BuildConvoyRuntimeReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi convoy runtime | state not ready";
+			return "Partisan convoy runtime | state not ready";
 
 		int convoyMissions;
 		int convoyGroups;
@@ -2451,7 +2540,7 @@ class HST_PhysicalWarService
 				convoyGroups++;
 		}
 
-		string report = string.Format("h-istasi convoy runtime | missions %1 | groups %2 | crew entities %3 | vehicle entities %4", convoyMissions, convoyGroups, m_aRuntimeGroupIds.Count(), m_aRuntimeVehicleGroupIds.Count());
+		string report = string.Format("Partisan convoy runtime | missions %1 | groups %2 | crew entities %3 | vehicle entities %4", convoyMissions, convoyGroups, m_aRuntimeGroupIds.Count(), m_aRuntimeVehicleGroupIds.Count());
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission || mission.m_sRuntimePrimitive != MISSION_CONVOY_PRIMITIVE)
@@ -2467,7 +2556,7 @@ class HST_PhysicalWarService
 
 	string BuildGroundVehicleCandidateReport()
 	{
-		string report = "h-istasi convoy ground vehicle candidates";
+		string report = "Partisan convoy ground vehicle candidates";
 		report = report + BuildGroundVehicleCandidateFactionReport("FIA");
 		report = report + BuildGroundVehicleCandidateFactionReport("US");
 		report = report + BuildGroundVehicleCandidateFactionReport("USSR");
@@ -2980,19 +3069,19 @@ class HST_PhysicalWarService
 
 		if (physicalBlocked)
 		{
-			result = "h-istasi campaign debug | physical combat probe blocked: no controlled player entity";
+			result = "Partisan campaign debug | physical combat probe blocked: no controlled player entity";
 			return false;
 		}
 		if (!state || !preset)
 		{
-			result = "h-istasi campaign debug | physical combat probe failed: campaign state or preset missing";
+			result = "Partisan campaign debug | physical combat probe failed: campaign state or preset missing";
 			return false;
 		}
 
 		vector playerPosition;
 		if (!ResolveFirstLivingPlayerDebugPosition(playerPosition))
 		{
-			result = "h-istasi campaign debug | physical combat probe blocked: no living player render-bubble anchor";
+			result = "Partisan campaign debug | physical combat probe blocked: no living player render-bubble anchor";
 			return false;
 		}
 
@@ -3016,7 +3105,7 @@ class HST_PhysicalWarService
 		HST_ZoneState zone = SelectCampaignDebugPhysicalCombatProbeZone(state, m_vCampaignDebugCombatProbeCenter);
 		if (!zone)
 		{
-			result = "h-istasi campaign debug | physical combat probe failed: no zone available for active-group ownership";
+			result = "Partisan campaign debug | physical combat probe failed: no zone available for active-group ownership";
 			return false;
 		}
 		m_sCampaignDebugCombatProbeZoneId = zone.m_sZoneId;
@@ -3025,7 +3114,7 @@ class HST_PhysicalWarService
 		HST_ActiveGroupState enemyGroup = CreateCampaignDebugPhysicalCombatProbeGroup(state, preset, zone, m_sCampaignDebugCombatProbeEnemyGroupId, m_sCampaignDebugCombatProbeEnemyFaction, m_vCampaignDebugCombatProbeEnemyPosition, m_vCampaignDebugCombatProbeFriendlyPosition);
 		if (!friendlyGroup || !enemyGroup)
 		{
-			result = "h-istasi campaign debug | physical combat probe failed: could not build temporary active groups";
+			result = "Partisan campaign debug | physical combat probe failed: could not build temporary active groups";
 			return false;
 		}
 
@@ -3045,7 +3134,7 @@ class HST_PhysicalWarService
 		SampleCampaignDebugPhysicalCombatProbe(state, true);
 		m_sCampaignDebugCombatProbeStartResult = string.Format("friendly %1 spawned %2 population %3 | enemy %4 spawned %5 population %6", m_sCampaignDebugCombatProbeFriendlyGroupId, friendlySpawned, m_bCampaignDebugCombatProbeFriendlyPopulationResolved, m_sCampaignDebugCombatProbeEnemyGroupId, enemySpawned, m_bCampaignDebugCombatProbeEnemyPopulationResolved);
 		m_sCampaignDebugCombatProbeStartResult = m_sCampaignDebugCombatProbeStartResult + string.Format(" | waypoints %1 | center %2", m_iCampaignDebugCombatProbeWaypointCount, m_vCampaignDebugCombatProbeCenter);
-		result = "h-istasi campaign debug | physical combat probe started | " + m_sCampaignDebugCombatProbeStartResult;
+		result = "Partisan campaign debug | physical combat probe started | " + m_sCampaignDebugCombatProbeStartResult;
 		return true;
 	}
 
@@ -4885,7 +4974,7 @@ class HST_PhysicalWarService
 		handedOffVehicle = vehicleEntity;
 		m_bMarkerRefreshNeeded = true;
 		reason = "exact convoy vehicle capture handoff completed without garage mutation";
-		Print(string.Format("h-istasi exact mission convoy | handed off captured vehicle %1 at %2", asset.m_sAssetId, position));
+		Print(string.Format("Partisan exact mission convoy | handed off captured vehicle %1 at %2", asset.m_sAssetId, position));
 		return true;
 	}
 
@@ -5003,7 +5092,7 @@ class HST_PhysicalWarService
 		handedOffVehicle = vehicleEntity;
 		m_bMarkerRefreshNeeded = true;
 		reason = "settled exact convoy salvage vehicle handoff completed without reopening operation authority";
-		Print(string.Format("h-istasi exact mission convoy | handed off settled salvage vehicle %1 at %2", asset.m_sAssetId, position));
+		Print(string.Format("Partisan exact mission convoy | handed off settled salvage vehicle %1 at %2", asset.m_sAssetId, position));
 		return true;
 	}
 
@@ -5244,7 +5333,7 @@ class HST_PhysicalWarService
 			element.m_bMobile = false;
 			element.m_iLastUpdatedSecond = state.m_iElapsedSeconds;
 			element.m_iRevision++;
-			Print(string.Format("h-istasi exact mission convoy | materialized crewless abandoned vehicle %1 at %2", asset.m_sAssetId, spawnPosition));
+			Print(string.Format("Partisan exact mission convoy | materialized crewless abandoned vehicle %1 at %2", asset.m_sAssetId, spawnPosition));
 		}
 		for (int carrierIndex = 0; carrierIndex < elements.Count(); carrierIndex++)
 			SyncExactMissionConvoyRecoveryCarrierAssets(state, mission, elements[carrierIndex], elements[carrierIndex].m_vCurrentPosition);
@@ -7165,7 +7254,7 @@ class HST_PhysicalWarService
 		mission.m_sLastRuntimeEventKey = CONVOY_CONTACT_CLEAR_EVENT_KEY;
 		AssignMissionConvoyWaypoints(state, mission);
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi exact mission convoy | %1 contact cleared after %2 seconds without new evidence", mission.m_sInstanceId, EXACT_CONVOY_CONTACT_CLEAR_SECONDS));
+		Print(string.Format("Partisan exact mission convoy | %1 contact cleared after %2 seconds without new evidence", mission.m_sInstanceId, EXACT_CONVOY_CONTACT_CLEAR_SECONDS));
 		return true;
 	}
 
@@ -7347,7 +7436,7 @@ class HST_PhysicalWarService
 		{
 			m_bMarkerRefreshNeeded = true;
 			if (enteredContact)
-				Print(string.Format("h-istasi mission convoy | %1 entered contact: %2", mission.m_sInstanceId, reason));
+				Print(string.Format("Partisan mission convoy | %1 entered contact: %2", mission.m_sInstanceId, reason));
 		}
 
 		return changed;
@@ -7397,7 +7486,7 @@ class HST_PhysicalWarService
 		}
 
 		mission.m_iRuntimeDestroyedCount++;
-		Print(string.Format("h-istasi mission convoy | %1 vehicle %2 marked destroyed: %3", mission.m_sInstanceId, asset.m_sAssetId, ReportText(reason)));
+		Print(string.Format("Partisan mission convoy | %1 vehicle %2 marked destroyed: %3", mission.m_sInstanceId, asset.m_sAssetId, ReportText(reason)));
 	}
 
 	protected string BuildMissionConvoyContactReport(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -7571,9 +7660,9 @@ class HST_PhysicalWarService
 			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, !preserveVehicle);
 			RemoveConvoyProgressStatusForGroup(activeGroup.m_sGroupId);
 			if (preserveVehicle)
-				Print(string.Format("h-istasi mission convoy | cleaned inactive convoy runtime group %1 and preserved neutralized vehicle", activeGroup.m_sGroupId));
+				Print(string.Format("Partisan mission convoy | cleaned inactive convoy runtime group %1 and preserved neutralized vehicle", activeGroup.m_sGroupId));
 			else
-				Print(string.Format("h-istasi mission convoy | cleaned inactive convoy runtime group %1", activeGroup.m_sGroupId));
+				Print(string.Format("Partisan mission convoy | cleaned inactive convoy runtime group %1", activeGroup.m_sGroupId));
 			state.m_aActiveGroups.Remove(i);
 			changed = true;
 		}
@@ -7630,7 +7719,7 @@ class HST_PhysicalWarService
 
 		activeGroup.m_sSpawnFallbackMode = mode;
 		activeGroup.m_sSpawnFailureReason = reason;
-		Print(string.Format("h-istasi mission convoy | preserving expired engaged convoy runtime %1 until players leave render bubble", activeGroup.m_sGroupId));
+		Print(string.Format("Partisan mission convoy | preserving expired engaged convoy runtime %1 until players leave render bubble", activeGroup.m_sGroupId));
 		return true;
 	}
 
@@ -8086,7 +8175,7 @@ class HST_PhysicalWarService
 			SetMissionConvoyFailure(state, transaction.m_Mission, "Exact convoy materialization failed: " + reason);
 		}
 		m_bMarkerRefreshNeeded = true;
-		string rollbackReport = string.Format("h-istasi exact mission convoy | rolled back outbound materialization %1 | terminal %2 | %3", transaction.m_sMissionInstanceId, terminalFailure, ReportText(reason));
+		string rollbackReport = string.Format("Partisan exact mission convoy | rolled back outbound materialization %1 | terminal %2 | %3", transaction.m_sMissionInstanceId, terminalFailure, ReportText(reason));
 		if (terminalFailure)
 			Print(rollbackReport, LogLevel.WARNING);
 		else
@@ -8284,7 +8373,7 @@ class HST_PhysicalWarService
 			element.m_iLastUpdatedSecond = state.m_iElapsedSeconds;
 			element.m_iRevision++;
 			changed = true;
-			Print(string.Format("h-istasi exact mission convoy | rolled back unpublished abandoned vehicle %1 after materialization authority closed", asset.m_sAssetId));
+			Print(string.Format("Partisan exact mission convoy | rolled back unpublished abandoned vehicle %1 after materialization authority closed", asset.m_sAssetId));
 		}
 		if (changed)
 			m_bMarkerRefreshNeeded = true;
@@ -8694,7 +8783,7 @@ class HST_PhysicalWarService
 				activeGroup.m_sCrewPopulationFailureReason = activeGroup.m_sSpawnFailureReason;
 				activeGroup.m_sConvoyRuntimeStage = "FAILED";
 				mission.m_sRuntimeFailureReason = activeGroup.m_sSpawnFailureReason;
-				Print(string.Format("h-istasi mission convoy | frozen vehicle manifest rejected for %1 group %2 asset %3", mission.m_sInstanceId, activeGroup.m_sGroupId, asset.m_sAssetId), LogLevel.WARNING);
+				Print(string.Format("Partisan mission convoy | frozen vehicle manifest rejected for %1 group %2 asset %3", mission.m_sInstanceId, activeGroup.m_sGroupId, asset.m_sAssetId), LogLevel.WARNING);
 				return true;
 			}
 		}
@@ -8718,7 +8807,7 @@ class HST_PhysicalWarService
 			activeGroup.m_sCrewPopulationFailureReason = activeGroup.m_sSpawnFailureReason;
 			activeGroup.m_sConvoyRuntimeStage = "FAILED";
 			mission.m_sRuntimeFailureReason = activeGroup.m_sSpawnFailureReason;
-			Print(string.Format("h-istasi mission convoy | spawn failed %1 asset %2 at %3: %4", mission.m_sInstanceId, asset.m_sAssetId, asset.m_vSourcePosition, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan mission convoy | spawn failed %1 asset %2 at %3: %4", mission.m_sInstanceId, asset.m_sAssetId, asset.m_vSourcePosition, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			return true;
 		}
 
@@ -8748,7 +8837,7 @@ class HST_PhysicalWarService
 			activeGroup.m_sCrewPopulationFailureReason = activeGroup.m_sSpawnFailureReason;
 			activeGroup.m_sConvoyRuntimeStage = "FAILED";
 			mission.m_sRuntimeFailureReason = activeGroup.m_sSpawnFailureReason;
-			Print(string.Format("h-istasi mission convoy | vehicle spawn failed %1 group %2 prefab %3", mission.m_sInstanceId, activeGroup.m_sGroupId, vehiclePrefab), LogLevel.WARNING);
+			Print(string.Format("Partisan mission convoy | vehicle spawn failed %1 group %2 prefab %3", mission.m_sInstanceId, activeGroup.m_sGroupId, vehiclePrefab), LogLevel.WARNING);
 			return true;
 		}
 		activeGroup.m_sConvoyRuntimeStage = "VEHICLE_SPAWNED";
@@ -8823,7 +8912,7 @@ class HST_PhysicalWarService
 		}
 		if (IsMissionConvoyTravelPhase(mission) && !IsMissionConvoyWaypointAssigned(activeGroup))
 			TryAssignCurrentMissionConvoyRoute(state, mission, activeGroup);
-		Print(string.Format("h-istasi mission convoy | spawned vehicle %1 and crew group %2 for %3 at %4", vehiclePrefab, activeGroup.m_sGroupId, mission.m_sInstanceId, spawnPosition));
+		Print(string.Format("Partisan mission convoy | spawned vehicle %1 and crew group %2 for %3 at %4", vehiclePrefab, activeGroup.m_sGroupId, mission.m_sInstanceId, spawnPosition));
 		m_bMarkerRefreshNeeded = true;
 		return true;
 	}
@@ -8979,7 +9068,7 @@ class HST_PhysicalWarService
 		element.m_iLastUpdatedSecond = state.m_iElapsedSeconds;
 		element.m_iRevision++;
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi exact mission convoy | materialized terminal-vehicle surviving crew %1 count %2 at %3 without vehicle", activeGroup.m_sGroupId, liveCrew, durablePosition));
+		Print(string.Format("Partisan exact mission convoy | materialized terminal-vehicle surviving crew %1 count %2 at %3 without vehicle", activeGroup.m_sGroupId, liveCrew, durablePosition));
 		return true;
 	}
 
@@ -9741,7 +9830,7 @@ class HST_PhysicalWarService
 		mission.m_sRuntimeFailureReason = reason;
 		ApplyMissionConvoyStatusToGroups(state, mission, MISSION_CONVOY_CONTACT);
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi mission convoy | %1 staged as static ambush: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
+		Print(string.Format("Partisan mission convoy | %1 staged as static ambush: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 	}
 
 	protected HST_ConvoyCompletionStatus BuildMissionConvoyCompletionStatus(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -9924,7 +10013,7 @@ class HST_PhysicalWarService
 		if (changed)
 		{
 			m_bMarkerRefreshNeeded = true;
-			Print(string.Format("h-istasi mission convoy | %1 generic completion: %2/%3 crews eliminated", mission.m_sInstanceId, status.m_iEliminatedCrewGroups, status.m_iRequiredCrewGroups));
+			Print(string.Format("Partisan mission convoy | %1 generic completion: %2/%3 crews eliminated", mission.m_sInstanceId, status.m_iEliminatedCrewGroups, status.m_iRequiredCrewGroups));
 		}
 
 		return changed;
@@ -12079,7 +12168,7 @@ class HST_PhysicalWarService
 				if (mission.m_sRuntimeFailureReason.IsEmpty())
 					mission.m_sRuntimeFailureReason = activeGroup.m_sSpawnFailureReason;
 				if (activeGroup.m_sSpawnFailureReason != previousReason)
-					Print(string.Format("h-istasi mission convoy | waypoint assignment unavailable for %1: %2", activeGroup.m_sGroupId, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+					Print(string.Format("Partisan mission convoy | waypoint assignment unavailable for %1: %2", activeGroup.m_sGroupId, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			}
 			if (activeGroup.m_sSpawnFallbackMode != previousFallbackMode || activeGroup.m_iAssignedWaypointCount != previousWaypointCount || activeGroup.m_sSpawnFailureReason != previousReason)
 				changed = true;
@@ -12681,7 +12770,7 @@ class HST_PhysicalWarService
 		}
 
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi mission convoy | %1 failed: %2%3", mission.m_sInstanceId, reason, BuildMissionConvoyFailureContext(state, mission)), LogLevel.WARNING);
+		Print(string.Format("Partisan mission convoy | %1 failed: %2%3", mission.m_sInstanceId, reason, BuildMissionConvoyFailureContext(state, mission)), LogLevel.WARNING);
 	}
 
 	protected string BuildMissionConvoyFailureContext(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -13053,7 +13142,7 @@ class HST_PhysicalWarService
 			if (pendingInfantry > 0)
 			{
 				Print(string.Format(
-					"h-istasi garrison | activation pending native population | zone %1 | requested infantry %2 | active infantry %3 | pending infantry %4 | pending groups %5",
+					"Partisan garrison | activation pending native population | zone %1 | requested infantry %2 | active infantry %3 | pending infantry %4 | pending groups %5",
 					zone.m_sZoneId,
 					infantryCount,
 					zone.m_iActiveInfantryCount,
@@ -13064,7 +13153,7 @@ class HST_PhysicalWarService
 			else
 			{
 				Print(string.Format(
-					"h-istasi garrison | activation partial | zone %1 | requested infantry %2 | active infantry %3 | pending infantry 0 | folded failures may have returned to abstract garrison",
+					"Partisan garrison | activation partial | zone %1 | requested infantry %2 | active infantry %3 | pending infantry 0 | folded failures may have returned to abstract garrison",
 					zone.m_sZoneId,
 					infantryCount,
 					zone.m_iActiveInfantryCount
@@ -13074,13 +13163,13 @@ class HST_PhysicalWarService
 		if (zone.m_iActiveVehicleCount < vehicleCount && vehicleCount > 0)
 		{
 			Print(string.Format(
-				"h-istasi garrison | activation partial | zone %1 | requested vehicles %2 | active vehicles %3 | folded failures may have returned to abstract garrison",
+				"Partisan garrison | activation partial | zone %1 | requested vehicles %2 | active vehicles %3 | folded failures may have returned to abstract garrison",
 				zone.m_sZoneId,
 				vehicleCount,
 				zone.m_iActiveVehicleCount
 			), LogLevel.WARNING);
 		}
-		string activationReport = string.Format("h-istasi | activated zone %1 | requested infantry %2/%3 vehicles %4/%5 | spawned infantry groups %6 vehicle groups %7", zone.m_sZoneId, infantryCount, garrisonInfantryBefore, vehicleCount, garrisonVehiclesBefore, spawnedInfantryGroups, spawnedVehicleGroups);
+		string activationReport = string.Format("Partisan | activated zone %1 | requested infantry %2/%3 vehicles %4/%5 | spawned infantry groups %6 vehicle groups %7", zone.m_sZoneId, infantryCount, garrisonInfantryBefore, vehicleCount, garrisonVehiclesBefore, spawnedInfantryGroups, spawnedVehicleGroups);
 		activationReport = activationReport + string.Format(" | active now infantry %1 vehicles %2 | abstract garrison now infantry %3 vehicles %4", zone.m_iActiveInfantryCount, zone.m_iActiveVehicleCount, garrison.m_iInfantryCount, garrison.m_iVehicleCount);
 		Print(string.Format("%1", activationReport));
 		return true;
@@ -13140,7 +13229,7 @@ class HST_PhysicalWarService
 
 			ClearActiveVehicleSpawnBlocked(zoneId);
 			m_bMarkerRefreshNeeded = true;
-			Print(string.Format("h-istasi capture | cleaned %1 hostile active group(s) after ownership flip at %2", removedGroups, zoneId));
+			Print(string.Format("Partisan capture | cleaned %1 hostile active group(s) after ownership flip at %2", removedGroups, zoneId));
 		}
 
 		return changed;
@@ -13253,7 +13342,7 @@ class HST_PhysicalWarService
 				garrisonVehicles = garrison.m_iVehicleCount;
 			}
 
-			Print(string.Format("h-istasi | deactivated zone %1 | folded groups %2 | returned infantry %3 vehicles %4 | abstract garrison now infantry %5 vehicles %6", zone.m_sZoneId, foldedGroups, returnedInfantry, returnedVehicles, garrisonInfantry, garrisonVehicles));
+			Print(string.Format("Partisan | deactivated zone %1 | folded groups %2 | returned infantry %3 vehicles %4 | abstract garrison now infantry %5 vehicles %6", zone.m_sZoneId, foldedGroups, returnedInfantry, returnedVehicles, garrisonInfantry, garrisonVehicles));
 		}
 		return changed;
 	}
@@ -13273,7 +13362,7 @@ class HST_PhysicalWarService
 
 		RegisterDetachedActiveVehicle(state, zone, activeGroup, vehicle, reason);
 		DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, false);
-		Print(string.Format("h-istasi | detached player-used active vehicle %1 from zone cleanup | zone %2 | reason %3 | position %4", activeGroup.m_sGroupId, zone.m_sZoneId, reason, vehicle.GetOrigin()));
+		Print(string.Format("Partisan | detached player-used active vehicle %1 from zone cleanup | zone %2 | reason %3 | position %4", activeGroup.m_sGroupId, zone.m_sZoneId, reason, vehicle.GetOrigin()));
 		return true;
 	}
 
@@ -13323,7 +13412,7 @@ class HST_PhysicalWarService
 
 		m_aVehicleSpawnBlockedZoneIds.Insert(zoneId);
 		m_aVehicleSpawnBlockedReasons.Insert(reason);
-		Print(string.Format("h-istasi | vehicle spawn blocked for %1 until zone unload: %2", zoneId, reason), LogLevel.WARNING);
+		Print(string.Format("Partisan | vehicle spawn blocked for %1 until zone unload: %2", zoneId, reason), LogLevel.WARNING);
 	}
 
 	protected void ClearActiveVehicleSpawnBlocked(string zoneId)
@@ -13358,7 +13447,7 @@ class HST_PhysicalWarService
 			prefab = activeGroup.m_sPrefab;
 		if (prefab.IsEmpty() || !HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
 		{
-			Print(string.Format("h-istasi | detached active vehicle %1 has no eligible vehicle-root prefab | group prefab %2 | vehicle prefab %3 | reason %4", runtimeId, activeGroup.m_sPrefab, activeGroup.m_sVehiclePrefab, reason), LogLevel.WARNING);
+			Print(string.Format("Partisan | detached active vehicle %1 has no eligible vehicle-root prefab | group prefab %2 | vehicle prefab %3 | reason %4", runtimeId, activeGroup.m_sPrefab, activeGroup.m_sVehiclePrefab, reason), LogLevel.WARNING);
 			return;
 		}
 
@@ -13862,10 +13951,6 @@ class HST_PhysicalWarService
 				continue;
 			}
 
-			string qrfSpendReason;
-			if (!enemyDirector.TrySpendDefense(state, zone, zone.m_sOwnerFactionKey, QRF_ATTACK_RESOURCE_COST, QRF_SUPPORT_RESOURCE_COST, qrfSpendReason))
-				continue;
-
 			HST_QRFState qrf = new HST_QRFState();
 			qrf.m_sInstanceId = string.Format("qrf_%1_%2_%3", zone.m_sZoneId, zone.m_sOwnerFactionKey, state.m_iElapsedSeconds);
 			qrf.m_sFactionKey = zone.m_sOwnerFactionKey;
@@ -13873,10 +13958,24 @@ class HST_PhysicalWarService
 			qrf.m_sTargetZoneId = zone.m_sZoneId;
 			qrf.m_iStartedAtSecond = state.m_iElapsedSeconds;
 			qrf.m_iETASeconds = QRF_ETA_SECONDS;
+			string qrfSpendReason;
+			if (!enemyDirector.TrySpendDefense(
+				state,
+				zone,
+				zone.m_sOwnerFactionKey,
+				QRF_ATTACK_RESOURCE_COST,
+				QRF_SUPPORT_RESOURCE_COST,
+				qrfSpendReason,
+				"enemy_resource_debit_" + qrf.m_sInstanceId,
+				qrf.m_sInstanceId,
+				"",
+				HST_StableIdService.BuildOperationId("legacy_qrf", qrf.m_sInstanceId)))
+				continue;
+
 			state.m_aQRFs.Insert(qrf);
 			zone.m_iQrfCooldownUntilSecond = state.m_iElapsedSeconds + QRF_COOLDOWN_SECONDS;
 			m_bMarkerRefreshNeeded = true;
-			Print(string.Format("h-istasi | dispatched QRF %1 from %2 to pressured zone %3 | physical spawn at T-%4s", qrf.m_sInstanceId, qrf.m_sSourceZoneId, zone.m_sZoneId, QRF_INBOUND_SPAWN_SECONDS));
+			Print(string.Format("Partisan | dispatched QRF %1 from %2 to pressured zone %3 | physical spawn at T-%4s", qrf.m_sInstanceId, qrf.m_sSourceZoneId, zone.m_sZoneId, QRF_INBOUND_SPAWN_SECONDS));
 			NotifyRuntimeEvent(state, "qrf_dispatched_" + qrf.m_sInstanceId, "QRF Dispatched", string.Format("%1 is sending a quick reaction force toward %2.", zone.m_sOwnerFactionKey, ResolveZoneDisplayName(state, zone.m_sZoneId)), zone.m_sZoneId, zone.m_vPosition, 6.0);
 			changed = true;
 		}
@@ -13989,7 +14088,7 @@ class HST_PhysicalWarService
 				qrf.m_bResolved = true;
 				qrf.m_bSucceeded = false;
 				m_bMarkerRefreshNeeded = true;
-				Print(string.Format("h-istasi | QRF %1 failed to stage near objective: missing target zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId), LogLevel.WARNING);
+				Print(string.Format("Partisan | QRF %1 failed to stage near objective: missing target zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId), LogLevel.WARNING);
 				changed = true;
 				continue;
 			}
@@ -14018,13 +14117,13 @@ class HST_PhysicalWarService
 				qrf.m_bSucceeded = false;
 				m_bMarkerRefreshNeeded = true;
 				NotifyRuntimeEvent(state, "qrf_spawn_failed_" + qrf.m_sInstanceId, "QRF Spawn Failed", string.Format("%1 QRF could not spawn for %2. %3", qrf.m_sFactionKey, ResolveZoneDisplayName(state, targetZone.m_sZoneId), activeGroup.m_sSpawnFailureReason), targetZone.m_sZoneId, activeGroup.m_vPosition, 6.0);
-				Print(string.Format("h-istasi | QRF %1 failed to materialize near %2 | prefab %3 | reason %4", qrf.m_sInstanceId, targetZone.m_sZoneId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+				Print(string.Format("Partisan | QRF %1 failed to materialize near %2 | prefab %3 | reason %4", qrf.m_sInstanceId, targetZone.m_sZoneId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 				changed = true;
 				continue;
 			}
 
 			qrf.m_sGroupId = activeGroup.m_sGroupId;
-			Print(string.Format("h-istasi | QRF %1 spawned near %2 | source %3 | spawn %4 | objective %5 | group %6", qrf.m_sInstanceId, targetZone.m_sZoneId, qrf.m_sSourceZoneId, activeGroup.m_vPosition, targetPosition, activeGroup.m_sGroupId));
+			Print(string.Format("Partisan | QRF %1 spawned near %2 | source %3 | spawn %4 | objective %5 | group %6", qrf.m_sInstanceId, targetZone.m_sZoneId, qrf.m_sSourceZoneId, activeGroup.m_vPosition, targetPosition, activeGroup.m_sGroupId));
 			changed = true;
 		}
 
@@ -14053,7 +14152,7 @@ class HST_PhysicalWarService
 				qrf.m_bSucceeded = false;
 				m_bMarkerRefreshNeeded = true;
 				changed = true;
-				Print(string.Format("h-istasi | QRF %1 failed to reach zone %2 | no physical group materialized", qrf.m_sInstanceId, qrf.m_sTargetZoneId), LogLevel.WARNING);
+				Print(string.Format("Partisan | QRF %1 failed to reach zone %2 | no physical group materialized", qrf.m_sInstanceId, qrf.m_sTargetZoneId), LogLevel.WARNING);
 				continue;
 			}
 
@@ -14083,7 +14182,7 @@ class HST_PhysicalWarService
 				qrf.m_bSucceeded = false;
 				m_bMarkerRefreshNeeded = true;
 				changed = true;
-				Print(string.Format("h-istasi | QRF %1 failed to reach zone %2 | group %3 status %4 spawned agents %5 alive %6", qrf.m_sInstanceId, qrf.m_sTargetZoneId, qrf.m_sGroupId, ResolveActiveGroupStatus(activeGroup), ResolveSpawnedAgentTotal(activeGroup), ResolveAliveAgentTotal(activeGroup)), LogLevel.WARNING);
+				Print(string.Format("Partisan | QRF %1 failed to reach zone %2 | group %3 status %4 spawned agents %5 alive %6", qrf.m_sInstanceId, qrf.m_sTargetZoneId, qrf.m_sGroupId, ResolveActiveGroupStatus(activeGroup), ResolveSpawnedAgentTotal(activeGroup), ResolveAliveAgentTotal(activeGroup)), LogLevel.WARNING);
 				continue;
 			}
 
@@ -14091,7 +14190,7 @@ class HST_PhysicalWarService
 			if (activeGroup)
 				activeGroup.m_sRuntimeStatus = "arrived";
 			changed = true;
-			Print(string.Format("h-istasi | QRF %1 active near zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId));
+			Print(string.Format("Partisan | QRF %1 active near zone %2", qrf.m_sInstanceId, qrf.m_sTargetZoneId));
 		}
 
 		return changed;
@@ -14109,7 +14208,7 @@ class HST_PhysicalWarService
 		qrf.m_bResolved = true;
 		qrf.m_bSucceeded = false;
 		m_bMarkerRefreshNeeded = true;
-		Print(string.Format("h-istasi | QRF %1 failed because linked group %2 became terminal before completion | status %3 | source %4", qrf.m_sInstanceId, qrf.m_sGroupId, activeGroup.m_sRuntimeStatus, source), LogLevel.WARNING);
+		Print(string.Format("Partisan | QRF %1 failed because linked group %2 became terminal before completion | status %3 | source %4", qrf.m_sInstanceId, qrf.m_sGroupId, activeGroup.m_sRuntimeStatus, source), LogLevel.WARNING);
 		return true;
 	}
 
@@ -14178,7 +14277,7 @@ class HST_PhysicalWarService
 		if (HST_WorldPositionService.TryResolveDryStagingPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, fallback, 3.0) && !IsInsideHQSafeRadius(state, fallback))
 			return fallback;
 
-		Print(string.Format("h-istasi | QRF %1 could not find dry staging near %2, using objective fallback %3", qrf.m_sInstanceId, targetZone.m_sZoneId, targetPosition), LogLevel.WARNING);
+		Print(string.Format("Partisan | QRF %1 could not find dry staging near %2, using objective fallback %3", qrf.m_sInstanceId, targetZone.m_sZoneId, targetPosition), LogLevel.WARNING);
 		return HST_WorldPositionService.ResolveSafeGroundPosition(targetPosition, HST_WorldPositionService.CHARACTER_GROUND_OFFSET, true, 8.0);
 	}
 
@@ -15798,7 +15897,7 @@ class HST_PhysicalWarService
 			return prefab;
 		}
 
-		Print(string.Format("h-istasi | no valid %1 prefab found for faction %2", purpose, factionKey), LogLevel.WARNING);
+		Print(string.Format("Partisan | no valid %1 prefab found for faction %2", purpose, factionKey), LogLevel.WARNING);
 		return "";
 	}
 
@@ -15869,7 +15968,11 @@ class HST_PhysicalWarService
 		return seed;
 	}
 
-	protected bool TrySpawnActiveGroup(HST_ActiveGroupState activeGroup, HST_CampaignState state = null, HST_CampaignPreset preset = null)
+	protected bool TrySpawnActiveGroup(
+		HST_ActiveGroupState activeGroup,
+		HST_CampaignState state = null,
+		HST_CampaignPreset preset = null,
+		bool forceCampaignDebugMaterialization = false)
 	{
 		if (IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
 			return false;
@@ -15885,7 +15988,8 @@ class HST_PhysicalWarService
 		if (IsExactMissionConvoyContract(exactMission))
 			return TrySpawnExactMissionConvoyFrozenCrewGroup(state, exactMission, activeGroup);
 
-		if (ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup))
+		if (!forceCampaignDebugMaterialization
+			&& ShouldDeferActiveGroupRuntimePhysicalization(state, activeGroup))
 		{
 			MarkActiveGroupRuntimePhysicalizationDeferred(activeGroup, state);
 			return false;
@@ -15950,7 +16054,7 @@ class HST_PhysicalWarService
 			if (activeGroup.m_sSpawnFailureReason.IsEmpty())
 				activeGroup.m_sSpawnFailureReason = string.Format("Group prefab spawn failed for faction %1.", activeGroup.m_sFactionKey);
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
-			Print(string.Format("h-istasi | active group prefab spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group prefab spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			PrintActiveGroupSpawnEvidence(state, activeGroup, "failed");
 			return false;
 		}
@@ -16097,7 +16201,7 @@ class HST_PhysicalWarService
 				resourceLoaded = true;
 		}
 
-		string evidence = string.Format("h-istasi | active group runtime proof | stage %1 | group %2 | zone %3 owner %4 active %5 | expected %6 | prefab %7",
+		string evidence = string.Format("Partisan | active group runtime proof | stage %1 | group %2 | zone %3 owner %4 active %5 | expected %6 | prefab %7",
 			ReportText(stage),
 			ReportText(activeGroup.m_sGroupId),
 			ReportText(activeGroup.m_sZoneId),
@@ -16174,7 +16278,7 @@ class HST_PhysicalWarService
 		{
 			SCR_EntityHelper.DeleteEntityAndChildren(entity);
 			failureReason = string.Format("Group prefab root faction mismatch before native member spawn: expected %1 actual %2 prefab %3.", activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab);
-			Print(string.Format("h-istasi | active group root faction mismatch %1 expected %2 actual %3 prefab %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group root faction mismatch %1 expected %2 actual %3 prefab %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, ReportText(actualGroupFaction), prefab), LogLevel.WARNING);
 			return null;
 		}
 		if (activeGroup)
@@ -16295,7 +16399,7 @@ class HST_PhysicalWarService
 		}
 		RefreshActiveGroupZoneCounts(state, activeGroup);
 		string finalPopulationFailure = activeGroup.m_sSpawnFailureReason;
-		Print(string.Format("h-istasi | active group failed %1 prefab %2: zero agents after grace | reason %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, finalPopulationFailure), LogLevel.WARNING);
+		Print(string.Format("Partisan | active group failed %1 prefab %2: zero agents after grace | reason %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, finalPopulationFailure), LogLevel.WARNING);
 		if (IsMissionConvoyGroup(activeGroup))
 		{
 			HST_ExactMissionConvoyOutboundProjectionTransaction outboundTransaction = FindExactMissionConvoyOutboundProjectionTransaction(activeGroup.m_sMissionInstanceId);
@@ -16483,10 +16587,69 @@ class HST_PhysicalWarService
 		return resolved;
 	}
 
+	protected bool CampaignDebugUpdateActiveGroupRouteOnly(
+		HST_ActiveGroupState activeGroup,
+		HST_CampaignState state,
+		HST_CampaignPreset preset)
+	{
+		if (!activeGroup || !state || activeGroup.m_sGroupId.IsEmpty()
+			|| state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup
+			|| !state.IsOperationalActiveGroup(activeGroup)
+			|| (activeGroup.m_sRuntimeStatus != "routing"
+				&& activeGroup.m_sRuntimeStatus != "support_active"
+				&& activeGroup.m_sRuntimeStatus != "support_recalling")
+			|| ShouldHoldForceSpawnProjection(state, activeGroup)
+			|| IsExactOrQuarantinedMissionGuardGroup(state, activeGroup))
+			return false;
+
+		NormalizeStaticActiveGroupRoute(state, preset, activeGroup);
+		ref array<vector> routePositions = BuildActiveGroupRoutePositions(
+			state,
+			ResolveActiveGroupGeneratedRoute(state, activeGroup),
+			activeGroup);
+		bool physicalConfirmedRoute = activeGroup.m_bSpawnedEntity
+			&& activeGroup.m_iInfantryCount > 0
+			&& !IsMissionConvoyGroup(activeGroup)
+			&& IsLiveConfirmedOperationRouteGroup(state, activeGroup);
+		if (physicalConfirmedRoute)
+			return UpdatePhysicalSupportActiveGroupRoute(
+				state,
+				activeGroup,
+				routePositions);
+		if (!activeGroup.m_bSpawnedEntity
+			|| activeGroup.m_iInfantryCount <= 0
+			|| IsMissionConvoyGroup(activeGroup)
+			|| IsActiveGroupInfantryWaypointAssigned(activeGroup))
+			return false;
+
+		bool assignedFinalSweepWaypoint;
+		int assignedWaypointCount = AssignActiveGroupInfantryRouteWaypoints(
+			activeGroup,
+			routePositions,
+			assignedFinalSweepWaypoint);
+		if (assignedWaypointCount <= 1)
+			return false;
+		activeGroup.m_iAssignedWaypointCount = assignedWaypointCount;
+		activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(
+			activeGroup.m_sSpawnFallbackMode,
+			"infantry_waypoints");
+		if (assignedFinalSweepWaypoint)
+			activeGroup.m_sSpawnFallbackMode = AppendActiveGroupSpawnModeToken(
+				activeGroup.m_sSpawnFallbackMode,
+				"infantry_sweep");
+		activeGroup.m_sSpawnFailureReason = string.Format(
+			"Assigned focused Campaign Debug route waypoint chain %1 | final sweep %2.",
+			assignedWaypointCount,
+			ReportBool(assignedFinalSweepWaypoint));
+		return true;
+	}
+
 	bool CampaignDebugResolveActiveGroupRouteAssignment(HST_ActiveGroupState activeGroup, HST_CampaignState state, HST_CampaignPreset preset, string requestedStatus, out string evidence)
 	{
 		evidence = "missing group or state";
-		if (!activeGroup || !state)
+		if (!activeGroup || !state || activeGroup.m_sGroupId.IsEmpty()
+			|| state.FindActiveGroup(activeGroup.m_sGroupId) != activeGroup
+			|| !state.IsOperationalActiveGroup(activeGroup))
 			return false;
 
 		if (requestedStatus.IsEmpty() || requestedStatus == "spawn_pending_agents")
@@ -16495,12 +16658,27 @@ class HST_PhysicalWarService
 		string beforeMode = activeGroup.m_sSpawnFallbackMode;
 		int beforeWaypoints = activeGroup.m_iAssignedWaypointCount;
 		string populationEvidence = "not pending";
-		bool populationResolved = activeGroup.m_sRuntimeStatus != "spawn_pending_agents";
+		bool populationResolved;
 		bool directFallbackResolved;
 		bool routeUpdateChanged;
 		bool manualRouteAssigned;
 		bool assignedFinalSweepWaypoint;
 		int manualAssignedWaypoints;
+		bool materializationAttempted;
+		bool materializationChanged;
+
+		if (!activeGroup.m_bSpawnedEntity
+			&& !HasRuntimeGroupEntity(activeGroup.m_sGroupId))
+		{
+			materializationAttempted = true;
+			materializationChanged = TrySpawnActiveGroup(
+				activeGroup,
+				state,
+				preset,
+				true);
+		}
+		populationResolved = activeGroup.m_bSpawnedEntity
+			&& CountAliveRuntimeInfantryGroupAgents(activeGroup.m_sGroupId) > 0;
 
 		if (!populationResolved)
 		{
@@ -16514,7 +16692,10 @@ class HST_PhysicalWarService
 
 		if (populationResolved)
 		{
-			routeUpdateChanged = UpdateRoutedActiveGroupsNow(state, preset, true);
+			routeUpdateChanged = CampaignDebugUpdateActiveGroupRouteOnly(
+				activeGroup,
+				state,
+				preset);
 			if (!IsActiveGroupInfantryWaypointAssigned(activeGroup) && activeGroup.m_bSpawnedEntity && activeGroup.m_iInfantryCount > 0 && !IsMissionConvoyGroup(activeGroup) && (activeGroup.m_sRuntimeStatus == "routing" || activeGroup.m_sRuntimeStatus == "support_active"))
 			{
 				ref array<vector> routePositions = BuildActiveGroupRoutePositions(state, ResolveActiveGroupGeneratedRoute(state, activeGroup), activeGroup);
@@ -16540,7 +16721,9 @@ class HST_PhysicalWarService
 			ReportText(activeGroup.m_sSpawnFallbackMode),
 			beforeWaypoints,
 			activeGroup.m_iAssignedWaypointCount);
-		evidence = evidence + string.Format(" | population %1 | directFallback %2 | routeUpdate %3",
+		evidence = evidence + string.Format(" | materialization %1/%2 | population %3 | directFallback %4 | routeUpdate %5",
+			ReportBool(materializationAttempted),
+			ReportBool(materializationChanged),
 			ReportBool(populationResolved),
 			ReportBool(directFallbackResolved),
 			ReportBool(routeUpdateChanged));
@@ -17134,7 +17317,7 @@ class HST_PhysicalWarService
 		if (currentLimit < requiredLimit)
 		{
 			aiWorld.SetAILimit(requiredLimit);
-			Print(string.Format("h-istasi | active group AIWorld limit raised | group %1 | source %2 | limited %3 | limit %4 -> %5 | desiredMembers %6 | headroom %7",
+			Print(string.Format("Partisan | active group AIWorld limit raised | group %1 | source %2 | limited %3 | limit %4 -> %5 | desiredMembers %6 | headroom %7",
 				activeGroup.m_sGroupId,
 				ReportText(source),
 				currentLimited,
@@ -17187,7 +17370,7 @@ class HST_PhysicalWarService
 			activeGroup.m_sConvoyRuntimeStage = "CREW_AIWORLD_BUDGET_DEFERRED";
 		}
 		RefreshActiveGroupZoneCounts(state, activeGroup);
-		Print(string.Format("h-istasi | active group AIWorld native spawn deferred | group %1 | stage %2 | reason %3", activeGroup.m_sGroupId, ReportText(stage), ReportText(failureReason)), LogLevel.WARNING);
+		Print(string.Format("Partisan | active group AIWorld native spawn deferred | group %1 | stage %2 | reason %3", activeGroup.m_sGroupId, ReportText(stage), ReportText(failureReason)), LogLevel.WARNING);
 		PrintActiveGroupSpawnEvidence(state, activeGroup, stage);
 	}
 
@@ -17270,7 +17453,7 @@ class HST_PhysicalWarService
 		SCR_EditableGroupComponent editableGroup = SCR_EditableGroupComponent.Cast(group.FindComponent(SCR_EditableGroupComponent));
 		if (!editableGroup)
 		{
-			Print(string.Format("h-istasi | active group editable membership missing group component | group %1 | source %2 | visual %3", activeGroup.m_sGroupId, ReportText(source), ReportText(BuildRuntimeEntityVisualEvidence(group))), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group editable membership missing group component | group %1 | source %2 | visual %3", activeGroup.m_sGroupId, ReportText(source), ReportText(BuildRuntimeEntityVisualEvidence(group))), LogLevel.WARNING);
 			return;
 		}
 
@@ -17377,7 +17560,7 @@ class HST_PhysicalWarService
 			string throttleKey = "membership_warn_" + activeGroup.m_sGroupId;
 			if (!ShouldEmitThrottled(throttleKey, 30000))
 				return;
-			string report = string.Format("h-istasi | active group editable membership reconciled | group %1 | source %2 | raw %3 server %4 playerAgents %5 living %6 | editableSize %7",
+			string report = string.Format("Partisan | active group editable membership reconciled | group %1 | source %2 | raw %3 server %4 playerAgents %5 living %6 | editableSize %7",
 				activeGroup.m_sGroupId,
 				ReportText(source),
 				finalRawCount,
@@ -17406,7 +17589,7 @@ class HST_PhysicalWarService
 			string debugThrottleKey = "debug_membership_ok_" + activeGroup.m_sGroupId;
 			if (!ShouldEmitThrottled(debugThrottleKey, 30000))
 				return;
-			Print("h-istasi physical war debug | " + string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
+			Print("Partisan physical war debug | " + string.Format("active group editable membership verified %1 via %2 | %3", activeGroup.m_sGroupId, source, BuildRuntimeEntityVisualEvidence(group)));
 		}
 	}
 
@@ -17847,7 +18030,7 @@ class HST_PhysicalWarService
 				firstPrefab = slotPrefabText;
 			if (!IsValidInfantryCharacterPrefabResource(slotPrefabText, activeGroup.m_sFactionKey))
 			{
-				Print(string.Format("h-istasi | active group rejected stock slot member %1 | group %2 | expected %3 | source %4", slotPrefabText, activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
+				Print(string.Format("Partisan | active group rejected stock slot member %1 | group %2 | expected %3 | source %4", slotPrefabText, activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
 				continue;
 			}
 
@@ -17858,7 +18041,7 @@ class HST_PhysicalWarService
 			IEntity member = GetGame().SpawnEntityPrefabEx(slotPrefab, true, world, params);
 			if (!member)
 			{
-				Print(string.Format("h-istasi | active group stock slot member spawn failed | group %1 | prefab %2 | source %3", activeGroup.m_sGroupId, slotPrefabText, source), LogLevel.WARNING);
+				Print(string.Format("Partisan | active group stock slot member spawn failed | group %1 | prefab %2 | source %3", activeGroup.m_sGroupId, slotPrefabText, source), LogLevel.WARNING);
 				continue;
 			}
 
@@ -17872,7 +18055,7 @@ class HST_PhysicalWarService
 			ApplyEntityFaction(member, activeGroup.m_sFactionKey);
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(member);
-			Print(string.Format("h-istasi | stock group slot member spawned | group %1 | faction %2 | prefab %3 | position %4 | source %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, slotPrefabText, position, source));
+			Print(string.Format("Partisan | stock group slot member spawned | group %1 | faction %2 | prefab %3 | position %4 | source %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, slotPrefabText, position, source));
 			spawnedCount++;
 		}
 
@@ -17884,7 +18067,7 @@ class HST_PhysicalWarService
 		}
 		else
 		{
-			Print(string.Format("h-istasi | active group stock member-slot population failed %1 faction %2 groupPrefab %3 firstSlot %4 source %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab, ReportText(firstPrefab), source), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group stock member-slot population failed %1 faction %2 groupPrefab %3 firstSlot %4 source %5", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab, ReportText(firstPrefab), source), LogLevel.WARNING);
 		}
 
 		return spawnedCount;
@@ -18032,7 +18215,7 @@ class HST_PhysicalWarService
 		Resource loaded = Resource.Load(resourceName);
 		if (!loaded || !loaded.IsValid())
 		{
-			Print(string.Format("h-istasi | active group direct fallback failed %1: missing group prefab %2", activeGroup.m_sGroupId, resourceName), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group direct fallback failed %1: missing group prefab %2", activeGroup.m_sGroupId, resourceName), LogLevel.WARNING);
 			return null;
 		}
 
@@ -18051,7 +18234,7 @@ class HST_PhysicalWarService
 		{
 			if (entity)
 				SCR_EntityHelper.DeleteEntityAndChildren(entity);
-			Print(string.Format("h-istasi | active group direct fallback failed %1: prefab %2 did not spawn an AIGroup", activeGroup.m_sGroupId, resourceName), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group direct fallback failed %1: prefab %2 did not spawn an AIGroup", activeGroup.m_sGroupId, resourceName), LogLevel.WARNING);
 			return null;
 		}
 
@@ -18107,7 +18290,7 @@ class HST_PhysicalWarService
 
 			m_aRuntimeGroupIds.Insert(activeGroup.m_sGroupId);
 			m_aRuntimeGroupEntities.Insert(member);
-			Print(string.Format("h-istasi | direct infantry spawned | group %1 | faction %2 | prefab %3 | position %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, prefab, position));
+			Print(string.Format("Partisan | direct infantry spawned | group %1 | faction %2 | prefab %3 | position %4", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, prefab, position));
 			spawnedCount++;
 		}
 
@@ -18118,7 +18301,7 @@ class HST_PhysicalWarService
 		}
 
 		if (spawnedCount <= 0)
-			Print(string.Format("h-istasi | active group fallback infantry failed %1 faction %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab), LogLevel.WARNING);
+			Print(string.Format("Partisan | active group fallback infantry failed %1 faction %2 prefab %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, activeGroup.m_sPrefab), LogLevel.WARNING);
 
 		return spawnedCount;
 	}
@@ -18195,7 +18378,7 @@ class HST_PhysicalWarService
 				return prefab;
 		}
 
-		Print(string.Format("h-istasi | no valid infantry character prefab found for fallback group %1 faction %2", groupId, factionKey), LogLevel.WARNING);
+		Print(string.Format("Partisan | no valid infantry character prefab found for fallback group %1 faction %2", groupId, factionKey), LogLevel.WARNING);
 		return "";
 	}
 
@@ -18207,13 +18390,13 @@ class HST_PhysicalWarService
 		Resource loaded = Resource.Load(prefab);
 		if (!loaded || !loaded.IsValid())
 		{
-			Print(string.Format("h-istasi | rejected missing infantry character prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			Print(string.Format("Partisan | rejected missing infantry character prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		if (!IsInfantryCharacterPrefabCatalogFactionMatch(prefab, factionKey))
 		{
-			Print(string.Format("h-istasi | rejected wrong-faction infantry character prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			Print(string.Format("Partisan | rejected wrong-faction infantry character prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
@@ -18289,7 +18472,7 @@ class HST_PhysicalWarService
 		EnsureRuntimeFactionRecursive(entity, factionKey, changedCount, mismatchedCount, sample, forceGroupSetFaction);
 
 		if (changedCount > 0 || mismatchedCount > 0)
-			Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | visual %6 | sample %7", activeGroup.m_sGroupId, factionKey, source, changedCount, mismatchedCount, ReportText(BuildRuntimeEntityVisualEvidence(entity)), ReportText(sample)));
+			Print(string.Format("Partisan | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | visual %6 | sample %7", activeGroup.m_sGroupId, factionKey, source, changedCount, mismatchedCount, ReportText(BuildRuntimeEntityVisualEvidence(entity)), ReportText(sample)));
 	}
 
 	protected bool EnsureRuntimeFactionRecursive(IEntity root, string factionKey, out int changed, out int mismatches, out string sample, bool forceGroupSetFaction = false)
@@ -18466,7 +18649,7 @@ class HST_PhysicalWarService
 				firstSample = sample;
 			if (changed > 0 || mismatches > 0)
 			{
-				Print(string.Format("h-istasi | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | visual %6 | sample %7", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, changed, mismatches, ReportText(BuildRuntimeEntityVisualEvidence(runtimeEntity)), ReportText(sample)));
+				Print(string.Format("Partisan | runtime faction applied | group %1 | expected %2 | source %3 | changed %4 | mismatches %5 | visual %6 | sample %7", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, changed, mismatches, ReportText(BuildRuntimeEntityVisualEvidence(runtimeEntity)), ReportText(sample)));
 			}
 		}
 
@@ -18483,7 +18666,7 @@ class HST_PhysicalWarService
 			if (firstSample.IsEmpty() && !vehicleSample.IsEmpty())
 				firstSample = vehicleSample;
 			if (vehicleChanged || vehicleMismatches > 0)
-				Print(string.Format("h-istasi | runtime vehicle faction cleared | group %1 | source %2 | changed %3 | remaining claims %4 | sample %5", activeGroup.m_sGroupId, source, vehicleChangedCount, vehicleMismatches, ReportText(vehicleSample)));
+				Print(string.Format("Partisan | runtime vehicle faction cleared | group %1 | source %2 | changed %3 | remaining claims %4 | sample %5", activeGroup.m_sGroupId, source, vehicleChangedCount, vehicleMismatches, ReportText(vehicleSample)));
 		}
 
 		string sample;
@@ -18491,7 +18674,7 @@ class HST_PhysicalWarService
 		if (sample.IsEmpty())
 			sample = firstSample;
 		if (mismatches > 0)
-			Print(string.Format("h-istasi | runtime faction mismatch persists | group %1 | expected %2 | source %3 | repaired changed %4 mismatches %5 | audit mismatches %6 | visual %7 | sample %8", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, totalChanged, totalMismatches, mismatches, ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)), ReportText(sample)), LogLevel.WARNING);
+			Print(string.Format("Partisan | runtime faction mismatch persists | group %1 | expected %2 | source %3 | repaired changed %4 mismatches %5 | audit mismatches %6 | visual %7 | sample %8", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source, totalChanged, totalMismatches, mismatches, ReportText(BuildActiveGroupRuntimeVisualEvidence(activeGroup.m_sGroupId)), ReportText(sample)), LogLevel.WARNING);
 	}
 
 	protected bool TryRepairEmptyRuntimeGroupPopulation(HST_CampaignState state, HST_ActiveGroupState activeGroup, string source)
@@ -18528,20 +18711,20 @@ class HST_PhysicalWarService
 
 		if (TryPopulatePendingActiveGroupFromNativeSlots(activeGroup, previousStatus, state, source + " empty runtime shell"))
 		{
-			Print(string.Format("h-istasi | repaired empty runtime group %1 with stock %2 member slots via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			Print(string.Format("Partisan | repaired empty runtime group %1 with stock %2 member slots via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
 			return true;
 		}
 
 		if (TryPopulatePendingActiveGroupFromFactionInfantry(activeGroup, previousStatus, state, source + " empty runtime shell", true))
 		{
-			Print(string.Format("h-istasi | repaired empty runtime group %1 with direct %2 infantry via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			Print(string.Format("Partisan | repaired empty runtime group %1 with direct %2 infantry via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
 			return true;
 		}
 
 		activeGroup.m_sRuntimeStatus = previousStatus;
 		activeGroup.m_bSpawnedEntity = previousSpawned;
 		activeGroup.m_sSpawnFailureReason = "Runtime group shell had zero live agents and direct faction infantry repair failed via " + source + ".";
-		Print(string.Format("h-istasi | empty runtime group repair failed %1 expected %2 via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
+		Print(string.Format("Partisan | empty runtime group repair failed %1 expected %2 via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
 		return false;
 	}
 
@@ -18609,7 +18792,7 @@ class HST_PhysicalWarService
 		if (liveCrew > 0)
 			RecordConvoyCrewObservedAlive(activeGroup, liveCrew);
 
-		Print(string.Format("h-istasi | active group repair queued primary stock group %1 | status %2 | live %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sRuntimeStatus, liveCrew, source));
+		Print(string.Format("Partisan | active group repair queued primary stock group %1 | status %2 | live %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sRuntimeStatus, liveCrew, source));
 		return true;
 	}
 
@@ -18641,9 +18824,9 @@ class HST_PhysicalWarService
 			activeGroup.m_bCrewPopulationTerminallyFailed = false;
 			activeGroup.m_sCrewPopulationFailureReason = "";
 			if (CountAliveRuntimeCrewAgents(activeGroup) > 0)
-				Print(string.Format("h-istasi mission convoy | repaired zero-live crew group %1 with primary stock %2 group via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+				Print(string.Format("Partisan mission convoy | repaired zero-live crew group %1 with primary stock %2 group via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
 			else
-				Print(string.Format("h-istasi mission convoy | queued primary stock crew group repair %1 expected %2 via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+				Print(string.Format("Partisan mission convoy | queued primary stock crew group repair %1 expected %2 via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
 			return true;
 		}
 
@@ -18660,7 +18843,7 @@ class HST_PhysicalWarService
 		{
 			activeGroup.m_bCrewPopulationTerminallyFailed = false;
 			activeGroup.m_sCrewPopulationFailureReason = "";
-			Print(string.Format("h-istasi mission convoy | repaired zero-live crew group %1 with stock %2 member slots via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			Print(string.Format("Partisan mission convoy | repaired zero-live crew group %1 with stock %2 member slots via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
 			return true;
 		}
 
@@ -18668,7 +18851,7 @@ class HST_PhysicalWarService
 		{
 			activeGroup.m_bCrewPopulationTerminallyFailed = false;
 			activeGroup.m_sCrewPopulationFailureReason = "";
-			Print(string.Format("h-istasi mission convoy | repaired zero-live crew group %1 with direct %2 infantry via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
+			Print(string.Format("Partisan mission convoy | repaired zero-live crew group %1 with direct %2 infantry via %3", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source));
 			return true;
 		}
 
@@ -18684,7 +18867,7 @@ class HST_PhysicalWarService
 		activeGroup.m_sConvoyRuntimeStage = "CREW_REPAIR_PENDING";
 		if (!previousStage.IsEmpty() && previousStage == "CREW_UNOBSERVED")
 			activeGroup.m_sConvoyRuntimeStage = previousStage;
-		Print(string.Format("h-istasi mission convoy | zero-live crew repair failed for %1 expected %2 via %3; convoy remains pending instead of eliminated", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
+		Print(string.Format("Partisan mission convoy | zero-live crew repair failed for %1 expected %2 via %3; convoy remains pending instead of eliminated", activeGroup.m_sGroupId, activeGroup.m_sFactionKey, source), LogLevel.WARNING);
 		return false;
 	}
 
@@ -19206,7 +19389,7 @@ class HST_PhysicalWarService
 		{
 			activeGroup.m_sSpawnFailureReason = "No dry vehicle-safe ground at assigned slot.";
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
-			Print(string.Format("h-istasi | active vehicle spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan | active vehicle spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			return false;
 		}
 
@@ -19237,7 +19420,7 @@ class HST_PhysicalWarService
 			if (activeGroup.m_sSpawnFailureReason.IsEmpty())
 				activeGroup.m_sSpawnFailureReason = string.Format("Vehicle prefab spawn failed for faction %1.", activeGroup.m_sFactionKey);
 			activeGroup.m_sRuntimeStatus = "spawn_failed";
-			Print(string.Format("h-istasi | active vehicle prefab spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan | active vehicle prefab spawn failed for %1 (%2): %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, activeGroup.m_sSpawnFailureReason), LogLevel.WARNING);
 			return false;
 		}
 
@@ -19255,7 +19438,7 @@ class HST_PhysicalWarService
 		m_aRuntimeVehicleGroupIds.Insert(activeGroup.m_sGroupId);
 		m_aRuntimeVehicleEntities.Insert(entity);
 		EnsureActiveGroupRuntimeFaction(activeGroup, "vehicle spawn");
-		Print(string.Format("h-istasi | spawned active vehicle %1 using %2 at %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, spawnPosition));
+		Print(string.Format("Partisan | spawned active vehicle %1 using %2 at %3", activeGroup.m_sGroupId, activeGroup.m_sPrefab, spawnPosition));
 		return true;
 	}
 
@@ -19294,7 +19477,7 @@ class HST_PhysicalWarService
 			return prefab;
 		}
 
-		Print(string.Format("h-istasi | no valid %1 group prefab found for faction %2", purpose, factionKey), LogLevel.WARNING);
+		Print(string.Format("Partisan | no valid %1 group prefab found for faction %2", purpose, factionKey), LogLevel.WARNING);
 		return "";
 	}
 
@@ -19305,26 +19488,26 @@ class HST_PhysicalWarService
 
 		if (prefab.Contains("_NotSpawned") || prefab.Contains("NotSpawned"))
 		{
-			Print(string.Format("h-istasi | rejected non-spawning group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			Print(string.Format("Partisan | rejected non-spawning group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		if (prefab.Contains("PlayableGroup.et"))
 		{
-			Print(string.Format("h-istasi | rejected player placeholder group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			Print(string.Format("Partisan | rejected player placeholder group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		Resource loaded = Resource.Load(prefab);
 		if (!loaded || !loaded.IsValid())
 		{
-			Print(string.Format("h-istasi | rejected missing group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			Print(string.Format("Partisan | rejected missing group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		if (!IsGroupPrefabCatalogFactionMatch(prefab, factionKey))
 		{
-			Print(string.Format("h-istasi | rejected wrong-faction group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+			Print(string.Format("Partisan | rejected wrong-faction group prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
@@ -19356,28 +19539,28 @@ class HST_PhysicalWarService
 		if (IsAircraftVehicleResource(prefab))
 		{
 			if (logRejection)
-				Print(string.Format("h-istasi | rejected aircraft vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+				Print(string.Format("Partisan | rejected aircraft vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		if (!IsGroundVehicleResource(prefab))
 		{
 			if (logRejection)
-				Print(string.Format("h-istasi | rejected non-ground vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+				Print(string.Format("Partisan | rejected non-ground vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		if (!HST_VehicleRootPolicy.IsEligibleVehicleRootPrefab(prefab))
 		{
 			if (logRejection)
-				Print(string.Format("h-istasi | rejected invalid vehicle root prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+				Print(string.Format("Partisan | rejected invalid vehicle root prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
 		if (!IsGuidQualifiedVehicleResource(prefab))
 		{
 			if (logRejection)
-				Print(string.Format("h-istasi | rejected unverified path-only vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+				Print(string.Format("Partisan | rejected unverified path-only vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
@@ -19385,7 +19568,7 @@ class HST_PhysicalWarService
 		if (!loaded || !loaded.IsValid())
 		{
 			if (logRejection)
-				Print(string.Format("h-istasi | rejected missing vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
+				Print(string.Format("Partisan | rejected missing vehicle prefab %1 for faction %2", prefab, factionKey), LogLevel.WARNING);
 			return false;
 		}
 
@@ -19415,7 +19598,7 @@ class HST_PhysicalWarService
 		SCR_AIGroup group = SCR_AIGroup.Cast(entity);
 		if (!group)
 		{
-			Print(string.Format("h-istasi | spawned prefab %1 for %2 did not create an AIGroup", activeGroup.m_sPrefab, activeGroup.m_sGroupId), LogLevel.WARNING);
+			Print(string.Format("Partisan | spawned prefab %1 for %2 did not create an AIGroup", activeGroup.m_sPrefab, activeGroup.m_sGroupId), LogLevel.WARNING);
 			return 0;
 		}
 
@@ -19703,7 +19886,7 @@ class HST_PhysicalWarService
 					zone = state.FindZone(activeGroup.m_sZoneId);
 				RegisterDetachedActiveVehicle(state, zone, activeGroup, vehicle, source);
 				changed = DeleteRuntimeGroupEntity(activeGroup.m_sGroupId, false) || changed;
-				Print(string.Format("h-istasi | released terminal mixed-group vehicle as neutral field salvage | group %1 | zone %2 | position %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sZoneId, vehicle.GetOrigin(), source));
+				Print(string.Format("Partisan | released terminal mixed-group vehicle as neutral field salvage | group %1 | zone %2 | position %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sZoneId, vehicle.GetOrigin(), source));
 			}
 			else
 			{
@@ -19754,7 +19937,7 @@ class HST_PhysicalWarService
 		bool changed = ApplyObservedPersonnelElimination(state, activeGroup, source);
 		changed = CleanupTerminalActiveGroupRuntime(state, activeGroup, source) || changed;
 		RefreshActiveGroupZoneCounts(state, activeGroup);
-		Print(string.Format("h-istasi | active mixed group eliminated after personnel loss | group %1 | zone %2 | dead tracked %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sZoneId, deadTrackedMembers, source));
+		Print(string.Format("Partisan | active mixed group eliminated after personnel loss | group %1 | zone %2 | dead tracked %3 | source %4", activeGroup.m_sGroupId, activeGroup.m_sZoneId, deadTrackedMembers, source));
 		return changed;
 	}
 
@@ -21524,7 +21707,7 @@ class HST_PhysicalWarService
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi physical war debug | " + message);
+		Print("Partisan physical war debug | " + message);
 	}
 
 	protected void DebugLogThrottled(string key, string message, int throttleMs)
@@ -21532,7 +21715,7 @@ class HST_PhysicalWarService
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		PrintThrottled("debug_" + key, "h-istasi physical war debug | " + message, throttleMs);
+		PrintThrottled("debug_" + key, "Partisan physical war debug | " + message, throttleMs);
 	}
 
 	protected void PrintThrottled(string key, string message, int throttleMs)

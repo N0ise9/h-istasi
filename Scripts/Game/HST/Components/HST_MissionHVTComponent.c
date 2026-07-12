@@ -1,4 +1,4 @@
-[ComponentEditorProps(category: "h-istasi", description: "Reports killed mission HVT state to the server coordinator")]
+[ComponentEditorProps(category: "Partisan", description: "Reports killed mission HVT state to the server coordinator")]
 class HST_MissionHVTComponentClass : ScriptComponentClass
 {
 }

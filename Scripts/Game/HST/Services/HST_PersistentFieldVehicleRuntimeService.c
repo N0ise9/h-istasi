@@ -24,7 +24,7 @@ class HST_PersistentFieldVehicleRuntimeService
 				|| idIndex != entityIndex)
 			{
 				m_bBindingFault = true;
-				Print("h-istasi vehicle persistence | rejected durable root ID rebind/collision", LogLevel.ERROR);
+				Print("Partisan vehicle persistence | rejected durable root ID rebind/collision", LogLevel.ERROR);
 				return false;
 			}
 			return true;
@@ -36,7 +36,7 @@ class HST_PersistentFieldVehicleRuntimeService
 				&& IsLivingEntity(existingEntity))
 			{
 				m_bBindingFault = true;
-				Print("h-istasi vehicle persistence | rejected durable ID/live-root collision", LogLevel.ERROR);
+				Print("Partisan vehicle persistence | rejected durable ID/live-root collision", LogLevel.ERROR);
 				return false;
 			}
 			m_aEntities[idIndex] = entity;

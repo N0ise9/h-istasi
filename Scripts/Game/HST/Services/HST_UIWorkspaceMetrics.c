@@ -70,7 +70,7 @@ class HST_UIWorkspaceMetrics
 		if (layoutW > 0)
 			dpiScale = rawW / layoutW;
 
-		Print(string.Format("h-istasi ui metrics | %1 raw=%2x%3 layout=%4x%5 dpi=%6", key, rawW, rawH, layoutW, layoutH, dpiScale), LogLevel.NORMAL);
+		Print(string.Format("Partisan ui metrics | %1 raw=%2x%3 layout=%4x%5 dpi=%6", key, rawW, rawH, layoutW, layoutH, dpiScale), LogLevel.NORMAL);
 		s_mDebugLoggedBySource.Set(key, true);
 	}
 

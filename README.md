@@ -1,7 +1,65 @@
-# h-istasi
+# Partisan: Everon
 
-The current sealed source/Workbench checkpoint is Campaign Schema 66 while runtime
-settings remains Schema 24. The current source stamp identifies implementation
+The active provisional source boundary is Campaign Schema 67 while runtime
+settings remains Schema 24, under the working label
+`schema67-settings24-enemy-strategic-resource-authority`. It begins Blueprint
+Phase 9 source work without claiming that the Blueprint Phase 8 runtime exit is
+certified. Schema 67 has no final implementation SHA, UTC seal, Foundation
+count, Workbench class/file count, or CRC until the completed tree receives its
+final stamp.
+
+The product and repository names are now **Partisan: Everon** and **Partisan**.
+`HST_*` source/resource names and the non-public `histasi` Workbench project ID
+remain the internal implementation convention.
+The existing `$profile:h-istasi` directory is also retained deliberately as the
+legacy persistence namespace so current campaign saves, settings, debug
+artifacts, and personal loadouts remain discoverable after the branding change.
+
+The Schema-67 contract makes each versioned `HST_FactionPoolState` the canonical
+attack-resource, support-resource, and aggression authority for one enemy role.
+Bounded replay-safe `HST_EnemyStrategicMutationState` receipts freeze the
+faction, mutation kind, per-faction operational sequence, before/delta/after
+values, source identity, campaign time, and linked order/operation/accounting
+evidence. One server API owns enemy income, spend, refund, aggression, and live
+admin/debug pool adjustment. It rejects underflow and overflow atomically,
+returns exact replay without mutation, and fails closed when an existing identity
+is reused with different facts. A zero-effect operational command still records
+one durable receipt so a zero-cost debit or zero-refund settlement cannot become
+an untracked replay gap.
+
+Occupier and invader authority remains independent, including persisted per-role
+resource-income/aggression-decay accumulators and last-processed bucket
+checkpoints. Periodic income/decay keeps at most one compact receipt per enemy
+and kind. Operational receipts are never compacted or evicted in Schema 67: each
+enemy role has a hard 4,096-receipt lifetime admission limit, and reaching it
+fails later operational mutations for that role while the rival role and periodic
+cadences remain independent. Invalid/orphan/rejected-role receipts are attributed
+and quarantined, then removed before capacity checks so malformed rows cannot
+consume either role's valid receipt budget. Existing exact defensive-QRF and enemy-patrol debit
+and refund links use the shared resource authority without changing those
+operation contracts; restore also checks reciprocal order, support-ledger,
+town-influence, and ownership-transition links. Unsupported enemy order families remain explicitly
+legacy/deferred; this slice neither exactifies them nor makes their planning
+decisions durable. Pre-67 migration adopts each valid pool's current balances/
+aggression and the valid legacy resource/aggression cadence accumulators as the
+baseline, initializes matching cadence bucket checkpoints, and starts with an
+empty mutation history. It does not
+infer receipts from older totals or invent history, spend, refunds, orders, or
+settlements. Malformed current Schema-67 graphs quarantine at `-67` rather than
+falling back. Mission success/failure/expiry preflights and admits its strategic
+plan before terminal status/reward/capture publication, and ownership aggression
+admission precedes security/support replacement and owner publication. Rejection
+therefore leaves the outer operation retryable instead of half-published.
+Campaign Debug runs resource/order cases on nested state clones; its focused
+physical-response case materializes and cleans only its supplied group while
+restoring shared marker and AIWorld state. Persisted planning cadence and frozen decision fingerprints are
+the immediate next Phase 9 source slice and remain unimplemented. All Schema-67
+source fixtures are wired into Campaign Debug, but they have not been executed
+or stamped; native, real-restart, package, multiplayer, and soak evidence also
+remains pending.
+
+The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime
+settings remains Schema 24. The sealed Schema-66 stamp identifies implementation
 `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
 `schema66-settings24-local-security-marker-integrity`. This Blueprint Phase 8 source slice gives each
@@ -42,7 +100,7 @@ processes survived cleanup. Campaign Debug execution, native spawn/waypoint/
 casualty/fold behavior, real save/restart, packaged multiplayer, and soak
 evidence remain open.
 
-This same source pass repairs the campaign-marker ownership regression introduced
+That sealed source pass also repairs the campaign-marker ownership regression introduced
 by the Schema-61 client-local projection change at commit `27672e6`. Protected
 campaign markers are now inserted as system-owned (`owner -1`) and non-removable
 from their first visible frame. A readiness keepalive verifies native marker
@@ -186,7 +244,7 @@ remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 and runtime proof remains open.
 
-h-istasi is an original Arma Reforger resistance-campaign implementation. The
+Partisan is an original Arma Reforger resistance-campaign implementation. The
 first preset targets Everon with a three-way war:
 
 - FIA: player resistance
@@ -204,7 +262,8 @@ The repository contains a broad-alpha campaign foundation:
 - A versioned campaign-state model with arsenal, vehicle cargo, garage,
   saved-loadout, issued-item, mission-runtime, active-group, support, exact
   infantry/convoy/rescue/local-security operations, radio-site lifecycle, build-mode,
-  campaign-end, and persistence metadata
+  campaign-end, persistence metadata, and provisional Schema-67 versioned enemy
+  strategic pools/mutation receipts
 - Server-authoritative campaign, economy, mission, persistence, arsenal, loot,
   loadout-editor, garage/build, and native-checkpoint services
 - A 39-entry configured mission-registry baseline
@@ -226,13 +285,13 @@ The repository contains a broad-alpha campaign foundation:
 - HST-owned HQ arsenal action surface at
   `Prefabs/Objects/HST/HST_HQArsenal.et`; stock FIA arsenal/MSAR behavior is
   not used for item authority, issuing, or loadout accounting, and inherited
-  stock arsenal actions are filtered away from the h-istasi action surface
-- Custom h-istasi loadout editor with a client fullscreen widget, server-built
+  stock arsenal actions are filtered away from the Partisan action surface
+- Custom Partisan loadout editor with a client fullscreen widget, server-built
   payloads, live equipment/storage nodes, compatible candidate replacement,
   five fixed personal loadout slots under `$profile:h-istasi/loadouts/v2`,
   finite/INF accounting, atomic apply/rollback, and an issued-item ledger owned
   by campaign state
-- Procedural h-istasi `I` key HQ menu mounted on both development
+- Procedural Partisan `I` key HQ menu mounted on both development
   worlds with Setup, Overview, HQ/Petros, Missions, Map/War, Forces,
   Arsenal/Loot, Garage/Build, Members, and Admin tabs
 - First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
@@ -987,7 +1046,7 @@ The repository contains a broad-alpha campaign foundation:
 
 This is a broad-alpha campaign foundation, not a public alpha. Petros and the
 HQ arsenal have live contextual-action prefabs for the alpha menu path, while
-the arsenal, garage, and loadout editor remain custom h-istasi economy systems
+the arsenal, garage, and loadout editor remain custom Partisan economy systems
 instead of stock/MSAR arsenal behavior. The campaign loop is now connected far
 enough to track HQ exposure, queue Defend Petros pressure, resolve support and
 enemy orders physically or abstractly, enforce undercover state, publish marker
@@ -1051,8 +1110,9 @@ and retains missionless or partially unlinked exact-looking rows as quarantine
   authority beyond the two exact infantry-QRF consumers, the exact player
   Search-and-Destroy consumer, the exact enemy-patrol, the exact purchased-
   garrison patrol, the three exact assassination-mission guard families, the
-  narrow exact mission-convoy consumer, and the exact `rescue_pows` guard-plus-
-  captive consumer remains open. Normal spawn
+  narrow exact mission-convoy consumer, the exact `rescue_pows` guard-plus-
+  captive consumer, and the exact enemy-town local-security consumer remains
+  open. Normal spawn
 acquisition runs once per active-campaign second. During setup or after a won/
 lost outcome, the coordinator cancels every nonterminal batch and drains its
 cleanup with a monotonic runtime-only clock without advancing campaign elapsed
@@ -1069,6 +1129,12 @@ not runtime evidence until a fresh isolated run executes them.
 The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
+
+The active provisional Campaign Schema 67/runtime-settings Schema 24 source
+slice is the first Blueprint Phase 9 dependency: one durable, replay-safe enemy
+strategic resource and aggression authority shared by both enemy roles. It remains
+unstamped and does not supersede the runtime-certification obligation for Phase
+8 or the sealed Schema-66 evidence below.
 
 The current sealed source/Workbench tree is Campaign Schema 66/runtime-settings Schema 24.
 It layers exact enemy-town local-security patrol authority and protected,
@@ -1115,7 +1181,17 @@ networking, reconnect, or JIP.
    its exact identity. Do not report it as the sealed Schema-65 build. Require the package,
    server, client, log, and artifact identity to agree, and preserve the exact
    prior Schema-65 seal as historical evidence only.
-2. In the eventual published check, prove military, mission, political, admin, and
+2. Complete and source-prove the provisional Schema-67 enemy strategic resource
+   authority: versioned per-enemy pools/cadence checkpoints; compact periodic
+   evidence; zero-effect and other operational receipts in an un-compacted
+   contiguous sequence; one live mutation API; exact replay, conflict, underflow,
+   and overflow behavior; the 4,096-row per-faction fail-stop; independent enemy
+   facts; reciprocal order/ledger/town/ownership backlinks; and baseline-only
+   pre-67 migration with current `-67` quarantine. Do not call this Phase 9 or
+   Schema 67 sealed until its final identity and validation evidence are
+   recorded. Persisted planner cadence and frozen decision fingerprints are the
+   immediate next Phase 9 slice after this resource boundary.
+3. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event
    consequences; save/restart resume; and marker source-revision correlation.
@@ -1129,7 +1205,7 @@ networking, reconnect, or JIP.
    visible pointer over the support confirmation dialog, one authored radio
    tower per existing site, and correct destroy-target binding. The already
    restored stock HUD and Game Master access must remain intact.
-3. Prove civilian projection in a fresh packaged run: zero unregistered group-
+4. Prove civilian projection in a fresh packaged run: zero unregistered group-
    member RPCs, varied concrete appearances, the configurable daytime/low-heat
    true-town traffic target (default five) when population and global budgets permit,
    fair service across ten simultaneously eligible towns for ten minutes, two
@@ -1154,19 +1230,19 @@ networking, reconnect, or JIP.
    resurrection, rearms only from a newer owner revision or later positive
    police event, and gives resistance towns zero automatic police/roadblocks.
    Source inspection alone does not close any of those runtime gates.
-4. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
+5. Execute the isolated `HST_Dev` completion/cancellation/restart boundary and
    replace the historical Full Campaign Debug artifact with corrected evidence.
-5. Runtime-prove exact paid-QRF creation and the schema-50 operation path:
+6. Runtime-prove exact paid-QRF creation and the schema-50 operation path:
    strategic travel from the direct-route cursor, bounded catch-up, proximity
    materialization/fold hysteresis, exact casualty/survivor transfer, on-station
    virtual combat, recall/settlement, archive replay, and once-only accounting
    across save/restart.
-6. Runtime-prove the schema-51 exact infantry-only enemy defensive QRF: one
+7. Runtime-prove the schema-51 exact infantry-only enemy defensive QRF: one
    prepaid frozen roster, no duplicate legacy response, strategic outbound and
    return travel, materialization/fold hysteresis, exact casualties, two-sample
    physical arrival, once-only defensive pressure, proportional survivor
    settlement, marker movement/cleanup, and save/restart replay.
-7. Runtime-prove the schema-52 exact mission convoy: one frozen generated road
+8. Runtime-prove the schema-52 exact mission convoy: one frozen generated road
    route, exactly three linked vehicles and three crew groups, cargo/captive
    assignment to vehicle zero, virtual travel without timer arrival,
    materialization with 3/3 seated living drivers, physical interception,
@@ -1182,7 +1258,7 @@ networking, reconnect, or JIP.
    case and prove one terminal transition, zero capture/marker pressure, one
    neutral salvage detachment, no duplicate vehicle, and no survivor
    resurrection after restart.
-8. Runtime-prove the Schema-60 exact infantry-only player Search-and-Destroy
+9. Runtime-prove the Schema-60 exact infantry-only player Search-and-Destroy
    operation: immutable quote/manifest/ledger identity, $350 plus exact roster
    HR, no vehicle/asset/multi-root substitution, direct-route travel, virtual-
    to-physical-to-virtual survivor continuity, mapped casualties, off-screen
@@ -1194,18 +1270,18 @@ networking, reconnect, or JIP.
    recall-exit path; the deterministic queue casualty/fold fixture is source
    bookkeeping evidence only. Clearing hostile infantry must leave the group on
    station until recalled.
-9. Runtime-prove the Schema-61 marker-only projection with one host, two clients,
+10. Runtime-prove the Schema-61 marker-only projection with one host, two clients,
    reconnect, and late join. Require equal epoch/watermark/registry hash after
    initial snapshot, ordered create/update/delete, a forced gap/resync, map
    close/reopen, and real save/restart; also require clean client-local native
    marker cleanup and no duplicate server-native campaign markers. Dynamic
    player markers remain a separate existing path.
-10. Runtime-prove the schema-53 exact newly queued enemy-patrol slice: one frozen
+11. Runtime-prove the schema-53 exact newly queued enemy-patrol slice: one frozen
    infantry roster, once-only proactive attack debit, outbound virtual travel,
    materialization/fold with mapped casualties, physical contact hold, one
    closed patrol lap, return, survivor-proportional refund, marker cleanup, and
    save/restart. Historical patrols must remain contract version `0`.
-11. Runtime-prove the schema-54 exact purchased-garrison patrol: a newly issued
+12. Runtime-prove the schema-54 exact purchased-garrison patrol: a newly issued
    policy-v2 resistance purchase must hold one exact arbitrary member roster,
    loop locally while virtual, materialize its empty root plus living slots,
    retain mapped casualties across fold/re-entry, publish and clean up its
@@ -1213,7 +1289,7 @@ networking, reconnect, or JIP.
    stop. Save/restart and late join must preserve the same roster and cursor.
    Historical policy-v1, initial-map, enemy aggregate, vehicle, and multi-root
    garrisons must remain isolated on their legacy paths.
-12. Runtime-prove the schema-55 exact officer-assassination guard: only a newly
+13. Runtime-prove the schema-55 exact officer-assassination guard: only a newly
     started `assassinate_officer` mission may admit one route-less empty-root/
     member roster. Prove native materialization, mapped casualties, fold/re-entry,
     all-guards-dead independence from the HVT objective, every typed zero-refund
@@ -1221,7 +1297,7 @@ networking, reconnect, or JIP.
     existing-HVT marker/UI status, save/restart, owner change, campaign setup,
     reconnect, and JIP. Historical officer missions, other assassination
     variants, and every other mission family must remain contract `0`.
-13. Runtime-prove the schema-56 exact traitor-assassination guard: only a newly
+14. Runtime-prove the schema-56 exact traitor-assassination guard: only a newly
     started `assassinate_traitor` mission may use contract `2` and
     `exact_assassinate_traitor_guard_v1`. Prove the same route-less exact roster,
     HVT separation, survivor projection/fold, typed zero-refund outcomes, compact
@@ -1230,7 +1306,7 @@ networking, reconnect, or JIP.
     real save/restart, rendered UI, owner-change, setup, packaged networking,
     reconnect, and JIP. Pre-56 traitor missions remain contract `0`, and the
     separately opted Schema-57 spec-ops path must not alter traitor contract `2`.
-14. Runtime-prove the schema-57 exact spec-ops-assassination guard: only a newly
+15. Runtime-prove the schema-57 exact spec-ops-assassination guard: only a newly
     started `assassinate_specops` mission may use contract `3`, policy
     `exact_assassinate_specops_guard_v1`, intent `assassinate_specops_guard`, and
     `-57` quarantine. Prove the same route-less exact roster, HVT separation,
@@ -1239,7 +1315,7 @@ networking, reconnect, or JIP.
     contract `1` and traitor contract `2`. Historical/pre-57 spec-ops, ordinary
     `mission_group_*` rows, rescue missions, and unsupported families must remain
     contract `0`. Cover every packaged/native/restart/UI/network gate still open.
-15. Runtime-prove the schema-58 exact POW rescue: only newly started
+16. Runtime-prove the schema-58 exact POW rescue: only newly started
     `rescue_pows` may use mission-rescue contract `1`, policy
     `exact_rescue_pows_v1`, intent `rescue_pows_guard`, and `-58` quarantine.
     Prove one exact guard roster plus three captive identities, rendered action
@@ -1248,7 +1324,7 @@ networking, reconnect, or JIP.
     change, campaign setup, packaged networking, reconnect, and JIP. Historical
     POWs, `rescue_refugees`, and unsupported rescue families must remain contract
     `0`.
-16. Runtime-prove the sealed Schema-63 combat-presence boundary: conscious
+17. Runtime-prove the sealed Schema-63 combat-presence boundary: conscious
     registered infantry, one count per operational occupied armed mobile or
     static platform, cargo and empty-vehicle exclusion, exact virtual survivor
     continuity, shared capture/mission/HQ/civilian/enemy-strategy consumers,
@@ -1351,7 +1427,7 @@ sections.
 
 ## Alpha Command Menu
 
-Press `I` in `HST_Dev` or `HST_Everon` to open the h-istasi alpha command
+Press `I` in `HST_Dev` or `HST_Everon` to open the Partisan alpha command
 menu. The menu is a client widget driven by server-built snapshots and renders
 a campaign HQ interface with a resource bar, navigation, campaign
 cards, action list, and activity/result feed. The Setup tab displays the
@@ -1361,7 +1437,7 @@ remains the source of truth for defaults that apply to newly created
 campaigns, but initial HQ placement is selected through the setup map flow and
 the generated runtime settings no longer expose a default hideout id. The file
 uses JSON-safe `_comment` fields to explain settings because raw JSON comments
-are not supported. The same settings file also controls h-istasi's Game Master budget
+are not supported. The same settings file also controls Partisan's Game Master budget
 policy through `features.gameMasterBudgetsEnabled`, which defaults to `false`
 so GM placement budgets are disabled automatically on game start.
 `features.infiniteStaminaEnabled` defaults to `true`; when enabled, local
@@ -1404,11 +1480,11 @@ from the Arsenal/Loot tab.
 
 ## Admin and Runtime Debug
 
-To grant h-istasi admin rights on a local or dedicated server, add the player's
+To grant Partisan admin rights on a local or dedicated server, add the player's
 raw 17-digit SteamID64 to `membership.adminIdentityIds` in
 `$profile:h-istasi/HST_Settings.json`. Backend UUIDs, BattleEye GUIDs,
 `workbench_player_N` aliases, and per-session player IDs are not durable
-h-istasi admin tokens.
+Partisan admin tokens.
 
 The Admin tab exposes `Run Full Campaign Debug` as a one-button diagnostic
 harness. It is not runtime certification by itself. In-process debug profiles
@@ -1438,7 +1514,7 @@ server/client runtime is stale or mixed, even if the repository is newer.
 - Keep off-screen forces abstract and activate physical AI only around
   players and active objectives.
 - Track feature-complete campaign work in `docs/FEATURE_CHECKLIST.md` and keep
-  planning docs focused on h-istasi behavior, status, gaps, and acceptance
+  planning docs focused on Partisan behavior, status, gaps, and acceptance
   tests.
 - Do not copy source assets from neighboring addons.
 - Do not add hidden dependencies.

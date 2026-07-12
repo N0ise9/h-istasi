@@ -12,7 +12,7 @@ SCR_ChimeraCharacter Character_HST_Petros : "{84B40583F4D1B7A3}Prefabs/Character
       "default"
      }
      UIInfo UIInfo "{6985327711303303}" {
-      Name "h-istasi HQ Menu"
+      Name "Partisan HQ Menu"
      }
     }
     HST_PetrosArsenalMenuAction "{6985327711303306}" {
@@ -20,7 +20,7 @@ SCR_ChimeraCharacter Character_HST_Petros : "{84B40583F4D1B7A3}Prefabs/Character
       "default"
      }
      UIInfo UIInfo "{6985327711303307}" {
-      Name "h-istasi Arsenal"
+      Name "Partisan Arsenal"
      }
     }
     HST_PetrosMoveBaseHereAction "{6985327711303304}" {

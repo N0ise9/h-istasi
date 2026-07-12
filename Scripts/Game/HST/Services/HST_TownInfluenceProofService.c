@@ -960,6 +960,11 @@ class HST_TownInfluenceProofService
 	{
 		HST_FactionPoolState pool = new HST_FactionPoolState();
 		pool.m_sFactionKey = factionKey;
+		if (factionKey == "USSR" || factionKey == "US")
+		{
+			pool.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+			pool.m_iStrategicRevision = 1;
+		}
 		return pool;
 	}
 }

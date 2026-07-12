@@ -396,7 +396,7 @@ class HST_ClientProjectionService
 		}
 
 		string report = string.Format(
-			"h-istasi marker projection | protocol %1 | epoch %2 | watermark %3 | records %4 | live hash %5",
+			"Partisan marker projection | protocol %1 | epoch %2 | watermark %3 | records %4 | live hash %5",
 			HST_MarkerProjectionCodec.PROTOCOL_VERSION,
 			m_iEpoch,
 			m_iCurrentSequence,

@@ -157,7 +157,7 @@ class HST_SpawnPlacementService
 
 	string BuildPlacementReport(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		string report = "h-istasi spawn placement";
+		string report = "Partisan spawn placement";
 		HST_ZoneState zone = FindDebugTargetZone(state, preset);
 		if (!zone)
 			return report + "\nno target zone";

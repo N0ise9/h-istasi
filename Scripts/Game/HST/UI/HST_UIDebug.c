@@ -58,11 +58,11 @@ class HST_UIDebug
 
 		if (!root)
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | create failed | layout=%2 parent=%3", owner, layout, WidgetSummary(parent)), LogLevel.WARNING);
+			Print(string.Format("Partisan ui layout debug | %1 | create failed | layout=%2 parent=%3", owner, layout, WidgetSummary(parent)), LogLevel.WARNING);
 			return;
 		}
 
-		Print(string.Format("h-istasi ui layout debug | %1 | created | layout=%2 root=%3 parent=%4", owner, layout, WidgetSummary(root), WidgetSummary(parent)));
+		Print(string.Format("Partisan ui layout debug | %1 | created | layout=%2 root=%3 parent=%4", owner, layout, WidgetSummary(root), WidgetSummary(parent)));
 	}
 
 	static void LogLayoutRejected(string owner, ResourceName layout, Widget root, string reason)
@@ -70,7 +70,7 @@ class HST_UIDebug
 		if (!CanLogLayout())
 			return;
 
-		Print(string.Format("h-istasi ui layout debug | %1 | rejected | layout=%2 root=%3 reason=%4", owner, layout, WidgetSummary(root), reason), LogLevel.WARNING);
+		Print(string.Format("Partisan ui layout debug | %1 | rejected | layout=%2 root=%3 reason=%4", owner, layout, WidgetSummary(root), reason), LogLevel.WARNING);
 	}
 
 	static void LogExpectedWidgets(string owner, Widget root, array<string> widgetNames)
@@ -82,7 +82,7 @@ class HST_UIDebug
 
 		if (!root)
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | widget check skipped | root=null expected=%2", owner, widgetNames.Count()), LogLevel.WARNING);
+			Print(string.Format("Partisan ui layout debug | %1 | widget check skipped | root=null expected=%2", owner, widgetNames.Count()), LogLevel.WARNING);
 			return;
 		}
 
@@ -110,11 +110,11 @@ class HST_UIDebug
 
 		if (missing.IsEmpty())
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | widget check ok | root=%2 found=%3/%4", owner, WidgetSummary(root), found, widgetNames.Count()));
+			Print(string.Format("Partisan ui layout debug | %1 | widget check ok | root=%2 found=%3/%4", owner, WidgetSummary(root), found, widgetNames.Count()));
 			return;
 		}
 
-		Print(string.Format("h-istasi ui layout debug | %1 | widget check missing | root=%2 found=%3/%4 missing=%5", owner, WidgetSummary(root), found, widgetNames.Count(), missing), LogLevel.WARNING);
+		Print(string.Format("Partisan ui layout debug | %1 | widget check missing | root=%2 found=%3/%4 missing=%5", owner, WidgetSummary(root), found, widgetNames.Count(), missing), LogLevel.WARNING);
 	}
 
 	static void LogExpectedWidgetsCsv(string owner, Widget root, string widgetNames)
@@ -139,11 +139,11 @@ class HST_UIDebug
 		Widget widget = root.FindAnyWidget(widgetName);
 		if (!widget)
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | bind missing | widget=%2 userId=%3 root=%4", owner, widgetName, userId, WidgetSummary(root)), LogLevel.WARNING);
+			Print(string.Format("Partisan ui layout debug | %1 | bind missing | widget=%2 userId=%3 root=%4", owner, widgetName, userId, WidgetSummary(root)), LogLevel.WARNING);
 			return;
 		}
 
-		Print(string.Format("h-istasi ui layout debug | %1 | bind ok | widget=%2 userId=%3 target=%4", owner, widgetName, userId, WidgetSummary(widget)));
+		Print(string.Format("Partisan ui layout debug | %1 | bind ok | widget=%2 userId=%3 target=%4", owner, widgetName, userId, WidgetSummary(widget)));
 	}
 
 	static void LogWidgetGeometryCsv(string owner, Widget root, string widgetNames)
@@ -191,7 +191,7 @@ class HST_UIDebug
 
 		if (!root)
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | ready incomplete | root=null expected=%2", owner, widgetNames.Count()), LogLevel.WARNING);
+			Print(string.Format("Partisan ui layout debug | %1 | ready incomplete | root=null expected=%2", owner, widgetNames.Count()), LogLevel.WARNING);
 			return;
 		}
 
@@ -242,11 +242,11 @@ class HST_UIDebug
 
 		if (!missing.IsEmpty() || !hidden.IsEmpty() || !zero.IsEmpty() || !negative.IsEmpty() || !offscreen.IsEmpty())
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | ready incomplete | root=%2 ready=%3/%4 missing=%5 hidden=%6 zero=%7 negative=%8 offscreen=%9", owner, WidgetSummary(root), ready, expected, EmptyListAsNone(missing), EmptyListAsNone(hidden), EmptyListAsNone(zero), EmptyListAsNone(negative), EmptyListAsNone(offscreen)), LogLevel.WARNING);
+			Print(string.Format("Partisan ui layout debug | %1 | ready incomplete | root=%2 ready=%3/%4 missing=%5 hidden=%6 zero=%7 negative=%8 offscreen=%9", owner, WidgetSummary(root), ready, expected, EmptyListAsNone(missing), EmptyListAsNone(hidden), EmptyListAsNone(zero), EmptyListAsNone(negative), EmptyListAsNone(offscreen)), LogLevel.WARNING);
 			return;
 		}
 
-		Print(string.Format("h-istasi ui layout debug | %1 | ready ok | root=%2 ready=%3/%4", owner, WidgetSummary(root), ready, expected));
+		Print(string.Format("Partisan ui layout debug | %1 | ready ok | root=%2 ready=%3/%4", owner, WidgetSummary(root), ready, expected));
 	}
 
 	static void LogWidgetGeometry(string owner, string widgetName, Widget widget)
@@ -256,7 +256,7 @@ class HST_UIDebug
 		if (!widget)
 			return;
 
-		Print(string.Format("h-istasi ui layout debug | %1 | widget geometry | widget=%2 target=%3", owner, widgetName, WidgetSummary(widget)));
+		Print(string.Format("Partisan ui layout debug | %1 | widget geometry | widget=%2 target=%3", owner, widgetName, WidgetSummary(widget)));
 	}
 
 	static void LogPopulation(string owner, string summary)
@@ -264,7 +264,7 @@ class HST_UIDebug
 		if (!CanLogPopulation())
 			return;
 
-		Print(string.Format("h-istasi ui layout debug | %1 | populate | %2", owner, summary));
+		Print(string.Format("Partisan ui layout debug | %1 | populate | %2", owner, summary));
 	}
 
 	static void LogRowSample(string owner, ResourceName layout, int index, string summary)
@@ -274,7 +274,7 @@ class HST_UIDebug
 		if (index >= LAYOUT_ROW_SAMPLE_LIMIT)
 			return;
 
-		Print(string.Format("h-istasi ui layout debug | %1 | row sample #%2 | layout=%3 | %4", owner, index + 1, layout, summary));
+		Print(string.Format("Partisan ui layout debug | %1 | row sample #%2 | layout=%3 | %4", owner, index + 1, layout, summary));
 	}
 
 	static void LogRowSummary(string owner, ResourceName layout, int count, string summary)
@@ -282,7 +282,7 @@ class HST_UIDebug
 		if (!CanLogPopulation())
 			return;
 
-		Print(string.Format("h-istasi ui layout debug | %1 | row summary | layout=%2 count=%3 | %4", owner, layout, count, summary));
+		Print(string.Format("Partisan ui layout debug | %1 | row summary | layout=%2 count=%3 | %4", owner, layout, count, summary));
 	}
 
 	static void LogNamedChildSummaryCsv(string owner, Widget root, string parentNames, int limit = 4)
@@ -314,7 +314,7 @@ class HST_UIDebug
 
 		if (!parent)
 		{
-			Print(string.Format("h-istasi ui layout debug | %1 | children missing | parent=%2", owner, parentName), LogLevel.WARNING);
+			Print(string.Format("Partisan ui layout debug | %1 | children missing | parent=%2", owner, parentName), LogLevel.WARNING);
 			return;
 		}
 
@@ -333,7 +333,7 @@ class HST_UIDebug
 		if (sample.IsEmpty())
 			sample = "none";
 
-		Print(string.Format("h-istasi ui layout debug | %1 | children | parent=%2 target=%3 count=%4 sample=%5", owner, parentName, WidgetSummary(parent), count, sample));
+		Print(string.Format("Partisan ui layout debug | %1 | children | parent=%2 target=%3 count=%4 sample=%5", owner, parentName, WidgetSummary(parent), count, sample));
 	}
 
 	static string WidgetSummary(Widget widget)

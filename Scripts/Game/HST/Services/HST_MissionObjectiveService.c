@@ -192,7 +192,7 @@ class HST_MissionObjectiveService
 	string BuildObjectiveReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi objectives | state not ready";
+			return "Partisan objectives | state not ready";
 
 		int active;
 		int complete;
@@ -212,7 +212,7 @@ class HST_MissionObjectiveService
 				active++;
 		}
 
-		return string.Format("h-istasi objectives | active %1 | complete %2 | failed %3 | tasks %4", active, complete, failed, CountVisibleCampaignTasks(state));
+		return string.Format("Partisan objectives | active %1 | complete %2 | failed %3 | tasks %4", active, complete, failed, CountVisibleCampaignTasks(state));
 	}
 
 	protected int CountVisibleCampaignTasks(HST_CampaignState state)

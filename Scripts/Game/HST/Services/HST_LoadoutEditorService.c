@@ -90,7 +90,7 @@ class HST_LoadoutEditorService
 	string OpenEditor(HST_CampaignState state, string identityId, int playerId)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi loadout editor | failed: campaign/player state not ready";
+			return "Partisan loadout editor | failed: campaign/player state not ready";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		int loadedTemplates = LoadPersonalLoadoutsFromFile(state, identityId);
@@ -112,13 +112,13 @@ class HST_LoadoutEditorService
 
 		state.m_sLoadoutEditorStatus = string.Format("open for %1 | preview %2 | file templates %3 | purged external %4", identityId, session.m_bPreviewSpawned, loadedTemplates, purgedExternal);
 		state.m_sLastLoadoutEditorFailure = session.m_sLastFailure;
-		return "h-istasi loadout editor | opened custom arsenal editor | " + BuildEditorReport(state, identityId);
+		return "Partisan loadout editor | opened custom arsenal editor | " + BuildEditorReport(state, identityId);
 	}
 
 	string CloseEditor(HST_CampaignState state, string identityId)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi loadout editor | failed: campaign/player state not ready";
+			return "Partisan loadout editor | failed: campaign/player state not ready";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_sStatus = "closed";
@@ -126,7 +126,7 @@ class HST_LoadoutEditorService
 		session.m_sLastFailure = "";
 		state.m_sLoadoutEditorStatus = "closed";
 		state.m_sLastLoadoutEditorFailure = "";
-		return "h-istasi loadout editor | closed | live changes kept";
+		return "Partisan loadout editor | closed | live changes kept";
 	}
 
 	string BuildEditorPayload(HST_CampaignState state, string identityId, int playerId = 0)
@@ -240,7 +240,7 @@ class HST_LoadoutEditorService
 
 		if (IsDebugLoggingEnabled())
 		{
-			string candidateLog = string.Format("h-istasi loadout editor debug | candidates node %1 kind %2 category %3 slot %4 label %5 item %6", nodeId, node.m_sKind, node.m_sCategory, node.m_sSlotKey, ShortenDebugText(node.m_sDisplayName, 64), ShortenDebugText(node.m_sItemPrefab, 96));
+			string candidateLog = string.Format("Partisan loadout editor debug | candidates node %1 kind %2 category %3 slot %4 label %5 item %6", nodeId, node.m_sKind, node.m_sCategory, node.m_sSlotKey, ShortenDebugText(node.m_sDisplayName, 64), ShortenDebugText(node.m_sItemPrefab, 96));
 			candidateLog = candidateLog + string.Format(" | count %1 arsenal %2 available %3 categoryMatches %4 compatible %5 reason %6", candidateCount, state.m_aArsenalItems.Count(), availableItems, categoryMatches, compatibilityMatches, logReason);
 			if (node.m_sKind == "storage")
 				candidateLog = candidateLog + string.Format(" | storage used %1 total %2 usedVol %3 totalVol %4 freeVol %5", node.m_iUsedCapacity, node.m_iTotalCapacity, node.m_fUsedVolume, node.m_fTotalVolume, node.m_fFreeVolume);
@@ -252,7 +252,7 @@ class HST_LoadoutEditorService
 	string BuildEditorReport(HST_CampaignState state, string identityId)
 	{
 		if (!state)
-			return "h-istasi loadout editor | campaign state not ready";
+			return "Partisan loadout editor | campaign state not ready";
 
 		HST_LoadoutEditorSessionState session = state.FindLoadoutEditorSession(identityId);
 		string status = state.m_sLoadoutEditorStatus;
@@ -275,7 +275,7 @@ class HST_LoadoutEditorService
 	string SaveCurrentDraft(HST_CampaignState state, string identityId, string loadoutName = "", int playerId = 0)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi loadout editor | failed: campaign/player state not ready";
+			return "Partisan loadout editor | failed: campaign/player state not ready";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		if (playerId > 0)
@@ -283,13 +283,13 @@ class HST_LoadoutEditorService
 		EnsureFixedPersonalLoadoutSlots(state, identityId);
 		IEntity playerEntity = ResolveControlledPlayerEntity(session.m_iPlayerId);
 		if (!playerEntity)
-			return "h-istasi loadout editor | failed: no live player entity to save";
+			return "Partisan loadout editor | failed: no live player entity to save";
 
 		string serialized;
 		if (!SerializeCharacterLoadout(playerEntity, serialized))
 		{
 			state.m_sLastLoadoutEditorFailure = "failed to serialize current character loadout";
-			return "h-istasi loadout editor | failed: could not serialize current loadout";
+			return "Partisan loadout editor | failed: could not serialize current loadout";
 		}
 
 		string targetLoadoutId = session.m_sCurrentLoadoutId;
@@ -327,26 +327,26 @@ class HST_LoadoutEditorService
 		session.m_sStatus = "saved";
 		state.m_sLoadoutEditorStatus = string.Format("saved %1", loadout.m_sDisplayName);
 		state.m_sLastLoadoutEditorFailure = "";
-		return string.Format("h-istasi loadout editor | saved slot %1 | %2", slotIndex + 1, loadout.m_sDisplayName);
+		return string.Format("Partisan loadout editor | saved slot %1 | %2", slotIndex + 1, loadout.m_sDisplayName);
 	}
 
 	string ApplySavedLoadout(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string loadoutId = "")
 	{
 		if (!state || !arsenal || identityId.IsEmpty())
-			return "h-istasi loadout editor | failed: service not ready";
+			return "Partisan loadout editor | failed: service not ready";
 
 		HST_SavedLoadoutState loadout = SelectLoadoutForApply(state, identityId, loadoutId);
 		if (!loadout)
-			return "h-istasi loadout editor | failed: no current or saved personal loadout";
+			return "Partisan loadout editor | failed: no current or saved personal loadout";
 		if (IsFixedLoadoutSlotEmpty(loadout))
-			return "h-istasi loadout editor | failed: selected loadout slot is empty";
+			return "Partisan loadout editor | failed: selected loadout slot is empty";
 
 		array<ref HST_LoadoutCostEntry> costLedger = {};
 		string validationFailure;
 		if (!ValidateLoadoutTransaction(state, loadout, identityId, costLedger, validationFailure))
 		{
 			state.m_sLastLoadoutEditorFailure = validationFailure;
-			return "h-istasi loadout editor | failed: " + validationFailure;
+			return "Partisan loadout editor | failed: " + validationFailure;
 		}
 
 		bool applied;
@@ -357,13 +357,13 @@ class HST_LoadoutEditorService
 		if (!applied)
 		{
 			state.m_sLastLoadoutEditorFailure = validationFailure;
-			return "h-istasi loadout editor | failed: " + validationFailure;
+			return "Partisan loadout editor | failed: " + validationFailure;
 		}
 
 		if (!CommitLoadoutTransaction(state, arsenal, loadout, identityId, costLedger, validationFailure))
 		{
 			state.m_sLastLoadoutEditorFailure = validationFailure;
-			return "h-istasi loadout editor | failed: " + validationFailure;
+			return "Partisan loadout editor | failed: " + validationFailure;
 		}
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
@@ -374,27 +374,27 @@ class HST_LoadoutEditorService
 		RefreshIssuedCounts(state, identityId, session);
 		state.m_sLoadoutEditorStatus = string.Format("applied %1", loadout.m_sDisplayName);
 		state.m_sLastLoadoutEditorFailure = "";
-		return string.Format("h-istasi loadout editor | applied %1 | finite %2 | INF %3", loadout.m_sDisplayName, session.m_iIssuedFiniteCount, session.m_iIssuedInfiniteCount);
+		return string.Format("Partisan loadout editor | applied %1 | finite %2 | INF %3", loadout.m_sDisplayName, session.m_iIssuedFiniteCount, session.m_iIssuedInfiniteCount);
 	}
 
 	string AddDraftItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string itemPrefab)
 	{
 		if (!state || identityId.IsEmpty() || itemPrefab.IsEmpty())
-			return "h-istasi loadout editor | failed: missing item";
+			return "Partisan loadout editor | failed: missing item";
 
 		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
 		if (!IsArsenalItemAvailable(item))
-			return "h-istasi loadout editor | failed: item not available in arsenal";
+			return "Partisan loadout editor | failed: item not available in arsenal";
 		string itemDisplay = HST_DisplayNameService.ResolveItemDisplayName(null, item.m_sPrefab, item.m_sDisplayName);
 		if (HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, ResolveEditorCategory(item.m_sPrefab, item.m_sCategory, itemDisplay), itemDisplay))
-			return "h-istasi loadout editor | failed: structural inventory containers cannot be added from arsenal";
+			return "Partisan loadout editor | failed: structural inventory containers cannot be added from arsenal";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_iPlayerId = playerId;
 
 		string failure;
 		if (!ReserveArsenalItemForEditor(state, arsenal, identityId, itemPrefab, 1, failure))
-			return "h-istasi loadout editor | failed: " + failure;
+			return "Partisan loadout editor | failed: " + failure;
 
 		IEntity playerEntity = ResolveControlledPlayerEntity(playerId);
 		SCR_InventoryStorageManagerComponent inventory = ResolveInventoryManager(playerEntity, failure);
@@ -402,7 +402,7 @@ class HST_LoadoutEditorService
 		{
 			RefundReservedItem(state, arsenal, identityId, itemPrefab, 1);
 			state.m_sLastLoadoutEditorFailure = failure;
-			return "h-istasi loadout editor | failed: " + failure;
+			return "Partisan loadout editor | failed: " + failure;
 		}
 
 		session.m_sStatus = "live edited";
@@ -410,25 +410,25 @@ class HST_LoadoutEditorService
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
 		ClearLoadoutEditorFailure(state, identityId);
-		return "h-istasi loadout editor | added " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
+		return "Partisan loadout editor | added " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
 	}
 
 	string SetNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
-			return "h-istasi loadout editor | failed: missing node replacement";
+			return "Partisan loadout editor | failed: missing node replacement";
 
 		string nodeId;
 		string itemPrefab;
 		if (!ParseSlotPrefabArgument(argument, nodeId, itemPrefab))
-			return "h-istasi loadout editor | failed: malformed node replacement";
+			return "Partisan loadout editor | failed: malformed node replacement";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_iPlayerId = playerId;
 
 		HST_ArsenalItemState item = state.FindArsenalItem(itemPrefab);
 		if (!IsArsenalItemAvailable(item))
-			return "h-istasi loadout editor | failed: item not available in arsenal";
+			return "Partisan loadout editor | failed: item not available in arsenal";
 
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
@@ -439,21 +439,21 @@ class HST_LoadoutEditorService
 		if (targetNode)
 			isStorageBrowserNode = targetNode.m_sKind == "storage" || targetNode.m_sKind == "storage_item";
 		if (HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(item.m_sPrefab, itemCategory) || HST_ArsenalItemFilter.HasBlockedStructuralContainerToken(itemDisplay, itemCategory) || (isStorageBrowserNode && HST_ArsenalItemFilter.ShouldBlockArsenalPrefab(item.m_sPrefab, itemCategory, itemDisplay)))
-			return "h-istasi loadout editor | failed: structural inventory containers cannot be added from arsenal";
+			return "Partisan loadout editor | failed: structural inventory containers cannot be added from arsenal";
 
 		bool ammoMatch;
 		if (targetNode && !IsLiveCandidateCompatible(state, playerId, targetNode, item.m_sPrefab, itemCategory, ammoMatch))
-			return "h-istasi loadout editor | failed: " + itemDisplay + " is not compatible with " + targetNode.m_sLabel;
+			return "Partisan loadout editor | failed: " + itemDisplay + " is not compatible with " + targetNode.m_sLabel;
 
 		string failure;
 		if (!ReserveArsenalItemForEditor(state, arsenal, identityId, itemPrefab, 1, failure))
-			return "h-istasi loadout editor | failed: " + failure;
+			return "Partisan loadout editor | failed: " + failure;
 
 		if (!ApplyLiveNodeItem(state, arsenal, identityId, playerId, nodeId, itemPrefab, failure))
 		{
 			RefundReservedItem(state, arsenal, identityId, itemPrefab, 1);
 			state.m_sLastLoadoutEditorFailure = failure;
-			return "h-istasi loadout editor | failed: " + failure;
+			return "Partisan loadout editor | failed: " + failure;
 		}
 
 		session.m_sStatus = "live edited";
@@ -461,13 +461,13 @@ class HST_LoadoutEditorService
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
 		ClearLoadoutEditorFailure(state, identityId);
-		return "h-istasi loadout editor | set " + ResolveNodeLabelFromId(nodeId) + " to " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
+		return "Partisan loadout editor | set " + ResolveNodeLabelFromId(nodeId) + " to " + HST_DisplayNameService.ResolveItemDisplayName(null, itemPrefab, item.m_sDisplayName);
 	}
 
 	string RemoveNodeItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string nodeId)
 	{
 		if (!state || identityId.IsEmpty() || nodeId.IsEmpty())
-			return "h-istasi loadout editor | failed: missing node";
+			return "Partisan loadout editor | failed: missing node";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_iPlayerId = playerId;
@@ -476,7 +476,7 @@ class HST_LoadoutEditorService
 		if (!RemoveLiveNodeItem(state, arsenal, identityId, playerId, nodeId, removedDisplay, failure))
 		{
 			state.m_sLastLoadoutEditorFailure = failure;
-			return "h-istasi loadout editor | failed: " + failure;
+			return "Partisan loadout editor | failed: " + failure;
 		}
 
 		session.m_sStatus = "live edited";
@@ -484,13 +484,13 @@ class HST_LoadoutEditorService
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
 		ClearLoadoutEditorFailure(state, identityId);
-		return "h-istasi loadout editor | removed " + removedDisplay;
+		return "Partisan loadout editor | removed " + removedDisplay;
 	}
 
 	string RemoveDraftSlot(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string slotId)
 	{
 		if (!state || identityId.IsEmpty() || slotId.IsEmpty())
-			return "h-istasi loadout editor | failed: missing slot";
+			return "Partisan loadout editor | failed: missing slot";
 
 		return RemoveNodeItem(state, arsenal, identityId, playerId, slotId);
 	}
@@ -498,12 +498,12 @@ class HST_LoadoutEditorService
 	string SetDraftSlotQuantity(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
-			return "h-istasi loadout editor | failed: missing quantity";
+			return "Partisan loadout editor | failed: missing quantity";
 
 		string slotId;
 		int quantity;
 		if (!ParseSlotQuantityArgument(argument, slotId, quantity))
-			return "h-istasi loadout editor | failed: malformed quantity";
+			return "Partisan loadout editor | failed: malformed quantity";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
@@ -513,18 +513,18 @@ class HST_LoadoutEditorService
 				return SetNodeItem(state, arsenal, identityId, playerId, slotId + ":" + slot.m_sItemPrefab);
 		}
 
-		return "h-istasi loadout editor | failed: slot not found";
+		return "Partisan loadout editor | failed: slot not found";
 	}
 
 	string ReplaceDraftSlotItem(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
-			return "h-istasi loadout editor | failed: missing replacement";
+			return "Partisan loadout editor | failed: missing replacement";
 
 		string slotId;
 		string itemPrefab;
 		if (!ParseSlotPrefabArgument(argument, slotId, itemPrefab))
-			return "h-istasi loadout editor | failed: malformed replacement";
+			return "Partisan loadout editor | failed: malformed replacement";
 
 		return SetNodeItem(state, arsenal, identityId, playerId, slotId + ":" + itemPrefab);
 	}
@@ -532,35 +532,35 @@ class HST_LoadoutEditorService
 	string SelectSavedLoadout(HST_CampaignState state, string identityId, string loadoutId)
 	{
 		if (!state || identityId.IsEmpty() || loadoutId.IsEmpty())
-			return "h-istasi loadout editor | failed: missing template";
+			return "Partisan loadout editor | failed: missing template";
 
 		HST_SavedLoadoutState loadout = state.FindSavedLoadout(identityId, loadoutId);
 		if (!loadout)
-			return "h-istasi loadout editor | failed: template not found";
+			return "Partisan loadout editor | failed: template not found";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
 		session.m_sStatus = "saved slot selected";
 		RefreshDraftNodes(state, session);
 		ClearLoadoutEditorFailure(state, identityId);
-		return "h-istasi loadout editor | selected " + loadout.m_sDisplayName;
+		return "Partisan loadout editor | selected " + loadout.m_sDisplayName;
 	}
 
 	string RenameSavedLoadout(HST_CampaignState state, string identityId, string argument)
 	{
 		if (!state || identityId.IsEmpty() || argument.IsEmpty())
-			return "h-istasi loadout editor | failed: missing template rename";
+			return "Partisan loadout editor | failed: missing template rename";
 
 		string loadoutId;
 		string loadoutName;
 		if (!ParseLoadoutRenameArgument(argument, loadoutId, loadoutName))
-			return "h-istasi loadout editor | failed: malformed template rename";
+			return "Partisan loadout editor | failed: malformed template rename";
 
 		HST_SavedLoadoutState loadout = state.FindSavedLoadout(identityId, loadoutId);
 		if (!loadout)
-			return "h-istasi loadout editor | failed: template not found";
+			return "Partisan loadout editor | failed: template not found";
 		if (IsFixedLoadoutSlotEmpty(loadout))
-			return "h-istasi loadout editor | failed: selected loadout slot is empty";
+			return "Partisan loadout editor | failed: selected loadout slot is empty";
 
 		loadout.m_sDisplayName = loadoutName;
 		loadout.m_iUpdatedAtSecond = state.m_iElapsedSeconds;
@@ -570,31 +570,31 @@ class HST_LoadoutEditorService
 		session.m_sCurrentLoadoutId = loadout.m_sLoadoutId;
 		session.m_sStatus = "template renamed";
 		ClearLoadoutEditorFailure(state, identityId);
-		return "h-istasi loadout editor | renamed " + loadout.m_sDisplayName;
+		return "Partisan loadout editor | renamed " + loadout.m_sDisplayName;
 	}
 
 	string ClearDraft(HST_CampaignState state, HST_ArsenalService arsenal, string identityId, int playerId)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi loadout editor | failed: campaign/player state not ready";
+			return "Partisan loadout editor | failed: campaign/player state not ready";
 
 		HST_LoadoutEditorSessionState session = FindOrCreateSession(state, identityId);
 		string failure;
 		int removed = ClearLiveIssuedItems(state, arsenal, identityId, playerId, failure);
 		if (!failure.IsEmpty())
-			return "h-istasi loadout editor | failed: " + failure;
+			return "Partisan loadout editor | failed: " + failure;
 		session.m_sStatus = "live cleared";
 		RefreshLiveDraftFromPlayer(state, identityId, playerId, session);
 		RefreshDraftNodes(state, session);
 		RefreshIssuedCounts(state, identityId, session);
 		ClearLoadoutEditorFailure(state, identityId);
-		return string.Format("h-istasi loadout editor | cleared %1 issued item(s)", removed);
+		return string.Format("Partisan loadout editor | cleared %1 issued item(s)", removed);
 	}
 
 	string DeleteSavedLoadout(HST_CampaignState state, string identityId, string loadoutId)
 	{
 		if (!state || identityId.IsEmpty() || loadoutId.IsEmpty())
-			return "h-istasi loadout editor | failed: missing template";
+			return "Partisan loadout editor | failed: missing template";
 
 		for (int i = state.m_aSavedLoadouts.Count() - 1; i >= 0; i--)
 		{
@@ -612,16 +612,16 @@ class HST_LoadoutEditorService
 			session.m_sStatus = "template deleted";
 			RefreshDraftNodes(state, session);
 			ClearLoadoutEditorFailure(state, identityId);
-			return "h-istasi loadout editor | deleted " + label;
+			return "Partisan loadout editor | deleted " + label;
 		}
 
-		return "h-istasi loadout editor | failed: template not found";
+		return "Partisan loadout editor | failed: template not found";
 	}
 
 	string MarkIssuedLoadoutLostOnDeath(HST_CampaignState state, string identityId)
 	{
 		if (!state || identityId.IsEmpty())
-			return "h-istasi loadout editor | death ledger clear skipped";
+			return "Partisan loadout editor | death ledger clear skipped";
 
 		int cleared;
 		for (int i = state.m_aIssuedLoadoutItems.Count() - 1; i >= 0; i--)
@@ -638,7 +638,7 @@ class HST_LoadoutEditorService
 		if (session)
 			RefreshIssuedCounts(state, identityId, session);
 
-		return string.Format("h-istasi loadout editor | death cleared %1 issued item ledger entries without refund", cleared);
+		return string.Format("Partisan loadout editor | death cleared %1 issued item ledger entries without refund", cleared);
 	}
 
 	protected HST_LoadoutEditorSessionState FindOrCreateSession(HST_CampaignState state, string identityId)
@@ -992,7 +992,7 @@ class HST_LoadoutEditorService
 			session.m_aDraftNodes.Insert(node);
 			if (IsDebugLoggingEnabled())
 			{
-				string storageLog = string.Format("h-istasi loadout editor debug | storage node %1 label %2 slot %3 cargoTargets %4 insertTargets %5", containerNodeId, ShortenDebugText(label, 64), slotIndex, containerStorages.Count(), insertStorages.Count());
+				string storageLog = string.Format("Partisan loadout editor debug | storage node %1 label %2 slot %3 cargoTargets %4 insertTargets %5", containerNodeId, ShortenDebugText(label, 64), slotIndex, containerStorages.Count(), insertStorages.Count());
 				storageLog = storageLog + string.Format(" | usedItems %1 fitOptions %2 usedVol %3 totalVol %4 freeVol %5 prefab %6", node.m_iUsedCapacity, node.m_iTotalCapacity, node.m_fUsedVolume, node.m_fTotalVolume, node.m_fFreeVolume, ShortenDebugText(node.m_sItemPrefab, 96));
 				Print(storageLog);
 			}
@@ -1835,7 +1835,7 @@ class HST_LoadoutEditorService
 		HST_ArsenalItemState item = state.FindArsenalItem(prefab);
 		if (!IsArsenalItemAvailable(item))
 		{
-			failure = "item is not available in the HST arsenal";
+			failure = "item is not available in the Partisan arsenal";
 			return false;
 		}
 
@@ -4145,7 +4145,7 @@ class HST_LoadoutEditorService
 				if (!loadout.m_sSerializedLoadout.IsEmpty())
 					continue;
 
-				failure = "item not present in h-istasi arsenal: " + slot.m_sItemPrefab;
+				failure = "item not present in Partisan arsenal: " + slot.m_sItemPrefab;
 				return false;
 			}
 
@@ -4284,7 +4284,7 @@ class HST_LoadoutEditorService
 		}
 
 		if (IsDebugLoggingEnabled())
-			Print(string.Format("h-istasi loadout editor debug | requested physical insertion of %1 item(s) for %2 slot custom loadout", inserted, loadout.m_aSlots.Count()));
+			Print(string.Format("Partisan loadout editor debug | requested physical insertion of %1 item(s) for %2 slot custom loadout", inserted, loadout.m_aSlots.Count()));
 		return true;
 	}
 

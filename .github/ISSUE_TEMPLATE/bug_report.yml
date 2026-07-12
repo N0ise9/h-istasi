@@ -1,12 +1,12 @@
 name: Bug report
-description: "Report a reproducible h-istasi bug, crash, save issue, desync, or broken gameplay flow."
+description: "Report a reproducible Partisan bug, crash, save issue, desync, or broken gameplay flow."
 title: "[Bug]: "
 labels: ["bug", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a h-istasi bug. Please include the diagnostic files requested below; they are usually the fastest way to identify save, config, persistence, mission-runtime, RPC, or server-authority issues.
+        Thanks for reporting a Partisan bug. Please include the diagnostic files requested below; they are usually the fastest way to identify save, config, persistence, mission-runtime, RPC, or server-authority issues.
 
         Before uploading logs or JSON files, quickly review them for private information such as any PII, file paths, server IPs, passwords, tokens, or Discord/Steam identifiers.
 
@@ -17,7 +17,7 @@ body:
       options:
         - label: "I searched existing issues and did not find a matching bug report."
           required: true
-        - label: "I am using h-istasi on the latest version."
+        - label: "I am using Partisan on the latest version."
           required: true
         - label: "I reproduced this with the fewest other addons/mods possible, or listed all loaded addons below."
           required: false
@@ -63,7 +63,7 @@ body:
       label: Loaded addons / mods
       description: "List every loaded addon, especially anything that changes factions, weapons, vehicles, AI, persistence, UI, or input."
       value: |
-        - h-istasi:
+        - Partisan:
         - Other addons:
     validations:
       required: false
@@ -140,7 +140,7 @@ body:
   - type: dropdown
     id: affected-system
     attributes:
-      label: Affected h-istasi system
+      label: Affected Partisan system
       multiple: true
       options:
         - Setup / HQ selection / HQ movement
@@ -200,7 +200,7 @@ body:
       value: |
         ### Optional but very helpful: debug reproduction log
 
-        If you are willing and can safely reproduce the bug, make a backup of `HST_Settings.json`, enable the h-istasi debugging/logging settings by changing the relevant debug/logging values to `true`, reproduce the bug in a new session, then upload the new full console log below.
+        If you are willing and can safely reproduce the bug, make a backup of `HST_Settings.json`, enable the Partisan debugging/logging settings by changing the relevant debug/logging values to `true`, reproduce the bug in a new session, then upload the new full console log below.
 
   - type: dropdown
     id: debug-repro-status

@@ -1,6 +1,7 @@
 class HST_MissionService
 {
 	static const string PERSISTENCE_SMOKE_PREFIX = "hst_smoke";
+	static const string EXPIRY_ADMISSION_PENDING_PHASE = "expiry_strategic_admission_pending";
 
 	protected ref array<ref HST_MissionDefinition> m_aDefinitions;
 	protected ref array<string> m_aLastExpiredMissionIds;
@@ -225,16 +226,71 @@ class HST_MissionService
 			if (!definition)
 				return false;
 
+			if (applyFailureAggression
+				&& !economy.AddAggression(
+					state,
+					preset.m_sOccupierFactionKey,
+					definition.m_iFailureAggression,
+					"enemy_aggression_mission_fail_" + activeMission.m_sInstanceId,
+					"mission_failure",
+					activeMission.m_sInstanceId,
+					"",
+					activeMission.m_sOperationId,
+					activeMission.m_sManifestId,
+					activeMission.m_sTargetZoneId))
+				return false;
 			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_FAILED;
 			activeMission.m_sRuntimePhase = "failed";
 			if (activeMission.m_sRuntimeFailureReason.IsEmpty())
 				activeMission.m_sRuntimeFailureReason = definition.m_sFailureText;
-			if (applyFailureAggression)
-				economy.AddAggression(state, preset.m_sOccupierFactionKey, definition.m_iFailureAggression);
 			return true;
 		}
 
 		return false;
+	}
+
+	bool CommitExpiry(HST_CampaignState state, string instanceId)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+		foreach (HST_ActiveMissionState activeMission : state.m_aActiveMissions)
+		{
+			if (!activeMission || activeMission.m_sInstanceId != instanceId
+				|| activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+				|| activeMission.m_iRemainingSeconds > 0
+				|| activeMission.m_sRuntimePhase != EXPIRY_ADMISSION_PENDING_PHASE)
+				continue;
+
+			HST_MissionDefinition definition = FindDefinition(activeMission.m_sMissionId);
+			if (!definition)
+				return false;
+			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
+			activeMission.m_sRuntimePhase = "expired";
+			activeMission.m_sRuntimeFailureReason = definition.m_sFailureText;
+			return true;
+		}
+		return false;
+	}
+
+	bool MarkExpiryStrategicAdmissionRejected(
+		HST_CampaignState state,
+		string instanceId,
+		string reason)
+	{
+		if (!state || instanceId.IsEmpty())
+			return false;
+		HST_ActiveMissionState activeMission = state.FindActiveMission(instanceId);
+		if (!activeMission
+			|| activeMission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			|| activeMission.m_sRuntimePhase != EXPIRY_ADMISSION_PENDING_PHASE)
+			return false;
+		string pendingReason = "mission expiry strategic admission pending";
+		if (!reason.Trim().IsEmpty())
+			pendingReason = pendingReason + ": " + reason.Trim();
+		if (activeMission.m_sRuntimeFailureReason == pendingReason)
+			return false;
+		activeMission.m_sRuntimeFailureReason = pendingReason;
+		return true;
 	}
 
 	bool Tick(HST_CampaignState state, HST_CampaignPreset preset, HST_EconomyService economy, int elapsedSeconds)
@@ -304,12 +360,11 @@ class HST_MissionService
 				}
 			}
 
-			HST_MissionDefinition definition = FindDefinition(activeMission.m_sMissionId);
-			activeMission.m_eStatus = HST_EMissionStatus.HST_MISSION_EXPIRED;
-			activeMission.m_sRuntimePhase = "expired";
-			if (definition)
-				activeMission.m_sRuntimeFailureReason = definition.m_sFailureText;
-			changed = true;
+			if (activeMission.m_sRuntimePhase != EXPIRY_ADMISSION_PENDING_PHASE)
+			{
+				activeMission.m_sRuntimePhase = EXPIRY_ADMISSION_PENDING_PHASE;
+				changed = true;
+			}
 			m_aLastExpiredMissionIds.Insert(activeMission.m_sInstanceId);
 		}
 
@@ -325,7 +380,7 @@ class HST_MissionService
 
 	string BuildMissionRewardBalanceReport(HST_CampaignState state)
 	{
-		string report = "h-istasi mission balance | rewards and penalties";
+		string report = "Partisan mission balance | rewards and penalties";
 		foreach (HST_MissionDefinition definition : m_aDefinitions)
 		{
 			if (!definition)

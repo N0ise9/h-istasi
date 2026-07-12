@@ -33,13 +33,13 @@ modded class SCR_MapMarkerEntity
 			if (!configReady)
 				return;
 
-			Print(string.Format("h-istasi player map marker debug | create marker widget requested player=%1 configReady=%2", GetMarkerConfigID(), configReady));
+			Print(string.Format("Partisan player map marker debug | create marker widget requested player=%1 configReady=%2", GetMarkerConfigID(), configReady));
 		}
 
 		super.OnCreateMarker();
 
 		if (GetType() == SCR_EMapMarkerType.HST_PLAYER)
-			Print(string.Format("h-istasi player map marker debug | create marker widget result player=%1 root=%2 widget=%3", GetMarkerConfigID(), m_wRoot != null, m_MarkerWidgetComp != null));
+			Print(string.Format("Partisan player map marker debug | create marker widget result player=%1 root=%2 widget=%3", GetMarkerConfigID(), m_wRoot != null, m_MarkerWidgetComp != null));
 	}
 
 	bool EnsureHSTPlayerMarkerWidget()

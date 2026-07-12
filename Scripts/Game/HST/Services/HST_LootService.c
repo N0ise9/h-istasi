@@ -17,7 +17,7 @@ class HST_LootResult
 		if (!m_sVehicleRuntimeId.IsEmpty())
 			target = "vehicle " + m_sVehicleDisplayName;
 
-		string summary = string.Format("h-istasi loot | target %1 | scanned %2 source(s) | seen %3 item(s) | deposited %4 | removed %5", target, m_iSourcesScanned, m_iItemsSeen, m_iItemsDeposited, m_iItemsRemoved);
+		string summary = string.Format("Partisan loot | target %1 | scanned %2 source(s) | seen %3 item(s) | deposited %4 | removed %5", target, m_iSourcesScanned, m_iItemsSeen, m_iItemsDeposited, m_iItemsRemoved);
 		summary = summary + string.Format(" | skipped unlocked %1 | blocked %2 | friendly/player %3", m_iItemsSkippedUnlocked, m_iItemsSkippedBlocked, m_iItemsSkippedFriendly);
 		foreach (string line : m_aDepositedLines)
 			summary = summary + "\n" + line;
@@ -140,7 +140,7 @@ class HST_LootService
 		}
 
 		if (snapshottedVehicles > 0)
-			Print(string.Format("h-istasi vehicle persistence | snapshotted %1 nearby field vehicle(s)", snapshottedVehicles));
+			Print(string.Format("Partisan vehicle persistence | snapshotted %1 nearby field vehicle(s)", snapshottedVehicles));
 		return snapshottedVehicles;
 	}
 
@@ -177,7 +177,7 @@ class HST_LootService
 			if (liveRoot && claimedRestoreRoots.Find(liveRoot) >= 0)
 			{
 				Print(string.Format(
-					"h-istasi vehicle persistence | refused duplicate restore root for %1; spawning its distinct saved row",
+					"Partisan vehicle persistence | refused duplicate restore root for %1; spawning its distinct saved row",
 					record.m_sVehicleRuntimeId), LogLevel.WARNING);
 				liveRoot = null;
 			}
@@ -195,7 +195,7 @@ class HST_LootService
 					refreshedRecord.m_sRuntimeKind = restoredKind;
 					if (!m_PersistentFieldVehicles
 						|| !m_PersistentFieldVehicles.Track(liveRoot, refreshedRecord))
-						Print("h-istasi vehicle persistence | live restore root tracking failed", LogLevel.ERROR);
+						Print("Partisan vehicle persistence | live restore root tracking failed", LogLevel.ERROR);
 				}
 				continue;
 			}
@@ -204,7 +204,7 @@ class HST_LootService
 			GenericEntity spawnedVehicle = HST_WorldPositionService.SpawnPrefab(record.m_sPrefab, record.m_vPosition, record.m_vAngles);
 			if (!spawnedVehicle)
 			{
-				Print(string.Format("h-istasi vehicle persistence | restore failed for %1 | prefab %2 | position %3", record.m_sVehicleRuntimeId, record.m_sPrefab, record.m_vPosition), LogLevel.WARNING);
+				Print(string.Format("Partisan vehicle persistence | restore failed for %1 | prefab %2 | position %3", record.m_sVehicleRuntimeId, record.m_sPrefab, record.m_vPosition), LogLevel.WARNING);
 				continue;
 			}
 
@@ -223,10 +223,10 @@ class HST_LootService
 				restoredRecord.m_iSpawnedAtSecond = state.m_iElapsedSeconds;
 				restoredRecord.m_bDetached = false;
 				restoredRecord.m_bDeleted = false;
-				Print(string.Format("h-istasi vehicle persistence | restored field vehicle %1 | prefab %2 | old id %3 | new id %4", restoredRecord.m_sDisplayName, restoredRecord.m_sPrefab, previousRuntimeId, restoredRecord.m_sVehicleRuntimeId));
+				Print(string.Format("Partisan vehicle persistence | restored field vehicle %1 | prefab %2 | old id %3 | new id %4", restoredRecord.m_sDisplayName, restoredRecord.m_sPrefab, previousRuntimeId, restoredRecord.m_sVehicleRuntimeId));
 				if (!m_PersistentFieldVehicles
 					|| !m_PersistentFieldVehicles.Track(spawnedVehicle, restoredRecord))
-					Print("h-istasi vehicle persistence | spawned restore root tracking failed", LogLevel.ERROR);
+					Print("Partisan vehicle persistence | spawned restore root tracking failed", LogLevel.ERROR);
 			}
 
 			restoredVehicles++;
@@ -238,40 +238,40 @@ class HST_LootService
 	string CaptureNearbyVehicleToGarage(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal, int playerId)
 	{
 		if (!state || !preset || !arsenal || playerId <= 0)
-			return "h-istasi garage | failed: service not ready";
+			return "Partisan garage | failed: service not ready";
 
 		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
 		if (!playerEntity)
-			return "h-istasi garage | failed: no living player entity found";
+			return "Partisan garage | failed: no living player entity found";
 
 		BaseWorld world = GetGame().GetWorld();
 		if (!world)
-			return "h-istasi garage | failed: world not ready";
+			return "Partisan garage | failed: world not ready";
 
 		HST_VehicleRootScanResult scan = FindNearestVehicleRoot(playerEntity, GARAGE_CAPTURE_RADIUS_METERS, state, "garage capture");
 		IEntity selectedVehicle = scan.m_SelectedRoot;
 
 		if (!selectedVehicle)
-			return string.Format("h-istasi garage | failed: no safe root vehicle nearby | candidates %1 | reason %2", scan.m_iCandidates, scan.m_sRejectReason);
+			return string.Format("Partisan garage | failed: no safe root vehicle nearby | candidates %1 | reason %2", scan.m_iCandidates, scan.m_sRejectReason);
 
 		HST_GarageVehicleState vehicle = new HST_GarageVehicleState();
 		vehicle.m_sVehicleId = BuildUniqueGarageVehicleId(state);
 		vehicle.m_sPrefab = ResolveVehiclePrefabFromScan(selectedVehicle, scan);
 		if (vehicle.m_sPrefab.IsEmpty() || !IsEligibleSelectedVehicleRoot(selectedVehicle, vehicle.m_sPrefab, scan))
-			return "h-istasi garage | failed: nearest candidate was not a top-level vehicle";
+			return "Partisan garage | failed: nearest candidate was not a top-level vehicle";
 		if (!IsLoadableVehiclePrefab(vehicle.m_sPrefab))
-			return "h-istasi garage | failed: selected vehicle root has no loadable redeploy prefab | " + vehicle.m_sPrefab;
+			return "Partisan garage | failed: selected vehicle root has no loadable redeploy prefab | " + vehicle.m_sPrefab;
 
 		string occupiedReason;
 		if (IsVehicleOccupied(selectedVehicle, playerEntity, occupiedReason))
-			return "h-istasi garage | failed: vehicle is occupied | " + occupiedReason;
+			return "Partisan garage | failed: vehicle is occupied | " + occupiedReason;
 
 		string selectedVehicleRuntimeId = ResolveVehicleRuntimeIdFromScan(selectedVehicle, scan);
 		HST_RuntimeVehicleState runtimeVehicle = EnsureRuntimeVehicleRecord(state, selectedVehicle, scan.m_RuntimeVehicle, vehicle.m_sPrefab);
 		if (runtimeVehicle)
 		{
 			if (runtimeVehicle.m_sRuntimeKind == "gun_shop_delivery_vehicle")
-				return "h-istasi garage | failed: Gun Shop delivery vehicle cannot be captured";
+				return "Partisan garage | failed: Gun Shop delivery vehicle cannot be captured";
 			selectedVehicleRuntimeId = runtimeVehicle.m_sVehicleRuntimeId;
 		}
 
@@ -296,7 +296,7 @@ class HST_LootService
 		{
 			state.m_sLastVehicleTargetStatus = "garage capture failed";
 			state.m_sLastVehicleTargetReason = "garage record could not be stored before vehicle delete";
-			return string.Format("h-istasi garage | failed: garage record could not be stored for %1", vehicle.m_sDisplayName);
+			return string.Format("Partisan garage | failed: garage record could not be stored for %1", vehicle.m_sDisplayName);
 		}
 
 		SCR_EntityHelper.DeleteEntityAndChildren(selectedVehicle);
@@ -305,8 +305,8 @@ class HST_LootService
 			arsenal.RemoveVehicle(state, vehicle.m_sVehicleId);
 			state.m_sLastVehicleTargetStatus = "garage capture failed";
 			state.m_sLastVehicleTargetReason = "selected root still present after delete; garage record rolled back";
-			Print(string.Format("h-istasi garage | failed to despawn %1; rolled back garage record | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
-			return string.Format("h-istasi garage | failed: %1 did not despawn, garage record was rolled back", vehicle.m_sDisplayName);
+			Print(string.Format("Partisan garage | failed to despawn %1; rolled back garage record | prefab %2", vehicle.m_sDisplayName, vehicle.m_sPrefab), LogLevel.WARNING);
+			return string.Format("Partisan garage | failed: %1 did not despawn, garage record was rolled back", vehicle.m_sDisplayName);
 		}
 
 		RemoveVirtualVehicleCargo(state, selectedVehicleRuntimeId);
@@ -317,8 +317,8 @@ class HST_LootService
 				selectedVehicleRuntimeId);
 		state.m_sLastVehicleTargetStatus = string.Format("garage captured %1", vehicle.m_sDisplayName);
 		state.m_sLastVehicleTargetReason = string.Format("stored garage record before delete; deleted verified root vehicle | physical cargo %1 | virtual cargo %2 | rekeyed legacy %3", physicalCargoCount, virtualCargoCount, recoveredLegacyEntries);
-		Print(string.Format("h-istasi garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s) | legacy %7", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle), recoveredLegacyEntries));
-		return string.Format("h-istasi garage | captured %1 | cargo %2 | complete", vehicle.m_sDisplayName, CountStoredVehicleCargoItems(vehicle));
+		Print(string.Format("Partisan garage | captured %1 into %2 and despawned verified root vehicle | prefab %3 | distance %4m | cargo %5 entries/%6 item(s) | legacy %7", vehicle.m_sDisplayName, vehicle.m_sVehicleId, vehicle.m_sPrefab, scan.m_fSelectedDistanceMeters, vehicle.m_aStoredCargoItems.Count(), CountStoredVehicleCargoItems(vehicle), recoveredLegacyEntries));
+		return string.Format("Partisan garage | captured %1 | cargo %2 | complete", vehicle.m_sDisplayName, CountStoredVehicleCargoItems(vehicle));
 	}
 
 	HST_LootResult CollectNearbyLootToVehicle(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId, string vehicleRuntimeId = "")
@@ -416,7 +416,7 @@ class HST_LootService
 			result.m_aDepositedLines.Insert("no eligible loot found near vehicle");
 
 		state.m_iLastVehicleTargetCargoEntries = CountVehicleCargoEntries(state, vehicleId);
-		Print(string.Format("h-istasi vehicle loot | target %1 | prefab %2 | scanned %3 | deposited %4 | cargo entries for vehicle %5", vehicleName, vehiclePrefab, result.m_iSourcesScanned, result.m_iItemsDeposited, state.m_iLastVehicleTargetCargoEntries));
+		Print(string.Format("Partisan vehicle loot | target %1 | prefab %2 | scanned %3 | deposited %4 | cargo entries for vehicle %5", vehicleName, vehiclePrefab, result.m_iSourcesScanned, result.m_iItemsDeposited, state.m_iLastVehicleTargetCargoEntries));
 
 		return result;
 	}
@@ -424,11 +424,11 @@ class HST_LootService
 	string UnloadNearestVehicleCargoToArsenal(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ArsenalService arsenal, int playerId, string vehicleRuntimeId = "")
 	{
 		if (!state || !preset || !balance || !arsenal || playerId <= 0)
-			return "h-istasi vehicle loot | service not ready";
+			return "Partisan vehicle loot | service not ready";
 
 		IEntity playerEntity = ResolveLivingPlayerEntity(playerId);
 		if (!playerEntity)
-			return "h-istasi vehicle loot | no living player entity found";
+			return "Partisan vehicle loot | no living player entity found";
 
 		HST_VehicleRootScanResult vehicleScan;
 		if (!vehicleRuntimeId.IsEmpty())
@@ -440,13 +440,13 @@ class HST_LootService
 		if (!vehicle)
 		{
 			if (!vehicleRuntimeId.IsEmpty())
-				return string.Format("h-istasi vehicle loot | target vehicle not nearby or invalid | %1", state.m_sLastVehicleTargetReason);
+				return string.Format("Partisan vehicle loot | target vehicle not nearby or invalid | %1", state.m_sLastVehicleTargetReason);
 
-			return string.Format("h-istasi vehicle loot | no eligible vehicle nearby | candidates %1 | reason %2", state.m_iLastVehicleTargetCandidates, state.m_sLastVehicleTargetReason);
+			return string.Format("Partisan vehicle loot | no eligible vehicle nearby | candidates %1 | reason %2", state.m_iLastVehicleTargetCandidates, state.m_sLastVehicleTargetReason);
 		}
 
 		if (!IsPlayerAtVehicleRear(playerEntity, vehicle, balance.m_iVehicleLootRadiusMeters))
-			return "h-istasi vehicle loot | stand near the vehicle load area to unload cargo";
+			return "Partisan vehicle loot | stand near the vehicle load area to unload cargo";
 
 		string vehicleId = ResolveVehicleRuntimeIdFromScan(vehicle, vehicleScan);
 		string vehiclePrefab = ResolveVehiclePrefabFromScan(vehicle, vehicleScan);
@@ -479,19 +479,19 @@ class HST_LootService
 		}
 
 		if (deposited <= 0)
-			return string.Format("h-istasi vehicle loot | no stored cargo found in nearest vehicle | recovered legacy entries %1", recoveredLegacyEntries);
+			return string.Format("Partisan vehicle loot | no stored cargo found in nearest vehicle | recovered legacy entries %1", recoveredLegacyEntries);
 
 		state.m_iLastVehicleTargetCargoEntries = CountVehicleCargoEntriesIncludingLegacy(state, vehicle);
-		Print(string.Format("h-istasi vehicle loot | unloaded %1 item(s) from %2 cargo entries to arsenal | target %3 | prefab %4 | recovered legacy entries %5 | remaining cargo entries %6", deposited, entries, vehicleName, vehiclePrefab, recoveredLegacyEntries, state.m_iLastVehicleTargetCargoEntries));
-		return string.Format("h-istasi vehicle loot | unloaded %1 item(s) from %2 cargo entries to arsenal | recovered legacy entries %3", deposited, entries, recoveredLegacyEntries);
+		Print(string.Format("Partisan vehicle loot | unloaded %1 item(s) from %2 cargo entries to arsenal | target %3 | prefab %4 | recovered legacy entries %5 | remaining cargo entries %6", deposited, entries, vehicleName, vehiclePrefab, recoveredLegacyEntries, state.m_iLastVehicleTargetCargoEntries));
+		return string.Format("Partisan vehicle loot | unloaded %1 item(s) from %2 cargo entries to arsenal | recovered legacy entries %3", deposited, entries, recoveredLegacyEntries);
 	}
 
 	string BuildVehicleCargoReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi vehicle cargo | campaign state not ready";
+			return "Partisan vehicle cargo | campaign state not ready";
 
-		string report = string.Format("h-istasi vehicle cargo | entries %1", state.m_aVehicleCargoItems.Count());
+		string report = string.Format("Partisan vehicle cargo | entries %1", state.m_aVehicleCargoItems.Count());
 		foreach (HST_VehicleCargoItemState cargoItem : state.m_aVehicleCargoItems)
 		{
 			if (!cargoItem)
@@ -596,7 +596,7 @@ class HST_LootService
 		}
 
 		if (recoveredEntries > 0)
-			Print(string.Format("h-istasi vehicle loot | rekeyed %1 legacy vehicle-part cargo entries to root %2 | prefab %3", recoveredEntries, vehicleId, vehiclePrefab));
+			Print(string.Format("Partisan vehicle loot | rekeyed %1 legacy vehicle-part cargo entries to root %2 | prefab %3", recoveredEntries, vehicleId, vehiclePrefab));
 
 		return recoveredEntries;
 	}
@@ -641,7 +641,7 @@ class HST_LootService
 		}
 
 		if (recoveredEntries > 0)
-			Print(string.Format("h-istasi vehicle loot | rekeyed %1 cargo entries from %2 to root %3 | prefab %4", recoveredEntries, oldVehicleId, newVehicleId, vehiclePrefab));
+			Print(string.Format("Partisan vehicle loot | rekeyed %1 cargo entries from %2 to root %3 | prefab %4", recoveredEntries, oldVehicleId, newVehicleId, vehiclePrefab));
 
 		return recoveredEntries;
 	}
@@ -761,7 +761,7 @@ class HST_LootService
 			if (!m_PersistentFieldVehicles
 				|| !m_PersistentFieldVehicles.Track(rootVehicle, record))
 			{
-				Print("h-istasi vehicle persistence | nearby durable root tracking failed", LogLevel.ERROR);
+				Print("Partisan vehicle persistence | nearby durable root tracking failed", LogLevel.ERROR);
 				continue;
 			}
 			if (snapshottedRuntimeIds && snapshottedRuntimeIds.Find(record.m_sVehicleRuntimeId) < 0)
@@ -1099,7 +1099,7 @@ class HST_LootService
 		{
 			if (result)
 				result.m_iItemsSkippedBlocked++;
-			Print("h-istasi loot | skipped invalid item resource " + prefab);
+			Print("Partisan loot | skipped invalid item resource " + prefab);
 			return false;
 		}
 
@@ -1747,7 +1747,7 @@ class HST_LootService
 		float bestDistanceSq = 999999999.0;
 		IEntity bestRoot;
 		HST_RuntimeVehicleState bestRecord;
-		string lastReject = "no registered h-istasi vehicle within radius";
+		string lastReject = "no registered Partisan vehicle within radius";
 		foreach (HST_RuntimeVehicleState record : state.m_aRuntimeVehicles)
 		{
 			if (!record || record.m_bDeleted || record.m_sVehicleRuntimeId.IsEmpty())
@@ -1821,7 +1821,7 @@ class HST_LootService
 
 			if (!requestedRuntimeId.IsEmpty())
 			{
-				FillVehicleScanResult(result, rootVehicle, record, "matched registered h-istasi runtime vehicle", distanceSq);
+				FillVehicleScanResult(result, rootVehicle, record, "matched registered Partisan runtime vehicle", distanceSq);
 				return true;
 			}
 
@@ -1840,7 +1840,7 @@ class HST_LootService
 			return false;
 		}
 
-		FillVehicleScanResult(result, bestRoot, bestRecord, "selected registered h-istasi runtime vehicle fallback", bestDistanceSq);
+		FillVehicleScanResult(result, bestRoot, bestRecord, "selected registered Partisan runtime vehicle fallback", bestDistanceSq);
 		return true;
 	}
 
@@ -1930,7 +1930,7 @@ class HST_LootService
 		if (CanAdoptPersistentFieldVehicle(record)
 			&& (!m_PersistentFieldVehicles
 				|| !m_PersistentFieldVehicles.Track(rootVehicle, record)))
-			Print("h-istasi vehicle persistence | durable root registration failed", LogLevel.ERROR);
+			Print("Partisan vehicle persistence | durable root registration failed", LogLevel.ERROR);
 		return record;
 	}
 
@@ -2129,13 +2129,13 @@ class HST_LootService
 			state.m_fLastVehicleTargetDistanceMeters = Math.Sqrt(distanceSq);
 			state.m_iLastVehicleTargetCargoEntries = CountVehicleCargoEntries(state, vehicleId) + CountLegacyVehiclePartCargoNear(state, vehicle, vehicleId);
 			string passSummary = string.Format("direct %1 | parent %2 | bounds %3 | runtime %4", directRoots, parentRoots, boundsRoots, runtimeRoots);
-			string selectedLog = string.Format("h-istasi vehicle target | %1 | selected %2 | prefab %3 | id %4 | candidates %5 | roots %6 | %7 | distance %8m", status, BuildVehicleDisplayNameFromScan(vehicle, prefab, scan), prefab, vehicleId, candidates, resolvedRoots, passSummary, state.m_fLastVehicleTargetDistanceMeters);
+			string selectedLog = string.Format("Partisan vehicle target | %1 | selected %2 | prefab %3 | id %4 | candidates %5 | roots %6 | %7 | distance %8m", status, BuildVehicleDisplayNameFromScan(vehicle, prefab, scan), prefab, vehicleId, candidates, resolvedRoots, passSummary, state.m_fLastVehicleTargetDistanceMeters);
 			Print(selectedLog + " | reason " + reason);
 			return;
 		}
 
 		string noTargetPassSummary = string.Format("direct %1 | parent %2 | bounds %3 | runtime %4", directRoots, parentRoots, boundsRoots, runtimeRoots);
-		string noTargetLog = string.Format("h-istasi vehicle target | %1 | no target | candidates %2 | roots %3 | %4", status, candidates, resolvedRoots, noTargetPassSummary);
+		string noTargetLog = string.Format("Partisan vehicle target | %1 | no target | candidates %2 | roots %3 | %4", status, candidates, resolvedRoots, noTargetPassSummary);
 		Print(noTargetLog + " | reason " + reason + " | " + nearestDebug, LogLevel.WARNING);
 	}
 

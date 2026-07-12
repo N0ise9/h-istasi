@@ -29,7 +29,7 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 			return;
 		}
 
-		Print("h-istasi menu | local command menu component not ready", LogLevel.WARNING);
+		Print("Partisan menu | local command menu component not ready", LogLevel.WARNING);
 	}
 
 	protected void RunMenuCommand(string tabId, string commandId, string argument, IEntity userEntity)
@@ -50,7 +50,7 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 			return;
 		}
 
-		Print("h-istasi command | player request bridge not ready", LogLevel.WARNING);
+		Print("Partisan command | player request bridge not ready", LogLevel.WARNING);
 	}
 
 	protected void OpenLoadoutEditor(IEntity userEntity)
@@ -66,7 +66,7 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 			return;
 		}
 
-		Print("h-istasi loadout editor | local editor component not ready", LogLevel.WARNING);
+		Print("Partisan loadout editor | local editor component not ready", LogLevel.WARNING);
 	}
 
 	protected int ResolvePlayerId(IEntity userEntity)
@@ -106,7 +106,7 @@ class HST_ContextualUserActionBase : ScriptedUserAction
 	}
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Disables inherited stock arsenal actions on the h-istasi HQ arsenal")]
+[ComponentEditorProps(category: "Partisan", description: "Disables inherited stock arsenal actions on the Partisan HQ arsenal")]
 class HST_HQArsenalActionFilterComponentClass : ScriptComponentClass
 {
 }
@@ -167,11 +167,11 @@ class HST_HQArsenalActionFilterComponent : ScriptComponent
 		m_bActionsFiltered = true;
 		m_iFilterFrames++;
 		if (m_iFilterFrames == 1 || m_iFilterFrames == 90)
-			Print(string.Format("h-istasi arsenal | filtered %1 inherited action(s); custom HQ menu/loadout actions remain authoritative", Math.Max(0, actionCount - 2)));
+			Print(string.Format("Partisan arsenal | filtered %1 inherited action(s); custom HQ menu/loadout actions remain authoritative", Math.Max(0, actionCount - 2)));
 	}
 }
 
-[ComponentEditorProps(category: "h-istasi", description: "Keeps Petros context actions focused on HQ, arsenal, and relocation")]
+[ComponentEditorProps(category: "Partisan", description: "Keeps Petros context actions focused on HQ, arsenal, and relocation")]
 class HST_PetrosActionFilterComponentClass : ScriptComponentClass
 {
 }
@@ -244,7 +244,7 @@ class HST_PetrosActionFilterComponent : ScriptComponent
 		m_bActionsFiltered = true;
 		m_iFilterFrames++;
 		if (m_iFilterFrames == 1 || m_iFilterFrames == 90)
-			Print(string.Format("h-istasi Petros | filtered %1 inherited action(s); HQ, arsenal, and relocation actions remain authoritative", Math.Max(0, actionCount - keptActions)));
+			Print(string.Format("Partisan Petros | filtered %1 inherited action(s); HQ, arsenal, and relocation actions remain authoritative", Math.Max(0, actionCount - keptActions)));
 	}
 }
 
@@ -261,7 +261,7 @@ class HST_PetrosCommandMenuAction : HST_PetrosUserActionBase
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "h-istasi HQ Menu";
+		outName = "Partisan HQ Menu";
 		return true;
 	}
 }
@@ -295,7 +295,7 @@ class HST_PetrosArsenalMenuAction : HST_PetrosUserActionBase
 
 	override bool GetActionNameScript(out string outName)
 	{
-		outName = "h-istasi Arsenal";
+		outName = "Partisan Arsenal";
 		return true;
 	}
 }

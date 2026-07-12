@@ -7,6 +7,45 @@ class HST_FactionPoolState
 	int m_iMoney;
 	int m_iHR;
 	int m_iAggression;
+	int m_iStrategicContractVersion;
+	int m_iStrategicRevision;
+	int m_iStrategicOperationalMutationCount;
+	int m_iResourceAccumulatorSeconds;
+	int m_iAggressionAccumulatorSeconds;
+	int m_iLastResourceBucketSecond;
+	int m_iLastAggressionBucketSecond;
+	string m_sLastStrategicMutationId;
+	string m_sStrategicAuthorityFailure;
+}
+
+[BaseContainerProps()]
+class HST_EnemyStrategicMutationState
+{
+	int m_iContractVersion = 1;
+	string m_sMutationId;
+	string m_sFactionKey;
+	string m_sKind;
+	string m_sSourceId;
+	string m_sOrderId;
+	string m_sOperationId;
+	string m_sManifestId;
+	string m_sZoneId;
+	int m_iCreatedAtSecond;
+	int m_iPoolRevisionBefore;
+	int m_iPoolRevisionAfter;
+	int m_iOperationalSequence;
+	int m_iAttackBefore;
+	int m_iAttackDelta;
+	int m_iAttackAfter;
+	int m_iSupportBefore;
+	int m_iSupportDelta;
+	int m_iSupportAfter;
+	int m_iAggressionBefore;
+	int m_iAggressionDelta;
+	int m_iAggressionAfter;
+	string m_sContributionHash;
+	string m_sFingerprint;
+	bool m_bApplied;
 }
 
 [BaseContainerProps()]
@@ -1034,6 +1073,8 @@ class HST_EnemyOrderState
 	int m_iCompositionManpower;
 	int m_iCompositionVehicleCount;
 	int m_iCompositionArmedVehicleCount;
+	string m_sResourceDebitMutationId;
+	string m_sResourceRefundMutationId;
 	string m_sResourceSettlementId;
 	string m_sResourceSettlementKind;
 	int m_iSettlementAcceptedMemberCount;
@@ -1323,7 +1364,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 66;
+	static const int SCHEMA_VERSION = 67;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1453,6 +1494,7 @@ class HST_CampaignState
 	ref array<ref HST_SupportRequestState> m_aSupportRequests = {};
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
+	ref array<ref HST_EnemyStrategicMutationState> m_aEnemyStrategicMutations = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceRecord> m_aTownInfluenceRecords = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
@@ -1487,6 +1529,18 @@ class HST_CampaignState
 				return zone;
 		}
 
+		return null;
+	}
+
+	HST_EnemyStrategicMutationState FindEnemyStrategicMutation(string mutationId)
+	{
+		if (mutationId.IsEmpty())
+			return null;
+		foreach (HST_EnemyStrategicMutationState mutation : m_aEnemyStrategicMutations)
+		{
+			if (mutation && mutation.m_sMutationId == mutationId)
+				return mutation;
+		}
 		return null;
 	}
 

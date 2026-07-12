@@ -1,7 +1,20 @@
-# h-istasi Enfusion / Enforce Notes
+# Partisan Enfusion / Enforce Notes
 
-The current sealed source/Workbench checkpoint advances to Campaign Schema 66 while runtime settings
-remains Schema 24. The current source stamp identifies implementation
+The active provisional source boundary advances to Campaign Schema 67 while
+runtime settings remains Schema 24, under the working label
+`schema67-settings24-enemy-strategic-resource-authority`. The practical Enforce
+contract is one versioned `HST_FactionPoolState` per configured enemy, bounded
+`HST_EnemyStrategicMutationState` receipts, persisted cadence bucket checkpoints,
+and one service boundary for income, spend, refund, aggression, and live pool
+adjustment. Operational receipts use a contiguous per-faction sequence, include
+accepted zero-effect operations, never compact, and hard-stop at 4,096 per
+faction; periodic evidence compacts separately. Schema 67 has no final implementation SHA, UTC
+seal, Foundation count, Workbench count, or CRC. Persisted planning cadence and
+decision fingerprints remain the next Phase 9 slice, and every Blueprint Phase
+8 runtime gate remains open.
+
+The immediately preceding sealed source/Workbench checkpoint advances to Campaign Schema 66 while runtime settings
+remains Schema 24. The sealed Schema-66 stamp identifies implementation
 `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
 `schema66-settings24-local-security-marker-integrity`. The new exact local-security owner keeps enemy-town patrol
@@ -9,7 +22,7 @@ rosters in frozen manifests and SpawnQueue member slots, folds physical
 casualties to strategic hold, restores without refill, applies one police `-1`
 loss on destruction, and requires later positive police pressure or a newer
 ownership revision before rearm. Resistance automatic police/roadblock targets
-are zero. The same source repairs the client-local campaign-marker owner
+are zero. That sealed source also repairs the client-local campaign-marker owner
 regression introduced at `27672e6`: protected campaign markers are system-owned,
 non-removable, and self-healed from the committed registry, while player-created
 markers remain editable. Foundation passes at 729 script-symbol references.
@@ -64,7 +77,7 @@ remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 behavior remains open.
 
-Purpose: capture reusable facts learned while building h-istasi so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
+Purpose: capture reusable facts learned while building Partisan so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
 
 This file is for practical engine/script behavior, not project planning. Keep entries concrete: what failed, why it failed, what works instead, and where the example lives.
 
@@ -259,6 +272,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Full Campaign Debug must fail closed outside an isolated development session.
   - It can force terminal outcomes, mutate resources and campaign rows, and create world/player side effects. Persist the live campaign first, retain its original `HST_CampaignState` reference, run the sequencer against a deep save-data clone, divert persistence `Tick`, `MarkMajorChange`, checkpoint, capture, profile-fallback, and save-point paths, then swap the untouched reference back on both completion and cancellation. Applying a save snapshot into the mutated object is weaker because transient state can be omitted.
+  - Any nested case that calls a production path with durable side effects needs
+    its own disposable save-data clone. Swapping back to the enclosing state is
+    necessary but not sufficient proof: fingerprint the relevant enclosing
+    authority before and after the case. Mission outcome fixtures include every
+    strategic receipt plus each pool revision, operational count, resource,
+    aggression, and cadence field so a compensating cleanup receipt cannot be
+    mistaken for restoration.
   - External/restart/soak profiles require a separately managed disposable profile and launcher; do not let their labels enter the common in-process bootstrap/HQ/checkpoint steps.
   - Campaign-state swapping does not restore actor position, health, inventory, world entities, AI groups, vehicles, waypoints, service caches, or delayed callbacks. Keep the exact development-world gate and require a session restart before treating the runtime as clean.
 
@@ -449,7 +469,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `HST_CampaignCoordinatorComponent.RequestMemberBuyGunShopItemReport()`,
     and `HST_LootService.CaptureNearbyVehicleToGarage()`.
 
-- Planning/checklist docs should be first-party h-istasi documents.
+- Planning/checklist docs should be first-party Partisan documents.
   - When converting external planning material, keep feature status, gaps,
     priorities, implementation contracts, and acceptance tests.
   - Strip external project/source names, comparison tables, external file
@@ -549,13 +569,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
     recorded as a durable `mission_expired` row. Skip the generic expiry
     penalty for the HQ defense mission because its timer expiry is a success
     condition handled by the defense outcome path.
-  - Debug proofs that seed a mission fixture should snapshot and restore the
-    mission row, strategic-event rows, economy totals, target-zone
-    owner/support, relevant enemy resource/aggression pools, and marker state
-    after the save-data roundtrip check. Prefixed debug cleanup must remove
-    strategic events linked by event id, source id, mission instance id, target
-    zone id, reason, or summary so one-button runs do not accumulate stale
-    proof rows.
+  - Debug proofs that seed a mission fixture should run on a nested disposable
+    save-data clone, prove the outcome and its save-data roundtrip there, and
+    discard the clone after resetting any world-facing fixture projection. Do
+    not issue a compensating strategic mutation: it appends another durable
+    receipt, advances revision/sequence authority, can fail at the receipt cap,
+    and therefore cannot prove restoration. Compare the enclosing receipt/pool
+    authority fingerprint before and after the nested case instead.
   - Current example:
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionCompletionRewardCase()`
     and `HST_CampaignCoordinatorComponent.BuildCampaignDebugMissionFailurePenaltyCase()`.
@@ -1091,7 +1111,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - HQ arsenal user-action order must be proved from the runtime action manager.
   - `ScriptedUserAction` exposes script hooks for names, visibility, and performability, but not a script-side priority/order override. For the HST HQ arsenal, keep the custom loadout action before the HQ menu action in `Prefabs/Objects/HST/HST_HQArsenal.et`, disable inherited stock arsenal actions through `HST_HQArsenalActionFilterComponent`, then assert the first selectable runtime action through `ActionsManagerComponent.GetActionsList()`.
-  - Treat the campaign-debug assertion `hq.arsenal.loadout_editor_first` plus the `h-istasi HQ arsenal actions` evidence row as the proof that the Loadout Editor is the first selectable arsenal option. If the row reports a different first selectable action, the prefab/action-filter order is wrong even if the editor can still be opened manually.
+  - Treat the campaign-debug assertion `hq.arsenal.loadout_editor_first` plus the `Partisan HQ arsenal actions` evidence row as the proof that the Loadout Editor is the first selectable arsenal option. If the row reports a different first selectable action, the prefab/action-filter order is wrong even if the editor can still be opened manually.
 
 - Layout defaults should match the script's first meaningful state.
   - For mode-driven screens, mark always-on chrome explicitly visible and mark inactive mode panels hidden in the layout.
@@ -1190,11 +1210,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Validate that the active config still resolves a usable `PLACED_CUSTOM` objective icon before publishing campaign markers. If config repair is needed, load the canonical campaign table and merge only the custom player entry; do not replace a healthy active table merely because the player entry already exists.
   - Do not use `PLACED_CUSTOM` for tracked entities; it is a static marker type. The custom player entry can live in a small source config, while `EnsureHSTMarkerConfig` preserves the canonical placed-marker table and initializes only entries appended after the manager's normal init pass.
   - Do not reuse `SCR_EMapMarkerType.DYNAMIC_EXAMPLE` for custom dynamic markers. `SCR_MapMarkerConfig.GetMarkerEntryConfigByType` returns the first matching entry, and the parent map marker config already defines the stock example entry. Add a dedicated modded enum value such as `SCR_EMapMarkerType.HST_PLAYER`.
-  - The stock `SCR_MapMarkerEntryDynamicExample` registers its own spawn/death handlers. If h-istasi owns marker lifecycle through a service/reconciler, use a custom `SCR_MapMarkerEntryDynamic` subclass, call `super.InitServerLogic()` to bind the manager, and do not register stock events.
+  - The stock `SCR_MapMarkerEntryDynamicExample` registers its own spawn/death handlers. If Partisan owns marker lifecycle through a service/reconciler, use a custom `SCR_MapMarkerEntryDynamic` subclass, call `super.InitServerLogic()` to bind the manager, and do not register stock events.
   - Custom marker entry classes used from `.conf` need the same `[BaseContainerProps(), SCR_MapMarkerTitle()]` attributes as stock marker entries; without them the config entry can fail to instantiate even though the script class exists.
   - Runtime symptom: `Unknown class 'HST_PlayerMapMarkerEntry'` while loading `HST_PlayerMapMarkerConfig.conf` means the config can load but the marker entry script class was not registered/compiled for that run, so `InsertDynamicMarker` will not have a usable `HST_PLAYER` entry.
   - Validate both the imageset resource and the quad name. `{2EFEA2AF1F38E7F0}UI/Textures/Icons/icons_wrapperUI-64.imageset` has `circle` but not `dot`; using a missing quad can leave an otherwise created marker visually blank.
-  - Current h-istasi player marker art uses the `whisper` quad from `{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset`; keep the dynamic marker layout passive with `Ignore Cursor` so it cannot steal map interaction.
+  - Current Partisan player marker art uses the `whisper` quad from `{3262679C50EF4F01}UI/Textures/Icons/icons_wrapperUI.imageset`; keep the dynamic marker layout passive with `Ignore Cursor` so it cannot steal map interaction.
   - `SCR_MapMarkerEntity.SetText()` is not replicated. If server-created dynamic markers need per-player labels, pass a stable value through replicated marker data such as `configId` and resolve the client-side label in `InitClientSettingsDynamic`. Replicated marker fields can arrive around widget creation, so reapply labels briefly from the callqueue if the first pass only has fallback text.
   - Reconciler dynamic cleanup must remove tracked domain ids even if the stored `SCR_MapMarkerEntity` pointer is already null. A stale dynamic handle can poison tracked counts and prevent player marker cleanup/recreate from converging.
   - Matching tracked dynamic handle counts are not enough to skip player marker reconciliation. Check that tracked `SCR_MapMarkerEntity` references are still present in `SCR_MapMarkerManagerComponent.GetDynamicMarkers()`, and recreate handles that have unregistered from the native manager.
@@ -1206,7 +1226,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Dynamic marker config entries must name a layout with `SCR_MapMarkerDynamicWComponent` or a subclass. The default `SCR_MapMarkerEntryConfig` layout is `MapMarkerBase.layout`, and `MapMarkerSquadMember.layout` uses `SCR_MapMarkerSquadMemberComponent`; both lack the dynamic handler that `SCR_MapMarkerEntity.OnCreateMarker()` dereferences on map open.
   - Native dynamic markers follow movement through their target entity. `SCR_MapMarkerEntity.SetTarget()` enables frame updates, and authority-side `EOnFrame()` copies `m_Target.GetOrigin()` into the replicated marker position, so player markers should not be recreated just to follow walking/driving movement.
   - The current `whisper` player-marker icon needs a forward-facing rotation offset of `-50` degrees before applying player yaw to line the icon up with the in-game facing direction.
-  - Server-created dynamic marker prefabs need exactly one valid replication component. For h-istasi player markers, prefer a standalone `SCR_MapMarkerEntity` prefab with one local non-spatial/non-streamable `RplComponent`, matching the native squad marker shape. Do not inherit `MapMarkerEntityBase.et` and then add another `RplComponent`; the duplicate-component warning (`SCR_MapMarkerEntity component RplComponent cannot be combined with component RplComponent`) can leave `FindComponent(BaseRplComponent)` null during marker init and make player markers reconcile but fail to render.
+  - Server-created dynamic marker prefabs need exactly one valid replication component. For Partisan player markers, prefer a standalone `SCR_MapMarkerEntity` prefab with one local non-spatial/non-streamable `RplComponent`, matching the native squad marker shape. Do not inherit `MapMarkerEntityBase.et` and then add another `RplComponent`; the duplicate-component warning (`SCR_MapMarkerEntity component RplComponent cannot be combined with component RplComponent`) can leave `FindComponent(BaseRplComponent)` null during marker init and make player markers reconcile but fail to render.
   - Vanilla `SCR_MapMarkerEntity.EOnInit()` assumes `FindComponent(BaseRplComponent)` succeeds. If a dynamic marker prefab/resource state can produce a marker entity without a resolved RPL component, guard the modded init path before calling `IsOwner()` or `InsertDynamicMarker` can throw `NULL pointer to instance. Variable 'rplComp'`. Keep the marker entity active when RPL is temporarily unavailable; `SetTarget()` only sets the frame event mask, while active frame updates are what copy the target position into the replicated marker position.
   - Player marker facing rotation lives in the marker widget component, not the marker service. `HST_PlayerMapMarkerDynamicWComponent` rotates only `MarkerIcon` from the player entity's map yaw, leaving `MarkerText` upright and avoiding extra server marker churn. The `whisper` icon art points roughly 50 degrees off its widget zero after in-game alignment, so apply the icon forward offset when converting yaw to widget rotation.
   - Current working player-marker layout: `{6985327711306214}UI/layouts/HST/Map/HST_PlayerMapMarkerDynamic.layout`.
@@ -1215,9 +1235,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - For faction-colored player markers, resolve `SCR_FactionManager.SGetPlayerFaction(playerId)` client-side and fall back to the FIA faction color before using a hardcoded color.
   - Player marker reconcile signatures must include the resolved player/entity faction key, not just player id, target entity, and name. Faction assignment can arrive after the marker is created, and skipping reconciliation on an unchanged entity can leave the native marker with stale stream rules.
   - Do not hard-code the native marker stream faction to FIA. Use `SCR_FactionManager.SGetPlayerFaction(playerId)` first, then the controlled entity's `FactionAffiliationComponent`, and leave the stream key empty if neither is available so a bad fallback does not hide the player's own marker.
-  - HST player markers should call `SCR_MapMarkerEntity.SetFaction()` once a real player/entity faction is known so native map faction visibility can include them. Keep the widget icon/text color client-resolved from the same player faction, and avoid hardcoded fallback stream factions that can hide hosted-server markers.
+  - Partisan player markers should call `SCR_MapMarkerEntity.SetFaction()` once a real player/entity faction is known so native map faction visibility can include them. Keep the widget icon/text color client-resolved from the same player faction, and avoid hardcoded fallback stream factions that can hide hosted-server markers.
   - `SCR_MapMarkersUI.CreateDynamicMarkers()` can call `SCR_MapMarkerEntity.OnCreateMarker()` before the map frame is actually usable. A log before `super.OnCreateMarker()` only proves creation was requested; the reliable success signal is a non-null marker root/widget component or the custom marker entry's `InitClientSettingsDynamic()` log.
-  - Gameplay-map open repair should retry until HST dynamic player marker entities exist and their widgets are created. Treat `0` dynamic HST player markers as not-ready for a few retries, because the replicated marker entity can arrive after `OnMapOpenComplete`.
+  - Gameplay-map open repair should retry until Partisan dynamic player marker entities exist and their widgets are created. Treat `0` dynamic Partisan player markers as not-ready for a few retries, because the replicated marker entity can arrive after `OnMapOpenComplete`.
   - If a cached dynamic marker widget root is detached from the current map hierarchy, clear the root and widget component before rebuilding. Native dynamic marker deletion/removal paths can leave a stale reference even though the visible map root has been destroyed.
   - Current examples: `HST_PlayerMapMarkerService`, `HST_PlayerMapMarkerEntry`, `HST_PlayerMapMarkerConfig.conf`.
 
@@ -1360,7 +1380,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Current example: `AIAgent.GetMovementComponent()` can be returned directly from a method typed as `AIBaseMovementComponent`.
 
 - Campaign debug physical probes should recover or block on player liveness before real interactions.
-  - `SCR_DamageManagerComponent.FullHeal()` is useful only for a non-destroyed controlled entity; destroyed players need the normal h-istasi respawn sweep.
+  - `SCR_DamageManagerComponent.FullHeal()` is useful only for a non-destroyed controlled entity; destroyed players need the normal Partisan respawn sweep.
   - Put liveness guards at the teleport/interaction boundary so later cargo, captive, or area probes do not report misleading `player is not alive` mission-action failures caused by an earlier physical probe.
   - Do not pre-block render-bubble, civilian population, or similar physical probes solely because the current controlled entity is not living. If bootstrap has not already marked physical tests blocked, call the shared campaign-debug living-player recovery path first, then record `BLOCKED` only if recovery still cannot produce a living entity.
 
@@ -1426,8 +1446,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Loadout editor saved loadouts:
   - Fixed save slots are server-owned campaign state and profile persistence. Passing `slot_N` to `loadout_save` selects the slot; it must not overwrite an already renamed display name unless the slot was empty or an explicit rename command was sent.
   - Use `JsonSaveContext.SaveToString()` and `JsonLoadContext.LoadFromString()` with `SCR_PlayerArsenalLoadout.ReadLoadoutString/ApplyLoadoutString`. Obsolete `SCR_Json*` helpers can compile with warnings or fail to round-trip current native loadout data.
-  - Serialized native saved loadouts include attachment and child-slot metadata that may not be present as h-istasi recovered arsenal entries. For serialized slots, skip attachment metadata and other missing-arsenal rows in the cost ledger instead of failing before `SCR_PlayerArsenalLoadout.ApplyLoadoutString()` can apply the saved native string.
-  - After a successful serialized native loadout apply, refresh the server-side `SCR_PlayerController` main entity with `SetInitialMainEntity(playerEntity)`. h-istasi applies in place, but the controller refresh still helps possession/UI systems observe the changed entity state.
+  - Serialized native saved loadouts include attachment and child-slot metadata that may not be present as Partisan recovered arsenal entries. For serialized slots, skip attachment metadata and other missing-arsenal rows in the cost ledger instead of failing before `SCR_PlayerArsenalLoadout.ApplyLoadoutString()` can apply the saved native string.
+  - After a successful serialized native loadout apply, refresh the server-side `SCR_PlayerController` main entity with `SetInitialMainEntity(playerEntity)`. Partisan applies in place, but the controller refresh still helps possession/UI systems observe the changed entity state.
   - Campaign-debug loadout apply probes should not call `loadout_save` just to create a fixture, because that writes personal fixed-slot loadout files. Seed transient `HST_SavedLoadoutState` records directly, call the real `RequestMemberApplySavedLoadout()` path, then remove those records and restore the full arsenal plus the player's issued-loadout ledger from a pre-probe snapshot. Serialized apply uses the normal transaction path, which returns every previously issued finite item not present in the new loadout; restoring only the debug test prefabs can zero the player's issued ledger and duplicate refunded arsenal.
   - To test valid apply transaction semantics without leaving a new physical kit on the debug actor, capture the actor's current native serialized loadout and use it on the transient valid loadout while arranging explicit finite-cost slots for ledger assertions. This proves command, native apply, withdrawal, issued-ledger, and cleanup behavior without requiring `loadout_save`.
   - To test physical saved-loadout reflection, seed a second transient non-serialized loadout with explicit compact finite slots, apply it through `RequestMemberApplySavedLoadout()`, count the player inventory before/after, then apply a transient restore loadout that uses the original native serialized string. Keep this debug-only and restore arsenal/issued state afterward; rendered editor UI and exact equipment-slot visual proof remain separate.
@@ -1570,7 +1590,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     then require the final Workbench-family process count to be zero before the
     next compile or gameplay run.
   - A single Workbench log directory can contain several script reload attempts. When auditing a compile failure, split by the latest `Reloading game scripts` / `Script validation` segment before deciding whether an earlier `SCRIPT (E)` line is still current. Record which later reload proves the fix, and keep later commits unproven until they have their own reload/runtime evidence.
-  - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid h-istasi change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
+  - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid Partisan change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
   - Protected helper names are class-local. If a campaign-debug report path calls a helper such as `ReportBool` or `ResolveEntityPrefabName`, the calling class must define it directly; a same-named helper on another service does not satisfy the caller and Workbench reports `Undefined function`.
   - Workbench Game script compilation can report `Broken expression (missing ';'?)` on a valid-looking helper declaration when a newly introduced parameter spelling trips the parser at a method boundary. Current observed case: `EnsureCampaignDebugArtifactRecorded(string artifactPath)` failed at the declaration; the previously compiled `string path` form is the safe spelling for that helper, and the validator guards it.
   - Keep transient result models outside save data and serialize them with `JsonSaveContext` under `$profile:h-istasi/debug`.
@@ -1593,7 +1613,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Physical runtime probes should not silently pass when there is no controlled player entity.
   - Bootstrap should mark a physical-blocked flag if the controlled player cannot be resolved after teleport/spawn setup.
   - `SCR_Global.TeleportPlayer()` can return true before the server-side controlled entity origin reflects the new position in the same script slice. If a debug probe immediately performs distance checks or interactions after teleporting, verify `ResolveControlledPlayerEntity().GetOrigin()` against the resolved ground position and force `SetOrigin()` for the probe when needed.
-  - On a dedicated server, a server-side `SCR_Global.TeleportPlayer()`/`SetOrigin()` confirmation is not enough to prove the owning client view moved. Queue an owner RPC on the player-owned request bridge and log the client-side result. The expected proof is a server campaign-debug teleport line with `owner RPC 1` plus a client `h-istasi campaign debug teleport owner ... confirmed 1` line.
+  - On a dedicated server, a server-side `SCR_Global.TeleportPlayer()`/`SetOrigin()` confirmation is not enough to prove the owning client view moved. Queue an owner RPC on the player-owned request bridge and log the client-side result. The expected proof is a server campaign-debug teleport line with `owner RPC 1` plus a client `Partisan campaign debug teleport owner ... confirmed 1` line.
   - Continue non-physical state/report checks, but mark convoy, captive, and other physical probes as `BLOCKED` instead of converting missing player context into a pass.
   - HQ runtime checks should read tracked entity handles from `HST_HQService`, not just campaign-state positions. A rebuild case should assert tracked Petros/cache/arsenal/tent/spawn-point runtime keys, their actual positions against expected HQ offsets, per-slot nearby world duplicate counts, and arsenal readiness/action-surface status.
   - Keep existing-HQ runtime proof separate from HQ rebuild placement proof. If the rebuild command is blocked by dry-ground/build placement validation while the existing Petros/cache/arsenal/tent/spawn-point runtime objects are tracked and unique in the world, classify the rebuild case as `BLOCKED` and leave the hard runtime-object flag assertions to `hq.runtime_objects_existing`.
@@ -1774,22 +1794,22 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - This avoids false failures in commander-gated systems such as HQ rebuild, income, training, and support requests.
   - Bootstrap evidence should record the debug actor's backend UUID, SteamID64, and admin grant reason. Treat missing SteamID64 settings proof as WARN when the actor is already admin by another path, not PASS.
 
-- Player identity for h-istasi state and admin configuration use different durable IDs.
-  - Dedicated server admin/menu tests must first prove the packaged addon is current. The server log should print `h-istasi boot | authority build ...` from `HST_CampaignCoordinatorComponent`, and the client local-ready menu line should include the command-menu build stamp. If those current stamps are missing, the run is using a stale `ArmaReforger/addons/.../data.pak` package even if the Workbench repository has the fix.
+- Player identity for Partisan state and admin configuration use different durable IDs.
+  - Dedicated server admin/menu tests must first prove the packaged addon is current. The server log should print `Partisan boot | authority build ...` from `HST_CampaignCoordinatorComponent`, and the client local-ready menu line should include the command-menu build stamp. If those current stamps are missing, the run is using a stale `ArmaReforger/addons/.../data.pak` package even if the Workbench repository has the fix.
   - `PlayerId=2` is only a per-session connection id; it can change on reconnect and should not be stored in `membership.adminIdentityIds`.
   - `membership.adminIdentityIds` should only contain raw 17-digit SteamID64 values. Do not store backend UUIDs, `workbench_player_N`, prefixed aliases, or session player ids there.
-  - On the server, `GetGame().GetBackendApi().GetPlayerPlatformId(playerId)` is the intended script-side platform-id source for matching the SteamID64 value and should be proved in h-istasi grant logs. If that path does not match, log the backend UUID, platform-id candidate, and configured admin count before assuming the settings token is wrong.
+  - On the server, `GetGame().GetBackendApi().GetPlayerPlatformId(playerId)` is the intended script-side platform-id source for matching the SteamID64 value and should be proved in Partisan grant logs. If that path does not match, log the backend UUID, platform-id candidate, and configured admin count before assuming the settings token is wrong.
   - `GetGame().GetBackendApi().GetPlayerIdentityId(playerId)` returns the backend UUID shown in backend/network logs after authentication. Use that UUID for internal persistent player/member/commander state, with `workbench_player_N` only as a local/early bootstrap placeholder, not as an admin fallback.
   - If a player was registered before the backend identity was available, migrate the placeholder record and rewrite commander/loadout/undercover owner references once the UUID resolves.
   - Spawn-sweep registration must route through `HST_CampaignCoordinatorComponent.RegisterConnectedPlayer()` or otherwise apply the same runtime admin grant logic. Direct calls to `HST_PlayerLifecycleService.RegisterConnectedPlayer()` can create a live campaign player before the SteamID64 admin grant has been applied.
-  - Server-host admin lists can be bridged through the session player id after connection: use `SCR_PlayerListedAdminManagerComponent.GetInstance().IsPlayerOnAdminList(playerId)` or `BackendApi.IsListedServerAdmin(playerId)` for runtime admin grants, but do not persist the session id as the durable h-istasi identity. This is a separate native-server admin source, not a third `membership.adminIdentityIds` token type.
+  - Server-host admin lists can be bridged through the session player id after connection: use `SCR_PlayerListedAdminManagerComponent.GetInstance().IsPlayerOnAdminList(playerId)` or `BackendApi.IsListedServerAdmin(playerId)` for runtime admin grants, but do not persist the session id as the durable Partisan identity. This is a separate native-server admin source, not a third `membership.adminIdentityIds` token type.
   - Runtime settings parsing must handle `adminIdentityIds` as either a compact one-line JSON array or a pretty-printed multi-line JSON array. The profile file can be reformatted by external tools; a line-only parser will silently clear the configured admin list.
 
 - The `I` key is already present in the base input config as native action `PlayerMenuInvite` under `PlayerMenuContext`.
-  - The h-istasi command menu can keep its custom `HST_CommandMenu` action/binding, but the client component should also activate `PlayerMenuContext`, activate `PlayerMenuInvite`, listen for `PlayerMenuInvite`, and include that native action state in input heartbeat logs.
+  - The Partisan command menu can keep its custom `HST_CommandMenu` action/binding, but the client component should also activate `PlayerMenuContext`, activate `PlayerMenuInvite`, listen for `PlayerMenuInvite`, and include that native action state in input heartbeat logs.
   - During initial HQ placement the setup map owns input and clears `KC_I`; finish HQ placement first, then `I` should open the command menu. A setup-active refusal is different from a broken command-menu binding.
   - Petros/HQ contextual actions call the same menu renderer; log those opens as `contextual action` so they are not mistaken for successful `I` key opens.
-  - Treat `h-istasi menu | native I action input detected source=PlayerMenuInvite ...` followed by `h-istasi menu debug | opened via native PlayerMenuInvite` as proof that the native `I` path reached and opened the HST command menu. If a player reports the key still failing, first confirm a newer client log exists and check for setup/UI-root/debounce refusal lines before changing input bindings.
+  - Treat `Partisan menu | native I action input detected source=PlayerMenuInvite ...` followed by `Partisan menu debug | opened via native PlayerMenuInvite` as proof that the native `I` path reached and opened the HST command menu. If a player reports the key still failing, first confirm a newer client log exists and check for setup/UI-root/debounce refusal lines before changing input bindings.
   - Selectable command prompts should be data-driven by the menu payload, not inferred from already-rendered row text. The commander-transfer member control uses one visible `member_promote_commander_choose` action carrying sanitized SteamID64/name choices, opens the shared scrollable action-choice modal, and dispatches the existing `member_promote_commander` command only after the clicked choice supplies the selected SteamID64.
   - Keep the action-choice modal dynamic and scrollable instead of enforcing a small fixed row count. The same control surface is used by commander transfer and support recall, so payload parsers should accept many sanitized choices and let the scroll host handle visibility.
   - Keep always-visible command menu sections player-facing. Prefabs, raw positions, request ids, group ids, and similar diagnostic handles belong behind explicit report/debug actions, not in the main tab rows players scan during normal command use.
@@ -1799,7 +1819,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Disabling Game Master budgets disables placement caps, not all native budget accounting.
   - The native `SCR_EditableEntityCoreBudgetSetting.SubtractFromBudget(int)` path logs `GM Budget got clamped at some point!` when a queued delete/free operation subtracts more than the tracked current budget.
-  - h-istasi should keep `SCR_BudgetEditorComponent.IsBudgetCapEnabled()` false for managed GM budgets while disabled, prefill managed budget caps/current accounting to disabled-mode headroom, and guard `SCR_EditableEntityCoreBudgetSetting.SubtractFromBudget()` before vanilla subtracts. Post-update repair alone is not enough; native queued deletion can still reach the clamp path before diagnostics make the run understandable.
+  - Partisan should keep `SCR_BudgetEditorComponent.IsBudgetCapEnabled()` false for managed GM budgets while disabled, prefill managed budget caps/current accounting to disabled-mode headroom, and guard `SCR_EditableEntityCoreBudgetSetting.SubtractFromBudget()` before vanilla subtracts. Post-update repair alone is not enough; native queued deletion can still reach the clamp path before diagnostics make the run understandable.
   - Keep `SCR_EditableEntityCore.Event_OnEntityBudgetUpdatedPerEntity` as a last-resort deficit repair hook, but restore full disabled-mode headroom there instead of only adding the single negative delta back.
   - Treat `preSubtractRepairs` / `deficitCorrections` in `HistasiBuildGameMasterBudgetDiagnostics()` plus at most one `restored disabled-budget headroom before native subtract` or `corrected first disabled-budget deficit` log line as proof that the disabled-budget shim is active without accepting per-frame correction spam.
   - Campaign-debug preflight should record `preflight.gm_budget.*` assertions showing settings/runtime/game-mode agreement, budget editor availability, cap-enabled state, managed-budget headroom, original cap counts, and deficit-handler registration. A full run with `gameMasterBudgetsEnabled=false` should prove placement caps are disabled and the deficit correction hook is active before accepting any GM-budget clamp investigation as closed.
@@ -1878,7 +1898,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Phase 24 post-end checks should snapshot state immediately after forced victory/loss, then compare the following delayed report step. Assert elapsed seconds, mission/objective/asset/support/order/group/runtime-vehicle counts, money, HR, and income timer are unchanged to prove the terminal frame branch skipped normal campaign services.
   - After the debug runner purges native/static markers or removes debug-prefixed state, force an immediate player-marker refresh/reconcile before reporting completion. The player marker service can legitimately clear dynamic markers during transient no-player respawn slices, but completion should leave a live desired/tracked player marker for manual map inspection. Bypass the cached player-marker reconcile signature for this completion refresh and record desired/tracked/live counts in the run artifact so a missing post-run map marker is visible in structured evidence.
   - `m_bHQRuntimeObjectsSpawned` describes live entity handles, not durable campaign data. Save capture/restore should force it false, and the terminal-frame branch should still call the HQ runtime-object rebuild so a persisted won/lost debug save can show Petros, cache, arsenal, tent, and spawn point without resuming normal campaign services.
-  - HQ/Petros access needs an object fallback, not only the Petros character or the `I` key. The July 2026 server/client logs showed the HQ arsenal survived and opened the loadout editor while Petros/runtime command access was missing, so keep an HQ menu user action on the arsenal and keep the arsenal action filter aware of all h-istasi custom actions.
+  - HQ/Petros access needs an object fallback, not only the Petros character or the `I` key. The July 2026 server/client logs showed the HQ arsenal survived and opened the loadout editor while Petros/runtime command access was missing, so keep an HQ menu user action on the arsenal and keep the arsenal action filter aware of all Partisan custom actions.
 
 - Aggregate debug results should separate action assertions from diagnostic reports.
   - Score mutation/test commands through a shared failure classifier (`failed:`, server/admin required, not-ready, `FAIL` smoke output).
@@ -1913,14 +1933,14 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Game Master group size comes from `SCR_EditableGroupComponent.GetSize()`, which returns `SCR_AIGroup.GetPlayerAndAgentCount()`. Active-group proof should log both native raw/living counts and the editable size/faction; if raw/living members exist but editable size stays zero, the issue is editor visibility/replication, not the primary member spawn.
   - Visually spawned AI can exist near an active group while the native group card still reports Size 0. Repair this by scanning near the group for matching non-player infantry prefabs, registering the member handles, attaching living agents back to the intended `SCR_AIGroup`, and parenting editable members to the `SCR_EditableGroupComponent` before count or terminal-cleanup decisions.
   - Register dead member handles too. Terminal group cleanup can then detach dead editable children, delete the stale group root/icon, and leave character bodies in the world for loot instead of preserving an immortal empty group card.
-  - Stock `ConflictMilitaryBase.et` includes inherited `AmbientPatrolSpawnpoint_FIA` children. Do not use it directly as a h-istasi marker-only surface for capturable zones or hideouts. Use the stripped HST conflict marker prefab instead, so the source entity has no ambient patrol component path.
+  - Stock `ConflictMilitaryBase.et` includes inherited `AmbientPatrolSpawnpoint_FIA` children. Do not use it directly as a Partisan marker-only surface for capturable zones or hideouts. Use the stripped HST conflict marker prefab instead, so the source entity has no ambient patrol component path.
   - Layer-level disables of inherited ambient patrol children are fragile and should be treated as a temporary diagnostic workaround only. Static validation should fail if HST marker or hideout layers reference the stock conflict base, the FIA ambient patrol prefab, or the old inherited ambient-patrol child IDs.
   - AI-heavy reference scenarios place US/USSR soldiers as explicit `SCR_AIGroup` prefab instances and use ambient patrol spawnpoints as separate systems. A Game Master card named like a light infantry squad with `Faction FIA` and `Size 0` near a capturable zone is therefore most consistent with an ambient-patrol shell or empty editor group, not with a GUID-qualified HST stock group prefab resolving to the wrong faction.
   - `SCR_AIGroup.SpawnUnits()` always queues runtime member creation through the group's delayed-spawn list and frame update path; `SetMemberSpawnDelay(0)` does not mean same-frame agents. Game Master can therefore show a root with Size 0 while navmesh tiles, AIWorld budget, or the delayed queue are still pending.
   - `SCR_AIGroup.SpawnAllImmediately()` is a native primary-path queue drain for an existing stock group root, not a direct-infantry fallback. Campaign-debug pre-route probes may use it to make the currently queued `m_aUnitPrefabSlots` members countable before route assertions, but must still report the action as native/stock proof and must not use direct faction infantry as certification success.
   - Native/editor logs can report that a group prefab was spawned while its agents are still invisible or pending creation.
   - Group-owned HQ NPC spawns can legitimately resolve one runtime tick after the command that queued `SpawnUnits()`. Debug cases must not assert `m_bHQRuntimeObjectsSpawned` in the same frame as a rebuild request; wait for the runner's next tick, call `EnsureRuntimeObjects()` again, then prove the HQ state with tracked handles plus world scans.
-  - h-istasi mission/physical-war spawning should keep the existing population grace/polling path before declaring a group failed. The July 2026 logs showed HST-spawned groups reporting zero agents first and then later folding/populating correctly.
+  - Partisan mission/physical-war spawning should keep the existing population grace/polling path before declaring a group failed. The July 2026 logs showed HST-spawned groups reporting zero agents first and then later folding/populating correctly.
   - `SCR_AIGroup.GetOnAllDelayedEntitySpawned()` is the native signal that the delayed member-spawn list drained. Subscribe to it for pending groups and use the event to retry the live-agent count early, while keeping a timed retry fallback because navmesh/AI budget failures can still drain the list without immediately yielding countable agents.
   - On a dedicated server, the delayed-spawn event can drain with zero agents and no useful engine warning. Do not immediately replace that group with direct faction infantry; the July 5 runtime run proved direct fallback can print one populated proof line, then leave no durable crew for convoy seating/waypoints on the next tick.
   - Use the vanilla ambient-patrol pattern as the primary stock-group path: spawn the faction-authored `SCR_AIGroup` prefab normally, set delete-empty/max-units/member-delay, then call `SpawnUnits()` only when `GetSpawnImmediately()` is false. Do not force a group-faction broadcast before native member evidence exists; first prove the prefab root's native `m_faction` matches the expected side, then audit or repair delayed members after they exist.
@@ -1928,6 +1948,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A spawned `SCR_AIGroup` root with `spawn_pending_agents` is not active infantry yet and is not automatically a failed garrison activation. Log it as pending native population with pending infantry/group counts, then let the native delayed-spawn event, bounded retry, stock member-slot path, or final zero-agent failure produce the proof. Only log `activation partial` after no pending native infantry remains.
   - Support-created active groups need their semantic spawn mode preserved while the primary spawn path adds evidence tokens such as `group`, `group_spawn_retry`, or `group_native_immediate`. If `petros_attack_support` is overwritten with plain `group`, static-route normalization can treat it as a normal guard group and collapse the HQ/Petros target back to the spawn position.
   - Post-case and final campaign-debug cleanup must certify that no non-terminal infantry active group remains in `spawn_pending_agents` or `spawn_deferred_aiworld_budget`. Empty Game Master group roots must produce a named `runtime_group_population_settled` blocker with group id, expected faction, prefab, status/mode, live member count, reason, and visual evidence instead of being treated as passable cleanup.
+  - A nested disposable Campaign Debug state does not isolate shared physical-war runtime registries. A one-group proof must materialize only its supplied durable group, never call the global routed-group sweep, then delete that group's runtime root, vehicle, waypoints, pending-population registration, and route-progress record. Snapshot and restore both marker-refresh state and the AIWorld limit after cleanup; queued population retries must retain the cleaned group object and self-cancel when its status is no longer `spawn_pending_agents`.
   - `SCR_AIGroup.SpawnUnits()` is gated by `AIWorld.CanLimitedAIBeAdded()`. The vanilla AIWorld prefabs use a 256 active-AI limit, and a loaded scenario can already exceed that before HST activates a zone. Before native active-group population, raise/report an HST physical-war AIWorld limit floor and prove the limited/active counters in the spawn log.
   - ConflictPVE-style ambient patrol code follows the same broad budget discipline: compare `AIWorld.GetCurrentNumOfActiveAIs()` against `AIWorld.GetLimitOfActiveAIs()` before activating a spawn point, pause when over the configured threshold, then spawn the group root and call `SetMaxUnitsToSpawn()`/`SpawnUnits()` when the root is not spawn-immediate. This reinforces treating AIWorld headroom as a primary spawn precondition, not an after-the-fact fallback trigger.
   - If AIWorld still cannot reserve room for the requested native members, do not leave the newly spawned `SCR_AIGroup` root visible in Game Master. Clear the pending callback, delete the empty runtime root, reset `m_bSpawnAttempted`, and record `spawn_deferred_aiworld_budget` so a later service tick can retry without presenting an empty FIA-looking group as spawned.
@@ -4493,11 +4514,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 ## Sealed Source/Workbench Blueprint Phase 8 Ambient Runtime Mechanics
 
-- Work has reached Blueprint Phase 8 of 13 as a sequence position, not eight
-  completed phases. Every earlier Blueprint phase still retains native,
-  dedicated-server, restart, or multiplayer exit gates. Deferred native tests
-  must be backfilled; reaching a later phase, sealing source, or publishing a
-  build does not waive them.
+- This sealed ambient checkpoint reached Blueprint Phase 8 source sequence, not
+  eight completed phases. The active provisional tree has since entered Phase 9,
+  while Phase 8 and every earlier phase still retain native, dedicated-server,
+  restart, or multiplayer exit gates. Deferred native tests must be backfilled;
+  reaching a later source slice does not waive them.
 
 - Keep political population and support in canonical `HST_TownInfluenceRecord`
   state. Nearby pedestrians, traffic, parked vehicles, and static military
@@ -4680,14 +4701,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   roadblock/aggression deltas, source ID equal to event ID, the exact canonical
   nearby-combat reason, and unchanged support/population before/after values.
 
-- When a canonical town consequence raises enemy aggression, put the target
+- When a canonical town consequence raises enemy aggression, keep the target
   faction, bounded requested delta, and exact before/after values on the same
-  town event. Before any mutation, require a unique valid enemy pool, arithmetic
-  headroom, economy and strategic dependencies, and no existing strategic source
-  claim. The matching applied strategic receipt must have source type
-  `town_influence`, source ID equal to the town event ID, and the same target
-  faction, zone, timestamp, and aggression delta. Exact replay returns existing
-  evidence and cannot add aggression twice.
+  town event. Under Schema 67, submit that fingerprint through the canonical
+  enemy strategic mutation API rather than writing the pool directly. The
+  matching applied `HST_EnemyStrategicMutationState` must have a
+  `town_influence` source, source ID equal to the town event ID, and the same
+  target faction, zone, timestamp, delta, and before/after values. Any retained
+  legacy strategic-event row is compatibility evidence, not a second mutation
+  owner. Exact replay returns existing evidence and cannot add aggression twice.
 
 - Never wrap the persisted stable-ID sequence. `NextId()` returns empty at
   exhaustion, and strategic/town admission must reject that result before any
@@ -4840,6 +4862,140 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cyclic waypoint activation, real casualties, bubble exit/re-entry, save/
   restart, ownership change, terminal cleanup, multiplayer, and soak remain
   separate runtime gates.
+
+## Provisional Schema 67 Enemy Strategic Resource Mechanics
+
+- Keep an entire `for` loop header on one line in Enforce. A multiline header
+  can fail parsing at its semicolons, and a compound condition adds another
+  parser hazard. Loop on the bounded index and use an explicit `break` inside
+  the body for a secondary stop condition.
+
+- Keep strategic resource truth separate from commander planning. A versioned
+  `HST_FactionPoolState` owns attack resources, support resources, and aggression
+  plus resource-income/aggression-decay accumulators, their last-processed bucket
+  checkpoints, and one operational receipt count for exactly one
+  configured enemy role. Target scores, selected zones, order types, and the
+  commander's process-local order cadence are consumers, not pool truth.
+
+- Resolve the pool by an explicit canonical enemy faction key and require a
+  unique match. Never use the first enemy row as a fallback. Occupier and invader
+  mutations, revisions, and receipt histories must remain independent even when
+  they act on the same zone or campaign second.
+
+- Route enemy income, spend, refund, and aggression through
+  `HST_EnemyStrategicResourceService`. A caller supplies stable request/source
+  identity and immutable facts; it
+  does not directly edit pool fields and then ask the service to record what
+  happened. Admission owns validation, mutation, receipt append, and result as
+  one transaction. Live admin/debug absolute targets use the same service; only
+  bootstrap, deep-copy, and isolated fixture construction may assign raw pool
+  fields.
+
+- `HST_EnemyStrategicMutationState` is bounded replay evidence. Freeze at least
+  the stable mutation ID, contract/applied state, faction, mutation kind,
+  per-faction operational sequence, before/delta/after values, source identity,
+  campaign second, and any required order,
+  operation, transaction, or reciprocal settlement identity. Exact replay
+  returns the retained result without touching the pool or dirtying persistence.
+  Reusing an ID with a changed fingerprint fails closed. An accepted zero-effect
+  operational command is still a durable receipt; otherwise a zero-cost debit or
+  zero-survivor refund could replay without evidence.
+
+- Preflight integer arithmetic before applying it. Spend cannot reduce attack or
+  support below zero; income/refund/aggression cannot overflow their documented
+  bounds; a failed check leaves all related fields, revision counters, and
+  receipt arrays unchanged. Do not perform a potentially overflowing addition
+  merely to clamp its result afterward.
+
+- Preserve existing exact consumer policy. A defensive QRF can still debit its
+  frozen attack/support quote and refund its exact survivor fraction; a patrol
+  can still debit proactive attack resources, refund rejected post-debit
+  admission once, and settle survivors once. Schema 67 changes their accounting
+  owner and backlinks, not their operation/manifest/materialization contracts.
+  Fold and rematerialization are never resource refunds.
+
+- Unsupported counterattack, support, punishment, and HQ-attack order families
+  remain explicit legacy/deferred lifecycles until their own cutovers. Their
+  post-67 resource/aggression changes still enter the canonical mutation API. A
+  canonical resource receipt does not make a legacy order lifecycle exact, and
+  Schema 67 must not infer a durable planning decision from the existence of a
+  debit.
+
+- Operational receipt retention is a hard lifetime bound, not compaction.
+  Retain every accepted operational row and exact sequence `1..count` for that
+  faction. Never evict or compact operational evidence in Schema 67. At 4,096
+  rows, later operational admission for that faction fails visibly; it must not
+  block the rival faction or either periodic cadence. Across the two configured
+  enemy roles, the total operational bound is 8,192. Periodic income/decay is the
+  only compacted history: retain at most one latest receipt per faction/kind and
+  require `lastBucketSecond == elapsedSecond - accumulatorSeconds` after each
+  completed tick and on restore.
+
+- Do not let malformed evidence steal bounded capacity. Attribute and quarantine
+  invalid, orphaned, rejected-role, and previous `-67` rows first, then remove
+  them from the canonical receipt array before physical capacity and sequence
+  checks. The affected pool remains fail-closed, but the rejected row is not an
+  accepted operational receipt and cannot block the rival pool or a later valid
+  admission after clean restore.
+
+- Treat a mission terminal outcome as one outer transaction. Build stable direct
+  and deferred strategic commands, preflight them through a deep-copied campaign
+  state and fresh resource authority, and admit the live strategic rows before
+  publishing terminal mission status, rewards, support effects, capture, or
+  terminal cleanup. A rejected outcome remains retryable; expiry must not consume
+  a one-tick notification and disappear without its strategic result.
+
+- Derive a mission terminal strategic-event ID from the terminal kind and durable
+  mission-instance ID, then collision-check it without advancing the campaign
+  authority sequence. A rejected preflight and every retry must observe the same
+  ID and an unchanged `m_iNextAuthoritySequence`. When mission capture progress
+  would cross the ownership threshold, build the exact ownership request through
+  the same helper used by live capture, run its read-only admission fence, and
+  preflight the deferred aggression receipt on the clone before committing any
+  direct mission receipt. An accepted-but-pending ownership transition is durable
+  capture authority; a request that cannot even be admitted must leave rewards,
+  progress, receipts, events, and the mission status untouched.
+
+- Mission success/failure Campaign Debug fixtures must exercise the production
+  `CompleteMission()`/`FailMission()` coordinator path on a nested disposable
+  campaign-state clone. Manual compensation is not cleanup for Schema 67 because
+  it appends another durable receipt and advances the revision/operational
+  sequence. Discard the clone after the proof and assert that a before/after
+  fingerprint of the enclosing receipt ledger and every strategic pool matches.
+
+- In an ownership transition, pre-admit the stable aggression mutation before
+  any destructive old-security retirement, new-security creation, support
+  reconciliation, owner field change, or revision publication. Admission failure
+  must preserve the owner, revision, security/support graph, pool, and sequence so
+  save/restore/retry/replay observes one transaction rather than mixed owners.
+
+- Pre-67 migration adopts each valid enemy pool's current attack, support,
+  aggression, and valid legacy resource/aggression cadence accumulators as the
+  revisioned baseline. It creates no historical
+  mutation receipt, spend, refund, settlement, order, target choice, or planner
+  decision. Initialize each last-bucket checkpoint from elapsed time minus the
+  adopted legacy accumulator. A missing configured enemy becomes an inert `-67`
+  placeholder rather than guessed zero authority. Current duplicate/invalid pools, noncanonical receipt chains,
+  conflicting identity, invalid enemy role, or broken required exact-consumer
+  link quarantine at `-67` and never replay during restore.
+
+- `HST_EnemyStrategicResourceProofService` is registered for legacy baseline and
+  missing-role adoption, replay/conflict including zero-effect receipts, atomic
+  arithmetic, income catch-up plus contribution fingerprint, attack-versus-
+  support separation, independent enemy roles and cap isolation, aggression-
+  versus-war-level independence, roundtrip, cadence tamper, missing-sequence,
+  broken order/town/ownership backlink, and `-67` quarantine. Existing QRF and
+  patrol proof services assert their resource mutation IDs. Static gates protect
+  field/copy symmetry, cap/checkpoint behavior, cross-domain source structure,
+  actual Campaign Debug registration, and targeted live-write rejection. Real
+  restart must still prove no duplicate charge or refund; a pure proof is not
+  native or package evidence.
+
+- The immediate next Phase 9 source slice must persist a per-enemy planning
+  cadence and freeze a deterministic decision fingerprint over war level,
+  aggression, pool revisions/balances, commitments, ordered target/source
+  candidates, selection, order/capability, cost, and accounting links. None of
+  that planner authority is claimed by Schema 67.
 
 ## Native Reference Sources
 

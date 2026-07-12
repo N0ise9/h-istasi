@@ -769,13 +769,21 @@ class HST_EnemyQRFOperationService
 
 		if ((attackRefund > 0 || supportRefund > 0) && !state.FindFactionPool(order.m_sFactionKey))
 			return false;
-		enemyDirector.RefundDefenseResources(
+		string refundMutationId = "enemy_resource_refund_" + settlementId;
+		if (!enemyDirector.RefundDefenseResources(
 			state,
 			order.m_sFactionKey,
 			order.m_sTargetZoneId,
 			attackRefund,
 			supportRefund,
-			reason);
+			reason,
+			refundMutationId,
+			settlementId,
+			order.m_sOrderId,
+			order.m_sOperationId,
+			order.m_sManifestId))
+			return false;
+		order.m_sResourceRefundMutationId = refundMutationId;
 		order.m_sResourceSettlementId = settlementId;
 		order.m_sResourceSettlementKind = settlementKind;
 		order.m_iSettlementAcceptedMemberCount = accepted;
@@ -1918,9 +1926,41 @@ class HST_EnemyQRFOperationService
 			return false;
 		if ((attackRefund > 0 || supportRefund > 0) && !state.FindFactionPool(order.m_sFactionKey))
 			return false;
-
+		string refundMutationId = "enemy_resource_refund_" + settlementId;
 		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
-		if (operation)
+		bool recordOperation = operation != null;
+		if (recordOperation)
+		{
+			HST_OperationTransitionResult resourcePreflight
+				= m_Operations.CanRecordExactEnemyDefensiveQRFResourceSettlement(
+					state,
+					order,
+					settlementKind,
+					accepted,
+					survivors);
+			if (!resourcePreflight || !resourcePreflight.m_bAccepted)
+			{
+				if (!fullRefund || order.m_bStrategicServiceCommitted)
+					return false;
+				recordOperation = false;
+			}
+		}
+		if (!enemyDirector.RefundDefenseResources(
+			state,
+			order.m_sFactionKey,
+			order.m_sTargetZoneId,
+			attackRefund,
+			supportRefund,
+			reason,
+			refundMutationId,
+			settlementId,
+			order.m_sOrderId,
+			order.m_sOperationId,
+			order.m_sManifestId))
+			return false;
+		order.m_sResourceRefundMutationId = refundMutationId;
+
+		if (recordOperation)
 		{
 			HST_OperationTransitionResult recorded = m_Operations.RecordExactEnemyDefensiveQRFResourceSettlement(
 				state,
@@ -1929,15 +1969,7 @@ class HST_EnemyQRFOperationService
 				accepted,
 				survivors);
 			if (!recorded || !recorded.m_bAccepted)
-			{
-				if (!fullRefund || order.m_bStrategicServiceCommitted)
-					return false;
-				order.m_sResourceSettlementId = settlementId;
-				order.m_sResourceSettlementKind = settlementKind;
-				order.m_iSettlementAcceptedMemberCount = accepted;
-				order.m_iSettlementSurvivorMemberCount = survivors;
-				order.m_bResourceSettlementApplied = true;
-			}
+				return false;
 		}
 		else
 		{
@@ -1948,13 +1980,6 @@ class HST_EnemyQRFOperationService
 			order.m_bResourceSettlementApplied = true;
 		}
 
-		enemyDirector.RefundDefenseResources(
-			state,
-			order.m_sFactionKey,
-			order.m_sTargetZoneId,
-			attackRefund,
-			supportRefund,
-			reason);
 		order.m_iRefundedAttackResources = attackRefund;
 		order.m_iRefundedSupportResources = supportRefund;
 		return true;

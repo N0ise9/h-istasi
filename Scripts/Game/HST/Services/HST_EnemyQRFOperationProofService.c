@@ -577,6 +577,8 @@ class HST_EnemyQRFOperationProofService
 		int attackBeforeDuplicate = pool.m_iAttackResources;
 		int supportBeforeDuplicate = pool.m_iSupportResources;
 		string duplicateSpendReason;
+		duplicate.m_sResourceDebitMutationId
+			= "enemy_resource_debit_" + duplicate.m_sOrderId;
 		bool duplicateSpent = duplicatePlan && duplicatePlan.m_bSuccess
 			&& fixture.m_EnemyDirector.TrySpendDefense(
 				fixture.m_State,
@@ -584,7 +586,12 @@ class HST_EnemyQRFOperationProofService
 				PROOF_FACTION_KEY,
 				duplicate.m_iAttackCost,
 				duplicate.m_iSupportCost,
-				duplicateSpendReason);
+				duplicateSpendReason,
+				duplicate.m_sResourceDebitMutationId,
+				duplicate.m_sOrderId,
+				duplicate.m_sOrderId,
+				duplicate.m_sOperationId,
+				duplicateManifest.m_sManifestId);
 		HST_EnemyQRFAdmissionResult duplicateAdmission;
 		if (duplicateSpent)
 		{
@@ -660,13 +667,20 @@ class HST_EnemyQRFOperationProofService
 			return false;
 		}
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		fixture.m_Order.m_sResourceRefundMutationId
+			= "enemy_resource_refund_proof_partial_" + fixture.m_Order.m_sOperationId;
 		fixture.m_EnemyDirector.RefundDefenseResources(
 			fixture.m_State,
 			fixture.m_Order.m_sFactionKey,
 			fixture.m_Order.m_sTargetZoneId,
 			1,
 			1,
-			"enemy QRF partial-receipt proof mutation");
+			"enemy QRF partial-receipt proof mutation",
+			fixture.m_Order.m_sResourceRefundMutationId,
+			"proof_partial_receipt_" + fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOperationId,
+			fixture.m_Order.m_sManifestId);
 		fixture.m_Order.m_iRefundedAttackResources = 1;
 		fixture.m_Order.m_iRefundedSupportResources = 1;
 		HST_OperationService operationService = new HST_OperationService();
@@ -908,13 +922,20 @@ class HST_EnemyQRFOperationProofService
 		int attackBefore = pool.m_iAttackResources;
 		int supportBefore = pool.m_iSupportResources;
 		string spendReason;
+		order.m_sResourceDebitMutationId
+			= "enemy_resource_debit_" + order.m_sOrderId;
 		bool spent = enemyDirector.TrySpendDefense(
 			state,
 			state.FindZone(PROOF_TARGET_ZONE_ID),
 			PROOF_FACTION_KEY,
 			order.m_iAttackCost,
 			order.m_iSupportCost,
-			spendReason);
+			spendReason,
+			order.m_sResourceDebitMutationId,
+			order.m_sOrderId,
+			order.m_sOrderId,
+			order.m_sOperationId,
+			planned.m_Manifest.m_sManifestId);
 		HST_EnemyQRFAdmissionResult admission;
 		if (spent)
 		{
@@ -970,13 +991,20 @@ class HST_EnemyQRFOperationProofService
 		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
 		fixture.m_iAttackBeforeDebit = pool.m_iAttackResources;
 		fixture.m_iSupportBeforeDebit = pool.m_iSupportResources;
+		fixture.m_Order.m_sResourceDebitMutationId
+			= "enemy_resource_debit_" + fixture.m_Order.m_sOrderId;
 		fixture.m_bDebitAccepted = fixture.m_EnemyDirector.TrySpendDefense(
 			fixture.m_State,
 			fixture.m_State.FindZone(PROOF_TARGET_ZONE_ID),
 			PROOF_FACTION_KEY,
 			fixture.m_Order.m_iAttackCost,
 			fixture.m_Order.m_iSupportCost,
-			fixture.m_sDebitReason);
+			fixture.m_sDebitReason,
+			fixture.m_Order.m_sResourceDebitMutationId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOperationId,
+			fixture.m_Manifest.m_sManifestId);
 		fixture.m_iAttackAfterDebit = pool.m_iAttackResources;
 		fixture.m_iSupportAfterDebit = pool.m_iSupportResources;
 		if (!fixture.m_bDebitAccepted)
@@ -1007,6 +1035,8 @@ class HST_EnemyQRFOperationProofService
 		state.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		HST_FactionPoolState pool = new HST_FactionPoolState();
 		pool.m_sFactionKey = PROOF_FACTION_KEY;
+		pool.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+		pool.m_iStrategicRevision = 1;
 		pool.m_iAttackResources = 200;
 		pool.m_iSupportResources = 200;
 		pool.m_iAggression = 50;

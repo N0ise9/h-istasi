@@ -499,7 +499,7 @@ class HST_MapMarkerService
 	string BuildMarkerReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi map markers | campaign state not ready";
+			return "Partisan map markers | campaign state not ready";
 
 		int hqCount;
 		int townCount;
@@ -523,7 +523,7 @@ class HST_MapMarkerService
 				strategicCount++;
 		}
 
-		string summary = string.Format("h-istasi map markers | total %1 | HQ %2 | towns %3", CountLiveVisibleMarkers(state), hqCount, townCount);
+		string summary = string.Format("Partisan map markers | total %1 | HQ %2 | towns %3", CountLiveVisibleMarkers(state), hqCount, townCount);
 		string pending = "ready";
 		if (m_bNativePublishPending)
 			pending = "pending";
@@ -534,7 +534,7 @@ class HST_MapMarkerService
 	string BuildMarkerAuditReport(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		if (!state)
-			return "h-istasi phase 23 marker audit | failed: campaign state not ready";
+			return "Partisan phase 23 marker audit | failed: campaign state not ready";
 
 		int activeMissions = CountActiveMissions(state);
 		int activeSupport = CountActiveSupportRequests(state);
@@ -570,7 +570,7 @@ class HST_MapMarkerService
 		if (exactGarrisonPatrolMarkers != openExactGarrisonPatrols)
 			status = "WARN";
 
-		string report = string.Format("h-istasi phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, CountLiveVisibleMarkers(state), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
+		string report = string.Format("Partisan phase 23 marker audit | %1 | total %2 | native %3/%4 skipped %5", status, CountLiveVisibleMarkers(state), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount);
 		report = report + string.Format("\ncoverage | HQ %1 | Petros %2 | defend %3 | missions %4/%5 | support %6/%7 | qrf %8/%9", hqMarker, petrosMarker, defendMarker, missionMarkers, activeMissions, supportMarkers, activeSupport, qrfMarkers, activeQRFs);
 		report = report + string.Format(" | exact enemy qrf %1/%2", exactEnemyQRFMarkers, openExactEnemyQRFs);
 		report = report + string.Format(" | exact enemy patrol %1/%2", exactEnemyPatrolMarkers, openExactEnemyPatrols);
@@ -584,7 +584,7 @@ class HST_MapMarkerService
 	{
 		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
 		if (!markerManager)
-			return "h-istasi native marker report | native marker manager not ready";
+			return "Partisan native marker report | native marker manager not ready";
 
 		int desiredRecords = m_mDesiredNativeMarkers.Count();
 		int nativeStatic = markerManager.GetStaticMarkers().Count();
@@ -595,7 +595,7 @@ class HST_MapMarkerService
 		if (m_bNativePublishPending)
 			pending = "pending";
 
-		string report = "h-istasi native marker report";
+		string report = "Partisan native marker report";
 		report = report + string.Format("\ndesired records: %1", desiredRecords);
 		if (state)
 			report = report + string.Format("\nstate records: %1", state.m_aMapMarkers.Count());
@@ -631,7 +631,7 @@ class HST_MapMarkerService
 	{
 		SCR_MapMarkerManagerComponent markerManager = ResolveNativeMarkerManager();
 		if (!markerManager)
-			return "h-istasi admin | native marker purge failed: native marker manager not ready";
+			return "Partisan admin | native marker purge failed: native marker manager not ready";
 
 		int trackedRemoved;
 		if (m_NativeReconciler)
@@ -669,7 +669,7 @@ class HST_MapMarkerService
 		m_bNativePublishPending = false;
 		m_fNativePublishRetrySeconds = 0;
 
-		return string.Format("h-istasi admin | purged %1 tracked and %2 orphan native HST marker(s)", trackedRemoved, orphanRemoved);
+		return string.Format("Partisan admin | purged %1 tracked and %2 orphan native Partisan marker(s)", trackedRemoved, orphanRemoved);
 	}
 
 	protected string BuildMarkerRefreshDiagnostic(HST_CampaignState state)
@@ -2106,7 +2106,7 @@ class HST_MapMarkerService
 				continue;
 			if (desiredIds.Contains(marker.m_sMarkerId))
 			{
-				Print("h-istasi marker projection | duplicate desired marker id rejected: " + marker.m_sMarkerId, LogLevel.ERROR);
+				Print("Partisan marker projection | duplicate desired marker id rejected: " + marker.m_sMarkerId, LogLevel.ERROR);
 				continue;
 			}
 
@@ -4020,6 +4020,6 @@ class HST_MapMarkerService
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi map marker debug | " + message);
+		Print("Partisan map marker debug | " + message);
 	}
 }

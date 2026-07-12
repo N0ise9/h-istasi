@@ -1050,6 +1050,14 @@ class HST_MissionRuntimeService
 				// not manufacture or reposition evidence after exact authority failed.
 				continue;
 			}
+			if (mission.m_sRuntimePhase == HST_MissionService.EXPIRY_ADMISSION_PENDING_PHASE
+				&& mission.m_sMissionId != "dynamic_defend_petros")
+			{
+				// The mission remains active only so a rejected strategic receipt can
+				// retry after restore. Runtime/objective work must not cross that
+				// fail-closed boundary and manufacture a competing terminal outcome.
+				continue;
+			}
 			changed = RepairActiveMissionRuntimeAfterRestore(state, preset, mission) || changed;
 			changed = TickGunShopOpenRuntime(state, preset, mission) || changed;
 			if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT
@@ -2361,7 +2369,7 @@ class HST_MissionRuntimeService
 		if (!TryResolveConvoyEndPosition(state, mission, convoyEnd, convoyDestinationReason))
 		{
 			mission.m_sRuntimeFailureReason = "No road-resolved convoy destination: " + convoyDestinationReason;
-			Print(string.Format("h-istasi mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 			return false;
 		}
 		mission.m_vTargetPosition = convoyEnd;
@@ -2373,13 +2381,13 @@ class HST_MissionRuntimeService
 		if (!TryResolveConvoySpawnPlan(state, mission, convoyRoute, convoyEnd, convoyVehicleCount, convoyStart, convoyStartSlots, convoySpawnPlanReason))
 		{
 			mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 2000-5000m band: " + convoySpawnPlanReason;
-			Print(string.Format("h-istasi mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 			return false;
 		}
 		if (IsZeroVector(convoyStart) || convoyStartSlots.Count() != convoyVehicleCount)
 		{
 			mission.m_sRuntimeFailureReason = "No road-resolved convoy spawn plan found in required 2000-5000m band: full-column probe returned incomplete slots.";
-			Print(string.Format("h-istasi mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | convoy asset plan failed for %1: %2", mission.m_sInstanceId, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 			return false;
 		}
 
@@ -2401,7 +2409,7 @@ class HST_MissionRuntimeService
 			runtimeEntity.m_bDestroyed = true;
 		mission.m_bRuntimeSpawned = true;
 		mission.m_bRuntimeFallback = false;
-		Print(string.Format("h-istasi mission runtime | convoy asset plan ready for %1 | vehicles %2 | start %3 | end %4", mission.m_sInstanceId, convoyVehicleCount, convoyStart, convoyEnd));
+		Print(string.Format("Partisan mission runtime | convoy asset plan ready for %1 | vehicles %2 | start %3 | end %4", mission.m_sInstanceId, convoyVehicleCount, convoyStart, convoyEnd));
 		return true;
 	}
 
@@ -3199,7 +3207,7 @@ class HST_MissionRuntimeService
 				if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(asset.m_vCurrentPosition, position, true))
 				{
 					mission.m_sRuntimeFailureReason = "No dry vehicle-safe position for " + asset.m_sRole;
-					Print(string.Format("h-istasi mission runtime | vehicle asset spawn skipped for %1 at %2: %3", asset.m_sAssetId, asset.m_vCurrentPosition, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
+					Print(string.Format("Partisan mission runtime | vehicle asset spawn skipped for %1 at %2: %3", asset.m_sAssetId, asset.m_vCurrentPosition, mission.m_sRuntimeFailureReason), LogLevel.WARNING);
 					continue;
 				}
 			}
@@ -3219,7 +3227,7 @@ class HST_MissionRuntimeService
 
 			if (!entity)
 			{
-				Print(string.Format("h-istasi mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
+				Print(string.Format("Partisan mission runtime | asset spawn failed for %1 using %2", asset.m_sAssetId, asset.m_sPrefab), LogLevel.WARNING);
 				continue;
 			}
 			ApplyCampaignDebugEntityName(entity, asset.m_sRole, asset.m_sAssetId);
@@ -3246,7 +3254,7 @@ class HST_MissionRuntimeService
 					mission.m_sRuntimePhase = "convoy_static";
 			}
 			hasUsableAsset = true;
-			Print(string.Format("h-istasi mission runtime | spawned asset %1 role %2 for %3 at %4", asset.m_sPrefab, asset.m_sRole, mission.m_sInstanceId, position));
+			Print(string.Format("Partisan mission runtime | spawned asset %1 role %2 for %3 at %4", asset.m_sPrefab, asset.m_sRole, mission.m_sInstanceId, position));
 			LogMissionCaptiveProjection(entity, asset);
 		}
 
@@ -3287,7 +3295,7 @@ class HST_MissionRuntimeService
 		if (runtimeEntity && !prefab.IsEmpty())
 			runtimeEntity.m_sPrefab = prefab;
 
-		Print(string.Format("h-istasi mission runtime | bound existing radio tower %1 to asset %2 for %3 at %4", prefab, asset.m_sAssetId, mission.m_sInstanceId, position));
+		Print(string.Format("Partisan mission runtime | bound existing radio tower %1 to asset %2 for %3 at %4", prefab, asset.m_sAssetId, mission.m_sInstanceId, position));
 		return true;
 	}
 
@@ -3376,7 +3384,7 @@ class HST_MissionRuntimeService
 			return false;
 		if (mission.m_sRuntimePrimitive == PRIMITIVE_CONVOY_INTERCEPT && state.CountMissionAssets(mission.m_sInstanceId, ROLE_CONVOY_VEHICLE) <= 0)
 		{
-			Print(string.Format("h-istasi mission runtime | convoy fallback prop suppressed for %1 because no convoy vehicle assets were planned: %2", mission.m_sInstanceId, ReportText(mission.m_sRuntimeFailureReason)), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | convoy fallback prop suppressed for %1 because no convoy vehicle assets were planned: %2", mission.m_sInstanceId, ReportText(mission.m_sRuntimeFailureReason)), LogLevel.WARNING);
 			return false;
 		}
 
@@ -3392,7 +3400,7 @@ class HST_MissionRuntimeService
 
 		if (!entity)
 		{
-			Print(string.Format("h-istasi mission runtime | prop spawn failed for %1 using %2", mission.m_sInstanceId, prefab), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | prop spawn failed for %1 using %2", mission.m_sInstanceId, prefab), LogLevel.WARNING);
 			return false;
 		}
 
@@ -3403,7 +3411,7 @@ class HST_MissionRuntimeService
 		m_aRuntimeEntityIds.Insert(mission.m_sRuntimeEntityId);
 		m_aRuntimeEntities.Insert(entity);
 		RegisterRuntimeEntityState(state, mission, prefab, position, angles);
-		Print(string.Format("h-istasi mission runtime | spawned prop %1 for %2 at %3", prefab, mission.m_sInstanceId, position));
+		Print(string.Format("Partisan mission runtime | spawned prop %1 for %2 at %3", prefab, mission.m_sInstanceId, position));
 		return true;
 	}
 
@@ -3657,7 +3665,7 @@ class HST_MissionRuntimeService
 		vector spawnPosition;
 		if (!HST_WorldPositionService.TryResolveVehicleSpawnPosition(sourcePosition, spawnPosition, true))
 		{
-			Print(string.Format("h-istasi mission runtime | carrier restore skipped for %1 at %2", asset.m_sCarriedByVehicleId, sourcePosition), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | carrier restore skipped for %1 at %2", asset.m_sCarriedByVehicleId, sourcePosition), LogLevel.WARNING);
 			return false;
 		}
 
@@ -3665,7 +3673,7 @@ class HST_MissionRuntimeService
 		GenericEntity entity = HST_WorldPositionService.SpawnPrefab(runtimeVehicle.m_sPrefab, spawnPosition, angles);
 		if (!entity)
 		{
-			Print(string.Format("h-istasi mission runtime | carrier restore failed for %1 using %2", asset.m_sCarriedByVehicleId, runtimeVehicle.m_sPrefab), LogLevel.WARNING);
+			Print(string.Format("Partisan mission runtime | carrier restore failed for %1 using %2", asset.m_sCarriedByVehicleId, runtimeVehicle.m_sPrefab), LogLevel.WARNING);
 			return false;
 		}
 
@@ -3675,30 +3683,30 @@ class HST_MissionRuntimeService
 		m_aRuntimeEntities.Insert(entity);
 		runtimeVehicle.m_vPosition = spawnPosition;
 		runtimeVehicle.m_bDeleted = false;
-		Print(string.Format("h-istasi mission runtime | restored carrier %1 for mission cargo at %2", asset.m_sCarriedByVehicleId, spawnPosition));
+		Print(string.Format("Partisan mission runtime | restored carrier %1 for mission cargo at %2", asset.m_sCarriedByVehicleId, spawnPosition));
 		return true;
 	}
 
 	bool HandlePlayerMissionInteraction(HST_CampaignState state, HST_CampaignPreset preset, HST_ArsenalService arsenal, int playerId, IEntity playerEntity, string commandId, string argument, out string result, out string eventType, out string missionInstanceId)
 	{
-		result = "h-istasi mission | no change";
+		result = "Partisan mission | no change";
 		eventType = "";
 		missionInstanceId = "";
 		if (!state || !playerEntity)
 		{
-			result = "h-istasi mission | failed: no controlled player entity";
+			result = "Partisan mission | failed: no controlled player entity";
 			return false;
 		}
 
 		if (state.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE)
 		{
-			result = "h-istasi mission | failed: campaign is not active";
+			result = "Partisan mission | failed: campaign is not active";
 			return false;
 		}
 
 		if (!IsLivingPlayerEntity(playerEntity))
 		{
-			result = "h-istasi mission | failed: player is not alive";
+			result = "Partisan mission | failed: player is not alive";
 			return false;
 		}
 
@@ -3706,7 +3714,7 @@ class HST_MissionRuntimeService
 		HST_MissionAssetState asset = ResolveInteractionAsset(state, commandId, argument, playerId, playerPosition);
 		if (!asset)
 		{
-			result = "h-istasi mission | failed: no eligible mission asset nearby";
+			result = "Partisan mission | failed: no eligible mission asset nearby";
 			return false;
 		}
 
@@ -3714,29 +3722,29 @@ class HST_MissionRuntimeService
 		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)
 			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 		{
-			result = "h-istasi mission | failed: exact radio interaction requires lifecycle authority";
+			result = "Partisan mission | failed: exact radio interaction requires lifecycle authority";
 			return false;
 		}
 		bool allowPostCompletionConvoyInteraction = IsPostCompletionConvoyInteractionAllowed(state, mission, asset, commandId);
 		bool allowExpiredPlayerBoundInteraction = IsExpiredPlayerBoundMissionInteractionAllowed(state, mission, asset, commandId);
 		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyInteraction && !allowExpiredPlayerBoundInteraction))
 		{
-			result = "h-istasi mission | failed: mission is no longer active";
+			result = "Partisan mission | failed: mission is no longer active";
 			return false;
 		}
 		if (HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 		{
-			result = "h-istasi mission | failed: exact rescue interaction requires operation authority";
+			result = "Partisan mission | failed: exact rescue interaction requires operation authority";
 			return false;
 		}
 		if (AreMissionObjectivesComplete(state, mission) && !allowPostCompletionConvoyInteraction)
 		{
-			result = "h-istasi mission | failed: mission objectives are already complete";
+			result = "Partisan mission | failed: mission objectives are already complete";
 			return false;
 		}
 		if (IsConvoyPayloadOrCaptiveAsset(asset) && HasLivingConvoyCrewForMission(state, mission))
 		{
-			result = "h-istasi mission | failed: neutralize the convoy crew before recovering this convoy asset";
+			result = "Partisan mission | failed: neutralize the convoy crew before recovering this convoy asset";
 			return false;
 		}
 
@@ -3767,9 +3775,9 @@ class HST_MissionRuntimeService
 		if (DistanceSq2D(playerPosition, validationPosition) > radius * radius)
 		{
 			if (commandId == "mission_asset_deliver" || (commandId == "mission_captive_extract" && asset.m_bPickedUp))
-				result = string.Format("h-istasi mission | failed: bring %1 within %2m of the delivery zone", BuildAssetShortLabel(asset), Math.Round(radius));
+				result = string.Format("Partisan mission | failed: bring %1 within %2m of the delivery zone", BuildAssetShortLabel(asset), Math.Round(radius));
 			else
-				result = string.Format("h-istasi mission | failed: move within %1m of %2", Math.Round(radius), BuildAssetShortLabel(asset));
+				result = string.Format("Partisan mission | failed: move within %1m of %2", Math.Round(radius), BuildAssetShortLabel(asset));
 			return false;
 		}
 
@@ -3790,7 +3798,7 @@ class HST_MissionRuntimeService
 			changed = ApplySabotageInteraction(state, mission, asset, playerPosition, result, eventType);
 		else
 		{
-			result = "h-istasi mission | failed: unknown mission interaction";
+			result = "Partisan mission | failed: unknown mission interaction";
 			return false;
 		}
 
@@ -3809,19 +3817,19 @@ class HST_MissionRuntimeService
 
 	bool MarkMissionAssetDestroyedByRuntimeEntity(HST_CampaignState state, string assetId, vector position, out string result, out string eventType, out string missionInstanceId)
 	{
-		result = "h-istasi mission | no change";
+		result = "Partisan mission | no change";
 		eventType = "";
 		missionInstanceId = "";
 		if (!state || assetId.IsEmpty())
 		{
-			result = "h-istasi mission | failed: no mission asset supplied";
+			result = "Partisan mission | failed: no mission asset supplied";
 			return false;
 		}
 
 		HST_MissionAssetState asset = state.FindMissionAsset(assetId);
 		if (!asset)
 		{
-			result = "h-istasi mission | failed: mission asset not found";
+			result = "Partisan mission | failed: mission asset not found";
 			return false;
 		}
 
@@ -3829,29 +3837,29 @@ class HST_MissionRuntimeService
 		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)
 			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 		{
-			result = "h-istasi mission | failed: exact radio destruction requires lifecycle authority";
+			result = "Partisan mission | failed: exact radio destruction requires lifecycle authority";
 			return false;
 		}
 		if (mission && HST_RescuePOWOperationService.IsExactOrQuarantinedMission(mission))
 		{
-			result = "h-istasi mission | failed: exact rescue casualty authority must use the coordinator receipt path";
+			result = "Partisan mission | failed: exact rescue casualty authority must use the coordinator receipt path";
 			return false;
 		}
 		bool allowPostCompletionConvoyVehicleDestruction = IsPreservedConvoyVehicleAfterCrewElimination(state, mission, asset);
 		if (!mission || (mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE && !allowPostCompletionConvoyVehicleDestruction))
 		{
-			result = "h-istasi mission | failed: mission is no longer active";
+			result = "Partisan mission | failed: mission is no longer active";
 			return false;
 		}
 
 		if (asset.m_bDestroyed)
 		{
-			result = "h-istasi mission | already destroyed " + BuildAssetShortLabel(asset);
+			result = "Partisan mission | already destroyed " + BuildAssetShortLabel(asset);
 			return false;
 		}
 
 		MarkMissionAssetDestroyed(state, mission, asset, position);
-		result = "h-istasi mission | destroyed " + BuildAssetShortLabel(asset);
+		result = "Partisan mission | destroyed " + BuildAssetShortLabel(asset);
 		eventType = "sabotaged";
 		if (asset.m_sRole == ROLE_HVT)
 			eventType = "neutralized";
@@ -3866,20 +3874,20 @@ class HST_MissionRuntimeService
 
 	bool ApplyMissionAssetExplosiveDamage(HST_CampaignState state, string assetId, vector position, float damage, string sourceLabel, out string result, out string eventType, out string missionInstanceId)
 	{
-		result = "h-istasi mission | no change";
+		result = "Partisan mission | no change";
 		eventType = "";
 		missionInstanceId = "";
 
 		if (!state || assetId.IsEmpty())
 		{
-			result = "h-istasi mission | failed: no mission asset supplied";
+			result = "Partisan mission | failed: no mission asset supplied";
 			return false;
 		}
 
 		HST_MissionAssetState asset = state.FindMissionAsset(assetId);
 		if (!asset)
 		{
-			result = "h-istasi mission | failed: mission asset not found";
+			result = "Partisan mission | failed: mission asset not found";
 			return false;
 		}
 
@@ -3887,30 +3895,30 @@ class HST_MissionRuntimeService
 		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset)
 			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission))
 		{
-			result = "h-istasi mission | failed: exact radio demolition requires lifecycle authority";
+			result = "Partisan mission | failed: exact radio demolition requires lifecycle authority";
 			return false;
 		}
 		if (!mission || mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE)
 		{
-			result = "h-istasi mission | failed: mission is no longer active";
+			result = "Partisan mission | failed: mission is no longer active";
 			return false;
 		}
 
 		if (asset.m_bDestroyed)
 		{
-			result = "h-istasi mission | already destroyed " + BuildAssetShortLabel(asset);
+			result = "Partisan mission | already destroyed " + BuildAssetShortLabel(asset);
 			return false;
 		}
 
 		if (asset.m_sKind != ASSET_KIND_TARGET && asset.m_sRole != ROLE_DESTROY_TARGET)
 		{
-			result = "h-istasi mission | failed: asset is not a demolition target";
+			result = "Partisan mission | failed: asset is not a demolition target";
 			return false;
 		}
 
 		if (damage <= 0.0)
 		{
-			result = "h-istasi mission | ignored non-explosive damage";
+			result = "Partisan mission | ignored non-explosive damage";
 			return false;
 		}
 
@@ -3932,14 +3940,14 @@ class HST_MissionRuntimeService
 		if (asset.m_fDemolitionDamage < asset.m_fDemolitionRequiredDamage)
 		{
 			float remaining = Math.Max(0.0, asset.m_fDemolitionRequiredDamage - asset.m_fDemolitionDamage);
-			result = string.Format("h-istasi mission | demolition damage %1/%2 on %3 | %4 remaining", Math.Round(asset.m_fDemolitionDamage), Math.Round(asset.m_fDemolitionRequiredDamage), BuildAssetShortLabel(asset), Math.Round(remaining));
+			result = string.Format("Partisan mission | demolition damage %1/%2 on %3 | %4 remaining", Math.Round(asset.m_fDemolitionDamage), Math.Round(asset.m_fDemolitionRequiredDamage), BuildAssetShortLabel(asset), Math.Round(remaining));
 			eventType = "demolition_progress";
 			return true;
 		}
 
 		asset.m_fDemolitionDamage = Math.Max(asset.m_fDemolitionDamage, asset.m_fDemolitionRequiredDamage);
 		MarkMissionAssetDestroyed(state, mission, asset, position);
-		result = string.Format("h-istasi mission | demolished %1 with explosives", BuildAssetShortLabel(asset));
+		result = string.Format("Partisan mission | demolished %1 with explosives", BuildAssetShortLabel(asset));
 		eventType = "sabotaged";
 		RefreshMissionObjectivesFromAssets(state, mission);
 		UpdateMissionCountersFromAssets(state, mission);
@@ -4025,7 +4033,7 @@ class HST_MissionRuntimeService
 		string failureReason;
 		if (!TryResolveMissionAssetCarrier(state, asset, playerId, playerEntity, playerPosition, carrierId, carrierName, carrierPosition, failureReason))
 		{
-			result = "h-istasi mission | failed: " + failureReason;
+			result = "Partisan mission | failed: " + failureReason;
 			return false;
 		}
 
@@ -4036,7 +4044,7 @@ class HST_MissionRuntimeService
 		asset.m_vLastKnownPosition = carrierPosition;
 		asset.m_sLastInteraction = PHASE_LOADED;
 		mission.m_sRuntimePhase = PHASE_LOADED;
-		result = string.Format("h-istasi mission | loaded %1 into %2", BuildAssetShortLabel(asset), carrierName);
+		result = string.Format("Partisan mission | loaded %1 into %2", BuildAssetShortLabel(asset), carrierName);
 		eventType = "loaded";
 		return true;
 	}
@@ -4054,7 +4062,7 @@ class HST_MissionRuntimeService
 		if (runtimeEntity)
 			runtimeEntity.m_bRecovered = false;
 		mission.m_sRuntimePhase = PHASE_UNLOADED;
-		result = "h-istasi mission | unloaded " + BuildAssetShortLabel(asset);
+		result = "Partisan mission | unloaded " + BuildAssetShortLabel(asset);
 		eventType = "unloaded";
 		return true;
 	}
@@ -4064,7 +4072,7 @@ class HST_MissionRuntimeService
 		vector deliveryPosition = ResolveDeliveryPosition(asset, playerPosition);
 		if (DistanceSq2D(playerPosition, deliveryPosition) > DEFAULT_DELIVERY_RADIUS_METERS * DEFAULT_DELIVERY_RADIUS_METERS)
 		{
-			result = "h-istasi mission | failed: bring " + BuildAssetShortLabel(asset) + " to the delivery zone";
+			result = "Partisan mission | failed: bring " + BuildAssetShortLabel(asset) + " to the delivery zone";
 			return false;
 		}
 
@@ -4074,7 +4082,7 @@ class HST_MissionRuntimeService
 		asset.m_sCarriedByVehicleId = "";
 		asset.m_sLastInteraction = PHASE_DELIVERED;
 		mission.m_sRuntimePhase = PHASE_DELIVERED;
-		result = "h-istasi mission | delivered " + BuildAssetShortLabel(asset);
+		result = "Partisan mission | delivered " + BuildAssetShortLabel(asset);
 		eventType = "delivered";
 		return true;
 	}
@@ -4100,20 +4108,20 @@ class HST_MissionRuntimeService
 				runtimeEntity.m_vPosition = captivePosition;
 			}
 			mission.m_sRuntimePhase = PHASE_FREED;
-			result = "h-istasi mission | freed " + BuildAssetShortLabel(asset) + "; order them to follow";
+			result = "Partisan mission | freed " + BuildAssetShortLabel(asset) + "; order them to follow";
 			eventType = "freed";
 			return true;
 		}
 
 		if (!asset.m_bAttachedToCarrier || asset.m_sCarriedByVehicleId.IsEmpty())
 		{
-			result = "h-istasi mission | failed: order " + BuildAssetShortLabel(asset) + " to follow before extraction";
+			result = "Partisan mission | failed: order " + BuildAssetShortLabel(asset) + " to follow before extraction";
 			return false;
 		}
 
 		if (IsEntityInVehicle(playerEntity))
 		{
-			result = "h-istasi mission | failed: dismount before extracting captives at HQ";
+			result = "Partisan mission | failed: dismount before extracting captives at HQ";
 			return false;
 		}
 
@@ -4124,12 +4132,12 @@ class HST_MissionRuntimeService
 	{
 		if (!asset.m_bPickedUp)
 		{
-			result = "h-istasi mission | failed: free " + BuildAssetShortLabel(asset) + " first";
+			result = "Partisan mission | failed: free " + BuildAssetShortLabel(asset) + " first";
 			return false;
 		}
 		if (asset.m_bDelivered || asset.m_bDestroyed)
 		{
-			result = "h-istasi mission | failed: captive is no longer available";
+			result = "Partisan mission | failed: captive is no longer available";
 			return false;
 		}
 
@@ -4155,9 +4163,9 @@ class HST_MissionRuntimeService
 
 		mission.m_sRuntimePhase = PHASE_EXTRACTING;
 		if (followed == 1)
-			result = "h-istasi mission | " + BuildAssetShortLabel(asset) + " is following you";
+			result = "Partisan mission | " + BuildAssetShortLabel(asset) + " is following you";
 		else
-			result = string.Format("h-istasi mission | %1 POWs are following you", followed);
+			result = string.Format("Partisan mission | %1 POWs are following you", followed);
 		eventType = "following";
 		return true;
 	}
@@ -4304,7 +4312,7 @@ class HST_MissionRuntimeService
 	{
 		if (asset.m_sRole == ROLE_CONVOY_VEHICLE && HasLivingConvoyCrewForVehicle(state, mission, asset))
 		{
-			result = "h-istasi mission | failed: neutralize the convoy crew before capturing this vehicle";
+			result = "Partisan mission | failed: neutralize the convoy crew before capturing this vehicle";
 			return false;
 		}
 		if (HST_MissionConvoyOperationService.IsExactMission(mission) && asset.m_sRole == ROLE_CONVOY_VEHICLE)
@@ -4355,7 +4363,7 @@ class HST_MissionRuntimeService
 		{
 			mission.m_sRuntimePhase = PHASE_CAPTURED;
 		}
-		result = "h-istasi mission | captured " + BuildAssetShortLabel(asset);
+		result = "Partisan mission | captured " + BuildAssetShortLabel(asset);
 		eventType = "captured";
 		return true;
 	}
@@ -4371,13 +4379,13 @@ class HST_MissionRuntimeService
 	{
 		if (!state || !mission || !asset || !arsenal || !m_PhysicalWar || asset.m_sPrefab.IsEmpty())
 		{
-			result = "h-istasi mission | failed: exact convoy capture services are unavailable";
+			result = "Partisan mission | failed: exact convoy capture services are unavailable";
 			return false;
 		}
 		string garageVehicleId = "mission_vehicle_" + asset.m_sAssetId;
 		if (state.FindGarageVehicle(garageVehicleId))
 		{
-			result = "h-istasi mission | failed: captured convoy vehicle already exists in the garage";
+			result = "Partisan mission | failed: captured convoy vehicle already exists in the garage";
 			return false;
 		}
 		HST_MissionAssetState carrierCargo;
@@ -4385,7 +4393,7 @@ class HST_MissionRuntimeService
 		string cargoHandoffReason;
 		if (!ValidateExactMissionConvoyCarrierCargoForVehicleHandoff(state, mission, asset, carrierCargo, carrierCargoGroundPosition, cargoHandoffReason))
 		{
-			result = "h-istasi mission | failed: " + cargoHandoffReason;
+			result = "Partisan mission | failed: " + cargoHandoffReason;
 			return false;
 		}
 
@@ -4405,7 +4413,7 @@ class HST_MissionRuntimeService
 		HST_VehicleCapabilityPolicy.CopyRuntimeCoverStateToGarage(runtimeVehicle, vehicle);
 		if (!arsenal.StoreVehicle(state, vehicle))
 		{
-			result = "h-istasi mission | failed: captured convoy vehicle could not be reserved in the garage";
+			result = "Partisan mission | failed: captured convoy vehicle could not be reserved in the garage";
 			return false;
 		}
 
@@ -4414,7 +4422,7 @@ class HST_MissionRuntimeService
 		if (!m_PhysicalWar.TryHandoffExactMissionConvoyVehicleCapture(state, mission, asset.m_sAssetId, handedOffVehicle, handoffReason))
 		{
 			RemoveGarageVehicleRecord(state, garageVehicleId);
-			result = "h-istasi mission | failed: " + handoffReason;
+			result = "Partisan mission | failed: " + handoffReason;
 			return false;
 		}
 
@@ -4434,7 +4442,7 @@ class HST_MissionRuntimeService
 		{
 			TickExactMissionConvoyCargoProjections(state, m_PhysicalWar);
 			if (!IsExactMissionConvoyCargoProjectionReady(state, mission, m_PhysicalWar))
-				Print(string.Format("h-istasi mission runtime | exact convoy carrier cargo remains durably detached for projection retry after vehicle capture %1", asset.m_sAssetId), LogLevel.WARNING);
+				Print(string.Format("Partisan mission runtime | exact convoy carrier cargo remains durably detached for projection retry after vehicle capture %1", asset.m_sAssetId), LogLevel.WARNING);
 		}
 		if (handedOffVehicle)
 			SCR_EntityHelper.DeleteEntityAndChildren(handedOffVehicle);
@@ -4443,7 +4451,7 @@ class HST_MissionRuntimeService
 			mission.m_sRuntimePhase = PHASE_CONVOY_CONTACT;
 		else if (mission.m_eStatus == HST_EMissionStatus.HST_MISSION_ACTIVE)
 			mission.m_sRuntimePhase = PHASE_CAPTURED;
-		result = "h-istasi mission | captured " + BuildAssetShortLabel(asset);
+		result = "Partisan mission | captured " + BuildAssetShortLabel(asset);
 		eventType = "captured";
 		return true;
 	}
@@ -4734,7 +4742,7 @@ class HST_MissionRuntimeService
 		if (HST_RadioSiteLifecycleService.IsManagedOrQuarantinedMission(mission)
 			|| HST_RadioSiteLifecycleService.IsManagedOrQuarantinedAsset(asset))
 		{
-			result = "h-istasi mission | failed: exact radio sabotage requires lifecycle authority";
+			result = "Partisan mission | failed: exact radio sabotage requires lifecycle authority";
 			eventType = "";
 			return false;
 		}
@@ -4746,7 +4754,7 @@ class HST_MissionRuntimeService
 		{
 			mission.m_sRuntimePhase = PHASE_DESTROYED;
 		}
-		result = "h-istasi mission | sabotaged " + BuildAssetShortLabel(asset);
+		result = "Partisan mission | sabotaged " + BuildAssetShortLabel(asset);
 		eventType = "sabotaged";
 		return true;
 	}
@@ -7064,7 +7072,7 @@ class HST_MissionRuntimeService
 	string BuildRuntimeReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi mission runtime | state not ready";
+			return "Partisan mission runtime | state not ready";
 
 		int physical;
 		int fallback;
@@ -7091,21 +7099,21 @@ class HST_MissionRuntimeService
 			details = details + BuildMissionRuntimeReport(state, mission);
 		}
 
-		return string.Format("h-istasi mission runtime | physical %1 | spawned %2 | fallback %3 | objectives %4 | assets %5", physical, spawned, fallback, objectiveCount, assetCount) + details;
+		return string.Format("Partisan mission runtime | physical %1 | spawned %2 | fallback %3 | objectives %4 | assets %5", physical, spawned, fallback, objectiveCount, assetCount) + details;
 	}
 
 	string BuildRuntimeReportForMission(HST_CampaignState state, string instanceId)
 	{
 		if (!state)
-			return "h-istasi mission runtime | state not ready";
+			return "Partisan mission runtime | state not ready";
 		if (instanceId.IsEmpty())
-			return "h-istasi mission runtime | mission instance ID required";
+			return "Partisan mission runtime | mission instance ID required";
 
 		HST_ActiveMissionState mission = state.FindActiveMission(instanceId);
 		if (!mission)
-			return "h-istasi mission runtime | mission not found: " + instanceId;
+			return "Partisan mission runtime | mission not found: " + instanceId;
 
-		return "h-istasi mission runtime | selected mission" + BuildMissionRuntimeReport(state, mission);
+		return "Partisan mission runtime | selected mission" + BuildMissionRuntimeReport(state, mission);
 	}
 
 	protected string BuildMissionRuntimeReport(HST_CampaignState state, HST_ActiveMissionState mission)
@@ -9919,6 +9927,6 @@ class HST_MissionRuntimeService
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi mission runtime debug | " + message);
+		Print("Partisan mission runtime debug | " + message);
 	}
 }

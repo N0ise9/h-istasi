@@ -208,7 +208,7 @@ class HST_MissionConvoyOperationService
 		result.m_Operation = operation;
 		result.m_Manifest = manifest;
 		result.m_Batch = batch;
-		Print(string.Format("h-istasi exact mission convoy | admitted %1 | operation %2 | manifest %3 | vehicles %4 | route %5m", mission.m_sInstanceId, operation.m_sOperationId, manifest.m_sManifestId, manifest.m_iAcceptedVehicleCount, Math.Round(routeDistance)));
+		Print(string.Format("Partisan exact mission convoy | admitted %1 | operation %2 | manifest %3 | vehicles %4 | route %5m", mission.m_sInstanceId, operation.m_sOperationId, manifest.m_sManifestId, manifest.m_iAcceptedVehicleCount, Math.Round(routeDistance)));
 		return result;
 	}
 
@@ -401,7 +401,7 @@ class HST_MissionConvoyOperationService
 				if (!m_PhysicalWar.CommitExactMissionConvoyOutboundProjectionTransaction(state, mission, m_MissionRuntime, publicationFailure))
 				{
 					if (!publicationFailure.IsEmpty())
-						Print(string.Format("h-istasi exact mission convoy | outbound publication failed %1 | %2", mission.m_sInstanceId, publicationFailure), LogLevel.WARNING);
+						Print(string.Format("Partisan exact mission convoy | outbound publication failed %1 | %2", mission.m_sInstanceId, publicationFailure), LogLevel.WARNING);
 					changed = true;
 					continue;
 				}
@@ -1869,7 +1869,7 @@ class HST_MissionConvoyOperationService
 		}
 		operation.m_sLastProjectionReason = reason;
 		operation.m_iRevision++;
-		Print(string.Format("h-istasi exact mission convoy | %1 arrived at destination | %2", mission.m_sInstanceId, reason));
+		Print(string.Format("Partisan exact mission convoy | %1 arrived at destination | %2", mission.m_sInstanceId, reason));
 		return true;
 	}
 
@@ -1985,7 +1985,7 @@ class HST_MissionConvoyOperationService
 				slot.m_iLifecycleRevision++;
 			}
 		}
-		Print(string.Format("h-istasi exact mission convoy | settled %1 | result %2 | settlement %3 | %4", mission.m_sInstanceId, terminalResult, settlementId, reason));
+		Print(string.Format("Partisan exact mission convoy | settled %1 | result %2 | settlement %3 | %4", mission.m_sInstanceId, terminalResult, settlementId, reason));
 		return true;
 	}
 
@@ -2058,7 +2058,7 @@ class HST_MissionConvoyOperationService
 			objective.m_iCurrentProgress = required;
 			objective.m_bComplete = true;
 		}
-		Print(string.Format("h-istasi exact mission convoy | %1 completed from durable zero-survivor roster", mission.m_sInstanceId));
+		Print(string.Format("Partisan exact mission convoy | %1 completed from durable zero-survivor roster", mission.m_sInstanceId));
 		return true;
 	}
 
@@ -2486,7 +2486,7 @@ class HST_MissionConvoyOperationService
 			if (objective && objective.m_sMissionInstanceId == mission.m_sInstanceId && !objective.m_bComplete)
 				objective.m_bFailed = true;
 		}
-		Print(string.Format("h-istasi exact mission convoy | %1 failed closed: %2", mission.m_sInstanceId, failure), LogLevel.ERROR);
+		Print(string.Format("Partisan exact mission convoy | %1 failed closed: %2", mission.m_sInstanceId, failure), LogLevel.ERROR);
 		return true;
 	}
 

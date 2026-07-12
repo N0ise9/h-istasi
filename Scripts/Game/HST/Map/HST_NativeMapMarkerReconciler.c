@@ -238,7 +238,7 @@ class HST_NativeMapMarkerReconciler
 	string BuildDetailedRuntimeReport(SCR_MapMarkerManagerComponent manager)
 	{
 		if (!manager)
-			return "h-istasi native markers | manager missing";
+			return "Partisan native markers | manager missing";
 
 		int nativeStatic = manager.GetStaticMarkers().Count();
 		int nativeDisabled = manager.GetDisabledMarkers().Count();
@@ -259,7 +259,7 @@ class HST_NativeMapMarkerReconciler
 		}
 
 		string report = string.Format(
-			"h-istasi native markers | native static %1 | native disabled %2 | tracked static %3 active %4 disabled %5 missing %6 | dynamic %7",
+			"Partisan native markers | native static %1 | native disabled %2 | tracked static %3 active %4 disabled %5 missing %6 | dynamic %7",
 			nativeStatic,
 			nativeDisabled,
 			trackedStatic,
@@ -697,6 +697,6 @@ class HST_NativeMapMarkerReconciler
 		if (!m_bDebugLoggingEnabled)
 			return;
 
-		Print("h-istasi map marker reconciler debug | " + message);
+		Print("Partisan map marker reconciler debug | " + message);
 	}
 }

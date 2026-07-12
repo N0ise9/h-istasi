@@ -77,10 +77,10 @@ class HST_TownService
 	string BuildIncomeReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
 	{
 		if (!state || !preset || !balance)
-			return "h-istasi income | state/preset/balance not ready";
+			return "Partisan income | state/preset/balance not ready";
 
 		string report = string.Format(
-			"h-istasi income | interval %1s | timer %2s | next money %3 | next HR %4",
+			"Partisan income | interval %1s | timer %2s | next money %3 | next HR %4",
 			balance.m_iZoneIncomeIntervalSeconds,
 			state.m_iIncomeAccumulatorSeconds,
 			CalculateResistanceIncome(state, preset.m_sResistanceFactionKey),

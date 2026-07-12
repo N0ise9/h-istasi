@@ -149,7 +149,7 @@ class HST_EnemyCommanderService
 	string BuildEnemyOrderReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi enemy commander | state not ready";
+			return "Partisan enemy commander | state not ready";
 
 		int queued;
 		int active;
@@ -178,7 +178,7 @@ class HST_EnemyCommanderService
 		}
 
 		string report = string.Format(
-			"h-istasi enemy commander | queued %1 | active %2 | resolved %3 | aborted %4 | physicalized %5 | abstract %6",
+			"Partisan enemy commander | queued %1 | active %2 | resolved %3 | aborted %4 | physicalized %5 | abstract %6",
 			queued,
 			active,
 			resolved,
@@ -233,7 +233,7 @@ class HST_EnemyCommanderService
 	string BuildPhysicalResponseReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi enemy physical response | state not ready";
+			return "Partisan enemy physical response | state not ready";
 
 		int linkedSupport;
 		int linkedGroups;
@@ -265,7 +265,7 @@ class HST_EnemyCommanderService
 		}
 
 		return string.Format(
-			"h-istasi enemy physical response | support links %1 | group links %2 | support-active groups %3 | abstract pending %4 | physical pending %5",
+			"Partisan enemy physical response | support links %1 | group links %2 | support-active groups %3 | abstract pending %4 | physical pending %5",
 			linkedSupport,
 			linkedGroups,
 			activePhysicalGroups,
@@ -376,11 +376,11 @@ class HST_EnemyCommanderService
 	{
 		HST_EnemyTargetScoreResult result = BuildTargetScoreResult(state, preset, factionKey, false);
 		if (!result)
-			return string.Format("h-istasi enemy target scoring | failed | faction %1 | reason scorer unavailable", ReportText(factionKey));
+			return string.Format("Partisan enemy target scoring | failed | faction %1 | reason scorer unavailable", ReportText(factionKey));
 		if (!result.m_bSuccess)
 		{
 			string failureReport = string.Format(
-				"h-istasi enemy target scoring | failed | faction %1 | reason %2",
+				"Partisan enemy target scoring | failed | faction %1 | reason %2",
 				ReportText(factionKey),
 				ReportText(result.m_sFailureReason)
 			);
@@ -392,7 +392,7 @@ class HST_EnemyCommanderService
 		}
 
 		string report = string.Format(
-			"h-istasi enemy target scoring | faction %1 | selected %2 score %3 | best %4 score %5 | eligible %6/%7 | local rejects %8 | mode %9",
+			"Partisan enemy target scoring | faction %1 | selected %2 score %3 | best %4 score %5 | eligible %6/%7 | local rejects %8 | mode %9",
 			ReportText(factionKey),
 			ReportText(result.m_sSelectedZoneId),
 			result.m_iSelectedScore,
@@ -498,7 +498,7 @@ class HST_EnemyCommanderService
 
 		if (HasActiveOrderForZone(state, factionKey, capturedZone.m_sZoneId, true))
 		{
-			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | active order already exists", factionKey, capturedZone.m_sZoneId));
+			Print(string.Format("Partisan capture | counterattack skipped for %1 at %2 | active order already exists", factionKey, capturedZone.m_sZoneId));
 			return false;
 		}
 
@@ -508,7 +508,7 @@ class HST_EnemyCommanderService
 		string spendReason;
 		if (!enemyDirector.CanSpendDefense(state, capturedZone, factionKey, attackCost, supportCost, spendReason))
 		{
-			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | %3", factionKey, capturedZone.m_sZoneId, spendReason));
+			Print(string.Format("Partisan capture | counterattack skipped for %1 at %2 | %3", factionKey, capturedZone.m_sZoneId, spendReason));
 			return false;
 		}
 
@@ -518,15 +518,15 @@ class HST_EnemyCommanderService
 		int roll = HST_DefaultCatalog.PositiveMod(rollSeed, 100);
 		if (roll >= chance)
 		{
-			Print(string.Format("h-istasi capture | counterattack skipped for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
+			Print(string.Format("Partisan capture | counterattack skipped for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
 			return false;
 		}
 
 		bool queued = QueueOrder(state, preset, enemyDirector, support, factionKey, capturedZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK, SPEND_MODE_REACTIVE_DEFENSE);
 		if (queued)
-			Print(string.Format("h-istasi capture | counterattack queued for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
+			Print(string.Format("Partisan capture | counterattack queued for %1 at %2 | roll %3 chance %4", factionKey, capturedZone.m_sZoneId, roll, chance));
 		else
-			Print(string.Format("h-istasi capture | counterattack failed for %1 at %2 after chance pass", factionKey, capturedZone.m_sZoneId));
+			Print(string.Format("Partisan capture | counterattack failed for %1 at %2 after chance pass", factionKey, capturedZone.m_sZoneId));
 
 		return queued;
 	}
@@ -649,6 +649,37 @@ class HST_EnemyCommanderService
 		return ResolveOrderNow(state, preset, garrisons, order);
 	}
 
+	// Advances only the supplied legacy order for an isolated Campaign Debug fixture.
+	// This intentionally bypasses the commander cadence accumulator and every other order.
+	bool DebugTickLegacyOrderNow(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyDirectorService enemyDirector,
+		HST_SupportRequestService support,
+		HST_GarrisonService garrisons,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !enemyDirector || !order)
+			return false;
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			|| HasVersionedEnemyOperation(order))
+			return false;
+
+		bool changed;
+		if (ShouldPhysicalizeOrder(state, preset, order))
+			changed = TryPhysicalizeOrder(state, preset, support, order) || changed;
+
+		changed = SyncPhysicalizedOrder(state, order, enemyDirector) || changed;
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return changed;
+		if (state.m_iElapsedSeconds < order.m_iResolveAtSecond)
+			return changed;
+		if (order.m_bPhysicalized && !IsPhysicalizedOrderTimedOut(state, order))
+			return changed;
+
+		return ResolveOrderNow(state, preset, garrisons, order) || changed;
+	}
+
 	bool DebugApplySurvivorRefund(HST_CampaignState state, HST_EnemyDirectorService enemyDirector, HST_EnemyOrderState order, HST_ActiveGroupState group)
 	{
 		if (HasVersionedEnemyOperation(order))
@@ -664,7 +695,7 @@ class HST_EnemyCommanderService
 		string localityReason;
 		if (!IsLocalOperationTargetAllowed(state, preset, factionKey, targetZone, localityReason))
 		{
-			Print(string.Format("h-istasi enemy commander | order skipped for %1 at %2 type %3 | local front blocked: %4", factionKey, targetZone.m_sZoneId, orderType, localityReason));
+			Print(string.Format("Partisan enemy commander | order skipped for %1 at %2 type %3 | local front blocked: %4", factionKey, targetZone.m_sZoneId, orderType, localityReason));
 			return false;
 		}
 
@@ -706,17 +737,17 @@ class HST_EnemyCommanderService
 		{
 			if (!m_ForcePlanning || !m_ExactEnemyQRF)
 			{
-				Print(string.Format("h-istasi enemy commander | exact QRF skipped for %1 at %2 | exact authority services unavailable", factionKey, targetZone.m_sZoneId), LogLevel.WARNING);
+				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | exact authority services unavailable", factionKey, targetZone.m_sZoneId), LogLevel.WARNING);
 				return false;
 			}
 			if (!sourceZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
 			{
-				Print(string.Format("h-istasi enemy commander | exact QRF skipped for %1 at %2 | distinct faction-owned source unavailable", factionKey, targetZone.m_sZoneId));
+				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | distinct faction-owned source unavailable", factionKey, targetZone.m_sZoneId));
 				return false;
 			}
 			if (state.FindActiveQRF(targetZone.m_sZoneId, factionKey) || HasActiveLegacyEnemyQRFSupport(state, factionKey, targetZone.m_sZoneId))
 			{
-				Print(string.Format("h-istasi enemy commander | exact QRF skipped for %1 at %2 | legacy response already owns target", factionKey, targetZone.m_sZoneId));
+				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | legacy response already owns target", factionKey, targetZone.m_sZoneId));
 				return false;
 			}
 			order.m_iOperationContractVersion = HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION;
@@ -726,7 +757,7 @@ class HST_EnemyCommanderService
 				string planningFailure = "exact manifest planning failed";
 				if (planned && !planned.m_sFailureReason.IsEmpty())
 					planningFailure = planned.m_sFailureReason;
-				Print(string.Format("h-istasi enemy commander | exact QRF skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, planningFailure));
+				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, planningFailure));
 				return false;
 			}
 			exactManifest = planned.m_Manifest;
@@ -738,7 +769,7 @@ class HST_EnemyCommanderService
 				|| state.FindActiveGroup("projection_" + order.m_sOperationId)
 				|| state.FindForceSpawnResultByRequest(order.m_sOrderId))
 			{
-				Print(string.Format("h-istasi enemy commander | exact QRF skipped for %1 at %2 | durable identity already exists", factionKey, targetZone.m_sZoneId));
+				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | durable identity already exists", factionKey, targetZone.m_sZoneId));
 				return false;
 			}
 			HST_EnemyQRFAdmissionResult admissionPreflight = m_ExactEnemyQRF.CanAdmitPreparedOrder(
@@ -751,7 +782,7 @@ class HST_EnemyCommanderService
 				string preflightFailure = "exact admission preflight failed";
 				if (admissionPreflight && !admissionPreflight.m_sFailureReason.IsEmpty())
 					preflightFailure = admissionPreflight.m_sFailureReason;
-				Print(string.Format("h-istasi enemy commander | exact QRF skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, preflightFailure));
+				Print(string.Format("Partisan enemy commander | exact QRF skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, preflightFailure));
 				return false;
 			}
 		}
@@ -771,14 +802,37 @@ class HST_EnemyCommanderService
 		}
 		string spendReason;
 		bool spent;
+		string debitMutationId = "enemy_resource_debit_" + order.m_sOrderId;
+		order.m_sResourceDebitMutationId = debitMutationId;
 		if (resolvedSpendMode == SPEND_MODE_PROACTIVE_ATTACK)
-			spent = enemyDirector.TrySpendProactiveAttack(state, factionKey, attackCost, spendReason);
+			spent = enemyDirector.TrySpendProactiveAttack(
+				state,
+				factionKey,
+				attackCost,
+				spendReason,
+				debitMutationId,
+				order.m_sOrderId,
+				order.m_sOrderId,
+				order.m_sOperationId,
+				order.m_sManifestId,
+				order.m_sTargetZoneId);
 		else
-			spent = enemyDirector.TrySpendDefense(state, targetZone, factionKey, attackCost, supportCost, spendReason);
+			spent = enemyDirector.TrySpendDefense(
+				state,
+				targetZone,
+				factionKey,
+				attackCost,
+				supportCost,
+				spendReason,
+				debitMutationId,
+				order.m_sOrderId,
+				order.m_sOrderId,
+				order.m_sOperationId,
+				order.m_sManifestId);
 
 		if (!spent)
 		{
-			Print(string.Format("h-istasi enemy commander | order skipped for %1 at %2 type %3 mode %4 | %5", factionKey, targetZone.m_sZoneId, orderType, resolvedSpendMode, spendReason));
+			Print(string.Format("Partisan enemy commander | order skipped for %1 at %2 type %3 mode %4 | %5", factionKey, targetZone.m_sZoneId, orderType, resolvedSpendMode, spendReason));
 			return false;
 		}
 
@@ -791,12 +845,12 @@ class HST_EnemyCommanderService
 				string admissionFailure = order.m_sFailureReason;
 				if (admission && !admission.m_sFailureReason.IsEmpty())
 					admissionFailure = admission.m_sFailureReason;
-				Print(string.Format("h-istasi enemy commander | exact QRF admission failed for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, admissionFailure), LogLevel.WARNING);
+				Print(string.Format("Partisan enemy commander | exact QRF admission failed for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, admissionFailure), LogLevel.WARNING);
 				// Admission failure is itself a durable aborted/refunded outcome. Report the
 				// mutation so the coordinator persists it instead of treating this tick as idle.
 				return true;
 			}
-			Print(string.Format("h-istasi | exact enemy defensive QRF %1 active from %2 to %3 | manifest %4", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId));
+			Print(string.Format("Partisan | exact enemy defensive QRF %1 active from %2 to %3 | manifest %4", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId));
 			return true;
 		}
 		if (exactEnemyPatrol)
@@ -812,10 +866,10 @@ class HST_EnemyCommanderService
 				string admissionFailure = order.m_sFailureReason;
 				if (patrolAdmission && !patrolAdmission.m_sFailureReason.IsEmpty())
 					admissionFailure = patrolAdmission.m_sFailureReason;
-				Print(string.Format("h-istasi enemy commander | exact patrol admission failed for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, admissionFailure), LogLevel.WARNING);
+				Print(string.Format("Partisan enemy commander | exact patrol admission failed for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, admissionFailure), LogLevel.WARNING);
 				return true;
 			}
-			Print(string.Format("h-istasi | exact enemy patrol %1 active from %2 around %3 | manifest %4 route %5", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId, exactPatrolRoute.m_sRouteId));
+			Print(string.Format("Partisan | exact enemy patrol %1 active from %2 around %3 | manifest %4 route %5", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId, exactPatrolRoute.m_sRouteId));
 			return true;
 		}
 
@@ -823,9 +877,9 @@ class HST_EnemyCommanderService
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 			state.m_iLastHQAttackSecond = state.m_iElapsedSeconds;
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
-			Print(string.Format("h-istasi | enemy order %1 active against Petros/HQ near %2 at %3", order.m_sOrderId, targetZone.m_sZoneId, order.m_vTargetPosition));
+			Print(string.Format("Partisan | enemy order %1 active against Petros/HQ near %2 at %3", order.m_sOrderId, targetZone.m_sZoneId, order.m_vTargetPosition));
 		else
-			Print(string.Format("h-istasi | enemy order %1 active at %2", order.m_sOrderId, targetZone.m_sZoneId));
+			Print(string.Format("Partisan | enemy order %1 active at %2", order.m_sOrderId, targetZone.m_sZoneId));
 		return true;
 	}
 
@@ -844,12 +898,12 @@ class HST_EnemyCommanderService
 		route = null;
 		if (!m_ForcePlanning || !m_ExactEnemyPatrol)
 		{
-			Print(string.Format("h-istasi enemy commander | exact patrol skipped for %1 at %2 | exact authority services unavailable", factionKey, targetZone.m_sZoneId), LogLevel.WARNING);
+			Print(string.Format("Partisan enemy commander | exact patrol skipped for %1 at %2 | exact authority services unavailable", factionKey, targetZone.m_sZoneId), LogLevel.WARNING);
 			return false;
 		}
 		if (!sourceZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
 		{
-			Print(string.Format("h-istasi enemy commander | exact patrol skipped for %1 at %2 | distinct faction-owned source unavailable", factionKey, targetZone.m_sZoneId));
+			Print(string.Format("Partisan enemy commander | exact patrol skipped for %1 at %2 | distinct faction-owned source unavailable", factionKey, targetZone.m_sZoneId));
 			return false;
 		}
 		order.m_iOperationContractVersion = HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
@@ -859,7 +913,7 @@ class HST_EnemyCommanderService
 			string planningFailure = "exact patrol manifest planning failed";
 			if (plan && !plan.m_sFailureReason.IsEmpty())
 				planningFailure = plan.m_sFailureReason;
-			Print(string.Format("h-istasi enemy commander | exact patrol skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, planningFailure));
+			Print(string.Format("Partisan enemy commander | exact patrol skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, planningFailure));
 			return false;
 		}
 		manifest = plan.m_Manifest;
@@ -870,14 +924,14 @@ class HST_EnemyCommanderService
 		route = m_ExactEnemyPatrol.ResolvePatrolRoute(state, order);
 		if (!route)
 		{
-			Print(string.Format("h-istasi enemy commander | exact patrol skipped for %1 at %2 | generated patrol route unavailable", factionKey, targetZone.m_sZoneId));
+			Print(string.Format("Partisan enemy commander | exact patrol skipped for %1 at %2 | generated patrol route unavailable", factionKey, targetZone.m_sZoneId));
 			return false;
 		}
 		ref array<vector> positions = HST_OperationRouteCursorService.BuildOrderedRoutePositions(route);
 		string routeHash = HST_OperationRouteCursorService.BuildRouteContractHash(route, positions);
 		if (positions.Count() < 2 || routeHash.IsEmpty())
 		{
-			Print(string.Format("h-istasi enemy commander | exact patrol skipped for %1 at %2 | generated patrol route hash failed", factionKey, targetZone.m_sZoneId));
+			Print(string.Format("Partisan enemy commander | exact patrol skipped for %1 at %2 | generated patrol route hash failed", factionKey, targetZone.m_sZoneId));
 			return false;
 		}
 		HST_EnemyPatrolAdmissionResult preflight = m_ExactEnemyPatrol.CanAdmitPreparedOrder(
@@ -891,7 +945,7 @@ class HST_EnemyCommanderService
 			string preflightFailure = "exact patrol admission preflight failed";
 			if (preflight && !preflight.m_sFailureReason.IsEmpty())
 				preflightFailure = preflight.m_sFailureReason;
-			Print(string.Format("h-istasi enemy commander | exact patrol skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, preflightFailure));
+			Print(string.Format("Partisan enemy commander | exact patrol skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, preflightFailure));
 			return false;
 		}
 		return true;
@@ -1109,7 +1163,7 @@ class HST_EnemyCommanderService
 		order.m_bPhysicalized = true;
 		order.m_iPhysicalizedAtSecond = state.m_iElapsedSeconds;
 		order.m_sRuntimeStatus = "physical_support_queued";
-		Print(string.Format("h-istasi enemy commander | order %1 physicalized via support %2", order.m_sOrderId, order.m_sSupportRequestId));
+		Print(string.Format("Partisan enemy commander | order %1 physicalized via support %2", order.m_sOrderId, order.m_sSupportRequestId));
 		return true;
 	}
 
@@ -1204,7 +1258,22 @@ class HST_EnemyCommanderService
 		if (attackRefund <= 0 && supportRefund <= 0)
 			return false;
 
-		enemyDirector.RefundDefenseResources(state, order.m_sFactionKey, order.m_sTargetZoneId, attackRefund, supportRefund, "survivor fold-back");
+		string refundMutationId
+			= "enemy_resource_refund_" + order.m_sOperationId + "_survivor_fold_back";
+		if (!enemyDirector.RefundDefenseResources(
+			state,
+			order.m_sFactionKey,
+			order.m_sTargetZoneId,
+			attackRefund,
+			supportRefund,
+			"survivor fold-back",
+			refundMutationId,
+			order.m_sOrderId,
+			order.m_sOrderId,
+			order.m_sOperationId,
+			order.m_sManifestId))
+			return false;
+		order.m_sResourceRefundMutationId = refundMutationId;
 		order.m_iRefundedAttackResources = attackRefund;
 		order.m_iRefundedSupportResources = supportRefund;
 		order.m_bResourceRefundApplied = true;

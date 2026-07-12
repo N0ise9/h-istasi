@@ -89,9 +89,9 @@ class HST_CommandUIService
 	string BuildMemberMenu(HST_CampaignState state, HST_CampaignPreset preset, HST_MapMarkerService markers)
 	{
 		if (!state)
-			return "h-istasi command | campaign state not ready";
+			return "Partisan command | campaign state not ready";
 
-		string header = string.Format("h-istasi command | money %1 | HR %2 | war level %3 | training %4", state.m_iFactionMoney, state.m_iHR, state.m_iWarLevel, BuildTrainingQualityShortLabel(state));
+		string header = string.Format("Partisan command | money %1 | HR %2 | war level %3 | training %4", state.m_iFactionMoney, state.m_iHR, state.m_iWarLevel, BuildTrainingQualityShortLabel(state));
 		string hq = string.Format("\nHQ: %1 at %2 | Petros alive %3", state.m_sHQHideoutId, state.m_vHQPosition, state.m_bPetrosAlive);
 		string markerSummary;
 		if (markers)
@@ -120,7 +120,7 @@ class HST_CommandUIService
 
 	string BuildCommandCoverageReport(HST_CampaignState state)
 	{
-		string report = "h-istasi UI coverage | command/report audit";
+		string report = "Partisan UI coverage | command/report audit";
 
 		array<string> required = {};
 		BuildRequiredCommandCoverageList(required);
@@ -149,9 +149,9 @@ class HST_CommandUIService
 	string BuildActiveMissionSummaryReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi missions | state not ready";
+			return "Partisan missions | state not ready";
 
-		string report = "h-istasi active mission summary";
+		string report = "Partisan active mission summary";
 		int emitted;
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
@@ -668,13 +668,13 @@ class HST_CommandUIService
 		explicitCommandStatus = HST_ECampaignCommandStatus.HST_COMMAND_REJECTED;
 		explicitAggregateId = "";
 		if (!coordinator || commandId.IsEmpty())
-			return "h-istasi command | invalid request";
+			return "Partisan command | invalid request";
 
 		if (commandId == "noop")
-			return "h-istasi command | setup values are read from $profile:h-istasi/HST_Settings.json";
+			return "Partisan command | setup values are read from $profile:h-istasi/HST_Settings.json";
 
 		if (IsDebugOrReportVisibleCommand(commandId) && !coordinator.IsDebugMenuEnabledForVisibleCommands())
-			return "h-istasi command | debug menu disabled in config";
+			return "Partisan command | debug menu disabled in config";
 
 		if (commandId == "admin_run_campaign_debug")
 			return coordinator.RequestAdminRunCampaignDebug(playerId, argument);
@@ -686,7 +686,7 @@ class HST_CommandUIService
 			return coordinator.RequestAdminCleanupCampaignDebug(playerId);
 
 		if (IsCampaignMutatingCommand(commandId) && !coordinator.IsCampaignActiveForVisibleMutatingCommand())
-			return "h-istasi campaign | failed: campaign is not active";
+			return "Partisan campaign | failed: campaign is not active";
 
 		if (commandId == "setup_hideout")
 			return coordinator.RequestCommanderSelectInitialHideoutReport(playerId, argument);
@@ -864,7 +864,7 @@ class HST_CommandUIService
 		{
 			if (IsMapTargetArgument(argument))
 				return coordinator.RequestCommanderQuoteGarrisonAtMapTargetReport(playerId, argument, requestId);
-			return "h-istasi force quote | failed: map target required";
+			return "Partisan force quote | failed: map target required";
 		}
 		if (commandId == "confirm_garrison_quote")
 			return coordinator.RequestCommanderConfirmGarrisonQuoteReport(playerId, argument, requestId);
@@ -957,7 +957,7 @@ class HST_CommandUIService
 			return coordinator.RequestCommanderCancelSupportReport(playerId, argument);
 
 		if (commandId == "support_recall_choose")
-			return "h-istasi support recall | chooser is client-side";
+			return "Partisan support recall | chooser is client-side";
 
 		if (commandId == "support_recall")
 		{
@@ -1183,7 +1183,7 @@ class HST_CommandUIService
 			return BuildBoolResult("grant admin " + argument, coordinator.RequestAdminSetAdminRole(playerId, argument, true), "admin required or target identity missing");
 
 		if (commandId == "member_promote_commander_choose")
-			return "h-istasi command | transfer commander chooser is client-side";
+			return "Partisan command | transfer commander chooser is client-side";
 
 		if (commandId == "member_promote_commander")
 			return BuildBoolResult("promote commander " + argument, coordinator.RequestCommanderTransferCommander(playerId, argument), "commander required, target missing, or target is not a member");
@@ -1191,7 +1191,7 @@ class HST_CommandUIService
 		if (commandId == "admin_force_self_commander")
 			return BuildBoolResult("force self commander", coordinator.RequestAdminForceSelfCommander(playerId), "admin required or player identity missing");
 
-		return "h-istasi command | unknown command: " + commandId;
+		return "Partisan command | unknown command: " + commandId;
 	}
 
 	protected bool IsCampaignMutatingCommand(string commandId)
@@ -1239,9 +1239,9 @@ class HST_CommandUIService
 	string BuildEconomyReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi economy | campaign state not ready";
+			return "Partisan economy | campaign state not ready";
 
-		string summary = string.Format("h-istasi economy | money %1 | HR %2 | training %3 | income timer %4s", state.m_iFactionMoney, state.m_iHR, state.m_iTrainingLevel, state.m_iIncomeAccumulatorSeconds);
+		string summary = string.Format("Partisan economy | money %1 | HR %2 | training %3 | income timer %4s", state.m_iFactionMoney, state.m_iHR, state.m_iTrainingLevel, state.m_iIncomeAccumulatorSeconds);
 		string enemy = "";
 		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
 		{
@@ -1260,7 +1260,7 @@ class HST_CommandUIService
 		HST_MapMarkerService markers = null)
 	{
 		if (!state)
-			return "h-istasi zones | campaign state not ready";
+			return "Partisan zones | campaign state not ready";
 
 		int resistanceZones;
 		int enemyZones;
@@ -1282,16 +1282,16 @@ class HST_CommandUIService
 			details = details + string.Format("\n%1 | owner %2 | support %3 | income %4 | active %5 | capture %6", zone.m_sZoneId, publishedOwnerLabel, ResolveZoneSupportPercent(state, zone), zone.m_iIncomeValue, zone.m_bActive, zone.m_iResistanceCaptureProgress);
 		}
 
-		string header = string.Format("h-istasi zones | resistance %1 | enemy %2", resistanceZones, enemyZones);
+		string header = string.Format("Partisan zones | resistance %1 | enemy %2", resistanceZones, enemyZones);
 		return header + details;
 	}
 
 	string BuildMissionReport(HST_CampaignState state)
 	{
 		if (!state)
-			return "h-istasi missions | campaign state not ready";
+			return "Partisan missions | campaign state not ready";
 
-		string report = string.Format("h-istasi missions | active records %1 | objectives %2 | tasks %3", CountVisibleMissionRecords(state), CountVisibleMissionObjectives(state), CountVisibleCampaignTasks(state));
+		string report = string.Format("Partisan missions | active records %1 | objectives %2 | tasks %3", CountVisibleMissionRecords(state), CountVisibleMissionObjectives(state), CountVisibleCampaignTasks(state));
 		foreach (HST_ActiveMissionState mission : state.m_aActiveMissions)
 		{
 			if (!mission)
@@ -1801,10 +1801,10 @@ class HST_CommandUIService
 			return BuildSetupStatus(state, settings);
 
 		if (!canUseMember && selectedTabId != TAB_SETUP)
-			return "h-istasi command | membership required for campaign actions";
+			return "Partisan command | membership required for campaign actions";
 
 		if (!state)
-			return "h-istasi command | campaign state not ready";
+			return "Partisan command | campaign state not ready";
 
 		if (selectedTabId == TAB_OVERVIEW)
 			return string.Format("Overview | %1 | HQ pressure %2 | next: %3", BuildStrategicOrder(state, preset, markers), BuildHQPressureSummary(state), BuildNextBestAction(state, preset, markers));
@@ -1852,11 +1852,11 @@ class HST_CommandUIService
 			return string.Format("Admin | debug only | campaign %1 | marker records %2", CampaignPhaseLabel(state.m_ePhase), state.m_aMapMarkers.Count());
 		}
 
-		return string.Format("h-istasi command | %1", BuildNextBestAction(state, preset, markers));
+		return string.Format("Partisan command | %1", BuildNextBestAction(state, preset, markers));
 	}
 	protected string BuildSetupStatus(HST_CampaignState state, HST_RuntimeSettings settings)
 	{
-		string status = "h-istasi setup | choose an initial HQ hideout to start the campaign";
+		string status = "Partisan setup | choose an initial HQ hideout to start the campaign";
 		if (state)
 			status = status + string.Format("\ncampaign | %1 | HQ %2", CampaignPhaseLabel(state.m_ePhase), BuildHQLabel(state));
 
@@ -1871,25 +1871,25 @@ class HST_CommandUIService
 	protected string BuildPetrosStatus(HST_CampaignState state, bool canUseCommander)
 	{
 		if (!state)
-			return "h-istasi Petros | campaign state not ready";
+			return "Partisan Petros | campaign state not ready";
 
 		string role = "commander role required for HQ moves";
 		if (canUseCommander)
 			role = "commander controls available";
 
-		return string.Format("h-istasi Petros/HQ | HQ %1 | Petros %2 | arsenal %3 | %4", BuildHQLabel(state), BuildPetrosLabel(state), BuildArsenalRuntimeStatus(state), role);
+		return string.Format("Partisan Petros/HQ | HQ %1 | Petros %2 | arsenal %3 | %4", BuildHQLabel(state), BuildPetrosLabel(state), BuildArsenalRuntimeStatus(state), role);
 	}
 
 	protected string BuildMembersStatus(HST_CampaignState state, bool canUseCommander)
 	{
 		if (!state)
-			return "h-istasi members | campaign state not ready";
+			return "Partisan members | campaign state not ready";
 
 		string role = "member roster";
 		if (canUseCommander)
 			role = "commander can issue HQ orders";
 
-		return string.Format("h-istasi members | known players %1 | commander %2 | %3", state.m_aPlayers.Count(), BuildCommanderName(state), role);
+		return string.Format("Partisan members | known players %1 | commander %2 | %3", state.m_aPlayers.Count(), BuildCommanderName(state), role);
 	}
 
 	protected string AppendTopStats(string payload, HST_CampaignState state, HST_CampaignPreset preset)
@@ -2638,7 +2638,7 @@ class HST_CommandUIService
 		payload = AppendRow(payload, "garage_actions", "Capture nearest", "Stores a safe root vehicle and despawns only that vehicle.", "good");
 		payload = AppendRow(payload, "garage_actions", "Build redeploy", "Each stored vehicle resolves a Build Mode placement before spawning.", GarageTone(state));
 		payload = AppendRow(payload, "garage_actions", "Vehicle target", BuildVehicleTargetActionLabel(state), BuildVehicleTargetTone(state));
-		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the h-istasi arsenal at HQ.", "warn");
+		payload = AppendRow(payload, "garage_actions", "Cargo unload", "Nearest vehicle cargo can be moved into the Partisan arsenal at HQ.", "warn");
 
 		return payload;
 	}
@@ -2722,7 +2722,12 @@ class HST_CommandUIService
 			return payload;
 
 		payload = AppendRow(payload, "admin", "Campaign", CampaignPhaseLabel(state.m_ePhase), "neutral");
-		payload = AppendRow(payload, "admin", "Enemy planning", string.Format("next check in %1s", state.m_iEnemyResourceAccumulatorSeconds), "bad");
+		payload = AppendRow(
+			payload,
+			"admin",
+			"Enemy cadence",
+			BuildEnemyPoolCadenceText(state, preset),
+			"neutral");
 		payload = AppendRow(payload, "admin", "Map records", string.Format("%1 tracked", state.m_aMapMarkers.Count()), "neutral");
 		if (compositions)
 		{
@@ -2751,6 +2756,43 @@ class HST_CommandUIService
 			payload = AppendRow(payload, "debug_zone", "Morton", string.Format("%1 / support %2 / capture %3", ZoneOwnerPlayerLabel(state, morton, preset, markers), ResolveZoneSupportPercent(state, morton), morton.m_iResistanceCaptureProgress), ZoneTone(state, morton, preset, markers));
 
 		return payload;
+	}
+
+	protected string BuildEnemyPoolCadenceText(
+		HST_CampaignState state,
+		HST_CampaignPreset preset)
+	{
+		if (!state || !preset)
+			return "enemy pool cadence unavailable";
+		string report;
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool || !HST_FactionRelationService.IsEnemyFaction(
+				preset,
+				pool.m_sFactionKey))
+				continue;
+			if (!report.IsEmpty())
+				report = report + " | ";
+			if (pool.m_iStrategicContractVersion
+				!= HST_EnemyStrategicResourceService.CONTRACT_VERSION
+				|| !pool.m_sStrategicAuthorityFailure.IsEmpty())
+			{
+				report = report + pool.m_sFactionKey + " unavailable";
+				continue;
+			}
+			int incomeRemaining = Math.Max(
+				0,
+				HST_EnemyStrategicResourceService.RESOURCE_INTERVAL_SECONDS
+					- Math.Max(0, pool.m_iResourceAccumulatorSeconds));
+			report = report + string.Format(
+				"%1 income in %2s, aggression decay accrued %3s",
+				pool.m_sFactionKey,
+				incomeRemaining,
+				Math.Max(0, pool.m_iAggressionAccumulatorSeconds));
+		}
+		if (report.IsEmpty())
+			return "no configured enemy pools";
+		return report;
 	}
 
 	protected string AppendActivityFeed(
@@ -3061,7 +3103,7 @@ class HST_CommandUIService
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 UI coverage", "admin_phase23_ui_coverage", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 marker audit", "admin_phase23_marker_audit", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "Native marker report", "admin_marker_native_report", "", canUseAdmin, "admin required");
-			AddMenuAction(actions, TAB_ADMIN, "Purge HST native markers", "admin_purge_hst_native_markers", "", canUseAdmin, "admin required");
+			AddMenuAction(actions, TAB_ADMIN, "Purge Partisan native markers", "admin_purge_hst_native_markers", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 23 failed action sample", "admin_phase23_failed_action_sample", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed early", "admin_phase24_seed_early", "", canUseAdmin, "admin required");
 			AddMenuAction(actions, TAB_ADMIN, "[Smoke] Phase 24 seed mid", "admin_phase24_seed_mid", "", canUseAdmin, "admin required");
@@ -4438,12 +4480,12 @@ class HST_CommandUIService
 	protected string BuildBoolResult(string label, bool success, string failureReason = "")
 	{
 		if (success)
-			return "h-istasi command | " + label + " | complete";
+			return "Partisan command | " + label + " | complete";
 
 		if (!failureReason.IsEmpty())
-			return "h-istasi command | " + label + " | failed: " + failureReason;
+			return "Partisan command | " + label + " | failed: " + failureReason;
 
-		return "h-istasi command | " + label + " | failed";
+		return "Partisan command | " + label + " | failed";
 	}
 	protected string BuildPresetName(HST_CampaignPreset preset, HST_CampaignState state)
 	{

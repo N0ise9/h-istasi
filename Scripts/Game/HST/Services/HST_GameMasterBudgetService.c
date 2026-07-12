@@ -52,7 +52,7 @@ class HST_GameMasterBudgetService
 			return;
 
 		s_bLoggedDisabledBudgetPreSubtractRepair = true;
-		Print(string.Format("h-istasi game master budgets | restored disabled-budget headroom before native subtract type=%1 current=%2 target=%3 pending=%4", typename.EnumToString(EEditableEntityBudget, budgetType), currentBudget, targetBudget, pendingBudgetCost));
+		Print(string.Format("Partisan game master budgets | restored disabled-budget headroom before native subtract type=%1 current=%2 target=%3 pending=%4", typename.EnumToString(EEditableEntityBudget, budgetType), currentBudget, targetBudget, pendingBudgetCost));
 	}
 
 	static int CountDisabledBudgetPreSubtractRepairs()
@@ -84,7 +84,7 @@ class HST_GameMasterBudgetService
 		if (changed || !s_bLoggedGameMasterBudgetState)
 		{
 			s_bLoggedGameMasterBudgetState = true;
-			Print(string.Format("h-istasi game master budgets | enabled=%1 source=%2", enabled, source));
+			Print(string.Format("Partisan game master budgets | enabled=%1 source=%2", enabled, source));
 		}
 	}
 }
@@ -409,7 +409,7 @@ modded class SCR_BudgetEditorComponent
 		if (!m_bHSTBudgetDeficitCorrectionLogged)
 		{
 			m_bHSTBudgetDeficitCorrectionLogged = true;
-			Print(string.Format("h-istasi game master budgets | corrected first disabled-budget deficit type=%1 adjusted=%2 change=%3 deficit=%4", typename.EnumToString(EEditableEntityBudget, entityBudget), originalBudgetValue, budgetChange, deficit));
+			Print(string.Format("Partisan game master budgets | corrected first disabled-budget deficit type=%1 adjusted=%2 change=%3 deficit=%4", typename.EnumToString(EEditableEntityBudget, entityBudget), originalBudgetValue, budgetChange, deficit));
 		}
 	}
 }

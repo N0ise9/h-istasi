@@ -7,51 +7,105 @@ class HST_EnemyDirectorService
 	static const int MAX_DEFENCE_SPEND_BASE = 28;
 	static const int MAX_DEFENCE_SPEND_PER_WAR_LEVEL = 7;
 	protected ref HST_TownInfluenceService m_TownInfluence;
+	protected ref HST_CampaignPreset m_Preset;
+	protected ref HST_EnemyStrategicResourceService m_EnemyStrategicResources;
+
+	void HST_EnemyDirectorService()
+	{
+		m_Preset = HST_DefaultCatalog.CreateVanillaEveronPreset();
+		m_EnemyStrategicResources = new HST_EnemyStrategicResourceService();
+	}
 
 	void SetTownInfluenceService(HST_TownInfluenceService townInfluence)
 	{
 		m_TownInfluence = townInfluence;
+		if (m_EnemyStrategicResources)
+			m_EnemyStrategicResources.SetTownInfluenceService(townInfluence);
+	}
+
+	void SetCampaignPreset(HST_CampaignPreset preset)
+	{
+		m_Preset = preset;
+	}
+
+	void SetEnemyStrategicResourceAuthority(HST_EnemyStrategicResourceService authority)
+	{
+		m_EnemyStrategicResources = authority;
+		if (m_EnemyStrategicResources && m_TownInfluence)
+			m_EnemyStrategicResources.SetTownInfluenceService(m_TownInfluence);
 	}
 
 	bool TickResources(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int elapsedSeconds)
 	{
-		if (!state || !preset || !balance || elapsedSeconds <= 0)
+		if (!m_EnemyStrategicResources)
 			return false;
 
-		state.m_iEnemyResourceAccumulatorSeconds += elapsedSeconds;
-		if (state.m_iEnemyResourceAccumulatorSeconds < RESOURCE_TICK_SECONDS)
-			return false;
-
-		int resourceSteps = state.m_iEnemyResourceAccumulatorSeconds / RESOURCE_TICK_SECONDS;
-		state.m_iEnemyResourceAccumulatorSeconds = state.m_iEnemyResourceAccumulatorSeconds % RESOURCE_TICK_SECONDS;
-		foreach (HST_ZoneState zone : state.m_aZones)
-		{
-			if (!zone || zone.m_sOwnerFactionKey == preset.m_sResistanceFactionKey)
-				continue;
-
-			int attackIncome = ResolveEnemyAttackIncome(state, balance, zone) * resourceSteps;
-			int supportIncome = ResolveEnemySupportIncome(state, balance, zone) * resourceSteps;
-			AddResources(state, zone.m_sOwnerFactionKey, attackIncome, supportIncome);
-		}
-
-		return true;
+		return m_EnemyStrategicResources.TickIncome(
+			state,
+			preset,
+			balance,
+			elapsedSeconds);
 	}
 
 	bool CanAfford(HST_CampaignState state, string factionKey, int attackCost, int supportCost)
 	{
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		HST_FactionPoolState pool = FindAuthoritativePool(state, factionKey);
 		return pool && pool.m_iAttackResources >= attackCost && pool.m_iSupportResources >= supportCost;
 	}
 
-	bool TrySpend(HST_CampaignState state, string factionKey, int attackCost, int supportCost)
+	bool TrySpend(
+		HST_CampaignState state,
+		string factionKey,
+		int attackCost,
+		int supportCost,
+		string mutationId = "",
+		string kind = "enemy_resource_spend",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "",
+		string zoneId = "")
 	{
-		if (attackCost < 0 || supportCost < 0 || !CanAfford(state, factionKey, attackCost, supportCost))
+		if (!state || attackCost < 0 || supportCost < 0
+			|| !m_EnemyStrategicResources || !m_Preset)
+			return false;
+		if (!mutationId.IsEmpty() && state.FindEnemyStrategicMutation(mutationId))
+		{
+			HST_EnemyStrategicMutationResult replay = m_EnemyStrategicResources.DebitResources(
+				state,
+				m_Preset,
+				mutationId,
+				factionKey,
+				attackCost,
+				supportCost,
+				kind,
+				sourceId,
+				orderId,
+				operationId,
+				manifestId,
+				zoneId);
+			return replay && replay.m_bAccepted;
+		}
+		if (!CanAfford(state, factionKey, attackCost, supportCost))
+			return false;
+		mutationId = ResolveMutationId(state, mutationId, "enemy_resource_spend");
+		if (mutationId.IsEmpty())
 			return false;
 
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
-		pool.m_iAttackResources -= attackCost;
-		pool.m_iSupportResources -= supportCost;
-		return true;
+		HST_EnemyStrategicMutationResult result = m_EnemyStrategicResources.DebitResources(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			attackCost,
+			supportCost,
+			kind,
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			zoneId);
+		return result && result.m_bAccepted;
 	}
 
 	bool CanSpendProactiveAttack(HST_CampaignState state, string factionKey, int attackCost, out string reason)
@@ -69,7 +123,7 @@ class HST_EnemyDirectorService
 			return false;
 		}
 
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		HST_FactionPoolState pool = FindAuthoritativePool(state, factionKey);
 		if (!pool)
 		{
 			reason = "faction resource pool missing";
@@ -86,35 +140,113 @@ class HST_EnemyDirectorService
 		return true;
 	}
 
-	bool TrySpendProactiveAttack(HST_CampaignState state, string factionKey, int attackCost, out string reason)
+	bool TrySpendProactiveAttack(
+		HST_CampaignState state,
+		string factionKey,
+		int attackCost,
+		out string reason,
+		string mutationId = "",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "",
+		string zoneId = "")
 	{
-		if (!CanSpendProactiveAttack(state, factionKey, attackCost, reason))
-			return false;
-
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
-		if (!pool)
+		if (!state || !m_EnemyStrategicResources || !m_Preset)
 		{
-			reason = "faction resource pool missing after proactive gate";
+			reason = "enemy proactive resource authority unavailable";
 			return false;
 		}
-
-		pool.m_iAttackResources = Math.Max(0, pool.m_iAttackResources - Math.Max(0, attackCost));
+		if (!mutationId.IsEmpty() && state.FindEnemyStrategicMutation(mutationId))
+		{
+			HST_EnemyStrategicMutationResult replay = m_EnemyStrategicResources.DebitResources(
+				state,
+				m_Preset,
+				mutationId,
+				factionKey,
+				attackCost,
+				0,
+				"proactive_attack_debit",
+				sourceId,
+				orderId,
+				operationId,
+				manifestId,
+				zoneId);
+			if (replay && replay.m_bAccepted)
+			{
+				reason = "proactive attack debit replay accepted";
+				return true;
+			}
+			reason = "proactive attack debit replay rejected";
+			if (replay && !replay.m_sFailureReason.IsEmpty())
+				reason = replay.m_sFailureReason;
+			return false;
+		}
+		if (!CanSpendProactiveAttack(state, factionKey, attackCost, reason))
+			return false;
+		mutationId = ResolveMutationId(state, mutationId, "enemy_proactive_debit");
+		if (mutationId.IsEmpty())
+		{
+			reason = "enemy proactive debit identity unavailable";
+			return false;
+		}
+		HST_EnemyStrategicMutationResult result = m_EnemyStrategicResources.DebitResources(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			attackCost,
+			0,
+			"proactive_attack_debit",
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			zoneId);
+		if (!result || !result.m_bAccepted)
+		{
+			reason = "enemy proactive debit rejected";
+			if (result && !result.m_sFailureReason.IsEmpty())
+				reason = result.m_sFailureReason;
+			return false;
+		}
+		reason = string.Format("proactive attack debit accepted | attack %1", attackCost);
 		return true;
 	}
 
-	bool RefundProactiveAttackResources(HST_CampaignState state, string factionKey, int attackRefund, string reason)
+	bool RefundProactiveAttackResources(
+		HST_CampaignState state,
+		string factionKey,
+		int attackRefund,
+		string reason,
+		string mutationId = "",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "",
+		string zoneId = "")
 	{
-		if (!state || factionKey.IsEmpty() || attackRefund < 0)
+		if (!state || factionKey.IsEmpty() || attackRefund < 0
+			|| !m_EnemyStrategicResources || !m_Preset)
+			return false;
+		mutationId = ResolveMutationId(state, mutationId, "enemy_proactive_refund");
+		if (mutationId.IsEmpty())
 			return false;
 
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
-		if (!pool)
-			return false;
-
-		int clampedRefund = Math.Max(0, attackRefund);
-		if (clampedRefund > 0)
-			pool.m_iAttackResources += clampedRefund;
-		return true;
+		HST_EnemyStrategicMutationResult result = m_EnemyStrategicResources.RefundResources(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			Math.Max(0, attackRefund),
+			0,
+			"proactive_attack_refund",
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			zoneId);
+		return result && result.m_bAccepted;
 	}
 
 	bool CanSpendDefense(HST_CampaignState state, HST_ZoneState targetZone, string factionKey, int attackCost, int supportCost, out string reason)
@@ -132,67 +264,142 @@ class HST_EnemyDirectorService
 			return false;
 		}
 
-		HST_EnemySupportLedgerState ledger = FindOrCreateSupportLedger(state, factionKey, targetZone.m_sZoneId);
-		if (!ledger)
+		string canonicalZoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(
+			targetZone.m_sZoneId);
+		HST_EnemySupportLedgerState ledger;
+		int ledgerCount = ResolveSupportLedgerCount(
+			state,
+			factionKey,
+			canonicalZoneId,
+			ledger);
+		if (ledgerCount > 1)
 		{
-			reason = "support ledger unavailable";
+			reason = "enemy support ledger authority is duplicated";
 			return false;
 		}
-
-		UpdateLedgerWindows(state, ledger);
-		if (ledger.m_iCooldownUntilSecond > state.m_iElapsedSeconds)
+		if (ledger && ledger.m_iCooldownUntilSecond > state.m_iElapsedSeconds)
 		{
 			reason = string.Format("support stack cooldown active for %1s", ledger.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
-			ledger.m_sLastDecisionReason = reason;
 			return false;
 		}
 
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
+		HST_FactionPoolState pool = FindAuthoritativePool(state, factionKey);
 		if (!pool)
 		{
-			reason = "faction resource pool missing";
-			ledger.m_sLastDecisionReason = reason;
+			reason = "authoritative faction resource pool unavailable";
 			return false;
 		}
 
 		if (pool.m_iAttackResources < attackCost || pool.m_iSupportResources < supportCost)
 		{
 			reason = string.Format("cannot afford attack %1/%2 support %3/%4", pool.m_iAttackResources, attackCost, pool.m_iSupportResources, supportCost);
-			ledger.m_sLastDecisionReason = reason;
 			return false;
 		}
 
 		int maxSpend = ResolveMaxDefenseSpend(state, targetZone, ledger);
-		int projectedSpend = ledger.m_iAttackSpent + ledger.m_iSupportSpent + attackCost + supportCost;
+		int projectedSpend = ResolveEffectiveAttackSpent(state, ledger)
+			+ ResolveEffectiveSupportSpent(state, ledger)
+			+ attackCost
+			+ supportCost;
 		if (projectedSpend > maxSpend)
 		{
 			reason = string.Format("max defense spend reached for zone %1 | projected %2 cap %3", targetZone.m_sZoneId, projectedSpend, maxSpend);
-			ledger.m_sLastDecisionReason = reason;
 			return false;
 		}
 
 		reason = string.Format("defense spend allowed | projected %1 cap %2 damage %3", projectedSpend, maxSpend, ResolveRecentDamageScore(state, ledger));
-		ledger.m_sLastDecisionReason = reason;
 		return true;
 	}
 
-	bool TrySpendDefense(HST_CampaignState state, HST_ZoneState targetZone, string factionKey, int attackCost, int supportCost, out string reason)
+	bool TrySpendDefense(
+		HST_CampaignState state,
+		HST_ZoneState targetZone,
+		string factionKey,
+		int attackCost,
+		int supportCost,
+		out string reason,
+		string mutationId = "",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "")
 	{
-		if (!CanSpendDefense(state, targetZone, factionKey, attackCost, supportCost, reason))
-			return false;
-
-		if (!TrySpend(state, factionKey, attackCost, supportCost))
+		if (!state || !targetZone || !m_EnemyStrategicResources || !m_Preset)
 		{
-			reason = "enemy resource spend failed after defense gate";
-			HST_EnemySupportLedgerState failedLedger = FindOrCreateSupportLedger(state, factionKey, targetZone.m_sZoneId);
-			if (failedLedger)
-				failedLedger.m_sLastDecisionReason = reason;
+			reason = "enemy defense resource authority unavailable";
 			return false;
 		}
+		if (!mutationId.IsEmpty() && state.FindEnemyStrategicMutation(mutationId))
+		{
+			HST_EnemySupportLedgerState replayLedger;
+			int replayLedgerCount = ResolveSupportLedgerCount(
+				state,
+				factionKey,
+				targetZone.m_sZoneId,
+				replayLedger);
+			if (replayLedgerCount != 1)
+			{
+				reason = "defense resource debit replay has no unique support ledger";
+				return false;
+			}
+			HST_EnemyStrategicMutationResult replay = m_EnemyStrategicResources.DebitResources(
+				state,
+				m_Preset,
+				mutationId,
+				factionKey,
+				attackCost,
+				supportCost,
+				"defense_support_debit",
+				sourceId,
+				orderId,
+				operationId,
+				manifestId,
+				targetZone.m_sZoneId);
+			if (replay && replay.m_bAccepted)
+			{
+				reason = "defense resource debit replay accepted";
+				return true;
+			}
+			reason = "defense resource debit replay rejected";
+			if (replay && !replay.m_sFailureReason.IsEmpty())
+				reason = replay.m_sFailureReason;
+			return false;
+		}
+		if (!CanSpendDefense(state, targetZone, factionKey, attackCost, supportCost, reason))
+			return false;
+		mutationId = ResolveMutationId(state, mutationId, "enemy_defense_debit");
+		if (mutationId.IsEmpty())
+		{
+			reason = "enemy defense debit identity unavailable";
+			return false;
+		}
+		HST_EnemyStrategicMutationResult result = m_EnemyStrategicResources.DebitResources(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			attackCost,
+			supportCost,
+			"defense_support_debit",
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			targetZone.m_sZoneId);
+		if (!result || !result.m_bAccepted)
+		{
+			reason = "enemy resource debit failed after defense gate";
+			if (result && !result.m_sFailureReason.IsEmpty())
+				reason = result.m_sFailureReason;
+			return false;
+		}
+		if (result.m_bAlreadyApplied)
+			return true;
 
 		HST_EnemySupportLedgerState ledger = FindOrCreateSupportLedger(state, factionKey, targetZone.m_sZoneId);
 		if (ledger)
 		{
+			UpdateLedgerWindows(state, ledger);
 			ledger.m_iAttackSpent += attackCost;
 			ledger.m_iSupportSpent += supportCost;
 			ledger.m_iLastSpendSecond = state.m_iElapsedSeconds;
@@ -232,18 +439,53 @@ class HST_EnemyDirectorService
 		return ResolveRecentDamageScore(state, ledger);
 	}
 
-	void RefundDefenseResources(HST_CampaignState state, string factionKey, string zoneId, int attackRefund, int supportRefund, string reason)
+	bool RefundDefenseResources(
+		HST_CampaignState state,
+		string factionKey,
+		string zoneId,
+		int attackRefund,
+		int supportRefund,
+		string reason,
+		string mutationId = "",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "")
 	{
-		if (!state || factionKey.IsEmpty())
-			return;
+		if (!state || factionKey.IsEmpty() || !m_EnemyStrategicResources || !m_Preset)
+			return false;
 
 		int clampedAttack = Math.Max(0, attackRefund);
 		int clampedSupport = Math.Max(0, supportRefund);
-		if (clampedAttack <= 0 && clampedSupport <= 0)
-			return;
+		HST_EnemySupportLedgerState ledger;
+		int ledgerCount = ResolveSupportLedgerCount(
+			state,
+			factionKey,
+			zoneId,
+			ledger);
+		if (ledgerCount != 1)
+			return false;
+		mutationId = ResolveMutationId(state, mutationId, "enemy_defense_refund");
+		if (mutationId.IsEmpty())
+			return false;
 
-		AddResources(state, factionKey, clampedAttack, clampedSupport);
-		HST_EnemySupportLedgerState ledger = FindOrCreateSupportLedger(state, factionKey, zoneId);
+		HST_EnemyStrategicMutationResult result = m_EnemyStrategicResources.RefundResources(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			clampedAttack,
+			clampedSupport,
+			"defense_support_refund",
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			zoneId);
+		if (!result || !result.m_bAccepted)
+			return false;
+		if (result.m_bAlreadyApplied)
+			return true;
 		if (ledger)
 		{
 			ledger.m_iRefundedAttackResources += clampedAttack;
@@ -254,27 +496,52 @@ class HST_EnemyDirectorService
 				reason = "defense refund";
 			ledger.m_sLastDecisionReason = string.Format("%1 | refund attack %2 support %3", reason, clampedAttack, clampedSupport);
 		}
+		return true;
 	}
 
-	void AddResources(HST_CampaignState state, string factionKey, int attackResources, int supportResources)
+	bool AddResources(
+		HST_CampaignState state,
+		string factionKey,
+		int attackResources,
+		int supportResources,
+		string mutationId = "",
+		string kind = "resource_adjustment",
+		string sourceId = "",
+		string orderId = "",
+		string operationId = "",
+		string manifestId = "",
+		string zoneId = "")
 	{
-		HST_FactionPoolState pool = state.FindFactionPool(factionKey);
-		if (!pool)
-			return;
+		if (!state || !m_EnemyStrategicResources || !m_Preset)
+			return false;
+		mutationId = ResolveMutationId(state, mutationId, "enemy_resource_adjustment");
+		if (mutationId.IsEmpty())
+			return false;
 
-		pool.m_iAttackResources = Math.Max(0, pool.m_iAttackResources + attackResources);
-		pool.m_iSupportResources = Math.Max(0, pool.m_iSupportResources + supportResources);
+		HST_EnemyStrategicMutationResult result = m_EnemyStrategicResources.ApplyResourceDelta(
+			state,
+			m_Preset,
+			mutationId,
+			factionKey,
+			attackResources,
+			supportResources,
+			kind,
+			sourceId,
+			orderId,
+			operationId,
+			manifestId,
+			zoneId);
+		return result && result.m_bAccepted;
 	}
 
 	string BuildEnemyResourceReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance)
 	{
 		if (!state || !preset || !balance)
-			return "h-istasi enemy resources | state/preset/balance not ready";
+			return "Partisan enemy resources | state/preset/balance not ready";
 
 		string report = string.Format(
-			"h-istasi enemy resources | tick %1s | timer %2s | war %3 | attack war pct %4 | support war pct %5",
+			"Partisan enemy resources | per-faction tick %1s | war %2 | attack war pct %3 | support war pct %4",
 			RESOURCE_TICK_SECONDS,
-			state.m_iEnemyResourceAccumulatorSeconds,
 			state.m_iWarLevel,
 			balance.m_iEnemyAttackIncomeWarPercent,
 			balance.m_iEnemySupportIncomeWarPercent
@@ -290,19 +557,29 @@ class HST_EnemyDirectorService
 			int supportIncome;
 			CalculateProjectedIncomeForFaction(state, balance, pool.m_sFactionKey, attackIncome, supportIncome);
 			report = report + string.Format(
-				"\n%1 | current attack %2 support %3 aggression %4 | next attack +%5 support +%6",
+				"\n%1 | current attack %2 support %3 aggression %4 | next attack +%5 support +%6 | cadence %7/%8s | revision %9",
 				pool.m_sFactionKey,
 				pool.m_iAttackResources,
 				pool.m_iSupportResources,
 				pool.m_iAggression,
 				attackIncome,
-				supportIncome
+				supportIncome,
+				pool.m_iResourceAccumulatorSeconds,
+				pool.m_iAggressionAccumulatorSeconds,
+				pool.m_iStrategicRevision
 			);
+			report = report + string.Format(
+				" | authority %1",
+				pool.m_sStrategicAuthorityFailure.IsEmpty());
 		}
 
 		string ledgerReport = BuildEnemySupportLedgerReport(state, preset);
 		if (!ledgerReport.IsEmpty())
 			report = report + "\n" + ledgerReport;
+		if (m_EnemyStrategicResources)
+			report = report + "\n" + m_EnemyStrategicResources.BuildReport(
+				state,
+				preset);
 
 		return report;
 	}
@@ -313,26 +590,28 @@ class HST_EnemyDirectorService
 			return "";
 
 		int count;
-		string report = "h-istasi enemy support ledgers";
+		string report = "Partisan enemy support ledgers";
 		foreach (HST_EnemySupportLedgerState ledger : state.m_aEnemySupportLedgers)
 		{
 			if (!ledger || !HST_FactionRelationService.IsEnemyFaction(preset, ledger.m_sFactionKey))
 				continue;
 
-			UpdateLedgerWindows(state, ledger);
-			if (ledger.m_iAttackSpent <= 0 && ledger.m_iSupportSpent <= 0 && ledger.m_iRecentDamageScore <= 0 && ledger.m_iCooldownUntilSecond <= state.m_iElapsedSeconds && ledger.m_sLastDecisionReason.IsEmpty())
+			int effectiveAttackSpent = ResolveEffectiveAttackSpent(state, ledger);
+			int effectiveSupportSpent = ResolveEffectiveSupportSpent(state, ledger);
+			int effectiveDamage = ResolveRecentDamageScore(state, ledger);
+			if (effectiveAttackSpent <= 0 && effectiveSupportSpent <= 0 && effectiveDamage <= 0 && ledger.m_iCooldownUntilSecond <= state.m_iElapsedSeconds && ledger.m_sLastDecisionReason.IsEmpty())
 				continue;
 
 			HST_ZoneState zone = state.FindZone(ledger.m_sZoneId);
 			int maxSpend = ResolveMaxDefenseSpend(state, zone, ledger);
-			int recentDamage = ResolveRecentDamageScore(state, ledger);
+			int recentDamage = effectiveDamage;
 			int cooldownRemaining = Math.Max(0, ledger.m_iCooldownUntilSecond - state.m_iElapsedSeconds);
 			string line = string.Format(
 				"\n%1/%2 | spent %3/%4 cap %5 | damage %6 | cooldown %7s | refunds %8/%9",
 				ledger.m_sFactionKey,
 				ledger.m_sZoneId,
-				ledger.m_iAttackSpent,
-				ledger.m_iSupportSpent,
+				effectiveAttackSpent,
+				effectiveSupportSpent,
 				maxSpend,
 				recentDamage,
 				cooldownRemaining,
@@ -346,7 +625,7 @@ class HST_EnemyDirectorService
 		}
 
 		if (count <= 0)
-			return "h-istasi enemy support ledgers | none";
+			return "Partisan enemy support ledgers | none";
 
 		return report;
 	}
@@ -365,14 +644,74 @@ class HST_EnemyDirectorService
 		}
 	}
 
+	protected string ResolveMutationId(
+		HST_CampaignState state,
+		string requestedMutationId,
+		string prefix)
+	{
+		if (!requestedMutationId.IsEmpty())
+			return requestedMutationId;
+		return HST_StableIdService.NextId(state, prefix);
+	}
+
+	protected HST_FactionPoolState FindAuthoritativePool(
+		HST_CampaignState state,
+		string factionKey)
+	{
+		if (!state || factionKey.IsEmpty())
+			return null;
+		HST_FactionPoolState found;
+		int matches;
+		foreach (HST_FactionPoolState pool : state.m_aFactionPools)
+		{
+			if (!pool || pool.m_sFactionKey != factionKey)
+				continue;
+			found = pool;
+			matches++;
+		}
+		if (matches != 1 || !found || found.m_iStrategicContractVersion != 1
+			|| !found.m_sStrategicAuthorityFailure.IsEmpty())
+			return null;
+		return found;
+	}
+
+	protected int ResolveEffectiveAttackSpent(
+		HST_CampaignState state,
+		HST_EnemySupportLedgerState ledger)
+	{
+		if (!state || !ledger)
+			return 0;
+		if (state.m_iElapsedSeconds - ledger.m_iLastSpendSecond > SUPPORT_SPEND_WINDOW_SECONDS)
+			return 0;
+		return Math.Max(0, ledger.m_iAttackSpent);
+	}
+
+	protected int ResolveEffectiveSupportSpent(
+		HST_CampaignState state,
+		HST_EnemySupportLedgerState ledger)
+	{
+		if (!state || !ledger)
+			return 0;
+		if (state.m_iElapsedSeconds - ledger.m_iLastSpendSecond > SUPPORT_SPEND_WINDOW_SECONDS)
+			return 0;
+		return Math.Max(0, ledger.m_iSupportSpent);
+	}
+
 	protected HST_EnemySupportLedgerState FindOrCreateSupportLedger(HST_CampaignState state, string factionKey, string zoneId)
 	{
 		if (!state || factionKey.IsEmpty() || zoneId.IsEmpty())
 			return null;
 		zoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
 
-		HST_EnemySupportLedgerState ledger = state.FindEnemySupportLedger(factionKey, zoneId);
-		if (ledger)
+		HST_EnemySupportLedgerState ledger;
+		int ledgerCount = ResolveSupportLedgerCount(
+			state,
+			factionKey,
+			zoneId,
+			ledger);
+		if (ledgerCount > 1)
+			return null;
+		if (ledgerCount == 1)
 			return ledger;
 
 		ledger = new HST_EnemySupportLedgerState();
@@ -380,6 +719,30 @@ class HST_EnemyDirectorService
 		ledger.m_sZoneId = zoneId;
 		state.m_aEnemySupportLedgers.Insert(ledger);
 		return ledger;
+	}
+
+	protected int ResolveSupportLedgerCount(
+		HST_CampaignState state,
+		string factionKey,
+		string zoneId,
+		out HST_EnemySupportLedgerState match)
+	{
+		match = null;
+		if (!state || factionKey.IsEmpty() || zoneId.IsEmpty())
+			return 0;
+		zoneId = HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId);
+		int count;
+		foreach (HST_EnemySupportLedgerState ledger : state.m_aEnemySupportLedgers)
+		{
+			if (!ledger || ledger.m_sFactionKey != factionKey
+				|| !HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					ledger.m_sZoneId,
+					zoneId))
+				continue;
+			match = ledger;
+			count++;
+		}
+		return count;
 	}
 
 	protected void UpdateLedgerWindows(HST_CampaignState state, HST_EnemySupportLedgerState ledger)

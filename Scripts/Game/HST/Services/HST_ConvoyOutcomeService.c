@@ -616,7 +616,7 @@ class HST_ConvoyOutcomeService
 			return;
 
 		mission.m_sConvoyOutcomeSummary = result;
-		Print("h-istasi convoy outcome | " + result);
+		Print("Partisan convoy outcome | " + result);
 	}
 
 	protected bool IsZeroVector(vector value)

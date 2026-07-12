@@ -1,4 +1,4 @@
-// Respawn-system backend for h-istasi's custom FIA HQ spawn path. This avoids
+// Respawn-system backend for Partisan's custom FIA HQ spawn path. This avoids
 // the stock role-selection menu while still using Reforger's native possession.
 [BaseContainerProps()]
 class HST_PlayerSpawnLogic : SCR_AutoSpawnLogic
@@ -8,7 +8,7 @@ class HST_PlayerSpawnLogic : SCR_AutoSpawnLogic
 		HST_CampaignCoordinatorComponent coordinator = HST_CampaignCoordinatorComponent.GetInstance();
 		if (!coordinator)
 		{
-			Print(string.Format("h-istasi | cannot spawn player %1: campaign coordinator is not ready", playerId), LogLevel.ERROR);
+			Print(string.Format("Partisan | cannot spawn player %1: campaign coordinator is not ready", playerId), LogLevel.ERROR);
 			return;
 		}
 
@@ -95,7 +95,7 @@ class HST_PlayerSpawnService
 			int timedOutPlayerId = m_aPendingSpawnPlayerIds[i];
 			if (IsSetupHoldingPlayer(timedOutPlayerId))
 				ClearSetupHoldingPlayer(timedOutPlayerId);
-			Print(string.Format("h-istasi | FIA spawn request for player %1 timed out; allowing retry", timedOutPlayerId), LogLevel.WARNING);
+			Print(string.Format("Partisan | FIA spawn request for player %1 timed out; allowing retry", timedOutPlayerId), LogLevel.WARNING);
 			RemovePendingSpawnAt(i);
 		}
 
@@ -111,7 +111,7 @@ class HST_PlayerSpawnService
 		if (!playerManager)
 		{
 			if (diagnostics)
-				Print("h-istasi | FIA spawn sweep: no PlayerManager yet");
+				Print("Partisan | FIA spawn sweep: no PlayerManager yet");
 
 			return 0;
 		}
@@ -119,7 +119,7 @@ class HST_PlayerSpawnService
 		array<int> playerIds = {};
 		playerManager.GetPlayers(playerIds);
 		if (diagnostics)
-			Print(string.Format("h-istasi | FIA spawn sweep: %1 connected player(s)", playerIds.Count()));
+			Print(string.Format("Partisan | FIA spawn sweep: %1 connected player(s)", playerIds.Count()));
 
 		if (state && state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
@@ -149,7 +149,7 @@ class HST_PlayerSpawnService
 			if (HasPendingSpawn(playerId))
 			{
 				if (diagnostics)
-					Print(string.Format("h-istasi | FIA spawn sweep: player %1 already has a pending spawn request", playerId));
+					Print(string.Format("Partisan | FIA spawn sweep: player %1 already has a pending spawn request", playerId));
 
 				continue;
 			}
@@ -201,7 +201,7 @@ class HST_PlayerSpawnService
 			{
 				registered++;
 				if (diagnostics)
-					Print(string.Format("h-istasi | setup registered connected player %1 as %2", playerId, player.m_sIdentityId));
+					Print(string.Format("Partisan | setup registered connected player %1 as %2", playerId, player.m_sIdentityId));
 			}
 
 			IEntity playerEntity = GetBestPlayerEntity(playerManager, playerId);
@@ -259,7 +259,7 @@ class HST_PlayerSpawnService
 			{
 				registered++;
 				if (diagnostics)
-					Print(string.Format("h-istasi | setup registered connected player %1 as %2", playerId, player.m_sIdentityId));
+					Print(string.Format("Partisan | setup registered connected player %1 as %2", playerId, player.m_sIdentityId));
 			}
 		}
 
@@ -276,7 +276,7 @@ class HST_PlayerSpawnService
 		if (!Replication.IsServer() || !state || !authorization || !lifecycle || playerId <= 0)
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | cannot spawn player %1: invalid spawn context", playerId), LogLevel.WARNING);
+				Print(string.Format("Partisan | cannot spawn player %1: invalid spawn context", playerId), LogLevel.WARNING);
 
 			return false;
 		}
@@ -285,7 +285,7 @@ class HST_PlayerSpawnService
 		if (!playerManager || !playerManager.IsPlayerConnected(playerId))
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | cannot spawn player %1: player manager missing or player not connected", playerId), LogLevel.WARNING);
+				Print(string.Format("Partisan | cannot spawn player %1: player manager missing or player not connected", playerId), LogLevel.WARNING);
 
 			return false;
 		}
@@ -297,7 +297,7 @@ class HST_PlayerSpawnService
 		if (!player)
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | cannot spawn player %1: registration failed", playerId), LogLevel.WARNING);
+				Print(string.Format("Partisan | cannot spawn player %1: registration failed", playerId), LogLevel.WARNING);
 
 			return false;
 		}
@@ -305,7 +305,7 @@ class HST_PlayerSpawnService
 		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | setup requesting non-gameplay bootstrap spawn for player %1", playerId));
+				Print(string.Format("Partisan | setup requesting non-gameplay bootstrap spawn for player %1", playerId));
 
 			return RequestSetupHoldingSpawn(state, authorization, lifecycle, playerId, diagnostics);
 		}
@@ -334,7 +334,7 @@ class HST_PlayerSpawnService
 		if (HasPendingSpawn(playerId))
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | FIA spawn request skipped for player %1: request already pending", playerId));
+				Print(string.Format("Partisan | FIA spawn request skipped for player %1: request already pending", playerId));
 
 			return true;
 		}
@@ -342,19 +342,19 @@ class HST_PlayerSpawnService
 		SCR_RespawnComponent respawnComponent = SCR_RespawnComponent.Cast(playerManager.GetPlayerRespawnComponent(playerId));
 		if (!respawnComponent)
 		{
-			Print(string.Format("h-istasi | cannot spawn player %1: no SCR_RespawnComponent on player controller", playerId), LogLevel.ERROR);
+			Print(string.Format("Partisan | cannot spawn player %1: no SCR_RespawnComponent on player controller", playerId), LogLevel.ERROR);
 			return false;
 		}
 
 		vector spawnPosition = GetPlayerSpawnPosition(state, playerId);
-		Print(string.Format("h-istasi | requesting FIA spawn for player %1 at HQ hideout %2", playerId, spawnPosition));
+		Print(string.Format("Partisan | requesting FIA spawn for player %1 at HQ hideout %2", playerId, spawnPosition));
 
 		SCR_FreeSpawnData spawnData = new SCR_FreeSpawnData(DEFAULT_PLAYER_PREFAB, spawnPosition, "0 0 0");
 		SetPendingSpawn(playerId, DEFAULT_PLAYER_PREFAB, spawnPosition);
 		if (!respawnComponent.RequestSpawn(spawnData))
 		{
 			ClearPendingSpawn(playerId);
-			Print(string.Format("h-istasi | native FIA spawn request rejected for player %1", playerId), LogLevel.ERROR);
+			Print(string.Format("Partisan | native FIA spawn request rejected for player %1", playerId), LogLevel.ERROR);
 			return false;
 		}
 
@@ -389,7 +389,7 @@ class HST_PlayerSpawnService
 			ClearDeadRespawn(playerId);
 			ResetConnectedPlayerGraceLog(playerId);
 			SCR_RespawnSystemComponent.CloseRespawnMenu();
-			Print(string.Format("h-istasi | setup bootstrap entity spawned for player %1; gameplay spawn remains blocked until HQ is placed", playerId));
+			Print(string.Format("Partisan | setup bootstrap entity spawned for player %1; gameplay spawn remains blocked until HQ is placed", playerId));
 			return true;
 		}
 
@@ -405,7 +405,7 @@ class HST_PlayerSpawnService
 		ClearDeadRespawn(playerId);
 		ResetConnectedPlayerGraceLog(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
-		Print(string.Format("h-istasi | FIA player %1 spawned through native respawn pipeline", playerId));
+		Print(string.Format("Partisan | FIA player %1 spawned through native respawn pipeline", playerId));
 		return true;
 	}
 
@@ -416,7 +416,7 @@ class HST_PlayerSpawnService
 
 		ClearPendingSpawn(playerId);
 		ClearDeadRespawn(playerId);
-		Print(string.Format("h-istasi | FIA spawn failed for player %1; pending request cleared", playerId), LogLevel.WARNING);
+		Print(string.Format("Partisan | FIA spawn failed for player %1; pending request cleared", playerId), LogLevel.WARNING);
 	}
 
 	bool HasPendingSpawn(int playerId)
@@ -499,7 +499,7 @@ class HST_PlayerSpawnService
 		SCR_RespawnComponent respawnComponent = SCR_RespawnComponent.Cast(playerManager.GetPlayerRespawnComponent(playerId));
 		if (!respawnComponent)
 		{
-			Print(string.Format("h-istasi | cannot create setup bootstrap spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
+			Print(string.Format("Partisan | cannot create setup bootstrap spawn for player %1: no SCR_RespawnComponent", playerId), LogLevel.ERROR);
 			return false;
 		}
 
@@ -511,14 +511,14 @@ class HST_PlayerSpawnService
 		{
 			ClearPendingSpawn(playerId);
 			ClearSetupHoldingPlayer(playerId);
-			Print(string.Format("h-istasi | native setup bootstrap spawn request rejected for player %1", playerId), LogLevel.ERROR);
+			Print(string.Format("Partisan | native setup bootstrap spawn request rejected for player %1", playerId), LogLevel.ERROR);
 			return false;
 		}
 
 		ClearDeadRespawn(playerId);
 		SCR_RespawnSystemComponent.CloseRespawnMenu();
 		if (diagnostics)
-			Print(string.Format("h-istasi | setup bootstrap spawn requested for player %1 at %2", playerId, spawnPosition));
+			Print(string.Format("Partisan | setup bootstrap spawn requested for player %1 at %2", playerId, spawnPosition));
 
 		return true;
 	}
@@ -541,7 +541,7 @@ class HST_PlayerSpawnService
 		if (!playerController)
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | spawn request delayed for player %1: player controller not ready", playerId));
+				Print(string.Format("Partisan | spawn request delayed for player %1: player controller not ready", playerId));
 
 			return false;
 		}
@@ -607,7 +607,7 @@ class HST_PlayerSpawnService
 			movement.EnableSimulation(false);
 
 		if (diagnostics)
-			Print(string.Format("h-istasi | setup holding entity hidden and frozen for player %1", playerId));
+			Print(string.Format("Partisan | setup holding entity hidden and frozen for player %1", playerId));
 	}
 
 	protected void ClearSetupHoldingPlayer(int playerId)
@@ -626,13 +626,13 @@ class HST_PlayerSpawnService
 		if (!ChimeraCharacter.Cast(entity))
 		{
 			if (diagnostics)
-				Print(string.Format("h-istasi | setup cleanup skipped non-character entity for player %1", playerId));
+				Print(string.Format("Partisan | setup cleanup skipped non-character entity for player %1", playerId));
 
 			return;
 		}
 
 		if (diagnostics)
-			Print(string.Format("h-istasi | deleting setup player entity for player %1 before HQ spawn", playerId));
+			Print(string.Format("Partisan | deleting setup player entity for player %1 before HQ spawn", playerId));
 
 		SCR_EntityHelper.DeleteEntityAndChildren(entity);
 	}
@@ -659,7 +659,7 @@ class HST_PlayerSpawnService
 			m_aDeadRespawnPlayerIds.Insert(playerId);
 			m_aDeadRespawnAges.Insert(0);
 			m_aDeadRespawnReadyLogged.Insert(0);
-			Print(string.Format("h-istasi | player %1 detected dead; scheduling FIA respawn in %2s", playerId, DEAD_RESPAWN_DELAY_SECONDS), LogLevel.WARNING);
+			Print(string.Format("Partisan | player %1 detected dead; scheduling FIA respawn in %2s", playerId, DEAD_RESPAWN_DELAY_SECONDS), LogLevel.WARNING);
 			return false;
 		}
 
@@ -669,7 +669,7 @@ class HST_PlayerSpawnService
 		if (m_aDeadRespawnReadyLogged[index] == 0)
 		{
 			m_aDeadRespawnReadyLogged[index] = 1;
-			Print(string.Format("h-istasi | respawn delay elapsed for player %1; requesting native FIA respawn", playerId), LogLevel.WARNING);
+			Print(string.Format("Partisan | respawn delay elapsed for player %1; requesting native FIA respawn", playerId), LogLevel.WARNING);
 		}
 
 		return true;
@@ -737,7 +737,7 @@ class HST_PlayerSpawnService
 		if (diagnostics && m_aConnectedPlayerGraceLogged[index] == 0)
 		{
 			m_aConnectedPlayerGraceLogged[index] = 1;
-			Print(string.Format("h-istasi | delaying FIA spawn for player %1 until native player state settles", playerId));
+			Print(string.Format("Partisan | delaying FIA spawn for player %1 until native player state settles", playerId));
 		}
 
 		return false;
@@ -826,7 +826,7 @@ class HST_PlayerSpawnService
 			return resolvedPosition;
 
 		emergencyPosition[1] = emergencyPosition[1] + HST_WorldPositionService.CHARACTER_GROUND_OFFSET;
-		Print(string.Format("h-istasi | dry spawn resolution failed; using positive emergency spawn %1", emergencyPosition), LogLevel.WARNING);
+		Print(string.Format("Partisan | dry spawn resolution failed; using positive emergency spawn %1", emergencyPosition), LogLevel.WARNING);
 		return emergencyPosition;
 	}
 

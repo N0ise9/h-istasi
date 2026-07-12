@@ -131,6 +131,11 @@ class HST_LocalSecurityOperationProofFixtureFactory
 	{
 		HST_FactionPoolState pool = new HST_FactionPoolState();
 		pool.m_sFactionKey = factionKey;
+		if (factionKey == "USSR" || factionKey == "US")
+		{
+			pool.m_iStrategicContractVersion = HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+			pool.m_iStrategicRevision = 1;
+		}
 		pool.m_iAttackResources = 100;
 		pool.m_iSupportResources = 100;
 		pool.m_iMoney = 100;

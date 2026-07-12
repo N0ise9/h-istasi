@@ -100,7 +100,7 @@ class HST_ForceSpawnAdapterProofService
 		if (!failure.IsEmpty())
 		{
 			m_sPrerequisiteEvidence = failure;
-			return "h-istasi campaign debug | exact spawn adapter proof blocked: " + failure;
+			return "Partisan campaign debug | exact spawn adapter proof blocked: " + failure;
 		}
 
 		BuildFixtureIds(debugPrefix);
@@ -117,7 +117,7 @@ class HST_ForceSpawnAdapterProofService
 		{
 			m_sPrerequisiteEvidence = "cancel projection enqueue failed: " + ResolveEnqueueFailure(enqueue);
 			Cleanup(state, queue, adapter, physicalWar);
-			return "h-istasi campaign debug | exact spawn adapter proof failed: " + m_sPrerequisiteEvidence;
+			return "Partisan campaign debug | exact spawn adapter proof failed: " + m_sPrerequisiteEvidence;
 		}
 
 		m_bPrerequisiteReady = true;
@@ -127,7 +127,7 @@ class HST_ForceSpawnAdapterProofService
 			isolationActive,
 			m_sManifestId,
 			m_sCancelResultId);
-		return "h-istasi campaign debug | exact spawn adapter proof queued partial-cancel projection";
+		return "Partisan campaign debug | exact spawn adapter proof queued partial-cancel projection";
 	}
 
 	string CancelPartialAndStartSuccess(
@@ -137,7 +137,7 @@ class HST_ForceSpawnAdapterProofService
 		HST_PhysicalWarService physicalWar)
 	{
 		if (!m_bStarted || !m_bPrerequisiteReady)
-			return "h-istasi campaign debug | exact spawn adapter proof is not ready";
+			return "Partisan campaign debug | exact spawn adapter proof is not ready";
 
 		CaptureRootBeforeMembers(state, adapter, physicalWar);
 		HST_ForceSpawnQueueCallbackResult cancel = queue.RequestCancel(
@@ -148,7 +148,7 @@ class HST_ForceSpawnAdapterProofService
 		if (!cancel || !cancel.m_bAccepted)
 		{
 			m_sCancelEvidence = m_sCancelEvidence + " | cancel rejected " + ResolveCallbackFailure(cancel);
-			return "h-istasi campaign debug | exact spawn adapter partial cancellation was rejected";
+			return "Partisan campaign debug | exact spawn adapter partial cancellation was rejected";
 		}
 
 		HST_ForceManifestState manifest = state.FindForceManifest(m_sManifestId);
@@ -163,10 +163,10 @@ class HST_ForceSpawnAdapterProofService
 		{
 			RemoveActiveGroupByProjection(state, m_sSuccessProjectionId);
 			m_sCancelEvidence = m_sCancelEvidence + " | success projection enqueue failed " + ResolveEnqueueFailure(enqueue);
-			return "h-istasi campaign debug | exact spawn adapter success projection enqueue failed";
+			return "Partisan campaign debug | exact spawn adapter success projection enqueue failed";
 		}
 
-		return "h-istasi campaign debug | partial projection cancelled and exact success projection queued";
+		return "Partisan campaign debug | partial projection cancelled and exact success projection queued";
 	}
 
 	string CaptureAndRetireSuccess(
@@ -176,7 +176,7 @@ class HST_ForceSpawnAdapterProofService
 		HST_PhysicalWarService physicalWar)
 	{
 		if (!m_bStarted || !m_bPrerequisiteReady)
-			return "h-istasi campaign debug | exact spawn adapter proof is not ready";
+			return "Partisan campaign debug | exact spawn adapter proof is not ready";
 
 		CaptureCancelledProjection(state, adapter, physicalWar);
 		CaptureSuccessfulProjection(state, adapter, physicalWar);
@@ -186,9 +186,9 @@ class HST_ForceSpawnAdapterProofService
 		if (!enqueueFailure.IsEmpty())
 		{
 			m_sFailureCleanupEvidence = enqueueFailure;
-			return "h-istasi campaign debug | exact spawn adapter failure-cleanup fixture could not start";
+			return "Partisan campaign debug | exact spawn adapter failure-cleanup fixture could not start";
 		}
-		return "h-istasi campaign debug | exact spawn adapter success retired and failure-cleanup fixture queued";
+		return "Partisan campaign debug | exact spawn adapter success retired and failure-cleanup fixture queued";
 	}
 
 	string CaptureSameWaveFailure(
@@ -197,10 +197,10 @@ class HST_ForceSpawnAdapterProofService
 		HST_PhysicalWarService physicalWar)
 	{
 		if (!m_bStarted || !m_bPrerequisiteReady)
-			return "h-istasi campaign debug | exact spawn adapter proof is not ready";
+			return "Partisan campaign debug | exact spawn adapter proof is not ready";
 
 		CaptureSameWaveFailurePending(state, adapter, physicalWar);
-		return "h-istasi campaign debug | exact spawn adapter same-wave member failure captured";
+		return "Partisan campaign debug | exact spawn adapter same-wave member failure captured";
 	}
 
 	HST_ForceSpawnAdapterProofReport Finish(

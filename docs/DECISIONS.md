@@ -1,4 +1,4 @@
-# h-istasi Decision Log
+# Partisan Decision Log
 
 This log records architectural decisions that constrain implementation order.
 Entries are append-only; superseded decisions should point to the replacing
@@ -655,7 +655,7 @@ Consequences:
 
 ## CRI-013 - Make Enemy-Town Police An Exact Roster Authority
 
-- Status: Accepted; source implemented, checkpoint validation pending
+- Status: Accepted; sealed in Schema 66 source/Workbench, runtime proof pending
 - Date: 2026-07-12
 
 Context: Police presence was durable political/security pressure, but the
@@ -713,7 +713,7 @@ Consequences:
 
 ## CRI-014 - Keep Projected Campaign Markers System-Owned
 
-- Status: Accepted; regression repair implemented, runtime proof pending
+- Status: Accepted; sealed in Schema 66 source/Workbench, rendered-input proof pending
 - Date: 2026-07-12
 
 Context: The Schema-61 client-local marker projection introduced at commit
@@ -742,3 +742,80 @@ Consequences:
   observe non-removability or bounded self-heal, then repeat across map reopen,
   reconnect, and late join. Source inspection and Workbench compilation do not
   close that rendered-input gate.
+
+## CRI-015 - Canonicalize Enemy Strategic Resources Before Planning Expansion
+
+- Status: Accepted; active provisional Schema 67 source contract, final stamp and runtime proof pending
+- Date: 2026-07-12
+
+Context: Enemy attack resources, support resources, and aggression already drive
+income, QRFs, patrols, pressure, and target selection, but broad-alpha mutation
+paths do not provide one durable replay boundary. Exact defensive-QRF and patrol
+operations can own their force lifecycles while still depending on direct or
+weakly correlated pool debits/refunds. Persisting target decisions before these
+inputs are canonical would freeze planning on top of ambiguous accounting and
+make restart duplication or free assets difficult to reject.
+
+Decision: Campaign Schema 67 keeps runtime settings at Schema 24 under working
+label `schema67-settings24-enemy-strategic-resource-authority` and makes one
+versioned `HST_FactionPoolState` the canonical attack-resource,
+support-resource, aggression, and resource-income/aggression-decay cadence owner
+for each configured enemy role, including persisted last-bucket checkpoints and
+a per-faction operational count. All enemy income, spend, refund, aggression,
+and live admin/debug pool adjustments enter through one server API. Each
+accepted mutation appends a bounded `HST_EnemyStrategicMutationState` receipt
+that freezes stable identity, contract/applied state, faction identity, mutation kind,
+per-faction operational sequence, signed deltas, before/after values, source,
+campaign second, and any exact order,
+operation, and accounting backlinks. Exact replay returns the retained result
+without mutation. Reusing the identity with different facts, arithmetic
+underflow or overflow, an invalid enemy role, or a broken required backlink
+fails closed and leaves every pool value unchanged.
+
+Consequences:
+
+- Occupier and invader resource/aggression histories are independent; no
+  first-enemy or shared-pool shortcut may cross roles.
+- Exact defensive-QRF and enemy-patrol order/operation shapes remain unchanged.
+  Their admission debits and terminal refunds link to canonical Schema-67
+  receipts through reciprocal order mutation IDs so replay/restart cannot
+  duplicate an order charge or refund. Current restore also validates the unique
+  defense ledger and typed town-influence/ownership-transition sources.
+- Unsupported enemy order families remain explicitly legacy/deferred. Schema 67
+  does not silently exactify their order lifecycle, reserve their forces, or
+  grant them a durable planning decision.
+- Pre-67 migration adopts each valid pool's current attack, support, aggression,
+  and valid legacy resource/aggression cadence accumulators as its baseline. It
+  initializes matching last-bucket checkpoints and a zero operational count, and
+  creates no historical receipt, spend,
+  refund, settlement, order, target decision, or planning event. Malformed
+  current authority quarantines at `-67` rather than falling back.
+- Operational receipts are lifetime replay evidence: do not compact or evict
+  them in Schema 67. Each faction retains a contiguous sequence up to 4,096
+  accepted operational rows, including zero-effect commands. Later operational
+  admission for a capped faction fails closed; the rival faction and compact
+  per-faction periodic evidence continue independently.
+- Invalid, orphaned, rejected-role, and already-quarantined receipt rows are
+  attributed and quarantined before they are removed from the canonical receipt
+  array. They are not replay evidence and cannot consume the valid operational
+  capacity of either enemy role. The affected authority still fails closed; row
+  removal is capacity isolation, not repair or acceptance.
+- A mission terminal outcome preflights its complete direct and deferred
+  strategic mutation plan against a deep-copy authority before any terminal
+  status, reward, support, capture, or cleanup publication. Ownership-change
+  aggression admission likewise precedes security/support replacement and owner
+  publication. Rejection leaves the outer transaction retryable instead of
+  publishing a partially settled mission or zone.
+- Mission terminal strategic-event IDs derive deterministically from outcome kind
+  and mission instance, so rejection/retry cannot consume the shared authority
+  sequence. Threshold-crossing mission capture uses one shared ownership-request
+  builder for read-only admission and live apply, while the matching aggression
+  command is preflighted on the clone. A non-admittable ownership request leaves
+  direct receipts, rewards, capture progress, events, and terminal mission state
+  unchanged; an admitted pending receipt remains durable retry authority.
+- Schema 67 is provisional until its final implementation identity and static/
+  Workbench evidence are stamped. Schema 66 remains the sealed source/Workbench
+  checkpoint, and all Blueprint Phase 8 runtime gates remain open.
+- Persisted per-enemy planning cadence, deterministic candidate ordering, and a
+  frozen target/source/order/cost decision fingerprint are the immediate next
+  Blueprint Phase 9 slice on top of this resource authority.

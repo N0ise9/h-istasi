@@ -13,6 +13,7 @@ class HST_OwnershipTransitionProofReport
 	bool m_bRestoreQueueOrderFailClosed;
 	bool m_bPersistenceDeadlineExact;
 	bool m_bAllCauseRoutingExact;
+	bool m_bPreOwnerAggressionAtomicityExact;
 	bool m_bExactSecurityFailClosed;
 	bool m_bMigrationRetentionExact;
 	string m_sProductionEvidence;
@@ -49,6 +50,8 @@ class HST_OwnershipTransitionProofReport
 			return false;
 		if (!m_bAllCauseRoutingExact)
 			return false;
+		if (!m_bPreOwnerAggressionAtomicityExact)
+			return false;
 		if (!m_bExactSecurityFailClosed)
 			return false;
 		if (!m_bMigrationRetentionExact)
@@ -73,13 +76,14 @@ class HST_OwnershipTransitionProofReport
 			m_bExactSecurityFailClosed,
 			m_bMigrationRetentionExact);
 		return report + string.Format(
-			" | linked-support isolation %1 | publication fence %2 | serialized retry %3 | malformed queue fail-closed %4 | persistence deadline %5 | all-cause routing %6",
+			" | linked-support isolation %1 | publication fence %2 | serialized retry %3 | malformed queue fail-closed %4 | persistence deadline %5 | all-cause routing %6 | pre-owner aggression atomicity %7",
 			m_bLinkedSupportIsolationExact,
 			m_bPublicationFenceExact,
 			m_bSerializedIntentRetryExact,
 			m_bRestoreQueueOrderFailClosed,
 			m_bPersistenceDeadlineExact,
-			m_bAllCauseRoutingExact);
+			m_bAllCauseRoutingExact,
+			m_bPreOwnerAggressionAtomicityExact);
 	}
 }
 
@@ -255,6 +259,14 @@ class HST_OwnershipTransitionProofHarness : HST_OwnershipTransitionService
 		zone.m_sActiveOwnershipTransitionRequestId = transition.m_sRequestId;
 		return transition;
 	}
+
+	string AdmitEnemyAggressionForProof(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		HST_OwnershipTransitionState transition)
+	{
+		return AdmitEnemyAggression(state, zone, transition);
+	}
 }
 
 class HST_OwnershipTransitionPersistenceProofHarness : HST_PersistenceService
@@ -309,6 +321,8 @@ class HST_OwnershipTransitionProofFixture
 	ref HST_BalanceConfig m_Balance;
 	ref HST_StrategicService m_Strategic;
 	ref HST_EconomyService m_Economy;
+	ref HST_EnemyStrategicResourceService m_EnemyStrategicResources;
+	ref HST_EnemyDirectorService m_EnemyDirector;
 	ref HST_GarrisonService m_Garrisons;
 	ref HST_CivilianService m_Civilians;
 	ref HST_TownInfluenceService m_TownInfluence;
@@ -361,16 +375,20 @@ class HST_OwnershipTransitionProofFixtureFactory
 		fixture.m_Garrisons = new HST_GarrisonService();
 		fixture.m_Civilians = new HST_CivilianService();
 		fixture.m_TownInfluence = new HST_TownInfluenceService();
+		fixture.m_EnemyStrategicResources = new HST_EnemyStrategicResourceService();
 		fixture.m_CampaignEvents = new HST_CampaignEventLogService();
 		fixture.m_ZoneCapture = new HST_OwnershipTransitionZoneCaptureProofHarness();
 		fixture.m_MapMarkers = new HST_OwnershipTransitionMapProofHarness();
 		fixture.m_Service = new HST_OwnershipTransitionProofHarness();
 
 		HST_EnemyCommanderService enemyCommander = new HST_EnemyCommanderService();
-		HST_EnemyDirectorService enemyDirector = new HST_EnemyDirectorService();
+		fixture.m_EnemyDirector = new HST_EnemyDirectorService();
 		HST_SupportRequestService supportRequests = new HST_SupportRequestService();
 		enemyCommander.SetTownInfluenceService(fixture.m_TownInfluence);
-		enemyDirector.SetTownInfluenceService(fixture.m_TownInfluence);
+		fixture.m_EnemyDirector.SetTownInfluenceService(fixture.m_TownInfluence);
+		fixture.m_EnemyDirector.SetCampaignPreset(preset);
+		fixture.m_EnemyDirector.SetEnemyStrategicResourceAuthority(
+			fixture.m_EnemyStrategicResources);
 		supportRequests.SetTownInfluenceService(fixture.m_TownInfluence);
 		HST_PhysicalWarService physicalWar = new HST_PhysicalWarService();
 		HST_LocalSecurityOperationService localSecurityPatrols = new HST_LocalSecurityOperationService();
@@ -387,7 +405,7 @@ class HST_OwnershipTransitionProofFixtureFactory
 			fixture.m_CampaignEvents);
 		fixture.m_Service.ConfigureRuntimeServices(
 			enemyCommander,
-			enemyDirector,
+			fixture.m_EnemyDirector,
 			supportRequests,
 			physicalWar,
 			localSecurityPatrols,
@@ -396,6 +414,12 @@ class HST_OwnershipTransitionProofFixtureFactory
 		fixture.m_Service.ConfigureProjectionServices(fixture.m_MapMarkers, null, fixture.m_Persistence);
 		fixture.m_TownInfluence.SetCampaignPreset(preset);
 		fixture.m_TownInfluence.SetStrategicService(fixture.m_Strategic);
+		fixture.m_TownInfluence.SetEconomyService(fixture.m_Economy);
+		fixture.m_EnemyStrategicResources.SetTownInfluenceService(
+			fixture.m_TownInfluence);
+		fixture.m_Economy.SetCampaignPreset(preset);
+		fixture.m_Economy.SetEnemyStrategicResourceAuthority(
+			fixture.m_EnemyStrategicResources);
 		fixture.m_Strategic.SetTownInfluenceService(fixture.m_TownInfluence);
 		fixture.m_TownInfluence.SetOwnershipTransitionService(fixture.m_Service);
 		fixture.m_Service.SetTownInfluenceService(fixture.m_TownInfluence);
@@ -466,6 +490,7 @@ class HST_OwnershipTransitionProofService
 		ProveMilitaryReplayRecaptureAndIdentity(report);
 		ProvePoliticalEntryPoint(report);
 		ProveAllCauseRouting(report);
+		ProvePreOwnerAggressionAdmissionAtomicity(report);
 		ProveLinkedSupportIsolation(report);
 		ProveInterruptedSaveRestore(report);
 		ProvePublicationFence(report);
@@ -475,6 +500,307 @@ class HST_OwnershipTransitionProofService
 		ProveExactSecurityFailClosed(report);
 		ProveMigrationAndRetention(report);
 		return report;
+	}
+
+	protected void ProvePreOwnerAggressionAdmissionAtomicity(
+		HST_OwnershipTransitionProofReport report)
+	{
+		HST_OwnershipTransitionProofFixture fixture
+			= m_Factory.Build("pre_owner_aggression_atomicity");
+		HST_ZoneState zone = m_Factory.AddZone(
+			fixture.m_State,
+			"ownership_proof_pre_owner_aggression",
+			fixture.m_Preset.m_sOccupierFactionKey,
+			HST_EZoneType.HST_ZONE_RESOURCE,
+			"7600 20 7600",
+			8);
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(
+			fixture.m_Preset.m_sOccupierFactionKey);
+		if (!zone || !pool)
+			return;
+		HST_GarrisonState oldSecurity = fixture.m_Garrisons.FindOrCreate(
+			fixture.m_State,
+			zone.m_sZoneId,
+			fixture.m_Preset.m_sOccupierFactionKey);
+		if (!oldSecurity)
+			return;
+		oldSecurity.m_iInfantryCount = 6;
+		oldSecurity.m_iVehicleCount = 1;
+		string oldSecurityId = oldSecurity.m_sGarrisonId;
+		int garrisonCountBefore = fixture.m_State.m_aGarrisons.Count();
+
+		string requestId = "ownership_proof_pre_owner_aggression_request";
+		string mutationId = "enemy_aggression_ownership_" + requestId;
+		int ownerRevisionBefore = zone.m_iOwnershipRevision;
+		int aggressionBefore = pool.m_iAggression;
+		int poolRevisionBefore = pool.m_iStrategicRevision;
+		int operationalCountBefore
+			= pool.m_iStrategicOperationalMutationCount;
+		int mutationCountBefore = fixture.m_State.m_aEnemyStrategicMutations.Count();
+		HST_OwnershipTransitionRequest request = fixture.m_Service.BuildRequest(
+			fixture.m_State,
+			zone.m_sZoneId,
+			fixture.m_Preset.m_sResistanceFactionKey,
+			"military_capture",
+			"source_proof",
+			"pre_owner_aggression_atomicity",
+			"resource admission must precede visible owner publication",
+			0,
+			requestId);
+		request.m_bReconcileSecurity = true;
+		request.m_bCreateSecurity = true;
+		request.m_bNotify = false;
+
+		fixture.m_Economy.SetEnemyStrategicResourceAuthority(null);
+		HST_OwnershipTransitionResult blocked = fixture.m_Service.Apply(
+			fixture.m_State,
+			request);
+		HST_OwnershipTransitionState receipt
+			= fixture.m_State.FindOwnershipTransition(requestId);
+		bool blockedExact = request.m_bReconcileSecurity
+			&& request.m_bCreateSecurity && blocked && blocked.m_bAccepted;
+		blockedExact = blockedExact && blocked.m_bNeedsRetry;
+		blockedExact = blockedExact && !blocked.m_bCompleted
+			&& blocked.m_sFailureReason.Contains("before owner publication");
+		blockedExact = blockedExact && receipt && !receipt.m_bOwnerApplied
+			&& !receipt.m_bEnemyConsequencesApplied
+			&& receipt.m_iAggressionApplied == 0;
+		blockedExact = blockedExact && !receipt.m_bOldSecurityRetired
+			&& !receipt.m_bHostileRuntimeRetired
+			&& !receipt.m_bNewSecurityApplied && !receipt.m_bSupportApplied;
+		blockedExact = blockedExact
+			&& zone.m_sOwnerFactionKey == fixture.m_Preset.m_sOccupierFactionKey
+			&& zone.m_iOwnershipRevision == ownerRevisionBefore
+			&& zone.m_sActiveOwnershipTransitionRequestId == requestId;
+		blockedExact = blockedExact
+			&& fixture.m_State.m_aGarrisons.Count() == garrisonCountBefore
+			&& oldSecurity.m_iInfantryCount == 6
+			&& oldSecurity.m_iVehicleCount == 1
+			&& !fixture.m_State.FindGarrison(
+				zone.m_sZoneId,
+				fixture.m_Preset.m_sResistanceFactionKey);
+		blockedExact = blockedExact && pool.m_iAggression == aggressionBefore
+			&& pool.m_iStrategicRevision == poolRevisionBefore
+			&& pool.m_iStrategicOperationalMutationCount == operationalCountBefore;
+		blockedExact = blockedExact
+			&& fixture.m_State.m_aEnemyStrategicMutations.Count() == mutationCountBefore
+			&& !fixture.m_State.FindEnemyStrategicMutation(mutationId);
+
+		HST_CampaignSaveData pendingSave = new HST_CampaignSaveData();
+		pendingSave.Capture(fixture.m_State);
+		HST_OwnershipTransitionSaveValidationService ownershipValidator
+			= new HST_OwnershipTransitionSaveValidationService();
+		ownershipValidator.Normalize(
+			pendingSave,
+			HST_OwnershipTransitionService.SCHEMA_VERSION);
+		HST_EnemyStrategicResourceSaveValidationService resourceValidator
+			= new HST_EnemyStrategicResourceSaveValidationService();
+		resourceValidator.Normalize(
+			pendingSave,
+			HST_EnemyStrategicResourceSaveValidationService.SCHEMA_VERSION);
+		HST_CampaignState resumedState = pendingSave.Restore();
+		fixture = m_Factory.Configure(
+			resumedState,
+			fixture.m_Preset,
+			fixture.m_Balance);
+		zone = fixture.m_State.FindZone(
+			"ownership_proof_pre_owner_aggression");
+		pool = fixture.m_State.FindFactionPool(
+			fixture.m_Preset.m_sOccupierFactionKey);
+		receipt = fixture.m_State.FindOwnershipTransition(requestId);
+		oldSecurity = fixture.m_State.FindGarrison(
+			"ownership_proof_pre_owner_aggression",
+			fixture.m_Preset.m_sOccupierFactionKey);
+		bool resumeExact = zone && pool && receipt;
+		resumeExact = resumeExact && !receipt.m_bQuarantined
+			&& !receipt.m_bOwnerApplied;
+		resumeExact = resumeExact && !receipt.m_bEnemyConsequencesApplied
+			&& receipt.m_iAggressionApplied == 0;
+		resumeExact = resumeExact
+			&& zone.m_sOwnerFactionKey == fixture.m_Preset.m_sOccupierFactionKey
+			&& zone.m_iOwnershipRevision == ownerRevisionBefore;
+		resumeExact = resumeExact
+			&& zone.m_sActiveOwnershipTransitionRequestId == requestId;
+		resumeExact = resumeExact && pool.m_iAggression == aggressionBefore
+			&& pool.m_iStrategicRevision == poolRevisionBefore;
+		resumeExact = resumeExact
+			&& pool.m_iStrategicOperationalMutationCount == operationalCountBefore;
+		resumeExact = resumeExact
+			&& fixture.m_State.m_aEnemyStrategicMutations.Count() == mutationCountBefore
+			&& !fixture.m_State.FindEnemyStrategicMutation(mutationId);
+		resumeExact = resumeExact && oldSecurity
+			&& oldSecurity.m_sGarrisonId == oldSecurityId;
+		resumeExact = resumeExact && oldSecurity.m_iInfantryCount == 6
+			&& oldSecurity.m_iVehicleCount == 1;
+		if (!resumeExact)
+		{
+			report.m_sAuthorityEvidence
+				= report.m_sAuthorityEvidence
+				+ " | pre-owner aggression pending restore failed";
+			return;
+		}
+		string pendingAdmissionFailure
+			= fixture.m_Service.AdmitEnemyAggressionForProof(
+				fixture.m_State,
+				zone,
+				receipt);
+		HST_EnemyStrategicMutationState mutation
+			= fixture.m_State.FindEnemyStrategicMutation(mutationId);
+		int aggressionAfterAdmission = pool.m_iAggression;
+		bool pendingAdmissionExact = pendingAdmissionFailure.IsEmpty()
+			&& mutation && receipt.m_iAggressionApplied > 0;
+		pendingAdmissionExact = pendingAdmissionExact && !receipt.m_bOwnerApplied
+			&& !receipt.m_bOldSecurityRetired;
+		pendingAdmissionExact = pendingAdmissionExact
+			&& !receipt.m_bHostileRuntimeRetired
+			&& !receipt.m_bNewSecurityApplied;
+		pendingAdmissionExact = pendingAdmissionExact && !receipt.m_bSupportApplied
+			&& !receipt.m_bEnemyConsequencesApplied;
+		pendingAdmissionExact = pendingAdmissionExact
+			&& aggressionAfterAdmission == aggressionBefore + receipt.m_iAggressionApplied;
+		pendingAdmissionExact = pendingAdmissionExact
+			&& fixture.m_State.m_aEnemyStrategicMutations.Count() == mutationCountBefore + 1;
+		HST_CampaignSaveData admittedSave = new HST_CampaignSaveData();
+		admittedSave.Capture(fixture.m_State);
+		ownershipValidator.Normalize(
+			admittedSave,
+			HST_OwnershipTransitionService.SCHEMA_VERSION);
+		resourceValidator.Normalize(
+			admittedSave,
+			HST_EnemyStrategicResourceSaveValidationService.SCHEMA_VERSION);
+		resumedState = admittedSave.Restore();
+		fixture = m_Factory.Configure(
+			resumedState,
+			fixture.m_Preset,
+			fixture.m_Balance);
+		zone = fixture.m_State.FindZone(
+			"ownership_proof_pre_owner_aggression");
+		pool = fixture.m_State.FindFactionPool(
+			fixture.m_Preset.m_sOccupierFactionKey);
+		receipt = fixture.m_State.FindOwnershipTransition(requestId);
+		oldSecurity = fixture.m_State.FindGarrison(
+			"ownership_proof_pre_owner_aggression",
+			fixture.m_Preset.m_sOccupierFactionKey);
+		mutation = fixture.m_State.FindEnemyStrategicMutation(mutationId);
+		bool admittedRestoreExact = zone && pool && receipt && oldSecurity;
+		admittedRestoreExact = admittedRestoreExact && mutation
+			&& !receipt.m_bQuarantined && !receipt.m_bOwnerApplied;
+		admittedRestoreExact = admittedRestoreExact
+			&& !receipt.m_bOldSecurityRetired
+			&& !receipt.m_bHostileRuntimeRetired;
+		admittedRestoreExact = admittedRestoreExact
+			&& !receipt.m_bNewSecurityApplied && !receipt.m_bSupportApplied;
+		admittedRestoreExact = admittedRestoreExact
+			&& !receipt.m_bEnemyConsequencesApplied;
+		admittedRestoreExact = admittedRestoreExact
+			&& receipt.m_iAggressionApplied == mutation.m_iAggressionDelta;
+		admittedRestoreExact = admittedRestoreExact
+			&& pool.m_iAggression == aggressionAfterAdmission;
+		admittedRestoreExact = admittedRestoreExact
+			&& pool.m_iStrategicContractVersion
+				== HST_EnemyStrategicResourceService.CONTRACT_VERSION;
+		admittedRestoreExact = admittedRestoreExact
+			&& oldSecurity.m_iInfantryCount == 6
+			&& oldSecurity.m_iVehicleCount == 1;
+		if (!pendingAdmissionExact || !admittedRestoreExact)
+		{
+			report.m_sAuthorityEvidence
+				= report.m_sAuthorityEvidence
+				+ " | admitted pre-owner aggression restore failed";
+			return;
+		}
+
+		HST_OwnershipTransitionResult retry = fixture.m_Service.Apply(
+			fixture.m_State,
+			fixture.m_Service.BuildReplayRequestForProof(receipt));
+		mutation = fixture.m_State.FindEnemyStrategicMutation(mutationId);
+		int mutationCountAfterRetry
+			= fixture.m_State.m_aEnemyStrategicMutations.Count();
+		int aggressionAfterRetry = pool.m_iAggression;
+		HST_GarrisonState newSecurity = fixture.m_State.FindGarrison(
+			zone.m_sZoneId,
+			fixture.m_Preset.m_sResistanceFactionKey);
+		bool retryExact = retry && retry.m_bAccepted && retry.m_bCompleted;
+		retryExact = retryExact && !retry.m_bNeedsRetry
+			&& receipt.m_bOwnerApplied && receipt.m_bEnemyConsequencesApplied
+			&& receipt.m_iAggressionApplied > 0;
+		retryExact = retryExact
+			&& zone.m_sOwnerFactionKey == fixture.m_Preset.m_sResistanceFactionKey
+			&& zone.m_iOwnershipRevision == ownerRevisionBefore + 1;
+		retryExact = retryExact && receipt.m_bOldSecurityRetired
+			&& receipt.m_bHostileRuntimeRetired
+			&& receipt.m_bNewSecurityApplied && receipt.m_bSupportApplied;
+		retryExact = retryExact && oldSecurity.m_iInfantryCount == 0
+			&& oldSecurity.m_iVehicleCount == 0 && newSecurity
+			&& newSecurity.m_iInfantryCount == 2
+			&& receipt.m_sOldGarrisonId == oldSecurityId
+			&& receipt.m_sNewGarrisonId == newSecurity.m_sGarrisonId;
+		retryExact = retryExact && mutation
+			&& mutation.m_sFactionKey == receipt.m_sPreviousOwnerFactionKey
+			&& mutation.m_sKind == "ownership_transition";
+		retryExact = retryExact && mutation.m_sSourceId == requestId
+			&& mutation.m_sZoneId == zone.m_sZoneId
+			&& mutation.m_iAggressionDelta == receipt.m_iAggressionApplied;
+		retryExact = retryExact
+			&& aggressionAfterRetry == aggressionBefore + receipt.m_iAggressionApplied
+			&& pool.m_iStrategicOperationalMutationCount == operationalCountBefore + 1
+			&& mutationCountAfterRetry == mutationCountBefore + 1;
+
+		HST_OwnershipTransitionResult replay = fixture.m_Service.Apply(
+			fixture.m_State,
+			fixture.m_Service.BuildReplayRequestForProof(receipt));
+		bool replayExact = replay && replay.m_bAccepted
+			&& replay.m_bAlreadyApplied && replay.m_bCompleted
+			&& fixture.m_State.m_aEnemyStrategicMutations.Count()
+				== mutationCountAfterRetry
+			&& pool.m_iAggression == aggressionAfterRetry
+			&& pool.m_iStrategicOperationalMutationCount
+				== operationalCountBefore + 1;
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		ownershipValidator.Normalize(
+			saveData,
+			HST_OwnershipTransitionService.SCHEMA_VERSION);
+		resourceValidator.Normalize(
+			saveData,
+			HST_EnemyStrategicResourceSaveValidationService.SCHEMA_VERSION);
+		HST_CampaignState restoredState = saveData.Restore();
+		HST_OwnershipTransitionState restoredReceipt
+			= restoredState.FindOwnershipTransition(requestId);
+		HST_EnemyStrategicMutationState restoredMutation
+			= restoredState.FindEnemyStrategicMutation(mutationId);
+		HST_FactionPoolState restoredPool = restoredState.FindFactionPool(
+			fixture.m_Preset.m_sOccupierFactionKey);
+		bool backlinkExact = restoredReceipt && restoredMutation && restoredPool
+			&& !restoredReceipt.m_bQuarantined
+			&& restoredReceipt.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& restoredMutation.m_iContractVersion
+				== HST_EnemyStrategicResourceService.CONTRACT_VERSION
+			&& restoredMutation.m_sSourceId == restoredReceipt.m_sRequestId
+			&& restoredMutation.m_sFactionKey
+				== restoredReceipt.m_sPreviousOwnerFactionKey
+			&& restoredMutation.m_sZoneId == restoredReceipt.m_sZoneId
+			&& restoredMutation.m_iAggressionDelta
+				== restoredReceipt.m_iAggressionApplied
+			&& restoredPool.m_iStrategicOperationalMutationCount
+				== operationalCountBefore + 1
+			&& restoredPool.m_sStrategicAuthorityFailure.IsEmpty();
+
+		report.m_bPreOwnerAggressionAtomicityExact
+			= blockedExact && resumeExact && pendingAdmissionExact
+				&& admittedRestoreExact && retryExact && replayExact
+				&& backlinkExact;
+		report.m_sAuthorityEvidence = report.m_sAuthorityEvidence + string.Format(
+			" | pre-owner aggression blocked %1 resume %2 pending/restore %3/%4 retry %5 replay %6 backlink %7",
+			blockedExact,
+			resumeExact,
+			pendingAdmissionExact,
+			admittedRestoreExact,
+			retryExact,
+			replayExact,
+			backlinkExact);
 	}
 
 	protected void ProveAllCauseRouting(HST_OwnershipTransitionProofReport report)
