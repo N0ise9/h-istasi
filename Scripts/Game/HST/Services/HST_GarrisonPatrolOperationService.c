@@ -657,6 +657,232 @@ class HST_GarrisonPatrolOperationService
 		return changed;
 	}
 
+	bool ReconcileZoneOwnershipChange(
+		HST_CampaignState state,
+		string zoneId,
+		string newOwnerFactionKey,
+		out bool stateChanged,
+		out string failureReason)
+	{
+		stateChanged = false;
+		failureReason = "";
+		if (!state || zoneId.IsEmpty() || newOwnerFactionKey.IsEmpty())
+		{
+			failureReason = "zone ownership reconciliation requires state, zone, and new owner";
+			return false;
+		}
+
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation
+				|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				|| operation.m_sAssignmentZoneId != zoneId
+				|| operation.m_sOwnerFactionKey == newOwnerFactionKey)
+				continue;
+			if (operation.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
+			{
+				failureReason = "quarantined exact garrison patrol blocks ownership settlement";
+				return false;
+			}
+			if (operation.m_iContractVersion != EXACT_CONTRACT_VERSION)
+			{
+				failureReason = "unsupported garrison patrol authority blocks ownership settlement";
+				return false;
+			}
+			if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			{
+				stateChanged = FinalizeSettledRuntime(state, operation) || stateChanged;
+				continue;
+			}
+
+			HST_ForceQuoteState quote;
+			HST_ForceManifestState manifest;
+			HST_GarrisonState garrison;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			HST_GeneratedRouteState route;
+			string contextFailure = ResolveRuntimeContext(
+				state,
+				operation,
+				quote,
+				manifest,
+				garrison,
+				batch,
+				group,
+				route);
+			if (!contextFailure.IsEmpty())
+			{
+				failureReason = "garrison patrol ownership settlement failed: " + contextFailure;
+				return false;
+			}
+			if (!RetireAndSettle(
+					state,
+					operation,
+					quote,
+					manifest,
+					batch,
+					group,
+					HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED,
+					"owner_changed",
+					"garrison patrol assignment ended by canonical ownership transition"))
+			{
+				failureReason = "garrison patrol ownership settlement did not complete";
+				return false;
+			}
+			stateChanged = true;
+		}
+
+		return true;
+	}
+
+	bool ValidateAcceptedManifestOwnershipAuthority(
+		HST_CampaignState state,
+		HST_GarrisonState garrison,
+		HST_ForceManifestState manifest,
+		out string failureReason)
+	{
+		failureReason = "";
+		if (!state || !garrison || !manifest)
+		{
+			failureReason = "accepted exact garrison patrol authority is incomplete";
+			return false;
+		}
+		if (manifest.m_sPolicyId != EXACT_POLICY_ID)
+		{
+			failureReason = "accepted garrison manifest is not exact patrol authority";
+			return false;
+		}
+		if (manifest.m_sManifestId.IsEmpty() || manifest.m_sOperationId.IsEmpty())
+		{
+			failureReason = "accepted exact garrison patrol manifest lacks reciprocal operation identity";
+			return false;
+		}
+		if (manifest.m_sTargetZoneId != garrison.m_sZoneId
+			|| manifest.m_sFactionKey != garrison.m_sFactionKey)
+		{
+			failureReason = "accepted exact garrison patrol manifest conflicts with its garrison authority";
+			return false;
+		}
+
+		int backlinkCount;
+		foreach (string acceptedManifestId : garrison.m_aAcceptedManifestIds)
+		{
+			if (acceptedManifestId == manifest.m_sManifestId)
+				backlinkCount++;
+		}
+		if (backlinkCount != 1)
+		{
+			failureReason = "accepted exact garrison patrol manifest backlink is not unique";
+			return false;
+		}
+
+		HST_OperationRecordState reciprocalOperation;
+		int claimantCount;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation)
+				continue;
+			bool claimsManifest = operation.m_sManifestId == manifest.m_sManifestId;
+			bool claimsOperation = operation.m_sOperationId == manifest.m_sOperationId;
+			if (!claimsManifest && !claimsOperation)
+				continue;
+			claimantCount++;
+			reciprocalOperation = operation;
+		}
+		if (claimantCount != 1 || !reciprocalOperation)
+		{
+			failureReason = "accepted exact garrison patrol manifest lacks exactly one reciprocal operation authority";
+			return false;
+		}
+		if (reciprocalOperation.m_sOperationId != manifest.m_sOperationId
+			|| reciprocalOperation.m_sManifestId != manifest.m_sManifestId)
+		{
+			failureReason = "accepted exact garrison patrol manifest/operation backlinks conflict";
+			return false;
+		}
+		if (reciprocalOperation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL)
+		{
+			failureReason = "accepted exact garrison patrol manifest is claimed by non-patrol operation authority";
+			return false;
+		}
+		if (reciprocalOperation.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
+		{
+			failureReason = "accepted exact garrison patrol operation authority is quarantined";
+			return false;
+		}
+		if (reciprocalOperation.m_iContractVersion != EXACT_CONTRACT_VERSION
+			|| reciprocalOperation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+		{
+			failureReason = "accepted exact garrison patrol operation authority is not an open current contract";
+			return false;
+		}
+		if (reciprocalOperation.m_sOwnerFactionKey != garrison.m_sFactionKey
+			|| reciprocalOperation.m_sAssignmentZoneId != garrison.m_sZoneId)
+		{
+			failureReason = "accepted exact garrison patrol operation conflicts with garrison owner or assignment";
+			return false;
+		}
+		return true;
+	}
+
+	bool CanReconcileZoneOwnershipChange(
+		HST_CampaignState state,
+		string zoneId,
+		string newOwnerFactionKey,
+		out string failureReason)
+	{
+		failureReason = "";
+		if (!state || zoneId.IsEmpty() || newOwnerFactionKey.IsEmpty())
+		{
+			failureReason = "zone ownership preflight requires state, zone, and new owner";
+			return false;
+		}
+
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!operation
+				|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
+				|| operation.m_sAssignmentZoneId != zoneId
+				|| operation.m_sOwnerFactionKey == newOwnerFactionKey)
+				continue;
+			if (operation.m_iContractVersion == QUARANTINED_CONTRACT_VERSION)
+			{
+				failureReason = "quarantined exact garrison patrol blocks ownership preflight";
+				return false;
+			}
+			if (operation.m_iContractVersion != EXACT_CONTRACT_VERSION)
+			{
+				failureReason = "unsupported garrison patrol authority blocks ownership preflight";
+				return false;
+			}
+			if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+				continue;
+
+			HST_ForceQuoteState quote;
+			HST_ForceManifestState manifest;
+			HST_GarrisonState garrison;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			HST_GeneratedRouteState route;
+			string contextFailure = ResolveRuntimeContext(
+				state,
+				operation,
+				quote,
+				manifest,
+				garrison,
+				batch,
+				group,
+				route);
+			if (!contextFailure.IsEmpty())
+			{
+				failureReason = "garrison patrol ownership preflight failed: " + contextFailure;
+				return false;
+			}
+		}
+
+		return true;
+	}
+
 	bool ReconcileAfterRestore(HST_CampaignState state)
 	{
 		if (!state || !m_SpawnQueue || !m_SpawnAdapter || !m_PhysicalWar)

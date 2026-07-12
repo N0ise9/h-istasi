@@ -82,6 +82,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
 	ref array<ref HST_ZoneState> m_aZones = {};
+	ref array<ref HST_OwnershipTransitionState> m_aOwnershipTransitions = {};
 	ref array<ref HST_RadioSiteState> m_aRadioSites = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
@@ -213,6 +214,10 @@ class HST_CampaignSaveData
 		m_aZones.Clear();
 		foreach (HST_ZoneState zone : state.m_aZones)
 			m_aZones.Insert(CopyZone(zone));
+
+		m_aOwnershipTransitions.Clear();
+		foreach (HST_OwnershipTransitionState transition : state.m_aOwnershipTransitions)
+			m_aOwnershipTransitions.Insert(CopyOwnershipTransition(transition));
 
 		m_aRadioSites.Clear();
 		foreach (HST_RadioSiteState radioSite : state.m_aRadioSites)
@@ -481,6 +486,10 @@ class HST_CampaignSaveData
 		foreach (HST_ZoneState zone : m_aZones)
 			state.m_aZones.Insert(CopyZone(zone));
 
+		state.m_aOwnershipTransitions.Clear();
+		foreach (HST_OwnershipTransitionState transition : m_aOwnershipTransitions)
+			state.m_aOwnershipTransitions.Insert(CopyOwnershipTransition(transition));
+
 		state.m_aRadioSites.Clear();
 		foreach (HST_RadioSiteState radioSite : m_aRadioSites)
 			state.m_aRadioSites.Insert(CopyRadioSite(radioSite));
@@ -668,6 +677,11 @@ class HST_CampaignSaveData
 		target.m_sMarkerTextColor = source.m_sMarkerTextColor;
 		target.m_sMarkerStyle = source.m_sMarkerStyle;
 		target.m_sOwnerFactionKey = source.m_sOwnerFactionKey;
+		target.m_iOwnershipContractVersion = source.m_iOwnershipContractVersion;
+		target.m_iOwnershipRevision = source.m_iOwnershipRevision;
+		target.m_sActiveOwnershipTransitionRequestId = source.m_sActiveOwnershipTransitionRequestId;
+		target.m_sLastOwnershipTransitionRequestId = source.m_sLastOwnershipTransitionRequestId;
+		target.m_sOwnershipAuthorityFailure = source.m_sOwnershipAuthorityFailure;
 		target.m_eType = source.m_eType;
 		target.m_vPosition = source.m_vPosition;
 		target.m_sResourceKind = source.m_sResourceKind;
@@ -702,6 +716,82 @@ class HST_CampaignSaveData
 		target.m_iVehicleCount = source.m_iVehicleCount;
 		foreach (string manifestId : source.m_aAcceptedManifestIds)
 			target.m_aAcceptedManifestIds.Insert(manifestId);
+		return target;
+	}
+
+	protected HST_OwnershipTransitionState CopyOwnershipTransition(HST_OwnershipTransitionState source)
+	{
+		if (!source)
+			return null;
+
+		HST_OwnershipTransitionState target = new HST_OwnershipTransitionState();
+		target.m_iContractVersion = source.m_iContractVersion;
+		target.m_sStatus = source.m_sStatus;
+		target.m_sRequestId = source.m_sRequestId;
+		target.m_sZoneId = source.m_sZoneId;
+		target.m_sCause = source.m_sCause;
+		target.m_sSourceType = source.m_sSourceType;
+		target.m_sSourceId = source.m_sSourceId;
+		target.m_sActorIdentityId = source.m_sActorIdentityId;
+		target.m_sReason = source.m_sReason;
+		target.m_sExpectedOwnerFactionKey = source.m_sExpectedOwnerFactionKey;
+		target.m_iExpectedRevision = source.m_iExpectedRevision;
+		target.m_sPreviousOwnerFactionKey = source.m_sPreviousOwnerFactionKey;
+		target.m_sNewOwnerFactionKey = source.m_sNewOwnerFactionKey;
+		target.m_iAppliedRevision = source.m_iAppliedRevision;
+		target.m_iSupportReward = source.m_iSupportReward;
+		target.m_bApplyEnemyConsequences = source.m_bApplyEnemyConsequences;
+		target.m_bReconcileSecurity = source.m_bReconcileSecurity;
+		target.m_bCreateSecurity = source.m_bCreateSecurity;
+		target.m_bNotify = source.m_bNotify;
+		target.m_iCreatedAtSecond = source.m_iCreatedAtSecond;
+		target.m_iLastAttemptAtSecond = source.m_iLastAttemptAtSecond;
+		target.m_iCompletedAtSecond = source.m_iCompletedAtSecond;
+		target.m_iAttemptCount = source.m_iAttemptCount;
+		target.m_sStrategicEventId = source.m_sStrategicEventId;
+		target.m_sCampaignEventId = source.m_sCampaignEventId;
+		target.m_sOldGarrisonId = source.m_sOldGarrisonId;
+		target.m_sNewGarrisonId = source.m_sNewGarrisonId;
+		target.m_sSecurityDecision = source.m_sSecurityDecision;
+		target.m_sFacilityLogisticsDecision = source.m_sFacilityLogisticsDecision;
+		target.m_sEnemyConsequenceDecision = source.m_sEnemyConsequenceDecision;
+		target.m_sEnemyOrderId = source.m_sEnemyOrderId;
+		target.m_sProjectionDecision = source.m_sProjectionDecision;
+		target.m_sProjectionParentRequestId = source.m_sProjectionParentRequestId;
+		target.m_sMarkerId = source.m_sMarkerId;
+		target.m_iMarkerProjectionEpoch = source.m_iMarkerProjectionEpoch;
+		target.m_iMarkerRevision = source.m_iMarkerRevision;
+		target.m_iMarkerStreamSequence = source.m_iMarkerStreamSequence;
+		target.m_iAggressionApplied = source.m_iAggressionApplied;
+		target.m_iCounterattackChance = source.m_iCounterattackChance;
+		target.m_iCounterattackRoll = source.m_iCounterattackRoll;
+		target.m_bCounterattackSelected = source.m_bCounterattackSelected;
+		target.m_bCounterattackQueued = source.m_bCounterattackQueued;
+		foreach (string supportZoneId : source.m_aSupportZoneIds)
+			target.m_aSupportZoneIds.Insert(supportZoneId);
+		foreach (string appliedSupportZoneId : source.m_aAppliedSupportZoneIds)
+			target.m_aAppliedSupportZoneIds.Insert(appliedSupportZoneId);
+		target.m_bValidated = source.m_bValidated;
+		target.m_bOwnerApplied = source.m_bOwnerApplied;
+		target.m_bTownPolicyApplied = source.m_bTownPolicyApplied;
+		target.m_bOldSecurityRetired = source.m_bOldSecurityRetired;
+		target.m_bHostileRuntimeRetired = source.m_bHostileRuntimeRetired;
+		target.m_bNewSecurityApplied = source.m_bNewSecurityApplied;
+		target.m_bSupportApplied = source.m_bSupportApplied;
+		target.m_bFacilitiesApplied = source.m_bFacilitiesApplied;
+		target.m_bLogisticsApplied = source.m_bLogisticsApplied;
+		target.m_bEconomyApplied = source.m_bEconomyApplied;
+		target.m_bEnemyConsequencesApplied = source.m_bEnemyConsequencesApplied;
+		target.m_bStrategicEventCompleted = source.m_bStrategicEventCompleted;
+		target.m_bEventAppended = source.m_bEventAppended;
+		target.m_bNotificationApplied = source.m_bNotificationApplied;
+		target.m_bProjectionRequested = source.m_bProjectionRequested;
+		target.m_bDeferredPublicationReleased = source.m_bDeferredPublicationReleased;
+		target.m_bSetupProjectionWithoutMarkers = source.m_bSetupProjectionWithoutMarkers;
+		target.m_bPersistenceRequested = source.m_bPersistenceRequested;
+		target.m_bCompleted = source.m_bCompleted;
+		target.m_bQuarantined = source.m_bQuarantined;
+		target.m_sFailureReason = source.m_sFailureReason;
 		return target;
 	}
 
@@ -918,6 +1008,7 @@ class HST_CampaignSaveData
 		target.m_bVisible = source.m_bVisible;
 		target.m_bRuntimeNative = source.m_bRuntimeNative;
 		target.m_iRevision = source.m_iRevision;
+		target.m_iSourceRevision = source.m_iSourceRevision;
 		target.m_iStreamSequence = source.m_iStreamSequence;
 		target.m_bTombstone = source.m_bTombstone;
 		target.m_iTombstonedAtSecond = source.m_iTombstonedAtSecond;
@@ -2590,6 +2681,8 @@ class HST_CampaignSaveData
 		NormalizeSchema50LocationTaxonomy(restoredSchemaVersion);
 		HST_MaidensBayLocationSaveValidationService schema60MaidensBayLocationValidation = new HST_MaidensBayLocationSaveValidationService();
 		schema60MaidensBayLocationValidation.Normalize(this, restoredSchemaVersion);
+		HST_OwnershipTransitionSaveValidationService schema62OwnershipTransitionValidation = new HST_OwnershipTransitionSaveValidationService();
+		schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion);
 		HST_MarkerProjectionSaveValidationService schema61MarkerProjectionValidation = new HST_MarkerProjectionSaveValidationService();
 		schema61MarkerProjectionValidation.Normalize(this, restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)

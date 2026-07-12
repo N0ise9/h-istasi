@@ -47,7 +47,7 @@ class HST_MarkerProjectionDispatch
 
 class HST_MarkerProjectionCodec
 {
-	static const int PROTOCOL_VERSION = 1;
+	static const int PROTOCOL_VERSION = 2;
 	static const int MAX_PACKET_CHARACTERS = 12000;
 	static const int MAX_RECORDS_PER_PACKET = 32;
 	static const int MAX_SNAPSHOT_CHUNKS = 64;
@@ -77,6 +77,7 @@ class HST_MarkerProjectionCodec
 		target.m_bVisible = source.m_bVisible;
 		target.m_bRuntimeNative = source.m_bRuntimeNative;
 		target.m_iRevision = source.m_iRevision;
+		target.m_iSourceRevision = source.m_iSourceRevision;
 		target.m_iStreamSequence = source.m_iStreamSequence;
 		target.m_bTombstone = source.m_bTombstone;
 		target.m_iTombstonedAtSecond = source.m_iTombstonedAtSecond;
@@ -102,7 +103,8 @@ class HST_MarkerProjectionCodec
 			return false;
 		if (left.m_bVisible != right.m_bVisible || left.m_bRuntimeNative != right.m_bRuntimeNative)
 			return false;
-		return left.m_bTombstone == right.m_bTombstone;
+		return left.m_bTombstone == right.m_bTombstone
+			&& left.m_iSourceRevision == right.m_iSourceRevision;
 	}
 
 	static bool TransportEquals(HST_MapMarkerState left, HST_MapMarkerState right)
@@ -124,7 +126,7 @@ class HST_MarkerProjectionCodec
 		signature = signature + "|" + EncodeField(marker.m_sIconHint) + "|" + EncodeField(marker.m_sColorHint);
 		signature = signature + "|" + EncodeField(marker.m_sTextColorHint) + "|" + EncodeField(marker.m_sStyleHint);
 		signature = signature + string.Format("|%1|%2|%3", marker.m_vPosition[0], marker.m_vPosition[1], marker.m_vPosition[2]);
-		signature = signature + string.Format("|%1|%2|%3|%4", marker.m_bVisible, marker.m_bRuntimeNative, marker.m_iRevision, marker.m_bTombstone);
+		signature = signature + string.Format("|%1|%2|%3|%4|%5", marker.m_bVisible, marker.m_bRuntimeNative, marker.m_iRevision, marker.m_iSourceRevision, marker.m_bTombstone);
 		return signature;
 	}
 
@@ -156,7 +158,7 @@ class HST_MarkerProjectionCodec
 		if (!marker)
 			return "";
 
-		string line = string.Format("M|%1|%2|%3|%4", marker.m_iStreamSequence, marker.m_iRevision, BoolValue(marker.m_bTombstone), marker.m_iTombstonedAtSecond);
+		string line = string.Format("M|%1|%2|%3|%4|%5", marker.m_iStreamSequence, marker.m_iRevision, marker.m_iSourceRevision, BoolValue(marker.m_bTombstone), marker.m_iTombstonedAtSecond);
 		line = line + "|" + EncodeField(marker.m_sMarkerId) + "|" + EncodeField(marker.m_sLinkedId);
 		line = line + "|" + EncodeField(marker.m_sLabel) + "|" + EncodeField(marker.m_sCallsign);
 		line = line + "|" + EncodeField(marker.m_sCategory) + "|" + EncodeField(marker.m_sOwnerFactionKey);
@@ -170,39 +172,41 @@ class HST_MarkerProjectionCodec
 	{
 		array<string> fields = {};
 		line.Split("|", fields, false);
-		if (fields.Count() != 20 || fields[0] != RECORD_HEADER)
+		if (fields.Count() != 21 || fields[0] != RECORD_HEADER)
 			return null;
 		if (!IsStrictInteger(fields[1], false)
 			|| !IsStrictInteger(fields[2], false)
-			|| !IsStrictBoolean(fields[3])
-			|| !IsStrictInteger(fields[4], false)
-			|| !IsStrictFloat(fields[15])
+			|| !IsStrictInteger(fields[3], false)
+			|| !IsStrictBoolean(fields[4])
+			|| !IsStrictInteger(fields[5], false)
 			|| !IsStrictFloat(fields[16])
 			|| !IsStrictFloat(fields[17])
-			|| !IsStrictBoolean(fields[18])
-			|| !IsStrictBoolean(fields[19]))
+			|| !IsStrictFloat(fields[18])
+			|| !IsStrictBoolean(fields[19])
+			|| !IsStrictBoolean(fields[20]))
 			return null;
 
 		HST_MapMarkerState marker = new HST_MapMarkerState();
 		marker.m_iStreamSequence = fields[1].ToInt();
 		marker.m_iRevision = fields[2].ToInt();
-		marker.m_bTombstone = ParseBool(fields[3]);
-		marker.m_iTombstonedAtSecond = fields[4].ToInt();
-		marker.m_sMarkerId = DecodeField(fields[5]);
-		marker.m_sLinkedId = DecodeField(fields[6]);
-		marker.m_sLabel = DecodeField(fields[7]);
-		marker.m_sCallsign = DecodeField(fields[8]);
-		marker.m_sCategory = DecodeField(fields[9]);
-		marker.m_sOwnerFactionKey = DecodeField(fields[10]);
-		marker.m_sIconHint = DecodeField(fields[11]);
-		marker.m_sColorHint = DecodeField(fields[12]);
-		marker.m_sTextColorHint = DecodeField(fields[13]);
-		marker.m_sStyleHint = DecodeField(fields[14]);
-		marker.m_vPosition[0] = fields[15].ToFloat();
-		marker.m_vPosition[1] = fields[16].ToFloat();
-		marker.m_vPosition[2] = fields[17].ToFloat();
-		marker.m_bVisible = ParseBool(fields[18]);
-		marker.m_bRuntimeNative = ParseBool(fields[19]);
+		marker.m_iSourceRevision = fields[3].ToInt();
+		marker.m_bTombstone = ParseBool(fields[4]);
+		marker.m_iTombstonedAtSecond = fields[5].ToInt();
+		marker.m_sMarkerId = DecodeField(fields[6]);
+		marker.m_sLinkedId = DecodeField(fields[7]);
+		marker.m_sLabel = DecodeField(fields[8]);
+		marker.m_sCallsign = DecodeField(fields[9]);
+		marker.m_sCategory = DecodeField(fields[10]);
+		marker.m_sOwnerFactionKey = DecodeField(fields[11]);
+		marker.m_sIconHint = DecodeField(fields[12]);
+		marker.m_sColorHint = DecodeField(fields[13]);
+		marker.m_sTextColorHint = DecodeField(fields[14]);
+		marker.m_sStyleHint = DecodeField(fields[15]);
+		marker.m_vPosition[0] = fields[16].ToFloat();
+		marker.m_vPosition[1] = fields[17].ToFloat();
+		marker.m_vPosition[2] = fields[18].ToFloat();
+		marker.m_bVisible = ParseBool(fields[19]);
+		marker.m_bRuntimeNative = ParseBool(fields[20]);
 		if (marker.m_sMarkerId.IsEmpty() || marker.m_iRevision <= 0 || marker.m_iStreamSequence <= 0)
 			return null;
 		if (marker.m_bTombstone && marker.m_bVisible)

@@ -67,6 +67,27 @@ class HST_StrategicService
 {
 	HST_StrategicEventApplyResult BeginZoneCaptureEvent(HST_CampaignState state, string zoneId, string previousOwner, string newOwner, string sourceId = "")
 	{
+		return BeginOwnershipTransitionEvent(
+			state,
+			zoneId,
+			previousOwner,
+			newOwner,
+			"military_capture",
+			"zone_capture",
+			sourceId,
+			string.Format("zone captured by %1", EmptyReportField(newOwner)));
+	}
+
+	HST_StrategicEventApplyResult BeginOwnershipTransitionEvent(
+		HST_CampaignState state,
+		string zoneId,
+		string previousOwner,
+		string newOwner,
+		string cause,
+		string sourceType,
+		string sourceId,
+		string reason)
+	{
 		HST_StrategicEventApplyResult result = new HST_StrategicEventApplyResult();
 		if (!state || zoneId.IsEmpty())
 		{
@@ -82,9 +103,13 @@ class HST_StrategicService
 		}
 
 		HST_StrategicEventState eventState = new HST_StrategicEventState();
-		eventState.m_sKind = "zone_captured";
+		eventState.m_sKind = "ownership_transition";
+		if (cause == "military_capture" || cause == "mission_capture")
+			eventState.m_sKind = "zone_captured";
 		eventState.m_sEventId = BuildStrategicEventId(state, eventState.m_sKind);
-		eventState.m_sSourceType = "zone_capture";
+		eventState.m_sSourceType = sourceType;
+		if (eventState.m_sSourceType.IsEmpty())
+			eventState.m_sSourceType = "ownership_transition";
 		if (sourceId.IsEmpty())
 			eventState.m_sSourceId = zoneId;
 		else
@@ -94,14 +119,16 @@ class HST_StrategicService
 			eventState.m_sTargetFactionKey = zone.m_sOwnerFactionKey;
 		else
 			eventState.m_sTargetFactionKey = previousOwner;
-		eventState.m_sReason = string.Format("zone captured by %1", EmptyReportField(newOwner));
+		eventState.m_sReason = reason;
+		if (eventState.m_sReason.IsEmpty())
+			eventState.m_sReason = string.Format("ownership changed to %1", EmptyReportField(newOwner));
 		eventState.m_iCreatedAtSecond = state.m_iElapsedSeconds;
 
 		result.m_Event = eventState;
 		result.m_sEventId = eventState.m_sEventId;
 		result.m_bRecorded = true;
 		state.m_aStrategicEvents.Insert(eventState);
-		CaptureStrategicEventBefore(state, eventState);
+		CaptureOwnershipTransitionEventStart(state, eventState);
 		return result;
 	}
 
@@ -350,21 +377,58 @@ class HST_StrategicService
 		return result;
 	}
 
-	bool SetZoneOwner(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
+	bool RecordOwnershipTransitionOwnerEffect(
+		HST_CampaignState state,
+		string eventId,
+		string previousOwner,
+		string newOwner,
+		int captureProgressBefore)
 	{
-		HST_ZoneState zone = state.FindZone(zoneId);
-		if (!zone || !state.FindFactionPool(factionKey) || zone.m_sOwnerFactionKey == factionKey)
+		if (!state || eventId.IsEmpty() || previousOwner.IsEmpty() || newOwner.IsEmpty())
 			return false;
-
-		string previousOwner = zone.m_sOwnerFactionKey;
-		zone.m_sOwnerFactionKey = factionKey;
-		zone.m_iResistanceCaptureProgress = 0;
-		zone.m_iActiveInfantryCount = 0;
-		zone.m_iActiveVehicleCount = 0;
-		ClearZoneGarrison(state, zoneId, previousOwner);
-		economy.RecalculateWarLevel(state, balance, resistanceFactionKey);
-		EvaluateCampaignOutcome(state, economy, balance, resistanceFactionKey);
+		HST_StrategicEventState eventState = state.FindStrategicEvent(eventId);
+		if (!eventState || eventState.m_bApplied
+			|| (eventState.m_sKind != "ownership_transition" && eventState.m_sKind != "zone_captured"))
+			return false;
+		eventState.m_sOwnerBefore = previousOwner;
+		eventState.m_iCaptureProgressBefore = Math.Max(0, captureProgressBefore);
+		eventState.m_iCaptureProgressAfter = 0;
+		eventState.m_iCaptureProgressDelta = -eventState.m_iCaptureProgressBefore;
 		return true;
+	}
+
+	void CompleteOwnershipTransitionEvent(
+		HST_CampaignState state,
+		HST_StrategicEventApplyResult result,
+		string previousOwner,
+		string newOwner,
+		int aggressionApplied)
+	{
+		if (!state || !result || !result.m_Event)
+			return;
+
+		HST_StrategicEventState eventState = result.m_Event;
+		eventState.m_sOwnerBefore = previousOwner;
+		eventState.m_sOwnerAfter = newOwner;
+		// Ownership effects are recorded from their exact receipt/checklist facts.
+		// Never subtract global admission state from completion state: a queued or
+		// retrying receipt may span unrelated economy, resource, or HQ mutations.
+		eventState.m_iFactionMoneyDelta = 0;
+		eventState.m_iHRDelta = 0;
+		eventState.m_iHQKnowledgeBefore = 0;
+		eventState.m_iHQKnowledgeAfter = 0;
+		eventState.m_iHQKnowledgeDelta = 0;
+		eventState.m_iSupportBefore = 0;
+		eventState.m_iSupportAfter = 0;
+		eventState.m_iTownSupportDelta = 0;
+		eventState.m_iAggressionDelta = Math.Max(0, aggressionApplied);
+		eventState.m_iAttackResourceDelta = 0;
+		eventState.m_iSupportResourceDelta = 0;
+		eventState.m_bApplied = true;
+		eventState.m_sSummary = BuildStrategicEventSummary(eventState);
+		result.m_bApplied = true;
+		result.m_bChanged = true;
+		result.m_sSummary = eventState.m_sSummary;
 	}
 
 	bool AddTownSupport(HST_CampaignState state, string zoneId, int amount)
@@ -438,17 +502,17 @@ class HST_StrategicService
 				if (enemyDirector)
 					enemyDirector.AddResources(state, zone.m_sOwnerFactionKey, -12, -6);
 				if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
-					changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests) || changed;
+					changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId) || changed;
 				return true;
 			}
 			if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
-				changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 20, 5, garrisons, enemyCommander, enemyDirector, supportRequests) || changed;
+				changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 20, 5, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId) || changed;
 			return changed;
 		}
 
 		if (definition.m_eCategory == HST_EMissionCategory.HST_MISSION_CONQUEST)
 		{
-			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 60, 15, garrisons, enemyCommander, enemyDirector, supportRequests))
+			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 60, 15, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId))
 				changed = true;
 			return changed;
 		}
@@ -467,7 +531,7 @@ class HST_StrategicService
 			if ((definition.m_sMissionId == "destroy_radio_tower" || definition.m_sMissionId == "dynamic_stop_tower_rebuild") && hq)
 				changed = hq.ReduceHQKnowledge(state, 20, "mission success: " + definition.m_sMissionId) || changed;
 			if (zone.m_sOwnerFactionKey != preset.m_sResistanceFactionKey && zoneCapture)
-				changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests) || changed;
+				changed = zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 35, 10, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId) || changed;
 			return true;
 		}
 
@@ -502,7 +566,7 @@ class HST_StrategicService
 					return changed;
 				}
 
-				if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 50, 10, garrisons, enemyCommander, enemyDirector, supportRequests))
+				if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 50, 10, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId))
 					changed = true;
 				return changed;
 			}
@@ -514,7 +578,7 @@ class HST_StrategicService
 				return changed;
 			}
 
-			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 20, 5, garrisons, enemyCommander, enemyDirector, supportRequests))
+			if (zoneCapture && zoneCapture.AddResistanceCaptureProgress(state, preset, this, economy, balance, zone.m_sZoneId, 20, 5, garrisons, enemyCommander, enemyDirector, supportRequests, activeMission.m_sInstanceId))
 				changed = true;
 			return changed;
 		}
@@ -772,6 +836,34 @@ class HST_StrategicService
 		}
 
 		CaptureStrategicEventVehicleBefore(state, eventState);
+	}
+
+	protected void CaptureOwnershipTransitionEventStart(
+		HST_CampaignState state,
+		HST_StrategicEventState eventState)
+	{
+		if (!state || !eventState)
+			return;
+
+		eventState.m_iFactionMoneyDelta = 0;
+		eventState.m_iHRDelta = 0;
+		eventState.m_iHQKnowledgeBefore = 0;
+		eventState.m_iHQKnowledgeAfter = 0;
+		eventState.m_iHQKnowledgeDelta = 0;
+		HST_ZoneState zone = state.FindZone(eventState.m_sTargetZoneId);
+		if (zone)
+		{
+			eventState.m_sOwnerBefore = zone.m_sOwnerFactionKey;
+			eventState.m_iSupportBefore = 0;
+			eventState.m_iSupportAfter = 0;
+			eventState.m_iTownSupportDelta = 0;
+			eventState.m_iCaptureProgressBefore = Math.Max(0, zone.m_iResistanceCaptureProgress);
+			eventState.m_iCaptureProgressAfter = eventState.m_iCaptureProgressBefore;
+			eventState.m_iCaptureProgressDelta = 0;
+		}
+		eventState.m_iAggressionDelta = 0;
+		eventState.m_iAttackResourceDelta = 0;
+		eventState.m_iSupportResourceDelta = 0;
 	}
 
 	protected void RefreshStrategicEventAfter(HST_CampaignState state, HST_StrategicEventState eventState)
@@ -1315,28 +1407,6 @@ class HST_StrategicService
 	protected bool IsStrategicZoneCounted(HST_ZoneState zone)
 	{
 		return zone && zone.m_eType != HST_EZoneType.HST_ZONE_HIDEOUT && zone.m_eType != HST_EZoneType.HST_ZONE_MISSION_SITE;
-	}
-
-	protected void ClearZoneGarrison(HST_CampaignState state, string zoneId, string factionKey)
-	{
-		if (!state || zoneId.IsEmpty() || factionKey.IsEmpty())
-			return;
-
-		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
-		if (!garrison)
-			return;
-
-		garrison.m_iInfantryCount = 0;
-		garrison.m_iVehicleCount = 0;
-	}
-
-	protected void EvaluateCampaignOutcome(HST_CampaignState state, HST_EconomyService economy, HST_BalanceConfig balance, string resistanceFactionKey)
-	{
-		HST_CampaignOutcomeResult outcome = EvaluateCampaignOutcomeDetailed(state, economy, balance, resistanceFactionKey);
-		if (!outcome || !outcome.m_bEnded)
-			return;
-
-		ApplyCampaignOutcome(state, outcome);
 	}
 
 	protected int CalculateTotalStrategicScoreForOutcome(HST_CampaignState state, HST_EconomyService economy)

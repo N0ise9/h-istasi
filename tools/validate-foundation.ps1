@@ -3944,8 +3944,9 @@ foreach ($requiredMarkerColorContract in @(
 foreach ($requiredNativeMarkerSyncContract in @(
 		"SyncVisibleNativeMarkerOwnership",
 		"HST_ConflictMapMarker_",
-		"SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey)",
-		"GetAffiliatedFactionKey() == zone.m_sOwnerFactionKey"
+		"ResolveZoneProjectionAuthority",
+		"SetAffiliatedFactionByKey(projectedOwnerFactionKey)",
+		"GetAffiliatedFactionKey() == projectedOwnerFactionKey"
 	)) {
 	if ($mapMarkerServiceText -notmatch [regex]::Escape($requiredNativeMarkerSyncContract)) {
 		throw "Map marker service is missing native marker ownership sync contract: $requiredNativeMarkerSyncContract"
@@ -18226,8 +18227,8 @@ $schema61BridgeText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandM
 $schema61CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
 $schema61ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MarkerProjectionProofService.c"
 
-if ($schema61StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*61;') {
-	throw "Schema-61 marker projection requires HST_CampaignState schema 61"
+if ($campaignSchemaVersion -lt 61) {
+	throw "Schema-61 marker projection requires HST_CampaignState schema 61 or newer"
 }
 $schema61MarkerStateBlock = Get-ScriptMethodBlock $schema61StateText 'class HST_MapMarkerState'
 foreach ($schema61MarkerField in @(
@@ -18414,11 +18415,13 @@ $schema61OwnershipSyncBlock = Get-ScriptMethodBlock $schema61MapMarkerText 'prot
 foreach ($schema61OwnershipSyncEntry in @(
 	'if (!m_bAuthoredMarkerBindingsInitialized || m_iAuthoredMarkerMissingCount > 0)',
 	'BindAuthoredNativeMarkers(state, world)',
+	'ResolveZoneProjectionAuthority(',
 	'm_mAuthoredMarkerByZoneId.Get(zone.m_sZoneId)',
 	'FactionAffiliationComponent',
-	'factionComponent.GetAffiliatedFactionKey() == zone.m_sOwnerFactionKey',
-	'factionComponent.SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey)',
-	'm_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, zone.m_sOwnerFactionKey)'
+	'factionComponent.GetAffiliatedFactionKey() == projectedOwnerFactionKey',
+	'factionComponent.SetAffiliatedFactionByKey(projectedOwnerFactionKey)',
+	'm_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, projectedOwnerFactionKey)',
+	'm_mAuthoredMarkerRevisionByZoneId.Set(zone.m_sZoneId, projectedOwnershipRevision)'
 )) {
 	if ([string]::IsNullOrEmpty($schema61OwnershipSyncBlock) -or $schema61OwnershipSyncBlock.IndexOf($schema61OwnershipSyncEntry) -lt 0) {
 		throw "Schema-61 authored marker ownership cache is missing: $schema61OwnershipSyncEntry"
@@ -18450,8 +18453,10 @@ if (!$schema61DeltaDispatchLimitMatch.Success -or [int]$schema61DeltaDispatchLim
 	[int]$schema61DeltaDispatchLimitMatch.Groups[1].Value -gt 512) {
 	throw "Schema-61 marker projection delta dispatch limit must be positive and no greater than 512"
 }
+if ($schema61ProtocolText -notmatch 'PROTOCOL_VERSION\s*=\s*(\d+)' -or [int]$Matches[1] -lt 1) {
+	throw "Schema-61 marker projection protocol version must be 1 or newer"
+}
 foreach ($schema61ProtocolEntry in @(
-	'PROTOCOL_VERSION = 1',
 	'SNAPSHOT_HEADER = "HST_MARKER_SNAPSHOT"',
 	'DELTA_HEADER = "HST_MARKER_DELTA"',
 	'int m_iEpoch;',
@@ -18477,16 +18482,17 @@ foreach ($schema61HashEntry in @(
 }
 $schema61DecodeRecordBlock = Get-ScriptMethodBlock $schema61ProtocolText 'static HST_MapMarkerState DecodeRecord('
 foreach ($schema61DecodeRecordEntry in @(
-	'fields.Count() != 20',
+	'fields.Count() != 21',
 	'!IsStrictInteger(fields[1], false)',
 	'!IsStrictInteger(fields[2], false)',
-	'!IsStrictBoolean(fields[3])',
-	'!IsStrictInteger(fields[4], false)',
-	'!IsStrictFloat(fields[15])',
+	'!IsStrictInteger(fields[3], false)',
+	'!IsStrictBoolean(fields[4])',
+	'!IsStrictInteger(fields[5], false)',
 	'!IsStrictFloat(fields[16])',
 	'!IsStrictFloat(fields[17])',
-	'!IsStrictBoolean(fields[18])',
+	'!IsStrictFloat(fields[18])',
 	'!IsStrictBoolean(fields[19])',
+	'!IsStrictBoolean(fields[20])',
 	'marker.m_sMarkerId.IsEmpty() || marker.m_iRevision <= 0 || marker.m_iStreamSequence <= 0',
 	'marker.m_bTombstone && marker.m_bVisible'
 )) {
@@ -19443,5 +19449,1885 @@ foreach ($schema61AssertionEntry in @(
 }
 
 Write-Host "Schema-61 revisioned marker state/save migration, fail-closed bounded builders, heartbeat/lost-ACK recovery with restart backoff, atomic widget-independent registry, stable-priority local-native descriptor cutover/restore, debug restore, admin rehydration, and concurrency proofs OK"
+
+$schema62RequiredPaths = @(
+	"Scripts/Game/HST/Services/HST_OwnershipTransitionService.c",
+	"Scripts/Game/HST/Services/HST_OwnershipTransitionSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_OwnershipTransitionProofService.c"
+)
+foreach ($schema62RequiredPath in $schema62RequiredPaths) {
+	if (!(Test-Path -LiteralPath $schema62RequiredPath -PathType Leaf)) {
+		throw "Schema-62 canonical ownership-transition source is missing: $schema62RequiredPath"
+	}
+}
+
+$schema62StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema62SaveDataText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema62SaveValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionSaveValidationService.c"
+$schema62OwnershipText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionService.c"
+$schema62StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_StrategicService.c"
+$schema62CaptureText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCaptureService.c"
+$schema62CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CivilianService.c"
+$schema62PhysicalWarText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema62GarrisonPatrolText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GarrisonPatrolOperationService.c"
+$schema62MapMarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
+$schema62CommandUIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
+$schema62ProtocolText = Get-Content -Raw "Scripts/Game/HST/Map/HST_MarkerProjectionProtocol.c"
+$schema62CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema62ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionProofService.c"
+$schema62PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
+
+if ($campaignSchemaVersion -lt 62) {
+	throw "Schema-62 canonical ownership transitions require HST_CampaignState schema 62 or newer"
+}
+
+$schema62ZoneStateBlock = Get-ScriptMethodBlock $schema62StateText 'class HST_ZoneState'
+foreach ($schema62ZoneAuthorityField in @(
+	'int m_iOwnershipContractVersion = 1;',
+	'int m_iOwnershipRevision = 1;',
+	'string m_sActiveOwnershipTransitionRequestId;',
+	'string m_sLastOwnershipTransitionRequestId;',
+	'string m_sOwnershipAuthorityFailure;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ZoneStateBlock) -or
+		$schema62ZoneStateBlock.IndexOf($schema62ZoneAuthorityField) -lt 0) {
+		throw "Schema-62 zone ownership authority field is missing: $schema62ZoneAuthorityField"
+	}
+}
+
+$schema62TransitionStateBlock = Get-ScriptMethodBlock $schema62StateText 'class HST_OwnershipTransitionState'
+foreach ($schema62TransitionField in @(
+	'int m_iContractVersion = 1;',
+	'string m_sStatus = "requested";',
+	'string m_sRequestId;',
+	'string m_sZoneId;',
+	'string m_sCause;',
+	'string m_sSourceType;',
+	'string m_sSourceId;',
+	'string m_sActorIdentityId;',
+	'string m_sReason;',
+	'string m_sExpectedOwnerFactionKey;',
+	'int m_iExpectedRevision;',
+	'string m_sPreviousOwnerFactionKey;',
+	'string m_sNewOwnerFactionKey;',
+	'int m_iAppliedRevision;',
+	'int m_iSupportReward;',
+	'int m_iCreatedAtSecond;',
+	'int m_iLastAttemptAtSecond;',
+	'int m_iCompletedAtSecond;',
+	'int m_iAttemptCount;',
+	'string m_sStrategicEventId;',
+	'string m_sCampaignEventId;',
+	'string m_sSecurityDecision;',
+	'string m_sFacilityLogisticsDecision;',
+	'string m_sEnemyConsequenceDecision;',
+	'string m_sEnemyOrderId;',
+	'string m_sProjectionDecision;',
+	'string m_sProjectionParentRequestId;',
+	'string m_sMarkerId;',
+	'int m_iMarkerProjectionEpoch;',
+	'int m_iMarkerRevision;',
+	'int m_iMarkerStreamSequence;',
+	'int m_iCounterattackChance;',
+	'int m_iCounterattackRoll;',
+	'bool m_bCounterattackSelected;',
+	'bool m_bCounterattackQueued;',
+	'ref array<string> m_aSupportZoneIds = {};',
+	'ref array<string> m_aAppliedSupportZoneIds = {};',
+	'bool m_bValidated;',
+	'bool m_bOwnerApplied;',
+	'bool m_bTownPolicyApplied;',
+	'bool m_bOldSecurityRetired;',
+	'bool m_bHostileRuntimeRetired;',
+	'bool m_bNewSecurityApplied;',
+	'bool m_bSupportApplied;',
+	'bool m_bFacilitiesApplied;',
+	'bool m_bLogisticsApplied;',
+	'bool m_bEconomyApplied;',
+	'bool m_bEnemyConsequencesApplied;',
+	'bool m_bStrategicEventCompleted;',
+	'bool m_bEventAppended;',
+	'bool m_bNotificationApplied;',
+	'bool m_bProjectionRequested;',
+	'bool m_bDeferredPublicationReleased;',
+	'bool m_bPersistenceRequested;',
+	'bool m_bCompleted;',
+	'bool m_bQuarantined;',
+	'string m_sFailureReason;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62TransitionStateBlock) -or
+		$schema62TransitionStateBlock.IndexOf($schema62TransitionField) -lt 0) {
+		throw "Schema-62 durable ownership receipt/checklist field is missing: $schema62TransitionField"
+	}
+}
+
+foreach ($schema62CampaignStateEntry in @(
+	'ref array<ref HST_OwnershipTransitionState> m_aOwnershipTransitions = {};',
+	'HST_OwnershipTransitionState FindOwnershipTransition(string requestId)',
+	'transition.m_sRequestId == requestId'
+)) {
+	if ($schema62StateText.IndexOf($schema62CampaignStateEntry) -lt 0) {
+		throw "Schema-62 campaign ownership receipt authority is missing: $schema62CampaignStateEntry"
+	}
+}
+
+$schema62MarkerStateBlock = Get-ScriptMethodBlock $schema62StateText 'class HST_MapMarkerState'
+if ([string]::IsNullOrEmpty($schema62MarkerStateBlock) -or
+	$schema62MarkerStateBlock.IndexOf('int m_iSourceRevision;') -lt 0) {
+	throw "Schema-62 map-marker rows must persist the source ownership revision"
+}
+
+$schema62CaptureBlock = Get-ScriptMethodBlock $schema62SaveDataText 'void Capture(HST_CampaignState state)'
+$schema62ApplyToBlock = Get-ScriptMethodBlock $schema62SaveDataText 'void ApplyTo(HST_CampaignState state, bool migrate = true)'
+$schema62CopyZoneBlock = Get-ScriptMethodBlock $schema62SaveDataText 'protected HST_ZoneState CopyZone('
+$schema62CopyTransitionBlock = Get-ScriptMethodBlock $schema62SaveDataText 'protected HST_OwnershipTransitionState CopyOwnershipTransition('
+$schema62CopyMarkerBlock = Get-ScriptMethodBlock $schema62SaveDataText 'protected HST_MapMarkerState CopyMapMarker('
+$schema62MigrationBlock = Get-ScriptMethodBlock $schema62SaveDataText 'void MigrateToCurrentSchema()'
+foreach ($schema62SaveArrayEntry in @(
+	'm_aOwnershipTransitions.Clear()',
+	'foreach (HST_OwnershipTransitionState transition : state.m_aOwnershipTransitions)',
+	'm_aOwnershipTransitions.Insert(CopyOwnershipTransition(transition))'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CaptureBlock) -or
+		$schema62CaptureBlock.IndexOf($schema62SaveArrayEntry) -lt 0) {
+		throw "Schema-62 save capture does not deep-copy ownership receipts: $schema62SaveArrayEntry"
+	}
+}
+foreach ($schema62RestoreArrayEntry in @(
+	'state.m_aOwnershipTransitions.Clear()',
+	'foreach (HST_OwnershipTransitionState transition : m_aOwnershipTransitions)',
+	'state.m_aOwnershipTransitions.Insert(CopyOwnershipTransition(transition))'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ApplyToBlock) -or
+		$schema62ApplyToBlock.IndexOf($schema62RestoreArrayEntry) -lt 0) {
+		throw "Schema-62 save restore does not deep-copy ownership receipts: $schema62RestoreArrayEntry"
+	}
+}
+foreach ($schema62ZoneCopyEntry in @(
+	'target.m_iOwnershipContractVersion = source.m_iOwnershipContractVersion;',
+	'target.m_iOwnershipRevision = source.m_iOwnershipRevision;',
+	'target.m_sActiveOwnershipTransitionRequestId = source.m_sActiveOwnershipTransitionRequestId;',
+	'target.m_sLastOwnershipTransitionRequestId = source.m_sLastOwnershipTransitionRequestId;',
+	'target.m_sOwnershipAuthorityFailure = source.m_sOwnershipAuthorityFailure;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CopyZoneBlock) -or
+		$schema62CopyZoneBlock.IndexOf($schema62ZoneCopyEntry) -lt 0) {
+		throw "Schema-62 zone ownership authority is missing from save deep-copy: $schema62ZoneCopyEntry"
+	}
+}
+foreach ($schema62TransitionCopyEntry in @(
+	'target.m_sRequestId = source.m_sRequestId;',
+	'target.m_iExpectedRevision = source.m_iExpectedRevision;',
+	'target.m_iAppliedRevision = source.m_iAppliedRevision;',
+	'target.m_sStrategicEventId = source.m_sStrategicEventId;',
+	'target.m_sCampaignEventId = source.m_sCampaignEventId;',
+	'target.m_sProjectionParentRequestId = source.m_sProjectionParentRequestId;',
+	'target.m_iCounterattackRoll = source.m_iCounterattackRoll;',
+	'target.m_bCounterattackSelected = source.m_bCounterattackSelected;',
+	'foreach (string supportZoneId : source.m_aSupportZoneIds)',
+	'target.m_aSupportZoneIds.Insert(supportZoneId)',
+	'foreach (string appliedSupportZoneId : source.m_aAppliedSupportZoneIds)',
+	'target.m_aAppliedSupportZoneIds.Insert(appliedSupportZoneId)',
+	'target.m_bOwnerApplied = source.m_bOwnerApplied;',
+	'target.m_bOldSecurityRetired = source.m_bOldSecurityRetired;',
+	'target.m_bSupportApplied = source.m_bSupportApplied;',
+	'target.m_bEnemyConsequencesApplied = source.m_bEnemyConsequencesApplied;',
+	'target.m_bProjectionRequested = source.m_bProjectionRequested;',
+	'target.m_bDeferredPublicationReleased = source.m_bDeferredPublicationReleased;',
+	'target.m_bSetupProjectionWithoutMarkers = source.m_bSetupProjectionWithoutMarkers;',
+	'target.m_bPersistenceRequested = source.m_bPersistenceRequested;',
+	'target.m_bCompleted = source.m_bCompleted;',
+	'target.m_bQuarantined = source.m_bQuarantined;',
+	'target.m_sFailureReason = source.m_sFailureReason;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CopyTransitionBlock) -or
+		$schema62CopyTransitionBlock.IndexOf($schema62TransitionCopyEntry) -lt 0) {
+		throw "Schema-62 ownership receipt deep-copy is incomplete: $schema62TransitionCopyEntry"
+	}
+}
+$schema62TransitionFieldMatches = [regex]::Matches(
+	$schema62TransitionStateBlock,
+	'(?m)^\s*(?:ref\s+)?[A-Za-z_][A-Za-z0-9_<>, ]*\s+(m_[A-Za-z0-9_]+)(?:\s*=\s*[^;]+)?;')
+foreach ($schema62TransitionFieldMatch in $schema62TransitionFieldMatches) {
+	$schema62TransitionFieldName = $schema62TransitionFieldMatch.Groups[1].Value
+	if ($schema62TransitionFieldName -eq 'm_aSupportZoneIds' -or
+		$schema62TransitionFieldName -eq 'm_aAppliedSupportZoneIds') {
+		continue
+	}
+	$schema62TransitionAssignmentPattern = 'target\.' + [regex]::Escape($schema62TransitionFieldName) + '\s*=\s*source\.' + [regex]::Escape($schema62TransitionFieldName) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema62CopyTransitionBlock) -or
+		$schema62CopyTransitionBlock -notmatch $schema62TransitionAssignmentPattern) {
+		throw "Schema-62 ownership receipt save deep-copy omits field: $schema62TransitionFieldName"
+	}
+}
+if ([string]::IsNullOrEmpty($schema62CopyMarkerBlock) -or
+	$schema62CopyMarkerBlock.IndexOf('target.m_iSourceRevision = source.m_iSourceRevision;') -lt 0) {
+	throw "Schema-62 marker source revision is missing from save deep-copy"
+}
+foreach ($schema62MigrationHook in @(
+	'HST_OwnershipTransitionSaveValidationService schema62OwnershipTransitionValidation',
+	'schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion)',
+	'HST_MarkerProjectionSaveValidationService schema61MarkerProjectionValidation',
+	'schema61MarkerProjectionValidation.Normalize(this, restoredSchemaVersion)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62MigrationBlock) -or
+		$schema62MigrationBlock.IndexOf($schema62MigrationHook) -lt 0) {
+		throw "Schema-62 ownership/save migration hook is missing: $schema62MigrationHook"
+	}
+}
+$schema62OwnershipMigrationIndex = $schema62MigrationBlock.IndexOf('schema62OwnershipTransitionValidation.Normalize(this, restoredSchemaVersion)')
+$schema62MarkerMigrationIndex = $schema62MigrationBlock.IndexOf('schema61MarkerProjectionValidation.Normalize(this, restoredSchemaVersion)')
+if ($schema62OwnershipMigrationIndex -lt 0 -or $schema62MarkerMigrationIndex -lt 0 -or
+	$schema62OwnershipMigrationIndex -gt $schema62MarkerMigrationIndex) {
+	throw "Schema-62 ownership migration must establish source revisions before Schema-61 marker normalization"
+}
+
+$schema62SaveNormalizeBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'void Normalize('
+$schema62CurrentAliasBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected void NormalizeCurrentSchemaAliases('
+$schema62SupportAliasBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected void NormalizeSupportZoneAliases('
+$schema62BaselineBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected void MigrateBaseline('
+$schema62ValidateCurrentBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected int ValidateCurrentAuthority('
+$schema62RelationalConvergenceBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected int ConvergeRelationalQuarantine('
+$schema62ValidateTransitionBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected string ValidateTransition('
+$schema62ValidateZoneBacklinksBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected string ValidateZoneBacklinks('
+$schema62CompletionOrderBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected bool CompletionOrderIsValid('
+$schema62AllStepsBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected bool AllCompletionStepsApplied('
+$schema62QuarantineTransitionBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected void QuarantineTransition('
+$schema62QuarantineZoneBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected void QuarantineZone('
+$schema62CurrentAliasIndex = $schema62SaveNormalizeBlock.IndexOf('NormalizeCurrentSchemaAliases(saveData)')
+$schema62CurrentValidationIndex = $schema62SaveNormalizeBlock.IndexOf('ValidateCurrentAuthority(saveData)')
+if ($schema62CurrentAliasIndex -lt 0 -or $schema62CurrentValidationIndex -lt 0 -or
+	$schema62CurrentAliasIndex -gt $schema62CurrentValidationIndex) {
+	throw "Schema-62 current-save retired aliases must normalize before fail-closed authority validation"
+}
+foreach ($schema62CurrentAliasEntry in @(
+	'HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(previousZoneId)',
+	'transition.m_sZoneId = canonicalZoneId;',
+	'NormalizeSupportZoneAliases(saveData, transition.m_aSupportZoneIds)',
+	'NormalizeSupportZoneAliases(saveData, transition.m_aAppliedSupportZoneIds)',
+	'strategicEvent.m_sTargetZoneId = canonicalZoneId;',
+	'campaignEvent.m_sAggregateId = canonicalZoneId;',
+	'HST_StableIdService.BuildGarrisonId(',
+	'transition.m_sMarkerId = "hst_zone_" + canonicalZoneId;',
+	'order.m_sTargetZoneId = canonicalZoneId;',
+	'marker.m_sLinkedId = HST_MaidensBayLocationSaveValidationService.CANONICAL_ZONE_ID;',
+	'marker.m_sMarkerId = "hst_zone_"'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CurrentAliasBlock) -or
+		$schema62CurrentAliasBlock.IndexOf($schema62CurrentAliasEntry) -lt 0) {
+		throw "Schema-62 current-save retired alias normalization is incomplete: $schema62CurrentAliasEntry"
+	}
+}
+foreach ($schema62SupportAliasEntry in @(
+	'HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(previousZoneId)',
+	'canonicalZone.m_eType != HST_EZoneType.HST_ZONE_TOWN',
+	'zoneIds.Remove(zoneIndex)',
+	'zoneIds[zoneIndex] = canonicalZoneId;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62SupportAliasBlock) -or
+		$schema62SupportAliasBlock.IndexOf($schema62SupportAliasEntry) -lt 0) {
+		throw "Schema-62 retired duplicate-town support alias normalization is incomplete: $schema62SupportAliasEntry"
+	}
+}
+if ($schema62CurrentAliasBlock.IndexOf('m_sRequestId =') -ge 0) {
+	throw "Schema-62 current-save alias normalization must preserve durable request identity"
+}
+foreach ($schema62BaselineEntry in @(
+	'restoredSchemaVersion < SCHEMA_VERSION',
+	'MigrateBaseline(saveData)',
+	'saveData.m_aOwnershipTransitions.Clear()',
+	'zone.m_iOwnershipContractVersion = HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION;',
+	'zone.m_iOwnershipRevision = 1;',
+	'zone.m_sActiveOwnershipTransitionRequestId = "";',
+	'zone.m_sLastOwnershipTransitionRequestId = "";',
+	'zone.m_sOwnershipAuthorityFailure = "";',
+	'marker.m_iSourceRevision = zone.m_iOwnershipRevision;',
+	'migration_schema62_ownership_transition'
+)) {
+	if ($schema62SaveValidationText.IndexOf($schema62BaselineEntry) -lt 0) {
+		throw "Schema-62 conservative ownership baseline migration is missing: $schema62BaselineEntry"
+	}
+}
+foreach ($schema62ForbiddenBaselineSideEffect in @(
+	'.Apply(',
+	'RebuildAllMarkers(',
+	'RecalculateWarLevel(',
+	'ApplyCampaignOutcome(',
+	'AddAggression(',
+	'TryQueueImmediateCounterattack(',
+	'QueueOwnershipTransitionNotification(',
+	'RegisterOwnershipSupportReward('
+)) {
+	if (![string]::IsNullOrEmpty($schema62BaselineBlock) -and
+		$schema62BaselineBlock.IndexOf($schema62ForbiddenBaselineSideEffect) -ge 0) {
+		throw "Schema-62 baseline migration must preserve facts without replaying ownership side effects: $schema62ForbiddenBaselineSideEffect"
+	}
+}
+if ([string]::IsNullOrEmpty($schema62BaselineBlock) -or
+	$schema62BaselineBlock.IndexOf('m_aOwnershipTransitions.Remove(') -ge 0 -or
+	$schema62BaselineBlock.IndexOf('m_aZones.Remove(') -ge 0) {
+	throw "Schema-62 baseline migration must not selectively prune durable location/receipt authority"
+}
+foreach ($schema62CurrentValidationEntry in @(
+	'CountZoneIdentity(saveData, zone.m_sZoneId) != 1',
+	'CountTransitionIdentity(saveData, transition.m_sRequestId) != 1',
+	'ValidateTransition(saveData, transition)',
+	'ValidateTransitionBacklink(saveData, transition)',
+	'ValidateZoneBacklinks(saveData, zone)',
+	'QuarantineTransition(saveData, transition',
+	'QuarantineZone(saveData, zone',
+	'CONFLICT_EVENT_ID'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ValidateCurrentBlock) -or
+		$schema62SaveValidationText.IndexOf($schema62CurrentValidationEntry) -lt 0) {
+		throw "Schema-62 current-schema ownership restore must validate/quarantine malformed authority: $schema62CurrentValidationEntry"
+	}
+}
+foreach ($schema62ReceiptValidationEntry in @(
+	'transition.m_iContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'!IsKnownCause(transition.m_sCause)',
+	'transition.m_sPreviousOwnerFactionKey != transition.m_sExpectedOwnerFactionKey',
+	'transition.m_iAppliedRevision != transition.m_iExpectedRevision + 1',
+	'!CompletionOrderIsValid(transition)',
+	'transition.m_bCompleted && !AllCompletionStepsApplied(transition)',
+	'transition.m_aAppliedSupportZoneIds.Count() > transition.m_aSupportZoneIds.Count()',
+	'transition.m_sStrategicEventId.IsEmpty()',
+	'!transition.m_bStrategicEventCompleted',
+	'!FindStrategicEvent(saveData, transition.m_sStrategicEventId)',
+	'transition.m_bEventAppended',
+	'transition.m_sCampaignEventId.IsEmpty()',
+	'transition.m_sFacilityLogisticsDecision.IsEmpty()',
+	'transition.m_sEnemyConsequenceDecision.IsEmpty()',
+	'transition.m_sProjectionDecision.IsEmpty()',
+	'HasProjectionParentCycle(saveData, transition)',
+	'transition.m_sProjectionParentRequestId.IsEmpty()',
+	'transition.m_bDeferredPublicationReleased',
+	'transition.m_sProjectionParentRequestId == transition.m_sRequestId',
+	'FindTransition(saveData, transition.m_sProjectionParentRequestId)',
+	'parent && parent.m_sZoneId == transition.m_sZoneId',
+	'!parent || parent.m_bQuarantined || parent.m_bCompleted',
+	'!transition.m_bCompleted',
+	'released nested ownership publication lacks marker correlation evidence'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ValidateTransitionBlock) -or
+		$schema62SaveValidationText.IndexOf($schema62ReceiptValidationEntry) -lt 0) {
+		throw "Schema-62 ownership receipt restore validation is incomplete: $schema62ReceiptValidationEntry"
+	}
+}
+foreach ($schema62BacklinkValidationEntry in @(
+	'zone.m_sActiveOwnershipTransitionRequestId',
+	'active.m_sZoneId != zone.m_sZoneId',
+	'zone.m_iOwnershipRevision != active.m_iAppliedRevision',
+	'zone.m_iOwnershipRevision != active.m_iExpectedRevision',
+	'zone.m_sLastOwnershipTransitionRequestId',
+	'latest.m_iAppliedRevision != zone.m_iOwnershipRevision'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ValidateZoneBacklinksBlock) -or
+		$schema62ValidateZoneBacklinksBlock.IndexOf($schema62BacklinkValidationEntry) -lt 0) {
+		throw "Schema-62 zone/receipt reciprocal backlink validation is missing: $schema62BacklinkValidationEntry"
+	}
+}
+foreach ($schema62CompletionStep in @(
+	'm_bValidated',
+	'm_bOwnerApplied',
+	'm_bTownPolicyApplied',
+	'm_bOldSecurityRetired',
+	'm_bHostileRuntimeRetired',
+	'm_bNewSecurityApplied',
+	'm_bSupportApplied',
+	'm_bFacilitiesApplied',
+	'm_bLogisticsApplied',
+	'm_bEconomyApplied',
+	'm_bEnemyConsequencesApplied',
+	'm_bStrategicEventCompleted',
+	'm_bEventAppended',
+	'm_bNotificationApplied',
+	'm_bProjectionRequested',
+	'm_bPersistenceRequested'
+)) {
+	if ([string]::IsNullOrEmpty($schema62AllStepsBlock) -or
+		$schema62AllStepsBlock.IndexOf($schema62CompletionStep) -lt 0) {
+		throw "Schema-62 completed receipts must require every durable checklist step: $schema62CompletionStep"
+	}
+}
+foreach ($schema62CompletionOrderEntry in @(
+	'transition.m_bHostileRuntimeRetired && !transition.m_bOldSecurityRetired',
+	'transition.m_bNewSecurityApplied && !transition.m_bHostileRuntimeRetired',
+	'transition.m_bSupportApplied && !transition.m_bNewSecurityApplied',
+	'transition.m_bOwnerApplied && !transition.m_bSupportApplied',
+	'transition.m_bTownPolicyApplied && !transition.m_bOwnerApplied',
+	'transition.m_bProjectionRequested && !transition.m_bEventAppended',
+	'transition.m_bCompleted && !transition.m_bPersistenceRequested'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CompletionOrderBlock) -or
+		$schema62CompletionOrderBlock.IndexOf($schema62CompletionOrderEntry) -lt 0) {
+		throw "Schema-62 restore must enforce the retry-safe ownership checklist order: $schema62CompletionOrderEntry"
+	}
+}
+foreach ($schema62QuarantineEntry in @(
+	'transition.m_iContractVersion = HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION;',
+	'transition.m_bQuarantined = true;',
+	'transition.m_sFailureReason = failure;',
+	'zone.m_iOwnershipContractVersion = HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION;',
+	'zone.m_sOwnershipAuthorityFailure = failure;'
+)) {
+	if ($schema62SaveValidationText.IndexOf($schema62QuarantineEntry) -lt 0) {
+		throw "Schema-62 malformed current ownership authority must fail closed: $schema62QuarantineEntry"
+	}
+}
+$schema62SaveRecordEventBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected void RecordEvent('
+$schema62SaveHasEventBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected bool HasEvent('
+if ([string]::IsNullOrEmpty($schema62SaveRecordEventBlock) -or
+	$schema62SaveRecordEventBlock.IndexOf('HasEvent(saveData, eventId)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema62SaveHasEventBlock) -or
+	$schema62SaveHasEventBlock.IndexOf('eventState.m_sEventId == eventId') -lt 0) {
+	throw "Schema-62 ownership migration/conflict event recording must be idempotent"
+}
+
+foreach ($schema62OwnershipConstant in @(
+	'EXACT_CONTRACT_VERSION = 1',
+	'QUARANTINED_CONTRACT_VERSION = -62',
+	'SCHEMA_VERSION = 62'
+)) {
+	if ($schema62OwnershipText.IndexOf($schema62OwnershipConstant) -lt 0) {
+		throw "Schema-62 ownership service contract constant is missing: $schema62OwnershipConstant"
+	}
+}
+$schema62KnownCauseBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected bool IsKnownCause('
+$schema62SaveKnownCauseBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected bool IsKnownCause('
+foreach ($schema62KnownCause in @(
+	'"military_capture"',
+	'"mission_capture"',
+	'"political_support"',
+	'"admin"',
+	'"debug_seed"',
+	'"migration_repair"'
+)) {
+	if ([string]::IsNullOrEmpty($schema62KnownCauseBlock) -or
+		$schema62KnownCauseBlock.IndexOf($schema62KnownCause) -lt 0 -or
+		[string]::IsNullOrEmpty($schema62SaveKnownCauseBlock) -or
+		$schema62SaveKnownCauseBlock.IndexOf($schema62KnownCause) -lt 0) {
+		throw "Schema-62 runtime/restore ownership cause contract is missing: $schema62KnownCause"
+	}
+}
+$schema62MaxRowsMatch = [regex]::Match($schema62OwnershipText, 'MAX_TRANSITION_ROWS\s*=\s*(\d+)')
+$schema62RetentionMatch = [regex]::Match($schema62OwnershipText, 'MIN_REPLAY_RETENTION_SECONDS\s*=\s*(\d+)')
+if (!$schema62MaxRowsMatch.Success -or [int]$schema62MaxRowsMatch.Groups[1].Value -le 0 -or
+	[int]$schema62MaxRowsMatch.Groups[1].Value -gt 1024) {
+	throw "Schema-62 ownership receipt capacity must be positive and no greater than 1024"
+}
+if (!$schema62RetentionMatch.Success -or [int]$schema62RetentionMatch.Groups[1].Value -lt 86400) {
+	throw "Schema-62 ownership replay receipts must be retained for at least 86400 campaign seconds"
+}
+
+$schema62BuildRequestBlock = Get-ScriptMethodBlock $schema62OwnershipText 'HST_OwnershipTransitionRequest BuildRequest('
+$schema62ApplyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'HST_OwnershipTransitionResult Apply('
+$schema62ScopedContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueAcceptedTransitionScoped('
+$schema62ContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueAcceptedTransition('
+$schema62SecurityContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueSecurityAndSupportSteps('
+$schema62OwnerContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueOwnerAndDerivedSteps('
+$schema62OutcomeContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueOutcomeAndEventSteps('
+$schema62ProjectionContinueBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult ContinueProjectionAndDurabilitySteps('
+$schema62CompleteTransitionBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult CompleteAcceptedTransition('
+$schema62ContinueSurface = $schema62ContinueBlock + "`n" + $schema62SecurityContinueBlock
+$schema62ContinueSurface += "`n" + $schema62OwnerContinueBlock + "`n" + $schema62OutcomeContinueBlock
+$schema62ContinueSurface += "`n" + $schema62ProjectionContinueBlock + "`n" + $schema62CompleteTransitionBlock
+$schema62ValidateRequestBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ValidateNewRequest('
+$schema62ValidateSecurityBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ValidateOldSecurityAuthority('
+$schema62RequestMatchesBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected bool RequestMatches('
+$schema62ResumeMatchesBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected bool ResumeStateMatches('
+$schema62RestoreReconcileBlock = Get-ScriptMethodBlock $schema62OwnershipText 'bool ReconcileAfterRestore('
+$schema62ProjectBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ProjectTransition('
+$schema62ReleaseDeferredBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ReleaseDeferredChildPublications('
+$schema62ValidateDeferredBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected string ValidateDeferredChildPublications('
+$schema62DeferredPublicationSurface = $schema62ReleaseDeferredBlock + "`n" + $schema62ValidateDeferredBlock
+$schema62FreezeEnemyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void FreezeEnemyConsequenceDecision('
+$schema62ApplyEnemyBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void ApplyEnemyConsequences('
+$schema62RetryBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionResult NeedsRetry('
+$schema62PartialPersistenceBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void SchedulePartialPersistence('
+$schema62PruneBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected void PruneCompletedHistory('
+$schema62CanPruneBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected bool CanPruneTransition('
+$schema62TickPendingBlock = Get-ScriptMethodBlock $schema62OwnershipText 'bool TickPending('
+foreach ($schema62BuildRequestEntry in @(
+	'request.m_sExpectedOwnerFactionKey = zone.m_sOwnerFactionKey;',
+	'request.m_iExpectedRevision = Math.Max(1, zone.m_iOwnershipRevision);',
+	'request.m_sRequestId',
+	'identity.Hash()'
+)) {
+	if ([string]::IsNullOrEmpty($schema62BuildRequestBlock) -or
+		$schema62BuildRequestBlock.IndexOf($schema62BuildRequestEntry) -lt 0) {
+		throw "Schema-62 ownership request must freeze stable owner/revision identity: $schema62BuildRequestEntry"
+	}
+}
+foreach ($schema62AdmissionEntry in @(
+	'state.FindOwnershipTransition(request.m_sRequestId)',
+	'!RequestMatches(existing, request)',
+	'existing.m_bCompleted',
+	'result.m_bAlreadyApplied = true;',
+	'ValidateNewRequest(state, request)',
+	'EnsureAdmissionCapacity(state)',
+	'state.m_aOwnershipTransitions.Insert(transition)',
+	'zone.m_sActiveOwnershipTransitionRequestId = transition.m_sRequestId;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ApplyBlock) -or
+		$schema62ApplyBlock.IndexOf($schema62AdmissionEntry) -lt 0) {
+		throw "Schema-62 ownership admission/replay contract is missing: $schema62AdmissionEntry"
+	}
+}
+$schema62ExistingIndex = $schema62ApplyBlock.IndexOf('state.FindOwnershipTransition(request.m_sRequestId)')
+$schema62ValidateIndex = $schema62ApplyBlock.IndexOf('ValidateNewRequest(state, request)')
+$schema62InsertIndex = $schema62ApplyBlock.IndexOf('state.m_aOwnershipTransitions.Insert(transition)')
+$schema62StrategicAdmissionIndex = $schema62ApplyBlock.IndexOf('transition.m_sStrategicEventId.IsEmpty()')
+if ($schema62ExistingIndex -lt 0 -or $schema62ValidateIndex -lt 0 -or $schema62InsertIndex -lt 0 -or
+	$schema62StrategicAdmissionIndex -lt 0 -or
+	$schema62ExistingIndex -gt $schema62ValidateIndex -or $schema62ValidateIndex -gt $schema62InsertIndex) {
+	throw "Schema-62 ownership admission must resolve replay/conflict and validate stale authority before inserting a receipt"
+}
+if ($schema62StrategicAdmissionIndex -gt $schema62InsertIndex) {
+	throw "Schema-62 ownership admission must establish strategic-event authority before inserting a durable receipt"
+}
+foreach ($schema62ReentrancyEntry in @(
+	'protected ref array<string> m_aApplicationRequestStack = {};',
+	'ContinueAcceptedTransitionScoped(state, existing, result)',
+	'ContinueAcceptedTransitionScoped(state, transition, result)'
+)) {
+	if ($schema62OwnershipText.IndexOf($schema62ReentrancyEntry) -lt 0) {
+		throw "Schema-62 nested ownership application scope is missing: $schema62ReentrancyEntry"
+	}
+}
+foreach ($schema62ScopedContinueEntry in @(
+	'm_aApplicationRequestStack.Insert(transition.m_sRequestId)',
+	'ContinueAcceptedTransition(state, transition, result)',
+	'm_aApplicationRequestStack.Remove(lastIndex)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ScopedContinueBlock) -or
+		$schema62ScopedContinueBlock.IndexOf($schema62ScopedContinueEntry) -lt 0) {
+		throw "Schema-62 nested ownership application stack must be pushed and popped around the canonical checklist: $schema62ScopedContinueEntry"
+	}
+}
+$schema62CreateTransitionBlock = Get-ScriptMethodBlock $schema62OwnershipText 'protected HST_OwnershipTransitionState CreateTransition('
+if ([string]::IsNullOrEmpty($schema62CreateTransitionBlock) -or
+	$schema62CreateTransitionBlock.IndexOf('!m_aApplicationRequestStack.IsEmpty()') -lt 0 -or
+	$schema62CreateTransitionBlock.IndexOf('transition.m_sProjectionParentRequestId = m_aApplicationRequestStack[') -lt 0) {
+	throw "Schema-62 nested ownership receipts must freeze their publication parent at admission"
+}
+foreach ($schema62RequestValidationEntry in @(
+	'!IsKnownCause(request.m_sCause)',
+	'request.m_iExpectedRevision <= 0',
+	'zone.m_iOwnershipContractVersion == QUARANTINED_CONTRACT_VERSION',
+	'zone.m_iOwnershipContractVersion != EXACT_CONTRACT_VERSION',
+	'zone.m_sOwnerFactionKey != request.m_sExpectedOwnerFactionKey',
+	'zone.m_iOwnershipRevision) != request.m_iExpectedRevision',
+	'zone.m_sOwnerFactionKey == request.m_sNewOwnerFactionKey',
+	'zone.m_sActiveOwnershipTransitionRequestId != request.m_sRequestId',
+	'ValidateOldSecurityAuthority(state, zone, request.m_sNewOwnerFactionKey)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ValidateRequestBlock) -or
+		$schema62ValidateRequestBlock.IndexOf($schema62RequestValidationEntry) -lt 0) {
+		throw "Schema-62 ownership requests must fail closed on stale/quarantined/security authority: $schema62RequestValidationEntry"
+	}
+}
+foreach ($schema62RequestFingerprintField in @(
+	'm_sRequestId',
+	'm_sZoneId',
+	'm_sCause',
+	'm_sSourceType',
+	'm_sSourceId',
+	'm_sActorIdentityId',
+	'm_sExpectedOwnerFactionKey',
+	'm_iExpectedRevision',
+	'm_sNewOwnerFactionKey',
+	'm_sReason',
+	'm_iSupportReward',
+	'm_bApplyEnemyConsequences',
+	'm_bReconcileSecurity',
+	'm_bCreateSecurity',
+	'm_bNotify'
+)) {
+	if ([string]::IsNullOrEmpty($schema62RequestMatchesBlock) -or
+		$schema62RequestMatchesBlock.IndexOf($schema62RequestFingerprintField) -lt 0) {
+		throw "Schema-62 replay matching omits immutable request fingerprint field: $schema62RequestFingerprintField"
+	}
+}
+foreach ($schema62ResumeEntry in @(
+	'zone.m_sOwnerFactionKey == transition.m_sPreviousOwnerFactionKey',
+	'zone.m_iOwnershipRevision) == transition.m_iExpectedRevision',
+	'zone.m_sOwnerFactionKey == transition.m_sNewOwnerFactionKey',
+	'zone.m_iOwnershipRevision == transition.m_iAppliedRevision',
+	'transition.m_iAppliedRevision == transition.m_iExpectedRevision + 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ResumeMatchesBlock) -or
+		$schema62ResumeMatchesBlock.IndexOf($schema62ResumeEntry) -lt 0) {
+		throw "Schema-62 interrupted transition resume must match the exact pre/post owner revision: $schema62ResumeEntry"
+	}
+}
+foreach ($schema62RestoreResumeEntry in @(
+	'array<string> pendingRequestIds = {};',
+	'pendingRequestIds.Insert(candidate.m_sRequestId)',
+	'foreach (string requestId : pendingRequestIds)',
+	'state.FindOwnershipTransition(requestId)',
+	'transition.m_bCompleted',
+	'transition.m_bQuarantined',
+	'RequestFromTransition(transition)',
+	'Apply(state, request)',
+	'QuarantineTransition(state, transition'
+)) {
+	if ([string]::IsNullOrEmpty($schema62RestoreReconcileBlock) -or
+		$schema62RestoreReconcileBlock.IndexOf($schema62RestoreResumeEntry) -lt 0) {
+		throw "Schema-62 restore must resume incomplete receipts and quarantine unsafe divergence: $schema62RestoreResumeEntry"
+	}
+}
+
+if ([string]::IsNullOrEmpty($schema62ContinueBlock) -or
+	[string]::IsNullOrEmpty($schema62SecurityContinueBlock) -or
+	[string]::IsNullOrEmpty($schema62OwnerContinueBlock) -or
+	[string]::IsNullOrEmpty($schema62OutcomeContinueBlock) -or
+	[string]::IsNullOrEmpty($schema62ProjectionContinueBlock) -or
+	[string]::IsNullOrEmpty($schema62CompleteTransitionBlock)) {
+	throw "Schema-62 canonical ownership continuation blocks are incomplete"
+}
+$schema62SecurityCallIndex = $schema62ContinueBlock.IndexOf('ContinueSecurityAndSupportSteps(')
+$schema62OwnerCallIndex = $schema62ContinueBlock.IndexOf('ContinueOwnerAndDerivedSteps(')
+$schema62OutcomeCallIndex = $schema62ContinueBlock.IndexOf('ContinueOutcomeAndEventSteps(')
+$schema62ProjectionCallIndex = $schema62ContinueBlock.IndexOf('ContinueProjectionAndDurabilitySteps(')
+$schema62CompleteCallIndex = $schema62ContinueBlock.IndexOf('CompleteAcceptedTransition(')
+if ($schema62SecurityCallIndex -lt 0 -or $schema62OwnerCallIndex -lt 0 -or
+	$schema62OutcomeCallIndex -lt 0 -or $schema62ProjectionCallIndex -lt 0 -or
+	$schema62CompleteCallIndex -lt 0 -or $schema62SecurityCallIndex -gt $schema62OwnerCallIndex -or
+	$schema62OwnerCallIndex -gt $schema62OutcomeCallIndex -or
+	$schema62OutcomeCallIndex -gt $schema62ProjectionCallIndex -or
+	$schema62ProjectionCallIndex -gt $schema62CompleteCallIndex) {
+	throw "Schema-62 canonical ownership continuation must call security, owner, outcome, projection, then completion in order"
+}
+foreach ($schema62ContinueEntry in @(
+	'transition.m_sStatus = "applying";',
+	'm_Strategic.RecordOwnershipTransitionOwnerEffect(',
+	'zone.m_sOwnerFactionKey = transition.m_sNewOwnerFactionKey;',
+	'zone.m_iOwnershipRevision = transition.m_iExpectedRevision + 1;',
+	'transition.m_iAppliedRevision = zone.m_iOwnershipRevision;',
+	'transition.m_bOwnerApplied = true;',
+	'ApplyTownOwnershipPolicy(state, zone, transition)',
+	'm_GarrisonPatrols.ReconcileZoneOwnershipChange(',
+	'm_PhysicalWar.CleanupZoneHostileRuntime(',
+	'ApplyNewSecurityPolicy(state, zone, transition)',
+	'ApplySupportConsequences(state, transition)',
+	'SynchronizeDerivedLocationOwnership(state, zone, transition)',
+	'ApplyEnemyConsequences(state, zone, transition)',
+	'm_Economy.RecalculateWarLevel(',
+	'm_Strategic.EvaluateCampaignOutcomeDetailed(',
+	'm_Strategic.CompleteOwnershipTransitionEvent(',
+	'm_CampaignEvents.Append(',
+	'transition.m_sStatus = "projecting";',
+	'ProjectTransition(state, zone, transition)',
+	'm_ZoneCapture.QueueOwnershipTransitionNotification(transition, zone)',
+	'm_Persistence.MarkMajorChange()',
+	'transition.m_sStatus = "completed";',
+	'zone.m_sActiveOwnershipTransitionRequestId = "";',
+	'zone.m_sLastOwnershipTransitionRequestId = transition.m_sRequestId;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62ContinueBlock) -or
+		$schema62ContinueSurface.IndexOf($schema62ContinueEntry) -lt 0) {
+		throw "Schema-62 ownership transition checklist/side-effect convergence is missing: $schema62ContinueEntry"
+	}
+}
+if (([regex]::Matches($schema62ContinueSurface, '(?m)^\s*zone\.m_sOwnerFactionKey\s*=')).Count -ne 1) {
+	throw "Schema-62 canonical transition must write zone owner exactly once"
+}
+$schema62OwnerWriteIndex = $schema62ContinueSurface.IndexOf('zone.m_sOwnerFactionKey = transition.m_sNewOwnerFactionKey;')
+$schema62OldSecurityIndex = $schema62ContinueSurface.IndexOf('m_GarrisonPatrols.ReconcileZoneOwnershipChange(')
+$schema62HostileRuntimeIndex = $schema62ContinueSurface.IndexOf('m_PhysicalWar.CleanupZoneHostileRuntime(')
+$schema62NewSecurityIndex = $schema62ContinueSurface.IndexOf('ApplyNewSecurityPolicy(state, zone, transition)')
+$schema62SupportIndex = $schema62ContinueSurface.IndexOf('ApplySupportConsequences(state, transition)')
+$schema62EconomyIndex = $schema62ContinueSurface.IndexOf('m_Economy.RecalculateWarLevel(')
+$schema62ProjectionIndex = $schema62ContinueSurface.IndexOf('ProjectTransition(state, zone, transition)')
+$schema62PersistenceIndex = $schema62ContinueSurface.IndexOf('m_Persistence.MarkMajorChange()')
+$schema62CompletedIndex = $schema62ContinueSurface.IndexOf('transition.m_sStatus = "completed";')
+if ($schema62OwnerWriteIndex -lt 0 -or $schema62OldSecurityIndex -lt 0 -or
+	$schema62HostileRuntimeIndex -lt 0 -or $schema62NewSecurityIndex -lt 0 -or
+	$schema62SupportIndex -lt 0 -or $schema62EconomyIndex -lt 0 -or
+	$schema62ProjectionIndex -lt 0 -or $schema62PersistenceIndex -lt 0 -or $schema62CompletedIndex -lt 0 -or
+	$schema62OldSecurityIndex -gt $schema62OwnerWriteIndex -or
+	$schema62HostileRuntimeIndex -gt $schema62OwnerWriteIndex -or
+	$schema62NewSecurityIndex -gt $schema62OwnerWriteIndex -or
+	$schema62SupportIndex -gt $schema62OwnerWriteIndex -or
+	$schema62OwnerWriteIndex -gt $schema62EconomyIndex -or
+	$schema62EconomyIndex -gt $schema62ProjectionIndex -or
+	$schema62ProjectionIndex -gt $schema62PersistenceIndex -or
+	$schema62PersistenceIndex -gt $schema62CompletedIndex) {
+	throw "Schema-62 ownership transition must settle retry-capable security/support before the visible owner revision, finish domain consequences before projection, and schedule persistence before completion"
+}
+foreach ($schema62SecurityEntry in @(
+	'!manifest || manifest.m_sPolicyId != HST_GarrisonPatrolOperationService.EXACT_POLICY_ID',
+	'non-patrol exact garrison authority must be settled before ownership can change',
+	'm_GarrisonPatrols.ValidateAcceptedManifestOwnershipAuthority(',
+	'm_GarrisonPatrols.CanReconcileZoneOwnershipChange('
+)) {
+	if ([string]::IsNullOrEmpty($schema62ValidateSecurityBlock) -or
+		$schema62ValidateSecurityBlock.IndexOf($schema62SecurityEntry) -lt 0) {
+		throw "Schema-62 ownership change must fail closed on exact garrison authority: $schema62SecurityEntry"
+	}
+}
+foreach ($schema62ResumeSecurityEntry in @(
+	'recheckPreOwnerSecurity = transition.m_bReconcileSecurity && !transition.m_bOwnerApplied',
+	'!transition.m_bOldSecurityRetired || recheckPreOwnerSecurity',
+	'ValidateOldSecurityAuthority(',
+	'm_GarrisonPatrols.ReconcileZoneOwnershipChange('
+)) {
+	if ([string]::IsNullOrEmpty($schema62SecurityContinueBlock) -or
+		$schema62SecurityContinueBlock.IndexOf($schema62ResumeSecurityEntry) -lt 0) {
+		throw "Schema-62 pending pre-owner transitions must revalidate and settle late exact security authority: $schema62ResumeSecurityEntry"
+	}
+}
+foreach ($schema62PatrolContractEntry in @(
+	'bool ValidateAcceptedManifestOwnershipAuthority(',
+	'claimantCount != 1',
+	'HST_OPERATION_TYPE_GARRISON_PATROL',
+	'operation authority is quarantined',
+	'HST_OPERATION_SETTLEMENT_OPEN',
+	'bool CanReconcileZoneOwnershipChange(',
+	'bool ReconcileZoneOwnershipChange(',
+	'RetireAndSettle('
+)) {
+	if ($schema62GarrisonPatrolText.IndexOf($schema62PatrolContractEntry) -lt 0) {
+		throw "Schema-62 exact garrison-patrol settlement contract is missing: $schema62PatrolContractEntry"
+	}
+}
+if ($schema62PhysicalWarText.IndexOf('bool CleanupZoneHostileRuntime(') -lt 0) {
+	throw "Schema-62 physical-war service must expose generic hostile runtime cleanup for ownership changes"
+}
+foreach ($schema62ProjectionEntry in @(
+	'transition.m_sProjectionParentRequestId.IsEmpty()',
+	'state.FindOwnershipTransition(transition.m_sProjectionParentRequestId)',
+	'publication delegated to parent',
+	'ValidateDeferredChildPublications(state, transition, false)',
+	'm_MapMarkers.StageOwnershipTransitionMarkers(',
+	'm_MapMarkers.RollbackOwnershipTransitionMarkers(',
+	'm_MapMarkers.CommitOwnershipTransitionMarkers(',
+	'transition.m_sRequestId',
+	'state.FindMapMarker("hst_zone_" + zone.m_sZoneId)',
+	'marker.m_sOwnerFactionKey != zone.m_sOwnerFactionKey',
+	'marker.m_iSourceRevision != zone.m_iOwnershipRevision',
+	'transition.m_iMarkerRevision = marker.m_iRevision;',
+	'transition.m_iMarkerStreamSequence = marker.m_iStreamSequence;',
+	'm_ClientProjection.Synchronize('
+)) {
+	if ([string]::IsNullOrEmpty($schema62ProjectBlock) -or
+		$schema62ProjectBlock.IndexOf($schema62ProjectionEntry) -lt 0) {
+		throw "Schema-62 ownership projection must correlate the published marker to the source revision: $schema62ProjectionEntry"
+	}
+}
+$schema62NestedProjectionIndex = $schema62ProjectBlock.IndexOf('if (!transition.m_sProjectionParentRequestId.IsEmpty())')
+$schema62NestedProjectionReturnIndex = $schema62ProjectBlock.IndexOf('return "";', $schema62NestedProjectionIndex)
+$schema62TopLevelRebuildIndex = $schema62ProjectBlock.IndexOf('m_MapMarkers.StageOwnershipTransitionMarkers(')
+if ($schema62NestedProjectionIndex -lt 0 -or $schema62NestedProjectionReturnIndex -lt 0 -or
+	$schema62TopLevelRebuildIndex -lt 0 -or
+	$schema62NestedProjectionIndex -gt $schema62NestedProjectionReturnIndex -or
+	$schema62NestedProjectionReturnIndex -gt $schema62TopLevelRebuildIndex) {
+	throw "Schema-62 nested transitions must delegate publication and return before the parent-owned marker rebuild"
+}
+$schema62StageProjectionIndex = $schema62ProjectBlock.IndexOf('m_MapMarkers.StageOwnershipTransitionMarkers(')
+$schema62LiveChildReleaseIndex = $schema62ProjectBlock.IndexOf('ReleaseDeferredChildPublications(state, transition, true)')
+$schema62LiveCommitIndex = $schema62ProjectBlock.LastIndexOf('m_MapMarkers.CommitOwnershipTransitionMarkers(')
+if ($schema62StageProjectionIndex -lt 0 -or $schema62LiveChildReleaseIndex -lt 0 -or
+	$schema62LiveCommitIndex -lt 0 -or $schema62StageProjectionIndex -gt $schema62LiveChildReleaseIndex -or
+	$schema62LiveChildReleaseIndex -gt $schema62LiveCommitIndex) {
+	throw "Schema-62 live ownership publication must stage, validate/release children, then commit atomically"
+}
+foreach ($schema62DeferredPublicationEntry in @(
+	'child.m_sProjectionParentRequestId != parent.m_sRequestId',
+	'child.m_bDeferredPublicationReleased',
+	'!child.m_bCompleted || child.m_bQuarantined',
+	'childZone.m_sLastOwnershipTransitionRequestId != child.m_sRequestId',
+	'childMarker.m_sOwnerFactionKey != childZone.m_sOwnerFactionKey',
+	'childMarker.m_iSourceRevision != childZone.m_iOwnershipRevision',
+	'child.m_iMarkerRevision = childMarker.m_iRevision;',
+	'm_ZoneCapture.QueueOwnershipTransitionNotification(child, childZone)',
+	'child.m_bDeferredPublicationReleased = true;'
+)) {
+	if ([string]::IsNullOrEmpty($schema62DeferredPublicationSurface) -or
+		$schema62DeferredPublicationSurface.IndexOf($schema62DeferredPublicationEntry) -lt 0) {
+		throw "Schema-62 parent publication must release completed nested ownership evidence exactly once: $schema62DeferredPublicationEntry"
+	}
+}
+$schema62DeferredValidationIndex = $schema62ReleaseDeferredBlock.IndexOf('ValidateDeferredChildPublications(state, parent, liveProjection)')
+$schema62DeferredMutationIndex = $schema62ReleaseDeferredBlock.IndexOf('child.m_sMarkerId = childMarker.m_sMarkerId;')
+if ($schema62DeferredValidationIndex -lt 0 -or $schema62DeferredMutationIndex -lt 0 -or
+	$schema62DeferredValidationIndex -gt $schema62DeferredMutationIndex -or
+	$schema62ReleaseDeferredBlock.IndexOf('return "nested ownership marker did not correlate') -ge 0) {
+	throw "Schema-62 nested-child publication must validate every live marker before releasing or notifying any child"
+}
+if ($schema62ContinueSurface.IndexOf('transition.m_bNotify && transition.m_sProjectionParentRequestId.IsEmpty()') -lt 0) {
+	throw "Schema-62 nested ownership transitions must not publish their notification before the parent projection"
+}
+$schema62MarkerRebuildBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'bool RebuildAllMarkers('
+$schema62LogicalMarkerRebuildBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'protected bool RebuildLogicalMarkerSnapshot('
+$schema62StageMarkerBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'HST_OwnershipMarkerProjectionTransaction StageOwnershipTransitionMarkers('
+$schema62CommitMarkerBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'void CommitOwnershipTransitionMarkers('
+$schema62RollbackMarkerBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'void RollbackOwnershipTransitionMarkers('
+$schema62RestoreMarkerSnapshotBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'protected void RestoreOwnershipMarkerSnapshot('
+$schema62MarkerFenceBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'protected bool CanPublishOwnershipSnapshot('
+$schema62ZoneProjectionAuthorityBlock = Get-ScriptMethodBlock $schema62MapMarkerText 'protected bool ResolveZoneProjectionAuthority('
+foreach ($schema62PublicationFenceEntry in @(
+	'RebuildLogicalMarkerSnapshot(',
+	'CanPublishOwnershipSnapshot(state, authorizedOwnershipRequestId)',
+	'!transition.m_bOwnerApplied',
+	'm_sAuthorizedOwnershipPublicationRequestId = ownershipRequestId;',
+	'transition.m_bCompleted || transition.m_bQuarantined',
+	'zone.m_sActiveOwnershipTransitionRequestId != ownershipRequestId',
+	'!transition.m_bCompleted',
+	'transition.m_sProjectionParentRequestId != authorizedOwnershipRequestId',
+	'activeTransition.m_sPreviousOwnerFactionKey',
+	'activeTransition.m_iExpectedRevision',
+	'latestTransition.m_sProjectionParentRequestId == authorizedOwnershipRequestId',
+	'latestTransition.m_sPreviousOwnerFactionKey'
+)) {
+	if ($schema62MapMarkerText.IndexOf($schema62PublicationFenceEntry) -lt 0) {
+		throw "Schema-62 marker projection must retain the prior snapshot until one authorized parent publishes atomically: $schema62PublicationFenceEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema62MarkerRebuildBlock) -or
+	[string]::IsNullOrEmpty($schema62LogicalMarkerRebuildBlock) -or
+	[string]::IsNullOrEmpty($schema62StageMarkerBlock) -or
+	[string]::IsNullOrEmpty($schema62CommitMarkerBlock) -or
+	[string]::IsNullOrEmpty($schema62RollbackMarkerBlock) -or
+	[string]::IsNullOrEmpty($schema62RestoreMarkerSnapshotBlock) -or
+	[string]::IsNullOrEmpty($schema62MarkerFenceBlock) -or
+	[string]::IsNullOrEmpty($schema62ZoneProjectionAuthorityBlock)) {
+	throw "Schema-62 marker projection publication-fence methods are incomplete"
+}
+foreach ($schema62MarkerTransactionEntry in @(
+	'transaction.m_iPreviousProjectionEpoch = state.m_iMarkerProjectionEpoch;',
+	'transaction.m_iPreviousProjectionSequence = state.m_iMarkerProjectionSequence;',
+	'HST_MarkerProjectionCodec.CopyMarker(previousMarker)',
+	'RebuildLogicalMarkerSnapshot(',
+	'RestoreOwnershipMarkerSnapshot(state, transaction)',
+	'transaction.m_bActive = true;',
+	'm_sStagedOwnershipPublicationRequestId = ownershipRequestId;'
+)) {
+	if ($schema62StageMarkerBlock.IndexOf($schema62MarkerTransactionEntry) -lt 0) {
+		throw "Schema-62 marker publication stage must retain an exact rollback snapshot: $schema62MarkerTransactionEntry"
+	}
+}
+foreach ($schema62MarkerCommitEntry in @(
+	'PublishRebuiltLogicalSnapshot(',
+	'transaction.m_bActive = false;',
+	'm_sStagedOwnershipPublicationRequestId = "";'
+)) {
+	if ($schema62CommitMarkerBlock.IndexOf($schema62MarkerCommitEntry) -lt 0) {
+		throw "Schema-62 marker publication commit is incomplete: $schema62MarkerCommitEntry"
+	}
+}
+foreach ($schema62MarkerRollbackEntry in @(
+	'RestoreOwnershipMarkerSnapshot(state, transaction)',
+	'transaction.m_bActive = false;',
+	'm_sStagedOwnershipPublicationRequestId = "";'
+)) {
+	if ($schema62RollbackMarkerBlock.IndexOf($schema62MarkerRollbackEntry) -lt 0) {
+		throw "Schema-62 marker publication rollback is incomplete: $schema62MarkerRollbackEntry"
+	}
+}
+foreach ($schema62MarkerRestoreEntry in @(
+	'state.m_aMapMarkers.Clear()',
+	'HST_MarkerProjectionCodec.CopyMarker(previousMarker)',
+	'state.m_iMarkerProjectionEpoch = transaction.m_iPreviousProjectionEpoch;',
+	'state.m_iMarkerProjectionSequence = transaction.m_iPreviousProjectionSequence;'
+)) {
+	if ($schema62RestoreMarkerSnapshotBlock.IndexOf($schema62MarkerRestoreEntry) -lt 0) {
+		throw "Schema-62 marker rollback must restore every retained record and projection counter: $schema62MarkerRestoreEntry"
+	}
+}
+$schema62FenceIndex = $schema62LogicalMarkerRebuildBlock.IndexOf('CanPublishOwnershipSnapshot(state, authorizedOwnershipRequestId)')
+$schema62MarkerClearIndex = $schema62LogicalMarkerRebuildBlock.IndexOf('state.m_aMapMarkers.Clear()')
+if ($schema62FenceIndex -lt 0 -or $schema62MarkerClearIndex -lt 0 -or
+	$schema62FenceIndex -gt $schema62MarkerClearIndex) {
+	throw "Schema-62 ordinary marker rebuilds must fail closed before mutating the retained projection snapshot"
+}
+foreach ($schema62GlobalAdmissionEntry in @(
+	'HasEarlierUnresolvedTopLevelTransition(state, transition)',
+	'candidate.m_bCompleted',
+	'ownership transition is durably queued behind earlier publication authority',
+	'zone ownership publication is still delegated to a live parent transition'
+)) {
+	if ($schema62OwnershipText.IndexOf($schema62GlobalAdmissionEntry) -lt 0) {
+		throw "Schema-62 ownership admission must durably queue and serialize top-level publication authority: $schema62GlobalAdmissionEntry"
+	}
+}
+foreach ($schema62QueuedSupportDeferralEntry in @(
+	'bool reconcileOwnership = zoneId != transition.m_sZoneId;',
+	'HasLaterPristineQueuedTopLevelForZone(',
+	'reconcileOwnership = false;',
+	'RegisterOwnershipSupportReward(',
+	'protected bool HasLaterPristineQueuedTopLevelForZone(',
+	'protected bool IsPristineQueuedTopLevelTransition(',
+	'zone.m_sActiveOwnershipTransitionRequestId == candidate.m_sRequestId'
+)) {
+	if ($schema62OwnershipText.IndexOf($schema62QueuedSupportDeferralEntry) -lt 0) {
+		throw "Schema-62 linked support must defer only political reconciliation that collides with a later pristine queued town authority: $schema62QueuedSupportDeferralEntry"
+	}
+}
+$schema62QueuedAdmissionIndex = $schema62ContinueSurface.IndexOf('HasEarlierUnresolvedTopLevelTransition(state, transition)')
+$schema62QueuedSecurityIndex = $schema62ContinueSurface.IndexOf('ContinueSecurityAndSupportSteps(')
+if ($schema62QueuedAdmissionIndex -lt 0 -or $schema62QueuedSecurityIndex -lt 0 -or
+	$schema62QueuedAdmissionIndex -gt $schema62QueuedSecurityIndex) {
+	throw "Schema-62 later top-level ownership receipts must stop before every domain mutation while earlier publication authority remains unresolved"
+}
+foreach ($schema62GlobalRestoreFenceEntry in @(
+	'CountOwnerAppliedIncompleteTopLevelTransitions(saveData) > 1',
+	'multiple owner-applied top-level transitions cannot share one publication fence',
+	'protected int CountOwnerAppliedIncompleteTopLevelTransitions(',
+	'HasEarlierUnresolvedTopLevelTransition(saveData, ownerAppliedTopLevel)',
+	'owner-applied top-level transition is not the earliest unresolved publication authority',
+	'protected bool HasEarlierUnresolvedTopLevelTransition(',
+	'ConvergeRelationalQuarantine(saveData)'
+)) {
+	if ($schema62SaveValidationText.IndexOf($schema62GlobalRestoreFenceEntry) -lt 0) {
+		throw "Schema-62 restore must quarantine ambiguous top-level publication authority: $schema62GlobalRestoreFenceEntry"
+	}
+}
+foreach ($schema62RelationalConvergenceEntry in @(
+	'convergencePass < passLimit',
+	'ValidateTransition(saveData, transition)',
+	'ValidateTransitionBacklink(saveData, transition)',
+	'ValidateZoneBacklinks(saveData, zone)',
+	'QuarantineTransition(saveData, transition, failure)',
+	'QuarantineZone(saveData, zone, backlinkFailure)',
+	'if (!convergenceChanged)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62RelationalConvergenceBlock) -or
+		$schema62RelationalConvergenceBlock.IndexOf($schema62RelationalConvergenceEntry) -lt 0) {
+		throw "Schema-62 restore quarantine must converge transition, projection-parent, and zone backlinks until stable: $schema62RelationalConvergenceEntry"
+	}
+}
+foreach ($schema62CommandPublicationEntry in @(
+	'bool ResolvePublishedZoneOwnership(',
+	'ResolvePublishedZoneOwnerFactionKey(',
+	'markers.ResolvePublishedZoneOwnership(',
+	'BuildZoneListReport(m_State, m_Preset, m_MapMarkers)',
+	'CountResistanceZones(state, preset, markers)',
+	'CountEnemyZones(state, preset, markers)',
+	'AppendActivityFeed(payload, state, preset, markers, selectedTabId)',
+	'BuildTabActions(state, preset, markers, selectedTabId',
+	'BuildStrategicOrder(state, preset, markers)',
+	'HasAnyRecruitableResistanceZone(state, preset, markers)',
+	'HasAnyRemovableResistanceGarrison(state, preset, markers)',
+	'publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(state, captureZone, markers)'
+)) {
+	if ($schema62MapMarkerText.IndexOf($schema62CommandPublicationEntry) -lt 0 -and
+		$schema62CommandUIText.IndexOf($schema62CommandPublicationEntry) -lt 0 -and
+		$schema62CoordinatorText.IndexOf($schema62CommandPublicationEntry) -lt 0) {
+		throw "Schema-62 command-menu ownership presentation must use the retained published snapshot: $schema62CommandPublicationEntry"
+	}
+}
+$schema62CommandPublishedOwnerBlock = Get-ScriptMethodBlock $schema62CommandUIText 'protected string ResolvePublishedZoneOwnerFactionKey('
+foreach ($schema62CommandFailClosedEntry in @(
+	'markers.ResolvePublishedZoneOwnership(',
+	'state.FindMapMarker("hst_zone_" + zone.m_sZoneId)',
+	'retainedMarker.m_sOwnerFactionKey != publishedOwnerFactionKey',
+	'retainedMarker.m_iSourceRevision != publishedOwnershipRevision',
+	'return "";'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CommandPublishedOwnerBlock) -or
+		$schema62CommandPublishedOwnerBlock.IndexOf($schema62CommandFailClosedEntry) -lt 0) {
+		throw "Schema-62 command-menu ownership fallback must retain a prior published marker or fail closed: $schema62CommandFailClosedEntry"
+	}
+}
+$schema62CommandRetainedMarkerIndex = $schema62CommandPublishedOwnerBlock.IndexOf('state.FindMapMarker("hst_zone_" + zone.m_sZoneId)')
+$schema62CommandAuthorityFallbackIndex = $schema62CommandPublishedOwnerBlock.IndexOf('markers.ResolvePublishedZoneOwnership(')
+if ($schema62CommandRetainedMarkerIndex -lt 0 -or $schema62CommandAuthorityFallbackIndex -lt 0 -or
+	$schema62CommandAuthorityFallbackIndex -gt $schema62CommandRetainedMarkerIndex) {
+	throw "Schema-62 command-menu ownership must resolve publication authority before accepting a correlated retained marker"
+}
+foreach ($schema62CapturePublicationEntry in @(
+	'bool useOwnerFactionKeyOverride = false',
+	'string effectiveOwnerFactionKey = zone.m_sOwnerFactionKey;',
+	'effectiveOwnerFactionKey = ownerFactionKeyOverride;',
+	'status.m_sOwnerFactionKey = effectiveOwnerFactionKey;',
+	'status.m_bContested = status.m_iFIACountNearby > 0 && effectiveOwnerFactionKey != resistanceFactionKey;',
+	'if (effectiveOwnerFactionKey == resistanceFactionKey)',
+	'ResolvePublishedZoneOwnerFactionKey(state, zone, markers)',
+	'publishedOwnerLabel = "publication unavailable"'
+)) {
+	if ($schema62CaptureText.IndexOf($schema62CapturePublicationEntry) -lt 0) {
+		throw "Schema-62 capture presentation must derive owner-dependent status/report rows from published authority: $schema62CapturePublicationEntry"
+	}
+}
+$schema62CapturePublishedOwnerBlock = Get-ScriptMethodBlock $schema62CaptureText 'protected string ResolvePublishedZoneOwnerFactionKey('
+$schema62CaptureRetainedMarkerIndex = $schema62CapturePublishedOwnerBlock.IndexOf('state.FindMapMarker("hst_zone_" + zone.m_sZoneId)')
+$schema62CaptureAuthorityFallbackIndex = $schema62CapturePublishedOwnerBlock.IndexOf('markers.ResolvePublishedZoneOwnership(')
+if ([string]::IsNullOrEmpty($schema62CapturePublishedOwnerBlock) -or
+	$schema62CaptureRetainedMarkerIndex -lt 0 -or $schema62CaptureAuthorityFallbackIndex -lt 0 -or
+	$schema62CaptureAuthorityFallbackIndex -gt $schema62CaptureRetainedMarkerIndex -or
+	$schema62CapturePublishedOwnerBlock.IndexOf('retainedMarker.m_sOwnerFactionKey != publishedOwnerFactionKey') -lt 0 -or
+	$schema62CapturePublishedOwnerBlock.IndexOf('retainedMarker.m_iSourceRevision != publishedOwnershipRevision') -lt 0) {
+	throw "Schema-62 capture presentation must resolve authority before accepting a correlated retained marker"
+}
+foreach ($schema62CoordinatorPublicationEntry in @(
+	'BuildCaptureReport(m_State, m_Preset, m_Balance, m_MapMarkers)',
+	'protected string ResolvePublishedZoneOwnerFactionKey(HST_ZoneState zone)',
+	'string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);',
+	'publication unavailable %3'
+)) {
+	if ($schema62CoordinatorText.IndexOf($schema62CoordinatorPublicationEntry) -lt 0) {
+		throw "Schema-62 coordinator player reports must use published ownership authority: $schema62CoordinatorPublicationEntry"
+	}
+}
+$schema62CoordinatorPublishedOwnerBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected string ResolvePublishedZoneOwnerFactionKey('
+$schema62CoordinatorRetainedMarkerIndex = $schema62CoordinatorPublishedOwnerBlock.IndexOf('m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId)')
+$schema62CoordinatorAuthorityFallbackIndex = $schema62CoordinatorPublishedOwnerBlock.IndexOf('m_MapMarkers.ResolvePublishedZoneOwnership(')
+if ([string]::IsNullOrEmpty($schema62CoordinatorPublishedOwnerBlock) -or
+	$schema62CoordinatorRetainedMarkerIndex -lt 0 -or $schema62CoordinatorAuthorityFallbackIndex -lt 0 -or
+	$schema62CoordinatorAuthorityFallbackIndex -gt $schema62CoordinatorRetainedMarkerIndex -or
+	$schema62CoordinatorPublishedOwnerBlock.IndexOf('retainedMarker.m_sOwnerFactionKey != publishedOwnerFactionKey') -lt 0 -or
+	$schema62CoordinatorPublishedOwnerBlock.IndexOf('retainedMarker.m_iSourceRevision != publishedOwnershipRevision') -lt 0) {
+	throw "Schema-62 coordinator reports must resolve authority before accepting a correlated retained marker"
+}
+foreach ($schema62FrozenDecisionEntry in @(
+	'transition.m_iCounterattackChance',
+	'transition.m_iCounterattackRoll',
+	'transition.m_bCounterattackSelected'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FreezeEnemyBlock) -or
+		$schema62FreezeEnemyBlock.IndexOf($schema62FrozenDecisionEntry) -lt 0 -or
+		[string]::IsNullOrEmpty($schema62ApplyEnemyBlock) -or
+		$schema62ApplyEnemyBlock.IndexOf($schema62FrozenDecisionEntry) -lt 0) {
+		throw "Schema-62 replay-safe enemy consequence decision must be frozen then consumed: $schema62FrozenDecisionEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($schema62RetryBlock) -or
+	$schema62RetryBlock.IndexOf('result.m_bNeedsRetry = true;') -lt 0 -or
+	$schema62RetryBlock.IndexOf('m_bStateChangedSinceConsume') -lt 0 -or
+	$schema62RetryBlock.IndexOf('SchedulePartialPersistence()') -lt 0 -or
+	[string]::IsNullOrEmpty($schema62PartialPersistenceBlock) -or
+	$schema62PartialPersistenceBlock.IndexOf('m_Persistence.MarkMajorChange()') -lt 0 -or
+	$schema62PartialPersistenceBlock.IndexOf('m_bPersistenceRequested = true') -ge 0) {
+	throw "Schema-62 partial checklist progress must remain retryable and schedule a durable checkpoint"
+}
+foreach ($schema62RetentionEntry in @(
+	'state.m_aOwnershipTransitions.Count() >= MAX_TRANSITION_ROWS',
+	'CanPruneTransition(state, candidate)',
+	'state.m_aOwnershipTransitions.Remove(pruneIndex)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62PruneBlock) -or
+		$schema62PruneBlock.IndexOf($schema62RetentionEntry) -lt 0) {
+		throw "Schema-62 bounded receipt pruning is missing: $schema62RetentionEntry"
+	}
+}
+foreach ($schema62PinnedReceiptEntry in @(
+	'!transition.m_bCompleted',
+	'transition.m_bQuarantined',
+	'transition.m_iCompletedAtSecond + MIN_REPLAY_RETENTION_SECONDS',
+	'zone.m_sLastOwnershipTransitionRequestId == transition.m_sRequestId',
+	'child.m_sProjectionParentRequestId == transition.m_sRequestId',
+	'!child.m_bDeferredPublicationReleased',
+	'order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CanPruneBlock) -or
+		$schema62CanPruneBlock.IndexOf($schema62PinnedReceiptEntry) -lt 0) {
+		throw "Schema-62 retention must pin incomplete, quarantined, recent, latest, and live-order receipts: $schema62PinnedReceiptEntry"
+	}
+}
+foreach ($schema62PendingRetryEntry in @(
+	'PENDING_RETRY_INTERVAL_SECONDS',
+	'bool bypassCampaignClockRateLimit = false',
+	'if (!bypassCampaignClockRateLimit && candidate.m_iLastAttemptAtSecond > 0',
+	'candidate.m_iLastAttemptAtSecond + PENDING_RETRY_INTERVAL_SECONDS',
+	'Apply(state, RequestFromTransition(transition))',
+	'QuarantineTransition(state, transition',
+	'SchedulePartialPersistence()'
+)) {
+	if ([string]::IsNullOrEmpty($schema62TickPendingBlock) -or
+		$schema62OwnershipText.IndexOf($schema62PendingRetryEntry) -lt 0) {
+		throw "Schema-62 accepted partial transitions must receive bounded runtime retries: $schema62PendingRetryEntry"
+	}
+}
+
+$schema62CaptureForResistanceBlock = Get-ScriptMethodBlock $schema62CaptureText 'HST_OwnershipTransitionResult CaptureForResistanceDetailed('
+foreach ($schema62CaptureRouteEntry in @(
+	'm_OwnershipTransitions.BuildRequest(',
+	'"military_capture"',
+	'"mission_capture"',
+	'm_OwnershipTransitions.Apply(state, request)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CaptureForResistanceBlock) -or
+		$schema62CaptureForResistanceBlock.IndexOf($schema62CaptureRouteEntry) -lt 0) {
+		throw "Schema-62 military/mission capture must route through canonical ownership authority: $schema62CaptureRouteEntry"
+	}
+}
+$schema62PoliticalBlock = Get-ScriptMethodBlock $schema62CivilianText 'protected bool ApplyPoliticalOwnershipTransition('
+foreach ($schema62PoliticalRouteEntry in @(
+	'm_OwnershipTransitions.BuildRequest(',
+	'"political_support"',
+	'm_OwnershipTransitions.Apply(state, request)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62PoliticalBlock) -or
+		$schema62PoliticalBlock.IndexOf($schema62PoliticalRouteEntry) -lt 0) {
+		throw "Schema-62 political support flips must route through canonical ownership authority: $schema62PoliticalRouteEntry"
+	}
+}
+foreach ($schema62SupportConsequenceEntry in @(
+	'bool RegisterOwnershipSupportReward(',
+	'RegisterInfluenceEventExact(',
+	'ownershipRequestId',
+	'eventId,',
+	'reconcileOwnership);',
+	'bool ReconcileTownOwnershipPolicies(',
+	'HasUnresolvedTopLevelOwnershipTransition(state)',
+	'm_Civilians.ReconcileTownOwnershipPolicies('
+)) {
+	if ($schema62CivilianText.IndexOf($schema62SupportConsequenceEntry) -lt 0 -and
+		$schema62CoordinatorText.IndexOf($schema62SupportConsequenceEntry) -lt 0) {
+		throw "Schema-62 linked town support consequences must use exact influence-event authority: $schema62SupportConsequenceEntry"
+	}
+}
+$schema62ExactInfluenceBlock = Get-ScriptMethodBlock $schema62CivilianText 'bool RegisterInfluenceEventExact('
+$schema62ApplyInfluenceBlock = Get-ScriptMethodBlock $schema62CivilianText 'protected void ApplyInfluenceEvent('
+foreach ($schema62PoliticalRetryEntry in @(
+	'bool reconcileOwnership = true',
+	'if (!exactMatch || !reconcileOwnership)',
+	'ApplyTownSupportOwnershipPolicy(',
+	'ApplyInfluenceEvent(state, civilianZone, influenceEvent, preset, reconcileOwnership)',
+	'if (reconcileOwnership)'
+)) {
+	if ($schema62CivilianText.IndexOf($schema62PoliticalRetryEntry) -lt 0) {
+		throw "Schema-62 exact influence replay/suppression must retain a retryable political ownership intent: $schema62PoliticalRetryEntry"
+	}
+}
+foreach ($schema62StrategicEntry in @(
+	'HST_StrategicEventApplyResult BeginOwnershipTransitionEvent(',
+	'bool RecordOwnershipTransitionOwnerEffect(',
+	'void CompleteOwnershipTransitionEvent(',
+	'"ownership_transition"'
+)) {
+	if ($schema62StrategicText.IndexOf($schema62StrategicEntry) -lt 0) {
+		throw "Schema-62 strategic event authority is missing: $schema62StrategicEntry"
+	}
+}
+$schema62OwnershipEventStartBlock = Get-ScriptMethodBlock $schema62StrategicText 'protected void CaptureOwnershipTransitionEventStart('
+$schema62OwnershipEventOwnerBlock = Get-ScriptMethodBlock $schema62StrategicText 'bool RecordOwnershipTransitionOwnerEffect('
+$schema62OwnershipEventCompleteBlock = Get-ScriptMethodBlock $schema62StrategicText 'void CompleteOwnershipTransitionEvent('
+foreach ($schema62OwnershipEventNeutralEntry in @(
+	'eventState.m_iFactionMoneyDelta = 0;',
+	'eventState.m_iHRDelta = 0;',
+	'eventState.m_iHQKnowledgeBefore = 0;',
+	'eventState.m_iHQKnowledgeAfter = 0;',
+	'eventState.m_iHQKnowledgeDelta = 0;',
+	'eventState.m_iSupportBefore = 0;',
+	'eventState.m_iSupportAfter = 0;',
+	'eventState.m_iTownSupportDelta = 0;',
+	'eventState.m_iAttackResourceDelta = 0;',
+	'eventState.m_iSupportResourceDelta = 0;'
+)) {
+	if ($schema62OwnershipEventStartBlock.IndexOf($schema62OwnershipEventNeutralEntry) -lt 0 -or
+		$schema62OwnershipEventCompleteBlock.IndexOf($schema62OwnershipEventNeutralEntry) -lt 0) {
+		throw "Schema-62 ownership events must exclude unrelated global deltas exactly: $schema62OwnershipEventNeutralEntry"
+	}
+}
+foreach ($schema62OwnershipEventOwnerEntry in @(
+	'eventState.m_sOwnerBefore = previousOwner;',
+	'eventState.m_iCaptureProgressBefore = Math.Max(0, captureProgressBefore);',
+	'eventState.m_iCaptureProgressAfter = 0;',
+	'eventState.m_iCaptureProgressDelta = -eventState.m_iCaptureProgressBefore;'
+)) {
+	if ($schema62OwnershipEventOwnerBlock.IndexOf($schema62OwnershipEventOwnerEntry) -lt 0) {
+		throw "Schema-62 ownership owner-step event evidence is incomplete: $schema62OwnershipEventOwnerEntry"
+	}
+}
+foreach ($schema62OwnershipEventCompleteEntry in @(
+	'eventState.m_sOwnerBefore = previousOwner;',
+	'eventState.m_sOwnerAfter = newOwner;',
+	'eventState.m_iAggressionDelta = Math.Max(0, aggressionApplied);',
+	'eventState.m_bApplied = true;'
+)) {
+	if ($schema62OwnershipEventCompleteBlock.IndexOf($schema62OwnershipEventCompleteEntry) -lt 0) {
+		throw "Schema-62 ownership event completion must use receipt-specific owner/aggression facts: $schema62OwnershipEventCompleteEntry"
+	}
+}
+if ($schema62StrategicText.IndexOf('bool SetZoneOwner(') -ge 0 -or
+	$schema62StrategicText -match '(?m)^\s*zone\.m_sOwnerFactionKey\s*=') {
+	throw "Schema-62 strategic service must not retain a split direct zone-owner mutation path"
+}
+
+$schema62CoordinatorSetOwnerBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'HST_OwnershipTransitionResult SetZoneOwnerDetailed('
+foreach ($schema62CoordinatorRouteEntry in @(
+	'm_OwnershipTransitions.BuildRequest(',
+	'm_OwnershipTransitions.Apply(m_State, request)',
+	'cause = "admin"',
+	'cause == "debug_seed"',
+	'cause == "migration_repair"'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CoordinatorSetOwnerBlock) -or
+		$schema62CoordinatorSetOwnerBlock.IndexOf($schema62CoordinatorRouteEntry) -lt 0) {
+		throw "Schema-62 coordinator owner/admin/migration route is not canonical: $schema62CoordinatorRouteEntry"
+	}
+}
+foreach ($schema62CoordinatorWiringEntry in @(
+	'protected ref HST_OwnershipTransitionService m_OwnershipTransitions;',
+	'm_OwnershipTransitions = new HST_OwnershipTransitionService();',
+	'm_OwnershipTransitions.ConfigureDomainServices(',
+	'm_OwnershipTransitions.ConfigureRuntimeServices(',
+	'm_OwnershipTransitions.ConfigureProjectionServices(',
+	'm_Civilians.SetOwnershipTransitionService(m_OwnershipTransitions);',
+	'm_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);',
+	'm_OwnershipTransitions.ReconcileAfterRestore(m_State);',
+	'm_OwnershipTransitions.TickPending(m_State, !activeCampaign);'
+)) {
+	if ($schema62CoordinatorText.IndexOf($schema62CoordinatorWiringEntry) -lt 0) {
+		throw "Schema-62 coordinator ownership service wiring is missing: $schema62CoordinatorWiringEntry"
+	}
+}
+$schema62CoordinatorInitBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'override void OnPostInit('
+$schema62FoundationIndex = $schema62CoordinatorInitBlock.IndexOf('EnsureCampaignFoundation();')
+$schema62RestoreOwnershipIndex = $schema62CoordinatorInitBlock.IndexOf('m_OwnershipTransitions.ReconcileAfterRestore(m_State);')
+$schema62InitialMarkerRefreshIndex = $schema62CoordinatorInitBlock.IndexOf('RefreshCampaignMarkers();')
+if ($schema62FoundationIndex -lt 0 -or $schema62RestoreOwnershipIndex -lt 0 -or
+	$schema62InitialMarkerRefreshIndex -lt 0 -or
+	$schema62RestoreOwnershipIndex -gt $schema62FoundationIndex -or
+	$schema62FoundationIndex -gt $schema62InitialMarkerRefreshIndex) {
+	throw "Schema-62 incomplete ownership receipts must reconcile before faction sanitation/foundation and initial marker publication"
+}
+$schema62FactionSanitizeBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected void NormalizeFactionKeys('
+if ([string]::IsNullOrEmpty($schema62FactionSanitizeBlock)) {
+	$schema62FactionSanitizeBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected void SanitizeFactionKeys('
+}
+$schema62FactionRetryTickBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool TickFactionSanitizationRepairs('
+$schema62FactionRepairBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool ReconcileFactionSanitizationRepairs('
+$schema62FactionRequestBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected HST_OwnershipTransitionRequest BuildInvalidOwnerMigrationRequest('
+$schema62FactionResultBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool HandleFactionSanitizationResult('
+$schema62FactionStructuralBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool IsStructuralFactionSanitizationRejection('
+$schema62FactionQuarantineBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool QuarantineInvalidOwnerForManualRepair('
+$schema62FactionDiagnosticBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool RecordFactionSanitizationDiagnostic('
+$schema62FactionBlockerBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected HST_OwnershipTransitionState FindQuarantinedTopLevelOwnershipTransition('
+$schema62CoordinatorFrameBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'override void EOnFrame('
+foreach ($schema62NonOwnerSanitizeEntry in @(
+	'foreach (HST_FactionPoolState factionPool : state.m_aFactionPools)',
+	'EnsureFactionPool(state, resistance, 0, 0)',
+	'EnsureFactionPool(state, occupier, occupierAttackResources, occupierSupportResources)',
+	'EnsureFactionPool(state, invader, invaderAttackResources, invaderSupportResources)',
+	'ReconcileFactionSanitizationRepairs(state, "startup")',
+	'foreach (HST_GarrisonState garrison : state.m_aGarrisons)',
+	'garrison.m_sFactionKey = occupier',
+	'HST_StableIdService.BuildGarrisonId('
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionSanitizeBlock) -or
+		$schema62FactionSanitizeBlock.IndexOf($schema62NonOwnerSanitizeEntry) -lt 0) {
+		throw "Schema-62 faction sanitation must preserve non-owner pool/garrison cleanup while routing owners canonically: $schema62NonOwnerSanitizeEntry"
+	}
+}
+foreach ($schema62ForbiddenImmediateSanitizeEntry in @(
+	'zone.m_iOwnershipContractVersion = HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION',
+	'faction sanitization transition failed closed',
+	'!result.m_bAccepted || !result.m_bCompleted'
+)) {
+	if (![string]::IsNullOrEmpty($schema62FactionSanitizeBlock) -and
+		$schema62FactionSanitizeBlock.IndexOf($schema62ForbiddenImmediateSanitizeEntry) -ge 0) {
+		throw "Schema-62 initial faction sanitation must not directly quarantine rejected or accepted-partial migration work: $schema62ForbiddenImmediateSanitizeEntry"
+	}
+}
+foreach ($schema62FactionCadenceEntry in @(
+	'FACTION_SANITIZATION_RETRY_INTERVAL_SECONDS = 5',
+	'm_iFactionSanitizationRetryAccumulatorSeconds += Math.Max(0, elapsedSeconds)',
+	'm_iFactionSanitizationRetryAccumulatorSeconds < FACTION_SANITIZATION_RETRY_INTERVAL_SECONDS',
+	'% FACTION_SANITIZATION_RETRY_INTERVAL_SECONDS',
+	'ReconcileFactionSanitizationRepairs(state, "bounded retry")'
+)) {
+	if ($schema62CoordinatorText.IndexOf($schema62FactionCadenceEntry) -lt 0 -or
+		([string]::IsNullOrEmpty($schema62FactionRetryTickBlock))) {
+		throw "Schema-62 invalid-owner migration retry cadence is missing or unbounded: $schema62FactionCadenceEntry"
+	}
+}
+$schema62TickPendingIndex = $schema62CoordinatorFrameBlock.IndexOf('m_OwnershipTransitions.TickPending(m_State, !activeCampaign)')
+$schema62FactionRetryIndex = $schema62CoordinatorFrameBlock.IndexOf('TickFactionSanitizationRepairs(m_State, elapsedSeconds)')
+$schema62TerminalReturnIndex = $schema62CoordinatorFrameBlock.IndexOf('if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)')
+$schema62SetupReturnIndex = $schema62CoordinatorFrameBlock.IndexOf('if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)')
+if ([string]::IsNullOrEmpty($schema62CoordinatorFrameBlock) -or
+	$schema62TickPendingIndex -lt 0 -or $schema62FactionRetryIndex -lt 0 -or
+	$schema62TerminalReturnIndex -lt 0 -or $schema62SetupReturnIndex -lt 0 -or
+	$schema62TickPendingIndex -gt $schema62FactionRetryIndex -or
+	$schema62FactionRetryIndex -gt $schema62TerminalReturnIndex -or
+	$schema62FactionRetryIndex -gt $schema62SetupReturnIndex) {
+	throw "Schema-62 ownership and bounded migration retries must run in order before setup/terminal early returns"
+}
+foreach ($schema62FactionRepairEntry in @(
+	'FindQuarantinedTopLevelOwnershipTransition(state)',
+	'manual repair required',
+	'FindPendingFactionSanitizationTransition(state)',
+	'normal retry remains authoritative',
+	'repairPass < repairPassLimit',
+	'FindNextInvalidOwnerMigrationZone(state)',
+	'zone.m_sOwnerFactionKey.IsEmpty()',
+	'restored owner faction key is empty',
+	'BuildInvalidOwnerMigrationRequest(state, zone)',
+	'm_OwnershipTransitions.Apply(state, request)',
+	'HandleFactionSanitizationResult(',
+	'if (!continueScanning)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionRepairBlock) -or
+		$schema62FactionRepairBlock.IndexOf($schema62FactionRepairEntry) -lt 0) {
+		throw "Schema-62 invalid-owner migration repair must serialize durable admission/resume and stop on pending work: $schema62FactionRepairEntry"
+	}
+}
+foreach ($schema62FactionRequestEntry in @(
+	'zone.m_iOwnershipRevision',
+	'zone.m_sOwnerFactionKey.Hash()',
+	'"migration_repair"',
+	'"faction_sanitization"',
+	'm_OwnershipTransitions.BuildRequest(',
+	'request.m_bApplyEnemyConsequences = false',
+	'request.m_bReconcileSecurity = false',
+	'request.m_bCreateSecurity = false',
+	'request.m_bNotify = false'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionRequestBlock) -or
+		$schema62FactionRequestBlock.IndexOf($schema62FactionRequestEntry) -lt 0) {
+		throw "Schema-62 migration request identity/policy must derive durably from current zone owner/revision: $schema62FactionRequestEntry"
+	}
+}
+foreach ($schema62FactionResultEntry in @(
+	'result.m_bAccepted && result.m_bCompleted',
+	'result.m_bAccepted || result.m_bNeedsRetry',
+	'deferred accepted receipt',
+	'IsStructuralFactionSanitizationRejection(failureReason)',
+	'QuarantineInvalidOwnerForManualRepair(state, zone, failureReason)',
+	'deferred unclassified rejection'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionResultBlock) -or
+		$schema62FactionResultBlock.IndexOf($schema62FactionResultEntry) -lt 0) {
+		throw "Schema-62 migration result handling must defer accepted/partial work and quarantine only classified structural rejection: $schema62FactionResultEntry"
+	}
+}
+$schema62AcceptedPendingIndex = $schema62FactionResultBlock.IndexOf('result.m_bAccepted || result.m_bNeedsRetry')
+$schema62StructuralRejectIndex = $schema62FactionResultBlock.IndexOf('IsStructuralFactionSanitizationRejection(failureReason)')
+if ($schema62AcceptedPendingIndex -lt 0 -or $schema62StructuralRejectIndex -lt 0 -or
+	$schema62AcceptedPendingIndex -gt $schema62StructuralRejectIndex) {
+	throw "Schema-62 accepted NeedsRetry/partial migration receipts must return deferred before structural rejection quarantine"
+}
+foreach ($schema62StructuralFailure in @(
+	'request id was reused with a different fingerprint',
+	'ownership zone contract version is unsupported',
+	'expected owner is stale',
+	'expected revision is stale',
+	'zone owner/revision diverged from the transition receipt'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionStructuralBlock) -or
+		$schema62FactionStructuralBlock.IndexOf($schema62StructuralFailure) -lt 0) {
+		throw "Schema-62 migration sanitation structural rejection classifier is incomplete: $schema62StructuralFailure"
+	}
+}
+foreach ($schema62TransientFailure in @(
+	'another top-level ownership transition is still unresolved',
+	'ownership transition dependencies are unavailable',
+	'ownership transition history is full',
+	'publication is still delegated to a live parent',
+	'ownership strategic event could not be admitted'
+)) {
+	if (![string]::IsNullOrEmpty($schema62FactionStructuralBlock) -and
+		$schema62FactionStructuralBlock.IndexOf($schema62TransientFailure) -ge 0) {
+		throw "Schema-62 migration sanitation must not classify transient admission pressure as structural corruption: $schema62TransientFailure"
+	}
+}
+foreach ($schema62ManualQuarantineEntry in @(
+	'!transition.m_sProjectionParentRequestId.IsEmpty()',
+	'transition.m_bQuarantined',
+	'QUARANTINED_CONTRACT_VERSION'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionBlockerBlock) -or
+		$schema62FactionBlockerBlock.IndexOf($schema62ManualQuarantineEntry) -lt 0) {
+		throw "Schema-62 quarantined unresolved top-level ownership must surface as manual fail-closed repair: $schema62ManualQuarantineEntry"
+	}
+}
+foreach ($schema62QuarantineEntry in @(
+	'QUARANTINED_CONTRACT_VERSION',
+	'zone.m_sOwnershipAuthorityFailure = authorityFailure',
+	'manual repair required',
+	'RecordFactionSanitizationDiagnostic(',
+	'true)'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionQuarantineBlock) -or
+		$schema62FactionQuarantineBlock.IndexOf($schema62QuarantineEntry) -lt 0) {
+		throw "Schema-62 structural invalid-owner quarantine must be explicit, durable, and diagnostic: $schema62QuarantineEntry"
+	}
+}
+foreach ($schema62DiagnosticEntry in @(
+	'm_sLastFactionSanitizationDiagnostic != diagnostic',
+	'Print(diagnostic)',
+	'durable && state && state.m_sLastPersistenceStatus != diagnostic',
+	'state.m_sLastPersistenceStatus = diagnostic'
+)) {
+	if ([string]::IsNullOrEmpty($schema62FactionDiagnosticBlock) -or
+		$schema62FactionDiagnosticBlock.IndexOf($schema62DiagnosticEntry) -lt 0) {
+		throw "Schema-62 migration sanitation diagnostics must be concise, deduplicated, and durable for manual repair: $schema62DiagnosticEntry"
+	}
+}
+
+# Direct writes to a HST_ZoneState owner are restricted to initial catalog construction,
+# isolated source-proof fixtures, and the single canonical transition step. This scan
+# intentionally ignores owner snapshots on markers, operations, generated sites, and save copies.
+$schema62MethodPattern = '(?m)^\s*(?:(?:protected|private|static|override)\s+)*(?:[A-Za-z_][A-Za-z0-9_<>]*\s+)+([A-Za-z_][A-Za-z0-9_]*)\s*\('
+$schema62ZoneOwnerAssignmentPattern = '(?m)^\s*(?:zone|targetZone|garrisonZone)\.m_sOwnerFactionKey\s*=.*$'
+foreach ($schema62ScriptFile in Get-ChildItem -Path "Scripts/Game/HST" -Recurse -File -Filter "*.c") {
+	$schema62ScriptText = Get-Content -Raw $schema62ScriptFile.FullName
+	$schema62OwnerAssignments = [regex]::Matches($schema62ScriptText, $schema62ZoneOwnerAssignmentPattern)
+	if ($schema62OwnerAssignments.Count -eq 0) {
+		continue
+	}
+
+	$schema62MethodMatches = [regex]::Matches($schema62ScriptText, $schema62MethodPattern)
+	foreach ($schema62OwnerAssignment in $schema62OwnerAssignments) {
+		$schema62ApprovedOwnerWrite = $false
+		if ($schema62ScriptFile.Name -eq "HST_DefaultCatalog.c" -or
+			$schema62ScriptFile.Name -match 'ProofService\.c$' -or
+			$schema62ScriptFile.Name -match 'SmokeTestService\.c$') {
+			$schema62ApprovedOwnerWrite = $true
+		}
+		elseif ($schema62ScriptFile.Name -eq "HST_OwnershipTransitionService.c" -and
+			$schema62OwnerAssignment.Value.Trim() -eq 'zone.m_sOwnerFactionKey = transition.m_sNewOwnerFactionKey;') {
+			$schema62ApprovedOwnerWrite = $true
+		}
+		elseif ($schema62ScriptFile.Name -eq "HST_CampaignCoordinatorComponent.c") {
+			$schema62EnclosingMethod = ""
+			foreach ($schema62MethodMatch in $schema62MethodMatches) {
+				if ($schema62MethodMatch.Index -gt $schema62OwnerAssignment.Index) {
+					break
+				}
+				$schema62EnclosingMethod = $schema62MethodMatch.Groups[1].Value
+			}
+			if ($schema62EnclosingMethod.StartsWith("BuildCampaignDebug") -or
+				$schema62EnclosingMethod.StartsWith("AddCampaignDebug")) {
+				$schema62ApprovedOwnerWrite = $true
+			}
+		}
+
+		if (!$schema62ApprovedOwnerWrite) {
+			$schema62RelativePath = $schema62ScriptFile.FullName.Substring($root.Length + 1)
+			$schema62Line = ($schema62ScriptText.Substring(0, $schema62OwnerAssignment.Index) -split "`n").Count
+			throw "Schema-62 unauthorized direct zone-owner mutation: ${schema62RelativePath}:$schema62Line (method $schema62EnclosingMethod)"
+		}
+	}
+}
+
+foreach ($schema62MarkerCorrelationEntry in @(
+	'AddMarker(state, "hst_zone_" + zone.m_sZoneId',
+	'Math.Max(1, zone.m_iOwnershipRevision)',
+	'int sourceRevision = 0',
+	'marker.m_iSourceRevision = Math.Max(0, sourceRevision);',
+	'tombstone.m_iSourceRevision = Math.Max(0, removedMarker.m_iSourceRevision);'
+)) {
+	if ($schema62MapMarkerText.IndexOf($schema62MarkerCorrelationEntry) -lt 0) {
+		throw "Schema-62 zone marker/source revision correlation is missing: $schema62MarkerCorrelationEntry"
+	}
+}
+foreach ($schema62ProtocolCorrelationEntry in @(
+	'PROTOCOL_VERSION = 2',
+	'target.m_iSourceRevision = source.m_iSourceRevision;',
+	'left.m_iSourceRevision == right.m_iSourceRevision',
+	'marker.m_iSourceRevision',
+	'fields.Count() != 21',
+	'marker.m_iSourceRevision = fields[3].ToInt();'
+)) {
+	if ($schema62ProtocolText.IndexOf($schema62ProtocolCorrelationEntry) -lt 0) {
+		throw "Schema-62 marker protocol must transport and hash the source ownership revision: $schema62ProtocolCorrelationEntry"
+	}
+}
+
+foreach ($schema62ProofEntry in @(
+	'class HST_OwnershipTransitionProofReport',
+	'class HST_OwnershipTransitionProofService',
+	'bool AllExact(',
+	'CaptureForResistance(',
+	'RegisterInfluenceEventExact(',
+	'ReconcileAfterRestore(',
+	'HST_CampaignSaveData',
+	'm_iOwnershipRevision',
+	'm_iSourceRevision',
+	'MAX_TRANSITION_ROWS',
+	'CanPruneForProof(',
+	'm_sProjectionParentRequestId',
+	'm_bDeferredPublicationReleased',
+	'ObservedPrematureOwnershipProjection',
+	'm_bPublicationFenceExact',
+	'm_bSerializedIntentRetryExact',
+	'm_bRestoreQueueOrderFailClosed',
+	'CanPublishOwnershipSnapshotForProof',
+	'ResolveZoneProjectionAuthorityForProof',
+	'ProvePublicationFence',
+	'ProveQuarantinedPublicationFence',
+	'ProveNestedRestoreAndQuarantine',
+	'ProveDeferredChildPublicationAtomicity',
+	'ProveLinkedSupportQueuedTopLevelCollision',
+	'ProveMalformedOwnerAppliedQueueRestore',
+	'PendingNotificationCountForProof',
+	'ReleaseDeferredChildPublicationsForProof',
+	'CommandUIPublicationMatches',
+	'RebuildLogicalMarkerSnapshot(',
+	'ProjectionProofMarkerMatches',
+	'ProveSerializedPoliticalIntentRetry',
+	'queuedPoliticalReceipt.m_sFailureReason.Contains("durably queued")',
+	'ReconcileTownOwnershipPolicies',
+	'ProveOrphanPatrolSecurityFailClosed',
+	'ProveLateSecurityResumeFailClosed',
+	'reciprocal operation authority',
+	'"military_capture"',
+	'"mission_capture"',
+	'"political_support"',
+	'"admin"',
+	'"debug_seed"',
+	'"migration_repair"'
+)) {
+	if ($schema62ProofText.IndexOf($schema62ProofEntry) -lt 0) {
+		throw "Schema-62 canonical ownership source proof is missing production/scenario coverage: $schema62ProofEntry"
+	}
+}
+$schema62NestedRestoreProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveNestedRestoreAndQuarantine('
+foreach ($schema62NestedRestoreProofEntry in @(
+	'corruptSave.m_aOwnershipTransitions.Insert(corruptChild);',
+	'corruptSave.m_aOwnershipTransitions.Insert(corruptParent);',
+	'ownership_proof_missing_parent_active_backlink',
+	'corruptParent.m_sFailureReason.Contains("unique active authority")',
+	'corruptChild.m_sFailureReason.Contains("live parent")'
+)) {
+	if ([string]::IsNullOrEmpty($schema62NestedRestoreProofBlock) -or
+		$schema62NestedRestoreProofBlock.IndexOf($schema62NestedRestoreProofEntry) -lt 0) {
+		throw "Schema-62 nested restore proof must propagate a late parent-backlink quarantine through child-first receipt order: $schema62NestedRestoreProofEntry"
+	}
+}
+$schema62NestedChildOrderIndex = $schema62NestedRestoreProofBlock.IndexOf('corruptSave.m_aOwnershipTransitions.Insert(corruptChild);')
+$schema62NestedParentOrderIndex = $schema62NestedRestoreProofBlock.IndexOf('corruptSave.m_aOwnershipTransitions.Insert(corruptParent);')
+if ($schema62NestedChildOrderIndex -lt 0 -or $schema62NestedParentOrderIndex -lt 0 -or
+	$schema62NestedChildOrderIndex -gt $schema62NestedParentOrderIndex) {
+	throw "Schema-62 nested restore quarantine proof must place the child before its invalid parent"
+}
+$schema62AtomicChildProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveDeferredChildPublicationAtomicity('
+foreach ($schema62AtomicChildProofEntry in @(
+	'ownership_proof_atomic_child_first_request',
+	'ownership_proof_atomic_child_second_request',
+	'ReleaseDeferredChildPublicationsForProof(',
+	'!first.m_bDeferredPublicationReleased',
+	'!second.m_bDeferredPublicationReleased',
+	'PendingNotificationCountForProof() == notificationsBefore',
+	'notificationsBefore + 2'
+)) {
+	if ([string]::IsNullOrEmpty($schema62AtomicChildProofBlock) -or
+		$schema62AtomicChildProofBlock.IndexOf($schema62AtomicChildProofEntry) -lt 0) {
+		throw "Schema-62 deferred-child proof must show two-child all-or-none release and notification behavior: $schema62AtomicChildProofEntry"
+	}
+}
+$schema62LinkedSupportQueueProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected bool ProveLinkedSupportQueuedTopLevelCollision('
+foreach ($schema62LinkedSupportQueueProofEntry in @(
+	'ownership_proof_linked_queue_parent_request',
+	'ownership_proof_linked_queue_later_request',
+	'fixture.m_Service.AdmitPendingForProof(',
+	'queuedResult.m_bNeedsRetry',
+	'parentResult.m_bCompleted',
+	'fixture.m_State.m_aTownInfluenceEvents.Count() == 1',
+	'pendingSave.Capture(fixture.m_State)',
+	'validator.Normalize(pendingSave, HST_OwnershipTransitionService.SCHEMA_VERSION)',
+	'restored.m_Service.ReconcileAfterRestore(restoredState)',
+	'politicalReceipt.m_sCause == "political_support"',
+	'postRestoreInert'
+)) {
+	if ([string]::IsNullOrEmpty($schema62LinkedSupportQueueProofBlock) -or
+		$schema62LinkedSupportQueueProofBlock.IndexOf($schema62LinkedSupportQueueProofEntry) -lt 0) {
+		throw "Schema-62 linked-support queue proof must drain a later pristine town receipt before exactly-once political reconciliation across restore: $schema62LinkedSupportQueueProofEntry"
+	}
+}
+$schema62SerializedProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected void ProveSerializedPoliticalIntentRetry('
+foreach ($schema62SerializedProofEntry in @(
+	'queuedPoliticalReceipt',
+	'!queuedPoliticalReceipt.m_bOwnerApplied',
+	'missionProgressApplied',
+	'queuedMissionReceipt.m_sCause == "mission_capture"',
+	'!queuedMissionReceipt.m_bOwnerApplied',
+	'pendingSave.Capture(fixture.m_State)',
+	'validator.Normalize(pendingSave',
+	'pendingSave.Restore()',
+	'restored.m_Service.ReconcileAfterRestore(restoredState)',
+	'restoredMissionReceipt.m_bCompleted',
+	'repeatedPolicyInert',
+	'completedSave.Capture(restoredState)',
+	'postRestoreInert'
+)) {
+	if ([string]::IsNullOrEmpty($schema62SerializedProofBlock) -or
+		$schema62SerializedProofBlock.IndexOf($schema62SerializedProofEntry) -lt 0) {
+		throw "Schema-62 serialized ownership proof must preserve a queued political receipt and exactly-once effects across both restart boundaries: $schema62SerializedProofEntry"
+	}
+}
+$schema62MalformedQueueProofBlock = Get-ScriptMethodBlock $schema62ProofText 'protected void ProveMalformedOwnerAppliedQueueRestore('
+foreach ($schema62MalformedQueueProofEntry in @(
+	'ownership_proof_queue_order_earlier_request',
+	'ownership_proof_queue_order_owner_applied_request',
+	'ownerAppliedReceipt.m_bOwnerApplied = true;',
+	'malformedSave.Capture(fixture.m_State)',
+	'validator.Normalize(malformedSave, HST_OwnershipTransitionService.SCHEMA_VERSION)',
+	'!restoredEarlier.m_bOwnerApplied',
+	'restoredOwnerApplied.m_bQuarantined',
+	'restoredOwnerApplied.m_sFailureReason.Contains("earliest unresolved publication authority")',
+	'm_bRestoreQueueOrderFailClosed = queueOrderExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema62MalformedQueueProofBlock) -or
+		$schema62MalformedQueueProofBlock.IndexOf($schema62MalformedQueueProofEntry) -lt 0) {
+		throw "Schema-62 malformed current-schema queue proof must quarantine a later owner-applied receipt behind earlier unresolved authority: $schema62MalformedQueueProofEntry"
+	}
+}
+$schema62ProofMarkerRebuildBlock = Get-ScriptMethodBlock $schema62ProofText 'override bool RebuildAllMarkers('
+if ([string]::IsNullOrEmpty($schema62ProofMarkerRebuildBlock) -or
+	$schema62ProofMarkerRebuildBlock.IndexOf('RebuildLogicalMarkerSnapshot(') -lt 0) {
+	throw "Schema-62 marker proof harness must execute the same logical snapshot builder used by production"
+}
+foreach ($schema62ProofSemanticPattern in @(
+	'(?i)recapture',
+	'(?i)(replay|idempoten)',
+	'(?i)(collision|conflict)',
+	'(?i)stale',
+	'(?i)(interrupt|resume)',
+	'(?i)(round.?trip|persistence)',
+	'(?i)migration',
+	'(?i)(retention|prun)',
+	'(?i)(projection|source.?revision)',
+	'(?i)(colocat|distinct.?zone|identity)',
+	'(?i)(garrison|security).*(fail|reject|quarant)'
+)) {
+	if ($schema62ProofText -notmatch $schema62ProofSemanticPattern) {
+		throw "Schema-62 ownership proof is missing an acceptance scenario matching: $schema62ProofSemanticPattern"
+	}
+}
+$schema62ForceDebugBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+$schema62AppendProofIndex = $schema62ForceDebugBlock.IndexOf('AppendCampaignDebugOwnershipTransitionAssertions(forceCase)')
+$schema62FinalizeProofIndex = $schema62ForceDebugBlock.IndexOf('FinalizeCampaignDebugCaseFromAssertions(forceCase)')
+if ([string]::IsNullOrEmpty($schema62ForceDebugBlock) -or $schema62AppendProofIndex -lt 0 -or
+	$schema62FinalizeProofIndex -lt 0 -or $schema62AppendProofIndex -gt $schema62FinalizeProofIndex) {
+	throw "Schema-62 force-authority case must append ownership-transition proof assertions before finalization"
+}
+$schema62CoordinatorProofBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected void AppendCampaignDebugOwnershipTransitionAssertions('
+foreach ($schema62CoordinatorProofEntry in @(
+	'new HST_OwnershipTransitionProofService()',
+	'ownership_transition.',
+	'ownership_transition.restore_queue_order',
+	'proof.m_bRestoreQueueOrderFailClosed',
+	'proof.AllExact()'
+)) {
+	if ([string]::IsNullOrEmpty($schema62CoordinatorProofBlock) -or
+		$schema62CoordinatorProofBlock.IndexOf($schema62CoordinatorProofEntry) -lt 0) {
+		throw "Schema-62 coordinator ownership proof assertion wiring is missing: $schema62CoordinatorProofEntry"
+	}
+}
+
+foreach ($schema62RequestCanonicalityEntry in @(
+	'request.m_sZoneId = zone.m_sZoneId;',
+	'BuildRequestIdentityMatches(existing, request)',
+	'request.m_sExpectedOwnerFactionKey = existing.m_sExpectedOwnerFactionKey;',
+	'request.m_iExpectedRevision = existing.m_iExpectedRevision;',
+	'request.m_iExpectedRevision >= int.MAX - 1',
+	'ValidateCausePolicy(request)',
+	'admin ownership policy cannot apply capture support',
+	'debug ownership policy cannot publish gameplay notification',
+	'migration ownership policy cannot rewrite security authority',
+	'political ownership policy cannot recursively apply capture support'
+)) {
+	if ($schema62OwnershipText.IndexOf($schema62RequestCanonicalityEntry) -lt 0) {
+		throw "Schema-62 request canonicality, revision ceiling, or cause policy is missing: $schema62RequestCanonicalityEntry"
+	}
+}
+
+foreach ($schema62CurrentSaveInvariantEntry in @(
+	'ValidateQueuedTopLevelOrder(saveData)',
+	'IsPristineQueuedTopLevelTransition(transition)',
+	'later unresolved top-level transition is not pristine queued authority',
+	'ValidateCompletedHistoryOrder(saveData)',
+	'completed ownership history revision is duplicate or non-increasing',
+	'consecutive completed ownership history does not chain prior owner authority',
+	'ValidateCausePolicy(transition)',
+	'ownership transition expected revision cannot advance safely',
+	'ValidateUnreleasedChildCausality(',
+	'ValidateCausalChildBinding(',
+	'ownership transition parent has invalid released child authority',
+	'ownership_political_%1_%2_%3',
+	'parent.m_aAppliedSupportZoneIds.Contains(child.m_sZoneId)',
+	'ValidateAppliedSupportEvent(',
+	'exactIdCount != 1 || correlatedCount != 1',
+	'zero-reward ownership transition has a support target checklist',
+	'ValidateExactSupportTargetSet(',
+	'ownership support targets do not match the deterministic admission set',
+	'ownership applied-support checklist is not the ordered retry prefix',
+	'ValidateTransitionEventCorrelations(',
+	'ownership transition strategic event identity is missing, duplicated, or shared',
+	'ownership strategic event absorbed unrelated campaign deltas',
+	'pre-owner ownership strategic event has owner-effect residue',
+	'owner-applied strategic event lacks exact capture-progress reset evidence',
+	'ownership campaign event retained row does not correlate',
+	'ValidateTransitionGarrisonCorrelations(',
+	'HST_StableIdService.BuildGarrisonId(zoneId, factionKey)',
+	'incomplete pre-owner transition lacks required new-garrison authority',
+	'ValidateTransitionCounterattackCorrelation(',
+	'ownership transition frozen counterattack selection contradicts its roll',
+	'ownership transition aggression evidence cannot be negative',
+	'enemy retaliation not applicable for this ownership policy',
+	'non-applicable ownership enemy policy has consequence residue',
+	'aggression %1 | counterattack chance %2 roll %3 selected %4 queued %5 order %6',
+	'transition.m_iAggressionApplied <= 0',
+	'ownership enemy-consequence decision does not match frozen receipt facts',
+	'ownership counterattack order is missing, duplicated, or shared',
+	'ValidateTransitionMarkerEvidence(',
+	'unpublished ownership transition leaked a non-prior marker snapshot',
+	'unreleased nested ownership transition has marker evidence residue',
+	'setup ownership publication flag conflicts with marker evidence',
+	'nested setup ownership publication flag disagrees with its retained parent',
+	'setup ownership current marker row diverges from published authority',
+	'current ownership marker row is older than or divergent from receipt evidence',
+	'PurgeZoneMarkerRows(saveData, zone.m_sZoneId)',
+	'saveData.m_aMapMarkers.Remove(markerIndex)',
+	'transition.m_sReason.Trim().IsEmpty()',
+	'transition.m_sReason != transition.m_sReason.Trim()',
+	'incomplete ownership transition has completion-time residue',
+	'completed ownership transition retains failure residue'
+)) {
+	if ($schema62SaveValidationText.IndexOf($schema62CurrentSaveInvariantEntry) -lt 0) {
+		throw "Schema-62 current-save fail-closed invariant is missing: $schema62CurrentSaveInvariantEntry"
+	}
+}
+
+foreach ($schema62ProjectionAuthorityHardeningEntry in @(
+	'zone.m_iOwnershipContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'!zone.m_sOwnershipAuthorityFailure.IsEmpty()',
+	'activeTransition.m_bCompleted',
+	'activeTransition.m_sZoneId != zone.m_sZoneId',
+	'latestTransition.m_bQuarantined',
+	'latestTransition.m_sZoneId != zone.m_sZoneId'
+)) {
+	if ($schema62ZoneProjectionAuthorityBlock.IndexOf($schema62ProjectionAuthorityHardeningEntry) -lt 0) {
+		throw "Schema-62 projection authority must reject malformed or quarantined active/latest backlinks: $schema62ProjectionAuthorityHardeningEntry"
+	}
+}
+
+foreach ($schema62StagedParentAuthorityEntry in @(
+	'transition.m_iContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'!transition.m_bOwnerApplied',
+	'transition.m_sPreviousOwnerFactionKey != transition.m_sExpectedOwnerFactionKey',
+	'transition.m_iAppliedRevision != transition.m_iExpectedRevision + 1',
+	'zone.m_iOwnershipContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'!zone.m_sOwnershipAuthorityFailure.IsEmpty()',
+	'zone.m_sOwnerFactionKey != transition.m_sNewOwnerFactionKey',
+	'zone.m_iOwnershipRevision != transition.m_iAppliedRevision'
+)) {
+	if ($schema62StageMarkerBlock.IndexOf($schema62StagedParentAuthorityEntry) -lt 0) {
+		throw "Schema-62 marker staging must require exact parent receipt/zone authority: $schema62StagedParentAuthorityEntry"
+	}
+}
+foreach ($schema62DeferredChildAuthorityEntry in @(
+	'child.m_iContractVersion != EXACT_CONTRACT_VERSION',
+	'!child.m_bOwnerApplied',
+	'child.m_sPreviousOwnerFactionKey != child.m_sExpectedOwnerFactionKey',
+	'child.m_iAppliedRevision != child.m_iExpectedRevision + 1',
+	'childZone.m_iOwnershipContractVersion != EXACT_CONTRACT_VERSION',
+	'!childZone.m_sOwnershipAuthorityFailure.IsEmpty()',
+	'!childZone.m_sActiveOwnershipTransitionRequestId.IsEmpty()',
+	'childZone.m_sOwnerFactionKey != child.m_sNewOwnerFactionKey',
+	'childZone.m_iOwnershipRevision != child.m_iAppliedRevision'
+)) {
+	if ($schema62ValidateDeferredBlock.IndexOf($schema62DeferredChildAuthorityEntry) -lt 0) {
+		throw "Schema-62 deferred child publication must require exact completed child/zone authority: $schema62DeferredChildAuthorityEntry"
+	}
+}
+foreach ($schema62SetupProjectionEntry in @(
+	'm_bSetupProjectionWithoutMarkers',
+	'transition.m_bSetupProjectionWithoutMarkers = true;',
+	'child.m_bSetupProjectionWithoutMarkers = true;',
+	'setup phase has no live zone-marker projection; owner-derived views will publish on activation'
+)) {
+	if ($schema62TransitionStateBlock.IndexOf($schema62SetupProjectionEntry) -lt 0 -and
+		$schema62OwnershipText.IndexOf($schema62SetupProjectionEntry) -lt 0 -and
+		$schema62SaveValidationText.IndexOf($schema62SetupProjectionEntry) -lt 0) {
+		throw "Schema-62 setup publication history flag is incomplete: $schema62SetupProjectionEntry"
+	}
+}
+$schema62MarkerValidationBlock = Get-ScriptMethodBlock $schema62SaveValidationText 'protected string ValidateTransitionMarkerEvidence('
+if ($schema62MarkerValidationBlock.IndexOf('HST_CAMPAIGN_SETUP') -ge 0) {
+	throw "Schema-62 current-save marker evidence must use immutable receipt history, not the current campaign phase"
+}
+
+foreach ($schema62FrozenPolicyEntry in @(
+	'bool bypassCampaignClockRateLimit = false',
+	'if (!bypassCampaignClockRateLimit',
+	'!activeCampaign)',
+	'ownershipMaintenanceChanged = ownershipRetryChanged || factionSanitizationChanged',
+	'|| townOwnershipPolicyChanged;',
+	'request.m_bApplyEnemyConsequences = false;',
+	'request.m_bNotify = false;'
+)) {
+	if ($schema62CivilianText.IndexOf($schema62FrozenPolicyEntry) -lt 0 -and
+		$schema62CoordinatorText.IndexOf($schema62FrozenPolicyEntry) -lt 0) {
+		throw "Schema-62 frozen-clock political reconciliation is missing: $schema62FrozenPolicyEntry"
+	}
+}
+$schema62TownPolicyMaintenanceIndex = $schema62CoordinatorText.IndexOf('townOwnershipPolicyChanged = m_Civilians.ReconcileTownOwnershipPolicies(')
+$schema62TerminalEarlyReturnIndex = $schema62CoordinatorText.IndexOf('if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON')
+if ($schema62TownPolicyMaintenanceIndex -lt 0 -or $schema62TerminalEarlyReturnIndex -lt 0 -or
+	$schema62TownPolicyMaintenanceIndex -gt $schema62TerminalEarlyReturnIndex) {
+	throw "Schema-62 town ownership maintenance must run before setup/terminal early returns"
+}
+
+foreach ($schema62PersistenceDeadlineEntry in @(
+	'void EnsureMajorChangePending()',
+	'if (m_bMajorChangePending)',
+	'm_bMajorChangePending = true;',
+	'm_fMajorChangeElapsed = 0;',
+	'if (majorCheckpointSaved)',
+	'm_bMajorChangePending = false;'
+)) {
+	if ($schema62PersistenceText.IndexOf($schema62PersistenceDeadlineEntry) -lt 0) {
+		throw "Schema-62 major-change checkpoint deadline coalescing is missing: $schema62PersistenceDeadlineEntry"
+	}
+}
+
+foreach ($schema62FocusedProofEntry in @(
+	'ProveAliasRequestReplay',
+	'ProveLegacyAliasReceiptRestore',
+	'HST_MaidensBayLocationSaveValidationService.LEGACY_ZONE_ID',
+	'replayRequest.m_sExpectedOwnerFactionKey == receipt.m_sExpectedOwnerFactionKey',
+	'restoredReceipt.m_sRequestId == requestId',
+	'restoredStrategicEvent.m_sTargetZoneId',
+	'ProveLinkedSupportQueuedTopLevelCollision',
+	'ProveSetupFrozenClockPoliticalReconcile',
+	'ProveMalformedPristineQueueRestore',
+	'ProveForgedUnreleasedChildQuarantine',
+	'ProveConflictingCompletedHistoryQuarantine',
+	'ProveCausePolicyFailClosed',
+	'ProveRevisionCeilingFailClosed',
+	'ProveAppliedSupportEventCorrelationFailClosed',
+	'ProveSupportTargetAuthorityFailClosed',
+	'ProveReceiptDerivedCorrelationFailClosed',
+	'ProveSharedStrategicEventQuarantine',
+	'ProveQueuedStrategicEventIsolation',
+	'ProveCampaignEventMismatchQuarantine',
+	'ProveGarrisonIdentityMismatchQuarantine',
+	'ProveCounterattackMismatchQuarantine',
+	'ProveMarkerEvidenceMismatchQuarantine',
+	'ProvePreProjectionMarkerLeakFailClosed',
+	'FindMapMarkerProjectionRecord(',
+	'ProveSetupProjectionHistoryAcrossActivation',
+	'MarkerSnapshotsTransportEqual',
+	'HST_MarkerProjectionCodec.TransportEquals(',
+	'CommandUIPublicationUnavailable',
+	'owner publication unavailable',
+	'ProvePersistenceCheckpointDeadline',
+	'ProveCompletionPersistenceRearm',
+	'HST_OwnershipTransitionPersistenceClockProofHarness',
+	'm_bPersistenceDeadlineExact'
+)) {
+	if ($schema62ProofText.IndexOf($schema62FocusedProofEntry) -lt 0) {
+		throw "Schema-62 focused queue/save/projection/persistence proof is missing: $schema62FocusedProofEntry"
+	}
+}
+foreach ($schema62FocusedCoordinatorProofEntry in @(
+	'ownership_transition.restore_queue_order',
+	'ownership_transition.persistence_deadline',
+	'proof.m_bRestoreQueueOrderFailClosed',
+	'proof.m_bPersistenceDeadlineExact'
+)) {
+	if ($schema62CoordinatorProofBlock.IndexOf($schema62FocusedCoordinatorProofEntry) -lt 0) {
+		throw "Schema-62 focused coordinator proof assertion is missing: $schema62FocusedCoordinatorProofEntry"
+	}
+}
+
+Write-Host "Schema-62 revisioned canonical ownership state/save authority, conservative migration, bounded replay retention/retry, all-cause caller convergence, retry-safe security settlement, nested publication correlation, and source proofs OK"
 
 Write-Host "h-istasi foundation validation passed"

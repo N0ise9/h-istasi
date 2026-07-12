@@ -2,7 +2,7 @@ class HST_BuildInfo
 {
 	static const string BUILD_SHA = "27672e67ce4285810f313130293df1ac917c9bdf";
 	static const string BUILD_UTC = "2026-07-12T01:02:39Z";
-	static const string BUILD_LABEL = "schema61-authoritative-marker-projection";
+	static const string BUILD_LABEL = "schema62-canonical-ownership-transition";
 
 	static string BuildSummary()
 	{

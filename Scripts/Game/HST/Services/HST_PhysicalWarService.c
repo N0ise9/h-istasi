@@ -12638,7 +12638,12 @@ class HST_PhysicalWarService
 
 	bool CleanupCapturedZoneHostileRuntime(HST_CampaignState state, string zoneId, string resistanceFactionKey)
 	{
-		if (!state || zoneId.IsEmpty() || resistanceFactionKey.IsEmpty())
+		return CleanupZoneHostileRuntime(state, zoneId, resistanceFactionKey);
+	}
+
+	bool CleanupZoneHostileRuntime(HST_CampaignState state, string zoneId, string controllingFactionKey)
+	{
+		if (!state || zoneId.IsEmpty() || controllingFactionKey.IsEmpty())
 			return false;
 
 		bool changed;
@@ -12666,7 +12671,7 @@ class HST_PhysicalWarService
 				changed = true;
 				continue;
 			}
-			if (activeGroup.m_sFactionKey == resistanceFactionKey)
+			if (activeGroup.m_sFactionKey == controllingFactionKey)
 				continue;
 
 			DeleteRuntimeGroupEntity(activeGroup.m_sGroupId);

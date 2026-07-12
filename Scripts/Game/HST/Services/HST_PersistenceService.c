@@ -45,9 +45,20 @@ class HST_PersistenceService
 
 	void MarkMajorChange()
 	{
+		EnsureMajorChangePending();
+	}
+
+	// Major changes are coalesced behind one bounded checkpoint deadline. A
+	// trailing-edge debounce can be starved forever by periodic gameplay or
+	// retry heartbeats; once pending, later marks must not push the deadline
+	// back. After a successful checkpoint clears the flag, the next change
+	// starts a fresh interval.
+	void EnsureMajorChangePending()
+	{
 		if (m_bCampaignDebugIsolationActive)
 			return;
-
+		if (m_bMajorChangePending)
+			return;
 		m_bMajorChangePending = true;
 		m_fMajorChangeElapsed = 0;
 	}

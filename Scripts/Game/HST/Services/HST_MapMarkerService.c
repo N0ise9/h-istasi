@@ -1,3 +1,17 @@
+// Transient, server-thread transaction for ownership marker publication. The
+// previous logical stream remains available until every parent/child marker is
+// validated, so a failed publication attempt can restore the exact snapshot.
+class HST_OwnershipMarkerProjectionTransaction
+{
+	string m_sOwnershipRequestId;
+	int m_iPreviousProjectionEpoch;
+	int m_iPreviousProjectionSequence;
+	int m_iRebuildPreviousProjectionSequence;
+	bool m_bSetupProjection;
+	bool m_bActive;
+	ref array<ref HST_MapMarkerState> m_aPreviousMarkers = {};
+}
+
 class HST_MapMarkerService
 {
 	static const bool CLIENT_PROJECTION_OWNS_NATIVE_MARKERS = true;
@@ -17,6 +31,7 @@ class HST_MapMarkerService
 	protected ref map<string, ref HST_MapMarkerRecord> m_mDesiredNativeMarkers = new map<string, ref HST_MapMarkerRecord>();
 	protected ref map<string, IEntity> m_mAuthoredMarkerByZoneId = new map<string, IEntity>();
 	protected ref map<string, string> m_mAuthoredMarkerOwnerByZoneId = new map<string, string>();
+	protected ref map<string, int> m_mAuthoredMarkerRevisionByZoneId = new map<string, int>();
 	protected bool m_bAuthoredMarkerBindingsInitialized;
 	protected int m_iAuthoredMarkerBindingCount;
 	protected int m_iAuthoredMarkerMissingCount;
@@ -32,6 +47,8 @@ class HST_MapMarkerService
 	protected int m_iNativeMapWidgetRefreshRetries;
 	protected bool m_bDebugLoggingEnabled;
 	protected bool m_bTrackResistanceSupportGroupsOnMap = true;
+	protected string m_sAuthorizedOwnershipPublicationRequestId;
+	protected string m_sStagedOwnershipPublicationRequestId;
 
 	void SetDebugLoggingEnabled(bool enabled)
 	{
@@ -101,20 +118,37 @@ class HST_MapMarkerService
 
 	bool RebuildAllMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
-		if (!state || !preset)
+		if (!m_sStagedOwnershipPublicationRequestId.IsEmpty())
+			return false;
+		int previousProjectionSequence;
+		bool setupProjection;
+		if (!RebuildLogicalMarkerSnapshot(
+				state,
+				preset,
+				m_sAuthorizedOwnershipPublicationRequestId,
+				previousProjectionSequence,
+				setupProjection))
 			return false;
 
-		int previousProjectionSequence = state.m_iMarkerProjectionSequence;
-		array<ref HST_MapMarkerState> previousMarkers = {};
-		foreach (HST_MapMarkerState previousMarker : state.m_aMapMarkers)
+		return PublishRebuiltLogicalSnapshot(
+			state,
+			preset,
+			m_sAuthorizedOwnershipPublicationRequestId,
+			previousProjectionSequence,
+			setupProjection);
+	}
+
+	protected bool PublishRebuiltLogicalSnapshot(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string authorizedOwnershipRequestId,
+		int previousProjectionSequence,
+		bool setupProjection)
+	{
+		if (!state || !preset)
+			return false;
+		if (setupProjection)
 		{
-			if (previousMarker)
-				previousMarkers.Insert(previousMarker);
-		}
-		state.m_aMapMarkers.Clear();
-		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
-		{
-			FinalizeProjectionRecords(state, previousMarkers);
 			int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
 			int previousPublishedCount = m_iLastNativePublishedCount;
 			int previousEligibleCount = m_iLastNativeEligibleCount;
@@ -127,10 +161,57 @@ class HST_MapMarkerService
 			}
 			return setupPublished || state.m_iMarkerProjectionSequence != previousProjectionSequence;
 		}
+		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
+		int previousPublishedCount = m_iLastNativePublishedCount;
+		int previousEligibleCount = m_iLastNativeEligibleCount;
+		int previousSkippedCount = m_iLastNativeSkippedCount;
+		bool ownershipSynced = SyncVisibleNativeMarkerOwnershipIfDue(
+			state,
+			authorizedOwnershipRequestId);
+		bool published = PublishRuntimeNativeMarkers(state, preset);
+		if (ShouldReportMarkerRebuild(state.m_aMapMarkers.Count(), published, ownershipSynced, previousReportedMarkerCount, previousPublishedCount, previousEligibleCount, previousSkippedCount))
+		{
+			DebugLog(string.Format("rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
+			m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
+		}
+		return published || ownershipSynced || state.m_iMarkerProjectionSequence != previousProjectionSequence;
+	}
+
+	// Shared logical rebuild seam. Production owns the call and then performs
+	// native publication; deterministic proofs call the same bounded snapshot
+	// builder without touching the live world's marker manager.
+	protected bool RebuildLogicalMarkerSnapshot(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string authorizedOwnershipRequestId,
+		out int previousProjectionSequence,
+		out bool setupProjection)
+	{
+		previousProjectionSequence = 0;
+		setupProjection = false;
+		if (!state || !preset)
+			return false;
+		if (!CanPublishOwnershipSnapshot(state, authorizedOwnershipRequestId))
+			return false;
+
+		previousProjectionSequence = state.m_iMarkerProjectionSequence;
+		array<ref HST_MapMarkerState> previousMarkers = {};
+		foreach (HST_MapMarkerState previousMarker : state.m_aMapMarkers)
+		{
+			if (previousMarker)
+				previousMarkers.Insert(previousMarker);
+		}
+		state.m_aMapMarkers.Clear();
+		if (state.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_SETUP)
+		{
+			FinalizeProjectionRecords(state, previousMarkers);
+			setupProjection = true;
+			return true;
+		}
 
 		AddHQMarker(state, preset);
 		AddDefendPetrosMarkers(state, preset);
-		AddZoneMarkers(state, preset);
+		AddZoneMarkers(state, preset, authorizedOwnershipRequestId);
 		AddMissionMarkers(state, preset);
 		AddQRFMarkers(state, preset);
 		AddExactEnemyQRFOperationMarkers(state, preset);
@@ -139,18 +220,153 @@ class HST_MapMarkerService
 		AddSupportRequestMarkers(state, preset);
 		AddResistanceSupportGroupMarkers(state, preset);
 		FinalizeProjectionRecords(state, previousMarkers);
-		int previousReportedMarkerCount = m_iLastReportedMarkerRecordCount;
-		int previousPublishedCount = m_iLastNativePublishedCount;
-		int previousEligibleCount = m_iLastNativeEligibleCount;
-		int previousSkippedCount = m_iLastNativeSkippedCount;
-		bool ownershipSynced = SyncVisibleNativeMarkerOwnershipIfDue(state);
-		bool published = PublishRuntimeNativeMarkers(state, preset);
-		if (ShouldReportMarkerRebuild(state.m_aMapMarkers.Count(), published, ownershipSynced, previousReportedMarkerCount, previousPublishedCount, previousEligibleCount, previousSkippedCount))
+		return true;
+	}
+
+	HST_OwnershipMarkerProjectionTransaction StageOwnershipTransitionMarkers(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string ownershipRequestId)
+	{
+		if (!state || !preset || ownershipRequestId.IsEmpty()
+			|| !m_sAuthorizedOwnershipPublicationRequestId.IsEmpty()
+			|| !m_sStagedOwnershipPublicationRequestId.IsEmpty())
+			return null;
+		HST_OwnershipTransitionState transition = state.FindOwnershipTransition(ownershipRequestId);
+		if (!transition || transition.m_bCompleted || transition.m_bQuarantined
+			|| transition.m_iContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			|| !transition.m_bOwnerApplied
+			|| !transition.m_sProjectionParentRequestId.IsEmpty())
+			return null;
+		HST_ZoneState zone = state.FindZone(transition.m_sZoneId);
+		if (!zone || zone.m_sActiveOwnershipTransitionRequestId != ownershipRequestId
+			|| zone.m_iOwnershipContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			|| !zone.m_sOwnershipAuthorityFailure.IsEmpty()
+			|| transition.m_sPreviousOwnerFactionKey != transition.m_sExpectedOwnerFactionKey
+			|| transition.m_iAppliedRevision != transition.m_iExpectedRevision + 1
+			|| zone.m_sOwnerFactionKey != transition.m_sNewOwnerFactionKey
+			|| zone.m_iOwnershipRevision != transition.m_iAppliedRevision)
+			return null;
+
+		HST_OwnershipMarkerProjectionTransaction transaction = new HST_OwnershipMarkerProjectionTransaction();
+		transaction.m_sOwnershipRequestId = ownershipRequestId;
+		transaction.m_iPreviousProjectionEpoch = state.m_iMarkerProjectionEpoch;
+		transaction.m_iPreviousProjectionSequence = state.m_iMarkerProjectionSequence;
+		foreach (HST_MapMarkerState previousMarker : state.m_aMapMarkers)
 		{
-			DebugLog(string.Format("rebuilt %1 campaign map marker record(s), native %2/%3 published, %4 skipped", state.m_aMapMarkers.Count(), m_iLastNativePublishedCount, m_iLastNativeEligibleCount, m_iLastNativeSkippedCount));
-			m_iLastReportedMarkerRecordCount = state.m_aMapMarkers.Count();
+			if (previousMarker)
+				transaction.m_aPreviousMarkers.Insert(HST_MarkerProjectionCodec.CopyMarker(previousMarker));
 		}
-		return published || ownershipSynced || state.m_iMarkerProjectionSequence != previousProjectionSequence;
+
+		m_sAuthorizedOwnershipPublicationRequestId = ownershipRequestId;
+		int rebuildPreviousProjectionSequence;
+		bool setupProjection;
+		bool rebuilt = RebuildLogicalMarkerSnapshot(
+			state,
+			preset,
+			ownershipRequestId,
+			rebuildPreviousProjectionSequence,
+			setupProjection);
+		m_sAuthorizedOwnershipPublicationRequestId = "";
+		if (!rebuilt)
+		{
+			RestoreOwnershipMarkerSnapshot(state, transaction);
+			return null;
+		}
+
+		transaction.m_iRebuildPreviousProjectionSequence = rebuildPreviousProjectionSequence;
+		transaction.m_bSetupProjection = setupProjection;
+		transaction.m_bActive = true;
+		m_sStagedOwnershipPublicationRequestId = ownershipRequestId;
+		return transaction;
+	}
+
+	void CommitOwnershipTransitionMarkers(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		notnull HST_OwnershipMarkerProjectionTransaction transaction)
+	{
+		if (!transaction.m_bActive
+			|| transaction.m_sOwnershipRequestId != m_sStagedOwnershipPublicationRequestId)
+			return;
+		PublishRebuiltLogicalSnapshot(
+			state,
+			preset,
+			transaction.m_sOwnershipRequestId,
+			transaction.m_iRebuildPreviousProjectionSequence,
+			transaction.m_bSetupProjection);
+		transaction.m_bActive = false;
+		m_sStagedOwnershipPublicationRequestId = "";
+	}
+
+	void RollbackOwnershipTransitionMarkers(
+		HST_CampaignState state,
+		notnull HST_OwnershipMarkerProjectionTransaction transaction)
+	{
+		if (!transaction.m_bActive
+			|| transaction.m_sOwnershipRequestId != m_sStagedOwnershipPublicationRequestId)
+			return;
+		RestoreOwnershipMarkerSnapshot(state, transaction);
+		transaction.m_bActive = false;
+		m_sStagedOwnershipPublicationRequestId = "";
+	}
+
+	protected void RestoreOwnershipMarkerSnapshot(
+		HST_CampaignState state,
+		notnull HST_OwnershipMarkerProjectionTransaction transaction)
+	{
+		if (!state)
+			return;
+		state.m_aMapMarkers.Clear();
+		foreach (HST_MapMarkerState previousMarker : transaction.m_aPreviousMarkers)
+		{
+			if (previousMarker)
+				state.m_aMapMarkers.Insert(HST_MarkerProjectionCodec.CopyMarker(previousMarker));
+		}
+		state.m_iMarkerProjectionEpoch = transaction.m_iPreviousProjectionEpoch;
+		state.m_iMarkerProjectionSequence = transaction.m_iPreviousProjectionSequence;
+	}
+
+	protected bool CanPublishOwnershipSnapshot(
+		HST_CampaignState state,
+		string authorizedOwnershipRequestId)
+	{
+		if (!state)
+			return false;
+		foreach (HST_OwnershipTransitionState transition : state.m_aOwnershipTransitions)
+		{
+			if (!transition)
+				return false;
+			if (transition.m_bQuarantined
+				|| transition.m_iContractVersion == HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION)
+			{
+				HST_ZoneState quarantinedZone = state.FindZone(transition.m_sZoneId);
+				if (quarantinedZone
+					&& quarantinedZone.m_sActiveOwnershipTransitionRequestId == transition.m_sRequestId)
+					return false;
+				continue;
+			}
+			if (!transition.m_bCompleted)
+			{
+				// A later top-level request may already have a durable receipt while
+				// it waits behind the current publisher. Until its owner step runs it
+				// has no new ownership snapshot to expose or withhold.
+				if (!transition.m_bOwnerApplied)
+					continue;
+				if (transition.m_sRequestId == authorizedOwnershipRequestId
+					&& transition.m_sProjectionParentRequestId.IsEmpty())
+					continue;
+				if (!transition.m_sProjectionParentRequestId.IsEmpty()
+					&& transition.m_sProjectionParentRequestId == authorizedOwnershipRequestId)
+					continue;
+				return false;
+			}
+			if (!transition.m_sProjectionParentRequestId.IsEmpty()
+				&& !transition.m_bDeferredPublicationReleased
+				&& transition.m_sProjectionParentRequestId != authorizedOwnershipRequestId)
+				return false;
+		}
+		return true;
 	}
 
 	void BindNativeMapRefresh()
@@ -177,6 +393,27 @@ class HST_MapMarkerService
 	bool RefreshMissionMarkers(HST_CampaignState state, HST_CampaignPreset preset)
 	{
 		return RebuildAllMarkers(state, preset);
+	}
+
+	int GetAuthoredMarkerSourceRevision(string zoneId)
+	{
+		if (zoneId.IsEmpty() || !m_mAuthoredMarkerRevisionByZoneId.Contains(zoneId))
+			return 0;
+		return m_mAuthoredMarkerRevisionByZoneId.Get(zoneId);
+	}
+
+	bool ResolvePublishedZoneOwnership(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		out string ownerFactionKey,
+		out int ownershipRevision)
+	{
+		return ResolveZoneProjectionAuthority(
+			state,
+			zone,
+			"",
+			ownerFactionKey,
+			ownershipRevision);
 	}
 
 	bool ForceNativeRepublish(HST_CampaignState state, HST_CampaignPreset preset)
@@ -779,21 +1016,89 @@ class HST_MapMarkerService
 		return runtimeStatus == "eliminated" || runtimeStatus == "folded" || runtimeStatus == "spawn_failed" || runtimeStatus == "despawned" || runtimeStatus == "deleted";
 	}
 
-	protected void AddZoneMarkers(HST_CampaignState state, HST_CampaignPreset preset)
+	protected void AddZoneMarkers(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		string authorizedOwnershipRequestId)
 	{
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
 			if (!zone)
 				continue;
 
+			string projectedOwnerFactionKey;
+			int projectedOwnershipRevision;
+			if (!ResolveZoneProjectionAuthority(
+					state,
+					zone,
+					authorizedOwnershipRequestId,
+					projectedOwnerFactionKey,
+					projectedOwnershipRevision))
+				continue;
 			string category = ZoneToMarkerCategory(zone);
-			string label = BuildZoneMarkerLabel(state, zone);
-			string color = FactionToMarkerColor(zone.m_sOwnerFactionKey, preset);
+			string label = BuildZoneMarkerLabel(state, zone, projectedOwnerFactionKey);
+			string color = FactionToMarkerColor(projectedOwnerFactionKey, preset);
 			string icon = ZoneToMarkerIcon(zone);
 			string textColor = ZoneToMarkerTextColor(zone);
 			string style = ZoneToMarkerStyle(zone);
-			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, "", category, zone.m_sOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style);
+			AddMarker(state, "hst_zone_" + zone.m_sZoneId, zone.m_sZoneId, label, "", category, projectedOwnerFactionKey, icon, color, zone.m_vPosition, true, textColor, style, false, true, projectedOwnershipRevision);
 		}
+	}
+
+	protected bool ResolveZoneProjectionAuthority(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		string authorizedOwnershipRequestId,
+		out string ownerFactionKey,
+		out int ownershipRevision)
+	{
+		ownerFactionKey = "";
+		ownershipRevision = 0;
+		if (!state || !zone)
+			return false;
+		if (zone.m_iOwnershipContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			|| !zone.m_sOwnershipAuthorityFailure.IsEmpty())
+			return false;
+
+		ownerFactionKey = zone.m_sOwnerFactionKey;
+		ownershipRevision = Math.Max(1, zone.m_iOwnershipRevision);
+		HST_OwnershipTransitionState activeTransition;
+		if (!zone.m_sActiveOwnershipTransitionRequestId.IsEmpty())
+			activeTransition = state.FindOwnershipTransition(zone.m_sActiveOwnershipTransitionRequestId);
+		if (!zone.m_sActiveOwnershipTransitionRequestId.IsEmpty())
+		{
+			if (!activeTransition || activeTransition.m_bCompleted
+				|| activeTransition.m_bQuarantined
+				|| activeTransition.m_iContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+				|| activeTransition.m_sZoneId != zone.m_sZoneId)
+				return false;
+			bool authorized = activeTransition.m_sRequestId == authorizedOwnershipRequestId
+				&& activeTransition.m_sProjectionParentRequestId.IsEmpty();
+			if (authorized)
+				return !ownerFactionKey.IsEmpty();
+			ownerFactionKey = activeTransition.m_sPreviousOwnerFactionKey;
+			ownershipRevision = Math.Max(1, activeTransition.m_iExpectedRevision);
+			return !ownerFactionKey.IsEmpty();
+		}
+
+		HST_OwnershipTransitionState latestTransition;
+		if (!zone.m_sLastOwnershipTransitionRequestId.IsEmpty())
+			latestTransition = state.FindOwnershipTransition(zone.m_sLastOwnershipTransitionRequestId);
+		if (!zone.m_sLastOwnershipTransitionRequestId.IsEmpty()
+			&& (!latestTransition || !latestTransition.m_bCompleted
+				|| latestTransition.m_bQuarantined
+				|| latestTransition.m_iContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+				|| latestTransition.m_sZoneId != zone.m_sZoneId))
+			return false;
+		if (latestTransition && !latestTransition.m_sProjectionParentRequestId.IsEmpty()
+			&& !latestTransition.m_bDeferredPublicationReleased)
+		{
+			if (latestTransition.m_sProjectionParentRequestId == authorizedOwnershipRequestId)
+				return !ownerFactionKey.IsEmpty();
+			ownerFactionKey = latestTransition.m_sPreviousOwnerFactionKey;
+			ownershipRevision = Math.Max(1, latestTransition.m_iExpectedRevision);
+		}
+		return !ownerFactionKey.IsEmpty();
 	}
 
 	protected void AddMissionMarkers(HST_CampaignState state, HST_CampaignPreset preset)
@@ -1847,6 +2152,7 @@ class HST_MapMarkerService
 				tombstone.m_bTombstone = true;
 				tombstone.m_bVisible = false;
 				tombstone.m_iRevision = Math.Max(0, removedMarker.m_iRevision) + 1;
+				tombstone.m_iSourceRevision = Math.Max(0, removedMarker.m_iSourceRevision);
 				state.m_iMarkerProjectionSequence++;
 				tombstone.m_iStreamSequence = state.m_iMarkerProjectionSequence;
 				tombstone.m_iTombstonedAtSecond = state.m_iElapsedSeconds;
@@ -1904,7 +2210,7 @@ class HST_MapMarkerService
 		return markerId.IndexOf("hst_zone_") == 0;
 	}
 
-	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint, bool deconflict = false, bool runtimeNative = true)
+	protected void AddMarker(HST_CampaignState state, string markerId, string linkedId, string label, string callsign, string category, string ownerFactionKey, string iconHint, string colorHint, vector position, bool visible, string textColorHint, string styleHint, bool deconflict = false, bool runtimeNative = true, int sourceRevision = 0)
 	{
 		HST_MapMarkerState marker = new HST_MapMarkerState();
 		marker.m_sMarkerId = markerId;
@@ -1920,6 +2226,7 @@ class HST_MapMarkerService
 		marker.m_vPosition = ResolveMarkerPresentationPosition(state, markerId, position, deconflict);
 		marker.m_bVisible = visible;
 		marker.m_bRuntimeNative = runtimeNative;
+		marker.m_iSourceRevision = Math.Max(0, sourceRevision);
 		marker.m_bTombstone = false;
 		state.m_aMapMarkers.Insert(marker);
 	}
@@ -2283,15 +2590,19 @@ class HST_MapMarkerService
 		return SCR_EScenarioFrameworkMarkerCustomColor.WHITE;
 	}
 
-	protected bool SyncVisibleNativeMarkerOwnershipIfDue(HST_CampaignState state)
+	protected bool SyncVisibleNativeMarkerOwnershipIfDue(
+		HST_CampaignState state,
+		string authorizedOwnershipRequestId)
 	{
 		if (!state)
 			return false;
 
-		return SyncVisibleNativeMarkerOwnership(state);
+		return SyncVisibleNativeMarkerOwnership(state, authorizedOwnershipRequestId);
 	}
 
-	protected bool SyncVisibleNativeMarkerOwnership(HST_CampaignState state)
+	protected bool SyncVisibleNativeMarkerOwnership(
+		HST_CampaignState state,
+		string authorizedOwnershipRequestId)
 	{
 		if (!state)
 			return false;
@@ -2307,7 +2618,16 @@ class HST_MapMarkerService
 
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
-			if (!zone || zone.m_sOwnerFactionKey.IsEmpty())
+			if (!zone)
+				continue;
+			string projectedOwnerFactionKey;
+			int projectedOwnershipRevision;
+			if (!ResolveZoneProjectionAuthority(
+					state,
+					zone,
+					authorizedOwnershipRequestId,
+					projectedOwnerFactionKey,
+					projectedOwnershipRevision))
 				continue;
 
 			IEntity markerEntity = m_mAuthoredMarkerByZoneId.Get(zone.m_sZoneId);
@@ -2317,14 +2637,16 @@ class HST_MapMarkerService
 			FactionAffiliationComponent factionComponent = FactionAffiliationComponent.Cast(markerEntity.FindComponent(FactionAffiliationComponent));
 			if (!factionComponent)
 				continue;
-			if (factionComponent.GetAffiliatedFactionKey() == zone.m_sOwnerFactionKey)
+			if (factionComponent.GetAffiliatedFactionKey() == projectedOwnerFactionKey)
 			{
-				m_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+				m_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, projectedOwnerFactionKey);
+				m_mAuthoredMarkerRevisionByZoneId.Set(zone.m_sZoneId, projectedOwnershipRevision);
 				continue;
 			}
 
-			factionComponent.SetAffiliatedFactionByKey(zone.m_sOwnerFactionKey);
-			m_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+			factionComponent.SetAffiliatedFactionByKey(projectedOwnerFactionKey);
+			m_mAuthoredMarkerOwnerByZoneId.Set(zone.m_sZoneId, projectedOwnerFactionKey);
+			m_mAuthoredMarkerRevisionByZoneId.Set(zone.m_sZoneId, projectedOwnershipRevision);
 			changed = true;
 		}
 
@@ -2338,6 +2660,7 @@ class HST_MapMarkerService
 		{
 			m_mAuthoredMarkerByZoneId.Clear();
 			m_mAuthoredMarkerOwnerByZoneId.Clear();
+			m_mAuthoredMarkerRevisionByZoneId.Clear();
 		}
 		m_iAuthoredMarkerMissingCount = 0;
 		m_bAuthoredMarkerBindingsInitialized = true;
@@ -2503,7 +2826,10 @@ class HST_MapMarkerService
 		return false;
 	}
 
-	protected string BuildZoneMarkerLabel(HST_CampaignState state, HST_ZoneState zone)
+	protected string BuildZoneMarkerLabel(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		string projectedOwnerFactionKey = "")
 	{
 		if (!zone)
 			return "Unknown location | Owner: unknown";
@@ -2513,7 +2839,9 @@ class HST_MapMarkerService
 			locationName = zone.m_sZoneId;
 		locationName = ShortMarkerText(locationName, 28);
 
-		string ownerName = zone.m_sOwnerFactionKey.Trim();
+		string ownerName = projectedOwnerFactionKey.Trim();
+		if (ownerName.IsEmpty())
+			ownerName = zone.m_sOwnerFactionKey.Trim();
 		if (ownerName.IsEmpty())
 			ownerName = "unclaimed";
 

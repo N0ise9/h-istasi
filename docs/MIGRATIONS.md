@@ -2,16 +2,150 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is currently `61`. Schema 61 is the latest
-completed source/Workbench checkpoint for marker-only authoritative client
-projection under implementation `27672e67ce4285810f313130293df1ac917c9bdf`,
-UTC `2026-07-12T01:02:39Z`, and build label
-`schema61-authoritative-marker-projection`. Its packaged multiplayer,
-reconnect, late-join, rendered-widget, and real save/restart gates remain open.
-Full Foundation passes with 655 symbol references; final Workbench Game
-validation loaded 5,782 files/11,631 classes with CRC `df41a779` and created the
-game; hidden normal WorldEditor stayed responsive 10/10 over 20 seconds without
-a first-party error/crash signature.
+`HST_CampaignState.SCHEMA_VERSION` is currently `62`. Schema 62 is the active
+source implementation for canonical, revisioned ownership transitions. Its
+build label is `schema62-canonical-ownership-transition`; final implementation
+identity and validation evidence will be stamped only after the checkpoint is
+complete. It is based on sealed Schema-61 implementation
+`27672e67ce4285810f313130293df1ac917c9bdf`; Schema 61 remains the latest
+sealed checkpoint. The Schema-62 Foundation gate passes with 670 script-symbol
+references. Headless Workbench Game validation loaded 5,785 files/11,652 classes
+with CRC `326488ba` and zero script errors; the normal Script Editor open remained
+responsive without a crash. Packaged evidence remains open.
+
+## Schema 62
+
+- Every existing zone gains ownership contract version `1`, baseline ownership
+  revision `1`, and active/latest transition backlinks. Each accepted owner
+  change must advance that revision exactly once through a durable
+  `HST_OwnershipTransitionState` receipt.
+- New receipts persist the immutable expected-owner/revision fingerprint,
+  previous/new owner, cause/source/reason/policy, frozen support targets and
+  retaliation decision, attempt/timing state, strategic/campaign event links,
+  security links, derived decisions, marker epoch/revision/source/sequence
+  correlation, immutable setup-without-markers history, and an explicit ordered
+  completion checklist. Coherent incomplete
+  receipts resume after restore; retryable failure is not converted into a
+  completed owner change. Admission stops before a revision that cannot safely
+  advance exactly once into valid serialized authority.
+- Request construction resolves supported retired zone aliases to the canonical
+  durable zone ID before fingerprinting or replay lookup, so an alias spelling
+  cannot fork receipt identity.
+- Admission and current-schema normalization enforce cause policy: admin cannot
+  retaliate; debug cannot retaliate or notify; migration repair cannot retaliate,
+  notify, or rewrite security.
+- A valid later top-level request is admitted immediately as a pristine durable
+  receipt even when an earlier publisher is unresolved. It returns accepted plus
+  needs-retry and remains pre-owner in serialized array order; no security,
+  support, owner, or derived-domain step runs until every earlier unresolved
+  top-level receipt completes. This preserves exact mission, political, admin,
+  and migration intent across the fence and process restart.
+- Schema 61 saves preserve owners, support, garrisons, operations, events,
+  outcomes, and all other domain facts. Migration creates no historical
+  transition claims and replays no rewards, security, aggression,
+  counterattacks, or capture outcomes; existing owners simply become revision-1
+  baselines and one idempotent migration event records that boundary.
+- Current-schema malformed or non-reciprocal transition/backlink authority is
+  quarantined at contract `-62` without guessing a rollback or reconstructing
+  domain truth from markers. Validation includes unique request/zone identity,
+  bounded nonblank fingerprint/reason fields, known factions/causes, exact-plus-
+  one revision, checklist order, exact support set/applied prefix/same-row event,
+  strategic/campaign events, counterattack/order and garrison correlations,
+  parent/child projection lifecycle, marker evidence, setup mode, and reciprocal
+  active/latest zone backlinks. One idempotent
+  conflict event records normalization. Projection-parent checks repeat until no
+  new quarantine appears, so malformed-parent quarantine reaches descendants
+  regardless of their serialized row order. Forged projection children with an
+  unrelated parent and duplicate completed claims for the same zone/applied
+  revision also quarantine. Quarantining current zone authority purges every
+  unsafe zone-marker row instead of retaining it as apparent ownership evidence.
+- Any number of queued top-level followers is valid restore state only while each
+  later unresolved follower remains fully pristine and keeps serialized order;
+  pre-owner status alone is insufficient. More than one owner-applied incomplete
+  top-level publisher, or an owner-applied publisher behind an earlier unresolved
+  top-level receipt, is ambiguous and quarantines rather than choosing a
+  publication owner. Ordinary rebuilds ignore queued pre-owner
+  receipts, but retain the prior owner/revision for an owner-applied active
+  receipt or completed unreleased child. Published ownership is resolved from
+  exact zone/receipt authority first; a retained marker is only a correlation
+  check. Malformed authority reports publication unavailable instead of exposing
+  prior/raw ownership. Explicit-ID reconstruction reuses frozen preconditions
+  only after semantic identity matches the receipt.
+- Accepted exact patrol manifests are valid security authority only when each
+  has exactly one reciprocal, open, non-quarantined patrol operation with the
+  same owner and assignment. Admission and every pre-owner retry recheck this
+  graph, so orphan or late conflicting authority cannot be erased as aggregate
+  garrison counts.
+- Ownership history is bounded to 512 rows with a minimum 86,400-campaign-second
+  replay window. Latest, incomplete, quarantined, unreleased-child, and
+  unresolved-enemy-order receipts remain pinned; admission fails closed if no
+  eligible completed receipt can make room.
+- Zone-marker transport protocol `2` carries the source ownership revision in
+  addition to its projection-local revision and global stream sequence. This
+  lets custom marker state be correlated with the exact owner revision while
+  leaving the Schema-61 delivery/ACK model intact. Marker-local revision and
+  source ownership revision are deliberately independent.
+- A support consequence can create a nested political transition. Parent
+  publication snapshots all logical marker rows plus projection epoch/sequence,
+  stages the full graph, validates each exact child receipt-zone-marker chain,
+  releases every child, and commits client/native publication only afterward. A
+  failed validation restores the exact prior snapshot. Setup publication records
+  no marker evidence and freezes immutable parent/child
+  `m_bSetupProjectionWithoutMarkers` history that
+  remains historical after activation builds current markers.
+- When an earlier parent's exact linked-town support event targets a town whose
+  active backlink belongs to a later pristine queued top-level receipt, the exact
+  support/influence event still applies once. Only political threshold
+  reconciliation is deferred, avoiding a parent/child backlink cycle; the normal
+  periodic civilian pass evaluates that threshold after the FIFO queue drains.
+  Ownership maintenance runs pending receipt retry first, then town policy before
+  setup/terminal returns with a frozen-clock bypass. Any political repair in a
+  frozen phase suppresses fresh retaliation and notification.
+- Frozen support targets are the exact sorted deterministic set of linked towns
+  plus every town within 1,500 m. Applied targets must be its ordered retry
+  prefix, with each target backed by the same single exact deterministic influence row and deltas.
+  Missing, extra, reordered, split-row, or mismatched evidence quarantines.
+- Ownership strategic events record exact owner before/after, capture progress,
+  and receipt aggression. They intentionally zero unrelated global money/HR/HQ/
+  support/enemy-resource deltas that may change while a receipt waits.
+- Durable civilian support/heat events remain authoritative if their ownership
+  threshold is reached behind a top-level fence. The exact political request is
+  admitted as queued pre-owner authority; after restore, a five-second fallback
+  sweep waits for existing queued work and admits at most one otherwise-
+  unrepresented durable threshold without duplicating the original event.
+- Invalid-owner sanitation runs only after restored ownership receipts reconcile.
+  It scans sequentially at startup and every five real-time seconds, defers
+  accepted or transient repair work, and quarantines only structural conflicts
+  or cases already blocked by quarantined top-level authority and requiring
+  manual repair. Ownership receipt retry runs in setup and terminal phases with
+  campaign-clock rate limiting bypassed, so a frozen campaign clock cannot strand
+  migration or other accepted work.
+- If runtime or restore retry discovers a structural contradiction and the
+  application path quarantines the receipt, retain that concrete receipt/zone
+  reason. Do not replace it with generic runtime- or restore-resume text; generic
+  text is only a fallback for a failure that produced no quarantine reason.
+- Major-change marks are edge-triggered and coalesced behind one bounded
+  checkpoint deadline. Repeated gameplay/retry heartbeats do not reset that due
+  time; the first change after a successful checkpoint starts a new interval.
+  Transition completion re-arms process-local pending state after final status/
+  backlink mutation even when restored durable state already says persistence
+  was requested, without extending an existing deadline.
+- Admin capture and progress reports preserve the result distinction: a valid
+  queued request reports accepted-pending with its receipt identity, while an
+  invalid request reports the actual rejection.
+- Deterministic source proof covers pre-62 migration idempotency, malformed-
+  current quarantine, interrupted receipt save/restore/resume, queued intent,
+  malformed FIFO publisher ordering, replay retention, source-revision
+  projection, staged full-snapshot rollback, resolver fail-close/purge, setup
+  history across activation, support set/prefix and derived correlation
+  corruption, persistence deadline/re-arm, two-child atomic release, two save/
+  restore boundaries with exactly-once political completion, and orphan/late
+  exact-security rejection. Production and proof use
+  the same logical marker-snapshot builder; only native publication is omitted in
+  the proof harness. Headless Workbench validation is clean;
+  Campaign Debug, real profile serialization/restart, multiplayer, native-
+  marker/security, and gameplay checks remain open while this schema is being
+  completed.
 
 ## Schema 61
 
@@ -916,7 +1050,7 @@ a first-party error/crash signature.
   missing/conflicting mapping, or nonphysical operation retaining member
   mappings defers capture before an older snapshot is flushed or an engine
   savepoint is requested. Autosave/major-change intent remains pending and
-  retries on the bounded debounce.
+  retries on the bounded cadence.
 
 - The final stamped schema-52 tree identifies implementation
   `fa5e7e45dbd8741269e614e60c51d4edee6bf223`, passes repository validation, and

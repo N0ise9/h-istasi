@@ -1,5 +1,13 @@
 # h-istasi Enfusion / Enforce Notes
 
+Active source work is Schema 62 under provisional build label
+`schema62-canonical-ownership-transition`, based on sealed Schema-61
+implementation `27672e67ce4285810f313130293df1ac917c9bdf`. Foundation passes with
+670 script-symbol references. Headless Workbench Game validation loaded 5,785
+files/11,652 classes with CRC `326488ba` and zero script errors. Compile-derived
+notes are accepted at the source/Workbench boundary; the normal Script Editor
+open also remained responsive without a crash. Packaged behavior remains open.
+
 Purpose: capture reusable facts learned while building h-istasi so we do not rediscover the same Enfusion and Enforce Script edge cases repeatedly.
 
 This file is for practical engine/script behavior, not project planning. Keep entries concrete: what failed, why it failed, what works instead, and where the example lives.
@@ -2634,7 +2642,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     missing or conflicting, or a nonphysical operation retains member mappings,
     defer the checkpoint without flushing an older tracked snapshot or requesting
     an engine save point. Retain checkpoint intent and retry on the configured
-    debounce; confirmed casualty retirement is monotonic and safe to capture.
+    cadence; confirmed casualty retirement is monotonic and safe to capture.
 
 - Publish one aggregate marker from operation authority.
   - Use the strategic cursor while virtual and the live authoritative position
@@ -2771,7 +2779,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     complete root/member/PhysicalWar bijection, and resolve an authoritative live
     position. If mapping, runtime ownership, or live position is missing or
     conflicting, defer capture before flushing an older tracked snapshot or
-    requesting a savepoint. Retain save intent and retry on the bounded debounce.
+    requesting a savepoint. Retain save intent and retry on the bounded cadence.
   - Campaign-won/lost and setup settlement must run the same exhaustive patrol-
     scoped reconciliation before reading survivors. If it fails, leave the debit,
     settlement, runtime entities, and open patrol batch untouched; generic terminal
@@ -3862,6 +3870,254 @@ This file is for practical engine/script behavior, not project planning. Keep en
   signature. This stamp does not close any
   packaged multiplayer, rendered-widget, actual restart, or live-performance
   gate.
+
+## Schema-62 Canonical Ownership Transitions
+
+- A location owner is durable domain authority, not a marker or a side effect of
+  one capture caller. Keep a positive per-zone ownership revision plus active and
+  latest receipt backlinks. A transition request must freeze the expected owner,
+  expected revision, new owner, cause, source, reason, policy flags, support
+  targets, and random retaliation decision before mutation. Resolve supported
+  zone aliases to the canonical durable zone ID before fingerprint construction
+  or replay lookup. Exact request replay is a no-op; changed-fingerprint reuse
+  and stale owner/revision reject. Reject admission before a revision that cannot
+  safely advance by exactly one or serialize as valid current authority.
+
+- Retry-capable authority must settle before the owner write. The compatible
+  order is: validate exact old security; settle exact patrol authority; retire
+  old aggregate security and hostile runtime; create or retain new-owner
+  security; apply frozen support consequences; then write owner and exactly
+  `expectedRevision + 1`. Town policy, generated-site/facility/logistics
+  derivation, enemy consequences, economy/outcome, events, projection,
+  notification, and persistence follow. Persist the incomplete receipt when a
+  retryable step blocks so restore can resume the same checklist without
+  exposing a half-applied owner.
+
+- A completed receipt's persistence step means `MarkMajorChange()` was
+  scheduled, not that a native checkpoint or profile fallback is already on
+  disk. Keep actual save/restart as a separate runtime gate, especially for an
+  interrupted receipt whose earlier domain steps were already applied.
+  `MarkMajorChange()` is edge-triggered and coalesced behind a bounded deadline:
+  repeated gameplay or retry heartbeats must not move the due time and starve a
+  checkpoint. A successful checkpoint clears the interval; the next first change
+  starts a new one. Receipt completion must call `EnsureMajorChangePending()`
+  after final status/backlink mutation even when restored receipt state already
+  says persistence was requested. That re-arms lost process-local state without
+  extending an already pending deadline.
+
+- Shared transition machinery does not mean every cause shares every side
+  effect. Military and mission captures retain enemy consequences. Generic
+  admin changes reconcile security and notify but suppress retaliation. Debug
+  seed also suppresses notification. Migration repair suppresses retaliation
+  and notification and preserves existing security. Persist these policy flags
+  in the receipt so retry/replay cannot change them. Validate the cause-to-policy
+  combination during admission and current-schema normalization; a forged save
+  must not opt admin/debug/migration work back into forbidden effects.
+
+- Exact garrison authority cannot be zeroed as an aggregate count. A supported
+  exact purchased-garrison patrol must settle through its own lifecycle before
+  ownership proceeds. Every manifest in an old-owner garrison's accepted list
+  must have one and only one reciprocal, open, non-quarantined patrol operation
+  with matching manifest, owner, and assignment. An exact-policy manifest is not
+  proof by itself: an orphan, duplicate claimant, conflicting backlink, or
+  quarantined/settled operation fails closed. Re-run this validation and
+  settlement on every retry before the owner write, even if the durable security
+  checklist bits were set earlier, because late authority can appear between
+  attempts. Retain existing exact authority for the new owner rather than
+  overwriting its roster with a starter count.
+
+- Nested domain mutations need a single publication owner. A capture support
+  consequence can politically flip a linked town while the parent transition is
+  still applying. Let the child complete its domain checklist, record the parent
+  request ID, and defer marker/menu/GM/notification publication. Snapshot the
+  complete logical marker array plus projection epoch and sequence, stage the
+  authorized parent/child rebuild, validate each exact child receipt, zone
+  backlink, owner/revision, marker ID, and source revision, then release every
+  child before commit. Client/native publication occurs only on commit. Any
+  failure must restore the exact full marker snapshot, epoch, and sequence; an
+  unrelated rebuild cannot interleave with the active stage.
+
+- The nested flag alone is not a global publication fence. Any unrelated marker
+  refresh after a child domain change could otherwise rebuild from the child's
+  new owner while its parent is still pending, including during restore startup.
+  Admit later valid top-level requests as pristine durable receipts, return
+  accepted plus needs-retry, and serialize their execution by receipt array order
+  before any domain mutation. A queued pre-owner receipt does not own a new
+  snapshot and must not block an ordinary rebuild. An owner-applied active receipt
+  or completed unreleased child still resolves to its previous owner/revision
+  outside the authorized scope. Only the active owner-applied top-level request
+  may open a scoped rebuild; within that scope, it and its completed unreleased
+  children resolve to their new owner/revision. On restore, a serialized queue is
+  valid only while every later unresolved top-level follower remains fully
+  pristine; pre-owner alone is insufficient. More than one owner-applied
+  incomplete top-level publisher, or an owner-applied publisher behind an earlier
+  unresolved top-level receipt, is ambiguous and must quarantine.
+
+- Setup projection is an immutable historical mode, not missing evidence. When
+  setup has no live zone-marker projection, persist
+  `m_bSetupProjectionWithoutMarkers`, the exact decision, zero marker evidence,
+  and matching parent/child mode. Later activation may build current markers, but
+  must not rewrite that receipt flag or backfill historical marker fields.
+
+- A frozen linked-town support event remains an exact influence fact when a later
+  pristine queued top-level receipt already owns the town's reciprocal active
+  backlink. Apply that fact once, suppress only immediate political threshold
+  reconciliation, and leave every other support-policy failure retry-visible.
+  The periodic civilian pass reconciles the threshold after FIFO ownership work
+  drains; this avoids a cyclic parent/child wait without dropping the event.
+
+- Freeze support authority as the canonical sorted set of every linked town plus
+  every town within 1,500 m. Restore must recompute the exact set;
+  an added, missing, duplicate, aliased, or reordered target quarantines. Applied
+  targets form an ordered prefix of that frozen list. Each applied target must
+  correlate to one and the same deterministic influence-event row by exact ID,
+  kind/source/zone tuple, reason, applied state, and deltas; two different rows
+  cannot collectively satisfy the claim.
+
+- Non-marker UI must use the same publication authority. Zone control totals,
+  labels, tones, capture rows, and income in `HST_CommandUIService` must call
+  `ResolvePublishedZoneOwnership` first. A retained logical marker is only a
+  second correlation check for visible/non-tombstoned owner and source revision;
+  it may veto an unsafe result but must never lead resolution or create authority.
+  Reading `zone.m_sOwnerFactionKey` directly would leak the new domain owner while
+  projection is retrying. Raw-owner fallback is acceptable only when the marker
+  service is genuinely unavailable, not on the configured command-menu path.
+
+- Missing retained-marker state is not permission to trust arbitrary ownership
+  rows. Active/latest receipts and the zone contract must be exact, same-zone,
+  reciprocal, and non-quarantined before source projection may fall back. A
+  malformed or quarantined graph reports publication unavailable instead of
+  leaking a prior or raw owner. Current-save quarantine must purge every zone
+  marker row for that unsafe authority so a stale marker cannot survive as a
+  later authorization candidate.
+
+- Durable political intent can be created while a top-level publication fence
+  is active. Apply the support/heat event and admit its exact political request as
+  a queued pre-owner receipt; do not collapse accepted-pending into rejection.
+  The five-campaign-second fallback scan waits while any top-level receipt is
+  unresolved, then admits at most one otherwise-unrepresented durable threshold.
+  Exact request identity prevents that fallback, a repeat sweep, or either of two
+  successive restore boundaries from replaying the influence event or ownership
+  effects.
+
+- Exact mission, political, admin, and migration intent must survive a preceding
+  top-level publisher through the same receipt queue. Preserve the original
+  source, expected owner/revision, support reward, and policy flags; never retry a
+  mission outcome wholesale or rebuild an admin/migration request from mutable
+  later state. Boolean wrappers may remain for legacy callers, but reports must
+  retain the detailed result: accepted-pending is durable work and is not a
+  rejected command. An explicit request ID may reuse frozen preconditions only
+  after the rebuilt command matches the receipt's semantic identity.
+
+- Projection parent/child identity is a causal graph. A child must follow its
+  parent in queue order, be a political town-influence transition for a town in
+  the parent's frozen and applied support set, source the exact same support event
+  row, use the deterministic child request ID, and keep the direction-specific
+  reason. An unreleased child requires a live exact top-level parent; a released
+  child requires a completed published parent, matching setup mode, reciprocal
+  zone/latest backlink, and exact marker evidence when live markers apply. A
+  published parent cannot retain an unreleased direct child.
+
+- Restore must validate every derived receipt fact, not just checklist booleans.
+  Old/new garrison IDs are stable `(zone, owner)` IDs with no duplicate or
+  mismatched retained row; a pre-owner security step that claims a new garrison
+  must retain its required row. Counterattack chance/roll/selection must obey
+  policy, and a queued counterattack owns one unique matching type/faction/zone
+  order. Receipt reasons are trimmed, nonempty, bounded, and must correlate with
+  campaign/strategic rows and political direction.
+
+- Ownership strategic events are receipt-scoped facts. Record exact owner before/
+  after, capture progress before/after/delta, and aggression applied by that
+  receipt. Do not subtract global money, HR, HQ knowledge, town support, or enemy
+  resource snapshots across a queued/retry window; unrelated gameplay can mutate
+  those aggregates while the receipt waits.
+
+- Ownership retry is maintenance, not active-campaign simulation. Call
+  `TickPending()` before setup/terminal early returns and bypass campaign-clock
+  rate limiting when elapsed campaign time is frozen. This lets accepted receipts
+  finish during setup or after win/loss without advancing ordinary campaign
+  systems.
+
+- Town ownership policy is part of the same liveness boundary. Run it after
+  ownership retry and before setup/terminal returns, with a frozen-clock bypass,
+  so deferred linked-support thresholds can reconcile after FIFO drain. A
+  political repair admitted during a frozen phase must suppress fresh retaliation
+  and notification.
+
+- Preserve the first concrete quarantine cause. If `Apply()` already quarantined
+  a receipt and zone, runtime or restore retry must not call quarantine again with
+  generic resume text. Generic retry failure is only a fallback when no concrete
+  quarantine was produced.
+
+- Invalid-owner faction sanitation must reconcile restored ownership receipts
+  before scanning zones. Scan sequentially at startup and every five real-time
+  seconds, stop when one accepted repair remains pending, and let its normal
+  receipt retry stay authoritative. Defer transient/unclassified rejection
+  without changing the zone contract. Quarantine only structural contradictions,
+  an empty/restoration-invalid owner, or a repair blocked by an already
+  quarantined top-level authority; label those cases as requiring manual repair.
+
+- Deterministic ownership projection proof must exercise production logic rather
+  than a parallel marker algorithm. Put the bounded logical snapshot construction
+  in one protected `HST_MapMarkerService` seam used by production before native
+  publication and by the proof harness without a marker manager. Include an
+  staged full-snapshot rollback and atomic two-child release cases: if either
+  child marker is missing, restore marker records/epoch/sequence and release
+  neither child nor notification; after both markers match, release both and then
+  commit. Include resolver fail-close/purge, setup history across activation,
+  deterministic support set/prefix and same-row event corruption, derived receipt
+  correlations, persistence deadline/re-arm, pending/completion save restore,
+  repeat reconciliation, and post-second-restart reconciliation.
+
+- Projection revision and source revision answer different questions. Marker
+  protocol `2` carries both: `m_iRevision`/stream sequence describe changes to
+  the marker record, while `m_iSourceRevision` identifies the zone ownership
+  revision used to build its owner and label. Include source revision in copy,
+  equality, hashing, encode/decode, tombstones, native authored-marker caches,
+  save normalization, and transition correlation checks.
+
+- Schema migration must preserve domain facts and avoid historical invention.
+  Pre-62 zones become contract `1`, revision-1 baselines with empty transition
+  backlinks. Do not synthesize receipts or replay support, garrisons, aggression,
+  counterattacks, economy, outcomes, events, or notifications. Current-schema
+  checklist/revision/backlink contradictions remain `-62` quarantine evidence;
+  never infer an owner from a marker or guess which partial effect to roll back.
+  Validate projection parents iteratively until no new quarantine appears. A
+  single forward pass is save-row-order dependent: if a child is visited before
+  its malformed parent, it can otherwise survive. Bound the fixed-point loop by
+  receipt count, then validate transition and zone backlinks after propagation.
+  Reject forged cause-policy combinations, unsafe revision boundaries, any
+  non-pristine later top-level follower, projection lifecycle/child-chain
+  mismatch, duplicate completed `(zone, applied revision)` authority, malformed
+  setup no-marker history, noncanonical support sets/prefixes, split or mismatched
+  support-event evidence, and garrison/counterattack/reason/event/marker
+  contradictions. Quarantine the receipt/zone and purge unsafe zone-marker rows;
+  none of these graphs may be normalized into valid history.
+
+- Bound ownership history, but protect replay and recovery authority. The source
+  contract caps receipts at 512 and retains completed rows for at least 86,400
+  campaign seconds. Latest-per-zone, incomplete, quarantined, unreleased nested,
+  and unresolved-enemy-order receipts are pinned. If no safe row can be evicted,
+  reject new admission instead of discarding authority.
+
+- The current liberated-location starter policy is intentionally conservative:
+  remove enemy town police/roadblocks and add at most two aggregate resistance
+  infantry where capacity exists, with no automatic vehicle. Enemy recapture
+  uses capacity/priority-scaled infantry and adds major-site vehicles. Treat
+  these as source policy until packaged native population and balance evidence
+  exists.
+
+- Large proof/receipt methods can exceed Enforce parser or native compiler
+  pressure without a useful source diagnostic. Split long `string.Format`
+  reports, replace large conjunction fingerprints with staged early returns, and
+  divide proof cases into focused helpers. Do not reassign a non-strong object
+  parameter when constructing a fallback result; return a new local object.
+  A native heap failure during full Game compilation is not a clean Workbench
+  gate even if static validation passes. After splitting the Schema-62 service,
+  validator, proof formulas, and one legacy debug method, headless Game
+  validation loaded 5,785 files/11,652 classes with CRC `326488ba` and zero
+  script errors. The normal Script Editor open remained responsive without a
+  crash. Packaged behavior remains a separate gate.
 
 ## One-Second Runtime Hot-Path Repair
 

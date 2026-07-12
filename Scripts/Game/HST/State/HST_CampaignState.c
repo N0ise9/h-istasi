@@ -38,6 +38,11 @@ class HST_ZoneState
 	string m_sMarkerTextColor;
 	string m_sMarkerStyle;
 	string m_sOwnerFactionKey;
+	int m_iOwnershipContractVersion = 1;
+	int m_iOwnershipRevision = 1;
+	string m_sActiveOwnershipTransitionRequestId;
+	string m_sLastOwnershipTransitionRequestId;
+	string m_sOwnershipAuthorityFailure;
 	HST_EZoneType m_eType;
 	vector m_vPosition;
 	string m_sResourceKind;
@@ -258,6 +263,76 @@ class HST_OperationRecordState
 }
 
 [BaseContainerProps()]
+class HST_OwnershipTransitionState
+{
+	int m_iContractVersion = 1;
+	string m_sStatus = "requested";
+	string m_sRequestId;
+	string m_sZoneId;
+	string m_sCause;
+	string m_sSourceType;
+	string m_sSourceId;
+	string m_sActorIdentityId;
+	string m_sReason;
+	string m_sExpectedOwnerFactionKey;
+	int m_iExpectedRevision;
+	string m_sPreviousOwnerFactionKey;
+	string m_sNewOwnerFactionKey;
+	int m_iAppliedRevision;
+	int m_iSupportReward;
+	bool m_bApplyEnemyConsequences = true;
+	bool m_bReconcileSecurity = true;
+	bool m_bCreateSecurity = true;
+	bool m_bNotify = true;
+	int m_iCreatedAtSecond;
+	int m_iLastAttemptAtSecond;
+	int m_iCompletedAtSecond;
+	int m_iAttemptCount;
+	string m_sStrategicEventId;
+	string m_sCampaignEventId;
+	string m_sOldGarrisonId;
+	string m_sNewGarrisonId;
+	string m_sSecurityDecision;
+	string m_sFacilityLogisticsDecision;
+	string m_sEnemyConsequenceDecision;
+	string m_sEnemyOrderId;
+	string m_sProjectionDecision;
+	string m_sProjectionParentRequestId;
+	string m_sMarkerId;
+	int m_iMarkerProjectionEpoch;
+	int m_iMarkerRevision;
+	int m_iMarkerStreamSequence;
+	int m_iAggressionApplied;
+	int m_iCounterattackChance;
+	int m_iCounterattackRoll;
+	bool m_bCounterattackSelected;
+	bool m_bCounterattackQueued;
+	ref array<string> m_aSupportZoneIds = {};
+	ref array<string> m_aAppliedSupportZoneIds = {};
+	bool m_bValidated;
+	bool m_bOwnerApplied;
+	bool m_bTownPolicyApplied;
+	bool m_bOldSecurityRetired;
+	bool m_bHostileRuntimeRetired;
+	bool m_bNewSecurityApplied;
+	bool m_bSupportApplied;
+	bool m_bFacilitiesApplied;
+	bool m_bLogisticsApplied;
+	bool m_bEconomyApplied;
+	bool m_bEnemyConsequencesApplied;
+	bool m_bStrategicEventCompleted;
+	bool m_bEventAppended;
+	bool m_bNotificationApplied;
+	bool m_bProjectionRequested;
+	bool m_bDeferredPublicationReleased;
+	bool m_bSetupProjectionWithoutMarkers;
+	bool m_bPersistenceRequested;
+	bool m_bCompleted;
+	bool m_bQuarantined;
+	string m_sFailureReason;
+}
+
+[BaseContainerProps()]
 class HST_MapMarkerState
 {
 	string m_sMarkerId;
@@ -274,6 +349,7 @@ class HST_MapMarkerState
 	bool m_bVisible = true;
 	bool m_bRuntimeNative;
 	int m_iRevision;
+	int m_iSourceRevision;
 	int m_iStreamSequence;
 	bool m_bTombstone;
 	int m_iTombstonedAtSecond;
@@ -1104,7 +1180,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 61;
+	static const int SCHEMA_VERSION = 62;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1207,6 +1283,7 @@ class HST_CampaignState
 	ref array<ref HST_FactionPoolState> m_aFactionPools = {};
 	ref array<ref HST_PlayerState> m_aPlayers = {};
 	ref array<ref HST_ZoneState> m_aZones = {};
+	ref array<ref HST_OwnershipTransitionState> m_aOwnershipTransitions = {};
 	ref array<ref HST_RadioSiteState> m_aRadioSites = {};
 	ref array<ref HST_GarrisonState> m_aGarrisons = {};
 	ref array<ref HST_ActiveGroupState> m_aActiveGroups = {};
@@ -1263,6 +1340,20 @@ class HST_CampaignState
 		{
 			if (zone && zone.m_sZoneId == canonicalZoneId)
 				return zone;
+		}
+
+		return null;
+	}
+
+	HST_OwnershipTransitionState FindOwnershipTransition(string requestId)
+	{
+		if (requestId.IsEmpty())
+			return null;
+
+		foreach (HST_OwnershipTransitionState transition : m_aOwnershipTransitions)
+		{
+			if (transition && transition.m_sRequestId == requestId)
+				return transition;
 		}
 
 		return null;

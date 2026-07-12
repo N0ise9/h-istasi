@@ -29,6 +29,7 @@ class HST_ZoneCaptureNotification
 	string m_sZoneId;
 	string m_sSeverity;
 	vector m_vPosition;
+	bool m_bOwnershipTransition;
 }
 
 class HST_ZoneCaptureService
@@ -40,51 +41,89 @@ class HST_ZoneCaptureService
 
 	protected ref array<ref HST_ZoneCaptureNotification> m_aPendingNotifications = {};
 	protected ref array<string> m_aNotificationKeys = {};
+	protected HST_OwnershipTransitionService m_OwnershipTransitions;
+
+	void SetOwnershipTransitionService(HST_OwnershipTransitionService ownershipTransitions)
+	{
+		m_OwnershipTransitions = ownershipTransitions;
+	}
 
 	bool CaptureZone(HST_CampaignState state, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, string factionKey, string resistanceFactionKey = "FIA")
 	{
-		if (!state || !strategic || !economy || !balance)
+		if (!state || !m_OwnershipTransitions)
 			return false;
-
-		return strategic.SetZoneOwner(state, economy, balance, zoneId, factionKey, resistanceFactionKey);
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return false;
+		string sourceId = string.Format("direct_%1_%2", zone.m_sZoneId, Math.Max(1, zone.m_iOwnershipRevision));
+		HST_OwnershipTransitionRequest request = m_OwnershipTransitions.BuildRequest(
+			state,
+			zoneId,
+			factionKey,
+			"military_capture",
+			"zone_capture",
+			sourceId,
+			"direct zone capture",
+			0,
+			"ownership_capture_" + sourceId);
+		request.m_bApplyEnemyConsequences = factionKey == resistanceFactionKey;
+		HST_OwnershipTransitionResult result = m_OwnershipTransitions.Apply(state, request);
+		return result && result.m_bAccepted && result.m_bCompleted;
 	}
 
 	bool CaptureForResistance(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int supportReward, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
 	{
-		if (!state || !preset || !strategic || !economy || !balance)
-			return false;
+		HST_OwnershipTransitionResult result = CaptureForResistanceDetailed(
+			state,
+			preset,
+			strategic,
+			economy,
+			balance,
+			zoneId,
+			supportReward,
+			garrisons,
+			enemyCommander,
+			enemyDirector,
+			support,
+			eventSourceId);
+		return result && result.m_bAccepted && result.m_bCompleted;
+	}
+
+	HST_OwnershipTransitionResult CaptureForResistanceDetailed(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int supportReward, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
+	{
+		if (!state || !preset || !m_OwnershipTransitions)
+			return BuildRejectedOwnershipResult("capture state, preset, or ownership authority is unavailable");
 
 		HST_ZoneState zone = state.FindZone(zoneId);
 		if (!zone)
-			return false;
+			return BuildRejectedOwnershipResult("capture zone was not found");
 
 		string oldOwner = zone.m_sOwnerFactionKey;
 		if (oldOwner == preset.m_sResistanceFactionKey)
-			return false;
+			return BuildRejectedOwnershipResult("capture zone is already resistance-owned");
 
-		HST_StrategicEventApplyResult captureEvent = strategic.BeginZoneCaptureEvent(state, zoneId, oldOwner, preset.m_sResistanceFactionKey, eventSourceId);
-		if (!CaptureZone(state, strategic, economy, balance, zoneId, preset.m_sResistanceFactionKey, preset.m_sResistanceFactionKey))
+		string cause = "military_capture";
+		string sourceType = "zone_capture";
+		string sourceId = eventSourceId;
+		if (!sourceId.IsEmpty())
 		{
-			strategic.DiscardStrategicEvent(state, captureEvent);
-			return false;
+			cause = "mission_capture";
+			sourceType = "mission";
 		}
+		else
+			sourceId = string.Format("presence_%1_%2", zone.m_sZoneId, Math.Max(1, zone.m_iOwnershipRevision));
 
-		EnsureCapturedZoneResistanceGarrison(state, preset, garrisons, zone);
-
-		if (!oldOwner.IsEmpty() && oldOwner != preset.m_sResistanceFactionKey)
-		{
-			int aggression = ResolveCaptureAggression(balance, zone);
-			economy.AddAggression(state, oldOwner, aggression);
-			if (enemyDirector)
-				enemyDirector.RecordZoneDamageSignal(state, oldOwner, zone, Math.Max(8, aggression), "zone captured by resistance");
-			TryQueueCounterattack(state, preset, balance, enemyCommander, enemyDirector, support, oldOwner, zone);
-		}
-
-		ApplyLinkedTownSupport(state, zone, supportReward);
-		strategic.CompleteStrategicEvent(state, captureEvent, true, true);
-		QueueNotification("secured", zone, "success", CaptureTitle(zone, "secured"), string.Format("%1 secured by FIA.", ZoneLabel(zone)));
-		Print(string.Format("h-istasi capture | secured %1 | previous owner %2 | support reward %3", zone.m_sZoneId, oldOwner, supportReward));
-		return true;
+		HST_OwnershipTransitionRequest request = m_OwnershipTransitions.BuildRequest(
+			state,
+			zoneId,
+			preset.m_sResistanceFactionKey,
+			cause,
+			sourceType,
+			sourceId,
+			"zone captured by resistance",
+			supportReward,
+			"ownership_capture_" + zone.m_sZoneId + "_" + sourceId);
+		return m_OwnershipTransitions.Apply(state, request);
 	}
 
 	bool AddResistanceCaptureProgress(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, string zoneId, int amount, int supportReward = 10, HST_GarrisonService garrisons = null, HST_EnemyCommanderService enemyCommander = null, HST_EnemyDirectorService enemyDirector = null, HST_SupportRequestService support = null, string eventSourceId = "")
@@ -108,7 +147,27 @@ class HST_ZoneCaptureService
 		if (zone.m_iResistanceCaptureProgress < required)
 			return true;
 
-		return CaptureForResistance(state, preset, strategic, economy, balance, zoneId, supportReward, garrisons, enemyCommander, enemyDirector, support, eventSourceId);
+		HST_OwnershipTransitionResult captureResult = CaptureForResistanceDetailed(
+			state,
+			preset,
+			strategic,
+			economy,
+			balance,
+			zoneId,
+			supportReward,
+			garrisons,
+			enemyCommander,
+			enemyDirector,
+			support,
+			eventSourceId);
+		return captureResult && captureResult.m_bAccepted;
+	}
+
+	protected HST_OwnershipTransitionResult BuildRejectedOwnershipResult(string failureReason)
+	{
+		HST_OwnershipTransitionResult result = new HST_OwnershipTransitionResult();
+		result.m_sFailureReason = failureReason;
+		return result;
 	}
 
 	bool TickContestedCapture(HST_CampaignState state, HST_CampaignPreset preset, HST_StrategicService strategic, HST_EconomyService economy, HST_BalanceConfig balance, HST_GarrisonService garrisons, HST_EnemyCommanderService enemyCommander, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, int elapsedSeconds)
@@ -171,15 +230,24 @@ class HST_ZoneCaptureService
 		return changed;
 	}
 
-	HST_ZoneCaptureStatus BuildCaptureStatus(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, HST_ZoneState zone)
+	HST_ZoneCaptureStatus BuildCaptureStatus(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_ZoneState zone,
+		string ownerFactionKeyOverride = "",
+		bool useOwnerFactionKeyOverride = false)
 	{
 		HST_ZoneCaptureStatus status = new HST_ZoneCaptureStatus();
 		if (!zone)
 			return status;
 
+		string effectiveOwnerFactionKey = zone.m_sOwnerFactionKey;
+		if (useOwnerFactionKeyOverride)
+			effectiveOwnerFactionKey = ownerFactionKeyOverride;
 		status.m_sZoneId = zone.m_sZoneId;
 		status.m_sZoneName = ZoneLabel(zone);
-		status.m_sOwnerFactionKey = zone.m_sOwnerFactionKey;
+		status.m_sOwnerFactionKey = effectiveOwnerFactionKey;
 		status.m_bCapturable = IsDirectlyCapturableZone(zone);
 		status.m_iCaptureRadiusMeters = ResolveCaptureRadius(zone, balance);
 		status.m_iRequiredProgress = ResolveCaptureProgressRequired(balance);
@@ -188,6 +256,11 @@ class HST_ZoneCaptureService
 		if (!status.m_bCapturable)
 		{
 			status.m_sBlockedReason = "not a military capture target";
+			return status;
+		}
+		if (useOwnerFactionKeyOverride && effectiveOwnerFactionKey.IsEmpty())
+		{
+			status.m_sBlockedReason = "ownership publication unavailable";
 			return status;
 		}
 
@@ -211,10 +284,10 @@ class HST_ZoneCaptureService
 		CountHostilesInCaptureRadius(state, zone, balance, resistanceFactionKey, enemyInfantry, enemyVehicles);
 		status.m_iEnemyCountNearby = enemyInfantry;
 		status.m_iEnemyVehicleCountNearby = enemyVehicles;
-		status.m_bContested = status.m_iFIACountNearby > 0 && zone.m_sOwnerFactionKey != resistanceFactionKey;
+		status.m_bContested = status.m_iFIACountNearby > 0 && effectiveOwnerFactionKey != resistanceFactionKey;
 		status.m_bConquestGated = HasIncompleteConquestMission(state, zone) && zone.m_iResistanceCaptureProgress >= Math.Min(CONQUEST_OBJECTIVE_PROGRESS_CAP, ResolveCaptureProgressRequired(balance) - 1);
 
-		if (zone.m_sOwnerFactionKey == resistanceFactionKey)
+		if (effectiveOwnerFactionKey == resistanceFactionKey)
 			status.m_sBlockedReason = "already FIA";
 		else if (status.m_iFIACountNearby <= 0)
 			status.m_sBlockedReason = "no FIA in radius";
@@ -235,7 +308,12 @@ class HST_ZoneCaptureService
 		return HasIncompleteConquestMission(state, zone);
 	}
 
-	string BuildCaptureReport(HST_CampaignState state, HST_CampaignPreset preset, HST_BalanceConfig balance, int maxRows = 20)
+	string BuildCaptureReport(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_BalanceConfig balance,
+		HST_MapMarkerService markers = null,
+		int maxRows = 20)
 	{
 		if (!state)
 			return "h-istasi capture | campaign state not ready";
@@ -247,7 +325,14 @@ class HST_ZoneCaptureService
 			if (!zone || emitted >= maxRows)
 				continue;
 
-			HST_ZoneCaptureStatus status = BuildCaptureStatus(state, preset, balance, zone);
+			string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(state, zone, markers);
+			HST_ZoneCaptureStatus status = BuildCaptureStatus(
+				state,
+				preset,
+				balance,
+				zone,
+				publishedOwnerFactionKey,
+				markers != null);
 			if (!status.m_bCapturable && zone.m_iResistanceCaptureProgress <= 0)
 				continue;
 
@@ -255,10 +340,13 @@ class HST_ZoneCaptureService
 			if (blocked.IsEmpty())
 				blocked = "capturing";
 
+			string publishedOwnerLabel = status.m_sOwnerFactionKey;
+			if (publishedOwnerLabel.IsEmpty())
+				publishedOwnerLabel = "publication unavailable";
 			string row = string.Format(
 				"\n%1 | owner %2 | capturable %3 | radius %4m",
 				status.m_sZoneName,
-				status.m_sOwnerFactionKey,
+				publishedOwnerLabel,
 				status.m_bCapturable,
 				status.m_iCaptureRadiusMeters
 			);
@@ -289,6 +377,36 @@ class HST_ZoneCaptureService
 			report = report + "\nno capturable or progressing zones";
 
 		return report;
+	}
+
+	protected string ResolvePublishedZoneOwnerFactionKey(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		HST_MapMarkerService markers)
+	{
+		if (!zone)
+			return "";
+		if (!markers)
+			return zone.m_sOwnerFactionKey;
+
+		string publishedOwnerFactionKey;
+		int publishedOwnershipRevision;
+		if (!markers.ResolvePublishedZoneOwnership(
+				state,
+				zone,
+				publishedOwnerFactionKey,
+				publishedOwnershipRevision))
+			return "";
+
+		if (state)
+		{
+			HST_MapMarkerState retainedMarker = state.FindMapMarker("hst_zone_" + zone.m_sZoneId);
+			if (retainedMarker && (!retainedMarker.m_bVisible || retainedMarker.m_bTombstone
+				|| retainedMarker.m_sOwnerFactionKey != publishedOwnerFactionKey
+				|| retainedMarker.m_iSourceRevision != publishedOwnershipRevision))
+				return "";
+		}
+		return publishedOwnerFactionKey;
 	}
 
 	void DrainPendingNotifications(notnull array<ref HST_ZoneCaptureNotification> notifications)
@@ -462,6 +580,33 @@ class HST_ZoneCaptureService
 		}
 	}
 
+	void QueueOwnershipTransitionNotification(
+		HST_OwnershipTransitionState transition,
+		HST_ZoneState zone)
+	{
+		if (!transition || !zone)
+			return;
+
+		string title = ZoneLabel(zone) + " ownership changed";
+		string message = string.Format(
+			"%1 changed control from %2 to %3 (revision %4).",
+			ZoneLabel(zone),
+			transition.m_sPreviousOwnerFactionKey,
+			transition.m_sNewOwnerFactionKey,
+			transition.m_iAppliedRevision);
+		string severity = "warning";
+		if (transition.m_sNewOwnerFactionKey == "FIA")
+			severity = "success";
+		HST_ZoneCaptureNotification notification = QueueNotification(
+			"ownership_" + transition.m_sRequestId,
+			zone,
+			severity,
+			title,
+			message);
+		if (notification)
+			notification.m_bOwnershipTransition = true;
+	}
+
 	protected void CountHostilesInCaptureRadius(HST_CampaignState state, HST_ZoneState zone, HST_BalanceConfig balance, string resistanceFactionKey, out int hostileInfantry, out int hostileVehicles)
 	{
 		hostileInfantry = 0;
@@ -608,14 +753,14 @@ class HST_ZoneCaptureService
 		garrison.m_iInfantryCount = starterInfantry;
 	}
 
-	protected void QueueNotification(string keySuffix, HST_ZoneState zone, string severity, string title, string message)
+	protected HST_ZoneCaptureNotification QueueNotification(string keySuffix, HST_ZoneState zone, string severity, string title, string message)
 	{
 		if (!zone || keySuffix.IsEmpty())
-			return;
+			return null;
 
 		string key = zone.m_sZoneId + "_" + keySuffix;
 		if (m_aNotificationKeys.Contains(key))
-			return;
+			return null;
 
 		m_aNotificationKeys.Insert(key);
 		HST_ZoneCaptureNotification notification = new HST_ZoneCaptureNotification();
@@ -626,6 +771,7 @@ class HST_ZoneCaptureService
 		notification.m_sSeverity = severity;
 		notification.m_vPosition = zone.m_vPosition;
 		m_aPendingNotifications.Insert(notification);
+		return notification;
 	}
 
 	protected string CaptureTitle(HST_ZoneState zone, string suffix)

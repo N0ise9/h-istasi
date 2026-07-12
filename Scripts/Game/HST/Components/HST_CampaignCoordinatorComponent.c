@@ -7,6 +7,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 {
 	protected static HST_CampaignCoordinatorComponent s_Instance;
 	static const int MARKER_REFRESH_THROTTLE_SECONDS = 10;
+	static const int FACTION_SANITIZATION_RETRY_INTERVAL_SECONDS = 5;
 	static const int GUN_SHOP_EXPEDITED_SECONDS = 900;
 	static const float GUN_SHOP_INTERACTION_RADIUS_METERS = 25.0;
 	static const float SETUP_MAP_WORLD_MIN_X = 0.0;
@@ -115,10 +116,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_EnemyQRFOperationService m_EnemyQRFOperations;
 	protected ref HST_EnemyPatrolOperationService m_EnemyPatrolOperations;
 	protected ref HST_GarrisonPatrolOperationService m_GarrisonPatrolOperations;
+	protected ref HST_OwnershipTransitionService m_OwnershipTransitions;
 	protected float m_fSecondAccumulator;
 	protected float m_fSpawnSweepAccumulator;
 	protected int m_iForceSpawnQueueRuntimeClockSecond;
+	protected int m_iFactionSanitizationRetryAccumulatorSeconds;
 	protected int m_iLastMarkerRefreshSecond = -999999;
+	protected string m_sLastFactionSanitizationDiagnostic;
 	protected int m_iSpawnDiagnosticsRemaining;
 	protected int m_iSetupPayloadDebugCount;
 	protected int m_iSetupValidationDebugCount;
@@ -427,6 +431,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_EnemyCommander.SetExactEnemyPatrolAuthorityService(m_EnemyPatrolOperations);
 		}
 
+		m_OwnershipTransitions = new HST_OwnershipTransitionService();
+		m_OwnershipTransitions.ConfigureDomainServices(
+			m_Preset,
+			m_Balance,
+			m_Economy,
+			m_Strategic,
+			m_Garrisons,
+			m_Civilians,
+			m_CampaignEvents);
+		m_OwnershipTransitions.ConfigureRuntimeServices(
+			m_EnemyCommander,
+			m_EnemyDirector,
+			m_SupportRequests,
+			m_PhysicalWar,
+			m_GarrisonPatrolOperations,
+			m_ZoneCapture);
+		m_OwnershipTransitions.ConfigureProjectionServices(
+			m_MapMarkers,
+			m_ClientProjection,
+			m_Persistence);
+		m_Civilians.SetOwnershipTransitionService(m_OwnershipTransitions);
+		m_ZoneCapture.SetOwnershipTransitionService(m_OwnershipTransitions);
+
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		if (m_ForceSpawnQueue)
 			m_ForceSpawnQueue.ReconcileCampaignAfterRestore(m_State);
@@ -440,6 +467,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_SupportRequests.TickExactPlayerSupportSettlements(m_State, m_PhysicalWar, m_ForceSpawnAdapter);
 		if (m_ResourceLedger)
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
+		if (m_OwnershipTransitions)
+			m_OwnershipTransitions.ReconcileAfterRestore(m_State);
 		EnsureCampaignFoundation();
 		if (m_RadioSites)
 			m_RadioSites.ReconcileAfterRestore(m_State);
@@ -553,6 +582,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		int elapsedSeconds = m_fSecondAccumulator;
 		m_fSecondAccumulator -= elapsedSeconds;
+		bool activeCampaign = m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_WON
+			&& m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_LOST
+			&& m_State.m_ePhase != HST_ECampaignPhase.HST_CAMPAIGN_SETUP;
+		if (activeCampaign)
+		{
+			m_State.m_iElapsedSeconds += elapsedSeconds;
+			m_iForceSpawnQueueRuntimeClockSecond = m_State.m_iElapsedSeconds;
+		}
+		bool ownershipRetryChanged;
+		if (m_OwnershipTransitions)
+			ownershipRetryChanged = m_OwnershipTransitions.TickPending(m_State, !activeCampaign);
+		bool factionSanitizationChanged = TickFactionSanitizationRepairs(m_State, elapsedSeconds);
+		bool townOwnershipPolicyChanged;
+		if (m_Civilians)
+			townOwnershipPolicyChanged = m_Civilians.ReconcileTownOwnershipPolicies(
+				m_State,
+				m_Preset,
+				!activeCampaign);
+		bool ownershipMaintenanceChanged = ownershipRetryChanged || factionSanitizationChanged
+			|| townOwnershipPolicyChanged;
 		if (m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_WON || m_State.m_ePhase == HST_ECampaignPhase.HST_CAMPAIGN_LOST)
 		{
 			string terminalPatrolAuthorityFailure;
@@ -600,7 +649,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool terminalMissionGuardChanged = terminalExactMissionGuardSettlementChanged
 				|| terminalExactMissionGuardCleanupChanged;
 			bool terminalRescueChanged = terminalExactRescueSettlementChanged || terminalExactRescueCleanupChanged;
-			bool terminalCoreChanged = terminalHQRuntimeChanged || terminalSpawnCleanupChanged
+			bool terminalCoreChanged = ownershipMaintenanceChanged || terminalHQRuntimeChanged || terminalSpawnCleanupChanged
 				|| terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged;
 			bool terminalOperationChanged = terminalExactEnemyQRFSettlementChanged
 				|| terminalExactEnemyQRFCleanupChanged || terminalExactConvoySettlementChanged
@@ -663,7 +712,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool setupMissionGuardChanged = setupExactMissionGuardSettlementChanged
 				|| setupExactMissionGuardCleanupChanged;
 			bool setupRescueChanged = setupExactRescueSettlementChanged || setupExactRescueCleanupChanged;
-			bool setupCoreChanged = setupSpawnCleanupChanged || setupExactSupportSettlementChanged
+			bool setupCoreChanged = ownershipMaintenanceChanged || setupSpawnCleanupChanged || setupExactSupportSettlementChanged
 				|| setupSpawnMarkerChanged;
 			bool setupOperationChanged = setupExactEnemyQRFSettlementChanged
 				|| setupExactEnemyQRFCleanupChanged || setupExactConvoySettlementChanged
@@ -679,8 +728,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		}
 
-		m_State.m_iElapsedSeconds += elapsedSeconds;
-		m_iForceSpawnQueueRuntimeClockSecond = m_State.m_iElapsedSeconds;
 		bool forceSpawnQueueChanged = TickForceSpawnQueueRuntime();
 		bool exactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -779,6 +826,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_PhysicalWar)
 			physicalWarMarkerChanged = m_PhysicalWar.ConsumeMarkerRefreshNeeded();
 		bool anyStateChanged = missionChanged || missionExpiryChanged || objectiveChanged || missionRuntimeChanged;
+		anyStateChanged = anyStateChanged || ownershipMaintenanceChanged;
 		anyStateChanged = anyStateChanged || forceSpawnQueueChanged;
 		anyStateChanged = anyStateChanged || exactEnemyQRFCleanupChanged;
 		anyStateChanged = anyStateChanged || exactEnemyPatrolCleanupChanged;
@@ -1369,16 +1417,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		{
 			if (!zone)
 				continue;
+			string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+			string publishedOwnerLabel = publishedOwnerFactionKey;
+			if (publishedOwnerLabel.IsEmpty())
+				publishedOwnerLabel = "publication unavailable";
 
 			payload = payload + "\nZONE";
 			payload = payload + "|" + PayloadText(zone.m_sZoneId);
 			payload = payload + "|" + PayloadText(ResolveZoneLabel(zone));
 			payload = payload + "|" + PayloadText(ResolveZoneTypeLabel(zone.m_eType));
-			payload = payload + "|" + PayloadText(zone.m_sOwnerFactionKey);
+			payload = payload + "|" + PayloadText(publishedOwnerLabel);
 			payload = payload + "|" + string.Format("%1", zone.m_vPosition[0]);
 			payload = payload + "|" + string.Format("%1", zone.m_vPosition[2]);
 			payload = payload + "|" + string.Format("%1", ResolveSetupZoneRadius(zone));
-			payload = payload + "|" + PayloadText(ResolveSetupZoneTone(zone));
+			payload = payload + "|" + PayloadText(ResolveSetupZoneTone(zone, publishedOwnerFactionKey));
 		}
 
 		m_iSetupPayloadDebugCount++;
@@ -1823,30 +1875,105 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return changed;
 	}
 
-	bool SetZoneOwner(string zoneId, string factionKey)
+	bool SetZoneOwner(
+		string zoneId,
+		string factionKey,
+		string cause = "admin",
+		string sourceId = "",
+		string actorIdentityId = "")
 	{
-		if (!Replication.IsServer())
-			return false;
+		HST_OwnershipTransitionResult result = SetZoneOwnerDetailed(
+			zoneId,
+			factionKey,
+			cause,
+			sourceId,
+			actorIdentityId);
+		return result && result.m_bAccepted && result.m_bCompleted;
+	}
 
-		bool changed = m_Strategic.SetZoneOwner(m_State, m_Economy, m_Balance, zoneId, factionKey, m_Preset.m_sResistanceFactionKey);
+	HST_OwnershipTransitionResult SetZoneOwnerDetailed(
+		string zoneId,
+		string factionKey,
+		string cause = "admin",
+		string sourceId = "",
+		string actorIdentityId = "")
+	{
+		if (!Replication.IsServer() || !m_OwnershipTransitions || !m_State)
+			return BuildRejectedOwnershipResult("server ownership authority is unavailable");
+
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return BuildRejectedOwnershipResult("ownership zone was not found");
+		if (sourceId.IsEmpty())
+			sourceId = BuildOwnershipTransitionSourceId("coordinator", zone);
+		HST_OwnershipTransitionRequest request = m_OwnershipTransitions.BuildRequest(
+			m_State,
+			zoneId,
+			factionKey,
+			cause,
+			"coordinator",
+			sourceId,
+			"coordinator ownership request",
+			0,
+			"ownership_" + zone.m_sZoneId + "_" + sourceId,
+			actorIdentityId);
+		if (cause == "admin" || cause == "debug_seed" || cause == "migration_repair")
+		{
+			request.m_bApplyEnemyConsequences = false;
+			if (cause != "admin")
+				request.m_bNotify = false;
+			if (cause == "migration_repair")
+			{
+				request.m_bReconcileSecurity = false;
+				request.m_bCreateSecurity = false;
+			}
+		}
+		HST_OwnershipTransitionResult result = m_OwnershipTransitions.Apply(m_State, request);
+		bool changed = result && result.m_bAccepted && result.m_bCompleted && result.m_bStateChanged;
 		bool defendPetrosResolved = ResolveDefendPetrosForCurrentCampaignEnd();
-		if (changed || defendPetrosResolved)
-			MarkMajorCampaignChange();
-		return changed || defendPetrosResolved;
+		if (defendPetrosResolved)
+			MarkMajorCampaignChange(false);
+		else if (changed)
+			PublishMissionIntelToPlayers();
+		return result;
+	}
+
+	protected string BuildOwnershipTransitionSourceId(string sourceKind, HST_ZoneState zone)
+	{
+		if (!m_State || !zone || sourceKind.IsEmpty())
+			return "";
+
+		return sourceKind + string.Format("_%1_%2", m_State.m_iElapsedSeconds, Math.Max(1, zone.m_iOwnershipRevision));
 	}
 
 	bool CaptureZoneForResistance(string zoneId, int supportReward = 10)
 	{
-		if (!Replication.IsServer())
-			return false;
+		HST_OwnershipTransitionResult result = CaptureZoneForResistanceDetailed(zoneId, supportReward);
+		return result && result.m_bAccepted && result.m_bCompleted;
+	}
 
-		bool changed = m_ZoneCapture.CaptureForResistance(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
+	HST_OwnershipTransitionResult CaptureZoneForResistanceDetailed(string zoneId, int supportReward = 10)
+	{
+		if (!Replication.IsServer())
+			return BuildRejectedOwnershipResult("server ownership authority is required");
+
+		HST_OwnershipTransitionResult result = m_ZoneCapture.CaptureForResistanceDetailed(m_State, m_Preset, m_Strategic, m_Economy, m_Balance, zoneId, supportReward, m_Garrisons, m_EnemyCommander, m_EnemyDirector, m_SupportRequests);
+		bool changed = result && result.m_bAccepted && result.m_bCompleted && result.m_bStateChanged;
 		bool defendPetrosResolved = ResolveDefendPetrosForCurrentCampaignEnd();
 		if (changed)
 			BroadcastCaptureChangeNotifications();
-		if (changed || defendPetrosResolved)
-			MarkMajorCampaignChange();
-		return changed || defendPetrosResolved;
+		if (defendPetrosResolved)
+			MarkMajorCampaignChange(false);
+		else if (changed)
+			PublishMissionIntelToPlayers();
+		return result;
+	}
+
+	protected HST_OwnershipTransitionResult BuildRejectedOwnershipResult(string failureReason)
+	{
+		HST_OwnershipTransitionResult result = new HST_OwnershipTransitionResult();
+		result.m_sFailureReason = failureReason;
+		return result;
 	}
 
 	HST_ArsenalItemState DepositArsenalItem(string prefab, int amount, string category = "equipment", string displayName = "")
@@ -3421,7 +3548,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_ZoneCapture)
 			return "h-istasi capture | service not ready";
 
-		return m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance);
+		return m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance, m_MapMarkers);
 	}
 
 	string RequestMemberInspectCampaignEnd(int playerId)
@@ -3482,7 +3609,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseMemberActions(playerId) || !m_CommandUI)
 			return "";
 
-		return m_CommandUI.BuildZoneListReport(m_State, m_Preset);
+		return m_CommandUI.BuildZoneListReport(m_State, m_Preset, m_MapMarkers);
 	}
 
 	string RequestMemberInspectMissions(int playerId)
@@ -4807,7 +4934,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!changed)
 			return string.Format("h-istasi admin zone | failed: active already %1 at %2", zone.m_bActive, ResolveZoneLabel(zone));
 
-		return string.Format("h-istasi admin zone | %1 active %2 | owner %3", ResolveZoneLabel(zone), zone.m_bActive, zone.m_sOwnerFactionKey);
+		string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+		if (publishedOwnerFactionKey.IsEmpty())
+			publishedOwnerFactionKey = "publication unavailable";
+		return string.Format("h-istasi admin zone | %1 active %2 | owner %3", ResolveZoneLabel(zone), zone.m_bActive, publishedOwnerFactionKey);
 	}
 
 	string RequestAdminCaptureZoneForResistanceReport(int playerId, string zoneId, int supportReward = 10)
@@ -4823,11 +4953,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return "h-istasi admin capture | failed: zone not found " + zoneId;
 
-		bool changed = RequestAdminCaptureZoneForResistance(playerId, zoneId, supportReward);
-		if (!changed)
-			return string.Format("h-istasi admin capture | failed: could not capture %1 | owner %2 | support %3", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey, zone.m_iSupport);
+		HST_OwnershipTransitionResult ownershipResult = RequestAdminCaptureZoneForResistanceDetailed(
+			playerId,
+			zoneId,
+			supportReward);
+		string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+		if (publishedOwnerFactionKey.IsEmpty())
+			publishedOwnerFactionKey = "publication unavailable";
+		if (!ownershipResult || !ownershipResult.m_bAccepted)
+		{
+			string ownershipFailureReason = "ownership request was rejected";
+			if (ownershipResult && !ownershipResult.m_sFailureReason.IsEmpty())
+				ownershipFailureReason = ownershipResult.m_sFailureReason;
+			return string.Format(
+				"h-istasi admin capture | failed: %1 | owner %2 | support %3",
+				ownershipFailureReason,
+				publishedOwnerFactionKey,
+				zone.m_iSupport);
+		}
+		if (!ownershipResult.m_bCompleted)
+		{
+			string ownershipRequestId = "unavailable";
+			if (ownershipResult.m_Transition)
+				ownershipRequestId = ownershipResult.m_Transition.m_sRequestId;
+			return string.Format(
+				"h-istasi admin capture | accepted pending | %1 | owner %2 | request %3",
+				ResolveZoneLabel(zone),
+				publishedOwnerFactionKey,
+				ownershipRequestId);
+		}
 
-		return string.Format("h-istasi admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey, zone.m_iSupport);
+		return string.Format("h-istasi admin capture | captured %1 | owner %2 | support %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, zone.m_iSupport);
 	}
 
 	string RequestAdminAddCaptureProgressReport(int playerId, string zoneId, int progress = 50)
@@ -4846,8 +5002,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int before = zone.m_iResistanceCaptureProgress;
 		bool changed = RequestAdminAddCaptureProgress(playerId, zoneId, progress);
 		if (!changed)
-			return string.Format("h-istasi admin capture | failed: progress blocked at %1 | owner %2 | progress %3", ResolveZoneLabel(zone), zone.m_sOwnerFactionKey, zone.m_iResistanceCaptureProgress);
+		{
+			string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+			if (publishedOwnerFactionKey.IsEmpty())
+				publishedOwnerFactionKey = "publication unavailable";
+			return string.Format("h-istasi admin capture | failed: progress blocked at %1 | owner %2 | progress %3", ResolveZoneLabel(zone), publishedOwnerFactionKey, zone.m_iResistanceCaptureProgress);
+		}
 
+		HST_OwnershipTransitionState pendingOwnership;
+		if (!zone.m_sActiveOwnershipTransitionRequestId.IsEmpty())
+			pendingOwnership = m_State.FindOwnershipTransition(zone.m_sActiveOwnershipTransitionRequestId);
+		if (pendingOwnership && !pendingOwnership.m_bCompleted)
+			return string.Format(
+				"h-istasi admin capture | progress accepted; ownership pending | %1 | %2 -> %3 | request %4",
+				ResolveZoneLabel(zone),
+				before,
+				zone.m_iResistanceCaptureProgress,
+				pendingOwnership.m_sRequestId);
 		return string.Format("h-istasi admin capture | progress %1 | %2 -> %3", ResolveZoneLabel(zone), before, zone.m_iResistanceCaptureProgress);
 	}
 
@@ -4904,15 +5075,37 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return false;
 
-		return SetZoneOwner(zoneId, factionKey);
+		if (!m_State)
+			return false;
+		HST_ZoneState zone = m_State.FindZone(zoneId);
+		if (!zone)
+			return false;
+		return SetZoneOwner(
+			zoneId,
+			factionKey,
+			"admin",
+			BuildOwnershipTransitionSourceId("admin_capture", zone),
+			ResolveTrustedIdentityId(playerId));
 	}
 
 	bool RequestAdminCaptureZoneForResistance(int playerId, string zoneId, int supportReward = 10)
 	{
-		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
-			return false;
+		HST_OwnershipTransitionResult result = RequestAdminCaptureZoneForResistanceDetailed(
+			playerId,
+			zoneId,
+			supportReward);
+		return result && result.m_bAccepted && result.m_bCompleted;
+	}
 
-		return CaptureZoneForResistance(zoneId, supportReward);
+	HST_OwnershipTransitionResult RequestAdminCaptureZoneForResistanceDetailed(
+		int playerId,
+		string zoneId,
+		int supportReward = 10)
+	{
+		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
+			return BuildRejectedOwnershipResult("admin ownership authorization failed");
+
+		return CaptureZoneForResistanceDetailed(zoneId, supportReward);
 	}
 
 	bool RequestAdminAddCaptureProgress(int playerId, string zoneId, int progress = 50)
@@ -16728,7 +16921,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
 			return "h-istasi campaign debug | income zone already FIA | " + ResolveZoneLabel(zone);
 
-		bool changed = SetZoneOwner(zone.m_sZoneId, m_Preset.m_sResistanceFactionKey);
+		bool changed = SetZoneOwner(
+			zone.m_sZoneId,
+			m_Preset.m_sResistanceFactionKey,
+			"debug_seed",
+			BuildOwnershipTransitionSourceId("income_zone_seed", zone),
+			ResolveTrustedIdentityId(m_iCampaignDebugPlayerId));
 		if (!changed && zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
 			return "h-istasi campaign debug | failed: could not seed income zone " + ResolveZoneLabel(zone);
 
@@ -17093,9 +17291,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugForceSettlementArchiveAssertions(forceCase);
 		AppendCampaignDebugRadioSiteLifecycleAssertions(forceCase);
 		AppendCampaignDebugMaidensBayLocationMigrationAssertion(forceCase);
+		AppendCampaignDebugOwnershipTransitionAssertions(forceCase);
 		AppendCampaignDebugMarkerProjectionAssertions(forceCase);
 		FinalizeCampaignDebugCaseFromAssertions(forceCase);
 		return forceCase;
+	}
+
+	protected void AppendCampaignDebugOwnershipTransitionAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_OwnershipTransitionProofService proofService = new HST_OwnershipTransitionProofService();
+		HST_OwnershipTransitionProofReport proof = proofService.BuildProofReport();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "ownership_transition.source_proof", "source proof report exists", "missing", "BLOCKED", "schema-62 ownership-transition source proof did not return a report");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sProductionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sReplayEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreProjectionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAuthorityEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCauseEvidence);
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.aggregate", "every Schema-62 ownership source proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more ownership-transition source proofs failed");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.military", "military capture applies one complete revisioned ownership transition", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bMilitaryCaptureExact), "military ownership transition was not exact");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.political", "town influence crosses the production political ownership boundary", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bPoliticalFlipExact), "political ownership transition was not exact");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.recapture", "enemy recapture uses the same revisioned ownership contract", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bEnemyRecaptureExact), "enemy recapture ownership transition was not exact");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.replay", "identical replay is inert while conflicts and stale revisions fail closed", proof.m_sReplayEvidence, CampaignDebugStatus(proof.m_bReplayConflictStaleExact), "ownership replay, conflict, or stale-revision contract failed");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.restore", "an interrupted accepted transition persists and resumes only its missing projection step", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bInterruptedRestoreExact), "interrupted ownership transition did not resume exactly");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.restore_queue_order", "a current-schema owner-applied receipt cannot restore behind earlier unresolved top-level authority", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bRestoreQueueOrderFailClosed), "malformed ownership queue order was not quarantined fail-closed");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.persistence_deadline", "repeated ownership retry marks cannot postpone a pending checkpoint beyond its debounce deadline", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bPersistenceDeadlineExact), "major-change persistence deadline drifted or failed to restart after checkpoint");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.projection_revision", "zone markers correlate to the exact ownership source revision", proof.m_sRestoreProjectionEvidence, CampaignDebugStatus(proof.m_bProjectionSourceRevisionExact), "ownership marker source revision drifted");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.location_identity", "colocated location aggregates retain independent ownership identity", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bColocatedIdentityExact), "colocated ownership aggregates were conflated");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.linked_support", "nested linked-support flips defer publication until the parent domain transition completes", proof.m_sProductionEvidence, CampaignDebugStatus(proof.m_bLinkedSupportIsolationExact), "linked-support ownership projection escaped its parent transition");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.causes", "military, political, mission, admin, debug, and migration causes converge on one authority", proof.m_sCauseEvidence, CampaignDebugStatus(proof.m_bAllCauseRoutingExact), "one or more ownership causes bypassed canonical authority");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.security_fail_closed", "unowned exact garrison authority blocks owner mutation", proof.m_sAuthorityEvidence, CampaignDebugStatus(proof.m_bExactSecurityFailClosed), "ownership transition erased or bypassed exact garrison authority");
+		AddCampaignDebugAssertion(forceCase, "ownership_transition.migration_retention", "schema migration preserves facts and current authority quarantines or prunes conservatively", proof.m_sAuthorityEvidence, CampaignDebugStatus(proof.m_bMigrationRetentionExact), "ownership migration, quarantine, or retention contract failed");
 	}
 
 	protected void AppendCampaignDebugMarkerProjectionAssertions(
@@ -21176,7 +21411,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		if (garrisonZone.m_sOwnerFactionKey != garrisonContext.m_sResistanceFactionKey)
-			SetZoneOwner(garrisonContext.m_sZoneId, garrisonContext.m_sResistanceFactionKey);
+		{
+			HST_OwnershipTransitionResult arrangeOwnership = SetZoneOwnerDetailed(
+				garrisonContext.m_sZoneId,
+				garrisonContext.m_sResistanceFactionKey,
+				"debug_seed",
+				BuildOwnershipTransitionSourceId("garrison_probe_arrange", garrisonZone));
+			if (!arrangeOwnership || !arrangeOwnership.m_bAccepted || !arrangeOwnership.m_bCompleted)
+			{
+				garrisonContext.m_sResult = "h-istasi campaign debug | failed: garrison owner arrangement did not complete canonically";
+				return garrisonContext;
+			}
+		}
 		garrisonZone.m_bActive = false;
 		garrisonZone.m_iActiveInfantryCount = 0;
 		garrisonZone.m_iActiveVehicleCount = 0;
@@ -21212,12 +21458,27 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!garrisonContext.m_bHadGarrisonBefore && garrisonAfterRemove && garrisonAfterRemove.m_iInfantryCount == 0 && garrisonAfterRemove.m_iVehicleCount == 0)
 			garrisonContext.m_bRemovedCreatedEmptyGarrison = RemoveCampaignDebugGarrisonRecord(garrisonContext.m_sZoneId, garrisonContext.m_sResistanceFactionKey);
 
-		garrisonZone.m_sOwnerFactionKey = garrisonContext.m_sOriginalOwnerFactionKey;
+		bool ownerCleanupExact = true;
+		if (garrisonZone.m_sOwnerFactionKey != garrisonContext.m_sOriginalOwnerFactionKey)
+		{
+			HST_OwnershipTransitionResult cleanupOwnership = SetZoneOwnerDetailed(
+				garrisonContext.m_sZoneId,
+				garrisonContext.m_sOriginalOwnerFactionKey,
+				"debug_seed",
+				BuildOwnershipTransitionSourceId("garrison_probe_cleanup", garrisonZone));
+			ownerCleanupExact = cleanupOwnership
+				&& cleanupOwnership.m_bAccepted
+				&& cleanupOwnership.m_bCompleted;
+		}
 		garrisonZone.m_bActive = garrisonContext.m_bOriginalActive;
 		garrisonZone.m_iActiveInfantryCount = garrisonContext.m_iOriginalActiveInfantry;
 		garrisonZone.m_iActiveVehicleCount = garrisonContext.m_iOriginalActiveVehicles;
 		garrisonContext.m_sOwnerAfterCleanup = garrisonZone.m_sOwnerFactionKey;
-		garrisonContext.m_bRestoredZoneState = garrisonZone.m_sOwnerFactionKey == garrisonContext.m_sOriginalOwnerFactionKey && garrisonZone.m_bActive == garrisonContext.m_bOriginalActive && garrisonZone.m_iActiveInfantryCount == garrisonContext.m_iOriginalActiveInfantry && garrisonZone.m_iActiveVehicleCount == garrisonContext.m_iOriginalActiveVehicles;
+		garrisonContext.m_bRestoredZoneState = ownerCleanupExact
+			&& garrisonZone.m_sOwnerFactionKey == garrisonContext.m_sOriginalOwnerFactionKey
+			&& garrisonZone.m_bActive == garrisonContext.m_bOriginalActive
+			&& garrisonZone.m_iActiveInfantryCount == garrisonContext.m_iOriginalActiveInfantry
+			&& garrisonZone.m_iActiveVehicleCount == garrisonContext.m_iOriginalActiveVehicles;
 		garrisonContext.m_iGarrisonRecordsAfterCleanup = m_State.m_aGarrisons.Count();
 
 		HST_GarrisonState garrisonAfterCleanup = m_State.FindGarrison(garrisonContext.m_sZoneId, garrisonContext.m_sResistanceFactionKey);
@@ -28147,7 +28408,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (resistanceFactionKey.IsEmpty())
 			resistanceFactionKey = "FIA";
 
-		zone.m_sOwnerFactionKey = resistanceFactionKey;
+		if (zone.m_sOwnerFactionKey != resistanceFactionKey
+			&& !ApplyCampaignDebugZoneOwner(zone, resistanceFactionKey, "phase16_seed"))
+			return "h-istasi phase 16 smoke | failed: ownership transition rejected recruit-zone seed";
 		zone.m_bActive = false;
 		zone.m_iActiveInfantryCount = 0;
 		zone.m_iActiveVehicleCount = 0;
@@ -28253,7 +28516,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return "h-istasi phase 17 smoke | failed: no capturable target";
 
-		zone.m_sOwnerFactionKey = m_Preset.m_sOccupierFactionKey;
+		if (zone.m_sOwnerFactionKey != m_Preset.m_sOccupierFactionKey
+			&& !ApplyCampaignDebugZoneOwner(zone, m_Preset.m_sOccupierFactionKey, "phase17_seed"))
+			return "h-istasi phase 17 smoke | failed: ownership transition rejected capture-zone seed";
 		zone.m_iResistanceCaptureProgress = 0;
 		zone.m_bActive = false;
 		zone.m_iActiveInfantryCount = 0;
@@ -28343,7 +28608,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			zone.m_sZoneId,
 			changed,
 			markerChanged,
-			m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance)
+			m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance, m_MapMarkers)
 		);
 	}
 
@@ -28404,7 +28669,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string report = "h-istasi phase 17 smoke report";
 		if (m_ZoneCapture)
-			report = report + "\n" + m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance);
+			report = report + "\n" + m_ZoneCapture.BuildCaptureReport(m_State, m_Preset, m_Balance, m_MapMarkers);
 		if (m_MapMarkers)
 			report = report + "\n" + m_MapMarkers.BuildMarkerReport(m_State);
 		if (m_EnemyCommander)
@@ -29318,7 +29583,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("early game seed");
-		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey(), "phase24_early_all");
 		ArrangePhase24NeutralPopulation(20);
 		m_State.m_iFactionMoney = 750;
 		m_State.m_iHR = 10;
@@ -29346,7 +29611,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("mid game seed");
-		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey(), "phase24_mid_all");
 		ArrangePhase24NeutralPopulation(35);
 		int changed;
 		foreach (HST_ZoneState zone : m_State.m_aZones)
@@ -29355,8 +29620,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				continue;
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST)
 			{
-				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
-				changed++;
+				if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey
+					|| ApplyCampaignDebugZoneOwner(zone, m_Preset.m_sResistanceFactionKey, "phase24_mid_resistance"))
+					changed++;
 			}
 			if (changed >= 4)
 				break;
@@ -29378,14 +29644,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
 		ResetCampaignDebugPhase24HQPressure("late game seed");
-		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey(), "phase24_late_all");
 		ArrangePhase24NeutralPopulation(45);
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
 			if (!zone)
 				continue;
 			if (zone.m_eType == HST_EZoneType.HST_ZONE_RESOURCE || zone.m_eType == HST_EZoneType.HST_ZONE_FACTORY || zone.m_eType == HST_EZoneType.HST_ZONE_OUTPOST || zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER)
-				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+			{
+				if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+					ApplyCampaignDebugZoneOwner(zone, m_Preset.m_sResistanceFactionKey, "phase24_late_resistance");
+			}
 		}
 
 		m_Economy.RecalculateWarLevel(m_State, m_Balance, m_Preset.m_sResistanceFactionKey);
@@ -29428,7 +29697,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!zone)
 				continue;
 			if (zone.m_eType != HST_EZoneType.HST_ZONE_HIDEOUT && zone.m_eType != HST_EZoneType.HST_ZONE_MISSION_SITE)
-				zone.m_sOwnerFactionKey = m_Preset.m_sResistanceFactionKey;
+			{
+				if (zone.m_sOwnerFactionKey != m_Preset.m_sResistanceFactionKey)
+					ApplyCampaignDebugZoneOwner(zone, m_Preset.m_sResistanceFactionKey, "phase24_victory");
+			}
 		}
 
 		ArrangePhase24PopulationVictory();
@@ -29446,7 +29718,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
-		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey());
+		SetAllPhase24StrategicZonesOwner(ResolvePhase24EnemyFactionKey(), "phase24_loss_all");
 		ArrangePhase24PopulationCatastrophe();
 		m_State.m_iFactionMoney = 0;
 		m_State.m_iHR = 0;
@@ -30689,7 +30961,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool changed;
 		if (zone.m_sOwnerFactionKey != ownerFactionKey)
 		{
-			zone.m_sOwnerFactionKey = ownerFactionKey;
+			if (!ApplyCampaignDebugZoneOwner(zone, ownerFactionKey, "background_war_seed"))
+				return false;
 			changed = true;
 		}
 		if (zone.m_iPriority < priority)
@@ -30709,6 +30982,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return changed;
+	}
+
+	protected bool ApplyCampaignDebugZoneOwner(HST_ZoneState zone, string ownerFactionKey, string sourceKind)
+	{
+		if (!zone || ownerFactionKey.IsEmpty() || sourceKind.IsEmpty())
+			return false;
+		if (zone.m_sOwnerFactionKey == ownerFactionKey)
+			return false;
+
+		return SetZoneOwner(
+			zone.m_sZoneId,
+			ownerFactionKey,
+			"debug_seed",
+			BuildOwnershipTransitionSourceId(sourceKind, zone),
+			ResolveTrustedIdentityId(m_iCampaignDebugPlayerId));
 	}
 
 	protected bool EnsureCampaignDebugBackgroundWarPool(string factionKey, int minAttack, int minSupport, int minAggression)
@@ -31454,14 +31742,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		EnsureFactionPool(state, occupier, occupierAttackResources, occupierSupportResources);
 		EnsureFactionPool(state, invader, invaderAttackResources, invaderSupportResources);
 
-		foreach (HST_ZoneState zone : state.m_aZones)
-		{
-			if (!zone)
-				continue;
-
-			if (zone.m_sOwnerFactionKey != resistance && zone.m_sOwnerFactionKey != occupier && zone.m_sOwnerFactionKey != invader)
-				zone.m_sOwnerFactionKey = occupier;
-		}
+		m_iFactionSanitizationRetryAccumulatorSeconds = 0;
+		ReconcileFactionSanitizationRepairs(state, "startup");
 
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 		{
@@ -31473,6 +31755,314 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (garrison.m_sGarrisonId.IsEmpty() && !garrison.m_sZoneId.IsEmpty() && !garrison.m_sFactionKey.IsEmpty())
 				garrison.m_sGarrisonId = HST_StableIdService.BuildGarrisonId(garrison.m_sZoneId, garrison.m_sFactionKey);
 		}
+	}
+
+	protected bool TickFactionSanitizationRepairs(HST_CampaignState state, int elapsedSeconds)
+	{
+		if (!state || !m_Preset)
+			return false;
+		m_iFactionSanitizationRetryAccumulatorSeconds += Math.Max(0, elapsedSeconds);
+		if (m_iFactionSanitizationRetryAccumulatorSeconds < FACTION_SANITIZATION_RETRY_INTERVAL_SECONDS)
+			return false;
+		m_iFactionSanitizationRetryAccumulatorSeconds = m_iFactionSanitizationRetryAccumulatorSeconds
+			% FACTION_SANITIZATION_RETRY_INTERVAL_SECONDS;
+		return ReconcileFactionSanitizationRepairs(state, "bounded retry");
+	}
+
+	protected bool ReconcileFactionSanitizationRepairs(HST_CampaignState state, string context)
+	{
+		if (!state || !m_Preset)
+			return false;
+		if (!m_OwnershipTransitions)
+		{
+			RecordFactionSanitizationDiagnostic(
+				state,
+				"h-istasi ownership migration | deferred | canonical ownership authority is unavailable",
+				false);
+			return false;
+		}
+
+		HST_OwnershipTransitionState quarantinedBlocker = FindQuarantinedTopLevelOwnershipTransition(state);
+		if (quarantinedBlocker)
+		{
+			string blockerReason = string.Format(
+				"quarantined top-level request %1 blocks automatic repair; manual repair required",
+				quarantinedBlocker.m_sRequestId);
+			bool blockerChanged = RecordFactionSanitizationDiagnostic(
+				state,
+				"h-istasi ownership migration | " + blockerReason,
+				true);
+			HST_ZoneState blockedZone = FindNextInvalidOwnerMigrationZone(state);
+			if (blockedZone)
+				blockerChanged = QuarantineInvalidOwnerForManualRepair(state, blockedZone, blockerReason) || blockerChanged;
+			return blockerChanged;
+		}
+
+		bool changed;
+		HST_OwnershipTransitionState pendingRepair = FindPendingFactionSanitizationTransition(state);
+		if (pendingRepair)
+		{
+			RecordFactionSanitizationDiagnostic(
+				state,
+				string.Format(
+					"h-istasi ownership migration | deferred accepted receipt | zone %1 | request %2 | normal retry remains authoritative",
+					pendingRepair.m_sZoneId,
+					pendingRepair.m_sRequestId),
+				false);
+			return false;
+		}
+
+		int repairPassLimit = state.m_aZones.Count() + 1;
+		for (int repairPass; repairPass < repairPassLimit; repairPass++)
+		{
+			HST_ZoneState zone = FindNextInvalidOwnerMigrationZone(state);
+			if (!zone)
+				return changed;
+			if (zone.m_sOwnerFactionKey.IsEmpty())
+				return QuarantineInvalidOwnerForManualRepair(
+					state,
+					zone,
+					"restored owner faction key is empty") || changed;
+			HST_OwnershipTransitionRequest request = BuildInvalidOwnerMigrationRequest(state, zone);
+			HST_OwnershipTransitionResult result = m_OwnershipTransitions.Apply(state, request);
+			bool continueScanning;
+			changed = HandleFactionSanitizationResult(
+				state,
+				zone,
+				request.m_sRequestId,
+				result,
+				context,
+				continueScanning) || changed;
+			if (!continueScanning)
+				return changed;
+		}
+		return changed;
+	}
+
+	protected HST_OwnershipTransitionRequest BuildInvalidOwnerMigrationRequest(
+		HST_CampaignState state,
+		HST_ZoneState zone)
+	{
+		string sourceId = string.Format(
+			"schema62_revision_%1_owner_%2",
+			Math.Max(1, zone.m_iOwnershipRevision),
+			zone.m_sOwnerFactionKey.Hash());
+		HST_OwnershipTransitionRequest request = m_OwnershipTransitions.BuildRequest(
+			state,
+			zone.m_sZoneId,
+			m_Preset.m_sOccupierFactionKey,
+			"migration_repair",
+			"faction_sanitization",
+			sourceId,
+			"unknown restored owner mapped to configured occupier");
+		request.m_bApplyEnemyConsequences = false;
+		request.m_bReconcileSecurity = false;
+		request.m_bCreateSecurity = false;
+		request.m_bNotify = false;
+		return request;
+	}
+
+	protected bool HandleFactionSanitizationResult(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		string requestId,
+		HST_OwnershipTransitionResult result,
+		string context,
+		out bool continueScanning)
+	{
+		continueScanning = false;
+		bool changed = result && result.m_bStateChanged;
+		string zoneId = "missing";
+		if (zone)
+			zoneId = zone.m_sZoneId;
+		if (result && result.m_bAccepted && result.m_bCompleted)
+		{
+			RecordFactionSanitizationDiagnostic(
+				state,
+				string.Format(
+					"h-istasi ownership migration | completed | zone %1 | request %2 | %3",
+					zoneId,
+					requestId,
+					context),
+				false);
+			continueScanning = true;
+			return changed;
+		}
+		if (result && (result.m_bAccepted || result.m_bNeedsRetry))
+		{
+			RecordFactionSanitizationDiagnostic(
+				state,
+				string.Format(
+					"h-istasi ownership migration | deferred accepted receipt | zone %1 | request %2 | retry %3 | %4",
+					zoneId,
+					requestId,
+					result.m_bNeedsRetry,
+					result.m_sFailureReason),
+				false);
+			return changed;
+		}
+
+		string failureReason = "ownership transition returned no result";
+		if (result && !result.m_sFailureReason.IsEmpty())
+			failureReason = result.m_sFailureReason;
+		if (zone && IsStructuralFactionSanitizationRejection(failureReason))
+			return QuarantineInvalidOwnerForManualRepair(state, zone, failureReason) || changed;
+
+		RecordFactionSanitizationDiagnostic(
+			state,
+			string.Format(
+				"h-istasi ownership migration | deferred unclassified rejection | zone %1 | request %2 | %3",
+				zoneId,
+				requestId,
+				failureReason),
+			false);
+		return changed;
+	}
+
+	protected bool IsStructuralFactionSanitizationRejection(string failureReason)
+	{
+		if (failureReason.IsEmpty())
+			return false;
+		if (failureReason.Contains("request id was reused with a different fingerprint"))
+			return true;
+		if (failureReason.Contains("ownership transition authority is quarantined"))
+			return true;
+		if (failureReason.Contains("state or ownership request is unavailable"))
+			return true;
+		if (failureReason.Contains("request id is empty or too long"))
+			return true;
+		if (failureReason.Contains("request requires zone and target owner"))
+			return true;
+		if (failureReason.Contains("request cause is unsupported"))
+			return true;
+		if (failureReason.Contains("request source or reason is invalid"))
+			return true;
+		if (failureReason.Contains("request expected revision is invalid"))
+			return true;
+		if (failureReason.Contains("support reward is outside the bounded range"))
+			return true;
+		if (failureReason.Contains("ownership zone was not found"))
+			return true;
+		if (failureReason.Contains("ownership zone authority is quarantined"))
+			return true;
+		if (failureReason.Contains("ownership zone contract version is unsupported"))
+			return true;
+		if (failureReason.Contains("cannot target hideout or mission-site"))
+			return true;
+		if (failureReason.Contains("target faction has no campaign pool"))
+			return true;
+		if (failureReason.Contains("expected owner is stale"))
+			return true;
+		if (failureReason.Contains("expected revision is stale"))
+			return true;
+		if (failureReason.Contains("target already controls the zone"))
+			return true;
+		if (failureReason.Contains("transition zone disappeared"))
+			return true;
+		return failureReason.Contains("zone owner/revision diverged from the transition receipt");
+	}
+
+	protected HST_OwnershipTransitionState FindPendingFactionSanitizationTransition(HST_CampaignState state)
+	{
+		if (!state)
+			return null;
+		foreach (HST_OwnershipTransitionState transition : state.m_aOwnershipTransitions)
+		{
+			if (!transition || transition.m_bCompleted || transition.m_bQuarantined)
+				continue;
+			if (transition.m_sCause == "migration_repair"
+				&& transition.m_sSourceType == "faction_sanitization")
+				return transition;
+		}
+		return null;
+	}
+
+	protected HST_OwnershipTransitionState FindQuarantinedTopLevelOwnershipTransition(HST_CampaignState state)
+	{
+		if (!state)
+			return null;
+		foreach (HST_OwnershipTransitionState transition : state.m_aOwnershipTransitions)
+		{
+			if (!transition || transition.m_bCompleted
+				|| !transition.m_sProjectionParentRequestId.IsEmpty())
+				continue;
+			if (transition.m_bQuarantined
+				|| transition.m_iContractVersion == HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION)
+				return transition;
+		}
+		return null;
+	}
+
+	protected HST_ZoneState FindNextInvalidOwnerMigrationZone(HST_CampaignState state)
+	{
+		if (!state || !m_Preset)
+			return null;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone || IsConfiguredFactionKey(zone.m_sOwnerFactionKey))
+				continue;
+			if (zone.m_iOwnershipContractVersion != HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+				|| !zone.m_sOwnershipAuthorityFailure.IsEmpty())
+				continue;
+			return zone;
+		}
+		return null;
+	}
+
+	protected bool IsConfiguredFactionKey(string factionKey)
+	{
+		if (!m_Preset)
+			return false;
+		string resistance = m_Preset.m_sResistanceFactionKey;
+		if (resistance.IsEmpty())
+			resistance = "FIA";
+		return factionKey == resistance
+			|| factionKey == m_Preset.m_sOccupierFactionKey
+			|| factionKey == m_Preset.m_sInvaderFactionKey;
+	}
+
+	protected bool QuarantineInvalidOwnerForManualRepair(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		string failureReason)
+	{
+		if (!state || !zone)
+			return false;
+		string authorityFailure = "faction sanitization manual repair required: " + failureReason;
+		bool changed = zone.m_iOwnershipContractVersion
+			!= HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION
+			|| zone.m_sOwnershipAuthorityFailure != authorityFailure;
+		zone.m_iOwnershipContractVersion = HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION;
+		zone.m_sOwnershipAuthorityFailure = authorityFailure;
+		changed = RecordFactionSanitizationDiagnostic(
+			state,
+			string.Format(
+				"h-istasi ownership migration | quarantined | zone %1 | %2",
+				zone.m_sZoneId,
+				authorityFailure),
+			true) || changed;
+		return changed;
+	}
+
+	protected bool RecordFactionSanitizationDiagnostic(
+		HST_CampaignState state,
+		string diagnostic,
+		bool durable)
+	{
+		if (diagnostic.IsEmpty())
+			return false;
+		bool changed;
+		if (m_sLastFactionSanitizationDiagnostic != diagnostic)
+		{
+			m_sLastFactionSanitizationDiagnostic = diagnostic;
+			Print(diagnostic);
+		}
+		if (durable && state && state.m_sLastPersistenceStatus != diagnostic)
+		{
+			state.m_sLastPersistenceStatus = diagnostic;
+			changed = true;
+		}
+		return changed;
 	}
 
 	protected void EnsureFactionPool(HST_CampaignState state, string factionKey, int attackResources, int supportResources)
@@ -31650,9 +32240,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return "US";
 	}
 
-	protected void SetAllPhase24StrategicZonesOwner(string ownerFactionKey)
+	protected void SetAllPhase24StrategicZonesOwner(string ownerFactionKey, string sourceKind)
 	{
-		if (!m_State || ownerFactionKey.IsEmpty())
+		if (!m_State || ownerFactionKey.IsEmpty() || sourceKind.IsEmpty())
 			return;
 
 		foreach (HST_ZoneState zone : m_State.m_aZones)
@@ -31660,7 +32250,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
 				continue;
 
-			zone.m_sOwnerFactionKey = ownerFactionKey;
+			if (zone.m_sOwnerFactionKey != ownerFactionKey)
+				ApplyCampaignDebugZoneOwner(zone, ownerFactionKey, sourceKind);
 		}
 	}
 
@@ -31835,8 +32426,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string factionKey = "Enemy";
 		HST_ZoneState zone = m_State.FindZone(mission.m_sTargetZoneId);
-		if (zone && !zone.m_sOwnerFactionKey.IsEmpty())
-			factionKey = zone.m_sOwnerFactionKey;
+		if (zone)
+		{
+			string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+			if (!publishedOwnerFactionKey.IsEmpty())
+				factionKey = publishedOwnerFactionKey;
+		}
 
 		string destinationName = ResolveZoneDisplayName(mission.m_sTargetZoneId);
 		return string.Format("%1 convoy is moving toward %2.", factionKey, destinationName);
@@ -32048,17 +32643,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!notification)
 				continue;
 
-			bool ownershipFlip = IsOwnershipFlipNotification(notification.m_sEventId, "capture");
-			if (ownershipFlip)
-			{
-				markerRefreshNeeded = true;
-				if (m_PhysicalWar && m_Preset)
-				{
-					if (m_PhysicalWar.CleanupCapturedZoneHostileRuntime(m_State, notification.m_sZoneId, m_Preset.m_sResistanceFactionKey))
-						markerRefreshNeeded = true;
-				}
-			}
-			else if (!ShouldBroadcastNotificationInPlayerBubble(notification.m_sEventId, "capture", notification.m_sZoneId, notification.m_vPosition))
+			bool ownershipFlip = notification.m_bOwnershipTransition
+				|| IsOwnershipFlipNotification(notification.m_sEventId, "capture");
+			if (!ownershipFlip && !ShouldBroadcastNotificationInPlayerBubble(notification.m_sEventId, "capture", notification.m_sZoneId, notification.m_vPosition))
 				continue;
 
 			BroadcastNotification(notification.m_sEventId, "capture", notification.m_sSeverity, notification.m_sTitle, notification.m_sMessage, notification.m_sZoneId, "", notification.m_vPosition, 6.0);
@@ -32628,11 +33215,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return SETUP_ZONE_FALLBACK_RADIUS_METERS;
 	}
 
-	protected string ResolveSetupZoneTone(HST_ZoneState zone)
+	protected string ResolveSetupZoneTone(HST_ZoneState zone, string publishedOwnerFactionKey)
 	{
 		if (!zone)
 			return "neutral";
-		if (m_Preset && zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+		if (publishedOwnerFactionKey.IsEmpty())
+			return "neutral";
+		if (m_Preset && publishedOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
 			return "resistance";
 		if (zone.m_eType == HST_EZoneType.HST_ZONE_TOWN)
 			return "town";
@@ -34106,13 +34695,46 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return x * x + z * z;
 	}
 
+	protected string ResolvePublishedZoneOwnerFactionKey(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "";
+		if (!m_MapMarkers)
+			return zone.m_sOwnerFactionKey;
+
+		string publishedOwnerFactionKey;
+		int publishedOwnershipRevision;
+		if (!m_MapMarkers.ResolvePublishedZoneOwnership(
+				m_State,
+				zone,
+				publishedOwnerFactionKey,
+				publishedOwnershipRevision))
+			return "";
+
+		if (m_State)
+		{
+			HST_MapMarkerState retainedMarker = m_State.FindMapMarker("hst_zone_" + zone.m_sZoneId);
+			if (retainedMarker && (!retainedMarker.m_bVisible || retainedMarker.m_bTombstone
+				|| retainedMarker.m_sOwnerFactionKey != publishedOwnerFactionKey
+				|| retainedMarker.m_iSourceRevision != publishedOwnershipRevision))
+				return "";
+		}
+		return publishedOwnerFactionKey;
+	}
+
 	protected string BuildCampaignReport()
 	{
 		int resistanceZones;
 		int enemyZones;
+		int unpublishedZones;
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
-			if (zone.m_sOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
+			if (!zone)
+				continue;
+			string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+			if (publishedOwnerFactionKey.IsEmpty())
+				unpublishedZones++;
+			else if (publishedOwnerFactionKey == m_Preset.m_sResistanceFactionKey)
 				resistanceZones++;
 			else
 				enemyZones++;
@@ -34120,7 +34742,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string economySummary = string.Format("h-istasi campaign | phase %1 | money %2 | HR %3 | war level %4", m_State.m_ePhase, m_State.m_iFactionMoney, m_State.m_iHR, m_State.m_iWarLevel);
 		economySummary = economySummary + string.Format(" | training %1 | persistence %2", m_State.m_iTrainingLevel, m_State.m_sLastPersistenceStatus);
-		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | active missions %3", resistanceZones, enemyZones, CountFoundationActiveMissions());
+		string zoneSummary = string.Format(" | resistance zones %1 | enemy zones %2 | publication unavailable %3 | active missions %4", resistanceZones, enemyZones, unpublishedZones, CountFoundationActiveMissions());
 		string runtimeSummary = string.Format(" | active groups %1 | QRFs %2 | markers %3 | HQ %4", CountVisibleActiveGroups(), m_State.m_aQRFs.Count(), CountCampaignDebugLiveMarkers(), m_State.m_sHQHideoutId);
 		runtimeSummary = runtimeSummary + string.Format(" | deployed %1 | runtime objects %2", m_State.m_bHQDeployed, m_State.m_bHQRuntimeObjectsSpawned);
 		string alphaSummary = string.Format(" | sites %1 | support requests %2 | enemy orders %3 | civilian towns %4", m_State.m_aGeneratedSites.Count(), m_State.m_aSupportRequests.Count(), m_State.m_aEnemyOrders.Count(), m_State.m_aCivilianZones.Count());
@@ -34210,7 +34832,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!zone)
 			return "h-istasi zone report | zone not found";
 
-		HST_GarrisonState ownerGarrison = m_State.FindGarrison(zone.m_sZoneId, zone.m_sOwnerFactionKey);
+		string publishedOwnerFactionKey = ResolvePublishedZoneOwnerFactionKey(zone);
+		string publishedOwnerLabel = publishedOwnerFactionKey;
+		if (publishedOwnerLabel.IsEmpty())
+			publishedOwnerLabel = "publication unavailable";
+		HST_GarrisonState ownerGarrison;
+		if (!publishedOwnerFactionKey.IsEmpty())
+			ownerGarrison = m_State.FindGarrison(zone.m_sZoneId, publishedOwnerFactionKey);
 		int infantry;
 		int vehicles;
 		if (ownerGarrison)
@@ -34219,14 +34847,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			vehicles = ownerGarrison.m_iVehicleCount;
 		}
 
-		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, zone.m_sOwnerFactionKey, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport);
+		string zoneSummary = string.Format("h-istasi zone %1 | owner %2 | type %3 | support %4", zone.m_sZoneId, publishedOwnerLabel, ZoneTypeToLabel(zone.m_eType), zone.m_iSupport);
 		int captureRequired = HST_ZoneCaptureService.CAPTURE_PROGRESS_REQUIRED;
 		if (m_Balance && m_Balance.m_iCaptureProgressRequired > 0)
 			captureRequired = m_Balance.m_iCaptureProgressRequired;
 		string captureSummary = string.Format(" | capture %1/%2 | income %3", zone.m_iResistanceCaptureProgress, captureRequired, zone.m_iIncomeValue);
 		if (m_ZoneCapture)
 		{
-			HST_ZoneCaptureStatus status = m_ZoneCapture.BuildCaptureStatus(m_State, m_Preset, m_Balance, zone);
+			HST_ZoneCaptureStatus status = m_ZoneCapture.BuildCaptureStatus(
+				m_State,
+				m_Preset,
+				m_Balance,
+				zone,
+				publishedOwnerFactionKey,
+				true);
 			string blockedReason = status.m_sBlockedReason;
 			if (blockedReason.IsEmpty())
 				blockedReason = "clear";
