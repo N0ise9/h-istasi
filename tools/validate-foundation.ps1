@@ -21433,8 +21433,8 @@ $schema63SettingsServiceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_R
 $schema63BalanceText = Get-Content -Raw "Scripts/Game/HST/Config/HST_ConfigModels.c"
 $schema63BalanceConfigText = Get-Content -Raw "Configs/HST/Balance/HST_CE311_Balance.conf"
 
-if ($schema63StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*65;') {
-	throw "Schema-63 combat presence must remain present in current HST_CampaignState schema 65"
+if ($campaignSchemaVersion -lt 65) {
+	throw "Schema-63 combat presence must remain present in CampaignState schema 65 or newer"
 }
 foreach ($schema63StateEntry in @(
 	'HST_ECombatPresenceState',
@@ -21819,10 +21819,10 @@ $schema64CivilianText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Civilian
 $schema64PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
 $schema64PersistenceSmokeText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceSmokeTestService.c"
 
-if ($schema64StateText.IndexOf('static const int SCHEMA_VERSION = 65;') -lt 0 -or
+if ($campaignSchemaVersion -lt 65 -or
 	$schema64TownText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0 -or
 	$schema64TownSaveText.IndexOf('static const int SCHEMA_VERSION = 64;') -lt 0) {
-	throw "Schema-64 town authority/save boundary must remain schema 64 inside current CampaignState schema 65"
+	throw "Schema-64 town authority/save boundary must remain schema 64 inside CampaignState schema 65 or newer"
 }
 $schema64RecordBlock = Get-ScriptMethodBlock $schema64StateText 'class HST_TownInfluenceRecord'
 $schema64EventBlock = Get-ScriptMethodBlock $schema64StateText 'class HST_TownInfluenceEventState'

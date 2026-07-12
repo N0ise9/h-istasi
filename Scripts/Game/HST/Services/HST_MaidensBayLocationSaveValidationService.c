@@ -475,6 +475,10 @@ class HST_MaidensBayLocationSaveValidationService
 		{
 			if (!operation || IsTypedOperationClaimant(operation, false))
 				continue;
+			if (HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityOperationClaimant(
+				m_SaveData,
+				operation))
+				continue;
 			normalizedCount += NormalizeOperationZoneReferences(operation);
 		}
 
@@ -773,7 +777,10 @@ class HST_MaidensBayLocationSaveValidationService
 		}
 		foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)
 		{
-			if (!IsTypedOperationClaimant(operation, false))
+			if (!IsTypedOperationClaimant(operation, false)
+				&& !HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityOperationClaimant(
+					m_SaveData,
+					operation))
 				continue;
 			if (MatchesOperationGroupIdentity(operation, group))
 				return true;
@@ -916,10 +923,7 @@ class HST_MaidensBayLocationSaveValidationService
 	{
 		if (!operation)
 			return false;
-		if (operation.m_iContractVersion == 0
-			&& !HST_LocalSecuritySaveValidationService.IsSchema66LocalSecurityOperationClaimant(
-				m_SaveData,
-				operation))
+		if (operation.m_iContractVersion == 0)
 			return false;
 		if (requireOpen
 			&& operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
