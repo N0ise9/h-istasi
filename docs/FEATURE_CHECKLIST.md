@@ -1,7 +1,7 @@
 # Partisan Feature Checklist
 
-The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
-settings Schema 24 and is sealed at implementation
+The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
+settings Schema 24 at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
@@ -39,6 +39,30 @@ and PS5 report `Script validation successful`, the process exited, and zero
 Workbench processes survived cleanup. Campaign Debug, package execution,
 packaged restart, actual retired-tree migration, multiplayer, and soak proof
 remain open.
+
+An active follow-on Schema-68 source slice makes periodic enemy target selection
+commitment-aware before weighted ranking. Queued/active same-faction orders and
+support plus open operations are reduced to canonical commitment roots, so linked
+order/support/operation rows count once. Incompatible roots remove the target;
+compatible roots remain with a deterministic `-12` score per root, capped at
+`-24`. A root containing both compatible and blocking rows is counted once with
+blocking precedence. Queued commitments and equivalent legacy/canonical zone IDs
+participate, while settled/terminal and rival-faction rows do not. Multiple target
+rejections retain a stable first diagnostic across input permutations.
+
+An exact patrol root may coexist with a non-patrol defensive response. If order
+selection instead proposes another patrol, the planner excludes that target and
+deterministically reranks in the same due decision rather than wasting the
+180-second cadence. Preparation is freeze-only. Admission always rechecks the
+commitment fingerprint and active-order compatibility before debit, including a
+pressure-marked retry; an unpressured admission also rechecks candidate/source
+identity before pressure. If every target is committed, planning records an
+explicit zero-cost skip without pressure, debit, order creation, or rival
+mutation. Three deterministic source proofs and matching Campaign Debug
+assertions cover the expanded selection/filter/diagnostic branches, the all-
+committed skip, and both unpressured and pressure-marked post-freeze commitment
+races. They are wired but unexecuted; Campaign Debug, packaged restart, and live-
+server proof remain open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
 68 with runtime settings still at Schema 24. Its stamp identifies implementation
@@ -521,7 +545,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | --- | --- | --- | --- | --- |
 | Enemy resource pools | Enemy attack/support capacity and aggression grow from map control and pressure through one canonical per-enemy authority. | Sealed Schema-67 Source/Workbench Contract | Source implements one income/spend/refund/aggression/live-adjustment API, independent persisted cadence checkpoints, zero-effect operational receipts, and a 4,096-row per-faction hard stop with no operational eviction. Foundation passes at 736 references and final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`; execute replay/conflict/arithmetic, role isolation, cadence, cap, baseline-only migration, and `-67` quarantine before tuning. | Highest |
 | Support spend ledger | Same-zone support stacking, recent damage pressure, spend caps, cooldowns, and refunds are tracked. | Sealed Schema-67 Source Authority / Exact QRF and patrol operation policy retained | Schema 67 links exact defensive-QRF attack/support debits and survivor refunds plus exact patrol proactive debit/admission refund/survivor refund to canonical receipts. Fold/materialization never refunds. Unsupported enemy order families retain legacy order lifecycle, but post-67 resource/aggression mutations still use the canonical receipt API. Source fixtures remain wired/static; packaged accounting and restart proof remain open. | High |
-| Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Sealed Schema-68 Planner / Two exact enemy-order consumers source-complete | Schema 68 persists independent cadence and the frozen deterministic decision while existing exact defensive-QRF/patrol policy remains unchanged. Immediate counterattacks and debug/direct orders stay planning contract `0`; other historical families remain legacy. Source proof is wired/static and Workbench-validated; Campaign Debug/native runtime remains open. | Highest |
+| Enemy commander orders | Counterattacks, rebuilds, roadblocks, support calls, and HQ pressure queue durable orders. | Active Schema-68 Commitment-Aware Source Slice / Two exact enemy-order consumers retained | Periodic scoring collapses linked same-faction order/support/operation rows to one root, gives blocking rows precedence within a mixed root, rejects incompatible roots before ranking, and applies a deterministic `-12` compatible-root penalty capped at `-24`. Queued and equivalent legacy/canonical targets participate; settled/terminal and rival rows are ignored, and multi-reject diagnostics are permutation-stable. Exact patrol permits a non-patrol defense; a proposed duplicate patrol excludes that target and reranks in the same decision instead of losing the 180-second cycle. Preparation is freeze-only. Commitment and active-order checks precede every debit, including pressure-marked retry, while unpressured admission also rechecks candidate/source identity before pressure. An all-committed map ends as an explicit zero-cost skip. Immediate counterattacks and debug/direct orders remain planning contract `0`; historical families remain legacy. Seal and execute the three Campaign Debug assertions, then package-prove restart/live-server behavior. | Highest |
 | Abstract resolution | Off-screen orders and support resolve without needing physical entities. | Broad Alpha / Exact QRF and patrol routes source-complete | The exact enemy defensive QRF continues outbound/return movement while virtual. The exact patrol continues outbound, one closed route lap, and return while virtual, preserves exact casualties, and holds its clock during physical contact. Broader survivor, vehicle, battle, and garrison outcome math remains open. | High |
 | Physical response | Near-player enemy responses spawn, move, fight, and fold back. | Broad Alpha / Needs Soak | Newly planned defensive QRFs and newly queued patrols realize exact living slots through SpawnQueue and fold without refund. The patrol restarts its current generated-route leg from the live fold position, retains mapped casualties, and blocks fold/progress during contact. Legacy QRF/support behavior remains separate, including response vehicles and transactional waypoint reissue. Fresh packaged QRF/patrol movement, contact, loop/return, casualties, settlement, marker, duplicate isolation, and restart proof remains open. | Highest |
 
@@ -597,7 +621,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Authoritative client projection and JIP | Host, clients, reconnects, and late joiners converge on the same snapshot watermark and ordered revisioned create/update/delete stream. | Implemented Foundation for marker records / Needs Runtime Proof | Schema 61 supplies delivery/ACK; Schema 62 adds source revision; Schema 66 protects native campaign-marker ownership without changing the wire protocol. Prove host/two-client/late-join equality, ownership revision correlation, immutable/self-healing campaign markers, editable player markers, native rendering, and restart. Menu snapshots, campaign tasks, general notifications, and dynamic player markers remain outside this protocol. | Highest |
 | Modal map targeting | Target selection owns map/input/cursor/modal state through one idempotent state machine. | Broad Alpha / Needs Runtime Proof | Normal map targeting and confirmation flows exist with ESC handling and duplicate-click guards. Prove Closed -> Selecting -> Confirming -> Submitting/Closing behavior, Choose Again re-arm after pointer release, cursor/modal layering, and atomic ESC teardown at supported resolutions. | Highest |
 | Map/War information model | Players see contacted town pressure and resistance territory without redundant or misleading rows. | Sealed in Schema-64 Source/Workbench / Needs Runtime Verification | Zone Pressure contains only explicitly contacted valid canonical towns; the player's current contacted town sorts first, then remaining towns by ascending FIA basis points and stable name/ID ties. Resistance Territory includes every published resistance-owned strategic zone except mission bookkeeping, ordered deterministically by type/name/ID with no arbitrary six-row cap. Current ownership receipt authority is respected. Prove rendered output, paging/scale, restart, reconnect, and JIP. | High |
-| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Schema-67 And Sealed Schema-68 Fixtures Wired / Needs Execution And Cross-Domain Runtime Proof | Schema 67 resource assertions and twelve Schema-68 planning assertions are wired/static only. Planning coverage owns baseline/no-invention, independent cadence, sorted-input freezing, replay/conflict, prepared and pre-decision retry, once-only pressure, the prepared-before-pressure save boundary, matching prepared-order/debit adoption, post-retry tamper quarantine, skip/reject/commit, roundtrip, and `-68` quarantine. No Schema-68 Campaign Debug or runtime result exists. None substitutes for native entities, real restart, rendered marker input, networking, reconnect, JIP, or mandatory process restart. | Highest |
+| Full Campaign Debug | One button runs a true runtime certification suite and writes structured artifacts without changing the campaign under test. | Broad Alpha / Schema-67 And Schema-68 Fixtures Wired / Needs Execution And Cross-Domain Runtime Proof | Schema 67 resource assertions and fifteen Schema-68 planning assertions are wired/static only. The three new production-path assertions cover linked-root collapse with blocking precedence, same-cycle duplicate-patrol rerank, queued and equivalent-ID admission, settled/terminal/rival exclusion, stable multi-reject diagnostics, all-committed zero-cost skip, and post-freeze commitment rejection both before pressure and after pressure was marked but before debit. Existing planning coverage retains baseline/no-invention, independent cadence, replay/conflict, retry/crash windows, prepared-order adoption, tamper quarantine, skip/commit, roundtrip, and `-68` quarantine. None of these new branches has executed in Campaign Debug; packaged restart, live server, native entities, rendered marker input, networking, reconnect, JIP, and mandatory process restart remain open. | Highest |
 | Scoped debug profiles | Smaller profiles isolate feature families for fast iteration. | Implemented Foundation | Keep profiles explicit and never treat external/restart/soak gaps as PASS. | Keep |
 | Build provenance | Runtime logs and artifacts identify the exact code build from one authoritative source. | Implemented Foundation / Needs Packaged Proof | Runtime, menu, admin, and debug artifact summaries now consume `HST_BuildInfo`; prove the stamped identity in a packaged dedicated-server/client run. | High |
 
@@ -612,9 +636,14 @@ projections of campaign state and must be restorable, foldable, or disposable.
 
 ## Highest-Impact Next Tasks
 
-1. Validate and seal the active Schema-68/settings-24 integrity checkpoint, then
-   package-prove fresh and affected-save enemy authority, whole-tree profile
-   migration/removal/conflict archival, and protected/player marker behavior.
+1. Validate and seal the active Schema-68 commitment-aware planning follow-on,
+   then execute its blocked-target fallback, mixed-root precedence, same-cycle
+   duplicate-patrol rerank, status/faction/equivalent-ID filters, stable multi-
+   reject diagnostics, all-committed zero-cost skip, and unpressured/pressure-
+   marked post-freeze race branches through Campaign Debug. Package-prove those
+   admission rules across restart and a live server alongside fresh and affected-
+   save enemy authority, whole-tree profile migration/removal/conflict archival,
+   and protected/player marker behavior.
 2. Runtime-prove the Schema-62 ownership boundary: every cause route, one
    revision increment, identical replay no-op, conflict/stale rejection,
    array-ordered queued intent, setup/terminal pre-owner retry, exact-patrol

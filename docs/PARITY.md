@@ -1,7 +1,7 @@
 # Partisan Capability Map
 
-The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
-settings Schema 24 and is sealed at implementation
+The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
+settings Schema 24 at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
@@ -35,6 +35,26 @@ references. Final stamped-tree all-target Workbench log
 successful`, the process exited, and zero Workbench processes survived cleanup.
 Campaign Debug, package execution, packaged restart/migration, multiplayer, and
 soak proof remain open.
+
+An active Schema-68 follow-on source slice makes periodic target selection
+commitment-aware. Same-faction queued/active order and support rows plus open
+operation rows collapse to canonical roots. Incompatible roots are rejected
+before ranking; compatible roots carry a deterministic `-12` score each, capped
+at `-24`. Mixed compatible/blocking rows sharing one root count once with blocking
+precedence. Queued and equivalent legacy/canonical targets participate;
+settled/terminal and rival rows are ignored, and multi-reject diagnostics are
+stable across permutations.
+
+An exact patrol root remains compatible with a non-patrol defensive response. If
+selection proposes another patrol, that target is excluded and the planner
+deterministically reranks within the same due decision instead of discarding the
+180-second cycle. Preparation is freeze-only. Commitments and active-order
+compatibility are revalidated before every debit, including pressure-marked
+retry; unpressured admission also revalidates candidate/source identity before
+pressure. An all-committed candidate set completes as an explicit zero-cost skip.
+Three deterministic source cases and matching Campaign Debug assertions cover
+these expanded branches but have not executed; packaged restart and live-server
+proof remain open.
 
 The immediately preceding sealed source/Workbench contract is Campaign Schema
 68/runtime-settings Schema 24 under implementation
@@ -751,7 +771,19 @@ Debug and packaged-runtime gates remain open.
   resolution timer. Schema 53 routes only newly queued patrols through a separate
   type-plus-version exact owner with one proactive debit, one frozen infantry
   root, generated-route loop/return, contact hold, fold/reprojection, and exact
-  survivor settlement. Historical patrols remain legacy.
+  survivor settlement. Historical patrols remain legacy. The active Schema-68
+  follow-on filters periodic target candidates against canonical commitment
+  roots before ranking. Linked order/support/operation rows count once;
+  incompatible roots exclude the target while compatible roots apply a capped
+  deterministic penalty. Blocking wins when mixed rows share a root. Queued and
+  equivalent legacy/canonical targets participate, settled/terminal and rival
+  rows are ignored, and multi-reject diagnostics are permutation-stable. Exact
+  patrol may coexist with a non-patrol defensive response; proposed duplicate
+  patrol excludes that target and reranks within the same decision. Preparation
+  is pressure-free. Commitment and active-order checks precede every debit,
+  including pressure-marked retry; unpressured admission additionally checks
+  candidate/source identity before pressure. An all-committed map records a zero-
+  cost skip.
 - Newly purchased policy-v2 resistance garrisons use a separate exact
   `GARRISON_PATROL` owner. They walk a persisted infinite local route while held,
   use survivor-only materialization/fold, publish one exact marker/UI count, and
@@ -828,8 +860,18 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Campaign Schema 68/runtime-settings 24 is current. The active source/Workbench
-  correction is sealed at implementation
+- The active unsealed Schema-68 follow-on adds commitment-aware target
+  filtering/ranking, canonical root collapse, capped compatible-root penalties,
+  blocking precedence for mixed roots, same-decision duplicate-patrol rerank,
+  stable multi-reject diagnostics, freeze-only preparation, and commitment
+  revalidation on pressure-marked retry before debit. Its three deterministic
+  source cases include queued/status/faction/equivalent-ID branches and are
+  registered as `enemy_planning.commitment_aware_selection`,
+  `enemy_planning.all_committed_skip`, and
+  `enemy_planning.commitment_race_rejection`. None has executed in Campaign
+  Debug, a packaged restart, or a live server.
+- Campaign Schema 68/runtime-settings 24 is current. The latest sealed source/Workbench
+  bootstrap/profile/marker correction is sealed at implementation
   `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
   `2026-07-13T13:19:22Z`, label
   `schema68-settings24-bootstrap-profile-marker-hardening`. The latest package
@@ -1135,8 +1177,14 @@ Debug and packaged-runtime gates remain open.
   quarantine fixtures. Statically and through real restart prove the contiguous
   un-compacted operational sequence, the 4,096-row per-faction fail-stop,
   reciprocal order/ledger/town/ownership links, copy/restore, and no duplicate
-  charge/refund. The sealed Schema-68 planner builds on this sealed
-  resource boundary; its source proof remains wired/static only.
+  charge/refund. The Schema-68 planner builds on this sealed resource boundary.
+  Its three new commitment-aware production-path cases must also execute through
+  Campaign Debug: blocked-target fallback, root collapse with blocking precedence,
+  same-cycle duplicate-patrol rerank, queued/status/faction/equivalent-ID filters,
+  stable multi-reject diagnostics, all-committed zero-cost skip, and post-freeze
+  rejection both before pressure and after pressure was marked but before debit.
+  Then package-prove restart and live-server behavior; source wiring does not
+  close those gates.
 - In the same isolated runtime boundary, prove Schema-63 registered conscious
   infantry, cargo exclusion, pilot/turret and armed-mobile/static classification,
   destroyed/burning/immobile exclusion, empty-vehicle behavior, virtual survivor
@@ -1290,10 +1338,12 @@ Debug and packaged-runtime gates remain open.
   simulation without treating source implementation as packaged proof.
 - Continue the implementation blueprint in dependency order. The sealed source/
   Workbench Schema 68 correction shares fresh bootstrap, exact-gates known-state
-  recovery, adds
-  production-resolver live observation, and corrects warning pacing around the
-  sealed independent planner cadence/frozen decision contract, while leaving
-  immediate/debug/direct paths at planning contract `0`.
+  recovery, adds production-resolver live observation, and corrects warning
+  pacing. The active follow-on makes periodic target choice commitment-aware,
+  reranks duplicate patrols inside the same due decision, applies blocking
+  precedence to mixed roots, freezes before side effects, and revalidates
+  pressure-marked retry before debit, while leaving immediate/debug/direct paths
+  at planning contract `0`.
   Unsupported enemy orders and other rescue/mission/support families remain
   legacy/deferred. Every schema-50 through schema-66 native, packaged, restart,
   rendered-UI, multiplayer, and certification gate remains independently open;
@@ -1301,10 +1351,11 @@ Debug and packaged-runtime gates remain open.
 
 ## Next Playable Expansion
 
-- First runtime-prove the sealed source/Workbench integrity checkpoint: execute
-  Campaign Debug, then package-prove fresh/
+- First validate and seal the active commitment-aware follow-on, execute its
+  three new Campaign Debug assertions with every expanded rerank/filter/
+  precedence/diagnostic/retry branch, then package-prove fresh/
   affected-save authority, single-writer whole-tree profile migration, marker
-  integrity, and restart behavior.
+  integrity, commitment admission across restart, and live-server behavior.
 - The restart, progression, logistics, mission-polish, and pacing work below is
   still required, but it is not a substitute for the Phase 8 exit or the Phase 9
   Enemy Commander dependency.

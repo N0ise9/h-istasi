@@ -34,6 +34,23 @@ report `Script validation successful`, the process exited, and zero Workbench
 processes survived cleanup. Campaign Debug, package execution, packaged restart,
 actual migration, dedicated-server, multiplayer, and soak proof remain open.
 
+The current unsealed Schema-68 planning delta makes production target selection
+commitment-aware without a schema change. It collapses linked same-faction order,
+support, and operation rows to one stable commitment root with conservative
+blocking precedence, rejects incompatible roots before ranking, and retains
+compatible roots with a bounded score penalty. An exact patrol can coexist with
+a defensive response; if the response type would duplicate patrol, preparation
+excludes that target and deterministically reranks instead of wasting the cadence.
+Preparation now freezes without applying target pressure. Admission revalidates
+commitment and candidate identity before pressure and strategic debit, and keeps
+the commitment check active for pressure-marked retries before debit. Foundation
+passes at 751 script-symbol references. The duplicate-patrol production fixture
+wires force planning, exact patrol authority, and a valid three-waypoint fallback
+route before invoking preparation. All-target Workbench log
+`logs_2026-07-13_10-42-09` compiles 5,815 Game files/11,768 classes at CRC
+`97dca671`. This is source/Workbench evidence only; Campaign Debug, packaged
+execution, restart, and live-server proof remain open.
+
 The immediately preceding sealed source checkpoint is Campaign Schema 68 while
 runtime settings remains Schema 24. Its stamp identifies implementation
 `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
@@ -167,6 +184,45 @@ completed phases. Blueprint Phase 8 and every
 earlier Blueprint phase still retain native, dedicated-server, restart, or
 multiplayer exit gates. Deferred native tests must be backfilled; reaching a
 later source slice, sealing source, or publishing a build does not waive them.
+
+### Current Unsealed Schema-68 Commitment-Aware Planning Delta
+
+- Target scoring now examines same-faction queued/active enemy orders and support
+  plus open nonterminal operations at equivalent target IDs before weighted
+  ranking. Linked order/support/operation rows collapse to one identity,
+  preferring the order ID and then operation ID. Terminal and rival-faction rows
+  do not block the current faction.
+- Incompatible commander commitments remove the zone from the candidate set.
+  Exact patrol and independent non-commander operation roots remain compatible
+  and apply `-12` per collapsed root, capped at `-24`. The final order-type check
+  permits a defensive response alongside the exact patrol. A duplicate patrol
+  candidate is excluded and the remaining candidates are deterministically
+  reranked. Orphan support and unlinked patrol/QRF operations block the target;
+  a root with mixed compatible/blocking rows receives one blocking classification.
+  Candidate diagnostics record commitment rejection count/reason and compatible
+  count/penalty; the candidate fingerprint advances to `ept2_` and includes those
+  fields.
+- New periodic-decision preparation is freeze-only. Admission rechecks the
+  commitment fingerprint, target candidate fingerprint, source set, and active-
+  order compatibility before applying target pressure, then reaches strategic
+  debit only afterward. Commitment identity is also rechecked on a pressure-
+  marked retry before debit. A post-freeze commitment race rejects without
+  pressure, debit, order creation, or rival-planner mutation. If every target is
+  incompatibly committed, the production path completes an explicit zero-cost
+  `skipped` decision with no target/source or side effects.
+- Campaign Debug adds `enemy_planning.commitment_aware_selection`,
+  `enemy_planning.all_committed_skip`, and
+  `enemy_planning.commitment_race_rejection`. Their production-path fixtures
+  cover linked-root collapse, blocked-target fallback, permutation-stable
+  candidate identity/rejection diagnostics, production duplicate-patrol rerank,
+  queued and equivalent-ID filtering, settled/terminal/rival ignores, mixed-root
+  blocking precedence, orphan behavior, all-target exhaustion, and pre-pressure
+  plus pressure-marked freeze/admission races.
+- Foundation passes at 751 references. All-target Workbench script validation
+  log `logs_2026-07-13_10-42-09` compiles 5,815 Game files/11,768 classes at
+  CRC `97dca671`. The proof IDs have not run in Campaign Debug, and no packaged
+  campaign, restart, dedicated-server, or live-server artifact proves this delta
+  yet.
 
 ### Sealed Schema-68 Startup/Profile/Marker Correction
 
@@ -1896,7 +1952,7 @@ Unproven or incomplete against the pasted contract:
 | Schema-65 civilian consequences | Sealed source/Workbench adds bounded 256-casualty/64-theft queues with a combined four-attempt frame cap, bounded-backoff indefinite retry and capture deferral; exact-pilot resistance theft after durable promotion while passenger-only roots remain non-recyclable; episode combat that rejects `HOT`-only inference and drains pending receipts before a new edge; adopted-floor/last-applied invariants and full canonical `+4`-heat/zero-other-effect restore fingerprints; exact town aggression/strategic evidence; and RUN/calm-WALK panic with separate bounded route recovery and no hot-path AI activation. Minor localities remain panic-only. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST errors, and zero surviving processes. | Every runtime gate remains open. Execute every deterministic fixture, then package-prove callback attribution/fallback deduplication, queue capacity/capture deferral, pilot-only claim with passenger protection, at-most-once population/aggression, clear/rebound episodes, native threat/speed/waypoint behavior, pre-65 migration, indexed structural validation plus preset-role quarantine, process restart, multiplayer, and soak. Minor-locality exact fingerprints are session-only, so their cross-process replay/conflict guarantee remains open. |
 | Schema-66 exact local security | Sealed source/Workbench adds one deterministic exact enemy-town patrol epoch with an authored 2–5 member frozen roster, held SpawnQueue slots, exact physical/virtual transfer, casualty-preserving fold/restore, compact terminal authority, once-only police `-1` destruction consequence, same-epoch no-resurrection, and rearm only from newer ownership or later positive police pressure. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and removes only unlinked legacy projections; current malformed graphs quarantine at `-66`. Foundation passes at 729 references; final normal/all-five Workbench checks pass at 5,806 files/11,740 classes with CRC `ec860be7`. | The wired Campaign Debug proof has not executed. Package-prove native group/waypoint readiness, live casualties, bubble fold/re-entry, no refill, save/restart, destruction replay, no-loss settlement, rearm, ownership sequencing, campaign stop/setup, migration/quarantine, multiplayer, and soak. |
 | Schema-67 enemy strategic resource authority | Sealed source makes each versioned pool the per-enemy balance/cadence/checkpoint owner. Compact periodic evidence is separate from an un-compacted contiguous operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutations; restore validates order/ledger/town/ownership backlinks. | Sealed identity is `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at 736 references. Final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, zero HST script errors, and zero surviving processes. Campaign Debug remains unexecuted. Core adoption/replay/arithmetic/cadence/separation/war/cap/roundtrip/quarantine assertions and exact QRF/patrol mutation-ID assertions are wired/static. Execute them, then real-restart the full reciprocal graph and hard-stop without duplicate debit/refund. Schema-68 planning consumes but does not replace this sealed authority. |
-| Schema-68 enemy planning plus sealed bootstrap correction | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. Current source uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects resource/topology/preset/null/order near misses, limits unchanged warnings to 300-second reminders, and observes live rows through production exact resolvers. | Foundation/all-target Workbench pass. The latest `f97b12e` package proved fresh authority was broken and produced 598 warnings. Fresh-bootstrap, recovery/rejection/idempotence/roundtrip/validator, throttle, and live-authority assertions are wired; Campaign Debug, fresh package, affected-save restart, and soak remain open. |
+| Schema-68 enemy planning plus sealed bootstrap correction | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. Current source uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects resource/topology/preset/null/order near misses, limits unchanged warnings to 300-second reminders, and observes live rows through production exact resolvers. The unsealed commitment-aware delta collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | The sealed bootstrap tree passes Foundation/all-target Workbench. The commitment delta passes Foundation 751 and all-target Workbench at 5,815/11,768 with CRC `97dca671`; its three new Campaign Debug assertions remain unexecuted. The latest `f97b12e` package proved fresh authority was broken and produced 598 warnings. Fresh-bootstrap, recovery/rejection/idempotence/roundtrip/validator, throttle, live-authority, commitment selection, all-committed skip, and admission-race assertions are wired; Campaign Debug, fresh package, affected-save restart, and soak remain open. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
@@ -1981,6 +2037,12 @@ Unproven or incomplete against the pasted contract:
   bootstrap/recovery/throttle correction passes current Foundation and all-five
   Workbench validation, but still needs Campaign Debug and packaged restart
   proof.
+- The current commitment-aware Schema-68 delta passes Foundation 751 and all-
+  target Workbench validation at 5,815 files/11,768 classes with CRC `97dca671`.
+  Commitment-aware selection, all-target skip, and post-freeze race assertions
+  are wired but unexecuted. WORKBENCH, PC, XBOX, PS4, and PS5 validation pass;
+  Campaign Debug, packaged campaign, restart, dedicated-server, and live-server
+  proof remain open for this unsealed delta.
 - Physical runtime depth is still incomplete for fresh packaged support movement,
   two-sample arrival, live adapter casualty observation, cardinality-checked
   projection/root retirement, physical recall exit, and bounded route-reissue proof; natural

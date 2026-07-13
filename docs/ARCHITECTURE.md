@@ -62,6 +62,41 @@ These changes are sealed only as source and all-target Workbench evidence. They
 have not passed Campaign Debug, package execution, a packaged restart, actual
 retired-tree migration, multiplayer, or soak proof yet.
 
+Current source extends that checkpoint with a schema-neutral, commitment-aware
+enemy-planning correction. Target admission now examines queued or active
+same-faction enemy orders and support requests plus open same-faction operations
+at the equivalent zone identity. Linked order, support, and operation rows
+collapse to one root commitment. An incompatible root removes the target before
+scoring or ranking; an exact active patrol root remains eligible for a defensive
+response but still blocks another patrol. If that compatible candidate later
+resolves to a patrol order, preparation excludes it from the current selection
+pass and deterministically reranks without changing the full candidate
+fingerprint, so the same due cadence can choose a valid fallback. A root that
+contains both compatible and blocking rows is classified once with conservative
+blocking precedence. Each compatible root applies a deterministic `-12` score
+penalty, capped at `-24`. The target-candidate fingerprint is now `ept2` and
+includes the compatible-root count and penalty.
+
+Decision preparation is freeze-only and has no target-pressure, resource, or
+order side effect. Admission recomputes commitment identity before debit or
+order creation even for a pressure-marked retry; an unpressured decision also
+recomputes the target-candidate fingerprint before pressure. If every otherwise
+eligible target is incompatibly committed, the decision completes as an
+explicit zero-cost, zero-pressure `skipped` result. Existing unpressured
+prepared rows carrying the older target-candidate identity can fail closed at
+admission; no campaign- or settings-schema bump is required. This correction
+currently has source implementation, a passing Foundation gate, and clean
+Workbench compilation evidence. Its Campaign Debug assertions are wired but
+unexecuted, and package, restart, dedicated-server, multiplayer, and soak proof
+remain open.
+
+The expanded source fixture covers queued order and support blockers, settled
+or terminal operation and rival-faction ignores, equivalent canonical/legacy
+zone identities, mixed-root blocking precedence, deterministic rejection
+diagnostics across input permutations, patrol fallback, and both unpressured and
+pressure-marked commitment races. These remain source proof routes until the
+Campaign Debug assertion executes them.
+
 The immediately preceding sealed source checkpoint is Campaign Schema 68 while
 runtime settings remains Schema 24. Its exact identity is implementation
 `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
@@ -143,13 +178,43 @@ source, order type, support type, capability/manifest facts, spend mode, attack/
 support costs, target-pressure projection/application, and deterministic
 decision, order, operation, and Schema-67 debit identities.
 
+The current target-candidate pass is commitment-aware rather than treating the
+commitment hash as observation-only evidence. It collapses linked queued/active
+same-faction order, support, and open-operation rows to one root identity,
+rejects incompatible target roots before ranking, and applies a deterministic
+`-12` per-compatible-root penalty capped at `-24`. Exact active patrol is the
+intentional compatibility exception: a non-patrol defensive response may still
+target that zone, while the final order-type gate prevents a second patrol. If
+one root has both compatible and blocking evidence, blocking wins and the root
+is counted once. Known equivalent canonical/legacy zone IDs share commitment
+identity, and rejection count/first-reason diagnostics remain deterministic
+across array permutations. `ept2` fingerprints both the compatible-root count
+and its score contribution.
+
+Order type is selected only after target ranking. If the highest eligible exact-
+patrol-compatible target deterministically resolves to `PATROL`, preparation
+temporarily excludes that zone and reruns the same salted ranking against the
+unchanged full `ept2` candidate fingerprint. It freezes the next compatible
+target, or a clean no-target result, within the same due decision instead of
+wasting the 180-second cadence on a duplicate-patrol skip.
+
 The planner first persists a due choice as `prepared`. A retry keeps the same
-frozen choice and advances only a bounded 30-second retry checkpoint. Completion
-is explicit: `committed` requires one exact order and applied Schema-67 debit
+frozen choice and advances only a bounded 30-second retry checkpoint.
+Preparation itself is freeze-only. Before a prepared decision without an
+existing durable order can debit resources or create an order, admission always
+recomputes its commitment fingerprint, including for pressure-marked retries.
+An unpressured row also recomputes the `ept2` target-candidate fingerprint and
+revalidates the frozen target, source, and order-type gates before applying
+pressure. A changed commitment therefore rejects a pressure-marked retry before
+debit, while a changed candidate set rejects an unpressured row before any side
+effect. If commitment filtering leaves no target, the frozen decision carries
+zero cost and zero pressure and completes as `skipped`. Completion remains
+explicit: `committed` requires one exact order and applied Schema-67 debit
 receipt, `skipped` cannot claim applied target pressure, and `rejected` may
-retain pressure already applied. A prepared row restored with its exact order
-and debit crash-window graph may reconcile to committed. Periodic checkpoints
-remain independent, so a blocked faction cannot advance or suppress its rival.
+retain pressure already applied by an older or later-failing path. A prepared
+row restored with its exact order and debit crash-window graph may reconcile to
+committed. Periodic checkpoints remain independent, so a blocked faction cannot
+advance or suppress its rival.
 Immediate counterattacks and existing debug/direct order entry points remain
 planning contract `0`.
 
@@ -1689,10 +1754,10 @@ balance or native-spawn evidence.
 | Civilian consequences | Sealed Schema 65 source/Workbench adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
 | Enemy-town local security | Sealed Schema 66 source/Workbench gives each eligible canonical enemy town one deterministic exact patrol epoch backed by a frozen authored 2–5 member roster and held SpawnQueue slots. Casualties survive physical fold and restore; no generic police projection may refill or fold counts into it. Destruction applies exactly one police `-1` event, while owner/pressure clear, setup/stop, and spawn failure settle without loss. Same-epoch resurrection is forbidden; a newer owner revision or later positive police event is required for rearm. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and drops only backlink-free disposable legacy projections. | Run the wired deterministic proof, then package-prove native roster, waypoint movement, casualty observation, bubble fold/re-entry, no refill/no resurrection, exact rearm, ownership ordering, persistence/restart, campaign terminal cleanup, multiplayer, and balance. |
 | Canonical enemy strategic resources | Sealed Schema 67 makes each versioned `HST_FactionPoolState` the unique attack/support/aggression/cadence owner for one enemy role. Compact periodic receipts and last-bucket checkpoints are separate from a contiguous un-compacted operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutation; restore validates exact order/ledger/town/ownership backlinks. Pre-67 restore adopts baseline values/checkpoints without invented history; malformed current graphs quarantine at `-67`. | Real-restart cadence, cap, reciprocal backlinks, and no-bypass proof remain open. Schema-68 planning consumes this authority without mutating or repairing it. |
-| Canonical enemy planning | Sealed Schema 68 adds one independent 180-second planning row per configured enemy, sorted commitment/target/source hashes, frozen input and decision fingerprints, bounded preparation/prepared retry, explicit committed/skipped/rejected completion, exact order/debit backlinks, conservative pre-68 baselines, and current `-68` quarantine. The sealed source/Workbench correction shares one production fresh-state factory, requires the exact nonempty preset identity plus exact three-pool/two-planner/non-null/empty-ledger recovery topology, rejects resource/topology/preset/null/order near misses, observes live authority through production exact resolvers, and throttles unchanged unavailable warnings to a 300-second reminder. Immediate counterattacks and debug/direct paths remain planning contract `0`. | Foundation 751 and final stamped-tree all-target Workbench CRC `0544aa1d` pass. Execute fresh bootstrap/recovery/rejection/throttle/live-authority Campaign Debug assertions, then package-prove a new campaign and the affected saved campaign across restart. Every near miss must remain quarantined. |
+| Canonical enemy planning | Sealed Schema 68 adds one independent 180-second planning row per configured enemy, sorted commitment/target/source hashes, frozen input and decision fingerprints, bounded preparation/prepared retry, explicit committed/skipped/rejected completion, exact order/debit backlinks, conservative pre-68 baselines, and current `-68` quarantine. The sealed bootstrap correction shares one production fresh-state factory, admits only the exact known quarantine signature, and throttles unchanged unavailable warnings. Current source additionally collapses linked same-faction commitments to roots with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, uses `ept2` candidate identity, and deterministically reranks a patrol-conflicted candidate without changing the full candidate fingerprint. Preparation remains freeze-only; commitment admission is rechecked before debit even after pressure marking. All-committed target sets complete as zero-cost skips. | Foundation 751 and final stamped-tree all-target Workbench CRC `0544aa1d` pass for the preceding sealed correction. The commitment-aware correction currently has source/Foundation/Workbench compile evidence only. Execute its expanded status/faction/zone-equivalence/diagnostic/patrol-fallback, all-committed-skip, and unpressured/pressure-marked-race Campaign Debug assertions, then package-prove new and affected saved campaigns across restart. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. The sealed Schema-66 repair makes protected campaign markers system-owned/non-removable and self-heals native deletion or mutation from the committed registry. The sealed source/Workbench probe now damages and removes a real tracked marker, verifies production repair/single-instance/registry stability, retries final repair, and isolates and cleans up an editable player marker. | The probe compiles in final stamped-tree Workbench validation but has not executed. Execute it, then package-prove manual delete/move/edit rejection and bounded self-heal on host/client alongside snapshot/delta, map reopen, reconnect, and JIP behavior. |
-| Certification | Schema 68/settings 24 remains the current contract, and the bootstrap/profile/marker correction is sealed as source/Workbench evidence. The latest packaged baseline created the canonical profile root and exposed fresh enemy authority quarantine plus 598 repeated warnings; it did not contain a retired tree. | Foundation 751 and final stamped-tree all-target Workbench CRC `0544aa1d` pass. Execute Campaign Debug, then package-prove fresh start, affected-save recovery/restart, retired-tree removal and file/directory conflict archival, protected/player marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
+| Certification | Schema 68/settings 24 remains the current contract, and the bootstrap/profile/marker correction is sealed as source/Workbench evidence. The commitment-aware planning correction currently adds source/Foundation/Workbench compile evidence without claiming runtime proof. The latest packaged baseline created the canonical profile root and exposed fresh enemy authority quarantine plus 598 repeated warnings; it did not contain a retired tree. | Foundation 751 and final stamped-tree all-target Workbench CRC `0544aa1d` pass for the preceding seal. Execute the new planning assertions in Campaign Debug, then package-prove fresh start, affected-save recovery/restart, retired-tree removal and file/directory conflict archival, protected/player marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the

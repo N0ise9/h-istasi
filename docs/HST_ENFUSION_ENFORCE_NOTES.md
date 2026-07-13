@@ -20,6 +20,25 @@ report `Script validation successful`, the process exited, and zero Workbench
 processes survived cleanup. Campaign Debug, package execution, packaged restart/
 migration, dedicated-server, multiplayer, and soak evidence remain open.
 
+The current unsealed Schema-68 planning delta makes target admission commitment-
+aware without changing campaign or runtime-settings schema. Same-faction queued/
+active orders and support plus open nonterminal operations now participate in
+target eligibility before weighted ranking. Linked order/support/operation rows
+collapse to one stable commitment root with conservative blocking precedence;
+incompatible roots reject the target, while compatible roots remain candidates
+with a deterministic penalty. If an exact-patrol candidate later resolves to a
+duplicate patrol, preparation excludes it and deterministically reranks instead
+of wasting the cadence. Preparation is freeze-only, and admission rechecks
+commitment, candidate, and active-order identity before target pressure or
+strategic debit; the commitment check also protects pressure-marked retries
+before debit. The production duplicate-patrol proof now wires force planning,
+the exact patrol authority, and a three-waypoint fallback route before invoking
+preparation. Foundation passes at 751 script-symbol references. All-target
+Workbench log `logs_2026-07-13_10-42-09` compiles 5,815 Game files/11,768
+classes at CRC `97dca671`.
+Campaign Debug, packaged execution, restart, and live-server proof for this delta
+remain open.
+
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
 68/runtime-settings Schema 24 under implementation
 `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
@@ -197,6 +216,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - The generated `string` API exposes parameters `%1` through `%9`; a canonical
     manifest string with more fields must be assembled from several format calls
     or explicit concatenation.
+  - Supplying a tenth substitution value produced `Too many parameters` during
+    the current enemy-planning compile. Treat nine values as the hard boundary
+    and append another bounded `string.Format()` result instead of widening the
+    original call.
   - Current example: `HST_ForcePlanningIntegrityService.BuildManifestHash()` builds the
     immutable canonical input in bounded chunks before calling `string.Hash()`.
 
@@ -400,6 +423,11 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - Headless Workbench script validation needs the project and Script Editor run mode explicitly.
   - Use the generic parameter shape `-gproj <project> -wbModule=ScriptEditor -run -validate PC -wbsilent -exitAfterInit`; an invocation that only initializes Workbench is not compile/validation evidence.
+  - Invoke the executable directly and pass every switch and path as an
+    individual, quoted argument token. A naive `Start-Process -ArgumentList`
+    launch can split paths containing spaces and silently validate the wrong or
+    incomplete project. The validation log, not process exit alone, must prove
+    the intended project, `Module: Game`, and `Script validation successful`.
   - The validation log must name the intended addon project and reach the
     `Module: Game` compile plus successful game creation. A missing-project or
     fallback validation can report success without loading the addon's complete
@@ -1468,8 +1496,17 @@ This file is for practical engine/script behavior, not project planning. Keep en
 - Enforce can reject long boolean expressions with `Formula too complex`.
   - Split large assertion expectations into guarded blocks and smaller named
     booleans, then combine them over multiple assignments.
+  - The current enemy-planning proof hit this limit in both its aggregate
+    `AllExact()` expression and an all-committed expectation. Staging explicitly
+    typed booleans before the final conjunction compiled cleanly and preserved
+    the individual failure evidence.
   - Current example: the physical-response save-roundtrip assertion in
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
+
+- Keep a `for` loop header on one physical line.
+  - Splitting its initializer, condition, and increment across lines can produce
+    `Expected ')', not a ';'`. Use a separately initialized index plus `while`
+    when the header would be long.
 
 - `reference` is an Enforce keyword, not a safe local variable or parameter name.
   - Runtime symptom: Workbench reports `Broken expression (missing ';'?)` on a declaration such as `string reference;`.
@@ -1671,6 +1708,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Defend Petros has static marker IDs (`hst_defend_petros`, `hst_defend_petros_attackers`) linked to dynamic mission/group IDs. Prefix cleanup must clear `m_sDefendPetrosMissionId`, order/support/group links, and the active flag before rebuilding markers; otherwise marker rebuild can recreate static markers that still point at removed debug-prefixed records.
 
 - Campaign debug certification output should be structured first, text second.
+  - A deterministic proof that calls a production preparation/admission path must
+    wire the same service dependencies and persisted capability inputs as the
+    coordinator. Exact patrol preparation needs force planning, the exact patrol
+    authority, and a target route with at least two ordered positions; a bare
+    commander still compiles but returns a retry at runtime, which makes the
+    proof measure missing fixture setup instead of the intended decision branch.
   - Workbench can fail with a native crash during Game script validation when large debug-verification probe batches are added, even if repository-side text/brace checks pass. Reintroduce certification slices in small increments and confirm Workbench completes Game script compilation before stacking more probes.
   - Per-method complexity can trigger native heap corruption before Workbench
     emits a script error. The observed force-authority proof was 324 lines,
@@ -5164,6 +5207,51 @@ This file is for practical engine/script behavior, not project planning. Keep en
   role row, make `IsDue()` honor that gate, and clear it only when the next
   decision freezes successfully. This prevents a missing planner, manifest, or
   route capability from becoming a per-frame commander loop.
+
+- Current target scoring resolves commitment compatibility before weighted
+  ranking. It inspects same-faction queued/active enemy orders and support plus
+  open nonterminal operations at equivalent target IDs. A linked order, support
+  request, and operation collapse to one root identity, preferring order ID and
+  then operation ID, so one response is not counted three times. Terminal rows
+  and rival-faction commitments do not block the faction being planned.
+
+- Incompatible commander commitments exclude a zone before ranking. An exact
+  patrol root remains compatible so the commander may still choose a defensive
+  response at that location. If its frozen type would instead be another patrol,
+  preparation excludes that candidate and deterministically reranks against the
+  remaining full-fingerprint set rather than consuming the 180-second cadence.
+  Independent non-commander operations also remain compatible. Each collapsed
+  compatible root applies `-12` to target score, capped at `-24`; orphan support
+  and patrol/QRF operations without a valid compatible root block the target.
+  If one root exposes both compatible and blocking rows, remove it from the
+  compatible set and apply one conservative blocking classification.
+  Candidate diagnostics expose rejection count/reason and the per-candidate
+  compatible count/penalty. Candidate fingerprints use the `ept2_` format and
+  include those commitment fields.
+
+- Preparing a new periodic decision is freeze-only: it persists the observed
+  commitment/candidate sets, selected response, costs, and projected pressure,
+  but does not apply pressure. Admission recomputes commitment identity, target
+  candidate identity, source eligibility, and active-order compatibility before
+  pressure, then debits only after pressure succeeds. Recheck commitment identity
+  on pressure-marked retries as well, because support or operation state can
+  change between pressure and a later debit attempt. A commitment inserted
+  between freeze and admission therefore rejects the prepared row without
+  pressure, debit, or order creation. When every target is incompatibly
+  committed, preparation finishes as an explicit zero-cost `skipped` decision
+  with no target/source, pressure, order, resource, or rival-planner mutation.
+
+- Campaign Debug exposes the production-path cases as
+  `enemy_planning.commitment_aware_selection`,
+  `enemy_planning.all_committed_skip`, and
+  `enemy_planning.commitment_race_rejection`. The fixtures cover linked-root
+  collapse, blocked-target fallback, input-permutation-stable candidate identity
+  and rejection diagnostics, production duplicate-patrol reranking, queued and
+  equivalent-ID filtering, settled/terminal/rival isolation, mixed-root blocking
+  precedence, orphan rejection, all-target exhaustion, and pre-pressure plus
+  pressure-marked post-freeze races.
+  These are wired source assertions only until Campaign Debug executes from a
+  packaged build and the resulting campaign/restart artifacts are inspected.
 
 - `prepared` with a positive frozen pressure delta and `applied = false` is a
   valid crash window. Validate and restore it, preflight pressure-mark revision

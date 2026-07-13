@@ -842,7 +842,8 @@ Consequences:
 
 ## CRI-016 - Persist Enemy Planning Without Taking Over Resource Truth
 
-- Status: Accepted; sealed Schema 68 source/Workbench checkpoint
+- Status: Accepted; sealed Schema 68 authority with a schema-neutral
+  commitment-aware correction in current source
 - Date: 2026-07-12
 
 Context: Sealed Schema 67 makes enemy resources, aggression, cadence, and
@@ -865,17 +866,47 @@ spend mode, attack/support cost, target-pressure facts, and deterministic
 decision, order, operation, and debit accounting IDs. Restore recomputes input
 and decision fingerprints instead of trusting serialized hashes.
 
+Target-candidate admission is part of that authority, not a separate heuristic.
+Queued or active same-faction orders and support requests and open same-faction
+operations at an equivalent target collapse to root commitments. Incompatible
+roots remove a target before ranking. Compatible roots retain the target with a
+deterministic `-12` score penalty per root, capped at `-24`. An exact active
+patrol is compatible with a non-patrol defensive response, while the final
+order-type gate still rejects a duplicate patrol. If compatible and blocking
+rows resolve to the same root, conservative blocking precedence classifies that
+root once. Known equivalent canonical/legacy zone IDs are the same target, and
+permutation-stable rejection count and first-reason diagnostics describe why a
+candidate was removed.
+
 Consequences:
 
 - Occupier and invader planning checkpoints are independent. Failure, retry,
   exhaustion, or quarantine for one faction cannot advance or suppress the
   other faction's checkpoint.
-- A due decision first becomes `prepared`. A retry retains the frozen decision
-  and uses a 30-second retry checkpoint. Completion is explicitly `committed`,
-  `skipped`, or `rejected`. Committed authority requires one exact order and one
-  applied Schema-67 debit receipt; an exact prepared-plus-order crash window may
-  reconcile to committed. Skipped authority cannot claim applied target
-  pressure, while rejected authority may retain pressure already applied.
+- Target ranking freezes the full `ept2` candidate identity before order-type
+  selection. If the highest exact-patrol-compatible candidate later resolves to
+  `PATROL`, preparation excludes that zone from the current selection pass and
+  reruns the same deterministic ranking without changing the full candidate
+  fingerprint. It can freeze a valid fallback, or a clean no-target result, in
+  the same due decision instead of spending the cadence on a duplicate-patrol
+  skip.
+- A due decision first becomes `prepared`. Preparation is freeze-only: it does
+  not apply target pressure, debit resources, or create an order. Before a
+  prepared decision without a durable order can debit or create, admission
+  always recomputes the commitment fingerprint, including on a pressure-marked
+  retry. An unpressured decision also recomputes the `ept2` target-candidate
+  fingerprint and frozen target/source/order gates before pressure. A
+  post-freeze race therefore rejects an unpressured row before any side effect
+  and a pressure-marked retry before debit. A retry retains the frozen decision
+  and uses a 30-second retry checkpoint.
+- Completion is explicitly `committed`, `skipped`, or `rejected`. Committed
+  authority requires one exact order and one applied Schema-67 debit receipt; an
+  exact prepared-plus-order crash window may reconcile to committed. If every
+  target is incompatibly committed, preparation freezes zero target candidates,
+  zero cost, and zero pressure and completes as `skipped` without changing the
+  rival planner. Skipped authority cannot claim applied target pressure, while
+  rejected authority may retain pressure already applied by an older or
+  later-failing path.
 - Transient failure before begin persists a 30-second preparation gate on the
   non-prepared role row, so missing capability cannot re-run every commander
   tick. A prepared row may validly persist before its positive pressure delta is
@@ -897,6 +928,20 @@ Consequences:
   mutation receipts.
 - Immediate counterattacks and existing debug/direct order entry points do not
   claim periodic planner authority and remain planning contract `0`.
+- The commitment-aware correction does not bump campaign Schema 68 or settings
+  Schema 24. The target-candidate fingerprint prefix advances from `ept1` to
+  `ept2` because compatible commitment count and penalty are now decision
+  inputs. An older unpressured prepared row can fail closed at admission when
+  its prior candidate identity no longer recomputes; no migration invents a new
+  target or rewrites its decision.
+- Current evidence for this correction is source implementation, a passing
+  Foundation gate, and a clean Workbench Game compile. The expanded source proof
+  covers queued order/support blockers, settled or terminal operation and rival-
+  faction ignores, canonical/legacy zone equivalence, mixed-root blocking
+  precedence, permutation-stable rejection diagnostics, deterministic patrol
+  fallback, all-committed skip, and unpressured plus pressure-marked commitment
+  races. Its assertions are wired but have not run in Campaign Debug. Package,
+  restart, dedicated-server, multiplayer, and soak proof remain open.
 - Schema 68/settings 24 is sealed at implementation
   `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
   `2026-07-13T01:04:41Z`, label
@@ -904,7 +949,7 @@ Consequences:
   CRC `971d30d0` at 5,812 files/11,761 classes. Final normal/all-five logs are
   `logs_2026-07-12_21-05-15` and `logs_2026-07-12_21-05-34`; all five target
   configurations validate successfully with zero HST script errors and zero
-  surviving Workbench processes. Twelve state-only assertions are wired but not
+  surviving Workbench processes. Its state-only assertions are wired but not
   executed in Campaign Debug; native restart, package, dedicated-server,
   multiplayer, and soak evidence remains open.
 - Schema 67/settings 24 is the immediately preceding sealed checkpoint at implementation

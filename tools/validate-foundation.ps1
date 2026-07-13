@@ -25493,7 +25493,10 @@ foreach ($schema68PreparedSelectionEntry in @(
 	'BuildStableDecisionSalt(',
 	'BuildTargetScoreResult(',
 	'SelectOrderType(',
-	'SupportTypeForOrder('
+	'SupportTypeForOrder(',
+	'orderTypeRejectedZoneIds',
+	'while (orderTypeRejectedZoneIds.Count() <= targetCandidateCount)',
+	'orderTypeRejectedZoneIds.Insert(targetZone.m_sZoneId)'
 )) {
 	if ([string]::IsNullOrEmpty($schema68PreparePlanningBlock) -or
 		$schema68PreparePlanningBlock.IndexOf($schema68PreparedSelectionEntry) -lt 0) {
@@ -25503,9 +25506,41 @@ foreach ($schema68PreparedSelectionEntry in @(
 $schema68ActiveOrderIndex = $schema68PreparePlanningBlock.IndexOf('HasActiveOrderForZone(')
 $schema68PressureApplyIndex = $schema68PreparePlanningBlock.IndexOf('ApplyFrozenTargetPressure(')
 if ($schema68PreparePlanningBlock.IndexOf('RetryUnpreparedDecision(') -lt 0 -or
-	$schema68ActiveOrderIndex -lt 0 -or $schema68PressureApplyIndex -lt 0 -or
-	$schema68ActiveOrderIndex -gt $schema68PressureApplyIndex) {
-	throw "Schema-68 preparation must persist transient pre-decision retry and suppress active targets before pressure"
+	$schema68ActiveOrderIndex -lt 0 -or $schema68PressureApplyIndex -ge 0) {
+	throw "Schema-68 preparation must filter commitments, persist transient pre-decision retry, and remain freeze-only before admission"
+}
+if ([string]::IsNullOrEmpty($schema68TargetScoreBlock) -or
+	$schema68TargetScoreBlock.IndexOf('ResolveTargetCommitmentCompatibility(') -lt 0 -or
+	$schema68TargetScoreBlock.IndexOf('m_iCommitmentRejectedCount++') -lt 0 -or
+	$schema68TargetScoreBlock.IndexOf('commitmentRejectedReason.Compare(') -lt 0 -or
+	$schema68TargetScoreBlock.IndexOf('BuildTargetScoreCandidateResolved(') -lt 0) {
+	throw "Schema-68 target selection must reject incompatible commitments before weighted ranking"
+}
+$schema68TargetCommitmentBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected bool ResolveTargetCommitmentCompatibility('
+foreach ($schema68TargetCommitmentEntry in @(
+	'HST_ENEMY_ORDER_QUEUED',
+	'HST_ENEMY_ORDER_ACTIVE',
+	'HST_SUPPORT_QUEUED',
+	'HST_SUPPORT_ACTIVE',
+	'HST_OPERATION_SETTLEMENT_OPEN',
+	'HST_OperationService.RequiresExactEnemyPatrol(',
+	'HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION',
+	'BuildTargetCommitmentIdentity(',
+	'InsertTargetCommitmentRow(',
+	'blockingIdentities.Contains(',
+	'compatibleIdentities.Remove(compatibleIndex)',
+	'compatibleCommitmentCount = compatibleIdentities.Count()',
+	'incompatible commitments %1'
+)) {
+	if ([string]::IsNullOrEmpty($schema68TargetCommitmentBlock) -or
+		$schema68TargetCommitmentBlock.IndexOf($schema68TargetCommitmentEntry) -lt 0) {
+		throw "Schema-68 target commitment compatibility is incomplete: $schema68TargetCommitmentEntry"
+	}
+}
+if ($schema68CommanderText.IndexOf('"ept2_%1_%2"') -lt 0 -or
+	$schema68CommanderText.IndexOf('candidate.m_iCompatibleCommitmentCount') -lt 0 -or
+	$schema68CommanderText.IndexOf('candidate.m_iCommitmentScore') -lt 0) {
+	throw "Schema-68 target candidate fingerprint must version and cover compatible commitment scoring"
 }
 foreach ($schema68StableSeedMethod in @(
 	@('target selection', $schema68TargetScoreBlock),
@@ -25626,6 +25661,21 @@ if ([string]::IsNullOrEmpty($schema68AdmissionBlock) -or
 	$schema68AdmissionBlock.IndexOf('QuarantinePreparedAdmissionConflict(') -lt 0) {
 	throw "Schema-68 exact admission failures must end in durable abort completion or explicit planning quarantine"
 }
+$schema68CommitmentRecheckIndex = $schema68AdmissionBlock.IndexOf('BuildCommitmentFingerprint(')
+$schema68UnpressuredGuardIndex = $schema68AdmissionBlock.IndexOf('if (!planning.m_bTargetPressureApplied)')
+$schema68CandidateRecheckIndex = $schema68AdmissionBlock.IndexOf('BuildTargetCandidateFingerprint(')
+$schema68AdmissionOrderIndex = $schema68AdmissionBlock.IndexOf('HasActiveOrderForZone(', $schema68CandidateRecheckIndex + 1)
+$schema68AdmissionPressureIndex = $schema68AdmissionBlock.IndexOf('ApplyFrozenTargetPressure(', $schema68AdmissionOrderIndex + 1)
+$schema68AdmissionSpendIndex = $schema68AdmissionBlock.IndexOf('TrySpendProactiveAttack(', $schema68AdmissionPressureIndex + 1)
+if ($schema68CommitmentRecheckIndex -lt 0 -or
+	$schema68UnpressuredGuardIndex -le $schema68CommitmentRecheckIndex -or
+	$schema68CandidateRecheckIndex -le $schema68UnpressuredGuardIndex -or
+	$schema68CandidateRecheckIndex -le $schema68CommitmentRecheckIndex -or
+	$schema68AdmissionOrderIndex -le $schema68CandidateRecheckIndex -or
+	$schema68AdmissionPressureIndex -le $schema68AdmissionOrderIndex -or
+	$schema68AdmissionSpendIndex -le $schema68AdmissionPressureIndex) {
+	throw "Schema-68 admission must revalidate commitments, candidates, and active-order compatibility before pressure and debit"
+}
 if ($schema68AuthorityText -match '(?m)\bpool\.m_i(?:AttackResources|SupportResources|Aggression)\s*[-+]?=' -or
 	$schema68AuthorityText -match '\.(?:ApplyMutation|TrySpendProactiveAttack|TrySpendDefense)\(') {
 	throw "Schema-68 planning authority must not mutate Schema-67 strategic resources"
@@ -25666,6 +25716,9 @@ $schema68ProofBooleans = @(
 	'm_bIndependentCadenceExact',
 	'm_bBeginReplayConflictExact',
 	'm_bCommitmentPermutationExact',
+	'm_bCommitmentAwareSelectionExact',
+	'm_bAllCommittedSkipExact',
+	'm_bCommitmentRaceRejectionExact',
 	'm_bFrozenDecisionExact',
 	'm_bRetryEnvelopeExact',
 	'm_bPreparedPressureCrashWindowExact',
@@ -25680,6 +25733,7 @@ $schema68ProofBooleans = @(
 $schema68ProofEvidence = @(
 	'm_sBaselineCadenceEvidence',
 	'm_sDecisionEvidence',
+	'm_sCommitmentSelectionEvidence',
 	'm_sFreezeRetryEvidence',
 	'm_sRecoveryEvidence',
 	'm_sPersistenceQuarantineEvidence',
@@ -25691,6 +25745,9 @@ foreach ($schema68ProofMethod in @(
 	'ProveIndependentCadence(report);',
 	'ProveBeginReplayConflict(report);',
 	'ProveCommitmentPermutation(report);',
+	'ProveCommitmentAwareSelection(report);',
+	'ProveAllCommittedSkip(report);',
+	'ProveCommitmentRaceRejection(report);',
 	'ProveFrozenDecision(report);',
 	'ProveRetryEnvelope(report);',
 	'ProvePreparedPressureCrashWindow(report);',
@@ -25721,6 +25778,129 @@ foreach ($schema68ProofDependency in @(
 )) {
 	if ($schema68ProofText.IndexOf($schema68ProofDependency) -lt 0) {
 		throw "Schema-68 proof does not exercise its real authority boundary: $schema68ProofDependency"
+	}
+}
+
+$schema68CommitmentSelectionProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveCommitmentAwareSelection('
+foreach ($schema68CommitmentSelectionProofEntry in @(
+	'commander.BuildTargetScoreResult(',
+	'commander.DebugBuildTargetCandidateFingerprint(',
+	'ReverseSelectionFixtureArrays(state);',
+	'HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION',
+	'commander.ResolveOrderTypeForDebug(',
+	'commander.DebugIsTargetBlockedForOrderType(',
+	'm_iCommitmentRejectedCount == 1',
+	'linkedRootCollapsed',
+	'incompatible commitments 1',
+	'm_iCompatibleCommitmentCount == 1',
+	'm_iCommitmentScore == -12',
+	'ProvePatrolTargetFallback(',
+	'ProveCommitmentFilterBranches(',
+	'ProveMixedCommitmentRootPrecedence(',
+	'report.m_bCommitmentAwareSelectionExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CommitmentSelectionProofBlock) -or
+		$schema68CommitmentSelectionProofBlock.IndexOf($schema68CommitmentSelectionProofEntry) -lt 0) {
+		throw "Schema-68 commitment-aware selection proof is incomplete: $schema68CommitmentSelectionProofEntry"
+	}
+}
+$schema68PatrolFallbackProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected bool ProvePatrolTargetFallback('
+foreach ($schema68PatrolFallbackProofEntry in @(
+	'new HST_ForcePlanningService()',
+	'new HST_EnemyPatrolOperationService()',
+	'commander.SetExactEnemyQRFAuthorityServices(',
+	'commander.SetExactEnemyPatrolAuthorityService(exactEnemyPatrol);',
+	'AddProofPatrolRoute(state, preferred, fallback);',
+	'FindTargetScoreCandidate(ranked, fallback.m_sZoneId);',
+	'ranked.m_iBestScore - fallbackCandidate.m_iScore > 12',
+	'commander.DebugPrepareNextPeriodicDecisionForFaction(',
+	'preferredFirst',
+	'planning.m_sSelectedTargetZoneId == fallback.m_sZoneId',
+	'planning.m_eSelectedOrderType',
+	'HST_ENEMY_ORDER_PATROL',
+	'!planning.m_bTargetPressureApplied'
+)) {
+	if ([string]::IsNullOrEmpty($schema68PatrolFallbackProofBlock) -or
+		$schema68PatrolFallbackProofBlock.IndexOf($schema68PatrolFallbackProofEntry) -lt 0) {
+		throw "Schema-68 exact-patrol target fallback proof is incomplete: $schema68PatrolFallbackProofEntry"
+	}
+}
+$schema68PatrolRouteProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void AddProofPatrolRoute('
+foreach ($schema68PatrolRouteProofEntry in @(
+	'route.m_sRouteId = "route_" + target.m_sZoneId + "_alpha";',
+	'route.m_iWaypointCount = 3;',
+	'AddProofPatrolWaypoint(route, 0, route.m_vStartPosition);',
+	'target.m_sPatrolRouteId = route.m_sRouteId;',
+	'state.m_aGeneratedRoutes.Insert(route);'
+)) {
+	if ([string]::IsNullOrEmpty($schema68PatrolRouteProofBlock) -or
+		$schema68PatrolRouteProofBlock.IndexOf($schema68PatrolRouteProofEntry) -lt 0) {
+		throw "Schema-68 exact-patrol fallback route proof is incomplete: $schema68PatrolRouteProofEntry"
+	}
+}
+$schema68CommitmentFilterProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected bool ProveCommitmentFilterBranches('
+foreach ($schema68CommitmentFilterProofEntry in @(
+	'HST_MaidensBayLocationSaveValidationService.CANONICAL_ZONE_ID',
+	'HST_MaidensBayLocationSaveValidationService.LEGACY_ZONE_ID',
+	'HST_ENEMY_ORDER_QUEUED',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'HST_OPERATION_TERMINAL_RECALLED',
+	'INVADER_FACTION',
+	'aliasQueuedOrderExact',
+	'ignoredExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CommitmentFilterProofBlock) -or
+		$schema68CommitmentFilterProofBlock.IndexOf($schema68CommitmentFilterProofEntry) -lt 0) {
+		throw "Schema-68 commitment status/faction/zone-equivalence proof is incomplete: $schema68CommitmentFilterProofEntry"
+	}
+}
+$schema68MixedRootProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected bool ProveMixedCommitmentRootPrecedence('
+foreach ($schema68MixedRootProofEntry in @(
+	'HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL',
+	'HST_SUPPORT_QRF',
+	'm_iCommitmentRejectedCount == 1',
+	'incompatible commitments 1',
+	'mixed compatible/blocking root collapsed-blocking'
+)) {
+	if ([string]::IsNullOrEmpty($schema68MixedRootProofBlock) -or
+		$schema68MixedRootProofBlock.IndexOf($schema68MixedRootProofEntry) -lt 0) {
+		throw "Schema-68 mixed commitment-root precedence proof is incomplete: $schema68MixedRootProofEntry"
+	}
+}
+$schema68AllCommittedProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveAllCommittedSkip('
+foreach ($schema68AllCommittedProofEntry in @(
+	'DebugPrepareNextPeriodicDecisionForFaction(',
+	'planning.m_sDisposition == "skipped"',
+	'planning.m_iTargetCandidateCount == 0',
+	'planning.m_iAttackCost == 0',
+	'planning.m_iSupportCost == 0',
+	'!planning.m_bTargetPressureApplied',
+	'state.m_aEnemyStrategicMutations.IsEmpty()',
+	'pool.m_iStrategicRevision == poolRevisionBefore',
+	'report.m_bAllCommittedSkipExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema68AllCommittedProofBlock) -or
+		$schema68AllCommittedProofBlock.IndexOf($schema68AllCommittedProofEntry) -lt 0) {
+		throw "Schema-68 all-committed skip proof is incomplete: $schema68AllCommittedProofEntry"
+	}
+}
+$schema68CommitmentRaceProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveCommitmentRaceRejection('
+foreach ($schema68CommitmentRaceProofEntry in @(
+	'm_Authority.BeginDecision(planning, command)',
+	'state.m_aSupportRequests.Insert(',
+	'm_Authority.MarkTargetPressureApplied(pressuredPlanning)',
+	'pressuredPlanning.m_bTargetPressureApplied',
+	'pressuredCommand.m_iTargetPressureDelta = 0',
+	'DebugConsumePreparedPeriodicDecisionForFaction(',
+	'commitment fingerprint changed before admission',
+	'!planning.m_bTargetPressureApplied',
+	'state.m_aEnemyStrategicMutations.IsEmpty()',
+	'pool.m_iStrategicRevision == poolRevisionBefore',
+	'report.m_bCommitmentRaceRejectionExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CommitmentRaceProofBlock) -or
+		$schema68CommitmentRaceProofBlock.IndexOf($schema68CommitmentRaceProofEntry) -lt 0) {
+		throw "Schema-68 post-prepare commitment race proof is incomplete: $schema68CommitmentRaceProofEntry"
 	}
 }
 
@@ -25781,6 +25961,9 @@ if ($schema68CoordinatorProofBlock -notmatch 'state-only Schema-68 source fixtur
 }
 
 foreach ($schema68CampaignDebugAuthorityEntry in @(
+	'"enemy_planning.commitment_aware_selection"',
+	'"enemy_planning.all_committed_skip"',
+	'"enemy_planning.commitment_race_rejection"',
 	'"enemy_planning.fresh_bootstrap"',
 	'"enemy_planning.unavailable_log_throttle"',
 	'BuildCampaignDebugLiveEnemyAuthorityEvidence(liveAuthorityEvidence)',

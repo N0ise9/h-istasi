@@ -4,6 +4,9 @@ class HST_EnemyPlanningProofReport
 	bool m_bIndependentCadenceExact;
 	bool m_bBeginReplayConflictExact;
 	bool m_bCommitmentPermutationExact;
+	bool m_bCommitmentAwareSelectionExact;
+	bool m_bAllCommittedSkipExact;
+	bool m_bCommitmentRaceRejectionExact;
 	bool m_bFrozenDecisionExact;
 	bool m_bRetryEnvelopeExact;
 	bool m_bPreparedPressureCrashWindowExact;
@@ -16,6 +19,7 @@ class HST_EnemyPlanningProofReport
 	bool m_bUnavailableLogThrottleExact;
 	string m_sBaselineCadenceEvidence;
 	string m_sDecisionEvidence;
+	string m_sCommitmentSelectionEvidence;
 	string m_sFreezeRetryEvidence;
 	string m_sRecoveryEvidence;
 	string m_sPersistenceQuarantineEvidence;
@@ -23,20 +27,24 @@ class HST_EnemyPlanningProofReport
 
 	bool AllExact()
 	{
-		return m_bPre68BaselineExact
+		bool authorityExact = m_bPre68BaselineExact
 			&& m_bIndependentCadenceExact
 			&& m_bBeginReplayConflictExact
 			&& m_bCommitmentPermutationExact
-			&& m_bFrozenDecisionExact
+			&& m_bCommitmentAwareSelectionExact
+			&& m_bAllCommittedSkipExact
+			&& m_bCommitmentRaceRejectionExact;
+		bool freezeExact = m_bFrozenDecisionExact
 			&& m_bRetryEnvelopeExact
 			&& m_bPreparedPressureCrashWindowExact
 			&& m_bPreparedOrderAdoptionExact
-			&& m_bRetryTamperQuarantineExact
-			&& m_bZeroTargetSkipExact
+			&& m_bRetryTamperQuarantineExact;
+		bool persistenceExact = m_bZeroTargetSkipExact
 			&& m_bCommittedRoundtripExact
 			&& m_bCurrentQuarantineExact
 			&& m_bFreshBootstrapExact
 			&& m_bUnavailableLogThrottleExact;
+		return authorityExact && freezeExact && persistenceExact;
 	}
 
 	string BuildReport()
@@ -59,7 +67,10 @@ class HST_EnemyPlanningProofReport
 			m_bRetryTamperQuarantineExact,
 			m_bCurrentQuarantineExact)
 			+ string.Format(
-				" | fresh-bootstrap %1 | warning-throttle %2",
+				" | commitment-selection/skip/race %1/%2/%3 | fresh-bootstrap %4 | warning-throttle %5",
+				m_bCommitmentAwareSelectionExact,
+				m_bAllCommittedSkipExact,
+				m_bCommitmentRaceRejectionExact,
 				m_bFreshBootstrapExact,
 				m_bUnavailableLogThrottleExact);
 	}
@@ -83,6 +94,9 @@ class HST_EnemyPlanningProofService
 		ProveIndependentCadence(report);
 		ProveBeginReplayConflict(report);
 		ProveCommitmentPermutation(report);
+		ProveCommitmentAwareSelection(report);
+		ProveAllCommittedSkip(report);
+		ProveCommitmentRaceRejection(report);
 		ProveFrozenDecision(report);
 		ProveRetryEnvelope(report);
 		ProvePreparedPressureCrashWindow(report);
@@ -261,6 +275,662 @@ class HST_EnemyPlanningProofService
 			" | commitment stable/count %1/%2",
 			first == second,
 			firstCount);
+	}
+
+	protected void ProveCommitmentAwareSelection(
+		HST_EnemyPlanningProofReport report)
+	{
+		HST_CampaignPreset preset = BuildPreset();
+		HST_EnemyCommanderService commander = new HST_EnemyCommanderService();
+		HST_CampaignState state = BuildExactState(180, true, 0);
+		HST_ZoneState high = state.FindZone("proof_us_target");
+		HST_ZoneState alternate = state.FindZone("proof_us_source");
+		high.m_iPriority = 100;
+		high.m_iIncomeValue = 96;
+		high.m_iResistanceCaptureProgress = 96;
+		alternate.m_iPriority = 34;
+
+		HST_EnemyOrderState blocker = BuildTargetCommitmentOrder(
+			"proof_selection_blocker",
+			"proof_selection_operation",
+			OCCUPIER_FACTION,
+			high.m_sZoneId,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
+			HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE,
+			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION);
+		state.m_aEnemyOrders.Insert(blocker);
+		state.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_selection_support",
+			blocker.m_sOperationId,
+			OCCUPIER_FACTION,
+			high.m_sZoneId,
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE));
+		state.m_aOperations.Insert(BuildTargetCommitmentOperation(
+			blocker.m_sOperationId,
+			blocker.m_sOrderId,
+			OCCUPIER_FACTION,
+			high.m_sZoneId,
+			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF,
+			HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION));
+
+		state.m_aEnemyOrders.Insert(BuildTargetCommitmentOrder(
+			"proof_selection_terminal",
+			"proof_selection_terminal_operation",
+			OCCUPIER_FACTION,
+			alternate.m_sZoneId,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
+			HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED,
+			0));
+		state.m_aEnemyOrders.Insert(BuildTargetCommitmentOrder(
+			"proof_selection_rival",
+			"proof_selection_rival_operation",
+			INVADER_FACTION,
+			alternate.m_sZoneId,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
+			HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE,
+			0));
+		state.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_selection_queued_support",
+			"proof_selection_queued_support_operation",
+			OCCUPIER_FACTION,
+			"proof_ussr_target",
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			HST_ESupportRequestStatus.HST_SUPPORT_QUEUED));
+
+		HST_EnemyTargetScoreResult first = commander.BuildTargetScoreResult(
+			state,
+			preset,
+			OCCUPIER_FACTION,
+			true);
+		int firstCandidateCount;
+		string firstFingerprint = commander.DebugBuildTargetCandidateFingerprint(
+			first,
+			firstCandidateCount);
+		ReverseSelectionFixtureArrays(state);
+		HST_EnemyTargetScoreResult second = commander.BuildTargetScoreResult(
+			state,
+			preset,
+			OCCUPIER_FACTION,
+			true);
+		int secondCandidateCount;
+		string secondFingerprint = commander.DebugBuildTargetCandidateFingerprint(
+			second,
+			secondCandidateCount);
+
+		HST_CampaignState patrolState = BuildExactState(180, true, 0);
+		HST_ZoneState patrolTarget = patrolState.FindZone("proof_us_target");
+		patrolTarget.m_iPriority = 100;
+		patrolTarget.m_iIncomeValue = 96;
+		patrolTarget.m_iResistanceCaptureProgress = 96;
+		HST_EnemyOrderState patrol = BuildTargetCommitmentOrder(
+			"proof_selection_patrol",
+			"proof_selection_patrol_operation",
+			OCCUPIER_FACTION,
+			patrolTarget.m_sZoneId,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL,
+			HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE,
+			HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION);
+		patrolState.m_aEnemyOrders.Insert(patrol);
+		patrolState.m_aOperations.Insert(BuildTargetCommitmentOperation(
+			patrol.m_sOperationId,
+			patrol.m_sOrderId,
+			OCCUPIER_FACTION,
+			patrolTarget.m_sZoneId,
+			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL,
+			HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION));
+		HST_EnemyTargetScoreResult patrolResult = commander.BuildTargetScoreResult(
+			patrolState,
+			preset,
+			OCCUPIER_FACTION,
+			true);
+		HST_EnemyTargetScoreCandidate patrolCandidate = FindTargetScoreCandidate(
+			patrolResult,
+			patrolTarget.m_sZoneId);
+		HST_EEnemyOrderType defensiveType = commander.ResolveOrderTypeForDebug(
+			patrolState,
+			preset,
+			patrolTarget,
+			patrolState.FindFactionPool(OCCUPIER_FACTION));
+		bool defensiveCompatible = defensiveType
+			!= HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL
+			&& !commander.DebugIsTargetBlockedForOrderType(
+				patrolState,
+				OCCUPIER_FACTION,
+				patrolTarget.m_sZoneId,
+				defensiveType);
+		bool duplicatePatrolBlocked = commander.DebugIsTargetBlockedForOrderType(
+			patrolState,
+			OCCUPIER_FACTION,
+			patrolTarget.m_sZoneId,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL);
+
+		HST_CampaignState orphanState = BuildExactState(180, true, 0);
+		orphanState.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_selection_orphan_support",
+			"proof_selection_orphan_operation",
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_ESupportRequestType.HST_SUPPORT_PATROL_SWEEP,
+			HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE));
+		HST_EnemyTargetScoreResult orphanResult = commander.BuildTargetScoreResult(
+			orphanState,
+			preset,
+			OCCUPIER_FACTION,
+			true);
+		string patrolFallbackEvidence;
+		bool patrolFallbackExact = ProvePatrolTargetFallback(
+			commander,
+			preset,
+			patrolFallbackEvidence);
+		string filterBranchEvidence;
+		bool filterBranchesExact = ProveCommitmentFilterBranches(
+			commander,
+			preset,
+			filterBranchEvidence);
+		string mixedRootEvidence;
+		bool mixedRootExact = ProveMixedCommitmentRootPrecedence(
+			commander,
+			preset,
+			mixedRootEvidence);
+
+		bool fallbackExact = first && second
+			&& first.m_bSuccess && second.m_bSuccess
+			&& first.m_sSelectedZoneId == alternate.m_sZoneId
+			&& second.m_sSelectedZoneId == alternate.m_sZoneId
+			&& first.m_iCommitmentRejectedCount == 2
+			&& second.m_iCommitmentRejectedCount == 2
+			&& first.m_sCommitmentRejectedReason.Contains(high.m_sZoneId);
+		bool permutationExact = firstCandidateCount == secondCandidateCount
+			&& firstFingerprint == secondFingerprint
+			&& first.m_sCommitmentRejectedReason
+				== second.m_sCommitmentRejectedReason;
+		bool linkedRootCollapsed = first
+			&& second
+			&& first.m_sCommitmentRejectedReason.Contains(
+				"incompatible commitments 1")
+			&& second.m_sCommitmentRejectedReason.Contains(
+				"incompatible commitments 1");
+		bool patrolExact = patrolResult && patrolResult.m_bSuccess
+			&& patrolResult.m_sSelectedZoneId == patrolTarget.m_sZoneId
+			&& patrolCandidate
+			&& patrolCandidate.m_iCompatibleCommitmentCount == 1
+			&& patrolCandidate.m_iCommitmentScore == -12
+			&& defensiveCompatible && duplicatePatrolBlocked;
+		bool orphanExact = orphanResult
+			&& orphanResult.m_iCommitmentRejectedCount == 1
+			&& !FindTargetScoreCandidate(orphanResult, "proof_us_target");
+		report.m_bCommitmentAwareSelectionExact = fallbackExact
+			&& permutationExact && linkedRootCollapsed
+			&& patrolExact && orphanExact && patrolFallbackExact
+			&& filterBranchesExact && mixedRootExact;
+		report.m_sCommitmentSelectionEvidence = string.Format(
+			"selection fallback/permutation/fingerprint/root-collapse %1/%2/%3/%4 | patrol retained/defense-compatible/duplicate-blocked %5/%6/%7 | orphan blocked %8",
+			first && first.m_sSelectedZoneId == alternate.m_sZoneId,
+			second && second.m_sSelectedZoneId == alternate.m_sZoneId,
+			firstFingerprint == secondFingerprint,
+			linkedRootCollapsed,
+			patrolCandidate != null,
+			defensiveCompatible,
+			duplicatePatrolBlocked,
+			orphanExact);
+		report.m_sCommitmentSelectionEvidence
+			= report.m_sCommitmentSelectionEvidence
+				+ " | " + patrolFallbackEvidence
+				+ " | " + filterBranchEvidence
+				+ " | " + mixedRootEvidence;
+	}
+
+	protected bool ProvePatrolTargetFallback(
+		HST_EnemyCommanderService commander,
+		HST_CampaignPreset preset,
+		out string evidence)
+	{
+		HST_ForcePlanningService forcePlanning
+			= new HST_ForcePlanningService();
+		HST_EnemyQRFOperationService exactEnemyQRF
+			= new HST_EnemyQRFOperationService();
+		HST_EnemyPatrolOperationService exactEnemyPatrol
+			= new HST_EnemyPatrolOperationService();
+		commander.SetExactEnemyQRFAuthorityServices(
+			forcePlanning,
+			exactEnemyQRF);
+		commander.SetExactEnemyPatrolAuthorityService(exactEnemyPatrol);
+		HST_CampaignState state = BuildExactState(180, true, 0);
+		HST_ZoneState preferred = state.FindZone("proof_us_target");
+		HST_ZoneState fallback = state.FindZone("proof_us_source");
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone != preferred && zone != fallback)
+				zone.m_eType = HST_EZoneType.HST_ZONE_HIDEOUT;
+		}
+		preferred.m_iPriority = 100;
+		preferred.m_iIncomeValue = 96;
+		fallback.m_iPriority = 0;
+		state.m_aGarrisons.Insert(BuildProofGarrison(
+			preferred.m_sZoneId,
+			OCCUPIER_FACTION,
+			8));
+		state.m_aGarrisons.Insert(BuildProofGarrison(
+			fallback.m_sZoneId,
+			OCCUPIER_FACTION,
+			8));
+		AddProofPatrolRoute(state, preferred, fallback);
+		HST_FactionPoolState pool = state.FindFactionPool(OCCUPIER_FACTION);
+		pool.m_iAttackResources = 15;
+
+		HST_EnemyOrderState patrol = BuildTargetCommitmentOrder(
+			"proof_patrol_fallback_order",
+			"proof_patrol_fallback_operation",
+			OCCUPIER_FACTION,
+			preferred.m_sZoneId,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL,
+			HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE,
+			HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION);
+		state.m_aEnemyOrders.Insert(patrol);
+		state.m_aOperations.Insert(BuildTargetCommitmentOperation(
+			patrol.m_sOperationId,
+			patrol.m_sOrderId,
+			OCCUPIER_FACTION,
+			preferred.m_sZoneId,
+			HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL,
+			HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION));
+		HST_EnemyTargetScoreResult ranked = commander.BuildTargetScoreResult(
+			state,
+			preset,
+			OCCUPIER_FACTION,
+			true);
+		HST_EnemyTargetScoreCandidate fallbackCandidate
+			= FindTargetScoreCandidate(ranked, fallback.m_sZoneId);
+		HST_EnemyPreparedAdmissionResult prepared
+			= commander.DebugPrepareNextPeriodicDecisionForFaction(
+				state,
+				preset,
+				new HST_EnemyDirectorService(),
+				OCCUPIER_FACTION);
+		HST_EnemyPlanningState planning
+			= state.FindEnemyPlanningState(OCCUPIER_FACTION);
+		bool preferredFirst = ranked && ranked.m_bSuccess
+			&& ranked.m_sSelectedZoneId == preferred.m_sZoneId
+			&& fallbackCandidate
+			&& ranked.m_iBestScore - fallbackCandidate.m_iScore > 12;
+		bool fellThrough = prepared && prepared.m_bAccepted
+			&& !prepared.m_bTerminal && planning
+			&& planning.m_sDisposition == "prepared"
+			&& planning.m_sSelectedTargetZoneId == fallback.m_sZoneId
+			&& planning.m_eSelectedOrderType
+				== HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL
+			&& !planning.m_bTargetPressureApplied;
+		evidence = string.Format(
+			"patrol production fallback preferred-only-top-band/fell-through/unpressured %1/%2/%3",
+			preferredFirst,
+			fellThrough,
+			planning && !planning.m_bTargetPressureApplied);
+		return preferredFirst && fellThrough;
+	}
+
+	protected void AddProofPatrolRoute(
+		HST_CampaignState state,
+		HST_ZoneState source,
+		HST_ZoneState target)
+	{
+		if (!state || !source || !target)
+			return;
+		HST_GeneratedRouteState route = new HST_GeneratedRouteState();
+		route.m_sRouteId = "route_" + target.m_sZoneId + "_alpha";
+		route.m_sSourceZoneId = source.m_sZoneId;
+		route.m_sTargetZoneId = target.m_sZoneId;
+		route.m_sSourceCategory = "enemy_planning_proof";
+		route.m_vStartPosition = target.m_vPosition;
+		route.m_vMidPosition = target.m_vPosition + "60 0 0";
+		route.m_vEndPosition = target.m_vPosition + "60 0 60";
+		route.m_iWaypointCount = 3;
+		AddProofPatrolWaypoint(route, 0, route.m_vStartPosition);
+		AddProofPatrolWaypoint(route, 1, route.m_vMidPosition);
+		AddProofPatrolWaypoint(route, 2, route.m_vEndPosition);
+		target.m_sPatrolRouteId = route.m_sRouteId;
+		state.m_aGeneratedRoutes.Insert(route);
+	}
+
+	protected void AddProofPatrolWaypoint(
+		HST_GeneratedRouteState route,
+		int index,
+		vector position)
+	{
+		if (!route)
+			return;
+		HST_RouteWaypointState waypoint = new HST_RouteWaypointState();
+		waypoint.m_sRouteId = route.m_sRouteId;
+		waypoint.m_iIndex = index;
+		waypoint.m_vPosition = position;
+		waypoint.m_iRadiusMeters = 20;
+		waypoint.m_sHint = "enemy planning proof waypoint";
+		route.m_aWaypoints.Insert(waypoint);
+	}
+
+	protected bool ProveCommitmentFilterBranches(
+		HST_EnemyCommanderService commander,
+		HST_CampaignPreset preset,
+		out string evidence)
+	{
+		HST_CampaignState aliasState = BuildExactState(180, true, 0);
+		HST_ZoneState aliasTarget = aliasState.FindZone("proof_us_target");
+		aliasTarget.m_sZoneId
+			= HST_MaidensBayLocationSaveValidationService.CANONICAL_ZONE_ID;
+		aliasState.m_aEnemyOrders.Insert(BuildTargetCommitmentOrder(
+			"proof_alias_queued_order",
+			"proof_alias_queued_operation",
+			OCCUPIER_FACTION,
+			HST_MaidensBayLocationSaveValidationService.LEGACY_ZONE_ID,
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
+			HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED,
+			0));
+		HST_EnemyTargetScoreResult aliasResult
+			= commander.BuildTargetScoreResult(
+				aliasState,
+				preset,
+				OCCUPIER_FACTION,
+				true);
+		bool aliasQueuedOrderExact = aliasResult
+			&& aliasResult.m_iCommitmentRejectedCount == 1
+			&& !FindTargetScoreCandidate(
+				aliasResult,
+				HST_MaidensBayLocationSaveValidationService.CANONICAL_ZONE_ID);
+
+		HST_CampaignState ignoredState = BuildExactState(180, true, 0);
+		HST_OperationRecordState settled = BuildTargetCommitmentOperation(
+			"proof_ignored_settled_operation",
+			"",
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,
+			1);
+		settled.m_eSettlementState
+			= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
+		ignoredState.m_aOperations.Insert(settled);
+		HST_OperationRecordState terminal = BuildTargetCommitmentOperation(
+			"proof_ignored_terminal_operation",
+			"",
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,
+			1);
+		terminal.m_eTerminalResult
+			= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_RECALLED;
+		ignoredState.m_aOperations.Insert(terminal);
+		ignoredState.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_ignored_rival_support",
+			"proof_ignored_rival_operation",
+			INVADER_FACTION,
+			"proof_us_target",
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE));
+		ignoredState.m_aOperations.Insert(BuildTargetCommitmentOperation(
+			"proof_ignored_rival_operation",
+			"",
+			INVADER_FACTION,
+			"proof_us_target",
+			HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,
+			1));
+		HST_EnemyTargetScoreResult ignoredResult
+			= commander.BuildTargetScoreResult(
+				ignoredState,
+				preset,
+				OCCUPIER_FACTION,
+				true);
+		bool ignoredExact = ignoredResult
+			&& ignoredResult.m_iCommitmentRejectedCount == 0
+			&& FindTargetScoreCandidate(ignoredResult, "proof_us_target");
+		evidence = string.Format(
+			"commitment filters alias-queued-order/settled-terminal-rival-ignored %1/%2",
+			aliasQueuedOrderExact,
+			ignoredExact);
+		return aliasQueuedOrderExact && ignoredExact;
+	}
+
+	protected bool ProveMixedCommitmentRootPrecedence(
+		HST_EnemyCommanderService commander,
+		HST_CampaignPreset preset,
+		out string evidence)
+	{
+		HST_CampaignState state = BuildExactState(180, true, 0);
+		string operationId = "proof_mixed_commitment_operation";
+		state.m_aOperations.Insert(BuildTargetCommitmentOperation(
+			operationId,
+			"",
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_EOperationType.HST_OPERATION_TYPE_LOCAL_SECURITY_PATROL,
+			1));
+		state.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_mixed_commitment_support",
+			operationId,
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE));
+		HST_EnemyTargetScoreResult result = commander.BuildTargetScoreResult(
+			state,
+			preset,
+			OCCUPIER_FACTION,
+			true);
+		bool exact = result
+			&& result.m_iCommitmentRejectedCount == 1
+			&& result.m_sCommitmentRejectedReason.Contains(
+				"incompatible commitments 1")
+			&& !FindTargetScoreCandidate(result, "proof_us_target");
+		evidence = string.Format(
+			"mixed compatible/blocking root collapsed-blocking %1",
+			exact);
+		return exact;
+	}
+
+	protected void ProveAllCommittedSkip(
+		HST_EnemyPlanningProofReport report)
+	{
+		HST_CampaignState state = BuildExactState(180, true, 0);
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (!zone)
+				continue;
+			state.m_aEnemyOrders.Insert(BuildTargetCommitmentOrder(
+				"proof_all_committed_" + zone.m_sZoneId,
+				"proof_all_committed_operation_" + zone.m_sZoneId,
+				OCCUPIER_FACTION,
+				zone.m_sZoneId,
+				HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF,
+				HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE,
+				0));
+		}
+
+		HST_FactionPoolState pool = state.FindFactionPool(OCCUPIER_FACTION);
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		int poolRevisionBefore = pool.m_iStrategicRevision;
+		int orderCountBefore = state.m_aEnemyOrders.Count();
+		HST_EnemyPlanningState rival = state.FindEnemyPlanningState(INVADER_FACTION);
+		int rivalRevisionBefore = rival.m_iRevision;
+		int rivalSequenceBefore = rival.m_iDecisionSequence;
+		string rivalDispositionBefore = rival.m_sDisposition;
+		HST_EnemyCommanderService commander = new HST_EnemyCommanderService();
+		HST_EnemyPreparedAdmissionResult prepared
+			= commander.DebugPrepareNextPeriodicDecisionForFaction(
+				state,
+				BuildPreset(),
+				new HST_EnemyDirectorService(),
+				OCCUPIER_FACTION);
+		HST_EnemyPlanningState planning
+			= state.FindEnemyPlanningState(OCCUPIER_FACTION);
+
+		bool dispositionExact = prepared
+			&& prepared.m_bAccepted && prepared.m_bTerminal
+			&& planning && planning.m_sDisposition == "skipped"
+			&& planning.m_iTargetCandidateCount == 0
+			&& planning.m_sSelectedTargetZoneId.IsEmpty()
+			&& planning.m_sSelectedSourceZoneId.IsEmpty();
+		bool frozenZeroExact = planning
+			&& planning.m_iAttackCost == 0
+			&& planning.m_iSupportCost == 0
+			&& planning.m_iTargetPressureBefore == 0
+			&& planning.m_iTargetPressureDelta == 0
+			&& planning.m_iTargetPressureAfter == 0
+			&& !planning.m_bTargetPressureApplied;
+		bool sideEffectsExact = state.m_aEnemyOrders.Count() == orderCountBefore
+			&& state.m_aEnemyStrategicMutations.IsEmpty()
+			&& state.m_aEnemySupportLedgers.IsEmpty();
+		bool resourceExact = pool.m_iAttackResources == attackBefore
+			&& pool.m_iSupportResources == supportBefore
+			&& pool.m_iStrategicRevision == poolRevisionBefore;
+		bool rivalExact = rival.m_iRevision == rivalRevisionBefore
+			&& rival.m_iDecisionSequence == rivalSequenceBefore
+			&& rival.m_sDisposition == rivalDispositionBefore;
+		report.m_bAllCommittedSkipExact = dispositionExact
+			&& frozenZeroExact && sideEffectsExact && resourceExact && rivalExact;
+		report.m_sCommitmentSelectionEvidence
+			= report.m_sCommitmentSelectionEvidence + string.Format(
+				" | all committed accepted/skipped/zero-candidates/zero-cost/no-mutation/rival-clean %1/%2/%3/%4/%5/%6",
+				prepared && prepared.m_bAccepted,
+				planning && planning.m_sDisposition == "skipped",
+				planning && planning.m_iTargetCandidateCount == 0,
+				planning && planning.m_iAttackCost == 0
+					&& planning.m_iSupportCost == 0,
+				state.m_aEnemyStrategicMutations.IsEmpty(),
+				rival.m_iRevision == rivalRevisionBefore);
+	}
+
+	protected void ProveCommitmentRaceRejection(
+		HST_EnemyPlanningProofReport report)
+	{
+		HST_CampaignState state = BuildExactState(180, true, 0);
+		HST_EnemyPlanningState planning
+			= state.FindEnemyPlanningState(OCCUPIER_FACTION);
+		HST_EnemyPlanningDecisionCommand command = BuildCommand(
+			state,
+			planning,
+			"proof_us_target",
+			"proof_us_source",
+			1);
+		command.m_iTargetPressureBefore = 3;
+		command.m_iTargetPressureDelta = 7;
+		command.m_iTargetPressureAfter = 10;
+		HST_EnemyPlanningDecisionResult begun
+			= m_Authority.BeginDecision(planning, command);
+		HST_FactionPoolState pool = state.FindFactionPool(OCCUPIER_FACTION);
+		int attackBefore = pool.m_iAttackResources;
+		int supportBefore = pool.m_iSupportResources;
+		int poolRevisionBefore = pool.m_iStrategicRevision;
+		HST_EnemyPlanningState rival = state.FindEnemyPlanningState(INVADER_FACTION);
+		int rivalRevisionBefore = rival.m_iRevision;
+		int rivalSequenceBefore = rival.m_iDecisionSequence;
+
+		state.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_race_support",
+			"proof_race_operation",
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE));
+		HST_EnemyCommanderService commander = new HST_EnemyCommanderService();
+		HST_EnemyPreparedAdmissionResult consumed
+			= commander.DebugConsumePreparedPeriodicDecisionForFaction(
+				state,
+				BuildPreset(),
+				new HST_EnemyDirectorService(),
+				new HST_SupportRequestService(),
+				OCCUPIER_FACTION);
+
+		bool rejectionExact = begun && begun.m_bAccepted
+			&& consumed && consumed.m_bAccepted && consumed.m_bTerminal
+			&& consumed.m_sFailureReason.Contains(
+				"commitment fingerprint changed before admission")
+			&& planning.m_sDisposition == "rejected"
+			&& !planning.m_bTargetPressureApplied;
+		bool sideEffectsExact = state.m_aEnemySupportLedgers.IsEmpty()
+			&& state.m_aEnemyOrders.IsEmpty()
+			&& state.m_aEnemyStrategicMutations.IsEmpty();
+		bool resourceExact = pool.m_iAttackResources == attackBefore
+			&& pool.m_iSupportResources == supportBefore
+			&& pool.m_iStrategicRevision == poolRevisionBefore;
+		bool rivalExact = rival.m_iRevision == rivalRevisionBefore
+			&& rival.m_iDecisionSequence == rivalSequenceBefore;
+
+		HST_CampaignState pressuredState = BuildExactState(180, true, 0);
+		HST_EnemyPlanningState pressuredPlanning
+			= pressuredState.FindEnemyPlanningState(OCCUPIER_FACTION);
+		HST_EnemyPlanningDecisionCommand pressuredCommand = BuildCommand(
+			pressuredState,
+			pressuredPlanning,
+			"proof_us_target",
+			"proof_us_source",
+			1);
+		pressuredCommand.m_iTargetPressureBefore = 0;
+		pressuredCommand.m_iTargetPressureDelta = 0;
+		pressuredCommand.m_iTargetPressureAfter = 0;
+		HST_EnemyPlanningDecisionResult pressuredBegun
+			= m_Authority.BeginDecision(pressuredPlanning, pressuredCommand);
+		HST_EnemyPlanningDecisionResult pressureMarked
+			= m_Authority.MarkTargetPressureApplied(pressuredPlanning);
+		HST_FactionPoolState pressuredPool
+			= pressuredState.FindFactionPool(OCCUPIER_FACTION);
+		int pressuredAttackBefore = pressuredPool.m_iAttackResources;
+		int pressuredSupportBefore = pressuredPool.m_iSupportResources;
+		int pressuredPoolRevisionBefore = pressuredPool.m_iStrategicRevision;
+		pressuredState.m_aSupportRequests.Insert(BuildTargetCommitmentSupport(
+			"proof_pressured_race_support",
+			"proof_pressured_race_operation",
+			OCCUPIER_FACTION,
+			"proof_us_target",
+			HST_ESupportRequestType.HST_SUPPORT_QRF,
+			HST_ESupportRequestStatus.HST_SUPPORT_ACTIVE));
+		HST_EnemyPreparedAdmissionResult pressuredConsumed
+			= commander.DebugConsumePreparedPeriodicDecisionForFaction(
+				pressuredState,
+				BuildPreset(),
+				new HST_EnemyDirectorService(),
+				new HST_SupportRequestService(),
+				OCCUPIER_FACTION);
+		bool pressuredRejectionExact = pressuredBegun
+			&& pressuredBegun.m_bAccepted
+			&& pressureMarked && pressureMarked.m_bAccepted
+			&& pressuredConsumed && pressuredConsumed.m_bAccepted
+			&& pressuredConsumed.m_bTerminal
+			&& pressuredConsumed.m_sFailureReason.Contains(
+				"commitment fingerprint changed before admission")
+			&& pressuredPlanning.m_sDisposition == "rejected"
+			&& pressuredPlanning.m_bTargetPressureApplied;
+		bool pressuredSideEffectsExact
+			= pressuredState.m_aEnemySupportLedgers.IsEmpty()
+			&& pressuredState.m_aEnemyOrders.IsEmpty()
+			&& pressuredState.m_aEnemyStrategicMutations.IsEmpty();
+		bool pressuredResourceExact
+			= pressuredPool.m_iAttackResources == pressuredAttackBefore
+			&& pressuredPool.m_iSupportResources == pressuredSupportBefore
+			&& pressuredPool.m_iStrategicRevision
+				== pressuredPoolRevisionBefore;
+		report.m_bCommitmentRaceRejectionExact = rejectionExact
+			&& sideEffectsExact && resourceExact && rivalExact
+			&& pressuredRejectionExact
+			&& pressuredSideEffectsExact && pressuredResourceExact;
+		report.m_sCommitmentSelectionEvidence
+			= report.m_sCommitmentSelectionEvidence + string.Format(
+				" | race begin/rejected/pre-pressure/no-debit/pool-clean/rival-clean %1/%2/%3/%4/%5/%6",
+				begun && begun.m_bAccepted,
+				consumed && consumed.m_sFailureReason.Contains(
+					"commitment fingerprint changed before admission"),
+				!planning.m_bTargetPressureApplied,
+				state.m_aEnemyStrategicMutations.IsEmpty()
+					&& state.m_aEnemyOrders.IsEmpty(),
+				pool.m_iAttackResources == attackBefore
+					&& pool.m_iSupportResources == supportBefore
+					&& pool.m_iStrategicRevision == poolRevisionBefore,
+				rival.m_iRevision == rivalRevisionBefore);
+		report.m_sCommitmentSelectionEvidence
+			= report.m_sCommitmentSelectionEvidence + string.Format(
+				" | pressured-retry race marked/rejected/no-debit/pool-clean %1/%2/%3/%4",
+				pressureMarked && pressureMarked.m_bAccepted,
+				pressuredRejectionExact,
+				pressuredSideEffectsExact,
+				pressuredResourceExact);
 	}
 
 	protected void ProveFrozenDecision(HST_EnemyPlanningProofReport report)
@@ -1280,6 +1950,132 @@ class HST_EnemyPlanningProofService
 			&& expected.m_sInputFingerprint == actual.m_sInputFingerprint
 			&& expected.m_sDecisionFingerprint
 				== actual.m_sDecisionFingerprint;
+	}
+
+	protected HST_EnemyTargetScoreCandidate FindTargetScoreCandidate(
+		HST_EnemyTargetScoreResult result,
+		string zoneId)
+	{
+		if (!result || zoneId.IsEmpty())
+			return null;
+		foreach (HST_EnemyTargetScoreCandidate candidate : result.m_aCandidates)
+		{
+			if (candidate && candidate.m_sZoneId == zoneId)
+				return candidate;
+		}
+		return null;
+	}
+
+	protected HST_EnemyOrderState BuildTargetCommitmentOrder(
+		string orderId,
+		string operationId,
+		string factionKey,
+		string targetZoneId,
+		HST_EEnemyOrderType orderType,
+		HST_EEnemyOrderStatus status,
+		int operationContractVersion)
+	{
+		HST_EnemyOrderState order = new HST_EnemyOrderState();
+		order.m_sOrderId = orderId;
+		order.m_sOperationId = operationId;
+		order.m_sFactionKey = factionKey;
+		order.m_eType = orderType;
+		order.m_eStatus = status;
+		order.m_sSourceZoneId = "proof_us_source";
+		order.m_sTargetZoneId = targetZoneId;
+		order.m_iOperationContractVersion = operationContractVersion;
+		return order;
+	}
+
+	protected HST_GarrisonState BuildProofGarrison(
+		string zoneId,
+		string factionKey,
+		int infantryCount)
+	{
+		HST_GarrisonState garrison = new HST_GarrisonState();
+		garrison.m_sGarrisonId = "proof_garrison_" + zoneId + "_" + factionKey;
+		garrison.m_sZoneId = zoneId;
+		garrison.m_sFactionKey = factionKey;
+		garrison.m_iInfantryCount = Math.Max(0, infantryCount);
+		return garrison;
+	}
+
+	protected HST_SupportRequestState BuildTargetCommitmentSupport(
+		string requestId,
+		string operationId,
+		string factionKey,
+		string targetZoneId,
+		HST_ESupportRequestType supportType,
+		HST_ESupportRequestStatus status)
+	{
+		HST_SupportRequestState request = new HST_SupportRequestState();
+		request.m_sRequestId = requestId;
+		request.m_sOperationId = operationId;
+		request.m_sFactionKey = factionKey;
+		request.m_eType = supportType;
+		request.m_eStatus = status;
+		request.m_sSourceZoneId = "proof_us_source";
+		request.m_sTargetZoneId = targetZoneId;
+		return request;
+	}
+
+	protected HST_OperationRecordState BuildTargetCommitmentOperation(
+		string operationId,
+		string enemyOrderId,
+		string factionKey,
+		string targetZoneId,
+		HST_EOperationType operationType,
+		int contractVersion)
+	{
+		HST_OperationRecordState operation = new HST_OperationRecordState();
+		operation.m_sOperationId = operationId;
+		operation.m_sEnemyOrderId = enemyOrderId;
+		operation.m_sOwnerFactionKey = factionKey;
+		operation.m_eType = operationType;
+		operation.m_iContractVersion = contractVersion;
+		operation.m_sOriginZoneId = "proof_us_source";
+		operation.m_sAssignmentZoneId = targetZoneId;
+		operation.m_eSettlementState
+			= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		operation.m_eTerminalResult
+			= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE;
+		return operation;
+	}
+
+	protected void ReverseSelectionFixtureArrays(HST_CampaignState state)
+	{
+		if (!state)
+			return;
+		for (int zoneIndex = 0; zoneIndex < state.m_aZones.Count() / 2; zoneIndex++)
+		{
+			int oppositeZoneIndex = state.m_aZones.Count() - zoneIndex - 1;
+			HST_ZoneState zone = state.m_aZones[zoneIndex];
+			state.m_aZones[zoneIndex] = state.m_aZones[oppositeZoneIndex];
+			state.m_aZones[oppositeZoneIndex] = zone;
+		}
+		for (int orderIndex = 0; orderIndex < state.m_aEnemyOrders.Count() / 2; orderIndex++)
+		{
+			int oppositeOrderIndex = state.m_aEnemyOrders.Count() - orderIndex - 1;
+			HST_EnemyOrderState order = state.m_aEnemyOrders[orderIndex];
+			state.m_aEnemyOrders[orderIndex] = state.m_aEnemyOrders[oppositeOrderIndex];
+			state.m_aEnemyOrders[oppositeOrderIndex] = order;
+		}
+		for (int supportIndex = 0; supportIndex < state.m_aSupportRequests.Count() / 2; supportIndex++)
+		{
+			int oppositeSupportIndex = state.m_aSupportRequests.Count() - supportIndex - 1;
+			HST_SupportRequestState request = state.m_aSupportRequests[supportIndex];
+			state.m_aSupportRequests[supportIndex]
+				= state.m_aSupportRequests[oppositeSupportIndex];
+			state.m_aSupportRequests[oppositeSupportIndex] = request;
+		}
+		for (int operationIndex = 0; operationIndex < state.m_aOperations.Count() / 2; operationIndex++)
+		{
+			int oppositeOperationIndex = state.m_aOperations.Count() - operationIndex - 1;
+			HST_OperationRecordState operation = state.m_aOperations[operationIndex];
+			state.m_aOperations[operationIndex]
+				= state.m_aOperations[oppositeOperationIndex];
+			state.m_aOperations[oppositeOperationIndex] = operation;
+		}
 	}
 
 	protected void AddCommitmentFixtures(HST_CampaignState state)

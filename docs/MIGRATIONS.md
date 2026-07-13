@@ -29,6 +29,22 @@ all-target Workbench log `logs_2026-07-13_09-20-51` compiles 5,815 Game files/
 survived cleanup. Campaign Debug, package execution, packaged restart, actual
 migration, multiplayer, and soak proof remain open.
 
+Current source also adds a schema-neutral commitment-aware planning correction.
+Queued/active same-faction orders and support requests and open same-faction
+operations now affect target admission and ranking. Linked rows collapse to one
+root commitment; incompatible roots reject the target before ranking, while
+compatible roots impose a deterministic `-12` penalty each, capped at `-24`.
+Exact active patrol remains compatible with a non-patrol defensive response but
+still blocks another patrol. If order-type resolution chooses `PATROL` for that
+candidate, preparation excludes it and deterministically reranks without
+changing the full candidate fingerprint. Mixed compatible/blocking rows sharing
+one root resolve once with blocking precedence. Preparation is freeze-only;
+admission rechecks commitments before debit even on a pressure-marked retry, and
+rechecks `ept2` candidate identity before pressure for an unpressured row.
+Source implementation, a passing Foundation gate, and clean Workbench
+compilation are the only evidence for this correction so far; Campaign Debug,
+package, restart, and runtime proof remain open.
+
 Schema 68/settings 24 enemy planning is the immediately preceding sealed source/
 Workbench checkpoint at implementation
 `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
@@ -183,7 +199,7 @@ evidence remains open.
   24 at implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`,
   UTC `2026-07-13T01:04:41Z`, label
   `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench
-  CRC `971d30d0` at 5,812 files/11,761 classes. Twelve state-only assertions are
+  CRC `971d30d0` at 5,812 files/11,761 classes. Its state-only assertions are
   wired but Campaign Debug, save/restart, package, dedicated-server,
   multiplayer, and soak proof remains open. The later schema-neutral bootstrap/
   profile/marker correction is sealed at implementation
@@ -203,6 +219,27 @@ evidence remains open.
   before/delta/after and application state, and stable decision/order/operation/
   debit accounting identities. Input and decision fingerprints must recompute
   exactly.
+- Current target admission classifies queued or active same-faction enemy orders
+  and support requests and open same-faction operations at equivalent zone IDs.
+  Rows linked through an order or operation collapse to one root commitment.
+  Incompatible roots remove the target before scoring or ranking; terminal and
+  rival-faction rows do not block it. An exact active patrol root is compatible
+  with a non-patrol defensive response, but the final order-type gate blocks a
+  duplicate patrol. If a root contains both compatible and blocking rows,
+  blocking takes precedence and that root is counted once. Known equivalent
+  canonical/legacy zone IDs resolve to the same target. Every compatible root
+  contributes a deterministic `-12` score penalty capped at `-24`.
+- The target-candidate fingerprint is `ept2`. It includes each retained
+  candidate's compatible-root count and commitment score so commitment-aware
+  ranking is part of the frozen candidate-set identity rather than diagnostics
+  alone. If the highest exact-patrol-compatible candidate later resolves to
+  `PATROL`, preparation excludes it only from the current selection pass and
+  reruns the same salted ranking. The full candidate count and `ept2` fingerprint
+  remain unchanged while the decision selects the next valid target or a clean
+  no-target result, avoiding a wasted planning cadence.
+- Rejection diagnostics are deterministic: linked rows collapse before the
+  incompatible-root count is reported, blocking evidence is sorted, and the
+  canonical first rejection reason is stable across input permutations.
 - Pre-68 migration clears every claimed planning row and every planning backlink
   on an old enemy order. After configured roles and exact Schema-67 pools are
   known, it creates one baseline per role with `last = elapsed`, `next = elapsed
@@ -231,22 +268,45 @@ evidence remains open.
   no mutation. This is not a general current-schema quarantine repair. The
   deterministic fixture also requires unrelated state preservation, a no-op
   second recovery attempt, validator acceptance, and an exact save roundtrip.
-- A due decision first persists as `prepared`. A retry remains the same frozen
-  decision and is bounded to a 30-second retry checkpoint. Completion is an
-  explicit `committed`, `skipped`, or `rejected` disposition. `committed`
-  requires one exact order and applied Schema-67 debit receipt; a prepared row
-  with that exact crash-window graph may reconcile to committed. `skipped` may
-  not claim applied target pressure; `rejected` may retain pressure that was
-  already applied.
+- A due decision first persists as `prepared`. Preparation is freeze-only and
+  does not apply target pressure, debit resources, or create an order. For a
+  prepared decision without an existing durable order, admission always
+  recomputes the commitment fingerprint before debit or order creation,
+  including when target pressure is already marked. An unpressured row also
+  recomputes the `ept2` target-candidate fingerprint and revalidates the frozen
+  target/source/order gates before pressure. A changed commitment therefore
+  rejects a pressure-marked retry before debit, while a changed candidate set
+  rejects an unpressured row before any side effect. A retry remains the same
+  frozen decision and is bounded to a 30-second retry checkpoint.
+- Completion is an explicit `committed`, `skipped`, or `rejected` disposition.
+  `committed` requires one exact order and applied Schema-67 debit receipt; a
+  prepared row with that exact crash-window graph may reconcile to committed.
+  If every eligible target is incompatibly committed, the planner freezes zero
+  candidates, zero cost, and zero pressure and completes as `skipped` without an
+  order, debit, or rival-planner mutation. `skipped` may not claim applied target
+  pressure; `rejected` may retain pressure already applied by an older or
+  later-failing path.
 - A transient failure before a due decision can freeze persists a separate
   non-prepared `nextRetry = now + 30` gate and bounded reason without changing
   the prior terminal decision. Current restore rejects retry timestamps beyond
   the saved elapsed second plus 30. Successful begin clears that gate.
 - `prepared` with positive frozen pressure and `applied = false` is a valid
-  pre-pressure crash window. A matching prepared order plus exact Schema-67
-  debit may be adopted as committed; adoption clears retry residue. Revision
-  headroom is reserved before begin, pressure mark, retry, and completion so
-  no step can serialize `int.MAX` or mutate pressure without completion room.
+  pre-pressure crash window and is now the normal post-freeze state for a new
+  actionable decision. A matching prepared order plus exact Schema-67 debit may
+  be adopted as committed; adoption clears retry residue. Revision headroom is
+  reserved before begin, pressure mark, retry, and completion so no step can
+  serialize `int.MAX` or mutate pressure without completion room.
+- This correction does not change campaign Schema 68 or settings Schema 24. An
+  older unpressured prepared row carrying the `ept1` candidate identity remains
+  readable, but current admission can reject it before pressure, debit, or order
+  mutation when `ept2` does not match. Migration does not select a replacement
+  target or rewrite the frozen decision.
+- The expanded deterministic source proof covers queued order and support
+  blockers; settled or terminal operation and rival-faction ignores; equivalent
+  canonical/legacy zone IDs; mixed-root blocking precedence; stable rejection
+  diagnostics across permutations; patrol reranking; and commitment changes on
+  both unpressured and pressure-marked prepared rows. These fixtures remain
+  unexecuted Campaign Debug evidence until the runtime assertion runs.
 - Immediate counterattacks and existing debug/direct order paths do not claim
   periodic planner authority. Their orders remain planning contract `0` unless
   they are admitted through the Schema-68 prepared-decision boundary.
