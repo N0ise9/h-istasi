@@ -742,7 +742,8 @@ Consequences:
   observe non-removability or bounded self-heal, then repeat across map reopen,
   reconnect, and late join. Source inspection and Workbench compilation do not
   close that rendered-input gate.
-- The provisional Campaign Debug owner-client probe deliberately mutates and
+- The source/Workbench-sealed, runtime-unexecuted Campaign Debug owner-client
+  probe deliberately mutates and
   deletes one tracked campaign marker, calls the production reconciler after each
   fault, and requires canonical system ownership, non-removability, registry
   stability, static-count stability, and exactly one repaired instance. It also
@@ -914,7 +915,7 @@ Consequences:
 
 ## CRI-017 - Move Generated Profile Data Without Stranding Existing Campaigns
 
-- Status: Accepted; Foundation/Workbench passed, runtime proof pending
+- Status: Accepted; sealed source/Workbench, runtime proof pending
 - Date: 2026-07-13
 
 Context: Public branding now uses Partisan, but generated settings, campaign
@@ -958,12 +959,20 @@ Consequences:
 - The latest packaged test proved canonical-root creation only. No retired tree
   existed, so recursive copy, conflict archival, byte verification, source
   removal, empty-directory removal, and restart behavior remain open runtime
-  gates. Current Foundation and all-target Workbench validation pass; those
-  source gates do not prove real profile I/O or cross-process behavior.
+  gates. The schema-neutral correction is sealed at implementation
+  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+  `2026-07-13T13:19:22Z`, label
+  `schema68-settings24-bootstrap-profile-marker-hardening`. Foundation passes
+  at 751 script-symbol references; final stamped-tree all-target Workbench log
+  `logs_2026-07-13_09-20-51` compiles 5,815 Game files/11,768 classes at CRC
+  `0544aa1d`, validates WORKBENCH, PC, XBOX, PS4, and PS5 successfully, exits,
+  and leaves zero Workbench processes. Those source gates do not prove real
+  profile I/O, restart, package behavior, multiplayer, soak, or cross-process
+  behavior.
 
 ## CRI-018 - Separate Fresh Enemy Bootstrap From Restored-State Validation
 
-- Status: Accepted; Foundation/Workbench passed, runtime proof pending
+- Status: Accepted; sealed source/Workbench, runtime proof pending
 - Date: 2026-07-13
 
 Context: The latest packaged server test created a new Schema-68 state whose
@@ -983,8 +992,9 @@ therefore the restored validators remain before broad foundation repair and keep
 missing, duplicate, malformed, or foreign authority fail-closed. For campaigns
 already written by the known defect, a schema-neutral recovery may replace only
 the complete generated quarantine signature: Schema 68 restored envelope,
-exact nonempty preset identity, exactly three non-null pool rows containing one neutral resistance row and two
-untouched `-67` enemy rows, exactly two untouched `-68` planner rows, and empty
+exact nonempty preset identity, exactly three non-null pool rows containing one
+neutral resistance row and two untouched `-67` enemy rows, exactly two untouched
+`-68` planner rows, and empty
 strategic-mutation and enemy-order arrays. Any field, identity, receipt, order,
 null row, role, or cardinality mismatch rejects recovery without mutation.
 
@@ -1001,11 +1011,17 @@ Consequences:
   per 300 seconds. Failure changes and successful recovery report immediately and
   reset the reminder state.
 - Campaign Debug must prove fresh bootstrap, first validation, exact known-state
-  recovery, resource/topology/preset/null-row/legacy-order/versioned-order rejection,
+  recovery, resource/topology/preset/null-row/legacy-order/versioned-order
+  rejection,
   unrelated-state preservation, one-shot idempotence, save roundtrip/validator
   acceptance, and warning transition/reminder/recovery timing. Its live-state
   check must call the read-only production exact-pool and exact-planner resolvers
   and require the exact three-role/two-planner topology without mutation.
-- Foundation and all-target Workbench validation pass. This decision is not
-  runtime-certified until Campaign Debug, a fresh packaged campaign, and the
-  affected-save restart all pass.
+- The shared correction seal is implementation
+  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+  `2026-07-13T13:19:22Z`, label
+  `schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
+  final stamped-tree all-target Workbench CRC `0544aa1d` at 5,815 Game files/
+  11,768 classes. It is not runtime-certified until Campaign Debug, a fresh
+  packaged campaign, the affected-save restart, migration, multiplayer, and
+  soak gates pass.

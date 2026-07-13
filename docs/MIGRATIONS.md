@@ -3,9 +3,12 @@
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` remains `68` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The active checkpoint is
-provisional: profile-tree movement and the known Schema-68 bootstrap correction
-are deliberately schema-neutral and have not yet replaced the prior build stamp.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The schema-neutral profile-
+tree movement and known Schema-68 bootstrap correction are sealed as a source/
+Workbench checkpoint at implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+`2026-07-13T13:19:22Z`, label
+`schema68-settings24-bootstrap-profile-marker-hardening`.
 
 The latest packaged `f97b12e` test created canonical `$profile:Partisan` settings
 and campaign data but contained no retired profile tree, so recursive migration
@@ -19,9 +22,12 @@ enemy-order arrays; resource, topology, preset, null-row, legacy-order,
 versioned-order, and every other near miss stay fail-closed and unchanged.
 Unchanged warnings use 300-second reminders, and live
 Campaign Debug observes authority through the read-only production exact
-resolvers. Foundation and all-target Workbench validation pass at 5,815 Game
-files/11,768 classes and CRC `fc49da5c`. Campaign Debug and packaged restart/
-migration proof remain open.
+resolvers. Foundation passes at 751 script-symbol references. Final stamped-tree
+all-target Workbench log `logs_2026-07-13_09-20-51` compiles 5,815 Game files/
+11,768 classes at CRC `0544aa1d`; WORKBENCH, PC, XBOX, PS4, and PS5 report
+`Script validation successful`, the process exited, and zero Workbench processes
+survived cleanup. Campaign Debug, package execution, packaged restart, actual
+migration, multiplayer, and soak proof remain open.
 
 Schema 68/settings 24 enemy planning is the immediately preceding sealed source/
 Workbench checkpoint at implementation
@@ -179,10 +185,12 @@ evidence remains open.
   `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench
   CRC `971d30d0` at 5,812 files/11,761 classes. Twelve state-only assertions are
   wired but Campaign Debug, save/restart, package, dedicated-server,
-  multiplayer, and soak proof remains open. The later schema-neutral profile-
-  namespace seal remains the prior packaged baseline; the active bootstrap/tree-
-  migration correction is provisional. Schema 67 remains the preceding resource
-  authority recorded below.
+  multiplayer, and soak proof remains open. The later schema-neutral bootstrap/
+  profile/marker correction is sealed at implementation
+  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, Foundation 751, and final
+  stamped-tree all-target Workbench CRC `0544aa1d`; `f97b12e` remains its prior
+  packaged failure baseline. Schema 67 remains the preceding resource authority
+  recorded below.
 - Each configured enemy role owns exactly one separate
   `HST_EnemyPlanningState`. The row persists its own 180-second cadence,
   revision, and decision sequence; occupier and invader checkpoints advance
@@ -311,9 +319,9 @@ evidence remains open.
   revisions, operational counts/sequences, cadence checkpoints, fingerprints,
   and backlinks without applying any retained mutation again.
 - Schema 67 does not persist enemy-planning cadence, candidate sets, selected
-  target/source/order, cost quote, or decision fingerprint. Active provisional
-  Schema 68 adds those facts without reconstructing them from Schema-67 resource
-  receipts or historical orders.
+  target/source/order, cost quote, or decision fingerprint. Sealed Schema 68 adds
+  those facts without reconstructing them from Schema-67 resource receipts or
+  historical orders.
 
 ## Schema 66
 

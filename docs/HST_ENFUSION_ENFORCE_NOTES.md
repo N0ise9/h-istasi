@@ -1,16 +1,23 @@
 # Partisan Enfusion / Enforce Notes
 
-The current source remains Campaign Schema 68/runtime-settings Schema 24, but it
-is a provisional checkpoint. The latest packaged `f97b12e` run created canonical
-`$profile:Partisan` data, had no retired tree to migrate, and exposed fresh enemy
-authority quarantined at `-67`/`-68` with 598 repeated one-second warnings.
+The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
+settings Schema 24 and is sealed at implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+`2026-07-13T13:19:22Z`, label
+`schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
+`f97b12e` run created canonical `$profile:Partisan` data, had no retired tree to
+migrate, and exposed fresh enemy authority quarantined at `-67`/`-68` with 598
+repeated one-second warnings.
 Current source corrects fresh fallback ordering, limits recovery to the complete
 known generated signature, applies a 300-second unchanged-warning reminder,
 observes live enemy authority through production exact resolvers, moves the whole
 retired profile tree through verified staging/conflict archival, and wires a
 destructive campaign-marker self-heal/player-marker isolation probe with final
-repair/cleanup. Foundation and all-target Workbench validation pass at 5,815
-Game files/11,768 classes and CRC `fc49da5c`. Campaign Debug, packaged restart/
+repair/cleanup. Foundation passes at 751 script-symbol references. Final stamped-
+tree all-target Workbench log `logs_2026-07-13_09-20-51` compiles 5,815 Game
+files/11,768 classes at CRC `0544aa1d`; WORKBENCH, PC, XBOX, PS4, and PS5
+report `Script validation successful`, the process exited, and zero Workbench
+processes survived cleanup. Campaign Debug, package execution, packaged restart/
 migration, dedicated-server, multiplayer, and soak evidence remain open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
@@ -4637,7 +4644,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - This sealed ambient checkpoint reached Blueprint Phase 8 source sequence, not
   eight completed phases. Schema 67 and Schema 68 have since entered Phase 9,
-  and the active bootstrap/profile/marker correction remains provisional. Phase
+  and the bootstrap/profile/marker correction is now sealed for source and
+  Workbench while its runtime gates remain open. Phase
   8 and every earlier phase still retain native, dedicated-server,
   restart, or multiplayer exit gates. Deferred native tests must be backfilled;
   reaching a later source slice does not waive them.
@@ -5205,9 +5213,9 @@ This file is for practical engine/script behavior, not project planning. Keep en
   unchanged reason at most every 300 seconds. Do not advance planning state just
   because a duplicate warning was suppressed.
 
-- The prior Schema-68 contract is sealed at the identity recorded above, but the
-  bootstrap/recovery/throttle correction is provisional. Foundation and current
-  all-target Workbench validation pass; do not claim Campaign Debug,
+- The prior Schema-68 planning contract and the current bootstrap/recovery/
+  throttle correction are sealed at their respective identities recorded above.
+  Foundation and current all-target Workbench validation pass; do not claim Campaign Debug,
   save/restart, package, dedicated-server, multiplayer, or runtime evidence until
   those separate gates run on the newly stamped tree.
 

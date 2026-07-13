@@ -1,9 +1,13 @@
 # Partisan Feature Checklist
 
-The current source checkpoint remains Campaign Schema 68/runtime-settings Schema
-24, but it is provisional and unstamped. The latest packaged server run loaded
-the prior `f97b12e` build, created the canonical `$profile:Partisan` root, and
-exposed a fresh-start enemy-authority regression: configured strategic/planning
+The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
+settings Schema 24 and is sealed at implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+`2026-07-13T13:19:22Z`, label
+`schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
+server run loaded the prior `f97b12e` build, created the canonical
+`$profile:Partisan` root, and exposed a fresh-start enemy-authority regression:
+configured strategic/planning
 rows quarantined at `-67`/`-68`, disabling planning and emitting 598 repeated
 warnings at roughly one-second cadence. No retired profile tree existed, so that
 run did not exercise migration.
@@ -28,9 +32,13 @@ file and empty-directory cleanup. Same-process migration is guarded, while the
 lack of atomic cross-process promotion/locking makes startup explicitly single-
 writer. Campaign Debug's destructive marker probe now performs final production
 repair and player-marker cleanup before returning. Foundation and all-target
-Workbench validation pass at 5,815 Game files/11,768 classes, CRC `fc49da5c`.
-Campaign Debug, packaged restart, actual retired-tree migration, multiplayer,
-and soak proof remain open.
+Workbench validation pass. Foundation reports 751 script-symbol references.
+Final stamped-tree all-target Workbench log `logs_2026-07-13_09-20-51` compiles
+5,815 Game files/11,768 classes at CRC `0544aa1d`; WORKBENCH, PC, XBOX, PS4,
+and PS5 report `Script validation successful`, the process exited, and zero
+Workbench processes survived cleanup. Campaign Debug, package execution,
+packaged restart, actual retired-tree migration, multiplayer, and soak proof
+remain open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
 68 with runtime settings still at Schema 24. Its stamp identifies implementation
@@ -222,13 +230,15 @@ means the named production slice exists. `Verified` means an appropriate proof
 has actually run against that slice. `Certified` additionally requires a safe,
 isolated runtime run with no unresolved hard failures or required external gaps.
 
-The current Schema 68/settings 24 source is provisional. The previous packaged
-baseline created canonical data but quarantined both fresh enemy authorities and
-spammed 598 one-second warnings. The new shared bootstrap, exact recovery/
-rejection boundary, read-only live authority check, warning throttle, staged
-whole-tree profile move, and marker-integrity cleanup pass Foundation and all-
-target Workbench validation. Campaign Debug and packaged restart/migration/
-marker gates remain open before this checkpoint can be runtime-certified.
+The current Schema 68/settings 24 source/Workbench correction is sealed under
+the identity recorded above. The previous packaged baseline created canonical
+data but quarantined both fresh enemy authorities and emitted 598 one-second
+warnings. The new shared bootstrap, exact recovery/rejection boundary, read-only
+live authority check, warning throttle, staged whole-tree profile move, and
+marker-integrity cleanup pass Foundation 751 and final stamped-tree all-target
+Workbench validation at CRC `0544aa1d`. Campaign Debug, package execution,
+packaged restart/migration, and marker gates remain open before this checkpoint
+can be runtime-certified.
 
 The sealed Schema 66/settings 24 checkpoint retains Schema
 65's civilian-consequence authority and Schema 64's one canonical town record
@@ -410,7 +420,7 @@ must be backfilled; an active later source contract does not waive those gates.
 
 | Gate | Designed | Implemented | Verified | Certified | Current evidence / blocker |
 | --- | --- | --- | --- | --- | --- |
-| CRI-0 Truth and baseline | Campaign Schema 68/runtime-settings Schema 24 remains the current contract; the prior sealed/package baseline is `f97b12e`, while this source checkpoint is provisional and unstamped | Shared production fresh bootstrap, exact-signature poisoned-save recovery/rejection, observational live authority checks, 300-second unchanged-warning throttle, staged verified whole-tree move into `$profile:Partisan`, and destructive marker-integrity proof/cleanup are implemented | Foundation and all-target Workbench validation pass at 5,815/11,768 and CRC `fc49da5c`. The latest package still reproduced `-67`/`-68` quarantine and 598 warnings; no retired tree existed | No | Execute Campaign Debug, then package-prove fresh authority, affected-save restart recovery, single-writer retired-tree removal/conflict archival, and protected/player marker behavior. |
+| CRI-0 Truth and baseline | Campaign Schema 68/runtime-settings Schema 24 remains the current contract; the source/Workbench correction is sealed as `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, while `f97b12e` remains the prior packaged failure baseline | Shared production fresh bootstrap, exact-signature poisoned-save recovery/rejection, observational live authority checks, 300-second unchanged-warning throttle, staged verified whole-tree move into `$profile:Partisan`, and destructive marker-integrity proof/cleanup are implemented | Foundation 751 and final stamped-tree all-target Workbench validation pass at 5,815/11,768 and CRC `0544aa1d`. The latest package still reproduced `-67`/`-68` quarantine and 598 warnings; no retired tree existed | No | Execute Campaign Debug, then package-prove fresh authority, affected-save restart recovery, single-writer retired-tree removal/conflict archival, and protected/player marker behavior. |
 | CRI-1 Authority foundation | Complete | Prior vertical slices plus one exact durable radio-site owner | Schema-59 source proof and stamped-tree Workbench gates pass; packaged runtime pending | No | One site row per radio zone owns stable target binding, ONLINE/DESTROYED/REBUILDING state, ownership, mission lock, typed transition, revision, and receipts; each mission owns a distinct physical runtime identity. Stop-rebuild is once per tower-destruction epoch, and stopping its equipment does not advance that epoch. New exact radio missions use contract `1`; active legacy rows fail closed and malformed current rows quarantine at `-59`. |
 | CRI-2 Force manifests | Complete for foundation | Durable SpawnQueue, exact infantry adapter, ten exact infantry-family consumers, one exact convoy, plus three externally managed captive slots | Schema-66 local-security source integration passes Foundation/Workbench; native projection/restart is pending | No | Local security adds one authored 2–5 member enemy-town roster without widening generic vehicle/asset/multi-root execution or historical consumers. |
 | CRI-3 Force runtime | Complete in source for ten exact infantry-family consumers, one exact convoy, the three-captive rescue lifecycle, and the crewless mixed-group slice | Existing exact casualty/reprojection paths plus Schema-66 local-security survivor fold/restore and no-refill authority | Schema-66 Foundation/Workbench passes; Campaign Debug and native/package/restart gates are pending | No | Prove live local-security adapter casualties, fold/root retirement, held-slot continuity, re-entry, and restart alongside every earlier family. |
@@ -423,7 +433,7 @@ must be backfilled; an active later source contract does not waive those gates.
 | CRI-8 Civilian runtime and political consequences | Ambient and first civilian-consequence authority are designed | Sealed Settings-24 ambience and Schema-65 consequences remain unchanged beneath sealed Schema 66 and sealed-source Schema 67 | Schema-65/66 Foundation/Workbench gates pass; native callback, movement, local-security, and real save/restart execution remain unverified | No | Native-prove the existing casualty/theft/combat/panic contract, aid, and security-pressure sources alongside the exact local-security boundary. Schema 67 does not certify this exit. |
 | CRI-8b Exact enemy-town local security | Complete in sealed Schema-66 source/Workbench | One deterministic enemy-town epoch owns an authored 2–5 member manifest, held exact slots, physical/virtual transfer, exact casualties, compact terminal history, once-only police loss, no-resurrection, and bounded rearm. Resistance automatic police/roadblock targets are zero | Foundation/Workbench passes; the deterministic Campaign Debug proof and native/runtime gates remain unexecuted | No | Package-prove native spawn/waypoints, casualty fold/re-entry, save/restart, ownership ordering, terminal/setup cleanup, no refill/no same-epoch resurrection, positive-pressure/new-owner rearm, pre-66 migration, multiplayer, and balance. |
 | CRI-9 Canonical enemy strategic resources | Source-complete sealed Schema-67 source/Workbench contract | Versioned per-enemy attack/support/aggression pools, cadence bucket checkpoints, and immutable receipts with a contiguous per-faction operational sequence. Zero-effect operations retain evidence; exact QRF/patrol orders, defense ledgers, town events, and ownership transitions are reciprocal restore backlinks. Operational history never compacts: 4,096 accepted rows per faction is a hard lifetime limit and later operational admission for only that faction fails closed | Foundation passes at 736 references; final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful five-configuration validation, zero HST script errors, and zero surviving processes. Core deterministic assertions are wired/static but unexecuted; real restart and packaged proof remain pending | No | Execute the source fixtures and real-restart replay/conflict/arithmetic/cadence/backlink/cap/quarantine cases; unsupported orders remain legacy/deferred. |
-| CRI-9b Persisted enemy planning | Sealed Schema-68 contract plus provisional bootstrap correction | One production factory supplies the exact three-role/two-planner fresh state; unrelated restore corruption remains fail-closed; recovery requires the exact nonempty preset identity, exact cardinality, non-null rows, empty mutation/order arrays, and the known `-67`/`-68` poison at the current second; unchanged failures remind at 300 seconds; live proof observes through production exact resolvers | Foundation/Workbench pass. Fresh-bootstrap, recovery, resource/topology/preset/null-row/legacy-order/versioned-order rejection, idempotence/roundtrip/validator, throttle, and live-authority assertions are wired but unexecuted | No | Execute Campaign Debug, start a new package with executable pools/planners, restart the affected save and observe exact recovery, confirm every near miss remains quarantined, and soak without one-second warning/stutter recurrence. |
+| CRI-9b Persisted enemy planning | Sealed Schema-68 contract plus sealed source/Workbench bootstrap correction | One production factory supplies the exact three-role/two-planner fresh state; unrelated restore corruption remains fail-closed; recovery requires the exact nonempty preset identity, exact cardinality, non-null rows, empty mutation/order arrays, and the known `-67`/`-68` poison at the current second; unchanged failures remind at 300 seconds; live proof observes through production exact resolvers | Foundation 751 and final stamped-tree all-target Workbench CRC `0544aa1d` pass. Fresh-bootstrap, recovery, resource/topology/preset/null-row/legacy-order/versioned-order rejection, idempotence/roundtrip/validator, throttle, and live-authority assertions are wired but unexecuted | No | Execute Campaign Debug, start a new package with executable pools/planners, restart the affected save and observe exact recovery, confirm every near miss remains quarantined, and soak without one-second warning/stutter recurrence. |
 
 ## Implementation Contract
 

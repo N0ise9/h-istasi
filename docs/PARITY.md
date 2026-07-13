@@ -1,9 +1,13 @@
 # Partisan Capability Map
 
-The current source remains Campaign Schema 68/runtime-settings Schema 24, but
-this checkpoint is provisional. The latest packaged `f97b12e` baseline generated
-canonical `$profile:Partisan` data and then exposed missing fresh enemy authority:
-both configured roles quarantined at `-67`/`-68`, planning stopped, and 598
+The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
+settings Schema 24 and is sealed at implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+`2026-07-13T13:19:22Z`, label
+`schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
+`f97b12e` baseline generated canonical `$profile:Partisan` data and then exposed
+missing fresh enemy authority: both configured roles quarantined at `-67`/`-68`,
+planning stopped, and 598
 unchanged warnings repeated at roughly one-second cadence. That run contained no
 retired profile tree, so it did not test migration.
 
@@ -24,9 +28,13 @@ comparison, deepest-first cleanup, and a same-process guard. It is explicitly
 single-writer because Enforce supplies no atomic cross-process promotion or
 exclusive lock. The destructive Campaign Debug marker probe performs final
 production repair and player-marker cleanup before returning. Foundation and
-all-target Workbench validation pass at 5,815 Game files/11,768 classes and CRC
-`fc49da5c`. Campaign Debug, packaged restart/migration, multiplayer, and soak
-proof remain open.
+all-target Workbench validation pass. Foundation reports 751 script-symbol
+references. Final stamped-tree all-target Workbench log
+`logs_2026-07-13_09-20-51` compiles 5,815 Game files/11,768 classes at CRC
+`0544aa1d`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+successful`, the process exited, and zero Workbench processes survived cleanup.
+Campaign Debug, package execution, packaged restart/migration, multiplayer, and
+soak proof remain open.
 
 The immediately preceding sealed source/Workbench contract is Campaign Schema
 68/runtime-settings Schema 24 under implementation
@@ -807,7 +815,8 @@ Debug and packaged-runtime gates remain open.
   native campaign marker reconciliation. Exact authored static-marker names are
   cached instead of radius-polled. Schema 66 makes protected campaign markers
   system-owned/non-removable and self-heals native mutation/deletion without
-  changing editable player markers. The provisional owner-client proof now
+  changing editable player markers. The source/Workbench-sealed owner-client
+  proof now
   mutates and deletes a tracked campaign marker, runs the production repair path,
   checks single-instance/registry/static-count stability, and separately edits
   and removes an ordinary player marker. The new fixture remains unexecuted.
@@ -819,14 +828,18 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Campaign Schema 68/runtime-settings 24 is current, but the active source tree
-  is provisional and still carries the previous build stamp. The latest package
+- Campaign Schema 68/runtime-settings 24 is current. The active source/Workbench
+  correction is sealed at implementation
+  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+  `2026-07-13T13:19:22Z`, label
+  `schema68-settings24-bootstrap-profile-marker-hardening`. The latest package
   proved canonical-root generation, exposed fresh `-67`/`-68` authority plus 598
   repeated warnings, and had no retired tree. Current shared bootstrap, exact
   recovery/rejection, production-resolver live observation, 300-second warning
   pacing, staged verified profile migration, and marker-integrity cleanup pass
-  Foundation and all-target Workbench validation at CRC `fc49da5c`. Campaign
-  Debug and packaged restart/migration remain open before a new runtime seal.
+  Foundation 751 and final stamped-tree all-target Workbench validation at CRC
+  `0544aa1d`. Campaign Debug, package execution, packaged restart/migration,
+  multiplayer, and soak remain open before runtime certification.
 - The immediately preceding sealed source/Workbench tree is Campaign Schema 68/
   runtime-settings 24 under implementation
   `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, label
@@ -1275,8 +1288,9 @@ Debug and packaged-runtime gates remain open.
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
-- Continue the implementation blueprint in dependency order. Active provisional
-  Schema 68 shares fresh bootstrap, exact-gates known-state recovery, adds
+- Continue the implementation blueprint in dependency order. The sealed source/
+  Workbench Schema 68 correction shares fresh bootstrap, exact-gates known-state
+  recovery, adds
   production-resolver live observation, and corrects warning pacing around the
   sealed independent planner cadence/frozen decision contract, while leaving
   immediate/debug/direct paths at planning contract `0`.
@@ -1287,8 +1301,8 @@ Debug and packaged-runtime gates remain open.
 
 ## Next Playable Expansion
 
-- First close the active provisional integrity checkpoint: Foundation/all-target
-  Workbench now pass; next execute Campaign Debug, then package-prove fresh/
+- First runtime-prove the sealed source/Workbench integrity checkpoint: execute
+  Campaign Debug, then package-prove fresh/
   affected-save authority, single-writer whole-tree profile migration, marker
   integrity, and restart behavior.
 - The restart, progression, logistics, mission-polish, and pacing work below is
