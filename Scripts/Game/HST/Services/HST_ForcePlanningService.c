@@ -19,6 +19,13 @@ class HST_EnemyCounterattackManifestResult
 	ref HST_ForceManifestState m_Manifest;
 }
 
+class HST_EnemyGarrisonRebuildManifestResult
+{
+	bool m_bSuccess;
+	string m_sFailureReason;
+	ref HST_ForceManifestState m_Manifest;
+}
+
 class HST_ForcePlanningService
 {
 	static const string QUOTE_KIND_GARRISON = "garrison_recruitment";
@@ -535,6 +542,219 @@ class HST_ForcePlanningService
 		return result;
 	}
 
+	HST_EnemyGarrisonRebuildManifestResult PlanExactEnemyGarrisonRebuild(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyOrderState order,
+		bool validateResources = true,
+		int planningWarLevel = -1,
+		int plannedAtSecond = -1)
+	{
+		HST_EnemyGarrisonRebuildManifestResult result = new HST_EnemyGarrisonRebuildManifestResult();
+		string failure = ValidateExactEnemyGarrisonRebuildPlanningContext(state, preset, order);
+		if (!failure.IsEmpty())
+		{
+			result.m_sFailureReason = failure;
+			return result;
+		}
+
+		HST_ZoneState sourceZone = state.FindZone(order.m_sSourceZoneId);
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!sourceZone || !targetZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
+		{
+			result.m_sFailureReason = "exact enemy garrison rebuild requires distinct source and target zones";
+			return result;
+		}
+		if (sourceZone.m_sOwnerFactionKey != order.m_sFactionKey
+			|| targetZone.m_sOwnerFactionKey != order.m_sFactionKey)
+		{
+			result.m_sFailureReason = "exact enemy garrison rebuild source and target must remain faction-owned";
+			return result;
+		}
+		if (targetZone.m_iOwnershipRevision != order.m_iTargetOwnershipRevision)
+		{
+			result.m_sFailureReason = "exact enemy garrison rebuild target ownership revision changed";
+			return result;
+		}
+		if (!state.FindFactionPool(order.m_sFactionKey))
+		{
+			result.m_sFailureReason = "exact enemy garrison rebuild faction pool is unavailable";
+			return result;
+		}
+		if (!order.m_sManifestId.IsEmpty())
+			return ResolvePersistedExactEnemyGarrisonRebuildManifest(state, order, targetZone);
+
+		int availableCapacity = -1;
+		if (targetZone.m_iGarrisonSlots > 0)
+		{
+			int authoritativeInfantry = m_GarrisonReader.ResolveAuthoritativeZoneInfantry(
+				state,
+				order.m_sTargetZoneId,
+				order.m_sFactionKey,
+				true,
+				order.m_sOperationId);
+			availableCapacity = targetZone.m_iGarrisonSlots - authoritativeInfantry;
+			if (availableCapacity <= 0)
+			{
+				result.m_sFailureReason = "exact enemy garrison rebuild target has no unreserved infantry capacity";
+				return result;
+			}
+		}
+
+		HST_ForceCatalogValidationResult catalogValidation = m_Catalog.ValidateFactionCatalog(
+			order.m_sFactionKey,
+			validateResources);
+		if (!catalogValidation || !catalogValidation.m_bValid)
+		{
+			result.m_sFailureReason = "enemy garrison rebuild group catalog is invalid";
+			if (catalogValidation && !catalogValidation.m_sFailureReason.IsEmpty())
+				result.m_sFailureReason = catalogValidation.m_sFailureReason;
+			return result;
+		}
+
+		int planningSeed = m_Integrity.BuildDeterministicSeed(
+			state,
+			order.m_sOrderId + "|enemy_garrison_rebuild",
+			order.m_sTargetZoneId);
+		int effectivePlanningWarLevel = state.m_iWarLevel;
+		if (planningWarLevel >= 0)
+			effectivePlanningWarLevel = planningWarLevel;
+		int effectivePlannedAtSecond = state.m_iElapsedSeconds;
+		if (plannedAtSecond >= 0)
+			effectivePlannedAtSecond = plannedAtSecond;
+		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectPlayerSupportGroup(
+			m_Catalog.BuildGroupCatalog(order.m_sFactionKey),
+			planningSeed,
+			effectivePlanningWarLevel);
+		if (!catalogGroup || catalogGroup.m_sExecutionPrefab.IsEmpty()
+			|| catalogGroup.m_aMemberSlots.Count() <= 0)
+		{
+			result.m_sFailureReason = "deterministic exact enemy garrison rebuild group selection failed";
+			return result;
+		}
+
+		int acceptedMemberLimit = catalogGroup.m_aMemberSlots.Count();
+		if (availableCapacity > 0)
+			acceptedMemberLimit = Math.Min(acceptedMemberLimit, availableCapacity);
+		HST_ForceManifestState manifest = BuildExactEnemyInfantryManifest(
+			order,
+			catalogGroup,
+			planningSeed,
+			effectivePlannedAtSecond,
+			HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND,
+			HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID,
+			HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT,
+			acceptedMemberLimit);
+		if (!manifest)
+		{
+			result.m_sFailureReason = "selected enemy garrison rebuild group contains an invalid accepted slot";
+			return result;
+		}
+		manifest.m_sManifestHash = m_Integrity.BuildManifestHash(manifest);
+		if (manifest.m_sManifestHash.IsEmpty())
+		{
+			result.m_sFailureReason = "exact enemy garrison rebuild manifest hash failed";
+			return result;
+		}
+
+		result.m_bSuccess = true;
+		result.m_Manifest = manifest;
+		return result;
+	}
+
+	protected string ValidateExactEnemyGarrisonRebuildPlanningContext(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !order || !m_Catalog || !m_Integrity || !m_GarrisonReader)
+			return "exact enemy garrison rebuild planning context is missing";
+		if (order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			|| order.m_iOperationContractVersion
+				!= HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION)
+			return "enemy order did not opt into the exact garrison rebuild contract";
+		if (order.m_sOrderId.IsEmpty() || order.m_sOperationId.IsEmpty()
+			|| order.m_sOperationId != HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId)
+			|| order.m_sFactionKey.IsEmpty() || order.m_sSourceZoneId.IsEmpty()
+			|| order.m_sTargetZoneId.IsEmpty() || IsZeroPosition(order.m_vSourcePosition)
+			|| IsZeroPosition(order.m_vTargetPosition) || order.m_iTargetOwnershipRevision <= 0)
+			return "exact enemy garrison rebuild identity or frozen target revision is incomplete";
+		if (!HST_FactionRelationService.IsEnemyFaction(preset, order.m_sFactionKey))
+			return "exact enemy garrison rebuild requires a configured enemy faction";
+		if (order.m_iAttackCost != 0
+			|| order.m_iSupportCost != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST)
+			return "exact enemy garrison rebuild must be prepaid from exactly ten support resources";
+		if (order.m_sManifestId.IsEmpty() != order.m_sManifestHash.IsEmpty())
+			return "exact enemy garrison rebuild contains a partial persisted manifest identity";
+		return "";
+	}
+
+	protected HST_EnemyGarrisonRebuildManifestResult ResolvePersistedExactEnemyGarrisonRebuildManifest(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ZoneState targetZone)
+	{
+		HST_EnemyGarrisonRebuildManifestResult result = new HST_EnemyGarrisonRebuildManifestResult();
+		HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+		HST_StrategicMovementService movement = new HST_StrategicMovementService();
+		if (!manifest || !targetZone || !manifest.m_bFrozen)
+		{
+			result.m_sFailureReason = "persisted exact enemy garrison rebuild manifest conflicts with its order";
+			return result;
+		}
+		bool identityExact = manifest.m_sOperationId == order.m_sOperationId
+			&& manifest.m_sFactionKey == order.m_sFactionKey
+			&& manifest.m_sSourceZoneId == order.m_sSourceZoneId
+			&& manifest.m_sTargetZoneId == order.m_sTargetZoneId;
+		bool policyExact = movement.IsSupportedExactInfantryManifest(manifest)
+			&& manifest.m_sForceKind
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND
+			&& manifest.m_sPolicyId
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID
+			&& manifest.m_sIntentId
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT;
+		bool resourceExact = manifest.m_iAttackResourceCost == 0
+			&& manifest.m_iSupportResourceCost
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST;
+		bool rosterExact = manifest.m_iAcceptedMemberCount > 0
+			&& manifest.m_iRequestedMemberCount == manifest.m_iAcceptedMemberCount;
+		if (targetZone.m_iGarrisonSlots > 0
+			&& manifest.m_iAcceptedMemberCount > targetZone.m_iGarrisonSlots)
+			rosterExact = false;
+		bool hashExact = !manifest.m_sManifestHash.IsEmpty()
+			&& manifest.m_sManifestHash == order.m_sManifestHash
+			&& m_Integrity.BuildManifestHash(manifest) == manifest.m_sManifestHash;
+		if (!identityExact || !policyExact || !resourceExact || !rosterExact || !hashExact)
+		{
+			result.m_sFailureReason = "persisted exact enemy garrison rebuild manifest conflicts with its order";
+			return result;
+		}
+		HST_GarrisonState acceptedGarrison = state.FindGarrison(
+			order.m_sTargetZoneId,
+			order.m_sFactionKey);
+		bool alreadyAccepted = acceptedGarrison
+			&& acceptedGarrison.m_aAcceptedManifestIds.Contains(manifest.m_sManifestId);
+		if (targetZone.m_iGarrisonSlots > 0 && !alreadyAccepted)
+		{
+			int authoritativeInfantry = m_GarrisonReader.ResolveAuthoritativeZoneInfantry(
+				state,
+				order.m_sTargetZoneId,
+				order.m_sFactionKey,
+				true,
+				order.m_sOperationId);
+			if (authoritativeInfantry + manifest.m_iAcceptedMemberCount
+				> targetZone.m_iGarrisonSlots)
+			{
+				result.m_sFailureReason
+					= "persisted exact enemy garrison rebuild exceeds current target capacity";
+				return result;
+			}
+		}
+		result.m_bSuccess = true;
+		result.m_Manifest = manifest;
+		return result;
+	}
+
 	protected string ValidateExactEnemyCounterattackPlanningContext(
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
@@ -678,11 +898,18 @@ class HST_ForcePlanningService
 		int createdAtSecond,
 		string forceKind,
 		string policyId,
-		string intentId)
+		string intentId,
+		int memberLimit = -1)
 	{
 		if (!order || !catalogGroup || order.m_sOperationId.IsEmpty()
 			|| catalogGroup.m_sExecutionPrefab.IsEmpty() || catalogGroup.m_aMemberSlots.Count() <= 0
-			|| forceKind.IsEmpty() || policyId.IsEmpty() || intentId.IsEmpty())
+			|| forceKind.IsEmpty() || policyId.IsEmpty() || intentId.IsEmpty()
+			|| memberLimit == 0)
+			return null;
+		int acceptedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		if (memberLimit > 0)
+			acceptedMemberCount = Math.Min(acceptedMemberCount, memberLimit);
+		if (acceptedMemberCount <= 0)
 			return null;
 		string manifestId = "manifest_" + order.m_sOperationId;
 		HST_ForceManifestState manifest = new HST_ForceManifestState();
@@ -697,8 +924,8 @@ class HST_ForcePlanningService
 		manifest.m_sGroupPrefab = catalogGroup.m_sExecutionPrefab;
 		manifest.m_sCatalogVersion = HST_ForceCatalogService.CATALOG_VERSION;
 		manifest.m_sPolicyId = policyId;
-		manifest.m_iRequestedMemberCount = catalogGroup.m_aMemberSlots.Count();
-		manifest.m_iAcceptedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		manifest.m_iRequestedMemberCount = acceptedMemberCount;
+		manifest.m_iAcceptedMemberCount = acceptedMemberCount;
 		manifest.m_iAttackResourceCost = Math.Max(0, order.m_iAttackCost);
 		manifest.m_iSupportResourceCost = Math.Max(0, order.m_iSupportCost);
 		manifest.m_iDeterministicSeed = planningSeed;
@@ -711,11 +938,11 @@ class HST_ForcePlanningService
 		groupElement.m_sPrefab = catalogGroup.m_sExecutionPrefab;
 		groupElement.m_sRole = catalogGroup.m_sRole;
 		groupElement.m_iOrdinal = 0;
-		groupElement.m_iExpectedMemberCount = catalogGroup.m_aMemberSlots.Count();
+		groupElement.m_iExpectedMemberCount = acceptedMemberCount;
 		groupElement.m_bRequired = true;
 		manifest.m_aGroups.Insert(groupElement);
 
-		for (int memberIndex = 0; memberIndex < catalogGroup.m_aMemberSlots.Count(); memberIndex++)
+		for (int memberIndex = 0; memberIndex < acceptedMemberCount; memberIndex++)
 		{
 			HST_ForceGroupCatalogSlot catalogSlot = catalogGroup.m_aMemberSlots[memberIndex];
 			if (!catalogSlot || catalogSlot.m_sPrefab.IsEmpty())

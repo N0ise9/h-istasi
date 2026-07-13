@@ -1920,6 +1920,7 @@ class HST_CampaignSaveData
 		target.m_eStatus = source.m_eStatus;
 		target.m_sSourceZoneId = source.m_sSourceZoneId;
 		target.m_sTargetZoneId = source.m_sTargetZoneId;
+		target.m_iTargetOwnershipRevision = source.m_iTargetOwnershipRevision;
 		target.m_sCompositionRequestId = source.m_sCompositionRequestId;
 		target.m_sCompositionIntentId = source.m_sCompositionIntentId;
 		target.m_sCompositionTier = source.m_sCompositionTier;
@@ -2685,6 +2686,11 @@ class HST_CampaignSaveData
 		schema68EnemyPlanningValidation.PrepareBeforeGenericNormalization(
 			this,
 			restoredSchemaVersion);
+		HST_EnemyGarrisonRebuildSaveValidationService schema70EnemyGarrisonRebuildValidation
+			= new HST_EnemyGarrisonRebuildSaveValidationService();
+		schema70EnemyGarrisonRebuildValidation.PrepareBeforeGenericNormalization(
+			this,
+			restoredSchemaVersion);
 		if (restoredSchemaVersion < 26)
 		{
 			if (m_bHQDeployed && !IsZeroVector(m_vHQPosition))
@@ -3065,6 +3071,11 @@ class HST_CampaignSaveData
 		HST_EnemyCounterattackSaveValidationService schema69EnemyCounterattackValidation
 			= new HST_EnemyCounterattackSaveValidationService();
 		schema69EnemyCounterattackValidation.Normalize(this, restoredSchemaVersion);
+		// Exact garrison rebuilds bind the normalized ownership and support-resource
+		// authorities as well as one reciprocal runtime aggregate. Complete that
+		// validation after the prerequisite Schema-67 pass and without rewriting
+		// historical rebuild rows.
+		schema70EnemyGarrisonRebuildValidation.Normalize(this, restoredSchemaVersion);
 		// Planning rows bind normalized strategic pools, orders, and debit receipts.
 		// Validate them only after Schema 67 has completed its cross-authority pass.
 		schema68EnemyPlanningValidation.Normalize(
@@ -3290,6 +3301,9 @@ class HST_CampaignSaveData
 				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, spawnResult))
 				continue;
+			if (restoredSchemaVersion >= 70
+				&& HST_EnemyGarrisonRebuildSaveValidationService.IsSchema70QuarantinedBatchClaimant(this, spawnResult))
+				continue;
 			spawnResult.m_iRetryCount = Math.Max(0, spawnResult.m_iRetryCount);
 			spawnResult.m_iMaxRetries = Math.Max(0, spawnResult.m_iMaxRetries);
 			spawnResult.m_iAttemptGeneration = Math.Max(0, spawnResult.m_iAttemptGeneration);
@@ -3449,6 +3463,7 @@ class HST_CampaignSaveData
 			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_CONVOY
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_GUARD
 				|| operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_MISSION_RESCUE)
@@ -4976,6 +4991,9 @@ class HST_CampaignSaveData
 				continue;
 			if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, first))
 				continue;
+			if (restoredSchemaVersion >= 70
+				&& HST_EnemyGarrisonRebuildSaveValidationService.IsSchema70QuarantinedBatchClaimant(this, first))
+				continue;
 
 			for (int secondIndex = 0; secondIndex < m_aForceSpawnResults.Count(); secondIndex++)
 			{
@@ -4997,6 +5015,9 @@ class HST_CampaignSaveData
 				if (HST_RescuePOWSaveValidationService.IsSchema58RescuePOWBatchClaimant(this, second))
 					continue;
 				if (HST_PlayerSearchDestroySaveValidationService.IsSchema60PlayerSearchDestroyBatchClaimant(this, second))
+					continue;
+				if (restoredSchemaVersion >= 70
+					&& HST_EnemyGarrisonRebuildSaveValidationService.IsSchema70QuarantinedBatchClaimant(this, second))
 					continue;
 				if (!HasDuplicateForceSpawnQueueIdentity(first, second))
 					continue;

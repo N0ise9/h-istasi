@@ -425,7 +425,10 @@ class HST_PersistenceService
 			bool exactEnemyResponse = (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
 					&& operation.m_iContractVersion == HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
 				|| (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
-					&& operation.m_iContractVersion == HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION);
+					&& operation.m_iContractVersion == HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION)
+				|| (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+					&& operation.m_iContractVersion
+						== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION);
 			bool exactGarrisonPatrol = operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_GARRISON_PATROL
 				&& operation.m_iContractVersion == HST_GarrisonPatrolOperationService.EXACT_CONTRACT_VERSION;
 			bool exactLocalSecurity = operation.m_eType

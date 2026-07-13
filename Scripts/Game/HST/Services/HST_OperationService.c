@@ -34,6 +34,16 @@ class HST_OperationService
 	static const string EXACT_ENEMY_COUNTERATTACK_ASSIGNMENT_KIND = "capture_zone";
 	static const string EXACT_ENEMY_COUNTERATTACK_RECALL_POLICY = "return_to_origin_then_refund_survivors";
 	static const string EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY = "exact_enemy_counterattack_ledger";
+	static const int EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION = 1;
+	static const int QUARANTINED_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION = -70;
+	static const string EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND = "enemy_garrison_rebuild";
+	static const string EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID = "exact_enemy_garrison_rebuild_v1";
+	static const string EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT = "hst_rebuild_garrison";
+	static const string EXACT_ENEMY_GARRISON_REBUILD_ASSIGNMENT_KIND = "reinforce_garrison";
+	static const string EXACT_ENEMY_GARRISON_REBUILD_RECALL_POLICY = "return_to_origin_then_refund_survivors";
+	static const string EXACT_ENEMY_GARRISON_REBUILD_SETTLEMENT_POLICY = "exact_enemy_garrison_rebuild_ledger";
+	static const string EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND = "delivered_garrison_transfer";
+	static const int EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST = 10;
 
 	static bool RequiresOperation(HST_SupportRequestState request)
 	{
@@ -129,14 +139,23 @@ class HST_OperationService
 			&& order.m_iOperationContractVersion == EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION;
 	}
 
+	static bool RequiresExactEnemyGarrisonRebuild(HST_EnemyOrderState order)
+	{
+		return order && order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			&& order.m_iOperationContractVersion == EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION;
+	}
+
 	static bool RequiresExactEnemyDirectedResponse(HST_EnemyOrderState order)
 	{
 		return RequiresExactEnemyDefensiveQRF(order)
-			|| RequiresExactEnemyCounterattack(order);
+			|| RequiresExactEnemyCounterattack(order)
+			|| RequiresExactEnemyGarrisonRebuild(order);
 	}
 
 	static HST_EOperationType ResolveExactEnemyDirectedOperationType(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD;
 		if (RequiresExactEnemyCounterattack(order))
 			return HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -146,6 +165,8 @@ class HST_OperationService
 
 	static int ResolveExactEnemyDirectedContractVersion(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -155,6 +176,8 @@ class HST_OperationService
 
 	static string ResolveExactEnemyDirectedForceKind(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_FORCE_KIND;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -164,6 +187,8 @@ class HST_OperationService
 
 	static string ResolveExactEnemyDirectedPolicyId(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_POLICY_ID;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -173,6 +198,8 @@ class HST_OperationService
 
 	static string ResolveExactEnemyDirectedManifestIntent(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_MANIFEST_INTENT;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -182,6 +209,8 @@ class HST_OperationService
 
 	static string ResolveExactEnemyDirectedAssignmentKind(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_ASSIGNMENT_KIND;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_ASSIGNMENT_KIND;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -191,6 +220,8 @@ class HST_OperationService
 
 	static string ResolveExactEnemyDirectedRecallPolicy(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_RECALL_POLICY;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_RECALL_POLICY;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -200,6 +231,8 @@ class HST_OperationService
 
 	static string ResolveExactEnemyDirectedSettlementPolicy(HST_EnemyOrderState order)
 	{
+		if (RequiresExactEnemyGarrisonRebuild(order))
+			return EXACT_ENEMY_GARRISON_REBUILD_SETTLEMENT_POLICY;
 		if (RequiresExactEnemyCounterattack(order))
 			return EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY;
 		if (RequiresExactEnemyDefensiveQRF(order))
@@ -682,8 +715,13 @@ class HST_OperationService
 		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
 		if (!failure.IsEmpty())
 			return BuildRejected(failure);
+		bool rebuildPrearrivalReturn = RequiresExactEnemyGarrisonRebuild(order)
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND;
 		if (!EnemyDefensiveQRFGroupLinksMatch(operation, manifest, group)
-			|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			|| (!rebuildPrearrivalReturn
+				&& operation.m_eDutyState
+					!= HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
 			|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
 			return BuildRejected("exact enemy defensive QRF cannot begin return from the current state");
 
@@ -1315,6 +1353,469 @@ class HST_OperationService
 			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
 		{
 			return FinalizePreparedExactEnemyCounterattackSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		}
+		return SettleExactEnemyDefensiveQRF(state, order, terminalResult, settlementId, reason);
+	}
+
+	HST_OperationTransitionResult RegisterExactEnemyGarrisonRebuild(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild registration received another order family");
+		return RegisterExactEnemyDefensiveQRF(state, order, manifest);
+	}
+
+	HST_OperationTransitionResult RemoveUncommittedExactEnemyGarrisonRebuild(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild rollback received another order family");
+		return RemoveUncommittedExactEnemyDefensiveQRF(state, order, manifest);
+	}
+
+	HST_OperationTransitionResult LinkExactEnemyGarrisonRebuildOutboundVirtual(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return LinkExactEnemyDefensiveQRFOutboundVirtual(state, order, group, batch);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyGarrisonRebuildMaterializingFromVirtual(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return MarkExactEnemyDefensiveQRFMaterializingFromVirtual(state, order, group, batch, reason);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyGarrisonRebuildPhysical(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return MarkExactEnemyDefensiveQRFPhysical(state, order, group, batch, reason);
+	}
+
+	HST_OperationTransitionResult UpdateExactEnemyGarrisonRebuildPhysicalPosition(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return UpdateExactEnemyDefensiveQRFPhysicalPosition(state, order, group);
+	}
+
+	HST_OperationTransitionResult BeginExactEnemyGarrisonRebuildDematerialization(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return BeginExactEnemyDefensiveQRFDematerialization(state, order, group, reason);
+	}
+
+	HST_OperationTransitionResult CompleteExactEnemyGarrisonRebuildDematerialization(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group,
+		HST_ForceSpawnResultState batch,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return CompleteExactEnemyDefensiveQRFDematerialization(state, order, group, batch, reason);
+	}
+
+	HST_OperationTransitionResult ConfirmExactEnemyGarrisonRebuildArrivalSample(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return ConfirmExactEnemyDefensiveQRFArrivalSample(state, order, group);
+	}
+
+	HST_OperationTransitionResult MarkExactEnemyGarrisonRebuildOnStation(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return MarkExactEnemyDefensiveQRFOnStation(state, order, group);
+	}
+
+	HST_OperationTransitionResult BeginExactEnemyGarrisonRebuildReturnToOrigin(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return BeginExactEnemyDefensiveQRFReturnToOrigin(state, order, group);
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyGarrisonRebuildEngagement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationEngagementMode nextMode)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild transition received another order family");
+		return RecordExactEnemyDefensiveQRFEngagement(state, order, nextMode);
+	}
+
+	HST_OperationTransitionResult CanPrepareExactEnemyGarrisonRebuildSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			HST_ForceManifestState manifest;
+			string failure = ResolveEnemyDefensiveQRFTransition(
+				state,
+				order,
+				operation,
+				manifest);
+			if (!failure.IsEmpty())
+				return BuildRejected(failure);
+			if (operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_iSettledAtSecond > 0)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("prepared exact enemy garrison rebuild settlement intent conflicts");
+		}
+		return CanPrepareExactEnemyDefensiveQRFSettlement(state, order, terminalResult, settlementId);
+	}
+
+	HST_OperationTransitionResult PrepareExactEnemyGarrisonRebuildSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild settlement received another order family");
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			bool preparedExact = operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_sTerminalReason == reason
+				&& operation.m_iSettledAtSecond > 0;
+			if (preparedExact)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("prepared exact enemy garrison rebuild settlement intent conflicts");
+		}
+
+		HST_OperationTransitionResult preflight = CanPrepareExactEnemyDefensiveQRFSettlement(
+			state,
+			order,
+			terminalResult,
+			settlementId);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		if (reason.IsEmpty() || state.m_iElapsedSeconds <= 0)
+			return BuildRejected("exact enemy garrison rebuild prepared settlement reason or timestamp is invalid");
+
+		operation = preflight.m_Operation;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED;
+		operation.m_eTerminalResult = terminalResult;
+		operation.m_sSettlementId = settlementId;
+		operation.m_sTerminalReason = reason;
+		operation.m_iSettledAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		operation.m_iRevision++;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult CanFinalizePreparedExactEnemyGarrisonRebuildSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild settlement received another order family");
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(state, order, operation, manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			if (operation.m_eTerminalResult == terminalResult
+				&& operation.m_sSettlementId == settlementId
+				&& operation.m_sTerminalReason == reason)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("exact enemy garrison rebuild is already settled with a conflicting result");
+		}
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
+			|| operation.m_eTerminalResult != terminalResult
+			|| operation.m_sSettlementId != settlementId
+			|| operation.m_sTerminalReason != reason
+			|| operation.m_iSettledAtSecond <= 0
+			|| operation.m_iSettledAtSecond > state.m_iElapsedSeconds)
+			return BuildRejected("exact enemy garrison rebuild prepared settlement intent conflicts");
+		if (!order.m_bResourceSettlementApplied || order.m_sResourceSettlementId.IsEmpty()
+			|| order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_sResourceSettlementId
+				!= BuildSettlementId(order.m_sOperationId, order.m_sResourceSettlementKind)
+			|| order.m_sResourceSettlementId != settlementId)
+			return BuildRejected("exact enemy garrison rebuild prepared resource settlement is incomplete");
+		return BuildAccepted(operation, false, false);
+	}
+
+	HST_OperationTransitionResult CanRecordExactEnemyGarrisonRebuildResourceSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		string settlementKind,
+		int acceptedMemberCount,
+		int survivorMemberCount)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			HST_ForceManifestState manifest;
+			string failure = ResolveEnemyDefensiveQRFTransition(
+				state,
+				order,
+				operation,
+				manifest);
+			if (!failure.IsEmpty())
+				return BuildRejected(failure);
+			if (settlementKind.IsEmpty()
+				|| acceptedMemberCount != manifest.m_iAcceptedMemberCount
+				|| survivorMemberCount < 0
+				|| survivorMemberCount > acceptedMemberCount)
+				return BuildRejected("prepared exact enemy garrison rebuild resource settlement roster is invalid");
+			string expectedSettlementId = BuildSettlementId(order.m_sOperationId, settlementKind);
+			bool stagedExact = order.m_sResourceSettlementId == expectedSettlementId
+				&& order.m_sResourceSettlementKind == settlementKind
+				&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
+				&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount;
+			if (!stagedExact || operation.m_sSettlementId != expectedSettlementId)
+				return BuildRejected("prepared exact enemy garrison rebuild resource settlement intent conflicts");
+			if (order.m_bResourceSettlementApplied)
+				return BuildAccepted(operation, false, true);
+			return BuildAccepted(operation, false, false);
+		}
+		HST_ForceManifestState manifest;
+		string failure = ResolveEnemyDefensiveQRFTransition(
+			state,
+			order,
+			operation,
+			manifest);
+		if (!failure.IsEmpty())
+			return BuildRejected(failure);
+		if (settlementKind != EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND)
+			return BuildRejected("open exact enemy garrison rebuild may record only its delivery receipt");
+		if (acceptedMemberCount != manifest.m_iAcceptedMemberCount
+			|| survivorMemberCount <= 0
+			|| survivorMemberCount > acceptedMemberCount)
+			return BuildRejected("exact enemy garrison rebuild delivery roster is invalid");
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		if (!targetZone || targetZone.m_sOwnerFactionKey != order.m_sFactionKey
+			|| targetZone.m_iOwnershipRevision != order.m_iTargetOwnershipRevision)
+			return BuildRejected("exact enemy garrison rebuild delivery target ownership changed");
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			return BuildRejected("exact enemy garrison rebuild delivery has not reached an open on-station roster");
+
+		string settlementId = BuildSettlementId(order.m_sOperationId, settlementKind);
+		string refundMutationId = "enemy_resource_refund_" + settlementId;
+		bool tupleEmpty = order.m_sResourceSettlementId.IsEmpty()
+			&& order.m_sResourceSettlementKind.IsEmpty()
+			&& order.m_sResourceRefundMutationId.IsEmpty()
+			&& order.m_iSettlementAcceptedMemberCount == 0
+			&& order.m_iSettlementSurvivorMemberCount == 0
+			&& order.m_iRefundedAttackResources == 0
+			&& order.m_iRefundedSupportResources == 0;
+		bool tupleExact = order.m_sResourceSettlementId == settlementId
+			&& order.m_sResourceSettlementKind == settlementKind
+			&& order.m_sResourceRefundMutationId == refundMutationId
+			&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
+			&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount
+			&& order.m_iRefundedAttackResources == 0
+			&& order.m_iRefundedSupportResources == 0;
+		if (order.m_bResourceSettlementApplied)
+		{
+			if (tupleExact)
+				return BuildAccepted(operation, false, true);
+			return BuildRejected("exact enemy garrison rebuild delivery receipt already conflicts");
+		}
+		if (!tupleEmpty && !tupleExact)
+			return BuildRejected("exact enemy garrison rebuild contains a partial delivery receipt");
+		return BuildAccepted(operation, false, false);
+	}
+
+	HST_OperationTransitionResult RecordExactEnemyGarrisonRebuildResourceSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		string settlementKind,
+		int acceptedMemberCount,
+		int survivorMemberCount)
+	{
+		HST_OperationTransitionResult preflight = CanRecordExactEnemyGarrisonRebuildResourceSettlement(
+			state,
+			order,
+			settlementKind,
+			acceptedMemberCount,
+			survivorMemberCount);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation || preflight.m_bAlreadyApplied)
+			return preflight;
+		if (preflight.m_Operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			order.m_sResourceSettlementId = BuildSettlementId(order.m_sOperationId, settlementKind);
+			order.m_sResourceSettlementKind = settlementKind;
+			order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;
+			order.m_iSettlementSurvivorMemberCount = survivorMemberCount;
+			order.m_bResourceSettlementApplied = true;
+			preflight.m_Operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+			preflight.m_Operation.m_iRevision++;
+			return BuildAccepted(preflight.m_Operation, true, false);
+		}
+		string settlementId = BuildSettlementId(order.m_sOperationId, settlementKind);
+		bool stagedDeliveryExact = settlementKind
+				== EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND
+			&& order.m_sResourceSettlementId == settlementId
+			&& order.m_sResourceSettlementKind == settlementKind
+			&& order.m_sResourceRefundMutationId
+				== "enemy_resource_refund_" + settlementId
+			&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
+			&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount
+			&& order.m_iRefundedAttackResources == 0
+			&& order.m_iRefundedSupportResources == 0;
+		if (!stagedDeliveryExact)
+			return BuildRejected("exact enemy garrison rebuild delivery receipt was not durably staged");
+		order.m_bResourceSettlementApplied = true;
+		preflight.m_Operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		preflight.m_Operation.m_iRevision++;
+		return BuildAccepted(preflight.m_Operation, true, false);
+	}
+
+	HST_OperationTransitionResult CanSettleExactEnemyGarrisonRebuild(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return CanFinalizePreparedExactEnemyGarrisonRebuildSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				operation.m_sTerminalReason);
+		}
+		return CanSettleExactEnemyDefensiveQRF(state, order, terminalResult, settlementId);
+	}
+
+	HST_OperationTransitionResult FinalizePreparedExactEnemyGarrisonRebuildSettlement(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		HST_OperationTransitionResult preflight
+			= CanFinalizePreparedExactEnemyGarrisonRebuildSettlement(
+				state,
+				order,
+				terminalResult,
+				settlementId,
+				reason);
+		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
+			|| preflight.m_bAlreadyApplied)
+			return preflight;
+		HST_OperationRecordState operation = preflight.m_Operation;
+		operation.m_eDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED;
+		operation.m_eResumeDutyState = HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED;
+		operation.m_eEngagementMode = HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
+		operation.m_eMaterializationState = HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_RETIRED;
+		operation.m_ePositionAuthority = HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC;
+		operation.m_eSettlementState = HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED;
+		operation.m_iDutyStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iEngagementStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iMaterializationStateEnteredAtSecond = state.m_iElapsedSeconds;
+		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
+		ResetArrivalConfirmation(operation);
+		operation.m_iRevision++;
+		order.m_bPhysicalized = false;
+		order.m_bAbstractResolved = false;
+		return BuildAccepted(operation, true, false);
+	}
+
+	HST_OperationTransitionResult SettleExactEnemyGarrisonRebuild(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EOperationTerminalResult terminalResult,
+		string settlementId,
+		string reason)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return BuildRejected("exact enemy garrison rebuild settlement received another order family");
+		HST_OperationRecordState operation;
+		if (state && order)
+			operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+		{
+			return FinalizePreparedExactEnemyGarrisonRebuildSettlement(
 				state,
 				order,
 				terminalResult,
@@ -2113,6 +2614,8 @@ class HST_OperationService
 			return "exact enemy defensive QRF conflicts with the legacy support consumer";
 		if (operation.m_sOwnerFactionKey != order.m_sFactionKey || manifest.m_sFactionKey != order.m_sFactionKey)
 			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
+		if (RequiresExactEnemyGarrisonRebuild(order) && order.m_iTargetOwnershipRevision <= 0)
+			return "exact enemy garrison rebuild frozen target ownership revision is invalid";
 		if (operation.m_sOriginZoneId != order.m_sSourceZoneId || manifest.m_sSourceZoneId != order.m_sSourceZoneId)
 			return "exact enemy defensive QRF immutable source, target, or owner conflicts";
 		if (operation.m_sAssignmentZoneId != order.m_sTargetZoneId || manifest.m_sTargetZoneId != order.m_sTargetZoneId)
@@ -2182,6 +2685,12 @@ class HST_OperationService
 				return "exact enemy defensive QRF resource settlement authority conflicts";
 			int expectedAttackRefund = Math.Max(0, order.m_iAttackCost) * order.m_iSettlementSurvivorMemberCount / order.m_iSettlementAcceptedMemberCount;
 			int expectedSupportRefund = Math.Max(0, order.m_iSupportCost) * order.m_iSettlementSurvivorMemberCount / order.m_iSettlementAcceptedMemberCount;
+			if (RequiresExactEnemyGarrisonRebuild(order)
+				&& order.m_sResourceSettlementKind == EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND)
+			{
+				expectedAttackRefund = 0;
+				expectedSupportRefund = 0;
+			}
 			if (order.m_sResourceSettlementKind.Contains("_full"))
 			{
 				expectedAttackRefund = Math.Max(0, order.m_iAttackCost);
@@ -2192,13 +2701,28 @@ class HST_OperationService
 				return "exact enemy defensive QRF resource refund amounts conflict with its survivor receipt";
 			if (!order.m_bResourceSettlementApplied)
 			{
-				bool exactCounterattackPrepared = RequiresExactEnemyCounterattack(order)
+				bool exactDirectedPrepared = (RequiresExactEnemyCounterattack(order)
+					|| RequiresExactEnemyGarrisonRebuild(order))
 					&& operation.m_eSettlementState
 						== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
 					&& operation.m_sSettlementId == order.m_sResourceSettlementId
 					&& order.m_sResourceRefundMutationId
 						== "enemy_resource_refund_" + order.m_sResourceSettlementId;
-				if (!exactCounterattackPrepared)
+				// Delivery is a durable zero-refund receipt while the operation remains
+				// OPEN and on station. Its staged tuple is the crash-resume token between
+				// intent, zero-delta mutation, and applied receipt.
+				bool exactRebuildDeliveryPrepared = RequiresExactEnemyGarrisonRebuild(order)
+					&& operation.m_eSettlementState
+						== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+					&& operation.m_eTerminalResult
+						== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+					&& operation.m_eDutyState
+						== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+					&& order.m_sResourceSettlementKind
+						== EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND
+					&& order.m_sResourceRefundMutationId
+						== "enemy_resource_refund_" + order.m_sResourceSettlementId;
+				if (!exactDirectedPrepared && !exactRebuildDeliveryPrepared)
 					return "unsettled exact enemy defensive QRF contains partial resource settlement authority";
 			}
 		}
@@ -2231,7 +2755,8 @@ class HST_OperationService
 		else if (operation.m_eSettlementState
 			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
 		{
-			if (!RequiresExactEnemyCounterattack(order)
+			if ((!RequiresExactEnemyCounterattack(order)
+					&& !RequiresExactEnemyGarrisonRebuild(order))
 				|| !IsEnemyDefensiveQRFTerminalResult(operation.m_eTerminalResult)
 				|| operation.m_sSettlementId.IsEmpty()
 				|| operation.m_sTerminalReason.IsEmpty()
@@ -2259,6 +2784,17 @@ class HST_OperationService
 	{
 		if (!RequiresExactEnemyCounterattack(order))
 			return "enemy order does not opt into the exact counterattack contract";
+		return ValidateExactEnemyDefensiveQRF(state, operation, order, manifest);
+	}
+
+	string ValidateExactEnemyGarrisonRebuild(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		if (!RequiresExactEnemyGarrisonRebuild(order))
+			return "enemy order does not opt into the exact garrison rebuild contract";
 		return ValidateExactEnemyDefensiveQRF(state, operation, order, manifest);
 	}
 
@@ -2325,6 +2861,14 @@ class HST_OperationService
 			|| order.m_sSourceZoneId == order.m_sTargetZoneId || IsZeroVector(order.m_vSourcePosition)
 			|| IsZeroVector(order.m_vTargetPosition))
 			return "exact enemy defensive QRF source, target, or faction identity is incomplete";
+		if (RequiresExactEnemyGarrisonRebuild(order))
+		{
+			HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+			if (!targetZone || order.m_iTargetOwnershipRevision <= 0
+				|| targetZone.m_sOwnerFactionKey != order.m_sFactionKey
+				|| targetZone.m_iOwnershipRevision != order.m_iTargetOwnershipRevision)
+				return "exact enemy garrison rebuild target ownership revision is not frozen";
+		}
 		if (!order.m_sSpawnResultId.IsEmpty() || !order.m_sGroupId.IsEmpty() || !order.m_sSupportRequestId.IsEmpty()
 			|| order.m_bPhysicalized || order.m_bAbstractResolved || order.m_bStrategicServiceCommitted
 			|| order.m_bResourceSettlementApplied || order.m_bResourceRefundApplied
@@ -2367,6 +2911,10 @@ class HST_OperationService
 			if (!attackFunded && !supportFunded)
 				return "exact enemy counterattack must freeze exactly one prepaid resource pool";
 		}
+		if (RequiresExactEnemyGarrisonRebuild(order)
+			&& (order.m_iAttackCost != 0
+				|| order.m_iSupportCost != EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST))
+			return "exact enemy garrison rebuild must freeze its support-only cost";
 		return "";
 	}
 

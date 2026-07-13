@@ -74,6 +74,7 @@ class HST_EnemyCommanderService
 	static const string RUNTIME_OWNER_EXACT_QRF = "exact_enemy_qrf";
 	static const string RUNTIME_OWNER_EXACT_COUNTERATTACK = "exact_enemy_counterattack";
 	static const string RUNTIME_OWNER_EXACT_PATROL = "exact_enemy_patrol";
+	static const string RUNTIME_OWNER_EXACT_GARRISON_REBUILD = "exact_enemy_garrison_rebuild";
 	static const string RUNTIME_OWNER_QUARANTINED = "quarantined";
 	static const string RUNTIME_OWNER_UNSUPPORTED = "unsupported_versioned";
 	static const int PLANNING_RETRY_SECONDS = 30;
@@ -83,6 +84,8 @@ class HST_EnemyCommanderService
 	protected ref HST_EnemyQRFOperationService m_ExactEnemyQRF;
 	protected ref HST_EnemyCounterattackOperationService m_ExactEnemyCounterattack;
 	protected ref HST_EnemyPatrolOperationService m_ExactEnemyPatrol;
+	protected ref HST_EnemyGarrisonRebuildOperationService m_ExactEnemyGarrisonRebuild;
+	protected ref HST_GarrisonService m_GarrisonStrength = new HST_GarrisonService();
 	protected ref HST_CombatPresenceService m_CombatPresence = new HST_CombatPresenceService();
 	protected ref HST_TownInfluenceService m_TownInfluence;
 	protected ref map<string, string> m_mPlanningUnavailableFailureByFaction
@@ -118,6 +121,12 @@ class HST_EnemyCommanderService
 		HST_EnemyCounterattackOperationService exactEnemyCounterattack)
 	{
 		m_ExactEnemyCounterattack = exactEnemyCounterattack;
+	}
+
+	void SetExactEnemyGarrisonRebuildAuthorityService(
+		HST_EnemyGarrisonRebuildOperationService exactEnemyGarrisonRebuild)
+	{
+		m_ExactEnemyGarrisonRebuild = exactEnemyGarrisonRebuild;
 	}
 
 	// Public so the deterministic Campaign Debug proof can exercise the same
@@ -175,8 +184,11 @@ class HST_EnemyCommanderService
 			return RUNTIME_OWNER_EXACT_COUNTERATTACK;
 		if (HST_OperationService.RequiresExactEnemyPatrol(order))
 			return RUNTIME_OWNER_EXACT_PATROL;
+		if (HST_OperationService.RequiresExactEnemyGarrisonRebuild(order))
+			return RUNTIME_OWNER_EXACT_GARRISON_REBUILD;
 		if (order.m_iOperationContractVersion == HST_EnemyPatrolOperationService.QUARANTINED_CONTRACT_VERSION
-			|| order.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.QUARANTINED_CONTRACT_VERSION)
+			|| order.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.QUARANTINED_CONTRACT_VERSION
+			|| order.m_iOperationContractVersion == HST_EnemyGarrisonRebuildOperationService.QUARANTINED_CONTRACT_VERSION)
 			return RUNTIME_OWNER_QUARANTINED;
 		return RUNTIME_OWNER_UNSUPPORTED;
 	}
@@ -562,7 +574,9 @@ class HST_EnemyCommanderService
 			frozenOrder.m_sManifestId = manifestId;
 			frozenOrder.m_sManifestHash = manifestHash;
 		}
-		string capabilityHash = HST_EnemyPlanningAuthorityService.BuildCapabilityHash(
+		string capabilityHash = BuildFrozenPlanningCapabilityHash(
+			state,
+			frozenOrder,
 			orderType,
 			plannedSupportType,
 			operationContractVersion,
@@ -743,6 +757,39 @@ class HST_EnemyCommanderService
 			targetZone.m_sZoneId,
 			ignoreExactPatrol))
 			return RejectPreparedDecision(planning, "frozen enemy planning target acquired another active order");
+		if (planning.m_eSelectedOrderType
+			== HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
+		{
+			HST_EnemyOrderState ownershipProbe = BuildOrderFromFrozenPlanningValues(
+				state,
+				planning.m_sFactionKey,
+				targetZone,
+				sourceZone,
+				planning.m_eSelectedOrderType,
+				planning.m_sSpendMode,
+				planning.m_iAttackCost,
+				planning.m_iSupportCost,
+				planning.m_ePlannedSupportType,
+				planning.m_sPlannedOrderId,
+				planning.m_sPlannedOperationId,
+				planning.m_sPlannedDebitMutationId,
+				planning.m_iDecisionBucketSecond);
+			string ownershipCapabilityHash = BuildFrozenPlanningCapabilityHash(
+				state,
+				ownershipProbe,
+				planning.m_eSelectedOrderType,
+				planning.m_ePlannedSupportType,
+				HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION,
+				planning.m_sPlannedManifestHash,
+				"");
+			if (!ownershipProbe || ownershipCapabilityHash.IsEmpty()
+				|| ownershipCapabilityHash != planning.m_sPlanningCapabilityHash)
+			{
+				return RejectPreparedDecision(
+					planning,
+					"frozen enemy garrison rebuild ownership capability changed before pressure");
+			}
+		}
 
 		HST_EnemyPreparedAdmissionResult pressureApplied = ApplyFrozenTargetPressure(
 			state,
@@ -797,7 +844,9 @@ class HST_EnemyCommanderService
 			manifestId = manifest.m_sManifestId;
 			manifestHash = manifest.m_sManifestHash;
 		}
-		string capabilityHash = HST_EnemyPlanningAuthorityService.BuildCapabilityHash(
+		string capabilityHash = BuildFrozenPlanningCapabilityHash(
+			state,
+			order,
 			order.m_eType,
 			planning.m_ePlannedSupportType,
 			order.m_iOperationContractVersion,
@@ -944,6 +993,36 @@ class HST_EnemyCommanderService
 					admissionChanged || pressureStateChanged);
 			}
 		}
+		else if (HST_OperationService.RequiresExactEnemyGarrisonRebuild(order))
+		{
+			HST_EnemyGarrisonRebuildAdmissionResult admittedRebuild
+				= m_ExactEnemyGarrisonRebuild.AdmitPreparedOrder(
+					state,
+					order,
+					manifest,
+					enemyDirector);
+			admissionChanged = !admittedRebuild || admittedRebuild.m_bStateChanged || admissionChanged;
+			if (!admittedRebuild || !admittedRebuild.m_bSuccess)
+			{
+				string rebuildFailure = "exact enemy garrison rebuild admission failed without a durable result";
+				if (admittedRebuild && !admittedRebuild.m_sFailureReason.IsEmpty())
+					rebuildFailure = admittedRebuild.m_sFailureReason;
+				if (!admittedRebuild || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+					return QuarantinePreparedAdmissionConflict(
+						state,
+						planning,
+						order,
+						rebuildFailure,
+						admissionChanged || pressureStateChanged);
+				return CompletePreparedWithOrder(
+					state,
+					preset,
+					enemyDirector,
+					planning,
+					order,
+					admissionChanged || pressureStateChanged);
+			}
+		}
 		else
 		{
 			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
@@ -1073,6 +1152,45 @@ class HST_EnemyCommanderService
 			sourceCandidateFingerprint);
 	}
 
+	protected string BuildFrozenPlanningCapabilityHash(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_EEnemyOrderType orderType,
+		HST_ESupportRequestType supportType,
+		int operationContractVersion,
+		string manifestHash,
+		string routeHash)
+	{
+		string baseHash = HST_EnemyPlanningAuthorityService.BuildCapabilityHash(
+			orderType,
+			supportType,
+			operationContractVersion,
+			manifestHash,
+			routeHash);
+		if (!HST_OperationService.RequiresExactEnemyGarrisonRebuild(order))
+			return baseHash;
+		if (!state || !order)
+			return "";
+		HST_ZoneState targetZone = state.FindZone(order.m_sTargetZoneId);
+		HST_ZoneState sourceZone = state.FindZone(order.m_sSourceZoneId);
+		if (!targetZone || !sourceZone || order.m_iTargetOwnershipRevision <= 0
+			|| targetZone.m_iOwnershipRevision != order.m_iTargetOwnershipRevision)
+			return "";
+		string canonical = string.Format(
+			"%1|rebuild_ownership|%2:%3:%4|%5:%6:%7",
+			baseHash,
+			targetZone.m_sZoneId,
+			targetZone.m_sOwnerFactionKey,
+			targetZone.m_iOwnershipRevision,
+			sourceZone.m_sZoneId,
+			sourceZone.m_sOwnerFactionKey,
+			sourceZone.m_iOwnershipRevision);
+		return string.Format(
+			"epc70_%1_%2",
+			canonical.Hash(),
+			(canonical + "|secondary").Hash());
+	}
+
 	protected HST_EnemyOrderState BuildOrderFromFrozenPlanningValues(
 		HST_CampaignState state,
 		string factionKey,
@@ -1125,6 +1243,12 @@ class HST_EnemyCommanderService
 		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL)
 		{
 			order.m_iOperationContractVersion = HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
+			order.m_iResolveAtSecond = 0;
+		}
+		else if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
+		{
+			order.m_iOperationContractVersion = HST_EnemyGarrisonRebuildOperationService.EXACT_CONTRACT_VERSION;
+			order.m_iTargetOwnershipRevision = Math.Max(1, targetZone.m_iOwnershipRevision);
 			order.m_iResolveAtSecond = 0;
 		}
 		return order;
@@ -1242,6 +1366,30 @@ class HST_EnemyCommanderService
 				failure = "exact enemy patrol route capability hash is unavailable";
 				return false;
 			}
+		}
+		else if (HST_OperationService.RequiresExactEnemyGarrisonRebuild(order))
+		{
+			if (!m_ForcePlanning || !m_ExactEnemyGarrisonRebuild)
+			{
+				failure = "exact enemy garrison rebuild planning services are unavailable";
+				return false;
+			}
+			HST_EnemyGarrisonRebuildManifestResult rebuildPlan
+				= m_ForcePlanning.PlanExactEnemyGarrisonRebuild(
+					state,
+					preset,
+					order,
+					false,
+					planningWarLevel,
+					plannedAtSecond);
+			if (!rebuildPlan || !rebuildPlan.m_bSuccess || !rebuildPlan.m_Manifest)
+			{
+				failure = "exact enemy garrison rebuild manifest planning failed";
+				if (rebuildPlan && !rebuildPlan.m_sFailureReason.IsEmpty())
+					failure = rebuildPlan.m_sFailureReason;
+				return false;
+			}
+			manifest = rebuildPlan.m_Manifest;
 		}
 		return true;
 	}
@@ -1363,6 +1511,24 @@ class HST_EnemyCommanderService
 				if (patrol && !patrol.m_sFailureReason.IsEmpty())
 					failure = patrol.m_sFailureReason;
 				return BuildPreparedAdmissionFailure(failure, true, false);
+			}
+		}
+		else if (HST_OperationService.RequiresExactEnemyGarrisonRebuild(order))
+		{
+			if (!m_ExactEnemyGarrisonRebuild || !manifest)
+				return BuildPreparedAdmissionFailure("exact enemy garrison rebuild admission service is unavailable", true, false);
+			HST_EnemyGarrisonRebuildAdmissionResult rebuild
+				= m_ExactEnemyGarrisonRebuild.CanAdmitPreparedOrder(
+					state,
+					order,
+					manifest,
+					enemyDirector);
+			if (!rebuild || !rebuild.m_bSuccess)
+			{
+				string rebuildFailure = "exact enemy garrison rebuild admission preflight failed";
+				if (rebuild && !rebuild.m_sFailureReason.IsEmpty())
+					rebuildFailure = rebuild.m_sFailureReason;
+				return BuildPreparedAdmissionFailure(rebuildFailure, true, false);
 			}
 		}
 		result.m_bAccepted = true;
@@ -2040,14 +2206,16 @@ class HST_EnemyCommanderService
 		return queuedOrder;
 	}
 
-	// Synthetic debug fixtures may still exercise historical contract-zero QRF or patrol paths.
+	// Synthetic debug fixtures may still exercise historical contract-zero QRF,
+	// patrol, or garrison-rebuild paths.
 	// Production versioned admission never calls this path or falls back to legacy behavior.
 	HST_EnemyOrderState QueueDebugLegacyOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "")
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return null;
 		if ((orderType != HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
-			&& orderType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL)
+			&& orderType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL
+			&& orderType != HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
 			|| !state.FindFactionPool(factionKey))
 			return null;
 
@@ -2218,6 +2386,7 @@ class HST_EnemyCommanderService
 		bool exactEnemyQRF = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF && !forceDebugLegacyOperation;
 		bool exactEnemyCounterattack = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK && !forceDebugLegacyOperation;
 		bool exactEnemyPatrol = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PATROL && !forceDebugLegacyOperation;
+		bool exactEnemyGarrisonRebuild = orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON && !forceDebugLegacyOperation;
 		HST_ForceManifestState exactManifest;
 		HST_GeneratedRouteState exactPatrolRoute;
 		if (exactEnemyQRF)
@@ -2321,6 +2490,57 @@ class HST_EnemyCommanderService
 				return false;
 			}
 		}
+		else if (exactEnemyGarrisonRebuild)
+		{
+			if (!m_ForcePlanning || !m_ExactEnemyGarrisonRebuild)
+			{
+				Print(string.Format("Partisan enemy commander | exact garrison rebuild skipped for %1 at %2 | exact authority services unavailable", factionKey, targetZone.m_sZoneId), LogLevel.WARNING);
+				return false;
+			}
+			if (!sourceZone || sourceZone.m_sZoneId == targetZone.m_sZoneId)
+			{
+				Print(string.Format("Partisan enemy commander | exact garrison rebuild skipped for %1 at %2 | distinct faction-owned source unavailable", factionKey, targetZone.m_sZoneId));
+				return false;
+			}
+			order.m_iOperationContractVersion = HST_EnemyGarrisonRebuildOperationService.EXACT_CONTRACT_VERSION;
+			order.m_iTargetOwnershipRevision = Math.Max(1, targetZone.m_iOwnershipRevision);
+			HST_EnemyGarrisonRebuildManifestResult rebuildPlan
+				= m_ForcePlanning.PlanExactEnemyGarrisonRebuild(state, preset, order);
+			if (!rebuildPlan || !rebuildPlan.m_bSuccess || !rebuildPlan.m_Manifest)
+			{
+				string rebuildPlanningFailure = "exact garrison rebuild manifest planning failed";
+				if (rebuildPlan && !rebuildPlan.m_sFailureReason.IsEmpty())
+					rebuildPlanningFailure = rebuildPlan.m_sFailureReason;
+				Print(string.Format("Partisan enemy commander | exact garrison rebuild skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, rebuildPlanningFailure));
+				return false;
+			}
+			exactManifest = rebuildPlan.m_Manifest;
+			order.m_sManifestId = exactManifest.m_sManifestId;
+			order.m_sManifestHash = exactManifest.m_sManifestHash;
+			order.m_iCompositionManpower = exactManifest.m_iAcceptedMemberCount;
+			order.m_iResolveAtSecond = 0;
+			if (state.FindOperation(order.m_sOperationId) || state.FindForceManifest(order.m_sManifestId)
+				|| state.FindActiveGroup("projection_" + order.m_sOperationId)
+				|| state.FindForceSpawnResultByRequest(order.m_sOrderId))
+			{
+				Print(string.Format("Partisan enemy commander | exact garrison rebuild skipped for %1 at %2 | durable identity already exists", factionKey, targetZone.m_sZoneId));
+				return false;
+			}
+			HST_EnemyGarrisonRebuildAdmissionResult rebuildPreflight
+				= m_ExactEnemyGarrisonRebuild.CanAdmitPreparedOrder(
+					state,
+					order,
+					exactManifest,
+					enemyDirector);
+			if (!rebuildPreflight || !rebuildPreflight.m_bSuccess)
+			{
+				string rebuildPreflightFailure = "exact garrison rebuild admission preflight failed";
+				if (rebuildPreflight && !rebuildPreflight.m_sFailureReason.IsEmpty())
+					rebuildPreflightFailure = rebuildPreflight.m_sFailureReason;
+				Print(string.Format("Partisan enemy commander | exact garrison rebuild skipped for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, rebuildPreflightFailure));
+				return false;
+			}
+		}
 		else if (exactEnemyPatrol)
 		{
 			if (!PrepareExactEnemyPatrol(
@@ -2404,6 +2624,25 @@ class HST_EnemyCommanderService
 				return true;
 			}
 			Print(string.Format("Partisan | exact enemy counterattack %1 active from %2 to %3 | manifest %4", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId));
+			return true;
+		}
+		if (exactEnemyGarrisonRebuild)
+		{
+			HST_EnemyGarrisonRebuildAdmissionResult rebuildAdmission
+				= m_ExactEnemyGarrisonRebuild.AdmitPreparedOrder(
+					state,
+					order,
+					exactManifest,
+					enemyDirector);
+			if (!rebuildAdmission || !rebuildAdmission.m_bSuccess)
+			{
+				string rebuildAdmissionFailure = order.m_sFailureReason;
+				if (rebuildAdmission && !rebuildAdmission.m_sFailureReason.IsEmpty())
+					rebuildAdmissionFailure = rebuildAdmission.m_sFailureReason;
+				Print(string.Format("Partisan enemy commander | exact garrison rebuild admission failed for %1 at %2 | %3", factionKey, targetZone.m_sZoneId, rebuildAdmissionFailure), LogLevel.WARNING);
+				return true;
+			}
+			Print(string.Format("Partisan | exact enemy garrison rebuild %1 active from %2 to %3 | manifest %4", order.m_sOrderId, order.m_sSourceZoneId, order.m_sTargetZoneId, order.m_sManifestId));
 			return true;
 		}
 		if (exactEnemyPatrol)
@@ -2531,6 +2770,42 @@ class HST_EnemyCommanderService
 					order) || changed;
 				continue;
 			}
+			HST_OperationRecordState rebuildOperation = state.FindOperation(order.m_sOperationId);
+			if (runtimeOwner == RUNTIME_OWNER_EXACT_GARRISON_REBUILD
+				&& m_ExactEnemyGarrisonRebuild
+				&& (m_ExactEnemyGarrisonRebuild.HasPreparedSettlementResumeCandidate(
+						order,
+						rebuildOperation)
+					|| (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+						&& rebuildOperation
+						&& rebuildOperation.m_eSettlementState
+							== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)))
+			{
+				changed = m_ExactEnemyGarrisonRebuild.TickOrder(
+					state,
+					preset,
+					enemyDirector,
+					order) || changed;
+				continue;
+			}
+			if ((runtimeOwner == RUNTIME_OWNER_QUARANTINED
+					|| runtimeOwner == RUNTIME_OWNER_UNSUPPORTED)
+				&& order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+				&& order.m_iOperationContractVersion != 0)
+			{
+				string rebuildFailure = string.Format(
+					"garrison rebuild-shaped enemy authority has no supported typed runtime owner: version %1 owner %2",
+					order.m_iOperationContractVersion,
+					runtimeOwner);
+				if (m_ExactEnemyGarrisonRebuild)
+					changed = m_ExactEnemyGarrisonRebuild.QuarantineUnsupportedGarrisonRebuildAuthority(
+						state,
+						order,
+						rebuildFailure) || changed;
+				else
+					changed = FailClosedUnsupportedVersionedOrder(state, order, runtimeOwner) || changed;
+				continue;
+			}
 			bool openOrder = order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED
 				|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
 			if (!openOrder)
@@ -2540,7 +2815,13 @@ class HST_EnemyCommanderService
 				&& HasLinkedPatrolAuthority(state, order))
 			{
 				string patrolFailure = BuildUnsupportedPatrolAuthorityReason(order, runtimeOwner);
-				if (m_ExactEnemyPatrol)
+				if (runtimeOwner == RUNTIME_OWNER_EXACT_GARRISON_REBUILD
+					&& m_ExactEnemyGarrisonRebuild)
+					changed = m_ExactEnemyGarrisonRebuild.QuarantineUnsupportedGarrisonRebuildAuthority(
+						state,
+						order,
+						patrolFailure) || changed;
+				else if (m_ExactEnemyPatrol)
 					changed = m_ExactEnemyPatrol.QuarantineUnsupportedPatrolAuthority(state, order, patrolFailure) || changed;
 				else
 					changed = FailClosedUnsupportedVersionedOrder(state, order, runtimeOwner) || changed;
@@ -2584,6 +2865,18 @@ class HST_EnemyCommanderService
 				{
 					order.m_sRuntimeStatus = "exact_patrol_runtime_service_missing";
 					order.m_sFailureReason = "exact enemy patrol runtime service is missing";
+					changed = true;
+				}
+				continue;
+			}
+			if (runtimeOwner == RUNTIME_OWNER_EXACT_GARRISON_REBUILD)
+			{
+				if (m_ExactEnemyGarrisonRebuild)
+					changed = m_ExactEnemyGarrisonRebuild.TickOrder(state, preset, enemyDirector, order) || changed;
+				else if (order.m_sRuntimeStatus != "exact_garrison_rebuild_runtime_service_missing")
+				{
+					order.m_sRuntimeStatus = "exact_garrison_rebuild_runtime_service_missing";
+					order.m_sFailureReason = "exact enemy garrison rebuild runtime service is missing";
 					changed = true;
 				}
 				continue;
@@ -3284,8 +3577,22 @@ class HST_EnemyCommanderService
 		if (targetOwnedByFaction && HasReactiveDefenseSignal(state, preset, pool.m_sFactionKey, targetZone, recentThreatScore) && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF, recentThreatScore, retaliationReason, stableDecisionSalt))
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF;
 
-		HST_GarrisonState garrison = state.FindGarrison(targetZone.m_sZoneId, pool.m_sFactionKey);
-		if (targetOwnedByFaction && (!garrison || garrison.m_iInfantryCount < Math.Max(2, state.m_iWarLevel)) && pool.m_iSupportResources >= 10)
+		int authoritativeGarrisonInfantry = m_GarrisonStrength.ResolveAuthoritativeZoneInfantry(
+			state,
+			targetZone.m_sZoneId,
+			pool.m_sFactionKey,
+			true);
+		int desiredGarrisonInfantry = Math.Max(2, state.m_iWarLevel);
+		if (targetZone.m_iGarrisonSlots > 0)
+			desiredGarrisonInfantry = Math.Min(
+				desiredGarrisonInfantry,
+				targetZone.m_iGarrisonSlots);
+		bool rebuildCapacityAvailable = targetZone.m_iGarrisonSlots <= 0
+			|| authoritativeGarrisonInfantry < targetZone.m_iGarrisonSlots;
+		if (targetOwnedByFaction
+			&& rebuildCapacityAvailable
+			&& authoritativeGarrisonInfantry < desiredGarrisonInfantry
+			&& pool.m_iSupportResources >= 10)
 			return HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
 
 		if (targetOwnedByFaction && targetZone.m_eType == HST_EZoneType.HST_ZONE_TOWN && pool.m_iSupportResources >= 12 && HasTownRoadblockDefenseSignal(state, preset, pool.m_sFactionKey, targetZone) && ShouldRetaliateWithSupport(state, targetZone, pool, HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK, recentThreatScore, retaliationReason, stableDecisionSalt))
@@ -3671,15 +3978,29 @@ class HST_EnemyCommanderService
 				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
 				&& operation.m_iContractVersion
 					== HST_EnemyPatrolOperationService.EXACT_CONTRACT_VERSION;
+			HST_EnemyOrderState settledLinkedOrder = linkedOrder;
+			if (!settledLinkedOrder && !operation.m_sEnemyOrderId.IsEmpty())
+				settledLinkedOrder = state.FindEnemyOrder(operation.m_sEnemyOrderId);
+			bool compatibleDeliveredGarrisonRebuild = settledLinkedOrder
+				&& HST_OperationService.RequiresExactEnemyGarrisonRebuild(settledLinkedOrder)
+				&& settledLinkedOrder.m_eStatus
+					== HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+				&& operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+				&& operation.m_eDutyState
+					== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION;
 			bool commanderOperation = operation.m_eType
 				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_PATROL
 				|| operation.m_eType
 					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
 				|| operation.m_eType
-					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK;
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+				|| operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD;
 			bool compatibleIndependentOperation = !commanderOperation
 				&& operation.m_sEnemyOrderId.IsEmpty();
-			if (compatiblePatrol || compatibleIndependentOperation)
+			if (compatiblePatrol || compatibleDeliveredGarrisonRebuild
+				|| compatibleIndependentOperation)
 				InsertTargetCommitmentRow(
 					compatibleIdentities,
 					compatibleRows,
@@ -4361,13 +4682,15 @@ class HST_EnemyCommanderService
 
 		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
 		{
-			attackCost = 4;
+			attackCost = 0;
 			supportCost = 10;
 		}
 	}
 
 	protected string ResolveOrderSpendMode(HST_CampaignState state, HST_CampaignPreset preset, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string requestedMode)
 	{
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
+			return SPEND_MODE_REACTIVE_DEFENSE;
 		if (!requestedMode.IsEmpty())
 			return requestedMode;
 
@@ -4393,6 +4716,8 @@ class HST_EnemyCommanderService
 	protected void ResolveOrderCostsForSpendMode(HST_EEnemyOrderType orderType, string spendMode, out int attackCost, out int supportCost)
 	{
 		ResolveOrderCosts(orderType, attackCost, supportCost);
+		if (orderType == HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON)
+			return;
 		if (spendMode == SPEND_MODE_PROACTIVE_ATTACK)
 		{
 			supportCost = 0;

@@ -81,6 +81,7 @@ class HST_OwnershipTransitionService
 	protected HST_PhysicalWarService m_PhysicalWar;
 	protected HST_LocalSecurityOperationService m_LocalSecurityPatrols;
 	protected HST_GarrisonPatrolOperationService m_GarrisonPatrols;
+	protected HST_EnemyGarrisonRebuildOperationService m_EnemyGarrisonRebuilds;
 	protected HST_ZoneCaptureService m_ZoneCapture;
 	protected HST_MapMarkerService m_MapMarkers;
 	protected HST_ClientProjectionService m_ClientProjection;
@@ -113,6 +114,7 @@ class HST_OwnershipTransitionService
 		HST_PhysicalWarService physicalWar,
 		HST_LocalSecurityOperationService localSecurityPatrols,
 		HST_GarrisonPatrolOperationService garrisonPatrols,
+		HST_EnemyGarrisonRebuildOperationService enemyGarrisonRebuilds,
 		HST_ZoneCaptureService zoneCapture)
 	{
 		m_EnemyCommander = enemyCommander;
@@ -121,6 +123,7 @@ class HST_OwnershipTransitionService
 		m_PhysicalWar = physicalWar;
 		m_LocalSecurityPatrols = localSecurityPatrols;
 		m_GarrisonPatrols = garrisonPatrols;
+		m_EnemyGarrisonRebuilds = enemyGarrisonRebuilds;
 		m_ZoneCapture = zoneCapture;
 	}
 
@@ -548,6 +551,16 @@ class HST_OwnershipTransitionService
 					patrolFailure))
 					return NeedsRetry(transition, result, patrolFailure);
 				result.m_bStateChanged = patrolChanged || result.m_bStateChanged;
+				bool rebuildChanged;
+				string rebuildFailure;
+				if (!m_EnemyGarrisonRebuilds.ReconcileZoneOwnershipChange(
+					state,
+					zone.m_sZoneId,
+					transition.m_sNewOwnerFactionKey,
+					rebuildChanged,
+					rebuildFailure))
+					return NeedsRetry(transition, result, rebuildFailure);
+				result.m_bStateChanged = rebuildChanged || result.m_bStateChanged;
 				RetireOldAbstractSecurity(state, zone, transition);
 				if (!transition.m_bOldSecurityRetired)
 					result.m_bStateChanged = true;
@@ -893,6 +906,13 @@ class HST_OwnershipTransitionService
 			newOwnerFactionKey,
 			localSecurityFailure))
 			return localSecurityFailure;
+		string rebuildFailure;
+		if (!m_EnemyGarrisonRebuilds.CanReconcileZoneOwnershipChange(
+			state,
+			zone.m_sZoneId,
+			newOwnerFactionKey,
+			rebuildFailure))
+			return rebuildFailure;
 
 		foreach (HST_GarrisonState garrison : state.m_aGarrisons)
 		{
@@ -901,14 +921,33 @@ class HST_OwnershipTransitionService
 			foreach (string manifestId : garrison.m_aAcceptedManifestIds)
 			{
 				HST_ForceManifestState manifest = state.FindForceManifest(manifestId);
-				if (!manifest || manifest.m_sPolicyId != HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
-					return "non-patrol exact garrison authority must be settled before ownership can change";
+				if (!manifest)
+					return "accepted exact garrison authority is missing before ownership change";
 				string manifestFailure;
-				if (!m_GarrisonPatrols.ValidateAcceptedManifestOwnershipAuthority(
-						state,
-						garrison,
-						manifest,
-						manifestFailure))
+				if (manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
+				{
+					if (!m_GarrisonPatrols.ValidateAcceptedManifestOwnershipAuthority(
+							state,
+							garrison,
+							manifest,
+							manifestFailure))
+						return manifestFailure;
+				}
+				else if (manifest.m_sPolicyId
+					== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID)
+				{
+					if (!m_EnemyGarrisonRebuilds.ValidateAcceptedManifestOwnershipAuthority(
+							state,
+							garrison,
+							manifest,
+							manifestFailure))
+						return manifestFailure;
+				}
+				else
+				{
+					return "unsupported exact garrison authority must be settled before ownership can change";
+				}
+				if (!manifestFailure.IsEmpty())
 					return manifestFailure;
 			}
 		}
@@ -923,7 +962,7 @@ class HST_OwnershipTransitionService
 	{
 		if (!m_Preset || !m_Balance || !m_Economy || !m_Strategic || !m_Garrisons
 			|| !m_Civilians || !m_TownInfluence || !m_CampaignEvents || !m_PhysicalWar
-			|| !m_LocalSecurityPatrols || !m_GarrisonPatrols
+			|| !m_LocalSecurityPatrols || !m_GarrisonPatrols || !m_EnemyGarrisonRebuilds
 			|| !m_ZoneCapture || !m_MapMarkers || !m_Persistence)
 			return false;
 		if (request.m_bApplyEnemyConsequences && (!m_EnemyCommander || !m_EnemyDirector))

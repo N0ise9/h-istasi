@@ -111,6 +111,73 @@ class HST_GarrisonService
 		return garrison.m_iInfantryCount - beforeInfantry == manifest.m_iAcceptedMemberCount;
 	}
 
+	HST_GarrisonState LinkExactEnemyGarrisonRebuildManifest(
+		HST_CampaignState state,
+		string zoneId,
+		string factionKey,
+		HST_ForceManifestState manifest,
+		int livingCount)
+	{
+		if (!state || !manifest || zoneId.IsEmpty() || factionKey.IsEmpty())
+			return null;
+		if (!manifest.m_bFrozen
+			|| manifest.m_sPolicyId != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID
+			|| manifest.m_sForceKind != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND
+			|| manifest.m_sIntentId != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT
+			|| manifest.m_sManifestId.IsEmpty() || manifest.m_sFactionKey != factionKey
+			|| manifest.m_sTargetZoneId != zoneId || livingCount <= 0
+			|| livingCount > manifest.m_iAcceptedMemberCount)
+			return null;
+
+		HST_GarrisonState existing = state.FindGarrison(zoneId, factionKey);
+		if (existing && existing.m_aAcceptedManifestIds.Contains(manifest.m_sManifestId))
+			return existing;
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone || zone.m_sOwnerFactionKey != factionKey)
+			return null;
+
+		int aggregateInfantry;
+		if (existing)
+			aggregateInfantry = Math.Max(0, existing.m_iInfantryCount);
+		int exactInfantry = CountExecutableManifestInfantry(state, existing);
+		int activeInfantry = Math.Max(0, zone.m_iActiveInfantryCount);
+		if (zone.m_iGarrisonSlots > 0
+			&& aggregateInfantry + exactInfantry + activeInfantry + livingCount > zone.m_iGarrisonSlots)
+			return null;
+
+		HST_GarrisonState garrison = FindOrCreate(state, zoneId, factionKey);
+		if (!garrison)
+			return null;
+		garrison.m_aAcceptedManifestIds.Insert(manifest.m_sManifestId);
+		return garrison;
+	}
+
+	bool UnlinkExactEnemyGarrisonRebuildManifest(
+		HST_CampaignState state,
+		string zoneId,
+		string factionKey,
+		HST_ForceManifestState manifest)
+	{
+		if (!state || !manifest
+			|| manifest.m_sPolicyId != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID)
+			return false;
+		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
+		if (!garrison)
+			return false;
+		int manifestIndex = garrison.m_aAcceptedManifestIds.Find(manifest.m_sManifestId);
+		if (manifestIndex < 0)
+			return false;
+		garrison.m_aAcceptedManifestIds.Remove(manifestIndex);
+		if (garrison.m_iInfantryCount <= 0 && garrison.m_iVehicleCount <= 0
+			&& garrison.m_aAcceptedManifestIds.Count() == 0)
+		{
+			int garrisonIndex = state.m_aGarrisons.Find(garrison);
+			if (garrisonIndex >= 0)
+				state.m_aGarrisons.Remove(garrisonIndex);
+		}
+		return true;
+	}
+
 	bool RemoveManifestForcesExact(HST_CampaignState state, string zoneId, string factionKey, HST_ForceManifestState manifest)
 	{
 		if (!state || !manifest)
@@ -209,7 +276,11 @@ class HST_GarrisonService
 			if (manifestId.IsEmpty() || countedManifestIds.Contains(manifestId))
 				continue;
 			HST_ForceManifestState manifest = state.FindForceManifest(manifestId);
-			if (!manifest || manifest.m_sPolicyId != HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
+			if (!manifest)
+				continue;
+			bool exactPatrol = manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID;
+			bool exactRebuild = manifest.m_sPolicyId == HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID;
+			if (!exactPatrol && !exactRebuild)
 				continue;
 			countedManifestIds.Insert(manifestId);
 			if (manifest.m_sTargetZoneId != garrison.m_sZoneId
@@ -218,6 +289,35 @@ class HST_GarrisonService
 				// A misplaced exact backlink is corruption, not free capacity. Retain
 				// its full accepted reservation until typed validation resolves it.
 				infantryCount += Math.Max(0, manifest.m_iAcceptedMemberCount);
+				continue;
+			}
+			if (exactRebuild)
+			{
+				HST_OperationRecordState rebuildOperation;
+				HST_ForceSpawnResultState rebuildBatch;
+				HST_ActiveGroupState rebuildGroup;
+				bool rebuildSettled;
+				string rebuildFailure;
+				if (!ResolveExactHeldEnemyGarrisonRebuildAuthority(
+					state,
+					garrison,
+					manifest,
+					rebuildOperation,
+					rebuildBatch,
+					rebuildGroup,
+					rebuildSettled,
+					rebuildFailure))
+				{
+					// Corrupt or incomplete held authority must not create apparent free
+					// capacity. Typed restore validation owns the eventual resolution.
+					infantryCount += Math.Max(0, manifest.m_iAcceptedMemberCount);
+					continue;
+				}
+				if (!rebuildSettled)
+				{
+					HST_ForceSpawnQueueService rebuildQueue = new HST_ForceSpawnQueueService();
+					infantryCount += rebuildQueue.CountStrategicLivingMemberSlots(rebuildBatch);
+				}
 				continue;
 			}
 			HST_OperationRecordState operation = ResolveUniqueReciprocalExactPatrolOperation(
@@ -272,6 +372,54 @@ class HST_GarrisonService
 			}
 		}
 		return infantryCount;
+	}
+
+	int ResolveAuthoritativeZoneInfantry(
+		HST_CampaignState state,
+		string zoneId,
+		string factionKey,
+		bool includeInboundExactRebuilds = true,
+		string excludedOperationId = "")
+	{
+		if (!state || zoneId.IsEmpty() || factionKey.IsEmpty())
+			return 0;
+		HST_ZoneState zone = state.FindZone(zoneId);
+		if (!zone)
+			return 0;
+		HST_GarrisonState garrison = state.FindGarrison(zoneId, factionKey);
+		int infantry = Math.Max(0, zone.m_iActiveInfantryCount);
+		if (garrison)
+		{
+			infantry += Math.Max(0, garrison.m_iInfantryCount);
+			infantry += CountExecutableManifestInfantry(state, garrison);
+		}
+		if (!includeInboundExactRebuilds)
+			return infantry;
+
+		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
+		foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)
+		{
+			if (!HST_OperationService.RequiresExactEnemyGarrisonRebuild(order)
+				|| order.m_sTargetZoneId != zoneId || order.m_sFactionKey != factionKey
+				|| order.m_sOperationId == excludedOperationId)
+				continue;
+			HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+			if (!operation
+				|| operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+				|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+				continue;
+			HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+			if (!manifest)
+				continue;
+			if (garrison && garrison.m_aAcceptedManifestIds.Contains(manifest.m_sManifestId))
+				continue;
+			HST_ForceSpawnResultState batch = state.FindForceSpawnResult(order.m_sSpawnResultId);
+			int reserved = manifest.m_iAcceptedMemberCount;
+			if (batch)
+				reserved = queue.CountStrategicLivingMemberSlots(batch);
+			infantry += Math.Max(0, Math.Min(manifest.m_iAcceptedMemberCount, reserved));
+		}
+		return infantry;
 	}
 
 	HST_GarrisonVirtualCombatRosterResult ResolveExactVirtualCombatRoster(
@@ -352,21 +500,38 @@ class HST_GarrisonService
 				result.m_sFailureReason = "virtual garrison combat manifest hash conflicts";
 				return result;
 			}
-			if (manifest.m_sPolicyId != HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
-				continue;
-
 			HST_OperationRecordState operation;
 			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState heldGroup;
 			bool settled;
 			string authorityFailure;
-			if (!ResolveExactHeldGarrisonPatrolAuthority(
-				state,
-				garrison,
-				manifest,
-				operation,
-				batch,
-				settled,
-				authorityFailure))
+			bool resolvedAuthority;
+			if (manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
+			{
+				resolvedAuthority = ResolveExactHeldGarrisonPatrolAuthority(
+					state,
+					garrison,
+					manifest,
+					operation,
+					batch,
+					settled,
+					authorityFailure);
+			}
+			else if (manifest.m_sPolicyId == HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID)
+			{
+				resolvedAuthority = ResolveExactHeldEnemyGarrisonRebuildAuthority(
+					state,
+					garrison,
+					manifest,
+					operation,
+					batch,
+					heldGroup,
+					settled,
+					authorityFailure);
+			}
+			else
+				continue;
+			if (!resolvedAuthority)
 			{
 				result.m_sFailureReason = authorityFailure;
 				return result;
@@ -448,14 +613,32 @@ class HST_GarrisonService
 				HST_ForceSpawnResultState batch;
 				bool settled;
 				string authorityFailure;
-				if (!manifest || !ResolveExactHeldGarrisonPatrolAuthority(
-					state,
-					roster.m_Garrison,
-					manifest,
-					operation,
-					batch,
-					settled,
-					authorityFailure) || settled)
+				HST_ActiveGroupState heldGroup;
+				bool resolvedAuthority;
+				if (manifest && manifest.m_sPolicyId == HST_GarrisonPatrolOperationService.EXACT_POLICY_ID)
+				{
+					resolvedAuthority = ResolveExactHeldGarrisonPatrolAuthority(
+						state,
+						roster.m_Garrison,
+						manifest,
+						operation,
+						batch,
+						settled,
+						authorityFailure);
+				}
+				else if (manifest && manifest.m_sPolicyId == HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID)
+				{
+					resolvedAuthority = ResolveExactHeldEnemyGarrisonRebuildAuthority(
+						state,
+						roster.m_Garrison,
+						manifest,
+						operation,
+						batch,
+						heldGroup,
+						settled,
+						authorityFailure);
+				}
+				if (!manifest || !resolvedAuthority || settled)
 				{
 					result.m_sFailureReason = authorityFailure;
 					if (result.m_sFailureReason.IsEmpty())
@@ -524,6 +707,140 @@ class HST_GarrisonService
 		result.m_iRemainingTotalInfantryCount = remaining.m_iTotalInfantryCount;
 		result.m_iRemainingTotalDefenderCount = remaining.m_iTotalDefenderCount;
 		return result;
+	}
+
+	protected bool ResolveExactHeldEnemyGarrisonRebuildAuthority(
+		HST_CampaignState state,
+		HST_GarrisonState garrison,
+		HST_ForceManifestState manifest,
+		out HST_OperationRecordState operation,
+		out HST_ForceSpawnResultState batch,
+		out HST_ActiveGroupState group,
+		out bool settled,
+		out string failure)
+	{
+		operation = null;
+		batch = null;
+		group = null;
+		settled = false;
+		failure = "";
+		if (!state || !garrison || !manifest
+			|| manifest.m_sPolicyId != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID
+			|| manifest.m_sForceKind != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND
+			|| manifest.m_sIntentId != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT
+			|| manifest.m_sFactionKey != garrison.m_sFactionKey
+			|| manifest.m_sTargetZoneId != garrison.m_sZoneId)
+		{
+			failure = "exact held enemy garrison rebuild manifest authority conflicts";
+			return false;
+		}
+		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
+		if (manifest.m_sManifestHash.IsEmpty()
+			|| integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
+		{
+			failure = "exact held enemy garrison rebuild manifest hash conflicts";
+			return false;
+		}
+
+		int operationMatches;
+		foreach (HST_OperationRecordState candidateOperation : state.m_aOperations)
+		{
+			if (!candidateOperation || (candidateOperation.m_sOperationId != manifest.m_sOperationId
+				&& candidateOperation.m_sManifestId != manifest.m_sManifestId))
+				continue;
+			operationMatches++;
+			operation = candidateOperation;
+		}
+		if (operationMatches != 1 || !operation
+			|| operation.m_eType != HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+			|| operation.m_iContractVersion != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION
+			|| operation.m_sManifestId != manifest.m_sManifestId
+			|| operation.m_sOwnerFactionKey != garrison.m_sFactionKey
+			|| operation.m_sAssignmentZoneId != garrison.m_sZoneId
+			|| operation.m_sAssignmentKind != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_ASSIGNMENT_KIND
+			|| operation.m_sSettlementPolicyId != HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_SETTLEMENT_POLICY)
+		{
+			failure = "exact held enemy garrison rebuild operation authority is missing or ambiguous";
+			return false;
+		}
+
+		HST_EnemyOrderState order;
+		int orderMatches;
+		foreach (HST_EnemyOrderState candidateOrder : state.m_aEnemyOrders)
+		{
+			if (!candidateOrder || (candidateOrder.m_sOrderId != operation.m_sEnemyOrderId
+				&& candidateOrder.m_sOperationId != operation.m_sOperationId
+				&& candidateOrder.m_sManifestId != manifest.m_sManifestId))
+				continue;
+			orderMatches++;
+			order = candidateOrder;
+		}
+		if (orderMatches != 1 || !order || !HST_OperationService.RequiresExactEnemyGarrisonRebuild(order)
+			|| order.m_sOrderId != operation.m_sEnemyOrderId
+			|| order.m_sOperationId != operation.m_sOperationId
+			|| order.m_sManifestId != manifest.m_sManifestId)
+		{
+			failure = "exact held enemy garrison rebuild order authority is missing or ambiguous";
+			return false;
+		}
+
+		if (operation.m_eSettlementState == HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			settled = true;
+			return true;
+		}
+		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult != HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			|| operation.m_eDutyState != HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			|| order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+			|| !order.m_bOutcomeApplied || !order.m_bResourceSettlementApplied
+			|| order.m_sResourceSettlementKind
+				!= HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND
+			|| order.m_sResourceSettlementId != HST_OperationService.BuildSettlementId(
+				operation.m_sOperationId,
+				HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND))
+		{
+			failure = "exact enemy garrison rebuild is not held by on-station authority";
+			return false;
+		}
+
+		int batchMatches;
+		foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+		{
+			if (!candidateBatch || (candidateBatch.m_sResultId != operation.m_sSpawnResultId
+				&& candidateBatch.m_sOperationId != operation.m_sOperationId
+				&& candidateBatch.m_sManifestId != manifest.m_sManifestId))
+				continue;
+			batchMatches++;
+			batch = candidateBatch;
+		}
+		int groupMatches;
+		foreach (HST_ActiveGroupState candidateGroup : state.m_aActiveGroups)
+		{
+			if (!candidateGroup || (candidateGroup.m_sGroupId != operation.m_sGroupId
+				&& candidateGroup.m_sOperationId != operation.m_sOperationId
+				&& candidateGroup.m_sManifestId != manifest.m_sManifestId))
+				continue;
+			groupMatches++;
+			group = candidateGroup;
+		}
+		if (batchMatches != 1 || groupMatches != 1 || !batch || !group
+			|| batch.m_sManifestId != manifest.m_sManifestId
+			|| batch.m_sOperationId != operation.m_sOperationId
+			|| batch.m_sResultId != operation.m_sSpawnResultId
+			|| batch.m_sForceId != operation.m_sForceId
+			|| batch.m_sProjectionId != operation.m_sProjectionId
+			|| group.m_sOperationId != operation.m_sOperationId
+			|| group.m_sEnemyOrderId != order.m_sOrderId
+			|| group.m_sManifestId != manifest.m_sManifestId
+			|| group.m_sSpawnResultId != batch.m_sResultId
+			|| group.m_sGroupId != operation.m_sGroupId
+			|| group.m_sGarrisonZoneId != garrison.m_sZoneId)
+		{
+			failure = "exact held enemy garrison rebuild runtime authority is missing or ambiguous";
+			return false;
+		}
+		return true;
 	}
 
 	protected bool ResolveExactHeldGarrisonPatrolAuthority(

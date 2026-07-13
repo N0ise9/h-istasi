@@ -27676,4 +27676,480 @@ foreach ($schema69FullDebugProofAssertion in @(
 
 Write-Host "Schema-69 exact enemy-counterattack frozen planning, one-pool applied debit, exact pending settlement-ID and durable-survivor refund replay, debit chronology, phase-aware restore, virtual/physical casualty continuity, deterministic combat, immutable canonical ownership receipts, retryable ACTIVE resource holds, exact settlement policy, quarantine compaction retention, return/refund, conservative migration, Full Debug, and focused autotest wiring OK"
 
+$schema70TypesPath = Join-Path $root 'Scripts/Game/HST/HST_Types.c'
+$schema70StatePath = Join-Path $root 'Scripts/Game/HST/State/HST_CampaignState.c'
+$schema70SaveDataPath = Join-Path $root 'Scripts/Game/HST/State/HST_CampaignSaveData.c'
+$schema70OperationPath = Join-Path $root 'Scripts/Game/HST/Services/HST_OperationService.c'
+$schema70PlanningPath = Join-Path $root 'Scripts/Game/HST/Services/HST_ForcePlanningService.c'
+$schema70RuntimePath = Join-Path $root 'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationService.c'
+$schema70ValidationPath = Join-Path $root 'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildSaveValidationService.c'
+$schema70RetentionPath = Join-Path $root 'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildRetentionService.c'
+$schema70CommanderPath = Join-Path $root 'Scripts/Game/HST/Services/HST_EnemyCommanderService.c'
+$schema70GarrisonPath = Join-Path $root 'Scripts/Game/HST/Services/HST_GarrisonService.c'
+$schema70PhysicalPath = Join-Path $root 'Scripts/Game/HST/Services/HST_PhysicalWarService.c'
+$schema70MarkerPath = Join-Path $root 'Scripts/Game/HST/Services/HST_MapMarkerService.c'
+$schema70OwnershipPath = Join-Path $root 'Scripts/Game/HST/Services/HST_OwnershipTransitionService.c'
+$schema70CoordinatorPath = Join-Path $root 'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+$schema70ProofPath = Join-Path $root 'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationProofService.c'
+$schema70AutotestPath = Join-Path $root 'Scripts/Game/HST/Tests/HST_EnemyGarrisonRebuildAutotest.c'
+foreach ($schema70RequiredPath in @(
+	$schema70TypesPath,
+	$schema70StatePath,
+	$schema70SaveDataPath,
+	$schema70OperationPath,
+	$schema70PlanningPath,
+	$schema70RuntimePath,
+	$schema70ValidationPath,
+	$schema70RetentionPath,
+	$schema70CommanderPath,
+	$schema70GarrisonPath,
+	$schema70PhysicalPath,
+	$schema70MarkerPath,
+	$schema70OwnershipPath,
+	$schema70CoordinatorPath,
+	$schema70ProofPath,
+	$schema70AutotestPath
+)) {
+	if (-not (Test-Path $schema70RequiredPath)) {
+		throw "Schema-70 exact enemy garrison-rebuild source is missing: $schema70RequiredPath"
+	}
+}
+$schema70TypesText = [System.IO.File]::ReadAllText($schema70TypesPath)
+$schema70StateText = [System.IO.File]::ReadAllText($schema70StatePath)
+$schema70SaveDataText = [System.IO.File]::ReadAllText($schema70SaveDataPath)
+$schema70OperationText = [System.IO.File]::ReadAllText($schema70OperationPath)
+$schema70PlanningText = [System.IO.File]::ReadAllText($schema70PlanningPath)
+$schema70RuntimeText = [System.IO.File]::ReadAllText($schema70RuntimePath)
+$schema70ValidationText = [System.IO.File]::ReadAllText($schema70ValidationPath)
+$schema70RetentionText = [System.IO.File]::ReadAllText($schema70RetentionPath)
+$schema70CommanderText = [System.IO.File]::ReadAllText($schema70CommanderPath)
+$schema70GarrisonText = [System.IO.File]::ReadAllText($schema70GarrisonPath)
+$schema70PhysicalText = [System.IO.File]::ReadAllText($schema70PhysicalPath)
+$schema70MarkerText = [System.IO.File]::ReadAllText($schema70MarkerPath)
+$schema70OwnershipText = [System.IO.File]::ReadAllText($schema70OwnershipPath)
+$schema70CoordinatorText = [System.IO.File]::ReadAllText($schema70CoordinatorPath)
+$schema70ProofText = [System.IO.File]::ReadAllText($schema70ProofPath)
+$schema70AutotestText = [System.IO.File]::ReadAllText($schema70AutotestPath)
+
+if ($schema70StateText.IndexOf('static const int SCHEMA_VERSION = 70;') -lt 0) {
+	throw "Schema-70 exact enemy garrison-rebuild authority requires CampaignState schema 70"
+}
+$schema70OperationEnumBlock = Get-ScriptMethodBlock $schema70TypesText 'enum HST_EOperationType'
+$schema70CounterattackEnumIndex = $schema70OperationEnumBlock.IndexOf('HST_OPERATION_TYPE_ENEMY_COUNTERATTACK')
+$schema70RebuildEnumIndex = $schema70OperationEnumBlock.IndexOf('HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD')
+if ([string]::IsNullOrEmpty($schema70OperationEnumBlock) -or
+	$schema70CounterattackEnumIndex -lt 0 -or $schema70RebuildEnumIndex -lt 0 -or
+	$schema70CounterattackEnumIndex -ge $schema70RebuildEnumIndex) {
+	throw "Schema-70 enemy garrison-rebuild operation type must append after every persisted Schema-69 ordinal"
+}
+foreach ($schema70ConstantCheck in @(
+	@('contract', $schema70OperationText, 'static const int EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION = 1;'),
+	@('force kind', $schema70OperationText, 'static const string EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND = "enemy_garrison_rebuild";'),
+	@('policy', $schema70OperationText, 'static const string EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID = "exact_enemy_garrison_rebuild_v1";'),
+	@('manifest intent', $schema70OperationText, 'static const string EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT = "hst_rebuild_garrison";'),
+	@('assignment', $schema70OperationText, 'static const string EXACT_ENEMY_GARRISON_REBUILD_ASSIGNMENT_KIND = "reinforce_garrison";'),
+	@('settlement', $schema70OperationText, 'static const string EXACT_ENEMY_GARRISON_REBUILD_SETTLEMENT_POLICY = "exact_enemy_garrison_rebuild_ledger";'),
+	@('delivery receipt', $schema70OperationText, 'static const string EXACT_ENEMY_GARRISON_REBUILD_DELIVERY_SETTLEMENT_KIND = "delivered_garrison_transfer";'),
+	@('support cost', $schema70OperationText, 'static const int EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST = 10;'),
+	@('quarantine contract', $schema70ValidationText, 'QUARANTINED_CONTRACT_VERSION = -70')
+)) {
+	if ($schema70ConstantCheck[1].IndexOf($schema70ConstantCheck[2]) -lt 0) {
+		throw "Schema-70 exact enemy garrison-rebuild constant drifted at $($schema70ConstantCheck[0])"
+	}
+}
+
+$schema70MigrationBlock = Get-ScriptMethodBlock $schema70SaveDataText 'void MigrateToCurrentSchema()'
+$schema70PrepareIndex = $schema70MigrationBlock.IndexOf('schema70EnemyGarrisonRebuildValidation.PrepareBeforeGenericNormalization(')
+$schema70GenericNormalizationIndex = $schema70MigrationBlock.IndexOf('NormalizeActiveGroupSourceLinks(restoredSchemaVersion);')
+$schema70OwnershipNormalizationIndex = $schema70MigrationBlock.IndexOf('schema62OwnershipTransitionValidation.Normalize(')
+$schema70StrategicNormalizationIndex = $schema70MigrationBlock.IndexOf('schema67StrategicResourceValidation.Normalize(')
+$schema70CounterattackNormalizationIndex = $schema70MigrationBlock.IndexOf('schema69EnemyCounterattackValidation.Normalize(')
+$schema70FinalNormalizationIndex = $schema70MigrationBlock.IndexOf('schema70EnemyGarrisonRebuildValidation.Normalize(')
+if ([string]::IsNullOrEmpty($schema70MigrationBlock) -or
+	$schema70PrepareIndex -lt 0 -or $schema70GenericNormalizationIndex -lt 0 -or
+	$schema70PrepareIndex -ge $schema70GenericNormalizationIndex) {
+	throw "Schema-70 exact enemy garrison rebuilds must be classified before generic restore normalization"
+}
+if ($schema70OwnershipNormalizationIndex -lt 0 -or
+	$schema70StrategicNormalizationIndex -lt 0 -or
+	$schema70CounterattackNormalizationIndex -lt 0 -or
+	$schema70FinalNormalizationIndex -lt 0 -or
+	$schema70FinalNormalizationIndex -le $schema70GenericNormalizationIndex -or
+	$schema70FinalNormalizationIndex -le $schema70OwnershipNormalizationIndex -or
+	$schema70FinalNormalizationIndex -le $schema70StrategicNormalizationIndex -or
+	$schema70FinalNormalizationIndex -le $schema70CounterattackNormalizationIndex) {
+	throw "Schema-70 exact enemy garrison rebuilds must normalize after generic, resource, and ownership-dependent restore prerequisites"
+}
+$schema70EnemyOrderBlock = Get-ScriptMethodBlock $schema70StateText 'class HST_EnemyOrderState'
+$schema70EnemyOrderCopyBlock = Get-ScriptMethodBlock $schema70SaveDataText 'protected HST_EnemyOrderState CopyEnemyOrder('
+if ([string]::IsNullOrEmpty($schema70EnemyOrderBlock) -or
+	$schema70EnemyOrderBlock.IndexOf('int m_iTargetOwnershipRevision;') -lt 0 -or
+	[string]::IsNullOrEmpty($schema70EnemyOrderCopyBlock) -or
+	$schema70EnemyOrderCopyBlock.IndexOf('target.m_iTargetOwnershipRevision = source.m_iTargetOwnershipRevision;') -lt 0) {
+	throw "Schema-70 rebuild orders must persist the selected target ownership revision across save copies"
+}
+foreach ($schema70OperationEntry in @(
+	'RequiresExactEnemyGarrisonRebuild(',
+	'RegisterExactEnemyGarrisonRebuild(',
+	'RemoveUncommittedExactEnemyGarrisonRebuild(',
+	'LinkExactEnemyGarrisonRebuildOutboundVirtual(',
+	'MarkExactEnemyGarrisonRebuildPhysical(',
+	'CompleteExactEnemyGarrisonRebuildDematerialization(',
+	'MarkExactEnemyGarrisonRebuildOnStation(',
+	'CanRecordExactEnemyGarrisonRebuildResourceSettlement(',
+	'RecordExactEnemyGarrisonRebuildResourceSettlement(',
+	'SettleExactEnemyGarrisonRebuild(',
+	'ValidateExactEnemyGarrisonRebuild('
+)) {
+	if ($schema70OperationText.IndexOf($schema70OperationEntry) -lt 0) {
+		throw "Schema-70 operation authority is missing: $schema70OperationEntry"
+	}
+}
+
+$schema70PlanningBlock = Get-ScriptMethodBlock $schema70PlanningText 'HST_EnemyGarrisonRebuildManifestResult PlanExactEnemyGarrisonRebuild('
+foreach ($schema70PlanningEntry in @(
+	'ValidateExactEnemyGarrisonRebuildPlanningContext(',
+	'ResolveAuthoritativeZoneInfantry(',
+	'availableCapacity',
+	'acceptedMemberLimit',
+	'BuildExactEnemyInfantryManifest(',
+	'EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST'
+)) {
+	if ([string]::IsNullOrEmpty($schema70PlanningBlock) -or
+		$schema70PlanningBlock.IndexOf($schema70PlanningEntry) -lt 0) {
+		throw "Schema-70 frozen rebuild planning/capacity authority is incomplete: $schema70PlanningEntry"
+	}
+}
+
+foreach ($schema70RuntimeEntry in @(
+	'class HST_EnemyGarrisonRebuildAdmissionResult',
+	'class HST_EnemyGarrisonRebuildOperationService',
+	'void SetRuntimeServices(',
+	'bool IsExactEnemyGarrisonRebuild(',
+	'HST_EnemyGarrisonRebuildAdmissionResult CanAdmitPreparedOrder(',
+	'HST_EnemyGarrisonRebuildAdmissionResult AdmitPreparedOrder(',
+	'bool TickOrder(',
+	'bool ReconcileAfterRestore(',
+	'bool ReconcileZoneOwnershipChange(',
+	'bool CanReconcileZoneOwnershipChange(',
+	'bool ValidateAcceptedManifestOwnershipAuthority(',
+	'bool SettleOpenOrdersForCampaignStop(',
+	'bool ReconcileSettledRuntimeCleanup(',
+	'bool QuarantineUnsupportedGarrisonRebuildAuthority(',
+	'delivered_garrison_transfer',
+	'LinkExactEnemyGarrisonRebuildManifest('
+)) {
+	if ($schema70RuntimeText.IndexOf($schema70RuntimeEntry) -lt 0) {
+		throw "Schema-70 production rebuild lifecycle is missing: $schema70RuntimeEntry"
+	}
+}
+foreach ($schema70ExactRosterMethodSignature in @(
+	'HST_EnemyGarrisonRebuildAdmissionResult AdmitPreparedOrder(',
+	'protected bool CompleteDelivery(',
+	'protected bool SettleDeliveredOperation(',
+	'bool ReconcileAfterRestore(',
+	'bool ReconcileZoneOwnershipChange('
+)) {
+	$schema70ExactRosterMethodBlock = Get-ScriptMethodBlock $schema70RuntimeText $schema70ExactRosterMethodSignature
+	if ([string]::IsNullOrEmpty($schema70ExactRosterMethodBlock)) {
+		throw "Schema-70 exact-roster lifecycle method is missing: $schema70ExactRosterMethodSignature"
+	}
+	if ($schema70ExactRosterMethodBlock.IndexOf('AddAbstractForces(') -ge 0) {
+		throw "Schema-70 exact enemy garrison rebuilds must never collapse delivery into aggregate infantry: $schema70ExactRosterMethodSignature"
+	}
+}
+$schema70GarrisonLinkBlock = Get-ScriptMethodBlock $schema70GarrisonText 'HST_GarrisonState LinkExactEnemyGarrisonRebuildManifest('
+foreach ($schema70GarrisonEntry in @(
+	'm_aAcceptedManifestIds.Contains(',
+	'CountExecutableManifestInfantry(',
+	'm_aAcceptedManifestIds.Insert('
+)) {
+	if ([string]::IsNullOrEmpty($schema70GarrisonLinkBlock) -or
+		$schema70GarrisonLinkBlock.IndexOf($schema70GarrisonEntry) -lt 0) {
+		throw "Schema-70 delivered rebuild must link one exact held roster: $schema70GarrisonEntry"
+	}
+}
+if ($schema70GarrisonLinkBlock -match 'm_iInfantryCount\s*[+]?=') {
+	throw "Schema-70 delivered rebuild must not double-count its exact roster in aggregate infantry"
+}
+
+$schema70CapabilityBlock = Get-ScriptMethodBlock $schema70CommanderText 'protected string BuildFrozenPlanningCapabilityHash('
+foreach ($schema70CapabilityEntry in @(
+	'RequiresExactEnemyGarrisonRebuild(order)',
+	'targetZone.m_sOwnerFactionKey',
+	'targetZone.m_iOwnershipRevision',
+	'sourceZone.m_sOwnerFactionKey',
+	'sourceZone.m_iOwnershipRevision',
+	'"epc70_%1_%2"'
+)) {
+	if ([string]::IsNullOrEmpty($schema70CapabilityBlock) -or
+		$schema70CapabilityBlock.IndexOf($schema70CapabilityEntry) -lt 0) {
+		throw "Schema-70 selected rebuild ownership capability hash is incomplete: $schema70CapabilityEntry"
+	}
+}
+foreach ($schema70CommanderEntry in @(
+	'SetExactEnemyGarrisonRebuildAuthorityService(',
+	'PlanExactEnemyGarrisonRebuild(',
+	'm_ExactEnemyGarrisonRebuild.CanAdmitPreparedOrder(',
+	'm_ExactEnemyGarrisonRebuild.AdmitPreparedOrder(',
+	'm_ExactEnemyGarrisonRebuild.TickOrder('
+)) {
+	if ($schema70CommanderText.IndexOf($schema70CommanderEntry) -lt 0) {
+		throw "Schema-70 enemy commander wiring is missing: $schema70CommanderEntry"
+	}
+}
+foreach ($schema70ProjectionCheck in @(
+	@('physical route recovery', $schema70PhysicalText, 'RestartExactEnemyGarrisonRebuildInfantryRoute('),
+	@('marker projection', $schema70MarkerText, 'hst_exact_enemy_garrison_rebuild_'),
+	@('ownership preflight', $schema70OwnershipText, 'm_EnemyGarrisonRebuilds.CanReconcileZoneOwnershipChange('),
+	@('ownership settlement', $schema70OwnershipText, 'm_EnemyGarrisonRebuilds.ReconcileZoneOwnershipChange('),
+	@('coordinator construction', $schema70CoordinatorText, 'new HST_EnemyGarrisonRebuildOperationService();'),
+	@('coordinator restore', $schema70CoordinatorText, 'm_EnemyGarrisonRebuildOperations.ReconcileAfterRestore('),
+	@('coordinator campaign stop', $schema70CoordinatorText, 'm_EnemyGarrisonRebuildOperations.SettleOpenOrdersForCampaignStop('),
+	@('coordinator cleanup', $schema70CoordinatorText, 'm_EnemyGarrisonRebuildOperations.ReconcileSettledRuntimeCleanup(')
+)) {
+	if ($schema70ProjectionCheck[1].IndexOf($schema70ProjectionCheck[2]) -lt 0) {
+		throw "Schema-70 runtime integration is missing at $($schema70ProjectionCheck[0])"
+	}
+}
+
+$schema70QuarantinedBatchClaimantBlock = Get-ScriptMethodBlock $schema70ValidationText 'static bool IsSchema70QuarantinedBatchClaimant('
+foreach ($schema70QuarantinedBatchClaimantEntry in @(
+	'order.m_iOperationContractVersion != QUARANTINED_CONTRACT_VERSION',
+	'QuarantinedOrderClaimsBatch(order, batch)',
+	'operation.m_iContractVersion != QUARANTINED_CONTRACT_VERSION',
+	'QuarantinedOperationClaimsBatch(operation, batch)'
+)) {
+	if ([string]::IsNullOrEmpty($schema70QuarantinedBatchClaimantBlock) -or
+		$schema70QuarantinedBatchClaimantBlock.IndexOf($schema70QuarantinedBatchClaimantEntry) -lt 0) {
+		throw "Schema-70 quarantined batch claimant guard is incomplete: $schema70QuarantinedBatchClaimantEntry"
+	}
+}
+$schema70DuplicateSpawnBlock = Get-ScriptMethodBlock $schema70SaveDataText 'protected int FinalizeDuplicateForceSpawnQueueIdentity('
+if ([string]::IsNullOrEmpty($schema70DuplicateSpawnBlock) -or
+	($schema70DuplicateSpawnBlock | Select-String -Pattern 'IsSchema70QuarantinedBatchClaimant\(this, (?:first|second)\)' -AllMatches).Matches.Count -lt 2) {
+	throw "Schema-70 quarantined batches must bypass generic duplicate-identity finalization on both comparison sides"
+}
+if (($schema70SaveDataText | Select-String -Pattern 'IsSchema70QuarantinedBatchClaimant\(this,' -AllMatches).Matches.Count -lt 3) {
+	throw "Schema-70 quarantined batches must bypass generic spawn normalization and duplicate finalization"
+}
+
+$schema70RetentionBlock = Get-ScriptMethodBlock $schema70RetentionText 'static void AddQuarantinedSpawnPins('
+foreach ($schema70RetentionEntry in @(
+	'QUARANTINED_CONTRACT_VERSION',
+	'foreach (HST_EnemyOrderState order : state.m_aEnemyOrders)',
+	'OperationClaimsOrder(operation, order)',
+	'AddPin(pins.m_aResultIds, order.m_sSpawnResultId);',
+	'AddPin(pins.m_aManifestIds, order.m_sManifestId);',
+	'AddPin(pins.m_aOperationIds, order.m_sOperationId);',
+	'AddPin(pins.m_aForceIds, operation.m_sForceId);',
+	'AddPin(pins.m_aProjectionIds, operation.m_sProjectionId);',
+	'pins.Contains(batch)'
+)) {
+	if ([string]::IsNullOrEmpty($schema70RetentionBlock) -or
+		$schema70RetentionBlock.IndexOf($schema70RetentionEntry) -lt 0) {
+		throw "Schema-70 quarantine retention is incomplete: $schema70RetentionEntry"
+	}
+}
+
+$schema70ProofReportBlock = Get-ScriptMethodBlock $schema70ProofText 'class HST_EnemyGarrisonRebuildOperationProofReport'
+foreach ($schema70ProofField in @(
+	'm_bAdmissionCapacityExact',
+	'm_bDeliveryHeldExact',
+	'm_bCasualtyContinuityExact',
+	'm_bRestoreExact',
+	'm_bOwnershipTerminalExact',
+	'm_bAdmissionRollbackExact',
+	'm_bPrearrivalRefundExact',
+	'm_bSettlementCrashResumeExact',
+	'm_bHistoricalIsolationExact',
+	'm_bSchema70QuarantineExact',
+	'm_bOrphanRuntimeQuarantineExact',
+	'm_bQuarantineRetentionExact',
+	'm_bSelectedOwnershipABAExact',
+	'bool AllExact()'
+)) {
+	if ([string]::IsNullOrEmpty($schema70ProofReportBlock) -or
+		$schema70ProofReportBlock.IndexOf($schema70ProofField) -lt 0) {
+		throw "Schema-70 focused proof report is incomplete: $schema70ProofField"
+	}
+}
+foreach ($schema70ProofEntry in @(
+	'ProveAdmissionAndCapacity(report);',
+	'ProveDeliveryAndHeldAuthority(report);',
+	'ProvePhysicalVirtualCasualtyContinuity(report);',
+	'ProveDeliveredRestore(report);',
+	'ProveOwnershipTerminalSettlement(report);',
+	'ProveAdmissionRollback(report);',
+	'ProvePrearrivalSurvivorRefund(report);',
+	'ProveSettlementCrashWindowResume(report);',
+	'ProveHistoricalContractIsolation(report);',
+	'ProveSchema70Quarantine(report);',
+	'ProveOrphanRuntimeQuarantine(report);',
+	'ProveSchema70QuarantineRetention(report);',
+	'ProveSelectedOwnershipABA(report);',
+	'originalCapabilityHash.StartsWith("epc70_")',
+	'ownership capability changed before pressure'
+)) {
+	if ($schema70ProofText.IndexOf($schema70ProofEntry) -lt 0) {
+		throw "Schema-70 focused proof coverage is missing: $schema70ProofEntry"
+	}
+}
+$schema70CrashProofBlock = Get-ScriptMethodBlock $schema70ProofText 'protected bool ProveSettlementCrashWindowCase('
+foreach ($schema70CrashProofEntry in @(
+	'StageReceiptCrashWindow(',
+	'IsSettlementCrashWindowExact(',
+	'IsSettlementCrashTerminalExact(',
+	'saveData.Capture(fixture.m_State);',
+	'saveData.Restore();',
+	'resumed.ReconcileAfterRestore(',
+	'!replayChanged',
+	'CountMutationId('
+)) {
+	if ([string]::IsNullOrEmpty($schema70CrashProofBlock) -or
+		$schema70CrashProofBlock.IndexOf($schema70CrashProofEntry) -lt 0) {
+		throw "Schema-70 settlement crash-window proof is incomplete: $schema70CrashProofEntry"
+	}
+}
+foreach ($schema70CrashHarnessEntry in @(
+	'HST_OPERATION_SETTLEMENT_PREPARED',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'ApplyResourceSettlement(',
+	'SettleExactEnemyGarrisonRebuild('
+)) {
+	if ($schema70ProofText.IndexOf($schema70CrashHarnessEntry) -lt 0) {
+		throw "Schema-70 crash-window staging harness is incomplete: $schema70CrashHarnessEntry"
+	}
+}
+$schema70MalformedQuarantineProofBlock = Get-ScriptMethodBlock $schema70ProofText 'protected void ProveSchema70Quarantine('
+foreach ($schema70MalformedQuarantineProofEntry in @(
+	'BuildSecondaryQuarantineBatch(',
+	'BuildSecondaryQuarantineGroup(',
+	'StageQuarantineProcessEvidence(',
+	'IsSchema70QuarantineExact(',
+	'IsQuarantineRuntimeRevisionReplayExact(',
+	'replayIdempotent',
+	'replay.m_aForceSpawnResults.Count()',
+	'replay.m_aActiveGroups.Count()',
+	'replay.m_aEnemyStrategicMutations.Count()'
+)) {
+	if ([string]::IsNullOrEmpty($schema70MalformedQuarantineProofBlock) -or
+		$schema70MalformedQuarantineProofBlock.IndexOf($schema70MalformedQuarantineProofEntry) -lt 0) {
+		throw "Schema-70 claimant-wide malformed quarantine proof is incomplete: $schema70MalformedQuarantineProofEntry"
+	}
+}
+$schema70MalformedClaimantAssertionBlock = Get-ScriptMethodBlock $schema70ProofText 'protected bool IsQuarantinedRuntimeClaimantExact('
+foreach ($schema70MalformedClaimantAssertionEntry in @(
+	'HST_FORCE_SPAWN_PENDING',
+	'batch.m_bStrategicProjectionHeld',
+	'batch.m_sNativeGroupId.IsEmpty()',
+	'HST_FORCE_SLOT_QUEUED',
+	'slot.m_sEntityId.IsEmpty()',
+	'group.m_bSpawnAttempted',
+	'group.m_iSpawnedAgentCount == 0',
+	'group.m_iAssignedWaypointCount == 0',
+	'"exact_garrison_rebuild_quarantined"',
+	'!queue.IsExecutable('
+)) {
+	if ([string]::IsNullOrEmpty($schema70MalformedClaimantAssertionBlock) -or
+		$schema70MalformedClaimantAssertionBlock.IndexOf($schema70MalformedClaimantAssertionEntry) -lt 0) {
+		throw "Schema-70 claimant-wide malformed quarantine assertions are incomplete: $schema70MalformedClaimantAssertionEntry"
+	}
+}
+$schema70OrphanRuntimeProofBlock = Get-ScriptMethodBlock $schema70ProofText 'protected void ProveOrphanRuntimeQuarantine('
+foreach ($schema70OrphanRuntimeProofEntry in @(
+	'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+	'HST_FORCE_SPAWN_IN_PROGRESS',
+	'fixture.m_State.m_aEnemyOrders.Remove(orderIndex);',
+	'PrepareBeforeGenericNormalization(',
+	'validator.Normalize(',
+	'IsOrphanRuntimeQuarantineExact(',
+	'queue.AcquireWork('
+)) {
+	if ([string]::IsNullOrEmpty($schema70OrphanRuntimeProofBlock) -or
+		$schema70OrphanRuntimeProofBlock.IndexOf($schema70OrphanRuntimeProofEntry) -lt 0) {
+		throw "Schema-70 orphan process-runtime proof is incomplete: $schema70OrphanRuntimeProofEntry"
+	}
+}
+$schema70OrphanRuntimeAssertionBlock = Get-ScriptMethodBlock $schema70ProofText 'protected bool IsOrphanRuntimeQuarantineExact('
+foreach ($schema70OrphanRuntimeAssertionEntry in @(
+	'QUARANTINED_CONTRACT_VERSION',
+	'HST_FORCE_SPAWN_PENDING',
+	'batch.m_bStrategicProjectionHeld',
+	'm_iBatchAttemptGenerationBefore + 1',
+	'm_iBatchLifecycleRevisionBefore + 1',
+	'HST_FORCE_SLOT_QUEUED',
+	'HST_FORCE_SLOT_RETIRED',
+	'casualtySlot.m_bCasualtyConfirmed',
+	'group.m_bSpawnAttempted',
+	'group.m_iAssignedWaypointCount == 0',
+	'm_iGroupLifecycleRevisionBefore + 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema70OrphanRuntimeAssertionBlock) -or
+		$schema70OrphanRuntimeAssertionBlock.IndexOf($schema70OrphanRuntimeAssertionEntry) -lt 0) {
+		throw "Schema-70 orphan process-runtime assertions are incomplete: $schema70OrphanRuntimeAssertionEntry"
+	}
+}
+$schema70CrashTerminalAssertionBlock = Get-ScriptMethodBlock $schema70ProofText 'protected bool IsSettlementCrashTerminalExact('
+foreach ($schema70CrashTerminalAssertionEntry in @(
+	'HST_ENEMY_ORDER_ABORTED',
+	'"resolved_exact_rebuild_terminal"',
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'HST_OPERATION_MATERIALIZATION_RETIRED',
+	'CountMutationId(state, expectation.m_sDebitMutationId) == 1',
+	'CountMutationId(state, expectation.m_sRefundMutationId) == 1',
+	'CountBatchId(state, expectation.m_sBatchId) == 0',
+	'CountGroupId(state, expectation.m_sGroupId) == 0'
+)) {
+	if ([string]::IsNullOrEmpty($schema70CrashTerminalAssertionBlock) -or
+		$schema70CrashTerminalAssertionBlock.IndexOf($schema70CrashTerminalAssertionEntry) -lt 0) {
+		throw "Schema-70 settlement crash-resume terminal assertions are incomplete: $schema70CrashTerminalAssertionEntry"
+	}
+}
+$schema70AutotestExecuteBlock = Get-ScriptMethodBlock $schema70AutotestText 'bool Execute('
+foreach ($schema70AutotestEntry in @(
+	'#ifdef ENABLE_DIAG',
+	'class HST_EnemyGarrisonRebuildAutotestSuite : SCR_AutotestSuiteBase',
+	'[Test(suite: HST_EnemyGarrisonRebuildAutotestSuite)]',
+	'class HST_TEST_EnemyGarrisonRebuildAuthority : SCR_AutotestCaseBase',
+	'[Step(EStage.Main)]',
+	'#endif'
+)) {
+	if ($schema70AutotestText.IndexOf($schema70AutotestEntry) -lt 0) {
+		throw "Schema-70 focused engine-autotest contract is incomplete: $schema70AutotestEntry"
+	}
+}
+foreach ($schema70AutotestExecuteEntry in @(
+	'new HST_EnemyGarrisonRebuildOperationProofService();',
+	'proof.Run()',
+	'HST_BuildInfo.BuildRuntimeSummary()',
+	'report.m_bAdmissionCapacityExact',
+	'report.m_bDeliveryHeldExact',
+	'report.m_bCasualtyContinuityExact',
+	'report.m_bRestoreExact',
+	'report.m_bOwnershipTerminalExact',
+	'report.m_bAdmissionRollbackExact',
+	'report.m_bPrearrivalRefundExact',
+	'report.m_bSettlementCrashResumeExact',
+	'report.m_bHistoricalIsolationExact',
+	'report.m_bSchema70QuarantineExact',
+	'report.m_bOrphanRuntimeQuarantineExact',
+	'report.m_bQuarantineRetentionExact',
+	'report.m_bSelectedOwnershipABAExact',
+	'report.AllExact()',
+	'SetResultSuccess();'
+)) {
+	if ([string]::IsNullOrEmpty($schema70AutotestExecuteBlock) -or
+		$schema70AutotestExecuteBlock.IndexOf($schema70AutotestExecuteEntry) -lt 0) {
+		throw "Schema-70 focused engine-autotest Execute contract is incomplete: $schema70AutotestExecuteEntry"
+	}
+}
+if (($schema70AutotestExecuteBlock | Select-String -Pattern 'AssertTrue\(' -AllMatches).Matches.Count -lt 14 -or
+	$schema70AutotestExecuteBlock.IndexOf('report.AllExact()') -gt
+	$schema70AutotestExecuteBlock.IndexOf('SetResultSuccess();')) {
+	throw "Schema-70 focused engine-autotest must assert every headline and aggregate result before success"
+}
+
+Write-Host "Schema-70 exact enemy garrison-rebuild frozen capacity, reciprocal admission, selected ownership ABA rejection, virtual/physical casualty continuity, delivered held authority, zero-refund terminal settlement, proportional prearrival refund, prepared/settled crash resume, conservative migration, claimant-wide malformed/orphan process-runtime quarantine, quarantine retention, restore, and focused autotest wiring OK"
+
 Write-Host "Partisan foundation validation passed"

@@ -1105,6 +1105,7 @@ class HST_EnemyOrderState
 	HST_EEnemyOrderStatus m_eStatus;
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
+	int m_iTargetOwnershipRevision;
 	string m_sCompositionRequestId;
 	string m_sCompositionIntentId;
 	string m_sCompositionTier;
@@ -1420,7 +1421,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 69;
+	static const int SCHEMA_VERSION = 70;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;

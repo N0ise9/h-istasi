@@ -410,6 +410,7 @@ class HST_OwnershipTransitionProofFixtureFactory
 			physicalWar,
 			localSecurityPatrols,
 			garrisonPatrols,
+			null,
 			fixture.m_ZoneCapture);
 		fixture.m_Service.ConfigureProjectionServices(fixture.m_MapMarkers, null, fixture.m_Persistence);
 		fixture.m_TownInfluence.SetCampaignPreset(preset);

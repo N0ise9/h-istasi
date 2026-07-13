@@ -182,6 +182,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_EnemyQRFOperationService m_EnemyQRFOperations;
 	protected ref HST_EnemyCounterattackOperationService m_EnemyCounterattackOperations;
 	protected ref HST_EnemyPatrolOperationService m_EnemyPatrolOperations;
+	protected ref HST_EnemyGarrisonRebuildOperationService m_EnemyGarrisonRebuildOperations;
 	protected ref HST_LocalSecurityOperationService m_LocalSecurityPatrolOperations;
 	protected ref HST_GarrisonPatrolOperationService m_GarrisonPatrolOperations;
 	protected ref HST_OwnershipTransitionService m_OwnershipTransitions;
@@ -549,6 +550,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyPatrolOperations = new HST_EnemyPatrolOperationService();
 		if (m_EnemyPatrolOperations)
 			m_EnemyPatrolOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
+		m_EnemyGarrisonRebuildOperations = new HST_EnemyGarrisonRebuildOperationService();
+		if (m_EnemyGarrisonRebuildOperations)
+		{
+			m_EnemyGarrisonRebuildOperations.SetRuntimeServices(
+				m_ForceSpawnQueue,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				m_Garrisons);
+			m_EnemyGarrisonRebuildOperations.SetEnemyDirectorService(m_EnemyDirector);
+		}
 		m_LocalSecurityPatrolOperations = new HST_LocalSecurityOperationService();
 		if (m_LocalSecurityPatrolOperations)
 		{
@@ -571,6 +582,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_EnemyCommander.SetExactEnemyQRFAuthorityServices(m_ForcePlanning, m_EnemyQRFOperations);
 			m_EnemyCommander.SetExactEnemyCounterattackAuthorityService(m_EnemyCounterattackOperations);
 			m_EnemyCommander.SetExactEnemyPatrolAuthorityService(m_EnemyPatrolOperations);
+			m_EnemyCommander.SetExactEnemyGarrisonRebuildAuthorityService(m_EnemyGarrisonRebuildOperations);
 		}
 
 		m_OwnershipTransitions = new HST_OwnershipTransitionService();
@@ -589,6 +601,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_PhysicalWar,
 			m_LocalSecurityPatrolOperations,
 			m_GarrisonPatrolOperations,
+			m_EnemyGarrisonRebuildOperations,
 			m_ZoneCapture);
 		m_OwnershipTransitions.ConfigureProjectionServices(
 			m_MapMarkers,
@@ -685,6 +698,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_EnemyCounterattackOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_EnemyPatrolOperations && m_EnemyDirector)
 			m_EnemyPatrolOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
+		if (m_EnemyGarrisonRebuildOperations && m_EnemyDirector)
+			m_EnemyGarrisonRebuildOperations.ReconcileAfterRestore(m_State, m_EnemyDirector);
 		if (m_GarrisonPatrolOperations)
 			m_GarrisonPatrolOperations.ReconcileAfterRestore(m_State);
 		if (m_MissionGuardOperations)
@@ -864,6 +879,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					m_State,
 					m_EnemyDirector,
 					"campaign outcome is terminal");
+			bool terminalExactEnemyGarrisonRebuildSettlementChanged = m_EnemyGarrisonRebuildOperations
+				&& m_EnemyGarrisonRebuildOperations.SettleOpenOrdersForCampaignStop(
+					m_State,
+					m_EnemyDirector,
+					"campaign outcome is terminal");
 			bool terminalExactEnemyPatrolSettlementChanged = terminalPatrolAuthorityReady && m_EnemyPatrolOperations
 				&& m_EnemyPatrolOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign outcome is terminal");
 			bool terminalExactLocalSecuritySettlementChanged = terminalLocalSecurityAuthorityReady
@@ -888,6 +908,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool terminalExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactEnemyCounterattackCleanupChanged = m_EnemyCounterattackOperations
 				&& m_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool terminalExactEnemyGarrisonRebuildCleanupChanged = m_EnemyGarrisonRebuildOperations
+				&& m_EnemyGarrisonRebuildOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool terminalExactLocalSecurityCleanupChanged = m_LocalSecurityPatrolOperations
 				&& m_LocalSecurityPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -908,7 +930,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| terminalExactSupportSettlementChanged || terminalSpawnMarkerChanged;
 			bool terminalOperationChanged = terminalExactEnemyQRFSettlementChanged
 				|| terminalExactEnemyQRFCleanupChanged || terminalExactEnemyCounterattackSettlementChanged
-				|| terminalExactEnemyCounterattackCleanupChanged || terminalExactConvoySettlementChanged
+				|| terminalExactEnemyCounterattackCleanupChanged
+				|| terminalExactEnemyGarrisonRebuildSettlementChanged
+				|| terminalExactEnemyGarrisonRebuildCleanupChanged || terminalExactConvoySettlementChanged
 				|| terminalExactConvoyCleanupChanged || terminalMissionGuardChanged || terminalRescueChanged
 				|| terminalExactRadioSettlementChanged;
 			if (terminalCoreChanged || terminalOperationChanged || terminalPatrolChanged
@@ -952,6 +976,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					m_State,
 					m_EnemyDirector,
 					"campaign is in setup");
+			bool setupExactEnemyGarrisonRebuildSettlementChanged = m_EnemyGarrisonRebuildOperations
+				&& m_EnemyGarrisonRebuildOperations.SettleOpenOrdersForCampaignStop(
+					m_State,
+					m_EnemyDirector,
+					"campaign is in setup");
 			bool setupExactEnemyPatrolSettlementChanged = setupPatrolAuthorityReady && m_EnemyPatrolOperations
 				&& m_EnemyPatrolOperations.SettleOpenOrdersForCampaignStop(m_State, m_EnemyDirector, "campaign is in setup");
 			bool setupExactLocalSecuritySettlementChanged = setupLocalSecurityAuthorityReady
@@ -976,6 +1005,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			bool setupExactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactEnemyCounterattackCleanupChanged = m_EnemyCounterattackOperations
 				&& m_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State);
+			bool setupExactEnemyGarrisonRebuildCleanupChanged = m_EnemyGarrisonRebuildOperations
+				&& m_EnemyGarrisonRebuildOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 			bool setupExactLocalSecurityCleanupChanged = m_LocalSecurityPatrolOperations
 				&& m_LocalSecurityPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -996,7 +1027,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				|| setupSpawnMarkerChanged;
 			bool setupOperationChanged = setupExactEnemyQRFSettlementChanged
 				|| setupExactEnemyQRFCleanupChanged || setupExactEnemyCounterattackSettlementChanged
-				|| setupExactEnemyCounterattackCleanupChanged || setupExactConvoySettlementChanged
+				|| setupExactEnemyCounterattackCleanupChanged
+				|| setupExactEnemyGarrisonRebuildSettlementChanged
+				|| setupExactEnemyGarrisonRebuildCleanupChanged || setupExactConvoySettlementChanged
 				|| setupExactConvoyCleanupChanged || setupMissionGuardChanged || setupRescueChanged
 				|| setupExactRadioSettlementChanged;
 			if (setupCoreChanged || setupOperationChanged || setupPatrolChanged
@@ -1015,6 +1048,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool exactEnemyQRFCleanupChanged = m_EnemyQRFOperations && m_EnemyQRFOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactEnemyCounterattackCleanupChanged = m_EnemyCounterattackOperations
 			&& m_EnemyCounterattackOperations.ReconcileSettledRuntimeCleanup(m_State);
+		bool exactEnemyGarrisonRebuildCleanupChanged = m_EnemyGarrisonRebuildOperations
+			&& m_EnemyGarrisonRebuildOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactEnemyPatrolCleanupChanged = m_EnemyPatrolOperations && m_EnemyPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
 		bool exactLocalSecurityCleanupChanged = m_LocalSecurityPatrolOperations
 			&& m_LocalSecurityPatrolOperations.ReconcileSettledRuntimeCleanup(m_State);
@@ -1142,6 +1177,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		anyStateChanged = anyStateChanged || forceSpawnQueueChanged;
 		anyStateChanged = anyStateChanged || exactEnemyQRFCleanupChanged;
 		anyStateChanged = anyStateChanged || exactEnemyCounterattackCleanupChanged;
+		anyStateChanged = anyStateChanged || exactEnemyGarrisonRebuildCleanupChanged;
 		anyStateChanged = anyStateChanged || exactEnemyPatrolCleanupChanged;
 		anyStateChanged = anyStateChanged || exactLocalSecurityCleanupChanged;
 		anyStateChanged = anyStateChanged || exactLocalSecurityChanged;
@@ -1166,6 +1202,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		bool markerStateChanged = missionChanged || missionRuntimeChanged || convoyRuntimeChanged || convoyOperationChanged || forceSpawnQueueChanged;
 		markerStateChanged = markerStateChanged || exactEnemyPatrolCleanupChanged;
+		markerStateChanged = markerStateChanged || exactEnemyGarrisonRebuildCleanupChanged;
 		markerStateChanged = markerStateChanged || exactGarrisonPatrolCleanupChanged;
 		markerStateChanged = markerStateChanged || exactGarrisonPatrolChanged;
 		markerStateChanged = markerStateChanged || exactMissionGuardCleanupChanged;
@@ -1373,6 +1410,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// and manifest identities too, so a damaged direct result backlink cannot
 		// make the held terminal roster eligible for compaction.
 		HST_EnemyCounterattackRetentionService.AddQuarantinedSpawnPins(m_State, pins);
+		// Schema-70 rebuild quarantine is also terminal order state while its
+		// reciprocal spawn graph remains retained diagnostic authority.
+		HST_EnemyGarrisonRebuildRetentionService.AddQuarantinedSpawnPins(m_State, pins);
 		foreach (HST_ActiveMissionState guardMission : m_State.m_aActiveMissions)
 		{
 			if (!HST_MissionGuardOperationService.IsExactMission(guardMission)
@@ -7786,7 +7826,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		roadblockTown.m_iPopulationRemaining = 75;
 		m_State.m_aCivilianZones.Insert(roadblockTown);
 
-		HST_EnemyOrderState rebuildOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, rebuildZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON);
+		HST_EnemyOrderState rebuildOrder = m_EnemyCommander.QueueDebugLegacyOrder(m_State, m_Preset, m_EnemyDirector, factionKey, rebuildZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON);
 		HST_EnemyOrderState roadblockOrder = m_EnemyCommander.QueueDebugOrder(m_State, m_Preset, m_EnemyDirector, factionKey, roadblockZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK);
 		HST_EnemyOrderState qrfOrder = m_EnemyCommander.QueueDebugLegacyOrder(m_State, m_Preset, m_EnemyDirector, factionKey, qrfZone, HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF);
 		bool ordersCreated = rebuildOrder && roadblockOrder && qrfOrder && rebuildOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE && roadblockOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE && qrfOrder.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE;
@@ -18258,6 +18298,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugPlayerSearchDestroyOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyQRFOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyCounterattackOperationAssertions(forceCase);
+		AppendCampaignDebugEnemyGarrisonRebuildOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugLocalSecurityOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyStrategicResourceAssertions(forceCase);
@@ -18931,6 +18972,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.schema69_quarantine", "invalid current exact graphs quarantine at -69 without fabricated settlement, refund, outcome, or deletion", proof.m_sQuarantineEvidence, CampaignDebugStatus(proof.m_bSchema69QuarantineExact), "Schema-69 exact enemy-counterattack quarantine fabricated or deleted authority");
 		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.quarantine_retention", "terminal spawn evidence claimed through quarantined reciprocal identities survives repeated compaction and current-schema restore without a live group", proof.m_sRetentionEvidence, CampaignDebugStatus(proof.m_bQuarantineRetentionExact), "Schema-69 quarantine compaction removed or cancelled retained enemy-counterattack evidence");
 		AddCampaignDebugAssertion(forceCase, "enemy_counterattack.aggregate", "every focused exact enemy-counterattack proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more exact enemy-counterattack proofs failed");
+	}
+
+	protected void AppendCampaignDebugEnemyGarrisonRebuildOperationAssertions(HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+		HST_EnemyGarrisonRebuildOperationProofService proofService
+			= new HST_EnemyGarrisonRebuildOperationProofService();
+		HST_EnemyGarrisonRebuildOperationProofReport proof = proofService.Run();
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sDeliveryEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sCasualtyEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRestoreEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOwnershipEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sAdmissionRollbackEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPrearrivalRefundEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sHistoricalEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRetentionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSelectedOwnershipABAEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.admission_capacity", "one support-funded rebuild freezes one deterministic infantry roster within target capacity and creates one reciprocal aggregate", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionCapacityExact), "exact enemy garrison-rebuild admission or capacity authority drifted");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.delivery_hold", "arrival resolves the order once, records one delivery receipt, and links the exact roster into the target garrison without aggregate inflation", proof.m_sDeliveryEvidence, CampaignDebugStatus(proof.m_bDeliveryHeldExact), "exact enemy garrison-rebuild delivery or held authority drifted");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.casualty_continuity", "virtual and physical handoff preserve exact surviving member slots while the delivered roster remains on-station garrison authority", proof.m_sCasualtyEvidence, CampaignDebugStatus(proof.m_bCasualtyContinuityExact), "exact enemy garrison-rebuild casualty continuity changed roster authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.restore", "current-schema restore preserves reciprocal identities, delivery receipt, garrison link, and exact living roster without duplication", proof.m_sRestoreEvidence, CampaignDebugStatus(proof.m_bRestoreExact), "exact enemy garrison-rebuild restore duplicated or lost authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.ownership_terminal", "source or target ownership invalidation settles and unlinks the exact graph once without refunding delivered forces", proof.m_sOwnershipEvidence, CampaignDebugStatus(proof.m_bOwnershipTerminalExact), "exact enemy garrison-rebuild ownership settlement crossed authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.admission_rollback", "failed admission rolls back the full prepaid support debit and creates no partial aggregate", proof.m_sAdmissionRollbackEvidence, CampaignDebugStatus(proof.m_bAdmissionRollbackExact), "exact enemy garrison-rebuild admission rollback was not atomic");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.prearrival_refund", "prearrival invalidation refunds proportional surviving support cost exactly once", proof.m_sPrearrivalRefundEvidence, CampaignDebugStatus(proof.m_bPrearrivalRefundExact), "exact enemy garrison-rebuild prearrival survivor refund was not idempotent");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.historical_isolation", "historical rebuild rows remain untouched while only current exact contracts enter the Schema-70 authority path", proof.m_sHistoricalEvidence, CampaignDebugStatus(proof.m_bHistoricalIsolationExact), "Schema-70 enemy garrison-rebuild authority rewrote historical rows");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.schema70_quarantine", "invalid current exact graphs quarantine at -70 without fabricated settlement, refund, fallback, or deletion", proof.m_sQuarantineEvidence, CampaignDebugStatus(proof.m_bSchema70QuarantineExact), "Schema-70 enemy garrison-rebuild quarantine fabricated or deleted authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.quarantine_retention", "spawn evidence claimed through a quarantined reciprocal graph survives repeated compaction and current-schema restore", proof.m_sRetentionEvidence, CampaignDebugStatus(proof.m_bQuarantineRetentionExact), "Schema-70 enemy garrison-rebuild compaction removed retained diagnostic authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.selected_ownership_aba", "selected source and target ownership revisions are revalidated before pressure, debit, or admission mutation", proof.m_sSelectedOwnershipABAEvidence, CampaignDebugStatus(proof.m_bSelectedOwnershipABAExact), "exact enemy garrison-rebuild selection accepted stale ownership authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.aggregate", "every focused exact enemy garrison-rebuild proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more exact enemy garrison-rebuild proofs failed");
 	}
 
 	protected void AppendCampaignDebugEnemyPatrolOperationAssertions(HST_CampaignDebugCaseResult forceCase)

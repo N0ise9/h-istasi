@@ -346,6 +346,7 @@ class HST_EnemyCounterattackOperationProofFixtureFactory
 			fixture.m_PhysicalWar,
 			fixture.m_LocalSecurity,
 			fixture.m_GarrisonPatrols,
+			null,
 			fixture.m_OwnershipFixture.m_ZoneCapture);
 		fixture.m_Ownership.ConfigureProjectionServices(
 			fixture.m_OwnershipFixture.m_MapMarkers,

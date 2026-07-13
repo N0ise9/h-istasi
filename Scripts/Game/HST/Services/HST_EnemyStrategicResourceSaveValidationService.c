@@ -653,6 +653,144 @@ class HST_EnemyStrategicResourceSaveValidationService
 				return "schema67 exact counterattack pending refund authority conflicts: "
 					+ pendingFailure;
 			}
+			bool exactGarrisonRebuildPending = order.m_eType
+				== HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON;
+			exactGarrisonRebuildPending = exactGarrisonRebuildPending
+				&& order.m_iOperationContractVersion
+					== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION;
+			exactGarrisonRebuildPending = exactGarrisonRebuildPending
+				&& !order.m_bResourceSettlementApplied
+				&& !order.m_sResourceSettlementId.IsEmpty()
+				&& !order.m_sResourceSettlementKind.IsEmpty()
+				&& order.m_sResourceSettlementId
+					== HST_OperationService.BuildSettlementId(
+						order.m_sOperationId,
+						order.m_sResourceSettlementKind);
+			exactGarrisonRebuildPending = exactGarrisonRebuildPending
+				&& order.m_sResourceRefundMutationId == mutation.m_sMutationId;
+			if (exactGarrisonRebuildPending)
+			{
+				// Schema 70 permits exactly one refund linked to a durable PREPARED
+				// terminal intent or the staged zero-refund delivery receipt. Delegate
+				// only that exact graph; historical rebuild rows remain on Schema 67.
+				string pendingFailure
+					= HST_EnemyGarrisonRebuildSaveValidationService.ValidatePendingResourceRefundAuthority(
+						m_SaveData.m_aEnemyStrategicMutations,
+						order);
+				if (pendingFailure.IsEmpty())
+				{
+					HST_OperationRecordState pendingOperation;
+					HST_ForceManifestState pendingManifest;
+					HST_ForceSpawnResultState pendingBatch;
+					HST_ActiveGroupState pendingGroup;
+					int operationCount;
+					int manifestCount;
+					int batchCount;
+					int groupCount;
+					string expectedResultId;
+					if (!order.m_sOrderId.IsEmpty())
+						expectedResultId = "spawn_" + order.m_sOrderId;
+					string expectedProjectionId;
+					string expectedForceId;
+					if (!order.m_sOperationId.IsEmpty())
+					{
+						expectedProjectionId = "projection_" + order.m_sOperationId;
+						expectedForceId = "force_" + order.m_sOperationId;
+					}
+					foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)
+					{
+						if (!operation)
+							continue;
+						bool claimant = operation.m_sOperationId == order.m_sOperationId
+							|| operation.m_sEnemyOrderId == order.m_sOrderId
+							|| operation.m_sManifestId == order.m_sManifestId;
+						if (!claimant && !order.m_sSpawnResultId.IsEmpty())
+							claimant = operation.m_sSpawnResultId == order.m_sSpawnResultId;
+						if (!claimant && !order.m_sGroupId.IsEmpty())
+							claimant = operation.m_sGroupId == order.m_sGroupId;
+						if (!claimant && !expectedResultId.IsEmpty())
+							claimant = operation.m_sSpawnResultId == expectedResultId;
+						if (!claimant && !expectedProjectionId.IsEmpty())
+							claimant = operation.m_sGroupId == expectedProjectionId
+								|| operation.m_sProjectionId == expectedProjectionId;
+						if (!claimant && !expectedForceId.IsEmpty())
+							claimant = operation.m_sForceId == expectedForceId;
+						if (!claimant)
+							continue;
+						pendingOperation = operation;
+						operationCount++;
+					}
+					foreach (HST_ForceManifestState manifest : m_SaveData.m_aForceManifests)
+					{
+						if (!manifest || (manifest.m_sManifestId != order.m_sManifestId
+							&& manifest.m_sOperationId != order.m_sOperationId))
+							continue;
+						pendingManifest = manifest;
+						manifestCount++;
+					}
+					foreach (HST_ForceSpawnResultState batch : m_SaveData.m_aForceSpawnResults)
+					{
+						if (!batch)
+							continue;
+						bool claimant = batch.m_sRequestId == order.m_sOrderId
+							|| batch.m_sOperationId == order.m_sOperationId
+							|| batch.m_sManifestId == order.m_sManifestId;
+						if (!claimant && !expectedResultId.IsEmpty())
+							claimant = batch.m_sResultId == expectedResultId;
+						if (!claimant && !expectedProjectionId.IsEmpty())
+							claimant = batch.m_sProjectionId == expectedProjectionId;
+						if (!claimant && !expectedForceId.IsEmpty())
+							claimant = batch.m_sForceId == expectedForceId;
+						if (!claimant)
+							continue;
+						pendingBatch = batch;
+						batchCount++;
+					}
+					foreach (HST_ActiveGroupState group : m_SaveData.m_aActiveGroups)
+					{
+						if (!group)
+							continue;
+						bool claimant = group.m_sEnemyOrderId == order.m_sOrderId
+							|| group.m_sOperationId == order.m_sOperationId
+							|| group.m_sManifestId == order.m_sManifestId;
+						if (!claimant && !expectedProjectionId.IsEmpty())
+							claimant = group.m_sGroupId == expectedProjectionId
+								|| group.m_sProjectionId == expectedProjectionId;
+						if (!claimant && !expectedResultId.IsEmpty())
+							claimant = group.m_sSpawnResultId == expectedResultId;
+						if (!claimant && !expectedForceId.IsEmpty())
+							claimant = group.m_sForceId == expectedForceId;
+						if (!claimant)
+							continue;
+						pendingGroup = group;
+						groupCount++;
+					}
+					bool fullRefund
+						= HST_EnemyGarrisonRebuildSaveValidationService.IsFullRefundSettlementKind(
+							order.m_sResourceSettlementKind);
+					bool graphlessFullRefund = fullRefund
+						&& !order.m_bStrategicServiceCommitted;
+					bool aggregateCountsExact = operationCount <= 1
+						&& manifestCount <= 1 && batchCount <= 1 && groupCount <= 1;
+					if (!graphlessFullRefund)
+						aggregateCountsExact = operationCount == 1
+							&& manifestCount == 1 && batchCount == 1 && groupCount == 1;
+					if (!aggregateCountsExact)
+						return "schema67 exact enemy garrison rebuild pending refund aggregate is incomplete or ambiguous";
+					pendingFailure
+						= HST_EnemyGarrisonRebuildSaveValidationService.ValidatePendingResourceRefundAggregateAuthority(
+							m_SaveData.m_aEnemyStrategicMutations,
+							order,
+							pendingOperation,
+							pendingManifest,
+							pendingBatch,
+							pendingGroup);
+					if (pendingFailure.IsEmpty())
+						return "";
+				}
+				return "schema67 exact enemy garrison rebuild pending refund authority conflicts: "
+					+ pendingFailure;
+			}
 			if (order.m_iRefundedAttackResources < 0
 				|| order.m_iRefundedSupportResources < 0
 				|| order.m_sResourceRefundMutationId != mutation.m_sMutationId
