@@ -197,12 +197,21 @@ The validation ladder is intentionally cumulative:
 
 1. Foundation/static contract validation
 2. Workbench Game-script compilation and target-configuration validation
-3. Focused and Full Campaign Debug execution
-4. Real profile save, process restart, reload, and reprojection
-5. Packaged dedicated-server/client, multiplayer, reconnect, JIP, and soak proof
+3. Focused command-line engine autotests registered with the Game runtime
+4. Focused and Full Campaign Debug execution in `HST_Dev`
+5. Real profile save, process restart, reload, and reprojection
+6. Packaged dedicated-server/client, multiplayer, reconnect, JIP, and soak proof
 
-Do not promote a source-only or Workbench-only pass to runtime proof. When
-testing a packaged build, capture the build identity, server/client logs, debug
+The focused planning case, `HST_TEST_EnemyPlanningCommitmentAuthority`, requires
+the shared report to pass all 17 deterministic Schema-68 planning fixtures,
+including the three commitment-aware cases and retry-tamper. This is focused
+engine-process evidence; it does not prove the `HST_Dev` coordinator, Full
+Campaign Debug, world integration, persistence, restart, packaging, or network
+behavior. Detailed run evidence belongs in the Campaign Debug verification
+audit rather than this project overview.
+
+Do not promote a narrower validation rung to broader runtime proof. When testing
+a packaged build, capture the build identity, server/client logs, debug
 artifacts, and save/restart evidence together. Close Workbench instances after
 validation so stale processes do not retain resources or confuse later logs.
 

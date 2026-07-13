@@ -843,7 +843,7 @@ Consequences:
 ## CRI-016 - Persist Enemy Planning Without Taking Over Resource Truth
 
 - Status: Accepted; sealed Schema 68 authority with a schema-neutral,
-  commitment-aware source/Workbench correction
+  commitment-aware source/Workbench correction and focused engine proof
 - Date: 2026-07-12
 
 Context: Sealed Schema 67 makes enemy resources, aggression, cadence, and
@@ -934,6 +934,13 @@ Consequences:
   inputs. An older unpressured prepared row can fail closed at admission when
   its prior candidate identity no longer recomputes; no migration invents a new
   target or rewrites its decision.
+- Planning quarantine has one production owner. Save validation bounds imported
+  failure text and delegates to `HST_EnemyPlanningAuthorityService.Quarantine()`
+  rather than duplicating field assignments. The authority therefore owns the
+  same failure reason, one revision increment, and idempotent repeat behavior for
+  restore validation and live planning. The retry-tamper fixture advances the
+  campaign clock to the recorded retry time before testing fingerprint
+  quarantine, so the proof first passes the real cadence gate.
 - The commitment-aware correction is sealed at implementation
   `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
   `2026-07-13T14:44:37Z`, label
@@ -945,10 +952,16 @@ Consequences:
   order/support blockers, settled or terminal operation and rival-faction
   ignores, canonical/legacy zone equivalence, mixed-root blocking precedence,
   permutation-stable rejection diagnostics, deterministic patrol fallback,
-  all-committed skip, and unpressured plus pressure-marked commitment races. Its
-  assertions are wired but have not run in Campaign Debug. Package execution,
-  save/restart, dedicated and live-server behavior, multiplayer, and soak proof
-  remain open.
+  all-committed skip, and unpressured plus pressure-marked commitment races.
+  Focused command-line Game-process case
+  `HST_TEST_EnemyPlanningCommitmentAuthority` ran in
+  `logs_2026-07-13_11-20-05`. Its JUnit report at
+  `2026-07-13T15:20:12.403Z` records one testcase, zero failures, and an empty
+  failed list; `AllExact()` passed for all 17 deterministic Schema-68 planning
+  fixtures. This is isolated engine-executed service proof. Matching Campaign
+  Debug assertions, HST_Dev/coordinator and world integration, persistence,
+  package execution, save/restart, dedicated and live-server behavior,
+  multiplayer, and soak proof remain open.
 - The base Schema 68/settings 24 planning-authority checkpoint is sealed at
   implementation
   `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
@@ -957,9 +970,10 @@ Consequences:
   CRC `971d30d0` at 5,812 files/11,761 classes. Final normal/all-five logs are
   `logs_2026-07-12_21-05-15` and `logs_2026-07-12_21-05-34`; all five target
   configurations validate successfully with zero HST script errors and zero
-  surviving Workbench processes. Its state-only assertions are wired but not
-  executed in Campaign Debug; native restart, package, dedicated-server,
-  multiplayer, and soak evidence remains open.
+  surviving Workbench processes. The current shared state-only report now passes
+  all 17 fields in the focused command-line engine case, but has not executed through
+  Campaign Debug; native restart, package, dedicated-server, multiplayer, and
+  soak evidence remains open.
 - Schema 67/settings 24 is the resource-authority checkpoint immediately
   preceding that base planning seal at implementation
   `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC

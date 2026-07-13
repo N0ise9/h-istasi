@@ -12,6 +12,8 @@ class HST_EnemyPlanningSaveValidationService
 	static const int MAX_REASON_CHARACTERS = 320;
 	protected HST_CampaignSaveData m_SaveData;
 	protected bool m_bPrepared;
+	protected ref HST_EnemyPlanningAuthorityService m_Authority
+		= new HST_EnemyPlanningAuthorityService();
 
 	void PrepareBeforeGenericNormalization(
 		HST_CampaignSaveData saveData,
@@ -956,9 +958,7 @@ class HST_EnemyPlanningSaveValidationService
 	{
 		if (!planning)
 			return;
-		planning.m_iContractVersion = QUARANTINE_CONTRACT_VERSION;
-		planning.m_sDisposition = "quarantined";
-		planning.m_sAuthorityFailure = LimitText(failure);
+		m_Authority.Quarantine(planning, LimitText(failure));
 	}
 
 	protected void QuarantineOrderPlanning(HST_EnemyOrderState order)

@@ -145,7 +145,7 @@ body:
     id: references
     attributes:
       label: References or examples
-      description: "Links, screenshots, Antistasi examples, Reforger examples, mockups, or notes from a play session."
+      description: "Links, screenshots, comparable game-mode examples, Reforger examples, mockups, or notes from a play session."
     validations:
       required: false
 

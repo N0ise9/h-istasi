@@ -36,6 +36,15 @@ successful`, the process exited, and zero Workbench processes survived cleanup.
 Campaign Debug, package execution, packaged restart/migration, dedicated/live-
 server, multiplayer, and soak proof remain open.
 
+The official focused command-line engine rung now executes the shared Schema-68
+planning report in a Game process. `HST_TEST_EnemyPlanningCommitmentAuthority`
+ran in `logs_2026-07-13_11-20-05`; its JUnit report at
+`2026-07-13T15:20:12.403Z` records one testcase, zero failures, and an empty
+failed list. `AllExact()` passed all 17 deterministic planning fixtures. This is
+stronger than source inspection or compilation, but it does not run HST_Dev,
+the coordinator, a campaign world, persistence, restart, a packaged build, or
+network transport.
+
 The same sealed Schema-68 checkpoint makes periodic target selection
 commitment-aware. Same-faction queued/active order and support rows plus open
 operation rows collapse to canonical roots. Incompatible roots are rejected
@@ -52,9 +61,12 @@ deterministically reranks within the same due decision instead of discarding the
 compatibility are revalidated before every debit, including pressure-marked
 retry; unpressured admission also revalidates candidate/source identity before
 pressure. An all-committed candidate set completes as an explicit zero-cost skip.
-Three deterministic source cases and matching Campaign Debug assertions cover
-these expanded branches but have not executed; packaged restart and live-server
-proof remain open.
+The three commitment-specific fields and the complete 17-fixture planning report
+pass in the focused engine autotest. The matching
+`enemy_planning.commitment_aware_selection`,
+`enemy_planning.all_committed_skip`, and
+`enemy_planning.commitment_race_rejection` Campaign Debug cases remain
+unexecuted; packaged restart and live-server proof remain open.
 
 The immediately preceding sealed source/Workbench contract is the Schema-68/
 settings-24 bootstrap/profile/marker correction at implementation
@@ -872,8 +884,13 @@ Debug and packaged-runtime gates remain open.
   source cases include queued/status/faction/equivalent-ID branches and are
   registered as `enemy_planning.commitment_aware_selection`,
   `enemy_planning.all_committed_skip`, and
-  `enemy_planning.commitment_race_rejection`. None has executed in Campaign
-  Debug, a packaged restart, or a live server.
+  `enemy_planning.commitment_race_rejection`. The official command-line case
+  `HST_TEST_EnemyPlanningCommitmentAuthority` passes all three explicit fields
+  and `AllExact()` across all 17 deterministic planning fixtures: one JUnit
+  testcase, zero failures, and an empty failed list in
+  `logs_2026-07-13_11-20-05`, timestamped
+  `2026-07-13T15:20:12.403Z`. None of the three matching cases has executed in
+  Campaign Debug, a packaged restart, or a live server.
 - Campaign Schema 68/runtime-settings 24 is current. The commitment-aware
   source/Workbench checkpoint is sealed at implementation
   `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
@@ -885,8 +902,10 @@ Debug and packaged-runtime gates remain open.
   pacing, staged verified profile migration, marker-integrity cleanup, and
   commitment-aware planning pass
   Foundation 751 and final stamped-tree all-target Workbench validation at CRC
-  `e483e71c`. Campaign Debug, package execution, packaged restart/migration,
-  multiplayer, and soak remain open before runtime certification.
+  `e483e71c`. The focused engine autotest closes the deterministic service rung
+  only. Campaign Debug, HST_Dev/coordinator and world behavior, persistence,
+  package execution, packaged restart/migration, multiplayer, and soak remain
+  open before runtime certification.
 - The immediately preceding sealed source/Workbench tree is the Schema-68/
   settings-24 bootstrap/profile/marker correction under implementation
   `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
@@ -1187,13 +1206,16 @@ Debug and packaged-runtime gates remain open.
   un-compacted operational sequence, the 4,096-row per-faction fail-stop,
   reciprocal order/ledger/town/ownership links, copy/restore, and no duplicate
   charge/refund. The Schema-68 planner builds on this sealed resource boundary.
-  Its three new commitment-aware production-path cases must also execute through
-  Campaign Debug: blocked-target fallback, root collapse with blocking precedence,
-  same-cycle duplicate-patrol rerank, queued/status/faction/equivalent-ID filters,
-  stable multi-reject diagnostics, all-committed zero-cost skip, and post-freeze
-  rejection both before pressure and after pressure was marked but before debit.
-  Then package-prove restart and live-server behavior; source wiring does not
-  close those gates.
+  All 17 deterministic planner fixtures now pass through the focused command-line
+  engine case, including production-service quarantine revision/idempotency and
+  the retry-tamper case after the campaign clock reaches its retry time. Its
+  three commitment-aware production-path cases must still execute through
+  Campaign Debug: blocked-target fallback, root collapse with blocking
+  precedence, same-cycle duplicate-patrol rerank,
+  queued/status/faction/equivalent-ID filters, stable multi-reject diagnostics,
+  all-committed zero-cost skip, and post-freeze rejection both before pressure
+  and after pressure was marked but before debit. Then package-prove restart and
+  live-server behavior; focused service proof does not close those gates.
 - In the same isolated runtime boundary, prove Schema-63 registered conscious
   infantry, cargo exclusion, pilot/turret and armed-mobile/static classification,
   destroyed/burning/immobile exclusion, empty-vehicle behavior, virtual survivor
@@ -1360,8 +1382,9 @@ Debug and packaged-runtime gates remain open.
 
 ## Next Playable Expansion
 
-- First execute the sealed commitment-aware checkpoint's three new Campaign
-  Debug assertions with every expanded rerank/filter/
+- With all 17 deterministic planner fixtures green in the focused command-line
+  engine rung, first execute the sealed commitment-aware checkpoint's three new
+  Campaign Debug assertions with every expanded rerank/filter/
   precedence/diagnostic/retry branch, then package-prove fresh/
   affected-save authority, single-writer whole-tree profile migration, marker
   integrity, commitment admission across restart, and live-server behavior.

@@ -76,8 +76,9 @@ class HST_EnemyPlanningProofReport
 	}
 }
 
-// Source-only deterministic Schema-68 proof. Coordinator wiring may call
-// BuildAuthorityReport after the production commander integration is available.
+// Deterministic Schema-68 proof shared by Campaign Debug and the focused
+// engine autotest. It exercises production planning services against isolated
+// in-memory fixtures and does not certify coordinator or world integration.
 class HST_EnemyPlanningProofService
 {
 	static const string RESISTANCE_FACTION = "FIA";
@@ -1195,8 +1196,12 @@ class HST_EnemyPlanningProofService
 				"proof_us_target",
 				"proof_us_source",
 				1));
+		state.m_iElapsedSeconds = 200;
 		HST_EnemyPlanningDecisionResult retry
-			= m_Authority.RecordRetry(planning, "proof retry", 200);
+			= m_Authority.RecordRetry(
+				planning,
+				"proof retry",
+				state.m_iElapsedSeconds);
 		HST_FactionPoolState pool = state.FindFactionPool(OCCUPIER_FACTION);
 		int attackBefore = pool.m_iAttackResources;
 		int supportBefore = pool.m_iSupportResources;
@@ -1226,13 +1231,17 @@ class HST_EnemyPlanningProofService
 			&& state.m_aEnemyStrategicMutations.IsEmpty();
 		report.m_bRetryTamperQuarantineExact = tamperExact;
 		report.m_sRecoveryEvidence = report.m_sRecoveryEvidence + string.Format(
-			" | retry tamper begin/retry/rejected/quarantined/revision/pool-clean %1/%2/%3/%4/%5/%6",
+			" | retry tamper begin/retry/rejected/quarantined/revision/fingerprint/cost/rows/pool-clean %1/%2/%3/%4/%5/%6/%7/%8/%9",
 			begun && begun.m_bAccepted,
 			retry && retry.m_bAccepted,
 			!valid,
 			planning.m_iContractVersion
 				== HST_EnemyPlanningAuthorityService.QUARANTINE_CONTRACT_VERSION,
 			planning.m_iRevision == planningRevisionBefore + 1,
+			planning.m_sAuthorityFailure.Contains("fingerprint"),
+			planning.m_iAttackCost == tamperedAttackCost,
+			state.m_aEnemyOrders.IsEmpty()
+				&& state.m_aEnemyStrategicMutations.IsEmpty(),
 			pool.m_iAttackResources == attackBefore
 				&& pool.m_iSupportResources == supportBefore
 				&& pool.m_iStrategicRevision == poolRevisionBefore);

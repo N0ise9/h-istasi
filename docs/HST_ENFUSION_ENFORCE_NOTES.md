@@ -20,10 +20,16 @@ and a three-waypoint fallback route before invoking preparation. Foundation
 passes at 751 script-symbol references. Final stamped-tree all-target Workbench
 log `logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
 `e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
-successful`, and zero Workbench processes survived cleanup. The three commitment-
-aware Campaign Debug assertions remain unexecuted. Campaign Debug, packaged
-execution, restart, dedicated-server, live-server, multiplayer, and soak proof
-remain open.
+successful`, and zero Workbench processes survived cleanup. The official focused
+command-line engine-autotest case `HST_TEST_EnemyPlanningCommitmentAuthority` then
+ran in `logs_2026-07-13_11-20-05`. Its JUnit result at
+`2026-07-13T15:20:12.403Z` contains one test case, no failure element, and an
+empty failed list. The shared `HST_EnemyPlanningProofReport` returned
+`AllExact=true` across all 17 deterministic Schema-68 planning fixtures,
+including the three commitment-aware cases and retry-tamper. This closes only
+the focused engine-autotest rung: `HST_Dev` coordinator execution, Full Campaign
+Debug, world integration, persistence, restart, package, dedicated-server,
+live-server, multiplayer, network, and soak proof remain open.
 
 The immediately preceding sealed source/Workbench checkpoint is the Schema-68/
 Settings-24 bootstrap/profile/marker correction at implementation
@@ -449,6 +455,25 @@ This file is for practical engine/script behavior, not project planning. Keep en
     classes and CRC `16665f19`, and a normal WorldEditor open remains responsive
     for all ten samples over 20 seconds. These are compile/startup gates, not a
     packaged-runtime certificate.
+
+- A focused command-line engine autotest is a distinct validation rung after
+  Workbench compilation and before Campaign Debug.
+  - Declare the suite from `SCR_AutotestSuiteBase`, put the case behind
+    `[Test(...)]`, and execute its assertion body from `[Step(EStage.Main)]`.
+    Invoke the registered case by class name with `-autotest`; for the current
+    planning proof that name is `HST_TEST_EnemyPlanningCommitmentAuthority`.
+  - Register an official Game-runtime autotest case that invokes the same shared
+    report builder consumed by Campaign Debug. Do not create a second proof
+    implementation just for the command-line route.
+  - Require the engine log to identify the intended test case. Inspect the
+    exported `$logs:/junit.xml` result for the exact test count and absence of a
+    failure element, require `$logs:/autotest_failed.log` to be empty, then
+    require the shared report's aggregate exactness result in the console log as
+    well.
+  - This proves that the deterministic fixture code actually executed inside the
+    engine. It does not start the `HST_Dev` coordinator, execute Full Campaign
+    Debug, integrate world entities, save or reload profile state, restart a
+    process, load a package, or exercise server/client networking.
 
 - Player-facing economy reports should consume the same service-owned income math as the tick path.
   - If the Command Menu repeats income formulas locally, report totals can drift from actual money/HR mutation as town support, resource types, factories, seaports, airfields, or bank effects change.
@@ -5254,9 +5279,15 @@ This file is for practical engine/script behavior, not project planning. Keep en
   and rejection diagnostics, production duplicate-patrol reranking, queued and
   equivalent-ID filtering, settled/terminal/rival isolation, mixed-root blocking
   precedence, orphan rejection, all-target exhaustion, and pre-pressure plus
-  pressure-marked post-freeze races.
-  These are wired source assertions only until Campaign Debug executes from a
-  packaged build and the resulting campaign/restart artifacts are inspected.
+  pressure-marked post-freeze races. The official focused engine-autotest case
+  `HST_TEST_EnemyPlanningCommitmentAuthority` invokes the same shared
+  `HST_EnemyPlanningProofReport` as Campaign Debug. Its JUnit result at
+  `2026-07-13T15:20:12.403Z` records one test case, no failure element, and an
+  empty failed list; the shared report returned `AllExact=true` for all 17
+  deterministic Schema-68 planning fixtures, including these three cases and
+  retry-tamper. This is focused in-engine deterministic proof, not `HST_Dev`
+  coordinator, Full Campaign Debug, world, persistence, restart, package, or
+  network proof.
 
 - `prepared` with a positive frozen pressure delta and `applied = false` is a
   valid crash window. Validate and restore it, preflight pressure-mark revision
@@ -5284,6 +5315,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   metadata carried by a linked order. It must not change any Schema-67 pool or
   strategic mutation receipt, replay a debit, infer a refund, or fall back to a
   legacy planner.
+
+- Restore validation must delegate planning quarantine to the production
+  authority after bounding the persisted failure text. Reimplementing the field
+  mutations in the validator can drift on revision, failure, and idempotency
+  semantics even when both paths write contract `-68`.
+
+- A deterministic retry fixture must advance `state.m_iElapsedSeconds` to the
+  same timestamp passed to `RecordRetry()`. If the state clock remains earlier,
+  bounded retry-window validation correctly fails before the intended frozen-
+  fingerprint tamper is reached, so the fixture proves the wrong rejection.
 
 - Fresh-state construction and restored-state validation are different trust
   boundaries. Install configured default pools/planners in the new fallback

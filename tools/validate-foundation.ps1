@@ -25041,7 +25041,8 @@ $schema68Paths = @(
 	"Scripts/Game/HST/Services/HST_EnemyPlanningAuthorityService.c",
 	"Scripts/Game/HST/Services/HST_EnemyPlanningSaveValidationService.c",
 	"Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c",
-	"Scripts/Game/HST/Services/HST_EnemyAuthorityBootstrapRecoveryService.c"
+	"Scripts/Game/HST/Services/HST_EnemyAuthorityBootstrapRecoveryService.c",
+	"Scripts/Game/HST/Tests/HST_EnemyPlanningCommitmentAutotest.c"
 )
 foreach ($schema68Path in $schema68Paths) {
 	if (!(Test-Path -LiteralPath $schema68Path -PathType Leaf)) {
@@ -25056,6 +25057,7 @@ $schema68AuthorityText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPl
 $schema68ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningSaveValidationService.c"
 $schema68ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c"
 $schema68RecoveryText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyAuthorityBootstrapRecoveryService.c"
+$schema68AutotestText = Get-Content -Raw "Scripts/Game/HST/Tests/HST_EnemyPlanningCommitmentAutotest.c"
 $schema68BootstrapText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CampaignBootstrapService.c"
 $schema68StrategicValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c"
 $schema68CommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
@@ -25710,6 +25712,11 @@ if ([string]::IsNullOrEmpty($schema68PrepareValidationBlock) -or
 	$schema68RoleValidationBlock.IndexOf('ValidateRuntimeOrderPlanningRows(state, preset)') -lt 0) {
 	throw "Schema-68 validator must isolate pre-68 adoption from current exact role validation"
 }
+$schema68QuarantineValidationBlock = Get-ScriptMethodBlock $schema68ValidationText 'protected void QuarantinePlanning('
+if ([string]::IsNullOrEmpty($schema68QuarantineValidationBlock) -or
+	$schema68QuarantineValidationBlock.IndexOf('m_Authority.Quarantine(planning, LimitText(failure));') -lt 0) {
+	throw "Schema-68 restore quarantine must share bounded production revision and failure semantics"
+}
 
 $schema68ProofBooleans = @(
 	'm_bPre68BaselineExact',
@@ -25778,6 +25785,40 @@ foreach ($schema68ProofDependency in @(
 )) {
 	if ($schema68ProofText.IndexOf($schema68ProofDependency) -lt 0) {
 		throw "Schema-68 proof does not exercise its real authority boundary: $schema68ProofDependency"
+	}
+}
+$schema68RetryTamperProofBlock = Get-ScriptMethodBlock $schema68ProofText 'protected void ProveRetryTamperQuarantine('
+foreach ($schema68RetryTamperProofEntry in @(
+	'state.m_iElapsedSeconds = 200;',
+	'state.m_iElapsedSeconds);',
+	'planning.m_sAuthorityFailure.Contains("fingerprint")',
+	'planning.m_iRevision == planningRevisionBefore + 1',
+	'state.m_aEnemyStrategicMutations.IsEmpty()',
+	'report.m_bRetryTamperQuarantineExact = tamperExact;'
+)) {
+	if ([string]::IsNullOrEmpty($schema68RetryTamperProofBlock) -or
+		$schema68RetryTamperProofBlock.IndexOf($schema68RetryTamperProofEntry) -lt 0) {
+		throw "Schema-68 retry-tamper proof must align its clock and shared quarantine semantics: $schema68RetryTamperProofEntry"
+	}
+}
+
+foreach ($schema68AutotestEntry in @(
+	'#ifdef ENABLE_DIAG',
+	'class HST_EnemyPlanningCommitmentAutotestSuite : SCR_AutotestSuiteBase',
+	'[Test(suite: HST_EnemyPlanningCommitmentAutotestSuite)]',
+	'class HST_TEST_EnemyPlanningCommitmentAuthority : SCR_AutotestCaseBase',
+	'[Step(EStage.Main)]',
+	'proof.BuildAuthorityReport()',
+	'HST_BuildInfo.BuildRuntimeSummary()',
+	'report.m_bCommitmentAwareSelectionExact',
+	'report.m_bAllCommittedSkipExact',
+	'report.m_bCommitmentRaceRejectionExact',
+	'report.AllExact()',
+	'SetResultSuccess();',
+	'#endif'
+)) {
+	if ($schema68AutotestText.IndexOf($schema68AutotestEntry) -lt 0) {
+		throw "Schema-68 focused engine-autotest contract is incomplete: $schema68AutotestEntry"
 	}
 }
 
@@ -26002,7 +26043,7 @@ foreach ($schema68LiveAuthorityEntry in @(
 	}
 }
 
-Write-Host "Schema-68 per-enemy planning cadence, frozen deterministic decisions, exact order/resource backlinks, migration/quarantine, production consumers, and registered state-only source proofs OK"
+Write-Host "Schema-68 per-enemy planning cadence, frozen deterministic decisions, exact order/resource backlinks, migration/quarantine, production consumers, registered source proofs, and focused autotest wiring OK"
 
 $markerIntegrityProjectionPath = 'Scripts/Game/HST/Map/HST_ClientMarkerProjectionService.c'
 $markerIntegrityReconcilerPath = 'Scripts/Game/HST/Map/HST_NativeMapMarkerReconciler.c'
