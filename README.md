@@ -1,5 +1,27 @@
 # Partisan: Everon
 
+The active source provisionally advances Campaign Schema to 68 while runtime
+settings remains Schema 24. One separate planner row per configured enemy owns
+independent last/next 180-second checkpoints. Stable sorted faction,
+commitment, target, and source inputs freeze war level, aggression, Schema-67
+pool revision/balances and operational count, candidates, selection, order and
+support capability, manifest/route, cost, pressure, and deterministic decision,
+order, operation, and debit IDs. A failure before the decision can be frozen
+persists a separate 30-second preparation gate instead of re-running every
+commander tick. A decision persists as `prepared`, retains its frozen facts
+across bounded retries, survives the pre-pressure save boundary, normalizes
+decayed pressure before its once-only update, and finishes explicitly as
+`skipped`, `rejected`, or `committed`; commit requires
+the exact order and Schema-67 debit backlink. Pre-68 restore creates only an
+idle sequence-`0` `last = elapsed`/`next = elapsed + 180` baseline and leaves old orders at
+planning contract `0`; malformed current authority quarantines at `-68` without
+changing Schema-67 pools or receipts. Immediate counterattacks and existing
+debug/direct paths also remain planning contract `0`. Exact QRF/patrol admission
+failure must produce a durable aborted result or explicit planning quarantine.
+The twelve-case source proof is wired/static only. Schema 68 has no final implementation SHA, UTC, label, CRC,
+Foundation count, Workbench result, Campaign Debug result, or runtime evidence
+claim yet.
+
 The current sealed source checkpoint is Campaign Schema 67 while runtime
 settings remains Schema 24. Its exact identity is implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
@@ -57,9 +79,8 @@ admission precedes security/support replacement and owner publication. Rejection
 therefore leaves the outer operation retryable instead of half-published.
 Campaign Debug runs resource/order cases on nested state clones; its focused
 physical-response case materializes and cleans only its supplied group while
-restoring shared marker and AIWorld state. Persisted per-enemy planning cadence
-and a frozen target/source/order/cost decision fingerprint are the immediate
-next Phase 9 source slice and remain unimplemented. All Schema-67 source
+restoring shared marker and AIWorld state. That sealed Schema-67 tree does not
+claim the active provisional Schema-68 planner described above. All Schema-67 source
 fixtures are wired into Campaign Debug, but they have not been executed; the
 native, real-restart, package, multiplayer, and soak evidence also remain
 pending.
@@ -1136,6 +1157,11 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
+The immediate source task is to finish integration plus static/Workbench
+validation for active provisional Schema 68, seal that item, and then **PAUSE**
+for the user to update the Workshop summary and description. No later Blueprint
+slice is selected here.
+
 The current sealed Campaign Schema 67/runtime-settings Schema 24 source
 checkpoint is the first Blueprint Phase 9 dependency: one durable, replay-safe
 enemy strategic resource and aggression authority shared by both enemy roles.
@@ -1194,13 +1220,10 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Publish and runtime-check the sealed Schema-67/settings-24 source/Workbench
-   identity. Require package, server, client, log, and artifact identity to
-   agree; do not substitute the immediately preceding Schema-66 checkpoint.
-2. Implement persisted per-enemy planning cadence, deterministic candidate
-   ordering, and a frozen target/source/order/cost decision fingerprint as the
-   immediate next Blueprint Phase 9 slice on top of the sealed Schema-67
-   resource authority.
+1. Finish the active Schema-68 integration and static/Workbench validation, then
+   seal this item without borrowing any Schema-67 evidence.
+2. **PAUSE for the user to update the Workshop summary and description.** Do not
+   select or begin a later Blueprint slice until the user explicitly resumes.
 3. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event

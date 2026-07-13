@@ -165,6 +165,27 @@ class HST_DefaultCatalog
 		invader.m_iAttackResources = balance.m_iStartingInvaderAttackPool;
 		invader.m_iSupportResources = balance.m_iStartingInvaderSupportPool;
 		state.m_aFactionPools.Insert(invader);
+
+		AddDefaultEnemyPlanningState(state, preset.m_sOccupierFactionKey);
+		AddDefaultEnemyPlanningState(state, preset.m_sInvaderFactionKey);
+	}
+
+	protected static void AddDefaultEnemyPlanningState(
+		HST_CampaignState state,
+		string factionKey)
+	{
+		if (!state || factionKey.IsEmpty())
+			return;
+		HST_EnemyPlanningState planning = new HST_EnemyPlanningState();
+		planning.m_iContractVersion
+			= HST_EnemyPlanningAuthorityService.CONTRACT_VERSION;
+		planning.m_iRevision = 1;
+		planning.m_sFactionKey = factionKey;
+		planning.m_iLastPlanningBucketSecond = 0;
+		planning.m_iNextPlanningBucketSecond
+			= HST_EnemyPlanningAuthorityService.PLANNING_INTERVAL_SECONDS;
+		planning.m_sDisposition = "idle";
+		state.m_aEnemyPlanningStates.Insert(planning);
 	}
 
 	static array<ref HST_HideoutDefinition> CreateHideouts()

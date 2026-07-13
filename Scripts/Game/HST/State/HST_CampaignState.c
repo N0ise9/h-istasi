@@ -49,6 +49,54 @@ class HST_EnemyStrategicMutationState
 }
 
 [BaseContainerProps()]
+class HST_EnemyPlanningState
+{
+	int m_iContractVersion = 1;
+	int m_iRevision = 1;
+	string m_sFactionKey;
+	int m_iDecisionSequence;
+	int m_iLastPlanningBucketSecond;
+	int m_iNextPlanningBucketSecond;
+	int m_iDecisionBucketSecond;
+	int m_iNextRetrySecond;
+	int m_iObservedWarLevel;
+	int m_iObservedAggression;
+	int m_iObservedPoolRevision;
+	int m_iObservedOperationalMutationCount;
+	int m_iObservedAttackResources;
+	int m_iObservedSupportResources;
+	int m_iCommitmentCount;
+	string m_sCommitmentFingerprint;
+	int m_iTargetCandidateCount;
+	string m_sTargetCandidateFingerprint;
+	int m_iSourceCandidateCount;
+	string m_sSourceCandidateFingerprint;
+	string m_sSelectedTargetZoneId;
+	string m_sSelectedSourceZoneId;
+	HST_EEnemyOrderType m_eSelectedOrderType;
+	HST_ESupportRequestType m_ePlannedSupportType;
+	string m_sPlanningCapabilityHash;
+	string m_sSpendMode;
+	int m_iAttackCost;
+	int m_iSupportCost;
+	int m_iTargetPressureBefore;
+	int m_iTargetPressureDelta;
+	int m_iTargetPressureAfter;
+	bool m_bTargetPressureApplied;
+	string m_sDecisionId;
+	string m_sPlannedOrderId;
+	string m_sPlannedOperationId;
+	string m_sPlannedManifestId;
+	string m_sPlannedManifestHash;
+	string m_sPlannedDebitMutationId;
+	string m_sInputFingerprint;
+	string m_sDecisionFingerprint;
+	string m_sDisposition = "idle";
+	string m_sFailureReason;
+	string m_sAuthorityFailure;
+}
+
+[BaseContainerProps()]
 class HST_PlayerState
 {
 	string m_sIdentityId;
@@ -1044,6 +1092,14 @@ class HST_EnemyOrderState
 	string m_sManifestId;
 	string m_sManifestHash;
 	string m_sSpawnResultId;
+	int m_iPlanningContractVersion;
+	int m_iPlanningDecisionSequence;
+	int m_iPlanningBucketSecond;
+	string m_sPlanningDecisionId;
+	string m_sPlanningInputFingerprint;
+	string m_sPlanningDecisionFingerprint;
+	HST_ESupportRequestType m_ePlannedSupportType;
+	string m_sPlanningCapabilityHash;
 	string m_sFactionKey;
 	HST_EEnemyOrderType m_eType;
 	HST_EEnemyOrderStatus m_eStatus;
@@ -1364,7 +1420,7 @@ class HST_CampaignTaskState
 [BaseContainerProps()]
 class HST_CampaignState
 {
-	static const int SCHEMA_VERSION = 67;
+	static const int SCHEMA_VERSION = 68;
 
 	int m_iSchemaVersion = SCHEMA_VERSION;
 	int m_iLastLoadedSchemaVersion = SCHEMA_VERSION;
@@ -1495,6 +1551,7 @@ class HST_CampaignState
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_EnemyStrategicMutationState> m_aEnemyStrategicMutations = {};
+	ref array<ref HST_EnemyPlanningState> m_aEnemyPlanningStates = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceRecord> m_aTownInfluenceRecords = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
@@ -1540,6 +1597,18 @@ class HST_CampaignState
 		{
 			if (mutation && mutation.m_sMutationId == mutationId)
 				return mutation;
+		}
+		return null;
+	}
+
+	HST_EnemyPlanningState FindEnemyPlanningState(string factionKey)
+	{
+		if (factionKey.IsEmpty())
+			return null;
+		foreach (HST_EnemyPlanningState planning : m_aEnemyPlanningStates)
+		{
+			if (planning && planning.m_sFactionKey == factionKey)
+				return planning;
 		}
 		return null;
 	}

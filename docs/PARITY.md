@@ -1,5 +1,21 @@
 # Partisan Capability Map
 
+The active source provisionally advances Campaign Schema to 68 while runtime
+settings remains Schema 24. It adds one per-configured-enemy last/next 180-second planner
+checkpoint, stable sorted faction/commitment/target/source inputs, and frozen
+war/aggression/pool revision/balance/operational/candidate/selection/order/
+support/capability/manifest-route/cost/pressure/accounting evidence. Prepared
+decisions retain those facts across a 30-second retry, apply pressure at most
+once, and finish explicitly as skipped, rejected, or committed; commit requires
+the exact order and Schema-67 debit backlink. Pre-68 restore creates no decision,
+leaves old orders planning contract `0`, and installs only `last = elapsed`,
+`next = elapsed + 180`, sequence `0` idle role baselines;
+malformed current rows quarantine at `-68` without changing Schema-67 pools or
+receipts. Immediate counterattacks and debug/direct paths remain contract `0`.
+Source proof is wired/static only. Schema 68 has no final implementation SHA,
+UTC, label, CRC, Foundation count, Workbench result, Campaign Debug result, or
+runtime evidence claim yet.
+
 The current sealed source/Workbench contract is Campaign Schema 67/runtime-settings Schema
 24 under implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
@@ -31,9 +47,8 @@ owner publication. Nested state-only proofs and focused one-group physicalizatio
 keep Campaign Debug changes disposable. Those source fixtures and routes remain
 wired/static and have not executed in Campaign Debug.
 
-Persisted per-enemy planning cadence and a frozen decision fingerprint are the
-immediate next Phase 9 slice. Phase 8 native/restart/package/multiplayer/marker-
-input/soak gates remain open.
+The active provisional Schema-68 planner is not part of the Schema-67 seal.
+Phase 8 native/restart/package/multiplayer/marker-input/soak gates remain open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66/runtime-settings Schema 24.
 The sealed Schema-66 stamp identifies implementation
@@ -770,6 +785,11 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
+- Active provisional Schema 68/settings 24 has one integrated per-enemy planner
+  source contract and wired/static proof only. It has no final SHA, UTC, label,
+  CRC, Foundation count, Workbench result, Campaign Debug result, or runtime
+  evidence. Finish integration/static/Workbench validation and seal it, then
+  PAUSE for the Workshop metadata update.
 - The current sealed source/Workbench tree is Campaign Schema 67/runtime-settings 24 under
   implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
   `2026-07-12T23:46:02Z`, and label
@@ -1061,10 +1081,8 @@ Debug and packaged-runtime gates remain open.
   quarantine fixtures. Statically and through real restart prove the contiguous
   un-compacted operational sequence, the 4,096-row per-faction fail-stop,
   reciprocal order/ledger/town/ownership links, copy/restore, and no duplicate
-  charge/refund. Then
-  implement persisted per-enemy planning cadence and a frozen decision fingerprint as the
-  immediate next Phase 9 slice; do not skip directly to another exact order
-  family.
+  charge/refund. The active provisional Schema-68 planner builds on this sealed
+  resource boundary; its source proof remains wired/static only.
 - In the same isolated runtime boundary, prove Schema-63 registered conscious
   infantry, cargo exclusion, pilot/turret and armed-mobile/static classification,
   destroyed/burning/immobile exclusion, empty-vehicle behavior, virtual survivor
@@ -1216,10 +1234,10 @@ Debug and packaged-runtime gates remain open.
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
-- Continue the implementation blueprint in dependency order. Build from the
-  sealed Schema-67 checkpoint by persisting one independent planner cadence and
-  frozen deterministic decision fingerprint per enemy
-  before opting another enemy order family into an exact operation contract.
+- Continue the implementation blueprint in dependency order. Active provisional
+  Schema 68 persists one independent planner cadence and frozen deterministic
+  decision fingerprint per enemy while leaving immediate/debug/direct paths at
+  planning contract `0`.
   Unsupported enemy orders and other rescue/mission/support families remain
   legacy/deferred. Every schema-50 through schema-66 native, packaged, restart,
   rendered-UI, multiplayer, and certification gate remains independently open;
@@ -1227,13 +1245,10 @@ Debug and packaged-runtime gates remain open.
 
 ## Next Playable Expansion
 
-- First close the Blueprint Phase 8 runtime exit with the sealed Schema-66
-  package: native civilian/local-security behavior, marker input integrity, real
-  save/restart, multiplayer, and the ten-town/ten-minute soak.
-- Implement the next Phase 9 persisted per-enemy planning cadence and frozen
-  decision fingerprint after the sealed Schema-67 checkpoint.
-  Broader counterattack/support/HQ-attack exactification follows that shared
-  planning boundary rather than preceding it.
+- Finish the active Schema-68 integration and static/Workbench validation, then
+  seal this item without borrowing Schema-67 evidence.
+- **PAUSE for the user to update the Workshop summary and description.** Do not
+  select or begin a later Blueprint slice until the user explicitly resumes.
 - The restart, progression, logistics, mission-polish, and pacing work below is
   still required, but it is not a substitute for the Phase 8 exit or the Phase 9
   Enemy Commander dependency.

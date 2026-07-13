@@ -109,6 +109,7 @@ class HST_CampaignSaveData
 	ref array<ref HST_EnemyOrderState> m_aEnemyOrders = {};
 	ref array<ref HST_EnemySupportLedgerState> m_aEnemySupportLedgers = {};
 	ref array<ref HST_EnemyStrategicMutationState> m_aEnemyStrategicMutations = {};
+	ref array<ref HST_EnemyPlanningState> m_aEnemyPlanningStates = {};
 	ref array<ref HST_CivilianZoneState> m_aCivilianZones = {};
 	ref array<ref HST_TownInfluenceRecord> m_aTownInfluenceRecords = {};
 	ref array<ref HST_TownInfluenceEventState> m_aTownInfluenceEvents = {};
@@ -345,6 +346,10 @@ class HST_CampaignSaveData
 		m_aEnemyStrategicMutations.Clear();
 		foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)
 			m_aEnemyStrategicMutations.Insert(CopyEnemyStrategicMutation(mutation));
+
+		m_aEnemyPlanningStates.Clear();
+		foreach (HST_EnemyPlanningState planning : state.m_aEnemyPlanningStates)
+			m_aEnemyPlanningStates.Insert(CopyEnemyPlanningState(planning));
 
 		m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : state.m_aCivilianZones)
@@ -632,6 +637,10 @@ class HST_CampaignSaveData
 		foreach (HST_EnemyStrategicMutationState mutation : m_aEnemyStrategicMutations)
 			state.m_aEnemyStrategicMutations.Insert(CopyEnemyStrategicMutation(mutation));
 
+		state.m_aEnemyPlanningStates.Clear();
+		foreach (HST_EnemyPlanningState planning : m_aEnemyPlanningStates)
+			state.m_aEnemyPlanningStates.Insert(CopyEnemyPlanningState(planning));
+
 		state.m_aCivilianZones.Clear();
 		foreach (HST_CivilianZoneState civilianZone : m_aCivilianZones)
 			state.m_aCivilianZones.Insert(CopyCivilianZone(civilianZone));
@@ -736,6 +745,58 @@ class HST_CampaignSaveData
 		target.m_sContributionHash = source.m_sContributionHash;
 		target.m_sFingerprint = source.m_sFingerprint;
 		target.m_bApplied = source.m_bApplied;
+		return target;
+	}
+
+	protected HST_EnemyPlanningState CopyEnemyPlanningState(
+		HST_EnemyPlanningState source)
+	{
+		if (!source)
+			return null;
+		HST_EnemyPlanningState target = new HST_EnemyPlanningState();
+		target.m_iContractVersion = source.m_iContractVersion;
+		target.m_iRevision = source.m_iRevision;
+		target.m_sFactionKey = source.m_sFactionKey;
+		target.m_iDecisionSequence = source.m_iDecisionSequence;
+		target.m_iLastPlanningBucketSecond = source.m_iLastPlanningBucketSecond;
+		target.m_iNextPlanningBucketSecond = source.m_iNextPlanningBucketSecond;
+		target.m_iDecisionBucketSecond = source.m_iDecisionBucketSecond;
+		target.m_iNextRetrySecond = source.m_iNextRetrySecond;
+		target.m_iObservedWarLevel = source.m_iObservedWarLevel;
+		target.m_iObservedAggression = source.m_iObservedAggression;
+		target.m_iObservedPoolRevision = source.m_iObservedPoolRevision;
+		target.m_iObservedOperationalMutationCount = source.m_iObservedOperationalMutationCount;
+		target.m_iObservedAttackResources = source.m_iObservedAttackResources;
+		target.m_iObservedSupportResources = source.m_iObservedSupportResources;
+		target.m_iCommitmentCount = source.m_iCommitmentCount;
+		target.m_sCommitmentFingerprint = source.m_sCommitmentFingerprint;
+		target.m_iTargetCandidateCount = source.m_iTargetCandidateCount;
+		target.m_sTargetCandidateFingerprint = source.m_sTargetCandidateFingerprint;
+		target.m_iSourceCandidateCount = source.m_iSourceCandidateCount;
+		target.m_sSourceCandidateFingerprint = source.m_sSourceCandidateFingerprint;
+		target.m_sSelectedTargetZoneId = source.m_sSelectedTargetZoneId;
+		target.m_sSelectedSourceZoneId = source.m_sSelectedSourceZoneId;
+		target.m_eSelectedOrderType = source.m_eSelectedOrderType;
+		target.m_ePlannedSupportType = source.m_ePlannedSupportType;
+		target.m_sPlanningCapabilityHash = source.m_sPlanningCapabilityHash;
+		target.m_sSpendMode = source.m_sSpendMode;
+		target.m_iAttackCost = source.m_iAttackCost;
+		target.m_iSupportCost = source.m_iSupportCost;
+		target.m_iTargetPressureBefore = source.m_iTargetPressureBefore;
+		target.m_iTargetPressureDelta = source.m_iTargetPressureDelta;
+		target.m_iTargetPressureAfter = source.m_iTargetPressureAfter;
+		target.m_bTargetPressureApplied = source.m_bTargetPressureApplied;
+		target.m_sDecisionId = source.m_sDecisionId;
+		target.m_sPlannedOrderId = source.m_sPlannedOrderId;
+		target.m_sPlannedOperationId = source.m_sPlannedOperationId;
+		target.m_sPlannedManifestId = source.m_sPlannedManifestId;
+		target.m_sPlannedManifestHash = source.m_sPlannedManifestHash;
+		target.m_sPlannedDebitMutationId = source.m_sPlannedDebitMutationId;
+		target.m_sInputFingerprint = source.m_sInputFingerprint;
+		target.m_sDecisionFingerprint = source.m_sDecisionFingerprint;
+		target.m_sDisposition = source.m_sDisposition;
+		target.m_sFailureReason = source.m_sFailureReason;
+		target.m_sAuthorityFailure = source.m_sAuthorityFailure;
 		return target;
 	}
 
@@ -1846,6 +1907,14 @@ class HST_CampaignSaveData
 		target.m_sManifestId = source.m_sManifestId;
 		target.m_sManifestHash = source.m_sManifestHash;
 		target.m_sSpawnResultId = source.m_sSpawnResultId;
+		target.m_iPlanningContractVersion = source.m_iPlanningContractVersion;
+		target.m_iPlanningDecisionSequence = source.m_iPlanningDecisionSequence;
+		target.m_iPlanningBucketSecond = source.m_iPlanningBucketSecond;
+		target.m_sPlanningDecisionId = source.m_sPlanningDecisionId;
+		target.m_sPlanningInputFingerprint = source.m_sPlanningInputFingerprint;
+		target.m_sPlanningDecisionFingerprint = source.m_sPlanningDecisionFingerprint;
+		target.m_ePlannedSupportType = source.m_ePlannedSupportType;
+		target.m_sPlanningCapabilityHash = source.m_sPlanningCapabilityHash;
 		target.m_sFactionKey = source.m_sFactionKey;
 		target.m_eType = source.m_eType;
 		target.m_eStatus = source.m_eStatus;
@@ -2611,6 +2680,11 @@ class HST_CampaignSaveData
 		schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(
 			this,
 			restoredSchemaVersion);
+		HST_EnemyPlanningSaveValidationService schema68EnemyPlanningValidation
+			= new HST_EnemyPlanningSaveValidationService();
+		schema68EnemyPlanningValidation.PrepareBeforeGenericNormalization(
+			this,
+			restoredSchemaVersion);
 		if (restoredSchemaVersion < 26)
 		{
 			if (m_bHQDeployed && !IsZeroVector(m_vHQPosition))
@@ -2983,6 +3057,11 @@ class HST_CampaignSaveData
 		// ownership transitions, and Maiden's Bay aliases. Validate those links only
 		// after every prerequisite authority has normalized its current shape.
 		schema67StrategicResourceValidation.Normalize(
+			this,
+			restoredSchemaVersion);
+		// Planning rows bind normalized strategic pools, orders, and debit receipts.
+		// Validate them only after Schema 67 has completed its cross-authority pass.
+		schema68EnemyPlanningValidation.Normalize(
 			this,
 			restoredSchemaVersion);
 		while (m_aCommandReceipts.Count() > HST_CampaignCommandService.MAX_RECEIPT_ROWS)

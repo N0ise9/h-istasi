@@ -420,7 +420,8 @@ class HST_EnemyDirectorService
 			return;
 
 		UpdateLedgerWindows(state, ledger);
-		ledger.m_iRecentDamageScore = Math.Min(100, ledger.m_iRecentDamageScore + damageScore);
+		int currentDamageScore = ResolveRecentDamageScore(state, ledger);
+		ledger.m_iRecentDamageScore = Math.Min(100, currentDamageScore + damageScore);
 		ledger.m_iLastDamageSecond = state.m_iElapsedSeconds;
 		if (reason.IsEmpty())
 			reason = "recent resistance pressure";

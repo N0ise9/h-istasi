@@ -181,7 +181,9 @@ class HST_ForcePlanningService
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
 		HST_EnemyOrderState order,
-		bool validateResources = true)
+		bool validateResources = true,
+		int planningWarLevel = -1,
+		int plannedAtSecond = -1)
 	{
 		HST_EnemyDefensiveQRFManifestResult result = new HST_EnemyDefensiveQRFManifestResult();
 		if (!state || !preset || !order || !m_Catalog || !m_Integrity)
@@ -258,10 +260,16 @@ class HST_ForcePlanningService
 			state,
 			order.m_sOrderId + "|enemy_defensive_qrf",
 			order.m_sTargetZoneId);
+		int effectivePlanningWarLevel = state.m_iWarLevel;
+		if (planningWarLevel >= 0)
+			effectivePlanningWarLevel = planningWarLevel;
+		int effectivePlannedAtSecond = state.m_iElapsedSeconds;
+		if (plannedAtSecond >= 0)
+			effectivePlannedAtSecond = plannedAtSecond;
 		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectPlayerSupportGroup(
 			m_Catalog.BuildGroupCatalog(order.m_sFactionKey),
 			planningSeed,
-			state.m_iWarLevel);
+			effectivePlanningWarLevel);
 		if (!catalogGroup || catalogGroup.m_sExecutionPrefab.IsEmpty() || catalogGroup.m_aMemberSlots.Count() <= 0)
 		{
 			result.m_sFailureReason = "deterministic exact enemy QRF group selection failed";
@@ -286,7 +294,7 @@ class HST_ForcePlanningService
 		manifest.m_iAttackResourceCost = Math.Max(0, order.m_iAttackCost);
 		manifest.m_iSupportResourceCost = Math.Max(0, order.m_iSupportCost);
 		manifest.m_iDeterministicSeed = planningSeed;
-		manifest.m_iCreatedAtSecond = Math.Max(0, state.m_iElapsedSeconds);
+		manifest.m_iCreatedAtSecond = Math.Max(0, effectivePlannedAtSecond);
 		manifest.m_bFrozen = true;
 
 		HST_ForceManifestGroupState groupElement = new HST_ForceManifestGroupState();
@@ -335,7 +343,9 @@ class HST_ForcePlanningService
 		HST_CampaignState state,
 		HST_CampaignPreset preset,
 		HST_EnemyOrderState order,
-		bool validateResources = true)
+		bool validateResources = true,
+		int planningWarLevel = -1,
+		int plannedAtSecond = -1)
 	{
 		HST_EnemyPatrolManifestResult result = new HST_EnemyPatrolManifestResult();
 		string failure = ValidateExactEnemyPatrolPlanningContext(state, preset, order);
@@ -380,10 +390,16 @@ class HST_ForcePlanningService
 			state,
 			order.m_sOrderId + "|enemy_patrol",
 			order.m_sTargetZoneId);
+		int effectivePlanningWarLevel = state.m_iWarLevel;
+		if (planningWarLevel >= 0)
+			effectivePlanningWarLevel = planningWarLevel;
+		int effectivePlannedAtSecond = state.m_iElapsedSeconds;
+		if (plannedAtSecond >= 0)
+			effectivePlannedAtSecond = plannedAtSecond;
 		HST_ForceGroupCatalogEntry catalogGroup = m_Integrity.SelectPlayerSupportGroup(
 			m_Catalog.BuildGroupCatalog(order.m_sFactionKey),
 			planningSeed,
-			state.m_iWarLevel);
+			effectivePlanningWarLevel);
 		if (!catalogGroup || catalogGroup.m_sExecutionPrefab.IsEmpty()
 			|| catalogGroup.m_aMemberSlots.Count() <= 0)
 		{
@@ -397,6 +413,7 @@ class HST_ForcePlanningService
 			result.m_sFailureReason = "selected enemy patrol group contains an invalid catalog slot";
 			return result;
 		}
+		manifest.m_iCreatedAtSecond = Math.Max(0, effectivePlannedAtSecond);
 		manifest.m_sManifestHash = m_Integrity.BuildManifestHash(manifest);
 		if (manifest.m_sManifestHash.IsEmpty())
 		{

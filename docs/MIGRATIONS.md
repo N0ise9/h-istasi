@@ -2,10 +2,15 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is `67` in the current sealed Blueprint Phase
-9 enemy-strategic-resource source/Workbench checkpoint.
+The active source provisionally advances `HST_CampaignState.SCHEMA_VERSION` to
+`68` for the Blueprint Phase 9 enemy-planning authority.
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`; there is no generated-settings
-migration. The sealed source identity is implementation
+migration. Schema 68 is not sealed: it has no final implementation SHA, UTC,
+label, CRC, Foundation count, Workbench result, Campaign Debug result, or runtime
+evidence claim yet.
+
+Schema 67/settings 24 remains the current sealed source/Workbench checkpoint.
+Its sealed source identity is implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -22,10 +27,13 @@ sequence, include accepted zero-effect commands, never compact, and hard-stop at
 4,096 per faction. Periodic receipts compact independently and are fenced by
 persisted last-bucket checkpoints. Pre-67 migration adopts valid current balances,
 aggression, and legacy cadence accumulators only; it invents no mutation history, spend, refund, settlement,
-order, or planning decision. Malformed current authority quarantines at `-67`.
-Persisted per-enemy planning cadence and a frozen decision fingerprint remain
-the next Phase 9 schema slice. Its registered source fixtures and Campaign Debug routes
-remain wired/static and have not executed in Campaign Debug.
+order, or planning decision. Malformed Schema-67 authority quarantines at `-67`.
+
+The active provisional Schema-68 source adds one separate planning row per
+configured enemy. It freezes each role's independent 180-second checkpoint and
+latest deterministic decision without moving resource truth out of Schema 67.
+Its source and proof routes are implementation work, not sealed or executed
+evidence.
 
 The Partisan: Everon branding change does not alter campaign or settings schema.
 The non-public `histasi` Workbench project ID and `HST_*` source/resource
@@ -111,6 +119,56 @@ remained responsive without a crash, and zero Workbench processes survived the
 test. Schema 61 is the preceding sealed marker-projection foundation. Packaged
 evidence remains open.
 
+## Schema 68
+
+- Schema 68 is an active provisional source contract on runtime-settings Schema
+  24. It has no final implementation SHA, UTC, label, CRC, Foundation,
+  Workbench, Campaign Debug, save/restart, package, dedicated-server,
+  multiplayer, or soak claim yet. Schema 67 remains the current sealed
+  checkpoint with the evidence recorded below.
+- Each configured enemy role owns exactly one separate
+  `HST_EnemyPlanningState`. The row persists its own 180-second cadence,
+  revision, and decision sequence; occupier and invader checkpoints advance
+  independently.
+- The frozen input records war level, aggression, Schema-67 pool revision and
+  balances, operational mutation count, commitments, and stable sorted
+  commitment/target/source candidate hashes. The frozen decision records the
+  selected target and source, enemy order type, support type, capability and
+  manifest identity, spend mode, attack/support cost, target-pressure
+  before/delta/after and application state, and stable decision/order/operation/
+  debit accounting identities. Input and decision fingerprints must recompute
+  exactly.
+- Pre-68 migration clears every claimed planning row and every planning backlink
+  on an old enemy order. After configured roles and exact Schema-67 pools are
+  known, it creates one baseline per role with `last = elapsed`, `next = elapsed
+  + 180`, decision sequence `0`, disposition `idle`, and no invented decision,
+  target, order, debit, pressure, candidate, commitment, or fingerprint. Old
+  orders retain planning contract `0`.
+- Current Schema-68 missing, duplicate, foreign-role, malformed, cadence-tampered,
+  fingerprint-divergent, or broken order/debit-backlink authority quarantines at
+  `-68`. Quarantine changes only planning metadata and the planning metadata on
+  affected orders; it never changes, reconstructs, debits, refunds, or repairs a
+  Schema-67 pool or strategic mutation receipt.
+- A due decision first persists as `prepared`. A retry remains the same frozen
+  decision and is bounded to a 30-second retry checkpoint. Completion is an
+  explicit `committed`, `skipped`, or `rejected` disposition. `committed`
+  requires one exact order and applied Schema-67 debit receipt; a prepared row
+  with that exact crash-window graph may reconcile to committed. `skipped` may
+  not claim applied target pressure; `rejected` may retain pressure that was
+  already applied.
+- A transient failure before a due decision can freeze persists a separate
+  non-prepared `nextRetry = now + 30` gate and bounded reason without changing
+  the prior terminal decision. Current restore rejects retry timestamps beyond
+  the saved elapsed second plus 30. Successful begin clears that gate.
+- `prepared` with positive frozen pressure and `applied = false` is a valid
+  pre-pressure crash window. A matching prepared order plus exact Schema-67
+  debit may be adopted as committed; adoption clears retry residue. Revision
+  headroom is reserved before begin, pressure mark, retry, and completion so
+  no step can serialize `int.MAX` or mutate pressure without completion room.
+- Immediate counterattacks and existing debug/direct order paths do not claim
+  periodic planner authority. Their orders remain planning contract `0` unless
+  they are admitted through the Schema-68 prepared-decision boundary.
+
 ## Schema 67
 
 - `HST_EnemyStrategicResourceSaveValidationService` owns pre-67 baseline adoption,
@@ -179,9 +237,9 @@ evidence remains open.
   revisions, operational counts/sequences, cadence checkpoints, fingerprints,
   and backlinks without applying any retained mutation again.
 - Schema 67 does not persist enemy-planning cadence, candidate sets, selected
-  target/source/order, cost quote, or decision fingerprint. The immediate next
-  Phase 9 schema slice must add those facts without reconstructing them from
-  Schema-67 resource receipts or historical orders.
+  target/source/order, cost quote, or decision fingerprint. Active provisional
+  Schema 68 adds those facts without reconstructing them from Schema-67 resource
+  receipts or historical orders.
 
 ## Schema 66
 

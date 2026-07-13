@@ -1,5 +1,12 @@
 # Partisan Architecture
 
+The active source provisionally advances campaign persistence to Schema 68 while
+runtime settings remains Schema 24. Schema 68 is the per-enemy planning-authority
+slice now being implemented. It has no final implementation SHA, UTC, label,
+CRC, Foundation count, Workbench result, Campaign Debug result, or runtime
+evidence claim yet. Schema 67 remains the current sealed checkpoint and retains
+the exact evidence below.
+
 The current sealed source checkpoint advances the campaign save contract to
 Schema 67 while runtime settings remains Schema 24. Its exact identity is
 implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
@@ -58,8 +65,37 @@ admit the stable aggression mutation before security/support reconciliation and
 owner publication. Nested Campaign Debug state cases use disposable clones, and
 the focused physical-response case materializes/cleans only its supplied group
 while restoring shared marker and AIWorld state. Persisted per-enemy planning
-cadence and a frozen target/source/order/cost decision fingerprint are
-deliberately the next Phase 9 slice, not part of Schema 67.
+cadence and a frozen target/source/order/cost decision fingerprint are not part
+of sealed Schema 67. They are the active provisional Schema-68 slice.
+
+Schema 68 keeps planning truth separate from Schema-67 resource truth. Each
+configured enemy role owns one `HST_EnemyPlanningState` with an independent
+180-second checkpoint, revision, decision sequence, and latest disposition.
+Stable sorted commitment, target-candidate, and source-candidate hashes freeze
+the complete observed set rather than array order. The input fingerprint also
+freezes war level, aggression, pool revision/balances, operational mutation
+count, and commitment/candidate counts. The decision fingerprint freezes target,
+source, order type, support type, capability/manifest facts, spend mode, attack/
+support costs, target-pressure projection/application, and deterministic
+decision, order, operation, and Schema-67 debit identities.
+
+The planner first persists a due choice as `prepared`. A retry keeps the same
+frozen choice and advances only a bounded 30-second retry checkpoint. Completion
+is explicit: `committed` requires one exact order and applied Schema-67 debit
+receipt, `skipped` cannot claim applied target pressure, and `rejected` may
+retain pressure already applied. A prepared row restored with its exact order
+and debit crash-window graph may reconcile to committed. Periodic checkpoints
+remain independent, so a blocked faction cannot advance or suppress its rival.
+Immediate counterattacks and existing debug/direct order entry points remain
+planning contract `0`.
+
+Pre-68 restore invents no decision. It clears claimed planner state and old-order
+planner backlinks, then creates one configured-role baseline only after exact
+Schema-67 pool roles are known: `last = elapsed`, `next = elapsed + 180`,
+sequence `0`, and `idle`. Current missing, duplicate, foreign, malformed,
+cadence-tampered, fingerprint-divergent, or broken order/debit graphs quarantine
+at `-68`. Quarantine changes planning and order-planning metadata only; it never
+changes or reconstructs a Schema-67 pool or strategic mutation receipt.
 
 The immediately preceding sealed source/Workbench checkpoint advances the campaign save contract to Schema 66
 while runtime settings remains Schema 24. The sealed Schema-66 stamp identifies
@@ -201,8 +237,8 @@ Blueprint Phase 8 transient runtime services, are:
   links. Legacy/deferred order families remain on their explicit compatibility
   paths until separate cutovers.
 - This resource boundary does not persist commander planning cadence or freeze
-  target/source/order decisions. Those decision inputs and fingerprints are the
-  immediate next Blueprint Phase 9 contract on top of Schema 67.
+  target/source/order decisions. Active provisional Schema 68 owns those
+  decision inputs and fingerprints as a separate contract on top of Schema 67.
 - `HST_EnemyStrategicResourceProofService` is the deterministic state-only proof
   owner for legacy baseline adoption, replay/conflict/atomicity, income catch-up
   and contribution fingerprinting, attack-versus-support separation, faction
@@ -1583,10 +1619,11 @@ balance or native-spawn evidence.
 | Canonical town influence | Sealed Schema 64 gives each curated town one revisioned support/population/contact/flip record, separate FIA/occupier/invader basis points, exact typed events, strict 8000/4000 hysteresis, conservative pre-64 migration/current `-64` quarantine, and legacy projections only. Current exact events persist population triples before/after mutation; absolute debug seeds use the same idempotent boundary, and restore verifies the complete population chain plus the final record. Mutation-time aggregates and due-expiry-only history scans replace the old unconditional one-second fold. Foundation passes at 696 references, and normal plus all-configuration Workbench checks pass at 5,793 files/11,695 classes with CRC `36d5b017` and zero HST script errors. | Execute deterministic proofs, then prove every production caller, formula goldens, equality, owner delegation, save/restart, expiry, distinct enemy support, town taxonomy, and no stutter regression. |
 | Civilian consequences | Sealed Schema 65 source/Workbench adds exact town casualty/theft/combat events, optional aggression target/delta/before/after evidence plus one matching strategic receipt, persisted combat episodes/adopted floor/last-applied receipt, bounded 256-casualty and 64-theft queues with a combined four-transaction frame cap and indefinite bounded-backoff retry, exact-pilot post-promotion theft, and pedestrian panic/recovery with separate bounded route recovery. Minor localities remain panic-only and keep their exact fingerprint map in session memory. Foundation passes at 717 script-symbol references. Final stamped normal/all-five Workbench checks are clean at 5,802 Game files/11,728 classes with CRC `c0a672b9`, `Script validation successful`, zero HST script errors, and zero surviving processes. | Execute the deterministic fixtures, then package-prove native callback attribution, no duplicate casualty/theft/aggression, threat-driven RUN/calm WALK transitions, restore/quarantine, minor-locality restart behavior, and balance under multiplayer/soak load. |
 | Enemy-town local security | Sealed Schema 66 source/Workbench gives each eligible canonical enemy town one deterministic exact patrol epoch backed by a frozen authored 2–5 member roster and held SpawnQueue slots. Casualties survive physical fold and restore; no generic police projection may refill or fold counts into it. Destruction applies exactly one police `-1` event, while owner/pressure clear, setup/stop, and spawn failure settle without loss. Same-epoch resurrection is forbidden; a newer owner revision or later positive police event is required for rearm. Resistance automatic police/roadblock targets are zero. Pre-66 migration preserves logical facts and drops only backlink-free disposable legacy projections. | Run the wired deterministic proof, then package-prove native roster, waypoint movement, casualty observation, bubble fold/re-entry, no refill/no resurrection, exact rearm, ownership ordering, persistence/restart, campaign terminal cleanup, multiplayer, and balance. |
-| Canonical enemy strategic resources | Sealed Schema 67 makes each versioned `HST_FactionPoolState` the unique attack/support/aggression/cadence owner for one enemy role. Compact periodic receipts and last-bucket checkpoints are separate from a contiguous un-compacted operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutation; restore validates exact order/ledger/town/ownership backlinks. Pre-67 restore adopts baseline values/checkpoints without invented history; malformed current graphs quarantine at `-67`. | Real-restart cadence, cap, reciprocal backlinks, and no-bypass proof remain open while persisted per-enemy planning cadence and the frozen decision fingerprint become the next source slice. |
+| Canonical enemy strategic resources | Sealed Schema 67 makes each versioned `HST_FactionPoolState` the unique attack/support/aggression/cadence owner for one enemy role. Compact periodic receipts and last-bucket checkpoints are separate from a contiguous un-compacted operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutation; restore validates exact order/ledger/town/ownership backlinks. Pre-67 restore adopts baseline values/checkpoints without invented history; malformed current graphs quarantine at `-67`. | Real-restart cadence, cap, reciprocal backlinks, and no-bypass proof remain open. Schema-68 planning consumes this authority without mutating or repairing it. |
+| Canonical enemy planning | Active provisional Schema 68 adds one independent 180-second planning row per configured enemy, sorted commitment/target/source hashes, frozen input and decision fingerprints, prepared 30-second retry, explicit committed/skipped/rejected completion, exact order/debit backlinks, conservative pre-68 baselines, and current `-68` quarantine. Immediate counterattacks and debug/direct paths remain planning contract `0`. | Seal source/Workbench and Foundation evidence, execute Campaign Debug, then prove real restart, package, dedicated server, multiplayer, cadence independence, replay, and performance. |
 | Political Map/War projection | Sealed Schema 64 supplies contacted-only Zone Pressure with current-first/stable support ordering and complete deterministic Resistance Territory from published canonical ownership. Resistance Territory reuses the marker projection's completed-parent ownership resolver, preventing a nested child from appearing before its parent transition publishes. | Prove rendered rows, current-town detection, discovery, incomplete ownership fencing, no arbitrary truncation, save/restart, reconnect, and JIP. |
 | Client marker projection | Schema 61 implements stable marker IDs with record revisions/tombstones, one epoch/global sequence, bounded hashed snapshot and ordered-delta packets, one in-flight batch, final-only ACK, post-ACK catch-up, readiness heartbeat/restart backoff, ownership-derived sessions, a widget-independent atomic registry, deterministic priority capping, and fail-safe client-local native reconciliation. Schema 62 protocol `2` adds the ownership source revision without conflating it with marker-local revision. The sealed Schema-66 repair makes protected campaign markers system-owned/non-removable and self-heals native deletion or mutation from the committed registry. Server-native campaign marker publication is retired; authored descriptors hide only behind a live replacement and restore on failure; editable player markers remain separate. | Package-prove manual delete/move/edit rejection and keepalive self-heal on host/client alongside snapshot/delta, map reopen, reconnect, and JIP behavior before widening client projection. |
-| Certification | Schema 67/settings 24 is the current sealed source/Workbench checkpoint at implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`, and Foundation 736. Final stamped normal log `logs_2026-07-12_19-52-14` and all-five log `logs_2026-07-12_19-52-36` both compile 5,809 Game files/11,751 classes with CRC `a353fa0d`; all-five reports `Script validation successful` for WORKBENCH, PC, XBOX, PS4, and PS5, with zero HST script errors and zero surviving Workbench processes. Schema 66/settings 24 is the immediately preceding sealed source/Workbench checkpoint at implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC `2026-07-12T20:28:33Z`, label `schema66-settings24-local-security-marker-integrity`, Foundation 729, and Workbench CRC `ec860be7` at 5,806 files/11,740 classes. | Independently prove physical local security, profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
+| Certification | Schema 67/settings 24 is the current sealed source/Workbench checkpoint at implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`, and Foundation 736. Final stamped normal log `logs_2026-07-12_19-52-14` and all-five log `logs_2026-07-12_19-52-36` both compile 5,809 Game files/11,751 classes with CRC `a353fa0d`; all-five reports `Script validation successful` for WORKBENCH, PC, XBOX, PS4, and PS5, with zero HST script errors and zero surviving Workbench processes. Active provisional Schema 68/settings 24 has no final SHA/UTC/label/CRC/Foundation/Workbench/Campaign Debug/runtime claim yet. Schema 66/settings 24 is the immediately preceding sealed source/Workbench checkpoint at implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC `2026-07-12T20:28:33Z`, label `schema66-settings24-local-security-marker-integrity`, Foundation 729, and Workbench CRC `ec860be7` at 5,806 files/11,740 classes. | Independently prove physical local security, profile save/load/reprojection, protected marker behavior, rendered UI, performance, dedicated server, multiplayer, reconnect, and JIP. |
 
 The canonical ownership dependency and first shared crew-aware combat-presence/
 heat dependency remain sealed through Schema 63. Sealed Schema 64 adds the
@@ -1667,8 +1704,11 @@ planning/order/accounting history. Current duplicate pools, invalid enemy roles,
 noncanonical arithmetic/operational sequences, cadence checkpoint divergence,
 broken exact order/ledger/town/ownership backlinks, conflicting receipt
 identities, or out-of-bound histories quarantine at `-67`; restore never
-replays a retained mutation. Planner cadence and decision fingerprints remain
-absent and cannot be inferred from pool or order history.
+replays a retained mutation. Sealed Schema 67 contains no planner cadence or
+decision fingerprint, and the active Schema-68 migration cannot infer either
+from pool or order history. It installs only conservative role baselines for
+pre-68 saves; current Schema-68 rows must validate their frozen fingerprints,
+cadence, roles, and order/debit backlinks or quarantine at `-68`.
 
 Schema-66 restore then
 isolates exact local-security claimants before generic group/manifest/batch

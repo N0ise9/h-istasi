@@ -1,5 +1,12 @@
 # Partisan Enfusion / Enforce Notes
 
+The active source provisionally advances Campaign Schema to 68 while runtime
+settings remains Schema 24. Schema 68 is the enemy-planning authority currently
+being implemented. It has no final implementation SHA, UTC, label, CRC,
+Foundation count, Workbench result, Campaign Debug result, or runtime evidence
+claim yet. Schema 67 remains the current sealed source/Workbench checkpoint with
+the exact evidence below.
+
 The current sealed source/Workbench checkpoint is Campaign Schema 67/runtime-settings
 Schema 24 under implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
@@ -19,8 +26,8 @@ accepted zero-effect operations, never compact, and hard-stop at 4,096 per
 faction; periodic evidence compacts separately. Registered source fixtures and
 Campaign Debug routes remain wired/static and have not executed in Campaign
 Debug. Persisted per-enemy planning cadence and a frozen decision fingerprint
-are the next Phase 9 slice, and every Blueprint Phase 8 runtime gate remains
-open.
+are not part of that seal; they are the active provisional Schema-68 slice.
+Every Blueprint Phase 8 runtime gate remains open.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime settings
 remains Schema 24. The sealed Schema-66 stamp identifies implementation
@@ -5002,11 +5009,81 @@ This file is for practical engine/script behavior, not project planning. Keep en
   Real restart must still prove no duplicate charge or refund; a pure proof is
   not native or package evidence.
 
-- The immediate next Phase 9 source slice must persist a per-enemy planning
-  cadence and freeze a deterministic decision fingerprint over war level,
+- Active provisional Schema 68 now implements the next Phase 9 source slice: a
+  per-enemy cadence and deterministic decision fingerprint over war level,
   aggression, pool revisions/balances, commitments, ordered target/source
   candidates, selection, order/capability, cost, and accounting links. None of
   that planner authority is claimed by Schema 67.
+
+## Active Provisional Schema 68 Enemy Planning Mechanics
+
+- Keep one `HST_EnemyPlanningState` per configured enemy role. It is separate
+  from `HST_FactionPoolState`: the planner observes Schema-67 pool authority but
+  never owns, repairs, debits, refunds, or reconstructs it. Resolve every row by
+  explicit faction key, never by array position or a shared first-enemy
+  checkpoint.
+
+- Each enemy advances an independent 180-second planning checkpoint. A blocked,
+  exhausted, quarantined, or retrying role cannot advance or suppress its rival.
+  Immediate counterattacks and existing debug/direct order paths are outside the
+  periodic authority and keep planning contract `0`.
+
+- Sort the complete eligible commitment, target, and source sets before hashing
+  them. Persist each count and stable hash so restart validates set identity
+  rather than traversal order. Freeze war level, aggression, pool revision,
+  operational mutation count, attack/support balances, commitments, candidate
+  sets, selected target/source, order and support type, capability/manifest,
+  spend mode, costs, target-pressure before/delta/after and application state,
+  plus deterministic decision/order/operation/debit IDs. Recompute both input
+  and decision fingerprints during current-schema restore.
+
+- Persist a due decision as `prepared` before creating its order. A retry keeps
+  every frozen input, selection, cost, and identity unchanged and schedules at
+  most the next 30-second retry checkpoint. Completion uses only explicit
+  `committed`, `skipped`, or `rejected` dispositions. `committed` requires one
+  exact order backlink and one applied Schema-67 debit receipt. An exact
+  prepared-plus-order crash window may reconcile to committed. `skipped` cannot
+  claim applied target pressure; `rejected` may retain pressure applied before
+  the rejection became known.
+
+- A transient failure before `BeginDecision()` is not an in-memory retry. Store
+  `nextRetry = now + 30` plus its bounded failure on the existing non-prepared
+  role row, make `IsDue()` honor that gate, and clear it only when the next
+  decision freezes successfully. This prevents a missing planner, manifest, or
+  route capability from becoming a per-frame commander loop.
+
+- `prepared` with a positive frozen pressure delta and `applied = false` is a
+  valid crash window. Validate and restore it, preflight pressure-mark revision
+  headroom before mutating the support ledger, normalize the ledger's decayed
+  score before adding the frozen delta, then mark once. Check zero target,
+  missing source, and an already-owned target before pressure so `skipped` never
+  carries an applied signal.
+
+- After an exact order debit, QRF/patrol admission failure is terminal only when
+  the operation service left a durable aborted record. A null or non-terminal
+  failure must quarantine the planning/order backlink instead of being reported
+  as a committed planning success.
+
+- Pre-68 migration must distrust every claimed planner field. Clear planning
+  rows and planning backlinks on old orders, then create one role baseline only
+  after configured enemy roles and their exact Schema-67 pools validate. The
+  baseline is `last = elapsed`, `next = elapsed + 180`, decision sequence `0`,
+  disposition `idle`, with no invented commitment, candidate, target, source,
+  order, manifest, cost, pressure, debit, or fingerprint. Old orders remain
+  planning contract `0`.
+
+- Current missing, duplicate, foreign-role, malformed, cadence-tampered,
+  fingerprint-divergent, and broken committed order/debit graphs quarantine at
+  contract `-68`. Quarantine may change the planning row and the planning
+  metadata carried by a linked order. It must not change any Schema-67 pool or
+  strategic mutation receipt, replay a debit, infer a refund, or fall back to a
+  legacy planner.
+
+- This section is an active provisional source contract only. Do not attach a
+  final Schema-68 implementation SHA, UTC, label, CRC, Foundation count,
+  Workbench pass, Campaign Debug pass, save/restart result, package result,
+  dedicated-server result, multiplayer result, or runtime claim until those
+  gates have actually run on the final tree.
 
 ## Native Reference Sources
 

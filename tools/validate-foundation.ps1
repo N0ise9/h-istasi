@@ -23977,9 +23977,8 @@ $schema67StrategicText = Get-Content -Raw "Scripts/Game/HST/Services/HST_Strateg
 $schema67ZoneCaptureText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCaptureService.c"
 $schema67CommandUIText = Get-Content -Raw "Scripts/Game/HST/Services/HST_CommandUIService.c"
 
-if ($campaignSchemaVersion -ne 67 -or
-	$schema67StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*67;') {
-	throw "Schema-67 enemy strategic resource authority requires CampaignState schema 67"
+if ($campaignSchemaVersion -lt 67) {
+	throw "Schema-67 enemy strategic resource authority requires CampaignState schema 67 or newer"
 }
 if ($runtimeSettingsSchemaVersion -ne 24) {
 	throw "Schema-67 enemy strategic resource authority must preserve runtime-settings schema 24"
@@ -24723,5 +24722,495 @@ foreach ($schema67DocFile in Get-ChildItem -File 'docs' -Filter '*.md') {
 }
 
 Write-Host "Schema-67 per-enemy resources/aggression, zero-effect operational sequence and hard stop, cadence checkpoints, reciprocal domain links, live-write fencing, migration/quarantine, and registered source proofs OK"
+
+$schema68Paths = @(
+	"Scripts/Game/HST/Services/HST_EnemyPlanningAuthorityService.c",
+	"Scripts/Game/HST/Services/HST_EnemyPlanningSaveValidationService.c",
+	"Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c"
+)
+foreach ($schema68Path in $schema68Paths) {
+	if (!(Test-Path -LiteralPath $schema68Path -PathType Leaf)) {
+		throw "Schema-68 enemy planning authority source is missing: $schema68Path"
+	}
+}
+
+$schema68StateText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignState.c"
+$schema68SaveText = Get-Content -Raw "Scripts/Game/HST/State/HST_CampaignSaveData.c"
+$schema68CatalogText = Get-Content -Raw "Scripts/Game/HST/Config/HST_DefaultCatalog.c"
+$schema68AuthorityText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningAuthorityService.c"
+$schema68ValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningSaveValidationService.c"
+$schema68ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyPlanningProofService.c"
+$schema68CommanderText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCommanderService.c"
+$schema68DirectorText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyDirectorService.c"
+$schema68ForcePlanningText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForcePlanningService.c"
+$schema68CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+
+if ($campaignSchemaVersion -ne 68 -or
+	$schema68StateText -notmatch 'static const int SCHEMA_VERSION\s*=\s*68;') {
+	throw "Schema-68 enemy planning authority requires CampaignState schema 68"
+}
+if ($runtimeSettingsSchemaVersion -ne 24) {
+	throw "Schema-68 enemy planning authority must preserve runtime-settings schema 24"
+}
+
+$schema68PlanningFields = @(
+	'm_iContractVersion',
+	'm_iRevision',
+	'm_sFactionKey',
+	'm_iDecisionSequence',
+	'm_iLastPlanningBucketSecond',
+	'm_iNextPlanningBucketSecond',
+	'm_iDecisionBucketSecond',
+	'm_iNextRetrySecond',
+	'm_iObservedWarLevel',
+	'm_iObservedAggression',
+	'm_iObservedPoolRevision',
+	'm_iObservedOperationalMutationCount',
+	'm_iObservedAttackResources',
+	'm_iObservedSupportResources',
+	'm_iCommitmentCount',
+	'm_sCommitmentFingerprint',
+	'm_iTargetCandidateCount',
+	'm_sTargetCandidateFingerprint',
+	'm_iSourceCandidateCount',
+	'm_sSourceCandidateFingerprint',
+	'm_sSelectedTargetZoneId',
+	'm_sSelectedSourceZoneId',
+	'm_eSelectedOrderType',
+	'm_ePlannedSupportType',
+	'm_sPlanningCapabilityHash',
+	'm_sSpendMode',
+	'm_iAttackCost',
+	'm_iSupportCost',
+	'm_iTargetPressureBefore',
+	'm_iTargetPressureDelta',
+	'm_iTargetPressureAfter',
+	'm_bTargetPressureApplied',
+	'm_sDecisionId',
+	'm_sPlannedOrderId',
+	'm_sPlannedOperationId',
+	'm_sPlannedManifestId',
+	'm_sPlannedManifestHash',
+	'm_sPlannedDebitMutationId',
+	'm_sInputFingerprint',
+	'm_sDecisionFingerprint',
+	'm_sDisposition',
+	'm_sFailureReason',
+	'm_sAuthorityFailure'
+)
+$schema68PlanningBlock = Get-ScriptMethodBlock $schema68StateText 'class HST_EnemyPlanningState'
+$schema68PlanningFieldMatches = [regex]::Matches(
+	$schema68PlanningBlock,
+	'(?m)^\s*(?:bool|int|string|HST_EEnemyOrderType|HST_ESupportRequestType)\s+(?<field>m_[A-Za-z0-9_]+)(?:\s*=\s*[^;]+)?;')
+$schema68ActualPlanningFields = @($schema68PlanningFieldMatches | ForEach-Object { $_.Groups['field'].Value })
+if ([string]::IsNullOrEmpty($schema68PlanningBlock) -or
+	$schema68ActualPlanningFields.Count -ne 43) {
+	throw "Schema-68 enemy planning state must preserve exactly 43 serialized authority fields"
+}
+Assert-EqualSet -Label "Schema-68 enemy planning fields" -Expected $schema68PlanningFields -Actual $schema68ActualPlanningFields
+
+$schema68CopyPlanningBlock = Get-ScriptMethodBlock $schema68SaveText 'protected HST_EnemyPlanningState CopyEnemyPlanningState('
+foreach ($schema68PlanningField in $schema68PlanningFields) {
+	$schema68PlanningCopyPattern = 'target\.' + [regex]::Escape($schema68PlanningField) + '\s*=\s*source\.' + [regex]::Escape($schema68PlanningField) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema68CopyPlanningBlock) -or
+		$schema68CopyPlanningBlock -notmatch $schema68PlanningCopyPattern) {
+		throw "Schema-68 enemy planning save copy is asymmetric: $schema68PlanningField"
+	}
+}
+
+$schema68OrderBacklinks = @(
+	'm_iPlanningContractVersion',
+	'm_iPlanningDecisionSequence',
+	'm_iPlanningBucketSecond',
+	'm_sPlanningDecisionId',
+	'm_sPlanningInputFingerprint',
+	'm_sPlanningDecisionFingerprint',
+	'm_ePlannedSupportType',
+	'm_sPlanningCapabilityHash'
+)
+$schema68OrderBlock = Get-ScriptMethodBlock $schema68StateText 'class HST_EnemyOrderState'
+$schema68CopyOrderBlock = Get-ScriptMethodBlock $schema68SaveText 'protected HST_EnemyOrderState CopyEnemyOrder('
+foreach ($schema68OrderBacklink in $schema68OrderBacklinks) {
+	if ([string]::IsNullOrEmpty($schema68OrderBlock) -or
+		$schema68OrderBlock.IndexOf($schema68OrderBacklink) -lt 0) {
+		throw "Schema-68 enemy-order planning backlink is missing: $schema68OrderBacklink"
+	}
+	$schema68OrderCopyPattern = 'target\.' + [regex]::Escape($schema68OrderBacklink) + '\s*=\s*source\.' + [regex]::Escape($schema68OrderBacklink) + '\s*;'
+	if ([string]::IsNullOrEmpty($schema68CopyOrderBlock) -or
+		$schema68CopyOrderBlock -notmatch $schema68OrderCopyPattern) {
+		throw "Schema-68 enemy-order planning backlink save copy is asymmetric: $schema68OrderBacklink"
+	}
+}
+
+$schema68CampaignStateBlock = Get-ScriptMethodBlock $schema68StateText 'class HST_CampaignState'
+foreach ($schema68StateEntry in @(
+	'ref array<ref HST_EnemyPlanningState> m_aEnemyPlanningStates = {};',
+	'HST_EnemyPlanningState FindEnemyPlanningState(string factionKey)'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CampaignStateBlock) -or
+		$schema68CampaignStateBlock.IndexOf($schema68StateEntry) -lt 0) {
+		throw "Schema-68 campaign planning state root is missing: $schema68StateEntry"
+	}
+}
+foreach ($schema68SaveEntry in @(
+	'ref array<ref HST_EnemyPlanningState> m_aEnemyPlanningStates = {};',
+	'foreach (HST_EnemyPlanningState planning : state.m_aEnemyPlanningStates)',
+	'm_aEnemyPlanningStates.Insert(CopyEnemyPlanningState(planning));',
+	'foreach (HST_EnemyPlanningState planning : m_aEnemyPlanningStates)',
+	'state.m_aEnemyPlanningStates.Insert(CopyEnemyPlanningState(planning));'
+)) {
+	if ($schema68SaveText.IndexOf($schema68SaveEntry) -lt 0) {
+		throw "Schema-68 planning capture/apply persistence is missing: $schema68SaveEntry"
+	}
+}
+
+$schema68CatalogBaselineBlock = Get-ScriptMethodBlock $schema68CatalogText 'protected static void AddDefaultEnemyPlanningState('
+foreach ($schema68CatalogEntry in @(
+	'AddDefaultEnemyPlanningState(state, preset.m_sOccupierFactionKey);',
+	'AddDefaultEnemyPlanningState(state, preset.m_sInvaderFactionKey);'
+)) {
+	if ($schema68CatalogText.IndexOf($schema68CatalogEntry) -lt 0) {
+		throw "Schema-68 default catalog enemy planning role is missing: $schema68CatalogEntry"
+	}
+}
+foreach ($schema68CatalogBaselineEntry in @(
+	'HST_EnemyPlanningAuthorityService.CONTRACT_VERSION',
+	'HST_EnemyPlanningAuthorityService.PLANNING_INTERVAL_SECONDS',
+	'planning.m_sDisposition = "idle";',
+	'state.m_aEnemyPlanningStates.Insert(planning);'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CatalogBaselineBlock) -or
+		$schema68CatalogBaselineBlock.IndexOf($schema68CatalogBaselineEntry) -lt 0) {
+		throw "Schema-68 default planning baseline is incomplete: $schema68CatalogBaselineEntry"
+	}
+}
+
+$schema68MigrateBlock = Get-ScriptMethodBlock $schema68SaveText 'void MigrateToCurrentSchema('
+$schema68Prepare67Index = $schema68MigrateBlock.IndexOf('schema67StrategicResourceValidation.PrepareBeforeGenericNormalization(')
+$schema68PrepareIndex = $schema68MigrateBlock.IndexOf('schema68EnemyPlanningValidation.PrepareBeforeGenericNormalization(')
+$schema68GenericOrderIndex = $schema68MigrateBlock.IndexOf('foreach (HST_EnemyOrderState order : m_aEnemyOrders)')
+$schema68Normalize67Index = $schema68MigrateBlock.IndexOf('schema67StrategicResourceValidation.Normalize(')
+$schema68NormalizeIndex = $schema68MigrateBlock.IndexOf('schema68EnemyPlanningValidation.Normalize(')
+if ([string]::IsNullOrEmpty($schema68MigrateBlock) -or
+	$schema68Prepare67Index -lt 0 -or $schema68PrepareIndex -lt 0 -or
+	$schema68GenericOrderIndex -lt 0 -or $schema68Normalize67Index -lt 0 -or
+	$schema68NormalizeIndex -lt 0 -or
+	$schema68PrepareIndex -lt $schema68Prepare67Index -or
+	$schema68PrepareIndex -gt $schema68GenericOrderIndex -or
+	$schema68NormalizeIndex -lt $schema68Normalize67Index) {
+	throw "Schema-68 migration must prepare planning before generic order normalization and normalize it after Schema 67"
+}
+
+$schema68CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'override void OnPostInit('
+$schema68FoundationIndex = $schema68CoordinatorRestoreBlock.IndexOf('EnsureCampaignFoundation();')
+$schema68FirstResourceRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf('schema67StrategicResourceValidation.ValidateRestoredFactionRoles(')
+$schema68FirstPlanningRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf('schema68EnemyPlanningValidation.ValidateRestoredFactionRoles(')
+$schema68SecondResourceRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf(
+	'schema67StrategicResourceValidation.ValidateRestoredFactionRoles(',
+	$schema68FirstResourceRoleIndex + 1)
+$schema68SecondPlanningRoleIndex = $schema68CoordinatorRestoreBlock.IndexOf(
+	'schema68EnemyPlanningValidation.ValidateRestoredFactionRoles(',
+	$schema68FirstPlanningRoleIndex + 1)
+if ([string]::IsNullOrEmpty($schema68CoordinatorRestoreBlock) -or
+	$schema68FoundationIndex -lt 0 -or
+	$schema68FirstResourceRoleIndex -lt 0 -or $schema68FirstPlanningRoleIndex -lt 0 -or
+	$schema68SecondResourceRoleIndex -lt 0 -or $schema68SecondPlanningRoleIndex -lt 0 -or
+	$schema68FirstPlanningRoleIndex -lt $schema68FirstResourceRoleIndex -or
+	$schema68FirstPlanningRoleIndex -gt $schema68FoundationIndex -or
+	$schema68SecondResourceRoleIndex -lt $schema68FoundationIndex -or
+	$schema68SecondPlanningRoleIndex -lt $schema68SecondResourceRoleIndex) {
+	throw "Schema-68 restore must validate both migration-aware and current planning roles after their Schema-67 pool validation"
+}
+
+if (($schema68StateText + "`n" + $schema68SaveText + "`n" + $schema68CommanderText).IndexOf('m_iOrderAccumulatorSeconds') -ge 0) {
+	throw "Schema-68 per-enemy planning must not retain the retired global order accumulator"
+}
+$schema68TickPlanningBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected bool TickPeriodicPlanning('
+$schema68TargetScoreBlock = Get-ScriptMethodBlock $schema68CommanderText 'HST_EnemyTargetScoreResult BuildTargetScoreResult('
+$schema68TargetSortBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected void SortTargetCandidatesByZoneId('
+$schema68SourceSortBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected void BuildCanonicalSourceZoneIds('
+$schema68CommitmentBlock = Get-ScriptMethodBlock $schema68AuthorityText 'static string BuildCommitmentFingerprint('
+if ([string]::IsNullOrEmpty($schema68TickPlanningBlock) -or
+	$schema68TickPlanningBlock.IndexOf('factionKeys.Sort();') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68TargetScoreBlock) -or
+	$schema68TargetScoreBlock.IndexOf('SortTargetCandidatesByZoneId(result.m_aCandidates);') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68TargetSortBlock) -or
+	$schema68TargetSortBlock.IndexOf('.m_sZoneId.Compare(') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68SourceSortBlock) -or
+	$schema68SourceSortBlock.IndexOf('sourceZoneIds.Sort();') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68CommitmentBlock) -or
+	$schema68CommitmentBlock.IndexOf('rows.Sort();') -lt 0) {
+	throw "Schema-68 production faction, target, source, and commitment inputs must be canonically ordered"
+}
+
+$schema68StableSaltBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected string BuildStableDecisionSalt('
+foreach ($schema68StableSaltEntry in @(
+	'HST_EnemyPlanningAuthorityService.EXACT_POLICY_ID',
+	'state.m_iCampaignSeed',
+	'decisionSequence',
+	'decisionBucketSecond',
+	'commitmentFingerprint',
+	'targetCandidateFingerprint',
+	'sourceCandidateFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($schema68StableSaltBlock) -or
+		$schema68StableSaltBlock.IndexOf($schema68StableSaltEntry) -lt 0) {
+		throw "Schema-68 stable production decision salt is incomplete: $schema68StableSaltEntry"
+	}
+}
+if ($schema68StableSaltBlock -match 'm_iElapsedSeconds|m_aEnemyOrders\.Count\(') {
+	throw "Schema-68 stable production decision salt must not depend on elapsed time or enemy-order count"
+}
+$schema68PreparePlanningBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected HST_EnemyPreparedAdmissionResult PrepareNextPeriodicDecision('
+foreach ($schema68PreparedSelectionEntry in @(
+	'BuildStableDecisionSalt(',
+	'BuildTargetScoreResult(',
+	'SelectOrderType(',
+	'SupportTypeForOrder('
+)) {
+	if ([string]::IsNullOrEmpty($schema68PreparePlanningBlock) -or
+		$schema68PreparePlanningBlock.IndexOf($schema68PreparedSelectionEntry) -lt 0) {
+		throw "Schema-68 production planning does not consume its stable decision salt: $schema68PreparedSelectionEntry"
+	}
+}
+$schema68ActiveOrderIndex = $schema68PreparePlanningBlock.IndexOf('HasActiveOrderForZone(')
+$schema68PressureApplyIndex = $schema68PreparePlanningBlock.IndexOf('ApplyFrozenTargetPressure(')
+if ($schema68PreparePlanningBlock.IndexOf('RetryUnpreparedDecision(') -lt 0 -or
+	$schema68ActiveOrderIndex -lt 0 -or $schema68PressureApplyIndex -lt 0 -or
+	$schema68ActiveOrderIndex -gt $schema68PressureApplyIndex) {
+	throw "Schema-68 preparation must persist transient pre-decision retry and suppress active targets before pressure"
+}
+foreach ($schema68StableSeedMethod in @(
+	@('target selection', $schema68TargetScoreBlock),
+	@('retaliation', (Get-ScriptMethodBlock $schema68CommanderText 'protected int ResolveRetaliationRoll(')),
+	@('support type', (Get-ScriptMethodBlock $schema68CommanderText 'protected int ResolveSupportTypeRoll('))
+)) {
+	$schema68StableSeedLabel = $schema68StableSeedMethod[0]
+	$schema68StableSeedBlock = $schema68StableSeedMethod[1]
+	$schema68StableBranch = [regex]::Match(
+		$schema68StableSeedBlock,
+		'(?s)if\s*\(!stableDecisionSalt\.IsEmpty\(\)\)(?<body>.*?)\belse\b')
+	if ([string]::IsNullOrEmpty($schema68StableSeedBlock) -or
+		!$schema68StableBranch.Success -or
+		$schema68StableBranch.Groups['body'].Value.IndexOf('stableDecisionSalt') -lt 0 -or
+		$schema68StableBranch.Groups['body'].Value -match 'm_iElapsedSeconds|m_aEnemyOrders\.Count\(') {
+		throw "Schema-68 $schema68StableSeedLabel stable seed must exclude elapsed time and enemy-order count"
+	}
+}
+
+$schema68PhysicalizeBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected bool TryPhysicalizeOrder('
+if ([string]::IsNullOrEmpty($schema68PhysicalizeBlock) -or
+	$schema68PhysicalizeBlock.IndexOf('HST_ESupportRequestType supportType = order.m_ePlannedSupportType;') -lt 0 -or
+	$schema68PhysicalizeBlock.IndexOf('order.m_iPlanningContractVersion != HST_EnemyPlanningAuthorityService.CONTRACT_VERSION') -lt 0 -or
+	$schema68PhysicalizeBlock.IndexOf('supportType,') -lt 0) {
+	throw "Schema-68 physicalization must consume the frozen support type for exact planned orders"
+}
+
+$schema68CapabilityBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected bool BuildFrozenPlanningCapability('
+foreach ($schema68FrozenCapabilityEntry in @(
+	'planningWarLevel = planning.m_iObservedWarLevel;',
+	'plannedAtSecond = planning.m_iDecisionBucketSecond;',
+	'm_ForcePlanning.PlanExactEnemyDefensiveQRF(',
+	'm_ForcePlanning.PlanExactEnemyPatrol(',
+	'planningWarLevel,',
+	'plannedAtSecond)'
+)) {
+	if ([string]::IsNullOrEmpty($schema68CapabilityBlock) -or
+		$schema68CapabilityBlock.IndexOf($schema68FrozenCapabilityEntry) -lt 0) {
+		throw "Schema-68 exact force planning does not consume optional frozen war/time: $schema68FrozenCapabilityEntry"
+	}
+}
+foreach ($schema68ForcePlanningMethod in @(
+	@('defensive QRF', (Get-ScriptMethodBlock $schema68ForcePlanningText 'HST_EnemyDefensiveQRFManifestResult PlanExactEnemyDefensiveQRF(')),
+	@('patrol', (Get-ScriptMethodBlock $schema68ForcePlanningText 'HST_EnemyPatrolManifestResult PlanExactEnemyPatrol('))
+)) {
+	$schema68ForcePlanningLabel = $schema68ForcePlanningMethod[0]
+	$schema68ForcePlanningBlock = $schema68ForcePlanningMethod[1]
+	foreach ($schema68ForcePlanningEntry in @(
+		'int planningWarLevel = -1',
+		'int plannedAtSecond = -1',
+		'if (planningWarLevel >= 0)',
+		'if (plannedAtSecond >= 0)',
+		'effectivePlanningWarLevel',
+		'effectivePlannedAtSecond'
+	)) {
+		if ([string]::IsNullOrEmpty($schema68ForcePlanningBlock) -or
+			$schema68ForcePlanningBlock.IndexOf($schema68ForcePlanningEntry) -lt 0) {
+			throw "Schema-68 exact $schema68ForcePlanningLabel planning lacks optional frozen war/time: $schema68ForcePlanningEntry"
+		}
+	}
+}
+
+foreach ($schema68AuthorityEntry in @(
+	'static const int CONTRACT_VERSION = 1;',
+	'static const int QUARANTINE_CONTRACT_VERSION = -68;',
+	'static const int PLANNING_INTERVAL_SECONDS = 180;',
+	'static const int MAX_CATCHUP_STEPS_PER_TICK = 1;',
+	'static const int RETRY_INTERVAL_SECONDS = 30;',
+	'static const string EXACT_POLICY_ID = "schema68_enemy_planning_exact1";',
+	'HST_EnemyPlanningState BuildBaselineState(',
+	'static string BuildDecisionId(',
+	'static string BuildOrderId(',
+	'static string BuildOperationId(',
+	'static string BuildDebitMutationId(',
+	'static string BuildInputFingerprint(',
+	'static string BuildDecisionFingerprint(',
+	'static string BuildCommitmentFingerprint(',
+	'HST_EnemyPlanningDecisionResult BeginDecision(',
+	'HST_EnemyPlanningDecisionResult CompleteDecision(',
+	'HST_EnemyPlanningDecisionResult RecordRetry(',
+	'HST_EnemyPlanningDecisionResult RecordPreparationRetry(',
+	'bool CanMarkTargetPressureApplied(',
+	'HST_EnemyPlanningDecisionResult MarkTargetPressureApplied(',
+	'bool Quarantine('
+)) {
+	if ($schema68AuthorityText.IndexOf($schema68AuthorityEntry) -lt 0) {
+		throw "Schema-68 planning authority contract is missing: $schema68AuthorityEntry"
+	}
+}
+$schema68BeginBlock = Get-ScriptMethodBlock $schema68AuthorityText 'HST_EnemyPlanningDecisionResult BeginDecision('
+$schema68PressureBlock = Get-ScriptMethodBlock $schema68AuthorityText 'HST_EnemyPlanningDecisionResult MarkTargetPressureApplied('
+$schema68PreparationRetryBlock = Get-ScriptMethodBlock $schema68AuthorityText 'HST_EnemyPlanningDecisionResult RecordPreparationRetry('
+$schema68ApplyPressureBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected HST_EnemyPreparedAdmissionResult ApplyFrozenTargetPressure('
+$schema68DirectorPressureBlock = Get-ScriptMethodBlock $schema68DirectorText 'void RecordZoneDamageSignal('
+if ([string]::IsNullOrEmpty($schema68BeginBlock) -or
+	$schema68BeginBlock.IndexOf('BuildInputFingerprint(candidate)') -lt 0 -or
+	$schema68BeginBlock.IndexOf('BuildDecisionFingerprint(candidate)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68PreparationRetryBlock) -or
+	$schema68PreparationRetryBlock.IndexOf('RETRY_INTERVAL_SECONDS') -lt 0 -or
+	$schema68PreparationRetryBlock.IndexOf('planning.m_iNextRetrySecond = nextRetrySecond;') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68PressureBlock) -or
+	$schema68PressureBlock.IndexOf('m_bAlreadyApplied = true;') -lt 0 -or
+	$schema68PressureBlock.IndexOf('planning.m_bTargetPressureApplied = true;') -lt 0 -or
+	$schema68PressureBlock.IndexOf('planning.m_iRevision++;') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68ApplyPressureBlock) -or
+	$schema68ApplyPressureBlock.IndexOf('CanMarkTargetPressureApplied(') -lt 0 -or
+	$schema68ApplyPressureBlock.IndexOf('CanMarkTargetPressureApplied(') -gt
+		$schema68ApplyPressureBlock.IndexOf('RecordZoneDamageSignal(') -or
+	[string]::IsNullOrEmpty($schema68DirectorPressureBlock) -or
+	$schema68DirectorPressureBlock.IndexOf('currentDamageScore = ResolveRecentDamageScore(state, ledger);') -lt 0 -or
+	$schema68DirectorPressureBlock.IndexOf('currentDamageScore + damageScore') -lt 0) {
+	throw "Schema-68 begin, retry, or decayed-pressure idempotence authority is incomplete"
+}
+$schema68AdmissionBlock = Get-ScriptMethodBlock $schema68CommanderText 'protected HST_EnemyPreparedAdmissionResult ConsumePreparedPeriodicDecision('
+if ([string]::IsNullOrEmpty($schema68AdmissionBlock) -or
+	$schema68AdmissionBlock.IndexOf('!admitted || !admitted.m_bSuccess') -lt 0 -or
+	$schema68AdmissionBlock.IndexOf('!admittedPatrol || !admittedPatrol.m_bSuccess') -lt 0 -or
+	$schema68AdmissionBlock.IndexOf('QuarantinePreparedAdmissionConflict(') -lt 0) {
+	throw "Schema-68 exact admission failures must end in durable abort completion or explicit planning quarantine"
+}
+if ($schema68AuthorityText -match '(?m)\bpool\.m_i(?:AttackResources|SupportResources|Aggression)\s*[-+]?=' -or
+	$schema68AuthorityText -match '\.(?:ApplyMutation|TrySpendProactiveAttack|TrySpendDefense)\(') {
+	throw "Schema-68 planning authority must not mutate Schema-67 strategic resources"
+}
+
+foreach ($schema68ValidationEntry in @(
+	'static const int SCHEMA_VERSION = 68;',
+	'void PrepareBeforeGenericNormalization(',
+	'void Normalize(',
+	'bool ValidateRestoredFactionRoles(',
+	'ClearOrderPlanningAuthority(',
+	'InsertLegacyBaseline(',
+	'QUARANTINE_CONTRACT_VERSION = -68;',
+	'ValidateSavedOrderPlanningRows();',
+	'ValidateSavedDebitBacklink(',
+	'ValidateRuntimeOrderBacklink(',
+	'QuarantineAllSavedPlanning(',
+	'QuarantineOrderPlanning('
+)) {
+	if ($schema68ValidationText.IndexOf($schema68ValidationEntry) -lt 0) {
+		throw "Schema-68 pre-68/current/quarantine/order/debit validation is missing: $schema68ValidationEntry"
+	}
+}
+$schema68PrepareValidationBlock = Get-ScriptMethodBlock $schema68ValidationText 'void PrepareBeforeGenericNormalization('
+$schema68RoleValidationBlock = Get-ScriptMethodBlock $schema68ValidationText 'bool ValidateRestoredFactionRoles('
+if ([string]::IsNullOrEmpty($schema68PrepareValidationBlock) -or
+	$schema68PrepareValidationBlock.IndexOf('restoredSchemaVersion >= SCHEMA_VERSION') -lt 0 -or
+	$schema68PrepareValidationBlock.IndexOf('m_SaveData.m_aEnemyPlanningStates.Clear();') -lt 0 -or
+	[string]::IsNullOrEmpty($schema68RoleValidationBlock) -or
+	$schema68RoleValidationBlock.IndexOf('effectiveSchema < SCHEMA_VERSION') -lt 0 -or
+	$schema68RoleValidationBlock.IndexOf('InsertLegacyBaseline(') -lt 0 -or
+	$schema68RoleValidationBlock.IndexOf('ValidateRuntimeOrderPlanningRows(state, preset)') -lt 0) {
+	throw "Schema-68 validator must isolate pre-68 adoption from current exact role validation"
+}
+
+$schema68ProofBooleans = @(
+	'm_bPre68BaselineExact',
+	'm_bIndependentCadenceExact',
+	'm_bBeginReplayConflictExact',
+	'm_bCommitmentPermutationExact',
+	'm_bFrozenDecisionExact',
+	'm_bRetryEnvelopeExact',
+	'm_bPreparedPressureCrashWindowExact',
+	'm_bPreparedOrderAdoptionExact',
+	'm_bRetryTamperQuarantineExact',
+	'm_bZeroTargetSkipExact',
+	'm_bCommittedRoundtripExact',
+	'm_bCurrentQuarantineExact'
+)
+$schema68ProofEvidence = @(
+	'm_sBaselineCadenceEvidence',
+	'm_sDecisionEvidence',
+	'm_sFreezeRetryEvidence',
+	'm_sRecoveryEvidence',
+	'm_sPersistenceQuarantineEvidence'
+)
+$schema68ProofBuildBlock = Get-ScriptMethodBlock $schema68ProofText 'HST_EnemyPlanningProofReport BuildAuthorityReport('
+foreach ($schema68ProofMethod in @(
+	'ProvePre68Baseline(report);',
+	'ProveIndependentCadence(report);',
+	'ProveBeginReplayConflict(report);',
+	'ProveCommitmentPermutation(report);',
+	'ProveFrozenDecision(report);',
+	'ProveRetryEnvelope(report);',
+	'ProvePreparedPressureCrashWindow(report);',
+	'ProvePreparedOrderAdoption(report);',
+	'ProveRetryTamperQuarantine(report);',
+	'ProveZeroTargetSkip(report);',
+	'ProveCommittedRoundtrip(report);',
+	'ProveCurrentQuarantine(report);'
+)) {
+	if ([string]::IsNullOrEmpty($schema68ProofBuildBlock) -or
+		$schema68ProofBuildBlock.IndexOf($schema68ProofMethod) -lt 0) {
+		throw "Schema-68 authority proof case is not executed: $schema68ProofMethod"
+	}
+}
+foreach ($schema68ProofField in ($schema68ProofBooleans + $schema68ProofEvidence)) {
+	if ($schema68ProofText.IndexOf($schema68ProofField) -lt 0) {
+		throw "Schema-68 authority proof report field is missing: $schema68ProofField"
+	}
+}
+foreach ($schema68ProofDependency in @(
+	'HST_EnemyPlanningSaveValidationService',
+	'PrepareBeforeGenericNormalization(save, 67);',
+	'ValidateRestoredFactionRoles(',
+	'MarkTargetPressureApplied(',
+	'CopyPlanningThroughSave('
+)) {
+	if ($schema68ProofText.IndexOf($schema68ProofDependency) -lt 0) {
+		throw "Schema-68 proof does not exercise its real authority boundary: $schema68ProofDependency"
+	}
+}
+
+$schema68ForceCaseBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+if ($schema68ForceCaseBlock -notmatch 'AppendCampaignDebugEnemyStrategicResourceAssertions\(forceCase\);\s*AppendCampaignDebugEnemyPlanningAssertions\(forceCase\);\s*AppendCampaignDebugGarrisonPatrolOperationAssertions\(forceCase\);') {
+	throw "Schema-68 Campaign Debug planning proof must be registered immediately after Schema-67 resources"
+}
+$schema68CoordinatorProofBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected void AppendCampaignDebugEnemyPlanningAssertions('
+foreach ($schema68CoordinatorProofEntry in @(
+	'HST_EnemyPlanningProofService',
+	'BuildAuthorityReport()',
+	'proof.BuildReport()'
+) + $schema68ProofBooleans + $schema68ProofEvidence) {
+	if ([string]::IsNullOrEmpty($schema68CoordinatorProofBlock) -or
+		$schema68CoordinatorProofBlock.IndexOf($schema68CoordinatorProofEntry) -lt 0) {
+		throw "Schema-68 Campaign Debug typed proof registration is missing: $schema68CoordinatorProofEntry"
+	}
+}
+if ($schema68CoordinatorProofBlock -notmatch 'state-only Schema-68 source fixture executes inside this Campaign Debug run') {
+	throw "Schema-68 Campaign Debug source fixture must not claim execution outside the current debug run"
+}
+
+Write-Host "Schema-68 per-enemy planning cadence, frozen deterministic decisions, exact order/resource backlinks, migration/quarantine, production consumers, and registered state-only source proofs OK"
 
 Write-Host "Partisan foundation validation passed"

@@ -597,7 +597,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		HST_EnemyStrategicResourceSaveValidationService schema67StrategicResourceValidation
 			= new HST_EnemyStrategicResourceSaveValidationService();
+		HST_EnemyPlanningSaveValidationService schema68EnemyPlanningValidation
+			= new HST_EnemyPlanningSaveValidationService();
 		schema67StrategicResourceValidation.ValidateRestoredFactionRoles(
+			m_State,
+			m_Preset);
+		schema68EnemyPlanningValidation.ValidateRestoredFactionRoles(
 			m_State,
 			m_Preset);
 		if (m_TownInfluence)
@@ -630,6 +635,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		// placeholder for a missing configured enemy pool. Validate the resulting
 		// live roles before the operation restore reconcilers can spend or refund.
 		schema67StrategicResourceValidation.ValidateRestoredFactionRoles(
+			m_State,
+			m_Preset,
+			HST_CampaignState.SCHEMA_VERSION);
+		schema68EnemyPlanningValidation.ValidateRestoredFactionRoles(
 			m_State,
 			m_Preset,
 			HST_CampaignState.SCHEMA_VERSION);
@@ -18165,6 +18174,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AppendCampaignDebugEnemyPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugLocalSecurityOperationAssertions(forceCase);
 		AppendCampaignDebugEnemyStrategicResourceAssertions(forceCase);
+		AppendCampaignDebugEnemyPlanningAssertions(forceCase);
 		AppendCampaignDebugGarrisonPatrolOperationAssertions(forceCase);
 		AppendCampaignDebugMissionGuardOperationAssertions(forceCase);
 		AppendCampaignDebugTraitorGuardOperationAssertions(forceCase);
@@ -18621,6 +18631,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.aggression_war_independence", "aggression decay remains independent of war tier while war tier still scales enemy income", proof.m_sCadenceEvidence, CampaignDebugStatus(proof.m_bAggressionWarIndependenceExact), "enemy aggression decay or war-scaled income crossed policy boundaries");
 		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.faction_isolation", "resistance cannot enter enemy resource authority and rival enemy pools mutate independently", proof.m_sSeparationIsolationEvidence, CampaignDebugStatus(proof.m_bFactionIsolationExact), "enemy strategic resource authority crossed faction boundaries");
 		AddCampaignDebugAssertion(forceCase, "enemy_strategic_resource.roundtrip_quarantine", "current receipts round-trip exactly while tamper and duplicate-pool corruption quarantine without guessed repair", proof.m_sPersistenceEvidence, CampaignDebugStatus(proof.m_bRoundtripQuarantineExact), "enemy strategic resource persistence or corruption handling was not exact");
+	}
+
+	protected void AppendCampaignDebugEnemyPlanningAssertions(
+		HST_CampaignDebugCaseResult forceCase)
+	{
+		if (!forceCase)
+			return;
+
+		HST_EnemyPlanningProofService proofService
+			= new HST_EnemyPlanningProofService();
+		HST_EnemyPlanningProofReport proof
+			= proofService.BuildAuthorityReport();
+		if (!proof)
+		{
+			AddCampaignDebugAssertion(forceCase, "enemy_planning.source_proof", "state-only Schema-68 source fixture executes inside this Campaign Debug run and returns its typed report", "missing", "BLOCKED", "enemy planning state-only source fixture did not return a report during this Campaign Debug run");
+			return;
+		}
+
+		forceCase.m_aEvidence.Insert(proof.BuildReport());
+		forceCase.m_aEvidence.Insert(proof.m_sBaselineCadenceEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sDecisionEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sFreezeRetryEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sRecoveryEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sPersistenceQuarantineEvidence);
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.pre68_baseline", "this Campaign Debug run executes the state-only pre-schema-68 baseline fixture without inventing a prior decision", proof.m_sBaselineCadenceEvidence, CampaignDebugStatus(proof.m_bPre68BaselineExact), "state-only enemy planning baseline adoption was not exact");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.independent_cadence", "this Campaign Debug run executes independent per-enemy due, catch-up, and next-bucket state fixtures", proof.m_sBaselineCadenceEvidence, CampaignDebugStatus(proof.m_bIndependentCadenceExact), "state-only enemy planning cadence was not independent and exact");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.begin_replay_conflict", "this Campaign Debug run executes begin, idempotent replay, and conflicting-reuse state fixtures", proof.m_sDecisionEvidence, CampaignDebugStatus(proof.m_bBeginReplayConflictExact), "state-only enemy planning begin, replay, or conflict handling was not exact");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.commitment_permutation", "this Campaign Debug run executes canonical commitment fingerprint fixtures across input permutations", proof.m_sDecisionEvidence, CampaignDebugStatus(proof.m_bCommitmentPermutationExact), "state-only enemy planning commitment fingerprint changed with input order");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.frozen_decision", "this Campaign Debug run executes a frozen decision state fixture whose persisted inputs and outputs remain exact", proof.m_sFreezeRetryEvidence, CampaignDebugStatus(proof.m_bFrozenDecisionExact), "state-only enemy planning frozen decision drifted");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.retry_envelope", "this Campaign Debug run executes target-pressure idempotence plus bounded retry timing fixtures", proof.m_sFreezeRetryEvidence, CampaignDebugStatus(proof.m_bRetryEnvelopeExact), "state-only enemy planning pressure or retry envelope was not exact");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.pre_pressure_crash_window", "this Campaign Debug run executes save normalization and restore between decision preparation and target-pressure application", proof.m_sRecoveryEvidence, CampaignDebugStatus(proof.m_bPreparedPressureCrashWindowExact), "state-only prepared enemy planning pressure crash window did not restore exactly");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.prepared_order_adoption", "this Campaign Debug run executes prepared decision recovery with one matching durable order and exact debit backlinks", proof.m_sRecoveryEvidence, CampaignDebugStatus(proof.m_bPreparedOrderAdoptionExact), "state-only prepared enemy planning order was not adopted with exact backlinks");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.retry_tamper_quarantine", "this Campaign Debug run executes post-retry frozen-decision tamper quarantine without pool mutation or guessed repair", proof.m_sRecoveryEvidence, CampaignDebugStatus(proof.m_bRetryTamperQuarantineExact), "state-only retried enemy planning tamper did not quarantine cleanly");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.zero_target_skip", "this Campaign Debug run executes a zero-candidate skipped-decision state fixture without order creation", proof.m_sDecisionEvidence, CampaignDebugStatus(proof.m_bZeroTargetSkipExact), "state-only enemy planning zero-target disposition was not exact");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.committed_roundtrip", "this Campaign Debug run executes a committed planning and enemy-order deep-copy roundtrip fixture", proof.m_sPersistenceQuarantineEvidence, CampaignDebugStatus(proof.m_bCommittedRoundtripExact), "state-only committed enemy planning graph did not round-trip exactly");
+		AddCampaignDebugAssertion(forceCase, "enemy_planning.current_quarantine", "this Campaign Debug run executes current-schema tamper quarantine fixtures without guessed execution", proof.m_sPersistenceQuarantineEvidence, CampaignDebugStatus(proof.m_bCurrentQuarantineExact), "state-only current enemy planning corruption did not quarantine exactly");
 	}
 
 	protected void AppendCampaignDebugEnemyQRFOperationAssertions(HST_CampaignDebugCaseResult forceCase)

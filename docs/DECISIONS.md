@@ -829,5 +829,73 @@ Consequences:
   `schema66-settings24-local-security-marker-integrity`, Foundation 729, and
   Workbench 5,806 files/11,740 classes with CRC `ec860be7`.
 - Persisted per-enemy planning cadence, deterministic candidate ordering, and a
-  frozen target/source/order/cost decision fingerprint are the immediate next
-  Blueprint Phase 9 slice on top of this resource authority.
+  frozen target/source/order/cost decision fingerprint are implemented by the
+  active provisional Schema-68 contract in CRI-016 on top of this resource
+  authority.
+
+## CRI-016 - Persist Enemy Planning Without Taking Over Resource Truth
+
+- Status: Accepted; active provisional Schema 68 implementation, unsealed
+- Date: 2026-07-12
+
+Context: Sealed Schema 67 makes enemy resources, aggression, cadence, and
+mutation receipts canonical, but commander planning remains process-local.
+Restart can therefore lose which deterministic target/source decision was due,
+whether its target pressure was already applied, and whether order/debit
+creation crossed a crash boundary. Reconstructing that choice from current
+zones, historical orders, or Schema-67 receipts would silently re-plan with
+different inputs and could duplicate pressure or accounting.
+
+Decision: Active provisional Campaign Schema 68 keeps runtime settings at Schema
+24 and adds one separate `HST_EnemyPlanningState` per configured enemy role.
+Each row owns an independent 180-second checkpoint and freezes the latest
+decision. Stable sorted commitment, target-candidate, and source-candidate
+hashes make complete-set identity independent of traversal order. The frozen
+input includes war level, aggression, Schema-67 pool revision/balances,
+operational mutation count, commitments, and candidate counts. The frozen
+decision includes target, source, order type, support type, capability/manifest,
+spend mode, attack/support cost, target-pressure facts, and deterministic
+decision, order, operation, and debit accounting IDs. Restore recomputes input
+and decision fingerprints instead of trusting serialized hashes.
+
+Consequences:
+
+- Occupier and invader planning checkpoints are independent. Failure, retry,
+  exhaustion, or quarantine for one faction cannot advance or suppress the
+  other faction's checkpoint.
+- A due decision first becomes `prepared`. A retry retains the frozen decision
+  and uses a 30-second retry checkpoint. Completion is explicitly `committed`,
+  `skipped`, or `rejected`. Committed authority requires one exact order and one
+  applied Schema-67 debit receipt; an exact prepared-plus-order crash window may
+  reconcile to committed. Skipped authority cannot claim applied target
+  pressure, while rejected authority may retain pressure already applied.
+- Transient failure before begin persists a 30-second preparation gate on the
+  non-prepared role row, so missing capability cannot re-run every commander
+  tick. A prepared row may validly persist before its positive pressure delta is
+  applied. Pressure-mark authority and revision headroom are preflighted before
+  the decayed ledger is normalized and mutated once.
+- Exact QRF/patrol admission failure completes the planning decision only after
+  the operation service leaves a durable aborted result. A null or non-terminal
+  failure quarantines the planning/order link.
+- Pre-68 restore creates no planning history. It clears claimed planning rows
+  and planning backlinks on old orders, then creates one configured-role
+  baseline only after exact Schema-67 pools validate: `last = elapsed`, `next =
+  elapsed + 180`, sequence `0`, disposition `idle`, and no invented decision,
+  target, source, order, manifest, cost, pressure, debit, candidate,
+  commitment, or fingerprint. Old orders retain planning contract `0`.
+- Current missing, duplicate, foreign-role, malformed, cadence-tampered,
+  fingerprint-divergent, or broken order/debit authority quarantines at `-68`.
+  Quarantine changes planning and order-planning metadata only. It never changes,
+  repairs, debits, refunds, reconstructs, or replays Schema-67 pools or strategic
+  mutation receipts.
+- Immediate counterattacks and existing debug/direct order entry points do not
+  claim periodic planner authority and remain planning contract `0`.
+- Schema 67/settings 24 remains the current sealed checkpoint at implementation
+  `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+  `2026-07-12T23:46:02Z`, label
+  `schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and
+  Workbench CRC `a353fa0d` at 5,809 files/11,751 classes. Schema 68 is active
+  provisional source only: no final implementation SHA, UTC, label, CRC,
+  Foundation count, Workbench pass, Campaign Debug pass, save/restart result,
+  package result, dedicated-server result, multiplayer result, or runtime claim
+  exists yet.
