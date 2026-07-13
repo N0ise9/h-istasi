@@ -2,21 +2,30 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is provisionally `69` and
+`HST_CampaignState.SCHEMA_VERSION` is `69` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. Schema 69 introduces the
-conservative persistence boundary for versioned exact enemy counterattacks. The
-current implementation label is
-`schema69-settings24-exact-enemy-counterattack-provisional`. Foundation passes;
-Workbench PC compile/initialization log `logs_2026-07-13_15-10-44` exits `0` with Game CRC
-`c7f7a739`; and focused engine log `logs_2026-07-13_15-11-13` records one
-passing JUnit testcase, an empty failed list, and an all-exact report. Remaining
-Workbench target configurations, Campaign Debug, package,
-serialization/restart, dedicated/live-server, multiplayer, and soak evidence
-must still be recorded before the checkpoint is sealed. The prior sealed
-checkpoint remains the Schema-68 enemy-planning engine proof at implementation
-`4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
-`2026-07-13T15:43:01Z`, label
-`schema68-settings24-enemy-planning-engine-proof`.
+conservative persistence boundary for versioned exact enemy counterattacks. Its
+scoped engine-proof checkpoint is sealed at implementation
+`5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
+`2026-07-13T19:40:35Z`, label
+`schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
+`73a64ef`. Foundation passes at 771 script-symbol references. Final all-five
+Workbench log `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/
+11,786 classes at CRC `3a8bd64f`, explicitly validates WORKBENCH, PC, XBOX, PS4,
+and PS5, contains no script or HST errors, and leaves zero Workbench processes.
+Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
+JUnit testcase, an empty failed list, and `AllExact=1`. It covers valid PREPARED
+recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and
+fail-closed SETTLED-without-resource-receipt handling. The autotest environment
+also writes a recoverable base-game
+`SCR_EditableEntityCore/GetPlayerIdentityId` VM exception to `crash.log` before
+the HST case completes successfully, so the run is not exception-free.
+
+The seal covers source, Foundation, all-target Workbench, and focused engine
+proof only. Full Campaign Debug in `HST_Dev`, serialization/restart,
+package/native/live-server behavior, actual migration runtime, marker runtime,
+network/JIP/reconnect, and soak remain open. The preceding Schema-68 planning
+checkpoint remains recorded below as history.
 
 The immediately preceding commitment-aware checkpoint is sealed at implementation
 `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
@@ -265,16 +274,14 @@ resource-settlement fields form one exact aggregate.
   Schema-69 validator owns its restore boundary before later generic restore
   projection handling.
 
-The checkpoint remains provisional, but its internal evidence is current:
-Foundation passes; Workbench PC compile/initialization log `logs_2026-07-13_15-10-44` exits
-`0` at CRC `c7f7a739`; and focused engine log
-`logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty failed
-list, and all exact assertions. The focused report covers PREPARED pre-refund,
-post-refund, post-record, uncommitted-full, and physical conservative-zero
-recovery and rejects forged-open, destroyed-living, and foreign-execution
-authority. Remaining Workbench target configurations, Full Campaign Debug, real
-profile serialization, process restart, package, networking, and soak behavior
-remain open until direct evidence is recorded.
+The scoped source/Foundation/all-target Workbench/focused-engine checkpoint is
+sealed at the identity above. The focused report covers valid PREPARED recovery,
+same-session ABORTED recovery, foreign derived-ID collision hold, and
+fail-closed SETTLED state without a resource receipt. No native serialization or
+process restart ran: Full Campaign Debug, actual old/current-save migration,
+profile serialization/restart, package/native/live-server behavior, marker
+runtime, networking/JIP/reconnect, and soak remain open until direct evidence is
+recorded.
 
 ## Schema 68
 

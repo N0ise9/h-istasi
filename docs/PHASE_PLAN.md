@@ -1,7 +1,7 @@
 # Partisan Phase Plan
 
-The active development tree provisionally advances Campaign Schema 69 while
-runtime settings remain on Schema 24. This Phase-9 slice cuts newly admitted
+The active development tree uses Campaign Schema 69 while runtime settings
+remain on Schema 24. This Phase-9 slice cuts newly admitted
 enemy counterattacks over to exact contract `1`: one frozen infantry manifest,
 one directly routed operation graph, casualty-preserving virtual/physical
 transfer, deterministic virtual combat, canonical ownership transition, return
@@ -12,16 +12,30 @@ without fabricated authority, deletion, settlement, refund, or outcome. The
 appended `PREPARED` settlement state preserves terminal intent across prepare,
 tuple staging, refund, receipt recording, and finalization; restore and same-
 session ticks resume it idempotently. Explicit plus deterministically derived
-claimant IDs reject foreign or duplicate cleanup authority. The slice is
-provisional, but Foundation passes, Workbench PC compile/initialization log
-`logs_2026-07-13_15-10-44` exits `0` at Game CRC `c7f7a739`, and focused engine
-log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty
-failed list, and an all-exact report. Remaining Workbench target configurations,
-Full Campaign Debug, and every external runtime gate remain open. The latest
-sealed checkpoint remains the Schema-68 engine-planning proof below.
+claimant IDs reject foreign or duplicate cleanup authority.
 
-The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
-settings Schema 24 at implementation
+The scoped engine-proof checkpoint is sealed at implementation
+`5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
+`2026-07-13T19:40:35Z`, label
+`schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
+`73a64ef`. Foundation passes at 771 script-symbol references. Final all-five
+Workbench log `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/
+11,786 classes at CRC `3a8bd64f`, explicitly validates WORKBENCH, PC, XBOX, PS4,
+and PS5, contains no script or HST errors, and leaves zero Workbench processes.
+Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
+JUnit testcase, an empty failed list, and `AllExact=1`, including valid PREPARED
+recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and
+fail-closed SETTLED-without-resource-receipt handling. The autotest environment
+also writes a recoverable base-game
+`SCR_EditableEntityCore/GetPlayerIdentityId` VM exception to `crash.log` before
+the HST case completes successfully, so the run is not exception-free.
+
+This seals source, Foundation, all-target Workbench, and focused engine proof
+only. Full Campaign Debug in `HST_Dev`, serialization/restart,
+package/native/live-server behavior, migration runtime, marker runtime,
+network/JIP/reconnect, and soak remain open.
+
+The preceding Schema-68 planning checkpoint is implementation
 `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
 `2026-07-13T15:43:01Z`, label
 `schema68-settings24-enemy-planning-engine-proof`. The latest packaged
@@ -651,8 +665,8 @@ host/client proof exists.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
-Work has entered Blueprint Phase 9 of 13 through provisional Schema 69; the
-latest sealed checkpoint remains Schema 68. This does not mean nine
+Work has entered Blueprint Phase 9 of 13 through Schema 69, whose scoped
+engine-proof checkpoint is sealed. This does not mean nine
 completed phases. Blueprint Phase 8 and every earlier Blueprint phase still
 retain native, dedicated-server,
 restart, or multiplayer exit gates. Native tests deferred while source slices
@@ -661,15 +675,15 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 69/settings 24 is the provisional development contract. The latest sealed checkpoint remains the Schema-68 enemy-planning engine proof at `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`; `f97b12e` remains the prior packaged failure baseline | Schema-69 Foundation passes; the Workbench PC compile/initialization pass exits `0` at CRC `c7f7a739`; and focused engine log `logs_2026-07-13_15-11-13` has one passing JUnit testcase, an empty failed list, and an all-exact report. Execute the remaining Workbench target configurations and Full Campaign Debug Phase 17 before stamping the new tree; then package-prove serialization/restart, fresh and affected-save authority, migration, marker integrity, live-server, network, and soak behavior. Every earlier runtime gate remains open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 69/settings 24 is the current contract. Its scoped engine-proof checkpoint is sealed at implementation `5bdcda938840ab769b41ff3e1856d908572a8c45`, label `schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit `73a64ef`; `f97b12e` remains the prior packaged failure baseline | Foundation 771, all-target Workbench log `logs_2026-07-13_15-41-50` at CRC `3a8bd64f`, and focused log `logs_2026-07-13_15-42-52` with one passing JUnit testcase, empty failed list, and `AllExact=1` pass. The focused environment also records a recoverable base-game VM exception before successful HST completion. Execute Full Campaign Debug Phase 17, then package-prove serialization/restart, fresh and affected-save authority, migration, marker integrity, live-server, network/JIP/reconnect, and soak behavior. Every earlier runtime gate remains open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
-| CRI-2: Exact force manifests | Sealed foundation complete; provisional Schema-69 expansion | Focused deterministic proof covers frozen admission and roster continuity. Package-prove live casualty transfer/restore and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 69 provisionally adds the exact enemy-counterattack operation family | Foundation, Workbench PC compile/initialization, and focused proof pass for direct travel, deterministic combat, projection handoff, ownership retry, and resumable settlement. Prove this and every earlier family in the remaining target configurations, Full Campaign Debug, and native movement/fold/restart without widening historical counterattacks. |
+| CRI-2: Exact force manifests | Sealed foundation plus scoped Schema-69 engine proof | Focused deterministic proof covers frozen admission and roster continuity. Package-prove live casualty transfer/restore and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 69 adds the exact enemy-counterattack operation family | Foundation, all-target Workbench, and focused proof pass for direct travel, deterministic combat, projection handoff, ownership retry, and resumable settlement. Prove this and every earlier family in Full Campaign Debug and native movement/fold/restart without widening historical counterattacks. |
 | CRI-6: Client projection | Schema-61 marker-only snapshot/delta/JIP projection is sealed; Schema 66 protects native campaign-marker ownership. The Campaign Debug probe mutates/deletes a tracked campaign marker through the owner client, invokes production repair, retries final repair, and separately edits/removes/cleans a player marker | Execute the compiled probe, then prove host/two-client/late-join equality, source/projection revisions, forced gap/resync, map-close continuity, manual protection/self-heal, registry/static-count stability, one canonical instance, editable player-marker isolation, and restart. |
 | CRI-7: Ownership, combat presence, and town influence | Schema-62 ownership/protocol-2, Schema-63 combat presence, and Schema-64 canonical town influence/contact/Map-War/migration/hot-path source boundaries are sealed; Campaign Debug and packaged proof remain open | Execute Campaign Debug and prove ownership/security/restart, combat classifications/cooling, 100/200/50-bp scaling, strict 8000/4000 equality, separate enemy support, no owner bypass, pre-64 migration/current quarantine, contacted Zone Pressure, complete territory, and due-expiry-only cost. |
 | CRI-8: Civilian runtime and political consequences | The sealed Settings-24 checkpoint supplies the ambient budget/lifecycle/claim foundation. Sealed Schema 65 source/Workbench adds 256-casualty/64-theft queues, a combined four-attempt frame cap, bounded-backoff indefinite retry/capture deferral, exact-pilot theft after durable promotion with passenger-only non-recycling protection, exact town aggression/strategic receipts, pending-receipt-first non-HOT combat episodes with adopted-floor/last-applied invariants and full canonical live-combat fingerprints, indexed structural plus live-preset role restore validation, and native pedestrian panic/recovery with separate bounded route recovery. Minor-locality fingerprints remain session-only. Foundation passes at 717 script-symbol references and final stamped normal/all-five Workbench checks are clean. | Package-prove native death attribution/fallback deduplication, queue capacity/capture deferral, pilot-only post-promotion theft with passenger protection, exact replay/aggression/stable-ID failure, at-most-one town event per combat edge, clear/rebound, RUN-to-WALK panic recovery without hot-path AI activation, migration/quarantine order, all persistence/checkpoint paths, restart, multiplayer, and the ten-town soak. |
 | CRI-8b: Exact local security | Sealed Schema 66 source/Workbench gives each eligible enemy town one authored 2–5 member exact epoch with survivor fold/restore, once-only police loss, no-resurrection, bounded rearm, zero resistance police/roadblocks, conservative migration, and `-66` quarantine | Execute the wired Campaign Debug proof, then package-prove native waypoints/casualties/fold/re-entry/restart, ownership/terminal ordering, migration, multiplayer, and balance. |
-| CRI-9: Enemy commander strategic authority | Sealed Schema 67 owns per-enemy resources and sealed Schema 68 owns persisted planning. Provisional Schema 69 adds exact contract-`1` counterattacks with one frozen infantry graph, one charged pool, direct routing, deterministic combat, canonical ownership, return, survivor settlement, appended `PREPARED` terminal intent, and derived-ID ambiguity hardening; historical rows remain contract `0`. | Foundation, Workbench PC compile/initialization, and focused-engine proof pass. Execute the remaining target configurations and Full Campaign Debug Phase 17, then package-prove physical/virtual casualty continuity, ownership retry, proportional one-pool refund, save/restart, markers, multiplayer, and soak while retaining every open Schema-68 planning gate. |
+| CRI-9: Enemy commander strategic authority | Sealed Schema 67 owns per-enemy resources and sealed Schema 68 owns persisted planning. Schema 69 adds exact contract-`1` counterattacks with one frozen infantry graph, one charged pool, direct routing, deterministic combat, canonical ownership, return, survivor settlement, appended `PREPARED` terminal intent, and derived-ID ambiguity hardening; historical rows remain contract `0`. | The scoped Schema-69 source/Foundation/all-target Workbench/focused-engine proof passes. Execute Full Campaign Debug Phase 17, then package-prove physical/virtual casualty continuity, ownership retry, proportional one-pool refund, save/restart, markers, multiplayer/JIP/reconnect, and soak while retaining every open Schema-68 planning gate. |
 | CRI-10 through CRI-11: Missions and progression | Broad-alpha foundations implemented; convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
@@ -677,17 +691,17 @@ publishing a build does not waive them.
 
 | Player-visible milestone | Current state | Next proof boundary |
 | --- | --- | --- |
-| Exact Forces | Implemented sealed foundation plus provisional exact enemy counterattack; Foundation, Workbench PC compile/initialization, and focused proof pass | Execute the remaining target configurations and the same counterattack roster/debit/route/projection/combat/ownership/return/settlement/restore contract through Full Campaign Debug and package/restart, then retain the existing exact training, QRF/Search-and-Destroy/garrison, assassination, rescue, convoy, and replay backlog. |
+| Exact Forces | Implemented sealed foundation plus scoped exact enemy-counterattack engine proof; Foundation, all-target Workbench, and focused proof pass | Execute the same counterattack roster/debit/route/projection/combat/ownership/return/settlement/restore contract through Full Campaign Debug and package/restart, then retain the existing exact training, QRF/Search-and-Destroy/garrison, assassination, rescue, convoy, and replay backlog. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented; sealed Schema 63 excludes empty assets from pressure | Prove native/GM/strategic living counts, conscious/cargo/crew/static classification, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
-| Living War | Broad-alpha paths plus the sealed exact projections and provisional Schema-69 counterattack share the combat-presence/heat boundary | Prove counterattack virtual/physical casualty continuity and every earlier exact roster through materialization/fold/re-entry plus all Schema-63 consumers and `HOT -> COOLING -> COLD`; separately prove carrier/seat, outcome, grace, restart, and broader encounter behavior. |
-| Reliable Orders | Exact player QRF/Search-and-Destroy, enemy defensive QRF, and enemy patrol retain separate canonical policies; exact enemy counterattack is the provisional Schema-69 addition | Focused admission, route, projection, combat, ownership, PREPARED settlement/restore, quarantine, ambiguity, and legacy-isolation proof passes. Execute it through Full Campaign Debug and packaged runtime, then runtime-prove every exact family. |
+| Living War | Broad-alpha paths plus the sealed exact projections and scoped Schema-69 counterattack engine proof share the combat-presence/heat boundary | Prove counterattack virtual/physical casualty continuity and every earlier exact roster through materialization/fold/re-entry plus all Schema-63 consumers and `HOT -> COOLING -> COLD`; separately prove carrier/seat, outcome, grace, restart, and broader encounter behavior. |
+| Reliable Orders | Exact player QRF/Search-and-Destroy, enemy defensive QRF, and enemy patrol retain separate canonical policies; exact enemy counterattack is the Schema-69 addition | Focused admission, route, projection, combat, ownership, PREPARED settlement/restore, quarantine, ambiguity, and legacy-isolation proof passes. Execute it through Full Campaign Debug and packaged runtime, then runtime-prove every exact family. |
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 protects campaign markers. A source/Workbench-sealed destructive owner-client probe now checks production self-heal and player-marker isolation | Execute the probe, then prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, one canonical repaired campaign marker, player-marker editability/removal, duplicate-free rendering, and restart. |
 | Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies combat pressure/heat; sealed Schema 64 supplies sole town support/population truth and contacted/territory projections, with Foundation and Workbench checks passed | Execute the fixtures, then runtime-prove ownership routes, formula/hysteresis, contact/current-first ordering, complete territory, migration/restart/rendering, combat presence, cooling, and no bypass. Broader encounter/facility consequences remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
-| Enemy Commander | Sealed resource and planning authority remains intact. Provisional Schema 69 makes newly admitted counterattacks exact while leaving historical counterattacks on contract `0`; its focused engine proof passes | Execute the exact-counterattack Full Campaign Debug proof, then package-prove route/projection/combat/ownership/return/refund and restore. The earlier planning, QRF, patrol, resource, and live-server gates remain independently open. |
+| Enemy Commander | Sealed resource and planning authority remains intact. Schema 69 makes newly admitted counterattacks exact while leaving historical counterattacks on contract `0`; its scoped engine proof passes | Execute the exact-counterattack Full Campaign Debug proof, then package-prove route/projection/combat/ownership/return/refund and restore. The earlier planning, QRF, patrol, resource, and live-server gates remain independently open. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Schema 69/settings 24 is provisional; Schema 68 remains the latest sealed checkpoint. Schema-69 Foundation, Workbench PC compile/initialization, and focused-engine evidence is green | Seal Schema 69 only after the remaining target configurations and Full Campaign Debug evidence. Then package-prove serialization/restart, live-server/network behavior, profile migration, marker integrity, and the complete earlier runtime backlog. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Schema 69/settings 24 has a sealed scoped source/Foundation/all-target Workbench/focused-engine checkpoint | Execute Full Campaign Debug, then package-prove serialization/restart, live-server/network/JIP/reconnect behavior, profile migration, marker integrity, and the complete earlier runtime backlog. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -767,7 +781,7 @@ treated as future work:
   operational source for a same-faction defended target under resistance pressure, admits one held aggregate after
   the prepaid debit, suppresses parallel legacy authority, applies arrival
   pressure once, returns survivors to origin, and settles once or fails closed.
-- Provisional Schema 69 adds a separate exact enemy-counterattack owner. It
+- Schema 69 adds a separate exact enemy-counterattack owner. It
   freezes one infantry roster, admits exactly one attack- or support-pool debit,
   advances a direct virtual route, preserves confirmed casualties across
   physical/virtual transfer, resolves deterministic virtual combat, delegates
@@ -776,10 +790,9 @@ treated as future work:
   contract `0`; malformed current graphs quarantine at `-69` without invented
   authority or effects. The appended `PREPARED` settlement intent orders
   prepare, stage, refund, record, and finalize across restore and same-session
-  retry. Derived-ID claimant scans reject ambiguous residue. Foundation,
-  Workbench PC compile/initialization, and focused-engine proof pass; remaining
-  target configurations, Full Campaign Debug, and external runtime proof remain
-  open.
+  retry. Derived-ID claimant scans reject ambiguous residue. The scoped source,
+  Foundation, all-target Workbench, and focused-engine proof passes; Full
+  Campaign Debug and external runtime proof remain open.
 - `HST_MissionConvoyOperationService` owns newly started exact convoy missions.
   It freezes one generated route, exactly three vehicle/crew elements and
   ordered crew slots, and mission-kind-compatible cargo/captive on vehicle zero.
@@ -1054,10 +1067,9 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Execute the remaining Workbench target configurations and the provisional
-   Schema-69 exact-counterattack Full Campaign Debug Phase-17 proof now that
-   Foundation, the Workbench PC compile/initialization pass, and the focused
-   engine case are green. Then package-prove serialization/restart, direct route,
+1. Execute the Schema-69 exact-counterattack Full Campaign Debug Phase-17 proof
+   now that Foundation, all-target Workbench, and the focused engine case are
+   green. Then package-prove serialization/restart, direct route,
    casualty-preserving projection, deterministic combat, canonical ownership
    retry, PREPARED settlement resume, return, proportional one-pool settlement,
    historical isolation, derived-ID ambiguity rejection, `-69` quarantine,
@@ -1578,7 +1590,7 @@ Baseline acceptance:
 | 15 | Garage and vehicle persistence | In progress - broad-alpha scaffold exists |
 | 16 | Recruitment, training, and garrisons | In progress - recruitment/garrison foundation exists |
 | 17 | Zone capture and ownership | In progress - Schema-62 canonical all-cause ownership and Schema-63 shared crew-aware capture pressure/heat are sealed in source/Workbench, with Foundation and explicit Workbench validation passed but runtime proof pending; broader encounter/town-truth depth remains |
-| 18 | Enemy commander physical responses | In progress - exact defensive QRF/patrol operations remain narrow; sealed Schema 67 canonicalizes resources/aggression, while the latest sealed Schema 68 checkpoint persists the per-enemy planner, filters commitment roots, reranks duplicate patrols, freezes preparation, and revalidates admission before debit. It retains fresh-bootstrap, exact known-state recovery, and warning-pacing repairs. Immediate/debug/direct orders remain contract `0`; execute the sealed assertions and runtime-prove the checkpoint before widening the planner. |
+| 18 | Enemy commander physical responses | In progress - exact defensive QRF/patrol operations remain narrow; sealed Schema 67 canonicalizes resources/aggression, Schema 68 persists commitment-aware planning, and the scoped Schema-69 engine-proof checkpoint adds exact newly admitted counterattacks with resumable settlement and derived-ID ambiguity hardening. Historical counterattacks remain contract `0`; execute Full Campaign Debug and package/native/restart/network proof before widening the planner. |
 | 19 | Support requests | In progress - exact player infantry-QRF strategic projection; broad legacy supports remain |
 | 20 | Civilians, town support, and undercover reports | In progress - Settings 24 supplies ambient budgets; sealed Schema 65 adds exact consequences/panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security roster authority and zero resistance automatic police/roadblocks. Campaign Debug, packaged native behavior, save/restart, marker input, and ten-town soak remain open. |
 | 21 | Undercover enforcement and police/roadblocks | In progress - scan enforcement remains broad alpha; Schema 66 now owns exact enemy-town patrol casualties/fold/rearm, while native encounters and balance remain unproven |

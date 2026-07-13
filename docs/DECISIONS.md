@@ -1140,8 +1140,8 @@ Consequences:
 
 ## CRI-020 - Version Enemy Counterattacks As Exact Operations
 
-- Status: Accepted; provisional Schema-69 implementation with Foundation,
-  Workbench PC compile/initialization, and focused-engine proof
+- Status: Accepted; scoped Schema-69 source/Foundation/all-target
+  Workbench/focused-engine checkpoint sealed
 - Date: 2026-07-13
 
 Context: Counterattacks already existed as durable enemy orders, but their
@@ -1196,12 +1196,22 @@ Consequences:
   existing reciprocal rows before generic projection normalization and may
   restore a valid physical projection as virtual authority at its last durable
   position while preserving its survivor ledger.
-- Schema-69 Foundation passes. Workbench PC compile/initialization log
-  `logs_2026-07-13_15-10-44` exits `0` with Game CRC `c7f7a739`. Focused engine
-  log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty
-  failed list, and all exact counterattack assertions, including the five
-  PREPARED recovery windows and forged-open, destroyed-living, and foreign-
-  execution rejection. Schema 69 is still not sealed until the remaining
-  Workbench target configurations, Full Campaign Debug, serialization/restart,
-  package, dedicated/live-server, multiplayer/networking, and soak evidence is
-  recorded. The Schema-68 seal does not certify those remaining gates.
+- The scoped checkpoint is sealed at implementation
+  `5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
+  `2026-07-13T19:40:35Z`, label
+  `schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
+  `73a64ef`. Foundation passes at 771 script-symbol references. Final all-five
+  Workbench log `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/
+  11,786 classes at CRC `3a8bd64f`, explicitly validates WORKBENCH, PC, XBOX,
+  PS4, and PS5, contains no script or HST errors, and leaves zero Workbench
+  processes.
+- Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
+  JUnit testcase, an empty failed list, and `AllExact=1`. It proves valid
+  PREPARED recovery, same-session ABORTED recovery, foreign derived-ID collision
+  hold, and fail-closed SETTLED-without-resource-receipt handling. The autotest
+  environment also writes a recoverable base-game
+  `SCR_EditableEntityCore/GetPlayerIdentityId` VM exception to `crash.log` before
+  the HST case completes successfully, so the run is not exception-free.
+- This seal does not certify Full Campaign Debug in `HST_Dev`, serialization or
+  restart, package/native/live-server behavior, migration runtime, marker
+  runtime, network/JIP/reconnect, or soak. Those gates remain open.

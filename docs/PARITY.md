@@ -1,7 +1,7 @@
 # Partisan Capability Map
 
-The active development tree provisionally targets Campaign Schema 69 with
-runtime-settings Schema 24. Newly admitted enemy counterattacks use exact
+The active development tree uses Campaign Schema 69 with runtime-settings
+Schema 24. Newly admitted enemy counterattacks use exact
 contract `1`: a frozen infantry manifest and one reciprocal operation graph own
 direct virtual travel, physical/virtual casualty continuity, deterministic
 off-screen combat, canonical ownership transition, return, and a proportional
@@ -13,17 +13,30 @@ an ownership outcome. The appended `PREPARED` settlement state makes terminal
 intent durable before the exact refund tuple is staged; refund, resource-receipt
 recording, and operation finalization then resume safely across restore or a
 same-session tick. Deterministically derived claimant IDs prevent foreign or
-duplicate runtime residue from being cleaned as the expected aggregate. This
-slice remains provisional, but Foundation passes, Workbench PC compile/initialization log
-`logs_2026-07-13_15-10-44` exits `0` at Game CRC `c7f7a739`, and focused engine
-log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty
-failed list, and an all-exact report. Remaining Workbench target configurations,
-Full Campaign Debug, serialization/restart, package, live-server, network, and
-soak remain open. Schema 68 remains the latest sealed checkpoint described
-below.
+duplicate runtime residue from being cleaned as the expected aggregate.
 
-The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
-settings Schema 24 at implementation
+The scoped engine-proof checkpoint is sealed at implementation
+`5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
+`2026-07-13T19:40:35Z`, label
+`schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
+`73a64ef`. Foundation passes at 771 script-symbol references. Final all-five
+Workbench log `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/
+11,786 classes at CRC `3a8bd64f`, explicitly validates WORKBENCH, PC, XBOX, PS4,
+and PS5, contains no script or HST errors, and leaves zero Workbench processes.
+Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
+JUnit testcase, an empty failed list, and `AllExact=1`. It proves valid PREPARED
+recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and
+fail-closed SETTLED-without-resource-receipt handling. The autotest environment
+also writes a recoverable base-game
+`SCR_EditableEntityCore/GetPlayerIdentityId` VM exception to `crash.log` before
+the HST case completes successfully, so the run is not exception-free.
+
+This seals only source, Foundation, all-target Workbench, and focused engine
+proof. Full Campaign Debug in `HST_Dev`, serialization/restart,
+package/native/live-server behavior, migration runtime, marker runtime,
+network/JIP/reconnect, and soak remain open.
+
+The preceding Schema-68 planning checkpoint is implementation
 `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
 `2026-07-13T15:43:01Z`, label
 `schema68-settings24-enemy-planning-engine-proof`. The latest packaged
@@ -832,7 +845,7 @@ Debug and packaged-runtime gates remain open.
   including pressure-marked retry; unpressured admission additionally checks
   candidate/source identity before pressure. An all-committed map records a zero-
   cost skip.
-- Provisional Schema 69 routes only newly admitted enemy counterattacks through a
+- Schema 69 routes only newly admitted enemy counterattacks through a
   separate exact operation type and contract `1`. One frozen infantry roster and
   one charged pool survive direct virtual movement, deterministic combat,
   physical projection/fold, canonical capture retry, return, and proportional
@@ -841,9 +854,8 @@ Debug and packaged-runtime gates remain open.
   resume it idempotently. Explicit and derived-ID claimant checks reject foreign
   or duplicate residue. Historical counterattacks remain contract `0`; malformed
   current graphs quarantine at `-69` without legacy fallback or invented
-  authority. Foundation, Workbench PC compile/initialization, and focused-engine
-  proof pass; remaining target configurations and native/runtime proof remain
-  open.
+  authority. The scoped source/Foundation/all-target Workbench/focused-engine
+  checkpoint is sealed; Full Campaign Debug and native/runtime proof remain open.
 - Newly purchased policy-v2 resistance garrisons use a separate exact
   `GARRISON_PATROL` owner. They walk a persisted infinite local route while held,
   use survivor-only materialization/fold, publish one exact marker/UI count, and
@@ -920,19 +932,19 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- Campaign Schema 69/runtime-settings 24 is the provisional development
-  contract. Its exact-counterattack Foundation gate passes. Workbench PC compile/initialization
-  log `logs_2026-07-13_15-10-44` exits `0` with Game CRC `c7f7a739`. Focused
-  engine log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an
-  empty failed list, and an all-exact report, including PREPARED pre-refund,
-  post-refund, post-record, uncommitted-full, and physical conservative-zero
-  recovery plus forged-open, destroyed-living, and foreign-execution rejection.
-  Remaining Workbench target configurations, Full Campaign Debug,
-  serialization/restart, package, dedicated/live-server,
-  multiplayer/networking, and soak gates remain open. The Schema-68 results
-  below remain evidence for that sealed tree and do not replace those open
-  Schema-69 gates.
-- The latest sealed Schema-68 source/Workbench checkpoint adds commitment-aware target
+- Campaign Schema 69/runtime-settings 24 is the current contract. Its scoped
+  checkpoint is sealed at implementation
+  `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation
+  771, all-target Workbench log `logs_2026-07-13_15-41-50` at CRC `3a8bd64f`, and
+  focused log `logs_2026-07-13_15-42-52` with one passing JUnit testcase, an
+  empty failed list, and `AllExact=1`. The focused run covers valid PREPARED and
+  same-session ABORTED recovery, foreign derived-ID collision hold, and
+  fail-closed SETTLED state without a resource receipt. A recoverable base-game
+  VM exception appears before successful HST completion, so the run is not
+  exception-free. Full Campaign Debug, serialization/restart,
+  package/native/live-server behavior, migration and marker runtime,
+  multiplayer/network/JIP/reconnect, and soak gates remain open.
+- The preceding sealed Schema-68 source/Workbench checkpoint adds commitment-aware target
   filtering/ranking, canonical root collapse, capped compatible-root penalties,
   blocking precedence for mixed roots, same-decision duplicate-patrol rerank,
   stable multi-reject diagnostics, freeze-only preparation, and commitment
@@ -948,8 +960,8 @@ Debug and packaged-runtime gates remain open.
   `2026-07-13T15:44:34.667Z`; the complete report includes retry-quarantine
   repeated-pass idempotency. None of the three matching cases has executed in
   Campaign Debug, a packaged restart, or a live server.
-- Campaign Schema 68/runtime-settings 24 remains the latest sealed checkpoint.
-  The commitment-aware source/Workbench checkpoint is sealed at implementation
+- Campaign Schema 68/runtime-settings 24 is the preceding planning checkpoint.
+  Its commitment-aware source/Workbench checkpoint is sealed at implementation
   `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
   `2026-07-13T15:43:01Z`, label
   `schema68-settings24-enemy-planning-engine-proof`. The latest package
@@ -1243,9 +1255,8 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Execute the remaining Workbench target configurations and the provisional
-  Schema-69 exact-counterattack Full Campaign Debug proof now that Foundation,
-  the Workbench PC compile/initialization pass, and focused engine are green.
+- Execute the Schema-69 exact-counterattack Full Campaign Debug proof now that
+  Foundation, all-target Workbench, and focused engine are green.
   Require reciprocal order/operation/manifest/batch/group authority, exactly one
   charged pool, direct virtual route progress, deterministic combat, casualty-
   preserving materialization/fold, canonical ownership retry, PREPARED
@@ -1437,11 +1448,11 @@ Debug and packaged-runtime gates remain open.
   including physical/virtual transfer, marker cleanup, and restore for both.
   Then connect live physical contact/disengagement and deepen encounter
   simulation without treating source implementation as packaged proof.
-- Continue the implementation blueprint in dependency order. The provisional
-  Schema-69 slice adds exact newly admitted counterattacks without rewriting the
+- Continue the implementation blueprint in dependency order. The scoped
+  Schema-69 engine-proof slice adds exact newly admitted counterattacks without rewriting the
   sealed source/Workbench Schema-68 planning authority. Schema 68 shares fresh bootstrap, exact-gates known-state
   recovery, adds production-resolver live observation, and corrects warning
-  pacing. The latest sealed checkpoint makes periodic target choice commitment-aware,
+  pacing. The preceding Schema-68 checkpoint makes periodic target choice commitment-aware,
   reranks duplicate patrols inside the same due decision, applies blocking
   precedence to mixed roots, freezes before side effects, and revalidates
   pressure-marked retry before debit. Historical counterattacks and existing

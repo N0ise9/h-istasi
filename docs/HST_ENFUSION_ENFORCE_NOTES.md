@@ -1,22 +1,32 @@
 # Partisan Enfusion / Enforce Notes
 
-The active development tree provisionally advances Campaign Schema 69 while
-runtime settings remain on Schema 24. Newly admitted exact enemy
+The active development tree uses Campaign Schema 69 while runtime settings
+remain on Schema 24. Newly admitted exact enemy
 counterattacks use contract `1`, one frozen infantry manifest, one direct
 strategic route, casualty-preserving virtual/physical transfer, deterministic
 virtual combat, canonical ownership transition, return, and a proportional
 survivor refund to exactly one originally charged attack or support pool.
 Historical counterattacks remain contract `0`; invalid or ambiguous current
 exact graphs quarantine at `-69` without fabrication, deletion, settlement,
-refund, or outcome. Schema-69 Foundation passes. Workbench PC compile/initialization log
-`logs_2026-07-13_15-10-44` exits `0` with Game CRC `c7f7a739`. Focused engine
-log `logs_2026-07-13_15-11-13` records one passing JUnit testcase, an empty
-failed list, and an all-exact report. Remaining Workbench target configurations,
-Full Campaign Debug, serialization/restart, package, live-server, network, and
-soak proof remain open, so the schema is provisional and unstamped.
+refund, or outcome. The scoped engine-proof checkpoint is sealed at
+implementation `5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
+`2026-07-13T19:40:35Z`, label
+`schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
+`73a64ef`. Foundation passes at 771 script-symbol references. Final all-five
+Workbench log `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/
+11,786 classes at CRC `3a8bd64f`, explicitly validates WORKBENCH, PC, XBOX, PS4,
+and PS5, contains no script or HST errors, and leaves zero Workbench processes.
+Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
+JUnit testcase, an empty failed list, and `AllExact=1`. Valid PREPARED recovery,
+same-session ABORTED recovery, foreign derived-ID collision hold, and fail-closed
+SETTLED-without-resource-receipt handling pass. The autotest environment also
+writes a recoverable base-game `SCR_EditableEntityCore/GetPlayerIdentityId` VM
+exception to `crash.log` before the HST case completes successfully; the run is
+not exception-free. Full Campaign Debug in `HST_Dev`, serialization/restart,
+package/native/live-server behavior, migration runtime, marker runtime,
+network/JIP/reconnect, and soak remain open.
 
-The latest sealed checkpoint remains Campaign Schema 68/runtime-settings Schema
-24 at implementation
+The preceding Schema-68 planning checkpoint is implementation
 `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC
 `2026-07-13T15:43:01Z`, label
 `schema68-settings24-enemy-planning-engine-proof`. It retains commitment-aware
@@ -5383,7 +5393,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   save/restart, package, dedicated-server, multiplayer, or runtime evidence until
   those separate gates run on the newly stamped tree.
 
-## Provisional Schema 69 Exact Enemy Counterattack Mechanics
+## Schema 69 Exact Enemy Counterattack Mechanics
 
 - Append both the enemy-counterattack operation value and the `PREPARED`
   operation-settlement value; do not insert either among persisted values.
@@ -5454,15 +5464,27 @@ This file is for practical engine/script behavior, not project planning. Keep en
   cleanup. A focused engine case may prove deterministic service logic, but it is
   not HST_Dev coordinator, world, package, restart, networking, or soak proof.
 
-- Current internal proof is green but not a seal. Foundation passes; Workbench PC
-  compile/initialization log `logs_2026-07-13_15-10-44` exits `0` at Game CRC `c7f7a739`;
-  and focused engine log `logs_2026-07-13_15-11-13` has one passing JUnit
-  testcase, an empty failed list, and all exact assertions. Its restore coverage
-  includes PREPARED pre-refund, post-refund, post-record, uncommitted-full, and
-  physical conservative-zero recovery. Its adversarial coverage rejects forged
-  open terminal intent, destroyed intent backed by a living durable roster, and
-  a foreign execution backlink. The remaining Workbench target configurations,
-  Full Campaign Debug, and every external runtime rung remain open.
+- The scoped engine-proof checkpoint is sealed at implementation
+  `5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
+  `2026-07-13T19:40:35Z`, label
+  `schema69-settings24-exact-enemy-counterattack-engine-proof`, with stamp commit
+  `73a64ef`. Foundation passes at 771 references. All-target Workbench log
+  `logs_2026-07-13_15-41-50` exits `0`, compiles 5,821 Game files/11,786 classes
+  at CRC `3a8bd64f`, explicitly validates all five configurations, contains no
+  script or HST errors, and leaves zero Workbench processes.
+- Focused engine log `logs_2026-07-13_15-42-52` exits `0`, records one passing
+  JUnit testcase, an empty failed list, and `AllExact=1`. It covers valid
+  PREPARED recovery, same-session ABORTED recovery for operation-backed and
+  operationless full-refund prefixes, foreign derived-ID collision hold, and
+  fail-closed SETTLED state without the reciprocal resource receipt. The
+  autotest environment also records a recoverable base-game
+  `SCR_EditableEntityCore/GetPlayerIdentityId` VM exception in `crash.log` before
+  the HST test completes successfully, so do not describe the run as exception-
+  free.
+- This seal covers source, Foundation, all-target Workbench, and focused engine
+  proof only. Full Campaign Debug in `HST_Dev`, serialization/restart,
+  package/native/live-server behavior, migration runtime, marker runtime,
+  network/JIP/reconnect, and soak remain open.
 
 ## Native Reference Sources
 
