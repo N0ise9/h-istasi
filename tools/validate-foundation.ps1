@@ -9733,7 +9733,7 @@ if ($loadoutEditorComponentText -notmatch "CloseEditorInternal[\s\S]*?GetGame\(\
 foreach ($requiredLoadoutEditorEntry in @(
 		"HST_LoadoutEditorService",
 		"HST_LoadoutEditorComponent",
-		'$profile:h-istasi/loadouts',
+		"HST_ProfilePathService.LOADOUT_DIRECTORY",
 		"HST_LoadoutSlotState",
 		"HST_LoadoutNodeState",
 		"HST_SavedLoadoutState",
@@ -24678,6 +24678,230 @@ if ($partisanReadmeText.IndexOf('# Partisan: Everon') -ne 0) {
 	throw "README title must expose Partisan: Everon branding"
 }
 $legacyBrandToken = 'h-' + 'istasi'
+$canonicalProfilePrefix = '$profile:Partisan'
+$legacyProfilePrefix = '$profile:' + $legacyBrandToken
+$profilePathServicePath = 'Scripts/Game/HST/Services/HST_ProfilePathService.c'
+if (!(Test-Path -LiteralPath $profilePathServicePath -PathType Leaf)) {
+	throw "Shared Partisan profile-path service is missing: $profilePathServicePath"
+}
+$profilePathServiceText = Get-Content -Raw $profilePathServicePath
+$requiredCanonicalProfilePaths = [ordered]@{
+	'PROFILE_DIRECTORY' = $canonicalProfilePrefix
+	'SETTINGS_FILE' = $canonicalProfilePrefix + '/HST_Settings.json'
+	'CAMPAIGN_SAVE_FILE' = $canonicalProfilePrefix + '/HST_CampaignSaveData.json'
+	'VISUAL_SETTINGS_FILE' = $canonicalProfilePrefix + '/HST_LoadoutEditorSettings.json'
+	'LOADOUT_DIRECTORY' = $canonicalProfilePrefix + '/loadouts'
+	'LOADOUT_DIRECTORY_V2' = $canonicalProfilePrefix + '/loadouts/v2'
+	'DEBUG_DIRECTORY' = $canonicalProfilePrefix + '/debug'
+}
+foreach ($profilePathEntry in $requiredCanonicalProfilePaths.GetEnumerator()) {
+	$profileConstant = 'static const string ' + $profilePathEntry.Key + ' = "' + $profilePathEntry.Value + '";'
+	if ($profilePathServiceText.IndexOf($profileConstant) -lt 0) {
+		throw "Shared profile-path service is missing canonical constant: $profileConstant"
+	}
+}
+$requiredLegacyProfilePaths = [ordered]@{
+	'LEGACY_PROFILE_DIRECTORY' = $legacyProfilePrefix
+	'LEGACY_SETTINGS_FILE' = $legacyProfilePrefix + '/HST_Settings.json'
+	'LEGACY_CAMPAIGN_SAVE_FILE' = $legacyProfilePrefix + '/HST_CampaignSaveData.json'
+	'LEGACY_VISUAL_SETTINGS_FILE' = $legacyProfilePrefix + '/HST_LoadoutEditorSettings.json'
+	'LEGACY_LOADOUT_DIRECTORY' = $legacyProfilePrefix + '/loadouts'
+	'LEGACY_LOADOUT_DIRECTORY_V2' = $legacyProfilePrefix + '/loadouts/v2'
+}
+foreach ($profilePathEntry in $requiredLegacyProfilePaths.GetEnumerator()) {
+	$profileConstant = 'static const string ' + $profilePathEntry.Key + ' = "' + $profilePathEntry.Value + '";'
+	if ($profilePathServiceText.IndexOf($profileConstant) -lt 0) {
+		throw "Shared profile-path service is missing preserved legacy constant: $($profilePathEntry.Key)"
+	}
+}
+
+$profileResolverBlock = Get-ScriptMethodBlock $profilePathServiceText 'static string ResolveReadableFile('
+$canonicalExistsIndex = $profileResolverBlock.IndexOf('FileIO.FileExists(currentPath)')
+$legacyExistsIndex = $profileResolverBlock.IndexOf('FileIO.FileExists(legacyPath)')
+if ([string]::IsNullOrEmpty($profileResolverBlock) -or
+	$canonicalExistsIndex -lt 0 -or
+	$legacyExistsIndex -lt 0 -or
+	$canonicalExistsIndex -ge $legacyExistsIndex -or
+	$profileResolverBlock.IndexOf('return currentPath;') -lt 0 -or
+	$profileResolverBlock.IndexOf('return legacyPath;') -lt 0) {
+	throw "Shared profile-path resolver must prefer canonical data and consult legacy data only when canonical data is absent"
+}
+foreach ($profilePathHelper in @(
+	'static bool IsLegacyPath(',
+	'static void EnsureProfileDirectory()',
+	'static void EnsureLoadoutDirectories()',
+	'static void EnsureDebugDirectory()'
+)) {
+	if ($profilePathServiceText.IndexOf($profilePathHelper) -lt 0) {
+		throw "Shared profile-path service is missing migration/write helper: $profilePathHelper"
+	}
+}
+
+$profileConsumerContracts = [ordered]@{
+	'Scripts/Game/HST/Services/HST_RuntimeSettingsService.c' = @(
+		'HST_ProfilePathService.ResolveReadableFile(',
+		'HST_ProfilePathService.SETTINGS_FILE',
+		'HST_ProfilePathService.LEGACY_SETTINGS_FILE',
+		'HST_ProfilePathService.IsLegacyPath(',
+		'HST_ProfilePathService.EnsureProfileDirectory()'
+	)
+	'Scripts/Game/HST/Services/HST_PersistenceService.c' = @(
+		'HST_ProfilePathService.ResolveReadableFile(',
+		'HST_ProfilePathService.CAMPAIGN_SAVE_FILE',
+		'HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE',
+		'HST_ProfilePathService.IsLegacyPath(',
+		'HST_ProfilePathService.EnsureProfileDirectory()'
+	)
+	'Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c' = @(
+		'HST_ProfilePathService.ResolveReadableFile(',
+		'HST_ProfilePathService.VISUAL_SETTINGS_FILE',
+		'HST_ProfilePathService.LEGACY_VISUAL_SETTINGS_FILE',
+		'HST_ProfilePathService.IsLegacyPath(',
+		'HST_ProfilePathService.EnsureProfileDirectory()'
+	)
+	'Scripts/Game/HST/Services/HST_LoadoutEditorService.c' = @(
+		'HST_ProfilePathService.LOADOUT_DIRECTORY',
+		'HST_ProfilePathService.LOADOUT_DIRECTORY_V2',
+		'HST_ProfilePathService.LEGACY_LOADOUT_DIRECTORY',
+		'HST_ProfilePathService.LEGACY_LOADOUT_DIRECTORY_V2',
+		'HST_ProfilePathService.EnsureLoadoutDirectories()'
+	)
+	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c' = @(
+		'HST_ProfilePathService.DEBUG_DIRECTORY',
+		'HST_ProfilePathService.EnsureDebugDirectory()'
+	)
+}
+foreach ($profileConsumerEntry in $profileConsumerContracts.GetEnumerator()) {
+	$profileConsumerText = Get-Content -Raw $profileConsumerEntry.Key
+	foreach ($requiredProfileConsumerToken in $profileConsumerEntry.Value) {
+		if ($profileConsumerText.IndexOf($requiredProfileConsumerToken) -lt 0) {
+			throw "$($profileConsumerEntry.Key) is missing Partisan profile migration/write hook: $requiredProfileConsumerToken"
+		}
+	}
+	if ($profileConsumerText -match '(?:SaveToFile|WriteLines|MakeDirectory)\(\s*HST_ProfilePathService\.LEGACY_') {
+		throw "$($profileConsumerEntry.Key) must never write to a preserved legacy profile path"
+	}
+}
+if ($profilePathServiceText.IndexOf('AdoptFile(') -ge 0 -or $profilePathServiceText.IndexOf('FileIO.CopyFile(') -ge 0) {
+	throw "Profile migration must normalize and serialize recognized data instead of copying legacy files byte-for-byte"
+}
+
+$profileSettingsText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_RuntimeSettingsService.c'
+$profileSettingsQuietLoadBlock = Get-ScriptMethodBlock $profileSettingsText 'static bool LoadDebugLoggingEnabledQuiet()'
+$profileSettingsLoadBlock = Get-ScriptMethodBlock $profileSettingsText 'HST_RuntimeSettings LoadOrCreate()'
+$profileSettingsWriteBlock = Get-ScriptMethodBlock $profileSettingsText 'protected void WriteDefault('
+if ($profileSettingsQuietLoadBlock.IndexOf('HST_ProfilePathService.ResolveReadableFile(') -lt 0 -or
+	$profileSettingsLoadBlock.IndexOf('HST_ProfilePathService.ResolveReadableFile(') -lt 0 -or
+	([regex]::Matches($profileSettingsLoadBlock, [regex]::Escape('HST_ProfilePathService.IsLegacyPath(sourcePath)'))).Count -lt 3 -or
+	([regex]::Matches($profileSettingsLoadBlock, [regex]::Escape('WriteDefault(settings)'))).Count -lt 5 -or
+	$profileSettingsLoadBlock.IndexOf('legacy settings file is empty or unreadable; preserved it and generated canonical defaults') -lt 0 -or
+	$profileSettingsLoadBlock.IndexOf('legacy settings file is malformed; preserved it and generated canonical defaults') -lt 0 -or
+	$profileSettingsLoadBlock.IndexOf('settings file is malformed, using built-in defaults without overwriting it') -lt 0 -or
+	$profileSettingsWriteBlock.IndexOf('WriteLines(HST_ProfilePathService.SETTINGS_FILE, lines)') -lt 0) {
+	throw "Runtime settings must preserve invalid canonical data while normalizing valid legacy settings or replacing invalid legacy data with canonical defaults"
+}
+
+$profilePersistenceText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_PersistenceService.c'
+$profilePersistenceSaveBlock = Get-ScriptMethodBlock $profilePersistenceText 'protected bool SaveProfileFallback('
+$profilePersistenceLoadBlock = Get-ScriptMethodBlock $profilePersistenceText 'protected HST_CampaignSaveData LoadProfileFallback()'
+if ($profilePersistenceSaveBlock.IndexOf('context.SaveToFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE)') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('HST_ProfilePathService.ResolveReadableFile(') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('HST_ProfilePathService.IsLegacyPath(sourcePath)') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('saveData.MigrateToCurrentSchema()') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('SaveProfileFallback(saveData)') -lt 0 -or
+	$profilePersistenceLoadBlock.IndexOf('saveData.MigrateToCurrentSchema()') -ge $profilePersistenceLoadBlock.IndexOf('SaveProfileFallback(saveData)')) {
+	throw "Campaign profile fallback must read canonical-first, migrate a valid legacy save, and serialize it into the canonical Partisan save without copying raw bytes"
+}
+
+$profileVisualSettingsText = Get-Content -Raw 'Scripts/Game/HST/Config/HST_LoadoutEditorVisualSettings.c'
+$profileVisualLoadBlock = Get-ScriptMethodBlock $profileVisualSettingsText 'HST_LoadoutEditorVisualSettings LoadOrCreate()'
+$profileVisualSaveBlock = Get-ScriptMethodBlock $profileVisualSettingsText 'bool Save(notnull HST_LoadoutEditorVisualSettings settings)'
+if ($profileVisualLoadBlock.IndexOf('HST_ProfilePathService.ResolveReadableFile(') -lt 0 -or
+	([regex]::Matches($profileVisualLoadBlock, [regex]::Escape('HST_ProfilePathService.IsLegacyPath(sourcePath)'))).Count -lt 2 -or
+	$profileVisualLoadBlock.IndexOf('legacy visual settings are empty or malformed; preserved them and wrote canonical defaults') -lt 0 -or
+	$profileVisualLoadBlock.IndexOf('Save(settings)') -lt 0 -or
+	$profileVisualSaveBlock.IndexOf('WriteLines(HST_ProfilePathService.VISUAL_SETTINGS_FILE, lines)') -lt 0) {
+	throw "Loadout visual settings must read canonical-first and serialize valid legacy settings or canonical defaults for invalid legacy data"
+}
+
+$profileLoadoutText = Get-Content -Raw 'Scripts/Game/HST/Services/HST_LoadoutEditorService.c'
+$profileLoadoutReadBlock = Get-ScriptMethodBlock $profileLoadoutText 'protected int LoadPersonalLoadoutsFromFile('
+$profileLoadoutSaveBlock = Get-ScriptMethodBlock $profileLoadoutText 'protected bool SavePersonalLoadoutsToFile('
+$profileLoadoutJsonReadBlock = Get-ScriptMethodBlock $profileLoadoutText 'protected bool LoadPersonalLoadoutsFromJsonContext('
+$profileLoadoutPrecedenceTokens = @(
+	'BuildPersonalLoadoutPathV2(identityId)',
+	'BuildPersonalLoadoutPath(identityId)',
+	'BuildLegacyPersonalLoadoutPathV2(identityId)',
+	'BuildLegacyPersonalLoadoutPath(identityId)'
+)
+$profileLoadoutPreviousIndex = -1
+foreach ($profileLoadoutPrecedenceToken in $profileLoadoutPrecedenceTokens) {
+	$profileLoadoutTokenIndex = $profileLoadoutReadBlock.IndexOf($profileLoadoutPrecedenceToken)
+	if ($profileLoadoutTokenIndex -lt 0 -or $profileLoadoutTokenIndex -le $profileLoadoutPreviousIndex) {
+		throw "Personal loadouts must try canonical v2, canonical v1, legacy v2, then legacy v1 in that order: $profileLoadoutPrecedenceToken"
+	}
+	$profileLoadoutPreviousIndex = $profileLoadoutTokenIndex
+}
+$profileCanonicalV2Index = $profileLoadoutReadBlock.IndexOf('BuildPersonalLoadoutPathV2(identityId)')
+$profileCanonicalV1Index = $profileLoadoutReadBlock.IndexOf('BuildPersonalLoadoutPath(identityId)')
+$profileLegacyV2Index = $profileLoadoutReadBlock.IndexOf('BuildLegacyPersonalLoadoutPathV2(identityId)')
+$profileCanonicalV2ReturnIndex = $profileLoadoutReadBlock.IndexOf('return loaded;', $profileCanonicalV2Index)
+$profileCanonicalV1ReturnIndex = $profileLoadoutReadBlock.IndexOf('return loaded;', $profileCanonicalV1Index)
+if ($profileCanonicalV2ReturnIndex -lt 0 -or
+	$profileCanonicalV2ReturnIndex -ge $profileCanonicalV1Index -or
+	$profileCanonicalV1ReturnIndex -lt 0 -or
+	$profileCanonicalV1ReturnIndex -ge $profileLegacyV2Index -or
+	$profileLoadoutReadBlock.IndexOf('bool canonicalV2Exists = FileIO.FileExists(canonicalV2Path)') -lt 0 -or
+	$profileLoadoutReadBlock.IndexOf('bool loadedCanonicalV2 = LoadPersonalLoadoutsFromJsonContext(') -lt 0 -or
+	$profileLoadoutReadBlock.IndexOf('canonical v2 personal loadout file is unreadable; trying canonical v1 only') -lt 0 -or
+	$profileLoadoutReadBlock -notmatch 'if \(canonicalV2Exists\)\s*return 0;' -or
+	$profileLoadoutReadBlock.IndexOf('legacy v2 personal loadout file is unreadable; trying legacy v1') -lt 0 -or
+	$profileLoadoutJsonReadBlock.IndexOf('return true;') -lt 0 -or
+	$profileLoadoutJsonReadBlock -match 'loaded\s*>\s*0') {
+	throw "Loadouts must treat valid-empty canonical v2 as authoritative, try only canonical v1 after corrupt canonical v2, block legacy when either canonical file exists, and allow corrupt legacy v2 to fall through to legacy v1"
+}
+if (([regex]::Matches($profileLoadoutReadBlock, [regex]::Escape('SavePersonalLoadoutsToFile(state, identityId)'))).Count -lt 3 -or
+	$profileLoadoutSaveBlock.IndexOf('HST_ProfilePathService.EnsureLoadoutDirectories()') -lt 0 -or
+	$profileLoadoutSaveBlock.IndexOf('context.SaveToFile(BuildPersonalLoadoutPathV2(identityId))') -lt 0 -or
+	$profileLoadoutSaveBlock.IndexOf('WriteLines(BuildPersonalLoadoutPath(identityId), lines)') -lt 0) {
+	throw "Valid legacy/canonical-v1 loadouts must be reserialized into canonical Partisan paths while all personal-loadout writes remain canonical"
+}
+foreach ($profileLoadoutBuilderContract in @(
+	@('protected string BuildPersonalLoadoutPath(', 'HST_ProfilePathService.LOADOUT_DIRECTORY'),
+	@('protected string BuildPersonalLoadoutPathV2(', 'HST_ProfilePathService.LOADOUT_DIRECTORY_V2'),
+	@('protected string BuildLegacyPersonalLoadoutPath(', 'HST_ProfilePathService.LEGACY_LOADOUT_DIRECTORY'),
+	@('protected string BuildLegacyPersonalLoadoutPathV2(', 'HST_ProfilePathService.LEGACY_LOADOUT_DIRECTORY_V2')
+)) {
+	$profileLoadoutBuilderBlock = Get-ScriptMethodBlock $profileLoadoutText $profileLoadoutBuilderContract[0]
+	if ($profileLoadoutBuilderBlock.IndexOf($profileLoadoutBuilderContract[1]) -lt 0) {
+		throw "Personal loadout path builder is not bound to its shared profile constant: $($profileLoadoutBuilderContract[0])"
+	}
+}
+
+$profileDebugText = Get-Content -Raw 'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+if (([regex]::Matches($profileDebugText, [regex]::Escape('HST_ProfilePathService.DEBUG_DIRECTORY'))).Count -lt 3 -or
+	$profileDebugText.IndexOf('HST_ProfilePathService.EnsureDebugDirectory()') -lt 0) {
+	throw "Campaign Debug must write new artifacts only under the canonical Partisan debug directory"
+}
+
+$legacyProfileLiteralPattern = [regex]::Escape($legacyProfilePrefix)
+foreach ($profileScriptFile in Get-ChildItem -LiteralPath 'Scripts/Game/HST' -File -Recurse -Filter '*.c') {
+	$profileScriptRelativePath = $profileScriptFile.FullName.Substring($root.Length + 1).Replace('\', '/')
+	$profileScriptLines = @(Get-Content -LiteralPath $profileScriptFile.FullName)
+	for ($profileLineIndex = 0; $profileLineIndex -lt $profileScriptLines.Count; $profileLineIndex++) {
+		$profileScriptLine = $profileScriptLines[$profileLineIndex]
+		if ($profileScriptLine.IndexOf($legacyProfilePrefix) -lt 0) {
+			continue
+		}
+		$approvedLegacyConstant = $profileScriptRelativePath -eq $profilePathServicePath -and
+			$profileScriptLine -match ('^\s*static const string LEGACY_[A-Z0-9_]+\s*=\s*"' + $legacyProfileLiteralPattern + '(?:/[^\"]*)?";\s*$')
+		if (!$approvedLegacyConstant) {
+			throw "Legacy profile literal is only permitted in named shared migration constants: $profileScriptRelativePath line $($profileLineIndex + 1)"
+		}
+	}
+}
+Write-Host "Partisan canonical profile paths and preserved one-way legacy adoption hooks OK"
+
 $brandingScanPaths = @(
 	'README.md',
 	'LICENSE.md',
@@ -24703,11 +24927,36 @@ foreach ($brandingScanPath in $brandingScanPaths) {
 		if ($brandingFile.Name -match '(?i)third[_-]?party') {
 			continue
 		}
-		$brandingText = Get-Content -Raw -LiteralPath $brandingFile.FullName
-		$brandingText = $brandingText.Replace('$profile:' + $legacyBrandToken, '')
-		$brandingText = $brandingText.Replace($legacyBrandToken + '-live-runtime-proof', '')
-		if ($brandingText.IndexOf($legacyBrandToken, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
-			throw "Legacy public branding remains outside an approved persistence or historical-build identifier: $($brandingFile.FullName)"
+		$brandingRelativePath = $brandingFile.FullName.Substring($root.Length + 1).Replace('\', '/')
+		$brandingLines = @(Get-Content -LiteralPath $brandingFile.FullName)
+		for ($brandingLineIndex = 0; $brandingLineIndex -lt $brandingLines.Count; $brandingLineIndex++) {
+			$brandingLine = $brandingLines[$brandingLineIndex]
+			if ($brandingLine.IndexOf($legacyProfilePrefix, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+				$profileLiteralApproved = $brandingRelativePath -eq $profilePathServicePath -and
+					$brandingLine -match ('^\s*static const string LEGACY_[A-Z0-9_]+\s*=\s*"' + $legacyProfileLiteralPattern + '(?:/[^\"]*)?";\s*$')
+				if (!$profileLiteralApproved -and $brandingFile.Extension -match '(?i)^\.(md|ya?ml)$') {
+					$contextStart = [Math]::Max(0, $brandingLineIndex - 5)
+					$contextEnd = [Math]::Min($brandingLines.Count - 1, $brandingLineIndex + 5)
+					$profileDocContext = ($brandingLines[$contextStart..$contextEnd] -join ' ')
+					$profileLiteralApproved = $profileDocContext -match '(?i)\b(legacy|historical|history|then-current|previous|old path|migration|adopt|preserv)'
+				}
+				if (!$profileLiteralApproved) {
+					throw "Legacy profile path remains outside a named migration constant or explicit migration/history note: $brandingRelativePath line $($brandingLineIndex + 1)"
+				}
+				$brandingLine = $brandingLine.Replace($legacyProfilePrefix, '')
+			}
+
+			$legacyRuntimeProofToken = $legacyBrandToken + '-live-runtime-proof'
+			if ($brandingLine.IndexOf($legacyRuntimeProofToken, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+				if ($brandingRelativePath -ne 'docs/HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md') {
+					throw "Legacy runtime-proof identifier is only permitted in the historical verification audit: $brandingRelativePath line $($brandingLineIndex + 1)"
+				}
+				$brandingLine = $brandingLine.Replace($legacyRuntimeProofToken, '')
+			}
+
+			if ($brandingLine.IndexOf($legacyBrandToken, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+				throw "Legacy public branding remains outside an approved persistence or historical-build identifier: $brandingRelativePath line $($brandingLineIndex + 1)"
+			}
 		}
 	}
 }

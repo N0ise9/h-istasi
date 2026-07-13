@@ -905,3 +905,41 @@ Consequences:
   `2026-07-12T23:46:02Z`, label
   `schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and
   Workbench CRC `a353fa0d` at 5,809 files/11,751 classes.
+
+## CRI-017 - Move Generated Profile Data Without Stranding Existing Campaigns
+
+- Status: Accepted; implementation validation in progress
+- Date: 2026-07-12
+
+Context: Public branding now uses Partisan, but generated settings, campaign
+fallback data, loadout-editor preferences, personal loadouts, and debug artifacts
+still targeted `$profile:h-istasi`. A blind path replacement would make existing
+valid settings and campaign data appear to disappear on the first upgraded run.
+
+Decision: `$profile:Partisan` is the only write root for generated data. Each
+migratable artifact resolves its canonical file first. Only when that exact file
+is absent may the runtime read the corresponding legacy file. After successful
+validation and any required schema migration it serializes the canonical
+representation while
+leaving the legacy source untouched. An existing canonical file always wins,
+including when it is unreadable; the runtime does not silently roll back to a
+stale legacy copy. Historical debug artifacts are not copied, and all new debug
+artifacts write directly to the canonical debug directory.
+
+Consequences:
+
+- The Workbench folder name, non-public `histasi` project ID, `HST_*` technical
+  convention, campaign schema 68, and runtime-settings schema 24 remain stable.
+- Valid legacy settings and campaign fallback JSON are parsed, normalized or
+  migrated, and serialized to the canonical path. The original legacy files are
+  never deleted or overwritten and therefore remain exact recovery copies.
+- Personal loadout precedence is canonical v2, canonical v1, legacy v2, then
+  legacy v1. A valid-empty v2 file is authoritative. An unreadable v2 may recover
+  from v1 in the same root, but any canonical candidate fences all legacy
+  fallback. A valid older-format or legacy file is normalized into canonical v2
+  storage.
+- Loadout-editor visual settings are normalized into the canonical file only
+  after a valid legacy read. Empty or malformed legacy data is not adopted.
+- The shared Foundation gate rejects legacy writes and unapproved legacy path
+  literals, and requires the canonical-first resolver and all artifact-specific
+  adoption hooks.

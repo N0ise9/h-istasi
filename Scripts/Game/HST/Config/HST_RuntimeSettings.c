@@ -349,6 +349,6 @@ class HST_RuntimeSettings
 		civilians = civilians + string.Format(" | health %1s | startup %2s | stuck %3s | recoveries %4 | retry %5s", m_Civilians.m_iCivilianRuntimeHealthIntervalSeconds, m_Civilians.m_iCivilianRuntimeStartupGraceSeconds, m_Civilians.m_iCivilianRuntimeStuckSeconds, m_Civilians.m_iCivilianRuntimeMaxRecoveryAttempts, m_Civilians.m_iCivilianRuntimeRetryBackoffSeconds);
 		string persistence = string.Format("\npersistence | autosave %1s | debounce %2s", m_Persistence.m_iAutosaveIntervalSeconds, m_Persistence.m_iMajorChangeDebounceSeconds);
 		string features = string.Format("\nfeatures | physical war %1 | area loot %2 | setup read only %3 | GM budgets %4 | player markers %5 | infinite stamina %6 | resistance support tracking %7", m_Features.m_bPhysicalWarEnabled, m_Features.m_bAreaLootEnabled, m_Features.m_bSetupUiReadOnly, m_Features.m_bGameMasterBudgetsEnabled, m_Features.m_bShowPlayerMapMarkers, m_Features.m_bInfiniteStaminaEnabled, m_Features.m_bTrackResistanceSupportGroupsOnMap);
-		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + features + "\nsettings source | $profile:h-istasi/HST_Settings.json | config is source of truth for new campaigns";
+		return campaign + factions + economy + pacing + loss + capture + world + loot + vehicleLoot + airSupport + civilians + persistence + features + "\nsettings source | $profile:Partisan/HST_Settings.json | config is source of truth for new campaigns";
 	}
 }

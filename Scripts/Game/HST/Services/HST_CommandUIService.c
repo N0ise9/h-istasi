@@ -671,7 +671,7 @@ class HST_CommandUIService
 			return "Partisan command | invalid request";
 
 		if (commandId == "noop")
-			return "Partisan command | setup values are read from $profile:h-istasi/HST_Settings.json";
+			return "Partisan command | setup values are read from $profile:Partisan/HST_Settings.json";
 
 		if (IsDebugOrReportVisibleCommand(commandId) && !coordinator.IsDebugMenuEnabledForVisibleCommands())
 			return "Partisan command | debug menu disabled in config";

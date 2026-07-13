@@ -117,7 +117,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string CAMPAIGN_DEBUG_RUNTIME_EMPTY_GROUP_PREFAB = "{6985327711303910}Prefabs/Groups/HST/HST_RuntimeEmptyGroup.et";
 	static const string CAMPAIGN_DEBUG_RUNTIME_WAYPOINT_PREFAB = "{FBA8DC8FDA0E770D}Prefabs/AI/Waypoints/AIWaypoint_Patrol_Hierarchy.et";
 	static const int CAMPAIGN_DEBUG_RECENT_LOG_LIMIT = 80;
-	static const string CAMPAIGN_DEBUG_REPORT_DIRECTORY = "$profile:h-istasi/debug";
 	static const string CAMPAIGN_DEBUG_DEFAULT_PROFILE = "full";
 	static const string CAMPAIGN_DEBUG_PREFIX_ROOT = "hst_debug_";
 	static const string CAMPAIGN_DEBUG_ENTITY_TAG = "HST_CAMPAIGN_DEBUG";
@@ -5796,9 +5795,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_sCampaignDebugMarkerPrefix = CAMPAIGN_DEBUG_PREFIX_ROOT + m_sCampaignDebugRunId;
 		m_sCampaignDebugMissionPrefix = m_sCampaignDebugMarkerPrefix + "_mission_";
 		m_sCampaignDebugEntityTag = CAMPAIGN_DEBUG_ENTITY_TAG;
-		m_sCampaignDebugReportPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + ".json";
-		m_sCampaignDebugSummaryPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_summary.txt";
-		m_sCampaignDebugStateDiffPath = CAMPAIGN_DEBUG_REPORT_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_state_diff.txt";
+		m_sCampaignDebugReportPath = HST_ProfilePathService.DEBUG_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + ".json";
+		m_sCampaignDebugSummaryPath = HST_ProfilePathService.DEBUG_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_summary.txt";
+		m_sCampaignDebugStateDiffPath = HST_ProfilePathService.DEBUG_DIRECTORY + "/HST_CampaignDebug_" + m_sCampaignDebugRunId + "_state_diff.txt";
 		m_sCampaignDebugPreviousCommanderIdentityId = "";
 		ResetCampaignDebugClientMenuProof();
 		ResetCampaignDebugClientMapProof();
@@ -16141,8 +16140,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "";
 
 		FinalizeCampaignDebugRunResult();
-		FileIO.MakeDirectory("$profile:h-istasi");
-		FileIO.MakeDirectory(CAMPAIGN_DEBUG_REPORT_DIRECTORY);
+		HST_ProfilePathService.EnsureDebugDirectory();
 		EnsureCampaignDebugArtifactRecorded(m_sCampaignDebugReportPath);
 		EnsureCampaignDebugArtifactRecorded(m_sCampaignDebugSummaryPath);
 		EnsureCampaignDebugArtifactRecorded(m_sCampaignDebugStateDiffPath);

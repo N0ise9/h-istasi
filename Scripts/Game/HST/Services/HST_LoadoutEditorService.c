@@ -60,8 +60,6 @@ class HST_PersonalLoadoutFileState
 class HST_LoadoutEditorService
 {
 	static const string PREVIEW_FALLBACK_PREFAB = "{84B40583F4D1B7A3}Prefabs/Characters/Factions/INDFOR/FIA/Character_FIA_Rifleman.et";
-	static const string LOADOUT_DIRECTORY = "$profile:h-istasi/loadouts";
-	static const string LOADOUT_DIRECTORY_V2 = "$profile:h-istasi/loadouts/v2";
 	static const int MAX_AUTO_DRAFT_SLOTS = 12;
 	static const int PERSONAL_LOADOUT_SLOT_COUNT = 5;
 	static const string NODE_LOADOUT_PREFIX = "live_loadout_";
@@ -4973,16 +4971,73 @@ class HST_LoadoutEditorService
 		if (!state || identityId.IsEmpty())
 			return 0;
 
-		int loadedV2 = LoadPersonalLoadoutsFromJsonContext(state, identityId);
-		if (loadedV2 > 0)
+		int loaded;
+		string canonicalV2Path = BuildPersonalLoadoutPathV2(identityId);
+		bool canonicalV2Exists = FileIO.FileExists(canonicalV2Path);
+		if (canonicalV2Exists)
 		{
-			EnsureFixedPersonalLoadoutSlots(state, identityId);
-			return loadedV2;
+			bool loadedCanonicalV2 = LoadPersonalLoadoutsFromJsonContext(state, identityId, canonicalV2Path, loaded);
+			if (loadedCanonicalV2)
+			{
+				EnsureFixedPersonalLoadoutSlots(state, identityId);
+				return loaded;
+			}
+
+			Print("Partisan loadout editor | canonical v2 personal loadout file is unreadable; trying canonical v1 only", LogLevel.WARNING);
 		}
 
-		array<string> lines = ReadLines(BuildPersonalLoadoutPath(identityId));
-		if (lines.Count() == 0)
+		string canonicalV1Path = BuildPersonalLoadoutPath(identityId);
+		if (FileIO.FileExists(canonicalV1Path))
+		{
+			if (LoadPersonalLoadoutsFromLegacyJson(state, identityId, canonicalV1Path, loaded))
+			{
+				bool migratedCanonicalV1 = SavePersonalLoadoutsToFile(state, identityId);
+				Print(string.Format("Partisan loadout editor | migrated canonical v1 personal loadouts to v2: %1", migratedCanonicalV1));
+			}
+			else
+				Print("Partisan loadout editor | canonical v1 personal loadout file is unreadable; legacy fallback is intentionally blocked", LogLevel.WARNING);
+			return loaded;
+		}
+
+		if (canonicalV2Exists)
 			return 0;
+
+		string legacyV2Path = BuildLegacyPersonalLoadoutPathV2(identityId);
+		if (FileIO.FileExists(legacyV2Path))
+		{
+			if (LoadPersonalLoadoutsFromJsonContext(state, identityId, legacyV2Path, loaded))
+			{
+				EnsureFixedPersonalLoadoutSlots(state, identityId);
+				bool adoptedLegacyV2 = SavePersonalLoadoutsToFile(state, identityId);
+				Print(string.Format("Partisan loadout editor | adopted legacy v2 personal loadouts into canonical storage: %1", adoptedLegacyV2));
+				return loaded;
+			}
+			else
+				Print("Partisan loadout editor | legacy v2 personal loadout file is unreadable; trying legacy v1", LogLevel.WARNING);
+		}
+
+		string legacyV1Path = BuildLegacyPersonalLoadoutPath(identityId);
+		if (FileIO.FileExists(legacyV1Path))
+		{
+			if (LoadPersonalLoadoutsFromLegacyJson(state, identityId, legacyV1Path, loaded))
+			{
+				bool adoptedLegacyV1 = SavePersonalLoadoutsToFile(state, identityId);
+				Print(string.Format("Partisan loadout editor | adopted legacy v1 personal loadouts into canonical v2 storage: %1", adoptedLegacyV1));
+			}
+			else
+				Print("Partisan loadout editor | legacy v1 personal loadout file is unreadable and was not adopted", LogLevel.WARNING);
+			return loaded;
+		}
+
+		return 0;
+	}
+
+	protected bool LoadPersonalLoadoutsFromLegacyJson(HST_CampaignState state, string identityId, string path, out int loaded)
+	{
+		loaded = 0;
+		array<string> lines = ReadLines(path);
+		if (!LooksLikePersonalLoadoutJson(lines))
+			return false;
 
 		for (int existingIndex = state.m_aSavedLoadouts.Count() - 1; existingIndex >= 0; existingIndex--)
 		{
@@ -4992,7 +5047,6 @@ class HST_LoadoutEditorService
 		}
 
 		HST_SavedLoadoutState currentLoadout;
-		int loaded;
 		foreach (string line : lines)
 		{
 			if (line.Contains("\"loadoutId\""))
@@ -5027,7 +5081,25 @@ class HST_LoadoutEditorService
 
 		MigrateLegacyLoadoutsToFixedSlots(state, identityId);
 		EnsureFixedPersonalLoadoutSlots(state, identityId);
-		return loaded;
+		return true;
+	}
+
+	protected bool LooksLikePersonalLoadoutJson(notnull array<string> lines)
+	{
+		bool sawOpen;
+		bool sawClose;
+		bool sawLoadouts;
+		foreach (string line : lines)
+		{
+			if (line.Contains("{"))
+				sawOpen = true;
+			if (line.Contains("}"))
+				sawClose = true;
+			if (line.Contains("\"loadouts\""))
+				sawLoadouts = true;
+		}
+
+		return sawOpen && sawClose && sawLoadouts;
 	}
 
 	protected bool SavePersonalLoadoutsToFile(HST_CampaignState state, string identityId)
@@ -5035,9 +5107,7 @@ class HST_LoadoutEditorService
 		if (!state || identityId.IsEmpty())
 			return false;
 
-		FileIO.MakeDirectory("$profile:h-istasi");
-		FileIO.MakeDirectory(LOADOUT_DIRECTORY);
-		FileIO.MakeDirectory(LOADOUT_DIRECTORY_V2);
+		HST_ProfilePathService.EnsureLoadoutDirectories();
 
 		HST_PersonalLoadoutFileState fileState = new HST_PersonalLoadoutFileState();
 		fileState.m_sOwnerIdentityId = identityId;
@@ -5090,19 +5160,19 @@ class HST_LoadoutEditorService
 		return WriteLines(BuildPersonalLoadoutPath(identityId), lines);
 	}
 
-	protected int LoadPersonalLoadoutsFromJsonContext(HST_CampaignState state, string identityId)
+	protected bool LoadPersonalLoadoutsFromJsonContext(HST_CampaignState state, string identityId, string path, out int loaded)
 	{
-		string path = BuildPersonalLoadoutPathV2(identityId);
+		loaded = 0;
 		if (!FileIO.FileExists(path))
-			return 0;
+			return false;
 
 		JsonLoadContext context = new JsonLoadContext();
 		if (!context.LoadFromFile(path))
-			return 0;
+			return false;
 
 		HST_PersonalLoadoutFileState fileState = new HST_PersonalLoadoutFileState();
 		if (!context.ReadValue("", fileState))
-			return 0;
+			return false;
 
 		for (int existingIndex = state.m_aSavedLoadouts.Count() - 1; existingIndex >= 0; existingIndex--)
 		{
@@ -5111,7 +5181,6 @@ class HST_LoadoutEditorService
 				state.m_aSavedLoadouts.Remove(existingIndex);
 		}
 
-		int loaded;
 		foreach (HST_SavedLoadoutState loadout : fileState.m_aLoadouts)
 		{
 			if (!loadout)
@@ -5128,17 +5197,27 @@ class HST_LoadoutEditorService
 			loaded++;
 		}
 
-		return loaded;
+		return true;
 	}
 
 	protected string BuildPersonalLoadoutPath(string identityId)
 	{
-		return LOADOUT_DIRECTORY + "/" + SafeIdentityId(identityId) + ".json";
+		return HST_ProfilePathService.LOADOUT_DIRECTORY + "/" + SafeIdentityId(identityId) + ".json";
 	}
 
 	protected string BuildPersonalLoadoutPathV2(string identityId)
 	{
-		return LOADOUT_DIRECTORY_V2 + "/" + SafeIdentityId(identityId) + ".json";
+		return HST_ProfilePathService.LOADOUT_DIRECTORY_V2 + "/" + SafeIdentityId(identityId) + ".json";
+	}
+
+	protected string BuildLegacyPersonalLoadoutPath(string identityId)
+	{
+		return HST_ProfilePathService.LEGACY_LOADOUT_DIRECTORY + "/" + SafeIdentityId(identityId) + ".json";
+	}
+
+	protected string BuildLegacyPersonalLoadoutPathV2(string identityId)
+	{
+		return HST_ProfilePathService.LEGACY_LOADOUT_DIRECTORY_V2 + "/" + SafeIdentityId(identityId) + ".json";
 	}
 
 	protected string SafeIdentityId(string identityId)

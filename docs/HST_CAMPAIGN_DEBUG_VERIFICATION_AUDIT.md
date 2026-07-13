@@ -1849,7 +1849,7 @@ Unproven or incomplete against the pasted contract:
 - The runner remains sequenced through bootstrap, baseline, HQ, economy/support, early mechanics, mission sweep, phase smoke, final report, and completion.
 - Run profiles are accepted as `smoke`, `physical`, and `full`: `smoke` skips the long early/mission/phase sweeps, `physical` keeps early mechanics plus the mission/physical sweep and skips late phase smoke, and `full` preserves the complete sequence.
 - Typed result classes exist in `Scripts/Game/HST/Data/HST_CampaignDebugResult.c`.
-- Artifacts write to `$profile:h-istasi/debug` as JSON, summary text, and state-diff text.
+- Artifacts write to `$profile:Partisan/debug` as JSON, summary text, and state-diff text. Historical artifacts under the legacy profile root are not copied forward.
 - Runs now record a deterministic debug marker prefix, mission prefix, and entity tag in JSON, summary, state-diff, and status output.
 - Run start removes stale `hst_debug_`-prefixed persisted state before capturing start counts. Forced debug-started missions are retagged before objective/runtime initialization so derived objective/runtime/asset/group/marker records inherit the run prefix.
 - Debug-created player support, Phase 19 support smoke records, and Phase 17/18/22 enemy-order seeds are retagged with the current run prefix before marker refresh/report output; support request cases assert the prefix directly.

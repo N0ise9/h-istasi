@@ -46,9 +46,17 @@ unexecuted Campaign Debug evidence.
 
 The Partisan: Everon branding change does not alter campaign or settings schema.
 The non-public `histasi` Workbench project ID and `HST_*` source/resource
-convention remain stable. The legacy `$profile:h-istasi` directory remains
-the persistence namespace so existing saves, settings, debug artifacts, and
-loadouts continue to load without a path migration.
+convention remain stable. `$profile:Partisan` is now the canonical generated
+profile root. Settings, campaign fallback data, loadout-editor settings, and
+personal loadouts adopt a valid corresponding file from the legacy
+`$profile:h-istasi` root only when the canonical file is absent. Canonical data
+always wins, adoption leaves the legacy file untouched, and malformed canonical
+data does not fall back to an older legacy copy. Debug artifacts switch to the
+canonical root without copying prior runs. This path cutover does not require a
+campaign or runtime-settings schema bump.
+Malformed legacy runtime settings and loadout-editor preferences are preserved
+while canonical defaults are generated, so the runtime stops consulting the old
+directory on every boot.
 
 The immediately preceding sealed source/Workbench checkpoint is Schema
 66/settings 24. It is the Blueprint Phase 8 local-security checkpoint, not runtime
@@ -2018,13 +2026,19 @@ evidence remains open.
   undercover state, and campaign tasks.
 - `HST_LoadoutEditorSessionState` records are runtime/editor state and are not
   copied into `HST_CampaignSaveData`; durable saved loadouts and issued-item
-  ledgers are copied, and personal templates are also written under
-  `$profile:h-istasi/loadouts/v2` with loadout file schema `2`.
+  ledgers are copied. At the Schema-43 checkpoint, personal templates were also
+  written under the then-current, now-legacy
+  `$profile:h-istasi/loadouts/v2` path with loadout file schema `2`. Current
+  builds write `$profile:Partisan/loadouts/v2` and adopt a valid legacy file
+  only when the canonical file is absent.
 - Runtime settings are schema `22` and are migrated separately by
   `HST_RuntimeSettingsService`.
 - Campaign save data is normally tracked through `PersistenceSystem`; when
-  scripted persistence cannot flush, the current same-container data can be
-  written to and restored from `$profile:h-istasi/HST_CampaignSaveData.json`.
+  scripted persistence cannot flush, current builds write and restore the
+  same-container data at `$profile:Partisan/HST_CampaignSaveData.json`. The
+  Schema-43-era path was the then-current, now-legacy
+  `$profile:h-istasi/HST_CampaignSaveData.json`; a valid file there is adopted
+  only when the canonical fallback is absent and is preserved after adoption.
 - Raw `IEntity`, `AIGroup`, waypoint, inventory-operation callback, and other
   runtime handles are not persisted as campaign truth.
 

@@ -1,8 +1,5 @@
 class HST_PersistenceService
 {
-	static const string PROFILE_SAVE_DIRECTORY = "$profile:h-istasi";
-	static const string PROFILE_SAVE_FILE = "$profile:h-istasi/HST_CampaignSaveData.json";
-
 	protected float m_fAutosaveElapsed;
 	protected float m_fMajorChangeElapsed;
 	protected bool m_bMajorChangePending;
@@ -1823,33 +1820,36 @@ class HST_PersistenceService
 			return false;
 		}
 
-		FileIO.MakeDirectory(PROFILE_SAVE_DIRECTORY);
+		HST_ProfilePathService.EnsureProfileDirectory();
 		JsonSaveContext context = new JsonSaveContext();
-		if (context.WriteValue("", saveData) && context.SaveToFile(PROFILE_SAVE_FILE))
+		if (context.WriteValue("", saveData) && context.SaveToFile(HST_ProfilePathService.CAMPAIGN_SAVE_FILE))
 		{
 			m_bProfileFallbackSaved = true;
-			m_sProfileFallbackStatus = string.Format("profile fallback saved schema %1 to %2", saveData.m_iSchemaVersion, PROFILE_SAVE_FILE);
+			m_sProfileFallbackStatus = string.Format("profile fallback saved schema %1 to %2", saveData.m_iSchemaVersion, HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
 			Print("Partisan persistence | " + m_sProfileFallbackStatus);
 			return true;
 		}
 
-		m_sProfileFallbackStatus = string.Format("profile fallback save failed at %1", PROFILE_SAVE_FILE);
+		m_sProfileFallbackStatus = string.Format("profile fallback save failed at %1", HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
 		Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 		return false;
 	}
 
 	protected HST_CampaignSaveData LoadProfileFallback()
 	{
-		if (!FileIO.FileExists(PROFILE_SAVE_FILE))
+		string sourcePath = HST_ProfilePathService.ResolveReadableFile(
+			HST_ProfilePathService.CAMPAIGN_SAVE_FILE,
+			HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE);
+		if (!FileIO.FileExists(sourcePath))
 		{
-			m_sProfileFallbackStatus = string.Format("profile fallback missing at %1", PROFILE_SAVE_FILE);
+			m_sProfileFallbackStatus = string.Format("profile fallback missing at %1", HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
 			return null;
 		}
 
 		JsonLoadContext context = new JsonLoadContext();
-		if (!context.LoadFromFile(PROFILE_SAVE_FILE))
+		if (!context.LoadFromFile(sourcePath))
 		{
-			m_sProfileFallbackStatus = string.Format("profile fallback load failed at %1", PROFILE_SAVE_FILE);
+			m_sProfileFallbackStatus = string.Format("profile fallback load failed at %1", sourcePath);
 			Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 			return null;
 		}
@@ -1857,13 +1857,27 @@ class HST_PersistenceService
 		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
 		if (!context.ReadValue("", saveData))
 		{
-			m_sProfileFallbackStatus = string.Format("profile fallback read failed at %1", PROFILE_SAVE_FILE);
+			m_sProfileFallbackStatus = string.Format("profile fallback read failed at %1", sourcePath);
 			Print("Partisan persistence | " + m_sProfileFallbackStatus, LogLevel.WARNING);
 			return null;
 		}
 
 		m_bProfileFallbackLoaded = true;
-		m_sProfileFallbackStatus = string.Format("profile fallback loaded schema %1 from %2", saveData.m_iSchemaVersion, PROFILE_SAVE_FILE);
+		if (HST_ProfilePathService.IsLegacyPath(sourcePath))
+		{
+			saveData.MigrateToCurrentSchema();
+			bool adopted = SaveProfileFallback(saveData);
+			m_sProfileFallbackStatus = string.Format(
+				"profile fallback loaded schema %1 from legacy source %2 | adopted to %3: %4",
+				saveData.m_iSchemaVersion,
+				sourcePath,
+				HST_ProfilePathService.CAMPAIGN_SAVE_FILE,
+				adopted);
+		}
+		else
+		{
+			m_sProfileFallbackStatus = string.Format("profile fallback loaded schema %1 from %2", saveData.m_iSchemaVersion, sourcePath);
+		}
 		Print("Partisan persistence | " + m_sProfileFallbackStatus);
 		return saveData;
 	}
@@ -1883,7 +1897,8 @@ class HST_PersistenceService
 
 	protected string BuildProfileFallbackStatus()
 	{
-		bool exists = FileIO.FileExists(PROFILE_SAVE_FILE);
-		return string.Format("profile fallback | exists %1 | saved %2 | loaded %3 | %4", exists, m_bProfileFallbackSaved, m_bProfileFallbackLoaded, m_sProfileFallbackStatus);
+		bool exists = FileIO.FileExists(HST_ProfilePathService.CAMPAIGN_SAVE_FILE);
+		bool legacyExists = FileIO.FileExists(HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE);
+		return string.Format("profile fallback | canonical exists %1 | legacy available %2 | saved %3 | loaded %4 | %5", exists, legacyExists, m_bProfileFallbackSaved, m_bProfileFallbackLoaded, m_sProfileFallbackStatus);
 	}
 }

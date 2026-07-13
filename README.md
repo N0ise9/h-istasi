@@ -40,9 +40,16 @@ Workbench CRC `a353fa0d` at 5,809 Game files/11,751 classes.
 The product and repository names are now **Partisan: Everon** and **Partisan**.
 `HST_*` source/resource names and the non-public `histasi` Workbench project ID
 remain the internal implementation convention.
-The existing `$profile:h-istasi` directory is also retained deliberately as the
-legacy persistence namespace so current campaign saves, settings, debug
-artifacts, and personal loadouts remain discoverable after the branding change.
+Generated settings, campaign fallback data, loadout-editor settings, personal
+loadouts, and debug artifacts now use the canonical `$profile:Partisan` root.
+For migratable files, the canonical file always wins. When it is absent, a
+valid corresponding file under the legacy `$profile:h-istasi` root is loaded
+once and written to the canonical root while the legacy file is preserved.
+Malformed legacy settings or loadout-editor preferences are also preserved while
+canonical defaults are generated, preventing repeated dependence on the old
+directory.
+Historical debug artifacts are not copied; new debug runs write only to the
+canonical root.
 
 The Schema-67 contract makes each versioned `HST_FactionPoolState` the canonical
 attack-resource, support-resource, and aggression authority for one enemy role.
@@ -317,13 +324,13 @@ The repository contains a broad-alpha campaign foundation:
   stock arsenal actions are filtered away from the Partisan action surface
 - Custom Partisan loadout editor with a client fullscreen widget, server-built
   payloads, live equipment/storage nodes, compatible candidate replacement,
-  five fixed personal loadout slots under `$profile:h-istasi/loadouts/v2`,
+  five fixed personal loadout slots under `$profile:Partisan/loadouts/v2`,
   finite/INF accounting, atomic apply/rollback, and an issued-item ledger owned
   by campaign state
 - Procedural Partisan `I` key HQ menu mounted on both development
   worlds with Setup, Overview, HQ/Petros, Missions, Map/War, Forces,
   Arsenal/Loot, Garage/Build, Members, and Admin tabs
-- First-load server settings generation at `$profile:h-istasi/HST_Settings.json`
+- First-load server settings generation at `$profile:Partisan/HST_Settings.json`
   with config-backed defaults for campaign, factions, economy, membership,
   world activation, arsenal/loot, persistence, logging, and feature toggles,
   including configurable infinite stamina, live resistance support group map
@@ -1059,7 +1066,7 @@ The repository contains a broad-alpha campaign foundation:
 - Versioned campaign save-data container that is migrated, tracked through
   `PersistenceSystem`, and flushed before native `SaveGameManager`
   checkpoint requests when saving is possible, with a profile JSON fallback at
-  `$profile:h-istasi/HST_CampaignSaveData.json`. Before every real capture,
+  `$profile:Partisan/HST_CampaignSaveData.json`. Before every real capture,
   persistence synchronously reconciles mapped physical exact-convoy, exact-
   enemy-patrol, exact-garrison-patrol, exact-mission-guard, and exact player-
   support members so a newly dead soldier cannot be serialized as alive between
@@ -1464,7 +1471,7 @@ menu. The menu is a client widget driven by server-built snapshots and renders
 a campaign HQ interface with a resource bar, navigation, campaign
 cards, action list, and activity/result feed. The Setup tab displays the
 effective server config and lets the commander choose the first HQ hideout
-before the campaign enters the active phase. `$profile:h-istasi/HST_Settings.json`
+before the campaign enters the active phase. `$profile:Partisan/HST_Settings.json`
 remains the source of truth for defaults that apply to newly created
 campaigns, but initial HQ placement is selected through the setup map flow and
 the generated runtime settings no longer expose a default hideout id. The file
@@ -1514,7 +1521,7 @@ from the Arsenal/Loot tab.
 
 To grant Partisan admin rights on a local or dedicated server, add the player's
 raw 17-digit SteamID64 to `membership.adminIdentityIds` in
-`$profile:h-istasi/HST_Settings.json`. Backend UUIDs, BattleEye GUIDs,
+`$profile:Partisan/HST_Settings.json`. Backend UUIDs, BattleEye GUIDs,
 `workbench_player_N` aliases, and per-session player IDs are not durable
 Partisan admin tokens.
 
@@ -1526,7 +1533,7 @@ cancel. A development-session restart is still required because world entities,
 player state, and service caches are outside campaign save data. External,
 restart, and soak profiles require a separately managed disposable profile and
 launcher instead of starting through the in-process runner. Results are written under
-`$profile:h-istasi/debug` as structured JSON, summary text, and state-diff text.
+`$profile:Partisan/debug` as structured JSON, summary text, and state-diff text.
 A valid admin grant should be visible in logs as a
 `settings SteamID64` runtime grant, and command-menu input diagnostics log the
 local `I` key/action path when troubleshooting menu access.

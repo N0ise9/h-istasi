@@ -87,20 +87,26 @@ class HST_LoadoutEditorVisualSettings
 
 class HST_LoadoutEditorVisualSettingsService
 {
-	static const string SETTINGS_DIRECTORY = "$profile:h-istasi";
-	static const string SETTINGS_FILE = "$profile:h-istasi/HST_LoadoutEditorSettings.json";
-
 	HST_LoadoutEditorVisualSettings LoadOrCreate()
 	{
 		HST_LoadoutEditorVisualSettings settings = new HST_LoadoutEditorVisualSettings();
-		if (!FileIO.FileExists(SETTINGS_FILE))
+		string sourcePath = HST_ProfilePathService.ResolveReadableFile(
+			HST_ProfilePathService.VISUAL_SETTINGS_FILE,
+			HST_ProfilePathService.LEGACY_VISUAL_SETTINGS_FILE);
+		if (!FileIO.FileExists(sourcePath))
 		{
-			FileIO.MakeDirectory(SETTINGS_DIRECTORY);
 			Save(settings);
 			return settings;
 		}
 
-		array<string> lines = ReadLines(SETTINGS_FILE);
+		array<string> lines = ReadLines(sourcePath);
+		if (HST_ProfilePathService.IsLegacyPath(sourcePath) && !LooksLikeVisualSettings(lines))
+		{
+			bool defaultsSaved = Save(settings);
+			Print(string.Format("Partisan loadout editor | legacy visual settings are empty or malformed; preserved them and wrote canonical defaults: %1", defaultsSaved), LogLevel.WARNING);
+			return settings;
+		}
+
 		foreach (string line : lines)
 		{
 			ApplyInt(line, "schemaVersion", settings.m_iSchemaVersion);
@@ -140,8 +146,13 @@ class HST_LoadoutEditorVisualSettingsService
 		shouldSaveNormalized = shouldSaveNormalized || loadedStorageSortMode != settings.m_iStorageSortMode;
 		shouldSaveNormalized = shouldSaveNormalized || loadedStorageNameSortMode != settings.m_iStorageNameSortMode;
 		shouldSaveNormalized = shouldSaveNormalized || loadedStorageCountSortMode != settings.m_iStorageCountSortMode;
-		if (shouldSaveNormalized)
-			Save(settings);
+		bool adoptingLegacy = HST_ProfilePathService.IsLegacyPath(sourcePath);
+		if (shouldSaveNormalized || adoptingLegacy)
+		{
+			bool saved = Save(settings);
+			if (adoptingLegacy)
+				Print(string.Format("Partisan loadout editor | adopted legacy visual settings into %1: %2", HST_ProfilePathService.VISUAL_SETTINGS_FILE, saved));
+		}
 
 		return settings;
 	}
@@ -149,7 +160,7 @@ class HST_LoadoutEditorVisualSettingsService
 	bool Save(notnull HST_LoadoutEditorVisualSettings settings)
 	{
 		settings.Normalize();
-		FileIO.MakeDirectory(SETTINGS_DIRECTORY);
+		HST_ProfilePathService.EnsureProfileDirectory();
 
 		array<string> lines = {};
 		lines.Insert("{");
@@ -164,7 +175,25 @@ class HST_LoadoutEditorVisualSettingsService
 		lines.Insert(string.Format("  \"storageNameSortMode\": %1,", settings.m_iStorageNameSortMode));
 		lines.Insert(string.Format("  \"storageCountSortMode\": %1", settings.m_iStorageCountSortMode));
 		lines.Insert("}");
-		return WriteLines(SETTINGS_FILE, lines);
+		return WriteLines(HST_ProfilePathService.VISUAL_SETTINGS_FILE, lines);
+	}
+
+	protected bool LooksLikeVisualSettings(notnull array<string> lines)
+	{
+		bool sawOpen;
+		bool sawClose;
+		bool sawSchema;
+		foreach (string line : lines)
+		{
+			if (line.Contains("{"))
+				sawOpen = true;
+			if (line.Contains("}"))
+				sawClose = true;
+			if (LineHasKey(line, "schemaVersion"))
+				sawSchema = true;
+		}
+
+		return sawOpen && sawClose && sawSchema;
 	}
 
 	protected void ApplyInt(string line, string key, out int target)

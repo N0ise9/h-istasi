@@ -768,7 +768,8 @@ Debug and packaged-runtime gates remain open.
   snapshot/restore during checkpoint/restore flow
 - Custom loadout editor path with server-authoritative HQ radius/member checks,
   live equipment and storage nodes, compatible candidate lists, five fixed
-  personal save slots, `$profile:h-istasi/loadouts/v2` persistence, finite/INF
+  personal save slots, `$profile:Partisan/loadouts/v2` persistence,
+  canonical-first legacy-file adoption, finite/INF
   cost ledgers, atomic apply/rollback, issued-item tracking, death-loss
   accounting, and removed external item purging
 - Mission-specific convoy outcome state for delivered cargo/captives, captured

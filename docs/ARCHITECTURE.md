@@ -29,10 +29,12 @@ multiplayer, marker-input, or soak gates.
 
 The public product identity is **Partisan: Everon** and the repository identity
 is **Partisan**. `HST_*` and the non-public `histasi` Workbench project ID remain
-the internal code/resource namespace. The
-legacy `$profile:h-istasi` persistence directory is intentionally stable so the
-branding migration does not strand existing saves, settings, debug artifacts,
-or personal loadouts.
+the internal code/resource namespace. `$profile:Partisan` is the canonical root
+for newly generated settings, campaign fallback data, loadout-editor settings,
+personal loadouts, and debug artifacts. A migratable file under the legacy
+`$profile:h-istasi` root is adopted only when its canonical counterpart is
+absent; canonical data wins and the legacy file is preserved. Historical debug
+artifacts are not copied into the canonical root.
 
 Schema 67 version-controls `HST_FactionPoolState` as the sole per-enemy owner of
 attack resources, support resources, aggression, and independent resource/
@@ -987,8 +989,9 @@ The remaining domain services are:
   stale state or requesting a savepoint.
 - `HST_PersistenceSmokeTestService`: deterministic persistence fixture seeding
   and restore verification reports.
-- `HST_RuntimeSettingsService`: `$profile:h-istasi/HST_Settings.json`
-  load/create/migration and settings application to preset/balance data.
+- `HST_RuntimeSettingsService`: `$profile:Partisan/HST_Settings.json`
+  load/create/migration and settings application to preset/balance data, with
+  canonical-first adoption from a valid legacy settings file.
 - `HST_AuthorizationService`: persistent members, guests, admins, and the
   first commander-vacancy policy.
 - `HST_StrategicService`: strategic-event admission/completion, town support,
@@ -1696,9 +1699,11 @@ The persistence service tracks `HST_CampaignSaveData` through
 `PersistenceSystem`, applies restored state through a schema migration path,
 and flushes the tracked scripted state before requesting
 `SaveGameManager.RequestSavePoint` when saving is possible and allowed. The
-service also writes `$profile:h-istasi/HST_CampaignSaveData.json` as a profile
+service also writes `$profile:Partisan/HST_CampaignSaveData.json` as a profile
 fallback when scripted persistence cannot be flushed, and will load that file
-if no restored `PersistenceSystem` state is available. The state model is
+if no restored `PersistenceSystem` state is available. If the canonical file is
+absent, a valid legacy fallback is loaded, migrated, and serialized forward
+without deleting the legacy file. The state model is
 versioned from day one. `HST_CampaignSaveData` is the deep-copy save container
 for current campaign fields and nested runtime arrays. Sealed Schema-67
 restore first establishes one versioned faction-pool authority per configured
