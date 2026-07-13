@@ -2,12 +2,19 @@
 
 ## Current Schema
 
-`HST_CampaignState.SCHEMA_VERSION` is provisionally `67` in the active Blueprint
-Phase 9 enemy-strategic-resource source slice.
+`HST_CampaignState.SCHEMA_VERSION` is `67` in the current sealed Blueprint Phase
+9 enemy-strategic-resource source/Workbench checkpoint.
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`; there is no generated-settings
-migration. The working label is
-`schema67-settings24-enemy-strategic-resource-authority`. No final
-implementation SHA, UTC seal, validation count, or CRC exists yet. Schema 67
+migration. The sealed source identity is implementation
+`2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+`2026-07-12T23:46:02Z`, and label
+`schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
+736 script-symbol references. Final stamped normal log
+`logs_2026-07-12_19-52-14` and all-five log
+`logs_2026-07-12_19-52-36` both load 5,809 Game files/11,751 classes with CRC
+`a353fa0d`. All-five reports `Script validation successful` for WORKBENCH, PC,
+XBOX, PS4, and PS5; zero HST script errors were observed and zero Workbench
+processes survived cleanup. Schema 67
 versions one `HST_FactionPoolState` per enemy role and persists bounded
 `HST_EnemyStrategicMutationState` receipts for canonical income, spend, refund,
 and aggression mutation. Operational receipts use a contiguous per-faction
@@ -16,8 +23,9 @@ sequence, include accepted zero-effect commands, never compact, and hard-stop at
 persisted last-bucket checkpoints. Pre-67 migration adopts valid current balances,
 aggression, and legacy cadence accumulators only; it invents no mutation history, spend, refund, settlement,
 order, or planning decision. Malformed current authority quarantines at `-67`.
-Persisted planning cadence and frozen decision fingerprints remain the next
-Phase 9 schema slice.
+Persisted per-enemy planning cadence and a frozen decision fingerprint remain
+the next Phase 9 schema slice. Its registered source fixtures and Campaign Debug routes
+remain wired/static and have not executed in Campaign Debug.
 
 The Partisan: Everon branding change does not alter campaign or settings schema.
 The non-public `histasi` Workbench project ID and `HST_*` source/resource
@@ -25,8 +33,8 @@ convention remain stable. The legacy `$profile:h-istasi` directory remains
 the persistence namespace so existing saves, settings, debug artifacts, and
 loadouts continue to load without a path migration.
 
-The current sealed source/Workbench checkpoint remains Schema 66/settings 24.
-It is the Blueprint Phase 8 local-security checkpoint, not runtime
+The immediately preceding sealed source/Workbench checkpoint is Schema
+66/settings 24. It is the Blueprint Phase 8 local-security checkpoint, not runtime
 certification. Its source stamp identifies
 implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label

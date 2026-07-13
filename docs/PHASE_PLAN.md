@@ -1,8 +1,15 @@
 # Partisan Phase Plan
 
-The active provisional source boundary advances to Campaign Schema 67 while
-runtime settings remains Schema 24, under the working label
-`schema67-settings24-enemy-strategic-resource-authority`. This first Blueprint
+The current sealed source/Workbench boundary is Campaign Schema 67/runtime-settings Schema
+24 under implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+`2026-07-12T23:46:02Z`, and label
+`schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
+736 script-symbol references. Final stamped normal log
+`logs_2026-07-12_19-52-14` and all-five log
+`logs_2026-07-12_19-52-36` both load 5,809 Game files/11,751 classes with CRC
+`a353fa0d`. All-five reports `Script validation successful` for WORKBENCH, PC,
+XBOX, PS4, and PS5; zero HST script errors were observed and zero Workbench
+processes survived cleanup. This first Blueprint
 Phase 9 slice makes versioned `HST_FactionPoolState` the canonical per-enemy
 attack/support/aggression owner with persisted independent resource-income and
 aggression-decay accumulators plus last-bucket checkpoints. It records compact
@@ -16,21 +23,22 @@ transition backlinks are validated during current-schema restore. Rejected or
 orphan receipt rows are attributed/quarantined before purge and cannot consume
 valid operational capacity. Mission terminal effects and ownership aggression
 are admitted before their outer status/security/owner publication boundaries;
-Campaign Debug uses disposable nested state and focused one-group runtime calls.
+Campaign Debug registrations use disposable nested state and focused one-group
+runtime calls, but these source fixtures remain wired/static and have not
+executed in Campaign Debug.
 
-Schema 67 is active and provisional: no final implementation SHA, UTC seal,
-Foundation count, Workbench file/class count, or CRC exists yet. Pre-67
-migration adopts current valid balances/aggression plus valid legacy resource/
+Schema 67 is sealed at the source/Workbench boundary. Pre-67 migration adopts
+current valid balances/aggression plus valid legacy resource/
 aggression cadence accumulators only and invents no history,
 spend, refund, settlement, order, or planning decision; malformed current graphs
 quarantine at `-67`. Operational receipts never compact: 4,096 accepted rows per
 enemy role is a hard lifetime limit, and later operational admission fails only
 for the capped role while the rival and periodic cadence remain independent.
-Persisted per-enemy planning cadence and frozen decision
-fingerprints are the immediate next Phase 9 slice. Blueprint Phase 8 remains
+Persisted per-enemy planning cadence and a frozen decision
+fingerprint are the immediate next Phase 9 slice. Blueprint Phase 8 remains
 runtime-uncertified.
 
-The immediately preceding sealed source/Workbench checkpoint advances to Campaign Schema 66 while runtime settings
+The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime settings
 remains Schema 24. The sealed Schema-66 stamp identifies implementation
 `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
@@ -166,7 +174,7 @@ zone capture, and civilian population.
 
 The state model already has the right campaign save-game spine:
 
-- versioned faction pools, with provisional Schema-67 bounded enemy strategic
+- versioned faction pools, with sealed Schema-67 bounded enemy strategic
   mutation receipts for attack/support/aggression authority
 - players
 - zones
@@ -214,16 +222,24 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-The active provisional save contract is Campaign Schema 67/runtime-settings
-Schema 24. It adds canonical versioned enemy attack/support/aggression pools and
-compact periodic plus un-compacted per-faction operational mutation receipts,
-but has no final identity or validation
-stamp. The current sealed source/Workbench checkpoint remains Campaign Schema
+The current sealed source/Workbench contract is Campaign Schema 67/runtime-settings Schema
+24 under implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+`2026-07-12T23:46:02Z`, label
+`schema67-settings24-enemy-strategic-resource-authority`, and Foundation 736. It
+adds canonical versioned enemy attack/support/aggression pools and compact
+periodic plus un-compacted per-faction operational mutation receipts. Final
+stamped normal log `logs_2026-07-12_19-52-14` and all-five log
+`logs_2026-07-12_19-52-36` both load 5,809 Game files/11,751 classes with CRC
+`a353fa0d`; all-five reports `Script validation successful` for WORKBENCH, PC,
+XBOX, PS4, and PS5, with zero HST script errors and zero surviving Workbench
+processes. The wired/static source fixtures have not executed in Campaign Debug.
+The
+immediately preceding sealed source/Workbench checkpoint is Campaign Schema
 66/runtime-settings Schema 24. Foundation passes at 729 references and final normal/all-five
 Workbench checks pass at 5,806 Game files/11,740 classes with CRC `ec860be7`.
 It adds exact enemy-town local-security roster authority and the protected
 campaign-marker integrity repair. Every Phase 8 runtime exit remains open;
-provisional Schema 67 is later source work, not certification. Campaign Schema
+sealed Schema 67 source is later work, not runtime certification. Campaign Schema
 65/runtime-settings Schema 24 remains
 the previous sealed source/Workbench boundary. It identifies implementation
 `609add9eeadf73816764c497178e2d35081307d1`, UTC
@@ -521,8 +537,8 @@ host/client proof exists.
 It supersedes feature-order implications in the legacy numbered roadmap below;
 that roadmap remains useful for feature history and acceptance detail.
 
-Work has entered Blueprint Phase 9 of 13 through the active provisional
-Schema-67 strategic-resource slice, not nine completed phases. Blueprint Phase
+Work has entered Blueprint Phase 9 of 13 through the sealed Schema-67 strategic-
+resource source slice, not nine completed phases. Blueprint Phase
 8 and every earlier Blueprint phase still retain native, dedicated-server,
 restart, or multiplayer exit gates. Native tests deferred while source slices
 advanced must be backfilled; reaching a later phase, sealing source, or
@@ -530,7 +546,7 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 67/settings 24 is active and provisional under `schema67-settings24-enemy-strategic-resource-authority`, with no final identity or validation stamp. Campaign Schema 66/settings 24 remains the current sealed source/Workbench checkpoint at implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC `2026-07-12T20:28:33Z`, label `schema66-settings24-local-security-marker-integrity`, Foundation 729, and Workbench CRC `ec860be7` | Finish/stamp Schema 67 without invented evidence. Campaign Debug and every Schema-66 packaged/native/save-restart/rendered-UI/marker-input/ten-town-soak/setup/network/reconnect/JIP gate remain open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 67/settings 24 is the current sealed source/Workbench checkpoint at implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and Workbench CRC `a353fa0d` at 5,809 Game files/11,751 classes. Campaign Schema 66/settings 24 is the immediately preceding sealed source/Workbench checkpoint at implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC `2026-07-12T20:28:33Z`, label `schema66-settings24-local-security-marker-integrity`, Foundation 729, and Workbench CRC `ec860be7` | Schema-67 fixtures remain wired/static and have not executed in Campaign Debug. Implement persisted per-enemy planning cadence and a frozen decision fingerprint next. Every Schema-66 packaged/native/save-restart/rendered-UI/marker-input/ten-town-soak/setup/network/reconnect/JIP gate remains open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; eleven exact family projections across nine operation types implemented in source | Schema 66 adds exact automatic local-security materialization/fold/restore, casualty/no-refill authority, and terminal/rearm policy without widening historical/generic forces. Prove it and every earlier family in native movement/fold/restart. |
@@ -538,7 +554,7 @@ publishing a build does not waive them.
 | CRI-7: Ownership, combat presence, and town influence | Schema-62 ownership/protocol-2, Schema-63 combat presence, and Schema-64 canonical town influence/contact/Map-War/migration/hot-path source boundaries are sealed; Campaign Debug and packaged proof remain open | Execute Campaign Debug and prove ownership/security/restart, combat classifications/cooling, 100/200/50-bp scaling, strict 8000/4000 equality, separate enemy support, no owner bypass, pre-64 migration/current quarantine, contacted Zone Pressure, complete territory, and due-expiry-only cost. |
 | CRI-8: Civilian runtime and political consequences | The sealed Settings-24 checkpoint supplies the ambient budget/lifecycle/claim foundation. Sealed Schema 65 source/Workbench adds 256-casualty/64-theft queues, a combined four-attempt frame cap, bounded-backoff indefinite retry/capture deferral, exact-pilot theft after durable promotion with passenger-only non-recycling protection, exact town aggression/strategic receipts, pending-receipt-first non-HOT combat episodes with adopted-floor/last-applied invariants and full canonical live-combat fingerprints, indexed structural plus live-preset role restore validation, and native pedestrian panic/recovery with separate bounded route recovery. Minor-locality fingerprints remain session-only. Foundation passes at 717 script-symbol references and final stamped normal/all-five Workbench checks are clean. | Package-prove native death attribution/fallback deduplication, queue capacity/capture deferral, pilot-only post-promotion theft with passenger protection, exact replay/aggression/stable-ID failure, at-most-one town event per combat edge, clear/rebound, RUN-to-WALK panic recovery without hot-path AI activation, migration/quarantine order, all persistence/checkpoint paths, restart, multiplayer, and the ten-town soak. |
 | CRI-8b: Exact local security | Sealed Schema 66 source/Workbench gives each eligible enemy town one authored 2–5 member exact epoch with survivor fold/restore, once-only police loss, no-resurrection, bounded rearm, zero resistance police/roadblocks, conservative migration, and `-66` quarantine | Execute the wired Campaign Debug proof, then package-prove native waypoints/casualties/fold/re-entry/restart, ownership/terminal ordering, migration, multiplayer, and balance. |
-| CRI-9: Enemy commander strategic authority | Active provisional Schema 67 canonicalizes per-enemy attack/support/aggression, cadence checkpoints, compact periodic evidence, and an un-compacted contiguous operational receipt sequence. Existing exact QRF/patrol policy is unchanged; unsupported orders remain legacy/deferred | Execute/stamp replay/conflict/zero-effect/arithmetic/cadence/cap/migration/quarantine fixtures, then real-restart the reciprocal order/ledger/town/ownership graph. The 4,096-row per-faction hard stop is a known fail-closed lifetime limit, not retention compaction. Next persist planning cadence and frozen decision fingerprints. |
+| CRI-9: Enemy commander strategic authority | Sealed Schema 67 source/Workbench canonicalizes per-enemy attack/support/aggression, cadence checkpoints, compact periodic evidence, and an un-compacted contiguous operational receipt sequence. Existing exact QRF/patrol policy is unchanged; unsupported orders remain legacy/deferred | Execute the wired/static replay/conflict/zero-effect/arithmetic/cadence/cap/migration/quarantine fixtures in Campaign Debug, then real-restart the reciprocal order/ledger/town/ownership graph. The 4,096-row per-faction hard stop is a known fail-closed lifetime limit, not retention compaction. Next persist per-enemy planning cadence and a frozen decision fingerprint. |
 | CRI-10 through CRI-11: Missions and progression | Broad-alpha foundations implemented; convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
@@ -553,10 +569,10 @@ publishing a build does not waive them.
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 makes protected campaign markers system-owned/non-removable and self-healing while player markers stay editable | Prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, campaign-marker delete/move/edit protection, player-marker editability, duplicate-free rendering, and restart alongside existing visual/radio gates. |
 | Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies combat pressure/heat; sealed Schema 64 supplies sole town support/population truth and contacted/territory projections, with Foundation and Workbench checks passed | Execute the fixtures, then runtime-prove ownership routes, formula/hysteresis, contact/current-first ordering, complete territory, migration/restart/rendering, combat presence, cooling, and no bypass. Broader encounter/facility consequences remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
-| Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF/patrol operations, and an active provisional Schema-67 canonical resource/aggression boundary exist | Execute and stamp the wired mutation/cadence/cap/quarantine fixtures, real-restart reciprocal order/ledger/town/ownership links and the 4,096-row fail-stop, then persist deterministic per-enemy planning cadence and decision fingerprints before widening exact orders. Runtime-prove QRF/patrol arrival/return/contact/lap/casualties/settlement/restart separately. |
+| Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF/patrol operations, and a sealed Schema-67 canonical resource/aggression source/Workbench boundary exist | Execute the wired/static mutation/cadence/cap/quarantine fixtures in Campaign Debug, real-restart reciprocal order/ledger/town/ownership links and the 4,096-row fail-stop, then persist deterministic per-enemy planning cadence and a frozen decision fingerprint before widening exact orders. Runtime-prove QRF/patrol arrival/return/contact/lap/casualties/settlement/restart separately. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 66/settings 24 is the current sealed source/Workbench checkpoint and Schema 67/settings 24 is active provisional source only | Runtime-prove the complete Phase 8 ambience/consequences/local-security/restart/marker/ten-town boundary independently of Schema 67; later prove the stamped strategic-resource authority before fault-injection and long-soak closure. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 67/settings 24 is the current sealed source/Workbench checkpoint and Schema 66/settings 24 is the immediately preceding sealed source/Workbench checkpoint | Runtime-prove the complete Phase 8 ambience/consequences/local-security/restart/marker/ten-town boundary independently of Schema 67; execute the Schema-67 fixtures in Campaign Debug and prove the strategic-resource authority before fault-injection and long-soak closure. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -895,16 +911,16 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Complete and stamp the active provisional Campaign Schema 67/settings 24
-   strategic-resource tree under a new exact identity. Do not invent or reuse a
-   SHA, UTC seal, Foundation count, Workbench count, or CRC. Prove canonical
-   per-enemy attack/support/aggression mutation, zero-effect receipts, replay/
-   conflict, atomic underflow/overflow, cadence checkpoints, exact QRF/patrol and
-   order/ledger/town/ownership links, rival/cap isolation, the un-compacted
-   4,096-row per-faction hard stop, baseline-only migration, copy/restore, and
-   `-67` quarantine. The
-   sealed Schema-66 identity remains historical source/Workbench evidence and
-   its Phase 8 runtime package must still be published and proved independently.
+1. Implement the next Blueprint Phase 9 source slice from the sealed Campaign
+   Schema 67/settings 24 checkpoint: persisted per-enemy planning cadence and a
+   frozen deterministic decision
+   fingerprint over the ordered planning inputs, selection, cost, and accounting
+   links. The registered Schema-67 strategic-resource fixtures remain wired/
+   static and must still execute in Campaign Debug; real restart must prove the
+   reciprocal order/ledger/town/ownership graph and the 4,096-row per-faction
+   hard stop. The sealed Schema-66 identity remains historical source/Workbench
+   evidence and its Phase 8 runtime package must still be published and proved
+   independently.
 2. Runtime-prove all Schema-62 ownership routes, one revision increment,
    replay/conflict/stale behavior, pre-owner retry, reciprocal exact-security
    settlement, orphan/late-authority rejection, post-liberation policy, retained
@@ -964,8 +980,8 @@ treated as future work:
 6. Runtime-prove campaign-debug isolation, completion/cancellation/interrupted
    recovery, the repaired observations, and a clean development-session restart
    before interpreting a new full artifact.
-7. Prove the schema-43 through sealed schema-66 authority chain, then the
-   provisional Schema-67 resource authority under its eventual stamped identity,
+7. Prove the schema-43 through sealed schema-66 authority chain, then the sealed
+   Schema-67 resource authority under its exact source identity,
    across exact training,
    garrison, both player support types, SpawnQueue, strategic travel,
    materialization/fold, exact casualties, virtual combat, archive/recall,
@@ -990,13 +1006,11 @@ treated as future work:
     Schema-59 radio sites without conflating their contracts. Cover native
     entities, exact casualties/assets, every typed outcome, quarantine, actual
     save/restart, rendered UI, setup, networking, reconnect, and JIP.
-12. After Schema 67 is stamped, implement one persisted planning cadence per
-    enemy and freeze a deterministic decision fingerprint over war level,
-    aggression, pool revisions/balances, commitments, ordered target/source
-    candidates, selected target/source/order/capability, cost, and accounting
-    links. Only then continue with one explicitly versioned enemy order consumer
-    at a time. Unsupported order/mission/support families remain legacy until
-    their own cutover; later source work never certifies earlier runtime gates.
+12. After the persisted per-enemy planning cadence and frozen deterministic
+    decision fingerprint are sealed, continue with one explicitly versioned
+    enemy order consumer at a time. Unsupported order/mission/support families
+    remain legacy until their own cutover; later source work never certifies
+    earlier runtime gates.
 
 ## Game-Mode Target
 
@@ -1271,7 +1285,7 @@ Acceptance pattern:
 Files: `Scripts/Game/HST/Services/HST_EnemyStrategicResourceService.c` and
 `Scripts/Game/HST/Services/HST_EnemyStrategicResourceSaveValidationService.c`
 
-Provisional Schema-67 ownership:
+Sealed Schema-67 source ownership:
 
 - One versioned `HST_FactionPoolState` owns attack resources, support resources,
   aggression, cadence accumulators/checkpoints, and its operational receipt count
@@ -1299,7 +1313,7 @@ Provisional Schema-67 ownership:
   and quarantines malformed current authority at `-67`.
 
 This service does not own target scoring or order selection. Persisted per-enemy
-cadence and frozen decision fingerprints are the immediate next Phase 9 owner.
+cadence and a frozen decision fingerprint are the immediate next Phase 9 owner.
 
 ### Ownership Transition
 
@@ -1422,7 +1436,7 @@ Baseline acceptance:
 | 15 | Garage and vehicle persistence | In progress - broad-alpha scaffold exists |
 | 16 | Recruitment, training, and garrisons | In progress - recruitment/garrison foundation exists |
 | 17 | Zone capture and ownership | In progress - Schema-62 canonical all-cause ownership and Schema-63 shared crew-aware capture pressure/heat are sealed in source/Workbench, with Foundation and explicit Workbench validation passed but runtime proof pending; broader encounter/town-truth depth remains |
-| 18 | Enemy commander physical responses | In progress - exact defensive QRF/patrol operations remain narrow; active provisional Schema 67 canonicalizes per-enemy resources/aggression, while planner cadence/decision fingerprints and other orders remain broad alpha |
+| 18 | Enemy commander physical responses | In progress - exact defensive QRF/patrol operations remain narrow; sealed Schema 67 source canonicalizes per-enemy resources/aggression, while persisted per-enemy planner cadence, a frozen decision fingerprint, and other orders remain the next broad-alpha work |
 | 19 | Support requests | In progress - exact player infantry-QRF strategic projection; broad legacy supports remain |
 | 20 | Civilians, town support, and undercover reports | In progress - Settings 24 supplies ambient budgets; sealed Schema 65 adds exact consequences/panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security roster authority and zero resistance automatic police/roadblocks. Campaign Debug, packaged native behavior, save/restart, marker input, and ten-town soak remain open. |
 | 21 | Undercover enforcement and police/roadblocks | In progress - scan enforcement remains broad alpha; Schema 66 now owns exact enemy-town patrol casualties/fold/rearm, while native encounters and balance remain unproven |

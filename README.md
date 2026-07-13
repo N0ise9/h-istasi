@@ -1,12 +1,17 @@
 # Partisan: Everon
 
-The active provisional source boundary is Campaign Schema 67 while runtime
-settings remains Schema 24, under the working label
-`schema67-settings24-enemy-strategic-resource-authority`. It begins Blueprint
-Phase 9 source work without claiming that the Blueprint Phase 8 runtime exit is
-certified. Schema 67 has no final implementation SHA, UTC seal, Foundation
-count, Workbench class/file count, or CRC until the completed tree receives its
-final stamp.
+The current sealed source checkpoint is Campaign Schema 67 while runtime
+settings remains Schema 24. Its exact identity is implementation
+`2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+`2026-07-12T23:46:02Z`, and label
+`schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at
+736 script-symbol references. Final stamped normal log
+`logs_2026-07-12_19-52-14` and all-five log
+`logs_2026-07-12_19-52-36` both compile 5,809 Game files/11,751 classes with CRC
+`a353fa0d`. All-five reports `Script validation successful` for WORKBENCH, PC,
+XBOX, PS4, and PS5; zero HST script errors were observed and zero Workbench
+processes survived cleanup. This checkpoint begins Blueprint Phase 9 source work
+without claiming that the Blueprint Phase 8 runtime exit is certified.
 
 The product and repository names are now **Partisan: Everon** and **Partisan**.
 `HST_*` source/resource names and the non-public `histasi` Workbench project ID
@@ -52,11 +57,12 @@ admission precedes security/support replacement and owner publication. Rejection
 therefore leaves the outer operation retryable instead of half-published.
 Campaign Debug runs resource/order cases on nested state clones; its focused
 physical-response case materializes and cleans only its supplied group while
-restoring shared marker and AIWorld state. Persisted planning cadence and frozen decision fingerprints are
-the immediate next Phase 9 source slice and remain unimplemented. All Schema-67
-source fixtures are wired into Campaign Debug, but they have not been executed
-or stamped; native, real-restart, package, multiplayer, and soak evidence also
-remains pending.
+restoring shared marker and AIWorld state. Persisted per-enemy planning cadence
+and a frozen target/source/order/cost decision fingerprint are the immediate
+next Phase 9 source slice and remain unimplemented. All Schema-67 source
+fixtures are wired into Campaign Debug, but they have not been executed; the
+native, real-restart, package, multiplayer, and soak evidence also remain
+pending.
 
 The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime
 settings remains Schema 24. The sealed Schema-66 stamp identifies implementation
@@ -262,7 +268,7 @@ The repository contains a broad-alpha campaign foundation:
 - A versioned campaign-state model with arsenal, vehicle cargo, garage,
   saved-loadout, issued-item, mission-runtime, active-group, support, exact
   infantry/convoy/rescue/local-security operations, radio-site lifecycle, build-mode,
-  campaign-end, persistence metadata, and provisional Schema-67 versioned enemy
+  campaign-end, persistence metadata, and sealed Schema-67 versioned enemy
   strategic pools/mutation receipts
 - Server-authoritative campaign, economy, mission, persistence, arsenal, loot,
   loadout-editor, garage/build, and native-checkpoint services
@@ -1130,19 +1136,30 @@ The implementation blueprint's Campaign Runtime Integrity sequence controls
 current work. Feature breadth already exists; the immediate goal is to make its
 authority, runtime projection, persistence, and client evidence trustworthy:
 
-The active provisional Campaign Schema 67/runtime-settings Schema 24 source
-slice is the first Blueprint Phase 9 dependency: one durable, replay-safe enemy
-strategic resource and aggression authority shared by both enemy roles. It remains
-unstamped and does not supersede the runtime-certification obligation for Phase
-8 or the sealed Schema-66 evidence below.
+The current sealed Campaign Schema 67/runtime-settings Schema 24 source
+checkpoint is the first Blueprint Phase 9 dependency: one durable, replay-safe
+enemy strategic resource and aggression authority shared by both enemy roles.
+It identifies implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`,
+UTC `2026-07-12T23:46:02Z`, and label
+`schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at
+736 script-symbol references. Final stamped normal log
+`logs_2026-07-12_19-52-14` and all-five log
+`logs_2026-07-12_19-52-36` both compile 5,809 Game files/11,751 classes with CRC
+`a353fa0d`; all-five reports `Script validation successful` for WORKBENCH, PC,
+XBOX, PS4, and PS5, with zero HST script errors and zero surviving Workbench
+processes. This source/Workbench seal does not supersede the open runtime-
+certification obligation for Blueprint Phase 8.
 
-The current sealed source/Workbench tree is Campaign Schema 66/runtime-settings Schema 24.
+The immediately preceding sealed source/Workbench tree is Campaign Schema 66/runtime-settings Schema 24.
 It layers exact enemy-town local-security patrol authority and protected,
 self-healing campaign-marker ownership onto the sealed Schema-65 civilian-
-consequence checkpoint described above. Foundation passes at 729 script-symbol
-references, and final normal/all-five Workbench checks pass at 5,806 Game files/
-11,740 classes with CRC `ec860be7`. Native, profile-I/O, packaged, multiplayer,
-marker-tamper, and soak evidence remain open.
+consequence checkpoint described above. It identifies implementation
+`a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
+`2026-07-12T20:28:33Z`, and label
+`schema66-settings24-local-security-marker-integrity`. Foundation passes at 729
+script-symbol references, and final normal/all-five Workbench checks pass at
+5,806 Game files/11,740 classes with CRC `ec860be7`. Native, profile-I/O,
+packaged, multiplayer, marker-tamper, and soak evidence remain open.
 
 The previous sealed tree is Campaign Schema 65/runtime-settings Schema 24 at
 implementation `609add9eeadf73816764c497178e2d35081307d1` and label
@@ -1177,20 +1194,13 @@ schema-62 certification remains independently open. Static or Workbench
 validation does not certify native entities, actual restart, rendered UI,
 networking, reconnect, or JIP.
 
-1. Publish and runtime-check the sealed Schema-66/settings-24 checkpoint under
-   its exact identity. Do not report it as the sealed Schema-65 build. Require the package,
-   server, client, log, and artifact identity to agree, and preserve the exact
-   prior Schema-65 seal as historical evidence only.
-2. Complete and source-prove the provisional Schema-67 enemy strategic resource
-   authority: versioned per-enemy pools/cadence checkpoints; compact periodic
-   evidence; zero-effect and other operational receipts in an un-compacted
-   contiguous sequence; one live mutation API; exact replay, conflict, underflow,
-   and overflow behavior; the 4,096-row per-faction fail-stop; independent enemy
-   facts; reciprocal order/ledger/town/ownership backlinks; and baseline-only
-   pre-67 migration with current `-67` quarantine. Do not call this Phase 9 or
-   Schema 67 sealed until its final identity and validation evidence are
-   recorded. Persisted planner cadence and frozen decision fingerprints are the
-   immediate next Phase 9 slice after this resource boundary.
+1. Publish and runtime-check the sealed Schema-67/settings-24 source/Workbench
+   identity. Require package, server, client, log, and artifact identity to
+   agree; do not substitute the immediately preceding Schema-66 checkpoint.
+2. Implement persisted per-enemy planning cadence, deterministic candidate
+   ordering, and a frozen target/source/order/cost decision fingerprint as the
+   immediate next Blueprint Phase 9 slice on top of the sealed Schema-67
+   resource authority.
 3. In the eventual published check, prove military, mission, political, admin, and
    migration ownership routing; one owner-revision increment; pre-owner retry;
    exact-patrol settlement; post-liberation security; counterattack/economy/event

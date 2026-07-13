@@ -1,19 +1,28 @@
 # Partisan Enfusion / Enforce Notes
 
-The active provisional source boundary advances to Campaign Schema 67 while
-runtime settings remains Schema 24, under the working label
-`schema67-settings24-enemy-strategic-resource-authority`. The practical Enforce
-contract is one versioned `HST_FactionPoolState` per configured enemy, bounded
+The current sealed source/Workbench checkpoint is Campaign Schema 67/runtime-settings
+Schema 24 under implementation
+`2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+`2026-07-12T23:46:02Z`, and label
+`schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
+736 script-symbol references. Final stamped normal log
+`logs_2026-07-12_19-52-14` and all-five log
+`logs_2026-07-12_19-52-36` both load 5,809 Game files/11,751 classes with CRC
+`a353fa0d`. All-five reports `Script validation successful` for WORKBENCH, PC,
+XBOX, PS4, and PS5; zero HST script errors were observed and zero Workbench
+processes survived cleanup. The practical Enforce contract is one versioned
+`HST_FactionPoolState` per configured enemy, bounded
 `HST_EnemyStrategicMutationState` receipts, persisted cadence bucket checkpoints,
 and one service boundary for income, spend, refund, aggression, and live pool
 adjustment. Operational receipts use a contiguous per-faction sequence, include
 accepted zero-effect operations, never compact, and hard-stop at 4,096 per
-faction; periodic evidence compacts separately. Schema 67 has no final implementation SHA, UTC
-seal, Foundation count, Workbench count, or CRC. Persisted planning cadence and
-decision fingerprints remain the next Phase 9 slice, and every Blueprint Phase
-8 runtime gate remains open.
+faction; periodic evidence compacts separately. Registered source fixtures and
+Campaign Debug routes remain wired/static and have not executed in Campaign
+Debug. Persisted per-enemy planning cadence and a frozen decision fingerprint
+are the next Phase 9 slice, and every Blueprint Phase 8 runtime gate remains
+open.
 
-The immediately preceding sealed source/Workbench checkpoint advances to Campaign Schema 66 while runtime settings
+The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime settings
 remains Schema 24. The sealed Schema-66 stamp identifies implementation
 `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label
@@ -4515,7 +4524,8 @@ This file is for practical engine/script behavior, not project planning. Keep en
 ## Sealed Source/Workbench Blueprint Phase 8 Ambient Runtime Mechanics
 
 - This sealed ambient checkpoint reached Blueprint Phase 8 source sequence, not
-  eight completed phases. The active provisional tree has since entered Phase 9,
+  eight completed phases. The current sealed Schema-67 source tree has since
+  entered Phase 9,
   while Phase 8 and every earlier phase still retain native, dedicated-server,
   restart, or multiplayer exit gates. Deferred native tests must be backfilled;
   reaching a later source slice does not waive them.
@@ -4863,7 +4873,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   restart, ownership change, terminal cleanup, multiplayer, and soak remain
   separate runtime gates.
 
-## Provisional Schema 67 Enemy Strategic Resource Mechanics
+## Sealed Schema 67 Enemy Strategic Resource Mechanics
 
 - Keep an entire `for` loop header on one line in Enforce. A multiline header
   can fail parsing at its semicolons, and a compound condition adds another
@@ -4987,9 +4997,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   broken order/town/ownership backlink, and `-67` quarantine. Existing QRF and
   patrol proof services assert their resource mutation IDs. Static gates protect
   field/copy symmetry, cap/checkpoint behavior, cross-domain source structure,
-  actual Campaign Debug registration, and targeted live-write rejection. Real
-  restart must still prove no duplicate charge or refund; a pure proof is not
-  native or package evidence.
+  actual Campaign Debug registration, and targeted live-write rejection. These
+  source fixtures remain wired/static and have not executed in Campaign Debug.
+  Real restart must still prove no duplicate charge or refund; a pure proof is
+  not native or package evidence.
 
 - The immediate next Phase 9 source slice must persist a per-enemy planning
   cadence and freeze a deterministic decision fingerprint over war level,

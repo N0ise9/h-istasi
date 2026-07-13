@@ -1,7 +1,7 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "a7031797e67d99a99a066038cd8fa39efc03cff1";
-	static const string BUILD_UTC = "2026-07-12T20:28:33Z";
+	static const string BUILD_SHA = "2798cb20b824ed74419ab6dc9bdce03f18ef71df";
+	static const string BUILD_UTC = "2026-07-12T23:46:02Z";
 	static const string BUILD_LABEL = "schema67-settings24-enemy-strategic-resource-authority";
 
 	static string BuildSummary()

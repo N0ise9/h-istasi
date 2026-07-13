@@ -745,7 +745,7 @@ Consequences:
 
 ## CRI-015 - Canonicalize Enemy Strategic Resources Before Planning Expansion
 
-- Status: Accepted; active provisional Schema 67 source contract, final stamp and runtime proof pending
+- Status: Accepted; sealed Schema 67 source/Workbench checkpoint, runtime proof pending
 - Date: 2026-07-12
 
 Context: Enemy attack resources, support resources, and aggression already drive
@@ -756,7 +756,7 @@ weakly correlated pool debits/refunds. Persisting target decisions before these
 inputs are canonical would freeze planning on top of ambiguous accounting and
 make restart duplication or free assets difficult to reject.
 
-Decision: Campaign Schema 67 keeps runtime settings at Schema 24 under working
+Decision: Campaign Schema 67 keeps runtime settings at Schema 24 under sealed
 label `schema67-settings24-enemy-strategic-resource-authority` and makes one
 versioned `HST_FactionPoolState` the canonical attack-resource,
 support-resource, aggression, and resource-income/aggression-decay cadence owner
@@ -813,9 +813,21 @@ Consequences:
   command is preflighted on the clone. A non-admittable ownership request leaves
   direct receipts, rewards, capture progress, events, and terminal mission state
   unchanged; an admitted pending receipt remains durable retry authority.
-- Schema 67 is provisional until its final implementation identity and static/
-  Workbench evidence are stamped. Schema 66 remains the sealed source/Workbench
-  checkpoint, and all Blueprint Phase 8 runtime gates remain open.
+- Schema 67 is sealed at implementation
+  `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
+  `2026-07-12T23:46:02Z`, label
+  `schema67-settings24-enemy-strategic-resource-authority`, and Foundation 736.
+  Final stamped normal log `logs_2026-07-12_19-52-14` and all-five log
+  `logs_2026-07-12_19-52-36` both compile 5,809 Game files/11,751 classes with
+  CRC `a353fa0d`. All-five reports `Script validation successful` for WORKBENCH,
+  PC, XBOX, PS4, and PS5; zero HST script errors were observed and zero
+  Workbench processes survived cleanup. All Blueprint Phase 8 runtime gates
+  remain open; this is not Campaign Debug or packaged runtime execution.
+- Schema 66 is the immediately preceding sealed source/Workbench checkpoint at
+  implementation `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
+  `2026-07-12T20:28:33Z`, label
+  `schema66-settings24-local-security-marker-integrity`, Foundation 729, and
+  Workbench 5,806 files/11,740 classes with CRC `ec860be7`.
 - Persisted per-enemy planning cadence, deterministic candidate ordering, and a
   frozen target/source/order/cost decision fingerprint are the immediate next
   Blueprint Phase 9 slice on top of this resource authority.

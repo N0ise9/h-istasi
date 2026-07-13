@@ -1647,11 +1647,13 @@ if ($campaignStateText -notmatch "SCHEMA_VERSION\s*=\s*(\d+)") {
 $campaignSchemaVersion = [int] $Matches[1]
 $buildInfoText = Get-Content -Raw "Scripts/Game/HST/HST_BuildInfo.c"
 $buildShaMatch = [regex]::Match($buildInfoText, 'BUILD_SHA\s*=\s*"(?<sha>[0-9a-f]{40})"')
+$buildUtcMatch = [regex]::Match($buildInfoText, 'BUILD_UTC\s*=\s*"(?<utc>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)"')
 $buildLabelMatch = [regex]::Match($buildInfoText, 'BUILD_LABEL\s*=\s*"(?<label>[^"]+)"')
-if (!$buildShaMatch.Success -or !$buildLabelMatch.Success) {
-	throw "Unable to parse the stamped HST build hash and label"
+if (!$buildShaMatch.Success -or !$buildUtcMatch.Success -or !$buildLabelMatch.Success) {
+	throw "Unable to parse the stamped HST build hash, UTC time, and label"
 }
 $currentBuildSha = $buildShaMatch.Groups['sha'].Value
+$currentBuildUtc = $buildUtcMatch.Groups['utc'].Value
 $currentBuildLabel = $buildLabelMatch.Groups['label'].Value
 $runtimeSettingsSchemaText = Get-Content -Raw "Scripts/Game/HST/Config/HST_RuntimeSettings.c"
 if ($runtimeSettingsSchemaText -notmatch "SCHEMA_VERSION\s*=\s*(\d+)") {
@@ -1687,8 +1689,8 @@ foreach ($currentStateDocPath in $currentStateDocPaths) {
 		throw "$currentStateDocPath must not contain local filesystem paths"
 	}
 	$currentStateDocIsProvisional = $currentStateDocText -match "(?is)provisional.{0,80}schema[- ]$campaignSchemaVersion|schema[- ]$campaignSchemaVersion.{0,80}provisional"
-	if ((!$currentStateDocText.Contains($currentBuildSha) -or !$currentStateDocText.Contains($currentBuildLabel)) -and !$currentStateDocIsProvisional) {
-		throw "$currentStateDocPath must identify the current stamped implementation hash and build label"
+	if ((!$currentStateDocText.Contains($currentBuildSha) -or !$currentStateDocText.Contains($currentBuildUtc) -or !$currentStateDocText.Contains($currentBuildLabel)) -and !$currentStateDocIsProvisional) {
+		throw "$currentStateDocPath must identify the current stamped implementation hash, UTC time, and build label"
 	}
 }
 $stampEvidenceDocPaths = @(
@@ -1699,8 +1701,8 @@ $stampEvidenceDocPaths = @(
 foreach ($stampEvidenceDocPath in $stampEvidenceDocPaths) {
 	$stampEvidenceDocText = Get-Content -Raw $stampEvidenceDocPath
 	$stampEvidenceDocIsProvisional = $stampEvidenceDocText -match "(?is)provisional.{0,80}schema[- ]$campaignSchemaVersion|schema[- ]$campaignSchemaVersion.{0,80}provisional"
-	if ((!$stampEvidenceDocText.Contains($currentBuildSha) -or !$stampEvidenceDocText.Contains($currentBuildLabel)) -and !$stampEvidenceDocIsProvisional) {
-		throw "$stampEvidenceDocPath must identify the current stamped implementation hash and build label"
+	if ((!$stampEvidenceDocText.Contains($currentBuildSha) -or !$stampEvidenceDocText.Contains($currentBuildUtc) -or !$stampEvidenceDocText.Contains($currentBuildLabel)) -and !$stampEvidenceDocIsProvisional) {
+		throw "$stampEvidenceDocPath must identify the current stamped implementation hash, UTC time, and build label"
 	}
 }
 $commandMenuMapTargetText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CommandMenuComponent.c"
