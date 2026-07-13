@@ -2,16 +2,16 @@
 
 The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 at implementation
-`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
-`2026-07-13T13:19:22Z`, label
-`schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`. The latest packaged
 test used the prior `f97b12e` baseline. It created `$profile:Partisan`, had no
 retired tree to migrate, and exposed a fresh-start failure: both enemy authorities
 quarantined at `-67`/`-68`
 and emitted 598 repeated one-second warnings.
 
-That runtime-integrity correction uses one production factory for startup, admin
-reset, and fresh-state proof with the exact three-role pools and two idle enemy
+The sealed tree retains the runtime-integrity correction's one production factory
+for startup, admin reset, and fresh-state proof with the exact three-role pools and two idle enemy
 planners. Restored malformed state remains fail-closed; recovery requires exact
 row cardinality, no nulls, the exact nonempty campaign preset identity, empty
 mutation/order arrays, and the complete known poisoned Schema-68 signature.
@@ -27,13 +27,14 @@ first, and same-process re-entry is guarded; because Enforce has no atomic cross
 process promotion or exclusive lock, profile migration is explicitly single-
 writer. Campaign Debug's destructive protected-marker probe retries final repair
 and player-marker cleanup. Foundation passes at 751 script-symbol references.
-Final stamped-tree all-target Workbench log `logs_2026-07-13_09-20-51` compiles
-5,815 Game files/11,768 classes at CRC `0544aa1d`; WORKBENCH, PC, XBOX, PS4,
+Final stamped-tree all-target Workbench log `logs_2026-07-13_10-45-27` compiles
+5,815 Game files/11,768 classes at CRC `e483e71c`; WORKBENCH, PC, XBOX, PS4,
 and PS5 report `Script validation successful`, the process exited, and zero
 Workbench processes survived cleanup. Campaign Debug, package execution,
-packaged restart/migration, multiplayer, and soak evidence remain open.
+packaged restart/migration, dedicated/live-server, multiplayer, and soak evidence
+remain open.
 
-The active follow-on Blueprint slice stays within Schema 68 and makes periodic
+The sealed checkpoint stays within Schema 68 and makes periodic
 enemy planning commitment-aware. Target scoring collapses linked same-faction
 order/support/open-operation rows to one root, rejects incompatible roots before
 ranking, and penalizes compatible roots by `-12` each up to `-24`. An exact
@@ -54,12 +55,16 @@ branches, all-committed skip, and both unpressured and pressure-marked post-free
 commitment races. They have not run in Campaign Debug, a packaged restart, or a
 live server.
 
-The immediately preceding sealed source/Workbench boundary is Campaign Schema
-68/runtime-settings Schema 24 under implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+The immediately preceding sealed source/Workbench boundary is the Schema-68/
+settings-24 bootstrap/profile/marker correction at implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+`2026-07-13T13:19:22Z`, label
+`schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
+Workbench CRC `0544aa1d`. The earlier Schema-68 planning-authority checkpoint is
+implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
 `2026-07-13T01:04:41Z`, label
 `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
-`971d30d0`. The earlier Schema-67 resource seal is implementation
+`971d30d0`. The Schema-67 resource seal is implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -281,13 +286,16 @@ slice. It should not rebuild the foundation.
 ## Campaign Runtime Integrity Program
 
 Campaign Runtime Integrity (CRI) is the active dependency-ordered delivery gate.
-Campaign Schema 68/runtime-settings Schema 24 remains the contract, while the
-current bootstrap/profile/marker correction is sealed as source/Workbench
-evidence at implementation `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`,
-Foundation 751, and final stamped-tree Workbench CRC `0544aa1d`. The
+Campaign Schema 68/runtime-settings Schema 24 remains the contract, with the
+commitment-aware planner sealed as source/Workbench evidence at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, Foundation 751, and final stamped-
+tree Workbench CRC `e483e71c`. It retains the bootstrap/profile/marker correction
+from the immediately preceding seal. The
 latest packaged baseline proved canonical-root creation but failed fresh enemy
 authority and did not contain a retired tree. The immediately preceding sealed
-source/Workbench checkpoint is the Schema-68 enemy-planning authority at
+source/Workbench checkpoint is the bootstrap/profile/marker correction at
+implementation `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, Foundation 751,
+and CRC `0544aa1d`. The earlier Schema-68 enemy-planning authority is
 implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, Foundation 744,
 and CRC `971d30d0`. Schema 67 is the earlier resource authority at implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, Foundation 736, and CRC `a353fa0d`.
@@ -296,7 +304,7 @@ source work, not runtime certification. Campaign Debug and packaged restart must
 still prove fresh bootstrap, exact saved-state recovery, single-
 writer whole-tree profile removal/conflict archival, and marker integrity before
 runtime certification.
-The active Schema-68 follow-on also requires execution of its commitment-aware
+The sealed Schema-68 checkpoint also requires execution of its commitment-aware
 selection branches, same-decision patrol rerank, stable diagnostics, all-
 committed skip, and unpressured/pressure-marked admission-race assertions,
 followed by packaged restart and live-server proof.
@@ -607,7 +615,7 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 68/settings 24 remains current. The source/Workbench correction is sealed at `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`; `f97b12e` remains the prior packaged failure baseline | Foundation 751 and final stamped-tree all-target Workbench pass at 5,815/11,768 and CRC `0544aa1d`. The latest package created canonical data but produced fresh `-67`/`-68` authority and 598 warnings; no retired tree existed. Execute Campaign Debug, then package-prove fresh authority, affected-save recovery, verified single-writer whole-tree removal/conflict archive, and marker integrity. Every earlier runtime gate remains open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 68/settings 24 remains current. The commitment-aware source/Workbench checkpoint is sealed at `695caf46ce6b4146e5407711b76d5e0c578d7392`; `f97b12e` remains the prior packaged failure baseline | Foundation 751 and final stamped-tree all-target Workbench pass at 5,815/11,768 and CRC `e483e71c`. The latest package created canonical data but produced fresh `-67`/`-68` authority and 598 warnings; no retired tree existed. Execute Campaign Debug, then package-prove fresh authority, affected-save recovery, commitment admission/rerank, verified single-writer whole-tree removal/conflict archive, and marker integrity. Every earlier runtime gate remains open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; runtime proof pending | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. Pre-59 migration creates only logical unresolved sites, keeps terminal legacy radio missions at contract `0`, fails active legacy claims closed, and invents no binding, destruction, rebuild, receipt, or reward. |
 | CRI-2: Exact force manifests | Foundation complete; Schema-60 expansion stamped in source/Workbench | Search-and-Destroy adds one frozen catalog-backed infantry root/member roster at $350 plus exact-slot HR. It rejects vehicles/assets/multi-root substitution. Existing QRF/patrol/guard/rescue/convoy shapes remain unchanged; generic realization and packaged proof remain open. |
 | CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; eleven exact family projections across nine operation types implemented in source | Schema 66 adds exact automatic local-security materialization/fold/restore, casualty/no-refill authority, and terminal/rearm policy without widening historical/generic forces. Prove it and every earlier family in native movement/fold/restart. |
@@ -615,7 +623,7 @@ publishing a build does not waive them.
 | CRI-7: Ownership, combat presence, and town influence | Schema-62 ownership/protocol-2, Schema-63 combat presence, and Schema-64 canonical town influence/contact/Map-War/migration/hot-path source boundaries are sealed; Campaign Debug and packaged proof remain open | Execute Campaign Debug and prove ownership/security/restart, combat classifications/cooling, 100/200/50-bp scaling, strict 8000/4000 equality, separate enemy support, no owner bypass, pre-64 migration/current quarantine, contacted Zone Pressure, complete territory, and due-expiry-only cost. |
 | CRI-8: Civilian runtime and political consequences | The sealed Settings-24 checkpoint supplies the ambient budget/lifecycle/claim foundation. Sealed Schema 65 source/Workbench adds 256-casualty/64-theft queues, a combined four-attempt frame cap, bounded-backoff indefinite retry/capture deferral, exact-pilot theft after durable promotion with passenger-only non-recycling protection, exact town aggression/strategic receipts, pending-receipt-first non-HOT combat episodes with adopted-floor/last-applied invariants and full canonical live-combat fingerprints, indexed structural plus live-preset role restore validation, and native pedestrian panic/recovery with separate bounded route recovery. Minor-locality fingerprints remain session-only. Foundation passes at 717 script-symbol references and final stamped normal/all-five Workbench checks are clean. | Package-prove native death attribution/fallback deduplication, queue capacity/capture deferral, pilot-only post-promotion theft with passenger protection, exact replay/aggression/stable-ID failure, at-most-one town event per combat edge, clear/rebound, RUN-to-WALK panic recovery without hot-path AI activation, migration/quarantine order, all persistence/checkpoint paths, restart, multiplayer, and the ten-town soak. |
 | CRI-8b: Exact local security | Sealed Schema 66 source/Workbench gives each eligible enemy town one authored 2–5 member exact epoch with survivor fold/restore, once-only police loss, no-resurrection, bounded rearm, zero resistance police/roadblocks, conservative migration, and `-66` quarantine | Execute the wired Campaign Debug proof, then package-prove native waypoints/casualties/fold/re-entry/restart, ownership/terminal ordering, migration, multiplayer, and balance. |
-| CRI-9: Enemy commander strategic authority | Sealed Schema 67 canonicalizes per-enemy resources/aggression; sealed Schema 68 owns one frozen planner row per enemy. The active follow-on filters target commitments before ranking, collapses linked rows with blocking precedence, applies a capped compatible-root penalty, and reranks within the same decision when exact patrol would duplicate patrol. Preparation remains freeze-only, and commitment revalidation also guards pressure-marked retry before debit. | Validate and seal the follow-on, then execute its expanded Campaign Debug branches: queued/status/faction/equivalent-ID filters, stable multi-reject diagnostics, mixed-root precedence, same-cycle patrol fallback, all-committed zero-cost skip, and unpressured/pressure-marked post-freeze rejection. Package-prove fresh/affected-save authority, restart, and live-server behavior; the earlier recovery/throttle/profile/marker gates remain open. |
+| CRI-9: Enemy commander strategic authority | Sealed Schema 67 canonicalizes per-enemy resources/aggression; the latest sealed Schema 68 checkpoint owns one frozen planner row per enemy and filters target commitments before ranking, collapses linked rows with blocking precedence, applies a capped compatible-root penalty, and reranks within the same decision when exact patrol would duplicate patrol. Preparation remains freeze-only, and commitment revalidation also guards pressure-marked retry before debit. | Execute the sealed checkpoint's expanded Campaign Debug branches: queued/status/faction/equivalent-ID filters, stable multi-reject diagnostics, mixed-root precedence, same-cycle patrol fallback, all-committed zero-cost skip, and unpressured/pressure-marked post-freeze rejection. Package-prove fresh/affected-save authority, restart, and live-server behavior; the earlier recovery/throttle/profile/marker gates remain open. |
 | CRI-10 through CRI-11: Missions and progression | Broad-alpha foundations implemented; convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
@@ -630,10 +638,10 @@ publishing a build does not waive them.
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 protects campaign markers. A source/Workbench-sealed destructive owner-client probe now checks production self-heal and player-marker isolation | Execute the probe, then prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, one canonical repaired campaign marker, player-marker editability/removal, duplicate-free rendering, and restart. |
 | Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies combat pressure/heat; sealed Schema 64 supplies sole town support/population truth and contacted/territory projections, with Foundation and Workbench checks passed | Execute the fixtures, then runtime-prove ownership routes, formula/hysteresis, contact/current-first ordering, complete territory, migration/restart/rendering, combat presence, cooling, and no bypass. Broader encounter/facility consequences remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
-| Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF/patrol operations, sealed Schema-67 resources, and sealed Schema-68 deterministic planning exist. The active follow-on adds commitment-root filtering with blocking precedence, stable diagnostics, exact-patrol defensive compatibility plus same-cycle duplicate-patrol rerank, freeze-only preparation, pressure-marked retry revalidation before debit, and an explicit all-committed skip. | Execute all expanded subbranches of the three new assertions through Campaign Debug, then package-prove restart/live-server behavior. Fresh/recovery/throttle authority, reciprocal links, cadence/retry/crash windows, the 4,096-row fail-stop, and physical QRF/patrol gates remain open. |
+| Enemy Commander | Resource pools, scoring, broad legacy orders, exact defensive-QRF/patrol operations, sealed Schema-67 resources, and sealed Schema-68 deterministic planning exist. The latest sealed checkpoint adds commitment-root filtering with blocking precedence, stable diagnostics, exact-patrol defensive compatibility plus same-cycle duplicate-patrol rerank, freeze-only preparation, pressure-marked retry revalidation before debit, and an explicit all-committed skip. | Execute all expanded subbranches of the three sealed assertions through Campaign Debug, then package-prove restart/live-server behavior. Fresh/recovery/throttle authority, reciprocal links, cadence/retry/crash windows, the 4,096-row fail-stop, and physical QRF/patrol gates remain open. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, and newly started `rescue_pows` use narrow exact contracts | Runtime-prove convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 68/settings 24 remains current, the bootstrap/profile/marker correction is sealed source/Workbench evidence, and the commitment-aware planner follow-on is active but unsealed. | Validate the follow-on, execute all expanded branches of its three new Campaign Debug assertions, then package-prove fresh and affected-save authority, commitment admission/rerank across restart/live-server execution, single-writer whole-tree migration, and marker integrity before the complete Phase 8 boundary, fault injection, and long-soak closure. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD; Schema 68/settings 24 remains current, and the commitment-aware planner plus retained bootstrap/profile/marker correction are sealed source/Workbench evidence. | Execute all expanded branches of the three sealed Campaign Debug assertions, then package-prove fresh and affected-save authority, commitment admission/rerank across restart/live-server execution, single-writer whole-tree migration, and marker integrity before the complete Phase 8 boundary, fault injection, and long-soak closure. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -877,8 +885,8 @@ treated as future work:
   support resources through the ledger.
 - Enemy commander target scoring is relation-aware: same-faction holdings,
   resistance-held zones, and rival-held zones have distinct owner-score reasons,
-  while hideout and mission-site bookkeeping anchors are excluded. The active
-  Schema-68 follow-on also reduces linked same-faction order/support/operation
+  while hideout and mission-site bookkeeping anchors are excluded. The sealed
+  Schema-68 checkpoint also reduces linked same-faction order/support/operation
   rows to one commitment root, rejects incompatible roots before weighted
   ranking, and scores compatible roots at `-12` each up to `-24`. Exact patrol
   remains compatible with a non-patrol defensive response. When order selection
@@ -1505,7 +1513,7 @@ Baseline acceptance:
 | 15 | Garage and vehicle persistence | In progress - broad-alpha scaffold exists |
 | 16 | Recruitment, training, and garrisons | In progress - recruitment/garrison foundation exists |
 | 17 | Zone capture and ownership | In progress - Schema-62 canonical all-cause ownership and Schema-63 shared crew-aware capture pressure/heat are sealed in source/Workbench, with Foundation and explicit Workbench validation passed but runtime proof pending; broader encounter/town-truth depth remains |
-| 18 | Enemy commander physical responses | In progress - exact defensive QRF/patrol operations remain narrow; sealed Schema 67 canonicalizes resources/aggression, while sealed Schema 68 persists the per-enemy planner. The current sealed source/Workbench correction repairs fresh bootstrap, exact known-state recovery, and warning pacing. Immediate/debug/direct orders remain contract `0`; runtime-prove this correction before widening the planner. |
+| 18 | Enemy commander physical responses | In progress - exact defensive QRF/patrol operations remain narrow; sealed Schema 67 canonicalizes resources/aggression, while the latest sealed Schema 68 checkpoint persists the per-enemy planner, filters commitment roots, reranks duplicate patrols, freezes preparation, and revalidates admission before debit. It retains fresh-bootstrap, exact known-state recovery, and warning-pacing repairs. Immediate/debug/direct orders remain contract `0`; execute the sealed assertions and runtime-prove the checkpoint before widening the planner. |
 | 19 | Support requests | In progress - exact player infantry-QRF strategic projection; broad legacy supports remain |
 | 20 | Civilians, town support, and undercover reports | In progress - Settings 24 supplies ambient budgets; sealed Schema 65 adds exact consequences/panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security roster authority and zero resistance automatic police/roadblocks. Campaign Debug, packaged native behavior, save/restart, marker input, and ten-town soak remain open. |
 | 21 | Undercover enforcement and police/roadblocks | In progress - scan enforcement remains broad alpha; Schema 66 now owns exact enemy-town patrol casualties/fold/rearm, while native encounters and balance remain unproven |
@@ -3095,7 +3103,7 @@ exist. Schema 51 makes newly planned infantry-only defensive QRF the first exact
 enemy-order cutover: one frozen prepaid roster travels outbound, materializes or
 folds with exact survivors, applies defensive pressure once, returns to origin,
 and settles proportional survivor resources once. Existing rows and every other
-enemy order remain on their legacy paths. The active Schema-68 source follow-on
+enemy order remain on their legacy paths. The sealed Schema-68 checkpoint
 filters and ranks targets against canonical commitment roots, keeps exact patrol
 compatible with a defensive response, and reranks another target in the same due
 decision when patrol would duplicate patrol. Mixed roots use blocking precedence,

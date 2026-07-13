@@ -842,8 +842,8 @@ Consequences:
 
 ## CRI-016 - Persist Enemy Planning Without Taking Over Resource Truth
 
-- Status: Accepted; sealed Schema 68 authority with a schema-neutral
-  commitment-aware correction in current source
+- Status: Accepted; sealed Schema 68 authority with a schema-neutral,
+  commitment-aware source/Workbench correction
 - Date: 2026-07-12
 
 Context: Sealed Schema 67 makes enemy resources, aggression, cadence, and
@@ -934,15 +934,23 @@ Consequences:
   inputs. An older unpressured prepared row can fail closed at admission when
   its prior candidate identity no longer recomputes; no migration invents a new
   target or rewrites its decision.
-- Current evidence for this correction is source implementation, a passing
-  Foundation gate, and a clean Workbench Game compile. The expanded source proof
-  covers queued order/support blockers, settled or terminal operation and rival-
-  faction ignores, canonical/legacy zone equivalence, mixed-root blocking
-  precedence, permutation-stable rejection diagnostics, deterministic patrol
-  fallback, all-committed skip, and unpressured plus pressure-marked commitment
-  races. Its assertions are wired but have not run in Campaign Debug. Package,
-  restart, dedicated-server, multiplayer, and soak proof remain open.
-- Schema 68/settings 24 is sealed at implementation
+- The commitment-aware correction is sealed at implementation
+  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+  `2026-07-13T14:44:37Z`, label
+  `schema68-settings24-commitment-aware-enemy-planning`, and Foundation 751.
+  Final stamped-tree all-target Workbench log
+  `logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes with CRC
+  `e483e71c`, validates WORKBENCH, PC, XBOX, PS4, and PS5 successfully, exits,
+  and leaves zero Workbench processes. The expanded source proof covers queued
+  order/support blockers, settled or terminal operation and rival-faction
+  ignores, canonical/legacy zone equivalence, mixed-root blocking precedence,
+  permutation-stable rejection diagnostics, deterministic patrol fallback,
+  all-committed skip, and unpressured plus pressure-marked commitment races. Its
+  assertions are wired but have not run in Campaign Debug. Package execution,
+  save/restart, dedicated and live-server behavior, multiplayer, and soak proof
+  remain open.
+- The base Schema 68/settings 24 planning-authority checkpoint is sealed at
+  implementation
   `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
   `2026-07-13T01:04:41Z`, label
   `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench
@@ -952,7 +960,8 @@ Consequences:
   surviving Workbench processes. Its state-only assertions are wired but not
   executed in Campaign Debug; native restart, package, dedicated-server,
   multiplayer, and soak evidence remains open.
-- Schema 67/settings 24 is the immediately preceding sealed checkpoint at implementation
+- Schema 67/settings 24 is the resource-authority checkpoint immediately
+  preceding that base planning seal at implementation
   `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
   `2026-07-12T23:46:02Z`, label
   `schema67-settings24-enemy-strategic-resource-authority`, Foundation 736, and

@@ -2,16 +2,16 @@
 
 The latest sealed source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 at implementation
-`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
-`2026-07-13T13:19:22Z`, label
-`schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`. The latest packaged
 `f97b12e` baseline generated canonical `$profile:Partisan` data and then exposed
 missing fresh enemy authority: both configured roles quarantined at `-67`/`-68`,
 planning stopped, and 598
 unchanged warnings repeated at roughly one-second cadence. That run contained no
 retired profile tree, so it did not test migration.
 
-Current source uses one production bootstrap factory for startup, admin reset,
+The sealed tree retains one production bootstrap factory for startup, admin reset,
 and proof, installing exactly three role pools and two idle enemy planners before
 restored validation. Unrelated restore corruption remains fail-closed. Recovery
 requires that exact non-null topology, exact nonempty preset identity, empty
@@ -30,13 +30,13 @@ exclusive lock. The destructive Campaign Debug marker probe performs final
 production repair and player-marker cleanup before returning. Foundation and
 all-target Workbench validation pass. Foundation reports 751 script-symbol
 references. Final stamped-tree all-target Workbench log
-`logs_2026-07-13_09-20-51` compiles 5,815 Game files/11,768 classes at CRC
-`0544aa1d`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+`logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
+`e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
 successful`, the process exited, and zero Workbench processes survived cleanup.
-Campaign Debug, package execution, packaged restart/migration, multiplayer, and
-soak proof remain open.
+Campaign Debug, package execution, packaged restart/migration, dedicated/live-
+server, multiplayer, and soak proof remain open.
 
-An active Schema-68 follow-on source slice makes periodic target selection
+The same sealed Schema-68 checkpoint makes periodic target selection
 commitment-aware. Same-faction queued/active order and support rows plus open
 operation rows collapse to canonical roots. Incompatible roots are rejected
 before ranking; compatible roots carry a deterministic `-12` score each, capped
@@ -56,12 +56,16 @@ Three deterministic source cases and matching Campaign Debug assertions cover
 these expanded branches but have not executed; packaged restart and live-server
 proof remain open.
 
-The immediately preceding sealed source/Workbench contract is Campaign Schema
-68/runtime-settings Schema 24 under implementation
-`356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
+The immediately preceding sealed source/Workbench contract is the Schema-68/
+settings-24 bootstrap/profile/marker correction at implementation
+`fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+`2026-07-13T13:19:22Z`, label
+`schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
+Workbench CRC `0544aa1d`. The earlier Schema-68 planning-authority checkpoint is
+implementation `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
 `2026-07-13T01:04:41Z`, label
 `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
-`971d30d0`. The earlier Schema-67 resource seal is implementation
+`971d30d0`. The Schema-67 resource seal is implementation
 `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
 `2026-07-12T23:46:02Z`, and label
 `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -771,8 +775,8 @@ Debug and packaged-runtime gates remain open.
   resolution timer. Schema 53 routes only newly queued patrols through a separate
   type-plus-version exact owner with one proactive debit, one frozen infantry
   root, generated-route loop/return, contact hold, fold/reprojection, and exact
-  survivor settlement. Historical patrols remain legacy. The active Schema-68
-  follow-on filters periodic target candidates against canonical commitment
+  survivor settlement. Historical patrols remain legacy. The sealed Schema-68
+  checkpoint filters periodic target candidates against canonical commitment
   roots before ranking. Linked order/support/operation rows count once;
   incompatible roots exclude the target while compatible roots apply a capped
   deterministic penalty. Blocking wins when mixed rows share a root. Queued and
@@ -860,7 +864,7 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Verification Boundary
 
-- The active unsealed Schema-68 follow-on adds commitment-aware target
+- The latest sealed Schema-68 source/Workbench checkpoint adds commitment-aware target
   filtering/ranking, canonical root collapse, capped compatible-root penalties,
   blocking precedence for mixed roots, same-decision duplicate-patrol rerank,
   stable multi-reject diagnostics, freeze-only preparation, and commitment
@@ -870,23 +874,28 @@ Debug and packaged-runtime gates remain open.
   `enemy_planning.all_committed_skip`, and
   `enemy_planning.commitment_race_rejection`. None has executed in Campaign
   Debug, a packaged restart, or a live server.
-- Campaign Schema 68/runtime-settings 24 is current. The latest sealed source/Workbench
-  bootstrap/profile/marker correction is sealed at implementation
-  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
-  `2026-07-13T13:19:22Z`, label
-  `schema68-settings24-bootstrap-profile-marker-hardening`. The latest package
+- Campaign Schema 68/runtime-settings 24 is current. The commitment-aware
+  source/Workbench checkpoint is sealed at implementation
+  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+  `2026-07-13T14:44:37Z`, label
+  `schema68-settings24-commitment-aware-enemy-planning`. The latest package
   proved canonical-root generation, exposed fresh `-67`/`-68` authority plus 598
   repeated warnings, and had no retired tree. Current shared bootstrap, exact
   recovery/rejection, production-resolver live observation, 300-second warning
-  pacing, staged verified profile migration, and marker-integrity cleanup pass
+  pacing, staged verified profile migration, marker-integrity cleanup, and
+  commitment-aware planning pass
   Foundation 751 and final stamped-tree all-target Workbench validation at CRC
-  `0544aa1d`. Campaign Debug, package execution, packaged restart/migration,
+  `e483e71c`. Campaign Debug, package execution, packaged restart/migration,
   multiplayer, and soak remain open before runtime certification.
-- The immediately preceding sealed source/Workbench tree is Campaign Schema 68/
-  runtime-settings 24 under implementation
+- The immediately preceding sealed source/Workbench tree is the Schema-68/
+  settings-24 bootstrap/profile/marker correction under implementation
+  `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
+  `2026-07-13T13:19:22Z`, label
+  `schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
+  CRC `0544aa1d`. The earlier Schema-68 planning-authority tree is implementation
   `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, label
   `schema68-settings24-enemy-planning-authority`, Foundation 744, and CRC
-  `971d30d0`. The earlier Schema-67 resource tree is
+  `971d30d0`. The Schema-67 resource tree is
   implementation `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC
   `2026-07-12T23:46:02Z`, and label
   `schema67-settings24-enemy-strategic-resource-authority`. Foundation passes at
@@ -1339,7 +1348,7 @@ Debug and packaged-runtime gates remain open.
 - Continue the implementation blueprint in dependency order. The sealed source/
   Workbench Schema 68 correction shares fresh bootstrap, exact-gates known-state
   recovery, adds production-resolver live observation, and corrects warning
-  pacing. The active follow-on makes periodic target choice commitment-aware,
+  pacing. The latest sealed checkpoint makes periodic target choice commitment-aware,
   reranks duplicate patrols inside the same due decision, applies blocking
   precedence to mixed roots, freezes before side effects, and revalidates
   pressure-marked retry before debit, while leaving immediate/debug/direct paths
@@ -1351,8 +1360,8 @@ Debug and packaged-runtime gates remain open.
 
 ## Next Playable Expansion
 
-- First validate and seal the active commitment-aware follow-on, execute its
-  three new Campaign Debug assertions with every expanded rerank/filter/
+- First execute the sealed commitment-aware checkpoint's three new Campaign
+  Debug assertions with every expanded rerank/filter/
   precedence/diagnostic/retry branch, then package-prove fresh/
   affected-save authority, single-writer whole-tree profile migration, marker
   integrity, commitment admission across restart, and live-server behavior.

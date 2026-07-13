@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "fdf262637e74a70c12454f6c1d3789c2cd0a0f05";
-	static const string BUILD_UTC = "2026-07-13T13:19:22Z";
-	static const string BUILD_LABEL = "schema68-settings24-bootstrap-profile-marker-hardening";
+	static const string BUILD_SHA = "695caf46ce6b4146e5407711b76d5e0c578d7392";
+	static const string BUILD_UTC = "2026-07-13T14:44:37Z";
+	static const string BUILD_LABEL = "schema68-settings24-commitment-aware-enemy-planning";
 
 	static string BuildSummary()
 	{

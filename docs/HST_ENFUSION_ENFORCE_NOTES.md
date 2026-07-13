@@ -2,44 +2,49 @@
 
 The current source/Workbench checkpoint remains Campaign Schema 68/runtime-
 settings Schema 24 and is sealed at implementation
+`695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`. It makes target admission
+commitment-aware without changing either schema. Same-faction queued/active
+orders and support plus open nonterminal operations participate in eligibility
+before weighted ranking. Linked order/support/operation rows collapse to one
+stable commitment root with conservative blocking precedence; incompatible
+roots reject the target, while compatible roots remain candidates with a
+deterministic penalty. If an exact-patrol candidate later resolves to a duplicate
+patrol, preparation excludes it and deterministically reranks instead of wasting
+the cadence. Preparation is freeze-only, and admission rechecks commitment,
+candidate, and active-order identity before target pressure or strategic debit;
+the commitment check also protects pressure-marked retries before debit. The
+production duplicate-patrol proof wires force planning, exact patrol authority,
+and a three-waypoint fallback route before invoking preparation. Foundation
+passes at 751 script-symbol references. Final stamped-tree all-target Workbench
+log `logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
+`e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+successful`, and zero Workbench processes survived cleanup. The three commitment-
+aware Campaign Debug assertions remain unexecuted. Campaign Debug, packaged
+execution, restart, dedicated-server, live-server, multiplayer, and soak proof
+remain open.
+
+The immediately preceding sealed source/Workbench checkpoint is the Schema-68/
+Settings-24 bootstrap/profile/marker correction at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
 `schema68-settings24-bootstrap-profile-marker-hardening`. The latest packaged
 `f97b12e` run created canonical `$profile:Partisan` data, had no retired tree to
 migrate, and exposed fresh enemy authority quarantined at `-67`/`-68` with 598
-repeated one-second warnings.
-Current source corrects fresh fallback ordering, limits recovery to the complete
-known generated signature, applies a 300-second unchanged-warning reminder,
-observes live enemy authority through production exact resolvers, moves the whole
-retired profile tree through verified staging/conflict archival, and wires a
-destructive campaign-marker self-heal/player-marker isolation probe with final
-repair/cleanup. Foundation passes at 751 script-symbol references. Final stamped-
-tree all-target Workbench log `logs_2026-07-13_09-20-51` compiles 5,815 Game
-files/11,768 classes at CRC `0544aa1d`; WORKBENCH, PC, XBOX, PS4, and PS5
-report `Script validation successful`, the process exited, and zero Workbench
-processes survived cleanup. Campaign Debug, package execution, packaged restart/
-migration, dedicated-server, multiplayer, and soak evidence remain open.
-
-The current unsealed Schema-68 planning delta makes target admission commitment-
-aware without changing campaign or runtime-settings schema. Same-faction queued/
-active orders and support plus open nonterminal operations now participate in
-target eligibility before weighted ranking. Linked order/support/operation rows
-collapse to one stable commitment root with conservative blocking precedence;
-incompatible roots reject the target, while compatible roots remain candidates
-with a deterministic penalty. If an exact-patrol candidate later resolves to a
-duplicate patrol, preparation excludes it and deterministically reranks instead
-of wasting the cadence. Preparation is freeze-only, and admission rechecks
-commitment, candidate, and active-order identity before target pressure or
-strategic debit; the commitment check also protects pressure-marked retries
-before debit. The production duplicate-patrol proof now wires force planning,
-the exact patrol authority, and a three-waypoint fallback route before invoking
-preparation. Foundation passes at 751 script-symbol references. All-target
-Workbench log `logs_2026-07-13_10-42-09` compiles 5,815 Game files/11,768
-classes at CRC `97dca671`.
-Campaign Debug, packaged execution, restart, and live-server proof for this delta
+repeated one-second warnings. That sealed source corrects fresh fallback
+ordering, limits recovery to the complete known generated signature, applies a
+300-second unchanged-warning reminder, observes live enemy authority through
+production exact resolvers, moves the whole retired profile tree through
+verified staging/conflict archival, and wires a destructive campaign-marker
+self-heal/player-marker isolation probe with final repair/cleanup. Its stamped-
+tree all-target Workbench log `logs_2026-07-13_09-20-51` compiled 5,815 Game
+files/11,768 classes at CRC `0544aa1d`; all five targets validated and zero
+Workbench processes survived cleanup. Campaign Debug, package execution,
+packaged restart/migration, dedicated-server, multiplayer, and soak evidence
 remain open.
 
-The immediately preceding sealed source/Workbench checkpoint is Campaign Schema
+The earlier sealed enemy-planning authority checkpoint is Campaign Schema
 68/runtime-settings Schema 24 under implementation
 `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
 `2026-07-13T01:04:41Z`, label
@@ -65,7 +70,7 @@ Debug. Persisted per-enemy planning cadence and a frozen decision fingerprint
 are not part of that seal; they are the sealed Schema-68 slice above.
 Every Blueprint Phase 8 runtime gate remains open.
 
-The immediately preceding sealed source/Workbench checkpoint is Campaign Schema 66 while runtime settings
+An earlier sealed source/Workbench checkpoint is Campaign Schema 66 while runtime settings
 remains Schema 24. The sealed Schema-66 stamp identifies implementation
 `a7031797e67d99a99a066038cd8fa39efc03cff1`, UTC
 `2026-07-12T20:28:33Z`, and label

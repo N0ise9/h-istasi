@@ -3,33 +3,43 @@
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` remains `68` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The schema-neutral profile-
-tree movement and known Schema-68 bootstrap correction are sealed as a source/
-Workbench checkpoint at implementation
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The schema-neutral,
+commitment-aware planning correction is sealed as a source/Workbench checkpoint
+at implementation `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+`2026-07-13T14:44:37Z`, label
+`schema68-settings24-commitment-aware-enemy-planning`. Foundation passes at 751
+script-symbol references. Final stamped-tree all-target Workbench log
+`logs_2026-07-13_10-45-27` compiles 5,815 Game files/11,768 classes at CRC
+`e483e71c`; WORKBENCH, PC, XBOX, PS4, and PS5 report `Script validation
+successful`, the process exited, and zero Workbench processes survived cleanup.
+Campaign Debug, package execution, actual migration/save/restart, dedicated and
+live-server behavior, multiplayer, and soak proof remain open.
+
+The immediately preceding schema-neutral profile-tree movement and known
+Schema-68 bootstrap correction are sealed at implementation
 `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, UTC
 `2026-07-13T13:19:22Z`, label
-`schema68-settings24-bootstrap-profile-marker-hardening`.
+`schema68-settings24-bootstrap-profile-marker-hardening`, Foundation 751, and
+final stamped-tree all-target Workbench CRC `0544aa1d`.
 
 The latest packaged `f97b12e` test created canonical `$profile:Partisan` settings
 and campaign data but contained no retired profile tree, so recursive migration
 was not exercised. It also wrote a fresh save whose configured strategic pools
 and planner rows were quarantined at `-67`/`-68`; 598 unchanged warnings followed
-at roughly one-second cadence. Current source routes startup, admin reset, and
-fresh-state proof through one production bootstrap factory. Signature-gated
-recovery requires the exact nonempty preset identity, exactly three non-null role
+at roughly one-second cadence. The sealed bootstrap correction routes startup,
+admin reset, and fresh-state proof through one production bootstrap factory.
+Signature-gated recovery requires the exact nonempty preset identity, exactly
+three non-null role
 pools, exactly two poisoned enemy planner rows, and empty strategic-mutation and
 enemy-order arrays; resource, topology, preset, null-row, legacy-order,
 versioned-order, and every other near miss stay fail-closed and unchanged.
 Unchanged warnings use 300-second reminders, and live
 Campaign Debug observes authority through the read-only production exact
-resolvers. Foundation passes at 751 script-symbol references. Final stamped-tree
-all-target Workbench log `logs_2026-07-13_09-20-51` compiles 5,815 Game files/
-11,768 classes at CRC `0544aa1d`; WORKBENCH, PC, XBOX, PS4, and PS5 report
-`Script validation successful`, the process exited, and zero Workbench processes
-survived cleanup. Campaign Debug, package execution, packaged restart, actual
+resolvers. Its Campaign Debug, package execution, packaged restart, actual
 migration, multiplayer, and soak proof remain open.
 
-Current source also adds a schema-neutral commitment-aware planning correction.
+The current sealed checkpoint adds a schema-neutral commitment-aware planning
+correction.
 Queued/active same-faction orders and support requests and open same-faction
 operations now affect target admission and ranking. Linked rows collapse to one
 root commitment; incompatible roots reject the target before ranking, while
@@ -41,12 +51,13 @@ changing the full candidate fingerprint. Mixed compatible/blocking rows sharing
 one root resolve once with blocking precedence. Preparation is freeze-only;
 admission rechecks commitments before debit even on a pressure-marked retry, and
 rechecks `ept2` candidate identity before pressure for an unpressured row.
-Source implementation, a passing Foundation gate, and clean Workbench
-compilation are the only evidence for this correction so far; Campaign Debug,
-package, restart, and runtime proof remain open.
+This correction is sealed only as source, Foundation, and all-target Workbench
+evidence at the identity and CRC above. Campaign Debug, package execution,
+save/restart, dedicated and live-server behavior, multiplayer, and soak proof
+remain open.
 
-Schema 68/settings 24 enemy planning is the immediately preceding sealed source/
-Workbench checkpoint at implementation
+The base Schema 68/settings 24 enemy-planning authority is an earlier sealed
+source/Workbench checkpoint at implementation
 `356b0d47f96111c3b09eb7ede3cb34f0661c2b6e`, UTC
 `2026-07-13T01:04:41Z`, label
 `schema68-settings24-enemy-planning-authority`, Foundation 744, and Workbench CRC
@@ -205,7 +216,15 @@ evidence remains open.
   profile/marker correction is sealed at implementation
   `fdf262637e74a70c12454f6c1d3789c2cd0a0f05`, Foundation 751, and final
   stamped-tree all-target Workbench CRC `0544aa1d`; `f97b12e` remains its prior
-  packaged failure baseline. Schema 67 remains the preceding resource authority
+  packaged failure baseline. The current schema-neutral commitment-aware
+  correction is sealed at implementation
+  `695caf46ce6b4146e5407711b76d5e0c578d7392`, UTC
+  `2026-07-13T14:44:37Z`, label
+  `schema68-settings24-commitment-aware-enemy-planning`, Foundation 751, and
+  final stamped-tree all-target Workbench log `logs_2026-07-13_10-45-27` at
+  5,815 Game files/11,768 classes with CRC `e483e71c`. Campaign Debug, package
+  execution, save/restart, dedicated and live-server behavior, multiplayer, and
+  soak proof remain open. Schema 67 remains the preceding resource authority
   recorded below.
 - Each configured enemy role owns exactly one separate
   `HST_EnemyPlanningState`. The row persists its own 180-second cadence,
