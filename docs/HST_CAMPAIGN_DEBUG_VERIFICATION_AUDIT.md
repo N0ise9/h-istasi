@@ -22,15 +22,59 @@ Enforce error. The correction moves that state into
 report construction to small helpers. This is a source-shape/compiler-pressure
 fix; it does not weaken any assertion or remove the clock-isolation proof.
 
-The exact current tree passes Foundation at 793 script-symbol references.
+The crash-fix checkpoint passes Foundation at 793 script-symbol references.
 Workbench log `logs_2026-07-14_06-12-02` compiles 5,826 Game files/11,807
 classes at CRC `287d01ec`, creates and destroys the game cleanly, and leaves
 zero processes. Cold-open log `logs_2026-07-14_06-12-43` compiles the same CRC,
 remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
-after deliberate closure. This proves current source contracts, Game compile,
-and bounded Workbench startup only. The R10 result below is the matching
-in-process runtime proof; package, process-restart, network, and soak gates remain
-separate.
+after deliberate closure.
+
+The subsequent disposable-radio-fixture source also passes fresh headless
+Workbench validation: 5,826 Game files/11,807 classes, 46,633K static storage,
+CRC `39bd6d90`, and `Script validation successful`, with no Workbench or game
+process left open. This proves source contracts and Game script validation only.
+R10 predates the fixture, so an R11 Full Campaign Debug run is still required;
+package, process-restart, network, and soak gates remain separate.
+
+## Current Disposable Radio Lifecycle Fixture Boundary
+
+R10 found all 18 radio sites ONLINE. That made `destroy_radio_tower`
+immediately admissible but left `dynamic_stop_tower_rebuild` without a legal
+target: production correctly requires DESTROYED state, a destruction receipt,
+and no stop-rebuild receipt for the same destruction epoch. The production
+admission rule remains unchanged. Campaign Debug preflight now accepts a target
+mission only when it has either an immediate compatible zone or an exact
+lifecycle prerequisite that the ordered mission sweep can reach.
+
+Immediately before the exact destroy-radio sweep case, the isolated runner asks
+the radio-site lifecycle service to place one disposable supported transmitter
+at a dry, separated position. The service inserts one debug-prefixed radio zone
+and one exact ONLINE site into the disposable campaign-state clone, binds the
+transmitter as `BORROWED_WORLD`, and verifies normal destroy admission. This
+keeps production's borrowed-target physical-evidence contract while ensuring
+that the one-button suite never damages an authored map transmitter. Exact radio
+target selection is fixture-only during isolation and fails closed when the
+fixture is absent or in the wrong lifecycle state; other mission families skip
+the fixture, and normal zone activation cannot create a second composition
+there.
+
+The destroy primitive requests engine damage on that exact transmitter, verifies
+the native `DESTROYED` state, and only then submits the normal server asset-
+destroyed callback. Its assertions require mission success, the deterministic
+destruction receipt, one DESTROYED epoch, preserved borrowed provenance, cleared
+lock, exact rewards, and newly legal stop-rebuild admission. The following
+stop-rebuild case targets production-generated construction equipment through
+the normal explosive-damage request. It requires a return to DESTROYED with the
+same destruction epoch, one deterministic rebuild-attempt receipt, cleared lock,
+exact rewards, and rejection of a second attempt in that epoch.
+
+The lifecycle service owns explicit disposal of the temporary transmitter and
+projection. Prefix cleanup now counts and removes debug radio-site rows as well
+as their zone and mission records, and state restoration releases the fixture
+before publishing the live campaign state. These are compiled proof paths, not
+runtime results. R11 must execute both radio cases and prove the physical state,
+normal callbacks, receipts, rewards, one-attempt rule, zero fixture residue, and
+an exact final state diff before this gap can be closed.
 
 ## Current Campaign Debug Isolation And Cleanup Boundary
 

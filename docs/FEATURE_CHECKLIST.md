@@ -53,16 +53,29 @@ The current source boundary includes:
   already-large coordinator method's local-variable pressure after the same
   source shape reproduced a native Workbench `0xc0000374` failure before Game
   script diagnostics.
+- The mission sweep now stages one disposable, debug-prefixed radio zone/site
+  and supported transmitter inside its isolated state clone. Exact radio target
+  selection cannot fall back to an authored tower. The ordered destroy and
+  stop-rebuild cases use the normal physical callbacks, preserve production
+  admission, assert receipts/epoch/rewards/one-attempt authority, and explicitly
+  remove the temporary projection, transmitter, and radio-site row before live
+  state restoration.
 
-The exact current tree passes Foundation with 793 script-symbol references,
+The crash-fix checkpoint passes Foundation with 793 script-symbol references,
 compiles and completes Workbench create/destroy at 5,826 Game files/11,807
 classes with CRC `287d01ec`, and remained alive at the 8-, 16-, and 24-second
-cold-open checks before deliberate shutdown. Completed R10 Full Campaign Debug
-evidence remains uncertified, but it proves an exact-zero final state diff, all
-five Phase 18 cases, Phase 20 clock/fingerprint isolation, the targeted Phase 22
-identity/strategic/RUN paths, Phase 24, and typed order cleanup. One Phase 20
-town behavior/authority case and the 11-live/10-restored persistence mismatch
-remain open alongside the wider runtime backlog. The
+cold-open checks before deliberate shutdown. The later disposable-radio-fixture
+source passes fresh headless Workbench script validation at the same file/class
+counts, 46,634K static storage, CRC `39bd6d90`, with a clean
+`Script validation successful` result and no surviving Workbench/game process.
+Completed R10 Full
+Campaign Debug evidence remains uncertified and predates that fixture, but it
+proves an exact-zero final state diff, all five Phase 18 cases, Phase 20 clock/
+fingerprint isolation, the targeted Phase 22 identity/strategic/RUN paths,
+Phase 24, and typed order cleanup. R11 must execute the disposable destroy ->
+stop-rebuild chain and cleanup. One Phase 20 town behavior/authority case and
+the 11-live/10-restored persistence mismatch remain open alongside the wider
+runtime backlog. The
 [Campaign Debug verification audit](HST_CAMPAIGN_DEBUG_VERIFICATION_AUDIT.md)
 owns run counts, log identities, and the remaining failure buckets; this
 checklist records contracts and open gates rather than duplicating a rolling
@@ -780,7 +793,7 @@ projections of campaign state and must be restorable, foldable, or disposable.
 | Feature | Target behavior | Current status | Gap / next work | Priority |
 | --- | --- | --- | --- | --- |
 | Category mission selection | Commander chooses mission category; mission and valid target are selected server-side. | Broad Alpha | Gun Shop is now a rarer dynamic candidate; continue tuning category candidate rules and player-facing disabled reasons. | High |
-| Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, support, and gun-shop primitives have physical action paths. | Broad Alpha / Exact convoy, guards, first rescue, and radio lifecycle implemented in source | Schema 59 gives radio destruction/rebuild one exact physical-evidence path and separate rebuild equipment while preserving the Schema-58 rescue contract. Borrowed destruction requires reciprocal lock/revision plus authoritative tracked damage state; generated explosive scoring also requires a live mission component, bounded position, mission-time ownership provenance, and one unique key in the persisted bounded evidence set. Generic objective ticks and commander progress are fenced out. Native/packaged behavior remains open. | Highest |
+| Mission runtime primitives | HVT, destroy, hold/clear, rescue, cargo, convoy, support, and gun-shop primitives have physical action paths. | Broad Alpha / Exact convoy, guards, first rescue, and radio lifecycle implemented in source | Schema 59 gives radio destruction/rebuild one exact physical-evidence path and separate rebuild equipment while preserving the Schema-58 rescue contract. Campaign Debug now stages one isolated disposable borrowed-path transmitter, drives its destruction through native damage plus the normal server callback, then drives the generated stop-rebuild equipment through the normal explosive callback without weakening admission or touching an authored tower. It asserts receipts, epoch continuity, exact rewards, one-attempt enforcement, and explicit fixture cleanup. Fresh Workbench validation passes; R11 and packaged/native behavior remain open. | Highest |
 | Mission persistence | Active missions, objectives, assets, runtime entities, and markers survive restart. | Broad Alpha / Needs Soak | Schema 59 adds no-invention radio migration, stable-site versus unique per-mission runtime identities, immutable authored provenance, typed transition/revision/receipt validation, generated-ONLINE destruction-plus-rebuild provenance, one rebuild-stop attempt per destruction epoch, ownership handoff, explicit borrowed projection-pending state, and linked `-59` quarantine cleanup that preserves coherent historical terminal outcomes. New-campaign reset verifies authored-target healing or rolls back/fails closed. Real restart must cover borrowed ONLINE, DESTROYED damage reapplication, REBUILDING equipment, generated replacement, exact outcomes, marker/UI recovery, and the existing rescue matrix. | Highest |
 | Strategic mission effects | Missions affect money, HR, town support, aggression, HQ knowledge, enemy pools, and unlocks. | Broad Alpha | Mission success/failure, mission expiry, convoy outcomes, resistance zone captures, hostile support resolved near HQ, vehicle reports, town influence, radio broadcasts, and security pressure now record durable compact strategic-event rows; next route more mission-family consequences through the same ledger. | High |
 | Mission reports | Reports explain active objective, target, assets, runtime phase, and failure blockers. | Implemented Foundation | Missions-tab active rows are compact one-row summaries; keep detailed inspection in mission reports and expand per-family detail as missions get unique content. | Keep |
@@ -972,8 +985,14 @@ projections of campaign state and must be restorable, foldable, or disposable.
     newly started `rescue_pows`. Runtime-prove its three POW projections,
     vehicle seats, fold/re-entry, death/success/grace outcomes, restart,
     rendered UI, reconnect, and JIP before opting in another rescue family.
-16. Runtime-prove Schema 59 radio-site authority: one authored binding with no
-    duplicate, physical destroy success, influence removal before income,
+16. Run R11 first and prove the disposable Full Campaign Debug radio chain:
+    fixture-only selection, physical transmitter destruction, the normal
+    destroyed callback, destruction receipt, stop-rebuild admission, generated
+    equipment explosive evidence, the rebuild-attempt receipt, unchanged epoch,
+    second-attempt rejection, exact rewards, and zero fixture residue in both
+    world and restored state. Then runtime-prove Schema 59 radio-site authority
+    against packaged authored content: one authored binding with no duplicate,
+    physical destroy success, influence removal before income,
     destroyed-state restart/streaming reapplication, stop-rebuild equipment,
     exactly one stop attempt per tower-destruction epoch, no epoch advance when
     that equipment is destroyed, ownership-specific evidence and durable dedupe checks,

@@ -4965,12 +4965,14 @@ $campaignDebugPrefixedCleanupBlock = Get-ScriptMethodBlock $scriptText 'protecte
 foreach ($campaignDebugPrefixedZoneCleanupEntry in @(
 	'RemoveCampaignDebugPrefixedGarrisons(prefix)',
 	'RemoveCampaignDebugPrefixedCivilianZones(prefix)',
+	'RemoveCampaignDebugPrefixedRadioSites(prefix)',
 	'RemoveCampaignDebugPrefixedZones(prefix)',
 	'RemoveCampaignDebugPrefixedMarkers(prefix)',
 	'cleanup.prefixed.garrisons_removed',
 	'cleanup.prefixed.civilian_zones_removed',
+	'cleanup.prefixed.radio_sites_removed',
 	'cleanup.prefixed.zones_removed',
-	'zoneCount + defendPetrosCount'
+	'zoneCount + radioSiteCount + defendPetrosCount'
 )) {
 	if ([string]::IsNullOrEmpty($campaignDebugPrefixedCleanupBlock) -or
 		$campaignDebugPrefixedCleanupBlock.IndexOf($campaignDebugPrefixedZoneCleanupEntry) -lt 0) {
@@ -4979,17 +4981,20 @@ foreach ($campaignDebugPrefixedZoneCleanupEntry in @(
 }
 $campaignDebugPrefixedGarrisonCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedGarrisons(prefix)')
 $campaignDebugPrefixedCivilianZoneCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedCivilianZones(prefix)')
+$campaignDebugPrefixedRadioSiteCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedRadioSites(prefix)')
 $campaignDebugPrefixedZoneCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedZones(prefix)')
 $campaignDebugPrefixedMarkerCleanupIndex = $campaignDebugPrefixedCleanupBlock.IndexOf('RemoveCampaignDebugPrefixedMarkers(prefix)')
 if ($campaignDebugPrefixedCivilianZoneCleanupIndex -le $campaignDebugPrefixedGarrisonCleanupIndex -or
-	$campaignDebugPrefixedZoneCleanupIndex -le $campaignDebugPrefixedCivilianZoneCleanupIndex -or
+	$campaignDebugPrefixedRadioSiteCleanupIndex -le $campaignDebugPrefixedCivilianZoneCleanupIndex -or
+	$campaignDebugPrefixedZoneCleanupIndex -le $campaignDebugPrefixedRadioSiteCleanupIndex -or
 	$campaignDebugPrefixedMarkerCleanupIndex -le $campaignDebugPrefixedZoneCleanupIndex) {
-	throw "Campaign debug prefixed cleanup must remove garrison/civilian dependents, then zones, then rebuild their derived marker rows"
+	throw "Campaign debug prefixed cleanup must remove garrison/civilian/radio dependents, then zones, then rebuild their derived marker rows"
 }
 $campaignDebugPrefixedCountBlock = Get-ScriptMethodBlock $scriptText 'protected int CountCampaignDebugPrefixedStateRecords('
 foreach ($campaignDebugPrefixedZoneCountEntry in @(
 	'CampaignDebugGarrisonMatchesPrefix(garrison, prefix)',
 	'CampaignDebugCivilianZoneMatchesPrefix(civilianZone, prefix)',
+	'CampaignDebugRadioSiteMatchesPrefix(radioSite, prefix)',
 	'CampaignDebugZoneMatchesPrefix(zone, prefix)'
 )) {
 	if ([string]::IsNullOrEmpty($campaignDebugPrefixedCountBlock) -or
@@ -22095,6 +22100,13 @@ foreach ($schema62ScriptFile in Get-ChildItem -Path "Scripts/Game/HST" -Recurse 
 	$schema62MethodMatches = [regex]::Matches($schema62ScriptText, $schema62MethodPattern)
 	foreach ($schema62OwnerAssignment in $schema62OwnerAssignments) {
 		$schema62ApprovedOwnerWrite = $false
+		$schema62EnclosingMethod = ""
+		foreach ($schema62MethodMatch in $schema62MethodMatches) {
+			if ($schema62MethodMatch.Index -gt $schema62OwnerAssignment.Index) {
+				break
+			}
+			$schema62EnclosingMethod = $schema62MethodMatch.Groups[1].Value
+		}
 		if ($schema62ScriptFile.Name -eq "HST_DefaultCatalog.c" -or
 			$schema62ScriptFile.Name -match 'ProofService\.c$' -or
 			$schema62ScriptFile.Name -match 'SmokeTestService\.c$') {
@@ -22104,14 +22116,12 @@ foreach ($schema62ScriptFile in Get-ChildItem -Path "Scripts/Game/HST" -Recurse 
 			$schema62OwnerAssignment.Value.Trim() -eq 'zone.m_sOwnerFactionKey = transition.m_sNewOwnerFactionKey;') {
 			$schema62ApprovedOwnerWrite = $true
 		}
+		elseif ($schema62ScriptFile.Name -eq "HST_RadioSiteLifecycleService.c" -and
+			$schema62EnclosingMethod -eq "PrepareCampaignDebugLifecycleFixture" -and
+			$schema62OwnerAssignment.Value.Trim() -eq 'zone.m_sOwnerFactionKey = ownerFactionKey;') {
+			$schema62ApprovedOwnerWrite = $true
+		}
 		elseif ($schema62ScriptFile.Name -eq "HST_CampaignCoordinatorComponent.c") {
-			$schema62EnclosingMethod = ""
-			foreach ($schema62MethodMatch in $schema62MethodMatches) {
-				if ($schema62MethodMatch.Index -gt $schema62OwnerAssignment.Index) {
-					break
-				}
-				$schema62EnclosingMethod = $schema62MethodMatch.Groups[1].Value
-			}
 			if ($schema62EnclosingMethod.StartsWith("BuildCampaignDebug") -or
 				$schema62EnclosingMethod.StartsWith("AddCampaignDebug")) {
 				$schema62ApprovedOwnerWrite = $true
@@ -31242,6 +31252,376 @@ if (($schema70AutotestExecuteBlock | Select-String -Pattern 'AssertTrue\(' -AllM
 	$schema70AutotestExecuteBlock.IndexOf('SetResultSuccess();')) {
 	throw "Schema-70 focused engine-autotest must assert every headline and aggregate result before success"
 }
+
+# Full Campaign Debug may exercise the exact radio lifecycle only through one
+# disposable stock transmitter. Keep this harness isolated from authored world
+# towers and keep all durable lifecycle/receipt writes inside production owners.
+$campaignDebugRadioFixtureServiceText = $campaignDebugRadioLifecycleText
+$campaignDebugRadioFixtureCoordinatorText = $schema70CoordinatorText
+$campaignDebugRadioFixturePhysicalWarText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$campaignDebugRadioFixtureCompositionText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ZoneCompositionService.c"
+foreach ($campaignDebugRadioFixtureServiceEntry in @(
+	'static const string DESTROY_PRIMITIVE = "radio_site_destroy";',
+	'static const string REBUILD_PRIMITIVE = "radio_site_rebuild";',
+	'static const string CAMPAIGN_DEBUG_FIXTURE_PREFIX = "hst_debug_";',
+	'static const string CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER = "campaign_debug_radio_fixture";',
+	'static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";',
+	'string GetCampaignDebugLifecycleFixtureZoneId()',
+	'bool IsCampaignDebugLifecycleFixtureZone(string zoneId)',
+	'static bool IsCampaignDebugLifecycleFixtureDefinition(HST_ZoneState zone)',
+	'int CountCampaignDebugLifecycleFixtures()',
+	'bool PrepareCampaignDebugLifecycleFixture(',
+	'bool ApplyCampaignDebugFixturePhysicalDamage(',
+	'bool CleanupCampaignDebugLifecycleFixture(string requiredPrefix, out string report)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureServiceText) -or
+		$campaignDebugRadioFixtureServiceText.IndexOf($campaignDebugRadioFixtureServiceEntry) -lt 0) {
+		throw "Campaign debug radio lifecycle fixture service contract is incomplete: $campaignDebugRadioFixtureServiceEntry"
+	}
+}
+
+$campaignDebugRadioFixturePrepareBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'bool PrepareCampaignDebugLifecycleFixture('
+foreach ($campaignDebugRadioFixturePrepareEntry in @(
+	'fixtureZoneId.StartsWith(CAMPAIGN_DEBUG_FIXTURE_PREFIX)',
+	'SpawnProjectionPrefab(',
+	'CAMPAIGN_DEBUG_FIXTURE_PREFAB',
+	'zone.m_eType = HST_EZoneType.HST_ZONE_RADIO_TOWER;',
+	'zone.m_sSourceLayerName = CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER;',
+	'state.m_aZones.Insert(zone);',
+	'site.m_eTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD;',
+	'site.m_sTargetPrefab = CAMPAIGN_DEBUG_FIXTURE_PREFAB;',
+	'site.m_sAuthoredTargetPrefab = CAMPAIGN_DEBUG_FIXTURE_PREFAB;',
+	'state.m_aRadioSites.Insert(site);',
+	'RegisterProjection(site.m_sSiteId, "", transmitter, true);',
+	'CanStartMission(',
+	'DESTROY_MISSION_ID'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixturePrepareBlock) -or
+		$campaignDebugRadioFixturePrepareBlock.IndexOf($campaignDebugRadioFixturePrepareEntry) -lt 0) {
+		throw "Campaign debug radio lifecycle fixture must publish one exact disposable BORROWED_WORLD target: $campaignDebugRadioFixturePrepareEntry"
+	}
+}
+
+$campaignDebugRadioFixtureDamageBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'bool ApplyCampaignDebugFixturePhysicalDamage('
+foreach ($campaignDebugRadioFixtureDamageEntry in @(
+	'CountCampaignDebugLifecycleFixtures() != 1',
+	'mission.m_sMissionId != DESTROY_MISSION_ID',
+	'mission.m_sTargetZoneId != m_sCampaignDebugFixtureZoneId',
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'MissionOwnsCurrentSiteLock(state, site, mission, asset)',
+	'bool writeAccepted = damageManager.SetHealthScaled(0.0);',
+	'bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;',
+	'return writeAccepted && destroyed;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureDamageBlock) -or
+		$campaignDebugRadioFixtureDamageBlock.IndexOf($campaignDebugRadioFixtureDamageEntry) -lt 0) {
+		throw "Campaign debug radio fixture physical action lacks exact engine destruction proof: $campaignDebugRadioFixtureDamageEntry"
+	}
+}
+$campaignDebugRadioFixtureHealthWriteIndex = $campaignDebugRadioFixtureDamageBlock.IndexOf('bool writeAccepted = damageManager.SetHealthScaled(0.0);')
+$campaignDebugRadioFixtureDestroyedProofIndex = $campaignDebugRadioFixtureDamageBlock.IndexOf('bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;')
+if ($campaignDebugRadioFixtureHealthWriteIndex -lt 0 -or
+	$campaignDebugRadioFixtureDestroyedProofIndex -le $campaignDebugRadioFixtureHealthWriteIndex) {
+	throw "Campaign debug radio fixture must apply engine damage before observing DESTROYED"
+}
+foreach ($campaignDebugRadioFixtureForbiddenMutationPattern in @(
+	'\.m_eLifecycleState\s*=(?!=)',
+	'\.m_sLastDestructionReceiptId\s*=(?!=)',
+	'\.m_sLastDestructionMissionInstanceId\s*=(?!=)',
+	'\.m_sLastRebuildReceiptId\s*=(?!=)',
+	'\.m_sLastRebuildMissionInstanceId\s*=(?!=)'
+)) {
+	if ($campaignDebugRadioFixtureDamageBlock -match $campaignDebugRadioFixtureForbiddenMutationPattern) {
+		throw "Campaign debug physical damage may not write durable radio lifecycle or receipt authority: $campaignDebugRadioFixtureForbiddenMutationPattern"
+	}
+}
+
+$campaignDebugRadioFixtureCanStartBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'bool CanStartMission('
+$campaignDebugRadioFixtureDestroyedGateIndex = $campaignDebugRadioFixtureCanStartBlock.IndexOf('site.m_eLifecycleState != HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_DESTROYED')
+$campaignDebugRadioFixtureDestructionReceiptGateIndex = $campaignDebugRadioFixtureCanStartBlock.IndexOf('site.m_sLastDestructionReceiptId.IsEmpty()', $campaignDebugRadioFixtureDestroyedGateIndex)
+$campaignDebugRadioFixtureRebuildReceiptGateIndex = $campaignDebugRadioFixtureCanStartBlock.IndexOf('if (!site.m_sLastRebuildReceiptId.IsEmpty())', $campaignDebugRadioFixtureDestructionReceiptGateIndex)
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureCanStartBlock) -or
+	$campaignDebugRadioFixtureDestroyedGateIndex -lt 0 -or
+	$campaignDebugRadioFixtureDestructionReceiptGateIndex -le $campaignDebugRadioFixtureDestroyedGateIndex -or
+	$campaignDebugRadioFixtureRebuildReceiptGateIndex -le $campaignDebugRadioFixtureDestructionReceiptGateIndex) {
+	throw "Production stop-rebuild admission must still require DESTROYED, a destruction receipt, and no consumed rebuild receipt"
+}
+if ($campaignDebugRadioFixtureCanStartBlock.IndexOf('CampaignDebugLifecycleFixture') -ge 0 -or
+	$campaignDebugRadioFixtureCanStartBlock.IndexOf('CAMPAIGN_DEBUG_FIXTURE') -ge 0) {
+	throw "Production radio lifecycle admission must not special-case the Campaign Debug fixture"
+}
+
+$campaignDebugRadioFixtureCleanupBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'bool CleanupCampaignDebugLifecycleFixture('
+$campaignDebugRadioFixtureForgetIndex = $campaignDebugRadioFixtureCleanupBlock.IndexOf('ForgetProjection(siteId, true)')
+$campaignDebugRadioFixtureDeleteIndex = $campaignDebugRadioFixtureCleanupBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(transmitter);')
+foreach ($campaignDebugRadioFixtureCleanupEntry in @(
+	'm_sCampaignDebugFixtureZoneId.StartsWith(requiredPrefix)',
+	'm_sCampaignDebugFixtureZoneId = "";',
+	'm_sCampaignDebugFixtureSiteId = "";',
+	'm_CampaignDebugFixtureTransmitter = null;',
+	'return worldReleased;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureCleanupBlock) -or
+		$campaignDebugRadioFixtureCleanupBlock.IndexOf($campaignDebugRadioFixtureCleanupEntry) -lt 0) {
+		throw "Campaign debug radio fixture cleanup is incomplete: $campaignDebugRadioFixtureCleanupEntry"
+	}
+}
+if ($campaignDebugRadioFixtureForgetIndex -lt 0 -or
+	$campaignDebugRadioFixtureDeleteIndex -le $campaignDebugRadioFixtureForgetIndex) {
+	throw "Campaign debug radio fixture cleanup must forget its borrowed projection and then explicitly delete its disposable transmitter"
+}
+$campaignDebugRadioFixtureReleasedGuardIndex = $campaignDebugRadioFixtureCleanupBlock.IndexOf('if (worldReleased)')
+$campaignDebugRadioFixtureClearIndex = $campaignDebugRadioFixtureCleanupBlock.IndexOf('m_sCampaignDebugFixtureZoneId = "";', $campaignDebugRadioFixtureReleasedGuardIndex)
+if ($campaignDebugRadioFixtureReleasedGuardIndex -lt 0 -or
+	$campaignDebugRadioFixtureClearIndex -le $campaignDebugRadioFixtureReleasedGuardIndex) {
+	throw "Campaign debug radio fixture cleanup must retain its direct handle until world deletion is confirmed"
+}
+$campaignDebugRadioFixtureRollbackBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected void RollbackCampaignDebugLifecycleFixture('
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureRollbackBlock) -or
+	$campaignDebugRadioFixtureRollbackBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(') -lt 0 -or
+	$campaignDebugRadioFixtureRollbackBlock.IndexOf('state.m_aRadioSites.Remove(siteIndex);') -lt 0 -or
+	$campaignDebugRadioFixtureRollbackBlock.IndexOf('state.m_aZones.Remove(zoneIndex);') -lt 0) {
+	throw "Campaign debug radio fixture preparation rollback must delete both world and state projections"
+}
+
+$campaignDebugRadioFixturePrepareCoordinatorBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected bool PrepareCampaignDebugRadioLifecycleFixture()'
+foreach ($campaignDebugRadioFixturePrepareCoordinatorEntry in @(
+	'm_bCampaignDebugRunning',
+	'm_bCampaignDebugStateIsolationActive',
+	'm_RadioSites.PrepareCampaignDebugLifecycleFixture(',
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'm_RadioSites.CountCampaignDebugLifecycleFixtures() == 1',
+	'HST_RadioSiteLifecycleService.DESTROY_MISSION_ID',
+	'm_Missions.CanForceStart('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixturePrepareCoordinatorBlock) -or
+		$campaignDebugRadioFixturePrepareCoordinatorBlock.IndexOf($campaignDebugRadioFixturePrepareCoordinatorEntry) -lt 0) {
+		throw "Campaign debug coordinator must prepare and verify the isolated exact radio fixture: $campaignDebugRadioFixturePrepareCoordinatorEntry"
+	}
+}
+
+$campaignDebugRadioFixtureMissionSweepBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected void RunCampaignDebugMissionSweepStep()'
+$campaignDebugRadioFixtureSweepPrepareIndex = $campaignDebugRadioFixtureMissionSweepBlock.IndexOf('radioFixtureReady = PrepareCampaignDebugRadioLifecycleFixture();')
+$campaignDebugRadioFixtureSweepGuardIndex = $campaignDebugRadioFixtureMissionSweepBlock.IndexOf('if (radioFixtureReady)', $campaignDebugRadioFixtureSweepPrepareIndex)
+$campaignDebugRadioFixtureSweepStartIndex = $campaignDebugRadioFixtureMissionSweepBlock.IndexOf('startResult = RequestAdminStartMissionById(', $campaignDebugRadioFixtureSweepGuardIndex)
+$campaignDebugRadioFixtureSweepFailClosedIndex = $campaignDebugRadioFixtureMissionSweepBlock.IndexOf('disposable exact radio lifecycle fixture unavailable', $campaignDebugRadioFixtureSweepStartIndex)
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureMissionSweepBlock) -or
+	$campaignDebugRadioFixtureSweepPrepareIndex -lt 0 -or
+	$campaignDebugRadioFixtureSweepGuardIndex -le $campaignDebugRadioFixtureSweepPrepareIndex -or
+	$campaignDebugRadioFixtureSweepStartIndex -le $campaignDebugRadioFixtureSweepGuardIndex -or
+	$campaignDebugRadioFixtureSweepFailClosedIndex -le $campaignDebugRadioFixtureSweepStartIndex -or
+	([regex]::Matches($campaignDebugRadioFixtureMissionSweepBlock, 'RequestAdminStartMissionById\(').Count -ne 1)) {
+	throw "Campaign debug mission sweep must fail closed instead of starting destroy-radio without its disposable fixture"
+}
+
+$campaignDebugRadioFixtureTargetBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected string SelectDebugMissionTargetZoneId('
+$campaignDebugRadioFixtureTargetGuardIndex = $campaignDebugRadioFixtureTargetBlock.IndexOf('if (exactRadioDefinition && m_bCampaignDebugRunning')
+$campaignDebugRadioFixtureTargetIsolationIndex = $campaignDebugRadioFixtureTargetBlock.IndexOf('m_bCampaignDebugStateIsolationActive', $campaignDebugRadioFixtureTargetGuardIndex)
+$campaignDebugRadioFixtureTargetIdIndex = $campaignDebugRadioFixtureTargetBlock.IndexOf('GetCampaignDebugLifecycleFixtureZoneId()', $campaignDebugRadioFixtureTargetIsolationIndex)
+$campaignDebugRadioFixtureTargetReturnIndex = $campaignDebugRadioFixtureTargetBlock.IndexOf('return fixtureZoneId;', $campaignDebugRadioFixtureTargetIdIndex)
+$campaignDebugRadioFixtureTargetFailClosedIndex = $campaignDebugRadioFixtureTargetBlock.IndexOf('return "";', $campaignDebugRadioFixtureTargetReturnIndex)
+$campaignDebugRadioFixtureTargetSkipIndex = $campaignDebugRadioFixtureTargetBlock.IndexOf('IsCampaignDebugLifecycleFixtureZone(zone.m_sZoneId)', $campaignDebugRadioFixtureTargetFailClosedIndex)
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureTargetBlock) -or
+	$campaignDebugRadioFixtureTargetGuardIndex -lt 0 -or
+	$campaignDebugRadioFixtureTargetIsolationIndex -le $campaignDebugRadioFixtureTargetGuardIndex -or
+	$campaignDebugRadioFixtureTargetIdIndex -le $campaignDebugRadioFixtureTargetIsolationIndex -or
+	$campaignDebugRadioFixtureTargetReturnIndex -le $campaignDebugRadioFixtureTargetIdIndex -or
+	$campaignDebugRadioFixtureTargetFailClosedIndex -le $campaignDebugRadioFixtureTargetReturnIndex -or
+	$campaignDebugRadioFixtureTargetSkipIndex -le $campaignDebugRadioFixtureTargetFailClosedIndex) {
+	throw "Campaign debug exact radio targeting must use only its isolated fixture and never fall back to an authored transmitter"
+}
+$campaignDebugRadioFixtureActivationBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected bool ShouldForceMissionTargetZoneActive('
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureActivationBlock) -or
+	$campaignDebugRadioFixtureActivationBlock.IndexOf('IsCampaignDebugLifecycleFixtureZone(') -lt 0 -or
+	$campaignDebugRadioFixtureActivationBlock.IndexOf('return false;') -lt 0) {
+	throw "Campaign debug radio fixture must not trigger normal authored-zone physicalization"
+}
+$campaignDebugRadioFixturePhysicalActivationBlock = Get-ScriptMethodBlock $campaignDebugRadioFixturePhysicalWarText 'bool UpdateZoneActivation('
+foreach ($campaignDebugRadioFixturePhysicalActivationEntry in @(
+	'HST_RadioSiteLifecycleService.IsCampaignDebugLifecycleFixtureDefinition(zone)',
+	'zone.m_bActive = false;',
+	'DeactivateZone(state, zone, compositions)',
+	'continue;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixturePhysicalActivationBlock) -or
+		$campaignDebugRadioFixturePhysicalActivationBlock.IndexOf($campaignDebugRadioFixturePhysicalActivationEntry) -lt 0) {
+		throw "Periodic physical-war activation must exclude and clean the service-owned radio fixture: $campaignDebugRadioFixturePhysicalActivationEntry"
+	}
+}
+$campaignDebugRadioFixtureTeleportBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected bool TeleportCampaignDebugPlayerToMission('
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureTeleportBlock) -or
+	$campaignDebugRadioFixtureTeleportBlock.IndexOf('IsCampaignDebugLifecycleFixtureZone(') -lt 0 -or
+	$campaignDebugRadioFixtureTeleportBlock.IndexOf('skipped: disposable radio lifecycle fixture owns its physical projection') -lt 0) {
+	throw "Campaign Debug must not teleport its player into the service-owned radio fixture activation bubble"
+}
+$campaignDebugRadioFixtureReachabilityBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected bool CampaignDebugMissionHasReachableLifecyclePrerequisite('
+foreach ($campaignDebugRadioFixtureReachabilityEntry in @(
+	'm_bCampaignDebugStateIsolationActive',
+	'm_RadioSites.CountCampaignDebugLifecycleFixtures() != 0',
+	'm_Missions.GetDefinitions()',
+	'destroyIndex >= 0 && definitionIndex >= destroyIndex'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureReachabilityBlock) -or
+		$campaignDebugRadioFixtureReachabilityBlock.IndexOf($campaignDebugRadioFixtureReachabilityEntry) -lt 0) {
+		throw "Campaign Debug radio preflight must classify disposable-fixture reachability independently of authored tower state: $campaignDebugRadioFixtureReachabilityEntry"
+	}
+}
+if ($campaignDebugRadioFixtureReachabilityBlock.IndexOf('CampaignDebugMissionHasProductionTargetZone') -ge 0) {
+	throw "Campaign Debug radio fixture reachability must not depend on an authored production tower lifecycle"
+}
+
+$campaignDebugRadioFixtureDispatchBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugPrimitiveMissionProbeCase('
+foreach ($campaignDebugRadioFixtureDispatchEntry in @(
+	'primitiveName == HST_RadioSiteLifecycleService.DESTROY_PRIMITIVE',
+	'AddCampaignDebugRadioSiteDestroyPrimitiveAssertions(',
+	'primitiveName == HST_RadioSiteLifecycleService.REBUILD_PRIMITIVE',
+	'AddCampaignDebugRadioSiteRebuildPrimitiveAssertions('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureDispatchBlock) -or
+		$campaignDebugRadioFixtureDispatchBlock.IndexOf($campaignDebugRadioFixtureDispatchEntry) -lt 0) {
+		throw "Campaign debug primitive dispatcher lacks exact radio lifecycle routing: $campaignDebugRadioFixtureDispatchEntry"
+	}
+}
+
+$campaignDebugRadioFixtureDestroyBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected void AddCampaignDebugRadioSiteDestroyPrimitiveAssertions('
+$campaignDebugRadioFixtureDestroyPhysicalIndex = $campaignDebugRadioFixtureDestroyBlock.IndexOf('ApplyCampaignDebugFixturePhysicalDamage(')
+$campaignDebugRadioFixtureDestroyCallbackIndex = $campaignDebugRadioFixtureDestroyBlock.IndexOf('RequestServerMissionAssetDestroyed(', $campaignDebugRadioFixtureDestroyPhysicalIndex)
+foreach ($campaignDebugRadioFixtureDestroyEntry in @(
+	'GetCampaignDebugLifecycleFixtureZoneId()',
+	'HST_RadioSiteLifecycleService.DESTROY_MISSION_ID',
+	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
+	'HST_RadioSiteLifecycleService.BuildDestructionReceiptId(',
+	'HST_RADIO_SITE_LIFECYCLE_DESTROYED',
+	'HST_RadioSiteLifecycleService.REBUILD_MISSION_ID',
+	'm_Missions.CanForceStart('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureDestroyBlock) -or
+		$campaignDebugRadioFixtureDestroyBlock.IndexOf($campaignDebugRadioFixtureDestroyEntry) -lt 0) {
+		throw "Campaign debug destroy-radio proof must use the production callback and exact lifecycle evidence: $campaignDebugRadioFixtureDestroyEntry"
+	}
+}
+if ($campaignDebugRadioFixtureDestroyPhysicalIndex -lt 0 -or
+	$campaignDebugRadioFixtureDestroyCallbackIndex -le $campaignDebugRadioFixtureDestroyPhysicalIndex -or
+	([regex]::Matches($campaignDebugRadioFixtureDestroyBlock, 'RequestServerMissionAssetDestroyed\(').Count -ne 1)) {
+	throw "Campaign debug destroy-radio proof must establish engine destruction before calling the normal server asset-destroyed path"
+}
+
+$campaignDebugRadioFixtureRebuildBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected void AddCampaignDebugRadioSiteRebuildPrimitiveAssertions('
+foreach ($campaignDebugRadioFixtureRebuildEntry in @(
+	'GetCampaignDebugLifecycleFixtureZoneId()',
+	'HST_RadioSiteLifecycleService.REBUILD_MISSION_ID',
+	'HST_RADIO_SITE_LIFECYCLE_REBUILDING',
+	'HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN',
+	'RequestServerMissionAssetExplosiveDamage(',
+	'HST_RadioSiteLifecycleService.BuildRebuildReceiptId(',
+	'!m_Missions.CanForceStart('
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureRebuildBlock) -or
+		$campaignDebugRadioFixtureRebuildBlock.IndexOf($campaignDebugRadioFixtureRebuildEntry) -lt 0) {
+		throw "Campaign debug stop-rebuild proof must use production explosive evidence and the one-attempt receipt contract: $campaignDebugRadioFixtureRebuildEntry"
+	}
+}
+if (([regex]::Matches($campaignDebugRadioFixtureRebuildBlock, 'RequestServerMissionAssetExplosiveDamage\(').Count -ne 1)) {
+	throw "Campaign debug stop-rebuild proof must submit exactly one normal server explosive-damage action"
+}
+foreach ($campaignDebugRadioFixtureCoordinatorMutationBlock in @(
+	$campaignDebugRadioFixturePrepareCoordinatorBlock,
+	$campaignDebugRadioFixtureDestroyBlock,
+	$campaignDebugRadioFixtureRebuildBlock
+)) {
+	foreach ($campaignDebugRadioFixtureForbiddenMutationPattern in @(
+		'\.m_eLifecycleState\s*=(?!=)',
+		'\.m_sLastDestructionReceiptId\s*=(?!=)',
+		'\.m_sLastDestructionMissionInstanceId\s*=(?!=)',
+		'\.m_sLastRebuildReceiptId\s*=(?!=)',
+		'\.m_sLastRebuildMissionInstanceId\s*=(?!=)'
+	)) {
+		if ($campaignDebugRadioFixtureCoordinatorMutationBlock -match $campaignDebugRadioFixtureForbiddenMutationPattern) {
+			throw "Campaign debug coordinator may observe but never write durable radio lifecycle or receipt authority: $campaignDebugRadioFixtureForbiddenMutationPattern"
+		}
+	}
+}
+
+$campaignDebugRadioFixturePrefixedCleanupBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected HST_CampaignDebugCaseResult CleanupCampaignDebugPrefixedState('
+foreach ($campaignDebugRadioFixturePrefixedCleanupEntry in @(
+	'CleanupCampaignDebugRadioLifecycleFixtureWorld(',
+	'RemoveCampaignDebugPrefixedRadioSites(prefix)',
+	'cleanup.prefixed.radio_sites_removed',
+	'cleanup.prefixed.radio_fixture_composition_before',
+	'cleanup.prefixed.radio_fixture_composition_after',
+	'cleanup.prefix.radio_fixture_world',
+	'CountCampaignDebugPrefixedStateRecords(prefix, afterExample)'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixturePrefixedCleanupBlock) -or
+		$campaignDebugRadioFixturePrefixedCleanupBlock.IndexOf($campaignDebugRadioFixturePrefixedCleanupEntry) -lt 0) {
+		throw "Campaign debug prefixed cleanup must release and remove the disposable radio fixture: $campaignDebugRadioFixturePrefixedCleanupEntry"
+	}
+}
+$campaignDebugRadioFixtureWorldCleanupBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected bool CleanupCampaignDebugRadioLifecycleFixtureWorld('
+$campaignDebugRadioFixtureCompositionCountBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCompositionText 'int CountRuntimePropsForZone('
+foreach ($campaignDebugRadioFixtureWorldCleanupEntry in @(
+	'GetCampaignDebugLifecycleFixtureZoneId()',
+	'm_ZoneCompositions.CountRuntimePropsForZone(fixtureZoneId)',
+	'm_ZoneCompositions.CleanupZoneComposition(fixtureZoneId);',
+	'compositionReleased = compositionAfter == 0;',
+	'm_RadioSites.CleanupCampaignDebugLifecycleFixture(',
+	'return lifecycleReleased && compositionReleased;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureWorldCleanupBlock) -or
+		$campaignDebugRadioFixtureWorldCleanupBlock.IndexOf($campaignDebugRadioFixtureWorldCleanupEntry) -lt 0) {
+		throw "Campaign Debug radio fixture world cleanup must release untagged zone-composition props before lifecycle rows: $campaignDebugRadioFixtureWorldCleanupEntry"
+	}
+}
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureCompositionCountBlock) -or
+	$campaignDebugRadioFixtureCompositionCountBlock.IndexOf('foreach (string runtimeZoneId : m_aRuntimeZoneIds)') -lt 0 -or
+	$campaignDebugRadioFixtureCompositionCountBlock.IndexOf('if (runtimeZoneId == zoneId)') -lt 0) {
+	throw "Zone-composition cleanup needs an exact per-zone runtime-prop residue count"
+}
+$campaignDebugRadioFixturePrefixedCountBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected int CountCampaignDebugPrefixedStateRecords('
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixturePrefixedCountBlock) -or
+	$campaignDebugRadioFixturePrefixedCountBlock.IndexOf('CampaignDebugRadioSiteMatchesPrefix(radioSite, prefix)') -lt 0) {
+	throw "Campaign debug prefixed residue count must include radio-site rows"
+}
+$campaignDebugRadioFixturePrefixedRemoveBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected int RemoveCampaignDebugPrefixedRadioSites('
+foreach ($campaignDebugRadioFixturePrefixedRemoveEntry in @(
+	'm_State.m_aRadioSites.Count() - 1',
+	'CampaignDebugRadioSiteMatchesPrefix(radioSite, prefix)',
+	'm_State.m_aRadioSites.Remove(radioSiteIndex);'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioFixturePrefixedRemoveBlock) -or
+		$campaignDebugRadioFixturePrefixedRemoveBlock.IndexOf($campaignDebugRadioFixturePrefixedRemoveEntry) -lt 0) {
+		throw "Campaign debug prefixed radio-site removal is incomplete: $campaignDebugRadioFixturePrefixedRemoveEntry"
+	}
+}
+$campaignDebugRadioFixtureRestoreBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureCoordinatorText 'protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot('
+$campaignDebugRadioFixtureRestoreCleanupIndex = $campaignDebugRadioFixtureRestoreBlock.IndexOf('CleanupCampaignDebugRadioLifecycleFixtureWorld(')
+$campaignDebugRadioFixtureRestorePublishIndex = $campaignDebugRadioFixtureRestoreBlock.IndexOf('m_State = m_CampaignDebugLiveState;')
+if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureRestoreBlock) -or
+	$campaignDebugRadioFixtureRestoreCleanupIndex -lt 0 -or
+	$campaignDebugRadioFixtureRestorePublishIndex -le $campaignDebugRadioFixtureRestoreCleanupIndex) {
+	throw "Campaign debug state restore must release the disposable radio fixture before republishing live state"
+}
+
+$campaignDebugRadioFixtureCombinedText = $campaignDebugRadioFixtureServiceText + "`n" + $campaignDebugRadioFixtureCoordinatorText
+foreach ($campaignDebugRadioFixtureRetiredApi in @(
+	'PrepareCampaignDebugBorrowedTargetDestruction',
+	'RestoreCampaignDebugPhysicalMutations',
+	'm_aCampaignDebugBorrowedTargetEntities',
+	'm_aCampaignDebugBorrowedTargetHealth',
+	'm_aCampaignDebugBorrowedTargetDamageStates',
+	'm_aCampaignDebugPhysicalMutationEntities',
+	'm_aCampaignDebugPhysicalMutationHealth',
+	'm_aCampaignDebugPhysicalMutationStates'
+)) {
+	if ($campaignDebugRadioFixtureCombinedText.IndexOf($campaignDebugRadioFixtureRetiredApi) -ge 0) {
+		throw "Unsafe authored-transmitter mutation snapshot API must remain retired: $campaignDebugRadioFixtureRetiredApi"
+	}
+}
+if ($campaignDebugRadioFixtureCombinedText -match 'm_aCampaignDebug(BorrowedTarget|PhysicalMutation).*?(Health|DamageState|Entit)') {
+	throw "Campaign debug must not reintroduce authored-transmitter health/entity snapshot arrays"
+}
+
+Write-Host "Campaign Debug disposable exact radio lifecycle fixture isolation, engine destruction, production callbacks, one-attempt admission, and explicit cleanup OK"
 
 Write-Host "Schema-70 exact enemy garrison-rebuild frozen capacity, reciprocal admission, selected ownership ABA rejection, virtual/physical casualty continuity, delivered held authority, zero-refund terminal settlement, proportional prearrival refund, prepared/settled crash resume, conservative migration, claimant-wide malformed/orphan process-runtime quarantine, quarantine retention, restore, and focused autotest wiring OK"
 

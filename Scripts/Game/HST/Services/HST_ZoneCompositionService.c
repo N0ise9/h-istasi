@@ -232,6 +232,20 @@ class HST_ZoneCompositionService
 		return CountUniqueRuntimeZones();
 	}
 
+	int CountRuntimePropsForZone(string zoneId)
+	{
+		if (zoneId.IsEmpty())
+			return 0;
+
+		int count;
+		foreach (string runtimeZoneId : m_aRuntimeZoneIds)
+		{
+			if (runtimeZoneId == zoneId)
+				count++;
+		}
+		return count;
+	}
+
 	int GetLastSkippedPrefabCount()
 	{
 		return m_iLastSkippedPrefabCount;

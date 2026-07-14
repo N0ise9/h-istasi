@@ -5874,6 +5874,58 @@ This file is for practical engine/script behavior, not project planning. Keep en
   at the top of this file. Package/native runtime, serialization/restart,
   multiplayer/network, and soak remain unproven.
 
+## Full Campaign Debug Disposable Radio Lifecycle Fixture
+
+- Do not weaken exact radio admission to make the mission sweep convenient.
+  `destroy_radio_tower` still requires one resolved exact ONLINE site.
+  `dynamic_stop_tower_rebuild` still requires DESTROYED state, the matching
+  destruction receipt, and no rebuild-attempt receipt for that destruction
+  epoch. When a suite begins with every site ONLINE, preflight should recognize
+  the ordered destroy case as a reachable lifecycle prerequisite for the later
+  stop-rebuild case rather than claiming that stop-rebuild has an immediate
+  target.
+
+- Never mutate and then try to heal an authored transmitter for synthetic proof.
+  Native destruction phases, debris, and streaming state cannot be made
+  trustworthy by restoring a health scalar. Inside the isolated campaign-state
+  clone, create one service-owned disposable transmitter at a dry position
+  separated from other transmitters, insert one debug-prefixed radio zone and
+  exact ONLINE site, and bind it as `BORROWED_WORLD`. This deliberately exercises
+  production's physical borrowed-target evidence path without borrowing an
+  authored map entity.
+
+- Exact radio selection must fail closed to the fixture while Campaign Debug
+  isolation is active. If the fixture is absent or in the wrong lifecycle state,
+  do not fall back to an authored radio zone. Exclude the fixture from every
+  non-radio target search and from ordinary render-bubble force activation so a
+  zone composition cannot create a duplicate target beside it.
+
+- Physical radio proof has two ordered production actions. For destroy-radio,
+  require the exact active mission/site/asset lock, write engine damage to the
+  disposable transmitter, verify native `DESTROYED`, and then use the normal
+  server asset-destroyed callback. Assert the destruction receipt, epoch,
+  borrowed provenance, cleared lock, rewards, and newly admissible stop-rebuild.
+  For stop-rebuild, use the normal server explosive-damage request against the
+  generated construction equipment. Assert the deterministic rebuild-attempt
+  receipt, unchanged destruction epoch, DESTROYED lifecycle, cleared lock,
+  rewards, and rejection of a second attempt in that epoch. Debug helpers may
+  arrange physical evidence; they must not write lifecycle state or receipts
+  directly.
+
+- A disposable entity bound as `BORROWED_WORLD` is not removed by ordinary
+  borrowed-projection cleanup. The fixture service must explicitly forget its
+  projection and delete its transmitter. Prefix cleanup must count and remove
+  the debug radio-site row in addition to its zone, mission, objective, asset,
+  runtime, marker, and task rows. Release the world fixture before restoring and
+  republishing the live campaign state, and require zero prefixed residue.
+
+- The fixture source passes fresh headless Workbench script validation at 5,826
+  Game files/11,807 classes, 46,634K static storage, CRC `39bd6d90`, with
+  `Script validation successful` and no surviving Workbench/game process. That
+  is compile evidence only. R10 predates this fixture; R11 must execute both
+  exact radio cases and prove physical destruction, callbacks, lifecycle
+  receipts, one-attempt enforcement, cleanup, and final-state isolation.
+
 ## Native Reference Sources
 
 - Native map config reference: `Configs/Map/MapFullscreen.conf`.

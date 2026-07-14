@@ -6536,18 +6536,18 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(preflightCase, "preflight.registry.runtime_type", "every mission has runtime type", string.Format("missing %1/%2", missingRuntimeTypes, missionCount), CampaignDebugStatus(missingRuntimeTypes == 0), "one or more missions have no runtime type");
 		AddCampaignDebugAssertion(preflightCase, "preflight.registry.duration", "every mission has duration > 0", string.Format("invalid %1/%2", invalidDurations, missionCount), CampaignDebugStatus(invalidDurations == 0), "one or more missions have invalid duration");
 
-		int incompatibleTargetMissions;
+		int unreachableTargetMissions;
 		if (m_Missions)
 		{
 			array<ref HST_MissionDefinition> targetDefinitions = m_Missions.GetDefinitions();
 			foreach (HST_MissionDefinition targetDefinition : targetDefinitions)
 			{
 				if (targetDefinition && !CampaignDebugMissionHasCompatibleTarget(targetDefinition))
-					incompatibleTargetMissions++;
+					unreachableTargetMissions++;
 			}
 		}
-		AddCampaignDebugMetric(preflightCase, "preflight.registry.incompatible_targets", string.Format("%1", incompatibleTargetMissions), "count");
-		AddCampaignDebugAssertion(preflightCase, "preflight.registry.compatible_targets", "every targeted mission has a compatible debug target zone", string.Format("incompatible %1/%2", incompatibleTargetMissions, missionCount), CampaignDebugStatus(incompatibleTargetMissions == 0), "one or more missions have no compatible target zone for the debug runner");
+		AddCampaignDebugMetric(preflightCase, "preflight.registry.incompatible_targets", string.Format("%1", unreachableTargetMissions), "count");
+		AddCampaignDebugAssertion(preflightCase, "preflight.registry.compatible_targets", "every targeted mission has an immediate target or an exact lifecycle prerequisite reachable by the debug sweep", string.Format("unreachable %1/%2", unreachableTargetMissions, missionCount), CampaignDebugStatus(unreachableTargetMissions == 0), "one or more missions have no immediate or lifecycle-reachable target for the debug runner");
 
 		HST_FactionTemplate resistanceTemplate;
 		HST_FactionTemplate occupierTemplate;
@@ -13098,7 +13098,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!SelectDebugMissionTargetZoneId(definition).IsEmpty())
 			return true;
 
-		return m_Missions.CanForceStart(m_State, m_Preset, definition.m_sMissionId, "");
+		if (m_Missions.CanForceStart(m_State, m_Preset, definition.m_sMissionId, ""))
+			return true;
+
+		return CampaignDebugMissionHasReachableLifecyclePrerequisite(definition);
+	}
+
+	protected bool CampaignDebugMissionHasReachableLifecyclePrerequisite(
+		HST_MissionDefinition definition)
+	{
+		if (!definition || !m_Missions || !m_RadioSites || !m_State || !m_Preset
+			|| !m_bCampaignDebugRunning || !m_bCampaignDebugStateIsolationActive
+			|| m_sCampaignDebugMarkerPrefix.IsEmpty()
+			|| m_sCampaignDebugEntityTag.IsEmpty()
+			|| (definition.m_sMissionId != HST_RadioSiteLifecycleService.DESTROY_MISSION_ID
+				&& definition.m_sMissionId != HST_RadioSiteLifecycleService.REBUILD_MISSION_ID))
+			return false;
+		if (m_RadioSites.CountCampaignDebugLifecycleFixtures() != 0)
+			return false;
+
+		int destroyIndex = -1;
+		int definitionIndex = -1;
+		array<ref HST_MissionDefinition> definitions = m_Missions.GetDefinitions();
+		for (int missionIndex = 0; missionIndex < definitions.Count(); missionIndex++)
+		{
+			HST_MissionDefinition candidate = definitions[missionIndex];
+			if (!candidate)
+				continue;
+			if (candidate.m_sMissionId
+				== HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
+				destroyIndex = missionIndex;
+			if (candidate.m_sMissionId == definition.m_sMissionId)
+				definitionIndex = missionIndex;
+		}
+		return destroyIndex >= 0 && definitionIndex >= destroyIndex;
 	}
 
 	protected int CountCampaignDebugMissingInfantryPool(HST_FactionTemplate faction)
@@ -16336,7 +16369,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_iCampaignDebugMissionSubStep == 0)
 		{
 			EnsureCampaignDebugActivePhase("mission " + definition.m_sMissionId);
-			string startResult = RequestAdminStartMissionById(m_iCampaignDebugPlayerId, definition.m_sMissionId);
+			bool radioFixtureReady = true;
+			if (definition.m_sMissionId == HST_RadioSiteLifecycleService.DESTROY_MISSION_ID)
+				radioFixtureReady = PrepareCampaignDebugRadioLifecycleFixture();
+			string startResult;
+			if (radioFixtureReady)
+				startResult = RequestAdminStartMissionById(
+					m_iCampaignDebugPlayerId,
+					definition.m_sMissionId);
+			else
+				startResult = "Partisan campaign debug | failed: disposable exact radio lifecycle fixture unavailable";
 			bool started = IsCampaignDebugResultSuccessful(startResult);
 			m_sCampaignDebugCurrentMissionInstanceId = "";
 			if (started)
@@ -16395,6 +16437,115 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugMissionIndex++;
 		m_iCampaignDebugMissionSubStep = 0;
 		m_iCampaignDebugWaitSeconds = 1;
+	}
+
+	protected bool PrepareCampaignDebugRadioLifecycleFixture()
+	{
+		HST_CampaignDebugCaseResult fixtureCase = CreateCampaignDebugCase(
+			"mission_sweep.radio_lifecycle.fixture",
+			"mission_runtime",
+			"radio_lifecycle",
+			"fixture");
+		bool prerequisites = m_bCampaignDebugRunning
+			&& m_bCampaignDebugStateIsolationActive
+			&& m_State && m_Preset && m_RadioSites
+			&& !m_sCampaignDebugMarkerPrefix.IsEmpty()
+			&& !m_sCampaignDebugEntityTag.IsEmpty();
+		AddCampaignDebugAssertion(
+			fixtureCase,
+			"radio_fixture.isolation",
+			"radio lifecycle fixture runs only inside the active disposable campaign-state clone",
+			string.Format(
+				"running %1 | isolated %2 | prefix %3 | service %4",
+				m_bCampaignDebugRunning,
+				m_bCampaignDebugStateIsolationActive,
+				EmptyCampaignDebugField(m_sCampaignDebugMarkerPrefix),
+				m_RadioSites != null),
+			CampaignDebugStatus(prerequisites, "BLOCKED"),
+			"radio lifecycle fixture prerequisites are unavailable");
+		if (!prerequisites)
+		{
+			FinalizeCampaignDebugCaseFromAssertions(fixtureCase);
+			RecordCampaignDebugCase(fixtureCase);
+			return false;
+		}
+
+		vector anchorPosition = m_State.m_vHQPosition;
+		if (IsZeroVector(anchorPosition))
+		{
+			foreach (HST_ZoneState candidateZone : m_State.m_aZones)
+			{
+				if (!candidateZone || IsZeroVector(candidateZone.m_vPosition))
+					continue;
+				anchorPosition = candidateZone.m_vPosition;
+				break;
+			}
+		}
+		string ownerFactionKey = m_Preset.m_sOccupierFactionKey;
+		if (ownerFactionKey.IsEmpty())
+			ownerFactionKey = m_Preset.m_sInvaderFactionKey;
+		string fixtureZoneId
+			= m_sCampaignDebugMarkerPrefix + "_radio_lifecycle_fixture";
+		string fixtureEntityName
+			= m_sCampaignDebugEntityTag + "_radio_lifecycle_fixture";
+		string fixtureReport;
+		bool prepared = m_RadioSites.PrepareCampaignDebugLifecycleFixture(
+			m_State,
+			fixtureZoneId,
+			ownerFactionKey,
+			anchorPosition,
+			fixtureEntityName,
+			fixtureReport);
+		fixtureCase.m_aEvidence.Insert(fixtureReport);
+
+		HST_ZoneState fixtureZone = m_State.FindZone(fixtureZoneId);
+		HST_RadioSiteState fixtureSite = m_State.FindRadioSiteForZone(
+			fixtureZoneId);
+		bool exactFixture = prepared && fixtureZone && fixtureSite
+			&& fixtureZone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER
+			&& fixtureSite.m_iContractVersion
+				== HST_RadioSiteLifecycleService.EXACT_CONTRACT_VERSION
+			&& fixtureSite.m_eLifecycleState
+				== HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_ONLINE
+			&& fixtureSite.m_eTargetOwnership
+				== HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD
+			&& m_RadioSites.CountCampaignDebugLifecycleFixtures() == 1;
+		bool destroyAdmissible = exactFixture && m_Missions
+			&& m_Missions.CanForceStart(
+				m_State,
+				m_Preset,
+				HST_RadioSiteLifecycleService.DESTROY_MISSION_ID,
+				fixtureZoneId);
+		string fixtureSiteId = "missing";
+		if (fixtureSite)
+			fixtureSiteId = fixtureSite.m_sSiteId;
+		AddCampaignDebugAssertion(
+			fixtureCase,
+			"radio_fixture.bound",
+			"one disposable supported transmitter is bound to one exact ONLINE borrowed-site fixture",
+			fixtureReport,
+			CampaignDebugStatus(exactFixture),
+			"radio lifecycle fixture did not publish one exact bound site",
+			"",
+			"",
+			fixtureZoneId);
+		AddCampaignDebugAssertion(
+			fixtureCase,
+			"radio_fixture.destroy_admissible",
+			"unchanged production admission accepts destroy-radio against the disposable site",
+			string.Format(
+				"zone %1 | site %2 | admissible %3",
+				fixtureZoneId,
+				fixtureSiteId,
+				destroyAdmissible),
+			CampaignDebugStatus(destroyAdmissible),
+			"production radio lifecycle admission rejected the disposable fixture",
+			"",
+			"",
+			fixtureZoneId);
+		FinalizeCampaignDebugCaseFromAssertions(fixtureCase);
+		RecordCampaignDebugCase(fixtureCase);
+		return destroyAdmissible;
 	}
 
 	protected void RunCampaignDebugPhaseSmokeStep()
@@ -16481,6 +16632,41 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected HST_CampaignDebugCaseResult RestoreCampaignDebugStateSnapshot(string reason)
 	{
 		HST_CampaignDebugCaseResult isolationCase = CreateCampaignDebugCase("cleanup.state_isolation_restore", "cleanup", "campaign_debug", "state_restore");
+		int radioFixtureCountBefore = -1;
+		if (m_RadioSites)
+			radioFixtureCountBefore
+				= m_RadioSites.CountCampaignDebugLifecycleFixtures();
+		int radioFixtureCompositionBefore;
+		int radioFixtureCompositionAfter;
+		string radioFixtureReleaseReport;
+		bool radioFixtureReleased = CleanupCampaignDebugRadioLifecycleFixtureWorld(
+			CAMPAIGN_DEBUG_PREFIX_ROOT,
+			radioFixtureCompositionBefore,
+			radioFixtureCompositionAfter,
+			radioFixtureReleaseReport);
+		isolationCase.m_aEvidence.Insert(radioFixtureReleaseReport);
+		AddCampaignDebugMetric(
+			isolationCase,
+			"isolation.radio_fixture_before",
+			string.Format("%1", radioFixtureCountBefore),
+			"count");
+		AddCampaignDebugMetric(
+			isolationCase,
+			"isolation.radio_fixture_composition_before",
+			string.Format("%1", radioFixtureCompositionBefore),
+			"count");
+		AddCampaignDebugMetric(
+			isolationCase,
+			"isolation.radio_fixture_composition_after",
+			string.Format("%1", radioFixtureCompositionAfter),
+			"count");
+		AddCampaignDebugAssertion(
+			isolationCase,
+			"isolation.radio_fixture_world",
+			"disposable radio fixture world authority is released before the live state is republished",
+			radioFixtureReleaseReport,
+			CampaignDebugStatus(radioFixtureReleased),
+			"disposable radio fixture survived into state restoration");
 		if (m_CampaignDebugRunResult && m_State && m_CampaignDebugRunResult.m_iEndedAtSecond <= 0)
 			m_CampaignDebugRunResult.m_iEndedAtSecond = m_State.m_iElapsedSeconds;
 		bool snapshotReady = m_bCampaignDebugStateIsolationActive && m_CampaignDebugStateSnapshot && m_CampaignDebugLiveState && m_State && m_State != m_CampaignDebugLiveState;
@@ -18630,6 +18816,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string beforeExample;
 		int beforeCount = CountCampaignDebugPrefixedStateRecords(prefix, beforeExample);
+		int radioFixtureCompositionBefore;
+		int radioFixtureCompositionAfter;
+		string radioFixtureCleanupReport;
+		bool radioFixtureWorldCleanup = CleanupCampaignDebugRadioLifecycleFixtureWorld(
+			prefix,
+			radioFixtureCompositionBefore,
+			radioFixtureCompositionAfter,
+			radioFixtureCleanupReport);
+		cleanupCase.m_aEvidence.Insert(radioFixtureCleanupReport);
 		int defendPetrosCount = ClearCampaignDebugPrefixedDefendPetrosState(prefix);
 		int missionCount = RemoveCampaignDebugPrefixedMissions(prefix);
 		int objectiveCount = RemoveCampaignDebugPrefixedObjectives(prefix);
@@ -18645,6 +18840,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int taskCount = RemoveCampaignDebugPrefixedCampaignTasks(prefix);
 		int garrisonCount = RemoveCampaignDebugPrefixedGarrisons(prefix);
 		int civilianZoneCount = RemoveCampaignDebugPrefixedCivilianZones(prefix);
+		int radioSiteCount = RemoveCampaignDebugPrefixedRadioSites(prefix);
 		int zoneCount = RemoveCampaignDebugPrefixedZones(prefix);
 		int markerCount = RemoveCampaignDebugPrefixedMarkers(prefix);
 		string taggedWorldBeforeExample;
@@ -18656,7 +18852,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (taggedWorldBefore >= 0)
 			taggedWorldRemoved = RemoveCampaignDebugTaggedWorldEntities(prefix, taggedWorldRemovedScanned, taggedWorldRemovedExample);
 		bool markerRebuildAttempted = false;
-		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0 || zoneCount > 0 || defendPetrosCount > 0) && m_MapMarkers && m_Preset)
+		if ((markerCount > 0 || missionCount > 0 || supportCount > 0 || qrfCount > 0 || enemyOrderCount > 0 || zoneCount > 0 || radioSiteCount > 0 || defendPetrosCount > 0) && m_MapMarkers && m_Preset)
 		{
 			markerRebuildAttempted = true;
 			RefreshCampaignMarkers();
@@ -18690,6 +18886,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tasks_removed", string.Format("%1", taskCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.garrisons_removed", string.Format("%1", garrisonCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.civilian_zones_removed", string.Format("%1", civilianZoneCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.radio_sites_removed", string.Format("%1", radioSiteCount), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.radio_fixture_composition_before", string.Format("%1", radioFixtureCompositionBefore), "count");
+		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.radio_fixture_composition_after", string.Format("%1", radioFixtureCompositionAfter), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.zones_removed", string.Format("%1", zoneCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.markers_removed", string.Format("%1", markerCount), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.defend_petros_state_cleared", string.Format("%1", defendPetrosCount), "count");
@@ -18697,11 +18896,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_removed", string.Format("%1", taggedWorldRemoved), "count");
 		AddCampaignDebugMetric(cleanupCase, "cleanup.prefixed.tagged_world_after", string.Format("%1", taggedWorldAfter), "count");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.before_count", "prefixed records counted before cleanup", BuildCampaignDebugCountExample(beforeCount, beforeExample), "PASS", "");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.radio_fixture_world", "service-owned disposable radio fixture projection and transmitter are released before prefixed state removal", radioFixtureCleanupReport, CampaignDebugStatus(radioFixtureWorldCleanup), "disposable radio fixture world entity or projection remained registered");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.after_count", "no records matching cleanup prefix remain", BuildCampaignDebugCountExample(afterCount, afterExample), CampaignDebugStatus(afterCount == 0), "prefixed cleanup left campaign state records behind");
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.tagged_world_entities", "world scan removes physical entities named with debug tag/prefix", taggedWorldActual, taggedWorldStatus, "tagged debug world entities remain after prefixed cleanup");
-		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.marker_rebuild", "marker rebuild attempted when prefixed marker-backed records changed", string.Format("changed %1 | attempted %2", markerCount + missionCount + supportCount + qrfCount + enemyOrderCount + zoneCount + defendPetrosCount, markerRebuildAttempted), CampaignDebugStatus(markerCount + missionCount + supportCount + qrfCount + enemyOrderCount + zoneCount + defendPetrosCount == 0 || markerRebuildAttempted, "WARN"), "prefixed cleanup changed marker-backed records but marker rebuild was unavailable");
+		AddCampaignDebugAssertion(cleanupCase, "cleanup.prefix.marker_rebuild", "marker rebuild attempted when prefixed marker-backed records changed", string.Format("changed %1 | attempted %2", markerCount + missionCount + supportCount + qrfCount + enemyOrderCount + zoneCount + radioSiteCount + defendPetrosCount, markerRebuildAttempted), CampaignDebugStatus(markerCount + missionCount + supportCount + qrfCount + enemyOrderCount + zoneCount + radioSiteCount + defendPetrosCount == 0 || markerRebuildAttempted, "WARN"), "prefixed cleanup changed marker-backed records but marker rebuild was unavailable");
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
-		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted || taggedWorldRemoved > 0 || defendPetrosCount > 0)
+		if (beforeCount > 0 || afterCount > 0 || markerRebuildAttempted || taggedWorldRemoved > 0 || defendPetrosCount > 0 || radioSiteCount > 0)
 			MarkMajorCampaignChange(true);
 		return cleanupCase;
 	}
@@ -19157,6 +19357,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					example = "civilian zone " + civilianZone.m_sZoneId;
 			}
 		}
+		foreach (HST_RadioSiteState radioSite : m_State.m_aRadioSites)
+		{
+			if (CampaignDebugRadioSiteMatchesPrefix(radioSite, prefix))
+			{
+				count++;
+				if (example.IsEmpty())
+					example = "radio site " + radioSite.m_sSiteId;
+			}
+		}
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
 			if (CampaignDebugZoneMatchesPrefix(zone, prefix))
@@ -19375,6 +19584,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 		}
 
+		return removed;
+	}
+
+	protected int RemoveCampaignDebugPrefixedRadioSites(string prefix)
+	{
+		int removed;
+		for (int radioSiteIndex = m_State.m_aRadioSites.Count() - 1; radioSiteIndex >= 0; radioSiteIndex--)
+		{
+			HST_RadioSiteState radioSite
+				= m_State.m_aRadioSites[radioSiteIndex];
+			if (!CampaignDebugRadioSiteMatchesPrefix(radioSite, prefix))
+				continue;
+			m_State.m_aRadioSites.Remove(radioSiteIndex);
+			removed++;
+		}
 		return removed;
 	}
 
@@ -19636,6 +19860,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 
 		return MissionValueHasCampaignDebugPrefix(civilianZone.m_sZoneId, prefix);
+	}
+
+	protected bool CampaignDebugRadioSiteMatchesPrefix(
+		HST_RadioSiteState radioSite,
+		string prefix)
+	{
+		if (!radioSite)
+			return false;
+		return MissionValueHasCampaignDebugPrefix(radioSite.m_sSiteId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(radioSite.m_sZoneId, prefix)
+			|| MissionValueHasCampaignDebugPrefix(radioSite.m_sTargetId, prefix);
 	}
 
 	protected bool CampaignDebugZoneMatchesPrefix(HST_ZoneState zone, string prefix)
@@ -23032,6 +23267,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugKillTargetPrimitiveAssertions(primitiveCase, definition, mission);
 		else if (primitiveName == "destroy_target")
 			AddCampaignDebugDestroyTargetPrimitiveAssertions(primitiveCase, definition, mission);
+		else if (primitiveName == HST_RadioSiteLifecycleService.DESTROY_PRIMITIVE)
+			AddCampaignDebugRadioSiteDestroyPrimitiveAssertions(primitiveCase, definition, mission);
+		else if (primitiveName == HST_RadioSiteLifecycleService.REBUILD_PRIMITIVE)
+			AddCampaignDebugRadioSiteRebuildPrimitiveAssertions(primitiveCase, definition, mission);
 		else if (primitiveName == "recover_cargo")
 			AddCampaignDebugTransportPrimitiveAssertions(primitiveCase, definition, mission, "logistics_cargo", "recover_cargo");
 		else if (primitiveName == "deliver_supplies")
@@ -23225,6 +23464,297 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(primitiveCase, "primitive.kill.command", "server asset-destroyed path accepts HVT", ShortCampaignDebugLine(killResult, 220), CampaignDebugStatus(killCommandAccepted), "kill_hvt server destroy command failed", killAsset.m_sAssetId, killInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugAssertion(primitiveCase, "primitive.kill.destroyed", "HVT asset is destroyed and not alive", BuildCampaignDebugMissionAssetActual(killAsset), CampaignDebugStatus(killAssetDestroyed), "kill_hvt action did not destroy the HVT asset", killAsset.m_sAssetId, killInstanceId, mission.m_sTargetZoneId);
 		AddCampaignDebugPrimitiveCompletionAssertions(primitiveCase, definition, mission, killMoneyBefore, killHRBefore, "kill_hvt");
+	}
+
+	protected void AddCampaignDebugRadioSiteDestroyPrimitiveAssertions(
+		HST_CampaignDebugCaseResult primitiveCase,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState mission)
+	{
+		if (!primitiveCase || !mission || !m_State || !m_RadioSites)
+			return;
+
+		string instanceId = mission.m_sInstanceId;
+		string fixtureZoneId
+			= m_RadioSites.GetCampaignDebugLifecycleFixtureZoneId();
+		HST_MissionAssetState asset = FindCampaignDebugMissionAsset(
+			instanceId,
+			"destroy_target");
+		HST_RadioSiteState site = m_State.FindRadioSiteForZone(fixtureZoneId);
+		string assetId;
+		if (asset)
+			assetId = asset.m_sAssetId;
+		bool exactFixtureMission = !fixtureZoneId.IsEmpty()
+			&& mission.m_sMissionId
+				== HST_RadioSiteLifecycleService.DESTROY_MISSION_ID
+			&& mission.m_sTargetZoneId == fixtureZoneId
+			&& HST_RadioSiteLifecycleService.IsExactMission(mission)
+			&& asset && site
+			&& asset.m_sRadioSiteId == site.m_sSiteId;
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_destroy.fixture_authority",
+			"destroy-radio primitive owns the exact disposable transmitter fixture",
+			string.Format(
+				"fixture %1 | mission zone %2 | asset %3 | site %4",
+				EmptyCampaignDebugField(fixtureZoneId),
+				EmptyCampaignDebugField(mission.m_sTargetZoneId),
+				asset != null,
+				site != null),
+			CampaignDebugStatus(exactFixtureMission, "BLOCKED"),
+			"destroy-radio primitive is not scoped to the disposable exact fixture",
+			assetId,
+			instanceId,
+			mission.m_sTargetZoneId);
+		if (!exactFixtureMission)
+			return;
+
+		int moneyBefore = m_State.m_iFactionMoney;
+		int hrBefore = m_State.m_iHR;
+		string physicalReport;
+		bool physicallyDestroyed
+			= m_RadioSites.ApplyCampaignDebugFixturePhysicalDamage(
+				m_State,
+				asset.m_sAssetId,
+				physicalReport);
+		primitiveCase.m_aEvidence.Insert(physicalReport);
+		string callbackResult
+			= "Partisan campaign debug radio | physical action failed before callback";
+		if (physicallyDestroyed)
+			callbackResult = RequestServerMissionAssetDestroyed(
+				asset.m_sAssetId,
+				ResolveCampaignDebugMissionAssetProbePosition(asset, mission));
+		primitiveCase.m_aEvidence.Insert(
+			"radio fixture destruction callback | "
+			+ ShortCampaignDebugLine(callbackResult, 220));
+
+		HST_ActiveMissionState missionAfter = m_State.FindActiveMission(instanceId);
+		HST_RadioSiteState siteAfter = m_State.FindRadioSiteForZone(fixtureZoneId);
+		bool callbackAccepted = physicallyDestroyed
+			&& IsCampaignDebugResultSuccessful(callbackResult)
+			&& asset.m_bDestroyed && !asset.m_bAlive;
+		string expectedReceipt
+			= HST_RadioSiteLifecycleService.BuildDestructionReceiptId(
+				site.m_sSiteId,
+				instanceId);
+		bool lifecycleCommitted = siteAfter
+			&& siteAfter.m_eLifecycleState
+				== HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_DESTROYED
+			&& siteAfter.m_eTargetOwnership
+				== HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD
+			&& siteAfter.m_sLastDestructionReceiptId == expectedReceipt
+			&& siteAfter.m_sLastDestructionMissionInstanceId == instanceId
+			&& siteAfter.m_sLastRebuildReceiptId.IsEmpty()
+			&& siteAfter.m_sActiveMissionInstanceId.IsEmpty();
+		bool rebuildAdmissible = lifecycleCommitted && m_Missions
+			&& m_Missions.CanForceStart(
+				m_State,
+				m_Preset,
+				HST_RadioSiteLifecycleService.REBUILD_MISSION_ID,
+				fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_destroy.engine_damage",
+			"disposable transmitter reaches the engine DESTROYED state before lifecycle evidence is submitted",
+			physicalReport,
+			CampaignDebugStatus(physicallyDestroyed),
+			"disposable transmitter did not accept authoritative physical damage",
+			asset.m_sAssetId,
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_destroy.callback",
+			"normal server destruction callback accepts the physically destroyed borrowed target",
+			ShortCampaignDebugLine(callbackResult, 220),
+			CampaignDebugStatus(callbackAccepted),
+			"normal radio destruction callback rejected the physical fixture evidence",
+			asset.m_sAssetId,
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_destroy.lifecycle",
+			"production outcome commits one DESTROYED epoch, deterministic receipt, borrowed provenance, and no active lock",
+			BuildCampaignDebugRadioLifecycleActual(siteAfter),
+			CampaignDebugStatus(lifecycleCommitted),
+			"destroy-radio success did not commit the exact lifecycle receipt",
+			asset.m_sAssetId,
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_destroy.rebuild_admissible",
+			"unchanged admission now permits exactly one stop-rebuild attempt",
+			string.Format("admissible %1 | %2", rebuildAdmissible, BuildCampaignDebugRadioLifecycleActual(siteAfter)),
+			CampaignDebugStatus(rebuildAdmissible),
+			"real destruction receipt did not make stop-rebuild admissible",
+			"",
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(
+			primitiveCase,
+			definition,
+			missionAfter,
+			moneyBefore,
+			hrBefore,
+			"radio_destroy");
+	}
+
+	protected void AddCampaignDebugRadioSiteRebuildPrimitiveAssertions(
+		HST_CampaignDebugCaseResult primitiveCase,
+		HST_MissionDefinition definition,
+		HST_ActiveMissionState mission)
+	{
+		if (!primitiveCase || !mission || !m_State || !m_RadioSites)
+			return;
+
+		string instanceId = mission.m_sInstanceId;
+		string fixtureZoneId
+			= m_RadioSites.GetCampaignDebugLifecycleFixtureZoneId();
+		HST_MissionAssetState asset = FindCampaignDebugMissionAsset(
+			instanceId,
+			"destroy_target");
+		HST_RadioSiteState site = m_State.FindRadioSiteForZone(fixtureZoneId);
+		string assetId;
+		if (asset)
+			assetId = asset.m_sAssetId;
+		HST_ERadioSiteLifecycleState lifecycleBefore
+			= HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_UNKNOWN;
+		if (site)
+			lifecycleBefore = site.m_eLifecycleState;
+		bool exactFixtureMission = !fixtureZoneId.IsEmpty()
+			&& mission.m_sMissionId
+				== HST_RadioSiteLifecycleService.REBUILD_MISSION_ID
+			&& mission.m_sTargetZoneId == fixtureZoneId
+			&& HST_RadioSiteLifecycleService.IsExactMission(mission)
+			&& asset && site
+			&& site.m_eLifecycleState
+				== HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_REBUILDING
+			&& site.m_eTargetOwnership
+				== HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN;
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_rebuild.fixture_authority",
+			"stop-rebuild primitive owns generated equipment for the exact disposable site",
+			string.Format(
+				"fixture %1 | mission zone %2 | asset %3 | lifecycle %4",
+				EmptyCampaignDebugField(fixtureZoneId),
+				EmptyCampaignDebugField(mission.m_sTargetZoneId),
+				asset != null,
+				lifecycleBefore),
+			CampaignDebugStatus(exactFixtureMission, "BLOCKED"),
+			"stop-rebuild primitive is not scoped to exact generated equipment",
+			assetId,
+			instanceId,
+			mission.m_sTargetZoneId);
+		if (!exactFixtureMission)
+			return;
+
+		string destructionReceiptBefore = site.m_sLastDestructionReceiptId;
+		string destructionMissionBefore
+			= site.m_sLastDestructionMissionInstanceId;
+		int destroyedAtBefore = site.m_iDestroyedAtSecond;
+		int moneyBefore = m_State.m_iFactionMoney;
+		int hrBefore = m_State.m_iHR;
+		float requiredDamage = asset.m_fDemolitionRequiredDamage;
+		if (requiredDamage <= 0.0)
+			requiredDamage = 300.0;
+		string explosiveResult = RequestServerMissionAssetExplosiveDamage(
+			asset.m_sAssetId,
+			ResolveCampaignDebugMissionAssetProbePosition(asset, mission),
+			requiredDamage + 25.0,
+			"campaign_debug_radio_rebuild");
+		primitiveCase.m_aEvidence.Insert(
+			"radio rebuild equipment explosive action | "
+			+ ShortCampaignDebugLine(explosiveResult, 220));
+
+		HST_ActiveMissionState missionAfter = m_State.FindActiveMission(instanceId);
+		HST_RadioSiteState siteAfter = m_State.FindRadioSiteForZone(fixtureZoneId);
+		bool explosiveAccepted = IsCampaignDebugResultSuccessful(explosiveResult)
+			&& asset.m_bDestroyed && !asset.m_bAlive;
+		string expectedRebuildReceipt
+			= HST_RadioSiteLifecycleService.BuildRebuildReceiptId(
+				site.m_sSiteId,
+				instanceId);
+		bool lifecycleCommitted = siteAfter
+			&& siteAfter.m_eLifecycleState
+				== HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_DESTROYED
+			&& siteAfter.m_eTargetOwnership
+				== HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_GENERATED_CAMPAIGN
+			&& siteAfter.m_sLastDestructionReceiptId == destructionReceiptBefore
+			&& siteAfter.m_sLastDestructionMissionInstanceId == destructionMissionBefore
+			&& siteAfter.m_iDestroyedAtSecond == destroyedAtBefore
+			&& siteAfter.m_sLastRebuildReceiptId == expectedRebuildReceipt
+			&& siteAfter.m_sLastRebuildMissionInstanceId == instanceId
+			&& siteAfter.m_sActiveMissionInstanceId.IsEmpty();
+		bool secondAttemptBlocked = lifecycleCommitted && m_Missions
+			&& !m_Missions.CanForceStart(
+				m_State,
+				m_Preset,
+				HST_RadioSiteLifecycleService.REBUILD_MISSION_ID,
+				fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_rebuild.explosive_evidence",
+			"generated rebuild equipment accepts exact explosive-score evidence and is physically destroyed",
+			ShortCampaignDebugLine(explosiveResult, 220),
+			CampaignDebugStatus(explosiveAccepted),
+			"generated rebuild equipment rejected the production explosive path",
+			asset.m_sAssetId,
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_rebuild.lifecycle",
+			"successful stop-rebuild returns to DESTROYED with the original destruction epoch and one deterministic rebuild receipt",
+			BuildCampaignDebugRadioLifecycleActual(siteAfter),
+			CampaignDebugStatus(lifecycleCommitted),
+			"stop-rebuild success changed the destruction epoch or omitted its rebuild receipt",
+			asset.m_sAssetId,
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugAssertion(
+			primitiveCase,
+			"primitive.radio_rebuild.second_attempt_blocked",
+			"one-attempt contract rejects another stop-rebuild mission in the same destruction epoch",
+			string.Format("blocked %1 | %2", secondAttemptBlocked, BuildCampaignDebugRadioLifecycleActual(siteAfter)),
+			CampaignDebugStatus(secondAttemptBlocked),
+			"stop-rebuild could be admitted twice against one destruction receipt",
+			"",
+			instanceId,
+			fixtureZoneId);
+		AddCampaignDebugPrimitiveCompletionAssertions(
+			primitiveCase,
+			definition,
+			missionAfter,
+			moneyBefore,
+			hrBefore,
+			"radio_rebuild");
+	}
+
+	protected string BuildCampaignDebugRadioLifecycleActual(
+		HST_RadioSiteState site)
+	{
+		if (!site)
+			return "missing";
+		string actual = string.Format(
+			"site %1 | zone %2 | lifecycle %3 | ownership %4 | revision %5 | active %6",
+			EmptyCampaignDebugField(site.m_sSiteId),
+			EmptyCampaignDebugField(site.m_sZoneId),
+			site.m_eLifecycleState,
+			site.m_eTargetOwnership,
+			site.m_iRevision,
+			EmptyCampaignDebugField(site.m_sActiveMissionInstanceId));
+		return actual + string.Format(
+			" | destruction %1/%2/%3 | rebuild %4/%5/%6/%7",
+			EmptyCampaignDebugField(site.m_sLastDestructionReceiptId),
+			EmptyCampaignDebugField(site.m_sLastDestructionMissionInstanceId),
+			site.m_iDestroyedAtSecond,
+			EmptyCampaignDebugField(site.m_sLastRebuildReceiptId),
+			EmptyCampaignDebugField(site.m_sLastRebuildMissionInstanceId),
+			site.m_iRebuildStartedAtSecond,
+			site.m_iRebuiltAtSecond);
 	}
 
 	protected void AddCampaignDebugDestroyTargetPrimitiveAssertions(HST_CampaignDebugCaseResult primitiveCase, HST_MissionDefinition definition, HST_ActiveMissionState mission)
@@ -25948,6 +26478,54 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(cleanupCase, "cleanup.exact_mission.residue", "no exact-instance transient mission projections remain", BuildCampaignDebugCountExample(afterCount, afterExample), CampaignDebugStatus(afterCount == 0), "exact mission cleanup left transient projections behind", "", instanceId);
 		FinalizeCampaignDebugCaseFromAssertions(cleanupCase);
 		return cleanupCase;
+	}
+
+	protected bool CleanupCampaignDebugRadioLifecycleFixtureWorld(
+		string requiredPrefix,
+		out int compositionBefore,
+		out int compositionAfter,
+		out string report)
+	{
+		compositionBefore = 0;
+		compositionAfter = 0;
+		report = "radio lifecycle service unavailable";
+		if (!m_RadioSites)
+			return false;
+
+		string fixtureZoneId
+			= m_RadioSites.GetCampaignDebugLifecycleFixtureZoneId();
+		bool compositionReleased = true;
+		if (!fixtureZoneId.IsEmpty())
+		{
+			if (!m_ZoneCompositions)
+			{
+				compositionBefore = -1;
+				compositionAfter = -1;
+				compositionReleased = false;
+			}
+			else
+			{
+				compositionBefore
+					= m_ZoneCompositions.CountRuntimePropsForZone(fixtureZoneId);
+				m_ZoneCompositions.CleanupZoneComposition(fixtureZoneId);
+				compositionAfter
+					= m_ZoneCompositions.CountRuntimePropsForZone(fixtureZoneId);
+				compositionReleased = compositionAfter == 0;
+			}
+		}
+
+		string lifecycleReport;
+		bool lifecycleReleased
+			= m_RadioSites.CleanupCampaignDebugLifecycleFixture(
+				requiredPrefix,
+				lifecycleReport);
+		report = string.Format(
+			"%1 | zone composition %2 -> %3 | composition released %4",
+			lifecycleReport,
+			compositionBefore,
+			compositionAfter,
+			compositionReleased);
+		return lifecycleReleased && compositionReleased;
 	}
 
 	protected int CountCampaignDebugExactMissionTransientRecords(string instanceId, out string example)
@@ -29237,6 +29815,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ActiveMissionState mission = m_State.FindActiveMission(instanceId);
 		if (!mission)
 			return false;
+		if (m_RadioSites
+			&& m_RadioSites.IsCampaignDebugLifecycleFixtureZone(
+				mission.m_sTargetZoneId))
+		{
+			AppendCampaignDebugLog(
+				"INFO",
+				"teleport mission " + missionId,
+				"skipped: disposable radio lifecycle fixture owns its physical projection");
+			return true;
+		}
 
 		vector target = mission.m_vTargetPosition;
 		if (IsZeroVector(target))
@@ -39773,6 +40361,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		if (mission.m_sRuntimePrimitive == "convoy_intercept")
 			return false;
+		if (m_RadioSites
+			&& m_RadioSites.IsCampaignDebugLifecycleFixtureZone(
+				mission.m_sTargetZoneId))
+			return false;
 		if (HST_MissionGuardOperationService.IsExactMission(mission)
 			|| HST_MissionGuardOperationService.IsQuarantinedMission(mission))
 			return false;
@@ -42020,11 +42612,36 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!definition || !m_State || !m_Missions)
 			return "";
 
+		bool exactRadioDefinition
+			= definition.m_sMissionId == HST_RadioSiteLifecycleService.DESTROY_MISSION_ID
+			|| definition.m_sMissionId == HST_RadioSiteLifecycleService.REBUILD_MISSION_ID;
+		if (exactRadioDefinition && m_bCampaignDebugRunning
+			&& m_bCampaignDebugStateIsolationActive)
+		{
+			string fixtureZoneId;
+			if (m_RadioSites)
+				fixtureZoneId = m_RadioSites.GetCampaignDebugLifecycleFixtureZoneId();
+			if (!fixtureZoneId.IsEmpty()
+				&& m_Missions.CanForceStart(
+					m_State,
+					m_Preset,
+					definition.m_sMissionId,
+					fixtureZoneId))
+				return fixtureZoneId;
+			// The one-button suite must never fall back to damaging a transmitter
+			// borrowed from the authored map when its disposable fixture is absent
+			// or in the wrong lifecycle state.
+			return "";
+		}
+
 		HST_ZoneState selectedZone;
 		int bestScore = -99999;
 		foreach (HST_ZoneState zone : m_State.m_aZones)
 		{
 			if (!zone || zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT || zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE)
+				continue;
+			if (m_RadioSites
+				&& m_RadioSites.IsCampaignDebugLifecycleFixtureZone(zone.m_sZoneId))
 				continue;
 
 			if (!m_Missions.CanForceStart(m_State, m_Preset, definition.m_sMissionId, zone.m_sZoneId))

@@ -66,11 +66,23 @@ soak gates also remain open.
 
 Workbench native heap corruption was reproduced when a large campaign-debug
 method accumulated too many local variables. The debug-only state was moved
-into a context object and narrow helpers. The exact current tree, including the
-authoritative-marker and typed-cleanup refinements, passes Foundation with 793
-script-symbol references, compiles and completes Workbench create/destroy at
+into a context object and narrow helpers. That crash-fix checkpoint, including
+the authoritative-marker and typed-cleanup refinements, passes Foundation with
+793 script-symbol references, compiles and completes Workbench create/destroy at
 5,826 Game files/11,807 classes with CRC `287d01ec`, and remained alive at the
 8-, 16-, and 24-second cold-open checks before deliberate shutdown.
+
+The current source adds one disposable Full Campaign Debug radio-lifecycle
+fixture. The isolated runner creates a debug-prefixed radio zone/site and
+supported transmitter, binds it through the borrowed-target production path,
+and refuses any authored-tower fallback. The ordered exact destroy and stop-
+rebuild primitives use normal server physical callbacks and assert lifecycle
+receipts, one unchanged destruction epoch, exact rewards, and the single-attempt
+rule. Cleanup explicitly releases the temporary projection/transmitter and
+removes the prefixed radio row before the live state is restored. Fresh headless
+Workbench validation passes at 5,826 Game files/11,807 classes, 46,633K static
+storage, CRC `39bd6d90`, with `Script validation successful` and no surviving
+Workbench/game process. R10 predates this path; R11 runtime proof is required.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
@@ -1388,6 +1400,14 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
+- Execute R11 against the disposable exact radio fixture before claiming the
+  stop-rebuild mission-sweep gap closed. Require fixture-only selection,
+  transmitter engine destruction before the normal server callback, the exact
+  destruction receipt and epoch, generated rebuild-equipment explosive
+  evidence, one rebuild-attempt receipt without epoch renewal, exact rewards,
+  second-attempt rejection, explicit world cleanup, no prefixed radio row, and
+  an exact final state diff. Workbench validation proves only that this path
+  compiles.
 - Use the R10 artifact as the current in-process baseline. Preserve its passing
   Phase 18, clock/fingerprint isolation, Phase 22 identity/strategic/RUN paths,
   Phase 24, exact-operation marker backing, and typed enemy-order cleanup while

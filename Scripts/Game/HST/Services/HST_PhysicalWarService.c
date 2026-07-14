@@ -2386,6 +2386,17 @@ class HST_PhysicalWarService
 		bool changed;
 		foreach (HST_ZoneState zone : state.m_aZones)
 		{
+			if (HST_RadioSiteLifecycleService.IsCampaignDebugLifecycleFixtureDefinition(zone))
+			{
+				if (zone.m_bActive)
+				{
+					zone.m_bActive = false;
+					changed = DeactivateZone(state, zone, compositions) || changed;
+					changed = true;
+					m_bMarkerRefreshNeeded = true;
+				}
+				continue;
+			}
 			bool forceMissionZone = ShouldForceMissionZoneActive(state, zone);
 			bool shouldBeActive = !IsZoneInsideHQActivationExclusion(state, zone) && (IsAnyLivingPlayerNearZone(playerManager, playerIds, zone, balance) || forceMissionZone);
 			if (zone.m_bActive == shouldBeActive)

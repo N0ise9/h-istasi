@@ -19,6 +19,11 @@ class HST_RadioSiteLifecycleService
 	static const int SCHEMA_VERSION = 59;
 	static const string DESTROY_MISSION_ID = "destroy_radio_tower";
 	static const string REBUILD_MISSION_ID = "dynamic_stop_tower_rebuild";
+	static const string DESTROY_PRIMITIVE = "radio_site_destroy";
+	static const string REBUILD_PRIMITIVE = "radio_site_rebuild";
+	static const string CAMPAIGN_DEBUG_FIXTURE_PREFIX = "hst_debug_";
+	static const string CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER = "campaign_debug_radio_fixture";
+	static const string CAMPAIGN_DEBUG_FIXTURE_PREFAB = "{7E2380494811A5FB}Prefabs/Structures/Infrastructure/Towers/TransmitterTower_01/TransmitterTower_01_medium.et";
 	static const string GENERATED_TOWER_PREFAB = "{6985327711303710}Prefabs/Objects/HST/HST_MissionProp_DestroyTarget.et";
 	static const string REBUILD_EQUIPMENT_PREFAB = "{6985327711303940}Prefabs/Objects/HST/HST_RadioRebuildEquipment.et";
 	static const string TARGET_KIND = "target";
@@ -50,6 +55,12 @@ class HST_RadioSiteLifecycleService
 	protected ref array<bool> m_aProjectionBorrowed = {};
 	protected ref array<IEntity> m_aTransmitterCandidates = {};
 	protected string m_sCandidateExpectedSiteId;
+	// Full Campaign Debug owns one disposable vanilla transmitter. It is bound as
+	// BORROWED_WORLD so the production destroy path still requires observed engine
+	// damage, but the fixture entity itself is never borrowed from the authored map.
+	protected string m_sCampaignDebugFixtureZoneId;
+	protected string m_sCampaignDebugFixtureSiteId;
+	protected IEntity m_CampaignDebugFixtureTransmitter;
 	// Authored transmitter discovery is intentionally amortized. A campaign can
 	// contain many unresolved logical sites, and each discovery attempt performs
 	// a bounded world query around the zone.
@@ -164,6 +175,318 @@ class HST_RadioSiteLifecycleService
 		if (site.m_eLifecycleState == HST_ERadioSiteLifecycleState.HST_RADIO_SITE_LIFECYCLE_ONLINE)
 			return "ONLINE";
 		return "UNRESOLVED";
+	}
+
+	string GetCampaignDebugLifecycleFixtureZoneId()
+	{
+		return m_sCampaignDebugFixtureZoneId;
+	}
+
+	bool IsCampaignDebugLifecycleFixtureZone(string zoneId)
+	{
+		return !zoneId.IsEmpty() && zoneId == m_sCampaignDebugFixtureZoneId;
+	}
+
+	static bool IsCampaignDebugLifecycleFixtureDefinition(HST_ZoneState zone)
+	{
+		return zone
+			&& zone.m_eType == HST_EZoneType.HST_ZONE_RADIO_TOWER
+			&& zone.m_sZoneId.StartsWith(CAMPAIGN_DEBUG_FIXTURE_PREFIX)
+			&& zone.m_sSourceLayerName == CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER;
+	}
+
+	int CountCampaignDebugLifecycleFixtures()
+	{
+		if (m_sCampaignDebugFixtureZoneId.IsEmpty()
+			&& m_sCampaignDebugFixtureSiteId.IsEmpty()
+			&& !m_CampaignDebugFixtureTransmitter)
+			return 0;
+		if (m_sCampaignDebugFixtureZoneId.IsEmpty()
+			|| m_sCampaignDebugFixtureSiteId.IsEmpty()
+			|| !m_CampaignDebugFixtureTransmitter)
+			return -1;
+		return 1;
+	}
+
+	bool PrepareCampaignDebugLifecycleFixture(
+		HST_CampaignState state,
+		string fixtureZoneId,
+		string ownerFactionKey,
+		vector anchorPosition,
+		string entityName,
+		out string report)
+	{
+		report = "Partisan campaign debug radio | fixture not prepared";
+		if (!state || fixtureZoneId.IsEmpty()
+			|| !fixtureZoneId.StartsWith(CAMPAIGN_DEBUG_FIXTURE_PREFIX)
+			|| ownerFactionKey.IsEmpty() || IsZeroVectorStatic(anchorPosition)
+			|| entityName.IsEmpty())
+		{
+			report = "Partisan campaign debug radio | fixture requires isolated debug identity, owner, anchor, and entity tag";
+			return false;
+		}
+
+		if (CountCampaignDebugLifecycleFixtures() != 0)
+		{
+			HST_RadioSiteState existing = state.FindRadioSite(m_sCampaignDebugFixtureSiteId);
+			bool reusable = fixtureZoneId == m_sCampaignDebugFixtureZoneId
+				&& existing && existing.m_sZoneId == fixtureZoneId
+				&& m_CampaignDebugFixtureTransmitter
+				&& !m_CampaignDebugFixtureTransmitter.IsDeleted();
+			report = string.Format(
+				"Partisan campaign debug radio | existing fixture | reusable %1 | zone %2 | site %3",
+				reusable,
+				m_sCampaignDebugFixtureZoneId,
+				m_sCampaignDebugFixtureSiteId);
+			return reusable;
+		}
+		if (state.FindZone(fixtureZoneId)
+			|| state.FindRadioSiteForZone(fixtureZoneId))
+		{
+			report = "Partisan campaign debug radio | fixture identity already exists in campaign state";
+			return false;
+		}
+
+		string fixtureSiteId = BuildSiteId(fixtureZoneId);
+		vector fixturePosition;
+		if (!ResolveCampaignDebugFixturePosition(anchorPosition, fixtureSiteId, fixturePosition))
+		{
+			report = "Partisan campaign debug radio | no isolated dry fixture position was available";
+			return false;
+		}
+
+		GenericEntity transmitter = SpawnProjectionPrefab(
+			CAMPAIGN_DEBUG_FIXTURE_PREFAB,
+			fixturePosition);
+		SCR_DamageManagerComponent damageManager;
+		if (transmitter)
+			damageManager = SCR_DamageManagerComponent.Cast(
+				transmitter.FindComponent(SCR_DamageManagerComponent));
+		if (!transmitter || !damageManager
+			|| ResolveEntityPrefab(transmitter) != CAMPAIGN_DEBUG_FIXTURE_PREFAB
+			|| damageManager.GetState() == EDamageState.DESTROYED)
+		{
+			if (transmitter && !transmitter.IsDeleted())
+				SCR_EntityHelper.DeleteEntityAndChildren(transmitter);
+			report = "Partisan campaign debug radio | disposable transmitter lacks exact prefab or live damage authority";
+			return false;
+		}
+
+		fixturePosition = transmitter.GetOrigin();
+		transmitter.SetName(entityName);
+		HST_ZoneState zone = new HST_ZoneState();
+		zone.m_sZoneId = fixtureZoneId;
+		zone.m_sDisplayName = "Campaign Debug Radio Lifecycle Fixture";
+		zone.m_sSourceLayoutId = fixtureZoneId;
+		zone.m_sSourceLayerName = CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER;
+		zone.m_sOwnerFactionKey = ownerFactionKey;
+		zone.m_eType = HST_EZoneType.HST_ZONE_RADIO_TOWER;
+		zone.m_vPosition = fixturePosition;
+		zone.m_sResourceKind = "communications";
+		zone.m_iCaptureRadiusMeters = 25;
+		zone.m_iPriority = 1;
+		zone.m_iGarrisonSlots = 0;
+		zone.m_iActivationRadiusMeters = 220;
+		state.m_aZones.Insert(zone);
+
+		HST_RadioSiteState site = CreateLogicalSite(state, zone);
+		site.m_eTargetOwnership = HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD;
+		site.m_sTargetPrefab = CAMPAIGN_DEBUG_FIXTURE_PREFAB;
+		site.m_vTargetPosition = fixturePosition;
+		site.m_sAuthoredTargetPrefab = CAMPAIGN_DEBUG_FIXTURE_PREFAB;
+		site.m_vAuthoredTargetPosition = fixturePosition;
+		site.m_sLastTransitionReason = "campaign debug disposable transmitter bound through exact radio-site authority";
+		state.m_aRadioSites.Insert(site);
+
+		m_sCampaignDebugFixtureZoneId = fixtureZoneId;
+		m_sCampaignDebugFixtureSiteId = site.m_sSiteId;
+		m_CampaignDebugFixtureTransmitter = transmitter;
+		RegisterProjection(site.m_sSiteId, "", transmitter, true);
+
+		string startFailure;
+		bool exact = CanStartMission(
+			state,
+			DESTROY_MISSION_ID,
+			fixtureZoneId,
+			startFailure);
+		if (!exact)
+		{
+			RollbackCampaignDebugLifecycleFixture(state, zone, site);
+			report = "Partisan campaign debug radio | fixture failed exact destroy admission: " + startFailure;
+			return false;
+		}
+
+		report = string.Format(
+			"Partisan campaign debug radio | fixture prepared | zone %1 | site %2 | prefab %3 | position %4 | health %5 | state %6",
+			fixtureZoneId,
+			site.m_sSiteId,
+			ResolveEntityPrefab(transmitter),
+			fixturePosition,
+			damageManager.GetHealthScaled(),
+			damageManager.GetState());
+		return true;
+	}
+
+	bool ApplyCampaignDebugFixturePhysicalDamage(
+		HST_CampaignState state,
+		string assetId,
+		out string report)
+	{
+		report = "Partisan campaign debug radio | fixture physical damage rejected";
+		if (!state || assetId.IsEmpty()
+			|| CountCampaignDebugLifecycleFixtures() != 1
+			|| m_CampaignDebugFixtureTransmitter.IsDeleted())
+			return false;
+
+		HST_MissionAssetState asset = state.FindMissionAsset(assetId);
+		HST_ActiveMissionState mission;
+		HST_RadioSiteState site;
+		if (asset)
+		{
+			mission = state.FindActiveMission(asset.m_sMissionInstanceId);
+			site = state.FindRadioSite(asset.m_sRadioSiteId);
+		}
+		IEntity projection;
+		if (site)
+			projection = FindProjection(site.m_sSiteId);
+		if (!asset || !IsExactMission(mission)
+			|| mission.m_sMissionId != DESTROY_MISSION_ID
+			|| mission.m_sTargetZoneId != m_sCampaignDebugFixtureZoneId
+			|| mission.m_eStatus != HST_EMissionStatus.HST_MISSION_ACTIVE
+			|| !site || site.m_sSiteId != m_sCampaignDebugFixtureSiteId
+			|| site.m_eTargetOwnership != HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD
+			|| projection != m_CampaignDebugFixtureTransmitter
+			|| !MissionOwnsCurrentSiteLock(state, site, mission, asset))
+		{
+			report = "Partisan campaign debug radio | fixture physical damage lacks exact active destroy authority";
+			return false;
+		}
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
+			m_CampaignDebugFixtureTransmitter.FindComponent(SCR_DamageManagerComponent));
+		if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
+		{
+			report = "Partisan campaign debug radio | fixture transmitter was missing or already destroyed before the action";
+			return false;
+		}
+
+		float priorHealth = damageManager.GetHealthScaled();
+		EDamageState priorState = damageManager.GetState();
+		bool writeAccepted = damageManager.SetHealthScaled(0.0);
+		bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;
+		report = string.Format(
+			"Partisan campaign debug radio | fixture physical damage | zone %1 | health %2 -> %3 | state %4 -> %5 | write %6",
+			m_sCampaignDebugFixtureZoneId,
+			priorHealth,
+			damageManager.GetHealthScaled(),
+			priorState,
+			damageManager.GetState(),
+			writeAccepted);
+		return writeAccepted && destroyed;
+	}
+
+	bool CleanupCampaignDebugLifecycleFixture(string requiredPrefix, out string report)
+	{
+		report = "Partisan campaign debug radio | no lifecycle fixture registered";
+		int fixtureCount = CountCampaignDebugLifecycleFixtures();
+		if (fixtureCount == 0)
+			return true;
+		if (fixtureCount < 0 || requiredPrefix.IsEmpty()
+			|| !m_sCampaignDebugFixtureZoneId.StartsWith(requiredPrefix))
+		{
+			report = "Partisan campaign debug radio | fixture cleanup rejected inconsistent or out-of-scope identity";
+			return false;
+		}
+
+		string zoneId = m_sCampaignDebugFixtureZoneId;
+		string siteId = m_sCampaignDebugFixtureSiteId;
+		IEntity transmitter = m_CampaignDebugFixtureTransmitter;
+		bool projectionForgotten = ForgetProjection(siteId, true);
+		bool deleteAttempted = transmitter && !transmitter.IsDeleted();
+		if (deleteAttempted)
+			SCR_EntityHelper.DeleteEntityAndChildren(transmitter);
+		bool worldReleased = !transmitter || transmitter.IsDeleted();
+
+		if (worldReleased)
+		{
+			m_sCampaignDebugFixtureZoneId = "";
+			m_sCampaignDebugFixtureSiteId = "";
+			m_CampaignDebugFixtureTransmitter = null;
+		}
+		report = string.Format(
+			"Partisan campaign debug radio | fixture world cleanup | zone %1 | site %2 | projection forgotten %3 | delete attempted %4 | world released %5",
+			zoneId,
+			siteId,
+			projectionForgotten,
+			deleteAttempted,
+			worldReleased);
+		return worldReleased;
+	}
+
+	protected bool ResolveCampaignDebugFixturePosition(
+		vector anchorPosition,
+		string expectedSiteId,
+		out vector resolvedPosition)
+	{
+		array<vector> offsets = {
+			"480 0 0",
+			"-480 0 0",
+			"0 0 480",
+			"0 0 -480",
+			"680 0 680",
+			"-680 0 680",
+			"680 0 -680",
+			"-680 0 -680"
+		};
+		foreach (vector offset : offsets)
+		{
+			vector candidate = anchorPosition + offset;
+			vector grounded;
+			if (!HST_WorldPositionService.TryResolveSafeGroundPosition(
+				candidate,
+				HST_WorldPositionService.PROP_GROUND_OFFSET,
+				grounded,
+				true,
+				3.0))
+				continue;
+			CollectTransmitterCandidates(
+				grounded,
+				BINDING_SEARCH_RADIUS_METERS,
+				expectedSiteId);
+			if (!m_aTransmitterCandidates.IsEmpty())
+				continue;
+			resolvedPosition = grounded;
+			return true;
+		}
+		return false;
+	}
+
+	protected void RollbackCampaignDebugLifecycleFixture(
+		HST_CampaignState state,
+		HST_ZoneState zone,
+		HST_RadioSiteState site)
+	{
+		if (site)
+			ForgetProjection(site.m_sSiteId, true);
+		if (m_CampaignDebugFixtureTransmitter
+			&& !m_CampaignDebugFixtureTransmitter.IsDeleted())
+			SCR_EntityHelper.DeleteEntityAndChildren(
+				m_CampaignDebugFixtureTransmitter);
+		if (state && site)
+		{
+			int siteIndex = state.m_aRadioSites.Find(site);
+			if (siteIndex >= 0)
+				state.m_aRadioSites.Remove(siteIndex);
+		}
+		if (state && zone)
+		{
+			int zoneIndex = state.m_aZones.Find(zone);
+			if (zoneIndex >= 0)
+				state.m_aZones.Remove(zoneIndex);
+		}
+		m_sCampaignDebugFixtureZoneId = "";
+		m_sCampaignDebugFixtureSiteId = "";
+		m_CampaignDebugFixtureTransmitter = null;
 	}
 
 	static bool IsSupportedTransmitterPrefab(string prefab)
@@ -1493,9 +1816,9 @@ class HST_RadioSiteLifecycleService
 		state.m_aMissionRuntimeEntities.Insert(runtime);
 
 		mission.m_vTargetPosition = site.m_vTargetPosition;
-		mission.m_sRuntimePrimitive = "radio_site_destroy";
+		mission.m_sRuntimePrimitive = DESTROY_PRIMITIVE;
 		if (mission.m_sMissionId == REBUILD_MISSION_ID)
-			mission.m_sRuntimePrimitive = "radio_site_rebuild";
+			mission.m_sRuntimePrimitive = REBUILD_PRIMITIVE;
 		mission.m_sRuntimePhase = "radio_site_active";
 		mission.m_bRuntimeSpawned = asset.m_bSpawned;
 
