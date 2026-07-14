@@ -414,7 +414,10 @@ class HST_EnemyQRFOperationProofService
 		int captureProgressAfter = captureProgressBefore;
 		if (target)
 			captureProgressAfter = target.m_iResistanceCaptureProgress;
-		report.m_bSettlementExact = casualtiesAccepted && routeExact && refundExact && oneTime && terminalExact && terminalRestoreExact;
+		string refundReceiptReplayEvidence;
+		bool refundReceiptReplayExact = ProveRefundAppliedReceiptMissingReplay(refundReceiptReplayEvidence);
+		report.m_bSettlementExact = casualtiesAccepted && routeExact && refundExact && oneTime
+			&& terminalExact && terminalRestoreExact && refundReceiptReplayExact;
 		report.m_sSettlementEvidence = string.Format(
 			"living %1 -> %2 | refund attack %3/%4 support %5/%6",
 			initialLiving,
@@ -433,6 +436,212 @@ class HST_EnemyQRFOperationProofService
 			attackAfterReplay - attackAfter,
 			supportAfterReplay - supportAfter,
 			terminalRestoreExact);
+		report.m_sSettlementEvidence = report.m_sSettlementEvidence
+			+ " | refund-applied receipt-missing replay " + refundReceiptReplayEvidence;
+	}
+
+	protected bool ProveRefundAppliedReceiptMissingReplay(out string evidence)
+	{
+		HST_EnemyQRFOperationProofFixture fixture
+			= BuildAdmittedFixture("settlement_refund_receipt_replay");
+		if (!Ready(fixture))
+		{
+			evidence = BuildFixtureFailure(fixture);
+			return false;
+		}
+
+		int initialLiving = fixture.m_Queue.CountStrategicLivingMemberSlots(fixture.m_Batch);
+		int casualties = Math.Min(2, Math.Max(0, initialLiving - 1));
+		bool casualtiesAccepted = ConfirmStrategicCasualties(fixture, casualties);
+		int survivors = fixture.m_Queue.CountStrategicLivingMemberSlots(fixture.m_Batch);
+		HST_OperationService operations = new HST_OperationService();
+		fixture.m_Operation.m_fRouteProgressMeters = fixture.m_Operation.m_fRouteTotalDistanceMeters;
+		fixture.m_Operation.m_vStrategicPosition = fixture.m_Operation.m_vRouteEndPosition;
+		fixture.m_Group.m_vPosition = fixture.m_Operation.m_vRouteEndPosition;
+		fixture.m_State.m_iElapsedSeconds++;
+		HST_OperationTransitionResult arrived = operations.MarkExactEnemyDefensiveQRFOnStation(
+			fixture.m_State,
+			fixture.m_Order,
+			fixture.m_Group);
+		bool onStationTick = fixture.m_ExactQRF.TickOrder(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_EnemyDirector,
+			fixture.m_Order);
+		fixture.m_Operation.m_fRouteProgressMeters = fixture.m_Operation.m_fRouteTotalDistanceMeters;
+		fixture.m_Operation.m_vStrategicPosition = fixture.m_Operation.m_vOriginPosition;
+		fixture.m_Group.m_vPosition = fixture.m_Operation.m_vOriginPosition;
+		fixture.m_State.m_iElapsedSeconds++;
+		bool returnReadyBeforeRefund = onStationTick
+			&& fixture.m_Order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& fixture.m_Operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN
+			&& fixture.m_Operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+
+		string settlementKind = "returned_survivors";
+		string settlementId = HST_OperationService.BuildSettlementId(
+			fixture.m_Order.m_sOperationId,
+			settlementKind);
+		string refundMutationId = "enemy_resource_refund_" + settlementId;
+		int expectedAttackRefund = fixture.m_Order.m_iAttackCost * survivors
+			/ fixture.m_Manifest.m_iAcceptedMemberCount;
+		int expectedSupportRefund = fixture.m_Order.m_iSupportCost * survivors
+			/ fixture.m_Manifest.m_iAcceptedMemberCount;
+		bool receiptCleanBeforeRefund = !fixture.m_Order.m_bResourceSettlementApplied
+			&& fixture.m_Order.m_sResourceRefundMutationId.IsEmpty()
+			&& fixture.m_Order.m_sResourceSettlementId.IsEmpty()
+			&& fixture.m_Order.m_sResourceSettlementKind.IsEmpty()
+			&& fixture.m_Order.m_iSettlementAcceptedMemberCount == 0
+			&& fixture.m_Order.m_iSettlementSurvivorMemberCount == 0
+			&& fixture.m_Order.m_iRefundedAttackResources == 0
+			&& fixture.m_Order.m_iRefundedSupportResources == 0;
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(PROOF_FACTION_KEY);
+		HST_EnemySupportLedgerState ledger = fixture.m_State.FindEnemySupportLedger(
+			PROOF_FACTION_KEY,
+			PROOF_TARGET_ZONE_ID);
+		if (!pool || !ledger)
+		{
+			evidence = "returned-survivor pool or support ledger unavailable";
+			return false;
+		}
+		int attackBeforeDirectRefund = pool.m_iAttackResources;
+		int supportBeforeDirectRefund = pool.m_iSupportResources;
+		int ledgerAttackSpentBeforeDirectRefund = ledger.m_iAttackSpent;
+		int ledgerSupportSpentBeforeDirectRefund = ledger.m_iSupportSpent;
+		int ledgerAttackBeforeDirectRefund = ledger.m_iRefundedAttackResources;
+		int ledgerSupportBeforeDirectRefund = ledger.m_iRefundedSupportResources;
+		bool directRefundApplied = fixture.m_EnemyDirector.RefundDefenseResources(
+			fixture.m_State,
+			fixture.m_Order.m_sFactionKey,
+			fixture.m_Order.m_sTargetZoneId,
+			expectedAttackRefund,
+			expectedSupportRefund,
+			"enemy QRF refund-applied receipt-missing replay proof",
+			refundMutationId,
+			settlementId,
+			fixture.m_Order.m_sOrderId,
+			fixture.m_Order.m_sOperationId,
+			fixture.m_Order.m_sManifestId);
+		int attackAfterDirectRefund = pool.m_iAttackResources;
+		int supportAfterDirectRefund = pool.m_iSupportResources;
+		int ledgerAttackSpentAfterDirectRefund = ledger.m_iAttackSpent;
+		int ledgerSupportSpentAfterDirectRefund = ledger.m_iSupportSpent;
+		int ledgerAttackAfterDirectRefund = ledger.m_iRefundedAttackResources;
+		int ledgerSupportAfterDirectRefund = ledger.m_iRefundedSupportResources;
+		bool receiptCleanAfterRefund = !fixture.m_Order.m_bResourceSettlementApplied
+			&& fixture.m_Order.m_sResourceRefundMutationId.IsEmpty()
+			&& fixture.m_Order.m_sResourceSettlementId.IsEmpty()
+			&& fixture.m_Order.m_sResourceSettlementKind.IsEmpty()
+			&& fixture.m_Order.m_iSettlementAcceptedMemberCount == 0
+			&& fixture.m_Order.m_iSettlementSurvivorMemberCount == 0
+			&& fixture.m_Order.m_iRefundedAttackResources == 0
+			&& fixture.m_Order.m_iRefundedSupportResources == 0;
+
+		bool firstTick = fixture.m_ExactQRF.TickOrder(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_EnemyDirector,
+			fixture.m_Order);
+		int attackAfterFirstTick = pool.m_iAttackResources;
+		int supportAfterFirstTick = pool.m_iSupportResources;
+		int ledgerAttackSpentAfterFirstTick = ledger.m_iAttackSpent;
+		int ledgerSupportSpentAfterFirstTick = ledger.m_iSupportSpent;
+		int ledgerAttackAfterFirstTick = ledger.m_iRefundedAttackResources;
+		int ledgerSupportAfterFirstTick = ledger.m_iRefundedSupportResources;
+		bool secondTick = fixture.m_ExactQRF.TickOrder(
+			fixture.m_State,
+			fixture.m_Preset,
+			fixture.m_EnemyDirector,
+			fixture.m_Order);
+		int mutationCount = CountStrategicMutations(
+			fixture.m_State,
+			refundMutationId);
+		HST_EnemyStrategicMutationState mutation
+			= fixture.m_State.FindEnemyStrategicMutation(refundMutationId);
+
+		bool returnedFixtureExact = casualtiesAccepted && arrived && arrived.m_bAccepted
+			&& returnReadyBeforeRefund
+			&& fixture.m_Operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED;
+		bool directRefundExact = directRefundApplied
+			&& attackAfterDirectRefund - attackBeforeDirectRefund == expectedAttackRefund
+			&& supportAfterDirectRefund - supportBeforeDirectRefund == expectedSupportRefund
+			&& ledgerAttackSpentAfterDirectRefund
+				== Math.Max(0, ledgerAttackSpentBeforeDirectRefund - expectedAttackRefund)
+			&& ledgerSupportSpentAfterDirectRefund
+				== Math.Max(0, ledgerSupportSpentBeforeDirectRefund - expectedSupportRefund)
+			&& ledgerAttackAfterDirectRefund - ledgerAttackBeforeDirectRefund
+				== expectedAttackRefund
+			&& ledgerSupportAfterDirectRefund - ledgerSupportBeforeDirectRefund
+				== expectedSupportRefund;
+		bool receiptComplete = firstTick
+			&& fixture.m_Order.m_bResourceSettlementApplied
+			&& fixture.m_Order.m_sResourceRefundMutationId == refundMutationId
+			&& fixture.m_Order.m_sResourceSettlementId == settlementId
+			&& fixture.m_Order.m_sResourceSettlementKind == settlementKind
+			&& fixture.m_Order.m_iSettlementAcceptedMemberCount == initialLiving
+			&& fixture.m_Order.m_iSettlementSurvivorMemberCount == survivors
+			&& fixture.m_Order.m_iRefundedAttackResources == expectedAttackRefund
+			&& fixture.m_Order.m_iRefundedSupportResources == expectedSupportRefund
+			&& fixture.m_Order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+			&& fixture.m_Operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& fixture.m_Operation.m_sSettlementId == settlementId;
+		bool oneMutation = mutationCount == 1 && mutation && mutation.m_bApplied
+			&& mutation.m_sMutationId == refundMutationId
+			&& mutation.m_sSourceId == settlementId
+			&& mutation.m_sOrderId == fixture.m_Order.m_sOrderId
+			&& mutation.m_sOperationId == fixture.m_Order.m_sOperationId
+			&& mutation.m_sManifestId == fixture.m_Order.m_sManifestId
+			&& mutation.m_iAttackDelta == expectedAttackRefund
+			&& mutation.m_iSupportDelta == expectedSupportRefund;
+		bool noReplayDelta = attackAfterFirstTick == attackAfterDirectRefund
+			&& supportAfterFirstTick == supportAfterDirectRefund
+			&& ledgerAttackSpentAfterFirstTick == ledgerAttackSpentAfterDirectRefund
+			&& ledgerSupportSpentAfterFirstTick == ledgerSupportSpentAfterDirectRefund
+			&& ledgerAttackAfterFirstTick == ledgerAttackAfterDirectRefund
+			&& ledgerSupportAfterFirstTick == ledgerSupportAfterDirectRefund
+			&& pool.m_iAttackResources == attackAfterFirstTick
+			&& pool.m_iSupportResources == supportAfterFirstTick
+			&& ledger.m_iAttackSpent == ledgerAttackSpentAfterFirstTick
+			&& ledger.m_iSupportSpent == ledgerSupportSpentAfterFirstTick
+			&& ledger.m_iRefundedAttackResources == ledgerAttackAfterFirstTick
+			&& ledger.m_iRefundedSupportResources == ledgerSupportAfterFirstTick;
+		bool secondTickStable = !secondTick
+			&& CountStrategicMutations(fixture.m_State, refundMutationId) == 1
+			&& fixture.m_Order.m_sResourceSettlementId == settlementId
+			&& fixture.m_Operation.m_sSettlementId == settlementId;
+
+		evidence = string.Format(
+			"returned %1/%2 | direct/clean %3/%4/%5 | refund %6/%7 | first/second tick %8/%9",
+			initialLiving,
+			survivors,
+			directRefundApplied,
+			receiptCleanBeforeRefund,
+			receiptCleanAfterRefund,
+			expectedAttackRefund,
+			expectedSupportRefund,
+			firstTick,
+			secondTick);
+		evidence = evidence + string.Format(
+			" | receipt/terminal/mutation %1/%2/%3 | replay pool delta %4/%5 ledger delta %6/%7",
+			receiptComplete,
+			fixture.m_Operation.m_eTerminalResult,
+			mutationCount,
+			attackAfterFirstTick - attackAfterDirectRefund,
+			supportAfterFirstTick - supportAfterDirectRefund,
+			ledgerAttackAfterFirstTick - ledgerAttackAfterDirectRefund,
+			ledgerSupportAfterFirstTick - ledgerSupportAfterDirectRefund);
+		evidence = evidence + string.Format(
+			" | ledger spent direct/replay %1/%2/%3/%4",
+			ledgerAttackSpentAfterDirectRefund - ledgerAttackSpentBeforeDirectRefund,
+			ledgerSupportSpentAfterDirectRefund - ledgerSupportSpentBeforeDirectRefund,
+			ledgerAttackSpentAfterFirstTick - ledgerAttackSpentAfterDirectRefund,
+			ledgerSupportSpentAfterFirstTick - ledgerSupportSpentAfterDirectRefund);
+		return returnedFixtureExact && receiptCleanBeforeRefund && receiptCleanAfterRefund
+			&& directRefundExact && receiptComplete && oneMutation && noReplayDelta
+			&& secondTickStable;
 	}
 
 	protected void ProveRestore(HST_EnemyQRFOperationProofReport report)
@@ -1134,6 +1343,19 @@ class HST_EnemyQRFOperationProofService
 				return order;
 		}
 		return null;
+	}
+
+	protected int CountStrategicMutations(HST_CampaignState state, string mutationId)
+	{
+		if (!state || mutationId.IsEmpty())
+			return 0;
+		int count;
+		foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)
+		{
+			if (mutation && mutation.m_sMutationId == mutationId)
+				count++;
+		}
+		return count;
 	}
 
 	protected int CountManifestId(HST_CampaignState state, string manifestId)

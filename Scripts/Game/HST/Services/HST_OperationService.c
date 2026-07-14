@@ -855,7 +855,10 @@ class HST_OperationService
 		HST_EnemyOrderState order,
 		string settlementKind,
 		int acceptedMemberCount,
-		int survivorMemberCount)
+		int survivorMemberCount,
+		string refundMutationId = "",
+		int refundedAttackResources = 0,
+		int refundedSupportResources = 0)
 	{
 		HST_OperationRecordState operation;
 		HST_ForceManifestState manifest;
@@ -868,17 +871,57 @@ class HST_OperationService
 		string settlementId = BuildSettlementId(operation.m_sOperationId, settlementKind);
 		if (settlementId.IsEmpty())
 			return BuildRejected("exact enemy defensive QRF resource settlement identity is invalid");
+		bool requireFullReceipt = !refundMutationId.IsEmpty();
+		if (requireFullReceipt)
+		{
+			int expectedAttackRefund;
+			int expectedSupportRefund;
+			if (settlementKind.Contains("_full"))
+			{
+				expectedAttackRefund = Math.Max(0, order.m_iAttackCost);
+				expectedSupportRefund = Math.Max(0, order.m_iSupportCost);
+			}
+			else if (acceptedMemberCount > 0)
+			{
+				expectedAttackRefund = Math.Max(0, order.m_iAttackCost)
+					* survivorMemberCount / acceptedMemberCount;
+				expectedSupportRefund = Math.Max(0, order.m_iSupportCost)
+					* survivorMemberCount / acceptedMemberCount;
+			}
+			if (refundMutationId != "enemy_resource_refund_" + settlementId
+				|| refundedAttackResources != expectedAttackRefund
+				|| refundedSupportResources != expectedSupportRefund)
+				return BuildRejected("exact enemy defensive QRF resource refund receipt is invalid");
+		}
 		if (order.m_bResourceSettlementApplied)
 		{
-			if (order.m_sResourceSettlementId == settlementId
+			bool receiptExact = order.m_sResourceSettlementId == settlementId
 				&& order.m_sResourceSettlementKind == settlementKind
 				&& order.m_iSettlementAcceptedMemberCount == acceptedMemberCount
-				&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount)
+				&& order.m_iSettlementSurvivorMemberCount == survivorMemberCount;
+			if (requireFullReceipt)
+			{
+				receiptExact = receiptExact
+					&& order.m_sResourceRefundMutationId == refundMutationId
+					&& order.m_iRefundedAttackResources == refundedAttackResources
+					&& order.m_iRefundedSupportResources == refundedSupportResources;
+			}
+			if (receiptExact)
 				return BuildAccepted(operation, false, true);
 			return BuildRejected("exact enemy defensive QRF resource settlement already conflicts");
 		}
-		if (!order.m_sResourceSettlementId.IsEmpty() || !order.m_sResourceSettlementKind.IsEmpty()
-			|| order.m_iSettlementAcceptedMemberCount != 0 || order.m_iSettlementSurvivorMemberCount != 0)
+		bool hasPartialAuthority = !order.m_sResourceSettlementId.IsEmpty()
+			|| !order.m_sResourceSettlementKind.IsEmpty()
+			|| order.m_iSettlementAcceptedMemberCount != 0
+			|| order.m_iSettlementSurvivorMemberCount != 0;
+		if (requireFullReceipt)
+		{
+			hasPartialAuthority = hasPartialAuthority
+				|| !order.m_sResourceRefundMutationId.IsEmpty()
+				|| order.m_iRefundedAttackResources != 0
+				|| order.m_iRefundedSupportResources != 0;
+		}
+		if (hasPartialAuthority)
 			return BuildRejected("exact enemy defensive QRF contains partial resource settlement authority");
 		return BuildAccepted(operation, false, false);
 	}
@@ -888,7 +931,10 @@ class HST_OperationService
 		HST_EnemyOrderState order,
 		string settlementKind,
 		int acceptedMemberCount,
-		int survivorMemberCount)
+		int survivorMemberCount,
+		string refundMutationId = "",
+		int refundedAttackResources = 0,
+		int refundedSupportResources = 0)
 	{
 		HST_OperationTransitionResult preflight
 			= CanRecordExactEnemyDefensiveQRFResourceSettlement(
@@ -896,7 +942,10 @@ class HST_OperationService
 				order,
 				settlementKind,
 				acceptedMemberCount,
-				survivorMemberCount);
+				survivorMemberCount,
+				refundMutationId,
+				refundedAttackResources,
+				refundedSupportResources);
 		if (!preflight || !preflight.m_bAccepted || !preflight.m_Operation
 			|| preflight.m_bAlreadyApplied)
 			return preflight;
@@ -904,8 +953,15 @@ class HST_OperationService
 		string settlementId = BuildSettlementId(operation.m_sOperationId, settlementKind);
 		order.m_sResourceSettlementId = settlementId;
 		order.m_sResourceSettlementKind = settlementKind;
+		if (!refundMutationId.IsEmpty())
+		{
+			order.m_sResourceRefundMutationId = refundMutationId;
+			order.m_iRefundedAttackResources = refundedAttackResources;
+			order.m_iRefundedSupportResources = refundedSupportResources;
+		}
 		order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;
 		order.m_iSettlementSurvivorMemberCount = survivorMemberCount;
+		// This flag is the commit marker for the complete receipt above.
 		order.m_bResourceSettlementApplied = true;
 		operation.m_iLastProgressAtSecond = state.m_iElapsedSeconds;
 		operation.m_iRevision++;

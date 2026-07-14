@@ -7110,6 +7110,119 @@ foreach ($requiredSchema51ProofEntry in @(
 		throw "Schema-51 enemy defensive-QRF proof integration missing: $requiredSchema51ProofEntry"
 	}
 }
+$schema51QRFResourceSettlementBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected bool ApplyResourceSettlement('
+$schema51QRFResourcePreflightIndex = $schema51QRFResourceSettlementBlock.IndexOf(
+	'm_Operations.CanRecordExactEnemyDefensiveQRFResourceSettlement(')
+$schema51QRFResourceRefundIndex = $schema51QRFResourceSettlementBlock.IndexOf(
+	'enemyDirector.RefundDefenseResources(')
+$schema51QRFResourceRecordIndex = $schema51QRFResourceSettlementBlock.IndexOf(
+	'm_Operations.RecordExactEnemyDefensiveQRFResourceSettlement(')
+if ([string]::IsNullOrEmpty($schema51QRFResourceSettlementBlock) -or
+	$schema51QRFResourcePreflightIndex -lt 0 -or
+	$schema51QRFResourceRefundIndex -le $schema51QRFResourcePreflightIndex -or
+	$schema51QRFResourceRecordIndex -le $schema51QRFResourceRefundIndex) {
+	throw "Schema-51 enemy defensive-QRF settlement must preflight the complete receipt, apply or replay the refund, and only then record the receipt"
+}
+$schema51QRFReceiptAssignmentPattern = '(?m)^\s*order\.m_(?:sResourceSettlementId|sResourceSettlementKind|sResourceRefundMutationId|iSettlementAcceptedMemberCount|iSettlementSurvivorMemberCount|iRefundedAttackResources|iRefundedSupportResources|bResourceSettlementApplied)\s*=(?!=)'
+$schema51QRFBeforeRefundBlock = $schema51QRFResourceSettlementBlock.Substring(
+	0,
+	$schema51QRFResourceRefundIndex)
+if ($schema51QRFBeforeRefundBlock -match $schema51QRFReceiptAssignmentPattern) {
+	throw "Schema-51 enemy defensive-QRF settlement must keep every order receipt field clean until the refund mutation has applied or replayed"
+}
+$schema51QRFFullPreflightPattern = 'CanRecordExactEnemyDefensiveQRFResourceSettlement\(\s*state,\s*order,\s*settlementKind,\s*accepted,\s*survivors,\s*refundMutationId,\s*attackRefund,\s*supportRefund\s*\)'
+$schema51QRFFullRecordPattern = 'RecordExactEnemyDefensiveQRFResourceSettlement\(\s*state,\s*order,\s*settlementKind,\s*accepted,\s*survivors,\s*refundMutationId,\s*attackRefund,\s*supportRefund\s*\)'
+if ($schema51QRFResourceSettlementBlock -notmatch $schema51QRFFullPreflightPattern -or
+	$schema51QRFResourceSettlementBlock -notmatch $schema51QRFFullRecordPattern -or
+	$schema51QRFResourceSettlementBlock.IndexOf('order.m_sResourceRefundMutationId == refundMutationId') -lt 0 -or
+	$schema51QRFResourceSettlementBlock.IndexOf('ValidateSettledResourceRefundAuthority(') -lt 0) {
+	throw "Schema-51 enemy defensive-QRF settlement must carry and validate the deterministic full refund receipt through both new and replayed settlements"
+}
+$schema51QRFPartialReceiptBlock = Get-ScriptMethodBlock $enemyQRFOperationText 'protected bool HasPartialResourceSettlementAuthority('
+if ([string]::IsNullOrEmpty($schema51QRFPartialReceiptBlock) -or
+	$schema51QRFPartialReceiptBlock.IndexOf('!order.m_sResourceRefundMutationId.IsEmpty()') -lt 0) {
+	throw "Schema-51 enemy defensive-QRF partial-settlement detection must include the refund mutation identity"
+}
+$schema51CanRecordResourceBlock = Get-ScriptMethodBlock $operationServiceText 'HST_OperationTransitionResult CanRecordExactEnemyDefensiveQRFResourceSettlement('
+foreach ($schema51FullReceiptPreflightEntry in @(
+		'string refundMutationId = ""',
+		'int refundedAttackResources = 0',
+		'int refundedSupportResources = 0',
+		'bool requireFullReceipt = !refundMutationId.IsEmpty()',
+		'refundMutationId != "enemy_resource_refund_" + settlementId',
+		'refundedAttackResources != expectedAttackRefund',
+		'refundedSupportResources != expectedSupportRefund',
+		'order.m_sResourceRefundMutationId == refundMutationId',
+		'order.m_iRefundedAttackResources == refundedAttackResources',
+		'order.m_iRefundedSupportResources == refundedSupportResources',
+		'!order.m_sResourceRefundMutationId.IsEmpty()',
+		'order.m_iRefundedAttackResources != 0',
+		'order.m_iRefundedSupportResources != 0'
+)) {
+	if ([string]::IsNullOrEmpty($schema51CanRecordResourceBlock) -or
+		$schema51CanRecordResourceBlock.IndexOf($schema51FullReceiptPreflightEntry) -lt 0) {
+		throw "Schema-51 enemy defensive-QRF full-receipt preflight is missing: $schema51FullReceiptPreflightEntry"
+	}
+}
+$schema51RecordResourceBlock = Get-ScriptMethodBlock $operationServiceText 'HST_OperationTransitionResult RecordExactEnemyDefensiveQRFResourceSettlement('
+$schema51RecordFullPreflightPattern = 'CanRecordExactEnemyDefensiveQRFResourceSettlement\(\s*state,\s*order,\s*settlementKind,\s*acceptedMemberCount,\s*survivorMemberCount,\s*refundMutationId,\s*refundedAttackResources,\s*refundedSupportResources\s*\)'
+if ([string]::IsNullOrEmpty($schema51RecordResourceBlock) -or
+	$schema51RecordResourceBlock -notmatch $schema51RecordFullPreflightPattern) {
+	throw "Schema-51 enemy defensive-QRF receipt recorder must repeat the complete read-only preflight"
+}
+$schema51ResourceAppliedIndex = $schema51RecordResourceBlock.IndexOf(
+	'order.m_bResourceSettlementApplied = true;')
+foreach ($schema51ReceiptAssignment in @(
+		'order.m_sResourceSettlementId = settlementId;',
+		'order.m_sResourceSettlementKind = settlementKind;',
+		'order.m_sResourceRefundMutationId = refundMutationId;',
+		'order.m_iRefundedAttackResources = refundedAttackResources;',
+		'order.m_iRefundedSupportResources = refundedSupportResources;',
+		'order.m_iSettlementAcceptedMemberCount = acceptedMemberCount;',
+		'order.m_iSettlementSurvivorMemberCount = survivorMemberCount;'
+)) {
+	$schema51ReceiptAssignmentIndex = $schema51RecordResourceBlock.IndexOf($schema51ReceiptAssignment)
+	if ($schema51ReceiptAssignmentIndex -lt 0 -or
+		$schema51ResourceAppliedIndex -le $schema51ReceiptAssignmentIndex) {
+		throw "Schema-51 enemy defensive-QRF receipt must write every deterministic field before the applied flag: $schema51ReceiptAssignment"
+	}
+}
+$schema51RefundReplayProofBlock = Get-ScriptMethodBlock $enemyQRFProofText 'protected bool ProveRefundAppliedReceiptMissingReplay('
+foreach ($schema51RefundReplayProofEntry in @(
+		'receiptCleanBeforeRefund',
+		'fixture.m_EnemyDirector.RefundDefenseResources(',
+		'receiptCleanAfterRefund',
+		'bool firstTick = fixture.m_ExactQRF.TickOrder(',
+		'bool secondTick = fixture.m_ExactQRF.TickOrder(',
+		'mutationCount == 1',
+		'bool noReplayDelta',
+		'bool secondTickStable',
+		'ledgerAttackSpentBeforeDirectRefund',
+		'ledgerSupportSpentBeforeDirectRefund',
+		'Math.Max(0, ledgerAttackSpentBeforeDirectRefund - expectedAttackRefund)',
+		'Math.Max(0, ledgerSupportSpentBeforeDirectRefund - expectedSupportRefund)',
+		'ledger.m_iAttackSpent == ledgerAttackSpentAfterFirstTick',
+		'ledger.m_iSupportSpent == ledgerSupportSpentAfterFirstTick',
+		'CountStrategicMutations(fixture.m_State, refundMutationId) == 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema51RefundReplayProofBlock) -or
+		$schema51RefundReplayProofBlock.IndexOf($schema51RefundReplayProofEntry) -lt 0) {
+		throw "Schema-51 refund-applied/receipt-missing replay proof is missing: $schema51RefundReplayProofEntry"
+	}
+}
+$schema51ProofDirectRefundIndex = $schema51RefundReplayProofBlock.IndexOf(
+	'fixture.m_EnemyDirector.RefundDefenseResources(')
+$schema51ProofFirstTickIndex = $schema51RefundReplayProofBlock.IndexOf(
+	'bool firstTick = fixture.m_ExactQRF.TickOrder(')
+$schema51ProofSecondTickIndex = $schema51RefundReplayProofBlock.IndexOf(
+	'bool secondTick = fixture.m_ExactQRF.TickOrder(')
+if ($schema51ProofDirectRefundIndex -lt 0 -or
+	$schema51ProofFirstTickIndex -le $schema51ProofDirectRefundIndex -or
+	$schema51ProofSecondTickIndex -le $schema51ProofFirstTickIndex -or
+	$enemyQRFProofText.IndexOf('refundReceiptReplayExact = ProveRefundAppliedReceiptMissingReplay(') -lt 0 -or
+	$enemyQRFProofText.IndexOf('m_bPartialReceiptQuarantined = ProvePartialReceiptRestoreQuarantine(') -lt 0) {
+	throw "Schema-51 exact-QRF proof must exercise refund-first receipt completion, stable replay, and forged-partial restore quarantine"
+}
 $restoreSettlementStart = $enemyQRFOperationText.IndexOf('protected bool SettleInvalidatedRestoreAuthority')
 $restoreSettlementEnd = $enemyQRFOperationText.IndexOf('protected bool ForceSettleInvalidatedRestore')
 if ($restoreSettlementStart -lt 0 -or $restoreSettlementEnd -le $restoreSettlementStart) {
@@ -25737,7 +25850,6 @@ if ($schema67EnemyDirectorText -match 'pool\.m_i(?:AttackResources|SupportResour
 foreach ($schema67ExactConsumerSource in @(
 	@('enemy commander debit', $schema67EnemyCommanderText, 'order.m_sResourceDebitMutationId = debitMutationId'),
 	@('enemy commander refund', $schema67EnemyCommanderText, 'order.m_sResourceRefundMutationId = refundMutationId'),
-	@('enemy defensive-QRF refund', $schema67EnemyQRFText, 'order.m_sResourceRefundMutationId = refundMutationId'),
 	@('enemy patrol refund', $schema67EnemyPatrolText, 'order.m_sResourceRefundMutationId = refundMutationId'),
 	@('town aggression', $schema67TownInfluenceText, '"town_influence"'),
 	@('ownership aggression', $schema67OwnershipText, '"ownership_transition"')
@@ -25748,6 +25860,10 @@ foreach ($schema67ExactConsumerSource in @(
 	if ($schema67ExactConsumerText.IndexOf($schema67ExactConsumerEntry) -lt 0) {
 		throw "Schema-67 cross-domain source link is missing for $schema67ExactConsumerLabel"
 	}
+}
+if ([string]::IsNullOrEmpty($schema51RecordResourceBlock) -or
+	$schema51RecordResourceBlock.IndexOf('order.m_sResourceRefundMutationId = refundMutationId;') -lt 0) {
+	throw "Schema-67 enemy defensive-QRF refund identity must publish through the complete operation receipt after canonical mutation replay"
 }
 
 $schema67MissionOutcomeEventBlock = Get-ScriptMethodBlock $schema67StrategicText 'protected HST_StrategicEventState CreateMissionOutcomeEvent('

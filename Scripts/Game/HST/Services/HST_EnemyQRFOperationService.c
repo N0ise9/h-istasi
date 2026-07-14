@@ -1022,6 +1022,7 @@ class HST_EnemyQRFOperationService
 			return false;
 		return !order.m_sResourceSettlementId.IsEmpty()
 			|| !order.m_sResourceSettlementKind.IsEmpty()
+			|| !order.m_sResourceRefundMutationId.IsEmpty()
 			|| order.m_iSettlementAcceptedMemberCount != 0
 			|| order.m_iSettlementSurvivorMemberCount != 0
 			|| order.m_iRefundedAttackResources != 0
@@ -2010,20 +2011,25 @@ class HST_EnemyQRFOperationService
 			supportRefund = Math.Max(0, order.m_iSupportCost) * survivors / accepted;
 		}
 		string settlementId = HST_OperationService.BuildSettlementId(order.m_sOperationId, settlementKind);
+		string refundMutationId = "enemy_resource_refund_" + settlementId;
 		if (order.m_bResourceSettlementApplied)
 		{
 			return order.m_sResourceSettlementId == settlementId
 				&& order.m_sResourceSettlementKind == settlementKind
+				&& order.m_sResourceRefundMutationId == refundMutationId
 				&& order.m_iSettlementAcceptedMemberCount == accepted
 				&& order.m_iSettlementSurvivorMemberCount == survivors
 				&& order.m_iRefundedAttackResources == attackRefund
-				&& order.m_iRefundedSupportResources == supportRefund;
+				&& order.m_iRefundedSupportResources == supportRefund
+				&& HST_EnemyCounterattackSaveValidationService
+					.ValidateSettledResourceRefundAuthority(
+						state.m_aEnemyStrategicMutations,
+						order).IsEmpty();
 		}
 		if (HasPartialResourceSettlementAuthority(order))
 			return false;
 		if ((attackRefund > 0 || supportRefund > 0) && !state.FindFactionPool(order.m_sFactionKey))
 			return false;
-		string refundMutationId = "enemy_resource_refund_" + settlementId;
 		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
 		bool recordOperation = operation != null;
 		if (recordOperation)
@@ -2034,7 +2040,10 @@ class HST_EnemyQRFOperationService
 					order,
 					settlementKind,
 					accepted,
-					survivors);
+					survivors,
+					refundMutationId,
+					attackRefund,
+					supportRefund);
 			if (!resourcePreflight || !resourcePreflight.m_bAccepted)
 			{
 				if (!fullRefund || order.m_bStrategicServiceCommitted)
@@ -2042,6 +2051,9 @@ class HST_EnemyQRFOperationService
 				recordOperation = false;
 			}
 		}
+		// Keep the order receipt clean while canonical resource authority applies
+		// or replays the deterministic mutation. The complete order tuple is
+		// published only after that call succeeds.
 		if (!enemyDirector.RefundDefenseResources(
 			state,
 			order.m_sFactionKey,
@@ -2055,8 +2067,6 @@ class HST_EnemyQRFOperationService
 			order.m_sOperationId,
 			order.m_sManifestId))
 			return false;
-		order.m_sResourceRefundMutationId = refundMutationId;
-
 		if (recordOperation)
 		{
 			HST_OperationTransitionResult recorded = m_Operations.RecordExactEnemyDefensiveQRFResourceSettlement(
@@ -2064,7 +2074,10 @@ class HST_EnemyQRFOperationService
 				order,
 				settlementKind,
 				accepted,
-				survivors);
+				survivors,
+				refundMutationId,
+				attackRefund,
+				supportRefund);
 			if (!recorded || !recorded.m_bAccepted)
 				return false;
 		}
@@ -2072,14 +2085,18 @@ class HST_EnemyQRFOperationService
 		{
 			order.m_sResourceSettlementId = settlementId;
 			order.m_sResourceSettlementKind = settlementKind;
+			order.m_sResourceRefundMutationId = refundMutationId;
+			order.m_iRefundedAttackResources = attackRefund;
+			order.m_iRefundedSupportResources = supportRefund;
 			order.m_iSettlementAcceptedMemberCount = accepted;
 			order.m_iSettlementSurvivorMemberCount = survivors;
 			order.m_bResourceSettlementApplied = true;
 		}
 
-		order.m_iRefundedAttackResources = attackRefund;
-		order.m_iRefundedSupportResources = supportRefund;
-		return true;
+		return HST_EnemyCounterattackSaveValidationService
+			.ValidateSettledResourceRefundAuthority(
+				state.m_aEnemyStrategicMutations,
+				order).IsEmpty();
 	}
 
 	protected string ValidateAdmissionContext(
