@@ -936,9 +936,7 @@ class HST_ForceSpawnQueueService
 	{
 		if (!batch || batch.m_iNextAttemptSecond > nowSecond)
 			return false;
-		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
-			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
-			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE)
+		if (!CanStartSpawnAttempt(batch))
 			return false;
 		batch.m_iAttemptGeneration++;
 		batch.m_iLastAttemptSecond = nowSecond;
@@ -959,6 +957,13 @@ class HST_ForceSpawnQueueService
 			ResetSlotForAttempt(slotResult, batch.m_sProjectionId, nowSecond);
 		}
 		return true;
+	}
+
+	protected bool CanStartSpawnAttempt(HST_ForceSpawnResultState batch)
+	{
+		return batch && (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE);
 	}
 
 	protected void ResetSlotForAttempt(HST_ForceSpawnSlotResultState slotResult, string projectionId, int nowSecond)
@@ -1013,9 +1018,7 @@ class HST_ForceSpawnQueueService
 			return HasCleanupWork(batch);
 		if (!manifest)
 			return false;
-		if (batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
-			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
-			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE
+		if (!CanStartSpawnAttempt(batch)
 			&& batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_IN_PROGRESS)
 			return false;
 		return HasSpawnWork(batch, manifest);
@@ -1181,11 +1184,25 @@ class HST_ForceSpawnQueueService
 			if (IsExternallyManagedAssetDescriptor(batch, descriptor))
 				continue;
 			HST_ForceSpawnSlotResultState slotResult = batch.FindSlotResult(descriptor.m_sSlotId);
-			if (slotResult && slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_QUEUED
+			if (IsSlotSelectableForSpawnAttempt(batch, slotResult)
 				&& DependenciesRegistered(batch, descriptor))
 				return true;
 		}
 		return false;
+	}
+
+	protected bool IsSlotSelectableForSpawnAttempt(
+		HST_ForceSpawnResultState batch,
+		HST_ForceSpawnSlotResultState slotResult)
+	{
+		if (!slotResult)
+			return false;
+		if (slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_QUEUED)
+			return true;
+		if (!CanStartSpawnAttempt(batch))
+			return false;
+		return slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_DEFERRED
+			|| slotResult.m_eStatus == HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_FAILED_RETRYABLE;
 	}
 
 	protected bool HasCleanupWork(HST_ForceSpawnResultState batch)

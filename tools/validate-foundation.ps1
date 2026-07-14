@@ -9238,6 +9238,60 @@ foreach ($requiredForceSpawnQueueApi in @(
 		throw "Durable force spawn queue API is missing: $requiredForceSpawnQueueApi"
 	}
 }
+$forceSpawnAcquireWorkBlock = Get-ScriptMethodBlock $forceSpawnQueueServiceText 'HST_ForceSpawnQueueTickResult AcquireWork('
+$forceSpawnStartAttemptBlock = Get-ScriptMethodBlock $forceSpawnQueueServiceText 'protected bool StartAttemptIfReady('
+$forceSpawnStartableBatchBlock = Get-ScriptMethodBlock $forceSpawnQueueServiceText 'protected bool CanStartSpawnAttempt('
+$forceSpawnHasWorkBlock = Get-ScriptMethodBlock $forceSpawnQueueServiceText 'protected bool HasSpawnWork('
+$forceSpawnSelectableSlotBlock = Get-ScriptMethodBlock $forceSpawnQueueServiceText 'protected bool IsSlotSelectableForSpawnAttempt('
+foreach ($requiredForceSpawnStartableBatchEntry in @(
+		'HST_FORCE_SPAWN_PENDING',
+		'HST_FORCE_SPAWN_DEFERRED',
+		'HST_FORCE_SPAWN_FAILED_RETRYABLE'
+	)) {
+	if ($forceSpawnStartableBatchBlock.IndexOf($requiredForceSpawnStartableBatchEntry) -lt 0) {
+		throw "Durable force spawn queue startable-batch contract is missing: $requiredForceSpawnStartableBatchEntry"
+	}
+}
+foreach ($requiredForceSpawnRetrySelectionEntry in @(
+		'HST_FORCE_SLOT_QUEUED',
+		'HST_FORCE_SLOT_DEFERRED',
+		'HST_FORCE_SLOT_FAILED_RETRYABLE',
+		'CanStartSpawnAttempt(batch)'
+	)) {
+	if ($forceSpawnSelectableSlotBlock.IndexOf($requiredForceSpawnRetrySelectionEntry) -lt 0) {
+		throw "Durable force spawn queue retry/defer slot selection contract is missing: $requiredForceSpawnRetrySelectionEntry"
+	}
+}
+foreach ($requiredForceSpawnHasWorkEntry in @(
+		'ValidateManifest(manifest)',
+		'BatchSlotsMatchManifest(batch, validation.m_aSlots)',
+		'IsSlotSelectableForSpawnAttempt(batch, slotResult)',
+		'DependenciesRegistered(batch, descriptor)'
+	)) {
+	if ($forceSpawnHasWorkBlock.IndexOf($requiredForceSpawnHasWorkEntry) -lt 0) {
+		throw "Durable force spawn queue exact selectable-work contract is missing: $requiredForceSpawnHasWorkEntry"
+	}
+}
+foreach ($requiredForceSpawnAttemptNormalizationEntry in @(
+		'CanStartSpawnAttempt(batch)',
+		'HST_FORCE_SLOT_QUEUED',
+		'HST_FORCE_SLOT_DEFERRED',
+		'HST_FORCE_SLOT_FAILED_RETRYABLE',
+		'ResetSlotForAttempt(slotResult, batch.m_sProjectionId, nowSecond)'
+	)) {
+	if ($forceSpawnStartAttemptBlock.IndexOf($requiredForceSpawnAttemptNormalizationEntry) -lt 0) {
+		throw "Durable force spawn queue selected-attempt normalization contract is missing: $requiredForceSpawnAttemptNormalizationEntry"
+	}
+}
+$forceSpawnSelectIndex = $forceSpawnAcquireWorkBlock.IndexOf('SelectNextWorkBatch(')
+$forceSpawnStartIndex = $forceSpawnAcquireWorkBlock.IndexOf('StartAttemptIfReady(')
+if ($forceSpawnSelectIndex -lt 0 -or $forceSpawnStartIndex -le $forceSpawnSelectIndex) {
+	throw "Durable force spawn queue must select bounded work before mutating its attempt state"
+}
+if ($forceSpawnHasWorkBlock.IndexOf('IsSlotSelectableForSpawnAttempt(batch, slotResult)') -lt 0 -or
+	$forceSpawnSelectableSlotBlock.IndexOf('CanStartSpawnAttempt(batch)') -lt 0) {
+	throw "Durable force spawn queue selection must recognize the slot states normalized by the selected attempt"
+}
 foreach ($requiredForceSpawnQueueIdentityEntry in @(
 		"manifest has no executable group root",
 		"optional force manifest groups require a deployed-manifest policy",
