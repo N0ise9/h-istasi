@@ -1713,4 +1713,80 @@ Consequences:
   That ordering can leave an open exact operation after a rejected settlement
   and two exact runtime claimants; run-completion cleanup records settled 0,
   failures 1, one tracked open row, and total open orders 0 -> 2. That ordering
-  is the next authority defect; this decision does not claim to correct it.
+  was the next authority defect at this decision boundary; CRI-031 records its
+  later correction and proof.
+
+## CRI-031 - Give Exact Defensive QRFs Their Own Refund Authority
+
+- Status: Accepted; Foundation, PC-only Workbench, focused engine, and R25b
+  in-process proof complete; process-restart and package gates remain open
+- Date: 2026-07-14
+
+Context: R23 exposed a refund-applied/order-receipt-clean crash window that could
+leave an exact defensive-QRF operation open after settlement rejection. The
+first publication-order repair kept the order tuple clean while the canonical
+refund applied or replayed and then published the tuple with the applied flag
+last. R24 `seed1985_t0_p1_u1784059798`, build `6303e58`, proved that typed cleanup
+and the open-order leak were clean again, but its focused QRF settlement and
+persistence assertions still failed. The settlement owner was validating a
+defensive QRF through the exact-counterattack settled-refund helper, whose
+exactly-one-charged-pool rule rejects a legal defensive QRF funded from support
+alone or from both defense-resource values. The persistence proof also matched
+an obsolete diagnostic phrase and rendered several values as booleans, hiding
+the already-correct missing-backlink invalidation evidence.
+
+Decision: Exact defensive QRFs own a family-specific settled-resource validator.
+It requires one canonical defense debit and one canonical defense refund with
+exact contract version, applied state, mutation identity, faction, source,
+order, operation, manifest, zone, deltas, empty contribution shape, and valid
+chronology. It accepts support-only or dual-pool defensive funding. Exact
+counterattacks retain their separate exactly-one-pool rule. Settlement preflights
+the full tuple, applies or replays the resource mutation while every order-side
+receipt field remains clean, then publishes settlement identity, kind, refund
+mutation, accepted/survivor counts, refund amounts, and the applied flag last.
+Applied replay and restore invalidation both use the QRF-specific validator.
+Proof diagnostics classify the stable resource-authority failure family and
+print real status, runtime reason, pool, backlink, and settlement values.
+
+Consequences:
+
+- Implementation `434b73a16ae92911896fdec095af6bce88168916`, stamp `7fac7ac`,
+  UTC `2026-07-14T20:54:24Z`, label
+  `schema70-settings24-exact-qrf-refund-authority`, changes no campaign schema,
+  settings schema, serialized field, operation contract version, or migration
+  rule. Campaign Schema 70 and settings Schema 24 remain current.
+- Foundation passes at 795 script-symbol references. PC-only Workbench log
+  `logs_2026-07-14_16-56-29` validates 5,827 Game files/11,809 classes, 46,667K
+  static storage, and CRC `12b7df72`; script validation, game create/destroy,
+  diagnostics, and process cleanup are clean. This is not an all-five-target
+  Workbench result.
+- Focused log `logs_2026-07-14_16-57-04` records one passing
+  `HST_TEST_EnemyQRFAuthority`, no JUnit failure, an empty failed list, and
+  `AllExact 1`. It covers dual-pool returned-survivor settlement/replay,
+  support-only full settlement/replay, terminal restore, partial-receipt
+  quarantine, and missing-group-backlink invalidation with retained rows and
+  unchanged resources. The harness still emits the known recoverable player-
+  audit VM exception and two filter-constructor diagnostics, so it is successful
+  but not exception-free.
+- R24 remains the dated bridge: 688 cases at 578 PASS/50 WARN/53 FAIL/7 BLOCKED,
+  5,522/5,682 required assertions proven, 142 failed, and 18 blocked. Its two QRF
+  assertions failed, but typed cleanup reported settled 0, failures 0, open 0,
+  runtime 0; the open-order leak was 0 -> 0; core Phase-24 and exact-zero final
+  restoration passed.
+- R25b `seed1985_t0_p1_u1784063032` completes 688 cases at 577 PASS/51 WARN/53
+  FAIL/7 BLOCKED and proves 5,523/5,681 required assertions, with 140 failed and
+  18 blocked. Both `enemy_qrf.settlement` and `enemy_qrf.persistence` pass.
+  Typed cleanup remains settled 0/failures 0/open 0/runtime 0, the open-order
+  leak remains 0 -> 0, seeded
+  persistence matches 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9
+  groups, 10/10 runtime vehicles, and 1/1 field vehicle, and the final tracked
+  diff is zero. Core Phase-24 seed/report/outcome cases pass; escalation
+  physicalization remains WARN.
+- R25b is diagnostic, not certification. Unrelated failures plus real-restart,
+  world-scope, manual external, package, native, dedicated-server/client,
+  multiplayer, reconnect/JIP, and soak gates remain.
+- The current authority is same-session replay-safe but has no durable
+  `PREPARED` process-restart protocol between refund application and order
+  receipt publication. That crash window remains a future schema/authority
+  gate, and arbitrary old partial rows remain fail-closed rather than being
+  inferred or auto-healed.

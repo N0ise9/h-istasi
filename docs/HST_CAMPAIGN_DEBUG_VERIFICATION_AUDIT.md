@@ -56,16 +56,34 @@ remain and are not classified as source compile failures.
 ## Current Debug Checkpoint And Persistence-Isolation Boundary
 
 The current source is stamped at implementation
-`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`434b73a16ae92911896fdec095af6bce88168916`, stamp commit `7fac7ac`, UTC
 `2026-07-14T20:54:24Z`, label
-`schema70-settings24-exact-qrf-refund-authority`. It keeps the order receipt clean
-through deterministic resource refund application/replay and then publishes
-the complete tuple with the applied flag last. The focused proof recreates the
-same-session refund-row/order-clean intermediate and requires one resource and
-ledger mutation, terminal receipt completion, and stable second-tick replay.
-It changes no persisted schema. Foundation passes; current-source Workbench and
-fresh Full Campaign Debug gates remain pending. Save/restore from that exact
-intermediate and automatic repair of old partial rows remain open.
+`schema70-settings24-exact-qrf-refund-authority`. Campaign Schema 70 and runtime
+settings Schema 24 are unchanged. Exact defensive QRF settlement now owns a QRF-
+specific strategic debit/refund validator: support cost must be positive while
+attack cost may be zero or positive, so both support-only and dual-pool receipts
+are legal. Deterministic debit/refund IDs, exactly one claimant for each role,
+contract/applied/kind, full faction/source/order/operation/manifest/zone
+backlinks, exact pool deltas, chronology, empty contribution hashes, and the
+shared mutation-shape contract must all agree. The counterattack validator
+remains intentionally one-pool and is not a valid QRF authority boundary.
+
+The order receipt stays clean while the deterministic refund applies or replays,
+then the complete tuple publishes with the applied flag last. PC Workbench log
+`logs_2026-07-14_16-56-29` compiles 5,827 Game files/11,809 classes with 46,667K
+static storage at CRC `12b7df72`, completes cleanly, and leaves zero processes.
+Foundation passes at 795 script-symbol references. Focused engine log
+`logs_2026-07-14_16-57-04` records one passing testcase, `AllExact=1`, and an
+empty failed list. Its known recoverable VM/player-audit and filter-constructor
+diagnostics remain environmental evidence; the HST testcase still completes.
+
+R25b `seed1985_t0_p1_u1784063032` runtime-proves the corrected settlement and
+persistence paths below. Missing current-schema group backlinks correctly
+invalidate the exact operation without changing pools or deleting retained
+authority, so no production `ReconcileAfterRestore` change was required. The
+remaining QRF recovery gap is a durable `PREPARED` process-restart contract for
+each crash window. Arbitrary old partial rows continue to fail closed rather
+than being guessed into a valid receipt.
 
 The preceding demolition-witness correction is implementation
 `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
@@ -307,14 +325,31 @@ mechanisms have exact-tree static, Workbench, and R10 runtime proof.
 
 ## Current Full Campaign Debug Runtime Evidence
 
-The latest completed run, R23 `seed1985_t0_p1_u1784054690`, executed 688 cases:
-564 PASS, 51 WARN, 66 FAIL, and 7 BLOCKED. Certification proved 5,440 of 5,650
-required assertions, with 192 failed and 18 blocked. It ran build
-`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
-`schema70-settings24-active-demolition-witness`. The wider run remains
-diagnostic, not certification evidence. Foundation, authority foundation, all
-18 spawn-queue assertions, all eight local-security assertions, and the entire
-seven-mission destroy family pass their targeted runtime gates.
+The latest completed run is R25b `seed1985_t0_p1_u1784063032`. It executed 688
+cases: 577 PASS, 51 WARN, 53 FAIL, and 7 BLOCKED. Certification proved 5,523 of
+5,681 required assertions, with 140 failed and 18 blocked. It ran build
+`434b73a16ae92911896fdec095af6bce88168916`, label
+`schema70-settings24-exact-qrf-refund-authority`. Both
+`enemy_qrf.settlement` and `enemy_qrf.persistence` pass. The wider run remains
+diagnostic and is not certified because unrelated failures plus the explicit
+external restart/network/soak blocks remain.
+
+The R25b engine log is not exception-free. Startup emits the known base-game
+player-identity audit/reconnect/arsenal VM exceptions, and deliberate corruption
+fixtures emit error-severity fail-closed diagnostics. The run contains no HST
+compile error or native crash signature; these diagnostics remain separate from
+the passing QRF assertions and from overall suite certification.
+
+R25b proves exact support-only and dual-pool debit/refund replay. The normal
+survivor settlement refunds attack/support exactly, completes the terminal
+receipt, and produces zero second-replay pool or ledger delta. The support-only
+case accepts attack cost/refund zero with positive support cost/refund and also
+replays once. A missing required group backlink produces `ABORTED` /
+`exact_operation_invalidated`, retains the authority rows, leaves both resource
+pools unchanged, and leaves the settlement receipt `OPEN` rather than
+fabricating completion. The proof classifier now consumes stable authority
+categories and prints the real enum/status/reason fields instead of bool-shaped
+telemetry.
 
 R20 closes the local-security checkpoint blocker from R19. It contains no
 `exact local-security roster reconciliation failed` deferral, and all eight
@@ -390,28 +425,34 @@ cadence. Phase 24 remained 11 PASS, one support-physicalization WARN, and zero
 FAIL. Typed enemy-order cleanup ended with zero settlement failures, zero
 tracked open orders, and zero runtime claimants.
 
-R23's final state diff is exactly zero across elapsed time, resources, training,
-war level, missions, objectives, runtime vehicles, assets, groups, support,
-orders, markers, garage, arsenal, civilian zones, strategic events, and
-undercover state. Its seeded in-memory roundtrip also proves exact summary,
-report, typed counts, and civilian support, while correctly leaving real process
-restart BLOCKED. Later phase persistence smoke/report cases WARN after subsequent
-drift. The suite is not green: 66 cases still fail and 7 remain blocked. One
-tracked enemy-order settlement recorded settled 0, failures 1, one tracked open
-row, and two exact runtime claimants; total open orders moved 0 -> 2. Typed
-cleanup directly fails and the leak snapshot WARNs. Later Phase-24 failures
-occur while that remnant remains, but R23 does not isolate every one to the same
-cause. The exact next crash window
-remains isolated in the exact-QRF settlement path, which writes its refund
-mutation before validating the full settlement tuple. That pre-existing
-ordering was exposed by R22 and can leave an
-open operation/runtime claimant after the later validation rejects settlement.
-It is reproduced but not corrected by the demolition-witness source. R21 remains
-the cleaner cleanup and persistence comparison at zero open orders and 0 -> 0
-leak counts.
-The world-scope restart block is classified above. Real process restart,
-packaged server/client execution, multiplayer/JIP/
-reconnect, migration, and soak gates also prevent certification.
+R23's dated final state diff is exactly zero across elapsed time, resources,
+training, war level, missions, objectives, runtime vehicles, assets, groups,
+support, orders, markers, garage, arsenal, civilian zones, strategic events,
+and undercover state. Its seeded in-memory roundtrip also proves exact summary,
+report, typed counts, and civilian support. R23 nevertheless left one tracked
+QRF settlement failure, one tracked open row, two exact runtime claimants, and
+an open-order leak from 0 -> 2. That evidence remains the original reproduction
+of the QRF settlement defect rather than the current result.
+
+R24 `seed1985_t0_p1_u1784059798`, build
+`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, executed 688 cases at 578 PASS,
+50 WARN, 53 FAIL, and 7 BLOCKED. It proved 5,522 of 5,682 required assertions,
+with 142 failed and 18 blocked. R24 isolated the remaining QRF failure to the
+wrong cross-family one-pool validator, while its proof also used one brittle
+failure sentence and bool-shaped terminal/status telemetry. Typed cleanup,
+tracked open-order cleanup, the 0 -> 0 leak snapshot, Phase-24 core assertions,
+and the final exact-zero tracked-state diff were already clean.
+
+R25b replaces that validator boundary and the brittle proof classification.
+Typed cleanup reports settled 0, failures 0, open tracked orders 0, and runtime
+claimants 0; the open-order leak remains 0 -> 0. The seeded roundtrip remains
+exact at 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups,
+10/10 runtime vehicles, and 1/1 field vehicles. Every final tracked-state delta
+is zero. Phase-24 core assertions pass, with escalation physicalization retained
+as WARN telemetry rather than a QRF authority failure. Real process restart,
+packaged server/client execution, multiplayer/JIP/reconnect, migration, and soak
+gates still prevent certification. Durable QRF `PREPARED` recovery across a
+real process stop remains the next QRF-specific gap.
 
 ## Full Campaign Debug CLI Autostart Boundary
 
@@ -434,9 +475,11 @@ initialize a debug run. Once the gate is ready, it invokes the existing guarded
 responsible for its isolated bootstrap, execution, restoration, and cleanup.
 
 The intended evidence records `run.trigger=cli_autostart` and writes the normal
-structured artifacts beneath `$profile:Partisan/debug`. This is an
-implementation contract with foundation validation and a fresh Workbench
-headless project compile passing at this checkpoint.
+structured artifacts beneath `$profile:Partisan/debug`. R25b confirms that
+trigger, all three JSON/summary/state-diff writes, the current build label, and
+an exact-zero final state diff. Foundation, PC Workbench, focused engine, and
+Full Campaign Debug now agree on the current QRF checkpoint; the remaining
+external gates are not implied by that in-process agreement.
 
 The initial disposable-profile CLI run `seed1985_t0_p1_u1784003276` completed
 711 typed cases and wrote the JSON, summary, and state-diff artifacts with all
@@ -462,8 +505,10 @@ restore, and ownership-terminal assertions exposed a proof-environment liveness
 defect rather than a delivery rejection: live-player proximity moved the focused
 fixture from virtual authority into `MATERIALIZING`, while its bounded driver
 advanced only the virtual path. The focused correction and proof are recorded
-below. The full suite has not yet been rerun after that correction, so this CLI
-artifact remains diagnostic rather than passing Schema-70 evidence.
+below. At that checkpoint the full suite had not yet been rerun, so that CLI
+artifact remains historical diagnostic evidence rather than passing Schema-70
+evidence. Later R25b executes the corrected tree; its current result is recorded
+above.
 
 ## Full Campaign Debug Cross-Case Isolation Correction
 
@@ -608,12 +653,13 @@ The first diagnostic Full Campaign Debug run executed the Schema-70
 deterministic case and exposed the now-corrected proof-proximity defect. Its
 Phase 18 live rebuild
 did not admit because the captive-follow clock leak had already quarantined its
-authoritative resource pool, so the top-up was correctly rejected first. Another
-full run is required to carry both corrected proof paths through the coordinator.
-This closes source,
-Foundation, current Workbench compile/create, and focused engine proof only.
-Packaged/native/live-server runtime, serialization and restart, migration
-runtime, multiplayer/network/JIP/reconnect, and soak gates remain open.
+authoritative resource pool, so the top-up was correctly rejected first. At that
+checkpoint another full run was required. R25b is the later coordinator rerun:
+it preserves the clean seeded/cleanup boundaries and removes the exact-QRF
+settlement blocker, but its unrelated failures do not promote the wider suite to
+certification. Packaged/native/live-server runtime, serialization and restart,
+migration runtime, multiplayer/network/JIP/reconnect, and soak gates remain
+open.
 
 ## Preceding Schema 69 Exact Enemy Counterattack Engine-Proof Boundary
 
@@ -2660,7 +2706,7 @@ Unproven or incomplete against the pasted contract:
 | Schema-67 enemy strategic resource authority | Sealed source makes each versioned pool the per-enemy balance/cadence/checkpoint owner. Compact periodic evidence is separate from an un-compacted contiguous operational sequence, including zero-effect rows, capped at 4,096 per faction. One API owns live mutations; restore validates order/ledger/town/ownership backlinks. | Sealed identity is `2798cb20b824ed74419ab6dc9bdce03f18ef71df`, UTC `2026-07-12T23:46:02Z`, label `schema67-settings24-enemy-strategic-resource-authority`; Foundation passes at 736 references. Final normal/all-five Workbench checks pass at 5,809/11,751 with CRC `a353fa0d`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, zero HST script errors, and zero surviving processes. Campaign Debug remains unexecuted. Core adoption/replay/arithmetic/cadence/separation/war/cap/roundtrip/quarantine assertions and exact QRF/patrol mutation-ID assertions are wired/static. Execute them, then real-restart the full reciprocal graph and hard-stop without duplicate debit/refund. Schema-68 planning consumes but does not replace this sealed authority. |
 | Schema-68 enemy planning plus sealed bootstrap and commitment awareness | The sealed planner keeps one independent 180-second row per configured enemy and exact frozen decision/backlink authority. The bootstrap seal uses one production fresh-state factory, exact-recovers only the known preset-bound three-pool/two-planner/non-null/empty-ledger `-67`/`-68` signature at the current second, rejects near misses, throttles unchanged warnings, and exposes production exact resolvers. Commitment-aware planning collapses linked response rows with blocking precedence, rejects incompatible targets before ranking, penalizes compatible roots, deterministically reranks duplicate-patrol choices, makes preparation freeze-only, revalidates before pressure/debit including pressure-marked retries, and turns all-target exhaustion into a zero-cost skip. | Active engine-proof identity `4c9a94a1cb4811b6e75a7dca5dba70efffcb523d`, UTC `2026-07-13T15:43:01Z`, label `schema68-settings24-enemy-planning-engine-proof`; Foundation 753; final all-target Workbench log `logs_2026-07-13_11-43-49`, 5,816/11,770, CRC `5a998c21`, successful WORKBENCH/PC/XBOX/PS4/PS5 validation, successful exit, and zero surviving processes. Focused engine log `logs_2026-07-13_11-44-28` produced JUnit at `2026-07-13T15:44:34.667Z`: one testcase, no failure, empty failed list, and `AllExact=true` for all 17 fixtures including retry-quarantine repeated-pass idempotency. Full Campaign Debug in `HST_Dev`, coordinator isolation/artifacts, live authority, fresh package, affected-save restart, dedicated/live-server, multiplayer/network, and soak remain open. |
 | Schema-69 exact enemy counterattack | Newly admitted contract-`1` counterattacks use one frozen infantry aggregate, one charged pool, direct virtual travel, deterministic combat, casualty-preserving physical/virtual handoff, canonical ownership, return, and survivor-proportional settlement. Appended `PREPARED` terminal intent enforces prepare -> stage -> refund -> record -> finalize and resumes on restore or a same-session tick. Explicit and deterministically derived claimant IDs reject duplicate or foreign cleanup authority; historical rows remain contract `0`, and invalid current graphs quarantine at `-69`. | The scoped checkpoint is sealed at implementation `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation 771, all-target Workbench log `logs_2026-07-13_15-41-50` at CRC `3a8bd64f`, and focused log `logs_2026-07-13_15-42-52` with one passing JUnit testcase, empty failed list, and `AllExact=1`. Valid PREPARED recovery, same-session ABORTED recovery, foreign derived-ID collision hold, and SETTLED-without-receipt fail-closed proof pass. The environment records a recoverable base-game VM exception before successful HST completion. Full Campaign Debug Phase 17, serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
-| Schema-70 exact enemy garrison rebuild | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. | Current build `0e54f6cb` passes Foundation at 793 references and Workbench log `logs_2026-07-14_14-41-29` at 5,826 Game files/11,807 classes, 46,643K, CRC `c3ab042e`, successful validation, no HST compile error/fatal, and zero processes. R23 executed 688 cases with 564 PASS/51 WARN/66 FAIL/7 BLOCKED and proved 5,440/5,650 required assertions; all 18 SpawnQueue assertions, Foundation/authority foundation, exact seeded persistence, demolition-witness regression gates, and final state diff pass. The exact-QRF settlement/typed-cleanup defect remains open, so R21 remains the cleaner typed-cleanup comparison. Serialization/restart, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
+| Schema-70 exact enemy garrison rebuild and current QRF refund authority | Newly admitted contract-`1` rebuilds preflight one capacity-bounded frozen infantry roster and source/target ownership capability before one 10-support debit, then build one reciprocal order/operation/manifest/batch/group graph or roll back exactly. Casualties persist across virtual/physical transfer. Delivery links survivors as held garrison authority under an `OPEN`/`ON_STATION` operation with a zero-delta receipt and no aggregate double count; later terminal retirement refunds zero. Historical rows remain contract `0`, while malformed/orphan current authority quarantines at `-70` with claimant-wide process holds and retention pins. Exact defensive QRFs use their own support-positive, attack-nonnegative debit/refund validator rather than the counterattack one-pool contract. | Current implementation `434b73a16ae92911896fdec095af6bce88168916`, stamp `7fac7ac`, keeps Campaign Schema 70/settings Schema 24 and passes Foundation at 795 references. PC Workbench log `logs_2026-07-14_16-56-29` is clean at 5,827/11,809, 46,667K, CRC `12b7df72`, with zero processes. Focused log `logs_2026-07-14_16-57-04` has one passing testcase, `AllExact=1`, and an empty failed list despite known recoverable environment diagnostics. R25b executes 688 cases at 577 PASS/51 WARN/53 FAIL/7 BLOCKED and proves both `enemy_qrf.settlement` and `enemy_qrf.persistence`, exact support-only and dual-pool refund/replay, typed cleanup, 0 -> 0 open-order leak, seeded roundtrip counts, and exact-zero final state diff. Durable QRF `PREPARED` process-restart recovery, package/native/live-server behavior, migration and marker runtime, multiplayer/network/JIP/reconnect, and soak remain open. |
 | Provisional Partisan profile-tree migration | `$profile:Partisan` is the only generated-data root. Before consumers run, arbitrary nested retired files use verified staging, destination recheck, canonical or file/directory conflict archival, final byte comparison, and only then source deletion. Directories delete deepest first; completion requires the retired root to be absent. Same-process calls are guarded and supported startup is single-writer because cross-process atomic promotion/locking is unavailable. | Foundation/all-target Workbench pass. Latest package proved canonical generation only and had no retired tree. Packaged nested-file, identical/different-conflict, directory-conflict, empty-directory/root-removal, semantic settings/save migration, and restart proof remain open. |
 | Ownership transition | Schema-62 source fixtures exercise all cause routes, FIFO/pristine restore, replay/conflict/stale handling, interrupted restore, staged full-marker rollback, resolver fail-close/unsafe-row purge, setup history, exact correlations, persistence re-arm, nested release, restart, security, migration, and retention. Schema 64 routes strict political threshold intent through this same transaction; Schema 66 preflights and retires exact local-security authority before owner publication. | Execute the proof, then package-test local-security casualty reconciliation/non-loss retirement, zero resistance police/roadblocks, queued political intent, exact consequences, real persistence resume, rendered marker/menu/GM/notification coherence, multiplayer/reconnect/JIP, and all callers. No town support, legacy projection, or generic security cleanup may bypass these owners. |
 | Combat presence and zone heat | Sealed Schema-63 source wires one shared cached service into capture, missions, HQ, civilians, and enemy strategy; its state-only proof covers empty vehicles, authoritative count separation, rejected stale/terminal/quarantined rows, exact heat timing/rebound and pre-cooling HOT guard, pre-63 cold migration, bounded valid cooling restore, malformed-current fail-cold, physical-sample invalidation, and deterministic bounded diagnostics. Foundation passes at 681 references; normal Workbench open compiled/created 5,788 files/11,670 classes at CRC `a40056c5` without HST script errors or a crash, and explicit validation passes for all five configurations. | The assertions have not run. Native runtime must prove conscious/unconscious, dismounted/cargo/pilot/turret, armed/unarmed, mobile/static, destroyed/burning/immobile, registered/stale classification; fail-closed authority gaps and strict player filtering; allocation/cache invalidation/order; virtual casualties; all consumers; exact 30-second cooling; real save/restart; and no save-dirty or stutter regression. |
@@ -2675,8 +2721,8 @@ Unproven or incomplete against the pasted contract:
 | Markers/UI/native markers | Prior command/model/native-handle assertions plus the Schema-61 stream and Schema-62 protocol-2 source revision. The Schema-66 repair protects system markers. The owner-client probe mutates and deletes a tracked campaign marker, runs and retries final production repair, proves canonical system ownership/non-removability, stable registry/static count, exactly one instance, and isolated player-marker edit/removal/cleanup. | The probe compiles in current Workbench validation but has not executed. Run it, then republish and attempt campaign-marker delete/move/edit on host/client; prove bounded self-heal, player-marker isolation, host/two-client equality, atomicity, no duplicate set, map reopen, reconnect/late join, and cleanup. |
 | Background war/escalation/campaign end | Controlled commander tick, POI target assertions, resource spending, low/mid/high pressure windows, short repeated background-war commander/resource cycle, aggression decay, forced victory/loss terminal snapshots. | Extended autonomous occupier-vs-invader soak and heavier support eligibility across varied POIs remain open. |
 | Render bubbles | One clean zone far/near/leave activation and cleanup timeout through physical-war update, expired player-bound mission asset near/far/player-carrier bubble policy assertions, and expired convoy contact near/far preserve/delete cleanup policy assertions. Sealed Schema 63 uses activation radius for entry and the larger deactivation radius for exit. | The existing runtime artifact predates that hysteresis. Re-execute boundary crossings, rendered inspection, stutter profiling, and multiple zone-type windows. |
-| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Sealed Schema 67 deep-copies strategic authority, while the sealed Schema-68 startup correction distinguishes a complete fresh fallback from restored corruption and exact-recovers only the observed generated quarantine. Whole-tree profile movement precedes settings/save consumers and is byte-verified before removal. R23 preserves the seeded roundtrip exactly: summary/report; 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, 1/1 field vehicles; and `civilian_occupier_support` 2,514/2,514. Later phase smoke/report cases WARN after subsequent drift. | `persistence.real_restart` remains correctly BLOCKED. Execute real process restart plus fresh executable authority, affected-save recovery, near-miss quarantine, cadence/backlink continuity, retired-tree conflict handling, semantic migration, local-security/event/vehicle, reconnect, and soak gates. |
-| Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R21 remains the cleaner comparison with an exact-zero tracked-state diff, typed cleanup PASS, zero open orders, and leak snapshot PASS at 0 -> 0. R23 also restores tracked state exactly, but one tracked settlement failure leaves one tracked row open and two exact runtime claimants; typed cleanup FAILs, and the later leak snapshot records two total open orders. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
+| Persistence | Baseline typed persistence and seeded smoke roundtrip exist. Sealed Schema 67 deep-copies strategic authority, while the sealed Schema-68 startup correction distinguishes a complete fresh fallback from restored corruption and exact-recovers only the observed generated quarantine. Whole-tree profile movement precedes settings/save consumers and is byte-verified before removal. R25b preserves the seeded roundtrip exactly: summary/report; 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles. Its missing-QRF-backlink fixture invalidates and retains authority without changing pools; no generic restore repair was added. Later phase smoke/report cases may still WARN after subsequent drift. | `persistence.real_restart` remains correctly BLOCKED. Add and execute durable QRF `PREPARED` crash-window recovery, then real process restart plus fresh executable authority, affected-save recovery, near-miss quarantine, cadence/backlink continuity, retired-tree conflict handling, semantic migration, local-security/event/vehicle, reconnect, and soak gates. Arbitrary old QRF partial rows remain fail-closed. |
+| Cleanup/stalls | Prefixed persisted cleanup, tagged world cleanup, post-case leak probes, typed enemy-order settlement, and stall evidence for several physical categories. R23 remains the dated QRF-defect reproduction; R24 first restored clean typed cleanup while isolating the validator mismatch. R25b is the current comparison: settled 0, failures 0, open tracked orders 0, runtime claimants 0, open-order leak 0 -> 0, and an exact-zero tracked-state diff. | World-scope restoration remains intentionally BLOCKED pending a disposable-session restart. Arbitrary untagged leftovers cannot be removed; stall evidence is not yet uniform for every physical category. |
 
 ## Implemented Evidence
 

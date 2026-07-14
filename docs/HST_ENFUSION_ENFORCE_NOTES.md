@@ -45,19 +45,39 @@ remain. Static, Workbench, and runtime evidence remain distinct gates; exact
 latest run totals belong in the verification audit.
 
 The current source checkpoint is implementation
-`434b73a16ae92911896fdec095af6bce88168916`, UTC
+`434b73a16ae92911896fdec095af6bce88168916`, stamp commit `7fac7ac`, UTC
 `2026-07-14T20:54:24Z`, label
-`schema70-settings24-exact-qrf-refund-authority`. Exact defensive-QRF settlement
-preflights the complete deterministic receipt, leaves every order-side receipt
-field clean while the resource mutation applies or replays, then writes the
-settlement/refund tuple and sets `m_bResourceSettlementApplied` last. An applied
-replay validates the canonical strategic mutation rather than trusting stored
-amounts. The proof injects the same-session refund-row/order-clean state and
-requires exactly one pool/ledger mutation, receipt completion, terminal
-settlement, and a second-tick no-op. Foundation passes; current-source Workbench
-and Full Campaign Debug execution remain pending. The proof does not Capture/
-Restore between refund and receipt publication, and an old partial row remains
-fail-closed rather than being auto-healed.
+`schema70-settings24-exact-qrf-refund-authority`. Campaign Schema 70 and runtime
+settings Schema 24 are unchanged. Exact defensive QRF settlement uses a QRF-
+specific validator: support cost is positive and attack cost is nonnegative, so
+support-only and dual-pool receipts are both valid. It requires deterministic
+debit/refund IDs, exactly one claimant for each role, exact contract/applied/kind,
+full faction/source/order/operation/manifest/zone backlinks, exact deltas and
+chronology, empty contribution hashes, and the shared strategic mutation-shape
+validation. Never delegate this contract to the counterattack validator, whose
+one-pool rule is correct only for counterattacks.
+
+Settlement preflights the complete deterministic receipt, leaves every order-
+side receipt field clean while the resource mutation applies or replays, then
+writes the settlement/refund tuple and sets
+`m_bResourceSettlementApplied` last. An applied replay validates the canonical
+strategic mutation rather than trusting stored amounts. Foundation passes at 795
+script-symbol references. PC Workbench log `logs_2026-07-14_16-56-29` is clean
+at 5,827 Game files/11,809 classes, 46,667K static storage, CRC `12b7df72`, and
+zero processes. Focused engine log `logs_2026-07-14_16-57-04` records one passing
+testcase, `AllExact=1`, and an empty failed list; the known recoverable VM/player-
+audit and filter-constructor diagnostics remain present before successful HST
+completion.
+
+R25b `seed1985_t0_p1_u1784063032` proves both `enemy_qrf.settlement` and
+`enemy_qrf.persistence`. Support-only and dual-pool refund/replay are exact. A
+missing required group backlink produces `ABORTED` /
+`exact_operation_invalidated`, retains the claimant rows, leaves both pools
+unchanged, and keeps the settlement receipt `OPEN`; this is the intended fail-
+closed result, so no production `ReconcileAfterRestore` change was needed. The
+remaining gap is durable `PREPARED` recovery through real process-restart crash
+windows. Arbitrary old partial rows remain fail-closed instead of being
+automatically healed.
 
 The preceding active-demolition-witness checkpoint is implementation
 `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
@@ -92,21 +112,35 @@ no-town support backfill changed aggregate `civilian_occupier_support` from
 gates that backfill to `restoredSchemaVersion < 22`, preserving a current zero
 as authority. R19 first proved exact live/restored summaries, reports, typed
 counts, and `civilian_occupier_support` 2,514/2,514; R21 independently preserves
-that result, while R22 and R23 preserve the exact seeded roundtrip before later
-phase drift. R23 matches 11/11 missions, 22/22 assets, 21/21 runtime entities,
-9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles and ends with an
-exact-zero tracked-state diff. Only the intentionally external
+that result, while R22 through R25b preserve the exact seeded roundtrip before
+later phase drift. R25b matches 11/11 missions, 22/22 assets, 21/21 runtime
+entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles and ends
+with an exact-zero tracked-state diff. Only the intentionally external
 `persistence.real_restart` assertion remains BLOCKED in that seeded family.
 
 Campaign-debug order isolation rules learned in this pass:
 
+- A defensive QRF owns a different strategic receipt shape from a
+  counterattack. Require positive support cost, nonnegative attack cost,
+  deterministic debit/refund IDs, exactly one claimant for each role, complete
+  faction/source/order/operation/manifest/zone backlinks, exact dual-pool
+  deltas, debit-before-refund chronology, empty contribution hashes, and the
+  shared mutation-shape check. A support-only QRF has zero attack cost/refund;
+  a dual-pool QRF has positive attack and support cost/refund. Do not reuse the
+  counterattack one-pool validator or weaken that validator to accommodate QRFs.
 - Treat a deterministic resource mutation and its order-side receipt as two
   authorities with strict publication order. Preflight the full tuple, apply or
   replay the mutation while the order receipt is clean, publish every receipt
   field, and set the applied boolean last. Replay must validate the mutation's
-  faction/source/order/operation/manifest backlinks and deltas. A same-tick
-  idempotent replay proof is not restart proof; do not claim restore coverage
-  without serializing that exact intermediate under a prepared-state contract.
+  full backlinks, deltas, chronology, and shared shape. Validate the published
+  receipt again after restore-invalidation publication. A same-tick idempotent
+  replay proof is not restart proof; do not claim restore coverage without
+  serializing that exact intermediate under a durable prepared-state contract.
+- Proof telemetry must print the real enum/status/reason values. Do not format
+  an enum comparison as a boolean and then diagnose the printed `0` or `1` as
+  the enum itself. Classify expected fail-closed behavior by a stable authority
+  category, not one complete English failure sentence that can change when a
+  more precise validator takes ownership.
 - A proximity scan is not enough to admit demolition evidence. Require an
   unparented entity with a projectile component, reject an inventory item in a
   parent slot, then require either a triggered trigger component or a moving
@@ -121,12 +155,19 @@ Campaign-debug order isolation rules learned in this pass:
   six generic destroy-target primitive cases; the exact radio primitive uses its
   separate native engine-damage and lifecycle assertions.
 - The 45-metre scan remains proximity evidence rather than collision proof.
-  Prefer native callback source identity once wired reliably. R22 also exposed a
-  separate pre-existing exact-QRF crash window: refund mutation currently occurs
-  before complete settlement-tuple validation, so later rejection can retain an
-  open operation. R23 reproduces the same unresolved boundary with settled 0,
-  failures 1, one tracked open order, two exact runtime claimants, and total open
-  orders 0 -> 2. Correct that ordering in its own authority slice.
+  Prefer native callback source identity once wired reliably. R22 and R23 also
+  exposed the historical exact-QRF refund-before-receipt crash window. R24
+  isolated its remaining rejection to the wrong cross-family one-pool validator;
+  R25b replaces that boundary and passes both exact QRF settlement and
+  persistence. Preserve R23/R24 as dated causal evidence rather than describing
+  the defect as current.
+- A missing current-schema QRF backlink is corruption, not a recoverable clean
+  receipt. Invalidate the operation as `ABORTED` /
+  `exact_operation_invalidated`, retain its claimant rows, leave resource pools
+  unchanged, and keep the settlement receipt `OPEN`. R25b proves that existing
+  fail-closed path, so do not broaden production `ReconcileAfterRestore` to
+  synthesize the backlink or terminal receipt. Add a durable `PREPARED` contract
+  for new crash-window recovery; arbitrary old partial rows stay fail-closed.
 - Debug fixture mission IDs participate in the same restore classifiers as
   production missions. A generic destroy-target fixture must use a generic
   mission definition; assigning `destroy_radio_tower` without the reciprocal
@@ -263,35 +304,39 @@ Campaign-debug order isolation rules learned in this pass:
 
 The first diagnostic Full Campaign Debug run exposed a shared-clock quarantine
 cascade and a proof-proximity trap in Schema-70 force-authority checks. Later
-runs isolated and removed those cascades. Exact-tree R10 now keeps Phase 18 at
-five of five PASS, restores Phase 20 clock 560 -> 595 -> 560 with an unchanged
-enemy-strategic fingerprint, and finishes Phase 22 at four PASS, three physical-
-movement WARN, and zero FAIL. Phase 24 is 11 PASS, one WARN, and zero FAIL.
-Typed order cleanup reports zero failures, open tracked orders, and runtime
-claimants. R21 contains no local-security materialization deferral and all
-eight local-security assertions PASS. It also preserves every internal
-persistence assertion: exact live/restored summaries and reports, exact mission/
-asset/runtime/group/vehicle counts, and `civilian_occupier_support`
-2,514/2,514. Its final tracked-state diff is exact zero, while
-`persistence.real_restart` remains correctly BLOCKED as an external gate. The
-R20 isolated checkpoint succeeded but its status assertion used the production-
-only prefix, and its cleanup snapshot WARNed on open enemy orders 0 -> 4. R21
-runtime-proves both corrections: foundation checkpoint PASS with isolated
-evidence, typed enemy cleanup PASS with zero open orders, and leak snapshot PASS
-at 0 -> 0. R23 is the latest targeted run and retains Foundation,
-authority foundation, all 18 spawn-queue assertions, and all eight local-
-security assertions. Its seeded persistence counts remain exact and its final
-tracked-state diff is zero, but one tracked enemy-order settlement recorded
-settled 0, failures 1, one tracked open row, two exact runtime claimants, and two
-total open orders. Typed cleanup fails directly; later Phase-24 failures occur
-while the remnant is still present without proving the same cause for each. R21
-therefore remains the cleaner cleanup comparison. R22 also returns three
-`destroy_outpost_cache` cases to PASS while exposing that worn grenade-vest,
-M433, and M72 equipment can be scored as destroy witnesses; this is a production
-classifier defect, not mere marker timing. The intentional world-scope restart
-block stays open.
-Packaged/native/live-server runtime, serialization/restart, migration runtime,
-network/JIP/reconnect, and soak gates also remain open.
+runs isolated and removed those cascades. Exact-tree R10 keeps Phase 18 at five
+of five PASS, restores Phase 20 clock 560 -> 595 -> 560 with an unchanged enemy-
+strategic fingerprint, and finishes Phase 22 at four PASS, three physical-
+movement WARN, and zero FAIL. R21 contains no local-security materialization
+deferral, preserves the exact seeded roundtrip, and restores typed cleanup plus
+the open-order leak snapshot to 0 -> 0.
+
+R23 remains the dated exact-QRF defect reproduction: one tracked settlement
+failure left one tracked row, two runtime claimants, and total open orders 0 ->
+2 despite an exact-zero final state diff. R24
+`seed1985_t0_p1_u1784059798`, build `6303e5817a924091258c9cf0dbccdd2e0731c1e3`,
+ran 688 cases at 578 PASS/50 WARN/53 FAIL/7 BLOCKED and proved 5,522/5,682
+required assertions. It restored typed cleanup, the 0 -> 0 leak snapshot,
+Phase-24 core results, and exact-zero state while isolating the remaining QRF
+failure to a counterattack one-pool validator plus brittle proof telemetry.
+
+R25b `seed1985_t0_p1_u1784063032`, build
+`434b73a16ae92911896fdec095af6bce88168916`, runs the same 688 cases at 577
+PASS/51 WARN/53 FAIL/7 BLOCKED and proves 5,523/5,681 required assertions. Both
+`enemy_qrf.settlement` and `enemy_qrf.persistence` pass. Typed order cleanup is
+settled 0/failures 0/open 0/runtime 0, the open-order leak is 0 -> 0, seeded
+counts remain 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups,
+10/10 runtime vehicles, and 1/1 field vehicles, and every tracked final-state
+delta is zero. Phase-24 core remains passing; escalation physicalization is WARN
+telemetry. The suite is still not certified because unrelated failures and the
+intentional external restart/package/network/soak blocks remain. Durable QRF
+`PREPARED` process-restart recovery is also still open.
+
+R25b is not exception-free: startup records the known base-game player-identity
+audit/reconnect/arsenal VM exceptions, while deliberate corruption fixtures log
+error-severity fail-closed diagnostics. No HST compile error or native crash
+signature accompanies them. Keep those environment/proof diagnostics distinct
+from both the passing QRF assertions and whole-suite certification.
 
 The preceding checkpoint used Campaign Schema 69 while runtime settings
 remained on Schema 24. Newly admitted exact enemy
@@ -3015,6 +3060,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
   remained responsive for all ten two-second samples. These source/startup gates do not prove
   physical movement, AI casualties, marker rendering, packaged accounting, or a
   real process restart.
+- Current R25b runtime evidence supersedes that old startup-only boundary for
+  the state/service proof. Settlement and persistence both pass under the QRF-
+  specific validator, including support-only and dual-pool refund/replay. The
+  missing-backlink fixture remains an invalidated, retained, pool-stable open
+  settlement. This still does not prove durable `PREPARED` recovery after an
+  actual process stop, physical movement, package behavior, or networking.
 
 ## Crewless Mixed Active-Group Lifecycle
 
