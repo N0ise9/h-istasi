@@ -136,11 +136,20 @@ Workbench/game process. The R12-R15 ladder proved the exact component/resource/
 engine-action boundaries described above; the current source also supplies the
 paired inherited rebuild-equipment replication dependency.
 
-The current active-demolition-witness checkpoint is stamped at source
-`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
-`2026-07-14T18:31:39Z`, label
-`schema70-settings24-active-demolition-witness`. It changes no persisted
-campaign or runtime-settings schema. Nearby destroy-target evidence now rejects
+The current exact-QRF refund-replay checkpoint is stamped at source
+`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
+`2026-07-14T19:33:16Z`, label
+`schema70-settings24-exact-qrf-refund-replay`. It changes no persisted campaign
+or runtime-settings schema. The refund applies or replays while the order
+receipt remains clean; only then does the operation owner publish the full
+deterministic tuple with the applied flag last. The proof reproduces that same-
+session intermediate state and requires one resource/ledger delta plus stable
+second-tick replay. It does not prove process restart from that intermediate,
+and existing partial receipts remain fail-closed.
+
+The preceding active-demolition-witness checkpoint at
+`0e54f6cbc7f7084e5534fc603b491cba0d91b653` changes no persisted campaign or
+runtime-settings schema. Nearby destroy-target evidence now rejects
 parented and inventory-slotted entities, then requires a physical projectile
 that is moving or a blast trigger that has fired. Witness scans and entity-
 backed callbacks converge on one canonical source identity. Each target keeps a
@@ -148,15 +157,17 @@ fail-closed maximum of 64 lifetime receipts, and receipt/local bookkeeping
 occurs only after the authoritative asset mutates. Campaign Debug adds
 `primitive.destroy.no_ambient_witness_score` before explicit demolition damage.
 
-The preceding `0b380f00` checkpoint supplies the SpawnQueue resume delta;
+The earlier `0b380f00` checkpoint supplies the SpawnQueue resume delta;
 `3ded248a` owns every order appended by the direct Phase-22 commander tick, and
 `2508a735` accepts the debug-isolated checkpoint prefix. R21 confirms those two
-boundaries and R22 confirms the queue delta. The current checkpoint passes fresh
-headless Workbench Game/PC validation in `logs_2026-07-14_14-41-29` at 5,826
+boundaries and R22 confirms the queue delta. The preceding demolition checkpoint
+passes fresh headless Workbench Game/PC validation in
+`logs_2026-07-14_14-41-29` at 5,826
 Game files/11,807 classes, 46,643K static storage, and CRC `c3ab042e`.
 Validation reports `Script validation successful`, no HST compile or fatal
-diagnostic, and zero surviving engine processes after close. R23 supplies the
-matching targeted runtime result above.
+diagnostic, and zero surviving engine processes after close. R23 supplies its
+matching targeted runtime result above. Workbench and fresh Full Campaign Debug
+proof for the current refund-replay checkpoint remain pending.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own

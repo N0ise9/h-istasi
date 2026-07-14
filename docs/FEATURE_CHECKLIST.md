@@ -23,12 +23,14 @@ rejects before order creation or debit.
 ## Current Working-Tree Status
 
 Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
-contracts. The current implementation rejects inactive demolition witnesses;
-it introduces no save-schema or runtime-settings migration. Current source is
-stamped `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
-`2026-07-14T18:31:39Z`, label
-`schema70-settings24-active-demolition-witness`. It includes the preceding
-`0b380f00fde65c4f2e22858faf8ddc6eab794131` SpawnQueue-resume checkpoint, the
+contracts. The current implementation repairs the exact defensive-QRF refund-
+before-receipt ordering and introduces no save-schema or runtime-settings
+migration. Current source is stamped
+`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
+`2026-07-14T19:33:16Z`, label
+`schema70-settings24-exact-qrf-refund-replay`. It includes the preceding
+`0e54f6cbc7f7084e5534fc603b491cba0d91b653` active-demolition-witness checkpoint,
+the `0b380f00fde65c4f2e22858faf8ddc6eab794131` SpawnQueue-resume checkpoint, the
 `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f` cleanup-ownership checkpoint, the
 `2508a735863c153f95bae94adb13f3037b4cdeef` checkpoint-evidence matcher fix, and
 the `89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83` support-roundtrip correction.
@@ -73,6 +75,14 @@ external restart, package, network, and soak gates remain open.
 
 The current source boundary includes:
 
+- Exact defensive-QRF settlement keeps every order receipt field clean through
+  canonical refund application/replay, then writes the complete deterministic
+  tuple with `m_bResourceSettlementApplied` last. Applied replay requires the
+  matching strategic mutation authority. The focused proof directly creates
+  the refund-row/order-clean same-session window and requires one pool/ledger
+  mutation, exact receipt completion, terminal settlement, and a second-tick
+  no-op. Save/restore of that intermediate state and automatic repair of old
+  partial rows remain intentionally unclaimed.
 - Bounded synthetic-time probes capture the shared campaign second and an
   enemy-strategic-authority fingerprint, normalize debug-owned future
   timestamps, restore the original second, and assert that both clock and enemy

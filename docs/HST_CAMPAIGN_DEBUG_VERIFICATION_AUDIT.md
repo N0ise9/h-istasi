@@ -45,7 +45,7 @@ storage, CRC `c4113d38`, successful game creation, exit `0`, no missing-
 replication-component, script, entity, or crash diagnostic, and zero surviving
 Workbench/game processes.
 
-The current active-demolition-witness tree passes Foundation at 793 script-
+The preceding active-demolition-witness tree passes Foundation at 793 script-
 symbol references. Headless Workbench PC Game validation log
 `logs_2026-07-14_14-41-29` compiles 5,826 Game files/11,807 classes with 46,643K
 static storage at CRC `c3ab042e`, reports `Script validation successful`,
@@ -56,11 +56,21 @@ remain and are not classified as source compile failures.
 ## Current Debug Checkpoint And Persistence-Isolation Boundary
 
 The current source is stamped at implementation
-`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
-`2026-07-14T18:31:39Z`, label
-`schema70-settings24-active-demolition-witness`. The demolition-witness
-correction changes no persisted schema. Foundation, Workbench, and R23 runtime
-gates pass at the evidence recorded below. The preceding queue checkpoint
+`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
+`2026-07-14T19:33:16Z`, label
+`schema70-settings24-exact-qrf-refund-replay`. It keeps the order receipt clean
+through deterministic resource refund application/replay and then publishes
+the complete tuple with the applied flag last. The focused proof recreates the
+same-session refund-row/order-clean intermediate and requires one resource and
+ledger mutation, terminal receipt completion, and stable second-tick replay.
+It changes no persisted schema. Foundation passes; current-source Workbench and
+fresh Full Campaign Debug gates remain pending. Save/restore from that exact
+intermediate and automatic repair of old partial rows remain open.
+
+The preceding demolition-witness correction is implementation
+`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
+`schema70-settings24-active-demolition-witness`. Its Foundation, Workbench, and
+R23 runtime gates pass at the evidence recorded below. The earlier queue checkpoint
 `0b380f00fde65c4f2e22858faf8ddc6eab794131`, label
 `schema70-settings24-spawn-queue-resume`, is the source exercised by R22. The
 earlier cleanup checkpoint

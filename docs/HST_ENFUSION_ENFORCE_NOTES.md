@@ -35,7 +35,7 @@ environment still records the known recoverable base-game player-audit VM
 exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
 
-The current active-demolition-witness tree passes Foundation at 793 script-
+The preceding active-demolition-witness tree passes Foundation at 793 script-
 symbol references. Headless Workbench PC Game validation log
 `logs_2026-07-14_14-41-29` compiles 5,826 Game files/11,807 classes with 46,643K
 static storage at CRC `c3ab042e`, reports `Script validation successful`,
@@ -45,12 +45,26 @@ remain. Static, Workbench, and runtime evidence remain distinct gates; exact
 latest run totals belong in the verification audit.
 
 The current source checkpoint is implementation
-`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
-`2026-07-14T18:31:39Z`, label
+`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
+`2026-07-14T19:33:16Z`, label
+`schema70-settings24-exact-qrf-refund-replay`. Exact defensive-QRF settlement
+preflights the complete deterministic receipt, leaves every order-side receipt
+field clean while the resource mutation applies or replays, then writes the
+settlement/refund tuple and sets `m_bResourceSettlementApplied` last. An applied
+replay validates the canonical strategic mutation rather than trusting stored
+amounts. The proof injects the same-session refund-row/order-clean state and
+requires exactly one pool/ledger mutation, receipt completion, terminal
+settlement, and a second-tick no-op. Foundation passes; current-source Workbench
+and Full Campaign Debug execution remain pending. The proof does not Capture/
+Restore between refund and receipt publication, and an old partial row remains
+fail-closed rather than being auto-healed.
+
+The preceding active-demolition-witness checkpoint is implementation
+`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
 `schema70-settings24-active-demolition-witness`. It rejects parented/inventory
 explosive props unless they are structurally active projectiles or triggered
 blasts, and records a bounded canonical receipt only after authoritative asset
-mutation. Foundation, Workbench, and R23 proof pass. R23
+mutation. Its Foundation, Workbench, and R23 proof pass. R23
 `seed1985_t0_p1_u1784054690` records six controlled-runtime
 `primitive.destroy.no_ambient_witness_score` assertions at damage 0, hits 0,
 source none, evidence 0, and destroyed 0 before explicit damage. The exact radio
@@ -86,6 +100,13 @@ exact-zero tracked-state diff. Only the intentionally external
 
 Campaign-debug order isolation rules learned in this pass:
 
+- Treat a deterministic resource mutation and its order-side receipt as two
+  authorities with strict publication order. Preflight the full tuple, apply or
+  replay the mutation while the order receipt is clean, publish every receipt
+  field, and set the applied boolean last. Replay must validate the mutation's
+  faction/source/order/operation/manifest backlinks and deltas. A same-tick
+  idempotent replay proof is not restart proof; do not claim restore coverage
+  without serializing that exact intermediate under a prepared-state contract.
 - A proximity scan is not enough to admit demolition evidence. Require an
   unparented entity with a projectile component, reject an inventory item in a
   parent slot, then require either a triggered trigger component or a moving

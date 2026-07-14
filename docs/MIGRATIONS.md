@@ -23,8 +23,19 @@ recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
 it is successful but not exception-free.
 
 The current source checkpoint is implementation
-`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, UTC
-`2026-07-14T18:31:39Z`, label
+`6303e5817a924091258c9cf0dbccdd2e0731c1e3`, UTC
+`2026-07-14T19:33:16Z`, label
+`schema70-settings24-exact-qrf-refund-replay`. It changes no save-schema,
+settings-schema, serialized field, or operation contract version. Fresh exact
+defensive-QRF settlement now leaves the order receipt clean while the canonical
+refund mutation applies or replays, then publishes the complete deterministic
+tuple with the applied flag last. This corrects the R23 same-session failure; it
+does not migrate or auto-heal an already persisted partial tuple. Restore from a
+serialized refund-row/order-clean intermediate remains an explicit future
+prepared-state gate rather than an inferred migration.
+
+The preceding active-demolition-witness checkpoint is implementation
+`0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
 `schema70-settings24-active-demolition-witness`. It admits only structurally
 active, unparented projectile/blast witnesses, rejects parent-slot inventory,
 canonicalizes entity-backed source keys, retains at most 64 accepted keys for
