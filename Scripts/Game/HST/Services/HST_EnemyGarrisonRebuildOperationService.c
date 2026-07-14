@@ -1959,6 +1959,118 @@ class HST_EnemyGarrisonRebuildOperationService
 		return changed;
 	}
 
+	bool SettleTrackedOpenOrderForAdministrativeStop(
+		HST_CampaignState state,
+		HST_EnemyDirectorService enemyDirector,
+		HST_EnemyOrderState order,
+		string reason)
+	{
+		if (!state || !enemyDirector || !IsExactEnemyGarrisonRebuild(order)
+			|| !m_SpawnAdapter || !m_PhysicalWar)
+			return false;
+		if (reason.IsEmpty())
+			reason = "administrative stop cancelled exact enemy garrison rebuild";
+		m_EnemyDirector = enemyDirector;
+		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			ReconcileSettledRuntimeCleanup(state);
+			return HST_EnemyGarrisonRebuildSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					state.m_aEnemyStrategicMutations,
+					order).IsEmpty()
+				&& HasReleasedAdministrativeRuntimeAuthority(state, order, operation);
+		}
+
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		string failure = ResolveRuntimeContext(
+			state,
+			order,
+			operation,
+			manifest,
+			batch,
+			group);
+		if (!failure.IsEmpty() || IsDelivered(order))
+			return false;
+		int living = ResolveLivingRoster(operation, manifest, batch, group);
+		SettlePrearrivalOperation(
+			state,
+			enemyDirector,
+			order,
+			operation,
+			manifest,
+			batch,
+			group,
+			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_INVALIDATED,
+			"invalidated_survivors",
+			living,
+			reason);
+		ReconcileSettledRuntimeCleanup(state);
+		operation = state.FindOperation(order.m_sOperationId);
+		return operation
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& HST_EnemyGarrisonRebuildSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					state.m_aEnemyStrategicMutations,
+					order).IsEmpty()
+			&& HasReleasedAdministrativeRuntimeAuthority(state, order, operation);
+	}
+
+	protected bool HasReleasedAdministrativeRuntimeAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !order || !operation || !m_SpawnAdapter || !m_PhysicalWar
+			|| order.m_sOrderId.IsEmpty() || order.m_sOperationId.IsEmpty())
+			return false;
+		string resultId = BuildSpawnResultId(order);
+		string forceId = BuildForceId(order);
+		string projectionId = BuildProjectionId(order);
+		if ((!order.m_sSpawnResultId.IsEmpty() && order.m_sSpawnResultId != resultId)
+			|| (!order.m_sGroupId.IsEmpty() && order.m_sGroupId != projectionId)
+			|| (!operation.m_sSpawnResultId.IsEmpty() && operation.m_sSpawnResultId != resultId)
+			|| (!operation.m_sForceId.IsEmpty() && operation.m_sForceId != forceId)
+			|| (!operation.m_sProjectionId.IsEmpty() && operation.m_sProjectionId != projectionId)
+			|| (!operation.m_sGroupId.IsEmpty() && operation.m_sGroupId != projectionId))
+			return false;
+
+		foreach (HST_ForceSpawnResultState batch : state.m_aForceSpawnResults)
+		{
+			if (batch && (batch.m_sResultId == resultId
+				|| batch.m_sRequestId == order.m_sOrderId
+				|| batch.m_sOperationId == order.m_sOperationId
+				|| batch.m_sManifestId == order.m_sManifestId
+				|| batch.m_sForceId == forceId
+				|| batch.m_sProjectionId == projectionId))
+				return false;
+		}
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (group && (group.m_sGroupId == projectionId
+				|| group.m_sEnemyOrderId == order.m_sOrderId
+				|| group.m_sOperationId == order.m_sOperationId
+				|| group.m_sManifestId == order.m_sManifestId
+				|| group.m_sSpawnResultId == resultId
+				|| group.m_sForceId == forceId
+				|| group.m_sProjectionId == projectionId))
+				return false;
+		}
+
+		HST_ActiveGroupState groupProbe = new HST_ActiveGroupState();
+		groupProbe.m_sGroupId = projectionId;
+		if (m_SpawnAdapter.CountHandlesForProjection(projectionId) > 0
+			|| m_SpawnAdapter.CountHandlesForResultId(resultId) > 0
+			|| m_PhysicalWar.GetForceSpawnGroupRoot(groupProbe)
+			|| m_PhysicalWar.CountForceSpawnRuntimeMembers(groupProbe) > 0)
+			return false;
+		return true;
+	}
+
 	bool SettleOpenOrdersForCampaignStop(
 		HST_CampaignState state,
 		HST_EnemyDirectorService enemyDirector,

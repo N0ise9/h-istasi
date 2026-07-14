@@ -18929,6 +18929,124 @@ class HST_PhysicalWarService
 		return HasRuntimeGroupEntity(groupId);
 	}
 
+	bool SettleCampaignDebugTrackedLegacyEnemyOrderRuntime(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		out string reason)
+	{
+		reason = "";
+		if (!state || !order || order.m_iOperationContractVersion != 0)
+		{
+			reason = "legacy enemy-order runtime settlement context is invalid";
+			return false;
+		}
+		HST_SupportRequestState request;
+		if (!order.m_sSupportRequestId.IsEmpty())
+		{
+			request = state.FindSupportRequest(order.m_sSupportRequestId);
+			if (!request || request.m_iOperationContractVersion != 0)
+			{
+				reason = "legacy enemy-order support authority is missing or versioned";
+				return false;
+			}
+			if (!order.m_sGroupId.IsEmpty() && !request.m_sGroupId.IsEmpty()
+				&& order.m_sGroupId != request.m_sGroupId)
+			{
+				reason = "legacy enemy-order and support group identities conflict";
+				return false;
+			}
+		}
+		string groupId = order.m_sGroupId;
+		if (groupId.IsEmpty() && request)
+			groupId = request.m_sGroupId;
+		if (groupId.IsEmpty())
+			return true;
+
+		HST_ActiveGroupState group = state.FindActiveGroup(groupId);
+		if (!group)
+		{
+			if (HasRuntimeGroupEntity(groupId)
+				|| HasRuntimeVehicleRegistration(groupId)
+				|| HasCampaignDebugTrackedLegacyRuntimeVehicleState(state, groupId))
+			{
+				reason = "legacy enemy-order group row is missing while runtime authority remains";
+				return false;
+			}
+			return true;
+		}
+		bool linkedLegacySupportOperation = request
+			&& group.m_sOperationId == request.m_sOperationId;
+		if (group.m_sGroupId != groupId
+			|| (!group.m_sOperationId.IsEmpty() && !linkedLegacySupportOperation)
+			|| !group.m_sManifestId.IsEmpty()
+			|| !group.m_sSpawnResultId.IsEmpty()
+			|| !group.m_sProjectionId.IsEmpty()
+			|| !group.m_sForceId.IsEmpty()
+			|| !group.m_sMissionInstanceId.IsEmpty()
+			|| !group.m_sQRFInstanceId.IsEmpty()
+			|| !group.m_sLocalSecurityPatrolId.IsEmpty()
+			|| (!group.m_sEnemyOrderId.IsEmpty()
+				&& group.m_sEnemyOrderId != order.m_sOrderId))
+		{
+			reason = "legacy enemy-order group conflicts with exact runtime authority";
+			return false;
+		}
+		if (!order.m_sSupportRequestId.IsEmpty()
+			&& (group.m_sSupportRequestId != order.m_sSupportRequestId
+				|| !request || request.m_sGroupId != groupId))
+		{
+			reason = "legacy enemy-order group support backlink conflicts";
+			return false;
+		}
+
+		group.m_sRuntimeStatus = "folded";
+		CleanupTerminalActiveGroupRuntime(
+			state,
+			group,
+			"campaign debug tracked legacy enemy-order administrative stop");
+		if (HasRuntimeGroupEntity(group.m_sGroupId)
+			|| HasRuntimeVehicleRegistration(group.m_sGroupId))
+		{
+			reason = "legacy enemy-order runtime authority did not retire";
+			return false;
+		}
+
+		for (int vehicleIndex = state.m_aRuntimeVehicles.Count() - 1; vehicleIndex >= 0; vehicleIndex--)
+		{
+			HST_RuntimeVehicleState vehicle = state.m_aRuntimeVehicles[vehicleIndex];
+			if (vehicle && !vehicle.m_bDetached
+				&& vehicle.m_sVehicleRuntimeId == group.m_sGroupId)
+				state.m_aRuntimeVehicles.Remove(vehicleIndex);
+		}
+		for (int groupIndex = state.m_aActiveGroups.Count() - 1; groupIndex >= 0; groupIndex--)
+		{
+			if (state.m_aActiveGroups[groupIndex] == group)
+			{
+				state.m_aActiveGroups.Remove(groupIndex);
+				break;
+			}
+		}
+		return !state.FindActiveGroup(groupId)
+			&& !HasRuntimeGroupEntity(groupId)
+			&& !HasRuntimeVehicleRegistration(groupId)
+			&& !HasCampaignDebugTrackedLegacyRuntimeVehicleState(state, groupId);
+	}
+
+	protected bool HasCampaignDebugTrackedLegacyRuntimeVehicleState(
+		HST_CampaignState state,
+		string groupId)
+	{
+		if (!state || groupId.IsEmpty())
+			return false;
+		foreach (HST_RuntimeVehicleState vehicle : state.m_aRuntimeVehicles)
+		{
+			if (vehicle && !vehicle.m_bDetached
+				&& vehicle.m_sVehicleRuntimeId == groupId)
+				return true;
+		}
+		return false;
+	}
+
 	string CampaignDebugBuildActiveGroupRuntimeVisualEvidence(string groupId)
 	{
 		return BuildActiveGroupRuntimeVisualEvidence(groupId);

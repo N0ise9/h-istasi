@@ -9,16 +9,31 @@ retaining Schema 69 exact enemy counterattacks unchanged. Its scoped checkpoint
 is sealed at implementation `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, and stamp
-`ef95555`. Stamped Workbench compile/create log
-`logs_2026-07-13_18-21-32` passes at CRC `8ed66143`. Stamped focused autotest log
-`logs_2026-07-13_18-21-56` records one passing testcase and `AllExact=1` for the
-exact rebuild report. Foundation passes at 790 script-symbol references. The
-focused environment also records a recoverable stock VM exception and stock
-filter-constructor errors before the HST testcase succeeds, so it is not
-exception-free.
+`ef95555`. Fresh post-integration Workbench compile/create log
+`logs_2026-07-13_20-50-56` completes successfully at Game CRC `fd9e2cf4` with a
+clean exit and zero Workbench processes. Final focused log
+`logs_2026-07-13_20-51-20` records one
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
+`AllExact=1`, all 13 headline flags at `1`, and zero surviving processes.
+Foundation passes at 790 script-symbol references. The focused environment also
+records the known recoverable `GetPlayerIdentityId` VM exception plus two
+`SCR_FilterCategory` non-public-constructor diagnostics during harness setup.
+The focused run succeeds but is not exception-free.
+
+No schema field is added by the post-seal campaign-debug isolation hardening.
+Historical contract-zero debug orders remain contract zero and are never
+upgraded to an exact graph. When an isolated fixture must stop one, the legacy
+commander/PhysicalWar owner requires its original debit and writes one
+deterministic, shape-validated refund before terminal state; exact versioned
+orders remain stable-ID authorities and settle only through their typed
+operation services. Any missing or conflicting authority blocks the fixture
+instead of inventing migration data or rewriting ownership/resource pools.
 
 The seal covers Foundation, stamped source, Workbench compile/create, and focused
-engine proof only. Full Campaign Debug Phase 17 and packaged, dedicated-server,
+engine proof only. Schema-70 deterministic assertions are wired in Full Campaign
+Debug `early_mechanics.force_authority`, and its live rebuild smoke belongs to
+Phase 18 `enemy_commander`; neither has run. Phase 17 remains zone capture plus
+the Schema-69 exact-counterattack path. Packaged/native, dedicated-server,
 serialization/restart, network/JIP/reconnect, and soak proof remain open. Schema
 69 is the immediately preceding historical campaign checkpoint and remains
 documented below; it is no longer the current save contract.
@@ -284,8 +299,10 @@ held-roster delivery, physical/virtual casualty continuity, restore, ownership
 terminal settlement, admission rollback, prearrival survivor refund,
 PREPARED/SETTLED crash resume, historical isolation, malformed and orphan
 quarantine, quarantine retention, and selected target/source ownership ABA
-rejection. Full Campaign Debug Phase 17 and the broader runtime gates remain
-open.
+rejection. The Schema-70 `early_mechanics.force_authority` assertions and Phase
+18 `enemy_commander` live rebuild smoke have not run in Full Campaign Debug;
+native/package, restart, dedicated-server, network/JIP/reconnect, and soak gates
+remain open.
 
 ## Schema 69
 

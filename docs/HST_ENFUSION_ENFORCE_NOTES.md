@@ -25,16 +25,46 @@ The scoped checkpoint is sealed at implementation
 `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp commit
-`ef95555`. Stamped Workbench log `logs_2026-07-13_18-21-32` compiles 5,826 Game
-files/11,804 classes at CRC `8ed66143`. Focused engine log
-`logs_2026-07-13_18-21-56` records one passing
-`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase and claimant-wide
-quarantine replay/idempotency success. Foundation passes at 790 script-symbol
-references. The focused environment also records a recoverable stock VM
-exception and stock filter-constructor errors before the HST testcase succeeds,
-so it is not exception-free. Full Campaign Debug Phase 17, packaged/native/
-live-server runtime, serialization/restart, migration runtime, network/JIP/
-reconnect, and soak gates remain open.
+`ef95555`. Fresh post-integration Workbench log
+`logs_2026-07-13_20-50-56` completes compile/create successfully at Game CRC
+`fd9e2cf4` with a clean exit and zero Workbench processes. Final focused engine log
+`logs_2026-07-13_20-51-20` records one
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
+`AllExact=1`, all 13 headline flags at `1`, zero surviving processes, and
+claimant-wide quarantine replay/idempotency success. Foundation passes at 790
+script-symbol references. The focused environment also records the known
+recoverable `GetPlayerIdentityId` VM exception plus two `SCR_FilterCategory`
+non-public-constructor diagnostics during harness setup. The focused run
+succeeds but is not exception-free.
+
+Campaign-debug order isolation rules learned in this pass:
+
+- Track admitted enemy orders in a separate stable-ID registry. Never prefix or
+  rewrite an ID once a strategic debit or exact operation graph references it.
+- State-rewriting debug fixtures must fail closed before changing ownership,
+  absolute pools, HQ pressure, population, or aggression. Settle every tracked
+  open order through its typed owner first, and stop the fixture if any
+  settlement fails.
+- A terminal order is not sufficient cleanup proof. Administrative settlement
+  succeeds only when the ledger is exact and no batch, active group, adapter
+  handle, physical root, or runtime member still claims the operation.
+- Contract-zero compatibility rows still own real debits and may own support
+  runtime. Their administrative stop must prove the original one-pool debit,
+  deterministic refund ID, exactly one refund claimant, backlink/delta shape,
+  and chronology before flipping terminal state.
+- Capture a campaign-end inactivity snapshot after the first terminal
+  maintenance frame. Sampling immediately when victory or loss is forced would
+  misclassify required typed settlement as forbidden post-end mutation.
+- Keep complex Enforce predicates in small helper methods and use sequential
+  early returns; large compound expressions can exceed the compiler's formula
+  limit even when the individual checks are valid.
+
+Schema-70 deterministic assertions are wired in
+Full Campaign Debug `early_mechanics.force_authority`, and its live rebuild smoke
+belongs to Phase 18 `enemy_commander`; neither has run. Phase 17 remains zone
+capture plus the Schema-69 exact-counterattack path. Packaged/native/live-server
+runtime, serialization/restart, migration runtime, network/JIP/reconnect, and
+soak gates remain open.
 
 The preceding checkpoint used Campaign Schema 69 while runtime settings
 remained on Schema 24. Newly admitted exact enemy
@@ -527,6 +557,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
     classes and CRC `16665f19`, and a normal WorldEditor open remains responsive
     for all ten samples over 20 seconds. These are compile/startup gates, not a
     packaged-runtime certificate.
+  - A very large method can cross a practical local-variable ceiling and crash
+    the native compiler even after `Formula too complex` expressions have been
+    split. Extract bounded predicate helpers that own small input sets instead
+    of continuing to add staged locals to the same method. Warnings-only output
+    is not compile proof: require the intended `Module: Game` compile and a clean
+    process exit with no surviving Workbench instance.
 
 - A focused command-line engine autotest is a distinct validation rung after
   Workbench compilation and before Campaign Debug.
@@ -1995,7 +2031,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - Workbench player prefabs can expose an inventory manager while still having no cargo insertion target for loose magazines. Physical saved-loadout probes should try a temporary storage carrier first; if neither loose cargo nor carrier insertion is possible, report the physical reflection branch as environment WARN while keeping serialized apply/ledger assertions authoritative.
   - Early command UI coverage can reuse the Phase 23 command/menu assertion helpers, but should still record an `early_mechanics` typed case so the phase 0-13 sweep is not represented only by a legacy text wrapper.
   - Phase 16 garrison/training smoke should capture before/after observations around the real recruitment/training service calls. Assert the selected zone is resistance-owned/inactive, the abstract garrison record changed by the requested infantry within slot capacity, zero-cost smoke actions did not spend money/HR, and training either increments once or reports a max-level no-mutation warning.
-  - Phase 17 capture/counterattack smoke should remember the seeded capture zone and reuse it for force-progress and counterattack checks. Prefix only counterattack orders created during the debug run, assert ownership/progress/garrison/order/marker state directly, then physicalize the order through the real enemy commander/support path and sample repeated routed active-group movement/distance-closure/stall history. Before judging movement, resolve `spawn_pending_agents` through the active-group population path and record `*.physical_population`; route movement is not provable until durable agents are observable. Keep multi-wave/contact/arrival/resolution behavior as a separate gap until those transitions are sampled.
+  - Phase 17 capture/counterattack smoke should remember the seeded capture zone and reuse it for force-progress and counterattack checks. Prefix only contract-`0` compatibility orders created during the debug run; keep a Schema-69 exact counterattack's admission ID unchanged and track it by that stable ID. Assert ownership/progress/garrison/order/marker state directly, then physicalize the order through the real enemy commander/support path and sample repeated routed active-group movement/distance-closure/stall history. Before judging movement, resolve `spawn_pending_agents` through the active-group population path and record `*.physical_population`; route movement is not provable until durable agents are observable. Keep multi-wave/contact/arrival/resolution behavior as a separate gap until those transitions are sampled.
   - `HST_PhysicalWarService.UpdateRoutedActiveGroupsNow()` owns runtime group entity ensure, survivor refresh, and routed active-group updates. `UpdateZoneActivation()` should call it before zone activation/deactivation, and debug physical probes should call the route-only wrapper so support/QRF groups can advance without folding the target zone during measurement.
   - Support/QRF, enemy-order, convoy, and physical-combat debug probes should resolve `spawn_pending_agents` before judging route movement, readiness, or contact. Reuse the same active-group pending population path for primary proof: finalize native agents, queue one native `SpawnUnits()` retry, then try stock group member-slot population. Direct faction-infantry fallback may still run in the bounded runtime recovery window, but debug certification probes must record it as degraded/non-certifying evidence instead of using it to make route movement, convoy crew, or combat contact pass.
   - Phase 18/19 smoke assertions should verify debug-prefixed enemy order/support records, expected types, target zones/positions, resource cost fields, and resolve/ETA behavior. Stage 3 QRF/search support now samples repeated route-state observations, proves a controlled ETA cannot create false arrival, and leaves actual arrival/movement as WARN until real-frame live-position evidence exists. Its terminal-resolution assertion is conditional on prior live arrival and otherwise remains WARN. Keep Phase 19 enemy/support contact behavior as WARN/separate probes until those paths are sampled over time.
@@ -5537,6 +5573,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   identities must become reciprocal or the full rollback must restore the debit;
   a timer or aggregate garrison count is not execution authority.
 
+- Never retag an admitted enemy order whose operation contract is nonzero. Its
+  order ID is the root of deterministically derived operation, manifest, batch,
+  group, debit, settlement, and receipt identity, so changing it after admission
+  corrupts reciprocal authority even if generic debug assertions still find the
+  row. Debug prefixes are for contract-`0` compatibility rows only. Track,
+  inspect, and clean exact aggregates by the stable IDs assigned at admission.
+
 - Keep one member-slot ledger through virtual travel and physical projection.
   Virtual casualties tombstone exact slots. Materialization releases only living
   slots, physical reconciliation confirms any additional deaths before fold, and
@@ -5604,15 +5647,21 @@ This file is for practical engine/script behavior, not project planning. Keep en
   `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
   `2026-07-13T22:20:52Z`, label
   `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, stamp commit
-  `ef95555`. Workbench log `logs_2026-07-13_18-21-32` compiles 5,826 Game files/
-  11,804 classes at CRC `8ed66143`; focused log
-  `logs_2026-07-13_18-21-56` passes
-  `HST_TEST_EnemyGarrisonRebuildAuthority`, including claimant-wide quarantine
-  replay and idempotency. Foundation passes at 790 script-symbol references. The
-  focused environment records a recoverable stock VM exception and stock filter-
-  constructor errors before the HST testcase succeeds, so it is not exception-
-  free. Full Campaign Debug Phase 17, package/runtime, serialization/restart,
-  multiplayer/network, and soak remain unproven.
+  `ef95555`. Fresh post-integration Workbench log
+  `logs_2026-07-13_20-50-56` completes compile/create at Game CRC `fd9e2cf4` with
+  a clean exit and zero Workbench processes; focused log `logs_2026-07-13_20-51-20`
+  passes `HST_TEST_EnemyGarrisonRebuildAuthority` with one JUnit testcase, zero
+  failures, `AllExact=1`, all 13 headline flags at `1`, zero surviving
+  processes, and claimant-wide quarantine replay/idempotency evidence.
+  Foundation passes at 790 script-symbol references. The focused environment
+  records the known recoverable `GetPlayerIdentityId` VM exception plus two
+  `SCR_FilterCategory` non-public-constructor diagnostics during harness setup;
+  it succeeds but is not exception-free. Schema-70 deterministic assertions in
+  Full Campaign Debug
+  `early_mechanics.force_authority` and the Phase 18 `enemy_commander` live
+  rebuild smoke remain unrun. Phase 17 continues to own zone capture and the
+  Schema-69 exact-counterattack smoke. Package/native runtime,
+  serialization/restart, multiplayer/network, and soak remain unproven.
 
 ## Native Reference Sources
 

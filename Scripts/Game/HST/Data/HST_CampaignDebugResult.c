@@ -553,8 +553,14 @@ class HST_CampaignDebugEscalationProfileResult
 	int m_iCommanderTicksChanged;
 	int m_iOpenOrdersResolvedBetweenCycles;
 	int m_iOpenOrdersAfterCycles;
+	int m_iDebugTaggedOrders;
+	int m_iLedgerStableOrders;
+	int m_iVersionedStableOrders;
+	bool m_bOrderIsolationReady;
 	bool m_bResourceTickChanged;
 	bool m_bCommanderTickChanged;
+	bool m_bOrderIdentitiesSafe;
+	string m_sOrderIsolationFailure;
 	string m_sOrderIds;
 	string m_sOrderTypes;
 	string m_sSupportRequestIds;
@@ -563,6 +569,8 @@ class HST_CampaignDebugEscalationProfileResult
 class HST_CampaignDebugEscalationProbeContext
 {
 	bool m_bArranged;
+	bool m_bOrderIsolationReady;
+	string m_sOrderIsolationFailure;
 	ref HST_CampaignDebugEscalationProfileResult m_Low;
 	ref HST_CampaignDebugEscalationProfileResult m_Mid;
 	ref HST_CampaignDebugEscalationProfileResult m_High;

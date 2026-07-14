@@ -1263,6 +1263,11 @@ Consequences:
   deaths remain dead through travel, fold, re-entry, restore, delivery, return,
   and settlement. Delivery never collapses the manifest into aggregate
   infantry.
+- Once a nonzero exact enemy-order contract is admitted, its order ID and every
+  deterministically derived reciprocal identity are immutable. Debug code may
+  prefix contract-`0` compatibility rows, but exact aggregates are observed and
+  cleaned by their original stable IDs; retagging one would sever operation,
+  manifest, batch, group, debit, and receipt authority.
 - Settlement reuses the appended `PREPARED` state. Resource receipt, operation
   settlement, and final order lifecycle are separately idempotent. Restore may
   repair a valid stale order tail from exact durable authority, but a conflicting
@@ -1282,16 +1287,64 @@ Consequences:
   `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
   `2026-07-13T22:20:52Z`, label
   `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, and stamp
-  `ef95555`. Stamped Workbench compile/create log
-  `logs_2026-07-13_18-21-32` passes at CRC `8ed66143`. Stamped focused autotest
-  log `logs_2026-07-13_18-21-56` records one passing testcase and `AllExact=1`.
+  `ef95555`. Fresh post-integration Workbench compile/create log
+  `logs_2026-07-13_20-50-56` completes successfully at Game CRC `fd9e2cf4` and
+  leaves zero Workbench processes. Final focused log
+  `logs_2026-07-13_20-51-20` records one
+  `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
+  `AllExact=1`, all 13 headline flags at `1`, and zero surviving processes.
   Foundation passes at 790 script-symbol references. The focused environment
-  records a recoverable stock VM exception and stock filter-constructor errors
-  before the HST testcase succeeds, so it is not exception-free.
+  records the known recoverable `GetPlayerIdentityId` VM exception plus two
+  `SCR_FilterCategory` non-public-constructor diagnostics during harness setup.
+  The focused run succeeds but is not exception-free.
 - The focused proof covers capacity/admission, held delivery, physical/virtual
   casualty continuity, restore, ownership terminal settlement, admission
   rollback, prearrival survivor refund, PREPARED/SETTLED crash resume,
   historical isolation, malformed and orphan quarantine, quarantine retention,
   and selected target/source ownership ABA rejection.
-- Full Campaign Debug Phase 17 and packaged, dedicated-server,
-  serialization/restart, network/JIP/reconnect, and soak proof remain open.
+- Schema-70 deterministic assertions are wired in Full Campaign Debug
+  `early_mechanics.force_authority`, while the live rebuild smoke belongs to
+  Phase 18 `enemy_commander`. Neither has run in Full Campaign Debug. Phase 17
+  remains zone capture plus the Schema-69 exact-counterattack path. Packaged/
+  native, dedicated-server, serialization/restart, network/JIP/reconnect, and
+  soak proof remain open.
+
+## CRI-022 - Isolate Debug State Rewrites Through Typed Enemy-Order Settlement
+
+- Status: Accepted; Foundation and Workbench compile proven, runtime unrun
+- Date: 2026-07-13
+
+Context: Full Campaign Debug creates both historical contract-zero enemy orders
+and exact versioned operations. Retagging an admitted ID severs debit and graph
+backlinks. Rewriting ownership or absolute strategic pools while an earlier
+order remains open can invalidate its settlement basis, and merely marking an
+order terminal can hide surviving physical/runtime claimants. A terminal
+snapshot taken in the same frame as forced victory or loss can also record the
+state before legitimate terminal maintenance settles those operations.
+
+Decision: The debug coordinator keeps a separate stable-ID registry for every
+created enemy order and never retags debit-backed or operation-backed
+identities. Before Phase 18 background-war setup and every Phase 24 ownership,
+pool, HQ, population, or aggression mutation, it must settle all tracked open
+orders through their owning type. Exact QRF, counterattack, patrol, and garrison
+rebuild services own versioned settlement. The enemy commander and PhysicalWar
+service own contract-zero settlement. Any settlement or runtime-release failure
+blocks the state rewrite, later escalation profiles, and aggression decay.
+Terminal inactivity sampling occurs after one maintenance frame.
+
+Consequences:
+
+- Exact administrative settlement is successful only when the typed terminal
+  ledger is valid and no batch, active group, adapter handle, physical root, or
+  runtime member remains.
+- Contract-zero administrative settlement proves the original one-pool debit,
+  uses one deterministic refund mutation ID, requires exactly one correctly
+  shaped and chronologically valid refund claimant, and retires linked support
+  runtime before terminal status.
+- Open-order counts use stable debug ownership rather than an ID prefix, so
+  immutable versioned orders cannot disappear from cleanup assertions.
+- Phase 24 profile and multi-cycle results carry explicit isolation failure
+  evidence; a failure is a hard stop rather than a warning or partial probe.
+- The source and Workbench compile boundary is closed, but the behavior remains
+  uncertified until Full Campaign Debug executes Phase 18 and Phase 24 and emits
+  its structured artifacts.

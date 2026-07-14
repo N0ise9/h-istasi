@@ -735,6 +735,103 @@ class HST_EnemyQRFOperationService
 		return changed;
 	}
 
+	bool SettleTrackedOpenOrderForAdministrativeStop(
+		HST_CampaignState state,
+		HST_EnemyDirectorService enemyDirector,
+		HST_EnemyOrderState order,
+		string reason)
+	{
+		if (!state || !enemyDirector || !IsExactEnemyDefensiveQRF(order)
+			|| !m_SpawnAdapter || !m_PhysicalWar)
+			return false;
+		if (reason.IsEmpty())
+			reason = "administrative stop cancelled exact enemy defensive QRF";
+		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+		if (operation && operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+		{
+			ReconcileSettledRuntimeCleanup(state);
+			return manifest && ValidateAppliedResourceSettlementAuthority(state, order, manifest)
+				&& HasReleasedAdministrativeRuntimeAuthority(state, order, operation);
+		}
+
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		string failure = ResolveRuntimeContext(
+			state,
+			order,
+			operation,
+			manifest,
+			batch,
+			group);
+		if (!failure.IsEmpty())
+			return false;
+		FailClosedActiveOrder(
+			state,
+			enemyDirector,
+			order,
+			operation,
+			manifest,
+			batch,
+			group,
+			reason);
+		ReconcileSettledRuntimeCleanup(state);
+		operation = state.FindOperation(order.m_sOperationId);
+		manifest = state.FindForceManifest(order.m_sManifestId);
+		return operation && manifest
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& ValidateAppliedResourceSettlementAuthority(state, order, manifest)
+			&& HasReleasedAdministrativeRuntimeAuthority(state, order, operation);
+	}
+
+	protected bool HasReleasedAdministrativeRuntimeAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		if (!state || !order || !operation || !m_SpawnAdapter || !m_PhysicalWar
+			|| order.m_sOrderId.IsEmpty() || order.m_sOperationId.IsEmpty())
+			return false;
+		string resultId = BuildSpawnResultId(order);
+		string projectionId = BuildProjectionId(order);
+		if ((!order.m_sSpawnResultId.IsEmpty() && order.m_sSpawnResultId != resultId)
+			|| (!order.m_sGroupId.IsEmpty() && order.m_sGroupId != projectionId)
+			|| (!operation.m_sSpawnResultId.IsEmpty() && operation.m_sSpawnResultId != resultId)
+			|| (!operation.m_sProjectionId.IsEmpty() && operation.m_sProjectionId != projectionId)
+			|| (!operation.m_sGroupId.IsEmpty() && operation.m_sGroupId != projectionId))
+			return false;
+
+		HST_ForceSpawnResultState batchProbe = new HST_ForceSpawnResultState();
+		batchProbe.m_sResultId = resultId;
+		batchProbe.m_sProjectionId = projectionId;
+		HST_ActiveGroupState groupProbe = new HST_ActiveGroupState();
+		groupProbe.m_sGroupId = projectionId;
+		groupProbe.m_sSpawnResultId = resultId;
+		groupProbe.m_sProjectionId = projectionId;
+		if (CountForceSpawnResultsByAnyAuthorityIdentity(state, order, operation, batchProbe) > 0
+			|| CountActiveGroupsByAnyAuthorityIdentity(state, order, operation, groupProbe) > 0
+			|| m_SpawnAdapter.CountHandlesForProjection(projectionId) > 0
+			|| m_SpawnAdapter.CountHandlesForResultId(resultId) > 0
+			|| m_PhysicalWar.GetForceSpawnGroupRoot(groupProbe)
+			|| m_PhysicalWar.CountForceSpawnRuntimeMembers(groupProbe) > 0)
+			return false;
+		return true;
+	}
+
+	protected bool ValidateAppliedResourceSettlementAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest)
+	{
+		return state && ValidateAppliedResourceSettlement(order, manifest)
+			&& HST_EnemyCounterattackSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					state.m_aEnemyStrategicMutations,
+					order).IsEmpty();
+	}
+
 	protected bool ApplyRestoreInvalidationResourceSettlement(
 		HST_CampaignState state,
 		HST_EnemyDirectorService enemyDirector,

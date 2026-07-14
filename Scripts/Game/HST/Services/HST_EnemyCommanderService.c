@@ -2183,7 +2183,7 @@ class HST_EnemyCommanderService
 		return queued;
 	}
 
-	HST_EnemyOrderState QueueDebugOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "")
+	HST_EnemyOrderState QueueDebugOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "", bool addDebugResources = true)
 	{
 		if (!state || !preset || !enemyDirector || !targetZone || factionKey.IsEmpty())
 			return null;
@@ -2191,7 +2191,8 @@ class HST_EnemyCommanderService
 		if (!state.FindFactionPool(factionKey))
 			return null;
 
-		enemyDirector.AddResources(state, factionKey, 100, 100);
+		if (addDebugResources)
+			enemyDirector.AddResources(state, factionKey, 100, 100);
 		int beforeCount = state.m_aEnemyOrders.Count();
 		if (!QueueOrder(state, preset, enemyDirector, null, factionKey, targetZone, orderType, spendMode))
 			return null;
@@ -2339,6 +2340,236 @@ class HST_EnemyCommanderService
 		if (HasVersionedEnemyOperation(order))
 			return false;
 		return ApplySurvivorRefund(state, enemyDirector, order, group);
+	}
+
+	bool SettleTrackedLegacyOrderForAdministrativeStop(
+		HST_CampaignState state,
+		HST_EnemyDirectorService enemyDirector,
+		HST_SupportRequestService support,
+		HST_PhysicalWarService physicalWar,
+		HST_EnemyOrderState order,
+		string reason)
+	{
+		if (!state || !enemyDirector || !support || !physicalWar || !order
+			|| HasVersionedEnemyOperation(order))
+			return false;
+		if (reason.IsEmpty())
+			reason = "campaign debug administrative stop";
+		bool attackFunded = order.m_iAttackCost > 0 && order.m_iSupportCost == 0;
+		bool supportFunded = order.m_iSupportCost > 0 && order.m_iAttackCost == 0;
+		if ((order.m_iAttackCost > 0 || order.m_iSupportCost > 0)
+			&& (!attackFunded && !supportFunded))
+			return false;
+		if (attackFunded || supportFunded)
+		{
+			string debitFailure = HST_EnemyCounterattackSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					state.m_aEnemyStrategicMutations,
+					order);
+			if (!debitFailure.IsEmpty())
+			{
+				order.m_sFailureReason = debitFailure;
+				return false;
+			}
+		}
+
+		HST_SupportRequestState request;
+		if (!order.m_sSupportRequestId.IsEmpty())
+		{
+			request = state.FindSupportRequest(order.m_sSupportRequestId);
+			if (!request || request.m_iOperationContractVersion != 0)
+				return false;
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+			{
+				if (!support.CancelSupportRequest(state, request.m_sRequestId, false))
+					return false;
+			}
+		}
+
+		string runtimeFailure;
+		if (!physicalWar.SettleCampaignDebugTrackedLegacyEnemyOrderRuntime(
+			state,
+			order,
+			runtimeFailure))
+		{
+			order.m_sFailureReason = runtimeFailure;
+			return false;
+		}
+
+		if (order.m_bResourceRefundApplied)
+		{
+			if (order.m_iRefundedAttackResources != order.m_iAttackCost
+				|| order.m_iRefundedSupportResources != order.m_iSupportCost)
+				return false;
+		}
+		else if (order.m_iAttackCost > 0 || order.m_iSupportCost > 0)
+		{
+			string refundMutationId = "enemy_resource_refund_"
+				+ order.m_sOrderId + "_campaign_debug_admin_stop";
+			bool refunded;
+			if (attackFunded)
+				refunded = enemyDirector.RefundProactiveAttackResources(
+					state,
+					order.m_sFactionKey,
+					order.m_iAttackCost,
+					reason,
+					refundMutationId,
+					order.m_sOrderId,
+					order.m_sOrderId,
+					order.m_sOperationId,
+					order.m_sManifestId,
+					order.m_sTargetZoneId);
+			else if (supportFunded)
+				refunded = enemyDirector.RefundDefenseResources(
+					state,
+					order.m_sFactionKey,
+					order.m_sTargetZoneId,
+					0,
+					order.m_iSupportCost,
+					reason,
+					refundMutationId,
+					order.m_sOrderId,
+					order.m_sOrderId,
+					order.m_sOperationId,
+					order.m_sManifestId);
+			if (!refunded)
+				return false;
+			order.m_sResourceRefundMutationId = refundMutationId;
+			order.m_iRefundedAttackResources = order.m_iAttackCost;
+			order.m_iRefundedSupportResources = order.m_iSupportCost;
+			order.m_bResourceRefundApplied = true;
+		}
+
+		if (!IsTrackedLegacyAdministrativeRefundExact(state, order))
+			return false;
+		if (request)
+		{
+			if (request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_RESOLVED
+				&& request.m_eStatus != HST_ESupportRequestStatus.HST_SUPPORT_CANCELLED)
+				return false;
+			request.m_bPhysicalized = false;
+			request.m_sRuntimeEntityId = "";
+		}
+		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+		order.m_iResolvedAtSecond = state.m_iElapsedSeconds;
+		order.m_sRuntimeStatus = "campaign_debug_administrative_stop";
+		order.m_sResolutionKind = "administrative_stop";
+		order.m_sFailureReason = reason;
+		order.m_bPhysicalized = false;
+		order.m_bAbstractResolved = false;
+		return true;
+	}
+
+	protected bool IsTrackedLegacyAdministrativeRefundExact(
+		HST_CampaignState state,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !order)
+			return false;
+		if (order.m_iAttackCost <= 0 && order.m_iSupportCost <= 0)
+			return !order.m_bResourceRefundApplied
+				&& order.m_sResourceRefundMutationId.IsEmpty();
+		string debitFailure = HST_EnemyCounterattackSaveValidationService
+			.ValidateOriginalResourceDebitAuthority(
+				state.m_aEnemyStrategicMutations,
+				order);
+		if (!debitFailure.IsEmpty() || !order.m_bResourceRefundApplied
+			|| order.m_sResourceRefundMutationId.IsEmpty()
+			|| order.m_bResourceSettlementApplied
+			|| !order.m_sResourceSettlementId.IsEmpty()
+			|| !order.m_sResourceSettlementKind.IsEmpty())
+			return false;
+		string expectedRefundMutationId = "enemy_resource_refund_"
+			+ order.m_sOrderId + "_campaign_debug_admin_stop";
+		if (order.m_sResourceRefundMutationId != expectedRefundMutationId)
+			return false;
+		HST_EnemyStrategicMutationState refund;
+		HST_EnemyStrategicMutationState debit;
+		int refundIdentityCount;
+		foreach (HST_EnemyStrategicMutationState mutation : state.m_aEnemyStrategicMutations)
+		{
+			if (!mutation)
+				continue;
+			if (mutation.m_sMutationId == order.m_sResourceRefundMutationId)
+			{
+				refund = mutation;
+				refundIdentityCount++;
+			}
+			if (mutation.m_sMutationId == order.m_sResourceDebitMutationId)
+				debit = mutation;
+		}
+		if (refundIdentityCount != 1 || !refund || !debit
+			|| HST_EnemyCounterattackSaveValidationService.CountResourceMutationClaimants(
+				state.m_aEnemyStrategicMutations,
+				order,
+				false) != 1)
+			return false;
+		bool attackFunded = order.m_iAttackCost > 0 && order.m_iSupportCost == 0;
+		string expectedKind = "defense_support_refund";
+		if (attackFunded)
+			expectedKind = "proactive_attack_refund";
+		if (!IsTrackedLegacyAdministrativeRefundIdentityExact(refund, order, expectedKind))
+			return false;
+		if (!IsTrackedLegacyAdministrativeRefundAmountExact(refund, order))
+			return false;
+		if (!IsTrackedLegacyAdministrativeRefundEvidenceExact(refund, debit, order))
+			return false;
+		string shapeFailure;
+		return HST_EnemyStrategicResourceSaveValidationService
+			.ValidateMutationShape(refund, shapeFailure);
+	}
+
+	protected bool IsTrackedLegacyAdministrativeRefundIdentityExact(
+		HST_EnemyStrategicMutationState refund,
+		HST_EnemyOrderState order,
+		string expectedKind)
+	{
+		if (!refund || !order)
+			return false;
+		if (refund.m_iContractVersion != HST_EnemyStrategicResourceService.CONTRACT_VERSION)
+			return false;
+		if (!refund.m_bApplied || refund.m_sKind != expectedKind)
+			return false;
+		if (refund.m_sSourceId != order.m_sOrderId
+			|| refund.m_sOrderId != order.m_sOrderId)
+			return false;
+		if (refund.m_sOperationId != order.m_sOperationId
+			|| refund.m_sManifestId != order.m_sManifestId)
+			return false;
+		if (refund.m_sFactionKey != order.m_sFactionKey)
+			return false;
+		return HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+			refund.m_sZoneId,
+			order.m_sTargetZoneId);
+	}
+
+	protected bool IsTrackedLegacyAdministrativeRefundAmountExact(
+		HST_EnemyStrategicMutationState refund,
+		HST_EnemyOrderState order)
+	{
+		if (!refund || !order)
+			return false;
+		if (refund.m_iAttackDelta != order.m_iAttackCost
+			|| refund.m_iSupportDelta != order.m_iSupportCost)
+			return false;
+		if (refund.m_iAggressionDelta != 0)
+			return false;
+		return order.m_iRefundedAttackResources == order.m_iAttackCost
+			&& order.m_iRefundedSupportResources == order.m_iSupportCost;
+	}
+
+	protected bool IsTrackedLegacyAdministrativeRefundEvidenceExact(
+		HST_EnemyStrategicMutationState refund,
+		HST_EnemyStrategicMutationState debit,
+		HST_EnemyOrderState order)
+	{
+		if (!refund || !debit || !order)
+			return false;
+		if (refund.m_iCreatedAtSecond < order.m_iCreatedAtSecond
+			|| refund.m_iCreatedAtSecond < debit.m_iCreatedAtSecond)
+			return false;
+		return refund.m_sContributionHash.IsEmpty();
 	}
 
 	protected bool QueueOrder(HST_CampaignState state, HST_CampaignPreset preset, HST_EnemyDirectorService enemyDirector, HST_SupportRequestService support, string factionKey, HST_ZoneState targetZone, HST_EEnemyOrderType orderType, string spendMode = "", bool forceDebugLegacyOperation = false)

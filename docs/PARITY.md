@@ -23,22 +23,35 @@ The scoped Schema-70 engine-proof checkpoint is sealed at implementation
 `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, UTC
 `2026-07-13T22:20:52Z`, label
 `schema70-settings24-exact-enemy-garrison-rebuild-engine-proof`, with stamp
-commit `ef95555`. Stamped Workbench compile/create log
-`logs_2026-07-13_18-21-32` is clean at CRC `8ed66143`. Stamped focused engine
-log `logs_2026-07-13_18-21-56` records one passing testcase, `AllExact=1`, and
-all 13 headline assertions: admission/capacity, delivery/held authority,
+commit `ef95555`. Fresh post-integration Workbench compile/create log
+`logs_2026-07-13_20-50-56` completes successfully at Game CRC `fd9e2cf4` with a
+clean exit and zero Workbench processes. Final focused engine log
+`logs_2026-07-13_20-51-20` records one
+`HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
+`AllExact=1`, all 13 headline flags at `1`, and zero surviving processes:
+admission/capacity,
+delivery/held authority,
 casualty continuity, restore, ownership terminal handling, admission rollback,
 prearrival refund, settlement crash resume, historical isolation, Schema-70
 quarantine, orphan-runtime quarantine, quarantine retention, and selected-
 ownership ABA rejection. Foundation passes at 790 script-symbol references. The
-focused environment also records a recoverable stock VM exception and stock
-filter-constructor errors before the HST testcase succeeds, so it is not
-exception-free.
+focused environment also records the known recoverable `GetPlayerIdentityId` VM
+exception plus two `SCR_FilterCategory` non-public-constructor diagnostics
+during harness setup. The focused run succeeds but is not exception-free.
+
+Full Campaign Debug now has source/compile-level fail-closed enemy-order
+isolation for Phase 18 and Phase 24: stable admitted IDs, typed exact settlement,
+mutation-proven contract-zero settlement, zero-runtime-claimant release checks,
+profile/decay abort on isolation failure, and post-maintenance terminal
+snapshots. This closes the coordinator false-pass design gap, not the runtime
+gate; the full suite has not executed these paths yet.
 
 This seals only Foundation, stamped Workbench compile/create, and focused engine
-proof. Full Campaign Debug Phase 17 was not run. Packaged execution,
-dedicated-server, serialization/restart, network/JIP/reconnect, and soak gates
-remain open.
+proof. Schema-70 deterministic assertions are wired in Full Campaign Debug
+`early_mechanics.force_authority`, and its live rebuild smoke belongs to Phase 18
+`enemy_commander`; neither has run. Phase 17 remains zone capture plus the
+Schema-69 exact-counterattack path. Packaged/native execution, dedicated-server,
+serialization/restart, network/JIP/reconnect, and soak gates remain open.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
@@ -908,8 +921,10 @@ Debug and packaged-runtime gates remain open.
   quarantines at `-70`, preserving linked claimants and retention pins without
   invented cleanup. Foundation passes at 790 references; focused engine proof
   covers crash resume and selected ownership ABA rejection, though the focused
-  stock environment is not exception-free. Full Campaign Debug Phase 17 and
-  native/runtime proof remain open.
+  stock environment is not exception-free. The Schema-70 deterministic
+  `early_mechanics.force_authority` assertions and Phase 18 `enemy_commander`
+  live rebuild smoke have not run in Full Campaign Debug; native/runtime proof
+  remains open.
 - Newly purchased policy-v2 resistance garrisons use a separate exact
   `GARRISON_PATROL` owner. They walk a persisted infinite local route while held,
   use survivor-only materialization/fold, publish one exact marker/UI count, and
@@ -988,18 +1003,24 @@ Debug and packaged-runtime gates remain open.
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Its scoped
   checkpoint is sealed at implementation
-  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, stamp commit `ef95555`, stamped
-  Workbench compile/create log `logs_2026-07-13_18-21-32` at CRC `8ed66143`, and
-  focused log `logs_2026-07-13_18-21-56` with one passing testcase,
-  `AllExact=1`, and all 13 headline assertions. The focused run covers exact
+  `2f71236bfc02329a3c8000b104f1b7b1043dc99c`, stamp commit `ef95555`. Fresh
+  post-integration Workbench compile/create log `logs_2026-07-13_20-50-56`
+  completes at Game CRC `fd9e2cf4` with a clean exit and zero surviving
+  processes. Focused log `logs_2026-07-13_20-51-20` has one passing
+  `HST_TEST_EnemyGarrisonRebuildAuthority` JUnit testcase with zero failures,
+  `AllExact=1`, all 13 headline flags at `1`, and zero surviving processes. The
+  focused run covers exact
   admission/capacity, delivery/held authority, casualty continuity, restore,
   ownership terminal handling, admission rollback, prearrival refund, crash
   resume, historical isolation, malformed and orphan quarantine, retention,
   and selected ownership ABA rejection. Foundation passes at 790 script-symbol
-  references. The focused stock environment is not exception-free. Full
-  Campaign Debug Phase 17 was not run;
-  packaged execution, dedicated-server, serialization/restart,
-  network/JIP/reconnect, and soak gates remain open.
+  references. The known recoverable `GetPlayerIdentityId` VM exception plus two
+  `SCR_FilterCategory` non-public-constructor diagnostics during harness setup
+  mean the focused stock environment succeeds but is not exception-free. Schema-70
+  deterministic assertions in Full Campaign Debug
+  `early_mechanics.force_authority` and the Phase 18 `enemy_commander` live
+  rebuild smoke have not run; packaged/native execution, dedicated-server,
+  serialization/restart, network/JIP/reconnect, and soak gates remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation
@@ -1321,8 +1342,10 @@ Debug and packaged-runtime gates remain open.
 
 ## Current Delivery Priorities
 
-- Execute the Schema-70 exact-garrison-rebuild Full Campaign Debug Phase-17
-  proof now that Foundation passes at 790 references. Require capacity-
+- Execute the Schema-70 deterministic Full Campaign Debug assertions in
+  `early_mechanics.force_authority` and the live exact-garrison-rebuild smoke in
+  Phase 18 `enemy_commander` now that Foundation passes at 790 references.
+  Require capacity-
   bounded admission, exactly one prepaid support debit, reciprocal order/
   operation/manifest/spawn/group authority, strategic/physical casualty
   continuity, delivered held-roster transfer without aggregate double count,
@@ -1331,7 +1354,8 @@ Debug and packaged-runtime gates remain open.
   ownership ABA rejection, and idempotent `-70` malformed/orphan quarantine with
   retention. Then package-prove serialization/restart, dedicated-server,
   multiplayer/network/JIP/reconnect, and soak behavior. Retain the still-open
-  Schema-69 counterattack runtime gates in the same verification program.
+  Schema-69 counterattack Phase-17 runtime gates in the same verification
+  program.
 - Publish and runtime-check the sealed Schema-66/settings-24 checkpoint under
   its exact identity. Do not report it under the sealed Schema-65 identity. Require every package,
   server, client, log, and artifact to agree on the new final identity while

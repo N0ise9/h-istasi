@@ -27395,10 +27395,19 @@ foreach ($schema69Phase17Assertion in @(
 }
 $schema69Phase17PrefixBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void ApplyCampaignDebugPhase17NewCounterattackPrefix('
 $schema69Phase17CaptureBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void CaptureCampaignDebugPhase17CounterattackOrder('
+$schema69OrderPrefixBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected string ApplyCampaignDebugEnemyOrderPrefix('
+$schema69OrderMutableBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugEnemyOrderIdentityMutable('
 if ([string]::IsNullOrEmpty($schema69Phase17PrefixBlock) -or
-	$schema69Phase17PrefixBlock.IndexOf('phase17Order.m_iOperationContractVersion == 0') -lt 0 -or
+	$schema69Phase17PrefixBlock.IndexOf('ApplyCampaignDebugEnemyOrderPrefix(phase17Order, label);') -lt 0 -or
 	[string]::IsNullOrEmpty($schema69Phase17CaptureBlock) -or
-	$schema69Phase17CaptureBlock.IndexOf('createdOrder.m_iOperationContractVersion == 0') -lt 0) {
+	$schema69Phase17CaptureBlock.IndexOf('ApplyCampaignDebugEnemyOrderPrefix(createdOrder, "phase17_counterattack");') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69OrderPrefixBlock) -or
+	$schema69OrderPrefixBlock.IndexOf('TrackCampaignDebugEnemyOrder(order);') -lt 0 -or
+	$schema69OrderPrefixBlock.IndexOf('if (!IsCampaignDebugEnemyOrderIdentityMutable(order))') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69OrderMutableBlock) -or
+	$schema69OrderMutableBlock.IndexOf('order.m_iOperationContractVersion != 0') -lt 0 -or
+	$schema69OrderMutableBlock.IndexOf('order.m_sResourceDebitMutationId.IsEmpty()') -lt 0 -or
+	$schema69OrderMutableBlock.IndexOf('order.m_sOperationId.IsEmpty()') -lt 0) {
 	throw "Phase 17 must never retag a versioned counterattack after stable IDs are admitted"
 }
 if (([regex]::Matches($schema69CoordinatorText, 'ProbeCampaignDebugEnemyOrderPhysicalAdvance\(')).Count -ne 2) {
@@ -27695,6 +27704,7 @@ $schema70PhysicalPath = Join-Path $root 'Scripts/Game/HST/Services/HST_PhysicalW
 $schema70MarkerPath = Join-Path $root 'Scripts/Game/HST/Services/HST_MapMarkerService.c'
 $schema70OwnershipPath = Join-Path $root 'Scripts/Game/HST/Services/HST_OwnershipTransitionService.c'
 $schema70CoordinatorPath = Join-Path $root 'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+$schema70DebugResultPath = Join-Path $root 'Scripts/Game/HST/Data/HST_CampaignDebugResult.c'
 $schema70ProofPath = Join-Path $root 'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationProofService.c'
 $schema70AutotestPath = Join-Path $root 'Scripts/Game/HST/Tests/HST_EnemyGarrisonRebuildAutotest.c'
 foreach ($schema70RequiredPath in @(
@@ -27712,6 +27722,7 @@ foreach ($schema70RequiredPath in @(
 	$schema70MarkerPath,
 	$schema70OwnershipPath,
 	$schema70CoordinatorPath,
+	$schema70DebugResultPath,
 	$schema70ProofPath,
 	$schema70AutotestPath
 )) {
@@ -27733,6 +27744,7 @@ $schema70PhysicalText = [System.IO.File]::ReadAllText($schema70PhysicalPath)
 $schema70MarkerText = [System.IO.File]::ReadAllText($schema70MarkerPath)
 $schema70OwnershipText = [System.IO.File]::ReadAllText($schema70OwnershipPath)
 $schema70CoordinatorText = [System.IO.File]::ReadAllText($schema70CoordinatorPath)
+$schema70DebugResultText = [System.IO.File]::ReadAllText($schema70DebugResultPath)
 $schema70ProofText = [System.IO.File]::ReadAllText($schema70ProofPath)
 $schema70AutotestText = [System.IO.File]::ReadAllText($schema70AutotestPath)
 
@@ -27988,6 +28000,510 @@ foreach ($schema70ProofField in @(
 		throw "Schema-70 focused proof report is incomplete: $schema70ProofField"
 	}
 }
+$schema70ProofAllExactBlock = Get-ScriptMethodBlock $schema70ProofText 'bool AllExact()'
+foreach ($schema70ProofAllExactField in @(
+	'm_bAdmissionCapacityExact',
+	'm_bDeliveryHeldExact',
+	'm_bCasualtyContinuityExact',
+	'm_bRestoreExact',
+	'm_bOwnershipTerminalExact',
+	'm_bAdmissionRollbackExact',
+	'm_bPrearrivalRefundExact',
+	'm_bSettlementCrashResumeExact',
+	'm_bHistoricalIsolationExact',
+	'm_bSchema70QuarantineExact',
+	'm_bOrphanRuntimeQuarantineExact',
+	'm_bQuarantineRetentionExact',
+	'm_bSelectedOwnershipABAExact'
+)) {
+	if ([string]::IsNullOrEmpty($schema70ProofAllExactBlock) -or
+		$schema70ProofAllExactBlock.IndexOf($schema70ProofAllExactField) -lt 0) {
+		throw "Schema-70 focused proof AllExact aggregation omits: $schema70ProofAllExactField"
+	}
+}
+
+foreach ($schema70Phase18StableField in @(
+	'protected string m_sCampaignDebugPhase18CounterattackOrderId;',
+	'protected string m_sCampaignDebugPhase18RebuildOrderId;'
+)) {
+	if ($schema70CoordinatorText.IndexOf($schema70Phase18StableField) -lt 0) {
+		throw "Full Campaign Debug Phase 18 stable exact-order tracking is missing: $schema70Phase18StableField"
+	}
+}
+$schema70Phase18ResetBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void ResetCampaignDebugPhase18Observations()'
+foreach ($schema70Phase18ResetEntry in @(
+	'm_sCampaignDebugPhase18CounterattackOrderId = "";',
+	'm_sCampaignDebugPhase18RebuildOrderId = "";',
+	'm_iCampaignDebugPhase18CounterattackCleanupRows = 0;',
+	'm_iCampaignDebugPhase18RebuildCleanupRows = 0;'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase18ResetBlock) -or
+		$schema70Phase18ResetBlock.IndexOf($schema70Phase18ResetEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 18 observation reset is incomplete: $schema70Phase18ResetEntry"
+	}
+}
+$schema70CampaignDebugStartBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool StartCampaignDebugRun('
+if ([string]::IsNullOrEmpty($schema70CampaignDebugStartBlock) -or
+	$schema70CampaignDebugStartBlock.IndexOf('ResetCampaignDebugPhase18Observations();') -lt 0 -or
+	$schema70CampaignDebugStartBlock.IndexOf('m_aCampaignDebugStableEnemyOrderIds.Clear();') -lt 0 -or
+	$schema70CampaignDebugStartBlock.IndexOf('m_aCampaignDebugReleasedExactEnemyOrderIds.Clear();') -lt 0) {
+	throw "Full Campaign Debug must reset Phase 18 stable IDs and cleanup observations at run start"
+}
+
+$schema70Phase18CounterattackSeedBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase18SeedCounterattack('
+$schema70Phase18RebuildSeedBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase18SeedRebuild('
+foreach ($schema70Phase18ExactSeedCheck in @(
+	@('counterattack', $schema70Phase18CounterattackSeedBlock, 'm_sCampaignDebugPhase18CounterattackOrderId = order.m_sOrderId;'),
+	@('garrison rebuild', $schema70Phase18RebuildSeedBlock, 'm_sCampaignDebugPhase18RebuildOrderId = order.m_sOrderId;')
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase18ExactSeedCheck[1]) -or
+		$schema70Phase18ExactSeedCheck[1].IndexOf($schema70Phase18ExactSeedCheck[2]) -lt 0 -or
+		$schema70Phase18ExactSeedCheck[1].IndexOf('TrackCampaignDebugEnemyOrder(order);') -lt 0) {
+		throw "Full Campaign Debug Phase 18 $($schema70Phase18ExactSeedCheck[0]) seed does not retain its admitted stable order ID"
+	}
+	if ($schema70Phase18ExactSeedCheck[1].IndexOf('ApplyCampaignDebugEnemyOrderPrefix(') -ge 0) {
+		throw "Full Campaign Debug Phase 18 $($schema70Phase18ExactSeedCheck[0]) seed must never retag a versioned exact order after admission"
+	}
+}
+if ([string]::IsNullOrEmpty($schema70Phase18RebuildSeedBlock) -or
+	$schema70Phase18RebuildSeedBlock.IndexOf('m_EnemyCommander.QueueDebugOrder(') -lt 0 -or
+	$schema70Phase18RebuildSeedBlock.IndexOf('HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON') -lt 0 -or
+	$schema70Phase18RebuildSeedBlock.IndexOf('QueueDebugLegacyOrder(') -ge 0) {
+	throw "Full Campaign Debug Phase 18 garrison rebuild must use the production exact QueueDebugOrder path, never the contract-zero legacy seed"
+}
+
+$schema70Phase18CaseBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase('
+foreach ($schema70Phase18StableLookup in @(
+	'FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18CounterattackOrderId)',
+	'FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18RebuildOrderId)'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase18CaseBlock) -or
+		$schema70Phase18CaseBlock.IndexOf($schema70Phase18StableLookup) -lt 0) {
+		throw "Full Campaign Debug Phase 18 typed case must resolve admitted exact orders by stable ID: $schema70Phase18StableLookup"
+	}
+}
+if (-not [regex]::IsMatch(
+		$schema70Phase18CaseBlock,
+		'(?s)if\s*\(index\s*==\s*18\).*?AddCampaignDebugPhase18GarrisonRebuildAssertions\(orderCase,\s*order\);')) {
+	throw "Full Campaign Debug Phase 18 rebuild case must run the typed exact garrison-rebuild assertions at index 18"
+}
+$schema70Phase18RebuildAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugPhase18GarrisonRebuildAssertions('
+foreach ($schema70Phase18RebuildAssertion in @(
+	'phase18.rebuild.contract',
+	'phase18.rebuild.stable_identity',
+	'phase18.rebuild.resource_pool',
+	'phase18.rebuild.resource_debit_receipt',
+	'phase18.rebuild.target_ownership_revision',
+	'phase18.rebuild.capacity_bound',
+	'phase18.rebuild.operation_authority',
+	'phase18.rebuild.frozen_manifest',
+	'phase18.rebuild.reciprocal_projection',
+	'phase18.rebuild.strategic_hold',
+	'phase18.rebuild.lifecycle.virtual_outbound',
+	'phase18.rebuild.lifecycle.on_station_contract',
+	'phase18.rebuild.lifecycle.physical_gate',
+	'phase18.rebuild.no_support_request'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase18RebuildAssertionBlock) -or
+		$schema70Phase18RebuildAssertionBlock.IndexOf($schema70Phase18RebuildAssertion) -lt 0) {
+		throw "Full Campaign Debug Phase 18 exact garrison-rebuild assertion is missing: $schema70Phase18RebuildAssertion"
+	}
+}
+foreach ($schema70Phase18CleanupAssertion in @(
+	'phase18.resolve.exact_counterattack_cleanup',
+	'phase18.resolve.exact_garrison_rebuild_cleanup',
+	'phase18.resolve.no_exact_runtime_claimants'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase18CaseBlock) -or
+		$schema70Phase18CaseBlock.IndexOf($schema70Phase18CleanupAssertion) -lt 0) {
+		throw "Full Campaign Debug Phase 18 exact aggregate cleanup assertion is missing: $schema70Phase18CleanupAssertion"
+	}
+}
+
+$schema70ForceDebugBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugCaseResult BuildCampaignDebugForceAuthorityCase('
+if ([string]::IsNullOrEmpty($schema70ForceDebugBlock) -or
+	$schema70ForceDebugBlock.IndexOf('AppendCampaignDebugEnemyGarrisonRebuildOperationAssertions(forceCase);') -lt 0) {
+	throw "Full Campaign Debug early force-authority case does not register the Schema-70 focused proof helper"
+}
+$schema70ForceProofAppendBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AppendCampaignDebugEnemyGarrisonRebuildOperationAssertions('
+foreach ($schema70ForceProofAssertion in @(
+	@('enemy_garrison_rebuild.settlement_crash_resume', 'proof.m_bSettlementCrashResumeExact', 'proof.m_sSettlementCrashEvidence'),
+	@('enemy_garrison_rebuild.orphan_runtime_quarantine', 'proof.m_bOrphanRuntimeQuarantineExact', 'proof.m_sOrphanRuntimeEvidence')
+)) {
+	foreach ($schema70ForceProofAssertionEntry in $schema70ForceProofAssertion) {
+		if ([string]::IsNullOrEmpty($schema70ForceProofAppendBlock) -or
+			$schema70ForceProofAppendBlock.IndexOf($schema70ForceProofAssertionEntry) -lt 0) {
+			throw "Full Campaign Debug early force-authority Schema-70 headline assertion is incomplete: $($schema70ForceProofAssertion[0])"
+		}
+	}
+}
+
+$schema70BackgroundWarCaptureBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void CaptureCampaignDebugBackgroundWarOrders()'
+if ([string]::IsNullOrEmpty($schema70BackgroundWarCaptureBlock) -or
+	$schema70BackgroundWarCaptureBlock.IndexOf('ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_background_war");') -lt 0) {
+	throw "Full Campaign Debug background-war capture must track every created order through the identity-safe helper"
+}
+$schema70GroupPrefixBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string ApplyCampaignDebugActiveGroupPrefix('
+$schema70GroupMutableBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugActiveGroupIdentityMutable('
+$schema70EscalationGroupBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RetagCampaignDebugEscalationGroups('
+if ([string]::IsNullOrEmpty($schema70GroupPrefixBlock) -or
+	$schema70GroupPrefixBlock.IndexOf('if (!IsCampaignDebugActiveGroupIdentityMutable(group))') -lt 0 -or
+	[string]::IsNullOrEmpty($schema70EscalationGroupBlock) -or
+	$schema70EscalationGroupBlock.IndexOf('if (IsCampaignDebugActiveGroupIdentityMutable(group))') -lt 0) {
+	throw "Full Campaign Debug must never retag an operation-backed active-group identity"
+}
+foreach ($schema70StableGroupLink in @(
+	'm_sOperationId',
+	'm_sManifestId',
+	'm_sProjectionId',
+	'm_sForceId',
+	'm_sSpawnResultId',
+	'm_iOperationContractVersion'
+)) {
+	if ([string]::IsNullOrEmpty($schema70GroupMutableBlock) -or
+		$schema70GroupMutableBlock.IndexOf($schema70StableGroupLink) -lt 0) {
+		throw "Full Campaign Debug operation-backed group identity guard omits: $schema70StableGroupLink"
+	}
+}
+$schema70BackgroundWarPetrosBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountAndAbortCampaignDebugBackgroundWarPetrosOrders()'
+$schema70UnexpectedPetrosIndex = $schema70BackgroundWarPetrosBlock.IndexOf('unexpected++;')
+$schema70VersionedPetrosSkipIndex = $schema70BackgroundWarPetrosBlock.IndexOf('if (order.m_iOperationContractVersion != 0)')
+$schema70LegacyPetrosAbortIndex = $schema70BackgroundWarPetrosBlock.IndexOf('order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;')
+if ([string]::IsNullOrEmpty($schema70BackgroundWarPetrosBlock) -or
+	$schema70UnexpectedPetrosIndex -lt 0 -or $schema70VersionedPetrosSkipIndex -lt 0 -or
+	$schema70LegacyPetrosAbortIndex -lt 0 -or
+	$schema70UnexpectedPetrosIndex -ge $schema70VersionedPetrosSkipIndex -or
+	$schema70VersionedPetrosSkipIndex -ge $schema70LegacyPetrosAbortIndex -or
+	$schema70BackgroundWarPetrosBlock.IndexOf('return unexpected;') -lt 0) {
+	throw "Full Campaign Debug unexpected-Petros isolation must count every unexpected order and never directly abort a versioned exact order"
+}
+$schema70EscalationResolveBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int ResolveCampaignDebugOpenEnemyOrdersForEscalation('
+foreach ($schema70EscalationResolveEntry in @(
+	'foreach (string orderId : m_aCampaignDebugStableEnemyOrderIds)',
+	'if (order.m_iOperationContractVersion != 0)',
+	'SettleCampaignDebugTrackedExactEnemyOrder(order, reason)',
+	'm_EnemyCommander.SettleTrackedLegacyOrderForAdministrativeStop('
+)) {
+	if ([string]::IsNullOrEmpty($schema70EscalationResolveBlock) -or
+		$schema70EscalationResolveBlock.IndexOf($schema70EscalationResolveEntry) -lt 0) {
+		throw "Full Campaign Debug escalation cleanup is missing stable tracked-order settlement: $schema70EscalationResolveEntry"
+	}
+}
+if ([regex]::IsMatch($schema70EscalationResolveBlock, 'order\.m_eStatus\s*=(?!=)')) {
+	throw "Full Campaign Debug escalation cleanup must not directly flip a tracked enemy-order terminal status"
+}
+$schema70EscalationExactSettleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool SettleCampaignDebugTrackedExactEnemyOrder('
+foreach ($schema70EscalationExactSettleEntry in @(
+	'HST_OperationService.RequiresExactEnemyDefensiveQRF(order)',
+	'm_EnemyQRFOperations.SettleTrackedOpenOrderForAdministrativeStop(',
+	'HST_OperationService.RequiresExactEnemyCounterattack(order)',
+	'm_EnemyCounterattackOperations.SettleTrackedOpenOrderForAdministrativeStop(',
+	'HST_OperationService.RequiresExactEnemyPatrol(order)',
+	'm_EnemyPatrolOperations.SettleTrackedOpenOrderForAdministrativeStop(',
+	'HST_OperationService.RequiresExactEnemyGarrisonRebuild(order)',
+	'm_EnemyGarrisonRebuildOperations.SettleTrackedOpenOrderForAdministrativeStop(',
+	'CountCampaignDebugExactRuntimeClaimantRows(order.m_sOrderId)',
+	'm_aCampaignDebugReleasedExactEnemyOrderIds.Insert(order.m_sOrderId);'
+)) {
+	if ([string]::IsNullOrEmpty($schema70EscalationExactSettleBlock) -or
+		$schema70EscalationExactSettleBlock.IndexOf($schema70EscalationExactSettleEntry) -lt 0) {
+		throw "Full Campaign Debug exact-order administrative settlement dispatch is incomplete: $schema70EscalationExactSettleEntry"
+	}
+}
+foreach ($schema70TypedAdministrativeSettleCheck in @(
+	@('defensive QRF', $schema67EnemyQRFText, 'CountForceSpawnResultsByAnyAuthorityIdentity(', 'CountActiveGroupsByAnyAuthorityIdentity('),
+	@('counterattack', $schema69RuntimeText, 'CountForceSpawnResultsByAnyAuthorityIdentity(', 'CountActiveGroupsByAnyAuthorityIdentity('),
+	@('patrol', $schema67EnemyPatrolText, 'CountBatchesByAnyAuthorityIdentity(', 'CountGroupsByAnyAuthorityIdentity('),
+	@('garrison rebuild', $schema70RuntimeText, 'state.m_aForceSpawnResults', 'state.m_aActiveGroups')
+)) {
+	$schema70TypedAdministrativeSettleBlock = Get-ScriptMethodBlock $schema70TypedAdministrativeSettleCheck[1] 'bool SettleTrackedOpenOrderForAdministrativeStop('
+	$schema70TypedAdministrativeRuntimeReleaseBlock = Get-ScriptMethodBlock $schema70TypedAdministrativeSettleCheck[1] 'protected bool HasReleasedAdministrativeRuntimeAuthority('
+	if ([string]::IsNullOrEmpty($schema70TypedAdministrativeSettleBlock) -or
+		$schema70TypedAdministrativeSettleBlock.IndexOf('ReconcileSettledRuntimeCleanup(state);') -lt 0 -or
+		$schema70TypedAdministrativeSettleBlock.IndexOf('HST_OPERATION_SETTLEMENT_SETTLED') -lt 0 -or
+		$schema70TypedAdministrativeSettleBlock.IndexOf('HasReleasedAdministrativeRuntimeAuthority(state, order, operation)') -lt 0) {
+		throw "Full Campaign Debug typed administrative settlement is incomplete for $($schema70TypedAdministrativeSettleCheck[0])"
+	}
+	foreach ($schema70TypedAdministrativeRuntimeReleaseEntry in @(
+		$schema70TypedAdministrativeSettleCheck[2],
+		$schema70TypedAdministrativeSettleCheck[3],
+		'm_SpawnAdapter.CountHandlesForProjection(projectionId)',
+		'm_SpawnAdapter.CountHandlesForResultId(resultId)',
+		'm_PhysicalWar.GetForceSpawnGroupRoot(groupProbe)',
+		'm_PhysicalWar.CountForceSpawnRuntimeMembers(groupProbe)'
+	)) {
+		if ([string]::IsNullOrEmpty($schema70TypedAdministrativeRuntimeReleaseBlock) -or
+			$schema70TypedAdministrativeRuntimeReleaseBlock.IndexOf($schema70TypedAdministrativeRuntimeReleaseEntry) -lt 0) {
+			throw "Full Campaign Debug $($schema70TypedAdministrativeSettleCheck[0]) administrative stop can false-pass a runtime claimant: $schema70TypedAdministrativeRuntimeReleaseEntry"
+		}
+	}
+}
+$schema70QRFAdministrativeAuthorityBlock = Get-ScriptMethodBlock $schema67EnemyQRFText 'protected bool ValidateAppliedResourceSettlementAuthority('
+$schema70PatrolAdministrativeAuthorityBlock = Get-ScriptMethodBlock $schema67EnemyPatrolText 'protected bool ValidateAppliedResourceSettlementAuthority('
+foreach ($schema70AdministrativeAuthorityCheck in @(
+	@('defensive QRF', $schema70QRFAdministrativeAuthorityBlock),
+	@('patrol', $schema70PatrolAdministrativeAuthorityBlock)
+)) {
+	foreach ($schema70AdministrativeAuthorityEntry in @(
+		'ValidateAppliedResourceSettlement(',
+		'ValidateSettledResourceRefundAuthority(',
+		'state.m_aEnemyStrategicMutations'
+	)) {
+		if ([string]::IsNullOrEmpty($schema70AdministrativeAuthorityCheck[1]) -or
+			$schema70AdministrativeAuthorityCheck[1].IndexOf($schema70AdministrativeAuthorityEntry) -lt 0) {
+			throw "Full Campaign Debug $($schema70AdministrativeAuthorityCheck[0]) administrative settlement does not prove its applied refund mutation: $schema70AdministrativeAuthorityEntry"
+		}
+	}
+}
+$schema70LegacyAdministrativeSettleBlock = Get-ScriptMethodBlock $schema67EnemyCommanderText 'bool SettleTrackedLegacyOrderForAdministrativeStop('
+foreach ($schema70LegacyAdministrativeSettleEntry in @(
+	'ValidateOriginalResourceDebitAuthority(',
+	'RefundProactiveAttackResources(',
+	'RefundDefenseResources(',
+	'SettleCampaignDebugTrackedLegacyEnemyOrderRuntime(',
+	'IsTrackedLegacyAdministrativeRefundExact(state, order)',
+	'request.m_bPhysicalized = false;',
+	'order.m_bPhysicalized = false;'
+)) {
+	if ([string]::IsNullOrEmpty($schema70LegacyAdministrativeSettleBlock) -or
+		$schema70LegacyAdministrativeSettleBlock.IndexOf($schema70LegacyAdministrativeSettleEntry) -lt 0) {
+		throw "Full Campaign Debug legacy administrative settlement is incomplete: $schema70LegacyAdministrativeSettleEntry"
+	}
+}
+$schema70LegacyRefundProofBlock = Get-ScriptMethodBlock $schema67EnemyCommanderText 'protected bool IsTrackedLegacyAdministrativeRefundExact('
+$schema70LegacyRefundIdentityBlock = Get-ScriptMethodBlock $schema67EnemyCommanderText 'protected bool IsTrackedLegacyAdministrativeRefundIdentityExact('
+$schema70LegacyRefundAmountBlock = Get-ScriptMethodBlock $schema67EnemyCommanderText 'protected bool IsTrackedLegacyAdministrativeRefundAmountExact('
+$schema70LegacyRefundEvidenceBlock = Get-ScriptMethodBlock $schema67EnemyCommanderText 'protected bool IsTrackedLegacyAdministrativeRefundEvidenceExact('
+$schema70LegacyRefundProofCorpus = $schema70LegacyRefundProofBlock + "`n" + $schema70LegacyRefundIdentityBlock + "`n" + $schema70LegacyRefundAmountBlock + "`n" + $schema70LegacyRefundEvidenceBlock
+foreach ($schema70LegacyRefundProofEntry in @(
+	'ValidateOriginalResourceDebitAuthority(',
+	'CountResourceMutationClaimants(',
+	'ValidateMutationShape(',
+	'refundIdentityCount != 1',
+	'order.m_sResourceRefundMutationId != expectedRefundMutationId',
+	'refund.m_sKind != expectedKind',
+	'refund.m_iCreatedAtSecond < debit.m_iCreatedAtSecond'
+)) {
+	if ([string]::IsNullOrEmpty($schema70LegacyRefundProofCorpus) -or
+		$schema70LegacyRefundProofCorpus.IndexOf($schema70LegacyRefundProofEntry) -lt 0) {
+		throw "Full Campaign Debug legacy administrative refund proof is incomplete: $schema70LegacyRefundProofEntry"
+	}
+}
+$schema70LegacyRuntimeSettleBlock = Get-ScriptMethodBlock $schema70PhysicalText 'bool SettleCampaignDebugTrackedLegacyEnemyOrderRuntime('
+$schema70LegacyRuntimeVehicleStateBlock = Get-ScriptMethodBlock $schema70PhysicalText 'protected bool HasCampaignDebugTrackedLegacyRuntimeVehicleState('
+$schema70LegacyRuntimeSettleCorpus = $schema70LegacyRuntimeSettleBlock + "`n" + $schema70LegacyRuntimeVehicleStateBlock
+foreach ($schema70LegacyRuntimeSettleEntry in @(
+	'state.FindSupportRequest(order.m_sSupportRequestId)',
+	'groupId = request.m_sGroupId;',
+	'linkedLegacySupportOperation',
+	'CleanupTerminalActiveGroupRuntime(',
+	'!state.FindActiveGroup(groupId)',
+	'!HasRuntimeGroupEntity(groupId)',
+	'!HasRuntimeVehicleRegistration(groupId)',
+	'HasCampaignDebugTrackedLegacyRuntimeVehicleState(state, groupId)',
+	'vehicle.m_sVehicleRuntimeId == groupId'
+)) {
+	if ([string]::IsNullOrEmpty($schema70LegacyRuntimeSettleCorpus) -or
+		$schema70LegacyRuntimeSettleCorpus.IndexOf($schema70LegacyRuntimeSettleEntry) -lt 0) {
+		throw "Full Campaign Debug legacy runtime settlement is incomplete: $schema70LegacyRuntimeSettleEntry"
+	}
+}
+$schema70OrderPrefixBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string ApplyCampaignDebugEnemyOrderPrefix('
+$schema70OrderIdentityMutableBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugEnemyOrderIdentityMutable('
+$schema70OrderIdentitySafeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugEnemyOrderIdentitySafeForDebug('
+$schema70OrderDebitIdentityBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugEnemyOrderDebitIdentityExact('
+foreach ($schema70StableOrderIdentityEntry in @(
+	'TrackCampaignDebugEnemyOrder(order);',
+	'if (!IsCampaignDebugEnemyOrderIdentityMutable(order))',
+	'order.m_sResourceDebitMutationId.IsEmpty()',
+	'HST_OperationService.RequiresExactEnemyDefensiveQRF(order)',
+	'HST_OperationService.RequiresExactEnemyCounterattack(order)',
+	'HST_OperationService.RequiresExactEnemyPatrol(order)',
+	'HST_OperationService.RequiresExactEnemyGarrisonRebuild(order)',
+	'IsCampaignDebugEnemyOrderDebitIdentityExact(order)',
+	'openExecutionAuthority',
+	'openExecutionAuthority && (!batch || !group',
+	'operation.m_sEnemyOrderId != order.m_sOrderId',
+	'manifest.m_sOperationId != order.m_sOperationId',
+	'batch.m_sRequestId != order.m_sOrderId',
+	'group.m_sEnemyOrderId != order.m_sOrderId',
+	'ValidateOriginalResourceDebitAuthority(',
+	'm_State.m_aEnemyStrategicMutations'
+)) {
+	$schema70StableOrderIdentitySurface = $schema70OrderPrefixBlock + $schema70OrderIdentityMutableBlock + $schema70OrderIdentitySafeBlock + $schema70OrderDebitIdentityBlock
+	if ($schema70StableOrderIdentitySurface.IndexOf($schema70StableOrderIdentityEntry) -lt 0) {
+		throw "Full Campaign Debug stable enemy-order identity guard is incomplete: $schema70StableOrderIdentityEntry"
+	}
+}
+$schema70PhysicalGateBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected bool IsCampaignDebugExactEnemyProjectionPhysicallyGated('
+foreach ($schema70PhysicalGateEntry in @(
+	'batch.m_sNativeGroupId.IsEmpty()',
+	'm_ForceSpawnAdapter.CountHandlesForProjection(',
+	'!m_PhysicalWar.GetForceSpawnGroupRoot(group)',
+	'm_PhysicalWar.CountForceSpawnRuntimeMembers(group) == 0'
+)) {
+	if ([string]::IsNullOrEmpty($schema70PhysicalGateBlock) -or
+		$schema70PhysicalGateBlock.IndexOf($schema70PhysicalGateEntry) -lt 0) {
+		throw "Full Campaign Debug exact enemy physical-admission gate is incomplete: $schema70PhysicalGateEntry"
+	}
+}
+if ($schema69Phase17Block.IndexOf('IsCampaignDebugExactEnemyProjectionPhysicallyGated(') -lt 0 -or
+	$schema70Phase18RebuildAssertionBlock.IndexOf('IsCampaignDebugExactEnemyProjectionPhysicallyGated(') -lt 0) {
+	throw "Full Campaign Debug Phase 17 and Phase 18 must share the exact no-physical-authority admission gate"
+}
+foreach ($schema70CleanupMethodCheck in @(
+	@('counterattack', (Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CleanupCampaignDebugPhase17ExactCounterattackAggregate(')),
+	@('garrison rebuild', (Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CleanupCampaignDebugPhase18ExactGarrisonRebuildAggregate('))
+)) {
+	foreach ($schema70CleanupMethodEntry in @(
+		'HST_ForceSpawnResultState originalBatch',
+		'HST_ActiveGroupState originalGroup',
+		'm_ForceSpawnAdapter.CountHandlesForProjection(',
+		'!m_PhysicalWar.GetForceSpawnGroupRoot(originalGroup)',
+		'm_PhysicalWar.CountForceSpawnRuntimeMembers(originalGroup) == 0',
+		'if (!runtimeReleased)',
+		'return -1;',
+		'm_aCampaignDebugReleasedExactEnemyOrderIds.Insert(order.m_sOrderId);'
+	)) {
+		if ([string]::IsNullOrEmpty($schema70CleanupMethodCheck[1]) -or
+			$schema70CleanupMethodCheck[1].IndexOf($schema70CleanupMethodEntry) -lt 0) {
+			throw "Full Campaign Debug $($schema70CleanupMethodCheck[0]) cleanup can false-pass leaked physical authority: $schema70CleanupMethodEntry"
+		}
+	}
+}
+$schema70ExactRuntimeClaimantBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugExactRuntimeClaimants('
+$schema70ExactRuntimeClaimantRowsBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugExactRuntimeClaimantRows('
+$schema70TrackedExactRuntimeClaimantRowsBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected int CountCampaignDebugTrackedExactRuntimeClaimantRows('
+$schema70ExactRuntimeClaimantCorpus = $schema70ExactRuntimeClaimantBlock + "`n" + $schema70ExactRuntimeClaimantRowsBlock + "`n" + $schema70TrackedExactRuntimeClaimantRowsBlock
+foreach ($schema70ExactRuntimeClaimantEntry in @(
+	'm_PhysicalWar.GetForceSpawnGroupRoot(group)',
+	'm_PhysicalWar.CountForceSpawnRuntimeMembers(group)',
+	'm_ForceSpawnAdapter.CountHandlesForProjection(projectionId)',
+	'm_aCampaignDebugReleasedExactEnemyOrderIds.Contains(orderId)',
+	'foreach (string orderId : m_aCampaignDebugStableEnemyOrderIds)',
+	'CountCampaignDebugExactRuntimeClaimantRows(orderId)'
+)) {
+	if ([string]::IsNullOrEmpty($schema70ExactRuntimeClaimantCorpus) -or
+		$schema70ExactRuntimeClaimantCorpus.IndexOf($schema70ExactRuntimeClaimantEntry) -lt 0) {
+		throw "Full Campaign Debug exact-runtime release proof is incomplete: $schema70ExactRuntimeClaimantEntry"
+	}
+}
+foreach ($schema70RoundTripAntiCollapseEntry in @(
+	'restoredManifest.m_iAcceptedMemberCount',
+	'== manifest.m_iAcceptedMemberCount',
+	'restoredManifest.m_sManifestHash == manifest.m_sManifestHash'
+)) {
+	if ($schema70Phase18RebuildAssertionBlock.IndexOf($schema70RoundTripAntiCollapseEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 18 save roundtrip lacks anti-collapse evidence: $schema70RoundTripAntiCollapseEntry"
+	}
+}
+$schema70BackgroundWarOrderAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugBackgroundWarOrderAssertions('
+if ($schema70BackgroundWarOrderAssertionBlock.IndexOf('attackBefore - attackAfter == order.m_iAttackCost') -lt 0 -or
+	$schema70BackgroundWarOrderAssertionBlock.IndexOf('supportBefore - supportAfter == order.m_iSupportCost') -lt 0) {
+	throw "Full Campaign Debug background-war resource receipt must require one exact pool debit"
+}
+$schema70OwnershipMutationGuardBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected string PrepareCampaignDebugEnemyOrdersForOwnershipMutation('
+if ([string]::IsNullOrEmpty($schema70OwnershipMutationGuardBlock) -or
+	$schema70OwnershipMutationGuardBlock.IndexOf('ResolveCampaignDebugOpenEnemyOrdersForEscalation(reason, settlementFailures);') -lt 0 -or
+	$schema70OwnershipMutationGuardBlock.IndexOf('settlementFailures > 0') -lt 0 -or
+	$schema70OwnershipMutationGuardBlock.IndexOf('CountCampaignDebugTrackedOpenEnemyOrders();') -lt 0 -or
+	$schema70OwnershipMutationGuardBlock.IndexOf('CountCampaignDebugTrackedExactRuntimeClaimantRows();') -lt 0) {
+	throw "Full Campaign Debug Phase 24 ownership mutation guard must quiesce every tracked order first"
+}
+$schema70Phase18CommanderTickBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase18CommanderTickReport('
+$schema70Phase18IsolationIndex = $schema70Phase18CommanderTickBlock.IndexOf('PrepareCampaignDebugEnemyOrdersForOwnershipMutation(')
+$schema70Phase18ArrangeIndex = $schema70Phase18CommanderTickBlock.IndexOf('ArrangeCampaignDebugBackgroundWarState();')
+if ([string]::IsNullOrEmpty($schema70Phase18CommanderTickBlock) -or
+	$schema70Phase18IsolationIndex -lt 0 -or $schema70Phase18ArrangeIndex -lt 0 -or
+	$schema70Phase18IsolationIndex -ge $schema70Phase18ArrangeIndex -or
+	$schema70Phase18CommanderTickBlock.IndexOf('if (!orderIsolationFailure.IsEmpty())') -lt 0) {
+	throw "Full Campaign Debug Phase 18 background-war state must fail closed before ownership and pool mutation"
+}
+foreach ($schema70EscalationResultField in @(
+	'bool m_bOrderIsolationReady;',
+	'string m_sOrderIsolationFailure;'
+)) {
+	if ($schema70DebugResultText.IndexOf($schema70EscalationResultField) -lt 0) {
+		throw "Full Campaign Debug Phase 24 escalation result omits fail-closed isolation evidence: $schema70EscalationResultField"
+	}
+}
+$schema70Phase24ProfileBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugEscalationProfileResult RunCampaignDebugPhase24EscalationProfile('
+$schema70Phase24ProfileGuardIndex = $schema70Phase24ProfileBlock.IndexOf('PrepareCampaignDebugEnemyOrdersForOwnershipMutation(')
+$schema70Phase24ProfileMutationIndex = $schema70Phase24ProfileBlock.IndexOf('PrepareCampaignDebugPhase24EscalationProfile(')
+if ([string]::IsNullOrEmpty($schema70Phase24ProfileBlock) -or
+	$schema70Phase24ProfileGuardIndex -lt 0 -or $schema70Phase24ProfileMutationIndex -lt 0 -or
+	$schema70Phase24ProfileGuardIndex -ge $schema70Phase24ProfileMutationIndex -or
+	$schema70Phase24ProfileBlock.IndexOf('if (!profile.m_bOrderIsolationReady)') -lt 0) {
+	throw "Full Campaign Debug Phase 24 escalation profiles must fail closed before ownership or pool mutation"
+}
+$schema70Phase24MultiCycleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugEscalationProfileResult RunCampaignDebugPhase24MultiCycleBackgroundWarProfile('
+if ([string]::IsNullOrEmpty($schema70Phase24MultiCycleBlock) -or
+	([regex]::Matches($schema70Phase24MultiCycleBlock, 'PrepareCampaignDebugEnemyOrdersForOwnershipMutation\(').Count -lt 3) -or
+	$schema70Phase24MultiCycleBlock.IndexOf('profile.m_bOrderIsolationReady = false;') -lt 0 -or
+	$schema70Phase24MultiCycleBlock.IndexOf('CountCampaignDebugTrackedOpenEnemyOrders();') -lt 0 -or
+	$schema70Phase24MultiCycleBlock.IndexOf('ResolveCampaignDebugOpenEnemyOrdersForEscalation(') -ge 0) {
+	throw "Full Campaign Debug Phase 24 multi-cycle probe must fail closed at every tracked-order boundary"
+}
+$schema70Phase24MultiCycleAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugPhase24MultiCycleAssertions('
+if ([string]::IsNullOrEmpty($schema70Phase24MultiCycleAssertionBlock) -or
+	$schema70Phase24MultiCycleAssertionBlock.IndexOf('phase24.background_war.multi_cycle.order_isolation') -lt 0 -or
+	$schema70Phase24MultiCycleAssertionBlock.IndexOf('profile.m_bOrderIsolationReady && profile.m_iOpenOrdersAfterCycles == 0') -lt 0 -or
+	$schema70Phase24MultiCycleAssertionBlock.IndexOf('CampaignDebugStatus(profile.m_iOpenOrdersAfterCycles == 0, "WARN")') -ge 0) {
+	throw "Full Campaign Debug Phase 24 multi-cycle cleanup must be a hard fail with explicit order-isolation evidence"
+}
+$schema70Phase24ProbeBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugEscalationProbeContext RunCampaignDebugPhase24EscalationProbe()'
+$schema70Phase24ProbeIsolationIndex = $schema70Phase24ProbeBlock.IndexOf('PrepareCampaignDebugEnemyOrdersForOwnershipMutation(')
+$schema70Phase24ProbeArrangeIndex = $schema70Phase24ProbeBlock.IndexOf('ArrangeCampaignDebugBackgroundWarState();')
+$schema70Phase24ProbeDecayIndex = $schema70Phase24ProbeBlock.IndexOf('RunCampaignDebugPhase24AggressionDecayProbe(escalationContext);')
+$schema70Phase24ProbeMultiCycleGuardIndex = $schema70Phase24ProbeBlock.IndexOf('!escalationContext.m_MultiCycle.m_bOrderIsolationReady')
+if ([string]::IsNullOrEmpty($schema70Phase24ProbeBlock) -or
+	$schema70Phase24ProbeIsolationIndex -lt 0 -or $schema70Phase24ProbeArrangeIndex -lt 0 -or
+	$schema70Phase24ProbeIsolationIndex -ge $schema70Phase24ProbeArrangeIndex -or
+	$schema70Phase24ProbeMultiCycleGuardIndex -lt 0 -or $schema70Phase24ProbeDecayIndex -lt 0 -or
+	$schema70Phase24ProbeMultiCycleGuardIndex -ge $schema70Phase24ProbeDecayIndex) {
+	throw "Full Campaign Debug Phase 24 escalation must isolate before mutation and skip decay after any profile isolation failure"
+}
+$schema70Phase24EscalationRequestBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'string RequestAdminPhase24EscalationPressure('
+if ([string]::IsNullOrEmpty($schema70Phase24EscalationRequestBlock) -or
+	$schema70Phase24EscalationRequestBlock.IndexOf('RunCampaignDebugPhase24EscalationProbe();') -lt 0 -or
+	$schema70Phase24EscalationRequestBlock.IndexOf('m_State.m_ePhase =') -ge 0 -or
+	$schema70Phase24EscalationRequestBlock.IndexOf('ArrangePhase24NeutralPopulation(') -ge 0) {
+	throw "Full Campaign Debug Phase 24 escalation request must not mutate campaign state before the probe isolation gate"
+}
+$schema70PhaseSmokeRunnerBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RunCampaignDebugPhaseSmokeStep()'
+$schema70TerminalSnapshotIndex = $schema70PhaseSmokeRunnerBlock.IndexOf('CaptureCampaignDebugPhase24TerminalSnapshot(')
+$schema70TerminalExecuteIndex = $schema70PhaseSmokeRunnerBlock.IndexOf('ExecuteCampaignDebugPhaseSmokeStep(')
+foreach ($schema70TerminalSnapshotEntry in @(
+	'm_iCampaignDebugPhaseStepIndex == 59',
+	'm_iCampaignDebugPhaseStepIndex == 61',
+	'm_iCampaignDebugPhaseStepIndex - 1',
+	'm_iCampaignDebugWaitSeconds = 1;',
+	'return;'
+)) {
+	if ([string]::IsNullOrEmpty($schema70PhaseSmokeRunnerBlock) -or
+		$schema70PhaseSmokeRunnerBlock.IndexOf($schema70TerminalSnapshotEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 24 terminal inactivity snapshot is incomplete: $schema70TerminalSnapshotEntry"
+	}
+}
+if ($schema70TerminalSnapshotIndex -lt 0 -or $schema70TerminalExecuteIndex -lt 0 -or
+	$schema70TerminalSnapshotIndex -ge $schema70TerminalExecuteIndex) {
+	throw "Full Campaign Debug Phase 24 terminal inactivity must snapshot after maintenance and before the delayed report"
+}
+foreach ($schema70Phase24OwnershipMethodSignature in @(
+	'string RequestAdminPhase24SeedEarlyGame(',
+	'string RequestAdminPhase24SeedMidGame(',
+	'string RequestAdminPhase24SeedLateGame(',
+	'string RequestAdminPhase24ForceVictory(',
+	'string RequestAdminPhase24ForceLoss('
+)) {
+	$schema70Phase24OwnershipMethodBlock = Get-ScriptMethodBlock $schema70CoordinatorText $schema70Phase24OwnershipMethodSignature
+	if ([string]::IsNullOrEmpty($schema70Phase24OwnershipMethodBlock) -or
+		$schema70Phase24OwnershipMethodBlock.IndexOf('PrepareCampaignDebugEnemyOrdersForOwnershipMutation(') -lt 0 -or
+		$schema70Phase24OwnershipMethodBlock.IndexOf('orderIsolationFailure.IsEmpty()') -lt 0) {
+		throw "Full Campaign Debug Phase 24 ownership rewrite lacks tracked-order isolation: $schema70Phase24OwnershipMethodSignature"
+	}
+}
+
 foreach ($schema70ProofEntry in @(
 	'ProveAdmissionAndCapacity(report);',
 	'ProveDeliveryAndHeldAuthority(report);',

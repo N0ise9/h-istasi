@@ -275,6 +275,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase17CounterattackSupportBefore;
 	protected int m_iCampaignDebugPhase17CounterattackAttackAfter;
 	protected int m_iCampaignDebugPhase17CounterattackSupportAfter;
+	protected int m_iCampaignDebugPhase18RebuildOrderCountBefore;
+	protected int m_iCampaignDebugPhase18RebuildOrderCountAfter;
+	protected int m_iCampaignDebugPhase18RebuildAttackBefore;
+	protected int m_iCampaignDebugPhase18RebuildSupportBefore;
+	protected int m_iCampaignDebugPhase18RebuildAttackAfter;
+	protected int m_iCampaignDebugPhase18RebuildSupportAfter;
+	protected int m_iCampaignDebugPhase18CounterattackCleanupRows;
+	protected int m_iCampaignDebugPhase18RebuildCleanupRows;
 	protected bool m_bCampaignDebugPhase24TerminalSnapshotValid;
 	protected HST_ECampaignPhase m_eCampaignDebugPhase24TerminalPhase;
 	protected int m_iCampaignDebugPhase24TerminalStepIndex;
@@ -312,6 +320,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sCampaignDebugPhase17OwnerAfter;
 	protected string m_sCampaignDebugPhase17CounterattackOrderId;
 	protected string m_sCampaignDebugPhase17StrategicEventId;
+	protected string m_sCampaignDebugPhase18CounterattackOrderId;
+	protected string m_sCampaignDebugPhase18RebuildOrderId;
 	protected string m_sCampaignDebugBackgroundWarResistanceZoneId;
 	protected string m_sCampaignDebugBackgroundWarOccupierZoneId;
 	protected string m_sCampaignDebugBackgroundWarInvaderZoneId;
@@ -334,6 +344,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref array<string> m_aCampaignDebugRecentLog = {};
 	protected ref array<string> m_aCampaignDebugStartActiveMissionIds = {};
 	protected ref array<string> m_aCampaignDebugPrimitiveProofReleasedMissionIds = {};
+	protected ref array<string> m_aCampaignDebugStableEnemyOrderIds = {};
+	protected ref array<string> m_aCampaignDebugReleasedExactEnemyOrderIds = {};
 	protected ref array<IEntity> m_aCampaignDebugWorldCleanupEntities = {};
 	protected ref array<int> m_aTownContactPlayerIdScratch = {};
 	protected ref array<int> m_aAdminIdentityDiagnosticPlayerIds = {};
@@ -5906,6 +5918,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sCampaignDebugPreviousCommanderIdentityId = m_State.m_sCommanderIdentityId;
 		ResetCampaignDebugPhase16Observations();
 		ResetCampaignDebugPhase17Observations();
+		ResetCampaignDebugPhase18Observations();
+		m_aCampaignDebugStableEnemyOrderIds.Clear();
+		m_aCampaignDebugReleasedExactEnemyOrderIds.Clear();
 		ResetCampaignDebugPhase24TerminalSnapshot();
 		m_CampaignDebugPhase23FailedActionContext = null;
 		m_CampaignDebugPhase24EscalationContext = null;
@@ -14807,11 +14822,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			TeleportCampaignDebugPlayerToCivilianTown("phase21 undercover");
 		if (m_iCampaignDebugPhaseStepIndex >= 39 && m_iCampaignDebugPhaseStepIndex <= 45)
 			TeleportCampaignDebugPlayerToHQ("phase22 HQ threat");
+		// The report step runs on the first terminal frame, after the coordinator's
+		// typed settlement and runtime-cleanup maintenance. Snapshot that settled
+		// baseline, then prove later terminal frames remain inert.
+		if ((m_iCampaignDebugPhaseStepIndex == 59
+				|| m_iCampaignDebugPhaseStepIndex == 61)
+			&& (!m_bCampaignDebugPhase24TerminalSnapshotValid
+				|| m_iCampaignDebugPhase24TerminalStepIndex
+					!= m_iCampaignDebugPhaseStepIndex - 1))
+		{
+			CaptureCampaignDebugPhase24TerminalSnapshot(
+				m_iCampaignDebugPhaseStepIndex - 1);
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
 
 		string label = ResolveCampaignDebugPhaseSmokeLabel(m_iCampaignDebugPhaseStepIndex);
 		string result = ExecuteCampaignDebugPhaseSmokeStep(m_iCampaignDebugPhaseStepIndex);
-		if (m_iCampaignDebugPhaseStepIndex == 58 || m_iCampaignDebugPhaseStepIndex == 60)
-			CaptureCampaignDebugPhase24TerminalSnapshot(m_iCampaignDebugPhaseStepIndex);
 		bool reportStep = IsCampaignDebugPhaseSmokeReportStep(m_iCampaignDebugPhaseStepIndex);
 		bool success = IsCampaignDebugPhaseSmokeResultSuccessful(m_iCampaignDebugPhaseStepIndex, result, reportStep);
 		if (m_iCampaignDebugPhaseStepIndex == 50)
@@ -17190,12 +17217,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected string ApplyCampaignDebugEnemyOrderPrefix(HST_EnemyOrderState order, string label)
 	{
-		if (!m_bCampaignDebugRunning || !order || m_sCampaignDebugMarkerPrefix.IsEmpty())
+		if (!m_bCampaignDebugRunning || !order)
 			return "";
-		if (MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+		if (m_sCampaignDebugMarkerPrefix.IsEmpty())
+		{
+			TrackCampaignDebugEnemyOrder(order);
 			return order.m_sOrderId;
+		}
+		// Admitted orders are ledger roots even under the historical contract-zero
+		// path. Retagging one after debit would split the mutation, operation, and
+		// runtime backlinks from the order. Only identity-free synthetic rows may
+		// still receive a readable debug prefix.
+		if (!IsCampaignDebugEnemyOrderIdentityMutable(order))
+		{
+			TrackCampaignDebugEnemyOrder(order);
+			return order.m_sOrderId;
+		}
+		if (MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+		{
+			TrackCampaignDebugEnemyOrder(order);
+			return order.m_sOrderId;
+		}
 
 		string originalOrderId = order.m_sOrderId;
+		int originalTrackedIndex
+			= m_aCampaignDebugStableEnemyOrderIds.Find(originalOrderId);
+		if (originalTrackedIndex >= 0)
+			m_aCampaignDebugStableEnemyOrderIds.Remove(originalTrackedIndex);
 		if (!order.m_sSupportRequestId.IsEmpty() && m_State)
 		{
 			HST_SupportRequestState request = m_State.FindSupportRequest(order.m_sSupportRequestId);
@@ -17206,12 +17254,125 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		order.m_sOrderId = m_sCampaignDebugMarkerPrefix + "_order_" + SafeCampaignDebugToken(label) + "_" + SafeCampaignDebugToken(originalOrderId);
 		RetagCampaignDebugMarkers(originalOrderId, order.m_sOrderId);
+		TrackCampaignDebugEnemyOrder(order);
 		return order.m_sOrderId;
+	}
+
+	protected bool TrackCampaignDebugEnemyOrder(HST_EnemyOrderState order)
+	{
+		if (!m_bCampaignDebugRunning || !order || order.m_sOrderId.IsEmpty())
+			return false;
+		if (m_aCampaignDebugStableEnemyOrderIds.Contains(order.m_sOrderId))
+			return false;
+
+		m_aCampaignDebugStableEnemyOrderIds.Insert(order.m_sOrderId);
+		return true;
+	}
+
+	protected bool IsCampaignDebugTrackedEnemyOrder(HST_EnemyOrderState order)
+	{
+		return order && !order.m_sOrderId.IsEmpty()
+			&& m_aCampaignDebugStableEnemyOrderIds.Contains(order.m_sOrderId);
+	}
+
+	protected bool IsCampaignDebugEnemyOrderIdentityMutable(HST_EnemyOrderState order)
+	{
+		if (!order || order.m_iOperationContractVersion != 0)
+			return false;
+		return order.m_sOperationId.IsEmpty()
+			&& order.m_sManifestId.IsEmpty()
+			&& order.m_sSpawnResultId.IsEmpty()
+			&& order.m_sGroupId.IsEmpty()
+			&& order.m_sResourceDebitMutationId.IsEmpty()
+			&& order.m_sResourceRefundMutationId.IsEmpty()
+			&& order.m_sResourceSettlementId.IsEmpty();
+	}
+
+	protected bool IsCampaignDebugEnemyOrderIdentitySafeForDebug(HST_EnemyOrderState order)
+	{
+		if (!order || order.m_sOrderId.IsEmpty())
+			return false;
+		if (order.m_iOperationContractVersion == 0)
+		{
+			if (MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				return IsCampaignDebugEnemyOrderIdentityMutable(order);
+			return IsCampaignDebugTrackedEnemyOrder(order)
+				&& IsCampaignDebugEnemyOrderDebitIdentityExact(order);
+		}
+
+		bool supportedExact = HST_OperationService.RequiresExactEnemyDefensiveQRF(order)
+			|| HST_OperationService.RequiresExactEnemyCounterattack(order)
+			|| HST_OperationService.RequiresExactEnemyPatrol(order)
+			|| HST_OperationService.RequiresExactEnemyGarrisonRebuild(order);
+		if (!supportedExact || !m_State || !IsCampaignDebugTrackedEnemyOrder(order))
+			return false;
+
+		string operationId = HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId);
+		if (order.m_sOperationId != operationId
+			|| order.m_sManifestId != "manifest_" + operationId
+			|| !IsCampaignDebugEnemyOrderDebitIdentityExact(order))
+			return false;
+
+		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
+		if (!operation || !manifest
+			|| operation.m_iContractVersion != order.m_iOperationContractVersion
+			|| operation.m_sOperationId != order.m_sOperationId
+			|| operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != order.m_sManifestId
+			|| manifest.m_sOperationId != order.m_sOperationId
+			|| manifest.m_sManifestId != order.m_sManifestId
+			|| manifest.m_sManifestHash != order.m_sManifestHash
+			|| operation.m_sOwnerFactionKey != order.m_sFactionKey
+			|| manifest.m_sFactionKey != order.m_sFactionKey)
+			return false;
+
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(order.m_sGroupId);
+		bool openExecutionAuthority = operation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& (order.m_bStrategicServiceCommitted
+				|| !order.m_sSpawnResultId.IsEmpty()
+				|| !order.m_sGroupId.IsEmpty()
+				|| !operation.m_sSpawnResultId.IsEmpty()
+				|| !operation.m_sGroupId.IsEmpty());
+		if (openExecutionAuthority && (!batch || !group
+			|| order.m_sSpawnResultId.IsEmpty() || order.m_sGroupId.IsEmpty()))
+			return false;
+		if (batch && (batch.m_sRequestId != order.m_sOrderId
+			|| batch.m_sOperationId != order.m_sOperationId
+			|| batch.m_sManifestId != order.m_sManifestId
+			|| batch.m_sManifestHash != order.m_sManifestHash
+			|| batch.m_sResultId != order.m_sSpawnResultId
+			|| batch.m_sProjectionId != operation.m_sProjectionId))
+			return false;
+
+		if (group && (group.m_sEnemyOrderId != order.m_sOrderId
+			|| group.m_sOperationId != order.m_sOperationId
+			|| group.m_sManifestId != order.m_sManifestId
+			|| group.m_sSpawnResultId != order.m_sSpawnResultId
+			|| group.m_sProjectionId != operation.m_sProjectionId
+			|| group.m_sGroupId != order.m_sGroupId))
+			return false;
+		return true;
+	}
+
+	protected bool IsCampaignDebugEnemyOrderDebitIdentityExact(HST_EnemyOrderState order)
+	{
+		return m_State && order
+			&& HST_EnemyCounterattackSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					m_State.m_aEnemyStrategicMutations,
+					order).IsEmpty();
 	}
 
 	protected string ApplyCampaignDebugActiveGroupPrefix(HST_ActiveGroupState group, string label)
 	{
 		if (!m_bCampaignDebugRunning || !group || m_sCampaignDebugMarkerPrefix.IsEmpty())
+			return "";
+		// Operation-backed groups are stable projections. Renaming only the group
+		// would split it from its order, operation, manifest, batch, and adapter.
+		if (!IsCampaignDebugActiveGroupIdentityMutable(group))
 			return "";
 		if (MissionValueHasCampaignDebugPrefix(group.m_sGroupId, m_sCampaignDebugMarkerPrefix))
 			return group.m_sGroupId;
@@ -17235,6 +17396,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		RetagCampaignDebugMarkers(originalGroupId, group.m_sGroupId);
 		return group.m_sGroupId;
+	}
+
+	protected bool IsCampaignDebugActiveGroupIdentityMutable(HST_ActiveGroupState group)
+	{
+		if (!group)
+			return false;
+		if (!group.m_sOperationId.IsEmpty() || !group.m_sManifestId.IsEmpty()
+			|| !group.m_sProjectionId.IsEmpty() || !group.m_sForceId.IsEmpty()
+			|| !group.m_sSpawnResultId.IsEmpty())
+			return false;
+		if (!m_State)
+			return true;
+
+		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		{
+			if (!order || order.m_iOperationContractVersion == 0)
+				continue;
+			if (order.m_sGroupId == group.m_sGroupId
+				|| (!group.m_sEnemyOrderId.IsEmpty()
+					&& order.m_sOrderId == group.m_sEnemyOrderId))
+				return false;
+		}
+		return true;
 	}
 
 	protected HST_EnemyOrderState FindLatestCampaignDebugEnemyOrder(int countBefore)
@@ -18989,8 +19173,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		forceCase.m_aEvidence.Insert(proof.m_sOwnershipEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sAdmissionRollbackEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sPrearrivalRefundEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sSettlementCrashEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sHistoricalEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sQuarantineEvidence);
+		forceCase.m_aEvidence.Insert(proof.m_sOrphanRuntimeEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sRetentionEvidence);
 		forceCase.m_aEvidence.Insert(proof.m_sSelectedOwnershipABAEvidence);
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.admission_capacity", "one support-funded rebuild freezes one deterministic infantry roster within target capacity and creates one reciprocal aggregate", proof.m_sAdmissionEvidence, CampaignDebugStatus(proof.m_bAdmissionCapacityExact), "exact enemy garrison-rebuild admission or capacity authority drifted");
@@ -19000,8 +19186,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.ownership_terminal", "source or target ownership invalidation settles and unlinks the exact graph once without refunding delivered forces", proof.m_sOwnershipEvidence, CampaignDebugStatus(proof.m_bOwnershipTerminalExact), "exact enemy garrison-rebuild ownership settlement crossed authority");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.admission_rollback", "failed admission rolls back the full prepaid support debit and creates no partial aggregate", proof.m_sAdmissionRollbackEvidence, CampaignDebugStatus(proof.m_bAdmissionRollbackExact), "exact enemy garrison-rebuild admission rollback was not atomic");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.prearrival_refund", "prearrival invalidation refunds proportional surviving support cost exactly once", proof.m_sPrearrivalRefundEvidence, CampaignDebugStatus(proof.m_bPrearrivalRefundExact), "exact enemy garrison-rebuild prearrival survivor refund was not idempotent");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.settlement_crash_resume", "prepared settlement resumes exactly once after every persisted crash window without minting or deleting support authority", proof.m_sSettlementCrashEvidence, CampaignDebugStatus(proof.m_bSettlementCrashResumeExact), "exact enemy garrison-rebuild settlement crash recovery was not idempotent");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.historical_isolation", "historical rebuild rows remain untouched while only current exact contracts enter the Schema-70 authority path", proof.m_sHistoricalEvidence, CampaignDebugStatus(proof.m_bHistoricalIsolationExact), "Schema-70 enemy garrison-rebuild authority rewrote historical rows");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.schema70_quarantine", "invalid current exact graphs quarantine at -70 without fabricated settlement, refund, fallback, or deletion", proof.m_sQuarantineEvidence, CampaignDebugStatus(proof.m_bSchema70QuarantineExact), "Schema-70 enemy garrison-rebuild quarantine fabricated or deleted authority");
+		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.orphan_runtime_quarantine", "orphan runtime claimants quarantine without guessed ownership, settlement, refund, or deletion", proof.m_sOrphanRuntimeEvidence, CampaignDebugStatus(proof.m_bOrphanRuntimeQuarantineExact), "Schema-70 enemy garrison-rebuild orphan runtime authority was guessed or lost");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.quarantine_retention", "spawn evidence claimed through a quarantined reciprocal graph survives repeated compaction and current-schema restore", proof.m_sRetentionEvidence, CampaignDebugStatus(proof.m_bQuarantineRetentionExact), "Schema-70 enemy garrison-rebuild compaction removed retained diagnostic authority");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.selected_ownership_aba", "selected source and target ownership revisions are revalidated before pressure, debit, or admission mutation", proof.m_sSelectedOwnershipABAEvidence, CampaignDebugStatus(proof.m_bSelectedOwnershipABAExact), "exact enemy garrison-rebuild selection accepted stale ownership authority");
 		AddCampaignDebugAssertion(forceCase, "enemy_garrison_rebuild.aggregate", "every focused exact enemy garrison-rebuild proof is exact", proof.BuildReport(), CampaignDebugStatus(proof.AllExact()), "one or more exact enemy garrison-rebuild proofs failed");
@@ -26357,10 +26545,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& operation.m_vTacticalTargetPosition == counterattackOrder.m_vTargetPosition
 			&& operation.m_vRouteEndPosition == counterattackOrder.m_vTargetPosition;
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.lifecycle.on_station_contract", "virtual route carries the exact capture-zone assignment required for later on-station combat", operationActual, CampaignDebugStatus(onStationContract), "Phase 17 exact counterattack lacks its on-station assignment contract", groupId, "", targetZoneId, orderId);
-		bool physicalGate = batch && group && batch.m_bStrategicProjectionHeld
-			&& !counterattackOrder.m_bPhysicalized
-			&& !group.m_bSpawnedEntity
-			&& group.m_sRuntimeEntityId.IsEmpty()
+		bool physicalGate = IsCampaignDebugExactEnemyProjectionPhysicallyGated(
+			counterattackOrder,
+			manifest,
+			batch,
+			group)
 			&& operation
 			&& operation.m_eMaterializationState == HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.lifecycle.physical_gate", "physical projection remains gated until the exact virtual authority transfers through the render bubble", projectionActual, CampaignDebugStatus(physicalGate), "Phase 17 exact counterattack fabricated or leaked physical authority during admission", groupId, "", targetZoneId, orderId);
@@ -26749,91 +26938,245 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(captureCase, "phase17.report.counterattack_order", "exact counterattack aggregate remains inspectable through the report step", BuildCampaignDebugEnemyOrderActual(reportOrder), CampaignDebugStatus(exactReportOrder), "Phase 17 report did not find the exact counterattack order for the captured zone", "", "", reportZoneId);
 		int exactCleanupRows = CleanupCampaignDebugPhase17ExactCounterattackAggregate(reportOrder);
 		AddCampaignDebugMetric(captureCase, "phase17.report.exact_cleanup_rows", string.Format("%1", exactCleanupRows), "count");
-		AddCampaignDebugAssertion(captureCase, "phase17.report.exact_cleanup", "clone-local exact aggregate is removed by stable reciprocal identity without retagging", string.Format("rows %1 | stable order %2", exactCleanupRows, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId)), CampaignDebugStatus(exactCleanupRows >= 5), "Phase 17 exact aggregate could not be safely removed before later debug phases", "", "", reportZoneId);
+		HST_OperationRecordState settledOperation;
+		HST_ForceManifestState retainedManifest;
+		string settledReceiptFailure = "missing terminal order";
+		if (reportOrder)
+		{
+			settledOperation = m_State.FindOperation(reportOrder.m_sOperationId);
+			retainedManifest = m_State.FindForceManifest(reportOrder.m_sManifestId);
+			settledReceiptFailure = HST_EnemyCounterattackSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					m_State.m_aEnemyStrategicMutations,
+					reportOrder);
+		}
+		bool exactTerminalLedger = reportOrder && settledOperation && retainedManifest
+			&& settledOperation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& !m_State.FindForceSpawnResult(reportOrder.m_sSpawnResultId)
+			&& !m_State.FindActiveGroup(reportOrder.m_sGroupId)
+			&& settledReceiptFailure.IsEmpty();
+		AddCampaignDebugAssertion(captureCase, "phase17.report.exact_cleanup", "clone-local exact aggregate settles through typed authority, retains its terminal ledger, and releases only transient runtime rows", string.Format("runtime rows %1 | stable order %2 | receipt %3", exactCleanupRows, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId), EmptyCampaignDebugField(settledReceiptFailure)), CampaignDebugStatus(exactCleanupRows >= 2 && exactTerminalLedger), "Phase 17 exact aggregate did not settle into a valid retained terminal ledger", "", "", reportZoneId);
 	}
 
 	protected int CleanupCampaignDebugPhase17ExactCounterattackAggregate(HST_EnemyOrderState order)
 	{
-		if (!m_State || !order || !m_EnemyDirector || !m_ForceSpawnQueue)
+		if (!m_State || !order || !m_EnemyDirector || !m_EnemyCounterattackOperations)
 			return -1;
 		if (order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
 			|| order.m_iOperationContractVersion != HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION)
 			return -1;
 
+		HST_ForceSpawnResultState originalBatch
+			= m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState originalGroup = m_State.FindActiveGroup(order.m_sGroupId);
+		if (!originalBatch || !originalGroup || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return -1;
+		bool settled = m_EnemyCounterattackOperations
+			.SettleTrackedOpenOrderForAdministrativeStop(
+				m_State,
+				m_EnemyDirector,
+				order,
+				"campaign debug exact counterattack fixture completed");
+		if (!settled)
+			return -1;
+		bool runtimeReleased
+			= !m_State.FindForceSpawnResult(order.m_sSpawnResultId)
+			&& !m_State.FindActiveGroup(order.m_sGroupId)
+			&& m_ForceSpawnAdapter.CountHandlesForProjection(
+				originalBatch.m_sProjectionId) == 0
+			&& !m_PhysicalWar.GetForceSpawnGroupRoot(originalGroup)
+			&& m_PhysicalWar.CountForceSpawnRuntimeMembers(originalGroup) == 0;
+		if (!runtimeReleased)
+			return -1;
+		if (!m_aCampaignDebugReleasedExactEnemyOrderIds.Contains(order.m_sOrderId))
+			m_aCampaignDebugReleasedExactEnemyOrderIds.Insert(order.m_sOrderId);
+		RefreshCampaignMarkers();
+		MarkMajorCampaignChange(true);
+		return 2;
+	}
+
+	protected void CleanupCampaignDebugPhase18ExactAggregates()
+	{
+		if (m_iCampaignDebugPhase18CounterattackCleanupRows < 2)
+		{
+			HST_EnemyOrderState counterattack
+				= FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18CounterattackOrderId);
+			if (counterattack)
+				m_iCampaignDebugPhase18CounterattackCleanupRows
+					= CleanupCampaignDebugPhase17ExactCounterattackAggregate(counterattack);
+		}
+		if (m_iCampaignDebugPhase18RebuildCleanupRows < 2)
+		{
+			HST_EnemyOrderState rebuild
+				= FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18RebuildOrderId);
+			if (rebuild)
+				m_iCampaignDebugPhase18RebuildCleanupRows
+					= CleanupCampaignDebugPhase18ExactGarrisonRebuildAggregate(rebuild);
+		}
+	}
+
+	protected int CleanupCampaignDebugPhase18ExactGarrisonRebuildAggregate(
+		HST_EnemyOrderState order)
+	{
+		if (!m_State || !order || !m_EnemyDirector || !m_EnemyGarrisonRebuildOperations)
+			return -1;
+		if (order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			|| order.m_iOperationContractVersion
+				!= HST_EnemyGarrisonRebuildOperationService.EXACT_CONTRACT_VERSION)
+			return -1;
+
+		HST_ForceSpawnResultState originalBatch
+			= m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState originalGroup = m_State.FindActiveGroup(order.m_sGroupId);
+		if (!originalBatch || !originalGroup || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return -1;
+		bool settled = m_EnemyGarrisonRebuildOperations
+			.SettleTrackedOpenOrderForAdministrativeStop(
+				m_State,
+				m_EnemyDirector,
+				order,
+				"campaign debug exact garrison rebuild fixture completed");
+		if (!settled)
+			return -1;
+		bool runtimeReleased
+			= !m_State.FindForceSpawnResult(order.m_sSpawnResultId)
+			&& !m_State.FindActiveGroup(order.m_sGroupId)
+			&& m_ForceSpawnAdapter.CountHandlesForProjection(
+				originalBatch.m_sProjectionId) == 0
+			&& !m_PhysicalWar.GetForceSpawnGroupRoot(originalGroup)
+			&& m_PhysicalWar.CountForceSpawnRuntimeMembers(originalGroup) == 0;
+		if (!runtimeReleased)
+			return -1;
+		if (!m_aCampaignDebugReleasedExactEnemyOrderIds.Contains(order.m_sOrderId))
+			m_aCampaignDebugReleasedExactEnemyOrderIds.Insert(order.m_sOrderId);
+		RefreshCampaignMarkers();
+		MarkMajorCampaignChange(true);
+		return 2;
+	}
+
+	protected int CountCampaignDebugGarrisonManifestBacklinks(string manifestId)
+	{
+		if (!m_State || manifestId.IsEmpty())
+			return 0;
+		int count;
+		foreach (HST_GarrisonState garrison : m_State.m_aGarrisons)
+		{
+			if (!garrison)
+				continue;
+			foreach (string acceptedManifestId : garrison.m_aAcceptedManifestIds)
+			{
+				if (acceptedManifestId == manifestId)
+					count++;
+			}
+		}
+		return count;
+	}
+
+	protected bool IsCampaignDebugExactEnemyProjectionPhysicallyGated(
+		HST_EnemyOrderState order,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !manifest || !batch || !group
+			|| !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return false;
+		return batch.m_bStrategicProjectionHeld
+			&& batch.m_sNativeGroupId.IsEmpty()
+			&& !order.m_bPhysicalized
+			&& !group.m_bSpawnedEntity
+			&& group.m_sRuntimeEntityId.IsEmpty()
+			&& m_ForceSpawnAdapter.CountHandlesForProjection(
+				batch.m_sProjectionId) == 0
+			&& !m_PhysicalWar.GetForceSpawnGroupRoot(group)
+			&& m_PhysicalWar.CountForceSpawnRuntimeMembers(group) == 0;
+	}
+
+	protected int CountCampaignDebugExactRuntimeClaimants(string orderId)
+	{
+		int count = CountCampaignDebugExactRuntimeClaimantRows(orderId);
+		if (count == 0 && m_aCampaignDebugStableEnemyOrderIds.Contains(orderId)
+			&& !m_aCampaignDebugReleasedExactEnemyOrderIds.Contains(orderId))
+			return 1;
+		return count;
+	}
+
+	protected int CountCampaignDebugExactRuntimeClaimantRows(string orderId)
+	{
+		if (!m_State || orderId.IsEmpty())
+			return 0;
+		string operationId = HST_StableIdService.BuildOperationId("enemy_order", orderId);
+		string spawnResultId = "spawn_" + orderId;
+		string projectionId = "projection_" + operationId;
+		int count;
+		if (m_State.FindForceSpawnResult(spawnResultId))
+			count++;
+		HST_ActiveGroupState group = m_State.FindActiveGroup(projectionId);
+		if (group)
+		{
+			count++;
+			if (m_PhysicalWar && m_PhysicalWar.GetForceSpawnGroupRoot(group))
+				count++;
+			if (m_PhysicalWar)
+				count += m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+		}
+		if (m_ForceSpawnAdapter)
+			count += m_ForceSpawnAdapter.CountHandlesForProjection(projectionId);
+		return count;
+	}
+
+	protected int CountCampaignDebugTrackedExactRuntimeClaimantRows()
+	{
+		if (!m_State)
+			return 0;
+		int count;
+		foreach (string orderId : m_aCampaignDebugStableEnemyOrderIds)
+		{
+			HST_EnemyOrderState order = FindCampaignDebugEnemyOrderById(orderId);
+			if (!order || order.m_iOperationContractVersion == 0)
+				continue;
+			count += CountCampaignDebugExactRuntimeClaimantRows(orderId);
+		}
+		return count;
+	}
+
+	protected bool IsCampaignDebugPhase18CounterattackTerminalLedgerValid()
+	{
+		HST_EnemyOrderState order
+			= FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18CounterattackOrderId);
+		if (!order)
+			return false;
 		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
 		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
-		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(order.m_sSpawnResultId);
-		HST_ActiveGroupState group = m_State.FindActiveGroup(order.m_sGroupId);
-		if (!operation || !manifest || !batch || !group
-			|| operation.m_sEnemyOrderId != order.m_sOrderId
-			|| operation.m_sManifestId != manifest.m_sManifestId
-			|| operation.m_sSpawnResultId != batch.m_sResultId
-			|| operation.m_sGroupId != group.m_sGroupId
-			|| batch.m_sManifestId != manifest.m_sManifestId
-			|| group.m_sOperationId != operation.m_sOperationId
-			|| group.m_sManifestId != manifest.m_sManifestId
-			|| group.m_sSpawnResultId != batch.m_sResultId)
-			return -1;
-		if (operation.m_eSettlementState != HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
-			|| operation.m_eMaterializationState != HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
-			|| !batch.m_bStrategicProjectionHeld || group.m_bSpawnedEntity
-			|| !group.m_sRuntimeEntityId.IsEmpty() || order.m_bPhysicalized
-			|| CountCampaignDebugSupportRequestsForExactEnemyOrder(order) != 0)
-			return -1;
+		return operation && manifest
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+				|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
+			&& HST_EnemyCounterattackSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					m_State.m_aEnemyStrategicMutations,
+					order).IsEmpty();
+	}
 
-		string cleanupMutationId = "campaign_debug_counterattack_cleanup_" + order.m_sOrderId;
-		bool compensated = m_EnemyDirector.AddResources(
-			m_State,
-			order.m_sFactionKey,
-			Math.Max(0, order.m_iAttackCost),
-			Math.Max(0, order.m_iSupportCost),
-			cleanupMutationId,
-			"campaign_debug_compensation",
-			"phase17_exact_counterattack_cleanup",
-			order.m_sOrderId,
-			operation.m_sOperationId,
-			manifest.m_sManifestId,
-			order.m_sTargetZoneId);
-		if (!compensated)
-			return -1;
-
-		int removed;
-		int groupIndex = m_State.m_aActiveGroups.Find(group);
-		if (groupIndex >= 0)
-		{
-			m_State.m_aActiveGroups.Remove(groupIndex);
-			removed++;
-		}
-		int batchIndex = m_State.m_aForceSpawnResults.Find(batch);
-		if (batchIndex >= 0)
-		{
-			m_State.m_aForceSpawnResults.Remove(batchIndex);
-			removed++;
-		}
-		int operationIndex = m_State.m_aOperations.Find(operation);
-		if (operationIndex >= 0)
-		{
-			m_State.m_aOperations.Remove(operationIndex);
-			removed++;
-		}
-		int manifestIndex = m_State.m_aForceManifests.Find(manifest);
-		if (manifestIndex >= 0)
-		{
-			m_State.m_aForceManifests.Remove(manifestIndex);
-			removed++;
-		}
-		int orderIndex = m_State.m_aEnemyOrders.Find(order);
-		if (orderIndex >= 0)
-		{
-			m_State.m_aEnemyOrders.Remove(orderIndex);
-			removed++;
-		}
-		if (removed > 0)
-		{
-			RefreshCampaignMarkers();
-			MarkMajorCampaignChange(true);
-		}
-		return removed;
+	protected bool IsCampaignDebugPhase18RebuildTerminalLedgerValid()
+	{
+		HST_EnemyOrderState order
+			= FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18RebuildOrderId);
+		if (!order)
+			return false;
+		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
+		return operation && manifest
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+				|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED)
+			&& HST_EnemyGarrisonRebuildSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					m_State.m_aEnemyStrategicMutations,
+					order).IsEmpty();
 	}
 
 	protected string BuildCampaignDebugPhase17ZoneActual(HST_ZoneState phase17Zone)
@@ -26873,6 +27216,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_iCampaignDebugPhase17CounterattackSupportAfter = 0;
 	}
 
+	protected void ResetCampaignDebugPhase18Observations()
+	{
+		m_sCampaignDebugPhase18CounterattackOrderId = "";
+		m_sCampaignDebugPhase18RebuildOrderId = "";
+		m_iCampaignDebugPhase18RebuildOrderCountBefore = 0;
+		m_iCampaignDebugPhase18RebuildOrderCountAfter = 0;
+		m_iCampaignDebugPhase18RebuildAttackBefore = 0;
+		m_iCampaignDebugPhase18RebuildSupportBefore = 0;
+		m_iCampaignDebugPhase18RebuildAttackAfter = 0;
+		m_iCampaignDebugPhase18RebuildSupportAfter = 0;
+		m_iCampaignDebugPhase18CounterattackCleanupRows = 0;
+		m_iCampaignDebugPhase18RebuildCleanupRows = 0;
+	}
+
 	protected HST_CampaignDebugCaseResult BuildCampaignDebugPhase18EnemyOrderCase(int index, string label, string result)
 	{
 		HST_CampaignDebugCaseResult orderCase = CreateCampaignDebugCase("phase18." + SafeCampaignDebugToken(label), "phase_smoke", "enemy_commander", "phase18");
@@ -26893,26 +27250,44 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			else if (index == 19)
 				expectedType = HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK;
 
-			HST_EnemyOrderState order = FindLatestCampaignDebugPrefixedEnemyOrder(expectedType);
-			AddCampaignDebugAssertion(orderCase, "phase18.order.created", "debug-prefixed enemy order exists for this seed", BuildCampaignDebugEnemyOrderActual(order), CampaignDebugStatus(order != null), "phase 18 did not create a debug-prefixed enemy order");
+			HST_EnemyOrderState order;
+			if (index == 17)
+				order = FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18CounterattackOrderId);
+			else if (index == 18)
+				order = FindCampaignDebugEnemyOrderById(m_sCampaignDebugPhase18RebuildOrderId);
+			else
+				order = FindLatestCampaignDebugTrackedEnemyOrder(expectedType);
+			AddCampaignDebugAssertion(orderCase, "phase18.order.created", "tracked enemy order exists for this seed", BuildCampaignDebugEnemyOrderActual(order), CampaignDebugStatus(order != null), "phase 18 did not create or retain the seeded enemy order");
 			if (order)
 			{
 				HST_ZoneState targetZone = m_State.FindZone(order.m_sTargetZoneId);
 				AddCampaignDebugMetric(orderCase, "phase18.order.attack_cost", string.Format("%1", order.m_iAttackCost), "attack");
 				AddCampaignDebugMetric(orderCase, "phase18.order.support_cost", string.Format("%1", order.m_iSupportCost), "support");
-				AddCampaignDebugAssertion(orderCase, "phase18.order.prefix", "order id carries current debug prefix", order.m_sOrderId, CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix)), "enemy order was not retagged with the run prefix", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				AddCampaignDebugAssertion(orderCase, "phase18.order.identity", "order retains its stable debit and exact-operation identity", order.m_sOrderId, CampaignDebugStatus(IsCampaignDebugEnemyOrderIdentitySafeForDebug(order)), "enemy order identity or authority backlinks are unsafe", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 				AddCampaignDebugAssertion(orderCase, "phase18.order.type", "order type matches seed", string.Format("%1", order.m_eType), CampaignDebugStatus(order.m_eType == expectedType), "enemy order type does not match phase 18 seed", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 				AddCampaignDebugAssertion(orderCase, "phase18.order.status", "order is queued, active, resolved, or aborted", string.Format("%1 | runtime %2", order.m_eStatus, EmptyCampaignDebugField(order.m_sRuntimeStatus)), CampaignDebugStatus(order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_QUEUED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED), "enemy order entered an unexpected status", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 				AddCampaignDebugAssertion(orderCase, "phase18.order.faction", "order faction non-empty", EmptyCampaignDebugField(order.m_sFactionKey), CampaignDebugStatus(!order.m_sFactionKey.IsEmpty()), "enemy order faction missing", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 				AddCampaignDebugAssertion(orderCase, "phase18.order.target", "order target zone exists and has a valid position", string.Format("zone %1 | target %2 | order %3", targetZone != null, order.m_vTargetPosition, order.m_sTargetZoneId), CampaignDebugStatus(targetZone != null && !IsZeroVector(order.m_vTargetPosition)), "enemy order target zone or position invalid", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 				AddCampaignDebugAssertion(orderCase, "phase18.order.cost", "order attack/support cost recorded", string.Format("%1/%2", order.m_iAttackCost, order.m_iSupportCost), CampaignDebugStatus(order.m_iAttackCost > 0 || order.m_iSupportCost > 0), "enemy order did not record resource costs", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+				if (index == 18)
+					AddCampaignDebugPhase18GarrisonRebuildAssertions(orderCase, order);
 			}
 		}
 		else if (index == 20)
 		{
-			int openPrefixedOrders = CountCampaignDebugPrefixedOpenEnemyOrders();
-			AddCampaignDebugMetric(orderCase, "phase18.prefixed_open_orders", string.Format("%1", openPrefixedOrders), "count");
-			AddCampaignDebugAssertion(orderCase, "phase18.resolve.open_prefixed_orders", "no debug-prefixed enemy orders remain open after resolve/report", string.Format("%1", openPrefixedOrders), CampaignDebugStatus(openPrefixedOrders == 0, "WARN"), "phase 18 left debug-prefixed enemy orders open");
+			int openTrackedOrders = CountCampaignDebugTrackedOpenEnemyOrders();
+			int exactRuntimeClaimants = CountCampaignDebugExactRuntimeClaimants(m_sCampaignDebugPhase18CounterattackOrderId)
+				+ CountCampaignDebugExactRuntimeClaimants(m_sCampaignDebugPhase18RebuildOrderId);
+			bool counterattackTerminalLedger
+				= IsCampaignDebugPhase18CounterattackTerminalLedgerValid();
+			bool rebuildTerminalLedger = IsCampaignDebugPhase18RebuildTerminalLedgerValid();
+			AddCampaignDebugMetric(orderCase, "phase18.prefixed_open_orders", string.Format("%1", openTrackedOrders), "count");
+			AddCampaignDebugMetric(orderCase, "phase18.exact_counterattack_cleanup_rows", string.Format("%1", m_iCampaignDebugPhase18CounterattackCleanupRows), "count");
+			AddCampaignDebugMetric(orderCase, "phase18.exact_garrison_rebuild_cleanup_rows", string.Format("%1", m_iCampaignDebugPhase18RebuildCleanupRows), "count");
+			AddCampaignDebugAssertion(orderCase, "phase18.resolve.open_prefixed_orders", "no debug-owned enemy orders remain open after typed resolve/report", string.Format("%1", openTrackedOrders), CampaignDebugStatus(openTrackedOrders == 0, "WARN"), "phase 18 left tracked debug enemy orders open");
+			AddCampaignDebugAssertion(orderCase, "phase18.resolve.exact_counterattack_cleanup", "tracked exact counterattack settles through typed authority, retains its terminal ledger, and releases batch/group runtime", string.Format("runtime rows %1 | terminal ledger %2 | order %3", m_iCampaignDebugPhase18CounterattackCleanupRows, counterattackTerminalLedger, EmptyCampaignDebugField(m_sCampaignDebugPhase18CounterattackOrderId)), CampaignDebugStatus(m_iCampaignDebugPhase18CounterattackCleanupRows >= 2 && counterattackTerminalLedger), "phase 18 exact counterattack did not settle into a valid retained terminal ledger");
+			AddCampaignDebugAssertion(orderCase, "phase18.resolve.exact_garrison_rebuild_cleanup", "tracked exact rebuild settles through typed authority, retains its terminal ledger, and releases batch/group runtime", string.Format("runtime rows %1 | terminal ledger %2 | order %3", m_iCampaignDebugPhase18RebuildCleanupRows, rebuildTerminalLedger, EmptyCampaignDebugField(m_sCampaignDebugPhase18RebuildOrderId)), CampaignDebugStatus(m_iCampaignDebugPhase18RebuildCleanupRows >= 2 && rebuildTerminalLedger), "phase 18 exact rebuild did not settle into a valid retained terminal ledger");
+			AddCampaignDebugAssertion(orderCase, "phase18.resolve.no_exact_runtime_claimants", "tracked exact orders retain terminal ledgers but leave no batch, group, or adapter runtime claimant", string.Format("transient claimants %1", exactRuntimeClaimants), CampaignDebugStatus(exactRuntimeClaimants == 0), "phase 18 cleanup left transient exact runtime authority behind");
 		}
 		else if (index == 21)
 		{
@@ -26945,6 +27320,346 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return orderCase;
 	}
 
+	protected bool IsCampaignDebugPhase18GarrisonRebuildManifestExact(
+		HST_ForceManifestState manifest,
+		HST_EnemyOrderState order,
+		string targetZoneId)
+	{
+		if (!manifest || !order)
+			return false;
+
+		if (!manifest.m_bFrozen
+			|| manifest.m_sManifestId != order.m_sManifestId
+			|| manifest.m_sOperationId != order.m_sOperationId
+			|| manifest.m_sManifestHash != order.m_sManifestHash)
+			return false;
+
+		HST_ForcePlanningIntegrityService integrity = new HST_ForcePlanningIntegrityService();
+		if (manifest.m_sManifestHash.IsEmpty()
+			|| integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
+			return false;
+
+		if (manifest.m_sForceKind
+				!= HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_FORCE_KIND
+			|| manifest.m_sPolicyId
+				!= HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_POLICY_ID
+			|| manifest.m_sIntentId
+				!= HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_MANIFEST_INTENT)
+			return false;
+
+		if (manifest.m_sFactionKey != order.m_sFactionKey
+			|| manifest.m_sSourceZoneId != order.m_sSourceZoneId
+			|| manifest.m_sTargetZoneId != targetZoneId)
+			return false;
+
+		if (manifest.m_iRequestedMemberCount != manifest.m_iAcceptedMemberCount
+			|| manifest.m_iAcceptedMemberCount <= 0
+			|| manifest.m_aGroups.Count() != 1)
+			return false;
+
+		if (manifest.m_aMembers.Count() != manifest.m_iAcceptedMemberCount
+			|| manifest.m_aVehicles.Count() != 0
+			|| manifest.m_aAssets.Count() != 0)
+			return false;
+
+		if (manifest.m_iAttackResourceCost != 0
+			|| manifest.m_iSupportResourceCost != order.m_iSupportCost)
+			return false;
+
+		HST_StrategicMovementService strategicMovement = new HST_StrategicMovementService();
+		return strategicMovement.IsSupportedExactInfantryManifest(manifest);
+	}
+
+	protected bool IsCampaignDebugPhase18GarrisonRebuildProjectionExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !manifest || !batch || !group)
+			return false;
+
+		if (order.m_sSpawnResultId != batch.m_sResultId
+			|| order.m_sGroupId != group.m_sGroupId)
+			return false;
+
+		if (operation.m_sSpawnResultId != batch.m_sResultId
+			|| operation.m_sForceId != batch.m_sForceId
+			|| operation.m_sProjectionId != batch.m_sProjectionId
+			|| operation.m_sGroupId != group.m_sGroupId)
+			return false;
+
+		if (batch.m_sOperationId != operation.m_sOperationId
+			|| batch.m_sRequestId != order.m_sOrderId
+			|| batch.m_sManifestId != manifest.m_sManifestId
+			|| batch.m_sManifestHash != manifest.m_sManifestHash)
+			return false;
+
+		if (batch.m_sResultId != "spawn_" + order.m_sOrderId
+			|| batch.m_sForceId != "force_" + operation.m_sOperationId
+			|| batch.m_sProjectionId != "projection_" + operation.m_sOperationId)
+			return false;
+
+		if (group.m_sGroupId != batch.m_sProjectionId
+			|| group.m_sProjectionId != batch.m_sProjectionId
+			|| group.m_sForceId != batch.m_sForceId
+			|| group.m_sSpawnResultId != batch.m_sResultId)
+			return false;
+
+		if (group.m_sOperationId != operation.m_sOperationId
+			|| group.m_sEnemyOrderId != order.m_sOrderId
+			|| group.m_sManifestId != manifest.m_sManifestId
+			|| group.m_sFactionKey != order.m_sFactionKey)
+			return false;
+
+		return group.m_iOriginalInfantryCount == manifest.m_iAcceptedMemberCount
+			&& group.m_iOriginalVehicleCount == 0
+			&& group.m_iVehicleCount == 0;
+	}
+
+	protected void AddCampaignDebugPhase18GarrisonRebuildAssertions(
+		HST_CampaignDebugCaseResult orderCase,
+		HST_EnemyOrderState order)
+	{
+		if (!orderCase || !m_State || !order)
+			return;
+
+		string orderId = order.m_sOrderId;
+		string targetZoneId = order.m_sTargetZoneId;
+		HST_ZoneState sourceZone = m_State.FindZone(order.m_sSourceZoneId);
+		HST_ZoneState targetZone = m_State.FindZone(targetZoneId);
+		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(order.m_sGroupId);
+		int strategicLiving;
+		if (batch && m_ForceSpawnQueue)
+			strategicLiving = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		string groupId;
+		if (group)
+			groupId = group.m_sGroupId;
+
+		bool exactContract = order.m_eType
+			== HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			&& order.m_iOperationContractVersion
+				== HST_EnemyGarrisonRebuildOperationService.EXACT_CONTRACT_VERSION;
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.contract", "rebuild order uses exact Schema-70 contract 1 and active committed authority", string.Format("type/contract %1/%2 | status %3 | committed %4", order.m_eType, order.m_iOperationContractVersion, order.m_eStatus, order.m_bStrategicServiceCommitted), CampaignDebugStatus(exactContract
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& order.m_bStrategicServiceCommitted), "Phase 18 rebuild did not enter the exact active contract", "", "", targetZoneId, orderId);
+
+		bool stableIdentity = orderId == m_sCampaignDebugPhase18RebuildOrderId
+			&& order.m_sOperationId == HST_StableIdService.BuildOperationId("enemy_order", orderId)
+			&& order.m_sManifestId == "manifest_" + order.m_sOperationId
+			&& !MissionValueHasCampaignDebugPrefix(orderId, m_sCampaignDebugMarkerPrefix);
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.stable_identity", "versioned rebuild keeps its admitted order, operation, and manifest identities unchanged", string.Format("order %1 | operation %2 | manifest %3", orderId, EmptyCampaignDebugField(order.m_sOperationId), EmptyCampaignDebugField(order.m_sManifestId)), CampaignDebugStatus(stableIdentity), "Phase 18 exact rebuild identity was retagged or replaced after admission", "", "", targetZoneId, orderId);
+
+		int orderDelta = m_iCampaignDebugPhase18RebuildOrderCountAfter
+			- m_iCampaignDebugPhase18RebuildOrderCountBefore;
+		int attackDelta = m_iCampaignDebugPhase18RebuildAttackAfter
+			- m_iCampaignDebugPhase18RebuildAttackBefore;
+		int supportDelta = m_iCampaignDebugPhase18RebuildSupportAfter
+			- m_iCampaignDebugPhase18RebuildSupportBefore;
+		bool resourcePoolExact = orderDelta == 1
+			&& order.m_iAttackCost == 0
+			&& order.m_iSupportCost
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_SUPPORT_COST
+			&& attackDelta == 0
+			&& supportDelta == -order.m_iSupportCost;
+		AddCampaignDebugMetric(orderCase, "phase18.rebuild.order_delta", string.Format("%1", orderDelta), "count");
+		AddCampaignDebugMetric(orderCase, "phase18.rebuild.attack_delta", string.Format("%1", attackDelta), "attack");
+		AddCampaignDebugMetric(orderCase, "phase18.rebuild.support_delta", string.Format("%1", supportDelta), "support");
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.resource_pool", "one rebuild order charges exactly ten support and zero attack resources", string.Format("orders %1 -> %2 | attack %3 -> %4 | support %5 -> %6 | cost %7/%8", m_iCampaignDebugPhase18RebuildOrderCountBefore, m_iCampaignDebugPhase18RebuildOrderCountAfter, m_iCampaignDebugPhase18RebuildAttackBefore, m_iCampaignDebugPhase18RebuildAttackAfter, m_iCampaignDebugPhase18RebuildSupportBefore, m_iCampaignDebugPhase18RebuildSupportAfter, order.m_iAttackCost, order.m_iSupportCost), CampaignDebugStatus(resourcePoolExact), "Phase 18 exact rebuild did not charge its frozen support-only cost", "", "", targetZoneId, orderId);
+
+		string debitFailure = HST_EnemyGarrisonRebuildSaveValidationService
+			.ValidateOriginalResourceDebitAuthority(m_State.m_aEnemyStrategicMutations, order);
+		HST_EnemyStrategicMutationState debit
+			= m_State.FindEnemyStrategicMutation(order.m_sResourceDebitMutationId);
+		string debitKind;
+		string debitFaction;
+		int debitAttackDelta;
+		int debitSupportDelta;
+		if (debit)
+		{
+			debitKind = debit.m_sKind;
+			debitFaction = debit.m_sFactionKey;
+			debitAttackDelta = debit.m_iAttackDelta;
+			debitSupportDelta = debit.m_iSupportDelta;
+		}
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.resource_debit_receipt", "one applied debit receipt matches the stable order, operation, manifest, target, faction, and support-only cost", string.Format("mutation %1 | kind %2 | faction %3 | attack/support %4/%5 | failure %6", EmptyCampaignDebugField(order.m_sResourceDebitMutationId), EmptyCampaignDebugField(debitKind), EmptyCampaignDebugField(debitFaction), debitAttackDelta, debitSupportDelta, EmptyCampaignDebugField(debitFailure)), CampaignDebugStatus(debitFailure.IsEmpty()), "Phase 18 exact rebuild debit receipt is missing, ambiguous, or mismatched", "", "", targetZoneId, orderId);
+
+		bool ownershipExact = sourceZone && targetZone
+			&& sourceZone.m_sOwnerFactionKey == order.m_sFactionKey
+			&& targetZone.m_sOwnerFactionKey == order.m_sFactionKey
+			&& order.m_sSourceZoneId != targetZoneId
+			&& order.m_iTargetOwnershipRevision > 0
+			&& targetZone.m_iOwnershipRevision == order.m_iTargetOwnershipRevision;
+		int targetOwnershipRevision = -1;
+		int targetGarrisonSlots = -1;
+		if (targetZone)
+		{
+			targetOwnershipRevision = targetZone.m_iOwnershipRevision;
+			targetGarrisonSlots = targetZone.m_iGarrisonSlots;
+		}
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.target_ownership_revision", "source and target remain distinct same-faction zones at the selected target ownership revision", string.Format("source %1/%2 | target %3/%4 | revision %5/%6", EmptyCampaignDebugField(order.m_sSourceZoneId), sourceZone != null, EmptyCampaignDebugField(targetZoneId), targetZone != null, order.m_iTargetOwnershipRevision, targetOwnershipRevision), CampaignDebugStatus(ownershipExact), "Phase 18 rebuild source, target, faction, or ownership revision drifted", "", "", targetZoneId, orderId);
+
+		int authoritativeInfantry = -1;
+		if (targetZone && m_EnemyGarrisonRebuildOperations)
+			authoritativeInfantry = m_EnemyGarrisonRebuildOperations
+				.ResolveAuthoritativeGarrisonInfantry(m_State, order.m_sFactionKey, targetZoneId);
+		bool capacityExact = targetZone && manifest && authoritativeInfantry >= manifest.m_iAcceptedMemberCount
+			&& (targetZone.m_iGarrisonSlots <= 0
+				|| authoritativeInfantry <= targetZone.m_iGarrisonSlots);
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.capacity_bound", "authoritative aggregate plus reserved rebuild roster does not exceed target garrison capacity", string.Format("authoritative %1 | slots %2", authoritativeInfantry, targetGarrisonSlots), CampaignDebugStatus(capacityExact), "Phase 18 rebuild exceeded or could not resolve target capacity authority", "", "", targetZoneId, orderId);
+
+		string operationActual = BuildCampaignDebugExactEnemyCounterattackOperationActual(operation);
+		bool operationExact = operation
+			&& operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+			&& operation.m_iContractVersion
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION
+			&& operation.m_sOperationId == order.m_sOperationId
+			&& operation.m_sEnemyOrderId == orderId
+			&& operation.m_sManifestId == order.m_sManifestId
+			&& operation.m_sOwnerFactionKey == order.m_sFactionKey
+			&& operation.m_sAssignmentKind
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_ASSIGNMENT_KIND
+			&& operation.m_sRecallPolicyId
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_RECALL_POLICY
+			&& operation.m_sSettlementPolicyId
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_SETTLEMENT_POLICY
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.operation_authority", "one exact ENEMY_GARRISON_REBUILD operation reciprocally owns the order and frozen policies", operationActual, CampaignDebugStatus(operationExact), "Phase 18 rebuild operation authority or policy links conflict", "", "", targetZoneId, orderId);
+
+		string manifestActual = BuildCampaignDebugExactEnemyCounterattackManifestActual(manifest);
+		bool manifestExact = IsCampaignDebugPhase18GarrisonRebuildManifestExact(
+			manifest,
+			order,
+			targetZoneId);
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.frozen_manifest", "frozen infantry-only manifest hash, roster, endpoints, policy, and support cost match the stable order", manifestActual, CampaignDebugStatus(manifestExact), "Phase 18 exact rebuild manifest is missing or conflicts with its order", "", "", targetZoneId, orderId);
+
+		string projectionActual = BuildCampaignDebugExactEnemyCounterattackProjectionActual(batch, group, strategicLiving);
+		bool projectionExact = IsCampaignDebugPhase18GarrisonRebuildProjectionExact(
+			order,
+			operation,
+			manifest,
+			batch,
+			group);
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.reciprocal_projection", "operation, manifest, held batch, and active group have reciprocal stable IDs and hashes", projectionActual, CampaignDebugStatus(projectionExact), "Phase 18 rebuild projection graph is incomplete or non-reciprocal", groupId, "", targetZoneId, orderId);
+
+		bool strategicHoldExact = batch && manifest && group
+			&& batch.m_bStrategicProjectionHeld
+			&& !batch.m_bCancelRequested
+			&& strategicLiving == manifest.m_iAcceptedMemberCount
+			&& group.m_iOriginalInfantryCount == manifest.m_iAcceptedMemberCount
+			&& group.m_iInfantryCount == strategicLiving
+			&& group.m_iDurableLivingInfantryCount == strategicLiving;
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.strategic_hold", "outbound batch remains strategically held with every frozen infantry slot living", projectionActual, CampaignDebugStatus(strategicHoldExact), "Phase 18 rebuild did not retain its authoritative virtual roster", groupId, "", targetZoneId, orderId);
+
+		bool virtualOutbound = operation && group
+			&& operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_OUTBOUND
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& operation.m_sCurrentRouteId == group.m_sRouteId
+			&& operation.m_vRouteStartPosition == order.m_vSourcePosition
+			&& operation.m_vRouteEndPosition == order.m_vTargetPosition
+			&& order.m_sRuntimeStatus == "exact_rebuild_virtual_outbound"
+			&& group.m_sRuntimeStatus == "enemy_garrison_rebuild_virtual";
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.lifecycle.virtual_outbound", "admission starts as exact virtual outbound authority on the direct strategic route", operationActual + " | " + projectionActual, CampaignDebugStatus(virtualOutbound), "Phase 18 rebuild did not enter its virtual outbound lifecycle", groupId, "", targetZoneId, orderId);
+
+		bool onStationContract = operation
+			&& operation.m_sAssignmentKind
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_ASSIGNMENT_KIND
+			&& operation.m_sAssignmentZoneId == targetZoneId
+			&& operation.m_vAssignmentPosition == order.m_vTargetPosition
+			&& operation.m_sTacticalTargetZoneId == targetZoneId
+			&& operation.m_vTacticalTargetPosition == order.m_vTargetPosition
+			&& operation.m_vRouteEndPosition == order.m_vTargetPosition;
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.lifecycle.on_station_contract", "virtual route carries the exact target-garrison assignment required for later delivery", operationActual, CampaignDebugStatus(onStationContract), "Phase 18 rebuild lacks its on-station delivery contract", groupId, "", targetZoneId, orderId);
+
+		bool physicalGateExact = operation
+			&& IsCampaignDebugExactEnemyProjectionPhysicallyGated(
+				order,
+				manifest,
+				batch,
+				group)
+			&& CountCampaignDebugGarrisonManifestBacklinks(manifest.m_sManifestId) == 0
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL;
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.lifecycle.physical_gate", "physical projection remains gated until virtual authority transfers through the render bubble", projectionActual, CampaignDebugStatus(physicalGateExact), "Phase 18 rebuild fabricated or leaked physical authority during admission", groupId, "", targetZoneId, orderId);
+
+		int linkedSupportCount = CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.no_support_request", "exact rebuild owns zero legacy support-request rows", string.Format("order support %1 | linked rows %2", EmptyCampaignDebugField(order.m_sSupportRequestId), linkedSupportCount), CampaignDebugStatus(order.m_sSupportRequestId.IsEmpty() && linkedSupportCount == 0), "Phase 18 rebuild leaked into the legacy support-request path", "", "", targetZoneId, orderId);
+
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(m_State);
+		HST_CampaignState restored = new HST_CampaignState();
+		saveData.ApplyTo(restored);
+		HST_EnemyOrderState restoredOrder = restored.FindEnemyOrder(orderId);
+		HST_OperationRecordState restoredOperation;
+		HST_ForceManifestState restoredManifest;
+		HST_ForceSpawnResultState restoredBatch;
+		HST_ActiveGroupState restoredGroup;
+		string restoredDebitFailure = "missing restored order";
+		int restoredLiving;
+		if (restoredOrder)
+		{
+			restoredOperation = restored.FindOperation(restoredOrder.m_sOperationId);
+			restoredManifest = restored.FindForceManifest(restoredOrder.m_sManifestId);
+			restoredBatch = restored.FindForceSpawnResult(restoredOrder.m_sSpawnResultId);
+			restoredGroup = restored.FindActiveGroup(restoredOrder.m_sGroupId);
+			restoredDebitFailure = HST_EnemyGarrisonRebuildSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					restored.m_aEnemyStrategicMutations,
+					restoredOrder);
+			if (restoredBatch && m_ForceSpawnQueue)
+				restoredLiving = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(restoredBatch);
+		}
+		bool restoredRootsExact = restoredOrder && restoredOperation
+			&& restoredManifest && restoredBatch && restoredGroup;
+		bool restoredOrderExact = restoredOrder
+			&& restoredOrder.m_sOrderId == orderId
+			&& restoredOrder.m_iOperationContractVersion
+				== HST_EnemyGarrisonRebuildOperationService.EXACT_CONTRACT_VERSION
+			&& restoredOrder.m_sOperationId
+				== HST_StableIdService.BuildOperationId("enemy_order", orderId)
+			&& restoredOrder.m_sManifestId == "manifest_" + restoredOrder.m_sOperationId;
+		bool restoredOperationExact = restoredOrder && restoredOperation
+			&& restoredManifest
+			&& restoredOperation.m_sEnemyOrderId == orderId
+			&& restoredOperation.m_iContractVersion
+				== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION
+			&& restoredOperation.m_sManifestId == restoredManifest.m_sManifestId;
+		bool restoredProjectionExact
+			= IsCampaignDebugPhase18GarrisonRebuildManifestExact(
+				restoredManifest,
+				restoredOrder,
+				targetZoneId)
+			&& IsCampaignDebugPhase18GarrisonRebuildProjectionExact(
+				restoredOrder,
+				restoredOperation,
+				restoredManifest,
+				restoredBatch,
+				restoredGroup);
+		bool restoredRosterExact = restoredManifest && restoredBatch
+			&& restoredBatch.m_bStrategicProjectionHeld
+			&& restoredLiving == restoredManifest.m_iAcceptedMemberCount
+			&& restoredManifest.m_iAcceptedMemberCount
+				== manifest.m_iAcceptedMemberCount
+			&& restoredManifest.m_sManifestHash == manifest.m_sManifestHash;
+		bool restoredAuthorityExact = restoredOperation && restoredDebitFailure.IsEmpty()
+			&& restoredOperation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+		bool restoredIdentityExact = restoredOrderExact && restoredOperationExact
+			&& restoredProjectionExact;
+		bool roundTripExact = restoredRootsExact && restoredIdentityExact
+			&& restoredRosterExact && restoredAuthorityExact;
+		AddCampaignDebugAssertion(orderCase, "phase18.rebuild.save_roundtrip", "in-process save roundtrip preserves contract 1, stable reciprocal identity, debit authority, and the held living roster", string.Format("order %1 | operation %2 | manifest %3 | batch %4 | group %5 | living %6 | debit %7", restoredOrder != null, restoredOperation != null, restoredManifest != null, restoredBatch != null, restoredGroup != null, restoredLiving, EmptyCampaignDebugField(restoredDebitFailure)), CampaignDebugStatus(roundTripExact), "Phase 18 rebuild aggregate was quarantined, lost, or changed authority during in-process save roundtrip", groupId, "", targetZoneId, orderId);
+	}
+
 	protected void AddCampaignDebugBackgroundWarOrderAssertions(HST_CampaignDebugCaseResult orderCase, string label, HST_EnemyOrderState order, string expectedFactionKey, int attackBefore, int attackAfter, int supportBefore, int supportAfter)
 	{
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".order_created", label + " commander tick order exists", BuildCampaignDebugEnemyOrderActual(order), CampaignDebugStatus(order != null), label + " commander tick did not create a new order");
@@ -26962,7 +27677,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			targetOwner = EmptyCampaignDebugField(targetZone.m_sOwnerFactionKey);
 			targetCaptureProgress = targetZone.m_iResistanceCaptureProgress;
 		}
-		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".prefix", "order id carries current debug prefix", EmptyCampaignDebugField(order.m_sOrderId), CampaignDebugStatus(MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix)), label + " background-war order was not retagged with the run prefix", "", "", order.m_sTargetZoneId, order.m_sOrderId);
+		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".identity", "contract-zero order is debug-tagged or versioned order retains stable derived identity", EmptyCampaignDebugField(order.m_sOrderId), CampaignDebugStatus(IsCampaignDebugEnemyOrderIdentitySafeForDebug(order)), label + " background-war order identity is neither safely tagged nor stable", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".faction", "order faction matches expected enemy faction", EmptyCampaignDebugField(order.m_sFactionKey), CampaignDebugStatus(order.m_sFactionKey == expectedFactionKey), label + " background-war order faction mismatch", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".status", "order is active after commander tick", string.Format("%1 | runtime %2", order.m_eStatus, EmptyCampaignDebugField(order.m_sRuntimeStatus)), CampaignDebugStatus(order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE), label + " background-war order is not active after commander tick", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".target_poi", "target is a valid POI zone", string.Format("zone %1 | type %2 | owner %3", targetZone != null, targetType, targetOwner), CampaignDebugStatus(targetZone && IsCampaignDebugBackgroundWarPOI(targetZone)), label + " background-war target is not a valid POI", "", "", order.m_sTargetZoneId, order.m_sOrderId);
@@ -26970,8 +27685,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".target_hq_safe_area", "target outside HQ safe area unless Petros attack", string.Format("type %1 | target %2", order.m_eType, order.m_sTargetZoneId), CampaignDebugStatus(IsCampaignDebugOrderOutsideHQSafeAreaUnlessPetros(order, targetZone)), label + " background-war target is inside HQ safe area without a Petros attack", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".type_context", "order type matches target context", string.Format("type %1 | target owner %2 | progress %3", order.m_eType, targetOwner, targetCaptureProgress), CampaignDebugStatus(IsCampaignDebugExpectedBackgroundWarOrderType(order, targetZone)), label + " background-war order type does not match target context", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".duplicate_guard", "only one open order for faction/target", string.Format("%1", duplicateOpen), CampaignDebugStatus(duplicateOpen == 1), label + " background-war commander tick created duplicate open orders for one faction/target", "", "", order.m_sTargetZoneId, order.m_sOrderId);
-		bool proactiveSpend = order.m_iAttackCost > 0 && order.m_iSupportCost == 0 && attackBefore - attackAfter >= order.m_iAttackCost && supportAfter == supportBefore;
-		bool reactiveSpend = order.m_iAttackCost == 0 && order.m_iSupportCost > 0 && supportBefore - supportAfter >= order.m_iSupportCost && attackAfter == attackBefore;
+		bool proactiveSpend = order.m_iAttackCost > 0 && order.m_iSupportCost == 0 && attackBefore - attackAfter == order.m_iAttackCost && supportAfter == supportBefore;
+		bool reactiveSpend = order.m_iAttackCost == 0 && order.m_iSupportCost > 0 && supportBefore - supportAfter == order.m_iSupportCost && attackAfter == attackBefore;
 		AddCampaignDebugAssertion(orderCase, "background_war." + label + ".resource_spend", "commander orders spend exactly one pool by mode", string.Format("attack %1 -> %2 cost %3 | support %4 -> %5 cost %6 | proactive %7 | reactive %8", attackBefore, attackAfter, order.m_iAttackCost, supportBefore, supportAfter, order.m_iSupportCost, proactiveSpend, reactiveSpend), CampaignDebugStatus(proactiveSpend || reactiveSpend), label + " background-war order did not follow split attack/support spend policy", "", "", order.m_sTargetZoneId, order.m_sOrderId);
 	}
 
@@ -27030,9 +27745,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return supportCase;
 	}
 
-	protected HST_EnemyOrderState FindLatestCampaignDebugPrefixedEnemyOrder(HST_EEnemyOrderType orderType)
+	protected HST_EnemyOrderState FindLatestCampaignDebugTrackedEnemyOrder(HST_EEnemyOrderType orderType)
 	{
-		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+		if (!m_State)
 			return null;
 
 		for (int i = m_State.m_aEnemyOrders.Count() - 1; i >= 0; i--)
@@ -27040,22 +27755,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
 			if (!order || order.m_eType != orderType)
 				continue;
-			if (MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+			if (IsCampaignDebugTrackedEnemyOrder(order))
 				return order;
 		}
 
 		return null;
 	}
 
-	protected int CountCampaignDebugPrefixedOpenEnemyOrders()
+	protected int CountCampaignDebugTrackedOpenEnemyOrders()
 	{
-		if (!m_State || m_sCampaignDebugMarkerPrefix.IsEmpty())
+		if (!m_State)
 			return 0;
 
 		int count;
 		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
 		{
-			if (!order || !MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+			if (!IsCampaignDebugTrackedEnemyOrder(order))
 				continue;
 			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
 				continue;
@@ -28359,7 +29074,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (linkedOrder && linkedOrder.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 			return linkedOrder;
 
-		HST_EnemyOrderState prefixedOrder = FindLatestCampaignDebugPrefixedEnemyOrder(HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK);
+		HST_EnemyOrderState prefixedOrder = FindLatestCampaignDebugTrackedEnemyOrder(HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK);
 		if (prefixedOrder)
 			return prefixedOrder;
 
@@ -29411,6 +30126,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			AddCampaignDebugAssertion(pacingCase, "phase24.escalation.context", "escalation probe context captured", "missing", "BLOCKED", "Phase 24 escalation pressure probe did not run");
 			return;
 		}
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.context", "escalation probe context captured", "present", "PASS", "");
+		AddCampaignDebugAssertion(
+			pacingCase,
+			"phase24.escalation.order_isolation",
+			"tracked enemy orders and exact runtime claimants settle before escalation mutates ownership or strategic pools",
+			EmptyCampaignDebugField(escalationContext.m_sOrderIsolationFailure),
+			CampaignDebugStatus(escalationContext.m_bOrderIsolationReady),
+			"Phase 24 escalation isolation failed before controlled state mutation");
+		if (!escalationContext.m_bOrderIsolationReady)
+			return;
 
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "low", escalationContext.m_Low);
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "mid", escalationContext.m_Mid);
@@ -29420,7 +30145,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_after", string.Format("%1", escalationContext.m_iDecayAfter), "aggression");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.decay_expected_total", string.Format("%1", escalationContext.m_iExpectedDecayTotal), "aggression");
 
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.context", "escalation probe context captured", "present", "PASS", "");
 		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "low", escalationContext.m_Low, 1);
 		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "mid", escalationContext.m_Mid, 3);
 		AddCampaignDebugPhase24EscalationProfileAssertions(pacingCase, "high", escalationContext.m_High, 6);
@@ -29449,10 +30173,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		string prefix = "phase24.escalation." + label;
+		AddCampaignDebugMetric(pacingCase, prefix + ".order_isolation_ready", string.Format("%1", profile.m_bOrderIsolationReady), "bool");
 		AddCampaignDebugMetric(pacingCase, prefix + ".war_level", string.Format("%1", profile.m_iWarLevel), "level");
 		AddCampaignDebugMetric(pacingCase, prefix + ".attack_income_delta", string.Format("%1", profile.m_iAttackIncomeDelta), "attack");
 		AddCampaignDebugMetric(pacingCase, prefix + ".support_income_delta", string.Format("%1", profile.m_iSupportIncomeDelta), "support");
 		AddCampaignDebugMetric(pacingCase, prefix + ".orders_created", string.Format("%1", profile.m_iOrdersCreated), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".ledger_stable_orders", string.Format("%1", profile.m_iLedgerStableOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".versioned_stable_orders", string.Format("%1", profile.m_iVersionedStableOrders), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".support_requests_created", string.Format("%1", profile.m_iSupportRequestsCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".active_groups_created", string.Format("%1", profile.m_iActiveGroupsCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".physicalization_target_zones_activated", string.Format("%1", profile.m_iPhysicalizationTargetZonesActivated), "count");
@@ -29476,10 +30203,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		string profileActual = BuildCampaignDebugPhase24EscalationProfileActual(profile);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".order_isolation", "all previously tracked debug enemy orders settle before profile ownership and pool mutation", profileActual, CampaignDebugStatus(profile.m_bOrderIsolationReady), label + " escalation profile could not isolate prior enemy-order authority: " + EmptyCampaignDebugField(profile.m_sOrderIsolationFailure));
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".war_level", "profile war level matches seed", string.Format("%1", profile.m_iWarLevel), CampaignDebugStatus(profile.m_iWarLevel == expectedWarLevel), label + " escalation profile war level mismatch");
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".resource_tick", "enemy resource tick ran and produced income", profileActual, CampaignDebugStatus(profile.m_bResourceTickChanged && profile.m_iAttackIncomeDelta > 0 && profile.m_iSupportIncomeDelta > 0), label + " escalation profile did not produce enemy resource income");
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".commander_tick", "enemy commander tick created at least one real order", profileActual, CampaignDebugStatus(profile.m_bCommanderTickChanged && profile.m_iOrdersCreated > 0), label + " escalation profile did not create enemy commander orders");
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".order_prefix", "created order ids carry current debug prefix", EmptyCampaignDebugField(profile.m_sOrderIds), CampaignDebugStatus(profile.m_iOrdersCreated <= 0 || profile.m_sOrderIds.Contains(m_sCampaignDebugMarkerPrefix)), label + " escalation orders were not retagged for cleanup");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation." + label + ".order_identity", "created orders retain their admitted debit and exact-operation identities", EmptyCampaignDebugField(profile.m_sOrderIds), CampaignDebugStatus(profile.m_iOrdersCreated <= 0 || profile.m_bOrderIdentitiesSafe), label + " escalation orders include an unsafe or broken authority identity");
 	}
 
 	protected void AddCampaignDebugPhase24MultiCycleAssertions(HST_CampaignDebugCaseResult pacingCase, HST_CampaignDebugEscalationProfileResult profile)
@@ -29498,11 +30226,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool repeatedResourceTicks = profile.m_iCycleCount >= 3 && profile.m_iResourceTicksChanged >= 2;
 		bool repeatedCommanderTicks = profile.m_iCycleCount >= 3 && profile.m_iCommanderTicksChanged >= 2;
 		bool repeatedOrders = profile.m_iOrdersCreated >= 2;
-		bool prefixOk = profile.m_iOrdersCreated <= 0 || profile.m_sOrderIds.Contains(m_sCampaignDebugMarkerPrefix);
+		bool identitiesSafe = profile.m_iOrdersCreated <= 0 || profile.m_bOrderIdentitiesSafe;
 		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.resource_ticks", "multi-cycle window runs repeated normal enemy resource ticks", actual, CampaignDebugStatus(repeatedResourceTicks), "multi-cycle background-war probe did not observe repeated resource ticks");
 		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.commander_ticks", "multi-cycle window runs repeated normal commander ticks", actual, CampaignDebugStatus(repeatedCommanderTicks), "multi-cycle background-war probe did not observe repeated commander ticks");
-		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.orders", "multi-cycle window creates retagged enemy orders across repeated cycles", actual, CampaignDebugStatus(repeatedOrders && prefixOk), "multi-cycle background-war probe did not create repeated debug-prefixed enemy orders");
-		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.cleanup_ready", "multi-cycle probe leaves no debug-prefixed enemy order open after controlled cycle resolution", actual, CampaignDebugStatus(profile.m_iOpenOrdersAfterCycles == 0, "WARN"), "multi-cycle background-war probe left debug-prefixed enemy orders open");
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.orders", "multi-cycle window creates repeated enemy orders with safe contract-aware identities", actual, CampaignDebugStatus(repeatedOrders && identitiesSafe), "multi-cycle background-war probe did not create repeated identity-safe enemy orders");
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.order_isolation", "every cycle boundary settles tracked debug enemy-order authority before the next resource or commander tick", actual, CampaignDebugStatus(profile.m_bOrderIsolationReady), "multi-cycle background-war order isolation failed: " + EmptyCampaignDebugField(profile.m_sOrderIsolationFailure));
+		AddCampaignDebugAssertion(pacingCase, "phase24.background_war.multi_cycle.cleanup_ready", "multi-cycle probe leaves no debug-owned enemy order open after controlled cycle resolution", actual, CampaignDebugStatus(profile.m_bOrderIsolationReady && profile.m_iOpenOrdersAfterCycles == 0), "multi-cycle background-war probe left debug-owned enemy orders open");
 	}
 
 	protected string BuildCampaignDebugPhase24EscalationProfileActual(HST_CampaignDebugEscalationProfileResult profile)
@@ -29511,8 +30240,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "missing";
 
 		string actual = string.Format("war %1 | attack %2 -> %3 -> %4", profile.m_iWarLevel, profile.m_iAttackBefore, profile.m_iAttackAfterResourceTick, profile.m_iAttackAfterCommanderTick);
+		actual = actual + string.Format(" | isolation %1 (%2)", profile.m_bOrderIsolationReady, EmptyCampaignDebugField(profile.m_sOrderIsolationFailure));
 		actual = actual + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
 		actual = actual + string.Format(" | aggression %1 -> %2 | orders +%3", profile.m_iAggressionBefore, profile.m_iAggressionAfter, profile.m_iOrdersCreated);
+		actual = actual + string.Format(" | stable ledger/exact %1/%2", profile.m_iLedgerStableOrders, profile.m_iVersionedStableOrders);
 		actual = actual + string.Format(" | support +%1 | groups +%2 | active targets +%3 | order types %4", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, profile.m_iPhysicalizationTargetZonesActivated, EmptyCampaignDebugField(profile.m_sOrderTypes));
 		return actual;
 	}
@@ -29589,15 +30320,57 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignDebugEscalationProbeContext escalationContext = new HST_CampaignDebugEscalationProbeContext();
 		if (!m_State || !m_Preset || !m_Balance || !m_Economy || !m_EnemyDirector || !m_EnemyCommander || !m_SupportRequests)
 		{
+			escalationContext.m_sOrderIsolationFailure = "services not ready";
 			escalationContext.m_sReport = "Partisan phase 24 escalation pressure | failed: services not ready";
 			return escalationContext;
 		}
 
+		escalationContext.m_sOrderIsolationFailure
+			= PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+				"phase24 escalation preflight");
+		escalationContext.m_bOrderIsolationReady
+			= escalationContext.m_sOrderIsolationFailure.IsEmpty();
+		if (!escalationContext.m_bOrderIsolationReady)
+		{
+			escalationContext.m_sReport
+				= BuildCampaignDebugPhase24EscalationReport(escalationContext);
+			return escalationContext;
+		}
+
+		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
+		ResetCampaignEndState();
+		ResetCampaignDebugPhase24HQPressure("escalation pressure");
+		ArrangePhase24NeutralPopulation(30);
 		escalationContext.m_bArranged = ArrangeCampaignDebugBackgroundWarState();
 		escalationContext.m_Low = RunCampaignDebugPhase24EscalationProfile("low", 1, 50, 50, 10);
+		if (!escalationContext.m_Low || !escalationContext.m_Low.m_bOrderIsolationReady)
+		{
+			escalationContext.m_sReport
+				= BuildCampaignDebugPhase24EscalationReport(escalationContext);
+			return escalationContext;
+		}
 		escalationContext.m_Mid = RunCampaignDebugPhase24EscalationProfile("mid", 3, 50, 50, 35);
+		if (!escalationContext.m_Mid || !escalationContext.m_Mid.m_bOrderIsolationReady)
+		{
+			escalationContext.m_sReport
+				= BuildCampaignDebugPhase24EscalationReport(escalationContext);
+			return escalationContext;
+		}
 		escalationContext.m_High = RunCampaignDebugPhase24EscalationProfile("high", 6, 50, 50, 70);
+		if (!escalationContext.m_High || !escalationContext.m_High.m_bOrderIsolationReady)
+		{
+			escalationContext.m_sReport
+				= BuildCampaignDebugPhase24EscalationReport(escalationContext);
+			return escalationContext;
+		}
 		escalationContext.m_MultiCycle = RunCampaignDebugPhase24MultiCycleBackgroundWarProfile();
+		if (!escalationContext.m_MultiCycle
+			|| !escalationContext.m_MultiCycle.m_bOrderIsolationReady)
+		{
+			escalationContext.m_sReport
+				= BuildCampaignDebugPhase24EscalationReport(escalationContext);
+			return escalationContext;
+		}
 		RunCampaignDebugPhase24AggressionDecayProbe(escalationContext);
 		escalationContext.m_sReport = BuildCampaignDebugPhase24EscalationReport(escalationContext);
 		return escalationContext;
@@ -29612,7 +30385,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_Balance || !m_EnemyDirector || !m_EnemyCommander)
 			return profile;
 
-		ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_escalation_" + label);
+		profile.m_sOrderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation("phase24_escalation_" + label);
+		profile.m_bOrderIsolationReady = profile.m_sOrderIsolationFailure.IsEmpty();
+		if (!profile.m_bOrderIsolationReady)
+		{
+			profile.m_iOpenOrdersAfterCycles = CountCampaignDebugTrackedOpenEnemyOrders();
+			return profile;
+		}
 		PrepareCampaignDebugPhase24EscalationProfile(warLevel, baseAttack, baseSupport, aggression);
 		int attackBefore;
 		int supportBefore;
@@ -29721,7 +30500,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_Balance || !m_EnemyDirector || !m_EnemyCommander)
 			return profile;
 
-		profile.m_iOpenOrdersResolvedBetweenCycles = ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_multi_cycle_start");
+		int openOrdersBeforeIsolation = CountCampaignDebugTrackedOpenEnemyOrders();
+		profile.m_sOrderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation("phase24_multi_cycle_start");
+		profile.m_iOpenOrdersAfterCycles = CountCampaignDebugTrackedOpenEnemyOrders();
+		profile.m_iOpenOrdersResolvedBetweenCycles = Math.Max(0, openOrdersBeforeIsolation - profile.m_iOpenOrdersAfterCycles);
+		profile.m_bOrderIsolationReady = profile.m_sOrderIsolationFailure.IsEmpty() && profile.m_iOpenOrdersAfterCycles == 0;
+		if (!profile.m_bOrderIsolationReady)
+			return profile;
 		PrepareCampaignDebugPhase24EscalationProfile(profile.m_iWarLevel, 220, 220, profile.m_iAggressionSeed);
 		int attackBefore;
 		int supportBefore;
@@ -29737,7 +30522,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		for (int cycleIndex = 0; cycleIndex < profile.m_iCycleCount; cycleIndex++)
 		{
 			if (cycleIndex > 0)
-				profile.m_iOpenOrdersResolvedBetweenCycles += ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_multi_cycle_between");
+			{
+				openOrdersBeforeIsolation = CountCampaignDebugTrackedOpenEnemyOrders();
+				profile.m_sOrderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation("phase24_multi_cycle_between");
+				profile.m_iOpenOrdersAfterCycles = CountCampaignDebugTrackedOpenEnemyOrders();
+				profile.m_iOpenOrdersResolvedBetweenCycles += Math.Max(0, openOrdersBeforeIsolation - profile.m_iOpenOrdersAfterCycles);
+				if (!profile.m_sOrderIsolationFailure.IsEmpty() || profile.m_iOpenOrdersAfterCycles != 0)
+				{
+					profile.m_bOrderIsolationReady = false;
+					break;
+				}
+			}
 
 			int attackBeforeResource;
 			int supportBeforeResource;
@@ -29776,9 +30571,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, "multi_cycle");
 			m_State.m_iElapsedSeconds = m_State.m_iElapsedSeconds + HST_EnemyCommanderService.ORDER_TICK_SECONDS;
 		}
+		if (!profile.m_bOrderIsolationReady)
+		{
+			profile.m_iOrdersAfter = m_State.m_aEnemyOrders.Count();
+			profile.m_iOrdersCreated = Math.Max(0, profile.m_iOrdersAfter - profile.m_iOrdersBefore);
+			profile.m_iSupportRequestsAfter = m_State.m_aSupportRequests.Count();
+			profile.m_iSupportRequestsCreated = Math.Max(0, profile.m_iSupportRequestsAfter - profile.m_iSupportRequestsBefore);
+			profile.m_iActiveGroupsAfter = m_State.m_aActiveGroups.Count();
+			profile.m_iActiveGroupsCreated = Math.Max(0, profile.m_iActiveGroupsAfter - profile.m_iActiveGroupsBefore);
+			return profile;
+		}
 
-		profile.m_iOpenOrdersResolvedBetweenCycles += ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase24_multi_cycle_after");
 		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, "multi_cycle");
+		openOrdersBeforeIsolation = CountCampaignDebugTrackedOpenEnemyOrders();
+		profile.m_sOrderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation("phase24_multi_cycle_after");
+		profile.m_iOpenOrdersAfterCycles = CountCampaignDebugTrackedOpenEnemyOrders();
+		profile.m_iOpenOrdersResolvedBetweenCycles += Math.Max(0, openOrdersBeforeIsolation - profile.m_iOpenOrdersAfterCycles);
+		if (!profile.m_sOrderIsolationFailure.IsEmpty() || profile.m_iOpenOrdersAfterCycles != 0)
+			profile.m_bOrderIsolationReady = false;
 		int attackAfterCommander;
 		int supportAfterCommander;
 		int aggressionAfterCommander;
@@ -29792,7 +30602,6 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iSupportRequestsCreated = Math.Max(0, profile.m_iSupportRequestsAfter - profile.m_iSupportRequestsBefore);
 		profile.m_iActiveGroupsAfter = m_State.m_aActiveGroups.Count();
 		profile.m_iActiveGroupsCreated = Math.Max(0, profile.m_iActiveGroupsAfter - profile.m_iActiveGroupsBefore);
-		profile.m_iOpenOrdersAfterCycles = CountCampaignDebugPrefixedOpenEnemyOrders();
 		return profile;
 	}
 
@@ -29955,27 +30764,114 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 	}
 
-	protected int ResolveCampaignDebugOpenEnemyOrdersForEscalation(string reason)
+	protected int ResolveCampaignDebugOpenEnemyOrdersForEscalation(
+		string reason,
+		out int failedCount)
 	{
-		if (!m_State)
+		failedCount = 0;
+		if (!m_State || !m_bCampaignDebugRunning)
 			return 0;
 
 		int resolvedCount;
-		foreach (HST_EnemyOrderState order : m_State.m_aEnemyOrders)
+		foreach (string orderId : m_aCampaignDebugStableEnemyOrderIds)
 		{
+			HST_EnemyOrderState order = FindCampaignDebugEnemyOrderById(orderId);
 			if (!order)
 				continue;
 			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
 				continue;
 
-			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
-			order.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
-			order.m_sRuntimeStatus = reason;
-			order.m_sResolutionKind = reason;
-			resolvedCount++;
+			if (order.m_iOperationContractVersion != 0)
+			{
+				bool exactSettled = SettleCampaignDebugTrackedExactEnemyOrder(order, reason);
+				if (exactSettled
+					&& (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+						|| order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED))
+					resolvedCount++;
+				else
+					failedCount++;
+				continue;
+			}
+
+			// Contract-zero fixtures also own a durable debit and may own physical
+			// support runtime. Their typed legacy owner retires that runtime and writes
+			// a full administrative refund before the order becomes terminal.
+			if (m_EnemyCommander && m_SupportRequests && m_PhysicalWar
+				&& m_EnemyCommander.SettleTrackedLegacyOrderForAdministrativeStop(
+					m_State,
+					m_EnemyDirector,
+					m_SupportRequests,
+					m_PhysicalWar,
+					order,
+					reason))
+				resolvedCount++;
+			else
+				failedCount++;
 		}
 
 		return resolvedCount;
+	}
+
+	protected bool SettleCampaignDebugTrackedExactEnemyOrder(
+		HST_EnemyOrderState order,
+		string reason)
+	{
+		if (!m_State || !m_EnemyDirector || !IsCampaignDebugTrackedEnemyOrder(order))
+			return false;
+		bool settled = false;
+		if (HST_OperationService.RequiresExactEnemyDefensiveQRF(order))
+			settled = m_EnemyQRFOperations
+				&& m_EnemyQRFOperations.SettleTrackedOpenOrderForAdministrativeStop(
+					m_State,
+					m_EnemyDirector,
+					order,
+					reason);
+		else if (HST_OperationService.RequiresExactEnemyCounterattack(order))
+			settled = m_EnemyCounterattackOperations
+				&& m_EnemyCounterattackOperations.SettleTrackedOpenOrderForAdministrativeStop(
+					m_State,
+					m_EnemyDirector,
+					order,
+					reason);
+		else if (HST_OperationService.RequiresExactEnemyPatrol(order))
+			settled = m_EnemyPatrolOperations
+				&& m_EnemyPatrolOperations.SettleTrackedOpenOrderForAdministrativeStop(
+					m_State,
+					m_EnemyDirector,
+					order,
+					reason);
+		else if (HST_OperationService.RequiresExactEnemyGarrisonRebuild(order))
+			settled = m_EnemyGarrisonRebuildOperations
+				&& m_EnemyGarrisonRebuildOperations.SettleTrackedOpenOrderForAdministrativeStop(
+					m_State,
+					m_EnemyDirector,
+					order,
+					reason);
+		if (!settled || CountCampaignDebugExactRuntimeClaimantRows(order.m_sOrderId) > 0)
+			return false;
+		if (!m_aCampaignDebugReleasedExactEnemyOrderIds.Contains(order.m_sOrderId))
+			m_aCampaignDebugReleasedExactEnemyOrderIds.Insert(order.m_sOrderId);
+		return true;
+	}
+
+	protected string PrepareCampaignDebugEnemyOrdersForOwnershipMutation(string reason)
+	{
+		if (!m_bCampaignDebugRunning)
+			return "";
+		int settlementFailures;
+		ResolveCampaignDebugOpenEnemyOrdersForEscalation(reason, settlementFailures);
+		if (settlementFailures > 0)
+			return string.Format(
+				"%1 tracked debug enemy order settlement(s) failed before ownership mutation",
+				settlementFailures);
+		int remainingOpen = CountCampaignDebugTrackedOpenEnemyOrders();
+		int remainingRuntime = CountCampaignDebugTrackedExactRuntimeClaimantRows();
+		if (remainingOpen <= 0 && remainingRuntime <= 0)
+			return "";
+		return string.Format(
+			"%1 tracked debug enemy order(s) and %2 exact runtime claimant(s) remain before ownership mutation",
+			remainingOpen,
+			remainingRuntime);
 	}
 
 	protected void RetagCampaignDebugEscalationOrders(HST_CampaignDebugEscalationProfileResult profile, int orderStartIndex, string label)
@@ -29985,6 +30881,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		string orderIds;
 		string orderTypes;
+		int debugTaggedOrders;
+		int ledgerStableOrders;
+		int versionedStableOrders;
+		bool identitiesSafe = true;
 		int startIndex = Math.Max(0, orderStartIndex);
 		for (int orderIndex = startIndex; orderIndex < m_State.m_aEnemyOrders.Count(); orderIndex++)
 		{
@@ -29992,8 +30892,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!order)
 				continue;
 
-			if (!MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
-				ApplyCampaignDebugEnemyOrderPrefix(order, "phase24_escalation_" + label);
+			ApplyCampaignDebugEnemyOrderPrefix(order, "phase24_escalation_" + label);
+			bool identitySafe = IsCampaignDebugEnemyOrderIdentitySafeForDebug(order);
+			identitiesSafe = identitiesSafe && identitySafe;
+			if (order.m_iOperationContractVersion == 0 && identitySafe
+				&& MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
+				debugTaggedOrders++;
+			else if (order.m_iOperationContractVersion == 0 && identitySafe)
+				ledgerStableOrders++;
+			else if (order.m_iOperationContractVersion != 0 && identitySafe)
+				versionedStableOrders++;
 			if (!orderIds.IsEmpty())
 				orderIds = orderIds + ", ";
 			orderIds = orderIds + EmptyCampaignDebugField(order.m_sOrderId);
@@ -30004,6 +30912,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		profile.m_sOrderIds = orderIds;
 		profile.m_sOrderTypes = orderTypes;
+		profile.m_iDebugTaggedOrders = debugTaggedOrders;
+		profile.m_iLedgerStableOrders = ledgerStableOrders;
+		profile.m_iVersionedStableOrders = versionedStableOrders;
+		profile.m_bOrderIdentitiesSafe = identitiesSafe;
 	}
 
 	protected void RetagCampaignDebugEscalationSupportRequests(HST_CampaignDebugEscalationProfileResult profile, int requestStartIndex, string label)
@@ -30055,7 +30967,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		for (int groupIndex = startIndex; groupIndex < m_State.m_aActiveGroups.Count(); groupIndex++)
 		{
 			HST_ActiveGroupState group = m_State.m_aActiveGroups[groupIndex];
-			if (group)
+			if (IsCampaignDebugActiveGroupIdentityMutable(group))
 				ApplyCampaignDebugActiveGroupPrefix(group, "phase24_escalation_" + label);
 		}
 	}
@@ -30124,6 +31036,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan phase 24 escalation pressure | failed: missing context";
 
 		string report = "Partisan phase 24 escalation pressure";
+		report = report + string.Format(
+			"\norder isolation %1 | %2",
+			escalationContext.m_bOrderIsolationReady,
+			EmptyCampaignDebugField(escalationContext.m_sOrderIsolationFailure));
 		report = report + string.Format("\narranged %1", escalationContext.m_bArranged);
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Low);
 		report = report + "\n" + BuildCampaignDebugPhase24EscalationProfileLine(escalationContext.m_Mid);
@@ -30983,7 +31899,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (queued)
 		{
-			ApplyCampaignDebugEnemyOrderPrefix(FindLatestCampaignDebugEnemyOrder(orderCountBefore), "phase18_counterattack");
+			HST_EnemyOrderState order = FindLatestCampaignDebugEnemyOrder(orderCountBefore);
+			if (order)
+			{
+				TrackCampaignDebugEnemyOrder(order);
+				m_sCampaignDebugPhase18CounterattackOrderId = order.m_sOrderId;
+			}
 			MarkMajorCampaignChange(true);
 		}
 
@@ -31003,23 +31924,42 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_EnemyCommander || !m_EnemyDirector || !m_Preset || !m_State)
 			return "Partisan phase 18 smoke | failed: service not ready";
 
-		HST_ZoneState targetZone = SelectEnemyOrderTargetZone(false);
+		HST_ZoneState targetZone = SelectCampaignDebugPhase18RebuildTarget();
 		if (!targetZone)
-			return "Partisan phase 18 smoke | failed: no enemy target zone";
+			return "Partisan phase 18 smoke | failed: no capacity-valid enemy rebuild target with a distinct source";
 
-		ResetCampaignDebugEnemySupportLedgerForSeed(targetZone.m_sOwnerFactionKey, targetZone.m_sZoneId, "phase18_rebuild");
+		string factionKey = targetZone.m_sOwnerFactionKey;
+		ResetCampaignDebugEnemySupportLedgerForSeed(factionKey, targetZone.m_sZoneId, "phase18_rebuild");
+		m_EnemyDirector.AddResources(m_State, factionKey, 100, 100);
+		HST_FactionPoolState poolBefore = m_State.FindFactionPool(factionKey);
+		if (poolBefore)
+		{
+			m_iCampaignDebugPhase18RebuildAttackBefore = poolBefore.m_iAttackResources;
+			m_iCampaignDebugPhase18RebuildSupportBefore = poolBefore.m_iSupportResources;
+		}
+		m_iCampaignDebugPhase18RebuildOrderCountBefore = m_State.m_aEnemyOrders.Count();
 		HST_EnemyOrderState order = m_EnemyCommander.QueueDebugOrder(
 			m_State,
 			m_Preset,
 			m_EnemyDirector,
-			targetZone.m_sOwnerFactionKey,
+			factionKey,
 			targetZone,
-			HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON
+			HST_EEnemyOrderType.HST_ENEMY_ORDER_REBUILD_GARRISON,
+			"",
+			false
 		);
+		m_iCampaignDebugPhase18RebuildOrderCountAfter = m_State.m_aEnemyOrders.Count();
+		HST_FactionPoolState poolAfter = m_State.FindFactionPool(factionKey);
+		if (poolAfter)
+		{
+			m_iCampaignDebugPhase18RebuildAttackAfter = poolAfter.m_iAttackResources;
+			m_iCampaignDebugPhase18RebuildSupportAfter = poolAfter.m_iSupportResources;
+		}
 
 		if (order)
 		{
-			ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_rebuild");
+			TrackCampaignDebugEnemyOrder(order);
+			m_sCampaignDebugPhase18RebuildOrderId = order.m_sOrderId;
 			MarkMajorCampaignChange(true);
 		}
 
@@ -31077,10 +32017,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return "Partisan phase 18 smoke | failed: enemy commander not ready";
 
 		int resolved = m_EnemyCommander.DebugResolveDueOrdersNow(m_State, m_Preset, m_Garrisons);
-		if (resolved > 0)
+		CleanupCampaignDebugPhase18ExactAggregates();
+		if (resolved > 0 || m_iCampaignDebugPhase18CounterattackCleanupRows > 0
+			|| m_iCampaignDebugPhase18RebuildCleanupRows > 0)
 			MarkMajorCampaignChange(true);
 
-		return string.Format("Partisan phase 18 smoke | resolved %1 order(s)\n%2", resolved, m_EnemyCommander.BuildEnemyOrderReport(m_State));
+		return string.Format("Partisan phase 18 smoke | resolved %1 legacy order(s) | exact cleanup counterattack/rebuild %2/%3\n%4", resolved, m_iCampaignDebugPhase18CounterattackCleanupRows, m_iCampaignDebugPhase18RebuildCleanupRows, m_EnemyCommander.BuildEnemyOrderReport(m_State));
 	}
 
 	string RequestAdminPhase18Report(int playerId)
@@ -31110,12 +32052,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_EnemyCommander || !m_EnemyDirector)
 			return "Partisan phase 18 smoke | failed: enemy commander not ready";
 
-		int resolvedForIsolation = ResolveCampaignDebugOpenEnemyOrdersForEscalation("phase18_background_war_start");
+		CleanupCampaignDebugPhase18ExactAggregates();
+		int exactRuntimeClaimants
+			= CountCampaignDebugExactRuntimeClaimants(m_sCampaignDebugPhase18CounterattackOrderId)
+			+ CountCampaignDebugExactRuntimeClaimants(m_sCampaignDebugPhase18RebuildOrderId);
+		if (exactRuntimeClaimants > 0)
+			return string.Format("Partisan phase 18 smoke | failed: %1 tracked exact runtime claimant(s) remain before background war", exactRuntimeClaimants);
+
+		int openOrdersBeforeIsolation = CountCampaignDebugTrackedOpenEnemyOrders();
+		string orderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+			"phase18 background-war start");
+		int resolvedForIsolation = Math.Max(
+			0,
+			openOrdersBeforeIsolation - CountCampaignDebugTrackedOpenEnemyOrders());
+		if (!orderIsolationFailure.IsEmpty())
+			return "Partisan phase 18 smoke | failed: " + orderIsolationFailure;
 		bool arranged = ArrangeCampaignDebugBackgroundWarState();
 		CaptureCampaignDebugBackgroundWarPools(true);
 		m_iCampaignDebugBackgroundWarOrderCountBefore = m_State.m_aEnemyOrders.Count();
 		bool changed = m_EnemyCommander.Tick(m_State, m_Preset, m_EnemyDirector, m_SupportRequests, m_Garrisons, 180);
-		int unexpectedPetrosOrders = AbortCampaignDebugBackgroundWarPetrosOrders();
+		int unexpectedPetrosOrders = CountAndAbortCampaignDebugBackgroundWarPetrosOrders();
 		m_iCampaignDebugBackgroundWarUnexpectedPetrosOrders = unexpectedPetrosOrders;
 		m_iCampaignDebugBackgroundWarOrderCountAfter = m_State.m_aEnemyOrders.Count();
 		CaptureCampaignDebugBackgroundWarPools(false);
@@ -31839,6 +32795,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "Partisan phase 24 | failed: admin required";
+		string orderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+			"phase24 early-game ownership seed");
+		if (!orderIsolationFailure.IsEmpty())
+			return "Partisan phase 24 | failed: " + orderIsolationFailure;
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -31874,6 +32834,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "Partisan phase 24 | failed: admin required";
+		string orderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+			"phase24 mid-game ownership seed");
+		if (!orderIsolationFailure.IsEmpty())
+			return "Partisan phase 24 | failed: " + orderIsolationFailure;
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -31907,6 +32871,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "Partisan phase 24 | failed: admin required";
+		string orderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+			"phase24 late-game ownership seed");
+		if (!orderIsolationFailure.IsEmpty())
+			return "Partisan phase 24 | failed: " + orderIsolationFailure;
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -31940,13 +32908,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!m_State || !m_Preset || !m_Balance || !m_Economy || !m_EnemyDirector || !m_EnemyCommander || !m_SupportRequests)
 			return "Partisan phase 24 escalation | failed: services not ready";
 
-		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
-		ResetCampaignEndState();
-		ResetCampaignDebugPhase24HQPressure("escalation pressure");
-		ArrangePhase24NeutralPopulation(30);
 		m_CampaignDebugPhase24EscalationContext = RunCampaignDebugPhase24EscalationProbe();
 		if (!m_CampaignDebugPhase24EscalationContext)
 			return "Partisan phase 24 escalation | failed: probe did not run";
+		if (!m_CampaignDebugPhase24EscalationContext.m_bOrderIsolationReady)
+			return m_CampaignDebugPhase24EscalationContext.m_sReport;
 
 		MarkMajorCampaignChange(true);
 		return m_CampaignDebugPhase24EscalationContext.m_sReport;
@@ -31956,6 +32922,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "Partisan phase 24 | failed: admin required";
+		string orderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+			"phase24 victory ownership seed");
+		if (!orderIsolationFailure.IsEmpty())
+			return "Partisan phase 24 | failed: " + orderIsolationFailure;
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -31982,6 +32952,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!Replication.IsServer() || !CanPlayerUseAdminActions(playerId))
 			return "Partisan phase 24 | failed: admin required";
+		string orderIsolationFailure = PrepareCampaignDebugEnemyOrdersForOwnershipMutation(
+			"phase24 loss ownership seed");
+		if (!orderIsolationFailure.IsEmpty())
+			return "Partisan phase 24 | failed: " + orderIsolationFailure;
 
 		m_State.m_ePhase = HST_ECampaignPhase.HST_CAMPAIGN_ACTIVE;
 		ResetCampaignEndState();
@@ -33031,12 +34005,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				continue;
 
 			// Contract-zero fixtures may still be tagged for the legacy cleanup path.
-			// Exact/versioned orders derive operation, manifest, batch, and projection
-			// IDs from this value, so mutating it after admission would corrupt every
-			// reciprocal authority link.
-			if (phase17Order.m_iOperationContractVersion == 0
-				&& !MissionValueHasCampaignDebugPrefix(phase17Order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
-				ApplyCampaignDebugEnemyOrderPrefix(phase17Order, label);
+			ApplyCampaignDebugEnemyOrderPrefix(phase17Order, label);
 			m_sCampaignDebugPhase17CounterattackOrderId = phase17Order.m_sOrderId;
 		}
 	}
@@ -33071,9 +34040,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				if (!createdOrder || createdOrder.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK || createdOrder.m_sTargetZoneId != targetZoneId || createdOrder.m_sFactionKey != factionKey)
 					continue;
 
-				if (createdOrder.m_iOperationContractVersion == 0
-					&& !MissionValueHasCampaignDebugPrefix(createdOrder.m_sOrderId, m_sCampaignDebugMarkerPrefix))
-					ApplyCampaignDebugEnemyOrderPrefix(createdOrder, "phase17_counterattack");
+				ApplyCampaignDebugEnemyOrderPrefix(createdOrder, "phase17_counterattack");
 				m_sCampaignDebugPhase17CounterattackOrderId = createdOrder.m_sOrderId;
 				return;
 			}
@@ -33141,6 +34108,66 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		return null;
+	}
+
+	protected HST_ZoneState SelectCampaignDebugPhase18RebuildTarget()
+	{
+		if (!m_State || !m_Preset || !m_EnemyGarrisonRebuildOperations)
+			return null;
+
+		ref array<string> candidateIds = {};
+		foreach (HST_ZoneState zone : m_State.m_aZones)
+		{
+			if (!zone || zone.m_sZoneId.IsEmpty() || IsZeroVector(zone.m_vPosition))
+				continue;
+			if (zone.m_sOwnerFactionKey != m_Preset.m_sOccupierFactionKey
+				&& zone.m_sOwnerFactionKey != m_Preset.m_sInvaderFactionKey)
+				continue;
+			if (zone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT
+				|| zone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE
+				|| zone.m_iOwnershipRevision <= 0)
+				continue;
+			if (m_EnemyGarrisonRebuildOperations.HasOpenExactEnemyGarrisonRebuild(
+				m_State,
+				zone.m_sOwnerFactionKey,
+				zone.m_sZoneId))
+				continue;
+			int authoritativeInfantry = m_EnemyGarrisonRebuildOperations
+				.ResolveAuthoritativeGarrisonInfantry(
+					m_State,
+					zone.m_sOwnerFactionKey,
+					zone.m_sZoneId);
+			if (zone.m_iGarrisonSlots > 0
+				&& authoritativeInfantry >= zone.m_iGarrisonSlots)
+				continue;
+			if (!HasCampaignDebugDistinctEnemyOrderSource(zone))
+				continue;
+			candidateIds.Insert(zone.m_sZoneId);
+		}
+		candidateIds.Sort();
+		if (candidateIds.Count() == 0)
+			return null;
+		return m_State.FindZone(candidateIds[0]);
+	}
+
+	protected bool HasCampaignDebugDistinctEnemyOrderSource(HST_ZoneState targetZone)
+	{
+		if (!m_State || !targetZone || targetZone.m_sOwnerFactionKey.IsEmpty())
+			return false;
+		foreach (HST_ZoneState sourceZone : m_State.m_aZones)
+		{
+			if (!sourceZone || sourceZone.m_sOwnerFactionKey != targetZone.m_sOwnerFactionKey
+				|| HST_MaidensBayLocationSaveValidationService.AreEquivalentZoneIds(
+					sourceZone.m_sZoneId,
+					targetZone.m_sZoneId))
+				continue;
+			if (sourceZone.m_eType == HST_EZoneType.HST_ZONE_HIDEOUT
+				|| sourceZone.m_eType == HST_EZoneType.HST_ZONE_MISSION_SITE
+				|| IsZeroVector(sourceZone.m_vPosition))
+				continue;
+			return true;
+		}
+		return false;
 	}
 
 	protected bool ArrangeCampaignDebugBackgroundWarState()
@@ -33415,8 +34442,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			if (!order)
 				continue;
 
-			if (!MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
-				ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_background_war");
+			ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_background_war");
 
 			if (order.m_sFactionKey == m_Preset.m_sOccupierFactionKey && m_sCampaignDebugBackgroundWarOccupierOrderId.IsEmpty())
 				m_sCampaignDebugBackgroundWarOccupierOrderId = order.m_sOrderId;
@@ -33425,30 +34451,35 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 	}
 
-	protected int AbortCampaignDebugBackgroundWarPetrosOrders()
+	protected int CountAndAbortCampaignDebugBackgroundWarPetrosOrders()
 	{
 		if (!m_State)
 			return 0;
 
-		int aborted;
+		int unexpected;
 		for (int i = m_iCampaignDebugBackgroundWarOrderCountBefore; i < m_State.m_aEnemyOrders.Count(); i++)
 		{
 			HST_EnemyOrderState order = m_State.m_aEnemyOrders[i];
 			if (!order || order.m_eType != HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK)
 				continue;
+			unexpected++;
+			ApplyCampaignDebugEnemyOrderPrefix(
+				order,
+				"phase18_background_war_unexpected_petros");
 			if (order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED || order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
 				continue;
+			// Versioned Petros contracts, if introduced later, must be settled by
+			// their typed owner rather than mutated by this legacy isolation probe.
+			if (order.m_iOperationContractVersion != 0)
+				continue;
 
-			if (!MissionValueHasCampaignDebugPrefix(order.m_sOrderId, m_sCampaignDebugMarkerPrefix))
-				ApplyCampaignDebugEnemyOrderPrefix(order, "phase18_background_war_unexpected_petros");
 			order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
 			order.m_sRuntimeStatus = "aborted_background_war_petros_isolated_to_phase22";
 			order.m_sFailureReason = "background-war debug probe does not own Defend Petros";
 			order.m_iResolvedAtSecond = m_State.m_iElapsedSeconds;
-			aborted++;
 		}
 
-		return aborted;
+		return unexpected;
 	}
 
 	protected HST_EnemyOrderState FindCampaignDebugEnemyOrderById(string orderId)
