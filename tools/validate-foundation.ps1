@@ -24924,6 +24924,14 @@ if ($schema66TownIncomeIndex -lt 0 -or $schema66LocalTickIndex -lt 0 -or
 	$schema66LocalTickIndex -gt $schema66PhysicalActivationIndex) {
 	throw "Schema-66 local-security consequence/admission tick must follow town policy and precede generic physical activation"
 }
+$schema66AmbientHoldBlock = Get-ScriptMethodBlock $schema66FrameBlock 'if (!ShouldHoldCampaignDebugAmbientLocalSecurityTick())'
+$schema66AmbientHoldPredicate = Get-ScriptMethodBlock $schema66CoordinatorText 'protected bool ShouldHoldCampaignDebugAmbientLocalSecurityTick()'
+if ([string]::IsNullOrEmpty($schema66AmbientHoldBlock) -or
+	$schema66AmbientHoldBlock.IndexOf('m_LocalSecurityPatrolOperations.Tick(m_State, m_Preset)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema66AmbientHoldPredicate) -or
+	$schema66AmbientHoldPredicate.IndexOf('m_bCampaignDebugRunning && m_bCampaignDebugStateIsolationActive') -lt 0) {
+	throw "Schema-66 ambient local-security cadence must stay held while Campaign Debug owns an isolated clone and its spawn worker is suspended"
+}
 foreach ($schema66PersistenceEntry in @(
 	'SetLocalSecurityOperationService(',
 	'PrepareQuarantinedAuthorityForPersistence(',

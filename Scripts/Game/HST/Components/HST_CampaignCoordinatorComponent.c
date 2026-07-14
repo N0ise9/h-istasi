@@ -1155,8 +1155,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		convoyOperationChanged = (m_MissionConvoyOperations && m_MissionConvoyOperations.ReconcileSettledRuntimeCleanup(m_State)) || convoyOperationChanged;
 		radioSiteChanged = (m_RadioSites && m_RadioSites.ReconcileProjections(m_State)) || radioSiteChanged;
 		int income = m_Towns.TickIncome(m_State, m_Economy, m_Balance, m_Preset, elapsedSeconds, m_Civilians);
-		bool exactLocalSecurityChanged = m_LocalSecurityPatrolOperations
-			&& m_LocalSecurityPatrolOperations.Tick(m_State, m_Preset);
+		// Campaign Debug holds the exact spawn adapter outside its focused proof.
+		// Do not let ambient town security release virtual rosters into a
+		// MATERIALIZING boundary whose matching spawn worker is intentionally held.
+		bool exactLocalSecurityChanged = false;
+		if (!ShouldHoldCampaignDebugAmbientLocalSecurityTick())
+			exactLocalSecurityChanged = m_LocalSecurityPatrolOperations
+				&& m_LocalSecurityPatrolOperations.Tick(m_State, m_Preset);
 		bool periodicTownInfluenceChanged = m_Towns.ConsumePeriodicTownInfluenceChanged();
 		bool enemyResourcesChanged = m_EnemyDirector.TickResources(m_State, m_Preset, m_Balance, elapsedSeconds);
 		bool aggressionChanged = m_Economy.TickAggressionDecay(m_State, m_Preset, m_Balance, elapsedSeconds);
@@ -19071,6 +19076,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	}
 
 	protected bool ShouldHoldCampaignDebugAmbientEnemyCommanderTick()
+	{
+		return m_bCampaignDebugRunning && m_bCampaignDebugStateIsolationActive;
+	}
+
+	protected bool ShouldHoldCampaignDebugAmbientLocalSecurityTick()
 	{
 		return m_bCampaignDebugRunning && m_bCampaignDebugStateIsolationActive;
 	}
