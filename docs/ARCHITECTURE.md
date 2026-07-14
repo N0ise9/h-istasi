@@ -6,6 +6,12 @@ Campaign Schema 70 and runtime-settings Schema 24 remain the persisted
 contracts. The current working-tree pass changes Campaign Debug coordination and
 proof cleanup without changing the serialized campaign shape.
 
+The current radio-lifecycle fixture source checkpoint is stamped at implementation
+`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
+`2026-07-14T11:41:04Z`, label
+`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
+schema. R11 runtime execution is still pending.
+
 ### Synthetic-Time Isolation
 
 Debug probes that need bounded future ticks use

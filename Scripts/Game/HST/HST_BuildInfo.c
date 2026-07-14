@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "2f71236bfc02329a3c8000b104f1b7b1043dc99c";
-	static const string BUILD_UTC = "2026-07-13T22:20:52Z";
-	static const string BUILD_LABEL = "schema70-settings24-exact-enemy-garrison-rebuild-engine-proof";
+	static const string BUILD_SHA = "a8ebe54fca7260075813e65920960bb21b1fd47f";
+	static const string BUILD_UTC = "2026-07-14T11:41:04Z";
+	static const string BUILD_LABEL = "schema70-settings24-radio-lifecycle-fixture-source";
 
 	static string BuildSummary()
 	{

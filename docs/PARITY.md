@@ -80,9 +80,15 @@ rebuild primitives use normal server physical callbacks and assert lifecycle
 receipts, one unchanged destruction epoch, exact rewards, and the single-attempt
 rule. Cleanup explicitly releases the temporary projection/transmitter and
 removes the prefixed radio row before the live state is restored. Fresh headless
-Workbench validation passes at 5,826 Game files/11,807 classes, 46,633K static
-storage, CRC `39bd6d90`, with `Script validation successful` and no surviving
+Workbench validation passes at 5,826 Game files/11,807 classes, 46,634K static
+storage, CRC `d8a34f4b`, with `Script validation successful` and no surviving
 Workbench/game process. R10 predates this path; R11 runtime proof is required.
+
+The current radio-lifecycle fixture source checkpoint is stamped at implementation
+`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
+`2026-07-14T11:41:04Z`, label
+`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
+schema. R11 runtime execution is still pending.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own

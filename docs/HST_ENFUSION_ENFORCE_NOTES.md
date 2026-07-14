@@ -44,6 +44,12 @@ after deliberate closure. Exact-tree R10 executed 680 cases with 558 PASS, 61
 WARN, 54 FAIL, and 7 BLOCKED; certification proved 5,415/5,591 required
 assertions. Static, Workbench, and runtime evidence remain distinct gates.
 
+The current radio-lifecycle fixture source checkpoint is stamped at implementation
+`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
+`2026-07-14T11:41:04Z`, label
+`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
+schema. R11 runtime execution is still pending.
+
 Campaign-debug order isolation rules learned in this pass:
 
 - Track admitted enemy orders in a separate stable-ID registry. Never prefix or
@@ -5920,7 +5926,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
   republishing the live campaign state, and require zero prefixed residue.
 
 - The fixture source passes fresh headless Workbench script validation at 5,826
-  Game files/11,807 classes, 46,634K static storage, CRC `39bd6d90`, with
+  Game files/11,807 classes, 46,634K static storage, CRC `d8a34f4b`, with
   `Script validation successful` and no surviving Workbench/game process. That
   is compile evidence only. R10 predates this fixture; R11 must execute both
   exact radio cases and prove physical destruction, callbacks, lifecycle

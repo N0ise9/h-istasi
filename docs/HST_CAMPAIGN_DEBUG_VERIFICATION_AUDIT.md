@@ -30,13 +30,19 @@ remains alive at the 8-, 16-, and 24-second checks, and leaves zero processes
 after deliberate closure.
 
 The subsequent disposable-radio-fixture source also passes fresh headless
-Workbench validation: 5,826 Game files/11,807 classes, 46,633K static storage,
-CRC `39bd6d90`, and `Script validation successful`, with no Workbench or game
+Workbench validation: 5,826 Game files/11,807 classes, 46,634K static storage,
+CRC `d8a34f4b`, and `Script validation successful`, with no Workbench or game
 process left open. This proves source contracts and Game script validation only.
 R10 predates the fixture, so an R11 Full Campaign Debug run is still required;
 package, process-restart, network, and soak gates remain separate.
 
 ## Current Disposable Radio Lifecycle Fixture Boundary
+
+The current radio-lifecycle fixture source checkpoint is stamped at implementation
+`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
+`2026-07-14T11:41:04Z`, label
+`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
+schema. R11 runtime execution is still pending.
 
 R10 found all 18 radio sites ONLINE. That made `destroy_radio_tower`
 immediately admissible but left `dynamic_stop_tower_rebuild` without a legal

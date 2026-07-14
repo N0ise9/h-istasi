@@ -28,6 +28,12 @@ it does not introduce another save-schema revision. Its purpose is to make the
 one-button suite exercise production owners without letting one synthetic case
 contaminate the next.
 
+The current radio-lifecycle fixture source checkpoint is stamped at implementation
+`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
+`2026-07-14T11:41:04Z`, label
+`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
+schema. R11 runtime execution is still pending.
+
 The current source boundary includes:
 
 - Bounded synthetic-time probes capture the shared campaign second and an
@@ -66,7 +72,7 @@ compiles and completes Workbench create/destroy at 5,826 Game files/11,807
 classes with CRC `287d01ec`, and remained alive at the 8-, 16-, and 24-second
 cold-open checks before deliberate shutdown. The later disposable-radio-fixture
 source passes fresh headless Workbench script validation at the same file/class
-counts, 46,634K static storage, CRC `39bd6d90`, with a clean
+counts, 46,634K static storage, CRC `d8a34f4b`, with a clean
 `Script validation successful` result and no surviving Workbench/game process.
 Completed R10 Full
 Campaign Debug evidence remains uncertified and predates that fixture, but it

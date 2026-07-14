@@ -22,6 +22,12 @@ coordinator clock correction. Foundation passes at
 recoverable base-game VM diagnostic plus two filter-constructor diagnostics, so
 it is successful but not exception-free.
 
+The current radio-lifecycle fixture source checkpoint is stamped at implementation
+`a8ebe54fca7260075813e65920960bb21b1fd47f`, UTC
+`2026-07-14T11:41:04Z`, label
+`schema70-settings24-radio-lifecycle-fixture-source`. It changes no persisted
+schema. R11 runtime execution is still pending.
+
 A later Workbench native heap crash was traced to local-variable pressure in one
 large campaign-debug method, not to Schema-70 deserialization. Moving its
 debug-only state into a context object and narrow helpers restored the native
