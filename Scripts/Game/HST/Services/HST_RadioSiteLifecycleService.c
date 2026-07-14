@@ -403,17 +403,16 @@ class HST_RadioSiteLifecycleService
 
 		float priorHealth = damageManager.GetHealthScaled();
 		EDamageState priorState = damageManager.GetState();
-		bool writeAccepted = damageManager.SetHealthScaled(0.0);
-		bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;
+		bool destroyed = ApplyAuthoritativeDestruction(damageManager);
 		report = string.Format(
-			"Partisan campaign debug radio | fixture physical damage | zone %1 | health %2 -> %3 | state %4 -> %5 | write %6",
+			"Partisan campaign debug radio | fixture physical damage | zone %1 | health %2 -> %3 | state %4 -> %5 | engine kill %6",
 			m_sCampaignDebugFixtureZoneId,
 			priorHealth,
 			damageManager.GetHealthScaled(),
 			priorState,
 			damageManager.GetState(),
-			writeAccepted);
-		return writeAccepted && destroyed;
+			destroyed);
+		return destroyed;
 	}
 
 	bool CleanupCampaignDebugLifecycleFixture(string requiredPrefix, out string report)
@@ -637,7 +636,7 @@ class HST_RadioSiteLifecycleService
 		bool restorationExact = true;
 		foreach (SCR_DamageManagerComponent damageManager : authoredDamageManagers)
 		{
-			if (!damageManager.SetHealthScaled(1.0)
+			if (!ApplyAuthoritativeHealth(damageManager, 1.0)
 				|| damageManager.GetState() == EDamageState.DESTROYED
 				|| !float.AlmostEqual(damageManager.GetHealthScaled(), 1.0, 0.001))
 			{
@@ -651,7 +650,9 @@ class HST_RadioSiteLifecycleService
 			for (int restoreIndex = 0; restoreIndex < authoredDamageManagers.Count(); restoreIndex++)
 			{
 				SCR_DamageManagerComponent rollbackManager = authoredDamageManagers[restoreIndex];
-				if (!rollbackManager.SetHealthScaled(authoredPriorHealth[restoreIndex])
+				if (!ApplyAuthoritativeHealth(
+						rollbackManager,
+						authoredPriorHealth[restoreIndex])
 					|| rollbackManager.GetState() != authoredPriorStates[restoreIndex]
 					|| !float.AlmostEqual(
 						rollbackManager.GetHealthScaled(),
@@ -1297,8 +1298,7 @@ class HST_RadioSiteLifecycleService
 
 		SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
 		if (!damageManager || (damageManager.GetState() != EDamageState.DESTROYED
-			&& (!damageManager.SetHealthScaled(0.0)
-				|| damageManager.GetState() != EDamageState.DESTROYED)))
+			&& !ApplyAuthoritativeDestruction(damageManager)))
 		{
 			resultText = "Partisan radio site | exact demolition score could not destroy the live target projection";
 			QuarantineMissionAggregate(
@@ -2306,8 +2306,7 @@ class HST_RadioSiteLifecycleService
 			return QuarantineSite(state, site, "destroyed authored transmitter lost its damage authority") || changed;
 		if (damageManager.GetState() != EDamageState.DESTROYED)
 		{
-			if (!damageManager.SetHealthScaled(0.0)
-				|| damageManager.GetState() != EDamageState.DESTROYED)
+			if (!ApplyAuthoritativeDestruction(damageManager))
 				return QuarantineSite(state, site, "destroyed authored transmitter refused physical damage reapplication") || changed;
 			changed = true;
 		}
@@ -2491,6 +2490,49 @@ class HST_RadioSiteLifecycleService
 		return destructionManager;
 	}
 
+	protected bool ApplyAuthoritativeDestruction(
+		SCR_DamageManagerComponent damageManager)
+	{
+		if (!Replication.IsServer() || !damageManager)
+			return false;
+		if (damageManager.GetState() == EDamageState.DESTROYED)
+			return true;
+		if (!damageManager.IsDamageHandlingEnabled())
+			return false;
+
+		// Stock editor destruction uses Kill rather than a direct zero-health
+		// write. Kill enters HandleDamage, so multiphase destruction callbacks
+		// and the final visual state run through the real engine damage path.
+		damageManager.Kill(Instigator.CreateInstigator(null));
+		return damageManager.GetState() == EDamageState.DESTROYED;
+	}
+
+	protected bool ApplyAuthoritativeHealth(
+		SCR_DamageManagerComponent damageManager,
+		float scaledHealth)
+	{
+		if (!Replication.IsServer() || !damageManager)
+			return false;
+		if (scaledHealth <= 0.0)
+			return ApplyAuthoritativeDestruction(damageManager);
+
+		HitZone defaultHitZone = damageManager.GetDefaultHitZone();
+		if (!defaultHitZone)
+			return false;
+		if (!damageManager.IsDamageHandlingEnabled())
+			damageManager.EnableDamageHandling(true);
+		if (!damageManager.IsDamageHandlingEnabled())
+			return false;
+
+		float boundedHealth = Math.Clamp(scaledHealth, 0.0, 1.0);
+		defaultHitZone.SetHealthScaled(boundedHealth);
+		return damageManager.GetState() != EDamageState.DESTROYED
+			&& float.AlmostEqual(
+				damageManager.GetHealthScaled(),
+				boundedHealth,
+				0.001);
+	}
+
 	protected bool IsOperationalDamageAuthority(SCR_DamageManagerComponent damageManager)
 	{
 		return HasUsableDamageAuthority(damageManager)
@@ -2533,8 +2575,7 @@ class HST_RadioSiteLifecycleService
 			return QuarantineSite(state, site, "authored transmitter suppression target lost its damage authority");
 		if (damageManager.GetState() == EDamageState.DESTROYED)
 			return false;
-		if (!damageManager.SetHealthScaled(0.0)
-			|| damageManager.GetState() != EDamageState.DESTROYED)
+		if (!ApplyAuthoritativeDestruction(damageManager))
 			return QuarantineSite(state, site, "authored transmitter suppression could not reapply the frozen destroyed state");
 		return true;
 	}

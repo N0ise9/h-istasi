@@ -17763,13 +17763,47 @@ foreach ($schema59FrozenCollisionEntry in @(
 $schema59SuppressionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool SuppressAuthoredTransmitterResurrection('
 $schema59SuppressionAmbiguityIndex = $schema59SuppressionBlock.IndexOf('m_aTransmitterCandidates.Count() > 1')
 $schema59SuppressionFrozenIndex = $schema59SuppressionBlock.IndexOf('FrozenAuthoredCandidateMatchesSite(site, authored)')
-$schema59SuppressionMutationIndex = $schema59SuppressionBlock.IndexOf('SetHealthScaled(0.0)')
+$schema59SuppressionMutationIndex = $schema59SuppressionBlock.IndexOf('ApplyAuthoritativeDestruction(damageManager)')
 if ([string]::IsNullOrEmpty($schema59SuppressionBlock) -or $schema59SuppressionAmbiguityIndex -lt 0 -or
 	$schema59SuppressionFrozenIndex -lt 0 -or $schema59SuppressionMutationIndex -lt 0 -or
 	$schema59SuppressionAmbiguityIndex -gt $schema59SuppressionFrozenIndex -or
 	$schema59SuppressionFrozenIndex -gt $schema59SuppressionMutationIndex -or
 	$schema59SuppressionBlock.IndexOf('QuarantineSite(') -lt 0) {
 	throw "Schema-59 authored transmitter suppression must quarantine ambiguity and verify frozen provenance before world mutation"
+}
+$schema59AuthoritativeDestructionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool ApplyAuthoritativeDestruction('
+foreach ($schema59AuthoritativeDestructionEntry in @(
+	'!Replication.IsServer()',
+	'damageManager.IsDamageHandlingEnabled()',
+	'damageManager.Kill(Instigator.CreateInstigator(null));',
+	'return damageManager.GetState() == EDamageState.DESTROYED;'
+)) {
+	if ([string]::IsNullOrEmpty($schema59AuthoritativeDestructionBlock) -or
+		$schema59AuthoritativeDestructionBlock.IndexOf($schema59AuthoritativeDestructionEntry) -lt 0) {
+		throw "Schema-59 authoritative destruction must use the stock engine damage path and verify DESTROYED: $schema59AuthoritativeDestructionEntry"
+	}
+}
+$schema59AuthoritativeKillIndex = $schema59AuthoritativeDestructionBlock.IndexOf('damageManager.Kill(Instigator.CreateInstigator(null));')
+$schema59AuthoritativeDestroyedIndex = $schema59AuthoritativeDestructionBlock.LastIndexOf('damageManager.GetState() == EDamageState.DESTROYED')
+if ($schema59AuthoritativeKillIndex -lt 0 -or
+	$schema59AuthoritativeDestroyedIndex -le $schema59AuthoritativeKillIndex) {
+	throw "Schema-59 authoritative destruction must observe DESTROYED after the stock Kill damage action"
+}
+$schema59AuthoritativeHealthBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool ApplyAuthoritativeHealth('
+foreach ($schema59AuthoritativeHealthEntry in @(
+	'!Replication.IsServer()',
+	'if (scaledHealth <= 0.0)',
+	'ApplyAuthoritativeDestruction(damageManager)',
+	'HitZone defaultHitZone = damageManager.GetDefaultHitZone();',
+	'damageManager.EnableDamageHandling(true);',
+	'defaultHitZone.SetHealthScaled(boundedHealth);',
+	'damageManager.GetState() != EDamageState.DESTROYED',
+	'float.AlmostEqual('
+)) {
+	if ([string]::IsNullOrEmpty($schema59AuthoritativeHealthBlock) -or
+		$schema59AuthoritativeHealthBlock.IndexOf($schema59AuthoritativeHealthEntry) -lt 0) {
+		throw "Schema-59 nonzero health restoration must use the stock default-hit-zone path and verify observed state: $schema59AuthoritativeHealthEntry"
+	}
 }
 $schema59CheckedDestructionBlocks = [ordered]@{
 	'generated exact explosive threshold' = (Get-ScriptMethodBlock $schema59LifecycleText 'bool ApplyExplosiveDamage(')
@@ -17778,19 +17812,15 @@ $schema59CheckedDestructionBlocks = [ordered]@{
 }
 foreach ($schema59CheckedDestructionLabel in $schema59CheckedDestructionBlocks.Keys) {
 	$schema59CheckedDestructionBlock = $schema59CheckedDestructionBlocks[$schema59CheckedDestructionLabel]
-	$schema59CheckedSetHealthIndex = $schema59CheckedDestructionBlock.IndexOf('!damageManager.SetHealthScaled(0.0)')
-	$schema59CheckedDestroyedStateIndex = $schema59CheckedDestructionBlock.IndexOf(
-		'damageManager.GetState() != EDamageState.DESTROYED',
-		[Math]::Max(0, $schema59CheckedSetHealthIndex))
+	$schema59CheckedDestructionIndex = $schema59CheckedDestructionBlock.IndexOf('ApplyAuthoritativeDestruction(damageManager)')
 	if ([string]::IsNullOrEmpty($schema59CheckedDestructionBlock) -or
-		$schema59CheckedSetHealthIndex -lt 0 -or $schema59CheckedDestroyedStateIndex -lt 0 -or
-		$schema59CheckedSetHealthIndex -gt $schema59CheckedDestroyedStateIndex) {
-		throw "Schema-59 $schema59CheckedDestructionLabel must check both SetHealthScaled(0.0) and the resulting DESTROYED state"
+		$schema59CheckedDestructionIndex -lt 0) {
+		throw "Schema-59 $schema59CheckedDestructionLabel must route physical destruction through the checked stock Kill helper"
 	}
 }
 $schema59ExplosiveDestroyBlock = $schema59CheckedDestructionBlocks['generated exact explosive threshold']
-if ($schema59ExplosiveDestroyBlock.IndexOf('MarkPhysicalTargetDestroyed(') -lt $schema59ExplosiveDestroyBlock.IndexOf('!damageManager.SetHealthScaled(0.0)')) {
-	throw "Schema-59 generated demolition may not record physical destruction before checked health mutation succeeds"
+if ($schema59ExplosiveDestroyBlock.IndexOf('MarkPhysicalTargetDestroyed(') -lt $schema59ExplosiveDestroyBlock.IndexOf('ApplyAuthoritativeDestruction(damageManager)')) {
+	throw "Schema-59 generated demolition may not record physical destruction before the checked stock Kill action succeeds"
 }
 $schema59RebuildProjectionBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool EnsureRebuildProjection('
 if ([string]::IsNullOrEmpty($schema59RebuildProjectionBlock) -or
@@ -17876,10 +17906,11 @@ foreach ($schema59NewCampaignResetEntry in @(
 	'ResolveDamageManager(authored)',
 	'authoredPriorHealth.Insert(damageManager.GetHealthScaled())',
 	'authoredPriorStates.Insert(damageManager.GetState())',
-	'SetHealthScaled(1.0)',
+	'ApplyAuthoritativeHealth(damageManager, 1.0)',
 	'damageManager.GetState() == EDamageState.DESTROYED',
 	'float.AlmostEqual(damageManager.GetHealthScaled(), 1.0, 0.001)',
-	'rollbackManager.SetHealthScaled(authoredPriorHealth[restoreIndex])',
+	'rollbackManager,',
+	'authoredPriorHealth[restoreIndex]',
 	'rollbackManager.GetState() != authoredPriorStates[restoreIndex]',
 	'prior physical damage state rollback was not exact',
 	'ClearTrackedProjections(true)'
@@ -17890,9 +17921,9 @@ foreach ($schema59NewCampaignResetEntry in @(
 	}
 }
 $schema59ResetSnapshotIndex = $schema59NewCampaignResetBlock.IndexOf('authoredPriorHealth.Insert(damageManager.GetHealthScaled())')
-$schema59ResetHealIndex = $schema59NewCampaignResetBlock.IndexOf('SetHealthScaled(1.0)')
+$schema59ResetHealIndex = $schema59NewCampaignResetBlock.IndexOf('ApplyAuthoritativeHealth(damageManager, 1.0)')
 $schema59ResetVerifyIndex = $schema59NewCampaignResetBlock.IndexOf('damageManager.GetState() == EDamageState.DESTROYED')
-$schema59ResetRollbackIndex = $schema59NewCampaignResetBlock.IndexOf('rollbackManager.SetHealthScaled(authoredPriorHealth[restoreIndex])')
+$schema59ResetRollbackIndex = $schema59NewCampaignResetBlock.IndexOf('ApplyAuthoritativeHealth(', $schema59ResetVerifyIndex)
 $schema59ResetClearIndex = $schema59NewCampaignResetBlock.LastIndexOf('ClearTrackedProjections(true)')
 if ($schema59ResetSnapshotIndex -lt 0 -or $schema59ResetHealIndex -lt 0 -or
 	$schema59ResetVerifyIndex -lt 0 -or $schema59ResetRollbackIndex -lt 0 -or
@@ -18069,7 +18100,7 @@ $schema59DamageLockIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('Missio
 $schema59DamageLiveProjectionIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('if (!projection || !projectionAsset')
 $schema59DamagePositionIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('PositionsMatch2D(position, projectionPosition, PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)')
 $schema59DamageReceiptIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('RecordExactExplosiveEvidence(')
-$schema59DamageCheckedHealthIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('!damageManager.SetHealthScaled(0.0)')
+$schema59DamageCheckedHealthIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('!ApplyAuthoritativeDestruction(damageManager)')
 $schema59DamageDestroyedIndex = $schema59LifecycleDamageEvidenceBlock.IndexOf('MarkPhysicalTargetDestroyed(')
 foreach ($schema59DamageEvidenceEntry in @(
 	'projectionAsset.GetAssetId() != asset.m_sAssetId',
@@ -18093,7 +18124,7 @@ if ($schema59DamageLockIndex -lt 0 -or $schema59DamageLiveProjectionIndex -lt 0 
 	$schema59DamagePositionIndex -gt $schema59DamageReceiptIndex -or
 	$schema59DamageReceiptIndex -gt $schema59DamageCheckedHealthIndex -or
 	$schema59DamageCheckedHealthIndex -gt $schema59DamageDestroyedIndex) {
-	throw "Schema-59 explosive score recording/destruction must follow reciprocal lock, live component, bounded position, durable receipt, and checked health mutation"
+	throw "Schema-59 explosive score recording/destruction must follow reciprocal lock, live component, bounded position, durable receipt, and checked stock Kill damage"
 }
 $schema59RecordEvidenceBlock = Get-ScriptMethodBlock $schema59LifecycleText 'protected bool RecordExactExplosiveEvidence('
 foreach ($schema59RecordEvidenceEntry in @(
@@ -31413,20 +31444,20 @@ foreach ($campaignDebugRadioFixtureDamageEntry in @(
 	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
 	'MissionOwnsCurrentSiteLock(state, site, mission, asset)',
 	'ResolveDamageManager(',
-	'bool writeAccepted = damageManager.SetHealthScaled(0.0);',
-	'bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;',
-	'return writeAccepted && destroyed;'
+	'bool destroyed = ApplyAuthoritativeDestruction(damageManager);',
+	'engine kill %6',
+	'return destroyed;'
 )) {
 	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureDamageBlock) -or
 		$campaignDebugRadioFixtureDamageBlock.IndexOf($campaignDebugRadioFixtureDamageEntry) -lt 0) {
 		throw "Campaign debug radio fixture physical action lacks exact engine destruction proof: $campaignDebugRadioFixtureDamageEntry"
 	}
 }
-$campaignDebugRadioFixtureHealthWriteIndex = $campaignDebugRadioFixtureDamageBlock.IndexOf('bool writeAccepted = damageManager.SetHealthScaled(0.0);')
-$campaignDebugRadioFixtureDestroyedProofIndex = $campaignDebugRadioFixtureDamageBlock.IndexOf('bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;')
+$campaignDebugRadioFixtureHealthWriteIndex = $campaignDebugRadioFixtureDamageBlock.IndexOf('bool destroyed = ApplyAuthoritativeDestruction(damageManager);')
+$campaignDebugRadioFixtureDestroyedProofIndex = $campaignDebugRadioFixtureDamageBlock.IndexOf('return destroyed;')
 if ($campaignDebugRadioFixtureHealthWriteIndex -lt 0 -or
 	$campaignDebugRadioFixtureDestroyedProofIndex -le $campaignDebugRadioFixtureHealthWriteIndex) {
-	throw "Campaign debug radio fixture must apply engine damage before observing DESTROYED"
+	throw "Campaign debug radio fixture must apply checked stock Kill damage before reporting engine destruction"
 }
 foreach ($campaignDebugRadioFixtureForbiddenMutationPattern in @(
 	'\.m_eLifecycleState\s*=(?!=)',
