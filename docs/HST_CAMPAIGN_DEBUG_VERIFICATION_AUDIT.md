@@ -14,12 +14,19 @@ opens: `logs_2026-07-13_22-19-40`, `logs_2026-07-13_22-20-58`,
 `logs_2026-07-13_22-22-07`, and `logs_2026-07-13_22-22-56`. The set includes a
 visible normal project open and a visible Script Editor open. Each completed
 Game load used CRC `fd9e2cf4`, no run produced a fatal/script-error row or crash
-artifact, and cleanup left zero Workbench processes. Current classification is
-therefore interactive-startup stable with one earlier intermittent native crash
-that is not presently reproducible. No speculative project-code patch is
-justified by this evidence. A recurrence needs the fresh log directory and dump
-from that attempt plus the exact action that preceded it; it must not be merged
-with the earlier event or reported as fixed without a repeatable cause.
+artifact, and cleanup left zero Workbench processes. Following the later crash
+report, a seventh controlled project open in `logs_2026-07-13_22-50-48` again
+loaded Game CRC `fd9e2cf4`, created the game, remained responsive for nearly two
+minutes, and shut down cleanly with no fault event. A preceding automation
+attempt supplied the project without its base-game and Workbench addon roots;
+its `Game addon ... not found` / `Cannot initialize game project settings`
+shutdown is a launch-harness error before scripts compile and is not a Partisan
+crash. Current classification is therefore interactive-startup stable with one
+earlier intermittent native crash that is not presently reproducible. No
+speculative project-code patch is justified by this evidence. A recurrence
+needs the fresh log directory and dump from that attempt plus the exact action
+that preceded it; it must not be merged with the earlier event or reported as
+fixed without a repeatable cause.
 
 ## Schema 70 Exact Enemy Garrison Rebuild Engine-Proof Boundary
 
