@@ -1882,6 +1882,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
     next compile or gameplay run.
   - A single Workbench log directory can contain several script reload attempts. When auditing a compile failure, split by the latest `Reloading game scripts` / `Script validation` segment before deciding whether an earlier `SCRIPT (E)` line is still current. Record which later reload proves the fix, and keep later commits unproven until they have their own reload/runtime evidence.
   - If Workbench crashes after Game script compilation with no `SCRIPT (E)` rows, a compile-valid Partisan change can still be the trigger. First halve or back out the most recent script slice and retest the same loaded-project set; profile project-list isolation is a secondary check, not proof that the mod is innocent.
+  - Do not assign every native `0xc0000374` failure to project script complexity
+    without reproducing it on the same tree. The 2026-07-13 crash in
+    `logs_2026-07-13_19-41-00` stopped before `Module: Game`, recorded native
+    heap corruption in `ntdll.dll`, and had no preceding HST or `SCRIPT (E)`
+    diagnostic. The unchanged current tree then survived six separate cold
+    interactive opens, including the normal project window and Script Editor,
+    through `logs_2026-07-13_22-22-56`; every completed Game load used CRC
+    `fd9e2cf4`, produced no crash artifact, and left no Workbench process after
+    cleanup. Classify that event as intermittent and unreproduced unless a new
+    dump ties it to a repeatable action. Preserve the new log directory and dump
+    before changing code, then compare its loaded project, last completed module,
+    CRC, and interaction against the clean cold-open set.
   - Protected helper names are class-local. If a campaign-debug report path calls a helper such as `ReportBool` or `ResolveEntityPrefabName`, the calling class must define it directly; a same-named helper on another service does not satisfy the caller and Workbench reports `Undefined function`.
   - Workbench Game script compilation can report `Broken expression (missing ';'?)` on a valid-looking helper declaration when a newly introduced parameter spelling trips the parser at a method boundary. Current observed case: `EnsureCampaignDebugArtifactRecorded(string artifactPath)` failed at the declaration; the previously compiled `string path` form is the safe spelling for that helper, and the validator guards it.
   - Keep transient result models outside save data and serialize them with `JsonSaveContext` under `$profile:Partisan/debug`. Whole-tree startup migration treats prior debug artifacts like any other nested file: byte-verify them at the canonical relative path or conflict archive before removing the source.

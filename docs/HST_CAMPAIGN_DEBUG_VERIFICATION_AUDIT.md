@@ -1,5 +1,26 @@
 # Partisan Campaign Debug Verification Audit
 
+## Current Workbench Crash Triage Boundary
+
+The reported 2026-07-13 Workbench failure is captured in
+`logs_2026-07-13_19-41-00`. Its dump records native heap corruption
+`0xc0000374` in `ntdll.dll`; the process stopped before `Module: Game`, and the
+preceding log contains no HST or `SCRIPT (E)` diagnostic. This is a real failed
+Workbench gate, but it does not by itself identify a Partisan-owned script fault.
+
+The same current tree subsequently survived six independent cold interactive
+opens: `logs_2026-07-13_22-19-40`, `logs_2026-07-13_22-20-58`,
+`logs_2026-07-13_22-21-11`, `logs_2026-07-13_22-21-24`,
+`logs_2026-07-13_22-22-07`, and `logs_2026-07-13_22-22-56`. The set includes a
+visible normal project open and a visible Script Editor open. Each completed
+Game load used CRC `fd9e2cf4`, no run produced a fatal/script-error row or crash
+artifact, and cleanup left zero Workbench processes. Current classification is
+therefore interactive-startup stable with one earlier intermittent native crash
+that is not presently reproducible. No speculative project-code patch is
+justified by this evidence. A recurrence needs the fresh log directory and dump
+from that attempt plus the exact action that preceded it; it must not be merged
+with the earlier event or reported as fixed without a repeatable cause.
+
 ## Schema 70 Exact Enemy Garrison Rebuild Engine-Proof Boundary
 
 The active development tree uses Campaign Schema 70 while runtime settings
