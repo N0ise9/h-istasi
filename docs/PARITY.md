@@ -64,16 +64,25 @@ now limits legacy no-town FIA/occupier support backfill to saves restored from
 before Schema 22; Schema-22-and-newer stored values, including zero, remain
 authoritative.
 
-R19 `seed1985_t0_p1_u1784044976` is the latest in-process diagnostic. It
-executed 688 cases at 571 PASS, 57 WARN, 53 FAIL, and 7 BLOCKED, proving
-5,492/5,665 required assertions with 148 failed and 25 blocked. Its persistence
-summary/report is exact at 11/11 missions, 22/22 mission assets, 21/21 runtime
-entities, 9/9 groups, 10/10 runtime vehicles, 1/1 field vehicles, and
-`civilian_occupier_support` 2,514/2,514. Only `persistence.real_restart` remains
-blocked in that family, and the final tracked-state diff is exactly zero. The
-wider run is not certified: unrelated local-security checkpoint and cleanup-
-isolation blocks remain, and external restart, package, network, and soak gates
-remain open.
+R20 `seed1985_t0_p1_u1784047342` remains the historical diagnosis of the
+checkpoint-evidence false negative and four untracked Phase 22 orders. Current
+R21 `seed1985_t0_p1_u1784049066` ran build
+`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f` and completed 688 cases at 564 PASS,
+63 WARN, 54 FAIL, and 7 BLOCKED, proving 5,494/5,659 required assertions with
+147 failed and 18 blocked. Its persistence summary/report is exact at 11/11
+missions, 22/22 mission assets, 21/21 runtime entities, 9/9 groups, 10/10
+runtime vehicles, 1/1 field vehicles, and `civilian_occupier_support`
+2,514/2,514. Only `persistence.real_restart` remains blocked in that family,
+and isolated state restore finishes at an exact-zero diff.
+
+R21 passes Foundation checkpoint capture, all eight `local_security.*`
+assertions without materialization deferral, `cleanup.enemy_orders` at zero open,
+and `cleanup.run_leak_snapshot` at zero-to-zero open orders. World-scope restore
+remains restart-blocked. Three R20 PASS cases around `destroy_factory_asset`
+became WARN because their marker was missing or the target was already destroyed;
+that explains the total movement but is unrelated to the confirmed fixes. The
+wider run is not certified, and external restart, package, network, and soak
+gates remain open.
 
 The preceding R10 remains the last positive proof for all five Phase 18 cases.
 Its Phase 20 proof established exact shared-clock restoration
@@ -83,7 +92,7 @@ three WARN, and zero FAIL: stable order identity, strategic-isolation baseline,
 and native RUN-response assertions all passed, while the remaining warnings
 are movement observations. Phase 24 completed with 11 PASS, one WARN, and zero
 FAIL. Typed enemy-order cleanup reported zero settlement failures, zero tracked
-open orders, and zero runtime claimants. R19 preserves the corrected generic
+open orders, and zero runtime claimants. R21 preserves the corrected generic
 mission roundtrip and the exact current-schema support summary described above.
 
 R10 validates the ambient commander hold, stable typed-order cleanup, and
@@ -116,17 +125,17 @@ Workbench/game process. The R12-R15 ladder proved the exact component/resource/
 engine-action boundaries described above; the current source also supplies the
 paired inherited rebuild-equipment replication dependency.
 
-The current support-roundtrip checkpoint is stamped at implementation
-`89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, UTC
-`2026-07-14T16:01:36Z`, label
-`schema70-settings24-current-support-roundtrip`. It changes no persisted
-schema and passes Foundation at 793 references. Headless Workbench log
-`logs_2026-07-14_12-02-05` compiles and creates 5,826 Game files/11,807 classes
-at 46,639K static storage and CRC `9d1cd471`, completes create/destroy with no
-HST script or fatal diagnostic, and leaves zero engine processes. Normal
-project-open log `logs_2026-07-14_11-58-20` remained healthy and alive for 25
-seconds until its exact process was deliberately closed; it contains no crash
-event.
+The current cleanup-ownership checkpoint is stamped at source
+`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, UTC
+`2026-07-14T17:00:29Z`, label
+`schema70-settings24-debug-cleanup-ownership`. It changes no persisted schema.
+The immediately preceding `2508a735` checkpoint-evidence delta accepts the
+debug-isolated checkpoint prefix; `3ded248a` owns every order appended by the
+direct Phase 22 commander tick and compares final open orders with baseline.
+R21 confirms both. Current headless Workbench log
+`logs_2026-07-14_13-01-21` compiles and creates 5,826 Game files/11,807 classes
+at CRC `c4a3e0a1`, completes create/destroy with no HST script or fatal
+diagnostic, and leaves zero engine processes.
 
 The immediately preceding Schema-69/settings-24 checkpoint moved newly admitted
 enemy counterattacks to exact contract `1`: a frozen infantry manifest and one reciprocal operation graph own
@@ -1104,15 +1113,18 @@ Debug and packaged-runtime gates remain open.
   and selected ownership ABA rejection. Foundation passes at 790 script-symbol
   references. The known recoverable base-game VM and two filter-constructor
   diagnostics remain, so the focused environment is not exception-free. Latest
-  completed CLI run R19 `seed1985_t0_p1_u1784044976` executed 688 cases with
-  571 PASS/57 WARN/53 FAIL/7 BLOCKED and proved 5,492/5,665 required assertions,
-  with 148 failed and 25 blocked. Its persistence summary/report is exact at
-  11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10
-  runtime vehicles, 1/1 field vehicles, and 2,514/2,514 occupier support; only
-  `persistence.real_restart` is blocked in that family and the final diff is
-  exactly zero. Unrelated local-security checkpoint and cleanup-isolation
-  blocks remain. Packaged/native execution, dedicated-server, real restart,
-  network/JIP/reconnect, and soak gates remain open.
+  completed CLI run R21 `seed1985_t0_p1_u1784049066` executed build `3ded248a`
+  across 688 cases with 564 PASS/63 WARN/54 FAIL/7 BLOCKED and proved
+  5,494/5,659 required assertions, with 147 failed and 18 blocked. Its
+  persistence summary/report is exact at 11/11 missions, 22/22 assets, 21/21
+  runtime entities, 9/9 groups, 10/10 runtime vehicles, 1/1 field vehicles, and
+  2,514/2,514 occupier support; only `persistence.real_restart` is blocked in
+  that family and the final diff is exactly zero. All eight local-security
+  assertions pass and the materialization deferral is gone. Foundation
+  checkpoint, enemy-order cleanup at zero open, and the zero-to-zero leak
+  snapshot also pass. World-scope restart plus packaged/native
+  execution, dedicated-server, real restart, network/JIP/reconnect, and soak
+  gates remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation
@@ -1425,18 +1437,19 @@ Debug and packaged-runtime gates remain open.
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
 - The latest inspected Full Campaign Debug artifact is
-  R19 `seed1985_t0_p1_u1784044976`. It executed 688 cases with 571 PASS/57
-  WARN/53 FAIL/7 BLOCKED, proved 5,492/5,665 required assertions with 148 failed
-  and 25 blocked, and retained an exact-zero final tracked-state diff. Its
-  persistence summary/report is exact, but the wider artifact remains
-  diagnostic rather than certification.
+  R21 `seed1985_t0_p1_u1784049066`. It executed 688 cases with 564 PASS/63
+  WARN/54 FAIL/7 BLOCKED, proved 5,494/5,659 required assertions with 147 failed
+  and 18 blocked, and retained an exact-zero final tracked-state diff. Its
+  persistence summary/report is exact, all eight local-security assertions
+  pass, and the former materialization deferral is gone. The wider artifact
+  remains diagnostic rather than certification.
 - The preceding R10 remains the last positive proof that all five Phase 18
   cases passed. Its Phase 20 clock/fingerprint isolation passed
   with one town behavior/authority case still failed. Phase 22 completed at
   four PASS/three WARN/zero FAIL, and Phase 24 completed at 11 PASS/one
   WARN/zero FAIL. Typed order cleanup left zero settlement failures, open
   tracked orders, or runtime claimants. R17 proved the corrected 11/11 mission
-  roundtrip, and R19 proves exact current-schema support preservation. Earlier
+  roundtrip, and R21 preserves exact current-schema support. Earlier
   native exact crew-seat
   materialization/rollback containment and other runtime failures remain
   separate open defects.
@@ -1450,14 +1463,17 @@ Debug and packaged-runtime gates remain open.
   world/prefix cleanup, and the final state diff all pass. Next prove one
   authored binding, restart/streaming reapplication, package behavior, and
   multiplayer without duplicate transmitters.
-- Use R19 as the current failure baseline and R10 as the last positive baseline
+- Use R21 as the current failure baseline and R10 as the last positive baseline
   for the earlier targeted campaign-runtime boundaries.
   Preserve R10's passing Phase 18, clock/fingerprint isolation, Phase 22
   identity/strategic/RUN paths,
   Phase 24, exact-operation marker backing, and typed enemy-order cleanup.
-  Preserve R19's exact persistence report while fixing the unrelated local-
-  security checkpoint, cleanup-isolation, town behavior/authority, and broader
-  runtime failures. Require capacity-
+  Preserve R21's exact persistence report, exact-zero final diff, passing
+  Foundation checkpoint, eliminated local-security materialization deferral,
+  eight passing local-security assertions, and zero-to-zero enemy-order cleanup.
+  Isolate the three `destroy_factory_asset` marker/already-destroyed warnings as
+  the next smallest remaining defect. Then close world-scope restore, town
+  behavior/authority, and broader runtime failures. Require capacity-
   bounded admission, exactly one prepaid support debit, reciprocal order/
   operation/manifest/spawn/group authority, strategic/physical casualty
   continuity, delivered held-roster transfer without aggregate double count,

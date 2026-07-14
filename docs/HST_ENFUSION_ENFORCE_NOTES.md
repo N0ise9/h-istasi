@@ -35,28 +35,37 @@ environment still records the known recoverable base-game player-audit VM
 exception plus two filter-constructor diagnostics during harness setup; it
 succeeds but is not exception-free.
 
-The current support-roundtrip tree passes Foundation at 793 script-symbol
-references. Stamped Workbench log `logs_2026-07-14_12-02-05` compiles 5,826 Game
-files/11,807 classes at CRC `9d1cd471`, creates and destroys the game
-successfully, contains no HST or fatal diagnostic, and leaves zero processes.
-Normal project-open log `logs_2026-07-14_11-58-20` remained alive and healthy
-for 25 seconds until the exact process was deliberately closed; it recorded no
-crash event and also left zero processes. Static, Workbench, and runtime
-evidence remain distinct gates; exact latest run totals belong in the
+The current R21 tree passes Foundation at 793 script-symbol references. Stamped
+Workbench log `logs_2026-07-14_13-01-21` compiles 5,826 Game files/11,807
+classes at CRC `c4a3e0a1`, creates and destroys the game successfully, contains
+no HST or fatal diagnostic, and leaves zero processes. Static, Workbench, and
+runtime evidence remain distinct gates; exact latest run totals belong in the
 verification audit.
 
-The current persistence-smoke isolation checkpoint is stamped at implementation
-`89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, UTC
-`2026-07-14T16:01:36Z`, label
-`schema70-settings24-current-support-roundtrip`. It changes no persisted schema.
-The earlier generic-destroy/radio-classifier fixture collision remains corrected.
+The current source checkpoint is implementation
+`3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, UTC
+`2026-07-14T17:00:29Z`, label
+`schema70-settings24-debug-cleanup-ownership`. It registers orders appended by
+direct debug commander ticks with identity-safe cleanup and compares open-order
+counts at both run boundaries. The preceding source checkpoint
+`2508a735863c153f95bae94adb13f3037b4cdeef`, UTC
+`2026-07-14T16:57:02Z`, label
+`schema70-settings24-debug-checkpoint-evidence`, distinguishes an isolated
+capture from a production checkpoint request. R21 runtime-proves both and they
+change no persisted schema.
+
+The persistence-smoke correction remains implementation
+`89b7754bcd9ac7e8c41f2a8d7604784b5c1c1c83`, label
+`schema70-settings24-current-support-roundtrip`. The earlier generic-
+destroy/radio-classifier fixture collision remains corrected.
 R18 then isolated one remaining roundtrip drift: an ungated pre-Schema-22
 no-town support backfill changed aggregate `civilian_occupier_support` from
 2,514 to 2,614 on a valid current-schema non-town roadblock row. Current source
 gates that backfill to `restoredSchemaVersion < 22`, preserving a current zero
-as authority. R19 proves exact live/restored summaries, reports, typed counts,
-and `civilian_occupier_support` 2,514/2,514; only the intentionally external
-`persistence.real_restart` assertion remains BLOCKED.
+as authority. R19 first proved exact live/restored summaries, reports, typed
+counts, and `civilian_occupier_support` 2,514/2,514; R21 independently preserves
+that result. Only the intentionally external `persistence.real_restart`
+assertion remains BLOCKED.
 
 Campaign-debug order isolation rules learned in this pass:
 
@@ -169,6 +178,24 @@ Campaign-debug order isolation rules learned in this pass:
   against any untracked open Petros order or newly active Defend Petros mission,
   because one scheduler frame between fixtures can otherwise create authority
   that no case owns.
+- When debug isolation suspends a process worker, also hold every ambient
+  producer that can release durable authority into a transient state completed
+  only by that worker. Holding force-spawn queue execution while allowing the
+  ordinary local-security tick moved Morton's held patrol into `MATERIALIZING`;
+  the unavailable worker could not finish the transfer, so persistence correctly
+  deferred. Hold the ambient producer only while Campaign Debug owns the
+  isolated clone. Production remains unchanged, and a detached proof fixture
+  with its own state and service may still execute explicitly.
+- Checkpoint evidence must match the active persistence boundary. A production
+  manual checkpoint records a `checkpoint requested:` status, while an isolated
+  Campaign Debug capture records exact `isolated manual checkpoint` evidence.
+  Branch the assertion on isolation state; do not weaken either prefix or report
+  a successful isolated capture as a production save request.
+- A direct debug call into a production planner can append incidental authority
+  beyond its focal result. Capture the order-array start index, register every
+  appended row through the same identity-safe cleanup owner, and compare open-
+  order counts at both run boundaries. Total historical rows and open rows are
+  different populations; mixing them creates a false cleanup delta.
 - Prefix cleanup is never enemy-order settlement. Route each tracked open order
   through its typed administrative owner first: exact contracts use their exact
   operation settler, and contract-zero rows use the legacy owner that validates
@@ -183,13 +210,19 @@ five of five PASS, restores Phase 20 clock 560 -> 595 -> 560 with an unchanged
 enemy-strategic fingerprint, and finishes Phase 22 at four PASS, three physical-
 movement WARN, and zero FAIL. Phase 24 is 11 PASS, one WARN, and zero FAIL.
 Typed order cleanup reports zero failures, open tracked orders, and runtime
-claimants. R19 now proves every internal persistence assertion PASS: exact live/
-restored summaries and reports, exact mission/asset/runtime/group/vehicle
-counts, and `civilian_occupier_support` 2,514/2,514. Its final tracked-state diff
-is exact zero, while `persistence.real_restart` remains correctly BLOCKED as an
-external gate. R19 is not a green suite: unrelated early checkpoint/local-
-security and cleanup-isolation blocks plus the remaining physical/runtime
-failures stay open.
+claimants. R21 contains no local-security materialization deferral and all
+eight local-security assertions PASS. It also preserves every internal
+persistence assertion: exact live/restored summaries and reports, exact mission/
+asset/runtime/group/vehicle counts, and `civilian_occupier_support`
+2,514/2,514. Its final tracked-state diff is exact zero, while
+`persistence.real_restart` remains correctly BLOCKED as an external gate. The
+R20's isolated checkpoint succeeded but its status assertion used the production-
+only prefix, and its cleanup snapshot WARNed on open enemy orders 0 -> 4. R21
+runtime-proves both corrections: foundation checkpoint PASS with isolated
+evidence, typed enemy cleanup PASS with zero open orders, and leak snapshot PASS
+at 0 -> 0. R21 is not a green suite: three `destroy_factory_asset` cases WARN on
+marker/already-destroyed timing, other physical/runtime failures remain, and the
+intentional world-scope restart block stays open.
 Packaged/native/live-server runtime, serialization/restart, migration runtime,
 network/JIP/reconnect, and soak gates also remain open.
 
@@ -5320,7 +5353,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
   projection to exact held slots. Defer capture if casualties, bindings, or root
   retirement cannot be proven. During setup or terminal campaign cleanup,
   preserve an unsafe open local-security batch until service-owned settlement can
-  finish; generic queue cleanup must not cancel it first.
+  finish; generic queue cleanup must not cancel it first. A debug-isolated run
+  that holds the matching spawn worker must also hold ambient local-security
+  release so a legitimate patrol cannot be stranded in `MATERIALIZING` solely by
+  the harness.
 
 - Resistance ownership means zero automatic civilian police and roadblocks.
   Security-pressure drift should move both scalars toward zero one step per
@@ -5336,14 +5372,16 @@ This file is for practical engine/script behavior, not project planning. Keep en
   infer combat. Record one bounded migration event. Current malformed authority
   uses contract `-66`, clears process authority, and remains diagnostic evidence.
 
-- Static proof should cover catalog bounds/resistance rejection, replay-safe
-  admission, town/owner eligibility, casualty synchronization, fold/restore with
-  no refill, destruction replay and exact police delta, owner/stop/spawn no-loss
-  settlement, newer-owner epoch rearm, later-positive-police rearm, and conflict
-  quarantine. These are source invariants only. Native exact member creation,
-  cyclic waypoint activation, real casualties, bubble exit/re-entry, save/
-  restart, ownership change, terminal cleanup, multiplayer, and soak remain
-  separate runtime gates.
+- Static and detached-service proof should cover catalog bounds/resistance
+  rejection, replay-safe admission, town/owner eligibility, casualty
+  synchronization, fold/restore with no refill, destruction replay and exact
+  police delta, owner/stop/spawn no-loss settlement, newer-owner epoch rearm,
+  later-positive-police rearm, and conflict quarantine. R21 passes all eight
+  registered `local_security` assertions and contains no local-security
+  persistence deferral. These are still isolated state/service invariants, not
+  native exact-member proof. Native exact member creation, cyclic waypoint
+  activation, real casualties, bubble exit/re-entry, save/restart, ownership
+  change, terminal cleanup, multiplayer, and soak remain separate runtime gates.
 
 ## Sealed Schema 67 Enemy Strategic Resource Mechanics
 

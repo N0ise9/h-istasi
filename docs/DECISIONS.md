@@ -1546,3 +1546,57 @@ Consequences:
 - Full R19 finished at 571 PASS/57 WARN/53 FAIL/7 BLOCKED and 5,492/5,665
   required assertions with an exact-zero final state diff. It is not a full
   certification, and real serialization/restart remains open.
+
+## CRI-028 - Keep Campaign Debug Isolation Authority-Complete
+
+- Status: Accepted; R21 runtime proof complete
+- Date: 2026-07-14
+
+Context: Campaign Debug isolation deliberately held the force-spawn worker while
+the ordinary local-security producer still ran. That producer released Morton's
+held patrol into `MATERIALIZING`, where the unavailable worker could not complete
+the transfer; persistence correctly deferred rather than capture ambiguous
+casualty authority. R20 then proved the transfer deferral was gone but exposed
+two debug-proof defects: an isolated successful checkpoint was judged against a
+production-only status prefix, and direct Phase 22 commander ticks appended four
+orders that were not registered with the run's cleanup owner.
+
+Decision: A debug-isolation guard that suspends a process worker also suspends
+ambient producers whose durable transitions require that worker. The local-
+security hold applies only while Campaign Debug owns its isolated clone;
+production cadence is unchanged and the detached local-security proof may still
+run through its own state and service. Checkpoint assertions distinguish exact
+`isolated manual checkpoint` evidence from the production `checkpoint
+requested:` prefix. Every order appended by direct debug commander ticks is
+registered through the existing identity-safe cleanup path, and run leak
+comparison uses open-order counts at both boundaries.
+
+Consequences:
+
+- Current build `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, label
+  `schema70-settings24-debug-cleanup-ownership`, passes stamped Workbench log
+  `logs_2026-07-14_13-01-21` at 5,826 Game files/11,807 classes, CRC
+  `c4a3e0a1`, clean create/destroy, and zero surviving processes.
+- R20 `seed1985_t0_p1_u1784047342` contains no local-security materialization
+  deferral and passes all eight local-security assertions. Its exact persistence
+  roundtrip remains 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9
+  groups, 10/10 runtime vehicles, 1/1 field vehicles, and civilian occupier
+  support 2514/2514; the final tracked-state diff is exact zero.
+- Source checkpoint `2508a735863c153f95bae94adb13f3037b4cdeef`, label
+  `schema70-settings24-debug-checkpoint-evidence`, corrects isolated checkpoint
+  classification. Current source checkpoint
+  `3ded248a4ded084dfb0e3aa8e54ae0a47d36cd5f`, UTC
+  `2026-07-14T17:00:29Z`, label
+  `schema70-settings24-debug-cleanup-ownership`, adds incidental-order ownership
+  and an open-row baseline. R21 confirms foundation checkpoint PASS with exact
+  isolated evidence, typed cleanup PASS with zero open orders, and leak snapshot
+  PASS at 0 -> 0.
+- R21 `seed1985_t0_p1_u1784049066` remains uncertified at 564 PASS/63 WARN/54
+  FAIL/7 BLOCKED and 5,494/5,659 required assertions, with 147 failed and 18
+  blocked. It preserves all eight local-security assertions, exact persistence,
+  and an exact-zero final state restore; only `persistence.real_restart` remains
+  BLOCKED within persistence. Three `destroy_factory_asset` cases WARN on
+  unrelated marker/already-destroyed timing. The separate world-scope restart
+  block remains intentional.
+- These corrections change no campaign schema, settings schema, serialized
+  field, migration rule, or production gameplay cadence.
