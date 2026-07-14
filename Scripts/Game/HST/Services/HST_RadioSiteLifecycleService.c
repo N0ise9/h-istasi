@@ -258,18 +258,19 @@ class HST_RadioSiteLifecycleService
 		GenericEntity transmitter = SpawnProjectionPrefab(
 			CAMPAIGN_DEBUG_FIXTURE_PREFAB,
 			fixturePosition);
+		bool spawned = transmitter != null;
 		string resolvedPrefab = ResolveEntityPrefab(transmitter);
 		SCR_DamageManagerComponent damageManager = ResolveDamageManager(transmitter);
 		bool prefabExact = resolvedPrefab == CAMPAIGN_DEBUG_FIXTURE_PREFAB;
 		bool damageLive = damageManager
 			&& damageManager.GetState() != EDamageState.DESTROYED;
-		if (!transmitter || !prefabExact || !damageLive)
+		if (!spawned || !prefabExact || !damageLive)
 		{
 			if (transmitter && !transmitter.IsDeleted())
 				SCR_EntityHelper.DeleteEntityAndChildren(transmitter);
 			report = string.Format(
 				"Partisan campaign debug radio | disposable transmitter validation failed | spawned %1 | prefab %2 | expected %3 | prefab exact %4 | damage manager %5 | damage live %6",
-				transmitter != null,
+				spawned,
 				resolvedPrefab,
 				CAMPAIGN_DEBUG_FIXTURE_PREFAB,
 				prefabExact,
@@ -2432,10 +2433,9 @@ class HST_RadioSiteLifecycleService
 
 	// Stock structural transmitters use the destruction damage-manager hierarchy,
 	// while generated mission targets use the generic scripted damage manager.
-	// FindComponent is keyed by the requested component type, so asking only for
-	// SCR_DamageManagerComponent does not discover a stock
-	// SCR_DestructionMultiPhaseComponent. Resolve both supported hierarchies through
-	// their shared authority before reading or writing physical health.
+	// FindComponent is keyed by the requested component type. The medium transmitter
+	// declares SCR_DestructionMultiPhaseComponent directly, so resolve that concrete
+	// type as well as both shared bases before reading or writing physical health.
 	protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)
 	{
 		if (!entity)
@@ -2445,6 +2445,12 @@ class HST_RadioSiteLifecycleService
 			entity.FindComponent(SCR_DamageManagerComponent));
 		if (damageManager)
 			return damageManager;
+
+		SCR_DestructionMultiPhaseComponent multiPhaseManager
+			= SCR_DestructionMultiPhaseComponent.Cast(
+				entity.FindComponent(SCR_DestructionMultiPhaseComponent));
+		if (multiPhaseManager)
+			return multiPhaseManager;
 
 		SCR_DestructionDamageManagerComponent destructionManager
 			= SCR_DestructionDamageManagerComponent.Cast(

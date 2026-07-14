@@ -31307,6 +31307,8 @@ foreach ($campaignDebugRadioFixturePrepareEntry in @(
 $campaignDebugRadioDamageResolverBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected SCR_DamageManagerComponent ResolveDamageManager('
 foreach ($campaignDebugRadioDamageResolverEntry in @(
 	'entity.FindComponent(SCR_DamageManagerComponent)',
+	'SCR_DestructionMultiPhaseComponent.Cast(',
+	'entity.FindComponent(SCR_DestructionMultiPhaseComponent)',
 	'SCR_DestructionDamageManagerComponent.Cast(',
 	'entity.FindComponent(SCR_DestructionDamageManagerComponent)',
 	'return destructionManager;'
@@ -31317,6 +31319,7 @@ foreach ($campaignDebugRadioDamageResolverEntry in @(
 	}
 }
 if (($campaignDebugRadioFixtureServiceText | Select-String -Pattern 'FindComponent\(SCR_DamageManagerComponent\)' -AllMatches).Matches.Count -ne 1 -or
+	($campaignDebugRadioFixtureServiceText | Select-String -Pattern 'FindComponent\(SCR_DestructionMultiPhaseComponent\)' -AllMatches).Matches.Count -ne 1 -or
 	($campaignDebugRadioFixtureServiceText | Select-String -Pattern 'FindComponent\(SCR_DestructionDamageManagerComponent\)' -AllMatches).Matches.Count -ne 1) {
 	throw "Radio lifecycle physical-health reads and writes must route through the shared stock-aware damage resolver"
 }
