@@ -17701,7 +17701,7 @@ foreach ($schema59GeneratedProjectionEvidenceEntry in @(
 	'ResolveEntityPrefab(projection) == expectedPrefab',
 	'expectedPosition',
 	'PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS',
-	'SCR_DamageManagerComponent.Cast(',
+	'ResolveDamageManager(projection)',
 	'HST_MissionAssetComponent.Cast('
 )) {
 	if ([string]::IsNullOrEmpty($schema59GeneratedProjectionEvidenceBlock) -or
@@ -17849,7 +17849,7 @@ foreach ($schema59NewCampaignResetEntry in @(
 	'm_aTransmitterCandidates.Count() != 1',
 	'FrozenAuthoredCandidateMatchesSite(site, authored)',
 	'authoredCandidates.Contains(authored)',
-	'SCR_DamageManagerComponent.Cast(',
+	'ResolveDamageManager(authored)',
 	'authoredPriorHealth.Insert(damageManager.GetHealthScaled())',
 	'authoredPriorStates.Insert(damageManager.GetState())',
 	'SetHealthScaled(1.0)',
@@ -31272,7 +31272,8 @@ foreach ($campaignDebugRadioFixtureServiceEntry in @(
 	'int CountCampaignDebugLifecycleFixtures()',
 	'bool PrepareCampaignDebugLifecycleFixture(',
 	'bool ApplyCampaignDebugFixturePhysicalDamage(',
-	'bool CleanupCampaignDebugLifecycleFixture(string requiredPrefix, out string report)'
+	'bool CleanupCampaignDebugLifecycleFixture(string requiredPrefix, out string report)',
+	'protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)'
 )) {
 	if ([string]::IsNullOrEmpty($campaignDebugRadioFixtureServiceText) -or
 		$campaignDebugRadioFixtureServiceText.IndexOf($campaignDebugRadioFixtureServiceEntry) -lt 0) {
@@ -31285,6 +31286,7 @@ foreach ($campaignDebugRadioFixturePrepareEntry in @(
 	'fixtureZoneId.StartsWith(CAMPAIGN_DEBUG_FIXTURE_PREFIX)',
 	'SpawnProjectionPrefab(',
 	'CAMPAIGN_DEBUG_FIXTURE_PREFAB',
+	'ResolveDamageManager(transmitter)',
 	'zone.m_eType = HST_EZoneType.HST_ZONE_RADIO_TOWER;',
 	'zone.m_sSourceLayerName = CAMPAIGN_DEBUG_FIXTURE_SOURCE_LAYER;',
 	'state.m_aZones.Insert(zone);',
@@ -31302,6 +31304,23 @@ foreach ($campaignDebugRadioFixturePrepareEntry in @(
 	}
 }
 
+$campaignDebugRadioDamageResolverBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'protected SCR_DamageManagerComponent ResolveDamageManager('
+foreach ($campaignDebugRadioDamageResolverEntry in @(
+	'entity.FindComponent(SCR_DamageManagerComponent)',
+	'SCR_DestructionDamageManagerComponent.Cast(',
+	'entity.FindComponent(SCR_DestructionDamageManagerComponent)',
+	'return destructionManager;'
+)) {
+	if ([string]::IsNullOrEmpty($campaignDebugRadioDamageResolverBlock) -or
+		$campaignDebugRadioDamageResolverBlock.IndexOf($campaignDebugRadioDamageResolverEntry) -lt 0) {
+		throw "Radio lifecycle damage authority must resolve both generated and stock destruction component hierarchies: $campaignDebugRadioDamageResolverEntry"
+	}
+}
+if (($campaignDebugRadioFixtureServiceText | Select-String -Pattern 'FindComponent\(SCR_DamageManagerComponent\)' -AllMatches).Matches.Count -ne 1 -or
+	($campaignDebugRadioFixtureServiceText | Select-String -Pattern 'FindComponent\(SCR_DestructionDamageManagerComponent\)' -AllMatches).Matches.Count -ne 1) {
+	throw "Radio lifecycle physical-health reads and writes must route through the shared stock-aware damage resolver"
+}
+
 $campaignDebugRadioFixtureDamageBlock = Get-ScriptMethodBlock $campaignDebugRadioFixtureServiceText 'bool ApplyCampaignDebugFixturePhysicalDamage('
 foreach ($campaignDebugRadioFixtureDamageEntry in @(
 	'CountCampaignDebugLifecycleFixtures() != 1',
@@ -31309,6 +31328,7 @@ foreach ($campaignDebugRadioFixtureDamageEntry in @(
 	'mission.m_sTargetZoneId != m_sCampaignDebugFixtureZoneId',
 	'HST_RADIO_SITE_TARGET_BORROWED_WORLD',
 	'MissionOwnsCurrentSiteLock(state, site, mission, asset)',
+	'ResolveDamageManager(',
 	'bool writeAccepted = damageManager.SetHealthScaled(0.0);',
 	'bool destroyed = damageManager.GetState() == EDamageState.DESTROYED;',
 	'return writeAccepted && destroyed;'

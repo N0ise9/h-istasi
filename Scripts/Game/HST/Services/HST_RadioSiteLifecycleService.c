@@ -258,17 +258,23 @@ class HST_RadioSiteLifecycleService
 		GenericEntity transmitter = SpawnProjectionPrefab(
 			CAMPAIGN_DEBUG_FIXTURE_PREFAB,
 			fixturePosition);
-		SCR_DamageManagerComponent damageManager;
-		if (transmitter)
-			damageManager = SCR_DamageManagerComponent.Cast(
-				transmitter.FindComponent(SCR_DamageManagerComponent));
-		if (!transmitter || !damageManager
-			|| ResolveEntityPrefab(transmitter) != CAMPAIGN_DEBUG_FIXTURE_PREFAB
-			|| damageManager.GetState() == EDamageState.DESTROYED)
+		string resolvedPrefab = ResolveEntityPrefab(transmitter);
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(transmitter);
+		bool prefabExact = resolvedPrefab == CAMPAIGN_DEBUG_FIXTURE_PREFAB;
+		bool damageLive = damageManager
+			&& damageManager.GetState() != EDamageState.DESTROYED;
+		if (!transmitter || !prefabExact || !damageLive)
 		{
 			if (transmitter && !transmitter.IsDeleted())
 				SCR_EntityHelper.DeleteEntityAndChildren(transmitter);
-			report = "Partisan campaign debug radio | disposable transmitter lacks exact prefab or live damage authority";
+			report = string.Format(
+				"Partisan campaign debug radio | disposable transmitter validation failed | spawned %1 | prefab %2 | expected %3 | prefab exact %4 | damage manager %5 | damage live %6",
+				transmitter != null,
+				resolvedPrefab,
+				CAMPAIGN_DEBUG_FIXTURE_PREFAB,
+				prefabExact,
+				damageManager != null,
+				damageLive);
 			return false;
 		}
 
@@ -362,8 +368,8 @@ class HST_RadioSiteLifecycleService
 			return false;
 		}
 
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-			m_CampaignDebugFixtureTransmitter.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(
+			m_CampaignDebugFixtureTransmitter);
 		if (!damageManager || damageManager.GetState() == EDamageState.DESTROYED)
 		{
 			report = "Partisan campaign debug radio | fixture transmitter was missing or already destroyed before the action";
@@ -591,8 +597,7 @@ class HST_RadioSiteLifecycleService
 				failureReason = "new campaign reset could not recover a frozen authored transmitter binding";
 				return false;
 			}
-			SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-				authored.FindComponent(SCR_DamageManagerComponent));
+			SCR_DamageManagerComponent damageManager = ResolveDamageManager(authored);
 			if (authoredCandidates.Contains(authored) || !damageManager)
 			{
 				failureReason = "new campaign reset authored transmitter set is duplicated or not damageable";
@@ -896,8 +901,7 @@ class HST_RadioSiteLifecycleService
 			IEntity projection = FindProjection(site.m_sSiteId);
 			if (!projection || asset.m_bDestroyed)
 				continue;
-			SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-				projection.FindComponent(SCR_DamageManagerComponent));
+			SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
 			if (damageManager && damageManager.GetState() == EDamageState.DESTROYED)
 			{
 				if (site.m_eTargetOwnership == HST_ERadioSiteTargetOwnership.HST_RADIO_SITE_TARGET_BORROWED_WORLD
@@ -1122,9 +1126,7 @@ class HST_RadioSiteLifecycleService
 		}
 
 		IEntity projection = FindProjection(site.m_sSiteId);
-		SCR_DamageManagerComponent damageManager;
-		if (projection)
-			damageManager = SCR_DamageManagerComponent.Cast(projection.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
 		if (!damageManager || damageManager.GetState() != EDamageState.DESTROYED)
 		{
 			resultText = "Partisan radio site | direct destruction rejected without authoritative physical damage state";
@@ -1268,8 +1270,7 @@ class HST_RadioSiteLifecycleService
 			return true;
 		}
 
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-			projection.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
 		if (!damageManager || (damageManager.GetState() != EDamageState.DESTROYED
 			&& (!damageManager.SetHealthScaled(0.0)
 				|| damageManager.GetState() != EDamageState.DESTROYED)))
@@ -1997,8 +1998,7 @@ class HST_RadioSiteLifecycleService
 				site.m_vTargetPosition,
 				PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)
 			|| ResolveEntityPrefab(projection) != asset.m_sPrefab
-			|| !SCR_DamageManagerComponent.Cast(
-				projection.FindComponent(SCR_DamageManagerComponent)))
+			|| !ResolveDamageManager(projection))
 			return false;
 		HST_MissionAssetComponent component = HST_MissionAssetComponent.Cast(
 			projection.FindComponent(HST_MissionAssetComponent));
@@ -2038,8 +2038,7 @@ class HST_RadioSiteLifecycleService
 				projection.GetOrigin(),
 				expectedPosition,
 				PHYSICAL_EVIDENCE_POSITION_TOLERANCE_METERS)
-			&& SCR_DamageManagerComponent.Cast(
-				projection.FindComponent(SCR_DamageManagerComponent))
+			&& ResolveDamageManager(projection)
 			&& HST_MissionAssetComponent.Cast(
 				projection.FindComponent(HST_MissionAssetComponent));
 	}
@@ -2077,7 +2076,7 @@ class HST_RadioSiteLifecycleService
 			string prefab = ResolveEntityPrefab(candidate);
 			if (!IsSupportedTransmitterPrefab(prefab))
 				return QuarantineSite(state, site, "authored transmitter candidate has unsupported prefab identity");
-			if (!SCR_DamageManagerComponent.Cast(candidate.FindComponent(SCR_DamageManagerComponent)))
+			if (!ResolveDamageManager(candidate))
 				return QuarantineSite(state, site, "authored transmitter candidate is not damageable");
 			site.m_sTargetPrefab = prefab;
 			site.m_vTargetPosition = candidate.GetOrigin();
@@ -2158,8 +2157,7 @@ class HST_RadioSiteLifecycleService
 					"missing borrowed projection lost its reciprocal runtime entity") || changed;
 			return MarkBorrowedProjectionPending(state, pendingMission, pendingAsset) || changed;
 		}
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-			projection.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
 		if (damageManager && damageManager.GetState() == EDamageState.DESTROYED)
 		{
 			HST_ActiveMissionState mission = state.FindActiveMission(site.m_sActiveMissionInstanceId);
@@ -2274,8 +2272,7 @@ class HST_RadioSiteLifecycleService
 		}
 		if (!projection)
 			return changed;
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-			projection.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(projection);
 		if (!damageManager)
 			return QuarantineSite(state, site, "destroyed authored transmitter lost its damage authority") || changed;
 		if (damageManager.GetState() != EDamageState.DESTROYED)
@@ -2433,6 +2430,28 @@ class HST_RadioSiteLifecycleService
 		return entity.GetPrefabData().GetPrefabName();
 	}
 
+	// Stock structural transmitters use the destruction damage-manager hierarchy,
+	// while generated mission targets use the generic scripted damage manager.
+	// FindComponent is keyed by the requested component type, so asking only for
+	// SCR_DamageManagerComponent does not discover a stock
+	// SCR_DestructionMultiPhaseComponent. Resolve both supported hierarchies through
+	// their shared authority before reading or writing physical health.
+	protected SCR_DamageManagerComponent ResolveDamageManager(IEntity entity)
+	{
+		if (!entity)
+			return null;
+
+		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
+			entity.FindComponent(SCR_DamageManagerComponent));
+		if (damageManager)
+			return damageManager;
+
+		SCR_DestructionDamageManagerComponent destructionManager
+			= SCR_DestructionDamageManagerComponent.Cast(
+				entity.FindComponent(SCR_DestructionDamageManagerComponent));
+		return destructionManager;
+	}
+
 	protected bool SuppressAuthoredTransmitterResurrection(
 		HST_CampaignState state,
 		HST_RadioSiteState site)
@@ -2453,8 +2472,7 @@ class HST_RadioSiteLifecycleService
 		IEntity authored = m_aTransmitterCandidates[0];
 		if (!FrozenAuthoredCandidateMatchesSite(site, authored))
 			return QuarantineSite(state, site, "authored transmitter suppression candidate conflicts with frozen provenance");
-		SCR_DamageManagerComponent damageManager = SCR_DamageManagerComponent.Cast(
-			authored.FindComponent(SCR_DamageManagerComponent));
+		SCR_DamageManagerComponent damageManager = ResolveDamageManager(authored);
 		if (!damageManager)
 			return QuarantineSite(state, site, "authored transmitter suppression target lost its damage authority");
 		if (damageManager.GetState() == EDamageState.DESTROYED)
