@@ -17840,8 +17840,9 @@ if ($schema59RebuildPrefabText -notmatch [regex]::Escape('ConcreteMixer_01.et') 
 	$schema59RebuildPrefabText -notmatch [regex]::Escape('HST_MissionDestroyTargetComponent') -or
 	$schema59RebuildPrefabText -notmatch [regex]::Escape('HST_MissionAssetComponent') -or
 	$schema59RebuildPrefabText -notmatch 'SCR_DestructionMultiPhaseComponent\s+"\{5624A88D86EFE8BA\}"\s*\{\s*Enabled\s+1' -or
+	$schema59RebuildPrefabText -notmatch 'RplComponent\s+"\{5624A88DC2D9928D\}"\s*\{\s*Enabled\s+1' -or
 	$schema59RebuildPrefabText -match 'TransmitterTower') {
-	throw "Schema-59 stop-rebuild prefab must be non-transmitter demolition equipment"
+	throw "Schema-59 stop-rebuild prefab must be replicated non-transmitter demolition equipment"
 }
 if ($schema59GeneratedTowerPrefabText -notmatch 'SCR_DestructionMultiPhaseComponent\s+"\{6724D3416F75923D\}"\s*\{\s*Enabled\s+1' -or
 	$schema59GeneratedTowerPrefabText -notmatch 'm_fRequiredExplosiveDamage\s+300(?:\.0+)?\b' -or

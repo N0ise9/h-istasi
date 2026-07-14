@@ -4,6 +4,9 @@ GenericEntity HST_RadioRebuildEquipment : "{4A34979DC19CA9ED}Prefabs/Props/Const
 	SCR_DestructionMultiPhaseComponent "{5624A88D86EFE8BA}" {
 	 Enabled 1
 	}
+  RplComponent "{5624A88DC2D9928D}" {
+   Enabled 1
+  }
   HST_MissionActionFilterComponent "{6985327711303942}" {
   }
   HST_MissionAssetComponent "{6985327711303943}" {
