@@ -66,11 +66,9 @@ authoritative.
 Pre-stamp Foundation source checks pass at 808 script-symbol references. Fresh
 stamped-tree Workbench Game Module validation reports `Script validation
 successful`, exits `0` with zero script, HST, or hard-failure signals, and
-leaves exact guarded cleanup. Detailed file/class/static-storage counts and CRC
-were not captured and remain pending. The preceding physical-settle checkpoint,
-not the current source, produced 5,830 Game files/11,822 classes, 47,077K static
-storage, and CRC `c79d806b`; its pre-seal CRC `1a2853e8` remains preliminary
-historical evidence only. R31 is the next current runtime gate.
+leaves exact guarded cleanup. It loads 5,830 Game files and 11,822 classes with
+47,077K static storage at CRC `b789ee05`. R31 completed the current runtime gate
+against this exact stamped source; the wider suite remains uncertified.
 
 R28 `seed1985_t0_p1_u1784098447` first exercised the casualty extension across
 687 cases at 576 PASS/50 WARN/54 FAIL/6 BLOCKED/1 SKIPPED and proved 5,517/5,684
@@ -97,7 +95,7 @@ and exact authority reported orders/open/terminal/invalid `1/1/0/0`, projection
 state diff were zero, no active mission remained, and cleanup was exact. The
 state-first physical settle targeted that publication seam.
 
-R30 `seed1985_t0_p1_u1784110353` is now the latest completed run. Its 687 cases
+R30 `seed1985_t0_p1_u1784110353` is the preceding diagnostic run. Its 687 cases
 finished at 576 PASS/50 WARN/53 FAIL/7 BLOCKED/1 SKIPPED and proved 5,510/5,672
 required assertions, with 144 failed and 18 blocked. The first six Phase-17
 assertions passed and all five casualty assertions failed before `Kill`. The
@@ -108,8 +106,21 @@ took one sample, while casualty-re-entry physical settle exhausted four. Phase-
 24 runtime-owner classification passed; exact authority was skipped after
 emergency focal cleanup. All 18 reported state deltas were zero, there were zero
 HST script errors and zero crash markers, and external cleanup was exact. R30
-identifies a debug-only post-handoff ordering seam; R31 must prove the current
-same-invocation correction.
+identifies the debug-only post-handoff ordering seam corrected by the current
+same-invocation source.
+
+R31 `seed1985_t0_p1_u1784117364` ran that current stamped source across 687
+cases at 577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED. Certification remained
+false: 5,528/5,685 required assertions were proven, with 139 failed, 18 blocked,
+and zero certification warnings. All 11 Phase-17 targets passed exactly once.
+Expected living count was 9, spawn ticks were `8/18` with deferred `0`, initial/
+casualty/survivor physical settles were `1/1/1` of four, and casualty settle was
+`1/4`. Both Phase-24 owner assertions passed; classification was `16/16`, with
+open exact counterattacks/projection groups `2/2`. All 18 reported deltas across
+the 29-line state diff were zero, there were zero script, HST, or crash errors,
+and exact cleanup left zero session residue, owned processes, new engine
+processes, or default-log entries. The targeted proof-ordering gate passes;
+unrelated suite failures and external blockers remain open.
 
 The earlier broad Schema-70 operation checkpoint gives newly admitted enemy
 garrison rebuilds exact contract `1`: a
@@ -153,10 +164,10 @@ plus two filter-constructor diagnostics. The focused run succeeds but is not
 exception-free.
 
 The Campaign Debug verification audit retains the exact current and historical
-run identities. R30 is the latest completed run; its first six projection
-assertions and runtime-owner classification pass, its casualty chain stops
-before the kill when one exact handed-off member is already nonliving, and the
-wider suite remains incomplete rather than certified.
+run identities. R31 is the latest completed run; all 11 targeted Phase-17
+assertions and both owner-aware Phase-24 assertions pass exactly once, with
+bounded one-sample settles and exact-zero final drift. The wider suite remains
+incomplete rather than certified.
 
 R12 through R15 isolated the radio fixture's component lookup, inherited
 resource enabling, destruction-action semantics, and paired replication
@@ -216,14 +227,13 @@ R27 `seed1985_t0_p1_u1784093667` remains the historical projection-only proof.
 R28 first exposed the intermittent casualty chain, while unchanged R28b passed
 all 11 Phase-17 assertions exactly once with `N=9 -> 8` and zero final drift.
 R29 then isolates already-completed production authority from mutation
-telemetry. R30 `seed1985_t0_p1_u1784110353` is the latest completed Full Campaign
-Debug run. It completes 687 cases at 576 PASS/50 WARN/53 FAIL/7 BLOCKED/1
-SKIPPED and proves 5,510/5,672 required assertions, with 144 failed and 18
-blocked. Its first six Phase-17 assertions and Phase-24 runtime-owner assertion
-pass, but the five casualty assertions fail before `Kill` with exact cardinality
-and one nonliving handed-off entity; exact Phase-24 authority is skipped after
-emergency cleanup. All 18 reported deltas are zero. This is diagnostic evidence
-for the current proof-ordering hardening, not whole-suite certification.
+telemetry. R30 diagnoses the artificial post-handoff scheduling window. R31
+`seed1985_t0_p1_u1784117364` is the latest completed Full Campaign Debug run. It
+completes 687 cases at 577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED and proves
+5,528/5,685 required assertions, with 139 failed, 18 blocked, and zero
+certification warnings. All 11 Phase-17 targets and both Phase-24 owner
+assertions pass exactly once; all 18 reported deltas are zero. This closes the
+targeted proof-ordering gate, not whole-suite certification.
 
 The preceding R10 remains the last positive proof for all five Phase 18 cases.
 Its Phase 20 proof established exact shared-clock restoration
@@ -1303,13 +1313,13 @@ Debug and packaged-runtime gates remain open.
   references. Workbench Game Module validation loads 5,830 Game files and
   11,822 classes with 47,077K static storage at CRC `b789ee05`, reports
   successful script validation, exits `0`, records zero script/HST/hard-failure
-  signals, and leaves exact guarded cleanup. R28b is the positive unchanged casualty comparison: all 11 Phase-17
-  assertions pass once with `N=9 -> 8` and zero final drift. Latest R30 passes
-  the first six Phase-17 assertions but fails the five casualty assertions before
-  `Kill` after exact `9/9/10` cardinality contains one nonliving handed-off
-  member. Runtime-owner classification passes, exact authority is skipped after
-  emergency cleanup, all 18 reported state deltas are zero, and external cleanup
-  is exact. R31 must execute the current proof-ordering source. Historical R26 retains its exact-QRF in-
+  signals, and leaves exact guarded cleanup. R31 executes this exact source at
+  577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED and 5,528/5,685 required
+  assertions proven. All 11 Phase-17 targets and both Phase-24 owner assertions
+  pass exactly once; physical settle is `1/1/1` of four, casualty settle is
+  `1/4`, all 18 reported deltas are zero, and external cleanup is exact.
+  Certification remains false because unrelated failures and blockers remain.
+  Historical R26 retains its exact-QRF in-
   memory evidence, and the separate guarded nine-process matrix retains its
   canonical-fallback prepare/recover/replay evidence. Neither closes native
   persistence-source, world-scope, package, dedicated-server,
@@ -1627,17 +1637,17 @@ Debug and packaged-runtime gates remain open.
   QRF marker ordering, replay, roundtrip, and vehicle-only controls. Real entity
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
-- The latest completed Full Campaign Debug artifact is R30
-  `seed1985_t0_p1_u1784110353` on the preceding physical-settle build. It
-  executed 687 cases with 576 PASS/50 WARN/53 FAIL/7 BLOCKED/1 SKIPPED, proved
-  5,510/5,672 required assertions with 144 failed and 18 blocked, and retained
-  zero across all 18 reported deltas in the 29-line state diff. Its first six
-  Phase-17 assertions pass and its five casualty assertions fail before `Kill`:
-  second-handoff counts are succeeded/held/handoffs `1/0/2`, living/runtime/
-  handles `9/9/10`, and roster `9/9/9/9`, but one present handed-off member is
-  nonliving. Runtime-owner classification passes and exact authority is skipped
-  after emergency cleanup. R28b remains the unchanged positive casualty
-  comparison with all 11 Phase-17 assertions passing once and `N=9 -> 8`.
+- The latest completed Full Campaign Debug artifact is R31
+  `seed1985_t0_p1_u1784117364` on the current proof-ordering build. It executes
+  687 cases with 577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED, proves
+  5,528/5,685 required assertions with 139 failed, 18 blocked, and zero
+  certification warnings, and retains zero across all 18 reported deltas in the
+  29-line state diff. All 11 Phase-17 targets pass exactly once with expected
+  living count 9, spawn ticks `8/18`, deferred `0`, physical settles `1/1/1` of
+  four, and casualty settle `1/4`. Both Phase-24 owner assertions pass at
+  classification `16/16` and open exact counterattacks/projection groups `2/2`.
+  R30 remains the artificial-scheduling diagnosis and R28b the unchanged
+  positive casualty comparison.
   R26 remains the
   historical exact-QRF in-memory comparison: both exact-QRF settlement and
   persistence pass, typed cleanup reports settled 0/failures 0/open 0/runtime
@@ -1645,7 +1655,7 @@ Debug and packaged-runtime gates remain open.
   22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and
   1/1 field vehicle. R25b remains dated refund-authority evidence, R24 is the
   bridge that first cleared R23's cleanup/leak contamination, and R23 remains
-  the dated demolition-witness proof. R30 remains diagnostic rather than
+  the dated demolition-witness proof. R31 remains a targeted pass rather than
   certification because unrelated failures and external gates remain.
 - Current source structurally rejects inactive/carried demolition witnesses,
   unifies entity-backed callback and scan source keys, retains at most 64
@@ -1674,9 +1684,9 @@ Debug and packaged-runtime gates remain open.
   world/prefix cleanup, and the final state diff all pass. Next prove one
   authored binding, restart/streaming reapplication, package behavior, and
   multiplayer without duplicate transmitters.
-- Use R30 as the latest completed targeted runtime diagnosis, R28b as the
-  unchanged positive casualty comparison, R27 as historical projection evidence,
-  and R26 as historical exact-QRF
+- Use R31 as the latest completed targeted proof, R30 as the artificial-
+  scheduling diagnosis, R28b as the unchanged positive casualty comparison,
+  R27 as historical projection evidence, and R26 as historical exact-QRF
   in-memory evidence, R25b as dated refund-authority evidence, R24 as the bridge
   that cleared the R23 cleanup/leak contamination, and R23/R21/R10 as dated
   evidence for their respective demolition, cleanup/persistence, and earlier
@@ -1695,10 +1705,9 @@ Debug and packaged-runtime gates remain open.
   three committed dual-pool cuts. Preserve R28b's exactly-once production-owned
   materialize/casualty/fold/re-entry/final-fold chain, R29's physical-publication
   diagnosis, and R30's exact-cardinality/nonliving-member distinction plus
-  owner-aware Phase-24 telemetry. With Foundation 808 and the stamped Workbench
-  gate complete, run guarded R31 against the current proof-ordering source;
-  require all 11 Phase-17 assertions, bounded settle evidence, the applicable
-  Phase-24 owner evidence, and zero final drift before advancing. After that, prove the
+  owner-aware Phase-24 telemetry. R31 now proves all 11 Phase-17 assertions,
+  bounded one-sample physical and casualty settles, both Phase-24 owner
+  assertions, and zero final drift on the current stamped source. Next prove the
   remaining native counterattack route, combat, ownership, return, and
   settlement lifecycle, then expand to world-scope restore, town behavior/
   authority, and broader runtime failures.

@@ -110,8 +110,22 @@ exact authority was skipped after focal cleanup. All 18 tracked state deltas
 were zero, no HST script error or crash marker appeared, and guarded external
 cleanup was exact. The current checkpoint restores the production same-
 invocation ordering and distinguishes incomplete bindings from complete but
-nonliving bindings without changing persisted state. R31 is the next guarded
-proof.
+nonliving bindings without changing persisted state.
+
+R31 `seed1985_t0_p1_u1784117364`, on build
+`393733cc165b96ec494c72f96741cf993d400ebd` and label
+`schema70-settings24-native-counterattack-proof-ordering`, completed 687 cases
+at 577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED. It proved 5,528/5,685 required
+certification assertions, with 139 failed, 18 blocked, zero certification
+warnings, and a false overall result. All 11 Phase-17 projection/casualty
+assertions and both Phase-24 owner assertions passed. The casualty remained
+N=9 -> N-1=8; initial/casualty/survivor physical settlement was `1/1/1` within
+the four-observation limit, and casualty death settled at `1/4`. Phase 24
+classified 16/16 owners with two open exact projections. Its 29-line diff held
+18 delta-bearing rows, all zero, with zero script/HST/crash errors and exact
+external cleanup. This proves only the schema-neutral runtime scheduling and
+existing-authority behavior; it is not migration runtime proof, and the whole
+suite remains uncertified.
 
 Historical R26 `seed1985_t0_p1_u1784074264` executes 688 cases at 577 PASS/51 WARN/54
 FAIL/6 BLOCKED and proves 5,504/5,667 required assertions, with 145 failed and 18
@@ -578,7 +592,14 @@ and adds the split binding diagnostics. The final stamped tree passes Foundation
 at 808 references; Workbench Game Module validation loads 5,830 Game files and
 11,822 classes with 47,077K static storage at CRC `b789ee05`, reports successful
 script validation, exits `0`, records zero script/HST/hard-failure signals, and
-cleans exactly. R31 is the next guarded proof; no packaged result is claimed.
+cleans exactly. R31 `seed1985_t0_p1_u1784117364` runtime-proves the corrected
+same-invocation handoff/physical/controlled-action ordering: all 11 Phase-17
+and both Phase-24 owner assertions pass, initial/casualty/survivor settlement is
+`1/1/1` of four observations, casualty death is `1/4`, 16/16 owners are
+classified with two open exact projections, and all 18 state deltas remain
+zero. The guarded run records zero script/HST/crash errors and exact external
+cleanup. This creates no migration proof or packaged result; the full suite
+remains uncertified.
 
 ## No Schema Bump: Exact Defensive-QRF PREPARED Recovery and External Proof
 

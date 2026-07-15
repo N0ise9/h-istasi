@@ -129,7 +129,10 @@ references. Workbench Game-module validation loads 5,830 Game files and 11,822
 classes with 47,077K static storage at CRC `b789ee05`, reports `Script validation
 successful`, exits `0`, records zero script, HST, or hard-failure signals, and
 leaves exact guarded cleanup. The preceding physical-settle CRC `c79d806b` and
-its pre-seal CRC `1a2853e8` are historical only. R31 remains pending.
+its pre-seal CRC `1a2853e8` are historical only. R31
+`seed1985_t0_p1_u1784117364` executes this exact source and passes all eleven
+Phase 17 native projection/casualty assertions and both Phase 24 authority
+assertions once. The wider suite remains uncertified.
 
 R28 `seed1985_t0_p1_u1784098447` ran 687 cases at 576 PASS/50 WARN/54 FAIL/6
 BLOCKED/1 SKIPPED and proved 5,517/5,684 required assertions, with 149 failed,
@@ -167,8 +170,20 @@ physical settle exhausted four. Phase 24 runtime-owner classification passed;
 exact authority was skipped after emergency focal cleanup. All 18 state-diff
 deltas were zero, there were zero HST script errors and zero crash markers, and
 external cleanup was exact. This evidence identifies the debug-only one-second
-post-handoff scheduling seam. R31 must prove the current same-invocation ordering
-correction; all wider suite and package gates remain open.
+post-handoff scheduling seam. R31 then proves the current same-invocation
+ordering correction on build
+`393733cc165b96ec494c72f96741cf993d400ebd`, label
+`schema70-settings24-native-counterattack-proof-ordering`: 687 cases complete at
+577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED, with certification
+5,528/5,685 proven, 139 failed, 18 blocked, zero warning, and overall `false`.
+All eleven Phase 17 assertions PASS exactly once. Roster/spawn telemetry records
+expected `9`, spawn `8/18`, deferred `0`; initial/casualty/survivor physical
+settle is `1/1/1` of four and casualty settle is `1/4`. Both Phase 24 assertions
+PASS with owners expected/classified `16/16` and open orders/projection groups
+`2/2`. All 18 deltas in the 29-line state diff are zero, all three artifacts are
+stable and parseable, script/HST/crash errors are zero, and session/owned-
+process/new-engine-process/default-entry cleanup counts are all zero. This closes
+the current proof-ordering rerun, not the remaining suite or package gates.
 
 The active sealed tree uses Campaign Schema 70 while runtime settings
 remain on Schema 24. Newly admitted exact enemy garrison rebuilds use contract
@@ -6202,9 +6217,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
   pass, its five casualty assertions fail before `Kill` when exact cardinality
   contains one nonliving handed-off member, runtime-owner classification passes,
   exact authority is skipped after emergency cleanup, and all 18 state deltas
-  plus external cleanup are exact. R31 is next. Route travel, broader native
-  combat, capture, return, settlement, real restart, packaging, network/JIP/
-  reconnect, and soak remain open.
+  plus external cleanup are exact. R31 executes the corrected current source;
+  all eleven Phase 17 assertions and both Phase 24 authority assertions pass
+  exactly once, all 18 state deltas remain zero, and its parseable artifacts,
+  error census, and external cleanup are exact. Overall certification remains
+  false because the full run still contains 52 FAIL and 7 BLOCKED cases. Route
+  travel, broader native combat, capture, return, settlement, real restart,
+  packaging, network/JIP/reconnect, and soak remain open.
 
 - The preceding scoped engine-proof checkpoint is sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, UTC
@@ -6338,6 +6357,26 @@ This file is for practical engine/script behavior, not project planning. Keep en
   CLI execution also confirmed the trigger metric and all three artifact writes.
   The first run was not certified; do not treat successful launch or artifact
   creation as subsystem proof.
+
+- Guarded long-run automation needs a short exact startup canary before the full
+  timeout window. One R31 launch drifted from the proven diagnostic-engine launch
+  contract and never reached the suite. The corrected canary recorded both CLI
+  `armed` and `started` on attempt 1, proving the source project, canonical world,
+  server authority, trusted admin, settings mount, and autostart path together.
+  Do not infer suite startup from process liveness alone, and do not substitute a
+  regular-game or Workbench-validation launch tuple for the repository's proven
+  diagnostic-game runtime tuple without fresh startup-canary evidence.
+
+- Treat Campaign Debug artifact completion as a three-file transaction, not a
+  single log-line match. A brittle one-line artifact-status regular expression
+  caused a false timeout during R31 even though the engine had completed its
+  writes. Require the run-specific JSON, summary, and state-diff files to remain
+  stable, non-empty, and parseable across polls, then validate the JSON artifact
+  identities, build provenance, totals, and the state-diff contents. The artifact
+  log line is useful supporting evidence but is not the sole completion oracle.
+  The final instrumented R31 run satisfied this contract in approximately 879
+  seconds, after which its session, owned-process, new-engine-process, and new-
+  default-entry cleanup counts were all zero.
 
 - Guarded runtime automation must pass an absolute `-profile` root. With that
   launch shape, Enfusion resolves `$profile:` beneath the guarded root's

@@ -2122,8 +2122,8 @@ Consequences:
 
 ## CRI-037 - Preserve Production Ordering After Native Handoff
 
-- Status: Accepted; source and stamped Workbench gates pass, with guarded R31
-  runtime proof pending
+- Status: Accepted; source, stamped Workbench, and guarded R31 runtime proof pass;
+  whole suite not certified
 - Date: 2026-07-15
 
 Context: R30 proved that the adapter handoff, durable registrations, and
@@ -2161,7 +2161,20 @@ Consequences:
   with 47,077K static storage at CRC `b789ee05`, reports `Script validation
   successful`, exits `0`, records zero script, HST, or hard-failure signals,
   and leaves exact session/owned-process/default-log/spill cleanup.
-- R31 is the next guarded proof. It must preserve the R30 exact-zero restoration
-  and cleanup while proving the complete eleven-assertion Phase-17 casualty
-  chain and the Phase-24 ownership boundary. No R31, packaged, dedicated-server,
-  multiplayer, reconnect/JIP, or soak result is claimed here.
+- R31 `seed1985_t0_p1_u1784117364`, on build
+  `393733cc165b96ec494c72f96741cf993d400ebd` and label
+  `schema70-settings24-native-counterattack-proof-ordering`, finished 687 cases
+  at 577 PASS/50 WARN/52 FAIL/7 BLOCKED/1 SKIPPED. It proved 5,528/5,685
+  required certification assertions, with 139 failed, 18 blocked, zero
+  certification warnings, and a false overall certification result.
+- All 11 Phase-17 projection/casualty assertions and both Phase-24 owner
+  assertions passed. The casualty boundary remained N=9 -> N-1=8; initial,
+  casualty, and survivor physical settlement each completed at observation
+  `1/4`, and casualty death completed at observation `1/4`. Phase 24 classified
+  16/16 sampled owners with two open exact projections.
+- R31's 29-line state diff contained 18 delta-bearing rows, all zero. It
+  recorded zero script, HST, or crash errors and exact external cleanup. This
+  runtime-proves the same-invocation handoff -> `PHYSICAL` -> controlled-action
+  decision while preserving the asynchronous yields.
+- The whole suite remains uncertified. Packaged, dedicated-server, multiplayer,
+  reconnect/JIP, and soak results are not claimed here.
