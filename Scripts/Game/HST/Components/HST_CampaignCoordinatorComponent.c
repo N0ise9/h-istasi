@@ -38936,9 +38936,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				profile.m_iLegacySupportLinkedGroups++;
 		}
 
-		for (int sampleIndex = 0;
-			sampleIndex < profile.m_aRuntimeOwnerSampleOrderIds.Count();
-			sampleIndex++)
+		for (int sampleIndex = 0; sampleIndex < profile.m_aRuntimeOwnerSampleOrderIds.Count(); sampleIndex++)
 		{
 			if (!matchedOrderIds.Contains(
 				profile.m_aRuntimeOwnerSampleOrderIds[sampleIndex]))
