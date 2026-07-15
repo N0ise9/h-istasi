@@ -1718,8 +1718,8 @@ Consequences:
 
 ## CRI-031 - Give Exact Defensive QRFs Their Own Refund Authority
 
-- Status: Accepted; Foundation, PC-only Workbench, focused engine, and R25b
-  in-process proof complete; process-restart and package gates remain open
+- Status: Superseded by CRI-032; its Foundation, PC-only Workbench, focused
+  engine, and R25b evidence remains dated history
 - Date: 2026-07-14
 
 Context: R23 exposed a refund-applied/order-receipt-clean crash window that could
@@ -1790,3 +1790,71 @@ Consequences:
   receipt publication. That crash window remains a future schema/authority
   gate, and arbitrary old partial rows remain fail-closed rather than being
   inferred or auto-healed.
+
+## CRI-032 - Persist Exact Defensive-QRF Terminal Intent Before Refund
+
+- Status: Accepted; source, Foundation, PC-only Workbench compile/create,
+  focused engine, and R26 in-process proof complete; real external restart and
+  package gates remain open
+- Date: 2026-07-14
+
+Context: CRI-031 gave defensive QRFs the correct support-only/dual-pool resource
+validator and repaired the same-session refund/replay path, but it deliberately
+left the order receipt clean until after the resource mutation. A process stop
+between refund mutation and receipt publication could therefore retain a
+canonical pool change without durable terminal intent. Recovery also had to
+distinguish historical mutationless settlements from current rows whose
+strategic receipt chain was malformed or removed during Schema-67
+normalization.
+
+Decision: Exact defensive-QRF settlement is a durable replayable state machine.
+The operation first persists `PREPARED` terminal intent. The owner stages the
+complete settlement/refund tuple with `m_bResourceSettlementApplied = false`,
+then validates the original debit, every reciprocal claimant, and the durable
+survivor authority. It applies or idempotently replays the canonical refund,
+publishes the applied receipt last, and only then finalizes the operation and
+order tail. A valid restore resumes any accepted prefix without changing the
+settlement identity, refund amount, or mutation count.
+
+Current strategic-receipt provenance is captured before Schema-67 normalization
+can remove a malformed mutation. After normalization, a current-provenance
+`SETTLED` row must still pass the complete debit/refund/chronology validator. A
+bad chain is disarmed to unknown settlement authority, aborts the order, cancels
+or holds reciprocal runtime claimants, and retains the stable
+`exact_restore_resource_authority_quarantined` result across repeated restore.
+Historical mutationless settlements remain compatible and do not acquire
+current receipt requirements. Arbitrary old partial rows remain fail-closed;
+recovery is limited to a complete durable `PREPARED` graph.
+
+Consequences:
+
+- Implementation `78db295a02936aa66899203cb33e50462b5fd557`, stamp `b1f105a`,
+  UTC `2026-07-15T00:08:27Z`, label
+  `schema70-settings24-exact-qrf-prepared-recovery`, changes no campaign schema,
+  settings schema, persisted enum ordinal, serialized field, or operation
+  contract version. Campaign Schema 70 and settings Schema 24 remain current.
+- Foundation passes at 802 script-symbol references. Stamped PC-only Workbench
+  log `logs_2026-07-14_20-08-54` compiles 5,828 Game files/11,816 classes with
+  46,859K static storage and CRC `62dac921`, creates the game, contains no
+  HST/script compile error, and leaves zero engine processes after closure. It
+  is compile/create evidence, not an all-target validation result.
+- Focused log `logs_2026-07-14_20-09-16` records one passing
+  `HST_TEST_EnemyQRFAuthority` testcase, no JUnit failure, an empty failed list,
+  `AllExact 1`, and a no-op second restore. Six committed dual-pool/support-only
+  fixtures cover the pre-refund, post-refund/pre-receipt, and receipt/pre-tail
+  cuts. Three uncommitted full-refund fixtures cover the same cuts. Corrupted
+  prepared debit/pool authority, tampered survivors, bad current settled pool
+  tails, and mutationless history are also covered. Known recoverable harness
+  diagnostics remain, so the run is successful but not exception-free.
+- R26 `seed1985_t0_p1_u1784074264` executes 688 cases at 577 PASS/51 WARN/54
+  FAIL/6 BLOCKED and proves 5,504/5,667 required assertions, with 145 failed and
+  18 blocked. `enemy_qrf.settlement` and `enemy_qrf.persistence` pass. Typed
+  cleanup remains settled 0/failures 0/open 0/runtime 0, the open-order leak is
+  0 -> 0, seeded restore counts match, and the final tracked-state diff is zero.
+  Escalation physicalization remains WARN.
+- The crash-cut fixtures use in-process `HST_CampaignSaveData` capture/restore.
+  They prove the in-memory save-data copy/capture/restore shape and deterministic
+  reconciliation but do not stop and restart the executable. Real external
+  process restart, packaged/
+  native/live-server behavior, migration runtime, multiplayer, reconnect/JIP,
+  and soak remain open certification gates.

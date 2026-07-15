@@ -45,39 +45,44 @@ remain. Static, Workbench, and runtime evidence remain distinct gates; exact
 latest run totals belong in the verification audit.
 
 The current source checkpoint is implementation
-`434b73a16ae92911896fdec095af6bce88168916`, stamp commit `7fac7ac`, UTC
-`2026-07-14T20:54:24Z`, label
-`schema70-settings24-exact-qrf-refund-authority`. Campaign Schema 70 and runtime
-settings Schema 24 are unchanged. Exact defensive QRF settlement uses a QRF-
-specific validator: support cost is positive and attack cost is nonnegative, so
-support-only and dual-pool receipts are both valid. It requires deterministic
-debit/refund IDs, exactly one claimant for each role, exact contract/applied/kind,
-full faction/source/order/operation/manifest/zone backlinks, exact deltas and
-chronology, empty contribution hashes, and the shared strategic mutation-shape
-validation. Never delegate this contract to the counterattack validator, whose
-one-pool rule is correct only for counterattacks.
+`78db295a02936aa66899203cb33e50462b5fd557`, stamp commit `b1f105a`, UTC
+`2026-07-15T00:08:27Z`, label
+`schema70-settings24-exact-qrf-prepared-recovery`. Campaign Schema 70 and
+runtime settings Schema 24 are unchanged. Exact defensive-QRF settlement uses a
+QRF-specific validator: support cost is positive and attack cost is
+nonnegative, so support-only and dual-pool receipts are both valid. It requires
+deterministic debit/refund IDs, one claimant for every role, exact
+contract/applied/kind, complete faction/source/order/operation/manifest/zone
+backlinks, exact deltas and chronology, empty contribution hashes, and the
+shared strategic mutation-shape validation. Never delegate this contract to the
+counterattack validator, whose one-pool rule is correct only for counterattacks.
 
-Settlement preflights the complete deterministic receipt, leaves every order-
-side receipt field clean while the resource mutation applies or replays, then
-writes the settlement/refund tuple and sets
-`m_bResourceSettlementApplied` last. An applied replay validates the canonical
-strategic mutation rather than trusting stored amounts. Foundation passes at 795
-script-symbol references. PC Workbench log `logs_2026-07-14_16-56-29` is clean
-at 5,827 Game files/11,809 classes, 46,667K static storage, CRC `12b7df72`, and
-zero processes. Focused engine log `logs_2026-07-14_16-57-04` records one passing
-testcase, `AllExact=1`, and an empty failed list; the known recoverable VM/player-
-audit and filter-constructor diagnostics remain present before successful HST
-completion.
+Terminal settlement now persists `PREPARED` intent before any refund, stages
+the complete deterministic resource tuple with
+`m_bResourceSettlementApplied=false`, validates the original debit, claimant
+graph, and durable survivor authority, applies or replays the canonical refund,
+publishes the applied receipt last, and only then finalizes the operation/order
+tail. Current-provenance `SETTLED` rows are revalidated after Schema-67 pool
+normalization; an invalid tail becomes stable
+`exact_restore_resource_authority_quarantined` authority instead of receiving a
+new receipt or losing its retained claimants. Mutationless historical
+settlements remain compatible. Foundation passes at 802 script-symbol
+references. PC Workbench log `logs_2026-07-14_20-08-54` is clean at 5,828 Game
+files/11,816 classes, 46,859K static storage, CRC `62dac921`, and zero processes.
+Focused engine log `logs_2026-07-14_20-09-16` records one passing testcase,
+`AllExact=1`, and an empty failed list; the known recoverable VM/player-audit and
+filter-constructor diagnostics remain present before successful HST completion.
 
-R25b `seed1985_t0_p1_u1784063032` proves both `enemy_qrf.settlement` and
-`enemy_qrf.persistence`. Support-only and dual-pool refund/replay are exact. A
-missing required group backlink produces `ABORTED` /
-`exact_operation_invalidated`, retains the claimant rows, leaves both pools
-unchanged, and keeps the settlement receipt `OPEN`; this is the intended fail-
-closed result, so no production `ReconcileAfterRestore` change was needed. The
-remaining gap is durable `PREPARED` recovery through real process-restart crash
-windows. Arbitrary old partial rows remain fail-closed instead of being
-automatically healed.
+R26 `seed1985_t0_p1_u1784074264` proves both `enemy_qrf.settlement` and
+`enemy_qrf.persistence`. Six committed dual/support crash cuts and three
+uncommitted full-refund cuts recover exactly; same-state replay and a second
+capture/restore are no-ops. Corrupted prepared graphs, pool tails, survivor
+tuples, and current settled tails quarantine without another resource mutation,
+while mutationless history remains stable. A missing required group backlink
+still produces `ABORTED` / `exact_operation_invalidated`, retains the claimant
+rows, leaves both pools unchanged, and keeps the receipt open. This proof uses
+in-memory capture/restore; an actual process stop/relaunch/reload remains open.
+Arbitrary old partial rows remain fail-closed instead of being healed.
 
 The preceding active-demolition-witness checkpoint is implementation
 `0e54f6cbc7f7084e5534fc603b491cba0d91b653`, label
@@ -112,8 +117,8 @@ no-town support backfill changed aggregate `civilian_occupier_support` from
 gates that backfill to `restoredSchemaVersion < 22`, preserving a current zero
 as authority. R19 first proved exact live/restored summaries, reports, typed
 counts, and `civilian_occupier_support` 2,514/2,514; R21 independently preserves
-that result, while R22 through R25b preserve the exact seeded roundtrip before
-later phase drift. R25b matches 11/11 missions, 22/22 assets, 21/21 runtime
+that result, while R22 through R26 preserve the exact seeded roundtrip before
+later phase drift. R26 matches 11/11 missions, 22/22 assets, 21/21 runtime
 entities, 9/9 groups, 10/10 runtime vehicles, and 1/1 field vehicles and ends
 with an exact-zero tracked-state diff. Only the intentionally external
 `persistence.real_restart` assertion remains BLOCKED in that seeded family.
@@ -129,13 +134,14 @@ Campaign-debug order isolation rules learned in this pass:
   a dual-pool QRF has positive attack and support cost/refund. Do not reuse the
   counterattack one-pool validator or weaken that validator to accommodate QRFs.
 - Treat a deterministic resource mutation and its order-side receipt as two
-  authorities with strict publication order. Preflight the full tuple, apply or
-  replay the mutation while the order receipt is clean, publish every receipt
-  field, and set the applied boolean last. Replay must validate the mutation's
-  full backlinks, deltas, chronology, and shared shape. Validate the published
-  receipt again after restore-invalidation publication. A same-tick idempotent
-  replay proof is not restart proof; do not claim restore coverage without
-  serializing that exact intermediate under a durable prepared-state contract.
+  authorities with strict publication order. Persist terminal intent as
+  `PREPARED`, stage the complete tuple with the applied boolean false, validate
+  original debit plus claimant and survivor authority, apply or replay the
+  mutation, publish the applied receipt last, then finalize operation/order
+  tails. Replay must validate full backlinks, deltas, chronology, and shared
+  shape. In-memory save-data copy/capture/restore proves the intermediate shape;
+  it is still not evidence of a stop/relaunch/reload across a real process
+  boundary.
 - Proof telemetry must print the real enum/status/reason values. Do not format
   an enum comparison as a boolean and then diagnose the printed `0` or `1` as
   the enum itself. Classify expected fail-closed behavior by a stable authority
@@ -158,16 +164,17 @@ Campaign-debug order isolation rules learned in this pass:
   Prefer native callback source identity once wired reliably. R22 and R23 also
   exposed the historical exact-QRF refund-before-receipt crash window. R24
   isolated its remaining rejection to the wrong cross-family one-pool validator;
-  R25b replaces that boundary and passes both exact QRF settlement and
-  persistence. Preserve R23/R24 as dated causal evidence rather than describing
-  the defect as current.
+  R25b replaces that boundary and first passes both exact QRF settlement and
+  persistence. R26 preserves those results and adds durable in-memory prepared-
+  recovery coverage. Preserve R23/R24/R25b as dated causal evidence rather than
+  describing their defects or limits as current.
 - A missing current-schema QRF backlink is corruption, not a recoverable clean
   receipt. Invalidate the operation as `ABORTED` /
   `exact_operation_invalidated`, retain its claimant rows, leave resource pools
-  unchanged, and keep the settlement receipt `OPEN`. R25b proves that existing
+  unchanged, and keep the settlement receipt `OPEN`. R26 preserves that existing
   fail-closed path, so do not broaden production `ReconcileAfterRestore` to
-  synthesize the backlink or terminal receipt. Add a durable `PREPARED` contract
-  for new crash-window recovery; arbitrary old partial rows stay fail-closed.
+  synthesize the backlink or terminal receipt. Complete new `PREPARED` graphs
+  may resume, but arbitrary old partial rows stay fail-closed.
 - Debug fixture mission IDs participate in the same restore classifiers as
   production missions. A generic destroy-target fixture must use a generic
   mission definition; assigning `destroy_radio_tower` without the reciprocal
@@ -328,11 +335,20 @@ settled 0/failures 0/open 0/runtime 0, the open-order leak is 0 -> 0, seeded
 counts remain 11/11 missions, 22/22 assets, 21/21 runtime entities, 9/9 groups,
 10/10 runtime vehicles, and 1/1 field vehicles, and every tracked final-state
 delta is zero. Phase-24 core remains passing; escalation physicalization is WARN
-telemetry. The suite is still not certified because unrelated failures and the
-intentional external restart/package/network/soak blocks remain. Durable QRF
-`PREPARED` process-restart recovery is also still open.
+telemetry. This remains the dated validator-correction checkpoint.
 
-R25b is not exception-free: startup records the known base-game player-identity
+R26 `seed1985_t0_p1_u1784074264`, build
+`78db295a02936aa66899203cb33e50462b5fd557`, is the current comparison. It runs
+688 cases at 577 PASS/51 WARN/54 FAIL/6 BLOCKED and proves 5,504/5,667 required
+assertions. Both QRF assertions pass with the nine prepared-recovery cuts,
+fail-closed prepared corruption/tamper checks, stable current-SETTLED pool-tail
+quarantine, mutationless-history compatibility, typed cleanup at settled
+0/failures 0/open 0/runtime 0, a 0 -> 0 open-order leak, exact seeded
+capture/restore counts, and an exact-zero final tracked-state diff. Escalation
+physicalization remains WARN. The suite is still not certified because
+unrelated failures and the external restart/package/network/soak blocks remain.
+
+R26 is not exception-free: startup records the known base-game player-identity
 audit/reconnect/arsenal VM exceptions, while deliberate corruption fixtures log
 error-severity fail-closed diagnostics. No HST compile error or native crash
 signature accompanies them. Keep those environment/proof diagnostics distinct
@@ -1911,6 +1927,10 @@ This file is for practical engine/script behavior, not project planning. Keep en
     `AllExact()` expression and an all-committed expectation. Staging explicitly
     typed booleans before the final conjunction compiled cleanly and preserved
     the individual failure evidence.
+  - The exact-QRF prepared-recovery validator hit the same limit in one long
+    chained authority predicate. Sequential early returns compiled cleanly and
+    retained a distinct failure reason for each debit, claimant, survivor, and
+    receipt check.
   - Current example: the physical-response save-roundtrip assertion in
     `HST_CampaignCoordinatorComponent.BuildCampaignDebugPhysicalResponseFoldbackCase()`.
 
@@ -2979,11 +2999,12 @@ This file is for practical engine/script behavior, not project planning. Keep en
     settles `COMPLETED`; a fixed elapsed-time resolution is not authoritative.
 
 - Restore exact enemy QRFs as one coherent virtual aggregate.
-  - Validate reciprocal order/operation/manifest/batch/group IDs, manifest hash,
-    faction, source, target, service commitment, and resource-settlement
-    evidence before normalizing anything. The active group's enemy-order
-    backlink keeps generic restore code from reclassifying the projection as a
-    garrison.
+  - Capture receipt provenance before Schema-67 pool normalization, validate
+    reciprocal order/operation/manifest/batch/group IDs, manifest hash, faction,
+    source, target, service commitment, and resource-settlement evidence, then
+    revalidate prepared and current-provenance settled authority after pool
+    normalization. The active group's enemy-order backlink keeps generic restore
+    code from reclassifying the projection as a garrison.
   - Clear root/member/native-group handles and physical flags, retain route
     progress and exact casualties, and normalize one nonterminal batch to held
     virtual authority. Incomplete or conflicting versioned authority is
@@ -3009,6 +3030,18 @@ This file is for practical engine/script behavior, not project planning. Keep en
   - A partial resource receipt or a terminal operation settled under a different
     receipt is quarantine evidence, not permission to overwrite the fields or
     issue another refund. Leave that row blocked for diagnosis.
+  - A complete `PREPARED` graph is resumable only when its original debit,
+    staged unapplied tuple, exact claimant graph, and durable survivor tuple all
+    agree. A bad prepared pool tail or survivor tuple disarms the operation and
+    cancels and strategically holds the reciprocal batch, retains the group
+    without generic revival, and adds no refund side effect.
+  - A current-provenance `SETTLED` row must still point at a valid canonical pool
+    tail after normalization. If it does not, preserve
+    `exact_restore_resource_authority_quarantined` across reconcile and repeated
+    restore, cancel and strategically hold its reciprocal batch, retain the
+    group, and skip generic projection normalization. Mutationless historical
+    settlements without current provenance remain compatible and must not
+    invent one.
   - Reconcile only after campaign foundation has recreated faction resource
     pools. A restore-time refund cannot be applied safely against a missing pool,
     and postponing pool creation until after exact reconciliation can strand a
@@ -3020,11 +3053,13 @@ This file is for practical engine/script behavior, not project planning. Keep en
     binding, and failed/non-successful physical batches need an explicit typed
     failure settlement. Retire any physical handles first, preserve the last
     provable survivor count, then settle once.
-  - Run a pure terminal-eligibility preflight first, then apply the canonical
-    enemy-resource settlement, then commit the operation terminal transition.
-    Restore/replay may encounter resources already settled but order backlinks
-    not finalized; finish cleanup idempotently instead of charging or refunding
-    again.
+  - Preflight terminal eligibility, persist `PREPARED` terminal intent, stage
+    the complete resource tuple with its applied flag false, then validate the
+    original debit, claimant graph, and durable survivor authority. Apply or
+    replay the canonical refund, publish the applied receipt last, and only then
+    commit the operation/order terminal tail. Restore/replay may encounter the refund
+    before the receipt or the receipt before the tail; finish the missing steps
+    idempotently instead of charging or refunding again.
   - Terminal row cleanup is complete only when adapter bindings, the owned
     PhysicalWar root, and owned runtime members are all absent. If reciprocal
     runtime links disagree, quarantine the order without reading that roster,
@@ -3049,23 +3084,28 @@ This file is for practical engine/script behavior, not project planning. Keep en
 
 - `HST_EnemyQRFOperationProofService` contributes six deterministic
   `enemy_qrf.*` assertions: admission, legacy isolation, projection,
-  settlement, persistence, and rejection. Persistence and rejection now include
-  refund-only partial receipts, missing current-schema group backlinks, and
-  missing-canonical/shadow committed-replay claimants. The final stamped
-  schema-51 tree passes foundation validation; its headless Workbench run
-  compiles 5,749 Game files/11,516 classes and creates the game with CRC
-  `85ccf2e0` without a script error. At that schema-51 checkpoint, the available
-  normal WorldEditor evidence still belonged to schema 50;
-  it loaded the same file/class counts, created the game with CRC `a8dad007`, and
-  remained responsive for all ten two-second samples. These source/startup gates do not prove
-  physical movement, AI casualties, marker rendering, packaged accounting, or a
-  real process restart.
-- Current R25b runtime evidence supersedes that old startup-only boundary for
-  the state/service proof. Settlement and persistence both pass under the QRF-
-  specific validator, including support-only and dual-pool refund/replay. The
-  missing-backlink fixture remains an invalidated, retained, pool-stable open
-  settlement. This still does not prove durable `PREPARED` recovery after an
-  actual process stop, physical movement, package behavior, or networking.
+  settlement, persistence, and rejection. `HST_EnemyQRFSaveValidationService`
+  supplies static read-only graph/resource validators; `HST_CampaignSaveData`
+  owns provenance capture, post-Schema-67 revalidation/disarm, and Schema-51
+  status preservation, cancels/strategically holds the reciprocal batch, and
+  retains the group while skipping generic revival;
+  `HST_EnemyQRFOperationService.ReconcileAfterRestore()` publishes and
+  stabilizes the fail-closed quarantine status while leaving those claimant
+  rows untouched.
+  Persistence now covers six committed dual/support cuts across pre-refund,
+  post-refund, and post-receipt states plus three uncommitted full-refund cuts.
+  Every first recovery is exact; same-state replay and a second capture/restore
+  are no-ops. Corrupted prepared graphs, damaged pool tails, tampered survivor
+  tuples, and bad current settled tails fail closed, while mutationless history
+  stays compatible.
+- The stamped current tree passes Foundation at 802 references. Workbench log
+  `logs_2026-07-14_20-08-54` compiles 5,828 Game files/11,816 classes with
+  46,859K static storage and CRC `62dac921`; focused log
+  `logs_2026-07-14_20-09-16` records one passing testcase, an empty failed list,
+  and `AllExact=1`. R26 preserves both passing exact-QRF assertions in the full
+  diagnostic. These gates prove the in-memory save-data copy/capture/restore
+  shape, not physical movement, AI casualties, marker rendering, packaged
+  accounting, an actual process stop/relaunch/reload, or networking.
 
 ## Crewless Mixed Active-Group Lifecycle
 
