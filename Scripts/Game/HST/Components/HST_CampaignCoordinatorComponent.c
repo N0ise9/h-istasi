@@ -17932,6 +17932,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		int missingBackingMarkers = CountCampaignDebugBackingStatesWithoutMarkers(missingMarkerExample);
 		string factionAuditEvidence = "physical war service missing";
 		int runtimeFactionMismatches = -1;
+		array<string> stagedZeroMemberGraceGroupIds = {};
+		int stagedZeroMemberGraceCandidateCount;
 		string directFallbackEvidence = "physical war service missing";
 		int directFallbackGroups = -1;
 		string populationDrainEvidence = "physical war service missing";
@@ -17941,7 +17943,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_PhysicalWar)
 		{
 			populationDrainResolved = m_PhysicalWar.CampaignDebugResolvePendingPopulationActiveGroups(m_State, populationDrainEvidence);
-			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);
+			if (m_ForceSpawnAdapterProof)
+				stagedZeroMemberGraceCandidateCount = m_ForceSpawnAdapterProof.AppendActiveFixtureGroupIds(m_State, stagedZeroMemberGraceGroupIds);
+			runtimeFactionMismatches = m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence, stagedZeroMemberGraceGroupIds);
+			factionAuditEvidence = factionAuditEvidence + string.Format(" | exact staged grace candidates %1", stagedZeroMemberGraceCandidateCount);
 			directFallbackGroups = m_PhysicalWar.CountCampaignDebugDirectFallbackActiveGroups(m_State, directFallbackEvidence);
 			pendingPopulationGroups = m_PhysicalWar.CountCampaignDebugPendingPopulationActiveGroups(m_State, pendingPopulationEvidence);
 		}
@@ -17954,6 +17959,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(leakCase, "post_cleanup.missing_backing_markers", string.Format("%1", missingBackingMarkers), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_population_drain_resolved", string.Format("%1", populationDrainResolved), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_faction_mismatches", string.Format("%1", runtimeFactionMismatches), "count");
+		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_faction_zero_member_grace_candidates", string.Format("%1", stagedZeroMemberGraceCandidateCount), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_direct_fallback_groups", string.Format("%1", directFallbackGroups), "count");
 		AddCampaignDebugMetric(leakCase, "post_cleanup.runtime_pending_population_groups", string.Format("%1", pendingPopulationGroups), "count");
 		AddCampaignDebugAssertion(leakCase, "post_cleanup.active_missions", "no unexpected active missions beyond the case under test", BuildCampaignDebugCountExample(unexpectedActiveMissions, activeMissionExample), CampaignDebugStatus(unexpectedActiveMissions == 0), "unexpected active mission leak after source case " + sourceCase.m_sCaseId);

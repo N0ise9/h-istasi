@@ -147,6 +147,25 @@ class HST_ForceSpawnAdapterProofService
 			policyId);
 	}
 
+	int AppendActiveFixtureGroupIds(HST_CampaignState state, array<string> groupIds)
+	{
+		if (!IsRuntimeExecutionActive() || !state || !groupIds)
+			return 0;
+
+		int appendedCount;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (!group || group.m_sGroupId.IsEmpty() || !HasActiveFixtureGroupBacking(state, group))
+				continue;
+			if (groupIds.Find(group.m_sGroupId) >= 0)
+				continue;
+
+			groupIds.Insert(group.m_sGroupId);
+			appendedCount++;
+		}
+		return appendedCount;
+	}
+
 	protected bool HasReciprocalFixtureBacking(
 		HST_CampaignState state,
 		HST_ActiveGroupState group,

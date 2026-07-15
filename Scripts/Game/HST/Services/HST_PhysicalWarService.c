@@ -4344,7 +4344,7 @@ class HST_PhysicalWarService
 		return actual + string.Format(" | sample %1", ReportText(sample));
 	}
 
-	int CountCampaignDebugRuntimeFactionMismatches(HST_CampaignState state, out string evidence)
+	int CountCampaignDebugRuntimeFactionMismatches(HST_CampaignState state, out string evidence, array<string> stagedZeroMemberGraceGroupIds = null)
 	{
 		evidence = "state missing";
 		if (!state)
@@ -4355,11 +4355,13 @@ class HST_PhysicalWarService
 		int pendingLiveCountGroups;
 		int skippedTerminalEmptyGroups;
 		int skippedPendingPopulationGroups;
+		int stagedZeroMemberGraceGroups;
 		int mismatchCount;
 		string firstMismatch;
 		string firstPending;
 		string firstTerminalEmpty;
 		string firstSkippedPendingPopulation;
+		string firstStagedZeroMemberGrace;
 		foreach (HST_ActiveGroupState activeGroup : state.m_aActiveGroups)
 		{
 			if (!activeGroup || activeGroup.m_sGroupId.IsEmpty() || activeGroup.m_sFactionKey.IsEmpty())
@@ -4395,7 +4397,13 @@ class HST_PhysicalWarService
 			int activeGroupMismatches = CountActiveGroupRuntimeFactionMismatches(activeGroup, sample);
 			if (activeGroup.m_iInfantryCount > 0 && groupEntityPresent && liveControlledMembers <= 0)
 			{
-				if (IsActiveGroupLiveCountGraceActive(state, activeGroup))
+				if (IsCampaignDebugExactSpawnStagedZeroMemberGrace(activeGroup, stagedZeroMemberGraceGroupIds))
+				{
+					stagedZeroMemberGraceGroups++;
+					if (firstStagedZeroMemberGrace.IsEmpty())
+						firstStagedZeroMemberGrace = activeGroup.m_sGroupId;
+				}
+				else if (IsActiveGroupLiveCountGraceActive(state, activeGroup))
 				{
 					pendingLiveCountGroups++;
 					if (firstPending.IsEmpty())
@@ -4418,11 +4426,24 @@ class HST_PhysicalWarService
 				firstMismatch = BuildActiveGroupRuntimeFactionActual(activeGroup, activeGroupMismatches, sample, groupEntityPresent, vehicleEntityPresent);
 		}
 
-		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | pending live-count %4 | skipped terminal empty %5 | skipped pending population %6", runtimeGroupCount, checkedGroupCount, mismatchCount, pendingLiveCountGroups, skippedTerminalEmptyGroups, skippedPendingPopulationGroups);
+		evidence = string.Format("runtime groups %1 | checked %2 | mismatches %3 | pending live-count %4 | skipped terminal empty %5 | skipped pending population %6 | exact staged zero-member grace %7", runtimeGroupCount, checkedGroupCount, mismatchCount, pendingLiveCountGroups, skippedTerminalEmptyGroups, skippedPendingPopulationGroups, stagedZeroMemberGraceGroups);
 		evidence = evidence + string.Format(" | first %1", ReportText(firstMismatch));
-		if (!firstPending.IsEmpty() || !firstTerminalEmpty.IsEmpty() || !firstSkippedPendingPopulation.IsEmpty())
-			evidence = evidence + string.Format(" | first pending %1 | first terminal empty %2 | first skipped pending %3", ReportText(firstPending), ReportText(firstTerminalEmpty), ReportText(firstSkippedPendingPopulation));
+		if (!firstPending.IsEmpty() || !firstTerminalEmpty.IsEmpty() || !firstSkippedPendingPopulation.IsEmpty() || !firstStagedZeroMemberGrace.IsEmpty())
+			evidence = evidence + string.Format(" | first pending %1 | first terminal empty %2 | first skipped pending %3 | first exact staged grace %4", ReportText(firstPending), ReportText(firstTerminalEmpty), ReportText(firstSkippedPendingPopulation), ReportText(firstStagedZeroMemberGrace));
 		return mismatchCount;
+	}
+
+	protected bool IsCampaignDebugExactSpawnStagedZeroMemberGrace(HST_ActiveGroupState activeGroup, array<string> stagedZeroMemberGraceGroupIds)
+	{
+		return activeGroup
+			&& stagedZeroMemberGraceGroupIds
+			&& stagedZeroMemberGraceGroupIds.Find(activeGroup.m_sGroupId) >= 0
+			&& activeGroup.m_sRuntimeStatus == "campaign_debug_exact_spawn_queued"
+			&& activeGroup.m_bSpawnAttempted
+			&& !activeGroup.m_bSpawnedEntity
+			&& !activeGroup.m_bSpawnCompleted
+			&& activeGroup.m_iSpawnedAgentCount == 0
+			&& activeGroup.m_sRuntimeEntityId.IsEmpty();
 	}
 
 	int CountCampaignDebugDirectFallbackActiveGroups(HST_CampaignState state, out string evidence)

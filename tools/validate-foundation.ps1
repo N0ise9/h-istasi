@@ -9859,6 +9859,85 @@ $activeGroupBackingBlock = Get-ScriptMethodBlock $coordinatorText "protected boo
 if ($activeGroupBackingBlock -notmatch [regex]::Escape("m_ForceSpawnAdapterProof.HasActiveFixtureGroupBacking(m_State, group)")) {
 	throw "Campaign Debug orphan-group classifier is missing staged exact spawn-adapter proof ownership"
 }
+$forceSpawnFixtureGroupAppendBlock = Get-ScriptMethodBlock $forceSpawnAdapterProofText "int AppendActiveFixtureGroupIds("
+if ($forceSpawnFixtureGroupAppendBlock.Length -eq 0) {
+	throw "Exact spawn-adapter staged-fixture group collector is missing"
+}
+foreach ($requiredFixtureGroupAppendEntry in @(
+		"if (!IsRuntimeExecutionActive() || !state || !groupIds)",
+		"group.m_sGroupId.IsEmpty()",
+		"HasActiveFixtureGroupBacking(state, group)",
+		"groupIds.Find(group.m_sGroupId) >= 0",
+		"groupIds.Insert(group.m_sGroupId)",
+		"return appendedCount;"
+	)) {
+	if ($forceSpawnFixtureGroupAppendBlock -notmatch [regex]::Escape($requiredFixtureGroupAppendEntry)) {
+		throw "Exact spawn-adapter staged-fixture group collector is not fail closed: $requiredFixtureGroupAppendEntry"
+	}
+}
+if ($forceSpawnFixtureGroupAppendBlock -match "StartsWith|m_sRuntimeStatus|m_sCompositionIntentId") {
+	throw "Exact spawn-adapter staged-fixture group collector must delegate ownership to reciprocal fixture backing without prefix/status shortcuts"
+}
+$runtimeFactionAuditBlock = Get-ScriptMethodBlock $physicalWarServiceText "int CountCampaignDebugRuntimeFactionMismatches("
+$stagedZeroMemberGraceBlock = Get-ScriptMethodBlock $physicalWarServiceText "protected bool IsCampaignDebugExactSpawnStagedZeroMemberGrace("
+if ($runtimeFactionAuditBlock.Length -eq 0 -or $stagedZeroMemberGraceBlock.Length -eq 0) {
+	throw "Campaign Debug exact staged zero-member faction-audit grace is missing"
+}
+foreach ($requiredStagedZeroMemberGraceEntry in @(
+		"stagedZeroMemberGraceGroupIds.Find(activeGroup.m_sGroupId) >= 0",
+		'activeGroup.m_sRuntimeStatus == "campaign_debug_exact_spawn_queued"',
+		"activeGroup.m_bSpawnAttempted",
+		"!activeGroup.m_bSpawnedEntity",
+		"!activeGroup.m_bSpawnCompleted",
+		"activeGroup.m_iSpawnedAgentCount == 0",
+		"activeGroup.m_sRuntimeEntityId.IsEmpty()"
+	)) {
+	if ($stagedZeroMemberGraceBlock -notmatch [regex]::Escape($requiredStagedZeroMemberGraceEntry)) {
+		throw "Campaign Debug exact staged zero-member grace is missing a fail-closed condition: $requiredStagedZeroMemberGraceEntry"
+	}
+}
+foreach ($requiredRuntimeFactionGraceEntry in @(
+		"array<string> stagedZeroMemberGraceGroupIds = null",
+		"exact staged zero-member grace %7",
+		"first exact staged grace %4"
+	)) {
+	if ($runtimeFactionAuditBlock -notmatch [regex]::Escape($requiredRuntimeFactionGraceEntry)) {
+		throw "Campaign Debug runtime faction audit is missing exact staged grace evidence: $requiredRuntimeFactionGraceEntry"
+	}
+}
+$ensureRuntimeFactionIndex = $runtimeFactionAuditBlock.IndexOf('EnsureActiveGroupRuntimeFaction(activeGroup, "campaign debug faction audit")')
+$countRuntimeFactionIndex = $runtimeFactionAuditBlock.IndexOf("CountActiveGroupRuntimeFactionMismatches(activeGroup, sample)")
+$zeroLiveBranchIndex = $runtimeFactionAuditBlock.IndexOf("activeGroup.m_iInfantryCount > 0 && groupEntityPresent && liveControlledMembers <= 0")
+$stagedGraceBranchIndex = $runtimeFactionAuditBlock.IndexOf("IsCampaignDebugExactSpawnStagedZeroMemberGrace(activeGroup, stagedZeroMemberGraceGroupIds)")
+if ($ensureRuntimeFactionIndex -lt 0 -or $countRuntimeFactionIndex -lt 0 -or $zeroLiveBranchIndex -lt 0 -or $stagedGraceBranchIndex -lt 0 `
+	-or $ensureRuntimeFactionIndex -gt $countRuntimeFactionIndex -or $countRuntimeFactionIndex -gt $zeroLiveBranchIndex -or $zeroLiveBranchIndex -gt $stagedGraceBranchIndex) {
+	throw "Campaign Debug staged zero-member grace must run only after the real runtime faction audit and inside the zero-live branch"
+}
+$stagedGraceBranchMatch = [regex]::Match($runtimeFactionAuditBlock, "if \(IsCampaignDebugExactSpawnStagedZeroMemberGrace\([\s\S]*?\}\s*else if")
+if (!$stagedGraceBranchMatch.Success) {
+	throw "Could not isolate Campaign Debug staged zero-member grace branch"
+}
+if ($stagedGraceBranchMatch.Value -match "continue;|activeGroupMismatches\s*(?:--|-=|=)|mismatchCount\s*(?:--|-=|=)") {
+	throw "Campaign Debug staged zero-member grace must not skip, subtract, or replace real faction mismatches"
+}
+$postCaseLeakBlock = Get-ScriptMethodBlock $coordinatorText "protected HST_CampaignDebugCaseResult BuildCampaignDebugPostCaseLeakCase("
+$runCleanupSnapshotBlock = Get-ScriptMethodBlock $coordinatorText "protected HST_CampaignDebugCaseResult BuildCampaignDebugRunCleanupSnapshotCase("
+foreach ($requiredPostCaseGraceEntry in @(
+		"array<string> stagedZeroMemberGraceGroupIds = {};",
+		"m_ForceSpawnAdapterProof.AppendActiveFixtureGroupIds(m_State, stagedZeroMemberGraceGroupIds)",
+		"m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence, stagedZeroMemberGraceGroupIds)",
+		'"post_cleanup.runtime_faction_zero_member_grace_candidates"'
+	)) {
+	if ($postCaseLeakBlock -notmatch [regex]::Escape($requiredPostCaseGraceEntry)) {
+		throw "Campaign Debug post-case faction audit is missing exact staged fixture grace routing: $requiredPostCaseGraceEntry"
+	}
+}
+if ($runCleanupSnapshotBlock -notmatch [regex]::Escape("m_PhysicalWar.CountCampaignDebugRuntimeFactionMismatches(m_State, factionAuditEvidence);")) {
+	throw "Campaign Debug final cleanup must retain the strict two-argument runtime faction audit"
+}
+if ($runCleanupSnapshotBlock -match "AppendActiveFixtureGroupIds|stagedZeroMemberGrace") {
+	throw "Campaign Debug final cleanup must not grant staged exact-fixture zero-member grace"
+}
 Write-Host "Schema-45 exact force spawn adapter and PhysicalWar bridge contract OK"
 foreach ($requiredDebugIsolationEntry in @(
 		"PrepareCampaignDebugIsolation",
