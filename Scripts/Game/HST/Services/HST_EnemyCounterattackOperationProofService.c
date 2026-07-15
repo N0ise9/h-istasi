@@ -3823,8 +3823,9 @@ class HST_EnemyCounterattackOperationProofService
 
 		// Admission used the deterministic fixture seam, but the persisted moving
 		// cut is reached through the production owner and its real proximity gate.
-		HST_EnemyCounterattackOperationService production
-			= new HST_EnemyCounterattackOperationService();
+		HST_EnemyCounterattackOperationProofHarness production
+			= new HST_EnemyCounterattackOperationProofHarness();
+		production.UseDeterministicVirtualProjectionForProof();
 		production.SetRuntimeServices(
 			fixture.m_Queue,
 			fixture.m_Adapter,
@@ -4225,7 +4226,48 @@ class HST_EnemyCounterattackOperationProofService
 		if (!rowsExact || !orderExact || !routeExact || !manifestExact
 			|| !projectionExact || !resourcesExact
 			|| fingerprint == "external-counterattack-semantic-unavailable")
+		{
+			evidence = string.Format(
+				"external exact counterattack virtual state rejected | rows %1 | order %2 | route %3 | manifest %4",
+				rowsExact,
+				orderExact,
+				routeExact,
+				manifestExact);
+			evidence += string.Format(
+				" | projection %1 | resources %2 | fingerprint %3",
+				projectionExact,
+				resourcesExact,
+				fingerprint != "external-counterattack-semantic-unavailable");
+			evidence += string.Format(
+				" | route c%1 l%2 a%3 n%4",
+				routeContractExact,
+				routeLinkExact,
+				routeAssignmentExact,
+				routeNameExact);
+			evidence += string.Format(
+				" d%1 p%2 y%3 u%4",
+				routeDutyExact,
+				routeProjectionExact,
+				routePolicyExact,
+				routeCursorContractExact);
+			evidence += string.Format(
+				" o%1 e%2 k%3 x%4",
+				routeLoopExact,
+				routeEndpointsExact,
+				routeClockExact,
+				routePositionExact);
+			evidence += string.Format(
+				" v%1 b%2 | batch %3 | group %4",
+				routeArrivalExact,
+				routeCombatExact,
+				batchExact,
+				groupRuntimeExact);
+			evidence += string.Format(
+				" | pool %1 | receipt %2",
+				poolExact,
+				receiptExact);
 			return false;
+		}
 		evidence = string.Format(
 			"external exact counterattack virtual authority exact | route %1/%2 | living %3",
 			Math.Round(operation.m_fRouteProgressMeters),
@@ -4282,6 +4324,294 @@ class HST_EnemyCounterattackOperationProofService
 		HST_EnemyCounterattackExternalRestartCarrier carrier)
 	{
 		return BuildExternalCanonicalFingerprint(state, carrier, false);
+	}
+
+	string BuildExternalSemanticDifferenceEvidence(
+		HST_CampaignState before,
+		HST_CampaignState after,
+		HST_EnemyCounterattackExternalRestartCarrier carrier)
+	{
+		if (!before || !after || !carrier || !carrier.m_Expectation)
+			return "semantic row comparison unavailable";
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= carrier.m_Expectation;
+		HST_EnemyOrderState beforeOrder
+			= before.FindEnemyOrder(expected.m_sOrderId);
+		HST_EnemyOrderState afterOrder
+			= after.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState beforeOperation
+			= before.FindOperation(expected.m_sOperationId);
+		HST_OperationRecordState afterOperation
+			= after.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState beforeManifest
+			= before.FindForceManifest(expected.m_sManifestId);
+		HST_ForceManifestState afterManifest
+			= after.FindForceManifest(expected.m_sManifestId);
+		HST_ForceSpawnResultState beforeBatch
+			= before.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ForceSpawnResultState afterBatch
+			= after.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState beforeGroup
+			= before.FindActiveGroup(expected.m_sGroupId);
+		HST_ActiveGroupState afterGroup
+			= after.FindActiveGroup(expected.m_sGroupId);
+		HST_FactionPoolState beforePool
+			= before.FindFactionPool(expected.m_sFactionKey);
+		HST_FactionPoolState afterPool
+			= after.FindFactionPool(expected.m_sFactionKey);
+		HST_EnemyStrategicMutationState beforeMutation
+			= FindExternalMutation(before, expected.m_sDebitMutationId);
+		HST_EnemyStrategicMutationState afterMutation
+			= FindExternalMutation(after, expected.m_sDebitMutationId);
+
+		string evidence;
+		if (BuildExternalGroupSemanticRow(beforeGroup, false)
+			!= BuildExternalGroupSemanticRow(afterGroup, false))
+		{
+			evidence = BuildExternalGroupStaticDifferenceEvidence(
+				beforeGroup,
+				afterGroup) + " | ";
+		}
+		evidence += string.Format(
+			"semantic row matches | elapsed %1 | order %2 | operation %3 | manifest %4",
+			before.m_iElapsedSeconds == after.m_iElapsedSeconds,
+			BuildExternalOrderSemanticRow(beforeOrder)
+				== BuildExternalOrderSemanticRow(afterOrder),
+			BuildExternalOperationSemanticRow(beforeOperation, true)
+				== BuildExternalOperationSemanticRow(afterOperation, true),
+			BuildExternalManifestSemanticRow(beforeManifest)
+				== BuildExternalManifestSemanticRow(afterManifest));
+		evidence += string.Format(
+			" | batch %1 | slots %2 | group %3 | pool %4",
+			BuildExternalBatchSemanticRow(beforeBatch)
+				== BuildExternalBatchSemanticRow(afterBatch),
+			BuildExternalSlotSemanticRows(beforeBatch)
+				== BuildExternalSlotSemanticRows(afterBatch),
+			BuildExternalGroupSemanticRow(beforeGroup, true)
+				== BuildExternalGroupSemanticRow(afterGroup, true),
+			BuildExternalPoolSemanticRow(beforePool)
+				== BuildExternalPoolSemanticRow(afterPool));
+		evidence += string.Format(
+			" | mutation %1",
+			BuildExternalMutationSemanticRow(beforeMutation)
+				== BuildExternalMutationSemanticRow(afterMutation));
+		bool groupStaticExact = BuildExternalGroupSemanticRow(beforeGroup, false)
+			== BuildExternalGroupSemanticRow(afterGroup, false);
+		bool positionExact = false;
+		bool sourceExact = false;
+		bool lifecycleExact = false;
+		if (beforeGroup && afterGroup)
+		{
+			positionExact = BuildExternalVectorFingerprint(beforeGroup.m_vPosition)
+				== BuildExternalVectorFingerprint(afterGroup.m_vPosition);
+			sourceExact = BuildExternalVectorFingerprint(beforeGroup.m_vSourcePosition)
+				== BuildExternalVectorFingerprint(afterGroup.m_vSourcePosition);
+			lifecycleExact = beforeGroup.m_iLifecycleRevision
+				== afterGroup.m_iLifecycleRevision;
+		}
+		evidence += string.Format(
+			" | group static %1 | position %2 | source %3 | lifecycle %4",
+			groupStaticExact,
+			positionExact,
+			sourceExact,
+			lifecycleExact);
+		return evidence;
+	}
+
+	protected string BuildExternalGroupStaticDifferenceEvidence(
+		HST_ActiveGroupState before,
+		HST_ActiveGroupState after)
+	{
+		if (!before || !after)
+			return "group static comparison unavailable";
+		bool identityExact = true;
+		identityExact = identityExact && before.m_sGroupId == after.m_sGroupId;
+		identityExact = identityExact
+			&& before.m_sOperationId == after.m_sOperationId;
+		identityExact = identityExact
+			&& before.m_sManifestId == after.m_sManifestId;
+		identityExact = identityExact
+			&& before.m_sSpawnResultId == after.m_sSpawnResultId;
+		identityExact = identityExact && before.m_sForceId == after.m_sForceId;
+		identityExact = identityExact
+			&& before.m_sProjectionId == after.m_sProjectionId;
+		identityExact = identityExact && before.m_sZoneId == after.m_sZoneId;
+		identityExact = identityExact
+			&& before.m_sFactionKey == after.m_sFactionKey;
+		identityExact = identityExact
+			&& before.m_sMissionInstanceId == after.m_sMissionInstanceId;
+
+		bool claimantExact = true;
+		claimantExact = claimantExact
+			&& before.m_sSupportRequestId == after.m_sSupportRequestId;
+		claimantExact = claimantExact
+			&& before.m_sEnemyOrderId == after.m_sEnemyOrderId;
+		claimantExact = claimantExact
+			&& before.m_sConvoyElementId == after.m_sConvoyElementId;
+		claimantExact = claimantExact
+			&& before.m_sMissionAssetId == after.m_sMissionAssetId;
+		claimantExact = claimantExact
+			&& before.m_sGarrisonZoneId == after.m_sGarrisonZoneId;
+		claimantExact = claimantExact
+			&& before.m_sQRFInstanceId == after.m_sQRFInstanceId;
+		claimantExact = claimantExact && before.m_sLocalSecurityPatrolId
+			== after.m_sLocalSecurityPatrolId;
+		claimantExact = claimantExact && before.m_sPrefab == after.m_sPrefab;
+		claimantExact = claimantExact
+			&& before.m_sVehiclePrefab == after.m_sVehiclePrefab;
+
+		bool compositionExact = true;
+		compositionExact = compositionExact && before.m_sCompositionRequestId
+			== after.m_sCompositionRequestId;
+		compositionExact = compositionExact && before.m_sCompositionIntentId
+			== after.m_sCompositionIntentId;
+		compositionExact = compositionExact
+			&& before.m_sCompositionTier == after.m_sCompositionTier;
+		compositionExact = compositionExact
+			&& before.m_sCompositionSummary == after.m_sCompositionSummary;
+		compositionExact = compositionExact
+			&& before.m_sSpawnFallbackMode == after.m_sSpawnFallbackMode;
+		compositionExact = compositionExact
+			&& before.m_sSpawnFailureReason == after.m_sSpawnFailureReason;
+		compositionExact = compositionExact
+			&& before.m_sRouteId == after.m_sRouteId;
+		compositionExact = compositionExact
+			&& BuildExternalVectorFingerprint(before.m_vTargetPosition)
+				== BuildExternalVectorFingerprint(after.m_vTargetPosition);
+		compositionExact = compositionExact
+			&& before.m_iInfantryCount == after.m_iInfantryCount;
+
+		bool rosterExact = true;
+		rosterExact = rosterExact
+			&& before.m_iVehicleCount == after.m_iVehicleCount;
+		rosterExact = rosterExact && before.m_iOriginalInfantryCount
+			== after.m_iOriginalInfantryCount;
+		rosterExact = rosterExact && before.m_iOriginalVehicleCount
+			== after.m_iOriginalVehicleCount;
+		rosterExact = rosterExact
+			&& before.m_iCompositionCost == after.m_iCompositionCost;
+		rosterExact = rosterExact && before.m_iCompositionManpower
+			== after.m_iCompositionManpower;
+		rosterExact = rosterExact && before.m_iCompositionVehicleCount
+			== after.m_iCompositionVehicleCount;
+		rosterExact = rosterExact && before.m_iCompositionArmedVehicleCount
+			== after.m_iCompositionArmedVehicleCount;
+		rosterExact = rosterExact
+			&& before.m_iSpawnedAtSecond == after.m_iSpawnedAtSecond;
+		rosterExact = rosterExact
+			&& before.m_iLastSeenAliveCount == after.m_iLastSeenAliveCount;
+		rosterExact = rosterExact && before.m_iSurvivorInfantryCount
+			== after.m_iSurvivorInfantryCount;
+		rosterExact = rosterExact && before.m_iSurvivorVehicleCount
+			== after.m_iSurvivorVehicleCount;
+		rosterExact = rosterExact && before.m_iAssignedWaypointCount
+			== after.m_iAssignedWaypointCount;
+		rosterExact = rosterExact && before.m_iMaxObservedCrewAlive
+			== after.m_iMaxObservedCrewAlive;
+		rosterExact = rosterExact && before.m_iDurableLivingInfantryCount
+			== after.m_iDurableLivingInfantryCount;
+
+		bool combatExact = true;
+		combatExact = combatExact && before.m_iCombatEffectiveInfantryCount
+			== after.m_iCombatEffectiveInfantryCount;
+		combatExact = combatExact && before.m_iOperationalMannedVehicleCount
+			== after.m_iOperationalMannedVehicleCount;
+		combatExact = combatExact
+			&& before.m_iCombatEffectiveStaticOperatorCount
+				== after.m_iCombatEffectiveStaticOperatorCount;
+		combatExact = combatExact && before.m_iCombatPresenceSampleSecond
+			== after.m_iCombatPresenceSampleSecond;
+		combatExact = combatExact
+			&& before.m_iLastCasualtySecond == after.m_iLastCasualtySecond;
+		combatExact = combatExact
+			&& before.m_iEliminatedAtSecond == after.m_iEliminatedAtSecond;
+		combatExact = combatExact
+			&& before.m_bEverHadLivingCrew == after.m_bEverHadLivingCrew;
+		combatExact = combatExact && before.m_bCombatPresenceSampleAuthoritative
+			== after.m_bCombatPresenceSampleAuthoritative;
+		bool combatReasonExact;
+		if (!before.m_bCombatPresenceSampleAuthoritative
+			&& !after.m_bCombatPresenceSampleAuthoritative)
+		{
+			combatReasonExact = true;
+		}
+		else
+		{
+			combatReasonExact = BuildExternalCanonicalOptionalText(
+				before.m_sCombatPresenceSampleReason)
+				== BuildExternalCanonicalOptionalText(
+					after.m_sCombatPresenceSampleReason);
+		}
+		combatExact = combatExact && combatReasonExact;
+		combatExact = combatExact
+			&& before.m_bEverPopulated == after.m_bEverPopulated;
+		combatExact = combatExact
+			&& before.m_bSpawnCompleted == after.m_bSpawnCompleted;
+		combatExact = combatExact && before.m_bCrewPopulationTerminallyFailed
+			== after.m_bCrewPopulationTerminallyFailed;
+		combatExact = combatExact
+			&& BuildExternalCanonicalOptionalText(
+				before.m_sCrewPopulationFailureReason)
+				== BuildExternalCanonicalOptionalText(
+					after.m_sCrewPopulationFailureReason);
+
+		bool runtimeExact = true;
+		runtimeExact = runtimeExact
+			&& before.m_sConvoyRuntimeStage == after.m_sConvoyRuntimeStage;
+		runtimeExact = runtimeExact && before.m_bQRF == after.m_bQRF;
+		runtimeExact = runtimeExact
+			&& before.m_bSpawnAttempted == after.m_bSpawnAttempted;
+		runtimeExact = runtimeExact
+			&& before.m_bSpawnedEntity == after.m_bSpawnedEntity;
+		runtimeExact = runtimeExact && before.m_sRuntimeEntityId.IsEmpty()
+			== after.m_sRuntimeEntityId.IsEmpty();
+		runtimeExact = runtimeExact && before.m_iSpawnedAgentCount
+			== after.m_iSpawnedAgentCount;
+		string evidence;
+		if (!combatExact)
+		{
+			evidence = string.Format(
+				"combat fields i%1 v%2 s%3 t%4",
+				before.m_iCombatEffectiveInfantryCount
+					== after.m_iCombatEffectiveInfantryCount,
+				before.m_iOperationalMannedVehicleCount
+					== after.m_iOperationalMannedVehicleCount,
+				before.m_iCombatEffectiveStaticOperatorCount
+					== after.m_iCombatEffectiveStaticOperatorCount,
+				before.m_iCombatPresenceSampleSecond
+					== after.m_iCombatPresenceSampleSecond);
+			evidence += string.Format(
+				" c%1 e%2 h%3 a%4",
+				before.m_iLastCasualtySecond == after.m_iLastCasualtySecond,
+				before.m_iEliminatedAtSecond == after.m_iEliminatedAtSecond,
+				before.m_bEverHadLivingCrew == after.m_bEverHadLivingCrew,
+				before.m_bCombatPresenceSampleAuthoritative
+					== after.m_bCombatPresenceSampleAuthoritative);
+			evidence += string.Format(
+				" r%1 p%2 d%3 f%4",
+				combatReasonExact,
+				before.m_bEverPopulated == after.m_bEverPopulated,
+				before.m_bSpawnCompleted == after.m_bSpawnCompleted,
+				before.m_bCrewPopulationTerminallyFailed
+					== after.m_bCrewPopulationTerminallyFailed);
+			evidence += string.Format(
+				" x%1 | ",
+				BuildExternalCanonicalOptionalText(
+					before.m_sCrewPopulationFailureReason)
+					== BuildExternalCanonicalOptionalText(
+						after.m_sCrewPopulationFailureReason));
+		}
+		evidence += string.Format(
+			"group fields | identity %1 | claimant %2 | composition %3 | roster %4",
+			identityExact,
+			claimantExact,
+			compositionExact,
+			rosterExact)
+			+ string.Format(
+				" | combat %1 | runtime %2",
+				combatExact,
+				runtimeExact);
+		return evidence;
 	}
 
 	protected string BuildExternalCanonicalFingerprint(
@@ -4712,17 +5042,24 @@ class HST_EnemyCounterattackOperationProofService
 			group.m_iOperationalMannedVehicleCount,
 			group.m_iCombatEffectiveStaticOperatorCount,
 			group.m_iCombatPresenceSampleSecond);
+		string combatSampleReason = "non_authoritative_combat_sample";
+		if (group.m_bCombatPresenceSampleAuthoritative)
+		{
+			combatSampleReason = BuildExternalCanonicalOptionalText(
+				group.m_sCombatPresenceSampleReason);
+		}
 		row += string.Format(
 			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
 			group.m_iLastCasualtySecond,
 			group.m_iEliminatedAtSecond,
 			group.m_bEverHadLivingCrew,
 			group.m_bCombatPresenceSampleAuthoritative,
-			group.m_sCombatPresenceSampleReason,
+			combatSampleReason,
 			group.m_bEverPopulated,
 			group.m_bSpawnCompleted,
 			group.m_bCrewPopulationTerminallyFailed,
-			group.m_sCrewPopulationFailureReason);
+			BuildExternalCanonicalOptionalText(
+				group.m_sCrewPopulationFailureReason));
 		row += string.Format(
 			"|%1|%2|%3|%4|%5|%6|virtual_runtime",
 			group.m_sConvoyRuntimeStage,
@@ -4812,6 +5149,13 @@ class HST_EnemyCounterattackOperationProofService
 				return mutation;
 		}
 		return null;
+	}
+
+	protected string BuildExternalCanonicalOptionalText(string value)
+	{
+		if (value.IsEmpty())
+			return "<empty>";
+		return value;
 	}
 
 	protected string BuildExternalVectorFingerprint(vector value)

@@ -1531,7 +1531,18 @@ function Assert-StageResult {
         }
     }
     if (-not [bool]$Result.m_bSuccess) {
-        throw "$label reported failure."
+        $failureFlags = "source=$([bool]$Result.m_bSourceExact)," +
+            "runtime=$([bool]$Result.m_bRuntimeClaimantsZero)," +
+            "readback=$([bool]$Result.m_bPersistedReadBackExact)," +
+            "restored=$([bool]$Result.m_bRestored)," +
+            "continuation=$([bool]$Result.m_bContinuationExact)," +
+            "noop=$([bool]$Result.m_bSameStateSemanticNoOp)"
+        $safeFailureEvidence = ConvertTo-SafeEvidenceLine `
+            -Line ([string]$Result.m_sEvidence)
+        if ([string]::IsNullOrWhiteSpace($safeFailureEvidence)) {
+            $safeFailureEvidence = "no bounded engine evidence"
+        }
+        throw "$label reported failure ($failureFlags): $safeFailureEvidence"
     }
     if (-not [bool]$Result.m_bSourceExact -or
         -not [bool]$Result.m_bRuntimeClaimantsZero -or
@@ -1844,8 +1855,10 @@ function Invoke-RestartStage {
     $result = $null
     $stageError = $null
     $stageCleanupErrors = New-Object Collections.Generic.List[string]
-    $ownedRemaining = -1
-    $engineAfter = -1
+    $stageCleanupState = [ordered]@{
+        OwnedRemaining = -1
+        EngineAfter = -1
+    }
     try {
         $job = New-Object PartisanCounterattackGuardedJob
         if (@(Get-EngineProcessRows).Count -ne 0) {
@@ -2060,7 +2073,7 @@ function Invoke-RestartStage {
             -Action {
                 Start-Sleep -Milliseconds 300
                 Stop-OwnedProcesses -Owned $ownedProcesses
-                $ownedRemaining = Get-LiveOwnedProcessCount `
+                $stageCleanupState.OwnedRemaining = Get-LiveOwnedProcessCount `
                     -Owned $ownedProcesses
             }
         Invoke-IsolatedCleanupPhase `
@@ -2076,13 +2089,23 @@ function Invoke-RestartStage {
             -Name "audit-engine-$Stage" `
             -Errors $stageCleanupErrors `
             -Action {
-                $engineAfter = @(Get-EngineProcessRows).Count
+                $stageCleanupState.EngineAfter = @(Get-EngineProcessRows).Count
             }
     }
 
+    $ownedRemaining = [int]$stageCleanupState.OwnedRemaining
+    $engineAfter = [int]$stageCleanupState.EngineAfter
     if ($stageCleanupErrors.Count -ne 0 -or
         $ownedRemaining -ne 0 -or $engineAfter -ne 0) {
-        throw "outbound_virtual/$Stage process containment cleanup failed."
+        $failedCleanupPhases = if ($stageCleanupErrors.Count -eq 0) {
+            "none"
+        }
+        else {
+            $stageCleanupErrors -join ","
+        }
+        throw "outbound_virtual/$Stage process containment cleanup failed " +
+            "(phases=$failedCleanupPhases; owned=$ownedRemaining; " +
+            "engine=$engineAfter)."
     }
     if ($stageError) {
         throw $stageError

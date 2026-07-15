@@ -664,7 +664,19 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		m_EnemyQRFOperations = new HST_EnemyQRFOperationService();
 		if (m_EnemyQRFOperations)
 			m_EnemyQRFOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
-		m_EnemyCounterattackOperations = new HST_EnemyCounterattackOperationService();
+		if (m_bExactCounterattackRestartCLIRequested
+			&& m_bExactCounterattackRestartGuardExact)
+		{
+			HST_EnemyCounterattackOperationProofHarness restartCounterattackOwner
+				= new HST_EnemyCounterattackOperationProofHarness();
+			restartCounterattackOwner.UseDeterministicVirtualProjectionForProof();
+			m_EnemyCounterattackOperations = restartCounterattackOwner;
+		}
+		else
+		{
+			m_EnemyCounterattackOperations
+				= new HST_EnemyCounterattackOperationService();
+		}
 		m_EnemyPatrolOperations = new HST_EnemyPatrolOperationService();
 		if (m_EnemyPatrolOperations)
 			m_EnemyPatrolOperations.SetRuntimeServices(m_ForceSpawnQueue, m_ForceSpawnAdapter, m_PhysicalWar);
@@ -6651,6 +6663,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				readBackFingerprint,
 				readBackEvidence)
 			&& readBackFingerprint == carrier.m_sPreparedSemanticFingerprint;
+		if (persisted && readBackState && carrier
+			&& readBackFingerprint != carrier.m_sPreparedSemanticFingerprint)
+		{
+			bool preparedStillExact
+				= proof.BuildExternalSemanticFingerprint(stagedState, carrier)
+					== carrier.m_sPreparedSemanticFingerprint;
+			readBackEvidence += string.Format(
+				" | prepared current %1 | readback carrier %2 | ",
+				preparedStillExact,
+				readBackFingerprint == carrier.m_sPreparedSemanticFingerprint);
+			readBackEvidence += proof.BuildExternalSemanticDifferenceEvidence(
+				stagedState,
+				readBackState,
+				carrier);
+		}
 		string runtimeEvidence;
 		bool runtimeZero = readBackExact
 			&& proof.ValidateExternalRuntimeClaimantsZero(
@@ -6683,11 +6710,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_sFinalSemanticFingerprint = readBackFingerprint;
 		result.m_bSuccess = prepared && carrierSaved && persisted
 			&& readBackExact && runtimeZero;
-		result.m_sEvidence = prepareEvidence
+		result.m_sEvidence = "readback " + readBackEvidence
+			+ " | runtime " + runtimeEvidence
+			+ " | prepare " + prepareEvidence
 			+ " | carrier " + carrierEvidence
-			+ " | persistence " + persistenceEvidence
-			+ " | readback " + readBackEvidence
-			+ " | runtime " + runtimeEvidence;
+			+ " | persistence " + persistenceEvidence;
 		SaveExactCounterattackRestartResult(result);
 	}
 

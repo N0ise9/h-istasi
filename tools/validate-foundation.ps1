@@ -33644,6 +33644,17 @@ foreach ($exactCounterRestartSemanticField in @(
 		throw "Exact counterattack canonical rows omit durable business state: $exactCounterRestartSemanticField"
 	}
 }
+foreach ($exactCounterRestartFailureEvidenceEntry in @(
+	'external exact counterattack virtual state rejected | rows %1',
+	'| projection %1 | resources %2 | fingerprint %3',
+	'| route c%1 l%2 a%3 n%4',
+	'| pool %1 | receipt %2'
+)) {
+	if ($exactCounterRestartProofText.IndexOf(
+		$exactCounterRestartFailureEvidenceEntry) -lt 0) {
+		throw "Exact counterattack restart failure evidence is not bounded and actionable: $exactCounterRestartFailureEvidenceEntry"
+	}
+}
 if ($exactCounterRestartSlotRow.IndexOf('slot.m_iLifecycleRevision') -lt 0) {
 	throw "Exact counterattack canonical slot tuple omits its durable lifecycle revision"
 }
@@ -33663,6 +33674,56 @@ foreach ($exactCounterRestartContinuationEntry in @(
 	if ([string]::IsNullOrEmpty($exactCounterRestartContinuation) -or
 		$exactCounterRestartContinuation.IndexOf($exactCounterRestartContinuationEntry) -lt 0) {
 		throw "Exact counterattack deterministic continuation proof is incomplete: $exactCounterRestartContinuationEntry"
+	}
+}
+$exactCounterRestartSemanticDifference = Get-ScriptMethodBlock $exactCounterRestartProofText 'string BuildExternalSemanticDifferenceEvidence('
+foreach ($exactCounterRestartDifferenceEntry in @(
+	'semantic row matches | elapsed %1 | order %2 | operation %3 | manifest %4',
+	'| batch %1 | slots %2 | group %3 | pool %4',
+	'| mutation %1',
+	'| group static %1 | position %2 | source %3 | lifecycle %4'
+)) {
+	if ($exactCounterRestartSemanticDifference.IndexOf(
+		$exactCounterRestartDifferenceEntry) -lt 0) {
+		throw "Exact counterattack semantic readback comparator is incomplete: $exactCounterRestartDifferenceEntry"
+	}
+}
+$exactCounterRestartGroupDifference = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected string BuildExternalGroupStaticDifferenceEvidence('
+foreach ($exactCounterRestartGroupDifferenceEntry in @(
+	'combat fields i%1 v%2 s%3 t%4',
+	'group fields | identity %1 | claimant %2 | composition %3 | roster %4',
+	'| combat %1 | runtime %2'
+)) {
+	if ($exactCounterRestartGroupDifference.IndexOf(
+		$exactCounterRestartGroupDifferenceEntry) -lt 0) {
+		throw "Exact counterattack group readback comparator is incomplete: $exactCounterRestartGroupDifferenceEntry"
+	}
+}
+$exactCounterRestartOptionalText = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected string BuildExternalCanonicalOptionalText('
+if ($exactCounterRestartOptionalText.IndexOf('if (value.IsEmpty())') -lt 0 -or
+	$exactCounterRestartOptionalText.IndexOf('return "<empty>";') -lt 0 -or
+	$exactCounterRestartGroupRow.IndexOf('"non_authoritative_combat_sample"') -lt 0 -or
+	$exactCounterRestartGroupRow.IndexOf(
+		'if (group.m_bCombatPresenceSampleAuthoritative)') -lt 0 -or
+	$exactCounterRestartGroupRow.IndexOf(
+		'group.m_sCombatPresenceSampleReason') -lt 0 -or
+	$exactCounterRestartGroupDifference.IndexOf('combatReasonExact') -lt 0 -or
+	$exactCounterRestartGroupDifference.IndexOf(
+		'!before.m_bCombatPresenceSampleAuthoritative') -lt 0) {
+	throw "Exact counterattack semantic fingerprint must canonicalize only restore-only non-authoritative combat-presence text"
+}
+$exactCounterRestartDifferenceGroupGuard = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'string BuildExternalSemanticDifferenceEvidence('
+foreach ($exactCounterRestartDifferenceGuardEntry in @(
+	'bool positionExact = false;',
+	'bool sourceExact = false;',
+	'bool lifecycleExact = false;',
+	'if (beforeGroup && afterGroup)'
+)) {
+	if ($exactCounterRestartDifferenceGroupGuard.IndexOf(
+		$exactCounterRestartDifferenceGuardEntry) -lt 0) {
+		throw "Exact counterattack semantic readback diagnostics must guard missing groups: $exactCounterRestartDifferenceGuardEntry"
 	}
 }
 $exactCounterRestartVectorExact = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected bool VectorExact('
@@ -33723,6 +33784,29 @@ if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIn
 	$exactCounterRestartPostInit -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
 	throw "Exact counterattack guard/source observation must precede profile mutation and captured startup reconcile"
 }
+foreach ($exactCounterRestartVirtualSeamEntry in @(
+	'm_bExactCounterattackRestartCLIRequested',
+	'm_bExactCounterattackRestartGuardExact',
+	'HST_EnemyCounterattackOperationProofHarness restartCounterattackOwner',
+	'restartCounterattackOwner.UseDeterministicVirtualProjectionForProof();',
+	'm_EnemyCounterattackOperations = restartCounterattackOwner;'
+)) {
+	if ($exactCounterRestartPostInit.IndexOf(
+		$exactCounterRestartVirtualSeamEntry) -lt 0) {
+		throw "Exact counterattack restart virtual cut is not guarded from live player proximity: $exactCounterRestartVirtualSeamEntry"
+	}
+}
+$exactCounterRestartPrepareCarrier = Get-ScriptMethodBlock $exactCounterRestartProofText 'bool PrepareExternalRestartCarrier('
+foreach ($exactCounterRestartPrepareVirtualEntry in @(
+	'HST_EnemyCounterattackOperationProofHarness production',
+	'production.UseDeterministicVirtualProjectionForProof();',
+	'production.TickOrder('
+)) {
+	if ($exactCounterRestartPrepareCarrier.IndexOf(
+		$exactCounterRestartPrepareVirtualEntry) -lt 0) {
+		throw "Exact counterattack prepare cut must use the guarded virtual proximity seam around production TickOrder: $exactCounterRestartPrepareVirtualEntry"
+	}
+}
 $exactCounterRestartStartupFailure = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected void PublishExactCounterattackRestartStartupFailure()'
 if ($exactCounterRestartPostInit.IndexOf('PublishExactCounterattackRestartStartupFailure();') -lt 0 -or
 	$exactCounterRestartStartupFailure.IndexOf('m_bExactCounterattackRestartGuardExact') -lt 0 -or
@@ -33780,6 +33864,17 @@ foreach ($exactCounterRestartVerifyEntry in @(
 		throw "Exact counterattack recover/replay proof is incomplete: $exactCounterRestartVerifyEntry"
 	}
 }
+$exactCounterRestartPrepare = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected void FinalizeExactCounterattackExternalRestartPrepare()'
+foreach ($exactCounterRestartPrepareReadbackEntry in @(
+	'preparedStillExact',
+	'proof.BuildExternalSemanticDifferenceEvidence(',
+	'readBackFingerprint != carrier.m_sPreparedSemanticFingerprint'
+)) {
+	if ($exactCounterRestartPrepare.IndexOf(
+		$exactCounterRestartPrepareReadbackEntry) -lt 0) {
+		throw "Exact counterattack prepare readback drift evidence is incomplete: $exactCounterRestartPrepareReadbackEntry"
+	}
+}
 $exactCounterRestartFinalize = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected void FinalizeExactCounterattackExternalRestartStage()'
 $exactCounterRestartFailedResultIndex = $exactCounterRestartFinalize.IndexOf('SaveExactCounterattackRestartResult(failedResult);')
 $exactCounterRestartFirstCloseIndex = $exactCounterRestartFinalize.IndexOf('GetGame().RequestClose();')
@@ -33830,6 +33925,8 @@ foreach ($exactCounterRestartEngineAuthorityEntry in @(
 foreach ($exactCounterRestartLauncherResultEntry in @(
 	'$script:ExpectedContinuationMeters',
 	'$sameFingerprint',
+	'$failureFlags', 'source=$([bool]$Result.m_bSourceExact)',
+	'ConvertTo-SafeEvidenceLine', '$Result.m_sEvidence',
 	'$Stage -eq "prepare"',
 	'$Stage -eq "recover"'
 )) {
@@ -33850,11 +33947,20 @@ foreach ($exactCounterRestartStageLauncherEntry in @(
 	'[Environment]::SetEnvironmentVariable(', '"TEMP"', '"TMP"',
 	'$previousTemp', '$previousTmp', '$job.Dispose()',
 	'Stop-OwnedProcesses -Owned $ownedProcesses',
-	'Get-LiveOwnedProcessCount -Owned $ownedProcesses'
+	'Get-LiveOwnedProcessCount -Owned $ownedProcesses',
+	'$stageCleanupState = [ordered]@{',
+	'$stageCleanupState.OwnedRemaining',
+	'$stageCleanupState.EngineAfter'
 )) {
 	if ($exactCounterRestartStageLauncher.IndexOf($exactCounterRestartStageLauncherEntry) -lt 0) {
 		throw "Exact counterattack restart job/TEMP isolation is incomplete: $exactCounterRestartStageLauncherEntry"
 	}
+}
+if ($exactCounterRestartStageLauncher -match
+	'(?m)^\s*\$ownedRemaining\s*=\s*Get-LiveOwnedProcessCount' -or
+	$exactCounterRestartStageLauncher -match
+	'(?m)^\s*\$engineAfter\s*=\s*@\(Get-EngineProcessRows\)\.Count') {
+	throw "Exact counterattack isolated cleanup counters must use shared state instead of child-scope scalars"
 }
 $exactCounterRestartStaleOwned = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Remove-StaleOwnedGuards'
 $exactCounterRestartStaleEmpty = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Remove-StaleEmptyGuardDirectories'
