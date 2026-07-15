@@ -135,7 +135,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN = 1;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL = 2;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD = 3;
-	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE = 4;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_REENTER = 4;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_SPAWN = 5;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_PHYSICAL = 6;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_RECONCILE = 7;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_CLEANUP = 8;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_FOLD = 9;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_REENTER = 10;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_SPAWN = 11;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_PHYSICAL = 12;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD = 13;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE = 14;
 	static const int CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT = 15;
 
 	protected ref HST_CampaignState m_State;
@@ -31602,7 +31612,167 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD)
 		{
-			LeaveCampaignDebugPhase17ExactCounterattackProjection(probe, order);
+			if (!LeaveCampaignDebugPhase17ExactCounterattackProjection(probe, order))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage
+				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_REENTER;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_REENTER)
+		{
+			if (!EnterCampaignDebugPhase17ExactCounterattackReprojection(
+				probe,
+				order,
+				false))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_SPAWN;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_SPAWN)
+		{
+			if (!DriveCampaignDebugPhase17ExactCounterattackNativeSpawn(probe, order))
+				return false;
+			if (!probe.m_bCasualtyReentrySpawnSucceeded)
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage
+				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_PHYSICAL;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_PHYSICAL)
+		{
+			if (!ConfirmCampaignDebugPhase17ExactCounterattackReprojection(
+				probe,
+				order,
+				false)
+				|| !BeginCampaignDebugPhase17ExactCounterattackNativeCasualty(
+					probe,
+					order))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage
+				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_RECONCILE;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_RECONCILE)
+		{
+			if (!CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty(
+				probe,
+				order))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage
+				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_CLEANUP;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_CLEANUP)
+		{
+			if (!ConfirmCampaignDebugPhase17ExactCounterattackCasualtyCleanup(
+				probe))
+				return false;
+			if (!probe.m_bCasualtyCorpseDeleted)
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_FOLD;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_FOLD)
+		{
+			if (!LeaveCampaignDebugPhase17ExactCounterattackCasualtyProjection(
+				probe,
+				order,
+				false))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage
+				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_REENTER;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_REENTER)
+		{
+			if (!EnterCampaignDebugPhase17ExactCounterattackReprojection(
+				probe,
+				order,
+				true))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_SPAWN;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_SPAWN)
+		{
+			if (!DriveCampaignDebugPhase17ExactCounterattackNativeSpawn(probe, order))
+				return false;
+			if (!probe.m_bSurvivorReentrySpawnSucceeded)
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage
+				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_PHYSICAL;
+			return false;
+		}
+
+		if (probe.m_iStage
+			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_PHYSICAL)
+		{
+			if (!ConfirmCampaignDebugPhase17ExactCounterattackReprojection(
+				probe,
+				order,
+				true))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD;
+			return false;
+		}
+
+		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD)
+		{
+			if (LeaveCampaignDebugPhase17ExactCounterattackCasualtyProjection(
+				probe,
+				order,
+				true))
+			{
+				CaptureCampaignDebugPhase17ExactCounterattackCasualtyContinuity(
+					probe,
+					order);
+			}
 			FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
 			return true;
 		}
@@ -31744,6 +31914,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		probe.m_iSupportRowsBefore = CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
 		probe.m_iMutationCountBefore = m_State.m_aEnemyStrategicMutations.Count();
+		probe.m_iOwnershipTransitionCountBefore = m_State.m_aOwnershipTransitions.Count();
+		HST_ZoneState targetZone = m_State.FindZone(order.m_sTargetZoneId);
+		if (targetZone)
+			probe.m_sTargetOwnerBefore = targetZone.m_sOwnerFactionKey;
 		HST_FactionPoolState pool = m_State.FindFactionPool(order.m_sFactionKey);
 		if (pool)
 		{
@@ -31799,8 +31973,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!probe || !manifest || !batch || !group || !pool || !m_PhysicalWar)
 			return false;
-		if (probe.m_iExpectedLiving <= 0
+		if (probe.m_iExpectedLiving <= 1
 			|| probe.m_iStrategicLivingBefore != probe.m_iExpectedLiving)
+			return false;
+		if (probe.m_sTargetOwnerBefore.IsEmpty())
 			return false;
 		if (probe.m_iAdapterHandlesBefore != 0
 			|| probe.m_iAdapterResultHandlesBefore != 0
@@ -31881,7 +32057,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		int workTicks = Math.Max(
 			0,
-			probe.m_iSpawnTicks - probe.m_iSpawnHandoffPendingTicks);
+			probe.m_iSpawnCycleTicks - probe.m_iSpawnCycleHandoffPendingTicks);
 		if (workTicks >= probe.m_iSpawnTickLimit)
 		{
 			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
@@ -31911,6 +32087,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_State.m_iElapsedSeconds,
 				batch.m_sProjectionId);
 		probe.m_iSpawnTicks++;
+		probe.m_iSpawnCycleTicks++;
 		if (!spawnTick)
 		{
 			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "production force-spawn worker returned no tick result");
@@ -31918,12 +32095,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		probe.m_iSpawnDeferredTicks += spawnTick.m_iDeferredCount;
 		probe.m_iSpawnHandoffPendingTicks += spawnTick.m_iHandoffRefusedCount;
+		probe.m_iSpawnCycleHandoffPendingTicks
+			+= spawnTick.m_iHandoffRefusedCount;
 		probe.m_sLastSpawnSummary = spawnTick.m_sSummary;
 		batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
 		if (batch && batch.m_eStatus
 			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
 		{
-			probe.m_bSpawnSucceeded = true;
+			if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN)
+				probe.m_bSpawnSucceeded = true;
+			else if (probe.m_iStage
+				== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_SPAWN)
+				probe.m_bCasualtyReentrySpawnSucceeded = true;
+			else if (probe.m_iStage
+				== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_SPAWN)
+				probe.m_bSurvivorReentrySpawnSucceeded = true;
 			return true;
 		}
 		if (!batch || batch.m_eStatus
@@ -31948,7 +32134,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 						+ EmptyCampaignDebugField(spawnTick.m_sSummary));
 				return true;
 			}
-			if (probe.m_iSpawnHandoffPendingTicks
+			if (probe.m_iSpawnCycleHandoffPendingTicks
 				>= CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT)
 			{
 				SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
@@ -31961,7 +32147,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		workTicks = Math.Max(
 			0,
-			probe.m_iSpawnTicks - probe.m_iSpawnHandoffPendingTicks);
+			probe.m_iSpawnCycleTicks - probe.m_iSpawnCycleHandoffPendingTicks);
 		if (workTicks >= probe.m_iSpawnTickLimit)
 		{
 			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
@@ -32063,6 +32249,742 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (!probe.m_bFoldExact)
 			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "production runtime dispatcher did not fold the exact survivors back to virtual authority");
 		return probe.m_bFoldExact;
+	}
+
+	protected bool EnterCampaignDebugPhase17ExactCounterattackReprojection(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		bool survivorsOnly)
+	{
+		if (!probe || !order || !m_State || !m_EnemyCommander)
+			return false;
+		HST_OperationRecordState operation
+			= m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		int expectedLiving = probe.m_iExpectedLiving;
+		if (survivorsOnly)
+			expectedLiving--;
+		if (!operation || !batch || !group || expectedLiving <= 0)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"exact counterattack aggregate disappeared before reprojection");
+			return false;
+		}
+
+		probe.m_iSpawnCycleTicks = 0;
+		probe.m_iSpawnCycleHandoffPendingTicks = 0;
+		vector nearPosition = operation.m_vStrategicPosition + "8 0 8";
+		bool teleported = TeleportCampaignDebugPlayer(
+			nearPosition,
+			"phase17 exact counterattack casualty reprojection");
+		HST_MaterializationService materialization = new HST_MaterializationService();
+		HST_OperationProjectionDecision enter
+			= materialization.EvaluateExactEnemyCounterattack(
+				operation,
+				operation.m_vStrategicPosition);
+		bool decisionExact = enter
+			&& enter.m_eDecision
+				== HST_EOperationProjectionDecision.HST_OPERATION_PROJECTION_MATERIALIZE;
+		bool tickChanged;
+		if (teleported && decisionExact)
+		{
+			tickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				order);
+		}
+		operation = m_State.FindOperation(probe.m_sOperationId);
+		batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		group = m_State.FindActiveGroup(probe.m_sGroupId);
+		bool materializingExact = tickChanged && operation && batch && group
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& !batch.m_bStrategicProjectionHeld
+			&& m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch)
+				== expectedLiving
+			&& group.m_sRuntimeStatus == "enemy_counterattack_materializing"
+			&& CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
+
+		if (survivorsOnly)
+		{
+			probe.m_bSurvivorReentryTeleport = teleported;
+			probe.m_bSurvivorReentryDecisionExact = decisionExact;
+			probe.m_bSurvivorReentryTickChanged = tickChanged;
+			probe.m_bSurvivorReentryMaterializingExact = materializingExact;
+		}
+		else
+		{
+			probe.m_bCasualtyReentryTeleport = teleported;
+			probe.m_bCasualtyReentryDecisionExact = decisionExact;
+			probe.m_bCasualtyReentryTickChanged = tickChanged;
+			probe.m_bCasualtyReentryMaterializingExact = materializingExact;
+		}
+		if (!teleported || !decisionExact || !materializingExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"production runtime owner did not enter exact casualty reprojection authority");
+		}
+		return teleported && decisionExact && materializingExact;
+	}
+
+	protected bool ConfirmCampaignDebugPhase17ExactCounterattackReprojection(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		bool survivorsOnly)
+	{
+		if (!probe || !order || !m_State || !m_EnemyCommander)
+			return false;
+		int expectedLiving = probe.m_iExpectedLiving;
+		if (survivorsOnly)
+			expectedLiving--;
+		bool tickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			order);
+		HST_OperationRecordState operation
+			= m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		int living;
+		int runtimeMembers;
+		int handles;
+		string fingerprint;
+		if (batch)
+		{
+			living = m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+			handles = m_ForceSpawnAdapter.CountHandlesForProjection(
+				batch.m_sProjectionId);
+			fingerprint
+				= BuildCampaignDebugExactCounterattackLivingSlotFingerprint(batch);
+		}
+		if (group)
+			runtimeMembers = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+		string bindingFailure;
+		bool bindingsExact = batch
+			&& m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				m_State,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingFailure);
+		bool physicalExact = tickChanged && operation && batch && group;
+		if (physicalExact)
+		{
+			physicalExact = operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				&& operation.m_ePositionAuthority
+					== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+				&& !batch.m_bStrategicProjectionHeld
+				&& group.m_bSpawnedEntity;
+		}
+		if (physicalExact)
+		{
+			physicalExact = m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				&& living == expectedLiving
+				&& runtimeMembers == expectedLiving
+				&& handles == expectedLiving + 1;
+		}
+		if (physicalExact)
+		{
+			physicalExact = group.m_iInfantryCount == expectedLiving
+				&& group.m_iDurableLivingInfantryCount == expectedLiving
+				&& group.m_iLastSeenAliveCount == expectedLiving
+				&& group.m_iSurvivorInfantryCount == expectedLiving;
+		}
+		if (physicalExact)
+		{
+			physicalExact = bindingsExact
+				&& CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
+		}
+
+		if (survivorsOnly)
+		{
+			probe.m_bSurvivorReentryPhysicalTickChanged = tickChanged;
+			probe.m_iReentryLiving = living;
+			probe.m_iReentryRuntimeMembers = runtimeMembers;
+			probe.m_iReentryHandles = handles;
+			probe.m_sLivingSlotFingerprintReentry = fingerprint;
+			probe.m_bSurvivorReentryBindingsExact = bindingsExact;
+			HST_ForceSpawnSlotResultState retiredSlot;
+			if (batch)
+				retiredSlot = batch.FindSlotResult(probe.m_sCasualtySlotId);
+			if (batch)
+			{
+				probe.m_iReentryRetiredSlotHandles
+					= m_ForceSpawnAdapter.DebugCountHandlesForSlot(
+						batch.m_sResultId,
+						batch.m_sProjectionId,
+						probe.m_sCasualtySlotId);
+			}
+			probe.m_bSurvivorRetiredSlotAbsent = retiredSlot
+				&& retiredSlot.m_eStatus
+					== HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+				&& retiredSlot.m_bEverAlive
+				&& retiredSlot.m_bCasualtyConfirmed
+				&& retiredSlot.m_sEntityId.IsEmpty()
+				&& probe.m_iReentryRetiredSlotHandles == 0;
+			physicalExact = physicalExact
+				&& probe.m_bSurvivorRetiredSlotAbsent
+				&& fingerprint == probe.m_sLivingSlotFingerprintCasualty;
+			HST_ForceSpawnAdapterTickResult replay;
+			if (batch && physicalExact)
+			{
+				replay = m_ForceSpawnAdapter.ReconcileExactInfantryProjectionAuthority(
+					m_State,
+					m_ForceSpawnQueue,
+					m_PhysicalWar,
+					m_State.m_iElapsedSeconds,
+					batch.m_sProjectionId);
+			}
+			bool replayExact = replay
+				&& !replay.m_bStateChanged
+				&& !replay.m_bRuntimeChanged
+				&& replay.m_iCasualtyCount == 0
+				&& replay.m_iEliminatedCount == 0
+				&& replay.m_iFailedCount == 0;
+			probe.m_bCasualtyReplayExact
+				= probe.m_bCasualtyReplayExact && replayExact;
+			physicalExact = physicalExact && replayExact;
+			probe.m_bSurvivorReentryPhysicalExact = physicalExact;
+		}
+		else
+		{
+			probe.m_bCasualtyReentryPhysicalTickChanged = tickChanged;
+			probe.m_bCasualtyReentryPhysicalExact = physicalExact;
+		}
+		if (!physicalExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"exact casualty reprojection did not establish one complete native roster: "
+					+ EmptyCampaignDebugField(bindingFailure));
+		}
+		return physicalExact;
+	}
+
+	protected bool BeginCampaignDebugPhase17ExactCounterattackNativeCasualty(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe || !order || !m_State || !m_ForceSpawnAdapter
+			|| !m_ForceSpawnQueue || !m_PhysicalWar)
+			return false;
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		string slotId;
+		string entityId;
+		string failure;
+		IEntity casualtyEntity
+			= m_ForceSpawnAdapter.DebugResolveExactLivingProjectionMember(
+				m_State,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				slotId,
+				entityId,
+				failure);
+		SCR_DamageManagerComponent damageManager;
+		if (casualtyEntity)
+			damageManager = SCR_DamageManagerComponent.GetDamageManager(casualtyEntity);
+		if (!batch || !casualtyEntity || slotId.IsEmpty() || entityId.IsEmpty()
+			|| !damageManager || damageManager.IsDestroyed()
+			|| !m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(casualtyEntity))
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"exact living casualty candidate is unavailable: "
+					+ EmptyCampaignDebugField(failure));
+			return false;
+		}
+		probe.m_CasualtyEntity = casualtyEntity;
+		probe.m_sCasualtySlotId = slotId;
+		probe.m_sCasualtyEntityId = entityId;
+		damageManager.Kill(Instigator.CreateInstigator(casualtyEntity));
+		probe.m_bCasualtyKillIssued = true;
+		return true;
+	}
+
+	protected bool CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe || !order || !m_State)
+			return false;
+		if (!probe.m_CasualtyEntity)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty entity disappeared before authoritative reconciliation");
+			return false;
+		}
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		probe.m_bCasualtyEntityDead = !probe.m_CasualtyEntity.IsDeleted()
+			&& !m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(
+				probe.m_CasualtyEntity);
+		HST_ForceSpawnAdapterTickResult reconciled;
+		if (batch && group && probe.m_bCasualtyEntityDead)
+		{
+			reconciled = m_ForceSpawnAdapter.ReconcileExactInfantryProjectionAuthority(
+				m_State,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				m_State.m_iElapsedSeconds,
+				batch.m_sProjectionId);
+		}
+		batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		group = m_State.FindActiveGroup(probe.m_sGroupId);
+		HST_ForceSpawnSlotResultState retiredSlot;
+		if (batch)
+		{
+			retiredSlot = batch.FindSlotResult(probe.m_sCasualtySlotId);
+			probe.m_iCasualtyLiving
+				= m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+			probe.m_iCasualtyHandles
+				= m_ForceSpawnAdapter.CountHandlesForProjection(
+					batch.m_sProjectionId);
+			probe.m_iCasualtyResultHandles
+				= m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId);
+			probe.m_sLivingSlotFingerprintCasualty
+				= BuildCampaignDebugExactCounterattackLivingSlotFingerprint(batch);
+		}
+		int retiredSlotHandles;
+		if (batch)
+		{
+			retiredSlotHandles = m_ForceSpawnAdapter.DebugCountHandlesForSlot(
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				probe.m_sCasualtySlotId);
+		}
+		probe.m_bCasualtyRetiredSlotExact = retiredSlot
+			&& retiredSlot.m_eStatus
+				== HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+			&& retiredSlot.m_bEverAlive
+			&& retiredSlot.m_bCasualtyConfirmed
+			&& retiredSlot.m_sEntityId == probe.m_sCasualtyEntityId
+			&& retiredSlotHandles == 0;
+		probe.m_bCasualtyCorpseDetached = group
+			&& !m_PhysicalWar.IsForceSpawnRuntimeHandleRegistered(
+				group,
+				probe.m_CasualtyEntity)
+			&& m_PhysicalWar.CountForceSpawnRuntimeMembers(group)
+				== probe.m_iExpectedLiving - 1;
+		string bindingFailure;
+		bool survivorBindingsExact = batch
+			&& m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				m_State,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingFailure);
+		int expectedSurvivors = probe.m_iExpectedLiving - 1;
+		bool reconcileResultExact = reconciled && reconciled.m_bStateChanged;
+		if (reconcileResultExact)
+		{
+			reconcileResultExact = reconciled.m_iCasualtyCount == 1
+				&& reconciled.m_iEliminatedCount == 0
+				&& reconciled.m_iFailedCount == 0;
+		}
+		bool reconcileRosterExact = batch && group;
+		if (reconcileRosterExact)
+		{
+			reconcileRosterExact = probe.m_iCasualtyLiving == expectedSurvivors
+				&& probe.m_iCasualtyHandles == probe.m_iExpectedLiving
+				&& probe.m_iCasualtyResultHandles == probe.m_iExpectedLiving
+				&& m_ForceSpawnQueue.CountConfirmedCasualtyMemberSlots(batch) == 1;
+		}
+		if (reconcileRosterExact)
+		{
+			reconcileRosterExact
+				= group.m_iDurableLivingInfantryCount == expectedSurvivors
+				&& group.m_iSpawnedAgentCount == expectedSurvivors
+				&& group.m_iLastSeenAliveCount == expectedSurvivors
+				&& group.m_iSurvivorInfantryCount == expectedSurvivors;
+		}
+		probe.m_bCasualtyReconcileExact = reconcileResultExact
+			&& reconcileRosterExact
+			&& survivorBindingsExact
+			&& probe.m_bCasualtyRetiredSlotExact;
+		probe.m_bCasualtyReconcileExact
+			= probe.m_bCasualtyReconcileExact
+			&& probe.m_bCasualtyCorpseDetached;
+
+		HST_ForceSpawnAdapterTickResult replay;
+		if (batch && probe.m_bCasualtyReconcileExact)
+		{
+			replay = m_ForceSpawnAdapter.ReconcileExactInfantryProjectionAuthority(
+				m_State,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				m_State.m_iElapsedSeconds,
+				batch.m_sProjectionId);
+		}
+		probe.m_bCasualtyReplayExact = replay
+			&& !replay.m_bStateChanged
+			&& !replay.m_bRuntimeChanged
+			&& replay.m_iCasualtyCount == 0
+			&& replay.m_iEliminatedCount == 0
+			&& replay.m_iFailedCount == 0;
+		if (probe.m_bCasualtyCorpseDetached
+			&& !probe.m_CasualtyEntity.IsDeleted())
+		{
+			SCR_EntityHelper.DeleteEntityAndChildren(probe.m_CasualtyEntity);
+		}
+		probe.m_bCasualtyCorpseDeleted = !probe.m_CasualtyEntity
+			|| probe.m_CasualtyEntity.IsDeleted();
+		bool exact = probe.m_bCasualtyKillIssued
+			&& probe.m_bCasualtyEntityDead
+			&& probe.m_bCasualtyReconcileExact
+			&& probe.m_bCasualtyReplayExact;
+		if (!exact)
+		{
+			string reconcileSummary;
+			if (reconciled)
+				reconcileSummary = reconciled.m_sSummary;
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty did not retire exactly one durable slot: "
+					+ EmptyCampaignDebugField(reconcileSummary)
+					+ " | bindings " + EmptyCampaignDebugField(bindingFailure));
+		}
+		return exact;
+	}
+
+	protected bool ConfirmCampaignDebugPhase17ExactCounterattackCasualtyCleanup(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe)
+	{
+		if (!probe)
+			return false;
+		probe.m_iCasualtyCleanupTicks++;
+		if (!probe.m_CasualtyEntity || probe.m_CasualtyEntity.IsDeleted())
+		{
+			probe.m_bCasualtyCorpseDeleted = true;
+			return true;
+		}
+		if (!probe.m_bCasualtyCorpseDetached)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty corpse remained runtime-authoritative during cleanup");
+			return true;
+		}
+		SCR_EntityHelper.DeleteEntityAndChildren(probe.m_CasualtyEntity);
+		if (probe.m_iCasualtyCleanupTicks < 4)
+			return false;
+		probe.m_bCasualtyCorpseDeleted = !probe.m_CasualtyEntity
+			|| probe.m_CasualtyEntity.IsDeleted();
+		if (!probe.m_bCasualtyCorpseDeleted)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"detached native casualty corpse did not delete within four campaign-debug ticks");
+		}
+		return true;
+	}
+
+	protected bool LeaveCampaignDebugPhase17ExactCounterattackCasualtyProjection(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		bool finalFold)
+	{
+		if (!probe || !order || !m_State || !probe.m_bCasualtyCorpseDeleted)
+			return false;
+		HST_OperationRecordState operation
+			= m_State.FindOperation(probe.m_sOperationId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		if (!operation || !group)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"casualty survivor projection disappeared before fold");
+			return false;
+		}
+		vector farPosition
+			= ResolveCampaignDebugPhase17ExactCounterattackFarPosition(
+				group.m_vPosition);
+		bool teleported = TeleportCampaignDebugPlayer(
+			farPosition,
+			"phase17 exact counterattack casualty survivor fold");
+		HST_MaterializationService materialization = new HST_MaterializationService();
+		HST_OperationProjectionDecision leave
+			= materialization.EvaluateExactEnemyCounterattack(
+				operation,
+				group.m_vPosition);
+		bool decisionExact = leave
+			&& leave.m_eDecision
+				== HST_EOperationProjectionDecision.HST_OPERATION_PROJECTION_DEMATERIALIZE;
+		bool tickChanged;
+		if (teleported && decisionExact)
+		{
+			tickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				order);
+		}
+		operation = m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		group = m_State.FindActiveGroup(probe.m_sGroupId);
+		int living;
+		int runtimeMembers;
+		int handles;
+		int resultHandles;
+		int retiredSlotHandles;
+		string fingerprint;
+		HST_ForceSpawnSlotResultState retiredSlot;
+		if (batch)
+		{
+			living = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+			handles = m_ForceSpawnAdapter.CountHandlesForProjection(
+				batch.m_sProjectionId);
+			resultHandles
+				= m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId);
+			retiredSlotHandles = m_ForceSpawnAdapter.DebugCountHandlesForSlot(
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				probe.m_sCasualtySlotId);
+			fingerprint
+				= BuildCampaignDebugExactCounterattackLivingSlotFingerprint(batch);
+			retiredSlot = batch.FindSlotResult(probe.m_sCasualtySlotId);
+		}
+		if (group)
+			runtimeMembers = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+		bool tombstoneExact = retiredSlot
+			&& retiredSlot.m_eStatus
+				== HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+			&& retiredSlot.m_bEverAlive
+			&& retiredSlot.m_bCasualtyConfirmed
+			&& retiredSlot.m_sEntityId.IsEmpty()
+			&& retiredSlotHandles == 0;
+		int expectedSurvivors = probe.m_iExpectedLiving - 1;
+		bool foldExact = tickChanged && operation && batch && group;
+		if (foldExact)
+		{
+			foldExact = operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+				&& operation.m_ePositionAuthority
+					== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+				&& batch.m_bStrategicProjectionHeld
+				&& living == expectedSurvivors;
+		}
+		if (foldExact)
+		{
+			foldExact = handles == 0 && resultHandles == 0
+				&& runtimeMembers == 0 && !group.m_bSpawnedEntity;
+		}
+		if (foldExact)
+		{
+			foldExact = group.m_iSpawnedAgentCount == 0
+				&& group.m_iInfantryCount == expectedSurvivors
+				&& group.m_iDurableLivingInfantryCount == expectedSurvivors
+				&& group.m_iLastSeenAliveCount == expectedSurvivors;
+		}
+		if (foldExact)
+		{
+			foldExact = group.m_iSurvivorInfantryCount == expectedSurvivors
+				&& !m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				&& tombstoneExact
+				&& fingerprint == probe.m_sLivingSlotFingerprintCasualty;
+		}
+		if (foldExact)
+		{
+			foldExact
+				= CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
+		}
+
+		if (finalFold)
+		{
+			probe.m_bFinalFoldTeleport = teleported;
+			probe.m_bFinalFoldDecisionExact = decisionExact;
+			probe.m_bFinalFoldTickChanged = tickChanged;
+			probe.m_bFinalFoldExact = foldExact;
+			probe.m_iFinalLiving = living;
+			probe.m_iFinalRuntimeMembers = runtimeMembers;
+			probe.m_iFinalHandles = handles;
+			probe.m_iFinalResultHandles = resultHandles;
+			probe.m_sLivingSlotFingerprintFinal = fingerprint;
+		}
+		else
+		{
+			probe.m_bCasualtyFoldTeleport = teleported;
+			probe.m_bCasualtyFoldDecisionExact = decisionExact;
+			probe.m_bCasualtyFoldTickChanged = tickChanged;
+			probe.m_bCasualtyFoldExact = foldExact;
+			probe.m_iCasualtyFoldLiving = living;
+			probe.m_iCasualtyFoldHandles = handles;
+			probe.m_iCasualtyFoldResultHandles = resultHandles;
+			probe.m_sLivingSlotFingerprintCasualtyFold = fingerprint;
+		}
+		if (!teleported || !decisionExact || !foldExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"production runtime owner did not fold the exact casualty survivors");
+		}
+		return teleported && decisionExact && foldExact;
+	}
+
+	protected void CaptureCampaignDebugPhase17ExactCounterattackCasualtyContinuity(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe || !order || !m_State)
+			return;
+		HST_OperationRecordState operation
+			= m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceManifestState manifest
+			= m_State.FindForceManifest(probe.m_sManifestId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		HST_FactionPoolState pool = m_State.FindFactionPool(order.m_sFactionKey);
+		HST_ZoneState targetZone = m_State.FindZone(order.m_sTargetZoneId);
+		probe.m_iSupportRowsFinal
+			= CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
+		probe.m_iMutationCountFinal = m_State.m_aEnemyStrategicMutations.Count();
+		probe.m_iOwnershipTransitionCountAfter
+			= m_State.m_aOwnershipTransitions.Count();
+		if (targetZone)
+			probe.m_sTargetOwnerAfter = targetZone.m_sOwnerFactionKey;
+		if (pool)
+		{
+			probe.m_iAttackResourcesFinal = pool.m_iAttackResources;
+			probe.m_iSupportResourcesFinal = pool.m_iSupportResources;
+		}
+		HST_ForceSpawnSlotResultState retiredSlot;
+		int retiredSlotHandles;
+		if (batch)
+		{
+			retiredSlot = batch.FindSlotResult(probe.m_sCasualtySlotId);
+			retiredSlotHandles = m_ForceSpawnAdapter.DebugCountHandlesForSlot(
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				probe.m_sCasualtySlotId);
+		}
+		HST_ForcePlanningIntegrityService manifestIntegrity
+			= new HST_ForcePlanningIntegrityService();
+		bool manifestExact = manifest && manifest.m_bFrozen
+			&& !manifest.m_sManifestHash.IsEmpty()
+			&& manifestIntegrity.BuildManifestHash(manifest) == manifest.m_sManifestHash
+			&& order.m_sManifestHash == manifest.m_sManifestHash;
+		string debitFailure
+			= HST_EnemyCounterattackSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					m_State.m_aEnemyStrategicMutations,
+					order);
+		bool tombstoneExact = retiredSlot
+			&& retiredSlot.m_eStatus
+				== HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_RETIRED
+			&& retiredSlot.m_bEverAlive
+			&& retiredSlot.m_bCasualtyConfirmed
+			&& retiredSlot.m_sEntityId.IsEmpty()
+			&& retiredSlotHandles == 0
+			&& m_ForceSpawnQueue.CountConfirmedCasualtyMemberSlots(batch) == 1;
+		bool survivorFingerprintsExact
+			= !probe.m_sLivingSlotFingerprintCasualty.IsEmpty()
+			&& probe.m_sLivingSlotFingerprintCasualty
+				== probe.m_sLivingSlotFingerprintCasualtyFold
+			&& probe.m_sLivingSlotFingerprintCasualtyFold
+				== probe.m_sLivingSlotFingerprintReentry
+			&& probe.m_sLivingSlotFingerprintReentry
+				== probe.m_sLivingSlotFingerprintFinal
+			&& probe.m_sLivingSlotFingerprintFinal
+				!= probe.m_sLivingSlotFingerprintBefore;
+		bool resourcesExact = pool
+			&& probe.m_iAttackResourcesFinal == probe.m_iAttackResourcesBefore
+			&& probe.m_iSupportResourcesFinal == probe.m_iSupportResourcesBefore
+			&& probe.m_iMutationCountFinal == probe.m_iMutationCountBefore
+			&& debitFailure.IsEmpty();
+		bool ownershipExact = targetZone
+			&& probe.m_sTargetOwnerAfter == probe.m_sTargetOwnerBefore
+			&& probe.m_iOwnershipTransitionCountAfter
+				== probe.m_iOwnershipTransitionCountBefore;
+		bool aggregateExact = operation && batch && group
+			&& IsCampaignDebugPhase17ExactCounterattackIdentityExact(
+				probe,
+				order,
+				operation,
+				manifest,
+				batch,
+				group)
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE;
+		bool continuityExact = probe.m_bCasualtyReentryTeleport
+			&& probe.m_bCasualtyReentryDecisionExact
+			&& probe.m_bCasualtyReentryTickChanged
+			&& probe.m_bCasualtyReentryMaterializingExact;
+		continuityExact = continuityExact
+			&& probe.m_bCasualtyReentrySpawnSucceeded
+			&& probe.m_bCasualtyReentryPhysicalTickChanged
+			&& probe.m_bCasualtyReentryPhysicalExact;
+		continuityExact = continuityExact
+			&& probe.m_bCasualtyKillIssued
+			&& probe.m_bCasualtyEntityDead
+			&& probe.m_bCasualtyReconcileExact;
+		continuityExact = continuityExact
+			&& probe.m_bCasualtyReplayExact
+			&& probe.m_bCasualtyRetiredSlotExact
+			&& probe.m_bCasualtyCorpseDetached;
+		continuityExact = continuityExact
+			&& probe.m_bCasualtyCorpseDeleted
+			&& probe.m_bCasualtyFoldTeleport
+			&& probe.m_bCasualtyFoldDecisionExact;
+		continuityExact = continuityExact
+			&& probe.m_bCasualtyFoldTickChanged
+			&& probe.m_bCasualtyFoldExact
+			&& probe.m_bSurvivorReentryTeleport;
+		continuityExact = continuityExact
+			&& probe.m_bSurvivorReentryDecisionExact
+			&& probe.m_bSurvivorReentryTickChanged
+			&& probe.m_bSurvivorReentryMaterializingExact;
+		continuityExact = continuityExact
+			&& probe.m_bSurvivorReentrySpawnSucceeded
+			&& probe.m_bSurvivorReentryPhysicalTickChanged
+			&& probe.m_bSurvivorReentryPhysicalExact;
+		continuityExact = continuityExact
+			&& probe.m_bSurvivorReentryBindingsExact
+			&& probe.m_bSurvivorRetiredSlotAbsent
+			&& probe.m_bFinalFoldTeleport;
+		continuityExact = continuityExact
+			&& probe.m_bFinalFoldDecisionExact
+			&& probe.m_bFinalFoldTickChanged
+			&& probe.m_bFinalFoldExact;
+		int expectedSurvivors = probe.m_iExpectedLiving - 1;
+		continuityExact = continuityExact
+			&& probe.m_iCasualtyLiving == expectedSurvivors
+			&& probe.m_iCasualtyFoldLiving == expectedSurvivors
+			&& probe.m_iReentryLiving == expectedSurvivors;
+		continuityExact = continuityExact
+			&& probe.m_iFinalLiving == expectedSurvivors
+			&& probe.m_iFinalRuntimeMembers == 0
+			&& probe.m_iFinalHandles == 0;
+		continuityExact = continuityExact
+			&& probe.m_iFinalResultHandles == 0
+			&& probe.m_iSupportRowsFinal == 0
+			&& survivorFingerprintsExact;
+		continuityExact = continuityExact && tombstoneExact && manifestExact;
+		continuityExact = continuityExact && resourcesExact && ownershipExact;
+		probe.m_bCasualtyContinuityExact = continuityExact && aggregateExact;
+		if (!probe.m_bCasualtyContinuityExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty survivor continuity, ownership, or resource authority changed");
+		}
 	}
 
 	protected void CaptureCampaignDebugPhase17ExactCounterattackProjectionFinal(
@@ -32416,6 +33338,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 					emergencyCleanupRows);
 			probe.m_iEmergencyCleanupRows = emergencyCleanupRows;
 		}
+		if (probe.m_CasualtyEntity && !probe.m_CasualtyEntity.IsDeleted())
+		{
+			HST_ActiveGroupState casualtyGroup;
+			if (m_State)
+				casualtyGroup = m_State.FindActiveGroup(probe.m_sGroupId);
+			bool casualtyStillOwned = casualtyGroup && m_PhysicalWar
+				&& m_PhysicalWar.IsForceSpawnRuntimeHandleRegistered(
+					casualtyGroup,
+					probe.m_CasualtyEntity);
+			if (!casualtyStillOwned)
+				SCR_EntityHelper.DeleteEntityAndChildren(probe.m_CasualtyEntity);
+		}
+		if (probe.m_bCasualtyKillIssued)
+		{
+			probe.m_bCasualtyCorpseDeleted = !probe.m_CasualtyEntity
+				|| probe.m_CasualtyEntity.IsDeleted();
+		}
 		if (probe.m_bOriginalPlayerPositionCaptured)
 		{
 			probe.m_bPlayerRestored = TeleportCampaignDebugPlayer(
@@ -32484,6 +33423,33 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			probe.m_bEmergencyCleanupAttempted,
 			probe.m_bEmergencyCleanupExact,
 			EmptyCampaignDebugField(probe.m_sFailureReason));
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | casualty reentry M/S/P %1/%2/%3 | kill/dead/reconcile/replay %4/%5/%6/%7",
+			probe.m_bCasualtyReentryMaterializingExact,
+			probe.m_bCasualtyReentrySpawnSucceeded,
+			probe.m_bCasualtyReentryPhysicalExact,
+			probe.m_bCasualtyKillIssued,
+			probe.m_bCasualtyEntityDead,
+			probe.m_bCasualtyReconcileExact,
+			probe.m_bCasualtyReplayExact);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | tombstone/detached/deleted %1/%2/%3 | casualty fold %4 | survivor reentry M/S/P/bind %5/%6/%7/%8",
+			probe.m_bCasualtyRetiredSlotExact,
+			probe.m_bCasualtyCorpseDetached,
+			probe.m_bCasualtyCorpseDeleted,
+			probe.m_bCasualtyFoldExact,
+			probe.m_bSurvivorReentryMaterializingExact,
+			probe.m_bSurvivorReentrySpawnSucceeded,
+			probe.m_bSurvivorReentryPhysicalExact,
+			probe.m_bSurvivorReentryBindingsExact);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | survivor living killed/fold/reentry/final %1/%2/%3/%4 | final fold/continuity %5/%6",
+			probe.m_iCasualtyLiving,
+			probe.m_iCasualtyFoldLiving,
+			probe.m_iReentryLiving,
+			probe.m_iFinalLiving,
+			probe.m_bFinalFoldExact,
+			probe.m_bCasualtyContinuityExact);
 		probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE;
 		probe.m_bCompleted = true;
 	}
@@ -32617,6 +33583,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.fold", "leaving materialize-out distance retires native runtime and restores the same survivors to one held VIRTUAL roster", probe.m_sEvidence, CampaignDebugStatus(probe.m_bFarTeleport && probe.m_bLeaveDecisionExact && probe.m_bFoldTickChanged && probe.m_bFoldExact), "native exact counterattack projection did not fold cleanly to virtual authority", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.continuity", "materialize and fold preserve reciprocal identities, frozen manifest, durable survivor slots, original debit, resources, and zero legacy support ownership", probe.m_sEvidence, CampaignDebugStatus(IsCampaignDebugPhase17ExactCounterattackContinuityExact(probe)), "native projection changed exact authority, resources, durable survivors, support ownership, or player placement", "", "", targetZoneId, orderId);
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.clock_isolation", "bounded native retries wait on the real monotonic campaign clock and keep force-spawn runtime time synchronized", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSharedClockIsolationExact), "native projection retry sampling changed shared time or produced future timestamps", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.native_casualty", "one real engine death is observed through exact live authority, retires exactly one durable slot, detaches its corpse, and cleans that proof entity", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyReentryPhysicalExact && probe.m_bCasualtyKillIssued && probe.m_bCasualtyEntityDead && probe.m_bCasualtyReconcileExact && probe.m_bCasualtyRetiredSlotExact && probe.m_bCasualtyCorpseDetached && probe.m_bCasualtyCorpseDeleted), "native engine death did not become exactly one durable counterattack casualty", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_fold", "production dematerialization folds the N-1 survivor roster into held virtual authority while retaining the casualty tombstone", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyFoldTeleport && probe.m_bCasualtyFoldDecisionExact && probe.m_bCasualtyFoldTickChanged && probe.m_bCasualtyFoldExact), "N-1 exact counterattack survivors did not fold into durable virtual authority", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_reentry", "production reprojection rematerializes exactly the N-1 living slots with no entity or adapter binding for the retired casualty", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSurvivorReentryTeleport && probe.m_bSurvivorReentryDecisionExact && probe.m_bSurvivorReentryTickChanged && probe.m_bSurvivorReentryMaterializingExact && probe.m_bSurvivorReentrySpawnSucceeded && probe.m_bSurvivorReentryPhysicalTickChanged && probe.m_bSurvivorReentryPhysicalExact && probe.m_bSurvivorReentryBindingsExact && probe.m_bSurvivorRetiredSlotAbsent), "exact counterattack reprojection resurrected or omitted a casualty survivor", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_replay", "replaying projection-scoped casualty reconciliation is a no-op both before and after survivor reprojection", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyReplayExact), "exact counterattack casualty reconciliation is not idempotent", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.casualty_continuity", "N-1 survivor identity persists across physical death, virtual fold, physical re-entry, and final fold without resource, ownership, support, or aggregate drift", probe.m_sEvidence, CampaignDebugStatus(probe.m_bCasualtyContinuityExact), "native casualty continuity changed survivor identity or strategic authority", "", "", targetZoneId, orderId);
 		if (probe.m_bEmergencyCleanupAttempted)
 			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.emergency_cleanup", "failed native projection releases every transient runtime claimant through typed cleanup", probe.m_sEvidence, CampaignDebugStatus(probe.m_bEmergencyCleanupExact), "failed native projection left runtime residue", "", "", targetZoneId, orderId);
 	}

@@ -21274,10 +21274,11 @@ class HST_PhysicalWarService
 				|| IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup)
 				|| IsExactGarrisonPatrolGroup(state, activeGroup))
 				continue;
-			// Exact player support casualties and terminal cleanup are owned by the
-			// slot-mapped force adapter. Generic aggregate counting can otherwise
-			// delete the root before a dead member is durably retired.
-			if (IsExactPlayerSupportActiveGroup(state, activeGroup))
+			// Exact force casualties and terminal cleanup are owned by the slot-mapped
+			// force adapter. Generic aggregate counting can otherwise delete the root
+			// before a dead member is durably retired.
+			if (IsExactPlayerSupportActiveGroup(state, activeGroup)
+				|| IsExactEnemyCounterattackActiveGroup(state, activeGroup))
 				continue;
 			if (missionConvoyGroup && ShouldSpawnMissionConvoyRuntime(state, activeGroup))
 				continue;

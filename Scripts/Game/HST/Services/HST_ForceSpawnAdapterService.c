@@ -2240,6 +2240,137 @@ class HST_ForceSpawnAdapterService
 		return CountHandlesForResult(resultId);
 	}
 
+	int DebugCountHandlesForSlot(string resultId, string projectionId, string slotId)
+	{
+		if (resultId.IsEmpty() || projectionId.IsEmpty() || slotId.IsEmpty())
+			return 0;
+		int count;
+		foreach (HST_ForceSpawnAdapterHandle handle : m_aHandles)
+		{
+			if (handle && handle.m_sResultId == resultId
+				&& handle.m_sProjectionId == projectionId
+				&& handle.m_sSlotId == slotId)
+				count++;
+		}
+		return count;
+	}
+
+	IEntity DebugResolveExactLivingProjectionMember(
+		HST_CampaignState state,
+		HST_ForceSpawnResultState batch,
+		HST_ForceSpawnQueueService queue,
+		HST_PhysicalWarService physicalWar,
+		out string slotId,
+		out string entityId,
+		out string failure)
+	{
+		slotId = "";
+		entityId = "";
+		failure = "";
+		if (!state || !batch || !queue || !physicalWar
+			|| batch.m_sResultId.IsEmpty() || batch.m_sProjectionId.IsEmpty())
+		{
+			failure = "exact living projection member authority is unavailable";
+			return null;
+		}
+
+		int resultMatches;
+		int projectionMatches;
+		int pairedMatches;
+		HST_ForceSpawnResultState pairedBatch;
+		foreach (HST_ForceSpawnResultState candidateBatch : state.m_aForceSpawnResults)
+		{
+			if (!candidateBatch)
+				continue;
+			bool resultMatchesBatch = candidateBatch.m_sResultId == batch.m_sResultId;
+			bool projectionMatchesBatch = candidateBatch.m_sProjectionId == batch.m_sProjectionId;
+			if (resultMatchesBatch)
+				resultMatches++;
+			if (projectionMatchesBatch)
+				projectionMatches++;
+			if (!resultMatchesBatch || !projectionMatchesBatch)
+				continue;
+			pairedMatches++;
+			pairedBatch = candidateBatch;
+		}
+		if (resultMatches != 1 || projectionMatches != 1 || pairedMatches != 1
+			|| pairedBatch != batch)
+		{
+			failure = "exact living projection member batch identity is ambiguous";
+			return null;
+		}
+		if (!ValidateExactLivingProjectionBindingsForPersistence(
+			state,
+			batch,
+			queue,
+			physicalWar,
+			failure))
+			return null;
+
+		HST_ActiveGroupState activeGroup = FindActiveGroupForBatch(state, batch);
+		if (!activeGroup)
+		{
+			failure = "exact living projection member has no unique active-group owner";
+			return null;
+		}
+		foreach (HST_ForceSpawnSlotResultState slot : batch.m_aSlotResults)
+		{
+			if (!slot || slot.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+				|| slot.m_eStatus != HST_EForceSpawnSlotStatus.HST_FORCE_SLOT_REGISTERED
+				|| !slot.m_bEverAlive || slot.m_bCasualtyConfirmed)
+				continue;
+			if (!slot.m_bAliveVerified || slot.m_sSlotId.IsEmpty()
+				|| slot.m_sEntityId.IsEmpty() || slot.m_sSpawnedPrefab.IsEmpty()
+				|| slot.m_sNativeGroupId.IsEmpty()
+				|| slot.m_sProjectionId != batch.m_sProjectionId
+				|| slot.m_sNativeGroupId != batch.m_sNativeGroupId)
+			{
+				failure = "exact living projection member durable identity is incomplete " + slot.m_sSlotId;
+				return null;
+			}
+			if (DebugCountHandlesForSlot(
+				batch.m_sResultId,
+				batch.m_sProjectionId,
+				slot.m_sSlotId) != 1)
+			{
+				failure = "exact living projection member has no unique adapter binding " + slot.m_sSlotId;
+				return null;
+			}
+
+			HST_ForceSpawnAdapterHandle matchedHandle;
+			foreach (HST_ForceSpawnAdapterHandle handle : m_aHandles)
+			{
+				if (!handle || handle.m_sResultId != batch.m_sResultId
+					|| handle.m_sProjectionId != batch.m_sProjectionId
+					|| handle.m_sSlotId != slot.m_sSlotId)
+					continue;
+				matchedHandle = handle;
+				break;
+			}
+			if (!matchedHandle || !matchedHandle.m_bHandedOff
+				|| matchedHandle.m_sForceId != batch.m_sForceId
+				|| matchedHandle.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+				|| matchedHandle.m_iAttemptGeneration != batch.m_iAttemptGeneration
+				|| matchedHandle.m_sEntityId != slot.m_sEntityId
+				|| matchedHandle.m_sPrefab != slot.m_sSpawnedPrefab
+				|| matchedHandle.m_sNativeGroupId != batch.m_sNativeGroupId
+				|| matchedHandle.m_sNativeGroupId != slot.m_sNativeGroupId
+				|| !matchedHandle.m_Entity || matchedHandle.m_Entity.IsDeleted()
+				|| !physicalWar.IsForceSpawnRuntimeHandleRegistered(activeGroup, matchedHandle.m_Entity)
+				|| !physicalWar.IsForceSpawnRuntimeMemberAlive(matchedHandle.m_Entity))
+			{
+				failure = "exact living projection member adapter authority is invalid " + slot.m_sSlotId;
+				return null;
+			}
+			slotId = slot.m_sSlotId;
+			entityId = slot.m_sEntityId;
+			return matchedHandle.m_Entity;
+		}
+
+		failure = "exact living projection has no durable living member";
+		return null;
+	}
+
 	bool ValidateExactProjectionRuntimeKeys(
 		HST_ForceSpawnResultState batch,
 		out string failure)
