@@ -410,10 +410,14 @@ class HST_ForceSpawnAdapterService
 			if (handleMatches != 1 || !matchedHandle || !matchedHandle.m_bHandedOff
 				|| matchedHandle.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
 				|| matchedHandle.m_sEntityId != slot.m_sEntityId
-				|| !matchedHandle.m_Entity || matchedHandle.m_Entity.IsDeleted()
-				|| !physicalWar.IsForceSpawnRuntimeMemberAlive(matchedHandle.m_Entity))
+				|| !matchedHandle.m_Entity || matchedHandle.m_Entity.IsDeleted())
 			{
-				failure = "durable living member lacks one live handed-off adapter binding " + slot.m_sSlotId;
+				failure = "durable living member lacks one complete handed-off adapter binding " + slot.m_sSlotId;
+				return false;
+			}
+			if (!physicalWar.IsForceSpawnRuntimeMemberAlive(matchedHandle.m_Entity))
+			{
+				failure = "durable living member handed-off adapter entity is nonliving " + slot.m_sSlotId;
 				return false;
 			}
 			matchedLiving++;

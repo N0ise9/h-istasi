@@ -149,6 +149,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT = 15;
 	static const int CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT = 4;
 	static const int CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT = 4;
+	static const int CAMPAIGN_DEBUG_PHASE17_SYNCHRONOUS_TRANSITION_LIMIT = 4;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -31588,6 +31589,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		}
 
+		// A successful native handoff activates its members synchronously. Keep
+		// handoff -> PHYSICAL confirmation and the immediately controlled fold or
+		// casualty action in this coordinator invocation, matching production
+		// ordering without consuming any asynchronous settle sample in advance.
+		int synchronousTransitions = 0;
+		while (synchronousTransitions
+			< CAMPAIGN_DEBUG_PHASE17_SYNCHRONOUS_TRANSITION_LIMIT)
+		{
+			synchronousTransitions++;
 		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN)
 		{
 			if (!DriveCampaignDebugPhase17ExactCounterattackNativeSpawn(probe, order))
@@ -31598,7 +31608,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return true;
 			}
 			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL;
-			return false;
+			continue;
 		}
 
 		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL)
@@ -31611,7 +31621,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return true;
 			}
 			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD;
-			return false;
+			continue;
 		}
 
 		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD)
@@ -31653,7 +31663,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 			probe.m_iStage
 				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_PHYSICAL;
-			return false;
+			continue;
 		}
 
 		if (probe.m_iStage
@@ -31754,7 +31764,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			}
 			probe.m_iStage
 				= CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SURVIVOR_PHYSICAL;
-			return false;
+			continue;
 		}
 
 		if (probe.m_iStage
@@ -31771,7 +31781,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				return true;
 			}
 			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD;
-			return false;
+			continue;
 		}
 
 		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD)
@@ -31790,6 +31800,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 
 		SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "native projection entered an unknown debug stage");
+		FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+		return true;
+		}
+
+		SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+			probe,
+			"native projection exceeded its bounded synchronous stage-transition limit");
 		FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
 		return true;
 	}
@@ -32460,11 +32477,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_ForceSpawnQueue,
 				m_PhysicalWar,
 				bindingFailure);
-		// The ordinary coordinator can complete MATERIALIZING -> PHYSICAL between
-		// the staged spawn and this next-frame observation. TickOrder then reports
-		// no additional mutation even though the production owner already holds
-		// exact PHYSICAL authority. Keep tickChanged as telemetry, but prove the
-		// handoff from authoritative state and exact runtime bindings.
+		// The ordinary coordinator can complete MATERIALIZING -> PHYSICAL in the
+		// same pass as the adapter handoff or before this observation. TickOrder
+		// can therefore report no additional mutation even though the production
+		// owner already holds exact PHYSICAL authority. Keep tickChanged as
+		// telemetry, but prove the handoff from state and exact runtime bindings.
 		bool materializingState = operation
 			&& operation.m_eMaterializationState
 				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING;
