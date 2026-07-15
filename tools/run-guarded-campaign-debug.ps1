@@ -477,6 +477,135 @@ function ConvertTo-SafeEvidenceLine {
     return $safe
 }
 
+function ConvertTo-SafeArtifactScalar {
+    param(
+        [AllowNull()]$Value,
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots
+    )
+
+    if ($null -eq $Value -or $Value -is [bool] -or
+        $Value -is [byte] -or $Value -is [int16] -or
+        $Value -is [int32] -or $Value -is [int64] -or
+        $Value -is [uint16] -or $Value -is [uint32] -or
+        $Value -is [uint64] -or $Value -is [single] -or
+        $Value -is [double] -or $Value -is [decimal]) {
+        return $Value
+    }
+    return ConvertTo-SafeEvidenceLine `
+        -Line ([string]$Value) `
+        -GuardRoot $GuardRoot `
+        -ProjectDirectory $ProjectDirectory `
+        -ResolvedAddonRoots $ResolvedAddonRoots
+}
+
+function ConvertTo-SafeArtifactPropertyBag {
+    param(
+        [AllowNull()]$Bag,
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots
+    )
+
+    $safeBag = [ordered]@{}
+    if ($null -eq $Bag) {
+        return [pscustomobject]$safeBag
+    }
+    foreach ($property in $Bag.PSObject.Properties) {
+        $safeBag[$property.Name] = ConvertTo-SafeArtifactScalar `
+            -Value $property.Value `
+            -GuardRoot $GuardRoot `
+            -ProjectDirectory $ProjectDirectory `
+            -ResolvedAddonRoots $ResolvedAddonRoots
+    }
+    return [pscustomobject]$safeBag
+}
+
+function Get-SafeArtifactValidationSummary {
+    param(
+        [Parameter(Mandatory = $true)]$Validation,
+        [Parameter(Mandatory = $true)][string]$ExpectedBuildSha,
+        [Parameter(Mandatory = $true)][string]$ExpectedBuildUtc,
+        [Parameter(Mandatory = $true)][string]$ExpectedBuildLabel,
+        [Parameter(Mandatory = $true)][string]$GuardRoot,
+        [Parameter(Mandatory = $true)][string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)][string[]]$ResolvedAddonRoots
+    )
+
+    $safeProblems = @($Validation.Problems | ForEach-Object {
+        ConvertTo-SafeArtifactScalar `
+            -Value $_ `
+            -GuardRoot $GuardRoot `
+            -ProjectDirectory $ProjectDirectory `
+            -ResolvedAddonRoots $ResolvedAddonRoots
+    })
+    $safePhase17 = @($Validation.Phase17 | ForEach-Object {
+        [pscustomobject]@{
+            Id = ConvertTo-SafeArtifactScalar -Value $_.Id -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            Pass = [bool]$_.Pass
+        }
+    })
+    $safePhase24 = @($Validation.Phase24 | ForEach-Object {
+        [pscustomobject]@{
+            Id = ConvertTo-SafeArtifactScalar -Value $_.Id -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            Pass = [bool]$_.Pass
+            Accepted = [bool]$_.Accepted
+            Status = ConvertTo-SafeArtifactScalar -Value $_.Status -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            Actual = ConvertTo-SafeArtifactScalar -Value $_.Actual -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        }
+    })
+    $safeStagedCleanup = @($Validation.StagedCleanup | ForEach-Object {
+        [pscustomobject]@{
+            Id = ConvertTo-SafeArtifactScalar -Value $_.Id -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            Pass = [bool]$_.Pass
+            CaseStatus = ConvertTo-SafeArtifactScalar -Value $_.CaseStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            ActiveGroupsStatus = ConvertTo-SafeArtifactScalar -Value $_.ActiveGroupsStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            RuntimeFactionsStatus = ConvertTo-SafeArtifactScalar -Value $_.RuntimeFactionsStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            RuntimeGroupPopulationSettledStatus = ConvertTo-SafeArtifactScalar -Value $_.RuntimeGroupPopulationSettledStatus -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            ExpectedZeroMemberGraceApplied = ConvertTo-SafeArtifactScalar -Value $_.ExpectedZeroMemberGraceApplied -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            OrphanActiveGroups = ConvertTo-SafeArtifactScalar -Value $_.OrphanActiveGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            RuntimeFactionMismatches = ConvertTo-SafeArtifactScalar -Value $_.RuntimeFactionMismatches -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            ZeroMemberGraceCandidates = ConvertTo-SafeArtifactScalar -Value $_.ZeroMemberGraceCandidates -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+            PendingPopulationGroups = ConvertTo-SafeArtifactScalar -Value $_.PendingPopulationGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        }
+    })
+    return [pscustomobject]@{
+        Valid = [bool]$Validation.Valid
+        Problems = $safeProblems
+        RunId = ConvertTo-SafeArtifactScalar -Value $Validation.RunId -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        Profile = ConvertTo-SafeArtifactScalar -Value $Validation.Profile -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        BuildProvenanceMatches = [string]$Validation.BuildSha -eq $ExpectedBuildSha -and
+            [string]$Validation.BuildUtc -eq $ExpectedBuildUtc -and
+            [string]$Validation.BuildLabel -eq $ExpectedBuildLabel
+        StartedAtSecond = [int]$Validation.StartedAtSecond
+        EndedAtSecond = [int]$Validation.EndedAtSecond
+        CaseCount = [int]$Validation.CaseCount
+        Pass = [int]$Validation.Pass
+        Warn = [int]$Validation.Warn
+        Fail = [int]$Validation.Fail
+        Blocked = [int]$Validation.Blocked
+        Skipped = [int]$Validation.Skipped
+        CertificationRequired = [int]$Validation.CertificationRequired
+        CertificationProven = [int]$Validation.CertificationProven
+        CertificationFail = [int]$Validation.CertificationFail
+        CertificationBlocked = [int]$Validation.CertificationBlocked
+        CertificationWarn = [int]$Validation.CertificationWarn
+        CertificationPassed = [bool]$Validation.CertificationPassed
+        Trigger = ConvertTo-SafeArtifactScalar -Value $Validation.Trigger -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        ArtifactCount = [int]$Validation.ArtifactCount
+        StateDiffRows = [int]$Validation.StateDiffRows
+        NonzeroStateDiffRows = [int]$Validation.NonzeroStateDiffRows
+        Phase17 = $safePhase17
+        Phase17Metrics = ConvertTo-SafeArtifactPropertyBag -Bag $Validation.Phase17Metrics -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        Phase24 = $safePhase24
+        Phase24Metrics = ConvertTo-SafeArtifactPropertyBag -Bag $Validation.Phase24Metrics -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+        StagedCleanup = $safeStagedCleanup
+        FinalOrphanCleanupPass = [bool]$Validation.FinalOrphanCleanupPass
+        FinalOrphanActiveGroups = ConvertTo-SafeArtifactScalar -Value $Validation.FinalOrphanActiveGroups -GuardRoot $GuardRoot -ProjectDirectory $ProjectDirectory -ResolvedAddonRoots $ResolvedAddonRoots
+    }
+}
+
 function Read-SharedFileText {
     param(
         [Parameter(Mandatory = $true)]
@@ -1999,7 +2128,12 @@ if ($supportedDiagnosticExecutables -notcontains (Split-Path -Leaf $executablePa
     throw "Executable must be a supported Reforger diagnostic runtime."
 }
 
-$settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+try {
+    $settings = Read-SharedFileText -Path $settingsPath | ConvertFrom-Json
+}
+catch {
+    throw "Runtime settings file could not be read and parsed."
+}
 if ([int]$settings.schemaVersion -ne 24) {
     throw "Runtime settings must use Schema 24."
 }
@@ -2050,6 +2184,7 @@ $armed = $false
 $started = $false
 $completed = $false
 $artifactValidation = $null
+$safeArtifactValidation = $null
 $artifactSignature = $null
 $artifactSignaturePolls = 0
 $artifactPaths = $null
@@ -2163,6 +2298,21 @@ try {
             -ExpectedSha $ExpectedBuildSha `
             -ExpectedUtc $ExpectedBuildUtc `
             -ExpectedLabel $ExpectedBuildLabel
+        $selfTestResult.Phase24[0].Actual = "proof@example.invalid 12345678901234567 " + (Join-Path (Split-Path -Parent $projectFile) "private.txt")
+        $safeSelfTestResult = Get-SafeArtifactValidationSummary `
+            -Validation $selfTestResult `
+            -ExpectedBuildSha $ExpectedBuildSha `
+            -ExpectedBuildUtc $ExpectedBuildUtc `
+            -ExpectedBuildLabel $ExpectedBuildLabel `
+            -GuardRoot $guardRoot `
+            -ProjectDirectory (Split-Path -Parent $projectFile) `
+            -ResolvedAddonRoots @($runtimeAddonPath)
+        $safeSelfTestActual = [string]$safeSelfTestResult.Phase24[0].Actual
+        if ($safeSelfTestActual -notmatch '<email>' -or
+            $safeSelfTestActual -notmatch '<id>' -or
+            $safeSelfTestActual -notmatch '<project>') {
+            throw "Synthetic artifact-output redaction self-test failed."
+        }
         Write-Output ("SELFTEST " + ([pscustomobject]@{
             Valid = $selfTestResult.Valid
             Problems = $selfTestResult.Problems
@@ -2336,6 +2486,14 @@ try {
                         ExpectedLabel = $ExpectedBuildLabel
                     }
                     $artifactValidation = Test-CampaignDebugArtifacts @artifactParameters
+                    $safeArtifactValidation = Get-SafeArtifactValidationSummary `
+                        -Validation $artifactValidation `
+                        -ExpectedBuildSha $ExpectedBuildSha `
+                        -ExpectedBuildUtc $ExpectedBuildUtc `
+                        -ExpectedBuildLabel $ExpectedBuildLabel `
+                        -GuardRoot $guardRoot `
+                        -ProjectDirectory (Split-Path -Parent $projectFile) `
+                        -ResolvedAddonRoots @($runtimeAddonPath)
                     $completed = $true
                     break
                 }
@@ -2423,7 +2581,7 @@ try {
         ShutdownCensus = $true
         ArtifactsStable = $artifactSignaturePolls -ge 2
         ArtifactBytes = @($artifactPaths | ForEach-Object { (Get-Item -LiteralPath $_).Length })
-        Validation = $artifactValidation
+        Validation = $safeArtifactValidation
         ErrorCensus = $errorCensus
     } | ConvertTo-Json -Depth 8 -Compress))
 }
@@ -2442,7 +2600,7 @@ catch {
             Started = $started
             ShutdownCensus = [bool]$errorCensus
             ArtifactsStable = $artifactSignaturePolls -ge 2
-            Validation = $artifactValidation
+            Validation = $safeArtifactValidation
             ErrorCensus = $errorCensus
         } | ConvertTo-Json -Depth 8 -Compress))
     }

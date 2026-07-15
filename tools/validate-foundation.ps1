@@ -32187,7 +32187,13 @@ $schema70Phase24DuplicateIndex = $schema70Phase24LegacyRefreshBlock.IndexOf('if 
 if ($schema70Phase24LateOwnerIndex -lt 0 -or
 	$schema70Phase24LateTrackIndex -le $schema70Phase24LateOwnerIndex -or
 	$schema70Phase24LateCaptureIndex -le $schema70Phase24LateTrackIndex -or
-	$schema70Phase24DuplicateIndex -le $schema70Phase24LateCaptureIndex) {
+	$schema70Phase24DuplicateIndex -le $schema70Phase24LateCaptureIndex -or
+	([regex]::Matches(
+		$schema70Phase24LegacyRefreshBlock,
+		'CaptureCampaignDebugEscalationRuntimeOwner\(profile, order\);').Count -ne 1) -or
+	-not [regex]::IsMatch(
+		$schema70Phase24LegacyRefreshBlock,
+		'(?s)if\s*\(sampleIndex\s*<\s*0\)\s*\{\s*matchedOrderIds\.Insert\(order\.m_sOrderId\);\s*CaptureCampaignDebugEscalationRuntimeOwner\(profile, order\);\s*continue;\s*\}')) {
 	throw "Full Campaign Debug Phase 24 post-runtime refresh must classify and track newly admitted rows without resampling prior owners"
 }
 foreach ($schema70Phase24PreservedOwnerCounter in @(
