@@ -3821,8 +3821,9 @@ class HST_EnemyCounterattackOperationProofService
 			return false;
 		}
 
-		// Admission used the deterministic fixture seam, but the persisted moving
-		// cut is reached through the production owner and its real proximity gate.
+		// Admission used the deterministic fixture seam. The persisted moving cut
+		// still reaches inherited production lifecycle logic, with only the
+		// player-proximity decision replaced by the guarded virtual proof seam.
 		HST_EnemyCounterattackOperationProofHarness production
 			= new HST_EnemyCounterattackOperationProofHarness();
 		production.UseDeterministicVirtualProjectionForProof();

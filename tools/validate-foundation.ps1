@@ -33483,6 +33483,24 @@ $exactCounterRestartProofText = Get-Content -Raw $exactCounterRestartProofPath
 $exactCounterRestartCoordinatorText = Get-Content -Raw $exactCounterRestartCoordinatorPath
 $exactCounterRestartLauncherText = Get-Content -Raw $exactCounterRestartLauncherPath
 
+$exactCounterRestartProjectionHarness = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'override HST_OperationProjectionDecision EvaluateExactEnemyCounterattack('
+$exactCounterRestartOwnerHarness = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'void UseDeterministicVirtualProjectionForProof()'
+if ($exactCounterRestartProofText.IndexOf(
+		'class HST_EnemyCounterattackMaterializationProofHarness : HST_MaterializationService') -lt 0 -or
+	$exactCounterRestartProofText.IndexOf(
+		'class HST_EnemyCounterattackOperationProofHarness : HST_EnemyCounterattackOperationService') -lt 0 -or
+	$exactCounterRestartProjectionHarness.IndexOf(
+		'EvaluateExactEnemyCounterattackForProximity(') -lt 0 -or
+	$exactCounterRestartProjectionHarness.IndexOf('false,') -lt 0 -or
+	$exactCounterRestartOwnerHarness.IndexOf(
+		'm_Materialization = new HST_EnemyCounterattackMaterializationProofHarness();') -lt 0) {
+	throw "Exact counterattack restart virtual seam must subclass production ownership and replace only player proximity"
+}
+
 foreach ($exactCounterRestartDTOEntry in @(
 	'class HST_EnemyCounterattackOutboundVirtualExpectation',
 	'class HST_EnemyCounterattackExternalRestartOwner',
@@ -33561,7 +33579,8 @@ $exactCounterRestartPrepareProof = Get-ScriptMethodBlock $exactCounterRestartPro
 foreach ($exactCounterRestartPrepareEntry in @(
 	'HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(',
 	'HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(runId)',
-	'HST_EnemyCounterattackOperationService production', 'production.TickOrder(',
+	'HST_EnemyCounterattackOperationProofHarness production',
+	'production.UseDeterministicVirtualProjectionForProof();', 'production.TickOrder(',
 	'carrier.m_sSessionNonce = sessionNonce;',
 	'BuildExternalSemanticFingerprint(', 'ValidateExternalRuntimeClaimantsZero(',
 	'expectedPreparedProgress', 'expectedPreparedPosition',
