@@ -1216,7 +1216,11 @@ class HST_PhysicalWarService
 
 	bool IsForceSpawnRuntimeMemberAlive(IEntity member)
 	{
-		return member && !member.IsDeleted() && !SCR_AIGroup.Cast(member) && IsLivingEntity(member);
+		return member
+			&& !member.IsDeleted()
+			&& !SCR_AIGroup.Cast(member)
+			&& IsLivingEntity(member)
+			&& SCR_AIDamageHandling.IsAlive(member);
 	}
 
 	bool DetachConfirmedDeadForceSpawnMember(

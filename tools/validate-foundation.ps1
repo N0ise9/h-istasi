@@ -28024,6 +28024,7 @@ $schema69AdapterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpaw
 $schema69PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
 $schema69MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
 $schema69CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
+$schema69DebugResultText = Get-Content -Raw "Scripts/Game/HST/Data/HST_CampaignDebugResult.c"
 $schema69ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackOperationProofService.c"
 $schema69AutotestText = Get-Content -Raw "Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
 
@@ -28844,6 +28845,18 @@ if ([string]::IsNullOrEmpty($schema69GenericSurvivorBlock) -or
 	$schema69GenericSurvivorBlock.IndexOf('IsExactEnemyCounterattackActiveGroup(state, activeGroup)') -lt 0) {
 	throw 'Schema-69 exact counterattack casualties must remain exclusively owned by the slot-mapped force adapter'
 }
+$schema69ForceSpawnAliveBlock = Get-ScriptMethodBlock $schema69PhysicalText 'bool IsForceSpawnRuntimeMemberAlive('
+foreach ($schema69ForceSpawnAliveEntry in @(
+	'!member.IsDeleted()',
+	'!SCR_AIGroup.Cast(member)',
+	'IsLivingEntity(member)',
+	'SCR_AIDamageHandling.IsAlive(member)'
+)) {
+	if ([string]::IsNullOrEmpty($schema69ForceSpawnAliveBlock) -or
+		$schema69ForceSpawnAliveBlock.IndexOf($schema69ForceSpawnAliveEntry) -lt 0) {
+		throw "Schema-69 force-spawn casualty authority must honor both controller and damage-manager death: $schema69ForceSpawnAliveEntry"
+	}
+}
 $schema69ExactMemberAccessorBlock = Get-ScriptMethodBlock $schema69AdapterText 'IEntity DebugResolveExactLivingProjectionMember('
 foreach ($schema69ExactMemberAccessorEntry in @(
 	'int resultMatches;',
@@ -29470,6 +29483,7 @@ foreach ($schema69NativeProjectionProofEntry in @(
 	'DebugValidateTerminalLedgerAuthority',
 	'IsCampaignDebugEscalationExactCounterattackMaterializationAuthorityExact',
 	'CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT',
+	'CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT',
 	'm_bSharedClockIsolationExact',
 	'm_iSuccessfulHandoffCount > 0',
 	'runtimeMembers <= durableLiving',
@@ -29510,6 +29524,8 @@ if ([string]::IsNullOrEmpty($schema69NativeProjectionDriverBlock) -or
 	throw "Schema-69 staged native projection must wait on the real campaign clock without publishing synthetic future time"
 }
 $schema69NativeCasualtyBeginBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool BeginCampaignDebugPhase17ExactCounterattackNativeCasualty('
+$schema69NativeCasualtyAwaitBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool AwaitCampaignDebugPhase17ExactCounterattackNativeCasualtyDeath('
+$schema69NativeCasualtyStateBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected string BuildCampaignDebugPhase17ExactCounterattackNativeCasualtyState('
 $schema69NativeCasualtyCaptureBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty('
 $schema69NativeCasualtyFoldBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool LeaveCampaignDebugPhase17ExactCounterattackCasualtyProjection('
 $schema69NativeCasualtyContinuityBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void CaptureCampaignDebugPhase17ExactCounterattackCasualtyContinuity('
@@ -29533,6 +29549,65 @@ foreach ($schema69NativeCasualtyEntry in @(
 if ($schema69NativeCasualtyBeginBlock.IndexOf('ConfirmRegisteredMemberCasualty(') -ge 0 -or
 	$schema69NativeCasualtyBeginBlock.IndexOf('m_bCasualtyConfirmed = true') -ge 0) {
 	throw 'Schema-69 native casualty proof must not fabricate durable casualty state'
+}
+if ($schema69NativeCasualtyBeginBlock.IndexOf('damageManager.IsDamageHandlingEnabled()') -lt 0 -or
+	([regex]::Matches($schema69NativeCasualtyBeginBlock, 'damageManager\.Kill\(')).Count -ne 1) {
+	throw 'Schema-69 native casualty proof must preflight damage handling and issue exactly one engine Kill'
+}
+foreach ($schema69NativeCasualtyAwaitEntry in @(
+	'probe.m_iCasualtySettleTicks++;',
+	'BuildCampaignDebugPhase17ExactCounterattackNativeCasualtyState(probe)',
+	'!m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(',
+	'CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT',
+	'SetCampaignDebugPhase17ExactCounterattackProjectionFailure('
+)) {
+	if ([string]::IsNullOrEmpty($schema69NativeCasualtyAwaitBlock) -or
+		$schema69NativeCasualtyAwaitBlock.IndexOf($schema69NativeCasualtyAwaitEntry) -lt 0) {
+		throw "Schema-69 native casualty settle loop is missing bounded death observation: $schema69NativeCasualtyAwaitEntry"
+	}
+}
+if ($schema69NativeCasualtyAwaitBlock.IndexOf('.Kill(') -ge 0 -or
+	$schema69NativeCasualtyAwaitBlock.IndexOf('ReconcileExactInfantryProjectionAuthority(') -ge 0) {
+	throw 'Schema-69 native casualty settle loop must neither re-kill nor reconcile a still-living member'
+}
+foreach ($schema69NativeCasualtyStateEntry in @(
+	'damageManager.GetState()',
+	'damageManager.GetHealthScaled()',
+	'controller.GetLifeState()',
+	'SCR_AIDamageHandling.IsAlive(casualtyEntity)',
+	'm_PhysicalWar.IsForceSpawnRuntimeMemberAlive(casualtyEntity)'
+)) {
+	if ([string]::IsNullOrEmpty($schema69NativeCasualtyStateBlock) -or
+		$schema69NativeCasualtyStateBlock.IndexOf($schema69NativeCasualtyStateEntry) -lt 0) {
+		throw "Schema-69 native casualty diagnostics are missing an authoritative state signal: $schema69NativeCasualtyStateEntry"
+	}
+}
+$schema69NativeCasualtyAdvanceBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool AdvanceCampaignDebugPhase17ExactCounterattackProjectionProbe('
+$schema69NativeCasualtyAwaitIndex = $schema69NativeCasualtyAdvanceBlock.IndexOf('AwaitCampaignDebugPhase17ExactCounterattackNativeCasualtyDeath(')
+$schema69NativeCasualtyCaptureIndex = $schema69NativeCasualtyAdvanceBlock.IndexOf('CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty(')
+if ([string]::IsNullOrEmpty($schema69NativeCasualtyAdvanceBlock) -or
+	$schema69NativeCasualtyAwaitIndex -lt 0 -or $schema69NativeCasualtyCaptureIndex -lt 0 -or
+	$schema69NativeCasualtyAwaitIndex -ge $schema69NativeCasualtyCaptureIndex -or
+	$schema69NativeCasualtyAdvanceBlock.IndexOf('if (!probe.m_bCasualtyEntityDead') -lt 0) {
+	throw 'Schema-69 native casualty reconciliation must wait for bounded authoritative death observation'
+}
+foreach ($schema69NativeCasualtyDebugField in @(
+	'int m_iCasualtySettleTicks;',
+	'string m_sCasualtySettleEvidence;'
+)) {
+	if ($schema69DebugResultText.IndexOf($schema69NativeCasualtyDebugField) -lt 0) {
+		throw "Schema-69 native casualty settle diagnostics must persist in the probe context: $schema69NativeCasualtyDebugField"
+	}
+}
+foreach ($schema69NativeCasualtyEvidenceEntry in @(
+	'probe.m_iCasualtySettleTicks',
+	'probe.m_sCasualtySettleEvidence',
+	'phase17.counterattack.native_projection.casualty_settle_ticks',
+	'phase17.counterattack.native_projection.casualty_settle_limit'
+)) {
+	if ($schema69CoordinatorText.IndexOf($schema69NativeCasualtyEvidenceEntry) -lt 0) {
+		throw "Schema-69 Full Debug must publish bounded native casualty settle evidence: $schema69NativeCasualtyEvidenceEntry"
+	}
 }
 $schema69ScopedAdapterBlock = Get-ScriptMethodBlock $schema69AdapterText 'HST_ForceSpawnAdapterTickResult DebugTickProjection('
 if ([string]::IsNullOrEmpty($schema69ScopedAdapterBlock) -or

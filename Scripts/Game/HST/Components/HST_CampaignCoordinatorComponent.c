@@ -147,6 +147,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FINAL_FOLD = 13;
 	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE = 14;
 	static const int CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT = 15;
+	static const int CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT = 4;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -31674,7 +31675,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (probe.m_iStage
 			== CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_CASUALTY_RECONCILE)
 		{
-			if (!CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty(
+			if (!AwaitCampaignDebugPhase17ExactCounterattackNativeCasualtyDeath(
+				probe))
+				return false;
+			if (!probe.m_bCasualtyEntityDead
+				|| !CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty(
 				probe,
 				order))
 			{
@@ -32497,6 +32502,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			damageManager = SCR_DamageManagerComponent.GetDamageManager(casualtyEntity);
 		if (!batch || !casualtyEntity || slotId.IsEmpty() || entityId.IsEmpty()
 			|| !damageManager || damageManager.IsDestroyed()
+			|| !damageManager.IsDamageHandlingEnabled()
 			|| !m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(casualtyEntity))
 		{
 			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
@@ -32513,11 +32519,106 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+	protected bool AwaitCampaignDebugPhase17ExactCounterattackNativeCasualtyDeath(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe)
+	{
+		if (!probe)
+			return true;
+		if (!m_PhysicalWar)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty death authority is unavailable");
+			return true;
+		}
+		probe.m_iCasualtySettleTicks++;
+		probe.m_sCasualtySettleEvidence
+			= BuildCampaignDebugPhase17ExactCounterattackNativeCasualtyState(probe);
+		if (!probe.m_CasualtyEntity)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty entity disappeared before death-state settlement");
+			return true;
+		}
+		if (probe.m_CasualtyEntity.IsDeleted())
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty entity deleted before authoritative death reconciliation");
+			return true;
+		}
+
+		probe.m_bCasualtyEntityDead
+			= !m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(
+				probe.m_CasualtyEntity);
+		if (probe.m_bCasualtyEntityDead)
+			return true;
+		if (probe.m_iCasualtySettleTicks
+			< CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT)
+			return false;
+
+		SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+			probe,
+			string.Format(
+				"native casualty death state did not settle within %1 campaign-debug samples: %2",
+				CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT,
+				EmptyCampaignDebugField(probe.m_sCasualtySettleEvidence)));
+		return true;
+	}
+
+	protected string BuildCampaignDebugPhase17ExactCounterattackNativeCasualtyState(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe)
+	{
+		if (!probe || !probe.m_CasualtyEntity)
+			return "entity missing";
+		IEntity casualtyEntity = probe.m_CasualtyEntity;
+		bool deleted = casualtyEntity.IsDeleted();
+		SCR_DamageManagerComponent damageManager;
+		if (!deleted)
+			damageManager = SCR_DamageManagerComponent.GetDamageManager(
+				casualtyEntity);
+		bool damageHandlingEnabled;
+		string damageState = "missing";
+		float healthScaled = -1.0;
+		if (damageManager)
+		{
+			damageHandlingEnabled = damageManager.IsDamageHandlingEnabled();
+			damageState = string.Format("%1", damageManager.GetState());
+			healthScaled = damageManager.GetHealthScaled();
+		}
+		ChimeraCharacter character = ChimeraCharacter.Cast(casualtyEntity);
+		CharacterControllerComponent controller;
+		if (character && !deleted)
+			controller = character.GetCharacterController();
+		string lifeState = "missing";
+		if (controller)
+			lifeState = string.Format("%1", controller.GetLifeState());
+		bool stockAlive = !deleted
+			&& SCR_AIDamageHandling.IsAlive(casualtyEntity);
+		bool forceAlive = !deleted && m_PhysicalWar
+			&& m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(casualtyEntity);
+		string damageEvidence = string.Format(
+			"deleted %1 | damage manager %2 enabled %3 state %4 health %5",
+			deleted,
+			damageManager != null,
+			damageHandlingEnabled,
+			damageState,
+			healthScaled);
+		return damageEvidence + string.Format(
+			" | controller %1 life %2 | stock alive %3 | force alive %4",
+			controller != null,
+			lifeState,
+			stockAlive,
+			forceAlive);
+	}
+
 	protected bool CaptureCampaignDebugPhase17ExactCounterattackNativeCasualty(
 		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
 		HST_EnemyOrderState order)
 	{
-		if (!probe || !order || !m_State)
+		if (!probe || !order || !m_State || !m_PhysicalWar
+			|| !m_ForceSpawnAdapter || !m_ForceSpawnQueue)
 			return false;
 		if (!probe.m_CasualtyEntity)
 		{
@@ -32529,9 +32630,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_ForceSpawnResultState batch
 			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
 		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
-		probe.m_bCasualtyEntityDead = !probe.m_CasualtyEntity.IsDeleted()
-			&& !m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(
-				probe.m_CasualtyEntity);
+		if (!probe.m_bCasualtyEntityDead
+			|| m_PhysicalWar.IsForceSpawnRuntimeMemberAlive(
+				probe.m_CasualtyEntity))
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native casualty returned to living authority before reconciliation");
+			return false;
+		}
 		HST_ForceSpawnAdapterTickResult reconciled;
 		if (batch && group && probe.m_bCasualtyEntityDead)
 		{
@@ -33433,6 +33540,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			probe.m_bCasualtyReconcileExact,
 			probe.m_bCasualtyReplayExact);
 		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | casualty settle %1/%2 %3",
+			probe.m_iCasualtySettleTicks,
+			CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT,
+			EmptyCampaignDebugField(probe.m_sCasualtySettleEvidence));
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
 			" | tombstone/detached/deleted %1/%2/%3 | casualty fold %4 | survivor reentry M/S/P/bind %5/%6/%7/%8",
 			probe.m_bCasualtyRetiredSlotExact,
 			probe.m_bCasualtyCorpseDetached,
@@ -33575,6 +33687,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_ticks", string.Format("%1", probe.m_iSpawnTicks), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_tick_limit", string.Format("%1", probe.m_iSpawnTickLimit), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_deferred_ticks", string.Format("%1", probe.m_iSpawnDeferredTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.casualty_settle_ticks", string.Format("%1", probe.m_iCasualtySettleTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.casualty_settle_limit", string.Format("%1", CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT), "count");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.elapsed_peak", string.Format("%1", probe.m_iElapsedPeak), "campaign_second");
 		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.expected_living", string.Format("%1", probe.m_iExpectedLiving), "count");
 		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.baseline", "exact counterattack begins as one held virtual roster with no native or legacy-support claimant", probe.m_sEvidence, CampaignDebugStatus(probe.m_bBaselineExact), "native projection baseline is not exact", "", "", targetZoneId, orderId);
