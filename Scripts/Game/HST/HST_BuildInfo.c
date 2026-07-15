@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "78db295a02936aa66899203cb33e50462b5fd557";
-	static const string BUILD_UTC = "2026-07-15T00:08:27Z";
-	static const string BUILD_LABEL = "schema70-settings24-exact-qrf-prepared-recovery";
+	static const string BUILD_SHA = "25b2dc361bc935aea904e08a665755840389c6e0";
+	static const string BUILD_UTC = "2026-07-15T02:08:19Z";
+	static const string BUILD_LABEL = "schema70-settings24-exact-qrf-external-restart";
 
 	static string BuildSummary()
 	{
