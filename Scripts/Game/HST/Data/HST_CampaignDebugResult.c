@@ -592,6 +592,7 @@ class HST_CampaignDebugEscalationProfileResult
 	int m_iRuntimeOwnerExactGarrisonRebuildOrders;
 	int m_iRuntimeOwnerQuarantinedOrders;
 	int m_iRuntimeOwnerUnsupportedOrders;
+	int m_iRuntimeOwnerSnapshotInvariantFailures;
 	int m_iLegacyPhysicalizableOrders;
 	int m_iLegacySupportLinkedOrders;
 	int m_iLegacySupportLinkedGroups;
@@ -613,6 +614,8 @@ class HST_CampaignDebugEscalationProfileResult
 	string m_sOrderTypes;
 	string m_sSupportRequestIds;
 	string m_sRuntimeOwnerEvidence;
+	ref array<string> m_aRuntimeOwnerSampleOrderIds = {};
+	ref array<string> m_aRuntimeOwnerSampleOwners = {};
 }
 
 class HST_CampaignDebugEscalationProbeContext
@@ -634,6 +637,7 @@ class HST_CampaignDebugEscalationProbeContext
 	int m_iRuntimeOwnerExpectedOrders;
 	int m_iRuntimeOwnerClassifiedOrders;
 	int m_iRuntimeOwnerInvalidOrders;
+	int m_iRuntimeOwnerSnapshotInvariantFailures;
 	int m_iExactCounterattackOrders;
 	int m_iExactCounterattackOpenOrders;
 	int m_iExactCounterattackTerminalLedgers;

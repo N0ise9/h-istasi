@@ -16020,10 +16020,14 @@ foreach ($requiredPhase24EscalationPhysicalizationEntry in @(
 		"RUNTIME_OWNER_LEGACY",
 		"CaptureCampaignDebugEscalationRuntimeOwner",
 		"ResetCampaignDebugEscalationRuntimeOwnerTelemetry",
+		"RefreshCampaignDebugEscalationLegacyRuntimeLinks",
 		"phase24.escalation.runtime_owner_classification",
+		"phase24.escalation.runtime_owner_snapshot_invariant_failures",
 		"phase24.escalation.exact_counterattack_authority",
+		"exact_counterattack_orders",
 		"exact_counterattack_open_orders",
 		"exact_counterattack_terminal_ledgers",
+		"exact_counterattack_invalid_authority",
 		"m_iExactCounterattackDematerializingGroups",
 		"phase24.escalation.support_physicalization",
 		"physicalization_target_zones_activated",
@@ -32126,7 +32130,10 @@ if ([string]::IsNullOrEmpty($schema70Phase18CommanderTickBlock) -or
 }
 foreach ($schema70EscalationResultField in @(
 	'bool m_bOrderIsolationReady;',
-	'string m_sOrderIsolationFailure;'
+	'string m_sOrderIsolationFailure;',
+	'int m_iRuntimeOwnerSnapshotInvariantFailures;',
+	'ref array<string> m_aRuntimeOwnerSampleOrderIds = {};',
+	'ref array<string> m_aRuntimeOwnerSampleOwners = {};'
 )) {
 	if ($schema70DebugResultText.IndexOf($schema70EscalationResultField) -lt 0) {
 		throw "Full Campaign Debug Phase 24 escalation result omits fail-closed isolation evidence: $schema70EscalationResultField"
@@ -32140,6 +32147,70 @@ if ([string]::IsNullOrEmpty($schema70Phase24ProfileBlock) -or
 	$schema70Phase24ProfileGuardIndex -ge $schema70Phase24ProfileMutationIndex -or
 	$schema70Phase24ProfileBlock.IndexOf('if (!profile.m_bOrderIsolationReady)') -lt 0) {
 	throw "Full Campaign Debug Phase 24 escalation profiles must fail closed before ownership or pool mutation"
+}
+$schema70Phase24OwnerSnapshotIndex = $schema70Phase24ProfileBlock.IndexOf('RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, label);')
+$schema70Phase24ActivationIndex = $schema70Phase24ProfileBlock.IndexOf('ActivateCampaignDebugEscalationOrderTargetZones(')
+$schema70Phase24GroupRetagIndex = $schema70Phase24ProfileBlock.IndexOf('RetagCampaignDebugEscalationGroups(')
+$schema70Phase24LegacyRefreshIndex = $schema70Phase24ProfileBlock.IndexOf('RefreshCampaignDebugEscalationLegacyRuntimeLinks(')
+if ($schema70Phase24OwnerSnapshotIndex -lt 0 -or
+	$schema70Phase24ActivationIndex -lt 0 -or
+	$schema70Phase24OwnerSnapshotIndex -ge $schema70Phase24ActivationIndex -or
+	$schema70Phase24GroupRetagIndex -lt 0 -or
+	$schema70Phase24LegacyRefreshIndex -le $schema70Phase24GroupRetagIndex -or
+	([regex]::Matches($schema70Phase24ProfileBlock, 'RetagCampaignDebugEscalationOrders\(').Count -ne 1)) {
+	throw "Full Campaign Debug Phase 24 must preserve one pre-runtime owner snapshot and refresh only legacy links after runtime advancement"
+}
+$schema70Phase24LegacyRefreshBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void RefreshCampaignDebugEscalationLegacyRuntimeLinks('
+foreach ($schema70Phase24LegacyRefreshEntry in @(
+	'profile.m_iLegacySupportLinkedOrders = 0;',
+	'profile.m_iLegacySupportLinkedGroups = 0;',
+	'ApplyCampaignDebugEnemyOrderPrefix(',
+	'profile.m_aRuntimeOwnerSampleOrderIds.Find(order.m_sOrderId);',
+	'profile.m_aRuntimeOwnerSampleOwners[sampleIndex] != runtimeOwner',
+	'profile.m_iRuntimeOwnerSnapshotInvariantFailures++;'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase24LegacyRefreshBlock) -or
+		$schema70Phase24LegacyRefreshBlock.IndexOf($schema70Phase24LegacyRefreshEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 24 post-runtime refresh omits identity-safe legacy telemetry: $schema70Phase24LegacyRefreshEntry"
+	}
+}
+if ($schema70Phase24LegacyRefreshBlock.IndexOf('ResetCampaignDebugEscalationRuntimeOwnerTelemetry(') -ge 0 -or
+	$schema70Phase24LegacyRefreshBlock.IndexOf('CaptureCampaignDebugEscalationRuntimeOwner(') -ge 0 -or
+	$schema70Phase24LegacyRefreshBlock.IndexOf('profile.m_iLegacyPhysicalizableOrders = 0;') -ge 0 -or
+	[regex]::IsMatch($schema70Phase24LegacyRefreshBlock, 'm_iExactCounterattack\w+\s*=')) {
+	throw "Full Campaign Debug Phase 24 post-runtime legacy refresh must not discard or resample exact admission authority"
+}
+foreach ($schema70Phase24PreservedOwnerCounter in @(
+	'm_iRuntimeOwnerLegacyOrders',
+	'm_iRuntimeOwnerExactQRFOrders',
+	'm_iRuntimeOwnerExactCounterattackOrders',
+	'm_iRuntimeOwnerExactPatrolOrders',
+	'm_iRuntimeOwnerExactGarrisonRebuildOrders',
+	'm_iRuntimeOwnerQuarantinedOrders',
+	'm_iRuntimeOwnerUnsupportedOrders'
+)) {
+	if ([regex]::IsMatch(
+		$schema70Phase24LegacyRefreshBlock,
+		[regex]::Escape($schema70Phase24PreservedOwnerCounter) + '\s*(?:\+\+|--|[+\-]?=)')) {
+		throw "Full Campaign Debug Phase 24 post-runtime legacy refresh mutates a preserved admission owner total: $schema70Phase24PreservedOwnerCounter"
+	}
+}
+$schema70Phase24RuntimeOwnerAssertionBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected void AddCampaignDebugPhase24EscalationRuntimeOwnerAssertions('
+foreach ($schema70Phase24SnapshotAssertionEntry in @(
+	'phase24.escalation.runtime_owner_snapshot_invariant_failures',
+	'phase24.escalation.exact_counterattack_orders',
+	'phase24.escalation.exact_counterattack_invalid_authority',
+	'phase24.escalation.exact_counterattack_virtual_groups',
+	'phase24.escalation.exact_counterattack_materializing_groups',
+	'phase24.escalation.exact_counterattack_physical_groups',
+	'phase24.escalation.exact_counterattack_dematerializing_groups',
+	'phase24.escalation.exact_counterattack_support_leaks',
+	'the admission snapshot of open exact counterattacks'
+)) {
+	if ([string]::IsNullOrEmpty($schema70Phase24RuntimeOwnerAssertionBlock) -or
+		$schema70Phase24RuntimeOwnerAssertionBlock.IndexOf($schema70Phase24SnapshotAssertionEntry) -lt 0) {
+		throw "Full Campaign Debug Phase 24 admission snapshot evidence is incomplete: $schema70Phase24SnapshotAssertionEntry"
+	}
 }
 $schema70Phase24MultiCycleBlock = Get-ScriptMethodBlock $schema70CoordinatorText 'protected HST_CampaignDebugEscalationProfileResult RunCampaignDebugPhase24MultiCycleBackgroundWarProfile('
 if ([string]::IsNullOrEmpty($schema70Phase24MultiCycleBlock) -or

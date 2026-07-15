@@ -37811,7 +37811,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_counterattack", string.Format("%1", profile.m_iRuntimeOwnerExactCounterattackOrders), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_patrol", string.Format("%1", profile.m_iRuntimeOwnerExactPatrolOrders), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_rebuild", string.Format("%1", profile.m_iRuntimeOwnerExactGarrisonRebuildOrders), "count");
-		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_invalid", string.Format("%1", profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_invalid", string.Format("%1", profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders + profile.m_iRuntimeOwnerSnapshotInvariantFailures), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_snapshot_invariant_failures", string.Format("%1", profile.m_iRuntimeOwnerSnapshotInvariantFailures), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_open_orders", string.Format("%1", profile.m_iExactCounterattackOpenOrders), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_terminal_ledgers", string.Format("%1", profile.m_iExactCounterattackTerminalLedgers), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_invalid_authority", string.Format("%1", profile.m_iExactCounterattackInvalidAuthorityRows), "count");
@@ -37878,7 +37879,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		actual = actual + string.Format(" | aggression %1 -> %2 | orders +%3", profile.m_iAggressionBefore, profile.m_iAggressionAfter, profile.m_iOrdersCreated);
 		actual = actual + string.Format(" | stable ledger/exact %1/%2", profile.m_iLedgerStableOrders, profile.m_iVersionedStableOrders);
 		actual = actual + string.Format(" | support +%1 | groups +%2 | legacy targets +%3 | order types %4", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, profile.m_iPhysicalizationTargetZonesActivated, EmptyCampaignDebugField(profile.m_sOrderTypes));
-		actual = actual + string.Format(" | owners legacy/qrf/counter/patrol/rebuild/invalid %1/%2/%3/%4/%5/%6", profile.m_iRuntimeOwnerLegacyOrders, profile.m_iRuntimeOwnerExactQRFOrders, profile.m_iRuntimeOwnerExactCounterattackOrders, profile.m_iRuntimeOwnerExactPatrolOrders, profile.m_iRuntimeOwnerExactGarrisonRebuildOrders, profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders);
+		actual = actual + string.Format(" | owners legacy/qrf/counter/patrol/rebuild/invalid %1/%2/%3/%4/%5/%6", profile.m_iRuntimeOwnerLegacyOrders, profile.m_iRuntimeOwnerExactQRFOrders, profile.m_iRuntimeOwnerExactCounterattackOrders, profile.m_iRuntimeOwnerExactPatrolOrders, profile.m_iRuntimeOwnerExactGarrisonRebuildOrders, profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders + profile.m_iRuntimeOwnerSnapshotInvariantFailures);
 		actual = actual + string.Format(" | exact open/terminal/invalid %1/%2/%3", profile.m_iExactCounterattackOpenOrders, profile.m_iExactCounterattackTerminalLedgers, profile.m_iExactCounterattackInvalidAuthorityRows);
 		actual = actual + string.Format(" | projections V/M/P/D %1/%2/%3/%4", profile.m_iExactCounterattackVirtualGroups, profile.m_iExactCounterattackMaterializingGroups, profile.m_iExactCounterattackPhysicalGroups, profile.m_iExactCounterattackDematerializingGroups);
 		actual = actual + string.Format(" | support leaks %1", profile.m_iExactCounterattackSupportLeaks);
@@ -37942,14 +37943,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.runtime_owner_expected", string.Format("%1", escalationContext.m_iRuntimeOwnerExpectedOrders), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.runtime_owner_classified", string.Format("%1", escalationContext.m_iRuntimeOwnerClassifiedOrders), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.runtime_owner_snapshot_invariant_failures", string.Format("%1", escalationContext.m_iRuntimeOwnerSnapshotInvariantFailures), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_orders", string.Format("%1", escalationContext.m_iExactCounterattackOrders), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_open_orders", string.Format("%1", escalationContext.m_iExactCounterattackOpenOrders), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_terminal_ledgers", string.Format("%1", escalationContext.m_iExactCounterattackTerminalLedgers), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_invalid_authority", string.Format("%1", escalationContext.m_iExactCounterattackInvalidAuthorityRows), "count");
 		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_projection_groups", string.Format("%1", escalationContext.m_iExactCounterattackProjectionGroups), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_virtual_groups", string.Format("%1", escalationContext.m_iExactCounterattackVirtualGroups), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_materializing_groups", string.Format("%1", escalationContext.m_iExactCounterattackMaterializingGroups), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_physical_groups", string.Format("%1", escalationContext.m_iExactCounterattackPhysicalGroups), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_dematerializing_groups", string.Format("%1", escalationContext.m_iExactCounterattackDematerializingGroups), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_support_leaks", string.Format("%1", escalationContext.m_iExactCounterattackSupportLeaks), "count");
 		bool ownersExact = escalationContext.m_iRuntimeOwnerExpectedOrders > 0
 			&& escalationContext.m_iRuntimeOwnerClassifiedOrders
 				== escalationContext.m_iRuntimeOwnerExpectedOrders
 			&& escalationContext.m_iRuntimeOwnerInvalidOrders == 0;
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.runtime_owner_classification", "every created escalation order has one supported production runtime owner", EmptyCampaignDebugField(escalationContext.m_sRuntimeOwnerEvidence), CampaignDebugStatus(ownersExact), "escalation telemetry found an unclassified, quarantined, or unsupported runtime owner");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.runtime_owner_classification", "every created escalation order has one supported production runtime owner and retains its sampled identity and owner family after runtime advancement", EmptyCampaignDebugField(escalationContext.m_sRuntimeOwnerEvidence), CampaignDebugStatus(ownersExact), "escalation telemetry found an unclassified, quarantined, unsupported, late, replaced, or owner-mutated runtime row");
 
 		string exactProjectionStatus = "SKIPPED";
 		if (escalationContext.m_iExactCounterattackOrders > 0)
@@ -37982,7 +37991,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		exactProjectionActual = exactProjectionActual + string.Format(
 			" | support leaks %1",
 			escalationContext.m_iExactCounterattackSupportLeaks);
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.exact_counterattack_authority", "open exact counterattacks own reciprocal operation projections, retained terminal ledgers own no runtime claimant, and neither leaks into legacy support requests", exactProjectionActual, exactProjectionStatus, "exact counterattack runtime-owner projection telemetry is incomplete or support-linked");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.exact_counterattack_authority", "the admission snapshot of open exact counterattacks owns reciprocal operation projections, retained terminal ledgers own no runtime claimant, and neither leaks into legacy support requests", exactProjectionActual, exactProjectionStatus, "exact counterattack admission-authority telemetry is incomplete or support-linked");
 
 		string legacySupportStatus = "SKIPPED";
 		if (escalationContext.m_iLegacyPhysicalizableOrders > 0)
@@ -38003,6 +38012,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		escalationContext.m_iRuntimeOwnerExpectedOrders = 0;
 		escalationContext.m_iRuntimeOwnerClassifiedOrders = 0;
 		escalationContext.m_iRuntimeOwnerInvalidOrders = 0;
+		escalationContext.m_iRuntimeOwnerSnapshotInvariantFailures = 0;
 		escalationContext.m_iExactCounterattackOrders = 0;
 		escalationContext.m_iExactCounterattackOpenOrders = 0;
 		escalationContext.m_iExactCounterattackTerminalLedgers = 0;
@@ -38038,7 +38048,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			+ profile.m_iRuntimeOwnerQuarantinedOrders
 			+ profile.m_iRuntimeOwnerUnsupportedOrders;
 		escalationContext.m_iRuntimeOwnerInvalidOrders += profile.m_iRuntimeOwnerQuarantinedOrders
-			+ profile.m_iRuntimeOwnerUnsupportedOrders;
+			+ profile.m_iRuntimeOwnerUnsupportedOrders
+			+ profile.m_iRuntimeOwnerSnapshotInvariantFailures;
+		escalationContext.m_iRuntimeOwnerSnapshotInvariantFailures
+			+= profile.m_iRuntimeOwnerSnapshotInvariantFailures;
 		escalationContext.m_iExactCounterattackOrders += profile.m_iRuntimeOwnerExactCounterattackOrders;
 		escalationContext.m_iExactCounterattackOpenOrders += profile.m_iExactCounterattackOpenOrders;
 		escalationContext.m_iExactCounterattackTerminalLedgers += profile.m_iExactCounterattackTerminalLedgers;
@@ -38199,7 +38212,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_PhysicalWar)
 			routeChanged = m_PhysicalWar.UpdateRoutedActiveGroupsNow(m_State, m_Preset);
 		RetagCampaignDebugEscalationGroups(profile.m_iActiveGroupsBefore, label);
-		RetagCampaignDebugEscalationOrders(profile, profile.m_iOrdersBefore, label);
+		RefreshCampaignDebugEscalationLegacyRuntimeLinks(
+			profile,
+			profile.m_iOrdersBefore,
+			label);
 		profile.m_bCommanderTickChanged = profile.m_bCommanderTickChanged || physicalizeChanged || supportChanged || syncChanged || routeChanged;
 
 		int attackAfterCommander;
@@ -38728,6 +38744,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iRuntimeOwnerExactGarrisonRebuildOrders = 0;
 		profile.m_iRuntimeOwnerQuarantinedOrders = 0;
 		profile.m_iRuntimeOwnerUnsupportedOrders = 0;
+		profile.m_iRuntimeOwnerSnapshotInvariantFailures = 0;
 		profile.m_iLegacyPhysicalizableOrders = 0;
 		profile.m_iLegacySupportLinkedOrders = 0;
 		profile.m_iLegacySupportLinkedGroups = 0;
@@ -38741,6 +38758,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iExactCounterattackDematerializingGroups = 0;
 		profile.m_iExactCounterattackSupportLeaks = 0;
 		profile.m_sRuntimeOwnerEvidence = "";
+		profile.m_aRuntimeOwnerSampleOrderIds.Clear();
+		profile.m_aRuntimeOwnerSampleOwners.Clear();
 	}
 
 	protected void CaptureCampaignDebugEscalationRuntimeOwner(
@@ -38751,6 +38770,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return;
 
 		string runtimeOwner = m_EnemyCommander.ResolveRuntimeOwner(order);
+		profile.m_aRuntimeOwnerSampleOrderIds.Insert(order.m_sOrderId);
+		profile.m_aRuntimeOwnerSampleOwners.Insert(runtimeOwner);
 		if (!profile.m_sRuntimeOwnerEvidence.IsEmpty())
 			profile.m_sRuntimeOwnerEvidence = profile.m_sRuntimeOwnerEvidence + " | ";
 		profile.m_sRuntimeOwnerEvidence = profile.m_sRuntimeOwnerEvidence
@@ -38864,6 +38885,72 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (!projectionExact || !materializationStateExact)
 			profile.m_iExactCounterattackInvalidAuthorityRows++;
+	}
+
+	protected void RefreshCampaignDebugEscalationLegacyRuntimeLinks(
+		HST_CampaignDebugEscalationProfileResult profile,
+		int orderStartIndex,
+		string label)
+	{
+		if (!profile || !m_State || !m_EnemyCommander)
+			return;
+
+		profile.m_iLegacySupportLinkedOrders = 0;
+		profile.m_iLegacySupportLinkedGroups = 0;
+		ref array<string> matchedOrderIds = {};
+		int startIndex = Math.Max(0, orderStartIndex);
+		for (int orderIndex = startIndex; orderIndex < m_State.m_aEnemyOrders.Count(); orderIndex++)
+		{
+			HST_EnemyOrderState order = m_State.m_aEnemyOrders[orderIndex];
+			if (!order)
+				continue;
+
+			ApplyCampaignDebugEnemyOrderPrefix(
+				order,
+				"phase24_escalation_" + label + "_post_tick");
+			int sampleIndex = profile.m_aRuntimeOwnerSampleOrderIds.Find(order.m_sOrderId);
+			string runtimeOwner = m_EnemyCommander.ResolveRuntimeOwner(order);
+			if (sampleIndex < 0 || matchedOrderIds.Contains(order.m_sOrderId))
+			{
+				profile.m_iRuntimeOwnerSnapshotInvariantFailures++;
+				continue;
+			}
+
+			matchedOrderIds.Insert(order.m_sOrderId);
+			if (sampleIndex >= profile.m_aRuntimeOwnerSampleOwners.Count()
+				|| profile.m_aRuntimeOwnerSampleOwners[sampleIndex] != runtimeOwner)
+			{
+				profile.m_iRuntimeOwnerSnapshotInvariantFailures++;
+				continue;
+			}
+			if (runtimeOwner != HST_EnemyCommanderService.RUNTIME_OWNER_LEGACY)
+				continue;
+
+			HST_SupportRequestState legacyRequest
+				= m_State.FindSupportRequest(order.m_sSupportRequestId);
+			if (!legacyRequest)
+				continue;
+			profile.m_iLegacySupportLinkedOrders++;
+			if (!legacyRequest.m_sGroupId.IsEmpty()
+				&& m_State.FindActiveGroup(legacyRequest.m_sGroupId))
+				profile.m_iLegacySupportLinkedGroups++;
+		}
+
+		for (int sampleIndex = 0;
+			sampleIndex < profile.m_aRuntimeOwnerSampleOrderIds.Count();
+			sampleIndex++)
+		{
+			if (!matchedOrderIds.Contains(
+				profile.m_aRuntimeOwnerSampleOrderIds[sampleIndex]))
+				profile.m_iRuntimeOwnerSnapshotInvariantFailures++;
+		}
+		if (profile.m_iRuntimeOwnerSnapshotInvariantFailures > 0)
+		{
+			profile.m_sRuntimeOwnerEvidence
+				= profile.m_sRuntimeOwnerEvidence + string.Format(
+					" | post_tick_snapshot_invariant_failures:%1",
+					profile.m_iRuntimeOwnerSnapshotInvariantFailures);
+		}
 	}
 
 	protected bool IsCampaignDebugEscalationExactCounterattackProjectionExact(
@@ -39362,7 +39449,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		line = line + string.Format(" | attack %1 -> %2 -> %3", profile.m_iAttackBefore, profile.m_iAttackAfterResourceTick, profile.m_iAttackAfterCommanderTick);
 		line = line + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
 		line = line + string.Format(" | orders +%1 | support +%2 | groups +%3", profile.m_iOrdersCreated, profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated);
-		line = line + string.Format(" | owners legacy/qrf/counter/patrol/rebuild/invalid %1/%2/%3/%4/%5/%6", profile.m_iRuntimeOwnerLegacyOrders, profile.m_iRuntimeOwnerExactQRFOrders, profile.m_iRuntimeOwnerExactCounterattackOrders, profile.m_iRuntimeOwnerExactPatrolOrders, profile.m_iRuntimeOwnerExactGarrisonRebuildOrders, profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders);
+		line = line + string.Format(" | owners legacy/qrf/counter/patrol/rebuild/invalid %1/%2/%3/%4/%5/%6", profile.m_iRuntimeOwnerLegacyOrders, profile.m_iRuntimeOwnerExactQRFOrders, profile.m_iRuntimeOwnerExactCounterattackOrders, profile.m_iRuntimeOwnerExactPatrolOrders, profile.m_iRuntimeOwnerExactGarrisonRebuildOrders, profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders + profile.m_iRuntimeOwnerSnapshotInvariantFailures);
 		line = line + string.Format(" | exact open/terminal/invalid %1/%2/%3", profile.m_iExactCounterattackOpenOrders, profile.m_iExactCounterattackTerminalLedgers, profile.m_iExactCounterattackInvalidAuthorityRows);
 		line = line + string.Format(" | projections V/M/P/D %1/%2/%3/%4", profile.m_iExactCounterattackVirtualGroups, profile.m_iExactCounterattackMaterializingGroups, profile.m_iExactCounterattackPhysicalGroups, profile.m_iExactCounterattackDematerializingGroups);
 		line = line + string.Format(" | leaks %1", profile.m_iExactCounterattackSupportLeaks);
