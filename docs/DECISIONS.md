@@ -2220,3 +2220,71 @@ Consequences:
 - R30 and R31 remain historical evidence on the preceding proof-ordering
   source; a fresh full run is required to validate the new staged-owner
   classification.
+
+## CRI-039 - Prove Virtual Counterattack Restart Without Borrowing Live Proximity
+
+- Status: Accepted; source, Foundation, stamped Workbench, and guarded
+  three-process virtual-restart proof complete
+- Date: 2026-07-15
+
+Context: The exact-counterattack graph already retained its reciprocal order,
+operation, manifest, spawn batch, slot, active-group, pool-debit, route, and
+survivor authority while virtual. In-process capture/restore and native
+projection cases did not prove that one stopped executable could persist that
+graph, a fresh executable could resume it once, and another fresh executable
+could replay the result without advancing it again. A living player's normal
+proximity context can also ask production to materialize a healthy group. That
+behavior is correct for gameplay but would turn a virtual-restart proof into an
+unbounded physicalization test and make its source state environment-dependent.
+
+Decision: Admit this destructive proof only through an exact one-use CLI lease.
+The lease binds the guard, run, stage, build, world, and schema identities,
+fails closed on any mismatch, and may be consumed once by that fresh process.
+`prepare`, `recover`, and `replay` therefore execute in three separately owned
+engine processes against an exact disposable canonical-fallback carrier.
+
+Ordinary gameplay continues to instantiate
+`HST_EnemyCounterattackOperationService`. Only the exactly authorized proof
+instantiates `HST_EnemyCounterattackOperationProofHarness`, which subclasses
+that production service and retains its counterattack tick, route, persistence,
+and settlement logic. The harness replaces only the player-proximity and
+materialization decision with a deterministic no-nearby-player result. It does
+not become another gameplay owner or certify the physical branch.
+
+Each stage validates the complete reciprocal graph through one semantic
+fingerprint and exact persisted readback. `prepare` writes the admitted virtual
+source. A fresh `recover` process requires that exact source, advances the
+production virtual operation once, and reads back the expected continuation. A
+fresh `replay` process requires the recovered fingerprint and must preserve it
+as a semantic no-op. Both runtime adapters and PhysicalWar must have zero
+claimants throughout this virtual proof.
+
+The launcher owns every stage process and its sentinel-scoped profile, result,
+log, and temporary artifacts. Process containment, exact result identity,
+readback, exit status, fingerprint continuity, and cleanup are all mandatory
+success gates. Any surviving launched process or owned artifact fails the run;
+diagnostic evidence remains bounded and the disposable tree is removed.
+
+Consequences:
+
+- Source `339b72ec3ed63132e46f3df84540d74d3e938d16`, UTC
+  `2026-07-15T22:32:02Z`, label
+  `schema70-settings24-counterattack-virtual-restart-proof`, is stamped by
+  `7736b42`. Campaign Schema 70 and runtime-settings Schema 24 remain current;
+  this slice adds no serialized field, persisted enum ordinal, operation
+  contract version, normalization, or migration rule.
+- Foundation passes at 814 script-symbol references. Stamped Workbench
+  validation loads 5,832 Game files and 11,828 classes, records CRC `92fcd4a4`,
+  and completes without a script-validation error.
+- The guarded external run passes `prepare`, `recover`, and `replay` with exact
+  source/readback identity. Recovery advances the expected virtual continuation
+  once; replay preserves the recovered semantic fingerprint. All three stages
+  exit `0`, the fingerprint chain is exact, runtime claimant counts remain
+  zero, and every process and cleanup counter finishes at zero.
+- This decision certifies only the canonical-fallback outbound-virtual
+  counterattack graph and its first deterministic continuation/no-op replay.
+  It does not certify live player-proximity decisions, materialization,
+  dematerialization, physical combat, arrival or capture settlement, prepared
+  settlement crash cuts, native persistence-source selection or precedence,
+  migration, package delivery, live dedicated server/client behavior,
+  multiplayer, reconnect/JIP, performance, or soak.

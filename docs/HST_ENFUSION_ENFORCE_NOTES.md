@@ -1,10 +1,80 @@
 # Partisan Enfusion / Enforce Notes
 
-Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
-stamp commit `73bfccf`, UTC `2026-07-15T16:34:25Z`, label
-`schema70-settings24-phase24-owner-snapshot`.
+Current build identity: source `339b72ec3ed63132e46f3df84540d74d3e938d16`,
+stamp commit `7736b42`, UTC `2026-07-15T22:32:02Z`, label
+`schema70-settings24-counterattack-virtual-restart-proof`.
 
-## Current Phase 24 Owner-Snapshot Mechanics
+## Current Exact Counterattack Restart-Proof Mechanics
+
+The current checkpoint proves one exact outbound-`VIRTUAL` counterattack across
+three fresh engine processes. Foundation passes at 814 script-symbol references.
+Guarded Workbench validation compiles 5,832 Game files and 11,828 classes at CRC
+`92fcd4a4`, reports successful script validation, exits `0`, records zero hard
+errors, and leaves all cleanup counters at zero.
+
+Restart proof authority is fail-closed. The coordinator may construct the
+proof-only subclass of the production counterattack owner only when the exact
+CLI request is present and the matching guard/carrier authority has consumed
+its one-use lease. Nonce, run, stage, build, world, and schema identities must
+all match. Merely supplying the CLI switch, retaining stale carrier data, or
+reusing a stage lease cannot enter the proof path. Normal gameplay continues to
+construct the production owner.
+
+The subclass changes one decision only: its proximity seam deterministically
+reports that no living player is near enough to materialize the force. It
+inherits the production counterattack lifecycle, including `TickOrder`, route
+progression, reciprocal aggregate mutation, persistence, and settlement rules.
+This makes the proof deterministic without replacing the behavior whose
+restart continuity is being measured. Treat it as proof of the outbound
+`VIRTUAL` cut, not proof of live proximity or physicalization.
+
+The semantic fingerprint includes the reciprocal order/operation/manifest/
+batch/member-slot/group/force/projection graph, resource pools and debit, route
+and progress state, and the authoritative optional strings. Restore can
+legitimately replace a non-authoritative combat-presence sample reason with the
+restore-required sampling reason, so the fingerprint normalizes that one
+non-authoritative telemetry field. It still hashes an authoritative sample
+reason verbatim. Keep this exception narrow; do not generalize it to other
+optional text or authoritative combat state. The bounded row-by-row diagnostic
+comparator must null-guard a missing group before reading its fields so a
+malformed graph yields a bounded mismatch result instead of a proof crash.
+
+PowerShell containment phases run in isolated child scopes. Scalar assignments
+inside those scopes do not propagate to the caller, so process and engine
+cleanup counts must be returned through one shared mutable state object. A
+caller-side scalar initialized to a sentinel value can otherwise report a false
+containment failure even after successful cleanup. Keep failure diagnostics
+bounded and redacted, and record phase plus counts rather than copying arbitrary
+engine output.
+
+Monitor roots are detection-only. Deletion authority is limited to roots whose
+exact nonce and sentinel prove that the current run created them; a watched log
+or spill root is never itself a deletion target. The successful run finished
+with zero owned processes, proof guards, disposable profiles, generated logs,
+external spills, or cleanup errors. An independent final census also found zero
+engine processes and zero restart-proof or Workbench guard roots.
+
+The three-stage evidence chain loaded build prefix `339b72ec3ed6` at Campaign
+Schema 70 in every process:
+
+- `prepare` produced exact persisted readback with source/final digest
+  `046514a9170db409` and zero projection-scoped adapter/PhysicalWar runtime
+  claimants.
+- `recover` restored the graph, changed startup state exactly once, continued
+  production progress, passed exact continuation/readback, and advanced the
+  digest to `1d2aea419e0a8a32`, again with zero runtime claimants.
+- `replay` restored the advanced graph, performed startup reconciliation, and
+  changed startup state exactly once. It was a semantic no-op with source/final
+  digest `1d2aea419e0a8a32`, exact readback, and zero runtime claimants.
+
+All three processes exited zero and the complete fingerprint chain was exact.
+This does not certify live proximity/materialization, `PHYSICAL` or
+`DEMATERIALIZING` restart cuts, prepared-settlement crash cuts, the native
+persistence source, live source/target owner or revision continuity, zero
+ownership-transition claimants, package/server/client execution, migration,
+marker runtime, multiplayer/JIP/reconnect, performance, or soak.
+
+## Preceding Phase 24 Owner-Snapshot Mechanics
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. This
 checkpoint is schema-neutral and settings-neutral. When runtime actions can
@@ -21,7 +91,7 @@ and each `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` state count.
 Phase 17 owns deterministic exact-counterattack lifecycle proof; Phase 24 must
 not manufacture a fixture merely to avoid a legitimate zero-metric skip.
 
-Full guarded run `seed1985_t0_p1_u1784134163` on the stamped current source
+Full guarded run `seed1985_t0_p1_u1784134163` on that stamped source
 demonstrates both branches of that ownership design without manufacturing a
 fixture: all 14 sampled owners classified once with zero snapshot invariant
 failures, while three naturally admitted exact counterattacks remained open
@@ -67,7 +137,7 @@ vehicle checks, but suppress the separate zero-controlled-member increment only
 for an active, reciprocally backed fixture in the exact pre-handoff state. Never
 pass that grace list to final cleanup.
 
-## Current Phase 17 Native Exact-Counterattack Proof-Ordering Boundary
+## Preceding Phase 17 Native Exact-Counterattack Proof-Ordering Boundary
 
 The preceding R27 source extends the Schema-69 exact-counterattack
 aggregate with a staged Full Campaign Debug path through the production runtime
@@ -4511,7 +4581,7 @@ This file is for practical engine/script behavior, not project planning. Keep en
     claimants. Quarantine creates no fallback, captive, casualty, extraction,
     reward, refund, or force transfer.
 
-- Current stamped source gates: the full foundation suite passes. Final stamped-
+- That stamped checkpoint's gates: the full foundation suite passes. Final stamped-
   tree Workbench Game validation loaded 5,770 files/11,594 classes with CRC
   `aa73883a` and reported
   `Script validation successful`. The bounded hidden normal WorldEditor open

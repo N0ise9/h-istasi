@@ -1,38 +1,65 @@
 # Campaign Save Migrations
 
-Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
-UTC `2026-07-15T16:34:25Z`, label
-`schema70-settings24-phase24-owner-snapshot`, stamped by `73bfccf`.
+Current build identity: source `339b72ec3ed63132e46f3df84540d74d3e938d16`,
+UTC `2026-07-15T22:32:02Z`, label
+`schema70-settings24-counterattack-virtual-restart-proof`, stamped by `7736b42`.
 
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The current checkpoint adds
 no save-schema, settings-schema, serialized field, persisted enum ordinal,
-operation contract version, normalization, or migration rule. It changes only
-process-local Campaign Debug classification. Phase 24 preserves its pre-runtime
-owner snapshot, classifies bounded legitimate follow-up admissions, detects
-missing rows, duplicate identities, and owner mutations, and uses the sampled
-owner count. Its exact-counterattack assertion may validly `SKIP` only when all
-exact authority, projection, support-leak, and projection-state metrics are
-zero; Phase 17 owns deterministic exact lifecycle proof. No persisted campaign
-or settings data is read, written, upgraded, or inferred differently.
+operation contract version, normalization, or migration rule. It adds only a
+guarded external-process proof for an already valid current-schema exact
+counterattack graph. No legacy row is promoted, rewritten, or inferred, and no
+normal campaign or settings consumer changes its persistence contract.
+
+The proof requires an exact one-use CLI lease for each fresh `prepare`,
+`recover`, and `replay` process. The lease binds the guard, run, stage, build,
+world, and schema identities and fails closed on mismatch or reuse. Ordinary
+gameplay continues to use `HST_EnemyCounterattackOperationService`. The guarded
+`HST_EnemyCounterattackOperationProofHarness` subclasses that service, retains
+its production counterattack tick, route, persistence, and settlement logic,
+and replaces only the proximity/materialization decision with a deterministic
+no-nearby-player result.
+
+`prepare` persists and reads back the complete reciprocal outbound-virtual
+order/operation/manifest/batch/slot/group/pool-debit graph. A fresh `recover`
+process requires its exact semantic fingerprint, advances the expected virtual
+continuation once, and reads back the result. A fresh `replay` process requires
+that recovered fingerprint and preserves it as a semantic no-op. Both runtime
+adapters and PhysicalWar retain zero claimants throughout the virtual proof.
 
 Current source is implementation
+`339b72ec3ed63132e46f3df84540d74d3e938d16`, UTC
+`2026-07-15T22:32:02Z`, label
+`schema70-settings24-counterattack-virtual-restart-proof`, with stamp commit
+`7736b42`. Foundation passes at 814 script-symbol references. Stamped Workbench
+validation loads 5,832 Game files and 11,828 classes at CRC `92fcd4a4`. The
+guarded external run passes all three stages with exact source/readback and
+fingerprint continuity, all exits `0`, and every process and cleanup counter at
+zero.
+
+This is canonical-fallback virtual-operation restart evidence only. It does not
+execute or certify a schema migration, generated-profile migration, native
+persistence-source selection or precedence, live proximity/materialization,
+physical or dematerializing restart cuts, prepared-settlement crash cuts,
+package/live-server behavior, multiplayer, reconnect/JIP, performance, or
+soak.
+
+The immediately preceding Phase-24 owner-snapshot checkpoint is
 `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`, UTC
 `2026-07-15T16:34:25Z`, label
 `schema70-settings24-phase24-owner-snapshot`, with stamp commit `73bfccf`.
-Workbench validation of the stamped current source passed 5,830 files and
-11,822 classes at CRC `e836e3b4`, with script validation successful, zero hard
-errors, and exact process/profile/external cleanup. Full guarded run
-`seed1985_t0_p1_u1784134163` on the same stamped source classified 14/14 sampled
-Phase-24 owners with zero snapshot invariant failures and passed exact authority
-for three open `VIRTUAL` counterattack projections with zero invalid rows or
-support leaks. Phase 17 passed 11/11, all six staged spawn-adapter cases passed,
-and all 18 state-diff rows remained zero, confirming that this process-local
-debug correction did not mutate persisted campaign state. The error census and
-every process/profile/external cleanup counter were zero. The wider suite
-remains uncertified at 583 PASS, 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED.
+Workbench validation of that stamped source passed 5,830 files and 11,822
+classes at CRC `e836e3b4`, with script validation successful, zero hard errors,
+and exact process/profile/external cleanup. Full guarded run
+`seed1985_t0_p1_u1784134163` classified 14/14 sampled Phase-24 owners with zero
+snapshot invariant failures and passed exact authority for three open
+`VIRTUAL` counterattack projections with zero invalid rows or support leaks.
+Phase 17 passed 11/11, all six staged spawn-adapter cases passed, and all 18
+state-diff rows remained zero. The wider suite remained uncertified at 583
+PASS, 50 WARN, 46 FAIL, 7 BLOCKED, and 1 SKIPPED.
 
 The preceding staged faction-audit checkpoint is
 `95da955e2b290f5583480ff59fc63a73bda4f634`, UTC

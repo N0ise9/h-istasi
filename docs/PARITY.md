@@ -1,13 +1,36 @@
 # Partisan Capability Map
 
-Current build identity: source `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`,
-UTC `2026-07-15T16:34:25Z`, label
-`schema70-settings24-phase24-owner-snapshot`, stamp commit `73bfccf`.
+Current build identity: source `339b72ec3ed63132e46f3df84540d74d3e938d16`,
+UTC `2026-07-15T22:32:02Z`, label
+`schema70-settings24-counterattack-virtual-restart-proof`, stamp commit `7736b42`.
 
-## Current Phase 24 Runtime-Owner Parity Boundary
+## Current Counterattack Outbound-VIRTUAL Restart Parity Boundary
 
 Campaign Schema 70 and runtime-settings Schema 24 remain unchanged. The current
-source is schema-neutral and settings-neutral. Phase 24 preserves the
+source is schema-neutral and settings-neutral. Three fresh processes now prove
+one canonical fallback outbound-`VIRTUAL` exact-counterattack graph across
+`prepare`, `recover`, and `replay`. The prepare digest remains
+`046514a9170db409`; recovery restores that exact graph and advances deterministic
+production continuation to `1d2aea419e0a8a32`; replay restores the latter and
+is a semantic no-op. Persisted readback is exact, every stage exits `0`, adapter
+and PhysicalWar runtime claimant counts remain zero, and all process, profile,
+log, spill, and guard-root cleanup counters are zero.
+
+Foundation passes at 814 references. Guarded Workbench validation passes 5,832
+files and 11,828 classes at CRC `92fcd4a4`, reports `ScriptValidation true`,
+exits `0`, records zero hard errors, and cleans exactly. Parity is established
+only for this guarded canonical-fallback strategic restart slice. The
+deterministic no-nearby-player seam does not cover live proximity or
+materialization, physical/dematerializing cuts, prepared-settlement crash cuts,
+native persistence-source selection, package/live server-client behavior,
+migration, markers, multiplayer/JIP/reconnect, performance, or soak. The proof
+fingerprint also excludes live source/target owner revisions and zero
+operation-owned ownership-transition claimants.
+
+## Preceding Phase 24 Runtime-Owner Parity Boundary
+
+Campaign Schema 70 and runtime-settings Schema 24 remained unchanged. That
+source was schema-neutral and settings-neutral. Phase 24 preserves the
 pre-runtime owner snapshot, classifies legitimate bounded follow-up admissions,
 and detects missing rows, duplicate identities, or owner mutations. Runtime
 ownership assertions use the sampled owner count rather than assuming that the
@@ -17,7 +40,7 @@ The exact-counterattack authority assertion may validly `SKIP` only when every
 exact metric is zero, including total, open, terminal, invalid, projection,
 support-leak, and `VIRTUAL`/`MATERIALIZING`/`PHYSICAL`/`DEMATERIALIZING` counts.
 Phase 17 owns deterministic exact-counterattack lifecycle parity. Full guarded
-run `seed1985_t0_p1_u1784134163` on the stamped current source classified all
+run `seed1985_t0_p1_u1784134163` on that stamped source classified all
 14 sampled Phase-24 owners with zero snapshot invariant failures and proved
 three open exact counterattacks under three `VIRTUAL` projections with zero
 invalid authority or support leaks. Both Phase-24 assertions, all 11 Phase-17
@@ -201,8 +224,8 @@ focused environment still records the known recoverable base-game VM diagnostic
 plus two filter-constructor diagnostics. The focused run succeeds but is not
 exception-free.
 
-The Campaign Debug verification audit retains the exact current and historical
-run identities. Current run `seed1985_t0_p1_u1784134163` passes all 11 targeted
+The Campaign Debug verification audit retains the exact integrated and historical
+run identities. Latest integrated run `seed1985_t0_p1_u1784134163` passes all 11 targeted
 Phase-17 assertions, classifies 14/14 Phase-24 owners with zero snapshot
 invariant failures, and proves three open exact `VIRTUAL` projections with zero
 invalid authority or support leaks. All 18 state deltas and every error/cleanup
@@ -267,7 +290,7 @@ R28 first exposed the intermittent casualty chain, while unchanged R28b passed
 all 11 Phase-17 assertions exactly once with `N=9 -> 8` and zero final drift.
 R29 then isolates already-completed production authority from mutation
 telemetry. R30 diagnoses the artificial post-handoff scheduling window, and R31
-closes the preceding proof-ordering gate. Current run
+closes the preceding proof-ordering gate. Latest integrated run
 `seed1985_t0_p1_u1784134163` completes 687 cases at 583 PASS/50 WARN/46 FAIL/7
 BLOCKED/1 SKIPPED and proves 5,537/5,685 required assertions, with 134 failed
 and 14 blocked. Phase 17 passes 11/11; both Phase-24 assertions pass at 14/14
@@ -1347,19 +1370,19 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Current
-  implementation `7c8b9c27b4ee553664fa2b44aea4a8d53c7123a5`, stamp `73bfccf`, carries
-  label `schema70-settings24-phase24-owner-snapshot` and UTC
-  `2026-07-15T16:34:25Z`. Foundation passes at 808 references. Stamped PC Game
-  validation loads 5,830 files/11,822 classes at CRC `e836e3b4`, reports
-  successful script validation, exits `0`, records zero hard errors, and cleans
-  exactly. Guarded run `seed1985_t0_p1_u1784134163` executes 687 cases at 583
-  PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and proves 5,537/5,685 required
-  assertions. Phase 17 passes 11/11; Phase 24 classifies 14/14 owners with zero
-  snapshot failures and proves three open exact `VIRTUAL` projections with zero
-  invalid authority or support leaks. Staged cleanup passes 6/6, all 18 state
-  deltas are zero, and every error/process/profile/external cleanup counter is
-  zero. Certification remains false because unrelated failures and blockers
-  remain. R31 stays as preceding historical proof-ordering evidence.
+  implementation `339b72ec3ed63132e46f3df84540d74d3e938d16`, stamp `7736b42`, carries
+  label `schema70-settings24-counterattack-virtual-restart-proof` and UTC
+  `2026-07-15T22:32:02Z`. Foundation passes at 814 references. Guarded Workbench
+  validation loads 5,832 files/11,828 classes at CRC `92fcd4a4`, reports
+  `ScriptValidation true`, exits `0`, records zero hard errors, and cleans
+  exactly. The fresh-process prepare/recover/replay chain preserves digest
+  `046514a9170db409`, advances it exactly to `1d2aea419e0a8a32`, then leaves that
+  digest unchanged. Every stage exits `0`, exact readback passes, runtime
+  claimants remain zero, and all external cleanup counters are zero. This closes
+  only the guarded canonical-fallback outbound-`VIRTUAL` strategic restart
+  boundary. The latest integrated Campaign Debug run remains
+  `seed1985_t0_p1_u1784134163`; certification remains false because unrelated
+  failures and broader runtime gates remain.
   Historical R26 retains its exact-QRF in-
   memory evidence, and the separate guarded nine-process matrix retains its
   canonical-fallback prepare/recover/replay evidence. Neither closes native
@@ -1679,7 +1702,7 @@ Debug and packaged-runtime gates remain open.
   detachment, player salvage, replication, and restart still need a disposable
   packaged runtime proof.
 - The latest completed Full Campaign Debug artifact is
-  `seed1985_t0_p1_u1784134163` on the current stamped build. It executes 687
+  `seed1985_t0_p1_u1784134163` on the preceding Phase-24 stamped build. It executes 687
   cases with 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and proves
   5,537/5,685 required assertions, with 134 failed and 14 blocked. All 11
   Phase-17 targets pass. Phase 24 classifies 14/14 owners with zero snapshot
@@ -1695,7 +1718,7 @@ Debug and packaged-runtime gates remain open.
   22/22 assets, 21/21 runtime entities, 9/9 groups, 10/10 runtime vehicles, and
   1/1 field vehicle. R25b remains dated refund-authority evidence, R24 is the
   bridge that first cleared R23's cleanup/leak contamination, and R23 remains
-  the dated demolition-witness proof. The current run remains a targeted pass rather than
+  the dated demolition-witness proof. That integrated run remains a targeted pass rather than
   certification because unrelated failures and external gates remain.
 - Current source structurally rejects inactive/carried demolition witnesses,
   unifies entity-backed callback and scan source keys, retains at most 64
@@ -1724,7 +1747,9 @@ Debug and packaged-runtime gates remain open.
   world/prefix cleanup, and the final state diff all pass. Next prove one
   authored binding, restart/streaming reapplication, package behavior, and
   multiplayer without duplicate transmitters.
-- Use `seed1985_t0_p1_u1784134163` as the latest completed targeted proof, R31
+- Use the current three-process exact-counterattack result as the newest focused
+  persistence checkpoint, and `seed1985_t0_p1_u1784134163` as the latest
+  completed integrated targeted proof. Use R31
   as the preceding proof-ordering checkpoint, R30 as the artificial-scheduling
   diagnosis, R28b as the unchanged positive casualty comparison,
   R27 as historical projection evidence, and R26 as historical exact-QRF
@@ -1747,13 +1772,16 @@ Debug and packaged-runtime gates remain open.
   materialize/casualty/fold/re-entry/final-fold chain, R29's physical-publication
   diagnosis, and R30's exact-cardinality/nonliving-member distinction plus
   owner-aware Phase-24 telemetry. R31 proves the preceding same-invocation
-  ordering. The current run proves all 11 Phase-17 assertions, 14/14 owner
+  ordering. The latest integrated run proves all 11 Phase-17 assertions, 14/14 owner
   classification with zero snapshot failures, three open exact `VIRTUAL`
   projections with zero invalid authority or support leaks, and zero final
-  drift/cleanup residue. Current Workbench validation passes at CRC `e836e3b4`.
-  Next add the guarded two-process outbound-`VIRTUAL` counterattack restart
-  proof, then prove the remaining native route, combat, ownership, return, and
-  settlement lifecycle before expanding to world-scope restore, town behavior/
+  drift/cleanup residue. The current three-process outbound-`VIRTUAL` restart
+  proof then passes exact prepare/recover/replay chaining, deterministic
+  continuation, semantic no-op, zero runtime claimants, and exact cleanup;
+  Workbench passes at CRC `92fcd4a4`. Next extend restart proof to live
+  proximity/materialization, physical/dematerializing state, or prepared
+  settlement, including endpoint owner revisions and operation-owned ownership-
+  transition claimants, before expanding to world-scope restore, town behavior/
   authority, and broader runtime failures.
   Preserve capacity-bounded garrison-rebuild admission, exactly one prepaid support debit,
   reciprocal order/operation/manifest/spawn/group authority, strategic/physical
