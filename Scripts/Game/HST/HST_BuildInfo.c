@@ -1,8 +1,8 @@
 class HST_BuildInfo
 {
-	static const string BUILD_SHA = "b6395475b664b513ed371a7a97a13508722a438d";
-	static const string BUILD_UTC = "2026-07-15T07:41:58Z";
-	static const string BUILD_LABEL = "schema70-settings24-native-counterattack-casualty-settle";
+	static const string BUILD_SHA = "ad54861f639b020627492f122f39f7a6cbc5a929";
+	static const string BUILD_UTC = "2026-07-15T08:26:21Z";
+	static const string BUILD_LABEL = "schema70-settings24-native-counterattack-physical-settle";
 
 	static string BuildSummary()
 	{
