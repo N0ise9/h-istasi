@@ -1027,6 +1027,75 @@ class HST_EnemyCounterattackOperationService
 		return changed;
 	}
 
+	// Campaign Debug read-only hooks. They reuse the production ambiguity,
+	// resource, reciprocal-link, and runtime-release validators so telemetry
+	// cannot certify a weaker parallel model of exact counterattack authority.
+	string DebugValidateOpenRuntimeAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !IsExactEnemyCounterattack(order))
+			return "exact enemy counterattack debug authority is unavailable";
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return "exact enemy counterattack debug authority is not active";
+		HST_OperationRecordState operation;
+		HST_ForceManifestState manifest;
+		HST_ForceSpawnResultState batch;
+		HST_ActiveGroupState group;
+		return ResolveRuntimeContext(
+			state,
+			order,
+			operation,
+			manifest,
+			batch,
+			group);
+	}
+
+	string DebugValidateTerminalLedgerAuthority(
+		HST_CampaignState state,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !IsExactEnemyCounterattack(order))
+			return "exact enemy counterattack terminal debug authority is unavailable";
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED
+			&& order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED)
+			return "exact enemy counterattack terminal debug order is not terminal";
+		string ambiguity = FindAmbiguousAuthorityRows(state, order);
+		if (!ambiguity.IsEmpty())
+			return ambiguity;
+		HST_OperationRecordState operation = state.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = state.FindForceManifest(order.m_sManifestId);
+		if (!operation || operation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			return "exact enemy counterattack terminal operation is not settled";
+		if (!m_Operations.ValidateExactEnemyCounterattack(
+			state,
+			operation,
+			order,
+			manifest).IsEmpty())
+			return "exact enemy counterattack terminal operation or manifest identity is invalid";
+		HST_EEnemyOrderStatus expectedStatus
+			= HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
+		if (operation.m_eTerminalResult
+			== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_COMPLETED
+			|| operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_DESTROYED)
+			expectedStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_RESOLVED;
+		if (order.m_eStatus != expectedStatus
+			|| order.m_iResolvedAtSecond != Math.Max(0, operation.m_iSettledAtSecond)
+			|| order.m_bPhysicalized || order.m_bAbstractResolved)
+			return "exact enemy counterattack terminal order lifecycle does not match settlement";
+		if (!HasValidMatchingSettledResourceAuthority(
+			state,
+			order,
+			operation,
+			manifest))
+			return "exact enemy counterattack terminal resource or reciprocal ledger is invalid";
+		if (!HasReleasedAdministrativeRuntimeAuthority(state, order, operation))
+			return "exact enemy counterattack terminal ledger retains a runtime claimant";
+		return "";
+	}
+
 	bool SettleTrackedOpenOrderForAdministrativeStop(
 		HST_CampaignState state,
 		HST_EnemyDirectorService enemyDirector,
@@ -3609,6 +3678,7 @@ class HST_EnemyCounterattackOperationService
 		if (!group)
 			return;
 		int bounded = Math.Max(0, Math.Min(group.m_iOriginalInfantryCount, living));
+		group.m_iInfantryCount = bounded;
 		group.m_iDurableLivingInfantryCount = bounded;
 		group.m_iLastSeenAliveCount = bounded;
 		group.m_iSurvivorInfantryCount = bounded;

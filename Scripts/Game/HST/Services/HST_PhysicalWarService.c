@@ -1079,6 +1079,120 @@ class HST_PhysicalWarService
 		return AcquireForceSpawnRuntimeOwnership(activeGroup, reason);
 	}
 
+	// Campaign Debug emergency hook for a focal projection whose owning debug
+	// order disappeared before the batch reached the normal successful-retire
+	// boundary. Identity and exclusive runtime ownership remain mandatory.
+	bool DebugPrepareForceSpawnProjectionCleanup(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		out string reason)
+	{
+		reason = "";
+		if (!ValidateForceSpawnProjectionIdentity(state, activeGroup, reason))
+			return false;
+		return AcquireForceSpawnRuntimeOwnership(activeGroup, reason);
+	}
+
+	// Campaign Debug emergency hook for a projection whose durable group row was
+	// lost. Debug isolation starts only when no pre-existing force-spawn runtime
+	// is active, so the deterministic projection/group id safely scopes this
+	// process-local retirement without borrowing another campaign group.
+	bool DebugRetireForceSpawnRuntimeByGroupId(
+		string groupId,
+		out string reason)
+	{
+		reason = "";
+		if (groupId.IsEmpty())
+		{
+			reason = "force spawn debug retirement group identity is missing";
+			return false;
+		}
+
+		for (int ownerIndex = m_aForceSpawnOwnedGroupIds.Count() - 1; ownerIndex >= 0; ownerIndex--)
+		{
+			if (m_aForceSpawnOwnedGroupIds[ownerIndex] != groupId)
+				continue;
+			if (ownerIndex < m_aForceSpawnOwnedResultIds.Count())
+				m_aForceSpawnOwnedResultIds.Remove(ownerIndex);
+			m_aForceSpawnOwnedGroupIds.Remove(ownerIndex);
+		}
+		CleanupRuntimeGroupEntityForDebug(groupId);
+
+		bool runtimeRowsRemain;
+		foreach (string runtimeGroupId : m_aRuntimeGroupIds)
+		{
+			if (runtimeGroupId == groupId)
+			{
+				runtimeRowsRemain = true;
+				break;
+			}
+		}
+		if (!runtimeRowsRemain)
+		{
+			foreach (string runtimeVehicleGroupId : m_aRuntimeVehicleGroupIds)
+			{
+				if (runtimeVehicleGroupId == groupId)
+				{
+					runtimeRowsRemain = true;
+					break;
+				}
+			}
+		}
+		if (runtimeRowsRemain || IsForceSpawnRuntimeOwnershipHeldForGroup(groupId))
+		{
+			reason = "force spawn debug retirement left process-local runtime authority";
+			return false;
+		}
+		return true;
+	}
+
+	bool DebugValidateForceSpawnOrphanHandleScope(
+		string groupId,
+		IEntity entity,
+		out string reason)
+	{
+		reason = "";
+		if (groupId.IsEmpty())
+		{
+			reason = "force spawn orphan-handle group identity is missing";
+			return false;
+		}
+		if (entity && IsRuntimeHandleTrackedByAnotherGroup(groupId, entity))
+		{
+			reason = "force spawn orphan handle is tracked by another runtime group";
+			return false;
+		}
+		return true;
+	}
+
+	bool DebugRetireForceSpawnOrphanHandleEntity(
+		string groupId,
+		IEntity entity,
+		out string reason)
+	{
+		reason = "";
+		if (groupId.IsEmpty())
+		{
+			reason = "force spawn orphan-handle retirement group identity is missing";
+			return false;
+		}
+		if (!entity || entity.IsDeleted())
+			return true;
+		if (IsRuntimeGroupEntityHandleTracked(groupId, entity)
+			|| IsRuntimeHandleTrackedByAnotherGroup(groupId, entity))
+		{
+			reason = "force spawn orphan entity remains registered after group retirement";
+			return false;
+		}
+		SCR_EntityHelper.DeleteEntityAndChildren(entity);
+		if (!entity.IsDeleted())
+		{
+			reason = "force spawn orphan entity remained live after explicit retirement";
+			return false;
+		}
+		return true;
+	}
+
 	bool ReleaseForceSpawnRuntimeOwnership(HST_ActiveGroupState activeGroup)
 	{
 		if (!activeGroup)

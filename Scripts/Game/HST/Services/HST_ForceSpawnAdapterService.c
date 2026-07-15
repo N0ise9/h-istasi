@@ -40,6 +40,22 @@ class HST_ForceSpawnAdapterRetireResult
 	string m_sFailureReason;
 }
 
+class HST_ForceSpawnAdapterDebugState
+{
+	int m_iHandleCount;
+	int m_iTickCount;
+	int m_iSpawnedTotal;
+	int m_iCleanedTotal;
+	int m_iFailedTotal;
+	int m_iDeferredTotal;
+	int m_iHandoffRefusedTotal;
+	int m_iReconcileCursor;
+	int m_iHandleReconcileCursor;
+	int m_iLifecycleReconcileCursor;
+	string m_sLastSummary;
+	string m_sLastFailureEvidence;
+}
+
 class HST_ForceSpawnAdapterService
 {
 	static const string ADAPTER_MODE = "exact_spawn_queue";
@@ -60,6 +76,43 @@ class HST_ForceSpawnAdapterService
 	protected int m_iLifecycleReconcileCursor;
 	protected string m_sLastSummary;
 	protected string m_sLastFailureEvidence;
+
+	HST_ForceSpawnAdapterDebugState DebugCaptureState()
+	{
+		HST_ForceSpawnAdapterDebugState snapshot
+			= new HST_ForceSpawnAdapterDebugState();
+		snapshot.m_iHandleCount = m_aHandles.Count();
+		snapshot.m_iTickCount = m_iTickCount;
+		snapshot.m_iSpawnedTotal = m_iSpawnedTotal;
+		snapshot.m_iCleanedTotal = m_iCleanedTotal;
+		snapshot.m_iFailedTotal = m_iFailedTotal;
+		snapshot.m_iDeferredTotal = m_iDeferredTotal;
+		snapshot.m_iHandoffRefusedTotal = m_iHandoffRefusedTotal;
+		snapshot.m_iReconcileCursor = m_iReconcileCursor;
+		snapshot.m_iHandleReconcileCursor = m_iHandleReconcileCursor;
+		snapshot.m_iLifecycleReconcileCursor = m_iLifecycleReconcileCursor;
+		snapshot.m_sLastSummary = m_sLastSummary;
+		snapshot.m_sLastFailureEvidence = m_sLastFailureEvidence;
+		return snapshot;
+	}
+
+	bool DebugRestoreState(HST_ForceSpawnAdapterDebugState snapshot)
+	{
+		if (!snapshot)
+			return false;
+		m_iTickCount = snapshot.m_iTickCount;
+		m_iSpawnedTotal = snapshot.m_iSpawnedTotal;
+		m_iCleanedTotal = snapshot.m_iCleanedTotal;
+		m_iFailedTotal = snapshot.m_iFailedTotal;
+		m_iDeferredTotal = snapshot.m_iDeferredTotal;
+		m_iHandoffRefusedTotal = snapshot.m_iHandoffRefusedTotal;
+		m_iReconcileCursor = snapshot.m_iReconcileCursor;
+		m_iHandleReconcileCursor = snapshot.m_iHandleReconcileCursor;
+		m_iLifecycleReconcileCursor = snapshot.m_iLifecycleReconcileCursor;
+		m_sLastSummary = snapshot.m_sLastSummary;
+		m_sLastFailureEvidence = snapshot.m_sLastFailureEvidence;
+		return m_aHandles.Count() == snapshot.m_iHandleCount;
+	}
 
 	HST_ForceSpawnAdapterTickResult Tick(
 		HST_CampaignState state,
@@ -95,6 +148,109 @@ class HST_ForceSpawnAdapterService
 		FinalizeTouchedBatches(state, queue, physicalWar, nowSecond, touchedResultIds, result);
 		UpdateTotals(result);
 		result.m_sSummary = BuildTickSummary(result);
+		m_sLastSummary = result.m_sSummary;
+		return result;
+	}
+
+	// Campaign Debug proof hook: runs the production queue and native spawn
+	// execution passes for exactly one already-validated projection. This keeps
+	// a focal runtime proof from consuming unrelated global queue work.
+	HST_ForceSpawnAdapterTickResult DebugTickProjection(
+		HST_CampaignState state,
+		HST_ForceSpawnQueueService queue,
+		HST_PhysicalWarService physicalWar,
+		int nowSecond,
+		string projectionId)
+	{
+		HST_ForceSpawnAdapterTickResult result = new HST_ForceSpawnAdapterTickResult();
+		if (!state || !queue || !physicalWar || projectionId.IsEmpty())
+		{
+			result.m_iFailedCount = 1;
+			result.m_sSummary = "scoped force spawn adapter unavailable";
+			return result;
+		}
+
+		HST_ForceSpawnResultState focalBatch;
+		int projectionMatches;
+		foreach (HST_ForceSpawnResultState candidate : state.m_aForceSpawnResults)
+		{
+			if (!candidate || candidate.m_sProjectionId != projectionId)
+				continue;
+			projectionMatches++;
+			focalBatch = candidate;
+		}
+		if (projectionMatches != 1 || !focalBatch)
+		{
+			result.m_iFailedCount = 1;
+			result.m_sSummary = "scoped force spawn adapter requires one canonical projection batch";
+			return result;
+		}
+
+		ReconcileHandedOffMemberLifecycle(
+			state,
+			queue,
+			physicalWar,
+			nowSecond,
+			result,
+			true,
+			projectionId);
+		ReconcileZeroLivingProjectionCleanup(
+			state,
+			queue,
+			physicalWar,
+			nowSecond,
+			result,
+			projectionId);
+		ReconcileDeletedStagedHandles(
+			state,
+			queue,
+			nowSecond,
+			result,
+			projectionId);
+		array<ref HST_ForceSpawnResultState> scopedBatches = {};
+		scopedBatches.Insert(focalBatch);
+		HST_ForceSpawnQueueTickResult acquired = queue.AcquireWork(
+			scopedBatches,
+			state.m_aForceManifests,
+			nowSecond);
+		if (!acquired)
+		{
+			result.m_iFailedCount++;
+			result.m_sSummary = "scoped force spawn adapter queue acquisition failed";
+			return result;
+		}
+
+		m_iTickCount++;
+		result.m_bStateChanged = result.m_bStateChanged || acquired.m_bStateChanged;
+		result.m_iAcquiredBatchCount = acquired.m_iBatchesSelected;
+		result.m_iAcquiredActionCount = acquired.m_iSlotsSelected;
+		array<string> touchedResultIds = {};
+		ExecuteCleanupPass(
+			state,
+			queue,
+			physicalWar,
+			acquired.m_aWorkItems,
+			nowSecond,
+			touchedResultIds,
+			result);
+		ExecuteSpawnPass(
+			state,
+			queue,
+			physicalWar,
+			acquired.m_aWorkItems,
+			nowSecond,
+			touchedResultIds,
+			result);
+		TouchResultId(touchedResultIds, focalBatch.m_sResultId);
+		FinalizeTouchedBatches(
+			state,
+			queue,
+			physicalWar,
+			nowSecond,
+			touchedResultIds,
+			result);
+		UpdateTotals(result);
+		result.m_sSummary = "scoped " + projectionId + " | " + BuildTickSummary(result);
 		m_sLastSummary = result.m_sSummary;
 		return result;
 	}
@@ -1020,7 +1176,8 @@ class HST_ForceSpawnAdapterService
 		HST_CampaignState state,
 		HST_ForceSpawnQueueService queue,
 		int nowSecond,
-		HST_ForceSpawnAdapterTickResult result)
+		HST_ForceSpawnAdapterTickResult result,
+		string projectionId = "")
 	{
 		array<string> failedResultIds = {};
 		array<ref HST_ForceSpawnAdapterHandle> removableHandles = {};
@@ -1032,16 +1189,23 @@ class HST_ForceSpawnAdapterService
 		}
 		m_iHandleReconcileCursor = m_iHandleReconcileCursor % handleCount;
 		int inspected;
-		while (inspected < handleCount && inspected < MAX_HANDLE_RECONCILE_PER_TICK)
+		int inspectionLimit = MAX_HANDLE_RECONCILE_PER_TICK;
+		if (!projectionId.IsEmpty())
+			inspectionLimit = handleCount;
+		while (inspected < handleCount && inspected < inspectionLimit)
 		{
 			int index = (m_iHandleReconcileCursor + inspected) % handleCount;
 			HST_ForceSpawnAdapterHandle handle = m_aHandles[index];
 			inspected++;
 			if (!handle)
 			{
-				removableHandles.Insert(handle);
+				if (projectionId.IsEmpty())
+					removableHandles.Insert(handle);
 				continue;
 			}
+			if (!projectionId.IsEmpty()
+				&& handle.m_sProjectionId != projectionId)
+				continue;
 			if (handle.m_Entity && !handle.m_Entity.IsDeleted())
 				continue;
 			if (handle.m_bHandedOff)
@@ -1091,6 +1255,8 @@ class HST_ForceSpawnAdapterService
 			if (removeIndex >= 0)
 				m_aHandles.Remove(removeIndex);
 		}
+		if (!projectionId.IsEmpty())
+			return;
 		if (m_aHandles.Count() <= 0)
 			m_iHandleReconcileCursor = 0;
 		else
@@ -1217,6 +1383,324 @@ class HST_ForceSpawnAdapterService
 			&& activeGroup.m_iLastSeenAliveCount == 0
 			&& activeGroup.m_iSurvivorInfantryCount == 0
 			&& activeGroup.m_iSurvivorVehicleCount == 0;
+	}
+
+	// Campaign Debug emergency hook. Production terminalization remains the
+	// preferred cleanup path; this narrowly releases a focal projection when
+	// its owning debug order disappeared before typed settlement could run.
+	HST_ForceSpawnAdapterRetireResult DebugRetireProjectionRuntime(
+		HST_CampaignState state,
+		HST_PhysicalWarService physicalWar,
+		string projectionId,
+		string resultId)
+	{
+		HST_ForceSpawnAdapterRetireResult result
+			= new HST_ForceSpawnAdapterRetireResult();
+		if (!state || !physicalWar || projectionId.IsEmpty() || resultId.IsEmpty())
+		{
+			result.m_sFailureReason
+				= "debug retirement state, bridge, projection, or result identity missing";
+			return result;
+		}
+
+		HST_ActiveGroupState activeGroup
+			= FindActiveGroupByProjectionId(state, projectionId);
+		if (!activeGroup)
+		{
+			string orphanScopeFailure;
+			if (!DebugValidateOrphanProjectionRetirementScope(
+				state,
+				projectionId,
+				resultId,
+				orphanScopeFailure))
+			{
+				result.m_sFailureReason = orphanScopeFailure;
+				return result;
+			}
+			array<string> orphanGroupIds = {};
+			orphanGroupIds.Insert(projectionId);
+			foreach (HST_ForceSpawnAdapterHandle candidateOrphan : m_aHandles)
+			{
+				if (!candidateOrphan
+					|| (candidateOrphan.m_sProjectionId != projectionId
+						&& candidateOrphan.m_sResultId != resultId))
+					continue;
+				if (candidateOrphan.m_sProjectionId.IsEmpty())
+				{
+					result.m_sFailureReason
+						= "debug retirement found a focal orphan handle without projection identity";
+					return result;
+				}
+				if (!physicalWar.DebugValidateForceSpawnOrphanHandleScope(
+					candidateOrphan.m_sProjectionId,
+					candidateOrphan.m_Entity,
+					orphanScopeFailure))
+				{
+					result.m_sFailureReason = orphanScopeFailure;
+					return result;
+				}
+				if (!orphanGroupIds.Contains(candidateOrphan.m_sProjectionId))
+					orphanGroupIds.Insert(candidateOrphan.m_sProjectionId);
+			}
+			foreach (string orphanGroupId : orphanGroupIds)
+			{
+				string orphanRuntimeFailure;
+				if (!physicalWar.DebugRetireForceSpawnRuntimeByGroupId(
+					orphanGroupId,
+					orphanRuntimeFailure))
+				{
+					result.m_sFailureReason = orphanRuntimeFailure;
+					return result;
+				}
+			}
+			for (int orphanHandleIndex = m_aHandles.Count() - 1; orphanHandleIndex >= 0; orphanHandleIndex--)
+			{
+				HST_ForceSpawnAdapterHandle orphanHandle
+					= m_aHandles[orphanHandleIndex];
+				if (!orphanHandle
+					|| (orphanHandle.m_sProjectionId != projectionId
+						&& orphanHandle.m_sResultId != resultId))
+					continue;
+				string orphanEntityFailure;
+				if (!physicalWar.DebugRetireForceSpawnOrphanHandleEntity(
+					orphanHandle.m_sProjectionId,
+					orphanHandle.m_Entity,
+					orphanEntityFailure))
+				{
+					result.m_sFailureReason = orphanEntityFailure;
+					return result;
+				}
+				if (orphanHandle.m_sSlotKind
+					== HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
+					result.m_iRootCount++;
+				else
+					result.m_iMemberCount++;
+				m_aHandles.Remove(orphanHandleIndex);
+				result.m_bRuntimeChanged = true;
+			}
+			result.m_bSuccess = CountHandlesForProjection(projectionId) == 0
+				&& CountHandlesForResultId(resultId) == 0;
+			if (!result.m_bSuccess)
+				result.m_sFailureReason
+					= "debug retirement could not release orphan projection/result handles";
+			return result;
+		}
+		if (activeGroup.m_sSpawnResultId != resultId)
+		{
+			result.m_sFailureReason
+				= "debug retirement active-group result identity mismatch";
+			return result;
+		}
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(activeGroup.m_sSpawnResultId);
+		if (CountHandlesForProjection(projectionId) == 0
+			&& CountHandlesForResultId(resultId) == 0
+			&& !physicalWar.GetForceSpawnGroupRoot(activeGroup)
+			&& physicalWar.CountForceSpawnRuntimeMembers(activeGroup) == 0)
+		{
+			physicalWar.ReleaseForceSpawnRuntimeOwnership(activeGroup);
+			activeGroup.m_bSpawnedEntity = false;
+			activeGroup.m_sRuntimeEntityId = "";
+			activeGroup.m_iSpawnedAgentCount = 0;
+			result.m_bSuccess = true;
+			return result;
+		}
+		if (batch && batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+		{
+			HST_ForceSpawnAdapterRetireResult productionRetire
+				= RetireProjectionRuntime(state, physicalWar, projectionId);
+			if (productionRetire && productionRetire.m_bSuccess
+				&& CountHandlesForResultId(resultId) > 0)
+			{
+				productionRetire.m_bSuccess = false;
+				productionRetire.m_sFailureReason
+					= "debug retirement left a cross-key focal result handle";
+			}
+			return productionRetire;
+		}
+
+		string failure;
+		if (!physicalWar.DebugPrepareForceSpawnProjectionCleanup(
+			state,
+			activeGroup,
+			failure))
+		{
+			result.m_sFailureReason = failure;
+			return result;
+		}
+		for (int memberIndex = m_aHandles.Count() - 1; memberIndex >= 0; memberIndex--)
+		{
+			HST_ForceSpawnAdapterHandle handle = m_aHandles[memberIndex];
+			if (!handle || handle.m_sProjectionId != projectionId
+				|| handle.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER)
+				continue;
+			if (!physicalWar.TryUnregisterForceSpawnGroupMember(
+				activeGroup,
+				handle.m_Entity,
+				true,
+				failure))
+			{
+				result.m_sFailureReason = failure;
+				return result;
+			}
+			m_aHandles.Remove(memberIndex);
+			result.m_iMemberCount++;
+			result.m_bRuntimeChanged = true;
+		}
+
+		for (int rootIndex = m_aHandles.Count() - 1; rootIndex >= 0; rootIndex--)
+		{
+			HST_ForceSpawnAdapterHandle rootHandle = m_aHandles[rootIndex];
+			if (!rootHandle || rootHandle.m_sProjectionId != projectionId
+				|| rootHandle.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
+				continue;
+			if (!physicalWar.TryUnregisterForceSpawnGroupRoot(
+				activeGroup,
+				SCR_AIGroup.Cast(rootHandle.m_Entity),
+				true,
+				failure))
+			{
+				result.m_sFailureReason = failure;
+				return result;
+			}
+			m_aHandles.Remove(rootIndex);
+			result.m_iRootCount++;
+			result.m_bRuntimeChanged = true;
+		}
+
+		SCR_AIGroup remainingRoot = physicalWar.GetForceSpawnGroupRoot(activeGroup);
+		int remainingRuntimeMembers
+			= physicalWar.CountForceSpawnRuntimeMembers(activeGroup);
+		if (remainingRoot && remainingRuntimeMembers <= 0)
+		{
+			if (!physicalWar.TryUnregisterForceSpawnGroupRoot(
+				activeGroup,
+				remainingRoot,
+				true,
+				failure))
+			{
+				result.m_sFailureReason = failure;
+				return result;
+			}
+			result.m_iRootCount++;
+			result.m_bRuntimeChanged = true;
+			remainingRoot = physicalWar.GetForceSpawnGroupRoot(activeGroup);
+		}
+
+		remainingRuntimeMembers = physicalWar.CountForceSpawnRuntimeMembers(activeGroup);
+		result.m_bSuccess = CountHandlesForProjection(projectionId) == 0
+			&& CountHandlesForResultId(resultId) == 0
+			&& !remainingRoot && remainingRuntimeMembers == 0;
+		if (!result.m_bSuccess)
+		{
+			result.m_sFailureReason = string.Format(
+				"debug retirement left exact runtime authority: projection/result bindings %1/%2 | root %3 | members %4",
+				CountHandlesForProjection(projectionId),
+				CountHandlesForResultId(resultId),
+				remainingRoot != null,
+				remainingRuntimeMembers);
+			return result;
+		}
+
+		physicalWar.ReleaseForceSpawnRuntimeOwnership(activeGroup);
+		activeGroup.m_bSpawnedEntity = false;
+		activeGroup.m_sRuntimeEntityId = "";
+		activeGroup.m_iSpawnedAgentCount = 0;
+		return result;
+	}
+
+	protected bool DebugValidateOrphanProjectionRetirementScope(
+		HST_CampaignState state,
+		string projectionId,
+		string resultId,
+		out string failure)
+	{
+		failure = "";
+		if (!state || projectionId.IsEmpty() || resultId.IsEmpty())
+		{
+			failure = "orphan projection retirement scope is unavailable";
+			return false;
+		}
+
+		foreach (HST_ActiveGroupState durableGroup : state.m_aActiveGroups)
+		{
+			if (!durableGroup)
+				continue;
+			if (durableGroup.m_sProjectionId == projectionId
+				|| durableGroup.m_sGroupId == projectionId
+				|| durableGroup.m_sSpawnResultId == resultId)
+			{
+				failure = "orphan projection retirement found a durable focal or ambiguous group owner";
+				return false;
+			}
+		}
+
+		int focalBatchOwners;
+		foreach (HST_ForceSpawnResultState durableBatch : state.m_aForceSpawnResults)
+		{
+			if (!durableBatch)
+				continue;
+			bool projectionMatches = durableBatch.m_sProjectionId == projectionId;
+			bool resultMatches = durableBatch.m_sResultId == resultId;
+			if (!projectionMatches && !resultMatches)
+				continue;
+			if (!projectionMatches || !resultMatches)
+			{
+				failure = "orphan projection retirement found a cross-key durable batch owner";
+				return false;
+			}
+			focalBatchOwners++;
+		}
+		if (focalBatchOwners > 1)
+		{
+			failure = "orphan projection retirement found duplicate focal batch owners";
+			return false;
+		}
+
+		foreach (HST_ForceSpawnAdapterHandle candidate : m_aHandles)
+		{
+			if (!candidate
+				|| (candidate.m_sProjectionId != projectionId
+					&& candidate.m_sResultId != resultId))
+				continue;
+			if (candidate.m_sProjectionId.IsEmpty()
+				|| candidate.m_sResultId.IsEmpty())
+			{
+				failure = "orphan projection retirement found an incomplete adapter identity";
+				return false;
+			}
+			if (candidate.m_sProjectionId == projectionId
+				&& candidate.m_sResultId == resultId)
+				continue;
+
+			foreach (HST_ActiveGroupState candidateGroupOwner : state.m_aActiveGroups)
+			{
+				if (!candidateGroupOwner)
+					continue;
+				if (candidateGroupOwner.m_sProjectionId == candidate.m_sProjectionId
+					|| candidateGroupOwner.m_sGroupId == candidate.m_sProjectionId
+					|| candidateGroupOwner.m_sSpawnResultId == candidate.m_sResultId)
+				{
+					failure = "orphan cross-key adapter handle has a foreign durable group owner";
+					return false;
+				}
+			}
+			foreach (HST_ForceSpawnResultState candidateBatchOwner : state.m_aForceSpawnResults)
+			{
+				if (!candidateBatchOwner
+					|| (candidateBatchOwner.m_sProjectionId == projectionId
+						&& candidateBatchOwner.m_sResultId == resultId))
+					continue;
+				if (candidateBatchOwner.m_sProjectionId == candidate.m_sProjectionId
+					|| candidateBatchOwner.m_sResultId == candidate.m_sResultId)
+				{
+					failure = "orphan cross-key adapter handle has a foreign durable batch owner";
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	HST_ForceSpawnAdapterRetireResult RetireProjectionRuntime(
@@ -1762,6 +2246,110 @@ class HST_ForceSpawnAdapterService
 	{
 		failure = FindProjectionBindingConflict(batch);
 		return failure.IsEmpty();
+	}
+
+	bool DebugValidatePartialProjectionRuntimeBindings(
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState activeGroup,
+		HST_PhysicalWarService physicalWar,
+		out string failure)
+	{
+		failure = "";
+		if (!batch || !activeGroup || !physicalWar)
+		{
+			failure = "partial exact projection runtime authority is unavailable";
+			return false;
+		}
+		failure = FindProjectionBindingConflict(batch);
+		if (!failure.IsEmpty())
+			return false;
+
+		SCR_AIGroup registeredRoot = physicalWar.GetForceSpawnGroupRoot(activeGroup);
+		array<string> entityIds = {};
+		array<IEntity> entities = {};
+		string rootNativeGroupId;
+		string memberNativeGroupId;
+		int rootHandles;
+		int memberHandles;
+		foreach (HST_ForceSpawnAdapterHandle handle : m_aHandles)
+		{
+			if (!handle)
+				continue;
+			bool resultMatches = handle.m_sResultId == batch.m_sResultId;
+			bool projectionMatches
+				= handle.m_sProjectionId == batch.m_sProjectionId;
+			if (!resultMatches && !projectionMatches)
+				continue;
+			if (!resultMatches || !projectionMatches
+				|| handle.m_sForceId != batch.m_sForceId
+				|| handle.m_iAttemptGeneration != batch.m_iAttemptGeneration)
+			{
+				failure = "partial exact projection contains a cross-key or stale adapter handle";
+				return false;
+			}
+			if (handle.m_sEntityId.IsEmpty() || !handle.m_Entity
+				|| handle.m_Entity.IsDeleted()
+				|| entityIds.Contains(handle.m_sEntityId)
+				|| entities.Contains(handle.m_Entity)
+				|| handle.m_sNativeGroupId.IsEmpty())
+			{
+				failure = "partial exact projection contains an absent or aliased runtime entity";
+				return false;
+			}
+			entityIds.Insert(handle.m_sEntityId);
+			entities.Insert(handle.m_Entity);
+			if (handle.m_sSlotKind
+				== HST_ForceSpawnQueueService.SLOT_KIND_GROUP)
+			{
+				rootHandles++;
+				if (SCR_AIGroup.Cast(handle.m_Entity) != registeredRoot)
+				{
+					failure = "partial exact projection root handle does not match PhysicalWar";
+					return false;
+				}
+				rootNativeGroupId = handle.m_sNativeGroupId;
+				continue;
+			}
+			if (handle.m_sSlotKind
+				!= HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+				|| SCR_AIGroup.Cast(handle.m_Entity)
+				|| !physicalWar.IsForceSpawnRuntimeHandleRegistered(
+					activeGroup,
+					handle.m_Entity))
+			{
+				failure = "partial exact projection member handle does not match PhysicalWar";
+				return false;
+			}
+			memberHandles++;
+			if (memberNativeGroupId.IsEmpty())
+				memberNativeGroupId = handle.m_sNativeGroupId;
+			else if (memberNativeGroupId != handle.m_sNativeGroupId)
+			{
+				failure = "partial exact projection members disagree on native group identity";
+				return false;
+			}
+		}
+
+		int expectedRootHandles;
+		if (registeredRoot)
+			expectedRootHandles = 1;
+		int registeredMembers
+			= physicalWar.CountForceSpawnRuntimeMembers(activeGroup);
+		if (rootHandles != expectedRootHandles
+			|| memberHandles != registeredMembers
+			|| (memberHandles > 0 && rootHandles != 1)
+			|| (memberHandles > 0
+				&& memberNativeGroupId != rootNativeGroupId))
+		{
+			failure = string.Format(
+				"partial exact projection binding topology conflicts: roots %1/%2 members %3/%4",
+				rootHandles,
+				expectedRootHandles,
+				memberHandles,
+				registeredMembers);
+			return false;
+		}
+		return true;
 	}
 
 	int PruneDeletedProjectionBindings(string projectionId)

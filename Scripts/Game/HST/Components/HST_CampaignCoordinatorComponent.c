@@ -132,6 +132,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const float CAMPAIGN_DEBUG_TELEPORT_CONFIRM_RADIUS_METERS = 2.0;
 	static const float CAMPAIGN_DEBUG_TRANSPORT_CARRIER_RADIUS_METERS = 10.0;
 	static const float CAMPAIGN_DEBUG_AREA_HOSTILE_RADIUS_METERS = 90.0;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN = 1;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL = 2;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD = 3;
+	static const int CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE = 4;
+	static const int CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT = 15;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -330,6 +335,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected int m_iCampaignDebugPhase24TerminalRuntimeVehicles;
 	protected ref HST_CampaignDebugFailedActionProbeContext m_CampaignDebugPhase23FailedActionContext;
 	protected ref HST_CampaignDebugEscalationProbeContext m_CampaignDebugPhase24EscalationContext;
+	protected ref HST_CampaignDebugExactCounterattackProjectionProbeContext m_CampaignDebugPhase17CounterattackProjectionContext;
 	protected string m_sCampaignDebugCurrentMissionInstanceId;
 	protected string m_sCampaignDebugEarlyMissionInstanceId;
 	protected string m_sCampaignDebugHQRuntimeSummaryBefore;
@@ -17076,6 +17082,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			TeleportCampaignDebugPlayerToCivilianTown("phase21 undercover");
 		if (m_iCampaignDebugPhaseStepIndex >= 39 && m_iCampaignDebugPhaseStepIndex <= 45)
 			TeleportCampaignDebugPlayerToHQ("phase22 HQ threat");
+		if (m_iCampaignDebugPhaseStepIndex == 16
+			&& !AdvanceCampaignDebugPhase17ExactCounterattackProjectionProbe())
+		{
+			m_iCampaignDebugWaitSeconds = 1;
+			return;
+		}
 		// The report step runs on the first terminal frame, after the coordinator's
 		// typed settlement and runtime-cleanup maintenance. Snapshot that settled
 		// baseline, then prove later terminal frames remain inert.
@@ -31495,6 +31507,1132 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return count;
 	}
 
+	protected bool AdvanceCampaignDebugPhase17ExactCounterattackProjectionProbe()
+	{
+		HST_EnemyOrderState order;
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe
+			= m_CampaignDebugPhase17CounterattackProjectionContext;
+		if (!probe)
+		{
+			order = FindCampaignDebugEnemyOrderById(
+				m_sCampaignDebugPhase17CounterattackOrderId);
+			probe = new HST_CampaignDebugExactCounterattackProjectionProbeContext();
+			m_CampaignDebugPhase17CounterattackProjectionContext = probe;
+			probe.m_iElapsedBefore = -1;
+			probe.m_iElapsedPeak = -1;
+			probe.m_iElapsedAfter = -1;
+			probe.m_iForceSpawnRuntimeClockBefore = -1;
+			probe.m_iForceSpawnRuntimeClockAfter = -1;
+			if (!order
+				&& !m_sCampaignDebugPhase17CounterattackOrderId.IsEmpty())
+			{
+				probe.m_sOrderId = m_sCampaignDebugPhase17CounterattackOrderId;
+				SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+					probe,
+					"tracked exact counterattack order disappeared before native projection");
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(
+					probe,
+					order);
+				StopCampaignDebugRunAfterFatalExactCounterattackOrderLoss(probe);
+				return false;
+			}
+			if (!CaptureCampaignDebugPhase17ExactCounterattackProjectionBaseline(probe, order))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+
+			IEntity playerEntity = ResolveControlledPlayerEntity(m_iCampaignDebugPlayerId);
+			if (!playerEntity)
+			{
+				SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "living controlled player is unavailable");
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_vOriginalPlayerPosition = playerEntity.GetOrigin();
+			probe.m_bOriginalPlayerPositionCaptured = true;
+			if (!EnterCampaignDebugPhase17ExactCounterattackProjection(probe, order))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN;
+			return false;
+		}
+
+		if (probe.m_bCompleted
+			|| probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE)
+			return true;
+		if (m_State)
+			probe.m_iElapsedPeak = Math.Max(
+				probe.m_iElapsedPeak,
+				m_State.m_iElapsedSeconds);
+		order = FindCampaignDebugEnemyOrderById(probe.m_sOrderId);
+		if (!order)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "exact counterattack order disappeared during native projection");
+			FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+			StopCampaignDebugRunAfterFatalExactCounterattackOrderLoss(probe);
+			return false;
+		}
+
+		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_SPAWN)
+		{
+			if (!DriveCampaignDebugPhase17ExactCounterattackNativeSpawn(probe, order))
+				return false;
+			if (!probe.m_bSpawnSucceeded)
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL;
+			return false;
+		}
+
+		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_PHYSICAL)
+		{
+			if (!ConfirmCampaignDebugPhase17ExactCounterattackPhysicalProjection(probe, order))
+			{
+				FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+				return true;
+			}
+			probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD;
+			return false;
+		}
+
+		if (probe.m_iStage == CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_FOLD)
+		{
+			LeaveCampaignDebugPhase17ExactCounterattackProjection(probe, order);
+			FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+			return true;
+		}
+
+		SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "native projection entered an unknown debug stage");
+		FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(probe, order);
+		return true;
+	}
+
+	protected void StopCampaignDebugRunAfterFatalExactCounterattackOrderLoss(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe)
+	{
+		if (!m_bCampaignDebugRunning)
+			return;
+
+		HST_CampaignDebugCaseResult fatalCase = CreateCampaignDebugCase(
+			"phase17.counterattack.native_projection.fixture_integrity",
+			"phase17",
+			"enemy_counterattack",
+			"fatal_stop");
+		string actual = "exact counterattack order missing";
+		if (probe)
+		{
+			actual = string.Format(
+				"order %1 | operation %2 | manifest %3 | batch %4 | group %5 | cleanup %6/%7",
+				EmptyCampaignDebugField(probe.m_sOrderId),
+				EmptyCampaignDebugField(probe.m_sOperationId),
+				EmptyCampaignDebugField(probe.m_sManifestId),
+				EmptyCampaignDebugField(probe.m_sSpawnResultId),
+				EmptyCampaignDebugField(probe.m_sGroupId),
+				probe.m_bEmergencyCleanupAttempted,
+				probe.m_bEmergencyCleanupExact);
+		}
+		fatalCase.m_aEvidence.Insert(actual);
+		AddCampaignDebugAssertion(
+			fatalCase,
+			"phase17.counterattack.native_projection.order_retained",
+			"the isolated exact counterattack order remains available until typed settlement",
+			actual,
+			"FAIL",
+			"native projection lost its aggregate owner; the isolated run is being restored before later telemetry");
+		FinalizeCampaignDebugCaseFromAssertions(fatalCase);
+		RecordCampaignDebugCase(fatalCase, false);
+		AppendCampaignDebugLog(
+			"ERROR",
+			"phase17 exact counterattack projection",
+			"fatal aggregate-owner loss; stopping the isolated run before Phase 24 telemetry");
+		RestoreCampaignDebugActorCommandAccess();
+		ClearCampaignDebugPlayerSupportRequests("fatal exact counterattack order loss");
+		CleanupCampaignDebugForceSpawnAdapterProof();
+		RecordCampaignDebugCase(
+			BuildCampaignDebugTrackedEnemyOrderCleanupCase(
+				"fatal exact counterattack order loss"),
+			false);
+		RecordCampaignDebugCase(
+			CleanupCampaignDebugPrefixedState(
+				ResolveCampaignDebugCleanupPrefix(),
+				"fatal exact counterattack order loss"),
+			false);
+		if (!ShouldCampaignDebugPreservePersistenceSmokeState())
+		{
+			RecordCampaignDebugCase(
+				CleanupCampaignDebugPrefixedState(
+					PERSISTENCE_SMOKE_PREFIX,
+					"fatal exact counterattack order loss persistence smoke cleanup"),
+				false);
+		}
+		m_sCampaignDebugCurrentMissionInstanceId = "";
+		m_sCampaignDebugEarlyMissionInstanceId = "";
+		RefreshCampaignMarkers();
+		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
+		RecordCampaignDebugCase(BuildCampaignDebugPlayerMarkerCompletionCase());
+		RecordCampaignDebugCase(BuildCampaignDebugRunCleanupSnapshotCase());
+		m_bCampaignDebugRunning = false;
+		m_bCampaignDebugCompleted = true;
+		RecordCampaignDebugCase(
+			RestoreCampaignDebugStateSnapshot(
+				"fatal exact counterattack order loss"));
+		RepublishExistingCampaignMarkersAfterDebugRestore(
+			"fatal exact counterattack order loss restored live state");
+		RefreshPlayerMapMarkersAfterCampaignDebugCleanup();
+		m_sCampaignDebugLastResult = string.Format(
+			"aborted/fatal invariant | run %1 | phase step %2 | exact counterattack order disappeared",
+			m_sCampaignDebugRunId,
+			m_iCampaignDebugPhaseStepIndex);
+		AppendCampaignDebugLog(
+			"ERROR",
+			"fatal stop",
+			m_sCampaignDebugLastResult);
+		string artifactStatus = SaveCampaignDebugRunArtifacts();
+		if (!artifactStatus.IsEmpty())
+			AppendCampaignDebugLog("INFO", "artifacts", artifactStatus);
+		BroadcastCampaignDebugNotification(
+			"campaign_debug_failed",
+			"warning",
+			"Campaign Debug",
+			m_sCampaignDebugLastResult);
+	}
+
+	protected bool CaptureCampaignDebugPhase17ExactCounterattackProjectionBaseline(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe || !order || !m_State || !m_Preset || !m_EnemyCommander
+			|| !m_EnemyDirector || !m_SupportRequests || !m_Garrisons
+			|| !m_ForceSpawnQueue || !m_ForceSpawnAdapter || !m_PhysicalWar)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "native projection services are unavailable");
+			return false;
+		}
+
+		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(order.m_sGroupId);
+		probe.m_AdapterStateBefore = m_ForceSpawnAdapter.DebugCaptureState();
+		probe.m_sOrderId = order.m_sOrderId;
+		probe.m_sOperationId = order.m_sOperationId;
+		probe.m_sManifestId = order.m_sManifestId;
+		probe.m_sSpawnResultId = order.m_sSpawnResultId;
+		probe.m_sGroupId = order.m_sGroupId;
+		probe.m_iElapsedBefore = m_State.m_iElapsedSeconds;
+		probe.m_iElapsedPeak = probe.m_iElapsedBefore;
+		probe.m_iForceSpawnRuntimeClockBefore
+			= m_iForceSpawnQueueRuntimeClockSecond;
+		if (manifest)
+			probe.m_iExpectedLiving = manifest.m_iAcceptedMemberCount;
+		if (batch)
+		{
+			probe.m_iStrategicLivingBefore = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+			probe.m_sLivingSlotFingerprintBefore
+				= BuildCampaignDebugExactCounterattackLivingSlotFingerprint(batch);
+		}
+		if (batch)
+		{
+			probe.m_iAdapterHandlesBefore = m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId);
+			probe.m_iAdapterResultHandlesBefore
+				= m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId);
+		}
+		probe.m_iSupportRowsBefore = CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
+		probe.m_iMutationCountBefore = m_State.m_aEnemyStrategicMutations.Count();
+		HST_FactionPoolState pool = m_State.FindFactionPool(order.m_sFactionKey);
+		if (pool)
+		{
+			probe.m_iAttackResourcesBefore = pool.m_iAttackResources;
+			probe.m_iSupportResourcesBefore = pool.m_iSupportResources;
+		}
+		probe.m_bBaselineExact
+			= IsCampaignDebugPhase17ExactCounterattackBaselineAuthorityExact(
+				order,
+				operation,
+				batch)
+			&& IsCampaignDebugPhase17ExactCounterattackBaselineRuntimeExact(
+				probe,
+				manifest,
+				batch,
+				group,
+				pool);
+		if (!probe.m_bBaselineExact)
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "exact counterattack baseline is not a held virtual projection");
+		return probe.m_bBaselineExact;
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackBaselineAuthorityExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch)
+	{
+		if (!order || !operation || !batch || !m_EnemyCommander)
+			return false;
+		if (m_EnemyCommander.ResolveRuntimeOwner(order)
+			!= HST_EnemyCommanderService.RUNTIME_OWNER_EXACT_COUNTERATTACK)
+			return false;
+		if (order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return false;
+		if (operation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return false;
+		if (operation.m_eMaterializationState
+			!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL)
+			return false;
+		if (operation.m_ePositionAuthority
+			!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return false;
+		return batch.m_bStrategicProjectionHeld;
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackBaselineRuntimeExact(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group,
+		HST_FactionPoolState pool)
+	{
+		if (!probe || !manifest || !batch || !group || !pool || !m_PhysicalWar)
+			return false;
+		if (probe.m_iExpectedLiving <= 0
+			|| probe.m_iStrategicLivingBefore != probe.m_iExpectedLiving)
+			return false;
+		if (probe.m_iAdapterHandlesBefore != 0
+			|| probe.m_iAdapterResultHandlesBefore != 0
+			|| probe.m_iSupportRowsBefore != 0)
+			return false;
+		if (group.m_bSpawnedEntity || m_PhysicalWar.GetForceSpawnGroupRoot(group))
+			return false;
+		return m_PhysicalWar.CountForceSpawnRuntimeMembers(group) == 0;
+	}
+
+	protected bool EnterCampaignDebugPhase17ExactCounterattackProjection(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		HST_OperationRecordState operation = m_State.FindOperation(probe.m_sOperationId);
+		if (!operation)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "exact operation disappeared before materialization");
+			return false;
+		}
+		probe.m_vNearPosition = operation.m_vStrategicPosition + "8 0 8";
+		probe.m_bNearTeleport = TeleportCampaignDebugPlayer(
+			probe.m_vNearPosition,
+			"phase17 exact counterattack materialize");
+		HST_MaterializationService materialization = new HST_MaterializationService();
+		HST_OperationProjectionDecision enter = materialization.EvaluateExactEnemyCounterattack(
+			operation,
+			operation.m_vStrategicPosition);
+		probe.m_bEnterDecisionExact = enter
+			&& enter.m_eDecision
+				== HST_EOperationProjectionDecision.HST_OPERATION_PROJECTION_MATERIALIZE;
+		if (!probe.m_bNearTeleport || !probe.m_bEnterDecisionExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "controlled player did not enter the exact materialize-in boundary");
+			return false;
+		}
+
+		probe.m_bMaterializeTickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			order);
+		operation = m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		probe.m_bMaterializingExact = operation && batch && group
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& !batch.m_bStrategicProjectionHeld
+			&& group.m_sRuntimeStatus == "enemy_counterattack_materializing"
+			&& CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
+		if (!probe.m_bMaterializingExact)
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "production runtime dispatcher did not enter MATERIALIZING authority");
+		return probe.m_bMaterializingExact;
+	}
+
+	protected bool DriveCampaignDebugPhase17ExactCounterattackNativeSpawn(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		if (!batch)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "exact spawn batch disappeared before native execution");
+			return true;
+		}
+		if (probe.m_iSpawnTickLimit <= 0)
+		{
+			int normalPasses = (batch.m_aSlotResults.Count()
+				+ HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK - 1)
+				/ HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK;
+			normalPasses = Math.Max(1, normalPasses);
+			int retryPasses = (Math.Max(0, batch.m_iMaxRetries) + 1)
+				* (normalPasses + 2) + normalPasses;
+			probe.m_iSpawnTickLimit = Math.Min(64, Math.Max(8, retryPasses));
+		}
+		int workTicks = Math.Max(
+			0,
+			probe.m_iSpawnTicks - probe.m_iSpawnHandoffPendingTicks);
+		if (workTicks >= probe.m_iSpawnTickLimit)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"production force-spawn worker exceeded its bounded real-frame retry window: "
+					+ EmptyCampaignDebugField(probe.m_sLastSpawnSummary));
+			return true;
+		}
+		if (batch.m_iNextAttemptSecond > m_State.m_iElapsedSeconds)
+		{
+			if (batch.m_iDeadlineSecond > 0
+				&& batch.m_iNextAttemptSecond >= batch.m_iDeadlineSecond)
+			{
+				SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "exact spawn retry reached its production deadline");
+				return true;
+			}
+			// Keep the production retry boundary honest across runner frames. The
+			// shared campaign clock advances only through the ordinary coordinator;
+			// this proof never publishes synthetic future time to unrelated systems.
+			return false;
+		}
+		HST_ForceSpawnAdapterTickResult spawnTick
+			= m_ForceSpawnAdapter.DebugTickProjection(
+				m_State,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				m_State.m_iElapsedSeconds,
+				batch.m_sProjectionId);
+		probe.m_iSpawnTicks++;
+		if (!spawnTick)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "production force-spawn worker returned no tick result");
+			return true;
+		}
+		probe.m_iSpawnDeferredTicks += spawnTick.m_iDeferredCount;
+		probe.m_iSpawnHandoffPendingTicks += spawnTick.m_iHandoffRefusedCount;
+		probe.m_sLastSpawnSummary = spawnTick.m_sSummary;
+		batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		if (batch && batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+		{
+			probe.m_bSpawnSucceeded = true;
+			return true;
+		}
+		if (!batch || batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+			|| batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"production force-spawn worker reached a terminal failure: "
+					+ EmptyCampaignDebugField(spawnTick.m_sSummary));
+			return true;
+		}
+		if (batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+		{
+			if (spawnTick.m_iFailedCount > spawnTick.m_iHandoffRefusedCount)
+			{
+				SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+					probe,
+					"ready-for-handoff projection reported a non-handoff failure: "
+						+ EmptyCampaignDebugField(spawnTick.m_sSummary));
+				return true;
+			}
+			if (probe.m_iSpawnHandoffPendingTicks
+				>= CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT)
+			{
+				SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+					probe,
+					"native group handoff did not settle across its bounded real-frame window: "
+						+ EmptyCampaignDebugField(spawnTick.m_sSummary));
+				return true;
+			}
+			return false;
+		}
+		workTicks = Math.Max(
+			0,
+			probe.m_iSpawnTicks - probe.m_iSpawnHandoffPendingTicks);
+		if (workTicks >= probe.m_iSpawnTickLimit)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"production force-spawn worker did not complete within its bounded real-frame retry window: "
+					+ EmptyCampaignDebugField(spawnTick.m_sSummary));
+			return true;
+		}
+		return false;
+	}
+
+	protected bool ConfirmCampaignDebugPhase17ExactCounterattackPhysicalProjection(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		probe.m_bPhysicalTickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			order);
+		HST_OperationRecordState operation = m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(probe.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		if (batch)
+		{
+			probe.m_iPhysicalLiving = m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+			probe.m_iAdapterHandlesPhysical = m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId);
+			probe.m_sLivingSlotFingerprintPhysical
+				= BuildCampaignDebugExactCounterattackLivingSlotFingerprint(batch);
+		}
+		if (group)
+			probe.m_iPhysicalRuntimeMembers = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+		string bindingFailure;
+		probe.m_bPhysicalBindingsExact = batch && m_ForceSpawnAdapter
+			.ValidateExactLivingProjectionBindingsForPersistence(
+				m_State,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingFailure);
+		probe.m_bPhysicalExact = operation && manifest && batch && group
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			&& !batch.m_bStrategicProjectionHeld
+			&& group.m_bSpawnedEntity
+			&& m_PhysicalWar.GetForceSpawnGroupRoot(group)
+			&& probe.m_iPhysicalLiving == probe.m_iExpectedLiving
+			&& probe.m_iPhysicalRuntimeMembers == probe.m_iExpectedLiving
+			&& probe.m_iAdapterHandlesPhysical == probe.m_iExpectedLiving + 1
+			&& probe.m_bPhysicalBindingsExact
+			&& CountCampaignDebugSupportRequestsForExactEnemyOrder(order) == 0;
+		if (!probe.m_bPhysicalExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+				probe,
+				"native physical roster or binding authority is incomplete: "
+					+ EmptyCampaignDebugField(bindingFailure));
+		}
+		return probe.m_bPhysicalExact;
+	}
+
+	protected bool LeaveCampaignDebugPhase17ExactCounterattackProjection(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		HST_OperationRecordState operation = m_State.FindOperation(probe.m_sOperationId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		if (!operation || !group)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "physical projection disappeared before fold");
+			return false;
+		}
+		probe.m_vFarPosition = ResolveCampaignDebugPhase17ExactCounterattackFarPosition(group.m_vPosition);
+		probe.m_bFarTeleport = TeleportCampaignDebugPlayer(
+			probe.m_vFarPosition,
+			"phase17 exact counterattack fold");
+		HST_MaterializationService materialization = new HST_MaterializationService();
+		HST_OperationProjectionDecision leave = materialization.EvaluateExactEnemyCounterattack(
+			operation,
+			group.m_vPosition);
+		probe.m_bLeaveDecisionExact = leave
+			&& leave.m_eDecision
+				== HST_EOperationProjectionDecision.HST_OPERATION_PROJECTION_DEMATERIALIZE;
+		if (!probe.m_bFarTeleport || !probe.m_bLeaveDecisionExact)
+		{
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "controlled player did not clear the exact materialize-out boundary");
+			return false;
+		}
+
+		probe.m_bFoldTickChanged = m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+			m_State,
+			m_Preset,
+			m_EnemyDirector,
+			order);
+		CaptureCampaignDebugPhase17ExactCounterattackProjectionFinal(probe, order);
+		if (!probe.m_bFoldExact)
+			SetCampaignDebugPhase17ExactCounterattackProjectionFailure(probe, "production runtime dispatcher did not fold the exact survivors back to virtual authority");
+		return probe.m_bFoldExact;
+	}
+
+	protected void CaptureCampaignDebugPhase17ExactCounterattackProjectionFinal(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe || !order || !m_State)
+			return;
+		probe.m_bFinalCaptured = true;
+		HST_OperationRecordState operation = m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(probe.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		if (batch && m_ForceSpawnQueue && m_ForceSpawnAdapter)
+		{
+			probe.m_iStrategicLivingAfter = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+			probe.m_iAdapterHandlesAfter = m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId);
+			probe.m_iAdapterResultHandlesAfter
+				= m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId);
+			probe.m_sLivingSlotFingerprintAfter
+				= BuildCampaignDebugExactCounterattackLivingSlotFingerprint(batch);
+		}
+		if (group && m_PhysicalWar)
+			probe.m_iRuntimeMembersAfter = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+		probe.m_iSupportRowsAfter = CountCampaignDebugSupportRequestsForExactEnemyOrder(order);
+		probe.m_iMutationCountAfter = m_State.m_aEnemyStrategicMutations.Count();
+		HST_FactionPoolState pool = m_State.FindFactionPool(order.m_sFactionKey);
+		if (pool)
+		{
+			probe.m_iAttackResourcesAfter = pool.m_iAttackResources;
+			probe.m_iSupportResourcesAfter = pool.m_iSupportResources;
+		}
+		HST_ForcePlanningIntegrityService manifestIntegrity
+			= new HST_ForcePlanningIntegrityService();
+		probe.m_bManifestExact = manifest && manifest.m_bFrozen
+			&& !manifest.m_sManifestHash.IsEmpty()
+			&& manifestIntegrity.BuildManifestHash(manifest) == manifest.m_sManifestHash
+			&& order.m_sManifestHash == manifest.m_sManifestHash;
+		probe.m_sDebitValidationFailure
+			= HST_EnemyCounterattackSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					m_State.m_aEnemyStrategicMutations,
+					order);
+		probe.m_bDebitAuthorityExact = probe.m_sDebitValidationFailure.IsEmpty();
+		probe.m_bRosterIdentityExact
+			= !probe.m_sLivingSlotFingerprintBefore.IsEmpty()
+			&& probe.m_sLivingSlotFingerprintBefore
+				== probe.m_sLivingSlotFingerprintPhysical
+			&& probe.m_sLivingSlotFingerprintPhysical
+				== probe.m_sLivingSlotFingerprintAfter;
+		probe.m_bIdentityExact
+			= IsCampaignDebugPhase17ExactCounterattackIdentityExact(
+				probe,
+				order,
+				operation,
+				manifest,
+				batch,
+				group);
+		probe.m_bFoldExact
+			= IsCampaignDebugPhase17ExactCounterattackFoldExact(
+				probe,
+				operation,
+				batch,
+				group);
+		probe.m_bResourceExact
+			= IsCampaignDebugPhase17ExactCounterattackResourceExact(
+				probe,
+				order,
+				operation,
+				pool)
+			&& probe.m_bManifestExact
+			&& probe.m_bDebitAuthorityExact;
+		probe.m_bNoSupportLeak
+			= IsCampaignDebugPhase17ExactCounterattackSupportExact(
+				probe,
+				order,
+				operation,
+				group);
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackIdentityExact(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!probe || !order || !operation || !manifest || !batch || !group)
+			return false;
+		if (order.m_sOrderId != probe.m_sOrderId
+			|| operation.m_sOperationId != probe.m_sOperationId)
+			return false;
+		if (order.m_sOperationId != operation.m_sOperationId
+			|| order.m_sManifestId != manifest.m_sManifestId)
+			return false;
+		if (order.m_sSpawnResultId != batch.m_sResultId
+			|| order.m_sGroupId != group.m_sGroupId)
+			return false;
+		if (manifest.m_sManifestId != probe.m_sManifestId
+			|| batch.m_sResultId != probe.m_sSpawnResultId
+			|| group.m_sGroupId != probe.m_sGroupId)
+			return false;
+		if (operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != manifest.m_sManifestId)
+			return false;
+		if (operation.m_sSpawnResultId != batch.m_sResultId
+			|| operation.m_sGroupId != group.m_sGroupId)
+			return false;
+		if (batch.m_sOperationId != operation.m_sOperationId
+			|| batch.m_sManifestId != manifest.m_sManifestId)
+			return false;
+		if (group.m_sOperationId != operation.m_sOperationId
+			|| group.m_sEnemyOrderId != order.m_sOrderId)
+			return false;
+		if (group.m_sManifestId != manifest.m_sManifestId
+			|| group.m_sSpawnResultId != batch.m_sResultId)
+			return false;
+		return batch.m_sProjectionId == group.m_sProjectionId
+			&& operation.m_sProjectionId == group.m_sProjectionId;
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackFoldExact(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!probe || !operation || !batch || !group || !m_PhysicalWar)
+			return false;
+		if (operation.m_eMaterializationState
+			!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL)
+			return false;
+		if (operation.m_ePositionAuthority
+			!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC)
+			return false;
+		if (!batch.m_bStrategicProjectionHeld
+			|| probe.m_iStrategicLivingAfter != probe.m_iExpectedLiving)
+			return false;
+		if (probe.m_iAdapterHandlesAfter != 0
+			|| probe.m_iAdapterResultHandlesAfter != 0
+			|| probe.m_iRuntimeMembersAfter != 0)
+			return false;
+		if (group.m_bSpawnedEntity || group.m_iSpawnedAgentCount != 0)
+			return false;
+		if (group.m_iInfantryCount != probe.m_iExpectedLiving
+			|| group.m_iDurableLivingInfantryCount != probe.m_iExpectedLiving
+			|| group.m_iLastSeenAliveCount != probe.m_iExpectedLiving
+			|| group.m_iSurvivorInfantryCount != probe.m_iExpectedLiving)
+			return false;
+		return !m_PhysicalWar.GetForceSpawnGroupRoot(group);
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackResourceExact(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_FactionPoolState pool)
+	{
+		if (!probe || !order || !operation || !pool)
+			return false;
+		if (probe.m_iAttackResourcesAfter != probe.m_iAttackResourcesBefore
+			|| probe.m_iSupportResourcesAfter != probe.m_iSupportResourcesBefore)
+			return false;
+		if (probe.m_iMutationCountAfter != probe.m_iMutationCountBefore
+			|| order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE)
+			return false;
+		if (operation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN)
+			return false;
+		if (operation.m_eTerminalResult
+			!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+			return false;
+		if (order.m_iRefundedAttackResources != 0
+			|| order.m_iRefundedSupportResources != 0)
+			return false;
+		if (!order.m_sResourceRefundMutationId.IsEmpty()
+			|| order.m_bResourceRefundApplied)
+			return false;
+		return order.m_sResolutionKind.IsEmpty() && !order.m_bOutcomeApplied;
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackSupportExact(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ActiveGroupState group)
+	{
+		if (!probe || !order)
+			return false;
+		if (probe.m_iSupportRowsBefore != 0 || probe.m_iSupportRowsAfter != 0)
+			return false;
+		if (!order.m_sSupportRequestId.IsEmpty())
+			return false;
+		if (operation && !operation.m_sSupportRequestId.IsEmpty())
+			return false;
+		return !group || group.m_sSupportRequestId.IsEmpty();
+	}
+
+	protected string BuildCampaignDebugExactCounterattackLivingSlotFingerprint(
+		HST_ForceSpawnResultState batch)
+	{
+		if (!batch)
+			return "";
+		array<string> livingSlotIds = {};
+		foreach (HST_ForceSpawnSlotResultState slot : batch.m_aSlotResults)
+		{
+			if (!slot
+				|| slot.m_sSlotKind != HST_ForceSpawnQueueService.SLOT_KIND_MEMBER
+				|| slot.m_bCasualtyConfirmed
+				|| slot.m_sSlotId.IsEmpty())
+				continue;
+			livingSlotIds.Insert(slot.m_sSlotId);
+		}
+		livingSlotIds.Sort();
+		string fingerprint;
+		foreach (string slotId : livingSlotIds)
+		{
+			if (!fingerprint.IsEmpty())
+				fingerprint = fingerprint + ",";
+			fingerprint = fingerprint + slotId;
+		}
+		return fingerprint;
+	}
+
+	protected vector ResolveCampaignDebugPhase17ExactCounterattackFarPosition(vector origin)
+	{
+		HST_ZoneState farthest;
+		float farthestDistanceSq;
+		if (m_State)
+		{
+			foreach (HST_ZoneState zone : m_State.m_aZones)
+			{
+				if (!zone || IsZeroVector(zone.m_vPosition))
+					continue;
+				float distanceSq = DistanceSq2D(origin, zone.m_vPosition);
+				if (farthest && distanceSq <= farthestDistanceSq)
+					continue;
+				farthest = zone;
+				farthestDistanceSq = distanceSq;
+			}
+		}
+		if (farthest)
+			return farthest.m_vPosition + "8 0 8";
+		return origin + "5000 0 5000";
+	}
+
+	protected void CaptureCampaignDebugPhase17ExactCounterattackClockIsolation(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe || !m_State || probe.m_iElapsedBefore < 0)
+			return;
+		probe.m_iElapsedPeak = Math.Max(
+			probe.m_iElapsedPeak,
+			m_State.m_iElapsedSeconds);
+		probe.m_iElapsedAfter = m_State.m_iElapsedSeconds;
+		probe.m_iForceSpawnRuntimeClockAfter
+			= m_iForceSpawnQueueRuntimeClockSecond;
+		HST_OperationRecordState operation
+			= m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		probe.m_bSharedClockIsolationExact
+			= IsCampaignDebugPhase17ExactCounterattackClockIsolated(
+				probe,
+				order,
+				operation,
+				batch,
+				group);
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackClockIsolated(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!probe || !m_State
+			|| probe.m_iElapsedAfter < probe.m_iElapsedBefore
+			|| m_State.m_iElapsedSeconds != probe.m_iElapsedAfter
+			|| probe.m_iForceSpawnRuntimeClockBefore != probe.m_iElapsedBefore
+			|| probe.m_iForceSpawnRuntimeClockAfter != probe.m_iElapsedAfter)
+			return false;
+		int observedSecond = probe.m_iElapsedAfter;
+		if (order && (order.m_iPhysicalizedAtSecond > observedSecond
+			|| order.m_iResolvedAtSecond > observedSecond))
+			return false;
+		if (operation && (operation.m_iStrategicLastUpdateSecond > observedSecond
+			|| operation.m_iLastProjectionDecisionSecond > observedSecond
+			|| operation.m_iVirtualCombatLastStepSecond > observedSecond))
+			return false;
+		if (operation && (operation.m_iLastArrivalConfirmationSecond > observedSecond
+			|| operation.m_iDutyStateEnteredAtSecond > observedSecond
+			|| operation.m_iEngagementStateEnteredAtSecond > observedSecond))
+			return false;
+		if (operation && (operation.m_iMaterializationStateEnteredAtSecond > observedSecond
+			|| operation.m_iLastContactAtSecond > observedSecond
+			|| operation.m_iLastProgressAtSecond > observedSecond
+			|| operation.m_iSettledAtSecond > observedSecond))
+			return false;
+		if (batch && (batch.m_iLastAttemptSecond > observedSecond
+			|| batch.m_iNextAttemptSecond > observedSecond
+			|| batch.m_iUpdatedAtSecond > observedSecond))
+			return false;
+		if (batch && (batch.m_iCompletedAtSecond > observedSecond
+			|| batch.m_iStrategicHoldSinceSecond > observedSecond
+			|| batch.m_iLastLifecycleSecond > observedSecond))
+			return false;
+		if (batch && batch.m_iDeadlineSecond
+			> observedSecond
+				+ HST_EnemyCounterattackOperationService.EXACT_COUNTERATTACK_DEPLOYMENT_GRACE_SECONDS)
+			return false;
+		if (batch)
+		{
+			foreach (HST_ForceSpawnSlotResultState slot : batch.m_aSlotResults)
+			{
+				if (slot && (slot.m_iUpdatedAtSecond > observedSecond
+					|| slot.m_iCasualtyAtSecond > observedSecond))
+					return false;
+			}
+		}
+		if (group && (group.m_iSpawnedAtSecond > observedSecond
+			|| group.m_iCombatPresenceSampleSecond > observedSecond
+			|| group.m_iLastCasualtySecond > observedSecond
+			|| group.m_iEliminatedAtSecond > observedSecond))
+			return false;
+		return true;
+	}
+
+	protected void FinalizeCampaignDebugPhase17ExactCounterattackProjectionProbe(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order)
+	{
+		if (!probe)
+			return;
+		CaptureCampaignDebugPhase17ExactCounterattackClockIsolation(probe, order);
+		if (!probe.m_bFinalCaptured && m_State)
+			CaptureCampaignDebugPhase17ExactCounterattackProjectionFinal(probe, order);
+		if (!probe.m_sFailureReason.IsEmpty()
+			&& IsCampaignDebugPhase17ExactCounterattackProjectionRuntimeOpen(probe))
+		{
+			probe.m_bEmergencyCleanupAttempted = true;
+			int emergencyCleanupRows;
+			probe.m_bEmergencyCleanupExact
+				= CleanupCampaignDebugPhase17ExactCounterattackProjectionResidue(
+					probe,
+					order,
+					emergencyCleanupRows);
+			probe.m_iEmergencyCleanupRows = emergencyCleanupRows;
+		}
+		if (probe.m_bOriginalPlayerPositionCaptured)
+		{
+			probe.m_bPlayerRestored = TeleportCampaignDebugPlayer(
+				probe.m_vOriginalPlayerPosition,
+				"phase17 exact counterattack restore");
+		}
+		if (probe.m_AdapterStateBefore && m_ForceSpawnAdapter)
+			probe.m_bAdapterStateRestored
+				= m_ForceSpawnAdapter.DebugRestoreState(probe.m_AdapterStateBefore);
+		probe.m_sEvidence = string.Format(
+			"baseline %1 | near/enter/materializing %2/%3/%4",
+			probe.m_bBaselineExact,
+			probe.m_bNearTeleport,
+			probe.m_bEnterDecisionExact,
+			probe.m_bMaterializingExact);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | spawn ticks/work-limit/deferred/handoff-pending %1/%2/%3/%4 | success %5",
+			probe.m_iSpawnTicks,
+			probe.m_iSpawnTickLimit,
+			probe.m_iSpawnDeferredTicks,
+			probe.m_iSpawnHandoffPendingTicks,
+			probe.m_bSpawnSucceeded);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | physical/bindings %1/%2",
+			probe.m_bPhysicalExact,
+			probe.m_bPhysicalBindingsExact);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | far/leave/fold %1/%2/%3",
+			probe.m_bFarTeleport,
+			probe.m_bLeaveDecisionExact,
+			probe.m_bFoldExact);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | living V/P/V %1/%2/%3 | runtime P/V %4/%5 | projection handles V/P/V %6/%7/%8",
+			probe.m_iStrategicLivingBefore,
+			probe.m_iPhysicalLiving,
+			probe.m_iStrategicLivingAfter,
+			probe.m_iPhysicalRuntimeMembers,
+			probe.m_iRuntimeMembersAfter,
+			probe.m_iAdapterHandlesBefore,
+			probe.m_iAdapterHandlesPhysical,
+			probe.m_iAdapterHandlesAfter);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | result handles V/V %1/%2",
+			probe.m_iAdapterResultHandlesBefore,
+			probe.m_iAdapterResultHandlesAfter);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | identity/manifest/roster/debit %1/%2/%3/%4",
+			probe.m_bIdentityExact,
+			probe.m_bManifestExact,
+			probe.m_bRosterIdentityExact,
+			probe.m_bDebitAuthorityExact);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | resource/support/restored %1/%2/%3 | clock %4/%5/%6 -> %7",
+			probe.m_bResourceExact,
+			probe.m_bNoSupportLeak,
+			probe.m_bPlayerRestored,
+			probe.m_bSharedClockIsolationExact,
+			probe.m_iElapsedBefore,
+			probe.m_iElapsedPeak,
+			probe.m_iElapsedAfter);
+		probe.m_sEvidence = probe.m_sEvidence + string.Format(
+			" | queue clock %1 -> %2 | adapter %3 | cleanup %4/%5 | failure %6",
+			probe.m_iForceSpawnRuntimeClockBefore,
+			probe.m_iForceSpawnRuntimeClockAfter,
+			probe.m_bAdapterStateRestored,
+			probe.m_bEmergencyCleanupAttempted,
+			probe.m_bEmergencyCleanupExact,
+			EmptyCampaignDebugField(probe.m_sFailureReason));
+		probe.m_iStage = CAMPAIGN_DEBUG_PHASE17_PROJECTION_STAGE_COMPLETE;
+		probe.m_bCompleted = true;
+	}
+
+	protected bool CleanupCampaignDebugPhase17ExactCounterattackProjectionResidue(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		HST_EnemyOrderState order,
+		out int removedRows)
+	{
+		removedRows = -1;
+		if (!probe || !m_State || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return false;
+
+		if (order && m_EnemyDirector && m_EnemyCounterattackOperations)
+		{
+			removedRows
+				= CleanupCampaignDebugPhase17ExactCounterattackAggregate(order);
+			if (removedRows >= 2)
+			{
+				return !m_State.FindForceSpawnResult(probe.m_sSpawnResultId)
+					&& !m_State.FindActiveGroup(probe.m_sGroupId)
+					&& m_ForceSpawnAdapter.CountHandlesForProjection(
+						"projection_" + probe.m_sOperationId) == 0
+					&& m_ForceSpawnAdapter.CountHandlesForResultId(
+						probe.m_sSpawnResultId) == 0;
+			}
+		}
+
+		string projectionId = "projection_" + probe.m_sOperationId;
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		if (batch && !batch.m_sProjectionId.IsEmpty())
+			projectionId = batch.m_sProjectionId;
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		HST_ForceSpawnAdapterRetireResult retired
+			= m_ForceSpawnAdapter.DebugRetireProjectionRuntime(
+				m_State,
+				m_PhysicalWar,
+				projectionId,
+				probe.m_sSpawnResultId);
+		if (!retired || !retired.m_bSuccess)
+			return false;
+
+		removedRows = 0;
+		for (int batchIndex = m_State.m_aForceSpawnResults.Count() - 1; batchIndex >= 0; batchIndex--)
+		{
+			HST_ForceSpawnResultState candidateBatch
+				= m_State.m_aForceSpawnResults[batchIndex];
+			if (!candidateBatch
+				|| candidateBatch.m_sResultId != probe.m_sSpawnResultId)
+				continue;
+			m_State.m_aForceSpawnResults.Remove(batchIndex);
+			removedRows++;
+		}
+		for (int groupIndex = m_State.m_aActiveGroups.Count() - 1; groupIndex >= 0; groupIndex--)
+		{
+			HST_ActiveGroupState candidateGroup
+				= m_State.m_aActiveGroups[groupIndex];
+			if (!candidateGroup || candidateGroup.m_sGroupId != probe.m_sGroupId)
+				continue;
+			m_State.m_aActiveGroups.Remove(groupIndex);
+			removedRows++;
+		}
+		return !m_State.FindForceSpawnResult(probe.m_sSpawnResultId)
+			&& !m_State.FindActiveGroup(probe.m_sGroupId)
+			&& m_ForceSpawnAdapter.CountHandlesForProjection(projectionId) == 0
+			&& m_ForceSpawnAdapter.CountHandlesForResultId(
+				probe.m_sSpawnResultId) == 0
+			&& (!group || (!m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				&& m_PhysicalWar.CountForceSpawnRuntimeMembers(group) == 0));
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackProjectionRuntimeOpen(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe)
+	{
+		if (!probe || !m_State || !m_ForceSpawnAdapter)
+			return false;
+		HST_OperationRecordState operation = m_State.FindOperation(probe.m_sOperationId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(probe.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(probe.m_sGroupId);
+		if (operation && operation.m_eMaterializationState
+			!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL)
+			return true;
+		if (batch && !batch.m_bStrategicProjectionHeld)
+			return true;
+		if (group && group.m_bSpawnedEntity)
+			return true;
+		if (group && m_PhysicalWar
+			&& (m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) > 0))
+			return true;
+		string projectionId = "projection_" + probe.m_sOperationId;
+		if (batch && !batch.m_sProjectionId.IsEmpty())
+			projectionId = batch.m_sProjectionId;
+		return m_ForceSpawnAdapter.CountHandlesForProjection(projectionId) > 0
+			|| m_ForceSpawnAdapter.CountHandlesForResultId(
+				probe.m_sSpawnResultId) > 0;
+	}
+
+	protected void SetCampaignDebugPhase17ExactCounterattackProjectionFailure(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		string failure)
+	{
+		if (!probe || failure.IsEmpty() || !probe.m_sFailureReason.IsEmpty())
+			return;
+		probe.m_sFailureReason = failure;
+	}
+
+	protected void AddCampaignDebugPhase17ExactCounterattackProjectionAssertions(
+		HST_CampaignDebugCaseResult captureCase,
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe,
+		string targetZoneId,
+		string orderId)
+	{
+		if (!captureCase)
+			return;
+		if (!probe)
+		{
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.context", "native exact-counterattack projection probe captured", "missing", "BLOCKED", "Phase 17 native projection probe did not run", "", "", targetZoneId, orderId);
+			return;
+		}
+		captureCase.m_aEvidence.Insert("phase17 native projection | " + ShortCampaignDebugLine(probe.m_sEvidence, 420));
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_ticks", string.Format("%1", probe.m_iSpawnTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_tick_limit", string.Format("%1", probe.m_iSpawnTickLimit), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.spawn_deferred_ticks", string.Format("%1", probe.m_iSpawnDeferredTicks), "count");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.elapsed_peak", string.Format("%1", probe.m_iElapsedPeak), "campaign_second");
+		AddCampaignDebugMetric(captureCase, "phase17.counterattack.native_projection.expected_living", string.Format("%1", probe.m_iExpectedLiving), "count");
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.baseline", "exact counterattack begins as one held virtual roster with no native or legacy-support claimant", probe.m_sEvidence, CampaignDebugStatus(probe.m_bBaselineExact), "native projection baseline is not exact", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.materializing", "living-player proximity drives the production owner from VIRTUAL to MATERIALIZING and releases strategic hold", probe.m_sEvidence, CampaignDebugStatus(probe.m_bNearTeleport && probe.m_bEnterDecisionExact && probe.m_bMaterializeTickChanged && probe.m_bMaterializingExact), "production runtime owner did not enter exact MATERIALIZING authority", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.physical", "production spawn worker creates one native root and the exact frozen living roster under PHYSICAL live authority", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSpawnSucceeded && probe.m_bPhysicalTickChanged && probe.m_bPhysicalExact && probe.m_bPhysicalBindingsExact), "native exact counterattack projection did not establish complete PHYSICAL authority", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.fold", "leaving materialize-out distance retires native runtime and restores the same survivors to one held VIRTUAL roster", probe.m_sEvidence, CampaignDebugStatus(probe.m_bFarTeleport && probe.m_bLeaveDecisionExact && probe.m_bFoldTickChanged && probe.m_bFoldExact), "native exact counterattack projection did not fold cleanly to virtual authority", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.continuity", "materialize and fold preserve reciprocal identities, frozen manifest, durable survivor slots, original debit, resources, and zero legacy support ownership", probe.m_sEvidence, CampaignDebugStatus(IsCampaignDebugPhase17ExactCounterattackContinuityExact(probe)), "native projection changed exact authority, resources, durable survivors, support ownership, or player placement", "", "", targetZoneId, orderId);
+		AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.clock_isolation", "bounded native retries wait on the real monotonic campaign clock and keep force-spawn runtime time synchronized", probe.m_sEvidence, CampaignDebugStatus(probe.m_bSharedClockIsolationExact), "native projection retry sampling changed shared time or produced future timestamps", "", "", targetZoneId, orderId);
+		if (probe.m_bEmergencyCleanupAttempted)
+			AddCampaignDebugAssertion(captureCase, "phase17.counterattack.native_projection.emergency_cleanup", "failed native projection releases every transient runtime claimant through typed cleanup", probe.m_sEvidence, CampaignDebugStatus(probe.m_bEmergencyCleanupExact), "failed native projection left runtime residue", "", "", targetZoneId, orderId);
+	}
+
+	protected bool IsCampaignDebugPhase17ExactCounterattackContinuityExact(
+		HST_CampaignDebugExactCounterattackProjectionProbeContext probe)
+	{
+		if (!probe || !probe.m_bIdentityExact || !probe.m_bManifestExact)
+			return false;
+		if (!probe.m_bRosterIdentityExact || !probe.m_bDebitAuthorityExact)
+			return false;
+		if (!probe.m_bResourceExact || !probe.m_bNoSupportLeak)
+			return false;
+		return probe.m_bAdapterStateRestored && probe.m_bPlayerRestored;
+	}
+
 	protected string BuildCampaignDebugExactEnemyCounterattackOperationActual(HST_OperationRecordState operation)
 	{
 		if (!operation)
@@ -31945,6 +33083,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool exactReportOrder = reportOrder
 			&& reportOrder.m_iOperationContractVersion == HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION;
 		AddCampaignDebugAssertion(captureCase, "phase17.report.counterattack_order", "exact counterattack aggregate remains inspectable through the report step", BuildCampaignDebugEnemyOrderActual(reportOrder), CampaignDebugStatus(exactReportOrder), "Phase 17 report did not find the exact counterattack order for the captured zone", "", "", reportZoneId);
+		string reportOrderId;
+		if (reportOrder)
+			reportOrderId = reportOrder.m_sOrderId;
+		AddCampaignDebugPhase17ExactCounterattackProjectionAssertions(
+			captureCase,
+			m_CampaignDebugPhase17CounterattackProjectionContext,
+			reportZoneId,
+			reportOrderId);
 		int exactCleanupRows = CleanupCampaignDebugPhase17ExactCounterattackAggregate(reportOrder);
 		AddCampaignDebugMetric(captureCase, "phase17.report.exact_cleanup_rows", string.Format("%1", exactCleanupRows), "count");
 		HST_OperationRecordState settledOperation;
@@ -31965,7 +33111,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& !m_State.FindForceSpawnResult(reportOrder.m_sSpawnResultId)
 			&& !m_State.FindActiveGroup(reportOrder.m_sGroupId)
 			&& settledReceiptFailure.IsEmpty();
-		AddCampaignDebugAssertion(captureCase, "phase17.report.exact_cleanup", "clone-local exact aggregate settles through typed authority, retains its terminal ledger, and releases only transient runtime rows", string.Format("runtime rows %1 | stable order %2 | receipt %3", exactCleanupRows, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId), EmptyCampaignDebugField(settledReceiptFailure)), CampaignDebugStatus(exactCleanupRows >= 2 && exactTerminalLedger), "Phase 17 exact aggregate did not settle into a valid retained terminal ledger", "", "", reportZoneId);
+		bool emergencyCleanupExact = m_CampaignDebugPhase17CounterattackProjectionContext
+			&& m_CampaignDebugPhase17CounterattackProjectionContext.m_bEmergencyCleanupAttempted
+			&& m_CampaignDebugPhase17CounterattackProjectionContext.m_bEmergencyCleanupExact;
+		bool cleanupExpected = exactTerminalLedger
+			&& (exactCleanupRows >= 2 || emergencyCleanupExact);
+		AddCampaignDebugAssertion(captureCase, "phase17.report.exact_cleanup", "clone-local exact aggregate settles through typed authority, retains its terminal ledger, and releases only transient runtime rows", string.Format("runtime rows %1 | emergency %2 | stable order %3 | receipt %4", exactCleanupRows, emergencyCleanupExact, EmptyCampaignDebugField(m_sCampaignDebugPhase17CounterattackOrderId), EmptyCampaignDebugField(settledReceiptFailure)), CampaignDebugStatus(cleanupExpected), "Phase 17 exact aggregate did not settle into a valid retained terminal ledger", "", "", reportZoneId);
 	}
 
 	protected int CleanupCampaignDebugPhase17ExactCounterattackAggregate(HST_EnemyOrderState order)
@@ -32206,6 +33357,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected void ResetCampaignDebugPhase17Observations()
 	{
+		m_CampaignDebugPhase17CounterattackProjectionContext = null;
 		m_sCampaignDebugPhase17ZoneId = "";
 		m_sCampaignDebugPhase17OwnerBefore = "";
 		m_sCampaignDebugPhase17OwnerAfter = "";
@@ -35302,6 +36454,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			"Phase 24 escalation isolation failed before controlled state mutation");
 		if (!escalationContext.m_bOrderIsolationReady)
 			return;
+		RefreshCampaignDebugPhase24EscalationRuntimeOwnerTotals(escalationContext);
 
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "low", escalationContext.m_Low);
 		AddCampaignDebugPhase24EscalationProfileMetrics(pacingCase, "mid", escalationContext.m_Mid);
@@ -35325,10 +36478,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool orderActivity = escalationContext.m_Low && escalationContext.m_Mid && escalationContext.m_High && escalationContext.m_Low.m_iOrdersCreated > 0 && escalationContext.m_Mid.m_iOrdersCreated > 0 && escalationContext.m_High.m_iOrdersCreated > 0;
 		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.order_activity", "commander creates real orders in every escalation profile", scalingActual, CampaignDebugStatus(orderActivity), "commander order activity did not run in every escalation profile");
 
-		int totalSupportCreated = CountCampaignDebugEscalationSupportCreated(escalationContext);
-		int totalGroupsCreated = CountCampaignDebugEscalationGroupsCreated(escalationContext);
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.support_physicalization", "active target bubble can create linked support requests", string.Format("support requests +%1", totalSupportCreated), CampaignDebugStatus(totalSupportCreated > 0, "WARN"), "escalation orders did not physicalize into support requests during the controlled probe");
-		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.group_physicalization", "support path may spawn routed active groups", string.Format("groups +%1", totalGroupsCreated), CampaignDebugStatus(totalGroupsCreated > 0, "WARN"), "escalation support did not spawn active groups during the controlled probe");
+		AddCampaignDebugPhase24EscalationRuntimeOwnerAssertions(pacingCase, escalationContext);
 		AddCampaignDebugPhase24MultiCycleAssertions(pacingCase, escalationContext.m_MultiCycle);
 		AddCampaignDebugPhase24EscalationDecayAssertion(pacingCase, escalationContext);
 	}
@@ -35349,6 +36499,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		AddCampaignDebugMetric(pacingCase, prefix + ".support_requests_created", string.Format("%1", profile.m_iSupportRequestsCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".active_groups_created", string.Format("%1", profile.m_iActiveGroupsCreated), "count");
 		AddCampaignDebugMetric(pacingCase, prefix + ".physicalization_target_zones_activated", string.Format("%1", profile.m_iPhysicalizationTargetZonesActivated), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_legacy", string.Format("%1", profile.m_iRuntimeOwnerLegacyOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_qrf", string.Format("%1", profile.m_iRuntimeOwnerExactQRFOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_counterattack", string.Format("%1", profile.m_iRuntimeOwnerExactCounterattackOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_patrol", string.Format("%1", profile.m_iRuntimeOwnerExactPatrolOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_exact_rebuild", string.Format("%1", profile.m_iRuntimeOwnerExactGarrisonRebuildOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".runtime_owner_invalid", string.Format("%1", profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_open_orders", string.Format("%1", profile.m_iExactCounterattackOpenOrders), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_terminal_ledgers", string.Format("%1", profile.m_iExactCounterattackTerminalLedgers), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_invalid_authority", string.Format("%1", profile.m_iExactCounterattackInvalidAuthorityRows), "count");
+		AddCampaignDebugMetric(pacingCase, prefix + ".exact_counterattack_support_leaks", string.Format("%1", profile.m_iExactCounterattackSupportLeaks), "count");
 		if (profile.m_iCycleCount > 0)
 		{
 			AddCampaignDebugMetric(pacingCase, prefix + ".cycles", string.Format("%1", profile.m_iCycleCount), "count");
@@ -35410,7 +36570,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		actual = actual + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
 		actual = actual + string.Format(" | aggression %1 -> %2 | orders +%3", profile.m_iAggressionBefore, profile.m_iAggressionAfter, profile.m_iOrdersCreated);
 		actual = actual + string.Format(" | stable ledger/exact %1/%2", profile.m_iLedgerStableOrders, profile.m_iVersionedStableOrders);
-		actual = actual + string.Format(" | support +%1 | groups +%2 | active targets +%3 | order types %4", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, profile.m_iPhysicalizationTargetZonesActivated, EmptyCampaignDebugField(profile.m_sOrderTypes));
+		actual = actual + string.Format(" | support +%1 | groups +%2 | legacy targets +%3 | order types %4", profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated, profile.m_iPhysicalizationTargetZonesActivated, EmptyCampaignDebugField(profile.m_sOrderTypes));
+		actual = actual + string.Format(" | owners legacy/qrf/counter/patrol/rebuild/invalid %1/%2/%3/%4/%5/%6", profile.m_iRuntimeOwnerLegacyOrders, profile.m_iRuntimeOwnerExactQRFOrders, profile.m_iRuntimeOwnerExactCounterattackOrders, profile.m_iRuntimeOwnerExactPatrolOrders, profile.m_iRuntimeOwnerExactGarrisonRebuildOrders, profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders);
+		actual = actual + string.Format(" | exact open/terminal/invalid %1/%2/%3", profile.m_iExactCounterattackOpenOrders, profile.m_iExactCounterattackTerminalLedgers, profile.m_iExactCounterattackInvalidAuthorityRows);
+		actual = actual + string.Format(" | projections V/M/P/D %1/%2/%3/%4", profile.m_iExactCounterattackVirtualGroups, profile.m_iExactCounterattackMaterializingGroups, profile.m_iExactCounterattackPhysicalGroups, profile.m_iExactCounterattackDematerializingGroups);
+		actual = actual + string.Format(" | support leaks %1", profile.m_iExactCounterattackSupportLeaks);
 		return actual;
 	}
 
@@ -35461,6 +36625,133 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (escalationContext.m_High)
 			totalCreated += escalationContext.m_High.m_iActiveGroupsCreated;
 		return totalCreated;
+	}
+
+	protected void AddCampaignDebugPhase24EscalationRuntimeOwnerAssertions(
+		HST_CampaignDebugCaseResult pacingCase,
+		HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!pacingCase || !escalationContext)
+			return;
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.runtime_owner_expected", string.Format("%1", escalationContext.m_iRuntimeOwnerExpectedOrders), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.runtime_owner_classified", string.Format("%1", escalationContext.m_iRuntimeOwnerClassifiedOrders), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_open_orders", string.Format("%1", escalationContext.m_iExactCounterattackOpenOrders), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_terminal_ledgers", string.Format("%1", escalationContext.m_iExactCounterattackTerminalLedgers), "count");
+		AddCampaignDebugMetric(pacingCase, "phase24.escalation.exact_counterattack_projection_groups", string.Format("%1", escalationContext.m_iExactCounterattackProjectionGroups), "count");
+		bool ownersExact = escalationContext.m_iRuntimeOwnerExpectedOrders > 0
+			&& escalationContext.m_iRuntimeOwnerClassifiedOrders
+				== escalationContext.m_iRuntimeOwnerExpectedOrders
+			&& escalationContext.m_iRuntimeOwnerInvalidOrders == 0;
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.runtime_owner_classification", "every created escalation order has one supported production runtime owner", EmptyCampaignDebugField(escalationContext.m_sRuntimeOwnerEvidence), CampaignDebugStatus(ownersExact), "escalation telemetry found an unclassified, quarantined, or unsupported runtime owner");
+
+		string exactProjectionStatus = "SKIPPED";
+		if (escalationContext.m_iExactCounterattackOrders > 0)
+		{
+			bool exactProjectionExpected = escalationContext.m_iExactCounterattackOpenOrders
+				+ escalationContext.m_iExactCounterattackTerminalLedgers
+				== escalationContext.m_iExactCounterattackOrders
+				&& escalationContext.m_iExactCounterattackInvalidAuthorityRows == 0
+				&& escalationContext.m_iExactCounterattackProjectionGroups
+					== escalationContext.m_iExactCounterattackOpenOrders
+				&& escalationContext.m_iExactCounterattackSupportLeaks == 0
+				&& escalationContext.m_iExactCounterattackVirtualGroups
+					+ escalationContext.m_iExactCounterattackMaterializingGroups
+					+ escalationContext.m_iExactCounterattackPhysicalGroups
+					+ escalationContext.m_iExactCounterattackDematerializingGroups
+					== escalationContext.m_iExactCounterattackOpenOrders;
+			exactProjectionStatus = CampaignDebugStatus(exactProjectionExpected);
+		}
+		string exactProjectionActual = string.Format(
+			"orders/open/terminal/invalid %1/%2/%3/%4 | projections %5 | V/M/P/D %6/%7/%8/%9",
+			escalationContext.m_iExactCounterattackOrders,
+			escalationContext.m_iExactCounterattackOpenOrders,
+			escalationContext.m_iExactCounterattackTerminalLedgers,
+			escalationContext.m_iExactCounterattackInvalidAuthorityRows,
+			escalationContext.m_iExactCounterattackProjectionGroups,
+			escalationContext.m_iExactCounterattackVirtualGroups,
+			escalationContext.m_iExactCounterattackMaterializingGroups,
+			escalationContext.m_iExactCounterattackPhysicalGroups,
+			escalationContext.m_iExactCounterattackDematerializingGroups);
+		exactProjectionActual = exactProjectionActual + string.Format(
+			" | support leaks %1",
+			escalationContext.m_iExactCounterattackSupportLeaks);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.exact_counterattack_authority", "open exact counterattacks own reciprocal operation projections, retained terminal ledgers own no runtime claimant, and neither leaks into legacy support requests", exactProjectionActual, exactProjectionStatus, "exact counterattack runtime-owner projection telemetry is incomplete or support-linked");
+
+		string legacySupportStatus = "SKIPPED";
+		if (escalationContext.m_iLegacyPhysicalizableOrders > 0)
+			legacySupportStatus = CampaignDebugStatus(escalationContext.m_iLegacySupportLinkedOrders > 0, "WARN");
+		string legacySupportActual = string.Format("legacy candidates %1 | linked support %2 | linked groups %3", escalationContext.m_iLegacyPhysicalizableOrders, escalationContext.m_iLegacySupportLinkedOrders, escalationContext.m_iLegacySupportLinkedGroups);
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.support_physicalization", "legacy physicalizable escalation owners may create linked support requests", legacySupportActual, legacySupportStatus, "legacy escalation owners did not enter their support-request path during the controlled probe");
+		string legacyGroupStatus = "SKIPPED";
+		if (escalationContext.m_iLegacySupportLinkedOrders > 0)
+			legacyGroupStatus = CampaignDebugStatus(escalationContext.m_iLegacySupportLinkedGroups > 0, "WARN");
+		AddCampaignDebugAssertion(pacingCase, "phase24.escalation.group_physicalization", "legacy support requests may create routed active groups", legacySupportActual, legacyGroupStatus, "legacy escalation support did not create a linked active group during the controlled probe");
+	}
+
+	protected void RefreshCampaignDebugPhase24EscalationRuntimeOwnerTotals(
+		HST_CampaignDebugEscalationProbeContext escalationContext)
+	{
+		if (!escalationContext)
+			return;
+		escalationContext.m_iRuntimeOwnerExpectedOrders = 0;
+		escalationContext.m_iRuntimeOwnerClassifiedOrders = 0;
+		escalationContext.m_iRuntimeOwnerInvalidOrders = 0;
+		escalationContext.m_iExactCounterattackOrders = 0;
+		escalationContext.m_iExactCounterattackOpenOrders = 0;
+		escalationContext.m_iExactCounterattackTerminalLedgers = 0;
+		escalationContext.m_iExactCounterattackInvalidAuthorityRows = 0;
+		escalationContext.m_iExactCounterattackProjectionGroups = 0;
+		escalationContext.m_iExactCounterattackVirtualGroups = 0;
+		escalationContext.m_iExactCounterattackMaterializingGroups = 0;
+		escalationContext.m_iExactCounterattackPhysicalGroups = 0;
+		escalationContext.m_iExactCounterattackDematerializingGroups = 0;
+		escalationContext.m_iExactCounterattackSupportLeaks = 0;
+		escalationContext.m_iLegacyPhysicalizableOrders = 0;
+		escalationContext.m_iLegacySupportLinkedOrders = 0;
+		escalationContext.m_iLegacySupportLinkedGroups = 0;
+		escalationContext.m_sRuntimeOwnerEvidence = "";
+		AccumulateCampaignDebugPhase24EscalationRuntimeOwnerTotals(escalationContext, escalationContext.m_Low);
+		AccumulateCampaignDebugPhase24EscalationRuntimeOwnerTotals(escalationContext, escalationContext.m_Mid);
+		AccumulateCampaignDebugPhase24EscalationRuntimeOwnerTotals(escalationContext, escalationContext.m_High);
+		AccumulateCampaignDebugPhase24EscalationRuntimeOwnerTotals(escalationContext, escalationContext.m_MultiCycle);
+	}
+
+	protected void AccumulateCampaignDebugPhase24EscalationRuntimeOwnerTotals(
+		HST_CampaignDebugEscalationProbeContext escalationContext,
+		HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!escalationContext || !profile)
+			return;
+		escalationContext.m_iRuntimeOwnerExpectedOrders += profile.m_iOrdersCreated;
+		escalationContext.m_iRuntimeOwnerClassifiedOrders += profile.m_iRuntimeOwnerLegacyOrders
+			+ profile.m_iRuntimeOwnerExactQRFOrders
+			+ profile.m_iRuntimeOwnerExactCounterattackOrders
+			+ profile.m_iRuntimeOwnerExactPatrolOrders
+			+ profile.m_iRuntimeOwnerExactGarrisonRebuildOrders
+			+ profile.m_iRuntimeOwnerQuarantinedOrders
+			+ profile.m_iRuntimeOwnerUnsupportedOrders;
+		escalationContext.m_iRuntimeOwnerInvalidOrders += profile.m_iRuntimeOwnerQuarantinedOrders
+			+ profile.m_iRuntimeOwnerUnsupportedOrders;
+		escalationContext.m_iExactCounterattackOrders += profile.m_iRuntimeOwnerExactCounterattackOrders;
+		escalationContext.m_iExactCounterattackOpenOrders += profile.m_iExactCounterattackOpenOrders;
+		escalationContext.m_iExactCounterattackTerminalLedgers += profile.m_iExactCounterattackTerminalLedgers;
+		escalationContext.m_iExactCounterattackInvalidAuthorityRows += profile.m_iExactCounterattackInvalidAuthorityRows;
+		escalationContext.m_iExactCounterattackProjectionGroups += profile.m_iExactCounterattackProjectionGroups;
+		escalationContext.m_iExactCounterattackVirtualGroups += profile.m_iExactCounterattackVirtualGroups;
+		escalationContext.m_iExactCounterattackMaterializingGroups += profile.m_iExactCounterattackMaterializingGroups;
+		escalationContext.m_iExactCounterattackPhysicalGroups += profile.m_iExactCounterattackPhysicalGroups;
+		escalationContext.m_iExactCounterattackDematerializingGroups += profile.m_iExactCounterattackDematerializingGroups;
+		escalationContext.m_iExactCounterattackSupportLeaks += profile.m_iExactCounterattackSupportLeaks;
+		escalationContext.m_iLegacyPhysicalizableOrders += profile.m_iLegacyPhysicalizableOrders;
+		escalationContext.m_iLegacySupportLinkedOrders += profile.m_iLegacySupportLinkedOrders;
+		escalationContext.m_iLegacySupportLinkedGroups += profile.m_iLegacySupportLinkedGroups;
+		if (!profile.m_sRuntimeOwnerEvidence.IsEmpty())
+		{
+			if (!escalationContext.m_sRuntimeOwnerEvidence.IsEmpty())
+				escalationContext.m_sRuntimeOwnerEvidence = escalationContext.m_sRuntimeOwnerEvidence + " | ";
+			escalationContext.m_sRuntimeOwnerEvidence = escalationContext.m_sRuntimeOwnerEvidence
+				+ profile.m_sLabel + "[" + profile.m_sRuntimeOwnerEvidence + "]";
+		}
 	}
 
 	protected void AddCampaignDebugPhase24EscalationDecayAssertion(HST_CampaignDebugCaseResult pacingCase, HST_CampaignDebugEscalationProbeContext escalationContext)
@@ -35646,7 +36937,11 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	protected bool IsCampaignDebugPhysicalizableEscalationOrder(HST_EnemyOrderState order)
 	{
-		if (!order || order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE || order.m_bPhysicalized)
+		if (!order || !m_EnemyCommander
+			|| order.m_eStatus != HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			|| order.m_bPhysicalized
+			|| m_EnemyCommander.ResolveRuntimeOwner(order)
+				!= HST_EnemyCommanderService.RUNTIME_OWNER_LEGACY)
 			return false;
 
 		return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
@@ -36072,6 +37367,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (!profile || !m_State)
 			return;
+		ResetCampaignDebugEscalationRuntimeOwnerTelemetry(profile);
 
 		string orderIds;
 		string orderTypes;
@@ -36096,6 +37392,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				ledgerStableOrders++;
 			else if (order.m_iOperationContractVersion != 0 && identitySafe)
 				versionedStableOrders++;
+			CaptureCampaignDebugEscalationRuntimeOwner(profile, order);
 			if (!orderIds.IsEmpty())
 				orderIds = orderIds + ", ";
 			orderIds = orderIds + EmptyCampaignDebugField(order.m_sOrderId);
@@ -36110,6 +37407,512 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		profile.m_iLedgerStableOrders = ledgerStableOrders;
 		profile.m_iVersionedStableOrders = versionedStableOrders;
 		profile.m_bOrderIdentitiesSafe = identitiesSafe;
+	}
+
+	protected void ResetCampaignDebugEscalationRuntimeOwnerTelemetry(
+		HST_CampaignDebugEscalationProfileResult profile)
+	{
+		if (!profile)
+			return;
+		profile.m_iRuntimeOwnerLegacyOrders = 0;
+		profile.m_iRuntimeOwnerExactQRFOrders = 0;
+		profile.m_iRuntimeOwnerExactCounterattackOrders = 0;
+		profile.m_iRuntimeOwnerExactPatrolOrders = 0;
+		profile.m_iRuntimeOwnerExactGarrisonRebuildOrders = 0;
+		profile.m_iRuntimeOwnerQuarantinedOrders = 0;
+		profile.m_iRuntimeOwnerUnsupportedOrders = 0;
+		profile.m_iLegacyPhysicalizableOrders = 0;
+		profile.m_iLegacySupportLinkedOrders = 0;
+		profile.m_iLegacySupportLinkedGroups = 0;
+		profile.m_iExactCounterattackOpenOrders = 0;
+		profile.m_iExactCounterattackTerminalLedgers = 0;
+		profile.m_iExactCounterattackInvalidAuthorityRows = 0;
+		profile.m_iExactCounterattackProjectionGroups = 0;
+		profile.m_iExactCounterattackVirtualGroups = 0;
+		profile.m_iExactCounterattackMaterializingGroups = 0;
+		profile.m_iExactCounterattackPhysicalGroups = 0;
+		profile.m_iExactCounterattackDematerializingGroups = 0;
+		profile.m_iExactCounterattackSupportLeaks = 0;
+		profile.m_sRuntimeOwnerEvidence = "";
+	}
+
+	protected void CaptureCampaignDebugEscalationRuntimeOwner(
+		HST_CampaignDebugEscalationProfileResult profile,
+		HST_EnemyOrderState order)
+	{
+		if (!profile || !order || !m_State || !m_EnemyCommander)
+			return;
+
+		string runtimeOwner = m_EnemyCommander.ResolveRuntimeOwner(order);
+		if (!profile.m_sRuntimeOwnerEvidence.IsEmpty())
+			profile.m_sRuntimeOwnerEvidence = profile.m_sRuntimeOwnerEvidence + " | ";
+		profile.m_sRuntimeOwnerEvidence = profile.m_sRuntimeOwnerEvidence
+			+ EmptyCampaignDebugField(order.m_sOrderId) + ":" + EmptyCampaignDebugField(runtimeOwner);
+		if (runtimeOwner == HST_EnemyCommanderService.RUNTIME_OWNER_LEGACY)
+		{
+			profile.m_iRuntimeOwnerLegacyOrders++;
+			if (IsCampaignDebugLegacyPhysicalizableEscalationOrderType(order))
+				profile.m_iLegacyPhysicalizableOrders++;
+			HST_SupportRequestState legacyRequest = m_State.FindSupportRequest(order.m_sSupportRequestId);
+			if (legacyRequest)
+			{
+				profile.m_iLegacySupportLinkedOrders++;
+				if (!legacyRequest.m_sGroupId.IsEmpty()
+					&& m_State.FindActiveGroup(legacyRequest.m_sGroupId))
+					profile.m_iLegacySupportLinkedGroups++;
+			}
+			return;
+		}
+		if (runtimeOwner == HST_EnemyCommanderService.RUNTIME_OWNER_EXACT_QRF)
+		{
+			profile.m_iRuntimeOwnerExactQRFOrders++;
+			return;
+		}
+		if (runtimeOwner == HST_EnemyCommanderService.RUNTIME_OWNER_EXACT_PATROL)
+		{
+			profile.m_iRuntimeOwnerExactPatrolOrders++;
+			return;
+		}
+		if (runtimeOwner == HST_EnemyCommanderService.RUNTIME_OWNER_EXACT_GARRISON_REBUILD)
+		{
+			profile.m_iRuntimeOwnerExactGarrisonRebuildOrders++;
+			return;
+		}
+		if (runtimeOwner == HST_EnemyCommanderService.RUNTIME_OWNER_QUARANTINED)
+		{
+			profile.m_iRuntimeOwnerQuarantinedOrders++;
+			return;
+		}
+		if (runtimeOwner != HST_EnemyCommanderService.RUNTIME_OWNER_EXACT_COUNTERATTACK)
+		{
+			profile.m_iRuntimeOwnerUnsupportedOrders++;
+			return;
+		}
+
+		profile.m_iRuntimeOwnerExactCounterattackOrders++;
+		HST_OperationRecordState operation = m_State.FindOperation(order.m_sOperationId);
+		HST_ForceManifestState manifest = m_State.FindForceManifest(order.m_sManifestId);
+		HST_ForceSpawnResultState batch = m_State.FindForceSpawnResult(order.m_sSpawnResultId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(order.m_sGroupId);
+		bool supportLeak = !order.m_sSupportRequestId.IsEmpty()
+			|| (operation && !operation.m_sSupportRequestId.IsEmpty())
+			|| (group && !group.m_sSupportRequestId.IsEmpty())
+			|| CountCampaignDebugSupportRequestsForExactEnemyOrder(order) > 0;
+		if (supportLeak)
+			profile.m_iExactCounterattackSupportLeaks++;
+		if (IsCampaignDebugEscalationExactCounterattackTerminalLedger(
+			order,
+			operation,
+			manifest,
+			batch,
+			group))
+		{
+			profile.m_iExactCounterattackTerminalLedgers++;
+			return;
+		}
+		if (!IsCampaignDebugEscalationExactCounterattackOpenAuthority(
+			order,
+			operation))
+		{
+			profile.m_iExactCounterattackInvalidAuthorityRows++;
+			return;
+		}
+		profile.m_iExactCounterattackOpenOrders++;
+		bool projectionExact
+			= IsCampaignDebugEscalationExactCounterattackProjectionExact(
+				order,
+				operation,
+				manifest,
+				batch,
+				group);
+		if (projectionExact)
+			profile.m_iExactCounterattackProjectionGroups++;
+		bool materializationStateExact;
+		if (operation)
+		{
+			if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL)
+			{
+				profile.m_iExactCounterattackVirtualGroups++;
+				materializationStateExact = true;
+			}
+			else if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+			{
+				profile.m_iExactCounterattackMaterializingGroups++;
+				materializationStateExact = true;
+			}
+			else if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+			{
+				profile.m_iExactCounterattackPhysicalGroups++;
+				materializationStateExact = true;
+			}
+			else if (operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+			{
+				profile.m_iExactCounterattackDematerializingGroups++;
+				materializationStateExact = true;
+			}
+		}
+		if (!projectionExact || !materializationStateExact)
+			profile.m_iExactCounterattackInvalidAuthorityRows++;
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackProjectionExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !manifest || !batch || !group
+			|| !m_State || !m_EnemyCounterattackOperations)
+			return false;
+		if (!m_EnemyCounterattackOperations.DebugValidateOpenRuntimeAuthority(
+			m_State,
+			order).IsEmpty())
+			return false;
+		string expectedOperationId
+			= HST_StableIdService.BuildOperationId("enemy_order", order.m_sOrderId);
+		string expectedManifestId = "manifest_" + expectedOperationId;
+		string expectedResultId = "spawn_" + order.m_sOrderId;
+		string expectedForceId = "force_" + expectedOperationId;
+		string expectedProjectionId = "projection_" + expectedOperationId;
+		if (order.m_sOperationId != expectedOperationId
+			|| order.m_sManifestId != expectedManifestId
+			|| order.m_sSpawnResultId != expectedResultId
+			|| order.m_sGroupId != expectedProjectionId)
+			return false;
+		if (operation.m_sEnemyOrderId != order.m_sOrderId
+			|| operation.m_sManifestId != manifest.m_sManifestId
+			|| operation.m_sOperationId != expectedOperationId)
+			return false;
+		if (operation.m_sSpawnResultId != batch.m_sResultId
+			|| operation.m_sForceId != expectedForceId
+			|| operation.m_sProjectionId != expectedProjectionId
+			|| operation.m_sGroupId != group.m_sGroupId)
+			return false;
+		if (batch.m_sOperationId != operation.m_sOperationId
+			|| batch.m_sManifestId != manifest.m_sManifestId
+			|| batch.m_sResultId != expectedResultId
+			|| batch.m_sRequestId != order.m_sOrderId
+			|| batch.m_sForceId != expectedForceId
+			|| batch.m_sProjectionId != expectedProjectionId)
+			return false;
+		if (group.m_sOperationId != operation.m_sOperationId
+			|| group.m_sEnemyOrderId != order.m_sOrderId
+			|| group.m_sGroupId != expectedProjectionId
+			|| group.m_sProjectionId != expectedProjectionId
+			|| group.m_sForceId != expectedForceId)
+			return false;
+		if (group.m_sManifestId != manifest.m_sManifestId
+			|| group.m_sSpawnResultId != batch.m_sResultId)
+			return false;
+		if (manifest.m_sFactionKey != order.m_sFactionKey
+			|| group.m_sFactionKey != order.m_sFactionKey
+			|| !group.m_bQRF
+			|| group.m_iOriginalInfantryCount != manifest.m_iAcceptedMemberCount)
+			return false;
+		if (manifest.m_iRequestedVehicleCount != 0
+			|| manifest.m_iAcceptedVehicleCount != 0
+			|| group.m_iVehicleCount != 0
+			|| group.m_iOriginalVehicleCount != 0
+			|| group.m_iCompositionVehicleCount != 0
+			|| group.m_iCompositionArmedVehicleCount != 0
+			|| group.m_iSurvivorVehicleCount != 0
+			|| group.m_iOperationalMannedVehicleCount != 0
+			|| !group.m_sVehiclePrefab.IsEmpty())
+			return false;
+		HST_ForcePlanningIntegrityService integrity
+			= new HST_ForcePlanningIntegrityService();
+		if (!manifest.m_bFrozen || manifest.m_sManifestId != expectedManifestId
+			|| manifest.m_sOperationId != expectedOperationId
+			|| manifest.m_sManifestHash.IsEmpty()
+			|| manifest.m_sManifestHash != order.m_sManifestHash
+			|| manifest.m_sManifestHash != batch.m_sManifestHash
+			|| integrity.BuildManifestHash(manifest) != manifest.m_sManifestHash)
+			return false;
+		return IsCampaignDebugEscalationExactCounterattackMaterializationAuthorityExact(
+			order,
+			operation,
+			batch,
+			group);
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackMaterializationAuthorityExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !batch || !group || !m_ForceSpawnQueue
+			|| !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return false;
+		if (operation.m_eMaterializationState
+			== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL)
+			return IsCampaignDebugEscalationExactCounterattackVirtualAuthorityExact(
+				order,
+				operation,
+				batch,
+				group);
+		if (operation.m_eMaterializationState
+			== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+			return IsCampaignDebugEscalationExactCounterattackMaterializingAuthorityExact(
+				order,
+				operation,
+				batch,
+				group);
+		if (operation.m_eMaterializationState
+			== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+			return IsCampaignDebugEscalationExactCounterattackPhysicalAuthorityExact(
+				order,
+				operation,
+				batch,
+				group);
+		if (operation.m_eMaterializationState
+			!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+			return false;
+		return IsCampaignDebugEscalationExactCounterattackDematerializingAuthorityExact(
+			order,
+			operation,
+			batch,
+			group);
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackVirtualAuthorityExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !batch || !group)
+			return false;
+		if (operation.m_ePositionAuthority
+			!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			|| order.m_bPhysicalized || !batch.m_bStrategicProjectionHeld
+			|| !IsCampaignDebugEscalationExactCounterattackIdleBatch(batch))
+			return false;
+		int living = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		if (!IsCampaignDebugEscalationExactCounterattackGroupRosterExact(group, living))
+			return false;
+		return living > 0
+			&& operation.m_iLastVirtualFriendlyCount == living
+			&& batch.m_sNativeGroupId.IsEmpty()
+			&& !group.m_bSpawnedEntity
+			&& group.m_sRuntimeEntityId.IsEmpty()
+			&& group.m_iSpawnedAgentCount == 0
+			&& !m_PhysicalWar.GetForceSpawnGroupRoot(group)
+			&& m_PhysicalWar.CountForceSpawnRuntimeMembers(group) == 0
+			&& m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId) == 0
+			&& m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId) == 0;
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackMaterializingAuthorityExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !batch || !group
+			|| operation.m_ePositionAuthority
+				!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			|| order.m_bPhysicalized || batch.m_bStrategicProjectionHeld)
+			return false;
+		string partialBindingFailure;
+		if (!m_ForceSpawnAdapter.DebugValidatePartialProjectionRuntimeBindings(
+			batch,
+			group,
+			m_PhysicalWar,
+			partialBindingFailure))
+			return false;
+		if (batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+			return IsCampaignDebugEscalationExactCounterattackLiveBindingsExact(batch, group);
+		bool actionable = IsCampaignDebugEscalationExactCounterattackIdleBatch(batch)
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_IN_PROGRESS
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CLEANUP_PENDING
+			|| batch.m_eStatus == HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF;
+		if (!actionable || group.m_bSpawnedEntity)
+			return false;
+		int living;
+		if (batch.m_iSuccessfulHandoffCount > 0)
+			living = m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+		else
+			living = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		if (living <= 0
+			|| !IsCampaignDebugEscalationExactCounterattackGroupRosterExact(
+				group,
+				living))
+			return false;
+		int runtimeMembers = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+		SCR_AIGroup runtimeRoot = m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		int handles = m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId);
+		if (runtimeMembers < 0 || runtimeMembers > living)
+			return false;
+		if (runtimeMembers > 0 && !runtimeRoot)
+			return false;
+		int expectedHandles = runtimeMembers;
+		if (runtimeRoot)
+			expectedHandles++;
+		if (handles != expectedHandles)
+			return false;
+		if (IsCampaignDebugEscalationExactCounterattackIdleBatch(batch))
+		{
+			return !runtimeRoot && runtimeMembers == 0 && handles == 0
+				&& batch.m_sNativeGroupId.IsEmpty();
+		}
+		return true;
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackPhysicalAuthorityExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		return order && operation && batch && group
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			&& order.m_bPhysicalized && !batch.m_bStrategicProjectionHeld
+			&& IsCampaignDebugEscalationExactCounterattackLiveBindingsExact(batch, group);
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackDematerializingAuthorityExact(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !batch || !group
+			|| operation.m_ePositionAuthority
+				!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			return false;
+		string partialBindingFailure;
+		if (!m_ForceSpawnAdapter.DebugValidatePartialProjectionRuntimeBindings(
+			batch,
+			group,
+			m_PhysicalWar,
+			partialBindingFailure))
+			return false;
+		if (!batch.m_bStrategicProjectionHeld)
+		{
+			if (!order.m_bPhysicalized
+				|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+				return false;
+			int durableLiving = m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+			int runtimeMembers = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			SCR_AIGroup runtimeRoot = m_PhysicalWar.GetForceSpawnGroupRoot(group);
+			int expectedHandles = runtimeMembers;
+			if (runtimeRoot)
+				expectedHandles++;
+			return durableLiving > 0
+				&& runtimeMembers >= 0
+				&& runtimeMembers <= durableLiving
+				&& (runtimeMembers == 0 || runtimeRoot)
+				&& IsCampaignDebugEscalationExactCounterattackGroupRosterExact(
+					group,
+					durableLiving)
+				&& group.m_bSpawnedEntity
+				&& group.m_sRuntimeEntityId == group.m_sGroupId
+				&& group.m_iSpawnedAgentCount == durableLiving
+				&& m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId)
+					== expectedHandles;
+		}
+		if (!IsCampaignDebugEscalationExactCounterattackIdleBatch(batch))
+			return false;
+		int living = m_ForceSpawnQueue.CountStrategicLivingMemberSlots(batch);
+		return living > 0
+			&& IsCampaignDebugEscalationExactCounterattackGroupRosterExact(group, living)
+			&& !group.m_bSpawnedEntity
+			&& group.m_iSpawnedAgentCount == 0
+			&& !m_PhysicalWar.GetForceSpawnGroupRoot(group)
+			&& m_PhysicalWar.CountForceSpawnRuntimeMembers(group) == 0
+			&& m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId) == 0
+			&& m_ForceSpawnAdapter.CountHandlesForResultId(batch.m_sResultId) == 0;
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackLiveBindingsExact(
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!batch || !group
+			|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+			|| !group.m_bSpawnedEntity || !m_PhysicalWar.GetForceSpawnGroupRoot(group))
+			return false;
+		int living = m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch);
+		if (living <= 0
+			|| m_PhysicalWar.CountForceSpawnRuntimeMembers(group) != living
+			|| m_ForceSpawnAdapter.CountHandlesForProjection(batch.m_sProjectionId)
+				!= living + 1)
+			return false;
+		string bindingFailure;
+		return IsCampaignDebugEscalationExactCounterattackGroupRosterExact(group, living)
+			&& group.m_sRuntimeEntityId == group.m_sGroupId
+			&& group.m_iSpawnedAgentCount == living
+			&& m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				m_State,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingFailure);
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackGroupRosterExact(
+		HST_ActiveGroupState group,
+		int living)
+	{
+		return group && living >= 0 && group.m_iInfantryCount == living
+			&& group.m_iDurableLivingInfantryCount == living
+			&& group.m_iLastSeenAliveCount == living
+			&& group.m_iSurvivorInfantryCount == living;
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackIdleBatch(
+		HST_ForceSpawnResultState batch)
+	{
+		return batch && (batch.m_eStatus
+			== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
+			|| batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_DEFERRED
+			|| batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_RETRYABLE);
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackOpenAuthority(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		return order && operation
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN;
+	}
+
+	protected bool IsCampaignDebugEscalationExactCounterattackTerminalLedger(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		HST_ForceManifestState manifest,
+		HST_ForceSpawnResultState batch,
+		HST_ActiveGroupState group)
+	{
+		if (!order || !operation || !manifest || batch || group
+			|| !m_EnemyCounterattackOperations)
+			return false;
+		return m_EnemyCounterattackOperations.DebugValidateTerminalLedgerAuthority(
+			m_State,
+			order).IsEmpty();
+	}
+
+	protected bool IsCampaignDebugLegacyPhysicalizableEscalationOrderType(
+		HST_EnemyOrderState order)
+	{
+		if (!order || order.m_iOperationContractVersion != 0)
+			return false;
+		return order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_QRF
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_ROADBLOCK
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_SUPPORT_CALL
+			|| order.m_eType == HST_EEnemyOrderType.HST_ENEMY_ORDER_PETROS_ATTACK;
 	}
 
 	protected void RetagCampaignDebugEscalationSupportRequests(HST_CampaignDebugEscalationProfileResult profile, int requestStartIndex, string label)
@@ -36252,6 +38055,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		line = line + string.Format(" | attack %1 -> %2 -> %3", profile.m_iAttackBefore, profile.m_iAttackAfterResourceTick, profile.m_iAttackAfterCommanderTick);
 		line = line + string.Format(" | support %1 -> %2 -> %3", profile.m_iSupportBefore, profile.m_iSupportAfterResourceTick, profile.m_iSupportAfterCommanderTick);
 		line = line + string.Format(" | orders +%1 | support +%2 | groups +%3", profile.m_iOrdersCreated, profile.m_iSupportRequestsCreated, profile.m_iActiveGroupsCreated);
+		line = line + string.Format(" | owners legacy/qrf/counter/patrol/rebuild/invalid %1/%2/%3/%4/%5/%6", profile.m_iRuntimeOwnerLegacyOrders, profile.m_iRuntimeOwnerExactQRFOrders, profile.m_iRuntimeOwnerExactCounterattackOrders, profile.m_iRuntimeOwnerExactPatrolOrders, profile.m_iRuntimeOwnerExactGarrisonRebuildOrders, profile.m_iRuntimeOwnerQuarantinedOrders + profile.m_iRuntimeOwnerUnsupportedOrders);
+		line = line + string.Format(" | exact open/terminal/invalid %1/%2/%3", profile.m_iExactCounterattackOpenOrders, profile.m_iExactCounterattackTerminalLedgers, profile.m_iExactCounterattackInvalidAuthorityRows);
+		line = line + string.Format(" | projections V/M/P/D %1/%2/%3/%4", profile.m_iExactCounterattackVirtualGroups, profile.m_iExactCounterattackMaterializingGroups, profile.m_iExactCounterattackPhysicalGroups, profile.m_iExactCounterattackDematerializingGroups);
+		line = line + string.Format(" | leaks %1", profile.m_iExactCounterattackSupportLeaks);
 		line = line + string.Format(" | resource tick %1 | commander tick %2", profile.m_bResourceTickChanged, profile.m_bCommanderTickChanged);
 		if (profile.m_iCycleCount > 0)
 			line = line + string.Format(" | cycles %1 | resource ticks %2 | commander ticks %3 | open after %4", profile.m_iCycleCount, profile.m_iResourceTicksChanged, profile.m_iCommanderTicksChanged, profile.m_iOpenOrdersAfterCycles);

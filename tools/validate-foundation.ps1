@@ -15906,15 +15906,23 @@ foreach ($requiredPhase24EscalationPhysicalizationEntry in @(
 		"ActivateCampaignDebugEscalationOrderTargetZones",
 		"IsCampaignDebugPhysicalizableEscalationOrder",
 		"m_iPhysicalizationTargetZonesActivated",
+		"RUNTIME_OWNER_LEGACY",
+		"CaptureCampaignDebugEscalationRuntimeOwner",
+		"ResetCampaignDebugEscalationRuntimeOwnerTelemetry",
+		"phase24.escalation.runtime_owner_classification",
+		"phase24.escalation.exact_counterattack_authority",
+		"exact_counterattack_open_orders",
+		"exact_counterattack_terminal_ledgers",
+		"m_iExactCounterattackDematerializingGroups",
 		"phase24.escalation.support_physicalization",
 		"physicalization_target_zones_activated",
-		"active targets +%3"
+		"legacy targets +%3"
 	)) {
 	if ($scriptText -notmatch [regex]::Escape($requiredPhase24EscalationPhysicalizationEntry)) {
-		throw "Phase 24 escalation probe must activate target zones before support physicalization: $requiredPhase24EscalationPhysicalizationEntry"
+		throw "Phase 24 escalation probe must classify runtime owners before owner-specific physicalization telemetry: $requiredPhase24EscalationPhysicalizationEntry"
 	}
 }
-Write-Host "Phase 24 escalation physicalization setup OK"
+Write-Host "Phase 24 escalation runtime-owner telemetry setup OK"
 
 $schema53Paths = @(
 	"Scripts/Game/HST/Services/HST_EnemyPatrolOperationService.c",
@@ -28012,6 +28020,7 @@ $schema69MaterializationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_M
 $schema69VirtualCombatText = Get-Content -Raw "Scripts/Game/HST/Services/HST_VirtualCombatService.c"
 $schema69GarrisonText = Get-Content -Raw "Scripts/Game/HST/Services/HST_GarrisonService.c"
 $schema69PhysicalText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PhysicalWarService.c"
+$schema69AdapterText = Get-Content -Raw "Scripts/Game/HST/Services/HST_ForceSpawnAdapterService.c"
 $schema69PersistenceText = Get-Content -Raw "Scripts/Game/HST/Services/HST_PersistenceService.c"
 $schema69MarkerText = Get-Content -Raw "Scripts/Game/HST/Services/HST_MapMarkerService.c"
 $schema69CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c"
@@ -29403,8 +29412,162 @@ foreach ($schema69FullDebugProofAssertion in @(
 		throw "Full Campaign Debug focused counterattack proof is not registered: $schema69FullDebugProofAssertion"
 	}
 }
+foreach ($schema69NativeProjectionProofEntry in @(
+	'AdvanceCampaignDebugPhase17ExactCounterattackProjectionProbe',
+	'DebugTickExactCounterattackOrderRuntime',
+	'DebugTickProjection',
+	'ValidateExactLivingProjectionBindingsForPersistence',
+	'ValidateOriginalResourceDebitAuthority',
+	'BuildCampaignDebugExactCounterattackLivingSlotFingerprint',
+	'DebugCaptureState',
+	'DebugRestoreState',
+	'DebugRetireProjectionRuntime',
+	'DebugRetireForceSpawnRuntimeByGroupId',
+	'DebugPrepareForceSpawnProjectionCleanup',
+	'DebugValidatePartialProjectionRuntimeBindings',
+	'DebugValidateOpenRuntimeAuthority',
+	'DebugValidateTerminalLedgerAuthority',
+	'IsCampaignDebugEscalationExactCounterattackMaterializationAuthorityExact',
+	'CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT',
+	'm_bSharedClockIsolationExact',
+	'm_iSuccessfulHandoffCount > 0',
+	'runtimeMembers <= durableLiving',
+	'operation.m_iLastVirtualFriendlyCount == living',
+	'group.m_sRuntimeEntityId == group.m_sGroupId',
+	'group.m_iInfantryCount = bounded;',
+	'm_iAdapterResultHandlesBefore',
+	'm_iAdapterResultHandlesAfter',
+	'HST_OPERATION_PROJECTION_MATERIALIZE',
+	'HST_OPERATION_PROJECTION_DEMATERIALIZE',
+	'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+	'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+	'phase17.counterattack.native_projection.baseline',
+	'phase17.counterattack.native_projection.materializing',
+	'phase17.counterattack.native_projection.physical',
+	'phase17.counterattack.native_projection.fold',
+	'phase17.counterattack.native_projection.continuity',
+	'phase17.counterattack.native_projection.clock_isolation',
+	'CountCampaignDebugSupportRequestsForExactEnemyOrder'
+)) {
+	if ($schema69CoordinatorText.IndexOf($schema69NativeProjectionProofEntry) -lt 0 -and
+		$schema69CommanderText.IndexOf($schema69NativeProjectionProofEntry) -lt 0 -and
+		$schema69RuntimeText.IndexOf($schema69NativeProjectionProofEntry) -lt 0 -and
+		$schema69AdapterText.IndexOf($schema69NativeProjectionProofEntry) -lt 0) {
+		throw "Schema-69 native exact-counterattack materialize/fold proof is missing: $schema69NativeProjectionProofEntry"
+	}
+}
 
-Write-Host "Schema-69 exact enemy-counterattack frozen planning, one-pool applied debit, exact pending settlement-ID and durable-survivor refund replay, debit chronology, phase-aware restore, virtual/physical casualty continuity, deterministic combat, immutable canonical ownership receipts, retryable ACTIVE resource holds, exact settlement policy, quarantine compaction retention, return/refund, conservative migration, Full Debug, and focused autotest wiring OK"
+$schema69NativeProjectionDriverBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool DriveCampaignDebugPhase17ExactCounterattackNativeSpawn('
+if ([string]::IsNullOrEmpty($schema69NativeProjectionDriverBlock) -or
+	$schema69NativeProjectionDriverBlock.IndexOf('batch.m_iNextAttemptSecond > m_State.m_iElapsedSeconds') -lt 0 -or
+	$schema69NativeProjectionDriverBlock.IndexOf('m_State.m_iElapsedSeconds = batch.m_iNextAttemptSecond') -ge 0) {
+	throw "Schema-69 staged native projection must wait on the real campaign clock without publishing synthetic future time"
+}
+$schema69ScopedAdapterBlock = Get-ScriptMethodBlock $schema69AdapterText 'HST_ForceSpawnAdapterTickResult DebugTickProjection('
+if ([string]::IsNullOrEmpty($schema69ScopedAdapterBlock) -or
+	$schema69ScopedAdapterBlock.IndexOf('ReconcileDeletedStagedHandles(') -lt 0 -or
+	$schema69ScopedAdapterBlock.IndexOf('projectionId);') -lt 0) {
+	throw "Schema-69 scoped native projection must retain production deleted-staged-handle reconciliation"
+}
+$schema69EmergencyProjectionCleanupBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool CleanupCampaignDebugPhase17ExactCounterattackProjectionResidue('
+if ([string]::IsNullOrEmpty($schema69EmergencyProjectionCleanupBlock) -or
+	$schema69EmergencyProjectionCleanupBlock.IndexOf('DebugRetireProjectionRuntime(') -lt 0 -or
+	$schema69EmergencyProjectionCleanupBlock.IndexOf('CountHandlesForResultId(') -lt 0 -or
+	$schema69EmergencyProjectionCleanupBlock.IndexOf('m_aForceSpawnResults.Remove') -lt 0 -or
+	$schema69EmergencyProjectionCleanupBlock.IndexOf('m_aActiveGroups.Remove') -lt 0) {
+	throw "Schema-69 failed native projection must release its focal runtime even after the debug order disappears"
+}
+$schema69AdapterEmergencyRetireBlock = Get-ScriptMethodBlock $schema69AdapterText 'HST_ForceSpawnAdapterRetireResult DebugRetireProjectionRuntime('
+$schema69PhysicalEmergencyRetireBlock = Get-ScriptMethodBlock $schema69PhysicalText 'bool DebugRetireForceSpawnRuntimeByGroupId('
+if ([string]::IsNullOrEmpty($schema69AdapterEmergencyRetireBlock) -or
+	$schema69AdapterEmergencyRetireBlock.IndexOf('DebugRetireForceSpawnRuntimeByGroupId(') -lt 0 -or
+	$schema69AdapterEmergencyRetireBlock.IndexOf('DebugValidateOrphanProjectionRetirementScope(') -lt 0 -or
+	$schema69AdapterEmergencyRetireBlock.IndexOf('DebugValidateForceSpawnOrphanHandleScope(') -lt 0 -or
+	$schema69AdapterEmergencyRetireBlock.IndexOf('DebugRetireForceSpawnOrphanHandleEntity(') -lt 0 -or
+	$schema69AdapterEmergencyRetireBlock.IndexOf('orphanHandle.m_sResultId != resultId') -lt 0 -or
+	$schema69AdapterEmergencyRetireBlock.IndexOf('CountHandlesForResultId(resultId) == 0') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69PhysicalEmergencyRetireBlock) -or
+	$schema69PhysicalEmergencyRetireBlock.IndexOf('m_aForceSpawnOwnedGroupIds.Remove') -lt 0 -or
+	$schema69PhysicalEmergencyRetireBlock.IndexOf('CleanupRuntimeGroupEntityForDebug(groupId);') -lt 0) {
+	throw "Schema-69 emergency cleanup must retire process-local runtime by deterministic group id when its durable group row is missing"
+}
+$schema69OrphanRetireScopeBlock = Get-ScriptMethodBlock $schema69AdapterText 'protected bool DebugValidateOrphanProjectionRetirementScope('
+$schema69OrphanEntityRetireBlock = Get-ScriptMethodBlock $schema69PhysicalText 'bool DebugRetireForceSpawnOrphanHandleEntity('
+if ([string]::IsNullOrEmpty($schema69OrphanRetireScopeBlock) -or
+	$schema69OrphanRetireScopeBlock.IndexOf('durableGroup.m_sProjectionId == projectionId') -lt 0 -or
+	$schema69OrphanRetireScopeBlock.IndexOf('durableGroup.m_sGroupId == projectionId') -lt 0 -or
+	$schema69OrphanRetireScopeBlock.IndexOf('candidateBatchOwner.m_sProjectionId == candidate.m_sProjectionId') -lt 0 -or
+	$schema69OrphanRetireScopeBlock.IndexOf('candidateGroupOwner.m_sGroupId == candidate.m_sProjectionId') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69OrphanEntityRetireBlock) -or
+	$schema69OrphanEntityRetireBlock.IndexOf('IsRuntimeHandleTrackedByAnotherGroup(groupId, entity)') -lt 0 -or
+	$schema69OrphanEntityRetireBlock.IndexOf('SCR_EntityHelper.DeleteEntityAndChildren(entity);') -lt 0 -or
+	$schema69OrphanEntityRetireBlock.IndexOf('!entity.IsDeleted()') -lt 0) {
+	throw "Schema-69 orphan cleanup must refuse foreign durable/runtime owners and explicitly retire adapter-only entities"
+}
+$schema69ProjectionBaselineBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool CaptureCampaignDebugPhase17ExactCounterattackProjectionBaseline('
+$schema69ProjectionBaselineRuntimeBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugPhase17ExactCounterattackBaselineRuntimeExact('
+$schema69ProjectionFinalBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void CaptureCampaignDebugPhase17ExactCounterattackProjectionFinal('
+$schema69ProjectionFoldBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugPhase17ExactCounterattackFoldExact('
+if ([string]::IsNullOrEmpty($schema69ProjectionBaselineBlock) -or
+	$schema69ProjectionBaselineBlock.IndexOf('CountHandlesForResultId(batch.m_sResultId)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69ProjectionBaselineRuntimeBlock) -or
+	$schema69ProjectionBaselineRuntimeBlock.IndexOf('probe.m_iAdapterResultHandlesBefore != 0') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69ProjectionFinalBlock) -or
+	$schema69ProjectionFinalBlock.IndexOf('CountHandlesForResultId(batch.m_sResultId)') -lt 0 -or
+	[string]::IsNullOrEmpty($schema69ProjectionFoldBlock) -or
+	$schema69ProjectionFoldBlock.IndexOf('probe.m_iAdapterResultHandlesAfter != 0') -lt 0) {
+	throw "Schema-69 native projection VIRTUAL boundaries must reject both projection-key and result-key adapter residue"
+}
+$schema69ProjectionRuntimeOpenBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugPhase17ExactCounterattackProjectionRuntimeOpen('
+if ([string]::IsNullOrEmpty($schema69ProjectionRuntimeOpenBlock) -or
+	$schema69ProjectionRuntimeOpenBlock.IndexOf('CountHandlesForProjection(projectionId) > 0') -lt 0 -or
+	$schema69ProjectionRuntimeOpenBlock.IndexOf('CountHandlesForResultId(') -lt 0) {
+	throw "Schema-69 native projection failure cleanup must detect both projection-key and result-key runtime residue"
+}
+$schema69ProjectionAdvanceBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool AdvanceCampaignDebugPhase17ExactCounterattackProjectionProbe('
+$schema69ProjectionFatalStopBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected void StopCampaignDebugRunAfterFatalExactCounterattackOrderLoss('
+if ([string]::IsNullOrEmpty($schema69ProjectionAdvanceBlock) -or
+	$schema69ProjectionAdvanceBlock.IndexOf('StopCampaignDebugRunAfterFatalExactCounterattackOrderLoss(probe);') -lt 0 -or
+	([regex]::Matches($schema69ProjectionAdvanceBlock, 'StopCampaignDebugRunAfterFatalExactCounterattackOrderLoss\(probe\);')).Count -ne 2 -or
+	[string]::IsNullOrEmpty($schema69ProjectionFatalStopBlock) -or
+	$schema69ProjectionFatalStopBlock.IndexOf('phase17.counterattack.native_projection.order_retained') -lt 0 -or
+	$schema69ProjectionFatalStopBlock.IndexOf('RecordCampaignDebugCase(fatalCase, false);') -lt 0 -or
+	$schema69ProjectionFatalStopBlock.IndexOf('m_bCampaignDebugRunning = false;') -lt 0 -or
+	$schema69ProjectionFatalStopBlock.IndexOf('m_bCampaignDebugCompleted = true;') -lt 0 -or
+	$schema69ProjectionFatalStopBlock.IndexOf('RestoreCampaignDebugStateSnapshot(') -lt 0 -or
+	$schema69ProjectionFatalStopBlock.IndexOf('SaveCampaignDebugRunArtifacts();') -lt 0 -or
+	$schema69ProjectionFatalStopBlock.IndexOf('aborted/fatal invariant') -lt 0) {
+	throw "Schema-69 native projection must stop and restore the isolated run if its exact order owner disappears"
+}
+$schema69MaterializingAuthorityBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugEscalationExactCounterattackMaterializingAuthorityExact('
+foreach ($schema69MaterializingAuthorityEntry in @(
+	'IsCampaignDebugEscalationExactCounterattackGroupRosterExact(',
+	'DebugValidatePartialProjectionRuntimeBindings(',
+	'runtimeMembers > 0 && !runtimeRoot',
+	'handles != expectedHandles',
+	'!runtimeRoot && runtimeMembers == 0 && handles == 0',
+	'batch.m_sNativeGroupId.IsEmpty()'
+)) {
+	if ([string]::IsNullOrEmpty($schema69MaterializingAuthorityBlock) -or
+		$schema69MaterializingAuthorityBlock.IndexOf($schema69MaterializingAuthorityEntry) -lt 0) {
+		throw "Schema-69 MATERIALIZING telemetry must require one exact roster/root/member/handle topology: $schema69MaterializingAuthorityEntry"
+	}
+}
+$schema69DematerializingAuthorityBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugEscalationExactCounterattackDematerializingAuthorityExact('
+if ([string]::IsNullOrEmpty($schema69DematerializingAuthorityBlock) -or
+	$schema69DematerializingAuthorityBlock.IndexOf('DebugValidatePartialProjectionRuntimeBindings(') -lt 0 -or
+	$schema69DematerializingAuthorityBlock.IndexOf('(runtimeMembers == 0 || runtimeRoot)') -lt 0) {
+	throw "Schema-69 DEMATERIALIZING telemetry must retain a native group root while runtime members remain"
+}
+$schema69VirtualAuthorityBlock = Get-ScriptMethodBlock $schema69CoordinatorText 'protected bool IsCampaignDebugEscalationExactCounterattackVirtualAuthorityExact('
+if ([string]::IsNullOrEmpty($schema69VirtualAuthorityBlock) -or
+	$schema69VirtualAuthorityBlock.IndexOf('CountHandlesForProjection(batch.m_sProjectionId) == 0') -lt 0 -or
+	$schema69VirtualAuthorityBlock.IndexOf('CountHandlesForResultId(batch.m_sResultId) == 0') -lt 0 -or
+	$schema69DematerializingAuthorityBlock.IndexOf('CountHandlesForResultId(batch.m_sResultId) == 0') -lt 0) {
+	throw "Schema-69 virtual and fully folded telemetry must reject projection-key or result-key adapter residue"
+}
+
+Write-Host "Schema-69 exact enemy-counterattack frozen planning, one-pool applied debit, exact pending settlement-ID and durable-survivor refund replay, debit chronology, phase-aware restore, virtual/physical casualty continuity, native materialize/fold, deterministic combat, immutable canonical ownership receipts, retryable ACTIVE resource holds, exact settlement policy, quarantine compaction retention, return/refund, conservative migration, Full Debug, and focused autotest wiring OK"
 
 $schema70TypesPath = Join-Path $root 'Scripts/Game/HST/HST_Types.c'
 $schema70StatePath = Join-Path $root 'Scripts/Game/HST/State/HST_CampaignState.c'

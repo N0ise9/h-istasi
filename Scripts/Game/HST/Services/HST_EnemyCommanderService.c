@@ -321,6 +321,25 @@ class HST_EnemyCommanderService
 		return ConsumePreparedPeriodicDecision(state, preset, enemyDirector, support, planning);
 	}
 
+	// Campaign Debug proof hook: validates the focal runtime owner and executes
+	// only that exact counterattack through its production runtime service.
+	bool DebugTickExactCounterattackOrderRuntime(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyDirectorService enemyDirector,
+		HST_EnemyOrderState order)
+	{
+		if (!state || !preset || !enemyDirector || !order
+			|| !m_ExactEnemyCounterattack
+			|| ResolveRuntimeOwner(order) != RUNTIME_OWNER_EXACT_COUNTERATTACK)
+			return false;
+		return m_ExactEnemyCounterattack.TickOrder(
+			state,
+			preset,
+			enemyDirector,
+			order);
+	}
+
 	// Campaign Debug proof hook: observes the exact persisted candidate-set hash.
 	string DebugBuildTargetCandidateFingerprint(
 		HST_EnemyTargetScoreResult candidates,
