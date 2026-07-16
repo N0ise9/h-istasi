@@ -31,6 +31,40 @@ class HST_EnemyCounterattackOutboundVirtualExpectation
 }
 
 [BaseContainerProps()]
+class HST_EnemyCounterattackPreparedSettlementExpectation
+{
+	string m_sOrderId;
+	string m_sOperationId;
+	string m_sManifestId;
+	string m_sManifestHash;
+	string m_sBatchId;
+	string m_sGroupId;
+	string m_sProjectionId;
+	string m_sForceId;
+	string m_sFactionKey;
+	string m_sSourceZoneId;
+	string m_sTargetZoneId;
+	string m_sDebitMutationId;
+	string m_sSettlementKind;
+	string m_sSettlementId;
+	string m_sRefundMutationId;
+	string m_sReason;
+	int m_iAttackCost;
+	int m_iSupportCost;
+	int m_iAccepted;
+	int m_iSurvivors;
+	int m_iAttackRefund;
+	int m_iSupportRefund;
+	int m_iExpectedAttackPool;
+	int m_iExpectedSupportPool;
+	int m_iExpectedPoolRevision;
+	int m_iExpectedPoolOperationalMutationCount;
+	string m_sExpectedLastStrategicMutationId;
+	int m_iPreparedAtSecond;
+	int m_iExpectedTerminalRevision;
+}
+
+[BaseContainerProps()]
 class HST_EnemyCounterattackExternalRestartOwner
 {
 	string m_sMagic;
@@ -91,6 +125,27 @@ class HST_EnemyCounterattackExternalRestartCarrier
 	int m_iExpectedPhysicalRuntimeMemberCount;
 	string m_sPreparedSemanticFingerprint;
 	string m_sRawPreparedCutSemanticFingerprint;
+
+	int m_iAccepted;
+	int m_iCasualties;
+	int m_iSurvivors;
+	int m_iAttackRefund;
+	int m_iSupportRefund;
+	int m_iAttackBeforeRefund;
+	int m_iSupportBeforeRefund;
+	int m_iPreparedAtSecond;
+	int m_iPrefixRevision;
+	int m_iExpectedPrefixMutationCount;
+	int m_iExpectedPrefixAttackDelta;
+	int m_iExpectedPrefixSupportDelta;
+	bool m_bExpectedPrefixReceiptApplied;
+	string m_sSettlementKind;
+	string m_sSettlementId;
+	string m_sRefundMutationId;
+	string m_sReason;
+
+	ref HST_EnemyCounterattackPreparedSettlementExpectation m_SettlementExpectation;
+	string m_sPreparedSettlementFingerprint;
 }
 
 [BaseContainerProps()]

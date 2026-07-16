@@ -15,6 +15,9 @@ class HST_EnemyCounterattackExternalRestartProofService
 	static const string CUT_MATERIALIZING_CHECKPOINT_DEFERRED
 		= "materializing_checkpoint_deferred";
 	static const string CUT_PHYSICAL_LIVE_POSITION = "physical_live_position";
+	static const string CUT_PREPARED_BEFORE_REFUND = "prepared_before_refund";
+	static const string CUT_PREPARED_AFTER_REFUND = "prepared_after_refund";
+	static const string CUT_PREPARED_AFTER_RECEIPT = "prepared_after_receipt";
 	static const string STAGE_PREPARE = "prepare";
 	static const string STAGE_RECOVER = "recover";
 	static const string STAGE_REPLAY = "replay";
@@ -92,6 +95,12 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return 2;
 		if (cutName == CUT_PHYSICAL_LIVE_POSITION)
 			return 3;
+		if (cutName == CUT_PREPARED_BEFORE_REFUND)
+			return 4;
+		if (cutName == CUT_PREPARED_AFTER_REFUND)
+			return 5;
+		if (cutName == CUT_PREPARED_AFTER_RECEIPT)
+			return 6;
 		return -1;
 	}
 
@@ -105,7 +114,20 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return CUT_MATERIALIZING_CHECKPOINT_DEFERRED;
 		if (cut == 3)
 			return CUT_PHYSICAL_LIVE_POSITION;
+		if (cut == 4)
+			return CUT_PREPARED_BEFORE_REFUND;
+		if (cut == 5)
+			return CUT_PREPARED_AFTER_REFUND;
+		if (cut == 6)
+			return CUT_PREPARED_AFTER_RECEIPT;
 		return "";
+	}
+
+	static bool IsPreparedSettlementCut(string cutName)
+	{
+		return cutName == CUT_PREPARED_BEFORE_REFUND
+			|| cutName == CUT_PREPARED_AFTER_REFUND
+			|| cutName == CUT_PREPARED_AFTER_RECEIPT;
 	}
 
 	static bool ValidateStage(string stage)
@@ -388,6 +410,154 @@ class HST_EnemyCounterattackExternalRestartProofService
 		return true;
 	}
 
+	protected static bool ValidatePreparedSettlementCarrier(
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		string expectedCut,
+		out string evidence)
+	{
+		evidence = "external counterattack prepared-settlement carrier rejected";
+		if (!carrier || !IsPreparedSettlementCut(expectedCut)
+			|| !carrier.m_SettlementExpectation)
+			return false;
+
+		HST_EnemyCounterattackPreparedSettlementExpectation expectation
+			= carrier.m_SettlementExpectation;
+		if (expectation.m_sOrderId.IsEmpty()
+			|| expectation.m_sOperationId.IsEmpty()
+			|| expectation.m_sManifestId.IsEmpty()
+			|| expectation.m_sManifestHash.IsEmpty()
+			|| expectation.m_sBatchId.IsEmpty()
+			|| expectation.m_sGroupId.IsEmpty()
+			|| expectation.m_sProjectionId.IsEmpty()
+			|| expectation.m_sForceId.IsEmpty()
+			|| expectation.m_sFactionKey.IsEmpty()
+			|| expectation.m_sSourceZoneId.IsEmpty()
+			|| expectation.m_sTargetZoneId.IsEmpty()
+			|| expectation.m_sDebitMutationId.IsEmpty())
+		{
+			evidence = "external counterattack prepared-settlement aggregate identity rejected";
+			return false;
+		}
+		if (expectation.m_sSourceZoneId == expectation.m_sTargetZoneId)
+		{
+			evidence = "external counterattack prepared-settlement source and target conflict";
+			return false;
+		}
+
+		bool attackFunded = expectation.m_iAttackCost > 0
+			&& expectation.m_iSupportCost == 0;
+		bool supportFunded = expectation.m_iSupportCost > 0
+			&& expectation.m_iAttackCost == 0;
+		if (!attackFunded && !supportFunded)
+		{
+			evidence = "external counterattack prepared-settlement one-pool funding rejected";
+			return false;
+		}
+		if (carrier.m_iAccepted <= 1 || carrier.m_iCasualties <= 0
+			|| carrier.m_iSurvivors <= 0
+			|| carrier.m_iSurvivors
+				!= carrier.m_iAccepted - carrier.m_iCasualties
+			|| expectation.m_iAccepted != carrier.m_iAccepted
+			|| expectation.m_iSurvivors != carrier.m_iSurvivors
+			|| expectation.m_iAttackRefund != carrier.m_iAttackRefund
+			|| expectation.m_iSupportRefund != carrier.m_iSupportRefund)
+		{
+			evidence = "external counterattack prepared-settlement survivor tuple rejected";
+			return false;
+		}
+		int expectedAttackRefund = expectation.m_iAttackCost
+			* carrier.m_iSurvivors / carrier.m_iAccepted;
+		int expectedSupportRefund = expectation.m_iSupportCost
+			* carrier.m_iSurvivors / carrier.m_iAccepted;
+		if (carrier.m_iAttackRefund != expectedAttackRefund
+			|| carrier.m_iSupportRefund != expectedSupportRefund
+			|| carrier.m_iAttackRefund + carrier.m_iSupportRefund <= 0)
+		{
+			evidence = "external counterattack prepared-settlement proportional refund rejected";
+			return false;
+		}
+
+		if (carrier.m_sSettlementKind != "route_failed_survivors"
+			|| expectation.m_sSettlementKind != carrier.m_sSettlementKind
+			|| expectation.m_sSettlementId != carrier.m_sSettlementId
+			|| expectation.m_sRefundMutationId != carrier.m_sRefundMutationId
+			|| expectation.m_sReason != carrier.m_sReason
+			|| carrier.m_sReason.IsEmpty()
+			|| carrier.m_sSettlementId
+				!= HST_OperationService.BuildSettlementId(
+					expectation.m_sOperationId,
+					carrier.m_sSettlementKind)
+			|| carrier.m_sRefundMutationId
+				!= "enemy_resource_refund_" + carrier.m_sSettlementId)
+		{
+			evidence = "external counterattack prepared-settlement deterministic identity rejected";
+			return false;
+		}
+
+		int expectedPrefixMutationCount;
+		int expectedPrefixAttackDelta;
+		int expectedPrefixSupportDelta;
+		bool expectedPrefixReceiptApplied;
+		if (expectedCut == CUT_PREPARED_AFTER_REFUND
+			|| expectedCut == CUT_PREPARED_AFTER_RECEIPT)
+		{
+			expectedPrefixMutationCount = 1;
+			expectedPrefixAttackDelta = carrier.m_iAttackRefund;
+			expectedPrefixSupportDelta = carrier.m_iSupportRefund;
+		}
+		if (expectedCut == CUT_PREPARED_AFTER_RECEIPT)
+			expectedPrefixReceiptApplied = true;
+		if (carrier.m_iExpectedPrefixMutationCount
+				!= expectedPrefixMutationCount
+			|| carrier.m_iExpectedPrefixAttackDelta
+				!= expectedPrefixAttackDelta
+			|| carrier.m_iExpectedPrefixSupportDelta
+				!= expectedPrefixSupportDelta
+			|| carrier.m_bExpectedPrefixReceiptApplied
+				!= expectedPrefixReceiptApplied)
+		{
+			evidence = "external counterattack prepared-settlement prefix policy rejected";
+			return false;
+		}
+
+		int expectedTerminalRevision = carrier.m_iPrefixRevision + 2;
+		if (expectedPrefixReceiptApplied)
+			expectedTerminalRevision = carrier.m_iPrefixRevision + 1;
+		if (carrier.m_iPreparedAtSecond <= 0 || carrier.m_iPrefixRevision <= 0
+			|| expectation.m_iPreparedAtSecond != carrier.m_iPreparedAtSecond
+			|| expectation.m_iExpectedTerminalRevision
+				!= expectedTerminalRevision
+			|| carrier.m_iAttackBeforeRefund < 0
+			|| carrier.m_iSupportBeforeRefund < 0
+			|| expectation.m_iExpectedAttackPool
+				!= carrier.m_iAttackBeforeRefund + carrier.m_iAttackRefund
+			|| expectation.m_iExpectedSupportPool
+				!= carrier.m_iSupportBeforeRefund + carrier.m_iSupportRefund
+			|| expectation.m_iExpectedPoolRevision <= 0
+			|| expectation.m_iExpectedPoolOperationalMutationCount != 2
+			|| expectation.m_sExpectedLastStrategicMutationId
+				!= carrier.m_sRefundMutationId)
+		{
+			evidence = "external counterattack prepared-settlement terminal expectation rejected";
+			return false;
+		}
+
+		if (carrier.m_sPreparedSettlementFingerprint.IsEmpty()
+			|| carrier.m_sPreparedSettlementFingerprint
+				!= carrier.m_sPreparedSemanticFingerprint
+			|| carrier.m_sRawPreparedCutSemanticFingerprint
+				!= carrier.m_sPreparedSemanticFingerprint
+			|| carrier.m_iExpectedPhysicalAdapterHandleCount != 0
+			|| carrier.m_iExpectedPhysicalRuntimeMemberCount != 0)
+		{
+			evidence = "external counterattack prepared-settlement fingerprint or physical count rejected";
+			return false;
+		}
+
+		evidence = "external counterattack prepared-settlement carrier exact";
+		return true;
+	}
+
 	static bool ValidateCarrier(
 		HST_EnemyCounterattackExternalRestartCarrier carrier,
 		string expectedSessionNonce,
@@ -423,10 +593,17 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return false;
 		}
 		if (carrier.m_sCutName != expectedCut || carrier.m_iCut != expectedCutValue
-			|| !carrier.m_Expectation || carrier.m_sPreparedSemanticFingerprint.IsEmpty()
+			|| carrier.m_sPreparedSemanticFingerprint.IsEmpty()
 			|| carrier.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
 		{
 			evidence = "external counterattack restart carrier cut or fingerprint rejected";
+			return false;
+		}
+		if (IsPreparedSettlementCut(expectedCut))
+			return ValidatePreparedSettlementCarrier(carrier, expectedCut, evidence);
+		if (!carrier.m_Expectation)
+		{
+			evidence = "external counterattack restart carrier movement expectation rejected";
 			return false;
 		}
 
@@ -631,6 +808,61 @@ class HST_EnemyCounterattackExternalRestartProofService
 			evidence);
 	}
 
+	protected static bool ValidatePreparedSettlementResult(
+		HST_EnemyCounterattackExternalRestartResult result,
+		string expectedStage,
+		out string evidence)
+	{
+		evidence = "external counterattack prepared-settlement result rejected";
+		if (!result || !result.m_bPreparedCutExact
+			|| !result.m_bCasualtyContinuityExact
+			|| result.m_iPhysicalAdapterHandleCount != 0
+			|| result.m_iPhysicalRuntimeMemberCount != 0
+			|| result.m_bPhysicalBindingsExact
+			|| result.m_bLivePositionRefreshExact
+			|| result.m_bPhysicalCaptureNormalizedExact)
+			return false;
+
+		if (expectedStage == STAGE_PREPARE)
+		{
+			if (result.m_bRestored || result.m_bStartupReconcileChanged
+				|| result.m_bContinuationExact
+				|| result.m_bSameStateSemanticNoOp
+				|| result.m_sSourceSemanticFingerprint
+					!= result.m_sFinalSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					!= result.m_sSourceSemanticFingerprint)
+				return false;
+		}
+		else if (expectedStage == STAGE_RECOVER)
+		{
+			if (!result.m_bRestored || !result.m_bStartupReconcileChanged
+				|| !result.m_bContinuationExact
+				|| !result.m_bSameStateSemanticNoOp
+				|| result.m_sSourceSemanticFingerprint
+					== result.m_sFinalSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					!= result.m_sSourceSemanticFingerprint)
+				return false;
+		}
+		else if (expectedStage == STAGE_REPLAY)
+		{
+			if (!result.m_bRestored || result.m_bStartupReconcileChanged
+				|| result.m_bContinuationExact
+				|| !result.m_bSameStateSemanticNoOp
+				|| result.m_sSourceSemanticFingerprint
+					!= result.m_sFinalSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					== result.m_sSourceSemanticFingerprint)
+				return false;
+		}
+		else
+			return false;
+
+		evidence = "external counterattack prepared-settlement result exact";
+		return true;
+	}
+
 	static bool ValidateResult(
 		HST_EnemyCounterattackExternalRestartResult result,
 		string expectedSessionNonce,
@@ -672,6 +904,13 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| result.m_sFinalSemanticFingerprint.IsEmpty()
 			|| result.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
 			return false;
+		if (IsPreparedSettlementCut(expectedCut))
+		{
+			return ValidatePreparedSettlementResult(
+				result,
+				expectedStage,
+				evidence);
+		}
 		if ((expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
 			|| expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED
 			|| physicalCut)

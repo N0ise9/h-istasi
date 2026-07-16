@@ -3839,6 +3839,280 @@ class HST_EnemyCounterattackOperationProofService
 		return count;
 	}
 
+	bool PrepareExternalPreparedSettlementRestartCarrier(
+		string sessionNonce,
+		string runId,
+		string world,
+		string cutName,
+		out HST_CampaignState stagedState,
+		out HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		stagedState = null;
+		carrier = null;
+		evidence = "external exact counterattack prepared settlement rejected";
+		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(
+				sessionNonce)
+			|| !HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(runId)
+			|| world.IsEmpty())
+			return false;
+		bool beforeRefund = cutName
+			== HST_EnemyCounterattackExternalRestartProofService
+				.CUT_PREPARED_BEFORE_REFUND;
+		bool afterRefund = cutName
+			== HST_EnemyCounterattackExternalRestartProofService
+				.CUT_PREPARED_AFTER_REFUND;
+		bool afterReceipt = cutName
+			== HST_EnemyCounterattackExternalRestartProofService
+				.CUT_PREPARED_AFTER_RECEIPT;
+		if (!beforeRefund && !afterRefund && !afterReceipt)
+			return false;
+
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture(
+				"external_prepared_settlement_" + cutName);
+		if (!m_Fixtures.Ready(fixture))
+		{
+			evidence = m_Fixtures.Failure(fixture);
+			return false;
+		}
+		int accepted = fixture.m_Manifest.m_iAcceptedMemberCount;
+		int initialLiving = fixture.m_Queue.CountStrategicLivingMemberSlots(
+			fixture.m_Batch);
+		if (accepted <= 1 || initialLiving != accepted)
+		{
+			evidence = string.Format(
+				"nondegenerate admitted counterattack roster unavailable: %1/%2",
+				accepted,
+				initialLiving);
+			return false;
+		}
+
+		string casualtySlotId = fixture.m_Queue.SelectStrategicLivingMemberSlotId(
+			fixture.m_Batch,
+			fixture.m_Operation.m_iDeterministicSeed + 73);
+		HST_ForceSpawnQueueCallbackResult casualty
+			= fixture.m_Queue.ConfirmStrategicMemberCasualty(
+				fixture.m_State.m_aForceSpawnResults,
+				fixture.m_Manifest,
+				fixture.m_Batch.m_sResultId,
+				fixture.m_Batch.m_sProjectionId,
+				casualtySlotId,
+				fixture.m_State.m_iElapsedSeconds + 1,
+				"external prepared counterattack settlement confirmed casualty");
+		int survivors = fixture.m_Queue.CountStrategicLivingMemberSlots(
+			fixture.m_Batch);
+		if (!casualty || !casualty.m_bAccepted || survivors <= 0
+			|| survivors >= accepted || survivors != accepted - 1)
+		{
+			evidence = string.Format(
+				"nondegenerate counterattack casualty roster failed: %1/%2",
+				accepted,
+				survivors);
+			return false;
+		}
+
+		string settlementKind = "route_failed_survivors";
+		string reason
+			= "external exact counterattack durable prepared settlement restart proof";
+		if (!StagePreparedSettlementWithSurvivors(
+			fixture,
+			settlementKind,
+			HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_ROUTE_FAILED,
+			reason,
+			true,
+			survivors))
+		{
+			evidence = "counterattack PREPARED settlement staging failed";
+			return false;
+		}
+
+		HST_FactionPoolState pool = fixture.m_State.FindFactionPool(
+			fixture.m_Order.m_sFactionKey);
+		if (!pool)
+			return false;
+		int attackBeforeRefund = pool.m_iAttackResources;
+		int supportBeforeRefund = pool.m_iSupportResources;
+		int poolRevisionBeforeRefund = pool.m_iStrategicRevision;
+		int operationalMutationsBeforeRefund
+			= pool.m_iStrategicOperationalMutationCount;
+		if ((afterRefund || afterReceipt)
+			&& !ApplyPreparedRefund(fixture, reason))
+		{
+			evidence = "counterattack deterministic prepared refund staging failed";
+			return false;
+		}
+		if (afterReceipt)
+		{
+			HST_OperationService operations = new HST_OperationService();
+			HST_OperationTransitionResult recorded
+				= operations.RecordExactEnemyCounterattackResourceSettlement(
+						fixture.m_State,
+						fixture.m_Order,
+						fixture.m_Order.m_sResourceSettlementKind,
+						fixture.m_Order.m_iSettlementAcceptedMemberCount,
+						fixture.m_Order.m_iSettlementSurvivorMemberCount);
+			if (!recorded || !recorded.m_bAccepted
+				|| !fixture.m_Order.m_bResourceSettlementApplied
+				|| fixture.m_Operation.m_eSettlementState
+					!= HST_EOperationSettlementState
+						.HST_OPERATION_SETTLEMENT_PREPARED)
+			{
+				evidence = "counterattack prepared resource receipt staging failed";
+				return false;
+			}
+		}
+
+		HST_EnemyCounterattackPreparedSettlementExpectation expectation
+			= BuildExternalPreparedSettlementExpectation(
+				fixture,
+				attackBeforeRefund,
+				supportBeforeRefund,
+				poolRevisionBeforeRefund,
+				operationalMutationsBeforeRefund);
+		if (!expectation)
+			return false;
+
+		carrier = new HST_EnemyCounterattackExternalRestartCarrier();
+		carrier.m_sMagic
+			= HST_EnemyCounterattackExternalRestartProofService.CARRIER_MAGIC;
+		carrier.m_sSessionNonce = sessionNonce;
+		carrier.m_sRunId = runId;
+		carrier.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		carrier.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		carrier.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		carrier.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		carrier.m_sWorld = world;
+		carrier.m_sCutName = cutName;
+		carrier.m_iCut
+			= HST_EnemyCounterattackExternalRestartProofService.ResolveCut(cutName);
+		carrier.m_iAccepted = accepted;
+		carrier.m_iCasualties = accepted - survivors;
+		carrier.m_iSurvivors = survivors;
+		carrier.m_iAttackRefund = fixture.m_Order.m_iRefundedAttackResources;
+		carrier.m_iSupportRefund = fixture.m_Order.m_iRefundedSupportResources;
+		carrier.m_iAttackBeforeRefund = attackBeforeRefund;
+		carrier.m_iSupportBeforeRefund = supportBeforeRefund;
+		carrier.m_iPreparedAtSecond = fixture.m_Operation.m_iSettledAtSecond;
+		carrier.m_iPrefixRevision = fixture.m_Operation.m_iRevision;
+		carrier.m_iExpectedPrefixMutationCount = 0;
+		carrier.m_iExpectedPrefixAttackDelta = 0;
+		carrier.m_iExpectedPrefixSupportDelta = 0;
+		carrier.m_bExpectedPrefixReceiptApplied = afterReceipt;
+		if (afterRefund || afterReceipt)
+		{
+			carrier.m_iExpectedPrefixMutationCount = 1;
+			carrier.m_iExpectedPrefixAttackDelta = carrier.m_iAttackRefund;
+			carrier.m_iExpectedPrefixSupportDelta = carrier.m_iSupportRefund;
+		}
+		carrier.m_sSettlementKind = settlementKind;
+		carrier.m_sSettlementId = fixture.m_Order.m_sResourceSettlementId;
+		carrier.m_sRefundMutationId
+			= fixture.m_Order.m_sResourceRefundMutationId;
+		carrier.m_sReason = reason;
+		carrier.m_iExpectedPhysicalAdapterHandleCount = 0;
+		carrier.m_iExpectedPhysicalRuntimeMemberCount = 0;
+		carrier.m_SettlementExpectation = expectation;
+		carrier.m_sPreparedSettlementFingerprint
+			= BuildExternalPreparedSettlementFingerprint(
+				fixture.m_State,
+				carrier);
+		carrier.m_sPreparedSemanticFingerprint
+			= carrier.m_sPreparedSettlementFingerprint;
+		carrier.m_sRawPreparedCutSemanticFingerprint
+			= carrier.m_sPreparedSettlementFingerprint;
+
+		string preparedFingerprint;
+		string preparedEvidence;
+		string runtimeEvidence;
+		bool exact = ValidateExternalPreparedSettlementState(
+			fixture.m_State,
+			carrier,
+			preparedFingerprint,
+			preparedEvidence)
+			&& ValidateExternalRuntimeClaimantsZero(
+				fixture.m_State,
+				carrier,
+				fixture.m_Adapter,
+				fixture.m_PhysicalWar,
+				runtimeEvidence);
+		if (!exact)
+		{
+			carrier = null;
+			evidence = preparedEvidence + " | " + runtimeEvidence;
+			return false;
+		}
+		stagedState = fixture.m_State;
+		evidence = string.Format(
+			"external counterattack PREPARED cut %1 | roster %2/%3 | refund %4/%5 | receipt %6",
+			cutName,
+			survivors,
+			accepted,
+			carrier.m_iAttackRefund,
+			carrier.m_iSupportRefund,
+			carrier.m_bExpectedPrefixReceiptApplied);
+		return true;
+	}
+
+	bool ValidateExternalPreparedSettlementState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "external-counterattack-prepared-settlement-unavailable";
+		evidence = "external counterattack PREPARED settlement state rejected";
+		string carrierEvidence;
+		if (!state || !carrier || !carrier.m_SettlementExpectation
+			|| !HST_EnemyCounterattackExternalRestartProofService.ValidateCarrier(
+				carrier,
+				carrier.m_sSessionNonce,
+				carrier.m_sRunId,
+				carrier.m_sCutName,
+				carrier.m_sWorld,
+				carrierEvidence))
+			return false;
+		if (state.m_iSchemaVersion != carrier.m_iCampaignSchemaVersion)
+			return false;
+		fingerprint = BuildExternalPreparedSettlementFingerprint(state, carrier);
+		if (!IsExternalPreparedSettlementExact(state, carrier, evidence))
+			return false;
+		if (fingerprint != carrier.m_sPreparedSettlementFingerprint)
+		{
+			evidence = "external counterattack PREPARED settlement fingerprint mismatch";
+			return false;
+		}
+		evidence = "external counterattack PREPARED settlement state exact";
+		return true;
+	}
+
+	bool ValidateExternalTerminalSettlementState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "external-counterattack-terminal-settlement-unavailable";
+		evidence = "external counterattack terminal settlement state rejected";
+		string carrierEvidence;
+		if (!state || !carrier || !carrier.m_SettlementExpectation
+			|| !HST_EnemyCounterattackExternalRestartProofService.ValidateCarrier(
+				carrier,
+				carrier.m_sSessionNonce,
+				carrier.m_sRunId,
+				carrier.m_sCutName,
+				carrier.m_sWorld,
+				carrierEvidence))
+			return false;
+		if (state.m_iSchemaVersion != carrier.m_iCampaignSchemaVersion)
+			return false;
+		fingerprint = BuildExternalTerminalSettlementFingerprint(state, carrier);
+		if (!IsExternalTerminalSettlementExact(state, carrier, evidence))
+			return false;
+		evidence = "external counterattack terminal settlement state exact";
+		return true;
+	}
+
 	bool PrepareExternalRestartCarrier(
 		string sessionNonce,
 		string runId,
@@ -5688,6 +5962,577 @@ class HST_EnemyCounterattackOperationProofService
 		return true;
 	}
 
+	protected HST_EnemyCounterattackPreparedSettlementExpectation BuildExternalPreparedSettlementExpectation(
+			HST_EnemyCounterattackOperationProofFixture fixture,
+			int attackBeforeRefund,
+			int supportBeforeRefund,
+			int poolRevisionBeforeRefund,
+			int operationalMutationsBeforeRefund)
+	{
+		if (!m_Fixtures.Ready(fixture) || !fixture.m_Order
+			|| !fixture.m_Operation || !fixture.m_Manifest
+			|| !fixture.m_Batch || !fixture.m_Group)
+			return null;
+		HST_EnemyCounterattackPreparedSettlementExpectation expectation
+			= new HST_EnemyCounterattackPreparedSettlementExpectation();
+		expectation.m_sOrderId = fixture.m_Order.m_sOrderId;
+		expectation.m_sOperationId = fixture.m_Operation.m_sOperationId;
+		expectation.m_sManifestId = fixture.m_Manifest.m_sManifestId;
+		expectation.m_sManifestHash = fixture.m_Manifest.m_sManifestHash;
+		expectation.m_sBatchId = fixture.m_Batch.m_sResultId;
+		expectation.m_sGroupId = fixture.m_Group.m_sGroupId;
+		expectation.m_sProjectionId = fixture.m_Batch.m_sProjectionId;
+		expectation.m_sForceId = fixture.m_Batch.m_sForceId;
+		expectation.m_sFactionKey = fixture.m_Order.m_sFactionKey;
+		expectation.m_sSourceZoneId = fixture.m_Order.m_sSourceZoneId;
+		expectation.m_sTargetZoneId = fixture.m_Order.m_sTargetZoneId;
+		expectation.m_sDebitMutationId
+			= fixture.m_Order.m_sResourceDebitMutationId;
+		expectation.m_sSettlementKind
+			= fixture.m_Order.m_sResourceSettlementKind;
+		expectation.m_sSettlementId
+			= fixture.m_Order.m_sResourceSettlementId;
+		expectation.m_sRefundMutationId
+			= fixture.m_Order.m_sResourceRefundMutationId;
+		expectation.m_sReason = fixture.m_Operation.m_sTerminalReason;
+		expectation.m_iAttackCost = fixture.m_Order.m_iAttackCost;
+		expectation.m_iSupportCost = fixture.m_Order.m_iSupportCost;
+		expectation.m_iAccepted
+			= fixture.m_Order.m_iSettlementAcceptedMemberCount;
+		expectation.m_iSurvivors
+			= fixture.m_Order.m_iSettlementSurvivorMemberCount;
+		expectation.m_iAttackRefund
+			= fixture.m_Order.m_iRefundedAttackResources;
+		expectation.m_iSupportRefund
+			= fixture.m_Order.m_iRefundedSupportResources;
+		expectation.m_iExpectedAttackPool
+			= attackBeforeRefund + expectation.m_iAttackRefund;
+		expectation.m_iExpectedSupportPool
+			= supportBeforeRefund + expectation.m_iSupportRefund;
+		expectation.m_iExpectedPoolRevision = poolRevisionBeforeRefund + 1;
+		expectation.m_iExpectedPoolOperationalMutationCount
+			= operationalMutationsBeforeRefund + 1;
+		expectation.m_sExpectedLastStrategicMutationId
+			= expectation.m_sRefundMutationId;
+		expectation.m_iPreparedAtSecond
+			= fixture.m_Operation.m_iSettledAtSecond;
+		expectation.m_iExpectedTerminalRevision
+			= fixture.m_Operation.m_iRevision + 2;
+		if (fixture.m_Order.m_bResourceSettlementApplied)
+			expectation.m_iExpectedTerminalRevision
+				= fixture.m_Operation.m_iRevision + 1;
+		return expectation;
+	}
+
+	protected bool IsExternalPreparedSettlementExact(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "counterattack PREPARED settlement aggregate is incomplete";
+		if (!state || !carrier || !carrier.m_SettlementExpectation)
+			return false;
+		HST_EnemyCounterattackPreparedSettlementExpectation expected
+			= carrier.m_SettlementExpectation;
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expected.m_sManifestId);
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
+		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
+		if (!order || !operation || !manifest || !batch || !group || !pool)
+			return false;
+
+		bool carrierExact = carrier.m_iAccepted == expected.m_iAccepted
+			&& carrier.m_iCasualties
+				== expected.m_iAccepted - expected.m_iSurvivors
+			&& carrier.m_iSurvivors == expected.m_iSurvivors
+			&& carrier.m_iAttackRefund == expected.m_iAttackRefund
+			&& carrier.m_iSupportRefund == expected.m_iSupportRefund
+			&& carrier.m_iPreparedAtSecond == expected.m_iPreparedAtSecond
+			&& carrier.m_sSettlementKind == expected.m_sSettlementKind
+			&& carrier.m_sSettlementId == expected.m_sSettlementId
+			&& carrier.m_sRefundMutationId == expected.m_sRefundMutationId
+			&& carrier.m_sReason == expected.m_sReason
+			&& carrier.m_iAccepted > 1 && carrier.m_iCasualties > 0
+			&& carrier.m_iSurvivors > 0
+			&& carrier.m_iSurvivors < carrier.m_iAccepted;
+		bool identityExact = order.m_sOperationId == expected.m_sOperationId
+			&& order.m_sManifestId == expected.m_sManifestId
+			&& order.m_sManifestHash == expected.m_sManifestHash
+			&& order.m_sSpawnResultId == expected.m_sBatchId
+			&& order.m_sGroupId == expected.m_sGroupId
+			&& order.m_sFactionKey == expected.m_sFactionKey
+			&& order.m_sSourceZoneId == expected.m_sSourceZoneId
+			&& order.m_sTargetZoneId == expected.m_sTargetZoneId
+			&& order.m_sResourceDebitMutationId == expected.m_sDebitMutationId;
+		bool orderExact = order.m_iOperationContractVersion
+				== HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION
+			&& order.m_eType
+				== HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& order.m_sRuntimeStatus == "exact_virtual_outbound";
+		orderExact = orderExact
+			&& order.m_iAttackCost == expected.m_iAttackCost
+			&& order.m_iSupportCost == expected.m_iSupportCost
+			&& order.m_iAttackCost > 0 && order.m_iSupportCost == 0
+			&& order.m_bStrategicServiceCommitted;
+		orderExact = orderExact && !order.m_bPhysicalized
+			&& !order.m_bAbstractResolved && !order.m_bOutcomeApplied
+			&& !order.m_bResourceRefundApplied
+			&& order.m_sResourceSettlementId == expected.m_sSettlementId
+			&& order.m_sResourceSettlementKind == expected.m_sSettlementKind;
+		orderExact = orderExact && order.m_sResourceRefundMutationId
+				== expected.m_sRefundMutationId
+			&& order.m_iSettlementAcceptedMemberCount == expected.m_iAccepted
+			&& order.m_iSettlementSurvivorMemberCount == expected.m_iSurvivors
+			&& order.m_iRefundedAttackResources == expected.m_iAttackRefund
+			&& order.m_iRefundedSupportResources == expected.m_iSupportRefund
+			&& order.m_bResourceSettlementApplied
+				== carrier.m_bExpectedPrefixReceiptApplied;
+		bool operationExact = operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+			&& operation.m_iContractVersion
+				== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+			&& operation.m_sEnemyOrderId == expected.m_sOrderId
+			&& operation.m_sManifestId == expected.m_sManifestId
+			&& operation.m_sSpawnResultId == expected.m_sBatchId;
+		operationExact = operationExact
+			&& operation.m_sGroupId == expected.m_sGroupId
+			&& operation.m_sProjectionId == expected.m_sProjectionId
+			&& operation.m_sForceId == expected.m_sForceId
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED
+			&& operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_ROUTE_FAILED;
+		operationExact = operationExact
+			&& operation.m_sSettlementId == expected.m_sSettlementId
+			&& operation.m_sTerminalReason == expected.m_sReason
+			&& operation.m_iSettledAtSecond == expected.m_iPreparedAtSecond
+			&& operation.m_iRevision == carrier.m_iPrefixRevision
+			&& operation.m_eDutyState
+				!= HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
+			&& operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_RETIRED;
+		bool manifestExact = manifest.m_bFrozen
+			&& manifest.m_sManifestId == expected.m_sManifestId
+			&& manifest.m_sOperationId == expected.m_sOperationId
+			&& manifest.m_sManifestHash == expected.m_sManifestHash
+			&& manifest.m_iAcceptedMemberCount == expected.m_iAccepted;
+		bool executionExact = batch.m_sResultId == expected.m_sBatchId
+			&& batch.m_sRequestId == expected.m_sOrderId
+			&& batch.m_sOperationId == expected.m_sOperationId
+			&& batch.m_sManifestId == expected.m_sManifestId
+			&& batch.m_sProjectionId == expected.m_sProjectionId
+			&& batch.m_sForceId == expected.m_sForceId;
+		executionExact = executionExact
+			&& group.m_sGroupId == expected.m_sGroupId
+			&& group.m_sEnemyOrderId == expected.m_sOrderId
+			&& group.m_sOperationId == expected.m_sOperationId
+			&& group.m_sManifestId == expected.m_sManifestId
+			&& group.m_sSpawnResultId == expected.m_sBatchId
+			&& group.m_sProjectionId == expected.m_sProjectionId
+			&& group.m_sForceId == expected.m_sForceId;
+
+		int missingRefundRevision = 0;
+		if (carrier.m_iExpectedPrefixMutationCount == 0)
+			missingRefundRevision = 1;
+		bool poolExact = pool.m_iAttackResources
+				== carrier.m_iAttackBeforeRefund
+					+ carrier.m_iExpectedPrefixAttackDelta
+			&& pool.m_iSupportResources
+				== carrier.m_iSupportBeforeRefund
+					+ carrier.m_iExpectedPrefixSupportDelta
+			&& pool.m_iStrategicRevision
+				== expected.m_iExpectedPoolRevision - missingRefundRevision
+			&& pool.m_iStrategicOperationalMutationCount
+				== expected.m_iExpectedPoolOperationalMutationCount
+					- missingRefundRevision;
+		string expectedLastMutationId = expected.m_sRefundMutationId;
+		if (carrier.m_iExpectedPrefixMutationCount == 0)
+			expectedLastMutationId = expected.m_sDebitMutationId;
+		poolExact = poolExact
+			&& pool.m_sLastStrategicMutationId == expectedLastMutationId;
+		bool mutationExact = CountMutationId(state, expected.m_sDebitMutationId) == 1
+			&& CountMutationId(state, expected.m_sRefundMutationId)
+				== carrier.m_iExpectedPrefixMutationCount
+			&& state.m_aEnemyStrategicMutations.Count()
+				== 1 + carrier.m_iExpectedPrefixMutationCount;
+		string debitFailure
+			= HST_EnemyCounterattackSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					state.m_aEnemyStrategicMutations,
+					order);
+		string aggregateFailure
+			= HST_EnemyCounterattackSaveValidationService
+				.ValidatePendingResourceRefundAggregateAuthority(
+					state.m_aEnemyStrategicMutations,
+					order,
+					operation,
+					manifest,
+					batch,
+					group);
+		bool claimantExact = CountExternalSettlementBatchClaimants(state, expected) == 1
+			&& CountExternalSettlementGroupClaimants(state, expected) == 1
+			&& CountExternalSettlementForeignClaimants(state, expected) == 0;
+		bool exact = carrierExact && identityExact && orderExact
+			&& operationExact && manifestExact && executionExact && poolExact
+			&& mutationExact && debitFailure.IsEmpty()
+			&& aggregateFailure.IsEmpty() && claimantExact;
+		if (!exact)
+		{
+			evidence = string.Format(
+				"PREPARED exact carrier/id/order/op/manifest/execution/pool/mutation/claimants %1/%2/%3/%4/%5/%6/%7/%8/%9",
+				carrierExact,
+				identityExact,
+				orderExact,
+				operationExact,
+				manifestExact,
+				executionExact,
+				poolExact,
+				mutationExact,
+				claimantExact);
+			evidence += string.Format(
+				" | authority %1",
+				debitFailure.IsEmpty() && aggregateFailure.IsEmpty());
+			if (!debitFailure.IsEmpty())
+				evidence += " | debit " + debitFailure;
+			if (!aggregateFailure.IsEmpty())
+				evidence += " | aggregate " + aggregateFailure;
+		}
+		return exact;
+	}
+
+	protected bool IsExternalTerminalSettlementExact(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "counterattack terminal settlement aggregate is incomplete";
+		if (!state || !carrier || !carrier.m_SettlementExpectation)
+			return false;
+		HST_EnemyCounterattackPreparedSettlementExpectation expected
+			= carrier.m_SettlementExpectation;
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expected.m_sManifestId);
+		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
+		if (!order || !operation || !manifest || !pool)
+			return false;
+
+		bool orderExact = order.m_sOperationId == expected.m_sOperationId
+			&& order.m_sManifestId == expected.m_sManifestId
+			&& order.m_sManifestHash == expected.m_sManifestHash
+			&& order.m_sSpawnResultId == expected.m_sBatchId
+			&& order.m_sGroupId == expected.m_sGroupId;
+		orderExact = orderExact
+			&& order.m_sFactionKey == expected.m_sFactionKey
+			&& order.m_sSourceZoneId == expected.m_sSourceZoneId
+			&& order.m_sTargetZoneId == expected.m_sTargetZoneId
+			&& order.m_iOperationContractVersion
+				== HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION
+			&& order.m_eType
+				== HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK;
+		orderExact = orderExact
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+			&& order.m_sRuntimeStatus == "resolved_exact_terminal"
+			&& order.m_sResolutionKind == expected.m_sSettlementKind
+			&& order.m_sFailureReason == expected.m_sReason
+			&& order.m_iResolvedAtSecond == expected.m_iPreparedAtSecond;
+		orderExact = orderExact
+			&& order.m_iAttackCost == expected.m_iAttackCost
+			&& order.m_iSupportCost == expected.m_iSupportCost
+			&& order.m_bStrategicServiceCommitted
+			&& !order.m_bPhysicalized && !order.m_bAbstractResolved
+			&& !order.m_bOutcomeApplied && !order.m_bResourceRefundApplied
+			&& order.m_bResourceSettlementApplied;
+		orderExact = orderExact
+			&& order.m_sResourceDebitMutationId == expected.m_sDebitMutationId
+			&& order.m_sResourceSettlementId == expected.m_sSettlementId
+			&& order.m_sResourceSettlementKind == expected.m_sSettlementKind
+			&& order.m_sResourceRefundMutationId
+				== expected.m_sRefundMutationId
+			&& order.m_iSettlementAcceptedMemberCount == expected.m_iAccepted
+			&& order.m_iSettlementSurvivorMemberCount == expected.m_iSurvivors
+			&& order.m_iRefundedAttackResources == expected.m_iAttackRefund
+			&& order.m_iRefundedSupportResources == expected.m_iSupportRefund;
+		bool operationExact = operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+			&& operation.m_iContractVersion
+				== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+			&& operation.m_sEnemyOrderId == expected.m_sOrderId
+			&& operation.m_sManifestId == expected.m_sManifestId
+			&& operation.m_sSpawnResultId == expected.m_sBatchId;
+		operationExact = operationExact
+			&& operation.m_sGroupId == expected.m_sGroupId
+			&& operation.m_sProjectionId == expected.m_sProjectionId
+			&& operation.m_sForceId == expected.m_sForceId
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED
+			&& operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_ROUTE_FAILED;
+		operationExact = operationExact
+			&& operation.m_sSettlementId == expected.m_sSettlementId
+			&& operation.m_sTerminalReason == expected.m_sReason
+			&& operation.m_iSettledAtSecond == expected.m_iPreparedAtSecond
+			&& operation.m_iRevision == expected.m_iExpectedTerminalRevision
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_SETTLED
+			&& operation.m_eEngagementMode
+				== HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_RETIRED;
+		operationExact = operationExact
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& operation.m_iDutyStateEnteredAtSecond == expected.m_iPreparedAtSecond
+			&& operation.m_iEngagementStateEnteredAtSecond
+				== expected.m_iPreparedAtSecond
+			&& operation.m_iMaterializationStateEnteredAtSecond
+				== expected.m_iPreparedAtSecond
+			&& operation.m_iLastProgressAtSecond == expected.m_iPreparedAtSecond
+			&& operation.m_iArrivalConfirmationCount == 0
+			&& operation.m_iLastArrivalConfirmationSecond == 0;
+		bool manifestExact = manifest.m_bFrozen
+			&& manifest.m_sManifestId == expected.m_sManifestId
+			&& manifest.m_sOperationId == expected.m_sOperationId
+			&& manifest.m_sManifestHash == expected.m_sManifestHash
+			&& manifest.m_iAcceptedMemberCount == expected.m_iAccepted;
+		bool poolExact = pool.m_iAttackResources == expected.m_iExpectedAttackPool
+			&& pool.m_iSupportResources == expected.m_iExpectedSupportPool
+			&& pool.m_iStrategicRevision == expected.m_iExpectedPoolRevision
+			&& pool.m_iStrategicOperationalMutationCount
+				== expected.m_iExpectedPoolOperationalMutationCount
+			&& pool.m_sLastStrategicMutationId
+				== expected.m_sExpectedLastStrategicMutationId;
+		string debitFailure
+			= HST_EnemyCounterattackSaveValidationService
+				.ValidateOriginalResourceDebitAuthority(
+					state.m_aEnemyStrategicMutations,
+					order);
+		string refundFailure
+			= HST_EnemyCounterattackSaveValidationService
+				.ValidateSettledResourceRefundAuthority(
+					state.m_aEnemyStrategicMutations,
+					order);
+		bool mutationExact = state.m_aEnemyStrategicMutations.Count() == 2
+			&& CountMutationId(state, expected.m_sDebitMutationId) == 1
+			&& CountMutationId(state, expected.m_sRefundMutationId) == 1;
+		bool rowsExact = CountEnemyOrderId(state, expected.m_sOrderId) == 1
+			&& CountOperationId(state, expected.m_sOperationId) == 1
+			&& CountManifestId(state, expected.m_sManifestId) == 1
+			&& CountExternalSettlementBatchClaimants(state, expected) == 0
+			&& CountExternalSettlementGroupClaimants(state, expected) == 0
+			&& CountExternalSettlementForeignClaimants(state, expected) == 0
+			&& !state.FindForceSpawnResult(expected.m_sBatchId)
+			&& !state.FindActiveGroup(expected.m_sGroupId);
+		bool exact = orderExact && operationExact && manifestExact && poolExact
+			&& mutationExact && rowsExact && debitFailure.IsEmpty()
+			&& refundFailure.IsEmpty();
+		if (!exact)
+		{
+			evidence = string.Format(
+				"terminal exact order/op/manifest/pool/mutation/rows/authority %1/%2/%3/%4/%5/%6/%7",
+				orderExact,
+				operationExact,
+				manifestExact,
+				poolExact,
+				mutationExact,
+				rowsExact,
+				debitFailure.IsEmpty() && refundFailure.IsEmpty());
+			if (!debitFailure.IsEmpty())
+				evidence += " | debit " + debitFailure;
+			if (!refundFailure.IsEmpty())
+				evidence += " | refund " + refundFailure;
+		}
+		return exact;
+	}
+
+	protected string BuildExternalPreparedSettlementFingerprint(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier)
+	{
+		if (!state || !carrier || !carrier.m_SettlementExpectation)
+			return "external-counterattack-prepared-settlement-unavailable";
+		HST_EnemyCounterattackPreparedSettlementExpectation expected
+			= carrier.m_SettlementExpectation;
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expected.m_sManifestId);
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
+		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
+		HST_EnemyStrategicMutationState debit
+			= FindExternalMutation(state, expected.m_sDebitMutationId);
+		HST_EnemyStrategicMutationState refund
+			= FindExternalMutation(state, expected.m_sRefundMutationId);
+		if (!order || !operation || !manifest || !batch || !group || !pool
+			|| !debit)
+			return "external-counterattack-prepared-settlement-incomplete";
+		string fingerprint = string.Format(
+			"schema/cut/elapsed %1/%2/%3 | prefix %4/%5/%6/%7/%8",
+			state.m_iSchemaVersion,
+			carrier.m_iCut,
+			state.m_iElapsedSeconds,
+			carrier.m_iPrefixRevision,
+			carrier.m_iExpectedPrefixMutationCount,
+			carrier.m_iExpectedPrefixAttackDelta,
+			carrier.m_iExpectedPrefixSupportDelta,
+			carrier.m_bExpectedPrefixReceiptApplied);
+		fingerprint += " | order " + BuildExternalOrderSemanticRow(order);
+		fingerprint += " | operation "
+			+ BuildExternalOperationSemanticRow(operation, false);
+		fingerprint += " | operation revision " + operation.m_iRevision.ToString();
+		fingerprint += " | manifest " + BuildExternalManifestSemanticRow(manifest);
+		fingerprint += " | batch " + BuildExternalBatchSemanticRow(batch);
+		fingerprint += " | slots " + BuildExternalSlotSemanticRows(batch);
+		fingerprint += " | group " + BuildExternalGroupSemanticRow(group, false);
+		fingerprint += " | pool " + BuildExternalPoolSemanticRow(pool);
+		fingerprint += " | debit " + BuildExternalMutationSemanticRow(debit);
+		fingerprint += " | refund " + BuildExternalMutationSemanticRow(refund);
+		fingerprint += string.Format(
+			" | rows %1/%2/%3/%4/%5/%6/%7 | execution %8/%9",
+			CountEnemyOrderId(state, expected.m_sOrderId),
+			CountOperationId(state, expected.m_sOperationId),
+			CountManifestId(state, expected.m_sManifestId),
+			CountBatchId(state, expected.m_sBatchId),
+			CountGroupId(state, expected.m_sGroupId),
+			CountMutationId(state, expected.m_sDebitMutationId),
+			CountMutationId(state, expected.m_sRefundMutationId),
+			CountExternalSettlementBatchClaimants(state, expected),
+			CountExternalSettlementGroupClaimants(state, expected));
+		fingerprint += " | foreign "
+			+ CountExternalSettlementForeignClaimants(state, expected).ToString();
+		fingerprint += " | mutation total "
+			+ state.m_aEnemyStrategicMutations.Count().ToString();
+		return fingerprint;
+	}
+
+	protected string BuildExternalTerminalSettlementFingerprint(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier)
+	{
+		if (!state || !carrier || !carrier.m_SettlementExpectation)
+			return "external-counterattack-terminal-settlement-unavailable";
+		HST_EnemyCounterattackPreparedSettlementExpectation expected
+			= carrier.m_SettlementExpectation;
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expected.m_sManifestId);
+		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
+		HST_EnemyStrategicMutationState debit
+			= FindExternalMutation(state, expected.m_sDebitMutationId);
+		HST_EnemyStrategicMutationState refund
+			= FindExternalMutation(state, expected.m_sRefundMutationId);
+		if (!order || !operation || !manifest || !pool || !debit || !refund)
+			return "external-counterattack-terminal-settlement-incomplete";
+		string fingerprint = string.Format(
+			"schema/cut %1/%2 | order %3",
+			state.m_iSchemaVersion,
+			carrier.m_iCut,
+			BuildExternalOrderSemanticRow(order));
+		fingerprint += " | operation "
+			+ BuildExternalOperationSemanticRow(operation, false);
+		fingerprint += " | operation revision " + operation.m_iRevision.ToString();
+		fingerprint += " | manifest " + BuildExternalManifestSemanticRow(manifest);
+		fingerprint += " | pool " + BuildExternalPoolSemanticRow(pool);
+		fingerprint += " | debit " + BuildExternalMutationSemanticRow(debit);
+		fingerprint += " | refund " + BuildExternalMutationSemanticRow(refund);
+		fingerprint += string.Format(
+			" | rows %1/%2/%3/%4/%5/%6/%7 | execution %8/%9",
+			CountEnemyOrderId(state, expected.m_sOrderId),
+			CountOperationId(state, expected.m_sOperationId),
+			CountManifestId(state, expected.m_sManifestId),
+			CountBatchId(state, expected.m_sBatchId),
+			CountGroupId(state, expected.m_sGroupId),
+			CountMutationId(state, expected.m_sDebitMutationId),
+			CountMutationId(state, expected.m_sRefundMutationId),
+			CountExternalSettlementBatchClaimants(state, expected),
+			CountExternalSettlementGroupClaimants(state, expected));
+		fingerprint += " | foreign "
+			+ CountExternalSettlementForeignClaimants(state, expected).ToString();
+		fingerprint += " | mutation total "
+			+ state.m_aEnemyStrategicMutations.Count().ToString();
+		return fingerprint;
+	}
+
+	protected int CountExternalSettlementBatchClaimants(
+		HST_CampaignState state,
+		HST_EnemyCounterattackPreparedSettlementExpectation expected)
+	{
+		int count;
+		if (!state || !expected)
+			return count;
+		foreach (HST_ForceSpawnResultState batch : state.m_aForceSpawnResults)
+		{
+			if (batch && (batch.m_sResultId == expected.m_sBatchId
+				|| batch.m_sRequestId == expected.m_sOrderId
+				|| batch.m_sOperationId == expected.m_sOperationId
+				|| batch.m_sManifestId == expected.m_sManifestId
+				|| batch.m_sProjectionId == expected.m_sProjectionId
+				|| batch.m_sForceId == expected.m_sForceId))
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountExternalSettlementGroupClaimants(
+		HST_CampaignState state,
+		HST_EnemyCounterattackPreparedSettlementExpectation expected)
+	{
+		int count;
+		if (!state || !expected)
+			return count;
+		foreach (HST_ActiveGroupState group : state.m_aActiveGroups)
+		{
+			if (group && (group.m_sGroupId == expected.m_sGroupId
+				|| group.m_sEnemyOrderId == expected.m_sOrderId
+				|| group.m_sOperationId == expected.m_sOperationId
+				|| group.m_sManifestId == expected.m_sManifestId
+				|| group.m_sSpawnResultId == expected.m_sBatchId
+				|| group.m_sProjectionId == expected.m_sProjectionId
+				|| group.m_sForceId == expected.m_sForceId))
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountExternalSettlementForeignClaimants(
+		HST_CampaignState state,
+		HST_EnemyCounterattackPreparedSettlementExpectation expected)
+	{
+		int count;
+		if (!state || !expected)
+			return count;
+		foreach (HST_SupportRequestState request : state.m_aSupportRequests)
+		{
+			if (request && (request.m_sRequestId == expected.m_sOrderId
+				|| request.m_sOperationId == expected.m_sOperationId
+				|| request.m_sManifestId == expected.m_sManifestId
+				|| request.m_sSpawnResultId == expected.m_sBatchId
+				|| request.m_sGroupId == expected.m_sGroupId))
+				count++;
+		}
+		foreach (HST_QRFState qrf : state.m_aQRFs)
+		{
+			if (qrf && qrf.m_sGroupId == expected.m_sGroupId)
+				count++;
+		}
+		return count;
+	}
+
 	bool ValidateExternalRuntimeClaimantsZero(
 		HST_CampaignState state,
 		HST_EnemyCounterattackExternalRestartCarrier carrier,
@@ -5696,28 +6541,80 @@ class HST_EnemyCounterattackOperationProofService
 		out string evidence)
 	{
 		evidence = "external exact counterattack runtime claimant check rejected";
-		if (!state || !carrier || !carrier.m_Expectation || !adapter || !physicalWar)
+		if (!state || !carrier || !adapter || !physicalWar)
 			return false;
-		HST_EnemyCounterattackOutboundVirtualExpectation expected
-			= carrier.m_Expectation;
-		HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
-		if (!group)
+		if (carrier.m_Expectation)
+		{
+			HST_EnemyCounterattackOutboundVirtualExpectation expected
+				= carrier.m_Expectation;
+			HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
+			if (!group)
+				return false;
+			int resultHandles
+				= adapter.CountHandlesForResultId(expected.m_sBatchId);
+			int projectionHandles
+				= adapter.CountHandlesForProjection(expected.m_sProjectionId);
+			int runtimeMembers = physicalWar.CountForceSpawnRuntimeMembers(group);
+			bool exact = resultHandles == 0 && projectionHandles == 0
+				&& runtimeMembers == 0
+				&& !physicalWar.HasActiveGroupRuntimeHandle(group)
+				&& !physicalWar.GetForceSpawnGroupRoot(group);
+			if (!exact)
+			{
+				evidence = string.Format(
+					"runtime claimant conflict | result %1 | projection %2 | members %3",
+					resultHandles,
+					projectionHandles,
+					runtimeMembers);
+				return false;
+			}
+			evidence = "external exact counterattack runtime claimants zero";
+			return true;
+		}
+		if (!carrier.m_SettlementExpectation)
 			return false;
-		int resultHandles = adapter.CountHandlesForResultId(expected.m_sBatchId);
-		int projectionHandles
-			= adapter.CountHandlesForProjection(expected.m_sProjectionId);
-		int runtimeMembers = physicalWar.CountForceSpawnRuntimeMembers(group);
-		bool exact = resultHandles == 0 && projectionHandles == 0
-			&& runtimeMembers == 0
-			&& !physicalWar.HasActiveGroupRuntimeHandle(group)
-			&& !physicalWar.GetForceSpawnGroupRoot(group);
-		if (!exact)
+
+		HST_EnemyCounterattackPreparedSettlementExpectation settlement
+			= carrier.m_SettlementExpectation;
+		HST_ActiveGroupState durableGroup
+			= state.FindActiveGroup(settlement.m_sGroupId);
+		HST_ActiveGroupState runtimeProbe = durableGroup;
+		if (!runtimeProbe)
+		{
+			runtimeProbe = new HST_ActiveGroupState();
+			runtimeProbe.m_sGroupId = settlement.m_sGroupId;
+		}
+		int settlementResultHandles
+			= adapter.CountHandlesForResultId(settlement.m_sBatchId);
+		int settlementProjectionHandles
+			= adapter.CountHandlesForProjection(settlement.m_sProjectionId);
+		int settlementRuntimeMembers
+			= physicalWar.CountForceSpawnRuntimeMembers(runtimeProbe);
+		bool settlementExact = settlementResultHandles == 0
+			&& settlementProjectionHandles == 0
+			&& settlementRuntimeMembers == 0
+			&& !physicalWar.HasActiveGroupRuntimeHandle(runtimeProbe)
+			&& !physicalWar.GetForceSpawnGroupRoot(runtimeProbe);
+		HST_OperationRecordState settlementOperation
+			= state.FindOperation(settlement.m_sOperationId);
+		if (!settlementOperation)
+			return false;
+		if (settlementOperation && settlementOperation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_PREPARED)
+			settlementExact = settlementExact && durableGroup != null;
+		else if (settlementOperation && settlementOperation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_SETTLED)
+			settlementExact = settlementExact && durableGroup == null;
+		else
+			settlementExact = false;
+		if (!settlementExact)
 		{
 			evidence = string.Format(
-				"runtime claimant conflict | result %1 | projection %2 | members %3",
-				resultHandles,
-				projectionHandles,
-				runtimeMembers);
+				"runtime claimant conflict | result %1 | projection %2 | members %3 | durable group %4",
+				settlementResultHandles,
+				settlementProjectionHandles,
+				settlementRuntimeMembers,
+				durableGroup != null);
 			return false;
 		}
 		evidence = "external exact counterattack runtime claimants zero";

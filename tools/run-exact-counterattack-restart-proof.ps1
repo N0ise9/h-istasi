@@ -12,7 +12,10 @@ param(
         "outbound_virtual",
         "dematerializing_before_hold",
         "materializing_checkpoint_deferred",
-        "physical_live_position")]
+        "physical_live_position",
+        "prepared_before_refund",
+        "prepared_after_refund",
+        "prepared_after_receipt")]
     [string]$CutName = "outbound_virtual",
     [string[]]$WatchedRoots = @(),
     [string[]]$SpillRoots = @(),
@@ -37,14 +40,24 @@ $script:CutOrdinals = @{
     dematerializing_before_hold = 1
     materializing_checkpoint_deferred = 2
     physical_live_position = 3
+    prepared_before_refund = 4
+    prepared_after_refund = 5
+    prepared_after_receipt = 6
 }
 $script:SupportedCutNames = @(
     "outbound_virtual",
     "dematerializing_before_hold",
     "materializing_checkpoint_deferred",
-    "physical_live_position")
+    "physical_live_position",
+    "prepared_before_refund",
+    "prepared_after_refund",
+    "prepared_after_receipt")
 $script:CutName = $CutName.ToLowerInvariant()
 $script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]
+$script:IsPreparedSettlementCut = $script:CutName -in @(
+    "prepared_before_refund",
+    "prepared_after_refund",
+    "prepared_after_receipt")
 $script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"
 $script:GuardMagic = "partisan_exact_counterattack_restart_guard_v1"
 $script:CarrierMagic = "partisan_exact_counterattack_restart_carrier_v1"
@@ -1359,6 +1372,202 @@ function Assert-LowerHexNonce {
     }
 }
 
+function Assert-PreparedSettlementCarrier {
+    param(
+        [Parameter(Mandatory = $true)]$Carrier,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [string]$CutName = $script:CutName
+    )
+
+    foreach ($property in @(
+        "m_iAccepted",
+        "m_iCasualties",
+        "m_iSurvivors",
+        "m_iAttackRefund",
+        "m_iSupportRefund",
+        "m_iAttackBeforeRefund",
+        "m_iSupportBeforeRefund",
+        "m_iPreparedAtSecond",
+        "m_iPrefixRevision",
+        "m_iExpectedPrefixMutationCount",
+        "m_iExpectedPrefixAttackDelta",
+        "m_iExpectedPrefixSupportDelta",
+        "m_bExpectedPrefixReceiptApplied",
+        "m_sSettlementKind",
+        "m_sSettlementId",
+        "m_sRefundMutationId",
+        "m_sReason",
+        "m_SettlementExpectation",
+        "m_sPreparedSettlementFingerprint")) {
+        Assert-JsonProperty `
+            -Value $Carrier `
+            -PropertyName $property `
+            -ArtifactLabel $Label
+    }
+    if ($Carrier.m_bExpectedPrefixReceiptApplied -isnot [bool]) {
+        throw "$Label prefix receipt policy is not a JSON boolean."
+    }
+
+    $expectation = $Carrier.m_SettlementExpectation
+    if ($null -eq $expectation) {
+        throw "$Label settlement expectation is unavailable."
+    }
+    foreach ($property in @(
+        "m_sOrderId",
+        "m_sOperationId",
+        "m_sManifestId",
+        "m_sManifestHash",
+        "m_sBatchId",
+        "m_sGroupId",
+        "m_sProjectionId",
+        "m_sForceId",
+        "m_sFactionKey",
+        "m_sSourceZoneId",
+        "m_sTargetZoneId",
+        "m_sDebitMutationId",
+        "m_sSettlementKind",
+        "m_sSettlementId",
+        "m_sRefundMutationId",
+        "m_sReason",
+        "m_iAttackCost",
+        "m_iSupportCost",
+        "m_iAccepted",
+        "m_iSurvivors",
+        "m_iAttackRefund",
+        "m_iSupportRefund",
+        "m_iExpectedAttackPool",
+        "m_iExpectedSupportPool",
+        "m_iExpectedPoolRevision",
+        "m_iExpectedPoolOperationalMutationCount",
+        "m_sExpectedLastStrategicMutationId",
+        "m_iPreparedAtSecond",
+        "m_iExpectedTerminalRevision")) {
+        Assert-JsonProperty `
+            -Value $expectation `
+            -PropertyName $property `
+            -ArtifactLabel "$Label settlement expectation"
+    }
+
+    foreach ($property in @(
+        "m_sOrderId",
+        "m_sOperationId",
+        "m_sManifestId",
+        "m_sManifestHash",
+        "m_sBatchId",
+        "m_sGroupId",
+        "m_sProjectionId",
+        "m_sForceId",
+        "m_sFactionKey",
+        "m_sSourceZoneId",
+        "m_sTargetZoneId",
+        "m_sDebitMutationId")) {
+        if ([string]::IsNullOrWhiteSpace([string]$expectation.$property)) {
+            throw "$Label settlement aggregate identity is incomplete."
+        }
+    }
+    if ([string]$expectation.m_sSourceZoneId -ceq
+        [string]$expectation.m_sTargetZoneId) {
+        throw "$Label settlement source and target identities conflict."
+    }
+
+    $attackCost = [int]$expectation.m_iAttackCost
+    $supportCost = [int]$expectation.m_iSupportCost
+    $attackFunded = $attackCost -gt 0 -and $supportCost -eq 0
+    $supportFunded = $supportCost -gt 0 -and $attackCost -eq 0
+    $accepted = [int]$Carrier.m_iAccepted
+    $casualties = [int]$Carrier.m_iCasualties
+    $survivors = [int]$Carrier.m_iSurvivors
+    $attackRefund = [int]$Carrier.m_iAttackRefund
+    $supportRefund = [int]$Carrier.m_iSupportRefund
+    if ((-not $attackFunded -and -not $supportFunded) -or
+        $accepted -le 1 -or $casualties -le 0 -or $survivors -le 0 -or
+        $survivors -ne ($accepted - $casualties) -or
+        [int]$expectation.m_iAccepted -ne $accepted -or
+        [int]$expectation.m_iSurvivors -ne $survivors -or
+        [int]$expectation.m_iAttackRefund -ne $attackRefund -or
+        [int]$expectation.m_iSupportRefund -ne $supportRefund -or
+        $attackRefund -ne [int][Math]::Floor(
+            ($attackCost * $survivors) / [double]$accepted) -or
+        $supportRefund -ne [int][Math]::Floor(
+            ($supportCost * $survivors) / [double]$accepted) -or
+        ($attackRefund + $supportRefund) -le 0) {
+        throw "$Label settlement funding, survivors, or proportional refund is not exact."
+    }
+
+    $settlementKind = [string]$Carrier.m_sSettlementKind
+    $settlementId = [string]$Carrier.m_sSettlementId
+    $refundId = [string]$Carrier.m_sRefundMutationId
+    $expectedSettlementId = "settlement_{0}_{1}" -f `
+        [string]$expectation.m_sOperationId, $settlementKind
+    if ($settlementKind -cne "route_failed_survivors" -or
+        $settlementId -cne $expectedSettlementId -or
+        $refundId -cne ("enemy_resource_refund_" + $settlementId) -or
+        [string]$expectation.m_sSettlementKind -cne $settlementKind -or
+        [string]$expectation.m_sSettlementId -cne $settlementId -or
+        [string]$expectation.m_sRefundMutationId -cne $refundId -or
+        [string]::IsNullOrWhiteSpace([string]$Carrier.m_sReason) -or
+        [string]$expectation.m_sReason -cne [string]$Carrier.m_sReason) {
+        throw "$Label settlement identity is not deterministic."
+    }
+
+    $expectedMutationCount = 0
+    $expectedAttackDelta = 0
+    $expectedSupportDelta = 0
+    $expectedReceiptApplied = $false
+    if ($CutName -ceq "prepared_after_refund" -or
+        $CutName -ceq "prepared_after_receipt") {
+        $expectedMutationCount = 1
+        $expectedAttackDelta = $attackRefund
+        $expectedSupportDelta = $supportRefund
+    }
+    if ($CutName -ceq "prepared_after_receipt") {
+        $expectedReceiptApplied = $true
+    }
+    if ([int]$Carrier.m_iExpectedPrefixMutationCount -ne
+            $expectedMutationCount -or
+        [int]$Carrier.m_iExpectedPrefixAttackDelta -ne
+            $expectedAttackDelta -or
+        [int]$Carrier.m_iExpectedPrefixSupportDelta -ne
+            $expectedSupportDelta -or
+        [bool]$Carrier.m_bExpectedPrefixReceiptApplied -ne
+            $expectedReceiptApplied) {
+        throw "$Label prepared prefix policy is not exact."
+    }
+
+    $terminalRevision = [int]$Carrier.m_iPrefixRevision + 2
+    if ($expectedReceiptApplied) {
+        $terminalRevision = [int]$Carrier.m_iPrefixRevision + 1
+    }
+    if ([int]$Carrier.m_iPreparedAtSecond -le 0 -or
+        [int]$Carrier.m_iPrefixRevision -le 0 -or
+        [int]$expectation.m_iPreparedAtSecond -ne
+            [int]$Carrier.m_iPreparedAtSecond -or
+        [int]$expectation.m_iExpectedTerminalRevision -ne
+            $terminalRevision -or
+        [int]$Carrier.m_iAttackBeforeRefund -lt 0 -or
+        [int]$Carrier.m_iSupportBeforeRefund -lt 0 -or
+        [int]$expectation.m_iExpectedAttackPool -ne
+            ([int]$Carrier.m_iAttackBeforeRefund + $attackRefund) -or
+        [int]$expectation.m_iExpectedSupportPool -ne
+            ([int]$Carrier.m_iSupportBeforeRefund + $supportRefund) -or
+        [int]$expectation.m_iExpectedPoolRevision -le 0 -or
+        [int]$expectation.m_iExpectedPoolOperationalMutationCount -ne 2 -or
+        [string]$expectation.m_sExpectedLastStrategicMutationId -cne
+            $refundId) {
+        throw "$Label terminal settlement expectation is not exact."
+    }
+
+    $preparedFingerprint = [string]$Carrier.m_sPreparedSemanticFingerprint
+    if ([string]$Carrier.m_sPreparedSettlementFingerprint -cne
+            $preparedFingerprint -or
+        [string]$Carrier.m_sRawPreparedCutSemanticFingerprint -cne
+            $preparedFingerprint -or
+        [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne 0 -or
+        [int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne 0) {
+        throw "$Label prepared fingerprint or zero-physical policy is not exact."
+    }
+}
+
 function Assert-PreparedCarrier {
     param(
         [Parameter(Mandatory = $true)]$Carrier,
@@ -1379,13 +1588,6 @@ function Assert-PreparedCarrier {
         "m_sWorld",
         "m_sCutName",
         "m_iCut",
-        "m_Expectation",
-        "m_iPreparedElapsedSecond",
-        "m_fPreparedRouteProgressMeters",
-        "m_fPreparedRouteTotalDistanceMeters",
-        "m_vPreparedStrategicPosition",
-        "m_vInjectedStalePosition",
-        "m_vPreparedLivePosition",
         "m_iExpectedPhysicalAdapterHandleCount",
         "m_iExpectedPhysicalRuntimeMemberCount",
         "m_sPreparedSemanticFingerprint",
@@ -1412,6 +1614,27 @@ function Assert-PreparedCarrier {
         -ExpectedBuild $ExpectedBuild `
         -ArtifactLabel $label
 
+    if ($script:IsPreparedSettlementCut) {
+        Assert-PreparedSettlementCarrier -Carrier $Carrier -Label $label
+        return $Carrier
+    }
+
+    foreach ($property in @(
+        "m_iPreparedElapsedSecond",
+        "m_fPreparedRouteProgressMeters",
+        "m_fPreparedRouteTotalDistanceMeters",
+        "m_vPreparedStrategicPosition",
+        "m_vInjectedStalePosition",
+        "m_vPreparedLivePosition")) {
+        Assert-JsonProperty `
+            -Value $Carrier `
+            -PropertyName $property `
+            -ArtifactLabel $label
+    }
+    Assert-JsonProperty `
+        -Value $Carrier `
+        -PropertyName "m_Expectation" `
+        -ArtifactLabel $label
     $expectation = $Carrier.m_Expectation
     if ($null -eq $expectation) {
         throw "$label expectation is unavailable."
@@ -1575,6 +1798,58 @@ function Assert-PreparedCarrier {
     return $Carrier
 }
 
+function Assert-PreparedSettlementStageSemantics {
+    param(
+        [Parameter(Mandatory = $true)]$Result,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("prepare", "recover", "replay")][string]$Stage,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $sourceFingerprint = [string]$Result.m_sSourceSemanticFingerprint
+    $finalFingerprint = [string]$Result.m_sFinalSemanticFingerprint
+    $preparedFingerprint = [string]$Result.m_sRawPreparedCutSemanticFingerprint
+    if (-not [bool]$Result.m_bPreparedCutExact -or
+        -not [bool]$Result.m_bCasualtyContinuityExact -or
+        [int]$Result.m_iPhysicalAdapterHandleCount -ne 0 -or
+        [int]$Result.m_iPhysicalRuntimeMemberCount -ne 0 -or
+        [bool]$Result.m_bPhysicalBindingsExact -or
+        [bool]$Result.m_bLivePositionRefreshExact -or
+        [bool]$Result.m_bPhysicalCaptureNormalizedExact) {
+        throw "$Label omitted exact settlement authority or invented physical authority."
+    }
+    if ($Stage -eq "prepare") {
+        if ([bool]$Result.m_bRestored -or
+            [bool]$Result.m_bStartupReconcileChanged -or
+            [bool]$Result.m_bContinuationExact -or
+            [bool]$Result.m_bSameStateSemanticNoOp -or
+            $sourceFingerprint -cne $finalFingerprint -or
+            $preparedFingerprint -cne $sourceFingerprint) {
+            throw "$Label violates the fresh PREPARED-settlement invariant."
+        }
+    }
+    elseif ($Stage -eq "recover") {
+        if (-not [bool]$Result.m_bRestored -or
+            -not [bool]$Result.m_bStartupReconcileChanged -or
+            -not [bool]$Result.m_bContinuationExact -or
+            -not [bool]$Result.m_bSameStateSemanticNoOp -or
+            $sourceFingerprint -ceq $finalFingerprint -or
+            $preparedFingerprint -cne $sourceFingerprint) {
+            throw "$Label violates the first-start PREPARED-settlement recovery invariant."
+        }
+    }
+    else {
+        if (-not [bool]$Result.m_bRestored -or
+            [bool]$Result.m_bStartupReconcileChanged -or
+            [bool]$Result.m_bContinuationExact -or
+            -not [bool]$Result.m_bSameStateSemanticNoOp -or
+            $sourceFingerprint -cne $finalFingerprint -or
+            $preparedFingerprint -ceq $sourceFingerprint) {
+            throw "$Label violates the second-start settlement semantic no-op invariant."
+        }
+    }
+}
+
 function Assert-StageResult {
     param(
         [Parameter(Mandatory = $true)]$Result,
@@ -1692,6 +1967,13 @@ function Assert-StageResult {
         (-not [bool]$Result.m_bPreparedCutExact -or
             -not [bool]$Result.m_bCasualtyContinuityExact)) {
         throw "$label omitted exact prepared-cut or casualty continuity proof."
+    }
+    if ($script:IsPreparedSettlementCut) {
+        Assert-PreparedSettlementStageSemantics `
+            -Result $Result `
+            -Stage $Stage `
+            -Label $label
+        return $Result
     }
     if ($script:CutName -cne "outbound_virtual" -and
         ([string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq
@@ -2520,6 +2802,123 @@ try {
         $safeSynthetic.Contains($guardRoot) -or
         $safeSynthetic.Contains($runtimeAddonPath)) {
         throw "Bounded-output redaction self-test failed."
+    }
+
+    $selfTestSettlementId =
+        "settlement_operation_self_test_route_failed_survivors"
+    $selfTestRefundId = "enemy_resource_refund_" + $selfTestSettlementId
+    $selfTestExpectation = [pscustomobject]@{
+        m_sOrderId = "order_self_test"
+        m_sOperationId = "operation_self_test"
+        m_sManifestId = "manifest_self_test"
+        m_sManifestHash = "manifest_hash_self_test"
+        m_sBatchId = "batch_self_test"
+        m_sGroupId = "group_self_test"
+        m_sProjectionId = "projection_self_test"
+        m_sForceId = "force_self_test"
+        m_sFactionKey = "faction_self_test"
+        m_sSourceZoneId = "source_self_test"
+        m_sTargetZoneId = "target_self_test"
+        m_sDebitMutationId = "debit_self_test"
+        m_sSettlementKind = "route_failed_survivors"
+        m_sSettlementId = $selfTestSettlementId
+        m_sRefundMutationId = $selfTestRefundId
+        m_sReason = "prepared settlement validation self-test"
+        m_iAttackCost = 24
+        m_iSupportCost = 0
+        m_iAccepted = 4
+        m_iSurvivors = 3
+        m_iAttackRefund = 18
+        m_iSupportRefund = 0
+        m_iExpectedAttackPool = 494
+        m_iExpectedSupportPool = 500
+        m_iExpectedPoolRevision = 3
+        m_iExpectedPoolOperationalMutationCount = 2
+        m_sExpectedLastStrategicMutationId = $selfTestRefundId
+        m_iPreparedAtSecond = 10
+        m_iExpectedTerminalRevision = 7
+    }
+    $selfTestCarrier = [pscustomobject]@{
+        m_iAccepted = 4
+        m_iCasualties = 1
+        m_iSurvivors = 3
+        m_iAttackRefund = 18
+        m_iSupportRefund = 0
+        m_iAttackBeforeRefund = 476
+        m_iSupportBeforeRefund = 500
+        m_iPreparedAtSecond = 10
+        m_iPrefixRevision = 5
+        m_iExpectedPrefixMutationCount = 0
+        m_iExpectedPrefixAttackDelta = 0
+        m_iExpectedPrefixSupportDelta = 0
+        m_bExpectedPrefixReceiptApplied = $false
+        m_sSettlementKind = "route_failed_survivors"
+        m_sSettlementId = $selfTestSettlementId
+        m_sRefundMutationId = $selfTestRefundId
+        m_sReason = "prepared settlement validation self-test"
+        m_SettlementExpectation = $selfTestExpectation
+        m_sPreparedSettlementFingerprint = "prepared_self_test"
+        m_sPreparedSemanticFingerprint = "prepared_self_test"
+        m_sRawPreparedCutSemanticFingerprint = "prepared_self_test"
+        m_iExpectedPhysicalAdapterHandleCount = 0
+        m_iExpectedPhysicalRuntimeMemberCount = 0
+    }
+    Assert-PreparedSettlementCarrier `
+        -Carrier $selfTestCarrier `
+        -Label "prepared settlement carrier self-test" `
+        -CutName "prepared_before_refund"
+    $tamperedCarrier = $selfTestCarrier |
+        ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json
+    $tamperedCarrier.m_bExpectedPrefixReceiptApplied = $true
+    $carrierRejected = $false
+    try {
+        Assert-PreparedSettlementCarrier `
+            -Carrier $tamperedCarrier `
+            -Label "tampered prepared settlement carrier self-test" `
+            -CutName "prepared_before_refund"
+    }
+    catch {
+        $carrierRejected = $true
+    }
+    if (-not $carrierRejected) {
+        throw "Prepared-settlement carrier negative self-test failed."
+    }
+
+    $selfTestRecovery = [pscustomobject]@{
+        m_bPreparedCutExact = $true
+        m_bCasualtyContinuityExact = $true
+        m_iPhysicalAdapterHandleCount = 0
+        m_iPhysicalRuntimeMemberCount = 0
+        m_bPhysicalBindingsExact = $false
+        m_bLivePositionRefreshExact = $false
+        m_bPhysicalCaptureNormalizedExact = $false
+        m_bRestored = $true
+        m_bStartupReconcileChanged = $true
+        m_bContinuationExact = $true
+        m_bSameStateSemanticNoOp = $true
+        m_sSourceSemanticFingerprint = "prepared_self_test"
+        m_sFinalSemanticFingerprint = "terminal_self_test"
+        m_sRawPreparedCutSemanticFingerprint = "prepared_self_test"
+    }
+    Assert-PreparedSettlementStageSemantics `
+        -Result $selfTestRecovery `
+        -Stage "recover" `
+        -Label "prepared settlement recovery self-test"
+    $tamperedRecovery = $selfTestRecovery |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $tamperedRecovery.m_bStartupReconcileChanged = $false
+    $recoveryRejected = $false
+    try {
+        Assert-PreparedSettlementStageSemantics `
+            -Result $tamperedRecovery `
+            -Stage "recover" `
+            -Label "tampered prepared settlement recovery self-test"
+    }
+    catch {
+        $recoveryRejected = $true
+    }
+    if (-not $recoveryRejected) {
+        throw "Prepared-settlement recovery negative self-test failed."
     }
 
     $preflightStageNonce = [Guid]::NewGuid().ToString("N")

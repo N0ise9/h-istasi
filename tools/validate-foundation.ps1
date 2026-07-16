@@ -35741,13 +35741,19 @@ foreach ($exactCounterRestartLauncherEntry in @(
 	'"outbound_virtual",',
 	'"dematerializing_before_hold",',
 	'"materializing_checkpoint_deferred",',
-	'"physical_live_position")]',
+	'"physical_live_position",',
+	'"prepared_before_refund",',
+	'"prepared_after_refund",',
+	'"prepared_after_receipt")]',
 	'[string]$CutName = "outbound_virtual"',
 	'$script:CutOrdinals = @{',
 	'outbound_virtual = 0',
 	'dematerializing_before_hold = 1',
 	'materializing_checkpoint_deferred = 2',
 	'physical_live_position = 3',
+	'prepared_before_refund = 4',
+	'prepared_after_refund = 5',
+	'prepared_after_receipt = 6',
 	'$script:SupportedCutNames = @(',
 	'$script:CutName = $CutName.ToLowerInvariant()',
 	'$script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]',
@@ -36618,6 +36624,291 @@ if ($exactCounterRestartSummary.IndexOf('m_sEvidence') -ge 0) {
 	throw "Exact counterattack launcher must not print raw proof evidence"
 }
 
+# The settlement restart cuts deliberately share the hardened counterattack
+# process wrapper, but they prove a different state machine from route movement.
+# Keep their carrier, transaction, startup-order, and runner gates explicit so a
+# future movement refactor cannot silently collapse PREPARED recovery coverage.
+foreach ($exactCounterRestartPreparedDTOEntry in @(
+	'class HST_EnemyCounterattackPreparedSettlementExpectation',
+	'string m_sSettlementKind;', 'string m_sSettlementId;',
+	'string m_sRefundMutationId;', 'string m_sReason;',
+	'int m_iAccepted;', 'int m_iSurvivors;',
+	'int m_iAttackRefund;', 'int m_iSupportRefund;',
+	'int m_iExpectedPoolRevision;',
+	'int m_iExpectedPoolOperationalMutationCount;',
+	'string m_sExpectedLastStrategicMutationId;',
+	'int m_iExpectedTerminalRevision;',
+	'int m_iCasualties;', 'int m_iAttackBeforeRefund;',
+	'int m_iSupportBeforeRefund;', 'int m_iPrefixRevision;',
+	'int m_iExpectedPrefixMutationCount;',
+	'int m_iExpectedPrefixAttackDelta;',
+	'int m_iExpectedPrefixSupportDelta;',
+	'bool m_bExpectedPrefixReceiptApplied;',
+	'ref HST_EnemyCounterattackPreparedSettlementExpectation m_SettlementExpectation;',
+	'string m_sPreparedSettlementFingerprint;'
+)) {
+	if ($exactCounterRestartDataText.IndexOf(
+		$exactCounterRestartPreparedDTOEntry) -lt 0) {
+		throw "Exact counterattack PREPARED settlement DTO is incomplete: $exactCounterRestartPreparedDTOEntry"
+	}
+}
+
+foreach ($exactCounterRestartPreparedArtifactEntry in @(
+	'static const string CUT_PREPARED_BEFORE_REFUND = "prepared_before_refund";',
+	'static const string CUT_PREPARED_AFTER_REFUND = "prepared_after_refund";',
+	'static const string CUT_PREPARED_AFTER_RECEIPT = "prepared_after_receipt";',
+	'static bool IsPreparedSettlementCut(string cutName)',
+	'protected static bool ValidatePreparedSettlementCarrier(',
+	'protected static bool ValidatePreparedSettlementResult('
+)) {
+	if ($exactCounterRestartArtifactText.IndexOf(
+		$exactCounterRestartPreparedArtifactEntry) -lt 0) {
+		throw "Exact counterattack PREPARED artifact gate is incomplete: $exactCounterRestartPreparedArtifactEntry"
+	}
+}
+foreach ($exactCounterRestartPreparedCutMapping in @(
+	@('prepared before refund resolve', $exactCounterRestartResolveCut,
+		'if (cutName == CUT_PREPARED_BEFORE_REFUND)', 'return 4;'),
+	@('prepared after refund resolve', $exactCounterRestartResolveCut,
+		'if (cutName == CUT_PREPARED_AFTER_REFUND)', 'return 5;'),
+	@('prepared after receipt resolve', $exactCounterRestartResolveCut,
+		'if (cutName == CUT_PREPARED_AFTER_RECEIPT)', 'return 6;'),
+	@('prepared before refund name', $exactCounterRestartCutName,
+		'if (cut == 4)', 'return CUT_PREPARED_BEFORE_REFUND;'),
+	@('prepared after refund name', $exactCounterRestartCutName,
+		'if (cut == 5)', 'return CUT_PREPARED_AFTER_REFUND;'),
+	@('prepared after receipt name', $exactCounterRestartCutName,
+		'if (cut == 6)', 'return CUT_PREPARED_AFTER_RECEIPT;')
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPreparedCutMapping[1]) -or
+		$exactCounterRestartPreparedCutMapping[1].IndexOf(
+			$exactCounterRestartPreparedCutMapping[2]) -lt 0 -or
+		$exactCounterRestartPreparedCutMapping[1].IndexOf(
+			$exactCounterRestartPreparedCutMapping[3]) -lt 0) {
+		throw "Exact counterattack PREPARED cut mapping is incomplete: $($exactCounterRestartPreparedCutMapping[0])"
+	}
+}
+
+$exactCounterRestartPreparedCarrierGate = Get-ScriptMethodBlock `
+	$exactCounterRestartArtifactText `
+	'protected static bool ValidatePreparedSettlementCarrier('
+foreach ($exactCounterRestartPreparedCarrierEntry in @(
+	'carrier.m_SettlementExpectation',
+	'bool attackFunded', 'bool supportFunded',
+	'carrier.m_iSurvivors', 'carrier.m_iCasualties',
+	'expectedAttackRefund', 'expectedSupportRefund',
+	'"route_failed_survivors"',
+	'HST_OperationService.BuildSettlementId(',
+	'"enemy_resource_refund_" + carrier.m_sSettlementId',
+	'carrier.m_iExpectedPrefixMutationCount',
+	'carrier.m_bExpectedPrefixReceiptApplied',
+	'expectedTerminalRevision = carrier.m_iPrefixRevision + 2',
+	'expectedTerminalRevision = carrier.m_iPrefixRevision + 1',
+	'expectation.m_iExpectedPoolOperationalMutationCount != 2',
+	'carrier.m_sPreparedSettlementFingerprint',
+	'carrier.m_sRawPreparedCutSemanticFingerprint',
+	'carrier.m_iExpectedPhysicalAdapterHandleCount != 0',
+	'carrier.m_iExpectedPhysicalRuntimeMemberCount != 0'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPreparedCarrierGate) -or
+		$exactCounterRestartPreparedCarrierGate.IndexOf(
+			$exactCounterRestartPreparedCarrierEntry) -lt 0) {
+		throw "Exact counterattack PREPARED carrier validation is incomplete: $exactCounterRestartPreparedCarrierEntry"
+	}
+}
+
+$exactCounterRestartPreparedBuild = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'bool PrepareExternalPreparedSettlementRestartCarrier('
+foreach ($exactCounterRestartPreparedBuildEntry in @(
+	'CUT_PREPARED_BEFORE_REFUND', 'CUT_PREPARED_AFTER_REFUND',
+	'CUT_PREPARED_AFTER_RECEIPT',
+	'SelectStrategicLivingMemberSlotId(',
+	'ConfirmStrategicMemberCasualty(',
+	'StagePreparedSettlementWithSurvivors(',
+	'HST_OPERATION_TERMINAL_ROUTE_FAILED',
+	'ApplyPreparedRefund(',
+	'RecordExactEnemyCounterattackResourceSettlement(',
+	'BuildExternalPreparedSettlementExpectation(',
+	'BuildExternalPreparedSettlementFingerprint(',
+	'carrier.m_sPreparedSemanticFingerprint',
+	'carrier.m_sRawPreparedCutSemanticFingerprint',
+	'ValidateExternalPreparedSettlementState(',
+	'ValidateExternalRuntimeClaimantsZero('
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPreparedBuild) -or
+		$exactCounterRestartPreparedBuild.IndexOf(
+			$exactCounterRestartPreparedBuildEntry) -lt 0) {
+		throw "Exact counterattack PREPARED settlement preparation is incomplete: $exactCounterRestartPreparedBuildEntry"
+	}
+}
+$exactCounterRestartPreparedValidator = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected bool IsExternalPreparedSettlementExact('
+foreach ($exactCounterRestartPreparedValidatorEntry in @(
+	'HST_OPERATION_SETTLEMENT_PREPARED',
+	'HST_OPERATION_TERMINAL_ROUTE_FAILED',
+	'operation.m_iRevision == carrier.m_iPrefixRevision',
+	'order.m_bResourceSettlementApplied',
+	'carrier.m_bExpectedPrefixReceiptApplied',
+	'CountMutationId(state, expected.m_sDebitMutationId) == 1',
+	'carrier.m_iExpectedPrefixMutationCount',
+	'ValidateOriginalResourceDebitAuthority(',
+	'ValidatePendingResourceRefundAggregateAuthority(',
+	'CountExternalSettlementBatchClaimants(state, expected) == 1',
+	'CountExternalSettlementGroupClaimants(state, expected) == 1',
+	'CountExternalSettlementForeignClaimants(state, expected) == 0'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPreparedValidator) -or
+		$exactCounterRestartPreparedValidator.IndexOf(
+			$exactCounterRestartPreparedValidatorEntry) -lt 0) {
+		throw "Exact counterattack PREPARED source validator is incomplete: $exactCounterRestartPreparedValidatorEntry"
+	}
+}
+$exactCounterRestartTerminalValidator = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected bool IsExternalTerminalSettlementExact('
+foreach ($exactCounterRestartTerminalValidatorEntry in @(
+	'HST_OPERATION_SETTLEMENT_SETTLED',
+	'HST_OPERATION_TERMINAL_ROUTE_FAILED',
+	'operation.m_iRevision == expected.m_iExpectedTerminalRevision',
+	'HST_OPERATION_DUTY_SETTLED',
+	'HST_OPERATION_MATERIALIZATION_RETIRED',
+	'pool.m_iStrategicRevision == expected.m_iExpectedPoolRevision',
+	'ValidateOriginalResourceDebitAuthority(',
+	'ValidateSettledResourceRefundAuthority(',
+	'CountMutationId(state, expected.m_sRefundMutationId) == 1',
+	'CountExternalSettlementBatchClaimants(state, expected) == 0',
+	'CountExternalSettlementGroupClaimants(state, expected) == 0',
+	'!state.FindForceSpawnResult(expected.m_sBatchId)',
+	'!state.FindActiveGroup(expected.m_sGroupId)'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartTerminalValidator) -or
+		$exactCounterRestartTerminalValidator.IndexOf(
+			$exactCounterRestartTerminalValidatorEntry) -lt 0) {
+		throw "Exact counterattack terminal settlement validator is incomplete: $exactCounterRestartTerminalValidatorEntry"
+	}
+}
+foreach ($exactCounterRestartPreparedFingerprintGate in @(
+	@('prepared', 'protected string BuildExternalPreparedSettlementFingerprint('),
+	@('terminal', 'protected string BuildExternalTerminalSettlementFingerprint(')
+)) {
+	$exactCounterRestartPreparedFingerprint = Get-ScriptMethodBlock `
+		$exactCounterRestartProofText $exactCounterRestartPreparedFingerprintGate[1]
+	foreach ($exactCounterRestartPreparedFingerprintEntry in @(
+		'BuildExternalOrderSemanticRow(',
+		'BuildExternalOperationSemanticRow(',
+		'BuildExternalManifestSemanticRow(',
+		'BuildExternalPoolSemanticRow(',
+		'BuildExternalMutationSemanticRow(debit)',
+		'BuildExternalMutationSemanticRow(refund)',
+		'CountMutationId(state, expected.m_sDebitMutationId)',
+		'CountMutationId(state, expected.m_sRefundMutationId)',
+		'CountExternalSettlementBatchClaimants(',
+		'CountExternalSettlementGroupClaimants(',
+		'CountExternalSettlementForeignClaimants('
+	)) {
+		if ([string]::IsNullOrEmpty($exactCounterRestartPreparedFingerprint) -or
+			$exactCounterRestartPreparedFingerprint.IndexOf(
+				$exactCounterRestartPreparedFingerprintEntry) -lt 0) {
+			throw "Exact counterattack $($exactCounterRestartPreparedFingerprintGate[0]) settlement fingerprint is incomplete: $exactCounterRestartPreparedFingerprintEntry"
+		}
+	}
+}
+$exactCounterRestartRuntimeZero = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText 'bool ValidateExternalRuntimeClaimantsZero('
+foreach ($exactCounterRestartSettlementRuntimeEntry in @(
+	'if (!carrier.m_SettlementExpectation)',
+	'settlement.m_sBatchId',
+	'settlement.m_sProjectionId',
+	'settlement.m_sGroupId',
+	'HST_OPERATION_SETTLEMENT_PREPARED',
+	'HST_OPERATION_SETTLEMENT_SETTLED'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartRuntimeZero) -or
+		$exactCounterRestartRuntimeZero.IndexOf(
+			$exactCounterRestartSettlementRuntimeEntry) -lt 0) {
+		throw "Exact counterattack settlement runtime cleanup gate is incomplete: $exactCounterRestartSettlementRuntimeEntry"
+	}
+}
+
+$exactCounterRestartObservePrepared = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected void ObserveExactCounterattackExternalRestartSource()'
+foreach ($exactCounterRestartObservePreparedEntry in @(
+	'IsPreparedSettlementCut(',
+	'ValidateExternalPreparedSettlementState(',
+	'ValidateExternalTerminalSettlementState(',
+	'm_sExactCounterattackRestartCLIStage == "recover"',
+	'LoadExactCounterattackPreparedCutResult(',
+	'LoadResult(',
+	'm_sExactCounterattackRestartExpectedFingerprint',
+	'm_sExactCounterattackRestartSourceFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartObservePrepared) -or
+		$exactCounterRestartObservePrepared.IndexOf(
+			$exactCounterRestartObservePreparedEntry) -lt 0) {
+		throw "Exact counterattack PREPARED startup observation is incomplete: $exactCounterRestartObservePreparedEntry"
+	}
+}
+$exactCounterRestartPreparedVerify = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected void FinalizeExactCounterattackPreparedSettlementRestartVerify()'
+foreach ($exactCounterRestartPreparedVerifyEntry in @(
+	'm_sExactCounterattackRestartSourceFingerprint',
+	'm_sExactCounterattackRestartExpectedFingerprint',
+	'ValidateExternalTerminalSettlementState(',
+	'm_bExactCounterattackRestartStartupReconcileChanged',
+	'm_sExactCounterattackRestartCLIStage == "recover"',
+	'm_sExactCounterattackRestartCLIStage == "replay"',
+	'm_EnemyCounterattackOperations.ReconcileAfterRestore(',
+	'!secondReconcileChanged',
+	'replayFingerprint == firstTerminalFingerprint',
+	'WriteProfileFallbackProofSnapshot(',
+	'readBackFingerprint == replayFingerprint',
+	'result.m_bContinuationExact = continuationExact;',
+	'result.m_bSameStateSemanticNoOp = semanticNoOp;'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPreparedVerify) -or
+		$exactCounterRestartPreparedVerify.IndexOf(
+			$exactCounterRestartPreparedVerifyEntry) -lt 0) {
+		throw "Exact counterattack PREPARED recover/replay coordinator proof is incomplete: $exactCounterRestartPreparedVerifyEntry"
+	}
+}
+foreach ($exactCounterRestartPreparedCoordinatorEntry in @(
+	'PrepareExternalPreparedSettlementRestartCarrier(',
+	'ValidateExternalPreparedSettlementState(',
+	'TrackExactCounterattackPreparedSettlement(',
+	'FinalizeExactCounterattackPreparedSettlementRestartVerify();'
+)) {
+	if ($exactCounterRestartCoordinatorText.IndexOf(
+		$exactCounterRestartPreparedCoordinatorEntry) -lt 0) {
+		throw "Exact counterattack PREPARED coordinator dispatch is incomplete: $exactCounterRestartPreparedCoordinatorEntry"
+	}
+}
+
+foreach ($exactCounterRestartPreparedLauncherEntry in @(
+	'"prepared_before_refund"', '"prepared_after_refund"',
+	'"prepared_after_receipt"',
+	'prepared_before_refund = 4', 'prepared_after_refund = 5',
+	'prepared_after_receipt = 6',
+	'$script:IsPreparedSettlementCut',
+	'function Assert-PreparedSettlementCarrier',
+	'function Assert-PreparedSettlementStageSemantics',
+	'prepared prefix policy is not exact',
+	'first-start PREPARED-settlement recovery invariant',
+	'second-start settlement semantic no-op invariant',
+	'prepared settlement carrier self-test',
+	'tampered prepared settlement carrier self-test',
+	'prepared settlement recovery self-test',
+	'tampered prepared settlement recovery self-test'
+)) {
+	if ($exactCounterRestartLauncherText.IndexOf(
+		$exactCounterRestartPreparedLauncherEntry) -lt 0) {
+		throw "Exact counterattack PREPARED launcher gate is incomplete: $exactCounterRestartPreparedLauncherEntry"
+	}
+}
+
 $guardedWorkbenchLauncherPath = 'tools/run-guarded-workbench-validation.ps1'
 if (!(Test-Path -LiteralPath $guardedWorkbenchLauncherPath -PathType Leaf)) {
 	throw 'Guarded Workbench launcher is missing'
@@ -36985,7 +37276,7 @@ if (([regex]::Matches(
 	throw 'Guarded Workbench launcher must expose one sentinel-authorized recursive deletion path'
 }
 
-Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL, deferred-DEMATERIALIZING, deferred-MATERIALIZING, and native PHYSICAL/LIVE process-restart contract OK"
+Write-Host "Guarded exact enemy counterattack route, native PHYSICAL/LIVE, and three-prefix PREPARED settlement process-restart contract OK"
 
 Write-Host "Guarded Workbench disposable profile, dead-owner recovery, and zero-leftover boundary contract OK"
 
