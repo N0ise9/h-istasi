@@ -3839,6 +3839,349 @@ class HST_EnemyCounterattackOperationProofService
 		return count;
 	}
 
+	protected int CountExternalZoneId(HST_CampaignState state, string zoneId)
+	{
+		int count;
+		if (!state || zoneId.IsEmpty())
+			return count;
+		foreach (HST_ZoneState zone : state.m_aZones)
+		{
+			if (zone && zone.m_sZoneId == zoneId)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountExternalOwnershipTransitionClaimants(
+		HST_CampaignState state,
+		string operationId)
+	{
+		int count;
+		if (!state || operationId.IsEmpty())
+			return count;
+		string requestId = "ownership_counterattack_" + operationId;
+		foreach (HST_OwnershipTransitionState transition : state.m_aOwnershipTransitions)
+		{
+			if (transition && (transition.m_sRequestId == requestId
+				|| transition.m_sSourceId == operationId))
+				count++;
+		}
+		return count;
+	}
+
+	protected string BuildExternalEndpointOwnershipSemanticRow(HST_ZoneState zone)
+	{
+		if (!zone)
+			return "null";
+		return string.Format(
+			"%1|%2|%3|%4|%5|%6|%7",
+			zone.m_sZoneId,
+			zone.m_sOwnerFactionKey,
+			zone.m_iOwnershipContractVersion,
+			zone.m_iOwnershipRevision,
+			zone.m_sActiveOwnershipTransitionRequestId,
+			zone.m_sLastOwnershipTransitionRequestId,
+			BuildExternalCanonicalOptionalText(zone.m_sOwnershipAuthorityFailure));
+	}
+
+	protected bool ValidateExternalEndpointOwnershipAuthority(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "external counterattack endpoint ownership authority rejected";
+		if (!state || !carrier)
+			return false;
+		string sourceZoneId;
+		string targetZoneId;
+		string sourceOwner;
+		string targetOwner;
+		string operationId;
+		int sourceRevision;
+		int targetRevision;
+		if (carrier.m_Expectation && !carrier.m_SettlementExpectation)
+		{
+			sourceZoneId = carrier.m_Expectation.m_sSourceZoneId;
+			targetZoneId = carrier.m_Expectation.m_sTargetZoneId;
+			sourceOwner
+				= carrier.m_Expectation.m_sExpectedSourceOwnerFactionKey;
+			targetOwner
+				= carrier.m_Expectation.m_sExpectedTargetOwnerFactionKey;
+			sourceRevision
+				= carrier.m_Expectation.m_iExpectedSourceOwnershipRevision;
+			targetRevision
+				= carrier.m_Expectation.m_iExpectedTargetOwnershipRevision;
+			operationId = carrier.m_Expectation.m_sOperationId;
+		}
+		else if (!carrier.m_Expectation && carrier.m_SettlementExpectation)
+		{
+			sourceZoneId = carrier.m_SettlementExpectation.m_sSourceZoneId;
+			targetZoneId = carrier.m_SettlementExpectation.m_sTargetZoneId;
+			sourceOwner
+				= carrier.m_SettlementExpectation.m_sExpectedSourceOwnerFactionKey;
+			targetOwner
+				= carrier.m_SettlementExpectation.m_sExpectedTargetOwnerFactionKey;
+			sourceRevision
+				= carrier.m_SettlementExpectation.m_iExpectedSourceOwnershipRevision;
+			targetRevision
+				= carrier.m_SettlementExpectation.m_iExpectedTargetOwnershipRevision;
+			operationId = carrier.m_SettlementExpectation.m_sOperationId;
+		}
+		else
+			return false;
+		if (sourceZoneId.IsEmpty() || targetZoneId.IsEmpty()
+			|| sourceZoneId == targetZoneId || sourceOwner.IsEmpty()
+			|| targetOwner.IsEmpty() || operationId.IsEmpty()
+			|| sourceRevision <= 0 || targetRevision <= 0)
+			return false;
+		HST_ZoneState source = state.FindZone(sourceZoneId);
+		HST_ZoneState target = state.FindZone(targetZoneId);
+		bool exact = source && target
+			&& CountExternalZoneId(state, sourceZoneId) == 1
+			&& CountExternalZoneId(state, targetZoneId) == 1;
+		if (exact)
+		{
+			exact = source.m_sOwnerFactionKey == sourceOwner
+				&& source.m_iOwnershipRevision == sourceRevision
+				&& target.m_sOwnerFactionKey == targetOwner
+				&& target.m_iOwnershipRevision == targetRevision;
+		}
+		if (!exact)
+		{
+			evidence = string.Format(
+				"endpoint ownership mismatch | source rows/revision %1/%2 | target rows/revision %3/%4",
+				CountExternalZoneId(state, sourceZoneId),
+				sourceRevision,
+				CountExternalZoneId(state, targetZoneId),
+				targetRevision);
+			return false;
+		}
+		evidence = string.Format(
+			"endpoint ownership exact | source/target revisions %1/%2 | operation %3",
+			sourceRevision,
+			targetRevision,
+			operationId);
+		return true;
+	}
+
+	protected bool ValidateExternalEndpointAuthorityTamperRejection(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "external counterattack endpoint/claimant tamper rejection failed";
+		string endpointEvidence;
+		if (!ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence))
+			return false;
+		string validationFingerprint;
+		string validationEvidence;
+		bool settlementCut = !carrier.m_Expectation
+			&& carrier.m_SettlementExpectation;
+		bool baselineExact;
+		if (settlementCut)
+		{
+			baselineExact = ValidateExternalPreparedSettlementState(
+				state,
+				carrier,
+				validationFingerprint,
+				validationEvidence);
+		}
+		else
+		{
+			baselineExact = ValidateExternalPreparedCutState(
+				state,
+				carrier,
+				validationFingerprint,
+				validationEvidence);
+		}
+		if (!baselineExact)
+			return false;
+		string sourceZoneId;
+		string operationId;
+		if (carrier.m_Expectation && !carrier.m_SettlementExpectation)
+		{
+			sourceZoneId = carrier.m_Expectation.m_sSourceZoneId;
+			operationId = carrier.m_Expectation.m_sOperationId;
+		}
+		else if (!carrier.m_Expectation && carrier.m_SettlementExpectation)
+		{
+			sourceZoneId = carrier.m_SettlementExpectation.m_sSourceZoneId;
+			operationId = carrier.m_SettlementExpectation.m_sOperationId;
+		}
+		else
+			return false;
+		HST_ZoneState source = state.FindZone(sourceZoneId);
+		if (!source || CountExternalOwnershipTransitionClaimants(
+			state,
+			operationId) != 0)
+			return false;
+		int sourceRevision = source.m_iOwnershipRevision;
+		source.m_iOwnershipRevision = sourceRevision + 1;
+		bool revisionRejected = !ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		if (settlementCut)
+		{
+			revisionRejected = revisionRejected
+				&& !ValidateExternalPreparedSettlementState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		else
+		{
+			revisionRejected = revisionRejected
+				&& !ValidateExternalPreparedCutState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		source.m_iOwnershipRevision = sourceRevision;
+
+		int insertionIndex = state.m_aOwnershipTransitions.Count();
+		HST_OwnershipTransitionState requestClaimant
+			= new HST_OwnershipTransitionState();
+		requestClaimant.m_sRequestId = "ownership_counterattack_" + operationId;
+		requestClaimant.m_sSourceId = "foreign_source";
+		state.m_aOwnershipTransitions.Insert(requestClaimant);
+		bool requestClaimantRejected
+			= CountExternalOwnershipTransitionClaimants(state, operationId) == 1;
+		if (settlementCut)
+		{
+			requestClaimantRejected = requestClaimantRejected
+				&& !ValidateExternalPreparedSettlementState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		else
+		{
+			requestClaimantRejected = requestClaimantRejected
+				&& !ValidateExternalPreparedCutState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		state.m_aOwnershipTransitions.Remove(insertionIndex);
+
+		insertionIndex = state.m_aOwnershipTransitions.Count();
+		HST_OwnershipTransitionState sourceClaimant
+			= new HST_OwnershipTransitionState();
+		sourceClaimant.m_sRequestId = "foreign_request";
+		sourceClaimant.m_sSourceId = operationId;
+		state.m_aOwnershipTransitions.Insert(sourceClaimant);
+		bool sourceClaimantRejected
+			= CountExternalOwnershipTransitionClaimants(state, operationId) == 1;
+		if (settlementCut)
+		{
+			sourceClaimantRejected = sourceClaimantRejected
+				&& !ValidateExternalPreparedSettlementState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		else
+		{
+			sourceClaimantRejected = sourceClaimantRejected
+				&& !ValidateExternalPreparedCutState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		state.m_aOwnershipTransitions.Remove(insertionIndex);
+
+		bool restoredExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence)
+			&& CountExternalOwnershipTransitionClaimants(state, operationId) == 0;
+		if (settlementCut)
+		{
+			restoredExact = restoredExact
+				&& ValidateExternalPreparedSettlementState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		else
+		{
+			restoredExact = restoredExact
+				&& ValidateExternalPreparedCutState(
+					state,
+					carrier,
+					validationFingerprint,
+					validationEvidence);
+		}
+		bool exact = revisionRejected && requestClaimantRejected
+			&& sourceClaimantRejected && restoredExact;
+		if (exact)
+			evidence = "endpoint revision and both operation claimant identities rejected";
+		return exact;
+	}
+
+	protected bool PopulateExternalMovementEndpointOwnershipExpectation(
+		HST_CampaignState state,
+		HST_EnemyCounterattackOutboundVirtualExpectation expectation)
+	{
+		if (!state || !expectation
+			|| CountExternalZoneId(state, expectation.m_sSourceZoneId) != 1
+			|| CountExternalZoneId(state, expectation.m_sTargetZoneId) != 1)
+			return false;
+		HST_ZoneState source = state.FindZone(expectation.m_sSourceZoneId);
+		HST_ZoneState target = state.FindZone(expectation.m_sTargetZoneId);
+		if (!source || !target || source.m_sOwnerFactionKey.IsEmpty()
+			|| target.m_sOwnerFactionKey.IsEmpty()
+			|| source.m_iOwnershipRevision <= 0
+			|| target.m_iOwnershipRevision <= 0)
+			return false;
+		expectation.m_sExpectedSourceOwnerFactionKey
+			= source.m_sOwnerFactionKey;
+		expectation.m_iExpectedSourceOwnershipRevision
+			= source.m_iOwnershipRevision;
+		expectation.m_sExpectedTargetOwnerFactionKey
+			= target.m_sOwnerFactionKey;
+		expectation.m_iExpectedTargetOwnershipRevision
+			= target.m_iOwnershipRevision;
+		return true;
+	}
+
+	protected bool PopulateExternalSettlementEndpointOwnershipExpectation(
+		HST_CampaignState state,
+		HST_EnemyCounterattackPreparedSettlementExpectation expectation)
+	{
+		if (!state || !expectation
+			|| CountExternalZoneId(state, expectation.m_sSourceZoneId) != 1
+			|| CountExternalZoneId(state, expectation.m_sTargetZoneId) != 1)
+			return false;
+		HST_ZoneState source = state.FindZone(expectation.m_sSourceZoneId);
+		HST_ZoneState target = state.FindZone(expectation.m_sTargetZoneId);
+		if (!source || !target || source.m_sOwnerFactionKey.IsEmpty()
+			|| target.m_sOwnerFactionKey.IsEmpty()
+			|| source.m_iOwnershipRevision <= 0
+			|| target.m_iOwnershipRevision <= 0)
+			return false;
+		expectation.m_sExpectedSourceOwnerFactionKey
+			= source.m_sOwnerFactionKey;
+		expectation.m_iExpectedSourceOwnershipRevision
+			= source.m_iOwnershipRevision;
+		expectation.m_sExpectedTargetOwnerFactionKey
+			= target.m_sOwnerFactionKey;
+		expectation.m_iExpectedTargetOwnershipRevision
+			= target.m_iOwnershipRevision;
+		return true;
+	}
+
 	bool PrepareExternalPreparedSettlementRestartCarrier(
 		string sessionNonce,
 		string runId,
@@ -4025,6 +4368,7 @@ class HST_EnemyCounterattackOperationProofService
 		string preparedFingerprint;
 		string preparedEvidence;
 		string runtimeEvidence;
+		string endpointTamperEvidence;
 		bool exact = ValidateExternalPreparedSettlementState(
 			fixture.m_State,
 			carrier,
@@ -4035,11 +4379,16 @@ class HST_EnemyCounterattackOperationProofService
 				carrier,
 				fixture.m_Adapter,
 				fixture.m_PhysicalWar,
-				runtimeEvidence);
+				runtimeEvidence)
+			&& ValidateExternalEndpointAuthorityTamperRejection(
+				fixture.m_State,
+				carrier,
+				endpointTamperEvidence);
 		if (!exact)
 		{
 			carrier = null;
-			evidence = preparedEvidence + " | " + runtimeEvidence;
+			evidence = preparedEvidence + " | " + runtimeEvidence
+				+ " | " + endpointTamperEvidence;
 			return false;
 		}
 		stagedState = fixture.m_State;
@@ -4219,6 +4568,10 @@ class HST_EnemyCounterattackOperationProofService
 		expectation.m_sFactionKey = fixture.m_Order.m_sFactionKey;
 		expectation.m_sSourceZoneId = fixture.m_Order.m_sSourceZoneId;
 		expectation.m_sTargetZoneId = fixture.m_Order.m_sTargetZoneId;
+		if (!PopulateExternalMovementEndpointOwnershipExpectation(
+			fixture.m_State,
+			expectation))
+			return false;
 		expectation.m_sDebitMutationId
 			= fixture.m_Order.m_sResourceDebitMutationId;
 		expectation.m_iAttackCost = fixture.m_Order.m_iAttackCost;
@@ -4263,6 +4616,7 @@ class HST_EnemyCounterattackOperationProofService
 		string fingerprint;
 		string stateEvidence;
 		string runtimeEvidence;
+		string endpointTamperEvidence;
 		bool exact = ValidateExternalVirtualState(
 			fixture.m_State,
 			carrier,
@@ -4274,11 +4628,16 @@ class HST_EnemyCounterattackOperationProofService
 				carrier,
 				fixture.m_Adapter,
 				fixture.m_PhysicalWar,
-				runtimeEvidence);
+				runtimeEvidence)
+			&& ValidateExternalEndpointAuthorityTamperRejection(
+				fixture.m_State,
+				carrier,
+				endpointTamperEvidence);
 		if (!exact)
 		{
 			carrier = null;
-			evidence = stateEvidence + " | " + runtimeEvidence;
+			evidence = stateEvidence + " | " + runtimeEvidence
+				+ " | " + endpointTamperEvidence;
 			return false;
 		}
 		stagedState = fixture.m_State;
@@ -4457,6 +4816,7 @@ class HST_EnemyCounterattackOperationProofService
 		string rawEvidence;
 		string normalizedRuntimeEvidence;
 		string rawRuntimeEvidence;
+		string endpointTamperEvidence;
 		bool exact = ValidateExternalVirtualState(
 			normalizedBaseline,
 			carrier,
@@ -4480,14 +4840,19 @@ class HST_EnemyCounterattackOperationProofService
 				carrier,
 				fixture.m_Adapter,
 				fixture.m_PhysicalWar,
-				rawRuntimeEvidence);
+				rawRuntimeEvidence)
+			&& ValidateExternalEndpointAuthorityTamperRejection(
+				rawState,
+				carrier,
+				endpointTamperEvidence);
 		if (!exact)
 		{
 			carrier = null;
 			evidence = "normalized " + normalizedEvidence
 				+ " | raw " + rawEvidence
 				+ " | normalized runtime " + normalizedRuntimeEvidence
-				+ " | raw runtime " + rawRuntimeEvidence;
+				+ " | raw runtime " + rawRuntimeEvidence
+				+ " | endpoint tamper " + endpointTamperEvidence;
 			return false;
 		}
 
@@ -4527,6 +4892,10 @@ class HST_EnemyCounterattackOperationProofService
 		expectation.m_sFactionKey = fixture.m_Order.m_sFactionKey;
 		expectation.m_sSourceZoneId = fixture.m_Order.m_sSourceZoneId;
 		expectation.m_sTargetZoneId = fixture.m_Order.m_sTargetZoneId;
+		if (!PopulateExternalMovementEndpointOwnershipExpectation(
+			fixture.m_State,
+			expectation))
+			return null;
 		expectation.m_sDebitMutationId
 			= fixture.m_Order.m_sResourceDebitMutationId;
 		expectation.m_iAttackCost = fixture.m_Order.m_iAttackCost;
@@ -4796,6 +5165,10 @@ class HST_EnemyCounterattackOperationProofService
 		expectation.m_sFactionKey = fixture.m_Order.m_sFactionKey;
 		expectation.m_sSourceZoneId = fixture.m_Order.m_sSourceZoneId;
 		expectation.m_sTargetZoneId = fixture.m_Order.m_sTargetZoneId;
+		if (!PopulateExternalMovementEndpointOwnershipExpectation(
+			fixture.m_State,
+			expectation))
+			return null;
 		expectation.m_sDebitMutationId
 			= fixture.m_Order.m_sResourceDebitMutationId;
 		expectation.m_iAttackCost = fixture.m_Order.m_iAttackCost;
@@ -4885,6 +5258,7 @@ class HST_EnemyCounterattackOperationProofService
 		string casualtyEvidence;
 		string rawRuntimeEvidence;
 		string normalizedRuntimeEvidence;
+		string endpointTamperEvidence;
 		bool exact = ValidateExternalDematerializingCutState(
 			fixture.m_State,
 			carrier,
@@ -4920,12 +5294,19 @@ class HST_EnemyCounterattackOperationProofService
 		}
 		if (exact)
 		{
-			exact = ValidateExternalRuntimeClaimantsZero(
+				exact = ValidateExternalRuntimeClaimantsZero(
 				normalizedState,
 				carrier,
 				fixture.m_Adapter,
 				fixture.m_PhysicalWar,
 				normalizedRuntimeEvidence);
+		}
+		if (exact)
+		{
+			exact = ValidateExternalEndpointAuthorityTamperRejection(
+				fixture.m_State,
+				carrier,
+				endpointTamperEvidence);
 		}
 		if (exact)
 		{
@@ -4935,7 +5316,8 @@ class HST_EnemyCounterattackOperationProofService
 		evidence = rawEvidence + " | normalized " + normalizedEvidence
 			+ " | casualty " + casualtyEvidence
 			+ " | raw runtime " + rawRuntimeEvidence
-			+ " | normalized runtime " + normalizedRuntimeEvidence;
+			+ " | normalized runtime " + normalizedRuntimeEvidence
+			+ " | endpoint tamper " + endpointTamperEvidence;
 		return false;
 	}
 
@@ -5008,7 +5390,6 @@ class HST_EnemyCounterattackOperationProofService
 		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
 		if (!order || !operation || !manifest || !batch || !group || !pool)
 			return false;
-
 		HST_EnemyCounterattackOperationService owner
 			= new HST_EnemyCounterattackOperationService();
 		string authorityFailure = owner.DebugValidateOpenRuntimeAuthority(state, order);
@@ -5017,6 +5398,15 @@ class HST_EnemyCounterattackOperationProofService
 			evidence = authorityFailure;
 			return false;
 		}
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		bool ownershipClaimantsExact
+			= CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 0;
 		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
 		bool rowsExact = CountEnemyOrderId(state, expected.m_sOrderId) == 1
 			&& CountOperationId(state, expected.m_sOperationId) == 1
@@ -5132,7 +5522,8 @@ class HST_EnemyCounterattackOperationProofService
 			&& CountExternalLegacyQRFClaimants(state, expected) == 0;
 		bool manifestExact = ValidateExternalVirtualManifest(manifest, expected);
 		fingerprint = BuildExternalSemanticFingerprint(state, carrier);
-		bool exact = rowsExact && orderExact && operationExact && manifestExact
+		bool exact = rowsExact && endpointExact && ownershipClaimantsExact;
+		exact = exact && orderExact && operationExact && manifestExact
 			&& batchExact && groupExact && resourcesExact
 			&& fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint;
 		if (!exact)
@@ -5147,6 +5538,11 @@ class HST_EnemyCounterattackOperationProofService
 				groupExact,
 				resourcesExact,
 				fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint);
+			evidence += string.Format(
+				" | endpoints/ownership claimants %1/%2 | %3",
+				endpointExact,
+				ownershipClaimantsExact,
+				endpointEvidence);
 			return false;
 		}
 		evidence = string.Format(
@@ -5199,6 +5595,15 @@ class HST_EnemyCounterattackOperationProofService
 			evidence = authorityFailure;
 			return false;
 		}
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		bool ownershipClaimantsExact
+			= CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 0;
 		HST_ForceSpawnQueueService queue = new HST_ForceSpawnQueueService();
 		bool rowsExact = CountEnemyOrderId(state, expected.m_sOrderId) == 1
 			&& CountOperationId(state, expected.m_sOperationId) == 1
@@ -5247,7 +5652,8 @@ class HST_EnemyCounterattackOperationProofService
 			&& CountExternalSupportClaimants(state, expected) == 0
 			&& CountExternalLegacyQRFClaimants(state, expected) == 0;
 		fingerprint = BuildExternalSemanticFingerprint(state, carrier);
-		bool exact = rowsExact && cutExact && projectionExact && resourcesExact
+		bool exact = rowsExact && endpointExact && ownershipClaimantsExact;
+		exact = exact && cutExact && projectionExact && resourcesExact
 			&& fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint;
 		if (!exact)
 		{
@@ -5258,6 +5664,11 @@ class HST_EnemyCounterattackOperationProofService
 				projectionExact,
 				resourcesExact,
 				fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint);
+			evidence += string.Format(
+				" | endpoints/ownership claimants %1/%2 | %3",
+				endpointExact,
+				ownershipClaimantsExact,
+				endpointEvidence);
 			return false;
 		}
 		evidence = string.Format(
@@ -5327,6 +5738,15 @@ class HST_EnemyCounterattackOperationProofService
 			evidence = authorityFailure;
 			return false;
 		}
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		bool ownershipClaimantsExact
+			= CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 0;
 
 		int living = queue.CountDurableLivingMemberSlots(batch);
 		int casualties = queue.CountConfirmedCasualtyMemberSlots(batch);
@@ -5410,7 +5830,8 @@ class HST_EnemyCounterattackOperationProofService
 			&& CountExternalSupportClaimants(state, expected) == 0
 			&& CountExternalLegacyQRFClaimants(state, expected) == 0;
 		fingerprint = BuildExternalSemanticFingerprint(state, carrier);
-		bool exact = rowsExact && lifecycleExact && projectionExact
+		bool exact = rowsExact && endpointExact && ownershipClaimantsExact;
+		exact = exact && lifecycleExact && projectionExact
 			&& rosterExact && resourcesExact
 			&& fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint;
 		if (!exact)
@@ -5440,6 +5861,11 @@ class HST_EnemyCounterattackOperationProofService
 				batch.m_iSuccessfulHandoffCount,
 				batch.m_iReprojectionCount,
 				bindingFailure);
+			evidence += string.Format(
+				" | endpoints/ownership claimants %1/%2 | %3",
+				endpointExact,
+				ownershipClaimantsExact,
+				endpointEvidence);
 			return false;
 		}
 		evidence = string.Format(
@@ -5749,6 +6175,15 @@ class HST_EnemyCounterattackOperationProofService
 			evidence = authorityFailure;
 			return false;
 		}
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		bool ownershipClaimantsExact
+			= CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 0;
 		bool rowsExact = CountEnemyOrderId(state, expected.m_sOrderId) == 1
 			&& CountOperationId(state, expected.m_sOperationId) == 1
 			&& CountManifestId(state, expected.m_sManifestId) == 1
@@ -5903,7 +6338,8 @@ class HST_EnemyCounterattackOperationProofService
 		bool resourcesExact = poolExact && receiptExact;
 
 		fingerprint = BuildExternalSemanticFingerprint(state, carrier);
-		if (!rowsExact || !orderExact || !routeExact
+		if (!rowsExact || !endpointExact || !ownershipClaimantsExact
+			|| !orderExact || !routeExact
 			|| !projectionProof.m_bManifestExact
 			|| !projectionProof.m_bProjectionExact || !resourcesExact
 			|| fingerprint == "external-counterattack-semantic-unavailable")
@@ -5950,6 +6386,11 @@ class HST_EnemyCounterattackOperationProofService
 				" | pool %1 | receipt %2",
 				poolExact,
 				receiptExact);
+			evidence += string.Format(
+				" | endpoints/ownership claimants %1/%2 | %3",
+				endpointExact,
+				ownershipClaimantsExact,
+				endpointEvidence);
 			evidence += " | casualty "
 				+ projectionProof.m_sCasualtyEvidence;
 			return false;
@@ -5986,6 +6427,10 @@ class HST_EnemyCounterattackOperationProofService
 		expectation.m_sFactionKey = fixture.m_Order.m_sFactionKey;
 		expectation.m_sSourceZoneId = fixture.m_Order.m_sSourceZoneId;
 		expectation.m_sTargetZoneId = fixture.m_Order.m_sTargetZoneId;
+		if (!PopulateExternalSettlementEndpointOwnershipExpectation(
+			fixture.m_State,
+			expectation))
+			return null;
 		expectation.m_sDebitMutationId
 			= fixture.m_Order.m_sResourceDebitMutationId;
 		expectation.m_sSettlementKind
@@ -6045,6 +6490,15 @@ class HST_EnemyCounterattackOperationProofService
 		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
 		if (!order || !operation || !manifest || !batch || !group || !pool)
 			return false;
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		bool ownershipClaimantsExact
+			= CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 0;
 
 		bool carrierExact = carrier.m_iAccepted == expected.m_iAccepted
 			&& carrier.m_iCasualties
@@ -6179,7 +6633,8 @@ class HST_EnemyCounterattackOperationProofService
 		bool claimantExact = CountExternalSettlementBatchClaimants(state, expected) == 1
 			&& CountExternalSettlementGroupClaimants(state, expected) == 1
 			&& CountExternalSettlementForeignClaimants(state, expected) == 0;
-		bool exact = carrierExact && identityExact && orderExact
+		bool exact = endpointExact && ownershipClaimantsExact;
+		exact = exact && carrierExact && identityExact && orderExact
 			&& operationExact && manifestExact && executionExact && poolExact
 			&& mutationExact && debitFailure.IsEmpty()
 			&& aggregateFailure.IsEmpty() && claimantExact;
@@ -6199,6 +6654,11 @@ class HST_EnemyCounterattackOperationProofService
 			evidence += string.Format(
 				" | authority %1",
 				debitFailure.IsEmpty() && aggregateFailure.IsEmpty());
+			evidence += string.Format(
+				" | endpoints/ownership claimants %1/%2 | %3",
+				endpointExact,
+				ownershipClaimantsExact,
+				endpointEvidence);
 			if (!debitFailure.IsEmpty())
 				evidence += " | debit " + debitFailure;
 			if (!aggregateFailure.IsEmpty())
@@ -6225,6 +6685,15 @@ class HST_EnemyCounterattackOperationProofService
 		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
 		if (!order || !operation || !manifest || !pool)
 			return false;
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+		bool ownershipClaimantsExact
+			= CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 0;
 
 		bool orderExact = order.m_sOperationId == expected.m_sOperationId
 			&& order.m_sManifestId == expected.m_sManifestId
@@ -6333,7 +6802,8 @@ class HST_EnemyCounterattackOperationProofService
 			&& CountExternalSettlementForeignClaimants(state, expected) == 0
 			&& !state.FindForceSpawnResult(expected.m_sBatchId)
 			&& !state.FindActiveGroup(expected.m_sGroupId);
-		bool exact = orderExact && operationExact && manifestExact && poolExact
+		bool exact = endpointExact && ownershipClaimantsExact;
+		exact = exact && orderExact && operationExact && manifestExact && poolExact
 			&& mutationExact && rowsExact && debitFailure.IsEmpty()
 			&& refundFailure.IsEmpty();
 		if (!exact)
@@ -6351,6 +6821,11 @@ class HST_EnemyCounterattackOperationProofService
 				evidence += " | debit " + debitFailure;
 			if (!refundFailure.IsEmpty())
 				evidence += " | refund " + refundFailure;
+			evidence += string.Format(
+				" | endpoints/ownership claimants %1/%2 | %3",
+				endpointExact,
+				ownershipClaimantsExact,
+				endpointEvidence);
 		}
 		return exact;
 	}
@@ -6376,8 +6851,10 @@ class HST_EnemyCounterattackOperationProofService
 			= FindExternalMutation(state, expected.m_sDebitMutationId);
 		HST_EnemyStrategicMutationState refund
 			= FindExternalMutation(state, expected.m_sRefundMutationId);
+		HST_ZoneState sourceZone = state.FindZone(expected.m_sSourceZoneId);
+		HST_ZoneState targetZone = state.FindZone(expected.m_sTargetZoneId);
 		if (!order || !operation || !manifest || !batch || !group || !pool
-			|| !debit)
+			|| !debit || !sourceZone || !targetZone)
 			return "external-counterattack-prepared-settlement-incomplete";
 		string fingerprint = string.Format(
 			"schema/cut/elapsed %1/%2/%3 | prefix %4/%5/%6/%7/%8",
@@ -6400,6 +6877,14 @@ class HST_EnemyCounterattackOperationProofService
 		fingerprint += " | pool " + BuildExternalPoolSemanticRow(pool);
 		fingerprint += " | debit " + BuildExternalMutationSemanticRow(debit);
 		fingerprint += " | refund " + BuildExternalMutationSemanticRow(refund);
+		fingerprint += " | source zone "
+			+ BuildExternalEndpointOwnershipSemanticRow(sourceZone);
+		fingerprint += " | target zone "
+			+ BuildExternalEndpointOwnershipSemanticRow(targetZone);
+		fingerprint += " | ownership claimants "
+			+ CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId).ToString();
 		fingerprint += string.Format(
 			" | rows %1/%2/%3/%4/%5/%6/%7 | execution %8/%9",
 			CountEnemyOrderId(state, expected.m_sOrderId),
@@ -6436,7 +6921,10 @@ class HST_EnemyCounterattackOperationProofService
 			= FindExternalMutation(state, expected.m_sDebitMutationId);
 		HST_EnemyStrategicMutationState refund
 			= FindExternalMutation(state, expected.m_sRefundMutationId);
-		if (!order || !operation || !manifest || !pool || !debit || !refund)
+		HST_ZoneState sourceZone = state.FindZone(expected.m_sSourceZoneId);
+		HST_ZoneState targetZone = state.FindZone(expected.m_sTargetZoneId);
+		if (!order || !operation || !manifest || !pool || !debit || !refund
+			|| !sourceZone || !targetZone)
 			return "external-counterattack-terminal-settlement-incomplete";
 		string fingerprint = string.Format(
 			"schema/cut %1/%2 | order %3",
@@ -6450,6 +6938,14 @@ class HST_EnemyCounterattackOperationProofService
 		fingerprint += " | pool " + BuildExternalPoolSemanticRow(pool);
 		fingerprint += " | debit " + BuildExternalMutationSemanticRow(debit);
 		fingerprint += " | refund " + BuildExternalMutationSemanticRow(refund);
+		fingerprint += " | source zone "
+			+ BuildExternalEndpointOwnershipSemanticRow(sourceZone);
+		fingerprint += " | target zone "
+			+ BuildExternalEndpointOwnershipSemanticRow(targetZone);
+		fingerprint += " | ownership claimants "
+			+ CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId).ToString();
 		fingerprint += string.Format(
 			" | rows %1/%2/%3/%4/%5/%6/%7 | execution %8/%9",
 			CountEnemyOrderId(state, expected.m_sOrderId),
@@ -6677,6 +7173,14 @@ class HST_EnemyCounterattackOperationProofService
 			= FindExternalMutation(before, expected.m_sDebitMutationId);
 		HST_EnemyStrategicMutationState afterMutation
 			= FindExternalMutation(after, expected.m_sDebitMutationId);
+		HST_ZoneState beforeSourceZone
+			= before.FindZone(expected.m_sSourceZoneId);
+		HST_ZoneState afterSourceZone
+			= after.FindZone(expected.m_sSourceZoneId);
+		HST_ZoneState beforeTargetZone
+			= before.FindZone(expected.m_sTargetZoneId);
+		HST_ZoneState afterTargetZone
+			= after.FindZone(expected.m_sTargetZoneId);
 
 		string evidence;
 		if (BuildExternalGroupSemanticRow(beforeGroup, false)
@@ -6709,6 +7213,18 @@ class HST_EnemyCounterattackOperationProofService
 			" | mutation %1",
 			BuildExternalMutationSemanticRow(beforeMutation)
 				== BuildExternalMutationSemanticRow(afterMutation));
+		evidence += string.Format(
+			" | source zone %1 | target zone %2 | ownership claimants %3",
+			BuildExternalEndpointOwnershipSemanticRow(beforeSourceZone)
+				== BuildExternalEndpointOwnershipSemanticRow(afterSourceZone),
+			BuildExternalEndpointOwnershipSemanticRow(beforeTargetZone)
+				== BuildExternalEndpointOwnershipSemanticRow(afterTargetZone),
+			CountExternalOwnershipTransitionClaimants(
+				before,
+				expected.m_sOperationId)
+				== CountExternalOwnershipTransitionClaimants(
+					after,
+					expected.m_sOperationId));
 		bool groupStaticExact = BuildExternalGroupSemanticRow(beforeGroup, false)
 			== BuildExternalGroupSemanticRow(afterGroup, false);
 		bool positionExact = false;
@@ -6948,8 +7464,10 @@ class HST_EnemyCounterattackOperationProofService
 		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
 		HST_EnemyStrategicMutationState mutation
 			= FindExternalMutation(state, expected.m_sDebitMutationId);
+		HST_ZoneState sourceZone = state.FindZone(expected.m_sSourceZoneId);
+		HST_ZoneState targetZone = state.FindZone(expected.m_sTargetZoneId);
 		if (!order || !operation || !manifest || !batch || !group || !pool
-			|| !mutation)
+			|| !mutation || !sourceZone || !targetZone)
 			return "external-counterattack-semantic-unavailable";
 
 		string fingerprint = string.Format(
@@ -6968,6 +7486,14 @@ class HST_EnemyCounterattackOperationProofService
 			+ BuildExternalGroupSemanticRow(group, includeMovementCursor);
 		fingerprint += " | pool " + BuildExternalPoolSemanticRow(pool);
 		fingerprint += " | mutation " + BuildExternalMutationSemanticRow(mutation);
+		fingerprint += " | source zone "
+			+ BuildExternalEndpointOwnershipSemanticRow(sourceZone);
+		fingerprint += " | target zone "
+			+ BuildExternalEndpointOwnershipSemanticRow(targetZone);
+		fingerprint += " | ownership claimants "
+			+ CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId).ToString();
 		fingerprint += string.Format(
 			" | rows %1/%2/%3/%4/%5/%6 | foreign %7/%8",
 			CountEnemyOrderId(state, expected.m_sOrderId),

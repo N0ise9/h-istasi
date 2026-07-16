@@ -14,6 +14,10 @@ class HST_EnemyCounterattackOutboundVirtualExpectation
 	string m_sFactionKey;
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
+	string m_sExpectedSourceOwnerFactionKey;
+	int m_iExpectedSourceOwnershipRevision;
+	string m_sExpectedTargetOwnerFactionKey;
+	int m_iExpectedTargetOwnershipRevision;
 	string m_sDebitMutationId;
 	int m_iAttackCost;
 	int m_iSupportCost;
@@ -44,6 +48,10 @@ class HST_EnemyCounterattackPreparedSettlementExpectation
 	string m_sFactionKey;
 	string m_sSourceZoneId;
 	string m_sTargetZoneId;
+	string m_sExpectedSourceOwnerFactionKey;
+	int m_iExpectedSourceOwnershipRevision;
+	string m_sExpectedTargetOwnerFactionKey;
+	int m_iExpectedTargetOwnershipRevision;
 	string m_sDebitMutationId;
 	string m_sSettlementKind;
 	string m_sSettlementId;

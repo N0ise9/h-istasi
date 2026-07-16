@@ -446,6 +446,14 @@ class HST_EnemyCounterattackExternalRestartProofService
 			evidence = "external counterattack prepared-settlement source and target conflict";
 			return false;
 		}
+		if (expectation.m_sExpectedSourceOwnerFactionKey.IsEmpty()
+			|| expectation.m_iExpectedSourceOwnershipRevision <= 0
+			|| expectation.m_sExpectedTargetOwnerFactionKey.IsEmpty()
+			|| expectation.m_iExpectedTargetOwnershipRevision <= 0)
+		{
+			evidence = "external counterattack prepared-settlement endpoint ownership rejected";
+			return false;
+		}
 
 		bool attackFunded = expectation.m_iAttackCost > 0
 			&& expectation.m_iSupportCost == 0;
@@ -616,7 +624,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| expectation.m_sBatchId.IsEmpty() || expectation.m_sGroupId.IsEmpty()
 			|| expectation.m_sProjectionId.IsEmpty() || expectation.m_sForceId.IsEmpty()
 			|| expectation.m_sFactionKey.IsEmpty() || expectation.m_sSourceZoneId.IsEmpty()
-			|| expectation.m_sTargetZoneId.IsEmpty() || expectation.m_sDebitMutationId.IsEmpty()
+			|| expectation.m_sTargetZoneId.IsEmpty()
+			|| expectation.m_sDebitMutationId.IsEmpty()
 			|| expectation.m_sLivingSlotFingerprint.IsEmpty())
 		{
 			evidence = "external counterattack restart carrier aggregate identity rejected";
@@ -625,6 +634,14 @@ class HST_EnemyCounterattackExternalRestartProofService
 		if (expectation.m_sSourceZoneId == expectation.m_sTargetZoneId)
 		{
 			evidence = "external counterattack restart carrier source and target conflict";
+			return false;
+		}
+		if (expectation.m_sExpectedSourceOwnerFactionKey.IsEmpty()
+			|| expectation.m_iExpectedSourceOwnershipRevision <= 0
+			|| expectation.m_sExpectedTargetOwnerFactionKey.IsEmpty()
+			|| expectation.m_iExpectedTargetOwnershipRevision <= 0)
+		{
+			evidence = "external counterattack restart carrier endpoint ownership rejected";
 			return false;
 		}
 		bool attackFunded = expectation.m_iAttackCost > 0

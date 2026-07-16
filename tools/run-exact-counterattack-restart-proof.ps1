@@ -1431,6 +1431,10 @@ function Assert-PreparedSettlementCarrier {
         "m_sFactionKey",
         "m_sSourceZoneId",
         "m_sTargetZoneId",
+		"m_sExpectedSourceOwnerFactionKey",
+		"m_iExpectedSourceOwnershipRevision",
+		"m_sExpectedTargetOwnerFactionKey",
+		"m_iExpectedTargetOwnershipRevision",
         "m_sDebitMutationId",
         "m_sSettlementKind",
         "m_sSettlementId",
@@ -1467,6 +1471,8 @@ function Assert-PreparedSettlementCarrier {
         "m_sFactionKey",
         "m_sSourceZoneId",
         "m_sTargetZoneId",
+		"m_sExpectedSourceOwnerFactionKey",
+		"m_sExpectedTargetOwnerFactionKey",
         "m_sDebitMutationId")) {
         if ([string]::IsNullOrWhiteSpace([string]$expectation.$property)) {
             throw "$Label settlement aggregate identity is incomplete."
@@ -1476,6 +1482,10 @@ function Assert-PreparedSettlementCarrier {
         [string]$expectation.m_sTargetZoneId) {
         throw "$Label settlement source and target identities conflict."
     }
+	if ([int]$expectation.m_iExpectedSourceOwnershipRevision -le 0 -or
+		[int]$expectation.m_iExpectedTargetOwnershipRevision -le 0) {
+		throw "$Label settlement endpoint ownership revisions are invalid."
+	}
 
     $attackCost = [int]$expectation.m_iAttackCost
     $supportCost = [int]$expectation.m_iSupportCost
@@ -1666,6 +1676,10 @@ function Assert-PreparedCarrier {
         "m_sFactionKey",
         "m_sSourceZoneId",
         "m_sTargetZoneId",
+		"m_sExpectedSourceOwnerFactionKey",
+		"m_iExpectedSourceOwnershipRevision",
+		"m_sExpectedTargetOwnerFactionKey",
+		"m_iExpectedTargetOwnershipRevision",
         "m_sDebitMutationId",
         "m_iAttackCost",
         "m_iSupportCost",
@@ -1697,6 +1711,8 @@ function Assert-PreparedCarrier {
         "m_sFactionKey",
         "m_sSourceZoneId",
         "m_sTargetZoneId",
+		"m_sExpectedSourceOwnerFactionKey",
+		"m_sExpectedTargetOwnerFactionKey",
         "m_sDebitMutationId",
         "m_sLivingSlotFingerprint")
     foreach ($property in $identityProperties) {
@@ -1715,7 +1731,9 @@ function Assert-PreparedCarrier {
             [int]$expectation.m_iAcceptedMemberCount -or
         [int]$expectation.m_iExpectedAttackPool -lt 0 -or
         [int]$expectation.m_iExpectedSupportPool -lt 0 -or
-        [int]$expectation.m_iExpectedPoolOperationalMutationCount -ne 1) {
+		[int]$expectation.m_iExpectedPoolOperationalMutationCount -ne 1 -or
+		[int]$expectation.m_iExpectedSourceOwnershipRevision -le 0 -or
+		[int]$expectation.m_iExpectedTargetOwnershipRevision -le 0) {
         throw "$label expectation counts are invalid."
     }
     $normalizedFingerprint = [string]$Carrier.m_sPreparedSemanticFingerprint
@@ -2834,6 +2852,10 @@ try {
         m_sFactionKey = "faction_self_test"
         m_sSourceZoneId = "source_self_test"
         m_sTargetZoneId = "target_self_test"
+		m_sExpectedSourceOwnerFactionKey = "source_owner_self_test"
+		m_iExpectedSourceOwnershipRevision = 3
+		m_sExpectedTargetOwnerFactionKey = "target_owner_self_test"
+		m_iExpectedTargetOwnershipRevision = 7
         m_sDebitMutationId = "debit_self_test"
         m_sSettlementKind = "route_failed_survivors"
         m_sSettlementId = $selfTestSettlementId
@@ -2899,6 +2921,23 @@ try {
     if (-not $carrierRejected) {
         throw "Prepared-settlement carrier negative self-test failed."
     }
+
+	$endpointTamperedCarrier = $selfTestCarrier |
+		ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json
+	$endpointTamperedCarrier.m_SettlementExpectation.m_iExpectedSourceOwnershipRevision = 0
+	$endpointCarrierRejected = $false
+	try {
+		Assert-PreparedSettlementCarrier `
+			-Carrier $endpointTamperedCarrier `
+			-Label "endpoint-tampered prepared settlement carrier self-test" `
+			-CutName "prepared_before_refund"
+	}
+	catch {
+		$endpointCarrierRejected = $true
+	}
+	if (-not $endpointCarrierRejected) {
+		throw "Prepared-settlement endpoint carrier negative self-test failed."
+	}
 
     $mixedCarrier = $selfTestCarrier |
         ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json

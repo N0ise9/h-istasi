@@ -33887,6 +33887,10 @@ foreach ($exactCounterRestartDTOEntry in @(
 	'string m_sManifestHash;', 'string m_sBatchId;', 'string m_sGroupId;',
 	'string m_sProjectionId;', 'string m_sForceId;', 'string m_sFactionKey;',
 	'string m_sSourceZoneId;', 'string m_sTargetZoneId;', 'string m_sDebitMutationId;',
+	'string m_sExpectedSourceOwnerFactionKey;',
+	'int m_iExpectedSourceOwnershipRevision;',
+	'string m_sExpectedTargetOwnerFactionKey;',
+	'int m_iExpectedTargetOwnershipRevision;',
 	'int m_iAttackCost;', 'int m_iSupportCost;', 'int m_iExpectedAttackPool;',
 	'int m_iExpectedSupportPool;', 'int m_iExpectedPoolOperationalMutationCount;',
 	'int m_iAcceptedMemberCount;', 'int m_iLivingMemberCount;',
@@ -33916,6 +33920,28 @@ foreach ($exactCounterRestartDTOEntry in @(
 )) {
 	if ($exactCounterRestartDataText.IndexOf($exactCounterRestartDTOEntry) -lt 0) {
 		throw "Exact counterattack external restart semantic DTO is incomplete: $exactCounterRestartDTOEntry"
+	}
+}
+$exactCounterRestartEndpointExpectationFields = @(
+	'string m_sExpectedSourceOwnerFactionKey;',
+	'int m_iExpectedSourceOwnershipRevision;',
+	'string m_sExpectedTargetOwnerFactionKey;',
+	'int m_iExpectedTargetOwnershipRevision;'
+)
+foreach ($exactCounterRestartEndpointExpectationClass in @(
+	'HST_EnemyCounterattackOutboundVirtualExpectation',
+	'HST_EnemyCounterattackPreparedSettlementExpectation'
+)) {
+	$exactCounterRestartEndpointExpectationBlock = Get-ScriptMethodBlock `
+		$exactCounterRestartDataText `
+		("class " + $exactCounterRestartEndpointExpectationClass)
+	foreach ($exactCounterRestartEndpointExpectationField in `
+		$exactCounterRestartEndpointExpectationFields) {
+		if ([string]::IsNullOrEmpty($exactCounterRestartEndpointExpectationBlock) -or
+			$exactCounterRestartEndpointExpectationBlock.IndexOf(
+				$exactCounterRestartEndpointExpectationField) -lt 0) {
+			throw "Exact counterattack $exactCounterRestartEndpointExpectationClass omits frozen endpoint ownership: $exactCounterRestartEndpointExpectationField"
+		}
 	}
 }
 $exactCounterRestartResultDTO = Get-ScriptMethodBlock `
@@ -34012,7 +34038,11 @@ foreach ($exactCounterRestartCarrierGateEntry in @(
 	'expectation.m_iExpectedNormalizedReprojectionCount != 1',
 	'expectation.m_iLivingMemberCount',
 	'!= expectation.m_iAcceptedMemberCount - 1',
-	'preparedProgressExact = carrier.m_fPreparedRouteProgressMeters >= 0'
+	'preparedProgressExact = carrier.m_fPreparedRouteProgressMeters >= 0',
+	'expectation.m_sExpectedSourceOwnerFactionKey',
+	'expectation.m_iExpectedSourceOwnershipRevision',
+	'expectation.m_sExpectedTargetOwnerFactionKey',
+	'expectation.m_iExpectedTargetOwnershipRevision'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartCarrierValidation) -or
 		$exactCounterRestartCarrierValidation.IndexOf(
@@ -34181,6 +34211,7 @@ foreach ($exactCounterRestartMaterializingPrepareEntry in @(
 	'ValidateExternalVirtualState(',
 	'ValidateExternalMaterializingCutState(',
 	'ValidateExternalRuntimeClaimantsZero(',
+	'ValidateExternalEndpointAuthorityTamperRejection(',
 	'stagedState = rawState;',
 	'persistenceSourceState = fixture.m_State;',
 	'paused MATERIALIZING/STRATEGIC after retained virtual route'
@@ -34518,6 +34549,7 @@ foreach ($exactCounterRestartPreparedStateEntry in @(
 	'normalizedFingerprint == carrier.m_sPreparedSemanticFingerprint',
 	'ValidateExternalCasualtyContinuity(',
 	'ValidateExternalRuntimeClaimantsZero(',
+	'ValidateExternalEndpointAuthorityTamperRejection(',
 	'raw runtime ',
 	'normalized runtime '
 )) {
@@ -34546,6 +34578,9 @@ if ($exactCounterRestartRawRuntimeValidationIndex -ge 0) {
 			'ValidateExternalRuntimeClaimantsZero(',
 			$exactCounterRestartRawRuntimeValidationIndex + 1)
 }
+$exactCounterRestartEndpointTamperValidationIndex = `
+	$exactCounterRestartDematerializingPreparedStates.IndexOf(
+		'ValidateExternalEndpointAuthorityTamperRejection(')
 if ($exactCounterRestartRawValidationIndex -lt 0 -or
 	$exactCounterRestartNormalizedValidationIndex -le $exactCounterRestartRawValidationIndex -or
 	$exactCounterRestartCasualtyValidationIndex -le
@@ -34553,8 +34588,10 @@ if ($exactCounterRestartRawValidationIndex -lt 0 -or
 	$exactCounterRestartRawRuntimeValidationIndex -le
 		$exactCounterRestartCasualtyValidationIndex -or
 	$exactCounterRestartNormalizedRuntimeValidationIndex -le
-		$exactCounterRestartRawRuntimeValidationIndex) {
-	throw 'Exact counterattack prepared-state gate must validate raw, normalized, casualty, and both runtime views in order'
+		$exactCounterRestartRawRuntimeValidationIndex -or
+	$exactCounterRestartEndpointTamperValidationIndex -le
+		$exactCounterRestartNormalizedRuntimeValidationIndex) {
+	throw 'Exact counterattack prepared-state gate must validate raw, normalized, casualty, both runtime views, and endpoint tamper rejection in order'
 }
 $exactCounterRestartMaterializingValidator = Get-ScriptMethodBlock `
 	$exactCounterRestartProofText 'bool ValidateExternalMaterializingCutState('
@@ -34606,7 +34643,8 @@ foreach ($exactCounterRestartMaterializingValidatorEntry in @(
 	'ValidateExternalVirtualManifest(manifest, expected);',
 	'fingerprint = BuildExternalSemanticFingerprint(state, carrier);',
 	'fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint;',
-	'rowsExact && orderExact && operationExact && manifestExact',
+	'bool exact = rowsExact && endpointExact && ownershipClaimantsExact;',
+	'exact = exact && orderExact && operationExact && manifestExact',
 	'&& batchExact && groupExact && resourcesExact'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartMaterializingValidator) -or
@@ -34826,6 +34864,9 @@ foreach ($exactCounterRestartVirtualEntry in @(
 	'CountBatchId(state, expected.m_sBatchId) == 1',
 	'CountGroupId(state, expected.m_sGroupId) == 1',
 	'CountMutationId(state, expected.m_sDebitMutationId) == 1',
+	'ValidateExternalEndpointOwnershipAuthority(',
+	'CountExternalOwnershipTransitionClaimants(',
+	'== 0',
 	'HST_OPERATION_DUTY_OUTBOUND',
 	'HST_OPERATION_MATERIALIZATION_VIRTUAL',
 	'HST_OPERATION_POSITION_STRATEGIC',
@@ -34918,6 +34959,133 @@ foreach ($exactCounterRestartRuntimeEntry in @(
 	}
 }
 
+$exactCounterRestartZoneCount = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText 'protected int CountExternalZoneId('
+foreach ($exactCounterRestartZoneCountEntry in @(
+	'state.m_aZones',
+	'zone.m_sZoneId == zoneId',
+	'count++'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartZoneCount) -or
+		$exactCounterRestartZoneCount.IndexOf(
+			$exactCounterRestartZoneCountEntry) -lt 0) {
+		throw "Exact counterattack endpoint proof must count one exact zone row: $exactCounterRestartZoneCountEntry"
+	}
+}
+$exactCounterRestartOwnershipClaimantCount = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected int CountExternalOwnershipTransitionClaimants('
+foreach ($exactCounterRestartOwnershipClaimantEntry in @(
+	'state.m_aOwnershipTransitions',
+	'string requestId = "ownership_counterattack_" + operationId;',
+	'transition.m_sRequestId == requestId',
+	'transition.m_sSourceId == operationId',
+	'count++'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnershipClaimantCount) -or
+		$exactCounterRestartOwnershipClaimantCount.IndexOf(
+			$exactCounterRestartOwnershipClaimantEntry) -lt 0) {
+		throw "Exact counterattack endpoint proof must count request-ID or operation-source ownership claimants: $exactCounterRestartOwnershipClaimantEntry"
+	}
+}
+if ($exactCounterRestartOwnershipClaimantCount -match
+	'\.Contains\(|\.StartsWith\(') {
+	throw 'Exact counterattack ownership-transition claimant proof must use exact request and operation-source equality'
+}
+$exactCounterRestartEndpointRow = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected string BuildExternalEndpointOwnershipSemanticRow('
+foreach ($exactCounterRestartEndpointRowEntry in @(
+	'm_sZoneId',
+	'm_sOwnerFactionKey',
+	'm_iOwnershipContractVersion',
+	'm_iOwnershipRevision'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartEndpointRow) -or
+		$exactCounterRestartEndpointRow.IndexOf(
+			$exactCounterRestartEndpointRowEntry) -lt 0) {
+		throw "Exact counterattack endpoint semantic row is incomplete: $exactCounterRestartEndpointRowEntry"
+	}
+}
+$exactCounterRestartEndpointAuthority = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected bool ValidateExternalEndpointOwnershipAuthority('
+foreach ($exactCounterRestartEndpointAuthorityEntry in @(
+	'carrier.m_Expectation && !carrier.m_SettlementExpectation',
+	'!carrier.m_Expectation && carrier.m_SettlementExpectation',
+	'm_sExpectedSourceOwnerFactionKey',
+	'm_iExpectedSourceOwnershipRevision',
+	'm_sExpectedTargetOwnerFactionKey',
+	'm_iExpectedTargetOwnershipRevision',
+	'CountExternalZoneId(state, sourceZoneId) == 1',
+	'CountExternalZoneId(state, targetZoneId) == 1',
+	'source.m_sOwnerFactionKey == sourceOwner',
+	'source.m_iOwnershipRevision == sourceRevision',
+	'target.m_sOwnerFactionKey == targetOwner',
+	'target.m_iOwnershipRevision == targetRevision'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartEndpointAuthority) -or
+		$exactCounterRestartEndpointAuthority.IndexOf(
+			$exactCounterRestartEndpointAuthorityEntry) -lt 0) {
+		throw "Exact counterattack endpoint owner-revision authority validator is incomplete: $exactCounterRestartEndpointAuthorityEntry"
+	}
+}
+$exactCounterRestartEndpointTamper = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected bool ValidateExternalEndpointAuthorityTamperRejection('
+foreach ($exactCounterRestartEndpointTamperEntry in @(
+	'ValidateExternalEndpointOwnershipAuthority(',
+	'ValidateExternalPreparedSettlementState(',
+	'ValidateExternalPreparedCutState(',
+	'source.m_iOwnershipRevision = sourceRevision + 1;',
+	'bool revisionRejected = !ValidateExternalEndpointOwnershipAuthority(',
+	'requestClaimant.m_sRequestId = "ownership_counterattack_" + operationId;',
+	'requestClaimant.m_sSourceId = "foreign_source";',
+	'sourceClaimant.m_sRequestId = "foreign_request";',
+	'sourceClaimant.m_sSourceId = operationId;',
+	'CountExternalOwnershipTransitionClaimants(state, operationId) == 1',
+	'CountExternalOwnershipTransitionClaimants(state, operationId) == 0'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartEndpointTamper) -or
+		$exactCounterRestartEndpointTamper.IndexOf(
+			$exactCounterRestartEndpointTamperEntry) -lt 0) {
+		throw "Exact counterattack endpoint/ownership-claimant negative proof is incomplete: $exactCounterRestartEndpointTamperEntry"
+	}
+}
+if (([regex]::Matches(
+	$exactCounterRestartEndpointTamper,
+	'&& !ValidateExternalPreparedSettlementState\(')).Count -lt 3 -or
+	([regex]::Matches(
+		$exactCounterRestartEndpointTamper,
+		'&& !ValidateExternalPreparedCutState\(')).Count -lt 3) {
+	throw 'Exact counterattack endpoint tamper proof must reject revision, request-ID claimant, and operation-source claimant through both complete validator families'
+}
+
+foreach ($exactCounterRestartEndpointConsumer in @(
+	'bool ValidateExternalVirtualState(',
+	'bool ValidateExternalMaterializingCutState(',
+	'bool ValidateExternalDematerializingCutState(',
+	'bool ValidateExternalPhysicalCutState(',
+	'protected bool IsExternalPreparedSettlementExact(',
+	'protected bool IsExternalTerminalSettlementExact('
+)) {
+	$exactCounterRestartEndpointConsumerBlock = Get-ScriptMethodBlock `
+		$exactCounterRestartProofText $exactCounterRestartEndpointConsumer
+	foreach ($exactCounterRestartEndpointConsumerEntry in @(
+		'ValidateExternalEndpointOwnershipAuthority(',
+		'CountExternalOwnershipTransitionClaimants(',
+		'== 0',
+		'endpointExact',
+		'ownershipClaimantsExact'
+	)) {
+		if ([string]::IsNullOrEmpty($exactCounterRestartEndpointConsumerBlock) -or
+			$exactCounterRestartEndpointConsumerBlock.IndexOf(
+				$exactCounterRestartEndpointConsumerEntry) -lt 0) {
+			throw "Exact counterattack endpoint/ownership-claimant proof is missing from $exactCounterRestartEndpointConsumer : $exactCounterRestartEndpointConsumerEntry"
+		}
+	}
+}
+
 $exactCounterRestartCanonical = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected string BuildExternalCanonicalFingerprint('
 foreach ($exactCounterRestartCanonicalEntry in @(
 	'BuildExternalOrderSemanticRow(order)',
@@ -34928,6 +35096,9 @@ foreach ($exactCounterRestartCanonicalEntry in @(
 	'BuildExternalGroupSemanticRow(group, includeMovementCursor)',
 	'BuildExternalPoolSemanticRow(pool)',
 	'BuildExternalMutationSemanticRow(mutation)',
+	'BuildExternalEndpointOwnershipSemanticRow(sourceZone)',
+	'BuildExternalEndpointOwnershipSemanticRow(targetZone)',
+	'CountExternalOwnershipTransitionClaimants(',
 	'CountEnemyOrderId(', 'CountOperationId(', 'CountManifestId(',
 	'CountBatchId(', 'CountGroupId(', 'CountMutationId(',
 	'CountExternalSupportClaimants(', 'CountExternalLegacyQRFClaimants('
@@ -34936,6 +35107,11 @@ foreach ($exactCounterRestartCanonicalEntry in @(
 		$exactCounterRestartCanonical.IndexOf($exactCounterRestartCanonicalEntry) -lt 0) {
 		throw "Exact counterattack canonical semantic graph is incomplete: $exactCounterRestartCanonicalEntry"
 	}
+}
+if (([regex]::Matches(
+	$exactCounterRestartCanonical,
+	'BuildExternalEndpointOwnershipSemanticRow\(')).Count -ne 2) {
+	throw 'Exact counterattack movement fingerprint must contain exactly one source and one target ownership row'
 }
 $exactCounterRestartOrderRow = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected string BuildExternalOrderSemanticRow('
 $exactCounterRestartOperationRow = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected string BuildExternalOperationSemanticRow('
@@ -35009,12 +35185,23 @@ foreach ($exactCounterRestartDifferenceEntry in @(
 	'semantic row matches | elapsed %1 | order %2 | operation %3 | manifest %4',
 	'| batch %1 | slots %2 | group %3 | pool %4',
 	'| mutation %1',
+	'| source zone %1 | target zone %2 | ownership claimants %3',
+	'BuildExternalEndpointOwnershipSemanticRow(beforeSourceZone)',
+	'BuildExternalEndpointOwnershipSemanticRow(afterSourceZone)',
+	'BuildExternalEndpointOwnershipSemanticRow(beforeTargetZone)',
+	'BuildExternalEndpointOwnershipSemanticRow(afterTargetZone)',
+	'CountExternalOwnershipTransitionClaimants(',
 	'| group static %1 | position %2 | source %3 | lifecycle %4'
 )) {
 	if ($exactCounterRestartSemanticDifference.IndexOf(
 		$exactCounterRestartDifferenceEntry) -lt 0) {
 		throw "Exact counterattack semantic readback comparator is incomplete: $exactCounterRestartDifferenceEntry"
 	}
+}
+if (([regex]::Matches(
+	$exactCounterRestartSemanticDifference,
+	'CountExternalOwnershipTransitionClaimants\(')).Count -ne 2) {
+	throw 'Exact counterattack semantic readback comparator must compare ownership-transition claimant counts before and after'
 }
 $exactCounterRestartGroupDifference = Get-ScriptMethodBlock $exactCounterRestartProofText 'protected string BuildExternalGroupStaticDifferenceEvidence('
 foreach ($exactCounterRestartGroupDifferenceEntry in @(
@@ -35819,6 +36006,12 @@ foreach ($exactCounterRestartLauncherCarrierEntry in @(
 	'm_iExpectedPhysicalRuntimeMemberCount',
 	'm_vInjectedStalePosition',
 	'm_vPreparedLivePosition',
+	'm_sExpectedSourceOwnerFactionKey',
+	'm_iExpectedSourceOwnershipRevision',
+	'm_sExpectedTargetOwnerFactionKey',
+	'm_iExpectedTargetOwnershipRevision',
+	'[int]$expectation.m_iExpectedSourceOwnershipRevision -le 0',
+	'[int]$expectation.m_iExpectedTargetOwnershipRevision -le 0',
 	'$rawCutFingerprint -cne $normalizedFingerprint',
 	'$rawCutFingerprint -ceq $normalizedFingerprint',
 	'$casualtyFingerprint = [string]$expectation.m_sCasualtyTombstoneFingerprint',
@@ -35872,6 +36065,10 @@ try {
 		m_sFactionKey = 'US'
 		m_sSourceZoneId = 'source-self-test'
 		m_sTargetZoneId = 'target-self-test'
+		m_sExpectedSourceOwnerFactionKey = 'US'
+		m_iExpectedSourceOwnershipRevision = 1
+		m_sExpectedTargetOwnerFactionKey = 'FIA'
+		m_iExpectedTargetOwnershipRevision = 2
 		m_sDebitMutationId = 'debit-self-test'
 		m_iAttackCost = 10
 		m_iSupportCost = 0
@@ -36707,6 +36904,10 @@ foreach ($exactCounterRestartPreparedCarrierEntry in @(
 	'expectedTerminalRevision = carrier.m_iPrefixRevision + 2',
 	'expectedTerminalRevision = carrier.m_iPrefixRevision + 1',
 	'expectation.m_iExpectedPoolOperationalMutationCount != 2',
+	'expectation.m_sExpectedSourceOwnerFactionKey',
+	'expectation.m_iExpectedSourceOwnershipRevision',
+	'expectation.m_sExpectedTargetOwnerFactionKey',
+	'expectation.m_iExpectedTargetOwnershipRevision',
 	'carrier.m_sPreparedSettlementFingerprint',
 	'carrier.m_sRawPreparedCutSemanticFingerprint',
 	'carrier.m_iExpectedPhysicalAdapterHandleCount != 0',
@@ -36721,6 +36922,37 @@ foreach ($exactCounterRestartPreparedCarrierEntry in @(
 if ($exactCounterRestartCarrierValidation.IndexOf(
 	'!carrier.m_Expectation || carrier.m_SettlementExpectation') -lt 0) {
 	throw 'Exact counterattack movement carriers must reject mixed settlement expectation authority'
+}
+$exactCounterRestartPreparedLauncherCarrierGate = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText `
+	'function Assert-PreparedSettlementCarrier'
+foreach ($exactCounterRestartPreparedLauncherEndpointEntry in @(
+	'm_sExpectedSourceOwnerFactionKey',
+	'm_iExpectedSourceOwnershipRevision',
+	'm_sExpectedTargetOwnerFactionKey',
+	'm_iExpectedTargetOwnershipRevision',
+	'[int]$expectation.m_iExpectedSourceOwnershipRevision -le 0',
+	'[int]$expectation.m_iExpectedTargetOwnershipRevision -le 0'
+)) {
+	if ([string]::IsNullOrEmpty(
+		$exactCounterRestartPreparedLauncherCarrierGate) -or
+		$exactCounterRestartPreparedLauncherCarrierGate.IndexOf(
+			$exactCounterRestartPreparedLauncherEndpointEntry) -lt 0) {
+		throw "Exact counterattack PREPARED launcher endpoint carrier gate is incomplete: $exactCounterRestartPreparedLauncherEndpointEntry"
+	}
+}
+foreach ($exactCounterRestartLauncherEndpointSelfTestEntry in @(
+	'm_sExpectedSourceOwnerFactionKey = "source_owner_self_test"',
+	'm_iExpectedSourceOwnershipRevision = 3',
+	'm_sExpectedTargetOwnerFactionKey = "target_owner_self_test"',
+	'm_iExpectedTargetOwnershipRevision = 7',
+	'm_iExpectedSourceOwnershipRevision = 0',
+	'Prepared-settlement endpoint carrier negative self-test failed.'
+)) {
+	if ($exactCounterRestartLauncherText.IndexOf(
+		$exactCounterRestartLauncherEndpointSelfTestEntry) -lt 0) {
+		throw "Exact counterattack launcher endpoint carrier self-test is incomplete: $exactCounterRestartLauncherEndpointSelfTestEntry"
+	}
 }
 
 $exactCounterRestartPreparedBuild = Get-ScriptMethodBlock `
@@ -36763,7 +36995,10 @@ foreach ($exactCounterRestartPreparedValidatorEntry in @(
 	'ValidatePendingResourceRefundAggregateAuthority(',
 	'CountExternalSettlementBatchClaimants(state, expected) == 1',
 	'CountExternalSettlementGroupClaimants(state, expected) == 1',
-	'CountExternalSettlementForeignClaimants(state, expected) == 0'
+	'CountExternalSettlementForeignClaimants(state, expected) == 0',
+	'ValidateExternalEndpointOwnershipAuthority(',
+	'CountExternalOwnershipTransitionClaimants(',
+	'ownershipClaimantsExact'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartPreparedValidator) -or
 		$exactCounterRestartPreparedValidator.IndexOf(
@@ -36787,7 +37022,10 @@ foreach ($exactCounterRestartTerminalValidatorEntry in @(
 	'CountExternalSettlementBatchClaimants(state, expected) == 0',
 	'CountExternalSettlementGroupClaimants(state, expected) == 0',
 	'!state.FindForceSpawnResult(expected.m_sBatchId)',
-	'!state.FindActiveGroup(expected.m_sGroupId)'
+	'!state.FindActiveGroup(expected.m_sGroupId)',
+	'ValidateExternalEndpointOwnershipAuthority(',
+	'CountExternalOwnershipTransitionClaimants(',
+	'ownershipClaimantsExact'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartTerminalValidator) -or
 		$exactCounterRestartTerminalValidator.IndexOf(
@@ -36808,6 +37046,9 @@ foreach ($exactCounterRestartPreparedFingerprintGate in @(
 		'BuildExternalPoolSemanticRow(',
 		'BuildExternalMutationSemanticRow(debit)',
 		'BuildExternalMutationSemanticRow(refund)',
+		'BuildExternalEndpointOwnershipSemanticRow(sourceZone)',
+		'BuildExternalEndpointOwnershipSemanticRow(targetZone)',
+		'CountExternalOwnershipTransitionClaimants(',
 		'CountMutationId(state, expected.m_sDebitMutationId)',
 		'CountMutationId(state, expected.m_sRefundMutationId)',
 		'CountExternalSettlementBatchClaimants(',
@@ -36819,6 +37060,11 @@ foreach ($exactCounterRestartPreparedFingerprintGate in @(
 				$exactCounterRestartPreparedFingerprintEntry) -lt 0) {
 			throw "Exact counterattack $($exactCounterRestartPreparedFingerprintGate[0]) settlement fingerprint is incomplete: $exactCounterRestartPreparedFingerprintEntry"
 		}
+	}
+	if (([regex]::Matches(
+		$exactCounterRestartPreparedFingerprint,
+		'BuildExternalEndpointOwnershipSemanticRow\(')).Count -ne 2) {
+		throw "Exact counterattack $($exactCounterRestartPreparedFingerprintGate[0]) settlement fingerprint must contain exactly one source and one target ownership row"
 	}
 }
 $exactCounterRestartRuntimeZero = Get-ScriptMethodBlock `
