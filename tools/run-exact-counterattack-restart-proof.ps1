@@ -8,7 +8,10 @@ param(
 
     [string]$ProjectPath = "",
     [string]$WorldResource = "Worlds/HST_Dev/HST_Dev.ent",
-    [ValidateSet("outbound_virtual", "dematerializing_before_hold")]
+    [ValidateSet(
+        "outbound_virtual",
+        "dematerializing_before_hold",
+        "materializing_checkpoint_deferred")]
     [string]$CutName = "outbound_virtual",
     [string[]]$WatchedRoots = @(),
     [string[]]$SpillRoots = @(),
@@ -31,10 +34,12 @@ $ErrorActionPreference = "Stop"
 $script:CutOrdinals = @{
     outbound_virtual = 0
     dematerializing_before_hold = 1
+    materializing_checkpoint_deferred = 2
 }
 $script:SupportedCutNames = @(
     "outbound_virtual",
-    "dematerializing_before_hold")
+    "dematerializing_before_hold",
+    "materializing_checkpoint_deferred")
 $script:CutName = $CutName.ToLowerInvariant()
 $script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]
 $script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"
@@ -1488,7 +1493,7 @@ function Assert-PreparedCarrier {
             throw "$label outbound expectation is not exact."
         }
     }
-    else {
+    elseif ($script:CutName -ceq "dematerializing_before_hold") {
         $casualtySlotId = [string]$expectation.m_sConfirmedCasualtySlotId
         $casualtyFingerprint = [string]$expectation.m_sCasualtyTombstoneFingerprint
         if ([string]::IsNullOrWhiteSpace($casualtySlotId) -or
@@ -1502,10 +1507,23 @@ function Assert-PreparedCarrier {
             throw "$label dematerializing expectation is not exact."
         }
     }
+    else {
+        if (-not [string]::IsNullOrWhiteSpace(
+                [string]$expectation.m_sConfirmedCasualtySlotId) -or
+            -not [string]::IsNullOrWhiteSpace(
+                [string]$expectation.m_sCasualtyTombstoneFingerprint) -or
+            [int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 0 -or
+            [int]$expectation.m_iLivingMemberCount -ne
+                [int]$expectation.m_iAcceptedMemberCount -or
+            $rawCutFingerprint -ceq $normalizedFingerprint) {
+            throw "$label materializing expectation is not exact."
+        }
+    }
     $progress = [double]$Carrier.m_fPreparedRouteProgressMeters
     $total = [double]$Carrier.m_fPreparedRouteTotalDistanceMeters
     $progressInvalid = $progress -lt 0.0 -or
-        ($script:CutName -ceq "outbound_virtual" -and $progress -le 0.0)
+        ($script:CutName -cne "dematerializing_before_hold" -and
+            $progress -le 0.0)
     if ([double]::IsNaN($progress) -or [double]::IsInfinity($progress) -or
         [double]::IsNaN($total) -or [double]::IsInfinity($total) -or
         $progressInvalid -or $total -le $progress -or
@@ -1618,10 +1636,17 @@ function Assert-StageResult {
         [string]::IsNullOrWhiteSpace([string]$Result.m_sEvidence)) {
         throw "$label omitted a required success invariant."
     }
-    if ($script:CutName -ceq "dematerializing_before_hold" -and
+    if ($script:CutName -cne "outbound_virtual" -and
         (-not [bool]$Result.m_bPreparedCutExact -or
             -not [bool]$Result.m_bCasualtyContinuityExact)) {
         throw "$label omitted exact prepared-cut or casualty continuity proof."
+    }
+    if ($script:CutName -ceq "materializing_checkpoint_deferred" -and
+        ([string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq
+            [string]$Result.m_sSourceSemanticFingerprint -or
+            [string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq
+                [string]$Result.m_sFinalSemanticFingerprint)) {
+        throw "$label collapsed the materializing cut into normalized virtual state."
     }
     $before = [double]$Result.m_fProgressBeforeMeters
     $after = [double]$Result.m_fProgressAfterMeters

@@ -12,6 +12,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 	static const string CUT_OUTBOUND_VIRTUAL = "outbound_virtual";
 	static const string CUT_DEMATERIALIZING_BEFORE_HOLD
 		= "dematerializing_before_hold";
+	static const string CUT_MATERIALIZING_CHECKPOINT_DEFERRED
+		= "materializing_checkpoint_deferred";
 	static const string STAGE_PREPARE = "prepare";
 	static const string STAGE_RECOVER = "recover";
 	static const string STAGE_REPLAY = "replay";
@@ -85,6 +87,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return 0;
 		if (cutName == CUT_DEMATERIALIZING_BEFORE_HOLD)
 			return 1;
+		if (cutName == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
+			return 2;
 		return -1;
 	}
 
@@ -94,6 +98,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return CUT_OUTBOUND_VIRTUAL;
 		if (cut == 1)
 			return CUT_DEMATERIALIZING_BEFORE_HOLD;
+		if (cut == 2)
+			return CUT_MATERIALIZING_CHECKPOINT_DEFERRED;
 		return "";
 	}
 
@@ -456,6 +462,17 @@ class HST_EnemyCounterattackExternalRestartProofService
 					== carrier.m_sPreparedSemanticFingerprint)
 				return false;
 		}
+		else if (expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
+		{
+			if (!expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+				|| !expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()
+				|| expectation.m_iExpectedNormalizedReprojectionCount != 0
+				|| expectation.m_iLivingMemberCount
+					!= expectation.m_iAcceptedMemberCount
+				|| carrier.m_sRawPreparedCutSemanticFingerprint
+					== carrier.m_sPreparedSemanticFingerprint)
+				return false;
+		}
 		bool preparedProgressExact = carrier.m_fPreparedRouteProgressMeters > 0;
 		if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD)
 			preparedProgressExact = carrier.m_fPreparedRouteProgressMeters >= 0;
@@ -568,9 +585,16 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| result.m_sFinalSemanticFingerprint.IsEmpty()
 			|| result.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
 			return false;
-		if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
+		if ((expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
+			|| expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
 			&& (!result.m_bPreparedCutExact
 				|| !result.m_bCasualtyContinuityExact))
+			return false;
+		if (expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED
+			&& (result.m_sRawPreparedCutSemanticFingerprint
+					== result.m_sSourceSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					== result.m_sFinalSemanticFingerprint))
 			return false;
 
 		if (expectedStage == STAGE_PREPARE)

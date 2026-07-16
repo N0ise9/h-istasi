@@ -6739,6 +6739,104 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return true;
 	}
 
+	protected bool ProveExactCounterattackMaterializingCheckpointDeferred(
+		HST_EnemyCounterattackOperationProofService proof,
+		HST_CampaignState stagedState,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "materializing checkpoint deferral proof unavailable";
+		if (!proof || !stagedState || !carrier
+			|| carrier.m_sCutName
+				!= HST_EnemyCounterattackExternalRestartProofService
+					.CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
+			return false;
+
+		string rawFingerprint;
+		string rawEvidence;
+		if (!proof.ValidateExternalPreparedCutState(
+			stagedState,
+			carrier,
+			rawFingerprint,
+			rawEvidence)
+			|| rawFingerprint
+				!= carrier.m_sRawPreparedCutSemanticFingerprint)
+		{
+			evidence = "raw materializing validation failed | " + rawEvidence;
+			return false;
+		}
+		string rawRuntimeEvidence;
+		if (!proof.ValidateExternalRuntimeClaimantsZero(
+			stagedState,
+			carrier,
+			m_ForceSpawnAdapter,
+			m_PhysicalWar,
+			rawRuntimeEvidence))
+		{
+			evidence = "raw materializing runtime conflicts | "
+				+ rawRuntimeEvidence;
+			return false;
+		}
+
+		// Production persistence deliberately keeps the last VIRTUAL checkpoint
+		// while exact infantry is between release and native handoff. Exercise that
+		// fail-closed boundary instead of serializing an impossible raw save.
+		m_State = stagedState;
+		HST_CampaignSaveData rejectedCapture = m_Persistence.CaptureAndTrackState(
+			m_State,
+			"external exact counterattack materializing checkpoint attempt");
+		bool deferred = !rejectedCapture
+			&& m_State.m_sLastPersistenceStatus.Contains(
+				"checkpoint deferred: exact infantry materialization is in progress");
+
+		string retainedRawFingerprint;
+		string retainedRawEvidence;
+		bool rawRetained = proof.ValidateExternalPreparedCutState(
+			m_State,
+			carrier,
+			retainedRawFingerprint,
+			retainedRawEvidence)
+			&& retainedRawFingerprint
+				== carrier.m_sRawPreparedCutSemanticFingerprint;
+
+		HST_CampaignState canonicalState;
+		string canonicalReadEvidence;
+		bool canonicalRead = m_Persistence.ReadProfileFallbackProofSnapshot(
+			canonicalState,
+			canonicalReadEvidence);
+		string canonicalFingerprint;
+		string canonicalEvidence;
+		bool canonicalExact = canonicalRead
+			&& proof.ValidateExternalVirtualState(
+				canonicalState,
+				carrier,
+				canonicalFingerprint,
+				canonicalEvidence)
+			&& canonicalFingerprint
+				== carrier.m_sPreparedSemanticFingerprint;
+		string canonicalRuntimeEvidence;
+		canonicalExact = canonicalExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				canonicalState,
+				carrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				canonicalRuntimeEvidence);
+
+		evidence = string.Format(
+			"materializing checkpoint deferred/canonical/raw %1/%2/%3",
+			deferred,
+			canonicalExact,
+			rawRetained);
+		evidence += " | raw " + rawEvidence
+			+ " | raw runtime " + rawRuntimeEvidence;
+		evidence += " | retained " + retainedRawEvidence
+			+ " | canonical read " + canonicalReadEvidence;
+		evidence += " | canonical " + canonicalEvidence
+			+ " | canonical runtime " + canonicalRuntimeEvidence;
+		return deferred && rawRetained && canonicalExact;
+	}
+
 	protected void FinalizeExactCounterattackExternalRestartPrepare()
 	{
 		HST_EnemyCounterattackExternalRestartResult result
@@ -6746,17 +6844,40 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_EnemyCounterattackOperationProofService proof
 			= new HST_EnemyCounterattackOperationProofService();
 		HST_CampaignState stagedState;
+		HST_CampaignState persistenceSourceState;
 		HST_EnemyCounterattackExternalRestartCarrier carrier;
 		string prepareEvidence;
-		bool prepared = proof.PrepareExternalRestartCarrier(
-			m_sExactCounterattackRestartCLISessionNonce,
-			m_sExactCounterattackRestartCLIRunId,
-			HST_EnemyCounterattackExternalRestartProofService
-				.NormalizeWorldIdentity(GetGame().GetWorldFile()),
-			m_sExactCounterattackRestartCLICut,
-			stagedState,
-			carrier,
-			prepareEvidence);
+		bool materializingDeferredCut
+			= m_sExactCounterattackRestartCLICut
+				== HST_EnemyCounterattackExternalRestartProofService
+					.CUT_MATERIALIZING_CHECKPOINT_DEFERRED;
+		bool prepared;
+		if (materializingDeferredCut)
+		{
+			prepared = proof.PrepareExternalMaterializingRestartCarrier(
+				m_sExactCounterattackRestartCLISessionNonce,
+				m_sExactCounterattackRestartCLIRunId,
+				HST_EnemyCounterattackExternalRestartProofService
+					.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+				m_sExactCounterattackRestartCLICut,
+				stagedState,
+				persistenceSourceState,
+				carrier,
+				prepareEvidence);
+		}
+		else
+		{
+			prepared = proof.PrepareExternalRestartCarrier(
+				m_sExactCounterattackRestartCLISessionNonce,
+				m_sExactCounterattackRestartCLIRunId,
+				HST_EnemyCounterattackExternalRestartProofService
+					.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+				m_sExactCounterattackRestartCLICut,
+				stagedState,
+				carrier,
+				prepareEvidence);
+			persistenceSourceState = stagedState;
+		}
 		string carrierEvidence;
 		bool carrierSaved = prepared
 			&& HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
@@ -6766,8 +6887,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string persistenceEvidence;
 		bool persisted = carrierSaved
 			&& m_Persistence.WriteProfileFallbackProofSnapshot(
-				stagedState,
-				"external exact counterattack outbound virtual restart cut",
+				persistenceSourceState,
+				"external exact counterattack restart baseline",
 				readBackState,
 				persistenceEvidence);
 		string readBackFingerprint;
@@ -6789,14 +6910,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& readBackFingerprint != carrier.m_sPreparedSemanticFingerprint)
 		{
 			bool preparedStillExact
-				= proof.BuildExternalSemanticFingerprint(stagedState, carrier)
+				= proof.BuildExternalSemanticFingerprint(
+					persistenceSourceState,
+					carrier)
 					== carrier.m_sPreparedSemanticFingerprint;
 			readBackEvidence += string.Format(
 				" | prepared current %1 | readback carrier %2 | ",
 				preparedStillExact,
 				readBackFingerprint == carrier.m_sPreparedSemanticFingerprint);
 			readBackEvidence += proof.BuildExternalSemanticDifferenceEvidence(
-				stagedState,
+				persistenceSourceState,
 				readBackState,
 				carrier);
 		}
@@ -6812,11 +6935,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool preparedCutExact;
 		if (runtimeZero)
 		{
-			preparedCutExact = TrackExactCounterattackRawPreparedCut(
-				proof,
-				stagedState,
-				carrier,
-				rawCutEvidence);
+			if (materializingDeferredCut)
+			{
+				preparedCutExact
+					= ProveExactCounterattackMaterializingCheckpointDeferred(
+						proof,
+						stagedState,
+						carrier,
+						rawCutEvidence);
+			}
+			else
+			{
+				preparedCutExact = TrackExactCounterattackRawPreparedCut(
+					proof,
+					stagedState,
+					carrier,
+					rawCutEvidence);
+			}
 		}
 
 		m_ExactCounterattackRestartCarrier = carrier;

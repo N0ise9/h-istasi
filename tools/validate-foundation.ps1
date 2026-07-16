@@ -33565,6 +33565,8 @@ foreach ($exactCounterRestartArtifactEntry in @(
 	'static const string CUT_OUTBOUND_VIRTUAL = "outbound_virtual";',
 	'CUT_DEMATERIALIZING_BEFORE_HOLD',
 	'= "dematerializing_before_hold";',
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'= "materializing_checkpoint_deferred";',
 	'static const string STAGE_PREPARE = "prepare";',
 	'static const string STAGE_RECOVER = "recover";',
 	'static const string STAGE_REPLAY = "replay";',
@@ -33596,12 +33598,16 @@ foreach ($exactCounterRestartCutMappingEntry in @(
 		'if (cutName == CUT_OUTBOUND_VIRTUAL)', 'return 0;'),
 	@('dematerializing resolve', $exactCounterRestartResolveCut,
 		'if (cutName == CUT_DEMATERIALIZING_BEFORE_HOLD)', 'return 1;'),
+	@('materializing resolve', $exactCounterRestartResolveCut,
+		'if (cutName == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)', 'return 2;'),
 	@('unknown resolve', $exactCounterRestartResolveCut,
 		'return -1;', ''),
 	@('outbound name', $exactCounterRestartCutName,
 		'if (cut == 0)', 'return CUT_OUTBOUND_VIRTUAL;'),
 	@('dematerializing name', $exactCounterRestartCutName,
 		'if (cut == 1)', 'return CUT_DEMATERIALIZING_BEFORE_HOLD;'),
+	@('materializing name', $exactCounterRestartCutName,
+		'if (cut == 2)', 'return CUT_MATERIALIZING_CHECKPOINT_DEFERRED;'),
 	@('unknown name', $exactCounterRestartCutName,
 		'return "";', '')
 )) {
@@ -33620,6 +33626,7 @@ foreach ($exactCounterRestartCarrierGateEntry in @(
 	'carrier.m_sRawPreparedCutSemanticFingerprint.IsEmpty()',
 	'expectedCut == CUT_OUTBOUND_VIRTUAL',
 	'expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD',
+	'expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
 	'expectation.m_sConfirmedCasualtySlotId.IsEmpty()',
 	'expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()',
 	'expectation.m_iExpectedNormalizedReprojectionCount != 0',
@@ -33640,14 +33647,19 @@ $exactCounterRestartOutboundCarrierCutIndex = `
 $exactCounterRestartDematerializingCarrierCutIndex = `
 	$exactCounterRestartCarrierValidation.IndexOf(
 		'else if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD)')
+$exactCounterRestartMaterializingCarrierCutIndex = `
+	$exactCounterRestartCarrierValidation.IndexOf(
+		'else if (expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)')
 $exactCounterRestartCarrierProgressIndex = `
 	$exactCounterRestartCarrierValidation.IndexOf(
 		'bool preparedProgressExact')
 if ($exactCounterRestartOutboundCarrierCutIndex -lt 0 -or
 	$exactCounterRestartDematerializingCarrierCutIndex -le
 		$exactCounterRestartOutboundCarrierCutIndex -or
+	$exactCounterRestartMaterializingCarrierCutIndex -le
+		$exactCounterRestartDematerializingCarrierCutIndex -or
 	$exactCounterRestartCarrierProgressIndex -le
-		$exactCounterRestartDematerializingCarrierCutIndex) {
+		$exactCounterRestartMaterializingCarrierCutIndex) {
 	throw 'Exact counterattack carrier cut-specific fingerprint gates are unavailable'
 }
 $exactCounterRestartOutboundCarrierCut = `
@@ -33658,8 +33670,13 @@ $exactCounterRestartOutboundCarrierCut = `
 $exactCounterRestartDematerializingCarrierCut = `
 	$exactCounterRestartCarrierValidation.Substring(
 		$exactCounterRestartDematerializingCarrierCutIndex,
-		$exactCounterRestartCarrierProgressIndex -
+		$exactCounterRestartMaterializingCarrierCutIndex -
 			$exactCounterRestartDematerializingCarrierCutIndex)
+$exactCounterRestartMaterializingCarrierCut = `
+	$exactCounterRestartCarrierValidation.Substring(
+		$exactCounterRestartMaterializingCarrierCutIndex,
+		$exactCounterRestartCarrierProgressIndex -
+			$exactCounterRestartMaterializingCarrierCutIndex)
 if ($exactCounterRestartOutboundCarrierCut -notmatch
 	'm_sRawPreparedCutSemanticFingerprint\s*!=\s*carrier\.m_sPreparedSemanticFingerprint') {
 	throw 'Exact counterattack outbound carrier must bind raw and normalized fingerprints as equal'
@@ -33668,6 +33685,20 @@ if ($exactCounterRestartDematerializingCarrierCut -notmatch
 	'm_sRawPreparedCutSemanticFingerprint\s*==\s*carrier\.m_sPreparedSemanticFingerprint') {
 	throw 'Exact counterattack dematerializing carrier must bind raw and normalized fingerprints as distinct'
 }
+foreach ($exactCounterRestartMaterializingCarrierEntry in @(
+	'expectation.m_sConfirmedCasualtySlotId.IsEmpty()',
+	'expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()',
+	'expectation.m_iExpectedNormalizedReprojectionCount != 0',
+	'expectation.m_iLivingMemberCount',
+	'!= expectation.m_iAcceptedMemberCount',
+	'carrier.m_sRawPreparedCutSemanticFingerprint',
+	'== carrier.m_sPreparedSemanticFingerprint'
+)) {
+	if ($exactCounterRestartMaterializingCarrierCut.IndexOf(
+		$exactCounterRestartMaterializingCarrierEntry) -lt 0) {
+		throw "Exact counterattack materializing carrier gate is incomplete: $exactCounterRestartMaterializingCarrierEntry"
+	}
+}
 $exactCounterRestartResultValidation = Get-ScriptMethodBlock $exactCounterRestartArtifactText 'static bool ValidateResult('
 foreach ($exactCounterRestartResultEntry in @(
 	'!result.m_bSourceExact', '!result.m_bRuntimeClaimantsZero',
@@ -33675,6 +33706,7 @@ foreach ($exactCounterRestartResultEntry in @(
 	'expectedStage == STAGE_RECOVER', 'expectedStage == STAGE_REPLAY',
 	'result.m_bContinuationExact', 'result.m_bSameStateSemanticNoOp',
 	'expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD',
+	'expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
 	'!result.m_bPreparedCutExact', '!result.m_bCasualtyContinuityExact',
 	'expectedProgressDelta',
 	'result.m_sSourceSemanticFingerprint', 'result.m_sFinalSemanticFingerprint',
@@ -33691,6 +33723,8 @@ $exactCounterRestartPrepareProof = Get-ScriptMethodBlock $exactCounterRestartPro
 foreach ($exactCounterRestartPrepareEntry in @(
 	'HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(',
 	'HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(runId)',
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'materializing checkpoint cut requires the baseline-aware preparation API',
 	'PrepareExternalDematerializingRestartCarrier(',
 	'HST_EnemyCounterattackOperationProofHarness production',
 	'production.UseDeterministicVirtualProjectionForProof();', 'production.TickOrder(',
@@ -33705,6 +33739,123 @@ foreach ($exactCounterRestartPrepareEntry in @(
 	if ([string]::IsNullOrEmpty($exactCounterRestartPrepareProof) -or
 		$exactCounterRestartPrepareProof.IndexOf($exactCounterRestartPrepareEntry) -lt 0) {
 		throw "Exact counterattack restart production preparation proof is incomplete: $exactCounterRestartPrepareEntry"
+	}
+}
+$exactCounterRestartGenericMaterializingIndex = `
+	$exactCounterRestartPrepareProof.IndexOf(
+		'CUT_MATERIALIZING_CHECKPOINT_DEFERRED')
+$exactCounterRestartGenericDematerializingIndex = `
+	$exactCounterRestartPrepareProof.IndexOf(
+		'CUT_DEMATERIALIZING_BEFORE_HOLD')
+if ($exactCounterRestartGenericMaterializingIndex -lt 0 -or
+	$exactCounterRestartGenericDematerializingIndex -le
+		$exactCounterRestartGenericMaterializingIndex) {
+	throw 'Exact counterattack generic preparation must fail closed on the baseline-aware materializing cut before ordinary cut dispatch'
+}
+
+$exactCounterRestartBeginMaterializationWrapper = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText 'bool BeginMaterializationForProof('
+foreach ($exactCounterRestartBeginMaterializationEntry in @(
+	'return BeginMaterialization(',
+	'state,', 'enemyDirector,', 'order,', 'operation,', 'manifest,',
+	'batch,', 'group,', 'reason);'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartBeginMaterializationWrapper) -or
+		$exactCounterRestartBeginMaterializationWrapper.IndexOf(
+			$exactCounterRestartBeginMaterializationEntry) -lt 0) {
+		throw "Exact counterattack materializing proof wrapper must delegate to production BeginMaterialization: $exactCounterRestartBeginMaterializationEntry"
+	}
+}
+
+$exactCounterRestartMaterializingPrepare = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText 'bool PrepareExternalMaterializingRestartCarrier('
+foreach ($exactCounterRestartMaterializingPrepareEntry in @(
+	'out HST_CampaignState stagedState,',
+	'out HST_CampaignState persistenceSourceState,',
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'AdvanceExternalRestartOutboundCursor(fixture, evidence)',
+	'BuildExternalNoCasualtyExpectation(fixture, living)',
+	'HST_CampaignSaveData baselineSave = new HST_CampaignSaveData();',
+	'baselineSave.Capture(fixture.m_State);',
+	'baselineSave.ApplyTo(rawState, false);',
+	'HST_CampaignState normalizedBaseline = baselineSave.Restore();',
+	'BuildExternalSemanticFingerprint(normalizedBaseline, carrier);',
+	'fixture.m_Service.BeginMaterializationForProof(',
+	'BuildExternalSemanticFingerprint(rawState, carrier);',
+	'ValidateExternalVirtualState(',
+	'ValidateExternalMaterializingCutState(',
+	'ValidateExternalRuntimeClaimantsZero(',
+	'stagedState = rawState;',
+	'persistenceSourceState = fixture.m_State;',
+	'paused MATERIALIZING/STRATEGIC after retained virtual route'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartMaterializingPrepare) -or
+		$exactCounterRestartMaterializingPrepare.IndexOf(
+			$exactCounterRestartMaterializingPrepareEntry) -lt 0) {
+		throw "Exact counterattack baseline-aware materializing preparation is incomplete: $exactCounterRestartMaterializingPrepareEntry"
+	}
+}
+$exactCounterRestartMaterializingAdvanceIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'AdvanceExternalRestartOutboundCursor(fixture, evidence)')
+$exactCounterRestartMaterializingCaptureIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'baselineSave.Capture(fixture.m_State);')
+$exactCounterRestartMaterializingRawCloneIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'baselineSave.ApplyTo(rawState, false);')
+$exactCounterRestartMaterializingNormalizeIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'HST_CampaignState normalizedBaseline = baselineSave.Restore();')
+$exactCounterRestartMaterializingPreparedFingerprintIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'BuildExternalSemanticFingerprint(normalizedBaseline, carrier);')
+$exactCounterRestartMaterializingReleaseIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'fixture.m_Service.BeginMaterializationForProof(')
+$exactCounterRestartMaterializingRawFingerprintIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'BuildExternalSemanticFingerprint(rawState, carrier);')
+$exactCounterRestartMaterializingOutputIndex = `
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'persistenceSourceState = fixture.m_State;')
+if ($exactCounterRestartMaterializingAdvanceIndex -lt 0 -or
+	$exactCounterRestartMaterializingCaptureIndex -le
+		$exactCounterRestartMaterializingAdvanceIndex -or
+	$exactCounterRestartMaterializingRawCloneIndex -le
+		$exactCounterRestartMaterializingCaptureIndex -or
+	$exactCounterRestartMaterializingNormalizeIndex -le
+		$exactCounterRestartMaterializingRawCloneIndex -or
+	$exactCounterRestartMaterializingPreparedFingerprintIndex -le
+		$exactCounterRestartMaterializingNormalizeIndex -or
+	$exactCounterRestartMaterializingReleaseIndex -le
+		$exactCounterRestartMaterializingPreparedFingerprintIndex -or
+	$exactCounterRestartMaterializingRawFingerprintIndex -le
+		$exactCounterRestartMaterializingReleaseIndex -or
+	$exactCounterRestartMaterializingOutputIndex -le
+		$exactCounterRestartMaterializingRawFingerprintIndex -or
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'persistenceSourceState = rawState;') -ge 0 -or
+	$exactCounterRestartMaterializingPrepare.IndexOf(
+		'persistenceSourceState = normalizedBaseline;') -ge 0) {
+	throw 'Exact counterattack materializing preparation must clone without migration, define the normalized fingerprint, enter production MATERIALIZING, and return the untouched VIRTUAL source for persistence'
+}
+
+$exactCounterRestartNoCasualtyExpectation = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected HST_EnemyCounterattackOutboundVirtualExpectation BuildExternalNoCasualtyExpectation('
+foreach ($exactCounterRestartNoCasualtyEntry in @(
+	'living != fixture.m_Manifest.m_iAcceptedMemberCount',
+	'expectation.m_iAcceptedMemberCount',
+	'= fixture.m_Manifest.m_iAcceptedMemberCount;',
+	'expectation.m_iLivingMemberCount = living;',
+	'BuildExternalLivingSlotFingerprint(fixture.m_Batch);',
+	'expectation.m_iExpectedNormalizedReprojectionCount = 0;'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartNoCasualtyExpectation) -or
+		$exactCounterRestartNoCasualtyExpectation.IndexOf(
+			$exactCounterRestartNoCasualtyEntry) -lt 0) {
+		throw "Exact counterattack materializing no-casualty expectation is incomplete: $exactCounterRestartNoCasualtyEntry"
 	}
 }
 $exactCounterRestartDematerializingPrepare = Get-ScriptMethodBlock `
@@ -33749,7 +33900,7 @@ if ($exactCounterRestartDematerializingStageIndex -lt 0 -or
 $exactCounterRestartDematerializingStage = Get-ScriptMethodBlock `
 	$exactCounterRestartProofText 'protected bool StageExternalDematerializingRawCut('
 foreach ($exactCounterRestartDematerializingStageEntry in @(
-	'AdvanceExternalDematerializingOutboundCursor(',
+	'AdvanceExternalRestartOutboundCursor(',
 	'EstablishExternalDematerializingPhysicalCut(',
 	'FoldExternalDematerializingCut(',
 	'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING',
@@ -33770,7 +33921,7 @@ foreach ($exactCounterRestartDematerializingStageEntry in @(
 }
 $exactCounterRestartDematerializingAdvanceIndex = `
 	$exactCounterRestartDematerializingStage.IndexOf(
-		'AdvanceExternalDematerializingOutboundCursor(')
+		'AdvanceExternalRestartOutboundCursor(')
 $exactCounterRestartDematerializingPhysicalIndex = `
 	$exactCounterRestartDematerializingStage.IndexOf(
 		'EstablishExternalDematerializingPhysicalCut(')
@@ -33786,7 +33937,7 @@ if ($exactCounterRestartDematerializingAdvanceIndex -lt 0 -or
 }
 
 $exactCounterRestartDematerializingAdvance = Get-ScriptMethodBlock `
-	$exactCounterRestartProofText 'protected bool AdvanceExternalDematerializingOutboundCursor('
+	$exactCounterRestartProofText 'protected bool AdvanceExternalRestartOutboundCursor('
 foreach ($exactCounterRestartDematerializingAdvanceEntry in @(
 	'HST_EnemyCounterattackOperationProofHarness production',
 	'production.UseDeterministicVirtualProjectionForProof();',
@@ -33990,10 +34141,71 @@ if ($exactCounterRestartRawValidationIndex -lt 0 -or
 		$exactCounterRestartRawRuntimeValidationIndex) {
 	throw 'Exact counterattack prepared-state gate must validate raw, normalized, casualty, and both runtime views in order'
 }
+$exactCounterRestartMaterializingValidator = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText 'bool ValidateExternalMaterializingCutState('
+foreach ($exactCounterRestartMaterializingValidatorEntry in @(
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'HST_EnemyCounterattackExternalRestartProofService.ValidateCarrier(',
+	'state.m_iSchemaVersion != carrier.m_iCampaignSchemaVersion',
+	'owner.DebugValidateOpenRuntimeAuthority(state, order);',
+	'CountEnemyOrderId(state, expected.m_sOrderId) == 1',
+	'CountOperationId(state, expected.m_sOperationId) == 1',
+	'CountManifestId(state, expected.m_sManifestId) == 1',
+	'CountBatchId(state, expected.m_sBatchId) == 1',
+	'CountGroupId(state, expected.m_sGroupId) == 1',
+	'CountMutationId(state, expected.m_sDebitMutationId) == 1',
+	'HST_ENEMY_ORDER_ACTIVE',
+	'order.m_bStrategicServiceCommitted',
+	'!order.m_bPhysicalized && !order.m_bAbstractResolved',
+	'!order.m_bResourceSettlementApplied',
+	'order.m_sRuntimeStatus == "exact_materializing";',
+	'HST_OPERATION_DUTY_OUTBOUND',
+	'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'HST_OPERATION_SETTLEMENT_OPEN',
+	'HST_OPERATION_TERMINAL_NONE',
+	'operation.m_iLastProjectionDecisionSecond == state.m_iElapsedSeconds',
+	'carrier.m_fPreparedRouteProgressMeters',
+	'carrier.m_vPreparedStrategicPosition',
+	'HST_FORCE_SPAWN_PENDING',
+	'!batch.m_bStrategicProjectionHeld',
+	'batch.m_iStrategicHoldSinceSecond == 0',
+	'batch.m_iNextAttemptSecond == state.m_iElapsedSeconds',
+	'batch.m_iSuccessfulHandoffCount == 0',
+	'batch.m_iReprojectionCount == 0',
+	'!batch.m_bExternalAssetAuthority',
+	'batch.m_sNativeGroupId.IsEmpty()',
+	'queue.CountStrategicLivingMemberSlots(batch)',
+	'== expected.m_iLivingMemberCount',
+	'queue.CountConfirmedCasualtyMemberSlots(batch) == 0',
+	'ValidateExternalQueuedSlots(batch, manifest, expected)',
+	'group.m_sRuntimeStatus == "enemy_counterattack_materializing"',
+	'!group.m_bSpawnedEntity && !group.m_bSpawnAttempted',
+	'group.m_sRuntimeEntityId.IsEmpty()',
+	'group.m_iSpawnedAgentCount == 0',
+	'group.m_iDurableLivingInfantryCount',
+	'== expected.m_iLivingMemberCount;',
+	'ValidateExternalDebit(state, order, pool, expected)',
+	'CountExternalSupportClaimants(state, expected) == 0',
+	'CountExternalLegacyQRFClaimants(state, expected) == 0',
+	'ValidateExternalVirtualManifest(manifest, expected);',
+	'fingerprint = BuildExternalSemanticFingerprint(state, carrier);',
+	'fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint;',
+	'rowsExact && orderExact && operationExact && manifestExact',
+	'&& batchExact && groupExact && resourcesExact'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartMaterializingValidator) -or
+		$exactCounterRestartMaterializingValidator.IndexOf(
+			$exactCounterRestartMaterializingValidatorEntry) -lt 0) {
+		throw "Exact counterattack raw MATERIALIZING authority validator is incomplete: $exactCounterRestartMaterializingValidatorEntry"
+	}
+}
 $exactCounterRestartPreparedCutDispatch = Get-ScriptMethodBlock `
 	$exactCounterRestartProofText 'bool ValidateExternalPreparedCutState('
 foreach ($exactCounterRestartPreparedCutEntry in @(
 	'carrier.m_sCutName',
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'return ValidateExternalMaterializingCutState(',
 	'CUT_DEMATERIALIZING_BEFORE_HOLD',
 	'return ValidateExternalDematerializingCutState(',
 	'return ValidateExternalVirtualState(',
@@ -34005,17 +34217,22 @@ foreach ($exactCounterRestartPreparedCutEntry in @(
 		throw "Exact counterattack prepared-cut validator dispatch is incomplete: $exactCounterRestartPreparedCutEntry"
 	}
 }
+$exactCounterRestartPreparedMaterializingIndex = `
+	$exactCounterRestartPreparedCutDispatch.IndexOf(
+		'return ValidateExternalMaterializingCutState(')
 $exactCounterRestartPreparedDematIndex = `
 	$exactCounterRestartPreparedCutDispatch.IndexOf(
 		'return ValidateExternalDematerializingCutState(')
 $exactCounterRestartPreparedVirtualIndex = `
 	$exactCounterRestartPreparedCutDispatch.IndexOf(
 		'return ValidateExternalVirtualState(')
-if ($exactCounterRestartPreparedDematIndex -lt 0 -or
+if ($exactCounterRestartPreparedMaterializingIndex -lt 0 -or
+	$exactCounterRestartPreparedDematIndex -le
+		$exactCounterRestartPreparedMaterializingIndex -or
 	$exactCounterRestartPreparedVirtualIndex -lt 0 -or
 	$exactCounterRestartPreparedDematIndex -ge
 		$exactCounterRestartPreparedVirtualIndex) {
-	throw 'Exact counterattack prepared-cut validator must dispatch the physical handoff cut before its virtual fallback'
+	throw 'Exact counterattack prepared-cut validator must dispatch materializing then dematerializing before its virtual fallback'
 }
 $exactCounterRestartCutPolicyDto = Get-ScriptMethodBlock `
 	$exactCounterRestartProofText 'class HST_EnemyCounterattackExternalVirtualCutPolicy'
@@ -34242,10 +34459,13 @@ foreach ($exactCounterRestartCasualtyEntry in @(
 	'== expected.m_iExpectedNormalizedReprojectionCount',
 	'group.m_iInfantryCount == living',
 	'group.m_iDurableLivingInfantryCount == living',
-	'CUT_OUTBOUND_VIRTUAL',
-	'casualties == 0',
+	'bool expectsNoCasualty',
 	'expected.m_sConfirmedCasualtySlotId.IsEmpty()',
 	'expected.m_sCasualtyTombstoneFingerprint.IsEmpty()',
+	'if (expectsNoCasualty)',
+	'casualties == 0',
+	'expected.m_iLivingMemberCount',
+	'== expected.m_iAcceptedMemberCount;',
 	'batch.FindSlotResult(expected.m_sConfirmedCasualtySlotId)',
 	'casualties == 1 && casualtySlot',
 	'HST_FORCE_SLOT_RETIRED',
@@ -34650,13 +34870,88 @@ foreach ($exactCounterRestartVerifyEntry in @(
 		throw "Exact counterattack recover/replay proof is incomplete: $exactCounterRestartVerifyEntry"
 	}
 }
+$exactCounterRestartMaterializingDeferral = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool ProveExactCounterattackMaterializingCheckpointDeferred('
+foreach ($exactCounterRestartMaterializingDeferralEntry in @(
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'proof.ValidateExternalPreparedCutState(',
+	'rawFingerprint',
+	'!= carrier.m_sRawPreparedCutSemanticFingerprint',
+	'proof.ValidateExternalRuntimeClaimantsZero(',
+	'm_State = stagedState;',
+	'HST_CampaignSaveData rejectedCapture = m_Persistence.CaptureAndTrackState(',
+	'bool deferred = !rejectedCapture',
+	'm_State.m_sLastPersistenceStatus.Contains(',
+	'checkpoint deferred: exact infantry materialization is in progress',
+	'bool rawRetained = proof.ValidateExternalPreparedCutState(',
+	'retainedRawFingerprint',
+	'== carrier.m_sRawPreparedCutSemanticFingerprint;',
+	'm_Persistence.ReadProfileFallbackProofSnapshot(',
+	'proof.ValidateExternalVirtualState(',
+	'canonicalFingerprint',
+	'== carrier.m_sPreparedSemanticFingerprint;',
+	'canonicalState,',
+	'canonicalRuntimeEvidence',
+	'return deferred && rawRetained && canonicalExact;'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartMaterializingDeferral) -or
+		$exactCounterRestartMaterializingDeferral.IndexOf(
+			$exactCounterRestartMaterializingDeferralEntry) -lt 0) {
+		throw "Exact counterattack materializing checkpoint-deferral proof is incomplete: $exactCounterRestartMaterializingDeferralEntry"
+	}
+}
+$exactCounterRestartDeferralFirstRawIndex = `
+	$exactCounterRestartMaterializingDeferral.IndexOf(
+		'proof.ValidateExternalPreparedCutState(')
+$exactCounterRestartDeferralCaptureIndex = `
+	$exactCounterRestartMaterializingDeferral.IndexOf(
+		'm_Persistence.CaptureAndTrackState(')
+$exactCounterRestartDeferralRejectedIndex = `
+	$exactCounterRestartMaterializingDeferral.IndexOf(
+		'bool deferred = !rejectedCapture')
+$exactCounterRestartDeferralSecondRawIndex = `
+	$exactCounterRestartMaterializingDeferral.IndexOf(
+		'proof.ValidateExternalPreparedCutState(',
+		[Math]::Max(0, $exactCounterRestartDeferralFirstRawIndex + 1))
+$exactCounterRestartDeferralCanonicalReadIndex = `
+	$exactCounterRestartMaterializingDeferral.IndexOf(
+		'm_Persistence.ReadProfileFallbackProofSnapshot(')
+$exactCounterRestartDeferralCanonicalValidationIndex = `
+	$exactCounterRestartMaterializingDeferral.IndexOf(
+		'proof.ValidateExternalVirtualState(')
+if ($exactCounterRestartDeferralFirstRawIndex -lt 0 -or
+	$exactCounterRestartDeferralCaptureIndex -le
+		$exactCounterRestartDeferralFirstRawIndex -or
+	$exactCounterRestartDeferralRejectedIndex -le
+		$exactCounterRestartDeferralCaptureIndex -or
+	$exactCounterRestartDeferralSecondRawIndex -le
+		$exactCounterRestartDeferralRejectedIndex -or
+	$exactCounterRestartDeferralCanonicalReadIndex -le
+		$exactCounterRestartDeferralSecondRawIndex -or
+	$exactCounterRestartDeferralCanonicalValidationIndex -le
+		$exactCounterRestartDeferralCanonicalReadIndex) {
+	throw 'Exact counterattack materializing deferral must validate raw authority, observe capture rejection, retain raw state, then independently reread and validate the unchanged canonical VIRTUAL checkpoint'
+}
 $exactCounterRestartPrepare = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected void FinalizeExactCounterattackExternalRestartPrepare()'
 foreach ($exactCounterRestartPrepareReadbackEntry in @(
+	'HST_CampaignState persistenceSourceState;',
+	'bool materializingDeferredCut',
+	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'if (materializingDeferredCut)',
+	'proof.PrepareExternalMaterializingRestartCarrier(',
+	'persistenceSourceState,',
+	'proof.PrepareExternalRestartCarrier(',
+	'persistenceSourceState = stagedState;',
+	'm_Persistence.WriteProfileFallbackProofSnapshot(',
+	'persistenceSourceState,',
+	'external exact counterattack restart baseline',
 	'preparedStillExact',
 	'proof.BuildExternalSemanticDifferenceEvidence(',
 	'readBackFingerprint != carrier.m_sPreparedSemanticFingerprint',
 	'bool preparedCutExact;',
 	'if (runtimeZero)',
+	'ProveExactCounterattackMaterializingCheckpointDeferred(',
 	'preparedCutExact = TrackExactCounterattackRawPreparedCut(',
 	'm_bExactCounterattackRestartPreparedCutExact',
 	'result.m_bPreparedCutExact',
@@ -34673,6 +34968,36 @@ foreach ($exactCounterRestartPrepareReadbackEntry in @(
 		$exactCounterRestartPrepareReadbackEntry) -lt 0) {
 		throw "Exact counterattack prepare readback drift evidence is incomplete: $exactCounterRestartPrepareReadbackEntry"
 	}
+}
+$exactCounterRestartPrepareMaterializingDispatchIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'proof.PrepareExternalMaterializingRestartCarrier(')
+$exactCounterRestartPrepareGenericDispatchIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'proof.PrepareExternalRestartCarrier(')
+$exactCounterRestartPreparePersistSourceIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'm_Persistence.WriteProfileFallbackProofSnapshot(')
+$exactCounterRestartPrepareDeferralIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'ProveExactCounterattackMaterializingCheckpointDeferred(')
+$exactCounterRestartPrepareTrackOtherCutIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'preparedCutExact = TrackExactCounterattackRawPreparedCut(')
+$exactCounterRestartPrepareSuccessIndex = $exactCounterRestartPrepare.IndexOf(
+	'result.m_bSuccess = prepared && carrierSaved && persisted;')
+if ($exactCounterRestartPrepareMaterializingDispatchIndex -lt 0 -or
+	$exactCounterRestartPrepareGenericDispatchIndex -le
+		$exactCounterRestartPrepareMaterializingDispatchIndex -or
+	$exactCounterRestartPreparePersistSourceIndex -le
+		$exactCounterRestartPrepareGenericDispatchIndex -or
+	$exactCounterRestartPrepareDeferralIndex -le
+		$exactCounterRestartPreparePersistSourceIndex -or
+	$exactCounterRestartPrepareTrackOtherCutIndex -le
+		$exactCounterRestartPrepareDeferralIndex -or
+	$exactCounterRestartPrepareSuccessIndex -le
+		$exactCounterRestartPrepareTrackOtherCutIndex) {
+	throw 'Exact counterattack prepare must select the baseline-aware materializing path, persist its VIRTUAL source, prove deferral, preserve legacy raw tracking for other cuts, and gate success afterward'
 }
 $exactCounterRestartRawCutTracker = Get-ScriptMethodBlock `
 	$exactCounterRestartCoordinatorText `
@@ -34735,11 +35060,15 @@ if ($exactCounterRestartFailedResultIndex -lt 0 -or
 }
 
 foreach ($exactCounterRestartLauncherEntry in @(
-	'[ValidateSet("outbound_virtual", "dematerializing_before_hold")]',
+	'[ValidateSet(',
+	'"outbound_virtual",',
+	'"dematerializing_before_hold",',
+	'"materializing_checkpoint_deferred")]',
 	'[string]$CutName = "outbound_virtual"',
 	'$script:CutOrdinals = @{',
 	'outbound_virtual = 0',
 	'dematerializing_before_hold = 1',
+	'materializing_checkpoint_deferred = 2',
 	'$script:SupportedCutNames = @(',
 	'$script:CutName = $CutName.ToLowerInvariant()',
 	'$script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]',
@@ -34759,6 +35088,15 @@ foreach ($exactCounterRestartLauncherEntry in @(
 	if ($exactCounterRestartLauncherText.IndexOf($exactCounterRestartLauncherEntry) -lt 0) {
 		throw "Exact counterattack restart launcher contract is incomplete: $exactCounterRestartLauncherEntry"
 	}
+}
+$exactCounterRestartLauncherTokens = $null
+$exactCounterRestartLauncherParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseInput(
+	$exactCounterRestartLauncherText,
+	[ref]$exactCounterRestartLauncherTokens,
+	[ref]$exactCounterRestartLauncherParseErrors)
+if ($exactCounterRestartLauncherParseErrors.Count -ne 0) {
+	throw 'Exact counterattack restart launcher must parse after adding the materializing cut'
 }
 $exactCounterRestartOwnerGate = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-EngineOwner'
 $exactCounterRestartLeaseGate = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-EngineGuard'
@@ -34787,13 +35125,17 @@ foreach ($exactCounterRestartLauncherCarrierEntry in @(
 	'$livingSlotIds.Count -ne [int]$expectation.m_iLivingMemberCount',
 	'$uniqueLivingSlotIds.Count -ne $livingSlotIds.Count',
 	'$script:CutName -ceq "outbound_virtual"',
+	'$script:CutName -ceq "dematerializing_before_hold"',
 	'$rawCutFingerprint -cne $normalizedFingerprint',
 	'$rawCutFingerprint -ceq $normalizedFingerprint',
 	'$casualtyFingerprint = [string]$expectation.m_sCasualtyTombstoneFingerprint',
 	'-not $casualtyFingerprint.StartsWith($casualtySlotId + "|")',
 	'$livingSlotIds -ccontains $casualtySlotId',
+	'[int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 0',
+	'[int]$expectation.m_iLivingMemberCount -ne',
+	'[int]$expectation.m_iAcceptedMemberCount',
 	'$progressInvalid = $progress -lt 0.0 -or',
-	'($script:CutName -ceq "outbound_virtual" -and $progress -le 0.0)',
+	'($script:CutName -cne "dematerializing_before_hold" -and',
 	'$progressInvalid -or $total -le $progress'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartLauncherCarrierGate) -or
@@ -34951,6 +35293,73 @@ try {
 		throw 'Exact counterattack launcher did not exercise and reject living-slot cardinality drift'
 	}
 
+	$exactCounterRestartMaterializingExpectationSelfTest = `
+		$exactCounterRestartCarrierSelfTestExpectation.PSObject.Copy()
+	$exactCounterRestartMaterializingExpectationSelfTest.m_iLivingMemberCount = 3
+	$exactCounterRestartMaterializingExpectationSelfTest.m_sLivingSlotFingerprint = `
+		'member-01,member-02,member-03'
+	$exactCounterRestartMaterializingExpectationSelfTest.m_sConfirmedCasualtySlotId = ''
+	$exactCounterRestartMaterializingExpectationSelfTest.
+		m_sCasualtyTombstoneFingerprint = ''
+	$exactCounterRestartMaterializingExpectationSelfTest.
+		m_iExpectedNormalizedReprojectionCount = 0
+	$exactCounterRestartMaterializingCarrierSelfTest = `
+		$exactCounterRestartCarrierSelfTest.PSObject.Copy()
+	$exactCounterRestartMaterializingCarrierSelfTest.m_sCutName = `
+		'materializing_checkpoint_deferred'
+	$exactCounterRestartMaterializingCarrierSelfTest.m_iCut = 2
+	$exactCounterRestartMaterializingCarrierSelfTest.m_Expectation = `
+		$exactCounterRestartMaterializingExpectationSelfTest
+	$exactCounterRestartMaterializingCarrierSelfTest.
+		m_fPreparedRouteProgressMeters = 25.0
+	$exactCounterRestartMaterializingCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'raw-materializing-self-test'
+	& $exactCounterRestartCarrierSelfTestModule {
+		$script:CutName = 'materializing_checkpoint_deferred'
+		$script:CutOrdinal = 2
+	}
+	$exactCounterRestartValidatedMaterializingCarrier = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Carrier, $ExpectedBuild)
+			Assert-PreparedCarrier `
+				-Carrier $Carrier `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-ExpectedBuild $ExpectedBuild
+		} $exactCounterRestartMaterializingCarrierSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedMaterializingCarrier -or
+		[int]$exactCounterRestartValidatedMaterializingCarrier.m_iCut -ne 2) {
+		throw 'Exact counterattack launcher did not accept the valid isolated materializing carrier'
+	}
+
+	$exactCounterRestartMaterializingCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'normalized-self-test'
+	$exactCounterRestartCollapsedMaterializingCarrierRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Carrier, $ExpectedBuild)
+				Assert-PreparedCarrier `
+					-Carrier $Carrier `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-ExpectedBuild $ExpectedBuild
+			} $exactCounterRestartMaterializingCarrierSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartCollapsedMaterializingCarrierRejected = `
+			$_.Exception.Message -ceq `
+			'materializing_checkpoint_deferred carrier materializing expectation is not exact.'
+	}
+	if (-not $exactCounterRestartCollapsedMaterializingCarrierRejected) {
+		throw 'Exact counterattack launcher did not reject a materializing carrier collapsed into its normalized checkpoint'
+	}
+	& $exactCounterRestartCarrierSelfTestModule {
+		$script:CutName = 'dematerializing_before_hold'
+		$script:CutOrdinal = 1
+	}
+
 	$exactCounterRestartStageResultSelfTest = [pscustomobject][ordered]@{
 		m_sMagic = 'partisan_exact_counterattack_restart_result_v1'
 		m_sSessionNonce = '0123456789abcdef0123456789abcdef'
@@ -35023,6 +35432,85 @@ try {
 	if (-not $exactCounterRestartBlankResultRawRejected) {
 		throw 'Exact counterattack launcher did not reject a successful result with an empty raw fingerprint'
 	}
+
+	$exactCounterRestartMaterializingResultSelfTest = `
+		$exactCounterRestartStageResultSelfTest.PSObject.Copy()
+	$exactCounterRestartMaterializingResultSelfTest.m_sCutName = `
+		'materializing_checkpoint_deferred'
+	$exactCounterRestartMaterializingResultSelfTest.m_iCut = 2
+	$exactCounterRestartMaterializingResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'raw-materializing-self-test'
+	& $exactCounterRestartCarrierSelfTestModule {
+		$script:CutName = 'materializing_checkpoint_deferred'
+		$script:CutOrdinal = 2
+	}
+	$exactCounterRestartValidatedMaterializingResult = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Result, $ExpectedBuild)
+			Assert-StageResult `
+				-Result $Result `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-Stage 'prepare' `
+				-ExpectedBuild $ExpectedBuild `
+				-ExpectedWorld 'worlds/partisan_self_test.ent'
+		} $exactCounterRestartMaterializingResultSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedMaterializingResult -or
+		[int]$exactCounterRestartValidatedMaterializingResult.m_iCut -ne 2) {
+		throw 'Exact counterattack launcher did not accept the valid raw-distinct materializing prepare result'
+	}
+
+	$exactCounterRestartMaterializingResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'normalized-self-test'
+	$exactCounterRestartCollapsedMaterializingResultRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartMaterializingResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartCollapsedMaterializingResultRejected = `
+			$_.Exception.Message -ceq `
+			'materializing_checkpoint_deferred/prepare result collapsed the materializing cut into normalized virtual state.'
+	}
+	if (-not $exactCounterRestartCollapsedMaterializingResultRejected) {
+		throw 'Exact counterattack launcher did not reject a materializing result collapsed into its normalized checkpoint'
+	}
+
+	$exactCounterRestartMaterializingResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'raw-materializing-self-test'
+	$exactCounterRestartMaterializingResultSelfTest.m_bPreparedCutExact = $false
+	$exactCounterRestartUnprovenMaterializingResultRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartMaterializingResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartUnprovenMaterializingResultRejected = `
+			$_.Exception.Message -ceq `
+			'materializing_checkpoint_deferred/prepare result omitted exact prepared-cut or casualty continuity proof.'
+	}
+	if (-not $exactCounterRestartUnprovenMaterializingResultRejected) {
+		throw 'Exact counterattack launcher did not reject an unproven materializing prepare result'
+	}
 }
 finally {
 	if ($exactCounterRestartCarrierSelfTestModule) {
@@ -35037,7 +35525,12 @@ foreach ($exactCounterRestartLauncherResultEntry in @(
 	'm_bPreparedCutExact', 'm_bCasualtyContinuityExact',
 	'"m_sRawPreparedCutSemanticFingerprint"',
 	'[string]$Result.m_sRawPreparedCutSemanticFingerprint',
-	'$script:CutName -ceq "dematerializing_before_hold"',
+	'$script:CutName -cne "outbound_virtual"',
+	'$script:CutName -ceq "materializing_checkpoint_deferred"',
+	'[string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq',
+	'[string]$Result.m_sSourceSemanticFingerprint',
+	'[string]$Result.m_sFinalSemanticFingerprint',
+	'collapsed the materializing cut into normalized virtual state',
 	'ConvertTo-SafeEvidenceLine', '$Result.m_sEvidence',
 	'$Stage -eq "prepare"',
 	'$Stage -eq "recover"'
@@ -35608,7 +36101,7 @@ if (([regex]::Matches(
 	throw 'Guarded Workbench launcher must expose one sentinel-authorized recursive deletion path'
 }
 
-Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL and dematerializing-before-hold process-restart contract OK"
+Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL, dematerializing-before-hold, and deferred-MATERIALIZING process-restart contract OK"
 
 Write-Host "Guarded Workbench disposable profile, dead-owner recovery, and zero-leftover boundary contract OK"
 
