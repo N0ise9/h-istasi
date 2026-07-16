@@ -1,19 +1,18 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`541a79f7e5f49394c6f78a630d9e05340c8e2959`, UTC `2026-07-16T15:31:05Z`, label
-`schema70-settings24-counterattack-ownership-pre-reconcile-fence`, stamp commit
-`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Final stamped Foundation passes
-819; Workbench passes 5,832 Game files/11,835 classes at CRC `61930e5a`; and the
-exact focused engine case passes 1/1 with stamped identity evidence and zero
-cleanup.
+`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label
+`schema70-settings24-counterattack-owner-applied-restart`, stamp commit
+`8947b2668655fcb58d8339c8b3f77541c39661bc`. Final stamped Foundation passes
+819; Workbench passes 5,832/11,835 at CRC `417e9910` with zero hard errors; and
+all eight guarded chains pass 24/24 fresh-process stages with exact fingerprints,
+zero exits, and exact cleanup.
 
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` remains `70` and
-`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The ownership pre-reconcile
-fence adds no serialized field, enum ordinal, contract version, or migration
-step.
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The owner-applied restart cut
+adds no serialized field, enum ordinal, contract version, or migration step.
 
 Current exact counterattack ownership rows are normalized by the generic
 ownership validator and then correlated against their counterattack aggregate
@@ -26,10 +25,15 @@ events after durable outcome or later ordinary recapture.
 
 Migration and restore never synthesize a missing receipt, owner change, refund,
 settlement, cancellation, deletion, or outcome. This is conservative
-current-shape validation, not promotion of legacy contract-zero history. Fresh-
-process owner-applied-incomplete receipt proof remains open, as do older-save
-execution, native persistence-source, package/live-server, network/JIP,
-performance, and soak gates.
+current-shape validation, not promotion of legacy contract-zero history.
+Current-shape restore converts the staged raw pending receipt into normalized
+pending authority, completes it once through canonical ownership reconciliation,
+advances exactly once into returning, and normalizes the returning snapshot.
+This is current Schema-70 restart/normalization evidence, not an older-schema
+upgrade and not proof of native persistence-source precedence. Replay cannot
+overwrite the canonical carrier and preserves its SHA-256, length, and UTC last-
+write identity. Older-save execution, native source selection, package/live-
+server, network/JIP, performance, and soak remain open.
 
 ## Preceding Endpoint Restart Schema-Neutral Evidence
 

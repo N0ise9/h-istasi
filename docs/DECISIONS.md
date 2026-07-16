@@ -2586,8 +2586,8 @@ Consequences:
 
 ## CRI-045 - Fence Counterattack Ownership Before Runtime Reconciliation
 
-- Status: Accepted; implementation and focused engine proof complete; guarded
-  fresh-process pending-receipt proof remains open
+- Status: Accepted; implementation and focused engine proof complete; owner-
+  applied restart closure recorded by CRI-046
 - Date: 2026-07-16
 
 Context: CRI-044 proved that the seven restart carriers reject any correlated
@@ -2639,8 +2639,52 @@ Consequences:
 - Campaign Debug exposes `enemy_counterattack.ownership_correlation` separately
   from the aggregate. This checkpoint does not claim a new broader Full Campaign
   Debug execution.
-- The next proof gate is a guarded fresh-process prepare/recover/replay cut for
-  an owner-applied incomplete receipt. Native persistence-source selection,
-  package/live server-client, networking/JIP, rendered markers, performance,
-  and soak remain open. Durable endpoint ABA remains a separate Schema-71/
-  contract-2 decision.
+- CRI-046 closes the guarded owner-applied-incomplete fresh-process gate. Native
+  persistence-source selection, package/live server-client execution,
+  networking/JIP, rendered markers, performance, and soak remain open. Durable
+  endpoint ABA remains a separate Schema-71/contract-2 decision.
+
+## CRI-046 - Prove Owner-Applied Counterattack Recovery Across Fresh Processes
+
+- Status: Accepted; implementation, final stamped Workbench, and eight-cut
+  matrix complete
+- Date: 2026-07-16
+
+Context: CRI-045 fenced lifecycle-invalid counterattack ownership before runtime
+reconciliation, but its focused proof did not cross a real process boundary with
+a legal owner-applied incomplete receipt.
+
+Decision: Add `owner_applied_pending` as the eighth guarded counterattack restart
+cut. Prepare persists the raw legal receipt and proves that restore derives its
+normalized pending form without applying ownership. Recover observes that
+normalized source before ownership startup reconciliation, requires the receipt
+to complete exactly once without a second owner revision or strategic effect,
+then permits exactly one production counterattack tick to enter raw `RETURNING`;
+persisted readback must be normalized `RETURNING`.
+
+Replay must not reapply ownership or advance the operation. It must deny
+canonical fallback overwrite and preserve the save's SHA-256, byte length, and
+last-write UTC identity. Ownership startup mutation must be
+`false -> true -> false` across prepare, recover, and replay. The preceding seven
+cuts must remain regression-clean and must never report an ownership startup
+mutation.
+
+Consequences:
+
+- Implementation/source `7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC
+  `2026-07-16T17:12:17Z`, label
+  `schema70-settings24-counterattack-owner-applied-restart`, is stamped by
+  `8947b2668655fcb58d8339c8b3f77541c39661bc`. Campaign Schema 70 and runtime-
+  settings Schema 24 remain unchanged.
+- Pre-stamp evidence passes the owner cut 3/3 with the required
+  `false -> true -> false` ownership sequence, and the preceding seven cuts pass
+  21/21.
+- Final stamped Foundation passes 819. Workbench passes 5,832/11,835 at CRC
+  `417e9910` with script validation true and zero hard errors. All eight guarded
+  chains pass 24/24 fresh-process stages with exact fingerprints, zero exits,
+  and every cleanup/watch/spill counter zero; the independent census also finds
+  zero engine processes, guard roots, and held proof mutexes.
+- This closes only the scoped guarded fallback-carrier restart cut. Native
+  persistence-source selection, world/package/live-server behavior,
+  networking/JIP/reconnect, migration, markers, performance, soak, and durable
+  endpoint ABA remain open.

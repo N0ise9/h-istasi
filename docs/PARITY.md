@@ -1,12 +1,12 @@
 # Partisan Capability Map
 
 Current build identity: implementation/source
-`541a79f7e5f49394c6f78a630d9e05340c8e2959`, UTC `2026-07-16T15:31:05Z`, label
-`schema70-settings24-counterattack-ownership-pre-reconcile-fence`, stamp commit
-`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Campaign Schema 70 and runtime-
+`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label
+`schema70-settings24-counterattack-owner-applied-restart`, stamp commit
+`8947b2668655fcb58d8339c8b3f77541c39661bc`. Campaign Schema 70 and runtime-
 settings Schema 24 remain unchanged.
 
-## Current Counterattack Ownership Restore Parity Boundary
+## Current Counterattack Owner-Applied Restart Parity Boundary
 
 The production restore path now correlates every counterattack-owned ownership
 row before runtime ownership reconciliation. Either the canonical request ID or
@@ -23,15 +23,18 @@ through transition, zone, marker, and counterattack-order owners before the
 reciprocal aggregate is held. No capture, settlement, refund, cancellation,
 deletion, or outcome is inferred.
 
-Focused parity covers four legal lifecycle shapes, five invalid claimant
+Focused parity still covers four legal lifecycle shapes, five invalid claimant
 families, and the actual generic-ownership-then-counterattack normalization
-order. The exact command-line JUnit case passes 1/1 with zero failure/error/skip,
-one empty failed-list artifact, stamped identity plus required correlation
-evidence, and zero process, profile, temp, or spill residue. Final stamped
-Foundation passes 819 and Workbench passes 5,832/11,835 at CRC `61930e5a`. A
-guarded fresh-process owner-applied-incomplete receipt cut remains
-open, as do packaged server/client, networking/JIP, marker, performance, and
-soak parity.
+order. The eighth fresh-process cut closes the scoped owner-applied-incomplete
+window: raw pending restores to normalized pending; only recovery reports
+ownership-startup reconciliation; completion occurs once; one production tick
+enters returning; persisted returning replays as an ownership and semantic no-
+op. Canonical overwrite is denied and SHA-256, byte length, and UTC last-write
+identity remain unchanged. Final stamped Foundation passes 819; Workbench passes
+5,832/11,835 at CRC `417e9910` with zero hard errors; and all eight chains pass
+24/24 fresh-process stages with exact fingerprints and cleanup. Package/server-
+client, native source selection, networking/JIP, markers, performance, and soak
+parity remain open.
 
 ## Preceding Counterattack Endpoint Owner/Claimant Restart Parity Boundary
 
@@ -1433,19 +1436,19 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Implementation/
-  source `541a79f7e5f49394c6f78a630d9e05340c8e2959`, label
-  `schema70-settings24-counterattack-ownership-pre-reconcile-fence`, carries UTC
-  `2026-07-16T15:31:05Z` and stamp
-  `f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Final stamped Foundation passes 819,
-  Workbench passes 5,832/11,835 at CRC `61930e5a`, and the exact focused JUnit
-  case passes 1/1 with no failure, error, or skip and zero cleanup residue. The
+  source `7eb0a98977c523f6713a9e2088eab7ba20a333fd`, label
+  `schema70-settings24-counterattack-owner-applied-restart`, carries UTC
+  `2026-07-16T17:12:17Z` and stamp
+  `8947b2668655fcb58d8339c8b3f77541c39661bc`. Final stamped Foundation passes
+  819; Workbench passes 5,832/11,835 at CRC `417e9910`; and all eight chains pass
+  24/24 stages with exact fingerprints and cleanup. The
   production restore path now fences lifecycle-illegal counterattack ownership
   rows before runtime ownership reconciliation and publishes an independent
-  Campaign Debug assertion. Fresh-process restore proof for an owner-applied incomplete receipt
-  remains open, as do native persistence-source, world/package/dedicated-server,
-  network/JIP/reconnect, migration, marker, performance, and soak gates. The
-  preceding seven-cut movement/settlement matrix remains valid historical
-  restart evidence; it does not prove this new receipt window.
+  Campaign Debug assertion. The eighth cut proves raw-to-normalized pending
+  restore, exactly-once ownership completion, one production tick into returning,
+  replay no-op, and canonical-carrier non-overwrite identity. Native persistence-
+  source, world/package/dedicated-server, network/JIP/reconnect, migration,
+  marker, performance, and soak gates remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
   `5bdcda938840ab769b41ff3e1856d908572a8c45`, stamp commit `73a64ef`, Foundation
@@ -1843,11 +1846,12 @@ Debug and packaged-runtime gates remain open.
   and revision, require unique endpoint rows and zero request-ID-or-operation-
   source claimants, and reject revision plus both claimant-identity tampering.
   The preceding matrix passes all seven chains/21 stages with exact fingerprints
-  and cleanup. The current
-  source now implements lifecycle-aware pre-reconcile correlation/quarantine and
-  passes final stamped Foundation 819, Workbench at CRC `61930e5a`, and the exact focused JUnit
-  case. Next add the guarded owner-applied-incomplete receipt restart cut;
-  durable endpoint ABA snapshots are a separate Schema-71/contract-2 decision.
+  and cleanup. The current owner cut adds raw-to-normalized pending restore,
+  exactly-once ownership completion, one production tick into returning, replay
+  no-op, and canonical-carrier non-overwrite identity. Final stamped Foundation
+  passes 819; Workbench passes 5,832/11,835 at CRC `417e9910`; and the complete
+  eight-chain/24-stage result passes with exact fingerprints and cleanup. Durable
+  endpoint ABA snapshots are a separate Schema-71/contract-2 decision.
   Do not generalize the counterattack runtime cut to exact QRF
   or garrison rebuild: they share static persistence preflight/normalization
   only. Native world/package/server-client, performance, and soak gates remain.

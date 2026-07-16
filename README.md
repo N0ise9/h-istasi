@@ -203,26 +203,27 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The current counterattack checkpoint is implementation/source
-`541a79f7e5f49394c6f78a630d9e05340c8e2959`, stamped by
-`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Restore now correlates canonical
-counterattack ownership rows and validates their lifecycle before runtime
-ownership reconciliation. Legal pending receipts survive only in their exact
-active handoff windows. Legal completed receipts survive returning settlement
-and may remain as historical authority after durable outcome and later ordinary
-recapture. Premature, engaged, foreign, duplicate, orphaned, or malformed
-authority quarantines the transition, zone, marker, and counterattack aggregate
-without fabricating gameplay effects.
+The current counterattack restart checkpoint is implementation/source
+`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC
+`2026-07-16T17:12:17Z`, label
+`schema70-settings24-counterattack-owner-applied-restart`, stamped by
+`8947b2668655fcb58d8339c8b3f77541c39661bc`. Campaign Schema 70 and runtime-
+settings Schema 24 remain unchanged.
 
-Final stamped Foundation passes with 819 script symbols, Workbench passes 5,832 Game files/
-11,835 classes at CRC `61930e5a`, and the exact focused engine test passes 1/1
-with the stamped source identity, required ownership-correlation evidence, and
-zero cleanup residue. The preceding seven-cut movement/settlement matrix remains
-valid historical restart evidence, but a fresh-process owner-applied-incomplete
-receipt cut is still required before this new restore window is restart-proven.
-Durable endpoint ABA snapshots remain a separate Schema-71/contract-2 decision,
-and the broader campaign-restart, packaged-server, and multiplayer gates remain
-open.
+The eighth guarded cut, `owner_applied_pending`, proves that a raw legal pending
+receipt normalizes before startup ownership reconciliation, completes exactly
+once, and advances through exactly one production counterattack tick to
+persisted `RETURNING`. Replay is a semantic no-op: ownership is not reapplied,
+canonical fallback overwrite is denied, and the save's SHA-256, byte length, and
+last-write UTC identity remain unchanged. Ownership startup mutation is required
+to be `false -> true -> false` across prepare, recover, and replay.
+
+Final stamped Foundation passes 819 symbols; Workbench passes 5,832 files and
+11,835 classes at CRC `417e9910` with zero hard errors; and all eight guarded
+restart chains pass 24/24 fresh-process stages with exact fingerprints, zero
+exits, and zero cleanup residue. Durable endpoint ABA snapshots remain a
+separate Schema-71/contract-2 decision, and the broader native-source, campaign-
+restart, packaged-server, multiplayer, and soak gates remain open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

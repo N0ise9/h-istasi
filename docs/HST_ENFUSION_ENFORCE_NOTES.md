@@ -1,15 +1,15 @@
 # Partisan Enfusion / Enforce Notes
 
 Current implementation/source identity:
-`541a79f7e5f49394c6f78a630d9e05340c8e2959`, UTC `2026-07-16T15:31:05Z`, label
-`schema70-settings24-counterattack-ownership-pre-reconcile-fence`, stamp commit
-`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Campaign Schema 70 and runtime-
-settings Schema 24 remain unchanged. Final stamped Foundation passes 819.
-Workbench passes 5,832 Game files/11,835 classes at CRC `61930e5a`; the exact
-focused engine case passes 1/1 with zero failure/error/skip, stamped identity
-evidence, and exact cleanup.
+`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label
+`schema70-settings24-counterattack-owner-applied-restart`, stamp commit
+`8947b2668655fcb58d8339c8b3f77541c39661bc`. Campaign Schema 70 and runtime-
+settings Schema 24 remain unchanged. Final stamped Foundation passes 819;
+Workbench passes 5,832/11,835 at CRC `417e9910` with zero hard errors; and all
+eight guarded chains pass 24/24 fresh-process stages with exact fingerprints,
+zero exits, and exact cleanup.
 
-## Current Counterattack Ownership Restore Mechanics
+## Current Counterattack Owner-Applied Restart Mechanics
 
 Restore ordering is an authority boundary:
 
@@ -41,6 +41,26 @@ at `-69` and hold its operation/manifest/batch/group/evidence. Do not repair
 ambiguity by choosing a row, applying ownership, refunding, settling, cancelling,
 deleting, or inventing an outcome.
 
+Observe and validate the normalized restart source after generic ownership
+normalization and counterattack claimant correlation, but before runtime
+ownership reconciliation. Track ownership reconciliation with its dedicated
+result flag; generic startup reconciliation may also report process-local
+normalization and is not the ownership oracle.
+
+Prepare intentionally distinguishes raw pending from restored normalized
+pending, so those fingerprints must differ. Recovery requires normalized
+pending, exactly one ownership completion, a second ownership no-op, exactly one
+production `TickOrder`, raw `RETURNING`, and normalized persisted `RETURNING`.
+The raw/restored returning structures may differ while their semantic
+fingerprints remain equal.
+
+Replay must read the already normalized canonical carrier, deny canonical
+overwrite, preserve SHA-256/length/UTC-write identity, and leave both ownership
+and semantic state unchanged. The stamped owner chain is
+`6195e5e4f45501ff -> 2f2d2b05b273ec5e -> same`, with dedicated ownership-
+startup flags `false -> true -> false`. The other seven cuts must reject any
+ownership-startup change.
+
 Focused service-only autotests should override `GetWorldFile()` to return an
 empty resource when they do not consume a world. The base autotest scenario
 transition carries only the base addon list and can otherwise drop project test
@@ -48,7 +68,9 @@ types before JUnit is written. Guard the runner with suspended launch, assign-
 before-resume kill-on-close containment, exact native argument verification,
 exact non-skipped JUnit identity, one empty failed-list artifact, recursive
 reparse-rejecting external census, and guard-root-only deletion after owned
-process quiescence. Never terminate engine processes outside the owned job.
+process quiescence. The owner replay lease and host wrapper must independently
+enforce canonical non-overwrite and pre-launch/post-exit file identity. Never
+terminate engine processes outside the owned job.
 
 ## Preceding Exact Enemy-Response Endpoint and Restart Mechanics
 
