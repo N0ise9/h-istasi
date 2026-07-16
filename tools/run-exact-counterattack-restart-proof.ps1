@@ -1379,6 +1379,13 @@ function Assert-PreparedSettlementCarrier {
         [string]$CutName = $script:CutName
     )
 
+    Assert-JsonProperty `
+        -Value $Carrier `
+        -PropertyName "m_Expectation" `
+        -ArtifactLabel $Label
+    if ($null -ne $Carrier.m_Expectation) {
+        throw "$Label mixes movement and settlement carrier families."
+    }
     foreach ($property in @(
         "m_iAccepted",
         "m_iCasualties",
@@ -1617,6 +1624,14 @@ function Assert-PreparedCarrier {
     if ($script:IsPreparedSettlementCut) {
         Assert-PreparedSettlementCarrier -Carrier $Carrier -Label $label
         return $Carrier
+    }
+
+    Assert-JsonProperty `
+        -Value $Carrier `
+        -PropertyName "m_SettlementExpectation" `
+        -ArtifactLabel $label
+    if ($null -ne $Carrier.m_SettlementExpectation) {
+        throw "$label mixes movement and settlement carrier families."
     }
 
     foreach ($property in @(
@@ -2839,6 +2854,7 @@ try {
         m_iExpectedTerminalRevision = 7
     }
     $selfTestCarrier = [pscustomobject]@{
+		m_Expectation = $null
         m_iAccepted = 4
         m_iCasualties = 1
         m_iSurvivors = 3
@@ -2882,6 +2898,25 @@ try {
     }
     if (-not $carrierRejected) {
         throw "Prepared-settlement carrier negative self-test failed."
+    }
+
+    $mixedCarrier = $selfTestCarrier |
+        ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json
+    $mixedCarrier.m_Expectation = [pscustomobject]@{
+        m_sOrderId = "forged_movement_order"
+    }
+    $mixedCarrierRejected = $false
+    try {
+        Assert-PreparedSettlementCarrier `
+            -Carrier $mixedCarrier `
+            -Label "mixed-family prepared settlement carrier self-test" `
+            -CutName "prepared_before_refund"
+    }
+    catch {
+        $mixedCarrierRejected = $true
+    }
+    if (-not $mixedCarrierRejected) {
+        throw "Mixed-family prepared-settlement carrier negative self-test failed."
     }
 
     $selfTestRecovery = [pscustomobject]@{

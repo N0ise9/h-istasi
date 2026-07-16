@@ -417,8 +417,11 @@ class HST_EnemyCounterattackExternalRestartProofService
 	{
 		evidence = "external counterattack prepared-settlement carrier rejected";
 		if (!carrier || !IsPreparedSettlementCut(expectedCut)
-			|| !carrier.m_SettlementExpectation)
+			|| carrier.m_Expectation || !carrier.m_SettlementExpectation)
+		{
+			evidence = "external counterattack prepared-settlement carrier family shape rejected";
 			return false;
+		}
 
 		HST_EnemyCounterattackPreparedSettlementExpectation expectation
 			= carrier.m_SettlementExpectation;
@@ -601,9 +604,9 @@ class HST_EnemyCounterattackExternalRestartProofService
 		}
 		if (IsPreparedSettlementCut(expectedCut))
 			return ValidatePreparedSettlementCarrier(carrier, expectedCut, evidence);
-		if (!carrier.m_Expectation)
+		if (!carrier.m_Expectation || carrier.m_SettlementExpectation)
 		{
-			evidence = "external counterattack restart carrier movement expectation rejected";
+			evidence = "external counterattack restart carrier movement family shape rejected";
 			return false;
 		}
 

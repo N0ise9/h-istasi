@@ -35900,6 +35900,7 @@ try {
 		m_sCutName = 'dematerializing_before_hold'
 		m_iCut = 1
 		m_Expectation = $exactCounterRestartCarrierSelfTestExpectation
+		m_SettlementExpectation = $null
 		m_iPreparedElapsedSecond = 60
 		m_fPreparedRouteProgressMeters = 0.0
 		m_fPreparedRouteTotalDistanceMeters = 100.0
@@ -36693,6 +36694,7 @@ $exactCounterRestartPreparedCarrierGate = Get-ScriptMethodBlock `
 	$exactCounterRestartArtifactText `
 	'protected static bool ValidatePreparedSettlementCarrier('
 foreach ($exactCounterRestartPreparedCarrierEntry in @(
+	'carrier.m_Expectation || !carrier.m_SettlementExpectation',
 	'carrier.m_SettlementExpectation',
 	'bool attackFunded', 'bool supportFunded',
 	'carrier.m_iSurvivors', 'carrier.m_iCasualties',
@@ -36715,6 +36717,10 @@ foreach ($exactCounterRestartPreparedCarrierEntry in @(
 			$exactCounterRestartPreparedCarrierEntry) -lt 0) {
 		throw "Exact counterattack PREPARED carrier validation is incomplete: $exactCounterRestartPreparedCarrierEntry"
 	}
+}
+if ($exactCounterRestartCarrierValidation.IndexOf(
+	'!carrier.m_Expectation || carrier.m_SettlementExpectation') -lt 0) {
+	throw 'Exact counterattack movement carriers must reject mixed settlement expectation authority'
 }
 
 $exactCounterRestartPreparedBuild = Get-ScriptMethodBlock `
@@ -36818,7 +36824,9 @@ foreach ($exactCounterRestartPreparedFingerprintGate in @(
 $exactCounterRestartRuntimeZero = Get-ScriptMethodBlock `
 	$exactCounterRestartProofText 'bool ValidateExternalRuntimeClaimantsZero('
 foreach ($exactCounterRestartSettlementRuntimeEntry in @(
-	'if (!carrier.m_SettlementExpectation)',
+	'IsPreparedSettlementCut(carrier.m_sCutName)',
+	'if (!carrier.m_Expectation || carrier.m_SettlementExpectation)',
+	'if (carrier.m_Expectation || !carrier.m_SettlementExpectation)',
 	'settlement.m_sBatchId',
 	'settlement.m_sProjectionId',
 	'settlement.m_sGroupId',
@@ -36900,6 +36908,9 @@ foreach ($exactCounterRestartPreparedLauncherEntry in @(
 	'second-start settlement semantic no-op invariant',
 	'prepared settlement carrier self-test',
 	'tampered prepared settlement carrier self-test',
+	'mixes movement and settlement carrier families',
+	'mixed-family prepared settlement carrier self-test',
+	'Mixed-family prepared-settlement carrier negative self-test failed.',
 	'prepared settlement recovery self-test',
 	'tampered prepared settlement recovery self-test'
 )) {

@@ -6543,8 +6543,13 @@ class HST_EnemyCounterattackOperationProofService
 		evidence = "external exact counterattack runtime claimant check rejected";
 		if (!state || !carrier || !adapter || !physicalWar)
 			return false;
-		if (carrier.m_Expectation)
+		bool settlementCut
+			= HST_EnemyCounterattackExternalRestartProofService
+				.IsPreparedSettlementCut(carrier.m_sCutName);
+		if (!settlementCut)
 		{
+			if (!carrier.m_Expectation || carrier.m_SettlementExpectation)
+				return false;
 			HST_EnemyCounterattackOutboundVirtualExpectation expected
 				= carrier.m_Expectation;
 			HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
@@ -6571,7 +6576,7 @@ class HST_EnemyCounterattackOperationProofService
 			evidence = "external exact counterattack runtime claimants zero";
 			return true;
 		}
-		if (!carrier.m_SettlementExpectation)
+		if (carrier.m_Expectation || !carrier.m_SettlementExpectation)
 			return false;
 
 		HST_EnemyCounterattackPreparedSettlementExpectation settlement
