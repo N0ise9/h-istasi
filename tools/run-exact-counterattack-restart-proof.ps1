@@ -15,7 +15,8 @@ param(
         "physical_live_position",
         "prepared_before_refund",
         "prepared_after_refund",
-        "prepared_after_receipt")]
+        "prepared_after_receipt",
+        "owner_applied_pending")]
     [string]$CutName = "outbound_virtual",
     [string[]]$WatchedRoots = @(),
     [string[]]$SpillRoots = @(),
@@ -43,6 +44,7 @@ $script:CutOrdinals = @{
     prepared_before_refund = 4
     prepared_after_refund = 5
     prepared_after_receipt = 6
+    owner_applied_pending = 7
 }
 $script:SupportedCutNames = @(
     "outbound_virtual",
@@ -51,13 +53,16 @@ $script:SupportedCutNames = @(
     "physical_live_position",
     "prepared_before_refund",
     "prepared_after_refund",
-    "prepared_after_receipt")
+    "prepared_after_receipt",
+    "owner_applied_pending")
 $script:CutName = $CutName.ToLowerInvariant()
 $script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]
 $script:IsPreparedSettlementCut = $script:CutName -in @(
     "prepared_before_refund",
     "prepared_after_refund",
     "prepared_after_receipt")
+$script:IsOwnerAppliedPendingCut =
+    $script:CutName -ceq "owner_applied_pending"
 $script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"
 $script:GuardMagic = "partisan_exact_counterattack_restart_guard_v1"
 $script:CarrierMagic = "partisan_exact_counterattack_restart_carrier_v1"
@@ -1372,6 +1377,49 @@ function Assert-LowerHexNonce {
     }
 }
 
+function Test-ProofVectorNonZero {
+    param([Parameter(Mandatory = $true)]$Value)
+
+    $serialized = if ($Value -is [string]) {
+        [string]$Value
+    }
+    else {
+        $Value | ConvertTo-Json -Compress -Depth 4
+    }
+    $numberPattern = '[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
+    $matches = [regex]::Matches($serialized, $numberPattern)
+    if ($matches.Count -ne 3) {
+        return $false
+    }
+    foreach ($match in $matches) {
+        $coordinate = 0.0
+        if (-not [double]::TryParse(
+            $match.Value,
+            [Globalization.NumberStyles]::Float,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [ref]$coordinate)) {
+            return $false
+        }
+        if ([Math]::Abs($coordinate) -gt 0.0001) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Assert-OwnershipStartupScope {
+    param(
+        [Parameter(Mandatory = $true)]$Result,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [bool]$OwnerAppliedPendingCut = $script:IsOwnerAppliedPendingCut
+    )
+
+    if ([bool]$Result.m_bSuccess -and -not $OwnerAppliedPendingCut -and
+        [bool]$Result.m_bOwnershipStartupReconcileChanged) {
+        throw "$Label reported owner-cut startup mutation for a different cut."
+    }
+}
+
 function Assert-PreparedSettlementCarrier {
     param(
         [Parameter(Mandatory = $true)]$Carrier,
@@ -1585,6 +1633,132 @@ function Assert-PreparedSettlementCarrier {
     }
 }
 
+function Assert-OwnerAppliedPendingCarrier {
+    param(
+        [Parameter(Mandatory = $true)]$Carrier,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    Assert-JsonProperty `
+        -Value $Carrier `
+        -PropertyName "m_SettlementExpectation" `
+        -ArtifactLabel $Label
+    Assert-JsonProperty `
+        -Value $Carrier `
+        -PropertyName "m_Expectation" `
+        -ArtifactLabel $Label
+    if ($null -ne $Carrier.m_SettlementExpectation -or
+        $null -eq $Carrier.m_Expectation) {
+        throw "$Label mixes owner-applied pending and settlement carrier families."
+    }
+
+    $expectation = $Carrier.m_Expectation
+    foreach ($property in @(
+        "m_sOrderId",
+        "m_sOperationId",
+        "m_sManifestId",
+        "m_sManifestHash",
+        "m_sBatchId",
+        "m_sGroupId",
+        "m_sProjectionId",
+        "m_sForceId",
+        "m_sFactionKey",
+        "m_sSourceZoneId",
+        "m_sTargetZoneId",
+        "m_sExpectedSourceOwnerFactionKey",
+        "m_iExpectedSourceOwnershipRevision",
+        "m_sExpectedTargetOwnerFactionKey",
+        "m_iExpectedTargetOwnershipRevision",
+        "m_sDebitMutationId",
+        "m_iAttackCost",
+        "m_iSupportCost",
+        "m_iExpectedAttackPool",
+        "m_iExpectedSupportPool",
+        "m_iExpectedPoolOperationalMutationCount",
+        "m_iAcceptedMemberCount",
+        "m_iLivingMemberCount",
+        "m_sLivingSlotFingerprint",
+        "m_bExpectedLivingSlotsEverAlive",
+        "m_iExpectedNormalizedSlotAttemptCount",
+        "m_sConfirmedCasualtySlotId",
+        "m_sCasualtyTombstoneFingerprint",
+        "m_iExpectedNormalizedReprojectionCount")) {
+        Assert-JsonProperty `
+            -Value $expectation `
+            -PropertyName $property `
+            -ArtifactLabel "$Label expectation"
+    }
+
+    foreach ($property in @(
+        "m_sOrderId",
+        "m_sOperationId",
+        "m_sManifestId",
+        "m_sManifestHash",
+        "m_sBatchId",
+        "m_sGroupId",
+        "m_sProjectionId",
+        "m_sForceId",
+        "m_sFactionKey",
+        "m_sSourceZoneId",
+        "m_sTargetZoneId",
+        "m_sExpectedSourceOwnerFactionKey",
+        "m_sExpectedTargetOwnerFactionKey",
+        "m_sDebitMutationId",
+        "m_sLivingSlotFingerprint")) {
+        if ([string]::IsNullOrWhiteSpace([string]$expectation.$property)) {
+            throw "$Label owner-applied pending identity is incomplete."
+        }
+    }
+    if ([string]$expectation.m_sSourceZoneId -ceq
+            [string]$expectation.m_sTargetZoneId -or
+        [int]$expectation.m_iExpectedSourceOwnershipRevision -le 0 -or
+        [int]$expectation.m_iExpectedTargetOwnershipRevision -le 0 -or
+        [string]$expectation.m_sExpectedTargetOwnerFactionKey -cne
+            [string]$expectation.m_sFactionKey) {
+        throw "$Label owner-applied pending endpoint authority is invalid."
+    }
+
+    $attackFunded = [int]$expectation.m_iAttackCost -gt 0 -and
+        [int]$expectation.m_iSupportCost -eq 0
+    $supportFunded = [int]$expectation.m_iSupportCost -gt 0 -and
+        [int]$expectation.m_iAttackCost -eq 0
+    $accepted = [int]$expectation.m_iAcceptedMemberCount
+    $living = [int]$expectation.m_iLivingMemberCount
+    $livingSlotIds = @(
+        ([string]$expectation.m_sLivingSlotFingerprint -split ',') |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ((-not $attackFunded -and -not $supportFunded) -or
+        [int]$expectation.m_iExpectedAttackPool -lt 0 -or
+        [int]$expectation.m_iExpectedSupportPool -lt 0 -or
+        [int]$expectation.m_iExpectedPoolOperationalMutationCount -ne 1 -or
+        $accepted -le 0 -or $living -ne $accepted -or
+        $livingSlotIds.Count -ne $living -or
+        @($livingSlotIds | Select-Object -Unique).Count -ne $living -or
+        [bool]$expectation.m_bExpectedLivingSlotsEverAlive -or
+        [int]$expectation.m_iExpectedNormalizedSlotAttemptCount -ne 0 -or
+        -not [string]::IsNullOrWhiteSpace(
+            [string]$expectation.m_sConfirmedCasualtySlotId) -or
+        -not [string]::IsNullOrWhiteSpace(
+            [string]$expectation.m_sCasualtyTombstoneFingerprint) -or
+        [int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 0) {
+        throw "$Label owner-applied pending resource or roster authority is invalid."
+    }
+
+    $progress = [double]$Carrier.m_fPreparedRouteProgressMeters
+    $total = [double]$Carrier.m_fPreparedRouteTotalDistanceMeters
+    if ([double]::IsNaN($progress) -or [double]::IsInfinity($progress) -or
+        [double]::IsNaN($total) -or [double]::IsInfinity($total) -or
+        [int]$Carrier.m_iPreparedElapsedSecond -le 0 -or $total -le 0.0 -or
+        [Math]::Abs($progress - $total) -gt 0.1 -or
+        -not (Test-ProofVectorNonZero $Carrier.m_vPreparedStrategicPosition) -or
+        [string]$Carrier.m_sRawPreparedCutSemanticFingerprint -ceq
+            [string]$Carrier.m_sPreparedSemanticFingerprint -or
+        [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne 0 -or
+        [int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne 0) {
+        throw "$Label owner-applied pending route, fingerprint, or physical authority is invalid."
+    }
+}
+
 function Assert-PreparedCarrier {
     param(
         [Parameter(Mandatory = $true)]$Carrier,
@@ -1633,6 +1807,10 @@ function Assert-PreparedCarrier {
 
     if ($script:IsPreparedSettlementCut) {
         Assert-PreparedSettlementCarrier -Carrier $Carrier -Label $label
+        return $Carrier
+    }
+    if ($script:IsOwnerAppliedPendingCut) {
+        Assert-OwnerAppliedPendingCarrier -Carrier $Carrier -Label $label
         return $Carrier
     }
 
@@ -1883,6 +2061,59 @@ function Assert-PreparedSettlementStageSemantics {
     }
 }
 
+function Assert-OwnerAppliedPendingStageSemantics {
+    param(
+        [Parameter(Mandatory = $true)]$Result,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("prepare", "recover", "replay")][string]$Stage,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    $sourceFingerprint = [string]$Result.m_sSourceSemanticFingerprint
+    $finalFingerprint = [string]$Result.m_sFinalSemanticFingerprint
+    $preparedFingerprint = [string]$Result.m_sRawPreparedCutSemanticFingerprint
+    if (-not [bool]$Result.m_bPreparedCutExact -or
+        -not [bool]$Result.m_bCasualtyContinuityExact -or
+        [int]$Result.m_iPhysicalAdapterHandleCount -ne 0 -or
+        [int]$Result.m_iPhysicalRuntimeMemberCount -ne 0 -or
+        [bool]$Result.m_bPhysicalBindingsExact -or
+        [bool]$Result.m_bLivePositionRefreshExact -or
+        [bool]$Result.m_bPhysicalCaptureNormalizedExact) {
+        throw "$Label omitted owner-applied pending authority or invented physical authority."
+    }
+    if ($Stage -eq "prepare") {
+        if ([bool]$Result.m_bRestored -or
+            [bool]$Result.m_bStartupReconcileChanged -or
+            [bool]$Result.m_bOwnershipStartupReconcileChanged -or
+            [bool]$Result.m_bContinuationExact -or
+            [bool]$Result.m_bSameStateSemanticNoOp -or
+            $sourceFingerprint -cne $finalFingerprint -or
+            $preparedFingerprint -ceq $sourceFingerprint) {
+            throw "$Label violates the fresh owner-applied pending invariant."
+        }
+    }
+    elseif ($Stage -eq "recover") {
+        if (-not [bool]$Result.m_bRestored -or
+            -not [bool]$Result.m_bOwnershipStartupReconcileChanged -or
+            -not [bool]$Result.m_bContinuationExact -or
+            -not [bool]$Result.m_bSameStateSemanticNoOp -or
+            $sourceFingerprint -ceq $finalFingerprint -or
+            $preparedFingerprint -ceq $sourceFingerprint) {
+            throw "$Label violates the first-start owner-applied completion invariant."
+        }
+    }
+    else {
+        if (-not [bool]$Result.m_bRestored -or
+            [bool]$Result.m_bOwnershipStartupReconcileChanged -or
+            [bool]$Result.m_bContinuationExact -or
+            -not [bool]$Result.m_bSameStateSemanticNoOp -or
+            $sourceFingerprint -cne $finalFingerprint -or
+            $preparedFingerprint -ceq $sourceFingerprint) {
+            throw "$Label violates the second-start owner-applied semantic no-op invariant."
+        }
+    }
+}
+
 function Assert-StageResult {
     param(
         [Parameter(Mandatory = $true)]$Result,
@@ -1910,6 +2141,7 @@ function Assert-StageResult {
         "m_iCut",
         "m_bRestored",
         "m_bStartupReconcileChanged",
+        "m_bOwnershipStartupReconcileChanged",
         "m_bSourceExact",
         "m_bContinuationExact",
         "m_bSameStateSemanticNoOp",
@@ -1954,6 +2186,7 @@ function Assert-StageResult {
         "m_bSuccess",
         "m_bRestored",
         "m_bStartupReconcileChanged",
+        "m_bOwnershipStartupReconcileChanged",
         "m_bSourceExact",
         "m_bContinuationExact",
         "m_bSameStateSemanticNoOp",
@@ -1975,6 +2208,7 @@ function Assert-StageResult {
             "prepared=$([bool]$Result.m_bPreparedCutExact)," +
             "casualty=$([bool]$Result.m_bCasualtyContinuityExact)," +
             "restored=$([bool]$Result.m_bRestored)," +
+            "ownership=$([bool]$Result.m_bOwnershipStartupReconcileChanged)," +
             "continuation=$([bool]$Result.m_bContinuationExact)," +
             "noop=$([bool]$Result.m_bSameStateSemanticNoOp)"
         $safeFailureEvidence = ConvertTo-SafeEvidenceLine `
@@ -1984,6 +2218,7 @@ function Assert-StageResult {
         }
         throw "$label reported failure ($failureFlags): $safeFailureEvidence"
     }
+    Assert-OwnershipStartupScope -Result $Result -Label $label
     if (-not [bool]$Result.m_bSourceExact -or
         -not [bool]$Result.m_bRuntimeClaimantsZero -or
         -not [bool]$Result.m_bPersistedReadBackExact -or
@@ -2003,6 +2238,13 @@ function Assert-StageResult {
     }
     if ($script:IsPreparedSettlementCut) {
         Assert-PreparedSettlementStageSemantics `
+            -Result $Result `
+            -Stage $Stage `
+            -Label $label
+        return $Result
+    }
+    if ($script:IsOwnerAppliedPendingCut) {
+        Assert-OwnerAppliedPendingStageSemantics `
             -Result $Result `
             -Stage $Stage `
             -Label $label
@@ -2087,6 +2329,8 @@ function Get-SafeStageSummary {
         Schema = [int]$Result.m_iCampaignSchemaVersion
         Restored = [bool]$Result.m_bRestored
         StartupChanged = [bool]$Result.m_bStartupReconcileChanged
+        OwnershipStartupChanged =
+            [bool]$Result.m_bOwnershipStartupReconcileChanged
         SourceExact = [bool]$Result.m_bSourceExact
         ContinuationExact = [bool]$Result.m_bContinuationExact
         SemanticNoOp = [bool]$Result.m_bSameStateSemanticNoOp
@@ -2223,6 +2467,8 @@ function Assert-EngineGuard {
         recover = 1
         replay = 2
     }[$Stage]
+	$allowCanonicalCampaignOverwrite = -not (
+		$script:IsOwnerAppliedPendingCut -and $Stage -ceq "replay")
     if ([string]$Guard.m_sMagic -cne $script:GuardMagic -or
         [int]$Guard.m_iVersion -ne $script:AuthorityVersion -or
         [string]$Guard.m_sSessionNonce -cne $SessionNonce -or
@@ -2233,7 +2479,8 @@ function Assert-EngineGuard {
         [int]$Guard.m_iStageOrdinal -ne [int]$stageOrdinal -or
         [string]$Guard.m_sWorld -cne $ExpectedWorld -or
         $Guard.m_bAllowCanonicalCampaignOverwrite -isnot [bool] -or
-        -not [bool]$Guard.m_bAllowCanonicalCampaignOverwrite) {
+		[bool]$Guard.m_bAllowCanonicalCampaignOverwrite -ne
+			$allowCanonicalCampaignOverwrite) {
         throw "The $label is not exact."
     }
     Assert-BuildIdentity `
@@ -2262,6 +2509,29 @@ function Invoke-RestartStage {
     )
 
     $stageLabel = "$($script:CutName)/$Stage"
+	$ownerReplayReadOnly = $script:IsOwnerAppliedPendingCut -and
+		$Stage -ceq "replay"
+	$allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly
+	$canonicalCampaignPath = [IO.Path]::GetFullPath(
+		(Join-Path $ProfileRoot "profile\Partisan\HST_CampaignSaveData.json"))
+	$expectedCanonicalCampaignPath = [IO.Path]::GetFullPath(
+		(Join-Path `
+			-Path (Split-Path -Parent $DebugDirectory) `
+			-ChildPath "HST_CampaignSaveData.json"))
+	if (-not $canonicalCampaignPath.Equals(
+		$expectedCanonicalCampaignPath,
+		[StringComparison]::OrdinalIgnoreCase)) {
+		throw "$stageLabel canonical campaign path escaped its disposable profile."
+	}
+	$canonicalCampaignSignatureBefore = $null
+	$canonicalCampaignUnchanged = $null
+	if ($ownerReplayReadOnly) {
+		if (-not (Test-Path -LiteralPath $canonicalCampaignPath -PathType Leaf)) {
+			throw "$stageLabel canonical campaign snapshot was unavailable before replay."
+		}
+		$canonicalCampaignSignatureBefore = Get-FileSignature `
+			-Path $canonicalCampaignPath
+	}
     $resultPath = Join-Path $DebugDirectory (
         "HST_ExactCounterattackRestart_{0}.{1}.json" -f $RunId, $Stage)
     if (Test-Path -LiteralPath $resultPath) {
@@ -2295,7 +2565,7 @@ function Invoke-RestartStage {
         m_sBuildLabel = $ExpectedBuild.BuildLabel
         m_iCampaignSchemaVersion = $ExpectedBuild.CampaignSchemaVersion
         m_sWorld = $World
-        m_bAllowCanonicalCampaignOverwrite = $true
+		m_bAllowCanonicalCampaignOverwrite = $allowCanonicalCampaignOverwrite
     }
     Write-JsonUtf8NoBom -Path $guardPath -Value $engineGuard
     $validatedEngineGuard = Read-JsonArtifact -Path $guardPath
@@ -2499,6 +2769,19 @@ function Invoke-RestartStage {
             (Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0) {
             throw "$stageLabel did not reach a clean successful exit."
         }
+		if ($ownerReplayReadOnly) {
+			if (-not (Test-Path -LiteralPath $canonicalCampaignPath -PathType Leaf)) {
+				throw "$stageLabel removed its read-only canonical campaign snapshot."
+			}
+			$canonicalCampaignSignatureAfter = Get-FileSignature `
+				-Path $canonicalCampaignPath
+			$canonicalCampaignUnchanged =
+				$canonicalCampaignSignatureBefore -ceq
+					$canonicalCampaignSignatureAfter
+			if (-not $canonicalCampaignUnchanged) {
+				throw "$stageLabel rewrote its read-only canonical campaign snapshot."
+			}
+		}
     }
     catch {
         $stageError = $_.Exception.Message
@@ -2606,6 +2889,12 @@ function Invoke-RestartStage {
         -ExitCode ([int]$rootExitCode)
     $safeSummary | Add-Member -NotePropertyName EngineBefore -NotePropertyValue $engineBefore
     $safeSummary | Add-Member -NotePropertyName EngineAfter -NotePropertyValue $engineAfter
+	$safeSummary | Add-Member `
+		-NotePropertyName CanonicalCampaignOverwriteAllowed `
+		-NotePropertyValue $allowCanonicalCampaignOverwrite
+	$safeSummary | Add-Member `
+		-NotePropertyName CanonicalCampaignUnchanged `
+		-NotePropertyValue $canonicalCampaignUnchanged
     return [pscustomobject]@{
         Result = $result
         ExitCode = [int]$rootExitCode
@@ -2995,6 +3284,231 @@ try {
         throw "Prepared-settlement recovery negative self-test failed."
     }
 
+    $selfTestOwnerExpectation = [pscustomobject]@{
+        m_sOrderId = "owner_order_self_test"
+        m_sOperationId = "owner_operation_self_test"
+        m_sManifestId = "owner_manifest_self_test"
+        m_sManifestHash = "owner_manifest_hash_self_test"
+        m_sBatchId = "owner_batch_self_test"
+        m_sGroupId = "owner_group_self_test"
+        m_sProjectionId = "owner_projection_self_test"
+        m_sForceId = "owner_force_self_test"
+        m_sFactionKey = "owner_faction_self_test"
+        m_sSourceZoneId = "owner_source_self_test"
+        m_sTargetZoneId = "owner_target_self_test"
+        m_sExpectedSourceOwnerFactionKey = "owner_source_faction_self_test"
+        m_iExpectedSourceOwnershipRevision = 3
+        m_sExpectedTargetOwnerFactionKey = "owner_faction_self_test"
+        m_iExpectedTargetOwnershipRevision = 8
+        m_sDebitMutationId = "owner_debit_self_test"
+        m_iAttackCost = 24
+        m_iSupportCost = 0
+        m_iExpectedAttackPool = 476
+        m_iExpectedSupportPool = 500
+        m_iExpectedPoolOperationalMutationCount = 1
+        m_iAcceptedMemberCount = 4
+        m_iLivingMemberCount = 4
+        m_sLivingSlotFingerprint = "owner_slot_0,owner_slot_1,owner_slot_2,owner_slot_3"
+        m_bExpectedLivingSlotsEverAlive = $false
+        m_iExpectedNormalizedSlotAttemptCount = 0
+        m_sConfirmedCasualtySlotId = ""
+        m_sCasualtyTombstoneFingerprint = ""
+        m_iExpectedNormalizedReprojectionCount = 0
+    }
+    $selfTestOwnerCarrier = [pscustomobject]@{
+        m_Expectation = $selfTestOwnerExpectation
+        m_SettlementExpectation = $null
+        m_iPreparedElapsedSecond = 12
+        m_fPreparedRouteProgressMeters = 900.0
+        m_fPreparedRouteTotalDistanceMeters = 900.0
+        m_vPreparedStrategicPosition = "900 0 450"
+        m_iExpectedPhysicalAdapterHandleCount = 0
+        m_iExpectedPhysicalRuntimeMemberCount = 0
+        m_sPreparedSemanticFingerprint = "owner_pending_self_test"
+        m_sRawPreparedCutSemanticFingerprint = "owner_raw_pending_self_test"
+    }
+    Assert-OwnerAppliedPendingCarrier `
+        -Carrier $selfTestOwnerCarrier `
+        -Label "owner-applied pending carrier self-test"
+    $collapsedOwnerCarrier = $selfTestOwnerCarrier |
+        ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json
+    $collapsedOwnerCarrier.m_sRawPreparedCutSemanticFingerprint =
+        $collapsedOwnerCarrier.m_sPreparedSemanticFingerprint
+    $collapsedOwnerCarrierRejected = $false
+    try {
+        Assert-OwnerAppliedPendingCarrier `
+            -Carrier $collapsedOwnerCarrier `
+            -Label "collapsed owner-applied pending carrier self-test"
+    }
+    catch {
+        $collapsedOwnerCarrierRejected = $true
+    }
+    if (-not $collapsedOwnerCarrierRejected) {
+        throw "Owner-applied pending equal-fingerprint carrier negative self-test failed."
+    }
+    $tamperedOwnerCarrier = $selfTestOwnerCarrier |
+        ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json
+    $tamperedOwnerCarrier.m_fPreparedRouteProgressMeters = 899.0
+    $ownerCarrierRejected = $false
+    try {
+        Assert-OwnerAppliedPendingCarrier `
+            -Carrier $tamperedOwnerCarrier `
+            -Label "tampered owner-applied pending carrier self-test"
+    }
+    catch {
+        $ownerCarrierRejected = $true
+    }
+    if (-not $ownerCarrierRejected) {
+        throw "Owner-applied pending carrier negative self-test failed."
+    }
+
+    $mixedOwnerCarrier = $selfTestOwnerCarrier |
+        ConvertTo-Json -Compress -Depth 8 | ConvertFrom-Json
+    $mixedOwnerCarrier.m_SettlementExpectation = [pscustomobject]@{
+        m_sSettlementId = "forged_owner_settlement"
+    }
+    $mixedOwnerCarrierRejected = $false
+    try {
+        Assert-OwnerAppliedPendingCarrier `
+            -Carrier $mixedOwnerCarrier `
+            -Label "mixed-family owner-applied pending carrier self-test"
+    }
+    catch {
+        $mixedOwnerCarrierRejected = $true
+    }
+    if (-not $mixedOwnerCarrierRejected) {
+        throw "Mixed-family owner-applied pending carrier negative self-test failed."
+    }
+
+    $selfTestOwnerPrepare = [pscustomobject]@{
+        m_bPreparedCutExact = $true
+        m_bCasualtyContinuityExact = $true
+        m_iPhysicalAdapterHandleCount = 0
+        m_iPhysicalRuntimeMemberCount = 0
+        m_bPhysicalBindingsExact = $false
+        m_bLivePositionRefreshExact = $false
+        m_bPhysicalCaptureNormalizedExact = $false
+        m_bRestored = $false
+        m_bStartupReconcileChanged = $false
+        m_bOwnershipStartupReconcileChanged = $false
+        m_bContinuationExact = $false
+        m_bSameStateSemanticNoOp = $false
+        m_sSourceSemanticFingerprint = "owner_pending_self_test"
+        m_sFinalSemanticFingerprint = "owner_pending_self_test"
+        m_sRawPreparedCutSemanticFingerprint = "owner_raw_pending_self_test"
+    }
+    Assert-OwnerAppliedPendingStageSemantics `
+        -Result $selfTestOwnerPrepare `
+        -Stage "prepare" `
+        -Label "owner-applied pending prepare self-test"
+    $collapsedOwnerPrepare = $selfTestOwnerPrepare |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $collapsedOwnerPrepare.m_sRawPreparedCutSemanticFingerprint =
+        $collapsedOwnerPrepare.m_sSourceSemanticFingerprint
+    $collapsedOwnerPrepareRejected = $false
+    try {
+        Assert-OwnerAppliedPendingStageSemantics `
+            -Result $collapsedOwnerPrepare `
+            -Stage "prepare" `
+            -Label "collapsed owner-applied pending prepare self-test"
+    }
+    catch {
+        $collapsedOwnerPrepareRejected = $true
+    }
+    if (-not $collapsedOwnerPrepareRejected) {
+        throw "Owner-applied pending equal-fingerprint result negative self-test failed."
+    }
+    $tamperedOwnerPrepare = $selfTestOwnerPrepare |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $tamperedOwnerPrepare.m_bStartupReconcileChanged = $true
+    $ownerPrepareRejected = $false
+    try {
+        Assert-OwnerAppliedPendingStageSemantics `
+            -Result $tamperedOwnerPrepare `
+            -Stage "prepare" `
+            -Label "tampered owner-applied pending prepare self-test"
+    }
+    catch {
+        $ownerPrepareRejected = $true
+    }
+    if (-not $ownerPrepareRejected) {
+        throw "Owner-applied pending prepare negative self-test failed."
+    }
+
+    $selfTestOwnerRecovery = $selfTestOwnerPrepare |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $selfTestOwnerRecovery.m_bRestored = $true
+    $selfTestOwnerRecovery.m_bStartupReconcileChanged = $true
+    $selfTestOwnerRecovery.m_bOwnershipStartupReconcileChanged = $true
+    $selfTestOwnerRecovery.m_bContinuationExact = $true
+    $selfTestOwnerRecovery.m_bSameStateSemanticNoOp = $true
+    $selfTestOwnerRecovery.m_sFinalSemanticFingerprint = "owner_returning_self_test"
+    Assert-OwnerAppliedPendingStageSemantics `
+        -Result $selfTestOwnerRecovery `
+        -Stage "recover" `
+        -Label "owner-applied pending recovery self-test"
+    $tamperedOwnerRecovery = $selfTestOwnerRecovery |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $tamperedOwnerRecovery.m_bOwnershipStartupReconcileChanged = $false
+    $ownerRecoveryRejected = $false
+    try {
+        Assert-OwnerAppliedPendingStageSemantics `
+            -Result $tamperedOwnerRecovery `
+            -Stage "recover" `
+            -Label "tampered owner-applied pending recovery self-test"
+    }
+    catch {
+        $ownerRecoveryRejected = $true
+    }
+    if (-not $ownerRecoveryRejected) {
+        throw "Owner-applied pending recovery negative self-test failed."
+    }
+
+    $selfTestOwnerReplay = $selfTestOwnerRecovery |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $selfTestOwnerReplay.m_bOwnershipStartupReconcileChanged = $false
+    $selfTestOwnerReplay.m_bContinuationExact = $false
+    $selfTestOwnerReplay.m_sSourceSemanticFingerprint = "owner_returning_self_test"
+    $selfTestOwnerReplay.m_sFinalSemanticFingerprint = "owner_returning_self_test"
+    Assert-OwnerAppliedPendingStageSemantics `
+        -Result $selfTestOwnerReplay `
+        -Stage "replay" `
+        -Label "owner-applied pending replay self-test"
+    $tamperedOwnerReplay = $selfTestOwnerReplay |
+        ConvertTo-Json -Compress -Depth 4 | ConvertFrom-Json
+    $tamperedOwnerReplay.m_bOwnershipStartupReconcileChanged = $true
+    $ownerReplayRejected = $false
+    try {
+        Assert-OwnerAppliedPendingStageSemantics `
+            -Result $tamperedOwnerReplay `
+            -Stage "replay" `
+            -Label "tampered owner-applied pending replay self-test"
+    }
+    catch {
+        $ownerReplayRejected = $true
+    }
+    if (-not $ownerReplayRejected) {
+        throw "Owner-applied pending replay negative self-test failed."
+    }
+
+    $foreignOwnershipStartup = [pscustomobject]@{
+        m_bSuccess = $true
+        m_bOwnershipStartupReconcileChanged = $true
+    }
+    $foreignOwnershipStartupRejected = $false
+    try {
+        Assert-OwnershipStartupScope `
+            -Result $foreignOwnershipStartup `
+            -Label "non-owner ownership-startup self-test" `
+            -OwnerAppliedPendingCut $false
+    }
+    catch {
+        $foreignOwnershipStartupRejected = $true
+    }
+    if (-not $foreignOwnershipStartupRejected) {
+        throw "Non-owner ownership-startup scope negative self-test failed."
+    }
+
     $preflightStageNonce = [Guid]::NewGuid().ToString("N")
     $preflightArguments = @(Get-StageArgumentVector `
         -RuntimeAddonPath $runtimeAddonPath `
@@ -3134,6 +3648,11 @@ try {
         $stageOutcomes.Add($replay)
         Write-Output ("STAGE " + (
             $replay.SafeSummary | ConvertTo-Json -Compress))
+		if ($script:IsOwnerAppliedPendingCut -and
+			([bool]$replay.SafeSummary.CanonicalCampaignOverwriteAllowed -or
+				-not [bool]$replay.SafeSummary.CanonicalCampaignUnchanged)) {
+			throw "Owner-applied pending replay did not preserve its read-only canonical campaign snapshot."
+		}
         $recoveredFingerprint = [string]$recover.Result.m_sFinalSemanticFingerprint
         if ([string]$replay.Result.m_sSourceSemanticFingerprint -cne
                 $recoveredFingerprint -or

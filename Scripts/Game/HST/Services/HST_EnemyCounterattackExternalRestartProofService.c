@@ -18,6 +18,7 @@ class HST_EnemyCounterattackExternalRestartProofService
 	static const string CUT_PREPARED_BEFORE_REFUND = "prepared_before_refund";
 	static const string CUT_PREPARED_AFTER_REFUND = "prepared_after_refund";
 	static const string CUT_PREPARED_AFTER_RECEIPT = "prepared_after_receipt";
+	static const string CUT_OWNER_APPLIED_PENDING = "owner_applied_pending";
 	static const string STAGE_PREPARE = "prepare";
 	static const string STAGE_RECOVER = "recover";
 	static const string STAGE_REPLAY = "replay";
@@ -101,6 +102,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return 5;
 		if (cutName == CUT_PREPARED_AFTER_RECEIPT)
 			return 6;
+		if (cutName == CUT_OWNER_APPLIED_PENDING)
+			return 7;
 		return -1;
 	}
 
@@ -120,6 +123,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return CUT_PREPARED_AFTER_REFUND;
 		if (cut == 6)
 			return CUT_PREPARED_AFTER_RECEIPT;
+		if (cut == 7)
+			return CUT_OWNER_APPLIED_PENDING;
 		return "";
 	}
 
@@ -128,6 +133,11 @@ class HST_EnemyCounterattackExternalRestartProofService
 		return cutName == CUT_PREPARED_BEFORE_REFUND
 			|| cutName == CUT_PREPARED_AFTER_REFUND
 			|| cutName == CUT_PREPARED_AFTER_RECEIPT;
+	}
+
+	static bool IsOwnerAppliedPendingCut(string cutName)
+	{
+		return cutName == CUT_OWNER_APPLIED_PENDING;
 	}
 
 	static bool ValidateStage(string stage)
@@ -291,9 +301,13 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| guard.m_iCampaignSchemaVersion != HST_CampaignState.SCHEMA_VERSION
 			|| !ValidateWorldIdentity(guard.m_sWorld, expectedWorld))
 			return false;
-		if (!guard.m_bAllowCanonicalCampaignOverwrite)
+		bool allowCanonicalCampaignOverwrite
+			= !IsOwnerAppliedPendingCut(expectedCut)
+			|| expectedStage != STAGE_REPLAY;
+		if (guard.m_bAllowCanonicalCampaignOverwrite
+			!= allowCanonicalCampaignOverwrite)
 		{
-			evidence = "external counterattack restart stage lease does not authorize disposable canonical campaign overwrite";
+			evidence = "external counterattack restart stage lease canonical campaign overwrite authority rejected";
 			return false;
 		}
 		evidence = "external counterattack restart one-use stage lease exact";
@@ -569,6 +583,105 @@ class HST_EnemyCounterattackExternalRestartProofService
 		return true;
 	}
 
+	static bool ValidateOwnerAppliedPendingCarrier(
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		string expectedCut,
+		out string evidence)
+	{
+		evidence = "external counterattack owner-applied pending carrier rejected";
+		if (!carrier || !IsOwnerAppliedPendingCut(expectedCut)
+			|| !carrier.m_Expectation || carrier.m_SettlementExpectation)
+		{
+			evidence = "external counterattack owner-applied pending carrier family shape rejected";
+			return false;
+		}
+
+		HST_EnemyCounterattackOutboundVirtualExpectation expectation
+			= carrier.m_Expectation;
+		if (expectation.m_sOrderId.IsEmpty()
+			|| expectation.m_sOperationId.IsEmpty()
+			|| expectation.m_sManifestId.IsEmpty()
+			|| expectation.m_sManifestHash.IsEmpty()
+			|| expectation.m_sBatchId.IsEmpty()
+			|| expectation.m_sGroupId.IsEmpty()
+			|| expectation.m_sProjectionId.IsEmpty()
+			|| expectation.m_sForceId.IsEmpty()
+			|| expectation.m_sFactionKey.IsEmpty()
+			|| expectation.m_sSourceZoneId.IsEmpty()
+			|| expectation.m_sTargetZoneId.IsEmpty()
+			|| expectation.m_sDebitMutationId.IsEmpty()
+			|| expectation.m_sLivingSlotFingerprint.IsEmpty())
+		{
+			evidence = "external counterattack owner-applied pending aggregate identity rejected";
+			return false;
+		}
+		if (expectation.m_sSourceZoneId == expectation.m_sTargetZoneId
+			|| expectation.m_sExpectedSourceOwnerFactionKey.IsEmpty()
+			|| expectation.m_iExpectedSourceOwnershipRevision <= 0
+			|| expectation.m_sExpectedTargetOwnerFactionKey.IsEmpty()
+			|| expectation.m_sExpectedTargetOwnerFactionKey != expectation.m_sFactionKey
+			|| expectation.m_iExpectedTargetOwnershipRevision <= 0)
+		{
+			evidence = "external counterattack owner-applied pending endpoint authority rejected";
+			return false;
+		}
+
+		bool attackFunded = expectation.m_iAttackCost > 0
+			&& expectation.m_iSupportCost == 0;
+		bool supportFunded = expectation.m_iSupportCost > 0
+			&& expectation.m_iAttackCost == 0;
+		if ((!attackFunded && !supportFunded)
+			|| expectation.m_iExpectedAttackPool < 0
+			|| expectation.m_iExpectedSupportPool < 0
+			|| expectation.m_iExpectedPoolOperationalMutationCount != 1)
+		{
+			evidence = "external counterattack owner-applied pending resource authority rejected";
+			return false;
+		}
+
+		bool rosterExact = expectation.m_iAcceptedMemberCount > 0
+			&& expectation.m_iLivingMemberCount
+				== expectation.m_iAcceptedMemberCount
+			&& !expectation.m_bExpectedLivingSlotsEverAlive
+			&& expectation.m_iExpectedNormalizedSlotAttemptCount == 0
+			&& expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+			&& expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()
+			&& expectation.m_iExpectedNormalizedReprojectionCount == 0;
+		if (!rosterExact)
+		{
+			evidence = "external counterattack owner-applied pending roster authority rejected";
+			return false;
+		}
+
+		bool routeExact = carrier.m_iPreparedElapsedSecond > 0
+			&& carrier.m_fPreparedRouteTotalDistanceMeters > 0
+			&& carrier.m_fPreparedRouteProgressMeters
+				>= carrier.m_fPreparedRouteTotalDistanceMeters
+					- PROGRESS_EPSILON_METERS
+			&& carrier.m_fPreparedRouteProgressMeters
+				<= carrier.m_fPreparedRouteTotalDistanceMeters
+					+ PROGRESS_EPSILON_METERS
+			&& !IsZeroVector(carrier.m_vPreparedStrategicPosition);
+		bool fingerprintExact
+			= carrier.m_sRawPreparedCutSemanticFingerprint
+				!= carrier.m_sPreparedSemanticFingerprint;
+		bool physicalCountsExact
+			= carrier.m_iExpectedPhysicalAdapterHandleCount == 0
+			&& carrier.m_iExpectedPhysicalRuntimeMemberCount == 0;
+		if (!routeExact || !fingerprintExact || !physicalCountsExact)
+		{
+			evidence = string.Format(
+				"external counterattack owner-applied pending route/fingerprint/physical authority rejected %1/%2/%3",
+				routeExact,
+				fingerprintExact,
+				physicalCountsExact);
+			return false;
+		}
+
+		evidence = "external counterattack owner-applied pending carrier exact";
+		return true;
+	}
+
 	static bool ValidateCarrier(
 		HST_EnemyCounterattackExternalRestartCarrier carrier,
 		string expectedSessionNonce,
@@ -612,6 +725,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 		}
 		if (IsPreparedSettlementCut(expectedCut))
 			return ValidatePreparedSettlementCarrier(carrier, expectedCut, evidence);
+		if (IsOwnerAppliedPendingCut(expectedCut))
+			return ValidateOwnerAppliedPendingCarrier(carrier, expectedCut, evidence);
 		if (!carrier.m_Expectation || carrier.m_SettlementExpectation)
 		{
 			evidence = "external counterattack restart carrier movement family shape rejected";
@@ -883,6 +998,71 @@ class HST_EnemyCounterattackExternalRestartProofService
 		return true;
 	}
 
+	static bool ValidateOwnerAppliedPendingResult(
+		HST_EnemyCounterattackExternalRestartResult result,
+		string expectedStage,
+		out string evidence)
+	{
+		evidence = "external counterattack owner-applied pending result rejected";
+		if (!result || !result.m_bSourceExact
+			|| !result.m_bRuntimeClaimantsZero
+			|| !result.m_bPersistedReadBackExact
+			|| !result.m_bPreparedCutExact
+			|| !result.m_bCasualtyContinuityExact
+			|| result.m_iPhysicalAdapterHandleCount != 0
+			|| result.m_iPhysicalRuntimeMemberCount != 0
+			|| result.m_bPhysicalBindingsExact
+			|| result.m_bLivePositionRefreshExact
+			|| result.m_bPhysicalCaptureNormalizedExact
+			|| result.m_sSourceSemanticFingerprint.IsEmpty()
+			|| result.m_sFinalSemanticFingerprint.IsEmpty()
+			|| result.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
+			return false;
+
+		if (expectedStage == STAGE_PREPARE)
+		{
+			if (result.m_bRestored
+				|| result.m_bStartupReconcileChanged
+				|| result.m_bOwnershipStartupReconcileChanged
+				|| result.m_bContinuationExact
+				|| result.m_bSameStateSemanticNoOp
+				|| result.m_sSourceSemanticFingerprint
+					!= result.m_sFinalSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					== result.m_sSourceSemanticFingerprint)
+				return false;
+		}
+		else if (expectedStage == STAGE_RECOVER)
+		{
+			if (!result.m_bRestored
+				|| !result.m_bOwnershipStartupReconcileChanged
+				|| !result.m_bContinuationExact
+				|| !result.m_bSameStateSemanticNoOp
+				|| result.m_sSourceSemanticFingerprint
+					== result.m_sFinalSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					== result.m_sSourceSemanticFingerprint)
+				return false;
+		}
+		else if (expectedStage == STAGE_REPLAY)
+		{
+			if (!result.m_bRestored
+				|| result.m_bOwnershipStartupReconcileChanged
+				|| result.m_bContinuationExact
+				|| !result.m_bSameStateSemanticNoOp
+				|| result.m_sSourceSemanticFingerprint
+					!= result.m_sFinalSemanticFingerprint
+				|| result.m_sRawPreparedCutSemanticFingerprint
+					== result.m_sSourceSemanticFingerprint)
+				return false;
+		}
+		else
+			return false;
+
+		evidence = "external counterattack owner-applied pending result exact";
+		return true;
+	}
+
 	static bool ValidateResult(
 		HST_EnemyCounterattackExternalRestartResult result,
 		string expectedSessionNonce,
@@ -917,6 +1097,15 @@ class HST_EnemyCounterattackExternalRestartProofService
 			evidence = "external counterattack restart result exact";
 			return true;
 		}
+		if (IsOwnerAppliedPendingCut(expectedCut))
+		{
+			return ValidateOwnerAppliedPendingResult(
+				result,
+				expectedStage,
+				evidence);
+		}
+		if (result.m_bOwnershipStartupReconcileChanged)
+			return false;
 		bool physicalCut = expectedCut == CUT_PHYSICAL_LIVE_POSITION;
 		if (!result.m_bSourceExact || !result.m_bRuntimeClaimantsZero
 			|| !result.m_bPersistedReadBackExact

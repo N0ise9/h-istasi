@@ -173,6 +173,7 @@ class HST_EnemyCounterattackExternalRestartResult
 	int m_iCut;
 	bool m_bRestored;
 	bool m_bStartupReconcileChanged;
+	bool m_bOwnershipStartupReconcileChanged;
 	bool m_bSourceExact;
 	bool m_bContinuationExact;
 	bool m_bSameStateSemanticNoOp;

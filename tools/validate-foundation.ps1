@@ -34676,6 +34676,21 @@ foreach ($exactCounterRestartArtifactEntry in @(
 		throw "Exact counterattack restart artifact gate is incomplete: $exactCounterRestartArtifactEntry"
 	}
 }
+$exactCounterRestartGuardValidation = Get-ScriptMethodBlock `
+	$exactCounterRestartArtifactText 'static bool ValidateGuard('
+foreach ($exactCounterRestartGuardValidationEntry in @(
+	'bool allowCanonicalCampaignOverwrite',
+	'= !IsOwnerAppliedPendingCut(expectedCut)',
+	'|| expectedStage != STAGE_REPLAY;',
+	'guard.m_bAllowCanonicalCampaignOverwrite',
+	'!= allowCanonicalCampaignOverwrite'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartGuardValidation) -or
+		$exactCounterRestartGuardValidation.IndexOf(
+			$exactCounterRestartGuardValidationEntry) -lt 0) {
+		throw "Exact counterattack owner-applied replay lease must deny canonical campaign overwrite: $exactCounterRestartGuardValidationEntry"
+	}
+}
 $exactCounterRestartResolveCut = Get-ScriptMethodBlock `
 	$exactCounterRestartArtifactText 'static int ResolveCut('
 $exactCounterRestartCutName = Get-ScriptMethodBlock `
@@ -36621,7 +36636,8 @@ foreach ($exactCounterRestartLauncherEntry in @(
 	'"physical_live_position",',
 	'"prepared_before_refund",',
 	'"prepared_after_refund",',
-	'"prepared_after_receipt")]',
+	'"prepared_after_receipt",',
+	'"owner_applied_pending")]',
 	'[string]$CutName = "outbound_virtual"',
 	'$script:CutOrdinals = @{',
 	'outbound_virtual = 0',
@@ -36631,7 +36647,9 @@ foreach ($exactCounterRestartLauncherEntry in @(
 	'prepared_before_refund = 4',
 	'prepared_after_refund = 5',
 	'prepared_after_receipt = 6',
+	'owner_applied_pending = 7',
 	'$script:SupportedCutNames = @(',
+	'$script:IsOwnerAppliedPendingCut',
 	'$script:CutName = $CutName.ToLowerInvariant()',
 	'$script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]',
 	'$script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"',
@@ -36653,17 +36671,64 @@ foreach ($exactCounterRestartLauncherEntry in @(
 }
 $exactCounterRestartLauncherTokens = $null
 $exactCounterRestartLauncherParseErrors = $null
-[void][System.Management.Automation.Language.Parser]::ParseInput(
+$exactCounterRestartLauncherAst = `
+	[System.Management.Automation.Language.Parser]::ParseInput(
 	$exactCounterRestartLauncherText,
 	[ref]$exactCounterRestartLauncherTokens,
 	[ref]$exactCounterRestartLauncherParseErrors)
 if ($exactCounterRestartLauncherParseErrors.Count -ne 0) {
-	throw 'Exact counterattack restart launcher must parse after adding the materializing cut'
+	throw 'Exact counterattack restart launcher must parse with every supported cut'
+}
+$exactCounterRestartSupportedCutAssignments = @(
+	$exactCounterRestartLauncherAst.FindAll({
+		param($node)
+		$node -is `
+			[System.Management.Automation.Language.AssignmentStatementAst] -and
+			$node.Left.Extent.Text -ceq '$script:SupportedCutNames'
+	}, $true))
+if ($exactCounterRestartSupportedCutAssignments.Count -ne 1) {
+	throw 'Exact counterattack launcher must define one SupportedCutNames assignment'
+}
+$exactCounterRestartSupportedCuts = @(
+	$exactCounterRestartSupportedCutAssignments[0].Right.FindAll({
+		param($node)
+		$node -is `
+			[System.Management.Automation.Language.StringConstantExpressionAst]
+	}, $true) | ForEach-Object { $_.Value })
+$exactCounterRestartExpectedSupportedCuts = @(
+	'outbound_virtual',
+	'dematerializing_before_hold',
+	'materializing_checkpoint_deferred',
+	'physical_live_position',
+	'prepared_before_refund',
+	'prepared_after_refund',
+	'prepared_after_receipt',
+	'owner_applied_pending')
+$exactCounterRestartUniqueSupportedCuts = @(
+	$exactCounterRestartSupportedCuts | Sort-Object -CaseSensitive -Unique)
+$exactCounterRestartMissingSupportedCuts = @(
+	$exactCounterRestartExpectedSupportedCuts | Where-Object {
+		$exactCounterRestartUniqueSupportedCuts -cnotcontains $_
+	})
+$exactCounterRestartUnexpectedSupportedCuts = @(
+	$exactCounterRestartUniqueSupportedCuts | Where-Object {
+		$exactCounterRestartExpectedSupportedCuts -cnotcontains $_
+	})
+if ($exactCounterRestartSupportedCuts.Count -ne 8 -or
+	$exactCounterRestartUniqueSupportedCuts.Count -ne 8 -or
+	$exactCounterRestartMissingSupportedCuts.Count -ne 0 -or
+	$exactCounterRestartUnexpectedSupportedCuts.Count -ne 0) {
+	throw 'Exact counterattack SupportedCutNames must contain exactly eight unique expected cuts'
 }
 $exactCounterRestartOwnerGate = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-EngineOwner'
 $exactCounterRestartLeaseGate = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-EngineGuard'
 $exactCounterRestartLauncherCarrierGate = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-PreparedCarrier'
 $exactCounterRestartLauncherResultGate = Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-StageResult'
+$exactCounterRestartLauncherOwnerCarrierGate = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Assert-OwnerAppliedPendingCarrier'
+$exactCounterRestartLauncherOwnerResultGate = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText `
+	'function Assert-OwnerAppliedPendingStageSemantics'
 foreach ($exactCounterRestartEngineAuthorityEntry in @(
 	'm_sSessionNonce', 'm_sStageNonce', 'm_sRequestedStage',
 	'm_iStageOrdinal', 'm_sBuildSha', 'm_iCampaignSchemaVersion',
@@ -36673,6 +36738,101 @@ foreach ($exactCounterRestartEngineAuthorityEntry in @(
 	if (($exactCounterRestartOwnerGate + $exactCounterRestartLeaseGate).IndexOf(
 		$exactCounterRestartEngineAuthorityEntry) -lt 0) {
 		throw "Exact counterattack launcher owner/stage-lease gate is incomplete: $exactCounterRestartEngineAuthorityEntry"
+	}
+}
+$exactCounterRestartStageInvocation = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Invoke-RestartStage'
+foreach ($exactCounterRestartReadOnlyReplayEntry in @(
+	'$ownerReplayReadOnly = $script:IsOwnerAppliedPendingCut -and',
+	'$Stage -ceq "replay"',
+	'$allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly',
+	'profile\Partisan\HST_CampaignSaveData.json',
+	'$canonicalCampaignSignatureBefore = Get-FileSignature',
+	'$canonicalCampaignSignatureAfter = Get-FileSignature',
+	'$canonicalCampaignSignatureBefore -ceq',
+	'$canonicalCampaignSignatureAfter',
+	'CanonicalCampaignOverwriteAllowed',
+	'CanonicalCampaignUnchanged',
+	'rewrote its read-only canonical campaign snapshot'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartStageInvocation) -or
+		$exactCounterRestartStageInvocation.IndexOf(
+			$exactCounterRestartReadOnlyReplayEntry) -lt 0) {
+		throw "Exact counterattack owner-applied replay file-identity gate is incomplete: $exactCounterRestartReadOnlyReplayEntry"
+	}
+}
+$exactCounterRestartFileSignature = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Get-FileSignature'
+foreach ($exactCounterRestartFileSignatureEntry in @(
+	'Get-Item -LiteralPath $Path -Force -ErrorAction Stop',
+	'Get-FileHash -LiteralPath $Path -Algorithm SHA256',
+	'$file.Length',
+	'$file.LastWriteTimeUtc.Ticks',
+	'$hash'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartFileSignature) -or
+		$exactCounterRestartFileSignature.IndexOf(
+			$exactCounterRestartFileSignatureEntry) -lt 0) {
+		throw "Exact counterattack replay file signature must bind length, UTC write time, and SHA-256: $exactCounterRestartFileSignatureEntry"
+	}
+}
+$exactCounterRestartReplayPreMissingIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'canonical campaign snapshot was unavailable before replay')
+$exactCounterRestartReplayPreSignatureIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'$canonicalCampaignSignatureBefore = Get-FileSignature')
+$exactCounterRestartReplayProcessCreateIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'PartisanCounterattackSuspendedProcess(')
+$exactCounterRestartReplayCleanExitIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'(Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0')
+$exactCounterRestartReplayPostMissingIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'removed its read-only canonical campaign snapshot')
+$exactCounterRestartReplayPostSignatureIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'$canonicalCampaignSignatureAfter = Get-FileSignature')
+$exactCounterRestartReplaySignatureCompareIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'$canonicalCampaignSignatureBefore -ceq')
+$exactCounterRestartReplayRewriteRejectIndex = `
+	$exactCounterRestartStageInvocation.IndexOf(
+		'rewrote its read-only canonical campaign snapshot')
+if ($exactCounterRestartStageInvocation -notmatch
+	'\$ownerReplayReadOnly\s*=\s*\$script:IsOwnerAppliedPendingCut\s+-and\s*\r?\n\s*\$Stage\s+-ceq\s*"replay"' -or
+	([regex]::Matches(
+	$exactCounterRestartStageInvocation,
+	[regex]::Escape('if ($ownerReplayReadOnly)'))).Count -ne 2 -or
+	$exactCounterRestartReplayPreMissingIndex -lt 0 -or
+	$exactCounterRestartReplayPreSignatureIndex -le
+		$exactCounterRestartReplayPreMissingIndex -or
+	$exactCounterRestartReplayProcessCreateIndex -le
+		$exactCounterRestartReplayPreSignatureIndex -or
+	$exactCounterRestartReplayCleanExitIndex -le
+		$exactCounterRestartReplayProcessCreateIndex -or
+	$exactCounterRestartReplayPostMissingIndex -le
+		$exactCounterRestartReplayCleanExitIndex -or
+	$exactCounterRestartReplayPostSignatureIndex -le
+		$exactCounterRestartReplayPostMissingIndex -or
+	$exactCounterRestartReplaySignatureCompareIndex -le
+		$exactCounterRestartReplayPostSignatureIndex -or
+	$exactCounterRestartReplayRewriteRejectIndex -le
+		$exactCounterRestartReplaySignatureCompareIndex) {
+	throw 'Exact counterattack owner-applied replay must capture the canonical file before launch, reject deletion, and compare it after every owned process exits'
+}
+$exactCounterRestartOwnerReplayHostGate = @(
+	'$script:IsOwnerAppliedPendingCut -and',
+	'[bool]$replay.SafeSummary.CanonicalCampaignOverwriteAllowed',
+	'-not [bool]$replay.SafeSummary.CanonicalCampaignUnchanged',
+	'Owner-applied pending replay did not preserve its read-only canonical campaign snapshot.'
+)
+foreach ($exactCounterRestartOwnerReplayHostEntry in `
+	$exactCounterRestartOwnerReplayHostGate) {
+	if ($exactCounterRestartLauncherText.IndexOf(
+		$exactCounterRestartOwnerReplayHostEntry) -lt 0) {
+		throw "Exact counterattack owner-applied replay host gate is incomplete: $exactCounterRestartOwnerReplayHostEntry"
 	}
 }
 foreach ($exactCounterRestartLauncherCarrierEntry in @(
@@ -36730,6 +36890,10 @@ if ($exactCounterRestartLauncherCarrierGate -match
 $exactCounterRestartCarrierSelfTestSource = @(
 	(Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-JsonProperty'),
 	(Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-BuildIdentity'),
+	(Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Test-ProofVectorNonZero'),
+	(Get-ScriptMethodBlock $exactCounterRestartLauncherText 'function Assert-OwnershipStartupScope'),
+	$exactCounterRestartLauncherOwnerCarrierGate,
+	$exactCounterRestartLauncherOwnerResultGate,
 	$exactCounterRestartLauncherCarrierGate,
 	$exactCounterRestartLauncherResultGate
 ) -join "`r`n"
@@ -36805,6 +36969,8 @@ try {
 		$script:CarrierMagic = 'partisan_exact_counterattack_restart_carrier_v1'
 		$script:ResultMagic = 'partisan_exact_counterattack_restart_result_v1'
 		$script:ExpectedContinuationMeters = 75.0
+		$script:IsPreparedSettlementCut = $false
+		$script:IsOwnerAppliedPendingCut = $false
 	}
 	$exactCounterRestartValidatedCarrier = `
 		& $exactCounterRestartCarrierSelfTestModule {
@@ -37038,6 +37204,7 @@ try {
 		m_iCut = 1
 		m_bRestored = $false
 		m_bStartupReconcileChanged = $false
+		m_bOwnershipStartupReconcileChanged = $false
 		m_bSourceExact = $true
 		m_bContinuationExact = $false
 		m_bSameStateSemanticNoOp = $false
@@ -37076,6 +37243,32 @@ try {
 			m_sRawPreparedCutSemanticFingerprint -cne 'raw-self-test') {
 		throw 'Exact counterattack launcher did not accept the valid raw-bound prepare result'
 	}
+	$exactCounterRestartStageResultSelfTest.
+		m_bOwnershipStartupReconcileChanged = $true
+	$exactCounterRestartForeignOwnershipStartupRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartStageResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartForeignOwnershipStartupRejected = `
+			$_.Exception.Message -ceq `
+			'dematerializing_before_hold/prepare result reported owner-cut startup mutation for a different cut.'
+	}
+	if (-not $exactCounterRestartForeignOwnershipStartupRejected) {
+		throw 'Exact counterattack launcher did not reject owner-cut startup mutation on a non-owner cut'
+	}
+	$exactCounterRestartStageResultSelfTest.
+		m_bOwnershipStartupReconcileChanged = $false
 	$exactCounterRestartStageResultSelfTest.
 		m_sRawPreparedCutSemanticFingerprint = 'normalized-self-test'
 	$exactCounterRestartCollapsedDematerializingResultRejected = $false
@@ -37289,6 +37482,245 @@ try {
 	}
 	if (-not $exactCounterRestartUnrefreshedPhysicalResultRejected) {
 		throw 'Exact counterattack launcher did not reject missing live-position refresh evidence'
+	}
+
+	$exactCounterRestartOwnerExpectationSelfTest = `
+		$exactCounterRestartCarrierSelfTestExpectation.PSObject.Copy()
+	$exactCounterRestartOwnerExpectationSelfTest.m_iLivingMemberCount = 3
+	$exactCounterRestartOwnerExpectationSelfTest.m_sLivingSlotFingerprint = `
+		'member-01,member-02,member-03'
+	$exactCounterRestartOwnerExpectationSelfTest.
+		m_sExpectedTargetOwnerFactionKey = `
+		$exactCounterRestartOwnerExpectationSelfTest.m_sFactionKey
+	$exactCounterRestartOwnerExpectationSelfTest.m_sConfirmedCasualtySlotId = ''
+	$exactCounterRestartOwnerExpectationSelfTest.
+		m_sCasualtyTombstoneFingerprint = ''
+	$exactCounterRestartOwnerExpectationSelfTest.
+		m_iExpectedNormalizedReprojectionCount = 0
+	$exactCounterRestartOwnerCarrierSelfTest = `
+		$exactCounterRestartCarrierSelfTest.PSObject.Copy()
+	$exactCounterRestartOwnerCarrierSelfTest.m_sCutName = 'owner_applied_pending'
+	$exactCounterRestartOwnerCarrierSelfTest.m_iCut = 7
+	$exactCounterRestartOwnerCarrierSelfTest.m_Expectation = `
+		$exactCounterRestartOwnerExpectationSelfTest
+	$exactCounterRestartOwnerCarrierSelfTest.m_fPreparedRouteProgressMeters = 100.0
+	$exactCounterRestartOwnerCarrierSelfTest.m_fPreparedRouteTotalDistanceMeters = 100.0
+	$exactCounterRestartOwnerCarrierSelfTest.m_sPreparedSemanticFingerprint = `
+		'owner-pending-self-test'
+	$exactCounterRestartOwnerCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'owner-raw-pending-self-test'
+	& $exactCounterRestartCarrierSelfTestModule {
+		$script:CutName = 'owner_applied_pending'
+		$script:CutOrdinal = 7
+		$script:IsOwnerAppliedPendingCut = $true
+	}
+	$exactCounterRestartValidatedOwnerCarrier = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Carrier, $ExpectedBuild)
+			Assert-PreparedCarrier `
+				-Carrier $Carrier `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-ExpectedBuild $ExpectedBuild
+		} $exactCounterRestartOwnerCarrierSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedOwnerCarrier -or
+		[int]$exactCounterRestartValidatedOwnerCarrier.m_iCut -ne 7) {
+		throw 'Exact counterattack launcher did not accept the exact owner-applied pending carrier'
+	}
+	$exactCounterRestartOwnerCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'owner-pending-self-test'
+	$exactCounterRestartCollapsedOwnerCarrierRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Carrier, $ExpectedBuild)
+				Assert-PreparedCarrier `
+					-Carrier $Carrier `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-ExpectedBuild $ExpectedBuild
+			} $exactCounterRestartOwnerCarrierSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartCollapsedOwnerCarrierRejected = $true
+	}
+	if (-not $exactCounterRestartCollapsedOwnerCarrierRejected) {
+		throw 'Exact counterattack launcher did not reject equal raw/normalized owner carrier fingerprints'
+	}
+	$exactCounterRestartOwnerCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'owner-raw-pending-self-test'
+	$exactCounterRestartOwnerCarrierSelfTest.m_fPreparedRouteProgressMeters = 99.0
+	$exactCounterRestartEarlyOwnerCarrierRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Carrier, $ExpectedBuild)
+				Assert-PreparedCarrier `
+					-Carrier $Carrier `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-ExpectedBuild $ExpectedBuild
+			} $exactCounterRestartOwnerCarrierSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartEarlyOwnerCarrierRejected = $true
+	}
+	if (-not $exactCounterRestartEarlyOwnerCarrierRejected) {
+		throw 'Exact counterattack launcher did not reject an owner-applied carrier before route completion'
+	}
+
+	$exactCounterRestartOwnerPrepareResultSelfTest = `
+		$exactCounterRestartStageResultSelfTest.PSObject.Copy()
+	$exactCounterRestartOwnerPrepareResultSelfTest.m_sCutName = `
+		'owner_applied_pending'
+	$exactCounterRestartOwnerPrepareResultSelfTest.m_iCut = 7
+	$exactCounterRestartOwnerPrepareResultSelfTest.
+		m_sSourceSemanticFingerprint = 'owner-pending-self-test'
+	$exactCounterRestartOwnerPrepareResultSelfTest.
+		m_sFinalSemanticFingerprint = 'owner-pending-self-test'
+	$exactCounterRestartOwnerPrepareResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'owner-raw-pending-self-test'
+	$exactCounterRestartValidatedOwnerPrepareResult = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Result, $ExpectedBuild)
+			Assert-StageResult `
+				-Result $Result `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-Stage 'prepare' `
+				-ExpectedBuild $ExpectedBuild `
+				-ExpectedWorld 'worlds/partisan_self_test.ent'
+		} $exactCounterRestartOwnerPrepareResultSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedOwnerPrepareResult -or
+		[int]$exactCounterRestartValidatedOwnerPrepareResult.m_iCut -ne 7) {
+		throw 'Exact counterattack launcher did not accept the exact owner-applied prepare result'
+	}
+	$exactCounterRestartOwnerPrepareResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'owner-pending-self-test'
+	$exactCounterRestartCollapsedOwnerResultRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartOwnerPrepareResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartCollapsedOwnerResultRejected = $true
+	}
+	if (-not $exactCounterRestartCollapsedOwnerResultRejected) {
+		throw 'Exact counterattack launcher did not reject an owner result with raw equal to restored source'
+	}
+	$exactCounterRestartOwnerPrepareResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'owner-raw-pending-self-test'
+
+	$exactCounterRestartOwnerRecoverResultSelfTest = `
+		$exactCounterRestartOwnerPrepareResultSelfTest.PSObject.Copy()
+	$exactCounterRestartOwnerRecoverResultSelfTest.m_sStage = 'recover'
+	$exactCounterRestartOwnerRecoverResultSelfTest.m_bRestored = $true
+	$exactCounterRestartOwnerRecoverResultSelfTest.m_bStartupReconcileChanged = `
+		$true
+	$exactCounterRestartOwnerRecoverResultSelfTest.
+		m_bOwnershipStartupReconcileChanged = $true
+	$exactCounterRestartOwnerRecoverResultSelfTest.m_bContinuationExact = $true
+	$exactCounterRestartOwnerRecoverResultSelfTest.
+		m_bSameStateSemanticNoOp = $true
+	$exactCounterRestartOwnerRecoverResultSelfTest.
+		m_sFinalSemanticFingerprint = 'owner-returning-self-test'
+	$exactCounterRestartValidatedOwnerRecoverResult = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Result, $ExpectedBuild)
+			Assert-StageResult `
+				-Result $Result `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-Stage 'recover' `
+				-ExpectedBuild $ExpectedBuild `
+				-ExpectedWorld 'worlds/partisan_self_test.ent'
+		} $exactCounterRestartOwnerRecoverResultSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedOwnerRecoverResult -or
+		-not [bool]$exactCounterRestartValidatedOwnerRecoverResult.
+			m_bOwnershipStartupReconcileChanged) {
+		throw 'Exact counterattack launcher did not accept the exact owner-applied recover result'
+	}
+	$exactCounterRestartOwnerRecoverResultSelfTest.
+		m_bOwnershipStartupReconcileChanged = $false
+	$exactCounterRestartUnreconciledOwnerRecoverRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'recover' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartOwnerRecoverResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartUnreconciledOwnerRecoverRejected = $true
+	}
+	if (-not $exactCounterRestartUnreconciledOwnerRecoverRejected) {
+		throw 'Exact counterattack launcher did not reject recover without ownership startup completion'
+	}
+
+	$exactCounterRestartOwnerReplayResultSelfTest = `
+		$exactCounterRestartValidatedOwnerRecoverResult.PSObject.Copy()
+	$exactCounterRestartOwnerReplayResultSelfTest.m_sStage = 'replay'
+	$exactCounterRestartOwnerReplayResultSelfTest.
+		m_bOwnershipStartupReconcileChanged = $false
+	$exactCounterRestartOwnerReplayResultSelfTest.m_bContinuationExact = $false
+	$exactCounterRestartOwnerReplayResultSelfTest.
+		m_sSourceSemanticFingerprint = 'owner-returning-self-test'
+	$exactCounterRestartValidatedOwnerReplayResult = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Result, $ExpectedBuild)
+			Assert-StageResult `
+				-Result $Result `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-Stage 'replay' `
+				-ExpectedBuild $ExpectedBuild `
+				-ExpectedWorld 'worlds/partisan_self_test.ent'
+		} $exactCounterRestartOwnerReplayResultSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedOwnerReplayResult -or
+		[bool]$exactCounterRestartValidatedOwnerReplayResult.
+			m_bOwnershipStartupReconcileChanged) {
+		throw 'Exact counterattack launcher did not accept the exact owner-applied replay no-op result'
+	}
+	$exactCounterRestartOwnerReplayResultSelfTest.
+		m_bOwnershipStartupReconcileChanged = $true
+	$exactCounterRestartRepeatedOwnerReplayRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'replay' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartOwnerReplayResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartRepeatedOwnerReplayRejected = $true
+	}
+	if (-not $exactCounterRestartRepeatedOwnerReplayRejected) {
+		throw 'Exact counterattack launcher did not reject replay with a second ownership startup mutation'
 	}
 }
 finally {
@@ -37854,6 +38286,528 @@ foreach ($exactCounterRestartPreparedLauncherEntry in @(
 		$exactCounterRestartPreparedLauncherEntry) -lt 0) {
 		throw "Exact counterattack PREPARED launcher gate is incomplete: $exactCounterRestartPreparedLauncherEntry"
 	}
+}
+
+$exactCounterRestartOwnerResultDTO = Get-ScriptMethodBlock `
+	$exactCounterRestartDataText `
+	'class HST_EnemyCounterattackExternalRestartResult'
+if ([string]::IsNullOrEmpty($exactCounterRestartOwnerResultDTO) -or
+	$exactCounterRestartOwnerResultDTO.IndexOf(
+		'bool m_bOwnershipStartupReconcileChanged;') -lt 0) {
+	throw 'Exact counterattack owner-applied restart result must expose ownership-specific startup reconciliation'
+}
+
+foreach ($exactCounterRestartOwnerArtifactEntry in @(
+	'static const string CUT_OWNER_APPLIED_PENDING = "owner_applied_pending";',
+	'static bool IsOwnerAppliedPendingCut(string cutName)',
+	'static bool ValidateOwnerAppliedPendingCarrier(',
+	'static bool ValidateOwnerAppliedPendingResult('
+)) {
+	if ($exactCounterRestartArtifactText.IndexOf(
+		$exactCounterRestartOwnerArtifactEntry) -lt 0) {
+		throw "Exact counterattack owner-applied artifact gate is incomplete: $exactCounterRestartOwnerArtifactEntry"
+	}
+}
+foreach ($exactCounterRestartOwnerCutMapping in @(
+	@('owner-applied pending resolve', $exactCounterRestartResolveCut,
+		'if (cutName == CUT_OWNER_APPLIED_PENDING)', 'return 7;'),
+	@('owner-applied pending name', $exactCounterRestartCutName,
+		'if (cut == 7)', 'return CUT_OWNER_APPLIED_PENDING;')
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerCutMapping[1]) -or
+		$exactCounterRestartOwnerCutMapping[1].IndexOf(
+			$exactCounterRestartOwnerCutMapping[2]) -lt 0 -or
+		$exactCounterRestartOwnerCutMapping[1].IndexOf(
+			$exactCounterRestartOwnerCutMapping[3]) -lt 0) {
+		throw "Exact counterattack owner-applied cut mapping is incomplete: $($exactCounterRestartOwnerCutMapping[0])"
+	}
+}
+
+$exactCounterRestartOwnerCarrierValidation = Get-ScriptMethodBlock `
+	$exactCounterRestartArtifactText `
+	'static bool ValidateOwnerAppliedPendingCarrier('
+foreach ($exactCounterRestartOwnerCarrierEntry in @(
+	'IsOwnerAppliedPendingCut(expectedCut)',
+	'!carrier.m_Expectation || carrier.m_SettlementExpectation',
+	'expectation.m_sExpectedSourceOwnerFactionKey',
+	'expectation.m_iExpectedSourceOwnershipRevision <= 0',
+	'expectation.m_sExpectedTargetOwnerFactionKey',
+	'expectation.m_iExpectedTargetOwnershipRevision <= 0',
+	'expectation.m_sExpectedTargetOwnerFactionKey != expectation.m_sFactionKey',
+	'bool attackFunded', 'bool supportFunded',
+	'expectation.m_iExpectedPoolOperationalMutationCount != 1',
+	'expectation.m_iLivingMemberCount',
+	'expectation.m_iAcceptedMemberCount',
+	'!expectation.m_bExpectedLivingSlotsEverAlive',
+	'expectation.m_iExpectedNormalizedSlotAttemptCount == 0',
+	'expectation.m_sConfirmedCasualtySlotId.IsEmpty()',
+	'expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()',
+	'expectation.m_iExpectedNormalizedReprojectionCount == 0',
+	'carrier.m_fPreparedRouteProgressMeters',
+	'carrier.m_fPreparedRouteTotalDistanceMeters',
+	'PROGRESS_EPSILON_METERS',
+	'carrier.m_sRawPreparedCutSemanticFingerprint',
+	'carrier.m_sPreparedSemanticFingerprint',
+	'carrier.m_iExpectedPhysicalAdapterHandleCount == 0',
+	'carrier.m_iExpectedPhysicalRuntimeMemberCount == 0'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerCarrierValidation) -or
+		$exactCounterRestartOwnerCarrierValidation.IndexOf(
+			$exactCounterRestartOwnerCarrierEntry) -lt 0) {
+		throw "Exact counterattack owner-applied carrier validation is incomplete: $exactCounterRestartOwnerCarrierEntry"
+	}
+}
+$exactCounterRestartOwnerCarrierDispatchIndex = `
+	$exactCounterRestartCarrierValidation.IndexOf(
+		'if (IsOwnerAppliedPendingCut(expectedCut))')
+$exactCounterRestartGenericCarrierFamilyIndex = `
+	$exactCounterRestartCarrierValidation.IndexOf(
+		'if (!carrier.m_Expectation || carrier.m_SettlementExpectation)')
+if ($exactCounterRestartOwnerCarrierDispatchIndex -lt 0 -or
+	$exactCounterRestartGenericCarrierFamilyIndex -le
+		$exactCounterRestartOwnerCarrierDispatchIndex -or
+	$exactCounterRestartCarrierValidation.IndexOf(
+		'ValidateOwnerAppliedPendingCarrier(carrier, expectedCut, evidence)') -lt 0) {
+	throw 'Exact counterattack owner-applied carrier must dispatch before generic movement route rejection'
+}
+
+$exactCounterRestartOwnerResultValidation = Get-ScriptMethodBlock `
+	$exactCounterRestartArtifactText `
+	'static bool ValidateOwnerAppliedPendingResult('
+foreach ($exactCounterRestartOwnerResultEntry in @(
+	'result.m_bPreparedCutExact', 'result.m_bCasualtyContinuityExact',
+	'result.m_iPhysicalAdapterHandleCount != 0',
+	'result.m_iPhysicalRuntimeMemberCount != 0',
+	'expectedStage == STAGE_PREPARE',
+	'result.m_bStartupReconcileChanged',
+	'result.m_bOwnershipStartupReconcileChanged',
+	'expectedStage == STAGE_RECOVER',
+	'!result.m_bOwnershipStartupReconcileChanged',
+	'expectedStage == STAGE_REPLAY',
+	'result.m_sRawPreparedCutSemanticFingerprint',
+	'result.m_sSourceSemanticFingerprint',
+	'result.m_sFinalSemanticFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerResultValidation) -or
+		$exactCounterRestartOwnerResultValidation.IndexOf(
+			$exactCounterRestartOwnerResultEntry) -lt 0) {
+		throw "Exact counterattack owner-applied result validation is incomplete: $exactCounterRestartOwnerResultEntry"
+	}
+}
+$exactCounterRestartOwnerResultDispatchIndex = `
+	$exactCounterRestartResultValidation.IndexOf(
+		'if (IsOwnerAppliedPendingCut(expectedCut))')
+$exactCounterRestartNonOwnerOwnershipScopeIndex = `
+	$exactCounterRestartResultValidation.IndexOf(
+		'if (result.m_bOwnershipStartupReconcileChanged)')
+$exactCounterRestartGenericResultIndex = `
+	$exactCounterRestartResultValidation.IndexOf(
+		'bool physicalCut = expectedCut == CUT_PHYSICAL_LIVE_POSITION;')
+if ($exactCounterRestartOwnerResultDispatchIndex -lt 0 -or
+	$exactCounterRestartNonOwnerOwnershipScopeIndex -le
+		$exactCounterRestartOwnerResultDispatchIndex -or
+	$exactCounterRestartGenericResultIndex -le
+		$exactCounterRestartNonOwnerOwnershipScopeIndex -or
+	$exactCounterRestartResultValidation.IndexOf(
+		'ValidateOwnerAppliedPendingResult(') -lt 0) {
+	throw 'Exact counterattack owner-applied result must dispatch before generic movement semantics'
+}
+
+$exactCounterRestartOwnerPrepareProof = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'bool PrepareExternalOwnerAppliedPendingRestartCarrier('
+foreach ($exactCounterRestartOwnerPrepareEntry in @(
+	'CUT_OWNER_APPLIED_PENDING',
+	'DriveUntilOwnerAppliedPending(fixture, 80)',
+	'fixture.m_Ownership.OwnerAppliedPendingCount() != 1',
+	'BuildExternalNoCasualtyExpectation(fixture, living)',
+	'carrier.m_fPreparedRouteProgressMeters',
+	'carrier.m_fPreparedRouteTotalDistanceMeters',
+	'carrier.m_iExpectedPhysicalAdapterHandleCount = 0;',
+	'carrier.m_iExpectedPhysicalRuntimeMemberCount = 0;',
+	'BuildExternalOwnerAppliedPendingFingerprint(',
+	'HST_CampaignSaveData normalizedSave = new HST_CampaignSaveData();',
+	'normalizedSave.Capture(fixture.m_State);',
+	'HST_CampaignState normalizedState = normalizedSave.Restore();',
+	'carrier.m_sRawPreparedCutSemanticFingerprint',
+	'carrier.m_sPreparedSemanticFingerprint',
+	'ValidateExternalOwnerAppliedRawPendingState(',
+	'ValidateExternalOwnerAppliedPendingState(',
+	'rawFingerprint != normalizedFingerprint',
+	'ValidateExternalCasualtyContinuity(',
+	'ValidateExternalRuntimeClaimantsZero('
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerPrepareProof) -or
+		$exactCounterRestartOwnerPrepareProof.IndexOf(
+			$exactCounterRestartOwnerPrepareEntry) -lt 0) {
+		throw "Exact counterattack owner-applied preparation proof is incomplete: $exactCounterRestartOwnerPrepareEntry"
+	}
+}
+foreach ($exactCounterRestartOwnerLifecycleDispatch in @(
+	@('pending', 'bool ValidateExternalOwnerAppliedPendingState(',
+		'HST_OPERATION_DUTY_ON_STATION', 'false,', 'false,', 'true,'),
+	@('raw pending', 'bool ValidateExternalOwnerAppliedRawPendingState(',
+		'HST_OPERATION_DUTY_ON_STATION', 'false,', 'false,', 'false,'),
+	@('completed awaiting outcome',
+		'bool ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(',
+		'HST_OPERATION_DUTY_ON_STATION', 'true,', 'false,', 'true,'),
+	@('returning', 'bool ValidateExternalOwnerAppliedReturningState(',
+		'HST_OPERATION_DUTY_RETURNING_TO_ORIGIN', 'true,', 'true,', 'true,'),
+	@('raw returning', 'bool ValidateExternalOwnerAppliedRawReturningState(',
+		'HST_OPERATION_DUTY_RETURNING_TO_ORIGIN', 'true,', 'true,', 'false,')
+)) {
+	$exactCounterRestartOwnerLifecycleDispatchBlock = Get-ScriptMethodBlock `
+		$exactCounterRestartProofText $exactCounterRestartOwnerLifecycleDispatch[1]
+	foreach ($exactCounterRestartOwnerLifecycleDispatchEntry in `
+		$exactCounterRestartOwnerLifecycleDispatch[
+			2..($exactCounterRestartOwnerLifecycleDispatch.Count - 1)]) {
+		if ([string]::IsNullOrEmpty(
+			$exactCounterRestartOwnerLifecycleDispatchBlock) -or
+			$exactCounterRestartOwnerLifecycleDispatchBlock.IndexOf(
+				$exactCounterRestartOwnerLifecycleDispatchEntry) -lt 0) {
+			throw "Exact counterattack owner-applied $($exactCounterRestartOwnerLifecycleDispatch[0]) lifecycle dispatch is incomplete: $exactCounterRestartOwnerLifecycleDispatchEntry"
+		}
+	}
+}
+$exactCounterRestartOwnerLifecycleProof = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected bool ValidateExternalOwnerAppliedLifecycleState('
+foreach ($exactCounterRestartOwnerLifecycleEntry in @(
+	'IsOwnerAppliedPendingCut(carrier.m_sCutName)',
+	'CountEnemyOrderId(state, expected.m_sOrderId) == 1',
+	'CountOperationId(state, expected.m_sOperationId) == 1',
+	'CountManifestId(state, expected.m_sManifestId) == 1',
+	'CountBatchId(state, expected.m_sBatchId) == 1',
+	'CountGroupId(state, expected.m_sGroupId) == 1',
+	'CountMutationId(state, expected.m_sDebitMutationId) == 1',
+	'CountExternalOwnershipTransitionClaimants(',
+	'ValidateExternalEndpointOwnershipAuthority(',
+	'order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE',
+	'order.m_bOutcomeApplied == outcomeApplied',
+	'operation.m_eDutyState == expectedDuty',
+	'restoredNormalized',
+	'HST_OPERATION_MATERIALIZATION_VIRTUAL',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'IsExternalCanonicalCounterattackOwnershipReceiptExact(',
+	'ValidateExternalCasualtyContinuity(',
+	'BuildExternalOwnerAppliedPendingFingerprint(state, carrier)',
+	'fingerprint == carrier.m_sPreparedSemanticFingerprint',
+	'fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerLifecycleProof) -or
+		$exactCounterRestartOwnerLifecycleProof.IndexOf(
+			$exactCounterRestartOwnerLifecycleEntry) -lt 0) {
+		throw "Exact counterattack owner-applied lifecycle proof is incomplete: $exactCounterRestartOwnerLifecycleEntry"
+	}
+}
+$exactCounterRestartOwnerReceiptProof = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected bool IsExternalCanonicalCounterattackOwnershipReceiptExact('
+foreach ($exactCounterRestartOwnerReceiptEntry in @(
+	'"ownership_counterattack_" + expected.m_sOperationId',
+	'CountOwnershipTransitionId(state, requestId) != 1',
+	'HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'transition.m_sCause == "military_capture"',
+	'transition.m_sSourceType == "enemy_counterattack"',
+	'transition.m_sSourceId == expected.m_sOperationId',
+	'transition.m_sActorIdentityId.IsEmpty()',
+	'transition.m_sReason',
+	'transition.m_iSupportReward == 0',
+	'!transition.m_bApplyEnemyConsequences',
+	'transition.m_bReconcileSecurity',
+	'!transition.m_bCreateSecurity',
+	'transition.m_bNotify',
+	'transition.m_sProjectionParentRequestId.IsEmpty()',
+	'!transition.m_bQuarantined',
+	'transition.m_bOwnerApplied',
+	'transition.m_bStrategicEventCompleted',
+	'transition.m_bNotificationApplied',
+	'transition.m_bProjectionRequested',
+	'transition.m_bPersistenceRequested',
+	'transition.m_sStatus == "completed"',
+	'transition.m_sStatus == "projecting"',
+	'zone.m_sActiveOwnershipTransitionRequestId == requestId',
+	'zone.m_sLastOwnershipTransitionRequestId == requestId',
+	'strategicEvent.m_sKind == "zone_captured"',
+	'strategicEvent.m_sSourceType == "enemy_counterattack"',
+	'strategicEvent.m_bApplied'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerReceiptProof) -or
+		$exactCounterRestartOwnerReceiptProof.IndexOf(
+			$exactCounterRestartOwnerReceiptEntry) -lt 0) {
+		throw "Exact counterattack owner-applied receipt fingerprint is incomplete: $exactCounterRestartOwnerReceiptEntry"
+	}
+}
+$exactCounterRestartOwnerRecoveryProof = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'bool AdvanceExternalOwnerAppliedPendingRecovery('
+foreach ($exactCounterRestartOwnerRecoveryEntry in @(
+	'ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(',
+	'BuildExternalOwnershipTransitionSemanticRow(receipt)',
+	'BuildExternalStrategicEventSemanticRow(strategicEvent)',
+	'target.m_sOwnerFactionKey', 'target.m_iOwnershipRevision',
+	'bool secondOwnershipChanged = ownership.ReconcileAfterRestore(state);',
+	'bool secondExact = !secondOwnershipChanged',
+	'secondFingerprint == completedFingerprint',
+	'counterattacks.TickOrder(',
+	'ValidateExternalOwnerAppliedRawReturningState('
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerRecoveryProof) -or
+		$exactCounterRestartOwnerRecoveryProof.IndexOf(
+			$exactCounterRestartOwnerRecoveryEntry) -lt 0) {
+		throw "Exact counterattack owner-applied recovery proof is incomplete: $exactCounterRestartOwnerRecoveryEntry"
+	}
+}
+$exactCounterRestartOwnerReplayProof = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'bool ValidateExternalOwnerAppliedPendingReplay('
+foreach ($exactCounterRestartOwnerReplayEntry in @(
+	'ValidateExternalOwnerAppliedReturningState(',
+	'BuildExternalOwnershipTransitionSemanticRow(receipt)',
+	'BuildExternalStrategicEventSemanticRow(strategicEvent)',
+	'bool ownershipChanged = ownership.ReconcileAfterRestore(state);',
+	'bool exact = !ownershipChanged',
+	'fingerprint == beforeFingerprint',
+	'target.m_sOwnerFactionKey == ownerBefore',
+	'target.m_iOwnershipRevision == ownerRevisionBefore'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerReplayProof) -or
+		$exactCounterRestartOwnerReplayProof.IndexOf(
+			$exactCounterRestartOwnerReplayEntry) -lt 0) {
+		throw "Exact counterattack owner-applied replay proof is incomplete: $exactCounterRestartOwnerReplayEntry"
+	}
+}
+$exactCounterRestartOwnerFingerprint = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected string BuildExternalOwnerAppliedPendingFingerprint('
+foreach ($exactCounterRestartOwnerFingerprintEntry in @(
+	'BuildExternalCanonicalFingerprint(state, carrier, true)',
+	'BuildExternalOwnershipTransitionSemanticRow(transition)',
+	'BuildExternalStrategicEventSemanticRow(strategicEvent)'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerFingerprint) -or
+		$exactCounterRestartOwnerFingerprint.IndexOf(
+			$exactCounterRestartOwnerFingerprintEntry) -lt 0) {
+		throw "Exact counterattack owner-applied durable fingerprint is incomplete: $exactCounterRestartOwnerFingerprintEntry"
+	}
+}
+$exactCounterRestartOwnerReceiptRow = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'protected string BuildExternalOwnershipTransitionSemanticRow('
+foreach ($exactCounterRestartOwnerReceiptRowEntry in @(
+	'transition.m_iContractVersion', 'transition.m_sStatus',
+	'transition.m_sRequestId', 'transition.m_sSourceType',
+	'transition.m_sSourceId', 'transition.m_iAppliedRevision',
+	'transition.m_bReconcileSecurity', 'transition.m_bNotify',
+	'transition.m_iAttemptCount', 'transition.m_sStrategicEventId',
+	'transition.m_sProjectionParentRequestId',
+	'transition.m_bValidated', 'transition.m_bOwnerApplied',
+	'transition.m_bStrategicEventCompleted',
+	'transition.m_bProjectionRequested',
+	'transition.m_bPersistenceRequested', 'transition.m_bCompleted',
+	'transition.m_bQuarantined', 'transition.m_sFailureReason'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerReceiptRow) -or
+		$exactCounterRestartOwnerReceiptRow.IndexOf(
+			$exactCounterRestartOwnerReceiptRowEntry) -lt 0) {
+		throw "Exact counterattack owner-applied ownership row is incomplete: $exactCounterRestartOwnerReceiptRowEntry"
+	}
+}
+
+$exactCounterRestartOwnerPostInit = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText 'override void OnPostInit(IEntity owner)'
+$exactCounterRestartOwnerObserveIndex = `
+	$exactCounterRestartOwnerPostInit.IndexOf(
+		'ObserveExactCounterattackExternalRestartSource();')
+$exactCounterRestartOwnershipReconcileIndex = `
+	$exactCounterRestartOwnerPostInit.IndexOf(
+		'm_bExactCounterattackRestartOwnershipStartupReconcileChanged')
+$exactCounterRestartCounterattackReconcileIndex = `
+	$exactCounterRestartOwnerPostInit.IndexOf(
+		'm_EnemyCounterattackOperations.ReconcileAfterRestore(')
+if ($exactCounterRestartCoordinatorText.IndexOf(
+		'protected bool m_bExactCounterattackRestartOwnershipStartupReconcileChanged;') -lt 0 -or
+	$exactCounterRestartOwnerObserveIndex -lt 0 -or
+	$exactCounterRestartOwnershipReconcileIndex -le
+		$exactCounterRestartOwnerObserveIndex -or
+	$exactCounterRestartCounterattackReconcileIndex -le
+		$exactCounterRestartOwnershipReconcileIndex -or
+	$exactCounterRestartOwnerPostInit.IndexOf(
+		'= m_OwnershipTransitions.ReconcileAfterRestore(m_State);') -lt 0) {
+	throw 'Exact counterattack owner-applied restore must observe pending authority, complete ownership once, then reconcile counterattack bookkeeping'
+}
+$exactCounterRestartOwnerResultFactory = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected HST_EnemyCounterattackExternalRestartResult CreateExactCounterattackRestartResult()'
+if ([string]::IsNullOrEmpty($exactCounterRestartOwnerResultFactory) -or
+	$exactCounterRestartOwnerResultFactory.IndexOf(
+		'result.m_bOwnershipStartupReconcileChanged') -lt 0 -or
+	$exactCounterRestartOwnerResultFactory.IndexOf(
+		'm_bExactCounterattackRestartOwnershipStartupReconcileChanged') -lt 0) {
+	throw 'Exact counterattack result factory must publish ownership-specific startup reconciliation'
+}
+$exactCounterRestartOwnerTracker = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool TrackExactCounterattackOwnerAppliedPending('
+foreach ($exactCounterRestartOwnerTrackerEntry in @(
+	'IsOwnerAppliedPendingCut(carrier.m_sCutName)',
+	'ValidateExternalOwnerAppliedRawPendingState(',
+	'm_sRawPreparedCutSemanticFingerprint',
+	'm_Persistence.CaptureAndTrackState(',
+	'trackedFingerprint == rawFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerTracker) -or
+		$exactCounterRestartOwnerTracker.IndexOf(
+			$exactCounterRestartOwnerTrackerEntry) -lt 0) {
+		throw "Exact counterattack owner-applied pending tracker is incomplete: $exactCounterRestartOwnerTrackerEntry"
+	}
+}
+$exactCounterRestartOwnerVerify = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected void FinalizeExactCounterattackOwnerAppliedPendingRestartVerify()'
+foreach ($exactCounterRestartOwnerVerifyEntry in @(
+	'm_bExactCounterattackRestartOwnershipStartupReconcileChanged',
+	'ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(',
+	'ValidateExternalOwnerAppliedRawReturningState(',
+	'ValidateExternalOwnerAppliedReturningState(',
+	'AdvanceExternalOwnerAppliedPendingRecovery(',
+	'ValidateExternalOwnerAppliedPendingReplay(',
+	'sourceFingerprint != finalFingerprint',
+	'sourceFingerprint == finalFingerprint',
+	'WriteProfileFallbackProofSnapshot(',
+	'ReadProfileFallbackProofSnapshot(',
+	'string finalFingerprint = readBackFingerprint;',
+	'result.m_bContinuationExact = recoverStage && continuationExact;',
+	'result.m_bSameStateSemanticNoOp = semanticNoOp;'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartOwnerVerify) -or
+		$exactCounterRestartOwnerVerify.IndexOf(
+			$exactCounterRestartOwnerVerifyEntry) -lt 0) {
+		throw "Exact counterattack owner-applied recover/replay coordinator proof is incomplete: $exactCounterRestartOwnerVerifyEntry"
+	}
+}
+$exactCounterRestartOwnerFinalizeVerify = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected void FinalizeExactCounterattackExternalRestartVerify()'
+$exactCounterRestartOwnerVerifyDispatchIndex = `
+	$exactCounterRestartOwnerFinalizeVerify.IndexOf(
+		'IsOwnerAppliedPendingCut(m_sExactCounterattackRestartCLICut)')
+$exactCounterRestartPreparedVerifyDispatchIndex = `
+	$exactCounterRestartOwnerFinalizeVerify.IndexOf(
+		'IsPreparedSettlementCut(m_sExactCounterattackRestartCLICut)')
+if ($exactCounterRestartOwnerVerifyDispatchIndex -lt 0 -or
+	$exactCounterRestartPreparedVerifyDispatchIndex -le
+		$exactCounterRestartOwnerVerifyDispatchIndex -or
+	$exactCounterRestartOwnerFinalizeVerify.IndexOf(
+		'FinalizeExactCounterattackOwnerAppliedPendingRestartVerify();') -lt 0) {
+	throw 'Exact counterattack owner-applied verification must dispatch before generic and settlement verification'
+}
+
+foreach ($exactCounterRestartOwnerLauncherEntry in @(
+	'"owner_applied_pending")]',
+	'owner_applied_pending = 7',
+	'$script:IsOwnerAppliedPendingCut',
+	'function Test-ProofVectorNonZero',
+	'function Assert-OwnershipStartupScope',
+	'function Assert-OwnerAppliedPendingCarrier',
+	'function Assert-OwnerAppliedPendingStageSemantics',
+	'"m_bOwnershipStartupReconcileChanged"',
+	'OwnershipStartupChanged',
+	'owner-applied pending carrier self-test',
+	'collapsed owner-applied pending carrier self-test',
+	'tampered owner-applied pending carrier self-test',
+	'Owner-applied pending equal-fingerprint carrier negative self-test failed.',
+	'Mixed-family owner-applied pending carrier negative self-test failed.',
+	'Owner-applied pending equal-fingerprint result negative self-test failed.',
+	'Owner-applied pending prepare negative self-test failed.',
+	'Owner-applied pending recovery negative self-test failed.',
+	'Owner-applied pending replay negative self-test failed.',
+	'Non-owner ownership-startup scope negative self-test failed.'
+)) {
+	if ($exactCounterRestartLauncherText.IndexOf(
+		$exactCounterRestartOwnerLauncherEntry) -lt 0) {
+		throw "Exact counterattack owner-applied launcher gate is incomplete: $exactCounterRestartOwnerLauncherEntry"
+	}
+}
+foreach ($exactCounterRestartOwnerLauncherCarrierEntry in @(
+	'$null -ne $Carrier.m_SettlementExpectation',
+	'$livingSlotIds.Count -ne $living',
+	'@($livingSlotIds | Select-Object -Unique).Count -ne $living',
+	'[string]$expectation.m_sExpectedTargetOwnerFactionKey -cne',
+	'[string]$expectation.m_sFactionKey',
+	'[Math]::Abs($progress - $total) -gt 0.1',
+	'Test-ProofVectorNonZero $Carrier.m_vPreparedStrategicPosition',
+	'[string]$Carrier.m_sRawPreparedCutSemanticFingerprint -ceq',
+	'[string]$Carrier.m_sPreparedSemanticFingerprint',
+	'[int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne 0',
+	'[int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne 0'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartLauncherOwnerCarrierGate) -or
+		$exactCounterRestartLauncherOwnerCarrierGate.IndexOf(
+			$exactCounterRestartOwnerLauncherCarrierEntry) -lt 0) {
+		throw "Exact counterattack owner-applied launcher carrier assertion is incomplete: $exactCounterRestartOwnerLauncherCarrierEntry"
+	}
+}
+foreach ($exactCounterRestartOwnerLauncherResultEntry in @(
+	'$Stage -eq "prepare"',
+	'[bool]$Result.m_bStartupReconcileChanged',
+	'[bool]$Result.m_bOwnershipStartupReconcileChanged',
+	'$Stage -eq "recover"',
+	'-not [bool]$Result.m_bOwnershipStartupReconcileChanged',
+	'$sourceFingerprint -ceq $finalFingerprint',
+	'$preparedFingerprint -ceq $sourceFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartLauncherOwnerResultGate) -or
+		$exactCounterRestartLauncherOwnerResultGate.IndexOf(
+			$exactCounterRestartOwnerLauncherResultEntry) -lt 0) {
+		throw "Exact counterattack owner-applied launcher result assertion is incomplete: $exactCounterRestartOwnerLauncherResultEntry"
+	}
+}
+if (([regex]::Matches(
+	$exactCounterRestartLauncherOwnerResultGate,
+	[regex]::Escape('$preparedFingerprint -ceq $sourceFingerprint'))).Count `
+	-ne 3) {
+	throw 'Exact counterattack owner-applied prepare, recover, and replay must each reject raw/source fingerprint collapse'
+}
+$exactCounterRestartOwnerLauncherCarrierDispatchIndex = `
+	$exactCounterRestartLauncherCarrierGate.IndexOf(
+		'if ($script:IsOwnerAppliedPendingCut)')
+$exactCounterRestartOwnerLauncherResultDispatchIndex = `
+	$exactCounterRestartLauncherResultGate.IndexOf(
+		'if ($script:IsOwnerAppliedPendingCut)')
+if ($exactCounterRestartOwnerLauncherCarrierDispatchIndex -lt 0 -or
+	$exactCounterRestartOwnerLauncherResultDispatchIndex -lt 0 -or
+	$exactCounterRestartLauncherCarrierGate.IndexOf(
+		'Assert-OwnerAppliedPendingCarrier') -lt 0 -or
+	$exactCounterRestartLauncherResultGate.IndexOf(
+		'Assert-OwnerAppliedPendingStageSemantics') -lt 0) {
+	throw 'Exact counterattack owner-applied launcher must dispatch dedicated carrier and result semantics'
+}
+$exactCounterRestartOwnershipStartupScopeGate = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Assert-OwnershipStartupScope'
+foreach ($exactCounterRestartOwnershipStartupScopeEntry in @(
+	'[bool]$Result.m_bSuccess',
+	'-not $OwnerAppliedPendingCut',
+	'[bool]$Result.m_bOwnershipStartupReconcileChanged',
+	'reported owner-cut startup mutation for a different cut'
+)) {
+	if ([string]::IsNullOrEmpty(
+		$exactCounterRestartOwnershipStartupScopeGate) -or
+		$exactCounterRestartOwnershipStartupScopeGate.IndexOf(
+			$exactCounterRestartOwnershipStartupScopeEntry) -lt 0) {
+		throw "Exact counterattack ownership-startup scope gate is incomplete: $exactCounterRestartOwnershipStartupScopeEntry"
+	}
+}
+if ($exactCounterRestartLauncherResultGate.IndexOf(
+	'Assert-OwnershipStartupScope -Result $Result -Label $label') -lt 0) {
+	throw 'Exact counterattack successful results must enforce owner-only startup mutation scope'
+}
+$exactCounterRestartOwnerCleanupGate = Get-ScriptMethodBlock `
+	$exactCounterRestartLauncherText 'function Read-GuardOwnership'
+if ([string]::IsNullOrEmpty($exactCounterRestartOwnerCleanupGate) -or
+	$exactCounterRestartOwnerCleanupGate.IndexOf(
+		'$script:SupportedCutNames -ccontains [string]$ownership.cut') -lt 0) {
+	throw 'Exact counterattack owner-applied cut must remain eligible for exact-owned stale cleanup'
 }
 
 $guardedWorkbenchLauncherPath = 'tools/run-guarded-workbench-validation.ps1'

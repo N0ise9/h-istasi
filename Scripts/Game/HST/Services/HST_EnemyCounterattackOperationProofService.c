@@ -4824,6 +4824,1064 @@ class HST_EnemyCounterattackOperationProofService
 		return true;
 	}
 
+	bool PrepareExternalOwnerAppliedPendingRestartCarrier(
+		string sessionNonce,
+		string runId,
+		string world,
+		string cutName,
+		out HST_CampaignState stagedState,
+		out HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		stagedState = null;
+		carrier = null;
+		evidence = "external exact counterattack owner-applied pending cut rejected";
+		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(
+				sessionNonce)
+			|| !HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(runId)
+			|| world.IsEmpty()
+			|| cutName != HST_EnemyCounterattackExternalRestartProofService
+				.CUT_OWNER_APPLIED_PENDING)
+			return false;
+
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("external_owner_applied_pending");
+		if (!m_Fixtures.Ready(fixture))
+		{
+			evidence = m_Fixtures.Failure(fixture);
+			return false;
+		}
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending || fixture.m_Ownership.OwnerAppliedPendingCount() != 1)
+		{
+			evidence = "production counterattack did not reach one owner-applied incomplete receipt";
+			return false;
+		}
+
+		int living = fixture.m_Queue.CountStrategicLivingMemberSlots(
+			fixture.m_Batch);
+		HST_EnemyCounterattackOutboundVirtualExpectation expectation
+			= BuildExternalNoCasualtyExpectation(fixture, living);
+		if (!expectation)
+		{
+			evidence = "owner-applied pending aggregate expectation was unavailable";
+			return false;
+		}
+
+		carrier = new HST_EnemyCounterattackExternalRestartCarrier();
+		carrier.m_sMagic
+			= HST_EnemyCounterattackExternalRestartProofService.CARRIER_MAGIC;
+		carrier.m_sSessionNonce = sessionNonce;
+		carrier.m_sRunId = runId;
+		carrier.m_sBuildSha = HST_BuildInfo.BUILD_SHA;
+		carrier.m_sBuildUtc = HST_BuildInfo.BUILD_UTC;
+		carrier.m_sBuildLabel = HST_BuildInfo.BUILD_LABEL;
+		carrier.m_iCampaignSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
+		carrier.m_sWorld = world;
+		carrier.m_sCutName = cutName;
+		carrier.m_iCut
+			= HST_EnemyCounterattackExternalRestartProofService.ResolveCut(cutName);
+		carrier.m_Expectation = expectation;
+		carrier.m_iPreparedElapsedSecond = fixture.m_State.m_iElapsedSeconds;
+		carrier.m_fPreparedRouteProgressMeters
+			= fixture.m_Operation.m_fRouteProgressMeters;
+		carrier.m_fPreparedRouteTotalDistanceMeters
+			= fixture.m_Operation.m_fRouteTotalDistanceMeters;
+		carrier.m_vPreparedStrategicPosition
+			= fixture.m_Operation.m_vStrategicPosition;
+		carrier.m_iExpectedPhysicalAdapterHandleCount = 0;
+		carrier.m_iExpectedPhysicalRuntimeMemberCount = 0;
+		carrier.m_sRawPreparedCutSemanticFingerprint
+			= BuildExternalOwnerAppliedPendingFingerprint(fixture.m_State, carrier);
+		HST_CampaignSaveData normalizedSave = new HST_CampaignSaveData();
+		normalizedSave.Capture(fixture.m_State);
+		HST_CampaignState normalizedState = normalizedSave.Restore();
+		if (!normalizedState)
+		{
+			carrier = null;
+			evidence = "owner-applied pending state did not survive one canonical restore";
+			return false;
+		}
+		carrier.m_sPreparedSemanticFingerprint
+			= BuildExternalOwnerAppliedPendingFingerprint(normalizedState, carrier);
+
+		string rawFingerprint;
+		string rawEvidence;
+		string normalizedFingerprint;
+		string normalizedEvidence;
+		string rawCasualtyEvidence;
+		string normalizedCasualtyEvidence;
+		string rawRuntimeEvidence;
+		string normalizedRuntimeEvidence;
+		bool exact = ValidateExternalOwnerAppliedRawPendingState(
+			fixture.m_State,
+			carrier,
+			rawFingerprint,
+			rawEvidence)
+			&& rawFingerprint == carrier.m_sRawPreparedCutSemanticFingerprint
+			&& ValidateExternalOwnerAppliedPendingState(
+				normalizedState,
+				carrier,
+				normalizedFingerprint,
+				normalizedEvidence)
+			&& normalizedFingerprint == carrier.m_sPreparedSemanticFingerprint
+			&& rawFingerprint != normalizedFingerprint
+			&& ValidateExternalCasualtyContinuity(
+				fixture.m_State,
+				carrier,
+				rawCasualtyEvidence)
+			&& ValidateExternalCasualtyContinuity(
+				normalizedState,
+				carrier,
+				normalizedCasualtyEvidence)
+			&& ValidateExternalRuntimeClaimantsZero(
+				fixture.m_State,
+				carrier,
+				fixture.m_Adapter,
+				fixture.m_PhysicalWar,
+				rawRuntimeEvidence)
+			&& ValidateExternalRuntimeClaimantsZero(
+				normalizedState,
+				carrier,
+				fixture.m_Adapter,
+				fixture.m_PhysicalWar,
+				normalizedRuntimeEvidence);
+		if (!exact)
+		{
+			carrier = null;
+			evidence = "raw " + rawEvidence + " | normalized "
+				+ normalizedEvidence + " | raw casualty " + rawCasualtyEvidence
+				+ " | normalized casualty " + normalizedCasualtyEvidence;
+			evidence += " | raw runtime " + rawRuntimeEvidence
+				+ " | normalized runtime " + normalizedRuntimeEvidence;
+			return false;
+		}
+		stagedState = fixture.m_State;
+		evidence = string.Format(
+			"external counterattack raw/normalized owner-applied pending receipt exact | route %1/%2 | owner revision %3",
+			Math.Round(fixture.m_Operation.m_fRouteProgressMeters),
+			Math.Round(fixture.m_Operation.m_fRouteTotalDistanceMeters),
+			expectation.m_iExpectedTargetOwnershipRevision);
+		return true;
+	}
+
+	bool ValidateExternalOwnerAppliedPendingState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		return ValidateExternalOwnerAppliedLifecycleState(
+			state,
+			carrier,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION,
+			false,
+			false,
+			true,
+			fingerprint,
+			evidence);
+	}
+
+	bool ValidateExternalOwnerAppliedRawPendingState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		return ValidateExternalOwnerAppliedLifecycleState(
+			state,
+			carrier,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION,
+			false,
+			false,
+			false,
+			fingerprint,
+			evidence);
+	}
+
+	bool ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		return ValidateExternalOwnerAppliedLifecycleState(
+			state,
+			carrier,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION,
+			true,
+			false,
+			true,
+			fingerprint,
+			evidence);
+	}
+
+	bool ValidateExternalOwnerAppliedReturningState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		return ValidateExternalOwnerAppliedLifecycleState(
+			state,
+			carrier,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN,
+			true,
+			true,
+			true,
+			fingerprint,
+			evidence);
+	}
+
+	bool ValidateExternalOwnerAppliedRawReturningState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		return ValidateExternalOwnerAppliedLifecycleState(
+			state,
+			carrier,
+			HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN,
+			true,
+			true,
+			false,
+			fingerprint,
+			evidence);
+	}
+
+	bool AdvanceExternalOwnerAppliedPendingRecovery(
+		HST_CampaignState state,
+		HST_CampaignPreset preset,
+		HST_EnemyDirectorService enemyDirector,
+		HST_EnemyCounterattackOperationService counterattacks,
+		HST_OwnershipTransitionService ownership,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "external-counterattack-owner-applied-recovery-unavailable";
+		evidence = "external counterattack owner-applied recovery rejected";
+		if (!state || !preset || !enemyDirector || !counterattacks || !ownership
+			|| !carrier || !carrier.m_Expectation)
+			return false;
+
+		string completedFingerprint;
+		string completedEvidence;
+		if (!ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(
+			state,
+			carrier,
+			completedFingerprint,
+			completedEvidence))
+		{
+			evidence = completedEvidence;
+			return false;
+		}
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= carrier.m_Expectation;
+		HST_OwnershipTransitionState receipt = state.FindOwnershipTransition(
+			"ownership_counterattack_" + expected.m_sOperationId);
+		HST_ZoneState target = state.FindZone(expected.m_sTargetZoneId);
+		HST_StrategicEventState strategicEvent;
+		if (receipt)
+			strategicEvent = state.FindStrategicEvent(receipt.m_sStrategicEventId);
+		if (!receipt || !target || !strategicEvent)
+			return false;
+		string receiptBefore = BuildExternalOwnershipTransitionSemanticRow(receipt);
+		string ownerEffectBefore = BuildExternalStrategicEventSemanticRow(strategicEvent);
+		string ownerBefore = target.m_sOwnerFactionKey;
+		int ownerRevisionBefore = target.m_iOwnershipRevision;
+
+		bool secondOwnershipChanged = ownership.ReconcileAfterRestore(state);
+		string secondFingerprint;
+		string secondEvidence;
+		bool secondExact = !secondOwnershipChanged
+			&& ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(
+				state,
+				carrier,
+				secondFingerprint,
+				secondEvidence)
+			&& secondFingerprint == completedFingerprint
+			&& receiptBefore
+				== BuildExternalOwnershipTransitionSemanticRow(receipt)
+			&& ownerEffectBefore
+				== BuildExternalStrategicEventSemanticRow(strategicEvent)
+			&& target.m_sOwnerFactionKey == ownerBefore
+			&& target.m_iOwnershipRevision == ownerRevisionBefore;
+		if (!secondExact)
+		{
+			evidence = "second ownership reconcile changed completed authority | "
+				+ secondEvidence;
+			return false;
+		}
+
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		if (!order)
+			return false;
+		bool tickChanged = counterattacks.TickOrder(
+			state,
+			preset,
+			enemyDirector,
+			order);
+		string returningEvidence;
+		bool returningExact = tickChanged
+			&& ValidateExternalOwnerAppliedRawReturningState(
+				state,
+				carrier,
+				fingerprint,
+				returningEvidence)
+			&& receiptBefore
+				== BuildExternalOwnershipTransitionSemanticRow(receipt)
+			&& ownerEffectBefore
+				== BuildExternalStrategicEventSemanticRow(strategicEvent)
+			&& target.m_sOwnerFactionKey == ownerBefore
+			&& target.m_iOwnershipRevision == ownerRevisionBefore;
+		evidence = string.Format(
+			"second ownership changed/exact %1/%2 | tick/return %3/%4",
+			secondOwnershipChanged,
+			secondExact,
+			tickChanged,
+			returningExact);
+		evidence += " | return " + returningEvidence
+			+ " | second ownership " + secondEvidence
+			+ " | completed " + completedEvidence;
+		return returningExact;
+	}
+
+	bool ValidateExternalOwnerAppliedPendingReplay(
+		HST_CampaignState state,
+		HST_OwnershipTransitionService ownership,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "external-counterattack-owner-applied-replay-unavailable";
+		evidence = "external counterattack owner-applied replay rejected";
+		if (!state || !ownership || !carrier || !carrier.m_Expectation)
+			return false;
+
+		string beforeFingerprint;
+		string beforeEvidence;
+		if (!ValidateExternalOwnerAppliedReturningState(
+			state,
+			carrier,
+			beforeFingerprint,
+			beforeEvidence))
+		{
+			evidence = beforeEvidence;
+			return false;
+		}
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= carrier.m_Expectation;
+		HST_OwnershipTransitionState receipt = state.FindOwnershipTransition(
+			"ownership_counterattack_" + expected.m_sOperationId);
+		HST_ZoneState target = state.FindZone(expected.m_sTargetZoneId);
+		HST_StrategicEventState strategicEvent;
+		if (receipt)
+			strategicEvent = state.FindStrategicEvent(receipt.m_sStrategicEventId);
+		if (!receipt || !target || !strategicEvent)
+			return false;
+		string receiptBefore = BuildExternalOwnershipTransitionSemanticRow(receipt);
+		string ownerEffectBefore = BuildExternalStrategicEventSemanticRow(strategicEvent);
+		string ownerBefore = target.m_sOwnerFactionKey;
+		int ownerRevisionBefore = target.m_iOwnershipRevision;
+
+		bool ownershipChanged = ownership.ReconcileAfterRestore(state);
+		string afterEvidence;
+		bool exact = !ownershipChanged
+			&& ValidateExternalOwnerAppliedReturningState(
+				state,
+				carrier,
+				fingerprint,
+				afterEvidence)
+			&& fingerprint == beforeFingerprint
+			&& receiptBefore
+				== BuildExternalOwnershipTransitionSemanticRow(receipt)
+			&& ownerEffectBefore
+				== BuildExternalStrategicEventSemanticRow(strategicEvent)
+			&& target.m_sOwnerFactionKey == ownerBefore
+			&& target.m_iOwnershipRevision == ownerRevisionBefore;
+		evidence = "returning " + beforeEvidence
+			+ " | ownership replay no-op " + afterEvidence;
+		return exact;
+	}
+
+	protected bool ValidateExternalOwnerAppliedLifecycleState(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		HST_EOperationDutyState expectedDuty,
+		bool receiptCompleted,
+		bool outcomeApplied,
+		bool restoredNormalized,
+		out string fingerprint,
+		out string evidence)
+	{
+		fingerprint = "external-counterattack-owner-applied-unavailable";
+		evidence = "external counterattack owner-applied lifecycle rejected";
+		string carrierEvidence;
+		if (!state || !carrier
+			|| !HST_EnemyCounterattackExternalRestartProofService.ValidateCarrier(
+				carrier,
+				carrier.m_sSessionNonce,
+				carrier.m_sRunId,
+				carrier.m_sCutName,
+				carrier.m_sWorld,
+				carrierEvidence)
+			|| !HST_EnemyCounterattackExternalRestartProofService
+				.IsOwnerAppliedPendingCut(carrier.m_sCutName)
+			|| state.m_iSchemaVersion != carrier.m_iCampaignSchemaVersion)
+			return false;
+
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= carrier.m_Expectation;
+		HST_EnemyOrderState order = state.FindEnemyOrder(expected.m_sOrderId);
+		HST_OperationRecordState operation
+			= state.FindOperation(expected.m_sOperationId);
+		HST_ForceManifestState manifest
+			= state.FindForceManifest(expected.m_sManifestId);
+		HST_ForceSpawnResultState batch
+			= state.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState group = state.FindActiveGroup(expected.m_sGroupId);
+		HST_FactionPoolState pool = state.FindFactionPool(expected.m_sFactionKey);
+		if (!order || !operation || !manifest || !batch || !group || !pool)
+			return false;
+
+		bool rowsExact = CountEnemyOrderId(state, expected.m_sOrderId) == 1
+			&& CountOperationId(state, expected.m_sOperationId) == 1
+			&& CountManifestId(state, expected.m_sManifestId) == 1
+			&& CountBatchId(state, expected.m_sBatchId) == 1
+			&& CountGroupId(state, expected.m_sGroupId) == 1
+			&& CountMutationId(state, expected.m_sDebitMutationId) == 1
+			&& CountExternalOwnershipTransitionClaimants(
+				state,
+				expected.m_sOperationId) == 1;
+		string endpointEvidence;
+		bool endpointExact = ValidateExternalEndpointOwnershipAuthority(
+			state,
+			carrier,
+			endpointEvidence);
+
+		bool orderIdentityExact = order.m_sOperationId == expected.m_sOperationId
+			&& order.m_eType
+				== HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK
+			&& order.m_iOperationContractVersion
+				== HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION
+			&& order.m_sManifestId == expected.m_sManifestId
+			&& order.m_sManifestHash == expected.m_sManifestHash
+			&& order.m_sSpawnResultId == expected.m_sBatchId
+			&& order.m_sGroupId == expected.m_sGroupId
+			&& order.m_sFactionKey == expected.m_sFactionKey
+			&& order.m_sSourceZoneId == expected.m_sSourceZoneId
+			&& order.m_sTargetZoneId == expected.m_sTargetZoneId;
+		bool orderResourceExact
+			= order.m_sResourceDebitMutationId == expected.m_sDebitMutationId
+			&& order.m_iAttackCost == expected.m_iAttackCost
+			&& order.m_iSupportCost == expected.m_iSupportCost
+			&& !order.m_bResourceRefundApplied
+			&& !order.m_bResourceSettlementApplied
+			&& order.m_sResourceRefundMutationId.IsEmpty()
+			&& order.m_sResourceSettlementId.IsEmpty()
+			&& order.m_sResourceSettlementKind.IsEmpty();
+		bool orderLifecycleExact
+			= order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& order.m_bStrategicServiceCommitted
+			&& !order.m_bPhysicalized
+			&& order.m_bOutcomeApplied == outcomeApplied;
+		bool orderExact = orderIdentityExact && orderResourceExact
+			&& orderLifecycleExact;
+		if (outcomeApplied)
+		{
+			orderExact = orderExact
+				&& order.m_sResolutionKind == "exact_counterattack_recaptured"
+				&& order.m_sFailureReason.IsEmpty();
+		}
+		else
+		{
+			orderExact = orderExact && order.m_sResolutionKind.IsEmpty()
+				&& !order.m_sFailureReason.IsEmpty();
+		}
+
+		bool operationIdentityExact
+			= operation.m_sEnemyOrderId == expected.m_sOrderId
+			&& operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+			&& operation.m_iContractVersion
+				== HST_EnemyCounterattackOperationService.EXACT_CONTRACT_VERSION
+			&& operation.m_sManifestId == expected.m_sManifestId
+			&& operation.m_sSpawnResultId == expected.m_sBatchId
+			&& operation.m_sGroupId == expected.m_sGroupId
+			&& operation.m_sProjectionId == expected.m_sProjectionId
+			&& operation.m_sForceId == expected.m_sForceId
+			&& operation.m_sOwnerFactionKey == expected.m_sFactionKey
+			&& operation.m_sOriginZoneId == expected.m_sSourceZoneId
+			&& operation.m_sAssignmentZoneId == expected.m_sTargetZoneId;
+		bool operationLifecycleExact = operation.m_eDutyState == expectedDuty
+			&& operation.m_eResumeDutyState == expectedDuty
+			&& operation.m_eEngagementMode
+				== HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& operation.m_eSettlementState
+				== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& operation.m_eTerminalResult
+				== HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE
+			&& operation.m_sSettlementId.IsEmpty()
+			&& operation.m_sTerminalReason.IsEmpty();
+		bool operationExact = operationIdentityExact && operationLifecycleExact;
+		if (expectedDuty
+			== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+		{
+			operationExact = operationExact
+				&& operation.m_sTacticalTargetZoneId
+					== expected.m_sTargetZoneId
+				&& operation.m_sCurrentRouteId
+					== expected.m_sOperationId + "_outbound"
+				&& Math.AbsFloat(operation.m_fRouteProgressMeters
+					- operation.m_fRouteTotalDistanceMeters) <= 0.1
+				&& VectorExact(
+					operation.m_vStrategicPosition,
+					operation.m_vAssignmentPosition,
+					0.1);
+		}
+		else
+		{
+			operationExact = operationExact
+				&& operation.m_sTacticalTargetZoneId
+					== expected.m_sSourceZoneId
+				&& operation.m_sCurrentRouteId
+					== expected.m_sOperationId + "_return"
+				&& VectorExact(
+					operation.m_vRouteEndPosition,
+					operation.m_vOriginPosition,
+					0.1);
+		}
+
+		bool batchExact = batch.m_sManifestId == expected.m_sManifestId
+			&& batch.m_sOperationId == expected.m_sOperationId
+			&& batch.m_sResultId == expected.m_sBatchId
+			&& batch.m_sProjectionId == expected.m_sProjectionId
+			&& batch.m_sForceId == expected.m_sForceId
+			&& batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_PENDING
+			&& batch.m_bStrategicProjectionHeld
+			&& !batch.m_bExternalAssetAuthority
+			&& batch.m_sNativeGroupId.IsEmpty();
+		bool groupIdentityExact = group.m_sOperationId == expected.m_sOperationId
+			&& group.m_sManifestId == expected.m_sManifestId
+			&& group.m_sSpawnResultId == expected.m_sBatchId
+			&& group.m_sGroupId == expected.m_sGroupId
+			&& group.m_sProjectionId == expected.m_sProjectionId
+			&& group.m_sForceId == expected.m_sForceId
+			&& group.m_sEnemyOrderId == expected.m_sOrderId;
+		bool groupRuntimeExact = !group.m_bSpawnedEntity
+			&& group.m_sRuntimeEntityId.IsEmpty()
+			&& group.m_iSpawnedAgentCount == 0;
+		bool groupRosterExact
+			= group.m_iInfantryCount == expected.m_iLivingMemberCount
+			&& group.m_iDurableLivingInfantryCount
+				== expected.m_iLivingMemberCount;
+		bool aggregateExact = ValidateExternalVirtualManifest(manifest, expected)
+			&& batchExact && groupIdentityExact && groupRuntimeExact
+			&& groupRosterExact;
+		if (restoredNormalized)
+		{
+			aggregateExact = aggregateExact
+				&& group.m_sRuntimeStatus == "enemy_counterattack_virtual";
+		}
+		else if (outcomeApplied)
+		{
+			aggregateExact = aggregateExact
+				&& group.m_sRuntimeStatus
+					== "enemy_counterattack_virtual_returning";
+		}
+		else
+		{
+			aggregateExact = aggregateExact
+				&& group.m_sRuntimeStatus
+					== "enemy_counterattack_virtual_ownership_retry";
+		}
+		bool normalizationExact;
+		if (restoredNormalized)
+		{
+			bool normalizedOrderExact = !order.m_bAbstractResolved
+				&& order.m_sRuntimeStatus
+					== "exact_counterattack_restore_virtual";
+			bool normalizedOperationExact
+				= operation.m_iMaterializationStateEnteredAtSecond
+					== state.m_iElapsedSeconds
+				&& operation.m_iStrategicLastUpdateSecond
+					== state.m_iElapsedSeconds
+				&& operation.m_iVirtualCombatLastStepSecond
+					== state.m_iElapsedSeconds
+				&& operation.m_iLastProgressAtSecond
+					== state.m_iElapsedSeconds
+				&& operation.m_iArrivalConfirmationCount == 0
+				&& operation.m_iLastArrivalConfirmationSecond == 0
+				&& operation.m_sLastProjectionReason
+					== "restored exact counterattack as strategic authority";
+			bool normalizedBatchExact
+				= batch.m_iStrategicHoldSinceSecond == state.m_iElapsedSeconds
+				&& batch.m_iUpdatedAtSecond == state.m_iElapsedSeconds
+				&& batch.m_iLastLifecycleSecond == state.m_iElapsedSeconds
+				&& batch.m_iAttemptGeneration > 0
+				&& batch.m_iLifecycleRevision > 0;
+			bool normalizedGroupExact = VectorExact(
+					group.m_vPosition,
+					operation.m_vStrategicPosition,
+					0.1)
+				&& VectorExact(
+					group.m_vSourcePosition,
+					operation.m_vStrategicPosition,
+					0.1);
+			normalizationExact = normalizedOrderExact
+				&& normalizedOperationExact && normalizedBatchExact
+				&& normalizedGroupExact;
+		}
+		else if (outcomeApplied)
+		{
+			normalizationExact = !order.m_bAbstractResolved
+				&& order.m_sRuntimeStatus == "exact_virtual_returning";
+		}
+		else
+		{
+			normalizationExact = order.m_bAbstractResolved
+				&& order.m_sRuntimeStatus == "exact_virtual_ownership_retry";
+		}
+
+		bool poolExact = pool.m_iAttackResources
+				== expected.m_iExpectedAttackPool
+			&& pool.m_iSupportResources == expected.m_iExpectedSupportPool
+			&& pool.m_iStrategicOperationalMutationCount
+				== expected.m_iExpectedPoolOperationalMutationCount
+			&& pool.m_sLastStrategicMutationId == expected.m_sDebitMutationId;
+		bool resourceExact = poolExact
+			&& ValidateExternalDebit(state, order, pool, expected);
+		resourceExact = resourceExact
+			&& CountExternalSupportClaimants(state, expected) == 0;
+		resourceExact = resourceExact
+			&& CountExternalLegacyQRFClaimants(state, expected) == 0;
+
+		string receiptEvidence;
+		bool receiptExact = IsExternalCanonicalCounterattackOwnershipReceiptExact(
+			state,
+			carrier,
+			receiptCompleted,
+			receiptEvidence);
+		string casualtyEvidence;
+		bool casualtyExact = ValidateExternalCasualtyContinuity(
+			state,
+			carrier,
+			casualtyEvidence);
+		fingerprint = BuildExternalOwnerAppliedPendingFingerprint(state, carrier);
+		bool fingerprintExact = fingerprint
+			!= "external-counterattack-owner-applied-unavailable";
+		if (!receiptCompleted && !outcomeApplied)
+		{
+			if (restoredNormalized)
+			{
+				fingerprintExact = fingerprintExact
+					&& fingerprint == carrier.m_sPreparedSemanticFingerprint;
+			}
+			else
+			{
+				fingerprintExact = fingerprintExact
+					&& fingerprint == carrier.m_sRawPreparedCutSemanticFingerprint;
+			}
+		}
+		bool exact = rowsExact && endpointExact && orderExact && operationExact
+			&& aggregateExact && resourceExact && receiptExact && casualtyExact
+			&& normalizationExact && fingerprintExact;
+		evidence = string.Format(
+			"owner-applied lifecycle rows/endpoint/order/operation/aggregate %1/%2/%3/%4/%5",
+			rowsExact,
+			endpointExact,
+			orderExact,
+			operationExact,
+			aggregateExact);
+		evidence += string.Format(
+			" | resources/receipt/casualty/normalization/fingerprint %1/%2/%3/%4/%5 | %6",
+			resourceExact,
+			receiptExact,
+			casualtyExact,
+			normalizationExact,
+			fingerprintExact,
+			receiptEvidence);
+		return exact;
+	}
+
+	protected bool IsExternalCanonicalCounterattackOwnershipReceiptExact(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		bool completed,
+		out string evidence)
+	{
+		evidence = "canonical counterattack ownership receipt rejected";
+		if (!state || !carrier || !carrier.m_Expectation)
+			return false;
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= carrier.m_Expectation;
+		string requestId = "ownership_counterattack_" + expected.m_sOperationId;
+		HST_OwnershipTransitionState transition
+			= state.FindOwnershipTransition(requestId);
+		HST_ZoneState zone = state.FindZone(expected.m_sTargetZoneId);
+		if (!transition || !zone
+			|| CountOwnershipTransitionId(state, requestId) != 1)
+			return false;
+
+		bool identityExact = transition.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& transition.m_sRequestId == requestId
+			&& transition.m_sZoneId == expected.m_sTargetZoneId
+			&& transition.m_sCause == "military_capture"
+			&& transition.m_sSourceType == "enemy_counterattack"
+			&& transition.m_sSourceId == expected.m_sOperationId
+			&& transition.m_sActorIdentityId.IsEmpty()
+			&& transition.m_sReason
+				== "exact enemy counterattack recaptured the location";
+		bool ownerIdentityExact = transition.m_sExpectedOwnerFactionKey
+				== transition.m_sPreviousOwnerFactionKey
+			&& !transition.m_sPreviousOwnerFactionKey.IsEmpty()
+			&& transition.m_sPreviousOwnerFactionKey
+				!= transition.m_sNewOwnerFactionKey
+			&& transition.m_sNewOwnerFactionKey == expected.m_sFactionKey
+			&& transition.m_iExpectedRevision + 1
+				== transition.m_iAppliedRevision
+			&& transition.m_iAppliedRevision
+				== expected.m_iExpectedTargetOwnershipRevision;
+		identityExact = identityExact && ownerIdentityExact;
+		bool requestExact = transition.m_iSupportReward == 0
+			&& !transition.m_bApplyEnemyConsequences
+			&& transition.m_bReconcileSecurity
+			&& !transition.m_bCreateSecurity
+			&& transition.m_bNotify
+			&& transition.m_sProjectionParentRequestId.IsEmpty()
+			&& !transition.m_bQuarantined
+			&& transition.m_sFailureReason.IsEmpty();
+		bool checklistOwnerExact = transition.m_bValidated
+			&& transition.m_bOwnerApplied
+			&& transition.m_bTownPolicyApplied
+			&& transition.m_bOldSecurityRetired
+			&& transition.m_bHostileRuntimeRetired
+			&& transition.m_bNewSecurityApplied;
+		bool checklistResourceExact = transition.m_bSupportApplied
+			&& transition.m_bFacilitiesApplied
+			&& transition.m_bLogisticsApplied
+			&& transition.m_bEconomyApplied
+			&& transition.m_bEnemyConsequencesApplied;
+		bool checklistPublicationExact = transition.m_bStrategicEventCompleted
+			&& transition.m_bEventAppended
+			&& transition.m_bNotificationApplied
+			&& transition.m_bProjectionRequested
+			&& !transition.m_bDeferredPublicationReleased
+			&& !transition.m_bSetupProjectionWithoutMarkers
+			&& transition.m_bPersistenceRequested;
+		bool checklistExact = checklistOwnerExact && checklistResourceExact
+			&& checklistPublicationExact;
+		bool clockExact = transition.m_iCreatedAtSecond > 0
+			&& transition.m_iLastAttemptAtSecond >= transition.m_iCreatedAtSecond
+			&& transition.m_iLastAttemptAtSecond <= state.m_iElapsedSeconds
+			&& transition.m_iAttemptCount > 0;
+		bool completionExact;
+		bool backlinkExact;
+		if (completed)
+		{
+			completionExact = transition.m_sStatus == "completed"
+				&& transition.m_bCompleted
+				&& transition.m_iCompletedAtSecond
+					== transition.m_iLastAttemptAtSecond
+				&& transition.m_iCompletedAtSecond > 0;
+			backlinkExact = zone.m_sActiveOwnershipTransitionRequestId.IsEmpty()
+				&& zone.m_sLastOwnershipTransitionRequestId == requestId;
+		}
+		else
+		{
+			completionExact = transition.m_sStatus == "projecting"
+				&& !transition.m_bCompleted
+				&& transition.m_iCompletedAtSecond == 0;
+			backlinkExact
+				= zone.m_sActiveOwnershipTransitionRequestId == requestId
+				&& zone.m_sLastOwnershipTransitionRequestId.IsEmpty();
+		}
+		bool zoneExact = zone.m_sOwnerFactionKey == expected.m_sFactionKey
+			&& zone.m_iOwnershipContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& zone.m_iOwnershipRevision
+				== expected.m_iExpectedTargetOwnershipRevision
+			&& zone.m_sOwnershipAuthorityFailure.IsEmpty()
+			&& backlinkExact;
+
+		HST_StrategicEventState strategicEvent
+			= state.FindStrategicEvent(transition.m_sStrategicEventId);
+		bool eventIdentityExact = strategicEvent
+			&& strategicEvent.m_sKind == "zone_captured"
+			&& strategicEvent.m_sSourceType == "enemy_counterattack"
+			&& strategicEvent.m_sSourceId == expected.m_sOperationId
+			&& strategicEvent.m_sTargetZoneId == expected.m_sTargetZoneId;
+		bool eventCountExact = strategicEvent
+			&& CountExternalStrategicEventId(
+				state,
+				transition.m_sStrategicEventId) == 1
+			&& CountExternalCounterattackOwnershipStrategicEvents(
+				state,
+				expected.m_sOperationId,
+				expected.m_sTargetZoneId,
+				expected.m_sFactionKey) == 1;
+		bool eventOwnerExact = strategicEvent
+			&& strategicEvent.m_sTargetFactionKey
+				== transition.m_sPreviousOwnerFactionKey
+			&& strategicEvent.m_sOwnerBefore
+				== transition.m_sPreviousOwnerFactionKey
+			&& strategicEvent.m_sOwnerAfter == expected.m_sFactionKey
+			&& strategicEvent.m_bApplied;
+		bool eventExact = eventIdentityExact && eventCountExact && eventOwnerExact;
+		bool exact = identityExact && requestExact && checklistExact;
+		exact = exact && clockExact && completionExact && zoneExact && eventExact;
+		evidence = string.Format(
+			"ownership receipt identity/request/checklist/clock/completion/zone/event %1/%2/%3/%4/%5/%6/%7",
+			identityExact,
+			requestExact,
+			checklistExact,
+			clockExact,
+			completionExact,
+			zoneExact,
+			eventExact);
+		return exact;
+	}
+
+	protected string BuildExternalOwnerAppliedPendingFingerprint(
+		HST_CampaignState state,
+		HST_EnemyCounterattackExternalRestartCarrier carrier)
+	{
+		if (!state || !carrier || !carrier.m_Expectation)
+			return "external-counterattack-owner-applied-unavailable";
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= carrier.m_Expectation;
+		HST_OwnershipTransitionState transition = state.FindOwnershipTransition(
+			"ownership_counterattack_" + expected.m_sOperationId);
+		if (!transition)
+			return "external-counterattack-owner-applied-unavailable";
+		HST_StrategicEventState strategicEvent
+			= state.FindStrategicEvent(transition.m_sStrategicEventId);
+		if (!strategicEvent)
+			return "external-counterattack-owner-applied-unavailable";
+		string aggregate = BuildExternalCanonicalFingerprint(state, carrier, true);
+		if (aggregate == "external-counterattack-semantic-unavailable")
+			return "external-counterattack-owner-applied-unavailable";
+		return aggregate + " | ownership transition "
+			+ BuildExternalOwnershipTransitionSemanticRow(transition)
+			+ " | ownership strategic event "
+			+ BuildExternalStrategicEventSemanticRow(strategicEvent)
+			+ " | ownership strategic source events "
+			+ CountExternalCounterattackOwnershipStrategicEvents(
+				state,
+				expected.m_sOperationId,
+				expected.m_sTargetZoneId,
+				expected.m_sFactionKey).ToString();
+	}
+
+	protected string BuildExternalOwnershipTransitionSemanticRow(
+		HST_OwnershipTransitionState transition)
+	{
+		if (!transition)
+			return "null";
+		string row = string.Format(
+			"%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			transition.m_iContractVersion,
+			transition.m_sStatus,
+			transition.m_sRequestId,
+			transition.m_sZoneId,
+			transition.m_sCause,
+			transition.m_sSourceType,
+			transition.m_sSourceId,
+			BuildExternalCanonicalOptionalText(transition.m_sActorIdentityId),
+			transition.m_sReason);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			transition.m_sExpectedOwnerFactionKey,
+			transition.m_iExpectedRevision,
+			transition.m_sPreviousOwnerFactionKey,
+			transition.m_sNewOwnerFactionKey,
+			transition.m_iAppliedRevision,
+			transition.m_iSupportReward,
+			transition.m_bApplyEnemyConsequences,
+			transition.m_bReconcileSecurity,
+			transition.m_bCreateSecurity);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			transition.m_bNotify,
+			transition.m_iCreatedAtSecond,
+			transition.m_iLastAttemptAtSecond,
+			transition.m_iCompletedAtSecond,
+			transition.m_iAttemptCount,
+			transition.m_sStrategicEventId,
+			BuildExternalCanonicalOptionalText(transition.m_sCampaignEventId),
+			BuildExternalCanonicalOptionalText(transition.m_sOldGarrisonId),
+			BuildExternalCanonicalOptionalText(transition.m_sNewGarrisonId));
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			BuildExternalCanonicalOptionalText(transition.m_sSecurityDecision),
+			BuildExternalCanonicalOptionalText(
+				transition.m_sFacilityLogisticsDecision),
+			BuildExternalCanonicalOptionalText(
+				transition.m_sEnemyConsequenceDecision),
+			BuildExternalCanonicalOptionalText(transition.m_sEnemyOrderId),
+			BuildExternalCanonicalOptionalText(transition.m_sProjectionDecision),
+			BuildExternalCanonicalOptionalText(
+				transition.m_sProjectionParentRequestId),
+			BuildExternalCanonicalOptionalText(transition.m_sMarkerId),
+			transition.m_iMarkerProjectionEpoch,
+			transition.m_iMarkerRevision);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			transition.m_iMarkerStreamSequence,
+			transition.m_iAggressionApplied,
+			transition.m_iCounterattackChance,
+			transition.m_iCounterattackRoll,
+			transition.m_bCounterattackSelected,
+			transition.m_bCounterattackQueued,
+			BuildExternalStringArraySemanticRow(transition.m_aSupportZoneIds),
+			BuildExternalStringArraySemanticRow(
+				transition.m_aAppliedSupportZoneIds),
+			transition.m_bValidated);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			transition.m_bOwnerApplied,
+			transition.m_bTownPolicyApplied,
+			transition.m_bOldSecurityRetired,
+			transition.m_bHostileRuntimeRetired,
+			transition.m_bNewSecurityApplied,
+			transition.m_bSupportApplied,
+			transition.m_bFacilitiesApplied,
+			transition.m_bLogisticsApplied,
+			transition.m_bEconomyApplied);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			transition.m_bEnemyConsequencesApplied,
+			transition.m_bStrategicEventCompleted,
+			transition.m_bEventAppended,
+			transition.m_bNotificationApplied,
+			transition.m_bProjectionRequested,
+			transition.m_bDeferredPublicationReleased,
+			transition.m_bSetupProjectionWithoutMarkers,
+			transition.m_bPersistenceRequested,
+			transition.m_bCompleted);
+		return row + string.Format(
+			"|%1|%2",
+			transition.m_bQuarantined,
+			BuildExternalCanonicalOptionalText(transition.m_sFailureReason));
+	}
+
+	protected string BuildExternalStrategicEventSemanticRow(
+		HST_StrategicEventState strategicEvent)
+	{
+		if (!strategicEvent)
+			return "null";
+		string row = string.Format(
+			"%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			strategicEvent.m_sEventId,
+			strategicEvent.m_sKind,
+			strategicEvent.m_sSourceType,
+			strategicEvent.m_sSourceId,
+			BuildExternalCanonicalOptionalText(strategicEvent.m_sMissionId),
+			BuildExternalCanonicalOptionalText(
+				strategicEvent.m_sMissionInstanceId),
+			strategicEvent.m_sTargetZoneId,
+			strategicEvent.m_sTargetFactionKey,
+			strategicEvent.m_sReason);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			BuildExternalCanonicalOptionalText(strategicEvent.m_sSummary),
+			strategicEvent.m_iCreatedAtSecond,
+			strategicEvent.m_iFactionMoneyDelta,
+			strategicEvent.m_iHRDelta,
+			strategicEvent.m_iAggressionDelta,
+			strategicEvent.m_iAttackResourceDelta,
+			strategicEvent.m_iSupportResourceDelta,
+			strategicEvent.m_iTownSupportDelta,
+			strategicEvent.m_iCaptureProgressDelta);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			strategicEvent.m_iHQKnowledgeDelta,
+			strategicEvent.m_sOwnerBefore,
+			strategicEvent.m_sOwnerAfter,
+			strategicEvent.m_iSupportBefore,
+			strategicEvent.m_iSupportAfter,
+			strategicEvent.m_iCaptureProgressBefore,
+			strategicEvent.m_iCaptureProgressAfter,
+			strategicEvent.m_iHQKnowledgeBefore,
+			strategicEvent.m_iHQKnowledgeAfter);
+		row += string.Format(
+			"|%1|%2|%3|%4|%5|%6|%7|%8|%9",
+			BuildExternalCanonicalOptionalText(strategicEvent.m_sVehicleRuntimeId),
+			strategicEvent.m_iVehicleHeatBefore,
+			strategicEvent.m_iVehicleHeatAfter,
+			strategicEvent.m_iVehicleHeatDelta,
+			strategicEvent.m_bVehicleReportedBefore,
+			strategicEvent.m_bVehicleReportedAfter,
+			strategicEvent.m_iVehicleReportedUntilBefore,
+			strategicEvent.m_iVehicleReportedUntilAfter,
+			strategicEvent.m_iVehicleReportedUntilDelta);
+		return row + string.Format("|%1", strategicEvent.m_bApplied);
+	}
+
+	protected string BuildExternalStringArraySemanticRow(array<string> values)
+	{
+		if (!values)
+			return "null";
+		string row = values.Count().ToString() + ":";
+		bool first = true;
+		foreach (string value : values)
+		{
+			if (!first)
+				row += ",";
+			row += value;
+			first = false;
+		}
+		return row;
+	}
+
+	protected int CountExternalStrategicEventId(
+		HST_CampaignState state,
+		string eventId)
+	{
+		int count;
+		if (!state || eventId.IsEmpty())
+			return count;
+		foreach (HST_StrategicEventState strategicEvent : state.m_aStrategicEvents)
+		{
+			if (strategicEvent && strategicEvent.m_sEventId == eventId)
+				count++;
+		}
+		return count;
+	}
+
+	protected int CountExternalCounterattackOwnershipStrategicEvents(
+		HST_CampaignState state,
+		string operationId,
+		string targetZoneId,
+		string ownerFactionKey)
+	{
+		int count;
+		if (!state || operationId.IsEmpty() || targetZoneId.IsEmpty()
+			|| ownerFactionKey.IsEmpty())
+			return count;
+		foreach (HST_StrategicEventState strategicEvent : state.m_aStrategicEvents)
+		{
+			if (strategicEvent
+				&& strategicEvent.m_sKind == "zone_captured"
+				&& strategicEvent.m_sSourceType == "enemy_counterattack"
+				&& strategicEvent.m_sSourceId == operationId
+				&& strategicEvent.m_sTargetZoneId == targetZoneId
+				&& strategicEvent.m_sOwnerAfter == ownerFactionKey
+				&& strategicEvent.m_bApplied)
+				count++;
+		}
+		return count;
+	}
+
 	bool PrepareExternalPreparedSettlementRestartCarrier(
 		string sessionNonce,
 		string runId,

@@ -269,6 +269,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bExactCounterattackRestartSourceExact;
 	protected bool m_bExactCounterattackRestartPreparedCutExact;
 	protected bool m_bExactCounterattackRestartStartupReconcileChanged;
+	protected bool m_bExactCounterattackRestartOwnershipStartupReconcileChanged;
 	protected string m_sExactCounterattackRestartCLIStage;
 	protected string m_sExactCounterattackRestartCLIRunId;
 	protected string m_sExactCounterattackRestartCLICut;
@@ -813,7 +814,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_ResourceLedger)
 			m_ResourceLedger.ReconcileOpenReservations(m_State, m_Economy);
 		if (m_OwnershipTransitions)
-			m_OwnershipTransitions.ReconcileAfterRestore(m_State);
+		{
+			m_bExactCounterattackRestartOwnershipStartupReconcileChanged
+				= m_OwnershipTransitions.ReconcileAfterRestore(m_State);
+		}
 		// Schema-64 migration/remap and due-expiry maintenance must complete
 		// before the restored state is captured under the current schema.
 		if (m_TownInfluence)
@@ -6524,7 +6528,29 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool preparedSettlementCut
 			= HST_EnemyCounterattackExternalRestartProofService
 				.IsPreparedSettlementCut(m_sExactCounterattackRestartCLICut);
-		if (preparedSettlementCut
+		bool ownerAppliedPendingCut
+			= HST_EnemyCounterattackExternalRestartProofService
+				.IsOwnerAppliedPendingCut(m_sExactCounterattackRestartCLICut);
+		if (ownerAppliedPendingCut
+			&& m_sExactCounterattackRestartCLIStage == "recover")
+		{
+			m_bExactCounterattackRestartSourceExact
+				= proof.ValidateExternalOwnerAppliedPendingState(
+					sourceState,
+					m_ExactCounterattackRestartCarrier,
+					m_sExactCounterattackRestartSourceFingerprint,
+					validationEvidence);
+		}
+		else if (ownerAppliedPendingCut)
+		{
+			m_bExactCounterattackRestartSourceExact
+				= proof.ValidateExternalOwnerAppliedReturningState(
+					sourceState,
+					m_ExactCounterattackRestartCarrier,
+					m_sExactCounterattackRestartSourceFingerprint,
+					validationEvidence);
+		}
+		else if (preparedSettlementCut
 			&& m_sExactCounterattackRestartCLIStage == "recover")
 		{
 			m_bExactCounterattackRestartSourceExact
@@ -6653,6 +6679,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bRestored = m_State && m_State.m_bRestoredFromPersistence;
 		result.m_bStartupReconcileChanged
 			= m_bExactCounterattackRestartStartupReconcileChanged;
+		result.m_bOwnershipStartupReconcileChanged
+			= m_bExactCounterattackRestartOwnershipStartupReconcileChanged;
 		result.m_bSourceExact = m_bExactCounterattackRestartSourceExact;
 		if (m_ExactCounterattackRestartCarrier)
 		{
@@ -6759,6 +6787,53 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		evidence = "prepared-cut result exact | " + loadEvidence;
 		return true;
+	}
+
+	protected bool TrackExactCounterattackOwnerAppliedPending(
+		HST_EnemyCounterattackOperationProofService proof,
+		HST_CampaignState stagedState,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "owner-applied pending cut unavailable";
+		if (!proof || !stagedState || !carrier
+			|| !HST_EnemyCounterattackExternalRestartProofService
+				.IsOwnerAppliedPendingCut(carrier.m_sCutName))
+			return false;
+
+		string rawFingerprint;
+		string rawEvidence;
+		if (!proof.ValidateExternalOwnerAppliedRawPendingState(
+			stagedState,
+			carrier,
+			rawFingerprint,
+			rawEvidence)
+			|| rawFingerprint != carrier.m_sRawPreparedCutSemanticFingerprint)
+		{
+			evidence = "raw owner-applied pending validation " + rawEvidence;
+			return false;
+		}
+
+		m_State = stagedState;
+		HST_CampaignSaveData tracked = m_Persistence.CaptureAndTrackState(
+			m_State,
+			"external exact counterattack owner-applied pending cut armed");
+		if (!tracked)
+		{
+			evidence = "owner-applied pending cut could not be tracked";
+			return false;
+		}
+
+		string trackedFingerprint;
+		string trackedEvidence;
+		bool exact = proof.ValidateExternalOwnerAppliedRawPendingState(
+			m_State,
+			carrier,
+			trackedFingerprint,
+			trackedEvidence)
+			&& trackedFingerprint == rawFingerprint;
+		evidence = "raw " + rawEvidence + " | tracked " + trackedEvidence;
+		return exact;
 	}
 
 	protected bool TrackExactCounterattackRawPreparedCut(
@@ -7743,8 +7818,24 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool preparedSettlementCut
 			= HST_EnemyCounterattackExternalRestartProofService
 				.IsPreparedSettlementCut(m_sExactCounterattackRestartCLICut);
+		bool ownerAppliedPendingCut
+			= HST_EnemyCounterattackExternalRestartProofService
+				.IsOwnerAppliedPendingCut(m_sExactCounterattackRestartCLICut);
 		bool prepared;
-		if (preparedSettlementCut)
+		if (ownerAppliedPendingCut)
+		{
+			prepared = proof.PrepareExternalOwnerAppliedPendingRestartCarrier(
+				m_sExactCounterattackRestartCLISessionNonce,
+				m_sExactCounterattackRestartCLIRunId,
+				HST_EnemyCounterattackExternalRestartProofService
+					.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+				m_sExactCounterattackRestartCLICut,
+				stagedState,
+				carrier,
+				prepareEvidence);
+			persistenceSourceState = stagedState;
+		}
+		else if (preparedSettlementCut)
 		{
 			prepared = proof.PrepareExternalPreparedSettlementRestartCarrier(
 				m_sExactCounterattackRestartCLISessionNonce,
@@ -7812,7 +7903,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		string readBackFingerprint;
 		string readBackEvidence;
 		bool readBackExact;
-		if (persisted && preparedSettlementCut)
+		if (persisted && ownerAppliedPendingCut)
+		{
+			readBackExact = proof.ValidateExternalOwnerAppliedPendingState(
+				readBackState,
+				carrier,
+				readBackFingerprint,
+				readBackEvidence);
+		}
+		else if (persisted && preparedSettlementCut)
 		{
 			readBackExact = proof.ValidateExternalPreparedSettlementState(
 				readBackState,
@@ -7832,7 +7931,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& readBackFingerprint == carrier.m_sPreparedSemanticFingerprint;
 		string casualtyEvidence;
 		bool casualtyContinuityExact = readBackExact;
-		if (readBackExact && preparedSettlementCut)
+		if (readBackExact && ownerAppliedPendingCut)
+			casualtyEvidence = "owner-applied pending aggregate authority exact";
+		else if (readBackExact && preparedSettlementCut)
 			casualtyEvidence = "prepared settlement survivor authority exact";
 		else if (readBackExact)
 		{
@@ -7845,7 +7946,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			&& readBackFingerprint != carrier.m_sPreparedSemanticFingerprint)
 		{
 			bool preparedStillExact;
-			if (preparedSettlementCut)
+			if (ownerAppliedPendingCut)
+			{
+				string ownerPendingDiagnosticFingerprint;
+				string ownerPendingDiagnosticEvidence;
+				preparedStillExact
+					= proof.ValidateExternalOwnerAppliedRawPendingState(
+						persistenceSourceState,
+						carrier,
+						ownerPendingDiagnosticFingerprint,
+						ownerPendingDiagnosticEvidence)
+					&& ownerPendingDiagnosticFingerprint
+						== carrier.m_sRawPreparedCutSemanticFingerprint;
+				readBackEvidence += " | owner pending diagnostic "
+					+ ownerPendingDiagnosticEvidence;
+			}
+			else if (preparedSettlementCut)
 			{
 				string preparedDiagnosticFingerprint;
 				string preparedDiagnosticEvidence;
@@ -7872,7 +7988,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				" | prepared current %1 | readback carrier %2 | ",
 				preparedStillExact,
 				readBackFingerprint == carrier.m_sPreparedSemanticFingerprint);
-			if (!preparedSettlementCut)
+			if (!preparedSettlementCut && !ownerAppliedPendingCut)
 			{
 				readBackEvidence += proof.BuildExternalSemanticDifferenceEvidence(
 					persistenceSourceState,
@@ -7892,7 +8008,15 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool preparedCutExact;
 		if (runtimeZero)
 		{
-			if (preparedSettlementCut)
+			if (ownerAppliedPendingCut)
+			{
+				preparedCutExact = TrackExactCounterattackOwnerAppliedPending(
+					proof,
+					stagedState,
+					carrier,
+					rawCutEvidence);
+			}
+			else if (preparedSettlementCut)
 			{
 				preparedCutExact = TrackExactCounterattackPreparedSettlement(
 					proof,
@@ -8101,8 +8225,246 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		SaveExactCounterattackRestartResult(result);
 	}
 
+	protected void FinalizeExactCounterattackOwnerAppliedPendingRestartVerify()
+	{
+		HST_EnemyCounterattackExternalRestartResult result
+			= CreateExactCounterattackRestartResult();
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		bool recoverStage
+			= m_sExactCounterattackRestartCLIStage == "recover";
+		bool replayStage
+			= m_sExactCounterattackRestartCLIStage == "replay";
+		string sourceFingerprint = m_sExactCounterattackRestartSourceFingerprint;
+		bool sourceExact = m_bExactCounterattackRestartSourceExact
+			&& m_bExactCounterattackRestartPreparedCutExact
+			&& !sourceFingerprint.IsEmpty()
+			&& sourceFingerprint
+				== m_sExactCounterattackRestartExpectedFingerprint;
+		bool ownershipStartupExact = recoverStage
+			&& m_bExactCounterattackRestartOwnershipStartupReconcileChanged;
+		if (replayStage)
+		{
+			ownershipStartupExact
+				= !m_bExactCounterattackRestartOwnershipStartupReconcileChanged;
+		}
+
+		string startupFingerprint;
+		string startupEvidence;
+		bool startupStateExact;
+		if (recoverStage)
+		{
+			startupStateExact
+				= proof.ValidateExternalOwnerAppliedCompletedAwaitingOutcomeState(
+					m_State,
+					m_ExactCounterattackRestartCarrier,
+					startupFingerprint,
+					startupEvidence);
+		}
+		else if (replayStage)
+		{
+			startupStateExact = proof.ValidateExternalOwnerAppliedReturningState(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				startupFingerprint,
+				startupEvidence);
+		}
+
+		string runtimeStateFingerprint;
+		string continuationEvidence;
+		bool continuationExact;
+		bool semanticNoOp;
+		if (sourceExact && ownershipStartupExact && startupStateExact
+			&& recoverStage)
+		{
+			continuationExact
+				= proof.AdvanceExternalOwnerAppliedPendingRecovery(
+					m_State,
+					m_Preset,
+					m_EnemyDirector,
+					m_EnemyCounterattackOperations,
+					m_OwnershipTransitions,
+					m_ExactCounterattackRestartCarrier,
+					runtimeStateFingerprint,
+					continuationEvidence);
+			// The recovery helper includes an immediate second ownership
+			// reconciliation and only succeeds when it is a semantic no-op.
+			semanticNoOp = continuationExact;
+		}
+		else if (sourceExact && ownershipStartupExact && startupStateExact
+			&& replayStage)
+		{
+			semanticNoOp = proof.ValidateExternalOwnerAppliedPendingReplay(
+				m_State,
+				m_OwnershipTransitions,
+				m_ExactCounterattackRestartCarrier,
+				runtimeStateFingerprint,
+				continuationEvidence);
+		}
+
+		string runtimeStateEvidence;
+		string validatedRuntimeStateFingerprint;
+		bool runtimeStateExact;
+		if (continuationExact && recoverStage)
+		{
+			runtimeStateExact = proof.ValidateExternalOwnerAppliedRawReturningState(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				validatedRuntimeStateFingerprint,
+				runtimeStateEvidence)
+				&& validatedRuntimeStateFingerprint == runtimeStateFingerprint;
+		}
+		else if (semanticNoOp && replayStage)
+		{
+			runtimeStateExact = proof.ValidateExternalOwnerAppliedReturningState(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				validatedRuntimeStateFingerprint,
+				runtimeStateEvidence)
+				&& validatedRuntimeStateFingerprint == runtimeStateFingerprint;
+		}
+
+		string runtimeEvidence;
+		bool runtimeZero = runtimeStateExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				runtimeEvidence);
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		bool persisted;
+		if (runtimeZero && recoverStage)
+		{
+			persisted = m_Persistence.WriteProfileFallbackProofSnapshot(
+				m_State,
+				"external exact counterattack owner-applied restart state",
+				readBackState,
+				persistenceEvidence);
+		}
+		else if (runtimeZero && replayStage)
+		{
+			// Re-read the recovery process's raw RETURNING snapshot. Rewriting the
+			// already-normalized replay state would apply restore bookkeeping twice.
+			persisted = m_Persistence.ReadProfileFallbackProofSnapshot(
+				readBackState,
+				persistenceEvidence);
+		}
+		string readBackFingerprint;
+		string readBackEvidence;
+		bool persistedReadBackExact = persisted
+			&& proof.ValidateExternalOwnerAppliedReturningState(
+				readBackState,
+				m_ExactCounterattackRestartCarrier,
+				readBackFingerprint,
+				readBackEvidence);
+		bool readBackStateExact = persistedReadBackExact;
+		string finalFingerprint = readBackFingerprint;
+		bool sourceFinalDiffer = sourceFingerprint != finalFingerprint;
+		bool runtimeFinalDiffer = runtimeStateFingerprint != finalFingerprint;
+		bool fingerprintChainExact;
+		if (persistedReadBackExact && recoverStage)
+		{
+			// Raw and restored RETURNING rows differ only in process-local
+			// bookkeeping, which the semantic fingerprint deliberately excludes.
+			fingerprintChainExact = sourceFinalDiffer && !runtimeFinalDiffer;
+		}
+		else if (persistedReadBackExact && replayStage)
+		{
+			fingerprintChainExact = sourceFingerprint == finalFingerprint
+				&& startupFingerprint == finalFingerprint
+				&& runtimeStateFingerprint == finalFingerprint;
+		}
+		persistedReadBackExact = persistedReadBackExact
+			&& fingerprintChainExact;
+		string readBackRuntimeEvidence;
+		persistedReadBackExact = persistedReadBackExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				readBackState,
+				m_ExactCounterattackRestartCarrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				readBackRuntimeEvidence);
+		if (recoverStage)
+		{
+			continuationExact = continuationExact && runtimeStateExact
+				&& persistedReadBackExact;
+			semanticNoOp = semanticNoOp && continuationExact;
+		}
+		else if (replayStage)
+		{
+			semanticNoOp = semanticNoOp && runtimeStateExact
+				&& persistedReadBackExact;
+		}
+		if (persistedReadBackExact)
+		{
+			m_State = readBackState;
+			m_Persistence.CaptureAndTrackState(
+				m_State,
+				"external exact counterattack owner-applied carrier tracked");
+		}
+
+		result.m_bSourceExact = sourceExact;
+		result.m_bContinuationExact = recoverStage && continuationExact;
+		result.m_bSameStateSemanticNoOp = semanticNoOp;
+		result.m_bRuntimeClaimantsZero = runtimeZero
+			&& persistedReadBackExact;
+		result.m_bPersistedReadBackExact = persistedReadBackExact;
+		result.m_bPreparedCutExact = sourceExact;
+		result.m_bCasualtyContinuityExact = startupStateExact
+			&& runtimeStateExact && persistedReadBackExact;
+		if (m_ExactCounterattackRestartCarrier)
+		{
+			result.m_fProgressBeforeMeters
+				= m_ExactCounterattackRestartCarrier
+					.m_fPreparedRouteProgressMeters;
+			result.m_fProgressAfterMeters
+				= m_ExactCounterattackRestartCarrier
+					.m_fPreparedRouteProgressMeters;
+		}
+		result.m_sSourceSemanticFingerprint = sourceFingerprint;
+		result.m_sFinalSemanticFingerprint = finalFingerprint;
+		result.m_bSuccess = sourceExact && ownershipStartupExact
+			&& startupStateExact && runtimeStateExact && semanticNoOp;
+		result.m_bSuccess = result.m_bSuccess && runtimeZero
+			&& persistedReadBackExact;
+		if (recoverStage)
+			result.m_bSuccess = result.m_bSuccess && continuationExact;
+		result.m_sEvidence = string.Format(
+			"gates source/startup/runtime/persist/readback-state/source-diff/runtime-diff/chain/readback %1/%2/%3/%4/%5/%6/%7/%8/%9",
+			sourceExact,
+			startupStateExact,
+			runtimeStateExact,
+			persisted,
+			readBackStateExact,
+			sourceFinalDiffer,
+			runtimeFinalDiffer,
+			fingerprintChainExact,
+			persistedReadBackExact);
+		result.m_sEvidence += string.Format(
+			" | continuation/noop %1/%2",
+			continuationExact,
+			semanticNoOp);
+		result.m_sEvidence += " | readback " + readBackEvidence
+			+ " | readback runtime " + readBackRuntimeEvidence;
+		result.m_sEvidence += " | persistence " + persistenceEvidence;
+		result.m_sEvidence += " | continuation " + continuationEvidence
+			+ " | runtime state " + runtimeStateEvidence
+			+ " | runtime " + runtimeEvidence;
+		result.m_sEvidence += " | startup " + startupEvidence
+			+ " | source " + m_sExactCounterattackRestartSourceEvidence;
+		SaveExactCounterattackRestartResult(result);
+	}
+
 	protected void FinalizeExactCounterattackExternalRestartVerify()
 	{
+		if (HST_EnemyCounterattackExternalRestartProofService
+			.IsOwnerAppliedPendingCut(m_sExactCounterattackRestartCLICut))
+		{
+			FinalizeExactCounterattackOwnerAppliedPendingRestartVerify();
+			return;
+		}
 		if (HST_EnemyCounterattackExternalRestartProofService
 			.IsPreparedSettlementCut(m_sExactCounterattackRestartCLICut))
 		{
