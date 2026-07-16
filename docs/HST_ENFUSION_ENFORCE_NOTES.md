@@ -1,16 +1,56 @@
 # Partisan Enfusion / Enforce Notes
 
 Current implementation/source identity:
-`008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC `2026-07-16T13:07:11Z`, label
-`schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, stamp
-commit `776523b75c3c98ececb8405f411d6af6b64370a3`. Campaign Schema 70 and runtime-
+`541a79f7e5f49394c6f78a630d9e05340c8e2959`, UTC `2026-07-16T15:31:05Z`, label
+`schema70-settings24-counterattack-ownership-pre-reconcile-fence`, stamp commit
+`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Campaign Schema 70 and runtime-
 settings Schema 24 remain unchanged. Final stamped Foundation passes 819.
-Workbench loads 5,832 Game files/11,835 classes at CRC `3131538f`, exits `0`,
-reports `ScriptValidation true` with zero errors, and cleans exactly. All seven
-guarded process chains/21 stages pass on build `008cd481d5e5`, exit `0`, preserve
-exact fingerprint continuity, and leave all cleanup counters at zero.
+Workbench passes 5,832 Game files/11,835 classes at CRC `61930e5a`; the exact
+focused engine case passes 1/1 with zero failure/error/skip, stamped identity
+evidence, and exact cleanup.
 
-## Current Exact Enemy-Response Endpoint and Restart Mechanics
+## Current Counterattack Ownership Restore Mechanics
+
+Restore ordering is an authority boundary:
+
+1. Normalize generic ownership rows and backlinks.
+2. Correlate counterattack claimants and validate their lifecycle/fingerprint.
+3. Only then allow runtime ownership reconciliation to resume or publish work.
+
+Treat `ownership_counterattack_<operationId>` request ID OR exact operation
+source ID as one claimant declaration; never count the same row twice. Reverse
+orphan detection also treats the counterattack source type, request prefix, or a
+source ID naming an exact counterattack operation as a declaration. A claimant
+requires one reciprocal exact order/operation aggregate.
+
+Legal state is narrow. Uncommitted or pre-recapture state has zero claimants.
+An active, open, clear-engagement, on-station operation may have zero or one
+exact pending/completed receipt only while projection authority is
+`STRATEGIC` with `VIRTUAL`/`MATERIALIZING`, or `LIVE` with
+`PHYSICAL`/`DEMATERIALIZING`. Returning, outcome-applied/recaptured, or
+recapture-requiring settlement needs exactly one completed immutable receipt.
+The receipt/zone active-or-last backlink and expected/applied owner/revision
+must agree. Later ordinary recapture may make a completed receipt historical;
+it does not invalidate the original event or authorize an incomplete row.
+
+Fail closed on premature, engaged, foreign-fingerprint, duplicate, missing-
+required, orphaned, or malformed authority. Use the ownership validator's
+transition/zone/marker relational quarantine so the first durable failure is
+preserved and backlinks converge. Then quarantine the exact counterattack order
+at `-69` and hold its operation/manifest/batch/group/evidence. Do not repair
+ambiguity by choosing a row, applying ownership, refunding, settling, cancelling,
+deleting, or inventing an outcome.
+
+Focused service-only autotests should override `GetWorldFile()` to return an
+empty resource when they do not consume a world. The base autotest scenario
+transition carries only the base addon list and can otherwise drop project test
+types before JUnit is written. Guard the runner with suspended launch, assign-
+before-resume kill-on-close containment, exact native argument verification,
+exact non-skipped JUnit identity, one empty failed-list artifact, recursive
+reparse-rejecting external census, and guard-root-only deletion after owned
+process quiescence. Never terminate engine processes outside the owned job.
+
+## Preceding Exact Enemy-Response Endpoint and Restart Mechanics
 
 Exact defensive QRF, counterattack, and garrison-rebuild capture is fail-closed
 around process-local authority. `DEMATERIALIZING` is rejected before civilian
@@ -135,10 +175,10 @@ run nonce and sentinel.
 Foundation statically covers the shared defensive-QRF and garrison-rebuild
 persistence wrappers and their process-field, roster, and position normalization.
 Only counterattack has the fresh native `PHYSICAL` restart cut. Do not describe
-this as cross-family native proof or uniform resource-ledger parity. Next decide
-and implement lifecycle-aware pre-reconcile correlation and quarantine for an
-orphan or pending counterattack-owned ownership transition. The current proof
-requires claimant absence; it does not repair production correlation. Durable
+this as cross-family native proof or uniform resource-ledger parity. The current
+mechanics above now implement the lifecycle-aware pre-reconcile correlation and
+quarantine policy that was open here. This preceding proof required claimant
+absence and did not repair production correlation. Durable
 endpoint ABA snapshots are a separate Schema-71/contract-2 decision. Native
 persistence-source selection, world scope, package/live server-client,
 networking, broader migration, multiplayer/JIP/reconnect, marker runtime,

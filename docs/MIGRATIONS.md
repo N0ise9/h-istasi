@@ -1,15 +1,37 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`008cd481d5e55b43c7afc902cd5e906cbb297415`, UTC `2026-07-16T13:07:11Z`, label
-`schema70-settings24-counterattack-endpoint-owner-claimant-restart-proof`, stamp
-commit `776523b75c3c98ececb8405f411d6af6b64370a3`. Final stamped Foundation passes
-819. Workbench loads 5,832 Game files/11,835 classes at CRC `3131538f`, exits `0`,
-reports `ScriptValidation true` with zero errors, and cleans exactly. All seven
-guarded restart chains/21 stages pass on build `008cd481d5e5` with zero exits,
-exact fingerprint continuity, and all cleanup counters zero.
+`541a79f7e5f49394c6f78a630d9e05340c8e2959`, UTC `2026-07-16T15:31:05Z`, label
+`schema70-settings24-counterattack-ownership-pre-reconcile-fence`, stamp commit
+`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Final stamped Foundation passes
+819; Workbench passes 5,832 Game files/11,835 classes at CRC `61930e5a`; and the
+exact focused engine case passes 1/1 with stamped identity evidence and zero
+cleanup.
 
 ## Current Schema
+
+`HST_CampaignState.SCHEMA_VERSION` remains `70` and
+`HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. The ownership pre-reconcile
+fence adds no serialized field, enum ordinal, contract version, or migration
+step.
+
+Current exact counterattack ownership rows are normalized by the generic
+ownership validator and then correlated against their counterattack aggregate
+before runtime reconciliation. Incomplete pre-69 rows that declare
+counterattack ownership are quarantined as unsafe to resume before historical
+preservation. Current premature, engaged, duplicate, foreign, orphaned, or
+malformed rows likewise quarantine the transition/zone/marker/order graph and
+hold reciprocal evidence. Completed exact receipts remain immutable historical
+events after durable outcome or later ordinary recapture.
+
+Migration and restore never synthesize a missing receipt, owner change, refund,
+settlement, cancellation, deletion, or outcome. This is conservative
+current-shape validation, not promotion of legacy contract-zero history. Fresh-
+process owner-applied-incomplete receipt proof remains open, as do older-save
+execution, native persistence-source, package/live-server, network/JIP,
+performance, and soak gates.
+
+## Preceding Endpoint Restart Schema-Neutral Evidence
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. This checkpoint adds no
@@ -84,9 +106,9 @@ finish with exact readback and zero owned process, profile, log, temporary,
 guard, spill, mutex, adapter/PhysicalWar claimant, or cleanup residue. The
 independent census finds zero engine processes and guard roots with both proof
 mutexes free. Defensive-QRF and garrison-rebuild wrappers remain static-only
-coverage here. The next production decision is lifecycle-aware pre-reconcile
-correlation and quarantine for an orphan or pending counterattack-owned
-ownership transition; this proof does not fix it. Durable endpoint ABA snapshots
+coverage here. The current schema section above now records the lifecycle-aware
+pre-reconcile correlation and quarantine behavior that was open here; this
+preceding proof did not fix it. Durable endpoint ABA snapshots
 are a separate Schema-71/contract-2 decision. Actual schema migration, cross-
 family ledger parity, native source selection, world/package/live-server
 behavior, multiplayer, reconnect/JIP, performance, and soak remain open.

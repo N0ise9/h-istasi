@@ -203,29 +203,26 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The current exact-counterattack restart checkpoint is implementation/source
-`008cd481d5e55b43c7afc902cd5e906cbb297415`, stamped by
-`776523b75c3c98ececb8405f411d6af6b64370a3`. Its seven scoped boundaries cover
-outbound virtual persistence, fail-closed `DEMATERIALIZING` and
-`MATERIALIZING` checkpoint deferral, guarded native `PHYSICAL`/`LIVE` capture,
-and three durable `PREPARED` settlement prefixes. Both movement and settlement
-carrier families now freeze the exact source/target owner and ownership
-revision. Every cut requires unique endpoint rows and zero ownership-transition
-claimants correlated by either canonical request ID or operation source ID;
-source-revision and both claimant-identity tamper cases must fail through the
-complete validators.
+The current counterattack checkpoint is implementation/source
+`541a79f7e5f49394c6f78a630d9e05340c8e2959`, stamped by
+`f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Restore now correlates canonical
+counterattack ownership rows and validates their lifecycle before runtime
+ownership reconciliation. Legal pending receipts survive only in their exact
+active handoff windows. Legal completed receipts survive returning settlement
+and may remain as historical authority after durable outcome and later ordinary
+recapture. Premature, engaged, foreign, duplicate, orphaned, or malformed
+authority quarantines the transition, zone, marker, and counterattack aggregate
+without fabricating gameplay effects.
 
-Final stamped validation passes Foundation at 819 symbols and Workbench at
-5,832 Game files/11,835 classes with CRC `3131538f`, exit `0`,
-`ScriptValidation true`, zero errors, and exact cleanup. All seven
-prepare/recover/replay chains, 21 stages total, run build `008cd481d5e5`, exit
-`0`, preserve exact fingerprints, and clean exactly. The independent census
-finds zero engine processes and guard roots with both proof mutexes free. This
-schema-neutral proof does not decide how production should correlate, resume,
-or quarantine an orphan or pending counterattack-owned ownership transition;
-that lifecycle decision is the next concrete work. Durable endpoint ABA
-snapshots remain a separate Schema-71/contract-2 decision, and the broader
-campaign-restart, packaged-server, and multiplayer gates remain open.
+Final stamped Foundation passes with 819 script symbols, Workbench passes 5,832 Game files/
+11,835 classes at CRC `61930e5a`, and the exact focused engine test passes 1/1
+with the stamped source identity, required ownership-correlation evidence, and
+zero cleanup residue. The preceding seven-cut movement/settlement matrix remains
+valid historical restart evidence, but a fresh-process owner-applied-incomplete
+receipt cut is still required before this new restore window is restart-proven.
+Durable endpoint ABA snapshots remain a separate Schema-71/contract-2 decision,
+and the broader campaign-restart, packaged-server, and multiplayer gates remain
+open.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

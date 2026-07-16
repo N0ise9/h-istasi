@@ -2583,3 +2583,64 @@ Consequences:
   This checkpoint proves absence and tamper rejection; it does not fix that
   production case. Durable endpoint ABA snapshots are a separate Schema-71/
   contract-2 decision.
+
+## CRI-045 - Fence Counterattack Ownership Before Runtime Reconciliation
+
+- Status: Accepted; implementation and focused engine proof complete; guarded
+  fresh-process pending-receipt proof remains open
+- Date: 2026-07-16
+
+Context: CRI-044 proved that the seven restart carriers reject any correlated
+ownership claimant, but production restore still normalized generic ownership
+rows before counterattack aggregates and then ran runtime ownership
+reconciliation before counterattack-specific reconciliation. A structurally
+valid but orphaned, premature, duplicate, or lifecycle-illegal
+`enemy_counterattack` transition could therefore publish ownership before its
+aggregate was checked.
+
+Decision: After generic ownership normalization and before runtime ownership
+reconciliation, correlate every counterattack claimant by canonical request ID
+`ownership_counterattack_<operationId>` OR exact operation source ID, counting
+each row once. Reverse orphan declaration also recognizes the counterattack
+source type, request prefix, or a source ID naming an exact counterattack
+operation. Require the full canonical receipt fingerprint and one reciprocal
+exact order/operation aggregate.
+
+Uncommitted and pre-recapture state allows zero claimants. An active/open,
+clear-engagement, on-station operation may retain zero or one exact pending or
+completed receipt only for `STRATEGIC` with `VIRTUAL`/`MATERIALIZING`, or `LIVE`
+with `PHYSICAL`/`DEMATERIALIZING`. Returning, applied recapture outcome, or a
+settlement that requires recapture must own exactly one completed immutable
+receipt. A completed receipt remains historical after a later ordinary zone
+recapture; incomplete authority does not.
+
+Premature, engaged, foreign-fingerprint, duplicate, missing-required, orphaned,
+or malformed authority must fail closed before runtime reconciliation. Reuse
+the canonical ownership validator to quarantine the transition, reciprocal
+zone, and campaign marker while preserving the first durable failure and
+converging backlinks. Quarantine the exact counterattack order at `-69` and hold
+the operation, manifest, batch, group, and retained evidence. Do not choose an
+ambiguous row, apply capture, refund, settle, cancel, delete, or invent an
+outcome. Pre-69 incomplete declared counterattack rows receive the same fence
+before historical preservation.
+
+Consequences:
+
+- Implementation/source `541a79f7e5f49394c6f78a630d9e05340c8e2959`, UTC
+  `2026-07-16T15:31:05Z`, label
+  `schema70-settings24-counterattack-ownership-pre-reconcile-fence`, is stamped
+  by `f220b5aa183760f6bc6f20974d4cdb3a4a04dd3f`. Campaign Schema 70 and runtime-
+  settings Schema 24 remain unchanged.
+- Final stamped Foundation passes 819. Workbench passes 5,832/11,835 at CRC
+  `61930e5a` with zero hard errors. The exact focused JUnit case passes 1/1 with
+  zero failure, error, or skip, one empty failed-list artifact, stamped identity
+  plus required lifecycle-correlation evidence, and every process/profile/temp/
+  spill counter zero.
+- Campaign Debug exposes `enemy_counterattack.ownership_correlation` separately
+  from the aggregate. This checkpoint does not claim a new broader Full Campaign
+  Debug execution.
+- The next proof gate is a guarded fresh-process prepare/recover/replay cut for
+  an owner-applied incomplete receipt. Native persistence-source selection,
+  package/live server-client, networking/JIP, rendered markers, performance,
+  and soak remain open. Durable endpoint ABA remains a separate Schema-71/
+  contract-2 decision.
