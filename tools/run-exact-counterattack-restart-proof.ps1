@@ -8,6 +8,8 @@ param(
 
     [string]$ProjectPath = "",
     [string]$WorldResource = "Worlds/HST_Dev/HST_Dev.ent",
+    [ValidateSet("outbound_virtual", "dematerializing_before_hold")]
+    [string]$CutName = "outbound_virtual",
     [string[]]$WatchedRoots = @(),
     [string[]]$SpillRoots = @(),
 
@@ -26,7 +28,15 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$script:CutName = "outbound_virtual"
+$script:CutOrdinals = @{
+    outbound_virtual = 0
+    dematerializing_before_hold = 1
+}
+$script:SupportedCutNames = @(
+    "outbound_virtual",
+    "dematerializing_before_hold")
+$script:CutName = $CutName.ToLowerInvariant()
+$script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]
 $script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"
 $script:GuardMagic = "partisan_exact_counterattack_restart_guard_v1"
 $script:CarrierMagic = "partisan_exact_counterattack_restart_carrier_v1"
@@ -947,7 +957,7 @@ function Read-GuardOwnership {
         if ([int]$ownership.version -ne $script:SentinelVersion -or
             [string]$ownership.nonce -cne $nonce -or
             [string]$ownership.guardLeaf -cne $leaf -or
-            [string]$ownership.cut -cne $script:CutName -or
+            -not ($script:SupportedCutNames -ccontains [string]$ownership.cut) -or
             [int]$ownership.ownerPid -le 0) {
             return $null
         }
@@ -1015,7 +1025,8 @@ function Remove-ExactOwnedGuard {
         if (-not $current -or
             $current.Nonce -cne $Ownership.Nonce -or
             $current.OwnerPid -ne $Ownership.OwnerPid -or
-            $current.OwnerStartUtc.Ticks -ne $Ownership.OwnerStartUtc.Ticks) {
+            $current.OwnerStartUtc.Ticks -ne $Ownership.OwnerStartUtc.Ticks -or
+            $current.Cut -cne $Ownership.Cut) {
             return $false
         }
         $reparseDescendant = Get-ChildItem `
@@ -1348,7 +1359,7 @@ function Assert-PreparedCarrier {
         [Parameter(Mandatory = $true)]$ExpectedBuild
     )
 
-    $label = "outbound_virtual carrier"
+    $label = "$($script:CutName) carrier"
     foreach ($property in @(
         "m_sMagic",
         "m_sSessionNonce",
@@ -1365,7 +1376,8 @@ function Assert-PreparedCarrier {
         "m_fPreparedRouteProgressMeters",
         "m_fPreparedRouteTotalDistanceMeters",
         "m_vPreparedStrategicPosition",
-        "m_sPreparedSemanticFingerprint")) {
+        "m_sPreparedSemanticFingerprint",
+        "m_sRawPreparedCutSemanticFingerprint")) {
         Assert-JsonProperty `
             -Value $Carrier `
             -PropertyName $property `
@@ -1375,10 +1387,12 @@ function Assert-PreparedCarrier {
         [string]$Carrier.m_sSessionNonce -cne $SessionNonce -or
         [string]$Carrier.m_sRunId -cne $RunId -or
         [string]$Carrier.m_sCutName -cne $script:CutName -or
-        [int]$Carrier.m_iCut -ne 0 -or
+        [int]$Carrier.m_iCut -ne $script:CutOrdinal -or
         [string]::IsNullOrWhiteSpace([string]$Carrier.m_sWorld) -or
         [string]::IsNullOrWhiteSpace(
-            [string]$Carrier.m_sPreparedSemanticFingerprint)) {
+            [string]$Carrier.m_sPreparedSemanticFingerprint) -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$Carrier.m_sRawPreparedCutSemanticFingerprint)) {
         throw "$label identity is not exact."
     }
     Assert-BuildIdentity `
@@ -1410,7 +1424,10 @@ function Assert-PreparedCarrier {
         "m_iExpectedPoolOperationalMutationCount",
         "m_iAcceptedMemberCount",
         "m_iLivingMemberCount",
-        "m_sLivingSlotFingerprint")) {
+        "m_sLivingSlotFingerprint",
+        "m_sConfirmedCasualtySlotId",
+        "m_sCasualtyTombstoneFingerprint",
+        "m_iExpectedNormalizedReprojectionCount")) {
         Assert-JsonProperty `
             -Value $expectation `
             -PropertyName $property `
@@ -1449,11 +1466,49 @@ function Assert-PreparedCarrier {
         [int]$expectation.m_iExpectedPoolOperationalMutationCount -ne 1) {
         throw "$label expectation counts are invalid."
     }
+    $normalizedFingerprint = [string]$Carrier.m_sPreparedSemanticFingerprint
+    $rawCutFingerprint = [string]$Carrier.m_sRawPreparedCutSemanticFingerprint
+    $livingSlotIds = @(
+        ([string]$expectation.m_sLivingSlotFingerprint -split ',') |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $uniqueLivingSlotIds = @($livingSlotIds | Select-Object -Unique)
+    if ($livingSlotIds.Count -ne [int]$expectation.m_iLivingMemberCount -or
+        $uniqueLivingSlotIds.Count -ne $livingSlotIds.Count) {
+        throw "$label living-slot fingerprint is not exact."
+    }
+    if ($script:CutName -ceq "outbound_virtual") {
+        if (-not [string]::IsNullOrWhiteSpace(
+                [string]$expectation.m_sConfirmedCasualtySlotId) -or
+            -not [string]::IsNullOrWhiteSpace(
+                [string]$expectation.m_sCasualtyTombstoneFingerprint) -or
+            [int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 0 -or
+            [int]$expectation.m_iLivingMemberCount -ne
+                [int]$expectation.m_iAcceptedMemberCount -or
+            $rawCutFingerprint -cne $normalizedFingerprint) {
+            throw "$label outbound expectation is not exact."
+        }
+    }
+    else {
+        $casualtySlotId = [string]$expectation.m_sConfirmedCasualtySlotId
+        $casualtyFingerprint = [string]$expectation.m_sCasualtyTombstoneFingerprint
+        if ([string]::IsNullOrWhiteSpace($casualtySlotId) -or
+            [string]::IsNullOrWhiteSpace($casualtyFingerprint) -or
+            -not $casualtyFingerprint.StartsWith($casualtySlotId + "|") -or
+            [int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 1 -or
+            [int]$expectation.m_iLivingMemberCount -ne
+                ([int]$expectation.m_iAcceptedMemberCount - 1) -or
+            $livingSlotIds -ccontains $casualtySlotId -or
+            $rawCutFingerprint -ceq $normalizedFingerprint) {
+            throw "$label dematerializing expectation is not exact."
+        }
+    }
     $progress = [double]$Carrier.m_fPreparedRouteProgressMeters
     $total = [double]$Carrier.m_fPreparedRouteTotalDistanceMeters
+    $progressInvalid = $progress -lt 0.0 -or
+        ($script:CutName -ceq "outbound_virtual" -and $progress -le 0.0)
     if ([double]::IsNaN($progress) -or [double]::IsInfinity($progress) -or
         [double]::IsNaN($total) -or [double]::IsInfinity($total) -or
-        $progress -le 0.0 -or $total -le $progress -or
+        $progressInvalid -or $total -le $progress -or
         [int]$Carrier.m_iPreparedElapsedSecond -le 0) {
         throw "$label route state is invalid."
     }
@@ -1471,7 +1526,7 @@ function Assert-StageResult {
         [string]$ExpectedWorld = ""
     )
 
-    $label = "outbound_virtual/$Stage result"
+    $label = "$($script:CutName)/$Stage result"
     foreach ($property in @(
         "m_sMagic",
         "m_sSessionNonce",
@@ -1492,10 +1547,13 @@ function Assert-StageResult {
         "m_bSameStateSemanticNoOp",
         "m_bRuntimeClaimantsZero",
         "m_bPersistedReadBackExact",
+        "m_bPreparedCutExact",
+        "m_bCasualtyContinuityExact",
         "m_fProgressBeforeMeters",
         "m_fProgressAfterMeters",
         "m_sSourceSemanticFingerprint",
         "m_sFinalSemanticFingerprint",
+        "m_sRawPreparedCutSemanticFingerprint",
         "m_sEvidence")) {
         Assert-JsonProperty `
             -Value $Result `
@@ -1507,7 +1565,7 @@ function Assert-StageResult {
         [string]$Result.m_sRunId -cne $RunId -or
         [string]$Result.m_sStage -cne $Stage -or
         [string]$Result.m_sCutName -cne $script:CutName -or
-        [int]$Result.m_iCut -ne 0 -or
+        [int]$Result.m_iCut -ne $script:CutOrdinal -or
         [string]::IsNullOrWhiteSpace([string]$Result.m_sWorld) -or
         (-not [string]::IsNullOrWhiteSpace($ExpectedWorld) -and
             [string]$Result.m_sWorld -cne $ExpectedWorld)) {
@@ -1525,7 +1583,9 @@ function Assert-StageResult {
         "m_bContinuationExact",
         "m_bSameStateSemanticNoOp",
         "m_bRuntimeClaimantsZero",
-        "m_bPersistedReadBackExact")) {
+        "m_bPersistedReadBackExact",
+        "m_bPreparedCutExact",
+        "m_bCasualtyContinuityExact")) {
         if ($Result.$property -isnot [bool]) {
             throw "$label contains a non-boolean invariant."
         }
@@ -1534,6 +1594,8 @@ function Assert-StageResult {
         $failureFlags = "source=$([bool]$Result.m_bSourceExact)," +
             "runtime=$([bool]$Result.m_bRuntimeClaimantsZero)," +
             "readback=$([bool]$Result.m_bPersistedReadBackExact)," +
+            "prepared=$([bool]$Result.m_bPreparedCutExact)," +
+            "casualty=$([bool]$Result.m_bCasualtyContinuityExact)," +
             "restored=$([bool]$Result.m_bRestored)," +
             "continuation=$([bool]$Result.m_bContinuationExact)," +
             "noop=$([bool]$Result.m_bSameStateSemanticNoOp)"
@@ -1551,8 +1613,15 @@ function Assert-StageResult {
             [string]$Result.m_sSourceSemanticFingerprint) -or
         [string]::IsNullOrWhiteSpace(
             [string]$Result.m_sFinalSemanticFingerprint) -or
+        [string]::IsNullOrWhiteSpace(
+            [string]$Result.m_sRawPreparedCutSemanticFingerprint) -or
         [string]::IsNullOrWhiteSpace([string]$Result.m_sEvidence)) {
         throw "$label omitted a required success invariant."
+    }
+    if ($script:CutName -ceq "dematerializing_before_hold" -and
+        (-not [bool]$Result.m_bPreparedCutExact -or
+            -not [bool]$Result.m_bCasualtyContinuityExact)) {
+        throw "$label omitted exact prepared-cut or casualty continuity proof."
     }
     $before = [double]$Result.m_fProgressBeforeMeters
     $after = [double]$Result.m_fProgressAfterMeters
@@ -1569,7 +1638,7 @@ function Assert-StageResult {
             [bool]$Result.m_bContinuationExact -or
             [bool]$Result.m_bSameStateSemanticNoOp -or
             -not $sameProgress -or -not $sameFingerprint) {
-            throw "$label violates the fresh outbound-virtual invariant."
+            throw "$label violates the fresh normalized-source invariant."
         }
     }
     elseif ($Stage -eq "recover") {
@@ -1613,6 +1682,8 @@ function Get-SafeStageSummary {
         SemanticNoOp = [bool]$Result.m_bSameStateSemanticNoOp
         RuntimeClaimantsZero = [bool]$Result.m_bRuntimeClaimantsZero
         ReadBackExact = [bool]$Result.m_bPersistedReadBackExact
+        PreparedCutExact = [bool]$Result.m_bPreparedCutExact
+        CasualtyContinuityExact = [bool]$Result.m_bCasualtyContinuityExact
         ProgressAdvanced = [double]$Result.m_fProgressAfterMeters -gt
             ([double]$Result.m_fProgressBeforeMeters + 0.1)
         SourceDigest = (Get-StringDigest `
@@ -1661,6 +1732,7 @@ function Assert-EngineOwner {
         [Parameter(Mandatory = $true)][string]$ExpectedWorld
     )
 
+    $label = "$($script:CutName) engine-visible owner"
     foreach ($property in @(
         "m_sMagic",
         "m_iVersion",
@@ -1677,7 +1749,7 @@ function Assert-EngineOwner {
         Assert-JsonProperty `
             -Value $Owner `
             -PropertyName $property `
-            -ArtifactLabel "outbound_virtual engine-visible owner"
+            -ArtifactLabel $label
     }
     Assert-LowerHexNonce -Nonce $SessionNonce -Label "session nonce"
     if ([string]$Owner.m_sMagic -cne $script:OwnerMagic -or
@@ -1689,12 +1761,12 @@ function Assert-EngineOwner {
         [string]$Owner.m_sWorld -cne $ExpectedWorld -or
         $Owner.m_bDisposableProfile -isnot [bool] -or
         -not [bool]$Owner.m_bDisposableProfile) {
-        throw "The outbound_virtual engine-visible owner is not exact."
+        throw "The $label is not exact."
     }
     Assert-BuildIdentity `
         -Artifact $Owner `
         -ExpectedBuild $ExpectedBuild `
-        -ArtifactLabel "outbound_virtual engine-visible owner"
+        -ArtifactLabel $label
 }
 
 function Assert-EngineGuard {
@@ -1709,6 +1781,7 @@ function Assert-EngineGuard {
         [Parameter(Mandatory = $true)][string]$ExpectedWorld
     )
 
+    $label = "$($script:CutName) one-use engine stage lease"
     foreach ($property in @(
         "m_sMagic",
         "m_iVersion",
@@ -1727,7 +1800,7 @@ function Assert-EngineGuard {
         Assert-JsonProperty `
             -Value $Guard `
             -PropertyName $property `
-            -ArtifactLabel "outbound_virtual engine guard"
+            -ArtifactLabel $label
     }
     Assert-LowerHexNonce -Nonce $SessionNonce -Label "session nonce"
     Assert-LowerHexNonce -Nonce $StageNonce -Label "$Stage stage nonce"
@@ -1747,12 +1820,12 @@ function Assert-EngineGuard {
         [string]$Guard.m_sWorld -cne $ExpectedWorld -or
         $Guard.m_bAllowCanonicalCampaignOverwrite -isnot [bool] -or
         -not [bool]$Guard.m_bAllowCanonicalCampaignOverwrite) {
-        throw "The outbound_virtual one-use engine stage lease is not exact."
+        throw "The $label is not exact."
     }
     Assert-BuildIdentity `
         -Artifact $Guard `
         -ExpectedBuild $ExpectedBuild `
-        -ArtifactLabel "outbound_virtual one-use engine stage lease"
+        -ArtifactLabel $label
 }
 
 function Invoke-RestartStage {
@@ -1774,10 +1847,11 @@ function Invoke-RestartStage {
         [Parameter(Mandatory = $true)]$UnclaimedEngineProcessesObserved
     )
 
+    $stageLabel = "$($script:CutName)/$Stage"
     $resultPath = Join-Path $DebugDirectory (
         "HST_ExactCounterattackRestart_{0}.{1}.json" -f $RunId, $Stage)
     if (Test-Path -LiteralPath $resultPath) {
-        throw "outbound_virtual/$Stage result storage was not fresh."
+        throw "$stageLabel result storage was not fresh."
     }
 
     Assert-LowerHexNonce -Nonce $SessionNonce -Label "session nonce"
@@ -1786,7 +1860,7 @@ function Invoke-RestartStage {
     $guardPath = Join-Path $DebugDirectory (
         "HST_ExactCounterattackRestart_{0}.guard.json" -f $RunId)
     if (Test-Path -LiteralPath $guardPath) {
-        throw "outbound_virtual/$Stage stage-lease storage was not fresh."
+        throw "$stageLabel stage-lease storage was not fresh."
     }
     $stageOrdinal = @{
         prepare = 0
@@ -1837,12 +1911,12 @@ function Invoke-RestartStage {
         -CommandLine $commandLine `
         -ExpectedExecutable $ExecutablePath `
         -ExpectedArguments $arguments)) {
-        throw "outbound_virtual/$Stage native arguments did not round-trip exactly."
+        throw "$stageLabel native arguments did not round-trip exactly."
     }
 
     $engineBefore = @(Get-EngineProcessRows).Count
     if ($engineBefore -ne 0) {
-        throw "An engine process appeared before outbound_virtual/$Stage."
+        throw "An engine process appeared before $stageLabel."
     }
 
     $process = $null
@@ -1862,7 +1936,7 @@ function Invoke-RestartStage {
     try {
         $job = New-Object PartisanCounterattackGuardedJob
         if (@(Get-EngineProcessRows).Count -ne 0) {
-            throw "An engine process appeared during outbound_virtual/$Stage preflight."
+            throw "An engine process appeared during $stageLabel preflight."
         }
 
         $previousTemp = [Environment]::GetEnvironmentVariable(
@@ -1893,7 +1967,7 @@ function Invoke-RestartStage {
 
         $process = $suspendedLauncher.Child
         if (-not $process) {
-            throw "outbound_virtual/$Stage did not create its diagnostic process."
+            throw "$stageLabel did not create its diagnostic process."
         }
         $rootProcessId = $process.Id
         $job.Add($process)
@@ -1906,7 +1980,7 @@ function Invoke-RestartStage {
         Start-Sleep -Milliseconds 500
         $process.Refresh()
         if ($process.HasExited) {
-            throw "outbound_virtual/$Stage exited before command-line verification."
+            throw "$stageLabel exited before command-line verification."
         }
         $processRow = Get-CimInstance `
             Win32_Process `
@@ -1917,7 +1991,7 @@ function Invoke-RestartStage {
                 -CommandLine ([string]$processRow.CommandLine) `
                 -ExpectedExecutable $ExecutablePath `
                 -ExpectedArguments $arguments)) {
-            throw "outbound_virtual/$Stage launched with a non-exact argument vector."
+            throw "$stageLabel launched with a non-exact argument vector."
         }
 
         $deadlineUtc = [DateTime]::UtcNow.AddSeconds($StageTimeoutSeconds)
@@ -1941,7 +2015,7 @@ function Invoke-RestartStage {
                 catch { }
             }
             if ($UnclaimedEngineProcessesObserved.Count -ne 0) {
-                throw "An unowned engine process appeared during outbound_virtual/$Stage."
+                throw "An unowned engine process appeared during $stageLabel."
             }
 
             if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
@@ -1986,12 +2060,12 @@ function Invoke-RestartStage {
                 if ($null -eq $rootExitCode) {
                     $process.Refresh()
                     if (-not $process.HasExited) {
-                        throw "outbound_virtual/$Stage retained its root process."
+                        throw "$stageLabel retained its root process."
                     }
                     $rootExitCode = $process.ExitCode
                 }
                 if ([int]$rootExitCode -ne 0) {
-                    throw "outbound_virtual/$Stage diagnostic process returned failure."
+                    throw "$stageLabel diagnostic process returned failure."
                 }
                 break
             }
@@ -1999,17 +2073,17 @@ function Invoke-RestartStage {
                 -not $result -and
                 ([DateTime]::UtcNow - $exitObservedUtc).TotalSeconds -ge
                     $ResultGraceSeconds) {
-                throw "outbound_virtual/$Stage exited without a stable exact result."
+                throw "$stageLabel exited without a stable exact result."
             }
             Start-Sleep -Milliseconds $PollMilliseconds
         }
 
         if (-not $result) {
-            throw "outbound_virtual/$Stage exceeded its guarded result deadline."
+            throw "$stageLabel exceeded its guarded result deadline."
         }
         if ($null -eq $rootExitCode -or [int]$rootExitCode -ne 0 -or
             (Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0) {
-            throw "outbound_virtual/$Stage did not reach a clean successful exit."
+            throw "$stageLabel did not reach a clean successful exit."
         }
     }
     catch {
@@ -2103,7 +2177,7 @@ function Invoke-RestartStage {
         else {
             $stageCleanupErrors -join ","
         }
-        throw "outbound_virtual/$Stage process containment cleanup failed " +
+        throw "$stageLabel process containment cleanup failed " +
             "(phases=$failedCleanupPhases; owned=$ownedRemaining; " +
             "engine=$engineAfter)."
     }
@@ -2111,7 +2185,7 @@ function Invoke-RestartStage {
         throw $stageError
     }
     if (Test-Path -LiteralPath $guardPath) {
-        throw "outbound_virtual/$Stage engine did not consume its one-use stage lease."
+        throw "$stageLabel engine did not consume its one-use stage lease."
     }
     $safeSummary = Get-SafeStageSummary `
         -Result $result `
@@ -2288,7 +2362,12 @@ try {
     $guardOwnership = Read-GuardOwnership `
         -Directory $guardRoot `
         -GuardBase $guardBase
-    if (-not $guardOwnership -or $guardOwnership.Nonce -cne $nonce) {
+    if (-not $guardOwnership -or
+        $guardOwnership.Nonce -cne $nonce -or
+        $guardOwnership.Cut -cne $script:CutName -or
+        $guardOwnership.OwnerPid -ne $PID -or
+        $wrapperStartUtc -eq [DateTime]::MinValue -or
+        $guardOwnership.OwnerStartUtc.Ticks -ne $wrapperStartUtc.Ticks) {
         throw "Guard ownership sentinel validation failed."
     }
 
@@ -2325,8 +2404,10 @@ try {
         -ExpectedBuild $buildIdentity `
         -ExpectedWorld $WorldResource
 
+    $syntheticEmail = "proof" + [char]64 + "example.invalid"
+    $syntheticIdentifier = "1" * 17
     $safeSynthetic = ConvertTo-SafeEvidenceLine `
-        -Line ("proof@example.invalid 12345678901234567 " +
+        -Line ($syntheticEmail + " " + $syntheticIdentifier + " " +
             $guardRoot + " " + (Split-Path -Parent $projectFile) +
             " " + $runtimeAddonPath) `
         -GuardRoot $guardRoot `
@@ -2412,7 +2493,9 @@ try {
             [string]$prepare.Result.m_sSourceSemanticFingerprint -cne
                 $preparedFingerprint -or
             [string]$prepare.Result.m_sFinalSemanticFingerprint -cne
-                $preparedFingerprint) {
+                $preparedFingerprint -or
+            [string]$prepare.Result.m_sRawPreparedCutSemanticFingerprint -cne
+                [string]$carrier.m_sRawPreparedCutSemanticFingerprint) {
             throw "The prepare result and durable carrier fingerprint chain diverged."
         }
 
@@ -2437,7 +2520,9 @@ try {
         if ([string]$recover.Result.m_sSourceSemanticFingerprint -cne
                 $preparedFingerprint -or
             [string]$recover.Result.m_sFinalSemanticFingerprint -ceq
-                $preparedFingerprint) {
+                $preparedFingerprint -or
+            [string]$recover.Result.m_sRawPreparedCutSemanticFingerprint -cne
+                [string]$carrier.m_sRawPreparedCutSemanticFingerprint) {
             throw "The recover result did not continue the prepared fingerprint exactly once."
         }
 
@@ -2463,7 +2548,9 @@ try {
         if ([string]$replay.Result.m_sSourceSemanticFingerprint -cne
                 $recoveredFingerprint -or
             [string]$replay.Result.m_sFinalSemanticFingerprint -cne
-                $recoveredFingerprint) {
+                $recoveredFingerprint -or
+            [string]$replay.Result.m_sRawPreparedCutSemanticFingerprint -cne
+                [string]$carrier.m_sRawPreparedCutSemanticFingerprint) {
             throw "The replay result was not an exact semantic no-op."
         }
 
@@ -2505,18 +2592,22 @@ finally {
         -Errors $cleanupPhaseErrors `
         -Action {
             Assert-NoReparsePathAncestry -Path $guardBase
-            if (-not $guardOwnership -and $guardDirectoryCreated -and
+            if ($guardDirectoryCreated -and
                 (Test-Path -LiteralPath $guardRoot -PathType Container)) {
                 $candidateOwnership = Read-GuardOwnership `
                     -Directory $guardRoot `
                     -GuardBase $guardBase
                 if ($candidateOwnership -and
                     $candidateOwnership.Nonce -ceq $nonce -and
+                    $candidateOwnership.Cut -ceq $script:CutName -and
                     $candidateOwnership.OwnerPid -eq $PID -and
                     $wrapperStartUtc -ne [DateTime]::MinValue -and
                     $candidateOwnership.OwnerStartUtc.Ticks -eq
                         $wrapperStartUtc.Ticks) {
                     $guardOwnership = $candidateOwnership
+                }
+                else {
+                    $guardOwnership = $null
                 }
             }
             if ($guardOwnership) {

@@ -263,6 +263,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected bool m_bExactCounterattackRestartCLIFinalized;
 	protected bool m_bExactCounterattackRestartGuardExact;
 	protected bool m_bExactCounterattackRestartSourceExact;
+	protected bool m_bExactCounterattackRestartPreparedCutExact;
 	protected bool m_bExactCounterattackRestartStartupReconcileChanged;
 	protected string m_sExactCounterattackRestartCLIStage;
 	protected string m_sExactCounterattackRestartCLIRunId;
@@ -6519,6 +6520,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				runtimeEvidence);
 		m_sExactCounterattackRestartExpectedFingerprint
 			= m_ExactCounterattackRestartCarrier.m_sPreparedSemanticFingerprint;
+		string prepareResultEvidence;
+		if (m_bExactCounterattackRestartSourceExact)
+		{
+			m_bExactCounterattackRestartPreparedCutExact
+				= LoadExactCounterattackPreparedCutResult(prepareResultEvidence);
+		}
+		m_bExactCounterattackRestartSourceExact
+			= m_bExactCounterattackRestartSourceExact
+			&& m_bExactCounterattackRestartPreparedCutExact;
+		validationEvidence += " | prepare result " + prepareResultEvidence;
 		if (m_sExactCounterattackRestartCLIStage == "replay")
 		{
 			HST_EnemyCounterattackExternalRestartResult recoveryResult;
@@ -6533,7 +6544,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 						.NormalizeWorldIdentity(GetGame().GetWorldFile()),
 					recoveryResult,
 					recoveryEvidence)
-				&& recoveryResult.m_bSuccess)
+				&& recoveryResult.m_bSuccess
+				&& recoveryResult.m_sRawPreparedCutSemanticFingerprint
+					== m_ExactCounterattackRestartCarrier
+						.m_sRawPreparedCutSemanticFingerprint)
 			{
 				m_sExactCounterattackRestartExpectedFingerprint
 					= recoveryResult.m_sFinalSemanticFingerprint;
@@ -6597,6 +6611,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bStartupReconcileChanged
 			= m_bExactCounterattackRestartStartupReconcileChanged;
 		result.m_bSourceExact = m_bExactCounterattackRestartSourceExact;
+		if (m_ExactCounterattackRestartCarrier)
+		{
+			result.m_sRawPreparedCutSemanticFingerprint
+				= m_ExactCounterattackRestartCarrier
+					.m_sRawPreparedCutSemanticFingerprint;
+		}
 		return result;
 	}
 
@@ -6621,6 +6641,102 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				+ saveEvidence,
 			LogLevel.WARNING);
 		return false;
+	}
+
+	protected bool LoadExactCounterattackPreparedCutResult(out string evidence)
+	{
+		evidence = "prepared-cut result unavailable";
+		if (!m_ExactCounterattackRestartCarrier)
+			return false;
+		HST_EnemyCounterattackExternalRestartResult prepareResult;
+		string loadEvidence;
+		bool loaded = HST_EnemyCounterattackExternalRestartProofService.LoadResult(
+			m_sExactCounterattackRestartCLISessionNonce,
+			m_sExactCounterattackRestartCLIRunId,
+			m_sExactCounterattackRestartCLICut,
+			"prepare",
+			HST_EnemyCounterattackExternalRestartProofService
+				.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+			prepareResult,
+			loadEvidence);
+		if (!loaded || !prepareResult || !prepareResult.m_bSuccess
+			|| !prepareResult.m_bPreparedCutExact)
+		{
+			evidence = loadEvidence;
+			return false;
+		}
+		string expectedFingerprint
+			= m_ExactCounterattackRestartCarrier.m_sPreparedSemanticFingerprint;
+		if (prepareResult.m_sSourceSemanticFingerprint != expectedFingerprint
+			|| prepareResult.m_sFinalSemanticFingerprint != expectedFingerprint
+			|| prepareResult.m_sRawPreparedCutSemanticFingerprint
+				!= m_ExactCounterattackRestartCarrier
+					.m_sRawPreparedCutSemanticFingerprint)
+		{
+			evidence = "prepared-cut result fingerprint chain conflicts";
+			return false;
+		}
+		evidence = "prepared-cut result exact | " + loadEvidence;
+		return true;
+	}
+
+	protected bool TrackExactCounterattackRawPreparedCut(
+		HST_EnemyCounterattackOperationProofService proof,
+		HST_CampaignState stagedState,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "raw prepared cut unavailable";
+		if (!proof || !stagedState || !carrier)
+			return false;
+		string rawFingerprint;
+		string rawEvidence;
+		if (!proof.ValidateExternalPreparedCutState(
+			stagedState,
+			carrier,
+			rawFingerprint,
+			rawEvidence))
+		{
+			evidence = "raw validation " + rawEvidence;
+			return false;
+		}
+		if (rawFingerprint != carrier.m_sRawPreparedCutSemanticFingerprint)
+		{
+			evidence = "raw prepared-cut fingerprint conflicts";
+			return false;
+		}
+
+		// Keep the engine-tracked shutdown carrier on the raw authorized cut.
+		// Normalized readback is validation evidence only; the next process must
+		// consume DEMATERIALIZING/LIVE authority itself.
+		m_State = stagedState;
+		HST_CampaignSaveData trackedRawSave = m_Persistence.CaptureAndTrackState(
+			m_State,
+			"external exact counterattack raw restart cut armed");
+		if (!trackedRawSave)
+		{
+			evidence = "raw prepared cut could not be tracked";
+			return false;
+		}
+		string trackedFingerprint;
+		string trackedEvidence;
+		if (!proof.ValidateExternalPreparedCutState(
+			m_State,
+			carrier,
+			trackedFingerprint,
+			trackedEvidence))
+		{
+			evidence = "tracked raw validation " + trackedEvidence;
+			return false;
+		}
+		if (trackedFingerprint != carrier.m_sRawPreparedCutSemanticFingerprint)
+		{
+			evidence = "tracked raw prepared-cut fingerprint conflicts";
+			return false;
+		}
+		evidence = "raw and tracked prepared cut exact | " + rawEvidence
+			+ " | " + trackedEvidence;
+		return true;
 	}
 
 	protected void FinalizeExactCounterattackExternalRestartPrepare()
@@ -6663,6 +6779,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				readBackFingerprint,
 				readBackEvidence)
 			&& readBackFingerprint == carrier.m_sPreparedSemanticFingerprint;
+		string casualtyEvidence;
+		bool casualtyContinuityExact = readBackExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				readBackState,
+				carrier,
+				casualtyEvidence);
 		if (persisted && readBackState && carrier
 			&& readBackFingerprint != carrier.m_sPreparedSemanticFingerprint)
 		{
@@ -6679,26 +6801,39 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				carrier);
 		}
 		string runtimeEvidence;
-		bool runtimeZero = readBackExact
+		bool runtimeZero = casualtyContinuityExact
 			&& proof.ValidateExternalRuntimeClaimantsZero(
 				readBackState,
 				carrier,
 				m_ForceSpawnAdapter,
 				m_PhysicalWar,
 				runtimeEvidence);
+		string rawCutEvidence;
+		bool preparedCutExact;
 		if (runtimeZero)
 		{
-			m_State = readBackState;
-			m_Persistence.CaptureAndTrackState(
-				m_State,
-				"external exact counterattack outbound virtual carrier armed");
+			preparedCutExact = TrackExactCounterattackRawPreparedCut(
+				proof,
+				stagedState,
+				carrier,
+				rawCutEvidence);
 		}
 
 		m_ExactCounterattackRestartCarrier = carrier;
+		if (carrier)
+		{
+			result.m_sRawPreparedCutSemanticFingerprint
+				= carrier.m_sRawPreparedCutSemanticFingerprint;
+		}
 		m_bExactCounterattackRestartSourceExact = prepared;
 		result.m_bSourceExact = prepared;
 		result.m_bRuntimeClaimantsZero = runtimeZero;
 		result.m_bPersistedReadBackExact = readBackExact;
+		m_bExactCounterattackRestartPreparedCutExact
+			= prepared && preparedCutExact;
+		result.m_bPreparedCutExact
+			= m_bExactCounterattackRestartPreparedCutExact;
+		result.m_bCasualtyContinuityExact = casualtyContinuityExact;
 		if (carrier)
 		{
 			result.m_fProgressBeforeMeters
@@ -6708,13 +6843,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		result.m_sSourceSemanticFingerprint = readBackFingerprint;
 		result.m_sFinalSemanticFingerprint = readBackFingerprint;
-		result.m_bSuccess = prepared && carrierSaved && persisted
-			&& readBackExact && runtimeZero;
+		result.m_bSuccess = prepared && carrierSaved && persisted;
+		result.m_bSuccess = result.m_bSuccess && readBackExact
+			&& casualtyContinuityExact && runtimeZero && preparedCutExact;
 		result.m_sEvidence = "readback " + readBackEvidence
-			+ " | runtime " + runtimeEvidence
-			+ " | prepare " + prepareEvidence
-			+ " | carrier " + carrierEvidence
-			+ " | persistence " + persistenceEvidence;
+			+ " | casualty " + casualtyEvidence;
+		result.m_sEvidence += " | runtime " + runtimeEvidence
+			+ " | raw cut " + rawCutEvidence;
+		result.m_sEvidence += " | prepare " + prepareEvidence
+			+ " | carrier " + carrierEvidence;
+		result.m_sEvidence += " | persistence " + persistenceEvidence;
 		SaveExactCounterattackRestartResult(result);
 	}
 
@@ -6733,8 +6871,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				sourceFingerprint,
 				sourceEvidence)
 			&& sourceFingerprint == m_sExactCounterattackRestartExpectedFingerprint;
+		string sourceCasualtyEvidence;
+		bool sourceCasualtyExact = sourceExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				sourceCasualtyEvidence);
 		string sourceRuntimeEvidence;
-		bool sourceRuntimeZero = sourceExact
+		bool sourceRuntimeZero = sourceCasualtyExact
 			&& proof.ValidateExternalRuntimeClaimantsZero(
 				m_State,
 				m_ExactCounterattackRestartCarrier,
@@ -6821,8 +6965,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_ExactCounterattackRestartCarrier,
 				finalFingerprint,
 				finalEvidence);
+		string finalCasualtyEvidence;
+		bool finalCasualtyExact = finalExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				m_State,
+				m_ExactCounterattackRestartCarrier,
+				finalCasualtyEvidence);
 		string finalRuntimeEvidence;
-		bool finalRuntimeZero = finalExact
+		bool finalRuntimeZero = finalCasualtyExact
 			&& proof.ValidateExternalRuntimeClaimantsZero(
 				m_State,
 				m_ExactCounterattackRestartCarrier,
@@ -6872,8 +7022,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				persistedFingerprint,
 				persistedEvidence)
 			&& persistedFingerprint == finalFingerprint;
+		string persistedCasualtyEvidence;
+		bool persistedCasualtyExact = persistedReadBackExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				readBackState,
+				m_ExactCounterattackRestartCarrier,
+				persistedCasualtyEvidence);
 		string persistedRuntimeEvidence;
-		persistedReadBackExact = persistedReadBackExact
+		persistedReadBackExact = persistedCasualtyExact
 			&& proof.ValidateExternalRuntimeClaimantsZero(
 				readBackState,
 				m_ExactCounterattackRestartCarrier,
@@ -6894,6 +7050,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bRuntimeClaimantsZero
 			= sourceRuntimeZero && finalRuntimeZero;
 		result.m_bPersistedReadBackExact = persistedReadBackExact;
+		result.m_bPreparedCutExact = sourceExact
+			&& m_bExactCounterattackRestartPreparedCutExact;
+		result.m_bCasualtyContinuityExact = sourceCasualtyExact
+			&& finalCasualtyExact && persistedCasualtyExact;
 		result.m_fProgressBeforeMeters = progressBefore;
 		result.m_fProgressAfterMeters = progressAfter;
 		result.m_sSourceSemanticFingerprint = sourceFingerprint;
@@ -6901,16 +7061,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool stageExact = continuationExact;
 		if (m_sExactCounterattackRestartCLIStage == "replay")
 			stageExact = semanticNoOp;
-		result.m_bSuccess = sourceExact && sourceRuntimeZero && stageExact
-			&& finalExact && finalRuntimeZero && persistedReadBackExact;
+		result.m_bSuccess = sourceExact && sourceCasualtyExact
+			&& m_bExactCounterattackRestartPreparedCutExact;
+		result.m_bSuccess = result.m_bSuccess && sourceRuntimeZero
+			&& stageExact && finalExact && finalRuntimeZero;
+		result.m_bSuccess = result.m_bSuccess && persistedReadBackExact;
 		result.m_sEvidence = m_sExactCounterattackRestartSourceEvidence
 			+ " | source " + sourceEvidence
-			+ " | source runtime " + sourceRuntimeEvidence
+			+ " | source casualty " + sourceCasualtyEvidence;
+		result.m_sEvidence += " | source runtime " + sourceRuntimeEvidence
 			+ " | continuation " + continuationEvidence
-			+ " | final " + finalEvidence
+			+ " | final " + finalEvidence;
+		result.m_sEvidence += " | final casualty " + finalCasualtyEvidence
 			+ " | final runtime " + finalRuntimeEvidence
-			+ " | persistence " + persistenceEvidence
-			+ " | readback " + persistedEvidence
+			+ " | persistence " + persistenceEvidence;
+		result.m_sEvidence += " | readback " + persistedEvidence
+			+ " | readback casualty " + persistedCasualtyEvidence
 			+ " | readback runtime " + persistedRuntimeEvidence;
 		SaveExactCounterattackRestartResult(result);
 	}

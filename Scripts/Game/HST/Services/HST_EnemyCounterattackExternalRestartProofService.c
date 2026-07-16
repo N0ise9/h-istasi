@@ -10,6 +10,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 	static const string OWNER_PURPOSE = "exact_counterattack_external_restart";
 	static const int AUTHORITY_VERSION = 1;
 	static const string CUT_OUTBOUND_VIRTUAL = "outbound_virtual";
+	static const string CUT_DEMATERIALIZING_BEFORE_HOLD
+		= "dematerializing_before_hold";
 	static const string STAGE_PREPARE = "prepare";
 	static const string STAGE_RECOVER = "recover";
 	static const string STAGE_REPLAY = "replay";
@@ -81,6 +83,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 	{
 		if (cutName == CUT_OUTBOUND_VIRTUAL)
 			return 0;
+		if (cutName == CUT_DEMATERIALIZING_BEFORE_HOLD)
+			return 1;
 		return -1;
 	}
 
@@ -88,6 +92,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 	{
 		if (cut == 0)
 			return CUT_OUTBOUND_VIRTUAL;
+		if (cut == 1)
+			return CUT_DEMATERIALIZING_BEFORE_HOLD;
 		return "";
 	}
 
@@ -397,7 +403,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| !ValidateWorldIdentity(carrier.m_sWorld, expectedWorld))
 			return false;
 		if (carrier.m_sCutName != expectedCut || carrier.m_iCut != expectedCutValue
-			|| !carrier.m_Expectation || carrier.m_sPreparedSemanticFingerprint.IsEmpty())
+			|| !carrier.m_Expectation || carrier.m_sPreparedSemanticFingerprint.IsEmpty()
+			|| carrier.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
 			return false;
 
 		HST_EnemyCounterattackOutboundVirtualExpectation expectation = carrier.m_Expectation;
@@ -425,9 +432,36 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| expectation.m_iLivingMemberCount <= 0
 			|| expectation.m_iLivingMemberCount > expectation.m_iAcceptedMemberCount)
 			return false;
+		if (expectedCut == CUT_OUTBOUND_VIRTUAL)
+		{
+			if (!expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+				|| !expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()
+				|| expectation.m_iExpectedNormalizedReprojectionCount != 0
+				|| expectation.m_iLivingMemberCount
+					!= expectation.m_iAcceptedMemberCount
+				|| carrier.m_sRawPreparedCutSemanticFingerprint
+					!= carrier.m_sPreparedSemanticFingerprint)
+				return false;
+		}
+		else if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD)
+		{
+			if (expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+				|| expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()
+				|| !expectation.m_sCasualtyTombstoneFingerprint.StartsWith(
+					expectation.m_sConfirmedCasualtySlotId + "|")
+				|| expectation.m_iExpectedNormalizedReprojectionCount != 1
+				|| expectation.m_iLivingMemberCount
+					!= expectation.m_iAcceptedMemberCount - 1
+				|| carrier.m_sRawPreparedCutSemanticFingerprint
+					== carrier.m_sPreparedSemanticFingerprint)
+				return false;
+		}
+		bool preparedProgressExact = carrier.m_fPreparedRouteProgressMeters > 0;
+		if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD)
+			preparedProgressExact = carrier.m_fPreparedRouteProgressMeters >= 0;
 		if (carrier.m_iPreparedElapsedSecond <= 0
 			|| carrier.m_fPreparedRouteTotalDistanceMeters <= 0
-			|| carrier.m_fPreparedRouteProgressMeters <= 0
+			|| !preparedProgressExact
 			|| carrier.m_fPreparedRouteProgressMeters
 				>= carrier.m_fPreparedRouteTotalDistanceMeters
 			|| IsZeroVector(carrier.m_vPreparedStrategicPosition))
@@ -531,7 +565,12 @@ class HST_EnemyCounterattackExternalRestartProofService
 		if (!result.m_bSourceExact || !result.m_bRuntimeClaimantsZero
 			|| !result.m_bPersistedReadBackExact
 			|| result.m_sSourceSemanticFingerprint.IsEmpty()
-			|| result.m_sFinalSemanticFingerprint.IsEmpty())
+			|| result.m_sFinalSemanticFingerprint.IsEmpty()
+			|| result.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
+			return false;
+		if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
+			&& (!result.m_bPreparedCutExact
+				|| !result.m_bCasualtyContinuityExact))
 			return false;
 
 		if (expectedStage == STAGE_PREPARE)

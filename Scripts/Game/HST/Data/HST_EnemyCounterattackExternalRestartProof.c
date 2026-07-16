@@ -23,6 +23,9 @@ class HST_EnemyCounterattackOutboundVirtualExpectation
 	int m_iAcceptedMemberCount;
 	int m_iLivingMemberCount;
 	string m_sLivingSlotFingerprint;
+	string m_sConfirmedCasualtySlotId;
+	string m_sCasualtyTombstoneFingerprint;
+	int m_iExpectedNormalizedReprojectionCount;
 }
 
 [BaseContainerProps()]
@@ -81,6 +84,7 @@ class HST_EnemyCounterattackExternalRestartCarrier
 	float m_fPreparedRouteTotalDistanceMeters;
 	vector m_vPreparedStrategicPosition;
 	string m_sPreparedSemanticFingerprint;
+	string m_sRawPreparedCutSemanticFingerprint;
 }
 
 [BaseContainerProps()]
@@ -105,9 +109,12 @@ class HST_EnemyCounterattackExternalRestartResult
 	bool m_bSameStateSemanticNoOp;
 	bool m_bRuntimeClaimantsZero;
 	bool m_bPersistedReadBackExact;
+	bool m_bPreparedCutExact;
+	bool m_bCasualtyContinuityExact;
 	float m_fProgressBeforeMeters;
 	float m_fProgressAfterMeters;
 	string m_sSourceSemanticFingerprint;
 	string m_sFinalSemanticFingerprint;
+	string m_sRawPreparedCutSemanticFingerprint;
 	string m_sEvidence;
 }

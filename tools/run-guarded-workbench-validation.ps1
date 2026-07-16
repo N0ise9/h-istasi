@@ -1191,6 +1191,24 @@ function Read-WorkbenchValidationEvidence {
         param($line)
         $line -match '(?i)(?:ACCESS_VIOLATION|0xC000[0-9A-F]+|heap corruption|unhandled exception|fatal error|application crash|engine initialization failed)'
     }
+    $diagnosticTail = New-Object Collections.Generic.List[string]
+    foreach ($line in ($Text -split "`r?`n")) {
+        if ($line -notmatch '(?i)\b(?:SCRIPT|ENGINE)\b') {
+            continue
+        }
+        $safeLine = ConvertTo-SafeEvidenceLine `
+            -Line $line `
+            -GuardRoot $GuardRoot `
+            -ProjectDirectory $expectedDirectory `
+            -ResolvedAddonRoots $ResolvedAddonRoots
+        if ([string]::IsNullOrWhiteSpace($safeLine)) {
+            continue
+        }
+        [void]$diagnosticTail.Add($safeLine)
+        if ($diagnosticTail.Count -gt 12) {
+            $diagnosticTail.RemoveAt(0)
+        }
+    }
 
     return [pscustomobject]@{
         ProjectPath = $pathMatched
@@ -1218,6 +1236,7 @@ function Read-WorkbenchValidationEvidence {
             -GuardRoot $GuardRoot `
             -ProjectDirectory $expectedDirectory `
             -ResolvedAddonRoots $ResolvedAddonRoots
+        DiagnosticTail = @($diagnosticTail.ToArray())
     }
 }
 
@@ -1616,6 +1635,7 @@ try {
         FirstHstError = $evidence.FirstHstError
         FirstScriptError = $evidence.FirstScriptError
         FirstHardError = $evidence.FirstHardError
+        DiagnosticTail = @($evidence.DiagnosticTail)
     } | ConvertTo-Json -Compress))
     if (-not $validationPassed) {
         throw "Workbench completed without satisfying the exact validation contract."
