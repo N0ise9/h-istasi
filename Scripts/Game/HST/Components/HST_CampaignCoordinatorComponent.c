@@ -130,6 +130,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_CUT_PARAM = "hstExactCounterattackRestartCut";
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_SESSION_NONCE_PARAM = "hstExactCounterattackRestartSessionNonce";
 	static const string EXACT_COUNTERATTACK_RESTART_CLI_STAGE_NONCE_PARAM = "hstExactCounterattackRestartStageNonce";
+	static const string EXACT_COUNTERATTACK_NATIVE_SOURCE_CLI_PARAM = "hstExactCounterattackNativeSourceSelection";
 	static const string CAMPAIGN_DEBUG_CANONICAL_WORLD = "worlds/hst_dev/hst_dev.ent";
 	static const int CAMPAIGN_DEBUG_CLI_RETRY_SECONDS = 5;
 	static const int CAMPAIGN_DEBUG_CLI_MAX_ATTEMPTS = 60;
@@ -159,6 +160,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CONFIRM = 2;
 	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CAPTURE = 3;
 	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_COMPLETE = 4;
+	static const float CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS = 120.0;
+	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_QUEUE_MAX_ATTEMPTS = 300;
+	static const int EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS = 900;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -177,6 +181,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected ref HST_RadioSiteLifecycleService m_RadioSites;
 	protected ref HST_PersistenceService m_Persistence;
 	protected ref HST_PersistenceSmokeTestService m_PersistenceSmokeTest;
+	protected ref HST_CampaignState m_CampaignPersistenceBootstrapFallbackState;
+	protected bool m_bCampaignPersistenceBootstrapComplete;
+	protected bool m_bCampaignPersistenceBootstrapFatal;
+	protected float m_fCampaignPersistenceBootstrapPendingSeconds;
 	protected ref HST_AuthorizationService m_Authorization;
 	protected ref HST_StrategicService m_Strategic;
 	protected ref HST_ArsenalService m_Arsenal;
@@ -281,6 +289,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sExactCounterattackRestartSourceEvidence;
 	protected ref HST_EnemyCounterattackExternalRestartCarrier m_ExactCounterattackRestartCarrier;
 	protected ref HST_EnemyCounterattackExternalPhysicalPrepareContext m_ExactCounterattackPhysicalPrepareContext;
+	protected bool m_bExactCounterattackNativeSourceSelectionProof;
+	protected bool m_bExactCounterattackNativeSavePending;
+	protected bool m_bExactCounterattackNativeSaveRequestQueued;
+	protected bool m_bExactCounterattackNativeSaveCompleted;
+	protected bool m_bExactCounterattackNativeSaveSucceeded;
+	protected bool m_bExactCounterattackNativeSaveCreated;
+	protected bool m_bExactCounterattackNativeSaveEventConnected;
+	protected bool m_bExactCounterattackNativePersistenceLoaded;
+	protected bool m_bExactCounterattackFallbackConflictRejected;
+	protected string m_sExactCounterattackNativeSavePointId;
+	protected string m_sExactCounterattackFallbackConflictFingerprint;
+	protected string m_sExactCounterattackRestoreSource;
+	protected string m_sExactCounterattackNativeSaveQueueEvidence;
+	protected int m_iExactCounterattackNativeSaveQueueAttempts;
+	protected int m_iExactCounterattackNativeSaveCompletionAttempts;
+	protected ref SaveGameOperationCallback m_ExactCounterattackNativeSaveCallback;
+	protected ref HST_EnemyCounterattackExternalRestartResult m_ExactCounterattackNativePendingResult;
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;
 	protected int m_iCampaignDebugBootstrapSpawnRequests;
@@ -765,7 +790,59 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_EnemyGarrisonRebuildOperations);
 		}
 
-		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
+		m_CampaignPersistenceBootstrapFallbackState = CreateInitialCampaignState();
+		SetEventMask(owner, EntityEvent.FRAME);
+		TryCompleteCampaignPersistenceBootstrap();
+	}
+
+	protected bool TryCompleteCampaignPersistenceBootstrap(float timeSlice = 0.0)
+	{
+		if (m_bCampaignPersistenceBootstrapComplete)
+			return true;
+		if (m_bCampaignPersistenceBootstrapFatal || !m_Persistence)
+			return false;
+		if (!m_CampaignPersistenceBootstrapFallbackState)
+			m_CampaignPersistenceBootstrapFallbackState
+				= CreateInitialCampaignState();
+
+		HST_PersistenceSourceResolution sourceResolution
+			= m_Persistence.ResolveCampaignStateSource(
+				m_CampaignPersistenceBootstrapFallbackState);
+		if (!sourceResolution)
+		{
+			FailCampaignPersistenceBootstrap(
+				"campaign persistence source resolution returned no result");
+			return false;
+		}
+		if (sourceResolution.IsPending())
+		{
+			m_fCampaignPersistenceBootstrapPendingSeconds += Math.Max(0.0, timeSlice);
+			if (m_fCampaignPersistenceBootstrapPendingSeconds
+				>= CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS)
+			{
+				FailCampaignPersistenceBootstrap(string.Format(
+					"native persistence bootstrap timed out after %1 seconds: %2",
+					m_fCampaignPersistenceBootstrapPendingSeconds,
+					sourceResolution.m_sEvidence));
+			}
+			return false;
+		}
+		if (sourceResolution.IsFatal()
+			|| !sourceResolution.HasSelectedState())
+		{
+			string failure = "campaign persistence source resolution failed";
+			if (sourceResolution && !sourceResolution.m_sEvidence.IsEmpty())
+				failure = sourceResolution.m_sEvidence;
+			FailCampaignPersistenceBootstrap(failure);
+			return false;
+		}
+
+		m_State = sourceResolution.m_State;
+		m_CampaignPersistenceBootstrapFallbackState = null;
+		Print(string.Format(
+			"Partisan persistence | startup source %1 | %2",
+			sourceResolution.BuildSourceLabel(),
+			sourceResolution.m_sEvidence));
 		ObserveExactQRFExternalRestartSource();
 		ObserveExactCounterattackExternalRestartSource();
 		// Repair only the exact Schema-68 fresh-bootstrap poison emitted by the
@@ -867,16 +944,56 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		if (m_MissionConvoyOperations)
 			m_MissionConvoyOperations.ReconcileAfterRestore(m_State);
 		m_Missions.SyncNextInstanceIdFromState(m_State);
-		m_Persistence.CaptureAndTrackState(m_State);
+		HST_CampaignSaveData capturedState
+			= m_Persistence.CaptureAndTrackState(
+				m_State,
+				"startup source validated and tracked");
+		if (!capturedState)
+		{
+			FailCampaignPersistenceBootstrap(
+				"validated startup source could not be captured");
+			return false;
+		}
+		if (sourceResolution.m_bPersistenceSystemAvailable)
+		{
+			string nativeTrackingEvidence;
+			if (!m_Persistence.IsNativeCampaignStateTracked(
+				nativeTrackingEvidence))
+			{
+				FailCampaignPersistenceBootstrap(
+					"native campaign tracking failed: "
+						+ nativeTrackingEvidence);
+				return false;
+			}
+		}
 		RefreshCampaignMarkers();
 
 		ArmPlayerSpawnSweep(6);
-		SetEventMask(owner, EntityEvent.FRAME);
+		m_bCampaignPersistenceBootstrapComplete = true;
 		Print("Partisan | campaign coordinator initialized");
+		return true;
+	}
+
+	protected void FailCampaignPersistenceBootstrap(string failure)
+	{
+		if (m_bCampaignPersistenceBootstrapFatal)
+			return;
+		m_bCampaignPersistenceBootstrapFatal = true;
+		if (m_bExactCounterattackRestartCLIRequested)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"campaign persistence bootstrap failed: " + failure);
+			PublishExactCounterattackRestartStartupFailure();
+		}
+		Print(
+			"Partisan persistence | startup failed closed: " + failure,
+			LogLevel.ERROR);
+		GetGame().RequestClose();
 	}
 
 	override void OnDelete(IEntity owner)
 	{
+		DisconnectExactCounterattackNativeSaveCreatedEvent();
 		if (m_MapMarkers)
 			m_MapMarkers.UnbindNativeMapRefresh();
 		if (m_PlayerMapMarkers)
@@ -891,6 +1008,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnGameModeStart()
 	{
 		super.OnGameModeStart();
+		if (!m_bCampaignPersistenceBootstrapComplete)
+			return;
 		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep("game-mode-start", true);
 	}
@@ -898,6 +1017,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnGameStateChanged(SCR_EGameModeState state)
 	{
 		super.OnGameStateChanged(state);
+		if (!m_bCampaignPersistenceBootstrapComplete)
+			return;
 		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep("game-state-changed", true);
 	}
@@ -905,6 +1026,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerConnected(int playerId)
 	{
 		super.OnPlayerConnected(playerId);
+		if (!m_bCampaignPersistenceBootstrapComplete)
+			return;
 		ArmPlayerSpawnSweep(4);
 		ProcessPlayerSpawnSweep(string.Format("player-connected-%1", playerId), true);
 		ForceCampaignMarkerRepublishForClient("player connected");
@@ -926,6 +1049,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	override void OnPlayerDisconnected(int playerId, KickCauseCode cause, int timeout)
 	{
 		super.OnPlayerDisconnected(playerId, cause, timeout);
+		if (!m_bCampaignPersistenceBootstrapComplete)
+			return;
 		HandlePlayerDisconnectedAuthority(playerId);
 		if (m_ClientProjection)
 			m_ClientProjection.RemovePlayer(playerId);
@@ -935,7 +1060,14 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 	override void EOnFrame(IEntity owner, float timeSlice)
 	{
-		if (!Replication.IsServer() || !m_State)
+		if (!Replication.IsServer())
+			return;
+		if (!m_bCampaignPersistenceBootstrapComplete)
+		{
+			TryCompleteCampaignPersistenceBootstrap(timeSlice);
+			return;
+		}
+		if (!m_State)
 			return;
 		if (m_bExactQRFRestartCLIRequested)
 		{
@@ -6427,6 +6559,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"host-owned disposable profile owner failed: " + ownerEvidence);
 			return false;
 		}
+		if (profileOwner.m_bNativeSourceSelectionProof
+			!= m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"profile owner native source-selection authority rejected");
+			return false;
+		}
 
 		string shapeEvidence;
 		if (!HST_EnemyCounterattackExternalRestartProofService
@@ -6462,6 +6601,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"one-use stage lease failed: " + guardEvidence);
 			return false;
 		}
+		if (!guard || guard.m_bNativeSourceSelectionProof
+			!= m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"stage lease native source-selection authority rejected");
+			return false;
+		}
 		m_bExactCounterattackRestartGuardExact = true;
 		if (!requireCarrier)
 			return true;
@@ -6479,6 +6625,122 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				"external restart carrier failed: " + carrierEvidence);
 			return false;
 		}
+		if (m_ExactCounterattackRestartCarrier.m_bNativeSourceSelectionProof
+			!= m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			SetExactCounterattackRestartSetupFailure(
+				"restart carrier native source-selection authority rejected");
+			return false;
+		}
+		return true;
+	}
+
+	protected bool PrepareExactCounterattackNativeRestartSource(
+		out HST_CampaignState sourceState,
+		out string evidence)
+	{
+		sourceState = null;
+		evidence = "native counterattack restart source rejected";
+		if (!m_bExactCounterattackNativeSourceSelectionProof
+			|| !m_Persistence || !m_State
+			|| !m_ExactCounterattackRestartCarrier)
+			return false;
+
+		HST_PersistenceSourceResolution sourceResolution
+			= m_Persistence.GetLastSourceResolution();
+		if (!sourceResolution
+			|| sourceResolution.BuildSourceLabel() != "native"
+			|| !sourceResolution.m_bPersistenceSystemAvailable
+			|| !sourceResolution.m_bPersistenceSystemLoadedData
+			|| !sourceResolution.m_bNativeRecordPresent
+			|| !sourceResolution.m_bNativeRecordValid
+			|| sourceResolution.m_sNativeSnapshotFingerprint.IsEmpty()
+			|| sourceResolution.m_sSelectedSnapshotFingerprint
+				!= sourceResolution.m_sNativeSnapshotFingerprint)
+		{
+			evidence = "campaign bootstrap did not select an exact loaded native record";
+			return false;
+		}
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		string activeSaveId;
+		if (activeSave)
+			activeSaveId = activeSave.GetId();
+		if (!activeSave || !UUID.IsUUID(activeSaveId)
+			|| activeSaveId
+				!= m_ExactCounterattackRestartCarrier.m_sNativeSavePointId)
+		{
+			evidence = string.Format(
+				"active native save-point identity rejected | expected %1 | actual %2",
+				m_ExactCounterattackRestartCarrier.m_sNativeSavePointId,
+				activeSaveId);
+			return false;
+		}
+
+		HST_CampaignState fallbackConflictState;
+		string fallbackEvidence;
+		if (!m_Persistence.ReadProfileFallbackProofSnapshot(
+			fallbackConflictState,
+			fallbackEvidence))
+		{
+			evidence = "conflicting fallback evidence could not be read: "
+				+ fallbackEvidence;
+			return false;
+		}
+
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		string conflictFingerprint;
+		string conflictEvidence;
+		bool fallbackAccepted;
+		if (m_sExactCounterattackRestartCLIStage == "recover")
+		{
+			fallbackAccepted = proof.ValidateExternalOwnerAppliedPendingState(
+				fallbackConflictState,
+				m_ExactCounterattackRestartCarrier,
+				conflictFingerprint,
+				conflictEvidence);
+		}
+		else
+		{
+			fallbackAccepted = proof.ValidateExternalOwnerAppliedReturningState(
+				fallbackConflictState,
+				m_ExactCounterattackRestartCarrier,
+				conflictFingerprint,
+				conflictEvidence);
+		}
+		bool conflictRejected = !fallbackAccepted
+			&& !conflictFingerprint.IsEmpty()
+			&& conflictFingerprint
+				== m_ExactCounterattackRestartCarrier
+					.m_sFallbackConflictSemanticFingerprint
+			&& conflictFingerprint
+				!= m_ExactCounterattackRestartCarrier
+					.m_sPreparedSemanticFingerprint;
+		if (!conflictRejected)
+		{
+			evidence = "profile fallback did not provide the exact conflicting source: "
+				+ conflictEvidence;
+			return false;
+		}
+
+		sourceState = m_State;
+		m_bExactCounterattackNativePersistenceLoaded = true;
+		m_bExactCounterattackFallbackConflictRejected = true;
+		m_sExactCounterattackNativeSavePointId = activeSaveId;
+		m_sExactCounterattackFallbackConflictFingerprint
+			= conflictFingerprint;
+		m_sExactCounterattackRestoreSource = sourceResolution.BuildSourceLabel();
+		evidence = string.Format(
+			"native source selected | save point %1 | native fingerprint %2 | conflicting fallback rejected %3",
+			activeSaveId,
+			sourceResolution.m_sNativeSnapshotFingerprint,
+			conflictFingerprint);
+		evidence += " | fallback " + fallbackEvidence
+			+ " | conflict " + conflictEvidence;
 		return true;
 	}
 
@@ -6498,6 +6760,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_sExactCounterattackRestartCLIStage == "prepare")
 		{
+			if (m_bExactCounterattackNativeSourceSelectionProof)
+			{
+				HST_PersistenceSourceResolution sourceResolution
+					= m_Persistence.GetLastSourceResolution();
+				if (sourceResolution)
+					m_sExactCounterattackRestoreSource
+						= sourceResolution.BuildSourceLabel();
+				if (!sourceResolution
+					|| m_sExactCounterattackRestoreSource != "new_campaign")
+				{
+					SetExactCounterattackRestartSetupFailure(
+						"native prepare requires the exact new_campaign source");
+					return;
+				}
+			}
 			if (m_State && m_State.m_bRestoredFromPersistence)
 			{
 				SetExactCounterattackRestartSetupFailure(
@@ -6514,12 +6791,23 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 
 		HST_CampaignState sourceState;
 		string readEvidence;
-		if (!m_Persistence.ReadProfileFallbackProofSnapshot(
-			sourceState,
-			readEvidence))
+		bool sourceRead;
+		if (m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			sourceRead = PrepareExactCounterattackNativeRestartSource(
+				sourceState,
+				readEvidence);
+		}
+		else
+		{
+			sourceRead = m_Persistence.ReadProfileFallbackProofSnapshot(
+				sourceState,
+				readEvidence);
+		}
+		if (!sourceRead)
 		{
 			SetExactCounterattackRestartSetupFailure(
-				"canonical source readback failed: " + readEvidence);
+				"canonical source selection failed: " + readEvidence);
 			return;
 		}
 		HST_EnemyCounterattackOperationProofService proof
@@ -6638,16 +6926,26 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				+ " | " + runtimeEvidence;
 		if (m_bExactCounterattackRestartSourceExact)
 		{
-			sourceState.m_iPersistenceRestoreSequence
-				= Math.Max(0, sourceState.m_iPersistenceRestoreSequence) + 1;
-			sourceState.m_bRestoredFromPersistence = true;
-			sourceState.m_iLastRestoreSecond = sourceState.m_iElapsedSeconds;
-			sourceState.m_sLastPersistenceStatus
-				= "external exact counterattack canonical restart source adopted";
-			m_State = sourceState;
-			m_Persistence.CaptureAndTrackState(
-				m_State,
-				m_State.m_sLastPersistenceStatus);
+			if (m_bExactCounterattackNativeSourceSelectionProof)
+			{
+				// The bootstrap already applied native restore bookkeeping. Keep the
+				// selected state in place so the conflicting profile fallback is
+				// evidence only and never becomes campaign authority.
+				m_State = sourceState;
+			}
+			else
+			{
+				sourceState.m_iPersistenceRestoreSequence
+					= Math.Max(0, sourceState.m_iPersistenceRestoreSequence) + 1;
+				sourceState.m_bRestoredFromPersistence = true;
+				sourceState.m_iLastRestoreSecond = sourceState.m_iElapsedSeconds;
+				sourceState.m_sLastPersistenceStatus
+					= "external exact counterattack canonical restart source adopted";
+				m_State = sourceState;
+				m_Persistence.CaptureAndTrackState(
+					m_State,
+					m_State.m_sLastPersistenceStatus);
+			}
 		}
 		else
 		{
@@ -6682,6 +6980,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_bOwnershipStartupReconcileChanged
 			= m_bExactCounterattackRestartOwnershipStartupReconcileChanged;
 		result.m_bSourceExact = m_bExactCounterattackRestartSourceExact;
+		result.m_bNativeSourceSelectionProof
+			= m_bExactCounterattackNativeSourceSelectionProof;
+		result.m_bNativePersistenceLoaded
+			= m_bExactCounterattackNativePersistenceLoaded;
+		result.m_bFallbackConflictRejected
+			= m_bExactCounterattackFallbackConflictRejected;
+		result.m_sNativeSavePointId
+			= m_sExactCounterattackNativeSavePointId;
+		result.m_sRestoreSource = m_sExactCounterattackRestoreSource;
+		result.m_sFallbackConflictSemanticFingerprint
+			= m_sExactCounterattackFallbackConflictFingerprint;
 		if (m_ExactCounterattackRestartCarrier)
 		{
 			result.m_sRawPreparedCutSemanticFingerprint
@@ -6722,6 +7031,336 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				+ saveEvidence,
 			LogLevel.WARNING);
 		return false;
+	}
+
+	protected bool BuildExactCounterattackNativeFallbackConflict(
+		out string evidence)
+	{
+		evidence = "native fallback conflict was not created";
+		if (!m_State || !m_ExactCounterattackRestartCarrier
+			|| m_sExactCounterattackRestartCLIStage != "prepare")
+			return false;
+
+		HST_CampaignSaveData cloneSave = new HST_CampaignSaveData();
+		cloneSave.Capture(m_State);
+		HST_CampaignState conflictState = cloneSave.Restore();
+		if (!conflictState)
+		{
+			evidence = "native fallback conflict clone restore failed";
+			return false;
+		}
+		conflictState.m_iElapsedSeconds
+			= Math.Max(0, conflictState.m_iElapsedSeconds) + 1;
+
+		HST_CampaignState conflictReadBack;
+		string persistenceEvidence;
+		if (!m_Persistence.WriteProfileFallbackProofSnapshot(
+			conflictState,
+			"external exact counterattack native-source fallback conflict",
+			conflictReadBack,
+			persistenceEvidence))
+		{
+			evidence = "native fallback conflict persistence failed: "
+				+ persistenceEvidence;
+			return false;
+		}
+
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		string conflictFingerprint;
+		string conflictEvidence;
+		bool fallbackAccepted = proof.ValidateExternalOwnerAppliedPendingState(
+			conflictReadBack,
+			m_ExactCounterattackRestartCarrier,
+			conflictFingerprint,
+			conflictEvidence);
+		if (fallbackAccepted || conflictFingerprint.IsEmpty()
+			|| conflictFingerprint
+				== "external-counterattack-owner-applied-unavailable"
+			|| conflictFingerprint
+				== m_ExactCounterattackRestartCarrier
+					.m_sPreparedSemanticFingerprint)
+		{
+			evidence = "native fallback conflict did not diverge exactly: "
+				+ conflictEvidence;
+			return false;
+		}
+
+		m_sExactCounterattackFallbackConflictFingerprint
+			= conflictFingerprint;
+		m_ExactCounterattackRestartCarrier
+			.m_sFallbackConflictSemanticFingerprint = conflictFingerprint;
+		evidence = "valid current-schema fallback conflict created and rejected | "
+			+ conflictEvidence + " | " + persistenceEvidence;
+		return true;
+	}
+
+	protected bool BeginExactCounterattackNativeSavePoint(
+		HST_EnemyCounterattackExternalRestartResult result,
+		out string evidence)
+	{
+		evidence = "native save point was not requested";
+		if (!m_bExactCounterattackNativeSourceSelectionProof
+			|| !result || !result.m_bSuccess || m_bExactCounterattackNativeSavePending)
+			return false;
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!saveManager)
+		{
+			evidence = "save manager is unavailable";
+			return false;
+		}
+		m_bExactCounterattackNativeSaveRequestQueued = false;
+		m_bExactCounterattackNativeSaveCompleted = false;
+		m_bExactCounterattackNativeSaveSucceeded = false;
+		m_bExactCounterattackNativeSaveCreated = false;
+		m_sExactCounterattackNativeSavePointId = "";
+		m_sExactCounterattackNativeSaveQueueEvidence = "native save queue pending";
+		m_iExactCounterattackNativeSaveQueueAttempts = 0;
+		m_iExactCounterattackNativeSaveCompletionAttempts = 0;
+		m_ExactCounterattackNativePendingResult = result;
+		m_bExactCounterattackNativeSavePending = true;
+
+		string queueEvidence;
+		TryQueueExactCounterattackNativeSavePoint(queueEvidence);
+		m_sExactCounterattackNativeSaveQueueEvidence = queueEvidence;
+		evidence = "native save handoff armed | " + queueEvidence;
+		return true;
+	}
+
+	protected bool TryQueueExactCounterattackNativeSavePoint(
+		out string evidence)
+	{
+		evidence = "native save point queue is not ready";
+		if (!m_bExactCounterattackNativeSavePending
+			|| m_bExactCounterattackNativeSaveRequestQueued)
+			return false;
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (!saveManager)
+		{
+			evidence = "save manager is unavailable";
+			return false;
+		}
+		if (!saveManager.IsSavingEnabled()
+			|| !saveManager.IsSavingAllowed() || saveManager.IsBusy())
+		{
+			evidence = string.Format(
+				"save manager enabled/allowed/busy %1/%2/%3",
+				saveManager.IsSavingEnabled(),
+				saveManager.IsSavingAllowed(),
+				saveManager.IsBusy());
+			return false;
+		}
+
+		string persistenceEvidence;
+		if (!m_Persistence.PrepareNativeSessionSavePoint(
+			m_State,
+			persistenceEvidence))
+		{
+			evidence = "native campaign payload preparation pending: "
+				+ persistenceEvidence;
+			return false;
+		}
+
+		m_ExactCounterattackNativeSaveCallback
+			= new SaveGameOperationCallback(
+				OnExactCounterattackNativeSaveCompleted);
+		EventProvider.ConnectEvent(
+			saveManager.OnSaveCreated,
+			OnExactCounterattackNativeSaveCreated);
+		m_bExactCounterattackNativeSaveEventConnected = true;
+		m_bExactCounterattackNativeSaveRequestQueued = true;
+		saveManager.RequestSavePoint(
+			ESaveGameType.MANUAL,
+			"Partisan native campaign restart proof",
+			ESaveGameRequestFlags.BLOCKING,
+			m_ExactCounterattackNativeSaveCallback);
+		evidence = persistenceEvidence
+			+ " | blocking manual save point queued";
+		return true;
+	}
+
+	protected void DisconnectExactCounterattackNativeSaveCreatedEvent()
+	{
+		if (!m_bExactCounterattackNativeSaveEventConnected)
+			return;
+		SaveGameManager saveManager = SaveGameManager.Get();
+		if (saveManager)
+		{
+			EventProvider.DisconnectEvent(
+				saveManager.OnSaveCreated,
+				OnExactCounterattackNativeSaveCreated);
+		}
+		m_bExactCounterattackNativeSaveEventConnected = false;
+	}
+
+	[ReceiverAttribute()]
+	protected void OnExactCounterattackNativeSaveCreated(SaveGame save)
+	{
+		if (!m_bExactCounterattackNativeSavePending
+			|| m_bExactCounterattackNativeSaveCreated || !save)
+			return;
+		string savePointId = save.GetId();
+		if (!UUID.IsUUID(savePointId))
+			return;
+		m_sExactCounterattackNativeSavePointId = savePointId;
+		m_bExactCounterattackNativeSaveCreated = true;
+	}
+
+	protected void OnExactCounterattackNativeSaveCompleted(
+		bool success,
+		Managed context = null)
+	{
+		if (!m_bExactCounterattackNativeSavePending)
+			return;
+		m_bExactCounterattackNativeSaveSucceeded = success;
+		m_bExactCounterattackNativeSaveCompleted = true;
+	}
+
+	protected bool FinalizeExactCounterattackNativeSavePoint()
+	{
+		if (!m_bExactCounterattackNativeSavePending)
+			return false;
+		if (!m_bExactCounterattackNativeSaveRequestQueued)
+		{
+			m_iExactCounterattackNativeSaveQueueAttempts++;
+			string queueEvidence;
+			if (TryQueueExactCounterattackNativeSavePoint(queueEvidence))
+			{
+				m_sExactCounterattackNativeSaveQueueEvidence = queueEvidence;
+				return false;
+			}
+			m_sExactCounterattackNativeSaveQueueEvidence = queueEvidence;
+			if (m_iExactCounterattackNativeSaveQueueAttempts
+				< EXACT_COUNTERATTACK_NATIVE_SAVE_QUEUE_MAX_ATTEMPTS)
+				return false;
+
+			HST_EnemyCounterattackExternalRestartResult queueFailure
+				= m_ExactCounterattackNativePendingResult;
+			m_ExactCounterattackNativePendingResult = null;
+			m_bExactCounterattackNativeSavePending = false;
+			if (queueFailure)
+			{
+				queueFailure.m_bSuccess = false;
+				queueFailure.m_sEvidence += string.Format(
+					" | native save queue timed out after %1 attempts: %2",
+					m_iExactCounterattackNativeSaveQueueAttempts,
+					m_sExactCounterattackNativeSaveQueueEvidence);
+				SaveExactCounterattackRestartResult(queueFailure);
+			}
+			return true;
+		}
+		if (!m_bExactCounterattackNativeSaveCompleted)
+		{
+			m_iExactCounterattackNativeSaveCompletionAttempts++;
+			if (m_iExactCounterattackNativeSaveCompletionAttempts
+				< EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS)
+				return false;
+
+			DisconnectExactCounterattackNativeSaveCreatedEvent();
+			m_bExactCounterattackNativeSavePending = false;
+			HST_EnemyCounterattackExternalRestartResult completionFailure
+				= m_ExactCounterattackNativePendingResult;
+			m_ExactCounterattackNativePendingResult = null;
+			if (completionFailure)
+			{
+				completionFailure.m_bSuccess = false;
+				completionFailure.m_sEvidence += string.Format(
+					" | native save completion timed out after %1 attempts",
+					m_iExactCounterattackNativeSaveCompletionAttempts);
+				SaveExactCounterattackRestartResult(completionFailure);
+			}
+			return true;
+		}
+
+		SaveGameManager saveManager = SaveGameManager.Get();
+		DisconnectExactCounterattackNativeSaveCreatedEvent();
+		m_bExactCounterattackNativeSavePending = false;
+		HST_EnemyCounterattackExternalRestartResult result
+			= m_ExactCounterattackNativePendingResult;
+		m_ExactCounterattackNativePendingResult = null;
+
+		SaveGame activeSave;
+		if (saveManager)
+			activeSave = saveManager.GetActiveSave();
+		string activeSaveId;
+		if (activeSave)
+			activeSaveId = activeSave.GetId();
+		bool savePointExact = result
+			&& m_bExactCounterattackNativeSaveSucceeded
+			&& m_bExactCounterattackNativeSaveCreated
+			&& UUID.IsUUID(m_sExactCounterattackNativeSavePointId)
+			&& activeSave
+			&& activeSaveId == m_sExactCounterattackNativeSavePointId;
+
+		string stageEvidence;
+		bool stageArtifactExact;
+		if (savePointExact && m_sExactCounterattackRestartCLIStage == "prepare")
+		{
+			string conflictEvidence;
+			bool conflictExact = BuildExactCounterattackNativeFallbackConflict(
+				conflictEvidence);
+			m_ExactCounterattackRestartCarrier.m_bNativeSourceSelectionProof
+				= conflictExact;
+			if (conflictExact)
+			{
+				m_ExactCounterattackRestartCarrier.m_sNativeSavePointId
+					= m_sExactCounterattackNativeSavePointId;
+			}
+			string carrierEvidence;
+			stageArtifactExact = conflictExact
+				&& HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
+					m_ExactCounterattackRestartCarrier,
+					carrierEvidence);
+			stageEvidence = "fallback " + conflictEvidence
+				+ " | carrier " + carrierEvidence;
+		}
+		else if (savePointExact
+			&& m_sExactCounterattackRestartCLIStage == "recover")
+		{
+			m_ExactCounterattackRestartCarrier.m_sNativeSavePointId
+				= m_sExactCounterattackNativeSavePointId;
+			string carrierEvidence;
+			stageArtifactExact
+				= HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
+					m_ExactCounterattackRestartCarrier,
+					carrierEvidence);
+			stageEvidence = "carrier " + carrierEvidence;
+		}
+
+		if (result)
+		{
+			result.m_bNativeSourceSelectionProof = true;
+			result.m_bNativePersistenceLoaded
+				= m_bExactCounterattackNativePersistenceLoaded;
+			result.m_bFallbackConflictRejected
+				= m_bExactCounterattackFallbackConflictRejected;
+			result.m_bNativeSavePointCommitted
+				= savePointExact && stageArtifactExact;
+			result.m_sNativeSavePointId
+				= m_sExactCounterattackNativeSavePointId;
+			result.m_sRestoreSource = m_sExactCounterattackRestoreSource;
+			if (m_ExactCounterattackRestartCarrier)
+			{
+				result.m_sFallbackConflictSemanticFingerprint
+					= m_ExactCounterattackRestartCarrier
+						.m_sFallbackConflictSemanticFingerprint;
+			}
+			result.m_bSuccess = result.m_bSuccess
+				&& savePointExact && stageArtifactExact;
+			result.m_sEvidence += string.Format(
+				" | native save callback/created/active/artifact %1/%2/%3/%4 | save point %5",
+				m_bExactCounterattackNativeSaveSucceeded,
+				m_bExactCounterattackNativeSaveCreated,
+				activeSaveId == m_sExactCounterattackNativeSavePointId,
+				stageArtifactExact,
+				m_sExactCounterattackNativeSavePointId);
+			result.m_sEvidence += " | " + stageEvidence;
+			result.m_sEvidence += " | queue "
+				+ m_sExactCounterattackNativeSaveQueueEvidence;
+			SaveExactCounterattackRestartResult(result);
+		}
+		return true;
 	}
 
 	protected bool LoadExactCounterattackPreparedCutResult(out string evidence)
@@ -7888,10 +8527,22 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			persistenceSourceState = stagedState;
 		}
 		string carrierEvidence;
-		bool carrierSaved = prepared
-			&& HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
-				carrier,
-				carrierEvidence);
+		bool carrierSaved;
+		if (prepared && m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			// Native carrier validation requires the committed save UUID and the
+			// deliberately conflicting fallback fingerprint. Persist it only after
+			// the blocking save callback supplies both pieces of evidence.
+			carrierSaved = true;
+			carrierEvidence = "native carrier persistence deferred until save commit";
+		}
+		else if (prepared)
+		{
+			carrierSaved
+				= HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
+					carrier,
+					carrierEvidence);
+		}
 		HST_CampaignState readBackState;
 		string persistenceEvidence;
 		bool persisted = carrierSaved
@@ -8086,6 +8737,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		result.m_sEvidence += " | prepare " + prepareEvidence
 			+ " | carrier " + carrierEvidence;
 		result.m_sEvidence += " | persistence " + persistenceEvidence;
+		if (m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			string nativeSaveEvidence;
+			if (BeginExactCounterattackNativeSavePoint(
+				result,
+				nativeSaveEvidence))
+			{
+				result.m_sEvidence += " | " + nativeSaveEvidence;
+				return;
+			}
+			result.m_bSuccess = false;
+			result.m_sEvidence += " | native save request failed: "
+				+ nativeSaveEvidence;
+		}
 		SaveExactCounterattackRestartResult(result);
 	}
 
@@ -8335,7 +9000,28 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		HST_CampaignState readBackState;
 		string persistenceEvidence;
 		bool persisted;
-		if (runtimeZero && recoverStage)
+		if (runtimeZero && recoverStage
+			&& m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			// Exercise the exact save DTO round trip without touching the guarded
+			// profile fallback. The blocking native save point below owns the
+			// durable write and must capture the raw RETURNING authority.
+			HST_CampaignSaveData nativeRoundTrip = new HST_CampaignSaveData();
+			nativeRoundTrip.Capture(m_State);
+			readBackState = nativeRoundTrip.Restore();
+			persisted = readBackState != null;
+			persistenceEvidence
+				= "native recover payload completed an in-memory DTO round trip";
+		}
+		else if (runtimeZero && replayStage
+			&& m_bExactCounterattackNativeSourceSelectionProof)
+		{
+			readBackState = m_State;
+			persisted = true;
+			persistenceEvidence
+				= "native replay reused the selected native RETURNING state";
+		}
+		else if (runtimeZero && recoverStage)
 		{
 			persisted = m_Persistence.WriteProfileFallbackProofSnapshot(
 				m_State,
@@ -8397,7 +9083,8 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			semanticNoOp = semanticNoOp && runtimeStateExact
 				&& persistedReadBackExact;
 		}
-		if (persistedReadBackExact)
+		if (persistedReadBackExact
+			&& !m_bExactCounterattackNativeSourceSelectionProof)
 		{
 			m_State = readBackState;
 			m_Persistence.CaptureAndTrackState(
@@ -8454,6 +9141,20 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			+ " | runtime " + runtimeEvidence;
 		result.m_sEvidence += " | startup " + startupEvidence
 			+ " | source " + m_sExactCounterattackRestartSourceEvidence;
+		if (m_bExactCounterattackNativeSourceSelectionProof && recoverStage)
+		{
+			string nativeSaveEvidence;
+			if (BeginExactCounterattackNativeSavePoint(
+				result,
+				nativeSaveEvidence))
+			{
+				result.m_sEvidence += " | " + nativeSaveEvidence;
+				return;
+			}
+			result.m_bSuccess = false;
+			result.m_sEvidence += " | native save request failed: "
+				+ nativeSaveEvidence;
+		}
 		SaveExactCounterattackRestartResult(result);
 	}
 
@@ -8698,9 +9399,17 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	{
 		if (m_bExactCounterattackRestartCLIFinalized)
 			return;
-		m_bExactCounterattackRestartCLIFinalized = true;
+		if (m_bExactCounterattackNativeSavePending)
+		{
+			if (!FinalizeExactCounterattackNativeSavePoint())
+				return;
+			m_bExactCounterattackRestartCLIFinalized = true;
+			GetGame().RequestClose();
+			return;
+		}
 		if (!m_sExactCounterattackRestartCLISetupFailure.IsEmpty())
 		{
+			m_bExactCounterattackRestartCLIFinalized = true;
 			if (m_bExactCounterattackRestartGuardExact)
 			{
 				HST_EnemyCounterattackExternalRestartResult failedResult
@@ -8721,6 +9430,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			FinalizeExactCounterattackExternalRestartPrepare();
 		else
 			FinalizeExactCounterattackExternalRestartVerify();
+		if (m_bExactCounterattackNativeSavePending)
+			return;
+		m_bExactCounterattackRestartCLIFinalized = true;
 		GetGame().RequestClose();
 	}
 
@@ -8736,6 +9448,21 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		requestedStage = requestedStage.Trim();
 		requestedStage.ToLower();
 		m_sExactCounterattackRestartCLIStage = requestedStage;
+		string nativeSourceSelection;
+		if (System.GetCLIParam(
+			EXACT_COUNTERATTACK_NATIVE_SOURCE_CLI_PARAM,
+			nativeSourceSelection))
+		{
+			nativeSourceSelection = nativeSourceSelection.Trim();
+			nativeSourceSelection.ToLower();
+			if (nativeSourceSelection == "true")
+				m_bExactCounterattackNativeSourceSelectionProof = true;
+			else
+			{
+				m_sExactCounterattackRestartCLISetupFailure
+					= "native source-selection flag must be exactly true";
+			}
+		}
 		if (!System.GetCLIParam(
 			EXACT_COUNTERATTACK_RESTART_CLI_RUN_ID_PARAM,
 			m_sExactCounterattackRestartCLIRunId))
@@ -8796,6 +9523,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			m_sExactCounterattackRestartCLISetupFailure = "run id is empty";
 		if (m_sExactCounterattackRestartCLICut.IsEmpty())
 			m_sExactCounterattackRestartCLISetupFailure = "restart cut is empty";
+		if (m_bExactCounterattackNativeSourceSelectionProof
+			&& !HST_EnemyCounterattackExternalRestartProofService
+				.IsOwnerAppliedPendingCut(m_sExactCounterattackRestartCLICut))
+		{
+			m_sExactCounterattackRestartCLISetupFailure
+				= "native source-selection proof requires owner_applied_pending";
+		}
 		if (!HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(
 			m_sExactCounterattackRestartCLISessionNonce))
 		{

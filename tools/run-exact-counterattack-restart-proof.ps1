@@ -30,7 +30,14 @@ param(
     [ValidateRange(1, 60)]
     [int]$ResultGraceSeconds = 5,
 
-    [switch]$PreflightOnly
+    [switch]$PreflightOnly,
+
+    [switch]$NativeSourceSelection,
+
+    [string]$WorkbenchExecutable = "",
+
+    [ValidateRange(30, 900)]
+    [int]$NativePackTimeoutSeconds = 180
 )
 
 Set-StrictMode -Version Latest
@@ -63,6 +70,12 @@ $script:IsPreparedSettlementCut = $script:CutName -in @(
     "prepared_after_receipt")
 $script:IsOwnerAppliedPendingCut =
     $script:CutName -ceq "owner_applied_pending"
+$script:NativeSourceSelection = [bool]$NativeSourceSelection
+$script:NativeMissionHeader = "Missions/HST_Dev.conf"
+$script:NativeScenarioId = "{6985327711302110}Missions/HST_Dev.conf"
+$script:NativeProjectId = "698532771130111D"
+$script:NativeWorldSystemsConfig =
+    "Configs/HST/Persistence/HST_CampaignSystems.conf"
 $script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"
 $script:GuardMagic = "partisan_exact_counterattack_restart_guard_v1"
 $script:CarrierMagic = "partisan_exact_counterattack_restart_carrier_v1"
@@ -73,9 +86,16 @@ $script:SentinelVersion = 1
 $script:GuardLeafPrefix = "PartisanCounterattackRestartGuard_"
 $script:GuardBaseLeaf = "PartisanCounterattackRestart"
 $script:GuardSentinelLeaf = ".partisan-counterattack-restart-owner"
+$script:WorkspacePackScratchLeaf = ".tmp-native-pack"
+$script:WorkspacePackScratchSentinelLeaf = ".partisan-native-pack-owner"
 $script:MutexName = "Local\PartisanCounterattackRestartGuard"
 $script:SnapshotHashMaximumBytes = 65536
 $script:ExpectedContinuationMeters = 75.0
+
+if ($script:NativeSourceSelection -and
+    -not $script:IsOwnerAppliedPendingCut) {
+    throw "Native source-selection proof is restricted to owner_applied_pending."
+}
 
 if (-not ("PartisanCounterattackGuardedJob" -as [type])) {
     Add-Type -TypeDefinition @"
@@ -603,10 +623,78 @@ function ConvertTo-SafeEvidenceLine {
         '(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b',
         '<email>')
     $safe = [regex]::Replace($safe, '\b[0-9]{15,20}\b', '<id>')
+	$safe = [regex]::Replace(
+		$safe,
+		'(?<![0-9])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9])',
+		'<ip>')
     if ($safe.Length -gt 500) {
         $safe = $safe.Substring(0, 500)
     }
     return $safe
+}
+
+function Get-SafeGuardedEngineDiagnostic {
+    param(
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$ProjectDirectory,
+        [Parameter(Mandatory = $true)][string]$RuntimeAddonPath
+    )
+
+    $logRoot = Join-Path $ProfileRoot "logs"
+    if (-not (Test-Path -LiteralPath $logRoot -PathType Container)) {
+        return ""
+    }
+    $diagnosticLines = New-Object Collections.Generic.List[string]
+	$tailLines = New-Object Collections.Generic.List[string]
+    foreach ($file in @(Get-ChildItem `
+        -LiteralPath $logRoot `
+        -Recurse `
+        -File `
+        -Filter "*.log" `
+        -ErrorAction SilentlyContinue | Sort-Object LastWriteTimeUtc)) {
+        if ($file.Length -le 0 -or $file.Length -gt 33554432) {
+            continue
+        }
+        foreach ($line in @(Get-Content -LiteralPath $file.FullName -Tail 200)) {
+            $safe = ConvertTo-SafeEvidenceLine `
+                -Line ([string]$line) `
+                -GuardRoot $ProfileRoot `
+                -ProjectDirectory $ProjectDirectory `
+                -ResolvedAddonRoots @($RuntimeAddonPath)
+            if (-not [string]::IsNullOrWhiteSpace($safe)) {
+				$tailLines.Add($safe)
+				if ([string]$line -match '(?i)(error|fail|invalid|config|scenario|mission|resource)') {
+					$diagnosticLines.Add($safe)
+				}
+            }
+        }
+    }
+	if ($diagnosticLines.Count -eq 0 -and $tailLines.Count -eq 0) {
+        return ""
+    }
+	if ($diagnosticLines.Count -eq 0) {
+		return (@($tailLines.ToArray() | Select-Object -Last 8) -join " | ")
+	}
+	$specificConfigErrors = @($diagnosticLines.ToArray() | Where-Object {
+		$_ -match '(?i)(server config|json|property|required|unknown|unsupported|expected)' -and
+		$_ -notmatch '(?i)(CLI Params|JSON is invalid|There are errors in server config|Error while initializing game|OnError|OnTimeout)'
+	} | Select-Object -Unique)
+	$hardErrors = @($diagnosticLines.ToArray() | Where-Object {
+		$_ -match '\(E\):' -and
+		$_ -notmatch '(?i)(resource leaks|\.edds\s+\d+$)'
+	} | Select-Object -Unique)
+	$priority = @($specificConfigErrors + $hardErrors)
+	$useTail = $false
+	if ($priority.Count -eq 0) {
+		$priority = @($tailLines.ToArray() | Where-Object {
+			$_ -notmatch '(?i)(resource leaks|\.edds\s+\d+$)'
+		} | Select-Object -Unique)
+		$useTail = $true
+	}
+	if ($useTail) {
+		return (@($priority | Select-Object -Last 8) -join " | ")
+	}
+    return (@($priority | Select-Object -First 8) -join " | ")
 }
 
 function Get-StringDigest {
@@ -1083,6 +1171,126 @@ function Remove-ExactOwnedGuard {
     return -not (Test-Path -LiteralPath $Ownership.Directory)
 }
 
+function Read-NativeWorkspacePackScratchOwnership {
+    param(
+        [Parameter(Mandatory = $true)][string]$Directory,
+        [Parameter(Mandatory = $true)][string]$RepositoryRoot
+    )
+
+    try {
+        $repositoryFull = [IO.Path]::GetFullPath($RepositoryRoot)
+        $expected = [IO.Path]::GetFullPath(
+            (Join-Path $repositoryFull $script:WorkspacePackScratchLeaf))
+        $resolved = [IO.Path]::GetFullPath($Directory)
+        if (-not $resolved.Equals(
+            $expected,
+            [StringComparison]::OrdinalIgnoreCase) -or
+            -not (Test-ContainedPath `
+                -Root $repositoryFull `
+                -Candidate $resolved) -or
+            -not (Test-Path -LiteralPath $resolved -PathType Container)) {
+            return $null
+        }
+        Assert-NoReparsePathAncestry -Path $resolved
+        $directoryItem = Get-Item -LiteralPath $resolved -Force
+        if (($directoryItem.Attributes -band
+            [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            return $null
+        }
+        $sentinel = Join-Path `
+            $resolved `
+            $script:WorkspacePackScratchSentinelLeaf
+        if (-not (Test-Path -LiteralPath $sentinel -PathType Leaf)) {
+            return $null
+        }
+        $sentinelItem = Get-Item -LiteralPath $sentinel -Force
+        if (($sentinelItem.Attributes -band
+            [IO.FileAttributes]::ReparsePoint) -ne 0) {
+            return $null
+        }
+        $ownership = Read-JsonArtifact -Path $sentinel
+        foreach ($property in @(
+            "version",
+            "purpose",
+            "nonce",
+            "ownerPid",
+            "ownerStartUtc")) {
+            if ($ownership.PSObject.Properties.Name -notcontains $property) {
+                return $null
+            }
+        }
+        if ([int]$ownership.version -ne $script:SentinelVersion -or
+            [string]$ownership.purpose -cne "native_workbench_pack_scratch" -or
+            -not ([string]$ownership.nonce -match '^[0-9a-f]{32}$') -or
+            [int]$ownership.ownerPid -le 0) {
+            return $null
+        }
+        $ownerStartUtc = [DateTime]::Parse(
+            [string]$ownership.ownerStartUtc,
+            [Globalization.CultureInfo]::InvariantCulture,
+            [Globalization.DateTimeStyles]::RoundtripKind).ToUniversalTime()
+        return [pscustomobject]@{
+            Directory = $resolved
+            Sentinel = $sentinel
+            Nonce = [string]$ownership.nonce
+            OwnerPid = [int]$ownership.ownerPid
+            OwnerStartUtc = $ownerStartUtc
+        }
+    }
+    catch {
+        return $null
+    }
+}
+
+function Remove-NativeWorkspacePackScratch {
+    param(
+        [Parameter(Mandatory = $true)]$Ownership,
+        [Parameter(Mandatory = $true)][string]$RepositoryRoot,
+        [int]$Attempts = 4
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        if (-not (Test-Path -LiteralPath $Ownership.Directory)) {
+            return $true
+        }
+        $current = Read-NativeWorkspacePackScratchOwnership `
+            -Directory $Ownership.Directory `
+            -RepositoryRoot $RepositoryRoot
+        if (-not $current -or
+            $current.Nonce -cne $Ownership.Nonce -or
+            $current.OwnerPid -ne $Ownership.OwnerPid -or
+            $current.OwnerStartUtc.Ticks -ne
+                $Ownership.OwnerStartUtc.Ticks) {
+            return $false
+        }
+        $reparseDescendant = Get-ChildItem `
+            -LiteralPath $current.Directory `
+            -Recurse `
+            -Force `
+            -ErrorAction Stop |
+            Where-Object {
+                ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+            } |
+            Select-Object -First 1
+        if ($reparseDescendant) {
+            return $false
+        }
+        try {
+            Remove-Item `
+                -LiteralPath $current.Directory `
+                -Recurse `
+                -Force `
+                -ErrorAction Stop
+        }
+        catch {
+            if ($attempt -lt $Attempts) {
+                Start-Sleep -Milliseconds 250
+            }
+        }
+    }
+    return -not (Test-Path -LiteralPath $Ownership.Directory)
+}
+
 function Remove-StaleOwnedGuards {
     param(
         [Parameter(Mandatory = $true)][string]$GuardBase,
@@ -1374,6 +1582,38 @@ function Assert-LowerHexNonce {
 
     if ($Nonce -cnotmatch '^[0-9a-f]{32}$') {
         throw "$Label must be one exact lowercase 32-character nonce."
+    }
+}
+
+function Assert-NativeSavePointId {
+    param(
+        [Parameter(Mandatory = $true)][string]$SavePointId,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    if ($SavePointId -cnotmatch
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$') {
+        throw "$Label must be one exact lowercase native save UUID."
+    }
+    $parsed = [Guid]::Empty
+    if (-not [Guid]::TryParseExact($SavePointId, "D", [ref]$parsed) -or
+        $parsed -eq [Guid]::Empty) {
+        throw "$Label is not a valid non-empty native save UUID."
+    }
+}
+
+function Get-AvailableLoopbackUdpPort {
+    $socket = New-Object Net.Sockets.UdpClient(0)
+    try {
+        $endpoint = [Net.IPEndPoint]$socket.Client.LocalEndPoint
+        if (-not $endpoint -or $endpoint.Port -lt 1024 -or
+            $endpoint.Port -gt 65535) {
+            throw "Unable to reserve a bounded loopback UDP port."
+        }
+        return [int]$endpoint.Port
+    }
+    finally {
+        $socket.Dispose()
     }
 }
 
@@ -1759,6 +1999,37 @@ function Assert-OwnerAppliedPendingCarrier {
     }
 }
 
+function Assert-NativeSourceCarrierEvidence {
+    param(
+        [Parameter(Mandatory = $true)]$Carrier,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    foreach ($property in @(
+        "m_bNativeSourceSelectionProof",
+        "m_sNativeSavePointId",
+        "m_sFallbackConflictSemanticFingerprint")) {
+        Assert-JsonProperty `
+            -Value $Carrier `
+            -PropertyName $property `
+            -ArtifactLabel $Label
+    }
+    if ($Carrier.m_bNativeSourceSelectionProof -isnot [bool] -or
+        -not [bool]$Carrier.m_bNativeSourceSelectionProof) {
+        throw "$Label omitted native source-selection authority."
+    }
+    Assert-NativeSavePointId `
+        -SavePointId ([string]$Carrier.m_sNativeSavePointId) `
+        -Label "$Label save point id"
+    $fallbackFingerprint =
+        [string]$Carrier.m_sFallbackConflictSemanticFingerprint
+    if ([string]::IsNullOrWhiteSpace($fallbackFingerprint) -or
+        $fallbackFingerprint -ceq
+            [string]$Carrier.m_sPreparedSemanticFingerprint) {
+        throw "$Label fallback-conflict fingerprint is not independent."
+    }
+}
+
 function Assert-PreparedCarrier {
     param(
         [Parameter(Mandatory = $true)]$Carrier,
@@ -1804,6 +2075,15 @@ function Assert-PreparedCarrier {
         -Artifact $Carrier `
         -ExpectedBuild $ExpectedBuild `
         -ArtifactLabel $label
+
+    if ($script:NativeSourceSelection) {
+        Assert-NativeSourceCarrierEvidence -Carrier $Carrier -Label $label
+    }
+    elseif ($Carrier.PSObject.Properties.Name -contains
+            "m_bNativeSourceSelectionProof" -and
+        [bool]$Carrier.m_bNativeSourceSelectionProof) {
+        throw "$label unexpectedly claims native source-selection authority."
+    }
 
     if ($script:IsPreparedSettlementCut) {
         Assert-PreparedSettlementCarrier -Carrier $Carrier -Label $label
@@ -2114,6 +2394,64 @@ function Assert-OwnerAppliedPendingStageSemantics {
     }
 }
 
+function Assert-NativeSourceStageEvidence {
+    param(
+        [Parameter(Mandatory = $true)]$Result,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet("prepare", "recover", "replay")][string]$Stage,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+
+    foreach ($property in @(
+        "m_bNativeSourceSelectionProof",
+        "m_bNativePersistenceLoaded",
+        "m_bFallbackConflictRejected",
+        "m_bNativeSavePointCommitted",
+        "m_sNativeSavePointId",
+        "m_sRestoreSource",
+        "m_sFallbackConflictSemanticFingerprint")) {
+        Assert-JsonProperty `
+            -Value $Result `
+            -PropertyName $property `
+            -ArtifactLabel $Label
+    }
+    foreach ($property in @(
+        "m_bNativeSourceSelectionProof",
+        "m_bNativePersistenceLoaded",
+        "m_bFallbackConflictRejected",
+        "m_bNativeSavePointCommitted")) {
+        if ($Result.$property -isnot [bool]) {
+            throw "$Label contains a non-boolean native invariant."
+        }
+    }
+
+    $restoredStage = $Stage -cne "prepare"
+    $savePointStage = $Stage -cne "replay"
+    $expectedSource = if ($Stage -ceq "prepare") {
+        "new_campaign"
+    }
+    else {
+        "native"
+    }
+    if (-not [bool]$Result.m_bNativeSourceSelectionProof -or
+        [bool]$Result.m_bNativePersistenceLoaded -ne $restoredStage -or
+        [bool]$Result.m_bFallbackConflictRejected -ne $restoredStage -or
+        [bool]$Result.m_bNativeSavePointCommitted -ne $savePointStage -or
+        [string]$Result.m_sRestoreSource -cne $expectedSource) {
+        throw "$Label native source-selection stage evidence is not exact."
+    }
+    Assert-NativeSavePointId `
+        -SavePointId ([string]$Result.m_sNativeSavePointId) `
+        -Label "$Label save point id"
+    $fallbackFingerprint =
+        [string]$Result.m_sFallbackConflictSemanticFingerprint
+    if ([string]::IsNullOrWhiteSpace($fallbackFingerprint) -or
+        $fallbackFingerprint -ceq
+            [string]$Result.m_sRawPreparedCutSemanticFingerprint) {
+        throw "$Label fallback-conflict evidence is not independent."
+    }
+}
+
 function Assert-StageResult {
     param(
         [Parameter(Mandatory = $true)]$Result,
@@ -2211,14 +2549,41 @@ function Assert-StageResult {
             "ownership=$([bool]$Result.m_bOwnershipStartupReconcileChanged)," +
             "continuation=$([bool]$Result.m_bContinuationExact)," +
             "noop=$([bool]$Result.m_bSameStateSemanticNoOp)"
+		if ($script:NativeSourceSelection) {
+			$failureFlags += ",nativeLoaded=$([bool]$Result.m_bNativePersistenceLoaded)," +
+				"fallbackRejected=$([bool]$Result.m_bFallbackConflictRejected)," +
+				"saveCommitted=$([bool]$Result.m_bNativeSavePointCommitted)," +
+				"restoreSource=$([string]$Result.m_sRestoreSource)"
+		}
+		$rawFailureEvidence = [string]$Result.m_sEvidence
         $safeFailureEvidence = ConvertTo-SafeEvidenceLine `
-            -Line ([string]$Result.m_sEvidence)
+			-Line $rawFailureEvidence
         if ([string]::IsNullOrWhiteSpace($safeFailureEvidence)) {
             $safeFailureEvidence = "no bounded engine evidence"
         }
+		if ($rawFailureEvidence.Length -gt 220) {
+			$tailStart = [Math]::Max(0, $rawFailureEvidence.Length - 220)
+			$safeFailureTail = ConvertTo-SafeEvidenceLine `
+				-Line $rawFailureEvidence.Substring($tailStart)
+			if (-not [string]::IsNullOrWhiteSpace($safeFailureTail)) {
+				$safeFailureEvidence = $safeFailureTail +
+					" | head " + $safeFailureEvidence
+			}
+		}
         throw "$label reported failure ($failureFlags): $safeFailureEvidence"
     }
     Assert-OwnershipStartupScope -Result $Result -Label $label
+    if ($script:NativeSourceSelection) {
+        Assert-NativeSourceStageEvidence `
+            -Result $Result `
+            -Stage $Stage `
+            -Label $label
+    }
+    elseif ($Result.PSObject.Properties.Name -contains
+            "m_bNativeSourceSelectionProof" -and
+        [bool]$Result.m_bNativeSourceSelectionProof) {
+        throw "$label unexpectedly claims native source-selection authority."
+    }
     if (-not [bool]$Result.m_bSourceExact -or
         -not [bool]$Result.m_bRuntimeClaimantsZero -or
         -not [bool]$Result.m_bPersistedReadBackExact -or
@@ -2320,7 +2685,7 @@ function Get-SafeStageSummary {
         [Parameter(Mandatory = $true)][int]$ExitCode
     )
 
-    return [pscustomobject]@{
+    $summary = [pscustomobject]@{
         Cut = $script:CutName
         Stage = [string]$Result.m_sStage
         Success = [bool]$Result.m_bSuccess
@@ -2349,6 +2714,426 @@ function Get-SafeStageSummary {
         FinalDigest = (Get-StringDigest `
             -Value ([string]$Result.m_sFinalSemanticFingerprint)).Substring(0, 16)
     }
+    if ($script:NativeSourceSelection) {
+        $summary | Add-Member `
+            -NotePropertyName NativePersistenceLoaded `
+            -NotePropertyValue ([bool]$Result.m_bNativePersistenceLoaded)
+        $summary | Add-Member `
+            -NotePropertyName FallbackConflictRejected `
+            -NotePropertyValue ([bool]$Result.m_bFallbackConflictRejected)
+        $summary | Add-Member `
+            -NotePropertyName NativeSavePointCommitted `
+            -NotePropertyValue ([bool]$Result.m_bNativeSavePointCommitted)
+        $summary | Add-Member `
+            -NotePropertyName RestoreSource `
+            -NotePropertyValue ([string]$Result.m_sRestoreSource)
+    }
+    return $summary
+}
+
+function Get-NativePackArgumentVector {
+    param(
+        [Parameter(Mandatory = $true)][string]$ProjectFile,
+        [Parameter(Mandatory = $true)][string]$RuntimeAddonPath,
+        [Parameter(Mandatory = $true)][string]$PackProfilePath,
+        [Parameter(Mandatory = $true)][string]$PackedAddonPath
+    )
+
+    return @(
+        "-gproj", $ProjectFile,
+        "-addonsDir", $RuntimeAddonPath,
+        "-profile", $PackProfilePath,
+        "-wbModule=ResourceManager",
+        "-packAddon",
+        "-packAddonDir", $PackedAddonPath,
+        "-noThrow")
+}
+
+function Assert-NativeAddonSearchRoot {
+    param(
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$PackedAddonsParent
+    )
+
+    $expectedParent = [IO.Path]::GetFullPath(
+        (Join-Path $ProfileRoot "packed-addons"))
+    $resolvedParent = Resolve-ExistingPath `
+        -Path $PackedAddonsParent `
+        -Kind Container
+    if (-not $resolvedParent.Equals(
+        $expectedParent,
+        [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-ContainedPath `
+            -Root $ProfileRoot `
+            -Candidate $resolvedParent)) {
+        throw "Native packed add-on search root escaped its nonce-owned profile."
+    }
+    Assert-NoReparsePathAncestry -Path $resolvedParent
+    $entries = @(Get-ChildItem `
+        -LiteralPath $resolvedParent `
+        -Force `
+        -ErrorAction Stop)
+    $directories = @($entries | Where-Object { $_.PSIsContainer })
+    $files = @($entries | Where-Object { -not $_.PSIsContainer })
+    if ($directories.Count -ne 1 -or $files.Count -ne 0 -or
+        [string]$directories[0].Name -cne "Partisan") {
+        throw "Native packed add-on search root must contain one exact add-on folder."
+    }
+    $packedAddonPath = [IO.Path]::GetFullPath($directories[0].FullName)
+    if (-not (Test-ContainedPath `
+        -Root $resolvedParent `
+        -Candidate $packedAddonPath)) {
+        throw "Native packed add-on folder escaped its guarded search root."
+    }
+    Assert-NoReparsePathAncestry -Path $packedAddonPath
+    return $packedAddonPath
+}
+
+function Assert-NativePackedAddonLayout {
+    param(
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$PackedAddonsParent
+    )
+
+    $packedAddonPath = Assert-NativeAddonSearchRoot `
+        -ProfileRoot $ProfileRoot `
+        -PackedAddonsParent $PackedAddonsParent
+    foreach ($requiredFile in @(
+        "addon.gproj",
+        "data.pak",
+        "resourceDatabase.rdb")) {
+        $requiredPath = Join-Path $packedAddonPath $requiredFile
+        if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf) -or
+            (Get-Item -LiteralPath $requiredPath -Force).Length -le 0) {
+            throw "Native Workbench pack omitted a required non-empty artifact."
+        }
+    }
+    $packedFiles = @(Get-ChildItem `
+        -LiteralPath $packedAddonPath `
+        -File `
+        -Force `
+        -ErrorAction Stop)
+    $packedDirectories = @(Get-ChildItem `
+        -LiteralPath $packedAddonPath `
+        -Directory `
+        -Force `
+        -ErrorAction Stop)
+    if ($packedDirectories.Count -ne 0 -or
+        @($packedFiles | Where-Object { $_.Extension -ceq ".pak" }).Count -ne 1 -or
+        @($packedFiles | Where-Object { $_.Extension -ceq ".gproj" }).Count -ne 1 -or
+        @($packedFiles | Where-Object { $_.Extension -ceq ".rdb" }).Count -ne 1) {
+        throw "Native Workbench pack artifact family is not exact."
+    }
+    return [pscustomobject]@{
+        PackedAddonPath = $packedAddonPath
+        FileCount = $packedFiles.Count
+        PakCount = @($packedFiles | Where-Object {
+            $_.Extension -ceq ".pak"
+        }).Count
+        ProjectCount = @($packedFiles | Where-Object {
+            $_.Extension -ceq ".gproj"
+        }).Count
+        ResourceDatabaseCount = @($packedFiles | Where-Object {
+            $_.Extension -ceq ".rdb"
+        }).Count
+    }
+}
+
+function Invoke-NativeAddonPack {
+    param(
+        [Parameter(Mandatory = $true)][string]$WorkbenchExecutablePath,
+        [Parameter(Mandatory = $true)][string]$RuntimeAddonPath,
+        [Parameter(Mandatory = $true)][string]$ProjectFile,
+        [Parameter(Mandatory = $true)][string]$ProfileRoot,
+        [Parameter(Mandatory = $true)][string]$PackProfilePath,
+        [Parameter(Mandatory = $true)][string]$GuardedTempDirectory,
+        [Parameter(Mandatory = $true)][string]$PackedAddonsParent,
+        [Parameter(Mandatory = $true)][string]$PackedAddonPath,
+        [Parameter(Mandatory = $true)][int]$TimeoutSeconds,
+        [Parameter(Mandatory = $true)]$UnclaimedEngineProcessesObserved
+    )
+
+    $packLabel = "native Workbench add-on pack"
+    $resolvedParent = Resolve-ExistingPath `
+        -Path $PackedAddonsParent `
+        -Kind Container
+    $expectedAddonPath = [IO.Path]::GetFullPath(
+        (Join-Path $resolvedParent "Partisan"))
+    $resolvedAddonPath = [IO.Path]::GetFullPath($PackedAddonPath)
+    if (-not $resolvedAddonPath.Equals(
+        $expectedAddonPath,
+        [StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-ContainedPath `
+            -Root $ProfileRoot `
+            -Candidate $resolvedAddonPath) -or
+        (Test-Path -LiteralPath $resolvedAddonPath)) {
+        throw "$packLabel output path is not fresh and nonce-owned."
+    }
+    foreach ($guardedDirectory in @(
+        $PackProfilePath,
+        $GuardedTempDirectory,
+        $resolvedParent)) {
+        [void](Resolve-ExistingPath -Path $guardedDirectory -Kind Container)
+        Assert-NoReparsePathAncestry -Path $guardedDirectory
+    }
+
+    $arguments = @(Get-NativePackArgumentVector `
+        -ProjectFile $ProjectFile `
+        -RuntimeAddonPath $RuntimeAddonPath `
+        -PackProfilePath $PackProfilePath `
+        -PackedAddonPath $resolvedAddonPath)
+    $commandLine = (ConvertTo-NativeArgument $WorkbenchExecutablePath) + " " +
+        (($arguments | ForEach-Object {
+            ConvertTo-NativeArgument ([string]$_)
+        }) -join " ")
+    if (-not (Test-ExactNativeArgumentVector `
+        -CommandLine $commandLine `
+        -ExpectedExecutable $WorkbenchExecutablePath `
+        -ExpectedArguments $arguments)) {
+        throw "$packLabel arguments did not round-trip exactly."
+    }
+
+    $engineBefore = @(Get-EngineProcessRows).Count
+    if ($engineBefore -ne 0) {
+        throw "An engine process appeared before $packLabel."
+    }
+
+    $process = $null
+    $job = $null
+    $suspendedLauncher = $null
+    $ownedProcesses = @{}
+    $rootProcessId = 0
+    $rootStartUtc = [DateTime]::MinValue
+    $rootExitCode = $null
+    $packError = $null
+    $packStartedUtc = [DateTime]::UtcNow
+    $packCleanupErrors = New-Object Collections.Generic.List[string]
+    $packCleanupState = [ordered]@{
+        OwnedRemaining = -1
+        EngineAfter = -1
+    }
+    try {
+        $job = New-Object PartisanCounterattackGuardedJob
+        if (@(Get-EngineProcessRows).Count -ne 0) {
+            throw "An engine process appeared during $packLabel preflight."
+        }
+
+        $previousTemp = [Environment]::GetEnvironmentVariable(
+            "TEMP", [EnvironmentVariableTarget]::Process)
+        $previousTmp = [Environment]::GetEnvironmentVariable(
+            "TMP", [EnvironmentVariableTarget]::Process)
+        try {
+            [Environment]::SetEnvironmentVariable(
+                "TEMP",
+                $GuardedTempDirectory,
+                [EnvironmentVariableTarget]::Process)
+            [Environment]::SetEnvironmentVariable(
+                "TMP",
+                $GuardedTempDirectory,
+                [EnvironmentVariableTarget]::Process)
+            $suspendedLauncher = New-Object `
+                PartisanCounterattackSuspendedProcess(
+                    $WorkbenchExecutablePath,
+                    $commandLine,
+                    $GuardedTempDirectory)
+        }
+        finally {
+            [Environment]::SetEnvironmentVariable(
+                "TEMP", $previousTemp, [EnvironmentVariableTarget]::Process)
+            [Environment]::SetEnvironmentVariable(
+                "TMP", $previousTmp, [EnvironmentVariableTarget]::Process)
+        }
+
+        $process = $suspendedLauncher.Child
+        if (-not $process) {
+            throw "$packLabel did not create its Workbench process."
+        }
+        $rootProcessId = $process.Id
+        $job.Add($process)
+        $rootStartUtc = $process.StartTime.ToUniversalTime()
+        $ownedProcesses[$rootProcessId] = $rootStartUtc
+        $suspendedLauncher.Resume()
+        $suspendedLauncher.Dispose()
+        $suspendedLauncher = $null
+
+        Start-Sleep -Milliseconds 500
+        $process.Refresh()
+        if ($process.HasExited) {
+            throw "$packLabel exited before command-line verification."
+        }
+        $processRow = Get-CimInstance `
+            Win32_Process `
+            -Filter "ProcessId=$rootProcessId" `
+            -ErrorAction Stop
+        if (-not $processRow -or
+            -not (Test-ExactNativeArgumentVector `
+                -CommandLine ([string]$processRow.CommandLine) `
+                -ExpectedExecutable $WorkbenchExecutablePath `
+                -ExpectedArguments $arguments)) {
+            throw "$packLabel launched with a non-exact argument vector."
+        }
+
+        $deadlineUtc = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        while ([DateTime]::UtcNow -lt $deadlineUtc) {
+            Update-OwnedProcesses `
+                -Owned $ownedProcesses `
+                -RootProcessId $rootProcessId `
+                -RootStartUtc $rootStartUtc `
+                -Job $job
+            foreach ($engineProcess in @(Get-EngineProcessRows)) {
+                if ($ownedProcesses.ContainsKey([int]$engineProcess.Id)) {
+                    continue
+                }
+                try {
+                    [void]$UnclaimedEngineProcessesObserved.Add(
+                        "$($engineProcess.ProcessName):$($engineProcess.StartTime.ToUniversalTime().Ticks)")
+                }
+                catch { }
+            }
+            if ($UnclaimedEngineProcessesObserved.Count -ne 0) {
+                throw "An unowned engine process appeared during $packLabel."
+            }
+
+            $process.Refresh()
+            if ($process.HasExited -and $null -eq $rootExitCode) {
+                $rootExitCode = $process.ExitCode
+            }
+            if ($null -ne $rootExitCode -and
+                (Get-LiveOwnedProcessCount -Owned $ownedProcesses) -eq 0) {
+                break
+            }
+            Start-Sleep -Milliseconds 250
+        }
+        if ($null -eq $rootExitCode -or
+            (Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0) {
+            throw "$packLabel exceeded its guarded deadline."
+        }
+        if ([int]$rootExitCode -ne 0) {
+            throw "$packLabel returned a nonzero exit code."
+        }
+    }
+    catch {
+        $packError = $_.Exception.Message
+    }
+    finally {
+        Invoke-IsolatedCleanupPhase `
+            -Name "dispose-suspended-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                if ($suspendedLauncher) {
+                    $suspendedLauncher.Dispose()
+                    $suspendedLauncher = $null
+                }
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "discover-owned-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                if ($rootProcessId -gt 0 -and
+                    $rootStartUtc -ne [DateTime]::MinValue) {
+                    Update-OwnedProcesses `
+                        -Owned $ownedProcesses `
+                        -RootProcessId $rootProcessId `
+                        -RootStartUtc $rootStartUtc `
+                        -Job $job
+                }
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "request-root-stop-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                if ($process) {
+                    $process.Refresh()
+                    if (-not $process.HasExited) {
+                        [void]$process.CloseMainWindow()
+                        [void]$process.WaitForExit(3000)
+                    }
+                }
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "force-owned-stop-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                Stop-OwnedProcesses -Owned $ownedProcesses
+                Start-Sleep -Milliseconds 300
+                Stop-OwnedProcesses -Owned $ownedProcesses
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "close-process-job-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                if ($job) {
+                    $job.Dispose()
+                    $job = $null
+                }
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "final-owned-stop-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                Start-Sleep -Milliseconds 300
+                Stop-OwnedProcesses -Owned $ownedProcesses
+                $packCleanupState.OwnedRemaining = Get-LiveOwnedProcessCount `
+                    -Owned $ownedProcesses
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "dispose-root-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                if ($process) {
+                    $process.Dispose()
+                    $process = $null
+                }
+            }
+        Invoke-IsolatedCleanupPhase `
+            -Name "audit-engine-native-pack" `
+            -Errors $packCleanupErrors `
+            -Action {
+                $packCleanupState.EngineAfter = @(Get-EngineProcessRows).Count
+            }
+    }
+
+    $ownedRemaining = [int]$packCleanupState.OwnedRemaining
+    $engineAfter = [int]$packCleanupState.EngineAfter
+    if ($packCleanupErrors.Count -ne 0 -or
+        $ownedRemaining -ne 0 -or $engineAfter -ne 0) {
+        $failedCleanupPhases = if ($packCleanupErrors.Count -eq 0) {
+            "none"
+        }
+        else {
+            $packCleanupErrors -join ","
+        }
+        throw "$packLabel containment cleanup failed " +
+            "(phases=$failedCleanupPhases; owned=$ownedRemaining; " +
+            "engine=$engineAfter)."
+    }
+    if ($packError) {
+        $safeDiagnostic = Get-SafeGuardedEngineDiagnostic `
+            -ProfileRoot $PackProfilePath `
+            -ProjectDirectory (Split-Path -Parent $ProjectFile) `
+            -RuntimeAddonPath $RuntimeAddonPath
+        if (-not [string]::IsNullOrWhiteSpace($safeDiagnostic)) {
+            throw "$packError | diagnostic $safeDiagnostic"
+        }
+        throw $packError
+    }
+
+    $layout = Assert-NativePackedAddonLayout `
+        -ProfileRoot $ProfileRoot `
+        -PackedAddonsParent $resolvedParent
+    return [pscustomobject]@{
+        ExitCode = [int]$rootExitCode
+        EngineBefore = $engineBefore
+        EngineAfter = $engineAfter
+        OwnedProcessesRemaining = $ownedRemaining
+        ElapsedSeconds = [Math]::Round(
+            ([DateTime]::UtcNow - $packStartedUtc).TotalSeconds,
+            3)
+        FileCount = $layout.FileCount
+        PakCount = $layout.PakCount
+        ProjectCount = $layout.ProjectCount
+        ResourceDatabaseCount = $layout.ResourceDatabaseCount
+    }
 }
 
 function Get-StageArgumentVector {
@@ -2361,24 +3146,76 @@ function Get-StageArgumentVector {
         [Parameter(Mandatory = $true)][string]$StageNonce,
         [Parameter(Mandatory = $true)][string]$RunId,
         [Parameter(Mandatory = $true)]
-        [ValidateSet("prepare", "recover", "replay")][string]$Stage
+        [ValidateSet("prepare", "recover", "replay")][string]$Stage,
+        [string]$NativeSavePointId = "",
+        [string]$NativeServerConfigPath = "",
+        [string]$NativePackedAddonsParent = ""
     )
 
-    return @(
-        "-addonsDir", $RuntimeAddonPath,
-        "-gproj", $ProjectFile,
-        "-world", $World,
+    if (-not $script:NativeSourceSelection) {
+        return @(
+            "-addonsDir", $RuntimeAddonPath,
+            "-gproj", $ProjectFile,
+            "-world", $World,
+            "-profile", $ProfileRoot,
+            "-window",
+            "-noFocus",
+            "-forceupdate",
+            "-rpl-timeout-disable",
+            "-noThrow",
+            "-hstExactCounterattackRestartStage", $Stage,
+            "-hstExactCounterattackRestartRunId", $RunId,
+            "-hstExactCounterattackRestartCut", $script:CutName,
+            "-hstExactCounterattackRestartSessionNonce", $SessionNonce,
+            "-hstExactCounterattackRestartStageNonce", $StageNonce)
+    }
+
+    if ($Stage -ceq "prepare") {
+        if (-not [string]::IsNullOrWhiteSpace($NativeSavePointId)) {
+            throw "Native prepare must not load a prior session save."
+        }
+    }
+    else {
+        Assert-NativeSavePointId `
+            -SavePointId $NativeSavePointId `
+            -Label "$Stage load-session save point id"
+    }
+	if ([string]::IsNullOrWhiteSpace($NativeServerConfigPath) -or
+		-not (Test-Path -LiteralPath $NativeServerConfigPath -PathType Leaf)) {
+		throw "Native source selection requires an exact guarded server config."
+	}
+
+	[void](Assert-NativeAddonSearchRoot `
+		-ProfileRoot $ProfileRoot `
+		-PackedAddonsParent $NativePackedAddonsParent)
+	$nativeAddonRoot = $RuntimeAddonPath + "," +
+		[IO.Path]::GetFullPath($NativePackedAddonsParent)
+	$nativeBaseProject = Join-Path $RuntimeAddonPath "data\ArmaReforger.gproj"
+	if (-not (Test-Path -LiteralPath $nativeBaseProject -PathType Leaf)) {
+		throw "Native source selection could not resolve the packed base project."
+	}
+	$nativeArguments = @(
+		"-addonsDir", $nativeAddonRoot,
+		"-gproj", $nativeBaseProject,
+		"-config", $NativeServerConfigPath,
         "-profile", $ProfileRoot,
-        "-window",
-        "-noFocus",
-        "-forceupdate",
         "-rpl-timeout-disable",
         "-noThrow",
+        "-backendLocalStorage",
+		"-keepSessionSave",
+		"-maxFPS", "30")
+    if ($Stage -cne "prepare") {
+        $nativeArguments += @("-loadSessionSave", $NativeSavePointId)
+    }
+    $nativeArguments += @(
+        "-hstExactCounterattackNativeSourceSelection", "true",
         "-hstExactCounterattackRestartStage", $Stage,
         "-hstExactCounterattackRestartRunId", $RunId,
         "-hstExactCounterattackRestartCut", $script:CutName,
         "-hstExactCounterattackRestartSessionNonce", $SessionNonce,
         "-hstExactCounterattackRestartStageNonce", $StageNonce)
+    return $nativeArguments
+
 }
 
 function Assert-EngineOwner {
@@ -2408,6 +3245,21 @@ function Assert-EngineOwner {
             -Value $Owner `
             -PropertyName $property `
             -ArtifactLabel $label
+    }
+    if ($script:NativeSourceSelection) {
+        Assert-JsonProperty `
+            -Value $Owner `
+            -PropertyName "m_bNativeSourceSelectionProof" `
+            -ArtifactLabel $label
+        if ($Owner.m_bNativeSourceSelectionProof -isnot [bool] -or
+            -not [bool]$Owner.m_bNativeSourceSelectionProof) {
+            throw "The $label omitted native source-selection authority."
+        }
+    }
+    elseif ($Owner.PSObject.Properties.Name -contains
+            "m_bNativeSourceSelectionProof" -and
+        [bool]$Owner.m_bNativeSourceSelectionProof) {
+        throw "The $label unexpectedly claims native source-selection authority."
     }
     Assert-LowerHexNonce -Nonce $SessionNonce -Label "session nonce"
     if ([string]$Owner.m_sMagic -cne $script:OwnerMagic -or
@@ -2460,6 +3312,21 @@ function Assert-EngineGuard {
             -PropertyName $property `
             -ArtifactLabel $label
     }
+    if ($script:NativeSourceSelection) {
+        Assert-JsonProperty `
+            -Value $Guard `
+            -PropertyName "m_bNativeSourceSelectionProof" `
+            -ArtifactLabel $label
+        if ($Guard.m_bNativeSourceSelectionProof -isnot [bool] -or
+            -not [bool]$Guard.m_bNativeSourceSelectionProof) {
+            throw "The $label omitted native source-selection authority."
+        }
+    }
+    elseif ($Guard.PSObject.Properties.Name -contains
+            "m_bNativeSourceSelectionProof" -and
+        [bool]$Guard.m_bNativeSourceSelectionProof) {
+        throw "The $label unexpectedly claims native source-selection authority."
+    }
     Assert-LowerHexNonce -Nonce $SessionNonce -Label "session nonce"
     Assert-LowerHexNonce -Nonce $StageNonce -Label "$Stage stage nonce"
     $stageOrdinal = @{
@@ -2467,8 +3334,12 @@ function Assert-EngineGuard {
         recover = 1
         replay = 2
     }[$Stage]
-	$allowCanonicalCampaignOverwrite = -not (
-		$script:IsOwnerAppliedPendingCut -and $Stage -ceq "replay")
+	$ownerReplayReadOnly = $script:IsOwnerAppliedPendingCut -and
+		$Stage -ceq "replay"
+	$allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly
+	if ($script:NativeSourceSelection) {
+		$allowCanonicalCampaignOverwrite = $Stage -ceq "prepare"
+	}
     if ([string]$Guard.m_sMagic -cne $script:GuardMagic -or
         [int]$Guard.m_iVersion -ne $script:AuthorityVersion -or
         [string]$Guard.m_sSessionNonce -cne $SessionNonce -or
@@ -2505,6 +3376,9 @@ function Invoke-RestartStage {
         [ValidateSet("prepare", "recover", "replay")][string]$Stage,
         [Parameter(Mandatory = $true)]$ExpectedBuild,
         [string]$ExpectedWorld = "",
+        [string]$NativeSavePointId = "",
+		[string]$NativeServerConfigPath = "",
+        [string]$NativePackedAddonsParent = "",
         [Parameter(Mandatory = $true)]$UnclaimedEngineProcessesObserved
     )
 
@@ -2512,6 +3386,11 @@ function Invoke-RestartStage {
 	$ownerReplayReadOnly = $script:IsOwnerAppliedPendingCut -and
 		$Stage -ceq "replay"
 	$allowCanonicalCampaignOverwrite = -not $ownerReplayReadOnly
+	$canonicalCampaignReadOnly = $ownerReplayReadOnly
+	if ($script:NativeSourceSelection) {
+		$canonicalCampaignReadOnly = $Stage -cne "prepare"
+		$allowCanonicalCampaignOverwrite = -not $canonicalCampaignReadOnly
+	}
 	$canonicalCampaignPath = [IO.Path]::GetFullPath(
 		(Join-Path $ProfileRoot "profile\Partisan\HST_CampaignSaveData.json"))
 	$expectedCanonicalCampaignPath = [IO.Path]::GetFullPath(
@@ -2525,9 +3404,9 @@ function Invoke-RestartStage {
 	}
 	$canonicalCampaignSignatureBefore = $null
 	$canonicalCampaignUnchanged = $null
-	if ($ownerReplayReadOnly) {
+	if ($canonicalCampaignReadOnly) {
 		if (-not (Test-Path -LiteralPath $canonicalCampaignPath -PathType Leaf)) {
-			throw "$stageLabel canonical campaign snapshot was unavailable before replay."
+			throw "$stageLabel canonical campaign snapshot was unavailable before its read-only stage."
 		}
 		$canonicalCampaignSignatureBefore = Get-FileSignature `
 			-Path $canonicalCampaignPath
@@ -2567,6 +3446,9 @@ function Invoke-RestartStage {
         m_sWorld = $World
 		m_bAllowCanonicalCampaignOverwrite = $allowCanonicalCampaignOverwrite
     }
+    if ($script:NativeSourceSelection) {
+        $engineGuard["m_bNativeSourceSelectionProof"] = $true
+    }
     Write-JsonUtf8NoBom -Path $guardPath -Value $engineGuard
     $validatedEngineGuard = Read-JsonArtifact -Path $guardPath
     Assert-EngineGuard `
@@ -2586,7 +3468,10 @@ function Invoke-RestartStage {
         -SessionNonce $SessionNonce `
         -StageNonce $stageNonce `
         -RunId $RunId `
-        -Stage $Stage)
+        -Stage $Stage `
+        -NativeSavePointId $NativeSavePointId `
+		-NativeServerConfigPath $NativeServerConfigPath `
+        -NativePackedAddonsParent $NativePackedAddonsParent)
     $commandLine = (ConvertTo-NativeArgument $ExecutablePath) + " " +
         (($arguments | ForEach-Object {
             ConvertTo-NativeArgument ([string]$_)
@@ -2769,7 +3654,7 @@ function Invoke-RestartStage {
             (Get-LiveOwnedProcessCount -Owned $ownedProcesses) -ne 0) {
             throw "$stageLabel did not reach a clean successful exit."
         }
-		if ($ownerReplayReadOnly) {
+		if ($canonicalCampaignReadOnly) {
 			if (-not (Test-Path -LiteralPath $canonicalCampaignPath -PathType Leaf)) {
 				throw "$stageLabel removed its read-only canonical campaign snapshot."
 			}
@@ -2785,6 +3670,17 @@ function Invoke-RestartStage {
     }
     catch {
         $stageError = $_.Exception.Message
+		$stageError += (" | exit {0} | artifacts guard/result {1}/{2}" -f
+			$rootExitCode,
+			$(Test-Path -LiteralPath $guardPath -PathType Leaf),
+			$(Test-Path -LiteralPath $resultPath -PathType Leaf))
+		$safeDiagnostic = Get-SafeGuardedEngineDiagnostic `
+			-ProfileRoot $ProfileRoot `
+			-ProjectDirectory (Split-Path -Parent $ProjectFile) `
+			-RuntimeAddonPath $RuntimeAddonPath
+		if (-not [string]::IsNullOrWhiteSpace($safeDiagnostic)) {
+			$stageError += " | engine " + $safeDiagnostic
+		}
     }
     finally {
         Invoke-IsolatedCleanupPhase `
@@ -2917,12 +3813,24 @@ $runId = "counter_{0}_{1}" -f (
         [Globalization.CultureInfo]::InvariantCulture)), $nonce.Substring(0, 20)
 
 $executablePath = ""
+$workbenchExecutablePath = ""
 $runtimeAddonPath = ""
 $projectFile = ""
 $profileDirectory = Join-Path $guardRoot "profile\Partisan"
+$nativePackProfilePath = Join-Path $guardRoot "profile"
+$nativePackedAddonsParent = Join-Path $guardRoot "packed-addons"
+$nativePackedAddonPath = Join-Path $nativePackedAddonsParent "Partisan"
+$nativeWorkspacePackScratchPath = Join-Path `
+    $repositoryRoot `
+    $script:WorkspacePackScratchLeaf
+$nativeWorkspacePackScratchSentinelPath = Join-Path `
+    $nativeWorkspacePackScratchPath `
+    $script:WorkspacePackScratchSentinelLeaf
 $debugDirectory = Join-Path $profileDirectory "debug"
+$canonicalCampaignPath = Join-Path $profileDirectory "HST_CampaignSaveData.json"
 $guardedTempDirectory = Join-Path $guardRoot "temp"
 $guardedWorkingDirectory = Join-Path $guardRoot "working"
+$nativeServerConfigPath = Join-Path $guardRoot "native-server-config.json"
 $engineOwnerPath = Join-Path $debugDirectory (
     "HST_ExactCounterattackRestart_{0}.owner.json" -f $runId)
 $carrierPath = Join-Path $debugDirectory (
@@ -2943,6 +3851,12 @@ $spillSnapshots = New-Object Collections.Generic.List[object]
 $unclaimedEngineProcessesObserved = New-Object Collections.Generic.HashSet[string]
 $stageOutcomes = New-Object Collections.Generic.List[object]
 $engineProcessesBefore = -1
+$nativeSavePointId = ""
+$nativeFallbackConflictFingerprint = ""
+$nativeCanonicalCampaignSignature = ""
+$nativePackSummary = $null
+$nativeWorkspacePackScratchCreated = $false
+$nativeWorkspacePackScratchOwnership = $null
 
 try {
     $executablePath = Resolve-ExistingPath -Path $Executable -Kind Leaf
@@ -2954,6 +3868,23 @@ try {
         "ArmaReforgerServerDiag.exe")
     if ($supportedExecutables -notcontains (Split-Path -Leaf $executablePath)) {
         throw "Executable must be a supported Reforger diagnostic runtime."
+    }
+	if ($script:NativeSourceSelection -and
+		(Split-Path -Leaf $executablePath) -cne
+			"ArmaReforgerServerDiag.exe") {
+		throw "Native source-selection proof requires the dedicated diagnostic runtime."
+	}
+    if ($script:NativeSourceSelection) {
+        if ([string]::IsNullOrWhiteSpace($WorkbenchExecutable)) {
+            throw "Native source-selection proof requires WorkbenchExecutable."
+        }
+        $workbenchExecutablePath = Resolve-ExistingPath `
+            -Path $WorkbenchExecutable `
+            -Kind Leaf
+        if ((Split-Path -Leaf $workbenchExecutablePath) -cne
+            "ArmaReforgerWorkbenchSteamDiag.exe") {
+            throw "Native packing requires the diagnostic Steam Workbench executable."
+        }
     }
     foreach ($packedRuntimeMarker in @("core\data.pak", "data\data.pak")) {
         if (-not (Test-Path `
@@ -2982,6 +3913,17 @@ try {
     $worldFile = Join-Path $repositoryRoot (
         $WorldResource.Replace('/', [IO.Path]::DirectorySeparatorChar))
     [void](Resolve-ExistingPath -Path $worldFile -Kind Leaf)
+    if ($script:NativeSourceSelection) {
+        foreach ($nativeResource in @(
+            $script:NativeMissionHeader,
+            $script:NativeWorldSystemsConfig)) {
+            $nativeResourceFile = Join-Path $repositoryRoot (
+                $nativeResource.Replace(
+                    '/',
+                    [IO.Path]::DirectorySeparatorChar))
+            [void](Resolve-ExistingPath -Path $nativeResourceFile -Kind Leaf)
+        }
+    }
     $buildIdentity = Read-CheckoutBuildIdentity `
         -RepositoryRoot $repositoryRoot
 
@@ -3081,6 +4023,127 @@ try {
         [void](New-Item -ItemType Directory -Path $directory -Force)
         Assert-NoReparsePathAncestry -Path $directory
     }
+	if ($script:NativeSourceSelection) {
+		if (-not $PreflightOnly) {
+			if (Test-Path -LiteralPath $nativeWorkspacePackScratchPath) {
+				throw "Native Workbench pack requires a fresh workspace scratch boundary."
+			}
+			[void](New-Item `
+				-ItemType Directory `
+				-Path $nativeWorkspacePackScratchPath)
+			$nativeWorkspacePackScratchCreated = $true
+			Assert-NoReparsePathAncestry `
+				-Path $nativeWorkspacePackScratchPath
+			$workspaceScratchRecord = [ordered]@{
+				version = $script:SentinelVersion
+				purpose = "native_workbench_pack_scratch"
+				nonce = $nonce
+				ownerPid = $PID
+				ownerStartUtc = $wrapperStartUtc.ToString(
+					"o",
+					[Globalization.CultureInfo]::InvariantCulture)
+			}
+			Write-JsonUtf8NoBom `
+				-Path $nativeWorkspacePackScratchSentinelPath `
+				-Value $workspaceScratchRecord
+			$nativeWorkspacePackScratchOwnership =
+				Read-NativeWorkspacePackScratchOwnership `
+					-Directory $nativeWorkspacePackScratchPath `
+					-RepositoryRoot $repositoryRoot
+			if (-not $nativeWorkspacePackScratchOwnership -or
+				$nativeWorkspacePackScratchOwnership.Nonce -cne $nonce -or
+				$nativeWorkspacePackScratchOwnership.OwnerPid -ne $PID -or
+				$nativeWorkspacePackScratchOwnership.OwnerStartUtc.Ticks -ne
+					$wrapperStartUtc.Ticks) {
+				throw "Native Workbench pack scratch ownership validation failed."
+			}
+		}
+        foreach ($directory in @(
+            $nativePackProfilePath,
+            $nativePackedAddonsParent)) {
+            [void](New-Item -ItemType Directory -Path $directory -Force)
+            Assert-NoReparsePathAncestry -Path $directory
+        }
+        if (Test-Path -LiteralPath $nativePackedAddonPath) {
+            throw "Native packed add-on output was not fresh."
+        }
+        if ($PreflightOnly) {
+            [void](New-Item `
+                -ItemType Directory `
+                -Path $nativePackedAddonPath)
+            Assert-NoReparsePathAncestry -Path $nativePackedAddonPath
+        }
+        else {
+            $nativePackSummary = Invoke-NativeAddonPack `
+                -WorkbenchExecutablePath $workbenchExecutablePath `
+                -RuntimeAddonPath $runtimeAddonPath `
+                -ProjectFile $projectFile `
+                -ProfileRoot $guardRoot `
+                -PackProfilePath $nativePackProfilePath `
+                -GuardedTempDirectory $guardedTempDirectory `
+                -PackedAddonsParent $nativePackedAddonsParent `
+                -PackedAddonPath $nativePackedAddonPath `
+                -TimeoutSeconds $NativePackTimeoutSeconds `
+                -UnclaimedEngineProcessesObserved `
+                    $unclaimedEngineProcessesObserved
+			$nativeWorkspacePackScratchOwnership =
+				Read-NativeWorkspacePackScratchOwnership `
+					-Directory $nativeWorkspacePackScratchPath `
+					-RepositoryRoot $repositoryRoot
+			if (-not $nativeWorkspacePackScratchOwnership -or
+				$nativeWorkspacePackScratchOwnership.Nonce -cne $nonce -or
+				$nativeWorkspacePackScratchOwnership.OwnerPid -ne $PID -or
+				$nativeWorkspacePackScratchOwnership.OwnerStartUtc.Ticks -ne
+					$wrapperStartUtc.Ticks) {
+				throw "Native Workbench pack changed its owned workspace scratch boundary."
+			}
+            Write-Output ("PACK " + (
+                $nativePackSummary | ConvertTo-Json -Compress))
+        }
+
+		$nativeServerConfig = [ordered]@{
+			game = [ordered]@{
+				name = "Partisan native persistence proof"
+				password = ""
+				passwordAdmin = ""
+				scenarioId = $script:NativeScenarioId
+				maxPlayers = 1
+				visible = $false
+				gameProperties = [ordered]@{
+					fastValidation = $true
+					battlEye = $false
+					missionHeader = [ordered]@{
+						m_eSaveTypes = 15
+					}
+				}
+				mods = @(
+					[ordered]@{
+						modId = $script:NativeProjectId
+						name = "Partisan"
+						required = $true
+					}
+				)
+			}
+		}
+		Write-JsonUtf8NoBom `
+			-Path $nativeServerConfigPath `
+			-Value $nativeServerConfig
+		$validatedNativeServerConfig = Read-JsonArtifact `
+			-Path $nativeServerConfigPath
+		$validatedNativeMods = @($validatedNativeServerConfig.game.mods)
+		if ([string]$validatedNativeServerConfig.game.scenarioId -cne
+				$script:NativeScenarioId -or
+			[int]$validatedNativeServerConfig.game.gameProperties.missionHeader.m_eSaveTypes -ne 15 -or
+			[bool]$validatedNativeServerConfig.game.visible -or
+			$validatedNativeMods.Count -ne 1 -or
+			[string]$validatedNativeMods[0].modId -cne
+				$script:NativeProjectId -or
+			[string]$validatedNativeMods[0].name -cne "Partisan" -or
+			$validatedNativeMods[0].required -isnot [bool] -or
+			-not [bool]$validatedNativeMods[0].required) {
+			throw "Guarded native server config failed its exact persistence gate."
+		}
+	}
     if (Test-Path -LiteralPath $engineOwnerPath) {
         throw "The engine-visible disposable owner path was not fresh."
     }
@@ -3097,6 +4160,9 @@ try {
         m_iCampaignSchemaVersion = $buildIdentity.CampaignSchemaVersion
         m_sWorld = $WorldResource
         m_bDisposableProfile = $true
+    }
+    if ($script:NativeSourceSelection) {
+        $engineOwner["m_bNativeSourceSelectionProof"] = $true
     }
     Write-JsonUtf8NoBom -Path $engineOwnerPath -Value $engineOwner
     $validatedEngineOwner = Read-JsonArtifact -Path $engineOwnerPath
@@ -3518,7 +4584,9 @@ try {
         -SessionNonce $nonce `
         -StageNonce $preflightStageNonce `
         -RunId $runId `
-        -Stage "prepare")
+        -Stage "prepare" `
+		-NativeServerConfigPath $nativeServerConfigPath `
+        -NativePackedAddonsParent $nativePackedAddonsParent)
     $preflightCommandLine = (ConvertTo-NativeArgument $executablePath) +
         " " + (($preflightArguments | ForEach-Object {
             ConvertTo-NativeArgument ([string]$_)
@@ -3529,9 +4597,120 @@ try {
         -ExpectedArguments $preflightArguments)) {
         throw "Preflight native argument isolation failed."
     }
+    if ($script:NativeSourceSelection) {
+        $packPreflightArguments = @(Get-NativePackArgumentVector `
+            -ProjectFile $projectFile `
+            -RuntimeAddonPath $runtimeAddonPath `
+            -PackProfilePath $nativePackProfilePath `
+            -PackedAddonPath $nativePackedAddonPath)
+        $packPreflightCommandLine =
+            (ConvertTo-NativeArgument $workbenchExecutablePath) + " " +
+            (($packPreflightArguments | ForEach-Object {
+                ConvertTo-NativeArgument ([string]$_)
+            }) -join " ")
+        if (-not (Test-ExactNativeArgumentVector `
+            -CommandLine $packPreflightCommandLine `
+            -ExpectedExecutable $workbenchExecutablePath `
+            -ExpectedArguments $packPreflightArguments)) {
+            throw "Native Workbench pack argument isolation failed."
+        }
+        foreach ($requiredPackToken in @(
+            "-wbModule=ResourceManager",
+            "-packAddon",
+            "-packAddonDir")) {
+            if (@($packPreflightArguments | Where-Object {
+                [string]$_ -ceq $requiredPackToken
+            }).Count -ne 1) {
+                throw "Native Workbench pack argument contract is incomplete."
+            }
+        }
+
+        foreach ($requiredToken in @(
+			"-config",
+            "-backendLocalStorage",
+            "-keepSessionSave",
+            "-hstExactCounterattackNativeSourceSelection")) {
+            if (@($preflightArguments | Where-Object {
+                [string]$_ -ceq $requiredToken
+            }).Count -ne 1) {
+                throw "Native prepare argument contract omitted an exact token."
+            }
+        }
+        foreach ($forbiddenToken in @(
+            "-loadSessionSave",
+            "-addons",
+            "-forceupdate")) {
+            if (@($preflightArguments | Where-Object {
+                [string]$_ -ceq $forbiddenToken
+            }).Count -ne 0) {
+                throw "Native prepare argument contract included a forbidden token."
+            }
+        }
+        $nativeAddonRoot = $runtimeAddonPath + "," +
+            [IO.Path]::GetFullPath($nativePackedAddonsParent)
+        $nativeBaseProject = Join-Path `
+            $runtimeAddonPath `
+            "data\ArmaReforger.gproj"
+        $addonsDirIndex = [Array]::IndexOf(
+            [object[]]$preflightArguments,
+            "-addonsDir")
+        $projectIndex = [Array]::IndexOf(
+            [object[]]$preflightArguments,
+            "-gproj")
+        $configIndex = [Array]::IndexOf(
+            [object[]]$preflightArguments,
+            "-config")
+        if ($addonsDirIndex -lt 0 -or $projectIndex -lt 0 -or
+            $configIndex -lt 0 -or
+            [string]$preflightArguments[$addonsDirIndex + 1] -cne
+                $nativeAddonRoot -or
+            [string]$preflightArguments[$projectIndex + 1] -cne
+                $nativeBaseProject -or
+            [string]$preflightArguments[$configIndex + 1] -cne
+                $nativeServerConfigPath) {
+            throw "Native server argument contract lost its exact packed add-on inputs."
+        }
+
+        $selfTestSavePointId = "5c146b14-3c52-8afd-938a-375d0df1fbf6"
+        Assert-NativeSavePointId `
+            -SavePointId $selfTestSavePointId `
+            -Label "native argument self-test save point id"
+        $nativeRecoveryArguments = @(Get-StageArgumentVector `
+            -RuntimeAddonPath $runtimeAddonPath `
+            -ProjectFile $projectFile `
+            -World $WorldResource `
+            -ProfileRoot $guardRoot `
+            -SessionNonce $nonce `
+            -StageNonce $preflightStageNonce `
+            -RunId $runId `
+            -Stage "recover" `
+            -NativeSavePointId $selfTestSavePointId `
+			-NativeServerConfigPath $nativeServerConfigPath `
+            -NativePackedAddonsParent $nativePackedAddonsParent)
+        $nativeRecoveryCommandLine =
+            (ConvertTo-NativeArgument $executablePath) + " " +
+            (($nativeRecoveryArguments | ForEach-Object {
+                ConvertTo-NativeArgument ([string]$_)
+            }) -join " ")
+        if (-not (Test-ExactNativeArgumentVector `
+            -CommandLine $nativeRecoveryCommandLine `
+            -ExpectedExecutable $executablePath `
+            -ExpectedArguments $nativeRecoveryArguments)) {
+            throw "Native recovery argument isolation failed."
+        }
+        $loadTokenIndex = [Array]::IndexOf(
+            [object[]]$nativeRecoveryArguments,
+            "-loadSessionSave")
+        if ($loadTokenIndex -lt 0 -or
+            $loadTokenIndex + 1 -ge $nativeRecoveryArguments.Count -or
+            [string]$nativeRecoveryArguments[$loadTokenIndex + 1] -cne
+                $selfTestSavePointId) {
+            throw "Native recovery argument contract lost its exact save UUID."
+        }
+    }
 
     if ($PreflightOnly) {
-        Write-Output ("PREFLIGHT " + ([pscustomobject]@{
+        $preflightSummary = [pscustomobject]@{
             Cut = $script:CutName
             Stages = 3
             EngineProcessesBefore = $engineProcessesBefore
@@ -3543,10 +4722,36 @@ try {
             TempIsolated = $true
             KillOnWrapperClose = $true
             ArgumentTokenCount = $preflightArguments.Count
-        } | ConvertTo-Json -Compress))
+        }
+        if ($script:NativeSourceSelection) {
+            $preflightSummary | Add-Member `
+                -NotePropertyName NativeSourceSelection `
+                -NotePropertyValue $true
+            $preflightSummary | Add-Member `
+                -NotePropertyName WorkbenchPackExecuted `
+                -NotePropertyValue $false
+            $preflightSummary | Add-Member `
+                -NotePropertyName PackedAddonPlaceholder `
+                -NotePropertyValue $true
+            $preflightSummary | Add-Member `
+                -NotePropertyName PackArgumentTokenCount `
+                -NotePropertyValue $packPreflightArguments.Count
+        }
+        Write-Output ("PREFLIGHT " + (
+            $preflightSummary | ConvertTo-Json -Compress))
         $runSucceeded = $true
     }
     else {
+        if ($script:NativeSourceSelection -and
+            (-not $nativePackSummary -or
+                [int]$nativePackSummary.ExitCode -ne 0 -or
+                [int]$nativePackSummary.EngineAfter -ne 0 -or
+                [int]$nativePackSummary.OwnedProcessesRemaining -ne 0 -or
+                [int]$nativePackSummary.PakCount -ne 1 -or
+                [int]$nativePackSummary.ProjectCount -ne 1 -or
+                [int]$nativePackSummary.ResourceDatabaseCount -ne 1)) {
+            throw "Native proof did not retain an exact guarded Workbench pack."
+        }
         $prepare = Invoke-RestartStage `
             -ExecutablePath $executablePath `
             -RuntimeAddonPath $runtimeAddonPath `
@@ -3561,6 +4766,8 @@ try {
             -Stage "prepare" `
             -ExpectedBuild $buildIdentity `
             -ExpectedWorld $WorldResource `
+			-NativeServerConfigPath $nativeServerConfigPath `
+            -NativePackedAddonsParent $nativePackedAddonsParent `
             -UnclaimedEngineProcessesObserved $unclaimedEngineProcessesObserved
         $stageOutcomes.Add($prepare)
         Write-Output ("STAGE " + (
@@ -3583,6 +4790,25 @@ try {
             [string]$prepare.Result.m_sRawPreparedCutSemanticFingerprint -cne
                 [string]$carrier.m_sRawPreparedCutSemanticFingerprint) {
             throw "The prepare result and durable carrier fingerprint chain diverged."
+        }
+        if ($script:NativeSourceSelection) {
+            $nativeSavePointId = [string]$carrier.m_sNativeSavePointId
+            $nativeFallbackConflictFingerprint =
+                [string]$carrier.m_sFallbackConflictSemanticFingerprint
+            if ([string]$prepare.Result.m_sNativeSavePointId -cne
+                    $nativeSavePointId -or
+                [string]$prepare.Result.m_sFallbackConflictSemanticFingerprint -cne
+                    $nativeFallbackConflictFingerprint -or
+                -not [bool]$prepare.SafeSummary.CanonicalCampaignOverwriteAllowed) {
+                throw "Native prepare result and carrier evidence diverged."
+            }
+            if (-not (Test-Path `
+                -LiteralPath $canonicalCampaignPath `
+                -PathType Leaf)) {
+                throw "Native prepare did not create its conflicting fallback snapshot."
+            }
+            $nativeCanonicalCampaignSignature = Get-FileSignature `
+                -Path $canonicalCampaignPath
         }
         if ($script:CutName -ceq "physical_live_position") {
             $carrierStale = $carrier.m_vInjectedStalePosition |
@@ -3617,6 +4843,9 @@ try {
             -Stage "recover" `
             -ExpectedBuild $buildIdentity `
             -ExpectedWorld ([string]$carrier.m_sWorld) `
+            -NativeSavePointId $nativeSavePointId `
+			-NativeServerConfigPath $nativeServerConfigPath `
+            -NativePackedAddonsParent $nativePackedAddonsParent `
             -UnclaimedEngineProcessesObserved $unclaimedEngineProcessesObserved
         $stageOutcomes.Add($recover)
         Write-Output ("STAGE " + (
@@ -3628,6 +4857,46 @@ try {
             [string]$recover.Result.m_sRawPreparedCutSemanticFingerprint -cne
                 [string]$carrier.m_sRawPreparedCutSemanticFingerprint) {
             throw "The recover result did not continue the prepared fingerprint exactly once."
+        }
+        if ($script:NativeSourceSelection) {
+            if ([bool]$recover.SafeSummary.CanonicalCampaignOverwriteAllowed -or
+                -not [bool]$recover.SafeSummary.CanonicalCampaignUnchanged -or
+                -not (Test-Path `
+                    -LiteralPath $canonicalCampaignPath `
+                    -PathType Leaf) -or
+                (Get-FileSignature -Path $canonicalCampaignPath) -cne
+                    $nativeCanonicalCampaignSignature) {
+                throw "Native recovery did not preserve its conflicting fallback snapshot."
+            }
+            $recoveredCarrier = Wait-StableJsonArtifact `
+                -Path $carrierPath `
+                -DeadlineUtc ([DateTime]::UtcNow.AddSeconds(
+                    $ResultGraceSeconds))
+            $recoveredCarrier = Assert-PreparedCarrier `
+                -Carrier $recoveredCarrier `
+                -SessionNonce $nonce `
+                -RunId $runId `
+                -ExpectedBuild $buildIdentity
+            if ([string]$recoveredCarrier.m_sPreparedSemanticFingerprint -cne
+                    $preparedFingerprint -or
+                [string]$recoveredCarrier.m_sRawPreparedCutSemanticFingerprint -cne
+                    [string]$carrier.m_sRawPreparedCutSemanticFingerprint -or
+                [string]$recoveredCarrier.m_sFallbackConflictSemanticFingerprint -cne
+                    $nativeFallbackConflictFingerprint -or
+                [string]$recover.Result.m_sFallbackConflictSemanticFingerprint -cne
+                    $nativeFallbackConflictFingerprint -or
+                [string]$recover.Result.m_sNativeSavePointId -cne
+                    [string]$recoveredCarrier.m_sNativeSavePointId) {
+                throw "Native recovery result and refreshed carrier evidence diverged."
+            }
+            $nativeSavePointId =
+                [string]$recoveredCarrier.m_sNativeSavePointId
+            Assert-NativeSavePointId `
+                -SavePointId $nativeSavePointId `
+                -Label "native recovery save point id"
+            $carrier = $recoveredCarrier
+            $nativeCarrierSignatureAfterRecover = Get-FileSignature `
+                -Path $carrierPath
         }
 
         $replay = Invoke-RestartStage `
@@ -3644,6 +4913,9 @@ try {
             -Stage "replay" `
             -ExpectedBuild $buildIdentity `
             -ExpectedWorld ([string]$carrier.m_sWorld) `
+            -NativeSavePointId $nativeSavePointId `
+			-NativeServerConfigPath $nativeServerConfigPath `
+            -NativePackedAddonsParent $nativePackedAddonsParent `
             -UnclaimedEngineProcessesObserved $unclaimedEngineProcessesObserved
         $stageOutcomes.Add($replay)
         Write-Output ("STAGE " + (
@@ -3653,6 +4925,17 @@ try {
 				-not [bool]$replay.SafeSummary.CanonicalCampaignUnchanged)) {
 			throw "Owner-applied pending replay did not preserve its read-only canonical campaign snapshot."
 		}
+        if ($script:NativeSourceSelection -and
+            ([string]$replay.Result.m_sNativeSavePointId -cne
+                    $nativeSavePointId -or
+                [string]$replay.Result.m_sFallbackConflictSemanticFingerprint -cne
+                    $nativeFallbackConflictFingerprint -or
+                (Get-FileSignature -Path $canonicalCampaignPath) -cne
+                    $nativeCanonicalCampaignSignature -or
+                (Get-FileSignature -Path $carrierPath) -cne
+                    $nativeCarrierSignatureAfterRecover)) {
+            throw "Native replay did not preserve its exact save, fallback, and carrier evidence."
+        }
         $recoveredFingerprint = [string]$recover.Result.m_sFinalSemanticFingerprint
         if ([string]$replay.Result.m_sSourceSemanticFingerprint -cne
                 $recoveredFingerprint -or
@@ -3663,7 +4946,7 @@ try {
             throw "The replay result was not an exact semantic no-op."
         }
 
-        Write-Output ("RESULT " + ([pscustomobject]@{
+        $resultSummary = [pscustomobject]@{
             Valid = $true
             Cut = $script:CutName
             StageCount = $stageOutcomes.Count
@@ -3673,7 +4956,14 @@ try {
             AllExitZero = @($stageOutcomes | Where-Object {
                 $_.ExitCode -ne 0
             }).Count -eq 0
-        } | ConvertTo-Json -Compress))
+        }
+        if ($script:NativeSourceSelection) {
+            $resultSummary | Add-Member `
+                -NotePropertyName NativeSourceSelectionExact `
+                -NotePropertyValue $true
+        }
+        Write-Output ("RESULT " + (
+            $resultSummary | ConvertTo-Json -Compress))
         $runSucceeded = $true
     }
 }
@@ -3685,6 +4975,7 @@ finally {
         GuardRemaining = -1
         GuardBaseRemaining = -1
         OwnedGuardRootsRemaining = -1
+        WorkspacePackScratchRemaining = -1
         EngineProcessesRemaining = -1
         NewWatchedEntries = -1
         ModifiedWatchedFiles = -1
@@ -3696,6 +4987,35 @@ finally {
         MissingSpillRoots = -1
     }
 
+    Invoke-IsolatedCleanupPhase `
+        -Name "remove-owned-workspace-pack-scratch" `
+        -Errors $cleanupPhaseErrors `
+        -Action {
+            if ($nativeWorkspacePackScratchCreated) {
+                $candidateScratchOwnership =
+                    Read-NativeWorkspacePackScratchOwnership `
+                        -Directory $nativeWorkspacePackScratchPath `
+                        -RepositoryRoot $repositoryRoot
+                if ($candidateScratchOwnership -and
+                    $candidateScratchOwnership.Nonce -ceq $nonce -and
+                    $candidateScratchOwnership.OwnerPid -eq $PID -and
+                    $wrapperStartUtc -ne [DateTime]::MinValue -and
+                    $candidateScratchOwnership.OwnerStartUtc.Ticks -eq
+                        $wrapperStartUtc.Ticks) {
+                    $nativeWorkspacePackScratchOwnership =
+                        $candidateScratchOwnership
+                }
+                else {
+                    $nativeWorkspacePackScratchOwnership = $null
+                }
+                if (-not $nativeWorkspacePackScratchOwnership -or
+                    -not (Remove-NativeWorkspacePackScratch `
+                        -Ownership $nativeWorkspacePackScratchOwnership `
+                        -RepositoryRoot $repositoryRoot)) {
+                    throw "Owned native Workbench workspace scratch removal failed."
+                }
+            }
+        }
     Invoke-IsolatedCleanupPhase `
         -Name "remove-exact-owned-guard" `
         -Errors $cleanupPhaseErrors `
@@ -3783,6 +5103,9 @@ finally {
                     Where-Object { $_.Name -match $guardPattern }).Count
             }
             $cleanupState.OwnedGuardRootsRemaining = $ownedGuardRoots
+            $cleanupState.WorkspacePackScratchRemaining = [int](
+                $nativeWorkspacePackScratchCreated -and
+                (Test-Path -LiteralPath $nativeWorkspacePackScratchPath))
         }
     Invoke-IsolatedCleanupPhase `
         -Name "audit-engine-processes" `
@@ -3843,6 +5166,8 @@ finally {
         GuardRemaining = $cleanupState.GuardRemaining
         GuardBaseRemaining = $cleanupState.GuardBaseRemaining
         OwnedGuardRootsRemaining = $cleanupState.OwnedGuardRootsRemaining
+        WorkspacePackScratchRemaining =
+            $cleanupState.WorkspacePackScratchRemaining
         EngineProcessesRemaining = $cleanupState.EngineProcessesRemaining
         UnclaimedEngineProcessesObserved =
             $unclaimedEngineProcessesObserved.Count
@@ -3865,6 +5190,7 @@ $cleanupPassed = $cleanupResult -and
     $cleanupResult.GuardRemaining -eq 0 -and
     $cleanupResult.GuardBaseRemaining -eq 0 -and
     $cleanupResult.OwnedGuardRootsRemaining -eq 0 -and
+    $cleanupResult.WorkspacePackScratchRemaining -eq 0 -and
     $cleanupResult.EngineProcessesRemaining -eq 0 -and
     $cleanupResult.UnclaimedEngineProcessesObserved -eq 0 -and
     $cleanupResult.NewWatchedEntries -eq 0 -and

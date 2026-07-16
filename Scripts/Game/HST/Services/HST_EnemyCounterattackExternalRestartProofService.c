@@ -304,6 +304,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 		bool allowCanonicalCampaignOverwrite
 			= !IsOwnerAppliedPendingCut(expectedCut)
 			|| expectedStage != STAGE_REPLAY;
+		if (guard.m_bNativeSourceSelectionProof)
+			allowCanonicalCampaignOverwrite = expectedStage == STAGE_PREPARE;
 		if (guard.m_bAllowCanonicalCampaignOverwrite
 			!= allowCanonicalCampaignOverwrite)
 		{
@@ -723,6 +725,25 @@ class HST_EnemyCounterattackExternalRestartProofService
 			evidence = "external counterattack restart carrier cut or fingerprint rejected";
 			return false;
 		}
+		if (carrier.m_bNativeSourceSelectionProof
+			&& (!IsOwnerAppliedPendingCut(expectedCut)
+				|| !UUID.IsUUID(carrier.m_sNativeSavePointId)
+				|| carrier.m_sFallbackConflictSemanticFingerprint.IsEmpty()
+				|| carrier.m_sFallbackConflictSemanticFingerprint
+					== carrier.m_sPreparedSemanticFingerprint))
+		{
+			evidence
+				= "external counterattack native-source carrier evidence rejected";
+			return false;
+		}
+		if (!carrier.m_bNativeSourceSelectionProof
+			&& (!carrier.m_sNativeSavePointId.IsEmpty()
+				|| !carrier.m_sFallbackConflictSemanticFingerprint.IsEmpty()))
+		{
+			evidence
+				= "external counterattack legacy carrier has native-source evidence";
+			return false;
+		}
 		if (IsPreparedSettlementCut(expectedCut))
 			return ValidatePreparedSettlementCarrier(carrier, expectedCut, evidence);
 		if (IsOwnerAppliedPendingCut(expectedCut))
@@ -1063,6 +1084,63 @@ class HST_EnemyCounterattackExternalRestartProofService
 		return true;
 	}
 
+	protected static bool ValidateNativeSourceSelectionResult(
+		HST_EnemyCounterattackExternalRestartResult result,
+		string expectedCut,
+		string expectedStage,
+		out string evidence)
+	{
+		evidence = "external counterattack native-source result rejected";
+		if (!result)
+			return false;
+		if (!result.m_bNativeSourceSelectionProof)
+		{
+			bool legacyExact = !result.m_bNativePersistenceLoaded
+				&& !result.m_bFallbackConflictRejected
+				&& !result.m_bNativeSavePointCommitted
+				&& result.m_sNativeSavePointId.IsEmpty()
+				&& result.m_sRestoreSource.IsEmpty()
+				&& result.m_sFallbackConflictSemanticFingerprint.IsEmpty();
+			if (legacyExact)
+				evidence = "external counterattack legacy source result exact";
+			return legacyExact;
+		}
+
+		if (!IsOwnerAppliedPendingCut(expectedCut)
+			|| !UUID.IsUUID(result.m_sNativeSavePointId)
+			|| result.m_sFallbackConflictSemanticFingerprint.IsEmpty())
+			return false;
+		if (expectedStage == STAGE_PREPARE)
+		{
+			if (result.m_bNativePersistenceLoaded
+				|| result.m_bFallbackConflictRejected
+				|| !result.m_bNativeSavePointCommitted
+				|| result.m_sRestoreSource != "new_campaign")
+				return false;
+		}
+		else if (expectedStage == STAGE_RECOVER)
+		{
+			if (!result.m_bNativePersistenceLoaded
+				|| !result.m_bFallbackConflictRejected
+				|| !result.m_bNativeSavePointCommitted
+				|| result.m_sRestoreSource != "native")
+				return false;
+		}
+		else if (expectedStage == STAGE_REPLAY)
+		{
+			if (!result.m_bNativePersistenceLoaded
+				|| !result.m_bFallbackConflictRejected
+				|| result.m_bNativeSavePointCommitted
+				|| result.m_sRestoreSource != "native")
+				return false;
+		}
+		else
+			return false;
+
+		evidence = "external counterattack native-source result exact";
+		return true;
+	}
+
 	static bool ValidateResult(
 		HST_EnemyCounterattackExternalRestartResult result,
 		string expectedSessionNonce,
@@ -1096,6 +1174,16 @@ class HST_EnemyCounterattackExternalRestartProofService
 		{
 			evidence = "external counterattack restart result exact";
 			return true;
+		}
+		string sourceSelectionEvidence;
+		if (!ValidateNativeSourceSelectionResult(
+			result,
+			expectedCut,
+			expectedStage,
+			sourceSelectionEvidence))
+		{
+			evidence = sourceSelectionEvidence;
+			return false;
 		}
 		if (IsOwnerAppliedPendingCut(expectedCut))
 		{

@@ -9605,7 +9605,7 @@ foreach ($requiredForceSpawnQueueRestoreEntry in @(
 		throw "Schema-45 force spawn queue restore contract is missing entry: $requiredForceSpawnQueueRestoreEntry"
 	}
 }
-if ($coordinatorText -notmatch 'RestoreOrCreateCampaignState[\s\S]*?ReconcileCampaignAfterRestore\(m_State\)[\s\S]*?ReconcileInterruptedGarrisonConfirmations[\s\S]*?ReconcileOpenReservations') {
+if ($coordinatorText -notmatch 'ResolveCampaignStateSource[\s\S]*?ReconcileCampaignAfterRestore\(m_State\)[\s\S]*?ReconcileInterruptedGarrisonConfirmations[\s\S]*?ReconcileOpenReservations') {
 	throw "Coordinator must reconcile the durable force spawn queue immediately after campaign restore and before normal authority reconciliation"
 }
 foreach ($requiredForceSpawnQueueLimit in @(
@@ -22663,7 +22663,7 @@ foreach ($schema62CoordinatorWiringEntry in @(
 		throw "Schema-62 coordinator ownership service wiring is missing: $schema62CoordinatorWiringEntry"
 	}
 }
-$schema62CoordinatorInitBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'override void OnPostInit('
+$schema62CoordinatorInitBlock = Get-ScriptMethodBlock $schema62CoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
 $schema62FoundationIndex = $schema62CoordinatorInitBlock.IndexOf('EnsureCampaignFoundation();')
 $schema62RestoreOwnershipIndex = $schema62CoordinatorInitBlock.IndexOf('m_OwnershipTransitions.ReconcileAfterRestore(m_State);')
 $schema62InitialMarkerRefreshIndex = $schema62CoordinatorInitBlock.IndexOf('RefreshCampaignMarkers();')
@@ -24841,14 +24841,15 @@ foreach ($schema65PresetRoleEntry in @(
 		throw "Schema-65 preset-aware restored aggression role validation is incomplete: $schema65PresetRoleEntry"
 	}
 }
-$schema65RestoreIndex = $schema65CoordinatorInitBlock.IndexOf('m_Persistence.RestoreOrCreateCampaignState(')
-$schema65PresetRoleIndex = $schema65CoordinatorInitBlock.IndexOf('m_TownInfluence.ValidateRestoredAggressionFactionRoles(')
-$schema65PostRestoreReconcileIndex = $schema65CoordinatorInitBlock.IndexOf('m_ForceSpawnQueue.ReconcileCampaignAfterRestore(')
+$schema65CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema65CoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
+$schema65RestoreIndex = $schema65CoordinatorRestoreBlock.IndexOf('m_Persistence.ResolveCampaignStateSource(')
+$schema65PresetRoleIndex = $schema65CoordinatorRestoreBlock.IndexOf('m_TownInfluence.ValidateRestoredAggressionFactionRoles(')
+$schema65PostRestoreReconcileIndex = $schema65CoordinatorRestoreBlock.IndexOf('m_ForceSpawnQueue.ReconcileCampaignAfterRestore(')
 if ($schema65RestoreIndex -lt 0 -or $schema65PresetRoleIndex -lt 0 -or
 	$schema65PostRestoreReconcileIndex -lt 0 -or
 	$schema65RestoreIndex -gt $schema65PresetRoleIndex -or
 	$schema65PresetRoleIndex -gt $schema65PostRestoreReconcileIndex -or
-	$schema65CoordinatorInitBlock.IndexOf('m_Preset', $schema65PresetRoleIndex) -lt 0) {
+	$schema65CoordinatorRestoreBlock.IndexOf('m_Preset', $schema65PresetRoleIndex) -lt 0) {
 	throw "Schema-65 coordinator must validate restored aggression roles under the live preset before post-restore reconciliation"
 }
 
@@ -26265,7 +26266,7 @@ foreach ($schema67CoordinatorEntry in @(
 		throw "Schema-67 coordinator strategic resource authority wiring is missing: $schema67CoordinatorEntry"
 	}
 }
-$schema67CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'override void OnPostInit('
+$schema67CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema67CoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
 $schema67MigrationAwareRolePattern = 'ValidateRestoredFactionRoles\(\s*m_State,\s*m_Preset\s*\);'
 $schema67CurrentRolePattern = 'ValidateRestoredFactionRoles\(\s*m_State,\s*m_Preset,\s*HST_CampaignState\.SCHEMA_VERSION\s*\);'
 $schema67FoundationRepairIndex = $schema67CoordinatorRestoreBlock.IndexOf('EnsureCampaignFoundation();')
@@ -27123,8 +27124,8 @@ if ([string]::IsNullOrEmpty($schema68MigrateBlock) -or
 	throw "Schema-68 migration must prepare planning before generic order normalization and normalize it after Schema 67"
 }
 
-$schema68CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'override void OnPostInit('
-$schema68RestoreOrCreateIndex = $schema68CoordinatorRestoreBlock.IndexOf('m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());')
+$schema68CoordinatorRestoreBlock = Get-ScriptMethodBlock $schema68CoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
+$schema68RestoreOrCreateIndex = $schema68CoordinatorRestoreBlock.IndexOf('m_State = sourceResolution.m_State;')
 $schema68RecoveryCreateIndex = $schema68CoordinatorRestoreBlock.IndexOf('new HST_EnemyAuthorityBootstrapRecoveryService();')
 $schema68RecoveryInvokeIndex = $schema68CoordinatorRestoreBlock.IndexOf('bootstrapRecovery.RecoverKnownSchema68BootstrapQuarantine(')
 $schema68FoundationIndex = $schema68CoordinatorRestoreBlock.IndexOf('EnsureCampaignFoundation();')
@@ -34041,11 +34042,13 @@ $exactQRFRestartPostInitBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinato
 $exactQRFRestartConfigureIndex = $exactQRFRestartPostInitBlock.IndexOf('ConfigureExactQRFRestartCLI();')
 $exactQRFRestartBootAuthorityIndex = $exactQRFRestartPostInitBlock.IndexOf('LoadExactQRFRestartAuthority(requireCarrierAtBoot)')
 $exactQRFRestartProfileMigrationIndex = $exactQRFRestartPostInitBlock.IndexOf('HST_ProfilePathService.MigrateLegacyProfileTree()')
-$exactQRFRestartRestoreIndex = $exactQRFRestartPostInitBlock.IndexOf('RestoreOrCreateCampaignState(')
-$exactQRFRestartObserveIndex = $exactQRFRestartPostInitBlock.IndexOf('ObserveExactQRFExternalRestartSource();')
-$exactQRFRestartStartupReconcileIndex = $exactQRFRestartPostInitBlock.IndexOf('m_bExactQRFRestartStartupReconcileChanged')
-$exactQRFRestartQRFReconcileIndex = $exactQRFRestartPostInitBlock.IndexOf('m_EnemyQRFOperations.ReconcileAfterRestore(', [Math]::Max(0, $exactQRFRestartStartupReconcileIndex))
+$exactQRFRestartBootstrapBlock = Get-ScriptMethodBlock $exactQRFRestartCoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
+$exactQRFRestartRestoreIndex = $exactQRFRestartBootstrapBlock.IndexOf('ResolveCampaignStateSource(')
+$exactQRFRestartObserveIndex = $exactQRFRestartBootstrapBlock.IndexOf('ObserveExactQRFExternalRestartSource();')
+$exactQRFRestartStartupReconcileIndex = $exactQRFRestartBootstrapBlock.IndexOf('m_bExactQRFRestartStartupReconcileChanged')
+$exactQRFRestartQRFReconcileIndex = $exactQRFRestartBootstrapBlock.IndexOf('m_EnemyQRFOperations.ReconcileAfterRestore(', [Math]::Max(0, $exactQRFRestartStartupReconcileIndex))
 if ([string]::IsNullOrEmpty($exactQRFRestartPostInitBlock) -or
+	[string]::IsNullOrEmpty($exactQRFRestartBootstrapBlock) -or
 	$exactQRFRestartConfigureIndex -lt 0 -or $exactQRFRestartBootAuthorityIndex -lt 0 -or
 	$exactQRFRestartProfileMigrationIndex -lt 0 -or
 	$exactQRFRestartRestoreIndex -lt 0 -or $exactQRFRestartObserveIndex -lt 0 -or
@@ -34057,7 +34060,7 @@ if ([string]::IsNullOrEmpty($exactQRFRestartPostInitBlock) -or
 	throw "Exact-QRF boot authority must fail closed before profile mutation, then observe the canonical source before startup QRF reconcile"
 }
 $exactQRFRestartStartupAssignmentPattern = 'm_bExactQRFRestartStartupReconcileChanged\s*=\s*m_EnemyQRFOperations\.ReconcileAfterRestore\s*\('
-if ($exactQRFRestartPostInitBlock -notmatch $exactQRFRestartStartupAssignmentPattern) {
+if ($exactQRFRestartBootstrapBlock -notmatch $exactQRFRestartStartupAssignmentPattern) {
 	throw "Exact-QRF external restart proof must capture the startup QRF reconciler return value"
 }
 
@@ -34288,11 +34291,18 @@ foreach ($exactEnemyResponseWiringEntry in @(
 $exactEnemyResponseSetterWiringIndex = `
 	$exactEnemyResponsePostInit.IndexOf(
 		'm_Persistence.SetExactEnemyResponseAuthorityServices(')
-$exactEnemyResponseRestoreIndex = `
+$exactEnemyResponseBootstrapCallIndex = `
 	$exactEnemyResponsePostInit.IndexOf(
-		'm_Persistence.RestoreOrCreateCampaignState(')
+		'TryCompleteCampaignPersistenceBootstrap();')
+$exactEnemyResponseRestoreBlock = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool TryCompleteCampaignPersistenceBootstrap('
+$exactEnemyResponseRestoreIndex = `
+	$exactEnemyResponseRestoreBlock.IndexOf(
+		'm_Persistence.ResolveCampaignStateSource(')
 if ($exactEnemyResponseSetterWiringIndex -lt 0 -or
-	$exactEnemyResponseRestoreIndex -le $exactEnemyResponseSetterWiringIndex) {
+	$exactEnemyResponseBootstrapCallIndex -le $exactEnemyResponseSetterWiringIndex -or
+	$exactEnemyResponseRestoreIndex -lt 0) {
 	throw 'Exact enemy-response persistence owners must be wired before restore and any checkpoint capture'
 }
 
@@ -35990,10 +36000,12 @@ $exactCounterRestartPostInit = Get-ScriptMethodBlock $exactCounterRestartCoordin
 $exactCounterRestartConfigureIndex = $exactCounterRestartPostInit.IndexOf('ConfigureExactCounterattackRestartCLI();')
 $exactCounterRestartBootGuardIndex = $exactCounterRestartPostInit.IndexOf('LoadExactCounterattackRestartAuthority(')
 $exactCounterRestartMigrationIndex = $exactCounterRestartPostInit.IndexOf('HST_ProfilePathService.MigrateLegacyProfileTree()')
-$exactCounterRestartRestoreIndex = $exactCounterRestartPostInit.IndexOf('RestoreOrCreateCampaignState(')
-$exactCounterRestartObserveIndex = $exactCounterRestartPostInit.IndexOf('ObserveExactCounterattackExternalRestartSource();')
-$exactCounterRestartReconcileIndex = $exactCounterRestartPostInit.IndexOf('m_EnemyCounterattackOperations.ReconcileAfterRestore(')
+$exactCounterRestartBootstrap = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
+$exactCounterRestartRestoreIndex = $exactCounterRestartBootstrap.IndexOf('ResolveCampaignStateSource(')
+$exactCounterRestartObserveIndex = $exactCounterRestartBootstrap.IndexOf('ObserveExactCounterattackExternalRestartSource();')
+$exactCounterRestartReconcileIndex = $exactCounterRestartBootstrap.IndexOf('m_EnemyCounterattackOperations.ReconcileAfterRestore(')
 if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIndex -lt 0 -or
+	[string]::IsNullOrEmpty($exactCounterRestartBootstrap) -or
 	$exactCounterRestartMigrationIndex -lt 0 -or $exactCounterRestartRestoreIndex -lt 0 -or
 	$exactCounterRestartObserveIndex -lt 0 -or $exactCounterRestartReconcileIndex -lt 0 -or
 	$exactCounterRestartConfigureIndex -ge $exactCounterRestartBootGuardIndex -or
@@ -36001,7 +36013,7 @@ if ($exactCounterRestartConfigureIndex -lt 0 -or $exactCounterRestartBootGuardIn
 	$exactCounterRestartRestoreIndex -ge $exactCounterRestartObserveIndex -or
 	$exactCounterRestartObserveIndex -ge $exactCounterRestartReconcileIndex -or
 	$exactCounterRestartPostInit -notmatch 'if\s*\(\s*!m_bExactCounterattackRestartCLIRequested\s*\r?\n\s*&&\s*!HST_ProfilePathService\.MigrateLegacyProfileTree\(\)\s*\)' -or
-	$exactCounterRestartPostInit -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
+	$exactCounterRestartBootstrap -notmatch 'm_bExactCounterattackRestartStartupReconcileChanged\s*=\s*m_EnemyCounterattackOperations\.ReconcileAfterRestore\s*\(') {
 	throw "Exact counterattack guard/source observation must precede profile mutation and captured startup reconcile"
 }
 foreach ($exactCounterRestartVirtualSeamEntry in @(
@@ -36470,13 +36482,35 @@ if ($exactCounterRestartRawCutFirstIndex -lt 0 -or
 	throw 'Exact counterattack raw-cut helper must validate before and after tracking, and prepare must gate success on that helper'
 }
 $exactCounterRestartFinalize = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected void FinalizeExactCounterattackExternalRestartStage()'
-$exactCounterRestartFailedResultIndex = $exactCounterRestartFinalize.IndexOf('SaveExactCounterattackRestartResult(failedResult);')
-$exactCounterRestartFirstCloseIndex = $exactCounterRestartFinalize.IndexOf('GetGame().RequestClose();')
+$exactCounterRestartNativePendingBranch = Get-ScriptMethodBlock `
+	$exactCounterRestartFinalize 'if (m_bExactCounterattackNativeSavePending)'
+$exactCounterRestartNativeFinalizeIndex = `
+	$exactCounterRestartNativePendingBranch.IndexOf(
+		'FinalizeExactCounterattackNativeSavePoint()')
+$exactCounterRestartNativeCloseIndex = `
+	$exactCounterRestartNativePendingBranch.IndexOf('GetGame().RequestClose();')
+$exactCounterRestartSetupFailureBranch = Get-ScriptMethodBlock `
+	$exactCounterRestartFinalize `
+	'if (!m_sExactCounterattackRestartCLISetupFailure.IsEmpty())'
+$exactCounterRestartFailedResultIndex = `
+	$exactCounterRestartSetupFailureBranch.IndexOf(
+		'SaveExactCounterattackRestartResult(failedResult);')
+$exactCounterRestartFailureCloseIndex = `
+	$exactCounterRestartSetupFailureBranch.IndexOf('GetGame().RequestClose();')
 $exactCounterRestartPrepareIndex = $exactCounterRestartFinalize.IndexOf('FinalizeExactCounterattackExternalRestartPrepare();')
 $exactCounterRestartVerifyIndex = $exactCounterRestartFinalize.IndexOf('FinalizeExactCounterattackExternalRestartVerify();')
 $exactCounterRestartLastCloseIndex = $exactCounterRestartFinalize.LastIndexOf('GetGame().RequestClose();')
-if ($exactCounterRestartFailedResultIndex -lt 0 -or
-	$exactCounterRestartFailedResultIndex -ge $exactCounterRestartFirstCloseIndex -or
+$exactCounterRestartNativeSaveFinalize = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool FinalizeExactCounterattackNativeSavePoint()'
+if ($exactCounterRestartNativeFinalizeIndex -lt 0 -or
+	$exactCounterRestartNativeFinalizeIndex -ge
+		$exactCounterRestartNativeCloseIndex -or
+	$exactCounterRestartNativeSaveFinalize.IndexOf(
+		'SaveExactCounterattackRestartResult(result);') -lt 0 -or
+	$exactCounterRestartFailedResultIndex -lt 0 -or
+	$exactCounterRestartFailedResultIndex -ge
+		$exactCounterRestartFailureCloseIndex -or
 	$exactCounterRestartPrepareIndex -lt 0 -or $exactCounterRestartVerifyIndex -lt 0 -or
 	$exactCounterRestartPrepareIndex -ge $exactCounterRestartLastCloseIndex -or
 	$exactCounterRestartVerifyIndex -ge $exactCounterRestartLastCloseIndex) {
@@ -36778,7 +36812,7 @@ foreach ($exactCounterRestartFileSignatureEntry in @(
 }
 $exactCounterRestartReplayPreMissingIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
-		'canonical campaign snapshot was unavailable before replay')
+		'canonical campaign snapshot was unavailable before its read-only stage')
 $exactCounterRestartReplayPreSignatureIndex = `
 	$exactCounterRestartStageInvocation.IndexOf(
 		'$canonicalCampaignSignatureBefore = Get-FileSignature')
@@ -36802,9 +36836,11 @@ $exactCounterRestartReplayRewriteRejectIndex = `
 		'rewrote its read-only canonical campaign snapshot')
 if ($exactCounterRestartStageInvocation -notmatch
 	'\$ownerReplayReadOnly\s*=\s*\$script:IsOwnerAppliedPendingCut\s+-and\s*\r?\n\s*\$Stage\s+-ceq\s*"replay"' -or
+	$exactCounterRestartStageInvocation -notmatch
+		'\$canonicalCampaignReadOnly\s*=\s*\$ownerReplayReadOnly\s*\r?\n\s*if\s*\(\$script:NativeSourceSelection\)[\s\S]*?\$canonicalCampaignReadOnly\s*=\s*\$Stage\s+-cne\s*"prepare"' -or
 	([regex]::Matches(
 	$exactCounterRestartStageInvocation,
-	[regex]::Escape('if ($ownerReplayReadOnly)'))).Count -ne 2 -or
+	[regex]::Escape('if ($canonicalCampaignReadOnly)'))).Count -ne 2 -or
 	$exactCounterRestartReplayPreMissingIndex -lt 0 -or
 	$exactCounterRestartReplayPreSignatureIndex -le
 		$exactCounterRestartReplayPreMissingIndex -or
@@ -38615,7 +38651,7 @@ foreach ($exactCounterRestartOwnerReceiptRowEntry in @(
 }
 
 $exactCounterRestartOwnerPostInit = Get-ScriptMethodBlock `
-	$exactCounterRestartCoordinatorText 'override void OnPostInit(IEntity owner)'
+	$exactCounterRestartCoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
 $exactCounterRestartOwnerObserveIndex = `
 	$exactCounterRestartOwnerPostInit.IndexOf(
 		'ObserveExactCounterattackExternalRestartSource();')
@@ -39176,6 +39212,950 @@ if (([regex]::Matches(
 	'Remove-Item\s+-LiteralPath\s+\$current\.Directory\s+-Recurse\s+-Force')).Count -ne 1) {
 	throw 'Guarded Workbench launcher must expose one sentinel-authorized recursive deletion path'
 }
+
+# Native campaign persistence transport and native-over-fallback restart proof.
+# Keep this as one late contract so every older schema and runtime gate above
+# continues to run unchanged before this newer transport boundary is accepted.
+$nativeCampaignSaveDataPath = 'Scripts/Game/HST/State/HST_CampaignSaveData.c'
+$nativeCampaignPersistentStatePath = `
+	'Scripts/Game/HST/State/HST_CampaignPersistentState.c'
+$nativePersistenceSourcePath = `
+	'Scripts/Game/HST/Data/HST_PersistenceSourceResolution.c'
+$nativePersistenceConfigPath = `
+	'Configs/HST/Persistence/HST_CampaignPersistence.conf'
+$nativeSystemsConfigPath = `
+	'Configs/HST/Persistence/HST_CampaignSystems.conf'
+$nativePersistenceServicePath = `
+	'Scripts/Game/HST/Services/HST_PersistenceService.c'
+$nativeCoordinatorPath = `
+	'Scripts/Game/HST/Components/HST_CampaignCoordinatorComponent.c'
+$nativeRestartDataPath = `
+	'Scripts/Game/HST/Data/HST_EnemyCounterattackExternalRestartProof.c'
+$nativeRestartProofServicePath = `
+	'Scripts/Game/HST/Services/HST_EnemyCounterattackExternalRestartProofService.c'
+$nativeRestartRunnerPath = 'tools/run-exact-counterattack-restart-proof.ps1'
+foreach ($nativePersistenceRequiredPath in @(
+		$nativeCampaignSaveDataPath,
+		$nativeCampaignPersistentStatePath,
+		$nativePersistenceSourcePath,
+		$nativePersistenceConfigPath,
+		$nativeSystemsConfigPath,
+		$nativePersistenceServicePath,
+		$nativeCoordinatorPath,
+		$nativeRestartDataPath,
+		$nativeRestartProofServicePath,
+		$nativeRestartRunnerPath,
+		'Missions/HST_Dev.conf',
+		'Missions/HST_Everon.conf'
+	)) {
+	if (-not (Test-Path -LiteralPath $nativePersistenceRequiredPath -PathType Leaf)) {
+		throw "Native campaign persistence contract file is missing: $nativePersistenceRequiredPath"
+	}
+}
+
+$nativeCampaignSaveDataText = Get-Content -Raw $nativeCampaignSaveDataPath
+$nativeCampaignPersistentStateText = `
+	Get-Content -Raw $nativeCampaignPersistentStatePath
+$nativePersistenceSourceText = Get-Content -Raw $nativePersistenceSourcePath
+$nativePersistenceConfigText = Get-Content -Raw $nativePersistenceConfigPath
+$nativeSystemsConfigText = Get-Content -Raw $nativeSystemsConfigPath
+$nativePersistenceServiceText = Get-Content -Raw $nativePersistenceServicePath
+$nativeCoordinatorText = Get-Content -Raw $nativeCoordinatorPath
+$nativeRestartDataText = Get-Content -Raw $nativeRestartDataPath
+$nativeRestartProofServiceText = `
+	Get-Content -Raw $nativeRestartProofServicePath
+$nativeRestartRunnerText = Get-Content -Raw $nativeRestartRunnerPath
+
+if ($nativeCampaignPersistentStateText -notmatch `
+	'(?m)^\s*class\s+HST_CampaignPersistentState\s*:\s*PersistentState\s*$') {
+	throw 'Native campaign transport must use an engine-created PersistentState proxy'
+}
+if ($nativeCampaignSaveDataText -notmatch `
+	'(?m)^\s*class\s+HST_CampaignSaveData\s*$' -or
+	$nativeCampaignSaveDataText -match `
+		'(?m)^\s*class\s+HST_CampaignSaveData\s*:\s*PersistentState') {
+	throw 'The manually constructed HST_CampaignSaveData DTO must not inherit PersistentState'
+}
+if (($nativePersistenceServiceText + "`n" + $nativeCoordinatorText) -match `
+	'new\s+HST_CampaignPersistentState\s*\(') {
+	throw 'Gameplay code must obtain the native campaign proxy from PersistenceSystem, never construct it'
+}
+
+$nativeSerializerTargetBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'override static typename GetTargetType('
+$nativeSerializerWriteBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'override ESerializeResult Serialize('
+$nativeSerializerReadBlock = Get-ScriptMethodBlock `
+	$nativeCampaignPersistentStateText 'override bool Deserialize('
+if ([string]::IsNullOrEmpty($nativeSerializerTargetBlock) -or
+	$nativeSerializerTargetBlock.IndexOf('return HST_CampaignPersistentState;') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeSerializerWriteBlock) -or
+	[string]::IsNullOrEmpty($nativeSerializerReadBlock)) {
+	throw 'Native campaign ScriptedStateSerializer target or read/write implementation is missing'
+}
+$nativeSerializerSnapshotIndex = $nativeSerializerWriteBlock.IndexOf(
+	'HST_CampaignSaveData snapshot = persistentState.GetSnapshot();')
+$nativeSerializerUnarmedBlock = Get-ScriptMethodBlock `
+	$nativeSerializerWriteBlock 'if (!snapshot)'
+if ($nativeSerializerSnapshotIndex -lt 0 -or
+	[string]::IsNullOrEmpty($nativeSerializerUnarmedBlock) -or
+	$nativeSerializerUnarmedBlock.IndexOf('return ESerializeResult.ERROR;') -lt 0 -or
+	$nativeSerializerUnarmedBlock.IndexOf('ESerializeResult.DEFAULT') -ge 0) {
+	throw 'Unarmed native campaign serializer must fail with ERROR instead of silently omitting required authority'
+}
+foreach ($nativeEnvelopeEntry in @(
+		'static const string ENVELOPE_MAGIC',
+		'static const int ENVELOPE_VERSION',
+		'BuildSnapshotFingerprint(',
+		'payload.Length()',
+		'payload.Hash()',
+		'SetLoadedInvalid(',
+		'SetLoadedSnapshot('
+	)) {
+	if ($nativeCampaignPersistentStateText.IndexOf($nativeEnvelopeEntry) -lt 0) {
+		throw "Native campaign envelope or fingerprint contract is missing: $nativeEnvelopeEntry"
+	}
+}
+foreach ($nativeEnvelopeField in @(
+		'"magic"',
+		'"version"',
+		'"snapshotPresent"',
+		'"snapshotFingerprint"',
+		'"snapshot"'
+	)) {
+	if ($nativeSerializerWriteBlock.IndexOf($nativeEnvelopeField) -lt 0 -or
+		$nativeSerializerReadBlock.IndexOf($nativeEnvelopeField) -lt 0) {
+		throw "Native campaign serializer must round-trip envelope field: $nativeEnvelopeField"
+	}
+}
+foreach ($nativeEnvelopeIdentityEntry in @(
+		'HST_CampaignPersistentState.ENVELOPE_MAGIC',
+		'HST_CampaignPersistentState.ENVELOPE_VERSION',
+		'storedFingerprint.IsEmpty()',
+		'persistentState.SetLoadedInvalid(',
+		'persistentState.IsLoadedRecordValid()'
+	)) {
+	if ($nativeSerializerReadBlock.IndexOf($nativeEnvelopeIdentityEntry) -lt 0) {
+		throw "Native campaign deserialize must fail closed on envelope identity: $nativeEnvelopeIdentityEntry"
+	}
+}
+
+foreach ($nativePersistenceConfigEntry in @(
+		'Configs/Systems/Persistence/BaseSetup.conf',
+		'PersistenceConfigGroup ScriptedStates',
+		'ScriptedStatePersistenceConfig',
+		'Serializer HST_CampaignPersistentStateSerializer',
+		'HST_CampaignPersistentState'
+	)) {
+	if ($nativePersistenceConfigText.IndexOf($nativePersistenceConfigEntry) -lt 0) {
+		throw "Native campaign persistence config is incomplete: $nativePersistenceConfigEntry"
+	}
+}
+foreach ($nativeSystemsConfigEntry in @(
+		'Configs/Systems/BaseGameModeSystems.conf',
+		'SCR_PersistenceSystem',
+		'SystemLocation Server',
+		'Configs/HST/Persistence/HST_CampaignPersistence.conf'
+	)) {
+	if ($nativeSystemsConfigText.IndexOf($nativeSystemsConfigEntry) -lt 0) {
+		throw "Native campaign world-systems config is incomplete: $nativeSystemsConfigEntry"
+	}
+}
+foreach ($nativeMissionHeaderPath in @(
+		'Missions/HST_Dev.conf',
+		'Missions/HST_Everon.conf'
+	)) {
+	$nativeMissionHeaderText = Get-Content -Raw $nativeMissionHeaderPath
+	if ($nativeMissionHeaderText.IndexOf(
+		'Configs/HST/Persistence/HST_CampaignSystems.conf') -lt 0 -or
+		$nativeMissionHeaderText.IndexOf('SystemsConfig') -lt 0 -or
+		$nativeMissionHeaderText -notmatch '(?m)^\s*m_eSaveTypes\s+15\s*$' -or
+		([regex]::Matches(
+			$nativeMissionHeaderText,
+			'(?m)^\s*m_eSaveTypes\s+')).Count -ne 1) {
+		throw "Mission header does not select native campaign persistence with all save types: $nativeMissionHeaderPath"
+	}
+}
+
+foreach ($nativeSourceEnumEntry in @(
+		'HST_PERSISTENCE_SOURCE_PENDING',
+		'HST_PERSISTENCE_SOURCE_NATIVE',
+		'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK',
+		'HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN',
+		'HST_PERSISTENCE_SOURCE_FATAL'
+	)) {
+	if ($nativePersistenceSourceText.IndexOf($nativeSourceEnumEntry) -lt 0) {
+		throw "Native campaign source-resolution enum is incomplete: $nativeSourceEnumEntry"
+	}
+}
+$nativeSourceResolverBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'HST_PersistenceSourceResolution ResolveCampaignStateSource('
+if ([string]::IsNullOrEmpty($nativeSourceResolverBlock)) {
+	throw 'Native campaign source resolver is missing'
+}
+$nativeSourceStateIndex = $nativeSourceResolverBlock.IndexOf('persistence.GetState()')
+$nativeSourcePendingIndex = $nativeSourceResolverBlock.IndexOf(
+	'EPersistenceSystemState.INIT')
+$nativeSourceSetupIndex = $nativeSourceResolverBlock.IndexOf(
+	'EPersistenceSystemState.SETUP')
+$nativeSourceFailureIndex = $nativeSourceResolverBlock.IndexOf(
+	'EPersistenceSystemState.FAILURE')
+$nativeSourceShutdownIndex = $nativeSourceResolverBlock.IndexOf(
+	'EPersistenceSystemState.SHUTDOWN')
+$nativeSourceActiveIndex = $nativeSourceResolverBlock.IndexOf(
+	'EPersistenceSystemState.ACTIVE')
+$nativeSourceProxyIndex = $nativeSourceResolverBlock.IndexOf(
+	'ResolveNativeCampaignState(persistence)')
+$nativeSourcePresentIndex = $nativeSourceResolverBlock.IndexOf(
+	'm_bNativeRecordPresent')
+$nativeSourceValidIndex = $nativeSourceResolverBlock.IndexOf(
+	'm_bNativeRecordValid')
+$nativeSourceSelectionIndex = $nativeSourceResolverBlock.IndexOf(
+	'HST_PERSISTENCE_SOURCE_NATIVE')
+$nativeFallbackResolveIndex = $nativeSourceResolverBlock.IndexOf(
+	'HST_ProfilePathService.ResolveReadableFile(')
+$nativeFallbackLoadIndex = $nativeSourceResolverBlock.IndexOf(
+	'restoredSave = LoadProfileFallback();')
+$nativeFallbackSelectionIndex = $nativeSourceResolverBlock.IndexOf(
+	'HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK')
+$nativeLoadedWithoutRowIndex = $nativeSourceResolverBlock.IndexOf(
+	'if (result.m_bPersistenceSystemLoadedData)',
+	[Math]::Max(0, $nativeFallbackSelectionIndex))
+$nativeLoadedWithoutRowBlock = ''
+if ($nativeLoadedWithoutRowIndex -ge 0) {
+	$nativeLoadedWithoutRowBlock = Get-ScriptMethodBlock `
+		$nativeSourceResolverBlock.Substring($nativeLoadedWithoutRowIndex) `
+		'if (result.m_bPersistenceSystemLoadedData)'
+}
+$nativeNewCampaignIndex = $nativeSourceResolverBlock.LastIndexOf(
+	'HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN')
+if ($nativeSourceStateIndex -lt 0 -or
+	$nativeSourcePendingIndex -le $nativeSourceStateIndex -or
+	$nativeSourceSetupIndex -le $nativeSourceStateIndex -or
+	$nativeSourceFailureIndex -le $nativeSourcePendingIndex -or
+	$nativeSourceShutdownIndex -le $nativeSourcePendingIndex -or
+	$nativeSourceActiveIndex -le $nativeSourceFailureIndex -or
+	$nativeSourceProxyIndex -le $nativeSourceActiveIndex -or
+	$nativeSourcePresentIndex -le $nativeSourceProxyIndex -or
+	$nativeSourceValidIndex -le $nativeSourceProxyIndex -or
+	$nativeSourceSelectionIndex -le $nativeSourceValidIndex -or
+	$nativeFallbackResolveIndex -le $nativeSourceSelectionIndex -or
+	$nativeFallbackLoadIndex -le $nativeFallbackResolveIndex -or
+	$nativeFallbackSelectionIndex -le $nativeFallbackLoadIndex -or
+	$nativeLoadedWithoutRowIndex -le $nativeFallbackSelectionIndex -or
+	$nativeNewCampaignIndex -le $nativeFallbackSelectionIndex) {
+	throw 'Native source resolution must wait for ACTIVE, validate/select native first, then fallback, then new campaign'
+}
+if ([string]::IsNullOrEmpty($nativeLoadedWithoutRowBlock) -or
+	$nativeLoadedWithoutRowBlock.IndexOf('HST_PERSISTENCE_SOURCE_FATAL') -lt 0 -or
+	$nativeLoadedWithoutRowBlock.IndexOf('m_LastSourceResolution = result;') -lt 0 -or
+	$nativeLoadedWithoutRowBlock.IndexOf('return result;') -lt 0 -or
+	$nativeLoadedWithoutRowBlock.IndexOf(
+		'no valid profile fallback exists') -lt 0 -or
+	$nativeLoadedWithoutRowIndex -ge $nativeNewCampaignIndex) {
+	throw 'A loaded native save without an HST campaign row and valid fallback must fail closed before new-campaign selection'
+}
+foreach ($nativeSourceFailClosedEntry in @(
+		'result.m_bPersistenceSystemLoadedData = persistence.WasDataLoaded();',
+		'if (!m_NativeCampaignState)',
+		'result.m_bNativeRecordPresent',
+		'&& !result.m_bNativeRecordValid',
+		'if (result.m_bProfileFallbackPresent && !restoredSave)',
+		'if (result.m_sProfileFallbackSnapshotFingerprint.IsEmpty()',
+		'm_LastSourceResolution = result;'
+	)) {
+	if ($nativeSourceResolverBlock.IndexOf($nativeSourceFailClosedEntry) -lt 0) {
+		throw "Native source resolver is missing a fail-closed boundary: $nativeSourceFailClosedEntry"
+	}
+}
+if (([regex]::Matches(
+	$nativeSourceResolverBlock,
+	'HST_PERSISTENCE_SOURCE_FATAL')).Count -lt 5) {
+	throw 'Native source resolver must classify null input, terminal state, missing proxy, and invalid native/fallback records as fatal'
+}
+
+$nativeRestoredBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected HST_CampaignSaveData GetRestoredCampaignSaveData('
+$nativeTrackBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected bool TrackCampaignSaveData('
+$nativeResolveProxyBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected HST_CampaignPersistentState ResolveNativeCampaignState('
+$nativeFlushBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'protected bool FlushTrackedCampaignState('
+$nativeApplyRestoredBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool ApplyRestoredCampaignState('
+$nativeProofSavePointPrepareBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool PrepareNativeSessionSavePoint('
+$nativeProductionCheckpointBlock = Get-ScriptMethodBlock `
+	$nativePersistenceServiceText 'bool RequestCheckpoint('
+foreach ($nativeRestoredEntry in @(
+		'persistence.WasDataLoaded()',
+		'ResolveNativeCampaignState(persistence)',
+		'persistentState.IsLoadedRecordValid()',
+		'persistentState.GetSnapshot()'
+	)) {
+	if ($nativeRestoredBlock.IndexOf($nativeRestoredEntry) -lt 0) {
+		throw "Native restored snapshot retrieval is incomplete: $nativeRestoredEntry"
+	}
+}
+foreach ($nativeTrackingEntry in @(
+		'ResolveNativeCampaignState(persistence)',
+		'm_NativeCampaignState.SetSnapshotForSave(saveData)',
+		'persistence.StartTracking(m_NativeCampaignState, false)',
+		'persistence.IsTracked(m_NativeCampaignState)',
+		'persistence.GetConfig(m_NativeCampaignState)'
+	)) {
+	if ($nativeTrackBlock.IndexOf($nativeTrackingEntry) -lt 0) {
+		throw "Native campaign proxy tracking is incomplete: $nativeTrackingEntry"
+	}
+}
+if ($nativeResolveProxyBlock.IndexOf(
+	'persistence.GetPersistentState(HST_CampaignPersistentState)') -lt 0 -or
+	$nativeFlushBlock.IndexOf('TrackCampaignSaveData(m_TrackedCampaignSave)') -lt 0 -or
+	$nativeFlushBlock.IndexOf(
+		'persistence.Save(m_NativeCampaignState, saveType)') -lt 0) {
+	throw 'Native campaign save must resolve, track, configure, and save the engine-owned proxy'
+}
+if (($nativeTrackBlock + "`n" + $nativeFlushBlock) -match `
+	'(?<![A-Za-z0-9_])(StartTracking|Save)\s*\(\s*(saveData|m_TrackedCampaignSave)') {
+	throw 'Native persistence must never track or save the manually constructed campaign DTO directly'
+}
+if ($nativeApplyRestoredBlock.IndexOf('CaptureAndTrackState(') -ge 0 -or
+	$nativeApplyRestoredBlock.IndexOf('TrackCampaignSaveData(') -ge 0) {
+	throw 'Source application must remain provisional until coordinator validation and reconciliation finish'
+}
+foreach ($nativeProofPrepareEntry in @(
+		'CaptureAndTrackState(',
+		'IsNativeCampaignStateTracked(',
+		'FlushTrackedCampaignState(ESaveGameType.MANUAL)'
+	)) {
+	if ($nativeProofSavePointPrepareBlock.IndexOf($nativeProofPrepareEntry) -lt 0) {
+		throw "Native proof save-point preparation is incomplete: $nativeProofPrepareEntry"
+	}
+}
+foreach ($nativeProofPrepareForbiddenEntry in @(
+		'SaveProfileFallback(',
+		'WriteProfileFallbackProofSnapshot(',
+		'RequestSavePoint('
+	)) {
+	if ($nativeProofSavePointPrepareBlock.IndexOf(
+		$nativeProofPrepareForbiddenEntry) -ge 0) {
+		throw "Native proof preparation must leave fallback and exact save-point ownership to the coordinator: $nativeProofPrepareForbiddenEntry"
+	}
+}
+$nativeProductionScriptedIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);')
+$nativeProductionFallbackIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);')
+$nativeProductionSavePointIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'saveManager.RequestSavePoint(ESaveGameType.MANUAL, displayName);')
+$nativeProductionDurableFailureIndex = $nativeProductionCheckpointBlock.IndexOf(
+	'if (!profileFallbackSaved && !savePointRequested)')
+if ([string]::IsNullOrEmpty($nativeProductionCheckpointBlock) -or
+	$nativeProductionScriptedIndex -lt 0 -or
+	$nativeProductionFallbackIndex -le $nativeProductionScriptedIndex -or
+	$nativeProductionSavePointIndex -le $nativeProductionFallbackIndex -or
+	$nativeProductionDurableFailureIndex -le $nativeProductionSavePointIndex -or
+	$nativeProductionCheckpointBlock.IndexOf(
+		'if (!scriptedStateSaved)') -ge 0 -or
+	$nativeProductionCheckpointBlock -match
+		'if\s*\(\s*!scriptedStateSaved\s*&&') {
+	throw 'Production checkpoints must always mirror the profile fallback and must not count transient scripted serialization alone as durable success'
+}
+
+$nativePostInitBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'override void OnPostInit('
+$nativeBootstrapBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected bool TryCompleteCampaignPersistenceBootstrap('
+$nativeBootstrapFailureBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected void FailCampaignPersistenceBootstrap('
+$nativeFrameBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'override void EOnFrame('
+$nativeFallbackCreateIndex = $nativePostInitBlock.IndexOf(
+	'm_CampaignPersistenceBootstrapFallbackState = CreateInitialCampaignState();')
+$nativeFrameMaskIndex = $nativePostInitBlock.IndexOf(
+	'SetEventMask(owner, EntityEvent.FRAME);')
+$nativeBootstrapCallIndex = $nativePostInitBlock.IndexOf(
+	'TryCompleteCampaignPersistenceBootstrap();')
+if ([string]::IsNullOrEmpty($nativePostInitBlock) -or
+	$nativeFallbackCreateIndex -lt 0 -or
+	$nativeFrameMaskIndex -le $nativeFallbackCreateIndex -or
+	$nativeBootstrapCallIndex -le $nativeFrameMaskIndex -or
+	$nativePostInitBlock.IndexOf('CaptureAndTrackState(') -ge 0) {
+	throw 'Coordinator OnPostInit must arm a frame-deferred persistence bootstrap without capturing provisional state'
+}
+$nativeBootstrapResolveIndex = $nativeBootstrapBlock.IndexOf(
+	'm_Persistence.ResolveCampaignStateSource(')
+$nativeBootstrapPendingIndex = $nativeBootstrapBlock.IndexOf(
+	'sourceResolution.IsPending()')
+$nativeBootstrapPendingBlock = Get-ScriptMethodBlock `
+	$nativeBootstrapBlock 'if (sourceResolution.IsPending())'
+$nativeBootstrapFatalIndex = $nativeBootstrapBlock.IndexOf(
+	'sourceResolution.IsFatal()')
+$nativeBootstrapAssignIndex = $nativeBootstrapBlock.IndexOf(
+	'm_State = sourceResolution.m_State;')
+$nativeBootstrapObserveIndex = $nativeBootstrapBlock.IndexOf(
+	'ObserveExactCounterattackExternalRestartSource();')
+$nativeBootstrapValidationIndex = $nativeBootstrapBlock.IndexOf(
+	'ValidateRestoredFactionRoles(')
+$nativeBootstrapReconcileIndex = $nativeBootstrapBlock.IndexOf(
+	'ReconcileCampaignAfterRestore(m_State)')
+$nativeBootstrapFoundationIndex = $nativeBootstrapBlock.IndexOf(
+	'EnsureCampaignFoundation();')
+$nativeBootstrapLastReconcileIndex = $nativeBootstrapBlock.IndexOf(
+	'm_Missions.SyncNextInstanceIdFromState(m_State);')
+$nativeBootstrapCaptureIndex = $nativeBootstrapBlock.IndexOf(
+	'm_Persistence.CaptureAndTrackState(')
+$nativeBootstrapTrackProofIndex = $nativeBootstrapBlock.IndexOf(
+	'm_Persistence.IsNativeCampaignStateTracked(')
+$nativeBootstrapCompleteIndex = $nativeBootstrapBlock.IndexOf(
+	'm_bCampaignPersistenceBootstrapComplete = true;')
+if ([string]::IsNullOrEmpty($nativeBootstrapBlock) -or
+	$nativeBootstrapResolveIndex -lt 0 -or
+	$nativeBootstrapPendingIndex -le $nativeBootstrapResolveIndex -or
+	$nativeBootstrapFatalIndex -le $nativeBootstrapPendingIndex -or
+	$nativeBootstrapAssignIndex -le $nativeBootstrapFatalIndex -or
+	$nativeBootstrapObserveIndex -le $nativeBootstrapAssignIndex -or
+	$nativeBootstrapValidationIndex -le $nativeBootstrapObserveIndex -or
+	$nativeBootstrapReconcileIndex -le $nativeBootstrapObserveIndex -or
+	$nativeBootstrapFoundationIndex -le $nativeBootstrapReconcileIndex -or
+	$nativeBootstrapLastReconcileIndex -le $nativeBootstrapFoundationIndex -or
+	$nativeBootstrapCaptureIndex -le $nativeBootstrapLastReconcileIndex -or
+	$nativeBootstrapTrackProofIndex -le $nativeBootstrapCaptureIndex -or
+	$nativeBootstrapCompleteIndex -le $nativeBootstrapTrackProofIndex) {
+	throw 'Coordinator must resolve, validate, reconcile, capture, and prove native tracking in that order'
+}
+if (([regex]::Matches(
+	$nativeBootstrapBlock,
+	[regex]::Escape('m_Persistence.CaptureAndTrackState('))).Count -ne 1 -or
+	$nativeBootstrapBlock.IndexOf('sourceResolution.m_bPersistenceSystemAvailable') -lt 0) {
+	throw 'Coordinator bootstrap must capture once and require configured native tracking when persistence exists'
+}
+if ($nativeCoordinatorText.IndexOf(
+	'static const float CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS = 120.0;') -lt 0 -or
+	$nativeCoordinatorText.IndexOf(
+	'protected float m_fCampaignPersistenceBootstrapPendingSeconds;') -lt 0 -or
+	$nativeBootstrapBlock -notmatch
+		'protected bool TryCompleteCampaignPersistenceBootstrap\(float timeSlice = 0\.0\)' -or
+	[string]::IsNullOrEmpty($nativeBootstrapPendingBlock) -or
+	$nativeBootstrapPendingBlock.IndexOf(
+		'm_fCampaignPersistenceBootstrapPendingSeconds += Math.Max(0.0, timeSlice);') -lt 0 -or
+	$nativeBootstrapPendingBlock.IndexOf(
+		'>= CAMPAIGN_PERSISTENCE_BOOTSTRAP_TIMEOUT_SECONDS') -lt 0 -or
+	$nativeBootstrapPendingBlock.IndexOf(
+		'FailCampaignPersistenceBootstrap(string.Format(') -lt 0 -or
+	$nativeBootstrapPendingBlock.IndexOf(
+		'sourceResolution.m_sEvidence') -lt 0) {
+	throw 'Pending native persistence bootstrap must fail closed with source evidence after the exact 120-second bound'
+}
+foreach ($nativeBootstrapFailureEntry in @(
+		'm_bCampaignPersistenceBootstrapFatal = true;',
+		'PublishExactCounterattackRestartStartupFailure();',
+		'GetGame().RequestClose();'
+	)) {
+	if ($nativeBootstrapFailureBlock.IndexOf($nativeBootstrapFailureEntry) -lt 0) {
+		throw "Fatal persistence bootstrap must publish evidence and close: $nativeBootstrapFailureEntry"
+	}
+}
+if ($nativeFrameBlock -notmatch `
+	'if\s*\(\s*!m_bCampaignPersistenceBootstrapComplete\s*\)[\s\S]*?TryCompleteCampaignPersistenceBootstrap\(timeSlice\);[\s\S]*?return;') {
+	throw 'Server frame processing must defer all campaign work until persistence bootstrap completes'
+}
+foreach ($nativeDeferredCallbackSignature in @(
+		'override void OnGameModeStart(',
+		'override void OnGameStateChanged(',
+		'override void OnPlayerConnected(',
+		'override void OnPlayerDisconnected('
+	)) {
+	$nativeDeferredCallbackBlock = Get-ScriptMethodBlock `
+		$nativeCoordinatorText $nativeDeferredCallbackSignature
+	if ($nativeDeferredCallbackBlock.IndexOf(
+		'if (!m_bCampaignPersistenceBootstrapComplete)') -lt 0 -or
+		$nativeDeferredCallbackBlock.IndexOf('return;') -lt 0) {
+		throw "Campaign callback can run before persistence bootstrap: $nativeDeferredCallbackSignature"
+	}
+}
+
+foreach ($nativeRestartFieldEntry in @(
+		'bool m_bNativeSourceSelectionProof;',
+		'string m_sNativeSavePointId;',
+		'string m_sFallbackConflictSemanticFingerprint;',
+		'bool m_bNativePersistenceLoaded;',
+		'bool m_bFallbackConflictRejected;',
+		'bool m_bNativeSavePointCommitted;',
+		'string m_sRestoreSource;'
+	)) {
+	if ($nativeRestartDataText.IndexOf($nativeRestartFieldEntry) -lt 0) {
+		throw "Native-over-fallback restart evidence DTO is incomplete: $nativeRestartFieldEntry"
+	}
+}
+$nativeGuardValidationBlock = Get-ScriptMethodBlock `
+	$nativeRestartProofServiceText 'static bool ValidateGuard('
+foreach ($nativeGuardEntry in @(
+		'guard.m_bNativeSourceSelectionProof',
+		'allowCanonicalCampaignOverwrite = expectedStage == STAGE_PREPARE',
+		'guard.m_bAllowCanonicalCampaignOverwrite'
+	)) {
+	if ($nativeGuardValidationBlock.IndexOf($nativeGuardEntry) -lt 0) {
+		throw "Native restart lease does not protect the canonical fallback: $nativeGuardEntry"
+	}
+}
+$nativeCarrierValidationBlock = Get-ScriptMethodBlock `
+	$nativeRestartProofServiceText 'static bool ValidateCarrier('
+foreach ($nativeCarrierEntry in @(
+		'carrier.m_bNativeSourceSelectionProof',
+		'IsOwnerAppliedPendingCut(expectedCut)',
+		'UUID.IsUUID(carrier.m_sNativeSavePointId)',
+		'carrier.m_sFallbackConflictSemanticFingerprint.IsEmpty()',
+		'carrier.m_sFallbackConflictSemanticFingerprint',
+		'carrier.m_sPreparedSemanticFingerprint'
+	)) {
+	if ($nativeCarrierValidationBlock.IndexOf($nativeCarrierEntry) -lt 0) {
+		throw "Native restart carrier validation is incomplete: $nativeCarrierEntry"
+	}
+}
+
+$nativeRestartObserveBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected void ObserveExactCounterattackExternalRestartSource('
+$nativeRestartSourceHelper = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected bool PrepareExactCounterattackNativeRestartSource('
+if ([string]::IsNullOrEmpty($nativeRestartSourceHelper)) {
+	throw 'Native counterattack restart source-selection helper is missing'
+}
+foreach ($nativeRestartSourceEntry in @(
+		'sourceState = m_State;',
+		'm_Persistence.GetLastSourceResolution()',
+		'sourceResolution.BuildSourceLabel() != "native"',
+		'm_bPersistenceSystemLoadedData',
+		'SaveGameManager.Get()',
+		'GetActiveSave()',
+		'GetId()',
+		'm_ExactCounterattackRestartCarrier.m_sNativeSavePointId',
+		'm_Persistence.ReadProfileFallbackProofSnapshot(',
+		'm_sFallbackConflictSemanticFingerprint',
+		'm_bExactCounterattackNativePersistenceLoaded',
+		'm_bExactCounterattackFallbackConflictRejected',
+		'm_sExactCounterattackRestoreSource'
+	)) {
+	if ($nativeRestartSourceHelper.IndexOf($nativeRestartSourceEntry) -lt 0) {
+		throw "Native restart source evidence is incomplete: $nativeRestartSourceEntry"
+	}
+}
+foreach ($nativeRestartSourceForbiddenEntry in @(
+		'm_State =',
+		'CaptureAndTrackState(',
+		'WriteProfileFallbackProofSnapshot(',
+		'ApplyRestoredCampaignState('
+	)) {
+	if ($nativeRestartSourceHelper.IndexOf($nativeRestartSourceForbiddenEntry) -ge 0) {
+		throw "Native restart source helper must treat fallback as conflicting evidence only: $nativeRestartSourceForbiddenEntry"
+	}
+}
+$nativeRestartHelperCallIndex = $nativeRestartObserveBlock.IndexOf(
+	'PrepareExactCounterattackNativeRestartSource(')
+$nativeRestartBranchIndex = $nativeRestartObserveBlock.LastIndexOf(
+	'if (m_bExactCounterattackNativeSourceSelectionProof)',
+	$nativeRestartHelperCallIndex)
+$nativeRestartProfileReadIndex = $nativeRestartObserveBlock.IndexOf(
+	'm_Persistence.ReadProfileFallbackProofSnapshot(')
+$nativeRestartSelectionBlock = Get-ScriptMethodBlock `
+	$nativeRestartObserveBlock.Substring($nativeRestartBranchIndex) `
+	'if (m_bExactCounterattackNativeSourceSelectionProof)'
+$nativeRestartSelectionTailIndex = $nativeRestartBranchIndex `
+	+ $nativeRestartSelectionBlock.Length
+$nativeRestartSelectionTail = $nativeRestartObserveBlock.Substring(
+	$nativeRestartSelectionTailIndex)
+$nativeRestartLegacyReadBlock = Get-ScriptMethodBlock `
+	$nativeRestartSelectionTail 'else'
+$nativeRestartSuccessfulIndex = $nativeRestartObserveBlock.LastIndexOf(
+	'if (m_bExactCounterattackRestartSourceExact)')
+$nativeRestartSuccessfulBlock = ''
+if ($nativeRestartSuccessfulIndex -ge 0) {
+	$nativeRestartSuccessfulBlock = Get-ScriptMethodBlock `
+		$nativeRestartObserveBlock.Substring($nativeRestartSuccessfulIndex) `
+		'if (m_bExactCounterattackRestartSourceExact)'
+}
+$nativeRestartNativeAdoptionBlock = Get-ScriptMethodBlock `
+	$nativeRestartSuccessfulBlock `
+	'if (m_bExactCounterattackNativeSourceSelectionProof)'
+$nativeRestartLegacyAdoptionBlock = Get-ScriptMethodBlock `
+	$nativeRestartSuccessfulBlock 'else'
+if ($nativeRestartBranchIndex -lt 0 -or
+	$nativeRestartHelperCallIndex -le $nativeRestartBranchIndex -or
+	$nativeRestartProfileReadIndex -le $nativeRestartHelperCallIndex -or
+	$nativeRestartSelectionBlock.IndexOf(
+		'PrepareExactCounterattackNativeRestartSource(') -lt 0 -or
+	$nativeRestartLegacyReadBlock.IndexOf(
+		'm_Persistence.ReadProfileFallbackProofSnapshot(') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeRestartNativeAdoptionBlock) -or
+	[string]::IsNullOrEmpty($nativeRestartLegacyAdoptionBlock) -or
+	$nativeRestartNativeAdoptionBlock.IndexOf('m_State = sourceState;') -lt 0 -or
+	$nativeRestartNativeAdoptionBlock.IndexOf('CaptureAndTrackState(') -ge 0 -or
+	$nativeRestartNativeAdoptionBlock.IndexOf(
+		'm_iPersistenceRestoreSequence') -ge 0 -or
+	$nativeRestartLegacyAdoptionBlock.IndexOf('m_State = sourceState;') -lt 0 -or
+	$nativeRestartLegacyAdoptionBlock.IndexOf('CaptureAndTrackState(') -lt 0 -or
+	$nativeRestartLegacyAdoptionBlock.IndexOf(
+		'm_iPersistenceRestoreSequence') -lt 0) {
+	throw 'Native restart must select current native state while confining JSON adoption to the legacy branch'
+}
+
+$nativeRestartResultFactory = Get-ScriptMethodBlock `
+	$nativeCoordinatorText `
+	'protected HST_EnemyCounterattackExternalRestartResult CreateExactCounterattackRestartResult('
+foreach ($nativeRestartResultEntry in @(
+		'm_bNativeSourceSelectionProof',
+		'm_bNativePersistenceLoaded',
+		'm_bFallbackConflictRejected',
+		'm_sNativeSavePointId',
+		'm_sRestoreSource',
+		'm_sFallbackConflictSemanticFingerprint'
+	)) {
+	if ($nativeRestartResultFactory.IndexOf($nativeRestartResultEntry) -lt 0) {
+		throw "Native restart result does not publish exact evidence: $nativeRestartResultEntry"
+	}
+}
+foreach ($nativeSavePointEntry in @(
+		'm_Persistence.PrepareNativeSessionSavePoint(',
+		'SaveGameOperationCallback',
+		'OnSaveCreated',
+		'RequestSavePoint(',
+		'ESaveGameType.MANUAL',
+		'ESaveGameRequestFlags.BLOCKING',
+		'GetActiveSave()',
+		'UUID.IsUUID(',
+		'result.m_bNativeSavePointCommitted',
+		'm_sExactCounterattackNativeSavePointId'
+	)) {
+	if ($nativeCoordinatorText.IndexOf($nativeSavePointEntry) -lt 0) {
+		throw "Native restart blocking save-point state machine is incomplete: $nativeSavePointEntry"
+	}
+}
+$nativeSaveQueueBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected bool TryQueueExactCounterattackNativeSavePoint('
+$nativeSaveDisconnectBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected void DisconnectExactCounterattackNativeSaveCreatedEvent('
+$nativeSaveFinalizeBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'protected bool FinalizeExactCounterattackNativeSavePoint('
+$nativeCoordinatorDeleteBlock = Get-ScriptMethodBlock `
+	$nativeCoordinatorText 'override void OnDelete('
+$nativeSaveCompletionWaitBlock = Get-ScriptMethodBlock `
+	$nativeSaveFinalizeBlock 'if (!m_bExactCounterattackNativeSaveCompleted)'
+foreach ($nativeSaveQueueLifecycleEntry in @(
+		'm_bExactCounterattackNativeSaveEventConnected = true;',
+		'm_bExactCounterattackNativeSaveRequestQueued = true;',
+		'saveManager.RequestSavePoint(',
+		'ESaveGameRequestFlags.BLOCKING'
+	)) {
+	if ($nativeSaveQueueBlock.IndexOf($nativeSaveQueueLifecycleEntry) -lt 0) {
+		throw "Native save request lifecycle is incomplete: $nativeSaveQueueLifecycleEntry"
+	}
+}
+foreach ($nativeSaveDisconnectEntry in @(
+		'if (!m_bExactCounterattackNativeSaveEventConnected)',
+		'EventProvider.DisconnectEvent(',
+		'saveManager.OnSaveCreated',
+		'OnExactCounterattackNativeSaveCreated',
+		'm_bExactCounterattackNativeSaveEventConnected = false;'
+	)) {
+	if ($nativeSaveDisconnectBlock.IndexOf($nativeSaveDisconnectEntry) -lt 0) {
+		throw "Native save event disconnect helper is incomplete: $nativeSaveDisconnectEntry"
+	}
+}
+if ($nativeCoordinatorText.IndexOf(
+	'static const int EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS = 900;') -lt 0 -or
+	$nativeCoordinatorText.IndexOf(
+	'protected int m_iExactCounterattackNativeSaveCompletionAttempts;') -lt 0 -or
+	[string]::IsNullOrEmpty($nativeSaveCompletionWaitBlock) -or
+	$nativeSaveCompletionWaitBlock.IndexOf(
+		'm_iExactCounterattackNativeSaveCompletionAttempts++;') -lt 0 -or
+	$nativeSaveCompletionWaitBlock.IndexOf(
+		'< EXACT_COUNTERATTACK_NATIVE_SAVE_COMPLETION_MAX_ATTEMPTS') -lt 0 -or
+	$nativeSaveCompletionWaitBlock.IndexOf(
+		'DisconnectExactCounterattackNativeSaveCreatedEvent();') -lt 0 -or
+	$nativeSaveCompletionWaitBlock.IndexOf(
+		'completionFailure.m_bSuccess = false;') -lt 0 -or
+	$nativeSaveCompletionWaitBlock.IndexOf(
+		'native save completion timed out after %1 attempts') -lt 0 -or
+	$nativeSaveCompletionWaitBlock.IndexOf(
+		'SaveExactCounterattackRestartResult(completionFailure);') -lt 0) {
+	throw 'Queued native save completion must have a bounded fail-closed timeout that publishes a failed result'
+}
+if ($nativeSaveFinalizeBlock.IndexOf(
+	'DisconnectExactCounterattackNativeSaveCreatedEvent();') -lt 0 -or
+	$nativeCoordinatorDeleteBlock.IndexOf(
+		'DisconnectExactCounterattackNativeSaveCreatedEvent();') -lt 0) {
+	throw 'Native save event subscription must disconnect on both terminal completion and coordinator deletion'
+}
+
+foreach ($nativeRunnerEntry in @(
+		'[switch]$NativeSourceSelection',
+		'[string]$WorkbenchExecutable',
+		'[int]$NativePackTimeoutSeconds = 180',
+		'owner_applied_pending',
+		'$script:NativeScenarioId = "{6985327711302110}Missions/HST_Dev.conf"',
+		'$script:NativeProjectId = "698532771130111D"',
+		'-backendLocalStorage',
+		'-keepSessionSave',
+		'-hstExactCounterattackNativeSourceSelection',
+		'-loadSessionSave',
+		'm_bNativeSourceSelectionProof',
+		'm_bNativePersistenceLoaded',
+		'm_bFallbackConflictRejected',
+		'm_bNativeSavePointCommitted',
+		'm_sNativeSavePointId',
+		'm_sRestoreSource',
+		'm_sFallbackConflictSemanticFingerprint'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf($nativeRunnerEntry) -lt 0) {
+		throw "Native restart runner contract is incomplete: $nativeRunnerEntry"
+	}
+}
+$nativeRunnerPackArgumentsBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Get-NativePackArgumentVector {'
+$nativeRunnerAddonRootBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Assert-NativeAddonSearchRoot {'
+$nativeRunnerPackedLayoutBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Assert-NativePackedAddonLayout {'
+$nativeRunnerPackBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Invoke-NativeAddonPack {'
+$nativeRunnerArgumentsBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Get-StageArgumentVector {'
+$nativeRunnerStageBlock = Get-ScriptMethodBlock `
+	$nativeRestartRunnerText 'function Invoke-RestartStage {'
+$nativeRunnerLegacyArgumentsBlock = Get-ScriptMethodBlock `
+	$nativeRunnerArgumentsBlock 'if (-not $script:NativeSourceSelection)'
+$nativeRunnerNativeArgumentStart = $nativeRunnerArgumentsBlock.IndexOf(
+	'if ($Stage -ceq "prepare")',
+	[Math]::Max(0, $nativeRunnerLegacyArgumentsBlock.Length))
+$nativeRunnerNativeArgumentsText = ''
+if ($nativeRunnerNativeArgumentStart -ge 0) {
+	$nativeRunnerNativeArgumentsText = $nativeRunnerArgumentsBlock.Substring(
+		$nativeRunnerNativeArgumentStart)
+}
+foreach ($nativePackArgumentEntry in @(
+		'"-gproj", $ProjectFile',
+		'"-addonsDir", $RuntimeAddonPath',
+		'"-profile", $PackProfilePath',
+		'"-wbModule=ResourceManager"',
+		'"-packAddon"',
+		'"-packAddonDir", $PackedAddonPath',
+		'"-noThrow"'
+	)) {
+	if ($nativeRunnerPackArgumentsBlock.IndexOf($nativePackArgumentEntry) -lt 0) {
+		throw "Guarded native Workbench pack argument vector is incomplete: $nativePackArgumentEntry"
+	}
+}
+foreach ($nativePackRootEntry in @(
+		'Join-Path $ProfileRoot "packed-addons"',
+		'Test-ContainedPath',
+		'Assert-NoReparsePathAncestry',
+		'$directories.Count -ne 1',
+		'$files.Count -ne 0',
+		'[string]$directories[0].Name -cne "Partisan"'
+	)) {
+	if ($nativeRunnerAddonRootBlock.IndexOf($nativePackRootEntry) -lt 0) {
+		throw "Guarded native packed-add-on root boundary is incomplete: $nativePackRootEntry"
+	}
+}
+foreach ($nativePackedLayoutEntry in @(
+		'"addon.gproj"',
+		'"data.pak"',
+		'"resourceDatabase.rdb"',
+		'(Get-Item -LiteralPath $requiredPath -Force).Length -le 0',
+		'$packedDirectories.Count -ne 0',
+		'$_.Extension -ceq ".pak"',
+		'$_.Extension -ceq ".gproj"',
+		'$_.Extension -ceq ".rdb"'
+	)) {
+	if ($nativeRunnerPackedLayoutBlock.IndexOf($nativePackedLayoutEntry) -lt 0) {
+		throw "Guarded native packed-add-on artifact family is incomplete: $nativePackedLayoutEntry"
+	}
+}
+foreach ($nativePackLifecycleEntry in @(
+		'Test-ExactNativeArgumentVector',
+		'New-Object PartisanCounterattackGuardedJob',
+		'PartisanCounterattackSuspendedProcess(',
+		'[Environment]::SetEnvironmentVariable(',
+		'"TEMP"',
+		'"TMP"',
+		'[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)',
+		'$packLabel exceeded its guarded deadline.',
+		'-Name "force-owned-stop-native-pack"',
+		'-Name "close-process-job-native-pack"',
+		'-Name "audit-engine-native-pack"',
+		'$ownedRemaining -ne 0',
+		'$engineAfter -ne 0',
+		'Assert-NativePackedAddonLayout'
+	)) {
+	if ($nativeRunnerPackBlock.IndexOf($nativePackLifecycleEntry) -lt 0) {
+		throw "Guarded native Workbench pack lifecycle is incomplete: $nativePackLifecycleEntry"
+	}
+}
+$nativePackProcessCreateIndex = $nativeRunnerPackBlock.IndexOf(
+	'PartisanCounterattackSuspendedProcess(')
+$nativePackGuardedWorkingDirectoryIndex = $nativeRunnerPackBlock.IndexOf(
+	'$GuardedTempDirectory)',
+	[Math]::Max(0, $nativePackProcessCreateIndex))
+if ($nativePackProcessCreateIndex -lt 0 -or
+	$nativePackGuardedWorkingDirectoryIndex -le $nativePackProcessCreateIndex) {
+	throw 'Native Workbench pack must use the nonce-owned temp directory as its process working directory'
+}
+foreach ($nativeWorkspacePackScratchEntry in @(
+		'$script:WorkspacePackScratchLeaf = ".tmp-native-pack"',
+		'$script:WorkspacePackScratchSentinelLeaf = ".partisan-native-pack-owner"',
+		'function Read-NativeWorkspacePackScratchOwnership {',
+		'function Remove-NativeWorkspacePackScratch {',
+		'Native Workbench pack requires a fresh workspace scratch boundary.',
+		'purpose = "native_workbench_pack_scratch"',
+		'Read-NativeWorkspacePackScratchOwnership',
+		'-Name "remove-owned-workspace-pack-scratch"',
+		'Remove-NativeWorkspacePackScratch',
+		'WorkspacePackScratchRemaining',
+		'$cleanupResult.WorkspacePackScratchRemaining -eq 0'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf(
+		$nativeWorkspacePackScratchEntry) -lt 0) {
+		throw "Native Workbench workspace scratch ownership or cleanup gate is missing: $nativeWorkspacePackScratchEntry"
+	}
+}
+$nativeWorkspaceScratchFreshIndex = $nativeRestartRunnerText.IndexOf(
+	'Native Workbench pack requires a fresh workspace scratch boundary.')
+$nativeWorkspaceScratchPackIndex = $nativeRestartRunnerText.IndexOf(
+	'$nativePackSummary = Invoke-NativeAddonPack')
+$nativeWorkspaceScratchCleanupIndex = $nativeRestartRunnerText.IndexOf(
+	'-Name "remove-owned-workspace-pack-scratch"')
+if ($nativeWorkspaceScratchFreshIndex -lt 0 -or
+	$nativeWorkspaceScratchPackIndex -le $nativeWorkspaceScratchFreshIndex -or
+	$nativeWorkspaceScratchCleanupIndex -le $nativeWorkspaceScratchPackIndex) {
+	throw 'Native Workbench workspace scratch must be claimed before packing and removed after all stage work'
+}
+if ($nativeRestartRunnerText.IndexOf(
+	'"ArmaReforgerServerDiag.exe"') -lt 0 -or
+	$nativeRestartRunnerText.IndexOf(
+	'"ArmaReforgerWorkbenchSteamDiag.exe"') -lt 0 -or
+	$nativeRestartRunnerText.IndexOf(
+	'Native source-selection proof requires the dedicated diagnostic runtime.') -lt 0 -or
+	$nativeRestartRunnerText.IndexOf(
+	'Native packing requires the diagnostic Steam Workbench executable.') -lt 0) {
+	throw 'Native restart proof must pair the dedicated diagnostic server with the diagnostic Workbench packer'
+}
+if ([string]::IsNullOrEmpty($nativeRunnerLegacyArgumentsBlock) -or
+	$nativeRunnerLegacyArgumentsBlock.IndexOf('"-gproj", $ProjectFile') -lt 0 -or
+	$nativeRunnerLegacyArgumentsBlock.IndexOf('"-world", $World') -lt 0 -or
+	$nativeRunnerLegacyArgumentsBlock.IndexOf('"-forceupdate"') -lt 0 -or
+	$nativeRunnerLegacyArgumentsBlock.IndexOf('$NativeServerConfigPath') -ge 0 -or
+	$nativeRunnerLegacyArgumentsBlock.IndexOf('$NativePackedAddonsParent') -ge 0 -or
+	$nativeRunnerLegacyArgumentsBlock.IndexOf('$NativeSavePointId') -ge 0) {
+	throw 'Guarded native runner changes must preserve the byte-exact legacy stage argument branch'
+}
+foreach ($nativeRunnerArgumentEntry in @(
+		'Assert-NativeAddonSearchRoot',
+		'$nativeAddonRoot = $RuntimeAddonPath + ","',
+		'Join-Path $RuntimeAddonPath "data\ArmaReforger.gproj"',
+		'"-addonsDir", $nativeAddonRoot',
+		'"-gproj", $nativeBaseProject',
+		'"-config", $NativeServerConfigPath',
+		'-backendLocalStorage',
+		'-keepSessionSave',
+		'-hstExactCounterattackNativeSourceSelection',
+		'-loadSessionSave'
+	)) {
+	if ($nativeRunnerNativeArgumentsText.IndexOf($nativeRunnerArgumentEntry) -lt 0) {
+		throw "Native engine argument vector is missing: $nativeRunnerArgumentEntry"
+	}
+}
+foreach ($nativeRunnerForbiddenNativeArgument in @(
+		'"-MissionHeader"',
+		'"-worldSystemsConfig"',
+		'"-world"',
+		'"-forceupdate"',
+		'"-addons"'
+	)) {
+	if ($nativeRunnerNativeArgumentsText.IndexOf(
+		$nativeRunnerForbiddenNativeArgument) -ge 0) {
+		throw "Dedicated native server vector contains a forbidden loose-project argument: $nativeRunnerForbiddenNativeArgument"
+	}
+}
+foreach ($nativeServerConfigEntry in @(
+		'$nativeServerConfig = [ordered]@{',
+		'scenarioId = $script:NativeScenarioId',
+		'm_eSaveTypes = 15',
+		'mods = @(',
+		'modId = $script:NativeProjectId',
+		'name = "Partisan"',
+		'required = $true',
+		'$validatedNativeMods.Count -ne 1',
+		'[int]$validatedNativeServerConfig.game.gameProperties.missionHeader.m_eSaveTypes -ne 15'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf($nativeServerConfigEntry) -lt 0) {
+		throw "Guarded dedicated-server config is incomplete: $nativeServerConfigEntry"
+	}
+}
+foreach ($nativeRunnerStageEntry in @(
+		'Get-FileSignature',
+		'CanonicalCampaignUnchanged',
+		'm_bAllowCanonicalCampaignOverwrite',
+		'NativeSavePointId',
+		'Assert-EngineGuard',
+		'Test-ExactNativeArgumentVector'
+	)) {
+	if ($nativeRunnerStageBlock.IndexOf($nativeRunnerStageEntry) -lt 0) {
+		throw "Native restart stage host gate is incomplete: $nativeRunnerStageEntry"
+	}
+}
+foreach ($nativeRunnerPreflightEntry in @(
+		'$packPreflightArguments = @(Get-NativePackArgumentVector',
+		'-ExpectedArguments $packPreflightArguments',
+		'$preflightArguments = @(Get-StageArgumentVector',
+		'-ExpectedArguments $preflightArguments',
+		'$nativeRecoveryArguments = @(Get-StageArgumentVector',
+		'-ExpectedArguments $nativeRecoveryArguments',
+		'"-loadSessionSave"',
+		'$selfTestSavePointId'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf($nativeRunnerPreflightEntry) -lt 0) {
+		throw "Native pack/server argument preflight is incomplete: $nativeRunnerPreflightEntry"
+	}
+}
+foreach ($nativeRunnerGuardedPackEntry in @(
+		'$nativePackProfilePath = Join-Path $guardRoot "profile"',
+		'$nativePackedAddonsParent = Join-Path $guardRoot "packed-addons"',
+		'$nativePackedAddonPath = Join-Path $nativePackedAddonsParent "Partisan"',
+		'$nativeServerConfigPath = Join-Path $guardRoot "native-server-config.json"',
+		'$nativePackSummary = Invoke-NativeAddonPack',
+		'-TimeoutSeconds $NativePackTimeoutSeconds',
+		'-Name "remove-exact-owned-guard"',
+		'$cleanupResult.GuardRemaining -eq 0',
+		'$cleanupResult.EngineProcessesRemaining -eq 0'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf($nativeRunnerGuardedPackEntry) -lt 0) {
+		throw "Native pack/config artifact is not fully contained by nonce-owned cleanup: $nativeRunnerGuardedPackEntry"
+	}
+}
+if ($nativeRestartRunnerText -notmatch `
+	'NativeSourceSelection[\s\S]*?IsOwnerAppliedPendingCut[\s\S]*?throw' -or
+	$nativeRestartRunnerText -notmatch `
+	'NativeSourceSelection[\s\S]*?Stage\s+-c?ne\s+"prepare"[\s\S]*?CanonicalCampaignUnchanged' -or
+	$nativeRestartRunnerText.IndexOf(
+		'$recover.SafeSummary.CanonicalCampaignUnchanged') -lt 0 -or
+	$nativeRestartRunnerText.IndexOf(
+		'$replay.SafeSummary.CanonicalCampaignUnchanged') -lt 0) {
+	throw 'Native runner must restrict the cut and prove the conflicting fallback unchanged in recover and replay'
+}
+foreach ($nativeRunnerResultSource in @(
+		'"new_campaign"',
+		'"native"'
+	)) {
+	if ($nativeRestartRunnerText.IndexOf($nativeRunnerResultSource) -lt 0) {
+		throw "Native runner must assert the exact restore source: $nativeRunnerResultSource"
+	}
+}
+if ($nativeRestartRunnerText.IndexOf('$NativeSourceSelection') -lt 0) {
+	throw 'Native persistence runner switch is not wired'
+}
+
+Write-Host 'Native campaign proxy transport, fail-closed source selection, deferred bootstrap, and guarded native-over-fallback restart contract OK'
 
 Write-Host "Guarded exact enemy counterattack route, native PHYSICAL/LIVE, and three-prefix PREPARED settlement process-restart contract OK"
 

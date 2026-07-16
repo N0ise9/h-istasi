@@ -87,6 +87,7 @@ class HST_EnemyCounterattackExternalRestartOwner
 	int m_iCampaignSchemaVersion;
 	string m_sWorld;
 	bool m_bDisposableProfile;
+	bool m_bNativeSourceSelectionProof;
 }
 
 [BaseContainerProps()]
@@ -106,6 +107,7 @@ class HST_EnemyCounterattackExternalRestartGuard
 	int m_iCampaignSchemaVersion;
 	string m_sWorld;
 	bool m_bAllowCanonicalCampaignOverwrite;
+	bool m_bNativeSourceSelectionProof;
 }
 
 [BaseContainerProps()]
@@ -133,6 +135,9 @@ class HST_EnemyCounterattackExternalRestartCarrier
 	int m_iExpectedPhysicalRuntimeMemberCount;
 	string m_sPreparedSemanticFingerprint;
 	string m_sRawPreparedCutSemanticFingerprint;
+	bool m_bNativeSourceSelectionProof;
+	string m_sNativeSavePointId;
+	string m_sFallbackConflictSemanticFingerprint;
 
 	int m_iAccepted;
 	int m_iCasualties;
@@ -193,6 +198,13 @@ class HST_EnemyCounterattackExternalRestartResult
 	string m_sSourceSemanticFingerprint;
 	string m_sFinalSemanticFingerprint;
 	string m_sRawPreparedCutSemanticFingerprint;
+	bool m_bNativeSourceSelectionProof;
+	bool m_bNativePersistenceLoaded;
+	bool m_bFallbackConflictRejected;
+	bool m_bNativeSavePointCommitted;
+	string m_sNativeSavePointId;
+	string m_sRestoreSource;
+	string m_sFallbackConflictSemanticFingerprint;
 	string m_sEvidence;
 }
 

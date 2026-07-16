@@ -20,6 +20,8 @@ class HST_PersistenceService
 	protected ref HST_CampaignSaveData m_TrackedCampaignSave;
 	protected ref HST_CampaignSaveData m_RestoredCampaignSave;
 	protected ref HST_CampaignSaveData m_IsolatedCapturedSave;
+	protected HST_CampaignPersistentState m_NativeCampaignState;
+	protected ref HST_PersistenceSourceResolution m_LastSourceResolution;
 	protected bool m_bProfileFallbackSaved;
 	protected bool m_bProfileFallbackLoaded;
 	protected string m_sProfileFallbackStatus = "profile fallback idle";
@@ -152,9 +154,12 @@ class HST_PersistenceService
 			return false;
 
 		bool scriptedStateSaved = FlushTrackedCampaignState(ESaveGameType.MANUAL);
-		bool profileFallbackSaved;
-		if (!scriptedStateSaved)
-			profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
+		// PersistenceSystem.Save only stages the scripted state for the next
+		// storage flush. Keep the synchronous profile snapshot current on every
+		// production checkpoint so a disabled, rejected, or later-failed native
+		// save point cannot silently clear the caller's retry intent or roll an
+		// ordinary restart back to an older fallback.
+		bool profileFallbackSaved = SaveProfileFallback(m_TrackedCampaignSave);
 		SaveGameManager saveManager = SaveGameManager.Get();
 		bool savePointRequested;
 		if (CanRequestSavePoint(saveManager))
@@ -163,7 +168,7 @@ class HST_PersistenceService
 			savePointRequested = true;
 		}
 
-		if (!scriptedStateSaved && !profileFallbackSaved && !savePointRequested)
+		if (!profileFallbackSaved && !savePointRequested)
 		{
 			if (state)
 				state.m_sLastPersistenceStatus = "checkpoint failed: scripted save false | profile fallback false | savepoint false";
@@ -176,6 +181,39 @@ class HST_PersistenceService
 			state.m_sLastPersistenceStatus = string.Format("checkpoint requested: %1 | scripted save %2 | profile fallback %3 | savepoint %4", displayName, scriptedStateSaved, profileFallbackSaved, savePointRequested);
 		}
 
+		return true;
+	}
+
+	// Proof-only bridge for a guarded disposable profile. It prepares the
+	// engine-owned proxy and queues its transient payload, but deliberately does
+	// not fall back to the canonical JSON or request a save point. The guarded
+	// coordinator owns the blocking SaveGameManager callback and exact UUID.
+	bool PrepareNativeSessionSavePoint(
+		HST_CampaignState state,
+		out string evidence)
+	{
+		evidence = "native session save-point preparation failed";
+		if (!state || m_bCampaignDebugIsolationActive)
+			return false;
+		HST_CampaignSaveData captured = CaptureAndTrackState(
+			state,
+			"native session save-point payload prepared");
+		if (!captured)
+			return false;
+		string trackingEvidence;
+		if (!IsNativeCampaignStateTracked(trackingEvidence))
+		{
+			evidence = trackingEvidence;
+			return false;
+		}
+		if (!FlushTrackedCampaignState(ESaveGameType.MANUAL))
+		{
+			evidence = trackingEvidence
+				+ " | native transient save request failed";
+			return false;
+		}
+		evidence = trackingEvidence
+			+ " | native transient payload queued for blocking save point";
 		return true;
 	}
 
@@ -2230,18 +2268,178 @@ class HST_PersistenceService
 		return false;
 	}
 
-	HST_CampaignState RestoreOrCreateCampaignState(HST_CampaignState fallbackState)
+	HST_PersistenceSourceResolution ResolveCampaignStateSource(
+		HST_CampaignState fallbackState)
 	{
+		HST_PersistenceSourceResolution result
+			= new HST_PersistenceSourceResolution();
 		if (!fallbackState)
-			return null;
+		{
+			result.m_eSource
+				= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
+			result.m_sEvidence = "campaign source resolution has no fallback state";
+			m_LastSourceResolution = result;
+			return result;
+		}
 
-		HST_CampaignSaveData restoredSave = GetRestoredCampaignSaveData();
-		if (!restoredSave)
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (persistence)
+		{
+			result.m_bPersistenceSystemAvailable = true;
+			EPersistenceSystemState persistenceState = persistence.GetState();
+			if (persistenceState == EPersistenceSystemState.INIT
+				|| persistenceState == EPersistenceSystemState.SETUP)
+			{
+				result.m_sEvidence = string.Format(
+					"native persistence is not active yet | state %1",
+					persistenceState);
+				m_LastSourceResolution = result;
+				return result;
+			}
+			if (persistenceState == EPersistenceSystemState.FAILURE
+				|| persistenceState == EPersistenceSystemState.SHUTDOWN)
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_FATAL;
+				result.m_sEvidence = string.Format(
+					"native persistence entered terminal state %1",
+					persistenceState);
+				m_LastSourceResolution = result;
+				return result;
+			}
+			if (persistenceState != EPersistenceSystemState.ACTIVE)
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_FATAL;
+				result.m_sEvidence = string.Format(
+					"native persistence state %1 is unsupported",
+					persistenceState);
+				m_LastSourceResolution = result;
+				return result;
+			}
+
+			result.m_bPersistenceSystemLoadedData = persistence.WasDataLoaded();
+			m_NativeCampaignState = ResolveNativeCampaignState(persistence);
+			if (!m_NativeCampaignState)
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_FATAL;
+				result.m_sEvidence
+					= "native persistence is active without the campaign state proxy";
+				m_LastSourceResolution = result;
+				return result;
+			}
+
+			result.m_bNativeRecordPresent
+				= m_NativeCampaignState.HasLoadedRecord();
+			result.m_bNativeRecordValid
+				= m_NativeCampaignState.IsLoadedRecordValid();
+			if (result.m_bNativeRecordPresent
+				&& !result.m_bNativeRecordValid)
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_FATAL;
+				result.m_sEvidence
+					= "native campaign record is present but invalid: "
+						+ m_NativeCampaignState.GetValidationFailure();
+				m_LastSourceResolution = result;
+				return result;
+			}
+			if (result.m_bNativeRecordValid)
+			{
+				HST_CampaignSaveData nativeSave
+					= m_NativeCampaignState.GetSnapshot();
+				result.m_sNativeSnapshotFingerprint
+					= m_NativeCampaignState.GetSnapshotFingerprint();
+				result.m_sSelectedSnapshotFingerprint
+					= result.m_sNativeSnapshotFingerprint;
+				if (!nativeSave
+					|| result.m_sNativeSnapshotFingerprint.IsEmpty()
+					|| !ApplyRestoredCampaignState(fallbackState, nativeSave))
+				{
+					result.m_eSource
+						= HST_ECampaignPersistenceSource
+							.HST_PERSISTENCE_SOURCE_FATAL;
+					result.m_sEvidence
+						= "native campaign record could not be applied";
+					m_LastSourceResolution = result;
+					return result;
+				}
+
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_NATIVE;
+				result.m_State = fallbackState;
+				result.m_sEvidence
+					= "valid native campaign record selected before profile fallback";
+				m_LastSourceResolution = result;
+				return result;
+			}
+		}
+
+		string fallbackSourcePath = HST_ProfilePathService.ResolveReadableFile(
+			HST_ProfilePathService.CAMPAIGN_SAVE_FILE,
+			HST_ProfilePathService.LEGACY_CAMPAIGN_SAVE_FILE);
+		result.m_bProfileFallbackPresent
+			= FileIO.FileExists(fallbackSourcePath);
+		HST_CampaignSaveData restoredSave;
+		if (result.m_bProfileFallbackPresent)
 			restoredSave = LoadProfileFallback();
+		if (result.m_bProfileFallbackPresent && !restoredSave)
+		{
+			result.m_eSource
+				= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
+			result.m_sEvidence
+				= "profile fallback is present but could not be read";
+			m_LastSourceResolution = result;
+			return result;
+		}
+
 		if (restoredSave)
 		{
-			ApplyRestoredCampaignState(fallbackState, restoredSave);
-			return fallbackState;
+			result.m_bProfileFallbackRead = true;
+			result.m_sProfileFallbackSnapshotFingerprint
+				= HST_CampaignPersistentState.BuildSnapshotFingerprint(restoredSave);
+			result.m_sSelectedSnapshotFingerprint
+				= result.m_sProfileFallbackSnapshotFingerprint;
+			if (result.m_sProfileFallbackSnapshotFingerprint.IsEmpty()
+				|| !ApplyRestoredCampaignState(fallbackState, restoredSave))
+			{
+				result.m_eSource
+					= HST_ECampaignPersistenceSource
+						.HST_PERSISTENCE_SOURCE_FATAL;
+				result.m_sEvidence
+					= "profile fallback could not be validated or applied";
+				m_LastSourceResolution = result;
+				return result;
+			}
+
+			result.m_eSource
+				= HST_ECampaignPersistenceSource
+					.HST_PERSISTENCE_SOURCE_PROFILE_FALLBACK;
+			result.m_State = fallbackState;
+			result.m_sEvidence
+				= "profile fallback selected because no native campaign record exists";
+			m_LastSourceResolution = result;
+			return result;
+		}
+
+		// A loaded engine save with no valid HST row is not a fresh campaign.
+		// Older builds can still migrate through a valid profile fallback above,
+		// but absent both records we must fail closed instead of resetting the
+		// campaign while presenting that reset as a successful load.
+		if (result.m_bPersistenceSystemLoadedData)
+		{
+			result.m_eSource
+				= HST_ECampaignPersistenceSource.HST_PERSISTENCE_SOURCE_FATAL;
+			result.m_sEvidence
+				= "loaded native save is missing the campaign state record and no valid profile fallback exists";
+			m_LastSourceResolution = result;
+			return result;
 		}
 
 		fallbackState.m_iSchemaVersion = HST_CampaignState.SCHEMA_VERSION;
@@ -2249,9 +2447,24 @@ class HST_PersistenceService
 		fallbackState.m_iPersistenceRestoreSequence = 0;
 		fallbackState.m_iForceSpawnQueueReconciledRestoreSequence = 0;
 		fallbackState.m_bRestoredFromPersistence = false;
-		fallbackState.m_sLastPersistenceStatus = "new campaign state tracked";
-		CaptureAndTrackState(fallbackState, fallbackState.m_sLastPersistenceStatus);
-		return fallbackState;
+		fallbackState.m_sLastPersistenceStatus = "new campaign source selected";
+		result.m_eSource
+			= HST_ECampaignPersistenceSource
+				.HST_PERSISTENCE_SOURCE_NEW_CAMPAIGN;
+		result.m_State = fallbackState;
+		result.m_sEvidence
+			= "new campaign selected because native and profile sources are absent";
+		m_LastSourceResolution = result;
+		return result;
+	}
+
+	HST_CampaignState RestoreOrCreateCampaignState(HST_CampaignState fallbackState)
+	{
+		HST_PersistenceSourceResolution result
+			= ResolveCampaignStateSource(fallbackState);
+		if (!result || !result.HasSelectedState())
+			return null;
+		return result.m_State;
 	}
 
 	bool ApplyRestoredCampaignState(HST_CampaignState targetState, HST_CampaignSaveData restoredSave)
@@ -2266,8 +2479,38 @@ class HST_PersistenceService
 		targetState.m_iLastRestoreSecond = targetState.m_iElapsedSeconds;
 		targetState.m_sLastPersistenceStatus = string.Format("restored schema %1 -> %2", targetState.m_iLastLoadedSchemaVersion, targetState.m_iSchemaVersion);
 		m_RestoredCampaignSave = restoredSave;
-		CaptureAndTrackState(targetState, targetState.m_sLastPersistenceStatus);
 		return true;
+	}
+
+	HST_PersistenceSourceResolution GetLastSourceResolution()
+	{
+		return m_LastSourceResolution;
+	}
+
+	bool IsNativeCampaignStateTracked(out string evidence)
+	{
+		evidence = "native campaign state is unavailable";
+		PersistenceSystem persistence = PersistenceSystem.GetInstance();
+		if (!persistence)
+			return false;
+		if (persistence.GetState() != EPersistenceSystemState.ACTIVE)
+		{
+			evidence = string.Format(
+				"native persistence state is %1",
+				persistence.GetState());
+			return false;
+		}
+		HST_CampaignPersistentState nativeState
+			= ResolveNativeCampaignState(persistence);
+		if (!nativeState)
+			return false;
+		bool tracked = persistence.IsTracked(nativeState);
+		bool configured = persistence.GetConfig(nativeState) != null;
+		evidence = string.Format(
+			"native campaign proxy tracked/configured %1/%2",
+			tracked,
+			configured);
+		return tracked && configured;
 	}
 
 	HST_CampaignSaveData GetLastCapturedSave()
@@ -2307,8 +2550,11 @@ class HST_PersistenceService
 		if (!persistence || !persistence.WasDataLoaded())
 			return null;
 
-		Managed persistentState = persistence.GetPersistentState(HST_CampaignSaveData);
-		m_RestoredCampaignSave = HST_CampaignSaveData.Cast(persistentState);
+		HST_CampaignPersistentState persistentState
+			= ResolveNativeCampaignState(persistence);
+		if (!persistentState || !persistentState.IsLoadedRecordValid())
+			return null;
+		m_RestoredCampaignSave = persistentState.GetSnapshot();
 		return m_RestoredCampaignSave;
 	}
 
@@ -2323,13 +2569,29 @@ class HST_PersistenceService
 			return false;
 
 		PersistenceSystem persistence = PersistenceSystem.GetInstance();
-		if (!persistence)
+		if (!persistence
+			|| persistence.GetState() != EPersistenceSystemState.ACTIVE)
 			return false;
 
-		if (persistence.IsTracked(saveData))
-			return true;
+		m_NativeCampaignState = ResolveNativeCampaignState(persistence);
+		if (!m_NativeCampaignState)
+			return false;
+		m_NativeCampaignState.SetSnapshotForSave(saveData);
+		if (!persistence.IsTracked(m_NativeCampaignState)
+			&& !persistence.StartTracking(m_NativeCampaignState, false))
+			return false;
+		return persistence.IsTracked(m_NativeCampaignState)
+			&& persistence.GetConfig(m_NativeCampaignState) != null;
+	}
 
-		return persistence.StartTracking(saveData);
+	protected HST_CampaignPersistentState ResolveNativeCampaignState(
+		PersistenceSystem persistence)
+	{
+		if (!persistence)
+			return null;
+		Managed persistentState
+			= persistence.GetPersistentState(HST_CampaignPersistentState);
+		return HST_CampaignPersistentState.Cast(persistentState);
 	}
 
 	protected bool FlushTrackedCampaignState(ESaveGameType saveType)
@@ -2341,8 +2603,10 @@ class HST_PersistenceService
 		if (!persistence)
 			return false;
 
-		TrackCampaignSaveData(m_TrackedCampaignSave);
-		return persistence.Save(m_TrackedCampaignSave, saveType);
+		if (!TrackCampaignSaveData(m_TrackedCampaignSave)
+			|| !m_NativeCampaignState)
+			return false;
+		return persistence.Save(m_NativeCampaignState, saveType);
 	}
 
 	protected bool SaveProfileFallback(HST_CampaignSaveData saveData)
@@ -2422,8 +2686,10 @@ class HST_PersistenceService
 			return "PersistenceSystem unavailable";
 
 		bool tracked;
-		if (m_TrackedCampaignSave)
-			tracked = persistence.IsTracked(m_TrackedCampaignSave);
+		HST_CampaignPersistentState nativeState
+			= ResolveNativeCampaignState(persistence);
+		if (nativeState)
+			tracked = persistence.IsTracked(nativeState);
 
 		return string.Format("PersistenceSystem | loaded %1 | state %2 | tracked %3", persistence.WasDataLoaded(), persistence.GetState(), tracked);
 	}

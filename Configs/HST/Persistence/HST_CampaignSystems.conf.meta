@@ -1,0 +1,17 @@
+MetaFileClass {
+ Name "{95C60CD03FA24300}Configs/HST/Persistence/HST_CampaignSystems.conf"
+ Configurations {
+  SystemSettingsResourceClass PC {
+  }
+  SystemSettingsResourceClass XBOX_ONE : PC {
+  }
+  SystemSettingsResourceClass XBOX_SERIES : PC {
+  }
+  SystemSettingsResourceClass PS4 : PC {
+  }
+  SystemSettingsResourceClass PS5 : PC {
+  }
+  SystemSettingsResourceClass HEADLESS : PC {
+  }
+ }
+}
