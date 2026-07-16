@@ -11,7 +11,8 @@ param(
     [ValidateSet(
         "outbound_virtual",
         "dematerializing_before_hold",
-        "materializing_checkpoint_deferred")]
+        "materializing_checkpoint_deferred",
+        "physical_live_position")]
     [string]$CutName = "outbound_virtual",
     [string[]]$WatchedRoots = @(),
     [string[]]$SpillRoots = @(),
@@ -35,11 +36,13 @@ $script:CutOrdinals = @{
     outbound_virtual = 0
     dematerializing_before_hold = 1
     materializing_checkpoint_deferred = 2
+    physical_live_position = 3
 }
 $script:SupportedCutNames = @(
     "outbound_virtual",
     "dematerializing_before_hold",
-    "materializing_checkpoint_deferred")
+    "materializing_checkpoint_deferred",
+    "physical_live_position")
 $script:CutName = $CutName.ToLowerInvariant()
 $script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]
 $script:OwnerMagic = "partisan_exact_counterattack_restart_owner_v1"
@@ -1381,6 +1384,10 @@ function Assert-PreparedCarrier {
         "m_fPreparedRouteProgressMeters",
         "m_fPreparedRouteTotalDistanceMeters",
         "m_vPreparedStrategicPosition",
+        "m_vInjectedStalePosition",
+        "m_vPreparedLivePosition",
+        "m_iExpectedPhysicalAdapterHandleCount",
+        "m_iExpectedPhysicalRuntimeMemberCount",
         "m_sPreparedSemanticFingerprint",
         "m_sRawPreparedCutSemanticFingerprint")) {
         Assert-JsonProperty `
@@ -1430,6 +1437,8 @@ function Assert-PreparedCarrier {
         "m_iAcceptedMemberCount",
         "m_iLivingMemberCount",
         "m_sLivingSlotFingerprint",
+        "m_bExpectedLivingSlotsEverAlive",
+        "m_iExpectedNormalizedSlotAttemptCount",
         "m_sConfirmedCasualtySlotId",
         "m_sCasualtyTombstoneFingerprint",
         "m_iExpectedNormalizedReprojectionCount")) {
@@ -1482,7 +1491,9 @@ function Assert-PreparedCarrier {
         throw "$label living-slot fingerprint is not exact."
     }
     if ($script:CutName -ceq "outbound_virtual") {
-        if (-not [string]::IsNullOrWhiteSpace(
+        if ([bool]$expectation.m_bExpectedLivingSlotsEverAlive -or
+            [int]$expectation.m_iExpectedNormalizedSlotAttemptCount -ne 0 -or
+            -not [string]::IsNullOrWhiteSpace(
                 [string]$expectation.m_sConfirmedCasualtySlotId) -or
             -not [string]::IsNullOrWhiteSpace(
                 [string]$expectation.m_sCasualtyTombstoneFingerprint) -or
@@ -1507,8 +1518,10 @@ function Assert-PreparedCarrier {
             throw "$label dematerializing expectation is not exact."
         }
     }
-    else {
-        if (-not [string]::IsNullOrWhiteSpace(
+    elseif ($script:CutName -ceq "materializing_checkpoint_deferred") {
+        if ([bool]$expectation.m_bExpectedLivingSlotsEverAlive -or
+            [int]$expectation.m_iExpectedNormalizedSlotAttemptCount -ne 0 -or
+            -not [string]::IsNullOrWhiteSpace(
                 [string]$expectation.m_sConfirmedCasualtySlotId) -or
             -not [string]::IsNullOrWhiteSpace(
                 [string]$expectation.m_sCasualtyTombstoneFingerprint) -or
@@ -1519,11 +1532,40 @@ function Assert-PreparedCarrier {
             throw "$label materializing expectation is not exact."
         }
     }
+    elseif ($script:CutName -ceq "physical_live_position") {
+        $stalePosition = $Carrier.m_vInjectedStalePosition |
+            ConvertTo-Json -Compress -Depth 4
+        $livePosition = $Carrier.m_vPreparedLivePosition |
+            ConvertTo-Json -Compress -Depth 4
+        if (-not [bool]$expectation.m_bExpectedLivingSlotsEverAlive -or
+            [int]$expectation.m_iExpectedNormalizedSlotAttemptCount -ne 1 -or
+            -not [string]::IsNullOrWhiteSpace(
+                [string]$expectation.m_sConfirmedCasualtySlotId) -or
+            -not [string]::IsNullOrWhiteSpace(
+                [string]$expectation.m_sCasualtyTombstoneFingerprint) -or
+            [int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 1 -or
+            [int]$expectation.m_iLivingMemberCount -ne
+                [int]$expectation.m_iAcceptedMemberCount -or
+            [int]$Carrier.m_iExpectedPhysicalAdapterHandleCount -ne
+                ([int]$expectation.m_iLivingMemberCount + 1) -or
+            [int]$Carrier.m_iExpectedPhysicalRuntimeMemberCount -ne
+                [int]$expectation.m_iLivingMemberCount -or
+            [string]::IsNullOrWhiteSpace($stalePosition) -or
+            [string]::IsNullOrWhiteSpace($livePosition) -or
+            $stalePosition -ceq $livePosition -or
+            $rawCutFingerprint -ceq $normalizedFingerprint) {
+            throw "$label physical live-position expectation is not exact."
+        }
+    }
+    else {
+        throw "$label uses an unsupported cut."
+    }
     $progress = [double]$Carrier.m_fPreparedRouteProgressMeters
     $total = [double]$Carrier.m_fPreparedRouteTotalDistanceMeters
+    $zeroProgressCut = $script:CutName -ceq "dematerializing_before_hold" -or
+        $script:CutName -ceq "physical_live_position"
     $progressInvalid = $progress -lt 0.0 -or
-        ($script:CutName -cne "dematerializing_before_hold" -and
-            $progress -le 0.0)
+        (-not $zeroProgressCut -and $progress -le 0.0)
     if ([double]::IsNaN($progress) -or [double]::IsInfinity($progress) -or
         [double]::IsNaN($total) -or [double]::IsInfinity($total) -or
         $progressInvalid -or $total -le $progress -or
@@ -1567,6 +1609,13 @@ function Assert-StageResult {
         "m_bPersistedReadBackExact",
         "m_bPreparedCutExact",
         "m_bCasualtyContinuityExact",
+        "m_bPhysicalBindingsExact",
+        "m_bLivePositionRefreshExact",
+        "m_bPhysicalCaptureNormalizedExact",
+        "m_iPhysicalAdapterHandleCount",
+        "m_iPhysicalRuntimeMemberCount",
+        "m_vInjectedStalePosition",
+        "m_vPreparedLivePosition",
         "m_fProgressBeforeMeters",
         "m_fProgressAfterMeters",
         "m_sSourceSemanticFingerprint",
@@ -1603,7 +1652,10 @@ function Assert-StageResult {
         "m_bRuntimeClaimantsZero",
         "m_bPersistedReadBackExact",
         "m_bPreparedCutExact",
-        "m_bCasualtyContinuityExact")) {
+        "m_bCasualtyContinuityExact",
+        "m_bPhysicalBindingsExact",
+        "m_bLivePositionRefreshExact",
+        "m_bPhysicalCaptureNormalizedExact")) {
         if ($Result.$property -isnot [bool]) {
             throw "$label contains a non-boolean invariant."
         }
@@ -1641,12 +1693,30 @@ function Assert-StageResult {
             -not [bool]$Result.m_bCasualtyContinuityExact)) {
         throw "$label omitted exact prepared-cut or casualty continuity proof."
     }
-    if ($script:CutName -ceq "materializing_checkpoint_deferred" -and
+    if ($script:CutName -cne "outbound_virtual" -and
         ([string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq
             [string]$Result.m_sSourceSemanticFingerprint -or
             [string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq
                 [string]$Result.m_sFinalSemanticFingerprint)) {
-        throw "$label collapsed the materializing cut into normalized virtual state."
+        throw "$label collapsed a checkpoint-deferred cut into normalized virtual state."
+    }
+    if ($script:CutName -ceq "physical_live_position") {
+        $stalePosition = $Result.m_vInjectedStalePosition |
+            ConvertTo-Json -Compress -Depth 4
+        $livePosition = $Result.m_vPreparedLivePosition |
+            ConvertTo-Json -Compress -Depth 4
+        if ([int]$Result.m_iPhysicalRuntimeMemberCount -le 0 -or
+            [int]$Result.m_iPhysicalAdapterHandleCount -ne
+                ([int]$Result.m_iPhysicalRuntimeMemberCount + 1) -or
+            $stalePosition -ceq $livePosition) {
+            throw "$label omitted exact physical root/member or live-position evidence."
+        }
+        if ($Stage -eq "prepare" -and
+            (-not [bool]$Result.m_bPhysicalBindingsExact -or
+                -not [bool]$Result.m_bLivePositionRefreshExact -or
+                -not [bool]$Result.m_bPhysicalCaptureNormalizedExact)) {
+            throw "$label omitted a physical capture gate."
+        }
     }
     $before = [double]$Result.m_fProgressBeforeMeters
     $after = [double]$Result.m_fProgressAfterMeters
@@ -1709,6 +1779,10 @@ function Get-SafeStageSummary {
         ReadBackExact = [bool]$Result.m_bPersistedReadBackExact
         PreparedCutExact = [bool]$Result.m_bPreparedCutExact
         CasualtyContinuityExact = [bool]$Result.m_bCasualtyContinuityExact
+        PhysicalBindingsExact = [bool]$Result.m_bPhysicalBindingsExact
+        LivePositionRefreshExact = [bool]$Result.m_bLivePositionRefreshExact
+        PhysicalCaptureNormalizedExact =
+            [bool]$Result.m_bPhysicalCaptureNormalizedExact
         ProgressAdvanced = [double]$Result.m_fProgressAfterMeters -gt
             ([double]$Result.m_fProgressBeforeMeters + 0.1)
         SourceDigest = (Get-StringDigest `
@@ -2522,6 +2596,24 @@ try {
             [string]$prepare.Result.m_sRawPreparedCutSemanticFingerprint -cne
                 [string]$carrier.m_sRawPreparedCutSemanticFingerprint) {
             throw "The prepare result and durable carrier fingerprint chain diverged."
+        }
+        if ($script:CutName -ceq "physical_live_position") {
+            $carrierStale = $carrier.m_vInjectedStalePosition |
+                ConvertTo-Json -Compress -Depth 4
+            $carrierLive = $carrier.m_vPreparedLivePosition |
+                ConvertTo-Json -Compress -Depth 4
+            $resultStale = $prepare.Result.m_vInjectedStalePosition |
+                ConvertTo-Json -Compress -Depth 4
+            $resultLive = $prepare.Result.m_vPreparedLivePosition |
+                ConvertTo-Json -Compress -Depth 4
+            if ([int]$prepare.Result.m_iPhysicalAdapterHandleCount -ne
+                    [int]$carrier.m_iExpectedPhysicalAdapterHandleCount -or
+                [int]$prepare.Result.m_iPhysicalRuntimeMemberCount -ne
+                    [int]$carrier.m_iExpectedPhysicalRuntimeMemberCount -or
+                $resultStale -cne $carrierStale -or
+                $resultLive -cne $carrierLive) {
+                throw "The physical prepare result and carrier authority evidence diverged."
+            }
         }
 
         $recover = Invoke-RestartStage `

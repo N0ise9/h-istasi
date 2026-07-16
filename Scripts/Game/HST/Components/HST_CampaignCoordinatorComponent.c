@@ -155,6 +155,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	static const int CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT = 4;
 	static const int CAMPAIGN_DEBUG_PHASE17_CASUALTY_SETTLE_WAIT_LIMIT = 4;
 	static const int CAMPAIGN_DEBUG_PHASE17_SYNCHRONOUS_TRANSITION_LIMIT = 4;
+	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_SPAWN = 1;
+	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CONFIRM = 2;
+	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CAPTURE = 3;
+	static const int EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_COMPLETE = 4;
 
 	protected ref HST_CampaignState m_State;
 	protected ref HST_CampaignPreset m_Preset;
@@ -275,6 +279,7 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 	protected string m_sExactCounterattackRestartExpectedFingerprint;
 	protected string m_sExactCounterattackRestartSourceEvidence;
 	protected ref HST_EnemyCounterattackExternalRestartCarrier m_ExactCounterattackRestartCarrier;
+	protected ref HST_EnemyCounterattackExternalPhysicalPrepareContext m_ExactCounterattackPhysicalPrepareContext;
 	protected bool m_bCampaignDebugPhysicalBlocked;
 	protected int m_iCampaignDebugBootstrapPlayerSettleAttempts;
 	protected int m_iCampaignDebugBootstrapSpawnRequests;
@@ -751,6 +756,13 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 				m_CombatPresence,
 				m_OwnershipTransitions);
 		}
+		if (m_Persistence)
+		{
+			m_Persistence.SetExactEnemyResponseAuthorityServices(
+				m_EnemyQRFOperations,
+				m_EnemyCounterattackOperations,
+				m_EnemyGarrisonRebuildOperations);
+		}
 
 		m_State = m_Persistence.RestoreOrCreateCampaignState(CreateInitialCampaignState());
 		ObserveExactQRFExternalRestartSource();
@@ -928,6 +940,12 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		}
 		if (m_bExactCounterattackRestartCLIRequested)
 		{
+			if (m_sExactCounterattackRestartCLIStage == "prepare"
+				&& m_sExactCounterattackRestartCLICut
+					== HST_EnemyCounterattackExternalRestartProofService
+						.CUT_PHYSICAL_LIVE_POSITION
+				&& !AdvanceExactCounterattackExternalPhysicalPrepare())
+				return;
 			FinalizeExactCounterattackExternalRestartStage();
 			return;
 		}
@@ -6616,6 +6634,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			result.m_sRawPreparedCutSemanticFingerprint
 				= m_ExactCounterattackRestartCarrier
 					.m_sRawPreparedCutSemanticFingerprint;
+			result.m_iPhysicalAdapterHandleCount
+				= m_ExactCounterattackRestartCarrier
+					.m_iExpectedPhysicalAdapterHandleCount;
+			result.m_iPhysicalRuntimeMemberCount
+				= m_ExactCounterattackRestartCarrier
+					.m_iExpectedPhysicalRuntimeMemberCount;
+			result.m_vInjectedStalePosition
+				= m_ExactCounterattackRestartCarrier.m_vInjectedStalePosition;
+			result.m_vPreparedLivePosition
+				= m_ExactCounterattackRestartCarrier.m_vPreparedLivePosition;
 		}
 		return result;
 	}
@@ -6676,6 +6704,34 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			evidence = "prepared-cut result fingerprint chain conflicts";
 			return false;
 		}
+		if (m_sExactCounterattackRestartCLICut
+			== HST_EnemyCounterattackExternalRestartProofService
+				.CUT_PHYSICAL_LIVE_POSITION)
+		{
+			bool physicalResultExact = prepareResult.m_bRuntimeClaimantsZero
+				&& prepareResult.m_bPhysicalBindingsExact
+				&& prepareResult.m_bLivePositionRefreshExact
+				&& prepareResult.m_bPhysicalCaptureNormalizedExact;
+			physicalResultExact = physicalResultExact
+				&& prepareResult.m_iPhysicalAdapterHandleCount
+					== m_ExactCounterattackRestartCarrier
+						.m_iExpectedPhysicalAdapterHandleCount
+				&& prepareResult.m_iPhysicalRuntimeMemberCount
+					== m_ExactCounterattackRestartCarrier
+						.m_iExpectedPhysicalRuntimeMemberCount;
+			physicalResultExact = physicalResultExact
+				&& ExactCounterattackExternalPositionsMatch(
+					prepareResult.m_vInjectedStalePosition,
+					m_ExactCounterattackRestartCarrier.m_vInjectedStalePosition)
+				&& ExactCounterattackExternalPositionsMatch(
+					prepareResult.m_vPreparedLivePosition,
+					m_ExactCounterattackRestartCarrier.m_vPreparedLivePosition);
+			if (!physicalResultExact)
+			{
+				evidence = "prepared physical-cut result conflicts with carrier authority evidence";
+				return false;
+			}
+		}
 		evidence = "prepared-cut result exact | " + loadEvidence;
 		return true;
 	}
@@ -6687,7 +6743,10 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		out string evidence)
 	{
 		evidence = "raw prepared cut unavailable";
-		if (!proof || !stagedState || !carrier)
+		if (!proof || !stagedState || !carrier
+			|| carrier.m_sCutName
+				!= HST_EnemyCounterattackExternalRestartProofService
+					.CUT_OUTBOUND_VIRTUAL)
 			return false;
 		string rawFingerprint;
 		string rawEvidence;
@@ -6706,9 +6765,9 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			return false;
 		}
 
-		// Keep the engine-tracked shutdown carrier on the raw authorized cut.
-		// Normalized readback is validation evidence only; the next process must
-		// consume DEMATERIALIZING/LIVE authority itself.
+		// Only the already-safe outbound VIRTUAL cut is armed as the tracked
+		// shutdown carrier. Transitional cuts prove fail-closed checkpoint deferral
+		// against the separately retained canonical VIRTUAL baseline.
 		m_State = stagedState;
 		HST_CampaignSaveData trackedRawSave = m_Persistence.CaptureAndTrackState(
 			m_State,
@@ -6837,8 +6896,755 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		return deferred && rawRetained && canonicalExact;
 	}
 
+	protected bool ProveExactCounterattackDematerializingCheckpointDeferred(
+		HST_EnemyCounterattackOperationProofService proof,
+		HST_CampaignState stagedState,
+		HST_EnemyCounterattackExternalRestartCarrier carrier,
+		out string evidence)
+	{
+		evidence = "dematerializing checkpoint deferral proof unavailable";
+		if (!proof || !stagedState || !carrier || !carrier.m_Expectation
+			|| carrier.m_sCutName
+				!= HST_EnemyCounterattackExternalRestartProofService
+					.CUT_DEMATERIALIZING_BEFORE_HOLD
+			|| carrier.m_Expectation.m_sOperationId.IsEmpty())
+			return false;
+
+		string rawFingerprint;
+		string rawEvidence;
+		if (!proof.ValidateExternalDematerializingCutState(
+			stagedState,
+			carrier,
+			rawFingerprint,
+			rawEvidence)
+			|| rawFingerprint
+				!= carrier.m_sRawPreparedCutSemanticFingerprint)
+		{
+			evidence = "raw dematerializing validation failed | " + rawEvidence;
+			return false;
+		}
+		string rawRuntimeEvidence;
+		if (!proof.ValidateExternalRuntimeClaimantsZero(
+			stagedState,
+			carrier,
+			m_ForceSpawnAdapter,
+			m_PhysicalWar,
+			rawRuntimeEvidence))
+		{
+			evidence = "raw dematerializing runtime conflicts | "
+				+ rawRuntimeEvidence;
+			return false;
+		}
+
+		// Establish the canonical baseline before exercising the rejected raw cut,
+		// so the proof demonstrates that production persistence leaves the existing
+		// VIRTUAL N-1 authority unchanged rather than merely producing a valid save.
+		HST_CampaignState canonicalBeforeState;
+		string canonicalBeforeReadEvidence;
+		bool canonicalBeforeRead = m_Persistence.ReadProfileFallbackProofSnapshot(
+			canonicalBeforeState,
+			canonicalBeforeReadEvidence);
+		string canonicalBeforeFingerprint;
+		string canonicalBeforeEvidence;
+		bool canonicalBeforeExact = canonicalBeforeRead
+			&& proof.ValidateExternalVirtualState(
+				canonicalBeforeState,
+				carrier,
+				canonicalBeforeFingerprint,
+				canonicalBeforeEvidence)
+			&& canonicalBeforeFingerprint
+				== carrier.m_sPreparedSemanticFingerprint;
+		string canonicalBeforeCasualtyEvidence;
+		canonicalBeforeExact = canonicalBeforeExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				canonicalBeforeState,
+				carrier,
+				canonicalBeforeCasualtyEvidence);
+		string canonicalBeforeRuntimeEvidence;
+		canonicalBeforeExact = canonicalBeforeExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				canonicalBeforeState,
+				carrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				canonicalBeforeRuntimeEvidence);
+		if (!canonicalBeforeExact)
+		{
+			evidence = "canonical baseline invalid before dematerializing attempt"
+				+ " | read " + canonicalBeforeReadEvidence
+				+ " | virtual " + canonicalBeforeEvidence
+				+ " | casualty " + canonicalBeforeCasualtyEvidence
+				+ " | runtime " + canonicalBeforeRuntimeEvidence;
+			return false;
+		}
+
+		m_State = stagedState;
+		HST_CampaignSaveData rejectedCapture = m_Persistence.CaptureAndTrackState(
+			m_State,
+			"external exact counterattack dematerializing checkpoint attempt");
+		string expectedStatus
+			= "checkpoint deferred: exact enemy response dematerialization is in progress";
+		string expectedOperationId = carrier.m_Expectation.m_sOperationId;
+		if (expectedOperationId.Length() > 72)
+			expectedOperationId = expectedOperationId.Substring(0, 69) + "...";
+		string expectedOperationStatus
+			= "operation " + expectedOperationId;
+		bool deferred = !rejectedCapture
+			&& m_State.m_sLastPersistenceStatus.Contains(expectedStatus)
+			&& m_State.m_sLastPersistenceStatus.Contains(expectedOperationStatus);
+
+		string retainedRawFingerprint;
+		string retainedRawEvidence;
+		bool rawRetained = proof.ValidateExternalDematerializingCutState(
+			m_State,
+			carrier,
+			retainedRawFingerprint,
+			retainedRawEvidence)
+			&& retainedRawFingerprint
+				== carrier.m_sRawPreparedCutSemanticFingerprint;
+
+		HST_CampaignState canonicalAfterState;
+		string canonicalAfterReadEvidence;
+		bool canonicalAfterRead = m_Persistence.ReadProfileFallbackProofSnapshot(
+			canonicalAfterState,
+			canonicalAfterReadEvidence);
+		string canonicalAfterFingerprint;
+		string canonicalAfterEvidence;
+		bool canonicalAfterExact = canonicalAfterRead
+			&& proof.ValidateExternalVirtualState(
+				canonicalAfterState,
+				carrier,
+				canonicalAfterFingerprint,
+				canonicalAfterEvidence)
+			&& canonicalAfterFingerprint
+				== carrier.m_sPreparedSemanticFingerprint;
+		string canonicalAfterCasualtyEvidence;
+		canonicalAfterExact = canonicalAfterExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				canonicalAfterState,
+				carrier,
+				canonicalAfterCasualtyEvidence);
+		string canonicalAfterRuntimeEvidence;
+		canonicalAfterExact = canonicalAfterExact
+			&& proof.ValidateExternalRuntimeClaimantsZero(
+				canonicalAfterState,
+				carrier,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				canonicalAfterRuntimeEvidence);
+		bool canonicalUnchanged = canonicalAfterExact
+			&& canonicalAfterFingerprint == canonicalBeforeFingerprint;
+
+		evidence = string.Format(
+			"dematerializing checkpoint deferred/canonical/raw %1/%2/%3",
+			deferred,
+			canonicalUnchanged,
+			rawRetained);
+		evidence += " | status " + m_State.m_sLastPersistenceStatus;
+		evidence += " | raw " + rawEvidence
+			+ " | raw runtime " + rawRuntimeEvidence
+			+ " | retained " + retainedRawEvidence;
+		evidence += " | canonical before read " + canonicalBeforeReadEvidence
+			+ " | canonical before " + canonicalBeforeEvidence
+			+ " | canonical before casualty " + canonicalBeforeCasualtyEvidence
+			+ " | canonical before runtime " + canonicalBeforeRuntimeEvidence;
+		evidence += " | canonical after read " + canonicalAfterReadEvidence
+			+ " | canonical after " + canonicalAfterEvidence
+			+ " | canonical after casualty " + canonicalAfterCasualtyEvidence
+			+ " | canonical after runtime " + canonicalAfterRuntimeEvidence;
+		return deferred && rawRetained && canonicalUnchanged;
+	}
+
+	protected void FailExactCounterattackExternalPhysicalPrepare(
+		HST_EnemyCounterattackExternalPhysicalPrepareContext context,
+		string failure)
+	{
+		if (!context || context.m_bCompleted)
+			return;
+		context.m_sFailure = failure;
+		string cleanupEvidence;
+		context.m_bCleanupExact
+			= CleanupExactCounterattackExternalPhysicalPrepare(
+				context,
+				cleanupEvidence);
+		context.m_sEvidence = failure + " | cleanup " + cleanupEvidence;
+		context.m_iStage = EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_COMPLETE;
+		context.m_bCompleted = true;
+	}
+
+	protected bool CleanupExactCounterattackExternalPhysicalPrepare(
+		HST_EnemyCounterattackExternalPhysicalPrepareContext context,
+		out string evidence)
+	{
+		evidence = "physical prepare cleanup unavailable";
+		if (!context || !context.m_Carrier || !context.m_Carrier.m_Expectation
+			|| !m_State || !m_ForceSpawnAdapter || !m_PhysicalWar)
+			return false;
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= context.m_Carrier.m_Expectation;
+		HST_ActiveGroupState group = m_State.FindActiveGroup(expected.m_sGroupId);
+		int handlesBefore
+			= m_ForceSpawnAdapter.CountHandlesForProjection(
+				expected.m_sProjectionId);
+		int runtimeBefore;
+		bool rootBefore;
+		if (group)
+		{
+			runtimeBefore = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			rootBefore = m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		}
+		if (!group || handlesBefore > 0 || runtimeBefore > 0
+			|| rootBefore)
+		{
+			HST_ForceSpawnAdapterRetireResult retired
+				= m_ForceSpawnAdapter.DebugRetireProjectionRuntime(
+					m_State,
+					m_PhysicalWar,
+					expected.m_sProjectionId,
+					expected.m_sBatchId);
+			if (!retired || !retired.m_bSuccess)
+			{
+				evidence = "bounded focal projection retirement failed";
+				if (retired && !retired.m_sFailureReason.IsEmpty())
+					evidence += ": " + retired.m_sFailureReason;
+				return false;
+			}
+		}
+		int handlesAfter
+			= m_ForceSpawnAdapter.CountHandlesForProjection(
+				expected.m_sProjectionId);
+		int resultHandlesAfter
+			= m_ForceSpawnAdapter.CountHandlesForResultId(expected.m_sBatchId);
+		int runtimeAfter;
+		bool rootAfter;
+		if (group)
+		{
+			runtimeAfter = m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			rootAfter = m_PhysicalWar.GetForceSpawnGroupRoot(group);
+		}
+		bool exact = handlesAfter == 0 && resultHandlesAfter == 0
+			&& runtimeAfter == 0 && !rootAfter;
+		evidence = string.Format(
+			"bounded focal cleanup handles/runtime %1/%2 -> %3/%4",
+			handlesBefore,
+			runtimeBefore,
+			handlesAfter,
+			runtimeAfter);
+		return exact;
+	}
+
+	protected bool AdvanceExactCounterattackExternalPhysicalPrepare()
+	{
+		HST_EnemyCounterattackExternalPhysicalPrepareContext context
+			= m_ExactCounterattackPhysicalPrepareContext;
+		if (!context)
+		{
+			context = new HST_EnemyCounterattackExternalPhysicalPrepareContext();
+			m_ExactCounterattackPhysicalPrepareContext = context;
+			HST_EnemyCounterattackOperationProofService proof
+				= new HST_EnemyCounterattackOperationProofService();
+			HST_CampaignState stagedState;
+			string baselineEvidence;
+			if (!proof.PrepareExternalPhysicalRestartBaseline(
+				m_sExactCounterattackRestartCLISessionNonce,
+				m_sExactCounterattackRestartCLIRunId,
+				HST_EnemyCounterattackExternalRestartProofService
+					.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+				m_sExactCounterattackRestartCLICut,
+				stagedState,
+				context.m_Carrier,
+				baselineEvidence)
+				|| !stagedState || !context.m_Carrier
+				|| !context.m_Carrier.m_Expectation)
+			{
+				FailExactCounterattackExternalPhysicalPrepare(
+					context,
+					"physical baseline failed: " + baselineEvidence);
+				return true;
+			}
+
+			m_State = stagedState;
+			m_ExactCounterattackRestartCarrier = context.m_Carrier;
+			HST_EnemyCounterattackOutboundVirtualExpectation expected
+				= context.m_Carrier.m_Expectation;
+			HST_EnemyOrderState order = m_State.FindEnemyOrder(expected.m_sOrderId);
+			HST_OperationRecordState operation
+				= m_State.FindOperation(expected.m_sOperationId);
+			HST_ForceManifestState manifest
+				= m_State.FindForceManifest(expected.m_sManifestId);
+			HST_ForceSpawnResultState batch
+				= m_State.FindForceSpawnResult(expected.m_sBatchId);
+			HST_ActiveGroupState group
+				= m_State.FindActiveGroup(expected.m_sGroupId);
+			HST_EnemyCounterattackOperationProofHarness harness
+				= HST_EnemyCounterattackOperationProofHarness.Cast(
+					m_EnemyCounterattackOperations);
+			if (!order || !operation || !manifest || !batch || !group || !harness
+				|| !harness.BeginMaterializationForProof(
+					m_State,
+					m_EnemyDirector,
+					order,
+					operation,
+					manifest,
+					batch,
+					group,
+					"external restart physical live-position cut"))
+			{
+				FailExactCounterattackExternalPhysicalPrepare(
+					context,
+					"proof harness did not enter MATERIALIZING/STRATEGIC authority");
+				return true;
+			}
+			context.m_sEvidence = baselineEvidence;
+			context.m_iStage = EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_SPAWN;
+			return false;
+		}
+
+		if (context.m_bCompleted
+			|| context.m_iStage
+				== EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_COMPLETE)
+			return true;
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= context.m_Carrier.m_Expectation;
+		HST_EnemyOrderState order = m_State.FindEnemyOrder(expected.m_sOrderId);
+		HST_ForceSpawnResultState batch
+			= m_State.FindForceSpawnResult(expected.m_sBatchId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(expected.m_sGroupId);
+		if (!order || !batch || !group)
+		{
+			FailExactCounterattackExternalPhysicalPrepare(
+				context,
+				"physical prepare aggregate disappeared during native handoff");
+			return true;
+		}
+
+		if (context.m_iStage == EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_SPAWN)
+		{
+			if (context.m_iSpawnTickLimit <= 0)
+			{
+				int passes = (batch.m_aSlotResults.Count()
+					+ HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK - 1)
+					/ HST_ForceSpawnQueueService.MAX_SLOTS_PER_TICK;
+				context.m_iSpawnTickLimit = Math.Min(
+					64,
+					Math.Max(8, (Math.Max(0, batch.m_iMaxRetries) + 2)
+						* (Math.Max(1, passes) + 2)));
+			}
+			if (context.m_iSpawnWorkTicks >= context.m_iSpawnTickLimit)
+			{
+				FailExactCounterattackExternalPhysicalPrepare(
+					context,
+					"native projection exceeded its bounded spawn window: "
+						+ context.m_sLastSpawnSummary);
+				return true;
+			}
+			if (batch.m_iNextAttemptSecond > m_State.m_iElapsedSeconds)
+			{
+				if (batch.m_iDeadlineSecond > 0
+					&& batch.m_iNextAttemptSecond >= batch.m_iDeadlineSecond)
+				{
+					FailExactCounterattackExternalPhysicalPrepare(
+						context,
+						"native projection retry reached its production deadline");
+					return true;
+				}
+				// This disposable coordinator returns before all unrelated frame work.
+				// Advance only its detached proof graph to the production retry cut,
+				// then let the next real frame execute the scoped projection again.
+				m_State.m_iElapsedSeconds = batch.m_iNextAttemptSecond;
+				return false;
+			}
+			HST_ForceSpawnAdapterTickResult tick
+				= m_ForceSpawnAdapter.DebugTickProjection(
+					m_State,
+					m_ForceSpawnQueue,
+					m_PhysicalWar,
+					m_State.m_iElapsedSeconds,
+					batch.m_sProjectionId);
+			context.m_iSpawnWorkTicks++;
+			if (!tick)
+			{
+				FailExactCounterattackExternalPhysicalPrepare(
+					context,
+					"native projection worker returned no result");
+				return true;
+			}
+			context.m_sLastSpawnSummary = tick.m_sSummary;
+			batch = m_State.FindForceSpawnResult(expected.m_sBatchId);
+			if (batch && batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED)
+			{
+				context.m_iStage
+					= EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CONFIRM;
+				return false;
+			}
+			if (!batch || batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_FAILED_FINAL
+				|| batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_CANCELLED)
+			{
+				FailExactCounterattackExternalPhysicalPrepare(
+					context,
+					"native projection reached terminal failure: "
+						+ context.m_sLastSpawnSummary);
+				return true;
+			}
+			if (batch.m_eStatus
+				== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_READY_FOR_HANDOFF)
+			{
+				context.m_iHandoffWaitTicks++;
+				if (context.m_iHandoffWaitTicks
+					>= CAMPAIGN_DEBUG_PHASE17_HANDOFF_WAIT_LIMIT)
+				{
+					FailExactCounterattackExternalPhysicalPrepare(
+						context,
+						"native handoff exceeded its bounded real-frame window");
+					return true;
+				}
+			}
+			return false;
+		}
+
+		if (context.m_iStage == EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CONFIRM)
+		{
+			m_EnemyCommander.DebugTickExactCounterattackOrderRuntime(
+				m_State,
+				m_Preset,
+				m_EnemyDirector,
+				order);
+			HST_OperationRecordState operation
+				= m_State.FindOperation(expected.m_sOperationId);
+			batch = m_State.FindForceSpawnResult(expected.m_sBatchId);
+			group = m_State.FindActiveGroup(expected.m_sGroupId);
+			context.m_iPhysicalAdapterHandleCount
+				= m_ForceSpawnAdapter.CountHandlesForProjection(
+					expected.m_sProjectionId);
+			context.m_iPhysicalRuntimeMemberCount
+				= m_PhysicalWar.CountForceSpawnRuntimeMembers(group);
+			string bindingFailure;
+			context.m_bPhysicalBindingsExact = batch && group
+				&& m_ForceSpawnAdapter
+					.ValidateExactLivingProjectionBindingsForPersistence(
+						m_State,
+						batch,
+						m_ForceSpawnQueue,
+						m_PhysicalWar,
+						bindingFailure)
+				&& context.m_iPhysicalAdapterHandleCount
+					== context.m_Carrier.m_iExpectedPhysicalAdapterHandleCount
+				&& context.m_iPhysicalRuntimeMemberCount
+					== context.m_Carrier.m_iExpectedPhysicalRuntimeMemberCount;
+			bool physicalExact = operation && batch && group
+				&& operation.m_eMaterializationState
+					== HST_EOperationMaterializationState
+						.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				&& operation.m_ePositionAuthority
+					== HST_EOperationPositionAuthority
+						.HST_OPERATION_POSITION_LIVE
+				&& batch.m_eStatus
+					== HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				&& !batch.m_bStrategicProjectionHeld
+				&& group.m_bSpawnedEntity
+				&& m_PhysicalWar.GetForceSpawnGroupRoot(group)
+				&& context.m_bPhysicalBindingsExact;
+			context.m_iPhysicalSettleTicks++;
+			if (physicalExact)
+			{
+				context.m_iStage
+					= EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CAPTURE;
+				return false;
+			}
+			if (context.m_iPhysicalSettleTicks
+				>= CAMPAIGN_DEBUG_PHASE17_PHYSICAL_SETTLE_WAIT_LIMIT)
+			{
+				FailExactCounterattackExternalPhysicalPrepare(
+					context,
+					"PHYSICAL/LIVE authority or exact root/member bindings did not settle: "
+						+ bindingFailure);
+				return true;
+			}
+			return false;
+		}
+
+		if (context.m_iStage == EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CAPTURE)
+		{
+			CaptureExactCounterattackExternalPhysicalPrepare(context);
+			return context.m_bCompleted;
+		}
+		FailExactCounterattackExternalPhysicalPrepare(
+			context,
+			"physical prepare entered an unknown frame stage");
+		return true;
+	}
+
+	protected void CaptureExactCounterattackExternalPhysicalPrepare(
+		HST_EnemyCounterattackExternalPhysicalPrepareContext context)
+	{
+		if (!context || !context.m_Carrier || !context.m_Carrier.m_Expectation)
+			return;
+		HST_EnemyCounterattackOutboundVirtualExpectation expected
+			= context.m_Carrier.m_Expectation;
+		HST_OperationRecordState operation
+			= m_State.FindOperation(expected.m_sOperationId);
+		HST_ActiveGroupState group = m_State.FindActiveGroup(expected.m_sGroupId);
+		if (!operation || !group)
+		{
+			FailExactCounterattackExternalPhysicalPrepare(
+				context,
+				"physical aggregate disappeared before persistence capture");
+			return;
+		}
+
+		string nativeLivePositionBeforeEvidence;
+		if (!m_PhysicalWar.TryResolveExactEnemyResponseLivePosition(
+			m_State,
+			group,
+			context.m_vPreparedLivePosition,
+			nativeLivePositionBeforeEvidence))
+		{
+			FailExactCounterattackExternalPhysicalPrepare(
+				context,
+				"native live-position oracle unavailable before durable-state corruption: "
+					+ nativeLivePositionBeforeEvidence);
+			return;
+		}
+		context.m_Carrier.m_vPreparedLivePosition
+			= context.m_vPreparedLivePosition;
+		context.m_vInjectedStalePosition
+			= context.m_vPreparedLivePosition + "311 0 -227";
+		group.m_vPosition = context.m_vInjectedStalePosition;
+		operation.m_vStrategicPosition = context.m_vInjectedStalePosition;
+		context.m_Carrier.m_vInjectedStalePosition
+			= context.m_vInjectedStalePosition;
+		HST_CampaignState readBackState;
+		string persistenceEvidence;
+		context.m_bPersisted = m_Persistence.WriteProfileFallbackProofSnapshot(
+			m_State,
+			"external exact counterattack physical live-position capture",
+			readBackState,
+			persistenceEvidence);
+		operation = m_State.FindOperation(expected.m_sOperationId);
+		group = m_State.FindActiveGroup(expected.m_sGroupId);
+		HST_OperationRecordState readBackOperation;
+		HST_ActiveGroupState readBackGroup;
+		HST_ForceSpawnResultState readBackBatch;
+		if (readBackState)
+		{
+			readBackOperation
+				= readBackState.FindOperation(expected.m_sOperationId);
+			readBackGroup = readBackState.FindActiveGroup(expected.m_sGroupId);
+			readBackBatch
+				= readBackState.FindForceSpawnResult(expected.m_sBatchId);
+		}
+		if (!context.m_bPersisted || !operation || !group || !readBackOperation
+			|| !readBackGroup || !readBackBatch)
+		{
+			FailExactCounterattackExternalPhysicalPrepare(
+				context,
+				"physical persistence capture/readback failed: "
+					+ persistenceEvidence);
+			return;
+		}
+
+		vector nativeLivePositionAfter;
+		string nativeLivePositionAfterEvidence;
+		bool nativeLivePositionStable
+			= m_PhysicalWar.TryResolveExactEnemyResponseLivePosition(
+				m_State,
+				group,
+				nativeLivePositionAfter,
+				nativeLivePositionAfterEvidence)
+			&& ExactCounterattackExternalPositionsMatch(
+				nativeLivePositionAfter,
+				context.m_vPreparedLivePosition);
+		bool durablePositionRefreshed
+			= ExactCounterattackExternalPositionsMatch(
+				group.m_vPosition,
+				context.m_vPreparedLivePosition)
+			&& ExactCounterattackExternalPositionsMatch(
+				operation.m_vStrategicPosition,
+				context.m_vPreparedLivePosition);
+		bool stalePositionDistinct
+			= !ExactCounterattackExternalPositionsMatch(
+				context.m_vInjectedStalePosition,
+				context.m_vPreparedLivePosition);
+		bool physicalLiveAuthority = operation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE;
+		context.m_bLivePositionRefreshExact = physicalLiveAuthority
+			&& nativeLivePositionStable && durablePositionRefreshed
+			&& stalePositionDistinct;
+		context.m_Carrier.m_vPreparedStrategicPosition
+			= readBackOperation.m_vStrategicPosition;
+		context.m_Carrier.m_iPreparedElapsedSecond
+			= readBackState.m_iElapsedSeconds;
+		context.m_Carrier.m_fPreparedRouteProgressMeters
+			= readBackOperation.m_fRouteProgressMeters;
+		context.m_Carrier.m_fPreparedRouteTotalDistanceMeters
+			= readBackOperation.m_fRouteTotalDistanceMeters;
+		HST_EnemyCounterattackOperationProofService proof
+			= new HST_EnemyCounterattackOperationProofService();
+		context.m_Carrier.m_sPreparedSemanticFingerprint
+			= proof.BuildExternalSemanticFingerprint(
+				readBackState,
+				context.m_Carrier);
+		context.m_Carrier.m_sRawPreparedCutSemanticFingerprint
+			= proof.BuildExternalSemanticFingerprint(
+				m_State,
+				context.m_Carrier);
+		string rawFingerprint;
+		string rawEvidence;
+		bool rawPhysicalExact = context.m_bLivePositionRefreshExact
+			&& proof.ValidateExternalPhysicalCutState(
+				m_State,
+				context.m_Carrier,
+				m_ForceSpawnQueue,
+				m_ForceSpawnAdapter,
+				m_PhysicalWar,
+				rawFingerprint,
+				rawEvidence);
+		string readBackFingerprint;
+		string readBackEvidence;
+		context.m_bReadBackExact = rawPhysicalExact
+			&& proof.ValidateExternalVirtualState(
+				readBackState,
+				context.m_Carrier,
+				readBackFingerprint,
+				readBackEvidence)
+			&& readBackFingerprint
+				== context.m_Carrier.m_sPreparedSemanticFingerprint;
+		string casualtyEvidence;
+		context.m_bCasualtyContinuityExact = context.m_bReadBackExact
+			&& proof.ValidateExternalCasualtyContinuity(
+				readBackState,
+				context.m_Carrier,
+				casualtyEvidence);
+		bool normalizedAuthorityExact
+			= readBackOperation.m_eMaterializationState
+				== HST_EOperationMaterializationState
+					.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& readBackOperation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority
+					.HST_OPERATION_POSITION_STRATEGIC;
+		bool normalizedPositionExact
+			= ExactCounterattackExternalPositionsMatch(
+				readBackGroup.m_vPosition,
+				context.m_vPreparedLivePosition)
+			&& ExactCounterattackExternalPositionsMatch(
+				readBackOperation.m_vStrategicPosition,
+				context.m_vPreparedLivePosition);
+		context.m_bPhysicalCaptureNormalizedExact
+			= context.m_bCasualtyContinuityExact
+			&& normalizedAuthorityExact
+			&& readBackBatch.m_iReprojectionCount == 1
+			&& readBackBatch.m_bStrategicProjectionHeld
+			&& normalizedPositionExact;
+		string carrierEvidence;
+		context.m_bCarrierSaved
+			= context.m_bPhysicalCaptureNormalizedExact
+			&& HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(
+				context.m_Carrier,
+				carrierEvidence);
+		string cleanupEvidence;
+		context.m_bCleanupExact
+			= CleanupExactCounterattackExternalPhysicalPrepare(
+				context,
+				cleanupEvidence);
+		context.m_bSucceeded = context.m_bCarrierSaved
+			&& context.m_bPhysicalBindingsExact
+			&& context.m_bLivePositionRefreshExact
+			&& context.m_bPhysicalCaptureNormalizedExact
+			&& context.m_bCleanupExact;
+		string baselineEvidence = context.m_sEvidence;
+		context.m_sEvidence = "raw " + rawEvidence
+			+ " | readback " + readBackEvidence
+			+ " | casualty " + casualtyEvidence;
+		context.m_sEvidence += " | persistence " + persistenceEvidence
+			+ " | carrier " + carrierEvidence
+			+ " | cleanup " + cleanupEvidence;
+		context.m_sEvidence += " | native live before "
+			+ nativeLivePositionBeforeEvidence
+			+ " | native live after " + nativeLivePositionAfterEvidence;
+		context.m_sEvidence += " | baseline " + baselineEvidence;
+		if (!context.m_bSucceeded)
+			context.m_sFailure = "physical live-position cut did not satisfy every gate";
+		context.m_iStage = EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_COMPLETE;
+		context.m_bCompleted = true;
+	}
+
+	protected bool ExactCounterattackExternalPositionsMatch(
+		vector left,
+		vector right,
+		float tolerance = 0.1)
+	{
+		return Math.AbsFloat(left[0] - right[0]) <= tolerance
+			&& Math.AbsFloat(left[1] - right[1]) <= tolerance
+			&& Math.AbsFloat(left[2] - right[2]) <= tolerance;
+	}
+
+	protected void FinalizeExactCounterattackExternalPhysicalPrepare()
+	{
+		HST_EnemyCounterattackExternalPhysicalPrepareContext context
+			= m_ExactCounterattackPhysicalPrepareContext;
+		HST_EnemyCounterattackExternalRestartResult result
+			= CreateExactCounterattackRestartResult();
+		if (!context)
+		{
+			result.m_sEvidence = "physical prepare context unavailable";
+			SaveExactCounterattackRestartResult(result);
+			return;
+		}
+		m_ExactCounterattackRestartCarrier = context.m_Carrier;
+		result = CreateExactCounterattackRestartResult();
+		result.m_bSourceExact = context.m_bSucceeded;
+		result.m_bRuntimeClaimantsZero = context.m_bCleanupExact;
+		result.m_bPersistedReadBackExact = context.m_bReadBackExact;
+		result.m_bPreparedCutExact = context.m_bSucceeded;
+		result.m_bCasualtyContinuityExact
+			= context.m_bCasualtyContinuityExact;
+		result.m_bPhysicalBindingsExact = context.m_bPhysicalBindingsExact;
+		result.m_bLivePositionRefreshExact
+			= context.m_bLivePositionRefreshExact;
+		result.m_bPhysicalCaptureNormalizedExact
+			= context.m_bPhysicalCaptureNormalizedExact;
+		result.m_iPhysicalAdapterHandleCount
+			= context.m_iPhysicalAdapterHandleCount;
+		result.m_iPhysicalRuntimeMemberCount
+			= context.m_iPhysicalRuntimeMemberCount;
+		result.m_vInjectedStalePosition = context.m_vInjectedStalePosition;
+		result.m_vPreparedLivePosition = context.m_vPreparedLivePosition;
+		if (context.m_Carrier)
+		{
+			result.m_fProgressBeforeMeters
+				= context.m_Carrier.m_fPreparedRouteProgressMeters;
+			result.m_fProgressAfterMeters
+				= context.m_Carrier.m_fPreparedRouteProgressMeters;
+			result.m_sSourceSemanticFingerprint
+				= context.m_Carrier.m_sPreparedSemanticFingerprint;
+			result.m_sFinalSemanticFingerprint
+				= context.m_Carrier.m_sPreparedSemanticFingerprint;
+			result.m_sRawPreparedCutSemanticFingerprint
+				= context.m_Carrier.m_sRawPreparedCutSemanticFingerprint;
+		}
+		result.m_bSuccess = context.m_bSucceeded && context.m_bCarrierSaved
+			&& context.m_bPersisted && context.m_bCleanupExact;
+		result.m_sEvidence = context.m_sEvidence;
+		if (!context.m_sFailure.IsEmpty())
+			result.m_sEvidence += " | failure " + context.m_sFailure;
+		SaveExactCounterattackRestartResult(result);
+	}
+
 	protected void FinalizeExactCounterattackExternalRestartPrepare()
 	{
+		if (m_sExactCounterattackRestartCLICut
+			== HST_EnemyCounterattackExternalRestartProofService
+				.CUT_PHYSICAL_LIVE_POSITION)
+		{
+			FinalizeExactCounterattackExternalPhysicalPrepare();
+			return;
+		}
 		HST_EnemyCounterattackExternalRestartResult result
 			= CreateExactCounterattackRestartResult();
 		HST_EnemyCounterattackOperationProofService proof
@@ -6851,8 +7657,25 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 			= m_sExactCounterattackRestartCLICut
 				== HST_EnemyCounterattackExternalRestartProofService
 					.CUT_MATERIALIZING_CHECKPOINT_DEFERRED;
+		bool dematerializingDeferredCut
+			= m_sExactCounterattackRestartCLICut
+				== HST_EnemyCounterattackExternalRestartProofService
+					.CUT_DEMATERIALIZING_BEFORE_HOLD;
 		bool prepared;
-		if (materializingDeferredCut)
+		if (dematerializingDeferredCut)
+		{
+			prepared = proof.PrepareExternalDematerializingRestartCarrier(
+				m_sExactCounterattackRestartCLISessionNonce,
+				m_sExactCounterattackRestartCLIRunId,
+				HST_EnemyCounterattackExternalRestartProofService
+					.NormalizeWorldIdentity(GetGame().GetWorldFile()),
+				m_sExactCounterattackRestartCLICut,
+				stagedState,
+				persistenceSourceState,
+				carrier,
+				prepareEvidence);
+		}
+		else if (materializingDeferredCut)
 		{
 			prepared = proof.PrepareExternalMaterializingRestartCarrier(
 				m_sExactCounterattackRestartCLISessionNonce,
@@ -6935,7 +7758,16 @@ class HST_CampaignCoordinatorComponent : SCR_BaseGameModeComponent
 		bool preparedCutExact;
 		if (runtimeZero)
 		{
-			if (materializingDeferredCut)
+			if (dematerializingDeferredCut)
+			{
+				preparedCutExact
+					= ProveExactCounterattackDematerializingCheckpointDeferred(
+						proof,
+						stagedState,
+						carrier,
+						rawCutEvidence);
+			}
+			else if (materializingDeferredCut)
 			{
 				preparedCutExact
 					= ProveExactCounterattackMaterializingCheckpointDeferred(

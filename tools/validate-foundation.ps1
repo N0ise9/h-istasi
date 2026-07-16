@@ -6797,6 +6797,21 @@ foreach ($requiredRestoreRequestProjectionEntry in @(
 		throw "Schema-50 restore must normalize linked request projection authority: $requiredRestoreRequestProjectionEntry"
 	}
 }
+foreach ($requiredRestoreProjectionProcessResetEntry in @(
+	'group.m_bSpawnAttempted = false;',
+	'group.m_iAssignedWaypointCount = 0;',
+	'group.m_sSpawnFailureReason = "";',
+	'group.m_vPosition = operation.m_vStrategicPosition;',
+	'group.m_vSourcePosition = operation.m_vStrategicPosition;',
+	'int living = operation.m_iLastVirtualFriendlyCount;',
+	'group.m_iInfantryCount = Math.Max(0, living);'
+)) {
+	if (!$operationRestoreRequestProjectionBlock.Success -or
+		$operationRestoreRequestProjectionBlock.Value.IndexOf(
+			$requiredRestoreProjectionProcessResetEntry) -lt 0) {
+		throw "Schema-50 strategic projection restore must clear process-local group residue and align its strategic roster: $requiredRestoreProjectionProcessResetEntry"
+	}
+}
 foreach ($requiredRestoreRequestProofEntry in @(
 	'runtime.m_Base.m_Request.m_bPhysicalized = true;',
 	'!restoredRequest.m_bPhysicalized',
@@ -7422,6 +7437,23 @@ foreach ($schema51QRFRejectedResourceEntry in @(
 	if ([string]::IsNullOrEmpty($schema51QRFRestoreReconcileBlock) -or
 		$schema51QRFRestoreReconcileBlock.IndexOf($schema51QRFRejectedResourceEntry) -lt 0) {
 		throw "Schema-51 restore must retain a disarmed rejected resource settlement without terminal rewrite or claimant cleanup: $schema51QRFRejectedResourceEntry"
+	}
+}
+foreach ($schema51QRFProcessResetEntry in @(
+	'group.m_bSpawnAttempted = false;',
+	'group.m_iAssignedWaypointCount = 0;',
+	'group.m_sSpawnFailureReason = "";',
+	'group.m_vPosition = operation.m_vStrategicPosition;',
+	'group.m_vSourcePosition = operation.m_vStrategicPosition;',
+	'int restoredLiving = restoreQueue.CountStrategicLivingMemberSlots(batch);',
+	'group.m_iInfantryCount = Math.Max(0, restoredLiving);',
+	'group.m_iLastSeenAliveCount = Math.Max(0, restoredLiving);',
+	'group.m_iSurvivorInfantryCount = Math.Max(0, restoredLiving);',
+	'group.m_iDurableLivingInfantryCount = Math.Max(0, restoredLiving);'
+)) {
+	if ([string]::IsNullOrEmpty($schema51QRFRestoreReconcileBlock) -or
+		$schema51QRFRestoreReconcileBlock.IndexOf($schema51QRFProcessResetEntry) -lt 0) {
+		throw "Schema-51 defensive-QRF restore must clear process-local group residue and rebuild its strategic roster: $schema51QRFProcessResetEntry"
 	}
 }
 $schema51QRFRejectedResourceIndex = $schema51QRFRestoreReconcileBlock.IndexOf(
@@ -9276,6 +9308,19 @@ if ([string]::IsNullOrEmpty($schema52CaptureAndTrackBlock) -or
 	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -lt 0 -or
 	$schema52CaptureAndTrackBlock.IndexOf('PrepareStateForCapture(state, persistenceStatus)') -gt $schema52CaptureAndTrackBlock.IndexOf('m_LastCapturedSave.Capture(state)')) {
 	throw "Schema-52 tracked capture must reconcile exact rosters before mutating or serializing the save"
+}
+$schema52IsolatedCaptureIndex = $schema52CaptureAndTrackBlock.IndexOf(
+	'if (!CaptureIsolatedCampaignDebugState(state, persistenceStatus))')
+$schema52IsolatedFailureIndex = $schema52CaptureAndTrackBlock.IndexOf(
+	'return null;',
+	[Math]::Max(0, $schema52IsolatedCaptureIndex))
+$schema52IsolatedReturnIndex = $schema52CaptureAndTrackBlock.IndexOf(
+	'return m_IsolatedCapturedSave;',
+	[Math]::Max(0, $schema52IsolatedFailureIndex))
+if ($schema52IsolatedCaptureIndex -lt 0 -or
+	$schema52IsolatedFailureIndex -le $schema52IsolatedCaptureIndex -or
+	$schema52IsolatedReturnIndex -le $schema52IsolatedFailureIndex) {
+	throw 'Schema-52 isolated tracked capture must return null on capture deferral before exposing the prior isolated snapshot'
 }
 if ($schema52RequestCheckpointBlock -notmatch [regex]::Escape('state && !CaptureAndTrackState(state, "captured before checkpoint")')) {
 	throw "Schema-52 checkpoint requests must stop before flushing stale data when exact-roster capture is deferred"
@@ -28905,6 +28950,7 @@ $schema69NormalizeGroupHoldBlock = Get-ScriptMethodBlock `
 foreach ($schema69NormalizeGroupHoldEntry in @(
 	'group.m_vPosition = operation.m_vStrategicPosition;',
 	'group.m_vSourcePosition = operation.m_vStrategicPosition;',
+	'group.m_sSpawnFailureReason = "";',
 	'int living = queue.CountStrategicLivingMemberSlots(batch);',
 	'group.m_iDurableLivingInfantryCount = Math.Max(0, living);'
 )) {
@@ -29988,6 +30034,18 @@ if ($schema70OwnershipNormalizationIndex -lt 0 -or
 	$schema70FinalNormalizationIndex -le $schema70StrategicNormalizationIndex -or
 	$schema70FinalNormalizationIndex -le $schema70CounterattackNormalizationIndex) {
 	throw "Schema-70 exact enemy garrison rebuilds must normalize after generic, resource, and ownership-dependent restore prerequisites"
+}
+$schema70NormalizeGroupHoldBlock = Get-ScriptMethodBlock `
+	$schema70ValidationText 'protected void NormalizeGroupForStrategicHold('
+foreach ($schema70NormalizeGroupHoldEntry in @(
+	'group.m_sSpawnFailureReason = "";',
+	'group.m_vPosition = operation.m_vStrategicPosition;',
+	'group.m_vSourcePosition = operation.m_vStrategicPosition;'
+)) {
+	if ([string]::IsNullOrEmpty($schema70NormalizeGroupHoldBlock) -or
+		$schema70NormalizeGroupHoldBlock.IndexOf($schema70NormalizeGroupHoldEntry) -lt 0) {
+		throw "Schema-70 strategic-hold restore must clear stale runtime failure text and align group position authority: $schema70NormalizeGroupHoldEntry"
+	}
 }
 $schema70EnemyOrderBlock = Get-ScriptMethodBlock $schema70StateText 'class HST_EnemyOrderState'
 $schema70EnemyOrderCopyBlock = Get-ScriptMethodBlock $schema70SaveDataText 'protected HST_EnemyOrderState CopyEnemyOrder('
@@ -33497,6 +33555,310 @@ $exactCounterRestartProofText = Get-Content -Raw $exactCounterRestartProofPath
 $exactCounterRestartCoordinatorText = Get-Content -Raw $exactCounterRestartCoordinatorPath
 $exactCounterRestartLauncherText = Get-Content -Raw $exactCounterRestartLauncherPath
 
+$exactEnemyResponsePersistenceText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_PersistenceService.c'
+$exactEnemyResponseQRFText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_EnemyQRFOperationService.c'
+$exactEnemyResponseCounterattackText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_EnemyCounterattackOperationService.c'
+$exactEnemyResponseGarrisonRebuildText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_EnemyGarrisonRebuildOperationService.c'
+$exactEnemyResponsePhysicalWarText = Get-Content -Raw `
+	'Scripts/Game/HST/Services/HST_PhysicalWarService.c'
+$exactEnemyResponsePersistenceSetter = Get-ScriptMethodBlock `
+	$exactEnemyResponsePersistenceText `
+	'void SetExactEnemyResponseAuthorityServices('
+foreach ($exactEnemyResponsePersistenceSetterEntry in @(
+	'HST_EnemyQRFOperationService enemyQRFOperations,',
+	'HST_EnemyCounterattackOperationService enemyCounterattackOperations,',
+	'HST_EnemyGarrisonRebuildOperationService enemyGarrisonRebuildOperations)',
+	'm_EnemyQRFOperations = enemyQRFOperations;',
+	'm_EnemyCounterattackOperations = enemyCounterattackOperations;',
+	'm_EnemyGarrisonRebuildOperations = enemyGarrisonRebuildOperations;'
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePersistenceSetter) -or
+		$exactEnemyResponsePersistenceSetter.IndexOf(
+			$exactEnemyResponsePersistenceSetterEntry) -lt 0) {
+		throw "Exact enemy-response persistence service setter is incomplete: $exactEnemyResponsePersistenceSetterEntry"
+	}
+}
+$exactEnemyResponsePostInit = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText 'override void OnPostInit(IEntity owner)'
+foreach ($exactEnemyResponseWiringEntry in @(
+	'm_Persistence.SetExactEnemyResponseAuthorityServices(',
+	'm_EnemyQRFOperations,',
+	'm_EnemyCounterattackOperations,',
+	'm_EnemyGarrisonRebuildOperations);'
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePostInit) -or
+		$exactEnemyResponsePostInit.IndexOf($exactEnemyResponseWiringEntry) -lt 0) {
+		throw "Exact enemy-response persistence authority wiring is incomplete: $exactEnemyResponseWiringEntry"
+	}
+}
+$exactEnemyResponseSetterWiringIndex = `
+	$exactEnemyResponsePostInit.IndexOf(
+		'm_Persistence.SetExactEnemyResponseAuthorityServices(')
+$exactEnemyResponseRestoreIndex = `
+	$exactEnemyResponsePostInit.IndexOf(
+		'm_Persistence.RestoreOrCreateCampaignState(')
+if ($exactEnemyResponseSetterWiringIndex -lt 0 -or
+	$exactEnemyResponseRestoreIndex -le $exactEnemyResponseSetterWiringIndex) {
+	throw 'Exact enemy-response persistence owners must be wired before restore and any checkpoint capture'
+}
+
+$exactEnemyResponsePrepareCapture = Get-ScriptMethodBlock `
+	$exactEnemyResponsePersistenceText `
+	'protected bool PrepareStateForCapture('
+foreach ($exactEnemyResponsePrepareCaptureEntry in @(
+	'HST_OperationRecordState dematerializingExactEnemyResponse',
+	'= FindDematerializingExactEnemyResponse(state);',
+	'PreflightPhysicalExactEnemyResponseGraphs(state, context)',
+	'bool exactEnemyResponse',
+	'HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF',
+	'EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION',
+	'HST_OPERATION_TYPE_ENEMY_COUNTERATTACK',
+	'EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION',
+	'HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD',
+	'EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION',
+	'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING',
+	'checkpoint deferred: exact enemy response dematerialization is in progress',
+	'dematerializingExactEnemyResponse.m_sOperationId',
+	'm_ForceSpawnAdapter.ReconcileExactInfantryAuthorityForPersistence(',
+	'ValidatePhysicalExactEnemyResponseSnapshots(',
+	'exactEnemyResponsePositionPlans))',
+	'ValidatePhysicalEnemyPatrolSnapshots(state, context)',
+	'ValidatePhysicalGarrisonPatrolSnapshots(state, context)',
+	'ValidatePhysicalMissionGuardSnapshots(state, context)',
+	'ValidatePhysicalPlayerSupportBindings(state, context)',
+	'ApplyPhysicalExactEnemyResponseSnapshots('
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePrepareCapture) -or
+		$exactEnemyResponsePrepareCapture.IndexOf(
+			$exactEnemyResponsePrepareCaptureEntry) -lt 0) {
+		throw "Exact enemy-response persistence capture boundary is incomplete: $exactEnemyResponsePrepareCaptureEntry"
+	}
+}
+$exactEnemyResponseDematDeferIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'checkpoint deferred: exact enemy response dematerialization is in progress')
+$exactEnemyResponseRosterReconcileIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'm_ForceSpawnAdapter.ReconcileExactInfantryAuthorityForPersistence(')
+$exactEnemyResponsePhysicalValidatorIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'ValidatePhysicalExactEnemyResponseSnapshots(')
+$exactEnemyResponsePatrolValidatorIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'ValidatePhysicalEnemyPatrolSnapshots(state, context)')
+$exactEnemyResponseGarrisonPatrolValidatorIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'ValidatePhysicalGarrisonPatrolSnapshots(state, context)')
+$exactEnemyResponseMissionGuardValidatorIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'ValidatePhysicalMissionGuardSnapshots(state, context)')
+$exactEnemyResponseSupportValidatorIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'ValidatePhysicalPlayerSupportBindings(state, context)')
+$exactEnemyResponsePhysicalApplyIndex = `
+	$exactEnemyResponsePrepareCapture.IndexOf(
+		'ApplyPhysicalExactEnemyResponseSnapshots(')
+if ($exactEnemyResponseDematDeferIndex -lt 0 -or
+	$exactEnemyResponseRosterReconcileIndex -le
+		$exactEnemyResponseDematDeferIndex -or
+	$exactEnemyResponsePhysicalValidatorIndex -le
+		$exactEnemyResponseRosterReconcileIndex -or
+	$exactEnemyResponsePatrolValidatorIndex -le
+		$exactEnemyResponsePhysicalValidatorIndex -or
+	$exactEnemyResponseGarrisonPatrolValidatorIndex -le
+		$exactEnemyResponsePatrolValidatorIndex -or
+	$exactEnemyResponseMissionGuardValidatorIndex -le
+		$exactEnemyResponseGarrisonPatrolValidatorIndex -or
+	$exactEnemyResponseSupportValidatorIndex -le
+		$exactEnemyResponseMissionGuardValidatorIndex -or
+	$exactEnemyResponsePhysicalApplyIndex -le
+		$exactEnemyResponseSupportValidatorIndex) {
+	throw 'Exact enemy-response persistence must defer DEMATERIALIZING before reconciliation and validate physical response snapshots before existing patrol, guard, and support preflights'
+}
+
+$exactEnemyResponsePhysicalValidator = Get-ScriptMethodBlock `
+	$exactEnemyResponsePersistenceText `
+	'protected bool ValidatePhysicalExactEnemyResponseSnapshots('
+foreach ($exactEnemyResponsePhysicalValidatorEntry in @(
+	'IsOpenExactEnemyResponseOperation(operation)',
+	'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+	'ResolvePhysicalExactEnemyResponseRuntimeAuthority(',
+	'batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED',
+	'batch.m_bStrategicProjectionHeld',
+	'batch.m_iSuccessfulHandoffCount <= 0',
+	'm_ForceSpawnQueue.CountDurableLivingMemberSlots(batch) <= 0',
+	'm_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(',
+	'm_PhysicalWar.TryResolveExactEnemyResponseLivePosition(',
+	'HST_ExactEnemyResponsePersistencePositionPlan',
+	'plan.m_vLivePosition = livePosition;',
+	'positionPlans.Insert(plan);',
+	'DeferPhysicalExactEnemyResponseSnapshot('
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePhysicalValidator) -or
+		$exactEnemyResponsePhysicalValidator.IndexOf(
+			$exactEnemyResponsePhysicalValidatorEntry) -lt 0) {
+		throw "Exact enemy-response physical persistence validator is incomplete: $exactEnemyResponsePhysicalValidatorEntry"
+	}
+}
+$exactEnemyResponsePhysicalPreflight = Get-ScriptMethodBlock `
+	$exactEnemyResponsePersistenceText `
+	'protected bool PreflightPhysicalExactEnemyResponseGraphs('
+foreach ($exactEnemyResponsePhysicalPreflightEntry in @(
+	'IsOpenExactEnemyResponseOperation(operation)',
+	'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+	'HST_OPERATION_POSITION_LIVE',
+	'ResolvePhysicalExactEnemyResponseRuntimeAuthority(',
+	'DeferPhysicalExactEnemyResponseSnapshot('
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePhysicalPreflight) -or
+		$exactEnemyResponsePhysicalPreflight.IndexOf(
+			$exactEnemyResponsePhysicalPreflightEntry) -lt 0) {
+		throw "Exact enemy-response physical persistence preflight is incomplete: $exactEnemyResponsePhysicalPreflightEntry"
+	}
+}
+$exactEnemyResponseBindingIndex = `
+	$exactEnemyResponsePhysicalValidator.IndexOf(
+		'm_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(')
+$exactEnemyResponseLivePositionIndex = `
+	$exactEnemyResponsePhysicalValidator.IndexOf(
+		'm_PhysicalWar.TryResolveExactEnemyResponseLivePosition(')
+if ($exactEnemyResponseBindingIndex -lt 0 -or
+	$exactEnemyResponseLivePositionIndex -le $exactEnemyResponseBindingIndex) {
+	throw 'Exact enemy-response persistence must validate every living binding before staging its nonmutating runtime-position sample'
+}
+
+$exactEnemyResponsePhysicalApply = Get-ScriptMethodBlock `
+	$exactEnemyResponsePersistenceText `
+	'protected bool ApplyPhysicalExactEnemyResponseSnapshots('
+foreach ($exactEnemyResponsePhysicalApplyEntry in @(
+	'm_PhysicalWar.ApplyExactEnemyResponsePersistencePosition(',
+	'plan.m_vLivePosition',
+	'RefreshExactEnemyResponsePersistencePosition(state, plan)',
+	'RollBackExactEnemyResponsePersistencePositions(positionPlans, index)',
+	'DeferPhysicalExactEnemyResponseSnapshot('
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePhysicalApply) -or
+		$exactEnemyResponsePhysicalApply.IndexOf(
+			$exactEnemyResponsePhysicalApplyEntry) -lt 0) {
+		throw "Exact enemy-response physical persistence apply phase is incomplete: $exactEnemyResponsePhysicalApplyEntry"
+	}
+}
+$exactEnemyResponsePhysicalApplyPositionIndex = `
+	$exactEnemyResponsePhysicalApply.IndexOf(
+		'm_PhysicalWar.ApplyExactEnemyResponsePersistencePosition(')
+$exactEnemyResponsePhysicalApplyRefreshIndex = `
+	$exactEnemyResponsePhysicalApply.IndexOf(
+		'RefreshExactEnemyResponsePersistencePosition(state, plan)')
+if ($exactEnemyResponsePhysicalApplyPositionIndex -lt 0 -or
+	$exactEnemyResponsePhysicalApplyRefreshIndex -le
+		$exactEnemyResponsePhysicalApplyPositionIndex) {
+	throw 'Exact enemy-response persistence must apply the preflighted live sample before its family-owned strategic refresh'
+}
+
+$exactEnemyResponsePhysicalRefresh = Get-ScriptMethodBlock `
+	$exactEnemyResponsePersistenceText `
+	'protected string RefreshExactEnemyResponsePersistencePosition('
+foreach ($exactEnemyResponsePhysicalRefreshEntry in @(
+	'm_EnemyQRFOperations.RefreshPhysicalPersistencePosition(',
+	'm_EnemyCounterattackOperations.RefreshPhysicalPersistencePosition(',
+	'm_EnemyGarrisonRebuildOperations.RefreshPhysicalPersistencePosition('
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponsePhysicalRefresh) -or
+		$exactEnemyResponsePhysicalRefresh.IndexOf(
+			$exactEnemyResponsePhysicalRefreshEntry) -lt 0) {
+		throw "Exact enemy-response persistence family refresh dispatch is incomplete: $exactEnemyResponsePhysicalRefreshEntry"
+	}
+}
+
+foreach ($exactEnemyResponseFamilyGate in @(
+	@('defensive QRF', $exactEnemyResponseQRFText,
+		'HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF',
+		'EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION',
+		'IsExactEnemyDefensiveQRF(order)',
+		'UpdateExactEnemyDefensiveQRFPhysicalPosition(state, order, group)'),
+	@('counterattack', $exactEnemyResponseCounterattackText,
+		'HST_OPERATION_TYPE_ENEMY_COUNTERATTACK',
+		'EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION',
+		'IsExactEnemyCounterattack(order)',
+		'UpdateExactEnemyCounterattackPhysicalPosition(state, order, group)'),
+	@('garrison rebuild', $exactEnemyResponseGarrisonRebuildText,
+		'HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD',
+		'EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION',
+		'IsExactEnemyGarrisonRebuild(order)',
+		'UpdateExactEnemyGarrisonRebuildPhysicalPosition(state, order, group)')
+)) {
+	$exactEnemyResponseFamilyName = $exactEnemyResponseFamilyGate[0]
+	$exactEnemyResponseFamilyText = $exactEnemyResponseFamilyGate[1]
+	$exactEnemyResponseFamilyAuthority = Get-ScriptMethodBlock `
+		$exactEnemyResponseFamilyText `
+		'string ValidateOpenPersistenceRuntimeAuthority('
+	$exactEnemyResponseFamilyRefresh = Get-ScriptMethodBlock `
+		$exactEnemyResponseFamilyText `
+		'string RefreshPhysicalPersistencePosition('
+	foreach ($exactEnemyResponseFamilyEntry in @(
+		$exactEnemyResponseFamilyGate[2],
+		$exactEnemyResponseFamilyGate[3],
+		$exactEnemyResponseFamilyGate[4],
+		'string failure = ResolveRuntimeContext(',
+		'if (resolvedOperation != expectedOperation)'
+	)) {
+		if ([string]::IsNullOrEmpty($exactEnemyResponseFamilyAuthority) -or
+			$exactEnemyResponseFamilyAuthority.IndexOf(
+				$exactEnemyResponseFamilyEntry) -lt 0) {
+			throw "Exact enemy-response $exactEnemyResponseFamilyName persistence authority wrapper is incomplete: $exactEnemyResponseFamilyEntry"
+		}
+	}
+	if ([string]::IsNullOrEmpty($exactEnemyResponseFamilyRefresh) -or
+		$exactEnemyResponseFamilyRefresh.IndexOf(
+			$exactEnemyResponseFamilyGate[5]) -lt 0 -or
+		$exactEnemyResponseFamilyRefresh.IndexOf(
+			'if (refreshed && refreshed.m_bAccepted)') -lt 0) {
+		throw "Exact enemy-response $exactEnemyResponseFamilyName persistence position refresh must reuse its production transition"
+	}
+}
+
+$exactEnemyResponseLiveResolver = Get-ScriptMethodBlock `
+	$exactEnemyResponsePhysicalWarText `
+	'bool TryResolveExactEnemyResponseLivePosition('
+foreach ($exactEnemyResponseLiveResolverEntry in @(
+	'IsExactEnemyQRFActiveGroup(state, activeGroup)',
+	'IsExactEnemyCounterattackActiveGroup(state, activeGroup)',
+	'IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup)',
+	'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+	'HST_OPERATION_POSITION_LIVE',
+	'activeGroup.m_bSpawnedEntity',
+	'ResolveActiveGroupLiveRuntimePosition(activeGroup, false)',
+	'IsZeroVector(livePosition)'
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponseLiveResolver) -or
+		$exactEnemyResponseLiveResolver.IndexOf(
+			$exactEnemyResponseLiveResolverEntry) -lt 0) {
+		throw "Exact enemy-response PhysicalWar live-position resolver is incomplete: $exactEnemyResponseLiveResolverEntry"
+	}
+}
+
+$exactEnemyResponseLiveApply = Get-ScriptMethodBlock `
+	$exactEnemyResponsePhysicalWarText `
+	'void ApplyExactEnemyResponsePersistencePosition('
+foreach ($exactEnemyResponseLiveApplyEntry in @(
+	'activeGroup.m_vPosition = position;',
+	'm_bMarkerRefreshNeeded = true;'
+)) {
+	if ([string]::IsNullOrEmpty($exactEnemyResponseLiveApply) -or
+		$exactEnemyResponseLiveApply.IndexOf(
+			$exactEnemyResponseLiveApplyEntry) -lt 0) {
+		throw "Exact enemy-response PhysicalWar position apply seam is incomplete: $exactEnemyResponseLiveApplyEntry"
+	}
+}
+if ($exactEnemyResponseLiveResolver.IndexOf(
+	'activeGroup.m_vPosition = livePosition;') -ge 0) {
+	throw 'Exact enemy-response live-position resolution must remain nonmutating until every graph preflights'
+}
+
 $exactCounterRestartProjectionHarness = Get-ScriptMethodBlock `
 	$exactCounterRestartProofText `
 	'override HST_OperationProjectionDecision EvaluateExactEnemyCounterattack('
@@ -33528,19 +33890,27 @@ foreach ($exactCounterRestartDTOEntry in @(
 	'int m_iAttackCost;', 'int m_iSupportCost;', 'int m_iExpectedAttackPool;',
 	'int m_iExpectedSupportPool;', 'int m_iExpectedPoolOperationalMutationCount;',
 	'int m_iAcceptedMemberCount;', 'int m_iLivingMemberCount;',
-	'string m_sLivingSlotFingerprint;', 'string m_sConfirmedCasualtySlotId;',
+	'string m_sLivingSlotFingerprint;', 'bool m_bExpectedLivingSlotsEverAlive;',
+	'int m_iExpectedNormalizedSlotAttemptCount;',
+	'string m_sConfirmedCasualtySlotId;',
 	'string m_sCasualtyTombstoneFingerprint;',
 	'int m_iExpectedNormalizedReprojectionCount;', 'string m_sSessionNonce;',
 	'string m_sStageNonce;', 'string m_sRequestedStage;', 'int m_iStageOrdinal;',
 	'bool m_bDisposableProfile;', 'bool m_bAllowCanonicalCampaignOverwrite;',
 	'int m_iPreparedElapsedSecond;', 'float m_fPreparedRouteProgressMeters;',
 	'float m_fPreparedRouteTotalDistanceMeters;', 'vector m_vPreparedStrategicPosition;',
+	'vector m_vInjectedStalePosition;', 'vector m_vPreparedLivePosition;',
+	'int m_iExpectedPhysicalAdapterHandleCount;',
+	'int m_iExpectedPhysicalRuntimeMemberCount;',
 	'string m_sPreparedSemanticFingerprint;',
 	'string m_sRawPreparedCutSemanticFingerprint;', 'bool m_bRestored;',
 	'bool m_bStartupReconcileChanged;', 'bool m_bSourceExact;',
 	'bool m_bContinuationExact;', 'bool m_bSameStateSemanticNoOp;',
 	'bool m_bRuntimeClaimantsZero;', 'bool m_bPersistedReadBackExact;',
 	'bool m_bPreparedCutExact;', 'bool m_bCasualtyContinuityExact;',
+	'bool m_bPhysicalBindingsExact;', 'bool m_bLivePositionRefreshExact;',
+	'bool m_bPhysicalCaptureNormalizedExact;',
+	'int m_iPhysicalAdapterHandleCount;', 'int m_iPhysicalRuntimeMemberCount;',
 	'float m_fProgressBeforeMeters;', 'float m_fProgressAfterMeters;',
 	'string m_sSourceSemanticFingerprint;', 'string m_sFinalSemanticFingerprint;'
 )) {
@@ -33567,6 +33937,7 @@ foreach ($exactCounterRestartArtifactEntry in @(
 	'= "dematerializing_before_hold";',
 	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
 	'= "materializing_checkpoint_deferred";',
+	'static const string CUT_PHYSICAL_LIVE_POSITION = "physical_live_position";',
 	'static const string STAGE_PREPARE = "prepare";',
 	'static const string STAGE_RECOVER = "recover";',
 	'static const string STAGE_REPLAY = "replay";',
@@ -33600,6 +33971,8 @@ foreach ($exactCounterRestartCutMappingEntry in @(
 		'if (cutName == CUT_DEMATERIALIZING_BEFORE_HOLD)', 'return 1;'),
 	@('materializing resolve', $exactCounterRestartResolveCut,
 		'if (cutName == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)', 'return 2;'),
+	@('physical resolve', $exactCounterRestartResolveCut,
+		'if (cutName == CUT_PHYSICAL_LIVE_POSITION)', 'return 3;'),
 	@('unknown resolve', $exactCounterRestartResolveCut,
 		'return -1;', ''),
 	@('outbound name', $exactCounterRestartCutName,
@@ -33608,6 +33981,8 @@ foreach ($exactCounterRestartCutMappingEntry in @(
 		'if (cut == 1)', 'return CUT_DEMATERIALIZING_BEFORE_HOLD;'),
 	@('materializing name', $exactCounterRestartCutName,
 		'if (cut == 2)', 'return CUT_MATERIALIZING_CHECKPOINT_DEFERRED;'),
+	@('physical name', $exactCounterRestartCutName,
+		'if (cut == 3)', 'return CUT_PHYSICAL_LIVE_POSITION;'),
 	@('unknown name', $exactCounterRestartCutName,
 		'return "";', '')
 )) {
@@ -33627,6 +34002,10 @@ foreach ($exactCounterRestartCarrierGateEntry in @(
 	'expectedCut == CUT_OUTBOUND_VIRTUAL',
 	'expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD',
 	'expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'bool checkpointDeferredCut',
+	'if (checkpointDeferredCut',
+	'carrier.m_sRawPreparedCutSemanticFingerprint',
+	'== carrier.m_sPreparedSemanticFingerprint',
 	'expectation.m_sConfirmedCasualtySlotId.IsEmpty()',
 	'expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()',
 	'expectation.m_iExpectedNormalizedReprojectionCount != 0',
@@ -33681,18 +34060,16 @@ if ($exactCounterRestartOutboundCarrierCut -notmatch
 	'm_sRawPreparedCutSemanticFingerprint\s*!=\s*carrier\.m_sPreparedSemanticFingerprint') {
 	throw 'Exact counterattack outbound carrier must bind raw and normalized fingerprints as equal'
 }
-if ($exactCounterRestartDematerializingCarrierCut -notmatch
-	'm_sRawPreparedCutSemanticFingerprint\s*==\s*carrier\.m_sPreparedSemanticFingerprint') {
-	throw 'Exact counterattack dematerializing carrier must bind raw and normalized fingerprints as distinct'
+if ($exactCounterRestartCarrierValidation -notmatch
+	'checkpointDeferredCut\s*\r?\n\s*&&\s*carrier\.m_sRawPreparedCutSemanticFingerprint\s*\r?\n\s*==\s*carrier\.m_sPreparedSemanticFingerprint') {
+	throw 'Exact counterattack deferred carriers must bind raw and normalized fingerprints as distinct'
 }
 foreach ($exactCounterRestartMaterializingCarrierEntry in @(
 	'expectation.m_sConfirmedCasualtySlotId.IsEmpty()',
 	'expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()',
 	'expectation.m_iExpectedNormalizedReprojectionCount != 0',
 	'expectation.m_iLivingMemberCount',
-	'!= expectation.m_iAcceptedMemberCount',
-	'carrier.m_sRawPreparedCutSemanticFingerprint',
-	'== carrier.m_sPreparedSemanticFingerprint'
+	'!= expectation.m_iAcceptedMemberCount'
 )) {
 	if ($exactCounterRestartMaterializingCarrierCut.IndexOf(
 		$exactCounterRestartMaterializingCarrierEntry) -lt 0) {
@@ -33701,13 +34078,21 @@ foreach ($exactCounterRestartMaterializingCarrierEntry in @(
 }
 $exactCounterRestartResultValidation = Get-ScriptMethodBlock $exactCounterRestartArtifactText 'static bool ValidateResult('
 foreach ($exactCounterRestartResultEntry in @(
-	'!result.m_bSourceExact', '!result.m_bRuntimeClaimantsZero',
+	'!result.m_bSourceExact || !result.m_bRuntimeClaimantsZero',
 	'!result.m_bPersistedReadBackExact', 'expectedStage == STAGE_PREPARE',
 	'expectedStage == STAGE_RECOVER', 'expectedStage == STAGE_REPLAY',
 	'result.m_bContinuationExact', 'result.m_bSameStateSemanticNoOp',
 	'expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD',
 	'expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
+	'bool physicalCut = expectedCut == CUT_PHYSICAL_LIVE_POSITION;',
+	'result.m_bPhysicalBindingsExact',
+	'result.m_bLivePositionRefreshExact',
+	'result.m_bPhysicalCaptureNormalizedExact',
 	'!result.m_bPreparedCutExact', '!result.m_bCasualtyContinuityExact',
+	'expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD',
+	'result.m_sRawPreparedCutSemanticFingerprint',
+	'== result.m_sSourceSemanticFingerprint',
+	'== result.m_sFinalSemanticFingerprint',
 	'expectedProgressDelta',
 	'result.m_sSourceSemanticFingerprint', 'result.m_sFinalSemanticFingerprint',
 	'result.m_sRawPreparedCutSemanticFingerprint.IsEmpty()',
@@ -33718,14 +34103,25 @@ foreach ($exactCounterRestartResultEntry in @(
 		throw "Exact counterattack successful result semantic gate is incomplete: $exactCounterRestartResultEntry"
 	}
 }
+if ($exactCounterRestartResultValidation.IndexOf('runtimeGate') -ge 0 -or
+	$exactCounterRestartResultValidation.IndexOf(
+		'!result.m_bSourceExact || !result.m_bRuntimeClaimantsZero') -lt 0) {
+	throw 'Exact counterattack result validation must require zero runtime claimants for every successful physical prepare artifact'
+}
+if ($exactCounterRestartResultValidation.IndexOf(
+	'|| physicalCut)') -lt 0 -or
+	$exactCounterRestartResultValidation.IndexOf(
+	'result.m_sRawPreparedCutSemanticFingerprint') -lt 0) {
+	throw 'Exact counterattack deferred result validation must keep the raw cut distinct from both normalized source and final fingerprints'
+}
 
 $exactCounterRestartPrepareProof = Get-ScriptMethodBlock $exactCounterRestartProofText 'bool PrepareExternalRestartCarrier('
 foreach ($exactCounterRestartPrepareEntry in @(
 	'HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(',
 	'HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(runId)',
 	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
-	'materializing checkpoint cut requires the baseline-aware preparation API',
-	'PrepareExternalDematerializingRestartCarrier(',
+	'CUT_DEMATERIALIZING_BEFORE_HOLD',
+	'checkpoint-deferred cut requires a baseline-aware preparation API',
 	'HST_EnemyCounterattackOperationProofHarness production',
 	'production.UseDeterministicVirtualProjectionForProof();', 'production.TickOrder(',
 	'carrier.m_sSessionNonce = sessionNonce;',
@@ -33750,7 +34146,7 @@ $exactCounterRestartGenericDematerializingIndex = `
 if ($exactCounterRestartGenericMaterializingIndex -lt 0 -or
 	$exactCounterRestartGenericDematerializingIndex -le
 		$exactCounterRestartGenericMaterializingIndex) {
-	throw 'Exact counterattack generic preparation must fail closed on the baseline-aware materializing cut before ordinary cut dispatch'
+	throw 'Exact counterattack generic preparation must fail closed on both baseline-aware checkpoint-deferred cuts before ordinary preparation'
 }
 
 $exactCounterRestartBeginMaterializationWrapper = Get-ScriptMethodBlock `
@@ -33859,14 +34255,21 @@ foreach ($exactCounterRestartNoCasualtyEntry in @(
 	}
 }
 $exactCounterRestartDematerializingPrepare = Get-ScriptMethodBlock `
-	$exactCounterRestartProofText 'protected bool PrepareExternalDematerializingRestartCarrier('
+	$exactCounterRestartProofText 'bool PrepareExternalDematerializingRestartCarrier('
 foreach ($exactCounterRestartDematerializingPrepareEntry in @(
+	'out HST_CampaignState persistenceSourceState,',
+	'persistenceSourceState = null;',
+	'HST_EnemyCounterattackExternalRestartProofService.ValidateNonce(',
+	'HST_EnemyCounterattackExternalRestartProofService.ValidateRunId(',
+	'CUT_DEMATERIALIZING_BEFORE_HOLD',
 	'StageExternalDematerializingRawCut(',
 	'BuildExternalDematerializingExpectation(',
 	'BuildExternalDematerializingCarrier(',
 	'ValidateExternalDematerializingPreparedStates(',
 	'stagedState = fixture.m_State;',
+	'persistenceSourceState = normalizedState;',
 	'external exact counterattack staged DEMATERIALIZING before hold',
+	'retaining the canonical VIRTUAL baseline',
 	'accepted/living/casualties %1/%2/1'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartDematerializingPrepare) -or
@@ -33887,14 +34290,26 @@ $exactCounterRestartDematerializingCarrierIndex = `
 $exactCounterRestartDematerializingValidationIndex = `
 	$exactCounterRestartDematerializingPrepare.IndexOf(
 		'ValidateExternalDematerializingPreparedStates(')
+$exactCounterRestartDematerializingRawReturnIndex = `
+	$exactCounterRestartDematerializingPrepare.IndexOf(
+		'stagedState = fixture.m_State;')
+$exactCounterRestartDematerializingBaselineReturnIndex = `
+	$exactCounterRestartDematerializingPrepare.IndexOf(
+		'persistenceSourceState = normalizedState;')
 if ($exactCounterRestartDematerializingStageIndex -lt 0 -or
 	$exactCounterRestartDematerializingExpectationIndex -le
 		$exactCounterRestartDematerializingStageIndex -or
 	$exactCounterRestartDematerializingCarrierIndex -le
 		$exactCounterRestartDematerializingExpectationIndex -or
 	$exactCounterRestartDematerializingValidationIndex -le
-		$exactCounterRestartDematerializingCarrierIndex) {
-	throw 'Exact counterattack dematerializing preparation must stage, describe, serialize, and validate in order'
+		$exactCounterRestartDematerializingCarrierIndex -or
+	$exactCounterRestartDematerializingRawReturnIndex -le
+		$exactCounterRestartDematerializingValidationIndex -or
+	$exactCounterRestartDematerializingBaselineReturnIndex -le
+		$exactCounterRestartDematerializingRawReturnIndex -or
+	$exactCounterRestartDematerializingPrepare.IndexOf(
+		'persistenceSourceState = fixture.m_State;') -ge 0) {
+	throw 'Exact counterattack dematerializing preparation must stage and validate raw DEMATERIALIZING authority, then return its distinct normalized VIRTUAL baseline'
 }
 
 $exactCounterRestartDematerializingStage = Get-ScriptMethodBlock `
@@ -34329,7 +34744,7 @@ foreach ($exactCounterRestartBatchEntry in @(
 	'batch.m_sLastFailureReason.IsEmpty()',
 	'batch.m_bStrategicProjectionHeld',
 	'batch.m_sNativeGroupId.IsEmpty()',
-	'ValidateExternalQueuedSlots(batch, manifest, expected)'
+	'bool slotsExact = ValidateExternalQueuedSlots('
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartBatchProof) -or
 		$exactCounterRestartBatchProof.IndexOf($exactCounterRestartBatchEntry) -lt 0) {
@@ -34794,6 +35209,19 @@ foreach ($exactCounterRestartPrepareResultLoaderEntry in @(
 	'prepareResult.m_sRawPreparedCutSemanticFingerprint',
 	'!= m_ExactCounterattackRestartCarrier',
 	'.m_sRawPreparedCutSemanticFingerprint)',
+	'CUT_PHYSICAL_LIVE_POSITION',
+	'prepareResult.m_bRuntimeClaimantsZero',
+	'prepareResult.m_bPhysicalBindingsExact',
+	'prepareResult.m_bLivePositionRefreshExact',
+	'prepareResult.m_bPhysicalCaptureNormalizedExact',
+	'prepareResult.m_iPhysicalAdapterHandleCount',
+	'm_iExpectedPhysicalAdapterHandleCount',
+	'prepareResult.m_iPhysicalRuntimeMemberCount',
+	'm_iExpectedPhysicalRuntimeMemberCount',
+	'prepareResult.m_vInjectedStalePosition',
+	'm_ExactCounterattackRestartCarrier.m_vInjectedStalePosition',
+	'prepareResult.m_vPreparedLivePosition',
+	'm_ExactCounterattackRestartCarrier.m_vPreparedLivePosition',
 	'return true;'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartPrepareResultLoader) -or
@@ -34933,12 +35361,104 @@ if ($exactCounterRestartDeferralFirstRawIndex -lt 0 -or
 		$exactCounterRestartDeferralCanonicalReadIndex) {
 	throw 'Exact counterattack materializing deferral must validate raw authority, observe capture rejection, retain raw state, then independently reread and validate the unchanged canonical VIRTUAL checkpoint'
 }
+$exactCounterRestartDematerializingDeferral = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool ProveExactCounterattackDematerializingCheckpointDeferred('
+foreach ($exactCounterRestartDematerializingDeferralEntry in @(
+	'CUT_DEMATERIALIZING_BEFORE_HOLD',
+	'proof.ValidateExternalDematerializingCutState(',
+	'rawFingerprint',
+	'!= carrier.m_sRawPreparedCutSemanticFingerprint',
+	'proof.ValidateExternalRuntimeClaimantsZero(',
+	'canonicalBeforeState',
+	'm_Persistence.ReadProfileFallbackProofSnapshot(',
+	'proof.ValidateExternalVirtualState(',
+	'canonicalBeforeFingerprint',
+	'== carrier.m_sPreparedSemanticFingerprint',
+	'proof.ValidateExternalCasualtyContinuity(',
+	'm_State = stagedState;',
+	'HST_CampaignSaveData rejectedCapture = m_Persistence.CaptureAndTrackState(',
+	'bool deferred = !rejectedCapture',
+	'checkpoint deferred: exact enemy response dematerialization is in progress',
+	'string expectedOperationId = carrier.m_Expectation.m_sOperationId;',
+	'if (expectedOperationId.Length() > 72)',
+	'expectedOperationId = expectedOperationId.Substring(0, 69) + "...";',
+	'"operation " + expectedOperationId',
+	'm_State.m_sLastPersistenceStatus.Contains(expectedStatus)',
+	'm_State.m_sLastPersistenceStatus.Contains(expectedOperationStatus)',
+	'bool rawRetained = proof.ValidateExternalDematerializingCutState(',
+	'retainedRawFingerprint',
+	'== carrier.m_sRawPreparedCutSemanticFingerprint;',
+	'canonicalAfterState',
+	'canonicalAfterFingerprint',
+	'canonicalAfterFingerprint == canonicalBeforeFingerprint',
+	'return deferred && rawRetained && canonicalUnchanged;'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartDematerializingDeferral) -or
+		$exactCounterRestartDematerializingDeferral.IndexOf(
+			$exactCounterRestartDematerializingDeferralEntry) -lt 0) {
+		throw "Exact counterattack dematerializing checkpoint-deferral proof is incomplete: $exactCounterRestartDematerializingDeferralEntry"
+	}
+}
+$exactCounterRestartDematDeferralFirstRawIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'proof.ValidateExternalDematerializingCutState(')
+$exactCounterRestartDematDeferralBeforeReadIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'm_Persistence.ReadProfileFallbackProofSnapshot(')
+$exactCounterRestartDematDeferralBeforeValidationIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'proof.ValidateExternalVirtualState(')
+$exactCounterRestartDematDeferralCaptureIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'm_Persistence.CaptureAndTrackState(')
+$exactCounterRestartDematDeferralRejectedIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'bool deferred = !rejectedCapture')
+$exactCounterRestartDematDeferralSecondRawIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'proof.ValidateExternalDematerializingCutState(',
+		[Math]::Max(0, $exactCounterRestartDematDeferralFirstRawIndex + 1))
+$exactCounterRestartDematDeferralAfterReadIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'm_Persistence.ReadProfileFallbackProofSnapshot(',
+		[Math]::Max(0, $exactCounterRestartDematDeferralBeforeReadIndex + 1))
+$exactCounterRestartDematDeferralAfterValidationIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'proof.ValidateExternalVirtualState(',
+		[Math]::Max(0, $exactCounterRestartDematDeferralBeforeValidationIndex + 1))
+$exactCounterRestartDematDeferralUnchangedIndex = `
+	$exactCounterRestartDematerializingDeferral.IndexOf(
+		'canonicalAfterFingerprint == canonicalBeforeFingerprint')
+if ($exactCounterRestartDematDeferralFirstRawIndex -lt 0 -or
+	$exactCounterRestartDematDeferralBeforeReadIndex -le
+		$exactCounterRestartDematDeferralFirstRawIndex -or
+	$exactCounterRestartDematDeferralBeforeValidationIndex -le
+		$exactCounterRestartDematDeferralBeforeReadIndex -or
+	$exactCounterRestartDematDeferralCaptureIndex -le
+		$exactCounterRestartDematDeferralBeforeValidationIndex -or
+	$exactCounterRestartDematDeferralRejectedIndex -le
+		$exactCounterRestartDematDeferralCaptureIndex -or
+	$exactCounterRestartDematDeferralSecondRawIndex -le
+		$exactCounterRestartDematDeferralRejectedIndex -or
+	$exactCounterRestartDematDeferralAfterReadIndex -le
+		$exactCounterRestartDematDeferralSecondRawIndex -or
+	$exactCounterRestartDematDeferralAfterValidationIndex -le
+		$exactCounterRestartDematDeferralAfterReadIndex -or
+	$exactCounterRestartDematDeferralUnchangedIndex -le
+		$exactCounterRestartDematDeferralAfterValidationIndex) {
+	throw 'Exact counterattack dematerializing deferral must validate raw authority, establish the canonical VIRTUAL baseline, observe the operation-bound production rejection, retain the raw clone, and prove canonical N-1 authority unchanged'
+}
 $exactCounterRestartPrepare = Get-ScriptMethodBlock $exactCounterRestartCoordinatorText 'protected void FinalizeExactCounterattackExternalRestartPrepare()'
 foreach ($exactCounterRestartPrepareReadbackEntry in @(
 	'HST_CampaignState persistenceSourceState;',
 	'bool materializingDeferredCut',
+	'bool dematerializingDeferredCut',
+	'CUT_DEMATERIALIZING_BEFORE_HOLD',
 	'CUT_MATERIALIZING_CHECKPOINT_DEFERRED',
-	'if (materializingDeferredCut)',
+	'if (dematerializingDeferredCut)',
+	'proof.PrepareExternalDematerializingRestartCarrier(',
+	'else if (materializingDeferredCut)',
 	'proof.PrepareExternalMaterializingRestartCarrier(',
 	'persistenceSourceState,',
 	'proof.PrepareExternalRestartCarrier(',
@@ -34951,6 +35471,7 @@ foreach ($exactCounterRestartPrepareReadbackEntry in @(
 	'readBackFingerprint != carrier.m_sPreparedSemanticFingerprint',
 	'bool preparedCutExact;',
 	'if (runtimeZero)',
+	'ProveExactCounterattackDematerializingCheckpointDeferred(',
 	'ProveExactCounterattackMaterializingCheckpointDeferred(',
 	'preparedCutExact = TrackExactCounterattackRawPreparedCut(',
 	'm_bExactCounterattackRestartPreparedCutExact',
@@ -34969,6 +35490,9 @@ foreach ($exactCounterRestartPrepareReadbackEntry in @(
 		throw "Exact counterattack prepare readback drift evidence is incomplete: $exactCounterRestartPrepareReadbackEntry"
 	}
 }
+$exactCounterRestartPrepareDematerializingDispatchIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'proof.PrepareExternalDematerializingRestartCarrier(')
 $exactCounterRestartPrepareMaterializingDispatchIndex = `
 	$exactCounterRestartPrepare.IndexOf(
 		'proof.PrepareExternalMaterializingRestartCarrier(')
@@ -34978,7 +35502,10 @@ $exactCounterRestartPrepareGenericDispatchIndex = `
 $exactCounterRestartPreparePersistSourceIndex = `
 	$exactCounterRestartPrepare.IndexOf(
 		'm_Persistence.WriteProfileFallbackProofSnapshot(')
-$exactCounterRestartPrepareDeferralIndex = `
+$exactCounterRestartPrepareDematerializingDeferralIndex = `
+	$exactCounterRestartPrepare.IndexOf(
+		'ProveExactCounterattackDematerializingCheckpointDeferred(')
+$exactCounterRestartPrepareMaterializingDeferralIndex = `
 	$exactCounterRestartPrepare.IndexOf(
 		'ProveExactCounterattackMaterializingCheckpointDeferred(')
 $exactCounterRestartPrepareTrackOtherCutIndex = `
@@ -34986,24 +35513,29 @@ $exactCounterRestartPrepareTrackOtherCutIndex = `
 		'preparedCutExact = TrackExactCounterattackRawPreparedCut(')
 $exactCounterRestartPrepareSuccessIndex = $exactCounterRestartPrepare.IndexOf(
 	'result.m_bSuccess = prepared && carrierSaved && persisted;')
-if ($exactCounterRestartPrepareMaterializingDispatchIndex -lt 0 -or
+if ($exactCounterRestartPrepareDematerializingDispatchIndex -lt 0 -or
+	$exactCounterRestartPrepareMaterializingDispatchIndex -le
+		$exactCounterRestartPrepareDematerializingDispatchIndex -or
 	$exactCounterRestartPrepareGenericDispatchIndex -le
 		$exactCounterRestartPrepareMaterializingDispatchIndex -or
 	$exactCounterRestartPreparePersistSourceIndex -le
 		$exactCounterRestartPrepareGenericDispatchIndex -or
-	$exactCounterRestartPrepareDeferralIndex -le
+	$exactCounterRestartPrepareDematerializingDeferralIndex -le
 		$exactCounterRestartPreparePersistSourceIndex -or
+	$exactCounterRestartPrepareMaterializingDeferralIndex -le
+		$exactCounterRestartPrepareDematerializingDeferralIndex -or
 	$exactCounterRestartPrepareTrackOtherCutIndex -le
-		$exactCounterRestartPrepareDeferralIndex -or
+		$exactCounterRestartPrepareMaterializingDeferralIndex -or
 	$exactCounterRestartPrepareSuccessIndex -le
 		$exactCounterRestartPrepareTrackOtherCutIndex) {
-	throw 'Exact counterattack prepare must select the baseline-aware materializing path, persist its VIRTUAL source, prove deferral, preserve legacy raw tracking for other cuts, and gate success afterward'
+	throw 'Exact counterattack prepare must select each baseline-aware deferred path, persist its VIRTUAL source, prove deferral, restrict raw tracking to outbound VIRTUAL, and gate success afterward'
 }
 $exactCounterRestartRawCutTracker = Get-ScriptMethodBlock `
 	$exactCounterRestartCoordinatorText `
 	'protected bool TrackExactCounterattackRawPreparedCut('
 $exactCounterRestartRawCutTrackerEntries = @(
-	'if (!proof || !stagedState || !carrier)',
+	'if (!proof || !stagedState || !carrier',
+	'CUT_OUTBOUND_VIRTUAL',
 	'proof.ValidateExternalPreparedCutState(',
 	'rawFingerprint != carrier.m_sRawPreparedCutSemanticFingerprint',
 	'HST_CampaignSaveData trackedRawSave = m_Persistence.CaptureAndTrackState(',
@@ -35059,16 +35591,163 @@ if ($exactCounterRestartFailedResultIndex -lt 0 -or
 	throw "Every exact counterattack restart branch must publish its final result before process close"
 }
 
+$exactCounterRestartPhysicalBaseline = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'bool PrepareExternalPhysicalRestartBaseline('
+foreach ($exactCounterRestartPhysicalBaselineEntry in @(
+	'PrepareExternalRestartCarrier(',
+	'HST_EnemyCounterattackExternalRestartProofService.CUT_OUTBOUND_VIRTUAL',
+	'carrier.m_sCutName = cutName;',
+	'm_bExpectedLivingSlotsEverAlive = true;',
+	'm_iExpectedNormalizedSlotAttemptCount = 1;',
+	'm_iExpectedNormalizedReprojectionCount = 1;',
+	'm_iExpectedPhysicalAdapterHandleCount',
+	'm_iExpectedPhysicalRuntimeMemberCount'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPhysicalBaseline) -or
+		$exactCounterRestartPhysicalBaseline.IndexOf(
+			$exactCounterRestartPhysicalBaselineEntry) -lt 0) {
+		throw "Exact counterattack physical restart baseline is incomplete: $exactCounterRestartPhysicalBaselineEntry"
+	}
+}
+$exactCounterRestartPhysicalValidator = Get-ScriptMethodBlock `
+	$exactCounterRestartProofText `
+	'bool ValidateExternalPhysicalCutState('
+foreach ($exactCounterRestartPhysicalValidatorEntry in @(
+	'HST_OPERATION_MATERIALIZATION_PHYSICAL',
+	'HST_OPERATION_POSITION_LIVE',
+	'HST_FORCE_SPAWN_SUCCEEDED',
+	'CountHandlesForProjection(',
+	'CountHandlesForResultId(',
+	'CountForceSpawnRuntimeMembers(group)',
+	'GetForceSpawnGroupRoot(group)',
+	'ValidateExactLivingProjectionBindingsForPersistence(',
+	'carrier.m_vPreparedLivePosition',
+	'carrier.m_sRawPreparedCutSemanticFingerprint'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPhysicalValidator) -or
+		$exactCounterRestartPhysicalValidator.IndexOf(
+			$exactCounterRestartPhysicalValidatorEntry) -lt 0) {
+		throw "Exact counterattack physical cut validator is incomplete: $exactCounterRestartPhysicalValidatorEntry"
+	}
+}
+$exactCounterRestartPhysicalAdvance = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool AdvanceExactCounterattackExternalPhysicalPrepare()'
+foreach ($exactCounterRestartPhysicalAdvanceEntry in @(
+	'PrepareExternalPhysicalRestartBaseline(',
+	'm_State = stagedState;',
+	'BeginMaterializationForProof(',
+	'm_ForceSpawnAdapter.DebugTickProjection(',
+	'EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CONFIRM',
+	'm_EnemyCommander.DebugTickExactCounterattackOrderRuntime(',
+	'ValidateExactLivingProjectionBindingsForPersistence(',
+	'EXACT_COUNTERATTACK_PHYSICAL_PREPARE_STAGE_CAPTURE',
+	'CaptureExactCounterattackExternalPhysicalPrepare(context)'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPhysicalAdvance) -or
+		$exactCounterRestartPhysicalAdvance.IndexOf(
+			$exactCounterRestartPhysicalAdvanceEntry) -lt 0) {
+		throw "Exact counterattack frame-driven physical prepare is incomplete: $exactCounterRestartPhysicalAdvanceEntry"
+	}
+}
+$exactCounterRestartPhysicalCapture = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected void CaptureExactCounterattackExternalPhysicalPrepare('
+foreach ($exactCounterRestartPhysicalCaptureEntry in @(
+	'm_PhysicalWar.TryResolveExactEnemyResponseLivePosition(',
+	'context.m_Carrier.m_vPreparedLivePosition',
+	'group.m_vPosition = context.m_vInjectedStalePosition;',
+	'operation.m_vStrategicPosition = context.m_vInjectedStalePosition;',
+	'm_Persistence.WriteProfileFallbackProofSnapshot(',
+	'vector nativeLivePositionAfter;',
+	'bool nativeLivePositionStable',
+	'ExactCounterattackExternalPositionsMatch(',
+	'bool durablePositionRefreshed',
+	'bool normalizedPositionExact',
+	'context.m_bLivePositionRefreshExact',
+	'proof.ValidateExternalPhysicalCutState(',
+	'proof.ValidateExternalVirtualState(',
+	'readBackBatch.m_iReprojectionCount == 1',
+	'HST_EnemyCounterattackExternalRestartProofService.SaveCarrier(',
+	'CleanupExactCounterattackExternalPhysicalPrepare('
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPhysicalCapture) -or
+		$exactCounterRestartPhysicalCapture.IndexOf(
+			$exactCounterRestartPhysicalCaptureEntry) -lt 0) {
+		throw "Exact counterattack physical capture proof is incomplete: $exactCounterRestartPhysicalCaptureEntry"
+	}
+}
+$exactCounterRestartPhysicalOracleBeforeIndex = `
+	$exactCounterRestartPhysicalCapture.IndexOf(
+		'm_PhysicalWar.TryResolveExactEnemyResponseLivePosition(')
+$exactCounterRestartPhysicalStaleIndex = `
+	$exactCounterRestartPhysicalCapture.IndexOf(
+		'group.m_vPosition = context.m_vInjectedStalePosition;')
+$exactCounterRestartPhysicalPersistenceIndex = `
+	$exactCounterRestartPhysicalCapture.IndexOf(
+		'm_Persistence.WriteProfileFallbackProofSnapshot(')
+$exactCounterRestartPhysicalOracleAfterIndex = `
+	$exactCounterRestartPhysicalCapture.IndexOf(
+		'm_PhysicalWar.TryResolveExactEnemyResponseLivePosition(',
+		[Math]::Max(0, $exactCounterRestartPhysicalOracleBeforeIndex + 1))
+if ($exactCounterRestartPhysicalOracleBeforeIndex -lt 0 -or
+	$exactCounterRestartPhysicalStaleIndex -le
+		$exactCounterRestartPhysicalOracleBeforeIndex -or
+	$exactCounterRestartPhysicalPersistenceIndex -le
+		$exactCounterRestartPhysicalStaleIndex -or
+	$exactCounterRestartPhysicalOracleAfterIndex -le
+		$exactCounterRestartPhysicalPersistenceIndex) {
+	throw 'Exact counterattack physical capture must sample native live position before durable corruption and independently recheck it after production persistence'
+}
+$exactCounterRestartPhysicalCleanup = Get-ScriptMethodBlock `
+	$exactCounterRestartCoordinatorText `
+	'protected bool CleanupExactCounterattackExternalPhysicalPrepare('
+foreach ($exactCounterRestartPhysicalCleanupEntry in @(
+	'if (!group || handlesBefore > 0 || runtimeBefore > 0',
+	'DebugRetireProjectionRuntime(',
+	'expected.m_sProjectionId,',
+	'expected.m_sBatchId);',
+	'handlesAfter == 0',
+	'resultHandlesAfter == 0',
+	'runtimeAfter == 0'
+)) {
+	if ([string]::IsNullOrEmpty($exactCounterRestartPhysicalCleanup) -or
+		$exactCounterRestartPhysicalCleanup.IndexOf(
+			$exactCounterRestartPhysicalCleanupEntry) -lt 0) {
+		throw "Exact counterattack physical cleanup is incomplete: $exactCounterRestartPhysicalCleanupEntry"
+	}
+}
+foreach ($exactCounterRestartPhysicalArtifactEntry in @(
+	'CUT_PHYSICAL_LIVE_POSITION',
+	'carrier.m_iExpectedPhysicalAdapterHandleCount',
+	'carrier.m_iExpectedPhysicalRuntimeMemberCount',
+	'result.m_bPhysicalBindingsExact',
+	'result.m_bLivePositionRefreshExact',
+	'result.m_bPhysicalCaptureNormalizedExact'
+)) {
+	if ($exactCounterRestartArtifactText.IndexOf(
+		$exactCounterRestartPhysicalArtifactEntry) -lt 0) {
+		throw "Exact counterattack physical artifact gate is incomplete: $exactCounterRestartPhysicalArtifactEntry"
+	}
+}
+if ($exactCounterRestartDataText.IndexOf(
+	'class HST_EnemyCounterattackExternalPhysicalPrepareContext') -lt 0) {
+	throw 'Exact counterattack physical prepare must use a frame-owned context DTO'
+}
+
 foreach ($exactCounterRestartLauncherEntry in @(
 	'[ValidateSet(',
 	'"outbound_virtual",',
 	'"dematerializing_before_hold",',
-	'"materializing_checkpoint_deferred")]',
+	'"materializing_checkpoint_deferred",',
+	'"physical_live_position")]',
 	'[string]$CutName = "outbound_virtual"',
 	'$script:CutOrdinals = @{',
 	'outbound_virtual = 0',
 	'dematerializing_before_hold = 1',
 	'materializing_checkpoint_deferred = 2',
+	'physical_live_position = 3',
 	'$script:SupportedCutNames = @(',
 	'$script:CutName = $CutName.ToLowerInvariant()',
 	'$script:CutOrdinal = [int]$script:CutOrdinals[$script:CutName]',
@@ -35126,6 +35805,14 @@ foreach ($exactCounterRestartLauncherCarrierEntry in @(
 	'$uniqueLivingSlotIds.Count -ne $livingSlotIds.Count',
 	'$script:CutName -ceq "outbound_virtual"',
 	'$script:CutName -ceq "dematerializing_before_hold"',
+	'$script:CutName -ceq "materializing_checkpoint_deferred"',
+	'$script:CutName -ceq "physical_live_position"',
+	'm_bExpectedLivingSlotsEverAlive',
+	'm_iExpectedNormalizedSlotAttemptCount',
+	'm_iExpectedPhysicalAdapterHandleCount',
+	'm_iExpectedPhysicalRuntimeMemberCount',
+	'm_vInjectedStalePosition',
+	'm_vPreparedLivePosition',
 	'$rawCutFingerprint -cne $normalizedFingerprint',
 	'$rawCutFingerprint -ceq $normalizedFingerprint',
 	'$casualtyFingerprint = [string]$expectation.m_sCasualtyTombstoneFingerprint',
@@ -35134,8 +35821,10 @@ foreach ($exactCounterRestartLauncherCarrierEntry in @(
 	'[int]$expectation.m_iExpectedNormalizedReprojectionCount -ne 0',
 	'[int]$expectation.m_iLivingMemberCount -ne',
 	'[int]$expectation.m_iAcceptedMemberCount',
+	'$zeroProgressCut = $script:CutName -ceq "dematerializing_before_hold" -or',
+	'$script:CutName -ceq "physical_live_position"',
 	'$progressInvalid = $progress -lt 0.0 -or',
-	'($script:CutName -cne "dematerializing_before_hold" -and',
+	'(-not $zeroProgressCut -and $progress -le 0.0)',
 	'$progressInvalid -or $total -le $progress'
 )) {
 	if ([string]::IsNullOrEmpty($exactCounterRestartLauncherCarrierGate) -or
@@ -35186,6 +35875,8 @@ try {
 		m_iAcceptedMemberCount = 3
 		m_iLivingMemberCount = 2
 		m_sLivingSlotFingerprint = 'member-01,member-02'
+		m_bExpectedLivingSlotsEverAlive = $false
+		m_iExpectedNormalizedSlotAttemptCount = 0
 		m_sConfirmedCasualtySlotId = 'member-03'
 		m_sCasualtyTombstoneFingerprint = 'member-03|retired|confirmed'
 		m_iExpectedNormalizedReprojectionCount = 1
@@ -35207,6 +35898,10 @@ try {
 		m_fPreparedRouteProgressMeters = 0.0
 		m_fPreparedRouteTotalDistanceMeters = 100.0
 		m_vPreparedStrategicPosition = '100 0 200'
+		m_vInjectedStalePosition = '0 0 0'
+		m_vPreparedLivePosition = '0 0 0'
+		m_iExpectedPhysicalAdapterHandleCount = 0
+		m_iExpectedPhysicalRuntimeMemberCount = 0
 		m_sPreparedSemanticFingerprint = 'normalized-self-test'
 		m_sRawPreparedCutSemanticFingerprint = 'raw-self-test'
 	}
@@ -35232,6 +35927,32 @@ try {
 			m_sCasualtyTombstoneFingerprint -cne
 			'member-03|retired|confirmed') {
 		throw 'Exact counterattack launcher did not accept the valid isolated dematerializing carrier'
+	}
+	$exactCounterRestartCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'normalized-self-test'
+	$exactCounterRestartCollapsedDematerializingCarrierRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Carrier, $ExpectedBuild)
+				Assert-PreparedCarrier `
+					-Carrier $Carrier `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-ExpectedBuild $ExpectedBuild
+			} $exactCounterRestartCarrierSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartCollapsedDematerializingCarrierRejected = `
+			$_.Exception.Message -ceq `
+			'dematerializing_before_hold carrier dematerializing expectation is not exact.'
+	}
+	finally {
+		$exactCounterRestartCarrierSelfTest.
+			m_sRawPreparedCutSemanticFingerprint = 'raw-self-test'
+	}
+	if (-not $exactCounterRestartCollapsedDematerializingCarrierRejected) {
+		throw 'Exact counterattack launcher did not reject a dematerializing carrier collapsed into its normalized checkpoint'
 	}
 
 	$exactCounterRestartOriginalTombstone = `
@@ -35355,6 +36076,53 @@ try {
 	if (-not $exactCounterRestartCollapsedMaterializingCarrierRejected) {
 		throw 'Exact counterattack launcher did not reject a materializing carrier collapsed into its normalized checkpoint'
 	}
+
+	$exactCounterRestartPhysicalExpectationSelfTest = `
+		$exactCounterRestartMaterializingExpectationSelfTest.PSObject.Copy()
+	$exactCounterRestartPhysicalExpectationSelfTest.
+		m_bExpectedLivingSlotsEverAlive = $true
+	$exactCounterRestartPhysicalExpectationSelfTest.
+		m_iExpectedNormalizedSlotAttemptCount = 1
+	$exactCounterRestartPhysicalExpectationSelfTest.
+		m_iExpectedNormalizedReprojectionCount = 1
+	$exactCounterRestartPhysicalCarrierSelfTest = `
+		$exactCounterRestartMaterializingCarrierSelfTest.PSObject.Copy()
+	$exactCounterRestartPhysicalCarrierSelfTest.m_sCutName = `
+		'physical_live_position'
+	$exactCounterRestartPhysicalCarrierSelfTest.m_iCut = 3
+	$exactCounterRestartPhysicalCarrierSelfTest.m_Expectation = `
+		$exactCounterRestartPhysicalExpectationSelfTest
+	$exactCounterRestartPhysicalCarrierSelfTest.
+		m_fPreparedRouteProgressMeters = 0.0
+	$exactCounterRestartPhysicalCarrierSelfTest.
+		m_vInjectedStalePosition = '411 0 -27'
+	$exactCounterRestartPhysicalCarrierSelfTest.
+		m_vPreparedLivePosition = '100 0 200'
+	$exactCounterRestartPhysicalCarrierSelfTest.
+		m_iExpectedPhysicalAdapterHandleCount = 4
+	$exactCounterRestartPhysicalCarrierSelfTest.
+		m_iExpectedPhysicalRuntimeMemberCount = 3
+	$exactCounterRestartPhysicalCarrierSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'raw-physical-self-test'
+	& $exactCounterRestartCarrierSelfTestModule {
+		$script:CutName = 'physical_live_position'
+		$script:CutOrdinal = 3
+	}
+	$exactCounterRestartValidatedPhysicalCarrier = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Carrier, $ExpectedBuild)
+			Assert-PreparedCarrier `
+				-Carrier $Carrier `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-ExpectedBuild $ExpectedBuild
+		} $exactCounterRestartPhysicalCarrierSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedPhysicalCarrier -or
+		[int]$exactCounterRestartValidatedPhysicalCarrier.
+			m_iExpectedPhysicalAdapterHandleCount -ne 4) {
+		throw 'Exact counterattack launcher did not accept the exact physical live-position carrier'
+	}
 	& $exactCounterRestartCarrierSelfTestModule {
 		$script:CutName = 'dematerializing_before_hold'
 		$script:CutOrdinal = 1
@@ -35383,6 +36151,13 @@ try {
 		m_bPersistedReadBackExact = $true
 		m_bPreparedCutExact = $true
 		m_bCasualtyContinuityExact = $true
+		m_bPhysicalBindingsExact = $false
+		m_bLivePositionRefreshExact = $false
+		m_bPhysicalCaptureNormalizedExact = $false
+		m_iPhysicalAdapterHandleCount = 0
+		m_iPhysicalRuntimeMemberCount = 0
+		m_vInjectedStalePosition = '0 0 0'
+		m_vPreparedLivePosition = '0 0 0'
 		m_fProgressBeforeMeters = 0.0
 		m_fProgressAfterMeters = 0.0
 		m_sSourceSemanticFingerprint = 'normalized-self-test'
@@ -35406,6 +36181,30 @@ try {
 		[string]$exactCounterRestartValidatedStageResult.
 			m_sRawPreparedCutSemanticFingerprint -cne 'raw-self-test') {
 		throw 'Exact counterattack launcher did not accept the valid raw-bound prepare result'
+	}
+	$exactCounterRestartStageResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'normalized-self-test'
+	$exactCounterRestartCollapsedDematerializingResultRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartStageResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartCollapsedDematerializingResultRejected = `
+			$_.Exception.Message -ceq `
+			'dematerializing_before_hold/prepare result collapsed a checkpoint-deferred cut into normalized virtual state.'
+	}
+	if (-not $exactCounterRestartCollapsedDematerializingResultRejected) {
+		throw 'Exact counterattack launcher did not reject a dematerializing result collapsed into its normalized checkpoint'
 	}
 
 	$exactCounterRestartStageResultSelfTest.
@@ -35480,7 +36279,7 @@ try {
 	catch {
 		$exactCounterRestartCollapsedMaterializingResultRejected = `
 			$_.Exception.Message -ceq `
-			'materializing_checkpoint_deferred/prepare result collapsed the materializing cut into normalized virtual state.'
+			'materializing_checkpoint_deferred/prepare result collapsed a checkpoint-deferred cut into normalized virtual state.'
 	}
 	if (-not $exactCounterRestartCollapsedMaterializingResultRejected) {
 		throw 'Exact counterattack launcher did not reject a materializing result collapsed into its normalized checkpoint'
@@ -35511,6 +36310,92 @@ try {
 	if (-not $exactCounterRestartUnprovenMaterializingResultRejected) {
 		throw 'Exact counterattack launcher did not reject an unproven materializing prepare result'
 	}
+
+	$exactCounterRestartPhysicalResultSelfTest = `
+		$exactCounterRestartStageResultSelfTest.PSObject.Copy()
+	$exactCounterRestartPhysicalResultSelfTest.m_sCutName = `
+		'physical_live_position'
+	$exactCounterRestartPhysicalResultSelfTest.m_iCut = 3
+	$exactCounterRestartPhysicalResultSelfTest.
+		m_sRawPreparedCutSemanticFingerprint = 'raw-physical-self-test'
+	$exactCounterRestartPhysicalResultSelfTest.m_bPhysicalBindingsExact = $true
+	$exactCounterRestartPhysicalResultSelfTest.m_bLivePositionRefreshExact = $true
+	$exactCounterRestartPhysicalResultSelfTest.
+		m_bPhysicalCaptureNormalizedExact = $true
+	$exactCounterRestartPhysicalResultSelfTest.m_iPhysicalAdapterHandleCount = 4
+	$exactCounterRestartPhysicalResultSelfTest.m_iPhysicalRuntimeMemberCount = 3
+	$exactCounterRestartPhysicalResultSelfTest.m_vInjectedStalePosition = `
+		'411 0 -27'
+	$exactCounterRestartPhysicalResultSelfTest.m_vPreparedLivePosition = `
+		'100 0 200'
+	& $exactCounterRestartCarrierSelfTestModule {
+		$script:CutName = 'physical_live_position'
+		$script:CutOrdinal = 3
+	}
+	$exactCounterRestartValidatedPhysicalResult = `
+		& $exactCounterRestartCarrierSelfTestModule {
+			param($Result, $ExpectedBuild)
+			Assert-StageResult `
+				-Result $Result `
+				-SessionNonce '0123456789abcdef0123456789abcdef' `
+				-RunId 'foundation-carrier-self-test' `
+				-Stage 'prepare' `
+				-ExpectedBuild $ExpectedBuild `
+				-ExpectedWorld 'worlds/partisan_self_test.ent'
+		} $exactCounterRestartPhysicalResultSelfTest `
+			$exactCounterRestartCarrierSelfTestBuild
+	if ($null -eq $exactCounterRestartValidatedPhysicalResult -or
+		-not [bool]$exactCounterRestartValidatedPhysicalResult.
+			m_bPhysicalCaptureNormalizedExact) {
+		throw 'Exact counterattack launcher did not accept the exact physical capture result'
+	}
+	$exactCounterRestartPhysicalResultSelfTest.m_bRuntimeClaimantsZero = $false
+	$exactCounterRestartLeakingPhysicalResultRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartPhysicalResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartLeakingPhysicalResultRejected = `
+			$_.Exception.Message -ceq `
+			'physical_live_position/prepare result omitted a required success invariant.'
+	}
+	if (-not $exactCounterRestartLeakingPhysicalResultRejected) {
+		throw 'Exact counterattack launcher did not reject a physical result with live runtime claimants'
+	}
+	$exactCounterRestartPhysicalResultSelfTest.m_bRuntimeClaimantsZero = $true
+	$exactCounterRestartPhysicalResultSelfTest.m_bLivePositionRefreshExact = $false
+	$exactCounterRestartUnrefreshedPhysicalResultRejected = $false
+	try {
+		[void](& $exactCounterRestartCarrierSelfTestModule {
+				param($Result, $ExpectedBuild)
+				Assert-StageResult `
+					-Result $Result `
+					-SessionNonce '0123456789abcdef0123456789abcdef' `
+					-RunId 'foundation-carrier-self-test' `
+					-Stage 'prepare' `
+					-ExpectedBuild $ExpectedBuild `
+					-ExpectedWorld 'worlds/partisan_self_test.ent'
+			} $exactCounterRestartPhysicalResultSelfTest `
+				$exactCounterRestartCarrierSelfTestBuild)
+	}
+	catch {
+		$exactCounterRestartUnrefreshedPhysicalResultRejected = `
+			$_.Exception.Message -ceq `
+			'physical_live_position/prepare result omitted a physical capture gate.'
+	}
+	if (-not $exactCounterRestartUnrefreshedPhysicalResultRejected) {
+		throw 'Exact counterattack launcher did not reject missing live-position refresh evidence'
+	}
 }
 finally {
 	if ($exactCounterRestartCarrierSelfTestModule) {
@@ -35526,11 +36411,10 @@ foreach ($exactCounterRestartLauncherResultEntry in @(
 	'"m_sRawPreparedCutSemanticFingerprint"',
 	'[string]$Result.m_sRawPreparedCutSemanticFingerprint',
 	'$script:CutName -cne "outbound_virtual"',
-	'$script:CutName -ceq "materializing_checkpoint_deferred"',
 	'[string]$Result.m_sRawPreparedCutSemanticFingerprint -ceq',
 	'[string]$Result.m_sSourceSemanticFingerprint',
 	'[string]$Result.m_sFinalSemanticFingerprint',
-	'collapsed the materializing cut into normalized virtual state',
+	'collapsed a checkpoint-deferred cut into normalized virtual state',
 	'ConvertTo-SafeEvidenceLine', '$Result.m_sEvidence',
 	'$Stage -eq "prepare"',
 	'$Stage -eq "recover"'
@@ -36101,7 +36985,7 @@ if (([regex]::Matches(
 	throw 'Guarded Workbench launcher must expose one sentinel-authorized recursive deletion path'
 }
 
-Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL, dematerializing-before-hold, and deferred-MATERIALIZING process-restart contract OK"
+Write-Host "Guarded exact enemy counterattack outbound-VIRTUAL, deferred-DEMATERIALIZING, deferred-MATERIALIZING, and native PHYSICAL/LIVE process-restart contract OK"
 
 Write-Host "Guarded Workbench disposable profile, dead-owner recovery, and zero-leftover boundary contract OK"
 

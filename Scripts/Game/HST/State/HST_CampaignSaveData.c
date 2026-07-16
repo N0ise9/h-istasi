@@ -4308,8 +4308,13 @@ class HST_CampaignSaveData
 		if (!group)
 			return;
 		group.m_bSpawnedEntity = false;
+		group.m_bSpawnAttempted = false;
 		group.m_sRuntimeEntityId = "";
 		group.m_iSpawnedAgentCount = 0;
+		group.m_iAssignedWaypointCount = 0;
+		group.m_sSpawnFailureReason = "";
+		group.m_vPosition = operation.m_vStrategicPosition;
+		group.m_vSourcePosition = operation.m_vStrategicPosition;
 		if (enemyOrder)
 			group.m_sRuntimeStatus = "enemy_qrf_virtual";
 		else
@@ -4323,6 +4328,7 @@ class HST_CampaignSaveData
 			else if (batch.m_iSuccessfulHandoffCount > 0)
 				living = queue.CountDurableLivingMemberSlots(batch);
 			operation.m_iLastVirtualFriendlyCount = Math.Max(0, living);
+			group.m_iInfantryCount = Math.Max(0, living);
 			group.m_iDurableLivingInfantryCount = Math.Max(0, living);
 			group.m_iLastSeenAliveCount = Math.Max(0, living);
 			group.m_iSurvivorInfantryCount = Math.Max(0, living);

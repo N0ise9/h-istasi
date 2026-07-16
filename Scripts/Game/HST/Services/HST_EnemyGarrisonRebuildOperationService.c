@@ -526,6 +526,63 @@ class HST_EnemyGarrisonRebuildOperationService
 		return "";
 	}
 
+	string ValidateOpenPersistenceRuntimeAuthority(
+		HST_CampaignState state,
+		HST_OperationRecordState expectedOperation,
+		out HST_EnemyOrderState order,
+		out HST_ForceSpawnResultState batch,
+		out HST_ActiveGroupState group)
+	{
+		order = null;
+		batch = null;
+		group = null;
+		if (!state || !expectedOperation
+			|| expectedOperation.m_eType
+				!= HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+			|| expectedOperation.m_iContractVersion
+				!= HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION
+			|| expectedOperation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| expectedOperation.m_eTerminalResult
+				!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+		{
+			return "exact enemy garrison rebuild persistence operation authority is unavailable";
+		}
+
+		order = state.FindEnemyOrder(expectedOperation.m_sEnemyOrderId);
+		if (!IsExactEnemyGarrisonRebuild(order))
+			return "exact enemy garrison rebuild persistence order authority is unavailable";
+
+		HST_OperationRecordState resolvedOperation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveRuntimeContext(
+			state,
+			order,
+			resolvedOperation,
+			manifest,
+			batch,
+			group);
+		if (!failure.IsEmpty())
+			return failure;
+		if (resolvedOperation != expectedOperation)
+			return "exact enemy garrison rebuild persistence operation claimant conflicts";
+		return "";
+	}
+
+	string RefreshPhysicalPersistencePosition(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationTransitionResult refreshed
+			= m_Operations.UpdateExactEnemyGarrisonRebuildPhysicalPosition(state, order, group);
+		if (refreshed && refreshed.m_bAccepted)
+			return "";
+		if (refreshed && !refreshed.m_sFailureReason.IsEmpty())
+			return refreshed.m_sFailureReason;
+		return "exact enemy garrison rebuild physical position refresh was rejected";
+	}
+
 	protected string ResolveRuntimeContext(
 		HST_CampaignState state,
 		HST_EnemyOrderState order,

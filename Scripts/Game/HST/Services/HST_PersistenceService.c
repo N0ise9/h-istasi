@@ -1,3 +1,15 @@
+class HST_ExactEnemyResponsePersistencePositionPlan
+{
+	ref HST_OperationRecordState m_Operation;
+	ref HST_EnemyOrderState m_Order;
+	ref HST_ActiveGroupState m_Group;
+	vector m_vLivePosition;
+	vector m_vPreviousGroupPosition;
+	vector m_vPreviousOperationPosition;
+	int m_iPreviousOperationRevision;
+	int m_iPreviousOperationLastProgressAtSecond;
+}
+
 class HST_PersistenceService
 {
 	protected float m_fAutosaveElapsed;
@@ -14,6 +26,9 @@ class HST_PersistenceService
 	protected HST_PhysicalWarService m_PhysicalWar;
 	protected HST_ForceSpawnQueueService m_ForceSpawnQueue;
 	protected HST_ForceSpawnAdapterService m_ForceSpawnAdapter;
+	protected HST_EnemyQRFOperationService m_EnemyQRFOperations;
+	protected HST_EnemyCounterattackOperationService m_EnemyCounterattackOperations;
+	protected HST_EnemyGarrisonRebuildOperationService m_EnemyGarrisonRebuildOperations;
 	protected HST_LocalSecurityOperationService m_LocalSecurityPatrolOperations;
 	protected HST_MissionGuardOperationService m_MissionGuardOperations;
 	protected HST_RescuePOWOperationService m_RescuePOWOperations;
@@ -30,6 +45,16 @@ class HST_PersistenceService
 	{
 		m_ForceSpawnQueue = forceSpawnQueue;
 		m_ForceSpawnAdapter = forceSpawnAdapter;
+	}
+
+	void SetExactEnemyResponseAuthorityServices(
+		HST_EnemyQRFOperationService enemyQRFOperations,
+		HST_EnemyCounterattackOperationService enemyCounterattackOperations,
+		HST_EnemyGarrisonRebuildOperationService enemyGarrisonRebuildOperations)
+	{
+		m_EnemyQRFOperations = enemyQRFOperations;
+		m_EnemyCounterattackOperations = enemyCounterattackOperations;
+		m_EnemyGarrisonRebuildOperations = enemyGarrisonRebuildOperations;
 	}
 
 	void SetMissionGuardOperationService(HST_MissionGuardOperationService missionGuardOperations)
@@ -353,7 +378,8 @@ class HST_PersistenceService
 			return null;
 		if (m_bCampaignDebugIsolationActive)
 		{
-			CaptureIsolatedCampaignDebugState(state, persistenceStatus);
+			if (!CaptureIsolatedCampaignDebugState(state, persistenceStatus))
+				return null;
 			return m_IsolatedCapturedSave;
 		}
 		if (!PrepareStateForCapture(state, persistenceStatus))
@@ -375,6 +401,21 @@ class HST_PersistenceService
 	protected bool PrepareStateForCapture(HST_CampaignState state, string context)
 	{
 		if (!state)
+			return false;
+		HST_OperationRecordState dematerializingExactEnemyResponse
+			= FindDematerializingExactEnemyResponse(state);
+		if (dematerializingExactEnemyResponse)
+		{
+			state.m_sLastPersistenceStatus = string.Format(
+				"checkpoint deferred: exact enemy response dematerialization is in progress during %1 | operation %2",
+				BoundExactEnemyResponsePersistenceStatusPart(context, 72),
+				BoundExactEnemyResponsePersistenceStatusPart(
+					dematerializingExactEnemyResponse.m_sOperationId,
+					72));
+			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+			return false;
+		}
+		if (!PreflightPhysicalExactEnemyResponseGraphs(state, context))
 			return false;
 		if (!m_Civilians)
 		{
@@ -659,13 +700,24 @@ class HST_PersistenceService
 			Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
 			return false;
 		}
+		array<ref HST_ExactEnemyResponsePersistencePositionPlan> exactEnemyResponsePositionPlans = {};
+		if (!ValidatePhysicalExactEnemyResponseSnapshots(
+			state,
+			context,
+			exactEnemyResponsePositionPlans))
+			return false;
 		if (!ValidatePhysicalEnemyPatrolSnapshots(state, context))
 			return false;
 		if (!ValidatePhysicalGarrisonPatrolSnapshots(state, context))
 			return false;
 		if (!ValidatePhysicalMissionGuardSnapshots(state, context))
 			return false;
-		return ValidatePhysicalPlayerSupportBindings(state, context);
+		if (!ValidatePhysicalPlayerSupportBindings(state, context))
+			return false;
+		return ApplyPhysicalExactEnemyResponseSnapshots(
+			state,
+			context,
+			exactEnemyResponsePositionPlans);
 	}
 
 	protected bool HasQuarantinedMissionGuardAuthority(HST_CampaignState state)
@@ -1357,6 +1409,357 @@ class HST_PersistenceService
 		return Math.AbsFloat(position[0]) > 0.01
 			|| Math.AbsFloat(position[1]) > 0.01
 			|| Math.AbsFloat(position[2]) > 0.01;
+	}
+
+	protected bool IsOpenExactEnemyResponseOperation(HST_OperationRecordState operation)
+	{
+		if (!operation
+			|| operation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| operation.m_eTerminalResult
+				!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+			return false;
+		return (operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+				&& operation.m_iContractVersion
+					== HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION)
+			|| (operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+				&& operation.m_iContractVersion
+					== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION)
+			|| (operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD
+				&& operation.m_iContractVersion
+					== HST_OperationService.EXACT_ENEMY_GARRISON_REBUILD_CONTRACT_VERSION);
+	}
+
+	protected HST_OperationRecordState FindDematerializingExactEnemyResponse(
+		HST_CampaignState state)
+	{
+		if (!state)
+			return null;
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (IsOpenExactEnemyResponseOperation(operation)
+				&& operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING)
+				return operation;
+		}
+		return null;
+	}
+
+	protected string ResolvePhysicalExactEnemyResponseRuntimeAuthority(
+		HST_CampaignState state,
+		HST_OperationRecordState operation,
+		out HST_EnemyOrderState order,
+		out HST_ForceSpawnResultState batch,
+		out HST_ActiveGroupState group)
+	{
+		order = null;
+		batch = null;
+		group = null;
+		if (!IsOpenExactEnemyResponseOperation(operation))
+			return "operation is not one open exact enemy response";
+		if (operation.m_eType
+			== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF)
+		{
+			if (!m_EnemyQRFOperations)
+				return "defensive QRF persistence authority service is unavailable";
+			return m_EnemyQRFOperations.ValidateOpenPersistenceRuntimeAuthority(
+				state,
+				operation,
+				order,
+				batch,
+				group);
+		}
+		if (operation.m_eType
+			== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK)
+		{
+			if (!m_EnemyCounterattackOperations)
+				return "counterattack persistence authority service is unavailable";
+			return m_EnemyCounterattackOperations.ValidateOpenPersistenceRuntimeAuthority(
+				state,
+				operation,
+				order,
+				batch,
+				group);
+		}
+		if (!m_EnemyGarrisonRebuildOperations)
+			return "garrison rebuild persistence authority service is unavailable";
+		return m_EnemyGarrisonRebuildOperations.ValidateOpenPersistenceRuntimeAuthority(
+			state,
+			operation,
+			order,
+			batch,
+			group);
+	}
+
+	protected bool PreflightPhysicalExactEnemyResponseGraphs(
+		HST_CampaignState state,
+		string context)
+	{
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!IsOpenExactEnemyResponseOperation(operation)
+				|| operation.m_eMaterializationState
+					!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+				continue;
+			if (operation.m_ePositionAuthority
+				!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					"physical operation does not own live-position authority");
+			}
+			HST_EnemyOrderState order;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			string authorityFailure = ResolvePhysicalExactEnemyResponseRuntimeAuthority(
+				state,
+				operation,
+				order,
+				batch,
+				group);
+			if (!authorityFailure.IsEmpty())
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					authorityFailure);
+			}
+		}
+		return true;
+	}
+
+	protected bool ValidatePhysicalExactEnemyResponseSnapshots(
+		HST_CampaignState state,
+		string context,
+		array<ref HST_ExactEnemyResponsePersistencePositionPlan> positionPlans)
+	{
+		positionPlans.Clear();
+		foreach (HST_OperationRecordState operation : state.m_aOperations)
+		{
+			if (!IsOpenExactEnemyResponseOperation(operation)
+				|| operation.m_eMaterializationState
+					!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL)
+				continue;
+
+			HST_EnemyOrderState order;
+			HST_ForceSpawnResultState batch;
+			HST_ActiveGroupState group;
+			string authorityFailure = ResolvePhysicalExactEnemyResponseRuntimeAuthority(
+				state,
+				operation,
+				order,
+				batch,
+				group);
+			if (!authorityFailure.IsEmpty())
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					authorityFailure);
+			}
+			if (!batch
+				|| batch.m_eStatus != HST_EForceSpawnBatchStatus.HST_FORCE_SPAWN_SUCCEEDED
+				|| batch.m_bStrategicProjectionHeld
+				|| batch.m_iSuccessfulHandoffCount <= 0)
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					"exact infantry batch is not one successful non-held projection");
+			}
+			if (m_ForceSpawnQueue.CountDurableLivingMemberSlots(batch) <= 0)
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					"durable living roster is unavailable");
+			}
+
+			string bindingEvidence;
+			if (!m_ForceSpawnAdapter.ValidateExactLivingProjectionBindingsForPersistence(
+				state,
+				batch,
+				m_ForceSpawnQueue,
+				m_PhysicalWar,
+				bindingEvidence))
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					bindingEvidence);
+			}
+
+			vector livePosition;
+			string livePositionEvidence;
+			if (!m_PhysicalWar.TryResolveExactEnemyResponseLivePosition(
+				state,
+				group,
+				livePosition,
+				livePositionEvidence))
+			{
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					operation,
+					livePositionEvidence);
+			}
+
+			HST_ExactEnemyResponsePersistencePositionPlan plan
+				= new HST_ExactEnemyResponsePersistencePositionPlan();
+			plan.m_Operation = operation;
+			plan.m_Order = order;
+			plan.m_Group = group;
+			plan.m_vLivePosition = livePosition;
+			plan.m_vPreviousGroupPosition = group.m_vPosition;
+			plan.m_vPreviousOperationPosition = operation.m_vStrategicPosition;
+			plan.m_iPreviousOperationRevision = operation.m_iRevision;
+			plan.m_iPreviousOperationLastProgressAtSecond
+				= operation.m_iLastProgressAtSecond;
+			positionPlans.Insert(plan);
+		}
+		return true;
+	}
+
+	protected string RefreshExactEnemyResponsePersistencePosition(
+		HST_CampaignState state,
+		HST_ExactEnemyResponsePersistencePositionPlan plan)
+	{
+		if (!plan || !plan.m_Operation || !plan.m_Order || !plan.m_Group)
+			return "exact enemy response position plan is incomplete";
+		if (plan.m_Operation.m_eType
+			== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF)
+		{
+			if (!m_EnemyQRFOperations)
+				return "defensive QRF persistence authority service is unavailable";
+			return m_EnemyQRFOperations.RefreshPhysicalPersistencePosition(
+				state,
+				plan.m_Order,
+				plan.m_Group);
+		}
+		if (plan.m_Operation.m_eType
+			== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK)
+		{
+			if (!m_EnemyCounterattackOperations)
+				return "counterattack persistence authority service is unavailable";
+			return m_EnemyCounterattackOperations.RefreshPhysicalPersistencePosition(
+				state,
+				plan.m_Order,
+				plan.m_Group);
+		}
+		if (!m_EnemyGarrisonRebuildOperations)
+			return "garrison rebuild persistence authority service is unavailable";
+		return m_EnemyGarrisonRebuildOperations.RefreshPhysicalPersistencePosition(
+			state,
+			plan.m_Order,
+			plan.m_Group);
+	}
+
+	protected void RollBackExactEnemyResponsePersistencePositions(
+		array<ref HST_ExactEnemyResponsePersistencePositionPlan> positionPlans,
+		int lastAppliedIndex)
+	{
+		for (int index = lastAppliedIndex; index >= 0; index--)
+		{
+			HST_ExactEnemyResponsePersistencePositionPlan plan = positionPlans[index];
+			if (!plan)
+				continue;
+			if (plan.m_Group && m_PhysicalWar)
+			{
+				m_PhysicalWar.ApplyExactEnemyResponsePersistencePosition(
+					plan.m_Group,
+					plan.m_vPreviousGroupPosition);
+			}
+			if (!plan.m_Operation)
+				continue;
+			plan.m_Operation.m_vStrategicPosition = plan.m_vPreviousOperationPosition;
+			plan.m_Operation.m_iRevision = plan.m_iPreviousOperationRevision;
+			plan.m_Operation.m_iLastProgressAtSecond
+				= plan.m_iPreviousOperationLastProgressAtSecond;
+		}
+	}
+
+	protected bool ApplyPhysicalExactEnemyResponseSnapshots(
+		HST_CampaignState state,
+		string context,
+		array<ref HST_ExactEnemyResponsePersistencePositionPlan> positionPlans)
+	{
+		for (int index = 0; index < positionPlans.Count(); index++)
+		{
+			HST_ExactEnemyResponsePersistencePositionPlan plan = positionPlans[index];
+			if (!plan || !plan.m_Group || !plan.m_Operation)
+			{
+				RollBackExactEnemyResponsePersistencePositions(positionPlans, index - 1);
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					null,
+					"exact enemy response position plan is incomplete");
+			}
+			m_PhysicalWar.ApplyExactEnemyResponsePersistencePosition(
+				plan.m_Group,
+				plan.m_vLivePosition);
+			string positionRefreshFailure
+				= RefreshExactEnemyResponsePersistencePosition(state, plan);
+			if (!positionRefreshFailure.IsEmpty())
+			{
+				RollBackExactEnemyResponsePersistencePositions(positionPlans, index);
+				return DeferPhysicalExactEnemyResponseSnapshot(
+					state,
+					context,
+					plan.m_Operation,
+					positionRefreshFailure);
+			}
+		}
+		return true;
+	}
+
+	protected bool DeferPhysicalExactEnemyResponseSnapshot(
+		HST_CampaignState state,
+		string context,
+		HST_OperationRecordState operation,
+		string evidence)
+	{
+		string family = "unknown";
+		string operationId = "unavailable";
+		if (operation)
+		{
+			operationId = operation.m_sOperationId;
+			if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF)
+				family = "defensive QRF";
+			else if (operation.m_eType == HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK)
+				family = "counterattack";
+			else if (operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_GARRISON_REBUILD)
+				family = "garrison rebuild";
+		}
+		state.m_sLastPersistenceStatus = string.Format(
+			"checkpoint deferred: exact enemy response live snapshot failed during %1 | %2 operation %3 | %4",
+			BoundExactEnemyResponsePersistenceStatusPart(context, 72),
+			BoundExactEnemyResponsePersistenceStatusPart(family, 32),
+			BoundExactEnemyResponsePersistenceStatusPart(operationId, 72),
+			BoundExactEnemyResponsePersistenceStatusPart(evidence, 192));
+		Print("Partisan persistence | " + state.m_sLastPersistenceStatus, LogLevel.WARNING);
+		return false;
+	}
+
+	protected string BoundExactEnemyResponsePersistenceStatusPart(string value, int maxCharacters)
+	{
+		if (value.IsEmpty())
+			return "unavailable";
+		maxCharacters = Math.Max(4, maxCharacters);
+		if (value.Length() <= maxCharacters)
+			return value;
+		return value.Substring(0, maxCharacters - 3) + "...";
 	}
 
 	protected bool ValidatePhysicalPlayerSupportBindings(HST_CampaignState state, string context)

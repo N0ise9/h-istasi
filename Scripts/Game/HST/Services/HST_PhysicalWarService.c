@@ -1970,6 +1970,64 @@ class HST_PhysicalWarService
 		return IsExactOperationRouteRecoveryExhausted(activeGroup, nowSecond);
 	}
 
+	bool TryResolveExactEnemyResponseLivePosition(
+		HST_CampaignState state,
+		HST_ActiveGroupState activeGroup,
+		out vector livePosition,
+		out string evidence)
+	{
+		livePosition = "0 0 0";
+		evidence = "missing exact enemy response group";
+		if (!state || !activeGroup)
+			return false;
+		if (!IsExactEnemyQRFActiveGroup(state, activeGroup)
+			&& !IsExactEnemyCounterattackActiveGroup(state, activeGroup)
+			&& !IsExactEnemyGarrisonRebuildActiveGroup(state, activeGroup))
+		{
+			evidence = "active group is not one open exact enemy response";
+			return false;
+		}
+
+		HST_OperationRecordState operation = state.FindOperation(activeGroup.m_sOperationId);
+		if (!operation
+			|| operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+			|| operation.m_ePositionAuthority
+				!= HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE)
+		{
+			evidence = "exact enemy response does not own physical live-position authority";
+			return false;
+		}
+		if (!activeGroup.m_bSpawnedEntity)
+		{
+			evidence = "exact enemy response is not physically spawned";
+			return false;
+		}
+
+		livePosition = ResolveActiveGroupLiveRuntimePosition(activeGroup, false);
+		if (IsZeroVector(livePosition))
+		{
+			evidence = "exact enemy response has no living runtime member position";
+			return false;
+		}
+		evidence = string.Format("exact enemy response live position %1", livePosition);
+		return true;
+	}
+
+	void ApplyExactEnemyResponsePersistencePosition(
+		HST_ActiveGroupState activeGroup,
+		vector position)
+	{
+		if (!activeGroup)
+			return;
+		bool markerPositionChanged = IsZeroVector(activeGroup.m_vPosition)
+			|| IsZeroVector(position)
+			|| DistanceSq2D(activeGroup.m_vPosition, position) >= 4.0;
+		activeGroup.m_vPosition = position;
+		if (markerPositionChanged)
+			m_bMarkerRefreshNeeded = true;
+	}
+
 	bool TryResolveExactEnemyPatrolLivePosition(
 		HST_CampaignState state,
 		HST_ActiveGroupState activeGroup,

@@ -873,6 +873,7 @@ class HST_EnemyCounterattackSaveValidationService
 		group.m_iSpawnedAgentCount = 0;
 		group.m_iAssignedWaypointCount = 0;
 		group.m_sRuntimeStatus = "enemy_counterattack_virtual";
+		group.m_sSpawnFailureReason = "";
 		group.m_vPosition = operation.m_vStrategicPosition;
 		group.m_vSourcePosition = operation.m_vStrategicPosition;
 		if (!batch)

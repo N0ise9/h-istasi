@@ -14,6 +14,7 @@ class HST_EnemyCounterattackExternalRestartProofService
 		= "dematerializing_before_hold";
 	static const string CUT_MATERIALIZING_CHECKPOINT_DEFERRED
 		= "materializing_checkpoint_deferred";
+	static const string CUT_PHYSICAL_LIVE_POSITION = "physical_live_position";
 	static const string STAGE_PREPARE = "prepare";
 	static const string STAGE_RECOVER = "recover";
 	static const string STAGE_REPLAY = "replay";
@@ -89,6 +90,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return 1;
 		if (cutName == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
 			return 2;
+		if (cutName == CUT_PHYSICAL_LIVE_POSITION)
+			return 3;
 		return -1;
 	}
 
@@ -100,6 +103,8 @@ class HST_EnemyCounterattackExternalRestartProofService
 			return CUT_DEMATERIALIZING_BEFORE_HOLD;
 		if (cut == 2)
 			return CUT_MATERIALIZING_CHECKPOINT_DEFERRED;
+		if (cut == 3)
+			return CUT_PHYSICAL_LIVE_POSITION;
 		return "";
 	}
 
@@ -396,22 +401,34 @@ class HST_EnemyCounterattackExternalRestartProofService
 		if (!carrier || !ValidateNonce(expectedSessionNonce)
 			|| !ValidateRunId(expectedRunId) || expectedCutValue < 0
 			|| expectedWorld.IsEmpty())
+		{
+			evidence = "external counterattack restart carrier prerequisite rejected";
 			return false;
+		}
 		if (carrier.m_sMagic != CARRIER_MAGIC
 			|| carrier.m_sSessionNonce != expectedSessionNonce
 			|| carrier.m_sRunId != expectedRunId
 			|| SanitizeRunId(carrier.m_sRunId) != carrier.m_sRunId)
+		{
+			evidence = "external counterattack restart carrier identity rejected";
 			return false;
+		}
 		if (carrier.m_sBuildSha != HST_BuildInfo.BUILD_SHA
 			|| carrier.m_sBuildUtc != HST_BuildInfo.BUILD_UTC
 			|| carrier.m_sBuildLabel != HST_BuildInfo.BUILD_LABEL
 			|| carrier.m_iCampaignSchemaVersion != HST_CampaignState.SCHEMA_VERSION
 			|| !ValidateWorldIdentity(carrier.m_sWorld, expectedWorld))
+		{
+			evidence = "external counterattack restart carrier build, schema, or world rejected";
 			return false;
+		}
 		if (carrier.m_sCutName != expectedCut || carrier.m_iCut != expectedCutValue
 			|| !carrier.m_Expectation || carrier.m_sPreparedSemanticFingerprint.IsEmpty()
 			|| carrier.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
+		{
+			evidence = "external counterattack restart carrier cut or fingerprint rejected";
 			return false;
+		}
 
 		HST_EnemyCounterattackOutboundVirtualExpectation expectation = carrier.m_Expectation;
 		if (expectation.m_sOrderId.IsEmpty() || expectation.m_sOperationId.IsEmpty()
@@ -421,26 +438,54 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| expectation.m_sFactionKey.IsEmpty() || expectation.m_sSourceZoneId.IsEmpty()
 			|| expectation.m_sTargetZoneId.IsEmpty() || expectation.m_sDebitMutationId.IsEmpty()
 			|| expectation.m_sLivingSlotFingerprint.IsEmpty())
+		{
+			evidence = "external counterattack restart carrier aggregate identity rejected";
 			return false;
+		}
 		if (expectation.m_sSourceZoneId == expectation.m_sTargetZoneId)
+		{
+			evidence = "external counterattack restart carrier source and target conflict";
 			return false;
+		}
 		bool attackFunded = expectation.m_iAttackCost > 0
 			&& expectation.m_iSupportCost == 0;
 		bool supportFunded = expectation.m_iSupportCost > 0
 			&& expectation.m_iAttackCost == 0;
 		if (!attackFunded && !supportFunded)
+		{
+			evidence = "external counterattack restart carrier funding rejected";
 			return false;
+		}
 		if (expectation.m_iExpectedAttackPool < 0
 			|| expectation.m_iExpectedSupportPool < 0
 			|| expectation.m_iExpectedPoolOperationalMutationCount != 1)
+		{
+			evidence = "external counterattack restart carrier resource expectation rejected";
 			return false;
+		}
 		if (expectation.m_iAcceptedMemberCount <= 0
 			|| expectation.m_iLivingMemberCount <= 0
 			|| expectation.m_iLivingMemberCount > expectation.m_iAcceptedMemberCount)
+		{
+			evidence = "external counterattack restart carrier roster counts rejected";
 			return false;
+		}
+		bool checkpointDeferredCut
+			= expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
+				|| expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED
+				|| expectedCut == CUT_PHYSICAL_LIVE_POSITION;
+		if (checkpointDeferredCut
+			&& carrier.m_sRawPreparedCutSemanticFingerprint
+				== carrier.m_sPreparedSemanticFingerprint)
+		{
+			evidence = "external counterattack restart carrier raw and normalized fingerprints collapsed";
+			return false;
+		}
 		if (expectedCut == CUT_OUTBOUND_VIRTUAL)
 		{
-			if (!expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+			if (expectation.m_bExpectedLivingSlotsEverAlive
+				|| expectation.m_iExpectedNormalizedSlotAttemptCount != 0
+				|| !expectation.m_sConfirmedCasualtySlotId.IsEmpty()
 				|| !expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()
 				|| expectation.m_iExpectedNormalizedReprojectionCount != 0
 				|| expectation.m_iLivingMemberCount
@@ -457,24 +502,57 @@ class HST_EnemyCounterattackExternalRestartProofService
 					expectation.m_sConfirmedCasualtySlotId + "|")
 				|| expectation.m_iExpectedNormalizedReprojectionCount != 1
 				|| expectation.m_iLivingMemberCount
-					!= expectation.m_iAcceptedMemberCount - 1
-				|| carrier.m_sRawPreparedCutSemanticFingerprint
-					== carrier.m_sPreparedSemanticFingerprint)
+					!= expectation.m_iAcceptedMemberCount - 1)
 				return false;
 		}
 		else if (expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
 		{
-			if (!expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+			if (expectation.m_bExpectedLivingSlotsEverAlive
+				|| expectation.m_iExpectedNormalizedSlotAttemptCount != 0
+				|| !expectation.m_sConfirmedCasualtySlotId.IsEmpty()
 				|| !expectation.m_sCasualtyTombstoneFingerprint.IsEmpty()
 				|| expectation.m_iExpectedNormalizedReprojectionCount != 0
 				|| expectation.m_iLivingMemberCount
-					!= expectation.m_iAcceptedMemberCount
-				|| carrier.m_sRawPreparedCutSemanticFingerprint
-					== carrier.m_sPreparedSemanticFingerprint)
+					!= expectation.m_iAcceptedMemberCount)
 				return false;
 		}
+		else if (expectedCut == CUT_PHYSICAL_LIVE_POSITION)
+		{
+			bool normalizedExpectationExact
+				= expectation.m_bExpectedLivingSlotsEverAlive
+				&& expectation.m_iExpectedNormalizedSlotAttemptCount == 1
+				&& expectation.m_iExpectedNormalizedReprojectionCount == 1
+				&& expectation.m_iLivingMemberCount
+					== expectation.m_iAcceptedMemberCount;
+			bool casualtyExpectationExact
+				= expectation.m_sConfirmedCasualtySlotId.IsEmpty()
+				&& expectation.m_sCasualtyTombstoneFingerprint.IsEmpty();
+			bool physicalCountsExact
+				= carrier.m_iExpectedPhysicalAdapterHandleCount
+					== expectation.m_iLivingMemberCount + 1
+				&& carrier.m_iExpectedPhysicalRuntimeMemberCount
+					== expectation.m_iLivingMemberCount;
+			bool physicalPositionsExact
+				= !IsZeroVector(carrier.m_vInjectedStalePosition)
+				&& !IsZeroVector(carrier.m_vPreparedLivePosition)
+				&& PositionsDiffer(
+					carrier.m_vInjectedStalePosition,
+					carrier.m_vPreparedLivePosition);
+			if (!normalizedExpectationExact || !casualtyExpectationExact
+				|| !physicalCountsExact || !physicalPositionsExact)
+			{
+				evidence = string.Format(
+					"external counterattack physical carrier expectation/casualty/counts/positions rejected %1/%2/%3/%4",
+					normalizedExpectationExact,
+					casualtyExpectationExact,
+					physicalCountsExact,
+					physicalPositionsExact);
+				return false;
+			}
+		}
 		bool preparedProgressExact = carrier.m_fPreparedRouteProgressMeters > 0;
-		if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD)
+		if (expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
+			|| expectedCut == CUT_PHYSICAL_LIVE_POSITION)
 			preparedProgressExact = carrier.m_fPreparedRouteProgressMeters >= 0;
 		if (carrier.m_iPreparedElapsedSecond <= 0
 			|| carrier.m_fPreparedRouteTotalDistanceMeters <= 0
@@ -482,7 +560,15 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| carrier.m_fPreparedRouteProgressMeters
 				>= carrier.m_fPreparedRouteTotalDistanceMeters
 			|| IsZeroVector(carrier.m_vPreparedStrategicPosition))
+		{
+			evidence = string.Format(
+				"external counterattack restart carrier clock/route/position rejected %1/%2/%3/%4",
+				carrier.m_iPreparedElapsedSecond,
+				carrier.m_fPreparedRouteProgressMeters,
+				carrier.m_fPreparedRouteTotalDistanceMeters,
+				carrier.m_vPreparedStrategicPosition);
 			return false;
+		}
 
 		evidence = "external counterattack restart carrier exact";
 		return true;
@@ -579,6 +665,7 @@ class HST_EnemyCounterattackExternalRestartProofService
 			evidence = "external counterattack restart result exact";
 			return true;
 		}
+		bool physicalCut = expectedCut == CUT_PHYSICAL_LIVE_POSITION;
 		if (!result.m_bSourceExact || !result.m_bRuntimeClaimantsZero
 			|| !result.m_bPersistedReadBackExact
 			|| result.m_sSourceSemanticFingerprint.IsEmpty()
@@ -586,16 +673,36 @@ class HST_EnemyCounterattackExternalRestartProofService
 			|| result.m_sRawPreparedCutSemanticFingerprint.IsEmpty())
 			return false;
 		if ((expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
-			|| expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED)
+			|| expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED
+			|| physicalCut)
 			&& (!result.m_bPreparedCutExact
 				|| !result.m_bCasualtyContinuityExact))
 			return false;
-		if (expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED
+		if ((expectedCut == CUT_DEMATERIALIZING_BEFORE_HOLD
+			|| expectedCut == CUT_MATERIALIZING_CHECKPOINT_DEFERRED
+			|| physicalCut)
 			&& (result.m_sRawPreparedCutSemanticFingerprint
 					== result.m_sSourceSemanticFingerprint
 				|| result.m_sRawPreparedCutSemanticFingerprint
 					== result.m_sFinalSemanticFingerprint))
 			return false;
+		if (physicalCut)
+		{
+			if (result.m_iPhysicalRuntimeMemberCount <= 0
+				|| result.m_iPhysicalAdapterHandleCount
+					!= result.m_iPhysicalRuntimeMemberCount + 1
+				|| IsZeroVector(result.m_vInjectedStalePosition)
+				|| IsZeroVector(result.m_vPreparedLivePosition)
+				|| !PositionsDiffer(
+					result.m_vInjectedStalePosition,
+					result.m_vPreparedLivePosition))
+				return false;
+			if (expectedStage == STAGE_PREPARE
+				&& (!result.m_bPhysicalBindingsExact
+					|| !result.m_bLivePositionRefreshExact
+					|| !result.m_bPhysicalCaptureNormalizedExact))
+				return false;
+		}
 
 		if (expectedStage == STAGE_PREPARE)
 		{
@@ -851,5 +958,12 @@ class HST_EnemyCounterattackExternalRestartProofService
 		return Math.AbsFloat(value[0]) < 0.01
 			&& Math.AbsFloat(value[1]) < 0.01
 			&& Math.AbsFloat(value[2]) < 0.01;
+	}
+
+	protected static bool PositionsDiffer(vector left, vector right)
+	{
+		return Math.AbsFloat(left[0] - right[0]) > 0.1
+			|| Math.AbsFloat(left[1] - right[1]) > 0.1
+			|| Math.AbsFloat(left[2] - right[2]) > 0.1;
 	}
 }

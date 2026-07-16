@@ -1106,6 +1106,9 @@ class HST_EnemyGarrisonRebuildSaveValidationService
 		group.m_sRuntimeEntityId = "";
 		group.m_iSpawnedAgentCount = 0;
 		group.m_iAssignedWaypointCount = 0;
+		group.m_sSpawnFailureReason = "";
+		group.m_vPosition = operation.m_vStrategicPosition;
+		group.m_vSourcePosition = operation.m_vStrategicPosition;
 		if (operation.m_eDutyState == HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
 			group.m_sRuntimeStatus = "enemy_garrison_rebuild_virtual_on_station";
 		else

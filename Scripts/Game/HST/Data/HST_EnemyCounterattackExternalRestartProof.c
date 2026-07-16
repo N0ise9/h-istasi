@@ -23,6 +23,8 @@ class HST_EnemyCounterattackOutboundVirtualExpectation
 	int m_iAcceptedMemberCount;
 	int m_iLivingMemberCount;
 	string m_sLivingSlotFingerprint;
+	bool m_bExpectedLivingSlotsEverAlive;
+	int m_iExpectedNormalizedSlotAttemptCount;
 	string m_sConfirmedCasualtySlotId;
 	string m_sCasualtyTombstoneFingerprint;
 	int m_iExpectedNormalizedReprojectionCount;
@@ -83,6 +85,10 @@ class HST_EnemyCounterattackExternalRestartCarrier
 	float m_fPreparedRouteProgressMeters;
 	float m_fPreparedRouteTotalDistanceMeters;
 	vector m_vPreparedStrategicPosition;
+	vector m_vInjectedStalePosition;
+	vector m_vPreparedLivePosition;
+	int m_iExpectedPhysicalAdapterHandleCount;
+	int m_iExpectedPhysicalRuntimeMemberCount;
 	string m_sPreparedSemanticFingerprint;
 	string m_sRawPreparedCutSemanticFingerprint;
 }
@@ -111,10 +117,47 @@ class HST_EnemyCounterattackExternalRestartResult
 	bool m_bPersistedReadBackExact;
 	bool m_bPreparedCutExact;
 	bool m_bCasualtyContinuityExact;
+	bool m_bPhysicalBindingsExact;
+	bool m_bLivePositionRefreshExact;
+	bool m_bPhysicalCaptureNormalizedExact;
+	int m_iPhysicalAdapterHandleCount;
+	int m_iPhysicalRuntimeMemberCount;
+	vector m_vInjectedStalePosition;
+	vector m_vPreparedLivePosition;
 	float m_fProgressBeforeMeters;
 	float m_fProgressAfterMeters;
 	string m_sSourceSemanticFingerprint;
 	string m_sFinalSemanticFingerprint;
 	string m_sRawPreparedCutSemanticFingerprint;
 	string m_sEvidence;
+}
+
+// Frame-owned state for the one external cut that must cross the native spawn
+// handoff. The carrier remains process-portable; this context never leaves the
+// disposable prepare process.
+class HST_EnemyCounterattackExternalPhysicalPrepareContext
+{
+	int m_iStage;
+	int m_iSpawnTickLimit;
+	int m_iSpawnWorkTicks;
+	int m_iHandoffWaitTicks;
+	int m_iPhysicalSettleTicks;
+	bool m_bCompleted;
+	bool m_bSucceeded;
+	bool m_bPhysicalBindingsExact;
+	bool m_bLivePositionRefreshExact;
+	bool m_bPhysicalCaptureNormalizedExact;
+	bool m_bCarrierSaved;
+	bool m_bPersisted;
+	bool m_bReadBackExact;
+	bool m_bCasualtyContinuityExact;
+	bool m_bCleanupExact;
+	int m_iPhysicalAdapterHandleCount;
+	int m_iPhysicalRuntimeMemberCount;
+	vector m_vInjectedStalePosition;
+	vector m_vPreparedLivePosition;
+	string m_sLastSpawnSummary;
+	string m_sEvidence;
+	string m_sFailure;
+	ref HST_EnemyCounterattackExternalRestartCarrier m_Carrier;
 }

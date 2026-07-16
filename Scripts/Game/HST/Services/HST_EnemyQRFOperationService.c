@@ -636,8 +636,20 @@ class HST_EnemyQRFOperationService
 			order.m_sRuntimeStatus = "exact_enemy_qrf_restore_virtual";
 			group.m_sRuntimeStatus = "enemy_qrf_virtual";
 			group.m_bSpawnedEntity = false;
+			group.m_bSpawnAttempted = false;
 			group.m_sRuntimeEntityId = "";
 			group.m_iSpawnedAgentCount = 0;
+			group.m_iAssignedWaypointCount = 0;
+			group.m_sSpawnFailureReason = "";
+			group.m_vPosition = operation.m_vStrategicPosition;
+			group.m_vSourcePosition = operation.m_vStrategicPosition;
+			HST_ForceSpawnQueueService restoreQueue
+				= new HST_ForceSpawnQueueService();
+			int restoredLiving = restoreQueue.CountStrategicLivingMemberSlots(batch);
+			group.m_iInfantryCount = Math.Max(0, restoredLiving);
+			group.m_iLastSeenAliveCount = Math.Max(0, restoredLiving);
+			group.m_iSurvivorInfantryCount = Math.Max(0, restoredLiving);
+			group.m_iDurableLivingInfantryCount = Math.Max(0, restoredLiving);
 			changed = true;
 		}
 		return changed;
@@ -2702,6 +2714,63 @@ class HST_EnemyQRFOperationService
 				return "another enemy QRF already owns this identity or target";
 		}
 		return "";
+	}
+
+	string ValidateOpenPersistenceRuntimeAuthority(
+		HST_CampaignState state,
+		HST_OperationRecordState expectedOperation,
+		out HST_EnemyOrderState order,
+		out HST_ForceSpawnResultState batch,
+		out HST_ActiveGroupState group)
+	{
+		order = null;
+		batch = null;
+		group = null;
+		if (!state || !expectedOperation
+			|| expectedOperation.m_eType
+				!= HST_EOperationType.HST_OPERATION_TYPE_ENEMY_DEFENSIVE_QRF
+			|| expectedOperation.m_iContractVersion
+				!= HST_OperationService.EXACT_ENEMY_DEFENSIVE_QRF_CONTRACT_VERSION
+			|| expectedOperation.m_eSettlementState
+				!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			|| expectedOperation.m_eTerminalResult
+				!= HST_EOperationTerminalResult.HST_OPERATION_TERMINAL_NONE)
+		{
+			return "exact enemy defensive QRF persistence operation authority is unavailable";
+		}
+
+		order = state.FindEnemyOrder(expectedOperation.m_sEnemyOrderId);
+		if (!IsExactEnemyDefensiveQRF(order))
+			return "exact enemy defensive QRF persistence order authority is unavailable";
+
+		HST_OperationRecordState resolvedOperation;
+		HST_ForceManifestState manifest;
+		string failure = ResolveRuntimeContext(
+			state,
+			order,
+			resolvedOperation,
+			manifest,
+			batch,
+			group);
+		if (!failure.IsEmpty())
+			return failure;
+		if (resolvedOperation != expectedOperation)
+			return "exact enemy defensive QRF persistence operation claimant conflicts";
+		return "";
+	}
+
+	string RefreshPhysicalPersistencePosition(
+		HST_CampaignState state,
+		HST_EnemyOrderState order,
+		HST_ActiveGroupState group)
+	{
+		HST_OperationTransitionResult refreshed
+			= m_Operations.UpdateExactEnemyDefensiveQRFPhysicalPosition(state, order, group);
+		if (refreshed && refreshed.m_bAccepted)
+			return "";
+		if (refreshed && !refreshed.m_sFailureReason.IsEmpty())
+			return refreshed.m_sFailureReason;
+		return "exact enemy defensive QRF physical position refresh was rejected";
 	}
 
 	protected string ResolveRuntimeContext(
