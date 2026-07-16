@@ -1,15 +1,62 @@
 # Partisan Enfusion / Enforce Notes
 
 Current implementation/source identity:
-`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label
-`schema70-settings24-counterattack-owner-applied-restart`, stamp commit
-`8947b2668655fcb58d8339c8b3f77541c39661bc`. Campaign Schema 70 and runtime-
-settings Schema 24 remain unchanged. Final stamped Foundation passes 819;
-Workbench passes 5,832/11,835 at CRC `417e9910` with zero hard errors; and all
-eight guarded chains pass 24/24 fresh-process stages with exact fingerprints,
-zero exits, and exact cleanup.
+`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC `2026-07-16T20:53:27Z`, label
+`schema70-settings24-native-persistence-source-selection`, stamp commit
+`35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Campaign Schema 70 and runtime-
+settings Schema 24 remain unchanged. Final stamped Foundation passes 828;
+Workbench passes 5,834/11,839 at CRC `5fdd016f` with script validation
+successful, zero hard/script errors, and exact cleanup.
 
-## Current Counterattack Owner-Applied Restart Mechanics
+## Current Native Campaign Persistence Source-Selection Mechanics
+
+- A configured `PersistentState` is engine-owned. Gameplay must obtain the
+  `HST_CampaignPersistentState` proxy from `PersistenceSystem`, deep-capture the
+  campaign DTO into it, and track that proxy; never construct a persistent-state
+  instance directly.
+- Both mission headers must supply the campaign system configuration and enable
+  the supported save types. The coordinator may see native persistence in
+  `INIT` or `SETUP`, so startup remains frame-driven and pending for at most 120
+  seconds. `ACTIVE` permits resolution; timeout, `FAILURE`, `SHUTDOWN`, an
+  unsupported state, missing proxy, or invalid native envelope is fatal.
+- Source precedence is exact. A valid native row wins. With no native row, a
+  readable valid profile DTO may migrate into the native proxy. If the engine
+  loaded prior save data but neither source is valid, fail closed; do not relabel
+  the session as a new campaign. `NEW_CAMPAIGN` requires both no loaded engine
+  data and no valid profile source.
+- An unarmed required campaign proxy must return `ESerializeResult.ERROR`.
+  Returning `DEFAULT` would allow a save point created during bootstrap to omit
+  the campaign row and later resemble a legitimate fresh campaign.
+- `PersistenceSystem.Save` stages transient scripted-state data; it is not proof
+  that a save point committed. Production checkpoints therefore mirror the JSON
+  fallback every time, even after native staging succeeds. This keeps the
+  synchronous fallback current when saving is disabled, rejected, or later
+  fails, while native-first restore still rejects a conflicting fallback.
+- The guarded proof queues one blocking manual save only after the proxy is
+  armed. It bounds both queue readiness and callback completion, requires the
+  created UUID to equal the active save UUID, disconnects the global save-created
+  event on completion, timeout, and component deletion, and reports callback,
+  creation, activation, and artifact gates separately.
+- Native proof packaging must use the current project, an isolated Workbench
+  profile, nonce-owned packed output, and the exact packed add-on search roots
+  consumed by the guarded server. Verify non-empty project, package, and resource-
+  database artifacts before launch; source-tree execution is not packaged proof.
+- Workspace pack scratch is owned data, not a generic cleanup target. Create it
+  only when absent, record purpose plus nonce/process/start identity, reject
+  reparse ancestry or an ownership mismatch, and delete it only after owned
+  Workbench/server processes quiesce. Final cleanup must prove zero profile,
+  packed-output, workspace-scratch, guard, watch, spill, mutex, and engine-process
+  residue.
+
+The final stamped guarded native chain passed all three processes: prepare selected
+`new_campaign`; recover selected `native`, rejected the deliberately conflicting
+fallback, and performed one continuation; replay selected `native` and was a
+semantic no-op. The conflicting fallback's identity remained unchanged and all
+cleanup counters, including the final workspace scratch census after the runner
+fix, returned to zero. Final stamped source/compile evidence is Foundation 828
+and Workbench 5,834/11,839 at CRC `5fdd016f` with zero hard/script errors.
+
+## Preceding Counterattack Owner-Applied Restart Mechanics
 
 Restore ordering is an authority boundary:
 

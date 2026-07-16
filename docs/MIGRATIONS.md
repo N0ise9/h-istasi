@@ -1,12 +1,46 @@
 # Campaign Save Migrations
 
 Current implementation/source identity:
-`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label
-`schema70-settings24-counterattack-owner-applied-restart`, stamp commit
-`8947b2668655fcb58d8339c8b3f77541c39661bc`. Final stamped Foundation passes
-819; Workbench passes 5,832/11,835 at CRC `417e9910` with zero hard errors; and
-all eight guarded chains pass 24/24 fresh-process stages with exact fingerprints,
-zero exits, and exact cleanup.
+`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC `2026-07-16T20:53:27Z`, label
+`schema70-settings24-native-persistence-source-selection`, stamp commit
+`35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Final stamped Foundation passes
+828. Final stamped Workbench passes
+5,834/11,839 at CRC `5fdd016f`, reports script validation successful with zero
+hard or script errors, and cleans to zero. The final stamped guarded pack and all
+three native prepare/recover/replay stages exit `0`, with exact fingerprints and
+zero cleanup including workspace pack scratch.
+
+## Current Native Persistence Source Migration Boundary
+
+This checkpoint adds no campaign-schema or runtime-settings migration. Campaign
+Schema remains 70 and runtime-settings Schema remains 24. The save DTO retains
+its current serialized shape; an engine-created scripted-state proxy now
+transports that DTO through native session saves.
+
+Source selection is conservative. A valid loaded native HST row is authoritative
+before the profile fallback. If no native HST row exists, a valid older profile
+fallback may be loaded through the existing migration path, reconciled under the
+current schema, captured, and registered with the native proxy. Production
+checkpoints continue to mirror the profile fallback, so an ordinary start that
+does not load a native session UUID still has a current recovery source.
+
+An engine save reported as loaded is not a fresh-campaign signal. If it contains
+no valid HST row, the valid profile fallback is the only permitted seed. If both
+the HST row and a valid fallback are absent, startup fails closed instead of
+creating a new campaign. An invalid present native row also remains fatal; the
+fallback cannot mask corrupt native authority.
+
+The final stamped guarded proof exercises this boundary on the current schema
+and build `a6e9069f29f8`. Prepare selects `new_campaign`, succeeds, and commits
+the first native save. Recovery selects `native`, succeeds, performs one
+continuation and owner transition, commits the native successor save, and leaves
+a deliberately conflicting valid fallback unchanged. Replay selects `native`
+from that successor, succeeds without a continuation, changes no semantic
+authority, commits no save, and again leaves the fallback unchanged. The native-
+save fingerprint chain is exact, every stage exits `0`, and all cleanup counters
+are zero, including `WorkspacePackScratchRemaining=0`. This is narrow source-
+precedence evidence, not a general older-save matrix or live multiplayer
+migration certification.
 
 ## Current Schema
 
@@ -30,10 +64,11 @@ Current-shape restore converts the staged raw pending receipt into normalized
 pending authority, completes it once through canonical ownership reconciliation,
 advances exactly once into returning, and normalizes the returning snapshot.
 This is current Schema-70 restart/normalization evidence, not an older-schema
-upgrade and not proof of native persistence-source precedence. Replay cannot
-overwrite the canonical carrier and preserves its SHA-256, length, and UTC last-
-write identity. Older-save execution, native source selection, package/live-
-server, network/JIP, performance, and soak remain open.
+upgrade. Replay cannot overwrite the canonical carrier and preserves its
+SHA-256, length, and UTC last-write identity. The native checkpoint above now
+adds narrow source-precedence proof without changing the schema. Wider older-
+save execution, package/live-server, network/JIP, performance, and soak remain
+open.
 
 ## Preceding Endpoint Restart Schema-Neutral Evidence
 

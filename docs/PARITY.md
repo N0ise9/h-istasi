@@ -1,12 +1,49 @@
 # Partisan Capability Map
 
 Current build identity: implementation/source
-`7eb0a98977c523f6713a9e2088eab7ba20a333fd`, UTC `2026-07-16T17:12:17Z`, label
-`schema70-settings24-counterattack-owner-applied-restart`, stamp commit
-`8947b2668655fcb58d8339c8b3f77541c39661bc`. Campaign Schema 70 and runtime-
+`a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC `2026-07-16T20:53:27Z`, label
+`schema70-settings24-native-persistence-source-selection`, stamp commit
+`35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Campaign Schema 70 and runtime-
 settings Schema 24 remain unchanged.
 
-## Current Counterattack Owner-Applied Restart Parity Boundary
+## Current Native Persistence Source-Selection Parity Boundary
+
+Native campaign persistence and source selection are implemented. The manually
+constructed save DTO is transported through an engine-created scripted-state
+proxy with a required versioned envelope and serialized fingerprint. Both
+campaign mission headers select the persistence systems configuration and
+enable all intended save types. Production checkpoints keep the profile
+fallback current and do not treat transient scripted-state serialization alone
+as durable success.
+
+Startup waits for active persistence before selecting authority. A valid loaded
+native campaign row takes precedence. With no native row, a valid older profile
+fallback may restore, migrate, reconcile, and seed native tracking. A loaded
+native save that has neither an HST row nor a valid fallback fails closed; it
+cannot silently become a new campaign.
+
+The narrow guarded proof packs the current addon into nonce-owned storage and
+runs three fresh dedicated-runtime stages. Prepare selects `new_campaign`,
+commits a native save, and creates a deliberately conflicting current-schema
+fallback. Recovery selects `native`, continues the owner-applied operation once,
+applies the owner transition, and commits the native successor save. Replay
+selects `native` from that successor, performs no continuation, is a semantic
+no-op, and commits no save. The conflicting fallback remains byte-identical
+through both restored stages, and the native-save fingerprint chain is exact.
+
+Final stamped Foundation passes at 828 references. Final stamped Workbench
+passes 5,834 files/11,839 classes at CRC `5fdd016f`, reports script validation
+successful with zero hard or script errors, and cleans to zero. The final
+stamped guarded run packs the current tree, reports build `a6e9069f29f8`, and
+exits `0` for the pack and every prepare/recover/replay stage. All owned-process,
+guard, watched-root, spill, and workspace cleanup counters are zero, including
+`WorkspacePackScratchRemaining=0`. This closes native transport and source
+precedence only for the scoped
+owner-applied chain. Workshop package execution, live server-client equality,
+multiplayer/JIP/reconnect, performance, soak, and general campaign restart
+parity remain open.
+
+## Preceding Counterattack Owner-Applied Restart Parity Boundary
 
 The production restore path now correlates every counterattack-owned ownership
 row before runtime ownership reconciliation. Either the canonical request ID or
@@ -32,9 +69,10 @@ enters returning; persisted returning replays as an ownership and semantic no-
 op. Canonical overwrite is denied and SHA-256, byte length, and UTC last-write
 identity remain unchanged. Final stamped Foundation passes 819; Workbench passes
 5,832/11,835 at CRC `417e9910` with zero hard errors; and all eight chains pass
-24/24 fresh-process stages with exact fingerprints and cleanup. Package/server-
-client, native source selection, networking/JIP, markers, performance, and soak
-parity remain open.
+24/24 fresh-process stages with exact fingerprints and cleanup. That preceding
+checkpoint left package/server-client, native source selection, networking/JIP,
+markers, performance, and soak parity open; the current checkpoint above closes
+only the narrow native transport/source-selection part.
 
 ## Preceding Counterattack Endpoint Owner/Claimant Restart Parity Boundary
 
@@ -722,6 +760,11 @@ Debug and packaged-runtime gates remain open.
 - Common mission lifecycle and configured mission-registry baseline
 - Native Reforger manual and periodic checkpoint requests with
   `PersistenceSystem` tracking for the scripted campaign save container
+- Engine-created native campaign proxy transport with a required fingerprinted
+  envelope, native-before-fallback source selection, valid profile-fallback
+  seeding, loaded-save missing-row rejection, and a production fallback mirror.
+  The guarded owner-applied chain proves this narrowly; general package/live/
+  multiplayer/soak parity remains open.
 - Original Everon world shell and stable strategic-zone IDs
 - Custom FIA HQ player spawn path that bypasses stock Deployment Setup and
   uses game-mode player callbacks, a short spawn sweep, native respawn
@@ -1436,18 +1479,18 @@ Debug and packaged-runtime gates remain open.
 ## Current Verification Boundary
 
 - Campaign Schema 70/runtime-settings 24 is the current contract. Implementation/
-  source `7eb0a98977c523f6713a9e2088eab7ba20a333fd`, label
-  `schema70-settings24-counterattack-owner-applied-restart`, carries UTC
-  `2026-07-16T17:12:17Z` and stamp
-  `8947b2668655fcb58d8339c8b3f77541c39661bc`. Final stamped Foundation passes
-  819; Workbench passes 5,832/11,835 at CRC `417e9910`; and all eight chains pass
-  24/24 stages with exact fingerprints and cleanup. The
-  production restore path now fences lifecycle-illegal counterattack ownership
-  rows before runtime ownership reconciliation and publishes an independent
-  Campaign Debug assertion. The eighth cut proves raw-to-normalized pending
-  restore, exactly-once ownership completion, one production tick into returning,
-  replay no-op, and canonical-carrier non-overwrite identity. Native persistence-
-  source, world/package/dedicated-server, network/JIP/reconnect, migration,
+  source `a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, label
+  `schema70-settings24-native-persistence-source-selection`, carries UTC
+  `2026-07-16T20:53:27Z` and stamp `35fc01a`. Final stamped Foundation passes
+  828; Workbench passes 5,834/11,839 at CRC `5fdd016f` with successful script
+  validation, zero hard/script errors, and zero cleanup. Native campaign
+  transport and source precedence are implemented, and the final stamped guarded
+  chain proves exact `new_campaign -> native -> native`, one recovery
+  continuation and owner transition with a successor save commit, replay no-op
+  with no continuation or save commit, immutable conflicting fallback, exact
+  native-save fingerprint handoffs, all stage exits `0`, and zero residue
+  including workspace pack scratch. Broader Workshop
+  package/live dedicated-server, network/JIP/reconnect, arbitrary-save migration,
   marker, performance, and soak gates remain open.
 - Campaign Schema 69/runtime-settings 24 is the immediately preceding exact-
   counterattack checkpoint. It remains sealed at implementation
@@ -1806,8 +1849,9 @@ Debug and packaged-runtime gates remain open.
   world/prefix cleanup, and the final state diff all pass. Next prove one
   authored binding, restart/streaming reapplication, package behavior, and
   multiplayer without duplicate transmitters.
-- Use the current fresh-process exact-counterattack result as the newest focused
-  persistence checkpoint, and `seed1985_t0_p1_u1784134163` as the latest
+- Use the final stamped native source-selection checkpoint as the newest focused
+  persistence boundary. Use the fresh-process exact-counterattack
+  result as the preceding focused checkpoint, and `seed1985_t0_p1_u1784134163` as the latest
   completed integrated targeted proof. Use R31
   as the preceding proof-ordering checkpoint, R30 as the artificial-scheduling
   diagnosis, R28b as the unchanged positive casualty comparison,
@@ -1848,9 +1892,13 @@ Debug and packaged-runtime gates remain open.
   The preceding matrix passes all seven chains/21 stages with exact fingerprints
   and cleanup. The current owner cut adds raw-to-normalized pending restore,
   exactly-once ownership completion, one production tick into returning, replay
-  no-op, and canonical-carrier non-overwrite identity. Final stamped Foundation
-  passes 819; Workbench passes 5,832/11,835 at CRC `417e9910`; and the complete
-  eight-chain/24-stage result passes with exact fingerprints and cleanup. Durable
+  no-op, and canonical-carrier non-overwrite identity. The current native source-
+  selection checkpoint passes final stamped Foundation at 828 and Workbench at
+  5,834/11,839 with CRC `5fdd016f`; its final stamped guarded chain selects
+  `new_campaign -> native -> native`, preserves the conflicting fallback,
+  commits native saves only in prepare and recovery, and passes with exact
+  fingerprints, all-zero stage exits, and zero cleanup including workspace pack
+  scratch. Durable
   endpoint ABA snapshots are a separate Schema-71/contract-2 decision.
   Do not generalize the counterattack runtime cut to exact QRF
   or garrison rebuild: they share static persistence preflight/normalization

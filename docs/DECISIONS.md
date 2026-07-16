@@ -2688,3 +2688,66 @@ Consequences:
   persistence-source selection, world/package/live-server behavior,
   networking/JIP/reconnect, migration, markers, performance, soak, and durable
   endpoint ABA remain open.
+
+## CRI-047 - Select Native Campaign Persistence Before Profile Fallback
+
+- Status: Accepted; implementation, stamped Workbench, and guarded native-over-
+  fallback restart proof complete
+- Date: 2026-07-16
+
+Context: CRI-046 proved exact recovery through the canonical JSON fallback, but
+that seam could not prove that an engine session save contained the campaign or
+that native state won when native and fallback sources disagreed. Treating the
+campaign DTO itself as engine-owned state would also violate the persistence
+system's construction and serializer contract.
+
+Decision: Keep `HST_CampaignSaveData` as the manually constructed serializable
+DTO. Register one engine-created `HST_CampaignPersistentState : PersistentState`
+proxy and a scripted, versioned envelope serializer; track, configure, and save
+that proxy while its snapshot carries the DTO and deterministic fingerprint.
+
+Resolve startup authority only after native persistence is `ACTIVE`, using a
+native-first, fail-closed policy. Select a valid native row before consulting
+the profile fallback. Invalid native data, an unreadable present fallback,
+terminal system state, missing proxy, or failed tracking is fatal. A loaded
+engine session with no HST native row and no valid migration fallback is also
+fatal, never a fresh campaign. Valid legacy profile data may still migrate into
+the canonical fallback, and ordinary checkpoints continue mirroring current
+data there for bounded backward recovery.
+
+Defer the complete restore/reconciliation pipeline while the persistence system
+is initializing, with a 120-second frame-driven limit. Do not publish gameplay
+callbacks or capture the selected state until source validation and all startup
+reconcilers succeed. Both mission headers must select the HST persistence
+`SystemsConfig` and set `m_eSaveTypes 15`.
+
+The guarded proof must request blocking manual savepoints, correlate both the
+`OnSaveCreated` UUID and completion callback, and pass the exact UUID to each
+fresh recovery process. Recover and replay must report source `native`, reject
+the intentionally conflicting profile fallback, and preserve that fallback's
+file signature. The launcher must pack the current project into a nonce-owned
+disposable add-on root, run the dedicated server from the packed base project
+and exact config mod entry, and leave no loose-project server argument. Profile,
+temporary, pack, server, and process artifacts remain guard-owned. Any required
+workspace scratch is separately sentinel-owned and may be removed only after
+exact owner revalidation; zero scratch and process residue is a release gate.
+
+Consequences:
+
+- Implementation/source `a6e9069f29f8b844f8545b77b8894170ecd6d3b8`, UTC
+  `2026-07-16T20:53:27Z`, label
+  `schema70-settings24-native-persistence-source-selection`, is stamped by
+  `35fc01a399f4f688f28f4ef7afee6351fb6289b7`. Campaign Schema 70 and runtime-
+  settings Schema 24 remain unchanged.
+- Final Foundation passes 828. Workbench validation passes 5,834 files and
+  11,839 classes at CRC
+  `5fdd016f`, with zero hard/script errors and zero cleanup residue.
+- The final packed prepare/recover/replay chain runs build `a6e9069f29f8` and
+  exits `0` at every stage. It proves `new_campaign -> native -> native`, one
+  recovery continuation, replay no-op with no new save point, an unchanged
+  conflicting fallback, exact fingerprint continuity, and zero guard, pack-
+  scratch, process, watched-root, or spill-root residue.
+- This decision certifies the scoped native source-selection and guarded
+  fresh-process precedence boundary. It does not close general packaged
+  server/client, networking/JIP/reconnect, migration breadth, markers,
+  performance, soak, or durable endpoint ABA work.
