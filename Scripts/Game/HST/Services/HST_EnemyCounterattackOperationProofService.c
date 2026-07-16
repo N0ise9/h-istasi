@@ -11,6 +11,7 @@ class HST_EnemyCounterattackOperationProofReport
 	bool m_bRestoreLifecycleExact;
 	bool m_bResourceAuthorityQuarantineExact;
 	bool m_bAmbiguityHoldExact;
+	bool m_bOwnershipCorrelationQuarantineExact;
 	bool m_bSchema69QuarantineExact;
 	bool m_bQuarantineRetentionExact;
 	string m_sPlanningEvidence;
@@ -24,6 +25,7 @@ class HST_EnemyCounterattackOperationProofReport
 	string m_sRestoreEvidence;
 	string m_sResourceAuthorityEvidence;
 	string m_sAmbiguityEvidence;
+	string m_sOwnershipCorrelationEvidence;
 	string m_sQuarantineEvidence;
 	string m_sRetentionEvidence;
 
@@ -35,7 +37,8 @@ class HST_EnemyCounterattackOperationProofReport
 			&& m_bPhysicalHandoffExact && m_bOwnershipRetryExact;
 		bool settlementExact = m_bSettlementReplayExact
 			&& m_bSupportSettlementExact && m_bRestoreLifecycleExact;
-		bool quarantineExact = m_bSchema69QuarantineExact
+		bool quarantineExact = m_bOwnershipCorrelationQuarantineExact
+			&& m_bSchema69QuarantineExact
 			&& m_bQuarantineRetentionExact;
 		bool authorityExact = m_bResourceAuthorityQuarantineExact
 			&& m_bAmbiguityHoldExact && quarantineExact;
@@ -59,10 +62,11 @@ class HST_EnemyCounterattackOperationProofReport
 			m_bSupportSettlementExact,
 			m_bSchema69QuarantineExact);
 		return report + string.Format(
-			" | restore lifecycle %1 | resource authority %2 | ambiguity hold %3 | quarantine retention %4",
+			" | restore lifecycle %1 | resource authority %2 | ambiguity hold %3 | ownership correlation %4 | quarantine retention %5",
 			m_bRestoreLifecycleExact,
 			m_bResourceAuthorityQuarantineExact,
 			m_bAmbiguityHoldExact,
+			m_bOwnershipCorrelationQuarantineExact,
 			m_bQuarantineRetentionExact);
 	}
 }
@@ -150,6 +154,28 @@ class HST_EnemyCounterattackOwnershipRetryProofHarness : HST_OwnershipTransition
 		return m_iProductionApplyCount;
 	}
 
+	HST_OwnershipTransitionState AdmitPreOwnerPendingForProof(
+		HST_CampaignState state,
+		HST_OwnershipTransitionRequest request)
+	{
+		if (!state || !request || !ValidateNewRequest(state, request).IsEmpty()
+			|| !EnsureAdmissionCapacity(state))
+			return null;
+		HST_ZoneState zone = state.FindZone(request.m_sZoneId);
+		HST_OwnershipTransitionState transition = CreateTransition(
+			state,
+			zone,
+			request);
+		if (!transition || transition.m_sStrategicEventId.IsEmpty())
+			return null;
+		state.m_aOwnershipTransitions.Insert(transition);
+		zone.m_sActiveOwnershipTransitionRequestId = transition.m_sRequestId;
+		transition.m_iAttemptCount = 1;
+		transition.m_iLastAttemptAtSecond = state.m_iElapsedSeconds;
+		transition.m_sStatus = "applying";
+		return transition;
+	}
+
 	string MissingDependenciesForProof()
 	{
 		string missing;
@@ -164,6 +190,7 @@ class HST_EnemyCounterattackOwnershipRetryProofHarness : HST_OwnershipTransition
 		if (!m_PhysicalWar) missing = missing + " physical_war";
 		if (!m_LocalSecurityPatrols) missing = missing + " local_security";
 		if (!m_GarrisonPatrols) missing = missing + " garrison_patrols";
+		if (!m_EnemyGarrisonRebuilds) missing = missing + " enemy_garrison_rebuilds";
 		if (!m_ZoneCapture) missing = missing + " zone_capture";
 		if (!m_MapMarkers) missing = missing + " map_markers";
 		if (!m_Persistence) missing = missing + " persistence";
@@ -225,6 +252,7 @@ class HST_EnemyCounterattackOperationProofFixture
 	ref HST_GarrisonPatrolOperationProofFixture m_DefenderFixture;
 	ref HST_GarrisonPatrolOperationService m_GarrisonPatrols;
 	ref HST_LocalSecurityOperationService m_LocalSecurity;
+	ref HST_EnemyGarrisonRebuildOperationService m_EnemyGarrisonRebuilds;
 	ref HST_EnemyOrderState m_Order;
 	ref HST_ForceManifestState m_Manifest;
 	ref HST_EnemyCounterattackAdmissionResult m_Admission;
@@ -374,6 +402,15 @@ class HST_EnemyCounterattackOperationProofFixtureFactory
 			fixture.m_Adapter,
 			fixture.m_PhysicalWar,
 			fixture.m_OwnershipFixture.m_TownInfluence);
+		fixture.m_EnemyGarrisonRebuilds
+			= new HST_EnemyGarrisonRebuildOperationService();
+		fixture.m_EnemyGarrisonRebuilds.SetRuntimeServices(
+			fixture.m_Queue,
+			fixture.m_Adapter,
+			fixture.m_PhysicalWar,
+			fixture.m_OwnershipFixture.m_Garrisons);
+		fixture.m_EnemyGarrisonRebuilds.SetEnemyDirectorService(
+			fixture.m_OwnershipFixture.m_EnemyDirector);
 
 		fixture.m_Ownership = new HST_EnemyCounterattackOwnershipRetryProofHarness();
 		fixture.m_Ownership.ConfigureDomainServices(
@@ -391,7 +428,7 @@ class HST_EnemyCounterattackOperationProofFixtureFactory
 			fixture.m_PhysicalWar,
 			fixture.m_LocalSecurity,
 			fixture.m_GarrisonPatrols,
-			null,
+			fixture.m_EnemyGarrisonRebuilds,
 			fixture.m_OwnershipFixture.m_ZoneCapture);
 		fixture.m_Ownership.ConfigureProjectionServices(
 			fixture.m_OwnershipFixture.m_MapMarkers,
@@ -570,7 +607,8 @@ class HST_EnemyCounterattackOperationProofFixtureFactory
 		bool campaignReady = fixture.m_State && fixture.m_Preset
 			&& fixture.m_Planning && fixture.m_EnemyDirector;
 		bool runtimeReady = fixture.m_Queue && fixture.m_Adapter
-			&& fixture.m_PhysicalWar && fixture.m_Service && fixture.m_Ownership;
+			&& fixture.m_PhysicalWar && fixture.m_Service && fixture.m_Ownership
+			&& fixture.m_EnemyGarrisonRebuilds;
 		bool planningReady = fixture.m_Order && fixture.m_Manifest
 			&& fixture.m_bPreflightAccepted && fixture.m_bDebitAccepted;
 		bool admissionReady = fixture.m_Admission
@@ -611,6 +649,7 @@ class HST_EnemyCounterattackOperationProofService
 		ProveRestoreLifecycle(report);
 		ProveResourceAuthorityQuarantine(report);
 		ProveAmbiguousRuntimeHold(report);
+		ProveOwnershipTransitionCorrelationQuarantine(report);
 		ProveSchema69Quarantine(report);
 		ProveSchema69QuarantineRetention(report);
 		return report;
@@ -1759,6 +1798,609 @@ class HST_EnemyCounterattackOperationProofService
 			held,
 			foreign.m_sProjectionId));
 		return held;
+	}
+
+	protected void ProveOwnershipTransitionCorrelationQuarantine(
+		HST_EnemyCounterattackOperationProofReport report)
+	{
+		bool onStationPendingExact = ProveOnStationPendingOwnershipCorrelation();
+		bool materializingPendingExact
+			= ProveMaterializingPendingOwnershipCorrelation();
+		bool dematerializingPendingExact
+			= ProveDematerializingPendingOwnershipCorrelation();
+		bool returningCompletedExact = ProveReturningCompletedOwnershipCorrelation();
+		bool prematureExact = ProvePrematureOwnershipTransitionQuarantine();
+		bool engagedExact = ProveEngagedOwnershipTransitionQuarantine();
+		bool foreignExact = ProveForeignOwnershipTransitionQuarantine();
+		bool duplicateExact = ProveDuplicateOwnershipTransitionQuarantine();
+		bool orphanExact = ProveOrphanOwnershipTransitionQuarantine();
+		report.m_bOwnershipCorrelationQuarantineExact = onStationPendingExact
+			&& materializingPendingExact && dematerializingPendingExact
+			&& returningCompletedExact && prematureExact && engagedExact
+			&& foreignExact && duplicateExact && orphanExact;
+		report.m_sOwnershipCorrelationEvidence = string.Format(
+			"lifecycle ownership authority | stable pending/returning completed %1/%2 | handoff pending materializing/dematerializing %3/%4",
+			onStationPendingExact,
+			returningCompletedExact,
+			materializingPendingExact,
+			dematerializingPendingExact);
+		report.m_sOwnershipCorrelationEvidence
+			= report.m_sOwnershipCorrelationEvidence + string.Format(
+			" | premature/engaged/foreign/duplicate/orphan quarantined %1/%2/%3/%4/%5",
+			prematureExact,
+			engagedExact,
+			foreignExact,
+			duplicateExact,
+			orphanExact);
+	}
+
+	protected bool ProveOnStationPendingOwnershipCorrelation()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_pending");
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending)
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string operationId = fixture.m_Operation.m_sOperationId;
+		string requestId = pending.m_sRequestId;
+		string zoneId = pending.m_sZoneId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		NormalizeCounterattackAuthority(saveData);
+
+		HST_EnemyOrderState order = FindOrder(saveData.m_aEnemyOrders, orderId);
+		HST_OperationRecordState operation = FindOperation(
+			saveData.m_aOperations,
+			operationId);
+		HST_OwnershipTransitionState transition = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			requestId);
+		HST_ZoneState zone = FindZone(saveData.m_aZones, zoneId);
+		return order && operation && transition && zone
+			&& order.m_iOperationContractVersion
+				== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			&& transition.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& transition.m_bOwnerApplied && !transition.m_bCompleted
+			&& !transition.m_bQuarantined && transition.m_sFailureReason.IsEmpty()
+			&& zone.m_iOwnershipContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& zone.m_sActiveOwnershipTransitionRequestId == requestId
+			&& CountSavedOwnershipTransitionClaimants(saveData, operationId) == 1;
+	}
+
+	protected bool ProveReturningCompletedOwnershipCorrelation()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_returning");
+		if (!m_Fixtures.Ready(fixture) || !DriveUntilReturning(fixture, 80))
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string operationId = fixture.m_Operation.m_sOperationId;
+		string requestId = "ownership_counterattack_" + operationId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		NormalizeCounterattackAuthority(saveData);
+
+		HST_EnemyOrderState order = FindOrder(saveData.m_aEnemyOrders, orderId);
+		HST_OperationRecordState operation = FindOperation(
+			saveData.m_aOperations,
+			operationId);
+		HST_OwnershipTransitionState transition = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			requestId);
+		return order && operation && transition
+			&& order.m_iOperationContractVersion
+				== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& order.m_bOutcomeApplied
+			&& order.m_sResolutionKind == "exact_counterattack_recaptured"
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN
+			&& transition.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& transition.m_bCompleted && !transition.m_bQuarantined
+			&& transition.m_sStatus == "completed"
+			&& transition.m_sFailureReason.IsEmpty()
+			&& CountSavedOwnershipTransitionClaimants(saveData, operationId) == 1;
+	}
+
+	protected bool ProveMaterializingPendingOwnershipCorrelation()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_materializing");
+		if (!DriveUntilOnStation(fixture, 80))
+			return false;
+		HST_OwnershipTransitionRequest request
+			= BuildCanonicalCounterattackOwnershipRequest(fixture);
+		HST_OwnershipTransitionState pending
+			= fixture.m_Ownership.AdmitPreOwnerPendingForProof(
+				fixture.m_State,
+				request);
+		HST_ForceSpawnQueueCallbackResult released
+			= fixture.m_Queue.ReleaseStrategicProjectionForMaterialization(
+				fixture.m_State.m_aForceSpawnResults,
+				fixture.m_Manifest,
+				fixture.m_Batch.m_sResultId,
+				fixture.m_Batch.m_sProjectionId,
+				fixture.m_State.m_iElapsedSeconds,
+				fixture.m_State.m_iElapsedSeconds + 180);
+		HST_OperationService operations = new HST_OperationService();
+		HST_OperationTransitionResult materializing
+			= operations.MarkExactEnemyCounterattackMaterializingFromVirtual(
+				fixture.m_State,
+				fixture.m_Order,
+				fixture.m_Group,
+				fixture.m_Batch,
+				"focused ownership correlation crossed materialization");
+		if (!pending || !released || !released.m_bAccepted
+			|| !materializing || !materializing.m_bAccepted
+			|| fixture.m_Operation.m_eMaterializationState
+				!= HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING)
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string operationId = fixture.m_Operation.m_sOperationId;
+		string requestId = pending.m_sRequestId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		NormalizeCounterattackAuthority(saveData);
+		return IsValidPendingCounterattackOwnershipAfterNormalize(
+			saveData,
+			orderId,
+			operationId,
+			requestId,
+			false);
+	}
+
+	protected bool ProveDematerializingPendingOwnershipCorrelation()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_dematerializing");
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending)
+			return false;
+		HST_ForceSpawnQueueCallbackResult released
+			= fixture.m_Queue.ReleaseStrategicProjectionForMaterialization(
+				fixture.m_State.m_aForceSpawnResults,
+				fixture.m_Manifest,
+				fixture.m_Batch.m_sResultId,
+				fixture.m_Batch.m_sProjectionId,
+				fixture.m_State.m_iElapsedSeconds,
+				fixture.m_State.m_iElapsedSeconds + 180);
+		HST_OperationService operations = new HST_OperationService();
+		HST_OperationTransitionResult materializing
+			= operations.MarkExactEnemyCounterattackMaterializingFromVirtual(
+				fixture.m_State,
+				fixture.m_Order,
+				fixture.m_Group,
+				fixture.m_Batch,
+				"focused ownership correlation entered physical authority");
+		PrepareSyntheticSuccessfulProjection(fixture);
+		fixture.m_Group.m_bSpawnedEntity = true;
+		fixture.m_Group.m_sRuntimeEntityId = fixture.m_Batch.m_sNativeGroupId;
+		fixture.m_Group.m_iSpawnedAgentCount
+			= fixture.m_Manifest.m_iAcceptedMemberCount;
+		HST_OperationTransitionResult physical
+			= operations.MarkExactEnemyCounterattackPhysical(
+				fixture.m_State,
+				fixture.m_Order,
+				fixture.m_Group,
+				fixture.m_Batch,
+				"focused ownership correlation established live authority");
+		HST_OperationTransitionResult dematerializing
+			= operations.BeginExactEnemyCounterattackDematerialization(
+				fixture.m_State,
+				fixture.m_Order,
+				fixture.m_Group,
+				"focused ownership correlation crossed dematerialization");
+		if (!released || !released.m_bAccepted
+			|| !materializing || !materializing.m_bAccepted
+			|| !physical || !physical.m_bAccepted
+			|| !dematerializing || !dematerializing.m_bAccepted)
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string operationId = fixture.m_Operation.m_sOperationId;
+		string requestId = pending.m_sRequestId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		NormalizeCounterattackAuthority(saveData);
+		return IsValidPendingCounterattackOwnershipAfterNormalize(
+			saveData,
+			orderId,
+			operationId,
+			requestId,
+			true);
+	}
+
+	protected bool ProvePrematureOwnershipTransitionQuarantine()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_premature");
+		HST_OwnershipTransitionState pending = ApplyPrematureOwnershipPending(fixture);
+		if (!pending || fixture.m_Operation.m_eDutyState
+			== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string requestId = pending.m_sRequestId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		NormalizeCounterattackAuthority(saveData);
+		return IsLinkedCounterattackOwnershipQuarantineExact(
+			saveData,
+			orderId,
+			requestId);
+	}
+
+	protected bool ProveEngagedOwnershipTransitionQuarantine()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_engaged");
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending)
+			return false;
+		fixture.m_Operation.m_eEngagementMode
+			= HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_ENGAGED;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string requestId = pending.m_sRequestId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		NormalizeCounterattackAuthority(saveData);
+		return IsLinkedCounterattackOwnershipQuarantineExact(
+			saveData,
+			orderId,
+			requestId);
+	}
+
+	protected bool ProveForeignOwnershipTransitionQuarantine()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_foreign");
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending)
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string canonicalRequestId = pending.m_sRequestId;
+		string foreignRequestId = "ownership_counterattack_foreign_"
+			+ fixture.m_Operation.m_sOperationId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		HST_OwnershipTransitionState saved = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			canonicalRequestId);
+		if (!saved)
+			return false;
+		HST_ZoneState zone = FindZone(saveData.m_aZones, saved.m_sZoneId);
+		if (!zone)
+			return false;
+		saved.m_sRequestId = foreignRequestId;
+		zone.m_sActiveOwnershipTransitionRequestId = foreignRequestId;
+		NormalizeCounterattackAuthority(saveData);
+		return IsLinkedCounterattackOwnershipQuarantineExact(
+			saveData,
+			orderId,
+			foreignRequestId);
+	}
+
+	protected bool ProveDuplicateOwnershipTransitionQuarantine()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_duplicate");
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending)
+			return false;
+
+		string orderId = fixture.m_Order.m_sOrderId;
+		string requestId = pending.m_sRequestId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		HST_OwnershipTransitionState saved = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			requestId);
+		HST_CampaignSaveData collisionSource = new HST_CampaignSaveData();
+		collisionSource.Capture(fixture.m_State);
+		HST_OwnershipTransitionState collision = FindSavedOwnershipTransition(
+			collisionSource.m_aOwnershipTransitions,
+			requestId);
+		if (!saved || !collision || saved == collision)
+			return false;
+		saveData.m_aOwnershipTransitions.Insert(collision);
+		NormalizeCounterattackAuthority(saveData);
+		return CountSavedOwnershipTransitionClaimants(
+			saveData,
+			fixture.m_Operation.m_sOperationId) == 2
+			&& IsLinkedCounterattackOwnershipQuarantineExact(
+				saveData,
+				orderId,
+				requestId);
+	}
+
+	protected bool ProveOrphanOwnershipTransitionQuarantine()
+	{
+		HST_EnemyCounterattackOperationProofFixture fixture
+			= m_Fixtures.BuildAdmittedFixture("ownership_correlation_orphan");
+		HST_OwnershipTransitionState pending
+			= DriveUntilOwnerAppliedPending(fixture, 80);
+		if (!pending)
+			return false;
+
+		string requestId = "foreign_ownership_request_"
+			+ fixture.m_Operation.m_sOperationId;
+		string zoneId = pending.m_sZoneId;
+		string operationId = fixture.m_Operation.m_sOperationId;
+		HST_CampaignSaveData saveData = new HST_CampaignSaveData();
+		saveData.Capture(fixture.m_State);
+		HST_OwnershipTransitionState saved = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			pending.m_sRequestId);
+		HST_ZoneState capturedZone = FindZone(saveData.m_aZones, zoneId);
+		if (!saved || !capturedZone)
+			return false;
+		saved.m_sRequestId = requestId;
+		saved.m_sSourceType = "foreign_ownership_source";
+		capturedZone.m_sActiveOwnershipTransitionRequestId = requestId;
+		saveData.m_aEnemyOrders.Clear();
+		NormalizeCounterattackAuthority(saveData);
+
+		HST_OwnershipTransitionState transition = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			requestId);
+		HST_ZoneState zone = FindZone(saveData.m_aZones, zoneId);
+		HST_OperationRecordState operation = FindOperation(
+			saveData.m_aOperations,
+			operationId);
+		return IsOwnershipAuthorityQuarantined(transition, zone)
+			&& saveData.m_aEnemyOrders.IsEmpty()
+			&& operation
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& !operation.m_sLastProjectionReason.IsEmpty();
+	}
+
+	protected bool DriveUntilOnStation(
+		HST_EnemyCounterattackOperationProofFixture fixture,
+		int maxTicks)
+	{
+		if (!m_Fixtures.Ready(fixture))
+			return false;
+		for (int tick = 0; tick < maxTicks; tick++)
+		{
+			if (fixture.m_Operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION)
+				return fixture.m_Operation.m_eEngagementMode
+					== HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR;
+			fixture.m_State.m_iElapsedSeconds
+				+= HST_StrategicMovementService.MAX_CATCHUP_SECONDS_PER_TICK;
+			fixture.m_Service.TickOrder(
+				fixture.m_State,
+				fixture.m_Preset,
+				fixture.m_EnemyDirector,
+				fixture.m_Order);
+		}
+		return false;
+	}
+
+	protected HST_OwnershipTransitionState DriveUntilOwnerAppliedPending(
+		HST_EnemyCounterattackOperationProofFixture fixture,
+		int maxTicks)
+	{
+		if (!m_Fixtures.Ready(fixture))
+			return null;
+		string requestId = "ownership_counterattack_"
+			+ fixture.m_Operation.m_sOperationId;
+		fixture.m_Ownership.InjectOwnerAppliedPendingCount(1);
+		for (int tick = 0; tick < maxTicks; tick++)
+		{
+			HST_OwnershipTransitionState pending
+				= fixture.m_State.FindOwnershipTransition(requestId);
+			if (pending)
+			{
+				if (pending.m_bOwnerApplied && !pending.m_bCompleted
+					&& pending.m_sSourceType == "enemy_counterattack"
+					&& pending.m_sSourceId == fixture.m_Operation.m_sOperationId)
+					return pending;
+				return null;
+			}
+			fixture.m_State.m_iElapsedSeconds
+				+= HST_StrategicMovementService.MAX_CATCHUP_SECONDS_PER_TICK;
+			fixture.m_Service.TickOrder(
+				fixture.m_State,
+				fixture.m_Preset,
+				fixture.m_EnemyDirector,
+				fixture.m_Order);
+		}
+		return null;
+	}
+
+	protected bool IsValidPendingCounterattackOwnershipAfterNormalize(
+		HST_CampaignSaveData saveData,
+		string orderId,
+		string operationId,
+		string requestId,
+		bool ownerApplied)
+	{
+		HST_EnemyOrderState order = FindOrder(saveData.m_aEnemyOrders, orderId);
+		HST_OperationRecordState operation = FindOperation(
+			saveData.m_aOperations,
+			operationId);
+		HST_OwnershipTransitionState transition = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			requestId);
+		HST_ZoneState zone;
+		if (transition)
+			zone = FindZone(saveData.m_aZones, transition.m_sZoneId);
+		return order && operation && transition && zone
+			&& order.m_iOperationContractVersion
+				== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			&& operation.m_eEngagementMode
+				== HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
+			&& transition.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& transition.m_bOwnerApplied == ownerApplied
+			&& !transition.m_bCompleted && !transition.m_bQuarantined
+			&& transition.m_sFailureReason.IsEmpty()
+			&& zone.m_iOwnershipContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& zone.m_sActiveOwnershipTransitionRequestId == requestId
+			&& CountSavedOwnershipTransitionClaimants(saveData, operationId) == 1;
+	}
+
+	protected HST_OwnershipTransitionState ApplyPrematureOwnershipPending(
+		HST_EnemyCounterattackOperationProofFixture fixture)
+	{
+		if (!m_Fixtures.Ready(fixture))
+			return null;
+		fixture.m_Ownership.InjectOwnerAppliedPendingCount(1);
+		HST_OwnershipTransitionRequest request
+			= BuildCanonicalCounterattackOwnershipRequest(fixture);
+		if (!request)
+			return null;
+		HST_OwnershipTransitionResult result
+			= fixture.m_Ownership.Apply(fixture.m_State, request);
+		if (!result || !result.m_bAccepted || !result.m_bNeedsRetry
+			|| !result.m_Transition)
+			return null;
+		return result.m_Transition;
+	}
+
+	protected HST_OwnershipTransitionRequest BuildCanonicalCounterattackOwnershipRequest(
+		HST_EnemyCounterattackOperationProofFixture fixture)
+	{
+		if (!m_Fixtures.Ready(fixture))
+			return null;
+		string requestId = "ownership_counterattack_"
+			+ fixture.m_Operation.m_sOperationId;
+		HST_OwnershipTransitionRequest request = fixture.m_Ownership.BuildRequest(
+			fixture.m_State,
+			fixture.m_sTargetZoneId,
+			fixture.m_Order.m_sFactionKey,
+			"military_capture",
+			"enemy_counterattack",
+			fixture.m_Operation.m_sOperationId,
+			"exact enemy counterattack recaptured the location",
+			0,
+			requestId);
+		if (!request)
+			return null;
+		request.m_bApplyEnemyConsequences = false;
+		request.m_bReconcileSecurity = true;
+		request.m_bCreateSecurity = false;
+		request.m_bNotify = true;
+		return request;
+	}
+
+	protected void NormalizeCounterattackAuthority(HST_CampaignSaveData saveData)
+	{
+		HST_OwnershipTransitionSaveValidationService ownershipValidation
+			= new HST_OwnershipTransitionSaveValidationService();
+		ownershipValidation.Normalize(saveData, HST_CampaignState.SCHEMA_VERSION);
+		HST_EnemyCounterattackSaveValidationService validation
+			= new HST_EnemyCounterattackSaveValidationService();
+		validation.Normalize(saveData, HST_CampaignState.SCHEMA_VERSION);
+	}
+
+	protected bool IsLinkedCounterattackOwnershipQuarantineExact(
+		HST_CampaignSaveData saveData,
+		string orderId,
+		string requestId)
+	{
+		if (!saveData)
+			return false;
+		HST_EnemyOrderState order = FindOrder(saveData.m_aEnemyOrders, orderId);
+		HST_OwnershipTransitionState transition = FindSavedOwnershipTransition(
+			saveData.m_aOwnershipTransitions,
+			requestId);
+		HST_ZoneState zone;
+		if (transition)
+			zone = FindZone(saveData.m_aZones, transition.m_sZoneId);
+		HST_OperationRecordState operation;
+		HST_ForceSpawnResultState batch;
+		if (order)
+		{
+			operation = FindOperation(saveData.m_aOperations, order.m_sOperationId);
+			batch = FindBatch(saveData.m_aForceSpawnResults, order.m_sSpawnResultId);
+		}
+		bool aggregateHeld = order
+			&& order.m_iOperationContractVersion
+				== HST_EnemyCounterattackSaveValidationService.QUARANTINED_CONTRACT_VERSION
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED
+			&& order.m_sRuntimeStatus == "exact_counterattack_quarantined"
+			&& !order.m_sFailureReason.IsEmpty()
+			&& operation
+			&& operation.m_eMaterializationState
+				== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+			&& operation.m_ePositionAuthority
+				== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& !operation.m_sLastProjectionReason.IsEmpty()
+			&& batch && batch.m_bStrategicProjectionHeld
+			&& !batch.m_bCancelRequested;
+		return aggregateHeld && IsOwnershipAuthorityQuarantined(transition, zone);
+	}
+
+	protected bool IsOwnershipAuthorityQuarantined(
+		HST_OwnershipTransitionState transition,
+		HST_ZoneState zone)
+	{
+		return transition && zone
+			&& transition.m_iContractVersion
+				== HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION
+			&& transition.m_bQuarantined
+			&& transition.m_sStatus == "quarantined"
+			&& !transition.m_sFailureReason.IsEmpty()
+			&& zone.m_iOwnershipContractVersion
+				== HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION
+			&& !zone.m_sOwnershipAuthorityFailure.IsEmpty();
+	}
+
+	protected HST_OwnershipTransitionState FindSavedOwnershipTransition(
+		array<ref HST_OwnershipTransitionState> transitions,
+		string requestId)
+	{
+		if (!transitions || requestId.IsEmpty())
+			return null;
+		foreach (HST_OwnershipTransitionState transition : transitions)
+		{
+			if (transition && transition.m_sRequestId == requestId)
+				return transition;
+		}
+		return null;
+	}
+
+	protected int CountSavedOwnershipTransitionClaimants(
+		HST_CampaignSaveData saveData,
+		string operationId)
+	{
+		int count;
+		if (!saveData || operationId.IsEmpty())
+			return count;
+		string requestId = "ownership_counterattack_" + operationId;
+		foreach (HST_OwnershipTransitionState transition : saveData.m_aOwnershipTransitions)
+		{
+			if (transition && (transition.m_sRequestId == requestId
+				|| transition.m_sSourceId == operationId))
+				count++;
+		}
+		return count;
 	}
 
 	protected void ProveSchema69Quarantine(

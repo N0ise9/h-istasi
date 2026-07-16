@@ -28155,6 +28155,7 @@ $schema69Paths = @(
 	"Scripts/Game/HST/Services/HST_EnemyCounterattackSaveValidationService.c",
 	"Scripts/Game/HST/Services/HST_EnemyCounterattackOperationProofService.c",
 	"Scripts/Game/HST/Services/HST_EnemyCounterattackRetentionService.c",
+	"Scripts/Game/HST/Services/HST_OwnershipTransitionSaveValidationService.c",
 	"Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
 )
 foreach ($schema69Path in $schema69Paths) {
@@ -28187,10 +28188,11 @@ $schema69CoordinatorText = Get-Content -Raw "Scripts/Game/HST/Components/HST_Cam
 $schema69DebugResultText = Get-Content -Raw "Scripts/Game/HST/Data/HST_CampaignDebugResult.c"
 $schema69ProofText = Get-Content -Raw "Scripts/Game/HST/Services/HST_EnemyCounterattackOperationProofService.c"
 $schema69AutotestText = Get-Content -Raw "Scripts/Game/HST/Tests/HST_EnemyCounterattackAutotest.c"
+$schema69OwnershipSaveValidationText = Get-Content -Raw "Scripts/Game/HST/Services/HST_OwnershipTransitionSaveValidationService.c"
 
-if ($campaignSchemaVersion -lt 69 -or
+if ($campaignSchemaVersion -ne 70 -or
 	$schema69StateText -notmatch "static const int SCHEMA_VERSION\s*=\s*$campaignSchemaVersion;") {
-	throw "Schema-69 exact enemy-counterattack authority requires CampaignState schema 69 or later"
+	throw "Lifecycle-aware exact enemy-counterattack ownership restore fencing must remain schema-neutral at CampaignState schema 70"
 }
 if ($runtimeSettingsSchemaVersion -ne 24) {
 	throw "Schema-69 exact enemy-counterattack authority must preserve runtime-settings schema 24"
@@ -28218,7 +28220,12 @@ foreach ($schema69ConstantCheck in @(
 	@('operation intent', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_MANIFEST_INTENT = "enemy_counterattack";'),
 	@('operation assignment', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_ASSIGNMENT_KIND = "capture_zone";'),
 	@('operation recall', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_RECALL_POLICY = "return_to_origin_then_refund_survivors";'),
-	@('operation settlement', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY = "exact_enemy_counterattack_ledger";')
+	@('operation settlement', $schema69OperationText, 'static const string EXACT_ENEMY_COUNTERATTACK_SETTLEMENT_POLICY = "exact_enemy_counterattack_ledger";'),
+	@('ownership request prefix', $schema69ValidationText, 'static const string OWNERSHIP_REQUEST_PREFIX = "ownership_counterattack_";'),
+	@('ownership source type', $schema69ValidationText, 'static const string OWNERSHIP_SOURCE_TYPE = "enemy_counterattack";'),
+	@('ownership cause', $schema69ValidationText, 'static const string OWNERSHIP_CAUSE = "military_capture";'),
+	@('ownership recapture resolution', $schema69ValidationText, 'static const string RECAPTURE_RESOLUTION = "exact_counterattack_recaptured";'),
+	@('ownership reason', $schema69ValidationText, 'static const string OWNERSHIP_REASON = "exact enemy counterattack recaptured the location";')
 )) {
 	if ($schema69ConstantCheck[1].IndexOf($schema69ConstantCheck[2]) -lt 0) {
 		throw "Schema-69 exact enemy-counterattack constant drifted at $($schema69ConstantCheck[0])"
@@ -28236,10 +28243,284 @@ if ([string]::IsNullOrEmpty($schema69MigrateBlock) -or
 	$schema69ResourceNormalizeIndex -ge $schema69ValidateIndex) {
 	throw "Schema-69 counterattack validation must run after canonical ownership and strategic-resource normalization"
 }
+$schema69NormalizeBlock = Get-ScriptMethodBlock $schema69ValidationText 'void Normalize('
+$schema69OwnershipBarrierIndex = $schema69NormalizeBlock.IndexOf('NormalizeCounterattackOwnershipAuthority();')
+$schema69AggregateLoopIndex = $schema69NormalizeBlock.IndexOf('foreach (HST_EnemyOrderState order : m_SaveData.m_aEnemyOrders)', [Math]::Max(0, $schema69OwnershipBarrierIndex))
+if ([string]::IsNullOrEmpty($schema69NormalizeBlock) -or
+	$schema69OwnershipBarrierIndex -lt 0 -or $schema69AggregateLoopIndex -lt 0 -or
+	$schema69OwnershipBarrierIndex -ge $schema69AggregateLoopIndex -or
+	([regex]::Matches($schema69NormalizeBlock, [regex]::Escape('NormalizeCounterattackOwnershipAuthority();'))).Count -ne 1) {
+	throw "Schema-70 counterattack ownership authority must normalize exactly once before the exact aggregate loop"
+}
 $schema69GenericProjectionBlock = Get-ScriptMethodBlock $schema69SaveText 'protected void NormalizeRestoredOperationProjectionState()'
 if ([string]::IsNullOrEmpty($schema69GenericProjectionBlock) -or
 	$schema69GenericProjectionBlock.IndexOf('HST_OPERATION_TYPE_ENEMY_COUNTERATTACK') -lt 0) {
 	throw "Schema-69 exact counterattacks must be excluded from generic restore normalization"
+}
+
+$schema69OwnershipBarrierBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void NormalizeCounterattackOwnershipAuthority('
+foreach ($schema69OwnershipBarrierEntry in @(
+	'foreach (HST_EnemyOrderState order : m_SaveData.m_aEnemyOrders)',
+	'HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK',
+	'HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION',
+	'order.m_iOperationContractVersion != QUARANTINED_CONTRACT_VERSION',
+	'FindUniqueOperation(order.m_sOperationId)',
+	'ValidateCounterattackOwnershipLifecycle(order, operation);',
+	'QuarantineOrphanOwnershipClaimants();'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipBarrierBlock) -or
+		$schema69OwnershipBarrierBlock.IndexOf($schema69OwnershipBarrierEntry) -lt 0) {
+		throw "Schema-70 pre-reconcile counterattack ownership barrier is incomplete: $schema69OwnershipBarrierEntry"
+	}
+}
+$schema69HistoricalOwnershipFenceBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void QuarantineHistoricalIncompleteOwnershipClaimants('
+foreach ($schema69HistoricalOwnershipFenceEntry in @(
+	'foreach (HST_OwnershipTransitionState transition : m_SaveData.m_aOwnershipTransitions)',
+	'IsDeclaredCounterattackOwnershipClaimant(transition)',
+	'transition.m_bCompleted || transition.m_bQuarantined',
+	'HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority(',
+	'pre-schema-69 counterattack ownership transition is unsafe to resume'
+)) {
+	if ([string]::IsNullOrEmpty($schema69HistoricalOwnershipFenceBlock) -or
+		$schema69HistoricalOwnershipFenceBlock.IndexOf($schema69HistoricalOwnershipFenceEntry) -lt 0) {
+		throw "Schema-70 historical counterattack ownership restore fencing is incomplete: $schema69HistoricalOwnershipFenceEntry"
+	}
+}
+$schema69OwnershipLifecycleBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void ValidateCounterattackOwnershipLifecycle('
+foreach ($schema69OwnershipLifecycleEntry in @(
+	'CollectCounterattackOwnershipClaimants(order, claimants);',
+	'IsUncommittedFullSettlementCandidate(order)',
+	'if (!claimants.IsEmpty())',
+	'ValidateQuarantinedCounterattackOwnershipClaimants(order, claimants);',
+	'operation.m_sEnemyOrderId == order.m_sOrderId',
+	'operation.m_sAssignmentZoneId == order.m_sTargetZoneId',
+	'operation.m_sOwnerFactionKey == order.m_sFactionKey',
+	'HST_OPERATION_DUTY_RETURNING_TO_ORIGIN',
+	'order.m_sResolutionKind == RECAPTURE_RESOLUTION',
+	'ResolveSettlementPolicy(',
+	'hasSettlementPolicy && settlementRequiresRecapture',
+	'bool requiresCompletedReceipt = returning || recaptureOutcome',
+	'HST_OPERATION_DUTY_ON_STATION',
+	'bool onStationCaptureWindow',
+	'HST_OPERATION_POSITION_STRATEGIC',
+	'HST_OPERATION_MATERIALIZATION_MATERIALIZING',
+	'HST_OPERATION_POSITION_LIVE',
+	'HST_OPERATION_MATERIALIZATION_DEMATERIALIZING',
+	'HST_OPERATION_ENGAGEMENT_CLEAR',
+	'(strategicCaptureProjection || liveCaptureProjection)',
+	'if (!requiresCompletedReceipt && !onStationCaptureWindow)',
+	'if (claimants.Count() > 1)',
+	'if (claimants.IsEmpty())',
+	'if (requiresCompletedReceipt)',
+	'ValidateCounterattackOwnershipReceiptFingerprint(receipt, order)',
+	'&& !IsCompletedOwnershipReceipt(receipt)',
+	'ValidateOnStationOwnershipReceipt(receipt, order)'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipLifecycleBlock) -or
+		$schema69OwnershipLifecycleBlock.IndexOf($schema69OwnershipLifecycleEntry) -lt 0) {
+		throw "Schema-70 counterattack ownership lifecycle cardinality is incomplete: $schema69OwnershipLifecycleEntry"
+	}
+}
+$schema69PreRecaptureIndex = $schema69OwnershipLifecycleBlock.IndexOf('if (!requiresCompletedReceipt && !onStationCaptureWindow)')
+$schema69AmbiguousClaimantsIndex = $schema69OwnershipLifecycleBlock.IndexOf('if (claimants.Count() > 1)', [Math]::Max(0, $schema69PreRecaptureIndex))
+$schema69MissingCompletedIndex = $schema69OwnershipLifecycleBlock.IndexOf('if (claimants.IsEmpty())', [Math]::Max(0, $schema69AmbiguousClaimantsIndex))
+$schema69ReceiptFingerprintIndex = $schema69OwnershipLifecycleBlock.IndexOf('ValidateCounterattackOwnershipReceiptFingerprint(receipt, order)', [Math]::Max(0, $schema69MissingCompletedIndex))
+if ($schema69PreRecaptureIndex -lt 0 -or
+	$schema69AmbiguousClaimantsIndex -le $schema69PreRecaptureIndex -or
+	$schema69MissingCompletedIndex -le $schema69AmbiguousClaimantsIndex -or
+	$schema69ReceiptFingerprintIndex -le $schema69MissingCompletedIndex) {
+	throw "Schema-70 counterattack ownership restore must prove zero pre-recapture, at most one on-station, and one exact completed post-recapture receipt in order"
+}
+
+$schema69OwnershipClaimantBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void CollectCounterattackOwnershipClaimants('
+foreach ($schema69OwnershipClaimantEntry in @(
+	'string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;',
+	'foreach (HST_OwnershipTransitionState transition : m_SaveData.m_aOwnershipTransitions)',
+	'transition.m_sRequestId == requestId',
+	'|| transition.m_sSourceId == order.m_sOperationId',
+	'claimants.Insert(transition);'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipClaimantBlock) -or
+		$schema69OwnershipClaimantBlock.IndexOf($schema69OwnershipClaimantEntry) -lt 0) {
+		throw "Schema-70 counterattack ownership claimant identity must use exact request-ID OR operation-source authority: $schema69OwnershipClaimantEntry"
+	}
+}
+if ($schema69OwnershipClaimantBlock -match '\.Contains\(' -or
+	$schema69OwnershipClaimantBlock -match 'StartsWith\(') {
+	throw "Schema-70 aggregate ownership claimant collection must not use substring or prefix identity"
+}
+
+$schema69OwnershipFingerprintBlock = Get-ScriptMethodBlock $schema69ValidationText 'static string ValidateCounterattackOwnershipReceiptFingerprint('
+foreach ($schema69OwnershipFingerprintEntry in @(
+	'HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'receipt.m_bQuarantined',
+	'string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;',
+	'receipt.m_sRequestId == requestId',
+	'receipt.m_sZoneId == order.m_sTargetZoneId',
+	'receipt.m_sCause == OWNERSHIP_CAUSE',
+	'receipt.m_sSourceType == OWNERSHIP_SOURCE_TYPE',
+	'receipt.m_sSourceId == order.m_sOperationId',
+	'receipt.m_sNewOwnerFactionKey == order.m_sFactionKey',
+	'receipt.m_sActorIdentityId.IsEmpty()',
+	'receipt.m_sReason == OWNERSHIP_REASON',
+	'receipt.m_iSupportReward == 0',
+	'!receipt.m_bApplyEnemyConsequences',
+	'receipt.m_bReconcileSecurity',
+	'!receipt.m_bCreateSecurity',
+	'receipt.m_bNotify',
+	'receipt.m_sProjectionParentRequestId.IsEmpty()',
+	'if (!identityExact || !immutablePolicyExact)'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipFingerprintBlock) -or
+		$schema69OwnershipFingerprintBlock.IndexOf($schema69OwnershipFingerprintEntry) -lt 0) {
+		throw "Schema-70 counterattack ownership receipt fingerprint or immutable policy is incomplete: $schema69OwnershipFingerprintEntry"
+	}
+}
+$schema69CompletedReceiptBlock = Get-ScriptMethodBlock $schema69ValidationText 'static bool IsCompletedOwnershipReceipt('
+foreach ($schema69CompletedReceiptEntry in @(
+	'HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'receipt.m_sStatus == "completed"',
+	'receipt.m_bValidated && receipt.m_bOwnerApplied',
+	'receipt.m_bCompleted && !receipt.m_bQuarantined'
+)) {
+	if ([string]::IsNullOrEmpty($schema69CompletedReceiptBlock) -or
+		$schema69CompletedReceiptBlock.IndexOf($schema69CompletedReceiptEntry) -lt 0) {
+		throw "Schema-70 completed counterattack ownership receipt lifecycle is incomplete: $schema69CompletedReceiptEntry"
+	}
+}
+$schema69OnStationOwnershipBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected string ValidateOnStationOwnershipReceipt('
+foreach ($schema69OnStationOwnershipEntry in @(
+	'if (receipt.m_bCompleted)',
+	'IsCompletedOwnershipReceipt(receipt)',
+	'!receipt.m_bValidated || receipt.m_bQuarantined',
+	'HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
+	'FindUniqueZone(order.m_sTargetZoneId)',
+	'zone.m_sOwnerFactionKey != receipt.m_sNewOwnerFactionKey',
+	'zone.m_iOwnershipRevision != receipt.m_iAppliedRevision',
+	'!zone.m_sActiveOwnershipTransitionRequestId.IsEmpty()',
+	'zone.m_sLastOwnershipTransitionRequestId != receipt.m_sRequestId',
+	'zone.m_sActiveOwnershipTransitionRequestId != receipt.m_sRequestId',
+	'if (receipt.m_bOwnerApplied)',
+	'zone.m_sOwnerFactionKey != receipt.m_sExpectedOwnerFactionKey',
+	'zone.m_iOwnershipRevision != receipt.m_iExpectedRevision'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OnStationOwnershipBlock) -or
+		$schema69OnStationOwnershipBlock.IndexOf($schema69OnStationOwnershipEntry) -lt 0) {
+		throw "Schema-70 on-station ownership receipt must remain relationally exact: $schema69OnStationOwnershipEntry"
+	}
+}
+
+$schema69OwnershipOrphanBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void QuarantineOrphanOwnershipClaimants('
+foreach ($schema69OwnershipOrphanEntry in @(
+	'foreach (HST_OwnershipTransitionState transition : m_SaveData.m_aOwnershipTransitions)',
+	'IsDeclaredCounterattackOwnershipClaimant(transition)',
+	'foreach (HST_EnemyOrderState order : m_SaveData.m_aEnemyOrders)',
+	'HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK',
+	'HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION',
+	'order.m_iOperationContractVersion == QUARANTINED_CONTRACT_VERSION',
+	'transition.m_sRequestId != requestId',
+	'&& transition.m_sSourceId != order.m_sOperationId',
+	'orderClaimants == 1 && reciprocalOrder',
+	'HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority('
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipOrphanBlock) -or
+		$schema69OwnershipOrphanBlock.IndexOf($schema69OwnershipOrphanEntry) -lt 0) {
+		throw "Schema-70 counterattack ownership reverse-orphan scan is incomplete: $schema69OwnershipOrphanEntry"
+	}
+}
+$schema69DeclaredOwnershipClaimantBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected bool IsDeclaredCounterattackOwnershipClaimant('
+foreach ($schema69DeclaredOwnershipClaimantEntry in @(
+	'transition.m_sSourceType == OWNERSHIP_SOURCE_TYPE',
+	'|| transition.m_sRequestId.StartsWith(OWNERSHIP_REQUEST_PREFIX)',
+	'transition.m_sSourceId.IsEmpty()',
+	'foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)',
+	'HST_OPERATION_TYPE_ENEMY_COUNTERATTACK',
+	'operation.m_sOperationId == transition.m_sSourceId'
+)) {
+	if ([string]::IsNullOrEmpty($schema69DeclaredOwnershipClaimantBlock) -or
+		$schema69DeclaredOwnershipClaimantBlock.IndexOf($schema69DeclaredOwnershipClaimantEntry) -lt 0) {
+		throw "Schema-70 reverse ownership claimant declaration is incomplete: $schema69DeclaredOwnershipClaimantEntry"
+	}
+}
+
+$schema69OwnershipWrapperBlock = Get-ScriptMethodBlock $schema69OwnershipSaveValidationText 'static bool QuarantineTransitionAuthority('
+foreach ($schema69OwnershipWrapperEntry in @(
+	'foreach (HST_OwnershipTransitionState candidate : saveData.m_aOwnershipTransitions)',
+	'candidate != transition',
+	'if (!ownedRow)',
+	'validation.FindZone(saveData, transition.m_sZoneId)',
+	'string firstFailure = transition.m_sFailureReason;',
+	'firstFailure = zone.m_sOwnershipAuthorityFailure;',
+	'validation.QuarantineTransition(saveData, transition, firstFailure);',
+	'validation.ConvergeRelationalQuarantine(saveData);',
+	'transition.m_sFailureReason = firstFailure;',
+	'zone.m_sOwnershipAuthorityFailure = firstFailure;',
+	'transition.m_bQuarantined',
+	'HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION',
+	'transition.m_sStatus == "quarantined"'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipWrapperBlock) -or
+		$schema69OwnershipWrapperBlock.IndexOf($schema69OwnershipWrapperEntry) -lt 0) {
+		throw "Schema-70 ownership quarantine wrapper does not preserve relational authority: $schema69OwnershipWrapperEntry"
+	}
+}
+$schema69OwnershipConvergenceBlock = Get-ScriptMethodBlock $schema69OwnershipSaveValidationText 'protected int ConvergeRelationalQuarantine('
+foreach ($schema69OwnershipConvergenceEntry in @(
+	'saveData.m_aOwnershipTransitions.Count() + saveData.m_aZones.Count() + 1',
+	'foreach (HST_OwnershipTransitionState transition : saveData.m_aOwnershipTransitions)',
+	'ValidateTransition(saveData, transition)',
+	'ValidateTransitionBacklink(saveData, transition)',
+	'QuarantineTransition(saveData, transition, failure);',
+	'foreach (HST_ZoneState zone : saveData.m_aZones)',
+	'ValidateZoneBacklinks(saveData, zone)',
+	'QuarantineZone(saveData, zone, backlinkFailure);',
+	'if (!convergenceChanged)'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipConvergenceBlock) -or
+		$schema69OwnershipConvergenceBlock.IndexOf($schema69OwnershipConvergenceEntry) -lt 0) {
+		throw "Schema-70 ownership quarantine convergence is incomplete: $schema69OwnershipConvergenceEntry"
+	}
+}
+$schema69OwnershipQuarantineTransitionBlock = Get-ScriptMethodBlock $schema69OwnershipSaveValidationText 'protected void QuarantineTransition('
+foreach ($schema69OwnershipQuarantineTransitionEntry in @(
+	'transition.m_iContractVersion = HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION;',
+	'transition.m_sStatus = "quarantined";',
+	'transition.m_bQuarantined = true;',
+	'transition.m_sFailureReason = failure;',
+	'if (!transition.m_bCompleted)',
+	'PurgeZoneMarkerRows(saveData, transition.m_sZoneId);',
+	'zone.m_sActiveOwnershipTransitionRequestId == transition.m_sRequestId',
+	'zone.m_sLastOwnershipTransitionRequestId == transition.m_sRequestId',
+	'QuarantineZone(saveData, zone, failure);'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipQuarantineTransitionBlock) -or
+		$schema69OwnershipQuarantineTransitionBlock.IndexOf($schema69OwnershipQuarantineTransitionEntry) -lt 0) {
+		throw "Schema-70 transition quarantine must propagate exact zone and marker relational fencing: $schema69OwnershipQuarantineTransitionEntry"
+	}
+}
+$schema69OwnershipQuarantineZoneBlock = Get-ScriptMethodBlock $schema69OwnershipSaveValidationText 'protected void QuarantineZone('
+foreach ($schema69OwnershipQuarantineZoneEntry in @(
+	'zone.m_iOwnershipContractVersion = HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION;',
+	'zone.m_sOwnershipAuthorityFailure = failure;',
+	'PurgeZoneMarkerRows(saveData, zone.m_sZoneId);'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipQuarantineZoneBlock) -or
+		$schema69OwnershipQuarantineZoneBlock.IndexOf($schema69OwnershipQuarantineZoneEntry) -lt 0) {
+		throw "Schema-70 zone quarantine must retain durable failure and purge its campaign marker: $schema69OwnershipQuarantineZoneEntry"
+	}
+}
+$schema69OwnershipMarkerPurgeBlock = Get-ScriptMethodBlock $schema69OwnershipSaveValidationText 'protected void PurgeZoneMarkerRows('
+foreach ($schema69OwnershipMarkerPurgeEntry in @(
+	'string markerId = "hst_zone_"',
+	'HST_MaidensBayLocationSaveValidationService.ResolveCanonicalZoneId(zoneId)',
+	'for (int markerIndex = saveData.m_aMapMarkers.Count() - 1; markerIndex >= 0; markerIndex--)',
+	'marker.m_sMarkerId == markerId',
+	'saveData.m_aMapMarkers.Remove(markerIndex);'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipMarkerPurgeBlock) -or
+		$schema69OwnershipMarkerPurgeBlock.IndexOf($schema69OwnershipMarkerPurgeEntry) -lt 0) {
+		throw "Schema-70 ownership quarantine marker purge is not exact and reverse-safe: $schema69OwnershipMarkerPurgeEntry"
+	}
 }
 $schema69HistoricalBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void PreserveHistoricalCounterattacks()'
 foreach ($schema69HistoricalEntry in @(
@@ -28267,8 +28548,33 @@ foreach ($schema69QuarantineEntry in @(
 	}
 }
 if ($schema69ValidationText -match '\.Remove\(' -or
-	$schema69QuarantineBlock -match 'Refund|Settlement|Ownership|Outcome') {
+	$schema69QuarantineBlock -match 'RefundOriginallyChargedResources\(' -or
+	$schema69QuarantineBlock -match 'ApplyResourceSettlement\(' -or
+	$schema69QuarantineBlock -match 'TryApplyCounterattackOwnership\(' -or
+	$schema69QuarantineBlock -match 'm_bOutcomeApplied\s*=') {
 	throw "Schema-69 save validation must not delete, refund, settle, capture, or invent an outcome"
+}
+$schema69QuarantineOwnershipCollectIndex = $schema69QuarantineBlock.IndexOf('CollectCounterattackOwnershipClaimants(order, ownershipClaimants);')
+$schema69QuarantineOwnershipFenceIndex = $schema69QuarantineBlock.IndexOf('QuarantineOwnershipClaimants(ownershipClaimants, durableReason, false);')
+$schema69QuarantineHoldOperationIndex = $schema69QuarantineBlock.IndexOf('HoldOperation(operation, durableReason);')
+if ($schema69QuarantineOwnershipCollectIndex -lt 0 -or
+	$schema69QuarantineOwnershipFenceIndex -le $schema69QuarantineOwnershipCollectIndex -or
+	$schema69QuarantineHoldOperationIndex -le $schema69QuarantineOwnershipFenceIndex) {
+	throw "Schema-70 aggregate quarantine must fence every incomplete ownership claimant before holding the operation graph"
+}
+$schema69QuarantineOwnershipClaimantsBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void QuarantineOwnershipClaimants('
+foreach ($schema69QuarantineOwnershipClaimantsEntry in @(
+	'bool includeCompleted',
+	'(!includeCompleted && transition.m_bCompleted)',
+	'HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority(',
+	'm_SaveData,',
+	'transition,',
+	'failure'
+)) {
+	if ([string]::IsNullOrEmpty($schema69QuarantineOwnershipClaimantsBlock) -or
+		$schema69QuarantineOwnershipClaimantsBlock.IndexOf($schema69QuarantineOwnershipClaimantsEntry) -lt 0) {
+		throw "Schema-70 aggregate quarantine ownership fencing is incomplete: $schema69QuarantineOwnershipClaimantsEntry"
+	}
 }
 $schema69SaveHoldBatchBlock = Get-ScriptMethodBlock $schema69ValidationText 'protected void HoldBatch('
 foreach ($schema69SaveHoldBatchEntry in @(
@@ -29116,29 +29422,19 @@ foreach ($schema69CompletedOwnershipEntry in @(
 	'order.m_sResolutionKind',
 	'exact_counterattack_recaptured',
 	'bool requiresOwnership = returning || settledCompleted',
+	'|| order.m_bOutcomeApplied || recaptureResolution',
 	'operation.m_sOperationId == order.m_sOperationId',
 	'operation.m_sEnemyOrderId == order.m_sOrderId',
 	'operation.m_sAssignmentZoneId == order.m_sTargetZoneId',
 	'operation.m_sOwnerFactionKey == order.m_sFactionKey',
 	'!order.m_bOutcomeApplied || !recaptureResolution',
-	'string requestId = "ownership_counterattack_" + order.m_sOperationId;',
+	'string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;',
 	'targetCount != 1 || !targetZone',
 	'bool claimsReceipt = transition.m_sRequestId == requestId;',
 	'claimsReceipt = transition.m_sSourceId == order.m_sOperationId;',
 	'receiptClaimants != 1 || !receipt',
-	'receipt.m_iContractVersion',
-	'HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION',
-	'receipt.m_sStatus == "completed"',
-	'receipt.m_bValidated',
-	'receipt.m_bOwnerApplied',
-	'receipt.m_bCompleted',
-	'!receipt.m_bQuarantined',
-	'receipt.m_sRequestId == requestId',
-	'receipt.m_sZoneId == order.m_sTargetZoneId',
-	'receipt.m_sCause == "military_capture"',
-	'receipt.m_sSourceType == "enemy_counterattack"',
-	'receipt.m_sSourceId == order.m_sOperationId',
-	'receipt.m_sNewOwnerFactionKey == order.m_sFactionKey',
+	'ValidateCounterattackOwnershipReceiptFingerprint(',
+	'if (!IsCompletedOwnershipReceipt(receipt))',
 	'current owner and last/active backlinks must not rewrite that history'
 )) {
 	if ([string]::IsNullOrEmpty($schema69CompletedOwnershipBlock) -or
@@ -29378,8 +29674,10 @@ foreach ($schema69ProofField in @(
 	'm_bRestoreLifecycleExact',
 	'm_bResourceAuthorityQuarantineExact',
 	'm_bAmbiguityHoldExact',
+	'm_bOwnershipCorrelationQuarantineExact',
 	'm_bSchema69QuarantineExact',
 	'm_bQuarantineRetentionExact',
+	'm_sOwnershipCorrelationEvidence',
 	'm_sRetentionEvidence',
 	'bool AllExact()'
 )) {
@@ -29395,6 +29693,7 @@ foreach ($schema69ProofEntry in @(
 	'ProveRestoreLifecycle(report);',
 	'ProveResourceAuthorityQuarantine(report);',
 	'ProveAmbiguousRuntimeHold(report);',
+	'ProveOwnershipTransitionCorrelationQuarantine(report);',
 	'ProvePreparedBeforeRefundRestore()',
 	'ProvePreparedAfterRefundRestore()',
 	'ProvePreparedAfterRecordRestore()',
@@ -29416,6 +29715,7 @@ foreach ($schema69ProofAllExactField in @(
 	'm_bRestoreLifecycleExact',
 	'm_bResourceAuthorityQuarantineExact',
 	'm_bAmbiguityHoldExact',
+	'm_bOwnershipCorrelationQuarantineExact',
 	'm_bSchema69QuarantineExact',
 	'm_bQuarantineRetentionExact'
 )) {
@@ -29423,6 +29723,157 @@ foreach ($schema69ProofAllExactField in @(
 		$schema69ProofAllExactBlock.IndexOf($schema69ProofAllExactField) -lt 0) {
 		throw "Schema-69 focused proof aggregate omits a hardened exact-authority field: $schema69ProofAllExactField"
 	}
+}
+$schema69OwnershipCorrelationProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveOwnershipTransitionCorrelationQuarantine('
+foreach ($schema69OwnershipCorrelationProofEntry in @(
+	'ProveOnStationPendingOwnershipCorrelation()',
+	'ProveMaterializingPendingOwnershipCorrelation()',
+	'ProveDematerializingPendingOwnershipCorrelation()',
+	'ProveReturningCompletedOwnershipCorrelation()',
+	'ProvePrematureOwnershipTransitionQuarantine()',
+	'ProveEngagedOwnershipTransitionQuarantine()',
+	'ProveForeignOwnershipTransitionQuarantine()',
+	'ProveDuplicateOwnershipTransitionQuarantine()',
+	'ProveOrphanOwnershipTransitionQuarantine()',
+	'report.m_bOwnershipCorrelationQuarantineExact',
+	'report.m_sOwnershipCorrelationEvidence'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipCorrelationProofBlock) -or
+		$schema69OwnershipCorrelationProofBlock.IndexOf($schema69OwnershipCorrelationProofEntry) -lt 0) {
+		throw "Schema-70 focused proof omits counterattack ownership correlation coverage: $schema69OwnershipCorrelationProofEntry"
+	}
+}
+foreach ($schema69OwnershipCorrelationProofCase in @(
+	@('on-station pending', 'protected bool ProveOnStationPendingOwnershipCorrelation(', @(
+		'HST_OPERATION_DUTY_ON_STATION',
+		'transition.m_bOwnerApplied && !transition.m_bCompleted',
+		'zone.m_sActiveOwnershipTransitionRequestId == requestId',
+		'CountSavedOwnershipTransitionClaimants(saveData, operationId) == 1')),
+	@('returning completed', 'protected bool ProveReturningCompletedOwnershipCorrelation(', @(
+		'HST_OPERATION_DUTY_RETURNING_TO_ORIGIN',
+		'order.m_bOutcomeApplied',
+		'order.m_sResolutionKind == "exact_counterattack_recaptured"',
+		'transition.m_bCompleted && !transition.m_bQuarantined',
+		'CountSavedOwnershipTransitionClaimants(saveData, operationId) == 1')),
+	@('materializing pending', 'protected bool ProveMaterializingPendingOwnershipCorrelation(', @(
+		'AdmitPreOwnerPendingForProof(',
+		'ReleaseStrategicProjectionForMaterialization(',
+		'MarkExactEnemyCounterattackMaterializingFromVirtual(',
+		'IsValidPendingCounterattackOwnershipAfterNormalize(')),
+	@('dematerializing pending', 'protected bool ProveDematerializingPendingOwnershipCorrelation(', @(
+		'DriveUntilOwnerAppliedPending(fixture, 80)',
+		'MarkExactEnemyCounterattackPhysical(',
+		'BeginExactEnemyCounterattackDematerialization(',
+		'IsValidPendingCounterattackOwnershipAfterNormalize(')),
+	@('premature claimant', 'protected bool ProvePrematureOwnershipTransitionQuarantine(', @(
+		'ApplyPrematureOwnershipPending(fixture)',
+		'NormalizeCounterattackAuthority(saveData);',
+		'IsLinkedCounterattackOwnershipQuarantineExact(')),
+	@('engaged claimant', 'protected bool ProveEngagedOwnershipTransitionQuarantine(', @(
+		'HST_OPERATION_ENGAGEMENT_ENGAGED',
+		'NormalizeCounterattackAuthority(saveData);',
+		'IsLinkedCounterattackOwnershipQuarantineExact(')),
+	@('foreign claimant', 'protected bool ProveForeignOwnershipTransitionQuarantine(', @(
+		'saved.m_sRequestId = foreignRequestId;',
+		'zone.m_sActiveOwnershipTransitionRequestId = foreignRequestId;',
+		'NormalizeCounterattackAuthority(saveData);',
+		'IsLinkedCounterattackOwnershipQuarantineExact(')),
+	@('duplicate claimant', 'protected bool ProveDuplicateOwnershipTransitionQuarantine(', @(
+		'collisionSource.Capture(fixture.m_State);',
+		'if (!saved || !collision || saved == collision)',
+		'saveData.m_aOwnershipTransitions.Insert(collision);',
+		'CountSavedOwnershipTransitionClaimants(',
+		'== 2',
+		'IsLinkedCounterattackOwnershipQuarantineExact(')),
+	@('orphan claimant', 'protected bool ProveOrphanOwnershipTransitionQuarantine(', @(
+		'saved.m_sRequestId = requestId;',
+		'saved.m_sSourceType = "foreign_ownership_source";',
+		'saveData.m_aEnemyOrders.Clear();',
+		'NormalizeCounterattackAuthority(saveData);',
+		'IsOwnershipAuthorityQuarantined(transition, zone)',
+		'operation.m_eMaterializationState',
+		'operation.m_sLastProjectionReason.IsEmpty()'))
+)) {
+	$schema69OwnershipCorrelationCaseBlock = Get-ScriptMethodBlock $schema69ProofText $schema69OwnershipCorrelationProofCase[1]
+	foreach ($schema69OwnershipCorrelationCaseEntry in $schema69OwnershipCorrelationProofCase[2]) {
+		if ([string]::IsNullOrEmpty($schema69OwnershipCorrelationCaseBlock) -or
+			$schema69OwnershipCorrelationCaseBlock.IndexOf($schema69OwnershipCorrelationCaseEntry) -lt 0) {
+			throw "Schema-70 focused $($schema69OwnershipCorrelationProofCase[0]) ownership proof is incomplete: $schema69OwnershipCorrelationCaseEntry"
+		}
+	}
+}
+$schema69OwnershipProofNormalizeBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void NormalizeCounterattackAuthority('
+$schema69OwnershipProofGenericIndex = $schema69OwnershipProofNormalizeBlock.IndexOf('ownershipValidation.Normalize(saveData, HST_CampaignState.SCHEMA_VERSION);')
+$schema69OwnershipProofCounterattackIndex = $schema69OwnershipProofNormalizeBlock.IndexOf('validation.Normalize(saveData, HST_CampaignState.SCHEMA_VERSION);')
+if ([string]::IsNullOrEmpty($schema69OwnershipProofNormalizeBlock) -or
+	$schema69OwnershipProofGenericIndex -lt 0 -or
+	$schema69OwnershipProofCounterattackIndex -le $schema69OwnershipProofGenericIndex) {
+	throw "Schema-70 counterattack ownership proof must run generic ownership normalization before its correlation barrier"
+}
+foreach ($schema69OwnershipProofDependencyEntry in @(
+	'ref HST_EnemyGarrisonRebuildOperationService m_EnemyGarrisonRebuilds;',
+	'fixture.m_EnemyGarrisonRebuilds',
+	'= new HST_EnemyGarrisonRebuildOperationService();',
+	'fixture.m_EnemyGarrisonRebuilds.SetRuntimeServices(',
+	'fixture.m_OwnershipFixture.m_Garrisons);',
+	'fixture.m_EnemyGarrisonRebuilds.SetEnemyDirectorService(',
+	'fixture.m_OwnershipFixture.m_EnemyDirector);',
+	'fixture.m_EnemyGarrisonRebuilds,',
+	'if (!m_EnemyGarrisonRebuilds) missing = missing + " enemy_garrison_rebuilds";',
+	'&& fixture.m_EnemyGarrisonRebuilds;'
+)) {
+	if ($schema69ProofText.IndexOf($schema69OwnershipProofDependencyEntry) -lt 0) {
+		throw "Schema-70 focused counterattack ownership proof omits a required production dependency: $schema69OwnershipProofDependencyEntry"
+	}
+}
+$schema69PreOwnerAdmissionProofBlock = Get-ScriptMethodBlock $schema69ProofText 'HST_OwnershipTransitionState AdmitPreOwnerPendingForProof('
+foreach ($schema69PreOwnerAdmissionProofEntry in @(
+	'ValidateNewRequest(state, request).IsEmpty()',
+	'EnsureAdmissionCapacity(state)',
+	'CreateTransition(',
+	'state.m_aOwnershipTransitions.Insert(transition);',
+	'zone.m_sActiveOwnershipTransitionRequestId = transition.m_sRequestId;',
+	'transition.m_iAttemptCount = 1;',
+	'transition.m_sStatus = "applying";'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PreOwnerAdmissionProofBlock) -or
+		$schema69PreOwnerAdmissionProofBlock.IndexOf($schema69PreOwnerAdmissionProofEntry) -lt 0) {
+		throw "Schema-70 pre-owner pending proof admission is incomplete: $schema69PreOwnerAdmissionProofEntry"
+	}
+}
+$schema69PendingNormalizeProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected bool IsValidPendingCounterattackOwnershipAfterNormalize('
+foreach ($schema69PendingNormalizeProofEntry in @(
+	'HST_OPERATION_DUTY_ON_STATION',
+	'HST_OPERATION_ENGAGEMENT_CLEAR',
+	'transition.m_bOwnerApplied == ownerApplied',
+	'!transition.m_bCompleted && !transition.m_bQuarantined',
+	'zone.m_sActiveOwnershipTransitionRequestId == requestId',
+	'CountSavedOwnershipTransitionClaimants(saveData, operationId) == 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema69PendingNormalizeProofBlock) -or
+		$schema69PendingNormalizeProofBlock.IndexOf($schema69PendingNormalizeProofEntry) -lt 0) {
+		throw "Schema-70 pending ownership handoff proof is incomplete: $schema69PendingNormalizeProofEntry"
+	}
+}
+$schema69OwnershipProofClaimantCountBlock = Get-ScriptMethodBlock $schema69ProofText 'protected int CountSavedOwnershipTransitionClaimants('
+foreach ($schema69OwnershipProofClaimantCountEntry in @(
+	'transition.m_sRequestId == requestId',
+	'|| transition.m_sSourceId == operationId',
+	'count++;'
+)) {
+	if ([string]::IsNullOrEmpty($schema69OwnershipProofClaimantCountBlock) -or
+		$schema69OwnershipProofClaimantCountBlock.IndexOf($schema69OwnershipProofClaimantCountEntry) -lt 0) {
+		throw "Schema-70 focused proof claimant count does not mirror exact OR authority: $schema69OwnershipProofClaimantCountEntry"
+	}
+}
+$schema69OwnershipAutotestPrintIndex = $schema69AutotestText.IndexOf('Print(report.m_sOwnershipCorrelationEvidence);')
+$schema69OwnershipAutotestAssertIndex = $schema69AutotestText.IndexOf('report.m_bOwnershipCorrelationQuarantineExact,')
+$schema69OwnershipAutotestAllExactIndex = $schema69AutotestText.IndexOf('report.AllExact(),')
+if ($schema69OwnershipAutotestPrintIndex -lt 0 -or
+	$schema69OwnershipAutotestAssertIndex -le $schema69OwnershipAutotestPrintIndex -or
+	$schema69OwnershipAutotestAllExactIndex -le $schema69OwnershipAutotestAssertIndex -or
+	$schema69AutotestText.IndexOf('report.m_sOwnershipCorrelationEvidence);', $schema69OwnershipAutotestAssertIndex) -lt 0) {
+	throw "Schema-70 counterattack ownership correlation evidence is not printed, asserted, and included before the autotest aggregate"
 }
 $schema69RestoreProofBlock = Get-ScriptMethodBlock $schema69ProofText 'protected void ProveRestoreLifecycle('
 foreach ($schema69RestoreProofEntry in @(
@@ -29615,6 +30066,9 @@ if (([regex]::Matches($schema69RetentionProofBlock, 'IsQuarantineRetentionGraphE
 	throw "Schema-69 quarantine retention must verify the exact final graph before and after repeated persistence"
 }
 foreach ($schema69AutotestEntry in @(
+	'class HST_EnemyCounterattackAutotestSuite : SCR_AutotestSuiteBase',
+	'override ResourceName GetWorldFile()',
+	'return "";',
 	'class HST_TEST_EnemyCounterattackAuthority : SCR_AutotestCaseBase',
 	'new HST_EnemyCounterattackOperationProofService();',
 	'report.AllExact()',
@@ -29624,12 +30078,248 @@ foreach ($schema69AutotestEntry in @(
 		throw "Schema-69 focused engine autotest wiring is missing: $schema69AutotestEntry"
 	}
 }
+$schema69FocusedAutotestLauncherPath = 'tools/run-guarded-focused-autotest.ps1'
+if (-not (Test-Path -LiteralPath $schema69FocusedAutotestLauncherPath -PathType Leaf)) {
+	throw 'Guarded focused-autotest launcher is missing'
+}
+$schema69FocusedAutotestLauncherText = Get-Content -Raw $schema69FocusedAutotestLauncherPath
+$schema69FocusedAutotestTokens = $null
+$schema69FocusedAutotestParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseInput(
+	$schema69FocusedAutotestLauncherText,
+	[ref]$schema69FocusedAutotestTokens,
+	[ref]$schema69FocusedAutotestParseErrors)
+if ($schema69FocusedAutotestParseErrors.Count -ne 0) {
+	throw 'Guarded focused-autotest launcher must parse'
+}
+foreach ($schema69FocusedAutotestLauncherEntry in @(
+	'Local\PartisanFocusedAutotestGuard',
+	'PartisanFocusedAutotestJob',
+	'PartisanFocusedAutotestSuspendedProcess',
+	'CREATE_SUSPENDED | CREATE_NO_WINDOW',
+	'info.BasicLimitInformation.LimitFlags = 0x00002000;',
+	'SetInformationJobObject(_handle, 9, pointer, (UInt32)size)',
+	'AssignProcessToJobObject(_handle, process.Handle)',
+	'public Int32[] GetProcessIds()',
+	'PartisanFocusedAutotestNativeCommandLine',
+	'function Test-ExactNativeArgumentVector',
+	'''-addonsDir'', $addonDirectory',
+	'''-gproj'', $projectFile',
+	'''-profile'', $guardRoot',
+	'''-autotest'', $TestCase',
+	'$fullCommandLine',
+	'Get-CimInstance',
+	'Update-UnclaimedEngineProcesses',
+	'An unowned engine process appeared; it was left untouched.',
+	'function Get-JUnitEvidence',
+	'$document.SelectNodes(''//testcase'')',
+	'JUnitCaseIdentityExact',
+	'JUnitCaseSkipped',
+	'FailedListFileCount',
+	'FailedListBytes',
+	'RequiredPatternsSeen',
+	'ConsoleTestCaseSeen',
+	'function ConvertTo-SafeDiagnosticText',
+	'<email>',
+	'<identity>',
+	'<local-path>',
+	'.partisan-focused-owner',
+	'function Get-SafeSnapshotEntries',
+	'function New-RootSnapshot',
+	'function Get-RootSnapshotDelta',
+	'NewDefaultEntriesRemaining',
+	'ModifiedDefaultFiles',
+	'DeletedDefaultEntries',
+	'MissingDefaultRoots',
+	'ExternalSpillEntriesRemaining',
+	'ModifiedSpillFiles',
+	'DeletedSpillEntries',
+	'MissingSpillRoots',
+	'MonitoringRootsAreDetectionOnly = $true',
+	'UnclaimedEngineProcessesObserved',
+	'Focused-autotest cleanup did not converge to zero.'
+)) {
+	if ($schema69FocusedAutotestLauncherText.IndexOf(
+		$schema69FocusedAutotestLauncherEntry) -lt 0) {
+		throw "Guarded focused-autotest launcher contract is incomplete: $schema69FocusedAutotestLauncherEntry"
+	}
+}
+$schema69FocusedAutotestJobIndex = $schema69FocusedAutotestLauncherText.IndexOf(
+	'$job = New-Object PartisanFocusedAutotestJob')
+$schema69FocusedAutotestSuspendedIndex = $schema69FocusedAutotestLauncherText.IndexOf(
+	'$suspendedLauncher = New-Object PartisanFocusedAutotestSuspendedProcess(')
+$schema69FocusedAutotestAssignIndex = $schema69FocusedAutotestLauncherText.IndexOf(
+	'$job.Add($process)', $schema69FocusedAutotestSuspendedIndex)
+$schema69FocusedAutotestResumeIndex = $schema69FocusedAutotestLauncherText.IndexOf(
+	'$suspendedLauncher.Resume()', $schema69FocusedAutotestAssignIndex)
+if ($schema69FocusedAutotestJobIndex -lt 0 -or
+	$schema69FocusedAutotestSuspendedIndex -le $schema69FocusedAutotestJobIndex -or
+	$schema69FocusedAutotestAssignIndex -le $schema69FocusedAutotestSuspendedIndex -or
+	$schema69FocusedAutotestResumeIndex -le $schema69FocusedAutotestAssignIndex) {
+	throw 'Guarded focused autotest must create its job, launch suspended, assign, then resume'
+}
+if (([regex]::Matches(
+	$schema69FocusedAutotestLauncherText,
+	'Test-ExactNativeArgumentVector')).Count -lt 3) {
+	throw 'Guarded focused autotest must verify its native vector before and after launch'
+}
+if ($schema69FocusedAutotestLauncherText.IndexOf('Start-Process') -ge 0 -or
+	$schema69FocusedAutotestLauncherText.IndexOf('Stop-Process') -ge 0 -or
+	$schema69FocusedAutotestLauncherText -match
+		'foreach\s*\(\s*\$engineProcess[^)]*\)\s*\{[^}]*\.Kill\(') {
+	throw 'Guarded focused autotest must never start uncontained or terminate every engine process'
+}
+
+$schema69FocusedAutotestSnapshotBlock = Get-ScriptMethodBlock `
+	$schema69FocusedAutotestLauncherText `
+	'function Get-SafeSnapshotEntries'
+foreach ($schema69FocusedAutotestSnapshotEntry in @(
+	'Collections.Generic.Queue[string]',
+	'$pending.Enqueue($rootFull)',
+	'Get-ChildItem -LiteralPath $directory -Force',
+	'Test-ContainedPath -Root $rootFull -Candidate $itemFull',
+	'Test-ContainedPath',
+	'-Root $excludedRoot',
+	'-Candidate $itemFull',
+	'-AllowEqual',
+	'[IO.FileAttributes]::ReparsePoint',
+	'A monitored snapshot tree must not contain a reparse point.',
+	'$pending.Enqueue($itemFull)'
+)) {
+	if ([string]::IsNullOrEmpty($schema69FocusedAutotestSnapshotBlock) -or
+		$schema69FocusedAutotestSnapshotBlock.IndexOf(
+			$schema69FocusedAutotestSnapshotEntry) -lt 0) {
+		throw "Guarded focused-autotest recursive external census is incomplete: $schema69FocusedAutotestSnapshotEntry"
+	}
+}
+$schema69FocusedAutotestDeltaBlock = Get-ScriptMethodBlock `
+	$schema69FocusedAutotestLauncherText `
+	'function Get-RootSnapshotDelta'
+foreach ($schema69FocusedAutotestDeltaEntry in @(
+	'Get-SafeSnapshotEntries',
+	'-ExcludedRoots $Snapshot.ExcludedRoots',
+	'$newEntries++',
+	'$modifiedFiles++',
+	'$deletedEntries++',
+	'MissingRoot = 1'
+)) {
+	if ([string]::IsNullOrEmpty($schema69FocusedAutotestDeltaBlock) -or
+		$schema69FocusedAutotestDeltaBlock.IndexOf(
+			$schema69FocusedAutotestDeltaEntry) -lt 0) {
+		throw "Guarded focused-autotest recursive delta gate is incomplete: $schema69FocusedAutotestDeltaEntry"
+	}
+}
+foreach ($schema69FocusedAutotestBoundaryEntry in @(
+	'$spillExclusions.Add($projectDirectory)',
+	'$spillExclusions.Add($snapshot.Root)',
+	'-ExcludedRoots $spillExclusions.ToArray()',
+	'Assert-NoReparsePathAncestry -Path $guardRoot',
+	'[void](Get-SafeSnapshotEntries -Root $guardRoot)',
+	'if ($cleanup.OwnedProcessesRemaining -eq 0)',
+	'(Split-Path -Leaf $guardBase) -cne ''PartisanFocusedAutotest''',
+	'Remove-Item -LiteralPath $guardRoot -Recurse -Force',
+	'Remove-Item -LiteralPath $guardBase -Force'
+)) {
+	if ($schema69FocusedAutotestLauncherText.IndexOf(
+		$schema69FocusedAutotestBoundaryEntry) -lt 0) {
+		throw "Guarded focused-autotest boundary isolation is incomplete: $schema69FocusedAutotestBoundaryEntry"
+	}
+}
+if ($schema69FocusedAutotestLauncherText.IndexOf('Restore-RootSnapshot') -ge 0 -or
+	$schema69FocusedAutotestLauncherText.IndexOf('[IO.File]::WriteAllBytes') -ge 0 -or
+	([regex]::Matches(
+		$schema69FocusedAutotestLauncherText,
+		'Remove-Item\s+-LiteralPath')).Count -ne 2) {
+	throw 'Guarded focused autotest must audit external roots read-only and delete only its exact guard root/base'
+}
+$schema69FocusedAutotestJUnitBlock = Get-ScriptMethodBlock `
+	$schema69FocusedAutotestLauncherText `
+	'function Get-JUnitEvidence'
+foreach ($schema69FocusedAutotestJUnitEntry in @(
+	'$document.SelectNodes(''//testcase'')',
+	'$root.GetAttribute(''tests'')',
+	'$root.GetAttribute(''failures'')',
+	'$root.GetAttribute(''errors'')',
+	'$testCases.Count -eq 1',
+	'$testCase.GetAttribute(''name'')',
+	'$testCase.GetAttribute(''classname'')',
+	'$testCase.SelectNodes(''./failure'')',
+	'$testCase.SelectNodes(''./error'')',
+	'$testCase.SelectNodes(''./skipped'')',
+	'$failureNodes[0].GetAttribute(''message'')',
+	'$errorNodes[0].GetAttribute(''message'')',
+	'$caseName -ceq $ExpectedTestCase',
+	'$caseClassName -ceq $ExpectedTestCase'
+)) {
+	if ([string]::IsNullOrEmpty($schema69FocusedAutotestJUnitBlock) -or
+		$schema69FocusedAutotestJUnitBlock.IndexOf(
+			$schema69FocusedAutotestJUnitEntry) -lt 0) {
+		throw "Guarded focused-autotest JUnit identity gate is incomplete: $schema69FocusedAutotestJUnitEntry"
+	}
+}
+foreach ($schema69FocusedAutotestJUnitResultEntry in @(
+	'$junit.TestCaseCount -eq 1',
+	'$junit.CaseIdentityExact',
+	'$junit.CaseFailures -eq 0',
+	'$junit.CaseErrors -eq 0',
+	'$junit.CaseSkipped -eq 0',
+	'$failedFiles.Count -eq 1',
+	'JUnitFailureEvidence = $junitFailureEvidence',
+	'JUnitErrorEvidence = $junitErrorEvidence'
+)) {
+	if ($schema69FocusedAutotestLauncherText.IndexOf(
+		$schema69FocusedAutotestJUnitResultEntry) -lt 0) {
+		throw "Guarded focused-autotest success is not tied to the exact non-skipped JUnit case: $schema69FocusedAutotestJUnitResultEntry"
+	}
+}
+$schema69FocusedAutotestDisposeIndex = $schema69FocusedAutotestLauncherText.IndexOf(
+	'$job.Dispose()')
+if ($schema69FocusedAutotestDisposeIndex -lt 0) {
+	throw 'Guarded focused-autotest job disposal is missing'
+}
+$schema69FocusedAutotestDisposePrefix = $schema69FocusedAutotestLauncherText.Substring(
+	[math]::Max(0, $schema69FocusedAutotestDisposeIndex - 320),
+	[math]::Min(320, $schema69FocusedAutotestDisposeIndex))
+if ($schema69FocusedAutotestDisposePrefix -notmatch
+	'Update-OwnedProcessIds[\s\S]*catch\s*\{[\s\S]*\}\s*try\s*\{\s*$') {
+	throw 'Guarded focused-autotest job disposal must remain an independent guaranteed cleanup phase'
+}
+foreach ($schema69FocusedAutotestJobLeakEntry in @(
+	'catch',
+	'CloseHandle(_handle);',
+	'_handle = IntPtr.Zero;',
+	'throw;'
+)) {
+	$schema69FocusedAutotestJobConstructor = Get-ScriptMethodBlock `
+		$schema69FocusedAutotestLauncherText `
+		'public PartisanFocusedAutotestJob()'
+	if ([string]::IsNullOrEmpty($schema69FocusedAutotestJobConstructor) -or
+		$schema69FocusedAutotestJobConstructor.IndexOf(
+			$schema69FocusedAutotestJobLeakEntry) -lt 0) {
+		throw "Guarded focused-autotest job constructor can leak its native handle: $schema69FocusedAutotestJobLeakEntry"
+	}
+}
+$schema69FocusedAutotestLastDeltaIndex = $schema69FocusedAutotestLauncherText.LastIndexOf(
+	'Get-RootSnapshotDelta -Snapshot $snapshot')
+$schema69FocusedAutotestFinalUnclaimedIndex = $schema69FocusedAutotestLauncherText.LastIndexOf(
+	'Update-UnclaimedEngineProcesses')
+$schema69FocusedAutotestFinalEngineIndex = $schema69FocusedAutotestLauncherText.LastIndexOf(
+	'$cleanup.EngineProcessesRemaining = @(Get-EngineProcesses).Count')
+$schema69FocusedAutotestMutexReleaseIndex = $schema69FocusedAutotestLauncherText.LastIndexOf(
+	'$mutex.ReleaseMutex()')
+if ($schema69FocusedAutotestLastDeltaIndex -lt 0 -or
+	$schema69FocusedAutotestFinalUnclaimedIndex -le $schema69FocusedAutotestLastDeltaIndex -or
+	$schema69FocusedAutotestFinalEngineIndex -le $schema69FocusedAutotestFinalUnclaimedIndex -or
+	$schema69FocusedAutotestMutexReleaseIndex -le $schema69FocusedAutotestFinalEngineIndex) {
+	throw 'Guarded focused-autotest final process census must follow recursive external scans and precede mutex release'
+}
 foreach ($schema69FullDebugProofAssertion in @(
 	'enemy_counterattack.physical_handoff',
 	'enemy_counterattack.support_settlement',
 	'enemy_counterattack.restore_lifecycle',
 	'enemy_counterattack.resource_authority',
 	'enemy_counterattack.ambiguity_hold',
+	'enemy_counterattack.ownership_correlation',
 	'enemy_counterattack.schema69_quarantine',
 	'enemy_counterattack.quarantine_retention',
 	'enemy_counterattack.aggregate'
@@ -29926,7 +30616,7 @@ if ([string]::IsNullOrEmpty($schema69VirtualAuthorityBlock) -or
 	throw "Schema-69 virtual and fully folded telemetry must reject projection-key or result-key adapter residue"
 }
 
-Write-Host "Schema-69 exact enemy-counterattack frozen planning, one-pool applied debit, exact pending settlement-ID and durable-survivor refund replay, debit chronology, phase-aware restore, virtual/physical casualty continuity, native materialize/fold, deterministic combat, immutable canonical ownership receipts, retryable ACTIVE resource holds, exact settlement policy, quarantine compaction retention, return/refund, conservative migration, Full Debug, and focused autotest wiring OK"
+Write-Host "Schema-69 exact enemy-counterattack authority plus schema-neutral Schema-70 lifecycle ownership pre-reconcile fencing, reciprocal claimant quarantine, zone/marker convergence, and focused proof wiring OK"
 
 $schema70TypesPath = Join-Path $root 'Scripts/Game/HST/HST_Types.c'
 $schema70StatePath = Join-Path $root 'Scripts/Game/HST/State/HST_CampaignState.c'

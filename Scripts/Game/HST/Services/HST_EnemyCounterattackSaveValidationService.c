@@ -6,6 +6,11 @@ class HST_EnemyCounterattackSaveValidationService
 	static const int SCHEMA_VERSION = 69;
 	static const int QUARANTINED_CONTRACT_VERSION = -69;
 	static const string EXACT_GROUP_MODE = "exact_enemy_counterattack";
+	static const string OWNERSHIP_REQUEST_PREFIX = "ownership_counterattack_";
+	static const string OWNERSHIP_SOURCE_TYPE = "enemy_counterattack";
+	static const string OWNERSHIP_CAUSE = "military_capture";
+	static const string RECAPTURE_RESOLUTION = "exact_counterattack_recaptured";
+	static const string OWNERSHIP_REASON = "exact enemy counterattack recaptured the location";
 
 	protected HST_CampaignSaveData m_SaveData;
 
@@ -17,10 +22,13 @@ class HST_EnemyCounterattackSaveValidationService
 
 		if (restoredSchemaVersion < SCHEMA_VERSION)
 		{
+			QuarantineHistoricalIncompleteOwnershipClaimants();
 			PreserveHistoricalCounterattacks();
 			PreserveOrphanClaimants();
 			return;
 		}
+
+		NormalizeCounterattackOwnershipAuthority();
 
 		foreach (HST_EnemyOrderState order : m_SaveData.m_aEnemyOrders)
 		{
@@ -104,6 +112,362 @@ class HST_EnemyCounterattackSaveValidationService
 			quarantined);
 		eventState.m_iCreatedAtSecond = Math.Max(0, m_SaveData.m_iElapsedSeconds);
 		m_SaveData.m_aCampaignEvents.Insert(eventState);
+	}
+
+	// Ownership normalization runs before this Schema-69 boundary, while runtime
+	// ownership reconciliation runs before the counterattack reconciler. Resolve
+	// the cross-authority relationship here so an orphan, foreign, duplicate, or
+	// lifecycle-illegal receipt cannot publish a zone owner during runtime restore.
+	protected void NormalizeCounterattackOwnershipAuthority()
+	{
+		foreach (HST_EnemyOrderState order : m_SaveData.m_aEnemyOrders)
+		{
+			if (!order || order.m_eType
+				!= HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+				continue;
+			if (order.m_iOperationContractVersion
+				!= HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+				&& order.m_iOperationContractVersion != QUARANTINED_CONTRACT_VERSION)
+				continue;
+
+			HST_OperationRecordState operation = FindUniqueOperation(order.m_sOperationId);
+			ValidateCounterattackOwnershipLifecycle(order, operation);
+		}
+
+		QuarantineOrphanOwnershipClaimants();
+	}
+
+	protected void QuarantineHistoricalIncompleteOwnershipClaimants()
+	{
+		foreach (HST_OwnershipTransitionState transition : m_SaveData.m_aOwnershipTransitions)
+		{
+			if (!IsDeclaredCounterattackOwnershipClaimant(transition)
+				|| transition.m_bCompleted || transition.m_bQuarantined)
+				continue;
+			HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority(
+				m_SaveData,
+				transition,
+				"pre-schema-69 counterattack ownership transition is unsafe to resume");
+		}
+	}
+
+	protected void ValidateCounterattackOwnershipLifecycle(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation)
+	{
+		array<ref HST_OwnershipTransitionState> claimants = {};
+		CollectCounterattackOwnershipClaimants(order, claimants);
+		if (IsUncommittedFullSettlementCandidate(order))
+		{
+			if (!claimants.IsEmpty())
+				QuarantineCounterattackOwnershipFailure(
+					order,
+					operation,
+					claimants,
+					"uncommitted counterattack cannot retain ownership authority");
+			return;
+		}
+
+		if (order.m_iOperationContractVersion == QUARANTINED_CONTRACT_VERSION)
+		{
+			ValidateQuarantinedCounterattackOwnershipClaimants(order, claimants);
+			return;
+		}
+
+		bool reciprocalOperation = operation
+			&& operation.m_eType
+				== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+			&& operation.m_sOperationId == order.m_sOperationId
+			&& operation.m_sEnemyOrderId == order.m_sOrderId
+			&& operation.m_sAssignmentZoneId == order.m_sTargetZoneId
+			&& operation.m_sOwnerFactionKey == order.m_sFactionKey;
+		if (!reciprocalOperation)
+		{
+			QuarantineCounterattackOwnershipFailure(
+				order,
+				operation,
+				claimants,
+				"exact counterattack ownership claimant has no reciprocal operation");
+			return;
+		}
+
+		bool returning = operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_RETURNING_TO_ORIGIN;
+		bool recaptureOutcome = order.m_bOutcomeApplied
+			|| order.m_sResolutionKind == RECAPTURE_RESOLUTION;
+		HST_EOperationTerminalResult expectedTerminal;
+		bool fullRefund;
+		bool settlementRequiresRecapture;
+		bool hasSettlementPolicy = ResolveSettlementPolicy(
+			order.m_sResourceSettlementKind,
+			expectedTerminal,
+			fullRefund,
+			settlementRequiresRecapture);
+		bool recaptureSettlement = operation.m_eSettlementState
+			!= HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& hasSettlementPolicy && settlementRequiresRecapture;
+		bool requiresCompletedReceipt = returning || recaptureOutcome
+			|| recaptureSettlement;
+		bool strategicCaptureProjection = operation.m_ePositionAuthority
+			== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_STRATEGIC
+			&& (operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_VIRTUAL
+				|| operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_MATERIALIZING);
+		bool liveCaptureProjection = operation.m_ePositionAuthority
+			== HST_EOperationPositionAuthority.HST_OPERATION_POSITION_LIVE
+			&& (operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_PHYSICAL
+				|| operation.m_eMaterializationState
+					== HST_EOperationMaterializationState.HST_OPERATION_MATERIALIZATION_DEMATERIALIZING);
+		bool onStationCaptureWindow = operation.m_eSettlementState
+			== HST_EOperationSettlementState.HST_OPERATION_SETTLEMENT_OPEN
+			&& operation.m_eDutyState
+				== HST_EOperationDutyState.HST_OPERATION_DUTY_ON_STATION
+			&& order.m_eStatus == HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ACTIVE
+			&& operation.m_eEngagementMode
+				== HST_EOperationEngagementMode.HST_OPERATION_ENGAGEMENT_CLEAR
+			&& (strategicCaptureProjection || liveCaptureProjection)
+			&& !recaptureOutcome;
+
+		if (!requiresCompletedReceipt && !onStationCaptureWindow)
+		{
+			if (!claimants.IsEmpty())
+				QuarantineCounterattackOwnershipFailure(
+					order,
+					operation,
+					claimants,
+					"counterattack ownership claimant exists before recapture admission");
+			return;
+		}
+
+		if (claimants.Count() > 1)
+		{
+			QuarantineCounterattackOwnershipFailure(
+				order,
+				operation,
+				claimants,
+				"counterattack ownership claimant identity is ambiguous");
+			return;
+		}
+		if (claimants.IsEmpty())
+		{
+			if (requiresCompletedReceipt)
+				QuarantineCounterattackOwnershipFailure(
+					order,
+					operation,
+					claimants,
+					"recaptured counterattack ownership receipt is missing");
+			return;
+		}
+
+		HST_OwnershipTransitionState receipt = claimants[0];
+		string failure = ValidateCounterattackOwnershipReceiptFingerprint(receipt, order);
+		if (failure.IsEmpty() && requiresCompletedReceipt
+			&& !IsCompletedOwnershipReceipt(receipt))
+			failure = "recaptured counterattack ownership receipt is incomplete";
+		if (failure.IsEmpty() && onStationCaptureWindow)
+			failure = ValidateOnStationOwnershipReceipt(receipt, order);
+		if (!failure.IsEmpty())
+			QuarantineCounterattackOwnershipFailure(
+				order,
+				operation,
+				claimants,
+				failure);
+	}
+
+	protected void ValidateQuarantinedCounterattackOwnershipClaimants(
+		HST_EnemyOrderState order,
+		array<ref HST_OwnershipTransitionState> claimants)
+	{
+		if (claimants.Count() > 1)
+		{
+			QuarantineOwnershipClaimants(
+				claimants,
+				"quarantined counterattack retains ambiguous ownership authority",
+				true);
+			return;
+		}
+		if (claimants.IsEmpty())
+			return;
+
+		HST_OwnershipTransitionState receipt = claimants[0];
+		string failure = ValidateCounterattackOwnershipReceiptFingerprint(receipt, order);
+		if (!receipt.m_bCompleted)
+			failure = "quarantined counterattack cannot resume incomplete ownership authority";
+		else if (failure.IsEmpty() && !IsCompletedOwnershipReceipt(receipt))
+			failure = "quarantined counterattack completed ownership receipt conflicts";
+		if (!failure.IsEmpty())
+			HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority(
+				m_SaveData,
+				receipt,
+				failure);
+	}
+
+	protected void CollectCounterattackOwnershipClaimants(
+		HST_EnemyOrderState order,
+		array<ref HST_OwnershipTransitionState> claimants)
+	{
+		if (!order || !claimants)
+			return;
+		string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;
+		foreach (HST_OwnershipTransitionState transition : m_SaveData.m_aOwnershipTransitions)
+		{
+			if (transition && (transition.m_sRequestId == requestId
+				|| transition.m_sSourceId == order.m_sOperationId))
+				claimants.Insert(transition);
+		}
+	}
+
+	protected void QuarantineCounterattackOwnershipFailure(
+		HST_EnemyOrderState order,
+		HST_OperationRecordState operation,
+		array<ref HST_OwnershipTransitionState> claimants,
+		string failure)
+	{
+		QuarantineOwnershipClaimants(claimants, failure, true);
+		Quarantine(
+			order,
+			operation,
+			FindUniqueBatch(order.m_sSpawnResultId),
+			FindUniqueGroup(order.m_sGroupId),
+			failure);
+	}
+
+	protected void QuarantineOwnershipClaimants(
+		array<ref HST_OwnershipTransitionState> claimants,
+		string failure,
+		bool includeCompleted)
+	{
+		if (!claimants)
+			return;
+		foreach (HST_OwnershipTransitionState transition : claimants)
+		{
+			if (!transition || (!includeCompleted && transition.m_bCompleted))
+				continue;
+			HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority(
+				m_SaveData,
+				transition,
+				failure);
+		}
+	}
+
+	protected void QuarantineOrphanOwnershipClaimants()
+	{
+		foreach (HST_OwnershipTransitionState transition : m_SaveData.m_aOwnershipTransitions)
+		{
+			if (!IsDeclaredCounterattackOwnershipClaimant(transition)
+				|| transition.m_bQuarantined)
+				continue;
+
+			HST_EnemyOrderState reciprocalOrder;
+			int orderClaimants;
+			foreach (HST_EnemyOrderState order : m_SaveData.m_aEnemyOrders)
+			{
+				if (!order || order.m_eType
+					!= HST_EEnemyOrderType.HST_ENEMY_ORDER_COUNTERATTACK)
+					continue;
+				bool supportedContract = order.m_iOperationContractVersion
+					== HST_OperationService.EXACT_ENEMY_COUNTERATTACK_CONTRACT_VERSION
+					|| order.m_iOperationContractVersion == QUARANTINED_CONTRACT_VERSION;
+				if (!supportedContract)
+					continue;
+				string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;
+				if (transition.m_sRequestId != requestId
+					&& transition.m_sSourceId != order.m_sOperationId)
+					continue;
+				reciprocalOrder = order;
+				orderClaimants++;
+			}
+
+			if (orderClaimants == 1 && reciprocalOrder)
+				continue;
+			HST_OwnershipTransitionSaveValidationService.QuarantineTransitionAuthority(
+				m_SaveData,
+				transition,
+				"counterattack ownership transition has no unique reciprocal exact order");
+		}
+	}
+
+	protected bool IsDeclaredCounterattackOwnershipClaimant(
+		HST_OwnershipTransitionState transition)
+	{
+		if (!transition)
+			return false;
+		if (transition.m_sSourceType == OWNERSHIP_SOURCE_TYPE
+			|| transition.m_sRequestId.StartsWith(OWNERSHIP_REQUEST_PREFIX))
+			return true;
+		if (transition.m_sSourceId.IsEmpty())
+			return false;
+		foreach (HST_OperationRecordState operation : m_SaveData.m_aOperations)
+		{
+			if (operation && operation.m_eType
+					== HST_EOperationType.HST_OPERATION_TYPE_ENEMY_COUNTERATTACK
+				&& operation.m_sOperationId == transition.m_sSourceId)
+				return true;
+		}
+		return false;
+	}
+
+	protected string ValidateOnStationOwnershipReceipt(
+		HST_OwnershipTransitionState receipt,
+		HST_EnemyOrderState order)
+	{
+		if (!receipt || !order)
+			return "on-station counterattack ownership receipt is missing";
+		if (receipt.m_bCompleted)
+		{
+			if (!IsCompletedOwnershipReceipt(receipt))
+				return "on-station counterattack completed ownership receipt conflicts";
+		}
+		else if (!receipt.m_bValidated || receipt.m_bQuarantined
+			|| receipt.m_iContractVersion
+				!= HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION)
+			return "on-station counterattack pending ownership receipt conflicts";
+
+		HST_ZoneState zone = FindUniqueZone(order.m_sTargetZoneId);
+		if (!zone)
+			return "on-station counterattack ownership target is missing or ambiguous";
+		if (receipt.m_bCompleted)
+		{
+			if (zone.m_sOwnerFactionKey != receipt.m_sNewOwnerFactionKey
+				|| zone.m_iOwnershipRevision != receipt.m_iAppliedRevision
+				|| !zone.m_sActiveOwnershipTransitionRequestId.IsEmpty()
+				|| zone.m_sLastOwnershipTransitionRequestId != receipt.m_sRequestId)
+				return "on-station completed ownership receipt diverges from target authority";
+			return "";
+		}
+
+		if (zone.m_sActiveOwnershipTransitionRequestId != receipt.m_sRequestId)
+			return "on-station pending ownership receipt is not the target's active authority";
+		if (receipt.m_bOwnerApplied)
+		{
+			if (zone.m_sOwnerFactionKey != receipt.m_sNewOwnerFactionKey
+				|| zone.m_iOwnershipRevision != receipt.m_iAppliedRevision)
+				return "on-station owner-applied receipt diverges from target authority";
+		}
+		else if (zone.m_sOwnerFactionKey != receipt.m_sExpectedOwnerFactionKey
+			|| zone.m_iOwnershipRevision != receipt.m_iExpectedRevision)
+			return "on-station pre-owner receipt diverges from target authority";
+		return "";
+	}
+
+	protected HST_ZoneState FindUniqueZone(string zoneId)
+	{
+		HST_ZoneState match;
+		if (zoneId.IsEmpty())
+			return null;
+		foreach (HST_ZoneState zone : m_SaveData.m_aZones)
+		{
+			if (!zone || zone.m_sZoneId != zoneId)
+				continue;
+			if (match)
+				return null;
+			match = zone;
+		}
+		return match;
 	}
 
 	protected string ValidateAggregate(
@@ -924,6 +1288,9 @@ class HST_EnemyCounterattackSaveValidationService
 		order.m_eStatus = HST_EEnemyOrderStatus.HST_ENEMY_ORDER_ABORTED;
 		order.m_bPhysicalized = false;
 		order.m_sRuntimeStatus = "exact_counterattack_quarantined";
+		array<ref HST_OwnershipTransitionState> ownershipClaimants = {};
+		CollectCounterattackOwnershipClaimants(order, ownershipClaimants);
+		QuarantineOwnershipClaimants(ownershipClaimants, durableReason, false);
 		HoldOperation(operation, durableReason);
 		HoldBatch(batch, durableReason);
 		HoldGroup(group, durableReason);
@@ -1598,6 +1965,47 @@ class HST_EnemyCounterattackSaveValidationService
 		return "";
 	}
 
+	static string ValidateCounterattackOwnershipReceiptFingerprint(
+		HST_OwnershipTransitionState receipt,
+		HST_EnemyOrderState order)
+	{
+		if (!receipt || !order)
+			return "exact enemy counterattack ownership receipt context is missing";
+		if (receipt.m_iContractVersion
+			!= HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			|| receipt.m_bQuarantined)
+			return "exact enemy counterattack ownership receipt contract conflicts";
+
+		string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;
+		bool identityExact = receipt.m_sRequestId == requestId
+			&& receipt.m_sZoneId == order.m_sTargetZoneId
+			&& receipt.m_sCause == OWNERSHIP_CAUSE
+			&& receipt.m_sSourceType == OWNERSHIP_SOURCE_TYPE
+			&& receipt.m_sSourceId == order.m_sOperationId
+			&& receipt.m_sNewOwnerFactionKey == order.m_sFactionKey;
+		bool immutablePolicyExact = receipt.m_sActorIdentityId.IsEmpty()
+			&& receipt.m_sReason == OWNERSHIP_REASON
+			&& receipt.m_iSupportReward == 0
+			&& !receipt.m_bApplyEnemyConsequences
+			&& receipt.m_bReconcileSecurity
+			&& !receipt.m_bCreateSecurity
+			&& receipt.m_bNotify
+			&& receipt.m_sProjectionParentRequestId.IsEmpty();
+		if (!identityExact || !immutablePolicyExact)
+			return "exact enemy counterattack ownership receipt fingerprint conflicts";
+		return "";
+	}
+
+	static bool IsCompletedOwnershipReceipt(HST_OwnershipTransitionState receipt)
+	{
+		return receipt
+			&& receipt.m_iContractVersion
+				== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
+			&& receipt.m_sStatus == "completed"
+			&& receipt.m_bValidated && receipt.m_bOwnerApplied
+			&& receipt.m_bCompleted && !receipt.m_bQuarantined;
+	}
+
 	static string ValidateCompletedOwnershipAuthority(
 		array<ref HST_ZoneState> zones,
 		array<ref HST_OwnershipTransitionState> transitions,
@@ -1636,7 +2044,7 @@ class HST_EnemyCounterattackSaveValidationService
 		if (!zones || !transitions)
 			return "exact enemy counterattack completed ownership authority is missing";
 
-		string requestId = "ownership_counterattack_" + order.m_sOperationId;
+		string requestId = OWNERSHIP_REQUEST_PREFIX + order.m_sOperationId;
 		HST_ZoneState targetZone;
 		int targetCount;
 		foreach (HST_ZoneState zone : zones)
@@ -1669,20 +2077,12 @@ class HST_EnemyCounterattackSaveValidationService
 		if (receiptClaimants != 1 || !receipt)
 			return "exact enemy counterattack completed ownership receipt is missing or ambiguous";
 
-		bool receiptLifecycleExact = receipt.m_iContractVersion
-			== HST_OwnershipTransitionService.EXACT_CONTRACT_VERSION
-			&& receipt.m_sStatus == "completed";
-		receiptLifecycleExact = receiptLifecycleExact && receipt.m_bValidated
-			&& receipt.m_bOwnerApplied;
-		receiptLifecycleExact = receiptLifecycleExact && receipt.m_bCompleted
-			&& !receipt.m_bQuarantined;
-		bool receiptIdentityExact = receipt.m_sRequestId == requestId
-			&& receipt.m_sZoneId == order.m_sTargetZoneId;
-		receiptIdentityExact = receiptIdentityExact && receipt.m_sCause == "military_capture"
-			&& receipt.m_sSourceType == "enemy_counterattack";
-		bool receiptOwnerExact = receipt.m_sSourceId == order.m_sOperationId
-			&& receipt.m_sNewOwnerFactionKey == order.m_sFactionKey;
-		if (!receiptLifecycleExact || !receiptIdentityExact || !receiptOwnerExact)
+		string receiptFailure = ValidateCounterattackOwnershipReceiptFingerprint(
+			receipt,
+			order);
+		if (!receiptFailure.IsEmpty())
+			return receiptFailure;
+		if (!IsCompletedOwnershipReceipt(receipt))
 			return "exact enemy counterattack completed ownership receipt conflicts";
 		// The completed receipt is immutable historical authority. The zone may be
 		// captured again while this force returns or after the operation settles,

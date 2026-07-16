@@ -4,6 +4,14 @@
 // profile persistence, and package/restart validation remain separate gates.
 class HST_EnemyCounterattackAutotestSuite : SCR_AutotestSuiteBase
 {
+	// This report is service-only and does not consume a world. Returning an
+	// empty resource keeps the command-line runner in the already loaded project
+	// context; the base-game scenario transition carries only the base addon list
+	// and would otherwise drop the HST test type before it can write JUnit output.
+	override ResourceName GetWorldFile()
+	{
+		return "";
+	}
 }
 
 [Test(suite: HST_EnemyCounterattackAutotestSuite)]
@@ -35,6 +43,7 @@ class HST_TEST_EnemyCounterattackAuthority : SCR_AutotestCaseBase
 		Print(report.m_sRestoreEvidence);
 		Print(report.m_sResourceAuthorityEvidence);
 		Print(report.m_sAmbiguityEvidence);
+		Print(report.m_sOwnershipCorrelationEvidence);
 		Print(report.m_sQuarantineEvidence);
 		Print(report.m_sRetentionEvidence);
 
@@ -74,6 +83,10 @@ class HST_TEST_EnemyCounterattackAuthority : SCR_AutotestCaseBase
 		AssertTrue(
 			report.m_bAmbiguityHoldExact,
 			"Counterattack ambiguity-hold proof failed: " + report.m_sAmbiguityEvidence);
+		AssertTrue(
+			report.m_bOwnershipCorrelationQuarantineExact,
+			"Counterattack ownership-correlation proof failed: "
+				+ report.m_sOwnershipCorrelationEvidence);
 		AssertTrue(
 			report.m_bSchema69QuarantineExact,
 			"Counterattack quarantine proof failed: " + report.m_sQuarantineEvidence);

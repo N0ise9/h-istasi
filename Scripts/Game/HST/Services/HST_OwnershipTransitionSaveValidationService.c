@@ -24,6 +24,54 @@ class HST_OwnershipTransitionSaveValidationService
 			RecordEvent(saveData, CONFLICT_EVENT_ID, "quarantined malformed current-schema ownership authority", conflictCount);
 	}
 
+	static bool QuarantineTransitionAuthority(
+		HST_CampaignSaveData saveData,
+		HST_OwnershipTransitionState transition,
+		string failure)
+	{
+		if (!saveData || !transition)
+			return false;
+
+		bool ownedRow;
+		foreach (HST_OwnershipTransitionState candidate : saveData.m_aOwnershipTransitions)
+		{
+			if (candidate != transition)
+				continue;
+			ownedRow = true;
+			break;
+		}
+		if (!ownedRow)
+			return false;
+
+		HST_OwnershipTransitionSaveValidationService validation
+			= new HST_OwnershipTransitionSaveValidationService();
+		HST_ZoneState zone = validation.FindZone(saveData, transition.m_sZoneId);
+		string firstFailure = transition.m_sFailureReason;
+		if (firstFailure.IsEmpty() && zone)
+			firstFailure = zone.m_sOwnershipAuthorityFailure;
+		if (firstFailure.IsEmpty())
+			firstFailure = failure;
+		if (firstFailure.IsEmpty())
+			return false;
+
+		validation.QuarantineTransition(saveData, transition, firstFailure);
+		validation.ConvergeRelationalQuarantine(saveData);
+
+		// Relational convergence can quarantine another claimant for the same zone.
+		// Retain the first durable failure while preserving the existing zone and
+		// marker quarantine rules used by the ownership validator itself.
+		transition.m_sFailureReason = firstFailure;
+		zone = validation.FindZone(saveData, transition.m_sZoneId);
+		if (zone && zone.m_iOwnershipContractVersion
+			== HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION)
+			zone.m_sOwnershipAuthorityFailure = firstFailure;
+
+		return transition.m_bQuarantined
+			&& transition.m_iContractVersion
+				== HST_OwnershipTransitionService.QUARANTINED_CONTRACT_VERSION
+			&& transition.m_sStatus == "quarantined";
+	}
+
 	protected void NormalizeCurrentSchemaAliases(HST_CampaignSaveData saveData)
 	{
 		if (!saveData)
