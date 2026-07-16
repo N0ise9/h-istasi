@@ -1,13 +1,14 @@
 # Partisan Enfusion / Enforce Notes
 
-Current source identity: `2d4c76f9b08c6a2d0acaeb6dcafc077841fe3fd8`,
-UTC `2026-07-16T04:46:10Z`, label
-`schema70-settings24-counterattack-physical-live-restart-proof`. Campaign
-Schema 70 and runtime-settings Schema 24 remain unchanged. The stamped
-Workbench validation passes 5,832 Game files and 11,834 classes at CRC `f732e575`,
-with successful script validation, zero hard errors, and every cleanup counter
-at zero. The stamped four-cut process matrix below passes with every stage at
-exit `0`, exact readback, and zero cleanup residue.
+Current implementation/source identity:
+`02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC `2026-07-16T12:17:23Z`, label
+`schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp
+commit `8d538064a4ec049a34172bd688f8bb992c9312dc`. Campaign Schema 70 and runtime-
+settings Schema 24 remain unchanged. Final stamped Foundation passes 819.
+Workbench loads 5,832 Game files/11,835 classes at CRC `b02931ee`, exits `0`,
+reports `ScriptValidation true` with zero errors, and cleans exactly. All seven
+guarded process chains/21 stages pass on build `02f64410670a`, exit `0`, preserve
+exact fingerprint continuity, and leave all cleanup counters at zero.
 
 ## Current Exact Enemy-Response Persistence and Restart Mechanics
 
@@ -55,7 +56,7 @@ but it is not a schema change. A valid already-written Schema-70
 `VIRTUAL`/strategic authority. New captures retain the last safe canonical
 `VIRTUAL` state instead of publishing raw `DEMATERIALIZING`.
 
-The counterattack proof now has four guarded fresh-process cuts:
+The counterattack proof now has seven guarded fresh-process cuts:
 
 - `outbound_virtual`: `046514a9170db409 -> 1d2aea419e0a8a32 ->` unchanged.
 - `dematerializing_before_hold`: `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f ->`
@@ -63,6 +64,12 @@ The counterattack proof now has four guarded fresh-process cuts:
 - `materializing_checkpoint_deferred`: `793c4b001ef2751d -> 39d0ff3942d3445c
   ->` unchanged.
 - `physical_live_position`: `9ae81aabc62f164a -> 6d0df1a9056377b3 ->`
+  unchanged.
+- `prepared_before_refund`: `1af36d0feaa72444 -> c7226f77c1e25550 ->`
+  unchanged.
+- `prepared_after_refund`: `be4db517916fa4dc -> 70f25322893d791b ->`
+  unchanged.
+- `prepared_after_receipt`: `a82efe52307d55f6 -> 18e03304bf1022f1 ->`
   unchanged.
 
 The first three cuts retain or derive a canonical process-free baseline and
@@ -75,6 +82,38 @@ runtime cleanup, and then recovers 75 meters in a new process. Replay changes no
 semantic state. The proof uses guarded profile-fallback transport; it does not
 certify ordinary persistence-source selection or precedence.
 
+The settlement cuts use a held strategic N-1 roster with exactly one confirmed
+casualty, one positive charged resource pool, `route_failed_survivors`, and a
+positive proportional refund. The prefix fingerprint includes the reciprocal
+order/operation/manifest/batch/group graph, original debit, optional refund,
+pool tail, complete settlement tuple, operation revision, and exact row
+multiplicity. Prefix rules are:
+
+- `prepared_before_refund`: refund count/delta `0/0`, receipt false.
+- `prepared_after_refund`: refund count `1`, exact refund delta, receipt false.
+- `prepared_after_receipt`: refund count `1`, exact refund delta, receipt true,
+  while the operation is still PREPARED.
+
+Source validation must occur before startup reconciliation. Recovery requires
+startup reconciliation to change the prefix into the exact terminal graph once,
+then calls reconciliation again and requires no semantic change. Terminal state
+retains one debit and one refund, the expected pool/revision tail, an aborted
+terminal order, a SETTLED/retired operation, the frozen manifest, and no batch,
+group, adapter, or PhysicalWar claimant. Replay validates the preceding recovery
+fingerprint, requires startup to remain unchanged, and repeats the no-op check.
+Expected terminal operation revision is prefix `+2`, `+2`, and `+1` across the
+three cuts.
+
+Carrier-family validation is exact XOR, not merely presence testing. Movement
+cuts require `m_Expectation` and forbid `m_SettlementExpectation`; settlement
+cuts require the reverse. The launcher negative self-test copies a valid
+settlement carrier, injects a forged movement expectation, and must observe its
+rejection. Keep this negative self-test alongside the positive and tamper cases
+so future carrier refactors cannot silently accept mixed authority.
+
+The independent final census confirms zero engine processes, zero Workbench
+guard roots, zero restart guard roots, and both proof mutexes free.
+
 Guard authority is one-use and binds nonce, run, stage, source, world, schema,
 and cut identity. Merely supplying a CLI switch, retaining a stale carrier, or
 reusing a lease cannot enter the proof path. Each stage must finish with zero
@@ -86,10 +125,11 @@ run nonce and sentinel.
 Foundation statically covers the shared defensive-QRF and garrison-rebuild
 persistence wrappers and their process-field, roster, and position normalization.
 Only counterattack has the fresh native `PHYSICAL` restart cut. Do not describe
-this as cross-family native proof or uniform resource-ledger parity. The next
-fresh-process target is counterattack `PREPARED` settlement recovery. Package,
-live server/client, networking, broader migration, multiplayer/JIP/reconnect,
-marker runtime, performance, and soak certification remain open.
+this as cross-family native proof or uniform resource-ledger parity. Endpoint
+source/target owner-revision and operation-owned ownership-transition claimant
+proof is next, followed by native persistence-source selection, world scope,
+package/live server-client, and networking. Broader migration, multiplayer/JIP/
+reconnect, marker runtime, performance, and soak certification remain open.
 
 ## Preceding Phase 24 Owner-Snapshot Mechanics
 

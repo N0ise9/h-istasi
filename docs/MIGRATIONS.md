@@ -1,19 +1,22 @@
 # Campaign Save Migrations
 
-Current source identity: `2d4c76f9b08c6a2d0acaeb6dcafc077841fe3fd8`,
-UTC `2026-07-16T04:46:10Z`, label
-`schema70-settings24-counterattack-physical-live-restart-proof`. Stamped
-Workbench validation passes 5,832 Game files and 11,834 classes at CRC
-`f732e575`, with zero hard errors and all cleanup counters zero. The stamped
-four-cut restart matrix also passes with every stage at exit `0`.
+Current implementation/source identity:
+`02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC `2026-07-16T12:17:23Z`, label
+`schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp
+commit `8d538064a4ec049a34172bd688f8bb992c9312dc`. Final stamped Foundation passes
+819. Workbench loads 5,832 Game files/11,835 classes at CRC `b02931ee`, exits `0`,
+reports `ScriptValidation true` with zero errors, and cleans exactly. All seven
+guarded restart chains/21 stages pass on build `02f64410670a` with zero exits,
+exact fingerprint continuity, and all cleanup counters zero.
 
 ## Current Schema
 
 `HST_CampaignState.SCHEMA_VERSION` is `70` and
 `HST_RuntimeSettings.SCHEMA_VERSION` remains `24`. This checkpoint adds no
 serialized field, persisted enum ordinal, contract version, or legacy migration
-rule. The changes tighten current-state capture and restore normalization only;
-they do not promote, rewrite, or infer authority for an older row.
+rule. The new settlement cuts exercise only already-valid current Schema-70
+PREPARED authority; they do not promote, rewrite, or infer authority for an
+older row and are not migration evidence.
 
 Capture now rejects an exact defensive QRF, counterattack, or garrison rebuild
 in `DEMATERIALIZING` before any civilian or spawn-adapter reconciliation. This
@@ -42,14 +45,17 @@ progress second for every response already touched. Isolated campaign-debug
 capture also returns `null` on preparation failure rather than exposing an older
 isolated snapshot as the current result.
 
-The guarded counterattack restart proof now covers four fresh-process cuts. The
-following digest chains passed on the stamped source, and each replay preserved
-the recovered digest:
+The guarded counterattack restart proof covers seven fresh-process cuts. The
+following digest chains pass on the final stamped implementation, and each
+replay preserves the recovered digest:
 
-- `outbound_virtual`: `046514a9170db409 -> 1d2aea419e0a8a32`.
-- `dematerializing_before_hold`: `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f`.
-- `materializing_checkpoint_deferred`: `793c4b001ef2751d -> 39d0ff3942d3445c`.
-- `physical_live_position`: `9ae81aabc62f164a -> 6d0df1a9056377b3`.
+- `outbound_virtual`: `046514a9170db409 -> 1d2aea419e0a8a32 -> same`.
+- `dematerializing_before_hold`: `6d10b4fae1c1ac7d -> ddc1cee3dd2c7a6f -> same`.
+- `materializing_checkpoint_deferred`: `793c4b001ef2751d -> 39d0ff3942d3445c -> same`.
+- `physical_live_position`: `9ae81aabc62f164a -> 6d0df1a9056377b3 -> same`.
+- `prepared_before_refund`: `1af36d0feaa72444 -> c7226f77c1e25550 -> same`.
+- `prepared_after_refund`: `be4db517916fa4dc -> 70f25322893d791b -> same`.
+- `prepared_after_receipt`: `a82efe52307d55f6 -> 18e03304bf1022f1 -> same`.
 
 The materializing and dematerializing cuts write a safe canonical `VIRTUAL`
 baseline, exercise the raw interrupted state only on a migration-free clone,
@@ -61,15 +67,23 @@ native position, normalizes to one held reprojection, and then advances exactly
 75 meters after restart. The guarded profile-fallback file is proof transport;
 this is not normal persistence-source selection or precedence evidence.
 
-Foundation passes at 818 script-symbol references. All four stamped chains
-finished with exact readback and zero owned process, profile, log, temporary,
-guard, spill, mutex, adapter/PhysicalWar claimant, or cleanup residue. Defensive-
-QRF and garrison-rebuild persistence wrappers and normalization have static
-coverage only; they do not yet have equivalent fresh native physical restart
-proof. This evidence also does not execute a schema migration or certify uniform
-cross-family resource-ledger parity, package/live-server behavior, multiplayer,
-reconnect/JIP, performance, or soak. Exact counterattack `PREPARED` settlement
-restart is next.
+The three PREPARED cuts stage current-schema one-pool N-1 survivor settlement
+before refund, after refund/before receipt, and after receipt/before terminal
+finalization. Recovery consumes each prefix exactly once, retains one debit and
+one refund, and removes terminal batch/group claimants; replay changes nothing.
+This proves current Schema-70 transaction recovery only and does not exercise an
+older-schema upgrade.
+
+The final source makes movement and settlement carrier expectation families
+mutually exclusive and includes a mixed-family rejection self-test. That is
+proof-harness hardening, not save migration behavior. All seven stamped chains
+finish with exact readback and zero owned process, profile, log, temporary,
+guard, spill, mutex, adapter/PhysicalWar claimant, or cleanup residue. The
+independent census finds zero engine processes and guard roots with both proof
+mutexes free. Defensive-QRF and garrison-rebuild wrappers remain static-only
+coverage here. Actual schema migration, cross-family ledger parity, native
+source selection, world/package/live-server behavior, multiplayer,
+reconnect/JIP, performance, and soak remain open.
 
 The immediately preceding dematerializing checkpoint is source
 `87a4ae2491ec5b83d37dbc43e1658f3380bb8b1c`, UTC

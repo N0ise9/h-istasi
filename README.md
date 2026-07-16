@@ -203,14 +203,20 @@ Full Campaign Debug, world integration, persistence, restart, packaging, or
 network behavior. Test identities and run evidence belong in the Campaign
 Debug verification audit rather than this project overview.
 
-The exact-counterattack restart harness now covers four scoped boundaries:
+The exact-counterattack restart harness now covers seven scoped boundaries:
 outbound virtual persistence, fail-closed `DEMATERIALIZING` and
-`MATERIALIZING` checkpoint deferral to the last safe virtual state, and a
-guarded native `PHYSICAL`/`LIVE` capture with exact roster bindings and live
-position refresh. The stamped four-cut fresh-process matrix passes every
-prepare, recover, and replay chain with zero stage exits and zero cleanup
-residue. This focused work does not certify the broader campaign-restart,
-packaged-server, or multiplayer gates.
+`MATERIALIZING` checkpoint deferral to the last safe virtual state, guarded
+native `PHYSICAL`/`LIVE` capture, and three durable `PREPARED` settlement
+prefixes. Those prefixes stop before refund, after refund but before its durable
+receipt, and after the receipt but before terminal finalization. The final
+stamped matrix proves exactly one startup recovery, an inert second start, one-
+pool survivor-proportional refund authority, exact debit/refund multiplicity,
+terminal cleanup, and exact fingerprint continuity across all 21 process stages.
+Carrier validation requires movement and settlement expectation families to be
+exact alternatives, and its negative self-test rejects a mixed-family carrier.
+Foundation, Workbench, every guarded process stage, and the independent cleanup
+census pass on the stamped identity. This focused work does not certify the
+broader campaign-restart, packaged-server, or multiplayer gates.
 
 Do not promote a narrower validation rung to broader runtime proof. When testing
 a packaged build, capture the build identity, server/client logs, debug

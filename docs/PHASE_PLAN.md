@@ -1,14 +1,15 @@
 # Partisan Phase Plan
 
-Current build identity: source `2d4c76f9b08c6a2d0acaeb6dcafc077841fe3fd8`,
-UTC `2026-07-16T04:46:10Z`, label
-`schema70-settings24-counterattack-physical-live-restart-proof`. Campaign
-Schema 70 and runtime-settings Schema 24 remain unchanged.
+Current build identity: implementation/source
+`02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC `2026-07-16T12:17:23Z`, label
+`schema70-settings24-counterattack-prepared-settlement-restart-proof`, stamp
+commit `8d538064a4ec049a34172bd688f8bb992c9312dc`. Campaign Schema 70 and runtime-
+settings Schema 24 remain unchanged.
 
-## Current Counterattack Physical/Live Restart Plan
+## Current Counterattack Seven-Cut Restart Plan
 
 This remains a schema-neutral and settings-neutral Blueprint Phase-9 proof
-checkpoint. The guarded harness now owns four counterattack cuts, each split
+checkpoint. The guarded harness now owns seven counterattack cuts, each split
 across fresh `prepare`, `recover`, and `replay` processes. Outbound `VIRTUAL`
 remains the successful durable baseline. Raw `DEMATERIALIZING`/`LIVE` keeps its
 exact `N-1` casualty tombstone, while raw `MATERIALIZING`/`STRATEGIC` keeps its
@@ -24,16 +25,27 @@ persistence. The live graph, normalized held-`VIRTUAL` readback, carrier, and
 result must agree with that oracle, preserve the living roster, and clean every
 runtime claimant before process exit.
 
-All four fresh-process cuts passed on the immediately preceding unstamped tree
-and now pass again on the current stamped identity. Every prepare/recover/replay
-chain is valid, every stage exits `0`, and all proof cleanup counters are zero.
-Current stamped Workbench validation passes 5,832 files and 11,834 classes at
-CRC `f732e575`, reports `ScriptValidation true`, exits `0`, records zero hard
-errors, and leaves every cleanup counter at zero. This adds proof depth rather
-than completing a new Blueprint phase.
+The remaining three cuts stage N-1 one-pool survivor settlement before refund,
+after refund/before receipt, and after receipt/before terminal finalization.
+Recovery consumes each prefix exactly once, retains one debit and one
+proportional refund, removes terminal batch/group claimants, and proves explicit
+reconcile plus second-start no-ops.
 
-The next implementation is `PREPARED` counterattack settlement restart
-recovery. Exact defensive QRF and exact garrison rebuild share only the static
+Final stamped Foundation passes 819. Workbench loads 5,832/11,835 at CRC
+`b02931ee`, exits `0`, reports `ScriptValidation true` with zero errors, and
+cleans exactly. All seven process chains/21 stages run build `02f64410670a`, exit
+`0`, and preserve exact fingerprint continuity. The three new chains are
+`1af36d0feaa72444 -> c7226f77c1e25550 -> same`,
+`be4db517916fa4dc -> 70f25322893d791b -> same`, and
+`a82efe52307d55f6 -> 18e03304bf1022f1 -> same`. Carrier validation requires
+exactly one movement-or-settlement expectation family and includes a mixed-
+family rejection self-test. The independent census finds zero engine processes
+and guard roots with both proof mutexes free. This adds proof depth rather than
+completing a new Blueprint phase.
+
+The next implementation is endpoint source/target owner-revision and operation-
+owned ownership-transition claimant proof. Exact
+defensive QRF and exact garrison rebuild share only the static
 production persistence preflight and restore-normalization path; this runtime
 cut does not prove those families. Native persistence-source selection, world
 scope, package/live dedicated server-client behavior, migration, markers,
@@ -1062,15 +1074,15 @@ publishing a build does not waive them.
 
 | Stage | Status | Exit condition |
 | --- | --- | --- |
-| CRI-0: Repository truth and baseline | Campaign Schema 70/settings 24 is the current contract. Current implementation `2d4c76f9b08c6a2d0acaeb6dcafc077841fe3fd8`, label `schema70-settings24-counterattack-physical-live-restart-proof`, UTC `2026-07-16T04:46:10Z`, adds no schema/settings migration | Guarded Workbench passes 5,832 files/11,834 classes at CRC `f732e575`, exit `0`, `ScriptValidation true`, zero hard errors, and exact cleanup. All four fresh-process counterattack cuts pass on the stamped identity: outbound `VIRTUAL`; deferred raw `DEMATERIALIZING` and `MATERIALIZING` over the retained canonical `VIRTUAL` fallback; and genuine native `PHYSICAL`/`LIVE` capture with exact bindings, independent live-position proof, production normalization, and zero residue. Every prepare/recover/replay chain is valid, every stage exits `0`, and all proof cleanup counters are zero. `PREPARED` settlement, native source selection, world scope, package/live server-client, migration, markers, network, performance, and soak remain open. |
+| CRI-0: Repository truth and baseline | Campaign Schema 70/settings 24 is current. Implementation/source `02f64410670a3ffced10c8e099c05eaf5a469cb0`, label `schema70-settings24-counterattack-prepared-settlement-restart-proof`, UTC `2026-07-16T12:17:23Z`, stamp `8d538064a4ec049a34172bd688f8bb992c9312dc`, adds no schema/settings migration | Final stamped Foundation passes 819; Workbench passes 5,832/11,835 at CRC `b02931ee`, exit `0`, `ScriptValidation true`, zero errors; all seven cuts/21 stages pass at exit `0` with exact fingerprints and cleanup, including exact movement-XOR-settlement carrier validation and its mixed-family negative self-test. Native source selection, endpoint owner/claimant proof, world scope, package/live server-client, migration, markers, network, performance, and soak remain open. |
 | CRI-1: Campaign authority foundation | Implemented foundation; isolated exact radio lifecycle runtime proof passes | Schema 59 adds one durable site/mission/target transition graph per radio zone, distinct stable-site and per-mission physical IDs, one stop-rebuild attempt per destruction epoch, contract `1`, and `-59` quarantine. R16 proves physical callbacks, deterministic receipts, unchanged epoch, second-attempt rejection, exact rewards, fixture cleanup, and zero final diff. Packaged authored binding, restart/streaming, multiplayer, and soak proof remain. |
 | CRI-2: Exact force manifests | Sealed foundation plus scoped Schema-70 engine proof | Focused deterministic proof covers capacity-bounded frozen admission, delivered-held authority, casualty continuity, and restore. Package-prove live casualty transfer/delivery/restart and contract-zero isolation without widening vehicle/asset/multi-root admission; generic realization remains open. |
-| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 70 retains the exact enemy-garrison-rebuild family, while the current counterattack harness proves four fresh-process cuts: outbound `VIRTUAL`, deferred raw `DEMATERIALIZING`/`LIVE`, deferred raw `MATERIALIZING`/`STRATEGIC`, and genuine native `PHYSICAL`/`LIVE` | Both transitional cuts retain the canonical `VIRTUAL` fallback instead of persisting raw authority. The physical cut proves the real counterattack root/member topology, exact adapter/PhysicalWar bindings, independent live-position sampling before and after production persistence, normalized survivor continuity, continuation/replay, and exact cleanup. Implement `PREPARED` counterattack settlement recovery next. Exact QRF/rebuild have only static persistence preflight/normalization coverage here; native/package movement, combat, delivery, and restart remain open for every family. |
+| CRI-3 through CRI-5: Force runtime, operations, virtualization, and movement | In progress; Schema 70 retains exact garrison rebuild while the counterattack harness defines seven cuts: four projection/persistence cuts and three PREPARED settlement prefixes | The final stamped matrix proves physical bindings/live position plus before-refund, after-refund/before-receipt, and after-receipt/before-finalize recovery with exact one-pool refund, terminal cleanup, replay no-op, and exact carrier-family exclusion. Exact QRF/rebuild remain static-only here; native/package movement, combat, delivery, and restart remain open for every family. |
 | CRI-6: Client projection | Schema-61 marker-only snapshot/delta/JIP projection is sealed; Schema 66 protects native campaign-marker ownership. The Campaign Debug probe mutates/deletes a tracked campaign marker through the owner client, invokes production repair, retries final repair, and separately edits/removes/cleans a player marker | Execute the compiled probe, then prove host/two-client/late-join equality, source/projection revisions, forced gap/resync, map-close continuity, manual protection/self-heal, registry/static-count stability, one canonical instance, editable player-marker isolation, and restart. |
 | CRI-7: Ownership, combat presence, and town influence | Schema-62 ownership/protocol-2, Schema-63 combat presence, and Schema-64 canonical town influence/contact/Map-War/migration/hot-path source boundaries are sealed; Campaign Debug and packaged proof remain open | Execute Campaign Debug and prove ownership/security/restart, combat classifications/cooling, 100/200/50-bp scaling, strict 8000/4000 equality, separate enemy support, no owner bypass, pre-64 migration/current quarantine, contacted Zone Pressure, complete territory, and due-expiry-only cost. |
 | CRI-8: Civilian runtime and political consequences | The sealed Settings-24 checkpoint supplies the ambient budget/lifecycle/claim foundation. Sealed Schema 65 source/Workbench adds 256-casualty/64-theft queues, a combined four-attempt frame cap, bounded-backoff indefinite retry/capture deferral, exact-pilot theft after durable promotion with passenger-only non-recycling protection, exact town aggression/strategic receipts, pending-receipt-first non-HOT combat episodes with adopted-floor/last-applied invariants and full canonical live-combat fingerprints, indexed structural plus live-preset role restore validation, and native pedestrian panic/recovery with separate bounded route recovery. Minor-locality fingerprints remain session-only. Foundation passes at 717 script-symbol references and final stamped normal/all-five Workbench checks are clean. | Package-prove native death attribution/fallback deduplication, queue capacity/capture deferral, pilot-only post-promotion theft with passenger protection, exact replay/aggression/stable-ID failure, at-most-one town event per combat edge, clear/rebound, RUN-to-WALK panic recovery without hot-path AI activation, migration/quarantine order, all persistence/checkpoint paths, restart, multiplayer, and the ten-town soak. |
 | CRI-8b: Exact local security | Sealed Schema 66 source/Workbench gives each eligible enemy town one authored 2–5 member exact epoch with survivor fold/restore, once-only police loss, no-resurrection, bounded rearm, zero resistance police/roadblocks, conservative migration, and `-66` quarantine | R22 retains the eliminated materialization deferral and passes all eight isolated local-security assertions. Package-prove native waypoints/casualties/fold/re-entry/restart, ownership/terminal ordering, migration, multiplayer, and balance. |
-| CRI-9: Enemy commander strategic authority | Sealed Schema 67 owns per-enemy resources, Schema 68 owns persisted planning, and Schema 69 owns exact newly admitted counterattacks. Schema 70 adds contract-`1` garrison rebuilds. Current schema-neutral proof covers outbound `VIRTUAL`, two production capture-deferral transitions, and one genuine native counterattack `PHYSICAL`/`LIVE` graph | The stamped four-cut matrix and current Workbench both pass. The physical cut proves production materialization, exact native bindings, independent live-position persistence preflight, held-`VIRTUAL` normalization, continuation/replay, and cleanup. Every stage exits `0` and cleanup is exact. This does not runtime-certify exact QRF/rebuild, every dematerialization state, endpoint owner revisions, ownership-transition claimant absence, `PREPARED` settlement, native source selection, world scope, or package/network behavior. |
+| CRI-9: Enemy commander strategic authority | Sealed Schema 67 owns per-enemy resources, Schema 68 planning, Schema 69 exact counterattacks, and Schema 70 exact rebuilds. Current schema-neutral counterattack proof includes all seven restart cuts and exact carrier-family exclusion | The final stamped matrix proves the four prior cuts plus exact PREPARED prefix mutation/receipt policy, first-start terminalization, one debit/one refund, claimant cleanup, second-start no-op, and exact fingerprints across all 21 stages. This does not runtime-certify exact QRF/rebuild, endpoint owner revisions, ownership-transition claimant absence, native source selection, world scope, or package/network behavior. |
 | CRI-10 through CRI-11: Missions and progression | Broad-alpha foundations implemented; convoy, all assassination guards, first rescue slice, and one exact purchased-garrison policy source-complete | Existing exact families retain narrow boundaries. Schema 58 adds only newly started `rescue_pows`; historical POWs, refugees, other rescue/mission families, aggregate forces, broader vehicle policy, runtime proof, mission depth, and tuning remain open. |
 | CRI-12: Certification | Planned | Isolated dedicated-server, reconnect/JIP, save/load, long-soak, and migration evidence closes the program. |
 
@@ -1081,14 +1093,14 @@ publishing a build does not waive them.
 | Exact Forces | Implemented sealed foundation plus scoped exact enemy-garrison-rebuild engine proof; R10 clock isolation/all five Phase-18 cases and the complete R22 SpawnQueue family pass | Preserve queue retry/restore semantics plus the ambient commander and typed-cleanup boundaries, then package/restart the roster/debit/projection/fold/delivery/held-authority/settlement/restore path while retaining the existing exact-family backlog. |
 | Clean Forces | First exact infantry-QRF lifecycle plus legacy mixed-group personnel terminal repair implemented; sealed Schema 63 excludes empty assets from pressure | Prove native/GM/strategic living counts, conscious/cargo/crew/static classification, corpse detachment, last-death cleanup, survivor reprojection, and one crewless mixed-QRF salvage transition across restart. |
 | Living War | Broad-alpha paths plus the sealed exact projections and scoped Schema-70 garrison-rebuild engine proof share the combat-presence/heat boundary | Prove rebuild virtual/physical casualty continuity, held-roster delivery, and every earlier exact roster through materialization/fold/re-entry plus all Schema-63 consumers and `HOT -> COOLING -> COLD`; separately prove carrier/seat, outcome, grace, restart, and broader encounter behavior. |
-| Reliable Orders | Exact player QRF/Search-and-Destroy, enemy defensive QRF/patrol, Schema-69 counterattack, and Schema-70 garrison rebuild retain separate canonical policies; R22 proves queue resumption, R26 proves in-memory QRF recovery, R31 proves counterattack N-1 ordering, and the current fresh-process counterattack harness adds the native `PHYSICAL`/`LIVE` restart cut to outbound and both deferred transitions | Implement `PREPARED` counterattack settlement restart recovery next; broaden native-source, world-scope, package/runtime, network, performance, and soak proof for every exact family afterward. Do not infer QRF/rebuild runtime coverage from their shared static persistence code. |
+| Reliable Orders | Exact player QRF/Search-and-Destroy, defensive QRF/patrol, Schema-69 counterattack, and Schema-70 rebuild retain separate policies; the final stamped counterattack harness passes four projection/persistence and three settlement-prefix cuts | Add endpoint owner-revision and ownership-transition claimant coverage, then broaden native-source, world-scope, package/runtime, network, performance, and soak proof; do not infer QRF/rebuild runtime coverage from shared static persistence code. |
 | One Campaign View | Schema 61 implements marker-only snapshot/delta/JIP projection; Schema 62 adds ownership source revision/fencing; Schema 66 protects campaign markers. Exact QRF/counterattack/rebuild/patrol backing now delegates to the publisher's reciprocal canonical predicate | Execute the owner-client probe and rerun orphan checks, then prove host/two-client/late-join equality, revisions, nested ownership atomicity, gap/resync, map-close continuity, one canonical repaired campaign marker, player-marker editability/removal, duplicate-free rendering, and restart. |
 | Political Map | Schema 62 canonicalizes all ownership causes; sealed Schema 63 supplies combat pressure/heat; sealed Schema 64 supplies sole town support/population truth and contacted/territory projections, with Foundation and Workbench checks passed | Execute the fixtures, then runtime-prove ownership routes, formula/hysteresis, contact/current-first ordering, complete territory, migration/restart/rendering, combat presence, cooling, and no bypass. Broader encounter/facility consequences remain. |
 | Living Towns | Settings 24 adds budgeted ambience; Schema 65 adds town consequences/pedestrian panic; sealed Schema 66 source/Workbench adds exact enemy-town local-security rosters and zero resistance automatic police/roadblocks without making actor count political truth | Package-prove town taxonomy/ambience, casualty/theft/combat/panic, exact police roster casualties/fold/rearm, ownership policy, save/restart, cleanup/recycle, and ten towns for ten minutes without churn or one-second stutter. |
 | Enemy Commander | Sealed resource, planning, and Schema-69 counterattack authority remains intact. Schema 70 makes newly admitted garrison rebuilds exact while leaving historical rebuilds on contract `0`; all five R10 Phase 18 cases pass | Preserve the validated ambient cadence isolation and explicit production-tick ownership; then package-prove movement/projection/fold/delivery/held authority/refund and restore. |
 | Mission Parity | All 39 configured IDs map to MVP primitives; convoy, all assassination guards, newly started `rescue_pows`, and exact radio lifecycle use narrow contracts. R16 proves the disposable isolated radio pair end to end. Current source adds structural active demolition-witness admission and a quiet pre-action assertion | Fresh Workbench validation passes. R23 proves all six generic `primitive.destroy.no_ambient_witness_score` assertions and all seven destroy-family start/runtime/primitive cases. Next package-prove authored radio binding/restart/streaming and runtime-prove callback-plus-scan deduplication, convoy, all three assassination guards, and Schema-58 rescue. Keep refugees, historical POWs, and other mission families legacy until their own explicit cutovers. |
 | Resistance Progression | Arsenal, garage, training, undercover, HQ/Petros, and end-state foundations exist | Complete exact logistics/loadouts/static defenses and tune the full progression loop. |
-| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Current stamped Workbench passes at CRC `f732e575`, and all four stamped counterattack restart chains pass with zero exits and exact cleanup, including genuine native `PHYSICAL`/`LIVE` capture | Latest integrated suite `seed1985_t0_p1_u1784134163` remains uncertified at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685 required assertions. The separate current restart harness does not change those totals or certify QRF/rebuild runtime persistence. `PREPARED` settlement, world scope, native persistence selection, package/live server-client, network/JIP/reconnect/soak, profile migration, marker integrity, performance, unrelated failures, and earlier gates remain. |
+| Campaign Certification | Packaged schema-49 restored Game Master/stock HUD. Final stamped Foundation, Workbench CRC `b02931ee`, and all seven counterattack chains/21 stages pass, including PREPARED settlement recovery | The latest integrated suite remains open; `seed1985_t0_p1_u1784134163` is still uncertified at 583 PASS/50 WARN/46 FAIL/7 BLOCKED/1 SKIPPED and 5,537/5,685. The scoped harness does not certify QRF/rebuild runtime persistence, world scope, native source selection, package/live server-client, network/JIP/reconnect/soak, migration, markers, performance, or unrelated failures. |
 
 CRI-1 and the first CRI-2 vertical slices remain intentionally narrow. Troop
 training is the first production ledger consumer; exact visible garrison
@@ -1184,26 +1196,29 @@ treated as future work:
   one-real-engine-death chain, unchanged R28b passed it, and R29 reproduced the
   earlier physical-confirmation race before `Kill`. R30 then exposed a bound and
   registered member becoming nonliving during an artificial one-second debug
-  scheduling window. Current stamped source retains bounded state-first physical
+  scheduling window. Current source retains bounded state-first physical
   settlement, keeps async settle stages yielding, and preserves same-invocation
   handoff -> `PHYSICAL` -> controlled fold/kill ordering before the sole-adapter
-	casualty retirement and `N-1` fold/re-entry/final-fold continuity assertions;
-	R31 passes all 11 assertions exactly once with bounded one-sample settles and
-	exact-zero final drift. The current guarded fresh-process checkpoint separately
-	retains outbound `VIRTUAL`; makes both raw `DEMATERIALIZING`/`LIVE` and
-	`MATERIALIZING`/`STRATEGIC` production capture-deferral boundaries over the
-	unchanged canonical `VIRTUAL` fallback; and adds genuine native counterattack
-	`PHYSICAL`/`LIVE` capture. The physical cut requires the real root and living
-	members, exact adapter/PhysicalWar bindings, an independent native live-position
-	oracle before and after production persistence, normalized survivor continuity,
-	continuation/replay, and zero residue. All four stamped
-	prepare/recover/replay chains are valid, every stage exits `0`, and all proof
-	cleanup counters are zero; current stamped Workbench also passes. Native route
-	travel, broader combat, every
-	other dematerialization state, `PREPARED` settlement recovery, native
-	persistence-source selection, ownership, return, package/live server-client,
-	performance, and soak remain open. Exact QRF/rebuild share only the static
-	persistence preflight and normalization path, not this runtime proof.
+  casualty retirement and `N-1` fold/re-entry/final-fold continuity assertions;
+  R31 passes all 11 assertions exactly once with bounded one-sample settles and
+  exact-zero final drift. The current guarded fresh-process checkpoint separately
+  retains outbound `VIRTUAL`; makes both raw `DEMATERIALIZING`/`LIVE` and
+  `MATERIALIZING`/`STRATEGIC` production capture-deferral boundaries over the
+  unchanged canonical `VIRTUAL` fallback; and adds genuine native counterattack
+  `PHYSICAL`/`LIVE` capture. The physical cut requires the real root and living
+  members, exact adapter/PhysicalWar bindings, an independent native live-position
+  oracle before and after production persistence, normalized survivor continuity,
+  continuation/replay, and zero residue. The three PREPARED cuts add the before-
+  refund, after-refund/before-receipt, and after-receipt/before-finalize prefixes,
+  one debit/one proportional refund, exactly-once terminal cleanup, and second-
+  start no-op. The final stamped Foundation, Workbench, and all seven fresh-
+  process chains/21 stages pass with an exact movement-XOR-settlement carrier-
+  family shape and mixed-family rejection self-test. Native route travel,
+  broader combat, every other
+  dematerialization state, native persistence-source selection, ownership,
+  return, package/live server-client, performance, and soak remain open. Exact
+  QRF/rebuild share only the static persistence preflight and normalization path,
+  not this runtime proof.
 - Schema 70 adds a separate exact enemy-garrison-rebuild owner. It freezes one
   capacity-bounded infantry roster, admits exactly one prepaid support-pool
   debit, and binds reciprocal order/operation/manifest/spawn/group authority.
@@ -1503,20 +1518,14 @@ treated as future work:
 
 ## Next Engineering Milestones
 
-1. Implement `PREPARED` counterattack settlement restart recovery on the passing
-   four-cut harness. Preserve canonical outbound `VIRTUAL`; raw
-   `DEMATERIALIZING`/`LIVE` and `MATERIALIZING`/`STRATEGIC` as production capture-
-   deferral boundaries over the unchanged canonical `VIRTUAL` fallback; and the
-   genuine native `PHYSICAL`/`LIVE` cut with exact root/member bindings,
-   independent live-position sampling, production normalization, survivor
-   continuity, continuation/replay, zero runtime claimants, and exact external
-   cleanup. Preserve the completed stamped four-cut matrix as the regression baseline.
-   Do not infer exact QRF or garrison-rebuild runtime coverage from their shared
-   static persistence preflight/normalization. Add endpoint owner-revision and
-   operation-owned ownership-transition claimant coverage before widening the
-   fingerprint claim. Native persistence selection, world scope, package/live
-   server-client, migration, markers, multiplayer/JIP/reconnect, performance,
-   soak, and the wider Campaign Debug failures remain open.
+1. Add endpoint source/target owner-revision and operation-owned ownership-
+   transition claimant coverage before widening the fingerprint claim. Preserve
+   the final stamped seven-cut matrix and mixed-family rejection self-test as the
+   regression baseline. Do not infer exact QRF or garrison-rebuild runtime
+   coverage from shared static persistence code. Then prove native source
+   selection, world scope, package/live server-client, and networking. Migration,
+   markers, multiplayer/JIP/reconnect, performance, soak, and wider Campaign
+   Debug failures remain open.
 2. Runtime-prove all Schema-62 ownership routes, one revision increment,
    replay/conflict/stale behavior, pre-owner retry, reciprocal exact-security
    settlement, orphan/late-authority rejection, post-liberation policy, retained

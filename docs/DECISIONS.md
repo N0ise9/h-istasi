@@ -2463,3 +2463,67 @@ Consequences:
   scope, package/live server-client behavior, migration, markers/rendered UI,
   multiplayer/JIP/reconnect, performance, soak, and wider Campaign Debug
   failures remain open.
+
+## CRI-043 - Prove Counterattack Prepared Settlement Prefixes In Fresh Processes
+
+- Status: Accepted; implementation, Foundation, stamped Workbench, and final
+  stamped seven-cut validation complete
+- Date: 2026-07-16
+
+Context: The in-memory counterattack proof already covered restoration before a
+refund, after a refund, and after its durable receipt. The four-cut external
+harness proved route and materialization persistence, but it could not show that
+the production startup reconciler consumes those three durable `PREPARED`
+transaction prefixes exactly once across real process boundaries. Reusing the
+movement fingerprint would also hide the refund mutation and assume that the
+batch/group still existed after terminal cleanup.
+
+Decision: Extend the guarded counterattack harness with
+`prepared_before_refund`, `prepared_after_refund`, and
+`prepared_after_receipt`. Every cut uses a nondegenerate N-1 survivor roster,
+one charged resource pool, `route_failed_survivors`, and a proportional refund.
+The prefixes respectively require zero refund mutations with no receipt; one
+refund mutation with no receipt; and one refund mutation with the receipt while
+the operation remains `PREPARED`. The carrier binds the complete aggregate,
+settlement IDs, expected pool/revision tail, prefix mutation/receipt policy, and
+prepared fingerprint.
+
+The first restored startup must validate the prefix before ordinary
+reconciliation, terminalize it exactly once through production, retain exactly
+one original debit and one refund, settle the operation, abort the terminal
+order, and remove the reciprocal batch/group claimants. A second reconciliation
+in that process and the next fresh startup must both be semantic no-ops. The
+result artifact remains the final durable write, and all existing owner, nonce,
+one-use stage lease, process containment, spill, profile, and cleanup gates stay
+mandatory.
+
+The final source also makes movement and settlement carrier shapes an exact
+exclusive choice. A movement carrier must own only its movement expectation; a
+settlement carrier must own only its settlement expectation. The launcher now
+forges a mixed-family settlement carrier as a negative self-test and requires
+the carrier assertion to reject it.
+
+Consequences:
+
+- Implementation/source `02f64410670a3ffced10c8e099c05eaf5a469cb0`, UTC
+  `2026-07-16T12:17:23Z`, label
+  `schema70-settings24-counterattack-prepared-settlement-restart-proof`, is
+  represented by stamp commit `8d538064a4ec049a34172bd688f8bb992c9312dc`.
+  Campaign Schema 70 and runtime-settings Schema 24 remain unchanged.
+- Final stamped Foundation passes at 819 symbols. Workbench loads 5,832 Game
+  files/11,835 classes at CRC `b02931ee`, exits `0`, reports
+  `ScriptValidation true` with zero errors, and cleans exactly.
+- All seven guarded cuts pass every prepare/recover/replay stage on build
+  `02f64410670a`, 21 stages total, at exit `0` with exact fingerprint continuity
+  and zero residue.
+- The three new digest chains are `1af36d0feaa72444 -> c7226f77c1e25550 ->
+  same`, `be4db517916fa4dc -> 70f25322893d791b -> same`, and
+  `a82efe52307d55f6 -> 18e03304bf1022f1 -> same`. The four preceding chains are
+  unchanged.
+- An independent final census finds zero engine processes, zero Workbench guard
+  roots, zero restart guard roots, and both proof mutexes free.
+- The next implementation slice should bind live source/target owner revisions
+  and operation-owned ownership-transition claimant absence before widening the
+  counterattack fingerprint claim. Native persistence-source selection, world
+  scope, package/live server-client, migration, markers, multiplayer/JIP/
+  reconnect, performance, soak, and wider Campaign Debug failures remain open.
